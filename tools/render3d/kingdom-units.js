@@ -229,32 +229,32 @@ export function ballista(M, f) {
  *  thing on the ground: a tall timber triangle with a long bar and a box in the air; nothing low. */
 export function trebuchet(M, f) {
   const A = fam(M), g = grp(), st = f < 2 ? 0 : f - 1, turn = (f % 2) * 0.5;                 // 0 travelling, 1 half, 2 set up
-  const H = 17, ang = [0.18, 0.6, 1.0][st];                                                  // the arm's angle below level (the long end down and back)
-  for (const z of [-4.6, 4.6]) add(g, rbox(24, 1.8, 1.8, 0.3), M.oak, 0, 2.6, z);               // the base beams along x
+  const H = 23, ang = [-0.85, -0.3, 1.0][st];                                                // the arm's angle below level (the last art round: travelling, the long arm stands raised high, -0.85; set up, cocked back and down to the ground, 1.0); the frame 23 tall for 17
+  for (const z of [-4.6, 4.6]) add(g, rbox(26, 1.8, 1.8, 0.3), M.timberPale, 0, 2.6, z);        // the base beams along x, light timber (the last round: lighter)
   for (const x of [-9, 0, 9]) add(g, rbox(1.8, 1.6, 11.0, 0.3), M.oak, x, 2.6, 0);               // cross beams
   for (const [x, z] of [[-8.5, -6.2], [8.5, -6.2], [-8.5, 6.2], [8.5, 6.2]]) wheel(g, M, 2.6, x, 2.6, z, turn + x * 0.1);
   for (const z of [-3.8, 3.8]) {                                                                // the A-frame: two trestles, each two legs meeting at the apex, a brace across
-    limb(g, [-6.5, 3.2, z], [0, H, z], 0.95, M.oak); limb(g, [6.5, 3.2, z], [0, H, z], 0.95, M.oak);
-    add(g, rbox(7.2, 0.9, 0.9, 0.2), M.oak, 0, 9.6, z);
+    limb(g, [-8, 3.2, z], [0, H, z], 1.1, M.timberPale); limb(g, [8, 3.2, z], [0, H, z], 1.1, M.timberPale);
+    add(g, rbox(9.6, 1.0, 1.0, 0.2), M.timberPale, 0, 12, z);
   }
   add(g, cyl(0.8, 0.8, 9.6, 10), M.steel, 0, H, 0, Math.PI / 2, 0, 0);                             // the axle at the apex
   for (const z of [-3.8, 3.8]) add(g, rbox(2.2, 2.6, 1.2, 0.3), M.oak, 0, H - 0.4, z);           // its bearings
-  add(g, rbox(0.5, 6.2, 8.2, 0.1), M.cloth, 0, 6.5, 0, 0, Math.PI / 2, 0); add(g, rbox(0.5, 0.4, 8.6, 0.05), M.inkLine, 0, 9.7, 0, 0, Math.PI / 2, 0); add(g, rbox(0.5, 0.4, 8.6, 0.05), M.inkLine, 0, 3.3, 0, 0, Math.PI / 2, 0); // a team hanging between the legs, facing the camera
-  pennant(g, M, 0, H + 1.4, -3.8, 9, 7);                                                        // the pennant at the apex
+  add(g, rbox(0.5, 8.4, 11.0, 0.1), M.cloth, 0, 7.4, 0, 0, Math.PI / 2, 0); add(g, rbox(0.5, 0.4, 11.4, 0.05), M.inkLine, 0, 11.7, 0, 0, Math.PI / 2, 0); add(g, rbox(0.5, 0.4, 11.4, 0.05), M.inkLine, 0, 3.1, 0, 0, Math.PI / 2, 0); // a big team hanging between the legs, facing the camera (the last round: more team)
+  pennant(g, M, 0, H + 1.4, -3.8, 10, 8);                                                        // the pennant at the apex
   if (st === 2) for (const s of [-1, 1]) { limb(g, [s * 7, 2.4, 0], [s * 14, 0.4, 0], 0.6, M.oak); add(g, rbox(1.2, 2.4, 1.2, 0.2), M.ironDark, s * 14, 1.0, 0); } // braces staked out when set up
   // the arm: pivoted at the apex, the long end (20) back and down, the short end (6) ahead with the counterweight
   const arm = grp(); arm.position.set(0, H, 0); arm.rotation.z = ang; g.add(arm);
-  add(arm, rbox(26, 2.4, 2.4, 0.4), M.timberPale, -7, 0, 0);                                    // the beam, from -20 to +6, in light timber against the frame's dark oak so the tall bar shows (the judge: set up, it read as a tent cart)
+  add(arm, rbox(30, 2.6, 2.6, 0.4), M.timberPale, -8, 0, 0);                                    // the beam, from -23 to +7, light timber: the long throwing arm
   add(arm, rbox(5, 3.2, 3.2, 0.4), M.timberPale, -1, 0, 0);                                     // thick at the pivot
-  for (const x of [-19.6, 5.4]) add(arm, cyl(0.9, 0.9, 2.4, 8), M.ironDark, x, 0, 0, Math.PI / 2, 0, 0); // iron pins at the ends
-  const cw = grp(); cw.position.set(5.6, 0, 0); cw.rotation.z = -ang; arm.add(cw);               // the counterweight hangs plumb from the short end
-  add(cw, rbox(5.6, 5.6, 5.6, 0.4), M.timberPale, 0, -4.4, 0);                                  // the box, light timber
-  add(cw, rbox(5.9, 3.4, 5.9, 0.2), M.cloth, 0, -3.2, 0); add(cw, rbox(6.1, 0.4, 6.1, 0.05), M.inkLine, 0, -1.3, 0); add(cw, rbox(6.1, 0.4, 6.1, 0.05), M.inkLine, 0, -5.1, 0); // a team cloth cover round it between ink hems
-  add(cw, rbox(6.0, 0.6, 6.0, 0.1), M.ironDark, 0, -6.9, 0);                                      // an iron band at its foot
+  for (const x of [-22.6, 6.4]) add(arm, cyl(0.9, 0.9, 2.6, 8), M.ironDark, x, 0, 0, Math.PI / 2, 0, 0); // iron pins at the ends
+  const cw = grp(); cw.position.set(6.6, 0, 0); cw.rotation.z = -ang; arm.add(cw);               // the counterweight hangs plumb from the short end
+  add(cw, rbox(7.4, 7.4, 7.4, 0.5), M.timberPale, 0, -5.4, 0);                                  // the box, heavy, light timber
+  add(cw, rbox(7.7, 4.6, 7.7, 0.2), M.cloth, 0, -4.0, 0); add(cw, rbox(7.9, 0.4, 7.9, 0.05), M.inkLine, 0, -1.6, 0); add(cw, rbox(7.9, 0.4, 7.9, 0.05), M.inkLine, 0, -6.4, 0); // a team cloth cover round it between ink hems
+  add(cw, rbox(7.8, 0.7, 7.8, 0.1), M.ironDark, 0, -8.6, 0);                                      // an iron band at its foot
   // the sling: two ropes from the long end to a team pouch; tucked up when travelling, laid out ahead when set up
-  const tip = [-19.6, 0, 0], toLocal = (wx, wy) => [wx * Math.cos(ang) + (wy - H) * Math.sin(ang), -wx * Math.sin(ang) + (wy - H) * Math.cos(ang)]; // a world point in the arm's frame
+  const tip = [-22.6, 0, 0], toLocal = (wx, wy) => [wx * Math.cos(ang) + (wy - H) * Math.sin(ang), -wx * Math.sin(ang) + (wy - H) * Math.cos(ang)]; // a world point in the arm's frame
   if (st === 2) {
-    const tw = [-19.6 * Math.cos(ang), H - 19.6 * Math.sin(ang)], P = toLocal(tw[0] + 8.5, 1.2);  // the pouch on the ground ahead of the tip
+    const tw = [-22.6 * Math.cos(ang), H - 22.6 * Math.sin(ang)], P = toLocal(tw[0] + 8.5, 1.2);  // the pouch on the ground ahead of the tip
     for (const z of [-1.0, 1.0]) limb(arm, tip, [P[0], P[1], z], 0.35, A.rope);
     add(arm, rbox(4.0, 1.2, 3.0, 0.4), M.cloth, P[0], P[1], 0, 0, 0, -ang); add(arm, rbox(4.2, 0.3, 3.2, 0.05), M.inkLine, P[0], P[1] - 0.6, 0, 0, 0, -ang);
     add(arm, sph(1.2, 10, 8), M.plinth, P[0], P[1] + 0.6, 0);                                     // the stone in it
@@ -340,5 +340,35 @@ export function balloon(M) {
     for (const z of [-3.2, 3.2]) add(b, torus(0.65, 0.2, 10), A.rope, -2.4, BY - 0.2, z * 0.95, Math.PI / 2, 0, 0);
     for (let k = 0; k < 4; k++) { const m = k * Math.PI / 2 + Math.PI / 4; add(b, sph(0.5, 8, 6), M.oak, BR * Math.cos(m), BY + 2.1, BR * Math.sin(m)); }
   }
+  return g;
+}
+
+/** Cannon (siege, the sim's `siegeTank` slot in place of the Trebuchet; Stelian, the last art round): a light gunmetal
+ *  iron barrel on a warm light wooden carriage with two big spoked wheels, no crew, no small props; team on a small pennant at
+ *  the trail and a thin band round the trail. Frames as the Trebuchet's (look.js UNIT_POSE siegeTank): 0-1 travelling
+ *  (the wheels turn), 2 half, 3 the recoil pose: the barrel elevated and the gun rolled back on its wheels, the trail's
+ *  spade down. Wood and bronze, so it never reads as the Expedition's grey Sentry gun with its orange band. From the
+ *  camera: two big wheels under a long dark barrel on a brown carriage, a small flag. */
+export function cannon(M, f) {
+  const g = grp(), st = f < 2 ? 0 : f - 1, turn = (f % 2) * 0.5, back = [0, 1.5, 3.5][st], elev = [0.08, 0.2, 0.3][st];
+  M.bronze ??= new THREE.MeshStandardMaterial({ color: 0x80868c, metalness: 0.8, roughness: 0.4 });                     // the barrel: iron, a light gunmetal (the last batch: not bronze, no near-black; the key's name stays)
+  M.bronzeLit ??= new THREE.MeshStandardMaterial({ color: 0xa0a6ac, metalness: 0.75, roughness: 0.38 });                 // its rings, a step lighter
+  M.wheelWood ??= new THREE.MeshStandardMaterial({ color: 0xb8945c, map: M.timber.map, roughness: 0.8 });                 // the wheels' and carriage's wood: warm and light, so the shape shows
+  const c = grp(); c.position.x = -back; g.add(c);                                                                      // the gun rolls back in recoil
+  const AX = 1.5, AY = 6.4;                                                                                             // the axle
+  add(c, cyl(0.9, 0.9, 13.0, 10), M.ironDark, AX, AY, 0, Math.PI / 2, 0, 0);
+  for (const z of [-6.2, 6.2]) { const r = 6.2; add(c, cyl(r - 0.3, r - 0.3, 1.2, 16), M.wheelWood, AX, AY, z, Math.PI / 2, 0, 0); add(c, torus(r - 0.25, 0.5, 20), M.ironDark, AX, AY, z); add(c, cyl(0.9, 0.9, 1.7, 10), M.steel, AX, AY, z, Math.PI / 2, 0, 0); for (let k = 0; k < 3; k++) add(c, rbox(0.6, (r - 0.8) * 2, 0.4, 0.1), M.haft, AX, AY, z + (z > 0 ? 0.7 : -0.7), 0, 0, k * Math.PI / 3 + turn + 0.3); } // two big spoked wheels, light wood with an iron tyre
+  for (const z of [-2.4, 2.4]) add(c, rbox(20, 4.2, 1.6, 0.4), M.wheelWood, -4, AY + 0.6, z, 0, 0, 0.1);                  // the carriage's cheeks, warm light timber, sloping down to the trail
+  add(c, rbox(5, 3.6, 6.2, 0.4), M.wheelWood, 2.5, AY + 1.2, 0);                                                         // the transom between them
+  limb(c, [-12, 5.4, 0], [-17, 1.6, 0], 1.3, M.wheelWood); add(c, rbox(2.6, 1.2, 4.0, 0.3), M.ironDark, -17.2, 1.0, 0);          // the trail down to its iron spade
+  add(c, rbox(3.2, 1.6, 5.6, 0.2), M.cloth, -11.5, 6.0, 0, 0, 0, 0.6); add(c, rbox(3.4, 0.3, 5.8, 0.05), M.inkLine, -12.6, 6.9, 0, 0, 0, 0.6); add(c, rbox(3.4, 0.3, 5.8, 0.05), M.inkLine, -10.4, 5.1, 0, 0, 0, 0.6); // a thin team band round the trail between ink lines
+  const b = grp(); b.position.set(1.0, AY + 3.4, 0); b.rotation.z = elev; c.add(b);                                        // the barrel on its trunnions, elevated by frame
+  add(b, cyl(1.5, 2.3, 20, 14), M.bronze, 3, 0, 0, 0, 0, -Math.PI / 2);                                                  // the tapered barrel, muzzle ahead
+  add(b, cyl(2.0, 1.7, 2.2, 14), M.bronze, 13.4, 0, 0, 0, 0, -Math.PI / 2);                                              // the muzzle swell
+  for (const x of [-3.5, 1.5, 7.5]) add(b, torus(2.45 - (x + 7) * 0.05, 0.4, 16), M.bronzeLit, x, 0, 0, 0, Math.PI / 2, 0); // reinforcing rings
+  add(b, sph(1.6, 10, 8), M.bronze, -7.6, 0, 0);                                                                         // the cascabel knob
+  add(b, cyl(1.1, 1.1, 7.4, 8), M.ironDark, 0, 0, 0, Math.PI / 2, 0, 0);                                                 // the trunnions
+  pennant(g, M, -9 - back, 7.2, 2.6, 9, 7);                                                                              // the small team pennant on the trail
+  if (M.polish) { for (const z of [-6.2, 6.2]) add(c, torus(1.0, 0.2), M.ironDark, AX, AY, z + Math.sign(z) * 1.0); for (const z of [-2.4, 2.4]) add(c, rbox(0.8, 4.6, 0.3, 0.1), M.ironDark, -2, AY + 0.6, z + Math.sign(z) * 0.9); } // hub rings, iron straps on the cheeks
   return g;
 }

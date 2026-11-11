@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
-import { archer, rider, ballista, trebuchet, balloon } from './kingdom-units.js';
+import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
@@ -37,32 +37,59 @@ export const RT_UNITS = {
   kg: {
     villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 },
     archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32 },
-    ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 24, h: 30, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
+    ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 27, h: 44, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
+    cannon: { build: cannon, r: 22, h: 24, frames: 4 }, // (the Cannon takes the siegeTank slot in R2; the Trebuchet stays for the record)
   },
   ex: {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
-    rover: { build: rover, r: 20, h: 20 }, drone: { build: drone, r: 16, h: 24 },
+    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
   },
 };
-/** The two main buildings; `hall` is the Data center (expedition-buildings.js `serverHall`, Stelian's pick of the two
- *  options drawn on 2026-11-11; `dataBlock` the other, kept under `datablock` for the record and the pictures). */
-export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: EB.serverHall, n: 4, h: 66 }, datablock: { build: EB.dataBlock, n: 4, h: 88 } } };
+/** The two main buildings; `hall` is the Data center (expedition-buildings.js `dataBlock`, Stelian's pick of the two
+ *  options drawn on 2026-11-11; `serverHall` the other, kept under `datahall` for the record and the pictures). */
+export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: EB.dataBlock, n: 4, h: 88 }, datahall: { build: EB.serverHall, n: 4, h: 66 } } };
 // ---- the buildings family (kingdom-buildings.js, expedition-buildings.js; the slot each takes is in the brief) ----
 Object.assign(RT_BUILDINGS.kg, {
   cottage: { build: KB.cottage, n: 2, h: 34 }, market: { build: KB.market, n: 2, h: 36 }, barracks: { build: KB.barracks, n: 3, h: 48 },
   blacksmith: { build: KB.blacksmith, n: 2, h: 40 }, workshop: { build: KB.workshop, n: 3, h: 56 }, tower: { build: KB.watchtower, n: 2, h: 82 },
   stables: { build: KB.stables, n: 3, h: 30 },
+  cottagehip: { build: KB.cottageHip, n: 2, h: 40 }, cottageround: { build: KB.cottageRound, n: 2, h: 40 }, // (the last art round's two Cottage options for Stelian's pick: a square house with a hip roof, a round hut with a cone roof)
 });
 Object.assign(RT_BUILDINGS.ex, {
   // Swapped (Stelian, 2026-11-11, after four blind checks read each as the other's role): the windowed booth is the
   // population building (the "Cabin"), the big khaki tent the Recruiting post.
   bunkhouse: { build: EB.recruitingPost, n: 2, h: 34 }, post: { build: EB.bunkhouse, n: 2, h: 46 }, factory: { build: EB.factory, n: 3, h: 44 },
-  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.radioTower, n: 2, h: 62 }, portal: { build: EB.portal, n: 2, h: 46 },
+  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.sentryGun, n: 2, h: 45 }, portal: { build: EB.portal, n: 2, h: 46 }, // (`radio`: the Sentry gun since A1, 2026-11-11, Stelian: low and squat; the mast `EB.radioTower` stays for the record)
+  // A1 (2026-11-11): the Wind turbine (the Power source, to replace the Cabin under `spire`; `windfarm` the other
+  // option, three small turbines on one pad, kept for the pictures) and the Uplink (3x3, the sim key `uplink`).
+  turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 44 },
+  // Round 3 (Stelian): the Lab's dome under `labdome` and the Portal's energy gate under `gate` (`lab` and `portal` stay today's, for the pictures).
+  labdome: { build: EB.labDome, n: 2, h: 40 }, gate: { build: EB.energyGate, n: 2, h: 60 }, gatetube: { build: EB.energyGateTube, n: 2, h: 60 }, ring: { build: EB.acceleratorRing, n: 2, h: 20 }, // (round 4's three Portal options, rejected; kept for the record)
+  pad: { build: EB.landingPad, n: 2, h: 36 }, // (the Portal as a landing spot: rejected (a helipad), kept for the record)
+  posttent: { build: EB.postTent, n: 2, h: 36 }, posttavern: { build: EB.postTavern, n: 2, h: 40 }, posthouse: { build: EB.postHouse, n: 2, h: 36 }, // (the Recruiting post's three options)
+  hangar: { build: EB.hangar, n: 3, h: 74 }, // (the Factory as a metal hangar with a cog: rejected, kept for the record)
+  warehouse: { build: EB.warehouse, n: 3, h: 50 }, // (the Factory as a warehouse with the cog flat on its roof)
+  platform: { build: EB.platform, n: 2, h: 40 }, // (the Portal as an arrival platform: rejected, kept for the record)
+  vortex: { build: EB.vortex, n: 2, h: 24 }, // (the Portal as a black-hole vortex; its spiral the head `vortexhead`)
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
- *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. */
-export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 } } };
+ *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
+ *  is a rotor: its 16 frames are phases of a `spin`-th of a turn about its own axis (3 for three blades, which repeat
+ *  every third; 1 for a whole cycle, the gate's shimmer), the builder taking the phase, and nothing turns it about the vertical; its base is square (BLDG_YAW 0), so the head
+ *  needs no fit. The turbines' rotors (expedition-buildings.js `turbineRotor`, `windFarmRotor`). A head marked `shadow`
+ *  is shot with its cast shadow (the Uplink's dish: the base has only the stand). */
+export const RT_HEADS = {
+  kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
+  ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 45 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true },
+    uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, gatetubehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, ringhead: { build: EB.ringSwirl, n: 2, h: 20, spin: 1 },
+    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true }, vortexhead: { build: EB.vortexSpin, n: 2, h: 24, spin: 1 } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
+};
+/** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
+function head(b, mats, dir) {
+  if (b.spin) return b.build(mats, dir / FACINGS * Math.PI * 2 / b.spin);
+  const obj = b.build(mats); obj.rotation.y = -dir / FACINGS * Math.PI * 2; return obj;
+}
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
 /** The buildings turned about the vertical, in degrees, one fixed angle per type (Stelian, 2026-11-11, after the yaw
@@ -73,14 +100,17 @@ const FACINGS = 16;
  *  Blacksmith -20 (the open front, the hearth and the anvil), the Workshop -20 (the siege frame's triangle beside the
  *  balloon), the Stables -20 (the pen and the horse before the long stable), the Cabin -20 (its window grid and panel),
  *  the Recruiting post -10 (the tent's open front), the Factory -10 (the arm before the bay), the Lab +20 (the lit
- *  glass front and the dish), the Portal -20 (the ramp down from the round platform), the Data center -10 (its redraw
- *  of 2026-11-11: the server hall's open bay of racks, its west end, and the chip on its roof; a 0.99 fit). Square:
+ *  glass front and the dish), the Portal -20 (the ramp down from the round platform), the Data center -20 (its redraw
+ *  of 2026-11-11: the block's south and east faces with their strips, and the chip on its lid; a 0.94 fit). Square:
  *  the round towers (their heads turn on their own). A turned building is fitted to its footprint
  *  (`fitTurned`): the footprint, hit area and rules never change, and the client's smoke and glow points for a turned
  *  building (look.js BLDG_LOOK) are measured on the turned model. */
 export const BLDG_YAW = {
-  kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: -10, datablock: -20, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20 },
+  // The consistency pass (Stelian, 2026-11-11): one angle, -20, for every building of both peoples that is not round or
+  // turning; the round towers and the turbine, Sentry gun and Uplink (their heads turn on their own) stay square. The
+  // arrival platform is square too, its plate turned 20 degrees in the model so its head (the transport) turns with it.
+  kg: { castle: -20, cottage: -20, market: -20, barracks: -20, blacksmith: -20, workshop: -20, tower: 0, stables: -20, cottagehip: -20, cottageround: 0 },
+  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;
@@ -154,8 +184,7 @@ export function* rethemeSprites(want, opts = {}) {
     }
     for (const [kind, b] of Object.entries(RT_HEADS[side])) for (let dir = 0; dir < FACINGS; dir++) {
       const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;
-      const obj = b.build(mats()); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
-      yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
+      yield [name, head(b, mats(), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: !!b.shadow }, true];
     }
   }
   if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL, !!opts.polish)), unitCell(30, 12, lift), o, false];
@@ -217,10 +246,9 @@ export function* atlasSprites(want = () => true) {
     const [obj, cell, turn] = building(side, model, mats(side), lift);
     yield [name, obj, cell, o, true, { turn }];
   }
-  for (const [head, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
-    const b = RT_HEADS[side][model], name = `${head}_${dir}`; if (!want(name)) continue;
-    const obj = b.build(mats(side)); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
-    yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true]; // (drawn over its base, which has the shadow)
+  for (const [name0, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
+    const b = RT_HEADS[side][model], name = `${name0}_${dir}`; if (!want(name)) continue;
+    yield [name, head(b, mats(side), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: !!b.shadow }, true]; // (drawn over its base, which has the shadow, unless the head carries its own)
   }
   for (const [prefix, [side, kind]] of Object.entries(ATLAS_SITES)) for (const n of [2, 3, 4]) {
     const name = `${prefix}_${n}`; if (!want(name)) continue;

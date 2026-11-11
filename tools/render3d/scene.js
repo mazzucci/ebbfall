@@ -68,7 +68,7 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  */
 export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, sunDir = SUN_OUT, polish = false }) {
   scene.add(obj);
-  obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon)
+  obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = !o.userData.noReceive; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon; `noReceive`: a surface at a grazing angle to the sun, which the shadow map stripes: the Uplink's bowl)
   catcher.visible = shadow;
   // Frustum in ground units around the anchor: left/right are plain, up/down are scaled by sin(ELEV).
   const L = ax / S, R = (w - ax) / S, U = ay / S, D = (h - ay) / S, sn = Math.sin(elev);

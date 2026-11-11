@@ -69,7 +69,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 ## Tests that guard gameplay
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `random_play`, ...): the Market (one a
+  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`, `random_play`, ...): the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Trebuchet's deploy,
@@ -86,7 +86,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
-  under high water: a hand-built map), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  under high water: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
+  the Data center and a Radio tower, none from a site, gone when the tower falls; an ally's counts; the Drone's leash; the
+  Expedition AI's forward tower on a machine wave's march), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 
@@ -130,7 +132,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
                       upgrades.rs, diff.rs (AI tuning per difficulty), tide.rs (the tide's cycle, levels, warning and
-                      sweep), export.rs (the tables as JSON, one small writer)
+                      sweep), radio.rs (the tower range's numbers: who needs it, what gives it, the slow and the
+                      Drone's leash), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's salt in an
@@ -149,7 +152,12 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
-                      retreat, the sweep)
+                      retreat, the sweep), radio.rs (the tower range: the Expedition's machines need range from a
+                      finished Data center, 18 tiles, or Radio tower, 12, of their side or an ally; a coverage grid, a
+                      bit per seat a tile, built again when its sources change (checked each tick: derived, not
+                      hashed); out of it a machine moves at 0.75 speed and the Drone goes at most 5 tiles past it, fights
+                      from there what it can reach, else backs off inside; the AI's leapfrog tower and staging at it are
+                      in ai/army.rs)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
@@ -159,6 +167,9 @@ src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop zoomed out), dual-grid terrain,
                       sprites (buildings and walking units in one layer sorted by ground y; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
+                      the tower range (this side's covered tiles, tinted and outlined, while a Bot is selected or a
+                      Radio tower placed, drawn again only when the coverage changes; a crossed ring over a machine out
+                      of range; `rangeShown` for the tests);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's

@@ -80,6 +80,16 @@ test('the ground: every grass tile, and every rock mask in its hill and forest v
   for (let m = 1; m < 16; m++) for (const kind of ['hill', 'forest']) for (const r of [0, 0.5, 0.999]) { const n = rockTile(m, r, kind); assert.ok(frames[n], n); }
 });
 
-test('the gold outcrop: four stages, each in every variant the renderer picks per tile (gl/crust.js crystalVariant)', () => {
+test('the gold outcrop (the link preview\'s, tools/og.mjs): four stages in four variants', () => {
   for (let k = 0; k < 4; k++) for (let v = 0; v < 4; v++) { const n = v ? `shard_${k}_${v}` : `shard_${k}`; assert.ok(frames[n], n); }
+});
+
+test('the gold mine: a frame for each stage the renderer draws (gl/render.js mineStage), neutral, a 2x2 footprint', () => {
+  for (const st of ['full', 'low', 'empty']) {
+    const f = frames[`mine_${st}`];
+    assert.ok(f, `mine_${st}`); assert.ok(!frames[`mine_${st}_m`], `mine_${st} has no team mask: it is nobody's`);
+    assert.ok(f.anchor, `mine_${st} has its ground point`);
+    // (drawn to its footprint as a 2x2 building is: about two tiles wide, its rock and shadow past them; scale 2)
+    assert.ok(f.frame.w >= 2 * 32 * 2 * 0.9 && f.frame.w <= 2 * 32 * 2 * 2, `mine_${st}: ${f.frame.w} px wide at scale 2`);
+  }
 });

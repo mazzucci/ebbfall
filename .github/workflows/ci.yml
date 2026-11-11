@@ -105,7 +105,11 @@ jobs:
           path: dist
       - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 4
         run: |
-          npx playwright-core install --with-deps chromium
+          npx playwright-core install chromium
+          # The system libraries: the runner image has nearly all of them (it ships Chrome). A mirror that won't resolve
+          # (apt's DNS failed on every e2e job for a day, 2026-11-11, each lookup retried for 20 minutes) is given two
+          # minutes, then the image's own are used, so the tests keep their time.
+          timeout 120 npx playwright-core install-deps chromium || echo "::warning::install-deps failed; using the image's libraries"
           npm run test:e2e
         env:
           ENDFALL_SHARD: ${{ matrix.shard }}/4
@@ -142,7 +146,9 @@ jobs:
       - run: npm run build
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }}
-      - run: npx playwright-core install --with-deps ${{ matrix.engine }}
+      - run: |
+          npx playwright-core install ${{ matrix.engine }}
+          timeout 120 npx playwright-core install-deps ${{ matrix.engine }} || echo "::warning::install-deps failed; using the image's libraries"
       - name: The cross-engine subset in ${{ matrix.engine }}
         run: |
           if [ "$ENDFALL_ENGINE" = firefox ]; then xvfb-run -a -s '-screen 0 1920x1080x24' npm run test:e2e; else npm run test:e2e; fi

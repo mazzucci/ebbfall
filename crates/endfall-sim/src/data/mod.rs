@@ -424,10 +424,14 @@ const UNIT: UnitDef = UnitDef {
 };
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
-/// Harvesters that can mine one field or vent at the same time; the others wait or move to a quieter field.
-pub const MINE_SLOTS: i32 = 1;
-/// Seconds to mine a load of 8 salt.
-pub const SHARD_MINE_TIME: f64 = 2.0;
+/// A gold mine (one per field, map.rs `lay_mines`): its footprint in tiles (the art's, 2x2), the workers inside it at
+/// once (the others wait at its side), the seconds a worker spends inside and the gold it comes out with. Calibrated
+/// so one saturated mine pays what a saturated field of seven crystals paid before the mines (gameplay test
+/// `a_saturated_mine_pays_what_a_saturated_field_paid`).
+pub const MINE_SIZE: i32 = 2;
+pub const MINE_CAP: i32 = 7;
+pub const MINE_TIME: f64 = 4.0;
+pub const MINE_LOAD: i32 = 16;
 /// Salt a second a finished Pump on a seep pays its owner, with no workers (PRD: the conversion, rule 1): about one
 /// worker's income, so it pays back its 75 in two and a half minutes.
 pub const PUMP_RATE: f64 = 0.5;

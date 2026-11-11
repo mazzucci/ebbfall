@@ -13,10 +13,12 @@ pub fn check_invariants(w: &World, ctx: &str) {
         );
     }
     for u in &w.units {
-        // (no walker ever stands in deep water: ordered, pushed, spawned or landed there)
+        // (no walker ever stands in deep water: ordered, pushed, spawned or landed there; one inside a mine is not out
+        // there, and comes out on ground it may stand on)
         let (tx, ty) = w.map.tile_of(u.x, u.y);
         assert!(
             u.kind.def().mv != endfall_sim::data::Move::Walk
+                || u.inside()
                 || w.map.ground(tx, ty, w.water) != endfall_sim::map::Ground::Deep,
             "{ctx}: {:?} {} in deep water at ({tx}, {ty})",
             u.kind,
@@ -60,7 +62,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             u.hp
         );
         assert!(
-            u.carry >= 0 && u.carry <= 8,
+            u.carry >= 0 && u.carry <= MINE_LOAD,
             "{ctx}: unit {} carry {}",
             u.id,
             u.carry
@@ -236,6 +238,25 @@ pub fn check_invariants(w: &World, ctx: &str) {
             "{ctx}: one team left but the game is not over"
         );
     }
+    for u in w.units.iter().filter(|u| u.inside()) {
+        // (inside a mine: a worker, gathering at a mine that is there, which no one sees but its side; one whose mine
+        // was emptied this tick by a worker after it comes out with nothing on its next)
+        let Task::Gather { node, .. } = u.task else {
+            unreachable!()
+        };
+        assert!(
+            u.kind.def().worker && w.map.node(node).is_some_and(|n| !n.ether && n.amount >= 0),
+            "{ctx}: unit {} inside node {node}",
+            u.id
+        );
+        assert!(
+            w.geo(u.id).is_none()
+                && (0..w.seats() as u8)
+                    .all(|t| t == u.team || w.allies(t, u.team) || !w.seen_by(t, u.id)),
+            "{ctx}: unit {} inside a mine is out of reach and out of its enemies' sight",
+            u.id
+        );
+    }
     for n in &w.map.nodes {
         let mining = w
             .units
@@ -250,7 +271,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             n.id
         );
         assert!(
-            n.miners <= MINE_SLOTS,
+            n.miners <= MINE_CAP,
             "{ctx}: node {} has {} miners",
             n.id,
             n.miners

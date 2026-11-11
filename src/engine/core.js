@@ -77,7 +77,8 @@ function sync() {
   for (let o = 0; o < N.length; o += NS) {
     const id = N[o + fn.id], ether = !!N[o + fn.ether];
     let n = nodes.get(id);
-    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'shard', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: ether ? 2 : 1, h: ether ? 2 : 1, max: N[o + fn.amount], dead: false, gen, amount: 0, miners: 0, extractorId: 0, extractor: null });
+    // (every node in a game is a gold mine, `s` tiles square: crates/endfall-sim/src/map.rs `lay_mines`)
+    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'mine', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: N[o + fn.s], h: N[o + fn.s], max: N[o + fn.total], dead: false, gen, amount: 0, miners: 0, extractorId: 0, extractor: null });
     n.gen = gen; n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners]; n.extractorId = N[o + fn.extractor];
     M.nodes.push(n);
   }
@@ -117,6 +118,7 @@ function sync() {
     if (t === 'gather') { task.phase = PHASES[U[o + fu.phase]]; task.node = nodes.get(target) || null; }
     else if (t === 'attack') attacks.push(u, target);
     else if (t === 'build' || t === 'repair') task.b = bldgs.get(target) || null;
+    u.inside = t === 'gather' && task.phase === 'mine'; // (inside a gold mine: not drawn, not picked, out of reach)
     S.units.push(u);
   }
   retire(units);
@@ -199,7 +201,7 @@ export const replayEnd = () => game.replayEnd();
 export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
- *  byte per tile: 0 ground, 1 rock, 2 shards, 3 vent, 4 a start. */
+ *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 3 vent, 4 a start. */
 export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
 
 // ---- orders (the future network command set) ----
@@ -259,6 +261,7 @@ export function canHit(shooter, target) {
  *  share vision, crates/endfall-sim/src/world/fog.rs): our allies' are always seen, their enemies where any of us sees. */
 export function visibleEnt(e) {
   if (e.team === S.me || !enemies(S.me, e.team)) return true;
+  if (e.inside) return false; // (an enemy inside a mine: out of sight)
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];

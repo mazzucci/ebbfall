@@ -86,10 +86,11 @@ record! {
 }
 
 record! {
-    /// Per resource node; extractor: the building on a vent (0 none).
+    /// Per resource node (a gold mine: `s` tiles square from tx, ty; `total` what it held at the start, `miners` the
+    /// workers inside); extractor: the building on a vent (0 none).
     NODE_FIELDS, push_node, |n: &Node, w| {
-        id = n.id, ether = n.ether as u8, tx = n.tx, ty = n.ty, x = n.x, y = n.y, amount = n.amount,
-        miners = n.miners, extractor = n.extractor.unwrap_or(0), r = n.r,
+        id = n.id, ether = n.ether as u8, tx = n.tx, ty = n.ty, s = n.s, x = n.x, y = n.y, amount = n.amount,
+        total = n.total, miners = n.miners, extractor = n.extractor.unwrap_or(0), r = n.r,
     }
 }
 

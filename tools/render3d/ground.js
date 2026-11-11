@@ -38,7 +38,7 @@ const RM = { rope: std({ color: 0x6e6048, roughness: 0.95, metalness: 0 }), sail
 
 // ---------------- resources ----------------
 // The salt (STYLE.md "The salt works"): a node's crystal clusters in four stages and four variants, standing on the
-// clump's shared crust, which the client draws (src/client/gl/crust.js). The mine
+// clump's shared crust (the client drew it until the gold mines took the crystals' place). The mine
 // shaft: an old square mouth going down to the rock salt under the seabed, in a timber collar (no liquid anywhere).
 /** The shaft's own materials: its dark mouth (the one thing darker than the ground), the trodden spoil round it. */
 const SH = {

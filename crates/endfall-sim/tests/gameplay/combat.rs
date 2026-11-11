@@ -1056,6 +1056,7 @@ fn a_side_that_can_do_nothing_more_has_lost() {
     // A Trooper keeps it going once the workers are gone too (a fighter can still win the game).
     let t = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
     for id in harvesters(&w, PLAYER) {
+        w.stop_unit(id); // (out of the mine first: inside, nothing hits it)
         w.damage(id, 1e9, None);
     }
     run(&mut w, 1);

@@ -10,7 +10,6 @@ import { BLDG_LOOK, chimneyActive, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SC
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
-import { saltClumps, crustImage, crystalVariant } from './crust.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -23,7 +22,7 @@ export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const startZoom = () => matchMedia('(pointer: coarse)').matches ? 1 : ZOOM_MIN;
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
-const MM_SALT = '#e8c04a', MM_BRINE = '#a24a2c'; // (the minimap: a gold field, gold as on the field; a brine seep)
+const MM_SALT = '#e8c04a', MM_BRINE = '#a24a2c'; // (the minimap: a gold mine, gold as its veins; a brine seep)
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
 const hexn = (s) => parseInt(s.slice(1), 16);
@@ -92,11 +91,11 @@ export function artIcon(name, size = 28, zoom = 1, tint = null) {
   iconCache.set(key, url);
   return url;
 }
-/** An <img> portrait of a unit type, building type or salt field ('node'), or ''. In `team`'s
+/** An <img> portrait of a unit type, building type or gold mine ('node'), or ''. In `team`'s
  * colours: this client's own seat unless told otherwise. */
 export function portrait(kind, type, size = 26, team = G.me) {
   const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
-    : kind === 'node' ? artIcon('shard_0', size, 1.2) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
+    : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;
@@ -122,8 +121,8 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // building as faint silhouettes over it.
 const world = new Container({ isRenderGroup: true });
 const L = {};
-const GROUPS = new Set(['terrain', 'scenery', 'crust', 'worn', 'decals', 'nodes', 'found', 'ents', 'air']);
-for (const k of ['terrain', 'scenery', 'shade', 'crust', 'worn', 'decals', 'nodes', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+const GROUPS = new Set(['terrain', 'scenery', 'worn', 'decals', 'found', 'ents', 'air']);
+for (const k of ['terrain', 'scenery', 'shade', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 const screen = new Container();
@@ -258,8 +257,6 @@ export function renderTerrain() {
   const wetCss = { shallow: '#467c80', deep: '#1d3658' }, rockCss = { forest: '#2a3f22', hill: '#77756c' }; // (the grass green, a forest darker, a hill grey, the sea teal and blue: as the ground looks)
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? rockCss[kinds.kindAt(x, y)] : wetCss[g] || `hsl(92,24%,${17 + map.shade[idx(x, y)] * 8}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
-  L.crust.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
-  crusts = saltClumps(map.nodes.filter(n => n.type === 'shard')).map(c => ({ c, s: null }));
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   L.worn.removeChildren().forEach(c => c.destroy()); // (the buildings' own, gone with them above)
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
@@ -423,34 +420,17 @@ class BldgObj {
   destroy() { for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
 }
 
-// ---- the gold outcrops' bed (gl/crust.js): one bed of trodden earth under each clump of gold nodes ----
-let crusts = []; // { c: a clump, s: its sprite once made }
-/** A clump's crust is made the first time any of its nodes is explored (a few ms, once: never every frame) and then
- *  stays, a worked bed, as its crystals are mined out; under the unexplored it is never made, so it shows nothing the
- *  crystals would not. Shown only near the view. */
-function updateCrusts(explored, inView) {
-  for (const k of crusts) {
-    if (!k.s) {
-      if (!k.c.nodes.some(n => explored[idx(n.tx, n.ty)])) continue;
-      const im = crustImage(k.c), cv = document.createElement('canvas'); cv.width = im.w; cv.height = im.h;
-      cv.getContext('2d').putImageData(new ImageData(im.data, im.w, im.h), 0, 0);
-      const t = Texture.from(cv); t.source.scaleMode = 'linear';
-      k.s = new Sprite(t); k.s.position.set(im.x, im.y); k.s.scale.set(1 / im.k); L.crust.addChild(k.s);
-      k.cx = im.x + im.w / im.k / 2; k.cy = im.y + im.h / im.k / 2; k.m = Math.max(im.w, im.h) / im.k / 2;
-    }
-    const v = inView(k.cx, k.cy, k.m); if (k.s.visible !== v) k.s.visible = v;
-  }
-}
-
+// ---- gold mines: one per field (crates/endfall-sim/src/map.rs `lay_mines`), neutral, drawn by what is left ----
+/** Below this share of what it held, a mine shows its `low` frame; with nothing left, `empty` (boarded up). */
+const MINE_LOW_SHARE = 0.25;
+export const mineStage = (n) => n.amount <= 0 ? 'empty' : n.amount < MINE_LOW_SHARE * n.max ? 'low' : 'full';
 class NodeObj {
   constructor(n) {
-    this.s = new Sprite(); this.s.position.set(n.x, n.y); L.nodes.addChild(this.s);
-    this.v = crystalVariant(n.tx, n.ty); // (one of the crystals' variants, fixed by its tile; salt carries no light)
+    // (with the buildings and units, sorted by its bottom row as a building is: a worker north of it stands behind it)
+    this.s = new Sprite(); this.s.position.set(n.x, n.y); this.s.zIndex = (n.ty + n.h) * TILE - 0.5 + (n.id % 97) * 0.002; L.ents.addChild(this.s);
   }
-  update(n) {
-    const k = n.amount > 1100 ? 0 : n.amount > 700 ? 1 : n.amount > 300 ? 2 : 3; setTex(this.s, tex(this.v ? `shard_${k}_${this.v}` : `shard_${k}`));
-  }
-  show(v) { this.s.visible = v; }
+  update(n) { setTex(this.s, tex(`mine_${mineStage(n)}`)); }
+  show(v) { if (this.s.visible !== v) this.s.visible = v; }
   destroy() { this.s.destroy(); }
 }
 
@@ -647,8 +627,7 @@ export function render(selList, place) {
   drawTargets(selList, now);
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
-  updateCrusts(explored, inView);
-  syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 48) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
+  syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 90) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
   const onScreen = [];
   syncPool(bldgObjs, shownB, b => new BldgObj(b), (o, b) => {
     const seen = !b.ghost && (b.team === G.me || visibleEnt(b)); // (a remembered one: drawn as last seen)
@@ -668,7 +647,7 @@ export function render(selList, place) {
   });
   markedIds.clear();
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
-    const v = inView(u.x, u.y, 64) && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return;
+    const v = inView(u.x, u.y, 64) && !u.inside && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return; // (one inside a mine is not drawn)
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
@@ -727,17 +706,16 @@ function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
 const SALT = 0xe6e0d3;
-/** Colour of a target: a salt field pale salt (style.css --shard), a building to work on amber. */
+/** Colour of a target: a gold mine pale (style.css --shard), a building to work on amber. */
 const targetColor = (e) => e.kind === 'node' ? SALT : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
 function outline(e, width, color, alpha) {
-  if (e.kind === 'node') { const r = e.r + 7; lines.ellipse(e.x, e.y, r, r * 0.72).stroke({ width, color, alpha }); return; }
   lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {
-  for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected resource field
-  // Faint, steady: the salt field or building each selected harvester is working on.
+  for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected gold mine
+  // Faint, steady: the mine or building each selected worker is working on.
   const done = new Set();
   for (const u of selList) {
     if (u.kind !== 'unit' || u.team !== G.me || u.dead) continue;
@@ -797,10 +775,10 @@ function renderMinimap() {
 }
 function minimapBase(c, S, T) {
   c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
-  // Gold fields gold; a brine seep red-brown in a gold rim: neither is any seat's colour.
+  // Gold mines gold, their footprint; a brine seep red-brown in a gold rim: neither is any seat's colour.
   for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) {
     const x = n.x * S, y = n.y * T;
-    if (n.type === 'shard') { c.fillStyle = MM_SALT; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
+    if (n.type === 'mine') { c.fillStyle = MM_SALT; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
     else { c.fillStyle = MM_SALT; c.fillRect(x - 2.5, y - 2.5, 5, 5); c.fillStyle = MM_BRINE; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
   }
   // Every seat in its colour, ours too, as on the field (with two seats as well: ours is no longer the amber of seat 0's
@@ -815,6 +793,6 @@ function minimapBase(c, S, T) {
     c.rect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
+  for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
 }

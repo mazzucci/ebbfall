@@ -429,3 +429,54 @@ fn a_building_under_high_water_does_not_fire() {
         "under high water it does not"
     );
 }
+
+#[test]
+fn a_worker_inside_a_mine_is_not_swept_and_comes_out_on_ground_it_may_stand_on() {
+    // A mine on land just east of the flats, a Villager gone in from the flats' side (its retreat switch off: it
+    // stays in through the flood).
+    let mut w = tidal(7);
+    let _ = w.apply(0, &Command::SetRetreat { on: false });
+    let mut ev = vec![];
+    step_until(&mut w, 30 * 200, &mut ev, |w| phase(w) == 2); // (low water: the flats dry)
+    let mine = w.map.nodes[0].id;
+    move_node(&mut w, mine, FLATS.end, 20);
+    let miner = w.make_unit(HUMANS.worker, 0, px(FLATS.end as f64 - 1.0), px(20.0));
+    w.recalc_supply(0);
+    w.recalc_supply(1);
+    w.map.node_mut(mine).unwrap().miners = 1;
+    w.units.iter_mut().find(|u| u.id == miner).unwrap().task = Task::Gather {
+        node: mine,
+        phase: Phase::Mine,
+        timer: 1e6,
+    };
+    step_until(&mut w, 30 * 400, &mut ev, |w| w.water == WATER_HIGH);
+    assert_eq!(
+        ground_of(&w, miner),
+        Ground::Deep,
+        "the flood came over where it went in"
+    );
+    let u = w.unit(miner).unwrap();
+    assert!(u.inside(), "still inside");
+    assert_eq!(
+        (u.hp, u.stun),
+        (u.maxhp, 0.0),
+        "not swept: it was not out on the flats"
+    );
+    // Out (the time inside cut short): beside the mine on ground it may stand on, not in the deep water it went in from.
+    let Task::Gather { node, phase, .. } = w.unit(miner).unwrap().task else {
+        unreachable!()
+    };
+    w.units.iter_mut().find(|u| u.id == miner).unwrap().task = Task::Gather {
+        node,
+        phase,
+        timer: 0.01,
+    };
+    w.step();
+    assert!(!w.unit(miner).unwrap().inside(), "out");
+    assert_ne!(
+        ground_of(&w, miner),
+        Ground::Deep,
+        "on ground it may stand on"
+    );
+    check_invariants(&w, "after coming out");
+}

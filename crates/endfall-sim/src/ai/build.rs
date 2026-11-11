@@ -7,7 +7,7 @@ const SHARD_FLOAT: i32 = 400;
 
 /// After placing a base, how long (s) before it takes another for a passive foe (`Diff::passive_expand`).
 const PASSIVE_BASE_GAP: f64 = 90.0;
-/// Shards left in the fields by its main below which the AI takes its natural now (`Diff::expands_when_dry`),
+/// Gold left in the mines by its main below which the AI takes its natural now (`Diff::expands_when_dry`),
 /// whatever the clock says (on barren maps the home field runs dry before the difficulty's time; later it could not
 /// pay for it).
 const HOME_LOW: i32 = 2000;
@@ -47,16 +47,14 @@ impl World {
                 {
                     continue;
                 }
-                // Clear of the fields (not in the harvesters' way): a building's centre this far from every crystal
-                // and vent, a little farther for a big one.
+                // Clear of the mines (not in the workers' way): a building's centre this far from every mine's edge
+                // (as from a 1-tile crystal's before the mines), a little farther for a big one.
                 let (mx, my) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
                 let clear = 2.0 + d.w.max(d.h) as f64 / 2.0;
-                if self
-                    .map
-                    .nodes
-                    .iter()
-                    .all(|n| jsmath::hypot(n.tx as f64 + 0.5 - mx, n.ty as f64 + 0.5 - my) >= clear)
-                    && ok(self, tx, ty)
+                if self.map.nodes.iter().all(|n| {
+                    jsmath::hypot(n.x / TILE - mx, n.y / TILE - my)
+                        >= clear + (n.s - 1) as f64 / 2.0
+                }) && ok(self, tx, ty)
                 {
                     return Some((tx, ty));
                 }
@@ -122,7 +120,7 @@ impl World {
         seen
     }
 
-    /// Whether the fields by the main (centre cx, cy) are running low, on a level that then takes its natural at once.
+    /// Whether the mines by the main (centre cx, cy) are running low, on a level that then takes its natural at once.
     pub(crate) fn home_dry(&self, cx: f64, cy: f64) -> bool {
         let home: i32 = self
             .map
@@ -132,6 +130,29 @@ impl World {
             .map(|n| n.amount)
             .sum();
         self.level().expands_when_dry && home < HOME_LOW
+    }
+
+    /// Whether the mines by every one of our headquarters (within 12 tiles; one going up counts, as `hqs` counts it:
+    /// a dry main must not call a third base while the second is still a site) hold under `HOME_LOW` gold between them.
+    pub(crate) fn bases_dry(&self, my_b: &[Id]) -> bool {
+        let cores: Vec<(f64, f64)> = my_b
+            .iter()
+            .filter_map(|&id| self.bldg(id))
+            .filter(|b| b.kind.def().hq)
+            .map(|b| (b.x / TILE, b.y / TILE))
+            .collect();
+        let left: i32 = self
+            .map
+            .nodes
+            .iter()
+            .filter(|n| {
+                cores
+                    .iter()
+                    .any(|&(cx, cy)| (n.x / TILE - cx).abs().max((n.y / TILE - cy).abs()) <= 12.0)
+            })
+            .map(|n| n.amount)
+            .sum();
+        left < HOME_LOW
     }
 
     /// The AI keeps a free one-tile walkway around everything it builds, so it never walls its own units in (ground
@@ -206,9 +227,10 @@ impl World {
         self.ai_mut().sites = sites;
     }
 
-    /// A spot for a second Core: by a shard field away from our main and every other seat's start, nearest to our
-    /// main core. On a map of more than two starts, also nearer our start than any other seat's (the field and the
-    /// spot): a neighbour's natural may lie nearer than our own (a start nobody took is free ground).
+    /// A spot for a second Core: by a gold mine with no headquarters by it, away from our main and every other seat's
+    /// start, nearest to our main core. On a map of more than two starts, also nearer our start than any other seat's
+    /// (the mine, or the expansion it was laid for, and the spot): a neighbour's natural may lie nearer than our own
+    /// (a start nobody took is free ground).
     pub(crate) fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
         let me = self.seat() as usize;
         let start = |s: usize| {
@@ -228,9 +250,24 @@ impl World {
             .filter(|n| !n.ether && n.amount > 300)
             .filter(|n| {
                 let from = |(x, y): (f64, f64)| jsmath::hypot(n.tx as f64 - x, n.ty as f64 - y);
+                // (a mine with a headquarters by it, anyone's, is taken: a compact mine leaves room round it for a
+                // second Core, which a field's spread crystals did not)
+                let taken = self.bldgs.iter().any(|b| {
+                    b.kind.def().hq && from((b.tx as f64 + 2.0, b.ty as f64 + 2.0)) <= 10.0
+                });
+                // (an expansion's mine lies on the far side of its site from the main, and a site laid 6 tiles nearer
+                // its own start can have its mine a tile nearer a neighbour's: the site decides)
+                let site = self
+                    .map
+                    .expansions
+                    .iter()
+                    .copied()
+                    .filter(|&p| from(p) <= 8.0)
+                    .min_by(|a, b| from(*a).partial_cmp(&from(*b)).unwrap());
                 from((cx, cy)) > 12.0
+                    && !taken
                     && theirs.iter().all(|&p| from(p) > 22.0)
-                    && ours(n.tx as f64, n.ty as f64)
+                    && (ours(n.tx as f64, n.ty as f64) || site.is_some_and(|p| ours(p.0, p.1)))
             })
             .map(|n| {
                 (
@@ -256,9 +293,9 @@ impl World {
                         && self.walkway_around(tx, ty, 4, 4)
                         && self.map.nodes.iter().all(|n| {
                             jsmath::hypot(
-                                n.tx as f64 + 0.5 - (tx as f64 + 2.0),
-                                n.ty as f64 + 0.5 - (ty as f64 + 2.0),
-                            ) >= 3.5
+                                n.x / TILE - (tx as f64 + 2.0),
+                                n.y / TILE - (ty as f64 + 2.0),
+                            ) >= 3.5 + (n.s - 1) as f64 / 2.0
                         })
                     {
                         return Some((tx, ty));
@@ -520,12 +557,19 @@ impl World {
             && hqs < d.max_bases
             && t - ai.attacked_at > d.passive_expand
             && t - ai.last_base_at > PASSIVE_BASE_GAP;
-        let exp_spot =
-            if ((t > d.expand_at || dry) && hqs < 2 || passive) && harv.len() + 2 >= d.harv {
-                self.expansion_spot(cx, cy)
-            } else {
-                None
-            };
+        // Every base's mines running dry: another base, up to `max_bases` (a mine pays out faster than a field's
+        // crystals did at the AI's crews, and two bases' gold ran out with the game still on).
+        let all_dry = hqs >= 2
+            && hqs < d.max_bases
+            && t - ai.last_base_at > PASSIVE_BASE_GAP
+            && self.bases_dry(&my_b);
+        let exp_spot = if ((t > d.expand_at || dry) && hqs < 2 || passive || all_dry)
+            && harv.len() + 2 >= d.harv
+        {
+            self.expansion_spot(cx, cy)
+        } else {
+            None
+        };
         let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
         if let Some(spot) = exp_spot
             && self.can_afford(e, self.factions[e as usize].hq.def().cost)

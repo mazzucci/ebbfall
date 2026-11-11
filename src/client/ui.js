@@ -35,7 +35,7 @@ export const touchUi = typeof matchMedia === 'function' && matchMedia('(pointer:
 export const ARMED = {
   attack: { button: 'attack', minimap: true, hint: (c) => `Attack-move: ${c.toLowerCase()} a target or the ground` },
   move: { button: 'move', minimap: true, hint: (c) => `${c} where to move` },
-  gather: { button: 'gather', hint: (c) => `${c} a salt field` },
+  gather: { button: 'gather', hint: (c) => `${c} a gold field` },
   rally: { button: 'rally', hint: (c) => `${c} where new units should gather` },
   repair: { button: 'repair', hint: (c) => `${c} a damaged building to repair` },
 };

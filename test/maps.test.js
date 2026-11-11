@@ -15,7 +15,7 @@ test('every map seats as many players as it has starts: two on 64x64, four on 96
   assert.ok(fits(named('Dust Quarter'), 4) && !fits(named('Dust Quarter'), 5));
   assert.ok(!fits(-1, 2) && !fits(99, 2) && !fits(1.5, 2), 'no such map');
   assert.equal(mapLabel(named('Iron Compass')), 'Iron Compass · up to 8');
-  assert.deepEqual(MAPS.map((m, i) => m.random && mapLabel(i)).filter(Boolean), ['Random · up to 2', 'Random · up to 4', 'Random · up to 8', 'Random Shore · up to 2']);
+  assert.deepEqual(MAPS.map((m, i) => m.random && mapLabel(i)).filter(Boolean), ['Random · up to 2', 'Random · up to 4', 'Random · up to 8', 'Random Lake · up to 2']);
   // Each size its own fixed maps: names of their own (the generator lays a seed out differently at another size).
   const fixed = MAPS.filter(m => !m.random);
   assert.equal(new Set(fixed.map(m => m.name)).size, fixed.length, 'no name twice');
@@ -57,8 +57,8 @@ test('an online setup plays its map at the map\'s size, the room\'s seed for a r
 
 test('the Shore map: a named map and a random one at 64x64 with their line; random maps of the other kinds never draw it', () => {
   const shore = MAPS.map((m, i) => [m, i]).filter(([m]) => m.kind === 6);
-  assert.deepEqual(shore.map(([m]) => [m.name, m.size, !!m.random]), [['Tidewater Reef', 64, false], ['Random Shore', 64, true]]);
-  for (const [m, i] of shore) assert.match(mapNoteOf(i), /^Map: .* \(up to 2\)\. A shore and a reef: each side holds a cove, the reef in the shallows between\.$/, m.name);
+  assert.deepEqual(shore.map(([m]) => [m.name, m.size, !!m.random]), [['Mirror Lake', 64, false], ['Random Lake', 64, true]]);
+  for (const [m, i] of shore) assert.match(mapNoteOf(i), /^Map: .* \(up to 2\)\. A lake: each side holds a cove, with the shallows between\.$/, m.name);
   assert.equal(mapNoteOf(0), 'Map: Ashen Basin (up to 2)', 'a map without a line');
   // A random room keeps the old kinds for every seed (Shore is not among them), a random Shore stays a Shore.
   const random64 = MAPS.findIndex(m => m.random && m.size === 64), randomShore = MAPS.findIndex(m => m.random && m.kind === 6);

@@ -15,9 +15,9 @@ import { DIFF_NAMES } from '../engine/constants.js';
  *  where room is short. */
 export const RACES = ['humans', 'vael'];
 export const RACE_KEYS = [...RACES, 'random'];
-export const RACE_NAMES = { humans: 'HARBOUR', vael: 'VAEL', random: 'RANDOM' }; // (the people's name; its key stays `humans`)
-export const RACE_SHORT = { humans: 'HARB', vael: 'VAEL', random: 'RND' };
-/** A race's name in a sentence ('Harbour'). */
+export const RACE_NAMES = { humans: 'KINGDOM', vael: 'EXPEDITION', random: 'RANDOM' }; // (the people's name; its key stays `humans`)
+export const RACE_SHORT = { humans: 'KING', vael: 'EXP', random: 'RND' };
+/** A race's name in a sentence ('Kingdom'). */
 export const raceTitle = (k) => { const n = RACE_NAMES[k] || ''; return n.slice(0, 1) + n.slice(1).toLowerCase(); }; // ('' for a key that is not a race)
 export { DIFF_NAMES };
 /** The spots on the board: the most seats a game has (maps.js MAX_PLAYERS, the relay's MAX_SEATS). */

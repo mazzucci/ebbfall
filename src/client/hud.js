@@ -20,7 +20,7 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
-  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} salt: 1 every 2 s`;
+  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} gold: 1 every 2 s`;
   return '';
 }
 
@@ -89,9 +89,9 @@ function renderSelection() {
     // A salt field (what is left and who works it), or a mine shaft (an Excavator or a Siphon on it digs by itself).
     // (who holds a shaft: what this side may see of it, an enemy's as last seen: memory.js)
     const n = sel[0], seep = n.type === 'ether', on = seep && shownBldgs().find(b => b.vent === n), rig = on ? BUILDINGS[on.type] : BUILDINGS[myFaction().market];
-    named(seep ? 'Mine shaft' : 'Salt field');
+    named(seep ? 'Gold mine' : 'Gold field');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = seep ? (on ? `${aName(rig.name).replace(/^a/, 'A')} ${rig.verb} salt here by itself` : `Build ${aName(rig.name)} on it: it ${rig.verb} salt by itself`) : `${n.amount} salt left`;
+    sub.textContent = seep ? (on ? `${aName(rig.name).replace(/^a/, 'A')} ${rig.verb} gold here by itself` : `Build ${aName(rig.name)} on it: it ${rig.verb} gold by itself`) : `${n.amount} gold left`;
     if (seep) $('life').hidden = true; else life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
     const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // one mines at a time, the rest come and go
     module('node' + working, `<span class="st" title="${plural(UNITS[myFaction().worker].name)} working it" aria-label="${plural(UNITS[myFaction().worker].name)} working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);

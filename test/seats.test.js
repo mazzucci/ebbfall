@@ -52,7 +52,7 @@ test('a saved board: a good one as it is, one saved before the spots in the firs
 test('START GAME: the seats in side order, each seat\'s spot, each AI\'s difficulty (none when all alike), the hardest the game\'s', () => {
   const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null, { race: 'random', team: 0, diff: 3 }, { race: 'humans', team: 1, diff: 2 }, null, null, null];
   assert.deepEqual(startSetup(b, (k) => (k === 'random' ? 'vael' : k)), { races: ['vael', 'vael', 'humans', 'humans'], ai: [false, true, true, true], teams: [0, 0, 1, 1], diffs: [0, 3, 0, 2], diff: 2, spots: [0, 3, 1, 4] },
-    'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own colour), its RANDOM drawn; the record counts the enemies\' hardest, Hard (not the Brutal ally)');
+    'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own colour), its RANDOM drawn; the record counts the enemies\' hardest, Hard (not the stronger ally)');
   assert.equal(startSetup(board(0, 0, 1)).diff, 0);
   const alike = [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 2 }, { race: 'humans', team: 2, diff: 2 }, ...Array(5).fill(null)];
   assert.deepEqual(startSetup(alike), { races: ['humans', 'humans', 'humans'], ai: [false, true, true], teams: [], diffs: [], diff: 2, spots: [0, 1, 2] }, 'every AI alike: the game\'s diff, as before');

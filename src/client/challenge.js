@@ -22,7 +22,7 @@ export const PARAM = 'vs';
  *  names raceTitle gives, a test keeps equal). */
 const RACE_OF = { h: 'humans', v: 'vael' };
 const LETTER = { humans: 'h', vael: 'v' };
-const RACE_TITLE = { humans: 'Harbour', vael: 'Vael' }; // (the key stays `humans`, the code's letter `h`: old links still read)
+const RACE_TITLE = { humans: 'Kingdom', vael: 'Expedition' }; // (the key stays `humans`, the code's letter `h`: old links still read)
 /** The board's spots (seats.js SPOTS). */
 const SPOTS = 8;
 /** The longest game a challenge names: just under 100 hours. */
@@ -51,7 +51,7 @@ export function encode(c) {
   if (!Number.isInteger(c.side) || c.side < 0 || !Number.isInteger(c.secs) || c.secs < 1 || c.secs > MAX_SECS) return null;
   const parts = ['1', b36(c.map), b36(c.side % (starts * at.length)), b36(c.secs), board];
   if (m.random) {
-    // (a kind the random map draws: one of the first RANDOM_KINDS, or its own, the Random Shore's)
+    // (a kind the random map draws: one of the first RANDOM_KINDS, or its own, the Random Lake's)
     const kindOk = m.kind !== undefined ? c.kind === m.kind : Number.isInteger(c.kind) && c.kind >= 0 && c.kind < RANDOM_KINDS;
     if (!kindOk || c.kind >= MAP_KINDS.length || !Number.isInteger(c.seed) || c.seed < 0 || c.seed > 0xffffffff) return null;
     parts.push(String(c.kind), b36(c.seed));

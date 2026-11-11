@@ -59,7 +59,7 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
   try {
     const { page } = a, sb = board(page);
     await page.locator('#btnSolo').click();
-    // You against two AIs (a Brutal Vael, a Hard Human), on a random 96x96 map: a seed and a character of its own.
+    // You against two AIs (a Brutal Expedition, a Hard Human), on a random 96x96 map: a seed and a character of its own.
     await sb.add(); await sb.race(1, 'vael'); await sb.diff(1, 3); await sb.diff(2, 2);
     const random96 = MAPS.findIndex(m => m.random && m.size === 96);
     await page.selectOption('#mapSel', String(random96));

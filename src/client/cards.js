@@ -121,7 +121,7 @@ export function cardItems() {
   }
   for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
     it.poor = true;
-    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough salt (needs ${it.cost[0]}).`;
+    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough gold (needs ${it.cost[0]}).`;
   }
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }

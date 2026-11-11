@@ -33,7 +33,7 @@ export function buildCard() {
     b.disabled = !!it.dis;
     b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
-    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} salt"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span></span>` : '');
+    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} gold"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
       if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
@@ -81,7 +81,7 @@ let shaking = { id: '', until: 0 };
 function refuse(id, err) {
   if (!/^Not enough| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
-  if (/^Not enough salt/.test(err)) say('salt'); // (the announcer says what is short)
+  if (/^Not enough gold/.test(err)) say('gold'); // (the announcer says what is short)
   shaking = { id, until: performance.now() + 400 };
   cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }
@@ -103,7 +103,7 @@ export function doCommand(id, times = 1) {
       const mine = G.bldgs.filter(b => b.team === G.me), hqs = mine.filter(b => b.d.hq && b.done).length;
       if (mine.filter(b => b.type === k).length >= hqs) { refuse(id, `One ${BUILDINGS[k].name} per ${mine.find(b => b.d.hq)?.d.name ?? 'headquarters'}`); return; }
     }
-    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough salt'); return; }
+    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough gold'); return; }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
   if (id.startsWith('a_')) { const k = id.slice(2), err = castAbility(units, k); if (err) refuse(id, err); return; } // (the cast event plays its sound; a toggle: the units its button names)

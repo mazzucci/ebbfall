@@ -338,9 +338,15 @@ impl World {
         // (a main factory: a vehicle bay works only when the mix calls for its units)
         let kind = busy_all(s.rax).then_some(s.rax)?;
         let d = self.tuning(e);
-        // (room for its main factory's line: the Kingdom's population, the Expedition's hired places, within the
-        // shared limit)
-        let room = self.room(e, self.factions[e as usize].ai.basic.def().pool);
+        // (room for its main factory's line: the Kingdom's population; the Expedition's main factory, the Recruiting
+        // post, adds the places its line takes, so only the shared limit can block it)
+        let s = &self.factions[e as usize].ai;
+        let pool = s.basic.def().pool;
+        let room = if s.rax.def().pool == pool && s.rax.def().supply > 0 {
+            self.supply_limit() - self.army_used(e)
+        } else {
+            self.room(e, pool)
+        };
         let hq = self.factions[e as usize].hq;
         let expanded = || {
             my_b.iter()

@@ -1648,18 +1648,16 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                     w.step();
                     w.events.clear();
                 }
-                // (the pool its line takes: the Kingdom's population, the Expedition's hired places)
-                let [used, cap] = w.pool(ENEMY, f[1].ai.basic.def().pool);
-                if used + 2 < w.supply_limit() || cap < w.supply_limit() {
+                // (at the cap: its army at the one limit of all its pools together)
+                if w.army_used(ENEMY) + 2 < w.supply_limit() {
                     banked.push(w.res[ENEMY as usize][0]);
                 } else {
                     capped += 1;
                 }
             }
         }
-        // (the Expedition's hired places grow six a post: it is not at their limit by 8:00, and every sample counts)
         assert!(
-            capped > 0 || f[1].power,
+            capped > 0,
             "{}: it reached the cap of 40 by 8:00",
             f[1].name
         );

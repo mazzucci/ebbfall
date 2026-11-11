@@ -5,14 +5,14 @@ import { speak, PHRASES, STYLES } from './voice.js';
 import { speakLine, voiceFor, englishVoices, onVoices, picked, stopSpeech } from './speech.js';
 
 const RACES = [
-  ['humans', 'Harbour', [
+  ['humans', 'Kingdom', [
     ['A', 'humansRadio', 'Clean radio', 'A field radio, wider and cleaner than the original: no clipping, a faint click at the end.'],
     ['B', 'humansClear', 'Clear', 'A warm, clear voice, no radio.'],
     ['C', 'humansOriginal', 'Original', 'The radio operator the game had until now, for comparison.'],
     ['D', 'humansDevice', 'This device\'s voice', ''],
   ]],
-  ['vael', 'Vael', [
-    ['A', 'vaelClear', 'Clear', 'One clear voice, a little higher, with a faint crystal shimmer and a short, light room.'],
+  ['vael', 'Expedition', [
+    ['A', 'vaelClear', 'Clear', 'One clear voice, a little higher, with a faint shimmer and a short, light room.'],
     ['B', 'vaelWarm', 'Warm', 'Softer, rounder and calmer, almost dry.'],
     ['C', 'vaelAiry', 'Airy', 'Two copies of one voice a few cents apart: airy, short and dry.'],
     ['D', 'vaelDevice', 'This device\'s voice', ''],

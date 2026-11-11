@@ -66,6 +66,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
 #info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:none;max-width:100%}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* What the selected kind is for (one line under the health bar): gone when empty, and gone where it would be cut or
+   would grow the console (hud.js measures it), so nothing else moves. */
+#info .what{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#info .what:empty,#info.nowhat .what{display:none}
 .life{display:flex;align-items:center;gap:8px} .life .bars{flex:1;max-width:200px;display:flex;flex-direction:column;gap:2px} .life .bar{height:7px} .life .bar.sh{height:5px} .bar.sh i{background:#cfe6ff} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 #mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
 .st{display:flex;align-items:center;gap:4px;font:17px var(--mono);color:var(--fg);white-space:nowrap} .st b{font-weight:400}
@@ -179,7 +183,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .tok .act{font:600 10px var(--display);letter-spacing:.08em;color:var(--ally2);white-space:nowrap}
 .board .pair{display:flex;gap:4px} .board .pair .ib.tok{flex:1 1 0;min-width:0} .board .pair .ib.x{flex:none;width:34px;padding:0;font-size:15px;color:var(--muted)} .board .pair .ib.x:hover{color:var(--fg)}
 .lvl{display:inline-flex;gap:2px;align-items:flex-end;height:12px} .lvl i{display:block;width:4px;background:var(--line2);border-radius:1px} .lvl i.on{background:var(--ally)}
-.lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:7px} .lvl i:nth-child(3){height:9px} .lvl i:nth-child(4){height:12px}
+.lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:8px} .lvl i:nth-child(3){height:12px}
 @media (max-width:480px){.sheet .opt .lbl{width:46px} .sheet .diff .ib{padding-left:7px;padding-right:7px;letter-spacing:.02em}}
 /* A seat's sheet in a <dialog> (modal: the page behind it inert): its choices as rows of chips. A phone: a sheet from
    the bottom edge; a wide screen: a small dialog. The dialog itself is the scrim. */

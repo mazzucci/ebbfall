@@ -165,7 +165,7 @@ const lastGain = {};
 
 /** The announcer (`audio.announcer`: off, the device's voice or the synth) in this side's race's voice (`audio.voice`,
  *  a faction key): a phrase, at most once per its gap (an attack every 20 s), muted and held with the rest. */
-const SAY_GAP = { attack: 20000, research: 3000, salt: 2500 }, said = {};
+const SAY_GAP = { attack: 20000, research: 3000, gold: 2500 }, said = {};
 let voiceBus = null, busyUntil = 0;
 /** `after`: seconds to wait first (to follow the chime or siren it goes with instead of talking over it). One phrase
  *  at a time: a new one while another plays is dropped. Not while the audio is suspended (an iOS interruption), or

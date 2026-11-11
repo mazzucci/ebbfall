@@ -94,7 +94,7 @@ fn forge_and_turret_need_a_finished_barracks() {
         let (tx, ty) = spot(&w, kind);
         assert_eq!(
             w.place_building(PLAYER, kind, tx, ty, Some(h[0])),
-            Err("Requires Crew Hall".to_string())
+            Err("Requires Barracks".to_string())
         );
     }
     let (tx, ty) = spot(&w, BldgKind::Barracks);
@@ -128,7 +128,7 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     );
     assert_eq!(
         w.queue_unit(rax, UnitKind::Trooper),
-        Err("Crew Hall cannot train that".into()),
+        Err("Barracks cannot train that".into()),
         "not before it is finished"
     );
     assert!(w.start_build(h[0], rax));
@@ -137,7 +137,7 @@ fn only_own_harvesters_build_and_buildings_train_only_their_units() {
     }
     assert_eq!(
         w.queue_unit(rax, UnitKind::SiegeTank),
-        Err("Crew Hall cannot train that".into()),
+        Err("Barracks cannot train that".into()),
         "siege comes from the Workshop"
     );
     assert!(w.queue_unit(rax, UnitKind::Trooper).is_ok());
@@ -189,7 +189,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
     assert_eq!(
         w.queue_unit(rax, UnitKind::Medic),
-        Err("Crew Hall cannot train that".into()),
+        Err("Barracks cannot train that".into()),
         "no healer in the build"
     );
     let fac = build(&mut w, BldgKind::Factory, h[3], 120);
@@ -202,12 +202,12 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
     ] {
         assert_eq!(
             w.queue_unit(at, k),
-            Err("Requires Workshop".into()),
+            Err("Requires Blacksmith".into()),
             "{k:?}"
         );
         assert_eq!(
             w.queue_unit(rax, k),
-            Err("Crew Hall cannot train that".into()),
+            Err("Barracks cannot train that".into()),
             "{k:?}: not at the Barracks"
         );
     }
@@ -255,7 +255,7 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     );
     assert_eq!(
         w.queue_unit(post, UnitKind::Bruiser),
-        Err("Requires Glasshouse".into()),
+        Err("Requires Lab".into()),
         "the Bruiser waits for a Lab"
     );
     assert!(
@@ -268,11 +268,11 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     }
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Monolith),
-        Err("Requires Glasshouse".into())
+        Err("Requires Lab".into())
     );
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Halo),
-        Err("Cradle cannot train that".into()),
+        Err("Factory cannot train that".into()),
         "no healer in the build"
     );
     build(&mut w, BldgKind::Loom, l[2], 150);
@@ -516,11 +516,8 @@ fn a_side_builds_only_its_own_race() {
 
 #[test]
 fn messages_name_each_races_own_buildings() {
-    // (each race's research hall by its own name: the Workshop, the Glasshouse)
-    for (w, hall) in [
-        (&mut rich(5), "Workshop"),
-        (&mut rich_vael(5), "Glasshouse"),
-    ] {
+    // (each race's research hall by its own name: the Blacksmith, the Lab)
+    for (w, hall) in [(&mut rich(5), "Blacksmith"), (&mut rich_vael(5), "Lab")] {
         w.events.clear();
         let hq = w.bldgs.iter().find(|b| b.team == PLAYER).unwrap().id;
         let err = w.start_research(hq, Upgrade::Weapons).unwrap_err();

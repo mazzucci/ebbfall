@@ -93,7 +93,7 @@ for (const race of ['humans', 'vael']) {
       }
       assert.equal(new Set(shown.map(i => i.key)).size, shown.length, `${what}: no key twice (${shown.map(i => i.label + ' ' + i.key).join(', ')})`);
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
-      // A building's card and a Build page keep two rows (the Workshop's three units, Rally and Cancel),
+      // A building's card and a Build page keep two rows (the Blacksmith's three units, Rally and Cancel),
       // and their letters (CLASSIC) are each one button's.
       if (/, techs \d+, |, Build(: Advanced)?$/.test(what)) {
         assert.ok(Math.max(...shown.map(i => i.slot)) <= 5, `${what}: two rows at most (${shown.map(i => i.label + ' ' + i.slot).join(', ')})`);
@@ -102,7 +102,7 @@ for (const race of ['humans', 'vael']) {
       }
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
-      // No automatic ability (the Trebuchet's Drop Anchor) has a button.
+      // No automatic ability (the Trebuchet's Set Up) has a button.
       assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
@@ -127,7 +127,7 @@ test('the Trebuchet deploys by itself: no Deploy on its card, an order to deploy
   ui.sel = []; ui.mode = null;
 });
 
-test('what is not open yet is hidden in place: its slot stays empty, nothing else moves, its key does nothing', { skip }, () => {
+test('what is not open yet is hidden and its key does nothing: the Build list packs what is open, an ability waits in its slot', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   const lumen = E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
@@ -136,7 +136,7 @@ test('what is not open yet is hidden in place: its slot stays empty, nothing els
   assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Recruiting post first; no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
   // A unit's ability waiting for its tech is left out, and its card keeps its shape (Deselect stays put): the Guard's
-  // Brace waits for Sandbags.
+  // Brace waits for Shield Drill.
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const core = E.G.bldgs.find(b => b.team === E.G.me);
   const guard = E.debugSpawn(E.G.me, 'trooper', core.x + 120, core.y + 90);

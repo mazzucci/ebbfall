@@ -35,7 +35,7 @@ export function statRows(k) {
   if (!d) return [];
   const tough = [chip('hp', num(d.hp), `Health ${num(d.hp)}`, 'health')];
   if (SHIELDED.has(k)) tough.push(chip('shields', num(d.shields || 0), `Shields ${num(d.shields || 0)}`, 'shields', !d.shields));
-  tough.push(chip('armor', num(d.armor || 0), `Armour ${num(d.armor || 0)}`, 'armor', !d.armor));
+  tough.push(chip('armor', num(d.armor || 0), `Armor ${num(d.armor || 0)}`, 'armor', !d.armor));
   if (!UNITS[k]) return [tough];
   const gs = guns(d), parts = gs.flatMap(([g, tail]) => hitParts(g, tail));
   const attack = [];

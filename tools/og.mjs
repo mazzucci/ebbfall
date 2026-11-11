@@ -1,6 +1,6 @@
 // The link preview image, public/og.png (1200x630: Open Graph's og:image and X's summary_large_image, index.html): the
 // game's look (its dark ground #0b0f16, the icon, the wordmark in the menu's font) over a small battle drawn with the
-// game's own sprites (public/art: the Humans in seat 0's gold from the left, the Vael in seat 1's magenta from the
+// game's own sprites (public/art: the Kingdom in seat 0's color from the left, the Expedition in seat 1's from the
 // right, their team masks tinted as the client tints them), composed as a page in headless Chromium
 // (tools/chromium.mjs) and written as a PNG. Kept small for the apps that fetch it (WhatsApp skips large images):
 // the screenshot's colours are reduced to a palette (an indexed PNG) when that is what fits. Run after changing the
@@ -18,30 +18,30 @@ const W = 1200, H = 630, BUDGET = 300 * 1024, DITHER = 0.8;
 
 /** What the card says: the wordmark, and one line under it (index.html's og:title says the same). */
 const TAG = 'A free browser RTS in the 1998 mold';
-const SUB = 'TWO RACES · VS THE AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
+const SUB = 'KINGDOM VS EXPEDITION · AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
 
 /**
  * The battle, in the art's pixels (scale 2: 64 a tile), drawn at `ZOOM` on a band of ground at the bottom of the card:
  * [frame, x, y, seat] with x, y the frame's anchor (a unit's ground point) in card pixels. Units face +x at dir 0,
- * clockwise (16 dirs): the Humans come from the left facing east (0, 15, 1), the Vael from the right facing west (8).
+ * clockwise (16 dirs): the Kingdom comes from the left facing east (0, 15, 1), the Expedition from the right facing west (8).
  */
-const ZOOM = 1.5;
+const ZOOM = 1;
 const SCENE = [
   // the ground's features first (under everything)
-  ['shard_0', 232, 372], ['shard_1', 196, 640], ['shard_2', 1000, 362], ['shard_0', 985, 640],
-  ['doodad_crater_0', 600, 560], ['doodad_debris_1', 520, 610], ['doodad_debris_0', 700, 470],
-  // the Humans (seat 0), from the left
-  ['bldg_core', 40, 520, 0],
-  ['knight_1_0', 330, 560, 0], ['trooper_0_1', 420, 495, 0], ['trooper_15_1', 450, 590, 0], ['trooper_0_0', 365, 455, 0],
-  ['lancer_1_0', 290, 620, 0], ['rider_0_1', 250, 505, 0],
-  // the Vael (seat 1), from the right
-  ['bldg_conflux', 1170, 520, 1],
-  ['monolith_8_0', 880, 560, 1], ['scythe_8_1', 780, 500, 1], ['scythe_9_0', 760, 600, 1], ['prism_8_0', 905, 470, 1],
-  ['bruiser_8_1', 820, 640, 1],
+  ['shard_0', 560, 430], ['shard_1', 200, 625], ['shard_2', 690, 425], ['shard_0', 1010, 625],
+  ['doodad_crater_0', 600, 575], ['doodad_debris_1', 530, 615], ['doodad_debris_0', 690, 500],
+  // the Kingdom (seat 0), from the left
+  ['bldg_core', 95, 575, 0],
+  ['knight_1_0', 345, 575, 0], ['trooper_0_1', 440, 520, 0], ['trooper_15_1', 465, 600, 0], ['trooper_0_0', 380, 485, 0],
+  ['lancer_1_0', 285, 615, 0], ['rider_0_1', 270, 520, 0],
+  // the Expedition (seat 1), from the right
+  ['bldg_conflux', 1110, 575, 1],
+  ['monolith_8_0', 870, 575, 1], ['scythe_8_1', 775, 520, 1], ['scythe_9_0', 760, 610, 1], ['prism_8_0', 900, 495, 1],
+  ['bruiser_8_1', 950, 620, 1],
   // the clash: fire across the middle, a blast
-  ['boom_big_3', 610, 525], ['flash_1', 470, 488], ['flash_0', 742, 497], ['spark_1', 560, 590],
+  ['boom_big_3', 610, 550], ['flash_1', 490, 515], ['flash_0', 735, 520], ['spark_1', 570, 600],
   // in the air
-  ['observer_1_0', 395, 395, 0], ['shrike_8_0', 840, 395, 1],
+  ['observer_1_0', 330, 440, 0], ['shrike_8_0', 860, 440, 1],
 ];
 
 const pages = JSON.parse(readFileSync(new URL('public/art/atlas.json', root))).pages;
@@ -61,7 +61,7 @@ canvas{position:absolute;inset:0}
 #side{position:absolute;inset:0;background:linear-gradient(90deg,rgba(11,15,22,.55) 0%,rgba(11,15,22,0) 14%,rgba(11,15,22,0) 86%,rgba(11,15,22,.55) 100%)}
 #title{position:absolute;left:0;right:0;top:52px;display:flex;flex-direction:column;align-items:center;color:var(--fg);font-family:var(--display)}
 #name{display:flex;align-items:center;gap:26px}
-#name img{width:118px;height:118px;filter:drop-shadow(0 0 18px rgba(79,209,197,.18))}
+#name img{width:118px;height:118px;filter:drop-shadow(0 0 18px rgba(245,165,36,.18))}
 #name h1{margin:0;font:700 128px/1 var(--display);letter-spacing:.03em;color:#eef3f8;text-shadow:0 4px 24px rgba(0,0,0,.6)}
 #tag{margin-top:16px;font:600 38px/1.1 var(--display);letter-spacing:.02em;color:var(--ally2);text-shadow:0 2px 12px rgba(0,0,0,.9)}
 #sub{margin-top:14px;font:400 21px/1 var(--mono);letter-spacing:.14em;color:var(--fg);opacity:.82;text-shadow:0 2px 10px rgba(0,0,0,1)}

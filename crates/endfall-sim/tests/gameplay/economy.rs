@@ -63,7 +63,7 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
     let (tx, ty) = spot(&w, BldgKind::Extractor);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Extractor, tx, ty, Some(h[0])),
-        Err("Requires Crew Hall".into())
+        Err("Requires Barracks".into())
     );
     let (cx, cy) = core(&w, PLAYER);
     w.make_building(BldgKind::Barracks, PLAYER, cx - 5, cy, true);
@@ -72,7 +72,7 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
     let (tx2, ty2) = spot(&w, BldgKind::Extractor);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Extractor, tx2, ty2, Some(h[1])),
-        Err("One Excavator per Lighthouse".into()),
+        Err("One Market per Castle".into()),
         "a site counts"
     );
     let far = w.make_building(BldgKind::Core, PLAYER, 30, 30, false);

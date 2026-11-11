@@ -188,11 +188,11 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
   const d = await newGame(PHONE);
   try {
     await d.grant(1000, 0);
-    // A Rigger standing still (stopped: set-up): a walking one can leave the tap's point on a slow engine (Firefox),
-    // and one inside the gold mine cannot be tapped at all.
-    const out = () => d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && !u.inside)?.id);
-    const hId = await until(d, out, { seconds: 20, step: 0.2, what: 'a Rigger out of the mine' });
-    await d.eval((id) => endfall.engine.stopUnit(endfall.G.units.find(u => u.id === id)), hId);
+    // A Rigger standing still (stopped through the UI): a walking one can leave the tap's point on a slow engine
+    // (Firefox), and one inside the gold mine cannot be tapped at all.
+    const hId = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester').id;
+    await d.stopByUI([hId]);
+    await d.key('Escape');
     const s = await d.state();
     await d.clickEntity(hId);
     assert.equal((await d.selection())[0]?.type, 'harvester', 'tapping a harvester selects it');
@@ -518,7 +518,9 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       if (d.touch) assert.deepEqual(await d.selection(), [], 'phone: after placing, the worker is let go');
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
-      // A mining harvester moves; a tap may miss it or pick a neighbour: retry, then follow the one selected.
+      // The workers stopped (so no gold comes in while the repair's cost is measured, and they stand for a tap); a tap
+      // may still pick a neighbour: retry, then follow the one selected.
+      await d.stopByUI(mine(await d.state(), 'harvester').map(u => u.id));
       await d.key('Escape'); await d.key('Escape');
       let h = null;
       for (let i = 0; i < 4 && !h; i++) {
@@ -538,9 +540,6 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
         await d.clickWorld(gx, gy); // open ground
         assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', 'phone: a later tap does not redirect it');
       } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
-      // (set-up: the other workers stop mining, so what the repair costs is all that moves the purse; gold comes in
-      // sixteen at a trip since the mines, and in bursts)
-      await d.eval((id) => endfall.G.units.filter(u => u.team === 0 && u.d.worker && u.id !== id && u.task.t === 'gather').forEach(u => endfall.engine.stopUnit(u)), h.id);
       const shards = (await d.state()).res[0];
       await d.skip(4);
       await d.clickEntity(depot.id);

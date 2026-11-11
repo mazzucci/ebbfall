@@ -70,11 +70,11 @@ test('phone: one finger pans the map without selecting; a flick glides and a tap
 test('phone: SELECT then drag draws a box (tap to arm once, or hold it with the other hand)', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
-    // (set-up: the harvesters stopped where they stand once all are out of their gold mine, where none can be boxed)
-    assert.ok(await d.skipUntil(() => endfall.G.units.every(u => !u.inside), null, { seconds: 20, step: 1 / 30 }), 'all out of the mine');
-    await d.eval(() => endfall.G.units.filter(u => u.team === 0).forEach(u => endfall.engine.stopUnit(u)));
-    await d.skip(1);
+    // (the harvesters stopped where they stand once all are out of their gold mine, where none can be boxed)
+    await d.stopByUI((await d.state()).units.filter(u => u.team === 0 && u.type === 'harvester').map(u => u.id));
+    await d.key('Escape');
     const s = await d.state(), hs = s.units.filter(u => u.team === 0 && u.type === 'harvester');
+    assert.ok(hs.length === 4 && (await d.eval(() => endfall.G.units.filter(u => u.team === 0).every(u => u.task.t === 'idle'))), 'all four stopped');
     const xs = hs.map(u => u.x), ys = hs.map(u => u.y);
     const m = 90;
     const [x0, y0] = await d.screen(Math.min(...xs) - m, Math.min(...ys) - m);

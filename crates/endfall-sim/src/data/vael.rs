@@ -1,12 +1,12 @@
-//! The Expedition (sim race `vael`; the Vael before the re-theme): the Data centre, Bots that build, Sellswords and
+//! The Expedition (sim race `vael`; the Vael before the re-theme): the Data center, Bots that build, Sellswords and
 //! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Marines from the Portal. No shields
-//! (the mechanism stays, as data) and every ground unit walks. Display names stay the old ones until the words PR.
+//! (the mechanism stays, as data) and every ground unit walks. Keys never change; the names are display strings only.
 
 use super::*;
 
 pub const VAEL: Faction = Faction {
     key: "vael",
-    name: "Vael",
+    name: "Expedition",
     hq: BldgKind::Conflux,
     worker: UnitKind::Lumen,
     // The basic page holds what can be built from the start (the Conflux too), the Recruiting post first (the
@@ -53,7 +53,7 @@ pub const VAEL: Faction = Faction {
 /// The Bot: the Expedition's worker.
 pub(super) const LUMEN: UnitDef = UnitDef {
     key: "lumen",
-    name: "Glint",
+    name: "Bot",
     cost: [50, 0],
     hp: 40.0,
     speed: 100.0,
@@ -72,7 +72,7 @@ pub(super) const LUMEN: UnitDef = UnitDef {
 /// The Buggy: a fast raider vehicle with a light gun (the Expedition's raider, as the Rider is the Kingdom's).
 pub(super) const SCYTHE: UnitDef = UnitDef {
     key: "scythe",
-    name: "Needle",
+    name: "Buggy",
     cost: [100, 0],
     supply: 2,
     hp: 100.0,
@@ -95,7 +95,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
 /// little quicker to hire).
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
-    name: "Lens",
+    name: "Sellsword",
     cost: [110, 0],
     supply: 2,
     hp: 90.0,
@@ -119,7 +119,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
 /// A healer: in the tables (the mend rules keep their tests), trained nowhere since the re-theme.
 pub(super) const HALO: UnitDef = UnitDef {
     key: "halo",
-    name: "Tender",
+    name: "Medic",
     cost: [100, 0],
     hp: 60.0,
     speed: 110.0,
@@ -133,7 +133,7 @@ pub(super) const HALO: UnitDef = UnitDef {
 /// The Marine: the Expedition's elite ranged soldier, from the Portal; never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
-    name: "Undertow",
+    name: "Marine",
     cost: [125, 0],
     supply: 2,
     hp: 110.0,
@@ -158,7 +158,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 /// splashes, and outranges the towers.
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
-    name: "Conch",
+    name: "Rover",
     cost: [250, 0],
     supply: 4,
     hp: 200.0,
@@ -183,7 +183,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
 /// The Drone: a fast low flyer that hits the ground and the air (the Petrel's numbers, its shields in its hull).
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
-    name: "Petrel",
+    name: "Drone",
     cost: [175, 0],
     supply: 2,
     hp: 120.0,
@@ -232,7 +232,8 @@ pub(super) const BRUISER: UnitDef = UnitDef {
 
 pub(super) const CONFLUX: BldgDef = BldgDef {
     key: "conflux",
-    name: "Tidewell",
+    name: "Data center",
+    short: "Data center",
     cost: [400, 0],
     w: 4,
     h: 4,
@@ -248,7 +249,7 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
 };
 pub(super) const SPIRE: BldgDef = BldgDef {
     key: "spire",
-    name: "Sunpetal",
+    name: "Cabin",
     cost: [100, 0],
     hp: 400.0,
     supply: 8,
@@ -260,7 +261,8 @@ pub(super) const SPIRE: BldgDef = BldgDef {
 /// many as it likes. It pays nothing.
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
-    name: "Siphon",
+    name: "Recruiting post",
+    short: "Recruiting",
     cost: [150, 0],
     hp: 600.0,
     build: 40.0,
@@ -271,7 +273,7 @@ pub(super) const SIPHON: BldgDef = BldgDef {
 /// The Factory: Buggies, Rovers (once a Lab stands) and Drones.
 pub(super) const KILN: BldgDef = BldgDef {
     key: "kiln",
-    name: "Cradle",
+    name: "Factory",
     cost: [150, 0],
     w: 3,
     h: 3,
@@ -284,7 +286,7 @@ pub(super) const KILN: BldgDef = BldgDef {
 };
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
-    name: "Glasshouse",
+    name: "Lab",
     cost: [150, 0],
     hp: 800.0,
     build: 45.0,
@@ -295,7 +297,8 @@ pub(super) const LOOM: BldgDef = BldgDef {
 };
 pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
-    name: "Anemone",
+    name: "Radio tower",
+    short: "Radio tower",
     cost: [125, 0],
     hp: 320.0,
     build: 25.0,
@@ -315,7 +318,7 @@ pub(super) const WARD: BldgDef = BldgDef {
 /// The Portal (after the Lab): Marines.
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
-    name: "Darkwater",
+    name: "Portal",
     cost: [150, 0],
     hp: 800.0,
     build: 45.0,

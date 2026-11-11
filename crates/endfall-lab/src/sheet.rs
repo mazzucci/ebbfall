@@ -371,7 +371,7 @@ mod tests {
         // (the Trebuchet has one gun, set up: one row, its plain name)
         assert!(
             rows.iter()
-                .any(|r| r.name == "Anchor Gun" && r.weapon.is_some())
+                .any(|r| r.name == "Trebuchet" && r.weapon.is_some())
         );
         let (md, csv) = sheet(1.5, Some(2.0), "test");
         for k in UNIT_KINDS.into_iter().filter(|k| k.trainable()) {

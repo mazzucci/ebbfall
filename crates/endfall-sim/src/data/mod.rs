@@ -431,7 +431,7 @@ pub const SHARD_MINE_TIME: f64 = 2.0;
 /// worker's income, so it pays back its 75 in two and a half minutes.
 pub const PUMP_RATE: f64 = 0.5;
 /// What a refusal for want of salt says (the client's announcer keys on it).
-pub const NOT_ENOUGH: &str = "Not enough salt";
+pub const NOT_ENOUGH: &str = "Not enough gold";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
 /// Shields regenerate after this long without being hit (s), at these rates per second (units, buildings).

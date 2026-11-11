@@ -355,7 +355,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         .events
         .iter()
         .filter_map(|e| match e {
-            Event::Toast { team, msg, .. } if msg == "A salt crystal is mined out" => Some(*team),
+            Event::Toast { team, msg, .. } if msg == "A gold vein is mined out" => Some(*team),
             _ => None,
         })
         .collect();

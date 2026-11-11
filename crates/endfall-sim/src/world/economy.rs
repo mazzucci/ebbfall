@@ -262,7 +262,7 @@ impl World {
             .map(|o| o.amount)
             .sum();
         if field < FIELD_LOW && field + take >= FIELD_LOW {
-            self.toast(team, "A salt field is running low: time to expand", true);
+            self.toast(team, "A gold field is running low: time to expand", true);
             self.ping(team, n.x, n.y);
         }
         let u = self.um(uid);
@@ -282,7 +282,7 @@ impl World {
             let miner = self.u(uid).team;
             for t in 0..self.seats() as u8 {
                 if self.vis[t as usize][i] != 0 && (t == miner || self.enemies(t, miner)) {
-                    self.toast(t, "A salt crystal is mined out", false);
+                    self.toast(t, "A gold vein is mined out", false);
                 }
             }
         }

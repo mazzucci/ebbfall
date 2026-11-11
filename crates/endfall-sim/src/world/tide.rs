@@ -146,7 +146,7 @@ impl World {
             let Some(&(_, px, py, _)) = caught.first() else {
                 continue;
             };
-            self.toast(seat, "The tide is turning: the flats will flood", true);
+            self.toast(seat, "The flood is coming: the flats will go under", true);
             self.sfx(seat, "alert");
             self.ping(seat, px, py);
             if !self.retreats(seat) {

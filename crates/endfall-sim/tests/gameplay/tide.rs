@@ -217,7 +217,7 @@ fn the_warning_sends_idle_walkers_and_workers_ashore_and_leaves_the_rest() {
     });
     let toasts = |team: u8| {
         ev.iter()
-            .filter(|e| matches!(e, Event::Toast { team: t, msg, .. } if *t == team && msg.contains("tide")))
+            .filter(|e| matches!(e, Event::Toast { team: t, msg, .. } if *t == team && msg.contains("flood")))
             .count()
     };
     assert_eq!(

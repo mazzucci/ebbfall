@@ -18,7 +18,7 @@ onControls(() => { cardKey = ''; buildCard(); });
 
 export function buildCard() {
   const items = cardItems().filter(i => !i.hidden);
-  if (press.held && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed)
+  if (press.held && press.held[0] !== '@' && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed; '@': held off the card)
   const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key]));
   if (key === cardKey) return; cardKey = key;
   const c = $('cmd'); c.innerHTML = '';
@@ -50,20 +50,32 @@ export function buildCard() {
 
 // ---- long-press on a command button (touch): what it is, what it costs, its stats (stats.js), what it needs ----
 const press = { timer: 0, held: '', hide: 0 };
-function showDetail(it) {
-  const box = $('cmdInfo'), r = $('cmd').getBoundingClientRect(); // (the card survives rebuilds; its buttons may not)
+function showDetail(it, anchor = $('cmd')) {
+  // (over the card, right-aligned; or over another anchor, left-aligned: the selection console's portrait)
+  const box = $('cmdInfo'), r = anchor.getBoundingClientRect(), left = anchor !== $('cmd'); // (the card survives rebuilds; its buttons may not)
   const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''}</span>` : '';
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
-  box.style.right = (innerWidth - r.right) + 'px'; box.style.bottom = (innerHeight - r.top + 6) + 'px';
+  if (left) { box.style.left = r.left + 'px'; box.style.right = ''; } else { box.style.right = (innerWidth - r.right) + 'px'; box.style.left = ''; }
+  box.style.bottom = (innerHeight - r.top + 6) + 'px';
   const kind = /^[tb]_/.test(it.id) ? it.id.slice(2) : ''; // (a unit to train or a building to place: its stats)
   box.innerHTML = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}<span class="d">${it.tip || ''}</span>`;
   // Wide enough for the stat rows on one line each; wider still, up to the screen's width, while it is too tall for
   // the room above the card (a short landscape phone and a long description).
-  const room = Math.max(220, r.right - 8);
+  const room = Math.max(220, left ? innerWidth - r.left - 8 : r.right - 8);
   for (const w of [300, 380, 480, room]) { box.style.maxWidth = Math.min(Math.max(w, r.width), room) + 'px'; if (box.getBoundingClientRect().top >= 4) break; }
   const top = box.getBoundingClientRect().top; // still too tall (the smallest phones): lowered over the card's top edge
   if (top < 4) box.style.bottom = (innerHeight - r.top + 6 - (4 - top)) + 'px';
+}
+/** A long press (touch) on `el` shows `item()`'s details over `anchor`, as on a command button; a mouse has its title.
+ *  (`item().id` starts with '@': it is not a button, so the card's rebuilds leave its panel be.) */
+export function holdForDetail(el, item, anchor) {
+  el.addEventListener('pointerdown', ev => {
+    clearTimeout(press.timer); press.held = '';
+    if (ev.pointerType === 'touch') press.timer = setTimeout(() => { const it = item(); if (it) { press.held = it.id; showDetail(it, anchor); } }, 450);
+  });
+  el.addEventListener('pointerleave', () => clearTimeout(press.timer));
+  el.addEventListener('contextmenu', ev => ev.preventDefault());
 }
 function hideDetail() { clearTimeout(press.hide); $('cmdInfo').hidden = true; }
 // Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.

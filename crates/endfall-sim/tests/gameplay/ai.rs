@@ -455,15 +455,32 @@ fn the_ai_expands_to_a_second_base() {
         .filter(|b| b.team == ENEMY && b.kind == BldgKind::Core && b.done)
         .map(|b| (b.x, b.y))
         .collect();
-    // (a passive foe: it may have taken a third by then, `Diff::passive_expand`)
+    // (a passive foe: it may have taken a third by then, `Diff::passive_expand`; by 12:00 its main's mine and its
+    // natural's may be mined out, and its workers at a later base's)
     assert!(cores.len() >= 2, "AI has a second core by 12 min");
-    let exp = cores[1];
+    let near_exp = |n: &endfall_sim::map::Node| {
+        cores[1..]
+            .iter()
+            .any(|c| ((n.x - c.0).powi(2) + (n.y - c.1).powi(2)).sqrt() < 300.0)
+    };
     let working = w
         .units
         .iter()
-        .filter(|u| u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| ((n.x - exp.0).powi(2) + (n.y - exp.1).powi(2)).sqrt() < 300.0)))
+        .filter(|u| u.team == ENEMY && matches!(u.task, Task::Gather { node, .. } if w.map.node(node).is_some_and(near_exp)))
         .count();
-    assert!(working >= 3, "harvesters work the expansion: {working}");
+    assert!(
+        working >= 3,
+        "harvesters work a mine by an expansion: {working}"
+    );
+    // One base by each mine: a compact mine leaves room for a second Core beside it, which the AI does not take.
+    for (i, a) in cores.iter().enumerate() {
+        for b in &cores[i + 1..] {
+            assert!(
+                ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt() > 10.0 * TILE,
+                "two Cores side by side: {a:?} {b:?}"
+            );
+        }
+    }
 }
 
 #[test]

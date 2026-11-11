@@ -61,12 +61,12 @@ function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.cl
 const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 6;
 /** What is under (wx, wy): a unit whose body is there (of several, the one whose body's middle is nearest, for its
  *  size: overlapping units are each picked by a tap on their own middle), else the unit whose body is nearest within
- *  reach (generous for fingers), else a building, else a node. */
+ *  reach (generous for fingers), else a building, else a gold mine. A worker inside a mine is not there to pick. */
 function pick(wx, wy) {
   const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
   for (const u of G.units) {
-    if (u.team !== G.me && !visibleEnt(u)) continue;
+    if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue;
     const c = body(u), d = dist(c, p) - c.r; if (d > reach) continue;
     const k = d <= 0 ? dist(c, p) / c.r - 2 : d; // (on its body: -2 at its middle to -1 at its edge; off it: px beyond)
     if (k < bd) { bd = k; best = u; }
@@ -82,9 +82,13 @@ function pick(wx, wy) {
   }
   return top || nodeAt(wx, wy);
 }
-/** The explored resource field under (wx, wy), if any. */
+/** The explored gold mine under (wx, wy), if any: on its footprint, or on its rock just above it (the art rises half a
+ *  tile over its top row), a little past its edges for a finger. */
 function nodeAt(wx, wy) {
-  for (const n of map.nodes) { if (G.explored[idx(n.tx, n.ty)] && dist(n, { x: wx, y: wy }) <= n.r + 6) return n; }
+  const m = drag.ptype === 'touch' ? 8 : 2;
+  for (const n of map.nodes) {
+    if (G.explored[idx(n.tx, n.ty)] && wx >= n.tx * TILE - m && wx < (n.tx + n.w) * TILE + m && wy >= n.ty * TILE - TILE / 2 - m && wy < (n.ty + n.h) * TILE + m) return n;
+  }
   return null;
 }
 
@@ -99,7 +103,7 @@ function select(list, add) {
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => { const s = body(u); return u.team === G.me && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
+  const us = G.units.filter(u => { const s = body(u); return u.team === G.me && !u.inside && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
   // An army box near the base takes the army, not the workers mining beside it (a box of workers only takes them).
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
@@ -110,7 +114,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
 const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
-/** A salt field (a mine shaft is never mined by hand: its Excavator digs by itself). */
+/** A gold mine (a vent, none since the re-theme, is never mined by hand). */
 const field = (e) => e && e.kind === 'node' && e.type !== 'ether' ? e : null;
 
 /** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
@@ -200,7 +204,7 @@ function leftAction(wx, wy, add, at) {
   if (tap) { tap(units, wx, wy); return; }
   const hit = pick(wx, wy);
   if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at);
-  else if (hit && !add) select([hit]); // a resource field: shows what is left (right-click gathers)
+  else if (hit && !add) select([hit]); // a gold mine: shows what is left (right-click gathers)
   else if (!add) { setSelection([]); updateHud(); }
 }
 
@@ -212,8 +216,7 @@ function touchTap(wx, wy, at) {
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
   if (prev && (!hit || hit.kind === 'node') && fromBody(prev, { x: wx, y: wy }) <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
-  // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
-  // (Not a shaft: the worker there is likely building its Excavator, and a tap should still pick it.)
+  // Only workers selected and a tap on a mine where another of ours stands: the mine (gather), not the worker by it.
   const node = field(hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy));
   if (node) { commandAt(wx, wy, node); return; }
   if (hit && hit.kind !== 'node' && hit.team === G.me) {

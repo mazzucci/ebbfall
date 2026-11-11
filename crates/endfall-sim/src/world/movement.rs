@@ -13,7 +13,8 @@ impl World {
         }
         self.graveyard.clear();
         let (gw, gh) = (self.hash_w, self.hash.len() as i32 / self.hash_w);
-        for u in &self.units {
+        // (a unit inside a mine is not out there: nothing near finds it, it pushes nobody)
+        for u in self.units.iter().filter(|u| !u.inside()) {
             let (cx, cy) = Self::cell(u.x, u.y);
             let (cx, cy) = (cx.clamp(0, gw - 1), cy.clamp(0, gh - 1));
             self.hash[(cy * gw + cx) as usize].push(u.id);
@@ -308,7 +309,7 @@ impl World {
         let firm = |u: &Unit| u.task == Task::Hold || u.mode.is_some();
         let gathering = |u: &Unit| matches!(u.task, Task::Gather { .. });
         for i in 0..self.units.len() {
-            if firm(&self.units[i]) {
+            if firm(&self.units[i]) || self.units[i].inside() {
                 continue;
             }
             let (id, ux, uy) = (self.units[i].id, self.units[i].x, self.units[i].y);
@@ -320,7 +321,8 @@ impl World {
                 let (ox, oy, or, ohold, oair, miners) = {
                     let o = self.hashed(o).unwrap();
                     let me = &self.units[i];
-                    let miners = o.team == me.team && gathering(o) && gathering(me);
+                    // (one gone into a mine this tick, still in the hash, passes as a fellow miner would)
+                    let miners = o.inside() || (o.team == me.team && gathering(o) && gathering(me));
                     (o.x, o.y, o.r, firm(o), o.kind.def().air, miners)
                 };
                 if air != oair || miners {

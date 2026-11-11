@@ -13,6 +13,7 @@ mod guided;
 mod jitter;
 mod lockstep;
 mod maps;
+mod mines;
 mod orders;
 mod paths;
 mod peoples;

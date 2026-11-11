@@ -1,9 +1,10 @@
-//! Economy: supply, mining fields, harvesters choosing and sharing fields, and Pumps on seeps paying by themselves.
+//! Economy: supply, gold mines (workers go in, come out with a load and carry it home), and Markets paying by
+//! themselves.
 
 use super::*;
 
-/// A salt field "running low": fewer than this many salt left over all its crystals.
-pub const FIELD_LOW: i32 = 1500;
+/// A gold mine "running low": fewer than this many gold left in it.
+pub const MINE_LOW: i32 = 1500;
 
 impl World {
     /// The most supply a seat can have on this map (`data::supply_limit`).
@@ -27,7 +28,7 @@ impl World {
         self.sup[team as usize] = [used, cap.min(self.supply_limit())];
     }
 
-    /// The nearest salt field with salt left within `max_d` px (a seep is never mined: its Pump pays by itself).
+    /// The nearest gold mine with gold left within `max_d` px (an empty mine takes nobody in).
     pub fn nearest_node(&self, x: f64, y: f64, max_d: f64) -> Option<Id> {
         let (mut best, mut bd) = (None, max_d);
         for n in &self.map.nodes {
@@ -80,12 +81,11 @@ impl World {
         self.set_idle(uid);
     }
 
-    /// A field near `n` with clearly fewer harvesters on it
-    /// than `n`: at least two fewer, counting this one, so moving always evens the load and nobody shuttles back and
-    /// forth. The least crowded wins, then the nearest.
+    /// A mine near `n` with clearly fewer workers on it than `n`: at least two fewer, counting this one, so moving
+    /// always evens the load and nobody shuttles back and forth. The least crowded wins, then the nearest.
     pub(crate) fn less_crowded_field(&self, uid: Id, n: &Node, team: u8) -> Option<Id> {
-        // Only fields served by the same drop-off and not much farther from it: a hop never strays from the base
-        // toward a field out in the open.
+        // Only mines served by the same drop-off and not much farther from it: a hop never strays from the base
+        // toward a mine out in the open.
         let drop = self.nearest_dropoff(team, n.x, n.y)?;
         let reach = drop.edge_dist(n.x, n.y) + 2.5 * TILE;
         let cands: Vec<Id> = self
@@ -142,7 +142,8 @@ impl World {
             .min_by(|a, b| a.edge_dist(x, y).partial_cmp(&b.edge_dist(x, y)).unwrap())
     }
 
-    /// A worker's gather task, phase by phase: walk to the field (or queue at it), mine, carry it home.
+    /// A worker's gather task, phase by phase: walk to the mine (or wait at its side while it is full), go inside
+    /// (`Phase::Mine`: hidden, `Unit::inside`), come out with a load and carry it home.
     pub(crate) fn update_gather(&mut self, uid: Id, node: Id, phase: Phase, timer: f64, dt: f64) {
         let team = self.u(uid).team;
         let n = self.map.node(node).cloned();
@@ -162,12 +163,14 @@ impl World {
         }
     }
 
-    /// The field is gone or dry: the nearest other field, carrying home first if loaded; idle when there is none.
+    /// The mine is gone or empty: the nearest other mine, carrying home first if loaded; idle when there is none. A
+    /// worker inside comes out with nothing.
     fn gather_elsewhere(&mut self, uid: Id, node: Id, phase: Phase, timer: f64) {
         if phase == Phase::Mine
             && let Some(nm) = self.map.node_mut(node)
         {
             nm.miners -= 1;
+            self.come_out(uid);
         }
         let (ux, uy, carry) = {
             let u = self.u(uid);
@@ -188,29 +191,24 @@ impl World {
         }
     }
 
-    /// Walking to the field, or waiting at it: mine when a slot is free, else try a less crowded field nearby.
+    /// Walking to the mine, or waiting at its side: in when there is room (fewer than `MINE_CAP` inside), else try a
+    /// less crowded mine nearby.
     fn gather_arrive(&mut self, uid: Id, n: &Node, phase: Phase, timer: f64, income: f64, dt: f64) {
         let (team, r) = (self.u(uid).team, self.u(uid).r);
         let node = n.id;
-        let tgt = Geo::Round {
-            x: n.x,
-            y: n.y,
-            r: n.r,
-        };
-        if !self.approach_settled(uid, tgt, r + 13.0, SETTLE, dt) {
+        if !self.approach_settled(uid, n.geo(), r + 6.0, SETTLE, dt) {
             return;
         }
         let nm = self.map.node_mut(node).unwrap();
-        let task = if nm.miners < MINE_SLOTS {
+        let task = if nm.miners < MINE_CAP {
             nm.miners += 1;
             Task::Gather {
                 node,
                 phase: Phase::Mine,
-                timer: SHARD_MINE_TIME / income,
+                timer: MINE_TIME / income,
             }
         } else if phase == Phase::Go || timer <= 0.0 {
-            // Busy: like a worker in 1998, try a less crowded field close by (checked on arrival, then every half
-            // second while waiting).
+            // Full: try a less crowded mine close by (checked on arrival, then every half second while waiting).
             match self.less_crowded_field(uid, n, team) {
                 Some(m) => {
                     self.um(uid).last_node = Some(m);
@@ -236,7 +234,8 @@ impl World {
         self.um(uid).task = task;
     }
 
-    /// Mining (`timer`: what is left of it): when done, take a load and head home; a field taken to nothing is gone.
+    /// Inside the mine (`timer`: what is left of the time): when done, come out with a load and head home. A mine
+    /// taken to nothing stays where it stands, empty (its last gold said once).
     fn gather_mine(&mut self, uid: Id, n: &Node, timer: f64) {
         let node = n.id;
         if timer > 0.0 {
@@ -250,19 +249,12 @@ impl World {
         let team = self.u(uid).team;
         let nm = self.map.node_mut(node).unwrap();
         nm.miners -= 1;
-        let take = nm.amount.min(8);
+        let take = nm.amount.min(MINE_LOAD);
         nm.amount -= take;
         let left = nm.amount;
-        // A field crossing into its last FIELD_LOW salt (counted over all its crystals): time to expand.
-        let field: i32 = self
-            .map
-            .nodes
-            .iter()
-            .filter(|o| o.field == n.field)
-            .map(|o| o.amount)
-            .sum();
-        if field < FIELD_LOW && field + take >= FIELD_LOW {
-            self.toast(team, "A salt field is running low: time to expand", true);
+        // A mine crossing into its last MINE_LOW gold: time to expand.
+        if left < MINE_LOW && left + take >= MINE_LOW {
+            self.toast(team, "A gold mine is running low: time to expand", true);
             self.ping(team, n.x, n.y);
         }
         let u = self.um(uid);
@@ -272,23 +264,37 @@ impl World {
             phase: Phase::Return,
             timer,
         };
+        self.come_out(uid);
         if left <= 0 {
-            let i = self.map.idx(n.tx, n.ty);
-            self.map.occ[i] = 0;
-            self.terrain_changed();
-            self.map.nodes.retain(|m| m.id != node);
             // Told to the miner's seat and to the enemies who see it, not to its allies (who see it through its eyes:
-            // not their field).
+            // not their mine).
+            let i = self.map.idx(n.tx, n.ty);
             let miner = self.u(uid).team;
             for t in 0..self.seats() as u8 {
                 if self.vis[t as usize][i] != 0 && (t == miner || self.enemies(t, miner)) {
-                    self.toast(t, "A salt crystal is mined out", false);
+                    self.toast(t, "A gold mine is mined out", false);
                 }
             }
         }
     }
 
-    /// Carrying a load to the nearest drop-off (idle without one), then back to the field.
+    /// Out of a mine where it went in; where that ground is no longer ground it may stand on (the tide came over it
+    /// while the worker was inside, out of the sweep's reach), at the nearest that is.
+    pub(crate) fn come_out(&mut self, uid: Id) {
+        let (x, y, kind) = (self.u(uid).x, self.u(uid).y, self.u(uid).kind);
+        let foot = self.foot(kind);
+        let (tx, ty) = self.map.tile_of(x, y);
+        if !self.map.passable(foot, tx, ty)
+            && let Some((dx, dy)) = self.map.nearest_passable_to(foot, tx, ty, 8, (x, y))
+        {
+            let u = self.um(uid);
+            u.x = dx as f64 * TILE + 16.0;
+            u.y = dy as f64 * TILE + 16.0;
+            u.path = None;
+        }
+    }
+
+    /// Carrying a load to the nearest drop-off (idle without one), then back to the mine.
     fn gather_return(&mut self, uid: Id, node: Id, timer: f64, income: f64, dt: f64) {
         let (ux, uy, team, r) = {
             let u = self.u(uid);

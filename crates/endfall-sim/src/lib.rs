@@ -773,7 +773,7 @@ pub fn data_json() -> String {
 
 /// A map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row, on a map of
 /// `size` x `size` tiles (64, the default: a duel's two starts; 96: four starts, for three or four seats; 128: eight;
-/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 shards, 3 an ether vent, 4 a starting
+/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 a gold mine, 3 an ether vent, 4 a starting
 /// base (all starts alike: which is whose is drawn each game).
 #[wasm_bindgen(js_name = mapPreview)]
 pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
@@ -790,7 +790,7 @@ pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
         starts,
         &mut next_id,
     );
-    // (0 ground, 1 rock, 5 shallows, 6 deep water; then 2 shards, 3 vents, 4 the starts)
+    // (0 ground, 1 rock, 5 shallows, 6 deep water; then 2 mines, 3 vents, 4 the starts)
     let mut g: Vec<u8> = (0..m.rock.len())
         .map(|i| {
             let (x, y) = (i as i32 % m.w, i as i32 / m.w);
@@ -807,7 +807,7 @@ pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
         }
     };
     for n in &m.nodes {
-        let (size, v) = if n.ether { (2, 3) } else { (1, 2) };
+        let (size, v) = (n.s, if n.ether { 3 } else { 2 });
         for dy in 0..size {
             for dx in 0..size {
                 mark(n.tx + dx, n.ty + dy, v);
@@ -888,7 +888,7 @@ mod tests {
         let g = Game::new(12345, 1);
         assert_eq!(g.w.bldgs.len(), 2);
         assert_eq!(g.w.units.len(), 8);
-        assert!(g.w.map.nodes.len() > 20);
+        assert!(g.w.map.nodes.len() >= 6); // (a mine per field: each start's home and expansions)
         assert_eq!(g.w.sup[PLAYER as usize], [4, 20]);
     }
 

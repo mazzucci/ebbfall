@@ -69,16 +69,23 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 ## Tests that guard gameplay
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`, `random_play`, ...): the Market (one a
+  `combat`, `ai`, `maps`, `mines`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`, `random_play`, ...): gold
+  mines (`mines`: one per field on every map kind and size, holding the field's gold; every map symmetric mine for
+  mine, each image holding the same gold and every start seeing the same mines at the same distances; a worker inside
+  hidden, out of sight and reach, no healer tending it, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
+  mine taking nobody in; a saturated mine paying what a saturated field paid on main before the mines, pinned; each
+  people's AI at every level gathering from mines and taking an expansion's; an AI whose every base is dry taking
+  another, a natural still going up counting as a base), the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Trebuchet's deploy,
-  construction that stalls without a builder and resumes, ether mining, supply and refunds, turrets, the AI finishing
+  construction that stalls without a builder and resumes, workers hopping only to a mine no farther from their
+  drop-off, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
-  every 16 ticks on a tick of its own; the Kingdom's AI raising its Market early, one a Castle, and a lost one again), maps of 2, 4 and 8 starts that are walkable and alike for every start (no vent by any main or
-  expansion, each base's
-  crystals and salt as before in a clump, not an arc), group paths (one search for a group's order, long searches budgeted,
+  every 16 ticks on a tick of its own; the Kingdom's AI raising its Market early, one a Castle, and a lost one again; one
+  Core by each mine, and another base once every base's mines run dry), maps of 2, 4 and 8 starts that are walkable and
+  alike for every start (no vent by any main or expansion, one mine by each main), group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
   amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
   ground and fields, a walker reaching both coves, both basins and every field, short ways between a cove and the basin
@@ -86,12 +93,13 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
-  under high water: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
+  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
   the Data center and a Radio tower, none from a site, gone when the tower falls; an ally's counts; the Drone's leash and
   its back-off when left beyond it; the Expedition AI's forward tower on a machine wave's march, and its wave's machines
   attacking out of range not called home), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
-  resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
+  resources, miner counters, a worker inside a mine out of reach and out of its enemies' sight) after every tick. Add a
+  scenario here for every rule you add or change.
 
 ## Layout
 
@@ -137,10 +145,15 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Drone's leash), export.rs (the tables as JSON, one small writer)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
-                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's salt in an
+                      symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's crystals in an
                       uneven clump to one flank of its Core, `add_clump`; no map has a mine shaft since the re-theme's
                       economy: the generator still lays them, so the ground they shaped stays, and takes them up at the
-                      end, `take_up_shafts`; the Kingdom's Market is built in its base, one a Castle),
+                      end, `take_up_shafts`; then each field's crystals become one gold mine, `lay_mines`: 2x2
+                      (`MINE_SIZE`), neutral, holding the field's gold, by orbit under the map's symmetry: the orbit's
+                      first field finds a square where its crystals lay whose images all fit too (`mine_spot`: open
+                      ground on its sides facing the nearest start or expansion, its own image under any element that
+                      maps the field onto itself, every start and mine still in a walker's reach) and every image
+                      square gets a mine of the first's gold; the Kingdom's Market is built in its base, one a Castle),
                       occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
@@ -149,7 +162,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/path.rs         A* + line-of-sight smoothing for a walker's `Foot` (f32 cost grid, fixed heap tie-breaks, a
                       look-ahead window)
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
-                      starts, who is out, the last team standing), orders, spawn, economy, construction,
+                      starts, who is out, the last team standing), orders, spawn, economy (gold mines: a worker walks
+                      to a mine's side and goes in, `Phase::Mine`, `Unit::inside`: not drawn, not targeted or hit, out
+                      of its enemies' sight, pushing nobody, safe from fleeing; up to `MINE_CAP` inside for
+                      `MINE_TIME`, the rest waiting at its side, and out with `MINE_LOAD`; an empty mine stays, takes
+                      nobody in, its workers to the nearest other), construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
@@ -167,7 +184,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop zoomed out), dual-grid terrain,
-                      sprites (buildings and walking units in one layer sorted by ground y; this side's units behind a
+                      sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
+                      it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
                       the tower range (this side's covered tiles, tinted and outlined, while a Bot is selected or a
                       Radio tower placed, drawn again only when the coverage changes; a crossed ring over a machine out
@@ -177,10 +195,6 @@ src/client/           everything that touches the browser
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
                       kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
                       `rockTile`), and the shade layers (the land's shade, the water's tints and light) (test/ground.test.js)
-  gl/crust.js         the gold outcrops' shared bed, pure: nodes in clumps (`saltClumps`), one bed of trodden earth under
-                      each, soft and never opaque (`crustImage`, an image render.js makes the first time a clump is
-                      explored), and which of the outcrop's variants a node draws (`crystalVariant`: `shard_k`,
-                      `shard_k_1..3`) (test/crust.test.js)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, FIRST GAME, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
@@ -253,7 +267,8 @@ src/client/           everything that touches the browser
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
-                      on a circle round its drawn body (half its drawn height above its feet)
+                      on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
+                      footprint and the rock just over it; a worker inside a mine is not picked or boxed
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
@@ -287,11 +302,13 @@ test/engine.test.js   the WASM sim through src/engine in Node: presentation of e
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
                       a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
-                      tiles in both rock kinds, every stage and variant of the gold outcrop
+                      tiles in both rock kinds, every stage and variant of the gold outcrop (the link preview's), the
+                      gold mine's three stages, neutral
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
-test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`
+test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch, stops workers through the UI for a
+                      tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
@@ -321,8 +338,6 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       seat 2 (the start arranges the sides)
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an extractor on a far shaft unseen until a
                       unit looks, remembered after it walks away and after it dies out of sight, own and allied ones live
-test/crust.test.js    the gold's bed (src/client/gl/crust.js): clumps, one mass of earth without holes, never opaque, soft at
-                      its edge, the same image every time, each tile's outcrop variant
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P
@@ -400,7 +415,7 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
                       its models, `atlasSprites` renders them under today's names): the kingdom (kingdom.js,
                       kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
-                      props, construction and rubble (country.js), and the polished finish they render in (polish.js,
+                      props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they render in (polish.js,
                       scene.js `shoot`'s `polish`) at the game's 40-degree camera and 420 sun. The older models
                       (models.js, buildings.js, harbour*.js, vael*.js) stay only for the two healers the sim keeps but
                       trains nowhere (medic, halo) and fitTints' reference sprites; the retired kinds are not drawn

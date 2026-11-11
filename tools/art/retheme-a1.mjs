@@ -9,10 +9,11 @@
 //   node tools/art/retheme-a1.mjs           turbine.png: today's Cabin, the two turbine options (one tall turbine; three
 //     small ones on a pad) with their rotors, the Radio tower and the Data center for scale, seats 0 and 1;
 //     uplink.png: the Uplink beside the Sentry gun, the Lab (its small dish) and the Data center, both
-//     seats; sentry.png: the Sentry gun (the `radio` slot's new model, its barrel the head) beside the Kingdom's
-//     Watchtower and a turbine; base-100 / base-075: the Expedition base (tools/art/retheme-bases.mjs's layout) with the turbines in the
-//     Cabins' places and an Uplink placed (base-farm-*: the same with the wind farm); the printed table: angle, fit,
-//     spill, team share, cyan share, clipping
+//     seats; uplink-pan.png: the dish (the head) at five pan angles; sentry.png: the Sentry gun (the `radio` slot's
+//     new model, its barrel the head) beside the Kingdom's Watchtower and a turbine; lab.png: today's Lab and the dome;
+//     portal.png: today's Portal and the energy gate (its light the head); base-100 / base-075: the Expedition base
+//     (tools/art/retheme-bases.mjs's layout) with the server hall, the turbines in the Cabins' places, an Uplink, the
+//     Sentry guns, the dome and the gate; the printed table: angle, fit, spill, team share, cyan share, clipping
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { encodePNG } from './png.js';
@@ -37,9 +38,11 @@ async function rendered(key, filter, opts) {
   return out;
 }
 
-const SIZES = { kg_tower: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
-/** The turning heads over their bases: the Radio tower's turret at facings, the rotors at phases. */
-const HEADS = { kg_tower: 'kg_towerhead', ex_radio: 'ex_radiohead', ex_turbine: 'ex_turbinehead', ex_windfarm: 'ex_windfarmhead' }, HEAD_DIRS = [0, 5, 11];
+const SIZES = { kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
+/** The turning heads over their bases, [name, the frames the pictures use]: the turrets at facings, the rotors and the
+ *  gate's light at phases, the Uplink's dish at a few pan angles about its frame-0 turn. */
+const HEADS = { kg_tower: ['kg_towerhead', [0, 5, 11]], ex_radio: ['ex_radiohead', [0, 5, 11]], ex_turbine: ['ex_turbinehead', [0, 5, 11]], ex_windfarm: ['ex_windfarmhead', [0, 5, 11]], ex_uplink: ['ex_uplinkhead', [0, 14, 2]], ex_gate: ['ex_gatehead', [0, 5, 11]] };
+const PAN = [12, 14, 0, 2, 4]; // the Uplink's pan sheet: -90, -45, 0, +45, +90 degrees about the column
 
 // ---- the ground: the game's grass tiles ----
 const tiles = {}; const getTile = (m, v) => tiles[`${m}_${v}`] ??= tile(m, v);
@@ -65,8 +68,8 @@ const fmtSpill = (sp) => `${sp.W} / ${sp.E} / ${sp.S}`;
 function clipped(s) { const { w, h, data } = s.img; for (let x = 0; x < w; x++) if (data[x * 4 + 3] || data[((h - 1) * w + x) * 4 + 3]) return true; for (let y = 0; y < h; y++) if (data[y * w * 4 + 3] || data[(y * w + w - 1) * 4 + 3]) return true; return false; }
 /** The cyan light's share of a sprite's solid pixels. */
 function cyan(s) { const { data } = s.img; let n = 0, c = 0; for (let i = 0; i < data.length; i += 4) { if (data[i + 3] !== 255 || !(data[i] | data[i + 1] | data[i + 2])) continue; n++; if (data[i + 2] > 170 && data[i + 1] > 150 && data[i] < 0.75 * data[i + 2]) c++; } return c / n; }
-/** A building drawn at (x, y) for `seat`, its head (at `dir`) over it. */
-function drawBldg(P, c, kind, x, y, seat, dir = 0) { P.draw(c, P.get(`bldg_${kind}`), x, y, seat); if (HEADS[kind]) P.draw(c, P.get(`${HEADS[kind]}_${dir}`), x, y, seat); }
+/** A building drawn at (x, y) for `seat`, its head over it: the k-th of its frames, or the frame `dir` given. */
+function drawBldg(P, c, kind, x, y, seat, k = 0, dir = null) { P.draw(c, P.get(`bldg_${kind}`), x, y, seat); if (HEADS[kind]) { const [name, dirs] = HEADS[kind]; P.draw(c, P.get(`${name}_${dir ?? dirs[k % dirs.length]}`), x, y, seat); } }
 
 // ---- the trial: the Uplink at every candidate angle ----
 if (mode === 'trial') {
@@ -91,14 +94,14 @@ if (mode === 'trial') {
 
 // ---- the check: the three new buildings alone ----
 if (mode === 'check') {
-  const art = await rendered('check', '^(bldg_ex_(turbine|windfarm|uplink)$|ex_(turbinehead|windfarmhead)_0$)', { polish: true });
-  const P = makePainters(art, seatTints(art.tints)), kinds = ['ex_turbine', 'ex_windfarm', 'ex_uplink'], cw = 7 * T, rh = 9 * T;
+  const art = await rendered('check', '^(bldg_ex_(turbine|uplink|radio|labdome|gate)$|ex_(turbinehead|radiohead|uplinkhead|gatehead)_0$)', { polish: true });
+  const P = makePainters(art, seatTints(art.tints)), kinds = ['ex_turbine', 'ex_uplink', 'ex_radio', 'ex_labdome', 'ex_gate'], cw = 7 * T, rh = 9 * T;
   const c = cv(cw * kinds.length, rh); grass(c, 5);
   kinds.forEach((k, i) => {
     const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }, sz = P.sizeOf(`bldg_${k}`), x = i * cw + cw / 2, by = Math.round(rh - 1.2 * T - SIZES[k] * T / 2);
     drawBldg(P, c, k, x, by, 0, 0); label(c, k, i * cw + 4, rh - 22, 2);
     console.log(`  ${k.padEnd(12)} ${String(turn.yaw).padStart(4)}   ${turn.scale.toFixed(2)}  ${fmtSpill(spill(s, SIZES[k])).padEnd(18)} team ${P.share(`bldg_${k}`)}  cyan ${(cyan(s) * 100).toFixed(1)}%  ${sz[0]} x ${sz[1]}${clipped(s) ? '  CLIPPED' : ''}`);
-    if (HEADS[k]) { const h = `${HEADS[k]}_0`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
+    if (HEADS[k]) { const h = `${HEADS[k][0]}_0`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
   });
   save('check', c);
   console.log('check sheet ->', join(outDir, 'check-1x.png'));
@@ -108,50 +111,53 @@ if (mode === 'check') {
 // ---- the pictures ----
 const UNITS = '(ex_bot|ex_marine)_(0|2|4|6|8|10|12|14)_0';
 const t0 = Date.now();
-const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|post|factory|lab|portal)$|bldg_kg_tower$|(ex_(radiohead|turbinehead|windfarmhead)|kg_towerhead)_(${HEAD_DIRS.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
+const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|factory|lab|labdome|portal|gate)$|bldg_kg_tower$|(ex_(radiohead|turbinehead|windfarmhead|gatehead)|kg_towerhead)_(0|5|11)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
 console.log(`rendered ${art.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const P = makePainters(art, seatTints(art.tints));
 console.log('building      angle   fit   spill W / E / S   team    cyan   size at 1x');
-for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_bunkhouse', 'ex_radio', 'kg_tower']) {
+for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_radio', 'ex_labdome', 'ex_gate', 'ex_bunkhouse', 'ex_lab', 'ex_portal', 'kg_tower']) {
   const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }, sz = P.sizeOf(`bldg_${k}`);
   console.log(`  ${k.padEnd(12)} ${String(turn.yaw).padStart(4)}   ${turn.scale.toFixed(2)}  ${fmtSpill(spill(s, SIZES[k])).padEnd(18)} ${String(P.share(`bldg_${k}`)).padEnd(6)}  ${(cyan(s) * 100).toFixed(1).padStart(4)}%  ${sz[0]} x ${sz[1]}${clipped(s) ? '  CLIPPED' : ''}`);
-  if (HEADS[k]) for (const d of HEAD_DIRS) { const h = `${HEADS[k]}_${d}`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} team ${P.share(h)}  ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
+  if (HEADS[k]) for (const d of (k === 'ex_uplink' ? PAN : HEADS[k][1])) { const h = `${HEADS[k][0]}_${d}`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} team ${P.share(h)}  ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
 }
 
-/** A row of buildings per seat: [kind, caption] columns, seat 0 above, seat 1 below. */
+/** A row of buildings per seat: [kind, caption, head frame?] columns, seat 0 above, seat 1 below. */
 function sheet(name, cols, caption, cw = 7 * T, rh = 9 * T) {
   const c = cv(cw * cols.length, rh * 2); grass(c, 5);
-  [0, 1].forEach(seat => cols.forEach(([kind, txt], i) => {
+  [0, 1].forEach(seat => cols.forEach(([kind, txt, dir], i) => {
     const x = i * cw + cw / 2, n = SIZES[kind], by = Math.round(seat * rh + rh - 1.2 * T - n * T / 2), s = P.get(`bldg_${kind}`);
-    drawBldg(P, c, kind, x, by, seat, HEAD_DIRS[(i + seat) % HEAD_DIRS.length]);
+    drawBldg(P, c, kind, x, by, seat, i + seat, dir ?? null);
     label(c, `${txt}${s.turn && s.turn.yaw ? ` ${s.turn.yaw > 0 ? '+' : ''}${s.turn.yaw}` : ''}`, i * cw + 4, seat * rh + rh - 22, 2);
   }));
   label(c, caption, 4, 4, 2);
   save(name, c);
 }
-sheet('turbine', [['ex_bunkhouse', "TODAY'S CABIN"], ['ex_turbine', 'ONE TURBINE'], ['ex_windfarm', 'THREE ON A PAD'], ['ex_radio', 'SENTRY GUN'], ['ex_hall', 'DATA CENTER']], 'THE POWER SOURCE: TODAY, THE TWO OPTIONS, THE SENTRY GUN AND THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
-sheet('uplink', [['ex_uplink', 'THE UPLINK'], ['ex_radio', 'SENTRY GUN'], ['ex_lab', 'LAB'], ['ex_hall', 'DATA CENTER']], 'THE UPLINK BESIDE THE SENTRY GUN, THE LAB AND THE DATA CENTER. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
+sheet('turbine', [['ex_bunkhouse', "TODAY'S CABIN"], ['ex_turbine', 'ONE TURBINE'], ['ex_windfarm', 'THREE ON A PAD'], ['ex_radio', 'SENTRY GUN'], ['ex_datahall', 'DATA CENTER']], 'THE POWER SOURCE: TODAY, THE TWO OPTIONS, THE SENTRY GUN AND THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('uplink', [['ex_uplink', 'THE UPLINK'], ['ex_radio', 'SENTRY GUN'], ['ex_labdome', 'LAB'], ['ex_datahall', 'DATA CENTER']], 'THE UPLINK BESIDE THE SENTRY GUN, THE LAB AND THE DATA CENTER. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
+sheet('uplink-pan', PAN.map(d => ['ex_uplink', `PAN ${((d + 8) % 16 - 8) * -22.5}`, d]), 'THE UPLINK: THE DISH PANNED ABOUT ITS COLUMN (THE HEAD AT FIVE FRAMES). SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
 sheet('sentry', [['ex_radio', 'SENTRY GUN'], ['kg_tower', 'WATCHTOWER'], ['ex_turbine', 'ONE TURBINE']], 'THE SENTRY GUN BESIDE THE WATCHTOWER AND A TURBINE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('lab', [['ex_lab', "TODAY'S LAB"], ['ex_labdome', 'THE DOME'], ['ex_datahall', 'DATA CENTER']], 'THE LAB: TODAY AND THE DOME, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('portal', [['ex_portal', "TODAY'S PORTAL"], ['ex_gate', 'THE ENERGY GATE'], ['ex_datahall', 'DATA CENTER']], 'THE PORTAL: TODAY AND THE ENERGY GATE, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 
 // ---- the base: tools/art/retheme-bases.mjs's Expedition layout, the turbines in the Cabins' places, an Uplink ----
 const EX_UNITS = [['ex_bot_0_0', 15.2, 9.4], ['ex_bot_2_0', 18.6, 8.2], ['ex_bot_8_0', 19.8, 10.1], ['ex_bot_12_0', 20.4, 7.3], ['ex_marine_4_0', 15.5, 5.8], ['ex_marine_4_0', 16.4, 5.9], ['ex_marine_4_0', 17.3, 6.0], ['ex_marine_0_0', 9.5, 12.6]];
 const GOLD = [21.5, 9.2], PANEL = [25, 17];
 function layout(power) {
-  return [['ex_hall', 10, 7], [power, 5, 2], [power, 8, 2], [power, 5, 5], [power, 8, 5], ['ex_post', 12, 3], ['ex_post', 15, 3],
-    ['ex_factory', 16, 7], ['ex_lab', 16, 11], ['ex_portal', 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], [power, 1, 7]];
+  return [['ex_datahall', 10, 7], [power, 5, 2], [power, 8, 2], [power, 5, 5], [power, 8, 5], ['ex_post', 12, 3], ['ex_post', 15, 3],
+    ['ex_factory', 16, 7], ['ex_labdome', 16, 11], ['ex_gate', 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], [power, 1, 7]];
 }
 function base(seat, power) {
   const c = cv(PANEL[0] * T, PANEL[1] * T); grass(c, seat + 11);
   const items = [];
-  layout(power).forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, HEAD_DIRS[id % HEAD_DIRS.length])] }); });
+  layout(power).forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, id)] }); });
   for (const [name, tx, ty] of EX_UNITS) items.push({ y: ty * T, draw: [(cc) => P.draw(cc, P.get(name), tx * T, ty * T, seat)] });
   items.push({ y: GOLD[1] * T, draw: [(cc) => P.draw(cc, P.get('rt_gold_0_0'), GOLD[0] * T, GOLD[1] * T)] });
   for (const it of items.sort((a, b) => a.y - b.y)) for (const d of it.draw) d(c);
   return c;
 }
-for (const [name, power, txt] of [['base', 'ex_turbine', 'WIND TURBINES'], ['base-farm', 'ex_windfarm', 'WIND FARMS']]) {
-  const c = base(1, power), z = resample(c, 0.75);
-  label(c, `EXPEDITION BASE WITH ${txt}, AN UPLINK AND SENTRY GUNS`, 6, 6, 2); save(`${name}-100`, c, false);
-  label(z, `EXPEDITION BASE WITH ${txt}, AN UPLINK AND SENTRY GUNS  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);
+{
+  const c = base(1, 'ex_turbine'), z = resample(c, 0.75), cap = 'EXPEDITION BASE: THE SERVER HALL, TURBINES, THE UPLINK, SENTRY GUNS, THE LAB DOME, THE ENERGY GATE';
+  label(c, cap, 6, 6, 2); save('base-100', c, false);
+  label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save('base-075', z, false);
 }
 console.log('pictures ->', outDir);

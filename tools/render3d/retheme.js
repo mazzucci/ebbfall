@@ -58,23 +58,27 @@ Object.assign(RT_BUILDINGS.ex, {
   // Swapped (Stelian, 2026-11-11, after four blind checks read each as the other's role): the windowed booth is the
   // population building (the "Cabin"), the big khaki tent the Recruiting post.
   bunkhouse: { build: EB.recruitingPost, n: 2, h: 34 }, post: { build: EB.bunkhouse, n: 2, h: 46 }, factory: { build: EB.factory, n: 3, h: 44 },
-  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.sentryGun, n: 2, h: 30 }, portal: { build: EB.portal, n: 2, h: 46 }, // (`radio`: the Sentry gun since A1, 2026-11-11, Stelian: low and squat; the mast `EB.radioTower` stays for the record)
+  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.sentryGun, n: 2, h: 36 }, portal: { build: EB.portal, n: 2, h: 46 }, // (`radio`: the Sentry gun since A1, 2026-11-11, Stelian: low and squat; the mast `EB.radioTower` stays for the record)
   // A1 (2026-11-11): the Wind turbine (the Power source, to replace the Cabin under `spire`; `windfarm` the other
   // option, three small turbines on one pad, kept for the pictures) and the Uplink (3x3, the sim key `uplink`).
-  turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 52 },
+  turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 44 },
+  // Round 3 (Stelian): the Lab's dome under `labdome` and the Portal's energy gate under `gate` (`lab` and `portal` stay today's, for the pictures).
+  labdome: { build: EB.labDome, n: 2, h: 40 }, gate: { build: EB.energyGate, n: 2, h: 48 },
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
- *  is a rotor: its 16 frames are phases of a third of a turn about its own axis (three blades repeat every third), the
- *  builder taking the phase, and nothing turns it about the vertical; its base is square (BLDG_YAW 0), so the head
- *  needs no fit. The turbines' rotors (expedition-buildings.js `turbineRotor`, `windFarmRotor`). */
+ *  is a rotor: its 16 frames are phases of a `spin`-th of a turn about its own axis (3 for three blades, which repeat
+ *  every third; 1 for a whole cycle, the gate's shimmer), the builder taking the phase, and nothing turns it about the vertical; its base is square (BLDG_YAW 0), so the head
+ *  needs no fit. The turbines' rotors (expedition-buildings.js `turbineRotor`, `windFarmRotor`). A head marked `shadow`
+ *  is shot with its cast shadow (the Uplink's dish: the base has only the stand). */
 export const RT_HEADS = {
   kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
-  ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 30 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true } },
+  ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 36 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true },
+    uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 48, spin: 1 } }, // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
 };
 /** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
 function head(b, mats, dir) {
-  if (b.spin) return b.build(mats, dir / FACINGS * Math.PI * 2 / 3);
+  if (b.spin) return b.build(mats, dir / FACINGS * Math.PI * 2 / b.spin);
   const obj = b.build(mats); obj.rotation.y = -dir / FACINGS * Math.PI * 2; return obj;
 }
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
@@ -94,7 +98,7 @@ const FACINGS = 16;
  *  building (look.js BLDG_LOOK) are measured on the turned model. */
 export const BLDG_YAW = {
   kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0 }, // (the Uplink's dish is turned in the model: round on the ground, so square)
+  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: 20, gate: 0 }, // (the gate square: its light is a head) // (the Uplink's dish is turned in the model: round on the ground, so square)
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;
@@ -168,7 +172,7 @@ export function* rethemeSprites(want, opts = {}) {
     }
     for (const [kind, b] of Object.entries(RT_HEADS[side])) for (let dir = 0; dir < FACINGS; dir++) {
       const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;
-      yield [name, head(b, mats(), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
+      yield [name, head(b, mats(), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: !!b.shadow }, true];
     }
   }
   if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL, !!opts.polish)), unitCell(30, 12, lift), o, false];
@@ -232,7 +236,7 @@ export function* atlasSprites(want = () => true) {
   }
   for (const [name0, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
     const b = RT_HEADS[side][model], name = `${name0}_${dir}`; if (!want(name)) continue;
-    yield [name, head(b, mats(side), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true]; // (drawn over its base, which has the shadow)
+    yield [name, head(b, mats(side), dir), bldgCell(b.n, b.h, lift), { ...o, shadow: !!b.shadow }, true]; // (drawn over its base, which has the shadow, unless the head carries its own)
   }
   for (const [prefix, [side, kind]] of Object.entries(ATLAS_SITES)) for (const n of [2, 3, 4]) {
     const name = `${prefix}_${n}`; if (!want(name)) continue;

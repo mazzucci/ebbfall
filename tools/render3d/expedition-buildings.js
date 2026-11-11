@@ -629,8 +629,8 @@ function powerKit(g, M, x, z) {
 }
 const TURBINE_H = 56, TURBINE_R = 2.6, TURBINE_YAW = -0.5, TURBINE_L = 20;
 /** The Wind turbine (the Power source; 2x2, replacing the Cabin: the sim key `spire`): one tall turbine. A pale
- *  tapered pole 56 tall going straight into the ground (no footing, no earth plate: Stelian's correction after the first
- *  pictures, with one guy rope instead of three), a darker replaced section lashed with rope, rungs, a team band round
+ *  tapered pole 56 tall going straight into the ground (no footing, no earth plate and no guy ropes: Stelian's
+ *  corrections after the first pictures; a detail too small to understand reads as clutter), a darker replaced section lashed with rope, rungs, a team band round
  *  its waist between ink rings; the nacelle at the top turned a little west of the camera so the rotor disc shows, a
  *  cyan tail light; at the foot the battery box with a cyan light, a cable from the pole, a cable drum, a jerrycan; the
  *  team flag on a short mast (team in the flag and the band only). The rotor is `turbineRotor` (the turning head).
@@ -638,11 +638,8 @@ const TURBINE_H = 56, TURBINE_R = 2.6, TURBINE_YAW = -0.5, TURBINE_L = 20;
 export function windTurbine(M) {
   ebMats(M); turbineMats(M); const g = grp();
   turbineMast(g, M, 0, 0, TURBINE_H, TURBINE_R, TURBINE_YAW, M.polish, false);
-  const GA = [Math.cos(2.4) * 1.8, 3 + TURBINE_H * 0.7, Math.sin(2.4) * 1.8], GB = [Math.cos(2.4) * 21, 1.5, Math.sin(2.4) * 19];      // the one guy rope, to a stake south-west
-  limb(g, GA, GB, 0.3, M.rope); add(g, cyl(0.6, 0.8, 3, 6), M.oak, GB[0], 1.6, GB[2], 0.2, 0, 0);
   powerKit(g, M, 11, 11); cable(g, M, [1.5, 5.5, 1.8], [8.5, 5.6, 9.5], 0.4);
   flag(g, M, -13, 0, -11, 24, 16, 11);
-  if (M.polish) { const at = (t) => GA.map((v, i) => v + (GB[i] - v) * t); limb(g, at(0.78), at(0.88), 0.55, M.steel); }                 // a turnbuckle on the guy
   return g;
 }
 /** The Wind turbine's rotor at `phase` (0 to 2 pi / 3: three blades repeat every third of a turn), the turning head
@@ -680,84 +677,154 @@ function dishGeo(R, d, t, seg = 64) {
   for (let i = n; i >= 0; i--) { const r = R * i / n; pts.push(new THREE.Vector2(r + (i ? t * 0.6 : 0), d * (r / R) ** 2 - t)); }
   return new THREE.LatheGeometry(pts.reverse(), seg); // (reversed: the lathe's normals follow the profile's direction, and the bowl's face must light from inside)
 }
-const DISH_R = 24, DISH_D = 7, DISH_TILT = 0.82, DISH_TURN = -0.35;
+const DISH_R = 36, DISH_D = 10.5, DISH_TILT = 0.82, DISH_TURN = -0.35, DISH_ELBOW = 27;
 /** The Uplink (3x3, unarmed; the sim key `uplink`: "Talks to the satellite we brought along."): a satellite dish on
- *  its stand, nothing else (Stelian's corrections after the first pictures: the face-on dish showed a grey blob in the
- *  middle and the hut, struts and props were clutter). The dish (r 24) is seen near profile, three-quarter, aimed up
- *  and to the right at the sky (its axis 47 degrees from vertical towards +x, turned 20 degrees towards the camera), so
- *  the silhouette is the bowl's curve, the rim's thickness and the feed arm with its horn sticking out of the bowl, as
- *  the dish emoji: one pale tone shaded by its curve alone (no ribs, nothing casting on it), a dark rim, a bent feed arm
- *  from the lower rim to the focus carrying a small horn with a cyan light looking into the bowl; a clear pedestal under
- *  it: a round steel base plate, a column, an elbow to the dish's back boss; one standing team flag beside it (the team
- *  colour, nowhere else). Low and wide where the turbine is tall. From the camera: a pale bowl on a post tipped up to the
- *  right with an arm out of it, a flag. */
+ *  its stand, nothing else (Stelian's corrections: the face-on dish showed a grey blob in the middle; the hut, struts
+ *  and props were clutter; round 3: bigger, filling the 3x3, and the dish a separate part). The base (`uplink`): a
+ *  round steel base plate, a column up the footprint's centre, the elbow at its top, a small cyan light, one standing
+ *  team flag (the team colour, nowhere else). The dish (`uplinkDish`, the turning head, RT_HEADS `uplinkhead`, with
+ *  its shadow): the yoke on the elbow, the back boss, the bowl (r 36, as wide as the footprint and a bit more, in the
+ *  air) seen near profile, three-quarter, aimed up and to the right at the sky (its axis 47 degrees from vertical
+ *  towards +x, turned 20 degrees towards the camera at frame 0), so the silhouette is the bowl's curve, the rim's
+ *  thickness and the feed arm with its horn sticking out of the bowl, as the dish emoji: one pale tone shaded by its
+ *  curve alone (no ribs, nothing casting on it), a dark rim, a bent feed arm from the lower rim to the focus with a
+ *  small horn and a cyan light looking into the bowl. The head's 16 frames pan the dish about the column, so the
+ *  client can give it a slow pan. From the camera: a big pale bowl on a post tipped up to the right with an arm out of
+ *  it, a flag. */
 export function uplink(M) {
   ebMats(M); turbineMats(M); const g = grp();
-  const DX = -4, DZ = 2, CY = 24;                                                                                         // the dish's centre (its vertex)
-  const o = grp(); o.position.set(DX, 0, DZ); o.rotation.y = DISH_TURN; g.add(o);                                        // turned a little towards the camera
-  // the pedestal: a round base plate, a column, the elbow up to the dish's back boss
-  const back = [-Math.sin(DISH_TILT) * 3.2, CY - Math.cos(DISH_TILT) * 3.2, 0];                                          // where the boss meets the elbow (3.2 behind the vertex along the axis)
-  add(o, cyl(9, 10, 2.6, 24), M.steel, back[0], 1.3, 0); add(o, cyl(9.4, 9.4, 0.5, 24), M.inkLine, back[0], 0.3, 0);
-  add(o, cyl(3.2, 4.0, back[1] - 5, 14), M.steel, back[0], 2.6 + (back[1] - 5) / 2, 0);                                  // the column
-  add(o, sph(4.0, 14, 10), M.joint, back[0], back[1] - 3.4, 0);                                                           // the elbow
-  for (const sx of [-1, 1]) add(o, rbox(1.4, 6, 3.6, 0.3), M.paleSteel, back[0] + sx * 3.6, back[1] - 1.2, 0);              // the yoke's cheeks
-  cyanLed(o, M, 0.6, back[0] + 5.5, 2.0, 7.6);                                                                           // a small light on the base plate's rim
-  // the dish: tilted up to the right about z, its vertex at the centre
-  const d = grp(); d.position.set(0, CY, 0); d.rotation.z = -DISH_TILT; o.add(d);
-  add(d, dishGeo(DISH_R, DISH_D, 1.0), M.blade, 0, 0, 0);
-  add(d, torus(DISH_R + 0.4, 1.1, Math.PI * 2, 48), M.dishBack, 0, DISH_D + 0.1, 0, Math.PI / 2, 0, 0);                   // the rim, thick
-  add(d, cyl(2.6, 3.2, 3.4, 12), M.joint, 0, -2.4, 0);                                                                  // the back boss, down to the elbow
+  add(g, cyl(10, 11, 2.6, 24), M.steel, 0, 1.3, 0); add(g, cyl(10.4, 10.4, 0.5, 24), M.inkLine, 0, 0.3, 0);               // the base plate
+  add(g, cyl(3.4, 4.2, DISH_ELBOW - 2 - 2.6, 14), M.steel, 0, 2.6 + (DISH_ELBOW - 2 - 2.6) / 2, 0);                        // the column
+  add(g, sph(4.6, 14, 10), M.joint, 0, DISH_ELBOW, 0);                                                                   // the elbow
+  cyanLed(g, M, 0.7, 6.5, 2.2, 8.4);                                                                                     // a small light on the base plate's rim
+  flag(g, M, 26, 0, 34, 28, 18, 12);                                                                                       // the one team flag, front-right, its cloth inside the footprint
+  if (M.polish) add(g, torus(4.4, 0.35, Math.PI * 2, 14), M.paleSteel, 0, 3.6, 0, Math.PI / 2, 0, 0);                      // a collar on the column
+  return g;
+}
+/** The Uplink's dish, the turning head: built at its frame-0 turn (DISH_TURN); retheme.js turns it about the vertical
+ *  for the other frames (a pan about the column). With its shadow (RT_HEADS `shadow`): a bowl this big without one
+ *  would float. */
+export function uplinkDish(M) {
+  ebMats(M); turbineMats(M); const g = grp();
+  const o = grp(); o.rotation.y = DISH_TURN; g.add(o);
+  for (const sz of [-1, 1]) add(o, rbox(3.8, 7, 1.6, 0.3), M.paleSteel, 0, DISH_ELBOW + 1.5, sz * 4.2);                    // the yoke's cheeks on the elbow
+  const d = grp(); d.position.set(Math.sin(DISH_TILT) * 5, DISH_ELBOW + Math.cos(DISH_TILT) * 5, 0); d.rotation.z = -DISH_TILT; o.add(d); // the dish, its vertex 5 up the axis from the elbow, tilted up to the right
+  add(d, cyl(2.8, 3.6, 5.5, 12), M.joint, 0, -2.6, 0);                                                                  // the back boss, down to the elbow
+  add(d, dishGeo(DISH_R, DISH_D, 1.2), M.blade, 0, 0, 0).userData.noReceive = true;                                   // (the bowl receives no cast shadow: at its grazing angles the shadow map striped it with radial lines)
+  add(d, torus(DISH_R + 0.5, 1.4, Math.PI * 2, 64), M.dishBack, 0, DISH_D + 0.1, 0, Math.PI / 2, 0, 0);                  // the rim, thick
   const F = DISH_R * DISH_R / (4 * DISH_D), q = grp(); d.add(q);                                                         // the feed arm and horn (no shadow on the bowl)
-  limb(q, [DISH_R * 0.88, DISH_D * 0.78, 0], [DISH_R * 0.62, F * 0.55, 0], 0.7, M.steel); limb(q, [DISH_R * 0.62, F * 0.55, 0], [1.6, F - 1.6, 0], 0.7, M.steel); // the bent arm from the lower rim (+x side) to the focus
-  add(q, rbox(3.2, 4.0, 3.2, 0.5), M.panelDark, 0, F + 0.4, 0); add(q, torus(1.6, 0.4, Math.PI * 2, 20), M.neon, 0, F - 1.8, 0, Math.PI / 2, 0, 0); cyanLed(q, M, 1.0, 0, F - 2.3, 0); // the horn, its cyan ring and light looking into the bowl
+  limb(q, [DISH_R * 0.9, DISH_D * 0.82, 0], [DISH_R * 0.62, F * 0.55, 0], 0.9, M.steel); limb(q, [DISH_R * 0.62, F * 0.55, 0], [2.0, F - 2, 0], 0.9, M.steel); // the bent arm from the lower rim (+x side) to the focus
+  add(q, rbox(4.2, 5.0, 4.2, 0.6), M.panelDark, 0, F + 0.6, 0); add(q, torus(2.0, 0.5, Math.PI * 2, 20), M.neon, 0, F - 2.2, 0, Math.PI / 2, 0, 0); cyanLed(q, M, 1.2, 0, F - 2.8, 0); // the horn, its cyan ring and light looking into the bowl
   q.traverse(m => { if (m.isMesh) m.userData.noShadow = true; });
-  flag(g, M, 24, 0, 18, 30, 18, 12);                                                                                       // the one team flag
-  if (M.polish) { for (const a of [0.4, 1.9, 3.5, 5.0]) add(o, sph(0.6, 8, 6), M.paleSteel, back[0] + Math.cos(a) * 7.5, 2.9, Math.sin(a) * 7.5); add(o, torus(4.1, 0.3, Math.PI * 2, 14), M.paleSteel, back[0], 3.2, 0, Math.PI / 2, 0, 0); } // bolts on the base plate, a collar on the column
   return g;
 }
 
 // ---- the Sentry gun (defence, 2x2; the sim key `ward`, today's Radio tower's slot and its turning head `ward_head`;
-// Stelian, 2026-11-11: a small, low, armored gun turret on a short base, the barrel the turning part, plain metal with
+// Stelian, 2026-11-11: a small, low, armored gun turret on a short base, the barrel the turning part, pale metal with
 // orange-and-white accents, team on a small flag only, low and squat against the tall turbines and the Kingdom's stone
-// Watchtower). `radioTower` / `radioTurret` above stay for the record; retheme.js draws these under `radio`.
-/** The hazard colours: aviation orange, yellower than seat 7's red-orange (0xe5553a) and apart from seat 1 (0xe0386e). */
+// Watchtower; round 3: bigger, much lighter, the band and the barrel clear at 1x, no small details). `radioTower` /
+// `radioTurret` above stay for the record; retheme.js draws these under `radio`.
+/** The pale armor and the hazard colours: aviation orange, yellower than seat 7's red-orange (0xe5553a) and apart from
+ *  seat 1 (0xe0386e); the Lab's dome glass and the Portal's gate light (below). */
 function sentryMats(M) {
   if (M.hazOrange) return M;
   M.hazOrange = std({ color: 0xf08a1c, roughness: 0.6, metalness: 0.1 });
   M.hazWhite = std({ color: 0xe6e4de, roughness: 0.6, metalness: 0.1 });
+  M.paleArmor = std({ color: 0xd4d6d2, roughness: 0.6, metalness: 0.25 });                                              // pale grey armor plate and the Lab's white modules
+  M.domeGlass = new THREE.MeshPhysicalMaterial({ color: 0x3a5a66, transparent: true, opacity: 0.42, roughness: 0.12, metalness: 0.1, depthWrite: false }); // the Lab's dome: see-through dark glass over the glow
+    M.gateWhite = std({ color: 0xffffff, emissive: 0xf6f2ff, emissiveIntensity: 2.0 });                                   // the Portal's sheet of light: white
+  M.gateCore = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.0 });                                    // its brighter ripples
+  M.gateViolet = std({ color: 0x241c90, emissive: 0x5a4cff, emissiveIntensity: 1.3 });                                  // its edge: an indigo-leaning violet (hue 245 in the material, about 255 rendered: the finish's curve clips blue and pushes a redder violet towards magenta), apart from seat 3 (277) and seat 6 (311)
+  M.gateHalo = new THREE.MeshBasicMaterial({ color: 0x6a56ff, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false });
+  if (M.polish) { Object.assign(M.paleArmor, { envMapIntensity: 1.6 }); M.paleArmor.needsUpdate = true; }
   return M;
 }
-const SENTRY_TOP = 9.5; // the base's top: the head sits here
-/** The Sentry gun's base: a round steel base plate, a short wide armored drum of charcoal plate (r 13, 5 tall) with an
- *  orange-and-white hazard band round its top between ink rings, four pale bolted cheeks, a cable to a small battery
- *  box with a cyan light, a small team flag on a short mast at its north-west. The gun (`sentryGunHead`) turns on top.
- *  From the camera: a low dark drum with an orange-white ring, a gun on it, a small flag. */
+const SENTRY_TOP = 11.5; // the base's top: the head sits here
+/** The Sentry gun's base: a round steel base plate (r 18), a short wide drum of pale armor (r 15.5, 8 tall) with a
+ *  thick orange-and-white hazard band round its middle between ink rings, the turret ring and bearing on top, a small
+ *  team flag on a short mast at its north-west. The gun (`sentryGunHead`) turns on top. From the camera: a low pale
+ *  drum with an orange-white ring, a dark gun on it, a small flag. */
 export function sentryGun(M) {
   ebMats(M); sentryMats(M); const g = grp();
-  add(g, cyl(15, 16, 2.2, 24), M.steel, 0, 1.1, 0); add(g, cyl(16.2, 16.2, 0.5, 24), M.inkLine, 0, 0.3, 0);               // the base plate
-  add(g, cyl(12.2, 13.2, 5.6, 24), M.panelDark, 0, 2.2 + 2.8, 0);                                                        // the armored drum
-  for (let k = 0; k < 12; k++) add(g, torus(12.6, 0.9, Math.PI / 6 - 0.02, 8), k % 2 ? M.hazWhite : M.hazOrange, 0, 7.0, 0, Math.PI / 2, 0, k * Math.PI / 6); // the hazard band
-  for (const y of [5.8, 8.2]) add(g, torus(12.7, 0.3, Math.PI * 2, 32), M.inkLine, 0, y, 0, Math.PI / 2, 0, 0);          // between ink rings
-  add(g, cyl(9, 9.6, 1.6, 20), M.steel, 0, 8.6, 0); add(g, cyl(6.5, 6.5, 1.2, 16), M.joint, 0, SENTRY_TOP - 0.3, 0);     // the turret ring and the bearing
-  for (const a of [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4]) add(g, rbox(3.6, 4.4, 1.4, 0.3), M.paleSteel, Math.cos(a) * 13.2, 4.6, Math.sin(a) * 13.2, 0, -a + Math.PI / 2, 0); // bolted cheeks
-  add(g, rbox(5, 3.2, 3.6, 0.4), M.panelDark, 15, 1.6 + 1.6, 12); cyanLed(g, M, 0.4, 16.8, 3.6, 13.9); cable(g, M, [10, 3, 8], [14, 3.4, 11], 0.35); // the battery box, its light, a cable
-  flag(g, M, -14, 0, -13, 16, 10, 7);                                                                                    // a small team flag
-  if (M.polish) for (const a of [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4]) for (const dy of [-1.2, 1.2]) add(g, sph(0.45, 6, 4), M.joint, Math.cos(a) * 13.9, 4.6 + dy, Math.sin(a) * 13.9); // bolts on the cheeks
+  add(g, cyl(17.5, 18.5, 2.4, 28), M.steel, 0, 1.2, 0); add(g, cyl(18.7, 18.7, 0.5, 28), M.inkLine, 0, 0.3, 0);          // the base plate
+  add(g, cyl(14.8, 15.8, 8, 28), M.paleArmor, 0, 2.4 + 4, 0);                                                            // the armor drum
+  for (let k = 0; k < 12; k++) add(g, torus(15.4, 1.5, Math.PI / 6 - 0.015, 10), k % 2 ? M.hazWhite : M.hazOrange, 0, 6.6, 0, Math.PI / 2, 0, k * Math.PI / 6); // the hazard band
+  for (const y of [4.7, 8.5]) add(g, torus(15.6, 0.4, Math.PI * 2, 40), M.inkLine, 0, y, 0, Math.PI / 2, 0, 0);          // between ink rings
+  add(g, cyl(11, 11.8, 1.8, 24), M.paleArmor, 0, 11.2, 0); add(g, cyl(8, 8, 1.4, 20), M.joint, 0, SENTRY_TOP + 0.3, 0);    // the turret ring and the bearing
+  flag(g, M, -16, 0, -15, 20, 12, 8);                                                                                    // a small team flag
   return g;
 }
-/** The Sentry gun's head (the turning part, 16 facings, no shadow): a squat armored housing on the bearing, a thick
- *  barrel ahead (+x) with a pale muzzle brake, an orange stripe along each flank between ink lines, a sensor light on
- *  top. The barrel reaches 16 ahead of the axis. */
+/** The Sentry gun's head (the turning part, 16 facings, no shadow): a squat pale armored housing on the bearing, a
+ *  thick dark barrel ahead (+x) with a pale muzzle brake, an orange stripe along each flank between ink lines, a cyan
+ *  sensor light on top. The barrel reaches 26 ahead of the axis. */
 export function sentryGunHead(M) {
   ebMats(M); sentryMats(M); const g = grp(), Y = SENTRY_TOP;
-  add(g, rbox(9, 5.6, 8, 1.0), M.panelDark, -0.5, Y + 2.8, 0);                                                            // the housing
-  add(g, rbox(6, 1.0, 5, 0.3), M.paleSteel, -1.0, Y + 5.8, 0);                                                            // a pale lid
-  for (const sz of [-1, 1]) { add(g, rbox(6.4, 1.6, 0.6, 0.2), M.hazOrange, -0.8, Y + 2.8, sz * 4.1); for (const dy of [-1.0, 1.0]) add(g, rbox(6.8, 0.3, 0.7, 0.05), M.inkLine, -0.8, Y + 2.8 + dy, sz * 4.1); } // the orange stripes
-  add(g, cyl(1.6, 1.6, 4, 12), M.steel, 4.5, Y + 2.8, 0, 0, 0, Math.PI / 2);                                              // the mantlet
-  add(g, cyl(1.25, 1.25, 12, 10), M.steel, 10, Y + 2.8, 0, 0, 0, Math.PI / 2);                                            // the barrel
-  add(g, cyl(1.6, 1.6, 2.4, 10), M.paleSteel, 15, Y + 2.8, 0, 0, 0, Math.PI / 2);                                         // the muzzle brake
-  add(g, rbox(2.0, 1.4, 2.0, 0.3), M.joint, 1.2, Y + 6.8, 0); cyanLed(g, M, 0.55, 1.2, Y + 7.9, 0);                       // the sensor light on top
-  if (M.polish) { add(g, torus(1.8, 0.25, Math.PI * 2, 12), M.paleSteel, 7.5, Y + 2.8, 0, 0, Math.PI / 2, 0); limb(g, [-3, Y + 4.4, 2.6], [-4.5, Y + 0.6, 3.4], 0.3, M.cable); } // a ring on the barrel, a cable off the housing
+  add(g, rbox(14, 7.5, 11, 1.4), M.paleArmor, -1, Y + 4.2, 0);                                                            // the housing
+  for (const sz of [-1, 1]) { add(g, rbox(9, 2.4, 0.8, 0.2), M.hazOrange, -1.5, Y + 4.0, sz * 5.6); for (const dy of [-1.5, 1.5]) add(g, rbox(9.4, 0.4, 0.9, 0.05), M.inkLine, -1.5, Y + 4.0 + dy, sz * 5.6); } // the orange stripes
+  add(g, cyl(2.6, 2.6, 5, 14), M.joint, 7.5, Y + 4.2, 0, 0, 0, Math.PI / 2);                                              // the mantlet
+  add(g, cyl(1.8, 1.8, 16, 12), M.gun, 17, Y + 4.2, 0, 0, 0, Math.PI / 2);                                                // the barrel, dark against the pale housing
+  add(g, cyl(2.3, 2.3, 3.2, 12), M.paleSteel, 25.5, Y + 4.2, 0, 0, 0, Math.PI / 2);                                       // the muzzle brake
+  add(g, rbox(2.6, 1.8, 2.6, 0.4), M.joint, -1, Y + 8.8, 0); cyanLed(g, M, 0.8, -1, Y + 10.2, 0);                          // the sensor light on top
+  g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
+  return g;
+}
+
+// ---- the Lab (upgrades, 2x2; the sim key `loom`, today `lab` above, which read as a house): Stelian's round 3, his
+// pick of two options: a white research module with a big glass dome showing a cyan glow (the other, three glowing
+// tanks beside a module, was not drawn). No small clutter; team on a flag and a trim band only; no earth plate.
+/** The white module: a rounded pale box `W` x `D`, 13 tall, at (x, z), a dark door in its south face, a team trim band
+ *  round its top between ink lines. */
+function whiteModule(g, M, x, z, W, D) {
+  add(g, rbox(W, 13, D, 2.5), M.paleArmor, x, 6.5, z);
+  add(g, rbox(6, 8, 1.2, 0.3), M.inkLine, x + 2, 4, z + D / 2);                                                          // the door
+  add(g, rbox(W + 0.6, 2.2, D + 0.6, 0.3), M.paint, x, 10.6, z); for (const y of [9.3, 11.9]) add(g, rbox(W + 0.8, 0.5, D + 0.8, 0.1), M.inkLine, x, y, z); // the team trim band
+}
+/** The Lab, the dome (`labDome`): the white module (36 x 26) under a big see-through glass dome (r 14) on a pale
+ *  ring, three pale meridian ribs, a cyan glow inside it (a core and two halos); a flag. From the camera: a white box
+ *  with a dark glass dome on it glowing cyan in the middle, a flag. */
+export function labDome(M) {
+  ebMats(M); sentryMats(M); const g = grp();
+  whiteModule(g, M, 0, 2, 36, 26);
+  add(g, torus(14.4, 0.9, Math.PI * 2, 48), M.paleSteel, 0, 13, 0, Math.PI / 2, 0, 0);                                    // the dome's ring
+  add(g, sph(4.5, 16, 12), M.neonCore, 0, 17.5, 0); add(g, sph(9, 16, 12), M.neonHalo, 0, 17.5, 0); add(g, sph(12.5, 16, 12), M.neonHalo, 0, 16, 0); // the glow inside
+  add(g, new THREE.SphereGeometry(14, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2), M.domeGlass, 0, 13, 0);                  // the dome
+  for (const a of [0, Math.PI / 3, 2 * Math.PI / 3]) add(g, torus(14.2, 0.6, Math.PI, 32), M.paleSteel, 0, 13, 0, 0, a, 0); // meridian ribs
+  flag(g, M, -21, 0, -13, 30, 16, 11);
+  return g;
+}
+
+// ---- the Portal (Marine; 2x2; the sim key `eclipse`, today `portal` above): Stelian's round 3, an energy gate, not a
+// ring: two tall metal pylons with a vertical sheet of glowing light between them, a doorway of energy, the only tall
+// rectangle in the base; the glow mostly white with a thin violet edge; no platform; team on a flag and the pylons'
+// foot bands. The sheet is a separate part (`gateLight`, the head, RT_HEADS `gatehead`, `spin: 1`: its 16 frames are
+// phases of a shimmer, the ripples climbing the sheet), so the client can shimmer it.
+const GATE_X = 12.5, GATE_H = 40, GATE_W = 19, GATE_Y0 = 3, GATE_Y1 = 37;
+/** The gate's frame (`energyGate`): two tapered pylons of pale armor (5 x 40 x 6) standing straight in the ground at
+ *  x +-12.5, a dark cap with a small cyan light on each, a dark steel sill between their feet, a team band round each
+ *  foot between ink lines, the team flag on a mast at the north-west. */
+export function energyGate(M) {
+  ebMats(M); sentryMats(M); const g = grp();
+  for (const sx of [-1, 1]) {
+    const x = sx * GATE_X;
+    add(g, rbox(5.2, GATE_H, 6.2, 1.0), M.paleArmor, x, GATE_H / 2, 0);
+    add(g, rbox(6.2, 3.0, 7.2, 0.5), M.joint, x, GATE_H + 1.4, 0); cyanLed(g, M, 0.8, x, GATE_H + 3.4, 0);              // the cap and its light
+    add(g, rbox(5.8, 3.2, 6.8, 0.3), M.paint, x, 5.5, 0); for (const y of [3.7, 7.3]) add(g, rbox(6.0, 0.5, 7.0, 0.1), M.inkLine, x, y, 0); // the team band round the foot
+    add(g, rbox(1.2, GATE_H - 8, 1.2, 0.2), M.joint, x - sx * 2.9, GATE_H / 2 + 1, 0);                                   // the inner edge's dark rail, the sheet's seat
+  }
+  add(g, rbox(2 * GATE_X - 4, 1.6, 4.0, 0.4), M.joint, 0, 0.8, 0);                                                      // the sill
+  flag(g, M, -GATE_X - 6, 0, -12, 30, 16, 11);
+  return g;
+}
+/** The gate's light (`gateLight`, the head at `phase`): a vertical sheet of white light between the pylons (19 x 34,
+ *  facing the camera), a thin violet edge all round it, a violet halo, and four brighter ripples climbing it with the
+ *  phase. No shadow. */
+export function gateLight(M, phase = 0) {
+  ebMats(M); sentryMats(M); const g = grp(), H = GATE_Y1 - GATE_Y0, cy = (GATE_Y0 + GATE_Y1) / 2;
+  add(g, rbox(GATE_W, H, 0.6, 0.2), M.gateWhite, 0, cy, 0);
+  for (const sx of [-1, 1]) add(g, rbox(0.9, H + 1.2, 0.8, 0.2), M.gateViolet, sx * (GATE_W / 2 + 0.3), cy, 0);           // the violet edge
+  for (const sy of [-1, 1]) add(g, rbox(GATE_W + 1.4, 0.9, 0.8, 0.2), M.gateViolet, 0, cy + sy * (H / 2 + 0.3), 0);
+  add(g, rbox(GATE_W + 4, H + 4, 1.4, 0.6), M.gateHalo, 0, cy, 0);                                                      // the halo
+  for (let k = 0; k < 4; k++) { const t = ((k / 4 + phase / (Math.PI * 2)) % 1); add(g, rbox(GATE_W - 2, 1.2, 0.9, 0.2), M.gateCore, 0, GATE_Y0 + 2 + t * (H - 4), 0); } // the ripples
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return g;
 }

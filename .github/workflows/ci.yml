@@ -81,7 +81,7 @@ jobs:
         with:
           path: dist
 
-  # The browser tests in Chromium, on the build job's dist/, split by test over four jobs (ENDFALL_SHARD, the e2e
+  # The browser tests in Chromium, on the build job's dist/, split by test over ten jobs (ENDFALL_SHARD, the e2e
   # harness: balanced by each test's measured time, test/e2e/times.json), as one file holds most of the time. WebKit and
   # Firefox: the engines job.
   e2e:
@@ -91,7 +91,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -103,7 +103,7 @@ jobs:
         with:
           name: dist
           path: dist
-      - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 4
+      - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 10
         run: |
           npx playwright-core install chromium
           # The system libraries: the runner image has nearly all of them (it ships Chrome). A mirror that won't resolve
@@ -112,7 +112,22 @@ jobs:
           timeout 120 npx playwright-core install-deps chromium || echo "::warning::install-deps failed; using the image's libraries"
           npm run test:e2e
         env:
-          ENDFALL_SHARD: ${{ matrix.shard }}/4
+          ENDFALL_SHARD: ${{ matrix.shard }}/10
+
+  # One check for every e2e shard, the one the ruleset requires (with build and rust), so the shards' count can change
+  # without touching the ruleset. It always runs and is green only when the build and every shard passed: a required
+  # check that is skipped counts as passed, so a failed or cancelled build or shard must turn it red, never skip it.
+  # "Re-run failed jobs" reruns the failed shard, then this.
+  e2e-all:
+    name: 'e2e: all'
+    needs: [build, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "build: ${{ needs.build.result }}, e2e: ${{ needs.e2e.result }}"
+          test "${{ needs.build.result }}" = success && test "${{ needs.e2e.result }}" = success
 
   # The browser tests' cross-engine subset (the scenarios marked `engines: true`: the menu, sound and full screen, a short
   # game through the UI, taps on a phone, joining a room through a local relay, offline, the golden games) in WebKit

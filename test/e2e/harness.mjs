@@ -261,7 +261,9 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
      *  clear of the top bar and the console at any zoom), then S (Stop; on a phone too, the key
      *  works where the card has no button). The box takes any of ours in it, and fighters before workers: use it where
      *  no fighter stands near. */
-    async stopByUI(ids, margin = 48) {
+    /** Stops these workers through the UI: a box round each on its way home from the mine, then S. `must: false` (a
+     *  set-up that only wants them standing for a tap) logs instead of failing when one keeps gathering. */
+    async stopByUI(ids, margin = 48, { must = true } = {}) {
       const away = (id) => { const u = endfall.G.units.find(u => u.id === id); return !u || u.task.t !== 'gather' || u.task.phase === 'return'; };
       for (const id of ids) {
         let t = null, boxed = [];
@@ -276,7 +278,12 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
           await d.skip(0.1);
           t = await ev((id) => endfall.G.units.find(u => u.id === id)?.task.t, id);
         }
-        if (t !== 'idle') throw new Error(`stopByUI: unit ${id} still ${t} (boxed ${JSON.stringify(boxed)})`);
+        if (t !== 'idle') {
+          const why = await ev((id) => { const u = endfall.G.units.find(u => u.id === id); return { task: u?.task, sel: endfall.ui.sel.map(e => e.id), controls: localStorage.getItem('endfall.controls'), focus: document.activeElement?.id || document.activeElement?.tagName }; }, id);
+          const msg = `stopByUI: unit ${id} still ${t} (boxed ${JSON.stringify(boxed)}; then ${JSON.stringify(why)})`;
+          if (must) throw new Error(msg);
+          console.warn(msg);
+        }
       }
     },
     selection: () => ev(() => endfall.ui.sel.map(e => ({ id: e.id, type: e.type, kind: e.kind }))),
@@ -306,7 +313,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       // A mining harvester moves (in and out of its gold mine, never standing still at it), and while it unloads it is
       // under the Core: a tap may miss it (or let go of it). So it is stopped first (`stopByUI`), then tapped, again a
       // little later each time, until it is the selection (a slow machine needs more than a few tries).
-      await d.stopByUI([harvesterId]);
+      await d.stopByUI([harvesterId], 48, { must: false }); // (only so it stands for the tap: the taps below retry)
       let picked = false;
       for (let i = 0; i < 16 && !picked; i++) {
         if (i) await page.waitForTimeout(150 + 50 * i);

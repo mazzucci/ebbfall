@@ -26,7 +26,7 @@ import { canvas, makePainters, seatTints, half, resample, label } from './rethem
 import { groundTile } from '../../src/client/gl/ground.js';
 import { mulberry } from '../../src/engine/util.js';
 
-const args = process.argv.slice(2), mode = args.includes('--trial') ? 'trial' : args.includes('--check') ? 'check' : 'pictures';
+const args = process.argv.slice(2), mode = args.includes('--trial') ? 'trial' : args.includes('--check') ? 'check' : args.includes('--units') ? 'units' : 'pictures';
 const outDir = args.find(a => !a.startsWith('--')) ?? 'target/a1';
 mkdirSync(outDir, { recursive: true });
 const T = 64; // a tile at 2x
@@ -73,6 +73,10 @@ function cyan(s) { const { data } = s.img; let n = 0, c = 0; for (let i = 0; i <
 /** A building drawn at (x, y) for `seat`, its head over it: the k-th of its frames, or the frame `dir` given. */
 function drawBldg(P, c, kind, x, y, seat, k = 0, dir = null) { P.draw(c, P.get(`bldg_${kind}`), x, y, seat); if (HEADS[kind]) { const [name, dirs] = HEADS[kind]; P.draw(c, P.get(`${name}_${dir ?? dirs[k % dirs.length]}`), x, y, seat); } }
 
+const UNITS = '(ex_bot|ex_marine|kg_villager|kg_guard|kg_archer)_(0|2|4|6|8|10|12|14)_0';
+/** The pictures' render: every building that the sheets and bases show, the heads at their frames, a few units, the gold. */
+const FINAL_FILTER = `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|posttent|posttavern|posthouse|factory|hangar|warehouse|lab|labdome|portal|gate|gatetube|ring|pad|platform|vortex)$|bldg_kg_|(ex_(radiohead|turbinehead|windfarmhead|gatehead|gatetubehead|ringhead)|kg_towerhead)_(0|5|11)$|ex_(padhead|platformhead)_(0|6|12)$|ex_vortexhead_(0|4|5|8|11|12)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`;
+
 // ---- the trial: the Uplink at every candidate angle ----
 if (mode === 'trial') {
   const ANGLES = [-30, -20, -10, 0, 10, 20, 30], byYaw = {};
@@ -110,10 +114,78 @@ if (mode === 'check') {
   process.exit(0);
 }
 
+// ---- the units review (pictures and data only): every unit of both peoples as it will ship, the sizes of everything ----
+if (mode === 'units') {
+  const KG_U = [['harvester', 'kg', 'villager', 'VILLAGER'], ['trooper', 'kg', 'guard', 'GUARD'], ['lancer', 'kg', 'archer', 'ARCHER'], ['medic', 'kg', null, 'HEALER (OLD MODEL)'], ['observer', 'kg', 'balloon', 'BALLOON'], ['siegeTank', 'kg', 'trebuchet', 'TREBUCHET'], ['bastion', 'kg', 'ballista', 'BALLISTA'], ['rider', 'kg', 'rider', 'RIDER'], ['knight', 'kg', 'knight', 'KNIGHT']];
+  const EX_U = [['lumen', 'ex', 'bot', 'BOT'], ['scythe', 'ex', 'buggy', 'BUGGY'], ['prism', 'ex', 'mercenary', 'SELLSWORD'], ['bruiser', 'ex', 'veteran', 'BRUISER'], ['halo', 'ex', null, 'MEDIC (OLD MODEL)'], ['monolith', 'ex', 'rover', 'ROVER'], ['shrike', 'ex', 'drone', 'DRONE'], ['umbra', 'ex', 'marine', 'MARINE']];
+  const ALL = [...KG_U, ...EX_U], DIRS = [0, 4, 8, 12];
+  const U = await rendered('units', `^(kg_(villager|guard|archer|rider|knight|ballista|trebuchet|balloon)|ex_(bot|buggy|mercenary|veteran|rover|drone|marine))_(${DIRS.join('|')})_0$`, { polish: true });
+  const B = await rendered('final', FINAL_FILTER, { polish: true });
+  const PU = makePainters(U, seatTints(U.tints)), PB = makePainters(B, seatTints(B.tints)), old = atlasAt('HEAD'), Q = makePainters(old, seatTints(old.tints));
+  /** The sprite and painter of a unit at facing `d`: the re-theme's render, or the old atlas for the two healers. */
+  const spriteOf = ([sim, side, model], d) => model ? [PU, `${side}_${model}_${d}_0`] : [Q, `${sim}_${d}_0`];
+  /** The opaque box of a sprite without its baked shadow (alpha 255 and not pure black: the finish's cast shadow is black at alpha 110, its soft edge below 255), CSS px at zoom 1. On-screen extents: a height carries the camera's foreshortening and, for a unit, UNIT_ART_SCALE; a building its fit and turn. */
+  const box = (s) => { const { w, h, data } = s.img; let x0 = w, x1 = -1, y0 = h, y1 = -1; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (data[i + 3] === 255 && (data[i] | data[i + 1] | data[i + 2])) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } } return x1 < 0 ? null : { w: (x1 - x0 + 1) / 2, h: (y1 - y0 + 1) / 2, x0, y0, x1, y1 }; };
+  const union = (a, b) => !a ? b : !b ? a : { w: 0, h: 0, x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
+  const fin = (b) => ({ w: (b.x1 - b.x0 + 1) / 2, h: (b.y1 - b.y0 + 1) / 2 });
+  // the units sheet: both seats, each unit facing the camera (4) and east (0), labelled
+  {
+    const cw = 4 * T, rh = 6 * T, c = cv(cw * ALL.length, rh * 2); grass(c, 5);
+    [0, 1].forEach(seat => ALL.forEach((u, i) => {
+      const [p4, n4] = spriteOf(u, 4), [p0, n0] = spriteOf(u, 0), y = Math.round(seat * rh + rh - 1.3 * T);
+      p4.draw(c, p4.get(n4), i * cw + cw * 0.36, y, seat); p0.draw(c, p0.get(n0), i * cw + cw * 0.72, y, seat);
+      label(c, u[3], i * cw + 4, seat * rh + rh - 22, 2);
+    }));
+    label(c, 'EVERY UNIT AS IT WILL SHIP: THE KINGDOM, THEN THE EXPEDITION, EACH FACING THE CAMERA AND EAST. SEAT 0 ABOVE, SEAT 1 BELOW. 1X', 4, 4, 2);
+    save('units', c);
+  }
+  // the crowd: the Kingdom (seat 0) facing east meets the Expedition (seat 1) facing west, at about the sim's spacing
+  {
+    const c = cv(22 * T, 11 * T); grass(c, 9); const items = [];
+    const KG_ROWS = [['knight', [3.2, 3.6, 4.0, 4.4]], ['guard', [2.4, 2.8, 3.2, 3.6, 4.0, 4.4, 4.8]], ['archer', [1.6, 2.0, 2.4, 2.8, 3.2, 3.6]], ['rider', [0.9, 1.3]], ['ballista', [0.4, 0.8]], ['villager', [0.6, 1.0]]];
+    const EX_ROWS = [['veteran', [3.2, 3.6, 4.0, 4.4]], ['mercenary', [2.4, 2.8, 3.2, 3.6, 4.0, 4.4, 4.8]], ['marine', [1.6, 2.0, 2.4, 2.8, 3.2, 3.6]], ['rover', [0.9, 1.3]], ['buggy', [0.4, 0.8]], ['bot', [0.6, 1.0]], ['drone', [2.2, 2.6]]];
+    const rowsOf = (rows, side, x0, dirX, seat, dir) => rows.forEach(([model, ys], r) => ys.forEach(y => { const x = x0 + dirX * (r * 1.5 + ((y * 7) % 1) * 0.4), yy = 2.4 + y * 1.1; items.push({ y: yy, draw: (cc) => PU.draw(cc, PU.get(`${side}_${model}_${dir}_0`), x * T, yy * T, seat) }); })); // (ranks 1.5 tiles apart, a unit every 1.1 tiles down a rank, a little stagger)
+    rowsOf(KG_ROWS, 'kg', 9.4, -1, 0, 0); rowsOf(EX_ROWS, 'ex', 12.6, 1, 1, 8);
+    for (const it of items.sort((a, b) => a.y - b.y)) it.draw(c);
+    label(c, 'THE TWO ARMIES MEETING: THE KINGDOM (SEAT 0) FACING EAST, THE EXPEDITION (SEAT 1) FACING WEST. 1X', 4, 4, 2);
+    save('crowd', c);
+  }
+  // the lineup: every unit facing the camera on one ground line, sorted by its on-screen height, then three buildings for scale
+  const sizes = [];
+  for (const u of ALL) { const [p4, n4] = spriteOf(u, 4), [p0, n0] = spriteOf(u, 0), b4 = box(p4.get(n4)), b0 = box(p0.get(n0)); sizes.push({ kind: u[0], name: u[3], people: u[1] === 'kg' ? 'Kingdom' : 'Expedition', what: 'unit', height: b0.h, width: b4.w, length: b0.w, team: p4.share(n4), brightness: +brightness(p4.get(n4)).toFixed(2) }); } // (height: the box of the unit facing east, where its length lies across the screen and adds nothing to the height; width: facing the camera; length: facing east)
+  const BLD = [['core', 'kg_castle', 'CASTLE'], ['depot', 'kg_cottage', 'COTTAGE'], ['extractor', 'kg_market', 'MARKET'], ['barracks', 'kg_barracks', 'BARRACKS'], ['forge', 'kg_blacksmith', 'BLACKSMITH'], ['factory', 'kg_workshop', 'WORKSHOP'], ['turret', 'kg_tower', 'WATCHTOWER'], ['airfield', 'kg_stables', 'STABLES'],
+    ['conflux', 'ex_datahall', 'DATA CENTER'], ['spire', 'ex_turbine', 'WIND TURBINE'], ['siphon', 'ex_posttavern', 'RECRUITING POST'], ['kiln', 'ex_warehouse', 'FACTORY'], ['loom', 'ex_labdome', 'LAB'], ['ward', 'ex_radio', 'SENTRY GUN'], ['uplink', 'ex_uplink', 'UPLINK'], ['eclipse', 'ex_vortex', 'PORTAL']];
+  for (const [sim, k, nm] of BLD) { let b = box(PB.get(`bldg_${k}`)); if (HEADS[k]) b = union(b, box(PB.get(`${HEADS[k][0]}_0`))); const f = fin(b), s = PB.get(`bldg_${k}`); sizes.push({ kind: sim, name: nm, people: k.startsWith('kg') ? 'Kingdom' : 'Expedition', what: 'building', footprint: `${SIZES[k]}x${SIZES[k]}`, angle: s.turn?.yaw ?? 0, fit: +(s.turn?.scale ?? 1).toFixed(2), height: f.h, width: f.w }); }
+  writeFileSync(join(outDir, 'sizes.json'), JSON.stringify(sizes, null, 1));
+  writeFileSync(join(outDir, 'sizes.csv'), 'kind,name,people,what,footprint,angle,fit,height_px,width_px,length_px\n' + sizes.map(r => [r.kind, r.name, r.people, r.what, r.footprint ?? '', r.angle ?? '', r.fit ?? '', r.height, r.width, r.length ?? ''].join(',')).join('\n') + '\n');
+  {
+    const units = sizes.filter(r => r.what === 'unit').sort((a, b) => a.height - b.height), byKind = Object.fromEntries(ALL.map(u => [u[0], u]));
+    const step = 3.2 * T, scale3 = [['kg_cottage', 2], ['kg_barracks', 3], ['ex_datahall', 4]], bw = scale3.reduce((t, [, n]) => t + (n + 2.5) * T, 0);
+    const c = cv(units.length * step + bw + T, 8 * T); grass(c, 13); const gy = Math.round(6.4 * T); // (an integer y: a fractional one lands the labels a column over)
+    units.forEach((r, i) => { const [p0, n0] = spriteOf(byKind[r.kind], 0); p0.draw(c, p0.get(n0), i * step + step / 2, gy, 0); label(c, `${r.name.replace(' (OLD MODEL)', '*')} ${r.height}`, i * step + 4, gy + 14, 2); }); // (facing east: the height as measured)
+    let x = units.length * step + T / 2;
+    for (const [k, n] of scale3) { const cx = x + (n + 2.5) * T / 2; drawBldg(PB, c, k, cx, gy - n * T / 2, 0, 0); label(c, `${k.slice(3).toUpperCase()} ${sizes.find(r => r.name === (k === 'ex_datahall' ? 'DATA CENTER' : k.slice(3).toUpperCase())).height}`, x + 4, gy + 14, 2); x += (n + 2.5) * T; }
+    label(c, 'EVERY UNIT ON ONE GROUND LINE, SORTED BY ON-SCREEN HEIGHT (CSS PX AT ZOOM 1), A COTTAGE, A BARRACKS AND THE DATA CENTER FOR SCALE. * THE OLD MODEL. SEAT 0. 1X', 4, 4, 2);
+    save('lineup', c, false);
+  }
+  // the units table: team share, brightness, size, the maker's notes
+  const NOTES = {
+    harvester: 'ok: a bundle on the back', trooper: 'ok: a shield and spear', lancer: 'a bow: slim; near the Villager in build at 0.75', medic: 'the old Harbour Mender (pale coat, satchel): not in the re-theme look', observer: 'ok: the one balloon', siegeTank: 'ok: the one long arm', bastion: 'ok, low and wide; near the Buggy in footprint', rider: 'ok: a horse', knight: 'ok: a horse with armor; near the Rider at 0.75',
+    lumen: 'ok: a low box with arms', scythe: 'ok: wheels and a bull bar', prism: 'a sword and vest; near the Marine in size and build at 0.75', bruiser: 'ok: the big shield', halo: 'the old Vael Tender (a flower): not in the re-theme look', monolith: 'ok: a big low machine', shrike: 'ok: the one flyer with a shadow apart', umbra: 'a rifle and camo; near the Sellsword at 0.75',
+  };
+  const rows = sizes.filter(r => r.what === 'unit').map(r => ({ ...r, note: NOTES[r.kind] ?? '' }));
+  writeFileSync(join(outDir, 'units.json'), JSON.stringify(rows, null, 1));
+  console.log('\nunit                   team   bright  height  width (facing camera)  length (facing east)   note');
+  for (const r of rows) console.log(`  ${r.name.padEnd(20)} ${String(r.team).padEnd(6)} ${r.brightness}    ${String(r.height).padStart(5)}  ${String(r.width).padStart(6)}                ${String(r.length).padStart(6)}               ${r.note}`);
+  console.log('\nbuilding               h x w (on screen)  angle fit');
+  for (const r of sizes.filter(r => r.what === 'building')) console.log(`  ${r.name.padEnd(20)} ${String(r.height).padStart(5)} x ${String(r.width).padEnd(6)} ${String(r.angle).padStart(4)}  ${r.fit}`);
+  console.log('units review ->', outDir);
+  process.exit(0);
+}
+
 // ---- the pictures ----
-const UNITS = '(ex_bot|ex_marine|kg_villager|kg_guard|kg_archer)_(0|2|4|6|8|10|12|14)_0';
 const t0 = Date.now();
-const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|posttent|posttavern|posthouse|factory|hangar|warehouse|lab|labdome|portal|gate|gatetube|ring|pad|platform|vortex)$|bldg_kg_|(ex_(radiohead|turbinehead|windfarmhead|gatehead|gatetubehead|ringhead)|kg_towerhead)_(0|5|11)$|ex_(padhead|platformhead)_(0|6|12)$|ex_vortexhead_(0|4|5|8|11|12)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
+const art = await rendered('final', FINAL_FILTER, { polish: true });
 console.log(`rendered ${art.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const P = makePainters(art, seatTints(art.tints));
 console.log('building      angle   fit   spill W / E / S   team    cyan   size at 1x');
@@ -192,7 +264,7 @@ function atlasAt(ref) {
   for (const page of index.pages) {
     const { frames, meta } = JSON.parse(show(page).toString()), img = decodePNG(show(meta.image));
     for (const [name, f] of Object.entries(frames)) {
-      if (!/^(bldg_|turret_head_0)/.test(name)) continue;
+      if (!/^(bldg_|turret_head_0|medic_|halo_)/.test(name)) continue;
       const { x, y, w, h } = f.frame, src = f.sourceSize, o = f.spriteSourceSize, out = canvas(src.w, src.h);
       for (let j = 0; j < h; j++) out.data.set(img.data.subarray(((y + j) * img.w + x) * 4, ((y + j) * img.w + x + w) * 4), ((o.y + j) * src.w + o.x) * 4);
       sprites.push({ name, img: out, anchor: f.anchor, ...(name.endsWith('_m') ? { trim: true } : {}) });

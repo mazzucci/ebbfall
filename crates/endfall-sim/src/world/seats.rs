@@ -80,26 +80,25 @@ impl World {
         let (bx, by) = self.map.bases[team as usize];
         let faction = self.factions[team as usize];
         self.make_building(faction.hq, team, bx, by, true);
-        // Four harvesters, each between the Core and one of the four crystals nearest it, mining that crystal:
-        // the same start for both sides (the map is mirrored), whichever way the base faces.
+        // Four harvesters, each between the Core and one of the four tiles of the mine nearest it, all gathering
+        // there: the same start for every seat (the map is symmetric), whichever way the base faces.
         let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
-        let mut near: Vec<(f64, Id, i32, i32)> = self
+        let home = self
             .map
             .nodes
             .iter()
             .filter(|n| !n.ether)
-            .map(|n| {
-                (
-                    jsmath::hypot(n.tx as f64 + 0.5 - cx, n.ty as f64 + 0.5 - cy),
-                    n.id,
-                    n.tx,
-                    n.ty,
-                )
-            })
-            .collect();
-        near.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
-        for &(d, node, nx, ny) in near.iter().take(4) {
-            let k = 3.0 / d.max(3.0); // three tiles out from the Core's centre, towards the crystal
+            .map(|n| (jsmath::hypot(n.x / TILE - cx, n.y / TILE - cy), n.id))
+            .min_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
+        let mut near: Vec<(f64, Id, i32, i32)> = Vec::new();
+        if let Some(n) = home.and_then(|(_, id)| self.map.node(id)) {
+            for (x, y) in (0..n.s).flat_map(|dy| (0..n.s).map(move |dx| (n.tx + dx, n.ty + dy))) {
+                let d = jsmath::hypot(x as f64 + 0.5 - cx, y as f64 + 0.5 - cy);
+                near.push((d, n.id, x, y));
+            }
+        }
+        for &(d, node, nx, ny) in &near {
+            let k = 3.0 / d.max(3.0); // three tiles out from the Core's centre, towards that tile
             let at = (
                 jsmath::to_i32(cx + (nx as f64 + 0.5 - cx) * k),
                 jsmath::to_i32(cy + (ny as f64 + 0.5 - cy) * k),

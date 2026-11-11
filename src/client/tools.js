@@ -74,7 +74,7 @@ export function selectSameType(e, add = false) {
   const onScreen = (o) => o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1;
   const shows = (b) => b.tx * TILE < x1 && (b.tx + b.w) * TILE > cam.x && b.ty * TILE < y1 && (b.ty + b.h) * TILE > cam.y; // (any part of it)
   if (e.kind === 'bldg') { choose(e.done ? G.bldgs.filter(o => o.team === G.me && o.type === e.type && o.done && shows(o)) : [e]); return; }
-  const same = G.units.filter(o => o.team === G.me && o.type === e.type && onScreen(o));
+  const same = G.units.filter(o => o.team === G.me && o.type === e.type && !o.inside && onScreen(o)); // (not one inside a mine)
   choose(add ? [...new Set([...ui.sel.filter(x => !x.dead && x.kind === 'unit'), ...same])] : same);
 }
 

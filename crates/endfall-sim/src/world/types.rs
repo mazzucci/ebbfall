@@ -3,6 +3,7 @@
 
 use super::*;
 
+/// A gather task's phase: walking to the mine, waiting at its side while it is full, inside it, carrying gold home.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Phase {
     Go,
@@ -149,6 +150,19 @@ pub struct Unit {
     /// A group's marching pace (px/s): set by a group order to its slowest member's speed, so the group arrives
     /// together; it only caps a unit on the move (not in a fight), and any new order clears it.
     pub pace: Option<f64>,
+}
+
+impl Unit {
+    /// Inside a gold mine (a gather task's `Phase::Mine`): not drawn, not targeted, not hit, pushing nobody.
+    pub fn inside(&self) -> bool {
+        matches!(
+            self.task,
+            Task::Gather {
+                phase: Phase::Mine,
+                ..
+            }
+        )
+    }
 }
 
 /// The tide's state (`World::set_tide`): the current cycle's first tick, its phases' lengths in ticks (high water,
@@ -376,6 +390,21 @@ pub enum Geo {
         y: f64,
         r: f64,
     },
+}
+
+impl crate::map::Node {
+    /// A mine's (or vent's) footprint, as a building's.
+    pub fn geo(&self) -> Geo {
+        Geo::Rect {
+            tx: self.tx,
+            ty: self.ty,
+            w: self.s,
+            h: self.s,
+            x: self.x,
+            y: self.y,
+            r: self.r,
+        }
+    }
 }
 
 impl Geo {

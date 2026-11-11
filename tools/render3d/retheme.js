@@ -4,8 +4,9 @@
 // their own names for the review pictures (tools/art/retheme-*.mjs). Those names: `kg_<kind>_<dir>_<frame>` and
 // `ex_<kind>_<dir>_<frame>` for the units (16 facings, two frames unless `frames` says otherwise: the Trebuchet's four
 // poses, the Balloon's one), `bldg_kg_<kind>` and `bldg_ex_<kind>` for the buildings, `kg_towerhead_<dir>` /
-// `ex_radiohead_<dir>` for the two turning heads (RT_HEADS), `rt_coins` for the gold deposit (not team), and the
-// ground family's `rt_*` (the gold, the scenery, each people's construction and rubble). The kingdom is palette B
+// `ex_radiohead_<dir>` for the two turning heads (RT_HEADS), `rt_coins` for the gold deposit (not team), the
+// ground family's `rt_*` (the gold, the scenery, each people's construction and rubble) and `rt_mine_<stage>` for the
+// gold mine (mine.js: full, low, empty; neutral, 2x2). The kingdom is palette B
 // (slate) and the Expedition its one dark-kit look (Stelian, 2026-11-10). The camera: `elev` degrees (RT_ELEV, the
 // game's 40, by default). Units are drawn UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can
 // be distinguished"; visual only, the footprint and radius unchanged); buildings stay their footprint's.
@@ -17,6 +18,7 @@ import { makeExpeditionMats, utilityBot, buggy, marine, dataCentre, coins } from
 import { mercenary, veteran, rover, drone } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
+import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
 import { POLISH } from './polish.js';
 import { UNIT_ART_SCALE } from '../../src/client/look.js';
 import * as KB from './kingdom-buildings.js';
@@ -103,6 +105,7 @@ export function* rethemeSprites(want, opts = {}) {
   // `rt_<kg|ex>_<foundation|scaffold|rubble>_<n>` (the game's foundation_n, scaffold_n, rubble_n, picked by people;
   // the scaffolds without a shadow, as today's; team on their cloth and flags).
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = `rt_gold_${st}_${v}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; }
+  for (const st of MINE_STAGES) { const name = `rt_mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine (mine.js; the game's mine_<stage>): 2x2, neutral
   for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `rt_doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
   for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of ['foundation', 'scaffold', 'rubble']) {
     const name = `rt_${side}_${kind}_${n}`; if (!want(name)) continue;
@@ -165,5 +168,6 @@ export function* atlasSprites(want = () => true) {
     yield [name, RT_SITES[side][kind](n, mats(side)), bldgCell(n, siteH(side, kind, n), lift), so, scaffold];
   }
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = v ? `shard_${st}_${v}` : `shard_${st}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; } // (variant 0 keeps the plain name: the portrait's)
+  for (const st of MINE_STAGES) { const name = `mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine, one per field (mine.js): drawn by nothing yet; the rules change that puts one mine per field takes it up
   for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
 }

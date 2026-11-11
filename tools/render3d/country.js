@@ -77,6 +77,8 @@ let CM = CMATS;
 /** Picks the plain or the polished country materials for the gold and the scenery (retheme.js calls it with the
  *  render's `polish`); the sites follow their people's set (`K.polish` / `E.polish`). */
 export function countryPolish(on) { CM = cm(!!on); }
+/** The country's current set (plain or polished, as `countryPolish` left it): the mine (mine.js) draws with it. */
+export const countryMats = () => CM;
 /** A flat uneven patch (ground.js's): an outline of radius R wobbling by `amp`, squashed to `sq`, `h` thick. */
 const wob = (R, amp, ph) => (a) => R * (1 + amp * (0.13 * Math.sin(3 * a + ph) + 0.08 * Math.sin(5 * a + ph * 1.7) + 0.05 * Math.sin(9 * a + ph * 2.3)));
 /** Marks a mesh as the ground itself (an earth plate, a hollow, a puddle): the polish's contact shadow (scene.js

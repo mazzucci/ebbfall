@@ -330,7 +330,7 @@ fn a_person_may_build_where_only_an_ally_has_looked() {
     assert!(placed.is_ok(), "with an ally there: placed ({placed:?})");
 }
 
-/// The seats told "A salt crystal is mined out" when one of seat 0's crystals runs out, with an Observer of `watcher`
+/// The seats told "A gold mine is mined out" when seat 0's mine runs out, with an Observer of `watcher`
 /// beside it (teams [0, 0, 1, 1]).
 fn told_dry(watcher: Option<u8>) -> Vec<u8> {
     let mut w = four(&[0, 0, 1, 1]);
@@ -339,7 +339,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         panic!("a miner at work")
     };
     let n = w.map.nodes.iter_mut().find(|n| n.id == node).unwrap();
-    n.amount = 1;
+    n.amount = MINE_LOAD; // (one trip's worth)
     let (x, y) = (n.x, n.y);
     if let Some(s) = watcher {
         let o = w.make_unit(UnitKind::Observer, s, x + 20.0, y);
@@ -348,16 +348,20 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
     w.events.clear();
     for _ in 0..20 * TPS {
         w.step();
-        if w.map.node(node).is_none() {
+        if w.map.node(node).unwrap().amount == 0 {
             break;
         }
     }
-    assert!(w.map.node(node).is_none(), "the crystal ran out");
+    assert_eq!(
+        w.map.node(node).unwrap().amount,
+        0,
+        "the mine ran out (and stays, empty)"
+    );
     let mut told: Vec<u8> = w
         .events
         .iter()
         .filter_map(|e| match e {
-            Event::Toast { team, msg, .. } if msg == "A gold vein is mined out" => Some(*team),
+            Event::Toast { team, msg, .. } if msg == "A gold mine is mined out" => Some(*team),
             _ => None,
         })
         .collect();
@@ -366,7 +370,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
 }
 
 #[test]
-fn a_salt_field_running_dry_is_told_to_its_miner_and_enemies_who_see_it_not_to_allies() {
+fn a_mine_running_dry_is_told_to_its_miner_and_enemies_who_see_it_not_to_allies() {
     assert_eq!(
         told_dry(None),
         vec![0],

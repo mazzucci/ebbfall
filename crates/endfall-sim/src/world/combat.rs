@@ -85,7 +85,7 @@ impl World {
         };
         for u in &self.units {
             let air = u.kind.def().air;
-            if !self.enemies(team, u.team) || (air && !hits.1) || (!air && !hits.0) {
+            if !self.enemies(team, u.team) || (air && !hits.1) || (!air && !hits.0) || u.inside() {
                 continue;
             }
             consider(unit_tier(u.kind, flier), dist(u.x, u.y, x, y) - u.r, u.id);
@@ -133,10 +133,13 @@ impl World {
         }
     }
 
-    /// Whether `shooter` (unit or building) has a weapon that can hit `target` (flying or not).
+    /// Whether `shooter` (unit or building) has a weapon that can hit `target` (flying or not; never one inside a
+    /// mine).
     pub fn can_hit(&self, shooter: Id, target: Id) -> bool {
         let air = self.unit(target).is_some_and(|u| u.kind.def().air);
-        if self.unit(target).is_none() && self.bldg(target).is_none() {
+        if (self.unit(target).is_none() && self.bldg(target).is_none())
+            || self.unit(target).is_some_and(|u| u.inside())
+        {
             return false;
         }
         if let Some(u) = self.unit(shooter) {
@@ -201,7 +204,11 @@ impl World {
         });
     }
 
+    /// `amt` damage to a unit or building from `by` (a unit inside a mine takes none: it is not there to hit).
     pub fn damage(&mut self, target: Id, amt: f64, by: Option<Id>) {
+        if self.unit(target).is_some_and(|u| u.inside()) {
+            return;
+        }
         let killer = by
             .and_then(|b| self.loss_slot(b))
             .or(self.hit_by.map(|h| h.0));
@@ -521,8 +528,8 @@ impl World {
             let Some((now, full)) = need(o).filter(|&(now, full)| now < full) else {
                 continue;
             };
-            if o.id == uid || o.team != team {
-                continue;
+            if o.id == uid || o.team != team || o.inside() {
+                continue; // (one inside a mine is out of reach)
             }
             let d = dist(o.x, o.y, mx, my) - o.r;
             if d <= range {

@@ -181,19 +181,8 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (us
         .filter(|n| !n.ether)
         .min_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
         .unwrap();
-    let (nx, ny, nid, field) = (node.x, node.y, node.id, node.field);
-    // (the middle of the home field's clump: where a turret by the mineral line covers every crystal)
-    let crystals: Vec<(f64, f64)> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| !n.ether && n.field == field)
-        .map(|n| (n.x, n.y))
-        .collect();
-    let k = crystals.len() as f64;
-    let (fx, fy) = crystals
-        .iter()
-        .fold((0.0, 0.0), |a, c| (a.0 + c.0 / k, a.1 + c.1 / k));
+    let (nx, ny, nid) = (node.x, node.y, node.id);
+    let (fx, fy) = (nx, ny); // (by the mine: where a turret covers the workers at it)
     for k in 0..4 {
         w.make_unit(
             UnitKind::Harvester,
@@ -246,9 +235,11 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (us
                     continue;
                 }
                 let (mx, my) = (me.x, me.y);
+                // (a worker inside the mine is out of reach: the raiders hunt those outside, as the AI's do)
                 if let Some(p) = hs
                     .iter()
                     .filter_map(|&h| w.unit(h))
+                    .filter(|u| !u.inside())
                     .min_by(|a, b| {
                         ((a.x - mx).powi(2) + (a.y - my).powi(2))
                             .partial_cmp(&((b.x - mx).powi(2) + (b.y - my).powi(2)))

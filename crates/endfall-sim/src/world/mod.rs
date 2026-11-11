@@ -30,7 +30,7 @@ use crate::path::{PathScratch, Pt, astar};
 use crate::rng::Mulberry32;
 pub use combat::{absorb, hull_loss};
 pub use command::{Command, Logged};
-pub use economy::FIELD_LOW;
+pub use economy::MINE_LOW;
 pub use paths::{LONG_SEARCH, LONG_SEARCHES, PathWork};
 pub use radio::RadioSrc;
 pub use types::*;
@@ -448,9 +448,12 @@ impl World {
             .map(|u| u.team)
             .or_else(|| self.bldg(id).map(|b| b.team))
     }
-    /// Geometry of a live unit, building or node.
+    /// Geometry of a live unit, building or node; none for a unit inside a mine (nothing can reach it there).
     pub fn geo(&self, id: Id) -> Option<Geo> {
         if let Some(u) = self.unit(id) {
+            if u.inside() {
+                return None;
+            }
             return Some(Geo::Round {
                 x: u.x,
                 y: u.y,
@@ -460,11 +463,7 @@ impl World {
         if let Some(b) = self.bldg(id) {
             return Some(b.geo());
         }
-        self.map.node(id).map(|n| Geo::Round {
-            x: n.x,
-            y: n.y,
-            r: n.r,
-        })
+        self.map.node(id).map(|n| n.geo())
     }
 
     /// A unit's effective stats right now (the one place abilities and modes will change them).
@@ -552,9 +551,10 @@ impl World {
             self.medic(uid, dt);
         }
         // A worker at work (mining, or idle) runs from an armed enemy close by with nothing of its own to fight it
-        // (looked at four times a second, staggered by id).
+        // (looked at four times a second, staggered by id); one inside a mine is safe there until it comes out.
         if c.kind.def().worker
             && matches!(task, Task::Gather { .. } | Task::Idle)
+            && !self.u(uid).inside()
             && (self.tick + uid).is_multiple_of(8)
             && let Some(from) = self.alarm(uid)
             && self.start_flee(uid, from)

@@ -130,7 +130,7 @@ narrow.addEventListener?.('change', () => { if (menu.board.length) renderSeats()
 // A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
 // drawn a pixel per tile (64 or 96 across) and shown at one size. The sim draws the map: until its WASM is in (the menu
 // comes first, src/boot.js), a plain ground, the map drawn when it is.
-const PREVIEW = ['#2a3442', '#7d8796', '#e6e0d3', '#a24a2c', '#f5a524', '#3f6f7e', '#1f3a63']; // (ground, rock, salt fields, brine seeps, starts, shallows, deep water: the minimap's colours, gl/render.js)
+const PREVIEW = ['#2a3442', '#7d8796', '#e8c04a', '#a24a2c', '#f5a524', '#3f6f7e', '#1f3a63']; // (ground, rock, gold mines, brine seeps, starts, shallows, deep water: the minimap's colours, gl/render.js)
 let simReady = false;
 ready.then(() => { simReady = true; if (!$('start').hidden) renderMaps(); }, () => {});
 export function drawPreview(cv, i, seed, kind) {

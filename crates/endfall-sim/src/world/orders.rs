@@ -227,6 +227,7 @@ impl World {
             && let Some(n) = self.map.node_mut(node)
         {
             n.miners -= 1;
+            self.come_out(uid);
         }
     }
 

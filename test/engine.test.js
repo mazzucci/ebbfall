@@ -92,7 +92,7 @@ test('a fresh game has two cores, eight harvesters and resource nodes', { skip }
   E.resetGame(12345, 1);
   assert.equal(E.G.bldgs.length, 2);
   assert.equal(E.G.units.length, 8);
-  assert.ok(E.map.nodes.length > 20);
+  assert.ok(E.map.nodes.length >= 6); // (a gold mine per field)
   assert.deepEqual(E.G.sup[E.PLAYER], [4, 20]); // (the Castle holds 20 population)
   assert.ok(E.G.units.every(u => u.task.t === 'gather' && u.task.node && u.task.node.kind === 'node'));
 });

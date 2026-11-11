@@ -63,7 +63,7 @@ async function newGame(device, races, mapName) {
  *  the field's point and your army's box. */
 const fight = (page, armies) => page.evaluate((armies) => {
   const { G, map, engine } = endfall, T = engine.TILE, cores = G.bldgs.filter(b => b.team <= 1);
-  const field = map.nodes.filter(n => n.type === 'shard').map(n => ({ n, d: Math.min(...cores.map(c => Math.hypot(c.x - n.x, c.y - n.y))) })).sort((a, b) => b.d - a.d)[0].n;
+  const field = map.nodes.filter(n => n.type === 'mine').map(n => ({ n, d: Math.min(...cores.map(c => Math.hypot(c.x - n.x, c.y - n.y))) })).sort((a, b) => b.d - a.d)[0].n;
   const free = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor(y / T); return engine.inMap(tx, ty) && !map.rock[engine.idx(tx, ty)] && !map.occ[engine.idx(tx, ty)]; };
   const groups = [[], []], box = [Infinity, Infinity, -Infinity, -Infinity];
   armies.forEach((army, seat) => {

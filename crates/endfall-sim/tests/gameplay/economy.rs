@@ -243,116 +243,9 @@ fn builders_go_back_to_the_salt() {
 }
 
 #[test]
-fn one_harvester_mines_a_field_at_a_time() {
-    let mut w = rich(9);
-    let field = home_fields(&w)[0];
-    // Every other shard field gone: nowhere to spread to.
-    let others: Vec<Id> = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| !n.ether && n.id != field)
-        .map(|n| n.id)
-        .collect();
-    for id in &others {
-        let n = w.map.node(*id).unwrap();
-        let i = w.map.idx(n.tx, n.ty);
-        w.map.occ[i] = 0;
-    }
-    w.map.nodes.retain(|n| !others.contains(&n.id));
-    let h = harvesters(&w, PLAYER);
-    for &u in &h {
-        assert!(w.start_gather(u, field));
-    }
-    let mut waited = false;
-    for _ in 0..60 * TPS {
-        w.step();
-        let mining = w
-            .units
-            .iter()
-            .filter(|u| {
-                u.team == PLAYER
-                    && matches!(
-                        u.task,
-                        Task::Gather {
-                            phase: Phase::Mine,
-                            ..
-                        }
-                    )
-            })
-            .count();
-        assert!(mining <= 1, "{mining} mine one field at once");
-        waited |= w.units.iter().any(|u| {
-            matches!(
-                u.task,
-                Task::Gather {
-                    phase: Phase::Wait,
-                    ..
-                }
-            )
-        });
-    }
-    assert!(waited, "four on one field take turns");
-    for &u in &h {
-        assert_eq!(
-            gather_node(&w, u),
-            Some(field),
-            "and stay: there is no other field"
-        );
-    }
-}
-
-#[test]
-fn harvesters_sent_to_one_field_spread_over_the_quiet_ones_nearby() {
-    let mut w = rich(9);
-    let core_id = w
-        .bldgs
-        .iter()
-        .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
-        .unwrap()
-        .id;
-    let (x, y) = (
-        w.bldg(core_id).unwrap().x,
-        w.bldg(core_id).unwrap().y + 90.0,
-    );
-    for _ in 0..4 {
-        w.make_unit(UnitKind::Harvester, PLAYER, x, y);
-    }
-    let field = home_fields(&w)[0];
-    let h = harvesters(&w, PLAYER);
-    for &u in &h {
-        assert!(w.start_gather(u, field));
-    }
-    run(&mut w, 40);
-    let mut used: Vec<Id> = h.iter().filter_map(|&u| gather_node(&w, u)).collect();
-    used.sort();
-    used.dedup();
-    assert!(
-        used.len() >= 3,
-        "eight harvesters work {} fields",
-        used.len()
-    );
-    for &f in &used {
-        let on = h.iter().filter(|&&u| gather_node(&w, u) == Some(f)).count();
-        assert!(on <= 3, "field {f} has {on}");
-    }
-    // Settled: nobody shuttles between fields.
-    let before: Vec<_> = h.iter().map(|&u| gather_node(&w, u)).collect();
-    let mut moves = 0;
-    let mut last = before.clone();
-    for _ in 0..60 * TPS {
-        w.step();
-        let now: Vec<_> = h.iter().map(|&u| gather_node(&w, u)).collect();
-        moves += now.iter().zip(&last).filter(|(a, b)| a != b).count();
-        last = now;
-    }
-    assert!(moves <= 2, "{moves} field changes in a minute once spread");
-}
-
-#[test]
-fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
-    // Two shard fields left on open ground: one by a Core, the other 6 tiles farther out. Harvesters crowding the
-    // near one wait rather than wander out to the far one; a field as close to the Core takes them.
+fn busy_workers_only_hop_to_mines_no_farther_from_the_drop_off() {
+    // Two mines left on open ground: one by a Core, the other 6 tiles farther out. Workers crowding the near one (more
+    // than it takes in) wait rather than wander out to the far one; a mine as close to the Core takes them.
     for far in [true, false] {
         let mut w = flat_arena(16);
         let core_id = w.make_building(BldgKind::Core, PLAYER, 20, 30, true);
@@ -373,7 +266,7 @@ fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
             .collect();
         for &id in &gone {
             let n = w.map.node(id).unwrap();
-            let (size, ox, oy) = (if n.ether { 2 } else { 1 }, n.tx, n.ty);
+            let (size, ox, oy) = (n.s, n.tx, n.ty);
             for y in 0..size {
                 for x in 0..size {
                     let i = w.map.idx(ox + x, oy + y);
@@ -389,13 +282,13 @@ fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
             move_node(&mut w, fields[1], 24, 37);
         }
         let (x, y) = (w.bldg(core_id).unwrap().x, w.bldg(core_id).unwrap().y);
-        let h: Vec<Id> = (0..4)
+        let h: Vec<Id> = (0..MINE_CAP + 4)
             .map(|i| {
                 w.make_unit(
                     UnitKind::Harvester,
                     PLAYER,
                     x + 80.0,
-                    y - 30.0 + i as f64 * 20.0,
+                    y - 30.0 + (i % 4) as f64 * 20.0,
                 )
             })
             .collect();
@@ -408,65 +301,36 @@ fn busy_harvesters_only_hop_to_fields_no_farther_from_the_drop_off() {
             .filter(|&&u| gather_node(&w, u) == Some(fields[1]))
             .count();
         if far {
-            assert_eq!(on_second, 0, "nobody strays to the far field");
+            assert_eq!(on_second, 0, "nobody strays to the far mine");
         } else {
-            assert!(on_second >= 1, "the equally near field takes the overflow");
+            assert!(on_second >= 1, "the equally near mine takes the overflow");
         }
     }
 }
 
 #[test]
-fn a_shard_field_running_low_is_announced_once_with_a_ping() {
-    use endfall_sim::world::{Event, FIELD_LOW};
+fn a_mine_running_low_is_announced_once_with_a_ping() {
+    use endfall_sim::world::{Event, MINE_LOW};
     let mut w = rich(5);
-    // The player's home field (the crystals laid down with the one nearest the Core), cut to uneven amounts just
-    // above the mark: its harvesters mine it down through it in their own order.
-    let core = w
-        .bldgs
-        .iter()
-        .find(|b| b.team == PLAYER && b.kind.def().hq)
-        .unwrap()
-        .clone();
-    let near = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| !n.ether)
-        .min_by(|a, b| {
-            let da = (a.x - core.x).powi(2) + (a.y - core.y).powi(2);
-            let db = (b.x - core.x).powi(2) + (b.y - core.y).powi(2);
-            da.partial_cmp(&db).unwrap()
-        })
-        .unwrap()
-        .field;
-    let home: Vec<usize> = (0..w.map.nodes.len())
-        .filter(|&i| w.map.nodes[i].field == near)
-        .collect();
-    assert!(home.len() >= 5, "a whole field: {}", home.len());
-    for (k, &i) in home.iter().enumerate() {
-        w.map.nodes[i].amount =
-            (FIELD_LOW + 200) / home.len() as i32 + if k % 2 == 0 { 40 } else { -30 };
-    }
-    let ids: Vec<Id> = home.iter().map(|&i| w.map.nodes[i].id).collect();
+    // The player's home mine, cut to just above the mark: its workers mine it down through it.
+    let mine = home_fields(&w)[0];
+    w.map.node_mut(mine).unwrap().amount = MINE_LOW + 100;
     let (mut toasts, mut pings) = (0, 0);
     for _ in 0..30 * 120 {
         w.step();
         for e in w.events.drain(..) {
             match e {
-                Event::Toast { team: 0, msg, .. } if msg.contains("running low") => toasts += 1,
+                Event::Toast { team: 0, msg, .. } if msg.contains("gold mine is running low") => {
+                    toasts += 1
+                }
                 Event::Ping { team: 0, .. } => pings += 1,
                 _ => {}
             }
         }
     }
-    // (by id: a crystal mined out is gone from the list, and the indices after it move)
-    let left: i32 = ids
-        .iter()
-        .filter_map(|&id| w.map.node(id))
-        .map(|n| n.amount)
-        .sum();
-    assert!(left < FIELD_LOW, "mined through the mark: {left}");
-    assert_eq!(toasts, 1, "announced once for the field");
+    let left = w.map.node(mine).unwrap().amount;
+    assert!(left < MINE_LOW, "mined through the mark: {left}");
+    assert_eq!(toasts, 1, "announced once for the mine");
     assert!(pings >= 1, "with a ping");
 }
 

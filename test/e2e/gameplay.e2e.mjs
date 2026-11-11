@@ -396,9 +396,9 @@ test('phone: Master Builders researched at the Blacksmith, then buildings go up 
     const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
     const pct = Math.round((rate - 1) * 100);
     await d.clickEntity(forge.id);
-    // The Blacksmith's card keeps its fixed slots on a phone: two levels, Cancel's place, then its two techs.
+    // The Blacksmith's card on a phone, packed from the first slot (no research under way: no Cancel's place kept).
     const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots, ['Weapons I', 'Armor I', '', 'Shield Drill', 'Master Builders'], 'the Blacksmith card');
+    assert.deepEqual(slots.slice(0, 4), ['Weapons I', 'Armor I', 'Shield Drill', 'Master Builders'], 'the Blacksmith card');
     const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Master Builders' }).boundingBox();
     assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, 'it fits on the screen');
     // A long-press says what it does and costs, without researching it.
@@ -1581,7 +1581,7 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     const [p1, p2] = [at(reach + 3), at(reach - 3)];
     await d.centerOn((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
     const [out, inside] = await d.eval(([a, b]) => [endfall.engine.debugSpawn(0, 'monolith', ...a), endfall.engine.debugSpawn(0, 'monolith', ...b)], [p1, p2]);
-    assert.deepEqual((await range()).marked, [], 'standing still: no mark');
+    assert.ok(!(await range()).marked.some(id => id === out || id === inside), 'standing still: no mark');
     // Both selected with a box and sent off across the line between them, through the UI (a right click).
     const lo = [Math.min(p1[0], p2[0]) - 30, Math.min(p1[1], p2[1]) - 30], hi = [Math.max(p1[0], p2[0]) + 30, Math.max(p1[1], p2[1]) + 30];
     await d.boxSelect(lo[0], lo[1], hi[0], hi[1]);

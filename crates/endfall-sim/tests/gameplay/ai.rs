@@ -1065,6 +1065,43 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
 }
 
 #[test]
+fn hard_fields_every_factorys_units_on_its_own_income() {
+    // Each factory trains all it may on Hard, on the AI's own income (no money granted): the Stables Riders and Knights
+    // (a Knight it can't afford yet leaves a Rider, not an idle Stables, while the Barracks spend as money comes in),
+    // the Expedition's Factory Rovers and Drones (the mix entry furthest behind its ratio, not always the first). Against
+    // an idle, unbreakable player, its army thinned now and then as in a game.
+    for (f, wanted) in [
+        (&HUMANS, [UnitKind::Rider, UnitKind::Knight]),
+        (&VAEL, [UnitKind::Monolith, UnitKind::Shrike]),
+    ] {
+        let mut w = World::with_setup(7, 2, MapKind::Standard, false, [&HUMANS, f]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let mut kinds: Vec<UnitKind> = Vec::new();
+        while w.time < 900.0 {
+            if w.tick.is_multiple_of(30 * TPS) {
+                make_room(&mut w, ENEMY, 6);
+            }
+            w.step();
+            w.events.clear();
+            for u in w.units.iter().filter(|u| u.team == ENEMY) {
+                if !kinds.contains(&u.kind) {
+                    kinds.push(u.kind);
+                }
+            }
+        }
+        for k in wanted {
+            assert!(
+                kinds.contains(&k),
+                "Hard {}: fields {k:?} within 15 min: {kinds:?}",
+                f.name
+            );
+        }
+    }
+}
+
+#[test]
 fn each_level_trains_only_its_own_mix() {
     // The mix gate (`Diff::mix_tier`, `UnitKind::ai_tier`): Easy trains only tier 0 (workers, line units, their
     // anti-air, the scout), Medium fields tier 1 too (raiders, siege, the Ballista, the Marine, the Drone) and never

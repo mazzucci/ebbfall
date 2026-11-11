@@ -118,11 +118,14 @@ impl World {
             let heavy = s.heavy == Some(b.kind) || (b.kind != s.rax && b.kind != s.air);
             // (only what its level trains: a mix above it leaves the factory to its other units)
             let level = self.level();
+            // (of the specialists this factory trains, the one furthest behind its ratio: the first by the mix's order
+            // on a tie, so a factory training two (the Expedition's Rover and Drone) alternates rather than starving
+            // the second)
             let mixed = s
                 .mix
                 .iter()
                 .map(|&m| level.mix_entry(m))
-                .find(|&(k, per, from)| {
+                .filter(|&(k, per, from)| {
                     if !self.level_allows(k) {
                         return false;
                     }
@@ -133,7 +136,8 @@ impl World {
                             .req
                             .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
                         && (mine(self, k) + 1) * per <= mine(self, s.basic)
-                });
+                })
+                .min_by_key(|&(k, per, _)| (mine(self, k) + 1) * self.answer_ratio(k, per));
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
             // up for it rather than spending the money on raiders.
             let capital = b.kind.def().trains.iter().copied().find(|&k| {
@@ -172,8 +176,11 @@ impl World {
                     || heavy
                     // (the air factory takes turns: a mixed-in unit (a Knight, a Rover), then a raider, until its
                     // raiders are all out: neither starves the other)
+                    // (and while it can't afford the mixed-in unit, a raider instead of nothing: the barracks spend
+                    // as the money comes in, so waiting for a Knight's price would leave the air factory idle)
                     || (b.kind == s.air
-                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)))
+                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)
+                        && (mine(self, s.raider) >= 6 || self.can_afford(e, need(k)))))
             {
                 k
             } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {

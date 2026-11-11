@@ -2,12 +2,13 @@
 // with their shadows baked in, painted terrain and effects, all at 2x resolution). Exports the camera, view,
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
-import { Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
+import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, chimneyActive, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
+import { inRange, unionArcs } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
 
@@ -281,15 +282,12 @@ function selArcs(rx, ry, color) {
   }
   return g;
 }
-/** Corner brackets round a building's footprint (or any rectangle). */
-function selCorners(x, y, w, h, color) {
-  const k = Math.min(w, h) * 0.24;
-  for (const [lw, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) {
-    for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]]) lines.moveTo(cx + dx * k, cy).lineTo(cx, cy).lineTo(cx, cy + dy * k);
-    lines.stroke({ width: lw, color: c, alpha: a, cap: 'round' });
-  }
+const selG = new Graphics(); L.sel.addChild(selG); // (a selected building's oval, under the buildings: cleared every frame)
+/** A selected building: a flat oval on the ground under it, sized to its footprint (look.js `selOval`). */
+function selOval(b, color) {
+  const o = selOvalOf(b);
+  for (const [w, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) selG.ellipse(o.x, o.y, o.rx, o.ry).stroke({ width: w, color: c, alpha: a });
 }
-
 class UnitObj {
   constructor(u) {
     const layer = u.d.air ? L.air : L.ents;
@@ -308,6 +306,7 @@ class UnitObj {
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
+    this.moveT = moved > 0.05 ? 0.25 : Math.max(0, (this.moveT || 0) - dt); this.moving = this.moveT > 0; // (on the move: held a moment, as frames between ticks see no step)
     if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
     // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
     const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
@@ -321,7 +320,7 @@ class UnitObj {
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y + (u.id % 997) * 1e-5;
     if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
-    // (a toggle shows in its pose, UNIT_POSE: a deployed Trebuchet, a braced Guard)
+    // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
     paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
     // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
     if (u.slowed > 0) {
@@ -389,12 +388,23 @@ class BldgObj {
     paintAs(this.body, this.paint, this.seat, 0xffffff, b.flash > 0 ? 0.75 : 1);
     if (grow) this.growIn(b, t, live);
     if (this.head) {
-      this.head.visible = this.headPaint.visible = b.done && live;
-      const dir = ((Math.round((b.aim || 0) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS, hn = `${this.look.head}_${dir}`;
+      // A turret's head only while seen live (it aims); a rotor or a dish stays on its remembered base, still. The
+      // rotors turn on the renderer's clock (cosmetic), each from its own phase. The Portal's swirl shows only while it
+      // is open (look.js portalOpen), turning as it opens; idle, its disc is dimmed.
+      const turns = this.look.spin || this.look.pan, now = performance.now() / 1000;
+      let open = 1;
+      if (this.look.portal) {
+        open = live ? portalOpen(this.portal ||= {}, b, now) : 0;
+        this.spinT = (this.spinT || 0) + dt * open; // (the swirl winds up and down with it)
+        const k = 0.72 + 0.28 * open, c = Math.round(255 * k); paintAs(this.body, this.paint, this.seat, (c << 16) | (c << 8) | c, this.body.alpha);
+      }
+      this.head.visible = this.headPaint.visible = b.done && (live || !!turns) && open > 0.02;
+      const dir = turns && !live ? 0 : this.look.portal ? Math.floor(this.spinT * this.look.spin) % 16 : headFrame(this.look, b.aim, now, (b.id % 13) * 0.37), hn = `${this.look.head}_${dir}`;
       setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(b.x, b.y); this.headPaint.position.set(b.x, b.y);
-      paintAs(this.head, this.headPaint, this.seat, this.body.tint, this.body.alpha);
+      paintAs(this.head, this.headPaint, this.seat, 0xffffff, this.body.alpha * open);
+      this.openNow = open;
     }
-    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); }
+    if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); if (this.look.portal) this.glow.alpha = (this.openNow || 0) * g[2]; }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
     if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
@@ -474,6 +484,34 @@ export function castFx(x, y, ability) {
 /** A Medic's heal (green) or a Halo's mend (the pale aqua of the Halo's own light, not the violet of crystals and
  *  weapons) landing on its patient. */
 export function healFx(x, y, tx, ty, mend = false) { addEffect('heal', tx, ty - 6, { life: 0.4, light: mend ? 0x7ce8d4 : 0x6dff9a, lightScale: 0.35, tint: mend ? 0xc0fff2 : 0xffffff }); void x; void y; }
+/** A Cannon fires: a puff of smoke at its muzzle, out ahead of it (`face`, radians) and a little up, blown forward. */
+export function muzzleFx(x, y, face, size = 1) {
+  const mx = x + Math.cos(face) * 14, my = y + Math.sin(face) * 9 - 10;
+  addEffect('puff', mx, my, { vx: Math.cos(face) * 30, vy: Math.sin(face) * 20 - 12, life: 0.9, scale: size, fade: 0.9 });
+  addEffect('flash', mx, my, { life: 0.12, light: 0xffc070, lightScale: 0.5, scale: 0.6 });
+}
+// A satellite launch (the sim's `launch` event): a rocket rises from the Data center over three seconds, faster and
+// faster, a smoke trail left behind it and a cloud at its foot; drawn on the renderer's clock.
+const rockets = [];
+/** Launch a rocket from (x, y), the building's centre. */
+export function launchFx(x, y) {
+  const s = new Sprite(tex('rocket')); s.anchor.set(0.5); s.rotation = -Math.PI / 2; s.scale.set(1.6); s.position.set(x, y - 20); L.air.addChild(s);
+  const l = light(0xffb050, 0.9, 0.9); l.position.copyFrom(s.position);
+  rockets.push({ s, l, x, y: y - 20, t: 0 });
+  for (let i = 0; i < 8; i++) { const a = Math.random() * Math.PI * 2; addEffect('puff', x + Math.cos(a) * 14, y + Math.sin(a) * 8, { vx: Math.cos(a) * 30, vy: Math.sin(a) * 12 - 6, life: 1.6 + Math.random() * 0.6, scale: 1.5, fade: 0.9 }); }
+}
+/** The launches in flight, for the tests: where each rocket is now (world px). */
+export const launchesShown = () => rockets.map(r => ({ x: r.s.x, y: r.s.y, t: r.t }));
+function updateRockets(dt) {
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const r = rockets[i]; r.t += dt;
+    if (r.t > 3.2) { r.s.destroy(); r.l.destroy(); rockets.splice(i, 1); continue; }
+    const climb = 30 * r.t + 60 * r.t * r.t; // (px: slow off the pad, then away)
+    r.s.position.set(r.x + Math.sin(r.t * 7) * 0.6, r.y - climb); r.s.alpha = Math.min(1, (3.2 - r.t) / 0.6);
+    r.l.position.set(r.s.x, r.s.y + 14); r.l.alpha = 0.9 * r.s.alpha;
+    if (Math.random() < dt * 30) addEffect('trail', r.s.x + (Math.random() - 0.5) * 3, r.s.y + 16, { life: 1.4, fade: 0.85, scale: 1.3, vy: 6 });
+  }
+}
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
 
@@ -517,47 +555,46 @@ function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
   bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
 }
-// ---- the tower range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
+// ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
 const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
-const rangeG = new Graphics(); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false; // (over the fog: the range reaches ground not yet seen)
-let rangeVer = -1, rangeTiles = 0;
-/** Draw this side's covered tiles again (a faint tint, outlined): only when the coverage changed, never per frame. */
-function drawRange() {
-  rangeVer = G.radioVer; rangeTiles = 0; rangeG.clear();
-  const cov = G.radio, at = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH && cov[idx(x, y)] === 1;
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { // the tint: a rectangle per run of covered tiles in a row
-    if (!at(x, y)) continue;
-    let e = x; while (at(e + 1, y)) e++;
-    rangeG.rect(x * TILE, y * TILE, (e - x + 1) * TILE, TILE); rangeTiles += e - x + 1; x = e;
-  }
-  if (!rangeTiles) return;
-  rangeG.fill({ color: RANGE_COLOR, alpha: 0.07 });
-  // The outline: every edge between a covered tile and one that is not, joined into runs.
-  for (let y = 0; y <= MH; y++) for (let x = 0; x < MW; x++) {
-    if (at(x, y) === at(x, y - 1)) continue;
-    let e = x; while (e + 1 < MW && at(e + 1, y) !== at(e + 1, y - 1)) e++;
-    rangeG.moveTo(x * TILE, y * TILE).lineTo((e + 1) * TILE, y * TILE); x = e;
-  }
-  for (let x = 0; x <= MW; x++) for (let y = 0; y < MH; y++) {
-    if (at(x, y) === at(x - 1, y)) continue;
-    let e = y; while (e + 1 < MH && at(x, e + 1) !== at(x - 1, e + 1)) e++;
-    rangeG.moveTo(x * TILE, y * TILE).lineTo(x * TILE, (e + 1) * TILE); y = e;
-  }
-  rangeG.stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.55 });
+// (over the fog: the range reaches ground not yet seen) The tint is drawn opaque and faded as one layer (AlphaFilter),
+// so where circles overlap it is no darker; the outline is the union's edge alone.
+const rangeTint = new Graphics(), rangeLine = new Graphics(), rangeG = new Container();
+rangeTint.filters = [new AlphaFilter({ alpha: 0.08 })]; rangeG.addChild(rangeTint, rangeLine); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
+let rangeKey = '', rangeCircles = [];
+/** Draw the circles again: the sim's sources (G.radio, this side's and its allies'), plus a range building being
+ *  placed (`extra`); only when they changed, never per frame. */
+function drawRange(extra) {
+  const key = G.radioVer + (extra ? `:${extra.x},${extra.y},${extra.r}` : '');
+  if (key === rangeKey) return;
+  rangeKey = key;
+  rangeCircles = extra ? [...G.radio, extra] : G.radio.slice();
+  rangeTint.clear(); rangeLine.clear();
+  for (const c of rangeCircles) rangeTint.circle(c.x, c.y, c.r);
+  if (rangeCircles.length) rangeTint.fill({ color: RANGE_COLOR, alpha: 1 });
+  for (const [x, y, r, a0, a1] of unionArcs(rangeCircles)) rangeLine.moveTo(x + Math.cos(a0) * r, y + Math.sin(a0) * r).arc(x, y, r, a0, a1);
+  rangeLine.stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.6 });
 }
-/** The range is shown while one of this side's Bots is selected or a building that gives range is being placed. */
+/** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while a building that gives
+ *  range is being placed (its own circle with the others). */
 function showRange(selList, place) {
-  const on = (place && RADIO.sources[place.type] > 0) || selList.some(e => e.kind === 'unit' && e.team === G.me && !e.dead && RADIO.machines.has(e.type) && e.d.worker);
-  if (on && G.radioVer !== rangeVer) drawRange();
-  rangeG.visible = !!on && rangeTiles > 0;
+  const reach = place ? RADIO.sources[place.type] : 0, d = place && BUILDINGS[place.type];
+  const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
+  const on = !!extra || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
+  if (on) drawRange(extra);
+  rangeG.visible = on && rangeCircles.length > 0;
 }
-/** A machine of ours in range: a small chevron over it (it moves faster in there). */
+/** A machine of ours moving in range (where it goes faster): a small double chevron over it, dark-edged so it reads
+ *  on any ground. */
 function boosted(x, y) {
-  bars.moveTo(x - 3.5, y + 2).lineTo(x, y - 2).lineTo(x + 3.5, y + 2).stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.95 });
+  for (const [w, c, a] of [[3.5, 0x0b1220, 0.7], [1.6, RANGE_COLOR, 1]]) {
+    for (const dy of [0, 4]) bars.moveTo(x - 4, y + dy + 1.5).lineTo(x, y + dy - 2).lineTo(x + 4, y + dy + 1.5);
+    bars.stroke({ width: w, color: c, alpha: a, cap: 'round', join: 'round' });
+  }
 }
-/** Tests: whether the range is drawn, how many tiles it covers, and which units show the in-range mark. */
+/** Tests: whether the range is drawn, its circles, and which units show the boosted mark. */
 const markedIds = new Set();
-export const rangeShown = () => ({ shown: rangeG.visible, tiles: rangeTiles, marked: [...markedIds] });
+export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: unionArcs(rangeCircles).length, marked: [...markedIds] });
 
 /** A progress bar with an optional count of queued items (small pips) after it. */
 function progressBar(x, y, w, f, color, pips = 0, h = 5) {
@@ -622,7 +659,7 @@ export function render(selList, place) {
   noteBuildings(); // (what this side has seen of enemy buildings: in the fog, their last-seen state, never the live one)
   const shownB = shownBldgs();
   if (now - doodadCheck > 0.25 || now < doodadCheck || shownB.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = shownB.length; hideCoveredDoodads(); }
-  bars.clear(); lines.clear(); flag.visible = false;
+  bars.clear(); lines.clear(); selG.clear(); flag.visible = false;
   drawTargets(selList, now);
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
@@ -634,7 +671,7 @@ export function render(selList, place) {
     o.show(v);
     if (!v) return;
     o.update(b, t, dt, seen); onScreen.push(o);
-    if (sel.has(b)) selCorners(b.tx * TILE - 2, b.ty * TILE - 2, b.w * TILE + 4, b.h * TILE + 4, enemies(G.me, b.team) ? SEL_FOE : SEL);
+    if (sel.has(b)) selOval(b, enemies(G.me, b.team) ? SEL_FOE : SEL);
     if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) hpBar(b.tx * TILE + 4, b.ty * TILE - 8, b.w * TILE - 8, b.hp, b.maxhp, b.sh, b.maxsh);
     // Progress shown on the building itself: construction (with a pause mark when nobody builds), then training.
     if (b.team === G.me) {
@@ -650,8 +687,8 @@ export function render(selList, place) {
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
-    if (u.team === G.me && RADIO.machines.has(u.type) && G.radio[idx(clamp((u.x / TILE) | 0, 0, MW - 1), clamp((u.y / TILE) | 0, 0, MH - 1))]) {
-      boosted(u.x, u.y - unitTop(u.type) - (bar ? 16 : 8)); markedIds.add(u.id);
+    if (u.team === G.me && o.moving && RADIO.machines.has(u.type) && inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
+      boosted(u.x, u.y - unitTop(u.type) - (bar ? 16 : 9)); markedIds.add(u.id);
     }
   });
   showRange(selList, place);
@@ -679,7 +716,7 @@ export function render(selList, place) {
   }
   for (let i = ki; i < partPool.length; i++) partPool[i].visible = false;
 
-  updateEffects(dt);
+  updateEffects(dt); updateRockets(dt);
   updateFogImage();
 
   ghost.visible = ghostPaint.visible = ghostRect.visible = !!place; ghostRect.clear();
@@ -688,8 +725,6 @@ export function render(selList, place) {
     setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghostPaint.position.copyFrom(ghost.position);
     paintAs(ghost, ghostPaint, seatTint(G.me), ok ? 0xb8ffc8 : 0xff7070, 0.6);
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
-    const reach = RADIO.sources[place.type]; // (a building that gives range: the range it would add)
-    if (reach > 0) ghostRect.circle((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE, reach * TILE).stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.5 });
   }
   box.clear();
   if (drag.box) {

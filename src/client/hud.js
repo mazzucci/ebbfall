@@ -29,13 +29,23 @@ let selKey = '';
 export function updateHud() {
   // Placing with no worker of ours selected (it died): nothing would build it, and a touch card would have no Cancel.
   if (ui.place && !playerSel().some(e => e.kind === 'unit' && e.d.worker)) clearMode();
-  const [s] = G.res[G.me], [su, sc] = G.sup[G.me];
-  $('rShard').textContent = s; $('rSupply').textContent = su + '/' + sc;
-  $('resSup').classList.toggle('low', su >= sc);
+  topBar();
   watchSites();
   ui.sel = ui.sel.filter(x => !x.dead && (x.kind === 'node' || x.team === G.me || !enemies(G.me, x.team) || x.ghost || visibleEnt(x))); // (an enemy that slips out of sight is let go; a remembered building, picked in the fog, stays; a field stays)
   renderSelection();
   buildCard();
+}
+
+/** The top bar's figures: gold, then the Kingdom's population, or the Expedition's Power and hired places (and its
+ *  Portal places once it has any). A figure at its cap pulses. */
+function topBar() {
+  const [s] = G.res[G.me], [su, sc] = G.sup[G.me], ex = !!myFaction().power;
+  const [hu, hc] = G.hired[G.me] || [0, 0], [pu, pc] = G.portal[G.me] || [0, 0];
+  const put = (id, v) => { const e = $(id); if (e.textContent !== v) e.textContent = v; };
+  put('rShard', String(s)); put('rSupply', su + '/' + sc); put('lSupply', ex ? 'POWER' : 'POP');
+  $('resSup').classList.toggle('low', su >= sc);
+  $('resHired').hidden = !ex; $('resPortal').hidden = !ex || (pc === 0 && pu === 0);
+  if (ex) { put('rHired', hu + '/' + hc); put('rPortal', pu + '/' + pc); $('resHired').classList.toggle('low', hc > 0 && hu >= hc); $('resPortal').classList.toggle('low', pc > 0 && pu >= pc); }
 }
 
 /** A figure in the panel: an icon, the base value and, in gold, what upgrades add. */

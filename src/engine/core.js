@@ -25,7 +25,7 @@ export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
   me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]], portal: [[0, 0], [0, 0]],
-  vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: new Uint8Array(MW * MH), radioVer: 0, over: false, winner: -1, conceded: -1,
+  vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: [], radioVer: 0, over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
 const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), height: new Int8Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
@@ -69,10 +69,14 @@ function sync() {
     const ups = S.upgrades[t] ||= {}; UPGRADE_KEYS.forEach((k, i) => { ups[k] = I[lv + t * UPGRADE_KEYS.length + i]; });
   }
   S.me = game.me(); S.replaying = game.replayEnd() > 0; S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); occStale = true;
-  // The tower range (crates/endfall-sim/src/world/radio.rs): copied only when the sim built it again; `radioVer` tells
-  // the renderer to redraw it.
+  // The range (crates/endfall-sim/src/world/radio.rs): this side's sources, its own and its allies', as circles
+  // { x, y, r } (world px), copied only when the sim listed them again; `radioVer` tells the renderer to redraw them.
   const rv = game.radioVer();
-  if (rv !== radioSeen || S.me !== radioMe) { radioSeen = rv; radioMe = S.me; S.radio.set(game.radio(S.me)); S.radioVer++; }
+  if (rv !== radioSeen || S.me !== radioMe) {
+    radioSeen = rv; radioMe = S.me; S.radioVer++;
+    const c = game.radioCircles(S.me); S.radio = [];
+    for (let i = 0; i + 2 < c.length; i += 3) S.radio.push({ x: c[i], y: c[i + 1], r: c[i + 2] });
+  }
 
   const N = game.nodes(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
@@ -147,7 +151,7 @@ function fresh(g) {
   if (M.rock.length !== MW * MH) {
     const n = MW * MH;
     Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), height: new Int8Array(n), occ: new Int32Array(n) });
-    Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n), radio: new Uint8Array(n) });
+    Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n), radio: [] });
   }
   radioSeen = -1;
   M.rock.set(game.rock()); M.shade.set(game.shade()); M.height.set(game.height()); WATER = game.water();

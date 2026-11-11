@@ -149,6 +149,12 @@ const SFX = {
   lance: (b, t) => { tone(b, t, { f: 2400, to: 1300, dur: 0.12, type: 'sine', vol: 0.035 }); tone(b, t, { f: 3600, to: 1950, dur: 0.09, type: 'triangle', vol: 0.015 }); },
   slam: (b, t) => { tone(b, t, { f: 90, to: 55, dur: 0.35, type: 'sine', vol: 0.13 }); tone(b, t + 0.01, { f: 660, to: 520, dur: 0.3, type: 'triangle', vol: 0.025 }); noise(b, t, { dur: 0.12, vol: 0.04, filter: 'lowpass', f: 700 }); },
   blade: (b, t) => { noise(b, t, { dur: 0.07, vol: 0.035, filter: 'bandpass', f: 3200, to: 1400, q: 4 }); tone(b, t + 0.02, { f: 1500, to: 1100, dur: 0.06, type: 'sine', vol: 0.015 }); },
+  // A satellite launch: a deep ignition thump, then a roar that rises and thins as the rocket climbs away (3 s).
+  launch: (b, t) => {
+    tone(b, t, { f: 60, to: 32, dur: 0.7, type: 'sine', vol: 0.16 });
+    noise(b, t, { dur: 3.2, vol: 0.12, filter: 'lowpass', f: 380, to: 2400, q: 0.9, att: 0.25 });
+    noise(b, t, { dur: 2.6, vol: 0.04, filter: 'bandpass', f: 1600, to: 4200, q: 1.2, att: 0.5, delay: 0.3 });
+  },
   // impacts and deaths
   hit: (b, t, o) => o.big ? noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 }) : noise(b, t, { dur: 0.04, vol: 0.03, filter: 'bandpass', f: 2200, q: 1.5 }),
   boom: (b, t, o) => {

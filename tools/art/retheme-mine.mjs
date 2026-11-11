@@ -3,10 +3,10 @@
 // on the real countryside tiles (terrain3.js grass), to <outdir> (default target/mine-review/round-1):
 //   stages.png      the three stages large: at 4x (nearest-neighbour doubled from 2x), at 2x and at 1x (CSS px)
 //   scene-100.png   a landscape phone at zoom 1.0 (1688x780 at 2x): the three mines between a Castle and a Data
-//                   center, Villagers at the full mine, Bots at the low one; -1x the CSS-px copy, -grey in greyscale
+//                   center, a Barracks below them for the size, Villagers at the full mine, Bots at the low one; -1x the CSS-px copy, -grey in greyscale
 //   scene-075.png   the same scene at zoom 0.75 (+ -1x)
 //   alone/<stage>.png  each stage alone at 1x on grass, no label (for a cold look)
-// Prints each stage's drawn size (CSS px at zoom 1.0), how far it rises over its footprint's north edge, and the gold's
+// Prints each stage's drawn size (CSS px at zoom 1.0), how far it rises over its footprint's (MINE_N tiles) north edge, and the gold's
 // share of its solid pixels (the stages must step).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,13 +18,14 @@ import { canvas, half, resample, crop, paste, grey, meanValue, label, makeScene 
 import { seatTints } from './retheme-paint.mjs';
 import { groundTile } from '../../src/client/gl/ground.js';
 import { mulberry } from '../../src/engine/util.js';
+const MINE_N = 2; // (mine.js MINE_N; the model's module needs the page's canvas, so the number is copied here)
 
 const argv = process.argv.slice(2);
 const outDir = argv.find(a => !a.startsWith('--')) ?? 'target/mine-review/round-1';
 mkdirSync(join(outDir, 'alone'), { recursive: true });
 const T = 64, W = 1688, H = 780;
 const STAGES = ['full', 'low', 'empty'], NAMES = STAGES.map(s => `rt_mine_${s}`);
-const FILTER = '^rt_mine_|^bldg_(kg_castle|ex_hall)$|^kg_villager_(0|1|15|9|4)_[01]$|^kg_guard_0_0$|^ex_bot_(8|9|7|0|12)_[01]$|^ex_marine_8_0$';
+const FILTER = '^rt_mine_|^bldg_(kg_castle|kg_barracks|ex_hall)$|^kg_villager_(0|1|15|9|4)_[01]$|^kg_guard_0_0$|^ex_bot_(8|9|7|0|12)_[01]$|^ex_marine_8_0$';
 const t0 = Date.now();
 const sprites = await render3d(FILTER, { polish: true });
 console.log(`rendered ${sprites.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
@@ -56,7 +57,7 @@ for (const name of NAMES) {
     n++; top = Math.min(top, y); x0 = Math.min(x0, x); x1 = Math.max(x1, x);
     if (data[i] > 150 && data[i + 1] > 110 && data[i + 2] < 120 && data[i] - data[i + 2] > 70) gold++;
   }
-  const [bw, bh] = P.size(name), rise = (ay - top) / 2 - 48; // (the footprint's north edge is 48 game px north of the anchor, drawn 48 CSS px up at this camera's ground foreshortening of 1)
+  const [bw, bh] = P.size(name), rise = (ay - top) / 2 - MINE_N * 16; // (the footprint's north edge is N * 16 game px north of the anchor, drawn as many CSS px up: the ground is square on screen)
   measures[name] = { w: bw, h: bh, rise: +rise.toFixed(1), gold: +(gold / n).toFixed(3) };
   console.log(`  ${name.padEnd(14)} ${bw} x ${bh}   rises ${rise.toFixed(0)} px over the footprint's north edge   gold ${(gold / n * 100).toFixed(1)}%`);
 }
@@ -78,17 +79,17 @@ writeFileSync(join(outDir, 'measures.json'), JSON.stringify(measures, null, 1));
 // ---- the scene: zoom 1.0 and 0.75 ----
 const BW = 2250, BH = 1040;
 const SCENE = [
-  ['bldg_kg_castle', 420, 560, 0], ['bldg_ex_hall', 1880, 560, 1],
-  ['rt_mine_full', 830, 520], ['rt_mine_low', 1150, 560], ['rt_mine_empty', 1470, 520],
+  ['bldg_kg_castle', 380, 560, 0], ['bldg_kg_barracks', 1150, 790, 0], ['bldg_ex_hall', 1880, 560, 1],
+  ['rt_mine_full', 830, 520], ['rt_mine_low', 1150, 530], ['rt_mine_empty', 1470, 520],
   ['kg_villager_1_0', 760, 600, 0], ['kg_villager_0_1', 800, 640, 0], ['kg_villager_15_0', 870, 630, 0], ['kg_villager_9_1', 700, 560, 0], ['kg_villager_4_0', 840, 680, 0], ['kg_guard_0_0', 620, 700, 0],
-  ['ex_bot_8_0', 1210, 650, 1], ['ex_bot_9_1', 1120, 680, 1], ['ex_bot_7_0', 1250, 700, 1], ['ex_bot_12_1', 1560, 640, 1], ['ex_bot_0_0', 1700, 620, 1], ['ex_marine_8_0', 1620, 700, 1],
+  ['ex_bot_8_0', 1040, 640, 1], ['ex_bot_9_1', 1290, 630, 1], ['ex_bot_7_0', 1320, 700, 1], ['ex_bot_12_1', 1560, 640, 1], ['ex_bot_0_0', 1700, 620, 1], ['ex_marine_8_0', 1620, 700, 1],
 ];
 {
   const b = canvas(BW, BH); grass(b, 4242); P.place(b, SCENE);
   const z100 = crop(b, (BW - W) / 2, (BH - H) / 2, W, H);
   for (const st of STAGES) { const c = canvas(260, 300); grass(c, 11); P.draw(c, `rt_mine_${st}`, 130, 190); save(join('alone', `${st}.png`), half(c)); }
   save('scene-100-grey.png', grey(z100));
-  label(z100, `CASTLE, THE MINE FULL / LOW / EMPTY, DATA CENTER; VILLAGERS AND BOTS. ZOOM 1.0  GROUND ${meanValue(z100, 0, H).toFixed(2)}`, 12, 12, 2);
+  label(z100, `CASTLE, THE MINE FULL / LOW / EMPTY, DATA CENTER, A BARRACKS BELOW; VILLAGERS AND BOTS. ZOOM 1.0  GROUND ${meanValue(z100, 0, H).toFixed(2)}`, 12, 12, 2);
   save('scene-100.png', z100); save('scene-100-1x.png', half(z100));
   const r = resample(b, 0.75), z075 = crop(r, (r.w - W) / 2, (r.h - H) / 2, W, H);
   label(z075, 'THE SAME AT ZOOM 0.75', 12, 12, 2);

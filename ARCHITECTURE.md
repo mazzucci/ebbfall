@@ -100,7 +100,8 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   leash and its back-off when left beyond it; the Expedition AI's forward Uplink on a machine wave's march, and its
   wave's machines attacking out of range not called home), the Expedition rework (`expedition`: Power for machines and
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
-  one and a lost post leaving the count over its use, four Portal places a Portal, the satellite needing a Lab and
+  one and a lost post leaving the count over its use, one army limit for every pool together (a Bot or a Sellsword
+  refused at it with room in its own pool), four Portal places a Portal, the satellite needing a Lab and
   unlocking the Uplink whose standing unlocks the Portal, the launch told to every seat, melee Sellswords and Bruisers
   hitting only the ground up close, the Expedition AI at every level raising turbines and posts, launching, and
   reaching the Portal), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
@@ -154,7 +155,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       machines it speeds up, what gives it, the bonus and the Drone's leash), export.rs (the tables as
                       JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and
                       the Expedition's Power; `Hired`, the Expedition's hired places, six a Recruiting post; `Portal`,
-                      four a Portal): a unit's `pool` takes its `supply`, a building's `pool` gets it
+                      four a Portal): a unit's `pool` takes its `supply`, a building's `pool` gets it; each pool is capped by its own
+                      buildings and all of them together by the map's limit (`World::army_used`, `room`)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's crystals in an

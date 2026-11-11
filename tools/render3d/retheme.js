@@ -54,7 +54,7 @@ Object.assign(RT_BUILDINGS.ex, {
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. */
-export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 } } };
+export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82, base: 'tower' } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62, base: 'radio' } } }; // (`base`: the building it stands on, whose fit a turned head follows)
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
 
@@ -67,17 +67,25 @@ function bldgCell(n, h, lift, extra = 0) { // (`extra`: room on every side for a
   const W = n * 32, left = 4 + extra, right = h * 0.5 + 6 + extra, up = h * lift + 6 + extra, down = h * 0.4 + 6 + extra;
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
-/** A building turned `yaw` degrees about the vertical (the yaw review, tools/art/retheme-yaw.mjs) and scaled by `scale`
- *  (a number, or 'fit': the largest scale at which the turned model's ground extent stays inside its n-tile footprint,
- *  earth plate included). Returns the scale applied. */
+/** A building turned `yaw` degrees about the vertical (the yaw review, tools/art/retheme-yaw.mjs, retheme-yaw-bases.mjs)
+ *  and scaled by `scale` (a number, or 'fit': the largest scale at which the turned model's ground outline, its
+ *  vertices up to GROUND_Y units high, earth plate included, stays inside its n-tile footprint: 0 spill on the ground;
+ *  eaves and roofs may still overhang, as the square building's do). Returns the scale applied. */
+const GROUND_Y = 4;
 function turnBuilding(obj, n, yaw, scale) {
   obj.rotation.y = yaw * Math.PI / 180; obj.updateMatrixWorld(true);
-  if (scale === 'fit') {
-    const b = new THREE.Box3().setFromObject(obj, true), reach = Math.max(-b.min.x, b.max.x, -b.min.z, b.max.z);
-    scale = Math.min(1, n * 16 / reach);
-  }
+  if (scale === 'fit') scale = Math.min(1, n * 16 / groundReach(obj));
   obj.scale.multiplyScalar(scale);
   return scale;
+}
+/** The farthest any ground-level vertex of `obj` (world y <= GROUND_Y) lies from its axis along x or z. */
+function groundReach(obj) {
+  let reach = 0; const v = new THREE.Vector3();
+  obj.traverse(o => {
+    if (!o.isMesh) return; const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= GROUND_Y) reach = Math.max(reach, Math.abs(v.x), Math.abs(v.z)); }
+  });
+  return reach;
 }
 const turnTag = (yaw, scale) => `@y${yaw}s${scale.toFixed(2)}`;
 
@@ -116,6 +124,11 @@ export function* rethemeSprites(want, opts = {}) {
       const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;
       const obj = b.build(mats()); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
       yield [name, obj, bldgCell(b.n, b.h, lift), { ...o, shadow: false }, true];
+      for (const { yaw, scale = 1 } of opts.turns ?? []) { // (a head over a turned base: scaled as its base is, so it still sits on top; its own facing stays)
+        const base = RT_BUILDINGS[side][b.base], k = turnBuilding(base.build(mats()), base.n, yaw, scale);
+        const h = b.build(mats()); h.rotation.y = -dir / FACINGS * Math.PI * 2; h.scale.multiplyScalar(k);
+        yield [name + turnTag(yaw, k), h, bldgCell(b.n, b.h, lift, b.n * 8), { ...o, shadow: false }, true];
+      }
     }
   }
   if (want('rt_coins')) yield ['rt_coins', coins(makeExpeditionMats(NEUTRAL, !!opts.polish)), unitCell(30, 12, lift), o, false];

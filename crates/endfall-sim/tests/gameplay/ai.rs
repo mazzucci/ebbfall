@@ -585,7 +585,7 @@ fn the_ai_researches_upgrades_in_a_long_game() {
         w.upgrades[1]
     );
     // (or it stands at the cap of 40, where an army grows no more)
-    let [used, cap] = w.sup[ENEMY as usize];
+    let [used, cap] = w.sup(ENEMY);
     assert!(
         army(&w) > army_10 || used + 2 >= cap,
         "and kept building its army while researching ({army_10} -> {}, supply {used}/{cap})",
@@ -1461,8 +1461,10 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
             "{name}: a factory beyond its schedule: {}",
             factories(&w)
         );
+        // (but the Expedition's satellite, launched on every level: its way to the Portal)
+        let sat = w.upgrades[ENEMY as usize][Upgrade::Satellite.index()];
         assert_eq!(
-            w.upgrades[ENEMY as usize].iter().sum::<u8>(),
+            w.upgrades[ENEMY as usize].iter().sum::<u8>() - sat,
             0,
             "{name}: still no research"
         );
@@ -1637,7 +1639,7 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                     w.step();
                     w.events.clear();
                 }
-                let [used, cap] = w.sup[ENEMY as usize];
+                let [used, cap] = w.sup(ENEMY);
                 if used + 2 < w.supply_limit() || cap < w.supply_limit() {
                     banked.push(w.res[ENEMY as usize][0]);
                 } else {

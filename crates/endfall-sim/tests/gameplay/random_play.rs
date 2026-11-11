@@ -24,6 +24,7 @@ fn random_play_never_breaks_the_world_with_the_vael() {
         let (me, foe) = [(1, 0), (0, 1), (1, 1)][(seed % 3) as usize];
         let mut g = Game::with_setup(seed * 7919 + 5, 1, 0, seed % 2, me, foe);
         let mut r = Mulberry32::new(seed ^ 0xbeef);
+        let mut pools = Vec::new();
         for tick in 0..30 * 60 * 6 {
             if tick % 7 == 0 {
                 for _ in 0..1 + r.below(3) {
@@ -32,6 +33,7 @@ fn random_play_never_breaks_the_world_with_the_vael() {
             }
             g.step();
             check_invariants(g.world(), &format!("vael seed {seed} tick {tick}"));
+            check_pools(&mut pools, g.world(), &format!("vael seed {seed} tick {tick}"));
             if g.world().over {
                 break;
             }
@@ -45,6 +47,7 @@ fn random_play(diff: u32) {
         {
             let mut g = Game::new(seed * 7919 + 1, diff);
             let mut r = Mulberry32::new(seed ^ 0xabcdef);
+            let mut pools = Vec::new();
             for tick in 0..30 * 60 * 6 {
                 if tick % 7 == 0 {
                     for _ in 0..1 + r.below(3) {
@@ -53,6 +56,7 @@ fn random_play(diff: u32) {
                 }
                 g.step();
                 check_invariants(g.world(), &format!("seed {seed} diff {diff} tick {tick}"));
+                check_pools(&mut pools, g.world(), &format!("seed {seed} diff {diff} tick {tick}"));
                 if g.world().over {
                     break;
                 }

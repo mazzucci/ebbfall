@@ -331,7 +331,7 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
             ("Buggies beat Archers", -d(&[Lancer], &[Scythe]), 0.2),
             ("Archers answer Drones", d(&[Lancer], &[Shrike]), 0.3),
             ("Ballistas answer Drones", d(&[Bastion], &[Shrike]), 0.3),
-            ("Sellswords answer Drones", d(&[Prism], &[Shrike]), 0.3),
+            ("Marines answer Drones", d(&[Umbra], &[Shrike]), 0.3),
             (
                 "Archers are weak against the ground",
                 -d(&[Lancer], &[Trooper]),

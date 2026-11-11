@@ -368,7 +368,7 @@ pub fn make_room(w: &mut World, team: u8, room: i32) {
     fighters.sort();
     let fighters: Vec<Id> = fighters.into_iter().map(|(_, id)| id).collect();
     for id in fighters {
-        let [used, cap] = w.sup[team as usize];
+        let [used, cap] = w.sup(team);
         if cap - used >= room {
             break;
         }

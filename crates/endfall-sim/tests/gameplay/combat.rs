@@ -121,7 +121,7 @@ fn a_ballista_hits_flyers_hard_and_the_ground_too() {
 
 #[test]
 fn anti_air_units_and_turrets_shoot_flyers_down() {
-    for shooter in ["lancer", "bastion", "prism", "umbra", "turret"] {
+    for shooter in ["lancer", "bastion", "umbra", "turret"] {
         let mut w = arena(9);
         match shooter {
             "turret" => {
@@ -347,7 +347,7 @@ fn every_weapon_reports_its_shots_for_the_sound() {
         (UnitKind::Lancer, UnitKind::Shrike, "missile"),
         (UnitKind::Harvester, UnitKind::Trooper, "melee"),
         // The Expedition sound like glass and ceramic (its sounds are the Vael's until the words PR).
-        (UnitKind::Prism, UnitKind::Trooper, "lance"),
+        (UnitKind::Prism, UnitKind::Trooper, "blade"),
         (UnitKind::Scythe, UnitKind::Trooper, "lance"),
         (UnitKind::Lumen, UnitKind::Trooper, "blade"),
     ] {

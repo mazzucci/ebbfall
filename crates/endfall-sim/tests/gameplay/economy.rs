@@ -136,7 +136,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
         queued += 1;
     }
     assert_eq!(queued, 5, "queue holds five");
-    let [used, cap] = w.sup[PLAYER as usize];
+    let [used, cap] = w.sup(PLAYER);
     assert_eq!((used, cap), (9, 20), "the Lighthouse's 20 population");
     w.cancel_queue(core_id, 4);
     w.cancel_queue(core_id, 3);
@@ -145,7 +145,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
     assert_eq!(w.res[PLAYER as usize][0], res_before + 50, "cancel refunds");
     let h = harvesters(&w, PLAYER);
     build(&mut w, BldgKind::Depot, h[0], 90);
-    assert_eq!(w.sup[PLAYER as usize][1], 28);
+    assert_eq!(w.sup(PLAYER)[1], 28);
 }
 
 #[test]
@@ -165,22 +165,22 @@ fn the_supply_cap_grows_with_the_map() {
             w.make_building(f.supply, PLAYER, tx, ty, true);
         }
         w.recalc_supply(PLAYER);
-        assert_eq!(w.sup[PLAYER as usize][1], cap, "{n}x{n}: capped at {cap}");
+        assert_eq!(w.sup(PLAYER)[1], cap, "{n}x{n}: capped at {cap}");
         // Filled to the cap: blocked, and told the limit (another population building would not help).
-        w.sup[PLAYER as usize][0] = cap;
+        w.pools[PLAYER as usize][0][0] = cap;
         let hq_id = w
             .bldgs
             .iter()
             .find(|b| b.team == PLAYER && b.kind.def().hq)
             .unwrap()
             .id;
-        assert_eq!(
-            w.queue_unit(hq_id, f.worker),
-            Err(format!(
-                "Population at its limit ({cap}): no more until some fall"
-            )),
-            "{n}x{n}"
-        );
+        // (the Expedition's Power)
+        let told = if f.power {
+            format!("Power at its limit ({cap}): no more machines until some fall")
+        } else {
+            format!("Population at its limit ({cap}): no more until some fall")
+        };
+        assert_eq!(w.queue_unit(hq_id, f.worker), Err(told), "{n}x{n}");
     }
     assert_eq!(
         [64, 96, 128].map(supply_limit),
@@ -207,7 +207,7 @@ fn a_full_core_reports_supply_blocked() {
         w.make_unit(UnitKind::Harvester, PLAYER, x, y);
     }
     w.recalc_supply(PLAYER);
-    assert_eq!(w.sup[PLAYER as usize], [19, 20]);
+    assert_eq!(w.sup(PLAYER), [19, 20]);
     w.queue_unit(core_id, UnitKind::Harvester)
         .expect("the twentieth fits");
     assert_eq!(

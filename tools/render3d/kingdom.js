@@ -91,6 +91,7 @@ export function makeKingdomMats(tc, v = 'B', polish = false) {
   M.plinth = std({ color: P.plinth, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 });
   M.roof = std({ color: P.roof, map: ROOF_TEX[P.roofTex], roughness: P.roofTex === 'slate' ? 0.6 : 0.9, metalness: P.roofTex === 'slate' ? 0.15 : 0 });
   M.oak = std({ color: P.timber, map: M.timber.map, roughness: 0.82 });
+  M.haft = std({ color: 0x9a6a3c, map: M.timber.map, roughness: 0.78 });                                           // a hand-held shaft (the spear, the lance): a warm medium brown, two steps above the oak, so a prop a few px wide reads over the grass and the unit's shadow (the legibility pass, 2026-11-11)
   M.steel = std({ color: P.steel, metalness: P.steelMetal, roughness: P.steelRough });
   M.mail = std({ color: P.mail, map: M.sandbag.map, metalness: 0.7, roughness: 0.55 });
   M.tunic = std({ color: P.tunic, map: M.canvas.map, roughness: 0.92 });
@@ -247,15 +248,15 @@ export function guard(M, f) {
   limb(b, [0.6, 11, -3.6], [1.2, 9.8, -4.0], 1.2, M.cloth);                                    // team sleeves (the family trait; the Guard keeps more team than the Villager)
   // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule
   const sp = grp(); sp.position.set(0.8, 10.0, 3.4); sp.rotation.z = 0.7; b.add(sp);
-  add(sp, cyl(0.85, 0.85, 26, 8), M.oak, 5.0, 0, 0, 0, 0, Math.PI / 2);                        // (the shaft drawn twice its thickness: the PM's rule, nothing important under 2 CSS px at zoom 1.0)
-  add(sp, cyl(1.0, 1.0, 1.6, 8), M.steel, 18.2, 0, 0, 0, 0, Math.PI / 2);                     // the socket
-  add(sp, cone(1.5, 5.4, 8), M.steel, 21.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5);   // the leaf head
-  add(sp, cyl(1.0, 0.9, 1.4, 8), M.steel, -8.4, 0, 0, 0, 0, Math.PI / 2);                     // the butt's ferrule
+  add(sp, cyl(1.05, 1.05, 26, 8), M.haft, 5.0, 0, 0, 0, 0, Math.PI / 2);                      // (the shaft in warm haft brown, 3.2 px wide at zoom 1.0 (0.85, 2.6 px, in dark oak until the legibility pass): the PM's rule, nothing important under 2 CSS px)
+  add(sp, cyl(1.2, 1.2, 1.6, 8), M.steel, 18.2, 0, 0, 0, 0, Math.PI / 2);                     // the socket
+  add(sp, cone(1.6, 5.4, 8), M.steel, 21.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5);   // the leaf head
+  add(sp, cyl(1.2, 1.1, 1.4, 8), M.steel, -8.4, 0, 0, 0, 0, Math.PI / 2);                     // the butt's ferrule
   limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5);
   if (M.polish) { // secondary detail: a buckle, a sword in a scabbard at the left hip, leather bindings on the spear (round 2 dropped the rim studs: not found at 4x)
     add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
     add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.6, 5.6, -3.4, 0.3, 0, 0.55); add(b, rbox(2.2, 0.45, 0.5, 0.1), M.steel, -0.3, 8.9, -3.5); add(b, sph(0.5, 8, 6), M.steel, 0.2, 9.4, -3.5);
-    add(sp, cyl(1.05, 1.05, 2.2, 8), M.leather, 15.6, 0, 0, 0, 0, Math.PI / 2); add(sp, cyl(1.05, 1.05, 2.6, 8), M.leather, 3.8, 0, 0, 0, 0, Math.PI / 2);
+    add(sp, cyl(1.25, 1.25, 2.2, 8), M.leather, 15.6, 0, 0, 0, 0, Math.PI / 2); add(sp, cyl(1.25, 1.25, 2.6, 8), M.leather, 3.8, 0, 0, 0, 0, Math.PI / 2);
   }
   g.scale.setScalar(1.08);
   return g;
@@ -307,9 +308,9 @@ export function knight(M, f) {
   limb(r, [0, 6, -3], [1.2, 4.4, -4.0], 1.1, M.mail);
   // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon
   const ln = grp(); ln.position.set(2.0, 4.8, 3.6); ln.rotation.z = 0.42; r.add(ln);
-  add(ln, cyl(0.95, 1.2, 24, 8), M.oak, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; drawn twice its thickness)
-  add(ln, cyl(1.6, 1.0, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
-  add(ln, cone(1.1, 3.6, 8), M.steel, 20.0, 0, 0, 0, 0, -Math.PI / 2);                        // the point
+  add(ln, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
+  add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
+  add(ln, cone(1.3, 3.6, 8), M.steel, 20.0, 0, 0, 0, 0, -Math.PI / 2);                        // the point
   const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -0.42 + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
   add(ln, rbox(0.4, 0.4, 5.4, 0.05), M.inkLine, 20.6, 0.4, 0.2);                             // its ink edge at the staff
   limb(r, [0, 6, 3], [2.0, 4.8, 3.6], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, 2.2, 4.8, 3.7);
@@ -321,7 +322,7 @@ export function knight(M, f) {
     add(h, rbox(1.2, 2.2, 5.0, 0.4), M.leather, -2.9, 15.3, 0); add(h, rbox(1.0, 1.4, 3.0, 0.3), M.leather, 3.9, 15.2, 0); // cantle and pommel
     for (const side of [-1, 1]) add(r, torus(0.95, 0.22), M.steel, 2.8, -4.0, side * 4.9);       // stirrups
     add(r, rbox(1.0, 2.6, 0.5, 0.1), M.inkLine, 2.8, 9.9, 0); add(r, rbox(1.0, 0.45, 2.4, 0.1), M.inkLine, 2.8, 9.7, 0); // the helm's cross
-    for (const x of [-0.8, 4.2]) add(ln, cyl(1.3, 1.3, 0.8, 8), M.ironDark, x, 0, 0, 0, 0, Math.PI / 2);
+    for (const x of [-0.8, 4.2]) add(ln, cyl(1.6, 1.6, 0.8, 8), M.ironDark, x, 0, 0, 0, 0, Math.PI / 2);
   }
   return g;
 }

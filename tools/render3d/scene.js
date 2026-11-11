@@ -61,11 +61,12 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  * The ground point (gx, gz) lands at pixel (ax, ay). Shadow on the ground included unless `shadow` is false.
  * `mask`: also return its team mask (`{ img, mask }`), the same size and framing (see teamMask).
  * `elev`: the camera's elevation for this shot (radians; ELEV, the game's 40 degrees, by default).
- * `sun`: the sun's height over SUN_OUT (SUN_UP, 420, by default).
+ * `sun`: the sun's height over SUN_OUT (SUN_UP, 420, by default); `sunDir` another [x, z] offset than SUN_OUT (a review
+ * picture's trial: [-120, 90] puts the key at the front-left, over the viewer's shoulder, the shadow up-screen).
  * `polish`: the re-theme's polished finish (polish.js: a depth pass, ambient occlusion, lit edges, a soft contact
  * shadow, lighter ink, finer banding) instead of `finish`; the atlas's re-themed models pass it, the old ones do not.
  */
-export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, polish = false }) {
+export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, sunDir = SUN_OUT, polish = false }) {
   scene.add(obj);
   obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon)
   catcher.visible = shadow;
@@ -75,7 +76,7 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   camera.position.set(gx, 1000 * sn, gz + 1000 * Math.cos(elev));
   camera.lookAt(gx, 0, gz);
   camera.updateProjectionMatrix();
-  sun.target.position.set(gx, 0, gz); sun.position.set(gx + SUN_OUT[0], sunUp, gz + SUN_OUT[1]);
+  sun.target.position.set(gx, 0, gz); sun.position.set(gx + sunDir[0], sunUp, gz + sunDir[1]);
   const r = Math.max(w, h) / S;
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();
@@ -84,11 +85,12 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   if (!polish) { img = grab(w, h); finish(img); }
   else { // the polished path: its lights for the colour pass (restored after), then the depth pass and polish.js's finish
     const P = typeof polish === 'object' ? { ...POLISH, ...polish } : POLISH, L = P.unit ? P.unitLights : P.lights;
-    const saved = [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity];
+    const saved = [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity, rim.color.getHex()];
     sun.intensity = L.sun; hemi.intensity = L.hemi; scene.environmentIntensity = L.env; rim.intensity = L.rim; fill.intensity = L.fill;
+    if (L.rimColor !== undefined) rim.color.setHex(L.rimColor); // (the units' paler rim: polish.js unitLights)
     fill.target.position.set(gx, 0, gz); fill.position.set(gx - 200, 150, gz + 300); scene.add(fill.target);
     img = grab(w, h);
-    [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity] = saved;
+    [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity] = saved; rim.color.setHex(saved[5]);
     finishPolish(img, depthPass(obj, w, h), { ...P, sinElev: Math.sin(elev) });
   }
   const m = mask ? teamMask(obj, img) : null;

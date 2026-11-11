@@ -33,7 +33,7 @@ function fam(M) {
     patchedGrey: std({ color: 0xb4b0a4, map: patchTex, roughness: 0.92 }),                        // ... a greyer, more weathered panel
     canvasOld: std({ color: 0xa08a68, map: patchTex, roughness: 0.92 }),                          // ... an old tan panel (the patchwork's darker tone; the re-test read clean stripes as modern)
     drab: std({ color: 0x66563a, map: M.canvas.map, roughness: 0.92 }),                            // the Archer's tunic: a dark drab wool, brown-olive (not the grass's green, not the Villager's grey)
-    yew: std({ color: 0x2c1c10, roughness: 0.82 }),                                                 // the Archer's longbow: dark yew, darker than the oak
+    yew: std({ color: 0x9a6a3c, map: M.timber.map, roughness: 0.78 }),                             // the Archer's longbow: a warm medium brown (the kingdom's `haft`; 0x2c1c10, near-black yew, until the legibility pass of 2026-11-11: Stelian could not tell the Archer had a bow), its top edge lit by the polish's rim
     rope: M.rope,
   };
   if (M.polish) { // the polish pass (polish.js polishMats does the kingdom's set; these are the family's own): hide on the bay, folds on the patched canvas and the drab, grain on the yew
@@ -88,20 +88,21 @@ export function archer(M, f) {
   add(qv, cyl(1.4, 1.4, 0.4, 10), M.inkLine, 0, 3.5, 0);                                         // the mouth's dark rim
   for (const [x, z] of [[0.4, 0.3], [-0.4, -0.4], [0.1, 0.6]]) { add(qv, cyl(0.3, 0.3, 5.0, 6), M.oak, x, 5.6, z); add(qv, rbox(1.4, 1.7, 0.4, 0.1), M.cloth, x, 7.5, z); add(qv, rbox(0.4, 1.7, 1.4, 0.1), M.cloth, x, 7.5, z); }
   add(b, rbox(5.3, 0.9, 7.0, 0.1), M.leather, 0.1, 9.6, 0, -0.6, 0, 0);                          // the strap across the chest (and the back)
-  // the longbow: an arc of dark yew (radius BR, half-angle HA: a stave 16.8 tall, 3.6 deep) standing upright ahead of
-  // the body at the left hand, its belly out (+x), the string straight along the chord; drawn three times its thickness
+  // the longbow: an arc of warm brown wood (radius BR, half-angle HA: a stave 16.8 tall, 3.6 deep) standing upright
+  // ahead of the body at the left hand, its belly out (+x), the string straight along the chord; the stave's tube 1.2
+  // (3.5 px wide at zoom 1.0; 1.0, 2.9 px, until the legibility pass)
   const BR = 11.5, HA = 0.82, GX = 6.2, GY = 10.4, GZ = -1.6, bw = grp(); bw.position.set(GX - BR, GY, GZ); b.add(bw);
-  add(bw, torus(BR, 1.0, 36, 2 * HA), A.yew, 0, 0, 0, 0, 0, -HA);                                // the stave
+  add(bw, torus(BR, 1.2, 36, 2 * HA), A.yew, 0, 0, 0, 0, 0, -HA);                                // the stave
   const tip = (s) => [BR * Math.cos(HA), s * BR * Math.sin(HA), 0];
   limb(bw, tip(1), tip(-1), 0.25, M.rope);                                                       // the string (thin: at 1x the stave is the bow)
-  add(bw, cyl(1.25, 1.25, 2.8, 8), M.leather, BR, 0, 0);                                        // the grip
+  add(bw, cyl(1.45, 1.45, 2.8, 8), M.leather, BR, 0, 0);                                        // the grip
   limb(b, [0.6, 11.2, -3.4], [GX - 0.6, GY, GZ], 1.15, A.drab); add(b, sph(0.9, 8, 6), M.skin, GX - 0.3, GY, GZ);  // the bow arm, out ahead
   limb(b, [0.6, 11.2, 3.4], [1.4, 7.2, 3.9], 1.15, A.drab); add(b, sph(0.9, 8, 6), M.skin, 1.5, 6.8, 3.9);         // the right arm, down at the side
   if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a small grey feather on the hood's left, a leather bracer on the bow arm, ink cuffs, leather bindings on the stave's limbs, an iron ring at the quiver's foot, a dark buckle on the strap
     add(b, rbox(0.3, 3.0, 0.9, 0.1), M.tunic, -0.8, 16.2, -2.2, 0, 0, 0.7);
     limb(b, [3.6, 10.6, -2.4], [4.9, 10.45, -1.9], 1.3, M.leather);
     add(b, sph(1.25, 8, 6), M.inkLine, 5.2, 10.45, -1.75); add(b, sph(1.2, 8, 6), M.inkLine, 1.3, 7.6, 3.85);
-    for (const s of [-1, 1]) add(bw, cyl(1.25, 1.25, 1.6, 8), M.leather, BR * Math.cos(0.42), s * BR * Math.sin(0.42), 0, 0, 0, s * 0.42);
+    for (const s of [-1, 1]) add(bw, cyl(1.45, 1.45, 1.6, 8), M.leather, BR * Math.cos(0.42), s * BR * Math.sin(0.42), 0, 0, 0, s * 0.42);
     add(qv, cyl(1.3, 1.3, 0.8, 10), M.ironDark, 0, -3.2, 0);
     add(b, rbox(1.0, 1.2, 1.2, 0.1), M.ironDark, 2.6, 10.6, -1.6);
   }
@@ -156,8 +157,8 @@ export function rider(M, f) {
   add(r, rbox(1.2, 2.0, 0.6, 0.1), M.steel, 2.3, 7.4, 0);                                      // the nasal bar
   // the short spear in the right hand, held up, point up (half the lance; the Knight's is couched ahead with a pennon)
   const sp = grp(); sp.position.set(1.6, 4.0, 3.2); sp.rotation.z = -0.35; r.add(sp);
-  add(sp, cyl(0.8, 0.8, 14, 8), M.oak, 0, 3.0, 0);                                             // (drawn twice its thickness)
-  add(sp, cyl(0.95, 0.95, 1.2, 8), M.steel, 0, 10.2, 0); add(sp, cone(1.3, 4.0, 8), M.steel, 0, 12.8, 0); // the socket and head
+  add(sp, cyl(1.05, 1.05, 14, 8), M.haft, 0, 3.0, 0);                                           // (2.9 px wide at zoom 1.0 in warm haft brown; 0.8 in dark oak until the legibility pass)
+  add(sp, cyl(1.2, 1.2, 1.2, 8), M.steel, 0, 10.2, 0); add(sp, cone(1.4, 4.0, 8), M.steel, 0, 12.8, 0); // the socket and head
   limb(r, [0, 6, 2.8], [1.6, 4.6, 3.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 1.6, 4.4, 3.3); // the spear arm, a team sleeve
   limb(r, [0, 6, -2.8], [3.0, 5.0, -1.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 3.2, 5.0, -1.0); // the rein hand
   limb(h, [3.4, 15.6, -1.0], [12.6, 17.6, -0.6], 0.3, M.leather);                                 // the rein
@@ -169,7 +170,7 @@ export function rider(M, f) {
     limb(h, [-2.2, 14.8, 0], [-7.0, 14.3, 0], 0.3, M.leather);                                       // the crupper
     add(r, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.3, 1.8, 0);
     add(r, sph(1.1, 8, 6), M.inkLine, 1.36, 4.81, 3.14); add(r, sph(1.1, 8, 6), M.inkLine, 2.55, 5.15, -1.44);
-    add(sp, cyl(0.95, 0.95, 2.0, 8), M.leather, 0, 8.4, 0); add(sp, cyl(0.95, 0.95, 2.4, 8), M.leather, 0, 1.8, 0);
+    add(sp, cyl(1.2, 1.2, 2.0, 8), M.leather, 0, 8.4, 0); add(sp, cyl(1.2, 1.2, 2.4, 8), M.leather, 0, 1.8, 0);
   }
   return g;
 }

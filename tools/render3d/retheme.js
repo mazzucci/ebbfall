@@ -24,6 +24,9 @@ import * as EB from './expedition-buildings.js';
 
 export const RT_ELEV = 40;
 export const UNIT_SCALE = UNIT_ART_SCALE; // (look.js: the game draws its units this much larger than the sim's size)
+/** The sun's height for the units (scene.js SUN_UP 420 for everything else): a shade higher, so a unit's cast shadow is
+ *  0.31 of its height long instead of 0.36 and sits closer under it (the legibility pass, 2026-11-11). */
+export const UNIT_SUN = 480;
 /** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render) and its
  *  frames (2 by default: the walk). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
@@ -74,9 +77,10 @@ export function* rethemeSprites(want, opts = {}) {
   if (typeof opts === 'number') opts = { elev: opts };
   const elev = (opts.elev ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
   if (opts.sun) o.sun = opts.sun;
+  if (opts.sunDir) o.sunDir = opts.sunDir; // (a picture's trial key direction, scene.js `shoot`)
   if (opts.polish) o.polish = opts.polish;
   countryPolish(!!opts.polish); // (country.js: the gold's and the scenery's materials, plain or polished)
-  const ou = opts.polish ? { ...o, polish: { ...(typeof opts.polish === 'object' ? opts.polish : {}), unit: true } } : o; // (the units take polish.js's unit lights and banding)
+  const ou = opts.polish ? { ...o, sun: opts.sun ?? UNIT_SUN, polish: { ...(typeof opts.polish === 'object' ? opts.polish : {}), unit: true } } : o; // (the units take polish.js's unit lights, shadow and banding, and the units' sun)
   for (const side of ['kg', 'ex']) {
     let M = null; const mats = () => M ??= MATS[side](NEUTRAL, !!opts.polish);
     for (const [kind, m] of Object.entries(RT_UNITS[side])) {
@@ -139,7 +143,7 @@ const siteH = (side, kind, n) => (kind === 'scaffold' ? 10 + n * 6 + (side === '
 /** Yields [name, object, cell, shootOpts, isTeam, extra] for every atlas sprite the re-theme draws (`extra`: a unit
  *  frame's `anim` and `frame`). `want(name)` filters, as main.js's. */
 export function* atlasSprites(want = () => true) {
-  const lift = liftAt(RT_ELEV * Math.PI / 180), o = { polish: true }, ou = { polish: { unit: true } };
+  const lift = liftAt(RT_ELEV * Math.PI / 180), o = { polish: true }, ou = { polish: { unit: true }, sun: UNIT_SUN };
   countryPolish(true);
   const M = {}, mats = (side) => (M[side] ??= MATS[side](NEUTRAL, true));
   for (const [kind, [side, model]] of Object.entries(ATLAS_UNITS)) {

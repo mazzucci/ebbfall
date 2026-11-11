@@ -6,7 +6,7 @@ import { Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle,
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { BLDG_LOOK, chimneyActive, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
@@ -401,8 +401,8 @@ class BldgObj {
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
     if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
-    const sm = this.look.smoke; // chimneys
-    if (live && sm && b.done && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
+    const sm = this.look.smoke; // chimneys: only while the building works (look.js chimneyActive)
+    if (live && sm && chimneyActive(b) && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
   /** A Vael site: no foundation, its bud (in the scaffold's sprite) once its Glint has begun; the whole building fades in as a lantern-lit ghost, more solid as
    *  it grows, inside a pulsing ring while a Glint works on it (a site not yet begun is a fainter ghost, no
@@ -469,10 +469,12 @@ export function addEffect(anim, x, y, o = {}) {
   const s = new Sprite(frames[0]); s.anchor.set(0.5); s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
   if (o.fade) s.alpha = o.fade;
   L.fx.addChild(s);
-  const e = { s, frames, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
+  const e = { s, frames, anim, x, y, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
   if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
   effects.push(e);
 }
+/** The effects alive now, each with its animation and where it was spawned (world px): read-only, for the tests. */
+export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y }));
 /** A unit or building died: explosion sized to it, debris, a scorch mark, and a shake and rubble (its people's: `race`) for big ones. */
 export function boom(x, y, r, race) {
   const big = r >= 20;

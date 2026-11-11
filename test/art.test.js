@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { BLDG_LOOK, SEAT_COLORS, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL } from '../src/client/look.js';
+import { BLDG_LOOK, chimneyActive, SEAT_COLORS, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL } from '../src/client/look.js';
 import { GROUND_BASES, GROUND_MARKS, rockTile } from '../src/client/gl/ground.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
@@ -40,6 +40,16 @@ test('the atlas holds no unit or building the sim no longer has (the retired kin
 test('every building and turret head has its team mask', () => {
   for (const type of Object.keys(BUILDINGS)) paired(`bldg_${type}`);
   for (const head of new Set(Object.values(BLDG_LOOK).map(l => l.head).filter(Boolean))) for (let d = 0; d < FACINGS; d++) paired(`${head}_${d}`);
+});
+
+test('chimney smoke: the Castle, Barracks and Blacksmith have smoke points, the Cottage none, and a chimney is active only while its building works', () => {
+  for (const k of ['core', 'barracks', 'forge']) assert.ok(BLDG_LOOK[k].smoke?.length, `${k} has smoke points`);
+  assert.equal(BLDG_LOOK.depot?.smoke, undefined, 'the Cottage: no smoke (nobody works there)');
+  const idle = { done: true, queue: [], research: null };
+  assert.equal(chimneyActive(idle), false, 'idle: cold');
+  assert.equal(chimneyActive({ ...idle, queue: ['trooper'] }), true, 'training: smokes');
+  assert.equal(chimneyActive({ ...idle, research: { type: 'weapons1', prog: 0 } }), true, 'researching: smokes');
+  assert.equal(chimneyActive({ ...idle, done: false, queue: ['trooper'] }), false, 'not yet built: cold');
 });
 
 test('every unit kind has its drawn height (atlas.json unitTops: the hit test and health bars go by it), taller than its radius', () => {

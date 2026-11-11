@@ -485,6 +485,25 @@ test('a click or a tap on a building\'s drawn roof, above its footprint, selects
   }
 });
 
+test('chimney smoke only while a building works: an idle Barracks puffs nothing, one training puffs over its stack', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    const rax = await buildAndFinish(d, 'c', 'barracks', 0);
+    await d.centerOn(rax.x, rax.y); // (effects are made only near the view)
+    // The puffs over this Barracks: spawned at its chimney's cap (look.js BLDG_LOOK), over its footprint or just north of it.
+    const box = [rax.tx * 32 - 16, rax.ty * 32 - 64, (rax.tx + rax.w) * 32 + 16, (rax.ty + rax.h) * 32];
+    const inBox = (box) => endfall.effects().filter(e => e.anim === 'puff' && e.x >= box[0] && e.x < box[2] && e.y >= box[1] && e.y < box[3]).length;
+    await d.page.waitForTimeout(1500); // real frames: the chimney puffs on the renderer's clock, not the sim's
+    assert.equal(await d.eval(inBox, box), 0, 'idle and whole: no smoke');
+    await d.clickEntity(rax.id);
+    await d.pressCard('Picket');
+    assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 1, 'a Picket in training');
+    await d.page.waitForFunction((box) => endfall.effects().some(e => e.anim === 'puff' && e.x >= box[0] && e.x < box[2] && e.y >= box[1] && e.y < box[3]), box, { timeout: 8000 }); // (one puff every 0.4 s on average)
+    assert.ok(await d.eval(inBox, box) > 0, 'training: its stack smokes');
+  } finally { await d.close(); }
+});
+
 test('a unit north of a tall building is drawn behind it, our own as a silhouette through it; one south of it in front', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

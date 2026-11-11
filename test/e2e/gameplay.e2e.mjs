@@ -1072,10 +1072,14 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
         assert.ok(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, f.id), `${where}: the research goes on`);
         // The research ends: its tile goes, its room stays.
         await until(d, async () => !(await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).research, f.id)), { seconds: 90, step: 5, what: `${R.name} to finish` });
-        await d.page.waitForFunction(() => document.querySelector('#qres.idle'), null, { timeout: 5000 });
-        const done = await layout();
-        assert.equal(done.researching, false, `${where}: done, the research tile goes`);
-        assert.deepEqual([done.who, done.queue, done.slots, done.res], [idle.who, idle.queue, idle.slots, idle.res], `${where}: the research ended, nothing moved`);
+        // (the unit left in the queue may have finished first: with nothing queued and nothing researching, the factory is
+        // idle, its slots gone and its line in their room)
+        if ((await d.state()).bldgs.find(b => b.id === f.id).queue.length) {
+          await d.page.waitForFunction(() => document.querySelector('#qres.idle'), null, { timeout: 5000 });
+          const done = await layout();
+          assert.equal(done.researching, false, `${where}: done, the research tile goes`);
+          assert.deepEqual([done.who, done.queue, done.slots, done.res], [idle.who, idle.queue, idle.slots, idle.res], `${where}: the research ended, nothing moved`);
+        } else await d.page.waitForFunction(() => !document.querySelector('#queue') && !document.querySelector('#qres'), null, { timeout: 5000 });
         assert.deepEqual(d.errors, []);
       } finally { await d.close(); }
     }

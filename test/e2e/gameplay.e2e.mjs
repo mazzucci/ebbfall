@@ -499,8 +499,8 @@ test('chimney smoke only while a building works: an idle Barracks puffs nothing,
     await d.page.waitForTimeout(1500); // real frames: the chimney puffs on the renderer's clock, not the sim's
     assert.equal(await d.eval(inBox, box), 0, 'idle and whole: no smoke');
     await d.clickEntity(rax.id);
-    await d.pressCard('Picket');
-    assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 1, 'a Picket in training');
+    await d.pressCard('Guard');
+    assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 1, 'a Guard in training');
     await d.page.waitForFunction((box) => endfall.effects().some(e => e.anim === 'puff' && e.x >= box[0] && e.x < box[2] && e.y >= box[1] && e.y < box[3]), box, { timeout: 8000 }); // (one puff every 0.4 s on average)
     assert.ok(await d.eval(inBox, box) > 0, 'training: its stack smokes');
   } finally { await d.close(); }

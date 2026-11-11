@@ -372,8 +372,8 @@ export function marine(M, f) {
   return g;
 }
 
-// The Data center's model moved to expedition-buildings.js on 2026-11-11 (`dataBlock`, Stelian's redraw: the server
-// hall with its rack-light glow became a dark block with cyan neon and a chip on its lid; `serverHall` the option not taken).
+// The Data center's model moved to expedition-buildings.js on 2026-11-11 (`serverHall`, Stelian's redraw: a dark hall
+// with a rack-lit bay in cyan neon and a chip on its roof; `dataBlock` the option not taken).
 
 /** The gold deposit (`rt_coins`): heaps of coins where today's salt sits, loose coins round them, on a dark footing of
  *  earth: the resource both peoples dig. */

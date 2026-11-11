@@ -1,8 +1,8 @@
 // The Data center's redraw and the depth pass (2026-11-11, Stelian's briefs): pictures at 2x with a -1x copy in CSS
 // px, on the game's grass tiles in the seats' colours, into target/datacenter (or [outdir]). "Today" is the branch
 // point's committed atlas (public/art on origin/retheme-legibility, read with `git show`): what the game drew before.
-//   node tools/art/retheme-datacenter.mjs --trial   the two options (retheme.js ex_hall, the block; ex_datahall, the
-//     server hall) at -20 .. +20 at 1x, seat 0, each angle's fit scale, spill and whether the chip's die still shows
+//   node tools/art/retheme-datacenter.mjs --trial   the two options (retheme.js ex_hall, the server hall; ex_datablock,
+//     the block) at -20 .. +20 at 1x, seat 0, each angle's fit scale, spill and whether the chip's die still shows
 //     (trial.png); renders cached under <outdir>/cache (--fresh)
 //   node tools/art/retheme-datacenter.mjs           options.png: today's Data center, the server hall and the block
 //     at their chosen angles, both seats, next to a Castle; base-100.png / base-075.png: an Expedition base with the pick
@@ -38,7 +38,7 @@ async function rendered(key, filter, opts) {
 
 const KINDS = { kg_castle: 'Castle', kg_cottage: 'Cottage', kg_market: 'Market', kg_barracks: 'Barracks', kg_blacksmith: 'Blacksmith', kg_workshop: 'Workshop', kg_tower: 'Watchtower', kg_stables: 'Stables',
   ex_hall: 'Data center', ex_bunkhouse: 'Cabin', ex_post: 'Recruiting post', ex_factory: 'Factory', ex_lab: 'Lab', ex_radio: 'Radio tower', ex_portal: 'Portal' };
-const SIZES = { kg_castle: 4, kg_cottage: 2, kg_market: 2, kg_barracks: 3, kg_blacksmith: 2, kg_workshop: 3, kg_tower: 2, kg_stables: 3, ex_hall: 4, ex_datahall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2 };
+const SIZES = { kg_castle: 4, kg_cottage: 2, kg_market: 2, kg_barracks: 3, kg_blacksmith: 2, kg_workshop: 3, kg_tower: 2, kg_stables: 3, ex_hall: 4, ex_datablock: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2 };
 const GAME = { kg_castle: 'core', kg_cottage: 'depot', kg_market: 'extractor', kg_barracks: 'barracks', kg_blacksmith: 'forge', kg_workshop: 'factory', kg_tower: 'turret', kg_stables: 'airfield',
   ex_hall: 'conflux', ex_bunkhouse: 'spire', ex_post: 'siphon', ex_factory: 'kiln', ex_lab: 'loom', ex_radio: 'ward', ex_portal: 'eclipse' };
 const HEADS = { kg_tower: ['kg_towerhead', 'turret_head'], ex_radio: ['ex_radiohead', 'ward_head'] }, HEAD_DIRS = [0, 2, 14];
@@ -87,9 +87,9 @@ function todayAtlas() {
 
 // ---- the trial: both options at every candidate angle ----
 if (mode === 'trial') {
-  const ANGLES = [-20, -10, 0, 10, 20], kinds = ['ex_hall', 'ex_datahall'], byYaw = {};
+  const ANGLES = [-20, -10, 0, 10, 20], kinds = ['ex_hall', 'ex_datablock'], byYaw = {};
   const t0 = Date.now();
-  for (const yaw of ANGLES) byYaw[yaw] = await rendered(`trial-${yaw}`, '^bldg_ex_(hall|datahall)$', { polish: true, yaws: Object.fromEntries(kinds.map(k => [k, yaw])) });
+  for (const yaw of ANGLES) byYaw[yaw] = await rendered(`trial-${yaw}`, '^bldg_ex_(hall|datablock)$', { polish: true, yaws: Object.fromEntries(kinds.map(k => [k, yaw])) });
   console.log(`rendered ${ANGLES.length} angles in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   const P = Object.fromEntries(ANGLES.map(a => [a, makePainters(byYaw[a], seatTints(byYaw[a].tints))]));
   const cw = 7 * T, rows = kinds.map(k => ({ k, h: Math.round((SIZES[k] + 4.2) * T) }));
@@ -105,7 +105,7 @@ if (mode === 'trial') {
       console.log(`  ${k.padEnd(12)} ${String(yaw).padStart(4)}   ${fit.toFixed(2)}  ${fmtSpill(sp).padEnd(18)} ${(cyan(s) * 100).toFixed(1)}%${clipped(s) ? '  CLIPPED' : ''}`);
       label(c, `${yaw > 0 ? '+' : ''}${yaw} ${fit < 1 ? 'x' + fit.toFixed(2) : ''}`, i * cw + 4, y + h - 22, 2);
     });
-    label(c, k === 'ex_hall' ? 'THE BLOCK' : 'THE SERVER HALL', 4, y + 4, 2);
+    label(c, k === 'ex_hall' ? 'THE SERVER HALL' : 'THE BLOCK', 4, y + 4, 2);
     y += h;
   }
   save('trial', c);
@@ -147,10 +147,10 @@ const t0 = Date.now();
 const art = await rendered('final', `^(bldg_(ex_|kg_castle$)|${UNITS}|rt_gold_0_0|ex_radiohead_(${HEAD_DIRS.join('|')})$)`, { polish: true });
 console.log(`rendered ${art.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const P = makePainters(art, seatTints(art.tints)), today = todayAtlas(), Q = makePainters(today, seatTints(today.tints));
-for (const k of ['ex_hall', 'ex_datahall']) { const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }; console.log(`  ${k.padEnd(12)} yaw ${turn.yaw} fit ${turn.scale.toFixed(2)} spill ${fmtSpill(spill(s, 4))} (today ${fmtSpill(spill(Q.get('bldg_conflux'), 4))}) cyan ${(cyan(s) * 100).toFixed(1)}% team ${P.share(`bldg_${k}`)}${clipped(s) ? ' CLIPPED' : ''}`); }
+for (const k of ['ex_hall', 'ex_datablock']) { const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }; console.log(`  ${k.padEnd(12)} yaw ${turn.yaw} fit ${turn.scale.toFixed(2)} spill ${fmtSpill(spill(s, 4))} (today ${fmtSpill(spill(Q.get('bldg_conflux'), 4))}) cyan ${(cyan(s) * 100).toFixed(1)}% team ${P.share(`bldg_${k}`)}${clipped(s) ? ' CLIPPED' : ''}`); }
 
 { // options.png: today | the server hall | the block | a Castle, seat 0 above, seat 1 below
-  const cols = [[Q, 'bldg_conflux', 'TODAY'], [P, 'bldg_ex_datahall', 'THE SERVER HALL'], [P, 'bldg_ex_hall', 'THE BLOCK'], [P, 'bldg_kg_castle', 'A CASTLE, FOR SCALE']];
+  const cols = [[Q, 'bldg_conflux', 'TODAY'], [P, 'bldg_ex_hall', 'THE SERVER HALL'], [P, 'bldg_ex_datablock', 'THE BLOCK'], [P, 'bldg_kg_castle', 'A CASTLE, FOR SCALE']];
   const cw = 8 * T, rh = 9 * T, c = cv(cw * cols.length, rh * 2); grass(c, 5); // (integer rows: a fractional y lands the labels a column over)
   [0, 1].forEach(seat => cols.forEach(([pr, name, txt], i) => {
     const x = i * cw + cw / 2, by = Math.round(seat * rh + rh - 1.4 * T - 2 * T), s = pr.get(name);

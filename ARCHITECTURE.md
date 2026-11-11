@@ -418,7 +418,8 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       its models, `atlasSprites` renders them under today's names; `BLDG_YAW` gives each building its
                       fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
                       than the square model's, the round towers square): the kingdom (kingdom.js,
-                      kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
+                      kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js; its Data center the server hall of
+                      expedition-buildings.js, Stelian's pick of 2026-11-11, the block drawn beside it kept for the record only), the countryside's gold,
                       props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
                       render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
                       units alike, no baked chimney smoke) at the game's 40-degree camera and 420 sun. The older models

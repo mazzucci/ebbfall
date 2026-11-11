@@ -479,8 +479,8 @@ export function portal(M) {
 // Stelian's brief: a server hall with a rack-light glow, the glow cyan neon (bright, saturated, apart from the kingdom's
 // royal blue), LED strips and rack panels; a big microchip motif on the roof, readable at 1x; team on flags and trim only;
 // nothing in front (no crates, no props); and, as an option, a clean dark block with the neon on its edges and seams,
-// rack-panel faces and the chip glowing on top, about Castle height. Both were drawn and rendered small; the pick is the
-// one retheme.js RT_BUILDINGS.ex.hall names (the other stays for the record, in tools/art/retheme-datacenter.mjs's picture).
+// rack-panel faces and the chip glowing on top, about Castle height. Both were drawn and rendered small; Stelian picked
+// the server hall (retheme.js RT_BUILDINGS.ex.hall); the block stays for the record, in tools/art/retheme-datacenter.mjs's picture.
 /** A face of rack panels on a wall `L` long and `H` tall (local x along the face, +z out of it; `ry` turns the group so
  *  +z is the face's normal): a dark skirting band, rows of rack panels between dark mullions, a cyan LED strip over
  *  each row with a soft halo. `rows` are [y0, h] pairs; `cols` the bay count. */
@@ -513,7 +513,7 @@ function microchip(g, M, x, y, z, s) {
 /** A neon rail (an edge or a seam): a thin bright bar from a to b with its halo. */
 function neonRail(g, M, a, b, r = 0.55) { limb(g, a, b, r, M.neon); limb(g, a, b, r * 2.4, M.neonHalo); }
 
-/** Data center, option A, the block (`dataBlock`): a clean charcoal block 100 x 94 and 64 tall on a dark stone course,
+/** The option not taken, the block (`dataBlock`): a clean charcoal block 100 x 94 and 64 tall on a dark stone course,
  *  cyan neon along its vertical edges and the roof's edges, rack panels in three rows of five bays on the south and
  *  east faces (the camera's) with a cyan LED strip over each row, a dark door with a lit lintel in the south face, a
  *  team trim band round the top between ink lines, and the microchip lying flat over most of the roof, its die glowing;
@@ -536,7 +536,7 @@ export function dataBlock(M) {
   return g;
 }
 
-/** Data center, option B, the server hall (`serverHall`): a long low charcoal hall 108 x 62 and 30 tall under a flat
+/** Data center, the server hall (`serverHall`, Stelian's pick): a long low charcoal hall 108 x 62 and 30 tall under a flat
  *  roof, its south face open across the middle (a bay 60 wide, 20 tall) on a row of six racks inside, each lit by two
  *  cyan strips, the bay's ceiling glowing; rack panels either side of the bay, cyan LED strips along the lintel and the
  *  eave, a team trim band on the parapet between ink lines; the microchip lying flat on the roof, its die glowing; two

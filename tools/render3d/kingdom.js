@@ -91,7 +91,7 @@ export function makeKingdomMats(tc, v = 'B', polish = false) {
   M.plinth = std({ color: P.plinth, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 });
   M.roof = std({ color: P.roof, map: ROOF_TEX[P.roofTex], roughness: P.roofTex === 'slate' ? 0.6 : 0.9, metalness: P.roofTex === 'slate' ? 0.15 : 0 });
   M.oak = std({ color: P.timber, map: M.timber.map, roughness: 0.82 });
-  M.haft = std({ color: 0x9a6a3c, map: M.timber.map, roughness: 0.78 });                                           // a hand-held shaft (the spear, the lance): a warm medium brown, two steps above the oak, so a prop a few px wide reads over the grass and the unit's shadow (the legibility pass, 2026-11-11)
+  M.haft = std({ color: 0x8a6240, map: M.timber.map, roughness: 0.78 });                                           // a hand-held shaft (the spear, the lance): a warm medium brown, two steps above the oak, so a prop a few px wide reads over the grass and the unit's shadow (the legibility pass, 2026-11-11; 0x9a6a3c read a touch orange, a step duller picked)
   M.steel = std({ color: P.steel, metalness: P.steelMetal, roughness: P.steelRough });
   M.mail = std({ color: P.mail, map: M.sandbag.map, metalness: 0.7, roughness: 0.55 });
   M.tunic = std({ color: P.tunic, map: M.canvas.map, roughness: 0.92 });

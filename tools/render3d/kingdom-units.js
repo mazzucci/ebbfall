@@ -33,7 +33,7 @@ function fam(M) {
     patchedGrey: std({ color: 0xb4b0a4, map: patchTex, roughness: 0.92 }),                        // ... a greyer, more weathered panel
     canvasOld: std({ color: 0xa08a68, map: patchTex, roughness: 0.92 }),                          // ... an old tan panel (the patchwork's darker tone; the re-test read clean stripes as modern)
     drab: std({ color: 0x66563a, map: M.canvas.map, roughness: 0.92 }),                            // the Archer's tunic: a dark drab wool, brown-olive (not the grass's green, not the Villager's grey)
-    yew: std({ color: 0x9a6a3c, map: M.timber.map, roughness: 0.78 }),                             // the Archer's longbow: a warm medium brown (the kingdom's `haft`; 0x2c1c10, near-black yew, until the legibility pass of 2026-11-11: Stelian could not tell the Archer had a bow), its top edge lit by the polish's rim
+    yew: std({ color: 0x8a6240, map: M.timber.map, roughness: 0.78 }),                             // the Archer's longbow: a warm medium brown (0x9a6a3c read a touch orange; Stelian picked a step duller) (the kingdom's `haft`; 0x2c1c10, near-black yew, until the legibility pass of 2026-11-11: Stelian could not tell the Archer had a bow), its top edge lit by the polish's rim
     rope: M.rope,
   };
   if (M.polish) { // the polish pass (polish.js polishMats does the kingdom's set; these are the family's own): hide on the bay, folds on the patched canvas and the drab, grain on the yew

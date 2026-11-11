@@ -144,8 +144,10 @@ fn a_walker_never_enters_deep_water_and_takes_the_ford() {
 #[test]
 fn walkers_wade_slower_in_the_shallows() {
     // Over two seconds each: a Guard on land, a Guard in the shallows (the strip at x 20..22, walking along it), and a
-    // Bot in the shallows, which wades as well (it walks since the re-theme).
+    // Bot in the shallows, which wades as well (it walks since the re-theme; a Radio tower by the strip keeps it in
+    // range, so the wading alone slows it).
     let mut w = waters();
+    w.make_building(BldgKind::Ward, ENEMY, 26, 12, true);
     let on_land = w.make_unit(UnitKind::Trooper, PLAYER, px(25.0), px(14.0));
     let wading = w.make_unit(UnitKind::Trooper, PLAYER, px(21.0), px(14.0));
     let lumen = w.make_unit(UnitKind::Lumen, ENEMY, px(20.0), px(14.0));

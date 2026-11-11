@@ -83,6 +83,11 @@ pub(crate) struct Ai {
     pub ready_since: Option<f64>,
     /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
     pub staging: Option<(f64, f64, f64)>,
+    /// The tower range: its wave's forward Radio tower under construction (one at a time), that site's hp at its last
+    /// turn (a drop: under fire), and whether the wave out has abandoned one (it places no other).
+    pub relay_site: Option<Id>,
+    pub relay_hp: f64,
+    pub relay_off: bool,
     /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
     pub check: Option<crate::world::LaunchCheck>,
 }
@@ -186,6 +191,9 @@ impl World {
             last_base_at: 0.0,
             ready_since: None,
             staging: None,
+            relay_site: None,
+            relay_hp: 0.0,
+            relay_off: false,
             check: None,
             sweep: 0,
             sweep_since: 0.0,

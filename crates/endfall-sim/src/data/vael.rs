@@ -296,9 +296,9 @@ pub(super) const LOOM: BldgDef = BldgDef {
 pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
     name: "Anemone",
-    cost: [125, 0],
+    cost: [65, 0], // (cheap and quick: the Expedition pushes its range forward with it, data/radio.rs)
     hp: 320.0,
-    build: 25.0,
+    build: 13.0,
     sight: 9.0,
     req: Some(BldgKind::Siphon),
     weapon: Some(Weapon {

@@ -104,6 +104,20 @@ impl World {
         let d = dist(u.x, u.y, w.x, w.y);
         let mv = speed * dt;
         u.face = jsmath::atan2(w.y - u.y, w.x - u.x);
+        let (ux, uy) = (u.x, u.y);
+        let next = if d <= mv + 1.0 {
+            (w.x, w.y)
+        } else {
+            (ux + (w.x - ux) / d * mv, uy + (w.y - uy) / d * mv)
+        };
+        if !self.radio_allows(uid, next.0, next.1) {
+            // (the Drone at the end of its leash: it fights what it can reach from there, else backs off inside its
+            // range; with no source to back off to, it stops there, as arrived)
+            self.um(uid).path = None;
+            return !self.radio_at_leash(uid);
+        }
+        let u = self.um(uid);
+        let path = u.path.as_mut().unwrap();
         if d <= mv + 1.0 {
             u.x = w.x;
             u.y = w.y;
@@ -144,11 +158,20 @@ impl World {
             // Flyers close in on a straight line, nothing below can block them.
             let mv = self.live_speed(uid) * dt;
             let (ww, wh) = (self.map.ww(), self.map.wh());
+            let nx = clamp(ux + (p.0 - ux) / d * mv, 16.0, ww - 16.0);
+            let ny = clamp(uy + (p.1 - uy) / d * mv, 16.0, wh - 16.0);
+            let allowed = self.radio_allows(uid, nx, ny);
             let u = self.um(uid);
             u.path = None;
             u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
-            u.x = clamp(ux + (p.0 - ux) / d * mv, 16.0, ww - 16.0);
-            u.y = clamp(uy + (p.1 - uy) / d * mv, 16.0, wh - 16.0);
+            if allowed {
+                u.x = nx;
+                u.y = ny;
+            } else {
+                // (the Drone does not chase past its leash: it takes on what it can reach from there, else lets the
+                // target go and backs off)
+                self.radio_at_leash(uid);
+            }
             return false;
         }
         let u = self.um(uid);

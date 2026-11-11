@@ -22,7 +22,7 @@ import { encodePNG, decodePNG } from './png.js';
 import { render3d } from './render3d.mjs';
 import { tile } from './terrain3.js';
 import { hash2 } from './raster.js';
-import { canvas, makePainters, seatTints, half, resample, label } from './retheme-paint.mjs';
+import { canvas, makePainters, seatTints, half, resample, label, crop } from './retheme-paint.mjs';
 import { groundTile } from '../../src/client/gl/ground.js';
 import { mulberry } from '../../src/engine/util.js';
 
@@ -273,6 +273,9 @@ for (const [name, seat, list, units, cap] of [['base', 1, EXPEDITION, EX_UNITS, 
   const c = base(seat, list, units), z = resample(c, 0.75);
   label(c, cap, 6, 6, 2); save(`${name}-100`, c, false);
   label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);
+}
+{ // a 1x crop of the Kingdom base's north-west: the four hip-roof Cottages (the last change: half-timbered walls)
+  const c = base(0, KINGDOM, KG_UNITS), cr = crop(c, 4 * T, 1 * T, 8 * T, 7 * T); label(cr, 'THE HIP-ROOF COTTAGE, HALF-TIMBERED, IN THE KINGDOM BASE. 1X', 4, 4, 2); save('cottage-crop', cr, false);
 }
 console.log('pictures ->', outDir);
 

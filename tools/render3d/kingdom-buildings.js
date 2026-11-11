@@ -389,16 +389,23 @@ export function market(M) {
 }
 
 // ---- the Cottage, two options (the last art round: the wide one read as a single wall segment): (a) a square house
-// with a hip roof and a chimney, two walls showing at -20; (b) a round thatched hut with a cone roof. Team on the
-// flag and a thin eave strip. ----
+// with a hip roof and a chimney, two walls showing at -20 (Stelian's pick; since his last change, half-timbered: cream
+// plaster between mid-brown beams, so the walls are no longer dark); (b) a round thatched hut with a cone roof. Team
+// on the flag and a thin eave strip. ----
 export function cottageHip(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-30, -22], [22, -30], [31, 2], [24, 30], [-24, 28], [-31, 4]]);
   const X = -2, Z = -2, W = 30, D = 30, H = 13, R = 16;
   add(g, rbox(W + 2.4, 2.6, D + 2.4, 0.4), M.plinth, X, 1.8, Z);
-  add(g, rbox(W, H, D, 0.5), M.wall, X, H / 2 + 2, Z);
-  for (const [sx, sz] of [[-1, 1], [1, 1], [1, -1]]) add(g, rbox(1.2, H + 0.2, 1.2, 0.2), M.oak, X + sx * (W / 2 - 0.4), H / 2 + 2, Z + sz * (D / 2 - 0.4)); // oak corner posts
-  add(g, rbox(W + 0.6, 1.3, D + 0.6, 0.2), M.oak, X, H + 1.6, Z);                                                   // the wall plate
+  M.plaster ??= std({ color: 0xe2d8c0, map: M.canvas.map, roughness: 0.95 });                                        // whitewashed plaster, cream (the last change: the walls were too dark)
+  M.beam ??= std({ color: 0x7a5a38, map: M.timber.map, roughness: 0.85 });                                           // mid-brown timber beams
+  add(g, rbox(W, H, D, 0.5), M.plaster, X, H / 2 + 2, Z);                                                            // half-timbered: cream plaster panels between mid-brown beams
+  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, 1], [1, -1]]) add(g, rbox(1.4, H + 0.2, 1.4, 0.2), M.beam, X + sx * (W / 2 - 0.5), H / 2 + 2, Z + sz * (D / 2 - 0.5)); // corner posts
+  for (const x of [-9, 0, 9]) add(g, rbox(1.2, H - 0.6, 0.8, 0.1), M.beam, X + x, H / 2 + 2, Z + D / 2 + 0.1);        // studs on the south face
+  for (const z of [-9, 0, 9]) add(g, rbox(0.8, H - 0.6, 1.2, 0.1), M.beam, X + W / 2 + 0.1, H / 2 + 2, Z + z);        // and on the east face
+  for (const sx of [-1, 1]) add(g, rbox(14, 0.9, 0.8, 0.1), M.beam, X + sx * 4.5, H / 2 + 2, Z + D / 2 + 0.15, 0, 0, sx * 0.5); // a brace each side of the middle, south
+  add(g, rbox(W + 0.8, 1.0, 0.8, 0.1), M.beam, X, 2.9, Z + D / 2 + 0.15); add(g, rbox(0.8, 1.0, D + 0.8, 0.1), M.beam, X + W / 2 + 0.15, 2.9, Z); // the sill beam, south and east
+  add(g, rbox(W + 0.6, 1.3, D + 0.6, 0.2), M.beam, X, H + 1.6, Z);                                                  // the wall plate
   add(g, cone((W + 7) / 2 * Math.SQRT2, R, 4), M.thatch, X, H + 2 + R / 2, Z, 0, Math.PI / 4, 0);                   // the hip roof: a thatched pyramid over all four walls
   add(g, rbox(W + 7.4, 0.6, D + 7.4, 0.1), M.inkLine, X, H + 1.9, Z);                                                // the dark eave line
   chimney(g, M, X + W / 2 - 4, 2, Z - 6, H + 10, 4.6);
@@ -409,7 +416,7 @@ export function cottageHip(M) {
   window_(g, M, X + W / 2 + 0.6, 8.5, Z - 4, 3, 4, Math.PI / 2);                                                     // a window on the east wall too: two walls show at -20
   banner(g, M, X, H + 2 + R - 1, Z, 14, 14, 10);                                                                     // the team flag at the peak
   add(g, rbox(W + 7.4, 1.4, 0.5, 0.1), M.cloth, X, H + 0.9, Z + D / 2 + 3.9); for (const y of [H + 1.7, H + 0.1]) add(g, rbox(W + 7.8, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 3.9); // a thin team strip along the south eave
-  if (M.polish) { for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, X + sx * W / 2, Z + sz * D / 2, 3, H + 1.2, 2.8, 2.4, 1.4); add(g, rbox(9, 1.2, 1.4, 0.2), M.plinth, X - 8, 12.8, Z + D / 2 + 0.7); }
+  if (M.polish) add(g, rbox(9, 1.2, 1.4, 0.2), M.beam, X - 8, 12.8, Z + D / 2 + 0.7);                               // (no stone quoins on a plastered wall: a timber lintel over the door)
   return g;
 }
 export function cottageRound(M) {

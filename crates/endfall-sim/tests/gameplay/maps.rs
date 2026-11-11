@@ -19,14 +19,6 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
             .filter(|n| !n.ether)
             .map(|n| n.amount)
             .sum();
-        let std_ether: i32 = std
-            .map
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .map(|n| n.amount)
-            .sum();
-        let std_vents = std.map.nodes.iter().filter(|n| n.ether).count();
         for kind in MapKind::ALL {
             let w = World::with_map(seed, 1, kind);
             assert!(
@@ -75,43 +67,17 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                 .filter(|n| !n.ether)
                 .map(|n| n.amount)
                 .sum();
-            let ether: i32 = w
-                .map
-                .nodes
-                .iter()
-                .filter(|n| n.ether)
-                .map(|n| n.amount)
-                .sum();
-            let vents = w.map.nodes.iter().filter(|n| n.ether).count();
-            // A vent in the centre on an ether storm, and only there (the other kinds' centre holds a field or nothing).
-            let centre = w.map.occ[w.map.idx(w.map.w / 2, w.map.h / 2)];
-            assert_eq!(
-                centre < 0 && w.map.node(-centre as Id).unwrap().ether,
-                kind == MapKind::EtherStorm,
-                "seed {seed} {kind:?}: a vent in the centre on an ether storm only"
+            // (no vent anywhere since the re-theme's economy: the Market is built in the base)
+            assert!(
+                w.map.nodes.iter().all(|n| !n.ether),
+                "seed {seed} {kind:?}: no vent"
             );
             match kind {
                 MapKind::DeepFields => {
                     assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
                 }
-                MapKind::EtherStorm => {
-                    assert!(
-                        vents >= std_vents && ether >= std_ether * 3,
-                        "seed {seed}: richer vents"
-                    );
-                    assert!(
-                        w.map
-                            .nodes
-                            .iter()
-                            .filter(|n| n.ether)
-                            .all(|n| n.amount == 15000),
-                        "seed {seed}: three times the ether in every vent"
-                    );
-                }
-                MapKind::Barren => assert!(
-                    shards < std_shards / 2 && ether < std_ether,
-                    "seed {seed}: picked clean"
-                ),
+                MapKind::EtherStorm => {} // (its vents are gone with every map's: its ground stays its own)
+                MapKind::Barren => assert!(shards < std_shards / 2, "seed {seed}: picked clean"),
                 MapKind::OpenPlains => rock[1] += rock_share(&w),
                 MapKind::Labyrinth => rock[2] += rock_share(&w),
                 MapKind::Standard => assert_eq!(shards, std_shards),
@@ -457,7 +423,7 @@ fn the_far_side_of_a_large_map_is_in_play() {
             w.unit(foe).is_none_or(|u| u.hp < u.maxhp),
             "seed {seed}: the foe there is shot"
         );
-        run(&mut w, 120);
+        run(&mut w, 130); // (at a Guard's 90 px/s)
         let u = w.unit(walker).unwrap();
         let d = ((u.x - gx).powi(2) + (u.y - gy).powi(2)).sqrt() / TILE;
         assert!(
@@ -587,8 +553,7 @@ fn maps_for_more_seats_have_a_fair_start_for_each() {
                     let s = if f.ether { 2 } else { 1 };
                     assert!(near(f.tx, f.ty, s), "{ctx}: the field at {},{}", f.tx, f.ty);
                 }
-                // Fair: every start's share alike, a natural's crystals by each, no vent by a main and open shafts
-                // farther out (its own two at least).
+                // Fair: every start's share alike, a natural's crystals by each, no vent anywhere.
                 let first = start_share(&w, w.map.bases[0]);
                 for &b in &w.map.bases {
                     assert_eq!(start_share(&w, b), first, "{ctx}: the start at {b:?}");
@@ -597,8 +562,8 @@ fn maps_for_more_seats_have_a_fair_start_for_each() {
                 assert!(neighbour >= 40 * 40, "{ctx}: neighbours {neighbour}");
                 assert!(home == 7 && home_vents == 0, "{ctx}: a home field, no vent");
                 assert!(
-                    out >= 4 && out_vents >= 2,
-                    "{ctx}: a natural and shafts: {first:?}"
+                    out >= 4 && out_vents == 0,
+                    "{ctx}: a natural, no shaft: {first:?}"
                 );
                 // Each main a pocket with one narrow ramp (an open plain's open), no crystals in the way.
                 for &b in &w.map.bases {
@@ -844,255 +809,6 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
                     team_starts(k, &teams, side),
                     team_starts(k, &teams, m),
                     "team_starts k={k} n={n} side={side}"
-                );
-            }
-        }
-    }
-}
-
-/// Shard crystals per crystal on a map of `kind` (`Map::generate`'s multipliers on 1500).
-fn crystal(kind: MapKind) -> i32 {
-    match kind {
-        MapKind::DeepFields => 15_000,
-        MapKind::Barren => 600,
-        _ => 1500,
-    }
-}
-
-#[test]
-fn no_base_has_a_vent_and_every_start_has_two_open_shafts_alike() {
-    // No vent by any main or expansion (no vent within 10 tiles of a Core's site or of any crystal of any field, the
-    // centre's vent too, where an ether storm has one, and the centre's field where a map has one): two open shafts
-    // per start, the
-    // first 16 to 20 tiles from its Core, the second farther out (24 to 36), each nearer its own start than any
-    // other; the same for every start (distances to its Core and to the centre), whatever the size, the kind and the
-    // symmetry; on open ground, owning its tiles, reachable by a walker from every start and buildable by both
-    // peoples' builders. The salt: seven crystals by each main and five by each expansion, as before, their salt as
-    // before, in a clump to one flank of the Core, not an arc (not all at about the same distance from it).
-    let seeds: u32 = if cfg!(debug_assertions) { 4 } else { 40 };
-    for n in [64, 96, 128] {
-        let starts = endfall_sim::map::max_starts(MapSize::square(n));
-        for seed in 0..seeds {
-            for kind in MapKind::ALL {
-                let seed = seed * 11 + 1;
-                let size = MapSize::square(n);
-                let ctx = format!("{n}x{n} seed {seed} {kind:?}");
-                // (all Humans, so every start is a cove on the Shore; then a Human and a Vael seat for building)
-                let w = World::with_size(seed, 1, kind, size, 0, &vec![&HUMANS; starts]);
-                let mut both = vec![&HUMANS; starts];
-                both[1] = &VAEL;
-                let mut b = World::with_size(seed, 1, kind, size, 0, &both);
-                b.set_ai_seats(vec![true; starts]); // (an AI may place on ground it has not explored)
-                let m = &w.map;
-                let d = |a: (f64, f64), b: (f64, f64)| {
-                    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
-                };
-                // (centres in tile units, a tile's middle its index: a vent's is its top-left plus a half)
-                let vc = |v: &endfall_sim::map::Node| (v.tx as f64 + 0.5, v.ty as f64 + 0.5);
-                let core = |b: (i32, i32)| (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
-                let centre = ((n - 1) as f64 / 2.0, (n - 1) as f64 / 2.0);
-                let mid = m.occ[m.idx(n / 2, n / 2)];
-                let centre_vent =
-                    (mid < 0 && m.node(-mid as Id).unwrap().ether).then(|| -mid as Id);
-                assert_eq!(
-                    centre_vent.is_some(),
-                    kind == MapKind::EtherStorm,
-                    "{ctx}: a vent in the centre on an ether storm only"
-                );
-                let shafts: Vec<&endfall_sim::map::Node> = m
-                    .nodes
-                    .iter()
-                    .filter(|v| v.ether && Some(v.id) != centre_vent)
-                    .collect();
-                assert_eq!(shafts.len(), 2 * starts, "{ctx}: two open shafts a start");
-                let sites: Vec<(f64, f64)> = m
-                    .bases
-                    .iter()
-                    .map(|&b| core(b))
-                    .chain(m.basins.iter().map(|&b| core(b)))
-                    .chain(m.expansions.iter().copied())
-                    .collect();
-                let walk = endfall_sim::map::Foot {
-                    class: endfall_sim::data::Move::Walk,
-                    water: 0,
-                };
-                let reach: Vec<Vec<bool>> = m
-                    .bases
-                    .iter()
-                    .map(|&b| {
-                        let from = m.nearest_free(b.0 + 1, b.1 + 4, 6).unwrap();
-                        m.reach_from(from, walk)
-                    })
-                    .collect();
-                let salt: Vec<(f64, f64)> = m
-                    .nodes
-                    .iter()
-                    .filter(|f| !f.ether)
-                    .map(|f| (f.tx as f64, f.ty as f64))
-                    .collect();
-                // (every vent: the open shafts, and the centre's where there is one)
-                for v in m.nodes.iter().filter(|v| v.ether) {
-                    for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                        let i = m.idx(v.tx + x, v.ty + y);
-                        assert_eq!(
-                            m.occ[i],
-                            -(v.id as i32),
-                            "{ctx}: vent {} owns its tiles",
-                            v.id
-                        );
-                        assert_eq!(m.rock[i], 0, "{ctx}: vent {} on open ground", v.id);
-                    }
-                    for &s in &sites {
-                        assert!(
-                            d(vc(v), s) >= 10.0,
-                            "{ctx}: the vent at {},{} is {:.1} from a Core's site",
-                            v.tx,
-                            v.ty,
-                            d(vc(v), s)
-                        );
-                    }
-                    for &s in &salt {
-                        assert!(
-                            d(vc(v), s) >= 10.0,
-                            "{ctx}: the vent at {},{} is {:.1} from the crystal at {},{}",
-                            v.tx,
-                            v.ty,
-                            d(vc(v), s),
-                            s.0,
-                            s.1
-                        );
-                    }
-                    for (r, &base) in reach.iter().zip(&m.bases) {
-                        let near = (-1..=2)
-                            .flat_map(|y| (-1..=2).map(move |x| (v.tx + x, v.ty + y)))
-                            .any(|(x, y)| m.in_map(x, y) && r[m.idx(x, y)]);
-                        assert!(near, "{ctx}: the vent at {},{} from {base:?}", v.tx, v.ty);
-                    }
-                    for (seat, f) in [(0u8, &HUMANS), (1, &VAEL)] {
-                        assert!(
-                            b.can_place(f.ether, v.tx, v.ty, seat),
-                            "{ctx}: seat {seat} builds on the vent at {},{}",
-                            v.tx,
-                            v.ty
-                        );
-                    }
-                }
-                let mut first: Option<Vec<i64>> = None;
-                for &base in &m.bases {
-                    let c = core(base);
-                    // Its own two: the shafts nearer this start than any other.
-                    let own: Vec<_> = shafts
-                        .iter()
-                        .filter(|v| {
-                            m.bases
-                                .iter()
-                                .all(|&o| o == base || d(vc(v), core(o)) > d(vc(v), c))
-                        })
-                        .collect();
-                    assert_eq!(own.len(), 2, "{ctx}: two shafts of the start at {base:?}");
-                    let mut r: Vec<f64> = own.iter().map(|v| d(vc(v), c)).collect();
-                    r.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    // (16 to 20 and 24 to 36, the strict rings; 14 to 22 and 21 to 40 where a tight layout, the
-                    // Shore's salt round them, leaves those no room)
-                    assert!(
-                        (14.0..=22.0).contains(&r[0])
-                            && (21.0..=40.0).contains(&r[1])
-                            && r[1] >= r[0] + 4.0,
-                        "{ctx}: the start at {base:?} has its shafts {r:?} from its Core"
-                    );
-                    let mut key: Vec<i64> = own
-                        .iter()
-                        .flat_map(|v| [d(vc(v), c), d(vc(v), centre)])
-                        .map(|x| (x * 1000.0).round() as i64)
-                        .collect();
-                    key.sort();
-                    match &first {
-                        None => first = Some(key),
-                        Some(f) => assert_eq!(&key, f, "{ctx}: the start at {base:?}"),
-                    }
-                    // Its salt: one clump of seven, to one flank, not an arc.
-                    let nearest = m
-                        .nodes
-                        .iter()
-                        .filter(|f| !f.ether)
-                        .min_by(|a, b| {
-                            d((a.tx as f64, a.ty as f64), c)
-                                .partial_cmp(&d((b.tx as f64, b.ty as f64), c))
-                                .unwrap()
-                        })
-                        .unwrap()
-                        .field;
-                    let home: Vec<_> = m
-                        .nodes
-                        .iter()
-                        .filter(|f| !f.ether && f.field == nearest)
-                        .collect();
-                    assert_eq!(
-                        home.len(),
-                        7,
-                        "{ctx}: seven crystals by the main at {base:?}"
-                    );
-                    assert!(
-                        home.iter().all(|f| f.amount == crystal(kind)),
-                        "{ctx}: the main's salt"
-                    );
-                    let r: Vec<f64> = home
-                        .iter()
-                        .map(|f| d((f.tx as f64, f.ty as f64), c))
-                        .collect();
-                    let (lo, hi) = r
-                        .iter()
-                        .fold((f64::MAX, 0.0f64), |(a, b), &x| (a.min(x), b.max(x)));
-                    assert!(
-                        hi - lo >= 2.0 && lo >= 3.5 && hi <= 10.0,
-                        "{ctx}: the main at {base:?} has its crystals {lo:.1} to {hi:.1} from the Core"
-                    );
-                    let (sx, sy) = home.iter().fold((0.0, 0.0), |a, f| {
-                        (a.0 + f.tx as f64 - c.0, a.1 + f.ty as f64 - c.1)
-                    });
-                    let (ax, ay) = (c.0 - centre.0, c.1 - centre.1); // (behind the Core: away from the centre)
-                    let off = ((sx * ax + sy * ay) / (sx.hypot(sy) * ax.hypot(ay)))
-                        .acos()
-                        .to_degrees();
-                    assert!(
-                        off >= 50.0,
-                        "{ctx}: the main at {base:?} has its salt {off:.0} degrees from straight behind"
-                    );
-                }
-                // Five crystals by every expansion, its salt as before.
-                for &e in &m.expansions {
-                    let nearest = m
-                        .nodes
-                        .iter()
-                        .filter(|f| !f.ether)
-                        .min_by(|a, b| {
-                            d((a.tx as f64, a.ty as f64), e)
-                                .partial_cmp(&d((b.tx as f64, b.ty as f64), e))
-                                .unwrap()
-                        })
-                        .unwrap()
-                        .field;
-                    let field: Vec<_> = m
-                        .nodes
-                        .iter()
-                        .filter(|f| !f.ether && f.field == nearest)
-                        .collect();
-                    assert_eq!(
-                        field.len(),
-                        5,
-                        "{ctx}: five crystals by the expansion at ({:.1}, {:.1})",
-                        e.0,
-                        e.1
-                    );
-                    assert!(
-                        field.iter().all(|f| f.amount == crystal(kind)),
-                        "{ctx}: the expansion's salt"
-                    );
-                }
-                assert_eq!(
-                    w.map.expansions.len() % starts,
-                    0,
-                    "{ctx}: every start's expansions"
                 );
             }
         }

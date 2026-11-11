@@ -1,22 +1,24 @@
 // Renders every 3D sprite and hands the RGBA images to the Node driver (tools/art/generate.mjs) via window.render().
 import { shoot, S, LIFT } from './scene.js';
-import { makeMats, GOLD } from './materials.js';
-import { SEAT_COLORS } from '../../src/client/look.js';
+import { makeMats } from './materials.js';
+import { SEAT_COLORS, UNIT_ART_SCALE } from '../../src/client/look.js';
 import { UNIT_MODELS } from './models.js';
 import * as B from './buildings.js';
 import { VAEL_UNITS, VAEL_BUILDINGS, makeVaelMats } from './vael.js';
 import { lighthouse } from './harbour.js';
 import { rigger, picket, harpooner, mender } from './harbour-infantry.js';
 import { glint, lens, tidewell } from './vael2.js';
-import { needle, tender, conch, undertow, petrel, argonaut } from './vael-units.js';
-import { breakwater, anchorGun, netter } from './harbour-machines.js';
-import { kite, spyglass, windjammer } from './harbour-air.js';
-import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, gyre, darkwater } from './vael-buildings.js';
+import { needle, tender, conch, undertow, petrel } from './vael-units.js';
+import { breakwater, anchorGun } from './harbour-machines.js';
+import { spyglass, windjammer } from './harbour-air.js';
+import { sunpetal, siphon as vSiphon, cradle, glasshouse, anemone, darkwater } from './vael-buildings.js';
 import * as HB from './harbour-buildings.js';
-import * as Gd from './ground.js';
-import { SCENERY } from './scenery2.js';
+import { rethemeSprites, atlasSprites, ATLAS_UNITS, ATLAS_BUILDINGS } from './retheme.js';
 
-// The new look (STYLE.md), kind by kind as it is made: these entries replace the old models for their keys.
+// The re-theme (retheme.js ATLAS_UNITS, ATLAS_BUILDINGS) replaces the models below for every kind it maps; the rest of
+// this file's models stay only for the two healers (the Medic and the Halo: in the sim's tables, trained nowhere) and
+// for fitTints' reference sprites. The retired kinds (RETIRED) are no longer drawn.
+// The step-2 look (STYLE.md), kind by kind as it was made: these entries replaced the older models for their keys.
 // Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
 Object.assign(UNIT_MODELS, {
   harvester: { build: rigger, frames: 2, r: 12, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 },
@@ -25,38 +27,37 @@ Object.assign(UNIT_MODELS, {
 Object.assign(VAEL_UNITS, { lumen: { build: glint, frames: 2, r: 12, h: 13 }, prism: { build: lens, frames: 2, r: 12, h: 14 } });
 Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 // Vael units (step 1, vael-units.js): the Needle, the Tender, the Conch, the Undertow (0-1 gliding, 2 lying flat as it
-// lurks: look.js UNIT_POSE), the Petrel (one frame: a glider) and the Argonaut (four: a slow bob).
+// lurked) and the Petrel (one frame: a glider).
 Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
   shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre)
-  sovereign: { build: argonaut, frames: 4, r: 26, h: 20 },
 });
-// Harbour machines (step 1, harbour-machines.js): the Breakwater (0-1 the walk, 2 settling, 3 beached: look.js
-// UNIT_POSE), the Anchor Gun (0-1 travelling, 2 half, 3 anchored) and the Netter (two frames, its wheels turning).
+// Harbour machines (step 1, harbour-machines.js): the Breakwater (0-1 the walk, 2 settling, 3 beached; a fitTints
+// reference) and the Anchor Gun (0-1 travelling, 2 half, 3 anchored).
 Object.assign(UNIT_MODELS, {
   vanguard: { build: breakwater, frames: 4, r: 22, h: 20 },   // (r 22: the spades and legs splay past 17 beached and in some walk facings; the mortar's muzzle about 16.7 ahead)
   siegeTank: { build: anchorGun, frames: 4, r: 31, h: 24 },   // (r 31: the muzzle reaches 24.4 ahead, the dropped anchor about 29 astern; h 24: raised)
-  interceptor: { build: netter, frames: 2, r: 14, h: 21 },    // (r 14: the reel is 15.8 across; h 21: the tubes raised)
 });
-// Harbour air (step 1, harbour-air.js): the Kite (flies at 17, its tail reaching 17.5 aft), the Spyglass (at 26) and
-// the Windjammer (at 24, 44 long); one frame each, gliders (look.js UNIT_FPS 0). The cells hold the flyer and its
-// shadow, which lands 0.4 of the height east and 0.3 south of it.
+// Harbour air (step 1, harbour-air.js): the Spyglass (at 26) and the Windjammer (at 24, 44 long); one frame each. The
+// cells hold the flyer and its shadow, which lands 0.4 of the height east and 0.3 south of it.
 Object.assign(UNIT_MODELS, {
-  raider: { build: kite, frames: 1, r: 19, h: 18 }, observer: { build: spyglass, frames: 1, r: 11, h: 30 },
-  bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
+  observer: { build: spyglass, frames: 1, r: 11, h: 30 }, bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
 });
 // Vael buildings (step 1, vael-buildings.js): the Sunpetal, the Siphon, the Cradle, the Glasshouse, the Anemone (one
-// sprite, no turning head), the Gyre and the Darkwater; the Tidewell above. Footprints and cell heights as before.
+// sprite, no turning head) and the Darkwater; the Tidewell above. Footprints and cell heights as before.
 Object.assign(VAEL_BUILDINGS, {
   spire: [2, sunpetal, 82], siphon: [2, vSiphon, 50], kiln: [3, cradle, 42], loom: [2, glasshouse, 42],
-  ward: [2, anemone, 50], zenith: [3, gyre, 72], eclipse: [2, darkwater, 58],
+  ward: [2, anemone, 50], eclipse: [2, darkwater, 58],
 });
 
 // The Vael units in the game; each race renders with its own materials.
 const VAEL_IN_GAME = VAEL_UNITS;
 const UNITS_ALL = [...Object.entries(UNIT_MODELS).map(([k, m]) => [k, m, makeMats]), ...Object.entries(VAEL_IN_GAME).map(([k, m]) => [k, m, makeVaelMats])];
 
+/** The unit kinds and building types the re-theme's roster retired (no longer in the sim): no sprite of theirs goes
+ *  into the atlas. */
+const RETIRED = new Set(['vanguard', 'raider', 'interceptor', 'sovereign', 'zenith']);
 const FACINGS = 16;
 const enc = (img) => { let s = ''; const b = img.data; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
 
@@ -77,7 +78,6 @@ const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extracto
 // 32 -> 42, the Lookout's nest and pennant 14 -> 36, its gun 30 -> 62: a north-facing muzzle stands about 74 above the
 // anchor), so nothing touches a cell's top; the anchor stays the footprint's centre, so the head still seats on the base.
 Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.excavator, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
-const TURRET_HEAD = HB.lookoutGun, TURRET_HEAD_H = 62;
 /**
  * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
  * colour (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
@@ -104,7 +104,7 @@ function fitTints() {
   return mo.map(v => v.reduce((t, x, ch) => t << 8 | Math.min(255, Math.round(255 * x / mm[ch])), 0));
 }
 
-window.render = async function (filter = '') {
+window.render = async function (filter = '', opts = {}) {
   const out = [];
   const want = (name) => !filter || new RegExp(filter).test(name);
   const anchor = (cell) => ({ x: cell.ax / cell.w, y: cell.ay / cell.h });
@@ -116,34 +116,24 @@ window.render = async function (filter = '') {
     const { img, mask } = shoot(obj, { ...cell, ...opts, mask: true });
     sprite(name, img, cell, extra); sprite(`${name}_m`, mask, cell, { trim: true });
   };
+  // The re-theme's models under today's names (retheme.js atlasSprites: the units, buildings, turning heads,
+  // construction and rubble, the gold and the scenery), polished at the game's camera and sun.
+  for (const [name, obj, cell, o, isTeam, extra] of atlasSprites(want)) isTeam ? pushTeam(name, obj, cell, o, extra) : push(name, obj, cell, o);
+  // The healers keep their old models (ATLAS_UNITS has no row for them); the retired kinds are not drawn. Units are
+  // drawn UNIT_ART_SCALE times their model's size (look.js), the cell with them.
   for (const [kind, m, mats] of UNITS_ALL) {
-    const M = mats(), cell = unitCell(m.r, m.h);
+    if (ATLAS_UNITS[kind] || RETIRED.has(kind)) continue;
+    const K = UNIT_ART_SCALE, M = mats(), cell = unitCell(m.r * K, m.h * K);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < m.frames; f++) {
-      const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2;
+      const obj = m.build(M, f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(K);
       pushTeam(`${kind}_${dir}_${f}`, obj, cell, {}, { anim: `${kind}_${dir}`, frame: f });
     }
   }
-  for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
-  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
-  for (let dir = 0; dir < FACINGS; dir++) {
-    const head = TURRET_HEAD(makeMats()); head.rotation.y = -dir / FACINGS * Math.PI * 2;
-    pushTeam(`turret_head_${dir}`, head, bldgCell(2, TURRET_HEAD_H), { shadow: false }); // drawn above the base, which has its own shadow
-  }
-  // The ground and the scenery (ground.js, scenery2.js; STYLE.md "The ground and the scenery"): construction and
-  // wrecks for both peoples (the Harbour's timber foundation, scaffold and rubble in seat 0's gold; the Vael's bud and
-  // pearl rubble, `bud_n` and `rubble_vael_n`, which render.js draws by people), the salt field, the mine shaft (four frames)
-  // and the scenery props under the names the client places (scenery.js).
-  const neutral = makeMats(GOLD), vaelNeutral = makeVaelMats();
-  for (const n of [2, 3, 4]) {
-    push(`foundation_${n}`, Gd.foundation(n, neutral), bldgCell(n, 5));
-    push(`scaffold_${n}`, Gd.scaffold(n, neutral), bldgCell(n, 10 + n * 6), { shadow: false });
-    push(`rubble_${n}`, Gd.rubble(n, neutral), bldgCell(n, 10));
-    push(`bud_${n}`, Gd.bud(n, vaelNeutral), bldgCell(n, 8 + n * 7));
-    push(`rubble_vael_${n}`, Gd.rubbleVael(n, vaelNeutral), bldgCell(n, 10));
-  }
-  for (let st = 0; st < 4; st++) for (let v = 0; v < Gd.SALT_VARIANT_COUNT; v++) push(v ? `shard_${st}_${v}` : `shard_${st}`, Gd.saltField(st, v), unitCell(28, 26)); // (variant 0 keeps the plain name: the portrait's)
-  for (let f = 0; f < 4; f++) push(`vent_${f}`, Gd.mineShaft(f, neutral), unitCell(30, 8));
-  for (const list of Object.values(SCENERY)) for (const [name, build, r, h] of list) push(`doodad_${name}`, build(), unitCell(r, h));
+  for (const [type, [n, build, h]] of Object.entries(BUILDINGS)) if (!ATLAS_BUILDINGS[type] && !RETIRED.has(type)) pushTeam(`bldg_${type}`, build(makeMats()), bldgCell(n, h));
+  for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) if (!ATLAS_BUILDINGS[type] && !RETIRED.has(type)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
+  // The re-theme's models under their own names (retheme.js rethemeSprites), only when a filter asks for them by name,
+  // at their own camera (`opts.elev`), sun (`opts.sun`) and finish (`opts.polish`): the review pictures' path.
+  if (filter) for (const [name, obj, cell, o, isTeam] of rethemeSprites(want, opts)) (isTeam ? pushTeam : push)(name, obj, cell, o);
   return { sprites: out, tints: fitTints() };
 };
 window.ready = true;

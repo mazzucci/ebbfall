@@ -19,86 +19,7 @@ const ROOM_FAR: f64 = 26.0;
 /// How far (tiles) from the middle of another start the AI keeps its far buildings: past that start's pocket.
 const POCKET_ROOM: f64 = 16.0;
 
-/// The AI's towers a finished base, two at least (`ai_build`).
-const TOWERS_PER_BASE: usize = 1;
-
 impl World {
-    /// The free open shaft (a vent with no extractor) this seat takes next: the nearest by walking distance from its
-    /// main at (cx, cy) (tiles) on its own side of the map (nearer its own start than any other seat's still in, an
-    /// ally's too; a free start's shafts are anyone's), its
-    /// top-left tile. The walk is measured once per main (`Ai::shafts`: the ground does not move) by a flood over the
-    /// ground its workers stand on.
-    pub(crate) fn free_shaft(&mut self, cx: f64, cy: f64) -> Option<(i32, i32)> {
-        let from = (cx as i32, cy as i32);
-        if self.ai().shafts.as_ref().is_none_or(|(at, _)| *at != from) {
-            let order = self.shafts_by_walk(cx, cy);
-            self.ai_mut().shafts = Some((from, order));
-        }
-        let e = self.seat();
-        let start = |s: usize| {
-            let (x, y) = self.map.bases[s];
-            (x as f64 + 2.0, y as f64 + 2.0)
-        };
-        let own = start(e as usize);
-        // (every other seat still in, its allies too: an ally's near shaft is the ally's to take)
-        let foes: Vec<(f64, f64)> = (0..self.seats() as u8)
-            .filter(|&s| s != e && !self.out[s as usize])
-            .map(|s| start(s as usize))
-            .collect();
-        let (_, order) = self.ai().shafts.as_ref()?;
-        order.iter().find_map(|&(_, id)| {
-            let n = self.map.node(id)?;
-            let (vx, vy) = (n.tx as f64 + 1.0, n.ty as f64 + 1.0);
-            let d = |(x, y): (f64, f64)| jsmath::hypot(vx - x, vy - y);
-            (n.extractor.is_none() && foes.iter().all(|&f| d(own) < d(f))).then_some((n.tx, n.ty))
-        })
-    }
-
-    /// Every vent its workers can walk to from (cx, cy) (tiles), by steps (4-neighbour, over the ground they stand on,
-    /// buildings in the way), nearest first, ties by id.
-    fn shafts_by_walk(&self, cx: f64, cy: f64) -> Vec<(u32, Id)> {
-        let Some(start) = self.map.nearest_passable_to(
-            self.worker_foot(),
-            cx as i32,
-            cy as i32,
-            6,
-            (cx * TILE, cy * TILE),
-        ) else {
-            return Vec::new();
-        };
-        let foot = self.worker_foot();
-        let m = &self.map;
-        let mut steps = vec![u32::MAX; m.rock.len()];
-        let mut todo = std::collections::VecDeque::from([start]);
-        steps[m.idx(start.0, start.1)] = 0;
-        while let Some((x, y)) = todo.pop_front() {
-            let here = steps[m.idx(x, y)];
-            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)] {
-                if m.in_map(nx, ny) && steps[m.idx(nx, ny)] == u32::MAX && m.passable(foot, nx, ny)
-                {
-                    steps[m.idx(nx, ny)] = here + 1;
-                    todo.push_back((nx, ny));
-                }
-            }
-        }
-        let mut order: Vec<(u32, Id)> = m
-            .nodes
-            .iter()
-            .filter(|n| n.ether)
-            .filter_map(|n| {
-                // (the nearest tile round the 2x2 a worker stands on)
-                let near = (-1..=2)
-                    .flat_map(|dy| (-1..=2).map(move |dx| (n.tx + dx, n.ty + dy)))
-                    .filter(|&(x, y)| m.in_map(x, y))
-                    .map(|(x, y)| steps[m.idx(x, y)])
-                    .min()?;
-                (near != u32::MAX).then_some((near, n.id))
-            })
-            .collect();
-        order.sort();
-        order
-    }
-
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
         self.find_spot_within(kind, cx, cy, 3.5, ROOM, &|_, _, _| true)
     }
@@ -114,9 +35,6 @@ impl World {
         ok: &dyn Fn(&World, i32, i32) -> bool,
     ) -> Option<(i32, i32)> {
         let d = kind.def();
-        if d.on_vent {
-            return self.free_shaft(cx, cy);
-        }
         let a0 = self.rnd() * PI * 2.0;
         let mut r = from;
         while r < room {
@@ -400,17 +318,17 @@ impl World {
         .then_some(kind)
     }
 
-    /// The side's second tech building (`AiScript::tech2`, the Vael's Eclipse) when the build order wants it: not
-    /// raised yet, its own requirement standing, and either a mixed-in unit it unlocks due by the time it stands
-    /// (the Umbra, on a level that fields one: `cloak_ratio`), once a factory that trains it is going up, or one of its techs of use and not yet researched (the
-    /// flyers' Veil Weave and Slipstream once a Zenith stands), from the side's tech time on a level that uses them.
+    /// The side's second tech building (`AiScript::tech2`, the Expedition's Portal) when the build order wants it: not
+    /// raised yet, its own requirement standing, and either a mixed-in unit it trains (the Marine) or unlocks (one
+    /// another factory of its own, already placed, trains) due by the time it stands, on a level that fields it, or
+    /// one of its techs of use and not yet researched, from the side's tech time on a level that uses them.
     pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
         let s = &self.factions[e as usize].ai;
         let k = s.tech2?;
         if self.ai_count(my_b, false, k) > 0 || !self.has_req(e, k) {
             return None;
         }
-        // (a factory of its own that trains the unit placed first: the Eclipse before the Zenith would unlock nothing)
+        // (a unit it unlocks: once a factory of its own that trains it is placed, or it would unlock nothing)
         let trained = |u: UnitKind| {
             my_b.iter()
                 .filter_map(|&id| self.bldg(id))
@@ -421,11 +339,10 @@ impl World {
             .mix
             .iter()
             .map(|&m| level.mix_entry(m))
-            .any(|(u, per, from)| {
-                u.def().req == Some(k)
-                    && self.cloak_ratio(u, per).is_some()
+            .any(|(u, _, from)| {
+                (k.def().trains.contains(&u) || (u.def().req == Some(k) && trained(u)))
+                    && self.level_allows(u)
                     && t > from - k.def().build
-                    && trained(u)
             });
         let d = self.level();
         let techs = d.abilities
@@ -451,69 +368,40 @@ impl World {
             ..
         } = brain.clone();
         let d = self.level();
-        // A free shaft to take (wanting an extractor without one would stall the build).
-        let shaft = self.free_shaft(cx, cy);
         let [used, cap] = self.sup[e as usize];
         let f = self.factions[e as usize];
         let s = &f.ai;
-        // An extractor on every shaft it can (PRD: the conversion, rule 1), one site at a time, the nearest free one
-        // on its side first (`free_shaft`): the first once it has seven workers, the rest from the level's
-        // `vents_from`; a lost one is built again on the same terms.
-        // (Not in the guided first game: its opponent's income stays in its base, which the guide's last step
-        // attacks; an extractor out on a shaft kept paying for fighters after the base fell. `guided_hold`)
-        // (Only once its requirement stands, the barracks: wanted before then it would hold the rest of the build
-        // order, the barracks too, behind a building it cannot place.)
-        let pump_due = !building.contains(&f.ether)
-            && harv.len() >= 7
-            && (pumps == 0 || t > d.vents_from)
-            && !self.guided
-            && self.has_req(e, f.ether);
+        // Its Market (a side with one, the Kingdom), one a finished Castle (`World::hq_room`), one site at a time: the
+        // first once it has seven workers, the next (at an expansion) from the level's `vents_from`; a lost one is
+        // built again on the same terms. (Not in the guided first game: its opponent's income stays as the guide was
+        // tuned with. Only once its requirement stands, the barracks: wanted before then it would hold the rest of the
+        // build order, the barracks too, behind a building it cannot place.)
+        let market = f.market.filter(|&m| {
+            !building.contains(&m)
+                && harv.len() >= 7
+                && (pumps == 0 || t > d.vents_from)
+                && !self.guided
+                && self.has_req(e, m)
+                && self.hq_room(e, m)
+        });
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         let supply_margin =
             d.supply_ahead + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
-        // Its towers, at most `TOWERS_PER_BASE` a finished base and two at least (sites counted): under the cap of 40 a
-        // bank it cannot spend went into towers, up to 13 a seat, and multi-seat games stalled (a 2v2 on 96x96 ran to
-        // 104 minutes; 30 with this cap).
-        let tower_room =
-            self.ai_count(&my_b, false, s.tower) < (TOWERS_PER_BASE * cores.len()).max(2);
-        // Hit by something unseen: a detector (its tower) by the spot, unless one stands near it already.
-        let detector_at = self.ai().cloak_hit.filter(|&(x, y)| {
-            !self.bldgs.iter().any(|b| {
-                b.team == e
-                    && b.kind.def().detect > 0.0 // (a site counts: one is coming)
-                    && dist(b.x, b.y, x, y) < 6.0 * TILE
-            })
-        });
-        // (no room for another tower: the mark is let go, or a later tower would go to a stale one far from its bases)
-        if detector_at.is_none() || !tower_room {
-            self.ai_mut().cloak_hit = None;
-        }
-        // Hit by something unseen while its field detector comes from its air factory (the Humans' Observer): that
-        // factory is due now, on a level that raises one at all.
-        let detector_air = self.ai().unseen_hit
-            && f.field_detector()
-                .is_some_and(|k| s.air.def().trains.contains(&k));
         let want = if cap - used <= supply_margin
             && cap < self.supply_limit()
             && supply_rising < d.supply_at_once
         {
             Some(f.supply)
-        } else if detector_at.is_some()
-            && tower_room
-            && self.has_req(e, s.tower)
-            && !building.contains(&s.tower)
-        {
-            Some(s.tower) // (before the build order: something it cannot see is hurting it)
-        } else if pump_due && shaft.is_some() {
-            Some(f.ether)
+        } else if let Some(m) = market {
+            Some(m)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
             Some(k)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && pumps > 0
+            && (pumps > 0 || f.market.is_none())
             && self.ai_count(&my_b, false, s.tech) == 0
             && t > 150.0
         {
@@ -525,9 +413,10 @@ impl World {
             && t > d.heavy_at
         {
             Some(heavy) // (once its vehicles' tech stands)
+        // Its towers by the clock, two at most (sites counted): a bank it cannot spend must not go into towers (under
+        // the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games stalled).
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && self.ai_count(&my_b, false, s.tower) < (t > 150.0) as usize + (t > 480.0) as usize
-            && tower_room
             && !self.guided
         // (the guided first game: none; `guided_hold`)
         {
@@ -536,14 +425,15 @@ impl World {
         } else if self.ai_count(&my_b, true, s.tech) >= 1
             && self.ai_count(&my_b, false, s.air) == 0
             && d.air_at < NEVER
-            && (t > d.air_at - s.air_lead || detector_air)
-            // (its raiders must be in its level's mix, or it is raised only for a detector: a Medium Humans' Loft
-            // would otherwise stand there training nothing)
-            && (self.level_allows(s.raider) || detector_air)
+            && t > d.air_at - s.air_lead
+            // (its raiders must be in its level's mix: it would otherwise stand there training nothing)
+            && self.level_allows(s.raider)
+            // (and its requirement standing: the Kingdom's Stables need its Market)
+            && self.has_req(e, s.air)
         {
             Some(s.air)
         } else {
-            self.tech2_due(e, &my_b, t) // (its second tech: the Eclipse)
+            self.tech2_due(e, &my_b, t) // (its second tech: the Portal)
         };
         // The natural is due (its Core is being saved for): building far out must not spend that bank.
         let hq_cost = f.hq.def().cost;
@@ -567,10 +457,7 @@ impl World {
         });
         let spot = match placeable {
             Some(w) => {
-                let (fx, fy) = match detector_at {
-                    Some((x, y)) if w == s.tower => (x / TILE, y / TILE), // by the unseen attacker's mark
-                    _ => (cx, cy),
-                };
+                let (fx, fy) = (cx, cy);
                 // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.
                 let second = cores.get(1).and_then(|&c| self.bldg(c)).map(|b| {
                     (
@@ -578,15 +465,9 @@ impl World {
                         b.ty as f64 + b.h as f64 / 2.0,
                     )
                 });
-                // One try per unseen hit (a mark it cannot serve, say no room there for a tower, must not hold the
-                // build order up); the next hit marks again.
-                let for_mark = w == s.tower && detector_at.is_some();
-                if for_mark {
-                    self.ai_mut().cloak_hit = None;
-                }
-                // (Not an extractor, which needs its shaft, nor a detector meant for the spot it was hit at.)
+                // (Not a building on a shaft, which needs its shaft.)
                 match self.find_spot(w, fx, fy) {
-                    None if w != f.ether && !for_mark => {
+                    None => {
                         second
                             .and_then(|(ex, ey)| self.find_spot(w, ex, ey))
                             .or_else(|| {
@@ -752,98 +633,6 @@ mod tests {
     }
     use crate::world::World;
 
-    /// Seat 1's Medium AI at 10:00 with its Garrison, `towers` Turrets by its Core, money in hand and an unseen hit
-    /// out by its fields: whether its build order puts a Turret up by the hit, and whether it keeps the hit's mark.
-    fn tower_for_a_hit(towers: usize) -> (bool, bool) {
-        use crate::ai::Brain;
-        let mut w = World::with_size(
-            5,
-            1,
-            MapKind::Standard,
-            MapSize::DUEL,
-            0,
-            &[&HUMANS, &HUMANS],
-        );
-        w.set_ai_seats([false, true]);
-        w.ai_turn = 1;
-        let (core, cx, cy) = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == 1 && b.kind == BldgKind::Core)
-            .map(|b| (b.id, b.tx as f64 + 2.0, b.ty as f64 + 2.0))
-            .unwrap();
-        let mut placed = 0;
-        'rings: for r in 4..14 {
-            for a in 0..24 {
-                let ang = a as f64 / 24.0 * std::f64::consts::TAU;
-                let (tx, ty) = (
-                    (cx + ang.cos() * r as f64) as i32,
-                    (cy + ang.sin() * r as f64) as i32,
-                );
-                let k = if placed == 0 {
-                    BldgKind::Barracks
-                } else {
-                    BldgKind::Turret
-                };
-                if placed <= towers && w.can_place(k, tx, ty, 1) {
-                    w.make_building(k, 1, tx, ty, true);
-                    placed += 1;
-                }
-                if placed > towers {
-                    break 'rings;
-                }
-            }
-        }
-        assert_eq!(placed, towers + 1, "room for the Garrison and the Turrets");
-        // Supply to spare (no Depot due) and money in hand.
-        w.sup[1] = [10, 40];
-        w.res[1] = [5000, 5000];
-        // The hit: well away from its Turrets, by the map's middle.
-        let (mx, my) = (w.map.w as f64 * TILE / 2.0, w.map.h as f64 * TILE / 2.0);
-        w.ai_mut().cloak_hit = Some((mx, my));
-        let my_b: Vec<_> = w
-            .bldgs
-            .iter()
-            .filter(|b| b.team == 1)
-            .map(|b| b.id)
-            .collect();
-        let harv: Vec<_> = w
-            .units
-            .iter()
-            .filter(|u| u.team == 1 && u.kind.def().worker)
-            .map(|u| u.id)
-            .collect();
-        let mut b = Brain {
-            e: 1,
-            t: 600.0,
-            my_b,
-            harv,
-            cx,
-            cy,
-            cores: vec![core],
-            pumps: 2,
-            ..Brain::default()
-        };
-        w.ai_build(&mut b);
-        let built = w
-            .bldgs
-            .iter()
-            .filter(|b| b.team == 1 && b.kind == BldgKind::Turret)
-            .count()
-            > towers;
-        (built, w.ai().cloak_hit.is_some())
-    }
-
-    #[test]
-    fn the_ais_towers_are_capped_by_its_bases() {
-        // Under the cap of 40 a bank it could not spend went into towers, a detector by every unseen hit, up to 13 a
-        // seat, and multi-seat games stalled: one base, two Turrets at most.
-        assert!(tower_for_a_hit(1).0, "one Turret: a second by the hit");
-        let (built, kept) = tower_for_a_hit(2);
-        assert!(!built, "two Turrets on one base: no third");
-        assert!(!kept, "and the mark let go (no later tower sent out to it)");
-    }
-
     #[test]
     fn on_a_map_of_many_starts_each_ai_expands_on_its_own_side() {
         // Eight starts round a 128x128 map, neighbours 44 tiles apart: a neighbour's natural can lie nearer than our
@@ -944,7 +733,7 @@ mod tests {
         let bay = w.make_building(BldgKind::Factory, ENEMY, 40, 20, true);
         my_b.push(bay);
         assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Barracks));
-        w.bm(bay).unwrap().queue.push(UnitKind::Vanguard);
+        w.bm(bay).unwrap().queue.push(UnitKind::SiegeTank);
         assert_eq!(w.extra_rax(ENEMY, &my_b, 1), Some(BldgKind::Barracks));
         w.make_building(BldgKind::Barracks, ENEMY, 44, 20, true);
         let full = w

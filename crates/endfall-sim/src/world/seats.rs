@@ -50,13 +50,11 @@ impl World {
         self.sup.clear();
         self.explored.clear();
         self.vis.clear();
-        self.det.clear();
         self.stats.clear();
         self.army_log.clear();
         self.lost_to.clear();
         self.ledger.clear();
         self.upgrades.clear();
-        self.unseen_alert.clear();
         for _ in 0..self.seats() {
             self.push_seat();
         }
@@ -69,13 +67,11 @@ impl World {
         self.sup.push([0, 0]);
         self.explored.push(vec![0; tiles]);
         self.vis.push(vec![0; tiles]);
-        self.det.push(vec![0; tiles]);
         self.stats.push(Stats::default());
         self.army_log.push(Vec::new());
         self.lost_to.push(Vec::new());
         self.ledger.push(Ledger::default());
         self.upgrades.push([0; UPGRADES.len()]);
-        self.unseen_alert.push(f64::MIN);
     }
 
     /// A seat's start at its base: the headquarters and four harvesters at work.

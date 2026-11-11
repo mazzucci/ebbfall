@@ -15,24 +15,9 @@ impl World {
         for y in ty..ty + d.h {
             for x in tx..tx + d.w {
                 if !self.builds_on(team, x, y) {
-                    return false; // not this people's ground (a vent included)
+                    return false; // not this people's ground
                 }
             }
-        }
-        if d.on_vent {
-            let nd = self
-                .map
-                .nodes
-                .iter()
-                .find(|n| n.ether && n.tx == tx && n.ty == ty);
-            return match nd {
-                Some(n) => {
-                    n.extractor.is_none()
-                        && (self.is_ai(team)
-                            || self.explored[team as usize][self.map.idx(tx, ty)] != 0)
-                }
-                None => false,
-            };
         }
         for y in -1..=d.h {
             for x in -1..=d.w {
@@ -85,6 +70,17 @@ impl World {
                 .iter()
                 .any(|b| b.team == team && b.kind == r && b.done),
         }
+    }
+    /// Whether `team` has room for another `kind` under its one-per-headquarters rule (`BldgDef::per_hq`: one Market a
+    /// finished Castle, sites counted), or the kind has no such rule.
+    pub fn hq_room(&self, team: u8, kind: BldgKind) -> bool {
+        if !kind.def().per_hq {
+            return true;
+        }
+        let count = |f: &dyn Fn(&Bldg) -> bool| {
+            self.bldgs.iter().filter(|b| b.team == team && f(b)).count()
+        };
+        count(&|b| b.kind == kind) < count(&|b| b.kind.def().hq && b.done)
     }
     pub fn can_afford(&self, team: u8, cost: [i32; 2]) -> bool {
         self.res[team as usize][0] >= cost[0] && self.res[team as usize][1] >= cost[1]
@@ -312,26 +308,15 @@ impl World {
         self.set_task(uid, Task::Hold);
     }
 
-    /// Returns whether the order took effect (refused for non-harvesters, and on a mine shaft: its Excavator digs by
-    /// itself).
+    /// Returns whether the order took effect (refused for non-harvesters).
     pub fn start_gather(&mut self, uid: Id, node: Id) -> bool {
         let u = self.u(uid);
         if !u.kind.def().worker {
             return false;
         }
-        let team = u.team;
-        // A node that is gone was a depleted field; the gather update retargets from there.
+        // A node that is gone was a depleted field; the gather update retargets from there. (No map has a shaft since
+        // the re-theme's economy: nothing there to mine.)
         if self.map.node(node).is_some_and(|n| n.ether) {
-            // (each race's own word: the Harbour's Excavator digs, the Vael's Siphon draws)
-            let kind = self.factions[team as usize].ether;
-            let name = kind.def().name;
-            let a = ["a", "an"][name.starts_with(['A', 'E', 'I', 'O', 'U']) as usize];
-            let verb = ["digs", "draws"][(kind == BldgKind::Siphon) as usize];
-            self.toast(
-                team,
-                format!("Workers cannot mine a shaft: {a} {name} on it {verb} salt by itself"),
-                true,
-            );
             return false;
         }
         self.release_mine(uid);
@@ -436,6 +421,10 @@ impl World {
         if !self.has_req(team, kind) {
             return Err(format!("Requires {}", d.req.unwrap().def().name));
         }
+        if !self.hq_room(team, kind) {
+            let hq = self.factions[team as usize].hq.def().name;
+            return Err(format!("One {} per {hq}", d.name));
+        }
         if !self.can_afford(team, d.cost) {
             return Err(NOT_ENOUGH.into());
         }
@@ -525,13 +514,13 @@ mod tests {
     fn a_fight_lifts_the_marching_pace() {
         let mut w = World::new(5, 1);
         let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
-        let v = w.make_unit(UnitKind::Vanguard, PLAYER, 600.0, 940.0);
+        let v = w.make_unit(UnitKind::SiegeTank, PLAYER, 600.0, 940.0);
         w.attack_move_group(&[t, v], 1200.0, 900.0);
-        assert_eq!(w.live_speed(t), 68.0, "on the march: the Vanguard's pace");
+        assert_eq!(w.live_speed(t), 62.0, "on the march: the Trebuchet's pace");
         w.um(t).task = Task::Attack {
             target: v,
             back: None,
         };
-        assert_eq!(w.live_speed(t), 92.0, "in a fight: its own speed");
+        assert_eq!(w.live_speed(t), 90.0, "in a fight: its own speed");
     }
 }

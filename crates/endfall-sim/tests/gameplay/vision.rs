@@ -82,43 +82,6 @@ fn an_allys_unit_shows_an_enemy_to_the_whole_team() {
 }
 
 #[test]
-fn an_allys_detector_reveals_a_cloaked_enemy_to_the_team() {
-    let mut w = four(&[0, 0, 1, 1]);
-    let (x, y) = middle(&w);
-    let mine = w.make_unit(UnitKind::Trooper, 0, x, y);
-    // (an Undertow, held 60 px off, out of its blade's reach, lying still long enough to lurk)
-    let obs = w.make_unit(UnitKind::Umbra, 2, x + 60.0, y);
-    w.hold_unit(mine);
-    w.hold_unit(obs);
-    run(&mut w, 3);
-    assert!(sees(&w, 0, x + 60.0, y), "its spot is in sight");
-    assert!(
-        !w.seen_by(0, obs) && w.cloaked_from(0, obs_unit(&w, obs)),
-        "cloaked: unseen"
-    );
-    // Seat 1's Observer (a detector) beside it: the whole team detects it.
-    let det = w.make_unit(UnitKind::Observer, 1, x + 20.0, y + 20.0);
-    w.hold_unit(det);
-    w.step();
-    assert!(
-        w.detects(0, x + 60.0, y),
-        "seat 0 detects where its ally's detector does"
-    );
-    assert!(w.seen_by(0, obs), "the cloaked enemy is seen by seat 0");
-    assert!(!w.cloaked_from(0, obs_unit(&w, obs)) && !w.cloaked_from(1, obs_unit(&w, obs)));
-    // A Trooper of seat 0 can now fire at it (detection is what an attack order needs).
-    run(&mut w, 6);
-    assert!(
-        w.unit(obs).is_none_or(|o| o.hp + o.sh < o.maxhp + o.maxsh),
-        "seat 0's Trooper fires at what its ally detects"
-    );
-}
-
-fn obs_unit(w: &World, id: Id) -> &Unit {
-    w.unit(id).expect("observer")
-}
-
-#[test]
 fn a_free_for_all_sees_alone() {
     for teams in [&[][..], &[3, 2, 1, 0][..]] {
         let mut w = four(teams);
@@ -278,9 +241,9 @@ fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
 /// Each seat's fog in `teamed` is the OR of its allies' in `alone` (the same world, every seat its own team).
 fn shared_as_ored(alone: &World, teamed: &World, what: &str) {
     let n = alone.seats();
-    let layers = |w: &World| [w.vis.clone(), w.explored.clone(), w.det.clone()];
+    let layers = |w: &World| [w.vis.clone(), w.explored.clone()];
     let (a, t) = (layers(alone), layers(teamed));
-    for (k, name) in ["vis", "explored", "det"].iter().enumerate() {
+    for (k, name) in ["vis", "explored"].iter().enumerate() {
         for s in 0..n {
             let want: Vec<u8> = (0..a[k][s].len())
                 .map(|i| {
@@ -343,10 +306,6 @@ fn teams_of_seats_apart_and_of_three_share_their_fog() {
         run(&mut alone, 5);
         run(&mut teamed, 5);
         shared_as_ored(&alone, &teamed, "after 5 s");
-        assert!(
-            teamed.det.iter().any(|d| d.iter().any(|&x| x != 0)),
-            "something detects"
-        );
     }
 }
 
@@ -454,12 +413,12 @@ fn a_team_game_watched_again_is_the_game_played() {
     }
 }
 
-/// A Vanguard of the player's and a Sovereign of the other side's on flat ground (the Vael's), both too sturdy to fall.
+/// A Knight of the player's and a Rover of the other side's on flat ground (the Expedition's), both too sturdy to fall.
 fn reach_scene(v: (f64, f64), s: (f64, f64), vanguard: u8) -> (World, Id, Id) {
     let mut w = tech_arena(8);
     w.factions = vec![&HUMANS, &VAEL];
-    let van = w.make_unit(UnitKind::Vanguard, vanguard, v.0 * TILE, v.1 * TILE);
-    let sov = w.make_unit(UnitKind::Sovereign, 1 - vanguard, s.0 * TILE, s.1 * TILE);
+    let van = w.make_unit(UnitKind::Knight, vanguard, v.0 * TILE, v.1 * TILE);
+    let sov = w.make_unit(UnitKind::Monolith, 1 - vanguard, s.0 * TILE, s.1 * TILE);
     set_hp(&mut w, van, 1e6);
     set_hp(&mut w, sov, 1e6);
     w.update_fog();
@@ -475,21 +434,21 @@ fn left(w: &World, u: Id) -> f64 {
 fn shooters_whose_reach_meets_their_sight_still_fire_there() {
     // Only a siege gun (it outranges its own sight) needs its side to see its target: a gun whose reach is at the
     // edge of its sight fires as far as it reaches, wherever the target's tile centre falls.
-    // A holding Sovereign (reach 9, sight 10) and a Vanguard 9.95 tiles off: 8.95 tiles edge to edge, in its reach,
-    // but on a tile whose centre is 10.4 tiles away, which its side does not see.
-    let (mut w, van, sov) = reach_scene((40.05, 30.5), (30.1, 30.5), PLAYER);
+    // A holding Rover (reach 8, sight 9) and a Knight 8.9 tiles off: 7.99 tiles edge to edge, in its reach, but on a
+    // tile whose centre is 9.4 tiles away, which its side does not see.
+    let (mut w, van, sov) = reach_scene((39.0, 30.5), (30.1, 30.5), PLAYER);
     w.hold_unit(van);
     w.hold_unit(sov);
     assert!(!w.seen_by(ENEMY, van), "its side does not see the target");
     let full = left(&w, van);
     run(&mut w, 12);
     assert!(!w.seen_by(ENEMY, van), "still unseen");
-    assert!(left(&w, van) < full, "the Sovereign fires all the same");
-    // A deployed Siege Tank (reach 11, sight 10) and a Vanguard 10.95 tiles off, in its reach, on a tile it does not
+    assert!(left(&w, van) < full, "the Rover fires all the same");
+    // A deployed Trebuchet (reach 11, sight 10) and a Knight 10.95 tiles off, in its reach, on a tile it does not
     // see: it holds its fire until a spotter of its side sees the target.
     let mut w = tech_arena(8);
     let tank = w.make_unit(UnitKind::SiegeTank, PLAYER, 30.1 * TILE, 30.5 * TILE);
-    let van = w.make_unit(UnitKind::Vanguard, ENEMY, 41.05 * TILE, 30.5 * TILE);
+    let van = w.make_unit(UnitKind::Knight, ENEMY, 41.05 * TILE, 30.5 * TILE);
     set_hp(&mut w, van, 1e6);
     w.hold_unit(van);
     w.cast(tank, AbilityKind::Deploy).unwrap();
@@ -507,11 +466,11 @@ fn shooters_whose_reach_meets_their_sight_still_fire_there() {
     assert!(w.seen_by(PLAYER, van), "a spotter sees it");
     run(&mut w, 10);
     assert!(left(&w, van) < full, "then the siege gun shells it");
-    // A Sovereign (reach 9, sight 10) sent at a holding Vanguard 12 tiles off closes to its reach and fires.
+    // A Rover (reach 8, sight 9) sent at a holding Knight 12 tiles off closes to its reach and fires.
     let (mut w, van, sov) = reach_scene((30.05, 30.5), (18.0, 30.5), ENEMY);
     w.hold_unit(van);
     w.attack_ent(sov, van);
     let full = left(&w, van);
     run(&mut w, 20);
-    assert!(left(&w, van) < full, "the Sovereign fires");
+    assert!(left(&w, van) < full, "the Rover fires");
 }

@@ -22,11 +22,12 @@ const ART = fileURLToPath(new URL('../../public/art/', import.meta.url));
 const outDir = process.argv[2] ?? fileURLToPath(new URL('../../target/art-review/step2/', import.meta.url));
 for (const d of ['blind/units', 'blind/buildings']) mkdirSync(join(outDir, d), { recursive: true });
 
-const HARBOUR = [['harvester', 'Rigger'], ['trooper', 'Picket'], ['lancer', 'Harpooner'], ['medic', 'Mender'], ['vanguard', 'Breakwater'], ['siegeTank', 'Anchor Gun'], ['interceptor', 'Netter'], ['raider', 'Kite'], ['observer', 'Spyglass'], ['bastion', 'Windjammer']];
-const VAEL = [['lumen', 'Glint'], ['scythe', 'Needle'], ['prism', 'Lens'], ['halo', 'Tender'], ['monolith', 'Conch'], ['umbra', 'Undertow'], ['shrike', 'Petrel'], ['sovereign', 'Argonaut']];
-const STATES = [['trooper', 3, 'Picket dug in'], ['vanguard', 3, 'Breakwater beached'], ['siegeTank', 3, 'Anchor Gun anchored'], ['umbra', 2, 'Undertow lurking']];
-const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Excavator'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
-const VBLD = [['conflux', 'Tidewell'], ['spire', 'Sunpetal'], ['siphon', 'Siphon'], ['kiln', 'Cradle'], ['loom', 'Glasshouse'], ['ward', 'Anemone'], ['zenith', 'Gyre'], ['eclipse', 'Darkwater']];
+// (the re-theme's set: the Kingdom in the old `HARBOUR` slot, the Expedition in `VAEL`; the healers keep their old art)
+const HARBOUR = [['harvester', 'Villager'], ['trooper', 'Guard'], ['lancer', 'Archer'], ['medic', 'Mender'], ['rider', 'Rider'], ['knight', 'Knight'], ['siegeTank', 'Trebuchet'], ['observer', 'Balloon'], ['bastion', 'Ballista']];
+const VAEL = [['lumen', 'Bot'], ['scythe', 'Buggy'], ['prism', 'Mercenary'], ['halo', 'Tender'], ['bruiser', 'Bruiser'], ['monolith', 'Rover'], ['umbra', 'Marine'], ['shrike', 'Drone']];
+const STATES = [['siegeTank', 3, 'Trebuchet set up']];
+const HBLD = [['core', 'Castle'], ['depot', 'Cottage'], ['extractor', 'Market'], ['barracks', 'Barracks'], ['forge', 'Blacksmith'], ['factory', 'Workshop'], ['turret', 'Watchtower'], ['airfield', 'Stables']];
+const VBLD = [['conflux', 'Data centre'], ['spire', 'Cabin'], ['siphon', 'Recruiting post'], ['kiln', 'Factory'], ['loom', 'Lab'], ['ward', 'Radio tower'], ['eclipse', 'Portal']];
 const UNITS = [...HARBOUR, ...VAEL];
 
 // ---- the atlas: each frame cut out at its full source size (a trimmed mask put back at its offset) ----
@@ -142,12 +143,12 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
 {
   const c = canvas(2600, 1500); seabed(c, 7);
   const list = [], row = (names, y, x0, gap, seat) => names.forEach((n, k) => list.push([n, x0 + k * gap, y, seat]));
-  list.push(['shard_0', 2470, 120], ['shard_1', 2470, 290], ['shard_3', 2470, 500], ['vent_0', 2470, 700], ['shard_2', 130, 1380]);
+  list.push(['shard_0', 2470, 120], ['shard_1', 2470, 290], ['shard_3', 2470, 500], ['shard_2', 130, 1380]);
   let x = 120; for (const [k] of HBLD) { const s = get(`bldg_${k}`).img; x += s.w * 0.45; list.push([`bldg_${k}`, x, 270, 0, k === 'turret' ? 'head' : null]); x += s.w * 0.6 + 20; }
   x = 120; for (const [k] of VBLD) { const s = get(`bldg_${k}`).img; x += s.w * 0.45; list.push([`bldg_${k}`, x, 700, 1]); x += s.w * 0.6 + 20; }
   for (const [y, seat] of [[960, 0], [1100, 1], [1240, 6]]) { row(HARBOUR.map(([k]) => `${k}_0_0`), y, 120, 118, seat); row(VAEL.map(([k]) => `${k}_0_0`), y, 1420, 118, seat); }
   row(STATES.map(([k, f]) => `${k}_0_${f}`), 1390, 400, 140, 0); row(STATES.map(([k, f]) => `${k}_8_${f}`), 1390, 1000, 140, 1);
-  row(['harvester_4_0', 'trooper_8_0', 'raider_12_0', 'lumen_12_0', 'shrike_4_0', 'sovereign_8_0'], 1390, 1650, 130, 6);
+  row(['harvester_4_0', 'trooper_8_0', 'rider_12_0', 'lumen_12_0', 'shrike_4_0', 'bruiser_8_0'], 1390, 1650, 130, 6);
   for (const [name, px, py, seat, head] of list.sort((a, b) => a[2] - b[2])) {
     if (name.startsWith('bldg_')) drawBldg(c, name.slice(5), px, py, seat, head ? 3 : 0); else draw(c, get(name), px, py, seat ?? null);
   }
@@ -168,7 +169,7 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
     for (const [k] of HARBOUR) { list.push([`${k}_0_0`, x, y, seat]); x += 104; }
     for (const k of ['barracks', 'factory', 'airfield']) { const w = get(`bldg_${k}`).img.w; x += w * 0.3; list.push([`bldg_${k}`, x, y + 40, seat]); x += w * 0.42; }
     x += 40; for (const [k] of VAEL) { list.push([`${k}_0_0`, x, y, seat]); x += 104; }
-    for (const k of ['conflux', 'zenith']) { const w = get(`bldg_${k}`).img.w; x += w * 0.25; list.push([`bldg_${k}`, x, y + 40, seat]); x += w * 0.35; }
+    for (const k of ['conflux', 'kiln']) { const w = get(`bldg_${k}`).img.w; x += w * 0.25; list.push([`bldg_${k}`, x, y + 40, seat]); x += w * 0.35; }
   }
   for (const [name, px, py, seat] of list.sort((a, b) => a[2] - b[2])) {
     if (name.startsWith('bldg_')) drawBldg(c, name.slice(5), px, py, seat); else draw(c, get(name), px, py, seat);

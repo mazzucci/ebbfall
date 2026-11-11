@@ -1,8 +1,8 @@
 // The review pack of the ground family (STYLE.md "The ground and the scenery"): node tools/art/review-ground.mjs <outdir>
-// Renders the family's sprites (the salt field, the mine shaft, the scenery, construction and wrecks of both peoples)
+// Renders the family's sprites (the salt field, the scenery, construction and wrecks of both peoples)
 // and a few units and buildings for scale, and writes into <outdir>:
 //   ground@2x.png, ground.png   a phone's screen (844x390 CSS px; @2x: atlas px, 1:1) of seabed with a reef plateau, the
-//                    salt field at its four stages, two frames of the mine shaft, and the scenery as the game scatters it
+//                    salt field at its four stages, and the scenery as the game scatters it (no mine shaft since the re-theme)
 //                    (src/client/scenery.js on this patch); the game's shade layer over it as gl/render.js draws it
 //   units@2x.png, units.png     the same sheet with Harbour and Vael units (seats 0, 1, 6) and a building of each people
 //   ground-grey.png, ground-protan.png, ground-deutan.png, units-*.png   the phone sheets in greyscale and under Machado
@@ -13,8 +13,8 @@
 //                    rubble; the three sizes' foundations, scaffolds, buds and rubble below
 //   projectiles.png  bolt, shell, missile, harpoon and beam at 1:1 and at 4x, beside a Harpooner and a Lens
 //   base@2x.png, base.png, base-grey.png   a real main (the sim's 64x64 map, seed 4242) at a phone's size: the Lighthouse,
-//                    its arc of salt fields, its two shafts (an Excavator on the nearer), the scatter, a few workers
-//                    and troopers; `--base-only` writes only these (review.mjs --family=shaft runs it so)
+//                    its arc of salt fields, the scatter, a few workers
+//                    and troopers; `--base-only` writes only these
 //   shore@2x.png, shore.png     a Shore-like patch: a cove, shallows, a deep channel and a reef basin, with the shade
 //                    layer's water tints as render.js multiplies them, and the minimap's colours for the same tiles (x4)
 // Nothing here renders the whole atlas: render3d takes a filter.
@@ -31,8 +31,8 @@ import { groundTile, rockTile, shadeLayers } from '../../src/client/gl/ground.js
 
 const outDir = process.argv.slice(2).find(a => !a.startsWith('--')) ?? '/tmp/review-ground', BASE_ONLY = process.argv.includes('--base-only');
 mkdirSync(outDir, { recursive: true });
-const FILTER = BASE_ONLY ? '^(harvester|trooper|lancer)_(0|4|8|12)_0$|^bldg_(core|extractor)$|^shard_\\d$|^vent_\\d$|^doodad_'
-  : '^(harvester|trooper|lancer|lumen|prism|scythe)_(0|4|8|12)_0$|^bldg_(core|conflux|extractor)$|^shard_\\d$|^vent_\\d$|^doodad_|^foundation_\\d$|^scaffold_\\d$|^rubble_\\d$|^bud_\\d$|^rubble_vael_\\d$';
+const FILTER = BASE_ONLY ? '^(harvester|trooper|lancer)_(0|4|8|12)_0$|^bldg_(core|extractor)$|^shard_\\d$|^doodad_'
+  : '^(harvester|trooper|lancer|lumen|prism|scythe)_(0|4|8|12)_0$|^bldg_(core|conflux|extractor)$|^shard_\\d$|^doodad_|^foundation_\\d$|^scaffold_\\d$|^rubble_\\d$|^bud_\\d$|^rubble_vael_\\d$';
 const all = process.env.NO3D ? Object.assign([], { tints: [] }) : await render3d(FILTER), TINTS = all.tints;
 for (const e of effectSprites()) all.push(e);
 const byName = new Map(all.map(s => [s.name, s]));
@@ -121,7 +121,7 @@ function lum(name) {
   v.sort((a, b) => a - b); return { mean: (v.reduce((a, b) => a + b, 0) / v.length / 255).toFixed(2), p95: (v[Math.floor(v.length * 0.95)] / 255).toFixed(2), peak: Math.round(v[v.length - 1]) };
 }
 
-// ---- 1. the ground sheet: a phone's screen of seabed with a reef, the fields, the shafts and the scatter ----
+// ---- 1. the ground sheet: a phone's screen of seabed with a reef, the fields and the scatter ----
 const TW = 27, TH = 13; // a 2x phone (1688x780) is 26.4 x 12.2 tiles
 const reef = (x, y) => (Math.hypot((x - 5) / 3.2, (y - 3) / 2.2) + (hash2(x, y, 5) - 0.5) * 0.5 < 1) || (Math.hypot((x - 22) / 2.4, (y - 10.5) / 1.8) + (hash2(x, y, 9) - 0.5) * 0.5 < 1) ? 1 : 0;
 const groundMap = { rock: new Uint8Array(TW * TH), height: null, nodes: [{ tx: 4, ty: 9 }, { tx: 7, ty: 9 }, { tx: 10, ty: 9 }, { tx: 13, ty: 9 }, { tx: 19, ty: 3 }] };
@@ -133,7 +133,6 @@ function groundSheet(withUnits) {
   const list = [];
   for (const d of scatter) list.push([`doodad_${d.name}`, d.x * 2, d.y * 2]);
   groundMap.nodes.slice(0, 4).forEach((n, k) => list.push([`shard_${k}`, (n.tx + 0.5) * T, (n.ty + 0.5) * T]));
-  list.push(['vent_0', 19.5 * T, 3.5 * T], ['vent_2', 15.5 * T, 2.5 * T]);
   if (withUnits) {
     list.push(['bldg_core', 9 * T, 4 * T, 0], ['bldg_conflux', 23 * T, 5.5 * T, 1]);
     const row = (names, y, seat, x0) => names.forEach((n, k) => list.push([n, x0 + k * 80, y, seat]));
@@ -216,7 +215,7 @@ if (!BASE_ONLY) {
 }
 
 // ---- 6. the base shot: a real main (the sim's map, seed 4242, 64x64) at a phone's size: the Lighthouse, its arc of salt
-// fields and its two shafts (an Excavator on the nearer), the scatter as the game lays it, a few workers and troopers ----
+// fields, the scatter as the game lays it, a few workers and troopers ----
 {
   const sim = await import('../../src/engine/pkg/endfall_sim.js');
   sim.initSync({ module: readFileSync(new URL('../../src/engine/pkg/endfall_sim_bg.wasm', import.meta.url)) });
@@ -227,11 +226,9 @@ if (!BASE_ONLY) {
   patch(c, { tw: MW, th: MH, rock: (x, y) => m.rock[at(x, y)] ? 1 : 0, height: (x, y) => m.height[at(x, y)] - E.WATER, seed: 4242, shadeAt: (x, y) => m.shade[at(x, y)] });
   const cores = E.G.bldgs.filter(b => b.d.hq).map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
   const list = scatterDoodads(4242, m, cores, { MW, MH, TILE: 32, mulberry }).map(d => [`doodad_${d.name}`, d.x * 2, d.y * 2]);
-  for (const n of m.nodes) list.push([n.type === 'ether' ? 'vent_0' : 'shard_0', n.x * 2, n.y * 2]);
-  { const shafts = m.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.tx - core.tx, a.ty - core.ty) - Math.hypot(b.tx - core.tx, b.ty - core.ty)); // an Excavator on the main's nearer shaft
-    list.push(['bldg_extractor', shafts[0].x * 2, shafts[0].y * 2, 0]); }
+  for (const n of m.nodes) list.push(['shard_0', n.x * 2, n.y * 2]); // (no map has a mine shaft since the re-theme)
   list.push(['bldg_core', (core.tx + core.w / 2) * T, (core.ty + core.h / 2) * T, 0]);
-  const fields = m.nodes.filter(n => n.type !== 'ether' && Math.hypot(n.tx - core.tx, n.ty - core.ty) < 14);
+  const fields = m.nodes.filter(n => Math.hypot(n.tx - core.tx, n.ty - core.ty) < 14);
   fields.slice(0, 4).forEach((n, k) => list.push([['harvester_12_0', 'harvester_8_0', 'harvester_4_0', 'harvester_0_0'][k], (n.tx - 1.2) * T, (n.ty - 0.6) * T, 0]));
   list.push(['trooper_8_0', (core.tx - 3) * T, (core.ty + 1) * T, 0], ['trooper_4_0', (core.tx - 3.5) * T, (core.ty + 2.4) * T, 0], ['lancer_8_0', (core.tx - 5) * T, (core.ty + 1.6) * T, 0]);
   const [fa, fb] = [fields[2], fields[3]], wx = (fa.tx + fb.tx + 1) / 2 * T, wy = (fa.ty + fb.ty + 1) / 2 * T;   // the contrast check: a worker between two fields
@@ -249,7 +246,7 @@ if (!BASE_ONLY) {
 
 // ---- the maker's checks: values of the ground family against the units' pale tops ----
 if (!process.env.NO3D && !BASE_ONLY) console.log('luminance of the solid pixels (mean / p95, 1 = white; peak in sRGB 0-255):');
-if (!process.env.NO3D && !BASE_ONLY) for (const n of ['shard_0', 'shard_1', 'shard_2', 'shard_3', 'vent_0', 'rubble_3', 'rubble_vael_3', 'doodad_boulders_0', 'doodad_spire_0', 'doodad_wreck_0', 'doodad_crater_1', 'scaffold_3', 'bud_3', 'rubble_vael_3', 'trooper_0_0', 'lumen_0_0', 'bldg_core']) { const l = lum(n); console.log(`  ${n.padEnd(20)} ${l.mean} / ${l.p95}  peak ${l.peak}`); }
+if (!process.env.NO3D && !BASE_ONLY) for (const n of ['shard_0', 'shard_1', 'shard_2', 'shard_3', 'rubble_3', 'rubble_vael_3', 'doodad_boulders_0', 'doodad_spire_0', 'doodad_wreck_0', 'doodad_crater_1', 'scaffold_3', 'bud_3', 'rubble_vael_3', 'trooper_0_0', 'lumen_0_0', 'bldg_core']) { const l = lum(n); console.log(`  ${n.padEnd(20)} ${l.mean} / ${l.p95}  peak ${l.peak}`); }
 // ---- the grey check: medians in the units sheet in grey (sRGB 0-255) of the bare ground, the kelp, each resource's
 // and prop's solid pixels and the units', so the order (units, then the shaft and the full salt, kelp never) is measured ----
 if (!process.env.NO3D && !BASE_ONLY) {
@@ -262,7 +259,6 @@ if (!process.env.NO3D && !BASE_ONLY) {
   console.log(`  ${'ground (all px)'.padEnd(22)} ${med(ground)}`); console.log(`  ${'kelp'.padEnd(22)} ${med(greyCheck.kelp.filter(([x, y]) => x < g.w && y < g.h).map(([x, y]) => at(y * g.w + x)))}`);
   for (const [k, v] of Object.entries(groups).sort()) console.log(`  ${k.padEnd(22)} ${med(v)}`);
   const ring = (cx, cy, r0, r1) => { cx = Math.round(cx); cy = Math.round(cy); const v = []; for (let y = cy - r1; y <= cy + r1; y++) for (let x = cx - r1; x <= cx + r1; x++) { const d = Math.hypot(x - cx, (y - cy) / 0.82); if (d >= r0 && d < r1) v.push(at(y * g.w + x)); } return med(v); };
-  console.log(`  ${'vent_0 mouth'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 0, 14)}`); console.log(`  ${'vent_0 collar'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 24, 32)}`); console.log(`  ${'vent_0 spoil'.padEnd(22)} ${ring(19.5 * T, 3.5 * T, 38, 50)}`);
   console.log(`  ${'shard_0 apron'.padEnd(22)} ${ring(4.5 * T, 9.5 * T, 26, 30)}`);
   console.log(`  ${'reef top'.padEnd(22)} ${ring(5 * T, 3.4 * T, 0, 60)}`);
   { const { c, names, cw, ch, cols } = greyCheck.scenery, sg = simulate(c, 'grey'), k = names.indexOf('doodad_crater_1'), cx = Math.round((k % cols) * cw + cw / 2), cy = Math.round(Math.floor(k / cols) * ch + ch * 0.6), v = [];

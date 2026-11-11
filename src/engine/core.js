@@ -104,11 +104,10 @@ function sync() {
     if (!u) { const type = UNIT_KEYS[U[o + fu.kind]]; units.set(id, u = { id, kind: 'unit', type, d: UNITS[type], team: U[o + fu.team], task: { t: null, phase: null, node: null, b: null, target: null }, abCd: [0, 0], dead: false, gen }); }
     u.gen = gen; u.x = U[o + fu.x]; u.y = U[o + fu.y]; u.hp = U[o + fu.hp]; u.maxhp = U[o + fu.maxhp]; u.sh = U[o + fu.sh]; u.maxsh = U[o + fu.maxsh]; u.r = U[o + fu.r]; u.face = U[o + fu.face]; u.flash = U[o + fu.flash];
     u.carry = U[o + fu.carry]; u.cd = U[o + fu.cd];
-    // Abilities: seconds of cooldown left per slot (the kind's `abilities` order), the boost and the toggle that are on.
+    // Abilities: seconds of cooldown left per slot (the kind's `abilities` order) and the toggle that is on.
     // (no ability is 0: never read a key at index -1, which is a slow property lookup)
-    u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const boost = U[o + fu.boost], mode = U[o + fu.mode];
-    u.boost = boost > 0 ? ABILITY_KEYS[boost - 1] || null : null;
-    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.slowed = U[o + fu.slowed]; u.hid = U[o + fu.hid]; u.cloaked = !!U[o + fu.cloaked];
+    u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const mode = U[o + fu.mode];
+    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.slowed = U[o + fu.slowed];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target], task = u.task;
     task.t = t; task.phase = task.node = task.b = task.target = null;
     if (t === 'gather') { task.phase = PHASES[U[o + fu.phase]]; task.node = nodes.get(target) || null; }
@@ -257,7 +256,6 @@ export function visibleEnt(e) {
   if (e.team === S.me || !enemies(S.me, e.team)) return true;
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
-  if ((e.hid >> S.me) & 1 && !S.replaying) return false; // cloaked, and we detect nothing there (a replay shows all)
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];
 }
 

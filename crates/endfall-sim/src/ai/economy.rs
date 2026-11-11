@@ -20,11 +20,11 @@ impl World {
             .map_or((x, y), |b| (b.x, b.y))
     }
 
-    /// Our finished Pumps (on seeps).
+    /// Our finished Markets (they pay by themselves).
     pub fn pumps(&self, e: u8) -> usize {
         self.bldgs
             .iter()
-            .filter(|b| b.team == e && b.done && b.vent.is_some())
+            .filter(|b| b.team == e && b.done && b.kind.def().pays)
             .count()
     }
 

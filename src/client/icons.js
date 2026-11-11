@@ -20,11 +20,7 @@ const P = {
   health: 'M12 20s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z',
   ground: 'M2 20h20M4 20l5-8 3.5 4.5L15 13l5 7', // (hills on a horizon: what walks, rolls or stands)
   armor: 'M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6zM12 9v6M9 12h6',
-  stim: 'M13 2 5 14h6l-2 8 8-12h-6z',
   speed: 'M5 6l6 6-6 6M12 6l6 6-6 6',
-  cloak: 'M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6M4 20 20 4',
-  blink: 'M4 12h9M10 8l4 4-4 4M17 6v12M20 9v6',
-  overcharge: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M14 2l1 4-4-1',
   shields: 'M12 3a9 9 0 1 0 0.01 0M12 7a5 5 0 1 0 0.01 0M12 3v4M21 12h-4M12 21v-4M3 12h4',
   full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5',
   unfull: 'M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5',
@@ -46,6 +42,6 @@ export function setIconButton(el, name, label, alt = '') {
 
 /** Inline SVG markup for a line icon. */
 // A tech shows the icon of what it gives.
-Object.assign(P, { veil: P.cloak, overchargeCore: P.overcharge, afterburners: P.speed, slipstream: P.speed, cloakingField: P.cloak, veilWeave: P.cloak, rapidConstruction: P.frames });
+Object.assign(P, { afterburners: P.speed, slipstream: P.speed, rapidConstruction: P.frames });
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[name] || ''}"/></svg>`;
 

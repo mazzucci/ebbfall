@@ -28,9 +28,12 @@ function selectOrDouble(hit, add, at = performance.now()) {
   lastPick = { id: hit.id, t: at, dbl: false };
   select([hit], add);
 }
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, UNIT_SCALE, AIR_LIFT } from './gl/render.js';
-/** Where a unit appears on screen (flyers are drawn above the ground point they occupy). */
-const shown = (u) => (u.d.air ? { x: u.x, y: u.y - AIR_LIFT } : u);
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
+/** Where a unit is drawn, as a circle round its body: centred half its drawn height above its feet (a flyer's art,
+ *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
+const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
+/** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */
+const fromBody = (u, p) => { const c = body(u); return dist(c, p) - c.r; };
 
 export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
 /** Camera glide after a one-finger flick, in world px per second; a touch stops it. */
@@ -53,17 +56,31 @@ export const input = { enabled: () => true };
 
 function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
 
-/** What is under (wx, wy): the nearest unit within reach (generous for fingers), else a building, else a node. */
 /** How far (world px) from a unit a tap still picks it: a fingertip is about 28 screen px, whatever the zoom (enough
  * for a unit on the move). */
 const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 6;
+/** What is under (wx, wy): a unit whose body is there (of several, the one whose body's middle is nearest, for its
+ *  size: overlapping units are each picked by a tap on their own middle), else the unit whose body is nearest within
+ *  reach (generous for fingers), else a building, else a node. */
 function pick(wx, wy) {
   const reach = touchReach(), p = { x: wx, y: wy };
   let best = null, bd = Infinity;
-  for (const u of G.units) { if (u.team !== G.me && !visibleEnt(u)) continue; const d = dist(shown(u), p) - u.r * UNIT_SCALE; if (d <= reach && d < bd) { bd = d; best = u; } }
+  for (const u of G.units) {
+    if (u.team !== G.me && !visibleEnt(u)) continue;
+    const c = body(u), d = dist(c, p) - c.r; if (d > reach) continue;
+    const k = d <= 0 ? dist(c, p) / c.r - 2 : d; // (on its body: -2 at its middle to -1 at its edge; off it: px beyond)
+    if (k < bd) { bd = k; best = u; }
+  }
   if (best) return best;
-  for (const b of shownBldgs()) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
-  return nodeAt(wx, wy);
+  const bs = shownBldgs(), inX = (b) => wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE;
+  for (const b of bs) { if (inX(b) && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
+  // Above a footprint, on its drawn walls and roof (the art rises well above it): of several, the frontmost (lowest).
+  let top = null;
+  for (const b of bs) {
+    const y0 = bldgArtTop(b.id);
+    if (y0 != null && inX(b) && wy >= y0 && wy < b.ty * TILE && (!top || b.ty + b.h > top.ty + top.h)) top = b;
+  }
+  return top || nodeAt(wx, wy);
 }
 /** The explored resource field under (wx, wy), if any. */
 function nodeAt(wx, wy) {
@@ -82,7 +99,7 @@ function select(list, add) {
 
 function boxSelect(x0, y0, x1, y1, add) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
-  const us = G.units.filter(u => { const r = u.r * UNIT_SCALE, s = shown(u); return u.team === G.me && s.x >= a.x - r && s.x <= b.x + r && s.y >= a.y - r && s.y <= b.y + r; });
+  const us = G.units.filter(u => { const s = body(u); return u.team === G.me && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
   // An army box near the base takes the army, not the workers mining beside it (a box of workers only takes them).
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
@@ -104,15 +121,9 @@ function ghostAt(ev) {
   const p = canvasPos(ev), w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); return true;
 }
 
-/** Top-left tile for placing `type` with the cursor at (wx, wy); an Excavator snaps onto a nearby free shaft. */
+/** Top-left tile for placing `type` with the cursor at (wx, wy). */
 function placeTile(type, wx, wy) {
   const d = BUILDINGS[type];
-  if (d.onVent) {
-    let best = null, bd = 72;
-    const taken = new Set(shownBldgs().map(b => b.vent).filter(Boolean)); // (as this side sees them: memory.js)
-    for (const n of map.nodes) if (n.type === 'ether' && !taken.has(n)) { const dd = dist(n, { x: wx, y: wy }); if (dd < bd) { bd = dd; best = n; } }
-    if (best) return { tx: best.tx, ty: best.ty };
-  }
   return { tx: Math.round(wx / TILE - d.w / 2), ty: Math.round(wy / TILE - d.h / 2) };
 }
 
@@ -200,7 +211,7 @@ function touchTap(wx, wy, at) {
   const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); let hit = pick(wx, wy);
   // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
-  if (prev && (!hit || hit.kind === 'node') && dist(shown(prev), { x: wx, y: wy }) - prev.r * UNIT_SCALE <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
+  if (prev && (!hit || hit.kind === 'node') && fromBody(prev, { x: wx, y: wy }) <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
   // Only workers selected and a tap on a field where another of ours stands: the field (gather), not the worker on it.
   // (Not a shaft: the worker there is likely building its Excavator, and a tap should still pick it.)
   const node = field(hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy));

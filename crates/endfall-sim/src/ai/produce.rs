@@ -19,9 +19,9 @@ impl World {
             want,
             ..
         } = brain.clone();
-        // Production. Barracks answer enemy flyers (as far as the AI knows) with Lancers and bring a Medic per six
-        // Troopers; the Factory, once the Forge stands, answers flyers with Interceptors (then the Barracks bring only
-        // half the answer in Lancers), and mixes in a Vanguard per two Troopers and, from 5:30, a Siege Tank per six.
+        // Production. The main factory answers enemy flyers (as far as the AI knows) with its anti-air (Archers,
+        // Sellswords); the Kingdom's Workshop, once the Forge stands, answers them with Ballistas (then the Barracks
+        // bring only half the answer in Archers); each factory mixes in what the side's mix calls for (`AiScript::mix`).
         let mine = |w: &World, k: UnitKind| {
             w.units
                 .iter()
@@ -44,11 +44,11 @@ impl World {
             [r[0] + k[0], r[1] + k[1]]
         };
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
-        // Hit by something unseen (anywhere): one detector of its own goes with the army (its side's field detector:
-        // an Observer, a Halo), first from the factory that trains it, and nothing is held back from it.
-        let mut wanted_detector = self.factions[e as usize]
-            .field_detector()
-            .filter(|&k| self.ai().unseen_hit && mine(self, k) == 0);
+        // Its scout (`AiScript::scout`, the Balloon): one, from the factory that trains it, nothing held back from it.
+        let mut wanted_scout = self.factions[e as usize]
+            .ai
+            .scout
+            .filter(|&k| self.level_allows(k) && mine(self, k) == 0);
         // Enemy flyers: two answers per flyer seen, counted with those queued (`AiScript::answer_weight`). The heavier
         // answer once a finished building of ours with room in its queue can train it (its requirement standing); then
         // the cheap one only to half the answer (a vehicle bay full of tanks leaves it all to the cheap one).
@@ -97,44 +97,47 @@ impl World {
                 continue;
             }
             let s = &self.factions[e as usize].ai;
-            let detector = wanted_detector.filter(|k| {
+            let scout = wanted_scout.filter(|k| {
                 b.kind.def().trains.contains(k)
                     && k.def()
                         .req
                         .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
             });
             let need = |k: UnitKind| {
-                if Some(k) == detector {
+                if Some(k) == scout {
                     k.def().cost
                 } else {
                     need(k.def().cost)
                 }
             };
             // The main factory answers enemy flyers, then each factory mixes in the specialists it trains by ratio
-            // (each once its requirement stands: a Vanguard per two Troopers once the Forge stands beats massed
-            // infantry; the Vael's Zenith an Umbra per six Scythes, between its capital barges).
-            let heavy = s.heavy == Some(b.kind);
+            // (each once its requirement stands: a Knight per four Guards once the Forge stands; the Expedition's
+            // Factory a Rover per four Sellswords, between its Buggies).
+            // (a vehicle bay, or a factory that is neither the main nor the air factory, the Expedition's Portal: only
+            // its anti-air and what the mix calls for)
+            let heavy = s.heavy == Some(b.kind) || (b.kind != s.rax && b.kind != s.air);
             // (only what its level trains: a mix above it leaves the factory to its other units)
             let level = self.level();
+            // (of the specialists this factory trains, the one furthest behind its ratio: the first by the mix's order
+            // on a tie, so a factory training two (the Expedition's Rover and Drone) alternates rather than starving
+            // the second)
             let mixed = s
                 .mix
                 .iter()
                 .map(|&m| level.mix_entry(m))
-                .find(|&(k, per, from)| {
+                .filter(|&(k, per, from)| {
                     if !self.level_allows(k) {
                         return false;
                     }
                     let per = self.answer_ratio(k, per);
-                    let Some(per) = self.cloak_ratio(k, per) else {
-                        return false;
-                    };
                     b.kind.def().trains.contains(&k)
                         && t >= from
                         && k.def()
                             .req
                             .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
                         && (mine(self, k) + 1) * per <= mine(self, s.basic)
-                });
+                })
+                .min_by_key(|&(k, per, _)| (mine(self, k) + 1) * self.answer_ratio(k, per));
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
             // up for it rather than spending the money on raiders.
             let capital = b.kind.def().trains.iter().copied().find(|&k| {
@@ -146,7 +149,7 @@ impl World {
             });
             let allowance = CAPITAL_AT.iter().filter(|&&at| t > at).count();
             if b.kind == s.air
-                && detector.is_none()
+                && scout.is_none()
                 && let Some(c) = capital
                 && mine(self, c) < allowance
             {
@@ -160,7 +163,7 @@ impl World {
                 continue;
             }
             let short_of_aa = enemy_air > 0 && answers(self) < enemy_air * 2;
-            let u = if let Some(k) = detector {
+            let u = if let Some(k) = scout {
                 k
             } else if b.kind == s.rax && short_of_aa && mine(self, s.anti_air) < cheap_cap {
                 s.anti_air
@@ -171,10 +174,13 @@ impl World {
             } else if let Some((k, _, _)) = mixed
                 && (b.kind == s.rax
                     || heavy
-                    // (the air factory takes turns: a mixed-in unit (the Vael's Umbra), then a raider, until its
+                    // (the air factory takes turns: a mixed-in unit (a Knight, a Rover), then a raider, until its
                     // raiders are all out: neither starves the other)
+                    // (and while it can't afford the mixed-in unit, a raider instead of nothing: the barracks spend
+                    // as the money comes in, so waiting for a Knight's price would leave the air factory idle)
                     || (b.kind == s.air
-                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)))
+                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)
+                        && (mine(self, s.raider) >= 6 || self.can_afford(e, need(k)))))
             {
                 k
             } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {
@@ -201,14 +207,14 @@ impl World {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup[e as usize];
-                let room = Some(u) == detector
+                let room = Some(u) == scout
                     || capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
                 if room
                     && self.can_afford(e, need(u))
                     && self.queue_unit(bid, u).is_ok()
-                    && Some(u) == detector
+                    && Some(u) == scout
                 {
-                    wanted_detector = None; // (one: not one from every factory that trains it this turn)
+                    wanted_scout = None; // (one: not one from every factory that trains it this turn)
                 }
             }
         }
@@ -251,19 +257,6 @@ impl World {
         (have < CAPITAL_AT.iter().filter(|&&at| t > at).count()).then_some(k)
     }
 
-    /// A mix ratio (one `k` per `per` line units) for an always-cloaked fighter (the Umbra): as scripted until it has
-    /// seen an enemy field detector with an enemy army (`Ai::detector_seen`), none from then on. A player who sees
-    /// detection walking with the enemy army stops sending blades that would only be found: the Human AI, once hit
-    /// unseen, keeps an Observer with its army for the rest of the game, and a Vael army mixes in Halos, so a detector
-    /// seen once is one met again. None on a level that does not adapt (Easy: an unseen killer is no lesson for a
-    /// beginner). Any other unit: `per` as it is.
-    pub(crate) fn cloak_ratio(&self, k: UnitKind, per: usize) -> Option<usize> {
-        if !k.cloaked_fighter() {
-            return Some(per);
-        }
-        (self.level().answers && !self.ai().detector_seen).then_some(per)
-    }
-
     /// A mix ratio (one `k` per `per` line units) answered to what the enemy fields: a splashing specialist comes
     /// twice as often against massed infantry (8+ seen), half as often against heavies (4+) with little infantry.
     pub(crate) fn answer_ratio(&self, k: UnitKind, per: usize) -> usize {
@@ -283,70 +276,31 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::ai::Brain;
     use crate::data::*;
-    use crate::map::MapKind;
     use crate::world::World;
 
     #[test]
     fn the_mix_answers_what_the_enemy_fields() {
         let mut w = World::new(17, 1);
         w.ai_turn = ENEMY;
-        assert_eq!(w.answer_ratio(UnitKind::Vanguard, 2), 2);
+        assert_eq!(w.answer_ratio(UnitKind::SiegeTank, 2), 2);
         w.ai_mut().infantry_seen = (10, 0.0);
         assert_eq!(
-            w.answer_ratio(UnitKind::Vanguard, 2),
+            w.answer_ratio(UnitKind::SiegeTank, 2),
             1,
             "splash against massed infantry"
         );
         assert_eq!(
-            w.answer_ratio(UnitKind::Medic, 6),
+            w.answer_ratio(UnitKind::Knight, 6),
             6,
             "only the splashing specialists"
         );
         w.ai_mut().infantry_seen = (2, 0.0);
         w.ai_mut().heavy_seen = (5, 0.0);
         assert_eq!(
-            w.answer_ratio(UnitKind::Vanguard, 2),
+            w.answer_ratio(UnitKind::SiegeTank, 2),
             4,
             "fewer heavies against heavies"
         );
-    }
-
-    #[test]
-    fn umbras_come_until_an_enemy_detector_is_seen_with_its_army() {
-        // The Vael AI mixes in Umbras as scripted; an enemy Observer it sees alone (a scout) changes nothing; one it
-        // sees beside enemy fighters (with their army) stops them for good. Never on Easy; other units keep theirs.
-        let mut w = World::with_setup(17, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
-        w.ai_turn = ENEMY;
-        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4));
-        let (x, y) = (32.0 * TILE, 32.0 * TILE);
-        w.make_unit(UnitKind::Halo, ENEMY, x, y); // (its eyes: it sees the cloaked Observer only where it detects)
-        let obs = w.make_unit(UnitKind::Observer, PLAYER, x + 2.0 * TILE, y);
-        let watch = |w: &mut World| {
-            w.update_fog();
-            let mut b = Brain {
-                e: ENEMY,
-                ..Brain::default()
-            };
-            w.ai_watch(&mut b);
-        };
-        watch(&mut w);
-        assert!(w.ai_sees_unit(w.unit(obs).unwrap()), "it sees the Observer");
-        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), Some(4), "a lone scout");
-        w.make_unit(UnitKind::Trooper, PLAYER, x + 4.0 * TILE, y);
-        watch(&mut w);
-        assert_eq!(
-            w.cloak_ratio(UnitKind::Umbra, 4),
-            None,
-            "with the army: none"
-        );
-        w.units.retain(|u| u.team != PLAYER);
-        watch(&mut w);
-        assert_eq!(w.cloak_ratio(UnitKind::Umbra, 4), None, "for good");
-        assert_eq!(w.cloak_ratio(UnitKind::Monolith, 3), Some(3));
-        let mut easy = World::with_setup(17, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
-        easy.ai_turn = ENEMY;
-        assert_eq!(easy.cloak_ratio(UnitKind::Umbra, 4), None, "never on Easy");
     }
 }

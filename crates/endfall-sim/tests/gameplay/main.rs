@@ -5,7 +5,6 @@
 mod abilities;
 mod ai;
 mod balance;
-mod cloak;
 mod combat;
 mod common;
 mod construction;
@@ -16,6 +15,7 @@ mod lockstep;
 mod maps;
 mod orders;
 mod paths;
+mod peoples;
 mod random_play;
 mod seats;
 mod shore;

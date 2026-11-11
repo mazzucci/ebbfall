@@ -28,13 +28,13 @@ async function open(query = '', device = DESKTOP, { init = null, permissions = [
 /** The game as it starts: each seat's race and team, the map's size, every Core where it stands. */
 const startOf = (page) => page.evaluate(() => ({ races: endfall.G.factions.slice(), teams: endfall.G.teams.slice(), w: endfall.map.w,
   cores: endfall.G.bldgs.filter(b => b.d.hq).map(b => [b.team, b.x, b.y]).sort((p, q) => p[0] - q[0]) }));
-/** Win at once: the AIs stopped, each enemy Core nearly down with our Pickets beside it. */
+/** Win at once: the AIs stopped, each enemy Core nearly down with our Archers beside it. */
 async function win(page) {
   await page.evaluate(() => {
     endfall.engine.disableAi();
     for (const c of endfall.G.bldgs.filter(b => b.d.hq && b.team !== endfall.G.me)) {
       endfall.engine.debugSetHp(c.id, 5);
-      for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(endfall.G.me, 'trooper', c.x + i * 20, c.y + 90);
+      for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(endfall.G.me, 'lancer', c.x + i * 20, c.y + 90);
     }
   });
   for (let i = 0; i < 40 && !(await page.evaluate(() => endfall.G.over)); i++) await page.evaluate(() => endfall.skip(2));

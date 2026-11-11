@@ -1,6 +1,5 @@
 // Materials and procedural textures for the models. Team colour is a parameter; everything else is shared.
 import * as THREE from 'three';
-import { SEAT_COLORS } from '../../src/client/look.js';
 
 function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -96,8 +95,9 @@ const flagBump = canvasTex(256, (g, n) => { g.fillStyle = '#808080'; g.fillRect(
 const burlapTex = canvasTex(64, (g, n) => { g.fillStyle = '#cfc8b4'; g.fillRect(0, 0, n, n); g.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < n; k += 2) g.fillRect(k, 0, 1, n); g.fillStyle = 'rgba(0,0,0,0.1)'; for (let k = 1; k < n; k += 2) g.fillRect(0, k, n, 1); seed = 409; for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(60,45,25,${0.1 + rnd() * 0.15})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 3 + rnd() * 8, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); } }, { repeat: 4 });
 
 /** Team paint: per-seat frames are rendered once in NEUTRAL (white paint, white lamps) with a team mask the client
- *  tints with the seat's colour (Notion: Ebbfall art); scaffolds and rubble keep seat 0's gold (GOLD). */
-export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: SEAT_COLORS[0], light: 0xffc65a };
+ *  tints with the seat's colour (Notion: Ebbfall art); scaffolds and rubble keep the gold that was seat 0's (GOLD; seat 0
+ *  is blue since the re-theme, and the new ground art replaces these). */
+export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: 0xd98a1f, light: 0xffc65a };
 /** Mark a material as team-coloured: its share of the team mask (1 paint; lamps less, so they read as a pale tint). */
 export const team = (m, w = 1) => { m.userData.team = w; return m; };
 export const LAMP_MASK = 0.4;

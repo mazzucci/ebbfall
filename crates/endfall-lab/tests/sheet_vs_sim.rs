@@ -40,14 +40,9 @@ fn fight(attacker: UnitKind, target: UnitKind) -> f64 {
 #[test]
 fn the_sheets_time_to_kill_matches_a_fight_in_the_sim() {
     for (attacker, target, why) in [
-        (
-            UnitKind::Trooper,
-            UnitKind::Scythe,
-            "shields, then armour 1",
-        ),
-        // (an armoured target that never settles: a held Breakwater beaches, armour 6, which the sheet leaves out)
-        (UnitKind::Trooper, UnitKind::Interceptor, "armour 1"),
-        (UnitKind::Lancer, UnitKind::Shrike, "a flyer with shields"),
+        (UnitKind::Trooper, UnitKind::Scythe, "a spear on armour 1"),
+        (UnitKind::Lancer, UnitKind::Knight, "armour 3"),
+        (UnitKind::Lancer, UnitKind::Shrike, "a flyer"),
     ] {
         let row = rows().into_iter().find(|r| r.kind == attacker).unwrap();
         let sheet = time_to_kill(&row, target).expect("it can hit it");

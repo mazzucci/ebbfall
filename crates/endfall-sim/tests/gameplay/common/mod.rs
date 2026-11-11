@@ -52,11 +52,7 @@ pub fn spot(w: &World, kind: BldgKind) -> (i32, i32) {
 
 /// Place `kind` with `builder` and run until it is finished (or fail after `limit` seconds).
 pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
-    let (tx, ty) = if kind.def().on_vent {
-        player_vent(w)
-    } else {
-        spot(w, kind)
-    };
+    let (tx, ty) = spot(w, kind);
     let b = w
         .place_building(PLAYER, kind, tx, ty, Some(builder))
         .unwrap_or_else(|e| panic!("{kind:?}: {e}"));
@@ -74,19 +70,6 @@ pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
         "{kind:?} not finished after {limit}s: progress {:?}",
         w.bldg(b).map(|b| b.progress)
     );
-}
-
-/// The open shaft nearest the player's Core (top-left tile).
-pub fn player_vent(w: &World) -> (i32, i32) {
-    let (cx, cy) = core(w, PLAYER);
-    let n = w
-        .map
-        .nodes
-        .iter()
-        .filter(|n| n.ether)
-        .min_by_key(|n| (n.tx - cx).abs() + (n.ty - cy).abs())
-        .unwrap();
-    (n.tx, n.ty)
 }
 
 /// A world with plenty of resources and no opponent, for testing what the player can do.
@@ -158,6 +141,15 @@ pub fn first_hit(w: &mut World, shooter: UnitKind, shooter_team: u8, target: Uni
     }
     panic!("no hit");
 }
+
+/// Shields for unit `id` (none has any since the re-theme: the shield rules stay, as data, and their tests set them).
+pub fn give_shields(w: &mut World, id: Id, sh: f64) {
+    let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
+    (u.sh, u.maxsh) = (sh, sh);
+}
+
+/// The shields the shield tests give a unit (`give_shields`): the Needle's before the re-theme.
+pub const TEST_SHIELDS: f64 = 40.0;
 
 mod duel;
 mod invariants;

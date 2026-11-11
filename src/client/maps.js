@@ -20,7 +20,7 @@ export const MAP_KINDS = [
 /** The characters a random map draws from: the first six (Shore has random maps of its own, `kind` fixed). */
 export const RANDOM_KINDS = 6;
 /** The Shore map's line in the menus. */
-const SHORE_LINE = 'A shore and a reef: the Harbour holds the cove, the Vael the shallows.';
+const SHORE_LINE = 'A shore and a reef: each side holds a cove, the reef in the shallows between.';
 
 /** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts). */
 export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];

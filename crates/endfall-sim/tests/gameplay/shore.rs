@@ -1,5 +1,6 @@
 //! The Shore map (`MapKind::Shore`): each start a cove on land and a reef basin in the shallows, a deep band between
-//! the reefs; Human seats start in their cove, Vael seats in their basin. Its ground, its starts, its routes (each
+//! the reefs; a seat whose builders were amphibious started in its basin, but none is since the re-theme, so both
+//! peoples start in their cove (the basins and the amphibians' routes stay, the map's own). Its ground, its starts, its routes (each
 //! reef's channel faces the cove across the sea, its sea gate opens onto deep water), orders at sea, random play and
 //! the AI on it.
 
@@ -205,8 +206,9 @@ fn on_the_shore_a_walker_reaches_everything_and_the_sea_is_the_vaels_road() {
                 n.ty
             );
         }
-        // Contact: from a cove to the basin it faces and back, each people's way is short (each reef's channel faces
-        // that cove), and a walker's never enters deep water.
+        // Contact: from a cove to the basin it faces and back, a walker's and an amphibian's way are short (each reef's
+        // channel faces that cove; no kind is amphibious since the re-theme, the class stays), and a walker's never
+        // enters deep water.
         let (cove, basin) = (
             beside(m, walk(), m.bases[0]),
             beside(m, walk(), m.basins[1]),
@@ -216,7 +218,7 @@ fn on_the_shore_a_walker_reaches_everything_and_the_sea_is_the_vaels_road() {
         let amph_len = route_len(m, amph(), basin, cove).expect("an amphibian's way");
         assert!(
             walk_len < straight * 1.4 && amph_len < straight * 1.4,
-            "seed {seed}: Humans {walk_len:.0} tiles, Vael {amph_len:.0}, straight {straight:.0}"
+            "seed {seed}: walking {walk_len:.0} tiles, amphibious {amph_len:.0}, straight {straight:.0}"
         );
         let mut s = PathScratch::new(m.rock.len());
         let p = astar(m, walk(), &mut s, cove.0, cove.1, basin.0, basin.1).unwrap();
@@ -231,9 +233,9 @@ fn on_the_shore_a_walker_reaches_everything_and_the_sea_is_the_vaels_road() {
 }
 
 #[test]
-fn each_people_starts_on_its_own_ground() {
-    // Humans in their cove, the Vael in their basin, from either start; Human against Human two coves, Vael against
-    // Vael two basins.
+fn both_peoples_start_in_their_coves() {
+    // Every builder walks since the re-theme: both peoples start in their cove, from either start and in either mirror
+    // (a seat with amphibious builders would start in its basin; none has any).
     for side in [false, true] {
         for races in [
             [&HUMANS, &VAEL],
@@ -248,14 +250,10 @@ fn each_people_starts_on_its_own_ground() {
                     .iter()
                     .find(|b| b.team == seat as u8 && b.kind.def().hq)
                     .unwrap();
-                let want = if f.worker.def().mv == Move::Amph {
-                    Ground::Shallow
-                } else {
-                    Ground::Land
-                };
+                assert_eq!(f.worker.def().mv, Move::Walk);
                 assert_eq!(
                     w.map.ground(hq.tx + 1, hq.ty + 1, 0),
-                    want,
+                    Ground::Land,
                     "{} at seat {seat} (side {side})",
                     f.name
                 );
@@ -301,7 +299,8 @@ fn a_walker_sent_out_to_sea_stops_on_the_nearest_shore() {
 
 #[test]
 fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
-    // Humans against the Vael at each level, each people from each start: every game ends within 30 minutes.
+    // Humans against the Vael at each level, each people from each start: every game ends within 40 minutes (as the
+    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal).
     for diff in 0..4 {
         for (races, seed) in [
             ([&HUMANS, &VAEL], 1 + diff as u32),
@@ -309,7 +308,7 @@ fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
         ] {
             let mut w = World::with_size(seed, diff, MapKind::Shore, MapSize::DUEL, 0, &races);
             assert!(w.set_ai_seats([true, true]));
-            for _ in 0..30 * 60 * TPS {
+            for _ in 0..40 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {
@@ -318,7 +317,7 @@ fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
             }
             assert!(
                 w.winner >= 0,
-                "level {diff}, {} first: no result in 30 minutes",
+                "level {diff}, {} first: no result in 40 minutes",
                 races[0].name
             );
         }
@@ -567,7 +566,7 @@ fn both_ais_finish_games_with_the_basin_field_moved() {
             let mut w = shore(3, races);
             w.set_shore_field(field);
             assert!(w.set_ai_seats([true, true]));
-            for _ in 0..30 * 60 * TPS {
+            for _ in 0..40 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {

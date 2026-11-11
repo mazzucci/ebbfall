@@ -41,7 +41,7 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
   const d = JSON.parse(sim.dataJson());
   assert.deepEqual(Object.keys(C.UNITS), Object.keys(d.units), 'units in the sim\'s order (the snapshot sends kind indices)');
   assert.deepEqual(Object.keys(C.BUILDINGS), Object.keys(d.buildings), 'buildings in the sim\'s order');
-  assert.deepEqual(C.UNITS.vanguard.cost, d.units.vanguard.cost, 'pkg/data.js is current (rebuild with npm run build:wasm)');
+  assert.deepEqual(C.UNITS.knight.cost, d.units.knight.cost, 'pkg/data.js is current (rebuild with npm run build:wasm)');
   for (const [k, u] of [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)]) {
     assert.ok(u.name && /^[A-Z]$/.test(u.hot) && u.desc, `${k} has a name, a hotkey and a description`);
   }
@@ -164,27 +164,6 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(E.G.units.every(u => !u.dead));
 });
 
-test('a harvester whose last node is a mine shaft goes idle instead of getting stuck', { skip }, () => {
-  // Reproduces the review finding: resume after building, with last_node = a mine shaft (never mined).
-  for (const S of [E]) {
-    S.resetGame(7, 1);
-    S.setResources(E.PLAYER, 1000, 0);
-    const G = S.G, core = G.bldgs.find(b => b.team === S.PLAYER), vent = S.map.nodes.find(n => n.type === 'ether');
-    const h = G.units.find(u => u.team === S.PLAYER);
-    S.startGather(h, vent); // refused (a shaft is not mined), last node unchanged
-    let placed = false;
-    for (let r = 3; r < 9 && !placed; r++) for (let a = 0; a < 12 && !placed; a++) {
-      const tx = Math.round(core.tx + 2 + Math.cos(a / 12 * 6.28) * r - 1), ty = Math.round(core.ty + 2 + Math.sin(a / 12 * 6.28) * r - 1);
-      if (S.canPlace('depot', tx, ty, S.PLAYER)) placed = !S.placeBuilding(S.PLAYER, 'depot', tx, ty, h);
-    }
-    assert.ok(placed);
-    let toasts = 0;
-    for (let i = 0; i < 30 * 40; i++) { S.step(S.DT); for (const e of G.events) if (e.t === 'toast' && /Excavator/.test(e.msg)) toasts++; G.events.length = 0; }
-    assert.ok(toasts <= 1, `${S === E ? 'rust' : 'js'}: ${toasts} Excavator toasts`);
-    assert.notEqual(G.units.find(u => u.id === h.id).task.t, 'build');
-  }
-});
-
 test('out-of-range teams are rejected without poisoning the game', { skip }, () => {
   E.resetGame(3, 1);
   assert.equal(E.canAfford(2, [0, 0]), false);
@@ -214,33 +193,34 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
-test('an Excavator knows its mine shaft and digs salt by itself; harvesters ordered to the shaft are refused', { skip }, () => {
+test('a Market, built in the base once the Crew Hall stands, earns salt by itself; one per Castle', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
-  const vent = E.map.nodes.filter(n => n.type === 'ether').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0]; // the nearest, out in the open
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
-  // (the Excavator needs the Crew Hall; the shaft, out in the open, is on the map from the start)
-  let rax = null;
-  for (let r = 4; r < 12 && !rax; r++) for (let a = 0; a < 16 && !rax; a++) {
-    const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
-    if (E.canPlace('barracks', tx, ty, E.PLAYER)) { assert.equal(E.placeBuilding(E.PLAYER, 'barracks', tx, ty, hs[1]), null); rax = { tx, ty }; }
-  }
-  assert.ok(rax, 'room for a Crew Hall');
-  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null, 'refused before the Crew Hall stands');
+  assert.equal(E.map.nodes.filter(n => n.type === 'ether').length, 0, 'no mine shaft on the map');
+  const spot = (type) => {
+    for (let r = 4; r < 12; r++) for (let a = 0; a < 16; a++) {
+      const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
+      if (E.canPlace(type, tx, ty, E.PLAYER)) return { tx, ty };
+    }
+    return null;
+  };
+  const r = spot('barracks');
+  assert.equal(E.placeBuilding(E.PLAYER, 'barracks', r.tx, r.ty, hs[1]), null);
+  const m = spot('extractor');
+  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null, 'refused before the Crew Hall stands');
   runSeconds(60);
-  assert.equal(E.placeBuilding(E.PLAYER, 'extractor', vent.tx, vent.ty, hs[0]), null);
+  assert.equal(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null);
+  const m2 = spot('extractor');
+  assert.match(E.placeBuilding(E.PLAYER, 'extractor', m2.tx, m2.ty, hs[2]), /One Excavator per Lighthouse/);
+  runSeconds(40); // (25 s of construction)
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
-  assert.equal(ext.vent, vent);
-  runSeconds(60); // walk over, then 25 s of construction
-  assert.ok(ext.done, 'Excavator built');
+  assert.ok(ext.done, 'the Market built');
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
   assert.equal(E.G.res[E.PLAYER][0], 10, 'ten salt in 20 s, nobody mining');
-  for (const h of hs) E.startGather(h, ext.vent);
-  assert.ok(hs.every(h => h.task.t !== 'gather'), 'nobody works the shaft');
-  assert.equal(E.G.res[E.PLAYER][1], 0, 'no ether');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
@@ -272,17 +252,18 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found. A retired one (Cloaking Field: no building researches it) keeps only its place.
+  // its own; each ability's tech is found. Hardshell (shields, data since the re-theme: no building researches it) keeps
+  // only its place.
   const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
-  assert.ok(researched('entrenching') && !researched('cloakingField'));
+  assert.ok(researched('entrenching') && !researched('shields'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
-  // A line unit's ability is there from the start; a heavy unit's waits for its tech (the Siege Tank's Deploy is how it
-  // fires at all: no tech). (Stim and Cloak are retired: no unit has them, but the kinds keep their places.)
-  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['stim', null], ['entrench', 'entrenching'], ['blink', null], ['overcharge', 'overchargeCore'], ['cloak', 'cloakingField'], ['veil', 'veilWeave'], ['deploy', null], ['beach', null]]);
+  // The Guard's Brace waits for Sandbags; the Trebuchet's Deploy is how it fires at all: no tech. (The re-theme removed
+  // the others: the boosts, the hop, the cloaks.)
+  assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['entrench', 'entrenching'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
   assert.ok(n >= 2);
@@ -361,7 +342,7 @@ function view() {
   return JSON.stringify({
     tick: G.tick, time: G.time, over: G.over, winner: G.winner, out: G.out, res: G.res, sup: G.sup, stats: G.stats, upgrades: G.upgrades,
     vis: Array.from(G.vis), explored: Array.from(G.explored), occ: Array.from(map.occ),
-    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, boost: u.boost, mode: u.mode, swap: u.swap, hid: u.hid, cloaked: u.cloaked, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
+    units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, mode: u.mode, swap: u.swap, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
     bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, vent: id(b.vent), dead: b.dead })),
     nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners, extractor: id(n.extractor) })),
     projs: G.projs,
@@ -398,16 +379,16 @@ test('advance() then one read of G is the same as step() after step(): the same 
   E.resetGame(4, 0); // (back to a duel's map for the tests after)
 });
 
-test('a projectile names its shooter\'s kind (the client draws the Harpooner\'s and the Lens\'s their own way)', { skip }, async () => {
+test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Mercenary\'s tracer)', { skip }, async () => {
   const { SHOT_LOOK } = await import('../src/client/look.js');
   E.resetGameSeats(32, 1, 0, 0, ['humans', 'vael'], [], [false, false], 0, 64);
   const x = 32 * C.TILE + 16, y = 32 * C.TILE + 16;
-  const shooters = ['lancer', 'prism', 'trooper'].map((k, i) => [k, E.debugSpawn(i === 1 ? 1 : 0, k, x + i * 120, y)]);
+  const shooters = ['lancer', 'prism', 'bastion'].map((k, i) => [k, E.debugSpawn(i === 1 ? 1 : 0, k, x + i * 120, y)]);
   for (const [k, id] of shooters) E.debugSpawn(k === 'prism' ? 0 : 1, 'trooper', E.G.units.find(u => u.id === id).x + 60, y);
   const seen = new Set();
   for (let i = 0; i < 90 && seen.size < 3; i++) { E.step(); for (const p of E.G.projs) seen.add(p.by); }
   for (const [k] of shooters) assert.ok(seen.has(k), `a ${k}'s shot names it`);
-  assert.equal(SHOT_LOOK.lancer, 'harpoon'); assert.equal(SHOT_LOOK.prism, 'beam'); assert.equal(SHOT_LOOK.trooper, undefined);
+  assert.equal(SHOT_LOOK.lancer, 'arrow'); assert.equal(SHOT_LOOK.prism, 'tracer'); assert.equal(SHOT_LOOK.trooper, undefined);
   E.resetGame(4, 0);
 });
 

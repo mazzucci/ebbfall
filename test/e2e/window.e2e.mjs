@@ -107,7 +107,7 @@ for (const [label, device, collapsed] of TABS) {
       await d.page.locator('#btnHelpClose').tap(); await d.page.locator('#btnResume').tap();
       await d.eval(() => {
         const c = endfall.G.bldgs.find(b => b.team !== endfall.G.me && b.d.hq); endfall.engine.debugSetHp(c.id, 5);
-        for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'trooper', c.x + i * 20, c.y + 90);
+        for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'lancer', c.x + i * 20, c.y + 90);
       });
       for (let i = 0; i < 30 && !(await d.eval(() => endfall.G.over)); i++) await d.skip(2);
       await d.page.locator('#end').waitFor({ state: 'visible', timeout: 10000 });

@@ -7,12 +7,16 @@
 // so the frame shot is the frame the game drew mid-fight. Your army is box-selected (a tap on a phone) through the UI,
 // so the HUD shows a selection. Each scene at desktop size (1280x720) and a phone's landscape (844x390 at 2x):
 //   <scene>-desktop.png, <scene>-phone.png
-//   mixed      Harbour against Vael, a mixed army each, at a salt field, held on a harpoon and a beam in flight
-//   harbour    a Harbour mirror (seats 0 and 1)
-//   vael       a Vael mirror
-//   base-harbour, base-vael   a base with every building of its people
-//   air        flyers of both peoples (Kite, Spyglass, Windjammer; Petrel, Argonaut) with Harpooners and Lenses, held
-//              on a frame with a harpoon and a beam in flight where one comes
+//   mixed      the Kingdom (sim race `humans`) against the Expedition (`vael`), a mixed army each of every kind they
+//              train (Riders, Knights and Ballistas; Bruisers among them), at a gold field, held on an arrow and a
+//              tracer in flight
+//   mixed-close the same, zoomed in to 1.8 (each kind's art up close)
+//   kingdom    a Kingdom mirror (seats 0 and 1)
+//   expedition an Expedition mirror
+//   base-kingdom, base-expedition   a base with every building of its people
+//   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
+//              tracer in flight where one comes
+//   shore      the mixed fight on the Shore map (Tidewater Reef, chosen in the menu's map list), zoomed out to 0.75
 // It prints, per shot, what was in flight (the projectiles by shooter) and the units on screen.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -23,19 +27,21 @@ const [outArg, ...only] = process.argv.slice(2);
 const outDir = outArg ?? fileURLToPath(new URL('../../target/art-review/step2/battle/', import.meta.url));
 mkdirSync(outDir, { recursive: true });
 
-const H_ARMY = { trooper: 5, lancer: 3, medic: 2, vanguard: 1, siegeTank: 1, interceptor: 2 };
-const V_ARMY = { scythe: 5, prism: 3, halo: 2, monolith: 1, umbra: 1, lumen: 1 };
+const H_ARMY = { trooper: 4, lancer: 3, rider: 3, knight: 2, bastion: 1, siegeTank: 1, harvester: 1, observer: 1 };
+const V_ARMY = { scythe: 2, prism: 3, bruiser: 3, umbra: 2, monolith: 1, lumen: 1, shrike: 2 };
 const SCENES = {
-  mixed: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], shots: ['lancer', 'prism'] },
-  harbour: { races: ['humans', 'humans'], armies: [H_ARMY, { trooper: 5, lancer: 3, medic: 1, vanguard: 2, siegeTank: 1, interceptor: 1 }] },
-  vael: { races: ['vael', 'vael'], armies: [V_ARMY, { scythe: 4, prism: 4, halo: 1, monolith: 2, umbra: 1 }] },
-  'base-harbour': { races: ['humans', 'vael'], base: true },
-  'base-vael': { races: ['vael', 'humans'], base: true },
-  air: { races: ['humans', 'vael'], armies: [{ raider: 4, observer: 1, bastion: 1, lancer: 4 }, { shrike: 4, sovereign: 1, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
+  mixed: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], shots: ['lancer', 'prism'], skip: 1 },
+  'mixed-close': { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], shots: ['lancer', 'prism'], skip: 1, zoom: 1.8 },
+  shore: { races: ['humans', 'vael'], armies: [H_ARMY, V_ARMY], map: 'Tidewater Reef', zoom: 0.75 },
+  kingdom: { races: ['humans', 'humans'], armies: [H_ARMY, { trooper: 5, lancer: 3, knight: 3, rider: 2, bastion: 1, siegeTank: 1 }] },
+  expedition: { races: ['vael', 'vael'], armies: [V_ARMY, { scythe: 3, prism: 4, bruiser: 3, monolith: 2, umbra: 1 }] },
+  'base-kingdom': { races: ['humans', 'vael'], base: true },
+  'base-expedition': { races: ['vael', 'humans'], base: true },
+  air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
 };
 
 /** A single-player game through the menu: your race and the AI's on the board, START; the AI then switched off. */
-async function newGame(device, races) {
+async function newGame(device, races, mapName) {
   const ctx = await browserContext(device), page = await ctx.newPage(), touch = !!device.hasTouch, errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install(); // (runs with real time until held: `freeze`)
@@ -46,6 +52,7 @@ async function newGame(device, races) {
   const b = board(page);
   if (races[0] !== 'humans') await b.race(0, races[0]);
   await b.race(1, races[1]);
+  if (mapName) { const i = await page.$$eval('#mapSel option', (os, n) => os.findIndex(o => o.textContent.startsWith(n)), mapName); await page.locator('#mapSel').selectOption(String(i)); }
   await press('#btnStart');
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   await page.evaluate(() => endfall.engine.disableAi());
@@ -71,7 +78,7 @@ const fight = (page, armies) => page.evaluate((armies) => {
   });
   const of = (ids) => G.units.filter(u => ids.includes(u.id));
   engine.attackMoveGroup(of(groups[0]), field.x + 6 * T, field.y); engine.attackMoveGroup(of(groups[1]), field.x - 6 * T, field.y);
-  return { x: field.x, y: field.y, box };
+  return { x: field.x, y: field.y, box, spawned: groups.map(g => g.length) };
 }, armies);
 
 /** Every building of your people raised round your Core through the engine's build orders, a tier at a time, with
@@ -101,17 +108,17 @@ const raiseBase = (page) => page.evaluate(() => {
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, left: todo.map(k => `${k} (${why[k]})`), built: mine.map(b => b.type) };
 });
 
-/** Hold the page's clock (no frame, no tick until `frame`), and draw `ms` of frames. */
-const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 2000);
+/** Hold the page's clock (no frame, no tick until `frame`; far enough ahead that a loaded machine reaches it before the hold), and draw `ms` of frames. */
+const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 15000);
 const frame = (page, ms = 60) => page.clock.runFor(ms);
 
 async function shoot(name, scene, device, label) {
-  const g = await newGame(device, scene.races), { page } = g, file = join(outDir, `${name}-${label}.png`);
+  const g = await newGame(device, scene.races, scene.map), { page } = g, file = join(outDir, `${name}-${label}.png`);
   try {
     let at, note = '';
     if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; }
-    else at = await fight(page, scene.armies);
-    await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.base ? 0.75 : 1]);
+    else { at = await fight(page, scene.armies); note = `spawned ${at.spawned.join(' and ')}; `; }
+    await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);
     await frame(page, 100);
     if (at.box) { // your army selected through the UI: a box drag, or a tap on one unit
       const canvas = await page.locator('#game').boundingBox(), c = await page.evaluate(() => ({ x: endfall.cam.x, y: endfall.cam.y, z: endfall.cam.zoom }));
@@ -130,7 +137,7 @@ async function shoot(name, scene, device, label) {
     while (scene.shots && k++ < 150 && !(await page.evaluate((want) => want.every(w => endfall.G.projs.some(p => p.by === w)), scene.shots)));
     const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0 }));
     await page.screenshot({ path: file });
-    console.log(`${file}: ${note || `in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
+    console.log(`${file}: ${scene.base ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
   } finally { await g.ctx.close(); }
 }
 

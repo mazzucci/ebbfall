@@ -62,7 +62,7 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
                    # full screen too); use xvfb-run -a npm run test:e2e, as CI does. ENDFALL_SHARD=i/n runs the i-th
                    # of n shards balanced by measured time (test/e2e/times.json: longest first into the least-loaded
                    # shard, a test not in it weighs the median; a file run alone runs its tests of that shard; CI splits
-                   # Chromium over eight jobs); `d.skipUntil` fast-forwards
+                   # Chromium over ten jobs); `d.skipUntil` fast-forwards
                    # in the page until a condition holds (prefer it to `until` for a plain wait)
 node tools/e2e-times.mjs <run id>... # refresh test/e2e/times.json from green ci.yml runs' e2e logs (each test's median); plan [n]: the shards
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
@@ -75,7 +75,7 @@ node tools/og.mjs            # regenerate public/og.png (the link preview's imag
 ```
 
 CI (`.github/workflows/ci.yml`) runs on every pull request: rustfmt, clippy and `cargo test` (`rust`); the WASM build,
-`npm test` and `npm run build` (`build`); the browser tests in Chromium over eight `e2e` jobs split by measured time, summed up by `e2e: all`;
+`npm test` and `npm run build` (`build`); the browser tests in Chromium over ten `e2e` jobs split by measured time, summed up by `e2e: all`;
 the cross-engine subset (`engines`, WebKit and Firefox) and the golden games on an ARM Mac (`arm`), both read by hand.
 The ruleset requires build, rust and e2e (1) to (4) (to become build, rust and `e2e: all`, which is red unless the build and every shard passed). On `main`, `relay` then `deploy` publish https://ebbfall.com/
 (a Cloudflare Worker, site/); the site never outruns the relay's protocol. The full description (the relay's build

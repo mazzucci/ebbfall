@@ -81,7 +81,7 @@ jobs:
         with:
           path: dist
 
-  # The browser tests in Chromium, on the build job's dist/, split by test over eight jobs (ENDFALL_SHARD, the e2e
+  # The browser tests in Chromium, on the build job's dist/, split by test over ten jobs (ENDFALL_SHARD, the e2e
   # harness: balanced by each test's measured time, test/e2e/times.json), as one file holds most of the time. WebKit and
   # Firefox: the engines job.
   e2e:
@@ -91,7 +91,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -103,7 +103,7 @@ jobs:
         with:
           name: dist
           path: dist
-      - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 8
+      - name: Gameplay tests in a real browser (Chromium), shard ${{ matrix.shard }} of 10
         run: |
           npx playwright-core install chromium
           # The system libraries: the runner image has nearly all of them (it ships Chrome). A mirror that won't resolve
@@ -112,7 +112,7 @@ jobs:
           timeout 120 npx playwright-core install-deps chromium || echo "::warning::install-deps failed; using the image's libraries"
           npm run test:e2e
         env:
-          ENDFALL_SHARD: ${{ matrix.shard }}/8
+          ENDFALL_SHARD: ${{ matrix.shard }}/10
 
   # One check for every e2e shard, the one the ruleset requires (with build and rust), so the shards' count can change
   # without touching the ruleset. It always runs and is green only when the build and every shard passed: a required

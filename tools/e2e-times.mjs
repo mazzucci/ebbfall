@@ -1,7 +1,7 @@
 // The e2e shards' table (test/e2e/times.json, test/e2e/shards.mjs): each test's seconds, the median over green CI runs.
 //   node tools/e2e-times.mjs <run id>...   reads the Chromium e2e jobs' logs of those ci.yml runs (gh, signed in) and
 //                                          writes the table: every current test found in them, by file, then name
-//   node tools/e2e-times.mjs plan [n]      prints the split over n shards (8 by default, as CI): each shard's tests and seconds
+//   node tools/e2e-times.mjs plan [n]      prints the split over n shards (10 by default, as CI): each shard's tests and seconds
 // The tests and their files come from the e2e files themselves (the harness's ENDFALL_E2E_LIST: nothing started), as
 // node --test's log names a test but not its file. Find green runs with
 // gh run list --branch main --workflow ci.yml --status success.
@@ -86,6 +86,6 @@ function show(n) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-if (cmd === 'plan') show(Number(rest[0]) || 8);
+if (cmd === 'plan') show(Number(rest[0]) || 10);
 else if (cmd && /^\d+$/.test(cmd) && rest.every(r => /^\d+$/.test(r))) refresh([cmd, ...rest]);
 else { console.error('usage: node tools/e2e-times.mjs <run id>... | plan [n]'); process.exit(1); }

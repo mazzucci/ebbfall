@@ -46,8 +46,9 @@ export const RT_UNITS = {
     rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
   },
 };
-/** The two main buildings; `hall` is the Data center (expedition-buildings.js `dataBlock`, Stelian's pick of the two
- *  options drawn on 2026-11-11; `serverHall` the other, kept under `datahall` for the record and the pictures). */
+/** The two main buildings; the Data center is the server hall (expedition-buildings.js `serverHall`, under `datahall`:
+ *  Stelian's pick of the two options drawn on 2026-11-11; `hall`, the block (`dataBlock`), the other, kept for the
+ *  record and the pictures). */
 export const RT_BUILDINGS = { kg: { castle: { build: castle, n: 4, h: 76 } }, ex: { hall: { build: EB.dataBlock, n: 4, h: 88 }, datahall: { build: EB.serverHall, n: 4, h: 66 } } };
 // ---- the buildings family (kingdom-buildings.js, expedition-buildings.js; the slot each takes is in the brief) ----
 Object.assign(RT_BUILDINGS.kg, {
@@ -209,18 +210,22 @@ export function* rethemeSprites(want, opts = {}) {
 // Bruiser the Veteran); the two healers the sim keeps but trains nowhere (medic, halo) keep their old models (main.js).
 /** Unit kind -> [people, model] (RT_UNITS). */
 export const ATLAS_UNITS = {
-  harvester: ['kg', 'villager'], trooper: ['kg', 'guard'], lancer: ['kg', 'archer'], siegeTank: ['kg', 'trebuchet'], bastion: ['kg', 'ballista'], observer: ['kg', 'balloon'],
+  harvester: ['kg', 'villager'], trooper: ['kg', 'guard'], lancer: ['kg', 'archer'], siegeTank: ['kg', 'cannon'], bastion: ['kg', 'ballista'], observer: ['kg', 'balloon'],
   lumen: ['ex', 'bot'], scythe: ['ex', 'buggy'], prism: ['ex', 'mercenary'], umbra: ['ex', 'marine'], monolith: ['ex', 'rover'], shrike: ['ex', 'drone'],
   rider: ['kg', 'rider'], knight: ['kg', 'knight'], bruiser: ['ex', 'veteran'],
 };
-/** Building type -> [people, model] (RT_BUILDINGS); each footprint is its type's (n tiles). */
+/** Building type -> [people, model] (RT_BUILDINGS); each footprint is its type's (n tiles). The Expedition rework's
+ *  picks (2026-11-11): the server hall, the Wind turbine, the tavern Recruiting post, the warehouse Factory, the domed
+ *  Lab, the Sentry gun, the Uplink's dish, the Portal's black-hole vortex; the Kingdom's hip-roof Cottage. */
 export const ATLAS_BUILDINGS = {
-  core: ['kg', 'castle'], depot: ['kg', 'cottage'], extractor: ['kg', 'market'], barracks: ['kg', 'barracks'], forge: ['kg', 'blacksmith'],
+  core: ['kg', 'castle'], depot: ['kg', 'cottagehip'], extractor: ['kg', 'market'], barracks: ['kg', 'barracks'], forge: ['kg', 'blacksmith'],
   factory: ['kg', 'workshop'], turret: ['kg', 'tower'], airfield: ['kg', 'stables'],
-  conflux: ['ex', 'hall'], spire: ['ex', 'bunkhouse'], siphon: ['ex', 'post'], kiln: ['ex', 'factory'], loom: ['ex', 'lab'], ward: ['ex', 'radio'], eclipse: ['ex', 'portal'],
+  conflux: ['ex', 'datahall'], spire: ['ex', 'turbine'], siphon: ['ex', 'posttavern'], kiln: ['ex', 'warehouse'], loom: ['ex', 'labdome'], ward: ['ex', 'radio'],
+  eclipse: ['ex', 'vortex'], uplink: ['ex', 'uplink'],
 };
-/** Turning heads (look.js BLDG_LOOK `head`, `<name>_<dir>`) -> [people, model] (RT_HEADS). */
-export const ATLAS_HEADS = { turret_head: ['kg', 'towerhead'], ward_head: ['ex', 'radiohead'] };
+/** Turning heads (look.js BLDG_LOOK `head`, `<name>_<dir>`) -> [people, model] (RT_HEADS): the Watchtower's archer and
+ *  the Sentry gun (aimed), the turbine's rotor and the Portal's spiral (spun), the Uplink's dish (panned). */
+export const ATLAS_HEADS = { turret_head: ['kg', 'towerhead'], ward_head: ['ex', 'radiohead'], spire_head: ['ex', 'turbinehead'], uplink_head: ['ex', 'uplinkhead'], eclipse_head: ['ex', 'vortexhead'] };
 /** Construction and rubble, by the names the client picks by people (gl/render.js): the kingdom's foundation, scaffold
  *  and rubble, the Expedition's scaffold (the client's `bud`) and rubble (`rubble_vael`). The scaffolds carry team on
  *  their cloth and flags; the foundations and rubble none. */

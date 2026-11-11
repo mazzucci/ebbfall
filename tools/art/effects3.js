@@ -71,13 +71,26 @@ function ballistaBolt() {
   });
 }
 /** The trebuchet's stone (`rt_stone`, 22x22, its anchor at the centre): a round grey rock lit from the north-west, in
- *  three hard bands, a few chips of a darker grey. */
+ *  three hard bands, a few chips of a darker grey. Not in the atlas since the Cannon took the siege slot (the review
+ *  pictures keep it). */
 function stone() {
   return image(22, 22, (x, y) => {
     const dx = x + 0.5 - 11, dy = y + 0.5 - 11, d = Math.hypot(dx, dy) + (hash2(x, y, 5) - 0.5) * 1.2;
     if (d > 10) return NONE;
     const lit = clamp01(0.55 - (dx + dy) / 22 - d / 30), c = lit > 0.55 ? [170, 168, 160] : lit > 0.3 ? ROCK : ROCK_DARK;
     return [...(vnoise(x, y, 4, 7, 0) > 0.72 ? ROCK_DARK : c), 255];
+  });
+}
+/** The Cannon's ball (`rt_cannonball`, 16x16, its anchor at the centre): a smooth round iron shot, near-black,
+ *  lit from the north-west in three hard bands with a small bright glint, so it reads as metal and not as a rock. */
+function cannonball() {
+  return image(16, 16, (x, y) => {
+    const dx = x + 0.5 - 8, dy = y + 0.5 - 8, d = Math.hypot(dx, dy);
+    if (d > 6.6) return NONE;
+    const g = Math.hypot(dx + 2.4, dy + 2.4);
+    if (g < 1.3) return [236, 238, 240, 255];                                                   // the glint
+    const lit = clamp01(0.62 - (dx + dy) / 14 - d / 22);
+    return [...(lit > 0.5 ? [112, 116, 122] : lit > 0.28 ? [70, 72, 78] : [40, 42, 46]), 255];
   });
 }
 /** A rifle tracer (`rt_tracer`, 26x4; the Marine, the Mercenary, the Veteran): a short bright line, its heart pale
@@ -205,6 +218,7 @@ export function effectSprites() {
   out.push({ name: 'rt_arrow', img: finishFx(arrow()), anchor: tip });
   out.push({ name: 'rt_bolt', img: finishFx(ballistaBolt()), anchor: tip });
   out.push({ name: 'rt_stone', img: finishFx(stone()), anchor: c });
+  out.push({ name: 'rt_cannonball', img: finishFx(cannonball()), anchor: c });
   out.push({ name: 'rt_tracer', img: finishFx(tracer(), { ink: false }), anchor: tip });
   out.push({ name: 'rt_dart', img: finishFx(dart()), anchor: tip });
   out.push({ name: 'rt_tower_shot', img: finishFx(towerShot(), { ink: false }), anchor: tip });
@@ -223,7 +237,7 @@ export function effectSprites() {
 
 /** The atlas's effects (generate.mjs): effectSprites under the names the renderer asks for. The muzzle flash is left
  *  out: nothing draws one yet. */
-const ATLAS_NAMES = [[/^rt_arrow$/, 'arrow'], [/^rt_bolt$/, 'ballista_bolt'], [/^rt_stone$/, 'stone'], [/^rt_tracer$/, 'tracer'], [/^rt_dart$/, 'dart'],
+const ATLAS_NAMES = [[/^rt_arrow$/, 'arrow'], [/^rt_bolt$/, 'ballista_bolt'], [/^rt_cannonball$/, 'cannonball'], [/^rt_tracer$/, 'tracer'], [/^rt_dart$/, 'dart'],
   [/^rt_tower_shot$/, 'tower_shot'], [/^rt_rocket$/, 'rocket'], [/^rt_hit_/, 'flash_'], [/^rt_puff_/, 'puff_'], [/^rt_trail_/, 'trail_'],
   [/^rt_boom_small_/, 'boom_small_'], [/^rt_boom_/, 'boom_big_'], [/^rt_spark_/, 'spark_'], [/^rt_worn_/, 'worn_']];
 export function atlasEffects() {

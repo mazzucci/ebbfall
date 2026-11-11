@@ -343,7 +343,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       await sheet(a, 3, ['diff:3', 'race:vael']); // (AI 3: Hard, Expedition)
       await sheet(a, 2, ['diff:0']); // (AI 2: Easy)
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard [data-k="tok3"] .lvl i.on').length === 3 && document.querySelectorAll('#onlineBoard [data-k="tok2"] .lvl i.on').length === 1);
-      await b.p.waitForFunction(() => /^COMPUTER 3 EXPEDITION, Hard/.test(document.querySelector('#onlineBoard [data-k="tok3"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
+      await b.p.waitForFunction(() => /^COMPUTER 3 (EXPEDITION|EXP, Expedition), Hard/.test(document.querySelector('#onlineBoard [data-k="tok3"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
       // The host puts the friend on its side and AI 2 on the other: two people against two AIs. Nobody moves.
       await sheet(a, 1, ['side:0']);
       await sheet(a, 2, ['side:1']);

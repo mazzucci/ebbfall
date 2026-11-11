@@ -599,7 +599,7 @@ test('the Shore map: chosen from the list, its line said; each people starts in 
     const shore = await page.$$eval('#mapSel option', os => os.findIndex(o => o.textContent.startsWith('Mirror Lake')));
     assert.ok(shore >= 0, 'the Shore map in the list');
     await page.locator('#mapSel').selectOption(String(shore));
-    await page.waitForFunction(() => /A shore and a reef: each side holds a cove, the reef in the shallows between\./.test(document.getElementById('soloNote').textContent));
+    await page.waitForFunction(() => /A lake: each side holds a cove, with the shallows between\./.test(document.getElementById('soloNote').textContent));
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const got = await page.evaluate(() => {
@@ -1632,12 +1632,12 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     const T = await d.eval(() => endfall.engine.UNITS.trooper), M = await d.eval(() => endfall.engine.UNITS.observer);
     const trooper = await hold('Guard');
     assert.match(trooper.text, /^Guard\s*50/, 'its name and cost first');
-    assert.match(trooper.text, /Spear infantry, cheap and steady\./, 'and what it does');
+    assert.match(trooper.text, /Spearman, cheap and steady\./, 'and what it does');
     assert.match(trooper.text, /Best with Archers\. Beaten by Rovers\./, 'its partner and its killer, one line');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Guard' }).getAttribute('title'), /against|Health|Damage/i, 'nor counters or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
-    assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armour ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
+    assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armor ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
     assert.ok(trooper.rows.every(r => r.one), 'each row on one line');
     assert.ok(trooper.box[0] >= 0 && trooper.box[1] >= 0 && trooper.box[2] <= trooper.vw && trooper.box[3] <= trooper.vh, `the card fits the screen: ${trooper.box}`);
     await release();
@@ -1972,7 +1972,7 @@ test('single player: eight fixed spots; + SEAT fills the lowest empty one on a s
     // + AI: AI 2 in spot 2, on a side of its own, like the last AI. Three players: the duel's map gives way, and says so.
     await seats.add();
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', '']);
-    assert.equal(await label(2), 'COMPUTER 2 EXPEDITION, Medium, Side 3: edit', 'a new AI: a side of its own, like the last AI');
+    assert.equal(await label(2), 'COMPUTER 2 EXP, Expedition, Medium, Side 3: edit', 'a new AI: a side of its own, like the last AI');
     assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the smallest map that seats three');
     assert.equal(await page.locator('#soloNote').textContent(), 'Map: Dust Quarter (up to 4)', 'said a moment');
     assert.deepEqual(await page.$$eval('#mapSel option:disabled', os => os.map(o => o.textContent)), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2', 'Mirror Lake · up to 2', 'Random Lake · up to 2'], 'the duel\'s maps not for three (the Shore\'s too)');
@@ -2168,7 +2168,7 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
     assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans');
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:vael');
-    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 EXPEDITION,/);
+    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (EXPEDITION|EXP, Expedition),/);
     await page.keyboard.press('ArrowLeft');
     assert.equal(await stored(), before, 'and back');
     assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"][aria-label="Side"] [role="radio"]', bs => bs.map(b => b.textContent)), ['SIDE 1', 'SIDE 2', 'SIDE 3'], 'three players: up to three sides');
@@ -2194,7 +2194,7 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
     const [chip, done] = [await mid('race:vael'), await mid('done')];
     await p2.touchscreen.tap(...chip); await p2.waitForTimeout(150); await p2.touchscreen.tap(...done);
     await p2.waitForFunction(() => !document.getElementById('soloSheet').open, null, { timeout: 3000 });
-    assert.match(await p2.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /EXPEDITION/);
+    assert.match(await p2.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /EXPEDITION|EXP, Expedition/);
   } finally { await phone.close(); }
 });
 

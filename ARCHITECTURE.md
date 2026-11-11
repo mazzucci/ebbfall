@@ -417,7 +417,7 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
                       its models, `atlasSprites` renders them under today's names; `BLDG_YAW` gives each building its
                       fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
-                      than the square model's, the round towers and the Data center square): the kingdom (kingdom.js,
+                      than the square model's, the round towers square): the kingdom (kingdom.js,
                       kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
                       props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
                       render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
@@ -428,7 +428,9 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
                       light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures
-                      (retheme-*.mjs, battle-shots.mjs); see Notion: Ebbfall art
+                      (retheme-*.mjs, battle-shots.mjs; retheme-datacenter.mjs: the Data center's two options at their
+                      angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
+                      building); see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
 ```
 

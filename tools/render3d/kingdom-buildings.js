@@ -123,14 +123,14 @@ function chimney(g, M, x, y0, z, h, w = 4.6) {
 export function cottage(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-30, -22], [22, -29], [31, 4], [24, 30], [-24, 27], [-31, 2]]);
-  const X = -6, Z = -3, W = 30, D = 22, H = 12;
+  const X = -6, Z = -3, W = 30, D = 24, H = 15;                                                                   // (the depth pass, 2026-11-11: 22 deep under walls of 12 it was a thatch slab over a strip of wall at its angle; deeper walls, 3 taller, and a shorter overhang show the house under the roof)
   add(g, rbox(W + 2.4, 2.6, D + 2.4, 0.4), M.plinth, X, 1.8, Z);
   add(g, rbox(W, H, D, 0.5), M.wall, X, H / 2 + 2, Z);
   for (const x of [-11, 5]) add(g, rbox(1.2, H + 0.2, 1.0, 0.2), M.oak, X + x, H / 2 + 2, Z + D / 2 + 0.3);   // oak posts in the south face
   add(g, rbox(W + 0.6, 1.3, 1.0, 0.2), M.oak, X, H + 1.6, Z + D / 2 + 0.3);                                    // the wall plate
-  add(g, gable(D + 9, 13, W + 7), M.thatch, X, H + 2, Z, 0, Math.PI / 2, 0);                                     // the thatch: steep, overhanging
-  add(g, cyl(1.9, 1.9, W + 7.4, 10), M.thatch, X, H + 15, Z, 0, 0, Math.PI / 2);                                 // the rounded ridge
-  add(g, rbox(W + 7.6, 0.6, D + 9.4, 0.1), M.inkLine, X, H + 1.9, Z);                                             // the dark eave line
+  add(g, gable(D + 7, 13, W + 6), M.thatch, X, H + 2, Z, 0, Math.PI / 2, 0);                                     // the thatch: steep, overhanging
+  add(g, cyl(1.9, 1.9, W + 6.4, 10), M.thatch, X, H + 15, Z, 0, 0, Math.PI / 2);                                 // the rounded ridge
+  add(g, rbox(W + 6.6, 0.6, D + 7.4, 0.1), M.inkLine, X, H + 1.9, Z);                                             // the dark eave line
   chimney(g, M, X + W / 2 - 3, 2, Z - 2, H + 18, 4.6);
   door(g, M, X - 2, 2.2, Z + D / 2 + 0.6, 5.5, 8.5);
   window_(g, M, X + 9, 9, Z + D / 2 + 0.6); window_(g, M, X - 10.5, 9.5, Z + D / 2 + 0.6, 2.6, 3.2);

@@ -16,8 +16,10 @@ import * as THREE from 'three';
 
 export const POLISH = {
   lights: { sun: 5.2, hemi: 0.2, env: 0.16, rim: 1.0, fill: 1.4 }, // buildings: the key against less fill (the atlas: 4.6, 0.28, 0.22, 1.5, no fill); `fill` from the south-west, so a thing's camera side has a lit and a dark half (round 3 lifted hemi and env a step: the castle's shadow faces and yard went near-black)
-  unitLights: { sun: 8.0, hemi: 0.05, env: 0.07, rim: 0.8, fill: 2.4 }, // units (round 3): a far harsher key and fill against almost no ambient, so a 20-px figure's lit and shadow halves are a whole value step or two apart, and the glints burn
+  unitLights: { sun: 8.0, hemi: 0.05, env: 0.07, rim: 2.0, fill: 2.4, rimColor: 0xd2dcf0 }, // units (round 3): a far harsher key and fill against almost no ambient, so a 20-px figure's lit and shadow halves are a whole value step or two apart, and the glints burn; the rim (the back light from the south-east, 0.8 until the legibility pass) lifts the east faces, which the sun and fill leave dark over the unit's own shadow, a faint cool edge against the grass, paler than the scene's blue so team paint keeps its hue
   unitBand: 8,                     // units band at 5 bits (round 3): the halves step instead of grading
+  shadow: { alpha: 110, soft: 0 },     // the hard cast shadow on the ground: black at `alpha`, its edge feathered over a box of `soft` px each way (0: crisp); 150 until 2026-11-11, when it was matched to the units' (one sun, one tone)
+  unitShadow: { alpha: 110, soft: 1 }, // the units' (the legibility pass, 2026-11-11: at 150 and crisp the shadow was a black blot under the unit's dark side, and its props vanished into it)
   ao: { radius: 10, range: 1.5, bias: 0.3, maxH: 16, strength: 1.0 }, // occlusion between parts: a step of `range` view units darkens fully, fading out by maxH
   contact: { radius: 5, squash: 0.7, hMin: 0.15, hMax: 3.5, lee: -1, alpha: 120 }, // a crisp dark ellipse (radius px, squashed to the ground's foreshortening) under every part that stands on the ground (its pixels between hMin and hMax game units up), on the sun's lee side only (dx + dy >= lee: the sun is north-west)
   rim: { gain: 0.45, bias: 1.0 },  // the lit edge: a model pixel whose up or left neighbour is farther by `bias` or is the sky
@@ -88,16 +90,20 @@ export function finishPolish(img, z, opts) {
   }
   const zAt = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? Infinity : z[y * w + x];
   const mAt = (x, y) => x >= 0 && y >= 0 && x < w && y < h && model[y * w + x];
+  // the cast shadow's coverage: 1 where the catcher drew it, feathered over a box of `soft` px (the model's own pixels
+  // count as covered, so the shadow stays whole where it leaves the feet)
+  const SH = P.unit ? P.unitShadow : P.shadow, cov = new Float32Array(N);
+  for (let p = 0; p < N; p++) if (shadow[p] && src[p * 4 + 3] >= 64) cov[p] = 1;
+  const shAt = (x, y) => { if (x < 0 || y < 0 || x >= w || y >= h) return 0; const q = y * w + x; return model[q] ? 1 : cov[q]; };
+  const coverage = (x, y) => { if (!SH.soft) return cov[y * w + x]; let s = 0, n = 0; for (let dy = -SH.soft; dy <= SH.soft; dy++) for (let dx = -SH.soft; dx <= SH.soft; dx++) { s += shAt(x + dx, y + dy); n++; } return s / n; };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const p = y * w + x, i = p * 4, a = src[i + 3];
-    if (!model[p]) { // the ground: the hard shadow, crisp, over the contact ellipse
-      const soft = contact[p] ? C.alpha / 255 : 0;
-      let alpha = shadow[p] && a >= 64 ? 150 : 0;
-      alpha = Math.max(alpha, Math.round(soft * 255));
-      if (a && a < 40 && !shadow[p]) { // an anti-aliased edge of the model over the contact shadow
+    if (!model[p]) { // the ground: the cast shadow over the contact ellipse
+      const soft = Math.max(contact[p] ? C.alpha / 255 : 0, coverage(x, y) * SH.alpha / 255);
+      if (a && a < 40 && !shadow[p]) { // an anti-aliased edge of the model over the ground's shadow
         const A = a / 255 + soft * (1 - a / 255); if (A > 0) for (let c = 0; c < 3; c++) d[i + c] = Math.round(src[i + c] * (a / 255) / A); d[i + 3] = Math.round(A * 255); continue;
       }
-      d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = alpha; continue;
+      d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = Math.round(soft * 255); continue;
     }
     const zc = z[p];
     let k = 1 - P.ao.strength * ao[p], edgeSky = 0, edgeLit = 0;
@@ -111,8 +117,8 @@ export function finishPolish(img, z, opts) {
     else if (edgeLit || zAt(x, y - 1) - zc > P.rim.bias || zAt(x - 1, y) - zc > P.rim.bias) k *= 1 + P.rim.gain; // its upper and left edges, and any edge raised over what is behind it: lit
     const band = P.unit ? P.unitBand : P.band;
     for (let c = 0; c < 3; c++) { const v = 255 * smooth(0.03, 0.97, Math.min(255, src[i + c] * k) / 255); d[i + c] = Math.min(255, Math.round(v / band) * band + band / 2); }
-    if (a < 128) { // an anti-aliased edge over the contact shadow
-      const soft = contact[p] ? C.alpha / 255 : 0, A = a / 255 + soft * (1 - a / 255);
+    if (a < 128) { // an anti-aliased edge over the ground's shadow
+      const soft = Math.max(contact[p] ? C.alpha / 255 : 0, coverage(x, y) * SH.alpha / 255), A = a / 255 + soft * (1 - a / 255);
       if (soft > 0) for (let c = 0; c < 3; c++) d[i + c] = Math.round(d[i + c] * (a / 255) / A);
       d[i + 3] = Math.round(A * 255);
     } else d[i + 3] = 255;

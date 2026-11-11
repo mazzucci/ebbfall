@@ -262,7 +262,9 @@ src/client/           everything that touches the browser
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
                       everyone (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
-  look.js             per-kind presentation the sim does not know: building lights, smoke and turning heads, each shot's
+  look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on
+                      the turned models; puffs only while the building trains or researches, `chimneyActive`) and
+                      turning heads, each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
@@ -415,10 +417,13 @@ scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js). The
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
-                      its models, `atlasSprites` renders them under today's names): the kingdom (kingdom.js,
+                      its models, `atlasSprites` renders them under today's names; `BLDG_YAW` gives each building its
+                      fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
+                      than the square model's, the round towers and the Data center square): the kingdom (kingdom.js,
                       kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js), the countryside's gold,
-                      props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they render in (polish.js,
-                      scene.js `shoot`'s `polish`) at the game's 40-degree camera and 420 sun. The older models
+                      props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
+                      render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
+                      units alike, no baked chimney smoke) at the game's 40-degree camera and 420 sun. The older models
                       (models.js, buildings.js, harbour*.js, vael*.js) stay only for the two healers the sim keeps but
                       trains nowhere (medic, halo) and fitTints' reference sprites; the retired kinds are not drawn
                       (main.js `RETIRED`)

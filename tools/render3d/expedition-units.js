@@ -31,23 +31,24 @@ function band(g, M, r, h, x, y, z, rx = 0, ry = 0, rz = 0) {
   add(p, cyl(r + 0.05, r + 0.05, 0.35, 12), M.inkLine, 0, h / 2, 0); add(p, cyl(r + 0.05, r + 0.05, 0.35, 12), M.inkLine, 0, -h / 2, 0);
   return p;
 }
-/** A slim modern rifle along local +x: a dark receiver, stock, magazine and grip, the barrel drawn twice its thickness;
- *  `scope` puts a scope tube with a glass lens on the receiver in place of the sight and lengthens the magazine (the
- *  Mercenary's, after the blind test read it as a long gun on a medieval soldier). */
+/** A slim modern rifle along local +x: a mid-gunmetal receiver, stock, magazine and grip, the barrel and handguard
+ *  2.7-2.9 px wide at zoom 1.0 (the legibility pass of 2026-11-11: 2.0-2.3 and near-black until then); `scope` puts a
+ *  scope tube with a glass lens on the receiver in place of the sight and lengthens the magazine (the Mercenary's, after
+ *  the blind test read it as a long gun on a medieval soldier). */
 function rifle(parent, M, x, y, z, ry = 0, { len = 14, heavy = false, scope = false } = {}) {
   const gun = grp(); gun.position.set(x, y, z); gun.rotation.set(0, ry, 0.04); parent.add(gun);
   const k = heavy ? 1.35 : 1;
-  add(gun, rbox(3.6 * k, 1.6 * k, 1.3 * k, 0.4), M.gun, -3.2 * k, 0, 0);                        // the stock
-  add(gun, rbox(4.0 * k, 1.9 * k, 1.5 * k, 0.4), M.gun, 0.3 * k, 0, 0);                         // the receiver
+  add(gun, rbox(3.6 * k, 1.9 * k, 1.6 * k, 0.4), M.gun, -3.2 * k, 0, 0);                        // the stock
+  add(gun, rbox(4.0 * k, 2.2 * k, 1.8 * k, 0.4), M.gun, 0.3 * k, 0, 0);                         // the receiver
   if (heavy) add(gun, cyl(1.9, 1.9, 1.6, 14), M.joint, 0.6, -1.6, 0, 0, 0, Math.PI / 2);          // a drum magazine
-  else if (scope) add(gun, rbox(1.2, 3.2, 1.1, 0.3), M.gun, 0.4, -2.3, 0, 0, 0, 0.22);           // a long curved magazine
-  else add(gun, rbox(1.1, 2.4, 1.0, 0.3), M.gun, 0.3, -1.9, 0);                                 // the magazine
-  add(gun, rbox(1.0, 1.4, 1.0, 0.2), M.gun, -1.2 * k, -1.3 * k, 0);                             // the grip
-  if (scope) { add(gun, rbox(0.9, 0.8, 0.9, 0.1), M.joint, 0.4, 1.3, 0); add(gun, cyl(0.75, 0.75, 3.4, 10), M.joint, 0.6, 2.1, 0, 0, 0, Math.PI / 2); add(gun, cyl(0.8, 0.8, 0.4, 10), M.glass, 2.4, 2.1, 0, 0, 0, Math.PI / 2); } // the scope: a mount, a tube over the receiver, a glass lens ahead
-  else add(gun, rbox(1.4, 0.8, 0.9, 0.2), M.joint, 0.4, 1.3 * k, 0);                            // the sight
+  else if (scope) add(gun, rbox(1.4, 3.2, 1.3, 0.3), M.gun, 0.4, -2.4, 0, 0, 0, 0.22);           // a long curved magazine
+  else add(gun, rbox(1.3, 2.6, 1.2, 0.3), M.gun, 0.3, -2.0, 0);                                 // the magazine
+  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2 * k, -1.4 * k, 0);                             // the grip
+  if (scope) { add(gun, rbox(1.0, 0.9, 1.0, 0.1), M.joint, 0.4, 1.4, 0); add(gun, cyl(0.85, 0.85, 3.4, 10), M.joint, 0.6, 2.3, 0, 0, 0, Math.PI / 2); add(gun, cyl(0.9, 0.9, 0.4, 10), M.glass, 2.4, 2.3, 0, 0, 0, Math.PI / 2); } // the scope: a mount, a tube over the receiver, a glass lens ahead
+  else add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5 * k, 0);                            // the sight
   const hl = len - 9 * k;
-  add(gun, rbox(hl, 1.5 * k, 1.4 * k, 0.4), M.gun, 2.3 * k + hl / 2, 0, 0);                      // the handguard
-  add(gun, cyl(0.65 * k, 0.65 * k, 3.6, 8), M.gun, 2.3 * k + hl + 1.6, 0.15, 0, 0, 0, Math.PI / 2); // the barrel
+  add(gun, rbox(hl, 1.9 * k, 1.8 * k, 0.4), M.gun, 2.3 * k + hl / 2, 0, 0);                      // the handguard
+  add(gun, cyl(0.9 * k, 0.9 * k, 3.6, 8), M.gun, 2.3 * k + hl + 1.6, 0.15, 0, 0, 0, Math.PI / 2); // the barrel
   return gun;
 }
 

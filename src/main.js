@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -217,7 +217,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).

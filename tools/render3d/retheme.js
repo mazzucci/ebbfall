@@ -9,7 +9,9 @@
 // gold mine (mine.js: full, low, empty; neutral, 2x2). The kingdom is palette B
 // (slate) and the Expedition its one dark-kit look (Stelian, 2026-11-10). The camera: `elev` degrees (RT_ELEV, the
 // game's 40, by default). Units are drawn UNIT_SCALE larger than their sim size (Stelian: "a bit larger so they can
-// be distinguished"; visual only, the footprint and radius unchanged); buildings stay their footprint's.
+// be distinguished"; visual only, the footprint and radius unchanged); buildings stay their footprint's. Three
+// buildings are turned a fixed angle about the vertical (BLDG_YAW) and fitted to their footprint; the rest stand square.
+import * as THREE from 'three';
 import { liftAt, S } from './scene.js';
 import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
@@ -26,6 +28,9 @@ import * as EB from './expedition-buildings.js';
 
 export const RT_ELEV = 40;
 export const UNIT_SCALE = UNIT_ART_SCALE; // (look.js: the game draws its units this much larger than the sim's size)
+/** The sun's height for the units (scene.js SUN_UP 420 for everything else): a shade higher, so a unit's cast shadow is
+ *  0.31 of its height long instead of 0.36 and sits closer under it (the legibility pass, 2026-11-11). */
+export const UNIT_SUN = 480;
 /** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render) and its
  *  frames (2 by default: the walk). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
@@ -58,27 +63,77 @@ Object.assign(RT_BUILDINGS.ex, {
 export const RT_HEADS = { kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } }, ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 } } };
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
+/** The buildings turned about the vertical, in degrees, one fixed angle per type (Stelian, 2026-11-11, after the yaw
+ *  review: a base of squares all facing the camera read as a grid, and no per-building variants). Each angle was
+ *  picked from -30 to +30 by what shows the building's signature at 1x (tools/art/retheme-bases.mjs --trial): the
+ *  Castle +11 (its gatehouse and the hall's gable), the Cottage -20 (its gable and the long thatch), the Market +30
+ *  (the striped stalls face the camera), the Barracks -30 (the long hall over its drill yard and dummies), the
+ *  Blacksmith -20 (the open front, the hearth and the anvil), the Workshop -20 (the siege frame's triangle beside the
+ *  balloon), the Stables -20 (the pen and the horse before the long stable), the Cabin -20 (its window grid and panel),
+ *  the Recruiting post -10 (the tent's open front), the Factory -10 (the arm before the bay), the Lab +20 (the lit
+ *  glass front and the dish), the Portal -20 (the ramp down from the round platform). Square: the round towers (their
+ *  heads turn on their own) and the Data center until its redraw. A turned building is fitted to its footprint
+ *  (`fitTurned`): the footprint, hit area and rules never change, and the client's smoke and glow points for a turned
+ *  building (look.js BLDG_LOOK) are measured on the turned model. */
+export const BLDG_YAW = {
+  kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
+  ex: { hall: 0, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20 },
+};
+/** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
+const GROUND_Y = 4;
+/** Room on every side of a turned building's cell, world px: its corners swing past the square one's. */
+const TURN_ROOM = 6;
 
 /** Cells as main.js lays them out, with the lift of this camera. */
 function unitCell(r, h, lift) {
   const left = r + 2, right = r + h * 0.55 + 4, up = r + h * lift + 2, down = r + h * 0.45 + 3;
   return { w: Math.ceil((left + right) * S), h: Math.ceil((up + down) * S), ax: Math.round(left * S), ay: Math.round(up * S) };
 }
-function bldgCell(n, h, lift) {
-  const W = n * 32, left = 4, right = h * 0.5 + 6, up = h * lift + 6, down = h * 0.4 + 6;
+function bldgCell(n, h, lift, extra = 0) { // (`extra`: room on every side for a turned building's corners)
+  const W = n * 32, left = 4 + extra, right = h * 0.5 + 6 + extra, up = h * lift + 6 + extra, down = h * 0.4 + 6 + extra;
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
+/** The farthest any ground-level vertex of `obj` (world y <= GROUND_Y) lies from its axis along x or z. */
+function groundReach(obj) {
+  obj.updateMatrixWorld(true);
+  let reach = 0; const v = new THREE.Vector3();
+  obj.traverse(o => {
+    if (!o.isMesh) return; const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= GROUND_Y) reach = Math.max(reach, Math.abs(v.x), Math.abs(v.z)); }
+  });
+  return reach;
+}
+const FIT = {}; // side_kind@yaw -> the fit's scale (geometry never changes with the materials: measured once)
+/** Turns a building `yaw` degrees and scales it down just enough that its ground outline spills past its n-tile
+ *  footprint no more than the square model's does (never up: a model that fits keeps its size). Returns the scale. */
+function fitTurned(obj, side, kind, b, mats, yaw) {
+  obj.rotation.y = yaw * Math.PI / 180;
+  const scale = FIT[`${side}_${kind}@${yaw}`] ??= Math.min(1, Math.max(b.n * 16, groundReach(b.build(mats))) / groundReach(obj));
+  obj.scale.multiplyScalar(scale);
+  return scale;
+}
+/** A building of `side`/`kind` built and placed: square, or turned by `yaw` (BLDG_YAW's by default) and fitted.
+ *  Returns [object, cell, { yaw, scale }] (the last goes out with the sprite, for the review pictures' table). */
+function building(side, kind, mats, lift, yaw = BLDG_YAW[side][kind] ?? 0) {
+  const b = RT_BUILDINGS[side][kind], obj = b.build(mats);
+  if (!yaw) return [obj, bldgCell(b.n, b.h, lift), { yaw: 0, scale: 1 }];
+  const scale = fitTurned(obj, side, kind, b, mats, yaw);
+  return [obj, bldgCell(b.n, b.h, lift, TURN_ROOM), { yaw, scale }];
+}
 
-/** Yields [name, object, cell, shootOpts, isTeam] for every re-theme sprite `want(name)` asks for. `opts` are the
+/** Yields [name, object, cell, shootOpts, isTeam, extra] for every re-theme sprite `want(name)` asks for (`extra`: a
+ *  building's `turn`, its angle and fit scale). `opts` are the
  *  render's (render3d.mjs): `elev` the camera's elevation in degrees (RT_ELEV), `sun` the sun's height (scene.js), and
- *  `polish` the polished finish and materials (polish.js: true, or an object of finish settings). */
+ *  `polish` the polished finish and materials (polish.js: true, or an object of finish settings), and `yaws`, angles
+ *  that override BLDG_YAW by `<side>_<kind>` (a review's trial; 0 for square). */
 export function* rethemeSprites(want, opts = {}) {
   if (typeof opts === 'number') opts = { elev: opts };
   const elev = (opts.elev ?? RT_ELEV) * Math.PI / 180, lift = liftAt(elev), o = { elev };
   if (opts.sun) o.sun = opts.sun;
+  if (opts.sunDir) o.sunDir = opts.sunDir; // (a picture's trial key direction, scene.js `shoot`)
   if (opts.polish) o.polish = opts.polish;
   countryPolish(!!opts.polish); // (country.js: the gold's and the scenery's materials, plain or polished)
-  const ou = opts.polish ? { ...o, polish: { ...(typeof opts.polish === 'object' ? opts.polish : {}), unit: true } } : o; // (the units take polish.js's unit lights and banding)
+  const ou = opts.polish ? { ...o, sun: opts.sun ?? UNIT_SUN, polish: { ...(typeof opts.polish === 'object' ? opts.polish : {}), unit: true } } : o; // (the units take polish.js's unit lights, shadow and banding, and the units' sun)
   for (const side of ['kg', 'ex']) {
     let M = null; const mats = () => M ??= MATS[side](NEUTRAL, !!opts.polish);
     for (const [kind, m] of Object.entries(RT_UNITS[side])) {
@@ -89,9 +144,10 @@ export function* rethemeSprites(want, opts = {}) {
         yield [name, obj, cell, ou, true];
       }
     }
-    for (const [kind, b] of Object.entries(RT_BUILDINGS[side])) {
+    for (const kind of Object.keys(RT_BUILDINGS[side])) {
       const name = `bldg_${side}_${kind}`; if (!want(name)) continue;
-      yield [name, b.build(mats()), bldgCell(b.n, b.h, lift), o, true];
+      const [obj, cell, turn] = building(side, kind, mats(), lift, opts.yaws?.[`${side}_${kind}`]);
+      yield [name, obj, cell, o, true, { turn }];
     }
     for (const [kind, b] of Object.entries(RT_HEADS[side])) for (let dir = 0; dir < FACINGS; dir++) {
       const name = `${side}_${kind}_${dir}`; if (!want(name)) continue;
@@ -142,7 +198,7 @@ const siteH = (side, kind, n) => (kind === 'scaffold' ? 10 + n * 6 + (side === '
 /** Yields [name, object, cell, shootOpts, isTeam, extra] for every atlas sprite the re-theme draws (`extra`: a unit
  *  frame's `anim` and `frame`). `want(name)` filters, as main.js's. */
 export function* atlasSprites(want = () => true) {
-  const lift = liftAt(RT_ELEV * Math.PI / 180), o = { polish: true }, ou = { polish: { unit: true } };
+  const lift = liftAt(RT_ELEV * Math.PI / 180), o = { polish: true }, ou = { polish: { unit: true }, sun: UNIT_SUN };
   countryPolish(true);
   const M = {}, mats = (side) => (M[side] ??= MATS[side](NEUTRAL, true));
   for (const [kind, [side, model]] of Object.entries(ATLAS_UNITS)) {
@@ -154,8 +210,9 @@ export function* atlasSprites(want = () => true) {
     }
   }
   for (const [type, [side, model]] of Object.entries(ATLAS_BUILDINGS)) {
-    const b = RT_BUILDINGS[side][model], name = `bldg_${type}`;
-    if (want(name)) yield [name, b.build(mats(side)), bldgCell(b.n, b.h, lift), o, true];
+    const name = `bldg_${type}`; if (!want(name)) continue;
+    const [obj, cell, turn] = building(side, model, mats(side), lift);
+    yield [name, obj, cell, o, true, { turn }];
   }
   for (const [head, [side, model]] of Object.entries(ATLAS_HEADS)) for (let dir = 0; dir < FACINGS; dir++) {
     const b = RT_HEADS[side][model], name = `${head}_${dir}`; if (!want(name)) continue;

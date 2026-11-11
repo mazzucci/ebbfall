@@ -133,7 +133,7 @@ window.render = async function (filter = '', opts = {}) {
   for (const [type, [n, build, h]] of Object.entries(VAEL_BUILDINGS)) if (!ATLAS_BUILDINGS[type] && !RETIRED.has(type)) pushTeam(`bldg_${type}`, build(makeVaelMats()), bldgCell(n, h));
   // The re-theme's models under their own names (retheme.js rethemeSprites), only when a filter asks for them by name,
   // at their own camera (`opts.elev`), sun (`opts.sun`) and finish (`opts.polish`): the review pictures' path.
-  if (filter) for (const [name, obj, cell, o, isTeam] of rethemeSprites(want, opts)) (isTeam ? pushTeam : push)(name, obj, cell, o);
+  if (filter) for (const [name, obj, cell, o, isTeam, extra] of rethemeSprites(want, opts)) isTeam ? pushTeam(name, obj, cell, o, extra) : push(name, obj, cell, o);
   return { sprites: out, tints: fitTints() };
 };
 window.ready = true;

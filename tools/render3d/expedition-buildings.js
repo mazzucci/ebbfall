@@ -10,7 +10,7 @@ import { torus } from './harbour.js';
 import { cone } from './vael.js';
 import { oct, gable } from './kingdom.js';
 import { led, traveller, boardTex } from './expedition.js';
-import { earth, brace, smoke } from './kingdom-buildings.js';
+import { earth, brace } from './kingdom-buildings.js';
 import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
@@ -33,7 +33,6 @@ export function ebMats(M) {
   M.tank = std({ color: 0xa8acb0, metalness: 0.7, roughness: 0.4 });                                                // the Bunkhouse's water tank, pale steel
   M.wool = std({ color: 0x6e6a5c, map: M.canvas.map, roughness: 0.95 });                                           // the bunks' blankets, grey-khaki wool (the two-tester check: team blankets end-on read as a queue of figures at 1x)
   M.bedroll = std({ color: 0xbcb4a2, map: M.canvas.map, roughness: 0.95 });                                        // a big pale bedroll
-  M.smoke = M.smoke ?? std({ color: 0x8a8a86, roughness: 1 });                                                     // the stovepipe's smoke
   M.armyCanvas = std({ color: 0x8c8870, map: M.canvas.map, roughness: 0.94 });                                     // the Tent's army canvas, a light dusty khaki (the olive read as golden spikes)
   if (M.polish) {
     const X = polishTextures(), set = (m, o) => { Object.assign(m, o); m.needsUpdate = true; };

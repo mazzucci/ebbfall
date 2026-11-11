@@ -119,7 +119,7 @@ export function makeExpeditionMats(tc, polish = false) {
   M.glint = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6 });
   M.uniform = std({ color: P.uniform, roughness: 0.9 });                                                            // fatigues
   M.armour = std({ color: P.armour, roughness: 0.65, metalness: 0.15 });                                             // helmets, caps, knee pads, pouches: near black
-  M.gun = std({ color: 0x1e1f23, metalness: 0.6, roughness: 0.4 });
+  M.gun = std({ color: 0x5e6268, metalness: 0.6, roughness: 0.4 });                                                 // gunmetal, a mid grey (0x1e1f23, near-black, until the legibility pass of 2026-11-11: the rifles vanished into the dark kit and the shadow)
   M.gunTan = std({ color: 0xa8acb0, roughness: 0.6, metalness: 0.3 });                                              // a rifle's furniture: the Marine's pale mark
   M.skin = std({ color: 0xc89a74, roughness: 0.8 });
   M.boot = std({ color: 0x1e1a18, roughness: 0.8 });
@@ -341,23 +341,24 @@ export function marine(M, f) {
   add(b, rbox(2.6, 4.8, 4.8, 0.7), M.camo, -3.4, 10.6, 0);                                      // a small pack, camouflage
   add(b, rbox(2.8, 1.8, 5.0, 0.2), M.paint, -3.4, 12.3, 0); add(b, rbox(3.0, 0.25, 5.2, 0.05), M.inkLine, -3.4, 11.35, 0); add(b, rbox(3.0, 0.25, 5.2, 0.05), M.inkLine, -3.4, 13.25, 0); // one team strip across the pack's top (the judge: packs are allowed; one strip is not a team back)
   add(b, rbox(1.2, 2.0, 1.0, 0.3), M.joint, -4.4, 9.4, -2.0); add(b, cyl(0.6, 0.6, 7, 6), M.joint, -4.4, 13.8, -2.0); // a radio and its antenna, drawn thick
-  add(b, rbox(4.2, 2.4, 4.0, 0.6), M.paint, 0.3, 13.6, 3.7); add(b, rbox(4.4, 0.3, 4.2, 0.1), M.inkLine, 0.3, 12.35, 3.7); add(b, rbox(4.4, 0.3, 4.2, 0.1), M.inkLine, 0.3, 14.85, 3.7); // the one team shoulder pad, a big pauldron between ink lines
-  add(b, cyl(1.7, 1.7, 3.0, 10), M.paint, 1.0, 10.2, -3.9, 0.3, 0, 0.4); for (const dy of [-1.6, 1.6]) add(b, cyl(1.75, 1.75, 0.3, 10), M.inkLine, 1.0 - dy * 0.39, 10.2 + dy * 0.92, -3.9 - dy * 0.28, 0.3, 0, 0.4); // the one team armband, wide, between ink rings
+  add(b, rbox(4.6, 2.6, 4.4, 0.6), M.paint, 0.3, 13.6, 3.7); add(b, rbox(4.8, 0.3, 4.6, 0.1), M.inkLine, 0.3, 12.25, 3.7); add(b, rbox(4.8, 0.3, 4.6, 0.1), M.inkLine, 0.3, 14.95, 3.7); // the one team shoulder pad, a big pauldron between ink lines (a hair bigger since the legibility pass: the bolder rifle's pixels took the share under the floor)
+  add(b, cyl(1.9, 1.9, 3.0, 10), M.paint, 1.0, 10.2, -3.9, 0.3, 0, 0.4); for (const dy of [-1.6, 1.6]) add(b, cyl(1.95, 1.95, 0.3, 10), M.inkLine, 1.0 - dy * 0.39, 10.2 + dy * 0.92, -3.9 - dy * 0.28, 0.3, 0, 0.4); // the one team armband, wide, between ink rings
   add(b, sph(1.7, 12, 10), M.skin, 0.9, 13.3, 0).scale.set(0.8, 0.95, 0.9);                    // the face
   add(b, sph(2.7, 16, 12), M.armour, 0.1, 14.2, 0).scale.set(1, 0.85, 1);                      // the helmet, dark, rounded
   add(b, cyl(2.8, 2.8, 0.4, 16), M.inkLine, 0.1, 13.1, 0);                                     // its rim line
   add(b, rbox(2.4, 1.6, 4.8, 0.4), M.joint, 1.7, 15.1, 0);                                     // the goggles, pushed up on the helmet
   add(b, rbox(1.2, 1.3, 4.6, 0.2), M.led, 2.6, 15.2, 0); add(b, sph(2.6, 8, 6), M.ledHalo, 2.8, 15.2, 0).scale.set(0.5, 0.5, 1); // their lenses: the one white LED, big enough for 1x, with a halo
   add(b, rbox(0.4, 0.8, 5.6, 0.1), M.joint, 0.2, 15.1, 0);                                      // their strap
-  // the rifle: slim and dark, held level across the body ahead of the chest (the barrel drawn twice its thickness)
+  // the rifle: slim, in mid gunmetal, held level across the body ahead of the chest (the legibility pass: the barrel
+  // and handguard 2.6-2.9 px wide at zoom 1.0, 2.0-2.3 until then; the receiver 3.3 px tall)
   const gun = grp(); gun.position.set(3.4, 9.6, 0); gun.rotation.set(0, 0.3, 0.04); b.add(gun);
-  add(gun, rbox(3.6, 1.6, 1.3, 0.4), M.gun, -3.2, 0, 0);                                        // the stock
-  add(gun, rbox(4.0, 1.9, 1.5, 0.4), M.gun, 0.3, 0, 0);                                         // the receiver
-  add(gun, rbox(1.1, 2.4, 1.0, 0.3), M.gun, 0.3, -1.9, 0);                                      // the magazine
-  add(gun, rbox(1.0, 1.4, 1.0, 0.2), M.gun, -1.2, -1.3, 0);                                     // the grip
-  add(gun, rbox(1.4, 0.8, 0.9, 0.2), M.joint, 0.4, 1.3, 0);                                     // the sight
-  add(gun, rbox(5.4, 1.5, 1.4, 0.4), M.gun, 5.0, 0, 0);                                         // the handguard
-  add(gun, cyl(0.65, 0.65, 3.6, 8), M.gun, 9.4, 0.15, 0, 0, 0, Math.PI / 2);                     // the barrel
+  add(gun, rbox(3.6, 1.9, 1.6, 0.4), M.gun, -3.2, 0, 0);                                        // the stock
+  add(gun, rbox(4.0, 2.2, 1.8, 0.4), M.gun, 0.3, 0, 0);                                         // the receiver
+  add(gun, rbox(1.3, 2.6, 1.2, 0.3), M.gun, 0.3, -2.0, 0);                                      // the magazine
+  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2, -1.4, 0);                                     // the grip
+  add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5, 0);                                     // the sight
+  add(gun, rbox(5.4, 1.9, 1.8, 0.4), M.gun, 5.0, 0, 0);                                         // the handguard
+  add(gun, cyl(0.9, 0.9, 3.6, 8), M.gun, 9.4, 0.15, 0, 0, 0, Math.PI / 2);                       // the barrel
   limb(b, [0.6, 11.4, 3.6], [2.4, 9.4, 1.6], 1.1, M.camo); add(b, sph(0.85, 8, 6), M.armour, 2.6, 9.2, 1.4);  // the trigger hand, gloved
   limb(b, [0.6, 11.4, -3.6], [5.8, 9.8, -1.2], 1.1, M.camo); add(b, sph(0.85, 8, 6), M.armour, 6.2, 9.8, -1.0); // the fore hand on the handguard
   if (M.polish) { // secondary detail: the pack's shoulder straps down the chest, elbow pads, a canteen and a drop pouch, a band round the helmet

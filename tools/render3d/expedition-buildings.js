@@ -1081,3 +1081,30 @@ export function transport(M, phase = 0) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sh, cyl(0.6, 0.8, 3.6, 8), M.steel, sx * 10, 1.8, sz * 3.4);      // the legs
   return g;
 }
+
+// ---- the Portal as a black-hole vortex (`vortex`, with its spiral the head `vortexhead`; Stelian, the final round,
+// after the platform): a flat dark disc lying on the ground, 2x2 and round (no turn), a thin bright cyan edge, and in
+// it a cyan spiral turning inward (the head, `spin: 1`: 16 frames of one turn; the spin says portal, not pit); no
+// pylons, no props; team on a small flag only.
+const VORTEX_R = 27;
+export function vortex(M) {
+  ebMats(M); sentryMats(M); const g = grp();
+  if (!M.hole) M.hole = std({ color: 0x08080c, roughness: 0.95, metalness: 0 });                                           // the hole: matte near-black
+  add(g, cyl(VORTEX_R, VORTEX_R + 0.8, 1.2, 64), M.hole, 0, 0.6, 0);
+  add(g, torus(VORTEX_R + 0.4, 0.7, 64), M.neon, 0, 1.3, 0, Math.PI / 2, 0, 0); add(g, torus(VORTEX_R + 0.4, 1.6, 64), M.neonHalo, 0, 1.3, 0, Math.PI / 2, 0, 0); // the thin bright edge and its halo
+  flag(g, M, -VORTEX_R - 1, 0, -VORTEX_R + 6, 22, 12, 8);
+  return g;
+}
+/** The vortex's spiral (the head at `phase`): three cyan arms spiralling inward over the dark disc, bright and wide at
+ *  the rim, thinner and dimmer towards a dark centre, turning with the phase; a soft cyan halo over the middle. */
+export function vortexSpin(M, phase = 0) {
+  ebMats(M); sentryMats(M); const g = grp();
+  const v = grp(); v.position.set(0, 1.4, 0); v.rotation.y = -phase; g.add(v);
+  for (let arm = 0; arm < 3; arm++) for (let k = 0; k < 11; k++) {
+    const t = k / 10, th = arm * Math.PI * 2 / 3 + t * 4.2, rho = VORTEX_R * (0.92 - 0.74 * t), w = 2.8 - 2.0 * t, len = rho * 0.42 + 1.5;
+    add(v, rbox(len, 0.5, w, 0.2), t < 0.75 ? M.neon : M.neonCore, Math.cos(th) * rho, 0, Math.sin(th) * rho, 0, -(th + Math.PI / 2) - 0.45, 0);
+  }
+  add(v, cyl(VORTEX_R * 0.5, VORTEX_R * 0.5, 0.6, 32), M.neonHalo, 0, 0.3, 0);                                                // the halo over the middle
+  g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
+  return g;
+}

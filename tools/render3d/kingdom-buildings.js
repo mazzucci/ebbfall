@@ -31,6 +31,7 @@ const hiThatchTex = () => hiThatch ??= tex(128, (g, n) => {
  *  trough's water. */
 export function kbMats(M) {
   if (M.thatch) return M;
+  M.tan = std({ color: 0x9a7650, map: M.canvas.map, roughness: 0.92 });                        // the Market awnings' tan stripes: a warm brown (hue 30, dull), apart from seat 7's red-orange and seat 1's red
   M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull grey-brown straw (the Cottage's roof only; never orange beside the coins' gold)
   M.straw = std({ color: 0x9c8658, roughness: 0.95 });                                       // hay and straw: tan, never the coins' yellow
   M.hearth = std({ color: 0x2a0804, emissive: 0xe8300c, emissiveIntensity: 1.3 });           // the Blacksmith's ember: red-orange, small (round 3: a yellow glow read as the Market's gold)
@@ -114,33 +115,33 @@ function chimney(g, M, x, y0, z, h, w = 4.6) {
   add(g, rbox(w - 1.4, 0.8, w - 1.4, 0.1), M.inkLine, x, y0 + h + 1.1, z);
 }
 
-/** Cottage (population, 2x2): a small house of slate-grey ashlar under a deep thatched roof (the kingdom's one thatch:
- *  this is where people live), a stone chimney at its east gable (no smoke, baked or live: nobody works here), an oak
- *  door and shuttered windows on the south face; team on a washing line of cloths strung from the house to a post in
- *  the garden, a banner by the door and a pennant on the ridge. From the camera: a brown rounded roof over a grey wall,
- *  a row of small team squares beside it. (Until 2026-11-11 a woodpile stood under the west eave: at 1x it was a brown
- *  strip sliced by the eave line, and read as the sprite cut off at its left edge.) */
+/** Cottage (population, 2x2): a low wide house (Stelian, the final round: today's read too narrow and boxy): slate-grey
+ *  ashlar walls 44 long and 24 deep, only 11 tall, its long side to the camera, under a big steep thatched roof 20
+ *  high that dominates (the kingdom's one thatch: this is where people live), a stone chimney at the east gable, an
+ *  oak door and two shuttered windows on the south face; at -20 the south wall, the east gable wall and the roof all
+ *  show. Team: the flag at the ridge's west end and a thin strip along the south eave. From the camera: a big brown
+ *  roof over a low grey wall, a chimney at one end, a flag. */
 export function cottage(M) {
   kbMats(M); const g = grp();
-  earth(g, M, [[-30, -22], [22, -29], [31, 4], [24, 30], [-24, 27], [-31, 2]]);
-  const X = -6, Z = -3, W = 28, D = 22, H = 19, G = 16;                                                            // (the consistency pass, 2026-11-11: taller walls and a steeper thatch, 19 and 16 for 15 and 13, so the house is no longer squished under its roof)                                                                   // (the depth pass, 2026-11-11: 22 deep under walls of 12 it was a thatch slab over a strip of wall at its angle; deeper walls, 3 taller, and a shorter overhang show the house under the roof)
+  earth(g, M, [[-34, -22], [26, -31], [35, 2], [28, 30], [-26, 29], [-35, 6]]);
+  const X = -2, Z = -2, W = 44, D = 24, H = 11, G = 20;
   add(g, rbox(W + 2.4, 2.6, D + 2.4, 0.4), M.plinth, X, 1.8, Z);
   add(g, rbox(W, H, D, 0.5), M.wall, X, H / 2 + 2, Z);
-  for (const x of [-11, 5]) add(g, rbox(1.2, H + 0.2, 1.0, 0.2), M.oak, X + x, H / 2 + 2, Z + D / 2 + 0.3);   // oak posts in the south face
-  add(g, rbox(W + 0.6, 1.3, 1.0, 0.2), M.oak, X, H + 1.6, Z + D / 2 + 0.3);                                    // the wall plate
-  add(g, gable(D + 7, G, W + 6), M.thatch, X, H + 2, Z, 0, Math.PI / 2, 0);                                      // the thatch: steep, overhanging
-  add(g, cyl(1.9, 1.9, W + 6.4, 10), M.thatch, X, H + 2 + G, Z, 0, 0, Math.PI / 2);                              // the rounded ridge
-  add(g, rbox(W + 6.6, 0.6, D + 7.4, 0.1), M.inkLine, X, H + 1.9, Z);                                             // the dark eave line
-  chimney(g, M, X + W / 2 - 3, 2, Z - 2, H + G + 5, 4.6);
-  door(g, M, X - 2, 2.2, Z + D / 2 + 0.6, 5.5, 8.5);
-  window_(g, M, X + 9, 9, Z + D / 2 + 0.6); window_(g, M, X - 10.5, 9.5, Z + D / 2 + 0.6, 2.6, 3.2);
-  banner(g, M, X - W / 2 - 1, H + 2 + G + 2.5, Z, 12, 14, 10);                                                       // the team flag at the ridge's west end (the pass: no washing line, no banner by the door, no bushes)
-  add(g, rbox(W + 6.6, 1.4, 0.5, 0.1), M.cloth, X, H + 0.9, Z + D / 2 + 3.9); for (const y of [H + 1.7, H + 0.1]) add(g, rbox(W + 7, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 3.9); // a thin team strip along the south eave
+  for (const x of [-14, 0, 14]) add(g, rbox(1.2, H + 0.2, 1.0, 0.2), M.oak, X + x, H / 2 + 2, Z + D / 2 + 0.3);    // oak posts in the south face
+  add(g, rbox(W + 0.6, 1.3, 1.0, 0.2), M.oak, X, H + 1.6, Z + D / 2 + 0.3);                                       // the wall plate
+  add(g, gable(D + 8, G, W + 6), M.thatch, X, H + 2, Z, 0, Math.PI / 2, 0);                                        // the thatch: big, steep, overhanging
+  add(g, cyl(2.0, 2.0, W + 6.4, 10), M.thatch, X, H + 2 + G, Z, 0, 0, Math.PI / 2);                                // the rounded ridge
+  add(g, rbox(W + 6.6, 0.6, D + 8.4, 0.1), M.inkLine, X, H + 1.9, Z);                                               // the dark eave line
+  chimney(g, M, X + W / 2 - 4, 2, Z - 3, H + G + 4, 5.0);
+  door(g, M, X - 7, 2.2, Z + D / 2 + 0.6, 5.5, 8.5);
+  window_(g, M, X + 7, 7.5, Z + D / 2 + 0.6); window_(g, M, X + 18, 7.5, Z + D / 2 + 0.6, 2.8, 3.4);
+  banner(g, M, X - W / 2 - 1, H + 2 + G + 2, Z, 12, 14, 10);                                                       // the team flag at the ridge's west end
+  add(g, rbox(W + 6.6, 1.4, 0.5, 0.1), M.cloth, X, H + 0.9, Z + D / 2 + 4.4); for (const y of [H + 1.7, H + 0.1]) add(g, rbox(W + 7, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 4.4); // a thin team strip along the south eave
   if (M.polish) { // secondary detail (the recipe's): quoins up the four corners, a stone lintel over the door and sills under the windows, a string course round the stack
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, X + sx * W / 2, Z + sz * D / 2, 3, H + 1.2, 2.8, 2.4, 1.4);
-    add(g, rbox(7.6, 1.2, 1.4, 0.2), M.plinth, X - 2, 11.4, Z + D / 2 + 0.7);
-    add(g, rbox(4.2, 0.7, 1.2, 0.1), M.plinth, X + 9, 6.6, Z + D / 2 + 0.8); add(g, rbox(3.8, 0.7, 1.2, 0.1), M.plinth, X - 10.5, 7.5, Z + D / 2 + 0.8);
-    add(g, rbox(5.6, 1.0, 5.6, 0.2), M.plinth, X + W / 2 - 3, H + 12, Z - 2);
+    add(g, rbox(7.6, 1.2, 1.4, 0.2), M.plinth, X - 7, 11.4, Z + D / 2 + 0.7);
+    add(g, rbox(4.2, 0.7, 1.2, 0.1), M.plinth, X + 7, 5.1, Z + D / 2 + 0.8); add(g, rbox(4.0, 0.7, 1.2, 0.1), M.plinth, X + 18, 5.4, Z + D / 2 + 0.8);
+    add(g, rbox(6.0, 1.0, 6.0, 0.2), M.plinth, X + W / 2 - 4, H + G + 1, Z - 3);
   }
   return g;
 }
@@ -361,7 +362,8 @@ export function market(M) {
     add(s, rbox(w, 5, 7, 0.4), M.oak, 0, 4.5, 1); add(s, rbox(w + 0.6, 0.8, 8, 0.2), M.oak, 0, 7.4, 1);                           // the counter
     if (roof === 'slate') { const r = add(s, rbox(w + 4, 1.0, 13, 0.2), M.roof, 0, 13.6, 0.5); r.rotation.x = 0.16; add(s, rbox(w + 4.4, 0.5, 0.8, 0.1), M.inkLine, 0, 12.6, 6.8); }
     else {                                                                                                                       // a striped awning: alternate strips of pale canvas and team cloth, an ink hem at its front and back
-      { const r = add(s, rbox(w + 3, 0.5, 13, 0.1), M.canvas, 0, 13.2, 0.5); r.rotation.x = 0.18; }                           // (the pass: a pale awning with a thin team hem, not striped)
+      const n = Math.round(w / 3.2), sw = (w + 3) / n;                                                                          // a striped awning: alternate strips of cream canvas and tan (the final round: the stripes back, in neutral colours, never team or red), an ink hem at its front and back
+      for (let k = 0; k < n; k++) { const r = add(s, rbox(sw, 0.5, 13, 0.1), k % 2 ? M.tan : M.canvas, -(w + 3) / 2 + sw * (k + 0.5), 13.2, 0.5); r.rotation.x = 0.18; }
       for (const dz of [6.9, -5.9]) add(s, rbox(w + 3.4, 0.6, 0.7, 0.1), M.inkLine, 0, 13.2 - dz * 0.18 - 0.1, dz);
       add(s, rbox(w + 3, 1.6, 0.5, 0.1), M.cloth, 0, 11.0, 7.0); add(s, rbox(w + 3.4, 0.4, 0.6, 0.05), M.inkLine, 0, 10.1, 7.0); // the thin team hem along the front
       if (M.polish) for (const dx of [-w / 2, w / 2]) add(s, sph(0.8, 8, 6), M.steel, dx, 13.5, 5);                               // (polish) steel knobs on the front poles: a glint each

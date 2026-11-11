@@ -68,7 +68,8 @@ Object.assign(RT_BUILDINGS.ex, {
   posttent: { build: EB.postTent, n: 2, h: 36 }, posttavern: { build: EB.postTavern, n: 2, h: 40 }, posthouse: { build: EB.postHouse, n: 2, h: 36 }, // (the Recruiting post's three options)
   hangar: { build: EB.hangar, n: 3, h: 74 }, // (the Factory as a metal hangar with a cog: rejected, kept for the record)
   warehouse: { build: EB.warehouse, n: 3, h: 50 }, // (the Factory as a warehouse with the cog flat on its roof)
-  platform: { build: EB.platform, n: 2, h: 40 }, // (the Portal as an arrival platform; the transport its head `platformhead`)
+  platform: { build: EB.platform, n: 2, h: 40 }, // (the Portal as an arrival platform: rejected, kept for the record)
+  vortex: { build: EB.vortex, n: 2, h: 24 }, // (the Portal as a black-hole vortex; its spiral the head `vortexhead`)
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
@@ -80,7 +81,7 @@ export const RT_HEADS = {
   kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
   ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 45 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true },
     uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, gatetubehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, ringhead: { build: EB.ringSwirl, n: 2, h: 20, spin: 1 },
-    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
+    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true }, vortexhead: { build: EB.vortexSpin, n: 2, h: 24, spin: 1 } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
 };
 /** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
 function head(b, mats, dir) {
@@ -107,7 +108,7 @@ export const BLDG_YAW = {
   // turning; the round towers and the turbine, Sentry gun and Uplink (their heads turn on their own) stay square. The
   // arrival platform is square too, its plate turned 20 degrees in the model so its head (the transport) turns with it.
   kg: { castle: -20, cottage: -20, market: -20, barracks: -20, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0 },
+  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;

@@ -33,7 +33,11 @@ fn random_play_never_breaks_the_world_with_the_vael() {
             }
             g.step();
             check_invariants(g.world(), &format!("vael seed {seed} tick {tick}"));
-            check_pools(&mut pools, g.world(), &format!("vael seed {seed} tick {tick}"));
+            check_pools(
+                &mut pools,
+                g.world(),
+                &format!("vael seed {seed} tick {tick}"),
+            );
             if g.world().over {
                 break;
             }
@@ -56,7 +60,11 @@ fn random_play(diff: u32) {
                 }
                 g.step();
                 check_invariants(g.world(), &format!("seed {seed} diff {diff} tick {tick}"));
-                check_pools(&mut pools, g.world(), &format!("seed {seed} diff {diff} tick {tick}"));
+                check_pools(
+                    &mut pools,
+                    g.world(),
+                    &format!("seed {seed} diff {diff} tick {tick}"),
+                );
                 if g.world().over {
                     break;
                 }

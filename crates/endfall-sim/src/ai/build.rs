@@ -371,7 +371,9 @@ impl World {
             k
         } else {
             let r = k.def().req.filter(|&r| {
-                self.has_req(e, r) && self.factions[e as usize].builds(r) && self.ai_count(my_b, false, r) == 0
+                self.has_req(e, r)
+                    && self.factions[e as usize].builds(r)
+                    && self.ai_count(my_b, false, r) == 0
             })?;
             return self.tech2_wanted(e, my_b, t, k).then_some(r);
         };

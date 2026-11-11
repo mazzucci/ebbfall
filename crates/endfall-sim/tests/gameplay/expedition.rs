@@ -36,7 +36,14 @@ fn spawn(w: &mut World, kind: UnitKind, n: usize) -> Vec<Id> {
     let b = w.bldg(hq(w, PLAYER)).unwrap();
     let (x, y) = (b.x, b.y + 96.0);
     let ids = (0..n)
-        .map(|i| w.make_unit(kind, PLAYER, x + (i % 6) as f64 * 24.0, y + (i / 6) as f64 * 24.0))
+        .map(|i| {
+            w.make_unit(
+                kind,
+                PLAYER,
+                x + (i % 6) as f64 * 24.0,
+                y + (i / 6) as f64 * 24.0,
+            )
+        })
         .collect();
     w.recalc_supply(PLAYER);
     ids
@@ -79,7 +86,11 @@ fn the_expedition_has_power_for_machines_and_no_population() {
     for _ in 0..12 {
         set_down(&mut w, BldgKind::Spire);
     }
-    assert_eq!(w.sup(PLAYER)[1], w.supply_limit(), "Power at the map's limit");
+    assert_eq!(
+        w.sup(PLAYER)[1],
+        w.supply_limit(),
+        "Power at the map's limit"
+    );
     // The Kingdom keeps its population.
     assert!(
         HUMANS
@@ -124,7 +135,11 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
     set_down(&mut w, BldgKind::Loom);
     spawn(&mut w, UnitKind::Bruiser, 1);
     assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [6, 6], "one place each, queued too");
+    assert_eq!(
+        w.pool(PLAYER, Pool::Hired),
+        [6, 6],
+        "one place each, queued too"
+    );
     assert_eq!(w.sup(PLAYER), power, "no Power for people");
     assert_eq!(
         w.queue_unit(a, UnitKind::Bruiser),
@@ -142,8 +157,9 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
     assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
     assert_eq!(w.pool(PLAYER, Pool::Hired), [8, 12]);
     // A post lost: the count falls under its use; nothing more is hired until enough fall, nobody is taken away.
+    // (the Sellsword queued there goes with it)
     w.damage(b, 1e9, None);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [8, 6]);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [7, 6]);
     assert!(w.queue_unit(a, UnitKind::Prism).is_err());
 }
 
@@ -204,7 +220,10 @@ fn the_satellite_needs_a_lab_and_unlocks_the_uplink_whose_standing_unlocks_the_p
     assert!(d.weapon.is_none() && (d.w, d.h) == (3, 3), "unarmed, 3x3");
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let (px, py) = spot(&w, BldgKind::Eclipse);
-    assert!(w.place_building(PLAYER, BldgKind::Eclipse, px, py, None).is_ok());
+    assert!(
+        w.place_building(PLAYER, BldgKind::Eclipse, px, py, None)
+            .is_ok()
+    );
     // The Uplink lost: no new Portal until another stands.
     w.damage(up, 1e9, None);
     assert!(!w.has_req(PLAYER, BldgKind::Eclipse));
@@ -248,7 +267,11 @@ fn the_launch_is_told_to_every_seat() {
     told.sort();
     assert_eq!(told, vec![0, 1, 2, 3], "every seat told once");
     let b = w.bldg(dc).unwrap();
-    assert_eq!(launches, vec![(b.x, b.y, 0)], "one launch, at the Data center");
+    assert_eq!(
+        launches,
+        vec![(b.x, b.y, 0)],
+        "one launch, at the Data center"
+    );
 }
 
 #[test]
@@ -295,14 +318,20 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 
 #[test]
 fn the_expedition_ai_powers_hires_launches_and_reaches_the_portal_at_every_level() {
-    // The Expedition's AI against the Kingdom's, at every level: it raises wind turbines and Recruiting posts, launches
-    // its satellite, raises an Uplink and a Portal, and never stands above its places.
+    // The Expedition's AI against the Kingdom's, at every level (the Kingdom's buildings made to last, so the game runs
+    // its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields none but its Bots:
+    // a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a Portal, and
+    // never stands above its places but as a lost building leaves it.
     for diff in 0..DIFF.len() {
         let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
         let mut seen = [false; 4]; // turbine, post, Uplink, Portal (finished)
         let mut launched = None;
-        let mut over = [0i32; POOLS];
+        let mut power_full = false;
+        let mut prev = Vec::new();
         while w.time < 15.0 * 60.0 && !(seen.iter().all(|&s| s) && launched.is_some()) {
             w.step();
             w.events.clear();
@@ -322,25 +351,22 @@ fn the_expedition_ai_powers_hires_launches_and_reaches_the_portal_at_every_level
             if launched.is_none() && w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] > 0 {
                 launched = Some(w.time);
             }
-            for p in ALL_POOLS {
-                let [u, c] = w.pool(ENEMY, p);
-                over[p.index()] = over[p.index()].max(u - c);
-            }
+            let [used, cap] = w.sup(ENEMY);
+            power_full |= used >= cap;
+            check_pools(&mut prev, &w, &format!("diff {diff} t {:.0}", w.time));
             if w.over {
                 break;
             }
         }
+        let want = [diff > 0 || power_full, true, true, true];
         assert!(
-            seen.iter().all(|&s| s),
-            "diff {diff}: turbine, post, Uplink, Portal: {seen:?} by {:.0} s",
-            w.time
+            seen.iter().zip(want).all(|(&s, w)| s || !w),
+            "diff {diff}: turbine, post, Uplink, Portal: {seen:?} by {:.0} s (over {}, winner {})",
+            w.time,
+            w.over,
+            w.winner
         );
         let t = launched.unwrap_or_else(|| panic!("diff {diff}: no launch"));
         assert!(t > 150.0, "diff {diff}: launched at {t:.0} s, not at once");
-        // (above a cap only as a lost building leaves it)
-        assert!(
-            over.iter().all(|&o| o <= 8),
-            "diff {diff}: places overshot by {over:?}"
-        );
     }
 }

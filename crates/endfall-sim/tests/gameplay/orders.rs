@@ -36,10 +36,24 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
                 .iter()
                 .any(|b| b.team == PLAYER && b.kind == k && b.done)
         };
-        let Some(at) = todo
-            .iter()
-            .position(|&k| k.def().req.is_none_or(|r| has(&w, r)))
-        else {
+        // (a building that waits for a research, the Uplink for the satellite: researched once nothing else can go up)
+        if !todo.iter().any(|&k| w.has_req(PLAYER, k))
+            && let Some(up) = todo.iter().find_map(|&k| {
+                k.def()
+                    .req_up
+                    .filter(|u| u.def().req.is_none_or(|r| has(&w, r)))
+            })
+        {
+            let at = w
+                .bldgs
+                .iter()
+                .find(|b| b.team == PLAYER && b.done && b.kind.def().researches.contains(&up))
+                .unwrap()
+                .id;
+            w.start_research(at, up).unwrap();
+            run(&mut w, (up.time(1) + 1.0) as u32);
+        }
+        let Some(at) = todo.iter().position(|&k| w.has_req(PLAYER, k)) else {
             assert!(todo.is_empty(), "{}: {todo:?} can never be built", f.key);
             break;
         };

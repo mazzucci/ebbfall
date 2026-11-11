@@ -903,15 +903,24 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
         for seed in [3u32, 4242] {
             let mut w = World::with_setup(seed, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
             let mut t = 0;
+            let mut power_full = false;
             while !w.over && t < 30 * 60 * 15 {
                 w.step();
                 t += 1;
+                let [used, cap] = w.sup(ENEMY);
+                power_full |= used >= cap;
             }
             assert!(
                 w.over && w.winner == ENEMY as i32,
                 "diff {diff} seed {seed}: the Vael AI won"
             );
-            for k in [BldgKind::Spire, BldgKind::Siphon] {
+            // (a wind turbine once its machines fill its Power: a quick win may never need one)
+            let kinds: &[BldgKind] = if power_full {
+                &[BldgKind::Spire, BldgKind::Siphon]
+            } else {
+                &[BldgKind::Siphon]
+            };
+            for &k in kinds {
                 assert!(
                     w.bldgs.iter().any(|b| b.team == ENEMY && b.kind == k),
                     "diff {diff} seed {seed}: it built a {k:?}"
@@ -1121,7 +1130,7 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
 #[test]
 fn each_level_trains_only_its_own_mix() {
     // The mix gate (`Diff::mix_tier`, `UnitKind::ai_tier`): Easy trains only tier 0 (workers, line units, their
-    // anti-air, the scout), Medium fields tier 1 too (raiders, siege, the Ballista, the Marine, the Drone) and never
+    // anti-air (the Marine, the Expedition's), the scout), Medium fields tier 1 too (raiders, siege, the Ballista, the Drone) and never
     // tier 2 (the Knight, the Bruiser). Ten minutes each, both peoples, money to spare against an idle player.
     for f in [&HUMANS, &VAEL] {
         for diff in [0usize, 1] {
@@ -1185,10 +1194,10 @@ fn each_level_trains_only_its_own_mix() {
     }
     // The tiers themselves.
     use UnitKind::*;
-    for k in [Harvester, Lumen, Trooper, Lancer, Prism, Observer] {
+    for k in [Harvester, Lumen, Trooper, Lancer, Prism, Umbra, Observer] {
         assert_eq!(k.ai_tier(), 0, "{k:?}");
     }
-    for k in [Rider, Scythe, Bastion, SiegeTank, Monolith, Shrike, Umbra] {
+    for k in [Rider, Scythe, Bastion, SiegeTank, Monolith, Shrike] {
         assert_eq!(k.ai_tier(), 1, "{k:?}");
     }
     for k in [Knight, Bruiser] {
@@ -1639,7 +1648,8 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                     w.step();
                     w.events.clear();
                 }
-                let [used, cap] = w.sup(ENEMY);
+                // (the pool its line takes: the Kingdom's population, the Expedition's hired places)
+                let [used, cap] = w.pool(ENEMY, f[1].ai.basic.def().pool);
                 if used + 2 < w.supply_limit() || cap < w.supply_limit() {
                     banked.push(w.res[ENEMY as usize][0]);
                 } else {
@@ -1647,8 +1657,9 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                 }
             }
         }
+        // (the Expedition's hired places grow six a post: it is not at their limit by 8:00, and every sample counts)
         assert!(
-            capped > 0,
+            capped > 0 || f[1].power,
             "{}: it reached the cap of 40 by 8:00",
             f[1].name
         );

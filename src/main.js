@@ -65,7 +65,9 @@ function begin(reset) {
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  if (!menu.tutorial) toast(`Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
+  // (the Expedition has no population: Power for its machines, a Recruiting post's places for its hired guns)
+  if (!menu.tutorial) toast(myFaction().power ? `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} for Power, and Recruiting posts for hired places.`
+    : `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 /** The leave dialog's line: alone the game waits and leaving loses it; online it goes on (unless a room pause holds

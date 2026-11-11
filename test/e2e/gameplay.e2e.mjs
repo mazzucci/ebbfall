@@ -1771,9 +1771,10 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     const trooper = await hold('Guard');
     assert.match(trooper.text, /^Guard\s*50/, 'its name and cost first');
     assert.match(trooper.text, /Spearman, cheap and steady\./, 'and what it does');
-    assert.match(trooper.text, /Best with Archers\. Beaten by Rovers\./, 'its partner and its killer, one line');
+    assert.match(trooper.text, /Weak against splash\./, 'its weakness in general terms');
+    assert.doesNotMatch(trooper.text, /Best with|Beaten by/, 'and never another unit by name');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
-    assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Guard' }).getAttribute('title'), /against|Health|Damage/i, 'nor counters or stats in the tooltip');
+    assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Guard' }).getAttribute('title'), /Best with|Beaten by|Health|Damage/i, 'nor another unit or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
     assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armor ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
     assert.ok(trooper.rows.every(r => r.one), 'each row on one line');

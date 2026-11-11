@@ -20,7 +20,7 @@ impl World {
 
     /// Whether this AI sees enemy unit `u` (in sight).
     pub(crate) fn ai_sees_unit(&self, u: &crate::world::Unit) -> bool {
-        self.ai_sees(u.x, u.y)
+        !u.inside() && self.ai_sees(u.x, u.y)
     }
 
     /// Remember enemy buildings when they come into view, forget them when their spot is seen empty, and note

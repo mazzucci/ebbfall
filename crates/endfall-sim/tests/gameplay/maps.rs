@@ -27,7 +27,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
             );
             // Every field owns its tiles (an extra vent must not land on a shard field).
             for n in &w.map.nodes {
-                let size = if n.ether { 2 } else { 1 };
+                let size = n.s;
                 for y in 0..size {
                     for x in 0..size {
                         assert_eq!(
@@ -41,7 +41,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
             }
             // Every field can be reached from the player's base: some open tile next to it connects.
             for n in &w.map.nodes {
-                let size = if n.ether { 2 } else { 1 };
+                let size = n.s;
                 let reachable = (-1..=size).any(|dy| {
                     (-1..=size).any(|dx| {
                         let (x, y) = (n.tx + dx, n.ty + dy);
@@ -109,17 +109,13 @@ fn assert_walkable_and_mirrored(w: &World, ctx: &str) {
     assert!(near(e.0, e.1, 4), "{ctx}: the bases can walk to each other");
     for n in &w.map.nodes {
         assert!(
-            near(n.tx, n.ty, if n.ether { 2 } else { 1 }),
+            near(n.tx, n.ty, n.s),
             "{ctx}: the field at {},{} can be reached",
             n.tx,
             n.ty
         );
-        // Mirrored tile for tile (a vent is 2x2, so its mirror starts one tile further in).
-        let m = if n.ether {
-            (w.map.w - 2 - n.tx, w.map.h - 2 - n.ty)
-        } else {
-            (w.map.w - 1 - n.tx, w.map.h - 1 - n.ty)
-        };
+        // Mirrored tile for tile (a mine is 2x2, so its mirror starts one tile further in).
+        let m = (w.map.w - n.s - n.tx, w.map.h - n.s - n.ty);
         assert!(
             w.map
                 .nodes
@@ -323,17 +319,17 @@ fn larger_maps_are_walkable_mirrored_and_fair() {
                             .filter(|f| (f.tx - cx - 1).abs().max((f.ty - cy - 1).abs()) <= r)
                             .count()
                     };
-                    assert!(near(false, 10) >= 5, "{ctx} seat {seat}: a home field");
+                    assert_eq!(near(false, 10), 1, "{ctx} seat {seat}: a home mine");
                     assert_eq!(near(true, 10), 0, "{ctx} seat {seat}: no vent by the main");
                     assert_eq!(harvesters(&w, seat).len(), 4, "{ctx}");
                     let edge = cx.min(cy).min(n - 4 - cx).min(n - 4 - cy);
                     assert!((8..=9).contains(&edge), "{ctx}: a base by its edge: {edge}");
                 }
-                // More ground, more expansions: past the two home fields, two or three per side, plus one per 32
+                // More ground, more expansions: past the two home mines, two or three per side, plus one per 32
                 // tiles past 64 (each mirrored).
-                let fields = w.map.nodes.iter().map(|f| f.field).max().unwrap();
-                let want = 2 + 2 * (2 + (n - 64) / 32) as u32;
-                assert!(fields >= want, "{ctx}: {fields} shard fields");
+                let mines = w.map.nodes.len();
+                let want = 2 + 2 * (2 + (n - 64) / 32) as usize;
+                assert!(mines >= want, "{ctx}: {mines} mines");
             }
         }
     }
@@ -463,9 +459,9 @@ fn start_share(w: &World, b: (i32, i32)) -> (i32, usize, usize, i32, usize, usiz
             rock += (w.map.rock[w.map.idx(x, y)] != 0 && d(x as f64, y as f64) <= 16.0) as usize;
         }
     }
-    // (a vent's centre is a tile further in than its top-left)
+    // (a mine's centre is half a tile further in than its top-left)
     let at = |n: &endfall_sim::map::Node| {
-        let s = if n.ether { 0.5 } else { 0.0 };
+        let s = (n.s - 1) as f64 / 2.0;
         d(n.tx as f64 + s, n.ty as f64 + s)
     };
     let (mut home, mut home_amount, mut home_vents, mut out, mut out_vents) = (0, 0, 0, 0, 0);
@@ -550,7 +546,7 @@ fn maps_for_more_seats_have_a_fair_start_for_each() {
                     );
                 }
                 for f in &w.map.nodes {
-                    let s = if f.ether { 2 } else { 1 };
+                    let s = f.s;
                     assert!(near(f.tx, f.ty, s), "{ctx}: the field at {},{}", f.tx, f.ty);
                 }
                 // Fair: every start's share alike, a natural's crystals by each, no vent anywhere.
@@ -560,10 +556,10 @@ fn maps_for_more_seats_have_a_fair_start_for_each() {
                 }
                 let (neighbour, _, home, _, home_vents, out, out_vents) = first;
                 assert!(neighbour >= 40 * 40, "{ctx}: neighbours {neighbour}");
-                assert!(home == 7 && home_vents == 0, "{ctx}: a home field, no vent");
+                assert!(home == 1 && home_vents == 0, "{ctx}: a home mine, no vent");
                 assert!(
-                    out >= 4 && out_vents == 0,
-                    "{ctx}: a natural, no shaft: {first:?}"
+                    out >= 1 && out_vents == 0,
+                    "{ctx}: a natural's mine, no shaft: {first:?}"
                 );
                 // Each main a pocket with one narrow ramp (an open plain's open), no crystals in the way.
                 for &b in &w.map.bases {

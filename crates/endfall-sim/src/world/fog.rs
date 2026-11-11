@@ -63,6 +63,9 @@ impl World {
             if u.team == team {
                 return true;
             }
+            if u.inside() {
+                return false; // (in a mine: out of everyone's sight but its side's)
+            }
             let (tx, ty) = self.map.tile_of(u.x, u.y);
             return vis[self.map.idx(tx, ty)] != 0;
         }

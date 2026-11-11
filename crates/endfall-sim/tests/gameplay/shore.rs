@@ -88,16 +88,16 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
             "seed {seed}: the basins"
         );
         for n in &m.nodes {
-            let s = if n.ether { 2 } else { 1 };
+            let s = n.s;
             assert!(
                 m.nodes
                     .iter()
                     .any(|o| o.ether == n.ether && (o.tx, o.ty) == image((n.tx, n.ty), s)),
                 "seed {seed}: a field's image"
             );
-            // Fields on land or shallows, never in deep water.
+            // Mines on land or shallows, never in deep water.
             assert!(
-                (0..s).all(|d| m.ground(n.tx + d, n.ty + d, 0) != Ground::Deep),
+                (0..s).all(|dy| (0..s).all(|dx| m.ground(n.tx + dx, n.ty + dy, 0) != Ground::Deep)),
                 "seed {seed}: a field in deep water"
             );
         }
@@ -155,8 +155,8 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
                     .count()
             };
             assert!(
-                near(true, 11.0) == 0 && near(false, 10.0) >= 5,
-                "seed {seed}: a start's field, and no vent, at {b:?}"
+                near(true, 11.0) == 0 && near(false, 10.0) == 1,
+                "seed {seed}: a start's mine, and no vent, at {b:?}"
             );
         }
         // The distances in a straight line (PRD, the Shore map: cove to cove about 62; the basins 20 tiles from the
@@ -198,7 +198,7 @@ fn on_the_shore_a_walker_reaches_everything_and_the_sea_is_the_vaels_road() {
             assert!(reached(t.0, t.1), "seed {seed}: a walker reaches {b:?}");
         }
         for n in &m.nodes {
-            let s = if n.ether { 2 } else { 1 };
+            let s = n.s;
             assert!(
                 (-1..=s).any(|dy| (-1..=s).any(|dx| reached(n.tx + dx, n.ty + dy))),
                 "seed {seed}: a walker reaches the field at ({}, {})",
@@ -503,12 +503,13 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
             let (a0, r0) = direction(&plain, b);
             let (a1, r1) = direction(&channel, b);
             let (a2, r2) = direction(&far, b);
-            // BACK lies square to the channel, CHANNEL 40 degrees off it: 50 degrees apart (a tile's rounding aside)
+            // BACK lies square to the channel, CHANNEL 40 degrees off it: 50 degrees apart (a tile's rounding aside, and
+            // the mine standing a tile or so off its crystals' middle)
             let turn = |a: f64, b: f64| {
                 ((a - b).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI).abs()
             };
             assert!(
-                (180.0 - turn(a0, a1).to_degrees() - 50.0).abs() < 12.0,
+                (180.0 - turn(a0, a1).to_degrees() - 50.0).abs() < 16.0,
                 "seed {seed}, basin {b}: the field turned {:.0} degrees",
                 180.0 - turn(a0, a1).to_degrees()
             );
@@ -516,9 +517,10 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
                 turn(a1, a2).to_degrees() > 180.0 - 12.0,
                 "seed {seed}: the far field in the same direction"
             );
-            // (a clump's middle the same distance out: its crystals' middle within a tile and a half of it)
+            // (a clump's middle the same distance out: its mine within two tiles and a half of it, the mine standing
+            // a tile or so off its crystals' middle)
             assert!(
-                (r0 - r1).abs() < 1.5,
+                (r0 - r1).abs() < 2.5,
                 "seed {seed}: the same distance ({r0:.1}, {r1:.1})"
             );
             assert!(
@@ -529,18 +531,21 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
                 assert!(vents(w, b).is_empty(), "seed {seed}: no vent in the basin");
             }
             for w in [&plain, &channel, &far] {
-                assert_eq!(field(w, b).len(), 7, "seed {seed}: seven crystals");
+                assert_eq!(field(w, b).len(), 1, "seed {seed}: one mine");
             }
         }
         for w in [&channel, &far] {
             // point-symmetric, as every Shore field
-            let all: Vec<(i32, i32, bool)> =
-                w.map.nodes.iter().map(|n| (n.tx, n.ty, n.ether)).collect();
+            let all: Vec<(i32, i32, bool, i32)> = w
+                .map
+                .nodes
+                .iter()
+                .map(|n| (n.tx, n.ty, n.ether, n.s))
+                .collect();
             let (mw, mh) = (w.map.w, w.map.h);
-            for &(x, y, e) in &all {
-                let s = if e { 2 } else { 1 };
+            for &(x, y, e, s) in &all {
                 assert!(
-                    all.contains(&(mw - s - x, mh - s - y, e)),
+                    all.contains(&(mw - s - x, mh - s - y, e, s)),
                     "seed {seed}: ({x}, {y}) has its image"
                 );
             }

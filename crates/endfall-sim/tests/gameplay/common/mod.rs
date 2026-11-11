@@ -302,7 +302,7 @@ pub fn target_of(w: &World, u: Id) -> Option<Id> {
     }
 }
 
-/// The player's shard fields around its core, nearest first.
+/// The gold mines around the player's core, nearest first.
 pub fn home_fields(w: &World) -> Vec<Id> {
     let (cx, cy) = core(w, PLAYER);
     let mut f: Vec<(i32, Id)> = w
@@ -323,10 +323,10 @@ pub fn gather_node(w: &World, u: Id) -> Option<Id> {
     }
 }
 
-/// Move a node to another tile (scenes that need fields in known places).
+/// Move a mine to another tile (scenes that need mines in known places).
 pub fn move_node(w: &mut World, id: Id, tx: i32, ty: i32) {
     let n = w.map.node(id).unwrap();
-    let (size, ox, oy) = (if n.ether { 2 } else { 1 }, n.tx, n.ty);
+    let (size, ox, oy) = (n.s, n.tx, n.ty);
     for y in 0..size {
         for x in 0..size {
             let i = w.map.idx(ox + x, oy + y);

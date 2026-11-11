@@ -180,7 +180,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       res: endfall.G.res[0].slice(), sup: endfall.G.sup[0].slice(), over: endfall.G.over, winner: endfall.G.winner,
       units: endfall.G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, task: u.task.t })),
       bldgs: endfall.G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, tx: b.tx, ty: b.ty, x: b.x, y: b.y, w: b.w, h: b.h, done: b.done, progress: b.progress, queue: b.queue.slice() })),
-      nodes: endfall.map.nodes.map(n => ({ id: n.id, type: n.type, tx: n.tx, ty: n.ty, x: n.x, y: n.y, r: n.r })),
+      nodes: endfall.map.nodes.map(n => ({ id: n.id, type: n.type, tx: n.tx, ty: n.ty, x: n.x, y: n.y, r: n.r, w: n.w, h: n.h, amount: n.amount })),
     })),
     // Skip game time, then let the frame loop run twice (or 250 ms at most): what the skipped ticks raised (toasts,
     // alerts, effects) reaches the page as a player would see it, not on whichever frame comes next.
@@ -226,8 +226,10 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     /** Left click (or tap) on a world point. */
     async clickWorld(wx, wy, opts = {}) { const [x, y] = await d.screen(wx, wy); if (touch) return d.tapAt(x, y); await page.mouse.click(x, y, opts); await page.waitForTimeout(60); },
     async rightClickWorld(wx, wy) { const [x, y] = await d.screen(wx, wy); await page.mouse.click(x, y, { button: 'right' }); await page.waitForTimeout(60); },
-    /** Click on an entity by id, reading its position right before clicking. */
+    /** Click on an entity by id, reading its position right before clicking (a worker inside a gold mine, which nobody
+     *  can pick, is waited for: fast-forward until it comes out). */
     async clickEntity(id) {
+      await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id)?.inside, id, { seconds: 10, step: 1 / 30 });
       // Units move ~3 px per frame: centre on the live position and get its screen point in one round trip,
       // then click right away.
       const canvas = await page.locator('#game').boundingBox();
@@ -277,8 +279,12 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     /** Select a harvester by clicking it, then place `type` (by its hotkey: B then it; or `hotkey` the keys to press,
      *  ['e', 'e'] in the WASD scheme) at tile (tx, ty) by clicking. */
     async buildWithUI(hotkey, type, tx, ty, harvesterId) {
-      // A mining harvester moves, and while it unloads it is under the Core: a tap may miss it (or let go of it); try
-      // again, a little later each time, until it is the selection (a slow machine needs more than a few tries).
+      // A mining harvester moves (in and out of its gold mine, never standing still at it), and while it unloads it is
+      // under the Core: a tap may miss it (or let go of it). Set-up: once it is out of the mine, it stops where it is
+      // (the build order under test is still given through the UI); then try again, a little later each time, until it
+      // is the selection (a slow machine needs more than a few tries).
+      await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id)?.inside, harvesterId, { seconds: 10, step: 1 / 30 });
+      await ev((id) => { const u = endfall.G.units.find(u => u.id === id); if (u) endfall.engine.stopUnit(u); }, harvesterId);
       let picked = false;
       for (let i = 0; i < 16 && !picked; i++) {
         if (i) await page.waitForTimeout(150 + 50 * i);

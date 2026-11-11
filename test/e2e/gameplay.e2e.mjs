@@ -188,9 +188,11 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
   const d = await newGame(PHONE);
   try {
     await d.grant(1000, 0);
-    // A Rigger standing still at its crystal: a walking one can leave the tap's point on a slow engine (Firefox).
-    const miner = () => d.eval(() => endfall.G.units.find(u => u.team === 0 && u.task.t === 'gather' && u.task.phase === 'mine')?.id);
-    const hId = await until(d, miner, { seconds: 20, step: 0.2, what: 'a Rigger mining' });
+    // A Rigger standing still (stopped: set-up): a walking one can leave the tap's point on a slow engine (Firefox),
+    // and one inside the gold mine cannot be tapped at all.
+    const out = () => d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && !u.inside)?.id);
+    const hId = await until(d, out, { seconds: 20, step: 0.2, what: 'a Rigger out of the mine' });
+    await d.eval((id) => endfall.engine.stopUnit(endfall.G.units.find(u => u.id === id)), hId);
     const s = await d.state();
     await d.clickEntity(hId);
     assert.equal((await d.selection())[0]?.type, 'harvester', 'tapping a harvester selects it');
@@ -547,21 +549,21 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
   }
 });
 
-test('a resource field can be selected to see what is left (desktop click, phone tap)', async () => {
+test('a gold mine can be selected to see what is left (desktop click, phone tap)', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });
     try {
       const s = await d.state(), core = coreOf(s);
-      // The nearest shard field with no harvester over it (a tap prefers a unit within reach).
-      const node = s.nodes.filter(n => n.type === 'shard' && s.units.every(u => Math.hypot(u.x - n.x, u.y - n.y) > 48))
+      // The nearest mine with no worker by it (a tap prefers a unit within reach).
+      const node = s.nodes.filter(n => n.type === 'mine' && s.units.every(u => Math.hypot(u.x - n.x, u.y - n.y) > 80))
         .sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
       await d.clickWorld(node.x, node.y);
       const sel = await d.selection();
-      assert.deepEqual(sel.map(e => e.kind), ['node'], `${d.touch ? 'phone' : 'desktop'}: the field is selected`);
+      assert.deepEqual(sel.map(e => e.kind), ['node'], `${d.touch ? 'phone' : 'desktop'}: the mine is selected`);
       const left = await d.eval((id) => endfall.map.nodes.find(n => n.id === id).amount, node.id);
-      assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} (salt )?left`), 'shows what is left');
-      assert.equal((await d.card()).length, 0, 'nothing to command on a field');
-      assert.match(await d.hudText('#selName', /Salt field/), /Salt field/);
+      assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} gold left`), 'shows what is left');
+      assert.equal((await d.card()).length, 0, 'nothing to command on a mine');
+      assert.match(await d.hudText('#selName', /Gold mine/), /Gold mine/);
       assert.equal(s.nodes.filter(n => n.type === 'ether').length, 0, 'no mine shaft on the map');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
@@ -1222,8 +1224,8 @@ test('phone: a site that loses its builder says so once; no keyboard letters; gr
     const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
     await d.buildWithUI('w', 'depot', spot.tx, spot.ty, h.id);
     await d.skip(2);
-    // Pull the builder off: select it and send it to a shard field.
-    const node = (await d.state()).nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+    // Pull the builder off: select it and send it to a gold mine.
+    const node = (await d.state()).nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
     // (the builder stands on its site: a tap can take the site instead, so tap until the builder is the selection)
     for (let i = 0; i < 8; i++) { await d.clickEntity(h.id); if ((await d.selection()).some(e => e.id === h.id)) break; await d.page.waitForTimeout(200); }
     assert.ok((await d.selection()).some(e => e.id === h.id), 'the builder selected');
@@ -1310,8 +1312,8 @@ test('phone: as the Vael, a Glint stays at its Sunpetal; pulled away, the site p
     await until(d, async () => (await spire())?.progress > 0.2, { seconds: 30, what: 'the Sunpetal to rise' });
     const task = async () => (await d.state()).units.find(u => u.id === lumen.id).task;
     assert.equal(await task(), 'build', 'the Glint stays on its site');
-    // Pull the Glint off (tap until it, not the site it stands on, is the selection) and send it to the salt.
-    const node = (await d.state()).nodes.filter(n => n.type === 'shard').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
+    // Pull the Glint off (tap until it, not the site it stands on, is the selection) and send it to the gold mine.
+    const node = (await d.state()).nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
     for (let i = 0; i < 8; i++) { await d.clickEntity(lumen.id); if ((await d.selection()).some(e => e.id === lumen.id)) break; await d.page.waitForTimeout(200); }
     assert.ok((await d.selection()).some(e => e.id === lumen.id), 'the Glint selected');
     await d.clickWorld(node.x, node.y);
@@ -1391,36 +1393,63 @@ test('phone: a building that trains keeps its Cancel in one place, greyed out wi
   } finally { await d.close(); }
 });
 
-test('phone: with a worker selected, a tap on a field where another worker stands sends it to gather there', async () => {
+test('phone: with a worker selected, a tap on a mine where another worker stands sends it to gather there', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
-    // A worker in the middle of mining: it stands at its field's edge.
-    const busy = () => d.eval(() => endfall.G.units.find(u => u.team === 0 && u.task.t === 'gather' && u.task.phase === 'mine')?.id);
-    const minerId = await until(d, busy, { seconds: 20, step: 0.2, what: 'a worker mining' });
     let s = await d.state();
-    const miner = s.units.find(u => u.id === minerId);
-    const nodeId = await d.eval((id) => endfall.G.units.find(u => u.id === id).task.node.id, minerId);
-    const node = s.nodes.find(n => n.id === nodeId);
-    // A worker sent off to the other side, so it is not mining that field already.
-    const h = s.units.filter(u => u.team === 0 && u.type === 'harvester' && u.id !== miner.id).sort((a, b) => Math.hypot(b.x - node.x, b.y - node.y) - Math.hypot(a.x - node.x, a.y - node.y))[0]; // (the farthest: its body well out of the tap's reach)
-    const hk = Math.hypot(h.x - node.x, h.y - node.y) || 1; // (sent straight away from the field, never past it)
-    await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, h.x + (h.x - node.x) / hk * 200, h.y + (h.y - node.y) / hk * 200]); // (set-up)
-    // (on its way, clear of the others: a tap on one of a clump of workers may pick any of them, the bodies overlap)
-    assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return endfall.G.units.every(v => v === u || Math.hypot(v.x - u.x, v.y - u.y) > 48); }, h.id, { seconds: 8, step: 0.1 }), 'the worker clear of the others');
+    const core = coreOf(s);
+    const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+    // A worker standing at the mine's side (stopped there: set-up), as one waiting its turn does.
+    const ws = s.units.filter(u => u.team === 0 && u.type === 'harvester');
+    const by = ws[0], side = [node.x, node.y + node.h * 16 + 10];
+    await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id).inside, by.id, { seconds: 10, step: 1 / 30 });
+    await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [by.id, ...side]);
+    assert.ok(await d.skipUntil(([id, x, y]) => { const u = endfall.G.units.find(u => u.id === id); return Math.hypot(u.x - x, u.y - y) < 12 && u.task.t === 'idle'; }, [by.id, ...side], { seconds: 10, step: 0.1 }), 'a worker at the mine\'s side');
+    // Another worker, sent off away from the mine (set-up), selected by a tap.
+    const h = ws[1], hk = Math.hypot(h.x - node.x, h.y - node.y) || 1;
+    await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id).inside, h.id, { seconds: 10, step: 1 / 30 });
+    const hp = (await d.state()).units.find(u => u.id === h.id);
+    await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, hp.x + (hp.x - node.x) / hk * 220, hp.y + (hp.y - node.y) / hk * 220]);
+    assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return endfall.G.units.every(v => v === u || v.inside || Math.hypot(v.x - u.x, v.y - u.y) > 48); }, h.id, { seconds: 8, step: 0.1 }), 'the worker clear of the others');
     await d.clickEntity(h.id);
     assert.deepEqual((await d.selection()).map(e => e.id), [h.id]);
-    // Tap inside the field's edge (a field is picked within 6 px of its radius), towards the miner's body (drawn half its
-    // height above its feet), close enough that a plain pick would take the miner: the field wins.
-    const m = (await d.state()).units.find(u => u.id === miner.id), my = m.y - await d.eval(() => endfall.unitTop('harvester')) / 2;
-    const k = Math.hypot(m.x - node.x, my - node.y), tap = [node.x + (m.x - node.x) / k * (node.r + 5), node.y + (my - node.y) / k * (node.r + 5)];
-    const reach = await d.eval(([x, y, mx, my]) => Math.hypot(x - mx, y - my) - Math.max(endfall.engine.UNITS.harvester.r * 1.2 * 1.4, endfall.unitTop('harvester') / 2) - Math.max(16, 28 / endfall.cam.zoom), [...tap, m.x, my]);
-    assert.ok(reach <= 0, `the tap is within a finger's reach of the miner's body (${reach.toFixed(1)} px)`);
+    // Tap on the mine's bottom edge, right over the worker standing there: a plain pick would take that worker; with
+    // workers selected the mine wins.
+    const tap = [node.x, node.y + node.h * 16 - 4];
     await d.clickWorld(...tap);
     s = await d.state();
-    assert.equal(s.units.find(u => u.id === h.id).task, 'gather', `the selected worker goes to gather (the tap ${tap.map(Math.round)}, the field ${[node.x, node.y]}: ${JSON.stringify(s.units.filter(u => Math.hypot(u.x - tap[0], u.y - tap[1]) < 90).map(u => [u.id, Math.round(u.x), Math.round(u.y), u.task]))}, h ${h.id})`);
-    assert.ok(!(await d.selection()).some(e => e.id === miner.id), 'the miner was not selected instead');
+    const task = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.task.t, u.task.node?.id]; }, h.id);
+    assert.deepEqual(task, ['gather', node.id], `the selected worker goes to gather at the mine (${JSON.stringify(s.units.filter(u => Math.hypot(u.x - tap[0], u.y - tap[1]) < 90).map(u => [u.id, Math.round(u.x), Math.round(u.y), u.task]))})`);
+    assert.ok(!(await d.selection()).some(e => e.id === by.id), 'the worker by the mine was not selected instead');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+test('a worker sent to a gold mine (desktop right-click, phone tap) goes inside and comes out with gold', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const s = await d.state(), core = coreOf(s);
+      // The home mine (the one explored at the start); a worker sent off from it first (set-up), out of the mine.
+      const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      const h = s.units.find(u => u.team === 0 && u.type === 'harvester');
+      await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id).inside, h.id, { seconds: 10, step: 1 / 30 });
+      await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, core.x, core.y + 110]);
+      await d.skip(3);
+      await d.clickEntity(h.id);
+      assert.deepEqual((await d.selection()).map(e => e.id), [h.id], `${d.touch ? 'phone' : 'desktop'}: the worker selected`);
+      if (d.touch) await d.clickWorld(node.x, node.y); else await d.rightClickWorld(node.x, node.y);
+      const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.task.t, u.task.node?.id]; }, h.id);
+      assert.deepEqual(at, ['gather', node.id], 'it gathers there');
+      assert.ok(await d.skipUntil(([id, n]) => { const u = endfall.G.units.find(u => u.id === id); return u.inside && u.task.node?.id === n; }, [h.id, node.id], { seconds: 90, step: 1 / 10 }), 'it goes inside the mine');
+      // (the next frames drawn: inside for four seconds of game time, it is not drawn)
+      await d.page.waitForFunction((id) => !endfall.teamLayers().some(l => l.id === id && l.shown), h.id, { timeout: 2000 }).catch(() => {});
+      const seen = await d.eval((id) => [endfall.G.units.find(u => u.id === id).inside, endfall.teamLayers().filter(l => l.id === id)], h.id);
+      assert.ok(seen[0] && !seen[1].some(l => l.shown), `not drawn while inside: ${JSON.stringify(seen)}`);
+      assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return !u.inside && u.carry > 0; }, h.id, { seconds: 10, step: 1 / 10 }), 'and comes out with gold');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
 });
 
 test('an Expedition unit\'s health figure is its hull (no shields since the re-theme)', async () => {
@@ -1780,9 +1809,9 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.skip(30);
     await d.hudText('#tut', /2\/7/);
     // Step 2: a Rigger, Build: the Build button pulses; a Crew Hall finishes the step.
-    // A Rigger standing at its field (one on the move can slip from under the tap).
+    // A Rigger (one on the move can slip from under the tap: tried again; one inside the mine is waited for).
     for (let i = 0; i < 8 && !(await d.selection()).some(e => e.type === 'harvester'); i++) {
-      const id = await d.eval(() => (endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'gather' && u.task.phase === 'mine') || endfall.G.units.find(u => u.team === 0 && u.d.worker)).id);
+      const id = await d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker).id);
       await d.clickEntity(id);
     }
     assert.ok((await d.selection()).some(e => e.type === 'harvester'), 'a Rigger selected');

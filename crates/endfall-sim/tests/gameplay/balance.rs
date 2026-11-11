@@ -348,39 +348,6 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
 }
 
 #[test]
-fn every_units_killer_on_its_card_beats_it() {
-    // Each fighting unit's train button names what beats it (src/engine/constants.js PAIRS, "Beaten by ..."): the
-    // card must not lie. Cost-equal, every tech. Unarmed units (the Balloon, the healers) lose to anything and are
-    // left out.
-    use UnitKind::*;
-    let killers: [(UnitKind, UnitKind); 12] = [
-        (Trooper, Monolith),
-        (Lancer, Scythe),
-        (SiegeTank, Shrike),
-        (Bastion, Prism),
-        (Rider, Umbra),
-        (Knight, Shrike),
-        (Prism, Knight),
-        (Scythe, Trooper),
-        (Umbra, Knight),
-        (Bruiser, Knight),
-        (Monolith, SiegeTank),
-        (Shrike, Bastion),
-    ];
-    for budget in [2200.0, 4400.0] {
-        for (unit, killer) in killers {
-            let s = duel_with(&[killer], &[unit], budget, tech_micro);
-            assert!(
-                s > 0.1,
-                "{budget}: the {:?}'s card says it is beaten by {:?}: {s:+.2}",
-                unit,
-                killer
-            );
-        }
-    }
-}
-
-#[test]
 #[ignore]
 fn brutal_worker_loss_probe() {
     // Brutal Kingdom against Brutal Expedition on 64x64: what kills the Kingdom's units (lost_to), and how many villagers

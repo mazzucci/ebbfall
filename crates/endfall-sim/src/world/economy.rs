@@ -22,6 +22,18 @@ impl World {
         self.pools[team as usize][pool.index()]
     }
 
+    /// Every pool's use of a seat together: at most the map's limit (`queue_unit`), whatever each pool's own cap.
+    pub fn army_used(&self, team: u8) -> i32 {
+        self.pools[team as usize].iter().map(|p| p[0]).sum()
+    }
+
+    /// The places a unit of `pool` could still take: its pool's free places, and no more than the shared limit has
+    /// left (the Kingdom's one pool: its free population).
+    pub fn room(&self, team: u8, pool: Pool) -> i32 {
+        let [used, cap] = self.pool(team, pool);
+        (cap - used).min(self.supply_limit() - self.army_used(team))
+    }
+
     /// Count a seat's places again, every pool: its units and those queued use them, its finished buildings give them,
     /// each pool capped at the map's limit. A building lost can leave a pool's use above its cap: nothing more of it is
     /// trained until enough fall (`queue_unit`), nothing is taken away.

@@ -338,7 +338,9 @@ impl World {
         // (a main factory: a vehicle bay works only when the mix calls for its units)
         let kind = busy_all(s.rax).then_some(s.rax)?;
         let d = self.tuning(e);
-        let [used, cap] = self.sup(e);
+        // (room for its main factory's line: the Kingdom's population, the Expedition's hired places, within the
+        // shared limit)
+        let room = self.room(e, self.factions[e as usize].ai.basic.def().pool);
         let hq = self.factions[e as usize].hq;
         let expanded = || {
             my_b.iter()
@@ -349,7 +351,7 @@ impl World {
         };
         (self.res[e as usize][0] >= SHARD_FLOAT
             && self.factories(e, my_b) < schedule + d.extra_rax
-            && cap - used >= 4
+            && room >= 4
             && self.ai().saving_since.is_none()
             && (!d.extras_after_expanding || expanded()))
         .then_some(kind)
@@ -422,7 +424,11 @@ impl World {
         let d = self.level();
         let [used, cap] = self.pool(e, Pool::Hired);
         let rising = building.iter().filter(|&&b| b == k).count();
-        (cap - used <= d.supply_ahead / 2 && cap < self.supply_limit() && rising < d.supply_at_once)
+        // (not once the army stands at the shared limit: more places would hold nothing)
+        (cap - used <= d.supply_ahead / 2
+            && cap < self.supply_limit()
+            && self.army_used(e) < self.supply_limit()
+            && rising < d.supply_at_once)
             .then_some(k)
     }
 
@@ -464,6 +470,7 @@ impl World {
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
         let want = if cap - used <= supply_margin
             && cap < self.supply_limit()
+            && self.army_used(e) < self.supply_limit() // (the shared limit: Power would hold nothing more)
             && supply_rising < d.supply_at_once
         {
             Some(f.supply)
@@ -519,7 +526,9 @@ impl World {
         // Only while a worker can be trained now (a Core, room in supply): the reserve must never hold back the Depot
         // a supply-capped side needs to train the very worker it saves for.
         let [used, cap] = self.sup(e);
-        let can_train = !cores.is_empty() && used + f.worker.def().supply <= cap;
+        let can_train = !cores.is_empty()
+            && used + f.worker.def().supply <= cap
+            && self.room(e, Pool::Supply) >= f.worker.def().supply;
         let hold = if d.workers_first && can_train && harv.len() < self.harv_target(cores.len()) {
             f.worker.def().cost
         } else {

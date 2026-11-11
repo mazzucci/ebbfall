@@ -139,6 +139,14 @@ impl World {
         if s[0] + d.supply > s[1] {
             return Err(self.pool_full(team, d.pool, s[1]));
         }
+        // (one limit for every pool together: Power, hired and Portal places; the Kingdom's one pool never reaches it
+        // before its own cap does)
+        let limit = self.supply_limit();
+        if self.army_used(team) + d.supply > limit {
+            return Err(format!(
+                "Army at its limit ({limit}): no more until some fall"
+            ));
+        }
         self.pay(team, d.cost, -1);
         self.bm(bid).unwrap().queue.push(kind);
         self.recalc_supply(team);

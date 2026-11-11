@@ -164,6 +164,51 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
 }
 
 #[test]
+fn one_army_limit_holds_power_and_places_together() {
+    // Power, hired and Portal places each have their own cap, and all of them together the map's limit (60 here): with
+    // Power and hired places filled to it between them, a Sellsword and a Bot are refused though their own pools have
+    // room; a death makes room again.
+    let mut w = expedition();
+    let limit = w.supply_limit();
+    assert_eq!(limit, 60);
+    for _ in 0..5 {
+        set_down(&mut w, BldgKind::Spire);
+    }
+    let post = set_down(&mut w, BldgKind::Siphon);
+    for _ in 0..7 {
+        set_down(&mut w, BldgKind::Siphon);
+    }
+    assert_eq!(w.sup(PLAYER)[1], 60);
+    assert_eq!(w.pool(PLAYER, Pool::Hired)[1], 48);
+    let bots = w.sup(PLAYER)[0];
+    spawn(&mut w, UnitKind::Lumen, (30 - bots) as usize);
+    let hired = spawn(&mut w, UnitKind::Prism, 30);
+    assert_eq!(w.sup(PLAYER), [30, 60]);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [30, 48]);
+    assert_eq!(w.army_used(PLAYER), limit);
+    let told = Err(format!(
+        "Army at its limit ({limit}): no more until some fall"
+    ));
+    assert_eq!(
+        w.queue_unit(post, UnitKind::Prism),
+        told,
+        "hired places to spare"
+    );
+    let dc = hq(&w, PLAYER);
+    assert_eq!(w.queue_unit(dc, UnitKind::Lumen), told, "Power to spare");
+    w.damage(hired[0], 1e9, None);
+    assert_eq!(
+        w.queue_unit(dc, UnitKind::Lumen),
+        Ok(()),
+        "a death makes room"
+    );
+    assert!(
+        w.queue_unit(post, UnitKind::Prism).is_err(),
+        "and the Bot took it"
+    );
+}
+
+#[test]
 fn each_portal_holds_four_marines() {
     let mut w = expedition();
     w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;

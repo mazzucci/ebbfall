@@ -77,13 +77,14 @@ impl World {
         // barracks, else several barracks fill them every round and a specialist that is due never fits. With room to
         // spare, every factory in building order as ever.
         let order: Vec<Id> = {
-            let [used, cap] = self.sup(e);
+            // (the places the specialists take: population, or the Expedition's Power, within the shared limit)
+            let room = self.room(e, Pool::Supply);
             let s = &self.factions[e as usize].ai;
             let first = |id: &Id| {
                 self.bldg(*id)
                     .is_some_and(|b| b.kind == s.air || s.heavy == Some(b.kind))
             };
-            if cap - used < SUPPLY_TIGHT {
+            if room < SUPPLY_TIGHT {
                 let (mut a, b): (Vec<Id>, Vec<Id>) = my_b.iter().copied().partition(first);
                 a.extend(b);
                 a

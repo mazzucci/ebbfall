@@ -362,7 +362,6 @@ impl World {
             raid,
             ..
         } = brain.clone();
-        self.radio_recall(&army, rally);
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
@@ -439,42 +438,8 @@ impl World {
                 Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
                 _ => false,
             };
-            if go && self.can_hit(a, intr) && self.radio_reaches(a, intr) {
+            if go && self.can_hit(a, intr) {
                 self.attack_ent(a, intr);
-            }
-        }
-    }
-
-    /// The tower range: whether `a` may chase `target`: anything but a machine always, a machine only a target inside
-    /// its side's range or `CHASE_MARGIN` tiles past it.
-    fn radio_reaches(&self, a: Id, target: Id) -> bool {
-        let u = self.u(a);
-        if !radio::needs_range(u.kind) {
-            return true;
-        }
-        self.geo(target).is_some_and(|g| {
-            let (x, y) = g.center();
-            self.in_radio_by(u.team, x, y, radio::CHASE_MARGIN)
-        })
-    }
-
-    /// The tower range: a machine chasing an intruder (an explicit attack, the defence's) out of its side's range comes
-    /// back to the rally point instead of crawling after it into the enemy's base. (Not a raider on its raid, nor the
-    /// unit sent to look at the foe, nor the wave out: their errands are out there.)
-    fn radio_recall(&mut self, army: &[Id], rally: Pt) {
-        let looking = self.ai().looking.map(|(id, _)| id);
-        let wave = match self.ai() {
-            ai if ai.attacking => ai.attackers.clone().unwrap_or_default(),
-            _ => Vec::new(),
-        };
-        for &a in army {
-            if let Task::Attack { target, back: None } = self.u(a).task
-                && !self.ai().raiders.contains(&a)
-                && Some(a) != looking
-                && !wave.contains(&a)
-                && !self.radio_reaches(a, target)
-            {
-                self.move_to(a, rally.x, rally.y);
             }
         }
     }
@@ -872,9 +837,10 @@ impl World {
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
     }
 
-    /// Whether `seat` stands at the supply cap, within `CAP_SLACK` (a wave then goes with everything, the reserve too).
+    /// Whether `seat`'s army stands at the map's limit, within `CAP_SLACK`: every pool's use together (`army_used`;
+    /// a pool at the limit is the total there too). A wave then goes with everything, the reserve too.
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
-        self.sup(seat)[0] + CAP_SLACK >= self.supply_limit()
+        self.army_used(seat) + CAP_SLACK >= self.supply_limit()
     }
 
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that

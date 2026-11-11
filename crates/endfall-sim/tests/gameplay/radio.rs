@@ -291,8 +291,8 @@ fn a_drone_left_beyond_its_leash_backs_off_inside_its_range() {
 #[test]
 fn an_expedition_waves_machines_keep_attacking_out_of_range() {
     // The Expedition's AI against a Kingdom player who does nothing, two Rovers in its army from the start. Once its
-    // wave is out, a Rover of it told to attack the Kingdom's Core (beyond its range and the chase margin, as the wave's
-    // `engage` does) keeps at it over the AI's next turns: only a defender chasing out of range is called home.
+    // wave is out, a Rover of it told to attack the Kingdom's Core (far beyond its range, as the wave's `engage` does)
+    // keeps at it over the AI's next turns: machines are no slower out of range, so the AI calls none home for it.
     let mut w = World::with_setup(3, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
     let hq = w
         .bldgs
@@ -315,12 +315,7 @@ fn an_expedition_waves_machines_keep_attacking_out_of_range() {
         .find(|b| b.team == PLAYER && b.kind.def().hq)
         .map(|b| (b.id, b.x, b.y))
         .unwrap();
-    assert!(!w.in_radio_by(
-        ENEMY,
-        core.1,
-        core.2,
-        endfall_sim::data::radio::CHASE_MARGIN
-    ));
+    assert!(!w.in_radio_by(ENEMY, core.1, core.2, 3.0));
     let rover = loop {
         w.step();
         assert!(w.time < 300.0, "no wave");

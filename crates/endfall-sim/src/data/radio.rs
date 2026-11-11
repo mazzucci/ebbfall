@@ -11,8 +11,6 @@ pub const UPLINK_RANGE: f64 = 12.0;
 pub const IN_RANGE_SPEED: f64 = 1.3;
 /// How far (tiles) past the edge of its side's range the flying machine (`shrike`, the Drone) may go.
 pub const LEASH_MARGIN: f64 = 5.0;
-/// How far (tiles) past the edge of its side's range an AI's machines chase.
-pub const CHASE_MARGIN: f64 = 3.0;
 
 /// The range a finished building of this kind gives (tiles), or 0.
 pub fn range_of(kind: BldgKind) -> f64 {

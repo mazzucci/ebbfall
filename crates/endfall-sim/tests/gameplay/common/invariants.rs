@@ -284,8 +284,17 @@ pub fn check_invariants(w: &World, ctx: &str) {
 }
 
 /// Every pool's use within its cap, or over it only as a building's loss left it (`recalc_supply`): a pool over its
-/// cap got there by its cap falling, never by its use growing. `prev`: each seat's pools at the last check.
+/// cap got there by its cap falling, never by its use growing; and all of them together within the map's limit. `prev`: each seat's pools at the last check.
 pub fn check_pools(prev: &mut Vec<[[i32; 2]; POOLS]>, w: &World, ctx: &str) {
+    // One army limit for every pool together (`queue_unit`): never passed, since only training adds use.
+    for t in 0..w.pools.len() as u8 {
+        assert!(
+            w.army_used(t) <= w.supply_limit(),
+            "{ctx}: team {t} army {} over the limit {}",
+            w.army_used(t),
+            w.supply_limit()
+        );
+    }
     if prev.len() == w.pools.len() {
         for (t, (now, before)) in w.pools.iter().zip(prev.iter()).enumerate() {
             for pool in ALL_POOLS {

@@ -40,10 +40,10 @@ async function rendered(key, filter, opts) {
   return out;
 }
 
-const SIZES = { ex_posttent: 2, ex_posttavern: 2, ex_posthouse: 2, ex_hangar: 3, kg_castle: 4, kg_cottage: 2, kg_market: 2, kg_barracks: 3, kg_blacksmith: 2, kg_workshop: 3, kg_stables: 3, ex_pad: 2, kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_gatetube: 2, ex_ring: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
+const SIZES = { ex_warehouse: 3, ex_platform: 2, ex_posttent: 2, ex_posttavern: 2, ex_posthouse: 2, ex_hangar: 3, kg_castle: 4, kg_cottage: 2, kg_market: 2, kg_barracks: 3, kg_blacksmith: 2, kg_workshop: 3, kg_stables: 3, ex_pad: 2, kg_tower: 2, ex_datahall: 4, ex_labdome: 2, ex_gate: 2, ex_gatetube: 2, ex_ring: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
 /** The turning heads over their bases, [name, the frames the pictures use]: the turrets at facings, the rotors and the
  *  gate's light at phases, the Uplink's dish at a few pan angles about its frame-0 turn. */
-const HEADS = { kg_tower: ['kg_towerhead', [0, 5, 11]], ex_radio: ['ex_radiohead', [0, 5, 11]], ex_turbine: ['ex_turbinehead', [0, 5, 11]], ex_windfarm: ['ex_windfarmhead', [0, 5, 11]], ex_uplink: ['ex_uplinkhead', [0, 14, 2]], ex_gate: ['ex_gatehead', [0, 5, 11]], ex_gatetube: ['ex_gatetubehead', [0, 5, 11]], ex_ring: ['ex_ringhead', [0, 5, 11]], ex_pad: ['ex_padhead', [0]] }; // (the pad's ship landed unless a sheet asks for a lift frame)
+const HEADS = { kg_tower: ['kg_towerhead', [0, 5, 11]], ex_radio: ['ex_radiohead', [0, 5, 11]], ex_turbine: ['ex_turbinehead', [0, 5, 11]], ex_windfarm: ['ex_windfarmhead', [0, 5, 11]], ex_uplink: ['ex_uplinkhead', [0, 14, 2]], ex_gate: ['ex_gatehead', [0, 5, 11]], ex_gatetube: ['ex_gatetubehead', [0, 5, 11]], ex_ring: ['ex_ringhead', [0, 5, 11]], ex_pad: ['ex_padhead', [0]], ex_platform: ['ex_platformhead', [0]] }; // (the pads' ships landed unless a sheet asks for a lift frame)
 const PAN = [12, 14, 0, 2, 4]; // the Uplink's pan sheet: -90, -45, 0, +45, +90 degrees about the column
 
 // ---- the ground: the game's grass tiles ----
@@ -111,16 +111,16 @@ if (mode === 'check') {
 }
 
 // ---- the pictures ----
-const UNITS = '(ex_bot|ex_marine)_(0|2|4|6|8|10|12|14)_0';
+const UNITS = '(ex_bot|ex_marine|kg_villager|kg_guard|kg_archer)_(0|2|4|6|8|10|12|14)_0';
 const t0 = Date.now();
-const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|posttent|posttavern|posthouse|factory|hangar|lab|labdome|portal|gate|gatetube|ring|pad)$|bldg_kg_(tower|cottage|barracks)$|(ex_(radiohead|turbinehead|windfarmhead|gatehead|gatetubehead|ringhead)|kg_towerhead)_(0|5|11)$|ex_padhead_(0|6|12)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
+const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|posttent|posttavern|posthouse|factory|hangar|warehouse|lab|labdome|portal|gate|gatetube|ring|pad|platform)$|bldg_kg_|(ex_(radiohead|turbinehead|windfarmhead|gatehead|gatetubehead|ringhead)|kg_towerhead)_(0|5|11)$|ex_(padhead|platformhead)_(0|6|12)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
 console.log(`rendered ${art.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const P = makePainters(art, seatTints(art.tints));
 console.log('building      angle   fit   spill W / E / S   team    cyan   size at 1x');
-for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_radio', 'ex_labdome', 'ex_pad', 'ex_posttent', 'ex_posttavern', 'ex_posthouse', 'ex_hangar', 'ex_gate', 'ex_gatetube', 'ex_ring', 'ex_bunkhouse', 'ex_lab', 'ex_portal', 'kg_tower']) {
+for (const k of ['kg_castle', 'kg_cottage', 'kg_market', 'kg_barracks', 'kg_blacksmith', 'kg_workshop', 'kg_stables', 'ex_datahall', 'ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_radio', 'ex_labdome', 'ex_platform', 'ex_warehouse', 'ex_posttavern', 'ex_pad', 'ex_posttent', 'ex_posthouse', 'ex_hangar', 'ex_gate', 'ex_gatetube', 'ex_ring', 'ex_bunkhouse', 'ex_lab', 'ex_portal', 'kg_tower']) {
   const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }, sz = P.sizeOf(`bldg_${k}`);
   console.log(`  ${k.padEnd(12)} ${String(turn.yaw).padStart(4)}   ${turn.scale.toFixed(2)}  ${fmtSpill(spill(s, SIZES[k])).padEnd(18)} ${String(P.share(`bldg_${k}`)).padEnd(6)}  ${(cyan(s) * 100).toFixed(1).padStart(4)}%  ${sz[0]} x ${sz[1]}${clipped(s) ? '  CLIPPED' : ''}`);
-  if (HEADS[k]) for (const d of (k === 'ex_uplink' ? PAN : k === 'ex_pad' ? [0, 6, 12] : HEADS[k][1])) { const h = `${HEADS[k][0]}_${d}`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} team ${P.share(h)}  ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
+  if (HEADS[k]) for (const d of (k === 'ex_uplink' ? PAN : (k === 'ex_pad' || k === 'ex_platform') ? [0, 6, 12] : HEADS[k][1])) { const h = `${HEADS[k][0]}_${d}`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} team ${P.share(h)}  ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
 }
 
 /** A row of buildings per seat: [kind, caption, head frame?] columns, seat 0 above, seat 1 below. */
@@ -134,34 +134,50 @@ function sheet(name, cols, caption, cw = 7 * T, rh = 9 * T) {
   label(c, caption, 4, 4, 2);
   save(name, c);
 }
-sheet('turbine', [['ex_bunkhouse', "TODAY'S CABIN"], ['ex_turbine', 'ONE TURBINE'], ['ex_windfarm', 'THREE ON A PAD'], ['ex_radio', 'SENTRY GUN'], ['ex_datahall', 'DATA CENTER']], 'THE POWER SOURCE: TODAY, THE TWO OPTIONS, THE SENTRY GUN AND THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('turbine', [['ex_bunkhouse', "TODAY'S CABIN"], ['ex_turbine', 'ONE TURBINE'], ['ex_radio', 'SENTRY GUN'], ['ex_datahall', 'DATA CENTER']], 'THE POWER SOURCE: TODAY, THE TURBINE, THE SENTRY GUN AND THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 sheet('uplink', [['ex_uplink', 'THE UPLINK'], ['ex_radio', 'SENTRY GUN'], ['ex_labdome', 'LAB'], ['ex_datahall', 'DATA CENTER']], 'THE UPLINK BESIDE THE SENTRY GUN, THE LAB AND THE DATA CENTER. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
 sheet('uplink-pan', PAN.map(d => ['ex_uplink', `PAN ${((d + 8) % 16 - 8) * -22.5}`, d]), 'THE UPLINK: THE DISH PANNED ABOUT ITS COLUMN (THE HEAD AT FIVE FRAMES). SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
-sheet('sentry', [['ex_radio', 'SENTRY GUN'], ['kg_tower', 'WATCHTOWER'], ['ex_turbine', 'ONE TURBINE']], 'THE SENTRY GUN BESIDE THE WATCHTOWER AND A TURBINE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('sentry', [['ex_radio', 'SENTRY GUN 1.25X'], ['kg_tower', 'WATCHTOWER'], ['ex_turbine', 'ONE TURBINE']], 'THE SENTRY GUN (1.25X) BESIDE THE WATCHTOWER AND A TURBINE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 sheet('lab', [['ex_lab', "TODAY'S LAB"], ['ex_labdome', 'THE DOME'], ['ex_datahall', 'DATA CENTER']], 'THE LAB: TODAY AND THE DOME, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
-sheet('portal', [['ex_portal', "TODAY'S PORTAL"], ['ex_pad', 'THE PAD, SHIP LANDED', 0], ['ex_pad', 'LIFTING (FRAME 6)', 6], ['ex_pad', 'UP (FRAME 12)', 12], ['ex_datahall', 'DATA CENTER']], 'THE PORTAL AS A LANDING SPOT: TODAY, THE PAD WITH ITS DROPSHIP LANDED, LIFTING AND UP, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
-sheet('post', [['ex_post', "TODAY'S POST"], ['ex_posttent', 'A: THE TENT'], ['ex_posttavern', 'B: THE TAVERN'], ['ex_posthouse', 'C: THE HOUSE'], ['kg_cottage', 'KINGDOM COTTAGE'], ['kg_barracks', 'KINGDOM BARRACKS']], 'THE RECRUITING POST: TODAY AND THE THREE OPTIONS, THE COTTAGE AND THE BARRACKS FOR COMPARISON. SEAT 0 ABOVE, SEAT 1 BELOW');
-sheet('factory', [['ex_factory', "TODAY'S FACTORY"], ['ex_hangar', 'THE HANGAR'], ['ex_datahall', 'DATA CENTER']], 'THE FACTORY: TODAY AND THE HANGAR, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
-sheet('portal-rejected', [['ex_gate', '1 THE WIDE GATE'], ['ex_gatetube', '2 GATE AND TUBE'], ['ex_ring', '3 THE OVAL RING']], 'THE PORTAL, ROUND 4\'S REJECTED OPTIONS, FOR THE RECORD');
-
-// ---- the base: tools/art/retheme-bases.mjs's Expedition layout, the turbines in the Cabins' places, an Uplink ----
-const EX_UNITS = [['ex_bot_0_0', 15.2, 9.4], ['ex_bot_2_0', 18.6, 8.2], ['ex_bot_8_0', 19.8, 10.1], ['ex_bot_12_0', 20.4, 7.3], ['ex_marine_4_0', 15.5, 5.8], ['ex_marine_4_0', 16.4, 5.9], ['ex_marine_4_0', 17.3, 6.0], ['ex_marine_0_0', 9.5, 12.6]];
-const GOLD = [21.5, 9.2], PANEL = [25, 17];
-function layout(power, portal) {
-  return [['ex_datahall', 10, 7], [power, 5, 2], [power, 8, 2], [power, 5, 5], [power, 8, 5], ['ex_post', 12, 3], ['ex_post', 15, 3],
-    ['ex_hangar', 16, 7], ['ex_labdome', 16, 11], [portal, 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], [power, 1, 7]];
+sheet('post', [['ex_post', "TODAY'S POST"], ['ex_posttavern', 'THE TAVERN HALL'], ['kg_cottage', 'KINGDOM COTTAGE'], ['kg_barracks', 'KINGDOM BARRACKS']], 'THE RECRUITING POST: TODAY AND THE TAVERN HALL (THE PICK, LONGER), THE COTTAGE AND THE BARRACKS FOR COMPARISON. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('factory', [['ex_factory', "TODAY'S FACTORY"], ['ex_hangar', 'THE HANGAR (REJECTED)'], ['ex_warehouse', 'THE WAREHOUSE'], ['ex_datahall', 'DATA CENTER']], 'THE FACTORY: TODAY, THE HANGAR AND THE WAREHOUSE (THE COG FLAT ON ITS ROOF), THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
+sheet('portal', [['ex_portal', "TODAY'S PORTAL"], ['ex_platform', 'THE PLATFORM, TRANSPORT LANDED', 0], ['ex_platform', 'LIFTING (FRAME 6)', 6], ['ex_platform', 'UP (FRAME 12)', 12], ['ex_datahall', 'DATA CENTER']], 'THE PORTAL AS AN ARRIVAL PLATFORM: TODAY, THE TRANSPORT LANDED, LIFTING AND UP, THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('portal-rejected', [['ex_gate', 'THE WIDE GATE'], ['ex_gatetube', 'GATE AND TUBE'], ['ex_ring', 'THE OVAL RING'], ['ex_pad', 'THE HELIPAD', 0]], 'THE PORTAL: THE REJECTED OPTIONS, FOR THE RECORD');
+sheet('datahall', [['ex_hall', 'THE BLOCK'], ['ex_datahall', 'THE SERVER HALL, LIGHTER'], ['kg_castle', 'CASTLE']], 'THE DATA CENTER: THE SERVER HALL WITH ITS DARK FACES A STEP LIGHTER, THE CASTLE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
+// the Kingdom pass: today (the committed atlas) beside the new render, both seats, a row per building
+{
+  const Q = makePainters(atlasAt('HEAD'), seatTints(atlasAt('HEAD').tints));
+  const rows = [['core', 'kg_castle', 'CASTLE'], ['depot', 'kg_cottage', 'COTTAGE'], ['extractor', 'kg_market', 'MARKET'], ['barracks', 'kg_barracks', 'BARRACKS'], ['forge', 'kg_blacksmith', 'BLACKSMITH'], ['factory', 'kg_workshop', 'WORKSHOP'], ['turret', 'kg_tower', 'WATCHTOWER'], ['airfield', 'kg_stables', 'STABLES']];
+  const cw = 6 * T, rhs = rows.map(([, k]) => Math.round((SIZES[k] + 3.4) * T)), c = cv(cw * 4, rhs.reduce((a, b) => a + b, 0)); grass(c, 5);
+  let y = 0;
+  rows.forEach(([game, k, nm], i) => {
+    const n = SIZES[k], s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }, cells = [[Q, `bldg_${game}`, 0, 'TODAY'], [P, `bldg_${k}`, 0, `NEW ${turn.yaw} X${turn.scale.toFixed(2)}`], [Q, `bldg_${game}`, 1, 'TODAY'], [P, `bldg_${k}`, 1, `NEW ${turn.yaw} X${turn.scale.toFixed(2)}`]];
+    cells.forEach(([pr, name, seat, txt], j) => { const x = j * cw + cw / 2, by = Math.round(y + rhs[i] - 1.2 * T - n * T / 2); pr.draw(c, pr.get(name), x, by, seat); if (k === 'kg_tower') pr.draw(c, pr.get(pr === Q ? 'turret_head_0' : 'kg_towerhead_0'), x, by, seat); label(c, txt, j * cw + 4, y + rhs[i] - 22, 2); });
+    label(c, nm, 4, y + 4, 2); y += rhs[i];
+  });
+  label(c, 'THE KINGDOM PASS: TODAY (THE ATLAS) | NEW AT -20, FEWER PROPS, TEAM ON A FLAG AND THIN TRIM. SEAT 0, THEN SEAT 1. 1X', c.w - 1300, 4, 2);
+  save('kingdom', c);
 }
-function base(seat, power, portal) {
+
+// ---- the bases: tools/art/retheme-bases.mjs's layouts, the Expedition with the picks, the Kingdom with its pass ----
+const EX_UNITS = [['ex_bot_0_0', 15.2, 9.4], ['ex_bot_2_0', 18.6, 8.2], ['ex_bot_8_0', 19.8, 10.1], ['ex_bot_12_0', 20.4, 7.3], ['ex_marine_4_0', 15.5, 5.8], ['ex_marine_4_0', 16.4, 5.9], ['ex_marine_4_0', 17.3, 6.0], ['ex_marine_0_0', 9.5, 12.6]];
+const KG_UNITS = [['kg_villager_0_0', 15.2, 9.4], ['kg_villager_2_0', 18.6, 8.2], ['kg_villager_8_0', 19.8, 10.1], ['kg_villager_12_0', 20.4, 7.3], ['kg_guard_4_0', 15.5, 5.8], ['kg_guard_4_0', 16.4, 5.9], ['kg_archer_4_0', 17.3, 6.0], ['kg_guard_0_0', 9.5, 12.6]];
+const EXPEDITION = [['ex_datahall', 10, 7], ['ex_turbine', 5, 2], ['ex_turbine', 8, 2], ['ex_turbine', 5, 5], ['ex_turbine', 8, 5], ['ex_posttavern', 12, 3], ['ex_posttavern', 15, 3],
+  ['ex_warehouse', 16, 7], ['ex_labdome', 16, 11], ['ex_platform', 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], ['ex_turbine', 1, 7]];
+const KINGDOM = [['kg_castle', 10, 7], ['kg_cottage', 5, 2], ['kg_cottage', 8, 2], ['kg_cottage', 5, 5], ['kg_cottage', 8, 5], ['kg_blacksmith', 12, 3], ['kg_barracks', 15, 2],
+  ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottage', 12, 12]];
+const GOLD = [21.5, 9.2], PANEL = [25, 17];
+function base(seat, list, units) {
   const c = cv(PANEL[0] * T, PANEL[1] * T); grass(c, seat + 11);
   const items = [];
-  layout(power, portal).forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, id)] }); });
-  for (const [name, tx, ty] of EX_UNITS) items.push({ y: ty * T, draw: [(cc) => P.draw(cc, P.get(name), tx * T, ty * T, seat)] });
+  list.forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, id)] }); });
+  for (const [name, tx, ty] of units) items.push({ y: ty * T, draw: [(cc) => P.draw(cc, P.get(name), tx * T, ty * T, seat)] });
   items.push({ y: GOLD[1] * T, draw: [(cc) => P.draw(cc, P.get('rt_gold_0_0'), GOLD[0] * T, GOLD[1] * T)] });
   for (const it of items.sort((a, b) => a.y - b.y)) for (const d of it.draw) d(c);
   return c;
 }
-for (const [name, portal, what] of [['base', 'ex_pad', 'THE LANDING PAD']]) {
-  const c = base(1, 'ex_turbine', portal), z = resample(c, 0.75), cap = `EXPEDITION BASE: THE SERVER HALL, TURBINES, THE UPLINK, SENTRY GUNS, THE LAB DOME, ${what}`;
+for (const [name, seat, list, units, cap] of [['base', 1, EXPEDITION, EX_UNITS, 'EXPEDITION BASE: THE SERVER HALL, TURBINES, TAVERN HALLS, THE WAREHOUSE, THE LAB DOME, THE PLATFORM, SENTRY GUNS, THE UPLINK'], ['kingdom-base', 0, KINGDOM, KG_UNITS, 'KINGDOM BASE: EVERY BUILDING AT -20 AFTER THE PASS']]) {
+  const c = base(seat, list, units), z = resample(c, 0.75);
   label(c, cap, 6, 6, 2); save(`${name}-100`, c, false);
   label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);
 }
@@ -187,27 +203,24 @@ function atlasAt(ref) {
 /** Mean luminance (0..1) of a sprite's solid, non-shadow pixels. */
 function brightness(s) { const { data } = s.img; let n = 0, t = 0; for (let i = 0; i < data.length; i += 4) { if (data[i + 3] !== 255 || !(data[i] | data[i + 1] | data[i + 2])) continue; n++; t += (0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2]) / 255; } return t / n; }
 {
-  const Q = makePainters(atlasAt('HEAD'), seatTints(atlasAt('HEAD').tints));
-  const KG_YAW = { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 }; // (retheme.js BLDG_YAW.kg, the committed atlas's; the Recruiting post slot shows today's post, not yet picked, and the Factory slot the new hangar)
-  const KG = [['core', 'kg_castle', 'CASTLE'], ['depot', 'kg_cottage', 'COTTAGE'], ['extractor', 'kg_market', 'MARKET'], ['barracks', 'kg_barracks', 'BARRACKS'], ['forge', 'kg_blacksmith', 'BLACKSMITH'], ['factory', 'kg_workshop', 'WORKSHOP'], ['turret', 'kg_tower', 'WATCHTOWER'], ['airfield', 'kg_stables', 'STABLES']];
-  const EX = [['ex_datahall', 'DATA CENTER'], ['ex_turbine', 'WIND TURBINE'], ['ex_post', 'RECRUITING POST'], ['ex_hangar', 'FACTORY'], ['ex_labdome', 'LAB'], ['ex_radio', 'SENTRY GUN'], ['ex_uplink', 'UPLINK'], ['ex_pad', 'PORTAL']];
+  const KG = [['kg_castle', 'CASTLE'], ['kg_cottage', 'COTTAGE'], ['kg_market', 'MARKET'], ['kg_barracks', 'BARRACKS'], ['kg_blacksmith', 'BLACKSMITH'], ['kg_workshop', 'WORKSHOP'], ['kg_tower', 'WATCHTOWER'], ['kg_stables', 'STABLES']];
+  const EX = [['ex_datahall', 'DATA CENTER'], ['ex_turbine', 'WIND TURBINE'], ['ex_posttavern', 'RECRUITING POST'], ['ex_warehouse', 'FACTORY'], ['ex_labdome', 'LAB'], ['ex_radio', 'SENTRY GUN'], ['ex_uplink', 'UPLINK'], ['ex_platform', 'PORTAL']];
   const NOTES = { // the maker's own reading against Stelian's rules (no tiny details, team on a flag or trim only, one iconic shape, not too dark, a consistent angle)
-    kg_castle: '', kg_cottage: '', kg_market: 'small stall goods', kg_barracks: 'small dummies in the yard', kg_blacksmith: 'small tools and props', kg_workshop: 'siege frame and balloon: two shapes', kg_tower: '', kg_stables: 'horse and fence are small',
-    ex_datahall: 'team on the parapet band and flags: ok', ex_turbine: 'ok', ex_post: 'tiny figures, papers and vests: clutter; dark booth; team on vests and cloth too', ex_hangar: 'ok (the new hangar; today\'s factory had drums, crates, chassis, arm and printer: clutter)', ex_labdome: 'ok', ex_radio: 'ok (team share low: a small flag)', ex_uplink: 'ok (team share high: the flag is big beside a thin stand)', ex_pad: 'ok',
+    kg_castle: 'dark; many towers and flags (its own shape)', kg_cottage: 'ok after the pass', kg_market: 'the gold chest is small but is the cue', kg_barracks: 'ok after the pass (bare yard)', kg_blacksmith: 'dark open front; the anvil and hearth stay (the cue)', kg_workshop: 'siege frame and balloon: still two shapes', kg_tower: 'ok', kg_stables: 'horse and fence are smallish',
+    ex_datahall: 'ok, a step lighter', ex_turbine: 'ok', ex_posttavern: 'ok (the sign is its one detail)', ex_warehouse: 'ok', ex_labdome: 'ok', ex_radio: 'ok', ex_uplink: 'ok (team share high: the flag is big beside a thin stand)', ex_platform: 'ok (the plate is turned in the model, not by BLDG_YAW)',
   };
-  const cols = [...KG.map(([game, k, nm]) => ({ pr: Q, name: `bldg_${game}`, head: game === 'turret' ? 'turret_head_0' : null, n: SIZES[k], txt: `${nm} ${KG_YAW[k.slice(3)] > 0 ? '+' : ''}${KG_YAW[k.slice(3)]}`, k, yaw: KG_YAW[k.slice(3)] })),
-    ...EX.map(([k, nm]) => { const s = P.get(`bldg_${k}`), yaw = s.turn?.yaw ?? 0; return { pr: P, name: `bldg_${k}`, head: HEADS[k] ? `${HEADS[k][0]}_0` : null, n: SIZES[k], txt: `${nm} ${yaw > 0 ? '+' : ''}${yaw}`, k, yaw }; })];
+  const cols = [...KG, ...EX].map(([k, nm]) => { const s = P.get(`bldg_${k}`), yaw = s.turn?.yaw ?? 0; return { pr: P, name: `bldg_${k}`, head: HEADS[k] ? `${HEADS[k][0]}_0` : null, n: SIZES[k], txt: `${nm} ${yaw > 0 ? '+' : ''}${yaw}`, k, yaw, fit: s.turn?.scale ?? 1 }; });
   const cw = 6 * T, rh = 9 * T, c = cv(cw * cols.length, rh * 2); grass(c, 5);
   [0, 1].forEach(seat => cols.forEach((col, i) => {
     const x = i * cw + cw / 2, by = Math.round(seat * rh + rh - 1.2 * T - col.n * T / 2);
     col.pr.draw(c, col.pr.get(col.name), x, by, seat); if (col.head) col.pr.draw(c, col.pr.get(col.head), x, by, seat);
     label(c, col.txt, i * cw + 4, seat * rh + rh - 22, 2);
   }));
-  label(c, 'EVERY BUILDING AS IT WILL SHIP: THE KINGDOM (THE COMMITTED ATLAS) AND THE EXPEDITION (THE APPROVED ART). SEAT 0 ABOVE, SEAT 1 BELOW. 1X', 4, 4, 2);
+  label(c, 'EVERY BUILDING AS IT WILL SHIP, ONE ANGLE (-20) FOR ALL BUT THE ROUND AND TURNING ONES: THE KINGDOM AFTER ITS PASS, THE EXPEDITION\'S PICKS. SEAT 0 ABOVE, SEAT 1 BELOW. 1X', 4, 4, 2);
   save('consistency', c);
-  console.log('\nbuilding            angle   team   bright   note');
+  console.log('\nbuilding            angle   fit    team   bright   note');
   const rows = [];
-  for (const col of cols) { const s = col.pr.get(col.name), team = col.pr.share(col.name), br = brightness(s); rows.push({ kind: col.k, angle: col.yaw, team, brightness: +br.toFixed(2), note: NOTES[col.k] ?? '' }); console.log(`  ${col.txt.padEnd(20)} ${String(col.yaw).padStart(4)}   ${String(team).padEnd(6)} ${br.toFixed(2)}     ${NOTES[col.k] ?? ''}`); }
+  for (const col of cols) { const s = col.pr.get(col.name), team = col.pr.share(col.name), br = brightness(s); rows.push({ kind: col.k, angle: col.yaw, fit: +col.fit.toFixed(2), team, brightness: +br.toFixed(2), note: NOTES[col.k] ?? '' }); console.log(`  ${col.txt.padEnd(20)} ${String(col.yaw).padStart(4)}   ${col.fit.toFixed(2)}   ${String(team).padEnd(6)} ${br.toFixed(2)}     ${NOTES[col.k] ?? ''}${col.fit < 0.85 ? '   FIT BELOW 0.85' : ''}`); }
   writeFileSync(join(outDir, 'consistency.json'), JSON.stringify(rows, null, 1));
 }
 console.log('consistency sheet ->', join(outDir, 'consistency-1x.png'));

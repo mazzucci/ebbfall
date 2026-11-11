@@ -170,6 +170,7 @@ impl World {
             && let Some(nm) = self.map.node_mut(node)
         {
             nm.miners -= 1;
+            self.come_out(uid);
         }
         let (ux, uy, carry) = {
             let u = self.u(uid);
@@ -263,6 +264,7 @@ impl World {
             phase: Phase::Return,
             timer,
         };
+        self.come_out(uid);
         if left <= 0 {
             // Told to the miner's seat and to the enemies who see it, not to its allies (who see it through its eyes:
             // not their mine).
@@ -273,6 +275,22 @@ impl World {
                     self.toast(t, "A gold mine is mined out", false);
                 }
             }
+        }
+    }
+
+    /// Out of a mine where it went in; where that ground is no longer ground it may stand on (the tide came over it
+    /// while the worker was inside, out of the sweep's reach), at the nearest that is.
+    pub(crate) fn come_out(&mut self, uid: Id) {
+        let (x, y, kind) = (self.u(uid).x, self.u(uid).y, self.u(uid).kind);
+        let foot = self.foot(kind);
+        let (tx, ty) = self.map.tile_of(x, y);
+        if !self.map.passable(foot, tx, ty)
+            && let Some((dx, dy)) = self.map.nearest_passable_to(foot, tx, ty, 8, (x, y))
+        {
+            let u = self.um(uid);
+            u.x = dx as f64 * TILE + 16.0;
+            u.y = dy as f64 * TILE + 16.0;
+            u.path = None;
         }
     }
 

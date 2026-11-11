@@ -528,8 +528,8 @@ impl World {
             let Some((now, full)) = need(o).filter(|&(now, full)| now < full) else {
                 continue;
             };
-            if o.id == uid || o.team != team {
-                continue;
+            if o.id == uid || o.team != team || o.inside() {
+                continue; // (one inside a mine is out of reach)
             }
             let d = dist(o.x, o.y, mx, my) - o.r;
             if d <= range {

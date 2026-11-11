@@ -13,10 +13,12 @@ pub fn check_invariants(w: &World, ctx: &str) {
         );
     }
     for u in &w.units {
-        // (no walker ever stands in deep water: ordered, pushed, spawned or landed there)
+        // (no walker ever stands in deep water: ordered, pushed, spawned or landed there; one inside a mine is not out
+        // there, and comes out on ground it may stand on)
         let (tx, ty) = w.map.tile_of(u.x, u.y);
         assert!(
             u.kind.def().mv != endfall_sim::data::Move::Walk
+                || u.inside()
                 || w.map.ground(tx, ty, w.water) != endfall_sim::map::Ground::Deep,
             "{ctx}: {:?} {} in deep water at ({tx}, {ty})",
             u.kind,

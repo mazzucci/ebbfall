@@ -132,13 +132,13 @@ impl World {
         self.level().expands_when_dry && home < HOME_LOW
     }
 
-    /// Whether the mines by every one of our finished headquarters (within 12 tiles) hold under `HOME_LOW` gold between
-    /// them.
+    /// Whether the mines by every one of our headquarters (within 12 tiles; one going up counts, as `hqs` counts it:
+    /// a dry main must not call a third base while the second is still a site) hold under `HOME_LOW` gold between them.
     pub(crate) fn bases_dry(&self, my_b: &[Id]) -> bool {
         let cores: Vec<(f64, f64)> = my_b
             .iter()
             .filter_map(|&id| self.bldg(id))
-            .filter(|b| b.kind.def().hq && b.done)
+            .filter(|b| b.kind.def().hq)
             .map(|b| (b.x / TILE, b.y / TILE))
             .collect();
         let left: i32 = self

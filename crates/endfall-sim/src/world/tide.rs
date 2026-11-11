@@ -207,7 +207,8 @@ impl World {
         let swept: Vec<Id> = self
             .units
             .iter()
-            .filter(|u| u.kind.def().mv == Move::Walk && deep(&self.map, u.x, u.y))
+            // (a worker inside a mine is not out on the flats: it comes out where it went in, swept then if need be)
+            .filter(|u| u.kind.def().mv == Move::Walk && !u.inside() && deep(&self.map, u.x, u.y))
             .map(|u| u.id)
             .collect();
         let foot = Foot {

@@ -299,7 +299,8 @@ fn a_walker_sent_out_to_sea_stops_on_the_nearest_shore() {
 
 #[test]
 fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
-    // Humans against the Vael at each level, each people from each start: every game ends within 30 minutes.
+    // Humans against the Vael at each level, each people from each start: every game ends within 40 minutes (as the
+    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal).
     for diff in 0..4 {
         for (races, seed) in [
             ([&HUMANS, &VAEL], 1 + diff as u32),
@@ -307,7 +308,7 @@ fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
         ] {
             let mut w = World::with_size(seed, diff, MapKind::Shore, MapSize::DUEL, 0, &races);
             assert!(w.set_ai_seats([true, true]));
-            for _ in 0..30 * 60 * TPS {
+            for _ in 0..40 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {
@@ -316,7 +317,7 @@ fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
             }
             assert!(
                 w.winner >= 0,
-                "level {diff}, {} first: no result in 30 minutes",
+                "level {diff}, {} first: no result in 40 minutes",
                 races[0].name
             );
         }
@@ -565,7 +566,7 @@ fn both_ais_finish_games_with_the_basin_field_moved() {
             let mut w = shore(3, races);
             w.set_shore_field(field);
             assert!(w.set_ai_seats([true, true]));
-            for _ in 0..30 * 60 * TPS {
+            for _ in 0..40 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {

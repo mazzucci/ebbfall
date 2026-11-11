@@ -12,20 +12,51 @@ impl World {
         supply_limit(self.map.w)
     }
 
+    /// A seat's population (the Kingdom) or Power (the Expedition): `[used, cap]` of `Pool::Supply`.
+    pub fn sup(&self, team: u8) -> [i32; 2] {
+        self.pool(team, Pool::Supply)
+    }
+
+    /// A seat's `[used, cap]` of one pool.
+    pub fn pool(&self, team: u8, pool: Pool) -> [i32; 2] {
+        self.pools[team as usize][pool.index()]
+    }
+
+    /// Every pool's use of a seat together: at most the map's limit (`queue_unit`), whatever each pool's own cap.
+    pub fn army_used(&self, team: u8) -> i32 {
+        self.pools[team as usize].iter().map(|p| p[0]).sum()
+    }
+
+    /// The places a unit of `pool` could still take: its pool's free places, and no more than the shared limit has
+    /// left (the Kingdom's one pool: its free population).
+    pub fn room(&self, team: u8, pool: Pool) -> i32 {
+        let [used, cap] = self.pool(team, pool);
+        (cap - used).min(self.supply_limit() - self.army_used(team))
+    }
+
+    /// Count a seat's places again, every pool: its units and those queued use them, its finished buildings give them,
+    /// each pool capped at the map's limit. A building lost can leave a pool's use above its cap: nothing more of it is
+    /// trained until enough fall (`queue_unit`), nothing is taken away.
     pub fn recalc_supply(&mut self, team: u8) {
-        let (mut used, mut cap) = (0, 0);
+        let mut p = [[0; 2]; POOLS];
         for u in self.units.iter().filter(|u| u.team == team) {
-            used += u.kind.def().supply;
+            let d = u.kind.def();
+            p[d.pool.index()][0] += d.supply;
         }
         for b in self.bldgs.iter().filter(|b| b.team == team) {
             if b.done {
-                cap += b.kind.def().supply;
+                let d = b.kind.def();
+                p[d.pool.index()][1] += d.supply;
             }
             for q in &b.queue {
-                used += q.def().supply;
+                p[q.def().pool.index()][0] += q.def().supply;
             }
         }
-        self.sup[team as usize] = [used, cap.min(self.supply_limit())];
+        let limit = self.supply_limit();
+        for s in &mut p {
+            s[1] = s[1].min(limit);
+        }
+        self.pools[team as usize] = p;
     }
 
     /// The nearest gold mine with gold left within `max_d` px (an empty mine takes nobody in).

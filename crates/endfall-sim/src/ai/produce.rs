@@ -77,13 +77,14 @@ impl World {
         // barracks, else several barracks fill them every round and a specialist that is due never fits. With room to
         // spare, every factory in building order as ever.
         let order: Vec<Id> = {
-            let [used, cap] = self.sup[e as usize];
+            // (the places the specialists take: population, or the Expedition's Power, within the shared limit)
+            let room = self.room(e, Pool::Supply);
             let s = &self.factions[e as usize].ai;
             let first = |id: &Id| {
                 self.bldg(*id)
                     .is_some_and(|b| b.kind == s.air || s.heavy == Some(b.kind))
             };
-            if cap - used < SUPPLY_TIGHT {
+            if room < SUPPLY_TIGHT {
                 let (mut a, b): (Vec<Id>, Vec<Id>) = my_b.iter().copied().partition(first);
                 a.extend(b);
                 a
@@ -165,7 +166,12 @@ impl World {
             let short_of_aa = enemy_air > 0 && answers(self) < enemy_air * 2;
             let u = if let Some(k) = scout {
                 k
-            } else if b.kind == s.rax && short_of_aa && mine(self, s.anti_air) < cheap_cap {
+            } else if (b.kind == s.rax || heavy)
+                && b.kind.def().trains.contains(&s.anti_air)
+                && short_of_aa
+                && mine(self, s.anti_air) < cheap_cap
+            {
+                // (from the factory that trains it: the Kingdom's Barracks, the Expedition's Portal)
                 s.anti_air
             } else if let Some(k) =
                 heavy_aa.filter(|k| short_of_aa && b.kind.def().trains.contains(k))
@@ -206,7 +212,7 @@ impl World {
             if qlen < 2 && !saving && !self.guided_army_full(e, t) {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
-                let [used, cap] = self.sup[e as usize];
+                let [used, cap] = self.sup(e);
                 let room = Some(u) == scout
                     || capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
                 if room

@@ -301,7 +301,7 @@ impl Tracker {
             self.pumps_at_5 = Some([0, 1].map(|s| w.pumps(s) as u32));
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
-            rec.peak_supply = rec.peak_supply.max(w.sup[s][0]);
+            rec.peak_supply = rec.peak_supply.max(w.pools[s][0][0]);
         }
         self.waves(w);
         if tick.is_multiple_of(SAMPLE) {

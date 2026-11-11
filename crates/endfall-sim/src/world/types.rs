@@ -318,6 +318,12 @@ pub enum Event {
         weapon: &'static str,
         seen: u8,
     },
+    /// A satellite launched from (x, y) by `team`'s building (every seat sees it: the rocket rising).
+    Launch {
+        x: f64,
+        y: f64,
+        team: u8,
+    },
     /// An ability used where the caster stands (after a Blink: where it landed), for the seats that see it.
     Cast {
         x: f64,

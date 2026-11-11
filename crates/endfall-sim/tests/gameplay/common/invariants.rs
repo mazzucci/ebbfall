@@ -149,7 +149,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
         w.teams.len(),
         w.out.len(),
         w.res.len(),
-        w.sup.len(),
+        w.pools.len(),
         w.vis.len(),
         w.explored.len(),
     ];
@@ -169,30 +169,34 @@ pub fn check_invariants(w: &World, ctx: &str) {
             "{ctx}: team {t} resources {:?}",
             w.res[t]
         );
-        let used: i32 = w
-            .units
-            .iter()
-            .filter(|u| u.team as usize == t)
-            .map(|u| u.kind.def().supply)
-            .sum::<i32>()
-            + w.bldgs
+        for pool in ALL_POOLS {
+            let used: i32 = w
+                .units
                 .iter()
-                .filter(|b| b.team as usize == t)
-                .flat_map(|b| b.queue.iter())
-                .map(|k| k.def().supply)
-                .sum::<i32>();
-        assert_eq!(w.sup[t][0], used, "{ctx}: team {t} supply used");
-        let cap: i32 = w
-            .bldgs
-            .iter()
-            .filter(|b| b.team as usize == t && b.done)
-            .map(|b| b.kind.def().supply)
-            .sum();
-        assert_eq!(
-            w.sup[t][1],
-            cap.min(w.supply_limit()),
-            "{ctx}: team {t} supply cap"
-        );
+                .filter(|u| u.team as usize == t && u.kind.def().pool == pool)
+                .map(|u| u.kind.def().supply)
+                .sum::<i32>()
+                + w.bldgs
+                    .iter()
+                    .filter(|b| b.team as usize == t)
+                    .flat_map(|b| b.queue.iter())
+                    .filter(|k| k.def().pool == pool)
+                    .map(|k| k.def().supply)
+                    .sum::<i32>();
+            let p = w.pools[t][pool.index()];
+            assert_eq!(p[0], used, "{ctx}: team {t} {pool:?} used");
+            let cap: i32 = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team as usize == t && b.done && b.kind.def().pool == pool)
+                .map(|b| b.kind.def().supply)
+                .sum();
+            assert_eq!(
+                p[1],
+                cap.min(w.supply_limit()),
+                "{ctx}: team {t} {pool:?} cap"
+            );
+        }
     }
     for u in &w.units {
         assert!(
@@ -277,4 +281,30 @@ pub fn check_invariants(w: &World, ctx: &str) {
             n.miners
         );
     }
+}
+
+/// Every pool's use within its cap, or over it only as a building's loss left it (`recalc_supply`): a pool over its
+/// cap got there by its cap falling, never by its use growing; and all of them together within the map's limit. `prev`: each seat's pools at the last check.
+pub fn check_pools(prev: &mut Vec<[[i32; 2]; POOLS]>, w: &World, ctx: &str) {
+    // One army limit for every pool together (`queue_unit`): never passed, since only training adds use.
+    for t in 0..w.pools.len() as u8 {
+        assert!(
+            w.army_used(t) <= w.supply_limit(),
+            "{ctx}: team {t} army {} over the limit {}",
+            w.army_used(t),
+            w.supply_limit()
+        );
+    }
+    if prev.len() == w.pools.len() {
+        for (t, (now, before)) in w.pools.iter().zip(prev.iter()).enumerate() {
+            for pool in ALL_POOLS {
+                let ([used, cap], [u0, c0]) = (now[pool.index()], before[pool.index()]);
+                assert!(
+                    used <= cap || cap < c0 || (u0 > c0 && used <= u0),
+                    "{ctx}: team {t} {pool:?} {used}/{cap}, was {u0}/{c0}"
+                );
+            }
+        }
+    }
+    *prev = w.pools.clone();
 }

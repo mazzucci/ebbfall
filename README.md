@@ -39,10 +39,11 @@ raids workers) and Knights (heavy cavalry). The Workshop builds Ballistas (the a
 where they stop and hurl stones far, with splash, but cannot hit anything close) and the Balloon, an unarmed scout that
 floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Trebuchets and Ballistas.
 Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at each building until it stands; the
-Recruiting post hires Sellswords (local mercenaries with rifles, ground and air) and Bruisers (riot shields and heavy
-guns); the Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low
-flyers); the Portal trains Marines (elite soldiers). Radio towers hit ground and air. A unit's button names what it
-fights best beside and what beats it.
+Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
+Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
+machines that run on Power from the Data center and wind turbines, and faster near the Data center or an Uplink; the
+Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks trains Marines (elite soldiers),
+four to a Portal. Sentry masts hit ground and air. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 

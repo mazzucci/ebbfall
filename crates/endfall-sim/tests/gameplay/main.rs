@@ -9,6 +9,7 @@ mod combat;
 mod common;
 mod construction;
 mod economy;
+mod expedition;
 mod guided;
 mod jitter;
 mod lockstep;

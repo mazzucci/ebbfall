@@ -36,10 +36,24 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
                 .iter()
                 .any(|b| b.team == PLAYER && b.kind == k && b.done)
         };
-        let Some(at) = todo
-            .iter()
-            .position(|&k| k.def().req.is_none_or(|r| has(&w, r)))
-        else {
+        // (a building that waits for a research, the Uplink for the satellite: researched once nothing else can go up)
+        if !todo.iter().any(|&k| w.has_req(PLAYER, k))
+            && let Some(up) = todo.iter().find_map(|&k| {
+                k.def()
+                    .req_up
+                    .filter(|u| u.def().req.is_none_or(|r| has(&w, r)))
+            })
+        {
+            let at = w
+                .bldgs
+                .iter()
+                .find(|b| b.team == PLAYER && b.done && b.kind.def().researches.contains(&up))
+                .unwrap()
+                .id;
+            w.start_research(at, up).unwrap();
+            run(&mut w, (up.time(1) + 1.0) as u32);
+        }
+        let Some(at) = todo.iter().position(|&k| w.has_req(PLAYER, k)) else {
             assert!(todo.is_empty(), "{}: {todo:?} can never be built", f.key);
             break;
         };
@@ -233,8 +247,8 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
     // The Expedition: the Recruiting post (Sellswords; Bruisers once a Lab stands) needs nothing, the Factory (Buggies,
-    // Drones; Rovers once a Lab stands), the Lab and the tower need it, the Portal (Marines) the Lab. The Recruiting
-    // post still stands on a shaft until the economy PR.
+    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Marines) an Uplink, which needs
+    // the satellite, launched at the Data center once the Lab stands.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
     for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
@@ -251,7 +265,7 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     }
     assert!(
         !w.has_req(PLAYER, BldgKind::Eclipse),
-        "the Portal waits for the Lab"
+        "the Portal waits for the Uplink"
     );
     assert_eq!(
         w.queue_unit(post, UnitKind::Bruiser),
@@ -280,6 +294,16 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         w.queue_unit(post, UnitKind::Bruiser).is_ok(),
         "once the Lab stands"
     );
+    assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "not the Lab alone");
+    let dc = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
+        .unwrap()
+        .id;
+    assert!(w.start_research(dc, Upgrade::Satellite).is_ok());
+    run(&mut w, 61);
+    build(&mut w, BldgKind::Uplink, l[3], 150);
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());

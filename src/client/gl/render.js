@@ -551,12 +551,11 @@ function showRange(selList, place) {
   if (on && G.radioVer !== rangeVer) drawRange();
   rangeG.visible = !!on && rangeTiles > 0;
 }
-/** A machine of ours out of range: a small crossed ring over it (it moves slower out there). */
-function noSignal(x, y) {
-  bars.circle(x, y, 3.5).stroke({ width: 1.5, color: 0xffb545, alpha: 0.95 });
-  bars.moveTo(x - 3, y + 3).lineTo(x + 3, y - 3).stroke({ width: 1.5, color: 0xffb545, alpha: 0.95 });
+/** A machine of ours in range: a small chevron over it (it moves faster in there). */
+function boosted(x, y) {
+  bars.moveTo(x - 3.5, y + 2).lineTo(x, y - 2).lineTo(x + 3.5, y + 2).stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.95 });
 }
-/** Tests: whether the range is drawn, how many tiles it covers, and whether a unit shows the out-of-range mark. */
+/** Tests: whether the range is drawn, how many tiles it covers, and which units show the in-range mark. */
 const markedIds = new Set();
 export const rangeShown = () => ({ shown: rangeG.visible, tiles: rangeTiles, marked: [...markedIds] });
 
@@ -651,8 +650,8 @@ export function render(selList, place) {
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
-    if (u.team === G.me && RADIO.machines.has(u.type) && !G.radio[idx(clamp((u.x / TILE) | 0, 0, MW - 1), clamp((u.y / TILE) | 0, 0, MH - 1))]) {
-      noSignal(u.x, u.y - unitTop(u.type) - (bar ? 16 : 8)); markedIds.add(u.id);
+    if (u.team === G.me && RADIO.machines.has(u.type) && G.radio[idx(clamp((u.x / TILE) | 0, 0, MW - 1), clamp((u.y / TILE) | 0, 0, MH - 1))]) {
+      boosted(u.x, u.y - unitTop(u.type) - (bar ? 16 : 8)); markedIds.add(u.id);
     }
   });
   showRange(selList, place);

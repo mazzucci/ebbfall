@@ -24,7 +24,7 @@ let game = null, dirty = true, occStale = false, gen = 0, radioSeen = -1, radioM
 export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
+  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]], portal: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: new Uint8Array(MW * MH), radioVer: 0, over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
@@ -59,11 +59,12 @@ function sync() {
   Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], conceded: I[fi.conceded], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
   // A record per seat follows the info record, then each seat's upgrade levels.
   const n = I[fi.seats], lv = SCHEMA.info.length + n * SS;
-  for (const k of ['factions', 'teams', 'out', 'res', 'sup', 'stats', 'upgrades']) S[k].length = n;
+  for (const k of ['factions', 'teams', 'out', 'res', 'sup', 'hired', 'portal', 'stats', 'upgrades']) S[k].length = n;
   for (let t = 0; t < n; t++) {
     const o = SCHEMA.info.length + t * SS, at = (f) => I[o + fs[f]];
     S.factions[t] = FACTION_KEYS[at('faction')]; S.teams[t] = at('team'); S.out[t] = !!at('out');
     S.res[t] = [at('shards'), at('ether')]; S.sup[t] = [at('sup_used'), at('sup_cap')];
+    S.hired[t] = [at('hired_used'), at('hired_cap')]; S.portal[t] = [at('portal_used'), at('portal_cap')]; // (the Expedition's places; sup is its Power)
     S.stats[t] = Object.assign(S.stats[t] || {}, { built: at('built'), lost: at('lost'), killed: at('killed'), razed: at('razed') });
     const ups = S.upgrades[t] ||= {}; UPGRADE_KEYS.forEach((k, i) => { ups[k] = I[lv + t * UPGRADE_KEYS.length + i]; });
   }

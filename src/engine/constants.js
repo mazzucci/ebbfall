@@ -19,9 +19,9 @@ export const ENEMY = D.consts.enemy;
 export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
-/** The tower range (crates/endfall-sim/src/data/radio.rs): the unit kinds that need it (`machines`, a Set), what each
- *  source building gives (`sources`, tiles by kind), the speed a machine keeps out of it (`slow`) and the Drone's leash
- *  past its edge (`leash`, tiles). */
+/** The range (crates/endfall-sim/src/data/radio.rs): the unit kinds it speeds up (`machines`, a Set), what each
+ *  source building gives (`sources`, tiles by kind, a circle round its centre), a machine's speed inside it (`boost`,
+ *  a multiple) and the Drone's leash past its edge (`leash`, tiles). */
 export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
 
 /** Hotkeys, descriptions and `what` (a short line, a verb first and about 25 characters, under the health bar on the selection console;
@@ -41,14 +41,14 @@ const UNIT_TEXT = {
   rider: { hot: 'E', what: 'Raids workers, fast', desc: 'Fast light cavalry that raids workers. Faster after Horseshoes. Light armor: falls fast under ranged fire.' },
   knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Heavy cavalry in plate: tough, hits hard up close. Can\'t hit flyers.' },
   // the Expedition (`vael`)
-  lumen: { hot: 'G', what: 'Mines gold, builds', desc: 'Mines gold. Stays at each building until it stands. A machine: slower out of radio range.' },
-  scythe: { hot: 'N', what: 'Raids workers, fast', desc: 'Fast raider with a light gun. Can\'t hit flyers. Weak against infantry in numbers. A machine: slower out of radio range.' },
-  prism: { hot: 'L', what: 'Shoots ground and air', desc: 'Hired local mercenary with a rifle. Shoots ground and air: the Expedition\'s line and its answer to flyers. Weak against armor.' },
-  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Rocket artillery: long range, fires on the move, splashes nearby ground units. Can\'t hit flyers, and outranged by siege. A machine: slower out of radio range.' },
-  shrike: { hot: 'E', what: 'Flies fast, raids workers', desc: `Fast low flyer. Hits ground and air, raids workers. Fragile against anti-air. Faster after Overclock. A machine: slower out of radio range, and goes at most ${D.radio.leash} tiles past it.` },
+  lumen: { hot: 'G', what: 'Mines gold, builds', desc: 'Mines gold. Stays at each building until it stands. A machine: faster in range of the Data center or an Uplink.' },
+  scythe: { hot: 'N', what: 'Raids workers, fast', desc: 'Fast raider with a light gun. Can\'t hit flyers. Weak against infantry in numbers. A machine: faster in range of the Data center or an Uplink.' },
+  prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Hired local with a light sword: the Expedition\'s line. Fights up close, ground only. Weak against armor. Takes a hired place.' },
+  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Rocket artillery: long range, fires on the move, splashes nearby ground units. Can\'t hit flyers, and outranged by siege. A machine: faster in range of the Data center or an Uplink.' },
+  shrike: { hot: 'E', what: 'Flies fast, raids workers', desc: `Fast low flyer. Hits ground and air, raids workers. Fragile against anti-air. Faster after Overclock. A machine: faster in range of the Data center or an Uplink, and goes at most ${D.radio.leash} tiles past it.` },
   halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
-  umbra: { hot: 'U', what: 'Strikes hard from range', desc: 'Elite soldier: long reach, hits hard, ground and air. Weak against armor up close.' },
-  bruiser: { hot: 'B', what: 'Tanks hits, can\'t hit flyers', desc: 'Hired local mercenary with a riot shield and a heavy gun: the toughest on foot. Can\'t hit flyers. Weak against heavy armor.' },
+  umbra: { hot: 'U', what: 'Strikes hard from range', desc: 'Elite soldier: long reach, hits hard, ground and air. Weak against armor up close. Takes a Portal place.' },
+  bruiser: { hot: 'B', what: 'Holds the front line', desc: 'Hired local with a big shield and an axe: the toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Takes a hired place.' },
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
 const BLDG_TEXT = {
@@ -62,16 +62,18 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Archers on a tower. Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +20 population. Radio range ${D.radio.sources.conflux} tiles.` },
-  spire: { hot: 'S', what: 'Supplies +8 population', desc: '+8 population.' },
-  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.' },
+  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +20 Power. Machines move faster within ${D.radio.sources.conflux} tiles. Launches the satellite.` },
+  spire: { hot: 'S', what: 'Makes +8 Power', desc: '+8 Power for machines.' },
+  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Hires Sellswords, and Bruisers once a Lab stands. +6 hired places. Build as many as you like.' },
   kiln: { hot: 'C', what: 'Builds Buggies, Rovers, Drones', desc: 'Builds Buggies, Rovers and Drones.' },
   loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Overclock. Unlocks Rovers and Bruisers.' },
-  ward: { hot: 'A', what: 'Powers machines nearby', desc: `Guns on a mast. Shoots ground and air. Radio range ${D.radio.sources.ward} tiles.` },
-  eclipse: { hot: 'D', what: 'Trains Marines', desc: 'Trains Marines.' },
+  ward: { hot: 'A', what: 'Shoots ground and air', desc: 'Guns on a mast. Shoots ground and air.' },
+  uplink: { hot: 'U', what: 'Speeds machines, opens Portal', desc: `Talks to the satellite we brought along. Machines move faster within ${D.radio.sources.uplink} tiles. Unlocks the Portal.` },
+  eclipse: { hot: 'D', what: 'Trains Marines', desc: 'Trains Marines. +4 Portal places.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
-  afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' } };
+  afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' },
+  satellite: { hot: 'L', desc: 'Launches the Expedition\'s satellite: every player is told. Unlocks the Uplink. Needs a Lab.' } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
@@ -79,6 +81,7 @@ export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Needs a X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) { const n = D.buildings[d.req].name; d.desc += ` Needs ${/^[AEIOU]/.test(n) ? 'an' : 'a'} ${n}.`; }
+for (const d of Object.values(BUILDINGS)) if (d.reqUp) d.desc += ' Needs the satellite.';
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
 /** Team-wide upgrades; per level: cost [gold, 0], seconds. */

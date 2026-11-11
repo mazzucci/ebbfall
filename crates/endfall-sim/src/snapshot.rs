@@ -2,7 +2,7 @@
 //! once, here: the macro writes both the function that fills it and the list of its field names, which the client
 //! reads (through pkg/data.js) to find a field by name. A new field is one line, with no offsets to keep in step.
 
-use crate::data::{ProjKind, UNIT_KINDS, UnitKind};
+use crate::data::{Pool, ProjKind, UNIT_KINDS, UnitKind};
 use crate::map::Node;
 use crate::world::{Bldg, Phase, Proj, Task, Unit, World};
 
@@ -104,10 +104,12 @@ record! {
 }
 
 record! {
-    /// Per seat, in seat order: resources, supply, stats, race (index into FACTIONS), team, out (beaten or conceded).
+    /// Per seat, in seat order: resources, supply (population, or the Expedition's Power), hired and Portal places, stats,
+    /// race (index into FACTIONS), team, out (beaten or conceded).
     SEAT_FIELDS, push_seat, |t: &u8, w| {
-        shards = w.res[*t as usize][0], ether = w.res[*t as usize][1], sup_used = w.sup[*t as usize][0],
-        sup_cap = w.sup[*t as usize][1], built = w.stats[*t as usize].built, lost = w.stats[*t as usize].lost,
+        shards = w.res[*t as usize][0], ether = w.res[*t as usize][1], sup_used = w.sup(*t)[0],
+        sup_cap = w.sup(*t)[1], hired_used = w.pool(*t, Pool::Hired)[0], hired_cap = w.pool(*t, Pool::Hired)[1],
+        portal_used = w.pool(*t, Pool::Portal)[0], portal_cap = w.pool(*t, Pool::Portal)[1], built = w.stats[*t as usize].built, lost = w.stats[*t as usize].lost,
         killed = w.stats[*t as usize].killed, razed = w.stats[*t as usize].razed,
         faction = w.factions[*t as usize].index(), team = w.teams[*t as usize], out = w.out[*t as usize] as u8,
     }

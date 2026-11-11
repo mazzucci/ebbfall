@@ -251,7 +251,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'launch'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
   // its own; each ability's tech is found. Shields (shields, data since the re-theme: no building researches it) keeps
   // only its place.
@@ -259,6 +259,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.ok(researched('entrenching') && !researched('shields'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
+    else if (u.effect === 'launch') assert.ok(Object.values(C.BUILDINGS).some(b => b.reqUp === k) && /Uplink/.test(u.desc), `${k} unlocks a building and says which`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
@@ -380,16 +381,16 @@ test('advance() then one read of G is the same as step() after step(): the same 
   E.resetGame(4, 0); // (back to a duel's map for the tests after)
 });
 
-test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Mercenary\'s tracer)', { skip }, async () => {
+test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Marine\'s tracer)', { skip }, async () => {
   const { SHOT_LOOK } = await import('../src/client/look.js');
   E.resetGameSeats(32, 1, 0, 0, ['humans', 'vael'], [], [false, false], 0, 64);
   const x = 32 * C.TILE + 16, y = 32 * C.TILE + 16;
-  const shooters = ['lancer', 'prism', 'bastion'].map((k, i) => [k, E.debugSpawn(i === 1 ? 1 : 0, k, x + i * 120, y)]);
-  for (const [k, id] of shooters) E.debugSpawn(k === 'prism' ? 0 : 1, 'trooper', E.G.units.find(u => u.id === id).x + 60, y);
+  const shooters = ['lancer', 'umbra', 'bastion'].map((k, i) => [k, E.debugSpawn(i === 1 ? 1 : 0, k, x + i * 120, y)]);
+  for (const [k, id] of shooters) E.debugSpawn(k === 'umbra' ? 0 : 1, 'trooper', E.G.units.find(u => u.id === id).x + 60, y);
   const seen = new Set();
   for (let i = 0; i < 90 && seen.size < 3; i++) { E.step(); for (const p of E.G.projs) seen.add(p.by); }
   for (const [k] of shooters) assert.ok(seen.has(k), `a ${k}'s shot names it`);
-  assert.equal(SHOT_LOOK.lancer, 'arrow'); assert.equal(SHOT_LOOK.prism, 'tracer'); assert.equal(SHOT_LOOK.trooper, undefined);
+  assert.equal(SHOT_LOOK.lancer, 'arrow'); assert.equal(SHOT_LOOK.umbra, 'tracer'); assert.equal(SHOT_LOOK.trooper, undefined);
   E.resetGame(4, 0);
 });
 

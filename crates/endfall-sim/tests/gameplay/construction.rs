@@ -472,7 +472,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
 #[test]
 fn supply_blocked_names_the_right_building_for_each_race() {
     let mut w = rich_vael(4242);
-    w.sup[PLAYER as usize] = [10, 10];
+    w.pools[PLAYER as usize][0] = [10, 10];
     let hq = w
         .bldgs
         .iter()
@@ -481,7 +481,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Population full. Build a Cabin.".to_string())
+        Err("Not enough Power. Build a Wind turbine.".to_string())
     );
 }
 

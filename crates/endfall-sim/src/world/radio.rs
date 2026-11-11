@@ -1,20 +1,22 @@
-//! The tower range (radio range): the Expedition's machines (`data::radio::needs_range`) need range from a finished
-//! Data center (`conflux`) or Radio tower (`ward`) of their own seat or an ally. Outside it a machine moves at
-//! `OUT_OF_RANGE_SPEED`; the Drone (the flying machine) goes no more than `LEASH_MARGIN` tiles past its edge.
+//! The range (the Expedition rework's speed bonus): the Expedition's machines (`data::radio::needs_range`) move at
+//! `IN_RANGE_SPEED` inside the range of a finished Data center (`conflux`) or Uplink (`uplink`) of their own seat or
+//! an ally, and at their normal speed everywhere else; the Drone (the flying machine) goes no more than `LEASH_MARGIN`
+//! tiles past its edge.
 //!
-//! Coverage is a grid, a bit per seat on every tile (a tile is covered when its centre lies within a source's range),
-//! built again whenever the sources change: checked at the start of every tick (a source counts from the tick after
-//! it is done until the tick after it is gone), when a building is made and when the teams change. It is derived from
-//! the buildings, so it is deterministic and not hashed. The speed rule and the client's display read the grid; the
-//! leash and the AI's margins measure the distance to the sources themselves.
+//! In range means by exact distance: a point is in range when its distance to a source's centre is at most the
+//! source's reach (`in_radio`), so the client's circles and the rule agree. The sources are listed again whenever they
+//! change: checked at the start of every tick (a source counts from the tick after it is done until the tick after it
+//! is gone), when a building is made and when the teams change. A coverage grid (a bit per seat on every tile, a tile
+//! covered when its centre is in range) is built with them for the client's display only. Both are derived from the
+//! buildings, so deterministic and not hashed.
 
 use super::*;
-use crate::data::radio::{LEASH_MARGIN, OUT_OF_RANGE_SPEED, needs_range, range_of};
+use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, needs_range, range_of};
 
 /// How far (tiles) inside the edge the Drone backs off to.
 const BACK_OFF: f64 = 2.0;
 
-/// A source of range: a finished Data center or Radio tower.
+/// A source of range: a finished Data center or Uplink.
 #[derive(Clone, Copy, Debug)]
 pub struct RadioSrc {
     pub id: Id,
@@ -91,14 +93,10 @@ impl World {
         self.radio_ver
     }
 
-    /// Whether (x, y) (world px) is within `team`'s range (its own sources and its allies'): its tile is covered.
+    /// Whether (x, y) (world px) is within `team`'s range (its own sources and its allies'): within a source's reach
+    /// of its centre, by exact distance.
     pub fn in_radio(&self, team: u8, x: f64, y: f64) -> bool {
-        let (tx, ty) = (jsmath::to_i32(x / TILE), jsmath::to_i32(y / TILE));
-        self.map.in_map(tx, ty)
-            && self
-                .radio
-                .get(self.map.idx(tx, ty))
-                .is_some_and(|&m| (m >> team) & 1 == 1)
+        self.in_radio_by(team, x, y, 0.0)
     }
 
     /// Whether (x, y) lies within `extra` tiles past the edge of `team`'s range (by distance to the sources).
@@ -121,16 +119,16 @@ impl World {
             .fold(f64::INFINITY, f64::min)
     }
 
-    /// A machine outside its side's range: it moves at `OUT_OF_RANGE_SPEED`.
-    pub(crate) fn radio_slowed(&self, uid: Id) -> bool {
+    /// A machine inside its side's range: it moves at `IN_RANGE_SPEED`.
+    pub fn radio_boosted(&self, uid: Id) -> bool {
         let u = self.u(uid);
-        needs_range(u.kind) && !self.in_radio(u.team, u.x, u.y)
+        needs_range(u.kind) && self.in_radio(u.team, u.x, u.y)
     }
 
-    /// `live_speed`'s factor for the range: `OUT_OF_RANGE_SPEED` outside it, else 1.
+    /// `live_speed`'s factor for the range: `IN_RANGE_SPEED` inside it, else 1.
     pub(crate) fn radio_speed(&self, uid: Id) -> f64 {
-        if self.radio_slowed(uid) {
-            OUT_OF_RANGE_SPEED
+        if self.radio_boosted(uid) {
+            IN_RANGE_SPEED
         } else {
             1.0
         }

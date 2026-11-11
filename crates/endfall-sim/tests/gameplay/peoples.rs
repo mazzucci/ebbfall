@@ -23,7 +23,7 @@ fn each_building_trains_its_peoples_list() {
     for (b, units) in lists {
         assert_eq!(b.def().trains, units, "{b:?}");
     }
-    for b in [Depot, Extractor, Turret, Spire, Loom, Ward] {
+    for b in [Depot, Extractor, Turret, Spire, Loom, Ward, Uplink] {
         assert!(b.def().trains.is_empty(), "{b:?} trains nothing");
     }
     // The requirements: the heavies wait for their people's tech (the Kingdom's Forge, the Expedition's Lab).
@@ -48,7 +48,11 @@ fn each_building_trains_its_peoples_list() {
     for b in [Kiln, Loom, Ward] {
         assert_eq!(b.def().req, Some(Siphon), "{b:?}");
     }
-    assert_eq!(Eclipse.def().req, Some(Loom));
+    // (the Portal: once an Uplink stands, which needs the satellite, launched once a Lab stands)
+    assert_eq!(Eclipse.def().req, Some(Uplink));
+    assert_eq!(Uplink.def().req_up, Some(Upgrade::Satellite));
+    assert_eq!(Upgrade::Satellite.def().req, Some(Loom));
+    assert!(Conflux.def().researches.contains(&Upgrade::Satellite));
     // The Kingdom's Stables need its Market (one a Castle, built in the base), which needs the Barracks.
     assert_eq!(Airfield.def().req, Some(Extractor));
     assert_eq!(Extractor.def().req, Some(Barracks));
@@ -59,7 +63,7 @@ fn each_building_trains_its_peoples_list() {
             assert!(!other.builds(b), "{b:?} is {}'s only", f.key);
         }
     }
-    // Every unit uses population.
+    // Every unit takes places in its pool (population or Power, hired or Portal places).
     for k in UNIT_KINDS {
         assert!(k.def().supply >= 1, "{k:?}");
     }

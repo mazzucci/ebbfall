@@ -24,11 +24,13 @@ pub const HUMANS: Faction = Faction {
     market: Some(BldgKind::Extractor),
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
+    power: false,
     ai: AiScript {
         rax: BldgKind::Barracks,
         tech: BldgKind::Forge,
         tech2: None,
         tower: BldgKind::Turret,
+        relay: None,
         air: BldgKind::Airfield,
         heavy: Some(BldgKind::Factory),
         basic: UnitKind::Trooper,

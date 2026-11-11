@@ -73,7 +73,8 @@ pub struct World {
     pub bldgs: Vec<Bldg>,
     pub projs: Vec<Proj>,
     pub res: Vec<[i32; 2]>,
-    pub sup: Vec<[i32; 2]>,
+    /// Each seat's places, `[used, cap]` per `Pool` (population or Power, hired places, Portal places; `recalc_supply`).
+    pub pools: Vec<[[i32; 2]; POOLS]>,
     /// Tiles each seat has ever seen, and sees now (from `update_fog`: its own sight and its allies'). Not hashed: a
     /// difference shows in what the AI does, which is.
     pub explored: Vec<Vec<u8>>,
@@ -226,7 +227,7 @@ impl World {
             bldgs: Vec::new(),
             projs: Vec::new(),
             res: Vec::new(),
-            sup: Vec::new(),
+            pools: Vec::new(),
             explored: Vec::new(),
             vis: Vec::new(),
             over: false,
@@ -524,7 +525,7 @@ impl World {
         if u.slowed > 0.0 {
             own *= SLOW_SPEED; // (harpooned)
         }
-        own *= self.radio_speed(uid); // (a machine out of range)
+        own *= self.radio_speed(uid); // (a machine in range)
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
             _ => own,
@@ -639,9 +640,11 @@ impl World {
         // Hidden state too, so a divergence shows on the tick it happens, not when a position drifts later.
         mix(self.rng.state() as i32);
         mix(self.next_id as i32);
-        for s in &self.sup {
-            mix(s[0]);
-            mix(s[1]);
+        for p in &self.pools {
+            for s in p {
+                mix(s[0]);
+                mix(s[1]);
+            }
         }
         for n in &self.map.nodes {
             mix(n.id as i32);

@@ -54,7 +54,7 @@ export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 76
  *  and projectile kind (`PEOPLE_SHOT`); a building's shot (no shooter kind: the Watchtower's, the Radio tower's) by its
  *  people (`TOWER_SHOT`). The kingdom shoots arrows, ballista bolts and trebuchet stones; the Expedition rifle tracers,
  *  rockets and the Drone's darts. Each sprite points +x with its tip at its anchor (a stone: its middle). */
-export const SHOT_LOOK = { lancer: 'arrow', bastion: 'ballista_bolt', siegeTank: 'stone', prism: 'tracer', monolith: 'rocket', shrike: 'dart' };
+export const SHOT_LOOK = { lancer: 'arrow', bastion: 'ballista_bolt', siegeTank: 'stone', umbra: 'tracer', monolith: 'rocket', shrike: 'dart' };
 export const PEOPLE_SHOT = { humans: { bolt: 'arrow', shell: 'stone', missile: 'ballista_bolt' }, vael: { bolt: 'tracer', shell: 'rocket', missile: 'rocket' } };
 export const TOWER_SHOT = { humans: 'arrow', vael: 'tower_shot' };
 /** The sprite of a shot fired by a unit of kind `by` (undefined: a building) of people `people`, its projectile kind `type`. */

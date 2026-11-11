@@ -40,6 +40,35 @@ pub fn supply_limit(map_w: i32) -> i32 {
     }
 }
 
+/// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
+/// per seat (`World::pools`): the Kingdom's population and the Expedition's Power (`Supply`, the same pool under two
+/// names: every Kingdom unit, and the Expedition's machines), the Expedition's hired places (`Hired`: its Sellswords,
+/// Bruisers and Medics, from its Recruiting posts) and its Portal places (`Portal`: its Marines, from its Portals).
+/// Each pool is capped by its own buildings, and all of them together at the map's `supply_limit` (one army limit:
+/// `World::army_used`, `queue_unit`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Pool {
+    Supply,
+    Hired,
+    Portal,
+}
+/// How many pools there are (`Pool`'s index into `World::pools`).
+pub const POOLS: usize = 3;
+/// Every pool, in index order.
+pub const ALL_POOLS: [Pool; POOLS] = [Pool::Supply, Pool::Hired, Pool::Portal];
+impl Pool {
+    pub fn index(self) -> usize {
+        self as usize
+    }
+    pub fn key(self) -> &'static str {
+        match self {
+            Pool::Supply => "supply",
+            Pool::Hired => "hired",
+            Pool::Portal => "portal",
+        }
+    }
+}
+
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
 /// The share of its speed a harpooned unit keeps while slowed (`Weapon::slow`; flyers too).
@@ -133,6 +162,7 @@ kinds! {
         Ward => vael::WARD,
         Factory => humans::FACTORY,
         Eclipse => vael::ECLIPSE,
+        Uplink => vael::UPLINK,
     }
 }
 
@@ -248,7 +278,9 @@ def_struct! {
         /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
+        /// The places it takes in its `pool` (population or Power, hired places, Portal places).
         supply: i32 = "supply",
+        pool: Pool = "pool",
         hp: f64 = "hp",
         armor: f64 = "armor",
         speed: f64 = "speed",
@@ -296,7 +328,9 @@ def_struct! {
         h: i32 = "h",
         hp: f64 = "hp",
         armor: f64 = "armor",
+        /// The places it adds to its `pool` once finished (population or Power, hired places, Portal places).
         supply: i32 = "supply",
+        pool: Pool = "pool",
         build: f64 = "build",
         sight: f64 = "sight",
         trains: &'static [UnitKind] = "trains",
@@ -306,6 +340,8 @@ def_struct! {
         /// At most one a finished headquarters of its side (the Market: a new Castle at an expansion allows another).
         per_hq: bool = "perHq",
         req: Option<BldgKind> = "req",
+        /// A research its side must have done to build it (the Uplink: the satellite).
+        req_up: Option<Upgrade> = "reqUp",
         /// A turret's weapon; None = no defence.
         weapon: Option<Weapon> = "weapon",
     }
@@ -327,6 +363,9 @@ pub struct Faction {
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings.
     pub repairs: bool,
+    /// Its `Pool::Supply` is Power, its machines' alone (the Expedition: no population; its people take hired and
+    /// Portal places): only the words differ.
+    pub power: bool,
     /// How the scripted opponent plays this side.
     pub ai: AiScript,
 }
@@ -339,7 +378,11 @@ pub struct AiScript {
     /// A second tech building after `tech`, if the side has one (the Expedition's Portal): raised when a mixed-in unit
     /// it trains or unlocks is due (on a level that fields it) or one of its techs would serve (`World::tech2_due`).
     pub tech2: Option<BldgKind>,
+    /// Its defensive tower (the Kingdom's Watchtower, the Expedition's Sentry mast).
     pub tower: BldgKind,
+    /// The building that carries its range forward, if it has one (the Expedition's Uplink: a wave with machines
+    /// gathers at its forward-most one and raises another past the edge of its range on the march; ai/army.rs).
+    pub relay: Option<BldgKind>,
     pub air: BldgKind,
     /// Its vehicle bay, if it has one: it trains only its answer to flyers (`heavy_anti_air`) and the mixed-in units
     /// it can make, by the mix's ratios (beside the main factory, which then keeps to its own).
@@ -403,6 +446,7 @@ const UNIT: UnitDef = UnitDef {
     name: "",
     cost: [0, 0],
     supply: 1,
+    pool: Pool::Supply,
     hp: 1.0,
     armor: 0.0,
     speed: 90.0,
@@ -454,6 +498,7 @@ const BLDG: BldgDef = BldgDef {
     hp: 1.0,
     armor: 1.0,
     supply: 0,
+    pool: Pool::Supply,
     build: 20.0,
     sight: 5.0,
     trains: &[],
@@ -461,6 +506,7 @@ const BLDG: BldgDef = BldgDef {
     pays: false,
     per_hq: false,
     req: None,
+    req_up: None,
     hq: false,
     researches: &[],
     shields: 0.0,

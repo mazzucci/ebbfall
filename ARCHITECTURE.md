@@ -69,7 +69,8 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 ## Tests that guard gameplay
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
-  `combat`, `ai`, `maps`, `mines`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`, `random_play`, ...): gold
+  `combat`, `ai`, `maps`, `mines`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`, `expedition`,
+  `random_play`, ...): gold
   mines (`mines`: one per field on every map kind and size, holding the field's gold; every map symmetric mine for
   mine, each image holding the same gold and every start seeing the same mines at the same distances; a worker inside
   hidden, out of sight and reach, no healer tending it, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
@@ -93,11 +94,19 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
-  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
-  the Data center and a Radio tower, none from a site, gone when the tower falls; an ally's counts; the Drone's leash and
-  its back-off when left beyond it; the Expedition AI's forward tower on a machine wave's march, and its wave's machines
-  attacking out of range not called home), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
-  `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
+  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), the range (`radio`: machines at their own speed out of range and x1.3 in it, people never; range by
+  exact distance from the source's centre, just inside and just outside the edge, off tile centres; from the Data
+  center and an Uplink, none from a site or a Sentry mast, gone when the Uplink falls; an ally's counts; the Drone's
+  leash and its back-off when left beyond it; the Expedition AI's forward Uplink on a machine wave's march, and its
+  wave's machines attacking out of range not called home), the Expedition rework (`expedition`: Power for machines and
+  its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
+  one and a lost post leaving the count over its use, one army limit for every pool together (a Bot or a Sellsword
+  refused at it with room in its own pool), four Portal places a Portal, the satellite needing a Lab and
+  unlocking the Uplink whose standing unlocks the Portal, the launch told to every seat, melee Sellswords and Bruisers
+  hitting only the ground up close, the Expedition AI at every level raising turbines and posts, launching, and
+  reaching the Portal), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, every pool's
+  places (`check_pools`: a pool's use over its cap only as a lost building left it, never by growing),
   resources, miner counters, a worker inside a mine out of reach and out of its enemies' sight) after every tick. Add a
   scenario here for every rule you add or change.
 
@@ -140,9 +149,14 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
-                      upgrades.rs, diff.rs (AI tuning per difficulty), tide.rs (the tide's cycle, levels, warning and
-                      sweep), radio.rs (the tower range's numbers: who needs it, what gives it, the slow and the
-                      Drone's leash), export.rs (the tables as JSON, one small writer)
+                      upgrades.rs (Launch satellite among them: the Expedition's, at its Data center once a Lab
+                      stands, told to every seat, the Uplink's requirement), diff.rs (AI tuning per difficulty),
+                      tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (the range's numbers: which
+                      machines it speeds up, what gives it, the bonus and the Drone's leash), export.rs (the tables as
+                      JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and
+                      the Expedition's Power; `Hired`, the Expedition's hired places, six a Recruiting post; `Portal`,
+                      four a Portal): a unit's `pool` takes its `supply`, a building's `pool` gets it; each pool is capped by its own
+                      buildings and all of them together by the map's limit (`World::army_used`, `room`)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's crystals in an
@@ -170,13 +184,14 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat, movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
-                      retreat, the sweep), radio.rs (the tower range: the Expedition's machines need range from a
-                      finished Data center, 18 tiles, or Radio tower, 12, of their side or an ally; a coverage grid, a
-                      bit per seat a tile, built again when its sources change (checked each tick: derived, not
-                      hashed); out of it a machine moves at 0.75 speed and the Drone goes at most 5 tiles past it: a move
-                      or attack stops there (fighting what it can reach from there), it stays where it stops within the
-                      leash, and backs off inside only when left beyond it; the AI's leapfrog tower, staging at it and
-                      its Drones' wave moves clamped to the leash are in ai/army.rs)
+                      retreat, the sweep), radio.rs (the range: the Expedition's machines move x1.3 within a finished
+                      Data center's 18 tiles or an Uplink's 12 of their side or an ally, by exact distance from the
+                      building's centre, and at their own speed elsewhere; the sources listed again when they change
+                      (checked each tick: derived, not hashed), with a coverage grid for the client's display only; the
+                      Drone goes at most 5 tiles past the range: a move or attack stops there (fighting what it can
+                      reach from there), it stays where it stops within the leash, and backs off inside only when left
+                      beyond it; the AI's leapfrog Uplink, staging at it and its Drones' wave moves clamped to the
+                      leash are in ai/army.rs); economy.rs keeps each seat's pools (`World::pools`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
@@ -187,9 +202,9 @@ src/client/           everything that touches the browser
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
-                      the tower range (this side's covered tiles, tinted and outlined, while a Bot is selected or a
-                      Radio tower placed, drawn again only when the coverage changes; a crossed ring over a machine out
-                      of range; `rangeShown` for the tests);
+                      the range (this side's covered tiles, tinted and outlined, while a Bot is selected or an
+                      Uplink placed, drawn again only when the coverage changes; a chevron over a machine in range,
+                      where it moves faster; `rangeShown` for the tests);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's

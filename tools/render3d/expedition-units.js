@@ -11,6 +11,7 @@ import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { torus } from './harbour.js';
 import { cone } from './vael.js';
 import { figure } from './kingdom.js';
+import { compactRifle } from './expedition.js';
 
 // ---- the family's own materials over the Expedition's set ----
 const FAM = new WeakMap();
@@ -18,6 +19,11 @@ function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
   const A = {
     reflect: new THREE.MeshStandardMaterial({ color: 0xe4e6e0, metalness: 0.55, roughness: 0.2, envMapIntensity: 2.0 }), // the Mercenary's reflective tape: pale and glossy, so it catches the key and reads as hi-vis (expedition.js's `hivis` is dull in daylight)
+    plate: new THREE.MeshStandardMaterial({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }),                        // the Android's white shell plates (head, chest, thighs, upper arms)
+    plateGrey: new THREE.MeshStandardMaterial({ color: 0xaeb2b0, metalness: 0.3, roughness: 0.6 }),                    // its light grey plates (the lower body, shins, forearms): the segments part in two tones
+    head: new THREE.MeshStandardMaterial({ color: 0x8e9492, metalness: 0.3, roughness: 0.6 }),                         // its head, a mid grey: under the sun from above the light grey plate came out as white as the Marine's helmet (round 2)
+    visor: new THREE.MeshStandardMaterial({ color: 0x0c6a88, emissive: 0x28d0ff, emissiveIntensity: 1.0, metalness: 0, roughness: 0.7 }), // its cyan visor strip: the Marine's cyan, matte and dark under the glow, so the band's lit top stays cyan and not white (round 2)
+    visorHalo: new THREE.MeshBasicMaterial({ color: 0x30d8ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }), // the strip's halo, cyan (the white LED halo washed the strip to white at 1x)
   };
   FAM.set(M, A); return A;
 }
@@ -92,6 +98,59 @@ export function mercenary(M, f) {
     add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.8, 5.4, -3.4, 0.3, 0, 0.55);
   }
   g.scale.setScalar(1.06);
+  return g;
+}
+
+/** Android (the elite, the `umbra` slot, sim r 10-11; an alternative to the Marine for Stelian's pick, 2026-11-11): a
+ *  robot, not a person in armor. A faceless head, a tall rounded block in mid grey, with one glowing cyan strip
+ *  wrapped round its front and sides at eye height (no face, no rim, no seam); white and grey shell plates over a dark
+ *  frame: a white chest shell, widest at the shoulders, tapering to a narrow dark waist (a dark cylinder between the
+ *  chest and a grey pelvis plate: the hourglass that reads as a machine from every facing), dark ball joints at the
+ *  shoulders, elbows, hips, knees and ankles with the limbs in two tones (white upper segments, grey lower ones), flat
+ *  dark feet, no boots, no belt, no skin anywhere; a slim dark power pack on the back. Lean and a hair taller than the
+ *  Marine, at its own scale 1.0. Team on both shoulders, two pads between ink lines, capping the shoulder joints. The
+ *  compact rifle (the Marine's) carried low across the hips, the right arm hanging straight to its grip (round 1 held
+ *  it level at the chest as the Marine does, and the bar hid the waist). From the camera: a pale slim figure with a
+ *  grey block head crossed by a cyan line, a team square at each shoulder, a dark break at its waist and dark dots at
+ *  its joints, a short dark level bar low across its legs; beside the Marine, the one with a strip for a face and a
+ *  waist you can see. Frames 0-1 the march. */
+export function android(M, f) {
+  const A = fam(M), g = grp(), st = [3.2, -3.2][f % 2];
+  for (const side of [-1, 1]) {                                                                  // the legs: hip, knee and ankle joints as dark balls, white thigh, grey shin, a flat dark foot
+    const z = side * 2.0, s = st * side, kn = [s * 0.5, 3.7, z * 1.05], an = [s, 1.3, z];
+    add(g, sph(1.0, 10, 8), M.joint, 0, 6.4, z);                                                 // the hip joint
+    limb(g, [0, 6.4, z], kn, 0.95, A.plate);                                                     // the thigh, white
+    add(g, sph(1.05, 10, 8), M.joint, ...kn);                                                    // the knee joint
+    limb(g, kn, an, 0.8, A.plateGrey);                                                           // the shin, grey
+    add(g, sph(0.8, 10, 8), M.joint, ...an);                                                     // the ankle
+    add(g, rbox(3.2, 1.1, 2.0, 0.5), M.armour, s + 0.6, 0.55, z);                                // the foot: flat and dark, no boot
+  }
+  const b = grp(); g.add(b);
+  add(b, rbox(3.8, 1.8, 4.8, 0.6), A.plateGrey, 0, 6.9, 0);                                      // the pelvis plate, grey
+  add(b, cyl(1.25, 1.35, 1.8, 12), M.joint, 0, 8.3, 0);                                          // the waist: a narrow dark cylinder, the gap that reads as a machine
+  add(b, rbox(3.4, 1.4, 4.0, 0.5), A.plateGrey, 0.1, 9.4, 0);                                    // the lower chest, grey, narrower
+  add(b, rbox(4.4, 4.0, 6.0, 1.2), A.plate, 0.2, 11.4, 0);                                       // the chest shell, white, widest at the shoulders
+  add(b, rbox(4.6, 0.3, 6.2, 0.1), M.inkLine, 0.2, 9.45, 0);                                     // an ink line under it
+  add(b, rbox(1.6, 3.4, 3.6, 0.5), M.joint, -2.8, 11.4, 0);                                      // the power pack on the back, slim and dark
+  for (const sz of [-1, 1]) {                                                                    // the shoulders: a dark ball joint under a team pad between ink lines (the Marine's pads' size)
+    add(b, sph(1.3, 10, 8), M.joint, 0.3, 12.7, sz * 3.4);
+    add(b, rbox(4.2, 2.2, 3.4, 0.7), M.paint, 0.2, 13.9, sz * 3.6); add(b, rbox(4.4, 0.3, 3.6, 0.1), M.inkLine, 0.2, 12.75, sz * 3.6); add(b, rbox(4.4, 0.3, 3.6, 0.1), M.inkLine, 0.2, 15.05, sz * 3.6);
+  }
+  add(b, cyl(0.9, 0.9, 1.6, 10), M.joint, 0.3, 13.9, 0);                                         // the neck, dark and visible
+  add(b, rbox(3.8, 4.4, 4.0, 1.2), A.head, 0.3, 16.6, 0);                                        // the head: a tall rounded block, blank, mid grey (the Marine's helmet is off-white and round)
+  const vis = new THREE.CylinderGeometry(2.7, 2.7, 2.2, 16, 1, false, 0, Math.PI);                // the visor strip: a half-ring proud of the head's front and sides at eye height (theta from +z over +x to -z), half the head's height, its top rim a cyan crescent from above
+  add(b, vis, A.visor, 0.3, 16.9, 0); add(b, sph(2.8, 8, 6), A.visorHalo, 2.6, 16.9, 0).scale.set(0.5, 0.6, 1); // with a cyan halo ahead of it
+  compactRifle(b, M, 3.2, 8.0, 0);                                                               // the compact rifle, carried low across the hips
+  // the arms: white upper arm, dark elbow ball, grey forearm, dark hand; the right hangs straight to the grip, the
+  // left reaches down to the handguard
+  const el = [[1.4, 9.6, 3.0], [2.6, 10.0, -3.4]];
+  limb(b, [0.4, 12.4, 3.4], el[0], 0.9, A.plate); add(b, sph(0.9, 10, 8), M.joint, ...el[0]); limb(b, el[0], [2.0, 6.9, 1.1], 0.75, A.plateGrey); add(b, sph(0.85, 8, 6), M.joint, 2.1, 6.8, 1.0);
+  limb(b, [0.4, 12.4, -3.4], el[1], 0.9, A.plate); add(b, sph(0.9, 10, 8), M.joint, ...el[1]); limb(b, el[1], [5.2, 8.7, -1.0], 0.75, A.plateGrey); add(b, sph(0.85, 8, 6), M.joint, 5.4, 8.6, -0.9);
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): an ink seam down the chest's front, an ink ring round each knee, a cyan dot on the pack
+    add(b, rbox(0.3, 3.2, 0.3, 0.1), M.inkLine, 2.45, 11.4, 0);
+    for (const side of [-1, 1]) add(g, torus(1.05, 0.12, 10), M.inkLine, st * side * 0.5, 3.7, side * 2.1, 0, 0, Math.PI / 2);
+    add(b, sph(0.35, 8, 6), A.visor, -3.6, 12.2, 0);
+  }
   return g;
 }
 

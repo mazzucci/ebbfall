@@ -95,7 +95,7 @@
   "single player: every split of five to eight, over any spots, fits 667x375, 844x390 and 412x915: no scrolling, no word cut": 121.8,
   "single player: nothing on the board moves (upright and on its side) when a player comes, goes or changes side": 8.2,
   "single player: the board and an open sheet fit every phone (667x375, 844x390, 412x915), eight seats included": 21.9,
-  "single player: the record counts a game at its enemies' level (a Brutal ally against an Easy enemy is an Easy game)": 4.3,
+  "single player: the record counts a game at its enemies' level (a Hard ally against an Easy enemy is an Easy game)": 4.3,
   "small phone: the console fits a full queue, a turret's figures and long names": 7.9,
   "the HUD tells the first enemy flyer seen, and an army wiped out": 6.6,
   "the Shore map: chosen from the list, its line said; a Human starts in its cove, the Expedition AI in its reef basin, water drawn": 2.1,

@@ -3,7 +3,7 @@
 A classic real-time strategy game, free in the browser. Time travel was discovered. Naturally, the first thing we built
 was a data center. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
-peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level, free for
+peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
 all or in teams of any shape, or friends over the Internet with AIs in the empty seats), fourteen maps of three sizes
 (for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each
 size, and a lake map with a random one of its own). Pre-alpha.

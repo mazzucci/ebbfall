@@ -179,7 +179,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .tok .act{font:600 10px var(--display);letter-spacing:.08em;color:var(--ally2);white-space:nowrap}
 .board .pair{display:flex;gap:4px} .board .pair .ib.tok{flex:1 1 0;min-width:0} .board .pair .ib.x{flex:none;width:34px;padding:0;font-size:15px;color:var(--muted)} .board .pair .ib.x:hover{color:var(--fg)}
 .lvl{display:inline-flex;gap:2px;align-items:flex-end;height:12px} .lvl i{display:block;width:4px;background:var(--line2);border-radius:1px} .lvl i.on{background:var(--ally)}
-.lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:7px} .lvl i:nth-child(3){height:9px} .lvl i:nth-child(4){height:12px}
+.lvl i:nth-child(1){height:5px} .lvl i:nth-child(2){height:8px} .lvl i:nth-child(3){height:12px}
 @media (max-width:480px){.sheet .opt .lbl{width:46px} .sheet .diff .ib{padding-left:7px;padding-right:7px;letter-spacing:.02em}}
 /* A seat's sheet in a <dialog> (modal: the page behind it inert): its choices as rows of chips. A phone: a sheet from
    the bottom edge; a wide screen: a small dialog. The dialog itself is the scrim. */

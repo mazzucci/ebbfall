@@ -219,7 +219,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
 });
 
 test('a whole game against the AI runs to the end without errors', { engines: true }, async () => {
-  const d = await newGame(DESKTOP, 2);
+  const d = await newGame(DESKTOP, 3);
   try {
     await until(d, async () => (await d.state()).over, { seconds: 1500, step: 30, what: 'the game to end' });
     await d.page.waitForTimeout(400);
@@ -630,9 +630,10 @@ test('the menu: every map in one list (the duel\'s three and a random one first)
       assert.equal(await page.locator('#mapSel').inputValue(), '0', 'the standard map is the default');
       // The opponent's level: in its token's sheet (LEVEL), its name only.
       await board(page).open(1);
-      assert.deepEqual(await page.$$eval('#soloSheet [data-k^="diff:"]', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD', 'BRUTAL']);
+      assert.deepEqual(await page.$$eval('#soloSheet [data-k^="diff:"]', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD'], 'three levels at launch, exactly');
+      assert.equal(await page.locator('#soloSheet [data-k="diff:3"]').textContent(), 'HARD', 'Hard is the sim\'s level 3 (its level 2 is not offered)');
       assert.equal(await page.locator('#soloSheet [data-k^="diff:"].on').textContent(), 'EASY', 'new players start on Easy');
-      const level = touch ? 3 : 2; // (Hard on the desktop, Brutal on the phone)
+      const level = touch ? 3 : 1; // (Medium on the desktop, Hard on the phone: the sim's level 3)
       await press(`#soloSheet [data-k="diff:${level}"]`);
       assert.deepEqual(await page.$$eval('#soloSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE', 'LEVEL', 'SIDE']);
       assert.equal(await page.locator('#soloSheet .hint, #soloSheet [aria-describedby]').count(), 0, 'no line on what a level means');
@@ -658,8 +659,8 @@ test('the menu: every map in one list (the duel\'s three and a random one first)
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
       assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuSolo').isHidden(), 'the menu opens on its first page');
       await press('#btnSolo');
-      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), touch ? /Brutal/ : /Hard/, 'opponent remembered');
-      assert.equal(await page.locator('#soloBoard [data-k="tok1"] .lvl i.on').count(), level + 1, 'its level as pips');
+      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), touch ? /Hard/ : /Medium/, 'opponent remembered');
+      assert.equal(await page.locator('#soloBoard [data-k="tok1"] .lvl i.on').count(), [0, 1, 3].indexOf(level) + 1, 'its level as pips (three)');
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
       // The random map is a new one each game.
       assert.equal(await page.locator('#mapSel').inputValue(), '1', 'the map remembered');
@@ -1947,7 +1948,7 @@ const fitsPage = async (page, what) => {
   assert.ok(sh <= ch + 1 && sw <= cw + 1, `${what}: fits (${sh} > ${ch} or ${sw} > ${cw})`);
 };
 /** A board as saved: a side number per spot (null: empty), you in spot 0, the AIs Expedition on Hard. */
-const saved = (...teams) => Array.from({ length: 8 }, (_, i) => (teams[i] == null ? null : i ? { race: 'vael', team: teams[i], diff: 2 } : { race: 'humans', team: teams[i] }));
+const saved = (...teams) => Array.from({ length: 8 }, (_, i) => (teams[i] == null ? null : i ? { race: 'vael', team: teams[i], diff: 3 } : { race: 'humans', team: teams[i] }));
 /** Each seat's Core (tile centre), by seat. */
 const cores = (page) => page.evaluate(() => endfall.G.teams.map((_, s) => { const b = endfall.G.bldgs.find(x => x.team === s && x.d.hq); return [b.tx + 2, b.ty + 2]; }));
 const apart = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -2086,13 +2087,13 @@ test('single player, you alone against three AIs teamed up at mixed difficulties
     await page.locator('#btnSolo').tap();
     await seats.add(); await seats.add(); await seats.side(2, 1); await seats.side(3, 1); // (1v3)
     assert.deepEqual(await seats.sides(), [['YOU'], ['COMPUTER 1', 'COMPUTER 2', 'COMPUTER 3']]);
-    await seats.diff(2, 2); await seats.diff(3, 3);
-    assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => t.querySelectorAll('.lvl i.on').length)), [0, 1, 3, 4], 'the levels as pips');
+    await seats.diff(2, 1); await seats.diff(3, 3);
+    assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => t.querySelectorAll('.lvl i.on').length)), [0, 1, 2, 3], 'the levels as pips (three levels)');
     await fitsPage(page, 'one against three');
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.me, endfall.engine.foes(), [1, 2, 3].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW, [0, 1, 2, 3].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);
-    assert.deepEqual(game, [[0, 1, 1, 1], 0, [1, 2, 3], [0, 2, 3], 3, 96, [1, 1, 1, 1]], 'seat 0 alone, seats 1 to 3 one team at Easy, Hard and Brutal (the game counted at Brutal)');
+    assert.deepEqual(game, [[0, 1, 1, 1], 0, [1, 2, 3], [0, 1, 3], 3, 96, [1, 1, 1, 1]], 'seat 0 alone, seats 1 to 3 one team at Easy, Medium and Hard (the game counted at Hard, the sim\'s 3)');
     await page.evaluate(() => endfall.skip(20));
     assert.ok(await page.evaluate(() => [1, 2, 3].every(t => endfall.G.stats[t].built > 0) && !endfall.G.over), 'three allied AIs at work');
   } finally { await ctx.close(); }
@@ -2141,7 +2142,7 @@ test('single player: the board and an open sheet fit every phone (667x375, 844x3
         await page.locator('#btnSolo').tap();
         await fitsPage(page, `${name} on ${width}x${height}`);
         assert.deepEqual(await page.evaluate(() => cutWords()), [], `${name} on ${width}x${height}: no word cut`);
-        await board(page).open(rows.findLastIndex(Boolean)); await page.locator('#soloSheet [data-k="diff:2"]').tap();
+        await board(page).open(rows.findLastIndex(Boolean)); await page.locator('#soloSheet [data-k="diff:1"]').tap();
         assert.ok(await sheetFits(page), `${name} on ${width}x${height}: the sheet fits the screen`);
       } finally { await ctx.close(); }
     }
@@ -2197,18 +2198,18 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
   } finally { await phone.close(); }
 });
 
-test('single player: the record counts a game at its enemies\' level (a Brutal ally against an Easy enemy is an Easy game)', async () => {
+test('single player: the record counts a game at its enemies\' level (a Hard ally against an Easy enemy is an Easy game)', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
     await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
     const seats = board(page);
-    await seats.add(); await seats.side(2, 0); await seats.diff(2, 3); // (AI 2 on your side, Brutal; AI 1 the enemy, Easy)
+    await seats.add(); await seats.side(2, 0); await seats.diff(2, 3); // (AI 2 on your side, Hard; AI 1 the enemy, Easy)
     assert.deepEqual(await seats.sides(), [['YOU', 'COMPUTER 2'], ['COMPUTER 1']]);
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
-    assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 3, 0], 'the game\'s level Easy, the ally Brutal');
+    assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 3, 0], 'the game\'s level Easy, the ally Hard');
     await page.evaluate(() => { document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').click(); await page.locator('#btnSoloBack').click();
     const r = await storedRecord(page);
@@ -2224,7 +2225,7 @@ test('single player: every split of five to eight, over any spots, fits 667x375,
   const rowsOf = (s, k) => {
     const teams = s.flatMap((c, t) => Array.from({ length: c }, () => t)), r = Array(8).fill(null);
     let gaps = 8 - teams.length, at = 0;
-    teams.forEach((team, i) => { r[at++] = i ? { race: 'vael', team, diff: 2 } : { race: 'humans', team }; if (gaps && (k + i) % 2) { at++; gaps--; } });
+    teams.forEach((team, i) => { r[at++] = i ? { race: 'vael', team, diff: 3 } : { race: 'humans', team }; if (gaps && (k + i) % 2) { at++; gaps--; } });
     return r;
   };
   assert.equal(splits.length, 102);
@@ -2255,7 +2256,7 @@ test('two against two: out while the ally fights on (orders refused, told once),
     await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
-    const seats = board(page); await seats.diff(1, 2); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
+    const seats = board(page); await seats.diff(1, 3); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);

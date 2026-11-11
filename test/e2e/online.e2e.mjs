@@ -79,7 +79,7 @@ async function addComputer(x, i) {
   await sheet(x, i, ['giveai']);
   await x.p.waitForFunction((i) => !document.querySelector(`#onlineBoard [data-k="tok${i}"]`)?.classList.contains('open'), i, { timeout: RUN_MS });
 }
-/** Seat `i`'s sheet on page `x`: its token, then each of `keys` (a chip or button's data-k: race:vael, diff:2, side:0,
+/** Seat `i`'s sheet on page `x`: its token, then each of `keys` (a chip or button's data-k: race:vael, diff:1, side:0,
  *  share, remove...), then DONE (unless `done` is false: the sheet stays open). */
 async function sheet(x, i, keys = [], done = true) {
   await x.tap(`#onlineBoard [data-k="tok${i}"]`);
@@ -340,10 +340,10 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       await sidesAre(b, [['YOU', 'COMPUTER 3'], ['Ann', 'COMPUTER 2']]);
       assert.equal(await b.p.evaluate(() => endfall.online.seat), 1, 'the friend still in its seat');
       assert.deepEqual({ a: await board(a.p, 'online').boxes(), b: await board(b.p, 'online').boxes() }, boxes, 'every spot where it was, on both boards');
-      await sheet(a, 3, ['diff:3', 'race:vael']); // (AI 3: Brutal, Expedition)
+      await sheet(a, 3, ['diff:3', 'race:vael']); // (AI 3: Hard, Expedition)
       await sheet(a, 2, ['diff:0']); // (AI 2: Easy)
-      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard [data-k="tok3"] .lvl i.on').length === 4 && document.querySelectorAll('#onlineBoard [data-k="tok2"] .lvl i.on').length === 1);
-      await b.p.waitForFunction(() => /^COMPUTER 3 EXPEDITION, Brutal/.test(document.querySelector('#onlineBoard [data-k="tok3"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard [data-k="tok3"] .lvl i.on').length === 3 && document.querySelectorAll('#onlineBoard [data-k="tok2"] .lvl i.on').length === 1);
+      await b.p.waitForFunction(() => /^COMPUTER 3 EXPEDITION, Hard/.test(document.querySelector('#onlineBoard [data-k="tok3"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
       // The host puts the friend on its side and AI 2 on the other: two people against two AIs. Nobody moves.
       await sheet(a, 1, ['side:0']);
       await sheet(a, 2, ['side:1']);

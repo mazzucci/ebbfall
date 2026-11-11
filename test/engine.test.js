@@ -54,7 +54,7 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     for (const ks of [f.buildBasic, f.buildAdvanced]) assert.equal(new Set(page(ks)).size, ks.length, 'Build page hotkeys');
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
-  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
+  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Hard']);
   assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Guard \+1.*Watchtower \+2/, 'the Weapons description is built from the tables');
 });
 

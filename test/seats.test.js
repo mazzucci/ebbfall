@@ -44,6 +44,7 @@ test('one side, the lowest empty spot, a new AI on a side of its own', () => {
 test('a saved board: a good one as it is, one saved before the spots in the first spots, anything else not at all', () => {
   const good = [{ race: 'vael', team: 0 }, null, { race: 'random', team: 1, diff: 3 }, null, null, { race: 'humans', team: 1, diff: 0 }, null, null];
   assert.deepEqual(validRows(good), good);
+  assert.deepEqual(validRows([good[0], { race: 'humans', team: 1, diff: 2 }]).slice(0, 2), [good[0], { race: 'humans', team: 1, diff: 3 }], 'a saved old Hard (2): today\'s Hard (3), three levels at launch');
   assert.deepEqual(validRows([{ race: 'vael', team: 0, diff: 2, x: 1 }, { race: 'humans', team: 1, diff: 1, n: 4 }]), [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 1 }, ...Array(6).fill(null)], 'a list from before the spots: only what a seat holds');
   for (const bad of [null, 'x', {}, [], [good[0]], [null, good[2]], [good[0], null, null], Array(9).fill(good[2]), [good[0], { race: 'orcs', team: 1, diff: 0 }], [good[0], { race: 'humans', team: 8, diff: 0 }],
     [good[0], { race: 'humans', team: 1 }], [good[0], { race: 'humans', team: 1, diff: 4 }], [good[0], { race: 'humans', team: 1.5, diff: 0 }], [good[0], 7]]) assert.equal(validRows(bad), null, JSON.stringify(bad));
@@ -52,7 +53,7 @@ test('a saved board: a good one as it is, one saved before the spots in the firs
 test('START GAME: the seats in side order, each seat\'s spot, each AI\'s difficulty (none when all alike), the hardest the game\'s', () => {
   const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null, { race: 'random', team: 0, diff: 3 }, { race: 'humans', team: 1, diff: 2 }, null, null, null];
   assert.deepEqual(startSetup(b, (k) => (k === 'random' ? 'vael' : k)), { races: ['vael', 'vael', 'humans', 'humans'], ai: [false, true, true, true], teams: [0, 0, 1, 1], diffs: [0, 3, 0, 2], diff: 2, spots: [0, 3, 1, 4] },
-    'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own colour), its RANDOM drawn; the record counts the enemies\' hardest, Hard (not the stronger ally)');
+    'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own colour), its RANDOM drawn; the record counts the enemies\' hardest (not the stronger ally)');
   assert.equal(startSetup(board(0, 0, 1)).diff, 0);
   const alike = [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 2 }, { race: 'humans', team: 2, diff: 2 }, ...Array(5).fill(null)];
   assert.deepEqual(startSetup(alike), { races: ['humans', 'humans', 'humans'], ai: [false, true, true], teams: [], diffs: [], diff: 2, spots: [0, 1, 2] }, 'every AI alike: the game\'s diff, as before');
@@ -60,7 +61,7 @@ test('START GAME: the seats in side order, each seat\'s spot, each AI\'s difficu
 
 test('the old menu\'s saved choices make the first spots: players, teams, races, difficulty', () => {
   assert.deepEqual(legacyRows({ race: 'vael', enemy: 'random', diff: 2, players: 4, teams: teamList(4, '2v2') }),
-    [{ race: 'vael', team: 0 }, { race: 'random', team: 0, diff: 2 }, { race: 'random', team: 1, diff: 2 }, { race: 'random', team: 1, diff: 2 }, null, null, null, null]);
+    [{ race: 'vael', team: 0 }, { race: 'random', team: 0, diff: 3 }, { race: 'random', team: 1, diff: 3 }, { race: 'random', team: 1, diff: 3 }, null, null, null, null], 'an old Hard (2): today\'s Hard (3)');
   assert.deepEqual(legacyRows({ race: null, enemy: null, diff: null, players: 0, teams: [] }).slice(0, 3), [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null], 'nothing saved: you and an AI on Easy');
   assert.ok(validRows(legacyRows({ players: 8, teams: teamList(8, '2v2v2v2') })), 'a good setup');
 });
@@ -82,7 +83,7 @@ test('the sides a sheet offers: as many as the players (any higher one in use to
 
 test('the record\'s level: the enemies\' hardest; with nobody to fight, the hardest AI', () => {
   const b = (...ds) => [{ race: 'humans', team: 0 }, ...ds.map(([team, diff]) => (team == null ? null : { race: 'humans', team, diff })), ...Array(8).fill(null)].slice(0, SPOTS);
-  assert.equal(enemyLevel(b([0, 3], [1, 0])), 0, 'a Brutal ally, an Easy enemy');
+  assert.equal(enemyLevel(b([0, 3], [1, 0])), 0, 'a Hard ally, an Easy enemy');
   assert.equal(enemyLevel(b([1, 1], [null], [2, 2], [0, 3])), 2);
   assert.equal(enemyLevel(b([0, 1], [0, 2])), 2, 'one side');
 });

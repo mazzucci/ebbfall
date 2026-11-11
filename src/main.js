@@ -15,6 +15,7 @@ import { initPause, paused, closePause, roomPaused, roomResumed } from './client
 import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
+import { levelOf } from './engine/util.js';
 import { setSpots } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
@@ -51,7 +52,7 @@ function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
   menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's colour: the room's setup says, alike on every client)
   // (races: a RANDOM seat already drawn, online.js)
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: setup.diff ?? 1, diffs: setup.diffs || [], size: m.size }));
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (an old Hard, 2: today's, 3; alike on every client)
 }
 
 function begin(reset) {

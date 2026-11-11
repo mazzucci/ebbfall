@@ -10,6 +10,7 @@
 // seats fit them too.
 import { SEAT_COLORS } from './look.js';
 import { DIFF_NAMES } from '../engine/constants.js';
+import { LEVELS, levelOf } from '../engine/util.js';
 
 /** The races a seat may pick (RANDOM too: drawn when the game starts), their names, and their short names on a token
  *  where room is short. */
@@ -19,7 +20,7 @@ export const RACE_NAMES = { humans: 'KINGDOM', vael: 'EXPEDITION', random: 'RAND
 export const RACE_SHORT = { humans: 'KING', vael: 'EXP', random: 'RND' };
 /** A race's name in a sentence ('Kingdom'). */
 export const raceTitle = (k) => { const n = RACE_NAMES[k] || ''; return n.slice(0, 1) + n.slice(1).toLowerCase(); }; // ('' for a key that is not a race)
-export { DIFF_NAMES };
+export { DIFF_NAMES, LEVELS, levelOf };
 /** The spots on the board: the most seats a game has (maps.js MAX_PLAYERS, the relay's MAX_SEATS). */
 export const SPOTS = 8;
 
@@ -53,7 +54,7 @@ export function startSetup(spots, draw = (r) => r) {
 /** The spots the menu before the board saved (`race`, `enemy`, `diff`, `players` and their `teams`: a team per seat,
  *  maps.js `teamList`); anything not a good one: you and one AI, on Easy. */
 export function legacyRows({ race, enemy, diff, players, teams = [] }, max = SPOTS) {
-  const r = (k) => (RACE_KEYS.includes(k) ? k : 'humans'), d = Number.isInteger(diff) && diff >= 0 && diff < DIFF_NAMES.length ? diff : 0;
+  const r = (k) => (RACE_KEYS.includes(k) ? k : 'humans'), d = Number.isInteger(diff) && diff >= 0 && diff < DIFF_NAMES.length ? levelOf(diff) : 0;
   const n = Number.isInteger(players) && players >= 2 && players <= max ? players : 2;
   return Array.from({ length: SPOTS }, (_, i) => (i >= n ? null : i ? { race: r(enemy), team: teams.length === n ? teams[i] : i, diff: d } : { race: r(race), team: teams.length === n ? teams[0] : 0 }));
 }
@@ -95,7 +96,7 @@ export function validRows(rows, max = SPOTS) {
   const ok = at.every(i => typeof spots[i] === 'object' && RACE_KEYS.includes(spots[i].race) && Number.isInteger(spots[i].team) && spots[i].team >= 0 && spots[i].team < SPOTS
     && (i === 0 || (Number.isInteger(spots[i].diff) && spots[i].diff >= 0 && spots[i].diff < DIFF_NAMES.length)));
   if (!ok) return null;
-  return spots.map((r, i) => (!r ? null : i === 0 ? { race: r.race, team: r.team } : { race: r.race, team: r.team, diff: r.diff }));
+  return spots.map((r, i) => (!r ? null : i === 0 ? { race: r.race, team: r.team } : { race: r.race, team: r.team, diff: levelOf(r.diff) }));
 }
 
 /** Where room is short (a phone): the race's short name on a token. */
@@ -109,7 +110,8 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 /** A level as four pips, `d + 1` of them lit (a level at a glance; its name is in the sheet). */
 function levelPips(d) {
   const p = el('span', 'lvl'); p.setAttribute('aria-hidden', 'true');
-  for (let k = 0; k < 4; k++) p.appendChild(el('i', k <= d ? 'on' : ''));
+  const at = LEVELS.indexOf(levelOf(d)); // (one pip a level offered)
+  for (let k = 0; k < LEVELS.length; k++) p.appendChild(el('i', k <= at ? 'on' : ''));
   return p;
 }
 /** A seat's token from its view `{ name, race, diff (an AI's level, else null), side (its side's number from 0, null:
@@ -178,7 +180,7 @@ export function seatSheet(view, color, { sub = '', info = '', team = null, sides
   if (info) s.appendChild(el('div', 'info', info));
   const opt = (name, ...parts) => { const o = el('div', 'opt'); o.append(el('span', 'lbl', name), ...parts); s.appendChild(o); };
   if (onRace) opt('RACE', chipRow(RACE_KEYS.map(k => [k, RACE_NAMES[k], k === 'random' ? 'Either race, drawn when the game starts' : '']), view.race, 'Race', onRace, { name: 'race' }));
-  if (onDiff) opt('LEVEL', chipRow(DIFF_NAMES.map((n, d) => [d, n.toUpperCase()]), view.diff, 'Level', onDiff, { name: 'diff' }));
+  if (onDiff) opt('LEVEL', chipRow(LEVELS.map(d => [d, DIFF_NAMES[d].toUpperCase()]), levelOf(view.diff), 'Level', onDiff, { name: 'diff' }));
   if (onSide) {
     const items = sides.map(({ team: t, chip, color: c }) => { const sw = el('i', 'sw'); sw.style.background = c; return [t, [sw, document.createTextNode(chip)]]; });
     opt('SIDE', chipRow(items, team, 'Side', onSide, { name: 'side', cls: 'team' }));

@@ -49,10 +49,10 @@ test("a room's link has a card of its own: which room, the canonical page with t
   assert.equal(preview(at('index.html?room=WGNJKL')).url, 'https://ebbfall.com/?room=WGNJKL');
 });
 
-const VS = '1.8.5.ky.h00v13v23v33'; // (Iron Compass, you against three Brutal Expedition AIs, won in 12:34: test/challenge.test.js)
+const VS = '1.8.5.ky.h00v13v23v33'; // (Iron Compass, you against three Hard Expedition AIs, won in 12:34: test/challenge.test.js)
 test("a challenge's link has a card of its own: the setup in words, its link made again from the code's values", () => {
   assert.deepEqual(preview(at(`?vs=${VS}`)), {
-    title: 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass',
+    title: 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass',
     description: 'Kingdom vs Expedition · won in 12:34 · free, in your browser',
     url: `https://ebbfall.com/?vs=${VS}`,
   });
@@ -62,7 +62,7 @@ test("a challenge's link has a card of its own: the setup in words, its link mad
   assert.equal(preview(at(`?vs=${VS}&vs=1.0.1.4z.v00h12`)).url, `https://ebbfall.com/?vs=${VS}`, 'the first, as the client reads it');
   assert.equal(preview(at('?vs=1.3.0.2s0.h00h10.4.21i3v9')).url, 'https://ebbfall.com/?vs=1.3.0.2s0.h00h10.4.21i3v9', "a random map's seed and character");
   assert.equal(preview(at(`?room=WGNJKL&vs=${VS}`)).title, 'Join my Ebbfall game: room WGN-JKL', "a room's link first (the client opens the room)");
-  assert.equal(preview(at(`?room=WGNJKLKA&vs=${VS}`)).title, 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', 'not a room: the challenge');
+  assert.equal(preview(at(`?room=WGNJKLKA&vs=${VS}`)).title, 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass', 'not a room: the challenge');
 });
 
 test("anything else keeps the site's card: hostile, overlong and unknown links reflect nothing", () => {

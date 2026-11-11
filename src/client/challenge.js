@@ -14,7 +14,7 @@
 // version included, opens the plain menu). <kind> is one digit: a tenth map kind needs version 2.
 // Pure: no DOM, no WASM (test/challenge.test.js; the site's Worker imports it).
 import { MAPS, MAP_KINDS, RANDOM_KINDS, seatsOf, mapName } from './maps.js';
-import { DIFF_NAMES } from '../engine/util.js';
+import { DIFF_NAMES, levelOf } from '../engine/util.js';
 
 /** The link's parameter. */
 export const PARAM = 'vs';
@@ -67,7 +67,9 @@ export function decode(code) {
   const spots = [...m[4].matchAll(/x|[hv][0-7][0-3]/g)].map(([t], i) => (t === 'x' ? null : { race: RACE_OF[t[0]], team: +t[1], ...(i ? { diff: +t[2] } : {}) }));
   const c = { map: parseInt(m[1], 36), side: parseInt(m[2], 36), secs: parseInt(m[3], 36), spots: Array.from({ length: SPOTS }, (_, i) => spots[i] ?? null) };
   if (m[5] !== undefined) Object.assign(c, { kind: +m[5], seed: parseInt(m[6], 36) });
-  return encode(c) === code ? c : null;
+  if (encode(c) !== code) return null;
+  for (const r of c.spots) if (r && r.diff !== undefined) r.diff = levelOf(r.diff); // (an old Hard, 2: today's Hard, 3)
+  return c;
 }
 
 /** The challenge of a game the menu played (menu.js `menu`: `map`, `kind`, `seed`, `side`; the `board` and how
@@ -95,12 +97,12 @@ function camps(c) {
   const at = c.spots.flatMap((r, i) => (r ? [r] : [])), me = at[0];
   return { mine: at.filter(r => r.team === me.team), foes: at.filter(r => r.team !== me.team) };
 }
-/** The AIs against you by level: "Brutal" (all one level) or "up to Brutal". */
+/** The AIs against you by level: "Hard" (all one level) or "up to Hard". */
 function levels(foes) {
   const ds = foes.map(r => r.diff), top = DIFF_NAMES[Math.max(...ds)];
   return ds.every(d => d === ds[0]) ? top : `up to ${top}`;
 }
-/** "a Brutal AI" ("1 Brutal AI" when `counted`), "3 Brutal AIs", "3 AIs up to Brutal". */
+/** "a Hard AI" ("1 Hard AI" when `counted`), "3 Hard AIs", "3 AIs up to Hard". */
 function ais(foes, counted = false) {
   const l = levels(foes), n = foes.length;
   return n === 1 ? `${counted ? 1 : 'a'} ${l} AI` : l.startsWith('up to') ? `${n} AIs ${l}` : `${n} ${l} AIs`;

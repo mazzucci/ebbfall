@@ -284,7 +284,7 @@ fn the_foundry_takes_two_by_two_tiles() {
         .filter(|&i| w.map.occ[i] == f as i32)
         .count();
     assert_eq!(taken, 4, "it blocks four tiles");
-    assert_eq!(BldgKind::Forge.def().name, "Workshop");
+    assert_eq!(BldgKind::Forge.def().name, "Blacksmith");
 }
 
 #[test]
@@ -481,7 +481,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Population full. Build a Sunpetal.".to_string())
+        Err("Population full. Build a Cabin.".to_string())
     );
 }
 

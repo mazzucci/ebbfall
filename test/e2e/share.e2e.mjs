@@ -59,8 +59,8 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
   try {
     const { page } = a, sb = board(page);
     await page.locator('#btnSolo').click();
-    // You against two AIs (a Brutal Vael, a Hard Human), on a random 96x96 map: a seed and a character of its own.
-    await sb.add(); await sb.race(1, 'vael'); await sb.diff(1, 3); await sb.diff(2, 2);
+    // You against two AIs (a Hard Expedition, a Medium Human), on a random 96x96 map: a seed and a character of its own.
+    await sb.add(); await sb.race(1, 'vael'); await sb.diff(1, 3); await sb.diff(2, 1);
     const random96 = MAPS.findIndex(m => m.random && m.size === 96);
     await page.selectOption('#mapSel', String(random96));
     assert.doesNotMatch(await page.locator('#soloNote').textContent(), /CHALLENGE/, 'no challenge line on an ordinary setup');
@@ -91,8 +91,8 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
     const shared = await page.evaluate(() => window.shared[0]);
     assert.equal(shared.url, url);
     const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-    assert.match(shared.text, new RegExp(`^I beat 2 AIs up to Brutal on [A-Z][a-z]+ [A-Z][a-z]+ in ${clock} in Ebbfall\\. Can you\\?$`), shared.text);
-    assert.match(shared.title, /^Can you beat this\? 1 vs 2 AIs up to Brutal on /);
+    assert.match(shared.text, new RegExp(`^I beat 2 AIs up to Hard on [A-Z][a-z]+ [A-Z][a-z]+ in ${clock} in Ebbfall\\. Can you\\?$`), shared.text);
+    assert.match(shared.title, /^Can you beat this\? 1 vs 2 AIs up to Hard on /);
     assert.equal(await page.locator('#btnShareWin').textContent(), 'SHARE', 'shared: nothing to say');
     // The sheet closed without sharing: nothing said, nothing copied.
     await page.evaluate(() => navigator.clipboard.writeText('before'));
@@ -139,10 +139,10 @@ test('a challenge link opens its setup; a change makes it the player\'s; a bad l
     assert.deepEqual(await board(page).sides(), [['YOU'], ['COMPUTER 2', 'COMPUTER 3']]);
     assert.equal(await page.locator('#mapSel').inputValue(), String(MAPS.findIndex(m => m.name === 'Dust Quarter')));
     // A change: the challenge is over (no line), the setup the player's (saved, its map too).
-    await board(page).diff(3, 2);
+    await board(page).diff(3, 0);
     assert.equal(await page.locator('#soloNote').textContent(), '');
     const saved = await page.evaluate(() => [JSON.parse(localStorage.getItem('endfall.seats')), localStorage.getItem('endfall.map')]);
-    assert.deepEqual(saved[0].slice(0, 4), [{ race: 'vael', team: 0 }, null, { race: 'humans', team: 1, diff: 3 }, { race: 'vael', team: 1, diff: 2 }]);
+    assert.deepEqual(saved[0].slice(0, 4), [{ race: 'vael', team: 0 }, null, { race: 'humans', team: 1, diff: 3 }, { race: 'vael', team: 1, diff: 0 }]);
     assert.equal(saved[1], String(MAPS.findIndex(m => m.name === 'Dust Quarter')));
     assert.deepEqual(g.errors, []);
   } finally { await g.ctx.close(); }

@@ -54,8 +54,8 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
     for (const ks of [f.buildBasic, f.buildAdvanced]) assert.equal(new Set(page(ks)).size, ks.length, 'Build page hotkeys');
     assert.ok(C.UNITS[f.worker].worker && C.BUILDINGS[f.hq].hq, 'the faction names its worker and headquarters');
   }
-  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Brutal']);
-  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Picket \+1.*Lookout \+2/, 'the Weapons description is built from the tables');
+  assert.deepEqual(C.DIFF.map(x => x.name), ['Easy', 'Medium', 'Hard', 'Hard']);
+  assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Guard \+1.*Watchtower \+2/, 'the Weapons description is built from the tables');
 });
 
 test('every fighting unit names its partner (its own people) and its killer (the other people), workers none', { skip }, () => {
@@ -70,7 +70,7 @@ test('every fighting unit names its partner (its own people) and its killer (the
       assert.match(line, /^Best with [A-Z][A-Za-z ]+s\. Beaten by [A-Z][A-Za-z ]+s\.$/, `${k}: ${line}`);
     }
   }
-  assert.equal(C.pairLine('trooper'), 'Best with Harpooners. Beaten by Conchs.');
+  assert.equal(C.pairLine('trooper'), 'Best with Archers. Beaten by Rovers.');
 });
 
 test('no description a side reads on its card names the other race\'s units or buildings (only the partner/killer line does, on purpose)', { skip }, () => {
@@ -93,7 +93,7 @@ test('a fresh game has two cores, eight harvesters and resource nodes', { skip }
   assert.equal(E.G.bldgs.length, 2);
   assert.equal(E.G.units.length, 8);
   assert.ok(E.map.nodes.length >= 6); // (a gold mine per field)
-  assert.deepEqual(E.G.sup[E.PLAYER], [4, 20]); // (the Lighthouse holds 20 population)
+  assert.deepEqual(E.G.sup[E.PLAYER], [4, 20]); // (the Castle holds 20 population)
   assert.ok(E.G.units.every(u => u.task.t === 'gather' && u.task.node && u.task.node.kind === 'node'));
 });
 
@@ -143,7 +143,7 @@ test('orders report errors and a rally point shows up on the building', { skip }
   const core = E.G.bldgs.find(b => b.team === E.PLAYER);
   assert.match(E.placeBuilding(E.PLAYER, 'forge', core.tx, core.ty, null), /Cannot build there/);
   E.setResources(E.PLAYER, 0, 0);
-  assert.match(E.queueUnit(core, 'harvester'), /Not enough salt/);
+  assert.match(E.queueUnit(core, 'harvester'), /Not enough gold/);
   E.setRally(core, 100, 200, E.map.nodes[0]);
   assert.deepEqual(core.rally, { x: 100, y: 200, node: E.map.nodes[0] });
 });
@@ -193,7 +193,7 @@ test('a game on a larger map mirrors its size, and the next game its own', { ski
   for (const n of [256, 97, 100]) assert.throws(() => E.resetGame(1, 1, 0, 0, 'humans', 'humans', n), /64, 96 or 128/, `size ${n}`);
 });
 
-test('a Market, built in the base once the Crew Hall stands, earns salt by itself; one per Castle', { skip }, () => {
+test('a Market, built in the base once the Barracks stands, earns gold by itself; one per Castle', { skip }, () => {
   E.resetGame(11, 1);
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
@@ -209,18 +209,18 @@ test('a Market, built in the base once the Crew Hall stands, earns salt by itsel
   const r = spot('barracks');
   assert.equal(E.placeBuilding(E.PLAYER, 'barracks', r.tx, r.ty, hs[1]), null);
   const m = spot('extractor');
-  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null, 'refused before the Crew Hall stands');
+  assert.notEqual(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null, 'refused before the Barracks stands');
   runSeconds(60);
   assert.equal(E.placeBuilding(E.PLAYER, 'extractor', m.tx, m.ty, hs[0]), null);
   const m2 = spot('extractor');
-  assert.match(E.placeBuilding(E.PLAYER, 'extractor', m2.tx, m2.ty, hs[2]), /One Excavator per Lighthouse/);
+  assert.match(E.placeBuilding(E.PLAYER, 'extractor', m2.tx, m2.ty, hs[2]), /One Market per Castle/);
   runSeconds(40); // (25 s of construction)
   const ext = E.G.bldgs.find(b => b.type === 'extractor');
   assert.ok(ext.done, 'the Market built');
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
-  assert.equal(E.G.res[E.PLAYER][0], 10, 'ten salt in 20 s, nobody mining');
+  assert.equal(E.G.res[E.PLAYER][0], 10, 'ten gold in 20 s, nobody mining');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
@@ -252,7 +252,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
   for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
-  // its own; each ability's tech is found. Hardshell (shields, data since the re-theme: no building researches it) keeps
+  // its own; each ability's tech is found. Shields (shields, data since the re-theme: no building researches it) keeps
   // only its place.
   const researched = (k) => Object.values(C.BUILDINGS).some(b => (b.researches || []).includes(k));
   assert.ok(researched('entrenching') && !researched('shields'));
@@ -261,7 +261,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
-  // The Guard's Brace waits for Sandbags; the Trebuchet's Deploy is how it fires at all: no tech. (The re-theme removed
+  // The Guard's Brace waits for Shield Drill; the Trebuchet's Deploy is how it fires at all: no tech. (The re-theme removed
   // the others: the boosts, the hop, the cloaks.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['entrench', 'entrenching'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
@@ -450,12 +450,13 @@ test('the client names no unit or building kind outside its data tables and look
   }
 });
 
-test('every unit and building name has a proper plural (Lenses, Spyglasses; never a doubled s)', () => {
-  assert.equal(plural('Lens'), 'Lenses');
-  assert.equal(plural('Spyglass'), 'Spyglasses');
-  assert.equal(plural('Conch'), 'Conchs');
-  assert.equal(plural('Picket'), 'Pickets');
+test('every unit and building name has a proper plural (Buggies, Barracks; never a doubled s or a -ys)', () => {
+  assert.equal(plural('Buggy'), 'Buggies');
+  assert.equal(plural('Factory'), 'Factories');
+  assert.equal(plural('Barracks'), 'Barracks');
+  assert.equal(plural('Guard'), 'Guards');
+  assert.equal(plural('Data center'), 'Data centers');
   for (const d of [...Object.values(C.UNITS), ...Object.values(C.BUILDINGS)]) {
-    assert.doesNotMatch(plural(d.name), /ss$/, d.name);
+    assert.doesNotMatch(plural(d.name), /(ss|[^aeiou]ys)$/, d.name);
   }
 });

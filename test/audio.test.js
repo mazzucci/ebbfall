@@ -216,10 +216,10 @@ test('the synth announcer says every phrase in every race\'s voice, one at a tim
   assert.deepEqual(errors, []);
   audio.announcer = 'synth';
   // One at a time: another phrase while one plays is dropped.
-  say('salt'); ramps.length = 0; say('attack');
+  say('gold'); ramps.length = 0; say('attack');
   assert.equal(ramps.length, 0, 'not over another phrase');
   Ctx.now += 10; clock += 30000;
-  audio.muted = true; ramps.length = 0; say('salt'); assert.equal(ramps.length, 0, 'muted'); audio.muted = false;
+  audio.muted = true; ramps.length = 0; say('gold'); assert.equal(ramps.length, 0, 'muted'); audio.muted = false;
   // The research sound speaks: more than the chime alone.
   Ctx.now += 10; clock += 30000;
   ramps.length = 0; sfx('done'); const chime = ramps.length;
@@ -246,7 +246,7 @@ test('the device\'s voice: each race its own voice, pitch and rate, the phrase\'
       ['Base under attack', 'Daniel', 'en-GB', 1, 1.03], ['Research complete', 'Samantha', 'en-US', 1.2, 0.95]]);
     // The repeat gap holds; a line speaking drops a new one, an attack cuts it.
     sp.spoken.length = 0; clock += 1000; say('research'); assert.equal(sp.spoken.length, 0, 'not again within its gap');
-    sp.speaking = true; clock += 30000; say('salt');
+    sp.speaking = true; clock += 30000; say('gold');
     assert.equal(sp.spoken.length, 0, 'not over a line still speaking');
     say('attack');
     assert.deepEqual([sp.cancels, sp.spoken.map(u => u.text)], [1, ['Base under attack']], 'an attack cuts in');
@@ -260,7 +260,7 @@ test('the device\'s voice: each race its own voice, pitch and rate, the phrase\'
     holdSound(false); await settle();
     sp.speaking = false; say('research'); assert.equal(sp.spoken.length, 1, 'and speaks after');
     // `after`: the line waits (for the chime or the siren it goes with), and not if the sound went off meanwhile.
-    sp.spoken.length = 0; clock += 30000; say('salt', 0.02); assert.equal(sp.spoken.length, 0, 'not yet');
+    sp.spoken.length = 0; clock += 30000; say('gold', 0.02); assert.equal(sp.spoken.length, 0, 'not yet');
     await new Promise(r => setTimeout(r, 40)); assert.equal(sp.spoken.length, 1, 'after its wait');
     clock += 30000; say('research', 0.02); audio.muted = true;
     await new Promise(r => setTimeout(r, 40)); assert.equal(sp.spoken.length, 1, 'muted during the wait: not said');
@@ -283,7 +283,7 @@ test('the device\'s voice falls back to the synth: no speechSynthesis, no Englis
   } finally { audio.announcer = null; Ctx.now += 10; }
 });
 
-test('the device\'s voice picker: the Humans a known name or a US voice, the Vael another; one voice: both, apart by pitch; a pick by hand wins', async () => {
+test('the device\'s voice picker: the Humans a known name or a US voice, the Expedition another; one voice: both, apart by pitch; a pick by hand wins', async () => {
   const { voiceFor, picked, canSpeak, speakLine } = await import('../src/client/speech.js');
   const pick = (voices) => { const sp = speechStub(voices); try { return [voiceFor('humans')?.name, voiceFor('vael')?.name]; } finally { sp.remove(); } };
   assert.deepEqual(pick([VOICES.samantha, VOICES.daniel, VOICES.google]), ['Daniel', 'Samantha'], 'Apple');
@@ -302,7 +302,7 @@ test('the device\'s voice picker: the Humans a known name or a US voice, the Vae
   } finally { delete picked.vael; sp.remove(); }
 });
 
-test('the Vael styles are friendly by construction: unison copies only (no fifths or fourths), no long echo, little vibrato, no growl; pitched as asked', () => {
+test('the Expedition styles are friendly by construction: unison copies only (no fifths or fourths), no long echo, little vibrato, no growl; pitched as asked', () => {
   const vael = Object.entries(STYLES).filter(([k, s]) => k.startsWith('vael') && !s.device);
   assert.deepEqual(vael.map(([k]) => k), ['vaelClear', 'vaelWarm', 'vaelAiry', 'vael']);
   for (const [k, s] of vael) {
@@ -311,7 +311,7 @@ test('the Vael styles are friendly by construction: unison copies only (no fifth
     assert.ok(!s.radio && (s.vib ?? 1.2) <= 0.6 && s.pitch >= 110 && s.hp >= 150, `${k}: no radio, little vibrato, no low growl`);
   }
   assert.ok(STYLES.vaelClear.pitch > STYLES.humansRadio.pitch && STYLES.vaelWarm.pitch < STYLES.vaelClear.pitch, 'A above the operator, B below A');
-  assert.equal(STYLES.vael, STYLES.vaelClear, 'the Vael\'s synth voice is A');
+  assert.equal(STYLES.vael, STYLES.vaelClear, 'the Expedition\'s synth voice is A');
   assert.equal(STYLES.humans, STYLES.humansRadio, 'the Humans\' is A');
   assert.equal(STYLES.humansRadio.radio.drive, 0, 'the clean radio does not clip');
 });

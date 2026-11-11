@@ -18,14 +18,14 @@ const ai = (race, team, diff) => ({ race, team, diff });
 const spots = (...rs) => Array.from({ length: SPOTS }, (_, i) => rs[i] ?? null);
 const SAFE = /^[^<>&"'\u0000-\u001f]*$/;
 
-test('a setup round-trips through its code: a duel, three Brutal AIs, teams, gaps on the board, a random map', () => {
+test('a setup round-trips through its code: a duel, three Hard AIs, teams, gaps on the board, a random map', () => {
   const cases = [
     [{ map: at('Ashen Basin'), side: 1, secs: 754, spots: spots(you(), ai('vael', 1, 3)) }, '1.0.1.ky.h00v13'],
-    [{ map: at('Random Shore'), side: 1, secs: 754, spots: spots(you(), ai('vael', 1, 3)), kind: 6, seed: 2 }, '1.d.1.ky.h00v13.6.2'],
+    [{ map: at('Random Lake'), side: 1, secs: 754, spots: spots(you(), ai('vael', 1, 3)), kind: 6, seed: 2 }, '1.d.1.ky.h00v13.6.2'],
     [{ map: at('Iron Compass'), side: 5, secs: 754, spots: spots(you(), ai('vael', 1, 3), ai('vael', 2, 3), ai('vael', 3, 3)) }, '1.8.5.ky.h00v13v23v33'],
-    [{ map: at('Dust Quarter'), side: 2, secs: 61, spots: spots(you('vael'), null, ai('humans', 0, 1), ai('vael', 1, 2)) }, '1.4.2.1p.v00xh01v12'],
+    [{ map: at('Dust Quarter'), side: 2, secs: 61, spots: spots(you('vael'), null, ai('humans', 0, 1), ai('vael', 1, 1)) }, '1.4.2.1p.v00xh01v11'],
     [{ map: RANDOM_64, side: 0, secs: 3600, spots: spots(you(), ai('humans', 1, 0)), kind: 4, seed: 123456789 }, '1.3.0.2s0.h00h10.4.21i3v9'],
-    [{ map: RANDOM_128, side: 63, secs: MAX_SECS, spots: spots(...[you(), ...Array.from({ length: 7 }, (_, i) => ai(i % 2 ? 'vael' : 'humans', i < 3 ? 0 : 1, i % 4))]), kind: 5, seed: 0xffffffff }, null],
+    [{ map: RANDOM_128, side: 63, secs: MAX_SECS, spots: spots(...[you(), ...Array.from({ length: 7 }, (_, i) => ai(i % 2 ? 'vael' : 'humans', i < 3 ? 0 : 1, [0, 1, 3][i % 3]))]), kind: 5, seed: 0xffffffff }, null],
   ];
   for (const [c, want] of cases) {
     const code = encode(c);
@@ -38,10 +38,10 @@ test('a setup round-trips through its code: a duel, three Brutal AIs, teams, gap
 });
 
 test('the code is canonical: sides numbered as they first appear, the side modulo starts x players, trailing spots dropped', () => {
-  const c = { map: at('Iron Compass'), side: 8 * 3 + 5, secs: 100, spots: spots(you('humans', 4), ai('vael', 7, 2), ai('vael', 4, 1)) };
+  const c = { map: at('Iron Compass'), side: 8 * 3 + 5, secs: 100, spots: spots(you('humans', 4), ai('vael', 7, 3), ai('vael', 4, 1)) };
   const code = encode(c);
-  assert.equal(code, '1.8.5.2s.h00v12v01');
-  assert.deepEqual(decode(code).spots.slice(0, 3), [you(), ai('vael', 1, 2), ai('vael', 0, 1)]);
+  assert.equal(code, '1.8.5.2s.h00v13v01');
+  assert.deepEqual(decode(code).spots.slice(0, 3), [you(), ai('vael', 1, 3), ai('vael', 0, 1)]);
   // (the same game: seats.js seats it the same whatever the sides' numbers)
   const a = startSetup(c.spots), b = startSetup(decode(code).spots);
   assert.deepEqual([a.teams, a.spots, a.diffs], [b.teams, b.spots, b.diffs]);
@@ -69,7 +69,7 @@ test('only a code the game makes is a challenge: hostile, malformed, non-canonic
     '1.0.0.0.h00v13', '1.0.0.7ps0.h00v13', // (no time; 100 hours)
     '1.0.0.ky.h00v13x', '1.0.0.ky.h00v13xxxxxx', // (trailing empty spots)
     '1.0.0.ky.h00v13.4.2', // (a fixed map with a seed)
-    '1.3.0.ky.h00v13', '1.3.0.ky.h00v13.6.2', '1.d.0.ky.h00v13.0.2', '1.d.0.ky.h00v13.7.2', // (a plain random map never draws the Shore, nor Random Shore another kind)
+    '1.3.0.ky.h00v13', '1.3.0.ky.h00v13.6.2', '1.d.0.ky.h00v13.0.2', '1.d.0.ky.h00v13.7.2', // (a plain random map never draws the Shore, nor Random Lake another kind)
     '1.3.0.ky.h00v13.4', '1.3.0.ky.h00v13.4.1z141z4', '1.3.0.ky.h00v13.4.02', // (a random map: kind and seed)
     '1.0.0.ky.h00v13&x=1', '1.0.0.ky.h00v13<script>', '<script>alert(1)</script>', '1.0.0.ky.h00v13%00', '1.0.0.ky.h00v13\n',
     '1.0.0.ky.h00v1３', '1.0.0.ky.h00v13'.padEnd(65, 'x'), 'x'.repeat(5000), '1.0.0.ky.' + 'h00'.repeat(9),
@@ -84,10 +84,17 @@ test('only a code the game makes is a challenge: hostile, malformed, non-canonic
     const c = decode(s);
     if (!c) continue;
     found++;
-    assert.equal(encode(c), s);
+    assert.deepEqual(decode(encode(c)), c); // (as it is, but an old Hard, 2, read as today's, 3)
     for (const v of [...Object.values(card(c)), shareText(c), line(c)]) assert.match(v, SAFE);
   }
   assert.ok(found > 10, `some mutated codes are still good ones (${found})`);
+});
+
+test('three levels at launch: an old link\'s Hard (the sim\'s 2) plays and reads as today\'s Hard (3)', () => {
+  const c = decode('1.0.1.4z.v00h12');
+  assert.equal(c.spots[1].diff, 3);
+  assert.equal(encode(c), '1.0.1.4z.v00h13');
+  assert.equal(card(c).title, 'Can you beat this? 1 vs 1 Hard AI on Ashen Basin');
 });
 
 test("encode refuses what the menu never plays (and fromSetup with it)", () => {
@@ -120,16 +127,16 @@ test("a game's challenge: the menu's setup as START GAME seated it, a RANDOM rac
 
 test('the words: a card and a share line from the values, plain text', () => {
   const three = decode('1.8.5.ky.h00v13v23v33');
-  assert.deepEqual(card(three), { title: 'Can you beat this? 1 vs 3 Brutal AIs on Iron Compass', description: 'Harbour vs Vael · won in 12:34 · free, in your browser' });
-  assert.equal(shareText(three), 'I beat 3 Brutal AIs on Iron Compass in 12:34 in Ebbfall. Can you?');
+  assert.deepEqual(card(three), { title: 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass', description: 'Kingdom vs Expedition · won in 12:34 · free, in your browser' });
+  assert.equal(shareText(three), 'I beat 3 Hard AIs on Iron Compass in 12:34 in Ebbfall. Can you?');
   assert.equal(line(three), 'CHALLENGE · won in 12:34 · beat it');
   assert.equal(link(three, 'https://ebbfall.com'), `https://ebbfall.com/?${PARAM}=1.8.5.ky.h00v13v23v33`);
   const duel = decode('1.0.1.4z.v00h12');
-  assert.deepEqual(card(duel), { title: 'Can you beat this? 1 vs 1 Hard AI on Ashen Basin', description: 'Vael vs Harbour · won in 2:59 · free, in your browser' });
+  assert.deepEqual(card(duel), { title: 'Can you beat this? 1 vs 1 Hard AI on Ashen Basin', description: 'Expedition vs Kingdom · won in 2:59 · free, in your browser' });
   assert.equal(shareText(duel), 'I beat a Hard AI on Ashen Basin in 2:59 in Ebbfall. Can you?');
   const team = decode('1.4.2.1p.v00xh01v12h11');
   assert.equal(card(team).title, 'Can you beat this? 2 vs 2 AIs up to Hard on Dust Quarter');
-  assert.equal(card(team).description, 'Vael and Harbour vs Vael and Harbour · won in 1:01 · free, in your browser');
+  assert.equal(card(team).description, 'Expedition and Kingdom vs Expedition and Kingdom · won in 1:01 · free, in your browser');
   assert.equal(shareText(team), 'I beat 2 AIs up to Hard with an AI ally on Dust Quarter in 1:01 in Ebbfall. Can you?');
   const random = decode('1.3.0.2s0.h00h10.4.21i3v9');
   assert.equal(card(random).title, `Can you beat this? 1 vs 1 Easy AI on ${mapName(123456789)}`);

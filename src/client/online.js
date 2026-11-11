@@ -21,7 +21,7 @@ import { $, toast, LOAD_FAILED } from './ui.js';
 import { sfx } from './audio.js';
 import { mapSelect, drawPreview, showMenu } from './menu.js';
 import { MAPS, MAX_PLAYERS, fitMap, mapNoteOf } from './maps.js';
-import { filled, freeTeam, firstEmpty, sideChoices, sideColor, seatColor, raceTitle, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
+import { levelOf, filled, freeTeam, firstEmpty, sideChoices, sideColor, seatColor, raceTitle, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 import { touchDevice, enterFullscreen } from './screen.js';
 import { cleanName, playerName } from './store.js';
 
@@ -287,7 +287,7 @@ const isOpen = (s) => !!s && !s.ai && !s.here && !s.name;
 /** An AI seat's name: AI and its spot's number (as single player's). */
 const aiName = (i) => `COMPUTER ${i}`;
 /** The lobby as seats.js reads a board: a `{ team, race, diff }` per spot, null when empty. */
-const boardOf = (m) => m.seats.map((s, i) => (s ? { team: m.teams[i], race: s.race, diff: s.diff, ai: s.ai } : null));
+const boardOf = (m) => m.seats.map((s, i) => (s ? { team: m.teams[i], race: s.race, diff: levelOf(s.diff), ai: s.ai } : null));
 /** The seats in the room. */
 const seated = (m) => m.seats.filter(Boolean);
 /** A new AI: on a side of its own, as the room's last AI (race, level), else RANDOM on Medium. */
@@ -299,7 +299,7 @@ function aiFor(m) {
  *  host's crown; ready, AWAY; who may open it (`ro`: nobody here); what a tap says. */
 function viewOf(m, i) {
   const s = m.seats[i], me = online.seat, host = me === 0, open = isOpen(s), side = m.teams[i], sideCol = sideColor(boardOf(m), side);
-  if (s.ai) return { name: aiName(i), race: s.race, diff: s.diff ?? 1, side, sideColor: sideCol, ro: !host, tip: 'Race, level, side' };
+  if (s.ai) return { name: aiName(i), race: s.race, diff: levelOf(s.diff ?? 1), side, sideColor: sideCol, ro: !host, tip: 'Race, level, side' };
   if (open) return { name: '', open: true, host: i === 0, side, sideColor: sideCol, act: host ? '' : 'SIT HERE', tip: host ? 'Share the link, give it to the computer, or move it' : 'Take this seat' };
   const mine = i === me;
   return { name: mine ? 'YOU' : s.name || '…', race: s.race, diff: null, side, sideColor: sideCol, me: mine, host: i === 0, ready: s.ready && s.here, away: !s.here, ro: !mine && !host, tip: mine ? 'Race, side' : 'Side' };

@@ -8,7 +8,7 @@ import { sfx } from './audio.js';
 import { icon } from './icons.js';
 import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
-import { buildCard, invalidateCard, cardItems, doCommand } from './card.js';
+import { buildCard, invalidateCard, cardItems, doCommand, holdForDetail } from './card.js';
 import { myFaction, buildersOf, ROMAN } from './cards.js';
 export { myFaction, buildersOf, ROMAN }; // (the card's own helpers: cards.js)
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)
@@ -20,7 +20,7 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
-  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} salt: 1 every 2 s`;
+  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} gold: 1 every 2 s`;
   return '';
 }
 
@@ -69,7 +69,7 @@ const compactMq = matchMedia('(max-width: 620px), (max-height: 500px) and (orien
  * the production queue (a factory's research beside it), construction, or the tiles of a group). Rebuilt only when
  * what it shows changes, so its buttons survive between frames; bars and numbers update in place. */
 function renderSelection() {
-  if (!stripBound) { stripBound = true; bindStrip(); }
+  if (!stripBound) { stripBound = true; bindStrip(); bindPortrait(); }
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
   const life = (f, cur, max, color = '', sh = 0, maxsh = 0) => { // (small phones drop the "/max")
     $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
@@ -82,6 +82,11 @@ function renderSelection() {
   const named = (t) => { if (name.textContent !== t) name.textContent = t; if (name.title !== t) name.title = t; };
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
   info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;
+  // What one unit or building is for: a short line under its health bar (`what`) where it fits whole, else none; its
+  // full description on the portrait (hover, or a long press). Measured again only when what it holds or the room
+  // changes (the selection, the module, the window): the line is tried, and gives way if it is cut.
+  const one = sel.length === 1 && sel[0].kind !== 'node' ? sel[0] : null;
+  if (!one) whatLine(info, null); // (one unit or building: once its module is in place, below)
   if (!sel.length) {
     named('Nothing selected'); sub.textContent = touchUi ? 'Tap a unit or a building' : 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
     module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
@@ -89,9 +94,9 @@ function renderSelection() {
     // A gold mine (what is left and who works it), or a mine shaft (none since the re-theme: an Excavator or a Siphon on
     // it digs by itself; who holds a shaft: what this side may see of it, an enemy's as last seen: memory.js)
     const n = sel[0], seep = n.type === 'ether', on = seep && shownBldgs().find(b => b.vent === n), rig = on ? BUILDINGS[on.type] : BUILDINGS[myFaction().market];
-    named(seep ? 'Mine shaft' : 'Gold mine');
+    named(seep ? 'Gold seam' : 'Gold mine');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = seep ? (on ? `${aName(rig.name).replace(/^a/, 'A')} ${rig.verb} salt here by itself` : `Build ${aName(rig.name)} on it: it ${rig.verb} salt by itself`) : n.amount > 0 ? `${n.amount} gold left` : 'Empty: no gold left';
+    sub.textContent = seep ? (on ? `${aName(rig.name).replace(/^a/, 'A')} ${rig.verb} gold here by itself` : `Build ${aName(rig.name)} on it: it ${rig.verb} gold by itself`) : n.amount > 0 ? `${n.amount} gold left` : 'Empty: no gold left';
     if (seep) $('life').hidden = true; else life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
     const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // inside, waiting, and coming and going
     module('node' + working, `<span class="st" title="${plural(UNITS[myFaction().worker].name)} working it" aria-label="${plural(UNITS[myFaction().worker].name)} working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
@@ -105,9 +110,11 @@ function renderSelection() {
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
+    } else if (x.kind === 'bldg' && own && x.d.trains?.length && !x.queue.length && !x.research) {
+      module('', ''); // (idle: no empty slots; the room is its line's, under the health bar (Stelian, Nov 11))
     } else if (x.kind === 'bldg' && own && x.d.trains?.length) {
-      // Its slots even when idle: nothing moves as it fills. A factory that also researches keeps a tile beside them
-      // for its research (empty room when there is none), so a research starting or ending moves nothing either.
+      // Its slots while it trains or researches. A factory that also researches keeps a tile beside them for its
+      // research (empty room when there is none), so a research starting or ending moves nothing either.
       const rs = x.d.researches?.length ? '<div id="qres" class="rq"></div>' : '';
       module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>' + rs);
       renderQueue($('queue'), x, 30);
@@ -118,6 +125,7 @@ function renderSelection() {
     } else if (x.kind === 'unit' || x.d.weapon) {
       const h = fightStats(x); module('f' + h, h);
     } else module('', '');
+    whatLine(info, x);
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
     named(sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units')); $('selPor').innerHTML = ''; selKey = ''; module('', '');
@@ -167,6 +175,31 @@ function bindStrip() {
   });
 }
 let stripBound = false;
+let whatFit = '';
+/** The kind's line for `one` (null: none), measured again only when what it holds or the room changes (the selection,
+ *  its module, the window). */
+function whatLine(info, one) {
+  const what = $('selWhat'), text = one?.d.what || '', key = (one ? one.id : '') + '|' + modKey + '|' + innerWidth + 'x' + innerHeight;
+  if (what.textContent !== text) what.textContent = text;
+  if (key !== whatFit) { whatFit = key; fitWhat(info, what); }
+  portraitTip(one);
+}
+/** Shows the kind's line if it fits whole (no cut word, nothing pushed out of the console), else hides it. */
+function fitWhat(info, what) {
+  info.classList.remove('nowhat');
+  info.classList.toggle('nowhat', !!what.textContent && (what.scrollWidth > what.clientWidth + 1 || info.scrollHeight > info.clientHeight + 1));
+}
+/** The full description of one selected unit or building: hover on the portrait with a mouse (its title, as a command
+ *  button's), a long press on a touch screen (the command card's details panel, card.js). */
+function portraitTip(one) {
+  const por = $('selPor'), t = one ? `${one.d.name}: ${one.d.desc}` : '';
+  if (por.title !== t) por.title = t;
+}
+let porBound = false;
+function bindPortrait() {
+  if (porBound) return; porBound = true;
+  holdForDetail($('selPor'), () => { const one = ui.sel.length === 1 && ui.sel[0].kind !== 'node' ? ui.sel[0] : null; return one && { id: '@por', label: one.d.name, tip: one.d.desc }; }, $('info'));
+}
 
 function taskName(u) {
   const T = u.task;

@@ -136,7 +136,7 @@ fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
     let p = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
     assert_eq!(
         w.cast(p, AbilityKind::Entrench),
-        Err("Research Sandbags first".to_string())
+        Err("Research Shield Drill first".to_string())
     );
     assert!(w.unit(p).unwrap().mode.is_none());
     research_level(&mut w, forge, Upgrade::Entrenching);
@@ -146,14 +146,14 @@ fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
     );
     assert_eq!(
         w.start_research(forge, Upgrade::Entrenching),
-        Err("Sandbags is fully upgraded".into()),
+        Err("Shield Drill is fully upgraded".into()),
         "one level"
     );
     // The other side's Guards are not: a tech is a team's.
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 900.0, 1280.0);
     assert_eq!(
         w.cast(foe, AbilityKind::Entrench),
-        Err("Research Sandbags first".to_string())
+        Err("Research Shield Drill first".to_string())
     );
 }
 
@@ -359,7 +359,7 @@ fn a_harpoon_slows_what_it_hits_for_three_seconds_flyers_too_and_no_ability_mean
     let guard = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
     w.units.iter_mut().find(|u| u.id == guard).unwrap().slowed = 3.0;
     let why = w.can_cast(guard, AbilityKind::Entrench).unwrap_err();
-    assert!(why.contains("Harpooned"), "{why}");
+    assert!(why.contains("Slowed"), "{why}");
     assert!(w.cast(guard, AbilityKind::Entrench).is_err());
     run(&mut w, 3);
     assert_eq!(

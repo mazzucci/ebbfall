@@ -15,6 +15,7 @@ import { initPause, paused, closePause, roomPaused, roomResumed } from './client
 import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
+import { levelOf } from './engine/util.js';
 import { setSpots } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
@@ -51,7 +52,7 @@ function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
   menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's colour: the room's setup says, alike on every client)
   // (races: a RANDOM seat already drawn, online.js)
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: setup.diff ?? 1, diffs: setup.diffs || [], size: m.size }));
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (an old Hard, 2: today's, 3; alike on every client)
 }
 
 function begin(reset) {
@@ -64,7 +65,7 @@ function begin(reset) {
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  if (!menu.tutorial) toast(`Mine salt. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
+  if (!menu.tutorial) toast(`Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
 /** The leave dialog's line: alone the game waits and leaving loses it; online it goes on (unless a room pause holds

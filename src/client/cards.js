@@ -35,6 +35,11 @@ function abilityItems(units) {
   }).filter(Boolean);
 }
 
+/** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on. */
+const depth = (k) => (BUILDINGS[k].req ? 1 + depth(BUILDINGS[k].req) : 0);
+/** A Build list page in the order its buildings unlock: by requirement depth, the page's own order breaking ties. */
+const byUnlock = (page) => page.map((k, i) => [k, i, depth(k)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([k]) => k);
+
 export function cardItems() {
   const sel = playerSel();
   if (!sel.length) return []; // a field or an enemy: nothing to command
@@ -45,13 +50,14 @@ export function cardItems() {
     const d = BUILDINGS[k];
     return { id: 'b_' + k, label: d.short || d.name.split(' ').pop(), key: d.hot, cost: d.cost, por: ['bldg', k], tip: d.desc };
   };
-  // What its requirement does not allow yet is left out: its slot stays empty and its key does nothing (owner,
-  // 2026-11-03: players find the tech tree out as it opens).
+  // What its requirement does not allow yet is left out and its key does nothing (owner, 2026-11-03: players find the
+  // tech tree out as it opens); the open ones are packed from the first slot in the order they unlock (Stelian, Nov 11:
+  // no empty slots), so a newly opened building comes last and never moves the others.
   const open = (k) => hasReq(G.me, k);
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
     const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic;
-    page.forEach((k, i) => { if (open(k)) at(i, bldgItem(k)); });
+    byUnlock(page).filter(open).forEach((k, i) => at(i, bldgItem(k)));
     (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
     // Advanced only once something on it can be built (the Garrison or Kiln stands).
     if (!adv && f.buildAdvanced.some(open)) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
@@ -121,7 +127,7 @@ export function cardItems() {
   }
   for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
     it.poor = true;
-    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough salt (needs ${it.cost[0]}).`;
+    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough gold (needs ${it.cost[0]}).`;
   }
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }

@@ -405,6 +405,8 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
                       file of dist/ but source maps and WEB_ONLY
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
+tools/icon-review.mjs a review sheet of the icon at 16 to 512 px, the inline favicon, mock tabs and home screens, to judge it
+                      at actual size (target/icon-review/sheet.png); not committed output
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colours to stay small; output committed
 public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for

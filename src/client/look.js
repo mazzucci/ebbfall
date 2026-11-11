@@ -37,7 +37,7 @@ export const BLDG_LOOK = {
   forge: { glow: [0xff5a1e, 0.6, 0.45, -1, true, 6], smoke: [[21, -35], [41, 9]] }, // (the Blacksmith's ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
   turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
   // the Expedition: its white LEDs
-  conflux: { glow: [LED, 1.1, 0.28, 0, false, -14] },                                // (the Data centre's three lit fans in its south face)
+  conflux: { glow: [LED, 1.1, 0.28, 0, false, -14] },                                // (the Data center's three lit fans in its south face)
   siphon: { glow: [LED, 0.5, 0.45, -3, false, 14] },                                // (the Recruiting post's tent: the lantern on its pole at the door; the population building, a timber booth, has no light)
   kiln: { glow: [LED, 0.7, 0.4, 18, false, -4] },                                    // (the Factory's work lamp over the bay)
   loom: { glow: [LED, 1.0, 0.3, 5, false, -4] },                                     // (the Lab's lit glass front)

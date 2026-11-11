@@ -110,7 +110,7 @@ export function doCommand(id, times = 1) {
   if (id === 'build2') { ui.mode = 'build2'; return; }
   if (id.startsWith('b_')) {
     const k = id.slice(2);
-    if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
+    if (!hasReq(G.me, k)) { const r = BUILDINGS[k].req; toast('Requires ' + (r ? BUILDINGS[r].name : 'the satellite'), true); return; }
     if (BUILDINGS[k].perHq) { // (one a finished Castle, sites counted: as the sim's `hq_room`, so no ghost for a placement it refuses)
       const mine = G.bldgs.filter(b => b.team === G.me), hqs = mine.filter(b => b.d.hq && b.done).length;
       if (mine.filter(b => b.type === k).length >= hqs) { refuse(id, `One ${BUILDINGS[k].name} per ${mine.find(b => b.d.hq)?.d.name ?? 'headquarters'}`); return; }

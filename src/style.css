@@ -66,6 +66,15 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
 #info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:none;max-width:100%}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* What the selected kind is for (one line under the name): gone when empty, and gone whenever the module beside it needs
+   the room (a production queue, a research, a construction bar), so it never grows the console. */
+#info .what{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#info .what:empty,#info.nowhat .what{display:none}
+/* Where the line would be cut: a small "i" on the portrait's corner (it takes no room from the name), opening the full
+   description over the console (#selDesc: placed by hud.js, outside the console so nothing in it moves). */
+#info .who{position:relative} #info .whati{position:absolute;left:-5px;top:-5px;z-index:1;width:18px;height:18px;padding:0;border:1px solid var(--line2);border-radius:50%;background:var(--panel2);color:var(--muted);font:italic 700 11px/16px Georgia,serif;cursor:pointer}
+#info .whati[aria-expanded="true"]{color:var(--fg);border-color:var(--ally)}
+#selDesc{position:fixed;z-index:30;box-sizing:border-box;padding:7px 10px;background:var(--panel);border:1px solid var(--line2);border-radius:6px;font:12px/1.35 var(--mono);color:var(--fg);pointer-events:none;box-shadow:0 4px 16px #0008}
 .life{display:flex;align-items:center;gap:8px} .life .bars{flex:1;max-width:200px;display:flex;flex-direction:column;gap:2px} .life .bar{height:7px} .life .bar.sh{height:5px} .bar.sh i{background:#cfe6ff} #hpNum{font:15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 #mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
 .st{display:flex;align-items:center;gap:4px;font:17px var(--mono);color:var(--fg);white-space:nowrap} .st b{font-weight:400}

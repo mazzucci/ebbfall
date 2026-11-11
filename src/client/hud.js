@@ -69,7 +69,7 @@ const compactMq = matchMedia('(max-width: 620px), (max-height: 500px) and (orien
  * the production queue (a factory's research beside it), construction, or the tiles of a group). Rebuilt only when
  * what it shows changes, so its buttons survive between frames; bars and numbers update in place. */
 function renderSelection() {
-  if (!stripBound) { stripBound = true; bindStrip(); }
+  if (!stripBound) { stripBound = true; bindStrip(); bindDesc(); }
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
   const life = (f, cur, max, color = '', sh = 0, maxsh = 0) => { // (small phones drop the "/max")
     $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
@@ -82,6 +82,11 @@ function renderSelection() {
   const named = (t) => { if (name.textContent !== t) name.textContent = t; if (name.title !== t) name.title = t; };
   const module = (key, html) => { if (modKey !== key) { modKey = key; mod.innerHTML = html; } };
   info.classList.toggle('empty', !sel.length); grp.hidden = sel.length < 2;
+  // What one unit or building is for: a short line under its name (`what`) where it fits whole, else a small "i" on the
+  // portrait that opens the full description (`desc`; tap, or hover with a mouse). Measured again only when what it holds or
+  // the room changes (the selection, the module, the window): the line is tried, and gives way if it is cut.
+  const one = sel.length === 1 && sel[0].kind !== 'node' ? sel[0] : null;
+  if (!one) whatLine(info, null); // (one unit or building: once its module is in place, below)
   if (!sel.length) {
     named('Nothing selected'); sub.textContent = touchUi ? 'Tap a unit or a building' : 'Click a unit or drag a box'; $('life').hidden = true; $('selPor').innerHTML = ''; selKey = '';
     module('', ''); grp.innerHTML = ''; grp.dataset.k = '';
@@ -118,6 +123,7 @@ function renderSelection() {
     } else if (x.kind === 'unit' || x.d.weapon) {
       const h = fightStats(x); module('f' + h, h);
     } else module('', '');
+    whatLine(info, x);
   } else {
     const counts = {}; for (const x of sel) counts[x.d.name] = (counts[x.d.name] || 0) + 1;
     named(sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units')); $('selPor').innerHTML = ''; selKey = ''; module('', '');
@@ -167,6 +173,39 @@ function bindStrip() {
   });
 }
 let stripBound = false;
+let whatFit = '';
+/** The kind's line for `one` (null: none), measured again only when what it holds or the room changes (the selection,
+ *  its module, the window). */
+function whatLine(info, one) {
+  const what = $('selWhat'), text = one?.d.what || '', key = (one ? one.id : '') + '|' + modKey + '|' + innerWidth + 'x' + innerHeight;
+  if (what.textContent !== text) { what.textContent = text; closeDesc(); }
+  if (key !== whatFit) { whatFit = key; fitWhat(info, what, one); }
+}
+/** Shows the kind's line if it fits whole (no cut word, nothing pushed out of the console), else the "i". */
+function fitWhat(info, what, one) {
+  info.classList.remove('nowhat');
+  const cut = !!what.textContent && (what.scrollWidth > what.clientWidth + 1 || info.scrollHeight > info.clientHeight + 1);
+  info.classList.toggle('nowhat', cut);
+  const i = $('selInfo'); i.hidden = !cut || !one; i.title = one ? one.d.desc : '';
+}
+/** The full description over the console, from the "i" (shown while open: a tap again, another selection or a tap
+ *  elsewhere closes it). */
+function openDesc() {
+  const one = ui.sel.length === 1 ? ui.sel[0] : null, box = $('selDesc'), info = $('info').getBoundingClientRect();
+  if (!one?.d.desc) return;
+  box.textContent = one.d.desc; box.hidden = false; $('selInfo').setAttribute('aria-expanded', 'true');
+  box.style.left = Math.max(8, info.left) + 'px'; box.style.bottom = (innerHeight - info.top + 6) + 'px'; box.style.maxWidth = Math.max(220, info.width) + 'px';
+}
+function closeDesc() { $('selDesc').hidden = true; $('selInfo').setAttribute('aria-expanded', 'false'); }
+let descBound = false;
+function bindDesc() {
+  if (descBound) return; descBound = true;
+  const i = $('selInfo');
+  i.addEventListener('click', (e) => { e.stopPropagation(); if ($('selDesc').hidden) openDesc(); else closeDesc(); });
+  i.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') openDesc(); });
+  i.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') closeDesc(); });
+  addEventListener('pointerdown', (e) => { if (e.target !== i) closeDesc(); }, true);
+}
 
 function taskName(u) {
   const T = u.task;

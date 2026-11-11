@@ -1179,6 +1179,43 @@ test('a box over units and buildings selects only the units, and only the fighte
   } finally { await d.close(); }
 });
 
+// What a unit or building is for: a short line under its name on the console where it fits whole (a desktop, with or
+// without a queue; a phone without one), else a small "i" by the name that opens the full description. Neither moves
+// or shrinks the command card.
+for (const [label, device] of [['desktop', DESKTOP], ['smallest landscape phone', { ...PHONE, viewport: { width: 568, height: 320 } }]]) {
+  test(`the console says what the selection is for: a Cottage's line; with a queue, the line where it fits, else the "i" (${label})`, async () => {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      await d.grant(5000, 5000);
+      const depot = await buildAndFinish(d, 'w', 'depot', 0), rax = await buildAndFinish(d, 'c', 'barracks', 1);
+      const state = () => d.page.evaluate(() => { const w = document.getElementById('selWhat'); return { line: getComputedStyle(w).display !== 'none' ? w.textContent : null, i: !document.getElementById('selInfo').hidden }; });
+      const cardBox = () => d.page.locator('#cmd').boundingBox();
+      const pick = async (b) => { for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === b.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(b.id); } };
+      await pick(depot);
+      await d.page.waitForFunction(() => document.getElementById('selWhat').textContent === '+8 population');
+      assert.deepEqual(await state(), { line: '+8 population', i: false }, 'the Cottage says what it is for, on a line of its own');
+      await pick(rax);
+      const card = await cardBox();
+      await d.pressCard('Guard'); await d.pressCard('Guard'); await d.pressCard('Archer');
+      await d.page.waitForTimeout(300);
+      assert.ok(await d.page.locator('#queue').isVisible(), 'the queue is shown');
+      assert.deepEqual(await cardBox(), card, 'the command card neither moved nor shrank');
+      if (!device.hasTouch) {
+        assert.deepEqual(await state(), { line: 'Trains Guards and Archers', i: false }, 'a desktop: room for the line beside the queue');
+      } else {
+        assert.deepEqual(await state(), { line: null, i: true }, 'a small phone: the queue has the room; an "i" instead');
+        await d.page.locator('#selInfo').tap();
+        await d.page.locator('#selDesc').waitFor({ state: 'visible', timeout: 3000 });
+        assert.equal(await d.page.locator('#selDesc').textContent(), 'Trains Guards and Archers.', 'its full description');
+        assert.deepEqual(await cardBox(), card, 'the description opens over the game: the card stays');
+        await d.page.locator('#selInfo').tap();
+        await d.page.locator('#selDesc').waitFor({ state: 'hidden', timeout: 3000 });
+      }
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
 test('the Build list packs its buttons in the order they open: a newly opened building comes last and moves none of the others', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

@@ -153,8 +153,8 @@ impl World {
         now.is_infinite() || (now > 0.0 && self.radio_gap(u.team, nx, ny, LEASH_MARGIN) < now)
     }
 
-    /// The Drone at the end of its leash, or idle outside its range: it backs off to `BACK_OFF` tiles inside the
-    /// nearest source's range (a move order). False when it has no source (it stays free).
+    /// The Drone idle beyond its leash (its source fell): it backs off to `BACK_OFF` tiles inside the nearest source's
+    /// range (a move order). False when it has no source (it stays free).
     fn radio_back_off(&mut self, uid: Id) -> bool {
         let (team, ux, uy) = (self.u(uid).team, self.u(uid).x, self.u(uid).y);
         let near = self
@@ -177,36 +177,54 @@ impl World {
         true
     }
 
-    /// The Drone idle outside its range (not counting the margin) with nothing in its weapon's reach backs off inside
-    /// it: it never idles out there. Whether it did.
-    pub(crate) fn radio_idle_check(&mut self, uid: Id) -> bool {
+    /// The Drone idle beyond its leash (a source fell under it) with nothing in its weapon's reach backs off inside its
+    /// range; anywhere within the leash it stays where it stopped. Looked at when an idle unit looks for a fight (its
+    /// `aggro_cd`), and never for a seat without a source. Whether it backed off.
+    pub(crate) fn radio_idle_check(&mut self, uid: Id, dt: f64) -> bool {
+        if !self.radio_flyer(uid) {
+            return false;
+        }
         let u = self.u(uid);
-        self.radio_flyer(uid)
-            && !self.in_radio(u.team, u.x, u.y)
-            && self.radio_reach_target(uid).is_none()
-            && self.radio_back_off(uid)
+        if u.aggro_cd - dt > 0.0
+            || self.radio_sources(u.team).next().is_none()
+            || self.in_radio_by(u.team, u.x, u.y, LEASH_MARGIN)
+        {
+            return false;
+        }
+        self.radio_reach_target(uid).is_none() && self.radio_back_off(uid)
     }
 
-    /// An enemy within the weapon's reach of where the Drone is now, if any (it fights from the end of its leash).
+    /// An enemy within the weapon's reach of where the Drone is now, if any (it fights from the end of its leash): the
+    /// reach `update_attack` closes to.
     fn radio_reach_target(&self, uid: Id) -> Option<Id> {
         let c = self.live(uid);
         if !c.combat {
             return None;
         }
         let u = self.u(uid);
-        self.find_target(u.x, u.y, c.team, c.range + c.r, c.ring, false, c.hits, true)
+        self.find_target(
+            u.x,
+            u.y,
+            c.team,
+            c.range + c.r * 0.5,
+            c.ring,
+            false,
+            c.hits,
+            true,
+        )
     }
 
     /// The Drone at the end of its leash: it takes on an enemy in its reach from there (an attack keeps what it would go
-    /// back to), else backs off inside its range. False when it does neither (no source: it stays free).
+    /// back to; true), else it stops there (false: the caller ends its order, and idle within the leash it stays).
     pub(crate) fn radio_at_leash(&mut self, uid: Id) -> bool {
+        self.um(uid).path = None;
         // (not the target it is closing on: that one is out of its reach, or it would not be moving)
         let now = match self.u(uid).task {
             Task::Attack { target, .. } => Some(target),
             _ => None,
         };
         let Some(t2) = self.radio_reach_target(uid).filter(|&t| Some(t) != now) else {
-            return self.radio_back_off(uid);
+            return false;
         };
         let back = match self.u(uid).task {
             Task::Attack { back, .. } => back,
@@ -220,9 +238,37 @@ impl World {
                 })
             }
         };
-        let u = self.um(uid);
-        u.path = None;
-        u.task = Task::Attack { target: t2, back };
+        self.um(uid).task = Task::Attack { target: t2, back };
         true
+    }
+
+    /// Where a Drone of `team` at (x, y) sent towards (tx, ty) can go: that point, or the last point of the straight way
+    /// there within its leash (the AI's wave moves, so its Drones gather where they can stand).
+    pub(crate) fn radio_leash_point(
+        &self,
+        team: u8,
+        x: f64,
+        y: f64,
+        tx: f64,
+        ty: f64,
+    ) -> (f64, f64) {
+        if self.radio_sources(team).next().is_none()
+            || self.in_radio_by(team, tx, ty, LEASH_MARGIN)
+            || !self.in_radio_by(team, x, y, LEASH_MARGIN)
+        {
+            return (tx, ty);
+        }
+        let d = dist(x, y, tx, ty);
+        let steps = jsmath::to_i32((d / 16.0).ceil()).max(1);
+        let mut last = (x, y);
+        for k in 1..=steps {
+            let f = k as f64 / steps as f64;
+            let p = (x + (tx - x) * f, y + (ty - y) * f);
+            if !self.in_radio_by(team, p.0, p.1, LEASH_MARGIN) {
+                break;
+            }
+            last = p;
+        }
+        last
     }
 }

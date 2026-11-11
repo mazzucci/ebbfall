@@ -111,9 +111,7 @@ impl World {
             (ux + (w.x - ux) / d * mv, uy + (w.y - uy) / d * mv)
         };
         if !self.radio_allows(uid, next.0, next.1) {
-            // (the Drone at the end of its leash: it fights what it can reach from there, else backs off inside its
-            // range; with no source to back off to, it stops there, as arrived)
-            self.um(uid).path = None;
+            // (the Drone at the end of its leash: it fights what it can reach from there, else stops there, as arrived)
             return !self.radio_at_leash(uid);
         }
         let u = self.um(uid);
@@ -167,10 +165,10 @@ impl World {
             if allowed {
                 u.x = nx;
                 u.y = ny;
-            } else {
+            } else if !self.radio_at_leash(uid) {
                 // (the Drone does not chase past its leash: it takes on what it can reach from there, else lets the
-                // target go and backs off)
-                self.radio_at_leash(uid);
+                // target go and stays there)
+                self.set_idle(uid);
             }
             return false;
         }

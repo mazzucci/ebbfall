@@ -179,12 +179,12 @@ fn an_allys_range_counts() {
 }
 
 #[test]
-fn a_drone_goes_no_farther_than_its_leash_and_backs_off_inside_its_range() {
+fn a_drone_stops_at_its_leash_and_stays_there_and_fights_what_it_reaches_from_there() {
     let mut w = lane();
     let ward = w.make_building(BldgKind::Ward, ENEMY, 19, 37, true);
     let edge = WARD_RANGE * 32.0;
     let leash = (WARD_RANGE + LEASH_MARGIN) * 32.0;
-    // Sent far east: it flies to the end of its leash, never past it, then backs off inside its range and rests there.
+    // Sent far east: it flies to the end of its leash, never past it, and stops there; idle within the leash, it stays.
     let s = w.make_unit(UnitKind::Shrike, ENEMY, px(21.0), px(40.0));
     w.move_to(s, px(45.0), px(40.0));
     let mut farthest: f64 = 0.0;
@@ -199,11 +199,11 @@ fn a_drone_goes_no_farther_than_its_leash_and_backs_off_inside_its_range() {
     let d = dist_to(&w, s, ward);
     let task = w.unit(s).unwrap().task;
     assert!(
-        d < edge - 32.0 && task == Task::Idle,
-        "it backed off inside its range: {d} px from the tower ({task:?})"
+        d > leash - 8.0 && task == Task::Idle,
+        "it stays at its leash: {d} px from the tower ({task:?})"
     );
     // Told to attack a building past its leash's reach, it does not chase it out there either.
-    let depot = w.make_building(BldgKind::Depot, PLAYER, 44, 39, true);
+    let depot = w.make_building(BldgKind::Depot, PLAYER, 46, 39, true);
     w.attack_ent(s, depot);
     for _ in 0..12 * TPS {
         w.step();
@@ -211,18 +211,94 @@ fn a_drone_goes_no_farther_than_its_leash_and_backs_off_inside_its_range() {
     }
     let b = w.bldg(depot).unwrap();
     assert_eq!(b.hp, b.maxhp, "the Depot is out of its reach");
-    assert!(
-        dist_to(&w, s, ward) <= edge,
-        "and it rests inside its range"
-    );
-    // A building within its reach of the end of its leash: sent east again, it fights from there, no backing off.
+    // A building within its reach of the end of its leash: it fights it from there.
     let near = w.make_building(BldgKind::Depot, PLAYER, 38, 39, true);
-    w.move_to(s, px(45.0), px(40.0));
+    w.attack_ent(s, near);
     run(&mut w, 8);
     let d = dist_to(&w, s, ward);
     assert!(d > edge && d <= leash + 1.0, "out at its leash: {d} px");
     let b = w.bldg(near).unwrap();
     assert!(b.hp < b.maxhp, "it strikes the near Depot from there");
+}
+
+#[test]
+fn a_drone_left_beyond_its_leash_backs_off_inside_its_range() {
+    // Two towers; the Drone rests by the eastern one. That one falls: beyond the western tower's leash, it backs off
+    // inside that tower's range.
+    let mut w = lane();
+    let west = w.make_building(BldgKind::Ward, ENEMY, 19, 37, true);
+    let east = w.make_building(BldgKind::Ward, ENEMY, 37, 37, true);
+    let s = w.make_unit(UnitKind::Shrike, ENEMY, px(43.0), px(40.0));
+    run(&mut w, 2);
+    assert!(dist_to(&w, s, west) > (WARD_RANGE + LEASH_MARGIN) * 32.0);
+    assert_eq!(
+        w.unit(s).unwrap().task,
+        Task::Idle,
+        "idle by the eastern tower"
+    );
+    w.damage(east, 1e9, None);
+    run(&mut w, 15);
+    let d = dist_to(&w, s, west);
+    assert!(
+        d < WARD_RANGE * 32.0,
+        "back inside the western tower's range: {d} px"
+    );
+}
+
+#[test]
+fn an_expedition_waves_machines_keep_attacking_out_of_range() {
+    // The Expedition's AI against a Kingdom player who does nothing, two Rovers in its army from the start. Once its
+    // wave is out, a Rover of it told to attack the Kingdom's Core (beyond its range and the chase margin, as the wave's
+    // `engage` does) keeps at it over the AI's next turns: only a defender chasing out of range is called home.
+    let mut w = World::with_setup(3, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    let hq = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == ENEMY && b.kind == BldgKind::Conflux)
+        .map(|b| (b.x, b.y))
+        .unwrap();
+    for k in 0..2 {
+        w.make_unit(
+            UnitKind::Monolith,
+            ENEMY,
+            hq.0 + 96.0,
+            hq.1 + 32.0 * k as f64,
+        );
+    }
+    w.recalc_supply(ENEMY);
+    let core = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .map(|b| (b.id, b.x, b.y))
+        .unwrap();
+    assert!(!w.in_radio_by(
+        ENEMY,
+        core.1,
+        core.2,
+        endfall_sim::data::radio::CHASE_MARGIN
+    ));
+    let rover = loop {
+        w.step();
+        assert!(w.time < 300.0, "no wave");
+        if let Some(r) = w.ai_wave_of(ENEMY).and_then(|v| {
+            v.iter()
+                .copied()
+                .find(|&a| w.unit(a).is_some_and(|u| u.kind == UnitKind::Monolith))
+        }) {
+            break r;
+        }
+    };
+    w.attack_ent(rover, core.0);
+    for _ in 0..4 * 16 {
+        w.step();
+        let task = w.unit(rover).map(|u| u.task);
+        assert!(
+            matches!(task, Some(Task::Attack { target, .. }) if target == core.0),
+            "the Rover keeps attacking the Core: {task:?} at tick {}",
+            w.tick
+        );
+    }
 }
 
 #[test]
@@ -284,6 +360,15 @@ fn the_expedition_ai_places_a_forward_tower_on_a_machine_waves_march() {
                     .any(|b| b.team == ENEMY && b.kind == BldgKind::Ward && far(&w, b))
             {
                 forward = Some(w.time);
+                let site = w
+                    .bldgs
+                    .iter()
+                    .find(|b| b.team == ENEMY && b.kind == BldgKind::Ward && far(&w, b));
+                assert_eq!(
+                    w.ai_relay_site(ENEMY),
+                    site.map(|b| b.id),
+                    "seed {seed}: the wave's forward tower"
+                );
                 assert!(
                     w.ai_wave_of(ENEMY).is_some(),
                     "seed {seed}: the wave is still out, not held for it"

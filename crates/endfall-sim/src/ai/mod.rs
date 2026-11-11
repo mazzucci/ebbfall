@@ -130,6 +130,12 @@ impl World {
         }
     }
 
+    /// The tower range: seat `seat`'s AI's forward tower under construction, if any (tests).
+    #[doc(hidden)]
+    pub fn ai_relay_site(&self, seat: u8) -> Option<Id> {
+        self.ai.get(seat as usize)?.as_ref()?.relay_site
+    }
+
     /// Seat `seat`'s AI's check as its last wave went (the balance lab: `LaunchCheck`), if it has sent one.
     pub fn ai_launch_check(&self, seat: u8) -> Option<crate::world::LaunchCheck> {
         self.ai.get(seat as usize)?.as_ref()?.check

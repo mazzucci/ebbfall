@@ -87,8 +87,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
   under high water: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
-  the Data center and a Radio tower, none from a site, gone when the tower falls; an ally's counts; the Drone's leash; the
-  Expedition AI's forward tower on a machine wave's march), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  the Data center and a Radio tower, none from a site, gone when the tower falls; an ally's counts; the Drone's leash and
+  its back-off when left beyond it; the Expedition AI's forward tower on a machine wave's march, and its wave's machines
+  attacking out of range not called home), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, supply,
   resources, miner counters) after every tick. Add a scenario here for every rule you add or change.
 
@@ -155,9 +156,10 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       retreat, the sweep), radio.rs (the tower range: the Expedition's machines need range from a
                       finished Data center, 18 tiles, or Radio tower, 12, of their side or an ally; a coverage grid, a
                       bit per seat a tile, built again when its sources change (checked each tick: derived, not
-                      hashed); out of it a machine moves at 0.75 speed and the Drone goes at most 5 tiles past it, fights
-                      from there what it can reach, else backs off inside; the AI's leapfrog tower and staging at it are
-                      in ai/army.rs)
+                      hashed); out of it a machine moves at 0.75 speed and the Drone goes at most 5 tiles past it: a move
+                      or attack stops there (fighting what it can reach from there), it stays where it stops within the
+                      leash, and backs off inside only when left beyond it; the AI's leapfrog tower, staging at it and
+                      its Drones' wave moves clamped to the leash are in ai/army.rs)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)

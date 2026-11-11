@@ -18,14 +18,14 @@ const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length,
 const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades, ABILITY_KEYS = SCHEMA.abilities;
 const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
 
-let game = null, dirty = true, occStale = false, gen = 0;
+let game = null, dirty = true, occStale = false, gen = 0, radioSeen = -1, radioMe = -1;
 /** The map's size in tiles and in world px: the game's, set when it starts (a two-seat map's before any). Live
  *  bindings: read them where they are used, never copy them at load. */
 export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
   me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
-  vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), over: false, winner: -1, conceded: -1,
+  vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: new Uint8Array(MW * MH), radioVer: 0, over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
 const M = { rock: new Uint8Array(MW * MH), shade: new Float32Array(MW * MH), height: new Int8Array(MW * MH), occ: new Int32Array(MW * MH), nodes: [] };
@@ -68,6 +68,10 @@ function sync() {
     const ups = S.upgrades[t] ||= {}; UPGRADE_KEYS.forEach((k, i) => { ups[k] = I[lv + t * UPGRADE_KEYS.length + i]; });
   }
   S.me = game.me(); S.replaying = game.replayEnd() > 0; S.vis.set(game.vis(S.me)); S.explored.set(game.explored(S.me)); occStale = true;
+  // The tower range (crates/endfall-sim/src/world/radio.rs): copied only when the sim built it again; `radioVer` tells
+  // the renderer to redraw it.
+  const rv = game.radioVer();
+  if (rv !== radioSeen || S.me !== radioMe) { radioSeen = rv; radioMe = S.me; S.radio.set(game.radio(S.me)); S.radioVer++; }
 
   const N = game.nodes(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
@@ -140,8 +144,9 @@ function fresh(g) {
   if (M.rock.length !== MW * MH) {
     const n = MW * MH;
     Object.assign(M, { rock: new Uint8Array(n), shade: new Float32Array(n), height: new Int8Array(n), occ: new Int32Array(n) });
-    Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n) });
+    Object.assign(S, { vis: new Uint8Array(n), explored: new Uint8Array(n), radio: new Uint8Array(n) });
   }
+  radioSeen = -1;
   M.rock.set(game.rock()); M.shade.set(game.shade()); M.height.set(game.height()); WATER = game.water();
   dirty = true; sync();
 }

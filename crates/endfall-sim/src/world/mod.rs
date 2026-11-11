@@ -15,6 +15,7 @@ mod fog;
 mod movement;
 mod orders;
 mod paths;
+pub mod radio;
 mod seats;
 mod spawn;
 mod tide;
@@ -31,6 +32,7 @@ pub use combat::{absorb, hull_loss};
 pub use command::{Command, Logged};
 pub use economy::FIELD_LOW;
 pub use paths::{LONG_SEARCH, LONG_SEARCHES, PathWork};
+pub use radio::RadioSrc;
 pub use types::*;
 
 /// The spatial hash's cells, in world pixels (two tiles).
@@ -136,6 +138,11 @@ pub struct World {
     /// Units killed since the spatial hash was built. The JS hash keeps references to them, and separation
     /// still pushes against their last position, so the port keeps them around until the next rebuild.
     graveyard: Vec<Unit>,
+    /// The tower range's coverage (radio.rs): a bit per seat on every tile, the sources it was built from (finished,
+    /// in id order) and a count of its rebuilds. Derived from the buildings: not hashed.
+    radio: Vec<u8>,
+    radio_src: Vec<RadioSrc>,
+    radio_ver: u32,
 }
 
 /// How urgent a unit is as a target: 0 a fighting unit that can hit the shooter's layer (Harvesters only scratch),
@@ -250,6 +257,9 @@ impl World {
             hash: Vec::new(),
             hash_w: 0,
             graveyard: Vec::new(),
+            radio: Vec::new(),
+            radio_src: Vec::new(),
+            radio_ver: 0,
         };
         w.reset(seed, diff);
         w
@@ -319,6 +329,7 @@ impl World {
         for team in 0..self.seats() as u8 {
             self.deal_start(team);
         }
+        self.refresh_radio(true);
         self.init_ai();
         self.update_fog();
     }
@@ -514,6 +525,7 @@ impl World {
         if u.slowed > 0.0 {
             own *= SLOW_SPEED; // (harpooned)
         }
+        own *= self.radio_speed(uid); // (a machine out of range)
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),
             _ => own,
@@ -572,6 +584,7 @@ impl World {
             self.tide_tick();
         }
         self.rebuild_hash();
+        self.refresh_radio(false); // (a source finished or fell last tick)
         let ids: Vec<Id> = self.units.iter().map(|u| u.id).collect();
         for id in ids {
             if self.unit(id).is_some_and(|u| !self.inert(u.team)) {

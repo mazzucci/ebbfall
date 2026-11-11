@@ -16,6 +16,7 @@ mod maps;
 mod orders;
 mod paths;
 mod peoples;
+mod radio;
 mod random_play;
 mod seats;
 mod shore;

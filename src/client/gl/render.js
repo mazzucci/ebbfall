@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
@@ -535,6 +535,49 @@ function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
   bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
 }
+// ---- the tower range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
+const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
+const rangeG = new Graphics(); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false; // (over the fog: the range reaches ground not yet seen)
+let rangeVer = -1, rangeTiles = 0;
+/** Draw this side's covered tiles again (a faint tint, outlined): only when the coverage changed, never per frame. */
+function drawRange() {
+  rangeVer = G.radioVer; rangeTiles = 0; rangeG.clear();
+  const cov = G.radio, at = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH && cov[idx(x, y)] === 1;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { // the tint: a rectangle per run of covered tiles in a row
+    if (!at(x, y)) continue;
+    let e = x; while (at(e + 1, y)) e++;
+    rangeG.rect(x * TILE, y * TILE, (e - x + 1) * TILE, TILE); rangeTiles += e - x + 1; x = e;
+  }
+  if (!rangeTiles) return;
+  rangeG.fill({ color: RANGE_COLOR, alpha: 0.07 });
+  // The outline: every edge between a covered tile and one that is not, joined into runs.
+  for (let y = 0; y <= MH; y++) for (let x = 0; x < MW; x++) {
+    if (at(x, y) === at(x, y - 1)) continue;
+    let e = x; while (e + 1 < MW && at(e + 1, y) !== at(e + 1, y - 1)) e++;
+    rangeG.moveTo(x * TILE, y * TILE).lineTo((e + 1) * TILE, y * TILE); x = e;
+  }
+  for (let x = 0; x <= MW; x++) for (let y = 0; y < MH; y++) {
+    if (at(x, y) === at(x - 1, y)) continue;
+    let e = y; while (e + 1 < MH && at(x, e + 1) !== at(x - 1, e + 1)) e++;
+    rangeG.moveTo(x * TILE, y * TILE).lineTo(x * TILE, (e + 1) * TILE); y = e;
+  }
+  rangeG.stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.55 });
+}
+/** The range is shown while one of this side's Bots is selected or a building that gives range is being placed. */
+function showRange(selList, place) {
+  const on = (place && RADIO.sources[place.type] > 0) || selList.some(e => e.kind === 'unit' && e.team === G.me && !e.dead && RADIO.machines.has(e.type) && e.d.worker);
+  if (on && G.radioVer !== rangeVer) drawRange();
+  rangeG.visible = !!on && rangeTiles > 0;
+}
+/** A machine of ours out of range: a small crossed ring over it (it moves slower out there). */
+function noSignal(x, y) {
+  bars.circle(x, y, 3.5).stroke({ width: 1.5, color: 0xffb545, alpha: 0.95 });
+  bars.moveTo(x - 3, y + 3).lineTo(x + 3, y - 3).stroke({ width: 1.5, color: 0xffb545, alpha: 0.95 });
+}
+/** Tests: whether the range is drawn, how many tiles it covers, and whether a unit shows the out-of-range mark. */
+const markedIds = new Set();
+export const rangeShown = () => ({ shown: rangeG.visible, tiles: rangeTiles, marked: [...markedIds] });
+
 /** A progress bar with an optional count of queued items (small pips) after it. */
 function progressBar(x, y, w, f, color, pips = 0, h = 5) {
   bars.rect(x, y, w, h).fill({ color: 0x000000, alpha: 0.75 });
@@ -621,11 +664,17 @@ export function render(selList, place) {
       if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xffa070, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xffa070, alpha: 0.7 }); } // research: taller, outlined
     }
   });
+  markedIds.clear();
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return;
     o.update(u, now, sel, dt);
-    if (sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
+    const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
+    if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
+    if (u.team === G.me && RADIO.machines.has(u.type) && !G.radio[idx(clamp((u.x / TILE) | 0, 0, MW - 1), clamp((u.y / TILE) | 0, 0, MH - 1))]) {
+      noSignal(u.x, u.y - unitTop(u.type) - (bar ? 16 : 8)); markedIds.add(u.id);
+    }
   });
+  showRange(selList, place);
   xray(onScreen);
 
   let pi = 0;
@@ -659,6 +708,8 @@ export function render(selList, place) {
     setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghostPaint.position.copyFrom(ghost.position);
     paintAs(ghost, ghostPaint, seatTint(G.me), ok ? 0xb8ffc8 : 0xff7070, 0.6);
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
+    const reach = RADIO.sources[place.type]; // (a building that gives range: the range it would add)
+    if (reach > 0) ghostRect.circle((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE, reach * TILE).stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.5 });
   }
   box.clear();
   if (drag.box) {

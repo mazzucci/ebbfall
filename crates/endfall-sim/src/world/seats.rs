@@ -38,6 +38,7 @@ impl World {
         if moved {
             self.reset(self.seed, self.diff); // (it ends with update_fog, on these teams)
         } else {
+            self.refresh_radio(true); // (allies share range)
             self.update_fog();
         }
         true

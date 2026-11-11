@@ -1009,7 +1009,7 @@ impl Map {
         for n in &mut m.nodes {
             n.amount = jsmath::round(n.amount as f64 * if n.ether { ether } else { shard }) as i32;
         }
-        m.lay_mines(sym);
+        m.lay_mines(sym, next_id);
         m
     }
 
@@ -1307,7 +1307,7 @@ impl Map {
             "seed {seed}: every Shore start has its two open shafts"
         );
         m.take_up_shafts();
-        m.lay_mines(sym);
+        m.lay_mines(sym, next_id);
         m
     }
 
@@ -1524,10 +1524,12 @@ impl Map {
     /// down are taken up again at the end, so the ground they shaped (the generator clears rock round them, and a
     /// layout without room for them is drawn again) stays as every map had it, the centre's vent included.
     /// Each field's crystals become one gold mine, `MINE_SIZE` tiles square and neutral, holding the field's whole
-    /// amount; its id is the field's first crystal's. It stands where the crystals lay (`mine_spot`), and a field that
-    /// is another's image under the map's symmetry gets the image of that field's mine, so every start's mines are the
-    /// same. The crystals go.
-    fn lay_mines(&mut self, sym: Sym) {
+    /// amount; its id is the field's first crystal's. Fields go by orbit under the map's symmetry: the first field of an
+    /// orbit (the one laid first, never cut short) finds a square for its mine (`mine_spot`), and every image of that
+    /// square gets a mine holding the same gold, for the field laid as that image (one that lost a crystal or two to a
+    /// field already there holds what the first holds) or, where none is left, a field of its own. So every start's
+    /// mines are the same, square for square and gold for gold. The crystals go.
+    fn lay_mines(&mut self, sym: Sym, next_id: &mut Id) {
         let crystals: Vec<Node> = std::mem::take(&mut self.nodes);
         for n in &crystals {
             debug_assert!(
@@ -1540,51 +1542,83 @@ impl Map {
         let mut fields: Vec<u32> = crystals.iter().map(|n| n.field).collect();
         fields.sort_unstable();
         fields.dedup();
+        let mut fresh = fields.last().copied().unwrap_or(0);
         let tiles_of = |f: u32| -> Vec<(i32, i32)> {
-            crystals
+            let mut t: Vec<(i32, i32)> = crystals
                 .iter()
                 .filter(|n| n.field == f)
                 .map(|n| (n.tx, n.ty))
-                .collect()
+                .collect();
+            t.sort_unstable();
+            t
         };
+        // (the turns before the mirror images: a field that is its own mirror image, as the centre's arc can be, is
+        // matched to its turned images first)
+        let mut order: Vec<usize> = (1..sym.k).collect();
+        order.sort_by_key(|&g| sym.elem(g).1);
         let mut done: Vec<u32> = Vec::new();
         for &f in &fields {
             if done.contains(&f) {
                 continue;
             }
-            let tiles = tiles_of(f);
-            let v = self.mine_spot(&tiles, None);
-            self.put_mine(f, v, &crystals);
             done.push(f);
-            // (the turns before the mirror images: a field that is its own mirror image, as the centre's arc can be,
-            // matches both its turn and a mirror image of the first, and the mirror of a square is not the square
-            // turned; taking the turn keeps every mine's half-turn twin)
-            let mut order: Vec<usize> = (1..sym.k).collect();
-            order.sort_by_key(|&g| sym.elem(g).1);
-            for g in order {
-                let img: Vec<(i32, i32)> = tiles.iter().map(|&t| sym.tile(g, t)).collect();
+            let tiles = tiles_of(f);
+            let of = || crystals.iter().filter(|n| n.field == f);
+            let total: i32 = of().map(|n| n.amount).sum();
+            let img = |g: usize| -> Vec<(i32, i32)> {
+                let mut t: Vec<(i32, i32)> = tiles.iter().map(|&t| sym.tile(g, t)).collect();
+                t.sort_unstable();
+                t
+            };
+            // (the elements that map the field onto itself: its mine must be its own image under them too)
+            let stab: Vec<usize> = order.iter().copied().filter(|&g| img(g) == tiles).collect();
+            let Some(v) = self.mine_spot(&tiles, sym, &stab) else {
+                continue;
+            };
+            let mut mines: Vec<((i32, i32), u32, Id)> =
+                vec![(v, f, of().map(|n| n.id).min().unwrap())];
+            for &g in &order {
+                let sq = sym.block(g, v, MINE_SIZE);
+                let t = img(g);
                 // (the field laid as this one's image: every crystal of it on an image tile; one that fell on another
                 // field kept fewer)
-                let Some(&f2) = fields.iter().find(|&&f2| {
-                    !done.contains(&f2) && tiles_of(f2).iter().all(|t| img.contains(t))
-                }) else {
-                    continue;
+                let laid = fields
+                    .iter()
+                    .copied()
+                    .find(|&f2| !done.contains(&f2) && tiles_of(f2).iter().all(|x| t.contains(x)));
+                if let Some(f2) = laid {
+                    done.push(f2);
+                }
+                if mines.iter().any(|m| m.0 == sq) {
+                    continue; // (the same square: that mine holds this image's gold too)
+                }
+                let (field, id) = match laid {
+                    Some(f2) => (
+                        f2,
+                        crystals
+                            .iter()
+                            .filter(|n| n.field == f2)
+                            .map(|n| n.id)
+                            .min()
+                            .unwrap(),
+                    ),
+                    None => {
+                        fresh += 1;
+                        *next_id += 1;
+                        (fresh, *next_id - 1)
+                    }
                 };
-                let want = v.map(|v| sym.block(g, v, MINE_SIZE));
-                let v2 = self.mine_spot(&tiles_of(f2), want);
-                self.put_mine(f2, v2, &crystals);
-                done.push(f2);
+                mines.push((sq, field, id));
+            }
+            for (sq, field, id) in mines {
+                self.put_mine(sq, field, id, total);
             }
         }
         self.nodes.sort_by_key(|n| n.id);
     }
 
-    /// Field `f`'s mine at `v` (top-left tile), holding all its crystals held; none if it found no room.
-    fn put_mine(&mut self, f: u32, v: Option<(i32, i32)>, crystals: &[Node]) {
-        let Some((tx, ty)) = v else { return };
-        let of = || crystals.iter().filter(|n| n.field == f);
-        let total: i32 = of().map(|n| n.amount).sum();
-        let id = of().map(|n| n.id).min().unwrap();
+    /// A mine of `total` gold at `v` (top-left tile), for field `field`, with id `id`.
+    fn put_mine(&mut self, (tx, ty): (i32, i32), field: u32, id: Id, total: i32) {
         let half = MINE_SIZE as f64 * TILE / 2.0;
         self.nodes.push(Node {
             id,
@@ -1599,7 +1633,7 @@ impl Map {
             miners: 0,
             r: half,
             extractor: None,
-            field: f,
+            field,
         });
         for y in ty..ty + MINE_SIZE {
             for x in tx..tx + MINE_SIZE {
@@ -1609,12 +1643,15 @@ impl Map {
         }
     }
 
-    /// Where a field's mine goes (top-left tile): `want` (another's image) if there is room, else of the squares within 8 tiles of the
-    /// crystals' middle, the nearest that fits (fewest blocked tiles round it next, then row by row). A square fits
-    /// on open ground a tile in from the map's edge, two tiles off every start's headquarters square (and a Shore
+    /// Where the first field of an orbit puts its mine (top-left tile): of the squares within 8 tiles of the
+    /// crystals' middle, the nearest that fits (fewest blocked tiles round it next, then row by row). A square fits on
+    /// open ground a tile in from the map's edge, two tiles off every start's headquarters square (and a Shore
     /// basin's), with a walker's ground all along its sides facing the start or expansion nearest it (where its
-    /// workers come from), and leaves every start, basin and mine so far within a walker's reach of the first start.
-    fn mine_spot(&mut self, tiles: &[(i32, i32)], want: Option<(i32, i32)>) -> Option<(i32, i32)> {
+    /// workers come from); its images under the map's symmetry must fit as well (open ground, off the headquarters,
+    /// each the same square or apart from the others), it must be its own image under every element in `stab` (those
+    /// that map the field onto itself), and with all of them laid every start, basin and mine is still within a
+    /// walker's reach of the first start. Where no square is its own image under `stab`, that rule is dropped.
+    fn mine_spot(&mut self, tiles: &[(i32, i32)], sym: Sym, stab: &[usize]) -> Option<(i32, i32)> {
         let s = MINE_SIZE;
         let k = tiles.len() as f64;
         // (tile-index units: a tile's middle is its index, as the generator's points)
@@ -1666,13 +1703,26 @@ impl Map {
             });
             open && off_hq
         };
+        // (the square and its distinct images)
+        let orbit = |v: (i32, i32)| -> Vec<(i32, i32)> {
+            let mut o: Vec<(i32, i32)> = (0..sym.k).map(|g| sym.block(g, v, s)).collect();
+            o.sort_unstable();
+            o.dedup();
+            o
+        };
+        let apart = |a: (i32, i32), b: (i32, i32)| (a.0 - b.0).abs() >= s || (a.1 - b.1).abs() >= s;
         let fits = |m: &Map, v: (i32, i32)| -> bool {
             let (mx, my) = mid(v);
             let (ax, ay) = (anchor.0 - mx, anchor.1 - my);
             let facing = sides(v).into_iter().all(|(x, y)| {
                 (x as f64 - mx) * ax + (y as f64 - my) * ay <= 0.0 || m.passable(walk, x, y)
             });
-            room(m, v) && facing
+            let o = orbit(v);
+            facing
+                && o.iter().all(|&q| room(m, q))
+                && o.iter()
+                    .enumerate()
+                    .all(|(i, &a)| o[i + 1..].iter().all(|&b| apart(a, b)))
         };
         let blocked_round = |m: &Map, v: (i32, i32)| {
             sides(v)
@@ -1680,7 +1730,8 @@ impl Map {
                 .filter(|&(x, y)| !m.passable(walk, x, y))
                 .count()
         };
-        let mut cands: Vec<(f64, usize, i32, i32)> = Vec::new();
+        let own_image = |v: (i32, i32)| stab.iter().all(|&g| sym.block(g, v, s) == v);
+        let mut cands: Vec<(bool, f64, usize, i32, i32)> = Vec::new();
         let (bx, by) = (
             jsmath::round(c.0 - (s - 1) as f64 / 2.0) as i32,
             jsmath::round(c.1 - (s - 1) as f64 / 2.0) as i32,
@@ -1688,45 +1739,35 @@ impl Map {
         for y in by - 8..=by + 8 {
             for x in bx - 8..=bx + 8 {
                 if fits(self, (x, y)) {
-                    cands.push((d2(mid((x, y)), c), blocked_round(self, (x, y)), y, x));
+                    let v = (x, y);
+                    cands.push((!own_image(v), d2(mid(v), c), blocked_round(self, v), y, x));
                 }
             }
         }
         cands.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        // (an image's square: the first's met every rule and the ground round it is the same, but which start is
-        // nearest can tie and fall the other way)
-        let order = want
-            .filter(|&v| room(self, v))
-            .into_iter()
-            .chain(cands.into_iter().map(|(_, _, y, x)| (x, y)));
         let start = self.bases[0];
-        for v in order {
-            for y in v.1..v.1 + s {
-                for x in v.0..v.0 + s {
-                    let i = self.idx(x, y);
-                    self.occ[i] = i32::MIN; // (a stand-in for the mine while its reach is checked)
+        for (_, _, _, y, x) in cands {
+            let o = orbit((x, y));
+            let put = |m: &mut Map, val: i32| {
+                for q in &o {
+                    for y in q.1..q.1 + s {
+                        for x in q.0..q.0 + s {
+                            let i = m.idx(x, y);
+                            m.occ[i] = val; // (stand-ins for the mines while their reach is checked)
+                        }
+                    }
                 }
-            }
+            };
+            put(self, i32::MIN);
             let reach = self.reach_from(start, walk);
             let reached = |x: i32, y: i32| self.in_map(x, y) && reach[self.idx(x, y)];
+            let reach_sq = |q: (i32, i32)| sides(q).into_iter().any(|(x, y)| reached(x, y));
             let ok = hqs.iter().all(|&(x, y)| reached(x, y))
-                && sides(v).into_iter().any(|(x, y)| reached(x, y))
-                && self.nodes.iter().all(|n| {
-                    (0..s).any(|i| {
-                        reached(n.tx + i, n.ty - 1)
-                            || reached(n.tx + i, n.ty + s)
-                            || reached(n.tx - 1, n.ty + i)
-                            || reached(n.tx + s, n.ty + i)
-                    })
-                });
-            for y in v.1..v.1 + s {
-                for x in v.0..v.0 + s {
-                    let i = self.idx(x, y);
-                    self.occ[i] = 0;
-                }
-            }
+                && o.iter().all(|&q| reach_sq(q))
+                && self.nodes.iter().all(|n| reach_sq((n.tx, n.ty)));
+            put(self, 0);
             if ok {
-                return Some(v);
+                return Some((x, y));
             }
         }
         debug_assert!(false, "a field's mine found no room");

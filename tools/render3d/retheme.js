@@ -58,10 +58,10 @@ Object.assign(RT_BUILDINGS.ex, {
   // Swapped (Stelian, 2026-11-11, after four blind checks read each as the other's role): the windowed booth is the
   // population building (the "Cabin"), the big khaki tent the Recruiting post.
   bunkhouse: { build: EB.recruitingPost, n: 2, h: 34 }, post: { build: EB.bunkhouse, n: 2, h: 46 }, factory: { build: EB.factory, n: 3, h: 44 },
-  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.radioTower, n: 2, h: 62 }, portal: { build: EB.portal, n: 2, h: 46 },
+  lab: { build: EB.lab, n: 2, h: 50 }, radio: { build: EB.sentryGun, n: 2, h: 30 }, portal: { build: EB.portal, n: 2, h: 46 }, // (`radio`: the Sentry gun since A1, 2026-11-11, Stelian: low and squat; the mast `EB.radioTower` stays for the record)
   // A1 (2026-11-11): the Wind turbine (the Power source, to replace the Cabin under `spire`; `windfarm` the other
   // option, three small turbines on one pad, kept for the pictures) and the Uplink (3x3, the sim key `uplink`).
-  turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 56 },
+  turbine: { build: EB.windTurbine, n: 2, h: 84 }, windfarm: { build: EB.windFarm, n: 2, h: 50 }, uplink: { build: EB.uplink, n: 3, h: 52 },
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
@@ -70,7 +70,7 @@ Object.assign(RT_BUILDINGS.ex, {
  *  needs no fit. The turbines' rotors (expedition-buildings.js `turbineRotor`, `windFarmRotor`). */
 export const RT_HEADS = {
   kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
-  ex: { radiohead: { build: EB.radioTurret, n: 2, h: 62 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true } },
+  ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 30 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true } },
 };
 /** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
 function head(b, mats, dir) {
@@ -94,7 +94,7 @@ const FACINGS = 16;
  *  building (look.js BLDG_LOOK) are measured on the turned model. */
 export const BLDG_YAW = {
   kg: { castle: 11, cottage: -20, market: 30, barracks: -30, blacksmith: -20, workshop: -20, tower: 0, stables: -20 },
-  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 20 },
+  ex: { hall: -20, datahall: -10, bunkhouse: -20, post: -10, factory: -10, lab: 20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0 }, // (the Uplink's dish is turned in the model: round on the ground, so square)
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;

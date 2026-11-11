@@ -8,8 +8,9 @@
 //     with the table (a correction round's quick look; --fresh after a model change)
 //   node tools/art/retheme-a1.mjs           turbine.png: today's Cabin, the two turbine options (one tall turbine; three
 //     small ones on a pad) with their rotors, the Radio tower and the Data center for scale, seats 0 and 1;
-//     uplink.png: the Uplink at its angle beside the Radio tower, the Lab (its small dish) and the Data center, both
-//     seats; base-100 / base-075: the Expedition base (tools/art/retheme-bases.mjs's layout) with the turbines in the
+//     uplink.png: the Uplink beside the Sentry gun, the Lab (its small dish) and the Data center, both
+//     seats; sentry.png: the Sentry gun (the `radio` slot's new model, its barrel the head) beside the Kingdom's
+//     Watchtower and a turbine; base-100 / base-075: the Expedition base (tools/art/retheme-bases.mjs's layout) with the turbines in the
 //     Cabins' places and an Uplink placed (base-farm-*: the same with the wind farm); the printed table: angle, fit,
 //     spill, team share, cyan share, clipping
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -36,9 +37,9 @@ async function rendered(key, filter, opts) {
   return out;
 }
 
-const SIZES = { ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
+const SIZES = { kg_tower: 2, ex_hall: 4, ex_bunkhouse: 2, ex_post: 2, ex_factory: 3, ex_lab: 2, ex_radio: 2, ex_portal: 2, ex_turbine: 2, ex_windfarm: 2, ex_uplink: 3 };
 /** The turning heads over their bases: the Radio tower's turret at facings, the rotors at phases. */
-const HEADS = { ex_radio: 'ex_radiohead', ex_turbine: 'ex_turbinehead', ex_windfarm: 'ex_windfarmhead' }, HEAD_DIRS = [0, 5, 11];
+const HEADS = { kg_tower: 'kg_towerhead', ex_radio: 'ex_radiohead', ex_turbine: 'ex_turbinehead', ex_windfarm: 'ex_windfarmhead' }, HEAD_DIRS = [0, 5, 11];
 
 // ---- the ground: the game's grass tiles ----
 const tiles = {}; const getTile = (m, v) => tiles[`${m}_${v}`] ??= tile(m, v);
@@ -107,11 +108,11 @@ if (mode === 'check') {
 // ---- the pictures ----
 const UNITS = '(ex_bot|ex_marine)_(0|2|4|6|8|10|12|14)_0';
 const t0 = Date.now();
-const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|post|factory|lab|portal)$|ex_(radiohead|turbinehead|windfarmhead)_(${HEAD_DIRS.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
+const art = await rendered('final', `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|post|factory|lab|portal)$|bldg_kg_tower$|(ex_(radiohead|turbinehead|windfarmhead)|kg_towerhead)_(${HEAD_DIRS.join('|')})$|${UNITS}|rt_gold_0_0$)`, { polish: true });
 console.log(`rendered ${art.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 const P = makePainters(art, seatTints(art.tints));
 console.log('building      angle   fit   spill W / E / S   team    cyan   size at 1x');
-for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_bunkhouse', 'ex_radio']) {
+for (const k of ['ex_turbine', 'ex_windfarm', 'ex_uplink', 'ex_bunkhouse', 'ex_radio', 'kg_tower']) {
   const s = P.get(`bldg_${k}`), turn = s.turn ?? { yaw: 0, scale: 1 }, sz = P.sizeOf(`bldg_${k}`);
   console.log(`  ${k.padEnd(12)} ${String(turn.yaw).padStart(4)}   ${turn.scale.toFixed(2)}  ${fmtSpill(spill(s, SIZES[k])).padEnd(18)} ${String(P.share(`bldg_${k}`)).padEnd(6)}  ${(cyan(s) * 100).toFixed(1).padStart(4)}%  ${sz[0]} x ${sz[1]}${clipped(s) ? '  CLIPPED' : ''}`);
   if (HEADS[k]) for (const d of HEAD_DIRS) { const h = `${HEADS[k]}_${d}`, hs = P.sizeOf(h); console.log(`    ${h.padEnd(18)} team ${P.share(h)}  ${hs[0]} x ${hs[1]}${clipped(P.get(h)) ? '  CLIPPED' : ''}`); }
@@ -128,8 +129,9 @@ function sheet(name, cols, caption, cw = 7 * T, rh = 9 * T) {
   label(c, caption, 4, 4, 2);
   save(name, c);
 }
-sheet('turbine', [['ex_bunkhouse', "TODAY'S CABIN"], ['ex_turbine', 'ONE TURBINE'], ['ex_windfarm', 'THREE ON A PAD'], ['ex_radio', 'RADIO TOWER'], ['ex_hall', 'DATA CENTER']], 'THE POWER SOURCE: TODAY, THE TWO OPTIONS, THE RADIO TOWER AND THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
-sheet('uplink', [['ex_uplink', 'THE UPLINK'], ['ex_radio', 'RADIO TOWER'], ['ex_lab', 'LAB'], ['ex_hall', 'DATA CENTER']], 'THE UPLINK BESIDE THE RADIO TOWER, THE LAB AND THE DATA CENTER. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
+sheet('turbine', [['ex_bunkhouse', "TODAY'S CABIN"], ['ex_turbine', 'ONE TURBINE'], ['ex_windfarm', 'THREE ON A PAD'], ['ex_radio', 'SENTRY GUN'], ['ex_hall', 'DATA CENTER']], 'THE POWER SOURCE: TODAY, THE TWO OPTIONS, THE SENTRY GUN AND THE DATA CENTER FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
+sheet('uplink', [['ex_uplink', 'THE UPLINK'], ['ex_radio', 'SENTRY GUN'], ['ex_lab', 'LAB'], ['ex_hall', 'DATA CENTER']], 'THE UPLINK BESIDE THE SENTRY GUN, THE LAB AND THE DATA CENTER. SEAT 0 ABOVE, SEAT 1 BELOW', 8 * T);
+sheet('sentry', [['ex_radio', 'SENTRY GUN'], ['kg_tower', 'WATCHTOWER'], ['ex_turbine', 'ONE TURBINE']], 'THE SENTRY GUN BESIDE THE WATCHTOWER AND A TURBINE FOR SCALE. SEAT 0 ABOVE, SEAT 1 BELOW');
 
 // ---- the base: tools/art/retheme-bases.mjs's Expedition layout, the turbines in the Cabins' places, an Uplink ----
 const EX_UNITS = [['ex_bot_0_0', 15.2, 9.4], ['ex_bot_2_0', 18.6, 8.2], ['ex_bot_8_0', 19.8, 10.1], ['ex_bot_12_0', 20.4, 7.3], ['ex_marine_4_0', 15.5, 5.8], ['ex_marine_4_0', 16.4, 5.9], ['ex_marine_4_0', 17.3, 6.0], ['ex_marine_0_0', 9.5, 12.6]];
@@ -149,7 +151,7 @@ function base(seat, power) {
 }
 for (const [name, power, txt] of [['base', 'ex_turbine', 'WIND TURBINES'], ['base-farm', 'ex_windfarm', 'WIND FARMS']]) {
   const c = base(1, power), z = resample(c, 0.75);
-  label(c, `EXPEDITION BASE WITH ${txt} AND AN UPLINK`, 6, 6, 2); save(`${name}-100`, c, false);
-  label(z, `EXPEDITION BASE WITH ${txt} AND AN UPLINK  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);
+  label(c, `EXPEDITION BASE WITH ${txt}, AN UPLINK AND SENTRY GUNS`, 6, 6, 2); save(`${name}-100`, c, false);
+  label(z, `EXPEDITION BASE WITH ${txt}, AN UPLINK AND SENTRY GUNS  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);
 }
 console.log('pictures ->', outDir);

@@ -34,17 +34,17 @@ const LED = 0xe6f0ff;
  * k y * 1.19 - z' above the centre at the 40-degree camera. The smoke points are the chimney caps' tops. The Cottage has
  * no smoke: nobody works there. */
 export const BLDG_LOOK = {
-  core: { smoke: [[106, 4]] },                                                       // (the Castle: the great hall's chimney; no light)
-  barracks: { smoke: [[25, -31]] },                                                  // (the Barracks' chimney at the hall's west end)
-  forge: { glow: [0xff5a1e, 0.6, 0.45, -1, true, 6], smoke: [[21, -35], [41, 9]] }, // (the Blacksmith's ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
+  core: { smoke: [[97, 4]] },                                                        // (the Castle, +11 at 0.88: the great hall's chimney; no light)
+  barracks: { smoke: [[37, -26]] },                                                  // (the Barracks, -30: the chimney at the hall's west end)
+  forge: { glow: [0xff5a1e, 0.6, 0.45, -3, true, 1], smoke: [[22, -24], [35, 21]] }, // (the Blacksmith, -20: the ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
   turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
   // the Expedition: its white LEDs
   conflux: { glow: [LED, 1.1, 0.28, 0, false, -14] },                                // (the Data centre's three lit fans in its south face)
-  siphon: { glow: [LED, 0.5, 0.45, -3, false, 14] },                                // (the Recruiting post's tent: the lantern on its pole at the door; the population building, a timber booth, has no light)
-  kiln: { glow: [LED, 0.7, 0.4, 18, false, -4] },                                    // (the Factory's work lamp over the bay)
-  loom: { glow: [LED, 1.0, 0.3, 5, false, -4] },                                     // (the Lab's lit glass front)
+  siphon: { glow: [LED, 0.5, 0.45, -5, false, 11] },                                // (the Recruiting post's tent, -10: the lantern on its pole at the door; the population building, a timber booth, has no light)
+  kiln: { glow: [LED, 0.7, 0.4, 19, false, -4] },                                    // (the Factory, -10: the work lamp over the bay)
+  loom: { glow: [LED, 1.0, 0.3, 4, false, -2] },                                     // (the Lab, +20: its lit glass front)
   ward: { head: 'ward_head', glow: [LED, 0.35, 0.5, 70, false, 0] },                 // (the Radio tower's turret turns; the LED on its mast top)
-  eclipse: { glow: [LED, 0.9, 0.35, 34, false, 0] },                                 // (the Portal's lit cabinet at the back of its platform)
+  eclipse: { glow: [LED, 0.9, 0.35, 34, false, 6] },                                 // (the Portal, -20: the lit cabinet at the back of its platform)
 };
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */

@@ -77,7 +77,7 @@ node tools/og.mjs            # regenerate public/og.png (the link preview's imag
 CI (`.github/workflows/ci.yml`) runs on every pull request: rustfmt, clippy and `cargo test` (`rust`); the WASM build,
 `npm test` and `npm run build` (`build`); the browser tests in Chromium over ten `e2e` jobs split by measured time, summed up by `e2e: all`;
 the cross-engine subset (`engines`, WebKit and Firefox) and the golden games on an ARM Mac (`arm`), both read by hand.
-The ruleset requires build, rust and e2e (1) to (4) (to become build, rust and `e2e: all`, which is red unless the build and every shard passed). On `main`, `relay` then `deploy` publish https://ebbfall.com/
+The ruleset requires build, rust and `e2e: all` (red unless the build and every shard passed). On `main`, `relay` then `deploy` publish https://ebbfall.com/
 (a Cloudflare Worker, site/); the site never outruns the relay's protocol. The full description (the relay's build
 check, the deploy's guards, the Devices workflow): ARCHITECTURE.md, "CI and the deploy".
 

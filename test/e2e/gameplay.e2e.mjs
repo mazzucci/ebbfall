@@ -1880,7 +1880,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     const T = await d.eval(() => endfall.engine.UNITS.trooper), M = await d.eval(() => endfall.engine.UNITS.observer);
     const trooper = await hold('Guard');
     assert.match(trooper.text, /^Guard\s*50/, 'its name and cost first');
-    assert.match(trooper.text, /Spearman, cheap and steady\./, 'and what it does');
+    assert.match(trooper.text, /Cheap and steady\./, 'and what it does');
     assert.match(trooper.text, /Weak against splash\./, 'its weakness in general terms');
     assert.doesNotMatch(trooper.text, /Best with|Beaten by/, 'and never another unit by name');
     assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');

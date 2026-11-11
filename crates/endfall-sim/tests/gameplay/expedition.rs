@@ -276,8 +276,10 @@ fn the_satellite_needs_a_lab_and_unlocks_the_uplink_whose_standing_unlocks_the_p
 
 #[test]
 fn the_launch_is_told_to_every_seat() {
-    // Four seats on 96x96: the Expedition in seats 0 and 3, the Kingdom in 1 and 2. Seat 0 launches: every seat is
-    // told, and the launch is an event at its Data center (the client's rocket), once.
+    // Four seats on 96x96: the Expedition in seats 0 and 3, the Kingdom in 1 and 2, seats 0 and 1 a team against 2 and
+    // 3. Seat 0 launches: every seat is told, "You launched" on its side (its ally of the other people too) and "The
+    // enemy launched" on the other (its fellow Expedition too), and the launch is an event at its Data center (the
+    // client's rocket), once.
     let mut w = World::with_size(
         5,
         1,
@@ -287,6 +289,7 @@ fn the_launch_is_told_to_every_seat() {
         &[&VAEL, &HUMANS, &HUMANS, &VAEL],
     );
     w.disable_ai();
+    w.set_teams(&[0, 0, 1, 1]);
     let dc = hq(&w, 0);
     let (tx, ty) = (4..92)
         .flat_map(|y| (4..92).map(move |x| (x, y)))
@@ -301,8 +304,10 @@ fn the_launch_is_told_to_every_seat() {
         w.step();
         for e in w.events.drain(..) {
             match e {
-                endfall_sim::world::Event::Toast { team, msg, .. } if msg == LAUNCH_NEWS => {
-                    told.push(team)
+                endfall_sim::world::Event::Toast { team, msg, .. }
+                    if msg == LAUNCH_OURS || msg == LAUNCH_THEIRS =>
+                {
+                    told.push((team, msg == LAUNCH_OURS))
                 }
                 endfall_sim::world::Event::Launch { x, y, team } => launches.push((x, y, team)),
                 _ => {}
@@ -310,7 +315,11 @@ fn the_launch_is_told_to_every_seat() {
         }
     }
     told.sort();
-    assert_eq!(told, vec![0, 1, 2, 3], "every seat told once");
+    assert_eq!(
+        told,
+        vec![(0, true), (1, true), (2, false), (3, false)],
+        "every seat told once, in its side's words"
+    );
     let b = w.bldg(dc).unwrap();
     assert_eq!(
         launches,

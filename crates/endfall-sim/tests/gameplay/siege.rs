@@ -252,7 +252,7 @@ fn a_deployed_tank_stands_firm_and_takes_the_next_target_in_reach() {
 
 #[test]
 fn the_ai_builds_a_workshop_and_fields_trebuchets_later_on() {
-    // Its Workshop once the Forge stands; a Ballista per eight Guards from it, and from 5:30 a Trebuchet per six.
+    // Its Workshop once the Forge stands; a Ballista per eight Guards from it, and from 5:30 a Cannon per six.
     let mut w = World::new(9, 2);
     let b = w.map.bases[ENEMY as usize];
     w.make_building(BldgKind::Forge, ENEMY, b.0 + 6, b.1 - 1, true);
@@ -281,7 +281,7 @@ fn the_ai_builds_a_workshop_and_fields_trebuchets_later_on() {
     // (after its two Pumps, which come first)
     assert!(at < 180.0, "soon after its tech stands: {at:.0} s");
     assert!(vanguards, "Ballistas");
-    assert!(tanks, "Trebuchets");
+    assert!(tanks, "Cannons");
 }
 
 #[test]
@@ -348,7 +348,7 @@ fn an_idle_tank_deploys_where_it_stands_and_is_free_again_once_its_target_is_gon
 
 #[test]
 fn a_harpooned_trebuchet_waits_where_it_is() {
-    // A Trebuchet harpooned in its band (no ability: Drop Anchor included) neither walks in nor anchors; the slow worn
+    // A Cannon harpooned in its band (no ability: Drop Anchor included) neither walks in nor anchors; the slow worn
     // off, it anchors and shells.
     let (mut w, gun, target) = tank_scene(8.0);
     w.units.iter_mut().find(|u| u.id == gun).unwrap().slowed = 3.0;
@@ -367,7 +367,7 @@ fn a_harpooned_trebuchet_waits_where_it_is() {
 
 #[test]
 fn a_trebuchet_on_its_tracks_does_not_answer_a_shooter_inside_its_blind_ring() {
-    // Shot at from inside its ring (a Knight beside it), a Trebuchet on its way (attack-moving, packed up) does not take
+    // Shot at from inside its ring (a Knight beside it), a Cannon on its way (attack-moving, packed up) does not take
     // an attack it could never carry out: it goes on. A Knight that strikes it from past its ring is answered.
     let mut w = tech_arena(5);
     let tank = w.make_unit(UnitKind::SiegeTank, PLAYER, 30.0 * TILE, 30.0 * TILE);

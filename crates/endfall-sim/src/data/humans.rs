@@ -1,5 +1,5 @@
 //! The Kingdom (sim race `humans`; the Harbour before the re-theme): the Castle, villagers that build and repair,
-//! Guards and Archers from the Barracks, Riders and Knights from the Stables, Ballistas, Trebuchets and the Balloon from
+//! Guards and Archers from the Barracks, Riders and Knights from the Stables, Ballistas, Cannons and the Balloon from
 //! the Workshop, and Towers. Keys never change; the names are display strings only.
 
 use super::*;
@@ -36,7 +36,7 @@ pub const HUMANS: Faction = Faction {
         basic: UnitKind::Trooper,
         anti_air: UnitKind::Lancer,
         heavy_anti_air: Some(UnitKind::Bastion),
-        // (an Archer per Guard behind the spears; a Trebuchet per six Guards from 5:30 and a Ballista per eight from
+        // (an Archer per Guard behind the spears; a Cannon per six Guards from 5:30 and a Ballista per eight from
         // the Workshop; a Knight per four from the Stables)
         mix: &[
             (UnitKind::Lancer, 1, 0.0),
@@ -47,7 +47,7 @@ pub const HUMANS: Faction = Faction {
         raider: UnitKind::Rider,
         scout: Some(UnitKind::Observer),
         wave_scale: 1.0,
-        tech_from: 210.0, // (the Forge sooner: the Workshop's Trebuchets and the Knights earlier)
+        tech_from: 210.0, // (the Forge sooner: the Workshop's Cannons and the Knights earlier)
         air_lead: 0.0,
     },
 };
@@ -115,12 +115,12 @@ pub(super) const LANCER: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Trebuchet: back-line siege. Deployed (`Deploy`), it outranges everything on the ground and splashes hard, but
+/// The Cannon: back-line siege. Deployed (`Deploy`), it outranges everything on the ground and splashes hard, but
 /// cannot hit what comes within its blind ring, nor flyers, and its reach is past its own sight: it fires on what its
 /// side sees. Packed up it has no weapon.
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
-    name: "Trebuchet",
+    name: "Cannon",
     cost: [175, 0],
     supply: 3,
     hp: 140.0,
@@ -308,7 +308,7 @@ pub(super) const FORGE: BldgDef = BldgDef {
     req: Some(BldgKind::Barracks),
     ..BLDG
 };
-/// The Workshop: Ballistas, Trebuchets (both need the Forge too) and the Balloon.
+/// The Workshop: Ballistas, Cannons (both need the Forge too) and the Balloon.
 pub(super) const FACTORY: BldgDef = BldgDef {
     key: "factory",
     name: "Workshop",

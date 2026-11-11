@@ -75,7 +75,7 @@ pub struct Diff {
     /// 1 its raiders, siege, anti-air vehicles, Marines and Drones too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
     /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
-    /// plays differently, matched by kind (Brutal: the Kingdom's Trebuchets sooner and more of them). A kind of the
+    /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
 }

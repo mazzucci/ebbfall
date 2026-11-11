@@ -1,4 +1,4 @@
-//! Unit abilities (toggles since the re-theme: the Guard's Brace, the Trebuchet's Deploy): casting (one tap, for a
+//! Unit abilities (toggles since the re-theme: the Guard's Brace, the Cannon's Deploy): casting (one tap, for a
 //! whole selection), their effects on a unit's live stats and the per-tick countdowns.
 
 use super::*;

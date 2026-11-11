@@ -407,7 +407,7 @@ pub struct AiScript {
     /// Wave sizes scale by this (fewer, stronger units: 0.6).
     pub wave_scale: f64,
     /// Seconds before it starts its techs (sooner only on a level that researches sooner; none does today). A
-    /// knob per side: the Kingdom at 3:30 (its Forge brings the Workshop's Trebuchets and the Knights), the Expedition at
+    /// knob per side: the Kingdom at 3:30 (its Forge brings the Workshop's Cannons and the Knights), the Expedition at
     /// 5:00.
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).

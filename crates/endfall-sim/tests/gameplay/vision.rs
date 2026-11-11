@@ -450,7 +450,7 @@ fn shooters_whose_reach_meets_their_sight_still_fire_there() {
     run(&mut w, 12);
     assert!(!w.seen_by(ENEMY, van), "still unseen");
     assert!(left(&w, van) < full, "the Rover fires all the same");
-    // A deployed Trebuchet (reach 11, sight 10) and a Knight 10.95 tiles off, in its reach, on a tile it does not
+    // A deployed Cannon (reach 11, sight 10) and a Knight 10.95 tiles off, in its reach, on a tile it does not
     // see: it holds its fire until a spotter of its side sees the target.
     let mut w = tech_arena(8);
     let tank = w.make_unit(UnitKind::SiegeTank, PLAYER, 30.1 * TILE, 30.5 * TILE);

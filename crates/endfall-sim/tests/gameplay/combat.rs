@@ -178,7 +178,7 @@ fn medics_heal_infantry_but_not_machines() {
         w.unit(trooper).unwrap().maxhp,
         "trooper healed to full"
     );
-    assert_eq!(w.unit(van).unwrap().hp, 50.0, "Trebuchets are machines");
+    assert_eq!(w.unit(van).unwrap().hp, 50.0, "Cannons are machines");
 }
 
 #[test]

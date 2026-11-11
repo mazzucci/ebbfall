@@ -139,9 +139,8 @@ pub struct World {
     /// Units killed since the spatial hash was built. The JS hash keeps references to them, and separation
     /// still pushes against their last position, so the port keeps them around until the next rebuild.
     graveyard: Vec<Unit>,
-    /// The tower range's coverage (radio.rs): a bit per seat on every tile, the sources it was built from (finished,
-    /// in id order) and a count of its rebuilds. Derived from the buildings: not hashed.
-    radio: Vec<u8>,
+    /// The range's sources (radio.rs: finished, in id order) and a count of the times they were listed again.
+    /// Derived from the buildings: not hashed.
     radio_src: Vec<RadioSrc>,
     radio_ver: u32,
 }
@@ -258,7 +257,6 @@ impl World {
             hash: Vec::new(),
             hash_w: 0,
             graveyard: Vec::new(),
-            radio: Vec::new(),
             radio_src: Vec::new(),
             radio_ver: 0,
         };

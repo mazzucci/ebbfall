@@ -61,7 +61,7 @@ pub type Micro = fn(&mut World, &[Id], &[Id]);
 /// No micro: the armies just fight.
 pub fn no_micro(_: &mut World, _: &[Id], _: &[Id]) {}
 /// Every one-level tech on both sides (the abilities left, Brace and Deploy, are toggles nobody casts in a duel: the
-/// Trebuchet deploys by itself).
+/// Cannon deploys by itself).
 pub fn tech_micro(w: &mut World, _: &[Id], _: &[Id]) {
     all_techs(w);
 }

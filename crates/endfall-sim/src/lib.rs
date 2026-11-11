@@ -641,12 +641,14 @@ impl Game {
         self.valid_team(team)
             .map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
-    /// The tower range `team` has, with its allies': 1 on every tile its machines have range (zeros for a bad seat).
-    pub fn radio(&self, team: u8) -> Vec<u8> {
+    /// The range `team` has, with its allies': `x, y, reach` (world px) per source, its machines faster within a
+    /// circle (empty for a bad seat).
+    #[wasm_bindgen(js_name = radioCircles)]
+    pub fn radio_circles(&self, team: u8) -> Vec<f64> {
         self.valid_team(team)
-            .map_or_else(|| vec![0; self.w.map.rock.len()], |t| self.w.radio_cover(t))
+            .map_or_else(Vec::new, |t| self.w.radio_circles(t))
     }
-    /// Bumped whenever the tower range is built again (a source finished or fell): the client copies it only then.
+    /// Bumped whenever the range's sources change (one finished or fell): the client copies them only then.
     #[wasm_bindgen(js_name = radioVer)]
     pub fn radio_ver(&self) -> u32 {
         self.w.radio_version()

@@ -570,7 +570,7 @@ mod tests {
         let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
         let v = w.make_unit(UnitKind::SiegeTank, PLAYER, 600.0, 940.0);
         w.attack_move_group(&[t, v], 1200.0, 900.0);
-        assert_eq!(w.live_speed(t), 62.0, "on the march: the Trebuchet's pace");
+        assert_eq!(w.live_speed(t), 62.0, "on the march: the Cannon's pace");
         w.um(t).task = Task::Attack {
             target: v,
             back: None,

@@ -47,7 +47,7 @@ const UNIT_TEXT = {
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
 const BLDG_TEXT = {
-  core: { hot: 'L', what: 'Trains Villagers, stores gold', desc: 'Trains Villagers. Gold drop-off. +20 population.' },
+  core: { hot: 'L', what: 'Trains Villagers, stores gold', desc: 'Trains Villagers and stores gold. +20 population.' },
   depot: { hot: 'W', what: 'Supplies +8 population', desc: '+8 population.' },
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
   extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle.' },
@@ -57,7 +57,7 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Archers on a tower. Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: 'Trains Bots. Gold drop-off. +20 population. Radio range 18 tiles.' },
+  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: 'Trains Bots and stores gold. +20 population. Radio range 18 tiles.' },
   spire: { hot: 'S', what: 'Supplies +8 population', desc: '+8 population.' },
   siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.' },
   kiln: { hot: 'C', what: 'Builds Buggies, Rovers, Drones', desc: 'Builds Buggies, Rovers and Drones.' },

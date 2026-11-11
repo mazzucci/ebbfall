@@ -110,9 +110,11 @@ function renderSelection() {
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
+    } else if (x.kind === 'bldg' && own && x.d.trains?.length && !x.queue.length && !x.research) {
+      module('', ''); // (idle: no empty slots; the room is its line's, under the health bar (Stelian, Nov 11))
     } else if (x.kind === 'bldg' && own && x.d.trains?.length) {
-      // Its slots even when idle: nothing moves as it fills. A factory that also researches keeps a tile beside them
-      // for its research (empty room when there is none), so a research starting or ending moves nothing either.
+      // Its slots while it trains or researches. A factory that also researches keeps a tile beside them for its
+      // research (empty room when there is none), so a research starting or ending moves nothing either.
       const rs = x.d.researches?.length ? '<div id="qres" class="rq"></div>' : '';
       module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>' + rs);
       renderQueue($('queue'), x, 30);

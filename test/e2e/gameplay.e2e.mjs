@@ -967,8 +967,8 @@ const queueLayout = (d) => d.page.evaluate(() => {
 });
 
 // The production queue fills from the left, the unit in training first, in a fixed row of slots (the free ones empty
-// outlines): the portrait, the name and the health stay where they are from an empty queue to a full one and as units
-// finish, on a desktop and on a phone, for both races.
+// outlines): the portrait, the name and the health stay where they are from the first unit queued to a full queue and
+// as units finish, on a desktop and on a phone, for both races. Idle, a factory shows no slots: its line has the room.
 for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: ['c', 'barracks'], unit: 'Guard' }],
   ['vael', { hq: 'conflux', worker: 'lumen', supply: ['s', 'spire'], factory: ['i', 'siphon'], unit: 'Sellsword' }]]) {
   test(`the production queue fills from the left and nothing in the console moves (${race})`, { chromium: CDP_TOUCH }, async () => {
@@ -982,11 +982,14 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
         await d.clickEntity(f.id);
         const queued = async () => (await d.state()).bldgs.find(b => b.id === f.id).queue.length;
         const shown = (n) => d.page.waitForFunction((n) => document.querySelectorAll('#queue .qi').length === n, n, { timeout: 5000 });
-        await shown(0);
+        await d.page.waitForFunction(() => !document.querySelector('#queue'), null, { timeout: 5000 });
         const max = await d.eval(() => endfall.engine.QUEUE_MAX);
         assert.equal(max, 5, 'the queue holds five');
-        const empty = await queueLayout(d);
-        assert.equal(empty.slots.length, max, `${where}: every slot is drawn with nothing queued`);
+        await d.pressCard(R.unit);
+        assert.equal(await queued(), 1, `${where}: 1 queued (toasts: ${(await d.toasts()).join(' | ')})`);
+        await shown(1);
+        const empty = await queueLayout(d); // (the layout from the first unit on)
+        assert.equal(empty.slots.length, max, `${where}: every slot is drawn once one is queued`);
         const check = async (n, what) => {
           await shown(n);
           const l = await queueLayout(d);
@@ -996,10 +999,10 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
           assert.deepEqual(l.who, empty.who, `${where}, ${what}: the portrait, name and health stay put`);
           assert.deepEqual([l.queue, l.slots], [empty.queue, empty.slots], `${where}, ${what}: the queue keeps its place and its slots`);
         };
-        for (let n = 1; n <= max; n++) {
+        for (let n = 2; n <= max; n++) {
           await d.pressCard(R.unit);
           assert.equal(await queued(), n, `${where}: ${n} queued (toasts: ${(await d.toasts()).join(' | ')})`);
-          if (n === 1 || n === 3 || n === max) await check(n, `${n} queued`);
+          if (n === 3 || n === max) await check(n, `${n} queued`);
         }
         await d.pressCard(R.unit); // one more than it holds
         assert.equal(await queued(), max, `${where}: a full queue takes no more`);
@@ -1033,11 +1036,13 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
           };
         });
         const shown = (n) => d.page.waitForFunction((n) => document.querySelectorAll('#queue .qi').length === n, n, { timeout: 5000 });
-        await shown(0);
-        const idle = await layout();
+        await d.page.waitForFunction(() => !document.querySelector('#queue'), null, { timeout: 5000 }); // (idle: no slots, its line instead)
+        await d.pressCard(R.unit);
+        await shown(1);
+        const idle = await layout(); // (the layout from the first unit on: `idle`, nothing researching)
         assert.ok(idle.res, `${where}: the research has its room beside the queue`);
         assert.equal(idle.researching, false, `${where}: nothing researching, nothing shown`);
-        await d.pressCard(R.unit); await d.pressCard(R.unit);
+        await d.pressCard(R.unit);
         await shown(2);
         const queued = await layout();
         assert.deepEqual([queued.who, queued.queue, queued.slots, queued.res], [idle.who, idle.queue, idle.slots, idle.res], `${where}: two queued, nothing moved`);
@@ -1180,10 +1185,10 @@ test('a box over units and buildings selects only the units, and only the fighte
 });
 
 // What a unit or building is for: a short line under the health bar on the console where it fits whole (a desktop,
-// with or without a queue; a phone without one), else none; its full description on the portrait, by hover (its title)
+// with or without a queue; a phone without one: an idle factory shows no empty slots, its line has their room), else none; its full description on the portrait, by hover (its title)
 // or a long press (the command card's details panel). Never does the command card move or shrink.
-for (const [label, device] of [['desktop', DESKTOP], ['smallest landscape phone', { ...PHONE, viewport: { width: 568, height: 320 } }]]) {
-  test(`the console says what the selection is for: a Cottage's line under its health; with a queue, the line where it fits; the full words on the portrait (${label})`, { chromium: device.hasTouch ? CDP_TOUCH : undefined }, async () => {
+for (const [label, device] of [['desktop', DESKTOP], ['landscape phone', { ...PHONE, viewport: { width: 667, height: 375 } }]]) {
+  test(`the console says what the selection is for: a Cottage's line under its health; an idle Barracks's too, its queue's slots once it trains (the line where it fits); the full words on the portrait (${label})`, { chromium: device.hasTouch ? CDP_TOUCH : undefined }, async () => {
     const d = await newGame(device, 1, 4242, { ai: false });
     try {
       await d.grant(5000, 5000);
@@ -1198,12 +1203,19 @@ for (const [label, device] of [['desktop', DESKTOP], ['smallest landscape phone'
       assert.ok(what.y >= life.y + life.height - 0.5, `under the health bar: ${JSON.stringify([life, what])}`);
       assert.equal(await d.page.locator('#selInfo').count(), 0, 'no "i"');
       await pick(rax);
+      await d.page.waitForFunction(() => document.getElementById('selWhat').textContent === 'Trains Guards and Archers');
+      await d.page.waitForTimeout(200);
       const card = await cardBox();
-      await d.pressCard('Guard'); await d.pressCard('Guard'); await d.pressCard('Archer');
+      assert.equal(await line(), 'Trains Guards and Archers', 'an idle Barracks: its line');
+      assert.equal(await d.page.locator('#queue').count(), 0, 'and no empty queue slots');
+      await d.pressCard('Guard');
+      await d.page.locator('#queue').waitFor({ state: 'visible', timeout: 3000 });
+      assert.deepEqual(await cardBox(), card, 'one queued: the command card neither moved nor shrank');
+      await d.pressCard('Guard'); await d.pressCard('Archer');
       await d.page.waitForTimeout(300);
       assert.ok(await d.page.locator('#queue').isVisible(), 'the queue is shown');
       assert.deepEqual(await cardBox(), card, 'the command card neither moved nor shrank');
-      assert.equal(await line(), device.hasTouch ? null : 'Trains Guards and Archers', device.hasTouch ? 'a small phone: the queue has the room, no line' : 'a desktop: room for the line beside the queue');
+      assert.equal(await line(), device.hasTouch ? null : 'Trains Guards and Archers', device.hasTouch ? 'a phone: the queue has the room, no line' : 'a desktop: room for the line beside the queue');
       // The full words on the portrait: its title for a mouse, the details panel on a long press.
       assert.equal(await d.page.locator('#selPor').getAttribute('title'), 'Barracks: Trains Guards and Archers.');
       if (device.hasTouch) {

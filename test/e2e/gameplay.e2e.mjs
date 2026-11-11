@@ -538,12 +538,15 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
         await d.clickWorld(gx, gy); // open ground
         assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', 'phone: a later tap does not redirect it');
       } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
+      // (set-up: the other workers stop mining, so what the repair costs is all that moves the purse; gold comes in
+      // sixteen at a trip since the mines, and in bursts)
+      await d.eval((id) => endfall.G.units.filter(u => u.team === 0 && u.d.worker && u.id !== id && u.task.t === 'gather').forEach(u => endfall.engine.stopUnit(u)), h.id);
       const shards = (await d.state()).res[0];
       await d.skip(4);
       await d.clickEntity(depot.id);
       assert.match(await d.hudText('#selSub', /Repairing/), /Repairing/, 'the building shows it is being repaired');
       await until(d, async () => (await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).hp, depot.id)) >= max, { seconds: 60, what: 'the repair' });
-      assert.ok((await d.state()).res[0] < shards + 200, 'repairs cost shards'); // (mining income runs meanwhile)
+      assert.ok((await d.state()).res[0] < shards, 'repairs cost gold');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }

@@ -28,7 +28,7 @@ function selectOrDouble(hit, add, at = performance.now()) {
   lastPick = { id: hit.id, t: at, dbl: false };
   select([hit], add);
 }
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius } from './gl/render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
 /** Where a unit is drawn, as a circle round its body: centred half its drawn height above its feet (a flyer's art,
  *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
 const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
@@ -72,8 +72,15 @@ function pick(wx, wy) {
     if (k < bd) { bd = k; best = u; }
   }
   if (best) return best;
-  for (const b of shownBldgs()) { if (wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
-  return nodeAt(wx, wy);
+  const bs = shownBldgs(), inX = (b) => wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE;
+  for (const b of bs) { if (inX(b) && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
+  // Above a footprint, on its drawn walls and roof (the art rises well above it): of several, the frontmost (lowest).
+  let top = null;
+  for (const b of bs) {
+    const y0 = bldgArtTop(b.id);
+    if (y0 != null && inX(b) && wy >= y0 && wy < b.ty * TILE && (!top || b.ty + b.h > top.ty + top.h)) top = b;
+  }
+  return top || nodeAt(wx, wy);
 }
 /** The explored resource field under (wx, wy), if any. */
 function nodeAt(wx, wy) {

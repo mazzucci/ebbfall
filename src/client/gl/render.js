@@ -550,6 +550,8 @@ function pauseMark(x, y, t) {
 
 /** A sprite's drawn rectangle in world px: [x0, y0, x1, y1]. */
 const rectOf = (s) => { const t = s.texture, x0 = s.x - s.anchor.x * t.width * s.scale.x, y0 = s.y - s.anchor.y * t.height * s.scale.y; return [x0, y0, x0 + t.width * s.scale.x, y0 + t.height * s.scale.y]; };
+/** The top of a shown building's drawn art in world px (the 40° art rises well above its footprint), or null. */
+export const bldgArtTop = (id) => { const o = bldgObjs.get(id); return o?.body.visible ? rectOf(o.body)[1] : null; };
 const overlap = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
 // The occluders' image keeps only their solid pixels, white (red, the channel the mask reads): a baked shadow (black, about
 // 0.6 opaque) and soft edges come out black, so a unit beside a building, in its shadow, gets no silhouette.

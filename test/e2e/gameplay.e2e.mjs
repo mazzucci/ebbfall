@@ -469,6 +469,22 @@ test('a click or a tap on a unit\'s body, well above its feet, selects it (deskt
   }
 });
 
+test('a click or a tap on a building\'s drawn roof, above its footprint, selects it (desktop and phone)', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const core = coreOf(await d.state());
+      const top = await d.eval((id) => endfall.bldgArtTop(id), core.id);
+      // Halfway between the art's top and the footprint's north edge: on the roof, off the footprint.
+      const y = (top + core.ty * 32) / 2;
+      assert.ok(core.ty * 32 - y > 24, `the point is well above the footprint: ${core.ty * 32 - y} px`);
+      await d.clickWorld(core.x, y);
+      assert.deepEqual((await d.selection()).map(e => e.id), [core.id], `${d.touch ? 'phone' : 'desktop'}: the Castle selected`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
 test('a unit north of a tall building is drawn behind it, our own as a silhouette through it; one south of it in front', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

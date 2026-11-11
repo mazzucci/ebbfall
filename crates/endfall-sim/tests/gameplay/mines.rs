@@ -3,6 +3,7 @@
 //! takes nobody in; a saturated mine pays what a saturated field paid; the AI gathers from mines and expands to them.
 
 use super::common::*;
+use endfall_sim::world::Command;
 
 /// Gold in one crystal of a field before the mines (map.rs `add_shard`), times the map kind's share.
 fn crystal(kind: MapKind) -> i32 {
@@ -590,6 +591,61 @@ fn every_map_is_symmetric_mine_for_mine() {
                     "{ctx}: the start at {b:?} sees other mines"
                 );
             }
+        }
+    }
+}
+
+/// A worker inside its mine, stopped or sent off by its player's order (through `World::apply`, as the UI's are), comes
+/// out at once and obeys: stopped, it stands; moved, it walks there; neither goes back to gathering.
+#[test]
+fn a_worker_ordered_while_inside_its_mine_comes_out_and_obeys() {
+    for order in ["stop", "move"] {
+        let mut w = World::new(5, 1);
+        w.disable_ai();
+        let h = harvesters(&w, PLAYER)[0];
+        let node = gather_node(&w, h).unwrap();
+        let mut went_in = false;
+        for _ in 0..30 * TPS {
+            w.step();
+            if w.unit(h).unwrap().inside() {
+                went_in = true;
+                break;
+            }
+        }
+        assert!(went_in, "{order}: the worker goes into its mine");
+        let (cx, cy) = core(&w, PLAYER);
+        let (mx, my) = ((cx as f64 + 1.5) * TILE, (cy as f64 + 6.5) * TILE);
+        let cmd = match order {
+            "stop" => Command::Stop { unit: h },
+            _ => Command::Move {
+                unit: h,
+                x: mx,
+                y: my,
+            },
+        };
+        w.apply(PLAYER, &cmd).unwrap();
+        let inside = inside_of(&w, node);
+        let u = w.unit(h).unwrap();
+        assert!(!u.inside(), "{order}: out of the mine at once");
+        assert_eq!(w.map.node(node).unwrap().miners as usize, inside);
+        for _ in 0..10 * TPS {
+            w.step();
+            let u = w.unit(h).unwrap();
+            assert!(
+                !matches!(u.task, Task::Gather { .. }) && !u.inside(),
+                "{order}: never back to gathering: {:?}",
+                u.task
+            );
+        }
+        let u = w.unit(h).unwrap();
+        match order {
+            "stop" => assert!(matches!(u.task, Task::Idle), "{:?}", u.task),
+            _ => assert!(
+                (u.x - mx).hypot(u.y - my) < 2.0 * TILE,
+                "it walked to where it was sent: ({}, {})",
+                u.x,
+                u.y
+            ),
         }
     }
 }

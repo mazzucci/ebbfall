@@ -32,12 +32,16 @@ function fam(M) {
     patched: std({ color: 0xcfc8b4, map: patchTex, roughness: 0.92 }),                            // the Balloon's envelope: patched pale canvas
     patchedGrey: std({ color: 0xb4b0a4, map: patchTex, roughness: 0.92 }),                        // ... a greyer, more weathered panel
     canvasOld: std({ color: 0xa08a68, map: patchTex, roughness: 0.92 }),                          // ... an old tan panel (the patchwork's darker tone; the re-test read clean stripes as modern)
+    drab: std({ color: 0x66563a, map: M.canvas.map, roughness: 0.92 }),                            // the Archer's tunic: a dark drab wool, brown-olive (not the grass's green, not the Villager's grey)
+    yew: std({ color: 0x2c1c10, roughness: 0.82 }),                                                 // the Archer's longbow: dark yew, darker than the oak
     rope: M.rope,
   };
-  if (M.polish) { // the polish pass (polish.js polishMats does the kingdom's set; these are the family's own): hide on the bay, folds on the patched canvas
+  if (M.polish) { // the polish pass (polish.js polishMats does the kingdom's set; these are the family's own): hide on the bay, folds on the patched canvas and the drab, grain on the yew
     const X = polishTextures();
     A.horseLight.map = X.hide; A.horseLight.needsUpdate = true;
     for (const m of [A.patched, A.patchedGrey, A.canvasOld]) { m.bumpMap = X.fold; m.bumpScale = 0.8; m.needsUpdate = true; }
+    A.drab.bumpMap = X.fold; A.drab.bumpScale = 1.0; A.drab.needsUpdate = true;
+    A.yew.bumpMap = X.grain; A.yew.bumpScale = 0.8; A.yew.needsUpdate = true;
   }
   FAM.set(M, A); return A;
 }
@@ -57,47 +61,49 @@ function band(g, M, r, h, x, y, z, rx = 0, ry = 0, rz = 0) {
   return p;
 }
 
-/** Archer (ranged line infantry, sim r 10-11, scale 1.04): a bowman in a padded coat (undyed wool quilted with dark
- *  cords), a pale linen hood whose point hangs back (its own head shape: not the Villager's snug dome nor the Guard's
- *  steel disc), a tall bow held up in the left hand ahead of the body with the string drawn back to the cheek (a
- *  curved arc, never the Guard's straight bar), a quiver on the right hip with arrows fletched in team cloth, a team
- *  baldric across the chest, team hem and sleeves. From the camera: a pale pointed hood, a tall arc ahead, a team
- *  sash; no shield, no long spear. Frames 0-1 the step. */
+/** Archer (ranged line infantry, sim r 10-11, scale 1.04): Robin Hood's silhouette (Stelian, 2026-11-11: the first
+ *  Archer, a hooded bowman drawing a short bow over a quilted coat, read like the Villager: both seemed to carry
+ *  something). A pointed team hood whose point rises back, a short team cape over the shoulders between ink hems, the
+ *  face in the hood's opening; a slim tunic of dark drab wool over a leather belt, dark hose; a tall longbow of dark
+ *  yew, about the figure's height, held upright out from the body in the left hand, undrawn, its string along the
+ *  chord; a leather quiver slung on the back with three arrows whose fletchings, team cloth, stand up behind the
+ *  right shoulder; a strap across the chest. Nothing pale or gold near the hands or on the back (the team hood is the
+ *  pale-headed kingdom's one exception, Stelian's ask: the seat reads by the hood). From the camera: a team point over
+ *  a dark slim figure with a tall dark bar standing out ahead of it; no load, no shield, no bar angled up. Frames 0-1
+ *  the walk. */
 export function archer(M, f) {
-  const g = figure(M, f, { tunic: M.tunic, skirt: 4.0 }), b = g.body;
-  for (const y of [9.0, 10.4, 11.8]) add(b, rbox(5.15, 0.3, 6.75, 0.05), M.leather, 0, y, 0);  // the coat's quilting cords
-  add(b, cyl(4.0, 4.2, 1.4, 12), M.cloth, 0, 6.3, 0); add(b, cyl(4.1, 4.1, 0.35, 12), M.inkLine, 0, 7.1, 0); add(b, cyl(4.25, 4.25, 0.4, 12), M.inkLine, 0, 5.55, 0); // a team hem band on the skirt
-  add(b, rbox(5.4, 1.4, 7.2, 0.2), M.cloth, 0.2, 10.6, 0, 0.55, 0, 0);                        // the baldric across the chest, team, from the right shoulder to the left hip
-  add(b, rbox(5.5, 0.3, 7.4, 0.05), M.inkLine, 0.2, 11.35, 0, 0.55, 0, 0); add(b, rbox(5.5, 0.3, 7.4, 0.05), M.inkLine, 0.2, 9.85, 0, 0.55, 0, 0);
-  // the hood: pale linen over the head, a cowl over the shoulders, its point hanging back
-  add(b, cyl(3.4, 2.5, 2.4, 12), M.linen, -0.2, 12.4, 0);                                       // the cowl
-  add(b, cyl(3.5, 3.5, 0.35, 12), M.inkLine, -0.2, 11.2, 0);                                    // its hem
-  add(b, sph(2.4, 14, 10), M.linen, 0.1, 13.8, 0).scale.set(1, 1.05, 1);                        // the hood over the head
-  add(b, cone(1.5, 4.4, 10), M.linen, -2.6, 14.2, 0, 0, 0, 1.45);                               // its point, hanging back
-  add(b, sph(1.5, 12, 10), M.skin, 1.8, 13.3, 0).scale.set(0.75, 0.9, 0.9);                     // the face in its opening
-  add(b, torus(1.7, 0.3, 14), M.inkLine, 1.9, 13.4, 0, 0, Math.PI / 2, 0).scale.set(1, 1.1, 1);  // the opening's dark edge
-  // the quiver on the right hip, tilted back, arrows out of its mouth with team fletching
-  const qv = grp(); qv.position.set(-2.2, 7.6, 3.2); qv.rotation.set(0, 0, -0.45); b.add(qv);
-  add(qv, cyl(1.3, 1.1, 6.0, 10), M.leather, 0, 0, 0);
-  band(qv, M, 1.4, 1.6, 0, 1.6, 0);                                                            // a team band round it
-  for (const [x, z] of [[0.4, 0.3], [-0.4, -0.4], [0.1, 0.6]]) { add(qv, cyl(0.3, 0.3, 5.0, 6), M.oak, x, 4.6, z); add(qv, rbox(1.3, 1.6, 0.4, 0.1), M.cloth, x, 6.8, z); add(qv, rbox(0.4, 1.6, 1.3, 0.1), M.cloth, x, 6.8, z); }
-  // the bow: tall, held up ahead in the left hand, its arc bulging ahead (+x), the string drawn to the cheek
-  const BR = 7.2, GX = 4.6, GY = 11.0, GZ = -0.6, bw = grp(); bw.position.set(GX - BR, GY, GZ); b.add(bw);
-  add(bw, torus(BR, 1.05, 28, 2.3), M.timberPale, 0, 0, 0, 0, 0, -1.15);                        // the stave: an arc of 2.3 rad centred on +x, light timber, drawn three times its thickness (the judge: a hair-thin dark arc on a dark coat)
-  for (const s of [-1, 1]) add(bw, sph(1.0, 8, 6), M.steel, BR * Math.cos(1.15), s * BR * Math.sin(1.15), 0); // steel nocks at the tips
-  add(bw, cyl(1.25, 1.25, 2.6, 8), M.leather, BR, 0, 0);                                        // the grip
-  const tip = (s) => [BR * Math.cos(1.15), s * BR * Math.sin(1.15), 0], hand = [BR - 4.2, 0.6, 1.2];
-  limb(bw, tip(1), hand, 0.3, M.rope); limb(bw, hand, tip(-1), 0.3, M.rope);                     // the string, drawn back (drawn thick)
-  add(bw, cyl(0.3, 0.3, 11.0, 6), M.oak, BR - 1.0, 0.3, 0.6, 0, 0, Math.PI / 2);                  // the arrow on the string
-  add(bw, cone(0.5, 1.6, 6), M.steel, BR + 5.2, 0.3, 0.6, 0, 0, -Math.PI / 2);                   // its head
-  limb(b, [0.6, 11.2, -3.4], [GX - 0.6, GY, GZ], 1.15, M.cloth); add(b, sph(0.85, 8, 6), M.skin, GX - 0.4, GY, GZ);  // the bow arm, a team sleeve
-  limb(b, [0.6, 11.2, 3.4], [GX - 4.2, 11.6, 0.8], 1.15, M.cloth); add(b, sph(0.85, 8, 6), M.skin, GX - 4.4, 11.6, 0.6); // the drawing arm, back to the cheek
-  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, a leather bracer on the bow arm, ink cuffs at the wrists, leather bindings on the stave's limbs, a steel ring at the quiver's foot
-    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
-    limb(b, [2.47, 11.09, -1.86], [3.39, 11.04, -1.1], 1.3, M.leather);                           // the bracer on the bow arm's forearm
-    add(b, sph(1.25, 8, 6), M.inkLine, 3.66, 11.02, -0.88); add(b, sph(1.25, 8, 6), M.inkLine, 0.42, 11.55, 1.11);
-    for (const s of [-1, 1]) add(bw, cyl(1.3, 1.3, 1.6, 8), M.leather, BR * Math.cos(0.8), s * BR * Math.sin(0.8), 0, 0, 0, s * 0.8); // bindings where the limbs meet the grip's riser
-    add(qv, cyl(1.3, 1.3, 0.8, 10), M.steel, 0, -2.2, 0);
+  const A = fam(M), g = figure(M, f, { tunic: A.drab, skirt: 3.5 }), b = g.body;
+  // the hood and the cape: team cloth, the cape's hem and the collar in ink, the hood's point up and back
+  add(b, cyl(2.6, 4.3, 2.8, 12), M.cloth, -0.2, 11.8, 0);                                        // the short cape over the shoulders (to y 10.4: the tunic and belt show under it)
+  add(b, cyl(4.4, 4.4, 0.4, 12), M.inkLine, -0.2, 10.3, 0);                                      // its hem
+  add(b, cyl(2.7, 2.7, 0.35, 12), M.inkLine, -0.2, 13.2, 0);                                     // the collar's seam
+  add(b, sph(2.4, 14, 10), M.cloth, 0.1, 13.8, 0).scale.set(1, 1.05, 1);                         // the hood over the head
+  add(b, cone(1.3, 4.8, 10), M.cloth, -1.3, 16.6, 0, 0, 0, 0.8);                                 // its point, rising back (the apex near x -3, y 18.3; slim: round 1's fat cone read as a flame)
+  add(b, sph(1.5, 12, 10), M.skin, 1.8, 13.3, 0).scale.set(0.75, 0.9, 0.9);                      // the face in its opening
+  add(b, torus(1.7, 0.3, 14), M.inkLine, 1.9, 13.4, 0, 0, Math.PI / 2, 0).scale.set(1, 1.1, 1);   // the opening's dark edge
+  // the quiver on the back: leather, its mouth up behind the right shoulder (+z), three arrows out of it with team
+  // fletching; the strap over the right shoulder to the left hip
+  const qv = grp(); qv.position.set(-3.3, 10.8, 0.6); qv.rotation.set(0.47, 0, 0.08); b.add(qv);
+  add(qv, cyl(1.35, 1.15, 7.4, 10), M.leather, 0, 0, 0);
+  add(qv, cyl(1.4, 1.4, 0.4, 10), M.inkLine, 0, 3.5, 0);                                         // the mouth's dark rim
+  for (const [x, z] of [[0.4, 0.3], [-0.4, -0.4], [0.1, 0.6]]) { add(qv, cyl(0.3, 0.3, 5.0, 6), M.oak, x, 5.6, z); add(qv, rbox(1.4, 1.7, 0.4, 0.1), M.cloth, x, 7.5, z); add(qv, rbox(0.4, 1.7, 1.4, 0.1), M.cloth, x, 7.5, z); }
+  add(b, rbox(5.3, 0.9, 7.0, 0.1), M.leather, 0.1, 9.6, 0, -0.6, 0, 0);                          // the strap across the chest (and the back)
+  // the longbow: an arc of dark yew (radius BR, half-angle HA: a stave 16.8 tall, 3.6 deep) standing upright ahead of
+  // the body at the left hand, its belly out (+x), the string straight along the chord; drawn three times its thickness
+  const BR = 11.5, HA = 0.82, GX = 6.2, GY = 10.4, GZ = -1.6, bw = grp(); bw.position.set(GX - BR, GY, GZ); b.add(bw);
+  add(bw, torus(BR, 1.0, 36, 2 * HA), A.yew, 0, 0, 0, 0, 0, -HA);                                // the stave
+  const tip = (s) => [BR * Math.cos(HA), s * BR * Math.sin(HA), 0];
+  limb(bw, tip(1), tip(-1), 0.25, M.rope);                                                       // the string (thin: at 1x the stave is the bow)
+  add(bw, cyl(1.25, 1.25, 2.8, 8), M.leather, BR, 0, 0);                                        // the grip
+  limb(b, [0.6, 11.2, -3.4], [GX - 0.6, GY, GZ], 1.15, A.drab); add(b, sph(0.9, 8, 6), M.skin, GX - 0.3, GY, GZ);  // the bow arm, out ahead
+  limb(b, [0.6, 11.2, 3.4], [1.4, 7.2, 3.9], 1.15, A.drab); add(b, sph(0.9, 8, 6), M.skin, 1.5, 6.8, 3.9);         // the right arm, down at the side
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a small grey feather on the hood's left, a leather bracer on the bow arm, ink cuffs, leather bindings on the stave's limbs, an iron ring at the quiver's foot, a dark buckle on the strap
+    add(b, rbox(0.3, 3.0, 0.9, 0.1), M.tunic, -0.8, 16.2, -2.2, 0, 0, 0.7);
+    limb(b, [3.6, 10.6, -2.4], [4.9, 10.45, -1.9], 1.3, M.leather);
+    add(b, sph(1.25, 8, 6), M.inkLine, 5.2, 10.45, -1.75); add(b, sph(1.2, 8, 6), M.inkLine, 1.3, 7.6, 3.85);
+    for (const s of [-1, 1]) add(bw, cyl(1.25, 1.25, 1.6, 8), M.leather, BR * Math.cos(0.42), s * BR * Math.sin(0.42), 0, 0, 0, s * 0.42);
+    add(qv, cyl(1.3, 1.3, 0.8, 10), M.ironDark, 0, -3.2, 0);
+    add(b, rbox(1.0, 1.2, 1.2, 0.1), M.ironDark, 2.6, 10.6, -1.6);
   }
   g.scale.setScalar(1.04);
   return g;

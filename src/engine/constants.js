@@ -26,28 +26,29 @@ export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
 
 /** Hotkeys, descriptions and `what` (a short line, a verb first and about 25 characters, under the health bar on the selection console;
  *  none for a kind players cannot get),
- *  by kind key (the numbers and names are the sim's). A description says what the unit does;
- *  its partner and its killer are a line of their own (`PAIRS`), the counters made visible. */
+ *  by kind key (the numbers and names are the sim's). A description says what the unit does, and its strengths and weaknesses in
+ *  general terms (air, armor, infantry, machines, splash): a unit's text never names another unit, of either people (Stelian,
+ *  2026-11-11; test/engine.test.js holds it). */
 const UNIT_TEXT = {
   // the Kingdom (sim race `humans`)
   harvester: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds and repairs.' },
-  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Spearman, cheap and steady. Fights up close, ground only. Can Brace (no moving, more armor) after Shield Drill.' },
-  lancer: { hot: 'H', what: 'Shoots ground and air', desc: 'Shoots ground and air, hits flyers hard. What it hits slows down for 3 s.' },
+  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Spearman, cheap and steady. Fights up close, ground only. Weak against splash. Can Brace (no moving, more armor) after Shield Drill.' },
+  lancer: { hot: 'H', what: 'Shoots ground and air', desc: 'Shoots ground and air, hits flyers hard. What it hits slows down for 3 s. Fragile up close.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   observer: { hot: 'S', what: 'Scouts far, unarmed', desc: 'Unarmed. Slow, sees far, floats over cliffs.' },
-  siegeTank: { hot: 'A', what: 'Hurls stones from afar', desc: 'Sets up where it stops and hurls stones far, with splash. Can\'t hit anything close.' },
-  bastion: { hot: 'B', what: 'Shoots down flyers', desc: 'Bolt thrower on wheels: the answer to flyers, and it hits the ground too.' },
-  rider: { hot: 'E', what: 'Raids workers, fast', desc: 'Fast light cavalry that raids workers. Faster after Horseshoes.' },
-  knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Heavy cavalry in plate: tough, hits hard up close.' },
+  siegeTank: { hot: 'A', what: 'Hurls stones from afar', desc: 'Sets up where it stops and hurls stones far, with splash. Can\'t hit flyers or anything close.' },
+  bastion: { hot: 'B', what: 'Shoots down flyers', desc: 'Bolt thrower on wheels: the answer to flyers, and it hits the ground too. Weak against infantry.' },
+  rider: { hot: 'E', what: 'Raids workers, fast', desc: 'Fast light cavalry that raids workers. Faster after Horseshoes. Light armor: falls fast under ranged fire.' },
+  knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Heavy cavalry in plate: tough, hits hard up close. Can\'t hit flyers.' },
   // the Expedition (`vael`)
   lumen: { hot: 'G', what: 'Mines gold, builds', desc: 'Mines gold. Stays at each building until it stands. A machine: faster in range of the Data center or an Uplink.' },
-  scythe: { hot: 'N', what: 'Raids workers, fast', desc: 'Fast raider with a light gun. Can\'t hit flyers. A machine: faster in range of the Data center or an Uplink.' },
-  prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Hired local with a light sword: the Expedition\'s line. Fights up close, ground only. Takes a hired place.' },
-  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Rocket artillery: long range, fires on the move, splashes nearby ground units. Can\'t hit flyers. A machine: faster in range of the Data center or an Uplink.' },
-  shrike: { hot: 'E', what: 'Flies fast, raids workers', desc: `Fast low flyer. Hits ground and air, raids workers. Faster after Overclock. A machine: faster in range of the Data center or an Uplink, and goes at most ${D.radio.leash} tiles past it.` },
+  scythe: { hot: 'N', what: 'Raids workers, fast', desc: 'Fast raider with a light gun. Can\'t hit flyers. Weak against infantry in numbers. A machine: faster in range of the Data center or an Uplink.' },
+  prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Hired local with a light sword: the Expedition\'s line. Fights up close, ground only. Weak against armor. Takes a hired place.' },
+  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Rocket artillery: long range, fires on the move, splashes nearby ground units. Can\'t hit flyers, and outranged by siege. A machine: faster in range of the Data center or an Uplink.' },
+  shrike: { hot: 'E', what: 'Flies fast, raids workers', desc: `Fast low flyer. Hits ground and air, raids workers. Fragile against anti-air. Faster after Overclock. A machine: faster in range of the Data center or an Uplink, and goes at most ${D.radio.leash} tiles past it.` },
   halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
-  umbra: { hot: 'U', what: 'Strikes hard from range', desc: 'Elite soldier: long reach, hits hard, ground and air. Takes a Portal place.' },
-  bruiser: { hot: 'B', what: 'Holds the front line', desc: 'Hired local with a big shield and an axe: the toughest on foot. Fights up close, ground only. Takes a hired place.' },
+  umbra: { hot: 'U', what: 'Strikes hard from range', desc: 'Elite soldier: long reach, hits hard, ground and air. Weak against armor up close. Takes a Portal place.' },
+  bruiser: { hot: 'B', what: 'Holds the front line', desc: 'Hired local with a big shield and an axe: the toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Takes a hired place.' },
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
 const BLDG_TEXT = {
@@ -75,22 +76,8 @@ const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor
   satellite: { hot: 'L', desc: 'Launches the Expedition\'s satellite: every player is told. Unlocks the Uplink. Needs a Lab.' } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
-/** Each fighting unit's partner (what it fights best beside) and killer (what beats it), from cost-equal
- *  duels (the re-theme's first numbers): one line in its train button's details (`pairLine`). Workers have none. Every killer is held by a
- *  cost-equal duel (crates/endfall-sim/tests/gameplay/balance.rs `every_units_killer_on_its_card_beats_it`). */
-export const PAIRS = {
-  trooper: ['lancer', 'monolith'], lancer: ['trooper', 'scythe'], siegeTank: ['knight', 'shrike'], bastion: ['trooper', 'prism'],
-  rider: ['knight', 'umbra'], knight: ['siegeTank', 'shrike'], observer: ['siegeTank', 'shrike'],
-  prism: ['monolith', 'knight'], scythe: ['prism', 'trooper'], umbra: ['prism', 'knight'], bruiser: ['prism', 'knight'],
-  monolith: ['prism', 'siegeTank'], shrike: ['umbra', 'bastion'],
-};
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
 export const UNITS = merge(D.units, UNIT_TEXT);
-/** A unit's partner and killer as one line ("Best with Archers. Beaten by Rovers."), or '' for a worker. */
-export function pairLine(k) {
-  const p = PAIRS[k];
-  return p ? `Best with ${plural(UNITS[p[0]].name)}. Beaten by ${plural(UNITS[p[1]].name)}.` : '';
-}
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Needs a X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) { const n = D.buildings[d.req].name; d.desc += ` Needs ${/^[AEIOU]/.test(n) ? 'an' : 'a'} ${n}.`; }

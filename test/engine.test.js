@@ -58,22 +58,23 @@ test('the client reads the sim\'s tables and adds a hotkey and a description to 
   assert.match(C.upgradeDesc('weapons', C.FACTIONS.humans), /Guard \+1.*Watchtower \+2/, 'the Weapons description is built from the tables');
 });
 
-test('every fighting unit names its partner (its own people) and its killer (the other people), workers none', { skip }, () => {
+test('no unit\'s text names another unit, of either people (desc, what, its abilities\' lines): strengths and weaknesses in general terms only', { skip }, () => {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const names = Object.entries(C.UNITS).map(([k, d]) => [k, d.name]);
   for (const [fk, f] of Object.entries(C.FACTIONS)) {
-    const own = C.kindsOf(f);
-    for (const k of [...own].filter(k => C.UNITS[k])) {
-      const line = C.pairLine(k);
-      if (C.UNITS[k].worker) { assert.equal(line, '', `${k}: a worker has no line`); continue; }
-      const [with_, by] = C.PAIRS[k] || [];
-      assert.ok(own.has(with_) && C.UNITS[with_], `${fk} ${k}: its partner ${with_} is a unit of its own people`);
-      assert.ok(C.UNITS[by] && !own.has(by), `${fk} ${k}: its killer ${by} is the other people's`);
-      assert.match(line, /^Best with [A-Z][A-Za-z ]+s\. Beaten by [A-Z][A-Za-z ]+s\.$/, `${k}: ${line}`);
+    for (const k of [...C.kindsOf(f)].filter(k => C.UNITS[k])) {
+      const d = C.UNITS[k];
+      const lines = [['desc', d.desc], ['what', d.what || ''], ...(d.abilities || []).flatMap(a => [[a, C.ABILITIES[a].desc || ''], [a + ' (off)', C.ABILITIES[a].off?.desc || '']])];
+      for (const [where, text] of lines) for (const [o, n] of names) {
+        if (o === k) continue;
+        const re = new RegExp(`\\b(${esc(n)}|${esc(plural(n))})\\b`, 'i');
+        assert.ok(!re.test(text), `${fk} ${k} (${d.name}): its ${where} names the ${n}: ${text}`);
+      }
     }
   }
-  assert.equal(C.pairLine('trooper'), 'Best with Archers. Beaten by Rovers.');
 });
 
-test('no description a side reads on its card names the other race\'s units or buildings (only the partner/killer line does, on purpose)', { skip }, () => {
+test('no description a side reads on its card names the other race\'s units or buildings', { skip }, () => {
   for (const [fk, f] of Object.entries(C.FACTIONS)) {
     const own = C.kindsOf(f), defs = (k) => C.UNITS[k] || C.BUILDINGS[k];
     const theirs = [...Object.entries(C.UNITS), ...Object.entries(C.BUILDINGS)].filter(([k]) => !own.has(k)).map(([, d]) => d.name);

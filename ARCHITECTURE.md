@@ -70,10 +70,12 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
   `combat`, `ai`, `maps`, `mines`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`, `random_play`, ...): gold
-  mines (`mines`: one per field on every map kind and size, holding the field's gold; a worker inside hidden, out of
-  sight and reach, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
+  mines (`mines`: one per field on every map kind and size, holding the field's gold; every map symmetric mine for
+  mine, each image holding the same gold and every start seeing the same mines at the same distances; a worker inside
+  hidden, out of sight and reach, no healer tending it, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
   mine taking nobody in; a saturated mine paying what a saturated field paid on main before the mines, pinned; each
-  people's AI at every level gathering from mines and taking an expansion's), the Market (one a
+  people's AI at every level gathering from mines and taking an expansion's; an AI whose every base is dry taking
+  another, a natural still going up counting as a base), the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Trebuchet's deploy,
@@ -91,7 +93,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
-  under high water: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
+  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), the tower range (`radio`: machines slower out of range, people not; coverage from
   the Data center and a Radio tower, none from a site, gone when the tower falls; an ally's counts; the Drone's leash and
   its back-off when left beyond it; the Expedition AI's forward tower on a machine wave's march, and its wave's machines
   attacking out of range not called home), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
@@ -147,10 +149,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       uneven clump to one flank of its Core, `add_clump`; no map has a mine shaft since the re-theme's
                       economy: the generator still lays them, so the ground they shaped stays, and takes them up at the
                       end, `take_up_shafts`; then each field's crystals become one gold mine, `lay_mines`: 2x2
-                      (`MINE_SIZE`), neutral, holding the field's gold, where its crystals lay (`mine_spot`: open ground
-                      on its sides facing the nearest start or expansion, every start and mine still in a walker's
-                      reach), a field's images getting its mine's images; the Kingdom's Market is built in its base, one
-                      a Castle),
+                      (`MINE_SIZE`), neutral, holding the field's gold, by orbit under the map's symmetry: the orbit's
+                      first field finds a square where its crystals lay whose images all fit too (`mine_spot`: open
+                      ground on its sides facing the nearest start or expansion, its own image under any element that
+                      maps the field onto itself, every start and mine still in a walker's reach) and every image
+                      square gets a mine of the first's gold; the Kingdom's Market is built in its base, one a Castle),
                       occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map
@@ -304,7 +307,8 @@ test/art.test.js      the atlas against the game: every unit, building and turre
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
-test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch; its `test` takes `engines: true`
+test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch, stops workers through the UI for a
+                      tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),

@@ -1178,6 +1178,29 @@ test('a box over units and buildings selects only the units, and only the fighte
   } finally { await d.close(); }
 });
 
+test('the Build list packs its buttons in the order they open: a newly opened building comes last and moves none of the others', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 5000);
+    await buildAndFinish(d, 'c', 'barracks', 0);
+    // A worker's Build list, basic or advanced: each button with its slot.
+    const page = async (adv) => {
+      const h = mine(await d.state(), 'harvester')[2];
+      for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
+      await d.pressCard('Build');
+      if (adv) { await d.readyCard('Advanced'); await d.pressCard('Advanced'); }
+      const got = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
+      await d.pressCard('Back'); if (adv) await d.pressCard('Back');
+      return got;
+    };
+    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Advanced 4', 'Back 5'], 'the basic page: Advanced and Back in their places');
+    assert.deepEqual(await page(true), ['Blacksmith 0', 'Watchtower 1', 'Workshop 2', 'Market 3', 'Back 5'], 'the advanced page packed from the first slot, no gap for the Stables');
+    await buildAndFinish(d, 'x', 'extractor', 1);
+    assert.deepEqual(await page(true), ['Blacksmith 0', 'Watchtower 1', 'Workshop 2', 'Market 3', 'Stables 4', 'Back 5'], 'the Stables open last; the others keep their slots');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('phone: three buttons a row; the Build list has a basic and an advanced page; an armed order turns into Cancel', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {

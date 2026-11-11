@@ -127,7 +127,7 @@ test('the Trebuchet deploys by itself: no Deploy on its card, an order to deploy
   ui.sel = []; ui.mode = null;
 });
 
-test('what is not open yet is hidden in place: its slot stays empty, nothing else moves, its key does nothing', { skip }, () => {
+test('what is not open yet is hidden and its key does nothing: the Build list packs what is open, an ability waits in its slot', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   const lumen = E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);

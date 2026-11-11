@@ -263,7 +263,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
-  // The Guard's Brace waits for Shield Drill; the Trebuchet's Deploy is how it fires at all: no tech. (The re-theme removed
+  // The Guard's Brace waits for Shield Drill; the Cannon's Deploy is how it fires at all: no tech. (The re-theme removed
   // the others: the boosts, the hop, the cloaks.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['entrench', 'entrenching'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
@@ -381,7 +381,7 @@ test('advance() then one read of G is the same as step() after step(): the same 
   E.resetGame(4, 0); // (back to a duel's map for the tests after)
 });
 
-test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Marine\'s tracer)', { skip }, async () => {
+test('a projectile names its shooter\'s kind (the client draws each kind\'s shot by it: the Archer\'s arrow, the Android\'s tracer)', { skip }, async () => {
   const { SHOT_LOOK } = await import('../src/client/look.js');
   E.resetGameSeats(32, 1, 0, 0, ['humans', 'vael'], [], [false, false], 0, 64);
   const x = 32 * C.TILE + 16, y = 32 * C.TILE + 16;

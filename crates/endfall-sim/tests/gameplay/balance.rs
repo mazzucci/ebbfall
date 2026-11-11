@@ -92,7 +92,7 @@ fn a_turret_or_a_few_lancers_answer_an_early_raider_raid() {
 #[test]
 #[ignore]
 fn siege_matrix() {
-    // The Trebuchet's duels (cost-equal, nine tiles apart: they undervalue reach) and its siege lines, for tuning.
+    // The Cannon's duels (cost-equal, nine tiles apart: they undervalue reach) and its siege lines, for tuning.
     use UnitKind::*;
     let rows: [(&str, &[UnitKind], &[UnitKind]); 8] = [
         ("tank v trooper", &[SiegeTank], &[Trooper]),
@@ -324,15 +324,15 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
                 0.3,
             ),
             (
-                "Trebuchets behind a Knight hold the Rover",
+                "Cannons behind a Knight hold the Rover",
                 d(&[SiegeTank, Knight], &[Monolith]),
                 0.2,
             ),
-            ("Marines outrange Archers", -d(&[Lancer], &[Umbra]), 0.2),
+            ("Androids outrange Archers", -d(&[Lancer], &[Umbra]), 0.2),
             ("Buggies beat Archers", -d(&[Lancer], &[Scythe]), 0.2),
             ("Archers answer Drones", d(&[Lancer], &[Shrike]), 0.3),
             ("Ballistas answer Drones", d(&[Bastion], &[Shrike]), 0.3),
-            ("Marines answer Drones", d(&[Umbra], &[Shrike]), 0.3),
+            ("Androids answer Drones", d(&[Umbra], &[Shrike]), 0.3),
             (
                 "Archers are weak against the ground",
                 -d(&[Lancer], &[Trooper]),

@@ -102,7 +102,7 @@ for (const race of ['humans', 'vael']) {
       }
       // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
-      // No automatic ability (the Trebuchet's Set Up) has a button.
+      // No automatic ability (the Cannon's Set Up) has a button.
       assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);
       // Attack-move keeps a key, the one of its slot; in CLASSIC it is A.
       const attack = items.find(i => i.id === 'attack');
@@ -112,7 +112,7 @@ for (const race of ['humans', 'vael']) {
   });
 }
 
-test('the Trebuchet deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
+test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);
   const ids = [0, 1].map(i => E.debugSpawn(E.G.me, 'siegeTank', hq.x + 90 + i * 40, hq.y + 90));
@@ -135,6 +135,20 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
   assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Recruiting post first; no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
+  // A Recruiting post up: Advanced comes right after the three open buildings (slot 3, the second row's left), Back stays
+  // in the bottom-right slot, on both pages; the advanced page packs from slot 0.
+  E.setResources(E.G.me, 2000, 0);
+  const hq = E.G.bldgs.find(b => b.team === E.G.me);
+  let spot = null;
+  for (let r = 4; r < 12 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (const dy of [-r, r]) { const tx = Math.floor(hq.x / 32) + dx, ty = Math.floor(hq.y / 32) + dy; if (!spot && E.canPlace('siphon', tx, ty, E.G.me)) spot = [tx, ty]; }
+  assert.ok(spot && !E.placeBuilding(E.G.me, 'siphon', spot[0], spot[1], lumen), 'a Recruiting post placed');
+  for (let i = 0; i < 120 * 30 && !E.hasReq(E.G.me, 'loom'); i++) E.step();
+  ui.sel = [E.G.units.find(u => u.id === lumen.id)]; ui.mode = 'build';
+  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'Advanced packed into slot 3, Back in the corner');
+  ui.mode = 'build2';
+  const adv = slots();
+  assert.equal(adv.at(-1), 'build1@5', `Back in the corner on the advanced page too: ${adv}`);
+  assert.deepEqual(adv.slice(0, -1).map(s => +s.split('@')[1]), adv.slice(0, -1).map((_, i) => i), `the advanced page packed from slot 0: ${adv}`);
   // A unit's ability waiting for its tech is left out, and its card keeps its shape (Deselect stays put): the Guard's
   // Brace waits for Shield Drill.
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
@@ -148,5 +162,25 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   ui.sel = [unit(guard)];
   const lit = slots();
   assert.ok(lit.includes('a_entrench@2') && lit.includes('deselect@5'), `after: Brace in its slot, Deselect where it was: ${lit}`);
+  ui.sel = []; ui.mode = null;
+});
+
+test('a research started moves no button: its own turns into Cancel in its place, the others keep their slots and keys', { skip }, () => {
+  for (const race of ['humans', 'vael']) {
+    E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+    const f = E.FACTIONS[race];
+    let id = 95000;
+    for (const k of [...f.buildBasic, ...f.buildAdvanced].filter(k => E.BUILDINGS[k].researches?.length)) {
+      const bldg = (o = {}) => ({ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0, ...o });
+      const card = (b) => { ui.sel = [b]; ui.mode = null; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
+      const idle = card(bldg());
+      const slotOf = (items, itemId) => items.find(i => i.id === itemId)?.slot;
+      for (const r of E.BUILDINGS[k].researches) {
+        const busy = card(bldg({ research: { type: r } }));
+        assert.equal(slotOf(busy, 'cancelr'), slotOf(idle, 'r_' + r), `${k} researching ${r}: its Cancel in its place`);
+        for (const it of idle) if (it.id !== 'r_' + r) assert.equal(slotOf(busy, it.id), it.slot, `${k} researching ${r}: ${it.label} stays in slot ${it.slot}`);
+      }
+    }
+  }
   ui.sel = []; ui.mode = null;
 });

@@ -4,11 +4,10 @@
 //! tiles past its edge.
 //!
 //! In range means by exact distance: a point is in range when its distance to a source's centre is at most the
-//! source's reach (`in_radio`), so the client's circles and the rule agree. The sources are listed again whenever they
-//! change: checked at the start of every tick (a source counts from the tick after it is done until the tick after it
-//! is gone), when a building is made and when the teams change. A coverage grid (a bit per seat on every tile, a tile
-//! covered when its centre is in range) is built with them for the client's display only. Both are derived from the
-//! buildings, so deterministic and not hashed.
+//! source's reach (`in_radio`), so the client's circles (`radio_circles`, the same list) and the rule agree. The
+//! sources are listed again whenever they change: checked at the start of every tick (a source counts from the tick
+//! after it is done until the tick after it is gone), when a building is made and when the teams change. The list is
+//! derived from the buildings, so deterministic and not hashed.
 
 use super::*;
 use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, needs_range, range_of};
@@ -33,17 +32,15 @@ fn is_source(b: &Bldg) -> bool {
 }
 
 impl World {
-    /// Build the coverage again if its sources changed since it was last built (`force`: whatever they are, as when the
+    /// List the sources again if they changed since they were last listed (`force`: whatever they are, as when the
     /// teams change). Cheap when nothing changed: one pass over the buildings.
     pub(crate) fn refresh_radio(&mut self, force: bool) {
-        let tiles = (self.map.w * self.map.h) as usize;
-        let same = self.radio.len() == tiles
-            && self
-                .bldgs
-                .iter()
-                .filter(|b| is_source(b))
-                .map(|b| b.id)
-                .eq(self.radio_src.iter().map(|s| s.id));
+        let same = self
+            .bldgs
+            .iter()
+            .filter(|b| is_source(b))
+            .map(|b| b.id)
+            .eq(self.radio_src.iter().map(|s| s.id));
         if same && !force {
             return;
         }
@@ -59,36 +56,18 @@ impl World {
                 reach: range_of(b.kind) * TILE,
             })
             .collect();
-        self.radio.clear();
-        self.radio.resize(tiles, 0);
-        let seats = self.seats() as u8;
-        let (w, h) = (self.map.w, self.map.h);
-        for k in 0..self.radio_src.len() {
-            let s = self.radio_src[k];
-            let mask = (0..seats)
-                .filter(|&t| self.allies(s.team, t))
-                .fold(0u8, |m, t| m | 1 << t);
-            let lo = |c: f64| jsmath::to_i32(((c - s.reach) / TILE).floor()).max(0);
-            let hi = |c: f64, n: i32| jsmath::to_i32(((c + s.reach) / TILE).floor()).min(n - 1);
-            for ty in lo(s.y)..=hi(s.y, h) {
-                for tx in lo(s.x)..=hi(s.x, w) {
-                    let (cx, cy) = (tx as f64 * TILE + 16.0, ty as f64 * TILE + 16.0);
-                    if dist(s.x, s.y, cx, cy) <= s.reach {
-                        let i = self.map.idx(tx, ty);
-                        self.radio[i] |= mask;
-                    }
-                }
-            }
-        }
         self.radio_ver = self.radio_ver.wrapping_add(1);
     }
 
-    /// The coverage as seen by `team`: a byte per tile, 1 where it has range (the client's display).
-    pub fn radio_cover(&self, team: u8) -> Vec<u8> {
-        self.radio.iter().map(|&m| (m >> team) & 1).collect()
+    /// The sources `team` has range from (its own and its allies'), as `x, y, reach` (world px) each, in the
+    /// buildings' order: the client draws their circles (a point is in range when it lies in one of them).
+    pub fn radio_circles(&self, team: u8) -> Vec<f64> {
+        self.radio_sources(team)
+            .flat_map(|s| [s.x, s.y, s.reach])
+            .collect()
     }
 
-    /// Bumped whenever the coverage is built again (the client redraws it only then).
+    /// Bumped whenever the sources are listed again (the client redraws the circles only then).
     pub fn radio_version(&self) -> u32 {
         self.radio_ver
     }

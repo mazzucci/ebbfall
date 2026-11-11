@@ -1,10 +1,10 @@
 //! The Expedition (sim race `vael`; the Vael before the re-theme): the Data center, Bots that build, Sellswords and
-//! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Marines from the Portal. No shields
+//! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Androids from the Portal. No shields
 //! (the mechanism stays, as data) and every ground unit walks. Keys never change; the names are display strings only.
 //!
 //! No population (PRD: the Expedition rework): its machines (Bot, Buggy, Rover, Drone) use Power (`Pool::Supply`), from
 //! the Data center and wind turbines; its hired guns (Sellsword, Bruiser, Medic) take hired places (`Pool::Hired`), six
-//! a Recruiting post; its Marines take Portal places (`Pool::Portal`), four a Portal. The satellite (researched at the
+//! a Recruiting post; its Androids take Portal places (`Pool::Portal`), four a Portal. The satellite (researched at the
 //! Data center once a Lab stands) unlocks the Uplink, which unlocks the Portal; machines move faster inside the range
 //! of the Data center or an Uplink (data/radio.rs).
 
@@ -40,11 +40,11 @@ pub const VAEL: Faction = Faction {
         air: BldgKind::Kiln,
         heavy: None,
         basic: UnitKind::Prism,
-        // (the Marine, from the Portal: its hired guns are melee since the rework; its Drones, mixed in, hit the air too)
+        // (the Android, from the Portal: its hired guns are melee since the rework; its Drones, mixed in, hit the air too)
         anti_air: UnitKind::Umbra,
         heavy_anti_air: None,
         // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Rover per three and a Drone
-        // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; a Marine per
+        // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; an Android per
         // four from the Portal from 5:00)
         mix: &[
             (UnitKind::Bruiser, 4, 0.0),
@@ -143,10 +143,10 @@ pub(super) const HALO: UnitDef = UnitDef {
     pool: Pool::Hired, // (a hired local: one place)
     ..UNIT
 };
-/// The Marine: the Expedition's elite ranged soldier, from the Portal; never hidden.
+/// The Android: the Expedition's elite ranged soldier, from the Portal; never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
-    name: "Marine",
+    name: "Android",
     cost: [125, 0],
     supply: 1,
     pool: Pool::Portal, // (one of its Portals' places)
@@ -340,7 +340,7 @@ pub(super) const WARD: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Portal (once an Uplink stands): Marines. Each adds four Portal places.
+/// The Portal (once an Uplink stands): Androids. Each adds four Portal places.
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",

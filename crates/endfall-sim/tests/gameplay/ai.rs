@@ -1130,7 +1130,7 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
 #[test]
 fn each_level_trains_only_its_own_mix() {
     // The mix gate (`Diff::mix_tier`, `UnitKind::ai_tier`): Easy trains only tier 0 (workers, line units, their
-    // anti-air (the Marine, the Expedition's), the scout), Medium fields tier 1 too (raiders, siege, the Ballista, the Drone) and never
+    // anti-air (the Android, the Expedition's), the scout), Medium fields tier 1 too (raiders, siege, the Ballista, the Drone) and never
     // tier 2 (the Knight, the Bruiser). Ten minutes each, both peoples, money to spare against an idle player.
     for f in [&HUMANS, &VAEL] {
         for diff in [0usize, 1] {

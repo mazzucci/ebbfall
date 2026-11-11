@@ -1,6 +1,6 @@
 //! Unit abilities. Each is one tap on the command card (a toggle), so they work with a thumb: no targeting. A unit
 //! kind lists its abilities in `UnitDef::abilities`; the rules are in world/abilities.rs. Since the re-theme two are
-//! left: the Guard's Brace and the Trebuchet's Deploy (the boosts, the hop and the cloaks went with their units).
+//! left: the Guard's Brace and the Cannon's Deploy (the boosts, the hop and the cloaks went with their units).
 
 use super::*;
 

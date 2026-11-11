@@ -84,14 +84,15 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
   if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
 }, true);
 
-/** A refused button press. Short of salt, or an ability that is already on or not ready: the button
+/** A refused button press. Short of gold, or an ability that is already on or not ready: the button
  *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is
- *  short; a lit ability button says it is on). Anything else (supply blocked, "Requires …": a decision to make) is
+ *  short; a lit ability button says it is on). Anything else (no Power, no free hired or Portal places, the army at its
+ *  limit, "Requires …": a decision to make, a building to raise) is
  *  a toast; so is a refusal for a button not on the card (a hotkey). The shake rides through card rebuilds
  *  (`shaking`): the rebuilt button carries it. */
 let shaking = { id: '', until: 0 };
 function refuse(id, err) {
-  if (!/^Not enough| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
+  if (!/^Not enough gold| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
   if (/^Not enough gold/.test(err)) say('gold'); // (the announcer says what is short)
   shaking = { id, until: performance.now() + 400 };

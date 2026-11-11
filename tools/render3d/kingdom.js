@@ -336,8 +336,9 @@ export function knight(M, f) {
  *  iron throughout; team only on the bands at the three cones' feet, the flags and narrow banners (the great banner, the towers'
  *  banners and pennants, four narrow banners down the keep's face, banners on the yard's north wall, the gate's
  *  banner and shields): no cloth slabs, no tents, awnings or canopies. */
+export const CASTLE_K = 0.92; // (the final round: the whole castle scaled so its turn to -20 fits its 4x4 at 0.85 or better, its shape kept)
 export function castle(M) {
-  const g = grp(), R = 56, T = 6;
+  const g = grp(), R = 56, T = 6; g.scale.setScalar(CASTLE_K);
   add(g, plate(oct(62), 2.2, 0.8), M.earth, 0, 0, 0).userData.ground = true;                   // trodden earth, grey-brown (`ground`: the polish's contact shadow treats it as the ground, so nothing rings it)
   add(g, plate(sq(R - T + 0.5), 0.8, 0.3), M.yard, 0, 2.2, 0);                                   // the yard, grey flagstones
   const GX = 16, GZ = R - T / 2;                                                                 // the gate, off-centre to the east

@@ -43,7 +43,7 @@ pub fn supply_limit(map_w: i32) -> i32 {
 /// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
 /// per seat (`World::pools`): the Kingdom's population and the Expedition's Power (`Supply`, the same pool under two
 /// names: every Kingdom unit, and the Expedition's machines), the Expedition's hired places (`Hired`: its Sellswords,
-/// Bruisers and Medics, from its Recruiting posts) and its Portal places (`Portal`: its Marines, from its Portals).
+/// Bruisers and Medics, from its Recruiting posts) and its Portal places (`Portal`: its Androids, from its Portals).
 /// Each pool is capped by its own buildings, and all of them together at the map's `supply_limit` (one army limit:
 /// `World::army_used`, `queue_unit`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -407,7 +407,7 @@ pub struct AiScript {
     /// Wave sizes scale by this (fewer, stronger units: 0.6).
     pub wave_scale: f64,
     /// Seconds before it starts its techs (sooner only on a level that researches sooner; none does today). A
-    /// knob per side: the Kingdom at 3:30 (its Forge brings the Workshop's Trebuchets and the Knights), the Expedition at
+    /// knob per side: the Kingdom at 3:30 (its Forge brings the Workshop's Cannons and the Knights), the Expedition at
     /// 5:00.
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).

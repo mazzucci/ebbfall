@@ -481,7 +481,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Not enough Power. Build a Wind turbine.".to_string())
+        Err("Not enough Power: build a Wind turbine.".to_string())
     );
 }
 

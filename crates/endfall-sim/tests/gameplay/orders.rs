@@ -188,7 +188,7 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 #[test]
 fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge() {
     // The Kingdom: the Barracks (Guards, Archers), then the Stables (they need a Market; Riders; Knights once the Forge
-    // stands) and the Workshop (the Balloon; Ballistas and Trebuchets once the Forge stands). No building trains a
+    // stands) and the Workshop (the Balloon; Ballistas and Cannons once the Forge stands). No building trains a
     // healer.
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
@@ -247,7 +247,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
     // The Expedition: the Recruiting post (Sellswords; Bruisers once a Lab stands) needs nothing, the Factory (Buggies,
-    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Marines) an Uplink, which needs
+    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Androids) an Uplink, which needs
     // the satellite, launched at the Data center once the Lab stands.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
@@ -307,7 +307,7 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
-    assert!(!UnitKind::Umbra.def().air, "the Marine is a ground unit");
+    assert!(!UnitKind::Umbra.def().air, "the Android is a ground unit");
 }
 
 #[test]
@@ -581,7 +581,7 @@ fn a_group_attack_move_marches_at_the_slowest_pace_with_healers_behind() {
     assert!(x(&w, v) > x0 + 300.0, "the group moved: {}", x(&w, v));
     assert!(
         (x(&w, t) - x(&w, v)).abs() < 24.0,
-        "the Guard keeps pace with the Trebuchet: {} vs {}",
+        "the Guard keeps pace with the Cannon: {} vs {}",
         x(&w, t),
         x(&w, v)
     );

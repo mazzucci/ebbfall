@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, supplyLimit } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -23,16 +23,29 @@ function canUse(u, k) {
   const slot = (UNITS[u.type].abilities || []).indexOf(k);
   return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0; // (a cost it cannot pay is refused by the sim, with a toast)
 }
-/** The selection's abilities, one button each (in table order), each in the place it has with all of them unlocked
- *  (`pos`): one still waiting for its tech is left out (its slot stays empty, its key does nothing), so players find
- *  it once researched. Greyed while none of its units can use it. No countdowns: a button comes back when it is
- *  ready. An automatic ability (Deploy) has no button. */
+/** The selection's abilities, one button each (in table order), packed (`pos`: its place among those shown): one
+ *  still waiting for its tech is left out (its key does nothing), so players find it once researched. Greyed while none
+ *  of its units can use it. No countdowns: a button comes back when it is ready. An automatic ability (Deploy) has no
+ *  button. */
 function abilityItems(units) {
-  return Object.keys(ABILITIES).filter(k => !ABILITIES[k].auto && units.some(u => (UNITS[u.type].abilities || []).includes(k))).map((k, pos) => {
+  return Object.keys(ABILITIES).filter(k => !ABILITIES[k].auto && units.some(u => (UNITS[u.type].abilities || []).includes(k))).map((k) => {
     const a = ABILITIES[k], have = units.filter(u => UNITS[u.type].abilities.includes(k)), tech = unlockOf(k);
     if (tech && !G.upgrades[G.me][tech]) return null; // (waiting for its tech: hidden)
-    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, pos, dis: !have.some(u => canUse(u, k)), tip: a.desc };
-  }).filter(Boolean);
+    return { id: 'a_' + k, label: a.name, key: a.hot, icon: k, dis: !have.some(u => canUse(u, k)), tip: a.desc };
+  }).filter(Boolean).map((it, pos) => ({ ...it, pos }));
+}
+
+/** Why the sim would refuse unit `t` for want of places now (its words, crates/endfall-sim/src/world/orders.rs
+ *  `pool_full`), or '' when there is room: the button's tooltip says it before the tap does. */
+export function placesTip(t) {
+  const d = UNITS[t], f = myFaction(), limit = supplyLimit();
+  const [used, cap] = (d.pool === 'hired' ? G.hired : d.pool === 'portal' ? G.portal : G.sup)[G.me] || [0, 0];
+  if (used + (d.supply || 0) <= cap) return '';
+  const max = cap >= limit;
+  if (d.pool === 'hired') return max ? 'Hired at maximum.' : 'No free places: build another Recruiting post.';
+  if (d.pool === 'portal') return max ? 'Portal places at maximum.' : 'No free Portal places: build another Portal.';
+  if (f.power) return max ? 'Power at maximum.' : `Not enough Power: build a ${BUILDINGS[f.supply].name}.`;
+  return '';
 }
 
 /** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on. */
@@ -45,6 +58,9 @@ export function cardItems() {
   if (!sel.length) return []; // a field or an enemy: nothing to command
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); const items = [];
   const at = (slot, it) => { while (items.some(i => i.slot === slot)) slot++; it.slot = slot; items.push(it); }; // never two in a slot
+  // Packing (Stelian, Nov 11): buttons go from the first free slot, with no gap before one; only the fixed ones (Back,
+  // Deselect, a Cancel) keep their own slot.
+  const next = (it) => at(0, it);
   const hidden = (it) => items.push({ ...it, hidden: true, slot: -1 });
   const bldgItem = (k) => {
     const d = BUILDINGS[k];
@@ -57,11 +73,12 @@ export function cardItems() {
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
     const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic;
-    byUnlock(page).filter(open).forEach((k, i) => at(i, bldgItem(k)));
+    at(5, adv ? { ...back, id: 'build1' } : back); // (Back first: it keeps the bottom-right slot on both pages)
+    byUnlock(page).filter(open).forEach(k => next(bldgItem(k)));
     (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
-    // Advanced only once something on it can be built (the Garrison or Kiln stands).
-    if (!adv && f.buildAdvanced.some(open)) at(4, { id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
-    at(5, adv ? { ...back, id: 'build1' } : back);
+    // Advanced only once something on it can be built (the Barracks or the Recruiting post stands), in the first free
+    // slot after the open buildings (three of them: slot 3, the second row's left).
+    if (!adv && f.buildAdvanced.some(open)) next({ id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
   } else if (units.length) {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
@@ -71,16 +88,15 @@ export function cardItems() {
     // Every button ability the selection has, hidden ones too: the room they take, so the card keeps its shape (Deselect
     // in its place) when a tech lands.
     const span = Object.keys(ABILITIES).filter(k => !ABILITIES[k].auto && units.some(u => (UNITS[u.type].abilities || []).includes(k))).length;
-    if (onlyWorkers) { work.forEach((it, i) => at(i, it)); orders.forEach((it, i) => at(COLS + i, it)); }
+    if (onlyWorkers) { work.forEach(next); orders.forEach(next); abilities.forEach(next); }
     else {
-      orders.forEach((it, i) => at(i, it));
-      // Workers in an army: their row. Where the army's abilities need the room (the card keeps its three rows), Build
+      orders.forEach(next); abilities.forEach(next); // (the orders, then the abilities shown, packed)
+      // Workers in an army: after them. Where the army's abilities need the room (the card keeps its three rows), Build
       // stays and Gather and Repair give way (their keys still work in CLASSIC; a tap on a field or a damaged
       // building still gathers or repairs).
       const room = COLS * 3 - 1 - orders.length - span; // (the last slot: Deselect)
-      if (workers) work.forEach((it, i) => i < Math.max(1, room) ? at(COLS + i, it) : hidden(it));
+      if (workers) work.forEach((it, i) => i < Math.max(1, room) ? next(it) : hidden(it));
     }
-    abilities.forEach((it) => at(orders.length + it.pos, it)); // after the orders, on their row (each in its own place)
     // Let go of units (a tap on the ground would move them): the last slot of the card.
     at(Math.ceil((Math.max(orders.length + span - 1, ...items.map(i => i.slot)) + 2) / COLS) * COLS - 1, { id: 'deselect', label: 'Deselect', key: 'Esc', cancel: true, icon: 'x' });
     hidden({ id: 'move', label: 'Move', key: 'M', icon: 'move' }); hidden({ id: 'stop', label: 'Stop', key: 'S', icon: 'stop' });
@@ -91,26 +107,28 @@ export function cardItems() {
     if (!b.done && !buildersOf(b).length) at(0, { id: 'resume', label: 'Resume', key: 'R', icon: 'resume', tip: `Send the nearest ${UNITS[myFaction().worker].name} to finish construction` });
     if (!b.done) at(2, { id: 'cancelb', label: 'Cancel', key: 'X', cancel: true, icon: 'x', tip: 'Cancel construction (75% refund)' });
     const trains = b.done ? b.d.trains || [] : [];
-    trains.forEach((t, i) => {
-      const d = UNITS[t], missing = d.req && !G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done);
-      if (!missing) at(i, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc }); // (the hover title and the long-press) // (not yet: its slot stays empty)
-    });
+    // The units it can train now, packed in the order they unlock (as the Build page: by requirement depth, the table's
+    // order breaking ties), so a newly unlocked unit comes last and moves none of the others; one whose building is
+    // missing is left out (its key does nothing).
+    const unitDepth = (t) => (UNITS[t].req ? 1 + depth(UNITS[t].req) : 0);
+    const shown = trains.map((t, i) => [t, i, unitDepth(t)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([t]) => t)
+      .filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
+    shown.forEach(t => { const d = UNITS[t], why = placesTip(t); next({ id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc + (why ? ' ' + why : '') }); }); // (the hover title and the long-press; a refusal for want of places said there too)
     // Rally after the units (a factory trains four at most, so its card keeps two rows with the queue's Cancel in slot 5)
-    if (trains.length) at(trains.length, { id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
+    if (trains.length) next({ id: 'rally', label: 'Rally', key: 'R', icon: 'rally', tip: 'Then tap where new units should go' });
     if (b.done && b.d.researches.length) {
-      // Fixed slots: a research building's own row holds two researches and Cancel, the techs go below. A factory's one
-      // tech sits after its units and Rally, and while it researches its button becomes the Cancel (the card keeps its
-      // shape; the queue's Cancel keeps its own slot). A finished tech leaves its slot empty.
-      const slots = trains.length ? [trains.length + 1] : [0, 1, 3, 4, 5], busy = researching(bl);
+      // The researches packed from the first free slot, finished ones left out (a factory's after its units and Rally).
+      // While one runs, its own button becomes the Cancel, in its place: nothing else moves between idle and busy, so a
+      // key or a second tap meant for another research never cancels this one.
+      const busy = researching(bl);
       const cancelr = busy && { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' };
-      b.d.researches.forEach((k, i) => {
+      b.d.researches.forEach((k) => {
         const u = UPGRADES[k];
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
-        if (trains.length && busy?.research.type === k) { at(slots[i] ?? i, cancelr); return; }
+        if (busy?.research.type === k) { next(cancelr); return; }
         if (lv > u.levels) return;
-        at(slots[i] ?? i, { id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
+        next({ id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
-      if (busy && !trains.length) at(2, cancelr);
     }
     // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
     if (trains.length) {

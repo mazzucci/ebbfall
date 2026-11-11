@@ -1,7 +1,7 @@
 # Ebbfall
 
-A classic real-time strategy game, free in the browser. Time travel was discovered. Naturally, the first thing we built
-was a data center. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
+A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. Naturally, we
+went back six centuries to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
 peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
 all or in teams of any shape, or friends over the Internet with AIs in the empty seats), fourteen maps of three sizes
@@ -35,14 +35,14 @@ asks before leaving a game.
 **Units:** the Kingdom's Villagers mine gold, build and repair; its Market earns gold by itself, with no workers. The
 Barracks trains Guards (spearmen, ground only; they Brace for more armor once Shield Drill is researched) and Archers
 (ground and air, strongest against flyers, and they slow what they hit). The Stables trains Riders (fast cavalry that
-raids workers) and Knights (heavy cavalry). The Workshop builds Ballistas (the answer to flyers), Trebuchets (they set up
-where they stop and hurl stones far, with splash, but cannot hit anything close) and the Balloon, an unarmed scout that
-floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Trebuchets and Ballistas.
+raids workers) and Knights (heavy cavalry). The Workshop builds Ballistas (the answer to flyers), Cannons (they set up
+where they stop and fire cannonballs far, with splash, but cannot hit anything close) and the Balloon, an unarmed scout that
+floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Cannons and Ballistas.
 Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at each building until it stands; the
 Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
 Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
 machines that run on Power from the Data center and wind turbines, and faster near the Data center or an Uplink; the
-Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks trains Marines (elite soldiers),
+Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks trains Androids (elite soldiers),
 four to a Portal. Sentry masts hit ground and air. A unit's button names what it fights best beside and what beats it.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

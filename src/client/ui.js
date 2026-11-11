@@ -14,7 +14,10 @@ export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: nul
 export function toast(msg, bad, silent) {
   const m = $('msg'); const d = document.createElement('div');
   for (const t of [...m.children]) if (t.textContent === msg) t.remove(); // the same message again replaces itself (no storm), fresh
-  d.className = 'toast' + (bad ? ' bad' : ''); d.textContent = msg; m.appendChild(d);
+  d.className = 'toast' + (bad ? ' bad' : '');
+  // Gold as money: its coins before the word (the text stays the message, the icon is drawn by CSS).
+  msg.split(/(\bgold\b)/i).forEach((part, i) => { if (i % 2) { const c = document.createElement('i'); c.className = 'dot shard'; d.append(c, part); } else if (part) d.append(part); });
+  m.appendChild(d);
   // Two at most (news, not a dashboard): the oldest goes first, an alert last.
   while (m.children.length > 2) (m.querySelector('.toast:not(.bad)') || m.firstChild).remove();
   setTimeout(() => d.remove(), 3300);

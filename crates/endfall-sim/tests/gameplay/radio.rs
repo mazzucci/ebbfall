@@ -169,11 +169,12 @@ fn the_data_center_and_an_uplink_give_range_until_the_uplink_falls() {
     w.step();
     assert!(!w.in_radio(ENEMY, ux, uy), "the Uplink's range is gone");
     assert!(w.in_radio(ENEMY, hq.0, hq.1), "the Data center's stays");
-    // The cover the client draws: tiles whose centre is in range.
-    let cover = w.radio_cover(ENEMY);
-    let (tx, ty) = ((hq.0 / 32.0) as i32, (hq.1 / 32.0) as i32);
-    assert_eq!(cover[w.map.idx(tx, ty)], 1);
-    assert_eq!(cover[w.map.idx(30, 40)], 0);
+    // The circles the client draws: the Data center's alone now, at its centre with its reach; none for the Kingdom.
+    assert_eq!(
+        w.radio_circles(ENEMY),
+        vec![hq.0, hq.1, CONFLUX_RANGE * 32.0]
+    );
+    assert!(w.radio_circles(PLAYER).is_empty());
 }
 
 #[test]
@@ -207,6 +208,14 @@ fn an_allys_range_counts() {
     assert!(
         !w.in_radio(2, cx, cy) && !w.in_radio(3, cx, cy),
         "not the enemy's"
+    );
+    // The circles the client draws for seat 0 hold its ally's Uplink (after its Data center), not the enemy's.
+    let circles = w.radio_circles(0);
+    assert_eq!(circles[circles.len() - 3..], [cx, cy, UPLINK_RANGE * 32.0]);
+    assert!(
+        w.radio_circles(2)
+            .chunks(3)
+            .all(|c| c[0] != cx || c[1] != cy)
     );
     // And seat 0's Bot beside it, out of its own seat's range, moves faster in its ally's.
     let (bx, by) = (px(tx as f64 + 3.0), px(ty as f64 + 1.0));

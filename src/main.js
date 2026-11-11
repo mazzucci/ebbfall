@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, muzzleFx, launchFx, launchesShown, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -16,7 +16,7 @@ import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { levelOf } from './engine/util.js';
-import { setSpots } from './client/look.js';
+import { setSpots, MUZZLE_SMOKE } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
@@ -89,6 +89,19 @@ function quitToTitle() {
   started = false; closePause(); $('end').hidden = true; $('help').hidden = true; $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
+/** A shot fired (the shooter stands at the event's spot): a kind with muzzle smoke (look.js MUZZLE_SMOKE, the Cannon)
+ *  leaves its puff. */
+function muzzle(e) {
+  if (!nearView(e.x, e.y)) return;
+  const u = G.units.find(u => Math.abs(u.x - e.x) < 1 && Math.abs(u.y - e.y) < 1);
+  if (u && MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
+}
+/** A satellite launched (every seat gets the event; the toast says whose): the rocket and its sound, but only from our
+ *  side's Data center or one in sight now, so a hidden base is never shown. */
+function launched(e) {
+  if (enemies(G.me, e.team) && !seen(e)) return;
+  launchFx(e.x, e.y); sfx('launch', e);
+}
 /** Turn sim events into client effects. */
 function drainEvents() {
   for (const e of G.events) {
@@ -97,7 +110,8 @@ function drainEvents() {
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r, G.factions[e.team]); if (seen(e)) sfx('boom', e); } // (particles on screen only)
     else if (e.t === 'hit') { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
-    else if (e.t === 'fire') sfx(e.w, e);
+    else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
+    else if (e.t === 'launch') launched(e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
     else if (e.t === 'attacked') onAttacked(e);
@@ -219,7 +233,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, launches: launchesShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).

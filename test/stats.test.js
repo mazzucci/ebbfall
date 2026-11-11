@@ -63,7 +63,7 @@ test('what a unit hits, and damage that differs on the ground and in the air', (
   if (same) assert.equal(statRows(same)[1][0].text, String(UNITS[same].weapon.dmg), `${same}: one figure for both`);
 });
 
-test('the Trebuchet shows its one gun, which fires only set up', () => {
+test('the Cannon shows its one gun, which fires only set up', () => {
   const d = UNITS.siegeTank;
   assert.ok(d.weapon.siege && !d.light, 'a siege gun and no light gun');
   const [dmg, targets, ...tags] = statRows('siegeTank')[1];

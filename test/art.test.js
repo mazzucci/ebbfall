@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { BLDG_LOOK, chimneyActive, SEAT_COLORS, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL } from '../src/client/look.js';
+import { BLDG_LOOK, chimneyActive, selOval, headFrame, portalOpen, PORTAL, SEAT_COLORS, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL } from '../src/client/look.js';
 import { GROUND_BASES, GROUND_MARKS, rockTile } from '../src/client/gl/ground.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
@@ -50,6 +50,40 @@ test('chimney smoke: the Castle, Barracks and Blacksmith have smoke points, the 
   assert.equal(chimneyActive({ ...idle, queue: ['trooper'] }), true, 'training: smokes');
   assert.equal(chimneyActive({ ...idle, research: { type: 'weapons1', prog: 0 } }), true, 'researching: smokes');
   assert.equal(chimneyActive({ ...idle, done: false, queue: ['trooper'] }), false, 'not yet built: cold');
+});
+
+test('a selected building\'s mark is a flat oval under it, sized to its footprint', () => {
+  for (const [w, h] of [[2, 2], [3, 3], [4, 4]]) {
+    const b = { x: 500, y: 300, w, h }, o = selOval(b);
+    assert.ok(Math.abs(o.x - b.x) < 1 && Math.abs(o.y - b.y) <= h * 32 * 0.1, `${w}x${h}: centred on the footprint`);
+    assert.ok(o.rx > w * 16 && o.rx < w * 32 * 0.75, `${w}x${h}: a little wider than the footprint (${o.rx})`);
+    assert.ok(o.ry < o.rx && o.ry >= h * 16 * 0.9, `${w}x${h}: flat, lying on the ground (${o.ry} under ${o.rx})`);
+  }
+  assert.ok(selOval({ x: 0, y: 0, w: 4, h: 4 }).rx > selOval({ x: 0, y: 0, w: 2, h: 2 }).rx, 'a bigger building, a bigger oval');
+});
+
+test('the heads: a turret aims, a rotor spins on the clock, a dish pans to and fro about its first frame', () => {
+  assert.equal(headFrame({ head: 'ward_head' }, Math.PI / 2, 5), 4, 'aimed a quarter turn: frame 4');
+  const rotor = BLDG_LOOK.spire, frames = new Set(Array.from({ length: 40 }, (_, i) => headFrame(rotor, 0, i * 0.05)));
+  assert.ok(rotor.spin > 0 && frames.size >= 12, `the turbine's rotor goes through its frames (${frames.size} in 2 s)`);
+  const dish = BLDG_LOOK.uplink, seen = Array.from({ length: 200 }, (_, i) => headFrame(dish, 0, i * 0.1));
+  const amp = dish.pan[0], allowed = new Set(Array.from({ length: 2 * amp + 1 }, (_, i) => (i - amp + 16) % 16));
+  assert.ok(seen.every(f => allowed.has(f)) && seen.includes(amp) && seen.includes(16 - amp), `the Uplink's dish sweeps ${amp} frames either way and no further`);
+  for (const k of ['spire', 'uplink', 'eclipse', 'ward']) assert.ok(BLDG_LOOK[k].head, `${k} has its head`);
+});
+
+test('the Portal brightens each time a unit comes through: settled while idle, bright as a unit nears its end and steps out, then settled again', () => {
+  const st = {}, b = (queue, prog) => ({ done: true, queue, prog });
+  assert.equal(portalOpen(st, b([], 0), 0), 0, 'idle: closed');
+  assert.equal(portalOpen(st, b(['umbra'], 0.5), 1), 0, 'training, far from done: still closed');
+  assert.ok(portalOpen(st, b(['umbra'], 0.95), 2) > 0.5, 'near the end: opening');
+  assert.equal(portalOpen(st, b([], 0), 3), 1, 'the Android steps out: open');
+  assert.equal(portalOpen(st, b([], 0), 3 + PORTAL.hold / 2), 1, 'held open a moment');
+  const mid = portalOpen(st, b([], 0), 3 + PORTAL.hold + PORTAL.fade / 2);
+  assert.ok(mid > 0 && mid < 1, `fading (${mid})`);
+  assert.equal(portalOpen(st, b([], 0), 3 + PORTAL.hold + PORTAL.fade + 0.1), 0, 'and closed again');
+  const drop = { outAt: 10 }; // (a one-shot drop plays the same hold and fade)
+  assert.equal(portalOpen(drop, b([], 0), 10.1), 1);
 });
 
 test('every unit kind has its drawn height (atlas.json unitTops: the hit test and health bars go by it), taller than its radius', () => {

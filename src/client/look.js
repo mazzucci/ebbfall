@@ -22,11 +22,11 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 /** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
-/** The Expedition's lights: neutral white LEDs (tools/render3d/expedition-buildings.js: never warm, never a seat's). */
-const LED = 0xe6f0ff;
 
-/** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a turret head sprite that
- * turns to aim), `smoke` (points in px from the footprint's top-left corner: a puff rises from one of them now and then,
+/** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a head sprite
+ * drawn over the base in 16 frames: by default it turns to aim, a turret's; `spin` [frames a second]: it cycles through
+ * them on the renderer's clock, a rotor; `pan` [frames either side, seconds a sweep]: it sweeps slowly to and fro about
+ * its first frame, a dish), `smoke` (points in px from the footprint's top-left corner: a puff rises from one of them now and then,
  * only while the building works, `chimneyActive`: training or researching; the sprites carry no baked smoke). Each
  * measured on its model (tools/render3d/kingdom-buildings.js, expedition-buildings.js), turned and scaled as the atlas
  * draws it (retheme.js BLDG_YAW): a point (x, y, z) of a model centred on its footprint, turned `yaw` about the vertical
@@ -38,24 +38,51 @@ export const BLDG_LOOK = {
   barracks: { smoke: [[37, -26]] },                                                  // (the Barracks, -30: the chimney at the hall's west end)
   forge: { glow: [0xff5a1e, 0.6, 0.45, -3, true, 1], smoke: [[22, -24], [35, 21]] }, // (the Blacksmith, -20: the ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
   turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
-  // the Expedition: its white LEDs
-  conflux: { glow: [0x20d8ff, 1.0, 0.3, 49, false, 1] },                            // (the Data center, -10 at 0.99: the chip's die glowing on its roof, cyan as its neon; the die's centre at (0, 39.3, -3))
-  siphon: { glow: [LED, 0.5, 0.45, -5, false, 11] },                                // (the Recruiting post's tent, -10: the lantern on its pole at the door; the population building, a timber booth, has no light)
-  kiln: { glow: [LED, 0.7, 0.4, 19, false, -4] },                                    // (the Factory, -10: the work lamp over the bay)
-  loom: { glow: [LED, 1.0, 0.3, 4, false, -2] },                                     // (the Lab, +20: its lit glass front)
-  ward: { head: 'ward_head', glow: [LED, 0.35, 0.5, 70, false, 0] },                 // (the Radio tower's turret turns; the LED on its mast top)
-  eclipse: { glow: [LED, 0.9, 0.35, 34, false, 6] },                                 // (the Portal, -20: the lit cabinet at the back of its platform)
+  // the Expedition: its cyan lights (tools/render3d/expedition-buildings.js `cyanLed`, the neon: never warm, never a seat's)
+  conflux: { glow: [0x20d8ff, 1.0, 0.3, 48, false, 1] },                            // (the Data center, the server hall at -20: the chip's die glowing on its roof, cyan as its neon; the die's centre at (0, 39.3, -3))
+  siphon: { glow: [0x3fe0ff, 0.45, 0.45, 0, false, -2] },                            // (the Recruiting post, the tavern hall at -20: the cyan work lamp by its door, at (2, 10.8, 13))
+  loom: { glow: [0x3fe0ff, 1.0, 0.3, 20, false, 0] },                                // (the Lab, the dome at -20: the glow inside it, at (0, 18, 0); the Factory's roof lights are in its sprite)
+  ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
+  spire: { head: 'spire_head', spin: 10 },                                           // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn)
+  uplink: { head: 'uplink_head', pan: [3, 9] },                                      // (the Uplink's dish pans 3 facings either way)
+  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 8, false, 0] }, // (its cyan light, only as a unit comes through)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
 };
+/** The Portal's swirl brightens each time a unit comes through, then settles (Stelian, R2); it stays multi-use and
+ *  keeps training. Returns how bright it is above its settled state, 0 to 1, and keeps its own clock in `st` (one object
+ *  per Portal, the renderer's): it rises as a unit's training nears its end, holds while the unit steps out, then fades.
+ *  `b` is the client's mirror of the building (its queue and `prog`, the front unit's progress), `now` the renderer's
+ *  clock in seconds. A unit gone from the queue has stepped out; setting `st.outAt = now` plays the hold and the fade. */
+export const PORTAL = { rise: 0.2, hold: 0.5, fade: 1.2 };
+export function portalOpen(st, b, now) {
+  const n = b.done ? b.queue.length : 0;
+  if (st.n !== undefined && n < st.n) st.outAt = now; // (one came out)
+  st.n = n;
+  const rising = n ? Math.max(0, Math.min(1, (b.prog - (1 - PORTAL.rise)) / PORTAL.rise)) : 0;
+  const since = st.outAt === undefined ? Infinity : now - st.outAt;
+  const after = since < PORTAL.hold ? 1 : Math.max(0, 1 - (since - PORTAL.hold) / PORTAL.fade);
+  return Math.max(rising, after);
+}
+/** A selected building's mark: a flat oval on the ground under it, sized to its footprint (centre and radii, world
+ *  px; `b` has the sim's centre x, y and footprint w, h in tiles). A unit has its broken ring; a placement ghost stays
+ *  square. */
+export const selOval = (b) => ({ x: b.x, y: b.y + b.h * 32 * 0.06, rx: b.w * 32 * 0.64, ry: b.h * 32 * 0.5 });
+/** The head's frame (0-15) for a building's look `look` at `now` (the renderer's clock, s) aiming at `aim` (radians):
+ *  a rotor's by the clock, a dish's sweep, a turret's by its aim. `phase` (s) sets one rotor apart from the next. */
+export function headFrame(look, aim, now, phase = 0) {
+  if (look.spin) return Math.floor((now + phase) * look.spin) % 16;
+  if (look.pan) { const [amp, period] = look.pan; return (Math.round(amp * Math.sin((now + phase) * Math.PI * 2 / period)) + 16) % 16; }
+  return ((Math.round((aim || 0) / (Math.PI * 2) * 16) % 16) + 16) % 16;
+}
 
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
 export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, siegeTank: 230, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 300, rider: 640, knight: 260, bruiser: 280 };
 
 /** The shots (tools/art/effects3.js): each projectile's sprite by its shooter's kind (`SHOT_LOOK`), else by its people
  *  and projectile kind (`PEOPLE_SHOT`); a building's shot (no shooter kind: the Watchtower's, the Radio tower's) by its
- *  people (`TOWER_SHOT`). The kingdom shoots arrows, ballista bolts and trebuchet stones; the Expedition rifle tracers,
- *  rockets and the Drone's darts. Each sprite points +x with its tip at its anchor (a stone: its middle). */
-export const SHOT_LOOK = { lancer: 'arrow', bastion: 'ballista_bolt', siegeTank: 'stone', umbra: 'tracer', monolith: 'rocket', shrike: 'dart' };
-export const PEOPLE_SHOT = { humans: { bolt: 'arrow', shell: 'stone', missile: 'ballista_bolt' }, vael: { bolt: 'tracer', shell: 'rocket', missile: 'rocket' } };
+ *  people (`TOWER_SHOT`). The kingdom shoots arrows, ballista bolts and cannonballs; the Expedition rifle tracers,
+ *  rockets and the Drone's darts. Each sprite points +x with its tip at its anchor (a cannonball: its middle). */
+export const SHOT_LOOK = { lancer: 'arrow', bastion: 'ballista_bolt', siegeTank: 'cannonball', umbra: 'tracer', monolith: 'rocket', shrike: 'dart' };
+export const PEOPLE_SHOT = { humans: { bolt: 'arrow', shell: 'cannonball', missile: 'ballista_bolt' }, vael: { bolt: 'tracer', shell: 'rocket', missile: 'rocket' } };
 export const TOWER_SHOT = { humans: 'arrow', vael: 'tower_shot' };
 /** The sprite of a shot fired by a unit of kind `by` (undefined: a building) of people `people`, its projectile kind `type`. */
 export const shotArt = (by, type, people) => SHOT_LOOK[by] ?? (by ? PEOPLE_SHOT[people]?.[type] : TOWER_SHOT[people]) ?? 'arrow';
@@ -63,6 +90,8 @@ export const shotArt = (by, type, people) => SHOT_LOOK[by] ?? (by ? PEOPLE_SHOT[
  *  `b` is the client's mirror of it, src/engine/core.js). */
 export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research));
 
+/** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
+export const MUZZLE_SMOKE = { siegeTank: 1.4 };
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */
 export const SHOT_TRAIL = { rocket: 'trail' };
 /** The shots that carry a light of their own (a small warm glow under them): the tracers, the tower's shot, the rocket's flame. */
@@ -74,7 +103,7 @@ export const SHOT_LIT = new Set(['tracer', 'tower_shot', 'rocket']);
 export const UNIT_FPS = { observer: 0 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
- *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Trebuchet (siegeTank): two
- *  frames rolling, half set, set up (tools/render3d/kingdom-units.js). The Guard (trooper) has no such pose: braced, it
+ *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Cannon (siegeTank): two
+ *  frames rolling, half set, set up: the barrel raised, rolled back on its wheels (tools/render3d/kingdom-units.js `cannon`). The Guard (trooper) has no such pose: braced, it
  *  stands. */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };

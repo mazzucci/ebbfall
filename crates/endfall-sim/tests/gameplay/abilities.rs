@@ -1,4 +1,4 @@
-//! Unit abilities since the re-theme: the Guard's Brace and the Trebuchet's Drop Anchor (toggles); casting for a
+//! Unit abilities since the re-theme: the Guard's Brace and the Cannon's Drop Anchor (toggles); casting for a
 //! selection, refusals, the AI using them, what the re-theme retired (the boosts, the hop, the cloaks), the speed techs
 //! and the Archer's harpoon.
 
@@ -58,7 +58,7 @@ fn a_selection_casts_together_and_only_its_own_units() {
 
 #[test]
 fn the_ai_uses_abilities_in_its_fights() {
-    // Two AIs, the Kingdom against the Expedition: in their fights the Kingdom's Trebuchet drops anchor by itself.
+    // Two AIs, the Kingdom against the Expedition: in their fights the Kingdom's Cannon drops anchor by itself.
     // (over a few games: whether an ability gets its moment depends on how a game goes)
     let mut cast: Vec<&str> = Vec::new();
     for seed in [6u32, 7, 8, 9] {
@@ -81,7 +81,7 @@ fn the_ai_uses_abilities_in_its_fights() {
             break;
         }
     }
-    assert!(cast.contains(&"deploy"), "a Trebuchet anchored: {cast:?}");
+    assert!(cast.contains(&"deploy"), "a Cannon anchored: {cast:?}");
     assert!(
         !cast.contains(&"entrench"),
         "the AI braces nothing: {cast:?}"
@@ -218,7 +218,7 @@ fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
 
 #[test]
 fn what_the_retheme_retired_stays_retired() {
-    // Two abilities are left, both toggles: Brace (the Guard's) and Drop Anchor (the Trebuchet's). Stim, Surface, Surge,
+    // Two abilities are left, both toggles: Brace (the Guard's) and Drop Anchor (the Cannon's). Stim, Surface, Surge,
     // Cloak, Seaglass and Beach are gone with their units and techs; a name of one from an old client is refused.
     assert_eq!(ABILITIES, [AbilityKind::Entrench, AbilityKind::Deploy]);
     assert!(ABILITIES.iter().all(|a| a.def().toggle));

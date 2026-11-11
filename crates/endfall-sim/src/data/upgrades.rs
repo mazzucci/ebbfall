@@ -142,8 +142,10 @@ const SATELLITE: UpgradeDef = UpgradeDef {
     req: Some(BldgKind::Loom),
     ..TECH
 };
-/// What every seat is told when a side launches its satellite.
-pub const LAUNCH_NEWS: &str = "The Expedition launched a satellite.";
+/// What a side and its allies are told when it launches its satellite.
+pub const LAUNCH_OURS: &str = "You launched a satellite.";
+/// What its enemies are told.
+pub const LAUNCH_THEIRS: &str = "The enemy launched a satellite.";
 
 /// Every upgrade, in index order.
 pub const UPGRADES: [Upgrade; 8] = [

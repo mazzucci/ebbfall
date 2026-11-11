@@ -1,6 +1,6 @@
 //! The Expedition rework (PRD: power, hired guns, the satellite): no population. Its machines use Power (the Data center
 //! +20, a wind turbine +8); its hired guns (the Sellsword, the Bruiser, the Medic) take hired places, six a Recruiting
-//! post, one count for the side; its Marines take Portal places, four a Portal. Launch satellite (at the Data center,
+//! post, one count for the side; its Androids take Portal places, four a Portal. Launch satellite (at the Data center,
 //! once a Lab stands) is told to every seat and unlocks the Uplink, which unlocks the Portal. The hired guns fight in
 //! melee. The range's speed bonus and the Drone's leash: radio.rs.
 
@@ -111,7 +111,7 @@ fn a_bot_is_refused_at_the_power_cap_and_trained_once_a_turbine_stands() {
     let dc = hq(&w, PLAYER);
     assert_eq!(
         w.queue_unit(dc, UnitKind::Lumen),
-        Err("Not enough Power. Build a Wind turbine.".to_string())
+        Err("Not enough Power: build a Wind turbine.".to_string())
     );
     // Hired places and Power are apart: a full Power pool does not stop a Sellsword.
     let post = set_down(&mut w, BldgKind::Siphon);
@@ -143,7 +143,7 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
     assert_eq!(w.sup(PLAYER), power, "no Power for people");
     assert_eq!(
         w.queue_unit(a, UnitKind::Bruiser),
-        Err("No free places for hire. Build a Recruiting post.".to_string())
+        Err("No free places: build another Recruiting post.".to_string())
     );
     // A death frees a place, whichever post hired it.
     w.damage(hired[0], 1e9, None);
@@ -223,7 +223,7 @@ fn each_portal_holds_four_marines() {
     assert_eq!(w.sup(PLAYER), power, "nor Power");
     assert_eq!(
         w.queue_unit(p, UnitKind::Umbra),
-        Err("No free Portal places. Build a Portal.".to_string())
+        Err("No free Portal places: build another Portal.".to_string())
     );
     let q = set_down(&mut w, BldgKind::Eclipse);
     assert_eq!(w.pool(PLAYER, Pool::Portal), [4, 8]);
@@ -276,8 +276,10 @@ fn the_satellite_needs_a_lab_and_unlocks_the_uplink_whose_standing_unlocks_the_p
 
 #[test]
 fn the_launch_is_told_to_every_seat() {
-    // Four seats on 96x96: the Expedition in seats 0 and 3, the Kingdom in 1 and 2. Seat 0 launches: every seat is
-    // told, and the launch is an event at its Data center (the client's rocket), once.
+    // Four seats on 96x96: the Expedition in seats 0 and 3, the Kingdom in 1 and 2, seats 0 and 1 a team against 2 and
+    // 3. Seat 0 launches: every seat is told, "You launched" on its side (its ally of the other people too) and "The
+    // enemy launched" on the other (its fellow Expedition too), and the launch is an event at its Data center (the
+    // client's rocket), once.
     let mut w = World::with_size(
         5,
         1,
@@ -287,6 +289,7 @@ fn the_launch_is_told_to_every_seat() {
         &[&VAEL, &HUMANS, &HUMANS, &VAEL],
     );
     w.disable_ai();
+    w.set_teams(&[0, 0, 1, 1]);
     let dc = hq(&w, 0);
     let (tx, ty) = (4..92)
         .flat_map(|y| (4..92).map(move |x| (x, y)))
@@ -301,8 +304,10 @@ fn the_launch_is_told_to_every_seat() {
         w.step();
         for e in w.events.drain(..) {
             match e {
-                endfall_sim::world::Event::Toast { team, msg, .. } if msg == LAUNCH_NEWS => {
-                    told.push(team)
+                endfall_sim::world::Event::Toast { team, msg, .. }
+                    if msg == LAUNCH_OURS || msg == LAUNCH_THEIRS =>
+                {
+                    told.push((team, msg == LAUNCH_OURS))
                 }
                 endfall_sim::world::Event::Launch { x, y, team } => launches.push((x, y, team)),
                 _ => {}
@@ -310,7 +315,11 @@ fn the_launch_is_told_to_every_seat() {
         }
     }
     told.sort();
-    assert_eq!(told, vec![0, 1, 2, 3], "every seat told once");
+    assert_eq!(
+        told,
+        vec![(0, true), (1, true), (2, false), (3, false)],
+        "every seat told once, in its side's words"
+    );
     let b = w.bldg(dc).unwrap();
     assert_eq!(
         launches,

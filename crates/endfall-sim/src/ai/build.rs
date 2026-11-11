@@ -364,7 +364,7 @@ impl World {
     }
 
     /// The side's second tech building (`AiScript::tech2`, the Expedition's Portal) when the build order wants it: not
-    /// raised yet, its own requirement standing, and either a mixed-in unit it trains (the Marine) or unlocks (one
+    /// raised yet, its own requirement standing, and either a mixed-in unit it trains (the Android) or unlocks (one
     /// another factory of its own, already placed, trains) due by the time it stands, on a level that fields it, or
     /// one of its techs of use and not yet researched, from the side's tech time on a level that uses them.
     /// While its own requirement does not stand yet, that requirement instead when it can be built (the Portal's

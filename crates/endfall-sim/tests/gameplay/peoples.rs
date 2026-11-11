@@ -71,7 +71,7 @@ fn each_building_trains_its_peoples_list() {
 
 #[test]
 fn nothing_is_ever_hidden() {
-    // No cloak and no detection since the re-theme: the Marine (the Undertow's place, which lurked) is seen and shot
+    // No cloak and no detection since the re-theme: the Android (the Undertow's place, which lurked) is seen and shot
     // wherever its enemy has sight, after standing still as long as it likes; the snapshot sends nothing about cloaks.
     let mut w = flat_arena(5);
     w.factions = vec![&HUMANS, &VAEL];

@@ -162,9 +162,9 @@ impl World {
             // (the Expedition's Power: it has no population)
             Pool::Supply if f.power => {
                 if cap >= limit {
-                    format!("Power at its limit ({limit}): no more machines until some fall")
+                    "Power at maximum.".into()
                 } else {
-                    format!("Not enough Power. Build a {}.", f.supply.def().name)
+                    format!("Not enough Power: build a {}.", f.supply.def().name)
                 }
             }
             Pool::Supply => {
@@ -174,14 +174,10 @@ impl World {
                     format!("Population full. Build a {}.", f.supply.def().label())
                 }
             }
-            Pool::Hired if cap >= limit => {
-                format!("Hired places at their limit ({limit}): no more until some fall")
-            }
-            Pool::Hired => "No free places for hire. Build a Recruiting post.".into(),
-            Pool::Portal if cap >= limit => {
-                format!("Portal places at their limit ({limit}): no more until some fall")
-            }
-            Pool::Portal => "No free Portal places. Build a Portal.".into(),
+            Pool::Hired if cap >= limit => "Hired at maximum.".into(),
+            Pool::Hired => "No free places: build another Recruiting post.".into(),
+            Pool::Portal if cap >= limit => "Portal places at maximum.".into(),
+            Pool::Portal => "No free Portal places: build another Portal.".into(),
         }
     }
 
@@ -570,7 +566,7 @@ mod tests {
         let t = w.make_unit(UnitKind::Trooper, PLAYER, 600.0, 900.0);
         let v = w.make_unit(UnitKind::SiegeTank, PLAYER, 600.0, 940.0);
         w.attack_move_group(&[t, v], 1200.0, 900.0);
-        assert_eq!(w.live_speed(t), 62.0, "on the march: the Trebuchet's pace");
+        assert_eq!(w.live_speed(t), 62.0, "on the march: the Cannon's pace");
         w.um(t).task = Task::Attack {
             target: v,
             back: None,

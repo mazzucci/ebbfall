@@ -1,13 +1,15 @@
 // The Expedition's units after the slice (the units family, 2026-11-10; not in the game's atlas: retheme.js renders
-// them by filter): the Mercenary (the Recruiting post's ranged line, a hired local), the Veteran (its heavy top tier),
-// the Rover (the Factory's artillery: black-powder rockets on an electric cart) and the Drone (the Factory's fast low
-// flyer). The slice's rules (expedition.js, target/art-review/slice/notes.md): charcoal kit, dark rounded heads,
-// neutral white LEDs, one pale mark per unit, team on stripes, pads, packs, bumpers and rotor guards between ink
-// trims, never a body slab; the Mercenary's hi-vis vest is the team colour itself (the PM). Same conventions as
-// models.js: game units, units face +x, y up, +z south.
+// them by filter): the Mercenary (the Recruiting post's line, a hired local; the Sellsword in the game's words, melee
+// since A2, 2026-11-11), the Veteran (its heavy top tier; the Bruiser, a shield and an axe since A2), the Rover (the
+// Factory's artillery: black-powder rockets on an electric cart) and the Drone (the Factory's fast low flyer). The
+// slice's rules (expedition.js, target/art-review/slice/notes.md): charcoal kit, dark rounded heads, neutral white
+// LEDs, one pale mark per unit, team on stripes, pads, packs, bumpers and rotor guards between ink trims, never a
+// body slab; the Mercenary's hi-vis vest is the team colour itself (the PM). Same conventions as models.js: game
+// units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { torus } from './harbour.js';
+import { cone } from './vael.js';
 import { figure } from './kingdom.js';
 
 // ---- the family's own materials over the Expedition's set ----
@@ -31,37 +33,30 @@ function band(g, M, r, h, x, y, z, rx = 0, ry = 0, rz = 0) {
   add(p, cyl(r + 0.05, r + 0.05, 0.35, 12), M.inkLine, 0, h / 2, 0); add(p, cyl(r + 0.05, r + 0.05, 0.35, 12), M.inkLine, 0, -h / 2, 0);
   return p;
 }
-/** A slim modern rifle along local +x: a mid-gunmetal receiver, stock, magazine and grip, the barrel and handguard
- *  2.7-2.9 px wide at zoom 1.0 (the legibility pass of 2026-11-11: 2.0-2.3 and near-black until then); `scope` puts a
- *  scope tube with a glass lens on the receiver in place of the sight and lengthens the magazine (the Mercenary's, after
- *  the blind test read it as a long gun on a medieval soldier). */
-function rifle(parent, M, x, y, z, ry = 0, { len = 14, heavy = false, scope = false } = {}) {
-  const gun = grp(); gun.position.set(x, y, z); gun.rotation.set(0, ry, 0.04); parent.add(gun);
-  const k = heavy ? 1.35 : 1;
-  add(gun, rbox(3.6 * k, 1.9 * k, 1.6 * k, 0.4), M.gun, -3.2 * k, 0, 0);                        // the stock
-  add(gun, rbox(4.0 * k, 2.2 * k, 1.8 * k, 0.4), M.gun, 0.3 * k, 0, 0);                         // the receiver
-  if (heavy) add(gun, cyl(1.9, 1.9, 1.6, 14), M.joint, 0.6, -1.6, 0, 0, 0, Math.PI / 2);          // a drum magazine
-  else if (scope) add(gun, rbox(1.4, 3.2, 1.3, 0.3), M.gun, 0.4, -2.4, 0, 0, 0, 0.22);           // a long curved magazine
-  else add(gun, rbox(1.3, 2.6, 1.2, 0.3), M.gun, 0.3, -2.0, 0);                                 // the magazine
-  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2 * k, -1.4 * k, 0);                             // the grip
-  if (scope) { add(gun, rbox(1.0, 0.9, 1.0, 0.1), M.joint, 0.4, 1.4, 0); add(gun, cyl(0.85, 0.85, 3.4, 10), M.joint, 0.6, 2.3, 0, 0, 0, Math.PI / 2); add(gun, cyl(0.9, 0.9, 0.4, 10), M.glass, 2.4, 2.3, 0, 0, 0, Math.PI / 2); } // the scope: a mount, a tube over the receiver, a glass lens ahead
-  else add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5 * k, 0);                            // the sight
-  const hl = len - 9 * k;
-  add(gun, rbox(hl, 1.9 * k, 1.8 * k, 0.4), M.gun, 2.3 * k + hl / 2, 0, 0);                      // the handguard
-  add(gun, cyl(0.9 * k, 0.9 * k, 3.6, 8), M.gun, 2.3 * k + hl + 1.6, 0.15, 0, 0, 0, Math.PI / 2); // the barrel
-  return gun;
+/** A light sword along local +x from its grip: a slim bright blade with a point, a short dark cross, a leather grip
+ *  and a steel pommel (the Sellsword's; the blade 1.9 wide, 2.8 px at zoom 1.0: the PM's floor of 2 CSS px). */
+function sword(parent, M, x, y, z, rz, len = 12) {
+  const sw = grp(); sw.position.set(x, y, z); sw.rotation.set(0, 0, rz); parent.add(sw);
+  add(sw, rbox(len, 0.55, 1.9, 0.15), M.brightSteel, 1.8 + len / 2, 0, 0);                      // the blade, flat and bright
+  add(sw, cone(0.95, 2.4, 6), M.brightSteel, 1.8 + len + 1.2, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5); // its point
+  add(sw, rbox(0.8, 1.0, 4.0, 0.2), M.steel, 1.6, 0, 0);                                        // the cross
+  add(sw, cyl(0.55, 0.55, 3.0, 8), M.leather, 0, 0, 0, 0, 0, Math.PI / 2);                       // the grip
+  add(sw, sph(0.75, 8, 6), M.steel, -1.7, 0, 0);                                                 // the pommel
+  return sw;
 }
 
-/** Mercenary (ranged line, a hired local, sim r 10-11, scale 1.06; "Sellsword" in the words PR): a local in rough
- *  clothes (dark trousers and leather boots, canvas shirt sleeves) under the company's kit, which must be the read
- *  (the whole-set blind test: all four testers saw "a soldier in a medieval tunic with a long gun", the kingdom's):
- *  a big hi-vis vest, the team colour itself between ink hems, with bright reflective tape that catches the light
- *  (two bands round the body, a strip over each shoulder, a strip down the front and back on each side: the vest's
- *  pattern), a headset (a band over the cap to ear cups) and a radio on the belt with its antenna, and a modern rifle
- *  held level across the body, dark, with a scope and a long magazine. A dark peaked cap (Expedition heads are dark;
- *  the Villager's pale coif parts from it in grey), a satchel on the hip; no tunic skirt under the vest (the trousers
- *  run up to it). From the camera: a dark small head over a big team vest barred with pale glossy lines and a dark
- *  level bar with a scope; no helmet, no goggles, no camouflage: not the Marine. Frames 0-1 the step. */
+/** Mercenary (the line, a hired local, sim r 10-11, scale 1.06; the Sellsword in the game's words; melee since A2,
+ *  2026-11-11: the rifle went): a local in rough clothes (dark trousers and leather boots, canvas shirt sleeves) under
+ *  the company's kit, which must be the read (the whole-set blind test: all four testers saw "a soldier in a medieval
+ *  tunic with a long gun", the kingdom's): a big hi-vis vest, the team colour itself between ink hems, with bright
+ *  reflective tape that catches the light (two bands round the body, a strip over each shoulder, a strip down the
+ *  front and back on each side: the vest's pattern), a headset (a band over the cap to ear cups) and a radio on the
+ *  belt with its antenna, and a light sword held up and ahead in the right hand: a slim bright blade half the Guard's
+ *  spear, all steel, no haft. No shield (the Guard's round team disc and the Bruiser's big plate are theirs). A dark
+ *  peaked cap (Expedition heads are dark; the Villager's pale coif parts from it in grey), a satchel on the hip; no
+ *  tunic skirt under the vest (the trousers run up to it). From the camera: a dark small head over a big team vest
+ *  barred with pale glossy lines, a short bright blade angled up beside it; no helmet, no goggles, no camouflage: not
+ *  the Marine; no pale disc, no long bar, no shield: not the Guard. Frames 0-1 the step. */
 export function mercenary(M, f) {
   const A = fam(M), g = figure({ ...M, tunic: M.hose, hose: M.hose }, f, { skirt: 3.3 }), b = g.body; // (the figure's tunic in the trousers' dark cloth, straight: under the vest nothing reads as a tunic's skirt)
   add(b, rbox(6.2, 5.6, 8.0, 0.5), M.paintCloth, 0.2, 10.5, 0);                                  // the hi-vis vest: the team itself, big
@@ -81,26 +76,35 @@ export function mercenary(M, f) {
   add(b, rbox(2.6, 0.4, 3.4, 0.15), M.armour, 2.4, 13.8, 0, 0, 0, -0.2);                        // its peak
   add(b, torus(2.55, 0.3, 16, Math.PI), M.joint, 0.1, 13.6, 0, 0, Math.PI / 2, 0);              // the headset: a band over the cap
   for (const z of [-2.5, 2.5]) add(b, sph(0.8, 8, 6), M.joint, 0.1, 13.5, z);                     // to an ear cup each side
-  const gun = rifle(b, M, 3.8, 9.3, 0, 0.3, { len: 16, scope: true });                           // the rifle, level across the body over the vest's lower band: dark, a scope on top, a long magazine under
-  limb(b, [0.6, 11.4, 3.6], [2.8, 9.0, 1.6], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 3.0, 8.9, 1.4);  // the trigger hand
-  limb(b, [0.6, 11.4, -3.6], [6.4, 9.5, -1.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 6.8, 9.5, -1.0); // the fore hand
-  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, a pouch on the other hip, ink cuffs at the wrists, a sling under the rifle (the satchel's diagonal strap across the vest went with the blind test's fix: nothing crosses the vest)
+  // the sword in the right hand, held up and ahead (0.65 rad, the Guard's spear's angle at under half its length: at
+  // 0.8 rad and more the point left the cell (r 15, h 19, kept) at facing 11, where the blade's reach north adds to
+  // its rise on screen), its blade clear of the head on the south side; the left arm swings free, the hand low at
+  // the hip; a team armband on each upper arm between ink rings (the company's: they keep the share over the floor
+  // from behind, where the blade's bright pixels took it under)
+  limb(b, [0.6, 11.4, 3.6], [3.0, 9.4, 4.0], 1.1, M.canvasLocal); add(b, sph(0.9, 8, 6), M.skin, 3.3, 9.3, 4.1);   // the sword arm and hand
+  sword(b, M, 3.4, 9.4, 4.1, 0.65, 10);
+  limb(b, [0.6, 11.4, -3.6], [1.4, 7.6, -4.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 1.6, 7.0, -4.2); // the free arm
+  band(b, M, 1.4, 2.4, 0.9, 10.2, -3.8, 0, 0, -0.2); band(b, M, 1.4, 2.4, 1.5, 10.6, 3.8, 0, 0, -0.9); // the armbands
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, a pouch on the other hip, ink cuffs at the wrists, a scabbard at the left hip (the satchel's diagonal strap across the vest went with the blind test's fix: nothing crosses the vest)
     add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 7.3, 0);
-    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 6.8, -3.6);
-    add(b, sph(1.2, 8, 6), M.inkLine, 2.47, 9.36, 1.9); add(b, sph(1.2, 8, 6), M.inkLine, 5.7, 9.73, -1.49);
-    limb(gun, [-4.6, -0.7, 0.2], [-0.8, -3.4, 0.4], 0.32, M.leather); limb(gun, [-0.8, -3.4, 0.4], [5.0, -0.6, 0.2], 0.32, M.leather);
+    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 6.8, 1.6);
+    add(b, sph(1.2, 8, 6), M.inkLine, 2.75, 9.55, 3.9); add(b, sph(1.2, 8, 6), M.inkLine, 1.25, 7.9, -4.15);
+    add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.8, 5.4, -3.4, 0.3, 0, 0.55);
   }
   g.scale.setScalar(1.06);
   return g;
 }
 
-/** Veteran (the heavy top tier, an experienced mercenary, sim r 13, scale 1.2): a burly local in mixed plate and
- *  modern body armour: a wide torso in a charcoal carrier over a canvas coat, steel pauldrons (local plate) over team
- *  pads on both upper arms, steel greaves, a dark helmet with a white visor LED, a big riot shield of dark glass on
- *  the left arm with a pale steel rim and a team band across it between ink lines, and a heavy gun with a drum
- *  magazine and a thick barrel across the body; a team pack strip and knee pads. Wide and big on screen: clearly
- *  heavier than the Marine and the Mercenary. From the camera: a wide dark figure with a big dark square beside it
- *  and a thick bar across; a team stripe on the square. Frames 0-1 the march. */
+/** Veteran (the heavy top tier, an experienced mercenary, sim r 13, scale 1.2; the Bruiser in the game's words; a
+ *  shield and an axe since A2, 2026-11-11: the heavy gun went): a burly local in mixed plate and modern body armour:
+ *  a wide torso in a charcoal carrier over a canvas coat, steel pauldrons (local plate) over team pads on both upper
+ *  arms, steel greaves, a dark helmet with a white visor LED, a big riot shield on the left arm, the unit's biggest
+ *  shape: a tall charcoal plate in a pale steel frame, held out ahead and leaned back so its face shows from the camera
+ *  at every facing, two wide team bands across it between ink lines (a rectangle: the Guard's shield is a round team
+ *  disc); and in the right hand a big axe shouldered: a grey timber haft with a team wrap, a broad pale steel head
+ *  with a bright edge up over the shoulder; a team pack strip and knee pads. Wide and big on screen: clearly heavier
+ *  than the Marine and the Sellsword. From the camera: a wide dark figure with a big pale-framed plate beside it and
+ *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march. */
 export function veteran(M, f) {
   const g = grp(), st = [3.0, -3.0][f % 2];
   for (const side of [-1, 1]) {                                                                  // a wide stance, heavy legs in dark trousers with steel greaves
@@ -129,24 +133,36 @@ export function veteran(M, f) {
   add(b, sph(3.0, 16, 12), M.armour, 0.2, 15.3, 0).scale.set(1, 0.85, 1);                       // the helmet, dark and big
   add(b, cyl(3.1, 3.1, 0.4, 16), M.inkLine, 0.2, 14.1, 0);                                      // its rim
   add(b, rbox(1.0, 1.0, 4.6, 0.2), M.led, 2.6, 14.5, 0);                                        // the visor LED, white
-  // the riot shield on the left arm: a tall dark glass plate in a pale steel frame with a team band across its top
-  const sh = grp(); sh.position.set(2.0, 9.4, -5.8); sh.rotation.set(0, 0.25, 0.7); b.add(sh);   // (leaned back 0.7 rad so its face shows from the camera at every facing: upright it was a sliver edge-on)
-  add(sh, rbox(1.0, 11, 7.6, 0.4), M.panel, 0, 1.0, 0);                                           // (charcoal composite over a dark glass slit: smoked glass read as a black slab)
-  add(sh, rbox(1.1, 2.2, 6.2, 0.2), M.glass, 0.05, 0.4, 0);                                       // the view slit
-  add(sh, rbox(1.2, 11.4, 0.7, 0.1), M.paleSteel, 0, 1.0, -3.8); add(sh, rbox(1.2, 11.4, 0.7, 0.1), M.paleSteel, 0, 1.0, 3.8); // the frame's pale uprights
-  add(sh, rbox(1.2, 0.7, 8.0, 0.1), M.paleSteel, 0, 6.6, 0); add(sh, rbox(1.2, 0.7, 8.0, 0.1), M.paleSteel, 0, -4.4, 0);
-  for (const y of [3.7, -1.7]) { add(sh, rbox(1.3, 3.4, 7.0, 0.1), M.paint, 0.1, y, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, y + 1.8, 0); add(sh, rbox(1.4, 0.3, 7.2, 0.05), M.inkLine, 0.1, y - 1.8, 0); } // two wide team bands over more than half the face, between ink lines (the Guard's shield)
+  // the riot shield on the left arm, the biggest shape: a tall charcoal plate (13.5 x 9.6; 11 x 7.6 with the gun) in a
+  // pale steel frame, held out ahead of the body (its foot a hand's reach before the chest, so facing east shows it
+  // past the body; at the hip it hid behind the torso) and turned across the front, leaned back 0.8 rad so its face
+  // shows from the camera at every facing (upright it was a sliver edge-on), two wide team bands across it between
+  // ink lines
+  const SH = 13.5, SW = 9.6, sh = grp(); sh.position.set(5.0, 8.8, -4.8); sh.rotation.set(0, 0.6, 0.8); b.add(sh);
+  add(sh, rbox(1.0, SH, SW, 0.4), M.panel, 0, 1.0, 0);                                           // (charcoal composite over a dark glass slit: smoked glass read as a black slab)
+  add(sh, rbox(1.1, 2.4, SW - 1.6, 0.2), M.glass, 0.05, 1.0, 0);                                 // the view slit
+  for (const z of [-SW / 2 + 0.5, SW / 2 - 0.5]) add(sh, rbox(1.3, SH + 0.4, 1.0, 0.1), M.paleSteel, 0, 1.0, z); // the frame's pale uprights
+  for (const y of [1.0 + SH / 2, 1.0 - SH / 2]) add(sh, rbox(1.3, 1.0, SW + 0.4, 0.1), M.paleSteel, 0, y, 0);     // and its rails
+  for (const y of [4.6, -2.6]) { add(sh, rbox(1.3, 3.8, SW - 1.2, 0.1), M.paint, 0.1, y, 0); add(sh, rbox(1.4, 0.35, SW - 1.0, 0.05), M.inkLine, 0.1, y + 2.0, 0); add(sh, rbox(1.4, 0.35, SW - 1.0, 0.05), M.inkLine, 0.1, y - 2.0, 0); } // two wide team bands over half the face, between ink lines
   add(sh, rbox(1.4, 3.0, 3.0, 0.3), M.joint, -0.8, 0.5, 0);                                      // the grip block behind
-  limb(b, [0.6, 11.8, -4.4], [1.2, 9.6, -5.4], 1.35, M.canvasLocal);                             // the shield arm
-  // the heavy gun across the body, in the right hand, resting on the shield's edge
-  const gun = rifle(b, M, 3.8, 9.8, 0.2, 0.35, { len: 17, heavy: true });
-  limb(b, [0.6, 11.8, 4.4], [2.8, 9.6, 2.4], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 3.0, 9.4, 2.2);
-  if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, a team band round the gun's drum between ink rings (the units notes' second team piece on the gun side, where facing 0 shows no shield; no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)
+  limb(b, [0.6, 11.8, -4.4], [4.0, 9.2, -4.6], 1.35, M.canvasLocal);                             // the shield arm, out to the grip
+  // the axe in the right hand, shouldered: a grey timber haft leaned back over the shoulder with a team wrap, a broad
+  // pale steel head up over it with a bright edge ahead and a spike behind (the Guard's spear is a long bar with a
+  // small steel leaf; this is a short bar under a big pale block)
+  const ax = grp(); ax.position.set(2.4, 9.8, 4.6); ax.rotation.set(0.1, 0, 0.5); b.add(ax);
+  add(ax, cyl(0.95, 1.05, 13, 8), M.oakPale, 0, 5.0, 0);                                        // the haft (2.7 px wide at zoom 1.0)
+  band(ax, M, 1.15, 4.0, 0, 5.6, 0);                                                             // a team wrap up the haft between ink rings, above the hand (at the grip the hand hid it, and facing east, the shield behind the body, fell under the share's floor)
+  add(ax, rbox(4.6, 5.4, 1.1, 0.25), M.paleSteel, 2.4, 10.6, 0);                                 // the head: a broad pale plate ahead of the haft
+  add(ax, rbox(0.9, 6.0, 1.3, 0.2), M.brightSteel, 4.75, 10.6, 0);                               // its bright edge
+  add(ax, rbox(2.0, 2.0, 1.4, 0.3), M.steel, -1.4, 10.6, 0);                                     // the poll behind
+  add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 10.6, 0);                                           // the eye round the haft
+  limb(b, [0.6, 11.8, 4.4], [2.2, 9.6, 4.6], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 2.4, 9.4, 4.7); // the axe arm and gloved hand
+  if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, rivets on the axe's eye (no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)
     for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), M.joint, 3.5, 10.9, z, 0, 0, -0.2);  // (joint, darker than the charcoal carrier, as the Marine's armour straps are darker than its camo)
     add(b, rbox(1.4, 1.2, 0.6, 0.1), M.steel, 3.3, 7.4, 0);
     for (const z of [-2.6, 2.6]) add(b, rbox(1.0, 0.6, 2.4, 0.1), M.leather, 0.6, 13.85, z);
-    for (const [y, z] of [[6.6, -3.8], [6.6, 3.8], [-4.4, -3.8], [-4.4, 3.8]]) add(sh, sph(0.55, 8, 6), M.steel, 0.65, y, z);
-    add(gun, torus(1.9, 0.4, 16), M.paint, 0.6, -1.6, 0, 0, Math.PI / 2, 0); for (const dx of [-0.55, 0.55]) add(gun, torus(1.95, 0.2, 16), M.inkLine, 0.6 + dx, -1.6, 0, 0, Math.PI / 2, 0);
+    for (const [y, z] of [[1.0 + SH / 2, -SW / 2 + 0.5], [1.0 + SH / 2, SW / 2 - 0.5], [1.0 - SH / 2, -SW / 2 + 0.5], [1.0 - SH / 2, SW / 2 - 0.5]]) add(sh, sph(0.55, 8, 6), M.steel, 0.65, y, z);
+    for (const dy of [-0.8, 0.8]) add(ax, sph(0.4, 8, 6), M.joint, 1.3, 10.6 + dy, 0.75);
   }
   g.scale.setScalar(1.2);
   return g;
@@ -161,7 +177,7 @@ export function veteran(M, f) {
 export function rover(M, f) {
   const g = grp(), b = grp(); b.position.y = 5.0; g.add(b);
   add(b, rbox(24, 2.4, 11, 0.9), M.trim, 0, 0, 0);                                              // the chassis tub
-  add(b, rbox(23.2, 1.2, 10.4, 0.5), M.panel, 0, 1.6, 0);                                       // the body panel, charcoal
+  add(b, rbox(23.2, 1.2, 10.4, 0.5), M.panelLight, 0, 1.6, 0);                                  // the body panel, light grey (the last round: lighter paint)
   for (const z of [-5.5, 5.5]) { add(b, rbox(20, 2.4, 0.6, 0.1), M.paint, 0, 1.2, z); add(b, rbox(20.2, 0.25, 0.65, 0.05), M.inkLine, 0, 2.5, z); add(b, rbox(20.2, 0.25, 0.65, 0.05), M.inkLine, 0, -0.1, z); } // the team stripe along each side
   for (const [x, z] of [[-7.5, -7.0], [7.5, -7.0], [-7.5, 7.0], [7.5, 7.0]]) {                   // the wheels: big and pale
     add(b, cyl(4.4, 4.4, 3.0, 20), M.tyrePale, x, -0.6, z, Math.PI / 2, 0, 0);
@@ -188,7 +204,7 @@ export function rover(M, f) {
   for (const z of [-5.6, 5.6]) add(rk, rbox(10.0, 1.0, 1.0, 0.3), M.paleSteel, 0, 5.6, z);        // and pale steel rails
   for (const z of [-5.5, 5.5]) { add(b, rbox(18, 0.5, 1.2, 0.1), M.paint, -1, 2.4, z * 0.86); add(b, rbox(18.2, 0.2, 1.4, 0.05), M.inkLine, -1, 2.6, z * 0.86); } // team stripes along the body's top edges (the Buggy's)
   for (const [x, z] of [[-9.0, -3.4], [-9.0, 3.4], [-2.0, -3.4], [-2.0, 3.4]]) limb(b, [x, 2.2, z], [x + 1.6, 6.4, z], 0.5, M.steel); // steel struts holding the rack
-  add(b, rbox(5.0, 2.4, 8.0, 0.5), M.panelDark, -9.5, 3.2, 0);                                   // the battery pack at the stern
+  add(b, rbox(5.0, 2.4, 8.0, 0.5), M.panelDark, -9.5, 3.2, 0); add(b, rbox(5.2, 0.8, 8.2, 0.2), M.paint, -9.5, 4.5, 0); add(b, rbox(5.4, 0.2, 8.4, 0.05), M.inkLine, -9.5, 4.95, 0); // the battery pack at the stern, a team cover on it
   add(b, torus(1.6, 0.5, 14), M.rope, -9.5, 4.8, 3.0, Math.PI / 2, 0, 0);                        // a rope coil on it
   add(b, cyl(0.5, 0.55, 9, 6), M.joint, -11.0, 7.0, -4.4);                                       // a whip antenna
   if (M.polish) { // secondary detail (the polish pass): bolt rings on the hubs (the Buggy's), two team cargo straps over the rocket tubes between ink edges (the company's straps; they keep the share at the floor, which the rings' pixels would have taken it under), a cable from the battery pack up to the rack, a tow hook at the bow
@@ -197,6 +213,7 @@ export function rover(M, f) {
     limb(b, [-7.6, 4.5, 2.4], [-5.6, 5.4, 3.0], 0.3, M.cable);
     add(b, rbox(1.2, 0.8, 1.0, 0.3), M.steel, 13.9, 0.4, -3.0);
   }
+  g.scale.setScalar(1.4);                                                                        // (the last art round: 1.4x, so the rocket truck clearly outsizes the Buggy)
   return g;
 }
 

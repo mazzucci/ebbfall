@@ -8,9 +8,9 @@ when you add, move or remove a file.
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
 and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
-over four `e2e` jobs; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
+over ten `e2e` jobs by measured time, summed up by `e2e: all`, red unless the build and every shard passed; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
 which hold neither a merge nor a deploy (`arm` since 2026-11-04, `engines` since 2026-11-07) and are read by hand: the
-ruleset requires build, rust and e2e (1) to (4), and `relay` and `deploy` wait on the same) on every pull request, and publishes
+ruleset requires build, rust and `e2e: all`, and `relay` and `deploy` wait on the same) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;
 Notion: Multiplayer design, Hosting: the deploy, analytics, the rollback). On `main` the relay goes first (the `relay` job,
 then `deploy`): it is deployed when the live relay is not this commit's, by what is live rather than by what the push changed (a cancelled
@@ -102,7 +102,8 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
   one and a lost post leaving the count over its use, one army limit for every pool together (a Bot or a Sellsword
   refused at it with room in its own pool), four Portal places a Portal, the satellite needing a Lab and
-  unlocking the Uplink whose standing unlocks the Portal, the launch told to every seat, melee Sellswords and Bruisers
+  unlocking the Uplink whose standing unlocks the Portal, the launch told to every seat in its side's words ("You
+launched" for the side and its allies, "The enemy launched" for the rest), melee Sellswords and Bruisers
   hitting only the ground up close, the Expedition AI at every level raising turbines and posts, launching, and
   reaching the Portal), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, every pool's
@@ -187,7 +188,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       retreat, the sweep), radio.rs (the range: the Expedition's machines move x1.3 within a finished
                       Data center's 18 tiles or an Uplink's 12 of their side or an ally, by exact distance from the
                       building's centre, and at their own speed elsewhere; the sources listed again when they change
-                      (checked each tick: derived, not hashed), with a coverage grid for the client's display only; the
+                      (checked each tick: derived, not hashed), and handed to the client as circles (`radio_circles`,
+                      Game.radioCircles: x, y, reach per source of a side and its allies); the
                       Drone goes at most 5 tiles past the range: a move or attack stops there (fighting what it can
                       reach from there), it stays where it stops within the leash, and backs off inside only when left
                       beyond it; the AI's leapfrog Uplink, staging at it and its Drones' wave moves clamped to the
@@ -202,9 +204,15 @@ src/client/           everything that touches the browser
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
-                      the range (this side's covered tiles, tinted and outlined, while a Bot is selected or an
-                      Uplink placed, drawn again only when the coverage changes; a chevron over a machine in range,
-                      where it moves faster; `rangeShown` for the tests);
+                      the range (the sim's circles round each Data center and Uplink, a soft tint faded as one layer
+                      and one outline round their union, range.js; shown while a machine, a Data center or an Uplink of
+                      this side is selected or an Uplink placed, drawn again only when the sources change; a double
+                      chevron over a machine of ours moving in range, by exact distance as the sim; `rangeShown` for
+                      the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
+                      stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
+                      swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`);
+                      the satellite's rocket rising from its Data center (`launchFx`, `launchesShown` for the tests:
+                      main.js draws it only for our side or a Data center in sight);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
@@ -265,7 +273,8 @@ src/client/           everything that touches the browser
                       challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
                       cancelled sheet says nothing
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
-  hud.js              top bar and selection panel
+  hud.js              top bar (gold as coins, the Kingdom's population or the Expedition's Power) and selection panel (a
+                      Recruiting post's hired places, a Portal's Portal places)
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
@@ -277,9 +286,13 @@ src/client/           everything that touches the browser
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
                       everyone (the relay's) and its state on every side; full screen out/in
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
+  range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance) and `unionArcs` (the outline
+                      of their union) (test/range.test.js)
   look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on
                       the turned models; puffs only while the building trains or researches, `chimneyActive`) and
-                      turning heads, each shot's
+                      heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
+                      swirl brightening each time a unit comes through, then settling, `portalOpen`),
+                      a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`), each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colours
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
@@ -317,10 +330,12 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/range.test.js    the range's circles (src/client/range.js): in range by exact distance, the union's outline
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
                       a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
                       tiles in both rock kinds, every stage and variant of the gold outcrop (the link preview's), the
-                      gold mine's three stages, neutral
+                      gold mine's three stages, neutral; and look.js's presentation: a selected building's oval, the
+                      heads' frames (aimed, spun, panned), the Portal brightening as a unit comes through
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
@@ -433,7 +448,9 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       its models, `atlasSprites` renders them under today's names; `BLDG_YAW` gives each building its
                       fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
                       than the square model's, the round towers square): the kingdom (kingdom.js,
-                      kingdom-units.js, kingdom-buildings.js), the Expedition (expedition*.js; its Data center the server hall of
+                      kingdom-units.js, kingdom-buildings.js; the hip-roof Cottage, the Cannon in the siege slot), the Expedition
+                      (expedition*.js; since R2 of its rework the Wind turbine, tavern, warehouse, domed Lab, Sentry gun,
+                      Uplink dish and black-hole Portal, their rotor, dish and swirl as heads; its Data center the server hall of
                       expedition-buildings.js, Stelian's pick of 2026-11-11, the block drawn beside it kept for the record only), the countryside's gold,
                       props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
                       render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and

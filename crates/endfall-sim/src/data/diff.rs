@@ -72,10 +72,10 @@ pub struct Diff {
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
     /// The most advanced units it trains (`UnitKind::ai_tier`): 0 its line units, their anti-air and the scout (Easy),
-    /// 1 its raiders, siege, anti-air vehicles, Marines and Drones too (Medium), 2 everything (Hard and up).
+    /// 1 its raiders, siege, anti-air vehicles, Androids and Drones too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
     /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
-    /// plays differently, matched by kind (Brutal: the Kingdom's Trebuchets sooner and more of them). A kind of the
+    /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
 }
@@ -97,7 +97,7 @@ impl super::UnitKind {
     pub fn ai_tier(self) -> u8 {
         use super::UnitKind::*;
         match self {
-            // (the Marine: the Expedition's only infantry that hits the air since its hired guns went melee, as the
+            // (the Android: the Expedition's only infantry that hits the air since its hired guns went melee, as the
             // Archer is the Kingdom's)
             Harvester | Lumen | Trooper | Lancer | Prism | Umbra | Observer => 0,
             Knight | Bruiser => 2,

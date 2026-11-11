@@ -1,5 +1,5 @@
 // The gold mine (the re-theme, 2026-11-11): one mine per gold field, neutral (no team mask), 3x3 tiles, in three
-// stages. A timber-framed adit cut into the south face of a rough grey outcrop, the yard before it with rails, an ore
+// stages, drawn to a 2x2 footprint (MINE_N; centred on a 3x3 field if the rules keep one). A timber-framed adit cut into the south face of a rough grey outcrop, the yard before it with rails, an ore
 // cart and a spoil heap; gold shows as a few big veins in the rock and the ore in the cart, never as loose shiny piles.
 // `full`: two broad veins either side of the portal and a jagged one over its brow, nuggets on the crags, straight timbers,
 // a loaded cart, a lantern on the lintel; `low`: one vein and a dark band, a nugget, the lintel sagging and a post
@@ -17,7 +17,11 @@ import { polishTextures } from './polish.js';
 
 export const MINE_STAGES = ['full', 'low', 'empty'];
 /** The cell's height (game units): the outcrop's top over the ground. */
-export const MINE_H = 40;
+export const MINE_H = 28;
+/** The footprint in tiles: drawn to 2x2 (Stelian, 2026-11-11: smaller than the Castle, a mid-size building's width);
+ *  on a 3x3 field the same art sits centred. The model is built at the 3x3 round's size and scaled by MINE_SCALE. */
+export const MINE_N = 2;
+export const MINE_SCALE = 0.66;
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
 const std = (o) => new THREE.MeshStandardMaterial(o);
 const ground = (m) => { m.userData.ground = true; return m; };
@@ -124,7 +128,7 @@ export function goldMine(stage) {
   for (let k = 0; k < 9; k++) { const x = (k < 5 ? -1 : 1) * (20 + rnd() * 24), z = 9 + rnd() * 7, r = 1.6 + rnd() * 2.2; R(r, 20 + k, k % 3 ? M.rock : M.rockDark, x, r * 0.5, z, 1, 0.65, 1, rnd(), rnd() * 3, rnd()); } // scree
   // ---- the portal: the black of the adit just behind the frame (unlit), a strip of tunnel floor leading in, posts
   // and a lintel of weathered oak, a cap beam cribbed over the lintel, wing walls of two beams either side ----
-  const MW = 28, MH = 17, PZ = 9, PX = MW / 2 + 2.4, PH = MH + 4;                                                     // the mouth's width and height; the frame's plane, its posts' x and height
+  const MW = 32, MH = 19, PZ = 9, PX = MW / 2 + 2.4, PH = MH + 4;                                                    // (the mouth a size up for the 2x2 scale: two Villagers still go in abreast)                                                     // the mouth's width and height; the frame's plane, its posts' x and height
   add(g, rbox(MW + 2, PH + 1, 14, 0.5), M.mouth, 0, (PH + 1) / 2 - 0.5, PZ - 2.2 - 7);                                // the black, its front at the frame's back, up to the lintel
   add(g, rbox(MW + 1, 0.8, 5, 0.1), M.tunnel, 0, 0.4, PZ - 0.5);                                                      // the tunnel's floor, from the frame in
   if (EMPTY) { for (let k = 0; k < 7; k++) { const x = (rnd() - 0.5) * MW, r = 2.4 + rnd() * 2.6; R(r, 40 + k, k % 2 ? M.rock : M.rockDark, x, r * 0.6, PZ - 4 + rnd() * 12, 1, 1, 1, rnd(), rnd() * 3, rnd()); } } // the roof has come down: rock spilled out of the mouth
@@ -146,25 +150,25 @@ export function goldMine(stage) {
     for (const [y, rz] of [[4.5, 0.05], [9.5, -0.08], [14.5, 0.12]]) add(g, rbox(MW + 5, 2.8, 1.0, 0.2), M.board, 0.5, y, PZ + 2.0, 0, 0, rz); // boarded over, the boards nailed askew
     add(g, rbox(2.4, MH - 2, 1.0, 0.2), M.board, -5, MH / 2 - 1, PZ + 2.4, 0, 0, 0.3);
   }
-  for (const sx of [-1, 1]) for (let k = 0; k < 2; k++) add(g, rbox(8, 3.2, 4.0, 0.5), M.timber, sx * (PX + 6), 1.6 + k * 3.3, PZ - 0.4 - k * 0.3, 0, 0, (rnd() - 0.5) * 0.04); // the wing walls
+  for (const sx of [-1, 1]) for (let k = 0; k < 2; k++) add(g, rbox(6, 3.2, 4.0, 0.5), M.timber, sx * (PX + 4.6), 1.6 + k * 3.3, PZ - 0.4 - k * 0.3, 0, 0, (rnd() - 0.5) * 0.04); // the wing walls
   // ---- the gold: a few big shapes, never flecks (round 1's veins of 4 vanished at 1x); glints on the lit tops ----
   const FZ = 4.6; // (the slab's south face, at the veins' height)
   /** The vein over the slab's brow: three jagged segments in a line, sunk into the rock (round 2's one straight bar lay on
    *  the rock like a label), `k` their length and thickness. */
-  const brow = (mat, k) => { for (const [x, y, len, rz] of [[-6, 26.6, 13, 0.18], [5, 28.2, 12, -0.22], [15, 26.8, 10, 0.3]]) add(g, rbox(len * k, 4.6 * k, 3.4, 0.9), mat, x, y, -5.2 + (y - 27) * 0.1, 0.45, 0.12, rz); };
+  const brow = (mat, k) => { for (const [x, y, len, rz] of [[-7, 26.6, 15, 0.18], [5, 28.4, 14, -0.22], [16, 26.8, 11, 0.3]]) add(g, rbox(len * k, 6.0 * k, 3.6, 0.9), mat, x, y, -5.2 + (y - 27) * 0.1, 0.45, 0.12, rz); };
   if (FULL) {
-    vein(g, C.gold, -23, 16, FZ, 6.0, 17, 0.3); vein(g, C.gold, -19, 9, FZ - 0.4, 3.6, 7, -0.5);                    // down the face west of the portal, a branch off it
-    vein(g, C.gold, 23.5, 15, FZ, 5.6, 15, -0.42); vein(g, C.gold, 20.5, 22, FZ - 0.6, 3.2, 6, 0.4);                 // and east of it
+    vein(g, C.gold, -24.5, 16, FZ, 7.5, 19, 0.28); vein(g, C.gold, -21, 8.5, FZ - 0.4, 4.2, 7, -0.5);                    // down the face west of the portal, a branch off it
+    vein(g, C.gold, 25, 15, FZ, 7.0, 17, -0.38); vein(g, C.gold, 22.5, 23, FZ - 0.6, 3.8, 6, 0.4);                 // and east of it
     brow(C.gold, 1);
     add(g, rbox(9, 3.6, 3.6, 0.9), C.goldDark, -18, 25.4, -5.4, 0.45, -0.2, -0.12);
     vein(g, C.goldDark, -33, 10, 2.4, 4.2, 9, 0.3, 0.35);                                                             // on the west flank's face
-    nugget(g, C, -11, 31.5, -25, 2.8); nugget(g, C, 30, 24.5, -14, 2.4); nugget(g, C, -31, 17, -12, 2.3); nugget(g, C, 2, 34.5, -22, 2.2);
+    nugget(g, C, -11, 31.5, -25, 3.6); nugget(g, C, 30, 24.5, -14, 3.2); nugget(g, C, -31, 17, -12, 3.0); nugget(g, C, 2, 34.5, -22, 2.8);
     nugget(g, C, -37, 1.4, 14, 1.6); nugget(g, C, 24, 1.3, 12, 1.5);                                                  // two at the foot by the scree
     cart(g, C, M, 0, 27, 'gold');
   } else if (LOW) {
-    vein(g, C.gold, 23.5, 12, FZ, 4.8, 9, -0.42);                                                                     // what is left: one vein, a dark worked band and a nugget
+    vein(g, C.gold, 25, 12, FZ, 6.0, 10, -0.38);                                                                     // what is left: one vein, a dark worked band and a nugget
     brow(C.goldDark, 0.7);
-    nugget(g, C, 30, 24.5, -14, 2.0);
+    nugget(g, C, 30, 24.5, -14, 2.6);
     cart(g, C, M, 0, 27, 'rock');
     spoil(g, C, M, 31, 30, 11, 6.5);
     for (let k = 0; k < 3; k++) ground(add(g, patch(wob(4 + rnd() * 1.5, 1.3, rnd() * 6), 0.8, 0.3), C.earthDark, -26 + k * 8 + rnd() * 3, 0.1, 30 + rnd() * 8)); // dug hollows in the yard
@@ -179,9 +183,10 @@ export function goldMine(stage) {
   if (!FULL) spoil(g, C, M, -31, 35, 9, 5);                                                                            // (the full mine's yard is swept: its spoil is in the cart)
   if (C.polish) { // secondary detail: iron straps on the posts, pegs through the wing walls, a pick and a shovel leaning on the east post, a pale stone step at the mouth
     for (const sx of [-1, 1]) for (const y of [5, 14]) add(g, rbox(4.6, 0.9, 0.5, 0.1), C.iron, sx * PX + (EMPTY && sx < 0 ? -1.8 + (y - 10) * 0.17 : 0), y, PZ + 2.2, 0, 0, EMPTY && sx < 0 ? 0.17 : 0);
-    for (const sx of [-1, 1]) for (const x of [-2.6, 2.6]) add(g, cyl(0.5, 0.5, 1.2, 6), C.iron, sx * (PX + 6) + x, 7.2, PZ - 1.0);
+    for (const sx of [-1, 1]) for (const x of [-1.8, 1.8]) add(g, cyl(0.5, 0.5, 1.2, 6), C.iron, sx * (PX + 4.6) + x, 7.2, PZ - 1.0);
     if (!EMPTY) { limb(g, [PX + 4.5, 0.4, PZ + 7], [PX + 3.2, 12, PZ + 2.6], 0.5, M.timberDark); add(g, rbox(4.0, 1.2, 1.2, 0.3), C.iron, PX + 3.1, 12.2, PZ + 2.5, 0, 0, 0.3); limb(g, [PX + 7.5, 0.4, PZ + 6], [PX + 5.8, 11, PZ + 2.8], 0.5, M.timberDark); add(g, rbox(2.4, 3.0, 0.5, 0.2), C.iron, PX + 7.7, 1.7, PZ + 6.4, 0.5, 0, 0); }
     add(g, rbox(MW + 6, 1.0, 3.8, 0.2), M.rockPale, 0, 0.5, PZ + 2.8);
   }
+  g.scale.setScalar(MINE_SCALE);
   return g;
 }

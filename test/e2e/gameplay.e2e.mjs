@@ -1436,6 +1436,37 @@ test('an Expedition unit\'s health figure is its hull (no shields since the re-t
   } finally { await d.close(); }
 });
 
+test('as the Expedition: a selected Bot shows the tower range, and a machine out of it is marked', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  try {
+    const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
+    const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
+    const range = () => d.eval(() => endfall.rangeShown());
+    assert.equal((await range()).shown, false, 'nothing selected: no range drawn');
+    // Two Rovers set down towards the map's middle (set-up): one a little past the Data center's range, one a little
+    // inside it; the view between them.
+    const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
+    const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy), at = (k) => [hq.x + dx / len * k * T, hq.y + dy / len * k * T];
+    const [p1, p2] = [at(reach + 3), at(reach - 3)];
+    await d.centerOn((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
+    const [out, inside] = await d.eval(([a, b]) => [endfall.engine.debugSpawn(0, 'monolith', ...a), endfall.engine.debugSpawn(0, 'monolith', ...b)], [p1, p2]);
+    await d.page.waitForFunction((id) => endfall.rangeShown().marked.includes(id), out, { timeout: 15000 });
+    assert.ok(await d.eval((id) => endfall.teamLayers().some(l => l.id === id && l.shown), inside), 'the Rover in range is on screen too');
+    assert.ok(!(await range()).marked.includes(inside), 'a Rover in range: no mark');
+    // A Bot selected with a click: the range is drawn, the Data center's circle of tiles.
+    const bot = s.units.find(u => u.team === 0 && u.type === 'lumen');
+    await d.clickEntity(bot.id);
+    assert.deepEqual((await d.selection()).map(e => e.id), [bot.id]);
+    await d.page.waitForFunction(() => endfall.rangeShown().shown, null, { timeout: 15000 });
+    const { tiles } = await range(), full = Math.PI * reach * reach;
+    assert.ok(tiles > full * 0.4 && tiles < full * 1.1, `the Data center's range: ${tiles} tiles (a full circle ${Math.round(full)})`);
+    // Another unit selected instead (the Rover): no range drawn.
+    await d.clickEntity(inside);
+    await d.page.waitForFunction(() => !endfall.rangeShown().shown, null, { timeout: 15000 });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('phone: one tap on the card uses an ability for the selection (Brace); Anchor Guns anchor by themselves (no button)', async () => {
   const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {

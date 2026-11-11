@@ -17,7 +17,7 @@ import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
-import { mercenary, veteran, rover, drone } from './expedition-units.js';
+import { mercenary, veteran, rover, drone, android } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
@@ -44,6 +44,7 @@ export const RT_UNITS = {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
     rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
+    android: { build: android, r: 15, h: 20 }, // (the Marine's cell: an alternative model for the `umbra` slot, pictures only until Stelian picks)
   },
 };
 /** The two main buildings; `hall` is the Data center (expedition-buildings.js `dataBlock`, Stelian's pick of the two

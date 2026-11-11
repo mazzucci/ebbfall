@@ -2,6 +2,7 @@
 //! in produce.rs).
 
 use super::*;
+use crate::data::radio;
 
 /// A known enemy base this far (px) from a wave's goal draws a second prong; GUARDS units stay at its own
 /// expansion.
@@ -21,6 +22,12 @@ pub const GUIDED_ARMY: usize = 4;
 /// The most it has once they are released, for the rest of the game: fewer than its first wave, so it sends no other
 /// (Easy's next wave is six) and the guide's last step, an attack with ten, wins (with six it rarely did).
 pub const GUIDED_ARMY_AFTER: usize = 3;
+/// The tower range: a wave's forward tower goes this many tiles past the edge of its side's range along its way, never
+/// nearer its goal than `RELAY_GOAL_ROOM` tiles, once the wave's front is within `RELAY_FRONT` tiles of that spot (or
+/// past it).
+const RELAY_AHEAD: f64 = 7.0;
+const RELAY_GOAL_ROOM: f64 = 10.0;
+const RELAY_FRONT: f64 = 4.0;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
@@ -355,6 +362,7 @@ impl World {
             raid,
             ..
         } = brain.clone();
+        self.radio_recall(&army, rally);
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
@@ -384,6 +392,9 @@ impl World {
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
             self.ai_steer_wave(&army, &attackers, t, rally, goal);
+            if self.ai().attacking {
+                self.tend_relay(&attackers, goal);
+            }
         } else {
             // At home: stragglers back to the rally point.
             for &a in &army {
@@ -428,8 +439,42 @@ impl World {
                 Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
                 _ => false,
             };
-            if go && self.can_hit(a, intr) {
+            if go && self.can_hit(a, intr) && self.radio_reaches(a, intr) {
                 self.attack_ent(a, intr);
+            }
+        }
+    }
+
+    /// The tower range: whether `a` may chase `target`: anything but a machine always, a machine only a target inside
+    /// its side's range or `CHASE_MARGIN` tiles past it.
+    fn radio_reaches(&self, a: Id, target: Id) -> bool {
+        let u = self.u(a);
+        if !radio::needs_range(u.kind) {
+            return true;
+        }
+        self.geo(target).is_some_and(|g| {
+            let (x, y) = g.center();
+            self.in_radio_by(u.team, x, y, radio::CHASE_MARGIN)
+        })
+    }
+
+    /// The tower range: a machine chasing an intruder (an explicit attack, the defence's) out of its side's range comes
+    /// back to the rally point instead of crawling after it into the enemy's base. (Not a raider on its raid, nor the
+    /// unit sent to look at the foe, nor the wave out: their errands are out there.)
+    fn radio_recall(&mut self, army: &[Id], rally: Pt) {
+        let looking = self.ai().looking.map(|(id, _)| id);
+        let wave = match self.ai() {
+            ai if ai.attacking => ai.attackers.clone().unwrap_or_default(),
+            _ => Vec::new(),
+        };
+        for &a in army {
+            if let Task::Attack { target, back: None } = self.u(a).task
+                && !self.ai().raiders.contains(&a)
+                && Some(a) != looking
+                && !wave.contains(&a)
+                && !self.radio_reaches(a, target)
+            {
+                self.move_to(a, rally.x, rally.y);
             }
         }
     }
@@ -485,7 +530,18 @@ impl World {
         } else {
             None
         };
+        // (the tower range: a wave with machines that need range, on a level that stages, gathers at its forward-most
+        // tower on the way)
+        let machines = army
+            .iter()
+            .any(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
+        let stage = if d.stage > 0.0 && machines {
+            self.turret_stage((gx, gy)).or(stage)
+        } else {
+            stage
+        };
         let ai = self.ai_mut();
+        ai.relay_off = false;
         ai.ready_since = None;
         ai.staging = stage.map(|(x, y)| (x, y, t));
         ai.last_wave = t;
@@ -527,11 +583,142 @@ impl World {
             };
             let ox = (self.rnd() - 0.5) * 80.0;
             let oy = (self.rnd() - 0.5) * 80.0;
-            self.attack_move(a, tx + ox, ty + oy);
+            let (px, py) = self.wave_point(a, tx + ox, ty + oy);
+            self.attack_move(a, px, py);
         }
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
         ai.prong = order[..split].to_vec();
+    }
+
+    /// The tower range: where wave unit `a` is sent for (x, y): that point, or for a Drone the last point of the way
+    /// there within its leash (it gathers where it can stand).
+    fn wave_point(&self, a: Id, x: f64, y: f64) -> (f64, f64) {
+        let u = self.u(a);
+        if radio::needs_range(u.kind) && u.kind.def().air {
+            self.radio_leash_point(u.team, u.x, u.y, x, y)
+        } else {
+            (x, y)
+        }
+    }
+
+    /// The rally point (else its start's middle), px.
+    fn rally_or_home(&self) -> (f64, f64) {
+        let home = self.map.bases[self.seat() as usize];
+        self.ai().rally.map_or(
+            ((home.0 as f64 + 2.0) * TILE, (home.1 as f64 + 2.0) * TILE),
+            |p| (p.x, p.y),
+        )
+    }
+
+    /// The tower range: where a wave gathers for its goal: its finished tower nearest the goal, if that is at least four
+    /// tiles nearer it than the rally point (for a people whose tower gives range).
+    fn turret_stage(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64)> {
+        let seat = self.seat();
+        let tower = self.factions[seat as usize].ai.tower;
+        if radio::range_of(tower) <= 0.0 {
+            return None;
+        }
+        let (rx, ry) = self.rally_or_home();
+        let from_rally = dist(rx, ry, gx, gy);
+        let b = self
+            .bldgs
+            .iter()
+            .filter(|b| b.team == seat && b.kind == tower && b.done)
+            .min_by(|a, b| {
+                dist(a.x, a.y, gx, gy)
+                    .partial_cmp(&dist(b.x, b.y, gx, gy))
+                    .unwrap()
+                    .then(a.id.cmp(&b.id))
+            })?;
+        (dist(b.x, b.y, gx, gy) < from_rally - 4.0 * TILE).then_some((b.x, b.y))
+    }
+
+    /// The tower range: the leapfrog tower. While a wave with machines is out, the AI keeps one tower site at a time
+    /// going `RELAY_AHEAD` tiles past the edge of its range along the way from its rally point to the goal, once the
+    /// wave's front has come that far; never holding the wave for it. A site under fire is abandoned (its cost partly
+    /// back) and the wave places no other.
+    fn tend_relay(&mut self, attackers: &[Id], (gx, gy): (f64, f64)) {
+        let seat = self.seat();
+        let tower = self.factions[seat as usize].ai.tower;
+        let machines = attackers
+            .iter()
+            .any(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
+        if radio::range_of(tower) <= 0.0 || !machines || self.ai().relay_off {
+            return;
+        }
+        // (a tower finished this tick: its range counts before the edge is looked for again)
+        self.refresh_radio(false);
+        // The site under way: abandoned under fire, let go once it stands (or is gone).
+        if let Some(id) = self.ai().relay_site {
+            match self.bldg(id).map(|b| (b.done, b.hp)) {
+                Some((false, hp)) if hp < self.ai().relay_hp - 1e-9 => {
+                    self.cancel_construction(id);
+                    let ai = self.ai_mut();
+                    ai.relay_site = None;
+                    ai.relay_off = true;
+                    return;
+                }
+                Some((false, hp)) => {
+                    self.ai_mut().relay_hp = hp;
+                    return;
+                }
+                Some((true, _)) => self.ai_mut().relay_site = None,
+                None => {
+                    // (destroyed before it stood: as abandoned under fire)
+                    let ai = self.ai_mut();
+                    ai.relay_site = None;
+                    ai.relay_off = true;
+                    return;
+                }
+            }
+        }
+        // The edge of its range on the way, and the spot past it.
+        let (rx, ry) = self.rally_or_home();
+        let len = dist(rx, ry, gx, gy);
+        if len < TILE {
+            return;
+        }
+        let (ux, uy) = ((gx - rx) / len, (gy - ry) / len);
+        let steps = (len / TILE) as i32;
+        let Some(edge) = (0..=steps)
+            .map(|k| k as f64 * TILE)
+            .find(|&s| !self.in_radio(seat, rx + ux * s, ry + uy * s))
+        else {
+            return; // (covered all the way)
+        };
+        let at = edge + RELAY_AHEAD * TILE;
+        if at > len - RELAY_GOAL_ROOM * TILE {
+            return;
+        }
+        let (px, py) = (rx + ux * at, ry + uy * at);
+        // The wave's front (its unit nearest the goal) must be about there already.
+        let front = attackers
+            .iter()
+            .filter_map(|&a| self.unit(a))
+            .map(|u| dist(u.x, u.y, gx, gy))
+            .fold(f64::INFINITY, f64::min);
+        if front > len - at + RELAY_FRONT * TILE || !self.can_afford(seat, tower.def().cost) {
+            return;
+        }
+        let Some(spot) = self.find_spot(tower, px / TILE, py / TILE) else {
+            return;
+        };
+        let workers: Vec<Id> = self
+            .units
+            .iter()
+            .filter(|u| u.team == seat && u.kind.def().worker)
+            .map(|u| u.id)
+            .collect();
+        let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
+        if let Some(b) = self.free_builder(&workers, sx, sy)
+            && let Ok(id) = self.place_building(seat, tower, spot.0, spot.1, Some(b))
+        {
+            let hp = self.bldg(id).map_or(0.0, |b| b.hp);
+            let ai = self.ai_mut();
+            ai.relay_site = Some(id);
+            ai.relay_hp = hp;
+        }
     }
 
     /// The worth of seat `e`'s army (armed units, workers left out).
@@ -888,9 +1075,13 @@ impl World {
                 .copied()
                 .filter(|a| !prong.contains(a))
                 .collect();
+            // (a Drone gathers at the end of its leash on the way, if the point is past it)
             let near = main
                 .iter()
-                .filter(|&&a| dist(self.u(a).x, self.u(a).y, sx, sy) < STAGE_NEAR)
+                .filter(|&&a| {
+                    let (px, py) = self.wave_point(a, sx, sy);
+                    dist(self.u(a).x, self.u(a).y, px, py) < STAGE_NEAR
+                })
                 .count();
             if near as f64 >= main.len() as f64 * STAGE_SHARE || t - since > self.level().stage_wait
             {
@@ -898,13 +1089,15 @@ impl World {
                 for a in main {
                     let ox = (self.rnd() - 0.5) * 80.0;
                     let oy = (self.rnd() - 0.5) * 80.0;
-                    self.attack_move(a, gx + ox, gy + oy);
+                    let (px, py) = self.wave_point(a, gx + ox, gy + oy);
+                    self.attack_move(a, px, py);
                 }
             } else {
                 for a in main {
+                    let (px, py) = self.wave_point(a, sx, sy);
                     let u = self.u(a);
-                    if u.task == Task::Idle && dist(u.x, u.y, sx, sy) >= STAGE_NEAR {
-                        self.attack_move(a, sx, sy);
+                    if u.task == Task::Idle && dist(u.x, u.y, px, py) >= STAGE_NEAR {
+                        self.attack_move(a, px, py);
                     }
                 }
             }
@@ -927,9 +1120,15 @@ impl World {
                     });
                 match best {
                     Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
-                    Some(&(_, bx, by)) => self.attack_move(a, bx, by),
+                    Some(&(_, bx, by)) => {
+                        let (px, py) = self.wave_point(a, bx, by);
+                        self.attack_move(a, px, py);
+                    }
                     // Nothing known left: sweep the enemy's start, then the shard fields around it.
-                    None => self.attack_move(a, gx, gy),
+                    None => {
+                        let (px, py) = self.wave_point(a, gx, gy);
+                        self.attack_move(a, px, py);
+                    }
                 }
             }
         }

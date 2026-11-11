@@ -641,6 +641,16 @@ impl Game {
         self.valid_team(team)
             .map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
+    /// The tower range `team` has, with its allies': 1 on every tile its machines have range (zeros for a bad seat).
+    pub fn radio(&self, team: u8) -> Vec<u8> {
+        self.valid_team(team)
+            .map_or_else(|| vec![0; self.w.map.rock.len()], |t| self.w.radio_cover(t))
+    }
+    /// Bumped whenever the tower range is built again (a source finished or fell): the client copies it only then.
+    #[wasm_bindgen(js_name = radioVer)]
+    pub fn radio_ver(&self) -> u32 {
+        self.w.radio_version()
+    }
     /// Tiles `team` or an ally has ever seen (in a replay: any seat).
     pub fn explored(&self, team: u8) -> Vec<u8> {
         self.sight(&self.w.explored, team)

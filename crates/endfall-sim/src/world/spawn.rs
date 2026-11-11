@@ -135,6 +135,7 @@ impl World {
         }
         self.bldgs.push(b);
         self.recalc_supply(team);
+        self.refresh_radio(false); // (a finished source: range at once)
         id
     }
 

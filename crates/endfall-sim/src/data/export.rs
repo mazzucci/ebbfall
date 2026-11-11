@@ -215,5 +215,25 @@ pub fn data_json() -> String {
         )
         .raw("diff", array(DIFF.iter().map(diff)))
         .raw("factions", map(FACTIONS.map(|f| (f.key, faction(f)))))
+        .raw("radio", radio_json())
+        .done()
+}
+
+/// The tower range (data/radio.rs): the machines that need it, what each source gives (tiles), the speed kept out of
+/// it and the Drone's leash.
+fn radio_json() -> String {
+    let machines = UNIT_KINDS
+        .iter()
+        .filter(|&&k| radio::needs_range(k))
+        .map(|k| quote(k.def().key));
+    let sources = BLDG_KINDS
+        .iter()
+        .filter(|&&k| radio::range_of(k) > 0.0)
+        .map(|k| (k.def().key, radio::range_of(*k).to_string()));
+    Obj::new()
+        .raw("machines", array(machines))
+        .raw("sources", map(sources))
+        .num("slow", radio::OUT_OF_RANGE_SPEED)
+        .num("leash", radio::LEASH_MARGIN)
         .done()
 }

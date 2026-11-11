@@ -19,6 +19,10 @@ export const ENEMY = D.consts.enemy;
 export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
+/** The tower range (crates/endfall-sim/src/data/radio.rs): the unit kinds that need it (`machines`, a Set), what each
+ *  source building gives (`sources`, tiles by kind), the speed a machine keeps out of it (`slow`) and the Drone's leash
+ *  past its edge (`leash`, tiles). */
+export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
 
 /** Hotkeys and descriptions, by kind key (the numbers and names are the sim's). A description says what the unit does;
  *  its partner and its killer are a line of their own (`PAIRS`), the counters made visible. */
@@ -34,11 +38,11 @@ const UNIT_TEXT = {
   rider: { hot: 'E', desc: 'Fast light cavalry. Raids workers. Faster once Tailwind is researched.' },
   knight: { hot: 'N', desc: 'Heavy cavalry in plate: tough, and hits hard up close.' },
   // the Expedition (`vael`)
-  lumen: { hot: 'G', desc: 'Mines salt. Builds structures, staying with each until it stands.' },
-  scythe: { hot: 'N', desc: 'Fast raider vehicle with a light gun. Raids workers. Cannot hit flyers.' },
+  lumen: { hot: 'G', desc: 'Mines salt. Builds structures, staying with each until it stands. A machine: slower out of range.' },
+  scythe: { hot: 'N', desc: 'Fast raider vehicle with a light gun. Raids workers. Cannot hit flyers. A machine: slower out of range.' },
   prism: { hot: 'L', desc: 'Soldier for hire who fires at ground and air: the Expedition\'s line and its answer to flyers.' },
-  monolith: { hot: 'C', desc: 'Rocket artillery: long range, fires on the move, and its rockets splash onto nearby ground units. Cannot hit flyers.' },
-  shrike: { hot: 'E', desc: 'Fast low flyer. Hits ground and air, raids workers. Faster once Spindrift is researched.' },
+  monolith: { hot: 'C', desc: 'Rocket artillery: long range, fires on the move, and its rockets splash onto nearby ground units. Cannot hit flyers. A machine: slower out of range.' },
+  shrike: { hot: 'E', desc: `Fast low flyer. Hits ground and air, raids workers. Faster once Spindrift is researched. A machine: slower out of range, and goes at most ${D.radio.leash} tiles past it.` },
   halo: { hot: 'T', desc: 'Unarmed. Mends nearby allies, even under fire.' },
   umbra: { hot: 'U', desc: 'Elite soldier: long reach, hits hard, ground and air.' },
   bruiser: { hot: 'B', desc: 'A hired local with a riot shield and a heavy gun: the toughest on foot. Cannot hit flyers.' },
@@ -54,13 +58,13 @@ const BLDG_TEXT = {
   turret: { hot: 'O', desc: 'Static defence against ground and air.' },
   airfield: { hot: 'F', desc: 'Trains Riders, and Knights (they need a Workshop). Researches Tailwind.' }, // ("Requires Excavator." added from the tables)
   // the Expedition
-  conflux: { hot: 'T', desc: 'Trains Glints. Salt drop-off. +20 population.' },
+  conflux: { hot: 'T', desc: `Trains Glints. Salt drop-off. +20 population. Gives your machines range ${D.radio.sources.conflux} tiles around it.` },
   spire: { hot: 'S', desc: '+8 population.' },
   // (still on a mine shaft until the economy PR, which frees it of the shaft and its salt)
   siphon: { hot: 'I', desc: 'Recruits Lenses, and Bruisers (they need a Glasshouse). Build as many as you like, anywhere.' },
   kiln: { hot: 'C', desc: 'Builds Needles, Conchs and Petrels (Conchs need a Glasshouse).' },
   loom: { hot: 'G', desc: 'Researches Weapons, Plating and Spindrift; unlocks Conchs and Bruisers.' },
-  ward: { hot: 'A', desc: 'Sentinel against ground and air.' },
+  ward: { hot: 'A', desc: `Sentinel against ground and air. Gives your machines range ${D.radio.sources.ward} tiles around it.` },
   // (its name is the sim's, vael.rs: the words here never repeat it)
   eclipse: { hot: 'D', desc: 'Trains Undertows.' },
 };

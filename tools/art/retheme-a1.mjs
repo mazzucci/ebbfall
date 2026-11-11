@@ -74,6 +74,7 @@ function cyan(s) { const { data } = s.img; let n = 0, c = 0; for (let i = 0; i <
 function drawBldg(P, c, kind, x, y, seat, k = 0, dir = null) { P.draw(c, P.get(`bldg_${kind}`), x, y, seat); if (HEADS[kind]) { const [name, dirs] = HEADS[kind]; P.draw(c, P.get(`${name}_${dir ?? dirs[k % dirs.length]}`), x, y, seat); } }
 
 const UNITS = '(ex_bot|ex_marine|kg_villager|kg_guard|kg_archer)_(0|2|4|6|8|10|12|14)_0';
+const GOLD = [21.5, 9.2], PANEL = [25, 17]; // the bases' gold field and panel, in tiles
 /** The pictures' render: every building that the sheets and bases show, the heads at their frames, a few units, the gold. */
 const FINAL_FILTER = `^(bldg_ex_(turbine|windfarm|uplink|bunkhouse|radio|hall|datahall|post|posttent|posttavern|posthouse|factory|hangar|warehouse|lab|labdome|portal|gate|gatetube|ring|pad|platform|vortex)$|bldg_kg_|(ex_(radiohead|turbinehead|windfarmhead|gatehead|gatetubehead|ringhead)|kg_towerhead)_(0|5|11)$|ex_(padhead|platformhead)_(0|6|12)$|ex_vortexhead_(0|4|5|8|11|12)$|ex_uplinkhead_(${PAN.join('|')})$|${UNITS}|rt_gold_0_0$)`;
 
@@ -147,6 +148,18 @@ if (mode === 'units') {
     label(c, 'THE CHANGED UNITS (LIGHTER PAINT, MORE TEAM; THE ROVER 1.4X; THE CANNON, TRAVELLING AND IN RECOIL, BESIDE THE SENTRY GUN; THE MARINE IN TAN) WITH THE SELLSWORD AND THE VILLAGER. SEAT 0 ABOVE, SEAT 1 BELOW', 4, 4, 2);
     save('units-changed', c);
   }
+  // the review sheet (the last batch): the Kingdom base with the hip-roof Cottage in its slots, and beside it, per seat,
+  // the Cannon travelling and in recoil and the Marine beside the Sellsword
+  {
+    const KGB = [['kg_castle', 10, 7], ['kg_cottagehip', 5, 2], ['kg_cottagehip', 8, 2], ['kg_cottagehip', 5, 5], ['kg_cottagehip', 8, 5], ['kg_blacksmith', 12, 3], ['kg_barracks', 15, 2], ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottagehip', 12, 12]];
+    const KGU = [['kg_villager_0_0', 15.2, 9.4], ['kg_villager_2_0', 18.6, 8.2], ['kg_villager_8_0', 19.8, 10.1], ['kg_villager_12_0', 20.4, 7.3], ['kg_guard_4_0', 15.5, 5.8], ['kg_guard_4_0', 16.4, 5.9], ['kg_archer_4_0', 17.3, 6.0], ['kg_guard_0_0', 9.5, 12.6]];
+    const bp = base(0, KGB, KGU, PB), cols = [['kg_cannon', 'CANNON', 0], ['kg_cannon', 'CANNON, RECOIL', 3], ['ex_marine', 'MARINE', 0], ['ex_mercenary', 'SELLSWORD', 0]], cw = 5 * T, rh = Math.round(bp.h / 2);
+    const c = cv(bp.w + cw * cols.length + T / 2, bp.h); grass(c, 15);
+    for (let y = 0; y < bp.h; y++) c.data.set(bp.data.subarray(y * bp.w * 4, (y + 1) * bp.w * 4), y * c.w * 4);
+    [0, 1].forEach(seat => cols.forEach(([k, txt, f], i) => { const x0 = bp.w + T / 2 + i * cw, y = Math.round(seat * rh + rh - 1.4 * T); PU.draw(c, PU.get(`${k}_4_${f}`), x0 + cw * 0.34, y, seat); PU.draw(c, PU.get(`${k}_0_${f}`), x0 + cw * 0.72, y, seat); label(c, `${txt} S${seat}`, x0 + 4, seat * rh + rh - 22, 2); }));
+    label(c, 'THE LAST BATCH: THE KINGDOM BASE WITH THE HIP-ROOF COTTAGE (SEAT 0); THE CANNON TRAVELLING AND IN RECOIL, THE MARINE BESIDE THE SELLSWORD, SEAT 0 ABOVE AND SEAT 1 BELOW. 1X', 4, 4, 2);
+    save('review', c);
+  }
   // the crowd: the Kingdom (seat 0) facing east meets the Expedition (seat 1) facing west, at about the sim's spacing
   {
     const c = cv(22 * T, 11 * T); grass(c, 9); const items = [];
@@ -178,8 +191,8 @@ if (mode === 'units') {
   }
   // the units table: team share, brightness, size, the maker's notes
   const NOTES = {
-    harvester: 'ok: a bundle on the back', trooper: 'ok: a shield and spear', lancer: 'a bow: slim; near the Villager in build at 0.75', medic: 'the old Harbour Mender (pale coat, satchel): not in the re-theme look', observer: 'ok: the one balloon', siegeTank: 'the Cannon: a bronze barrel on a brown carriage, two big wheels; wood and bronze against the Sentry gun\'s grey and orange', bastion: 'ok, low and wide; near the Buggy in footprint', rider: 'ok: a horse', knight: 'ok: a horse with armor; near the Rider at 0.75',
-    lumen: 'ok: a low box with arms', scythe: 'ok: wheels and a bull bar', prism: 'a sword and vest', bruiser: 'ok: the big shield', halo: 'the old Vael Tender (a flower): not in the re-theme look', monolith: 'ok: a big low machine', shrike: 'ok: the one flyer with a shadow apart', umbra: 'tan camo, helmet, rifle across; parts from the Sellsword by the pale tan and the level rifle',
+    harvester: 'ok: a bundle on the back', trooper: 'ok: a shield and spear', lancer: 'a bow: slim; near the Villager in build at 0.75', medic: 'the old Harbour Mender (pale coat, satchel): not in the re-theme look', observer: 'ok: the one balloon', siegeTank: 'the Cannon: a light iron barrel on a warm light wooden carriage, two big wheels; the wood keeps it apart from the Sentry gun', bastion: 'ok, low and wide; near the Buggy in footprint', rider: 'ok: a horse', knight: 'ok: a horse with armor; near the Rider at 0.75',
+    lumen: 'ok: a low box with arms', scythe: 'ok: wheels and a bull bar', prism: 'a sword and vest', bruiser: 'ok: the big shield', halo: 'the old Vael Tender (a flower): not in the re-theme look', monolith: 'ok: a big low machine', shrike: 'ok: the one flyer with a shadow apart', umbra: 'a pale near-future soldier: off-white plates, a cyan visor, a compact rifle, team on both shoulders; nothing like the dark Sellsword',
   };
   const rows = sizes.filter(r => r.what === 'unit').map(r => ({ ...r, note: NOTES[r.kind] ?? '' }));
   writeFileSync(join(outDir, 'units.json'), JSON.stringify(rows, null, 1));
@@ -246,18 +259,17 @@ const KG_UNITS = [['kg_villager_0_0', 15.2, 9.4], ['kg_villager_2_0', 18.6, 8.2]
 const EXPEDITION = [['ex_datahall', 10, 7], ['ex_turbine', 5, 2], ['ex_turbine', 8, 2], ['ex_turbine', 5, 5], ['ex_turbine', 8, 5], ['ex_posttavern', 12, 3], ['ex_posttavern', 15, 3],
   ['ex_warehouse', 16, 7], ['ex_labdome', 16, 11], ['ex_vortex', 4, 10], ['ex_radio', 21, 4], ['ex_radio', 21, 13], ['ex_uplink', 11, 12], ['ex_turbine', 1, 7]];
 const KINGDOM = [['kg_castle', 10, 7], ['kg_cottagehip', 5, 2], ['kg_cottagehip', 8, 2], ['kg_cottagehip', 5, 5], ['kg_cottagehip', 8, 5], ['kg_blacksmith', 12, 3], ['kg_barracks', 15, 2],
-  ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottageround', 12, 12]]; // (the Cottage slots: option A, hip roof; one of option B, the round hut, at the south)
-const GOLD = [21.5, 9.2], PANEL = [25, 17];
-function base(seat, list, units) {
+  ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottagehip', 12, 12]]; // (the Cottage slots: option A, the hip roof, Stelian's pick)
+function base(seat, list, units, pr = P) {
   const c = cv(PANEL[0] * T, PANEL[1] * T); grass(c, seat + 11);
   const items = [];
-  list.forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(P, cc, kind, x, y, seat, id)] }); });
-  for (const [name, tx, ty] of units) items.push({ y: ty * T, draw: [(cc) => P.draw(cc, P.get(name), tx * T, ty * T, seat)] });
-  items.push({ y: GOLD[1] * T, draw: [(cc) => P.draw(cc, P.get('rt_gold_0_0'), GOLD[0] * T, GOLD[1] * T)] });
+  list.forEach(([kind, tx, ty], id) => { const n = SIZES[kind], x = (tx + n / 2) * T, y = (ty + n / 2) * T; items.push({ y, draw: [(cc) => drawBldg(pr, cc, kind, x, y, seat, id)] }); });
+  for (const [name, tx, ty] of units) items.push({ y: ty * T, draw: [(cc) => pr.draw(cc, pr.get(name), tx * T, ty * T, seat)] });
+  items.push({ y: GOLD[1] * T, draw: [(cc) => pr.draw(cc, pr.get('rt_gold_0_0'), GOLD[0] * T, GOLD[1] * T)] });
   for (const it of items.sort((a, b) => a.y - b.y)) for (const d of it.draw) d(c);
   return c;
 }
-for (const [name, seat, list, units, cap] of [['base', 1, EXPEDITION, EX_UNITS, 'EXPEDITION BASE: THE SERVER HALL, TURBINES, TAVERN HALLS, THE WAREHOUSE, THE LAB DOME, THE VORTEX, SENTRY GUNS, THE UPLINK'], ['kingdom-base', 0, KINGDOM, KG_UNITS, 'KINGDOM BASE AFTER THE PASS (COTTAGES: OPTION A, AND ONE ROUND HUT SOUTH)']]) {
+for (const [name, seat, list, units, cap] of [['base', 1, EXPEDITION, EX_UNITS, 'EXPEDITION BASE: THE SERVER HALL, TURBINES, TAVERN HALLS, THE WAREHOUSE, THE LAB DOME, THE VORTEX, SENTRY GUNS, THE UPLINK'], ['kingdom-base', 0, KINGDOM, KG_UNITS, 'KINGDOM BASE AFTER THE PASS, THE HIP-ROOF COTTAGE IN ITS SLOTS']]) {
   const c = base(seat, list, units), z = resample(c, 0.75);
   label(c, cap, 6, 6, 2); save(`${name}-100`, c, false);
   label(z, `${cap}  ZOOM 0.75`, 6, 6, 2); save(`${name}-075`, z, false);

@@ -343,23 +343,24 @@ export function balloon(M) {
   return g;
 }
 
-/** Cannon (siege, the sim's `siegeTank` slot in place of the Trebuchet; Stelian, the last art round): a dark bronze
- *  barrel on a brown wooden carriage with two big spoked wheels, no crew, no small props; team on a small pennant at
+/** Cannon (siege, the sim's `siegeTank` slot in place of the Trebuchet; Stelian, the last art round): a light gunmetal
+ *  iron barrel on a warm light wooden carriage with two big spoked wheels, no crew, no small props; team on a small pennant at
  *  the trail and a thin band round the trail. Frames as the Trebuchet's (look.js UNIT_POSE siegeTank): 0-1 travelling
  *  (the wheels turn), 2 half, 3 the recoil pose: the barrel elevated and the gun rolled back on its wheels, the trail's
  *  spade down. Wood and bronze, so it never reads as the Expedition's grey Sentry gun with its orange band. From the
  *  camera: two big wheels under a long dark barrel on a brown carriage, a small flag. */
 export function cannon(M, f) {
   const g = grp(), st = f < 2 ? 0 : f - 1, turn = (f % 2) * 0.5, back = [0, 1.5, 3.5][st], elev = [0.08, 0.2, 0.3][st];
-  M.bronze ??= new THREE.MeshStandardMaterial({ color: 0x5e4a30, metalness: 0.75, roughness: 0.42 });                   // dark bronze
-  M.bronzeLit ??= new THREE.MeshStandardMaterial({ color: 0x8a7046, metalness: 0.7, roughness: 0.4 });                   // its rings, a step lighter
+  M.bronze ??= new THREE.MeshStandardMaterial({ color: 0x80868c, metalness: 0.8, roughness: 0.4 });                     // the barrel: iron, a light gunmetal (the last batch: not bronze, no near-black; the key's name stays)
+  M.bronzeLit ??= new THREE.MeshStandardMaterial({ color: 0xa0a6ac, metalness: 0.75, roughness: 0.38 });                 // its rings, a step lighter
+  M.wheelWood ??= new THREE.MeshStandardMaterial({ color: 0xb8945c, map: M.timber.map, roughness: 0.8 });                 // the wheels' and carriage's wood: warm and light, so the shape shows
   const c = grp(); c.position.x = -back; g.add(c);                                                                      // the gun rolls back in recoil
   const AX = 1.5, AY = 6.4;                                                                                             // the axle
   add(c, cyl(0.9, 0.9, 13.0, 10), M.ironDark, AX, AY, 0, Math.PI / 2, 0, 0);
-  for (const z of [-6.2, 6.2]) wheel(c, M, 6.2, AX, AY, z, turn + 0.3);                                                  // two big spoked wheels
-  for (const z of [-2.4, 2.4]) add(c, rbox(20, 4.2, 1.6, 0.4), M.haft, -4, AY + 0.6, z, 0, 0, 0.1);                       // the carriage's cheeks, brown timber, sloping down to the trail
-  add(c, rbox(5, 3.6, 6.2, 0.4), M.haft, 2.5, AY + 1.2, 0);                                                              // the transom between them
-  limb(c, [-12, 5.4, 0], [-17, 1.6, 0], 1.3, M.haft); add(c, rbox(2.6, 1.2, 4.0, 0.3), M.ironDark, -17.2, 1.0, 0);          // the trail down to its iron spade
+  for (const z of [-6.2, 6.2]) { const r = 6.2; add(c, cyl(r - 0.3, r - 0.3, 1.2, 16), M.wheelWood, AX, AY, z, Math.PI / 2, 0, 0); add(c, torus(r - 0.25, 0.5, 20), M.ironDark, AX, AY, z); add(c, cyl(0.9, 0.9, 1.7, 10), M.steel, AX, AY, z, Math.PI / 2, 0, 0); for (let k = 0; k < 3; k++) add(c, rbox(0.6, (r - 0.8) * 2, 0.4, 0.1), M.haft, AX, AY, z + (z > 0 ? 0.7 : -0.7), 0, 0, k * Math.PI / 3 + turn + 0.3); } // two big spoked wheels, light wood with an iron tyre
+  for (const z of [-2.4, 2.4]) add(c, rbox(20, 4.2, 1.6, 0.4), M.wheelWood, -4, AY + 0.6, z, 0, 0, 0.1);                  // the carriage's cheeks, warm light timber, sloping down to the trail
+  add(c, rbox(5, 3.6, 6.2, 0.4), M.wheelWood, 2.5, AY + 1.2, 0);                                                         // the transom between them
+  limb(c, [-12, 5.4, 0], [-17, 1.6, 0], 1.3, M.wheelWood); add(c, rbox(2.6, 1.2, 4.0, 0.3), M.ironDark, -17.2, 1.0, 0);          // the trail down to its iron spade
   add(c, rbox(3.2, 1.6, 5.6, 0.2), M.cloth, -11.5, 6.0, 0, 0, 0, 0.6); add(c, rbox(3.4, 0.3, 5.8, 0.05), M.inkLine, -12.6, 6.9, 0, 0, 0, 0.6); add(c, rbox(3.4, 0.3, 5.8, 0.05), M.inkLine, -10.4, 5.1, 0, 0, 0, 0.6); // a thin team band round the trail between ink lines
   const b = grp(); b.position.set(1.0, AY + 3.4, 0); b.rotation.z = elev; c.add(b);                                        // the barrel on its trunnions, elevated by frame
   add(b, cyl(1.5, 2.3, 20, 14), M.bronze, 3, 0, 0, 0, 0, -Math.PI / 2);                                                  // the tapered barrel, muzzle ahead

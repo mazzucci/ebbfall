@@ -316,54 +316,48 @@ export function buggy(M, f) {
   return g;
 }
 
-/** Marine (the signature unit, line class, sim r 10-11, scale 1.08): a slim modern soldier (Stelian: "a lot slimmer",
- *  "camouflage style uniform"; the last art round: no bulky armor, tan desert camouflage, a helmet with goggles, the
- *  rifle across the body, team on a shoulder patch and an armband): the Guard's build, tan camouflage in big soft
- *  blotches on legs and torso (no plate carrier, pouches or knee pads), a small pack, a dark rounded helmet with
- *  goggles pushed up whose lenses are the one white LED, and a slim dark rifle held level across the body. Team on one
- *  flat shoulder patch and one armband only (round 3's pads, bands and pack strip read as a team torso
- *  from behind). No block torso, no pale or oversized gun (the judge read the white gun as plasma and the block as
- *  StarCraft, Warhammer or Lego). From the camera: a dark dot with a white glint over a slim mottled grey figure with
- *  a short dark level bar and one team square at the shoulder. Frames 0-1 the march. */
+/** Marine (the signature unit, line class, sim r 10-11, scale 1.08; the last batch, Stelian: a light near-future
+ *  soldier matching the Expedition's buildings' white, grey and cyan): the Guard's build in a light grey suit with
+ *  slim off-white armor plates (chest, shins, a small pack; nothing bulky or knight-like), an off-white rounded helmet
+ *  with a cyan visor across the face, a compact gunmetal rifle held level across the body, dark boots, belt and
+ *  gloves. Team on both shoulders, two pads between ink lines. From the camera: a pale slim figure with a cyan dot at
+ *  its head, a short dark level bar and a team square at each shoulder; nothing like the dark medieval Sellsword.
+ *  Frames 0-1 the march. */
 export function marine(M, f) {
   const g = grp(), st = [3.2, -3.2][f % 2];
-  for (const side of [-1, 1]) {                                                                 // the Guard's stance and build
+  M.armorLight ??= new THREE.MeshStandardMaterial({ color: 0xd4d6d2, metalness: 0.25, roughness: 0.55 });                                           // slim light armor plates, off-white
+  M.suitGrey ??= new THREE.MeshStandardMaterial({ color: 0xa6aaa8, roughness: 0.8 });                                                              // the under-suit, light grey
+  M.visorCyan ??= new THREE.MeshStandardMaterial({ color: 0x20b8e0, emissive: 0x30d8ff, emissiveIntensity: 1.1, metalness: 0.3, roughness: 0.2 });  // the helmet's cyan visor
+  for (const side of [-1, 1]) {                                                                                         // the Guard's stance and build
     const z = side * 2.1, s = st * side;
-    add(g, rbox(3.4, 1.5, 2.2, 0.6), M.boot, s + 0.5, 0.75, z);
-    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, M.camoTan);                             // the legs in tan camouflage (the last art round: no bulky armor, tan desert camo)
-    limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.05, M.camoTan);
+    add(g, rbox(3.4, 1.5, 2.2, 0.6), M.armour, s + 0.5, 0.75, z);                                                       // dark boots
+    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.15, M.suitGrey);                                                  // the legs, light grey suit
+    limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.0, M.suitGrey);
+    add(g, rbox(2.2, 2.4, 2.2, 0.6), M.armorLight, s * 0.5 + 0.3, 3.8, z * 1.05);                                        // slim shin plates
   }
   const b = grp(); g.add(b);
-  add(b, rbox(4.8, 6.0, 6.4, 1.5), M.camoTan, 0, 10.3, 0);                                     // the torso, tan camouflage fatigues, no plate carrier or pouches
-  add(b, rbox(5.0, 0.8, 6.6, 0.3), M.leather, 0, 7.4, 0);                                       // the belt
-  add(b, rbox(2.6, 4.8, 4.8, 0.7), M.camoTan, -3.4, 10.6, 0);                                   // a small pack, camouflage
-  add(b, rbox(2.8, 1.8, 5.0, 0.2), M.paint, -3.4, 12.3, 0); add(b, rbox(3.0, 0.25, 5.2, 0.05), M.inkLine, -3.4, 11.35, 0); add(b, rbox(3.0, 0.25, 5.2, 0.05), M.inkLine, -3.4, 13.25, 0); // one team strip across the pack's top (the judge: packs are allowed; one strip is not a team back)
-  add(b, rbox(1.2, 2.0, 1.0, 0.3), M.joint, -4.4, 9.4, -2.0); add(b, cyl(0.6, 0.6, 7, 6), M.joint, -4.4, 13.8, -2.0); // a radio and its antenna, drawn thick
-  add(b, rbox(4.2, 2.2, 3.6, 0.4), M.paint, 0.3, 13.4, 3.4); add(b, rbox(4.4, 0.3, 3.8, 0.1), M.inkLine, 0.3, 12.25, 3.4); add(b, rbox(4.4, 0.3, 3.8, 0.1), M.inkLine, 0.3, 14.55, 3.4); // the team shoulder patch, flat, between ink lines (no pauldron)
-  add(b, cyl(1.9, 1.9, 3.0, 10), M.paint, 1.0, 10.2, -3.9, 0.3, 0, 0.4); for (const dy of [-1.6, 1.6]) add(b, cyl(1.95, 1.95, 0.3, 10), M.inkLine, 1.0 - dy * 0.39, 10.2 + dy * 0.92, -3.9 - dy * 0.28, 0.3, 0, 0.4); // the one team armband, wide, between ink rings
-  add(b, sph(1.7, 12, 10), M.skin, 0.9, 13.3, 0).scale.set(0.8, 0.95, 0.9);                    // the face
-  add(b, sph(2.7, 16, 12), M.armour, 0.1, 14.2, 0).scale.set(1, 0.85, 1);                      // the helmet, dark, rounded
-  add(b, cyl(2.8, 2.8, 0.4, 16), M.inkLine, 0.1, 13.1, 0);                                     // its rim line
-  add(b, rbox(2.4, 1.6, 4.8, 0.4), M.joint, 1.7, 15.1, 0);                                     // the goggles, pushed up on the helmet
-  add(b, rbox(1.2, 1.3, 4.6, 0.2), M.led, 2.6, 15.2, 0); add(b, sph(2.6, 8, 6), M.ledHalo, 2.8, 15.2, 0).scale.set(0.5, 0.5, 1); // their lenses: the one white LED, big enough for 1x, with a halo
-  add(b, rbox(0.4, 0.8, 5.6, 0.1), M.joint, 0.2, 15.1, 0);                                      // their strap
-  // the rifle: slim, in mid gunmetal, held level across the body ahead of the chest (the legibility pass: the barrel
-  // and handguard 2.6-2.9 px wide at zoom 1.0, 2.0-2.3 until then; the receiver 3.3 px tall)
+  add(b, rbox(4.6, 6.0, 6.2, 1.4), M.suitGrey, 0, 10.3, 0);                                                             // the torso, the suit
+  add(b, rbox(5.0, 5.0, 5.4, 0.8), M.armorLight, 0.4, 10.6, 0);                                                         // a slim chest plate, off-white
+  add(b, rbox(5.2, 0.35, 5.6, 0.1), M.inkLine, 0.4, 13.1, 0); add(b, rbox(5.2, 0.35, 5.6, 0.1), M.inkLine, 0.4, 8.1, 0); // its ink edges
+  add(b, rbox(5.0, 0.8, 6.4, 0.3), M.armour, 0, 7.4, 0);                                                                // the belt, dark
+  add(b, rbox(2.4, 4.4, 4.4, 0.7), M.armorLight, -3.3, 10.6, 0);                                                        // a small pack, off-white
+  for (const sz of [-1, 1]) { add(b, rbox(4.2, 2.4, 3.4, 0.6), M.paint, 0.2, 13.4, sz * 3.5); add(b, rbox(4.4, 0.3, 3.6, 0.1), M.inkLine, 0.2, 12.15, sz * 3.5); add(b, rbox(4.4, 0.3, 3.6, 0.1), M.inkLine, 0.2, 14.65, sz * 3.5); } // team on both shoulders: two pads between ink lines
+  add(b, sph(2.7, 16, 12), M.armorLight, 0.1, 14.3, 0).scale.set(1, 0.9, 1);                                            // the helmet, off-white, rounded
+  add(b, cyl(2.8, 2.8, 0.4, 16), M.inkLine, 0.1, 13.1, 0);                                                              // its rim line
+  add(b, rbox(1.4, 1.8, 4.6, 0.5), M.visorCyan, 2.3, 13.7, 0); add(b, sph(2.4, 8, 6), M.ledHalo, 2.6, 13.7, 0).scale.set(0.5, 0.5, 1); // the cyan visor across the face, with a halo
+  add(b, rbox(0.4, 0.8, 5.4, 0.1), M.joint, 0.2, 15.3, 0);                                                              // a dark seam over the crown
+  // the compact rifle: short, in mid gunmetal, held level across the body ahead of the chest
   const gun = grp(); gun.position.set(3.4, 9.6, 0); gun.rotation.set(0, 0.3, 0.04); b.add(gun);
-  add(gun, rbox(3.6, 1.9, 1.6, 0.4), M.gun, -3.2, 0, 0);                                        // the stock
-  add(gun, rbox(4.0, 2.2, 1.8, 0.4), M.gun, 0.3, 0, 0);                                         // the receiver
-  add(gun, rbox(1.3, 2.6, 1.2, 0.3), M.gun, 0.3, -2.0, 0);                                      // the magazine
-  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2, -1.4, 0);                                     // the grip
-  add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5, 0);                                     // the sight
-  add(gun, rbox(5.4, 1.9, 1.8, 0.4), M.gun, 5.0, 0, 0);                                         // the handguard
-  add(gun, cyl(0.9, 0.9, 3.6, 8), M.gun, 9.4, 0.15, 0, 0, 0, Math.PI / 2);                       // the barrel
-  limb(b, [0.6, 11.4, 3.6], [2.4, 9.4, 1.6], 1.1, M.camoTan); add(b, sph(0.85, 8, 6), M.armour, 2.6, 9.2, 1.4);  // the trigger hand, gloved
-  limb(b, [0.6, 11.4, -3.6], [5.8, 9.8, -1.2], 1.1, M.camoTan); add(b, sph(0.85, 8, 6), M.armour, 6.2, 9.8, -1.0); // the fore hand on the handguard
-  if (M.polish) { // secondary detail: the pack's shoulder straps down the chest, elbow pads, a canteen and a drop pouch, a band round the helmet
-    for (const z of [-1.8, 1.8]) add(b, rbox(0.8, 3.2, 1.0, 0.3), M.armour, 3.05, 11.8, z, 0, 0, -0.25);
-    add(b, cyl(0.9, 0.9, 1.9, 8), M.armour, -1.8, 6.8, 3.5); add(b, cyl(0.4, 0.4, 0.4, 6), M.joint, -1.8, 7.95, 3.5);
-    add(b, torus(2.72, 0.2), M.joint, 0.1, 14.3, 0, Math.PI / 2, 0, 0);
-  }
+  add(gun, rbox(2.6, 1.9, 1.6, 0.4), M.gun, -2.6, 0, 0);                                                                // the stock, short
+  add(gun, rbox(4.0, 2.2, 1.8, 0.4), M.gun, 0.3, 0, 0);                                                                 // the receiver
+  add(gun, rbox(1.3, 2.4, 1.2, 0.3), M.gun, 0.3, -1.9, 0);                                                              // the magazine
+  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2, -1.4, 0);                                                             // the grip
+  add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5, 0);                                                             // the sight
+  add(gun, rbox(3.6, 1.9, 1.8, 0.4), M.gun, 4.1, 0, 0);                                                                 // the handguard, short
+  add(gun, cyl(0.9, 0.9, 2.4, 8), M.gun, 7.1, 0.15, 0, 0, 0, Math.PI / 2);                                               // the barrel, stubby
+  limb(b, [0.6, 11.4, 3.6], [2.4, 9.4, 1.6], 1.05, M.suitGrey); add(b, sph(0.85, 8, 6), M.armour, 2.6, 9.2, 1.4);        // the trigger hand, gloved dark
+  limb(b, [0.6, 11.4, -3.6], [4.8, 9.8, -1.2], 1.05, M.suitGrey); add(b, sph(0.85, 8, 6), M.armour, 5.2, 9.8, -1.0);     // the fore hand on the handguard
+  if (M.polish) { for (const z of [-1.8, 1.8]) add(b, rbox(0.7, 3.0, 0.9, 0.3), M.joint, 2.9, 11.6, z, 0, 0, -0.25); add(b, torus(2.72, 0.2), M.joint, 0.1, 14.4, 0, Math.PI / 2, 0, 0); } // the pack's straps, a band round the helmet
   g.scale.setScalar(1.08);
   return g;
 }

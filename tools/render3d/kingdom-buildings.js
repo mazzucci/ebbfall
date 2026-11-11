@@ -402,11 +402,14 @@ export function cottageHip(M) {
   add(g, cone((W + 7) / 2 * Math.SQRT2, R, 4), M.thatch, X, H + 2 + R / 2, Z, 0, Math.PI / 4, 0);                   // the hip roof: a thatched pyramid over all four walls
   add(g, rbox(W + 7.4, 0.6, D + 7.4, 0.1), M.inkLine, X, H + 1.9, Z);                                                // the dark eave line
   chimney(g, M, X + W / 2 - 4, 2, Z - 6, H + 10, 4.6);
-  door(g, M, X - 4, 2.2, Z + D / 2 + 0.6, 5.5, 8.5); window_(g, M, X + 8, 8.5, Z + D / 2 + 0.6);
+  M.candle ??= std({ color: 0xffd890, emissive: 0xffc060, emissiveIntensity: 1.3, roughness: 0.6 });                   // a candle-lit window pane, warm yellow (the last batch; small, never a surface)
+  M.doorPale ??= std({ color: 0xa88a60, map: M.timber.map, roughness: 0.8 });                                         // the door in pale timber, so it shows against the dark wall
+  add(g, rbox(8.4, 11, 0.6, 0.1), M.inkLine, X - 8, 7.5, Z + D / 2 + 0.4); add(g, rbox(7, 10, 1.2, 0.3), M.doorPale, X - 8, 7, Z + D / 2 + 0.6); for (const y of [4.5, 9.5]) add(g, rbox(7.2, 0.7, 0.4, 0.1), M.ironDark, X - 8, y, Z + D / 2 + 1.3); // a clear door: pale timber in an ink frame, two iron bands
+  add(g, rbox(6.4, 5.4, 0.6, 0.1), M.inkLine, X + 5, 8.5, Z + D / 2 + 0.4); add(g, rbox(5.4, 4.4, 0.8, 0.1), M.candle, X + 5, 8.5, Z + D / 2 + 0.7); add(g, rbox(0.6, 4.6, 0.9, 0.05), M.ironDark, X + 5, 8.5, Z + D / 2 + 1.0); add(g, rbox(5.6, 0.6, 0.9, 0.05), M.ironDark, X + 5, 8.5, Z + D / 2 + 1.0); // a window in the middle of the front, candle-lit, with a dark cross of mullions
   window_(g, M, X + W / 2 + 0.6, 8.5, Z - 4, 3, 4, Math.PI / 2);                                                     // a window on the east wall too: two walls show at -20
   banner(g, M, X, H + 2 + R - 1, Z, 14, 14, 10);                                                                     // the team flag at the peak
   add(g, rbox(W + 7.4, 1.4, 0.5, 0.1), M.cloth, X, H + 0.9, Z + D / 2 + 3.9); for (const y of [H + 1.7, H + 0.1]) add(g, rbox(W + 7.8, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 3.9); // a thin team strip along the south eave
-  if (M.polish) { for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, X + sx * W / 2, Z + sz * D / 2, 3, H + 1.2, 2.8, 2.4, 1.4); add(g, rbox(7.6, 1.2, 1.4, 0.2), M.plinth, X - 4, 11.4, Z + D / 2 + 0.7); }
+  if (M.polish) { for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, X + sx * W / 2, Z + sz * D / 2, 3, H + 1.2, 2.8, 2.4, 1.4); add(g, rbox(9, 1.2, 1.4, 0.2), M.plinth, X - 8, 12.8, Z + D / 2 + 0.7); }
   return g;
 }
 export function cottageRound(M) {

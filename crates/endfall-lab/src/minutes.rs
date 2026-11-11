@@ -49,7 +49,7 @@ fn sample(w: &World, s: usize) -> Sample {
             .filter(|b| b.team as usize == s && b.done && b.kind.def().hq)
             .count() as u32,
         army: army_of(w, |t| t == s),
-        supply: w.sup.get(s).map_or(0, |v| v[0]),
+        supply: w.pools.get(s).map_or(0, |v| v[0][0]),
     }
 }
 

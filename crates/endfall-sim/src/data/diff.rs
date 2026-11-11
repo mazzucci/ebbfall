@@ -97,7 +97,9 @@ impl super::UnitKind {
     pub fn ai_tier(self) -> u8 {
         use super::UnitKind::*;
         match self {
-            Harvester | Lumen | Trooper | Lancer | Prism | Observer => 0,
+            // (the Marine: the Expedition's only infantry that hits the air since its hired guns went melee, as the
+            // Archer is the Kingdom's)
+            Harvester | Lumen | Trooper | Lancer | Prism | Umbra | Observer => 0,
             Knight | Bruiser => 2,
             _ => 1,
         }

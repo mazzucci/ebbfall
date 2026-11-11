@@ -338,7 +338,7 @@ impl World {
         // (a main factory: a vehicle bay works only when the mix calls for its units)
         let kind = busy_all(s.rax).then_some(s.rax)?;
         let d = self.tuning(e);
-        let [used, cap] = self.sup[e as usize];
+        let [used, cap] = self.sup(e);
         let hq = self.factions[e as usize].hq;
         let expanded = || {
             my_b.iter()
@@ -359,12 +359,28 @@ impl World {
     /// raised yet, its own requirement standing, and either a mixed-in unit it trains (the Marine) or unlocks (one
     /// another factory of its own, already placed, trains) due by the time it stands, on a level that fields it, or
     /// one of its techs of use and not yet researched, from the side's tech time on a level that uses them.
+    /// While its own requirement does not stand yet, that requirement instead when it can be built (the Portal's
+    /// Uplink, once the satellite is up) and is not already going up.
     pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
         let s = &self.factions[e as usize].ai;
         let k = s.tech2?;
-        if self.ai_count(my_b, false, k) > 0 || !self.has_req(e, k) {
+        if self.ai_count(my_b, false, k) > 0 {
             return None;
         }
+        let k = if self.has_req(e, k) {
+            k
+        } else {
+            let r = k.def().req.filter(|&r| {
+                self.has_req(e, r) && self.factions[e as usize].builds(r) && self.ai_count(my_b, false, r) == 0
+            })?;
+            return self.tech2_wanted(e, my_b, t, k).then_some(r);
+        };
+        self.tech2_wanted(e, my_b, t, k).then_some(k)
+    }
+
+    /// Whether the side's second tech building `k` is wanted by time `t` (`tech2_due`'s terms).
+    fn tech2_wanted(&self, e: u8, my_b: &[Id], t: f64, k: BldgKind) -> bool {
+        let s = &self.factions[e as usize].ai;
         // (a unit it unlocks: once a factory of its own that trains it is placed, or it would unlock nothing)
         let trained = |u: UnitKind| {
             my_b.iter()
@@ -387,7 +403,25 @@ impl World {
             && k.def().researches.iter().any(|&up| {
                 self.upgrades[e as usize][up.index()] < up.levels() && self.tech_of_use(e, my_b, up)
             });
-        (unlocks || techs).then_some(k)
+        unlocks || techs
+    }
+
+    /// The building that adds hired places (`Pool::Hired`: the Expedition's Recruiting post), when the side's free
+    /// places have run down to its margin (half its level's `supply_ahead`: a place is one person) and are not at the
+    /// map's limit, with fewer than `supply_at_once` of them going up. None for a side without hired places.
+    fn places_due(&self, e: u8, building: &[BldgKind]) -> Option<BldgKind> {
+        let f = self.factions[e as usize];
+        let k = f
+            .build_basic
+            .iter()
+            .chain(f.build_advanced)
+            .copied()
+            .find(|k| k.def().pool == Pool::Hired && k.def().supply > 0)?;
+        let d = self.level();
+        let [used, cap] = self.pool(e, Pool::Hired);
+        let rising = building.iter().filter(|&&b| b == k).count();
+        (cap - used <= d.supply_ahead / 2 && cap < self.supply_limit() && rising < d.supply_at_once)
+            .then_some(k)
     }
 
     /// The build order: one wanted building at a time, placed by a free harvester.
@@ -405,7 +439,7 @@ impl World {
             ..
         } = brain.clone();
         let d = self.level();
-        let [used, cap] = self.sup[e as usize];
+        let [used, cap] = self.sup(e);
         let f = self.factions[e as usize];
         let s = &f.ai;
         // Its Market (a side with one, the Kingdom), one a finished Castle (`World::hq_room`), one site at a time: the
@@ -433,6 +467,8 @@ impl World {
             Some(f.supply)
         } else if let Some(m) = market {
             Some(m)
+        } else if let Some(k) = self.places_due(e, &building) {
+            Some(k) // (hired places: another Recruiting post)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
@@ -480,7 +516,7 @@ impl World {
         // building waits a moment rather than leave the Core idle for want of shards.
         // Only while a worker can be trained now (a Core, room in supply): the reserve must never hold back the Depot
         // a supply-capped side needs to train the very worker it saves for.
-        let [used, cap] = self.sup[e as usize];
+        let [used, cap] = self.sup(e);
         let can_train = !cores.is_empty() && used + f.worker.def().supply <= cap;
         let hold = if d.workers_first && can_train && harv.len() < self.harv_target(cores.len()) {
             f.worker.def().cost
@@ -748,7 +784,7 @@ mod tests {
         w.res[ENEMY as usize] = [300, 0];
         assert!(w.extra_rax(ENEMY, &my_b, 1).is_none(), "not piling up");
         w.res[ENEMY as usize] = [500, 0];
-        w.sup[ENEMY as usize] = [10, 12];
+        w.pools[ENEMY as usize][0] = [10, 12];
         assert!(
             w.extra_rax(ENEMY, &my_b, 1).is_none(),
             "supply-blocked: a factory would not help"

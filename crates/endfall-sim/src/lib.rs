@@ -727,6 +727,7 @@ fn event_json(e: &Event) -> String {
             .num("mend", mend),
         Event::Hit { x, y, big } => o("hit").num("x", x).num("y", y).num("big", big),
         Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
+        Event::Launch { x, y, team } => o("launch").num("x", x).num("y", y).num("team", team),
         Event::Cast { x, y, ability, .. } => {
             o("cast").num("x", x).num("y", y).str("ability", ability)
         }
@@ -889,7 +890,7 @@ mod tests {
         assert_eq!(g.w.bldgs.len(), 2);
         assert_eq!(g.w.units.len(), 8);
         assert!(g.w.map.nodes.len() >= 6); // (a mine per field: each start's home and expansions)
-        assert_eq!(g.w.sup[PLAYER as usize], [4, 20]);
+        assert_eq!(g.w.sup(PLAYER), [4, 20]);
     }
 
     #[test]
@@ -943,7 +944,7 @@ mod tests {
                 .iter()
                 .any(|b| b.team == PLAYER && b.kind == BldgKind::Depot && b.done)
         );
-        assert_eq!(g.w.sup[PLAYER as usize][1], 28);
+        assert_eq!(g.w.sup(PLAYER)[1], 28);
     }
 
     #[test]

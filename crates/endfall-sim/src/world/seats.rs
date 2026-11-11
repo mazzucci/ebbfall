@@ -48,7 +48,7 @@ impl World {
     pub(super) fn clear_seats(&mut self) {
         self.out.clear();
         self.res.clear();
-        self.sup.clear();
+        self.pools.clear();
         self.explored.clear();
         self.vis.clear();
         self.stats.clear();
@@ -65,7 +65,7 @@ impl World {
         let tiles = (self.map_size.w * self.map_size.h) as usize;
         self.out.push(false);
         self.res.push([50, 0]);
-        self.sup.push([0, 0]);
+        self.pools.push([[0, 0]; POOLS]);
         self.explored.push(vec![0; tiles]);
         self.vis.push(vec![0; tiles]);
         self.stats.push(Stats::default());

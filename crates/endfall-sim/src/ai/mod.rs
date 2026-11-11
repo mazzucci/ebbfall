@@ -83,7 +83,7 @@ pub(crate) struct Ai {
     pub ready_since: Option<f64>,
     /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
     pub staging: Option<(f64, f64, f64)>,
-    /// The tower range: its wave's forward Radio tower under construction (one at a time), that site's hp at its last
+    /// The range: its wave's forward Uplink under construction (one at a time), that site's hp at its last
     /// turn (a drop: under fire), and whether the wave out has abandoned one (it places no other).
     pub relay_site: Option<Id>,
     pub relay_hp: f64,

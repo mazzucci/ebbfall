@@ -1,6 +1,12 @@
 //! The Expedition (sim race `vael`; the Vael before the re-theme): the Data center, Bots that build, Sellswords and
 //! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Marines from the Portal. No shields
 //! (the mechanism stays, as data) and every ground unit walks. Keys never change; the names are display strings only.
+//!
+//! No population (PRD: the Expedition rework): its machines (Bot, Buggy, Rover, Drone) use Power (`Pool::Supply`), from
+//! the Data center and wind turbines; its hired guns (Sellsword, Bruiser, Medic) take hired places (`Pool::Hired`), six
+//! a Recruiting post; its Marines take Portal places (`Pool::Portal`), four a Portal. The satellite (researched at the
+//! Data center once a Lab stands) unlocks the Uplink, which unlocks the Portal; machines move faster inside the range
+//! of the Data center or an Uplink (data/radio.rs).
 
 use super::*;
 
@@ -17,26 +23,31 @@ pub const VAEL: Faction = Faction {
         BldgKind::Kiln,
         BldgKind::Loom,
         BldgKind::Ward,
+        BldgKind::Uplink,
         BldgKind::Eclipse,
     ],
     supply: BldgKind::Spire,
     market: None,
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
+    power: true,
     ai: AiScript {
         rax: BldgKind::Siphon,
         tech: BldgKind::Loom,
         tech2: Some(BldgKind::Eclipse),
         tower: BldgKind::Ward,
+        relay: Some(BldgKind::Uplink),
         air: BldgKind::Kiln,
         heavy: None,
         basic: UnitKind::Prism,
-        anti_air: UnitKind::Prism,
+        // (the Marine, from the Portal: its hired guns are melee since the rework; its Drones, mixed in, hit the air too)
+        anti_air: UnitKind::Umbra,
         heavy_anti_air: None,
-        // (a Bruiser per five Sellswords once the Lab stands; a Rover per three and a Drone per four from the Factory,
-        // between its Buggies; a Marine per four from the Portal from 5:00)
+        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Rover per three and a Drone
+        // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; a Marine per
+        // four from the Portal from 5:00)
         mix: &[
-            (UnitKind::Bruiser, 5, 0.0),
+            (UnitKind::Bruiser, 4, 0.0),
             (UnitKind::Monolith, 3, 0.0),
             (UnitKind::Shrike, 4, 0.0),
             (UnitKind::Umbra, 4, 300.0),
@@ -91,26 +102,27 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Sellsword: the Expedition's main ranged infantry, ground and air (the Lens's numbers, without its Surge, a
-/// little quicker to hire).
+/// The Sellsword: a hired local with a light sword, the Expedition's melee line (ground only). One hired place. Against
+/// the Guard (the formula sheet): about twice the Guard for twice its price, a little less for the money (Lanchester
+/// 0.15 to the Guard's 0.16, which also braces) and much more for its place: places are what the Expedition runs short of.
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Sellsword",
-    cost: [110, 0],
-    supply: 2,
-    hp: 90.0,
+    cost: [100, 0],
+    supply: 1,
+    pool: Pool::Hired,
+    hp: 110.0,
     armor: 1.0,
-    speed: 85.0,
-    sight: 9.0,
+    speed: 92.0,
+    sight: 8.0,
     r: 11.0,
-    build: 27.0,
+    build: 24.0,
     bio: true,
     weapon: Some(Weapon {
-        range: 5.5,
-        dmg: 14.0,
-        dmg_air: 14.0,
-        cd: 1.1,
-        proj: Some(ProjKind::Bolt),
+        range: 0.8,
+        dmg: 12.0,
+        cd: 0.9,
+        melee: true,
         up_dmg: 1.0,
         ..W
     }),
@@ -128,6 +140,7 @@ pub(super) const HALO: UnitDef = UnitDef {
     heal: 6.0,
     mend: true,
     req: Some(BldgKind::Loom),
+    pool: Pool::Hired, // (a hired local: one place)
     ..UNIT
 };
 /// The Marine: the Expedition's elite ranged soldier, from the Portal; never hidden.
@@ -135,7 +148,8 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Marine",
     cost: [125, 0],
-    supply: 2,
+    supply: 1,
+    pool: Pool::Portal, // (one of its Portals' places)
     hp: 110.0,
     armor: 1.0,
     speed: 90.0,
@@ -204,26 +218,29 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Bruiser: a hired local with a riot shield and a heavy gun, the Expedition's top tier (the Recruiting post's,
-/// once a Lab stands).
+/// The Bruiser: a hired local with a big shield and an axe, the Expedition's tough melee front line (the Recruiting
+/// post's, once a Lab stands; ground only). One hired place. Against the Knight (the formula sheet): the same price,
+/// more hull and armor, less damage and far slower: it holds the line rather than runs it down (Lanchester 0.12 to the
+/// Knight's 0.12).
 pub(super) const BRUISER: UnitDef = UnitDef {
     key: "bruiser",
     name: "Bruiser",
     cost: [225, 0],
-    supply: 4,
-    hp: 250.0,
-    armor: 2.0,
-    speed: 75.0,
-    sight: 9.0,
+    supply: 1,
+    pool: Pool::Hired,
+    hp: 320.0,
+    armor: 3.0,
+    speed: 78.0,
+    sight: 8.0,
     r: 13.0,
     build: 40.0,
     req: Some(BldgKind::Loom),
     bio: true,
     weapon: Some(Weapon {
-        range: 4.0,
-        dmg: 18.0,
-        cd: 1.0,
-        proj: Some(ProjKind::Bolt),
+        range: 0.9,
+        dmg: 22.0,
+        cd: 1.2,
+        melee: true,
         up_dmg: 3.0,
         ..W
     }),
@@ -239,17 +256,20 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 20,
+    supply: 20, // (Power)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],
+    researches: &[Upgrade::Satellite],
     dropoff: true,
     hq: true,
     ..BLDG
 };
+/// The wind turbine: +8 Power (the Cabin's place and key).
 pub(super) const SPIRE: BldgDef = BldgDef {
     key: "spire",
-    name: "Cabin",
+    name: "Wind turbine",
+    short: "Turbine",
     cost: [100, 0],
     hp: 400.0,
     supply: 8,
@@ -258,12 +278,15 @@ pub(super) const SPIRE: BldgDef = BldgDef {
     ..BLDG
 };
 /// The Recruiting post: Sellswords, and Bruisers once a Lab stands; the Expedition's barracks, built anywhere and as
-/// many as it likes. It pays nothing.
+/// many as it likes. It pays nothing. Each adds six hired places to its side's one count (any post hires while the
+/// count has room).
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Recruiting post",
     short: "Recruiting",
     cost: [150, 0],
+    supply: 6,
+    pool: Pool::Hired,
     hp: 600.0,
     build: 40.0,
     sight: 7.0,
@@ -295,11 +318,13 @@ pub(super) const LOOM: BldgDef = BldgDef {
     researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Slipstream],
     ..BLDG
 };
+/// The Sentry mast: guns on a mast, the Expedition's early defense (the Watchtower's counterpart; no range since the
+/// rework).
 pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
-    name: "Radio tower",
-    short: "Radio tower",
-    cost: [65, 0], // (cheap and quick: the Expedition pushes its range forward with it, data/radio.rs)
+    name: "Sentry mast",
+    short: "Sentry mast",
+    cost: [65, 0],
     hp: 320.0,
     build: 13.0,
     sight: 9.0,
@@ -315,15 +340,33 @@ pub(super) const WARD: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Portal (after the Lab): Marines.
+/// The Portal (once an Uplink stands): Marines. Each adds four Portal places.
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
     cost: [150, 0],
     hp: 800.0,
+    supply: 4,
+    pool: Pool::Portal,
     build: 45.0,
     sight: 7.0,
-    req: Some(BldgKind::Loom),
+    req: Some(BldgKind::Uplink),
     trains: &[UnitKind::Umbra],
+    ..BLDG
+};
+/// The Uplink: a big satellite dish, unarmed, once the satellite is up; it gives machines range (data/radio.rs) and
+/// unlocks the Portal. 3x3 (a wide, squat dish). 150 gold, a tech building's price: with the satellite's 200 the way to
+/// the Portal costs about what the Lab-to-Portal way did plus the launch, and a forward Uplink (the AI's leapfrog) is
+/// a real investment, not the old 65-gold tower.
+pub(super) const UPLINK: BldgDef = BldgDef {
+    key: "uplink",
+    name: "Uplink",
+    cost: [150, 0],
+    w: 3,
+    h: 3,
+    hp: 600.0,
+    build: 40.0,
+    sight: 8.0,
+    req_up: Some(Upgrade::Satellite),
     ..BLDG
 };

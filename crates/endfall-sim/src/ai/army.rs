@@ -22,7 +22,7 @@ pub const GUIDED_ARMY: usize = 4;
 /// The most it has once they are released, for the rest of the game: fewer than its first wave, so it sends no other
 /// (Easy's next wave is six) and the guide's last step, an attack with ten, wins (with six it rarely did).
 pub const GUIDED_ARMY_AFTER: usize = 3;
-/// The tower range: a wave's forward tower goes this many tiles past the edge of its side's range along its way, never
+/// The range: a wave's forward Uplink goes this many tiles past the edge of its side's range along its way, never
 /// nearer its goal than `RELAY_GOAL_ROOM` tiles, once the wave's front is within `RELAY_FRONT` tiles of that spot (or
 /// past it).
 const RELAY_AHEAD: f64 = 7.0;
@@ -611,14 +611,11 @@ impl World {
         )
     }
 
-    /// The tower range: where a wave gathers for its goal: its finished tower nearest the goal, if that is at least four
-    /// tiles nearer it than the rally point (for a people whose tower gives range).
+    /// The range: where a wave gathers for its goal: its finished relay (`AiScript::relay`, the Uplink) nearest the
+    /// goal, if that is at least four tiles nearer it than the rally point (for a people with one).
     fn turret_stage(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64)> {
         let seat = self.seat();
-        let tower = self.factions[seat as usize].ai.tower;
-        if radio::range_of(tower) <= 0.0 {
-            return None;
-        }
+        let tower = self.factions[seat as usize].ai.relay?;
         let (rx, ry) = self.rally_or_home();
         let from_rally = dist(rx, ry, gx, gy);
         let b = self
@@ -634,17 +631,19 @@ impl World {
         (dist(b.x, b.y, gx, gy) < from_rally - 4.0 * TILE).then_some((b.x, b.y))
     }
 
-    /// The tower range: the leapfrog tower. While a wave with machines is out, the AI keeps one tower site at a time
-    /// going `RELAY_AHEAD` tiles past the edge of its range along the way from its rally point to the goal, once the
-    /// wave's front has come that far; never holding the wave for it. A site under fire is abandoned (its cost partly
-    /// back) and the wave places no other.
+    /// The range: the leapfrog relay (`AiScript::relay`, the Uplink, once its satellite is up: later in the game).
+    /// While a wave with machines is out, the AI keeps one relay site at a time going `RELAY_AHEAD` tiles past the edge
+    /// of its range along the way from its rally point to the goal, once the wave's front has come that far; never
+    /// holding the wave for it. A site under fire is abandoned (its cost partly back) and the wave places no other.
     fn tend_relay(&mut self, attackers: &[Id], (gx, gy): (f64, f64)) {
         let seat = self.seat();
-        let tower = self.factions[seat as usize].ai.tower;
+        let Some(tower) = self.factions[seat as usize].ai.relay else {
+            return;
+        };
         let machines = attackers
             .iter()
             .any(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
-        if radio::range_of(tower) <= 0.0 || !machines || self.ai().relay_off {
+        if !machines || self.ai().relay_off || !self.has_req(seat, tower) {
             return;
         }
         // (a tower finished this tick: its range counts before the edge is looked for again)
@@ -875,7 +874,7 @@ impl World {
 
     /// Whether `seat` stands at the supply cap, within `CAP_SLACK` (a wave then goes with everything, the reserve too).
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
-        self.sup[seat as usize][0] + CAP_SLACK >= self.supply_limit()
+        self.sup(seat)[0] + CAP_SLACK >= self.supply_limit()
     }
 
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
@@ -1272,7 +1271,7 @@ mod tests {
         // full supply: all in, whatever it saw
         let (mut w, army, mut b) = ready(1);
         w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
-        w.sup[1][0] = w.supply_limit();
+        w.pools[1][0][0] = w.supply_limit();
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "full supply: all in");
         assert_eq!(
@@ -1406,7 +1405,7 @@ mod tests {
         );
         // at full supply everything goes: the next wave takes the reserve too
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
-        w.sup[1][0] = w.supply_limit();
+        w.pools[1][0][0] = w.supply_limit();
         w.ai_army(&mut b);
         assert!(w.ai().reserve.is_empty());
         assert_eq!(

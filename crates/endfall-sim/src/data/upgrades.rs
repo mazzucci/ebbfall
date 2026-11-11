@@ -2,7 +2,7 @@
 //! flyer, faster construction) that make each people's tech a set of choices the other side must scout. Shields are
 //! data since the re-theme (nobody has any, and nobody researches Hardshell); the shield rules keep their tests.
 
-use super::{AbilityKind, UnitKind};
+use super::{AbilityKind, BldgKind, UnitKind};
 
 /// Team-wide upgrades, researched at a building that lists them (`BldgDef::researches`).
 /// The order is the index the snapshot and the wire send.
@@ -15,6 +15,7 @@ pub enum Upgrade {
     Afterburners,
     Slipstream,
     RapidConstruction,
+    Satellite,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -33,6 +34,9 @@ pub enum Effect {
     /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
     /// tech: a Human builder mines nothing while it builds.
     BuildSpeed,
+    /// Researched, the side has launched its satellite: every seat is told, and it unlocks what needs it (the
+    /// Expedition's Uplink, `BldgDef::req_up`).
+    Launch,
 }
 
 /// The speed a `Speed` tech gives its unit, as a multiple.
@@ -52,6 +56,8 @@ pub struct UpgradeDef {
     pub time: [f64; 3],
     /// How many levels it has: 3, or 1 for a tech (only the first cost and time count).
     pub levels: u8,
+    /// A finished building of this kind its side needs to start it (the satellite: a Lab).
+    pub req: Option<BldgKind>,
 }
 
 /// The most levels an upgrade has.
@@ -65,6 +71,7 @@ const WEAPONS: UpgradeDef = UpgradeDef {
     cost: [[100, 0], [175, 0], [250, 0]],
     time: [60.0, 75.0, 90.0],
     levels: 3,
+    req: None,
 };
 const ARMOR: UpgradeDef = UpgradeDef {
     key: "armor",
@@ -89,6 +96,7 @@ const TECH: UpgradeDef = UpgradeDef {
     cost: [[100, 0]; 3],
     time: [60.0; 3],
     levels: 1,
+    req: None,
 };
 /// Sandbags: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
@@ -122,8 +130,23 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
+/// Launch satellite, at the Expedition's Data center once a Lab stands: expensive and slow, told to every seat, and the
+/// Uplink's requirement (PRD: the Expedition rework, rule 5).
+const SATELLITE: UpgradeDef = UpgradeDef {
+    key: "satellite",
+    name: "Launch satellite",
+    short: "Satellite",
+    effect: Effect::Launch,
+    cost: [[200, 0]; 3],
+    time: [60.0; 3],
+    req: Some(BldgKind::Loom),
+    ..TECH
+};
+/// What every seat is told when a side launches its satellite.
+pub const LAUNCH_NEWS: &str = "The Expedition launched a satellite.";
+
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 7] = [
+pub const UPGRADES: [Upgrade; 8] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -131,6 +154,7 @@ pub const UPGRADES: [Upgrade; 7] = [
     Upgrade::Afterburners,
     Upgrade::Slipstream,
     Upgrade::RapidConstruction,
+    Upgrade::Satellite,
 ];
 
 impl Upgrade {
@@ -143,6 +167,7 @@ impl Upgrade {
             Upgrade::Afterburners => &AFTERBURNERS,
             Upgrade::Slipstream => &SLIPSTREAM,
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
+            Upgrade::Satellite => &SATELLITE,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

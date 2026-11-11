@@ -109,6 +109,16 @@ impl ToJson for Move {
         })
     }
 }
+impl ToJson for Pool {
+    fn to_json(&self) -> String {
+        quote(self.key())
+    }
+}
+impl ToJson for Option<Upgrade> {
+    fn to_json(&self) -> String {
+        self.map_or("null".to_string(), |u| quote(u.def().key))
+    }
+}
 impl ToJson for Option<BldgKind> {
     fn to_json(&self) -> String {
         self.map_or("null".to_string(), |b| quote(b.def().key))
@@ -143,6 +153,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         Effect::Unlock(a) => ("unlock", a.def().key),
         Effect::Speed(u) => ("speed", u.def().key),
         Effect::BuildSpeed => ("build", ""),
+        Effect::Launch => ("launch", ""),
     };
     Obj::new()
         .str("name", d.name)
@@ -150,6 +161,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         .str("effect", effect)
         .str("of", of)
         .num("levels", d.levels)
+        .raw("req", d.req.to_json())
         .raw("cost", array(d.cost.map(array)))
         .raw("time", array(d.time))
         .done()
@@ -180,6 +192,7 @@ fn faction(f: &Faction) -> String {
             f.market.map_or("null".to_string(), |k| quote(k.def().key)),
         )
         .num("repairs", f.repairs)
+        .num("power", f.power)
         .done()
 }
 
@@ -219,8 +232,8 @@ pub fn data_json() -> String {
         .done()
 }
 
-/// The tower range (data/radio.rs): the machines that need it, what each source gives (tiles), the speed kept out of
-/// it and the Drone's leash.
+/// The range (data/radio.rs): the machines it speeds up, what each source gives (tiles), their speed inside it
+/// (a multiple) and the Drone's leash.
 fn radio_json() -> String {
     let machines = UNIT_KINDS
         .iter()
@@ -233,7 +246,7 @@ fn radio_json() -> String {
     Obj::new()
         .raw("machines", array(machines))
         .raw("sources", map(sources))
-        .num("slow", radio::OUT_OF_RANGE_SPEED)
+        .num("boost", radio::IN_RANGE_SPEED)
         .num("leash", radio::LEASH_MARGIN)
         .done()
 }

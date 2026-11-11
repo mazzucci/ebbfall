@@ -877,3 +877,138 @@ export function ringSwirl(M, phase = 0) {
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return g;
 }
+
+// ---- the Portal as a landing spot (Marine; 2x2; the sim key `eclipse`, the name stays "Portal"): Stelian, after
+// rejecting the energy gate, its tube and the oval ring (kept above for the record). A square landing pad with
+// markings (`landingPad`), and on it a squat generic VTOL dropship (`dropship`, the head, RT_HEADS `padhead`, `spin: 1`
+// with its shadow: its 16 frames are lift heights, frame 0 landed, so the client can lift it off and land it later;
+// not modelled on any game's or film's ship). Clean white and grey metal with cyan lights, team on a flag only, no
+// clutter, no earth plate.
+const PAD = 50, PAD_Y = 1.8, SHIP_YAW = -0.42, SHIP_LIFT = 36, SHIP_SCALE = 1.3;
+/** The landing pad: a square plate of pale armor (50 x 50, 1.8 thick) straight on the grass, a dark border line and
+ *  a dark landing circle (r 13) marked on it, a dark corner mark at each corner, a cyan light at each corner, the
+ *  team flag on a mast at the north-west corner. From the camera: a pale square with a dark ring, four cyan dots, a
+ *  flag, the ship on it. */
+export function landingPad(M) {
+  ebMats(M); sentryMats(M); const g = grp(), h = PAD / 2;
+  add(g, rbox(PAD, PAD_Y, PAD, 0.5), M.paleArmor, 0, PAD_Y / 2, 0);
+  for (const sx of [-1, 1]) { add(g, rbox(1.4, 0.3, PAD - 2, 0.05), M.joint, sx * (h - 2.2), PAD_Y + 0.1, 0); add(g, rbox(PAD - 2, 0.3, 1.4, 0.05), M.joint, 0, PAD_Y + 0.1, sx * (h - 2.2)); } // the border line
+  add(g, torus(13, 0.8, 56), M.joint, 0, PAD_Y + 0.1, 0, Math.PI / 2, 0, 0);                                            // the landing circle
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { add(g, rbox(7, 0.3, 1.6, 0.05), M.joint, sx * (h - 6.5), PAD_Y + 0.1, sz * (h - 5.5)); add(g, rbox(1.6, 0.3, 7, 0.05), M.joint, sx * (h - 5.5), PAD_Y + 0.1, sz * (h - 6.5)); cyanLed(g, M, 0.8, sx * (h - 1.8), PAD_Y + 0.6, sz * (h - 1.8)); } // corner marks and lights
+  flag(g, M, -h - 3, 0, -h + 2, 30, 16, 11);
+  return g;
+}
+/** The dropship (the head at `phase`, lifted `phase / 2 pi` of 36 units): a squat VTOL, a stubby white fuselage (22 x
+ *  7 x 11) with a rounded nose and a dark glass cockpit, a dark belly, two stub wings each ending in a fat ducted fan
+ *  (r 5.5) with a dark rotor disc and a cyan light on its rim, a tail fin with a cyan light, four short legs; turned
+ *  24 degrees on the pad so it shows three-quarter. Shot with its shadow (it lands on the pad). */
+export function dropship(M, phase = 0) {
+  ebMats(M); sentryMats(M); const g = grp();
+  const sh = grp(); sh.position.set(0, PAD_Y + phase / (Math.PI * 2) * SHIP_LIFT, 0); sh.rotation.y = SHIP_YAW; sh.scale.setScalar(SHIP_SCALE); g.add(sh); // (1.3: at 1x the first ship was a small blob on its pad)
+  add(sh, rbox(22, 7, 11, 2.5), M.paleArmor, 0, 6.5, 0);                                                                // the fuselage
+  add(sh, sph(5.6, 20, 14), M.paleArmor, 10.5, 6.5, 0).scale.set(1.15, 0.62, 1.0);                                       // the nose
+  add(sh, rbox(6.5, 2.6, 7.5, 1.0), M.glass, 8.5, 8.6, 0);                                                                // the cockpit glass
+  add(sh, rbox(19, 2.2, 9.4, 0.6), M.panelDark, -0.5, 3.0, 0);                                                            // the dark belly
+  for (const sz of [-1, 1]) {
+    add(sh, rbox(10, 1.4, 8, 0.4), M.paleSteel, -2, 7.4, sz * 9.5);                                                       // the stub wing
+    add(sh, cyl(5.5, 5.5, 3.4, 24), M.paleArmor, -2, 7.4, sz * 14.5); add(sh, cyl(4.4, 4.4, 3.6, 24), M.joint, -2, 7.4, sz * 14.5); // the ducted fan: the duct, its dark throat
+    add(sh, cyl(4.2, 4.2, 0.6, 20), M.rotor, -2, 7.8, sz * 14.5); add(sh, sph(1.2, 10, 8), M.steel, -2, 8.2, sz * 14.5);    // the rotor disc and hub
+    cyanLed(sh, M, 0.6, 2.8, 8.6, sz * 14.5);                                                                            // a light on the duct's rim, forward
+  }
+  add(sh, rbox(5, 5.5, 1.2, 0.4), M.paleArmor, -10, 11.5, 0); cyanLed(sh, M, 0.6, -12.2, 13.6, 0);                       // the tail fin and its light
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sh, cyl(0.55, 0.7, 3.4, 8), M.steel, sx * 7, 1.7, sz * 3.6);    // the legs
+  return g;
+}
+
+// ---- the Recruiting post (Mercenary, Veteran; 2x2; the sim key `siphon`, today `recruitingPost` above): Stelian's
+// three options, side by side in the pictures: (a) a peaked canvas tent (`postTent`), (b) a local wooden house taken
+// over by the Expedition, a tavern with a crossed-swords sign, a corrugated patch and a cyan work lamp (`postTavern`),
+// (c) a plain small wooden house with the sign (`postHouse`). Team on a small flag only, no props, no earth plate.
+/** A ridge tent: a triangular prism `L` long along z, `W` wide, `H` tall, of grey canvas sloping to the ground, an ink
+ *  hem, a dark open door in its south end with the flap folded back, at (x, z) turned `ry`. */
+function ridgeTent(g, M, x, z, L, W, H, ry = 0) {
+  const t = grp(); t.position.set(x, 0, z); t.rotation.y = ry; g.add(t);
+  const sh = new THREE.Shape([new THREE.Vector2(-W / 2, 0), new THREE.Vector2(W / 2, 0), new THREE.Vector2(0, H)]);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false }); geo.translate(0, 0, -L / 2); geo.computeVertexNormals();
+  const uv = geo.attributes.uv, p = geo.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) + p.getZ(i)) / 16, p.getY(i) / 16);
+  add(t, geo, M.canvasGrey, 0, 0.2, 0);
+  add(t, rbox(W + 1.0, 0.5, L + 0.8, 0.1), M.inkLine, 0, 0.2, 0);                                                      // the hem at the ground
+  add(t, cyl(0.5, 0.5, L + 2, 8), M.joint, 0, H + 0.2, 0, Math.PI / 2, 0, 0);                                           // the ridge pole
+  add(t, plate([[-W * 0.17, 0], [W * 0.17, 0], [0, -H * 0.62]], 0.6, 0.1), M.inkLine, 0, 0.3, L / 2 + 0.2, Math.PI / 2, 0, 0); // the open door, dark (a triangle stood up on the south end)
+  add(t, plate([[0, 0], [W * 0.17, 0], [W * 0.1, -H * 0.5]], 0.5, 0.1), M.canvasGrey, W * 0.17, 0.3, L / 2 + 0.6, Math.PI / 2, 0.5, 0); // the flap folded back
+}
+/** A hanging sign: a bracket out of a wall at (x, y, z) facing +z, a pale board hanging from it with two crossed dark
+ *  swords. */
+function swordsSign(g, M, x, y, z) {
+  limb(g, [x, y, z], [x, y, z + 5], 0.4, M.joint); limb(g, [x, y - 2.5, z], [x, y, z + 5], 0.3, M.joint);
+  add(g, rbox(10, 8.5, 0.6, 0.2), M.board, x, y - 5, z + 4.4); add(g, rbox(10.4, 0.5, 0.7, 0.05), M.inkLine, x, y - 0.9, z + 4.4); add(g, rbox(10.4, 0.5, 0.7, 0.05), M.inkLine, x, y - 9.1, z + 4.4);
+  for (const a of [Math.PI / 4, -Math.PI / 4]) { add(g, rbox(9.2, 1.3, 0.5, 0.1), M.joint, x, y - 5, z + 4.8, 0, 0, a); add(g, rbox(3.4, 1.0, 0.5, 0.1), M.paleSteel, x - Math.cos(a) * 3.2, y - 5 - Math.sin(a) * 3.2, z + 4.9, 0, 0, a + Math.PI / 2); } // two crossed swords with pale guards (big: a small sign was a tiny detail at 1x)
+}
+/** (a) The tent: a big ridge tent (36 long, 30 wide, 24 tall, its door to the camera), a smaller one beside it to the
+ *  east, turned a little, a small team flag on the big one's peak. */
+export function postTent(M) {
+  ebMats(M); const g = grp();
+  ridgeTent(g, M, -6, 0, 36, 30, 24, 0);
+  ridgeTent(g, M, 21, -10, 20, 16, 13, 0.35);
+  flag(g, M, -6, 24.2, -16, 9, 11, 7);
+  return g;
+}
+/** (b) The tavern: a plank hut (34 x 24, 14 tall) under its grey plank gable, a corrugated steel patch on the south
+ *  slope, a dark door with a cyan work lamp beside it, the crossed-swords sign hanging over the door, a small team flag
+ *  on the ridge's west end. */
+export function postTavern(M) {
+  ebMats(M); sentryMats(M); const g = grp();
+  const W = 34, D = 24, H = 14, R = 9;
+  hut(g, M, 0, 0, W, D, H, R);
+  { const Wd = D + 6, a = Math.atan2(R, Wd / 2), t = 0.6; const px = 7, py = H + 2 + R * (1 - t) + 0.6, pz = (Wd / 2) * t;  // the patch on the south slope, 0.6 of the way up
+    add(g, rbox(12, 0.7, 8, 0.1), M.paleSteel, px, py, pz, -a, 0, 0); for (const dx of [-4, -1.3, 1.3, 4]) add(g, rbox(0.6, 0.5, 8.2, 0.05), M.steel, px + dx, py + 0.3, pz, -a, 0, 0); }
+  add(g, rbox(6, 9, 1.0, 0.3), M.inkLine, -6, 6.5, D / 2 + 0.5);                                                         // the door
+  add(g, rbox(2.0, 1.6, 1.4, 0.3), M.joint, 1.5, 11, D / 2 + 0.8); cyanLed(g, M, 0.8, 1.5, 10.4, D / 2 + 1.8);            // the work lamp
+  swordsSign(g, M, -6, H + 1.6, D / 2 + 0.4);
+  flag(g, M, -W / 2 - 2.5 + 2, H + 2 + R, 0, 10, 12, 8);
+  return g;
+}
+/** (c) The small house: a plank hut (26 x 20, 12 tall) under its gable, a dark door, the crossed-swords sign over it, a
+ *  small team flag on the ridge. */
+export function postHouse(M) {
+  ebMats(M); sentryMats(M); const g = grp();
+  const W = 26, D = 20, H = 12, R = 8;
+  hut(g, M, 0, 0, W, D, H, R);
+  add(g, rbox(6, 9, 1.0, 0.3), M.inkLine, -4, 6.5, D / 2 + 0.5);
+  swordsSign(g, M, -4, H + 1.6, D / 2 + 0.4);
+  flag(g, M, W / 2 - 1, H + 2 + R, 0, 10, 12, 8);
+  return g;
+}
+
+// ---- the Factory (Buggy, Rover, Drone; 3x3; the sim key `kiln`, today `factory` above): Stelian's round: a metal
+// hangar in the new style, white and grey metal with cyan lights, a big roll-up door, a large cog on the roof as its
+// icon; no clutter, team on a flag only, no earth plate.
+/** A big cog standing upright (in the xy plane, facing +z) at (x, y, z): a grey steel disc with twelve teeth and a
+ *  dark hub ring with a cyan light in its middle. */
+function cog(g, M, x, y, z, r) {
+  const c = grp(); c.position.set(x, y, z); g.add(c);
+  add(c, cyl(r, r, 2.6, 32), M.steel, 0, 0, 0, Math.PI / 2, 0, 0);
+  for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; add(c, rbox(r * 0.3, r * 0.26, 2.6, 0.3), M.steel, Math.cos(a) * (r + r * 0.12), Math.sin(a) * (r + r * 0.12), 0, 0, 0, a); }
+  add(c, torus(r * 0.42, r * 0.09, 32), M.joint, 0, 0, 1.4); cyanLed(c, M, r * 0.14, 0, 0, 1.6);
+  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; add(c, rbox(r * 0.28, r * 0.28, 2.8, 0.2), M.joint, Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62, 0, 0, 0, a); } // four lightening holes
+}
+/** The hangar (`hangar`): a white metal hall 70 x 46 and 26 tall under a grey barrel roof (r 23) with three dark ribs,
+ *  a big dark roll-up door in the south face (34 x 20, pale slat lines, a cyan strip over it), a cyan light at each
+ *  roof corner, the big cog (r 11) standing on the roof's crown facing the camera, the team flag on a mast at the
+ *  north-west corner. From the camera: a white box with a round grey roof, a wide dark door, a cog on top, a flag. */
+export function hangar(M) {
+  ebMats(M); sentryMats(M); const g = grp();
+  const W = 70, D = 46, H = 26, R = D / 2;
+  add(g, rbox(W, H, D, 2.0), M.paleArmor, 0, H / 2, 0);
+  add(g, cyl(R, R, W + 2, 32), M.paleSteel, 0, H, 0, 0, 0, Math.PI / 2);                                                  // the barrel roof (its lower half inside the hall)
+  for (const x of [-W / 3, 0, W / 3]) add(g, torus(R + 0.3, 0.7, 24, Math.PI), M.joint, x, H, 0, 0, Math.PI / 2, 0);     // the ribs
+  for (const sx of [-1, 1]) add(g, cyl(R + 0.4, R + 0.4, 1.4, 32), M.paleArmor, sx * (W / 2 + 0.4), H, 0, 0, 0, Math.PI / 2).scale.set(1, 1, 1); // the end walls' arches
+  add(g, rbox(W + 1.2, 1.6, D + 1.2, 0.2), M.inkLine, 0, H - 0.4, 0);                                                    // the eave line
+  add(g, rbox(34, 20, 1.2, 0.3), M.panelDark, 2, 11, D / 2 + 0.5);                                                       // the roll-up door
+  for (let k = 1; k < 6; k++) add(g, rbox(33, 0.5, 0.6, 0.05), M.paleSteel, 2, 1 + k * 3.3, D / 2 + 1.1);                  // its slats
+  add(g, rbox(36, 1.2, 1.2, 0.2), M.neon, 2, 21.8, D / 2 + 0.9); add(g, rbox(37, 3.4, 1.8, 0.4), M.neonHalo, 2, 21.8, D / 2 + 1.0); // the strip over the door
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) cyanLed(g, M, 0.8, sx * (W / 2 - 1.5), H + 1.2, sz * (D / 2 - 1.5)); // the roof corners' lights
+  cog(g, M, 0, H + R + 9, 0, 11);
+  flag(g, M, -W / 2 - 3, 0, -D / 2 - 3, 44, 20, 14);
+  return g;
+}

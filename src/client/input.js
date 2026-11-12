@@ -29,7 +29,7 @@ function selectOrDouble(hit, add, at = performance.now()) {
   select([hit], add);
 }
 import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
-/** Where a unit is drawn, as a circle round its body: centred half its drawn height above its feet (a flyer's art,
+/** Where a unit is drawn, as a circle round its body: centered half its drawn height above its feet (a flyer's art,
  *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
 const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
 /** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */
@@ -114,8 +114,8 @@ function boxSelect(x0, y0, x1, y1, add) {
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
 const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
-/** A gold mine (a vent, none since the re-theme, is never mined by hand). */
-const field = (e) => e && e.kind === 'node' && e.type !== 'ether' ? e : null;
+/** A gold mine. */
+const field = (e) => e && e.kind === 'node' ? e : null;
 
 /** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
  *  must not build under a button, Cancel included). Returns whether the finger is over the map. */

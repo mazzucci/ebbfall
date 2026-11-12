@@ -194,7 +194,7 @@ function pan(now) {
   const k = Math.min(1, (now - C.at) / GLIDE_MS), e = k * k * (3 - 2 * k);
   centerOn(C.from.x + (C.to.x - C.from.x) * e, C.from.y + (C.to.y - C.from.y) * e);
 }
-/** The centre of the 12-tile square with the most going on (fighters, shots; workers count a little), away from the
+/** The center of the 12-tile square with the most going on (fighters, shots; workers count a little), away from the
  *  last spot if another is busy at all; ties to the first square. */
 function busiest(last, away) {
   const S = 384, cols = Math.ceil(WW / S), score = new Float64Array(cols * cols);

@@ -1,4 +1,4 @@
-//! The Kingdom (sim race `humans`; the Harbour before the re-theme): the Castle, villagers that build and repair,
+//! The Kingdom (sim race `humans`; the Harbor before the re-theme): the Castle, villagers that build and repair,
 //! Guards and Archers from the Barracks, Riders and Knights from the Stables, Ballistas, Cannons and the Balloon from
 //! the Workshop, and Towers. Keys never change; the names are display strings only.
 
@@ -70,8 +70,8 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Sandbags are researched) it stands and
-/// takes the charge: +4 armour, no moving.
+/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Drill is researched) it stands and
+/// takes the charge: +4 armor, no moving.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
     name: "Guard",
@@ -266,7 +266,7 @@ pub(super) const DEPOT: BldgDef = BldgDef {
     build: 22.0,
     ..BLDG
 };
-/// The Market: pays salt by itself, built in the base (no shaft since the re-theme's economy), one per Castle.
+/// The Market: pays gold by itself, built in the base, one per Castle.
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
     name: "Market",

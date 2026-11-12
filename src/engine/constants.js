@@ -1,6 +1,6 @@
 // Game data as the client sees it. Every number comes from the Rust sim (crates/endfall-sim/src/data/, exported
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
-// Costs are [gold, 0] (the second slot was ether, gone with the conversion). Distances are in tiles unless named otherwise; speeds in px/s.
+// Costs are [gold, 0] (the second slot, once a second resource, is always 0). Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
 import { DIFF_NAMES, plural } from './util.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');
@@ -20,7 +20,7 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 /** The range (crates/endfall-sim/src/data/radio.rs): the unit kinds it speeds up (`machines`, a Set), what each
- *  source building gives (`sources`, tiles by kind, a circle round its centre), a machine's speed inside it (`boost`,
+ *  source building gives (`sources`, tiles by kind, a circle round its center), a machine's speed inside it (`boost`,
  *  a multiple) and the Drone's leash past its edge (`leash`, tiles). */
 export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
 

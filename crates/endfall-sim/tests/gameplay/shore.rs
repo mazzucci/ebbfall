@@ -160,7 +160,7 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
             );
         }
         // The distances in a straight line (PRD, the Shore map: cove to cove about 62; the basins 20 tiles from the
-        // centre since the first Shore report, 2026-11-04, so a basin's first wave does not decide the game: cove to
+        // center since the first Shore report, 2026-11-04, so a basin's first wave does not decide the game: cove to
         // the facing basin 43.7, about 46 to walk or swim, basin to basin 40.5, 38 at least, the PM's bar).
         let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
         assert!(

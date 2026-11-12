@@ -6,7 +6,7 @@
 //                    is seats 0, 1, 6 and the mask (the Lookout with its gun head); contact.json names rows and columns
 //   phone@2x.png     every unit and building at game size on the seabed (the atlas's ground tiles, the game's shade) beside
 //                    salt fields, as a 2x phone shows them (atlas px); phone.png the same in CSS px (world px 1:1)
-//   phone-grey.png, phone-protan.png, phone-deutan.png   phone.png in greyscale and under Machado et al. 2009
+//   phone-grey.png, phone-protan.png, phone-deutan.png   phone.png in grayscale and under Machado et al. 2009
 //                    protanopia and deuteranopia at full severity
 //   blind/units/<code>.png, blind/buildings/<code>.png   one sprite alone on plain seabed at phone size (CSS px), in
 //                    seats 0 and 6 (the units' state frames in seat 0), named by random capital letters; key.json each
@@ -23,9 +23,9 @@ const outDir = process.argv[2] ?? fileURLToPath(new URL('../../target/art-review
 for (const d of ['blind/units', 'blind/buildings']) mkdirSync(join(outDir, d), { recursive: true });
 
 // (the re-theme's set: the Kingdom in the old `HARBOUR` slot, the Expedition in `VAEL`; the healers keep their old art)
-const HARBOUR = [['harvester', 'Villager'], ['trooper', 'Guard'], ['lancer', 'Archer'], ['medic', 'Mender'], ['rider', 'Rider'], ['knight', 'Knight'], ['siegeTank', 'Trebuchet'], ['observer', 'Balloon'], ['bastion', 'Ballista']];
-const VAEL = [['lumen', 'Bot'], ['scythe', 'Buggy'], ['prism', 'Mercenary'], ['halo', 'Tender'], ['bruiser', 'Bruiser'], ['monolith', 'Rover'], ['umbra', 'Marine'], ['shrike', 'Drone']];
-const STATES = [['siegeTank', 3, 'Trebuchet set up']];
+const HARBOUR = [['harvester', 'Villager'], ['trooper', 'Guard'], ['lancer', 'Archer'], ['medic', 'Mender'], ['rider', 'Rider'], ['knight', 'Knight'], ['siegeTank', 'Cannon'], ['observer', 'Balloon'], ['bastion', 'Ballista']];
+const VAEL = [['lumen', 'Bot'], ['scythe', 'Buggy'], ['prism', 'Mercenary'], ['halo', 'Tender'], ['bruiser', 'Bruiser'], ['monolith', 'Rover'], ['umbra', 'Android'], ['shrike', 'Drone']];
+const STATES = [['siegeTank', 3, 'Cannon set up']];
 const HBLD = [['core', 'Castle'], ['depot', 'Cottage'], ['extractor', 'Market'], ['barracks', 'Barracks'], ['forge', 'Blacksmith'], ['factory', 'Workshop'], ['turret', 'Watchtower'], ['airfield', 'Stables']];
 const VBLD = [['conflux', 'Data centre'], ['spire', 'Cabin'], ['siphon', 'Recruiting post'], ['kiln', 'Factory'], ['loom', 'Lab'], ['ward', 'Radio tower'], ['eclipse', 'Portal']];
 const UNITS = [...HARBOUR, ...VAEL];
@@ -67,7 +67,7 @@ function drawBldg(c, kind, x, y, seat, head = 0) {
   draw(c, get(`bldg_${kind}`), x, y, seat);
   if (kind === 'turret') draw(c, get(`turret_head_${head}`), x, y, seat);
 }
-/** The seabed as the game lays it: the atlas's ground tiles on the dual grid (a cell between four tiles' centres), picked
+/** The seabed as the game lays it: the atlas's ground tiles on the dual grid (a cell between four tiles' centers), picked
  *  by gl/ground.js `groundTile` for `seed`, and the land's shade multiply over it (gl/ground.js `shadeLayers`, one texel a
  *  tile, linear-filtered). `plain`: the base tile only, no shade (the blind images judge the unit, not the tile). */
 function seabed(c, seed = 1, plain = false) {
@@ -99,7 +99,7 @@ function half(c) {
   for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) for (let k = 0; k < 4; k++) { const i = (2 * y * c.w + 2 * x) * 4 + k; o.data[(y * o.w + x) * 4 + k] = Math.round((c.data[i] + c.data[i + 4] + c.data[i + c.w * 4] + c.data[i + c.w * 4 + 4]) / 4); }
   return o;
 }
-// Colour-vision simulation (Machado, Oliveira and Fernandes 2009, severity 1.0), applied in linear RGB.
+// Color-vision simulation (Machado, Oliveira and Fernandes 2009, severity 1.0), applied in linear RGB.
 const MACHADO = { protan: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]], deutan: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]] };
 const toLin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
 const toSrgb = (v) => { v = Math.max(0, Math.min(1, v)); return Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055)); };
@@ -158,7 +158,7 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
   for (const mode of ['grey', 'protan', 'deutan']) save(`phone-${mode}.png`, simulate(p, mode));
 }
 
-// ---- 2b. every seat's team colour: a row per seat (0-7) of the Harbour's units and its canvas-roofed buildings, then the
+// ---- 2b. every seat's team color: a row per seat (0-7) of the Harbor's units and its canvas-roofed buildings, then the
 // Vael's units and pale shells, at game size; the same in deuteranopia and protanopia (seats.png, seats-deutan.png,
 // seats-protan.png): whether each seat's team reads, and seat 0's gold apart from seat 6's violet ----
 {

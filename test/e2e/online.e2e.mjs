@@ -5,7 +5,7 @@
 // everyone that only its caller ends. The room as the board of eight fixed spots: the host adds AIs, sets their levels,
 // races and sides, puts a friend on its side; nothing on the board moves meanwhile; the friend sees it read-only but its
 // own race; an open seat's SHARE LINK; eight seats on a phone; rooms of four and six with AI seats (M4): both browsers
-// run the AI alike, each player in its spot's colour.
+// run the AI alike, each player in its spot's color.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { test, start, stop, browserContext, baseUrl, board, DESKTOP, PHONE, notIn, IPHONE, anyHere } from './harness.mjs';

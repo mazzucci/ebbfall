@@ -20,7 +20,7 @@ function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
   return t;
 }
 let seed = 23; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-/** The same seams on the colour map and the bump map: curved hairline panel seams, a few engraved channels and
+/** The same seams on the color map and the bump map: curved hairline panel seams, a few engraved channels and
  *  inlaid light lines. Clean: no grime, rivets or chips. */
 function seamMarks(g, n, { seam, groove, inlay, light, seamW = 1.8 }) {
   seed = 41; g.lineCap = 'round';
@@ -31,7 +31,7 @@ function seamMarks(g, n, { seam, groove, inlay, light, seamW = 1.8 }) {
   g.strokeStyle = inlay; g.lineWidth = 0.9; for (let i = 0; i < 5; i++) { const [x, y, r, a, l] = arcs[i]; g.beginPath(); g.arc(x, y, r * 0.86, a + 0.14, a + l * 0.66); g.stroke(); }   // light inlaid in the channel
   g.strokeStyle = seam; g.lineWidth = 1.4; for (let i = 0; i < 8; i++) { const x = rnd() * n, y = rnd() * n, a = (rnd() * 4 | 0) * Math.PI / 4 + 0.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * (20 + rnd() * 60), y + Math.sin(a) * (20 + rnd() * 60)); g.stroke(); }
 }
-/** The shell's colour map in the palette's colours (vael-palette.js): a faint grain, a mottling of aged ivory and the
+/** The shell's color map in the palette's colors (vael-palette.js): a faint grain, a mottling of aged ivory and the
  *  dark seams. */
 const shellTex = (T) => canvasTex(256, (g, n) => {
   const [g0, gk, gb] = T.grain, [[mr, mg, mb], ma, mk, mn] = T.mottle;
@@ -41,7 +41,7 @@ const shellTex = (T) => canvasTex(256, (g, n) => {
   seamMarks(g, n, T);
 }, { repeat: 2 });
 const pearl = shellTex(VP.tex);
-/** The team glaze's map: the same marks in neutral greys, so the team mask carries no hue of the shell's. */
+/** The team glaze's map: the same marks in neutral grays, so the team mask carries no hue of the shell's. */
 const glazeMap = shellTex(VP.glazeTex);
 const pearlBump = canvasTex(256, (g, n) => {
   g.fillStyle = '#808080'; g.fillRect(0, 0, n, n);
@@ -94,7 +94,7 @@ export function makeVaelMats(tc = NEUTRAL) {
     inkSeam: std({ color: VP.inkSeam, metalness: 0.3, roughness: 0.5 }),                                                    // ink edges round team glaze
     deeplight: std({ color: dl[0], emissive: dl[1], emissiveIntensity: dl[2], roughness: 0.2 }),                       // a small light
     deepCore: std({ color: dc[0], emissive: dc[1], emissiveIntensity: dc[2] }),                                       // its white heart
-    deepWhite: std({ color: 0xffffff, emissive: VP.deepWhite, emissiveIntensity: 4, toneMapped: false }),                     // a light's brightest centre
+    deepWhite: std({ color: 0xffffff, emissive: VP.deepWhite, emissiveIntensity: 4, toneMapped: false }),                     // a light's brightest center
     deepHalo1: halo(h1, 0.18), deepHalo2: halo(h2, 0.09), deepHalo3: halo(h3, 0.045),
     pool: std({ color: VP.pool[0], emissive: VP.pool[1], emissiveIntensity: VP.pool[2], metalness: 0.5, roughness: 0.08 }),           // a pool of deeplight: dim, broad
     poolDeep: std({ color: VP.poolDeep[0], emissive: VP.poolDeep[1], emissiveIntensity: VP.poolDeep[2], metalness: 0.5, roughness: 0.05 }),
@@ -388,7 +388,7 @@ export function umbra(M, f) {
 
 /** Sovereign: the Vael capital barge. A broad pearl hull gliding low over the ground, a coiled ceramic shell (a
  *  tapering tube wound round a stern axis) climbing to a crystal apex, and at its bow a great violet lens in a
- *  black-glass cradle, from which the beam fires (the sim starts the bolt at the unit's centre; the lens is the visual
+ *  black-glass cradle, from which the beam fires (the sim starts the bolt at the unit's center; the lens is the visual
  *  muzzle). Team glaze as a ridge spiralling along the shell, on the vane tips and the brow, and as arcs on the lift
  *  ring. Four frames (UNIT_FPS in look.js slows them to 4/s): a bob, and the lift ring's arcs and lamps turn a third of
  *  a turn over the cycle. No legs: it
@@ -567,7 +567,7 @@ export function kiln(M) {
   return g;
 }
 
-/** Ward (defence, 2x2): three plated pearl claws holding a floating violet crystal over a plinth. */
+/** Ward (defense, 2x2): three plated pearl claws holding a floating violet crystal over a plinth. */
 export function ward(M) {
   const g = grp();
   plinth(g, M, 30, { pad: 17, lobes: 0.45 });

@@ -44,7 +44,7 @@ for (const name of PIECES) {
 }
 writeFileSync(join(outDir, 'shares.json'), JSON.stringify(shares, null, 1));
 
-// ---- the crowd, before over after: twelve a side meeting at the centre, every unit of both peoples, at the sim's spacing ----
+// ---- the crowd, before over after: twelve a side meeting at the center, every unit of both peoples, at the sim's spacing ----
 const W = 1688, H = 780;
 function crowd(cx, cy) {
   const list = [], jit = (k) => ((k * 7919) % 13 - 6) * 3;
@@ -82,7 +82,7 @@ fl.data.set(flyerScene(A, 'AFTER: THE FLYERS, POLISHED').data, H * W * 4);
 writeFileSync(join(outDir, 'flyers.png'), encodePNG(fl));
 writeFileSync(join(outDir, 'flyers-1x.png'), encodePNG(half(fl)));
 
-// ---- close-ups: each of the family's models before and after at 2x and at 4x (the 2x sprite doubled, nearest neighbour) ----
+// ---- close-ups: each of the family's models before and after at 2x and at 4x (the 2x sprite doubled, nearest neighbor) ----
 function scale2(c) { const o = canvas(c.w * 2, c.h * 2); for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) o.data.set(c.data.subarray(((y >> 1) * c.w + (x >> 1)) * 4, ((y >> 1) * c.w + (x >> 1)) * 4 + 4), (y * o.w + x) * 4); return o; }
 function paste(dst, src, x, y) { for (let j = 0; j < src.h; j++) { if (y + j < 0 || y + j >= dst.h) continue; const w = Math.min(src.w, dst.w - x); if (w > 0) dst.data.set(src.data.subarray((j * src.w) * 4, (j * src.w + w) * 4), ((y + j) * dst.w + x) * 4); } }
 const rows = STRIPS.map((name) => {

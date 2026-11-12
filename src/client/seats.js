@@ -1,13 +1,13 @@
 // The seats of a game against the AI (single player's board; online.js's lobby builds the same board) and the board's
 // pieces. The board is eight fixed SPOTS, the most seats a game has: YOU in spot 0, an AI (online, a person or an open
-// seat too) in any other, the rest empty. A player keeps its spot (its place on the board and its colour, in the game
+// seat too) in any other, the rest empty. A player keeps its spot (its place on the board and its color, in the game
 // too) whatever its side: the side is a tag on its token, chosen in its sheet; adding fills the lowest empty spot, and
-// on single player's board removing one moves the players after it up a spot each (no gaps; their names and colours
+// on single player's board removing one moves the players after it up a spot each (no gaps; their names and colors
 // are their new spots') and numbers the sides again from SIDE 1 without the gaps (`removeAt`; online, the lobby's
 // removing empties the spot). Side numbers stay as chosen while editing; START GAME seats
 // the players by side (the sim seats allies side by side only when their seat numbers follow each other: map.rs
 // team_starts): your side first, you first in it, each side's players in spot order (`arrange`), and tells the game
-// which spot each seat came from (its colour). The rules are pure (test/seats.test.js); the DOM builders at the end (a
+// which spot each seat came from (its color). The rules are pure (test/seats.test.js); the DOM builders at the end (a
 // token, an empty spot, a row of chips, a seat's sheet and the dialog it opens in) take a seat's *view*, so the lobby's
 // seats fit them too.
 import { SEAT_COLORS } from './look.js';
@@ -47,7 +47,7 @@ export function enemyLevel(spots) {
 /** What START GAME plays for the spots (`draw(race)`: a RANDOM one drawn): the seats in `arrange`'s order, each one's
  *  race, whether the AI plays it (all but you, seat 0), the teams (empty: free for all), each seat's difficulty (empty
  *  when every AI's is the same: the sim's `diff` then, as before), `diff`, the enemies' hardest (the record's level;
- *  with `diffs`, the sim reads each AI's own), and `spots`, the spot of each seat (its colour). */
+ *  with `diffs`, the sim reads each AI's own), and `spots`, the spot of each seat (its color). */
 export function startSetup(spots, draw = (r) => r) {
   const { order, teams } = arrange(spots), seats = order.map(i => spots[i]), diffs = seats.map(r => r.diff ?? 0);
   const alike = diffs.slice(1).every(d => d === diffs[1]);
@@ -87,12 +87,12 @@ export function canRemove(spots, i) {
   return i > 0 && !!spots[i] && at.length > 2 && (!enemy(i) || at.some(j => j !== i && enemy(j)));
 }
 /** The sides a seat's sheet offers: SIDE 1 up to SIDE n, n the players (as many sides as players: free for all), and
- *  any higher number still in use; each with its colour, its first player's (none yet: a neutral grey). */
+ *  any higher number still in use; each with its color, its first player's (none yet: a neutral gray). */
 export function sideChoices(spots) {
   const at = filled(spots), top = Math.max(at.length - 1, ...at.map(i => spots[i].team));
   return Array.from({ length: top + 1 }, (_, team) => ({ team, chip: `SIDE ${team + 1}`, color: sideColor(spots, team) }));
 }
-/** A side's colour: its first player's (by spot); a side nobody is on, grey. */
+/** A side's color: its first player's (by spot); a side nobody is on, gray. */
 export function sideColor(spots, team) { const i = spots.findIndex(r => r && r.team === team); return i < 0 ? '#5b6b80' : seatColor(i); }
 /** A saved board if it is a good one (a spot each, null when empty, at most `max`; you in spot 0 and another player;
  *  a race each, a side number below the spots', a difficulty each AI), else null. A list saved before the spots (one
@@ -110,7 +110,7 @@ export function validRows(rows, max = SPOTS) {
 
 /** Where room is short (a phone): the race's short name on a token. */
 export const narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 900px), (max-height: 500px)') : { matches: false, addEventListener() {} };
-/** A seat's colour in the game, as CSS. */
+/** A seat's color in the game, as CSS. */
 export const seatColor = (seat) => '#' + SEAT_COLORS[seat % SEAT_COLORS.length].toString(16).padStart(6, '0');
 
 // ---- The board's pieces: a spot is a token (or an empty cell), a token opens one sheet. ----
@@ -125,7 +125,7 @@ function levelPips(d) {
 }
 /** A seat's token from its view `{ name, race, diff (an AI's level, else null), side (its side's number from 0, null:
  *  none shown), sideColor, me, host, ready, away, open (an open seat), act (what tapping an open seat does), ro (shown,
- *  not changed), tip }`: a button the size of every spot, the seat's colour as a band down its left edge; its name (a
+ *  not changed), tip }`: a button the size of every spot, the seat's color as a band down its left edge; its name (a
  *  crown on the host's) and a faint pen (an open seat's `act`, SIT HERE, instead) on top; its race (`short`: HARB, VAEL,
  *  RND; AWAY, OPEN SEAT), the level as pips (or a READY check) and its side's tag (SIDE 2, or S2 where the token is
  *  narrow) below; `onOpen` when tapped; `k` its `data-k`. Its name for a screen reader starts with what it shows. */

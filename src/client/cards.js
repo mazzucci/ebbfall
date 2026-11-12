@@ -24,7 +24,7 @@ function canUse(u, k) {
   return slot >= 0 && u.abCd[slot] <= 0 && u.swap <= 0; // (a cost it cannot pay is refused by the sim, with a toast)
 }
 /** The selection's abilities, one button each (in table order), packed (`pos`: its place among those shown): one
- *  still waiting for its tech is left out (its key does nothing), so players find it once researched. Greyed while none
+ *  still waiting for its tech is left out (its key does nothing), so players find it once researched. Grayed while none
  *  of its units can use it. No countdowns: a button comes back when it is ready. An automatic ability (Deploy) has no
  *  button. */
 function abilityItems(units) {
@@ -129,7 +129,7 @@ export function cardItems() {
         next({ id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
     }
-    // Always in the same place on a building that trains (greyed out with nothing queued), so the card keeps its shape.
+    // Always in the same place on a building that trains (grayed out with nothing queued), so the card keeps its shape.
     if (trains.length) {
       const last = mostBusy(bl).queue.at(-1);
       at(5, { id: 'cancelq', label: 'Cancel', key: 'X', cancel: true, dis: !last, ...(last ? { por: ['unit', last], badge: true } : { icon: 'x' }), tip: 'Cancel the last unit in the queue (refund)' });
@@ -139,10 +139,10 @@ export function cardItems() {
   const armedId = armedButton(), armedAt = items.find(i => i.id === armedId && !i.hidden);
   if (armedAt) {
     Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
-    // One live Cancel at a time (Deselect stays); the queue's keeps its slot, greyed out, so the card keeps its shape.
+    // One live Cancel at a time (Deselect stays); the queue's keeps its slot, grayed out, so the card keeps its shape.
     for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }
-  for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // greyed out, but a tap says what is short
+  for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // grayed out, but a tap says what is short
     it.poor = true;
     it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough gold (needs ${it.cost[0]}).`;
   }

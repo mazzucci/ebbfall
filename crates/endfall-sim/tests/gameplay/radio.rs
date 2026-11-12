@@ -1,6 +1,6 @@
 //! The range (the Expedition rework's speed bonus): the Expedition's machines move at `IN_RANGE_SPEED` inside the
 //! range of a finished Data center (`conflux`, 18 tiles) or Uplink (`uplink`, 12 tiles) of their side or an ally,
-//! measured by exact distance from the source's centre, and at their normal speed everywhere else. The Sentry mast
+//! measured by exact distance from the source's center, and at their normal speed everywhere else. The Sentry mast
 //! (`ward`) gives none. The Drone (`shrike`) goes at most `LEASH_MARGIN` tiles past the range and backs off inside
 //! rather than idle out there. People and the Kingdom are unaffected.
 //! Seed 3's Expedition Data center stands at tile (52, 8); the lane at y 40, x 18..46 is at least 31 tiles from it.
@@ -94,8 +94,8 @@ fn a_machine_moves_at_its_normal_speed_out_of_range_and_faster_in_it() {
 
 #[test]
 fn range_is_by_exact_distance_from_the_sources_centre() {
-    // An Uplink's centre lies on a tile corner (3x3 at (29, 37): centre (30.5, 38.5) tiles); points just inside and just
-    // outside its reach, along a diagonal (off every tile centre), are in and out of range, and so is a Bot set there.
+    // An Uplink's center lies on a tile corner (3x3 at (29, 37): center (30.5, 38.5) tiles); points just inside and just
+    // outside its reach, along a diagonal (off every tile center), are in and out of range, and so is a Bot set there.
     let mut w = lane();
     let up = w.make_building(BldgKind::Uplink, ENEMY, 29, 37, true);
     let (cx, cy) = (w.bldg(up).unwrap().x, w.bldg(up).unwrap().y);
@@ -169,7 +169,7 @@ fn the_data_center_and_an_uplink_give_range_until_the_uplink_falls() {
     w.step();
     assert!(!w.in_radio(ENEMY, ux, uy), "the Uplink's range is gone");
     assert!(w.in_radio(ENEMY, hq.0, hq.1), "the Data center's stays");
-    // The circles the client draws: the Data center's alone now, at its centre with its reach; none for the Kingdom.
+    // The circles the client draws: the Data center's alone now, at its center with its reach; none for the Kingdom.
     assert_eq!(
         w.radio_circles(ENEMY),
         vec![hq.0, hq.1, CONFLUX_RANGE * 32.0]

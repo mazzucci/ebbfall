@@ -82,9 +82,10 @@ function sync() {
   for (let o = 0; o < N.length; o += NS) {
     const id = N[o + fn.id], ether = !!N[o + fn.ether];
     let n = nodes.get(id);
-    // (every node in a game is a gold mine, `s` tiles square: crates/endfall-sim/src/map.rs `lay_mines`)
-    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'mine', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: N[o + fn.s], h: N[o + fn.s], max: N[o + fn.total], dead: false, gen, amount: 0, miners: 0, extractorId: 0, extractor: null });
-    n.gen = gen; n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners]; n.extractorId = N[o + fn.extractor];
+    // (every node in a game is a gold mine, `s` tiles square: crates/endfall-sim/src/map.rs `lay_mines`; the snapshot's
+    // `ether` flag, a mine shaft's, is never set since the re-theme's economy, and is read only so the tests can say so)
+    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'mine', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: N[o + fn.s], h: N[o + fn.s], max: N[o + fn.total], dead: false, gen, amount: 0, miners: 0 });
+    n.gen = gen; n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners];
     M.nodes.push(n);
   }
   retire(nodes);
@@ -95,7 +96,7 @@ function sync() {
     let b = bldgs.get(id);
     if (!b) {
       const type = BLDG_KEYS[B[o + fb.kind]], d = BUILDINGS[type], tx = B[o + fb.tx], ty = B[o + fb.ty];
-      bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false, gen, queue: [], rally: null, research: null, vent: null });
+      bldgs.set(id, b = { id, kind: 'bldg', type, d, team: B[o + fb.team], tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, r: Math.max(d.w, d.h) * TILE / 2, dead: false, gen, queue: [], rally: null, research: null });
     }
     b.gen = gen; b.hp = B[o + fb.hp]; b.maxhp = B[o + fb.maxhp]; b.sh = B[o + fb.sh]; b.maxsh = B[o + fb.maxsh]; b.progress = B[o + fb.progress]; b.done = !!B[o + fb.done]; b.prog = B[o + fb.prog]; b.flash = B[o + fb.flash]; b.aim = B[o + fb.aim];
     if (B[o + fb.has_rally]) { const r = b.rally ||= {}; r.x = B[o + fb.rally_x]; r.y = B[o + fb.rally_y]; r.node = nodes.get(B[o + fb.rally_node]) || null; } else b.rally = null;
@@ -104,8 +105,6 @@ function sync() {
     S.bldgs.push(b);
   }
   retire(bldgs);
-  for (const b of S.bldgs) b.vent = null;
-  for (const n of M.nodes) { n.extractor = bldgs.get(n.extractorId) || null; if (n.extractor) n.extractor.vent = n; }
 
   const U = game.units(); S.units = []; attacks.length = 0;
   for (let o = 0; o < U.length; o += US) {
@@ -206,7 +205,7 @@ export const replayEnd = () => game.replayEnd();
 export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
- *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 3 vent, 4 a start. */
+ *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 3 a mine shaft (none since the re-theme), 4 a start. */
 export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
 
 // ---- orders (the future network command set) ----
@@ -253,7 +252,6 @@ export const setResources = (team, shards, ether) => touch(game.setResources(tea
 export const canPlace = (type, tx, ty, team) => game.canPlace(type, tx, ty, team);
 export const hasReq = (team, type) => game.hasReq(team, type);
 export const canAfford = (team, cost) => game.canAfford(team, cost[0], cost[1]);
-/** The map's limit on a seat's places (every pool together, and each pool's cap). */
 /** The most places our seat can have in a pool ('supply': population or Power; 'hired') on this map. */
 export const poolMax = (pool) => game.poolMax(pool);
 

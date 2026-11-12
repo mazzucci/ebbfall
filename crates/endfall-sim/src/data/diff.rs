@@ -40,14 +40,14 @@ pub struct Diff {
     /// schedule: the gentle level may starve on a barren map).
     pub expands_when_dry: bool,
     /// While its crew is short of its target, it holds a worker's price back from its buildings, so building never
-    /// leaves its Core idle for want of shards (Brutal's build order spent every shard, and its Human AI, whose
-    /// builders leave the line, fell behind the Vael's in the opening).
+    /// leaves its Castle idle for want of gold (Brutal's build order spent every coin, and its Human AI, whose
+    /// builders leave the line, fell behind the Expedition's in the opening).
     pub workers_first: bool,
-    /// Seconds before it plants more than one Pump (each base has two seeps): its main's first goes up once it has
-    /// seven workers, the rest not before this; then the expansion's.
+    /// Seconds before it raises more than one Market (one a Castle): its main's goes up once it has seven workers, the
+    /// expansion's not before this.
     pub vents_from: f64,
     /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
-    /// the AI breaks a defence; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
+    /// the AI breaks a defense; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
     /// waiting (NEVER: it does not fade). A sighting older than `sighting_age` is stale: it first sends a unit to
     /// look (waiting up to `look_for` seconds for it), then counts the foe as the last sighting plus what its own army
     /// has grown since. With full supply, or `all_in_after` seconds since its last wave, it goes with everything.
@@ -111,7 +111,7 @@ pub const DIFF: [Diff; 4] = [
     // fields its line units and their anti-air only. Its first wave goes at 7:45, so a newcomer is not hit before about
     // 8:00 (at 4:00 it arrived by 4:30: the lab's newcomer, `turtle --weak --attacker-level Easy`). It takes its natural
     // after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still
-    // meets a growing army later. One vent until then: a second's crew of workers would only pile up shards it has no
+    // meets a growing army later. One mine until then: a second's crew of workers would only pile up gold it has no
     // factory to spend on.
     Diff {
         income: 1.0,
@@ -153,7 +153,7 @@ pub const DIFF: [Diff; 4] = [
     },
     // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
-    // the Pumps make up the income (the lab after PR 1 tunes them).
+    // the Markets make up the income (the lab after PR 1 tunes them).
     Diff {
         income: 1.0,
         wave: 7,

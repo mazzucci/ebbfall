@@ -6,7 +6,7 @@
 // Writes, at a landscape phone's size (1688x780 at 2x, 844x390 CSS):
 //   before-after.png (2x: two phone scenes, seat 0's kingdom against seat 1's Expedition, each before over after, the
 //     polished slice pieces in the after rows), before-after-1x.png (CSS px), before-after-grey.png
-//   closeups.png: each building before and after at 2x, then at 4x (nearest-neighbour doubled)
+//   closeups.png: each building before and after at 2x, then at 4x (nearest-neighbor doubled)
 //   base-kingdom.png, base-expedition.png: a full base of each people after the polish at zoom 1.0 (+ -1x), and
 //     base-*-075.png the same at 0.75 (+ -1x)
 //   models/<name>.png and @2x: each polished building alone in seats 0, 1 and 6 (the towers with their heads), its

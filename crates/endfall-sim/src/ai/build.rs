@@ -12,7 +12,7 @@ const PASSIVE_BASE_GAP: f64 = 90.0;
 /// whatever the clock says (on barren maps the home field runs dry before the difficulty's time; later it could not
 /// pay for it).
 const HOME_LOW: i32 = 2000;
-/// How far from its centre the AI looks for room for a building (tiles), and how far once there is none nearer and
+/// How far from its center the AI looks for room for a building (tiles), and how far once there is none nearer and
 /// no second base to build by: a full main pocket must not hold its factories up until the natural stands (26, not
 /// 22, since a main has two vents: a cramped one filled up sooner and the room left lay just past 22).
 const ROOM: f64 = 15.0;
@@ -48,7 +48,7 @@ impl World {
                 {
                     continue;
                 }
-                // Clear of the mines (not in the workers' way): a building's centre this far from every mine's edge
+                // Clear of the mines (not in the workers' way): a building's center this far from every mine's edge
                 // (as from a 1-tile crystal's before the mines), a little farther for a big one.
                 let (mx, my) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
                 let clear = 2.0 + d.w.max(d.h) as f64 / 2.0;
@@ -67,7 +67,7 @@ impl World {
 
     /// Room out past the main (rings `from` to `ROOM_FAR`): only where a worker can walk from the main (rings that far
     /// out can fall in a sealed pocket), clear of the natural's site (the Core it saves for goes there), of every
-    /// expansion (a neighbour's natural may lie that far out) and of every other start.
+    /// expansion (a neighbor's natural may lie that far out) and of every other start.
     fn find_far_spot(&mut self, kind: BldgKind, cx: f64, cy: f64, from: f64) -> Option<(i32, i32)> {
         let start = self.map.nearest_passable_to(
             self.worker_foot(),
@@ -101,7 +101,7 @@ impl World {
         self.foot(self.factions[self.seat() as usize].worker)
     }
 
-    /// Tiles this seat's workers can reach from `start` (4-neighbour steps over ground they may stand on).
+    /// Tiles this seat's workers can reach from `start` (4-neighbor steps over ground they may stand on).
     fn walkable_from(&self, start: (i32, i32)) -> Vec<bool> {
         let foot = self.worker_foot();
         let mut seen = vec![false; self.map.rock.len()];
@@ -121,7 +121,7 @@ impl World {
         seen
     }
 
-    /// Whether the mines by the main (centre cx, cy) are running low, on a level that then takes its natural at once.
+    /// Whether the mines by the main (center cx, cy) are running low, on a level that then takes its natural at once.
     pub(crate) fn home_dry(&self, cx: f64, cy: f64) -> bool {
         let home: i32 = self
             .map
@@ -230,7 +230,7 @@ impl World {
 
     /// A spot for a second Core: by a gold mine with no headquarters by it, away from our main and every other seat's
     /// start, nearest to our main core. On a map of more than two starts, also nearer our start than any other seat's
-    /// (the mine, or the expansion it was laid for, and the spot): a neighbour's natural may lie nearer than our own
+    /// (the mine, or the expansion it was laid for, and the spot): a neighbor's natural may lie nearer than our own
     /// (a start nobody took is free ground).
     pub(crate) fn expansion_spot(&self, cx: f64, cy: f64) -> Option<(i32, i32)> {
         let me = self.seat() as usize;
@@ -257,7 +257,7 @@ impl World {
                     b.kind.def().hq && from((b.tx as f64 + 2.0, b.ty as f64 + 2.0)) <= 10.0
                 });
                 // (an expansion's mine lies on the far side of its site from the main, and a site laid 6 tiles nearer
-                // its own start can have its mine a tile nearer a neighbour's: the site decides)
+                // its own start can have its mine a tile nearer a neighbor's: the site decides)
                 let site = self
                     .map
                     .expansions
@@ -589,7 +589,6 @@ impl World {
                         b.ty as f64 + b.h as f64 / 2.0,
                     )
                 });
-                // (Not a building on a shaft, which needs its shaft.)
                 match self.find_spot(w, fx, fy) {
                     None => {
                         second
@@ -766,7 +765,7 @@ mod tests {
 
     #[test]
     fn on_a_map_of_many_starts_each_ai_expands_on_its_own_side() {
-        // Eight starts round a 128x128 map, neighbours 44 tiles apart: a neighbour's natural can lie nearer than our
+        // Eight starts round a 128x128 map, neighbors 44 tiles apart: a neighbor's natural can lie nearer than our
         // own, and no start's 22 tiles keep the AI off it. Each seat's spot is nearer its own start than any other.
         for seed in 0..12 {
             for (n, seats) in [(128, 8), (128, 6), (96, 4)] {
@@ -808,7 +807,7 @@ mod tests {
     }
 
     #[test]
-    fn shards_piling_up_with_every_factory_busy_call_for_one_more() {
+    fn gold_piling_up_with_every_factory_busy_calls_for_one_more() {
         // Medium: one factory on the schedule, up to three extra.
         let mut w = World::new(17, 1);
         w.ai_turn = ENEMY;

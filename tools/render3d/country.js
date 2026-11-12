@@ -1,7 +1,7 @@
 // The countryside's ground family (the re-theme, 2026-11-10; STYLE.md's draft rules in the review's notes): the gold
 // outcrop in four stages and four variants, the scenery props under the names src/client/scenery.js places, and
 // construction and rubble for each people (the kingdom in timber and stone, the Expedition in planks, stone, cable
-// and a hoist). Same conventions as models.js: game units (1 tile = 32), y up, +z south; fields and sites centred
+// and a hoist). Same conventions as models.js: game units (1 tile = 32), y up, +z south; fields and sites centered
 // on their footprint. Not in the atlas: retheme.js renders it by filter (`rt_*` names) for
 // tools/art/retheme-ground.mjs; the build step gives these the game's names (shard_k_v, doodad_*, foundation_n, ...).
 import * as THREE from 'three';
@@ -13,18 +13,18 @@ import { polishTextures } from './polish.js';
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
 const std = (o) => new THREE.MeshStandardMaterial(o);
 const lump = (r) => new THREE.DodecahedronGeometry(r, 0);
-/** The countryside's own materials: grey rock, the gold (the coins' light yellow, white glints, a darker shade in the
+/** The countryside's own materials: gray rock, the gold (the coins' light yellow, white glints, a darker shade in the
  *  veins' shadow), earth, leaves and bark, fieldstone, a puddle, flowers. Nothing team, nothing lit but the glints.
  *  `countryPolish(true)` swaps in the polished copy (`polishCountryMats`); the plain set is never changed. */
 export const CMATS = {
-  rock: std({ color: 0x6e6c66, roughness: 0.9, metalness: 0.02, flatShading: true }),                 // (round 1: 0x86847e lit near white and read as salt beside the gold)
+  rock: std({ color: 0x6e6c66, roughness: 0.9, metalness: 0.02, flatShading: true }),                 // (round 1: 0x86847e lit near white and read as pale crystals beside the gold)
   rockDark: std({ color: 0x4a4844, roughness: 0.95, metalness: 0.02, flatShading: true }),
   rockPale: std({ color: 0x9a988e, roughness: 0.85, metalness: 0.02, flatShading: true }),
   gold: std({ color: 0xf0c850, metalness: 0.6, roughness: 0.35, flatShading: true }),
   goldDark: std({ color: 0xb48c2c, metalness: 0.6, roughness: 0.5, flatShading: true }),
   glint: std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.7 }),
   foot: std({ color: 0x2e2a24, roughness: 1, metalness: 0, flatShading: true }),                // a dark footing under each lump
-  earth: std({ color: 0x66604f, map: earthTex, roughness: 1 }),                                  // dug earth: the dirt's colour
+  earth: std({ color: 0x66604f, map: earthTex, roughness: 1 }),                                  // dug earth: the dirt's color
   earthDark: std({ color: 0x3e3a32, roughness: 1, flatShading: true }),                          // a dug hollow
   pit: std({ color: 0x1a1816, roughness: 1 }),                                                   // the mined-out pit's bottom
   leaf: std({ color: 0x3e6a2e, roughness: 0.9, flatShading: true }),
@@ -32,17 +32,17 @@ export const CMATS = {
   leafDark: std({ color: 0x2a4820, roughness: 0.95, flatShading: true }),
   bark: std({ color: 0x4a3826, roughness: 0.95 }),
   barkLight: std({ color: 0x7a6248, roughness: 0.9 }),                                           // a cut trunk's rings
-  fieldstone: std({ color: 0x7c7466, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 }),   // a ruin's old warm fieldstone (not the kingdom's slate; round 1's pale grey vanished on the hill)
+  fieldstone: std({ color: 0x7c7466, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 }),   // a ruin's old warm fieldstone (not the kingdom's slate; round 1's pale gray vanished on the hill)
   fieldstoneDark: std({ color: 0x58524a, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.0, roughness: 0.92 }),
   moss: std({ color: 0x5c7a42, roughness: 0.95, flatShading: true }),
-  water: std({ color: 0x3c4a56, roughness: 0.2, metalness: 0.35 }),                                // a puddle: dull grey-blue, a little sky in it
+  water: std({ color: 0x3c4a56, roughness: 0.2, metalness: 0.35 }),                                // a puddle: dull gray-blue, a little sky in it
   mud: std({ color: 0x4e4a40, roughness: 1 }),
   flower: std({ color: 0xd4ccb4, roughness: 0.85 }),                                               // cream, a notch under linen
   pebble: std({ color: 0x78766e, roughness: 0.9, flatShading: true }),
   timberFresh: std({ color: 0x9c7e56, roughness: 0.82 }),                                          // fresh-cut building timber (the kingdom's oak is dark, the scaffold must read against the grass)
-  timberGrey: std({ color: 0x8c7e68, roughness: 0.85 }),                                           // the Expedition's scaffold: weathered timber the locals brought (round 1's Harbour timber went near black)
+  timberGrey: std({ color: 0x8c7e68, roughness: 0.85 }),                                           // the Expedition's scaffold: weathered timber the locals brought (round 1's Harbor timber went near black)
   mortar: std({ color: 0xb0aca0, roughness: 1 }),
-  clothDull: std({ color: 0x4a4740, roughness: 0.95 }),                                            // a dead building's cloth, greyed
+  clothDull: std({ color: 0x4a4740, roughness: 0.95 }),                                            // a dead building's cloth, grayed
   iron: std({ color: 0x3a3c40, metalness: 0.6, roughness: 0.5 }),                                   // a cart's tyres, pegs (defined always, used by the polish)
   soot: std({ color: 0x2e2a26, roughness: 1 }),                                                     // the scorched ground under rubble (the polish)
 };
@@ -59,7 +59,7 @@ function sootPatch(g, C, R, seed) {
 let POLISHED = null;
 /** The polished copy of CMATS (the slice's recipe, polish.js: the same textures and the same numbers): gold at the
  *  coins' tight bright glint (roughness 0.25, env x2, a scuff bump), scuffs on the rock, grain on bark and timber, the
- *  fieldstone's courses redrawn for 1x (`hiAshlar`, as the walls), a glint on the puddle. Colours do not move. */
+ *  fieldstone's courses redrawn for 1x (`hiAshlar`, as the walls), a glint on the puddle. Colors do not move. */
 function polishCountryMats() {
   const X = polishTextures(), P = {}, bump = (m, map, k) => { m.bumpMap = map; m.bumpScale = k; m.needsUpdate = true; };
   for (const [k, m] of Object.entries(CMATS)) P[k] = m.clone();
@@ -93,7 +93,7 @@ function patch(edge, sq, h) {
 
 // ---------------- the gold ----------------
 /** The outcrops' four variants, each its own lumps `[x, z, r, h]` (one tile is 32 across), turn and seed, as the
- *  salt's: 0 one big lump among five, 1 a spread of medium ones, 2 a low bed of small ones, 3 two tall and a few small. */
+ *  old fields': 0 one big lump among five, 1 a spread of medium ones, 2 a low bed of small ones, 3 two tall and a few small. */
 const GOLD_VARIANTS = [
   { turn: 0, seed: 31, cl: [[0, -2, 7.5, 11], [-11, 4, 5, 6.5], [10, 5, 5, 7], [-4, 10, 3.8, 4.5], [8, -9, 4, 5]] },
   { turn: 1.9, seed: 47, cl: [[-8, -2, 5.5, 7.5], [5, -6, 5.5, 8], [7, 6, 5, 6.5], [-3, 8, 4.2, 5], [-13, 7, 3.4, 4]] },
@@ -101,8 +101,8 @@ const GOLD_VARIANTS = [
   { turn: 0.8, seed: 73, cl: [[-4, 1, 6.5, 12], [5, -3, 6, 10.5], [-11, -6, 3.6, 4.5], [10, 6, 3.8, 5], [1, 10, 3.4, 4]] },
 ];
 export const GOLD_VARIANT_COUNT = GOLD_VARIANTS.length;
-/** One lump of grey rock with gold in it: a flat-shaded lump on a dark foot, a thick vein in one piece over its top
- *  and down its south face (one big gold shape at phone size, not flecks: the slice's outcrop read as a grey rock
+/** One lump of gray rock with gold in it: a flat-shaded lump on a dark foot, a thick vein in one piece over its top
+ *  and down its south face (one big gold shape at phone size, not flecks: the slice's outcrop read as a gray rock
  *  with yellow flecks), nuggets on the lit top with a white glint each. `k` scales the gold (a worked lump has less). */
 function goldLump(r, h, k = 1) {
   const c = grp();
@@ -122,7 +122,7 @@ function goldLump(r, h, k = 1) {
   }
   return c;
 }
-/** A gold outcrop (`rt_gold_<stage>_<v>`; the game's `shard_k` / `shard_k_v`): grey rock with gold showing, readable
+/** A gold outcrop (`rt_gold_<stage>_<v>`; the game's `shard_k` / `shard_k_v`): gray rock with gold showing, readable
  *  from full to mined out by its shape. 0 full: the variant's lumps, veins and nuggets, loose nuggets round them;
  *  1 worked: the larger half of the lumps, lower, the veins thinner, two dug hollows; 2 low: no standing lump, broken
  *  slabs of rock over dug earth, a few nuggets left in the soil; 3 nearly gone: a dark pit in a broken rim of rock,
@@ -173,7 +173,7 @@ export function tree(v) {
   balls.forEach(([x, y, z, r], k) => add(g, sph(r, 7, 5), k === balls.length - 1 || (k === 3) ? CM.leafLight : k % 2 ? CM.leaf : CM.leafDark, x, y, z, rnd() * 3, rnd() * 3, 0));
   return g;
 }
-/** A rock spire (`spire_v`, solid): stacked lumps of grey rock narrowing to a pale top, leaning a little, a smaller
+/** A rock spire (`spire_v`, solid): stacked lumps of gray rock narrowing to a pale top, leaning a little, a smaller
  *  one beside it and scree at the foot. */
 export function spire(v) {
   const g = grp(); s = 211 + v * 23;
@@ -224,7 +224,7 @@ export function stump(v) {
   for (let k = 0; k < 3; k++) add(g, rbox(2 + rnd() * 1.5, 0.5, 1 + rnd(), 0.15), CM.barkLight, (rnd() - 0.5) * 16, 0.25, (rnd() - 0.5) * 12, 0, rnd() * 3, 0);   // chips
   return g;
 }
-/** A puddle (`crater_1`, flat): a lobed film of dull grey-blue water in a mud hollow, two stones at its edge, no
+/** A puddle (`crater_1`, flat): a lobed film of dull gray-blue water in a mud hollow, two stones at its edge, no
  *  rim and no rings; walked over. */
 export function puddle(v) {
   const g = grp(); s = 431 + v * 31;
@@ -246,7 +246,7 @@ export function flowers(v) {
   }
   return g;
 }
-/** A small stone pile (`debris_1`, flat): rounded grey stones heaped low with a few pebbles; walked over. */
+/** A small stone pile (`debris_1`, flat): rounded gray stones heaped low with a few pebbles; walked over. */
 export function stonePile(v) {
   const g = grp(); s = 651 + v * 43;
   for (let k = 0; k < 6 + v; k++) { const a = rnd() * 6.3, d = k ? 2 + rnd() * 3.5 : 0, r = k ? 1.3 + rnd() * 0.9 : 2.3; add(g, lump(r), k % 3 ? CM.rock : CM.rockDark, Math.cos(a) * d, r * 0.5, Math.sin(a) * d * 0.8, rnd(), rnd() * 3, rnd()).scale.y = 0.7; }
@@ -262,7 +262,7 @@ export const RT_SCENERY = {
 };
 
 // ---------------- construction and rubble ----------------
-/** A string line on pegs round a site `h` from its centre (the Harbour's), the pegs in `peg` and the line in `rope`. */
+/** A string line on pegs round a site `h` from its center (the Harbor's), the pegs in `peg` and the line in `rope`. */
 function stringLine(g, h, peg, rope) {
   for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(g, cyl(0.55, 0.7, 5, 8), peg, x * (h - 4), 2.5, z * (h - 4));
   for (const [x, z, rot] of [[0, -(h - 4), 0], [0, h - 4, 0], [-(h - 4), 0, Math.PI / 2], [h - 4, 0, Math.PI / 2]]) add(g, rbox((h - 4) * 2, 0.25, 0.25, 0.1), rope, x, 4.6, z, 0, rot, 0);
@@ -327,7 +327,7 @@ export function scaffoldKg(n, K) {
   return g;
 }
 /** The kingdom's rubble (`rt_kg_rubble_n`): tumbled ashlar, broken oak beams, slates thrown down, a stub of wall still
- *  standing, a bent iron band and a greyed scrap of cloth: the wreck of a stone-and-timber building. */
+ *  standing, a bent iron band and a grayed scrap of cloth: the wreck of a stone-and-timber building. */
 export function rubbleKg(n, K) {
   const g = grp(), W = n * 32 - 8, C = cm(K.polish); s = 91 + n;
   const sp = () => (rnd() + rnd() - 1) * W * 0.46;                                                                        // heaped towards the middle (round 1's even spread read as confetti)

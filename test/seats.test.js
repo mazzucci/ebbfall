@@ -1,6 +1,6 @@
 // The board's rules (src/client/seats.js): eight fixed spots; the spots into the game's seats (allies side by side:
-// your side first, you first; each seat's spot for its colour), team ids in that order, a new AI's spot, side and
-// likeness, who may be removed, the sides a sheet offers and their colours, the level the record counts, a saved board
+// your side first, you first; each seat's spot for its color), team ids in that order, a new AI's spot, side and
+// likeness, who may be removed, the sides a sheet offers and their colors, the level the record counts, a saved board
 // checked (and one saved before the spots).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

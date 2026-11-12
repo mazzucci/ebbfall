@@ -10,7 +10,7 @@ const clamp01 = (v) => Math.max(0, Math.min(1, v));
 // Ground: the drained seabed (STYLE.md): wet sand and slate, salt crust in pale veins, dark patches of drying kelp;
 // the darkest thing on screen. Rock: dead reef, a pale lip over a dark layered face.
 const SAND = [58, 54, 47], SAND_WET = [44, 42, 38], SLATE = [40, 44, 50], SALT = [142, 140, 130], SALT_DIM = [96, 95, 88], KELP = [36, 29, 21], KELP_DARK = [23, 19, 14];
-// Rock: dead reef (the PRD): a pale bleached lip, a crumbly grey-brown top pitted with holes, a dark face in layers.
+// Rock: dead reef (the PRD): a pale bleached lip, a crumbly gray-brown top pitted with holes, a dark face in layers.
 const ROCK_TOP = [86, 82, 73], ROCK_TOP2 = [68, 65, 58], ROCK_LIP = [168, 162, 146], ROCK_FACE = [34, 32, 30], ROCK_FACE2 = [70, 66, 58], ROCK_PIT = [42, 40, 36];
 const KELP_EDGE = [46, 39, 25]; // kelp brown-black, olive at its edge, never green (round 3's green kelp doubled as the seep)
 
@@ -42,7 +42,7 @@ function curve(ctrl, steps = 6) {
  *  Sand with slate showing through, soft ripples, low ridges; then by variant (src/client/gl/ground.js GROUND_BASES,
  *  GROUND_MARKS): faint pale salt veins, each base (0..7) its own; a mark tile (8..19) one mark, each of its own size,
  *  turn, mirror and size: kelp drying in a dark patch (the shore litter's pale pebble pairs went in round 3). Veins and
- *  marks fade out at the tile's edge (the neighbours are other variants). */
+ *  marks fade out at the tile's edge (the neighbors are other variants). */
 function ground(x, y, variant) {
   const n2 = vnoise(x, y, 8, 9, 8), n3 = vnoise(x, y, 4, 13, 16), n4 = vnoise(x, y, 2, 15, 32), n5 = vnoise(x, y, 16, 19, 4);
   let c = mix(SAND, SLATE, clamp01(0.3 + (n2 - 0.5) * 0.9));                                // sand with slate showing through
@@ -56,7 +56,7 @@ function ground(x, y, variant) {
   c = veins(c, x, y, variant < 8 ? variant : 8, win);
   if (variant < 8) return c;
   const m = variant - 8;
-  // The mark's own frame: its centre, a turn, a mirror and a scale, so no two marks lie the same way.
+  // The mark's own frame: its center, a turn, a mirror and a scale, so no two marks lie the same way.
   const cx = 32 + (r(1) - 0.5) * 14, cy = 32 + (r(2) - 0.5) * 14, a = r(3) * Math.PI * 2, mir = r(4) < 0.5 ? -1 : 1;
   const dx = x + 0.5 - cx, dy = y + 0.5 - cy, lx = (dx * Math.cos(a) + dy * Math.sin(a)) * mir, ly = -dx * Math.sin(a) + dy * Math.cos(a);
   // kelp drying in a dark patch: two or three lobes, fibrous inside, a damp halo; the twelve marks spread from a scrap
@@ -134,7 +134,7 @@ export function tile(m, variant = 0) {
         const t = Math.min(above && above <= SIDE ? above / SIDE : 1, left && left < SIDE ? left / SIDE : 1, right && right < SIDE ? right / SIDE : 1);
         c = layered(t * 0.8);
       } else {
-        // the top: dead reef, crumbly grey-brown; its noise periodic over the tile and shared by the variants, so tiles seam
+        // the top: dead reef, crumbly gray-brown; its noise periodic over the tile and shared by the variants, so tiles seam
         const n = vnoise(x, y, 32, 61, 2) * 0.45 + vnoise(x, y, 8, 63, 8) * 0.35 + vnoise(x, y, 4, 65, 16) * 0.2;
         c = mix(ROCK_TOP2, ROCK_TOP, n).map(v => v * (0.93 + hash2(x, y, 67, T) * 0.1));
         if (above === SIDE + 1) c = mix(c, ROCK_LIP, 0.8); else if (above === SIDE + 2) c = mix(c, ROCK_LIP, 0.35); // the bleached lip over each face

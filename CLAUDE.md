@@ -1,6 +1,7 @@
 # Ebbfall: notes for coding agents
 
-A browser real-time strategy game, a classic base-building RTS (one resource, a population cap, two peoples), built as
+A browser real-time strategy game, a classic base-building RTS (one resource, a population cap (the Expedition: Power
+and a maximum of hired places instead), two peoples), built as
 a learning-and-fun project. The simulation is Rust compiled to WASM (`crates/endfall-sim`); the client is plain
 JavaScript ES modules, Vite and PixiJS 8 (WebGL) over code-generated sprite sheets (pre-rendered 3D units and
 buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer
@@ -12,8 +13,8 @@ commands.
 
 Two Notion pages hold what is not code: Ebbfall: planning (the roadmap, reviews, open questions) and Ebbfall:
 developer docs ("Multiplayer design": lockstep, the relay, hosting, deploy and rollback; "Ebbfall art": the art
-pipeline, frame names, seat colours). `docs/` is kept for the public site that explains the game to players: no
-plans and no developer notes there. Agendas, handoff notes for paused work, the owner's decisions and anything to
+pipeline, frame names, seat colours). The game's own About page and How to play (index.html) explain it to players:
+no plans and no developer notes there. Agendas, handoff notes for paused work, the owner's decisions and anything to
 remember for later go to Notion too (subpages of Ebbfall: planning, one per work item, the branch named), never to
 local files: every session, on any machine, must be able to read them. See `README.md` for the player-facing
 description. The game was called Endfall until 2026-10-26: player-facing text says Ebbfall and the repo is
@@ -123,8 +124,8 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in, ties to its partner: seats
   0 and 1, 2 and 3, ...), and `is_ai(team)` is the
   only difference a seat's player makes (AI income, building in
-  unexplored ground, losing as soon as its buildings are gone). A builder of either people stays at its site until the building stands; a
-  new refinery needs no worker, and its builder goes back to the salt, as from any building.
+  unexplored ground, losing as soon as its buildings are gone). A builder of either people stays at its site until the building stands,
+  then goes back to its gold mine (the last it worked, or the nearest), as from any building.
 - Two-seat habits the goldens pin stay on two-start maps only: seat 0 facing east and stepping out south (with
   `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
   wave called home to a raid by another) apply only with more than one enemy still in.
@@ -143,7 +144,7 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
   client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
   are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.
-- Costs are `[shards, ether]`.
+- Costs are `[gold, 0]`: one resource; the second slot, once a second resource, is always 0.
 - Keep files small and single-purpose; dense one-liners are acceptable in hot loops but not in rules code.
 - Commit messages: imperative, one line, what and why. Do not commit `dist/`, `node_modules/`, `target/`, `.tools/`
   or `src/engine/pkg/`.
@@ -154,7 +155,7 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
 
 - `crates/endfall-sim/tests/golden.rs`: whole games pinned to literal state hashes (native, and two of them in WASM in
   `test/engine.test.js`). Refactors must leave them unchanged; a rule change updates the table on purpose.
-- `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
+- `crates/endfall-sim/tests/gameplay/` (one test binary: `common/` helpers, then `orders`, `construction`, `economy`,
   `combat`, `ai`, `maps`, `seats`, `paths`, `water`, `shore`, `tide`, `random_play`, ...): the rules scenario by scenario
   (what each file covers: ARCHITECTURE.md, "Tests that guard gameplay"), and `random_play_never_breaks_the_world`:
   random orders (including stale and nonsense ids) through the same `Game` API the browser uses, across many seeds,
@@ -169,6 +170,6 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
 `npm run dev`, open the URL, Medium difficulty. `window.endfall` in the console exposes `G`, `ui`, the camera and
 `setResources` for poking at a running game (scripted playtests use it too), and `status()` (the audio context's
 state, mute, full screen and whether the page may go full screen at all (`fullscreenEnabled`, the browser's word: false
-on iPhone Safari; branch on it, not on the button), the page's errors since it opened; the device checks read it). A sanity run: select harvesters, `B` then `D`, place a Depot near the
-Core, train Troopers from a Garrison, `A`-move into the enemy base on the far side of the map. On a phone on the same
+on iPhone Safari; branch on it, not on the button), the page's errors since it opened; the device checks read it). A sanity run: select Villagers, `B` then `W`, place a Cottage near the
+Castle, train Guards from a Barracks (`B` then `C`; `K` trains), `A`-move into the enemy base on the far side of the map. On a phone on the same
 network, open the LAN URL Vite prints (touch controls: tap/drag to select, tap to command, two fingers to pan).

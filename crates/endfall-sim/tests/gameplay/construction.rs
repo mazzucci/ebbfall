@@ -66,7 +66,11 @@ fn cancelling_construction_refunds_three_quarters() {
     let forge = w
         .place_building(PLAYER, BldgKind::Forge, tx, ty, Some(h[1]))
         .unwrap();
-    assert_eq!(w.res[PLAYER as usize], [850, 1000], "no ether paid");
+    assert_eq!(
+        w.res[PLAYER as usize],
+        [850, 1000],
+        "nothing paid in the second slot"
+    );
     assert!(w.cancel_construction(forge));
     assert_eq!(w.res[PLAYER as usize], [850 + 112, 1000]);
     assert!(
@@ -159,7 +163,7 @@ fn harvesters_repair_damaged_buildings_for_a_share_of_the_price() {
     let price = BldgKind::Depot.def().cost[0] as f64 * REPAIR_COST * 0.8;
     assert!(
         (spent as f64 - price).abs() <= 1.0,
-        "paid {spent} shards for 80% (expected about {price})"
+        "paid {spent} gold for 80% (expected about {price})"
     );
     run(&mut w, 2);
     assert!(
@@ -253,7 +257,7 @@ fn an_interrupted_repair_costs_the_same_in_total() {
     let spent = before - w.res[PLAYER as usize][0];
     assert!(
         (spent - 20).abs() <= 1,
-        "two halves cost one repair: {spent} shards"
+        "two halves cost one repair: {spent} gold"
     );
 }
 
@@ -289,8 +293,8 @@ fn the_foundry_takes_two_by_two_tiles() {
 
 #[test]
 fn a_lumen_stays_at_its_vael_site_until_it_stands() {
-    // PRD: builders who stay (Stelian, 2026-11-06). The Vael build as the Harbour does: the Glint stays on the site
-    // while it rises, and goes back to the salt once it stands.
+    // PRD: builders who stay (Stelian, 2026-11-06). The Expedition builds as the Kingdom does: the Bot stays on the
+    // site while it rises, and goes back to the mine once it stands.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Spire);
@@ -309,7 +313,7 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
             assert_eq!(
                 w.unit(l[0]).unwrap().task,
                 Task::Build { b: site },
-                "the Glint stays while it rises (progress {:.2})",
+                "the Bot stays while it rises (progress {:.2})",
                 b.progress
             );
         }
@@ -322,14 +326,14 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
     run(&mut w, 1);
     assert!(
         matches!(w.unit(l[0]).unwrap().task, Task::Gather { .. }),
-        "and the Glint went back to the salt: {:?}",
+        "and the Bot went back to the mine: {:?}",
         w.unit(l[0]).unwrap().task
     );
 }
 
 #[test]
 fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
-    // The Harbour's rule, now both peoples': no builder, no progress; another Glint sent to it finishes it.
+    // The Kingdom's rule, now both peoples': no builder, no progress; another Bot sent to it finishes it.
     for (mut w, kind) in [
         (rich_vael(4242), BldgKind::Spire),
         (rich(4242), BldgKind::Depot),
@@ -361,7 +365,7 @@ fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
 #[test]
 fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_sends_it_back_to_work() {
     // Rule 3: a person's new Market (or Recruiting post) has its builder on it until it stands (it needs no worker
-    // after), and the builder then goes back to the salt, as from any building.
+    // after), and the builder then goes back to the mine, as from any building.
     for (mut w, ext, rax) in [
         (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
         (rich(9), BldgKind::Extractor, BldgKind::Barracks),
@@ -388,7 +392,7 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_sends_it_
         run(&mut w, 1);
         assert!(
             matches!(w.unit(h).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-            "{ext:?}: its builder back on the salt: {:?}",
+            "{ext:?}: its builder back on the mine: {:?}",
             w.unit(h).unwrap().task
         );
         assert_eq!(
@@ -465,7 +469,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
     assert_eq!(
         count(&w, PLAYER, UnitKind::Scythe),
         1,
-        "and the Needle comes out"
+        "and the Buggy comes out"
     );
 }
 

@@ -439,9 +439,9 @@ fn left(w: &World, u: Id) -> f64 {
 #[test]
 fn shooters_whose_reach_meets_their_sight_still_fire_there() {
     // Only a siege gun (it outranges its own sight) needs its side to see its target: a gun whose reach is at the
-    // edge of its sight fires as far as it reaches, wherever the target's tile centre falls.
+    // edge of its sight fires as far as it reaches, wherever the target's tile center falls.
     // A holding Rover (reach 8, sight 9) and a Knight 8.9 tiles off: 7.99 tiles edge to edge, in its reach, but on a
-    // tile whose centre is 9.4 tiles away, which its side does not see.
+    // tile whose center is 9.4 tiles away, which its side does not see.
     let (mut w, van, sov) = reach_scene((39.0, 30.5), (30.1, 30.5), PLAYER);
     w.hold_unit(van);
     w.hold_unit(sov);

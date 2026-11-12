@@ -1,13 +1,13 @@
 // The Expedition (the re-theme's stranded 2026 tech company, standing in for the Vael in the comparison picture; not in
 // the atlas: retheme.js renders it by filter). Stelian's rule (2026-11-10): modern components, medieval materials.
-// Only small things came through time (bots, drones, electronics, a few tools and weapons: the Traveller's and the
+// Only small things came through time (bots, drones, electronics, a few tools and weapons: the Traveler's and the
 // Marine's kit, the Buggy); everything big is built on site from local timber, stone, rope and canvas, with cables,
 // LEDs, panels and fans added. No concrete, no containers, no roads, no fuel. The side parts from the kingdom by its
 // modern parts: flat rounded shells, panels, fans, cables, small cool lights (the only lights in the picture), team
 // paint on panels between dark trim; its hall is lower, longer and flatter than the castle. Three finishes on one set
 // of shapes (`makeExpeditionMats(tc, v)`), the units included (round 2's judge: the options barely differed): A
-// limewash and pale canvas (off-white composite bots, a limewashed stone hall under pale canvas, grey-tan fatigues);
-// B olive canvas and dark timber (olive bots, grey fieldstone in a dark oak frame under olive canvas, olive
+// limewash and pale canvas (off-white composite bots, a limewashed stone hall under pale canvas, gray-tan fatigues);
+// B olive canvas and dark timber (olive bots, gray fieldstone in a dark oak frame under olive canvas, olive
 // fatigues); C black iron and timber (black bots with aluminium edges, fieldstone in an oak frame under tarred black
 // canvas, charcoal fatigues). Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
@@ -38,8 +38,8 @@ const daubTex = tex(128, (g, n) => {
   for (let i = 0; i < 8; i++) { const x = rnd() * n, y = rnd() * n; g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd() * 20 - 10, y + 10 + rnd() * 20); g.stroke(); }
   for (let i = 0; i < 10; i++) { g.fillStyle = `rgba(110,95,70,${0.05 + rnd() * 0.1})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 6 + rnd() * 16, 4 + rnd() * 10, rnd() * 3, 0, 7); g.fill(); }
 }, { repeat: 2 });
-/** Urban camouflage: two or three grey tones in big soft blotches (fine pixel camo turns to noise at 20-30 px); the
- *  blotches tile at the edges. The material's colour darkens the light base. */
+/** Urban camouflage: two or three gray tones in big soft blotches (fine pixel camo turns to noise at 20-30 px); the
+ *  blotches tile at the edges. The material's color darkens the light base. */
 const camoTex = tex(128, (g, n) => {
   g.fillStyle = '#b4b8b4'; g.fillRect(0, 0, n, n); seed = 131;
   for (let i = 0; i < 16; i++) {
@@ -48,7 +48,7 @@ const camoTex = tex(128, (g, n) => {
   }
 }, { repeat: 1 });
 /** Weathered boards: horizontal boards of uneven width with dark shadow seams between them, grain, a joint or an end
- *  here and there, a knot or two, on a warm-grey base, matte (buildings round 3: the first grey planks were even
+ *  here and there, a knot or two, on a warm-gray base, matte (buildings round 3: the first gray planks were even
  *  vertical ribs and read as corrugated steel, so containers; these must read as timber: cooler than the kingdom's
  *  brown, warmer and darker than that silver). */
 export const boardTex = tex(128, (g, n) => {
@@ -79,10 +79,10 @@ const rackTex = tex(64, (g, n) => {
  *  edging (lifted from black: the slice's first judge saw black blobs with team rectangles), charcoal helmets and
  *  caps a shade darker than the bodies, fatigues a shade lighter, no white bodies: each unit carries one small pale
  *  mark instead (a helmet LED, headlights, pale wheels, a pale weapon); team on each unit's largest panel. The hall
- *  of the cool grey stone of slate country in a dark oak frame under dark planks. */
+ *  of the cool gray stone of slate country in a dark oak frame under dark planks. */
 export const EXPEDITION_LOOK = { name: 'charcoal kit', panel: 0x62665f, panelDark: 0x44484a, edge: 0x2a2c2e, metal: 0.3, rough: 0.6, canvas: 0x8a8068, wall: 0x80828a, frame: 0x3e3226, uniform: 0x6e7268, armour: 0x383a3e };
 export const EXPEDITION_PALETTES = { A: EXPEDITION_LOOK };
-/** The Expedition's materials, over the Harbour's set (its timber, rope, ink and canvas weave are reused). `paint` is
+/** The Expedition's materials, over the Harbor's set (its timber, rope, ink and canvas weave are reused). `paint` is
  *  the team: paint on a panel, matte, between `inkLine` trim. */
 export function makeExpeditionMats(tc, polish = false) {
   const P = EXPEDITION_LOOK, M = makeMats(tc), std = (o) => new THREE.MeshStandardMaterial(o);
@@ -91,7 +91,7 @@ export function makeExpeditionMats(tc, polish = false) {
   M.trim = std({ color: P.edge, roughness: 0.6, metalness: 0.2 });                                                 // the shells' edging, joints, wheel arches
   M.joint = std({ color: 0x2a2c30, roughness: 0.7, metalness: 0.2 });                                                // dark joints
   M.steel = std({ color: 0x70767c, metalness: 0.85, roughness: 0.35 });                                             // bare steel: arms, cages
-  M.paleSteel = std({ color: 0xa8acb0, metalness: 0.7, roughness: 0.4 });                                            // the pale marks: a bull bar, a weapon's furniture, wheel hubs (pale grey, not white)
+  M.paleSteel = std({ color: 0xa8acb0, metalness: 0.7, roughness: 0.4 });                                            // the pale marks: a bull bar, a weapon's furniture, wheel hubs (pale gray, not white)
   M.tyre = std({ color: 0x4a4c4a, map: M.rubber.map, roughness: 0.9, metalness: 0.05 });                            // tyres lighter than the body
   M.white = std({ color: 0xe2e0da, metalness: 0.1, roughness: 0.6 });                                                // the fans' blades and rings only
   M.glass = std({ color: 0x10161e, metalness: 0.7, roughness: 0.12 });                                             // dark glass: solar panels, windows
@@ -108,22 +108,22 @@ export function makeExpeditionMats(tc, polish = false) {
   M.cable = std({ color: 0x15161a, roughness: 0.6, metalness: 0.1 });
   M.canvasLocal = std({ color: P.canvas, map: M.canvas.map, roughness: 0.92 });                                     // the locals' canvas, dulled
   M.oak = std({ color: P.frame, map: M.timber.map, roughness: 0.85 });                                              // the hall's frame, dark oak
-  M.oakPale = std({ color: 0x6e6a60, map: M.timber.map, roughness: 0.85 });                                          // crates and barrels: grey weathered timber
-  M.wall = std({ color: P.wall, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.4, roughness: 0.92 });            // the castle's own slate-grey ashlar (the buildings family: the judge saw no stone)
-  M.roofDark = std({ color: 0x9a9c9a, map: shingleTex, roughness: 0.96, metalness: 0 });                                 // the roofs: weathered grey shingles, matte (round 3: ribbed pale planks read as corrugated steel)
+  M.oakPale = std({ color: 0x6e6a60, map: M.timber.map, roughness: 0.85 });                                          // crates and barrels: gray weathered timber
+  M.wall = std({ color: P.wall, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.4, roughness: 0.92 });            // the castle's own slate-gray ashlar (the buildings family: the judge saw no stone)
+  M.roofDark = std({ color: 0x9a9c9a, map: shingleTex, roughness: 0.96, metalness: 0 });                                 // the roofs: weathered gray shingles, matte (round 3: ribbed pale planks read as corrugated steel)
   M.wallPale = std({ color: 0xb4b6ba, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.8, roughness: 0.92 });      // the lighter ashlar of the faces to the camera (in the north-west sun's shade, so a step lighter to read as stone)
   M.stone = std({ color: 0x6e6458, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 });         // a footing course of darker stone
-  M.earth = std({ color: 0x5c5a54, map: earthTex, roughness: 1 });                                                  // trodden earth, grey-brown as the castle's (the warm brown read as dirt under no building)
-  M.deck = std({ color: 0x8c8880, map: boardTex, roughness: 0.95, metalness: 0 });                                        // a board floor, weathered grey
+  M.earth = std({ color: 0x5c5a54, map: earthTex, roughness: 1 });                                                  // trodden earth, gray-brown as the castle's (the warm brown read as dirt under no building)
+  M.deck = std({ color: 0x8c8880, map: boardTex, roughness: 0.95, metalness: 0 });                                        // a board floor, weathered gray
   M.gold = std({ color: 0xf0c850, metalness: 0.6, roughness: 0.35 });                                               // coins: a light yellow, gold is the coins' alone
   M.glint = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6 });
   M.uniform = std({ color: P.uniform, roughness: 0.9 });                                                            // fatigues
   M.armour = std({ color: P.armour, roughness: 0.65, metalness: 0.15 });                                             // helmets, caps, knee pads, pouches: near black
-  M.gun = std({ color: 0x5e6268, metalness: 0.6, roughness: 0.4 });                                                 // gunmetal, a mid grey (0x1e1f23, near-black, until the legibility pass of 2026-11-11: the rifles vanished into the dark kit and the shadow)
+  M.gun = std({ color: 0x5e6268, metalness: 0.6, roughness: 0.4 });                                                 // gunmetal, a mid gray (0x1e1f23, near-black, until the legibility pass of 2026-11-11: the rifles vanished into the dark kit and the shadow)
   M.gunTan = std({ color: 0xa8acb0, roughness: 0.6, metalness: 0.3 });                                              // a rifle's furniture: the Marine's pale mark
   M.skin = std({ color: 0xc89a74, roughness: 0.8 });
   M.boot = std({ color: 0x1e1a18, roughness: 0.8 });
-  M.camo = std({ color: 0x9a9e98, map: camoTex, roughness: 0.9 });                                                   // the Marine's urban camouflage: grey-charcoal blotches (Stelian: camouflage, slimmer)
+  M.camo = std({ color: 0x9a9e98, map: camoTex, roughness: 0.9 });                                                   // the Marine's urban camouflage: gray-charcoal blotches (Stelian: camouflage, slimmer)
   M.camoTan = std({ color: 0xc2aa80, map: camoTex, roughness: 0.9 });                                                // the Marine's tan desert camouflage (the last art round: not green, so it never vanishes on grass)
   M.panelLight = std({ color: 0x9ea29a, map: shellTex, metalness: P.metal, roughness: P.rough });                     // lighter painted shells: the Bot, Buggy and Rover (the last art round: lighter paint, more team)
   M.tyrePale = std({ color: 0x8e908a, map: M.rubber.map, roughness: 0.9, metalness: 0.05 });                          // the Buggy's big pale wheels (the units family: the Buggy must part from the Bot in a crowd)
@@ -152,10 +152,10 @@ export function teamPlate(parent, M, w, t, d, x, y, z, rx = 0, ry = 0, rz = 0) {
  *  LED strip at the bow; a big shallow tray over most of its back with a flat layer of gold coins (the worker's loud
  *  load, a tray, not a ball); out of the bow a short steel arm ending in a pale scoop held low ahead. A low, wide
  *  machine, never a man on a cart. From the camera: a wide low rounded rectangle, a gold tray on nearly all of its back,
- *  pale wheels at its corners, a short grey arm ahead. Frames 0-1: the arm bobs. */
+ *  pale wheels at its corners, a short gray arm ahead. Frames 0-1: the arm bobs. */
 export function utilityBot(M, f) {
   const g = grp(), b = grp(); g.add(b);
-  add(b, rbox(15, 2.4, 12.0, 1.0), M.panelLight, 0, 2.7, 0);                                  // the shell: wider than tall, low, light grey (the last round: lighter paint)
+  add(b, rbox(15, 2.4, 12.0, 1.0), M.panelLight, 0, 2.7, 0);                                  // the shell: wider than tall, low, light gray (the last round: lighter paint)
   add(b, rbox(15.4, 0.8, 12.4, 0.4), M.trim, 0, 1.6, 0);                                       // the dark skirt
   for (const [x, z] of [[-5.2, -6.3], [5.2, -6.3], [-5.2, 6.3], [5.2, 6.3]]) {                 // wheels out at the corners, pale hubs: the Bot's pale mark
     add(b, cyl(2.0, 2.0, 1.8, 16), M.tyre, x, 2.0, z, Math.PI / 2, 0, 0);
@@ -226,14 +226,14 @@ export function robotDog(M, f) {
   return g;
 }
 
-/** Traveller (the worker, sim r 9, scale 0.95): a person from the future who builds: practical work clothes, a white
+/** Traveler (the worker, sim r 9, scale 0.95): a person from the future who builds: practical work clothes, a white
  *  hard hat with a small headlamp LED, a team work vest with reflective hi-vis bands between ink hems, a tool belt
  *  with pouches, boots, a scanner in the right hand, and the worker's big cue: a bright white hard case carried out
  *  to the left side (round 3: out to the side as a bright block) with a team band and a tablet on its lid. From the
  *  camera: a white disc with a white block beside it: a worker, not the dark-helmeted Marine nor the Villager. */
 export function traveller(M, f) {
   const g = grp(), st = [3.2, -3.2][f % 2];
-  for (const side of [-1, 1]) {                                                                 // team work trousers (the company's colours, as the vest)
+  for (const side of [-1, 1]) {                                                                 // team work trousers (the company's colors, as the vest)
     const z = side * 2.1, s = st * side;
     add(g, rbox(3.4, 1.5, 2.2, 0.6), M.boot, s + 0.5, 0.75, z);
     limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, M.paint);
@@ -277,7 +277,7 @@ export function traveller(M, f) {
 export function buggy(M, f) {
   const g = grp(), b = grp(); b.position.y = 5.2; g.add(b);                                     // (the ride height: the tub's floor at 4, over the Bot's whole shell)
   add(b, rbox(22, 2.2, 10, 0.9), M.trim, 0, 0, 0);                                             // the chassis tub
-  add(b, rbox(21.2, 1.2, 9.4, 0.5), M.panelLight, 0, 1.5, 0);                                  // the body panel over it, light grey
+  add(b, rbox(21.2, 1.2, 9.4, 0.5), M.panelLight, 0, 1.5, 0);                                  // the body panel over it, light gray
   add(b, rbox(7.0, 1.2, 8.8, 0.5), M.panelLight, 7.2, 2.3, 0, 0, 0, -0.1);                       // the bonnet, sloping down ahead
   add(b, rbox(5.0, 0.4, 6.0, 0.2), M.paint, 7.4, 3.0, 0, 0, 0, -0.1); add(b, rbox(5.3, 0.2, 6.3, 0.05), M.inkLine, 7.4, 2.85, 0, 0, 0, -0.1); // a team panel on the bonnet
   for (const z of [-5.0, 5.0]) { add(b, rbox(18, 2.0, 0.6, 0.1), M.paint, -1, 1.4, z); add(b, rbox(18.2, 0.25, 0.65, 0.05), M.inkLine, -1, 2.5, z); add(b, rbox(18.2, 0.25, 0.65, 0.05), M.inkLine, -1, 0.3, z); } // a team stripe along each door, between trims
@@ -331,7 +331,7 @@ export function compactRifle(parent, M, x, y, z) {
 }
 
 /** Marine (the signature unit, line class, sim r 10-11, scale 1.08; the last batch, Stelian: a light near-future
- *  soldier matching the Expedition's buildings' white, grey and cyan): the Guard's build in a light grey suit with
+ *  soldier matching the Expedition's buildings' white, gray and cyan): the Guard's build in a light gray suit with
  *  slim off-white armor plates (chest, shins, a small pack; nothing bulky or knight-like), an off-white rounded helmet
  *  with a cyan visor across the face, a compact gunmetal rifle held level across the body, dark boots, belt and
  *  gloves. Team on both shoulders, two pads between ink lines. From the camera: a pale slim figure with a cyan dot at
@@ -340,12 +340,12 @@ export function compactRifle(parent, M, x, y, z) {
 export function marine(M, f) {
   const g = grp(), st = [3.2, -3.2][f % 2];
   M.armorLight ??= new THREE.MeshStandardMaterial({ color: 0xd4d6d2, metalness: 0.25, roughness: 0.55 });                                           // slim light armor plates, off-white
-  M.suitGrey ??= new THREE.MeshStandardMaterial({ color: 0xa6aaa8, roughness: 0.8 });                                                              // the under-suit, light grey
+  M.suitGrey ??= new THREE.MeshStandardMaterial({ color: 0xa6aaa8, roughness: 0.8 });                                                              // the under-suit, light gray
   M.visorCyan ??= new THREE.MeshStandardMaterial({ color: 0x20b8e0, emissive: 0x30d8ff, emissiveIntensity: 1.1, metalness: 0.3, roughness: 0.2 });  // the helmet's cyan visor
   for (const side of [-1, 1]) {                                                                                         // the Guard's stance and build
     const z = side * 2.1, s = st * side;
     add(g, rbox(3.4, 1.5, 2.2, 0.6), M.armour, s + 0.5, 0.75, z);                                                       // dark boots
-    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.15, M.suitGrey);                                                  // the legs, light grey suit
+    limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.15, M.suitGrey);                                                  // the legs, light gray suit
     limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.0, M.suitGrey);
     add(g, rbox(2.2, 2.4, 2.2, 0.6), M.armorLight, s * 0.5 + 0.3, 3.8, z * 1.05);                                        // slim shin plates
   }
@@ -371,12 +371,12 @@ export function marine(M, f) {
 // The Data center's model moved to expedition-buildings.js on 2026-11-11 (`dataBlock`, Stelian's redraw: the server
 // hall with its rack-light glow became a dark block with cyan neon and a chip on its lid; `serverHall` the option not taken).
 
-/** The gold deposit (`rt_coins`): heaps of coins where today's salt sits, loose coins round them, on a dark footing of
+/** The gold deposit (`rt_coins`): heaps of coins where a field's crystals sat, loose coins round them, on a dark footing of
  *  earth: the resource both peoples dig. */
 export function coins(M) {
   const g = grp(), gold = new THREE.MeshStandardMaterial({ color: 0xf0c850, metalness: 0.6, roughness: 0.4 }), goldDark = new THREE.MeshStandardMaterial({ color: 0x9a7428, metalness: 0.6, roughness: 0.6 }), dark = new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 1 }); void M;
   seed = 97;
-  // Stelian (round 3): a rocky outcrop with gold showing, not heaps of coins: grey rock lumps, flat-shaded, with veins
+  // Stelian (round 3): a rocky outcrop with gold showing, not heaps of coins: gray rock lumps, flat-shaded, with veins
   // and nuggets of gold on their lit tops and faces, a few loose nuggets at their feet
   const rock = new THREE.MeshStandardMaterial({ color: 0x7c7870, roughness: 0.9, flatShading: true }), rockDark = new THREE.MeshStandardMaterial({ color: 0x5a5650, roughness: 0.95, flatShading: true });
   for (const [x, z, r, h] of [[0, 0, 9, 11], [-12, 6, 6.5, 7], [11, -5, 6, 8], [4, 12, 4.5, 5], [-6, -10, 4.5, 5]]) {

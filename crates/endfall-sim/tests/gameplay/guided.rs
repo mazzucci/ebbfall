@@ -26,7 +26,7 @@ struct Guided {
     kills: usize,
     army_left: usize,
     core: bool,
-    /// The guide's Excavator, on its open shaft, still standing after the wave.
+    /// The guide's Market still standing after the wave.
     extractor: bool,
 }
 
@@ -154,7 +154,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                     );
                 }
             }
-            // A Crew Hall; later (step 3) an Excavator on the mine shaft the guide pings.
+            // A Barracks; later (step 3) a Market where the guide pings.
             1 | 3 => {
                 let kind = if step == 1 {
                     BldgKind::Barracks
@@ -424,10 +424,7 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
             "{ctx}: the wave is destroyed or driven off"
         );
         assert!(g.core, "{ctx}: the Lighthouse stands");
-        assert!(
-            g.extractor,
-            "{ctx}: the Excavator on its open shaft survives the first wave"
-        );
+        assert!(g.extractor, "{ctx}: the Market survives the first wave");
         // (more than half: the Guards fight up close since the re-theme, and lose a little more than the Pickets did)
         assert!(
             g.army_left > (SOLDIERS + ANTI_AIR) / 2,
@@ -445,7 +442,7 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
         );
         assert!(
             done(&w, BldgKind::Extractor).is_some(),
-            "{ctx}: the Excavator on its open shaft stands at the end"
+            "{ctx}: the Market stands at the end"
         );
         assert!(
             done(&w, BldgKind::Depot).is_some(),

@@ -1,14 +1,14 @@
 // The gold mine (the re-theme, 2026-11-11): one mine per gold field, neutral (no team mask), 3x3 tiles, in three
-// stages, drawn to a 2x2 footprint (MINE_N; centred on a 3x3 field if the rules keep one). A timber-framed adit cut into the south face of a rough grey outcrop, the yard before it with rails, an ore
+// stages, drawn to a 2x2 footprint (MINE_N; centered on a 3x3 field if the rules keep one). A timber-framed adit cut into the south face of a rough gray outcrop, the yard before it with rails, an ore
 // cart and a spoil heap; gold shows as a few big veins in the rock and the ore in the cart, never as loose shiny piles.
 // `full`: two broad veins either side of the portal and a jagged one over its brow, nuggets on the crags, straight timbers,
 // a loaded cart, a lantern on the lintel; `low`: one vein and a dark band, a nugget, the lintel sagging and a post
-// leaning, the cart with grey rock, dug hollows and spoil in the yard; `empty`: no gold, the portal boarded over, its
+// leaning, the cart with gray rock, dug hollows and spoil in the yard; `empty`: no gold, the portal boarded over, its
 // lintel broken and the cap beam fallen, rock spilled out of the mouth, the cart tipped off the rails. Same conventions
-// as country.js: game units (a tile is 32), y up, +z south (to the camera), centred on the footprint. The gold, earth,
+// as country.js: game units (a tile is 32), y up, +z south (to the camera), centered on the footprint. The gold, earth,
 // iron and glint are the country's (country.js `countryMats`: plain or polished with the render); the rock and timber
 // are the mine's own (`mineMats`: round 1 drew the country's rock, whose lit crags went near white under the polish's
-// key and read as a heap of salt, and its fresh timber, which went orange and counted as gold).
+// key and read as a heap of pale crystals, and its fresh timber, which went orange and counted as gold).
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { cone } from './vael.js';
@@ -19,7 +19,7 @@ export const MINE_STAGES = ['full', 'low', 'empty'];
 /** The cell's height (game units): the outcrop's top over the ground. */
 export const MINE_H = 28;
 /** The footprint in tiles: drawn to 2x2 (Stelian, 2026-11-11: smaller than the Castle, a mid-size building's width);
- *  on a 3x3 field the same art sits centred. The model is built at the 3x3 round's size and scaled by MINE_SCALE. */
+ *  on a 3x3 field the same art sits centered. The model is built at the 3x3 round's size and scaled by MINE_SCALE. */
 export const MINE_N = 2;
 export const MINE_SCALE = 0.66;
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -52,9 +52,9 @@ function patch(edge, sq, h) {
 }
 
 const MM = { plain: null, polish: null };
-/** The mine's own materials over the country's set `C`: its rock (a dark grey, so a lit crag lands mid-grey under the
- *  polish's key and the gold stands off it), the portal's weathered oak (grey-brown, matte: never orange beside the
- *  gold), the sleepers' tarred timber, grey boards, the cart's iron, the unlit black of the adit, the tunnel's shaded
+/** The mine's own materials over the country's set `C`: its rock (a dark gray, so a lit crag lands mid-gray under the
+ *  polish's key and the gold stands off it), the portal's weathered oak (gray-brown, matte: never orange beside the
+ *  gold), the sleepers' tarred timber, gray boards, the cart's iron, the unlit black of the adit, the tunnel's shaded
  *  floor, a lantern. Made once per finish. */
 function mineMats(C) {
   const key = C.polish ? 'polish' : 'plain';
@@ -87,7 +87,7 @@ function nugget(g, C, x, y, z, r) {
   add(g, crag(r, 500 + Math.round(x * 7 + z * 3), 0.3), C.gold, x, y, z, rnd(), rnd() * 3, rnd());
   add(g, sph(r * 0.3, 6, 4), C.glint, x - r * 0.35, y + r * 0.6, z - r * 0.3);
 }
-/** An ore cart on the rails at (x, z): a riveted iron tub on four wheels; `load` fills it, 'gold' ore or grey 'rock';
+/** An ore cart on the rails at (x, z): a riveted iron tub on four wheels; `load` fills it, 'gold' ore or gray 'rock';
  *  `tip` lays it on its side off the rails (the empty mine's). */
 function cart(g, C, M, x, z, load, tip = false) {
   const c = grp(); c.position.set(x, tip ? 4.2 : 2.0, z); c.rotation.set(tip ? 0.3 : 0, tip ? 0.5 : 0, tip ? 1.35 : 0); g.add(c);
@@ -97,7 +97,7 @@ function cart(g, C, M, x, z, load, tip = false) {
   if (load === 'gold') { for (let k = 0; k < 7; k++) { const a = rnd() * 6.3, d = rnd() * 3.4, r = 1.8 + rnd() * 1.0; add(c, crag(r, 600 + k, 0.3), k % 4 === 3 ? C.goldDark : C.gold, Math.cos(a) * d, 7.0 + rnd() * 1.2, Math.sin(a) * d * 0.7, rnd(), rnd(), rnd()); } add(c, crag(2.6, 611, 0.3), C.gold, 0.4, 9.2, -0.3, 0.3, 0.8, 0.2); add(c, sph(0.7, 6, 4), C.glint, -0.3, 10.6, -1.0); add(c, sph(0.5, 6, 4), C.glint, 3.0, 8.6, 1.6); }
   else if (load === 'rock') { for (let k = 0; k < 6; k++) { const a = rnd() * 6.3, d = rnd() * 3.4, r = 1.6 + rnd() * 1.0; add(c, crag(r, 620 + k, 0.3), k % 2 ? M.rock : M.rockDark, Math.cos(a) * d, 6.6 + rnd() * 0.8, Math.sin(a) * d * 0.7, rnd(), rnd(), rnd()); } }
 }
-/** A heap of spoil at (x, z): dark dug earth with grey rock chips down its slopes, `r` across. */
+/** A heap of spoil at (x, z): dark dug earth with gray rock chips down its slopes, `r` across. */
 function spoil(g, C, M, x, z, r, h) {
   add(g, cone(r, h, 12), C.earthDark, x, h / 2 - 0.2, z, 0, rnd() * 3, 0).scale.z = 0.8;
   for (let k = 0; k < 4; k++) { const a = rnd() * 6.3, d = (0.3 + rnd() * 0.55) * r, y = Math.max(0.6, h * (1 - d / r) * 0.9); add(g, crag(1.3 + rnd() * 1.3, 700 + k + Math.round(x), 0.3), k % 2 ? M.rock : M.rockDark, x + Math.cos(a) * d, y, z + Math.sin(a) * d * 0.8, rnd(), rnd() * 3, rnd()).scale.y = 0.7; } // (dark chips: round 2's pale ones read as flower heads at 0.75)

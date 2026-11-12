@@ -1,4 +1,4 @@
-// Where the scenery goes: a deterministic scatter of doodads (sprites rendered by tools/render3d/scenery2.js) from
+// Where the scenery goes: a deterministic scatter of doodads (sprites rendered by tools/render3d/country.js, `RT_SCENERY`) from
 // the map seed. Purely visual, so it lives in the client and never touches the sim. Solid props stand inside rock
 // plateaus, which nothing walks on; flat props (craters, debris) lie on open ground away from the bases, the
 // resource fields and cliff edges, and are walked over (the renderer hides one a building is put on).

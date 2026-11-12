@@ -11,7 +11,7 @@ pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching, // (Sandbags: unlocks the Guard's Brace)
+    Entrenching, // (Shield Drill: unlocks the Guard's Brace)
     Afterburners,
     Slipstream,
     RapidConstruction,
@@ -98,7 +98,7 @@ const TECH: UpgradeDef = UpgradeDef {
     levels: 1,
     req: None,
 };
-/// Sandbags: unlocks the Guard's Brace (Dig In's tech before the re-theme).
+/// Shield Drill: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
     name: "Shield Drill",

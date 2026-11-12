@@ -210,7 +210,7 @@ function fightRow(c) {
 }
 { const e = canvas(W, H * 2), r4 = canvas(W, H), r5 = canvas(W, H); effectsRow(r4); fightRow(r5); e.data.set(r4.data, 0); e.data.set(r5.data, H * W * 4); save('effects.png', e); save('effects-1x.png', half(e)); }
 
-// ---- each polished piece alone at phone size: seats 0, 1 and 6 for the team-coloured ones ----
+// ---- each polished piece alone at phone size: seats 0, 1 and 6 for the team-colored ones ----
 for (const name of NEW) {
   const s = A.get(name), team = TEAM.includes(name), P = Math.max(224, s.img.h + 24), cols = team ? 3 : 1;
   const c = canvas(P * cols, P + 30); grass(c, 7 + name.length);
@@ -221,7 +221,7 @@ for (const name of NEW) {
   writeFileSync(join(outDir, 'models', `${name}@2x.png`), encodePNG(c)); writeFileSync(join(outDir, 'models', `${name}.png`), encodePNG(half(c)));
 }
 
-// ---- the maker's checks: the ground's values in grey under the polished pieces, the gold against the grass ----
+// ---- the maker's checks: the ground's values in gray under the polished pieces, the gold against the grass ----
 {
   const g = grey(z100), at = (x, y) => g.data[(y * g.w + x) * 4], med = (v) => { v.sort((a, b) => a - b); return v.length ? `${v[v.length >> 1]} (p90 ${v[Math.floor(v.length * 0.9)]})` : 'none'; };
   const X0 = (2304 - W) / 2, Y0 = (1088 - H) / 2, bins = { grass: [], forest: [], hill: [] };

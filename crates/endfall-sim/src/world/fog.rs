@@ -85,7 +85,7 @@ impl World {
     }
 }
 
-/// Each tile (index) of a map of `size` within `s` tiles of world point (x, y), by tile centre.
+/// Each tile (index) of a map of `size` within `s` tiles of world point (x, y), by tile center.
 fn disc(size: MapSize, x: f64, y: f64, s: f64, mut each: impl FnMut(usize)) {
     let (cx, cy, s2) = (x / TILE, y / TILE, s * s);
     let y0 = jsmath::to_i32(cy - s).max(0);

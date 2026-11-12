@@ -1,5 +1,5 @@
 // The long-press preview's stat chips (card.js `showDetail`), and only there: two fixed rows, the same for every unit.
-// Row 1, toughness: Health, Shields (every kind of a race that has shields: none since the re-theme), Armour (shown
+// Row 1, toughness: Health, Shields (every kind of a race that has shields: none since the re-theme), Armor (shown
 // at 0 too, dimmed). Row 2, attack: damage per hit, what it can hit (ground, air or both), then tags (Splash, Slows,
 // Heals, Flying); an unarmed unit (workers too, as in the selection console) shows a dimmed "—" in the damage slot.
 // Base stats only, read from the sim's tables (src/engine/constants.js): no upgrades, range, rate or speed.

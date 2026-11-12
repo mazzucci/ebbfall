@@ -10,7 +10,7 @@
 // one, removes a person (a stranger who guessed the code: REMOVE in their sheet; the relay lets their address in no
 // more); fills the lowest empty spot with an AI or an open seat (+ AI, + SEAT), eight seats at most; and picks the map
 // (any that seats the room). A guest sees the same board, read-only but their own token, SIT HERE on an open seat, and
-// the map as one line. A seat keeps its spot (and its colour, in the game too) whatever its side; the relay seats the
+// the map as one line. A seat keeps its spot (and its color, in the game too) whatever its side; the relay seats the
 // sides together only when the game starts. READY is a lit toggle; the room's code is the title, SHARE LINK beside it
 // (the big button while the host has a seat open). The menu's MULTIPLAYER is shown only where a relay is known:
 // `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.

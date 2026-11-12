@@ -1,4 +1,4 @@
-//! The AI's army: watching for intruders, repairs, defence, raids and waves (research is in research.rs, production
+//! The AI's army: watching for intruders, repairs, defense, raids and waves (research is in research.rs, production
 //! in produce.rs).
 
 use super::*;
@@ -38,7 +38,7 @@ const STAGE_NEAR: f64 = 4.0 * TILE;
 /// Supply short of the cap that counts as at the cap: a seat 1 or 2 short trains little more than one more unit.
 pub(crate) const CAP_SLACK: i32 = 2;
 
-/// A unit's worth in an army: its cost in salt.
+/// A unit's worth in an army: its cost in gold.
 fn army_worth(k: UnitKind) -> f64 {
     k.def().cost[0] as f64
 }
@@ -121,9 +121,8 @@ impl World {
         self.sweep_point()
     }
 
-    /// Raiders (two or more of the race's raider kind: Raiders, Shrikes) raid the player's harvesters, and with none in
-    /// sight an enemy extractor it knows of out on an open shaft (away from every enemy headquarters); badly hurt ones
-    /// fly home.
+    /// Raiders (two or more of the race's raider kind: Riders, Buggies) raid the player's harvesters, and with none in
+    /// sight an enemy Market it knows of out in the open (away from every enemy headquarters); badly hurt ones go home.
     pub(crate) fn tend_raiders(&mut self, candidates: &[Id], rally: Pt) {
         let mut raiders: Vec<Id> = self
             .ai()
@@ -705,7 +704,7 @@ impl World {
             .sum()
     }
 
-    /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defence): a wave ready by count and time waits until
+    /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defense): a wave ready by count and time waits until
     /// its armed units' worth beats the enemy army it expects by the margin (fading to even over `margin_fade`
     /// seconds of waiting, if it fades). It expects the army it last saw; a sighting older than `sighting_age` is
     /// stale: it first sends its cheapest armed unit to look (waiting up to `look_for` seconds), then expects the last
@@ -861,7 +860,7 @@ impl World {
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
     /// came within `CHASE_S` of our last wave's end left out (chasers of our wave home, not the foe coming). The
     /// siege rules, the home reserve and the pull-back on contact, are for such a foe only (one that sits behind its
-    /// defence); against a foe that comes at it, its waves go as before.
+    /// defense); against a foe that comes at it, its waves go as before.
     fn passive_foe(&self, t: f64) -> bool {
         t - self.ai().came_at > self.level().passive_expand
     }
@@ -1123,7 +1122,7 @@ mod tests {
     use crate::path::Pt;
     use crate::world::{Task, World};
 
-    /// Seat 1's AI with its wave of six Troopers out by the map's centre and two at home, as four Troopers of
+    /// Seat 1's AI with its wave of six Troopers out by the map's center and two at home, as four Troopers of
     /// another seat stand at its Core: the army phases' turn. Whether the wave was called home.
     fn raided(seats: usize, raider: u8) -> bool {
         let mut w = World::with_size(
@@ -1697,8 +1696,8 @@ mod tests {
                 }
             })
             .expect("open ground out past the base");
-        let pump = w.make_building(BldgKind::Extractor, PLAYER, far.0, far.1, true);
-        let p = w.bldg(pump).unwrap().clone();
+        let market = w.make_building(BldgKind::Extractor, PLAYER, far.0, far.1, true);
+        let p = w.bldg(market).unwrap().clone();
         assert!(
             (p.x - core.0).hypot(p.y - core.1) > 12.0 * TILE,
             "the Market stands out in the open"
@@ -1708,13 +1707,13 @@ mod tests {
             .map(|i| w.make_unit(UnitKind::Rider, ENEMY, p.x + 200.0, p.y + 30.0 * i as f64))
             .collect();
         w.update_fog();
-        w.ai_mut().known = vec![(pump, p.x, p.y, false, PLAYER)];
+        w.ai_mut().known = vec![(market, p.x, p.y, false, PLAYER)];
         let rally = Pt { x: p.x, y: p.y };
         w.tend_raiders(&raiders, rally);
         for &r in &raiders {
             assert!(
-                matches!(w.unit(r).unwrap().task, Task::Attack { target, .. } if target == pump),
-                "raider {r} goes for the Pump: {:?}",
+                matches!(w.unit(r).unwrap().task, Task::Attack { target, .. } if target == market),
+                "raider {r} goes for the Market: {:?}",
                 w.unit(r).unwrap().task
             );
         }

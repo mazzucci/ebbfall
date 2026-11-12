@@ -4,7 +4,7 @@
 // - online it is a menu and the game goes on under it (only the relay can stop a shared clock): BACK TO GAME, HOW TO
 //   PLAY, OPTIONS, LEAVE GAME, and PAUSE FOR EVERYONE while this side has pauses left. A room pause (Notion: Multiplayer design) shows
 //   the card on every side, with who paused and the time left; only the one who paused can end it early (RESUME: the
-//   others see whose pause it is, greyed), and once it is over the card closes for those who did not open it.
+//   others see whose pause it is, grayed), and once it is over the card closes for those who did not open it.
 // Opening it leaves full screen (the player may be off to another app); BACK TO GAME goes back into it if it was on,
 // unless the player has left it with the full-screen button since (screen.js). A pause someone else called leaves this
 // side's full screen alone.

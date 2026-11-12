@@ -32,7 +32,7 @@ fn open_spot(w: &World, from: (i32, i32), r: i32, seen: &[bool]) -> (i32, i32) {
     panic!("no open ground near {from:?}");
 }
 
-/// A start's centre, in tiles (the 4x4 Core's top-left plus 2).
+/// A start's center, in tiles (the 4x4 Core's top-left plus 2).
 fn start(w: &World, seat: usize) -> (i32, i32) {
     (w.map.bases[seat].0 + 2, w.map.bases[seat].1 + 2)
 }
@@ -60,7 +60,7 @@ fn block(w: &mut World, at: (i32, i32), n: usize, cols: usize) -> Vec<Id> {
         .collect()
 }
 
-/// The centre of the tile a point is on.
+/// The center of the tile a point is on.
 fn centre_of(w: &World, p: Pt) -> Pt {
     let t = w.map.tile_of(p.x, p.y);
     Pt {
@@ -69,9 +69,9 @@ fn centre_of(w: &World, p: Pt) -> Pt {
     }
 }
 
-/// Every unit's route can be walked: straight from where it stands (or its tile's centre, where its own search
+/// Every unit's route can be walked: straight from where it stands (or its tile's center, where its own search
 /// began) to its first waypoint (`fresh`: just planned, before anyone is jostled off its line), and straight from
-/// each waypoint to the next (the last one taken at its tile's centre: the exact spot ordered is anywhere on that
+/// each waypoint to the next (the last one taken at its tile's center: the exact spot ordered is anywhere on that
 /// free tile, a body's width from rock as ever).
 fn routes_walkable(w: &World, ids: &[Id], fresh: bool, ctx: &str) {
     for &id in ids {
@@ -496,7 +496,7 @@ fn path_cost_per_tick() {
     }
 }
 
-/// True when a point travelling the straight segment a→b stays off rock and buildings: a unit's centre, which
+/// True when a point traveling the straight segment a→b stays off rock and buildings: a unit's center, which
 /// `separate` pushes back out of a blocked tile.
 fn centre_line_clear(w: &World, a: Pt, b: Pt) -> bool {
     let steps = (((b.x - a.x).powi(2) + (b.y - a.y).powi(2)).sqrt() / 2.0).ceil() as i32 + 1;
@@ -510,10 +510,10 @@ fn centre_line_clear(w: &World, a: Pt, b: Pt) -> bool {
 
 #[test]
 fn a_walker_beside_a_rock_corner_does_not_step_into_it() {
-    // A route is smoothed from the centre of the unit's tile, but the unit walks its first leg from where it stands.
-    // Off-centre beside a corner, that line went through the rock the route went round: pushed back out, a worker on
+    // A route is smoothed from the center of the unit's tile, but the unit walks its first leg from where it stands.
+    // Off-center beside a corner, that line went through the rock the route went round: pushed back out, a worker on
     // its round planned the same route again at once, and stepped into the corner and back every tick (a Lumen at
-    // seed 8's Labyrinth sat so for two minutes). Walkers off-centre on every side of an L of rock, sent every way:
+    // seed 8's Labyrinth sat so for two minutes). Walkers off-center on every side of an L of rock, sent every way:
     // the line from where each stands to its next waypoint never crosses rock, and each gets there.
     let (mut runs, mut bad) = (0, Vec::new());
     for (dx, dy) in [
@@ -669,7 +669,7 @@ fn a_blocked_goal_ends_on_the_side_reached_first_from_every_direction() {
             w.map.rock[i] = 1;
         }
     };
-    // A crystal with two of its neighbours taken (a field's arc), and its image.
+    // A crystal with two of its neighbors taken (a field's arc), and its image.
     let g = (24, 26);
     for t in [g, (g.0 + 1, g.1), (g.0, g.1 + 1)] {
         rock(&mut w, t);
@@ -724,7 +724,7 @@ fn a_blocked_goal_ends_on_the_side_reached_first_from_every_direction() {
     assert_eq!(end(&w, mid, g), far, "the same end from half way there");
     assert_eq!(end(&w, turn((20, 40)), turn(g)), turn(far), "and turned");
     // Goals on the map's diagonals (the line to its middle cannot tell the tiles beside them apart on its own: 184 of
-    // these searches came out unturned before its second key), each with one of its eight neighbours taken in turn,
+    // these searches came out unturned before its second key), each with one of its eight neighbors taken in turn,
     // from eight directions at 2 to 59 tiles: turned alike, and the same end from half way.
     let (mut searched, mut unturned, mut swung) = (0, Vec::new(), Vec::new());
     for g in [(8, 8), (20, 20), (31, 31), (40, 40), (12, 51), (44, 19)] {

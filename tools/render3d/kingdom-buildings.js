@@ -1,5 +1,5 @@
 // The kingdom's buildings after the Castle (the re-theme's buildings family, 2026-11-10; not in the atlas: retheme.js
-// renders them by filter). Palette B (kingdom.js): slate-grey ashlar, slate roofs, dark oak, blackened iron, thatch on
+// renders them by filter). Palette B (kingdom.js): slate-gray ashlar, slate roofs, dark oak, blackened iron, thatch on
 // the Cottage only; team on cloth, flags and banners between ink hems, never on stone, slate or ground. Each building
 // sits on its own patch of trodden earth, no two the same shape, no pale deck or plinth. Same conventions as models.js:
 // game units (a tile is 32), y up, +z south (to the camera). Footprints: 2x2 is 64 across, 3x3 is 96.
@@ -32,7 +32,7 @@ const hiThatchTex = () => hiThatch ??= tex(128, (g, n) => {
 export function kbMats(M) {
   if (M.thatch) return M;
   M.tan = std({ color: 0x9a7650, map: M.canvas.map, roughness: 0.92 });                        // the Market awnings' tan stripes: a warm brown (hue 30, dull), apart from seat 7's red-orange and seat 1's red
-  M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull grey-brown straw (the Cottage's roof only; never orange beside the coins' gold)
+  M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull gray-brown straw (the Cottage's roof only; never orange beside the coins' gold)
   M.straw = std({ color: 0x9c8658, roughness: 0.95 });                                       // hay and straw: tan, never the coins' yellow
   M.hearth = std({ color: 0x2a0804, emissive: 0xe8300c, emissiveIntensity: 1.3 });           // the Blacksmith's ember: red-orange, small (round 3: a yellow glow read as the Market's gold)
   M.coals = std({ color: 0x1c1816, roughness: 1 });                                            // dark coals round it
@@ -42,7 +42,7 @@ export function kbMats(M) {
   M.horsePale = std({ color: 0x66503a, roughness: 0.75 });                                   // the stable's horses, a lighter bay so their heads read out of the dark stalls
   if (M.polish) {
     const X = polishTextures();
-    M.thatch.map = hiThatchTex(); M.thatch.color.setHex(0x5e5a48); M.thatch.needsUpdate = true;   // the courses drawn for 1x; the colour a step cooler than the plain 0x6e6448 (the judge: 0x665e48 was the one warm hue on the kingdom base), a dull grey straw under the polish's key, never orange beside the coins' gold
+    M.thatch.map = hiThatchTex(); M.thatch.color.setHex(0x5e5a48); M.thatch.needsUpdate = true;   // the courses drawn for 1x; the color a step cooler than the plain 0x6e6448 (the judge: 0x665e48 was the one warm hue on the kingdom base), a dull gray straw under the polish's key, never orange beside the coins' gold
     M.straw.bumpMap = X.fold; M.straw.bumpScale = 0.5; M.straw.needsUpdate = true;
     M.horsePale.map = X.hide; M.horsePale.needsUpdate = true;
     M.anvil.roughness = 0.3; M.anvil.envMapIntensity = 2.0; M.anvil.bumpMap = X.scuff; M.anvil.bumpScale = 0.3; M.anvil.needsUpdate = true; // one glint on the anvil's face under the key
@@ -55,7 +55,7 @@ export function brace(g, M, x, y, z, dx, dy, r = 0.6) { limb(g, [x + dx, y, z], 
 /** A steel finial on a ridge's end: a glint under the key, as on the slice's hall. */
 export const finial = (g, M, x, y, z) => add(g, sph(0.9, 8, 6), M.steel, x, y, z);
 
-/** A building's patch of trodden earth: `pts` the outline, scaled by `k` round its centre and nudged south (the first
+/** A building's patch of trodden earth: `pts` the outline, scaled by `k` round its center and nudged south (the first
  *  pass had every building on a brown plate the size of its footprint: identical plinths). Marked `ground` for the
  *  polish (polish.js): the contact shadow treats it as the ground itself, so nothing rings it. */
 export function earth(g, M, pts, k = 0.7, dz = 4) {
@@ -115,12 +115,12 @@ function chimney(g, M, x, y0, z, h, w = 4.6) {
   add(g, rbox(w - 1.4, 0.8, w - 1.4, 0.1), M.inkLine, x, y0 + h + 1.1, z);
 }
 
-/** Cottage (population, 2x2): a low wide house (Stelian, the final round: today's read too narrow and boxy): slate-grey
+/** Cottage (population, 2x2): a low wide house (Stelian, the final round: today's read too narrow and boxy): slate-gray
  *  ashlar walls 44 long and 24 deep, only 11 tall, its long side to the camera, under a big steep thatched roof 20
  *  high that dominates (the kingdom's one thatch: this is where people live), a stone chimney at the east gable, an
  *  oak door and two shuttered windows on the south face; at -20 the south wall, the east gable wall and the roof all
  *  show. Team: the flag at the ridge's west end and a thin strip along the south eave. From the camera: a big brown
- *  roof over a low grey wall, a chimney at one end, a flag. */
+ *  roof over a low gray wall, a chimney at one end, a flag. */
 export function cottage(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-34, -22], [26, -31], [35, 2], [28, 30], [-26, 29], [-35, 6]]);
@@ -150,7 +150,7 @@ export function cottage(M) {
  *  under a slate roof, its south side open as a loggia on oak posts where the weapon racks stand (spears, team shields
  *  hung on the back wall, a bow rack); in front the drill yard, a square of packed earth in a timber kerb with three
  *  straw dummies on posts and a pell; the tall flagstaff with a team banner at the yard's corner; two narrow team
- *  banners on the hall's gable. From the camera: a grey slate roof over a row of posts, a spiky rack, team discs,
+ *  banners on the hall's gable. From the camera: a gray slate roof over a row of posts, a spiky rack, team discs,
  *  a flag over a square of bare earth. */
 export function barracks(M) {
   kbMats(M); const g = grp();
@@ -184,7 +184,7 @@ export function barracks(M) {
  *  back, a square stone stack at its west end; under the roof the forge, a hearth of dark stone glowing
  *  orange-red (the kingdom's one warm light, small) under a hood, the anvil on an oak block in front, a quench trough
  *  of dark water, hammers and tongs on the post, horseshoes on the wall; a team cloth hung on the stack and a team
- *  banner on the gable. From the camera: a grey roof, a dark open front with a small orange glow and a pale anvil. */
+ *  banner on the gable. From the camera: a gray roof, a dark open front with a small orange glow and a pale anvil. */
 export function blacksmith(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-31, -26], [28, -30], [32, 12], [20, 30], [-18, 31], [-32, 8]]);
@@ -214,12 +214,12 @@ export function blacksmith(M) {
   return g;
 }
 
-/** Workshop (Ballista, Trebuchet, Balloon; 3x3): an open yard of trodden earth and timber where engines are built:
+/** Workshop (Ballista, Cannon, Balloon; 3x3): an open yard of trodden earth and timber where engines are built:
  *  a half-built trebuchet frame (two oak A-frames, a cross axle, the beam not yet hung) on the yard's east, a sawhorse
  *  and timber stacks, a folded balloon (pale canvas heaped with a team band) and its wicker basket with team cloth on
  *  its rim on the west, a lifting pole (a gin) with a rope; a small slate-roofed shed at the back for tools; a flag on
  *  the gin, a team cloth on the shed. From the camera: bare timber triangles beside a pale heap and a basket, a small
- *  grey roof behind. */
+ *  gray roof behind. */
 export function workshop(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-47, -40], [40, -46], [47, -10], [44, 40], [-20, 46], [-46, 30]]);
@@ -258,10 +258,10 @@ export function workshop(M) {
   return g;
 }
 
-/** Watchtower (defence, 2x2): a tall round tower of slate-grey ashlar on a square plinth, string courses, arrow slits,
+/** Watchtower (defense, 2x2): a tall round tower of slate-gray ashlar on a square plinth, string courses, arrow slits,
  *  a tall team banner down its south face; at the top a wider archer's platform: an oak hoarding on brackets, a
  *  battlemented stone parapet, a pennant staff; the archer (`watchtowerArcher`, the turning head) stands on it. An oak
- *  door at the foot, a brazier beside it. From the camera: a tall grey column with a team stripe, a wider crown on top,
+ *  door at the foot, a brazier beside it. From the camera: a tall gray column with a team stripe, a wider crown on top,
  *  the longest shadow in the base. */
 export const TOWER_H = 50;
 export function watchtower(M) {
@@ -314,7 +314,7 @@ export function watchtowerArcher(M) {
  *  the south side a row of stalls with oak half-doors, three horses' heads out over them, hay in a rack and bales by
  *  the door; a paddock of post-and-rail fence to the east with a horse's trough and a mounting block; a team caparison
  *  and saddle cloths hung on the rail to air, a team banner on the gable, pennants at the paddock's corners. From the
- *  camera: a low long grey roof over a row of dark doors with horse heads, a fence beside, team cloths on it. */
+ *  camera: a low long gray roof over a row of dark doors with horse heads, a fence beside, team cloths on it. */
 export function stables(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-47, -36], [46, -44], [47, 20], [40, 46], [-30, 44], [-47, 10]]);
@@ -349,8 +349,8 @@ export function stables(M) {
 /** Market (income, 2x2): money comes from here. Three stalls of oak round a small cobbled square: two under striped
  *  awnings (pale canvas and team cloth in alternate strips over oak poles, no slab) and one under a small slate roof;
  *  on their counters cloth bolts, loaves and pots; sacks of grain heaped by the stalls, a hand cart, barrels; at the
- *  centre the counting table with an open iron-bound coin chest heaped with gold (the one gold on the building: its
- *  cue), a scale and a ledger; a tall team banner on a staff. From the camera: two striped awnings and a grey roof round
+ *  center the counting table with an open iron-bound coin chest heaped with gold (the one gold on the building: its
+ *  cue), a scale and a ledger; a tall team banner on a staff. From the camera: two striped awnings and a gray roof round
  *  a small bright gold square, sacks about. */
 export function market(M) {
   kbMats(M); const g = grp();
@@ -362,7 +362,7 @@ export function market(M) {
     add(s, rbox(w, 5, 7, 0.4), M.oak, 0, 4.5, 1); add(s, rbox(w + 0.6, 0.8, 8, 0.2), M.oak, 0, 7.4, 1);                           // the counter
     if (roof === 'slate') { const r = add(s, rbox(w + 4, 1.0, 13, 0.2), M.roof, 0, 13.6, 0.5); r.rotation.x = 0.16; add(s, rbox(w + 4.4, 0.5, 0.8, 0.1), M.inkLine, 0, 12.6, 6.8); }
     else {                                                                                                                       // a striped awning: alternate strips of pale canvas and team cloth, an ink hem at its front and back
-      const n = Math.round(w / 3.2), sw = (w + 3) / n;                                                                          // a striped awning: alternate strips of cream canvas and tan (the final round: the stripes back, in neutral colours, never team or red), an ink hem at its front and back
+      const n = Math.round(w / 3.2), sw = (w + 3) / n;                                                                          // a striped awning: alternate strips of cream canvas and tan (the final round: the stripes back, in neutral colors, never team or red), an ink hem at its front and back
       for (let k = 0; k < n; k++) { const r = add(s, rbox(sw, 0.5, 13, 0.1), k % 2 ? M.tan : M.canvas, -(w + 3) / 2 + sw * (k + 0.5), 13.2, 0.5); r.rotation.x = 0.18; }
       for (const dz of [6.9, -5.9]) add(s, rbox(w + 3.4, 0.6, 0.7, 0.1), M.inkLine, 0, 13.2 - dz * 0.18 - 0.1, dz);
       add(s, rbox(w + 3, 1.6, 0.5, 0.1), M.cloth, 0, 11.0, 7.0); add(s, rbox(w + 3.4, 0.4, 0.6, 0.05), M.inkLine, 0, 10.1, 7.0); // the thin team hem along the front
@@ -372,7 +372,7 @@ export function market(M) {
   };
   const a = stall(-16, -8, 0.5, 16, 'awning'); const b = stall(18, -4, -0.6, 14, 'awning'); const c = stall(-4, -22, 0, 18, 'slate');
   void a; void b;                                                                                                                  // (the pass: no goods on the counters)
-  // the counting table at the centre: an open iron-bound chest heaped with gold, a scale, a ledger
+  // the counting table at the center: an open iron-bound chest heaped with gold, a scale, a ledger
   const TX = 2, TZ = 6;
   add(g, rbox(12, 1.0, 7, 0.3), M.oak, TX, 6.2, TZ); for (const [dx, dz] of [[-5, -2.5], [5, -2.5], [-5, 2.5], [5, 2.5]]) add(g, rbox(1.2, 4.6, 1.2, 0.2), M.oak, TX + dx, 3.6, TZ + dz);
   add(g, rbox(7, 4, 5, 0.4), M.oak, TX - 1.5, 8.7, TZ); for (const dy of [7.4, 10.2]) add(g, rbox(7.4, 0.5, 5.4, 0.1), M.ironDark, TX - 1.5, dy, TZ);

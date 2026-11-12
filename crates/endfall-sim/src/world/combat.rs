@@ -30,7 +30,7 @@ pub fn absorb(
     on - took
 }
 
-/// What a hit's `rest` (past the shields: `absorb`) takes off a hull with `armor`: the armour off, at least 1.
+/// What a hit's `rest` (past the shields: `absorb`) takes off a hull with `armor`: the armor off, at least 1.
 pub fn hull_loss(rest: f64, armor: f64) -> f64 {
     (rest - armor).max(1.0)
 }
@@ -60,7 +60,7 @@ impl World {
     /// flies or not (`flier`): nearer than `range` px (edge distance). A siege gun (`siege`: its blind ring, px) also
     /// takes nothing nearer than its ring and only what `team` sees (its sight and its allies': it outranges its own
     /// sight, so it needs a spotter); other shooters reach about as far as they see and take what is in reach, as
-    /// a tile-centre sight test fails at its edge. Priority first (see
+    /// a tile-center sight test fails at its edge. Priority first (see
     /// `threat_tier`: whatever can hurt the shooter, then other units, then plain buildings), then distance.
     #[allow(clippy::too_many_arguments)]
     pub fn find_target(
@@ -606,7 +606,7 @@ impl World {
             let d = dist(p.x, p.y, tp.0, tp.1);
             let mv = p.speed * dt;
             if d <= mv + t.r() * 0.3 {
-                // A splashing shot also hurts the target's walking neighbours (the counter to clumped infantry).
+                // A splashing shot also hurts the target's walking neighbors (the counter to clumped infantry).
                 let splash: Vec<Id> = if p.splash > 0.0 {
                     let team = self.team_of(p.target);
                     self.units
@@ -645,7 +645,7 @@ impl World {
         }
     }
     /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
-    /// with nothing to fight on its tracks (the Anchor Gun: no light gun) deploys where it stops (no order does it): it
+    /// with nothing to fight on its tracks (the Cannon: no light gun) deploys where it stops (no order does it): it
     /// packs up again only when it has to move. One with a light gun (none since the re-theme) settles only where it
     /// fights, or where it is told to hold.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
@@ -950,7 +950,7 @@ impl World {
     }
 }
 
-/// The armour a unit's toggle adds while it is settled in (a braced Guard); none while settling or packing up.
+/// The armor a unit's toggle adds while it is settled in (a braced Guard); none while settling or packing up.
 pub(crate) fn settled_armor(u: &Unit) -> f64 {
     match u.mode.filter(|_| u.swap <= 0.0).map(|k| k.def().effect) {
         Some(AbilityEffect::Settle { armor, .. }) => armor,

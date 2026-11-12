@@ -2,12 +2,12 @@
 // Stelian: the Archer read like the Villager (both seemed to carry something); the redraw is Robin Hood's silhouette, a
 // pointed team hood with a short cape and a tall dark longbow held out from the body. Renders the kingdom's figures in
 // the approved look (the polish at the game's 40-degree camera and 420 sun) on the real countryside grass tiles
-// (terrain3.js), the game's seat colours (seat 0 blue, seat 1 magenta), and writes to <outdir> (default target/archer-review):
+// (terrain3.js), the game's seat colors (seat 0 blue, seat 1 magenta), and writes to <outdir> (default target/archer-review):
 //   --save-old      first, before the model changes: renders today's Archer alone and keeps it in <outdir>/old.json
-//   lineup-100.png  a phone at zoom 1.0 (2x device px; -1x the CSS-px copy, -grey in greyscale): per seat a row of
+//   lineup-100.png  a phone at zoom 1.0 (2x device px; -1x the CSS-px copy, -grey in grayscale): per seat a row of
 //                   the old Archer E S W N, the new one E S W N, then the Villager, Guard and Knight (E and S)
 //   lineup-075.png  the same at zoom 0.75 (+ -1x)
-//   closeups-4x.png old against new at 4x (nearest-neighbour from 2x), facing E S W N, both seats
+//   closeups-4x.png old against new at 4x (nearest-neighbor from 2x), facing E S W N, both seats
 //   crowd-100.png   each seat's blob at the sim's spacing: Villagers, the new Archers, Guards, a Knight, zoom 1.0 (+ -1x)
 // Prints each kind's team share (mask px over solid px, facing 0) and its size at zoom 1.0 (CSS px).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -42,7 +42,7 @@ const FILTER = '^kg_archer_\\d+_[01]$|^kg_(villager|guard|knight)_(0|4|8|12|1|15
 const t0 = Date.now();
 const fresh = await render3d(FILTER, { polish: true });
 console.log(`rendered ${fresh.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
-const P = makeScene([...oldSprites, ...fresh], fresh.tints); // (the game's own seat colours)
+const P = makeScene([...oldSprites, ...fresh], fresh.tints); // (the game's own seat colors)
 
 // ---- the ground: the countryside's grass tiles, picked as the client picks them ----
 const tiles = {}; const getTile = (v) => tiles[v] ??= tile(0, v);

@@ -44,7 +44,7 @@ export const MAPS = [
   // (128x128, eight starts, two by each side. Picked from ten seeds per character by eight Medium AIs free for all, then
   // six free for all and three against three, eight four against four and in four pairs, on two turns of the seats:
   // every game ends, in 9 to 32 minutes, won from different starts; distinct layouts: a rock diamond in the middle, an
-  // open plain round a walled centre, a maze of rock)
+  // open plain round a walled center, a maze of rock)
   { name: 'Iron Compass', seed: 5, kind: 0, size: 128 },
   { name: 'Sunken Court', seed: 9, kind: 3, size: 128 },
   { name: 'Gray Warrens', seed: 2, kind: 4, size: 128 },

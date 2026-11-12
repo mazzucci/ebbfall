@@ -36,8 +36,8 @@ impl World {
         }
     }
 
-    /// Every pool's use of a seat together (the balance lab's army size; nothing caps the sum: each pool has its own
-    /// maximum, `pool_max`).
+    /// Every pool's use of a seat together, the Portal's Power use included (read by the tests only; nothing caps the
+    /// sum: each pool has its own maximum, `pool_max`).
     pub fn army_used(&self, team: u8) -> i32 {
         self.pools[team as usize].iter().map(|p| p[0]).sum()
     }
@@ -92,8 +92,8 @@ impl World {
         best
     }
 
-    /// A finished Pump on a seep pays its owner salt with no workers (PRD: the conversion, rule 1): `PUMP_RATE` a
-    /// second, banked a whole salt at a time from its own fraction (`Bldg::pumped`, hashed). An AI's income
+    /// A finished Market pays its owner gold with no workers (PRD: the conversion, rule 1): `PUMP_RATE` a
+    /// second, banked a whole gold at a time from its own fraction (`Bldg::pumped`, hashed). An AI's income
     /// multiplier counts here as at a field (Brutal's x1.3: its edge is its whole economy's).
     pub(crate) fn pump(&mut self, bid: Id, dt: f64) {
         let team = self.bldg(bid).unwrap().team;

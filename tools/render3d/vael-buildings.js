@@ -1,23 +1,18 @@
-// The Vael's buildings on the new look (STYLE.md, "Vael buildings"): pale pearl shells on an ink core, a few small
-// lantern deeplights (vael-palette.js), team glaze between ink seams. Step 1's family: the Sunpetal (spire), the Siphon (siphon),
-// the Cradle (kiln), the Glasshouse (loom), the Anemone (ward), the Gyre (zenith) and the Darkwater (eclipse); the
-// Tidewell (conflux) stays in vael2.js and is the reference. Same conventions: game units (1 tile = 32), y up, +z
-// south (towards the camera); a building's anchor is its footprint's centre. Each building owns a roof from above:
-// a five-petal flower open to the sky, a cluster of soft lobes drinking from a shaft, a half-open shell, a ribbed dome, a star of
-// tentacles with lit tips, a widening spiral ribbon, a dark pool in a crown of arms; the Tidewell is a ring with
-// pylons. No ring of alternating glaze bands anywhere (the Tidewell's read as a lifebuoy): team glaze is one band,
-// a sleeve, a cap or a patch, each between ink seams.
+// An older Expedition building look (STYLE.md, "Vael buildings"): pale pearl shells on an ink core, a few small lantern
+// deeplights (vael-palette.js), team glaze between ink seams. One remains: `cradle` (kiln, a half-open shell), a
+// fitTints reference (main.js); `tidewell` (conflux) is in vael2.js. Same conventions: game units (1 tile = 32), y up,
+// +z south (towards the camera); a building's anchor is its footprint's center.
 // The camera looks down at 55 degrees from the south: a face shows when its normal points up or south; a plate
 // leaning towards the camera shows only its edge (its back faces down), so petals and lids open past the view angle.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
-import { torus, lathe } from './vael.js';
+import { grp, add, rbox, cyl, sph, plate, boxUV } from './models.js';
+import { torus } from './vael.js';
 import { deeplight } from './vael2.js';
 import { VP } from './vael-palette.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
-// ---- the family's own materials (colours: vael-palette.js): dark glass for faces and panes, the Cradle's basin and bud ----
+// ---- the family's own materials (colors: vael-palette.js): dark glass for faces and panes, the Cradle's basin and bud ----
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
@@ -25,7 +20,7 @@ function fam(M) {
     darkGlass: new THREE.MeshPhysicalMaterial({ color: VP.darkGlass, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
     petalGlass: new THREE.MeshPhysicalMaterial({ color: VP.petalGlass[0], emissive: VP.petalGlass[1], emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: VP.petalGlass[2] }), // the Sunpetal's faces: deep glass with a light sweep, never flat black
     violetWater: new THREE.MeshStandardMaterial({ color: VP.basin[0], emissive: VP.basin[1], emissiveIntensity: VP.basin[2], metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep and lit (violet on the pearl palette), never black
-    bud: new THREE.MeshPhysicalMaterial({ color: VP.bud[0], emissive: VP.bud[1], emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: VP.bud[2] }), // the Cradle's bud: the light's colour under a pale sheen
+    bud: new THREE.MeshPhysicalMaterial({ color: VP.bud[0], emissive: VP.bud[1], emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: VP.bud[2] }), // the Cradle's bud: the light's color under a pale sheen
     mouth: new THREE.MeshStandardMaterial({ color: VP.mouth[0], emissive: VP.mouth[1], emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark, lit from within
   };
   FAM.set(M, A); return A;
@@ -37,12 +32,6 @@ function plinth(g, M, r, k = 0.3) {
   add(g, plate(tri(r, k), 4, 1.5), M.shellDark, 0, 0, 0);
   add(g, plate(tri(r * 0.9, k), 3, 1.4), M.shell, 0, 3.5, 0);
 }
-/** A team band round a drum between two ink seams: radius r (a little over the drum's), height h, centred on y. */
-function skirt(g, M, r, h, y, seg = 36) {
-  add(g, cyl(r, r + 0.3, h, seg), M.glaze, 0, y, 0);
-  add(g, cyl(r + 0.25, r + 0.45, 0.7, seg), M.inkSeam, 0, y + h / 2 + 0.2, 0);
-  add(g, cyl(r + 0.35, r + 0.55, 0.7, seg), M.inkSeam, 0, y - h / 2 - 0.2, 0);
-}
 /** A flat team ring between two ink seams (a rim, a collar's top), radius r, width w, at height y. */
 function hoop(g, M, r, w, y, seg = 48) {
   add(g, torus(r, w / 2, Math.PI * 2, seg), M.glaze, 0, y, 0, Math.PI / 2, 0, 0);
@@ -51,9 +40,6 @@ function hoop(g, M, r, w, y, seg = 48) {
 }
 /** A petal outline rooted at the origin, `l` long along +x and `w` wide; `k` narrows it towards the tip. */
 const petal = (l, w, n = 16, k = 0) => { const p = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = l / 2 - Math.cos(a) * l / 2; p.push([x, Math.sin(a) * w / 2 * (1 - k * x / l)]); } return p; };
-/** An outline stood upright in a group: [u, h] points (u across, h up) extruded `depth` towards local -z; the outer
- *  face at z = 0 faces local +z. */
-const upright = (parent, pts, depth, bevel, mat, z = 0) => add(parent, plate(pts, depth, bevel), mat, 0, 0, z, -Math.PI / 2, 0, 0);
 /** A flat ribbon along a helix round the y axis (`turns` from radius r0 to r1, geometric or linear with `lin`, y0 to y1, from angle a0),
  *  `w0` to `w1` wide across the radius and `t` thick; four strips with hard edges, so its top face takes the light. */
 function ribbon(H, w0, w1, t, seg = 120) {
@@ -71,129 +57,6 @@ function ribbon(H, w0, w1, t, seg = 120) {
     if (g.attributes.normal.getY(0) < 0) { const ix = g.getIndex(); for (let i = 0; i < ix.count; i += 3) { const a = ix.getX(i); ix.setX(i, ix.getX(i + 1)); ix.setX(i + 1, a); } g.computeVertexNormals(); } // the top face must face up
     return boxUV(g);
   });
-}
-
-/** Glasshouse (tech, 2x2): a dome of dark glass in pearl ribs on an ink drum: eight pearl meridians and one hoop
- *  over the glass, a pearl crown with the one deeplight on it; a team band round the dome's foot and a team skirt
- *  round the drum, between ink seams, team caps on three pearl buttresses. From above: a round ribbed dome, convex
- *  and dark between pale ribs; the Darkwater beside it is open and concave. */
-export function glasshouse(M) {
-  const g = grp(), A = fam(M);
-  plinth(g, M, 29, 0.3);
-  add(g, cyl(21.5, 24.5, 9, 40), M.ink, 0, 7.5, 0);                                             // the ink drum
-  skirt(g, M, 24.9, 5.4, 6.6, 40);                                                             // the team skirt
-  add(g, torus(21.8, 1.4, Math.PI * 2, 48), M.ring, 0, 12, 0, Math.PI / 2, 0, 0);              // the pearl cornice the dome sits on
-  const dome = add(g, sph(20.5, 36, 24), A.darkGlass, 0, 12, 0); dome.scale.set(1, 0.82, 1);     // the dome: dark glass
-  add(g, cyl(20.8, 21.6, 4.6, 40), M.glaze, 0, 15.1, 0);                                         // the team band round its foot
-  add(g, cyl(21.1, 21.5, 0.6, 40), M.inkSeam, 0, 17.6, 0);
-  for (let k = 0; k < 4; k++) {                                                                 // eight pearl meridians (four half rings)
-    const m = add(g, torus(20.9, 1.15, Math.PI, 40), M.ring, 0, 12, 0); m.rotation.y = k / 4 * Math.PI; m.scale.set(1, 0.82, 1);
-  }
-  add(g, torus(20.9 * Math.cos(0.72), 0.95, Math.PI * 2, 48), M.ring, 0, 12 + 20.5 * 0.82 * Math.sin(0.72), 0, Math.PI / 2, 0, 0); // one hoop, two thirds up
-  add(g, cyl(2.8, 3.6, 2.6, 16), M.ring, 0, 29.6, 0);                                           // the crown
-  add(g, sph(1.6, 10, 8), M.inkSeam, 0, 31.4, 0);                                               // its ink socket
-  deeplight(g, M, 1.2, 0, 32.4, 0);                                                            // the one light
-  for (let k = 0; k < 3; k++) {                                                                 // three pearl buttresses leaning on the drum
-    const a = k / 3 * Math.PI * 2 + Math.PI / 6, p = grp(); p.position.set(Math.cos(a) * 26, 4, Math.sin(a) * 26); p.rotation.y = -a; g.add(p);
-    add(p, rbox(7, 13, 10.5, 1.2), M.glaze, 0, 6.5, 0, 0, 0, 0.35);                                // leaning in, team glaze
-    add(p, rbox(7.4, 0.6, 10.9, 0.15), M.inkSeam, 0.6, 1.2, 0, 0, 0, 0.35);                       // an ink seam at its foot
-    add(p, rbox(5.6, 2.2, 9, 0.6), M.ring, -2.2, 13.2, 0, 0, 0, 0.35);                          // a pearl cap
-    add(p, rbox(6, 0.5, 9.4, 0.15), M.inkSeam, -1.9, 12, 0, 0, 0, 0.35);
-  }
-  return g;
-}
-
-/** A curved tentacle: capsule segments along the points `pts`, radius tapering r0 to r1; `glaze` marks the segments
- *  (by index) sleeved in team glaze between ink seams. */
-function tentacle(g, M, pts, r0, r1, glazed = []) {
-  const n = pts.length - 1;
-  for (let i = 0; i < n; i++) {
-    const r = r0 + (r1 - r0) * i / n, team = glazed.includes(i);
-    limb(g, pts[i], pts[i + 1], team ? r * 1.12 : r, team ? M.glaze : M.shell);
-    if (team) { add(g, sph(r * 1.22, 10, 8), M.inkSeam, ...pts[i]); add(g, sph(r * 1.18, 10, 8), M.inkSeam, ...pts[i + 1]); }
-  }
-}
-
-/** Sunpetal (supply, 2x2): a flower open to the sky: five broad rounded pearl petals spaced evenly round an ink
- *  core, each splayed well past the view angle so its inner face shows from above: smoked-amber glass with a light sweep
- *  in a pearl rim, a team band across the face at its root between ink seams; a team skirt round the core; the one
- *  deeplight on the pistil at the heart. Nothing pointed: round tips, no wedges. The Anemone beside it is thin
- *  curling tentacles, not petals. */
-export function sunpetal(M) {
-  const g = grp(), A = fam(M);
-  plinth(g, M, 27, 0.35);
-  add(g, cyl(9, 12.5, 14, 28), M.ink, 0, 11, 0);                                               // the ink core
-  skirt(g, M, 12.9, 6.2, 8.4, 28);                                                             // the team skirt round it
-  add(g, cyl(9.4, 9.4, 1, 28), M.shellDark, 0, 18.3, 0);                                       // the cup's floor, pearl in shade
-  add(g, torus(9.2, 1.3, Math.PI * 2, 5), M.glaze, 0, 18.9, 0, Math.PI / 2, 0, -Math.PI / 2);    // the hub: a pentagonal team ring, a corner to each petal
-  add(g, torus(9.2, 1.7, Math.PI * 2, 5), M.inkSeam, 0, 18.4, 0, Math.PI / 2, 0, -Math.PI / 2);  // its ink seam beneath
-  add(g, cyl(1.6, 2.4, 9, 12), M.ring, 0, 22.5, 0);                                            // the pistil
-  add(g, sph(2.2, 10, 8), M.inkSeam, 0, 27.4, 0);                                              // its ink socket
-  deeplight(g, M, 1.9, 0, 28.6, 0);                                                            // the one light, at the heart
-  const blade = petal(27, 21, 20, 0.08).map(([x, z]) => [z, x]);                                // a rounded petal, [across, up]
-  const face = petal(14.5, 14, 18, 0.08).map(([x, z]) => [z, x + 11.6]);                           // its glass face, inside a pearl rim
-  for (let k = 0; k < 5; k++) {                                                                // five, evenly spaced: one to the north
-    const a = -Math.PI / 2 + k / 5 * Math.PI * 2, p = grp();
-    p.position.set(Math.cos(a) * 8.5, 17.5, Math.sin(a) * 8.5); p.rotation.y = Math.PI / 2 - a; // local +z points outward
-    const lean = grp(); lean.rotation.x = 1.0; p.add(lean);                                      // splayed past the view angle: its face to the sky
-    upright(lean, blade, 2.4, 0.7, M.shell);                                                     // the petal, pearl
-    upright(lean, face, 0.5, 0.1, A.petalGlass, -2.6);                                           // the dark glass face
-    upright(lean, [[-8.6, 3.2], [8.6, 3.2], [8.8, 10.4], [-8.8, 10.4]], 0.6, 0.1, M.glaze, -2.7);      // the team band across the face above the hub, even in width
-    upright(lean, [[-8.6, 2.4], [8.6, 2.4], [8.6, 3.2], [-8.6, 3.2]], 0.7, 0.1, M.inkSeam, -2.8);      // ink seams either side
-    upright(lean, [[-8.9, 10.4], [8.9, 10.4], [9, 11.3], [-9, 11.3]], 0.7, 0.1, M.inkSeam, -2.8);
-    upright(lean, [[-0.6, 9.5], [0.6, 9.5], [0.4, 25.5], [-0.4, 25.5]], 0.5, 0.1, M.shellLight, 0.4); // a lighter midrib up the back
-    g.add(p);
-  }
-  return g;
-}
-
-/** Siphon (economy, on a mine shaft, 2x2): something grown that has settled on the shaft's north rim and drinks from
- *  it: an irregular cluster of soft pearl lobes of different sizes heaped over the collar's north beam and its corners
- *  (more of it to the east), team glaze in ragged part-bands low on every lobe inside ink seams, a dark ink opening low on its south
- *  face; out of that opening three thick soft feeding tubes droop over the beam and down into the black, darkening as
- *  they go, and the one deeplight glows in the opening. No plinth: the shaft's own sprite (drawn under every building)
- *  is its ground, so the black mouth stays largely open and the collar and dug earth show round it. Asymmetric and
- *  low: no dome, no lid, no spiral, nothing upright or pointed, nothing waving up (round 1: an upright straw read as a
- *  gun turret; round 2: a whorl's spiral as the Gyre; round 3: a clam over the hole as a lid built on the frame, the
- *  Excavator). */
-export function siphon(M) {
-  const g = grp(), sq = 0.7;                                                                     // (the lobes squashed: soft, settled)
-  const LOBES = [[6, 7, -21, 9.5, M.shell, [0.2, 2.0]], [-6, 6, -22.5, 7, M.shellLight, [1.0, 2.1]], [15, 5.2, -15, 6.2, M.shell, [0.5, 1.9]], [-14, 4.4, -16, 4.6, M.shellDark, [1.2, 1.8]],
-    [1, 11.2, -24.5, 4.6, M.shellLight, [0.4, 2.0]], [21, 3.6, -23, 4.2, M.shellDark, [0.6, 1.7]], [-17, 3, -24, 3.4, M.shell, [0.9, 1.6]], [11, 12.2, -20, 3.6, M.shellLight, [0.3, 1.8]]];
-  // a point on a lobe (the ellipsoid as SphereGeometry draws it: phi round, theta down from the crown)
-  const on = (x, y, z, r, phi, th, k = 1.02) => new THREE.Vector3(x - Math.cos(phi) * Math.sin(th) * r * k, y + Math.cos(th) * r * k * sq, z + Math.sin(phi) * Math.sin(th) * r * k * 1.05);
-  for (const [x, y, z, r, mat, band] of LOBES) {
-    add(g, sph(r, 28, 18), mat, x, y, z).scale.set(1, sq, 1.05);
-    if (!band) continue;                                                                       // a team patch low on the lobe: a ragged part-band round its flank, inside ink seams (round 4: crown spots read as toadstools)
-    const [p0, pl] = band, T0 = 0.9, T1 = 1.7, rag = (u) => 0.1 * Math.sin(u * 7 + p0 * 3) + 0.06 * Math.sin(u * 13 + p0);   // its edges wander
-    const pos = [], idx = [], NU = 24, NV = 4;
-    for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) { const u = i / NU, ph = p0 + pl * u, t0 = T0 + rag(u), t1 = T1 - rag(u + 0.5) * 0.7, th = t0 + (t1 - t0) * j / NV, q = on(x, y, z, r, ph, th, 1.015); pos.push(q.x, q.y, q.z); }
-    for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const a = i * (NV + 1) + j; idx.push(a, a + 1, a + NV + 1, a + 1, a + NV + 2, a + NV + 1); }
-    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); bg.setIndex(idx); bg.computeVertexNormals();
-    { const n = bg.attributes.normal, c = new THREE.Vector3(x, y, z), p = new THREE.Vector3(pos[0], pos[1], pos[2]); if (new THREE.Vector3(n.getX(0), n.getY(0), n.getZ(0)).dot(p.sub(c)) < 0) { const ix = bg.getIndex(); for (let k = 0; k < ix.count; k += 3) { const t = ix.getX(k); ix.setX(k, ix.getX(k + 1)); ix.setX(k + 1, t); } bg.computeVertexNormals(); } }
-    add(g, boxUV(bg), M.glaze, 0, 0, 0);
-    for (const edge of [0, 1]) {                                                               // its ink seams, along the ragged edges
-      const pts = []; for (let i = 0; i <= NU; i++) { const u = i / NU; pts.push(on(x, y, z, r, p0 + pl * u, edge ? T1 - rag(u + 0.5) * 0.7 : T0 + rag(u), 1.03)); }
-      add(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.4, 5), M.inkSeam, 0, 0, 0);
-    }
-  }
-  add(g, sph(4.2, 20, 14), M.ink, 4, 6.2, -14.6).scale.set(1.5, 0.7, 0.6);                     // the dark opening the tubes come out of
-  deeplight(g, M, 1.1, 3.5, 7.4, -13.4);                                                        // the one light, in it
-  // the feeding tubes: soft, thick, drooping over the beam and down into the black, darker as they go down
-  const deep = M.tubeDeep ??= new THREE.MeshStandardMaterial({ color: VP.tubeDeep, roughness: 0.6, metalness: 0.1 }), dark = M.inkSeam; // the pearl in shade, then the ink: the tube goes down into the dark
-  const TUBES = [[2.3, [[-1, 6.5, -15.5], [-2.6, 9.6, -13], [-3.6, 7.6, -9.6], [-4.2, 1.5, -7.6], [-4.6, -6, -6.6], [-4.8, -14, -6.2]]],
-    [2.7, [[5.5, 7, -15], [6.2, 10, -12.2], [5.6, 7, -8.4], [4.6, 0.5, -6], [4, -7, -4.8], [3.8, -15, -4.3]]],
-    [1.9, [[13.5, 5.8, -10.5], [11.6, 9.4, -8.2], [9.2, 6.4, -6], [8.2, -0.5, -4.2], [7.8, -8, -3.4], [7.7, -15, -3]]]];
-  for (const [r, pts] of TUBES) {
-    const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
-    const part = (u0, u1, rr) => { const q = []; for (let k = 0; k <= 16; k++) q.push(c.getPoint(u0 + (u1 - u0) * k / 16)); return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 24, rr, 10); };
-    add(g, part(0, 0.5, r), M.shell, 0, 0, 0);                                                   // over the rim, pale
-    add(g, part(0.06, 0.36, r * 1.08), M.glaze, 0, 0, 0);                                         // a team sleeve at its root, between ink seams
-    for (const u of [0.05, 0.37]) add(g, part(u - 0.012, u + 0.012, r * 1.14), M.inkSeam, 0, 0, 0);
-    add(g, part(0.46, 0.6, r * 0.95), deep, 0, 0, 0);                                            // going down, in shade
-    add(g, part(0.58, 1, r * 0.9), dark, 0, 0, 0);                                               // lost in the dark
-  }
-  return g;
 }
 
 /** Cradle (trains the line, 3x3): a scallop shell with something growing in it: a fan-shaped bowl, its flat hinge
@@ -238,82 +101,5 @@ export function cradle(M) {
   add(bud, sph(10.5, 14, 10), M.deepHalo2, 0, 6, 0).scale.set(1, 1.2, 1);                        // a faint glow round it
   add(bud, cyl(4.6, 5.2, 1.4, 16), M.glaze, 0, 17.6, 0); add(bud, cyl(5.3, 5.3, 0.5, 16), M.inkSeam, 0, 16.7, 0); add(bud, sph(2.4, 10, 8), M.ring, 0, 18.9, 0); // a team collar under a pearl tip
   deeplight(g, M, 1.5, 8, 10.6, 11);                                                             // the one light, at the bud's foot
-  return g;
-}
-
-/** Anemone (defence, 2x2): an anemone that stings: a fat ink column on a pearl foot, a pearl oral disc with a team
- *  rim round a dark mouth lit from within, and five soft pearl tentacles curling out, up and in from the
- *  disc, each tapering to a lantern tip (deeplight, never a pale bulb); a tall team collar round the column, a
- *  hoop on the foot, a team sleeve on each tentacle's middle, all between ink seams. Low and curled, so its
- *  shadows stay short. From above: five curling arms with lit tips round a pale disc: nothing like petals. */
-export function anemone(M) {
-  const g = grp(), A = fam(M);
-  plinth(g, M, 27, 0.4);
-  add(g, lathe([[0, 0], [16, 0], [15, 2.5], [12.5, 5], [11.5, 8]], 32), M.shell, 0, 6.5, 0);     // the pearl foot
-  hoop(g, M, 13.6, 2.6, 9.6, 36);                                                               // a team hoop round its slope
-  add(g, cyl(10.5, 12.5, 13, 28), M.ink, 0, 17, 0);                                            // the ink column
-  skirt(g, M, 12.2, 6.4, 15, 28);                                                              // the team collar
-  add(g, cyl(12.5, 10.5, 3, 28), M.shell, 0, 24.5, 0);                                         // the oral disc
-  hoop(g, M, 11.3, 3.2, 26, 36);                                                               // its team rim
-  add(g, cyl(7, 7.5, 1.4, 20), A.mouth, 0, 26.4, 0);                                           // the mouth: dark, lit from within
-  add(g, torus(4.2, 0.5, Math.PI * 2, 24), M.shellDeep, 0, 27.1, 0, Math.PI / 2, 0, 0);         // a faint pearl ring in it
-  for (let k = 0; k < 5; k++) {                                                                 // five tentacles, one to the north, curling out, up and in
-    const a = -Math.PI / 2 + k / 5 * Math.PI * 2, x = Math.cos(a), z = Math.sin(a), t = Math.sin(k * 2.1) * 0.6;
-    const P = [[10, 26], [15.5, 27.5], [20, 30.5], [22.5, 35], [21.5, 39.5 + t], [18.5, 42 + t]].map(([r, y]) => [x * r, y, z * r]);
-    tentacle(g, M, P, 2.6, 1.3, [1, 2]);
-    add(g, sph(2, 12, 10), M.deeplight, ...P[5]);                                              // the stinging tip: the lantern light, no white heart
-    add(g, sph(3.2, 10, 8), M.deepHalo1, ...P[5]); add(g, sph(4.6, 10, 8), M.deepHalo2, ...P[5]);
-  }
-  return g;
-}
-
-/** Gyre (trains flyers, 3x3): a tall spiral open to the sky: a cone of coil, a flat pearl rail winding two turns up
- *  and inward from a wide base turn to a tight top turn, tapering as it climbs, a team stripe along its outer
- *  edge between ink seams so the turns part; a short ink core inside its foot, the top end to the south under a
- *  deeplight; a team skirt round the base drum. From above: a spiral narrowing to its centre, the only coil. */
-export function gyre(M) {
-  const g = grp();
-  plinth(g, M, 43, 0.2);
-  add(g, cyl(13, 17, 10, 36), M.ink, 0, 9, 0);                                                 // the base drum
-  skirt(g, M, 17.3, 7, 8.6, 36);
-  add(g, cyl(5, 8, 24, 20), M.ink, 0, 26, 0);                                                  // a short ink core the coil winds up round
-  add(g, torus(6.4, 0.5, Math.PI * 2, 24), M.shellDeep, 0, 30, 0, Math.PI / 2, 0, 0);
-  const H = { a0: -Math.PI / 2, turns: 2, r0: 38, r1: 10, y0: 14, y1: 56, lin: true };          // the helix: two turns, wide at the foot, tight at the top; both ends to the south
-  add(g, ribbon(H, 9.5, 4.5, 2.4), M.shell, 0, 0, 0);                                          // the rail
-  add(g, ribbon({ ...H, r0: H.r0 + 2.7, r1: H.r1 + 1.2 }, 4.2, 2.2, 2.9), M.glaze, 0, 0, 0);    // the team stripe along its outer edge
-  add(g, ribbon({ ...H, r0: H.r0 + 0.4, r1: H.r1 - 0.05 }, 0.6, 0.5, 3.1), M.inkSeam, 0, 0, 0);  // the ink seam inside it (its outer edge is the rail's)
-  const ex = Math.cos(H.a0) * H.r1, ez = -Math.sin(H.a0) * H.r1;                                 // the rail's top end
-  add(g, sph(3.2, 14, 10), M.ring, ex, H.y1, ez).scale.set(1.2, 0.7, 1.2);                       // a pearl knob ends it
-  add(g, sph(2.2, 10, 8), M.inkSeam, ex, H.y1 + 3.4, ez); deeplight(g, M, 1.7, ex, H.y1 + 4.7, ez); // the light at the end
-  for (const u of [0.18, 0.42, 0.7]) {                                                          // pearl struts from the plinth up to the rail's underside
-    const a = H.a0 + u * H.turns * Math.PI * 2, r = H.r0 + (H.r1 - H.r0) * u, y = H.y0 + (H.y1 - H.y0) * u;
-    limb(g, [Math.cos(a) * (r + 1), 6, -Math.sin(a) * (r + 1)], [Math.cos(a) * r, y - 1.2, -Math.sin(a) * r], 1.5, M.shellDark);
-  }
-  return g;
-}
-
-/** Darkwater (the lurker's building, 2x2): the dark pool: a flat, wide, still pool of ink (`poolDeep`, the darkest
- *  thing in it) filling a low basin, four thin pearl arms rising at its rim on the diagonals and leaning outward,
- *  low, with the pool open between them; a team band round the basin, a sleeve on each arm and its root block,
- *  between ink seams; the one deeplight sunk at the centre, dim. Nothing enclosed: the pool is the signature. */
-export function darkwater(M) {
-  const g = grp();
-  plinth(g, M, 28, 0.3);
-  add(g, cyl(24.5, 26.5, 7, 40), M.ink, 0, 4.5, 0);                                             // the basin, low and wide
-  skirt(g, M, 26.9, 5.8, 4.2, 40);                                                             // the team band round it
-  add(g, cyl(23.4, 23.4, 0.6, 40), M.poolDeep, 0, 8, 0);                                       // the ink pool, wide and still
-  add(g, torus(24, 1.1, Math.PI * 2, 48), M.shellDark, 0, 8.1, 0, Math.PI / 2, 0, 0);          // a thin rim, pearl in shade
-  for (let k = 0; k < 4; k++) {                                                                 // the arms, at the diagonals: thin, low, leaning out
-    const a = Math.PI / 4 + k / 2 * Math.PI, x = Math.cos(a), z = Math.sin(a);
-    const P = [[24, 8.5], [26, 15], [29.5, 20.5], [32, 23.5]].map(([r, y]) => [x * r, y, z * r]);
-    limb(g, P[0], P[1], 2.2, M.shell);
-    limb(g, P[1], P[2], 2.1, M.glaze);                                                         // the team sleeve
-    add(g, sph(2.4, 10, 8), M.inkSeam, ...P[1]); add(g, sph(2.3, 10, 8), M.inkSeam, ...P[2]);  // ink seams either end of it
-    limb(g, P[2], P[3], 1.7, M.shell);
-    add(g, sph(2, 10, 8), M.ring, ...P[3]);                                                    // the tip
-    add(g, rbox(8, 3.6, 9.5, 1), M.glaze, x * 24.5, 9.8, z * 24.5, 0, -a, 0);                  // its root on the rim, team glaze
-    add(g, rbox(8.4, 0.5, 9.9, 0.15), M.inkSeam, x * 24.5, 8.1, z * 24.5, 0, -a, 0);           // an ink seam under it
-  }
-  deeplight(g, M, 1.2, 0, 8.3, 0);                                                             // the one light, sunk in the ink
   return g;
 }

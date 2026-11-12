@@ -16,14 +16,14 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const smooth = (t) => { t = clamp01(t); return t * t * (3 - 2 * t); };
-/** A well-mixed seed for a variant's own draws (terrain2.js: hash2 of neighbouring integers is correlated). */
+/** A well-mixed seed for a variant's own draws (terrain2.js: hash2 of neighboring integers is correlated). */
 const sd = (a, b = 0) => Math.floor(hash2(Math.floor(hash2(a, b, 991) * 1e9), a * 31 + b, 992) * 65536);
 
 // Grass: a mid green under the units in value and saturation (the slice's stand-in was [52,74,38] to [118,144,74]);
 // dirt a dusty tan, never red-brown (splats read as blood); dry grass a straw green.
 const G_DARK = [54, 76, 40], G_MID = [78, 102, 52], G_LIGHT = [106, 130, 66], G_DRY = [120, 126, 72];
 const DIRT = [120, 110, 84], DIRT_DARK = [92, 84, 64], PEBBLE = [138, 134, 124];
-// Hill: grey rock, a lit top (value about 0.45: over the grass, under the units' pale tops), a dark layered face.
+// Hill: gray rock, a lit top (value about 0.45: over the grass, under the units' pale tops), a dark layered face.
 const ROCK_TOP = [136, 134, 126], ROCK_TOP2 = [84, 82, 76], ROCK_LIP = [162, 160, 150], ROCK_FACE = [34, 32, 30], ROCK_FACE2 = [76, 72, 66], CRACK = [56, 54, 50], MOSS = [88, 112, 56];
 // the hill's boulders: lumps standing on the slabs, lit on their north-west, dark on their south-east, a dark seam round each
 const BOULDER_LIT = [152, 150, 140], BOULDER = [114, 112, 104], BOULDER_DARK = [66, 64, 60];
@@ -136,7 +136,7 @@ export function tile(m, variant = 0) {
         const t = Math.min(above && above <= SIDE ? above / SIDE : 1, left && left < SIDE ? left / SIDE : 1, right && right < SIDE ? right / SIDE : 1);
         c = layered(t * 0.8);
       } else {
-        // the top: grey rock in broad slabs, periodic and shared by the variants; the lip over each face
+        // the top: gray rock in broad slabs, periodic and shared by the variants; the lip over each face
         const n = vnoise(x, y, 32, 61, 2) * 0.45 + vnoise(x, y, 8, 63, 8) * 0.35 + vnoise(x, y, 4, 65, 16) * 0.2;
         c = mix(ROCK_TOP2, ROCK_TOP, n).map(q => q * (0.92 + hash2(x, y, 67, T) * 0.14));
         const slab = vnoise(x, y, 16, 69, 4), slabN = vnoise(x + 1, y + 1, 16, 69, 4);

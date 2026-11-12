@@ -91,9 +91,9 @@ test('knights appear once a forge stands, and a balloon floats straight across t
     // (it may still be by the Blacksmith: a click there can take the building, so until it is the selection)
     for (let i = 0; i < 8 && !(await d.selection()).some(e => e.id === raider.id); i++) { await d.skip(1); await d.clickEntity(raider.id); }
     assert.ok((await d.selection()).some(e => e.id === raider.id), 'the balloon selected');
-    // Straight across the map (through the centre, wherever the bases are), over whatever rock lies between.
+    // Straight across the map (through the center, wherever the bases are), over whatever rock lies between.
     const W = await d.eval(() => endfall.engine.WW), H = await d.eval(() => endfall.engine.WH);
-    const dx = W / 2 - raider.x, dy = H / 2 - raider.y, len = Math.hypot(dx, dy) || 1; // 1300 px towards (and past) the centre
+    const dx = W / 2 - raider.x, dy = H / 2 - raider.y, len = Math.hypot(dx, dy) || 1; // 1300 px towards (and past) the center
     const target = { x: Math.round(raider.x + dx / len * 1300), y: Math.round(raider.y + dy / len * 1300) };
     await d.rightClickWorld(target.x, target.y);
     await d.skip(21);
@@ -169,7 +169,7 @@ test('a Market built in the base earns gold by itself; one per Castle', async ()
   const d = await newGame(DESKTOP);
   try {
     await d.grant(1000, 0);
-    // (the Market needs the Barracks; it goes up in the base, no shaft)
+    // (the Market needs the Barracks; it goes up in the base)
     await buildAndFinish(d, 'c', 'barracks', 3);
     const ext = await buildAndFinish(d, 'x', 'extractor', 0);
     await d.clickEntity(ext.id);
@@ -254,7 +254,7 @@ test('an attack raises an alert, and Space jumps to it', async () => {
     await d.centerOn(1800, 1800);
     await until(d, async () => d.eval((fx) => endfall.G.units.some(u => u.team === 0 && Math.abs(u.x - fx) < 200 && u.hp < u.maxhp), far.x), { seconds: 10, step: 1, what: 'the second attack' });
     await d.page.waitForTimeout(600); // (a frame or two: its alert reaches the client)
-    // In view (the camera stops at the map's edge, so not necessarily centred).
+    // In view (the camera stops at the map's edge, so not necessarily centered).
     const inView = (p) => d.eval((p) => { const c = endfall.cam, v = endfall.view; return p.x > c.x && p.x < c.x + v.w / c.zoom && p.y > c.y && p.y < c.y + v.h / c.zoom; }, p);
     await d.key(' ');
     assert.ok(await inView(far) && !(await inView(spot)), 'the newest attack first');
@@ -364,7 +364,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(1)').click(); // cancel the research
     const after = (await d.state()).res;
-    assert.ok(after[0] - before[0] >= 100 && after[1] === before[1], 'cancel refunds in full (gold; no ether)');
+    assert.ok(after[0] - before[0] >= 100 && after[1] === before[1], 'cancel refunds in full (gold; nothing in the second slot)');
     await d.pressCard('Weapons I');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].weapons)) === 1, { seconds: 70, what: 'Weapons I' });
     await d.clickEntity(forge.id);
@@ -538,7 +538,7 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
       // The workers stopped (so no gold comes in while the repair's cost is measured, and they stand for a tap); a tap
-      // may still pick a neighbour: retry, then follow the one selected.
+      // may still pick a neighbor: retry, then follow the one selected.
       await d.stopByUI(mine(await d.state(), 'harvester').map(u => u.id));
       await d.key('Escape'); await d.key('Escape');
       let h = null;
@@ -1920,7 +1920,7 @@ test('phone: SELECT, HOME and ARMY one row of three alike above the minimap; Hom
     const v = await view();
     assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centres on the Core: ${JSON.stringify(v)}`);
     // Army: every combat unit, wherever it is (not the harvesters); a second tap looks at them.
-    const far = { x: core.x > 1000 ? 700 : 1350, y: core.y > 1000 ? 700 : 1350 }; // (clear of the map's edge: the view can centre there)
+    const far = { x: core.x > 1000 ? 700 : 1350, y: core.y > 1000 ? 700 : 1350 }; // (clear of the map's edge: the view can center there)
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [far.x, far.y]);
     await d.page.locator('#btnArmy').tap();
     assert.deepEqual(await d.eval(() => endfall.ui.sel.map(e => e.id).sort((a, b) => a - b)), [...ids].sort((a, b) => a - b), 'Army: the three Guards, no harvester');
@@ -2198,7 +2198,7 @@ const fitsPage = async (page, what) => {
 };
 /** A board as saved: a side number per spot (null: empty), you in spot 0, the AIs Expedition on Hard. */
 const saved = (...teams) => Array.from({ length: 8 }, (_, i) => (teams[i] == null ? null : i ? { race: 'vael', team: teams[i], diff: 3 } : { race: 'humans', team: teams[i] }));
-/** Each seat's Core (tile centre), by seat. */
+/** Each seat's Core (tile center), by seat. */
 const cores = (page) => page.evaluate(() => endfall.G.teams.map((_, s) => { const b = endfall.G.bldgs.find(x => x.team === s && x.d.hq); return [b.tx + 2, b.ty + 2]; }));
 const apart = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
@@ -2329,7 +2329,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await seats.side(1, 0); await seats.race(3, 'vael'); await seats.diff(3, 3);
     assert.deepEqual(await tags(), ['SIDE 1', 'SIDE 1', 'SIDE 3', 'SIDE 4']);
     const bands = await seats.bands();
-    // COMPUTER 2 goes: COMPUTER 3 moves up into spot 2 (its name and colour the spot's), and its SIDE 4 is SIDE 2.
+    // COMPUTER 2 goes: COMPUTER 3 moves up into spot 2 (its name and color the spot's), and its SIDE 4 is SIDE 2.
     await seats.remove(2);
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', ''], 'no gap');
     assert.deepEqual(await tags(), ['SIDE 1', 'SIDE 1', 'SIDE 2'], 'no side number past the sides there are');
@@ -2339,7 +2339,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await seats.open(2);
     assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => [b.textContent, b.classList.contains('on')])), [['SIDE 1', false], ['SIDE 2', true], ['SIDE 3', false]], 'its sheet: as many sides as players, its own lit');
     await page.locator('#soloSheet [data-k="done"]').click();
-    // The game: you and COMPUTER 1 against COMPUTER 2, the Hard Expedition AI; each in its spot's colour.
+    // The game: you and COMPUTER 1 against COMPUTER 2, the Hard Expedition AI; each in its spot's color.
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.factions, [1, 2].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW]);
@@ -2660,16 +2660,16 @@ test('an enemy Android is seen and picked however long it stands still (nothing 
   try {
     // (set-up: an enemy Android out on the field, held, and our Balloon watching it from out of its reach)
     const at = await d.eval(() => { const b = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq); const dx = b.x < 1000 ? 1 : -1; return { x: b.x + dx * 640, y: b.y, dx }; });
-    const marine = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]);
+    const android = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]);
     const spy = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [at.x - at.dx * 300, at.y]);
-    await d.eval((ids) => ids.forEach(id => endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id))), [spy, marine]);
-    const seen = () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), marine);
+    await d.eval((ids) => ids.forEach(id => endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id))), [spy, android]);
+    const seen = () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), android);
     await d.skip(5);
     assert.equal(await seen(), true, 'still seen after standing still for 5 s');
-    const u = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return { x: u.x, y: u.y }; }, marine);
+    const u = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return { x: u.x, y: u.y }; }, android);
     await d.centerOn(u.x, u.y);
-    await d.clickEntity(marine);
-    assert.ok((await d.selection()).some(e => e.id === marine), 'a click picks it');
+    await d.clickEntity(android);
+    assert.ok((await d.selection()).some(e => e.id === android), 'a click picks it');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2978,7 +2978,7 @@ async function selectedTrooper(d) {
   assert.deepEqual((await d.selection()).map(e => e.id), [id], 'the Guard is selected');
   return id;
 }
-/** Centre the camera on the map's middle (room to move every way). */
+/** Center the camera on the map's middle (room to move every way). */
 const toMiddle = (d) => d.eval(() => endfall.centerOn(endfall.engine.WW / 2, endfall.engine.WH / 2));
 
 test('desktop, CLASSIC controls (the default): with a unit selected A arms attack-move, the arrow keys move the map and W does not', async () => {
@@ -3032,7 +3032,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     assert.deepEqual(shown.map(([, k, l]) => `${l} ${k}`), ['Attack E', 'Hold R', 'Brace T', 'Deselect H'], 'each button its slot\'s key');
     for (const [slot, k] of shown) assert.equal(k, GRID[slot]);
     const W = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
-    await d.rightClickWorld(W[0] / 2, W[1] / 2); // (the camera is centred there too)
+    await d.rightClickWorld(W[0] / 2, W[1] / 2); // (the camera is centered there too)
     assert.equal((await d.state()).units.find(u => u.id === id).task, 'move');
     const moves = {};
     for (const k of ['w', 'a', 's', 'd']) moves[k] = await holdKey(d, k);

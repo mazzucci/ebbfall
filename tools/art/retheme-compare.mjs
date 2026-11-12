@@ -1,13 +1,13 @@
 // The re-theme's slice picture (Stelian's look, then four blind testers; 2026-11-10): node tools/art/retheme-compare.mjs <outdir> [--elev=40] [--skip-today]
 // Rows, each a landscape phone at 2x (1688x780), seat 0 (left) against seat 1:
 //   row 0  the game's atlas kinds (since the re-theme's PR 1: its art) on the seabed: Villager, Guard, Knight, Castle against
-//          Bot, Buggy, Mercenary, Data centre, a gold outcrop between (world px 1:1 at the default zoom)
+//          Bot, Buggy, Mercenary, Data center, a gold outcrop between (world px 1:1 at the default zoom)
 //   row 1  the slice (retheme.js: the kingdom on palette B, the Expedition's one look) at the lower camera (--elev, 40
 //          by default) on grass, the units drawn 1.4x: Villager, Guard, Knight, Castle against Bot, Buggy, Marine,
-//          Data centre, a gold outcrop between
+//          Data center, a gold outcrop between
 //   row 2  the crowd check: about twelve units a side in a fight at the sim's spacing (they overlap), at zoom 1.0
 //   row 3  the same scene at the phone's default zoom, 0.75 (the PM's question: would a closer default help)
-// Writes compare.png (2x), compare-1x.png (CSS px), compare-grey.png (2x, greyscale), zoom-075.png and zoom-100.png
+// Writes compare.png (2x), compare-1x.png (CSS px), compare-grey.png (2x, grayscale), zoom-075.png and zoom-100.png
 // (the crowd at each zoom, 2x), models/<name>.png and models/<name>@2x.png (each new model alone at phone size in
 // seats 0, 1 and 6 with its team share), shares.json, and prints the team shares (review.mjs's measure: mask px over
 // solid px at facing 0) and each row's ground value. Reuses review.mjs's approach: terrain2.js tile() for the ground,
@@ -35,7 +35,7 @@ console.log(`rendered ${today.length + fresh.length} sprites in ${((Date.now() -
 const TINTS = seatTints(fresh.tints);
 console.log(`seat 0 drawn as #${SEAT0.toString(16)} (tint #${TINTS[0].toString(16)}; the game's gold stays in src/)`);
 const { get, draw, place, share: measure, sizeOf, setShadow } = makePainters([...today, ...fresh], TINTS);
-// (the painters, the grass, the font and the colour checks live in retheme-paint.mjs, shared with the families' scripts)
+// (the painters, the grass, the font and the color checks live in retheme-paint.mjs, shared with the families' scripts)
 
 // ---- team shares (review.mjs's measure: facing 0, frame 0) ----
 const shares = {};
@@ -59,7 +59,7 @@ const SLICE_LIST = [
   ['kg_villager_1_0', 560, 320, 0], ['kg_villager_0_1', 610, 380, 0], ['kg_guard_0_0', 650, 460, 0], ['kg_guard_1_1', 700, 520, 0], ['kg_guard_15_0', 620, 580, 0], ['kg_knight_0_0', 720, 650, 0], ['kg_knight_2_1', 560, 690, 0],
   ['ex_bot_8_0', 1130, 320, 1], ['ex_bot_9_1', 1080, 380, 1], ['ex_buggy_8_0', 1040, 470, 1], ['ex_buggy_7_1', 1120, 560, 1], ['ex_marine_8_0', 1000, 540, 1], ['ex_marine_9_1', 1060, 640, 1], ['ex_marine_10_0', 1150, 660, 1],
 ];
-/** The crowd: about twelve a side meeting at the centre of a world `w` x `h` (2x px), at the sim's spacing (line
+/** The crowd: about twelve a side meeting at the center of a world `w` x `h` (2x px), at the sim's spacing (line
  *  units r 10-11 stand about 24 world px apart in a blob; they overlap when they press). */
 function crowd(cx, cy) {
   const list = [], jit = (k) => ((k * 7919) % 13 - 6) * 3;
@@ -71,7 +71,7 @@ function crowd(cx, cy) {
 const rows = [];
 if (!SKIP_TODAY) rows.push({ text: 'ROW 0  TODAY: HARBOUR V VAEL, 55° CAMERA, THE SEABED', make: (c) => { ground(c, 0, H, 1); place(c, TODAY_LIST); } });
 rows.push({ text: `ROW 1  THE SLICE: KINGDOM (SLATE) V EXPEDITION, UNITS 1.4X, ${ELEV}°, GRASS`, make: (c) => { ground(c, 0, H, 2, GRASS); setShadow(1.45); place(c, SLICE_LIST); setShadow(1); } });
-// the crowd at zoom 1.0 is the centre of a bigger canvas; at 0.75 the whole of it scaled down (the phone's 2x screen then shows 1125x520 world px)
+// the crowd at zoom 1.0 is the center of a bigger canvas; at 0.75 the whole of it scaled down (the phone's 2x screen then shows 1125x520 world px)
 const BIG = canvas(2250, 1040); ground(BIG, 0, 1040, 3, GRASS); setShadow(1.45); place(BIG, crowd(1125, 520)); setShadow(1);
 const z100 = crop(BIG, (2250 - W) / 2, (1040 - H) / 2, W, H), z075 = resample(BIG, 0.75);
 writeFileSync(join(outDir, 'zoom-100.png'), encodePNG(z100)); writeFileSync(join(outDir, 'zoom-075.png'), encodePNG(z075));
@@ -98,6 +98,6 @@ for (const [side, kinds, bld] of [['kg', KG, 'castle'], ['ex', EX, 'hall']]) for
   setShadow(1);
   label(c, `${name}  SEATS 0 1 6  TEAM ${shares[name].toFixed(3)}`, 6, P + 6, 2);
   writeFileSync(join(outDir, 'models', `${name}@2x.png`), encodePNG(c)); const h1 = half(c); writeFileSync(join(outDir, 'models', `${name}.png`), encodePNG(h1));
-  for (const mode of ['protan', 'deutan']) writeFileSync(join(outDir, 'models', `${name}-${mode}.png`), encodePNG(simulate(h1, mode))); // (seats 0 blue, 1 magenta, 6 violet under the two colour blindnesses)
+  for (const mode of ['protan', 'deutan']) writeFileSync(join(outDir, 'models', `${name}-${mode}.png`), encodePNG(simulate(h1, mode))); // (seats 0 blue, 1 magenta, 6 violet under the two color blindnesses)
 }
 console.log('slice picture ->', outDir);

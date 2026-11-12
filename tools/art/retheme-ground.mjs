@@ -10,10 +10,10 @@
 //   row 3  every prop at 1:1 beside a Guard; the gold's four stages in four variants
 //   row 4  the effects strip: every projectile and animation frame at phone size, the projectiles at 4x
 //   row 5  a small fight: arrows, a bolt, a stone, tracers and a rocket in flight, a hit, a muzzle flash, explosions
-// Writes family.png (2x), family-1x.png (CSS px), family-grey.png (2x, greyscale); map-100.png and map-075.png (the
+// Writes family.png (2x), family-1x.png (CSS px), family-grey.png (2x, grayscale); map-100.png and map-075.png (the
 // map view at each zoom, 2x, and -1x copies); fog.png (explored-but-unseen ground beside visible ground, the proposed
 // dim); worn.png (worn dirt under a base's buildings, with and without); effects.png (rows 4 and 5 alone);
-// models/<name>.png and <name>@2x.png (each new model alone at phone size: seats 0, 1 and 6 for the team-coloured
+// models/<name>.png and <name>@2x.png (each new model alone at phone size: seats 0, 1 and 6 for the team-colored
 // ones, with the share in the label; -protan and -deutan copies); shares.json (shares and sizes at zoom 1.0).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -99,7 +99,7 @@ function earthBed(c, nodes) {
     const i = (y * c.w + x) * 4; for (let k = 0; k < 3; k++) c.data[i + k] = c.data[i + k] * (1 - a) + col[k] * a;
   }
 }
-/** The explored-but-unseen dim: the fog layer's colour at alpha `a` over everything, from x0 on (softened over 24 px). */
+/** The explored-but-unseen dim: the fog layer's color at alpha `a` over everything, from x0 on (softened over 24 px). */
 function fogDim(c, x0, rgb, a) {
   for (let y = 0; y < c.h; y++) for (let x = Math.max(0, x0 - 12); x < c.w; x++) { const k = a * Math.min(1, (x - x0 + 12) / 24), i = (y * c.w + x) * 4; for (let q = 0; q < 3; q++) c.data[i + q] = c.data[i + q] * (1 - k) + rgb[q] * k; }
 }
@@ -247,7 +247,7 @@ const FOG = { rgb: [18, 22, 34], a: 0.45 };
   save('worn.png', c); save('worn-1x.png', half(c));
 }
 
-// ---- each new model alone at phone size: seats 0, 1 and 6 for the team-coloured ones ----
+// ---- each new model alone at phone size: seats 0, 1 and 6 for the team-colored ones ----
 for (const name of NEW) {
   const s = get(name), team = TEAM.includes(name), P = Math.max(224, s.img.h + 24), cols = team ? 3 : 1;
   const c = canvas(P * cols, P + 30); patch(c, { tw: Math.ceil(c.w / T) + 1, th: Math.ceil(c.h / T) + 1, seed: 7 + name.length });
@@ -258,7 +258,7 @@ for (const name of NEW) {
   if (team || /^rt_gold_/.test(name)) for (const mode of ['protan', 'deutan']) writeFileSync(join(outDir, 'models', `${name}-${mode}.png`), encodePNG(simulate(h1, mode)));
 }
 
-// ---- the maker's checks: the ground's values in grey, the gold against the grass ----
+// ---- the maker's checks: the ground's values in gray, the gold against the grass ----
 {
   const g = grey(z100), at = (x, y) => g.data[(y * g.w + x) * 4], med = (v) => { v.sort((a, b) => a - b); return v.length ? `${v[v.length >> 1]} (p90 ${v[Math.floor(v.length * 0.9)]})` : 'none'; };
   const X0 = (2304 - W) / 2, Y0 = (1088 - H) / 2, bins = { grass: [], forest: [], hill: [] };

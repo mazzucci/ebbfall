@@ -35,7 +35,7 @@ export function finishFx(img, { ink = true } = {}) {
 const fx = (w, h, fn, o) => finishFx(image(w, h, fn), o);
 const NONE = [0, 0, 0, 0];
 
-// the palettes: fire in four hard steps (white heart, yellow, orange, a dark red rim); smoke in three greys lit from
+// the palettes: fire in four hard steps (white heart, yellow, orange, a dark red rim); smoke in three grays lit from
 // the north-west; timber, steel, feathers; a tracer's pale yellow-white
 const FIRE = [[255, 250, 225], [255, 214, 96], [240, 128, 40], [150, 48, 24]];
 const SMOKE = [[172, 168, 164], [124, 122, 120], [84, 82, 82]];
@@ -43,7 +43,7 @@ const SMOKE = [[172, 168, 164], [124, 122, 120], [84, 82, 82]];
 const TIMBER = [236, 222, 186], TIMBER_DARK = [186, 160, 110], STEEL = [206, 210, 214], STEEL_DARK = [124, 128, 134], FEATHER = [240, 236, 226], FEATHER_DARK = [170, 164, 152];
 const TRAIL = [[206, 204, 200], [164, 162, 158], [118, 116, 114]];
 const TRACER = [255, 246, 210], TRACER_TAIL = [232, 184, 96], LED = [240, 246, 244], CHARCOAL = [84, 88, 86], CHARCOAL_DARK = [48, 50, 52], ROCK = [138, 136, 130], ROCK_DARK = [72, 70, 66];
-/** The fire's colour at heat t (0 the heart, 1 the rim), in hard steps. */
+/** The fire's color at heat t (0 the heart, 1 the rim), in hard steps. */
 const fire = (t) => FIRE[Math.min(3, Math.floor(clamp01(t) * 4))];
 
 // ---------------- projectiles ----------------
@@ -70,8 +70,8 @@ function ballistaBolt() {
     return NONE;
   });
 }
-/** The trebuchet's stone (`rt_stone`, 22x22, its anchor at the centre): a round grey rock lit from the north-west, in
- *  three hard bands, a few chips of a darker grey. Not in the atlas since the Cannon took the siege slot (the review
+/** The trebuchet's stone (`rt_stone`, 22x22, its anchor at the center): a round gray rock lit from the north-west, in
+ *  three hard bands, a few chips of a darker gray. Not in the atlas since the Cannon took the siege slot (the review
  *  pictures keep it). */
 function stone() {
   return image(22, 22, (x, y) => {
@@ -81,7 +81,7 @@ function stone() {
     return [...(vnoise(x, y, 4, 7, 0) > 0.72 ? ROCK_DARK : c), 255];
   });
 }
-/** The Cannon's ball (`rt_cannonball`, 16x16, its anchor at the centre): a smooth round iron shot, near-black,
+/** The Cannon's ball (`rt_cannonball`, 16x16, its anchor at the center): a smooth round iron shot, near-black,
  *  lit from the north-west in three hard bands with a small bright glint, so it reads as metal and not as a rock. */
 function cannonball() {
   return image(16, 16, (x, y) => {
@@ -93,7 +93,7 @@ function cannonball() {
     return [...(lit > 0.5 ? [112, 116, 122] : lit > 0.28 ? [70, 72, 78] : [40, 42, 46]), 255];
   });
 }
-/** A rifle tracer (`rt_tracer`, 26x4; the Marine, the Mercenary, the Veteran): a short bright line, its heart pale
+/** A rifle tracer (`rt_tracer`, 26x4; the Android, the Mercenary, the Veteran): a short bright line, its heart pale
  *  yellow-white, its tail darkening in two steps. Not a laser: 13 CSS px long, 2 thick. */
 function tracer(len = 26, head = TRACER, tail = TRACER_TAIL) {
   return image(len, 4, (x, y) => {
@@ -148,7 +148,7 @@ function muzzle(f) {
     return [...fire(x / L * 0.9 + f * 0.1), 255];
   });
 }
-/** Small smoke (`rt_puff_f`, 4 frames, 32 px): three hard lobes of grey, lit from the north-west, growing and
+/** Small smoke (`rt_puff_f`, 4 frames, 32 px): three hard lobes of gray, lit from the north-west, growing and
  *  thinning (the last frame breaks into pieces). */
 function puff(f) {
   const t = f / 3, k = 1 + t * 0.7, lobes = [[0, 1, 6 * k], [4.5, -2.5, 4.5 * k], [-4.5, -2, 4.2 * k], [1, -5.5, 4 * k], [-2, 4.5, 3.6 * k], [5, 3, 3.4 * k]];
@@ -174,7 +174,7 @@ function trail(f) {
   });
 }
 /** An explosion (`rt_boom_f`, 8 frames at 128 px for a building, `rt_boom_small_f`, 6 at 56 for a unit): a fireball in
- *  four hard bands breaking into lobes, smoke in three greys rising behind it as the fire shrinks, dark bits flying
+ *  four hard bands breaking into lobes, smoke in three grays rising behind it as the fire shrinks, dark bits flying
  *  out. Hard edges and banding, in the sprites' medium (today's is a soft painted blob). */
 function boom(size, n, f, seed) {
   const t = f / (n - 1), R = size / 2, bits = Array.from({ length: 10 }, (_, k) => ({ a: hash2(k, 1, seed) * 6.3, v: 0.5 + hash2(k, 2, seed) * 0.5, s: 1.5 + hash2(k, 3, seed) * 2 }));

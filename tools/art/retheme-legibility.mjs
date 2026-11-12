@@ -4,7 +4,7 @@
 // cool rim light from the south-east; bolder mid-toned props) and C (the adjusted set under a key light from the
 // front-left, over the viewer's shoulder: the faces we see lit, the cast shadow up-screen behind the unit, a small
 // contact shadow all round the feet; a picture-only variant, never the atlas's). On the real countryside grass
-// (terrain3.js) in the game's seat colours. node tools/art/retheme-legibility.mjs [outdir] [--save-old]
+// (terrain3.js) in the game's seat colors. node tools/art/retheme-legibility.mjs [outdir] [--save-old]
 //   --save-old          first, before any change: renders today's units and the two buildings into <outdir>/old.json
 //   lineup-100.png      a row per kind (Archer, Villager, Guard, Knight; Bot, Sellsword, Marine), seat 0 left, seat 1
 //                       right, each seat TODAY E S | ADJUSTED E S | C E S, zoom 1.0 (2x device px; -1x the CSS-px copy)

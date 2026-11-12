@@ -28,7 +28,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #top{display:flex;align-items:center;gap:14px;height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;flex:none;min-width:0}
 .res{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
-/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 salt, 40/40 supply). */
+/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 gold, 40/40 supply). */
 #rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
 /* Gold as money (a cost, the top bar's figure, a toast that names gold): two small stacks of gold coins, lit faces
    over darker rims, a brown outline (the field on the map stays raw gold). Drawn in a 12x10 box, so it keeps its
@@ -53,7 +53,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
 .toast.bad{border-color:var(--bad);color:#ffb3b3} .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
-#hint:empty{display:none} /* (no grey pill when there is nothing to say) */
+#hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
@@ -98,7 +98,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:9px;height:7.5px}
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
 /* Its stat chips (stats.js): two rows, toughness then attack, each slot in the same place for every unit; the figures
-   in the HUD's mono font, the icons the console's; a slot with nothing in it (no armour, no weapon) dimmed, not gone. */
+   in the HUD's mono font, the icons the console's; a slot with nothing in it (no armor, no weapon) dimmed, not gone. */
 #cmdInfo .stats{flex:1 1 100%;display:flex;flex-direction:column;gap:3px;padding:1px 0}
 #cmdInfo .sr{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;min-height:18px}
 #cmdInfo .sc{display:inline-flex;align-items:center;gap:3px;font:13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
@@ -134,7 +134,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
-.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* salt in the left column */
+.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
 .cb.cancel{color:var(--foe2)}
 .screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;box-sizing:border-box;
@@ -150,7 +150,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .story{font-size:13px;color:var(--fg);border-left:2px solid var(--ally);padding-left:10px;margin:4px 0 12px} .story b{color:var(--ally2)}
 /* Start menu: one row per choice. */
 .card.menu{max-width:640px}
-/* The menu is a page of its own, not a card over the game: the whole screen, its content centred. */
+/* The menu is a page of its own, not a card over the game: the whole screen, its content centered. */
 @media (max-height:420px){:is(#start,#online) .card.menu{padding-top:max(6px,env(safe-area-inset-top,0px))!important;padding-bottom:max(6px,env(safe-area-inset-bottom,0px))!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
 #start,#online{padding:0;background:var(--panel)} /* (opaque: no empty game behind them) */ :is(#start,#online) .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ :is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu:has(#onlineRoom:not([hidden]))){justify-content:flex-start} /* (the board's pages from the top: a change pushes only what is below it) */ #menuSolo h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px} /* (its first row as tall as the corner beside it: the board below it, clear) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
@@ -165,7 +165,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .board .spot.empty{border:1px dashed var(--line);border-radius:6px;opacity:.45}
 .board .ib.add{font-size:12px;white-space:nowrap;padding:0 6px} .board .spot.split{display:flex;gap:4px} .board .split .ib.add{flex:1 1 0;min-width:0;height:100%}
 .ib.ghost{border-style:dashed;color:var(--muted)} .ib.ghost:hover{color:var(--fg)}
-/* A seat's token: one button, its colour as a band down its left edge; its name and a faint pen ("tap to change") on
+/* A seat's token: one button, its color as a band down its left edge; its name and a faint pen ("tap to change") on
    top, its race, an AI's level as pips and its side's tag (SIDE 2; S2 where the token is narrow) below. The pen has a
    column of its own and the name runs over the tag's: a wide SIDE 2 never takes room from COMPUTER 3. */
 .board .ib.tok{display:grid;grid-template-columns:4px auto auto 1fr auto auto;grid-template-rows:1fr 1fr;grid-template-areas:"band name name name name pen" "band race mark . tag tag";column-gap:7px;align-items:center;padding:3px 7px 3px 0;text-align:left;overflow:hidden;container-type:inline-size}
@@ -212,7 +212,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .sheet .opt .lbl{width:64px}
 }
 .note{font:12px var(--mono);color:var(--warn)} .ib.big:disabled{opacity:.45;cursor:default;background:var(--ally)}
-/* The map: a list of every map (its name and the players it seats; those with too few starts there, greyed), drawn as
+/* The map: a list of every map (its name and the players it seats; those with too few starts there, grayed), drawn as
    the game's tappable controls (a border, a caret; 16 px on a phone: no zoom on focus in iOS), its thumbnail beside it. */
 .maprow{flex-wrap:nowrap} .maprow .lbl{flex:none;width:auto}
 .sel{position:relative;display:inline-flex;flex:0 1 260px;min-width:0}
@@ -223,9 +223,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 .sel[hidden]{display:none}
 #mapPreview,#onlinePreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line2);border-radius:4px;flex:none;align-self:center}
 @media (max-height:420px){#mapPreview,#onlinePreview{width:48px;height:48px}}
-/* The first page, a title screen (centred): two big choices (single player, multiplayer), side by side; each opens its own page. */
+/* The first page, a title screen (centered): two big choices (single player, multiplayer), side by side; each opens its own page. */
 #menuHome{text-align:center} #menuHome .row{justify-content:center;gap:16px} #start #menuHome h1{font:700 clamp(30px,9vh,58px)/1.15 var(--display);letter-spacing:.04em} /* (the name in title case: tighter than the caps of the buttons, a size up to keep its weight) */ #menuHome .tag{max-width:560px;margin-left:auto;margin-right:auto} #menuHome .tip{text-align:left}
-/* The first page's floor (the .shore in #menuHome): a dark shore under the whole screen, the water drawn back to the bottom edge, a faint glow behind the title. Under the page's content (z-index -1 in #start's stacking context; the card's own background goes, the screen's is the same colour), no pointer events; the tide lines keep to the bottom 40% of the screen, below the tagline on every phone, and the buttons over them are opaque. Each line drifts a few pixels over 18-29 s, a transform on its own <svg> (composited), none under prefers-reduced-motion; display:none with the page ends the animations, so a game pays nothing for them. */
+/* The first page's floor (the .shore in #menuHome): a dark shore under the whole screen, the water drawn back to the bottom edge, a faint glow behind the title. Under the page's content (z-index -1 in #start's stacking context; the card's own background goes, the screen's is the same color), no pointer events; the tide lines keep to the bottom 40% of the screen, below the tagline on every phone, and the buttons over them are opaque. Each line drifts a few pixels over 18-29 s, a transform on its own <svg> (composited), none under prefers-reduced-motion; display:none with the page ends the animations, so a game pays nothing for them. */
 #start .card.menu{background:transparent}
 #start .shore,#online .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
 #start .shore svg,#online .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
@@ -249,7 +249,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #corner{position:fixed;z-index:30;top:max(8px,env(safe-area-inset-top,0px));right:max(8px,env(safe-area-inset-right,0px));display:none;gap:6px}
 .overlay-open #corner{display:flex} .overlay-open #top .ib.icon{visibility:hidden} /* (corner.js: any screen or card up) */
 #corner .ib{width:44px;height:44px;padding:0;display:grid;place-items:center} #corner .ico{width:20px;height:20px}
-@media (orientation:landscape) and (max-width:760px){.screen:not(#start,#online){padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}} /* (wider, a centred card is clear of it) */
+@media (orientation:landscape) and (max-width:760px){.screen:not(#start,#online){padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}} /* (wider, a centered card is clear of it) */
 @media (orientation:portrait){.screen:not(#start,#online){padding-top:calc(max(8px,env(safe-area-inset-top,0px)) + 52px)}}
 /* A menu taller than the screen (corner.js: `tall`) scrolls: its content keeps out from under the corner. */
 #start .card.menu.tall,#online .card.menu.tall{padding-right:calc(max(8px,env(safe-area-inset-right,0px)) + 102px)}
@@ -409,9 +409,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
    the left: the top-right corner (sound, full screen) stays clear. */
 #online .title{display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap;min-height:44px;padding-right:80px} /* (from the top of the page: clear of the corner) */
 #online .title .room{font:11px var(--mono);letter-spacing:.14em;color:var(--muted)} #online .title h2{margin:0;font:600 22px var(--mono);letter-spacing:.16em;color:var(--ally2)}
-#online .title .ib{margin-left:6px;font-size:12px;padding:0 12px;min-height:36px} /* (SHARE LINK one size, big or not (big: its colours): the row never reflows, so the board below never moves) */
+#online .title .ib{margin-left:6px;font-size:12px;padding:0 12px;min-height:36px} /* (SHARE LINK one size, big or not (big: its colors): the row never reflows, so the board below never moves) */
 @media (max-height:420px){#online .title{margin-bottom:2px;min-height:46px} #online .title h2{font-size:19px}}
-/* The map a guest sees: the host's pick, one line, no chips to grey out. */
+/* The map a guest sees: the host's pick, one line, no chips to gray out. */
 .mapline{display:flex;align-items:center;gap:10px;font:600 13px var(--display);letter-spacing:.08em} .mapline .pick{font:12px var(--mono);color:var(--muted);letter-spacing:0} .mapline .pick::before{content:'· '}
 /* READY a lit toggle: gold to tap, lit (the chips' "on") once ready; plain (not big) while a seat is open. The footer's
    one line of what the room waits for: on its own line above BACK and READY on an upright phone. */
@@ -426,7 +426,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 :is(#start,#online,#help,#options) :is(.row,.joincode)>.ib:not(.big){min-width:120px}
 #online .joincode{display:flex;gap:8px;align-items:center} /* (the code and its JOIN keep together: one line beside NEW ROOM, or the next on a narrow phone) */
 #menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
-@media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centred) */
+@media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centered) */
 #start .card.menu:has(#menuAbout:not([hidden])),#online .card.menu{justify-content:flex-start}
 #menuAbout h2,#onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
 /* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's shore behind them,

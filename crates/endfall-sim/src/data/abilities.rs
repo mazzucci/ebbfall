@@ -7,7 +7,7 @@ use super::*;
 /// What an ability does.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AbilityEffect {
-    /// A toggle: settled in (deployed), +`range` tiles of reach, +`armor` armour and no moving; `swap` seconds to
+    /// A toggle: settled in (deployed), +`range` tiles of reach, +`armor` armor and no moving; `swap` seconds to
     /// settle in or pack up, without moving or firing. A siege weapon (`Weapon::siege`) fires only while it is on.
     Settle { range: f64, swap: f64, armor: f64 },
 }
@@ -30,8 +30,8 @@ def_struct! {
 /// How many abilities a unit kind may list (the size of its per-unit cooldowns).
 pub const ABILITY_SLOTS: usize = 2;
 
-/// Brace, the Guard's (the re-theme's; Dig In before it, which gave reach): the spears set, +4 armour and no moving, a
-/// button on and off, researched with Sandbags (`Upgrade::Entrenching`). Quick to set and to lift.
+/// Brace, the Guard's (the re-theme's; Dig In before it, which gave reach): the spears set, +4 armor and no moving, a
+/// button on and off, researched with Shield Drill (`Upgrade::Entrenching`). Quick to set and to lift.
 const ENTRENCH: AbilityDef = AbilityDef {
     key: "entrench",
     name: "Brace",

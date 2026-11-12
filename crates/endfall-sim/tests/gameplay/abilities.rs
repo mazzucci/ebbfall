@@ -131,7 +131,7 @@ fn an_attack_order_packs_a_deployed_unit_up_and_a_lost_target_or_stop_leaves_it_
 
 #[test]
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
-    // The Guard's Brace waits for Sandbags, researched at the Forge (`Upgrade::Entrenching`, one level).
+    // The Guard's Brace waits for Shield Drill, researched at the Forge (`Upgrade::Entrenching`, one level).
     let (mut w, forge) = forge_arena(11);
     let p = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
     assert_eq!(
@@ -159,7 +159,7 @@ fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
 
 #[test]
 fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
-    // A braced Guard (Brace: +4 armour and no moving, 1 s to set and to lift) takes a Knight's blow less 1 + 4 armour,
+    // A braced Guard (Brace: +4 armor and no moving, 1 s to set and to lift) takes a Knight's blow less 1 + 4 armor,
     // against less 1 on its feet; it holds where it stands, fights what comes into its reach, and a move order lifts it
     // first.
     let mut w = tech_arena(14);
@@ -206,7 +206,7 @@ fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
     assert_eq!(w.unit(g).unwrap().x, x0, "still while it lifts");
     run(&mut w, 3);
     assert!(w.unit(g).unwrap().x < x0 - TILE, "then it walks off");
-    // Off again by its button, too: its own armour again.
+    // Off again by its button, too: its own armor again.
     w.hold_unit(g);
     w.cast(g, AbilityKind::Entrench).unwrap();
     run(&mut w, 2);

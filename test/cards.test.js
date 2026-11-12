@@ -44,7 +44,7 @@ test('keyed: CLASSIC keeps each item\'s letter; WASD gives a button its slot\'s 
 /** Every card the game can show for `race`, as [what, items] (the classic card; `keyed` gives the WASD one). */
 function cards(race) {
   E.resetGame(4242, 1, 0, 0, race, race);
-  E.disableAi(); E.setResources(E.G.me, 0, 0); // (poor: the buttons are there all the same, greyed)
+  E.disableAi(); E.setResources(E.G.me, 0, 0); // (poor: the buttons are there all the same, grayed)
   const f = E.FACTIONS[race], kinds = [...f.buildBasic, ...f.buildAdvanced];
   const unitKinds = [...new Set(kinds.flatMap(k => E.BUILDINGS[k].trains || []))];
   const hq = E.G.bldgs.find(b => b.team === E.G.me), out = [];

@@ -26,7 +26,7 @@ const JOIN_LOOK: usize = 6;
 const SHORT_CAP: usize = 300;
 
 /// A long route planned this tick: its seat, start and goal tiles, the building it leads to the side of (if it is
-/// a way to a building: `World::path_to_rect`), and its points from the start's centre on.
+/// a way to a building: `World::path_to_rect`), and its points from the start's center on.
 struct Shared {
     team: u8,
     /// Who can walk it: the route's walkers' class (and the water level).
@@ -236,11 +236,11 @@ impl World {
         Plan::Route(self.first_leg_from(foot, (ux, uy), a, path))
     }
 
-    /// A route is smoothed from the centre of the unit's tile `a`, but the unit walks its first leg from where it
-    /// stands. Off-centre beside a rock corner, that straight line can take it into the rock the route went round:
+    /// A route is smoothed from the center of the unit's tile `a`, but the unit walks its first leg from where it
+    /// stands. Off-center beside a rock corner, that straight line can take it into the rock the route went round:
     /// pushed back out (`separate`), it plans again, the same route, and a worker on its round (which replans at once
-    /// when pushed) stepped into the corner and back every tick for minutes. Such a unit steps to its tile's centre
-    /// first. (Its centre's line only: one merely walking close to a wall goes straight on.)
+    /// when pushed) stepped into the corner and back every tick for minutes. Such a unit steps to its tile's center
+    /// first. (Its center's line only: one merely walking close to a wall goes straight on.)
     fn first_leg_from(
         &self,
         foot: Foot,
@@ -346,7 +346,7 @@ impl World {
     }
 }
 
-/// True when a point travelling the straight segment a→b stays off blocked tiles (a unit's centre: what `separate`
+/// True when a point traveling the straight segment a→b stays off blocked tiles (a unit's center: what `separate`
 /// pushes out of rock).
 fn centre_clear(map: &Map, foot: Foot, a: Pt, b: Pt) -> bool {
     let steps = (jsmath::dist(a.x, a.y, b.x, b.y) / 4.0).ceil() + 1.0;

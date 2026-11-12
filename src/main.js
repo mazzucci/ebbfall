@@ -42,7 +42,7 @@ input.enabled = () => started && !overlay() && !paused();
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
   stopOnline();
-  setSpots(g.spots); // (each player in its spot's colour)
+  setSpots(g.spots); // (each player in its spot's color)
   if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs));
   else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size));
 }
@@ -50,7 +50,7 @@ function newGame() {
 /** An online game: the room's setup, from this side's seat (online.js); its AI seats run in every client's game. */
 function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
-  menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's colour: the room's setup says, alike on every client)
+  menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's color: the room's setup says, alike on every client)
   // (races: a RANDOM seat already drawn, online.js)
   begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (an old Hard, 2: today's, 3; alike on every client)
 }

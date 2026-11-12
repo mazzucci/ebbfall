@@ -104,7 +104,7 @@ pub struct World {
     pub flood_kills: bool,
     /// Each seat's game summary (units trained and lost, enemy units killed and buildings razed).
     pub stats: Vec<Stats>,
-    /// Each seat's army value (shards + ether of its fighting units), sampled every `ARMY_LOG_EVERY` ticks: the end
+    /// Each seat's army value (the gold its fighting units cost), sampled every `ARMY_LOG_EVERY` ticks: the end
     /// screen's chart. Not world state (derived, not hashed).
     pub army_log: Vec<Vec<u32>>,
     /// Each seat's units lost, counted by what killed them: a unit kind's index, or `UNIT_KINDS.len()` plus a

@@ -58,7 +58,7 @@ pub(crate) struct Ai {
     pub sweep_since: f64,
     /// How many units the current attack wave started with (it retreats below 40%).
     pub wave_size: usize,
-    /// The most enemy infantry (walking, bio) and heavy walkers (armour 2+) seen at once lately: (count, when).
+    /// The most enemy infantry (walking, bio) and heavy walkers (armor 2+) seen at once lately: (count, when).
     /// Its mix answers: splash against massed infantry, fewer heavies of its own against heavies.
     pub infantry_seen: (usize, f64),
     pub heavy_seen: (usize, f64),
@@ -217,7 +217,7 @@ impl World {
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two
-    /// neighbours as near: ties go to its partner (seats 0 and 1, 2 and 3, ...), then to the next seat after its own.
+    /// neighbors as near: ties go to its partner (seats 0 and 1, 2 and 3, ...), then to the next seat after its own.
     /// Partners pick each other, so their waves meet on the way as in a duel (each seat going for the next one round
     /// the ring, every wave would find a base whose army is out, and every economy would fall at once). With two
     /// seats, the other one.
@@ -246,7 +246,7 @@ impl World {
             })
             .unwrap_or(me)
     }
-    /// Where the foe's headquarters started (tile, its centre).
+    /// Where the foe's headquarters started (tile, its center).
     pub(crate) fn foe_base(&self) -> (f64, f64) {
         let (x, y) = self.map.bases[self.foe() as usize];
         (x as f64 + 2.0, y as f64 + 2.0)
@@ -463,8 +463,8 @@ mod tests {
         w.map.bases[2] = (25, 30);
         w.ai_turn = 2;
         assert_eq!(w.foe(), 0, "no partner: the next seat round");
-        // Four seats round a 96x96 map, each with two neighbours as near: partners pick each other; with a partner
-        // out, the neighbour on the other side, not the seat across the map.
+        // Four seats round a 96x96 map, each with two neighbors as near: partners pick each other; with a partner
+        // out, the neighbor on the other side, not the seat across the map.
         let mut w = World::with_size(
             31,
             1,

@@ -1,9 +1,9 @@
 // The gold mine's review pictures (tools/render3d/mine.js; 2026-11-11): node tools/art/retheme-mine.mjs [outdir]
 // Renders the three stages in the approved look (the polish at the game's 40-degree camera and 420 sun) and writes,
 // on the real countryside tiles (terrain3.js grass), to <outdir> (default target/mine-review/round-1):
-//   stages.png      the three stages large: at 4x (nearest-neighbour doubled from 2x), at 2x and at 1x (CSS px)
+//   stages.png      the three stages large: at 4x (nearest-neighbor doubled from 2x), at 2x and at 1x (CSS px)
 //   scene-100.png   a landscape phone at zoom 1.0 (1688x780 at 2x): the three mines between a Castle and a Data
-//                   center, a Barracks below them for the size, Villagers at the full mine, Bots at the low one; -1x the CSS-px copy, -grey in greyscale
+//                   center, a Barracks below them for the size, Villagers at the full mine, Bots at the low one; -1x the CSS-px copy, -grey in grayscale
 //   scene-075.png   the same scene at zoom 0.75 (+ -1x)
 //   alone/<stage>.png  each stage alone at 1x on grass, no label (for a cold look)
 // Prints each stage's drawn size (CSS px at zoom 1.0), how far it rises over its footprint's (MINE_N tiles) north edge, and the gold's

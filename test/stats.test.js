@@ -1,5 +1,5 @@
 // The long-press preview's stat chips (src/client/stats.js) for every kind in the sim's tables: two rows of the same
-// shape for every unit (Health, Shields for a shielded race only (none since the re-theme), Armour; damage, what it
+// shape for every unit (Health, Shields for a shielded race only (none since the re-theme), Armor; damage, what it
 // hits, tags), a dimmed "—" for the
 // unarmed, both guns of a siege unit, one row for a building, and markup with a label on every chip.
 import { test } from 'node:test';

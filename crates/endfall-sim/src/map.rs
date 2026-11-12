@@ -24,7 +24,7 @@ pub struct Node {
     /// Workers inside a mine (at most `MINE_CAP`).
     pub miners: i32,
     pub r: f64,
-    /// Building id of the extractor standing on an ether vent.
+    /// Building id of the extractor standing on a mine shaft's vent (none since the re-theme's economy).
     pub extractor: Option<Id>,
     /// Which field (a clump of crystals, laid down together) it belongs to; 0 for a vent.
     pub field: u32,
@@ -126,10 +126,11 @@ pub struct Map {
     pub occ: Vec<i32>,
     /// Noise value per tile, kept for the renderer.
     pub shade: Vec<f32>,
-    /// Shard fields (1 tile) and ether vents (2x2), sorted by id.
+    /// Gold mines (2x2, `lay_mines`: before them, each field's 1-tile crystals and the mine shafts' 2x2 vents, taken
+    /// up), sorted by id.
     pub nodes: Vec<Node>,
     /// Top-left tiles of the starting Command Cores (4x4). A generated map lists its starts in ring order (each the
-    /// next one's neighbour round the map); a World puts them in seat order (`seat_starts`), the starts nobody took
+    /// next one's neighbor round the map); a World puts them in seat order (`seat_starts`), the starts nobody took
     /// after the seats' (a World refuses more seats than its map has bases).
     pub bases: Vec<(i32, i32)>,
     /// The middle of each expansion's clearing (tiles; every start's images too, the natural's first): its field on
@@ -146,16 +147,17 @@ pub enum MapKind {
     /// Balanced fields and winding passes.
     #[default]
     Standard,
-    /// Ten times the shards in every field.
+    /// Ten times the gold in every field.
     DeepFields,
-    /// Rich vents, each holding three times the ether, and one in the centre where it keeps 10 tiles off every field's
-    /// salt (its expansions are chosen so it does; no sampled seed lacks it), where the other kinds may have a field.
+    /// Rich vents, each holding three times a shaft's share (the shafts taken up since the re-theme's economy, as on
+    /// every map), and one in the center where it keeps 10 tiles off every field's crystals (its expansions are chosen
+    /// so it does; no sampled seed lacks it), where the other kinds may have a field.
     EtherStorm,
     /// Little rock: open ground, fast attacks.
     OpenPlains,
     /// Much rock, narrow passes.
     Labyrinth,
-    /// Fields picked nearly clean: 40% of the shards, 60% of the ether.
+    /// Fields picked nearly clean: 40% of the gold (and 60% of a shaft's share).
     Barren,
     /// A shore and a reef (two starts): each start a cove on land and a reef basin in the shallows, a deep band down
     /// the middle between the reefs. A Human seat starts in its cove, a Vael seat in its basin (`basins`).
@@ -221,7 +223,7 @@ impl Noise {
 }
 
 /// The symmetry a generated map is drawn with: its `k` starts are one start's images under these maps of the grid (2:
-/// the point mirror through the centre; 4: the quarter turns of a square; 8: the quarter turns and their mirror
+/// the point mirror through the center; 4: the quarter turns of a square; 8: the quarter turns and their mirror
 /// images), and so is everything else (ground, pockets, fields, vents): every start gets the same.
 #[derive(Clone, Copy)]
 struct Sym {
@@ -231,7 +233,7 @@ struct Sym {
 }
 
 impl Sym {
-    /// Element `g` in ring order (0 the identity; each start the next one's neighbour round the map) as quarter turns
+    /// Element `g` in ring order (0 the identity; each start the next one's neighbor round the map) as quarter turns
     /// after an optional mirror (top to bottom). With 8: R^j, then R^(j+1) after the mirror.
     fn elem(&self, g: usize) -> (usize, bool) {
         match self.k {
@@ -274,14 +276,14 @@ impl Sym {
     }
 }
 
-/// A main base's pocket: the ring of rock around it starts this many tiles from the Core's centre (2 thick).
+/// A main base's pocket: the ring of rock around it starts this many tiles from the Core's center (2 thick).
 const POCKET_R: f64 = 12.0;
-/// The Shore map: a reef basin's middle lies this many tiles from the centre (20, not 14, since the first Shore report:
+/// The Shore map: a reef basin's middle lies this many tiles from the center (20, not 14, since the first Shore report:
 /// basins 28 apart and 40 from a cove made the first wave decide every game); its reef ring's inner radius (10: room
 /// for a main's field); the deep band's half-width round the axis between the two basins, and the shallows
 /// beyond it; the heights of shallows and of deep water (at the water level 0: `Map::ground`).
 const SHORE_BASIN: f64 = 20.0;
-/// How far (degrees) a reef basin is turned from straight south (or north) of the centre, away from its own cove.
+/// How far (degrees) a reef basin is turned from straight south (or north) of the center, away from its own cove.
 const SHORE_TURN: f64 = 20.0;
 /// The Shore map's rock threshold (noise above it is rock; higher is more open), raised until a walker connects.
 const SHORE_ROCK: f64 = 0.74;
@@ -338,13 +340,13 @@ const RAMP_W: f64 = 4.5;
 const VENT_GAP: i32 = 4;
 
 /// The open mine shafts (vents: no base has one of its own; an extractor on one is income out in the open): two per
-/// start, the first start's and their images. The first lies `SHAFT_NEAR` tiles from its main's Core (centre to centre),
+/// start, the first start's and their images. The first lies `SHAFT_NEAR` tiles from its main's Core (center to center),
 /// towards the map's middle, outside the pocket (ideally `SHAFT_NEAR_AT`); the second `SHAFT_FAR` out (ideally
-/// `SHAFT_FAR_AT`, `SHAFT_FAR_TURN` degrees round from the middle's direction: contested ground, between neighbours),
+/// `SHAFT_FAR_AT`, `SHAFT_FAR_TURN` degrees round from the middle's direction: contested ground, between neighbors),
 /// nearer its own start than any other by `SHAFT_OWN`. Each at least `SHAFT_CLEAR` tiles from every main's Core and
 /// every expansion's site, `SHAFT_OFF_LINE` off the line from a main to its natural and off its ramp's, and
-/// `SHAFT_CENTRE` from the middle where a field or vent stands there, and `SHAFT_SALT` from every salt crystal of every
-/// field (a main's, an expansion's, the centre's: no field has a shaft by it).
+/// `SHAFT_CENTRE` from the middle where a field or vent stands there, and `SHAFT_SALT` from every gold crystal of every
+/// field (a main's, an expansion's, the center's: no field has a shaft by it).
 const SHAFT_NEAR: (f64, f64) = (16.0, 20.0);
 const SHAFT_NEAR_AT: f64 = 18.0;
 const SHAFT_FAR: (f64, f64) = (24.0, 36.0);
@@ -356,7 +358,7 @@ const SHAFT_OFF_LINE: f64 = 4.5;
 const SHAFT_CENTRE: f64 = 8.0;
 const SHAFT_SALT: f64 = 10.0;
 
-/// A salt outcrop: crystals in a rounded, uneven clump (not an arc, not in rows), as tile offsets in a box (`X` a
+/// A gold outcrop: crystals in a rounded, uneven clump (not an arc, not in rows), as tile offsets in a box (`X` a
 /// crystal), one picked per map from its seed and turned by one of the grid's eight symmetries. The crystals stand in
 /// little groups (side by side, never touching only at a corner, where a worker would squeeze between them) with a
 /// tile of ground or more between groups, so every crystal has free ground beside it, reached from outside. A main's
@@ -426,7 +428,7 @@ struct ShaftRules<'a> {
 
 /// What a shaft must keep to (`ShaftRules::allows`): its distance from its own Core, the first's and the second's (the
 /// second at least `far_past` beyond the first), its margin nearer its own start than any other, its distance from the
-/// other Cores (and basins), the expansions' sites, the main-to-natural and ramp lines and a busy centre, from its own
+/// other Cores (and basins), the expansions' sites, the main-to-natural and ramp lines and a busy center, from its own
 /// images, from every crystal, and the gap to other vents (`vent_fits`).
 #[derive(Clone, Copy, PartialEq)]
 struct Limits {
@@ -458,7 +460,7 @@ impl Limits {
         salt: SHAFT_SALT,
         gap: VENT_GAP,
     };
-    /// Where a shaft finds no room under those (a tight layout: the salt of the Shore's basins and expansions round its
+    /// Where a shaft finds no room under those (a tight layout: the crystals of the Shore's basins and expansions round its
     /// rings): `STRICT` with wider rings round its Core, everything else kept.
     const ROOMY: Limits = Limits {
         near: (14.0, 22.0),
@@ -497,7 +499,7 @@ impl Limits {
 }
 
 impl ShaftRules<'_> {
-    /// Whether a shaft centred at `q` (tile units: its top-left tile plus a half) is allowed, the first (`far` false:
+    /// Whether a shaft centered at `q` (tile units: its top-left tile plus a half) is allowed, the first (`far` false:
     /// `SHAFT_NEAR` from the first Core) or the second (`far`: `SHAFT_FAR`, and past the first by 5 at least), clear of
     /// the crystals at `salt` (tile middles), its images too.
     fn allows(
@@ -678,11 +680,11 @@ impl Map {
 
     /// Generate terrain and resources for `seed` in the character of `kind`, `size` tiles, with `starts` starting
     /// bases (2, 4 or 8, at most `max_starts`); `next_id` is the shared entity id counter. A map is one start's share
-    /// and its images (`Sym`: two starts point-symmetric about the centre, four the quarter turns of a square, eight
+    /// and its images (`Sym`: two starts point-symmetric about the center, four the quarter turns of a square, eight
     /// those and their mirror images), so every start gets the same ground, fields and vents; the seed picks the
     /// layout: where the bases stand (two: opposite corners or sides; four: the corners or the middles of the sides;
-    /// eight: two by each side, as far from each other as from their neighbours round the corner), the size of the
-    /// rock features, where the expansions lie and whether the centre holds a field. A larger map keeps the bases'
+    /// eight: two by each side, as far from each other as from their neighbors round the corner), the size of the
+    /// rock features, where the expansions lie and whether the center holds a field. A larger map keeps the bases'
     /// distance from their edges, the size of rock features, fields and pockets, and gets more expansions, farther
     /// out (on 64x64 every formula below gives the numbers it always had, draw for draw: the goldens pin them).
     pub fn generate(
@@ -743,7 +745,7 @@ impl Map {
             ((mw - 4) / 2, mh - 13),
         ];
         let pick = (f() * 4.0) as usize % 4;
-        // (eight: on the left side, as far from its mirror image below as from its neighbour round the corner)
+        // (eight: on the left side, as far from its mirror image below as from its neighbor round the corner)
         let b0 = if k == 8 {
             (9, mh * 5 / 16)
         } else {
@@ -770,7 +772,7 @@ impl Map {
             let p = (10.0 + f() * (mw - 20) as f64, 10.0 + f() * (mh - 20) as f64);
             // (more than two starts: the first, the natural, within the duel's 32 tiles)
             let far = if k > 2 && sites.is_empty() { 32.0 } else { far };
-            // (an ether storm's: `SHAFT_CLEAR` from the centre's vent, and its salt, out beyond it from the main, clear
+            // (an `EtherStorm`'s: `SHAFT_CLEAR` from the center's vent, and its crystals, out beyond it from the main, clear
             // of the vent by `SHAFT_SALT` and room for the clump)
             let salt_mid = {
                 let r = d(p, c0).max(1e-9);
@@ -798,9 +800,9 @@ impl Map {
         let natural = sites.first().copied().unwrap_or(centre);
         let pocket = kind != MapKind::OpenPlains;
         let ramp_dir = jsmath::atan2(natural.1 - c0.1, natural.0 - c0.0);
-        let middle = f() < 0.55; // a contested field in the centre
+        let middle = f() < 0.55; // a contested field in the center
         let scale = 6.0 + f() * 4.5; // rock feature size, in tiles
-        // Each main's salt to one flank of its Core: the side farther from its ramp (the front stays free to build).
+        // Each main's gold to one flank of its Core: the side farther from its ramp (the front stays free to build).
         let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
         let from_ramp = |a: f64| ((a - ramp_dir + 3.0 * PI).rem_euclid(2.0 * PI) - PI).abs();
         let flank = if from_ramp(away - PI / 2.0) > from_ramp(away + PI / 2.0) + 1e-9 {
@@ -809,8 +811,8 @@ impl Map {
             away + PI / 2.0
         };
         let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
-        // The centre: an ether storm's holds its vent and no field (`SHAFT_SALT` from every crystal: where its
-        // expansions' salt leaves it no room, which the choice of sites makes rare, it holds nothing); the other kinds'
+        // The center: an `EtherStorm`'s holds its vent and no field (`SHAFT_SALT` from every crystal: where its
+        // expansions' crystals leave it no room, which the choice of sites makes rare, it holds nothing); the other kinds'
         // a field (`middle`) and no vent.
         let centre_field = middle && kind != MapKind::EtherStorm;
         // The open shafts: where they may go (and where every crystal will lie, for their ideal spots).
@@ -858,7 +860,7 @@ impl Map {
             (centre_vent, rules)
         };
         // A layout whose shafts find no room even on open ground (rock only ever takes room away) under the strict
-        // rules lets a shaft take `Limits::ROOMY`'s wider rings; where they find none either (the salt of three
+        // rules lets a shaft take `Limits::ROOMY`'s wider rings; where they find none either (the crystals of three
         // expansions round them), it loses its farthest expansion until they do, as the Shore's does.
         let (centre_vent, mut rules) = loop {
             let (centre_vent, mut rules) = plan(&sites);
@@ -986,7 +988,7 @@ impl Map {
             MapKind::Barren => (0.4, 0.6),
             _ => (1.0, 1.0),
         };
-        // Two open shafts a start, and the centre's vent: where no threshold gave them room, laid again under looser
+        // Two open shafts a start, and the center's vent: where no threshold gave them room, laid again under looser
         // rules (a start never goes without; no map so far needs it, and a change to the generator that makes one
         // need it fails its tests loudly here).
         let want = 2 * k + centre_vent as usize;
@@ -1013,9 +1015,9 @@ impl Map {
         m
     }
 
-    /// The Shore map (two starts, point-symmetric about the centre): each start's share holds a **cove** on land (a
+    /// The Shore map (two starts, point-symmetric about the center): each start's share holds a **cove** on land (a
     /// pocket as on the other kinds, in a corner, its ramp facing the sea) and a **reef basin** in the shallows (a ring
-    /// of reef rock, `SHORE_BASIN` tiles from the centre, south or north, with a channel facing the cove across the sea
+    /// of reef rock, `SHORE_BASIN` tiles from the center, south or north, with a channel facing the cove across the sea
     /// and a sea gate onto the deep band: the Vael's road to the other share, which walkers cannot take). A deep band
     /// runs down the middle between the two reefs, shallows `SHORE_SHALLOWS` wide all round it; the land east and west
     /// of it meets beyond each reef. Cove and basin each hold a field (either can be a start: a Human
@@ -1030,7 +1032,7 @@ impl Map {
         let mut f = || rnd.next_u32() as f64 / 4_294_967_296.0;
         let centre = ((mw - 1) as f64 / 2.0, (mh - 1) as f64 / 2.0);
         let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
-        // The first cove in the south-west corner (its Core's top-left tile), its basin south of the centre, turned
+        // The first cove in the south-west corner (its Core's top-left tile), its basin south of the center, turned
         // `SHORE_TURN` away from its cove (so a passage runs between the reef and the cove's wall).
         let b0 = (8, mh - 12);
         let c0 = (b0.0 as f64 + 1.5, b0.1 as f64 + 1.5);
@@ -1092,7 +1094,7 @@ impl Map {
         }
         sites.sort_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap());
         let scale = 6.0 + f() * 4.5;
-        // The walls: each cove's ring with its ramp towards the centre (the sea), each reef's ring with its channel
+        // The walls: each cove's ring with its ramp towards the center (the sea), each reef's ring with its channel
         // towards the cove it faces and its sea gate.
         let gap_ring = |x: f64, y: f64, c: (f64, f64), r0: f64, dir: f64| -> bool {
             let r = jsmath::hypot(x - c.0, y - c.1);
@@ -1110,7 +1112,7 @@ impl Map {
         let channel: Vec<f64> = (0..2)
             .map(|g| jsmath::atan2(cores[1 - g].1 - pools[g].1, cores[1 - g].0 - pools[g].0))
             .collect();
-        // Each reef's sea gate, towards the centre: it opens onto the deep band, so only amphibians pass it.
+        // Each reef's sea gate, towards the center: it opens onto the deep band, so only amphibians pass it.
         let gate: Vec<f64> = (0..2)
             .map(|g| jsmath::atan2(centre.1 - pools[g].1, centre.0 - pools[g].0))
             .collect();
@@ -1165,7 +1167,7 @@ impl Map {
                 DRY
             }
         };
-        // The cove's salt to one flank of its Core (its ramp faces the centre: either flank is as far from it).
+        // The cove's gold to one flank of its Core (its ramp faces the center: either flank is as far from it).
         let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
         let flank = away + PI / 2.0;
         let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
@@ -1311,7 +1313,7 @@ impl Map {
         m
     }
 
-    /// A reef basin's field and its image in the other share: a main's salt outcrop (seven crystals, `MAIN_CLUMP_R`
+    /// A reef basin's field and its image in the other share: a main's gold outcrop (seven crystals, `MAIN_CLUMP_R`
     /// from the basin's middle, as a cove's), to the flank of its Core square to the channel (`ShoreField::BACK`), not
     /// an expansion's: the smaller, nearer one mined faster and ran low, so a Vael start expanded two minutes early
     /// (the first Shore report). No vent: the shafts lie out in the open.
@@ -1346,7 +1348,7 @@ impl Map {
         self.add_shards_at(next_id, &img);
     }
 
-    /// Tiles a unit with `foot` can reach from `from` (4-neighbour steps over tiles it may stand on).
+    /// Tiles a unit with `foot` can reach from `from` (4-neighbor steps over tiles it may stand on).
     pub fn reach_from(&self, from: (i32, i32), foot: Foot) -> Vec<bool> {
         let mut seen = vec![false; self.rock.len()];
         let mut q = vec![from];
@@ -1363,8 +1365,8 @@ impl Map {
         seen
     }
 
-    /// The resource fields of a generated map, each start's the exact tile-for-tile image of the first's: its salt
-    /// (`place_salt`), then the open shafts (`place_shafts`). No base has a vent of its own.
+    /// The resource fields of a generated map, each start's the exact tile-for-tile image of the first's: its gold
+    /// crystals (`place_salt`), then the open shafts (`place_shafts`). No base has a vent of its own.
     #[allow(clippy::too_many_arguments)]
     fn place_fields(
         &mut self,
@@ -1381,7 +1383,7 @@ impl Map {
         self.place_shafts(next_id, rules, ideals);
     }
 
-    /// Each base's own salt outcrop to one flank of its Core (`flank`, a direction), the centre's field or vent
+    /// Each base's own gold outcrop to one flank of its Core (`flank`, a direction), the center's field or vent
     /// (`centre`: whether it holds either; never both, a field would lie by the vent), the expansions (nearest the main
     /// first), each with its outcrop on the far side from the main. Where a crystal falls depends only on the
     /// nodes laid before it, never on rock (`salt_of` lays them on an empty map to find where they will lie).
@@ -1421,7 +1423,7 @@ impl Map {
             }
         }
         if centre_vent {
-            self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the centre is its own image
+            self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the center is its own image
         }
         for (i, &p) in sites.iter().enumerate() {
             // The crystals lie on the far side of the site from the main, clear of the main's ramp.
@@ -1522,7 +1524,7 @@ impl Map {
 
     /// No map has a shaft since the re-theme's economy (the Kingdom's Market is built in its base): the vents laid
     /// down are taken up again at the end, so the ground they shaped (the generator clears rock round them, and a
-    /// layout without room for them is drawn again) stays as every map had it, the centre's vent included.
+    /// layout without room for them is drawn again) stays as every map had it, the center's vent included.
     /// Each field's crystals become one gold mine, `MINE_SIZE` tiles square and neutral, holding the field's whole
     /// amount; its id is the field's first crystal's. Fields go by orbit under the map's symmetry: the first field of an
     /// orbit (the one laid first, never cut short) finds a square for its mine (`mine_spot`), and every image of that
@@ -1552,7 +1554,7 @@ impl Map {
             t.sort_unstable();
             t
         };
-        // (the turns before the mirror images: a field that is its own mirror image, as the centre's arc can be, is
+        // (the turns before the mirror images: a field that is its own mirror image, as the center's arc can be, is
         // matched to its turned images first)
         let mut order: Vec<usize> = (1..sym.k).collect();
         order.sort_by_key(|&g| sym.elem(g).1);
@@ -1789,7 +1791,7 @@ impl Map {
 
     /// The last resort where a map's shafts found no room under `Limits::STRICT` (and `ROOMY`) at any rock threshold:
     /// its shafts (the last vents laid down) taken up and laid again under `Limits::RELAXED`, then `Limits::LAST`,
-    /// until every start has its two (`want` vents in all, the centre's counted). A map that never needs it is
+    /// until every start has its two (`want` vents in all, the center's counted). A map that never needs it is
     /// unchanged.
     fn mend_shafts(
         &mut self,
@@ -1803,7 +1805,7 @@ impl Map {
             if vents(self) == want {
                 return;
             }
-            // (the shafts are the last nodes laid down: any vents after the last crystal, the centre's excepted)
+            // (the shafts are the last nodes laid down: any vents after the last crystal, the center's excepted)
             let (cx, cy) = (self.w / 2 - 1, self.h / 2 - 1);
             while let Some(n) = self
                 .nodes
@@ -1854,7 +1856,7 @@ impl Map {
                 .all(|(i, a)| imgs[i + 1..].iter().all(|&b| apart(*a, b)))
     }
 
-    /// An arc of `n` shard crystals around (cx, cy) facing `ang`; returns the tiles used (to mirror them exactly).
+    /// An arc of `n` gold crystals around (cx, cy) facing `ang`; returns the tiles used (to mirror them exactly).
     fn add_shards(
         &mut self,
         next_id: &mut Id,
@@ -1888,9 +1890,9 @@ impl Map {
         used
     }
 
-    /// A salt outcrop of `n` crystals (7 or 5: `CLUMP_7`, `CLUMP_5`), its pattern picked by `shape`, its middle `r`
+    /// A gold outcrop of `n` crystals (7 or 5: `CLUMP_7`, `CLUMP_5`), its pattern picked by `shape`, its middle `r`
     /// tiles from `from` (tiles) towards `dir`, or farther until every crystal lies `keep` tiles out from the 4x4 Core
-    /// centred on `from` (a main's: two tiles of ground between its Core and the salt, and no crystal at its corner,
+    /// centered on `from` (a main's: two tiles of ground between its Core and the crystals, and no crystal at its corner,
     /// where a worker would squeeze past); of the pattern's eight turns, the first from `shape`'s that lies nearest
     /// with every crystal within `reach` of `from` (a reef basin's: inside its reef), else the nearest. A crystal whose
     /// tile is taken goes to the nearest free one round it. Returns the tiles used (to mirror them exactly).
@@ -1985,7 +1987,7 @@ impl Map {
         used
     }
 
-    /// Shard crystals on exactly these tiles (the mirror image of another field).
+    /// Gold crystals on exactly these tiles (the mirror image of another field).
     fn add_shards_at(&mut self, next_id: &mut Id, tiles: &[(i32, i32)]) {
         let field = self.new_field();
         for &(tx, ty) in tiles {
@@ -1993,7 +1995,7 @@ impl Map {
         }
     }
 
-    /// A fresh shard field id (one more than any so far).
+    /// A fresh field id (one more than any so far).
     fn new_field(&self) -> u32 {
         self.nodes.iter().map(|n| n.field).max().unwrap_or(0) + 1
     }
@@ -2025,7 +2027,7 @@ impl Map {
         true
     }
 
-    /// Tiles a walker can reach from `from` (4-neighbour, over unblocked tiles: rock and fields both block).
+    /// Tiles a walker can reach from `from` (4-neighbor, over unblocked tiles: rock and fields both block).
     fn walkable_from(&self, from: (i32, i32)) -> Vec<bool> {
         let mut seen = vec![false; self.rock.len()];
         let mut q = vec![from];

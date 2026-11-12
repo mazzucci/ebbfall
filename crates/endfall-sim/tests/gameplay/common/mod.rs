@@ -148,7 +148,7 @@ pub fn give_shields(w: &mut World, id: Id, sh: f64) {
     (u.sh, u.maxsh) = (sh, sh);
 }
 
-/// The shields the shield tests give a unit (`give_shields`): the Needle's before the re-theme.
+/// The shields the shield tests give a unit (`give_shields`): the Buggy's before the re-theme.
 pub const TEST_SHIELDS: f64 = 40.0;
 
 mod duel;
@@ -197,7 +197,7 @@ pub fn builds_within(w: &mut World, h: Id, b: Id, secs: u32) -> Result<(), Strin
     Err(format!("not built after {secs}s"))
 }
 
-/// Walking distance in tiles from `from` to every tile (4-neighbour, unblocked), -1 where unreachable.
+/// Walking distance in tiles from `from` to every tile (4-neighbor, unblocked), -1 where unreachable.
 pub fn walk_dist(w: &World, from: (i32, i32)) -> Vec<i32> {
     let mut d = vec![-1; w.map.rock.len()];
     let mut q = std::collections::VecDeque::from([from]);
@@ -244,7 +244,7 @@ pub fn long_way_around(seed: u32) -> Option<((i32, i32), (i32, i32))> {
     None
 }
 
-/// Tiles reachable on foot from `from` (4-neighbour flood fill over unblocked tiles).
+/// Tiles reachable on foot from `from` (4-neighbor flood fill over unblocked tiles).
 pub fn reachable(w: &World, from: (i32, i32)) -> Vec<bool> {
     let mut seen = vec![false; w.map.rock.len()];
     let mut q = vec![from];

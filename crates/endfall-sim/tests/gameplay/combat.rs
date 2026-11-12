@@ -1033,7 +1033,7 @@ fn the_army_log_samples_both_sides_every_ten_seconds() {
     assert_eq!(w.army_log[1], vec![0, 0]);
     w.make_unit(UnitKind::Knight, ENEMY, 1600.0, 300.0);
     run(&mut w, 10);
-    assert_eq!(w.army_log[1].last(), Some(&225), "a Knight: 225 salt");
+    assert_eq!(w.army_log[1].last(), Some(&225), "a Knight: 225 gold");
 }
 
 #[test]
@@ -1061,7 +1061,7 @@ fn a_side_that_can_do_nothing_more_has_lost() {
     }
     run(&mut w, 1);
     assert!(!w.over, "a fighter left: still in it");
-    // A Garrison with the shards for a Trooper keeps it going too; spent out, it does not.
+    // A Barracks with the gold for a Guard keeps it going too; spent out, it does not.
     let rax = w.make_building(BldgKind::Barracks, PLAYER, 26, 40, true);
     w.res[PLAYER as usize] = [500, 0];
     w.damage(t, 1e9, None);

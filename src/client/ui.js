@@ -1,6 +1,6 @@
 // Client-side UI state: what the local player has selected, which order is armed (and the hint that says so),
 // toasts. No DOM builders here (hud.js and card.js draw), so input.js and tools.js can share the state cheaply.
-import { G, BUILDINGS, FACTIONS } from '../engine/index.js';
+import { G, BUILDINGS, FACTIONS, placeRefusal } from '../engine/index.js';
 import { sfx } from './audio.js';
 
 export const $ = (id) => document.getElementById(id);
@@ -49,11 +49,15 @@ export const armedButton = () => (ui.place ? 'build' : ARMED[ui.mode]?.button);
 /** Reflect ui.box on the SELECT button (input.js arms it; Esc and placement clear it). */
 export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('on', !!ui.box); b.setAttribute('aria-pressed', String(!!ui.box)); } }
 
-/** The line above the card that says what a tap will do now. */
+/** The line above the card that says what a tap will do now. While placing over a spot that is refused (the ghost
+ *  red), why, in the sim's words (`placeRefusal`: the same check as the order's), in red. */
 export function setHint() {
-  const h = $('hint'), c = touchUi ? 'Tap' : 'Click';
-  h.textContent = ui.place ? (touchUi ? `Pick a location for the ${BUILDINGS[ui.place.type].name}: green builds, red cannot` : `Click to place the ${BUILDINGS[ui.place.type].name} (Esc cancels)`)
-    : ui.box ? 'Drag to select a group' : ARMED[ui.mode]?.hint(c) ?? '';
+  const h = $('hint'), c = touchUi ? 'Tap' : 'Click', p = ui.place;
+  const why = p && p.tx > -99 ? placeRefusal(p.type, p.tx, p.ty, G.me) : ''; // (-99: no ghost yet, or the finger over the HUD)
+  const t = why || (p ? (touchUi ? `Pick a location for the ${BUILDINGS[p.type].name}: green builds, red cannot` : `Click to place the ${BUILDINGS[p.type].name} (Esc cancels)`)
+    : ui.box ? 'Drag to select a group' : ARMED[ui.mode]?.hint(c) ?? '');
+  if (h.textContent !== t) h.textContent = t;
+  h.classList.toggle('bad', !!why);
 }
 
 /** Disarm: no order waiting for a tap, nothing being placed. */

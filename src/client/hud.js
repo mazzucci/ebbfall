@@ -31,6 +31,7 @@ let selKey = '';
 export function updateHud() {
   // Placing with no worker of ours selected (it died): nothing would build it, and a touch card would have no Cancel.
   if (ui.place && !playerSel().some(e => e.kind === 'unit' && e.d.worker)) clearMode();
+  if (ui.place) setHint(); // (the ghost has moved: why a red spot is refused)
   topBar();
   watchSites();
   ui.sel = ui.sel.filter(x => !x.dead && (x.kind === 'node' || x.team === G.me || !enemies(G.me, x.team) || x.ghost || visibleEnt(x))); // (an enemy that slips out of sight is let go; a remembered building, picked in the fog, stays; a field stays)
@@ -220,9 +221,15 @@ function taskName(u) {
 }
 
 export const aName = (name) => (/^[AEIOU]/.test(name) ? 'an ' : 'a ') + name;
+/** The time a unit in training still needs, as the queue's first slot shows it: "42s", or "1:42" from a minute up. */
+export function timeLeft(b) {
+  const s = b.queue.length ? Math.max(0, Math.ceil((1 - b.prog) * UNITS[b.queue[0]].build)) : 0;
+  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
+}
 /**
  * A building's production queue in the selection console: one slot per unit it can hold, filled from the left (the
- * one in training first), the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.
+ * one in training first, the time it still needs on it: a slow one, the Android's two minutes, never looks stuck),
+ * the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.
  * A click or tap on a unit cancels it (full refund).
  */
 function renderQueue(box, b, size = 26) {
@@ -231,10 +238,12 @@ function renderQueue(box, b, size = 26) {
   if (box.dataset.k !== key) {
     box.dataset.k = key; box.classList.toggle('idle', !q.length);
     box.innerHTML = '<div class="bar prod"><i></i></div>' + q.map((t, i) =>
-      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span></button>`).join('') +
+      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span>${i ? '' : '<span class="left" aria-hidden="true"></span>'}</button>`).join('') +
       '<span class="qe" aria-hidden="true"></span>'.repeat(Math.max(0, QUEUE_MAX - q.length));
   }
   box.querySelector('.prod i').style.width = (q.length ? b.prog * 100 : 0) + '%';
+  const left = box.querySelector('.qi .left');
+  if (left) { const t = timeLeft(b); if (left.textContent !== t) left.textContent = t; }
 }
 /** The research of a building that also trains, beside its queue (a slim line over it on small phones): the tech's
  *  icon and its own bar, the name in the tooltip (and in the few words above, where there is room). Cancelled from

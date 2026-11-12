@@ -16,7 +16,7 @@ const offsets = (fields) => Object.fromEntries(fields.map((f, i) => [f, i]));
 const fu = offsets(SCHEMA.unit), fb = offsets(SCHEMA.bldg), fp = offsets(SCHEMA.proj), fn = offsets(SCHEMA.node), fi = offsets(SCHEMA.info), fs = offsets(SCHEMA.seat);
 const US = SCHEMA.unit.length, BS = SCHEMA.bldg.length, PS = SCHEMA.proj.length, NS = SCHEMA.node.length, SS = SCHEMA.seat.length;
 const UNIT_KEYS = SCHEMA.unitKinds, BLDG_KEYS = SCHEMA.bldgKinds, PROJ_KINDS = SCHEMA.projKinds, UPGRADE_KEYS = SCHEMA.upgrades, ABILITY_KEYS = SCHEMA.abilities;
-const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, FACTION_KEYS = Object.keys(FACTIONS);
+const TASKS = SCHEMA.tasks, PHASES = SCHEMA.phases, OUT_WHYS = SCHEMA.outWhys, FACTION_KEYS = Object.keys(FACTIONS);
 
 let game = null, dirty = true, occStale = false, gen = 0, radioSeen = -1, radioMe = -1;
 /** The map's size in tiles and in world px: the game's, set when it starts (a two-seat map's before any). Live
@@ -24,7 +24,7 @@ let game = null, dirty = true, occStale = false, gen = 0, radioSeen = -1, radioM
 export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]],
+  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], outWhy: ['', ''], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: [], radioVer: 0, over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
@@ -59,10 +59,11 @@ function sync() {
   Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], conceded: I[fi.conceded], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
   // A record per seat follows the info record, then each seat's upgrade levels.
   const n = I[fi.seats], lv = SCHEMA.info.length + n * SS;
-  for (const k of ['factions', 'teams', 'out', 'res', 'sup', 'hired', 'stats', 'upgrades']) S[k].length = n;
+  for (const k of ['factions', 'teams', 'out', 'outWhy', 'res', 'sup', 'hired', 'stats', 'upgrades']) S[k].length = n;
   for (let t = 0; t < n; t++) {
     const o = SCHEMA.info.length + t * SS, at = (f) => I[o + fs[f]];
     S.factions[t] = FACTION_KEYS[at('faction')]; S.teams[t] = at('team'); S.out[t] = !!at('out');
+    S.outWhy[t] = OUT_WHYS[at('out_why')]; // ('' in; 'conceded', 'buildings': its last building fell, 'helpless': nothing left to fight or build with)
     S.res[t] = [at('shards'), at('ether')]; S.sup[t] = [at('sup_used'), at('sup_cap')];
     S.hired[t] = [at('hired_used'), at('hired_cap')]; // (the Expedition's hired places; sup is its Power)
     S.stats[t] = Object.assign(S.stats[t] || {}, { built: at('built'), lost: at('lost'), killed: at('killed'), razed: at('razed') });
@@ -245,11 +246,16 @@ export const debugSpawn = (team, kind, x, y) => touch(game.debugSpawn(team, kind
 export const debugResearch = (team, key, level = 1) => touch(game.debugResearch(team, key, level));
 /** Tests and tools only. */
 export const debugSetHp = (b, hp) => touch(game.debugSetHp(b.id ?? b, hp));
+/** Tests and tools only: set the gold left in a mine (a scene with an empty one). */
+export const debugSetGold = (n, amount) => touch(game.debugSetGold(n.id ?? n, amount));
 /** Tests and tools only. */
 export const setResources = (team, shards, ether) => touch(game.setResources(team, shards, ether));
 
 // ---- rule queries ----
 export const canPlace = (type, tx, ty, team) => game.canPlace(type, tx, ty, team);
+/** Why `type` cannot go up at (tx, ty) for `team`, in a few words ('' where it can): the sim's own check, so the ghost
+ *  and the order never disagree. */
+export const placeRefusal = (type, tx, ty, team) => game.placeRefusal(type, tx, ty, team);
 export const hasReq = (team, type) => game.hasReq(team, type);
 export const canAfford = (team, cost) => game.canAfford(team, cost[0], cost[1]);
 /** The most places our seat can have in a pool ('supply': population or Power; 'hired') on this map. */

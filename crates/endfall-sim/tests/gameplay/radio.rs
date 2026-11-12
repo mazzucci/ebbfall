@@ -352,6 +352,7 @@ fn a_stranded_machine_fights_where_it_stands_and_walks_back_when_idle() {
     run(&mut w, 3);
     let f = w.unit(foe).unwrap();
     assert!(f.hp < f.maxhp, "it fights where it stands");
+    assert!(w.radio_stranded(s), "still out there");
 }
 
 #[test]

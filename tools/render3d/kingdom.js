@@ -1,7 +1,7 @@
 // The kingdom (the re-theme's medieval people, standing in for the Harbor in the comparison picture; not in the
 // game's atlas: tools/art/retheme-compare.mjs renders it by filter through retheme.js). Stone, timber, cloth and steel:
 // a kingdom thing is a darker body (stone, oak, wool) with pale steel on top and team color on cloth between dark
-// hems, so in greyscale it keeps the Harbor's order against the Expedition's pale panels. Tall and spiky (towers,
+// hems, so in grayscale it keeps the Harbor's order against the Expedition's pale panels. Tall and spiky (towers,
 // cones, lances, pennants), matte, no lights. Three palettes, same shapes (`makeKingdomMats(tc, v)`): A sandstone and
 // clay tiles with bright steel, B granite and slate with blackened iron, C a timber keep with thatch. Stelian's list
 // (2026-11-10, the roster locked): the Villager (tunic, pickaxe, a load), the Guard (a long spear, a shield), the Knight (horse, lance, banner),
@@ -75,7 +75,7 @@ export const earthTex = tex(256, (g, n) => {
 }, { repeat: 2 });
 
 // ---------------- the palettes ----------------
-/** The kingdom's palette: Stelian picked B, slate (2026-11-10): slate-grey ashlar, slate roofs, blackened iron, gray
+/** The kingdom's palette: Stelian picked B, slate (2026-11-10): slate-gray ashlar, slate roofs, blackened iron, gray
  *  wool, dark oak; the units' heads pale (linen, steel) so the side reads by its heads. (A, sandstone and clay, and
  *  C, timber and thatch, were the comparison's other options; dropped.) */
 export const KINGDOM_PALETTES = {
@@ -331,17 +331,17 @@ export function knight(M, f) {
  *  Age-of-Empires square-fort template by proportion and plan: a tall narrow keep at the north-west with one great
  *  round tower rising from its south-east corner under the one big cone (slate, a team band at its foot) flying the great banner; a
  *  curtain wall round the yard with a round tower at two corners only (north-east, south-west), flat battlemented
- *  tops; the gatehouse off-centre on the south wall, two cone-roofed towers (slate, team bands at their feet); a great hall along the
- *  east wall; a gray flagstone yard with a cart, crates, a well; grey-brown trodden earth and a path. Slate and dark
+ *  tops; the gatehouse off-center on the south wall, two cone-roofed towers (slate, team bands at their feet); a great hall along the
+ *  east wall; a gray flagstone yard with a cart, crates, a well; gray-brown trodden earth and a path. Slate and dark
  *  iron throughout; team only on the bands at the three cones' feet, the flags and narrow banners (the great banner, the towers'
  *  banners and pennants, four narrow banners down the keep's face, banners on the yard's north wall, the gate's
  *  banner and shields): no cloth slabs, no tents, awnings or canopies. */
 export const CASTLE_K = 0.92; // (the final round: the whole castle scaled so its turn to -20 fits its 4x4 at 0.85 or better, its shape kept)
 export function castle(M) {
   const g = grp(), R = 56, T = 6; g.scale.setScalar(CASTLE_K);
-  add(g, plate(oct(62), 2.2, 0.8), M.earth, 0, 0, 0).userData.ground = true;                   // trodden earth, grey-brown (`ground`: the polish's contact shadow treats it as the ground, so nothing rings it)
+  add(g, plate(oct(62), 2.2, 0.8), M.earth, 0, 0, 0).userData.ground = true;                   // trodden earth, gray-brown (`ground`: the polish's contact shadow treats it as the ground, so nothing rings it)
   add(g, plate(sq(R - T + 0.5), 0.8, 0.3), M.yard, 0, 2.2, 0);                                   // the yard, gray flagstones
-  const GX = 16, GZ = R - T / 2;                                                                 // the gate, off-centre to the east
+  const GX = 16, GZ = R - T / 2;                                                                 // the gate, off-center to the east
   add(g, plate([[GX - 6, 50], [GX + 6, 50], [GX + 7, 63], [GX - 7, 63]], 0.6, 0.2), M.path, 0, 2.0, 0).userData.ground = true; // the worn path out of the gate
   add(g, plate([[GX - 7, 2], [GX + 7, 4], [GX + 8, 50], [GX - 8, 50]], 0.5, 0.2), M.path, 0, 3.1, 0); // and across the yard
   // the curtain wall: a ring of ashlar with a walk and merlons
@@ -389,7 +389,7 @@ export function castle(M) {
   add(g, rbox(6, 9, 1.0, 0.4), M.oak, HX, 6.5, HZ + HL / 2 + 0.6);
   hanging(g, M, HX, HH + 12, HZ + HL / 2 + 0.6, 10, 14, -Math.PI / 2);                            // a banner on the gable
   banner(g, M, HX, HH + 15.8, HZ - 20, 10, 9, 6);                                                 // a flag on the hall's ridge
-  // the gatehouse, off-centre on the south wall: two round towers under team-cloth cones, the gate between, a team
+  // the gatehouse, off-center on the south wall: two round towers under team-cloth cones, the gate between, a team
   // banner over the arch, shields on the towers
   for (const x of [GX - 10, GX + 10]) {
     add(g, cyl(5.6, 6.2, 26, 16), M.wall, x, 15, GZ); add(g, cyl(6.4, 6.4, 1.2, 16), M.plinth, x, 28.4, GZ);

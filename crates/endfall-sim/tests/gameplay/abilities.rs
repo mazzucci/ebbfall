@@ -131,7 +131,7 @@ fn an_attack_order_packs_a_deployed_unit_up_and_a_lost_target_or_stop_leaves_it_
 
 #[test]
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
-    // The Guard's Brace waits for Sandbags, researched at the Forge (`Upgrade::Entrenching`, one level).
+    // The Guard's Brace waits for Shield Drill, researched at the Forge (`Upgrade::Entrenching`, one level).
     let (mut w, forge) = forge_arena(11);
     let p = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
     assert_eq!(

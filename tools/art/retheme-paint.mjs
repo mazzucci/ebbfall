@@ -1,7 +1,7 @@
 // The re-theme pictures' painters, shared by tools/art/retheme-compare.mjs (the slice) and the families' scripts
 // (tools/art/retheme-units.mjs, ...): a plain RGBA canvas, sprites drawn with their team masks tinted per seat (seat 0
 // royal blue by the pictures' own override, nothing in src/), the seabed tile repainted as grass, the halving to CSS
-// pixels, the zoom resample, greyscale and the two colour-blindness simulations, a pixel-font label, review.mjs's
+// pixels, the zoom resample, grayscale and the two color-blindness simulations, a pixel-font label, review.mjs's
 // team-share measure and a unit's size at zoom 1.0. Nothing here is in the game.
 import { tile } from './terrain2.js';
 import { SEAT_COLORS } from '../../src/client/look.js';

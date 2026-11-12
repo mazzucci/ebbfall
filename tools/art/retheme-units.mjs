@@ -5,7 +5,7 @@
 //   row 0  the family: every unit beside the slice's models and buildings for scale and people
 //   row 1  the crowd: about twelve a side in a fight at the sim's spacing, mixing every unit, zoom 1.0
 //   row 2  the two flyers (Balloon high, Drone low) over a few ground units: their heights and shadows apart
-// Writes family.png (2x), family-1x.png (CSS px), family-grey.png (2x, greyscale), crowd.png and flyers.png (rows 1 and
+// Writes family.png (2x), family-1x.png (CSS px), family-grey.png (2x, grayscale), crowd.png and flyers.png (rows 1 and
 // 2 alone, 2x), models/<name>.png and <name>@2x.png (each model alone at phone size in seats 0, 1 and 6 with its team
 // share, plus -protan and -deutan copies) and shares.json; prints the shares and the sizes at zoom 1.0. The painters
 // are retheme-paint.mjs's, shared with the slice's retheme-compare.mjs.

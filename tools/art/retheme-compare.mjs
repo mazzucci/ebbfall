@@ -7,7 +7,7 @@
 //          Data center, a gold outcrop between
 //   row 2  the crowd check: about twelve units a side in a fight at the sim's spacing (they overlap), at zoom 1.0
 //   row 3  the same scene at the phone's default zoom, 0.75 (the PM's question: would a closer default help)
-// Writes compare.png (2x), compare-1x.png (CSS px), compare-grey.png (2x, greyscale), zoom-075.png and zoom-100.png
+// Writes compare.png (2x), compare-1x.png (CSS px), compare-grey.png (2x, grayscale), zoom-075.png and zoom-100.png
 // (the crowd at each zoom, 2x), models/<name>.png and models/<name>@2x.png (each new model alone at phone size in
 // seats 0, 1 and 6 with its team share), shares.json, and prints the team shares (review.mjs's measure: mask px over
 // solid px at facing 0) and each row's ground value. Reuses review.mjs's approach: terrain2.js tile() for the ground,

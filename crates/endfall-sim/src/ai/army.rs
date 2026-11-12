@@ -34,7 +34,7 @@ const STAGE_NEAR: f64 = 4.0 * TILE;
 /// Supply short of the cap that counts as at the cap: a seat 1 or 2 short trains little more than one more unit.
 pub(crate) const CAP_SLACK: i32 = 2;
 
-/// A unit's worth in an army: its cost in salt.
+/// A unit's worth in an army: its cost in gold.
 fn army_worth(k: UnitKind) -> f64 {
     k.def().cost[0] as f64
 }
@@ -116,9 +116,8 @@ impl World {
         self.sweep_point()
     }
 
-    /// Raiders (two or more of the race's raider kind: Raiders, Shrikes) raid the player's harvesters, and with none in
-    /// sight an enemy extractor it knows of out on an open shaft (away from every enemy headquarters); badly hurt ones
-    /// fly home.
+    /// Raiders (two or more of the race's raider kind: Riders, Buggies) raid the player's harvesters, and with none in
+    /// sight an enemy Market it knows of out in the open (away from every enemy headquarters); badly hurt ones go home.
     pub(crate) fn tend_raiders(&mut self, candidates: &[Id], rally: Pt) {
         let mut raiders: Vec<Id> = self
             .ai()
@@ -1685,8 +1684,8 @@ mod tests {
                 }
             })
             .expect("open ground out past the base");
-        let pump = w.make_building(BldgKind::Extractor, PLAYER, far.0, far.1, true);
-        let p = w.bldg(pump).unwrap().clone();
+        let market = w.make_building(BldgKind::Extractor, PLAYER, far.0, far.1, true);
+        let p = w.bldg(market).unwrap().clone();
         assert!(
             (p.x - core.0).hypot(p.y - core.1) > 12.0 * TILE,
             "the Market stands out in the open"
@@ -1696,13 +1695,13 @@ mod tests {
             .map(|i| w.make_unit(UnitKind::Rider, ENEMY, p.x + 200.0, p.y + 30.0 * i as f64))
             .collect();
         w.update_fog();
-        w.ai_mut().known = vec![(pump, p.x, p.y, false, PLAYER)];
+        w.ai_mut().known = vec![(market, p.x, p.y, false, PLAYER)];
         let rally = Pt { x: p.x, y: p.y };
         w.tend_raiders(&raiders, rally);
         for &r in &raiders {
             assert!(
-                matches!(w.unit(r).unwrap().task, Task::Attack { target, .. } if target == pump),
-                "raider {r} goes for the Pump: {:?}",
+                matches!(w.unit(r).unwrap().task, Task::Attack { target, .. } if target == market),
+                "raider {r} goes for the Market: {:?}",
                 w.unit(r).unwrap().task
             );
         }

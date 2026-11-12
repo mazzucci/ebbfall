@@ -17,7 +17,7 @@ const lump = (r) => new THREE.DodecahedronGeometry(r, 0);
  *  veins' shadow), earth, leaves and bark, fieldstone, a puddle, flowers. Nothing team, nothing lit but the glints.
  *  `countryPolish(true)` swaps in the polished copy (`polishCountryMats`); the plain set is never changed. */
 export const CMATS = {
-  rock: std({ color: 0x6e6c66, roughness: 0.9, metalness: 0.02, flatShading: true }),                 // (round 1: 0x86847e lit near white and read as salt beside the gold)
+  rock: std({ color: 0x6e6c66, roughness: 0.9, metalness: 0.02, flatShading: true }),                 // (round 1: 0x86847e lit near white and read as pale crystals beside the gold)
   rockDark: std({ color: 0x4a4844, roughness: 0.95, metalness: 0.02, flatShading: true }),
   rockPale: std({ color: 0x9a988e, roughness: 0.85, metalness: 0.02, flatShading: true }),
   gold: std({ color: 0xf0c850, metalness: 0.6, roughness: 0.35, flatShading: true }),
@@ -35,7 +35,7 @@ export const CMATS = {
   fieldstone: std({ color: 0x7c7466, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 }),   // a ruin's old warm fieldstone (not the kingdom's slate; round 1's pale gray vanished on the hill)
   fieldstoneDark: std({ color: 0x58524a, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.0, roughness: 0.92 }),
   moss: std({ color: 0x5c7a42, roughness: 0.95, flatShading: true }),
-  water: std({ color: 0x3c4a56, roughness: 0.2, metalness: 0.35 }),                                // a puddle: dull grey-blue, a little sky in it
+  water: std({ color: 0x3c4a56, roughness: 0.2, metalness: 0.35 }),                                // a puddle: dull gray-blue, a little sky in it
   mud: std({ color: 0x4e4a40, roughness: 1 }),
   flower: std({ color: 0xd4ccb4, roughness: 0.85 }),                                               // cream, a notch under linen
   pebble: std({ color: 0x78766e, roughness: 0.9, flatShading: true }),
@@ -93,7 +93,7 @@ function patch(edge, sq, h) {
 
 // ---------------- the gold ----------------
 /** The outcrops' four variants, each its own lumps `[x, z, r, h]` (one tile is 32 across), turn and seed, as the
- *  salt's: 0 one big lump among five, 1 a spread of medium ones, 2 a low bed of small ones, 3 two tall and a few small. */
+ *  old fields': 0 one big lump among five, 1 a spread of medium ones, 2 a low bed of small ones, 3 two tall and a few small. */
 const GOLD_VARIANTS = [
   { turn: 0, seed: 31, cl: [[0, -2, 7.5, 11], [-11, 4, 5, 6.5], [10, 5, 5, 7], [-4, 10, 3.8, 4.5], [8, -9, 4, 5]] },
   { turn: 1.9, seed: 47, cl: [[-8, -2, 5.5, 7.5], [5, -6, 5.5, 8], [7, 6, 5, 6.5], [-3, 8, 4.2, 5], [-13, 7, 3.4, 4]] },
@@ -224,7 +224,7 @@ export function stump(v) {
   for (let k = 0; k < 3; k++) add(g, rbox(2 + rnd() * 1.5, 0.5, 1 + rnd(), 0.15), CM.barkLight, (rnd() - 0.5) * 16, 0.25, (rnd() - 0.5) * 12, 0, rnd() * 3, 0);   // chips
   return g;
 }
-/** A puddle (`crater_1`, flat): a lobed film of dull grey-blue water in a mud hollow, two stones at its edge, no
+/** A puddle (`crater_1`, flat): a lobed film of dull gray-blue water in a mud hollow, two stones at its edge, no
  *  rim and no rings; walked over. */
 export function puddle(v) {
   const g = grp(); s = 431 + v * 31;

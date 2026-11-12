@@ -17,8 +17,7 @@ pub const VAEL: Faction = Faction {
     hq: BldgKind::Conflux,
     worker: UnitKind::Lumen,
     // The basic page holds what can be built from the start (the Conflux too), the Recruiting post first (the
-    // Expedition's barracks); the advanced page what needs it, so it appears once the Recruiting post stands. (The
-    // Recruiting post still stands on a shaft and pumps until the economy PR frees it of both.)
+    // Expedition's barracks); the advanced page what needs it, so it appears once the Recruiting post stands.
     build_basic: &[BldgKind::Siphon, BldgKind::Spire, BldgKind::Conflux],
     build_advanced: &[
         BldgKind::Kiln,

@@ -237,7 +237,7 @@ impl World {
     }
 
     /// A route is smoothed from the center of the unit's tile `a`, but the unit walks its first leg from where it
-    /// stands. Off-centre beside a rock corner, that straight line can take it into the rock the route went round:
+    /// stands. Off-center beside a rock corner, that straight line can take it into the rock the route went round:
     /// pushed back out (`separate`), it plans again, the same route, and a worker on its round (which replans at once
     /// when pushed) stepped into the corner and back every tick for minutes. Such a unit steps to its tile's center
     /// first. (Its center's line only: one merely walking close to a wall goes straight on.)

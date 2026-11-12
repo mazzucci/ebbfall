@@ -37,7 +37,7 @@ export function ebMats(M) {
   M.litGlass = std({ color: 0x7a96a4, emissive: 0x4e6a78, emissiveIntensity: 0.9, metalness: 0.3, roughness: 0.2 }); // the Lab's glass front, lit from inside (the blind test: dark glass made it a troop building)
   M.screen = std({ color: 0xe4f0f4, emissive: 0xd4e8f0, emissiveIntensity: 2.2 });                                  // a glowing screen or bench top, cool white (never orange: seat 0 is gold)
   M.tank = std({ color: 0xa8acb0, metalness: 0.7, roughness: 0.4 });                                                // the Bunkhouse's water tank, pale steel
-  M.wool = std({ color: 0x6e6a5c, map: M.canvas.map, roughness: 0.95 });                                           // the bunks' blankets, grey-khaki wool (the two-tester check: team blankets end-on read as a queue of figures at 1x)
+  M.wool = std({ color: 0x6e6a5c, map: M.canvas.map, roughness: 0.95 });                                           // the bunks' blankets, gray-khaki wool (the two-tester check: team blankets end-on read as a queue of figures at 1x)
   M.bedroll = std({ color: 0xbcb4a2, map: M.canvas.map, roughness: 0.95 });                                        // a big pale bedroll
   M.armyCanvas = std({ color: 0x8c8870, map: M.canvas.map, roughness: 0.94 });                                     // the Tent's army canvas, a light dusty khaki (the olive read as golden spikes)
   // the Data center's (2026-11-11, Stelian's brief: a server hall with a rack-light glow, the glow cyan neon, apart from seat 0's royal blue)
@@ -411,7 +411,7 @@ export function radioTurret(M) {
   return g;
 }
 
-/** Portal (Marine; 2x2): where the people from the future arrive. Not a ring, a gate or magic, and (round 3) not a
+/** Portal (Android; 2x2): where the people from the future arrive. Not a ring, a gate or magic, and (round 3) not a
  *  hoist: one cue, a **lit arrival platform people step off**. A raised octagonal platform of stone and boards (r 22,
  *  5 high) with a pale steel edge, a wide pale steel ramp (18 across, 20 long, treads, rails) down to the camera with a
  *  row of white landing LEDs along each rail; two charcoal figures with no team color at 0.8 of unit scale walking down the ramp
@@ -743,7 +743,7 @@ export function sentryGun(M) {
   flag(g, M, -16, 0, -15, 20, 12, 8);                                                                                    // a small team flag
   return g;
 }
-/** The Sentry gun's head (the turning part, 16 facings, no shadow): a squat grey-metal housing on the bearing, a long
+/** The Sentry gun's head (the turning part, 16 facings, no shadow): a squat gray-metal housing on the bearing, a long
  *  thick dark barrel ahead (+x) with a pale muzzle brake, an orange stripe along each flank between ink lines, a cyan
  *  sensor light on top. The barrel reaches 34 ahead of the axis. */
 export function sentryGunHead(M) {
@@ -783,7 +783,7 @@ export function labDome(M) {
   return g;
 }
 
-// ---- the Portal (Marine; 2x2; the sim key `eclipse`, today `portal` above): Stelian's rounds 3 and 4, an energy gate,
+// ---- the Portal (Android; 2x2; the sim key `eclipse`, today `portal` above): Stelian's rounds 3 and 4, an energy gate,
 // not a ring: two tall metal pylons with a vertical sheet of glowing light between them, a doorway of energy, the only
 // tall rectangle in the base; the glow mostly white with a strong violet edge; no platform; team on a flag and the
 // pylons' foot bands. The light is a separate part (`gateLight`, the head, RT_HEADS `gatehead`, `spin: 1`: its 16
@@ -857,7 +857,7 @@ export function energyGateTube(M) {
 const RING_R = 22, RING_T = 4, RING_SX = 1.25, RING_SZ = 0.85;
 /** The oval accelerator ring (`acceleratorRing`): a large flat oval ring tube lying on the ground (R 22 stretched
  *  1.25 x 0.85, tube r 4: 65 x 44 across, inside the 2x2), white, with eight dark steel magnet bands and a cyan light
- *  on each, and the swirl (`ringSwirl`, the head) glowing violet in its hollow, where the Marines appear; a team flag
+ *  on each, and the swirl (`ringSwirl`, the head) glowing violet in its hollow, where the Androids appear; a team flag
  *  on a short mast outside the ring. */
 export function acceleratorRing(M) {
   ebMats(M); sentryMats(M); const g = grp();
@@ -878,7 +878,7 @@ export function ringSwirl(M, phase = 0) {
   return g;
 }
 
-// ---- the Portal as a landing spot (Marine; 2x2; the sim key `eclipse`, the name stays "Portal"): Stelian, after
+// ---- the Portal as a landing spot (Android; 2x2; the sim key `eclipse`, the name stays "Portal"): Stelian, after
 // rejecting the energy gate, its tube and the oval ring (kept above for the record). A square landing pad with
 // markings (`landingPad`), and on it a squat generic VTOL dropship (`dropship`, the head, RT_HEADS `padhead`, `spin: 1`
 // with its shadow: its 16 frames are lift heights, frame 0 landed, so the client can lift it off and land it later;

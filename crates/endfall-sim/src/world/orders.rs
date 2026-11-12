@@ -246,8 +246,8 @@ impl World {
         self.pay(team, up.cost(level), 1);
     }
 
-    /// A building's rally point; on a salt field, its new workers mine there (a seep is never mined: a rally on one is
-    /// a plain point).
+    /// A building's rally point; on a gold mine, its new workers mine there (a mine shaft, none since the re-theme, is
+    /// never mined: a rally on one is a plain point).
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
         let node = node.filter(|&n| self.map.node(n).is_some_and(|n| !n.ether));
         if let Some(b) = self.bm(bid)

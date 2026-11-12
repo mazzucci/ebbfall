@@ -330,7 +330,7 @@ fn four_ais_fight_a_free_for_all_on_four_starts() {
                 "seed {seed} seat {s} fought nobody: {fights:?}"
             );
         }
-        // (a big army under the cap of 40: about 1,400 salt of it at the cap)
+        // (a big army under the cap of 40: about 1,400 gold of it at the cap)
         assert!(
             armies.iter().any(|&a| a >= 1000),
             "seed {seed}: a big army: {armies:?}"

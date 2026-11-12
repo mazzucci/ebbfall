@@ -101,7 +101,7 @@ impl World {
         self.foot(self.factions[self.seat() as usize].worker)
     }
 
-    /// Tiles this seat's workers can reach from `start` (4-neighbour steps over ground they may stand on).
+    /// Tiles this seat's workers can reach from `start` (4-neighbor steps over ground they may stand on).
     fn walkable_from(&self, start: (i32, i32)) -> Vec<bool> {
         let foot = self.worker_foot();
         let mut seen = vec![false; self.map.rock.len()];
@@ -589,7 +589,6 @@ impl World {
                         b.ty as f64 + b.h as f64 / 2.0,
                     )
                 });
-                // (Not a building on a shaft, which needs its shaft.)
                 match self.find_spot(w, fx, fy) {
                     None => {
                         second
@@ -808,7 +807,7 @@ mod tests {
     }
 
     #[test]
-    fn shards_piling_up_with_every_factory_busy_call_for_one_more() {
+    fn gold_piling_up_with_every_factory_busy_calls_for_one_more() {
         // Medium: one factory on the schedule, up to three extra.
         let mut w = World::new(17, 1);
         w.ai_turn = ENEMY;

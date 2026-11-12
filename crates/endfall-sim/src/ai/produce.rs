@@ -34,9 +34,9 @@ impl World {
                     .filter(|&&q| q == k)
                     .count()
         };
-        // A capital unit due: the other factories keep its price back too, or the army spends every shard and the
+        // A capital unit due: the other factories keep its price back too, or the army spends every coin and the
         // giant never comes. What is held back (for it, and for the building the build order wants next) only
-        // counts against a unit for the resources that unit spends: a Trooper does not wait for ether.
+        // counts against a unit for the resources that unit spends.
         let capital_due = self.capital_due(e, &my_b, t);
         let held = {
             let r = want.map_or([0, 0], |w| w.def().cost);

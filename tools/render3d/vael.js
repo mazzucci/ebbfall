@@ -31,7 +31,7 @@ function seamMarks(g, n, { seam, groove, inlay, light, seamW = 1.8 }) {
   g.strokeStyle = inlay; g.lineWidth = 0.9; for (let i = 0; i < 5; i++) { const [x, y, r, a, l] = arcs[i]; g.beginPath(); g.arc(x, y, r * 0.86, a + 0.14, a + l * 0.66); g.stroke(); }   // light inlaid in the channel
   g.strokeStyle = seam; g.lineWidth = 1.4; for (let i = 0; i < 8; i++) { const x = rnd() * n, y = rnd() * n, a = (rnd() * 4 | 0) * Math.PI / 4 + 0.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * (20 + rnd() * 60), y + Math.sin(a) * (20 + rnd() * 60)); g.stroke(); }
 }
-/** The shell's colour map in the palette's colors (vael-palette.js): a faint grain, a mottling of aged ivory and the
+/** The shell's color map in the palette's colors (vael-palette.js): a faint grain, a mottling of aged ivory and the
  *  dark seams. */
 const shellTex = (T) => canvasTex(256, (g, n) => {
   const [g0, gk, gb] = T.grain, [[mr, mg, mb], ma, mk, mn] = T.mottle;

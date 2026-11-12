@@ -8,7 +8,7 @@
 // as country.js: game units (a tile is 32), y up, +z south (to the camera), centered on the footprint. The gold, earth,
 // iron and glint are the country's (country.js `countryMats`: plain or polished with the render); the rock and timber
 // are the mine's own (`mineMats`: round 1 drew the country's rock, whose lit crags went near white under the polish's
-// key and read as a heap of salt, and its fresh timber, which went orange and counted as gold).
+// key and read as a heap of pale crystals, and its fresh timber, which went orange and counted as gold).
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { cone } from './vael.js';
@@ -52,9 +52,9 @@ function patch(edge, sq, h) {
 }
 
 const MM = { plain: null, polish: null };
-/** The mine's own materials over the country's set `C`: its rock (a dark gray, so a lit crag lands mid-grey under the
- *  polish's key and the gold stands off it), the portal's weathered oak (grey-brown, matte: never orange beside the
- *  gold), the sleepers' tarred timber, grey boards, the cart's iron, the unlit black of the adit, the tunnel's shaded
+/** The mine's own materials over the country's set `C`: its rock (a dark gray, so a lit crag lands mid-gray under the
+ *  polish's key and the gold stands off it), the portal's weathered oak (gray-brown, matte: never orange beside the
+ *  gold), the sleepers' tarred timber, gray boards, the cart's iron, the unlit black of the adit, the tunnel's shaded
  *  floor, a lantern. Made once per finish. */
 function mineMats(C) {
   const key = C.polish ? 'polish' : 'plain';

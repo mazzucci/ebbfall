@@ -783,7 +783,7 @@ pub fn data_json() -> String {
 
 /// A map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row, on a map of
 /// `size` x `size` tiles (64, the default: a duel's two starts; 96: four starts, for three or four seats; 128: eight;
-/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 a gold mine, 3 an ether vent, 4 a starting
+/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 a gold mine, 3 a mine shaft (none since the re-theme), 4 a starting
 /// base (all starts alike: which is whose is drawn each game).
 #[wasm_bindgen(js_name = mapPreview)]
 pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
@@ -903,7 +903,7 @@ mod tests {
     }
 
     #[test]
-    fn harvesters_bring_shards_home() {
+    fn harvesters_bring_gold_home() {
         let g = run(777, 1, 60 * TICK_RATE);
         assert!(
             g.w.res[PLAYER as usize][0] > 50,

@@ -125,14 +125,14 @@ fn two_ais_play_each_other_to_the_end() {
 }
 
 #[test]
-fn the_ai_keeps_training_troopers_when_short_of_ether() {
+fn the_ai_keeps_training_troopers_with_the_second_slot_empty() {
     let mut w = World::new(31, 1);
     run(&mut w, 150);
     let id = w.make_unit(UnitKind::Shrike, PLAYER, 60.0, 60.0); // a flyer far away makes it want Archers
     w.hold_unit(id);
     let before = count(&w, ENEMY, UnitKind::Trooper);
     for _ in 0..90 * TPS {
-        w.res[ENEMY as usize][1] = 0; // no ether at all
+        w.res[ENEMY as usize][1] = 0; // (the second slot: always empty since the one resource)
         w.step();
     }
     assert!(
@@ -724,7 +724,7 @@ fn the_ai_repairs_its_buildings_once_the_fight_is_over() {
     w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = (max * 0.3).round();
     run(&mut w, 45);
     let hp = w.bldg(id).map_or(0.0, |b| b.hp);
-    // It may run short of shards before the last few hp (it spends on its army too), as a player can.
+    // It may run short of gold before the last few hp (it spends on its army too), as a player can.
     assert!(hp > max * 0.8, "the AI repaired its depot: {hp}/{max}");
 }
 
@@ -746,14 +746,14 @@ fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
         .unwrap()
         .id;
     w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = 50.0;
-    // (and no Pumps: their trickle would pay a salt at a time for a repair)
-    let pumps: Vec<Id> = w
+    // (and no Markets: their trickle would pay a gold at a time for a repair)
+    let markets: Vec<Id> = w
         .bldgs
         .iter()
         .filter(|b| b.team == ENEMY && b.kind.def().pays)
         .map(|b| b.id)
         .collect();
-    for p in pumps {
+    for p in markets {
         w.damage(p, 1e6, None);
     }
     let mut starts = 0;
@@ -995,15 +995,15 @@ fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle()
                     }
                 }
             }
-            let [pump, tech] = first.map(|t| t.expect("placed within 200 s"));
+            let [market, tech] = first.map(|t| t.expect("placed within 200 s"));
             assert!(
-                pump < tech,
-                "seed {seed} {}: the Pump before the tech ({pump} vs {tech})",
+                market < tech,
+                "seed {seed} {}: the Market before the tech ({market} vs {tech})",
                 f.key
             );
             assert!(
-                pump < 30 * 120,
-                "seed {seed} {}: the Market within 2:00 ({pump})",
+                market < 30 * 120,
+                "seed {seed} {}: the Market within 2:00 ({market})",
                 f.key
             );
         }
@@ -1168,7 +1168,7 @@ fn each_level_trains_only_its_own_mix() {
             }
             let name = f.name;
             // Easy raises no vehicle bay nor an air factory (its raiders are above it). And the AI never researches
-            // a brace it would not use (Sandbags: it braces nothing).
+            // a brace it would not use (Shield Drill: it braces nothing).
             let ai = &f.ai;
             if diff == 0 {
                 assert!(
@@ -1179,7 +1179,7 @@ fn each_level_trains_only_its_own_mix() {
             assert_eq!(
                 w.upgrades[ENEMY as usize][Upgrade::Entrenching.index()],
                 0,
-                "level {diff} {name}: no Sandbags"
+                "level {diff} {name}: no Shield Drill"
             );
             assert_eq!(
                 seen[2], 0,
@@ -1569,7 +1569,7 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
 
 #[test]
 fn the_vael_ai_keeps_one_spare_worker_at_most() {
-    // A Glint stays at its site as a Rigger does: the Vael AI keeps one spare for it, and no more, through a long game
+    // A Bot stays at its site as a Villager does: the Expedition's AI keeps one spare for it, and no more, through a long game
     // on every level (a second base adds three).
     for (diff, d) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(17, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
@@ -1597,7 +1597,7 @@ fn the_vael_ai_keeps_one_spare_worker_at_most() {
 
 #[test]
 fn on_a_barren_map_the_ai_takes_its_natural_before_its_home_field_runs_dry() {
-    // Barren fields hold 40% of the shards: the home field runs dry by about 6:00, before Medium's time to expand,
+    // Barren fields hold 40% of the gold: the home field runs dry by about 6:00, before Medium's time to expand,
     // and after that it could never pay for a Core. Medium and up now expand once the field by the main runs low;
     // Easy keeps to its schedule (the gentle level).
     for diff in 0..DIFF.len() {
@@ -1726,7 +1726,7 @@ fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() 
 
 #[test]
 fn brutal_trains_its_workers_before_its_buildings() {
-    // Brutal's build order (three factories, supply two at a time) spent every shard while its crew was still short,
+    // Brutal's build order (three factories, supply two at a time) spent every coin while its crew was still short,
     // so its Core stood idle between workers; and a Human builder leaves the line while it builds, so the Human AI fell
     // behind the Vael AI in the opening. Now a worker's price stays in the bank while the crew is short: by 3:00 (its
     // build-up done; the first waves can meet about then, so the mining margin allows for a fleeing worker or two) the Human AI's Core

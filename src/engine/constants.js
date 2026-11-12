@@ -1,6 +1,6 @@
 // Game data as the client sees it. Every number comes from the Rust sim (crates/endfall-sim/src/data/, exported
 // into pkg/data.js by `npm run build:wasm`); this file adds only what the player reads: hotkeys and descriptions.
-// Costs are [gold, 0] (the second slot was ether, gone with the conversion). Distances are in tiles unless named otherwise; speeds in px/s.
+// Costs are [gold, 0] (the second slot, once a second resource, is always 0). Distances are in tiles unless named otherwise; speeds in px/s.
 import D from './pkg/data.js';
 import { DIFF_NAMES, plural } from './util.js';
 if (!D.schema) throw new Error('src/engine/pkg/ is stale: run npm run build:wasm');

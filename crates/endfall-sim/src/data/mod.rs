@@ -1,4 +1,4 @@
-//! Game data. Costs are [shards, ether]; distances in tiles unless named otherwise; speeds in px/s.
+//! Game data. Costs are [gold, 0] (the second slot always 0); distances in tiles unless named otherwise; speeds in px/s.
 //! The only source of game numbers: build:wasm exports them to src/engine/pkg/data.js, and the client's
 //! src/engine/constants.js adds just hotkeys and descriptions.
 //!
@@ -358,7 +358,7 @@ def_struct! {
         sight: f64 = "sight",
         trains: &'static [UnitKind] = "trains",
         dropoff: bool = "dropoff",
-        /// Pays its owner salt by itself, with no workers (`PUMP_RATE` a second): the Kingdom's Market.
+        /// Pays its owner gold by itself, with no workers (`PUMP_RATE` a second): the Kingdom's Market.
         pays: bool = "pays",
         /// At most one a finished headquarters of its side (the Market: a new Castle at an expansion allows another).
         per_hq: bool = "perHq",
@@ -499,10 +499,10 @@ pub const MINE_SIZE: i32 = 2;
 pub const MINE_CAP: i32 = 7;
 pub const MINE_TIME: f64 = 4.0;
 pub const MINE_LOAD: i32 = 16;
-/// Salt a second a finished Pump on a seep pays its owner, with no workers (PRD: the conversion, rule 1): about one
+/// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): about one
 /// worker's income, so it pays back its 75 in two and a half minutes.
 pub const PUMP_RATE: f64 = 0.5;
-/// What a refusal for want of salt says (the client's announcer keys on it).
+/// What a refusal for want of gold says (the client's announcer keys on it).
 pub const NOT_ENOUGH: &str = "Not enough gold";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;

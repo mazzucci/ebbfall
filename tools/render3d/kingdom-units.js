@@ -1,7 +1,7 @@
 // The kingdom's units after the slice (the units family, 2026-11-10; not in the game's atlas: retheme.js renders them
 // by filter): the Archer (the Barracks' ranged line, hits flyers), the Rider (the Stables' light cavalry), the
-// Ballista (the Workshop's giant crossbow, flyers and ground), the Trebuchet (the Workshop's long-range siege, with its
-// traveling and set-up poses) and the Balloon (the kingdom's one flyer, unarmed, long sight). The slice's rules
+// Ballista (the Workshop's giant crossbow, flyers and ground), the Trebuchet (the Workshop's long-range siege before the Cannon took its slot, kept for the
+// record; traveling and set-up poses) and the Balloon (the kingdom's one flyer, unarmed, long sight). The slice's rules
 // (kingdom.js, target/art-review/slice/notes.md): a mid-dark body of oak, wool, horse and mail under a pale head of
 // linen or steel, each kind its own head shape and one big prop; team on cloth between ink hems, never a whole
 // surcoat; thin props drawn two to three times their thickness. Same conventions as models.js: game units, units

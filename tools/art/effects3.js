@@ -93,7 +93,7 @@ function cannonball() {
     return [...(lit > 0.5 ? [112, 116, 122] : lit > 0.28 ? [70, 72, 78] : [40, 42, 46]), 255];
   });
 }
-/** A rifle tracer (`rt_tracer`, 26x4; the Marine, the Mercenary, the Veteran): a short bright line, its heart pale
+/** A rifle tracer (`rt_tracer`, 26x4; the Android, the Mercenary, the Veteran): a short bright line, its heart pale
  *  yellow-white, its tail darkening in two steps. Not a laser: 13 CSS px long, 2 thick. */
 function tracer(len = 26, head = TRACER, tail = TRACER_TAIL) {
   return image(len, 4, (x, y) => {

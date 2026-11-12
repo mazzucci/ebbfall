@@ -2,7 +2,7 @@
 
 use super::*;
 
-/// The value of a unit for balance: salt + 2 x ether (ether is 0 since the conversion's PR 1).
+/// The value of a unit for balance: its gold + 2 x its second slot (always 0 since the conversion's PR 1).
 pub fn unit_value(k: UnitKind) -> f64 {
     k.def().cost[0] as f64 + 2.0 * k.def().cost[1] as f64
 }

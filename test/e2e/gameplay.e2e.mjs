@@ -169,7 +169,7 @@ test('a Market built in the base earns gold by itself; one per Castle', async ()
   const d = await newGame(DESKTOP);
   try {
     await d.grant(1000, 0);
-    // (the Market needs the Barracks; it goes up in the base, no shaft)
+    // (the Market needs the Barracks; it goes up in the base)
     await buildAndFinish(d, 'c', 'barracks', 3);
     const ext = await buildAndFinish(d, 'x', 'extractor', 0);
     await d.clickEntity(ext.id);
@@ -364,7 +364,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(1)').click(); // cancel the research
     const after = (await d.state()).res;
-    assert.ok(after[0] - before[0] >= 100 && after[1] === before[1], 'cancel refunds in full (gold; no ether)');
+    assert.ok(after[0] - before[0] >= 100 && after[1] === before[1], 'cancel refunds in full (gold; nothing in the second slot)');
     await d.pressCard('Weapons I');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].weapons)) === 1, { seconds: 70, what: 'Weapons I' });
     await d.clickEntity(forge.id);
@@ -2660,16 +2660,16 @@ test('an enemy Android is seen and picked however long it stands still (nothing 
   try {
     // (set-up: an enemy Android out on the field, held, and our Balloon watching it from out of its reach)
     const at = await d.eval(() => { const b = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq); const dx = b.x < 1000 ? 1 : -1; return { x: b.x + dx * 640, y: b.y, dx }; });
-    const marine = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]);
+    const android = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'umbra', x, y), [at.x, at.y]);
     const spy = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'observer', x, y), [at.x - at.dx * 300, at.y]);
-    await d.eval((ids) => ids.forEach(id => endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id))), [spy, marine]);
-    const seen = () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), marine);
+    await d.eval((ids) => ids.forEach(id => endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id))), [spy, android]);
+    const seen = () => d.eval((id) => endfall.engine.visibleEnt(endfall.G.units.find(u => u.id === id)), android);
     await d.skip(5);
     assert.equal(await seen(), true, 'still seen after standing still for 5 s');
-    const u = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return { x: u.x, y: u.y }; }, marine);
+    const u = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return { x: u.x, y: u.y }; }, android);
     await d.centerOn(u.x, u.y);
-    await d.clickEntity(marine);
-    assert.ok((await d.selection()).some(e => e.id === marine), 'a click picks it');
+    await d.clickEntity(android);
+    assert.ok((await d.selection()).some(e => e.id === android), 'a click picks it');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

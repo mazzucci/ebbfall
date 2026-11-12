@@ -76,17 +76,17 @@ fn nothing_is_ever_hidden() {
     let mut w = flat_arena(5);
     w.factions = vec![&HUMANS, &VAEL];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
-    let marine = w.make_unit(UnitKind::Umbra, ENEMY, x + 5.0 * TILE, y);
+    let android = w.make_unit(UnitKind::Umbra, ENEMY, x + 5.0 * TILE, y);
     let archer = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
-    set_hp(&mut w, marine, 1e6);
+    set_hp(&mut w, android, 1e6);
     set_hp(&mut w, archer, 1e6);
-    w.hold_unit(marine);
+    w.hold_unit(android);
     w.hold_unit(archer);
-    let hp0 = w.unit(marine).unwrap().hp;
+    let hp0 = w.unit(android).unwrap().hp;
     run(&mut w, 10);
-    assert!(w.seen_by(PLAYER, marine), "seen after ten still seconds");
-    assert!(w.can_hit(archer, marine));
-    assert!(w.unit(marine).unwrap().hp < hp0, "and shot");
+    assert!(w.seen_by(PLAYER, android), "seen after ten still seconds");
+    assert!(w.can_hit(archer, android));
+    assert!(w.unit(android).unwrap().hp < hp0, "and shot");
     let fields = endfall_sim::snapshot::UNIT_FIELDS;
     assert!(
         !fields.contains(&"hid") && !fields.contains(&"cloaked"),

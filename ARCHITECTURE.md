@@ -148,7 +148,7 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
                       turtle.rs (a never-attacking Medium against Medium), waves.rs (every AI wave: its value against
-                      the defence on arrival, its result, where its units fell; in report and turtle),
+                      the defense on arrival, its result, where its units fell; in report and turtle),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
@@ -194,7 +194,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
                       retreat, the sweep), radio.rs (the range: the Expedition's machines move x1.3 within a finished
                       Data center's 18 tiles or an Uplink's 12 of their side or an ally, by exact distance from the
-                      building's centre, and at their own speed elsewhere; the sources listed again when they change
+                      building's center, and at their own speed elsewhere; the sources listed again when they change
                       (checked each tick: derived, not hashed), and handed to the client as circles (`radio_circles`,
                       Game.radioCircles: x, y, reach per source of a side and its allies); the
                       Drone goes at most 5 tiles past the range: a move or attack stops there (fighting what it can
@@ -261,14 +261,14 @@ src/client/           everything that touches the browser
                       shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
                       board or the map (then it is theirs: saved, and an ordinary game)
-  seats.js            the board's eight fixed spots (a seat keeps its spot, and its spot's colour in the game, whatever
+  seats.js            the board's eight fixed spots (a seat keeps its spot, and its spot's color in the game, whatever
                       its side; adding fills the lowest empty spot; single player's REMOVE moves the players after it
                       up a spot and numbers the sides again without a gap, `removeAt`; the lobby's empties the spot): a
                       spot per entry (`{ race, team, diff }`, null when empty, you in spot 0) and how they become the
                       game's seats (`arrange` puts each side's seats side by side, your side first; `startSetup`, with
                       `spots`, each seat's spot), pure (test/seats.test.js: `arrange`, `startSetup`, `enemyLevel`,
                       `newAi`, `canRemove`, `removeAt`, `sideChoices`, ...); and the board's DOM pieces, the lobby's
-                      too, built from a seat's view: `tokenEl` (colour band, name, race, level pips, its side's tag; a host's crown, a
+                      too, built from a seat's view: `tokenEl` (color band, name, race, level pips, its side's tag; a host's crown, a
                       ready check, AWAY, an open seat's SIT HERE), `emptySpot` (+ AI, + SEAT, or a faint outline),
                       `chipRow` (a radio group), `seatSheet` (RACE, LEVEL, SIDE; footer buttons), `sheetDialog` (a
                       modal <dialog>)
@@ -292,7 +292,7 @@ src/client/           everything that touches the browser
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
-                      Shields for a shielded race (none since the re-theme), Armour; damage, ground/air, tags), base
+                      Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
   tools.js            player helpers: select idle workers / army / same type, control groups, alerts
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
@@ -306,8 +306,8 @@ src/client/           everything that touches the browser
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
                       swirl brightening each time a unit comes through, then settling, `portalOpen`),
                       a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`), each shot's
-                      sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colours
-                      and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's colour),
+                      sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colors
+                      and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
                       on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
@@ -361,7 +361,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
                       guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their
-                      spots' colours, eight seats on phones; a code typed as shown or not, the share line, an
+                      spots' colors, eight seats on phones; a code typed as shown or not, the share line, an
                       out-of-date link, the host's REMOVE, the limits' line),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
@@ -452,7 +452,7 @@ tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from t
                       file of dist/ but source maps and WEB_ONLY
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
-                      own sprites, composed in headless Chromium, reduced to 256 colours to stay small; output committed
+                      own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
@@ -469,9 +469,9 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
                       render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
                       units alike, no baked chimney smoke) at the game's 40-degree camera and 420 sun. The older models
-                      (models.js, buildings.js, harbour*.js, vael*.js) stay only for the two healers the sim keeps but
-                      trains nowhere (medic, halo) and fitTints' reference sprites; the retired kinds are not drawn
-                      (main.js `RETIRED`)
+                      (models.js, buildings.js, harbour*.js, vael*.js, trimmed to what main.js still draws) stay only
+                      for the two healers the sim keeps but trains nowhere (medic, halo) and fitTints' reference sprites,
+                      which set the atlas's seat tints; the retired kinds are not drawn (main.js `RETIRED`)
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
                       light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures

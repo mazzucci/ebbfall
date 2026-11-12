@@ -2,7 +2,7 @@
 // expedition-units.js; the countryside, country.js). Two ways out: `atlasSprites` (below) renders them into the atlas
 // under today's sprite names (main.js, for tools/art/generate.mjs), and `rethemeSprites` renders them by filter under
 // their own names for the review pictures (tools/art/retheme-*.mjs). Those names: `kg_<kind>_<dir>_<frame>` and
-// `ex_<kind>_<dir>_<frame>` for the units (16 facings, two frames unless `frames` says otherwise: the Trebuchet's four
+// `ex_<kind>_<dir>_<frame>` for the units (16 facings, two frames unless `frames` says otherwise: the Cannon's and the Trebuchet's four
 // poses, the Balloon's one), `bldg_kg_<kind>` and `bldg_ex_<kind>` for the buildings, `kg_towerhead_<dir>` /
 // `ex_radiohead_<dir>` for the two turning heads (RT_HEADS), `rt_coins` for the gold deposit (not team), the
 // ground family's `rt_*` (the gold, the scenery, each people's construction and rubble) and `rt_mine_<stage>` for the

@@ -5,7 +5,7 @@
 //                    salt field at its four stages, and the scenery as the game scatters it (no mine shaft since the re-theme)
 //                    (src/client/scenery.js on this patch); the game's shade layer over it as gl/render.js draws it
 //   units@2x.png, units.png     the same sheet with Harbor and Vael units (seats 0, 1, 6) and a building of each people
-//   ground-grey.png, ground-protan.png, ground-deutan.png, units-*.png   the phone sheets in greyscale and under Machado
+//   ground-grey.png, ground-protan.png, ground-deutan.png, units-*.png   the phone sheets in grayscale and under Machado
 //                    et al. 2009 protanopia and deuteranopia at full severity
 //   scenery.png      every prop at 1:1 on the seabed, in the atlas's order (scenery.json names the cells)
 //   construction.png the Harbor's foundation, scaffold over a rising Lighthouse (3/8 and 6/8 as the renderer reveals it),

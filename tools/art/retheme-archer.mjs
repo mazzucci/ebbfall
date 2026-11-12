@@ -4,10 +4,10 @@
 // the approved look (the polish at the game's 40-degree camera and 420 sun) on the real countryside grass tiles
 // (terrain3.js), the game's seat colors (seat 0 blue, seat 1 magenta), and writes to <outdir> (default target/archer-review):
 //   --save-old      first, before the model changes: renders today's Archer alone and keeps it in <outdir>/old.json
-//   lineup-100.png  a phone at zoom 1.0 (2x device px; -1x the CSS-px copy, -grey in greyscale): per seat a row of
+//   lineup-100.png  a phone at zoom 1.0 (2x device px; -1x the CSS-px copy, -grey in grayscale): per seat a row of
 //                   the old Archer E S W N, the new one E S W N, then the Villager, Guard and Knight (E and S)
 //   lineup-075.png  the same at zoom 0.75 (+ -1x)
-//   closeups-4x.png old against new at 4x (nearest-neighbour from 2x), facing E S W N, both seats
+//   closeups-4x.png old against new at 4x (nearest-neighbor from 2x), facing E S W N, both seats
 //   crowd-100.png   each seat's blob at the sim's spacing: Villagers, the new Archers, Guards, a Knight, zoom 1.0 (+ -1x)
 // Prints each kind's team share (mask px over solid px, facing 0) and its size at zoom 1.0 (CSS px).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

@@ -1,8 +1,7 @@
 // What this side remembers of enemy buildings: each one's state as last seen (kind, place, seat, how far built), drawn
 // in the fog in its place, on the field and the minimap, and picked there, instead of the live one. A building never
-// seen is not drawn at all; a remembered one that fell out of sight stays until its ground is seen again. (Every mine
-// shaft is explored from the start: without this, who holds each one would show through the fog.) Our own and our
-// allies' buildings are always live (shared vision).
+// seen is not drawn at all; a remembered one that fell out of sight stays until its ground is seen again. Our own and
+// our allies' buildings are always live (shared vision).
 import { G, enemies, visibleEnt, idx } from '../engine/core.js'; // (core.js, not index.js: no WASM loading of its own, so Node tests use it too)
 
 /** Building id -> its last-seen state (a copy, `ghost: true`). */

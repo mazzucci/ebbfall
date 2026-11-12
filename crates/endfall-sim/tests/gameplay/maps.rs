@@ -12,7 +12,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
     for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242, 99999] {
         rock[0] += rock_share(&World::new(seed, 1));
         let std = World::new(seed, 1);
-        let std_shards: i32 = std
+        let std_gold: i32 = std
             .map
             .nodes
             .iter()
@@ -25,7 +25,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                 w.map.connected(w.map.bases[0], w.map.bases[1]),
                 "seed {seed} {kind:?}: the bases connect"
             );
-            // Every field owns its tiles (an extra vent must not land on a shard field).
+            // Every field owns its tiles (an extra vent must not land on a field).
             for n in &w.map.nodes {
                 let size = n.s;
                 for y in 0..size {
@@ -60,7 +60,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                     n.tx, n.ty
                 );
             }
-            let shards: i32 = w
+            let gold: i32 = w
                 .map
                 .nodes
                 .iter()
@@ -74,13 +74,13 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
             );
             match kind {
                 MapKind::DeepFields => {
-                    assert_eq!(shards, std_shards * 10, "seed {seed}: ten times the shards")
+                    assert_eq!(gold, std_gold * 10, "seed {seed}: ten times the gold")
                 }
                 MapKind::EtherStorm => {} // (its vents are gone with every map's: its ground stays its own)
-                MapKind::Barren => assert!(shards < std_shards / 2, "seed {seed}: picked clean"),
+                MapKind::Barren => assert!(gold < std_gold / 2, "seed {seed}: picked clean"),
                 MapKind::OpenPlains => rock[1] += rock_share(&w),
                 MapKind::Labyrinth => rock[2] += rock_share(&w),
-                MapKind::Standard => assert_eq!(shards, std_shards),
+                MapKind::Standard => assert_eq!(gold, std_gold),
                 MapKind::Shore => {} // (its ground and fields: tests/gameplay/shore.rs)
             }
         }
@@ -139,7 +139,7 @@ fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
             assert_walkable_and_mirrored(&w, &format!("seed {seed} {kind:?}"));
         }
     }
-    // A fair start: two minutes of mining with the four first harvesters gives both sides the same shards.
+    // A fair start: two minutes of mining with the four first harvesters gives both sides the same gold.
     for seed in 0..if cfg!(debug_assertions) { 8 } else { 60 } {
         let mut w = World::new(seed, 1);
         w.set_ai_seats([false, false]); // (an AI seat earns the difficulty's income)
@@ -150,7 +150,7 @@ fn maps_are_walkable_mirrored_and_fair_from_the_first_minute() {
         );
         assert!(
             (a - b).abs() <= 0.1 * a.max(b),
-            "seed {seed}: {a} vs {b} shards after two minutes"
+            "seed {seed}: {a} vs {b} gold after two minutes"
         );
     }
 }
@@ -755,7 +755,7 @@ fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
 
 #[test]
 fn every_start_of_a_larger_map_mines_alike_from_the_first_minute() {
-    // Two minutes of mining with the four first harvesters: every seat about the same shards (one race here). Not
+    // Two minutes of mining with the four first harvesters: every seat about the same gold (one race here). Not
     // exactly: the starts are images of each other, but walking is not quite the same in every direction on the grid
     // (the path search's tie-breaks): up to 8% apart on a duel's map, 12% on eight starts, whose fields lie off the
     // grid's axes.
@@ -767,13 +767,13 @@ fn every_start_of_a_larger_map_mines_alike_from_the_first_minute() {
                 World::with_size(seed, 1, MapKind::Standard, MapSize::square(n), seed, &races);
             w.set_ai_seats(vec![false; seats]);
             run(&mut w, 120);
-            let shards: Vec<f64> = w.res.iter().map(|r| r[0] as f64).collect();
-            let (lo, hi) = shards
+            let gold: Vec<f64> = w.res.iter().map(|r| r[0] as f64).collect();
+            let (lo, hi) = gold
                 .iter()
                 .fold((f64::MAX, 0.0f64), |(a, b), &s| (a.min(s), b.max(s)));
             assert!(
                 hi - lo <= 0.13 * hi,
-                "{n}x{n} seed {seed}: {shards:?} shards after two minutes"
+                "{n}x{n} seed {seed}: {gold:?} gold after two minutes"
             );
         }
     }

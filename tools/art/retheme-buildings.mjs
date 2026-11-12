@@ -5,7 +5,7 @@
 //     each people's buildings beside the slice's main building and its units, zoom 1.0 on the grass
 //   base-kingdom.png, base-expedition.png: a full base of each people (every building once, units) at zoom 1.0, and
 //     base-kingdom-075.png, base-expedition-075.png the same at 0.75 (2x and -1x copies of each)
-//   range-overlay.png (+ -1x): the Expedition base with a machine selected and the Radio tower's and Data centre's range
+//   range-overlay.png (+ -1x): the Expedition base with a machine selected and the Radio tower's and Data center's range
 //     shown on the ground (the proposed look: a faint pale tint inside, a soft ring at the edge)
 //   models/<name>.png and <name>@2x.png: each new building (and the fixed Castle and Data center) alone in seats 0, 1 and 6
 //     with its team share, plus -protan and -deutan copies; the two towers drawn with their heads
@@ -103,7 +103,7 @@ function base(name, list, seed) {
 base('kingdom', KINGDOM_BASE, 11);
 const exBase = base('expedition', EXPEDITION_BASE, 13);
 
-// ---- the range overlay mock-up: the Expedition base with a Buggy selected; the Radio tower's and Data centre's range
+// ---- the range overlay mock-up: the Expedition base with a Buggy selected; the Radio tower's and Data center's range
 // on the ground as a faint pale tint inside and a soft ring at the edge (neutral, not the team's color: it must read
 // in every seat and never fight the grass or the team flags) ----
 {

@@ -71,7 +71,7 @@ function noise(x, y) {
 // clear teal and deep water a blue. The add: the water's light, more in the shallows than in the deep.
 const SHALLOW = [150, 230, 222], DEEP = [66, 118, 198], SHALLOW_ADD = [14, 34, 31], DEEP_ADD = [2, 8, 22];
 /** The wet line: on the land side of the waterline, a band some 9 px wide darkened to WET_DARK at the water; on the
- *  water side the lap, a 2 px line of pale salt foam (added). */
+ *  water side the lap, a 2 px line of pale foam (added). */
 const WET_BAND = 0.28, WET_DARK = 0.5, LAP = 0.07, LAP_ADD = [26, 30, 28];
 /** The drop-off: where the shallows fall to deep water, a crisp dark line some 2 px wide (round 2's soft blur lost the
  *  channel's edge), then the deep, deepening a little further out. */

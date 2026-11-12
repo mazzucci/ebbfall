@@ -10,7 +10,7 @@ const clamp01 = (v) => Math.max(0, Math.min(1, v));
 // Ground: the drained seabed (STYLE.md): wet sand and slate, salt crust in pale veins, dark patches of drying kelp;
 // the darkest thing on screen. Rock: dead reef, a pale lip over a dark layered face.
 const SAND = [58, 54, 47], SAND_WET = [44, 42, 38], SLATE = [40, 44, 50], SALT = [142, 140, 130], SALT_DIM = [96, 95, 88], KELP = [36, 29, 21], KELP_DARK = [23, 19, 14];
-// Rock: dead reef (the PRD): a pale bleached lip, a crumbly grey-brown top pitted with holes, a dark face in layers.
+// Rock: dead reef (the PRD): a pale bleached lip, a crumbly gray-brown top pitted with holes, a dark face in layers.
 const ROCK_TOP = [86, 82, 73], ROCK_TOP2 = [68, 65, 58], ROCK_LIP = [168, 162, 146], ROCK_FACE = [34, 32, 30], ROCK_FACE2 = [70, 66, 58], ROCK_PIT = [42, 40, 36];
 const KELP_EDGE = [46, 39, 25]; // kelp brown-black, olive at its edge, never green (round 3's green kelp doubled as the seep)
 
@@ -134,7 +134,7 @@ export function tile(m, variant = 0) {
         const t = Math.min(above && above <= SIDE ? above / SIDE : 1, left && left < SIDE ? left / SIDE : 1, right && right < SIDE ? right / SIDE : 1);
         c = layered(t * 0.8);
       } else {
-        // the top: dead reef, crumbly grey-brown; its noise periodic over the tile and shared by the variants, so tiles seam
+        // the top: dead reef, crumbly gray-brown; its noise periodic over the tile and shared by the variants, so tiles seam
         const n = vnoise(x, y, 32, 61, 2) * 0.45 + vnoise(x, y, 8, 63, 8) * 0.35 + vnoise(x, y, 4, 65, 16) * 0.2;
         c = mix(ROCK_TOP2, ROCK_TOP, n).map(v => v * (0.93 + hash2(x, y, 67, T) * 0.1));
         if (above === SIDE + 1) c = mix(c, ROCK_LIP, 0.8); else if (above === SIDE + 2) c = mix(c, ROCK_LIP, 0.35); // the bleached lip over each face

@@ -1,7 +1,7 @@
 // Battle shots of the whole set in the built game (step 2 of the new art's review): npm run build, then
 //   node tools/art/battle-shots.mjs [outdir] [scene...]     (default target/art-review/step2/battle; scenes below)
 // Each scene is a real single-player game started through the menu (your race and the AI's set on the board), the AI
-// switched off, then set up through the debug handle (window.endfall): armies put down by engine.debugSpawn at a salt
+// switched off, then set up through the debug handle (window.endfall): armies put down by engine.debugSpawn at a gold
 // field and sent at each other (engine.attackMoveGroup), a base raised through the engine's own build orders
 // (engine.placeBuilding with granted resources) and fast-forwarded (skip). The page's clock (Playwright's) is then held
 // so the frame shot is the frame the game drew mid-fight. Your army is box-selected (a tap on a phone) through the UI,
@@ -59,7 +59,7 @@ async function newGame(device, races, mapName) {
   return { ctx, page, touch, errors };
 }
 
-/** Two armies spawned either side of the salt field nearest the map's middle, each attack-moved at the other. Returns
+/** Two armies spawned either side of the gold mine nearest the map's middle, each attack-moved at the other. Returns
  *  the field's point and your army's box. */
 const fight = (page, armies) => page.evaluate((armies) => {
   const { G, map, engine } = endfall, T = engine.TILE, cores = G.bldgs.filter(b => b.team <= 1);

@@ -32,7 +32,7 @@ fn open_spot(w: &World, from: (i32, i32), r: i32, seen: &[bool]) -> (i32, i32) {
     panic!("no open ground near {from:?}");
 }
 
-/// A start's centre, in tiles (the 4x4 Core's top-left plus 2).
+/// A start's center, in tiles (the 4x4 Core's top-left plus 2).
 fn start(w: &World, seat: usize) -> (i32, i32) {
     (w.map.bases[seat].0 + 2, w.map.bases[seat].1 + 2)
 }
@@ -511,9 +511,9 @@ fn centre_line_clear(w: &World, a: Pt, b: Pt) -> bool {
 #[test]
 fn a_walker_beside_a_rock_corner_does_not_step_into_it() {
     // A route is smoothed from the center of the unit's tile, but the unit walks its first leg from where it stands.
-    // Off-centre beside a corner, that line went through the rock the route went round: pushed back out, a worker on
+    // Off-center beside a corner, that line went through the rock the route went round: pushed back out, a worker on
     // its round planned the same route again at once, and stepped into the corner and back every tick (a Lumen at
-    // seed 8's Labyrinth sat so for two minutes). Walkers off-centre on every side of an L of rock, sent every way:
+    // seed 8's Labyrinth sat so for two minutes). Walkers off-center on every side of an L of rock, sent every way:
     // the line from where each stands to its next waypoint never crosses rock, and each gets there.
     let (mut runs, mut bad) = (0, Vec::new());
     for (dx, dy) in [

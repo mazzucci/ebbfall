@@ -137,7 +137,7 @@ const flatMat = (wt, side) => {
   return flat.get(k);
 };
 /**
- * The team mask of a finished render: the finished pixels of the team-coloured surfaces (materials marked by
+ * The team mask of a finished render: the finished pixels of the team-colored surfaces (materials marked by
  * materials.js `team`), with alpha = their share of the pixel (lamps a fraction), everything else transparent. A second
  * pass draws the same camera with team materials flat white (their weight) and every other surface flat black, so
  * nearer geometry still hides paint; no shadows, no glow shells. The client tints it with the seat's color.

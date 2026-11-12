@@ -43,8 +43,8 @@ pub struct Diff {
     /// leaves its Core idle for want of shards (Brutal's build order spent every shard, and its Human AI, whose
     /// builders leave the line, fell behind the Vael's in the opening).
     pub workers_first: bool,
-    /// Seconds before it plants more than one Pump (each base has two seeps): its main's first goes up once it has
-    /// seven workers, the rest not before this; then the expansion's.
+    /// Seconds before it raises more than one Market (one a Castle): its main's goes up once it has seven workers, the
+    /// expansion's not before this.
     pub vents_from: f64,
     /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
     /// the AI breaks a defense; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
@@ -152,7 +152,7 @@ pub const DIFF: [Diff; 4] = [
     },
     // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
-    // the Pumps make up the income (the lab after PR 1 tunes them).
+    // the Markets make up the income (the lab after PR 1 tunes them).
     Diff {
         income: 1.0,
         wave: 7,

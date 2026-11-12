@@ -1,4 +1,4 @@
-//! The AI's economy: workers on salt, more harvesters, staffing an expansion.
+//! The AI's economy: workers on gold, more harvesters, staffing an expansion.
 
 use super::*;
 
@@ -28,7 +28,7 @@ impl World {
             .count()
     }
 
-    /// Workers: idle ones mine salt from their own base. (A seep needs no crew: its Pump pays by itself.)
+    /// Workers: idle ones mine gold from their own base. (A Market needs no crew: it pays by itself.)
     pub(crate) fn ai_workers(&mut self, brain: &mut Brain) {
         let Brain { harv, .. } = brain.clone();
         for &h in &harv {
@@ -52,7 +52,7 @@ impl World {
     }
 
     /// The crew AI seat `e` trains workers for, with `cores` finished Cores: its difficulty's, and `EXP_CREW` more
-    /// with a second base (no more for a third or fourth: under a cap of 40 a base past the second brings Pumps and
+    /// with a second base (no more for a third or fourth: under a cap of 40 a base past the second brings a Market and
     /// fresh fields for the crew it has, not more workers).
     pub fn harv_target_of(&self, e: u8, cores: usize) -> usize {
         self.tuning(e).harv + EXP_CREW * (cores >= 2) as usize

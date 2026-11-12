@@ -1,10 +1,10 @@
-//! Economy: mining salt, fields running dry, the Market, the Recruiting post, supply.
+//! Economy: mining gold, mines running dry, the Market, the Recruiting post, supply.
 
 use super::common::*;
 
 #[test]
-fn a_finished_market_pays_salt_with_no_workers_and_a_recruiting_post_nothing() {
-    // The Kingdom's Market, built in its base, pays its owner half a salt a second, a whole salt every 2 s, with nobody
+fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
+    // The Kingdom's Market, built in its base, pays its owner half a gold a second, a whole gold every 2 s, with nobody
     // on it; it counts as mined. A site pays nothing, and the Expedition's Recruiting post never pays.
     let mut w = rich(9);
     for h in harvesters(&w, PLAYER) {
@@ -21,9 +21,9 @@ fn a_finished_market_pays_salt_with_no_workers_and_a_recruiting_post_nothing() {
     run(&mut w, 1);
     assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first second");
     run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 1, "one salt after 2 s");
+    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 2 s");
     run(&mut w, 58);
-    assert_eq!(w.res[PLAYER as usize], [30, 0], "30 salt a minute");
+    assert_eq!(w.res[PLAYER as usize], [30, 0], "30 gold a minute");
     assert_eq!(
         w.ledger[PLAYER as usize].mined[0] - mined,
         30,
@@ -36,7 +36,7 @@ fn a_finished_market_pays_salt_with_no_workers_and_a_recruiting_post_nothing() {
     w.damage(market, 1e6, None);
     let have = w.res[PLAYER as usize][0];
     run(&mut w, 10);
-    assert_eq!(w.res[PLAYER as usize][0], have, "no Market, no salt");
+    assert_eq!(w.res[PLAYER as usize][0], have, "no Market, no gold");
     // The Recruiting post: nothing, ever.
     let mut w = rich_vael(9);
     for h in harvesters(&w, PLAYER) {
@@ -106,7 +106,7 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
 
 #[test]
 fn an_ai_market_pays_at_its_levels_income() {
-    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (39 salt a minute, not 30).
+    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (39 gold a minute, not 30).
     let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
     assert!(w.set_ai_seats([false, true]));
     w.disable_ai();
@@ -223,18 +223,18 @@ fn a_full_core_reports_supply_blocked() {
 }
 
 #[test]
-fn builders_go_back_to_the_salt() {
-    // The builder of an Excavator, as of anything else, goes back to the salt it was mining (nobody works a shaft).
+fn builders_go_back_to_the_mine() {
+    // The builder of a Market, as of anything else, goes back to the mine it was working (nobody works a Market).
     let mut w = rich(5);
     run(&mut w, 3);
     let h = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Barracks);
-    w.make_building(BldgKind::Barracks, PLAYER, tx, ty, true); // (an Excavator needs the Crew Hall)
+    w.make_building(BldgKind::Barracks, PLAYER, tx, ty, true); // (a Market needs the Barracks)
     build(&mut w, BldgKind::Extractor, h[0], 90);
     run(&mut w, 1);
     assert!(
         matches!(w.unit(h[0]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-        "a Pump's builder goes back to the salt: {:?}",
+        "a Market's builder goes back to the mine: {:?}",
         w.unit(h[0]).unwrap().task
     );
     let h1 = h[1];
@@ -243,7 +243,7 @@ fn builders_go_back_to_the_salt() {
     assert!(w.bldg(depot).is_some());
     assert!(
         matches!(w.unit(h1).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-        "a Depot's builder goes back to the shards: {:?}",
+        "a Cottage's builder goes back to the mine: {:?}",
         w.unit(h1).unwrap().task
     );
 }
@@ -481,7 +481,7 @@ fn an_idle_worker_away_from_its_field_stays_where_it_was_put() {
 }
 
 #[test]
-fn the_ledger_accounts_for_every_shard_and_ether() {
+fn the_ledger_accounts_for_every_coin() {
     // The balance lab's ledger (`World::ledger`, read by no rule): in a game with no resources granted, what a seat
     // has is always what it started with, plus what it mined, less what it spent (refunds taken back off), every tick.
     // Two Hard AIs, Humans against Vael, ten minutes: they mine, build, train, research and cancel stalled sites.

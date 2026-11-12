@@ -9,7 +9,7 @@
  *  14.1 under protanopia, 10.6 under deuteranopia, where gold, magenta, blue and violet had come down to 5.4), from the
  *  dark ground, the selection marks and both peoples' bodies (the step-2 judge, 2026-11-06: no white, lost on canvas and
  *  bone; seat 2's teal dark, as a light one turned pale beige under protanopia). Seat 6 was a violet that read as seat
- *  0's blue to the red-green colour-blind; seat 5 a second blue. Shared with the art tools (tools/render3d). */
+ *  0's blue to the red-green color-blind; seat 5 a second blue. Shared with the art tools (tools/render3d). */
 export const SEAT_COLORS = [0x2f63d6, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x61ded1, 0x943886, 0xe5553a];
 /** Units are rendered this much larger than their size in the sim (tools/render3d/main.js), so they read at the
  *  re-theme's lower camera (buildings keep their footprints). The renderer's hit test and selection rings scale by it. */

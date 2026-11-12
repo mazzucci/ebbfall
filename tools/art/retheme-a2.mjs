@@ -3,10 +3,10 @@
 // Renders in the approved look (the polish at the game's 40-degree camera and 420 sun) on the real countryside grass
 // tiles (terrain3.js), the game's seat colors (seat 0 blue, seat 1 magenta), and writes to <outdir> (default target/a2):
 //   --save-old       first, before the model changes: renders today's Mercenary and Veteran alone and keeps them in <outdir>/old.json
-//   models-2x.png    a phone at zoom 1.0 (2x device px; models-1x.png the CSS-px copy, models-grey.png in greyscale): per
+//   models-2x.png    a phone at zoom 1.0 (2x device px; models-1x.png the CSS-px copy, models-grey.png in grayscale): per
 //                    seat, a row per unit: today's model E S W N, the new one E S W N, then the Guard E S beside them
 //   models-075.png   the same at zoom 0.75 (+ -1x)
-//   closeups-4x.png  today's against the new at 4x (nearest-neighbour from 2x), facing E S W N, both units, both seats
+//   closeups-4x.png  today's against the new at 4x (nearest-neighbor from 2x), facing E S W N, both units, both seats
 //   crowd-100.png    the two sides meeting at the sim's spacing: Guards and Archers (seat 0) against Sellswords,
 //                    Bruisers and Marines (seat 1), zoom 1.0 (+ -1x)
 //   crowd-075.png    the same crowd at zoom 0.75 (+ -1x)

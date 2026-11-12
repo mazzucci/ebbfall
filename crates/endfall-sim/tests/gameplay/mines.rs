@@ -325,7 +325,7 @@ fn home_income(seed: u32, n: usize) -> i64 {
 }
 
 /// One saturated mine pays what a saturated field paid. The fields' figures were measured on main before the mines
-/// (811bd13: seven crystals, one worker on each at a time, 8 salt in 2 s), with the same harness: 26 workers on
+/// (811bd13: seven crystals, one worker on each at a time, 8 gold in 2 s), with the same harness: 26 workers on
 /// the home field, gold a minute from 1:00 to 4:00 (24 workers gave within 5 of it: saturated).
 #[test]
 fn a_saturated_mine_pays_what_a_saturated_field_paid() {
@@ -521,7 +521,7 @@ fn a_healer_does_not_tend_a_worker_inside_a_mine() {
 /// Every start's mines alike, square for square and gold for gold: every mine's image under the map's symmetry (the
 /// half turn with two starts, the quarter turn with four, and with eight the quarter turn and the mirror top to
 /// bottom) is a mine holding the same gold, and every start sees the same mines at the same distances. The seeds after
-/// the range are those where the mines once differed (128x128: a cut-short field's mine holding less, a centre field's
+/// the range are those where the mines once differed (128x128: a cut-short field's mine holding less, a center field's
 /// mine off its own axis).
 #[test]
 fn every_map_is_symmetric_mine_for_mine() {

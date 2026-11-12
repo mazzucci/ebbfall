@@ -1,5 +1,5 @@
 // The kingdom's buildings after the Castle (the re-theme's buildings family, 2026-11-10; not in the atlas: retheme.js
-// renders them by filter). Palette B (kingdom.js): slate-grey ashlar, slate roofs, dark oak, blackened iron, thatch on
+// renders them by filter). Palette B (kingdom.js): slate-gray ashlar, slate roofs, dark oak, blackened iron, thatch on
 // the Cottage only; team on cloth, flags and banners between ink hems, never on stone, slate or ground. Each building
 // sits on its own patch of trodden earth, no two the same shape, no pale deck or plinth. Same conventions as models.js:
 // game units (a tile is 32), y up, +z south (to the camera). Footprints: 2x2 is 64 across, 3x3 is 96.
@@ -32,7 +32,7 @@ const hiThatchTex = () => hiThatch ??= tex(128, (g, n) => {
 export function kbMats(M) {
   if (M.thatch) return M;
   M.tan = std({ color: 0x9a7650, map: M.canvas.map, roughness: 0.92 });                        // the Market awnings' tan stripes: a warm brown (hue 30, dull), apart from seat 7's red-orange and seat 1's red
-  M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull grey-brown straw (the Cottage's roof only; never orange beside the coins' gold)
+  M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull gray-brown straw (the Cottage's roof only; never orange beside the coins' gold)
   M.straw = std({ color: 0x9c8658, roughness: 0.95 });                                       // hay and straw: tan, never the coins' yellow
   M.hearth = std({ color: 0x2a0804, emissive: 0xe8300c, emissiveIntensity: 1.3 });           // the Blacksmith's ember: red-orange, small (round 3: a yellow glow read as the Market's gold)
   M.coals = std({ color: 0x1c1816, roughness: 1 });                                            // dark coals round it
@@ -115,7 +115,7 @@ function chimney(g, M, x, y0, z, h, w = 4.6) {
   add(g, rbox(w - 1.4, 0.8, w - 1.4, 0.1), M.inkLine, x, y0 + h + 1.1, z);
 }
 
-/** Cottage (population, 2x2): a low wide house (Stelian, the final round: today's read too narrow and boxy): slate-grey
+/** Cottage (population, 2x2): a low wide house (Stelian, the final round: today's read too narrow and boxy): slate-gray
  *  ashlar walls 44 long and 24 deep, only 11 tall, its long side to the camera, under a big steep thatched roof 20
  *  high that dominates (the kingdom's one thatch: this is where people live), a stone chimney at the east gable, an
  *  oak door and two shuttered windows on the south face; at -20 the south wall, the east gable wall and the roof all
@@ -214,7 +214,7 @@ export function blacksmith(M) {
   return g;
 }
 
-/** Workshop (Ballista, Trebuchet, Balloon; 3x3): an open yard of trodden earth and timber where engines are built:
+/** Workshop (Ballista, Cannon, Balloon; 3x3): an open yard of trodden earth and timber where engines are built:
  *  a half-built trebuchet frame (two oak A-frames, a cross axle, the beam not yet hung) on the yard's east, a sawhorse
  *  and timber stacks, a folded balloon (pale canvas heaped with a team band) and its wicker basket with team cloth on
  *  its rim on the west, a lifting pole (a gin) with a rope; a small slate-roofed shed at the back for tools; a flag on
@@ -258,7 +258,7 @@ export function workshop(M) {
   return g;
 }
 
-/** Watchtower (defense, 2x2): a tall round tower of slate-grey ashlar on a square plinth, string courses, arrow slits,
+/** Watchtower (defense, 2x2): a tall round tower of slate-gray ashlar on a square plinth, string courses, arrow slits,
  *  a tall team banner down its south face; at the top a wider archer's platform: an oak hoarding on brackets, a
  *  battlemented stone parapet, a pennant staff; the archer (`watchtowerArcher`, the turning head) stands on it. An oak
  *  door at the foot, a brazier beside it. From the camera: a tall gray column with a team stripe, a wider crown on top,

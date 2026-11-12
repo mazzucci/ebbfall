@@ -28,7 +28,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #top{display:flex;align-items:center;gap:14px;height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;flex:none;min-width:0}
 .res{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
-/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 salt, 40/40 supply). */
+/* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 gold, 40/40 supply). */
 #rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
 /* Gold as money (a cost, the top bar's figure, a toast that names gold): two small stacks of gold coins, lit faces
    over darker rims, a brown outline (the field on the map stays raw gold). Drawn in a 12x10 box, so it keeps its
@@ -134,7 +134,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
-.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* salt in the left column */
+.cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
 .cb.cancel{color:var(--foe2)}
 .screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;box-sizing:border-box;

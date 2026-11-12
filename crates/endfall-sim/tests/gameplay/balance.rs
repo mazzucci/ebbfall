@@ -140,7 +140,7 @@ fn siege_matrix() {
 }
 
 #[test]
-fn a_siege_line_holds_where_the_same_shards_in_troopers_do_not() {
+fn a_siege_line_holds_where_the_same_gold_in_troopers_does_not() {
     // Tanks deployed behind a line of Troopers, against a clump that walks in: they beat it, by more than Troopers
     // for the same price would (the measured values: +0.50 against +0.24 Troopers' loss, +0.59 against +0.34 for
     // Scythes, +0.39 against +0.36 for Scythes and Prisms).
@@ -420,7 +420,7 @@ fn brutal_worker_loss_probe() {
 #[ignore]
 fn human_mirror_grind_probe() {
     // The Human Medium mirror on 96x96 (the lab's timeouts): each minute, each seat's army supply, workers, Cores,
-    // towers, units lost and killed, and banked salt.
+    // towers, units lost and killed, and banked gold.
     use endfall_sim::map::MapSize;
     let seeds: Vec<u32> = std::env::var("PROBE_SEEDS")
         .map(|s| s.split(',').map(|x| x.parse().unwrap()).collect())
@@ -466,7 +466,7 @@ fn human_mirror_grind_probe() {
                         .count();
                     let st = &w.stats[s as usize];
                     line += &format!(
-                        " | s{s}: army {army:>2} wk {workers:>2} cores {cores} towers {towers} lost {:>3} killed {:>3} salt {:>5}",
+                        " | s{s}: army {army:>2} wk {workers:>2} cores {cores} towers {towers} lost {:>3} killed {:>3} gold {:>5}",
                         st.lost, st.killed, w.res[s as usize][0]
                     );
                 }

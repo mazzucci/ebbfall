@@ -341,7 +341,11 @@ fn research_rules_and_refunds() {
     );
     let f2 = w.make_building(BldgKind::Forge, PLAYER, 20, 46, true);
     w.start_research(f, Upgrade::Weapons).unwrap();
-    assert_eq!(w.res[PLAYER as usize], [4900, 5000], "no ether paid");
+    assert_eq!(
+        w.res[PLAYER as usize],
+        [4900, 5000],
+        "nothing paid in the second slot"
+    );
     assert!(
         w.start_research(f, Upgrade::Armor).is_err(),
         "one research per forge"

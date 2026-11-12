@@ -92,7 +92,7 @@ export function sideChoices(spots) {
   const at = filled(spots), top = Math.max(at.length - 1, ...at.map(i => spots[i].team));
   return Array.from({ length: top + 1 }, (_, team) => ({ team, chip: `SIDE ${team + 1}`, color: sideColor(spots, team) }));
 }
-/** A side's colour: its first player's (by spot); a side nobody is on, gray. */
+/** A side's color: its first player's (by spot); a side nobody is on, gray. */
 export function sideColor(spots, team) { const i = spots.findIndex(r => r && r.team === team); return i < 0 ? '#5b6b80' : seatColor(i); }
 /** A saved board if it is a good one (a spot each, null when empty, at most `max`; you in spot 0 and another player;
  *  a race each, a side number below the spots', a difficulty each AI), else null. A list saved before the spots (one

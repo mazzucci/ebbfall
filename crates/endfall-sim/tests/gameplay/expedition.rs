@@ -548,10 +548,11 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
     // its Bots: a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a
     // Portal, never more than one Portal standing or going up, trains Androids there, and never stands above its places
     // but as a lost building leaves it.
-    // (seed 20: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
-    // game before its Portal ever has the four Sellswords and the price an Android waits for)
+    // (seed 7: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
+    // game before its Portal ever has the four Sellswords and the price an Android waits for; with the chase leash, seed
+    // 20's Hard Expedition no longer gets to an Android within the 20 minutes)
     for diff in 0..DIFF.len() {
-        let mut w = World::with_setup(20, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(7, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);

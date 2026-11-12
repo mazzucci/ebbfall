@@ -195,7 +195,7 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
 
 /// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
 /// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
-const EXPECTED_SHORE_AI: [u32; 3] = [2355700950, 987800428, 446904657];
+const EXPECTED_SHORE_AI: [u32; 3] = [2355700950, 987800428, 2133880634];
 
 #[test]
 fn golden_hashes_pin_the_shore() {
@@ -221,7 +221,7 @@ fn golden_hashes_pin_the_shore() {
 
 /// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [989473213, 3033618088, 779037865];
+const EXPECTED_SHORE_TIDE: [u32; 3] = [989473213, 3033618088, 204128883];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {
@@ -273,8 +273,8 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "86/90/38/0 lost_to 90 | 87/38/90/8 lost_to 38 | over true winner 1 conceded -1 at 19048",
-    "239/243/187/0 lost_to 243 | 231/187/243/31 lost_to 187 | over true winner 1 conceded -1 at 33586",
+    "91/95/54/0 lost_to 95 | 104/54/95/12 lost_to 54 | over true winner 1 conceded -1 at 22097",
+    "148/100/159/21 lost_to 100 | 156/159/100/0 lost_to 159 | over true winner 0 conceded -1 at 23356",
     "15/19/5/0 lost_to 19 | 55/5/19/3 lost_to 5 | over true winner 1 conceded -1 at 11254",
 ];
 
@@ -308,7 +308,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [1012184634, 1406063886, 2213044641];
+const EXPECTED_TEAMS_AI: [u32; 3] = [1012184634, 1406063886, 2021405372];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

@@ -12,6 +12,7 @@ mod economy;
 mod expedition;
 mod guided;
 mod jitter;
+mod leash;
 mod lockstep;
 mod maps;
 mod mines;

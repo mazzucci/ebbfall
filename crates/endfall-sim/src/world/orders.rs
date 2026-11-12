@@ -5,43 +5,50 @@ use std::cmp::Ordering;
 
 impl World {
     pub fn can_place(&self, kind: BldgKind, tx: i32, ty: i32, team: u8) -> bool {
+        self.place_refusal(kind, tx, ty, team).is_none()
+    }
+
+    /// Why `kind` cannot go up with its top-left tile at (tx, ty) for `team`, or None where it can: the one placement
+    /// check, which the order (`place_building`), the AI (`can_place`) and the client's ghost (`Game::place_refusal`)
+    /// all read. Unexplored ground is said first, so a refusal tells nothing about what lies under the black.
+    pub fn place_refusal(&self, kind: BldgKind, tx: i32, ty: i32, team: u8) -> Option<Refusal> {
         let d = kind.def();
         if !self.factions[team as usize].builds(kind) {
-            return false; // the other race's building
+            return Some(Refusal::OtherPeople);
         }
         if !self.map.in_map(tx, ty) || !self.map.in_map(tx + d.w - 1, ty + d.h - 1) {
-            return false;
+            return Some(Refusal::OffMap);
         }
-        for y in ty..ty + d.h {
-            for x in tx..tx + d.w {
-                if !self.builds_on(team, x, y) {
-                    return false; // not this people's ground
-                }
+        let tiles = || (ty..ty + d.h).flat_map(move |y| (tx..tx + d.w).map(move |x| (x, y)));
+        let explored = |(x, y): (i32, i32)| self.explored[team as usize][self.map.idx(x, y)] != 0;
+        if !self.is_ai(team) && !tiles().all(explored) {
+            return Some(Refusal::Unexplored);
+        }
+        if !tiles().all(|(x, y)| self.builds_on(team, x, y)) {
+            return Some(Refusal::Water); // (not this people's ground)
+        }
+        for (x, y) in tiles() {
+            let i = self.map.idx(x, y);
+            if self.map.rock[i] != 0 {
+                return Some(Refusal::Rock);
+            }
+            match self.map.occ[i] {
+                0 => {}
+                o if o < 0 => return Some(Refusal::Mine),
+                _ => return Some(Refusal::Building),
             }
         }
+        // The ring round it: no building right against a gold mine (its workers need the room).
         for y in -1..=d.h {
             for x in -1..=d.w {
                 let (xx, yy) = (tx + x, ty + y);
-                if !self.map.in_map(xx, yy) {
-                    continue;
-                }
-                let i = self.map.idx(xx, yy);
                 let edge = x < 0 || y < 0 || x >= d.w || y >= d.h;
-                if edge {
-                    if self.map.occ[i] < 0 {
-                        return false;
-                    }
-                    continue;
-                }
-                if self.map.rock[i] != 0 || self.map.occ[i] != 0 {
-                    return false;
-                }
-                if !self.is_ai(team) && self.explored[team as usize][i] == 0 {
-                    return false;
+                if edge && self.map.in_map(xx, yy) && self.map.occ[self.map.idx(xx, yy)] < 0 {
+                    return Some(Refusal::NearMine);
                 }
             }
         }
-        true
+        None
     }
 
     /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
@@ -289,9 +296,15 @@ impl World {
         self.path_to(uid, x, y);
     }
     pub fn attack_move(&mut self, uid: Id, x: f64, y: f64) {
+        let (ox, oy) = (self.u(uid).x, self.u(uid).y);
+        self.attack_move_from(uid, x, y, ox, oy);
+    }
+    /// Attack-move to (x, y) on the leash of a line that starts at (ox, oy): a new order's from where the unit stands,
+    /// a march resumed after a fight's from where that order was given (so a chase never moves the line).
+    pub(crate) fn attack_move_from(&mut self, uid: Id, x: f64, y: f64, ox: f64, oy: f64) {
         self.release_mine(uid);
         self.pack_up_to_move(uid);
-        self.set_task(uid, Task::AMove { x, y });
+        self.set_task(uid, Task::AMove { x, y, ox, oy });
         self.path_to(uid, x, y);
     }
     pub fn attack_ent(&mut self, uid: Id, target: Id) {
@@ -468,8 +481,8 @@ impl World {
         builder: Option<Id>,
     ) -> Result<Id, String> {
         let d = kind.def();
-        if !self.can_place(kind, tx, ty, team) {
-            return Err("Cannot build there".into());
+        if let Some(why) = self.place_refusal(kind, tx, ty, team) {
+            return Err(why.message().into());
         }
         if !self.has_req(team, kind) {
             return Err(self.req_message(team, kind));

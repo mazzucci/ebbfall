@@ -462,6 +462,17 @@ impl Game {
         self.valid_team(team)
             .is_some_and(|t| BldgKind::parse(kind).is_some_and(|k| self.w.can_place(k, tx, ty, t)))
     }
+    /// Why `kind` cannot go up at (tx, ty) for `team`, in a few words for the player ("" where it can, or for an
+    /// unknown kind or team): the same check as `canPlace` and the order's (`World::place_refusal`).
+    #[wasm_bindgen(js_name = placeRefusal)]
+    pub fn place_refusal(&self, kind: &str, tx: i32, ty: i32, team: u8) -> String {
+        let (Some(k), Some(t)) = (BldgKind::parse(kind), self.valid_team(team)) else {
+            return String::new();
+        };
+        self.w
+            .place_refusal(k, tx, ty, t)
+            .map_or(String::new(), |r| r.message().into())
+    }
     #[wasm_bindgen(js_name = hasReq)]
     pub fn has_req(&self, team: u8, kind: &str) -> bool {
         self.valid_team(team)
@@ -483,6 +494,17 @@ impl Game {
             && hp.is_finite()
         {
             b.hp = hp.clamp(1.0, b.maxhp);
+        }
+    }
+
+    /// Set the gold left in a gold mine, from 0 to what it held (tests and tools only: a scene with an empty mine).
+    #[wasm_bindgen(js_name = debugSetGold)]
+    pub fn debug_set_gold(&mut self, node: u32, amount: i32) {
+        if !self.knob() {
+            return;
+        }
+        if let Some(n) = self.w.map.node_mut(node) {
+            n.amount = amount.clamp(0, n.total.max(n.amount).max(0));
         }
     }
 

@@ -142,7 +142,7 @@ test('placing a depot costs 100 shards and a harvester builds it', { skip }, () 
 test('orders report errors and a rally point shows up on the building', { skip }, () => {
   E.resetGame(5, 1);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER);
-  assert.match(E.placeBuilding(E.PLAYER, 'forge', core.tx, core.ty, null), /Cannot build there/);
+  assert.match(E.placeBuilding(E.PLAYER, 'forge', core.tx, core.ty, null), /Blocked by a building/);
   E.setResources(E.PLAYER, 0, 0);
   assert.match(E.queueUnit(core, 'harvester'), /Not enough gold/);
   E.setRally(core, 100, 200, E.map.nodes[0]);

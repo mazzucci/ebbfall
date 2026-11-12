@@ -6,7 +6,7 @@ pub use endfall_sim::data::*;
 pub use endfall_sim::map::{Id, MapKind, MapSize};
 #[allow(unused_imports)]
 pub use endfall_sim::world::{BUILDER_PATIENCE, REPAIR_COST};
-pub use endfall_sim::world::{Phase, Task, Unit, World};
+pub use endfall_sim::world::{OutWhy, Phase, Refusal, Task, Unit, World};
 pub use endfall_sim::{Game, Mulberry32};
 
 pub const TPS: u32 = 30;

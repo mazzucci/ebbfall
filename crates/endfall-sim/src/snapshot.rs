@@ -4,7 +4,7 @@
 
 use crate::data::{Pool, ProjKind, UNIT_KINDS, UnitKind};
 use crate::map::Node;
-use crate::world::{Bldg, Phase, Proj, Task, Unit, World};
+use crate::world::{Bldg, OutWhy, Phase, Proj, Task, Unit, World};
 
 macro_rules! record {
     ($(#[$doc:meta])* $fields:ident, $push:ident, |$it:ident: &$ty:ty, $w:ident| { $($name:ident = $val:expr),* $(,)? }) => {
@@ -105,13 +105,14 @@ record! {
 
 record! {
     /// Per seat, in seat order: resources, supply (population, or the Expedition's Power), hired places, stats,
-    /// race (index into FACTIONS), team, out (beaten or conceded).
+    /// race (index into FACTIONS), team, out (beaten or conceded) and why (an index into the schema's `outWhys`).
     SEAT_FIELDS, push_seat, |t: &u8, w| {
         shards = w.res[*t as usize][0], ether = w.res[*t as usize][1], sup_used = w.sup(*t)[0],
         sup_cap = w.sup(*t)[1], hired_used = w.pool(*t, Pool::Hired)[0], hired_cap = w.pool(*t, Pool::Hired)[1],
         built = w.stats[*t as usize].built, lost = w.stats[*t as usize].lost,
         killed = w.stats[*t as usize].killed, razed = w.stats[*t as usize].razed,
         faction = w.factions[*t as usize].index(), team = w.teams[*t as usize], out = w.out[*t as usize] as u8,
+        out_why = w.out_why[*t as usize] as u8,
     }
 }
 
@@ -136,6 +137,7 @@ pub fn schema_json() -> String {
         .raw("seat", list(SEAT_FIELDS))
         .raw("tasks", list(TASKS))
         .raw("phases", list(PHASES))
+        .raw("outWhys", list(&OutWhy::NAMES))
         .raw("projKinds", list(PROJ_KINDS))
         .raw("unitKinds", array(UNIT_KINDS.map(|k| quote(k.def().key))))
         .raw("bldgKinds", array(BLDG_KINDS.map(|k| quote(k.def().key))))

@@ -722,3 +722,84 @@ fn rapid_construction_is_human_only_and_per_side() {
         "{grown} ticks, its build time {build}"
     );
 }
+
+#[test]
+fn a_refused_spot_says_why_and_the_order_says_the_same() {
+    // Every refusal names its rule, the order's error says it in the same words, and `can_place` is exactly "no
+    // refusal" over a whole sweep of the map.
+    let mut w = World::new(7, 1);
+    w.disable_ai();
+    let (cx, cy) = core(&w, PLAYER);
+    let why = |w: &World, tx, ty| w.place_refusal(BldgKind::Depot, tx, ty, PLAYER);
+    assert_eq!(why(&w, cx, cy), Some(Refusal::Building), "on the Castle");
+    assert_eq!(why(&w, -1, 5), Some(Refusal::OffMap));
+    assert_eq!(
+        w.place_refusal(BldgKind::Conflux, cx + 6, cy + 6, PLAYER),
+        Some(Refusal::OtherPeople)
+    );
+    // Far across the map: unexplored, said before anything that lies there (nothing given away under the black).
+    let far = w.map.bases[ENEMY as usize];
+    assert_eq!(why(&w, far.0, far.1), Some(Refusal::Unexplored));
+    assert_eq!(
+        w.place_refusal(BldgKind::Depot, far.0, far.1, ENEMY),
+        Some(Refusal::Building),
+        "the AI builds on unexplored ground: its own Castle is what stands there"
+    );
+    // A mine: on it, and right against it.
+    let m = w.map.nodes.iter().find(|n| !n.ether).unwrap().clone();
+    w.explored[PLAYER as usize].fill(1);
+    assert_eq!(why(&w, m.tx, m.ty), Some(Refusal::Mine));
+    let d = BldgKind::Depot.def();
+    let ring = [
+        (m.tx - d.w, m.ty),
+        (m.tx + m.s, m.ty),
+        (m.tx, m.ty - d.h),
+        (m.tx, m.ty + m.s),
+    ];
+    assert!(
+        ring.iter()
+            .any(|&(x, y)| why(&w, x, y) == Some(Refusal::NearMine)),
+        "right against the mine: too close"
+    );
+    // Rock somewhere on the map.
+    let rock = (0..w.map.h)
+        .flat_map(|y| (0..w.map.w).map(move |x| (x, y)))
+        .find(|&(x, y)| {
+            w.map.rock[w.map.idx(x, y)] != 0 && x + d.w <= w.map.w && y + d.h <= w.map.h
+        })
+        .expect("rock on the map");
+    assert_eq!(why(&w, rock.0, rock.1), Some(Refusal::Rock));
+    // The order's error is the refusal's words; the sweep agrees with can_place everywhere.
+    let h = harvesters(&w, PLAYER)[0];
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Depot, cx, cy, Some(h)),
+        Err("Blocked by a building".to_string())
+    );
+    for ty in -1..w.map.h {
+        for tx in -1..w.map.w {
+            assert_eq!(
+                w.can_place(BldgKind::Depot, tx, ty, PLAYER),
+                why(&w, tx, ty).is_none()
+            );
+        }
+    }
+}
+
+#[test]
+fn deep_water_is_refused_as_water() {
+    let mut w = World::with_size(1, 1, MapKind::Shore, MapSize::DUEL, 0, &[&HUMANS, &HUMANS]);
+    w.disable_ai();
+    w.explored[PLAYER as usize].fill(1);
+    let deep = (0..w.map.h - 1)
+        .flat_map(|y| (0..w.map.w - 1).map(move |x| (x, y)))
+        .find(|&(x, y)| {
+            [(0, 0), (1, 0), (0, 1), (1, 1)].iter().all(|&(dx, dy)| {
+                w.map.ground(x + dx, y + dy, w.water) == endfall_sim::map::Ground::Deep
+            })
+        })
+        .expect("deep water on the Shore");
+    assert_eq!(
+        w.place_refusal(BldgKind::Depot, deep.0, deep.1, PLAYER),
+        Some(Refusal::Water)
+    );
+}

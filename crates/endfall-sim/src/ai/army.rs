@@ -1170,7 +1170,7 @@ mod tests {
         w.ai_watch(&mut b);
         w.ai_army(&mut b);
         !w.ai().attacking
-            && wave.iter().all(|&a| matches!(w.u(a).task, Task::AMove { x, y } if (x - hx).abs() + (y - hy).abs() < 400.0))
+            && wave.iter().all(|&a| matches!(w.u(a).task, Task::AMove { x, y, .. } if (x - hx).abs() + (y - hy).abs() < 400.0))
     }
 
     /// Seat 1's AI at `level` on a 64x64 duel, ten Troopers at home and its wave ready by count and time (t 400, its
@@ -1511,7 +1511,7 @@ mod tests {
             "about twelve tiles short of its goal: {back:.1}"
         );
         for &a in &army {
-            let Task::AMove { x, y } = w.u(a).task else {
+            let Task::AMove { x, y, .. } = w.u(a).task else {
                 panic!("attack-moving")
             };
             assert!(
@@ -1536,7 +1536,7 @@ mod tests {
         w.ai_army(&mut b);
         assert!(w.ai().staging.is_none(), "most there: it goes in");
         for &a in &army {
-            let Task::AMove { x, y } = w.u(a).task else {
+            let Task::AMove { x, y, .. } = w.u(a).task else {
                 panic!("attack-moving")
             };
             assert!(crate::jsmath::dist(x, y, gx, gy) < 64.0, "to the goal");
@@ -1756,7 +1756,7 @@ mod tests {
             w.ai_launch_wave(&army, 1000.0, (core.x, core.y));
             let to_exp = army
             .iter()
-            .filter(|&&a| matches!(w.u(a).task, Task::AMove { x, y } if ((x - e.x).powi(2) + (y - e.y).powi(2)).sqrt() < 100.0))
+            .filter(|&&a| matches!(w.u(a).task, Task::AMove { x, y, .. } if ((x - e.x).powi(2) + (y - e.y).powi(2)).sqrt() < 100.0))
             .count();
             assert_eq!(
                 to_exp, third,

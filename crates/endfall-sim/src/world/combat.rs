@@ -282,12 +282,14 @@ impl World {
             Task::Idle | Task::AMove { .. } if answers => {
                 // Idle: come back to this spot afterwards (and the leash applies).
                 let back = match u.task {
-                    Task::AMove { x, y } => Some(Back { x, y, amove: true }),
-                    _ => Some(Back {
-                        x: u.x,
-                        y: u.y,
-                        amove: false,
+                    Task::AMove { x, y, ox, oy } => Some(Back {
+                        x,
+                        y,
+                        amove: true,
+                        ox,
+                        oy,
                     }),
+                    _ => Some(Back::spot(u.x, u.y)),
                 };
                 u.task = Task::Attack { target: by, back };
             }
@@ -308,11 +310,7 @@ impl World {
                 if o.task == Task::Idle {
                     o.task = Task::Attack {
                         target: by,
-                        back: Some(Back {
-                            x: o.x,
-                            y: o.y,
-                            amove: false,
-                        }),
+                        back: Some(Back::spot(o.x, o.y)),
                     };
                 }
             }
@@ -684,19 +682,23 @@ impl World {
                 } else {
                     self.um(uid).task = Task::Attack {
                         target: t,
-                        back: Some(Back {
-                            x: ux,
-                            y: uy,
-                            amove: false,
-                        }),
+                        back: Some(Back::spot(ux, uy)),
                     };
                 }
             }
         }
     }
 
-    /// Attack-move: walk to (x, y), turning on any enemy met on the way.
-    pub(crate) fn update_amove(&mut self, uid: Id, x: f64, y: f64, c: Live, dt: f64) {
+    /// Attack-move: walk to (x, y), turning on any enemy met on the way within the leash of its line (from (ox, oy),
+    /// where the order was given; `CHASE_LEASH`).
+    pub(crate) fn update_amove(
+        &mut self,
+        uid: Id,
+        (x, y): (f64, f64),
+        (ox, oy): (f64, f64),
+        c: Live,
+        dt: f64,
+    ) {
         let deep = self.in_deep(uid); // (crossing deep water, it picks no fight: it could not fire from there)
         let u = self.um(uid);
         u.aggro_cd -= dt;
@@ -713,10 +715,20 @@ impl World {
                 c.hits,
                 c.kind.def().air,
             );
-            if let (Some(t), true) = (t, c.combat) {
+            let back = Back {
+                x,
+                y,
+                amove: true,
+                ox,
+                oy,
+            };
+            // (one off the leash is not picked up: it would be let go at once)
+            if let (Some(t), true) = (t, c.combat)
+                && self.on_leash(&back, uid, t, c)
+            {
                 self.um(uid).task = Task::Attack {
                     target: t,
-                    back: Some(Back { x, y, amove: true }),
+                    back: Some(back),
                 };
                 return;
             }
@@ -728,6 +740,24 @@ impl World {
             return;
         }
         self.update_move(uid, x, y, dt);
+    }
+
+    /// The leash (`CHASE_LEASH`): whether `target` lies within it of what `b` ties unit `uid` to (its spot, or its
+    /// attack-move's line), the unit's own reach on top (its weapon's, a siege gun's deployed reach).
+    pub(crate) fn on_leash(&self, b: &Back, uid: Id, target: Id, c: Live) -> bool {
+        let Some(g) = self.geo(target) else {
+            return false;
+        };
+        let (cx, cy) = g.center();
+        let (qx, qy) = b.nearest(cx, cy);
+        let weapon = self
+            .u(uid)
+            .kind
+            .def()
+            .weapon
+            .map_or(0.0, |w| w.range * TILE);
+        let reach = weapon.max(c.range).max(c.siege.unwrap_or(0.0)) + c.r;
+        g.edge_dist(qx, qy) <= CHASE_LEASH * TILE + reach
     }
 
     /// Whether an armed ally of `uid` is fighting (attacking something) within `r` px of it (edge distance).
@@ -747,7 +777,7 @@ impl World {
     fn resume_back(&mut self, uid: Id, b: Back) {
         let pace = self.u(uid).pace;
         if b.amove {
-            self.attack_move(uid, b.x, b.y);
+            self.attack_move_from(uid, b.x, b.y, b.ox, b.oy);
         } else {
             self.move_to(uid, b.x, b.y);
         }
@@ -799,9 +829,10 @@ impl World {
             && c.combat
         {
             let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-            // The leash: a target that got well out of sight is let go, and the unit goes back to what it
-            // was doing (an Observer cannot lead an army around the map).
-            if t.edge_dist(ux, uy) > c.sight * TILE * 1.5 {
+            // The leash: a target that got well out of sight, or farther than `CHASE_LEASH` from the unit's spot or
+            // its attack-move's line, is let go, and the unit goes back to what it was doing (a scout cannot lead a
+            // fresh Guard across the map, nor a fleeing unit pull an attack-move off its way).
+            if t.edge_dist(ux, uy) > c.sight * TILE * 1.5 || !self.on_leash(&b, uid, target, c) {
                 self.resume_back(uid, b);
                 return;
             }
@@ -825,7 +856,9 @@ impl World {
                             flier,
                         )
                     })
-                    .filter(|&t2| self.threat_tier(t2, flier) < now);
+                    .filter(|&t2| {
+                        self.threat_tier(t2, flier) < now && self.on_leash(&b, uid, t2, c)
+                    });
                 if let Some(t2) = better
                     && let Task::Attack { target, .. } = &mut self.um(uid).task
                 {

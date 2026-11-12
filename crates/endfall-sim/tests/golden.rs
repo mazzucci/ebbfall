@@ -221,7 +221,7 @@ fn golden_hashes_pin_the_shore() {
 
 /// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [2490860053, 3377105597, 1117570503];
+const EXPECTED_SHORE_TIDE: [u32; 3] = [2490860053, 3377105597, 3475954900];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {
@@ -273,8 +273,8 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 const EXPECTED_RESULTS: [&str; 3] = [
-    "252/204/231/9 lost_to 204 | 227/231/204/0 lost_to 231 | over true winner 0 conceded -1 at 25475",
-    "373/376/281/1 lost_to 376 | 327/281/376/35 lost_to 281 | over true winner 1 conceded -1 at 29254",
+    "116/120/66/0 lost_to 120 | 113/66/120/18 lost_to 66 | over true winner 1 conceded -1 at 16115",
+    "288/247/402/26 lost_to 247 | 398/402/247/13 lost_to 402 | over true winner 0 conceded -1 at 29958",
     "8/12/1/0 lost_to 12 | 36/1/12/2 lost_to 1 | over true winner 1 conceded -1 at 6736",
 ];
 
@@ -308,7 +308,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [1043884234, 4244236713, 3429969390];
+const EXPECTED_TEAMS_AI: [u32; 3] = [1043884234, 4244236713, 1122507300];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

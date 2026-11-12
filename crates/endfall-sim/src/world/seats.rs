@@ -47,6 +47,7 @@ impl World {
     /// Every per-seat list of the game's state, fresh for each seat (a new game).
     pub(super) fn clear_seats(&mut self) {
         self.out.clear();
+        self.out_why.clear();
         self.res.clear();
         self.pools.clear();
         self.explored.clear();
@@ -64,6 +65,7 @@ impl World {
     fn push_seat(&mut self) {
         let tiles = (self.map_size.w * self.map_size.h) as usize;
         self.out.push(false);
+        self.out_why.push(OutWhy::In);
         self.res.push([50, 0]);
         self.pools.push([[0, 0]; POOLS]);
         self.explored.push(vec![0; tiles]);
@@ -149,14 +151,15 @@ impl World {
             return;
         }
         self.conceded = seat as i32;
-        self.knock_out(seat);
+        self.knock_out(seat, OutWhy::Conceded);
     }
 
     /// `seat` is out; the game is over once the seats still in are all one team (the winner). While the game goes on
     /// (more than two seats), what the seat leaves behind is inert (`inert`): its units stop where they are (a miner
     /// lets go of its crystal) and do nothing more, nor do its buildings; they stay on the map, and can be destroyed.
-    fn knock_out(&mut self, seat: u8) {
+    fn knock_out(&mut self, seat: u8, why: OutWhy) {
         self.out[seat as usize] = true;
+        self.out_why[seat as usize] = why;
         let mut left = (0..self.seats())
             .filter(|&s| !self.out[s])
             .map(|s| self.teams[s]);
@@ -188,37 +191,40 @@ impl World {
         if self.over {
             return;
         }
-        // A seat is out with no buildings left, except that a person's seat still has a chance while a worker of
-        // theirs lives (it can build again); the AI's does not wait for that. It is also out when nothing of it can
-        // act any more: no headquarters that stands, no worker, no fighter,
-        // and no factory with a unit in training or the means to train one (a few Depots do not keep a game going).
         // The last seat is checked first (with two: seat 1, then seat 0).
-        let out = |w: &World, t: u8| {
-            let worker = w.units.iter().any(|u| u.team == t && u.kind.def().worker);
-            let fighter = w.units.iter().any(|u| u.team == t && u.kind.def().threat());
-            let mine = || w.bldgs.iter().filter(move |b| b.team == t);
-            let hq = mine().any(|b| b.kind.def().hq && b.done);
-            let factory = mine().any(|b| {
-                b.done
-                    && (!b.queue.is_empty()
-                        || b.kind.def().trains.iter().any(|k| {
-                            k.def().threat()
-                                && k.def()
-                                    .req
-                                    .is_none_or(|r| mine().any(|o| o.kind == r && o.done))
-                                && w.can_afford(t, k.def().cost)
-                        }))
-            });
-            let none = mine().next().is_none();
-            (none && (w.is_ai(t) || !worker)) || !(hq || worker || fighter || factory)
-        };
         for loser in (0..self.seats() as u8).rev() {
-            if !self.out[loser as usize] && out(self, loser) {
-                self.knock_out(loser);
+            if self.out[loser as usize] {
+                continue;
+            }
+            if let Some(why) = self.beaten(loser) {
+                self.knock_out(loser, why);
                 if self.over {
                     return;
                 }
             }
         }
+    }
+
+    /// Whether seat `t` is beaten, and how. Its last building fell: an AI's seat is out at once, a person's once no
+    /// worker of theirs is left either (a worker can build again). Or, buildings standing, it has nothing left to fight
+    /// or build with: no finished headquarters, no worker, no fighter and no finished building that trains a
+    /// fighter (a few Cottages or a Watchtower do not keep a game going; a Barracks does, gold or not, until it falls).
+    pub fn beaten(&self, t: u8) -> Option<OutWhy> {
+        let worker = self
+            .units
+            .iter()
+            .any(|u| u.team == t && u.kind.def().worker);
+        let fighter = self
+            .units
+            .iter()
+            .any(|u| u.team == t && u.kind.def().threat());
+        let mine = || self.bldgs.iter().filter(move |b| b.team == t);
+        if mine().next().is_none() && (self.is_ai(t) || !worker) {
+            return Some(OutWhy::Buildings);
+        }
+        let hq = mine().any(|b| b.kind.def().hq && b.done);
+        let factory =
+            mine().any(|b| b.done && b.kind.def().trains.iter().any(|k| k.def().threat()));
+        (!(hq || worker || fighter || factory)).then_some(OutWhy::Helpless)
     }
 }

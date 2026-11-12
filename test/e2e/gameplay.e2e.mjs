@@ -148,7 +148,7 @@ test('an unfinished building can be cancelled for a 75% refund', async () => {
   } finally { await d.close(); }
 });
 
-test('training shows progress and the queue in the panel', async () => {
+test('training shows progress, the queue and the time left in the panel', async () => {
   const d = await newGame(DESKTOP);
   try {
     await d.grant(1000, 0);
@@ -159,8 +159,15 @@ test('training shows progress and the queue in the panel', async () => {
     assert.match(await d.hudText('#selSub', /^Training$/), /Training/);
     assert.equal(await d.page.locator('#queue .qi').count(), 2);
     const w0 = await d.page.locator('#queue .prod i').evaluate(e => parseFloat(e.style.width));
+    // The unit in training shows the seconds it still needs on its slot (a Villager: 12 s), and only that one.
+    assert.equal(await d.page.locator('#queue .qi .left').count(), 1);
+    const left = async () => +(await d.page.locator('#queue .qi:first-of-type .left').textContent()).replace(/s$/, '');
+    await d.page.waitForFunction(() => /^\d+s$/.test(document.querySelector('#queue .qi .left')?.textContent), null, { timeout: 5000 });
+    const t0 = await left();
+    assert.ok(t0 >= 1 && t0 <= 12, `at most a Villager's 12 s left: ${t0}`);
     await d.skip(3); // (the panel redraws on the next frame: wait for it)
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#queue .prod i').style.width) > w, w0, { timeout: 10000 });
+    await d.page.waitForFunction((t) => parseInt(document.querySelector('#queue .qi .left').textContent) < t, t0, { timeout: 10000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1459,7 +1466,7 @@ test('phone: placing a building lets the worker go; a tap on a blocked spot says
     await d.pressCard('Build'); await d.pressCard('Cottage');
     await d.clickWorld(core.x, core.y);
     assert.ok(await d.eval(() => !!endfall.ui.place), 'a blocked tap keeps placing');
-    assert.match((await d.toasts()).join(' | '), /Cannot build there/);
+    assert.match((await d.toasts()).join(' | '), /Blocked by a building/);
     assert.deepEqual((await d.selection()).map(e => e.id), [h.id], 'the worker is still selected');
     assert.ok((await d.card()).some(c => c.label === 'Cancel'), 'its Build button is a Cancel');
     await d.pressCard('Cancel');
@@ -1471,6 +1478,33 @@ test('phone: placing a building lets the worker go; a tap on a blocked spot says
     assert.ok(myBldg(s, 'depot').some(b => b.tx === spot.tx && b.ty === spot.ty), 'the Cottage site is placed');
     assert.deepEqual(await d.selection(), [], 'the worker is let go after placing');
     assert.equal(s.units.find(u => u.id === h.id).task, 'build', 'and it goes to build');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('placing over a refused spot says why on the hint line (the sim\'s words), and a click there says the same', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(5000, 0);
+    const s = await d.state(), core = coreOf(s), h = mine(s, 'harvester')[0];
+    await d.clickEntity(h.id);
+    await d.pressCard('Build'); await d.pressCard('Cottage');
+    const hover = async (wx, wy) => { const [x, y] = await d.screen(wx, wy); await d.page.mouse.move(x, y); };
+    const hint = (re) => d.page.waitForFunction((src) => { const h = document.querySelector('#hint'); return new RegExp(src).test(h.textContent) && h.classList.contains('bad'); }, re.source, { timeout: 5000 });
+    // Over the Castle: blocked by a building, in red; a click there says the same and keeps placing.
+    await hover(core.x, core.y);
+    await hint(/^Blocked by a building$/);
+    await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
+    assert.match((await d.toasts()).join(' | '), /Blocked by a building/);
+    assert.ok(await d.eval(() => !!endfall.ui.place), 'still placing');
+    // Over the far side of the map, never seen: unexplored ground (nothing said of what lies there).
+    const foe = s.bldgs.find(b => b.team !== 0 && b.type === 'core');
+    await hover(foe.x, foe.y);
+    await hint(/^Cannot build on unexplored ground$/);
+    // Over open ground by the base: the plain hint again, not red.
+    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+    await hover((spot.tx + 1) * 32, (spot.ty + 1) * 32);
+    await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /place the Cottage/.test(h.textContent) && !h.classList.contains('bad'); }, null, { timeout: 5000 });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1549,6 +1583,26 @@ test('a worker sent to a gold mine (desktop right-click, phone tap) goes inside 
       const seen = await d.eval((id) => [endfall.G.units.find(u => u.id === id).inside, endfall.teamLayers().filter(l => l.id === id)], h.id);
       assert.ok(seen[0] && !seen[1].some(l => l.shown), `not drawn while inside: ${JSON.stringify(seen)}`);
       assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return !u.inside && u.carry > 0; }, h.id, { seconds: 10, step: 1 / 10 }), 'and comes out with gold');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
+test('a worker sent to an empty mine (desktop right-click, phone tap) is told the mine is empty', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const s = await d.state(), core = coreOf(s);
+      const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      const h = s.units.find(u => u.team === 0 && u.type === 'harvester');
+      // (set-up: the home mine emptied, the worker out of it and off to one side)
+      await d.eval((id) => endfall.engine.debugSetGold(id, 0), node.id);
+      await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id).inside, h.id, { seconds: 10, step: 1 / 30 });
+      await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [h.id, core.x, core.y + 110]);
+      await d.skip(2);
+      await d.clickEntity(h.id);
+      if (d.touch) await d.clickWorld(node.x, node.y); else await d.rightClickWorld(node.x, node.y);
+      await d.page.locator('#msg .toast', { hasText: 'This mine is empty' }).waitFor({ timeout: 5000 });
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -1768,7 +1822,7 @@ test('a Cannon deploys by itself where it stands (no button, D does nothing), sh
   } finally { await d.close(); }
 });
 
-test('the end screen counts the result on the menu, and Rematch replays the same map', async () => {
+test('the end screen says what ended the game, counts the result on the menu, and Rematch replays the same map', async () => {
   const d = await newGame(DESKTOP, 0, 4242);
   try {
     await d.eval(() => localStorage.removeItem('endfall.record'));
@@ -1781,6 +1835,10 @@ test('the end screen counts the result on the menu, and Rematch replays the same
     await until(d, async () => (await d.state()).over, { seconds: 60, step: 1, what: 'the game to end' });
     await d.page.locator('#end').waitFor({ state: 'visible' });
     assert.equal(await d.page.locator('#result').textContent(), 'VICTORY');
+    // What ended it, in the sim's words: its last building fell, or (its workers gone too) nothing was left to it.
+    const why = await d.eval(() => endfall.G.outWhy[1]);
+    assert.ok(['buildings', 'helpless'].includes(why), `the enemy is out for a reason: ${why}`);
+    assert.match(await d.page.locator('#endSub').textContent(), why === 'buildings' ? /^Their last building fell after \d\d:\d\d\.$/ : /^The enemy had nothing left to fight with, and no gold to train more, after \d\d:\d\d\.$/);
     await d.page.locator('#btnRematch').click();
     await until(d, async () => !(await d.state()).over, { seconds: 10, step: 0.5, what: 'the rematch' });
     assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');
@@ -2915,9 +2973,9 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     await d.pressCard('Build'); await d.pressCard('Cottage'); // (a Cottage on the Core: a refused spot is a toast)
     const core = coreOf(await d.state());
     await d.clickWorld(core.x, core.y);
-    await d.page.locator('#msg .toast', { hasText: /Cannot build there/ }).waitFor({ timeout: 5000 });
+    await d.page.locator('#msg .toast', { hasText: /Blocked by a building/ }).waitFor({ timeout: 5000 });
     await d.key('Escape');
-    const toast = await d.page.locator('#msg .toast', { hasText: /Cannot build there/ }).boundingBox();
+    const toast = await d.page.locator('#msg .toast', { hasText: /Blocked by a building/ }).boundingBox();
     assert.ok(toast.y + toast.height <= mm.y + 1, 'toasts are above the minimap');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

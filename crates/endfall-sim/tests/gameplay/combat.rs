@@ -1061,12 +1061,14 @@ fn a_side_that_can_do_nothing_more_has_lost() {
     }
     run(&mut w, 1);
     assert!(!w.over, "a fighter left: still in it");
-    // A Barracks with the gold for a Guard keeps it going too; spent out, it does not.
+    // A Barracks with the gold for a Guard keeps it going too; spent out, it does not (with the mines run dry, two
+    // broke sides would never end).
     let rax = w.make_building(BldgKind::Barracks, PLAYER, 26, 40, true);
     w.res[PLAYER as usize] = [500, 0];
     w.damage(t, 1e9, None);
     run(&mut w, 1);
     assert!(!w.over, "a factory that can still train: still in it");
+    assert_eq!(w.out_why[PLAYER as usize], OutWhy::In);
     w.res[PLAYER as usize] = [0, 0];
     w.damage(rax, 1e9, None);
     run(&mut w, 1);
@@ -1074,6 +1076,54 @@ fn a_side_that_can_do_nothing_more_has_lost() {
         w.over && w.winner == ENEMY as i32,
         "nothing left that can act: over"
     );
+    assert_eq!(
+        w.out_why[PLAYER as usize],
+        OutWhy::Helpless,
+        "the end screen's words: nothing left to fight with, and no gold to train more"
+    );
+}
+
+#[test]
+fn an_ai_with_a_barracks_is_out_when_it_falls_or_at_once_without_the_gold_each_with_its_reason() {
+    // The AI's Castle falls with a Barracks standing and no worker or fighter. With the gold for a Guard it stays in
+    // until the Barracks falls too: its last building fell. Broke, it is out at once: nothing left to fight with, and
+    // no gold to train more.
+    for gold in [1000, 0] {
+        let mut w = World::new(13, 1);
+        w.disable_ai(); // (still an AI's seat, with no brain to rebuild)
+        assert!(w.is_ai(ENEMY));
+        for id in harvesters(&w, ENEMY) {
+            w.stop_unit(id);
+            w.damage(id, 1e9, None);
+        }
+        let (cx, cy) = core(&w, ENEMY);
+        let bx = if cx > 10 { cx - 6 } else { cx + 6 };
+        let rax = w.make_building(BldgKind::Barracks, ENEMY, bx, cy, true);
+        let castle = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == ENEMY && b.kind.def().hq)
+            .unwrap()
+            .id;
+        w.res[ENEMY as usize] = [gold, 0];
+        w.damage(castle, 1e9, None);
+        run(&mut w, 2);
+        if gold > 0 {
+            assert!(!w.over, "with gold: its Barracks keeps it in");
+            w.damage(rax, 1e9, None);
+            run(&mut w, 1);
+            assert!(
+                w.over && w.winner == PLAYER as i32,
+                "its last building fell"
+            );
+            assert_eq!(w.out_why[ENEMY as usize], OutWhy::Buildings);
+        } else {
+            assert!(w.over && w.winner == PLAYER as i32, "broke: out at once");
+            assert!(w.bldg(rax).is_some(), "its Barracks still standing");
+            assert_eq!(w.out_why[ENEMY as usize], OutWhy::Helpless);
+        }
+        assert_eq!(w.out_why[PLAYER as usize], OutWhy::In);
+    }
 }
 
 #[test]

@@ -162,7 +162,7 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   checking world invariants after every tick. Add a scenario here for every rule you add or change.
 - `test/e2e/gameplay.e2e.mjs`: the same journeys through the real UI (click/tap units and buildings, hotkeys, command
   card buttons) on desktop and a landscape phone. The debug handle may only be used to read state, fast-forward
-  (`endfall.skip`), grant resources and set up a scene (`engine.debugSpawn`, `engine.debugSetHp`, `engine.debugResearch`); the actions under
+  (`endfall.skip`), grant resources and set up a scene (`engine.debugSpawn`, `engine.debugSetHp`, `engine.debugResearch`, `engine.debugSetGold`); the actions under
   test must go through the UI. Add a scenario for every new UI flow.
 
 ## Testing a change by hand

@@ -205,14 +205,13 @@ impl World {
         };
         let back = match self.u(uid).task {
             Task::Attack { back, .. } => back,
-            Task::AMove { x, y } => Some(Back { x, y, amove: true }),
+            Task::AMove { x, y, .. } => {
+                let u = self.u(uid);
+                Some(Back::march(x, y, u.x, u.y))
+            }
             _ => {
                 let u = self.u(uid);
-                Some(Back {
-                    x: u.x,
-                    y: u.y,
-                    amove: false,
-                })
+                Some(Back::spot(u.x, u.y))
             }
         };
         self.um(uid).task = Task::Attack { target: t2, back };

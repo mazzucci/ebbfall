@@ -55,6 +55,8 @@ pub struct World {
     pub teams: Vec<u8>,
     /// The seats that are out (beaten or conceded): the game is over when the seats still in are all one team.
     pub out: Vec<bool>,
+    /// Why each seat that is out went out (`OutWhy::In` while it is in): the end screen's words.
+    pub out_why: Vec<OutWhy>,
     /// Applied commands with their tick and seat, while recording (see `record`).
     pub log: Option<Vec<Logged>>,
     pub diff: usize,
@@ -219,6 +221,7 @@ impl World {
             factions: factions.to_vec(),
             teams: (0..n as u8).collect(),
             out: Vec::new(),
+            out_why: Vec::new(),
             log: None,
             time: 0.0,
             tick: 0,
@@ -565,7 +568,7 @@ impl World {
             Task::Idle => self.update_idle(uid, false, c, dt),
             Task::Hold => self.update_idle(uid, true, c, dt),
             Task::Move { x, y } => self.update_move(uid, x, y, dt),
-            Task::AMove { x, y } => self.update_amove(uid, x, y, c, dt),
+            Task::AMove { x, y, rejoin } => self.update_amove(uid, (x, y), rejoin, c, dt),
             Task::Attack { target, back } => self.update_attack(uid, target, back, c, dt),
             Task::Gather { node, phase, timer } => self.update_gather(uid, node, phase, timer, dt),
             Task::Repair { b } => self.update_repair(uid, b, c.r, c.team, dt),

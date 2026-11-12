@@ -150,6 +150,8 @@ function commandAt(wx, wy, hit = pick(wx, wy)) {
   if (bl.length && !units.length) { for (const b of bl) if (b.d.trains?.length) setRally(b, wx, wy, field(hit)); marker(wx, wy, ALLY); sfx('move', voice(units)); ui.mode = null; setHint(); return; }
   if (hit && hit.kind !== 'node' && enemies(G.me, hit.team)) { for (const u of units) if (canHit(u, hit)) attackEnt(u, hit); else moveTo(u, hit.x, hit.y); marker(hit.x, hit.y, FOE); sfx('attack', voice(units)); }
   else if (field(hit)) {
+    // (an empty mine takes nobody in: the sim sends its workers on to the nearest mine with gold, or they stand)
+    if (hit.amount <= 0 && units.some(u => u.d.worker)) toast('This mine is empty', true);
     for (const u of units) if (u.d.worker) startGather(u, hit); else moveTo(u, wx, wy);
     marker(wx, wy, '#4fd1c5'); sfx('move', voice(units));
     if (units.some(u => u.d.worker)) { flashTarget(hit); job = true; }

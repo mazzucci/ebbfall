@@ -511,6 +511,11 @@ pub const PUMP_RATE: f64 = 0.5;
 pub const NOT_ENOUGH: &str = "Not enough gold";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
+/// The leash (tiles): how far a unit follows a fight it picked up itself (idle, holding a rally point, on an
+/// attack-move, answering fire), counted from the spot it stood on or from its attack-move's line (where the order
+/// was given to its goal), its own reach on top. A target that gets farther is let go and the unit goes back (to its
+/// spot, or on along its attack-move). An attack order on a target has no leash.
+pub const CHASE_LEASH: f64 = 10.0;
 /// Shields regenerate after this long without being hit (s), at these rates per second (units, buildings).
 pub const SHIELD_DELAY: f64 = 6.0;
 pub const SHIELD_REGEN_UNIT: f64 = 3.0;

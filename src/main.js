@@ -123,7 +123,8 @@ function drainEvents() {
 const allies = () => G.teams.map((_, s) => s).filter(s => s !== G.me && !enemies(G.me, s));
 /** This side's game is over: the game is, or every seat of its team is out (a free-for-all goes on without it). */
 const myGameOver = () => G.over || (G.out[G.me] && allies().every(s => G.out[s]));
-/** The end card's line under the result. */
+/** The end card's line under the result: what ended the game, in the sim's words (`G.outWhy`: a seat's last
+ *  building fell, or it had nothing left to fight with and no gold to train more, or it conceded). */
 function endLine(win) {
   const after = ' after ' + fmt(G.time) + '.';
   const mine = allies();
@@ -131,14 +132,16 @@ function endLine(win) {
     const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
+  const myWhy = G.outWhy[G.me], helpless = 'nothing left to fight with, and no gold to train more,'; // (then ' after mm:ss.')
   if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)
-    return (win ? 'The last one standing' : G.out[G.me] && G.conceded === G.me ? 'You conceded' : G.bldgs.some(b => b.team === G.me) ? 'Nothing left to fight with' : 'Your base fell') + after;
+    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless}` : 'Your last building fell') + after;
   }
   // A duel: online, the other side has a name (a friend's, as typed in the lobby). "Conceded" is said only of an enemy.
   const them = online.playing ? online.names[foes()[0]] || '' : '';
-  return G.conceded === G.me ? (them ? `You conceded to ${them}` : 'You conceded') + after : G.conceded >= 0 ? `${them || 'The enemy'} conceded` + after
-    : G.bldgs.some(b => G.teams[b.team] !== G.winner) ? (win ? `${them || 'The enemy'} had nothing left to fight with` : 'Nothing left to fight with') + after // (out with buildings standing)
-    : win ? (them ? `${them}'s base is rubble` : 'The enemy base is rubble') + after : (them ? `Your base fell to ${them}` : 'Your base fell') + after;
+  if (G.conceded === G.me) return (them ? `You conceded to ${them}` : 'You conceded') + after;
+  if (G.conceded >= 0) return `${them || 'The enemy'} conceded` + after;
+  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
+  return (myWhy === 'helpless' ? `You had ${helpless}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
 }
 
 function endGame() {

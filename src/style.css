@@ -55,6 +55,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
+#hint.bad{color:var(--bad)} /* (placing: why the spot is refused) */
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 /* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */
@@ -80,7 +81,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--ether);background:var(--ether)}
 .bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px}
 #mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
-#mod .q .bar.prod{order:2;flex:1 1 100%;height:6px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
+#mod .q .bar.prod{order:2;flex:1 1 100%;height:8px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
 #mod .q.idle .bar.prod{visibility:hidden} /* (its room kept) */
 /* A factory's research, beside its queue (over it on small phones): the tech's icon over a bar of its own, as tall as
    the queue; its room kept while there is none, so nothing moves when one starts or ends. */
@@ -94,6 +95,8 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .qe{width:32px;height:32px;border:1px dashed var(--line2);border-radius:3px;opacity:.45}
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
 .qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
+/* The unit in training: the time it still needs, across the foot of its slot (a slow one never looks stuck). */
+.qi .left{position:absolute;left:0;right:0;bottom:0;font:700 10px/12px var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);background:rgba(8,11,16,.72);text-align:center;pointer-events:none}
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:9px;height:7.5px}
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
@@ -371,7 +374,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden} .st{font-size:15px} .st .ico{width:15px;height:15px}
   .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
   #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}
-  #mod .q .qi,#mod .q .qe{width:var(--s);height:var(--s);flex:none} #mod .q .qi .por{width:calc(var(--s) - 4px);height:calc(var(--s) - 4px)} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px}
+  #mod .q .qi,#mod .q .qe{width:var(--s);height:var(--s);flex:none} #mod .q .qi .por{width:calc(var(--s) - 4px);height:calc(var(--s) - 4px)} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px} #mod .q .qi .left{font-size:8px;line-height:10px}
   #mod .rq{gap:4px} #mod .rq>.ico{width:var(--s);height:var(--s);padding:4px} #mod .rq .bar{height:5px}
   @container (max-width:419px){#hpNum .mx,#info .sub{display:none}} /* (a narrow console: the health without its maximum, no words) */
   #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none} #mod>.bar.build{width:110px}

@@ -174,7 +174,7 @@ fn first_waves(w: &mut World, secs: u32) -> Vec<Option<(f64, f64)>> {
                 .iter()
                 .filter(|u| u.team as usize == seat && !u.kind.def().worker)
                 .filter_map(|u| match u.task {
-                    Task::AMove { x, y } if (x - home.0).hypot(y - home.1) > 30.0 * TILE => {
+                    Task::AMove { x, y, .. } if (x - home.0).hypot(y - home.1) > 30.0 * TILE => {
                         Some((x, y))
                     }
                     _ => None,
@@ -211,10 +211,11 @@ fn nearest_start(w: &World, (x, y): (f64, f64), among: &[u8]) -> u8 {
 
 #[test]
 fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
-    // What an ally saw (another enemy's base) neither ends the scouting nor draws the first wave across the map. (Seed
-    // 33 left the list with the tower range: one Expedition seat there is short of a wave at 2:50 and the foe it sees
-    // outgrows it, so it sends none within the 7 minutes; its first wave's goal is what this checks, not its timing.)
-    for seed in [14, 3, 21, 8] {
+    // What an ally saw (another enemy's base) neither ends the scouting nor draws the first wave across the map. (Its
+    // first wave's goal is what this checks, not its timing: seed 33 left the list with the tower range, one Expedition
+    // seat short of a wave within the 7 minutes, and came back with the leash; seed 3 left it then, its seat 3's first
+    // wave going at 8:20, for its foe.)
+    for seed in [14, 33, 21, 8] {
         let races = [&HUMANS, &VAEL, &HUMANS, &VAEL];
         let mut w = World::with_size(
             seed,
@@ -229,7 +230,9 @@ fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
         let foes: Vec<u8> = (0..4).map(|s| w.foe_of(s)).collect();
         let waves = first_waves(&mut w, 420);
         for seat in 0..4u8 {
-            let goal = waves[seat as usize].expect("a first wave within 7 minutes");
+            let Some(goal) = waves[seat as usize] else {
+                panic!("seed {seed}: seat {seat}: no first wave within 7 minutes")
+            };
             let enemies: Vec<u8> = (0..4).filter(|&s| w.enemies(seat, s)).collect();
             assert_eq!(
                 nearest_start(&w, goal, &enemies),

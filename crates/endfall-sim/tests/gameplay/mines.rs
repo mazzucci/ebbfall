@@ -652,3 +652,39 @@ fn a_worker_ordered_while_inside_its_mine_comes_out_and_obeys() {
         }
     }
 }
+
+#[test]
+fn workers_at_a_mine_that_runs_dry_go_on_to_the_nearest_mine_with_gold() {
+    // The home mine down to its last loads while its workers mine it: once it is empty none of them stands idle by
+    // it, and each works the nearest mine with gold (within a worker's reach of the empty one) instead.
+    let mut w = World::new(7, 1);
+    w.disable_ai();
+    let mine = mines_by(&w, PLAYER, 10)[0];
+    let (mx, my) = {
+        let m = w.map.node(mine).unwrap();
+        (m.x, m.y)
+    };
+    let next = w
+        .map
+        .nodes
+        .iter()
+        .filter(|n| n.id != mine && !n.ether && n.amount > 0)
+        .map(|n| ((n.x - mx).hypot(n.y - my), n.id))
+        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .filter(|&(d, _)| d < 900.0)
+        .expect("another mine with gold within a worker's reach of the home one")
+        .1;
+    w.map.node_mut(mine).unwrap().amount = 3 * MINE_LOAD;
+    let hs = harvesters(&w, PLAYER);
+    run(&mut w, 40);
+    assert_eq!(w.map.node(mine).unwrap().amount, 0, "mined out");
+    for &h in &hs {
+        let u = w.unit(h).unwrap();
+        assert_eq!(
+            gather_node(&w, h),
+            Some(next),
+            "worker {h} works the nearest mine with gold: {:?}",
+            u.task
+        );
+    }
+}

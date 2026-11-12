@@ -12,11 +12,39 @@ pub enum Phase {
     Return,
 }
 
+/// What a unit goes back to after a fight it picked up itself: (x, y), its spot (idle) or its attack-move's goal
+/// (`amove`); and (ox, oy), where its leash is tied (`CHASE_LEASH`): where the fight began (the idle spot itself, or
+/// where on its route the march turned to fight).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Back {
     pub x: f64,
     pub y: f64,
     pub amove: bool,
+    pub ox: f64,
+    pub oy: f64,
+}
+
+impl Back {
+    /// Back to the spot (x, y): an idle unit's, its leash tied there.
+    pub fn spot(x: f64, y: f64) -> Back {
+        Back {
+            x,
+            y,
+            amove: false,
+            ox: x,
+            oy: y,
+        }
+    }
+    /// Back on the march to (x, y), the fight begun at (ox, oy): its leash tied there.
+    pub fn march(x: f64, y: f64, ox: f64, oy: f64) -> Back {
+        Back {
+            x,
+            y,
+            amove: true,
+            ox,
+            oy,
+        }
+    }
 }
 
 /// A unit's effective stats for this tick, read once at its start (`World::live`): its kind's numbers, which abilities
@@ -56,9 +84,12 @@ pub enum Task {
         x: f64,
         y: f64,
     },
+    /// Walk to (x, y), fighting what is met on the way. `rejoin`: first walking back to where it left its route
+    /// (a chase let go at its leash), picking no fight on the way, then on.
     AMove {
         x: f64,
         y: f64,
+        rejoin: Option<(f64, f64)>,
     },
     Attack {
         target: Id,
@@ -353,6 +384,63 @@ pub struct Ledger {
     pub mined: [i64; 2],
     pub spent: [i64; 2],
     pub cancelled: [u32; BLDG_KINDS.len()],
+}
+
+/// Why a building cannot go up where it was placed (`World::place_refusal`): what the ghost and the refused order say.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    /// The other people's building.
+    OtherPeople,
+    /// Not all of it on the map.
+    OffMap,
+    /// A person's seat builds only on ground it has explored.
+    Unexplored,
+    /// Not this people's ground (water: deep for anyone, shallows for a walking builder).
+    Water,
+    /// Trees or a rocky hill.
+    Rock,
+    /// A building stands there.
+    Building,
+    /// A gold mine stands there.
+    Mine,
+    /// Right against a gold mine (the ring round a building keeps clear of mines).
+    NearMine,
+}
+
+impl Refusal {
+    /// What the player reads: one short line.
+    pub fn message(self) -> &'static str {
+        match self {
+            Refusal::OtherPeople => "Not one of your buildings",
+            Refusal::OffMap => "Off the map",
+            Refusal::Unexplored => "Cannot build on unexplored ground",
+            Refusal::Water => "Cannot build on water",
+            Refusal::Rock => "Blocked by trees or rocks",
+            Refusal::Building => "Blocked by a building",
+            Refusal::Mine => "Blocked by a gold mine",
+            Refusal::NearMine => "Too close to a gold mine",
+        }
+    }
+}
+
+/// Out of the game (`World::out_why`, per seat): why, for the end screen's words. Not hashed: it follows from the
+/// state at the moment the seat went out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutWhy {
+    /// Still in.
+    In,
+    /// It gave up.
+    Conceded,
+    /// Its last building fell (a person's: with no worker left either).
+    Buildings,
+    /// No headquarters, worker or fighter left, and no factory training a unit or with the gold to train one: nothing
+    /// left to fight with, and no gold to train more.
+    Helpless,
+}
+
+impl OutWhy {
+    /// The code names, by `OutWhy as u8` (the snapshot's seat record carries the index; the client reads the names).
+    pub const NAMES: [&'static str; 4] = ["", "conceded", "buildings", "helpless"];
 }
 
 /// Why an AI's last wave went (`World::ai_launch_check`; PRD: the AI breaks a defense). For the balance lab; not world

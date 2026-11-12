@@ -407,7 +407,10 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
                 .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
                 .map(|b| (b.x, b.y))
                 .collect();
-            assert!(cores.len() >= 2, "{ctx}: a second base by 13:00 (11:00 before the second round's slower income)");
+            assert!(
+                cores.len() >= 2,
+                "{ctx}: a second base by 13:00 (11:00 before the second round's slower income)"
+            );
             let by_exp = |n: Id| {
                 let m = w.map.node(n).unwrap();
                 cores[1..]

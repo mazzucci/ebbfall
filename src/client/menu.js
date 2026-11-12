@@ -21,7 +21,7 @@ import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
 import { MAPS, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
-import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
+import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, removeAt, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
 /** `board`: the eight spots, null when empty, you in spot 0, the AIs in others ({ race ('random' too), side number
@@ -71,9 +71,10 @@ function renderMaps() {
 
 // The board: eight fixed spots (seats.js), YOU in the first, an AI in any other, each with its colour (its own in the
 // game), its race, level and side; the lowest empty spot a dashed + AI (a new AI on a side of its own), the rest faint.
-// A token opens its seat's sheet: race, an AI's level and side, REMOVE (not the last enemy). Nothing on the board moves
-// when a player comes, goes or changes side. Everyone on one side: START GAME waits, and says why. More players than
-// the map has starts: the smallest map that seats them instead, said in the note a moment.
+// A token opens its seat's sheet: race, an AI's level and side, REMOVE (not the last enemy). The spots never move; a
+// player removed, the AIs after it move up a spot each and the sides are numbered again without the gap (seats.js
+// `removeAt`). Everyone on one side: START GAME waits, and says why. More players than the map has starts: the
+// smallest map that seats them instead, in the list, with no note (a line that came and went moved START GAME).
 const defaultRows = () => { // (the menu before the board saved these; new players start on Easy)
   const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
   return legacyRows({ race: store.get('race'), enemy: store.get('enemy'), diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
@@ -82,13 +83,11 @@ let editing = -1, sheet = null, mapNote = '', noteTimer = 0; // (the seat whose 
 function setBoard(board) {
   if (menu.challenge) { menu.challenge = null; store.set('map', String(menu.map)); } // (the setup is the player's now: its map too)
   menu.board = board; menu.players = filled(board).length; store.set('seats', JSON.stringify(board));
-  if (!fits(menu.map, menu.players)) {
-    choose(fitMap(menu.map, menu.players)); renderMaps();
-    mapNote = mapNoteOf(menu.map); clearTimeout(noteTimer); noteTimer = setTimeout(() => { mapNote = ''; renderNote(); }, 4000); // (Map: Dust Quarter (up to 4))
-  } else renderMaps(); // (the list: which maps seat them)
+  if (!fits(menu.map, menu.players)) { choose(fitMap(menu.map, menu.players)); mapNote = ''; clearTimeout(noteTimer); } // (the last map's line, if any, goes with it)
+  renderMaps(); // (the list: which maps seat them)
   renderSeats(); showFirstGame(); sfx('select');
 }
-/** The footer's note: the map just changed, why START GAME waits, or the challenge it plays. */
+/** The footer's note: the map just picked's line (the Shore's), why START GAME waits, or the challenge it plays. */
 function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : menu.challenge ? line(menu.challenge) : ''); }
 /** A spot's player as the board shows it (seats.js `tokenEl`'s view). */
 const viewOf = (board, i) => ({ name: seatName(i), race: board[i].race, diff: i ? board[i].diff : null, side: board[i].team, sideColor: sideColor(board, board[i].team), me: !i });
@@ -121,7 +120,7 @@ function renderSheet() {
   sheet.show(seatSheet(viewOf(board, i), seatColor(i), {
     sub: i ? 'computer player' : 'your seat', team: r.team, sides: sideChoices(board), onDone: () => closeSheet(),
     onRace: (v) => set('race', v), onSide: (v) => set('team', v), ...(i ? { onDiff: (v) => set('diff', v) } : {}),
-    buttons: canRemove(board, i) ? [{ label: 'REMOVE', title: `Remove ${seatName(i)}`, k: 'remove', ghost: true, on: () => { editing = -1; setBoard(board.map((q, j) => (j === i ? null : q))); ($('soloBoard').querySelector('[data-k="add"]') || $('btnStart')).focus(); } }] : [],
+    buttons: canRemove(board, i) ? [{ label: 'REMOVE', title: `Remove ${seatName(i)}`, k: 'remove', ghost: true, on: () => { editing = -1; setBoard(removeAt(board, i)); ($('soloBoard').querySelector('[data-k="add"]') || $('btnStart')).focus(); } }] : [],
   }), () => closeSheet());
   if (focus) (host.querySelector(`[data-k="${focus}"]`) || host.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || host.querySelector('[data-k="done"]')).focus();
 }

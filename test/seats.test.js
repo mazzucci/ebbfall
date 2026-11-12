@@ -4,7 +4,7 @@
 // checked (and one saved before the spots).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arrange, startSetup, legacyRows, oneTeam, freeTeam, firstEmpty, filled, validRows, enemyLevel, newAi, canRemove, sideChoices, sideColor, seatName, seatColor, SPOTS } from '../src/client/seats.js';
+import { arrange, startSetup, legacyRows, oneTeam, freeTeam, firstEmpty, filled, validRows, enemyLevel, newAi, canRemove, removeAt, sideChoices, sideColor, seatName, seatColor, SPOTS } from '../src/client/seats.js';
 import { teamList } from '../src/client/maps.js';
 
 /** A board: a side number per spot (null: empty), you in spot 0. */
@@ -71,6 +71,20 @@ test('REMOVE: an AI, past two players, never the last enemy', () => {
   assert.deepEqual([0, 1, 2, 3].map(i => canRemove(board(0, 1, 1, 0), i)), [false, true, true, true], 'two enemies and an ally: any AI');
   assert.deepEqual([0, 1, 2].map(i => canRemove(board(0, 0, 1), i)), [false, true, false], 'the last enemy stays; an ally may go');
   assert.equal(canRemove(board(0, 1, null, 1), 2), false, 'an empty spot: nothing to remove');
+});
+
+test('REMOVE on single player\'s board: the players after it a spot up each, no gap; the sides numbered again without the gap', () => {
+  const sides = (b) => b.map(r => (r ? r.team : null));
+  assert.deepEqual(sides(removeAt(board(0, 1, 2, 3), 1)), [0, 1, 2, null, null, null, null, null], 'COMPUTER 2 and 3 move up; SIDE 3 and 4 become SIDE 2 and 3');
+  assert.deepEqual(sides(removeAt(board(0, 1, 0, 1), 2)), [0, 1, 1, null, null, null, null, null], 'an ally removed: the sides already have no gap');
+  assert.deepEqual(sides(removeAt(board(2, 0, 5, 2), 1)), [0, 1, 0, null, null, null, null, null], 'SIDE 3 and 6 left: SIDE 1 and 2, in that order');
+  assert.deepEqual(sides(removeAt(board(0, null, 1, null, 2, 1), 4)), [0, 1, 1, null, null, null, null, null], 'a board saved with gaps: closed up too');
+  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, { race: 'random', team: 2, diff: 3 }, { race: 'humans', team: 2, diff: 1 }, ...Array(4).fill(null)];
+  const after = removeAt(b, 1);
+  assert.deepEqual(after, [{ race: 'vael', team: 0 }, { race: 'random', team: 1, diff: 3 }, { race: 'humans', team: 1, diff: 1 }, ...Array(5).fill(null)], 'each keeps its race and level');
+  assert.equal(after.length, SPOTS); assert.deepEqual(sideChoices(after).map(s => s.chip), ['SIDE 1', 'SIDE 2', 'SIDE 3'], 'as many sides as players, none past them');
+  assert.deepEqual(startSetup(after), { races: ['vael', 'random', 'humans'], ai: [false, true, true], teams: [0, 1, 1], diffs: [0, 3, 1], diff: 3, spots: [0, 1, 2] }, 'the game: the board as it shows');
+  assert.notEqual(after[1], b[2], 'a new board, the old one untouched'); assert.equal(b[1].team, 1);
 });
 
 test('the sides a sheet offers: as many as the players (any higher one in use too), each its first player\'s colour', () => {

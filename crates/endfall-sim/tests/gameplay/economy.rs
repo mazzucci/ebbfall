@@ -531,10 +531,8 @@ fn either_half_mines_its_field_alike() {
             run(&mut w, 180);
             let mined = |t: usize| w.ledger[t].mined[0];
             let (m0, m1) = (mined(0), mined(1));
-            assert!(
-                m0 > 1000,
-                "seed {seed} {kind:?}: the harvesters mine ({m0})"
-            );
+            // (over 1000 by 3:00 with a load of 16; half that since the economy pass's 8)
+            assert!(m0 > 500, "seed {seed} {kind:?}: the harvesters mine ({m0})");
             // (a delivery or two apart at most: mirrored positions round differently in the last bits)
             assert!(
                 (m0 - m1).abs() <= 20,

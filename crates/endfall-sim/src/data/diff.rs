@@ -151,7 +151,8 @@ pub const DIFF: [Diff; 4] = [
         mix_tier: 0,
         mix_over: &[],
     },
-    // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
+    // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
+    // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
     // the Markets make up the income (the lab after PR 1 tunes them).
     Diff {
@@ -161,7 +162,7 @@ pub const DIFF: [Diff; 4] = [
         harv: 10,
         rax: 2,
         extra_rax: 3,
-        first: 170.0,
+        first: 240.0,
         gap: 60.0,
         research_from: 420.0,
         expand_at: 420.0,

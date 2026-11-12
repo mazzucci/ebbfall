@@ -4,7 +4,7 @@ use super::*;
 
 /// How long (s) before its side's `tech_from` the AI may launch its satellite (`Effect::Launch`), on every level: the
 /// launch (60 s), the Uplink and the Portal then stand about when its Androids are due.
-const LAUNCH_LEAD: f64 = 120.0;
+pub(crate) const LAUNCH_LEAD: f64 = 120.0;
 
 impl World {
     /// Research, and saving up for it or for an expansion (never while threatened, never for long).

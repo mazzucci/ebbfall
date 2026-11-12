@@ -38,12 +38,22 @@ impl World {
         // giant never comes. What is held back (for it, and for the building the build order wants next) only
         // counts against a unit for the resources that unit spends.
         let capital_due = self.capital_due(e, &my_b, t);
+        // (its tech building, a 300-gold bet since the arc: half its price held, so its line keeps training while it
+        // saves for it; UPDATE 7)
+        let tech = self.factions[e as usize].ai.tech;
         let held = {
-            let r = want.map_or([0, 0], |w| w.def().cost);
+            let r = want.map_or([0, 0], |w| {
+                let c = w.def().cost;
+                if w == tech { c.map(|g| g / 2) } else { c }
+            });
             let k = capital_due.map_or([0, 0], |k| k.def().cost);
             [r[0] + k[0], r[1] + k[1]]
         };
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
+        // The gate's elite (the arc: the Expedition's Portal, its Android or Rover): while its Portal stands idle with an
+        // Uplink open, the other factories hold an elite's price back, or the posts spend every coin first each turn and
+        // the Portal never trains (`gate_hold`).
+        let gate_hold = self.gate_hold(e, &my_b) + self.launch_hold(e, t);
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
         // cheaper machines fill the Power every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
@@ -108,11 +118,15 @@ impl World {
                         .req
                         .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
             });
+            let at_gate = Some(b.kind) == self.factions[e as usize].ai.tech2;
             let need = |k: UnitKind| {
                 if Some(k) == scout {
                     k.def().cost
-                } else {
+                } else if at_gate {
                     need(k.def().cost)
+                } else {
+                    let c = need(k.def().cost);
+                    [c[0] + gate_hold, c[1]]
                 }
             };
             // The main factory answers enemy flyers, then each factory mixes in the specialists it trains by ratio
@@ -140,7 +154,8 @@ impl World {
                         && k.def()
                             .req
                             .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
-                        && (mine(self, k) + 1) * per <= mine(self, s.basic)
+                        // (the gate's elites, at the Portal, whatever its line: the Expedition's late game; the arc)
+                        && (at_gate || (mine(self, k) + 1) * per <= mine(self, s.basic))
                 })
                 .min_by_key(|&(k, per, _)| (mine(self, k) + 1) * self.answer_ratio(k, per));
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
@@ -239,6 +254,49 @@ impl World {
                 }
             }
         }
+    }
+
+    /// The gold `e`'s factories hold back for its satellite (the arc: the Expedition's way to its late game; a tech is
+    /// never saved for, and its posts spent every coin first): half the launch's price, from `LAUNCH_LEAD` before its
+    /// side's tech time, while its Lab stands and the launch is neither done nor under way.
+    pub(crate) fn launch_hold(&self, e: u8, t: f64) -> i32 {
+        let up = Upgrade::Satellite;
+        let script = &self.factions[e as usize].ai;
+        let tech_from = script.tech_from.min(self.tuning(e).tech_from);
+        let lab = up.def().req;
+        let busy = self
+            .bldgs
+            .iter()
+            .any(|b| b.team == e && b.research.is_some_and(|(u, _)| u == up));
+        let wanted = script.tech2.is_some()
+            && t > tech_from - super::research::LAUNCH_LEAD
+            && self.upgrades[e as usize][up.index()] == 0
+            && !busy
+            && lab.is_none_or(|l| self.has_bldg(e, l));
+        if wanted { up.cost(1)[0] / 2 } else { 0 }
+    }
+
+    /// The gold `e`'s other factories hold back for its gate's elite (`gate_hold` in `ai_produce`): the cheapest unit its
+    /// finished Portal (`AiScript::tech2`) trains, while that Portal is idle and may train (`BldgDef::trains_with`
+    /// standing), on a level that fields it; else 0.
+    pub(crate) fn gate_hold(&self, e: u8, my_b: &[Id]) -> i32 {
+        let Some(k2) = self.factions[e as usize].ai.tech2 else {
+            return 0;
+        };
+        my_b.iter()
+            .filter_map(|&id| self.bldg(id))
+            .find(|b| b.kind == k2 && b.done && b.queue.is_empty())
+            .filter(|b| b.kind.def().trains_with.is_none_or(|r| self.has_bldg(e, r)))
+            .and_then(|b| {
+                b.kind
+                    .def()
+                    .trains
+                    .iter()
+                    .filter(|&&u| self.level_allows(u))
+                    .map(|u| u.def().cost[0])
+                    .min()
+            })
+            .unwrap_or(0)
     }
 
     /// The Power `e` keeps free for its elite (`AiScript::tech2`, the Expedition's Portal, and the mixed-in unit it

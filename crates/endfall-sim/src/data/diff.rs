@@ -166,7 +166,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 0.0,
         mix_tier: 0,
         mix_over: &[],
-        line_max: 15,
+        line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tech_from: NEVER,
@@ -193,7 +193,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 4,
-        wave_max: 14,
+        wave_max: 24, // (14 before the arc: under caps of 100 and more, waves of fourteen trickled in and the games stalled)
         supply_at_once: 1,
         expands_when_dry: true,
         extras_after_expanding: false,
@@ -203,7 +203,7 @@ pub const DIFF: [Diff; 4] = [
         margin_fade: NEVER,
         sighting_age: 120.0,
         look_for: 60.0,
-        all_in_after: NEVER,
+        all_in_after: 300.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
@@ -236,7 +236,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 6,
-        wave_max: 16,
+        wave_max: 26,
         supply_at_once: 1,
         expands_when_dry: true,
         extras_after_expanding: false,
@@ -246,7 +246,7 @@ pub const DIFF: [Diff; 4] = [
         margin_fade: NEVER,
         sighting_age: 120.0,
         look_for: 60.0,
-        all_in_after: NEVER,
+        all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
@@ -293,7 +293,7 @@ pub const DIFF: [Diff; 4] = [
         margin_fade: NEVER,
         sighting_age: 120.0,
         look_for: 60.0,
-        all_in_after: NEVER,
+        all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,

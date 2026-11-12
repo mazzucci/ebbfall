@@ -32,6 +32,8 @@ pub const GUIDED_ARMY_AFTER: usize = 3;
 const RELAY_AHEAD: f64 = 7.0;
 const RELAY_GOAL_ROOM: f64 = 10.0;
 const RELAY_FRONT: f64 = 4.0;
+/// The push: machines kept home (their goal out of coverage) before the next Uplink goes up towards it.
+const PUSH_MACHINES: usize = 4;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
@@ -395,6 +397,22 @@ impl World {
 
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
+        // Machines need signal (the arc): with the goal out of its side's coverage they stay home, defending, and the
+        // wave goes without them (else they stopped at the edge and the wave went in split); they go once coverage
+        // reaches the goal (a forward Uplink).
+        let seat = self.seat();
+        let covered = self.in_radio(seat, goal.0, goal.1);
+        let army: Vec<Id> = if covered {
+            army
+        } else {
+            // (the push: an Uplink, then the machines. Its machines wait at its forward-most Uplink on the way, and
+            // with enough of them it raises the next one past its coverage's edge towards the goal)
+            let (machines, rest): (Vec<Id>, Vec<Id>) = army
+                .into_iter()
+                .partition(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
+            self.tend_push(&machines, goal);
+            rest
+        };
         self.ai_launch_wave(&army, t, goal);
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
@@ -625,6 +643,46 @@ impl World {
         if !machines || self.ai().relay_off || !self.has_req(seat, tower) {
             return;
         }
+        self.raise_relay(attackers, (gx, gy), true);
+    }
+
+    /// The push (the arc: "an Uplink, then the machines"): while its goal lies out of its coverage, its machines (kept
+    /// out of the waves) wait at its forward-most Uplink on the way, and once it has `PUSH_MACHINES` of them it raises
+    /// the next Uplink past its coverage's edge towards the goal (one site at a time, as the wave's leapfrog does).
+    fn tend_push(&mut self, machines: &[Id], goal: (f64, f64)) {
+        let seat = self.seat();
+        let Some(tower) = self.factions[seat as usize].ai.relay else {
+            return;
+        };
+        let at = self
+            .turret_stage(goal)
+            .unwrap_or_else(|| self.rally_or_home());
+        for &m in machines {
+            let u = self.u(m);
+            if matches!(u.task, Task::Idle) && dist(u.x, u.y, at.0, at.1) > 4.0 * TILE {
+                let (x, y) = self.radio_leash_point(seat, u.x, u.y, at.0, at.1);
+                self.move_to(m, x, y);
+            }
+        }
+        if machines.len() < PUSH_MACHINES || !self.has_req(seat, tower) {
+            return;
+        }
+        // (a site abandoned under fire lets the next go after the gap between waves)
+        if self.ai().relay_off && self.ai().attacking {
+            return;
+        }
+        self.ai_mut().relay_off = false;
+        self.raise_relay(machines, goal, false);
+    }
+
+    /// One leapfrog Uplink (`AiScript::relay`): `RELAY_AHEAD` tiles past the edge of its coverage along the way from
+    /// its rally point to the goal; with `front`, only once the escort's unit nearest the goal has come about that far.
+    fn raise_relay(&mut self, escort: &[Id], (gx, gy): (f64, f64), front_needed: bool) {
+        let seat = self.seat();
+        let Some(tower) = self.factions[seat as usize].ai.relay else {
+            return;
+        };
+        let attackers = escort;
         // (a tower finished this tick: its range counts before the edge is looked for again)
         self.refresh_radio(false);
         // The site under way: abandoned under fire, let go once it stands (or is gone).
@@ -670,13 +728,15 @@ impl World {
             return;
         }
         let (px, py) = (rx + ux * at, ry + uy * at);
-        // The wave's front (its unit nearest the goal) must be about there already.
+        // The wave's front (its unit nearest the goal) must be about there already (for a wave's leapfrog).
         let front = attackers
             .iter()
             .filter_map(|&a| self.unit(a))
             .map(|u| dist(u.x, u.y, gx, gy))
             .fold(f64::INFINITY, f64::min);
-        if front > len - at + RELAY_FRONT * TILE || !self.can_afford(seat, tower.def().cost) {
+        if (front_needed && front > len - at + RELAY_FRONT * TILE)
+            || !self.can_afford(seat, tower.def().cost)
+        {
             return;
         }
         let Some(spot) = self.find_spot(tower, px / TILE, py / TILE) else {

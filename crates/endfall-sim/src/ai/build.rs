@@ -554,7 +554,13 @@ impl World {
         // into towers (under the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games
         // stalled).
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && self.ai_count(&my_b, false, s.tower) < d.towers.iter().filter(|&&a| t > a).count()
+            && self.ai_count(&my_b, false, s.tower)
+                < d.towers.iter().filter(|&&a| t > a).count()
+                    + if d.towers.is_empty() {
+                        0
+                    } else {
+                        s.towers_more.iter().filter(|&&a| t > a).count()
+                    }
             && !self.guided
         // (the guided first game: none; `guided_hold`)
         {

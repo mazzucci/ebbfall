@@ -36,7 +36,7 @@ pub const VAEL: Faction = Faction {
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: true, // (its Bots repair buildings, as Villagers do; machines are not repaired: the arc, Nov 13)
     power: true,
-    start_workers: 4, // (two from the balancing phase: Stelian, Nov 13)
+    start_workers: 4, // (TUNING)
     ai: AiScript {
         rax: BldgKind::Siphon,
         tech: BldgKind::Loom,
@@ -64,6 +64,8 @@ pub const VAEL: Faction = Faction {
         tech_from: 300.0,
         // (its Factory half a minute sooner: its Rovers and Drones come from there)
         air_lead: 30.0,
+        // (three more Sentry masts by 6:30: its defense while it goes for the Portal)
+        towers_more: &[240.0, 300.0, 390.0],
     },
 };
 
@@ -118,7 +120,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Sellsword",
-    cost: [90, 0],
+    cost: [100, 0],
     supply: 1,
     pool: Pool::Hired,
     hp: 110.0,
@@ -126,7 +128,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
     speed: 92.0,
     sight: 8.0,
     r: 11.0,
-    build: 20.0,
+    build: 24.0,
     bio: true,
     weapon: Some(Weapon {
         range: 0.8,
@@ -210,7 +212,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
     name: "Drone",
-    cost: [55, 0],
+    cost: [65, 0],
     supply: 2, // (Power: the smallest a machine takes; 2 before the economy's second round too)
     hp: 40.0,
     speed: 192.0, // (6 tiles a second, 7.8 in coverage)
@@ -292,14 +294,14 @@ pub(super) const SPIRE: BldgDef = BldgDef {
     ..BLDG
 };
 /// The Recruiting post: Sellswords, and Bruisers once a Lab stands; the Expedition's barracks, built anywhere and as
-/// many as it likes. It pays nothing. Each adds eight hired places to its side's one count (any post hires while the
-/// count has room; six before the arc).
+/// many as it likes. It pays nothing. Each adds six hired places to its side's one count (any post hires while the
+/// count has room).
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Recruiting post",
     short: "Recruiting",
     cost: [150, 0],
-    supply: 8,
+    supply: 6,
     pool: Pool::Hired,
     hp: 600.0,
     build: 40.0,

@@ -50,6 +50,7 @@ pub const HUMANS: Faction = Faction {
         wave_scale: 1.0,
         tech_from: 210.0, // (the Forge sooner: the Workshop's Cannons and the Knights earlier)
         air_lead: 0.0,
+        towers_more: &[],
     },
 };
 

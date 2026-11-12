@@ -59,15 +59,15 @@ pub fn power_limit(map_w: i32) -> i32 {
 /// by it: `World::places`).
 pub const POWER_PER_PLACE: i32 = 2;
 /// The Expedition's most hired places, by the map's width, a maximum of its own (gold only: the early mercenary game):
-/// 30, 32, 36 (25, 30 and 35 in the economy's second round; 15, 18 and 20 in the balance pass, the map's limit less
+/// 25, 30, 35 (15, 18 and 20 in the balance pass, the map's limit less
 /// its Power).
 pub fn hired_limit(map_w: i32) -> i32 {
     if map_w <= 64 {
-        30
+        25
     } else if map_w <= 96 {
-        32
+        30
     } else {
-        36
+        35
     }
 }
 
@@ -463,6 +463,9 @@ pub struct AiScript {
     pub tech_from: f64,
     /// Seconds sooner than its level's `air_at` that it raises its air factory (0: on the level's time).
     pub air_lead: f64,
+    /// More towers than its level's (`Diff::towers`), from these times (s), on levels that build towers: the
+    /// Expedition's early game is mercenaries and masts while it goes for its machines (the arc).
+    pub towers_more: &'static [f64],
 }
 
 impl AiScript {

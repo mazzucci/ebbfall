@@ -2001,3 +2001,81 @@ fn a_seat_s_plan_replaces_its_level_s_tuning() {
         DIFF[1].first
     );
 }
+
+#[test]
+fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
+    // Three knobs of the AI's tuning the balance lab's bets move (`Diff::tech_at`, `towers`, `tech_from`); every level
+    // keeps what it had (its tech building from 2:30, a tower from 2:30 and a second from 8:00, its side's own tech
+    // time). A tech-first plan raises its tech building and launches its satellite well before Medium does; a
+    // tower-first plan raises more towers by 6:00 than Medium; an army-first plan, no tech building at all.
+    for d in DIFF {
+        assert_eq!(
+            (d.tech_at, d.towers, d.tech_from),
+            (150.0, &[150.0, 480.0][..], NEVER)
+        );
+    }
+    let medium = DIFF[1];
+    let tech = Diff {
+        tech_at: 60.0,
+        tech_from: 120.0,
+        ..medium
+    };
+    let towers = Diff {
+        towers: &[90.0, 120.0, 180.0, 240.0],
+        first: NEVER,
+        ..medium
+    };
+    let army = Diff {
+        tech_at: NEVER,
+        ..medium
+    };
+    // (the plan's seat against a plain Medium seat, the Expedition: its Lab, its satellite, its masts)
+    let run = |plan: Diff, secs: f64| {
+        let mut w = World::with_setup(4, 1, MapKind::Standard, false, [&VAEL, &VAEL]);
+        assert!(w.set_ai_seats([true, true]));
+        assert!(w.set_ai_plans(&[Some(plan), None]));
+        let (mut lab, mut launch) = ([None::<f64>; 2], [None::<f64>; 2]);
+        while w.time < secs && w.winner < 0 {
+            w.step();
+            w.events.clear();
+            for s in 0..2u8 {
+                if lab[s as usize].is_none()
+                    && w.bldgs
+                        .iter()
+                        .any(|b| b.team == s && b.kind == BldgKind::Loom)
+                {
+                    lab[s as usize] = Some(w.time);
+                }
+                if launch[s as usize].is_none()
+                    && w.upgrades[s as usize][Upgrade::Satellite.index()] > 0
+                {
+                    launch[s as usize] = Some(w.time);
+                }
+            }
+        }
+        let masts = [0u8, 1].map(|s| {
+            w.bldgs
+                .iter()
+                .filter(|b| b.team == s && b.kind == BldgKind::Ward)
+                .count()
+        });
+        (lab, launch, masts)
+    };
+    let (lab, launch, _) = run(tech, 420.0);
+    let at = |v: Option<f64>| v.unwrap_or(f64::MAX);
+    assert!(
+        at(lab[0]) + 45.0 < at(lab[1]),
+        "the tech plan's Lab placed sooner: {lab:?}"
+    );
+    assert!(
+        at(launch[0]) + 45.0 < at(launch[1]),
+        "and its satellite launched sooner: {launch:?}"
+    );
+    let (_, _, masts) = run(towers, 360.0);
+    assert!(
+        masts[0] >= 3 && masts[0] > masts[1],
+        "more towers by 6:00: {masts:?}"
+    );
+    let (lab, _, _) = run(army, 420.0);
+    assert!(lab[0].is_none() && lab[1].is_some(), "no Lab: {lab:?}");
+}

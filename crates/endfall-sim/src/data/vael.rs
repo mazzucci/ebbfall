@@ -46,12 +46,12 @@ pub const VAEL: Faction = Faction {
         heavy_anti_air: None,
         // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Rover per three and a Drone
         // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; an Android per
-        // three from the Portal from 5:00)
+        // four from the Portal from 5:00)
         mix: &[
             (UnitKind::Bruiser, 4, 0.0),
             (UnitKind::Monolith, 3, 0.0),
             (UnitKind::Shrike, 4, 0.0),
-            (UnitKind::Umbra, 3, 300.0),
+            (UnitKind::Umbra, 4, 300.0),
         ],
         raider: UnitKind::Scythe,
         scout: None,
@@ -145,9 +145,9 @@ pub(super) const HALO: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Android: the Expedition's elite, from its one Portal (the balance pass): a machine (three Power), slow and
-/// expensive to make (two minutes, 300 gold: three Sellswords' price for three Power), tough, armored and long-ranged,
-/// hitting the ground and the air, firing every second (a little faster than before the pass: per Power it then just
-/// beats the Kingdom's line, 8.3 DPS a place to an Archer's 6.4 and a Guard's 6.8); never hidden.
+/// expensive to make (two minutes, 300 gold: three Sellswords' price for three Power; the formula sheet's least
+/// efficient unit for its gold, by design), tough, armored and long-ranged, hitting the ground and the air at its old
+/// fire rate (a shot a second instead made no difference the lab could see); never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
@@ -163,7 +163,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
         range: 7.0,
         dmg: 25.0,
         dmg_air: 20.0,
-        cd: 1.0,
+        cd: 1.2,
         proj: Some(ProjKind::Bolt),
         up_dmg: 3.0,
         ..W

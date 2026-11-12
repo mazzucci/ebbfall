@@ -2,7 +2,7 @@
 //! natively with a read-only record of what happened, and playing them all on threads in a fixed order.
 
 use endfall_sim::data::Move;
-use endfall_sim::data::{ALL_POOLS, BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
+use endfall_sim::data::{ALL_POOLS, BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS, Upgrade};
 use endfall_sim::map::{Foot, Ground, MapKind, MapSize, ShoreField};
 use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
@@ -68,6 +68,9 @@ pub struct Batch {
     pub shore_field: ShoreField,
     /// The tide on (`--tide`; it moves the water on maps with water, the Shore).
     pub tide: bool,
+    /// The two mirrors (each people against itself) in each level's cells; `--no-mirrors` plays the Kingdom against
+    /// the Expedition alone, half the games (each game is seeded by its cell and seed, so the others are the same).
+    pub mirrors: bool,
 }
 
 impl Batch {
@@ -82,6 +85,7 @@ impl Batch {
             cap_min: 30,
             shore_field: ShoreField::BACK,
             tide: false,
+            mirrors: true,
         }
     }
     /// `--quick`: 64x64 only, Medium and Hard and the ladder between them, three seeds (about 30 s on a laptop).
@@ -95,6 +99,7 @@ impl Batch {
             cap_min: 30,
             shore_field: ShoreField::BACK,
             tide: false,
+            mirrors: true,
         }
     }
 
@@ -118,6 +123,9 @@ impl Batch {
             {
                 for &l in &self.levels {
                     for races in [[h, v], [v, h], [h, h], [v, v]] {
+                        if !self.mirrors && races[0] == races[1] {
+                            continue;
+                        }
                         out.push(Cell {
                             kind: Kind::Level,
                             map,
@@ -188,6 +196,12 @@ pub struct SeatRec {
     pub home_dry: Option<u32>,
     /// The tick it first had two finished headquarters (None: never).
     pub second_base: Option<u32>,
+    /// By unit kind index: the tick its first one was trained (None: never; the starting workers are not trained).
+    pub first_unit: Vec<Option<u32>>,
+    /// By building kind index: the tick its first one was finished (None: never; the starting headquarters is not).
+    pub first_bldg: Vec<Option<u32>>,
+    /// The tick its satellite was launched (`Upgrade::Satellite` researched; None: never).
+    pub satellite: Option<u32>,
 }
 
 /// A seat's economy at one of `ECON_AT`'s minutes.
@@ -303,6 +317,8 @@ impl Tracker {
             s.units_lost = vec![0; UNIT_KINDS.len()];
             s.bldgs_built = vec![0; BLDG_KINDS.len()];
             s.bldgs_lost = vec![0; BLDG_KINDS.len()];
+            s.first_unit = vec![None; UNIT_KINDS.len()];
+            s.first_bldg = vec![None; BLDG_KINDS.len()];
         }
         for (s, rec) in seats.iter_mut().enumerate() {
             // (by the headquarters' middle: its 4x4 block's top-left tile plus two)
@@ -347,6 +363,9 @@ impl Tracker {
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.pools[s][0][0]);
+            if rec.satellite.is_none() && w.upgrades[s][Upgrade::Satellite.index()] > 0 {
+                rec.satellite = Some(tick);
+            }
         }
         self.economy(w, tick);
         self.waves(w);
@@ -361,7 +380,9 @@ impl Tracker {
             match (known.get(i), now.get(j)) {
                 (Some(a), Some(b)) if a.0 == b.0 => {
                     if a.3 && !a.4 && b.4 {
-                        seats[b.1 as usize].bldgs_built[b.2 as usize] += 1;
+                        let r = &mut seats[b.1 as usize];
+                        r.bldgs_built[b.2 as usize] += 1;
+                        r.first_bldg[b.2 as usize].get_or_insert(tick);
                     }
                     i += 1;
                     j += 1;
@@ -388,8 +409,10 @@ impl Tracker {
                     let r = &mut seats[b.1 as usize];
                     if !b.3 {
                         r.units_built[b.2 as usize] += 1;
+                        r.first_unit[b.2 as usize].get_or_insert(tick);
                     } else if b.4 {
                         r.bldgs_built[b.2 as usize] += 1; // (placed and finished within one tick)
+                        r.first_bldg[b.2 as usize].get_or_insert(tick);
                     }
                     j += 1;
                 }
@@ -714,6 +737,7 @@ mod shore_tests {
             cap_min: 9,
             shore_field: ShoreField::BACK,
             tide: false,
+            mirrors: true,
         };
         let cells = b.cells();
         assert!(

@@ -50,7 +50,7 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--no-mirrors] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
@@ -105,6 +105,7 @@ fn report(args: &[String]) {
             "--maps" => extra_maps = val().split(',').map(parse_map).collect(),
             "--levels" => batch.levels = val().split(',').map(parse_level).collect(),
             "--no-ladder" => batch.ladder = false,
+            "--no-mirrors" => batch.mirrors = false,
             "--shore-field" => {
                 use endfall_sim::map::ShoreField;
                 batch.shore_field = match val().as_str() {
@@ -162,7 +163,7 @@ fn report(args: &[String]) {
     std::fs::write(&path, r.json().write())
         .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
     let header = format!(
-        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}, {} seeds a cell, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
+        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}{}, {} seeds a cell, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
         today(),
         batch.sizes,
         batch.maps,
@@ -173,6 +174,7 @@ fn report(args: &[String]) {
             .collect::<Vec<_>>()
             .join(", "),
         if batch.ladder { "yes" } else { "no" },
+        if batch.mirrors { "" } else { ", no mirrors" },
         batch.seeds,
         batch.cap_min,
         batch.moved_shore_field().map_or(String::new(), |f| {

@@ -1,5 +1,5 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
-import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies, poolMax } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, PUMP_RATE, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies, poolMax } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
@@ -22,7 +22,7 @@ export function bldgStatus(b) {
   if (b.team === G.me && b.done && b.d.pool === 'hired' && b.d.supply > 0) { const [u, c] = G.hired[G.me]; return `Hired ${u} / ${c}` + (c >= poolMax('hired') ? ' (maximum)' : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
-  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} gold: 1 every 2 s`;
+  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} gold: 1 every ${Math.round(10 / PUMP_RATE) / 10} s`;
   return '';
 }
 

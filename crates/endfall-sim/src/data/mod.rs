@@ -504,9 +504,10 @@ pub const MINE_LOAD: i32 = 8;
 /// `lay_mines`): 1500 before the economy pass; 1000 since, so that with the smaller load the first mines still run dry
 /// by about 9:00 to 10:00.
 pub const CRYSTAL_GOLD: i32 = 1000;
-/// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): about one
-/// worker's income, so it pays back its 75 in two and a half minutes.
-pub const PUMP_RATE: f64 = 0.5;
+/// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): it pays back its 75 in
+/// about three and a half minutes. 0.5 before the economy pass halved what a worker brings in, which doubled the
+/// Market's worth beside it; a partial cut (the full one, 0.25, swung Hard's 64x64 games the other way in the lab).
+pub const PUMP_RATE: f64 = 0.35;
 /// What a refusal for want of gold says (the client's announcer keys on it).
 pub const NOT_ENOUGH: &str = "Not enough gold";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.

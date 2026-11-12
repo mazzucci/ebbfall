@@ -38,6 +38,10 @@ const PUSH_MACHINES: usize = 4;
 const PUSH_REACH: f64 = 8.0;
 /// The push's next Uplink goes this many tiles inside its coverage's edge towards the goal.
 const PUSH_INSIDE: f64 = 3.0;
+/// A machine of a wave held at its coverage's edge: within `EDGE_NEAR` tiles of it (or past it), quiet (neither firing
+/// nor hit) for `HELD_QUIET` s.
+const EDGE_NEAR: f64 = 1.5;
+const HELD_QUIET: f64 = 20.0;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
@@ -1112,9 +1116,19 @@ impl World {
             k.def().armed() && !Self::hits_of(k).0
         };
         let left = alive.iter().filter(|&&a| !air_only(self, a)).count();
+        // (a machine whose way to its target leaves coverage stops at the edge and holds its order there: routes do
+        // not follow coverage. A wave left with only such machines is over; else it never ended, and no other went)
+        let held = |w: &World, a: Id| {
+            let u = w.u(a);
+            radio::needs_range(u.kind)
+                && u.cd < -HELD_QUIET
+                && t - u.struck > HELD_QUIET
+                && !w.in_radio_by(u.team, u.x, u.y, -EDGE_NEAR)
+        };
+        let stalled = alive.iter().all(|&a| held(self, a));
         if alive.is_empty() {
             self.ai_mut().attacking = false;
-        } else if lost || left == 0 || (wave_size >= 4 && left * 10 < wave_size * 4) {
+        } else if lost || left == 0 || stalled || (wave_size >= 4 && left * 10 < wave_size * 4) {
             // Pull the survivors back instead of feeding them in one by one.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
@@ -1741,6 +1755,72 @@ mod tests {
         w.ai_mut().known.push(foe);
         w.tend_scout(&harv);
         assert_eq!(w.ai().scout, None, "the foe's: done");
+    }
+
+    #[test]
+    fn a_wave_left_with_only_machines_held_quiet_at_the_coverage_edge_is_over() {
+        // The Expedition's wave out: six machines at its Data center's coverage edge, told to attack the foe's
+        // headquarters, which their way leaves coverage to reach (routes do not follow coverage): they hold there.
+        // Quiet for 20 s (not firing, not hit), the wave is over and they go back to the rally, so the next can go;
+        // one of them firing lately, it goes on. (Before, such a wave never ended: a three-seat game ran 45 minutes.)
+        let scene = |fired_ago: f64| {
+            let mut w =
+                World::with_size(5, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
+            w.refresh_radio(true);
+            w.ai_turn = 1;
+            let (bx, by) = w.map.bases[1];
+            let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+            let reach = crate::data::radio::range_of(BldgKind::Conflux, w.map.w) * TILE;
+            let (fx, fy) = w.map.bases[0];
+            let core = w.bldgs.iter().find(|b| b.team == 0).unwrap().id;
+            let (dx, dy) = ((fx - bx) as f64, (fy - by) as f64);
+            let len = crate::jsmath::hypot(dx, dy);
+            let army: Vec<Id> = (0..6)
+                .map(|i| {
+                    let k = if i < 3 {
+                        UnitKind::Monolith
+                    } else {
+                        UnitKind::Scythe
+                    };
+                    let (x, y) = (
+                        hx + dx / len * reach + i as f64 * 6.0,
+                        hy + dy / len * reach,
+                    );
+                    let a = w.make_unit(k, 1, x, y);
+                    let u = w.um(a);
+                    u.task = Task::Attack {
+                        target: core,
+                        back: None,
+                    };
+                    u.cd = -fired_ago;
+                    a
+                })
+                .collect();
+            let rally = Pt { x: hx, y: hy };
+            let ai = w.ai_mut();
+            ai.rally = Some(rally);
+            ai.attacking = true;
+            ai.attackers = Some(army.clone());
+            ai.wave_size = 6;
+            ai.last_wave = 300.0;
+            let goal = (fx as f64 * TILE, fy as f64 * TILE);
+            w.ai_steer_wave(&army, &army, 400.0, rally, goal);
+            (w, army, rally)
+        };
+        let (w, army, rally) = scene(30.0);
+        assert!(
+            !w.ai().attacking,
+            "held quiet at the edge: the wave is over"
+        );
+        assert_eq!(w.ai().last_wave, 400.0);
+        for &a in &army {
+            assert!(
+                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, rally.x, rally.y) < 100.0),
+                "back to its rally"
+            );
+        }
+        let (w, _, _) = scene(5.0);
+        assert!(w.ai().attacking, "firing lately: it goes on");
     }
 
     #[test]

@@ -78,6 +78,23 @@ function cards(race) {
   return out;
 }
 
+/** Build `k` for our seat with one of its workers and step until it stands (the requirement of a unit or a building). */
+function raise(k) {
+  const f = E.FACTIONS[E.G.factions[E.G.me]], hq = E.G.bldgs.find(b => b.team === E.G.me && b.type === f.hq);
+  const worker = E.G.units.find(u => u.team === E.G.me && u.type === f.worker);
+  E.setResources(E.G.me, 5000, 0);
+  let spot = null;
+  for (let r = 4; r < 16 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (const dy of [-r, r]) {
+    const tx = Math.floor(hq.x / 32) + dx, ty = Math.floor(hq.y / 32) + dy;
+    if (!spot && E.canPlace(k, tx, ty, E.G.me)) spot = [tx, ty];
+  }
+  assert.ok(spot, `room for a ${k}`);
+  assert.equal(E.placeBuilding(E.G.me, k, spot[0], spot[1], worker), null, `a ${k} placed`);
+  const up = () => E.G.bldgs.some(b => b.team === E.G.me && b.type === k && b.done);
+  for (let i = 0; i < 180 * 30 && !up(); i++) E.step();
+  assert.ok(up(), `the ${k} stands`);
+}
+
 for (const race of ['humans', 'vael']) {
   test(`every card the ${race} can show has a WASD key for each of its buttons, never W A S D, none twice`, { skip }, () => {
     const all = cards(race);
@@ -93,8 +110,8 @@ for (const race of ['humans', 'vael']) {
       }
       assert.equal(new Set(shown.map(i => i.key)).size, shown.length, `${what}: no key twice (${shown.map(i => i.label + ' ' + i.key).join(', ')})`);
       assert.ok(wasd.filter(i => i.hidden).every(i => i.key === ''), `${what}: an item with no button has no key`);
-      // A building's card and a Build page keep two rows (the Blacksmith's three units, Rally and Cancel),
-      // and their letters (CLASSIC) are each one button's.
+      // A building's card and a Build page keep two rows (the Workshop's three units in the top row, Rally and Cancel in
+      // the second; five buildings and Back), and their letters (CLASSIC) are each one button's.
       if (/, techs \d+, |, Build(: Advanced)?$/.test(what)) {
         assert.ok(Math.max(...shown.map(i => i.slot)) <= 5, `${what}: two rows at most (${shown.map(i => i.label + ' ' + i.slot).join(', ')})`);
         const letters = items.map(i => i.key).filter(k => k && k !== 'Esc');
@@ -137,12 +154,7 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
   // A Recruiting post up: Advanced comes right after the three open buildings (slot 3, the second row's left), Back stays
   // in the bottom-right slot, on both pages; the advanced page packs from slot 0.
-  E.setResources(E.G.me, 2000, 0);
-  const hq = E.G.bldgs.find(b => b.team === E.G.me);
-  let spot = null;
-  for (let r = 4; r < 12 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (const dy of [-r, r]) { const tx = Math.floor(hq.x / 32) + dx, ty = Math.floor(hq.y / 32) + dy; if (!spot && E.canPlace('siphon', tx, ty, E.G.me)) spot = [tx, ty]; }
-  assert.ok(spot && !E.placeBuilding(E.G.me, 'siphon', spot[0], spot[1], lumen), 'a Recruiting post placed');
-  for (let i = 0; i < 120 * 30 && !E.hasReq(E.G.me, 'loom'); i++) E.step();
+  raise('siphon');
   ui.sel = [E.G.units.find(u => u.id === lumen.id)]; ui.mode = 'build';
   assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'Advanced packed into slot 3, Back in the corner');
   ui.mode = 'build2';
@@ -180,6 +192,87 @@ test('a research started moves no button: its own turns into Cancel in its place
         assert.equal(slotOf(busy, 'cancelr'), slotOf(idle, 'r_' + r), `${k} researching ${r}: its Cancel in its place`);
         for (const it of idle) if (it.id !== 'r_' + r) assert.equal(slotOf(busy, it.id), it.slot, `${k} researching ${r}: ${it.label} stays in slot ${it.slot}`);
       }
+    }
+  }
+  ui.sel = []; ui.mode = null;
+});
+
+test('a building opened mid-game is appended to its Build page: the shown ones keep their slots for the game, Back its corner; a new game starts afresh', { skip }, () => {
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  const lumen = () => E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
+  const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
+  raise('siphon');
+  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'the basic page');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'build1@5'], 'the advanced page before the satellite');
+  // The satellite opens the Uplink (no building required: it would come first in the order things unlock): appended.
+  E.debugResearch(E.G.me, 'satellite', 1);
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'b_uplink@3', 'build1@5'], 'the Uplink appended, the others where they were');
+  raise('uplink');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'b_uplink@3', 'b_eclipse@4', 'build1@5'], 'then the Portal, in the last free slot before Back');
+  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'the basic page unchanged');
+  // A new game forgets them: several opening at once take the first free slots in the order they unlock.
+  E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
+  E.debugResearch(E.G.me, 'satellite', 1);
+  raise('siphon');
+  assert.deepEqual(page('build2'), ['b_uplink@0', 'b_kiln@1', 'b_loom@2', 'b_ward@3', 'build1@5'], 'a new game: its own slots');
+  ui.sel = []; ui.mode = null;
+});
+
+test('a building\'s card: its units in the top row, Rally in the middle of the second, the queue\'s Cancel in the corner, its researches packed among themselves; a unit unlocked moves no button', { skip }, () => {
+  // Every building of both peoples that has a card, before and after the buildings its units need stand.
+  const want = {
+    humans: {
+      before: {
+        core: ['t_harvester@0', 'rally@4', 'cancelq@5'],
+        barracks: ['t_trooper@0', 't_lancer@1', 'rally@4', 'cancelq@5'],
+        factory: ['t_observer@0', 'rally@4', 'cancelq@5'],
+        airfield: ['t_rider@0', 'r_afterburners@3', 'rally@4', 'cancelq@5'],
+        forge: ['r_weapons@0', 'r_armor@1', 'r_entrenching@2', 'r_rapidConstruction@3'],
+      },
+      raise: ['barracks', 'forge'],
+      after: {
+        factory: ['t_observer@0', 't_bastion@1', 't_siegeTank@2', 'rally@4', 'cancelq@5'],
+        airfield: ['t_rider@0', 't_knight@1', 'r_afterburners@3', 'rally@4', 'cancelq@5'],
+      },
+    },
+    vael: {
+      before: {
+        conflux: ['t_lumen@0', 'r_satellite@3', 'rally@4', 'cancelq@5'],
+        siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
+        kiln: ['t_scythe@0', 't_shrike@1', 'rally@4', 'cancelq@5'],
+        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2'],
+        eclipse: ['t_umbra@0', 'rally@4', 'cancelq@5'],
+      },
+      raise: ['siphon', 'loom'],
+      after: {
+        siphon: ['t_prism@0', 't_bruiser@1', 'rally@4', 'cancelq@5'],
+        kiln: ['t_scythe@0', 't_shrike@1', 't_monolith@2', 'rally@4', 'cancelq@5'],
+      },
+    },
+  };
+  let id = 97000;
+  for (const [race, w] of Object.entries(want)) {
+    E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+    const f = E.FACTIONS[race];
+    const card = (k, o = {}) => {
+      ui.sel = [{ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0, ...o }]; ui.mode = null; ui.place = null;
+      return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
+    };
+    const withCard = [...f.buildBasic, ...f.buildAdvanced].filter(k => E.BUILDINGS[k].trains?.length || E.BUILDINGS[k].researches?.length);
+    assert.deepEqual(withCard.slice().sort(), Object.keys(w.before).sort(), `${race}: every building with a card is listed`);
+    for (const k of withCard) assert.deepEqual(card(k), w.before[k], `${race}: the ${k}'s card`);
+    // Rally armed: its own button is the Cancel, in its slot; a unit queued: the queue's Cancel stays in the corner.
+    for (const k of withCard.filter(k => E.BUILDINGS[k].trains?.length)) {
+      ui.sel = [{ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [E.BUILDINGS[k].trains[0]], research: null, prog: 0 }]; ui.mode = 'rally';
+      const items = C.cardItems();
+      assert.equal(items.find(i => i.active)?.slot, 4, `${race}: the ${k}'s Rally armed, its Cancel in Rally's slot`);
+      assert.equal(items.find(i => i.id === 'cancelq')?.slot, 5, `${race}: the ${k}'s queue Cancel in the corner`);
+    }
+    w.raise.forEach(raise);
+    for (const k of withCard) {
+      const after = card(k);
+      assert.deepEqual(after, w.after[k] || w.before[k], `${race}: the ${k}'s card once ${w.raise.join(' and ')} stand`);
+      for (const it of w.before[k]) assert.ok(after.includes(it), `${race}: the ${k}'s ${it} did not move`);
     }
   }
   ui.sel = []; ui.mode = null;

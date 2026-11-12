@@ -308,7 +308,13 @@ src/client/           everything that touches the browser
                       Recruiting post's hired places, and "(maximum)" once they reach theirs, `Game.poolMax`; the unit in
                       training shows the time it still needs on its slot, `timeLeft`)
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
-                      test/cards.test.js)
+                      test/cards.test.js). Three columns; buttons of a type (units, researches, orders, abilities) pack
+                      among themselves, actions never shift: on a building, its units in the top row in the order they
+                      unlock (three at most), Rally in the second row's middle (slot 4), the queue's Cancel in the
+                      corner (5), its researches from slot 3 (from 0 on one that trains nothing), a running one's
+                      Cancel in its own place; a Build page keeps each building in the slot it was first shown in for
+                      the game (per seat and page, forgotten when a new WASM game starts), so a newly opened one (the
+                      Uplink too) takes the first free slot, and Back keeps the corner
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
@@ -406,7 +412,8 @@ test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: a
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
-                      a WASD key per button by slot, none twice on a card, never W A S D, Q or P
+                      a WASD key per button by slot, none twice on a card, never W A S D, Q or P; every building's
+                      layout, and no button moved by a unit or a building unlocked mid-game
 test/shards.test.js   the e2e shards (test/e2e/shards.mjs): every test in exactly one shard for n = 1 to 6, deterministic,
                       balanced, a test missing from the table placed by the median
 test/seats.test.js    the board's rules: spots to seats, team ids and each seat's spot, a new AI's spot and side, the

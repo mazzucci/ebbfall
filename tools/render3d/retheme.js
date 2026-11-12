@@ -17,7 +17,7 @@ import { NEUTRAL } from './materials.js';
 import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
-import { mercenary, veteran, rover, drone, android } from './expedition-units.js';
+import { mercenary, veteran, rover, drone, android, launcher } from './expedition-units.js';
 import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
@@ -45,6 +45,7 @@ export const RT_UNITS = {
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
     rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
     android: { build: android, r: 15, h: 20 }, // (the Marine's cell; the `umbra` slot's model since the balance pass, Stelian's pick of 2026-11-11)
+    launcher: { build: launcher, r: 28, h: 28 }, // (the Rover's redraw as a tracked rocket launcher, 2026-11-12: the Rover's cell and frames; pictures only until Stelian approves the sheet)
   },
 };
 /** The two main buildings; the Data center is the server hall (expedition-buildings.js `serverHall`, under `datahall`:

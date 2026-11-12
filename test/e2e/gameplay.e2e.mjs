@@ -1219,8 +1219,11 @@ test('a box over units and buildings selects only the units, and only the fighte
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.skip(5);
-    const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester');
-    // A box round the Core and its harvesters, wherever the gold lies (a clump to one flank).
+    // (a crew of four inside the mine for 7.5 s at a time: a moment with two of them out)
+    await d.skipUntil(() => endfall.G.units.filter(u => u.team === 0 && u.d.worker && !u.inside).length >= 2, null, { seconds: 30, step: 0.2 });
+    const out = await d.eval(() => endfall.G.units.filter(u => u.team === 0 && u.d.worker && !u.inside).map(u => u.id));
+    const s = await d.state(), core = coreOf(s), hs = mine(s, 'harvester').filter(h => out.includes(h.id));
+    // A box round the Core and its harvesters out of the mine, wherever the gold lies (a clump to one flank).
     const xs = [core.x, ...hs.map(h => h.x)], ys = [core.y, ...hs.map(h => h.y)];
     const box = [Math.min(...xs) - 30, Math.min(...ys) - 30, Math.max(...xs) + 30, Math.max(...ys) + 30];
     await d.boxSelect(...box); // the Core and the harvesters beside it

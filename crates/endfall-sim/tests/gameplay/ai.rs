@@ -2003,6 +2003,46 @@ fn a_seat_s_plan_replaces_its_level_s_tuning() {
 }
 
 #[test]
+fn easy_and_medium_raise_one_sentry_mast_the_kingdom_its_watchtowers() {
+    // Length (Nov 13, Stelian: 10-15 minute games over bases that hold): Easy and Medium's Expedition raises one Sentry
+    // mast, not two (`Diff::tower_max`); the Kingdom's Watchtowers are not capped, and Hard keeps its two masts.
+    for (level, masts) in [(0, 1), (1, 1), (2, 2)] {
+        assert_eq!(
+            DIFF[level]
+                .tower_max
+                .iter()
+                .find(|m| m.0 == BldgKind::Ward)
+                .map_or(2, |m| m.1),
+            masts
+        );
+        let mut w = World::with_setup(4, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        assert!(w.set_ai_seats([true, true]));
+        // (its buildings made to last: the count is the AI's choice, not what is left of it)
+        let mut most = [0usize; 2];
+        while w.time < 600.0 && w.winner < 0 {
+            w.step();
+            w.events.clear();
+            for b in w.bldgs.iter_mut() {
+                b.hp = b.maxhp;
+            }
+            for (s, kind) in [(0u8, BldgKind::Turret), (1, BldgKind::Ward)] {
+                let n = w
+                    .bldgs
+                    .iter()
+                    .filter(|b| b.team == s && b.kind == kind)
+                    .count();
+                most[s as usize] = most[s as usize].max(n);
+            }
+        }
+        assert_eq!(most[1], masts, "level {level}: its Sentry masts");
+        assert!(
+            most[0] >= 1,
+            "level {level}: the Kingdom's Watchtowers, uncapped"
+        );
+    }
+}
+
+#[test]
 fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
     // Three knobs of the AI's tuning the balance lab's bets move (`Diff::tech_at`, `towers`, `tech_from`); every level
     // keeps what it had (its tech building from 2:30, a tower from 2:30 and a second from 8:00, its side's own tech
@@ -2022,6 +2062,7 @@ fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
     };
     let towers = Diff {
         towers: &[90.0, 120.0, 180.0, 240.0],
+        tower_max: &[],
         first: NEVER,
         ..medium
     };

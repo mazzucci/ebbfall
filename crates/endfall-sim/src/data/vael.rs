@@ -195,7 +195,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     r: 15.0,
     build: 40.0,
     weapon: Some(Weapon {
-        range: 12.0,
+        range: 11.0, // (12 at the arc: 11 with the Cannon, Nov 13: a duel decided by spotting and position)
         min_range: 3.0,
         dmg: 45.0,
         cd: 2.5,

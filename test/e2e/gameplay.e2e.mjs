@@ -3234,7 +3234,9 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.readyCard('Satellite');
     await d.key('s');
     assert.ok(await d.skipUntil(() => endfall.G.upgrades[endfall.G.me].satellite > 0, null, { seconds: 120 }), 'the satellite launched');
-    assert.ok((await d.toasts()).some(t => /You launched a satellite\./.test(t)), `the launch told (toasts: ${(await d.toasts()).join(' | ')})`);
+    // (told on the frame after the step that launched it: waited for, not read at once)
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'You launched a satellite.'), null, { timeout: 5000 })
+      .catch(async (e) => { throw new Error(`the launch told: ${e.message} (toasts: ${(await d.toasts()).join(' | ')})`); });
     await buildAndFinish(d, 'u', 'uplink', 0, V);
     const portal = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
     await d.clickEntity(portal.id);

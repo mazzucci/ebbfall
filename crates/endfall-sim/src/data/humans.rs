@@ -330,8 +330,8 @@ pub(super) const TURRET: BldgDef = BldgDef {
     key: "turret",
     name: "Watchtower",
     cost: [100, 0],
-    hp: 450.0, // (320 and armor 1 before the arc)
-    armor: 2.0,
+    hp: 380.0, // (320 and armor 1 before the arc; 450 and armor 2 in it, Nov 13: bases held past 10-15 min)
+    armor: 1.0,
     build: 20.0,
     sight: 9.0,
     req: Some(BldgKind::Barracks),

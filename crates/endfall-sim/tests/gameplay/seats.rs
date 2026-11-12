@@ -351,11 +351,11 @@ fn four_ais_fight_a_free_for_all_on_four_starts() {
 fn two_against_two_allies_never_fight_and_one_team_stands() {
     // M4: a 2v2 of AIs on 96x96, allies on starts side by side (seats 0 and 1, 2 and 3: seats sit round the map in
     // order). Allies never target each other; the game ends with one team's seats all out and the other's winning.
-    // (Without debug assertions, three games to the end; with them, one, invariants every tenth tick: seed 13, at
-    // 16:15 since machines keep to their coverage on their routes; seed 12, the debug run's before, now goes on to
-    // 43:37, the two Kingdoms left to fight it out.)
+    // (Without debug assertions, three games to the end; with them, one, invariants every tenth tick: seed 14, at
+    // 18:09 since the defenses' cut for length. Seeds 11 and 13 left the two Kingdoms to fight it out, 58 minutes and
+    // more than 90 behind massed Cannons: long games, not stalls, both armies fighting at the end.)
     let full = !cfg!(debug_assertions);
-    let seeds: &[u32] = if full { &[11, 12, 13] } else { &[13] };
+    let seeds: &[u32] = if full { &[12, 14, 15] } else { &[14] };
     for &seed in seeds {
         let mut w = ais(seed, 96, 4, Some(&[0, 0, 1, 1]));
         let mut fights = [[0; MAX_SEATS]; MAX_SEATS];

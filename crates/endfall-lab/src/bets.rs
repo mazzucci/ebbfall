@@ -46,6 +46,7 @@ pub fn plan(p: usize) -> Diff {
         // Towers first: six by 5:30, then an army; its first wave at 8:00.
         1 => Diff {
             towers: &[90.0, 120.0, 180.0, 240.0, 270.0, 330.0],
+            tower_max: &[], // (all six, whatever Medium's cap on a race's towers)
             first: 480.0,
             ..medium
         },

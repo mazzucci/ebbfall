@@ -555,12 +555,18 @@ impl World {
         // stalled).
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && self.ai_count(&my_b, false, s.tower)
-                < d.towers.iter().filter(|&&a| t > a).count()
+                < (d.towers.iter().filter(|&&a| t > a).count()
                     + if d.towers.is_empty() {
                         0
                     } else {
                         s.towers_more.iter().filter(|&&a| t > a).count()
-                    }
+                    })
+                .min(
+                    d.tower_max
+                        .iter()
+                        .find(|m| m.0 == s.tower)
+                        .map_or(usize::MAX, |m| m.1),
+                )
             && !self.guided
         // (the guided first game: none; `guided_hold`)
         {

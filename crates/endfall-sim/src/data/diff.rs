@@ -90,6 +90,10 @@ pub struct Diff {
     /// The times (s) from which it wants each of its towers (`AiScript::tower`), one more at each, sites counted: 2:30
     /// and 8:00 on every level (a bank it cannot spend must not go into towers).
     pub towers: &'static [f64],
+    /// The most towers of a kind it raises at this level, below `towers` (matched by kind: a race whose tower is not
+    /// named builds all of them). Easy and Medium's Expedition, one Sentry mast: two held its base against waves long
+    /// past the 10-15 minutes Medium is for, its gold better spent on its army.
+    pub tower_max: &'static [(super::BldgKind, usize)],
     /// Its side's tech time (`AiScript::tech_from`: its techs, its satellite's launch, its second tech building) at
     /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
     pub tech_from: f64,
@@ -169,6 +173,7 @@ pub const DIFF: [Diff; 4] = [
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
+        tower_max: &[(super::BldgKind::Ward, 1)],
         tech_from: NEVER,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
@@ -215,6 +220,7 @@ pub const DIFF: [Diff; 4] = [
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
+        tower_max: &[(super::BldgKind::Ward, 1)],
         tech_from: NEVER,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
@@ -258,6 +264,7 @@ pub const DIFF: [Diff; 4] = [
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
+        tower_max: &[],
         tech_from: NEVER,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
@@ -307,6 +314,7 @@ pub const DIFF: [Diff; 4] = [
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
+        tower_max: &[],
         tech_from: NEVER,
     },
 ];

@@ -108,10 +108,11 @@ impl super::UnitKind {
 
 pub const DIFF: [Diff; 4] = [
     // Easy: a slow, plain script. Few workers, one factory to start; no research, raiders, abilities or adapting. It
-    // fields its line units and their anti-air only. It takes its natural after 9:00
-    // (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still meets a
-    // growing army later. One vent until then: a second's crew of workers would only pile up shards it has no factory
-    // to spend on.
+    // fields its line units and their anti-air only. Its first wave goes at 7:45, so a newcomer is not hit before about
+    // 8:00 (at 4:00 it arrived by 4:30: the lab's newcomer, `turtle --weak --attacker-level Easy`). It takes its natural
+    // after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still
+    // meets a growing army later. One vent until then: a second's crew of workers would only pile up shards it has no
+    // factory to spend on.
     Diff {
         income: 1.0,
         wave: 4,
@@ -119,7 +120,7 @@ pub const DIFF: [Diff; 4] = [
         harv: 7,
         rax: 1,
         extra_rax: 1,
-        first: 240.0,
+        first: 465.0,
         gap: 80.0,
         research_from: NEVER,
         expand_at: 540.0,

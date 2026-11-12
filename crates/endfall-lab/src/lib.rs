@@ -83,5 +83,26 @@ mod tests {
             "the four matchups at one level"
         );
         assert!(one.contains("\"first_attack_tick\""));
+        // the economy: the banks at 2:00 and 3:00 (a 3-minute cap), the pools at their maximum, the mines run dry
+        let econ = r.get("cells").unwrap().arr()[0]
+            .get("records")
+            .unwrap()
+            .arr()[0]
+            .get("seats")
+            .unwrap()
+            .arr()[0]
+            .get("econ")
+            .unwrap()
+            .arr()
+            .len();
+        assert_eq!(econ, 2, "sampled at 2:00 and 3:00");
+        for key in [
+            "at_max_tick",
+            "home_dry_tick",
+            "second_base_tick",
+            "mines_dry_ticks",
+        ] {
+            assert!(one.contains(&format!("\"{key}\"")), "{key}");
+        }
     }
 }

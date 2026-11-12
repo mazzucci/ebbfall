@@ -407,11 +407,12 @@ fn two_against_two_allies_never_fight_and_one_team_stands() {
 fn six_and_eight_ais_play_on_eight_starts() {
     // M4: 128x128 with six and with eight AIs (each its own team) under the invariants: every seat builds up from its
     // own start in the first three minutes, and most are fighting by the end.
-    let mins = if cfg!(debug_assertions) { 4 } else { 7 };
+    // (Medium's first wave goes at 4:00: a debug build plays to 5:30, a release build to 7:00)
+    let mins = if cfg!(debug_assertions) { 5.5 } else { 7.0 };
     for (seed, seats) in [(21u32, 6usize), (22, 8)] {
         let mut w = ais(seed, 128, seats, None);
         let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
-        for tick in 0..30 * 60 * mins {
+        for tick in 0..(30.0 * 60.0 * mins) as i32 {
             w.step();
             check_invariants(&w, &format!("{seats} seats seed {seed} tick {tick}"));
             if tick % 15 == 0 {

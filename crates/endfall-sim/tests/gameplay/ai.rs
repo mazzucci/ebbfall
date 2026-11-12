@@ -724,8 +724,9 @@ fn the_ai_repairs_its_buildings_once_the_fight_is_over() {
     w.bldgs.iter_mut().find(|b| b.id == id).unwrap().hp = (max * 0.3).round();
     run(&mut w, 45);
     let hp = w.bldg(id).map_or(0.0, |b| b.hp);
-    // It may run short of gold before the last few hp (it spends on its army too), as a player can.
-    assert!(hp > max * 0.8, "the AI repaired its depot: {hp}/{max}");
+    // It may run short of gold before the last few hp (it spends on its army too), as a player can, and starts a repair
+    // only below 70%: since the economy pass's scarcer gold it may stop just past that line.
+    assert!(hp >= max * 0.7, "the AI repaired its depot: {hp}/{max}");
 }
 
 #[test]
@@ -1307,10 +1308,10 @@ fn the_guided_first_game_hold_runs_out_at_six_minutes() {
 }
 
 #[test]
-fn easy_sends_its_first_wave_at_7_45_and_medium_keeps_its_own() {
+fn easy_sends_its_first_wave_at_7_45_and_medium_at_4_00() {
     // A newcomer against Easy is not hit before about 8:00 (its first wave went at 4:00 and arrived by 4:30; the lab's
     // newcomer, `turtle --weak --attacker-level Easy`, is first hit at about 8:00 on 64x64 now); Medium's first wave
-    // stays at 2:50. Each people's AI against an idle player.
+    // goes at 4:00, the step after it (the economy pass: it went at 2:50). Each people's AI against an idle player.
     for (diff, due) in [(0usize, DIFF[0].first), (1, DIFF[1].first)] {
         for race in [&HUMANS, &VAEL] {
             let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, race]);
@@ -1327,7 +1328,7 @@ fn easy_sends_its_first_wave_at_7_45_and_medium_keeps_its_own() {
             assert!(t > due, "level {diff} {}: not before {due}: {t}", race.name);
         }
     }
-    assert_eq!((DIFF[0].first, DIFF[1].first), (465.0, 170.0));
+    assert_eq!((DIFF[0].first, DIFF[1].first), (465.0, 240.0));
 }
 
 #[test]
@@ -1480,11 +1481,16 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         let factories =
             |w: &World| count(w, f_ai.ai.rax) + f_ai.ai.heavy.map_or(0, |h| count(w, h));
         let mut hqs_at_9 = 0;
+        // (the Expedition's line at its maximum of hired places after its natural: no factory can grow it)
+        let mut line_full = false;
         while w.time < 960.0 {
             w.step();
             w.events.clear();
             if (w.time - 535.0).abs() < 0.02 {
                 hqs_at_9 = count(&w, f_ai.hq);
+            }
+            if w.time > 600.0 && f_ai.power {
+                line_full |= w.pool(ENEMY, Pool::Hired)[0] >= w.pool_max(ENEMY, Pool::Hired);
             }
         }
         let name = f[1].name;
@@ -1492,9 +1498,11 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         assert_eq!(count(&w, f_ai.hq), 2, "{name}: its natural");
         assert!(harvesters(&w, ENEMY).len() >= 10, "{name}: crewed");
         let schedule = DIFF[0].rax + 2; // (one more after 5 and after 9 minutes)
+        // (since the economy pass's scarcer gold the Expedition's posts fill its hired places before it banks for a
+        // fourth: its line then stands at its maximum, which a factory could not raise)
         assert!(
-            factories(&w) > schedule,
-            "{name}: a factory beyond its schedule: {}",
+            factories(&w) > schedule || line_full,
+            "{name}: a factory beyond its schedule: {}, or its line at its maximum",
             factories(&w)
         );
         // (but the Expedition's satellite, launched on every level: its way to the Portal)

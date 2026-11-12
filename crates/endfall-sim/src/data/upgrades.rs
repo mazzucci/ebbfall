@@ -159,7 +159,6 @@ const DRILLS: UpgradeDef = UpgradeDef {
     time: [60.0, 75.0, 75.0],
     levels: 2,
     req: None,
-    ..TECH
 };
 /// The gold a worker's load gains by `Effect::MineLoad` level (0, 1, 2): a Bot's 12 a trip goes to 14, then 17.
 pub const DRILL_LOAD: [i32; 3] = [0, 2, 5];

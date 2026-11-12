@@ -251,7 +251,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'launch'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'launch', 'mine'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
   // its own; each ability's tech is found. Shields (shields, data since the re-theme: no building researches it) keeps
   // only its place.

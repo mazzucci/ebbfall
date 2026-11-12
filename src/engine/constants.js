@@ -46,7 +46,7 @@ const UNIT_TEXT = {
   knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Fast and tough in heavy armor, hits hard up close. Can\'t hit flyers.' },
   // the Expedition (`vael`)
   lumen: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds, staying at each building until it stands, and repairs buildings. Goes anywhere.' },
-  scythe: { hot: 'N', what: 'Fast, guards and escorts', desc: 'Fast, with a light gun: catches raiders and escorts. Can\'t hit flyers. Weak against infantry in numbers. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
+  scythe: { hot: 'N', what: 'Fast, escorts and defends', desc: 'Fast, with a light gun: catches raiders and escorts. Can\'t hit flyers. Weak against infantry in numbers. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
   prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Cheap and quick to field. Fights up close, ground only. Weak against armor. Takes a hired place. Fights anywhere.' },
   monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Long-range rockets that hit an area. Fires while moving; can\'t hit what is close or flying, and sees no farther than others: it needs spotters. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
   shrike: { hot: 'E', what: 'Swarms, fast and small', desc: `A small, fast attack drone: weak alone, dangerous in a swarm. Fragile. Hits ground and air. Faster after Overclock. Needs signal: works only inside the Data center's or an Uplink's coverage.` },

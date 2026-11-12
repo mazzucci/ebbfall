@@ -108,8 +108,9 @@ function renderSelection() {
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
     sub.textContent = n.amount > 0 ? `${n.amount} gold left` : 'Empty: no gold left';
     life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
-    const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // inside, waiting, and coming and going
-    module('node' + working, `<span class="st" title="${plural(UNITS[myFaction().worker].name)} working it" aria-label="${plural(UNITS[myFaction().worker].name)} working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
+    // (our own miners inside it now, of the most our workers fit: "Miners 5 / 8"; the arc's UPDATE 6)
+    const inside = G.units.filter(u => u.team === G.me && u.inside && u.task.node === n).length, cap = UNITS[myFaction().worker].mineCap;
+    module('node' + inside, `<span class="st" title="Miners inside it now, of the most it fits" aria-label="Miners ${inside} of ${cap}">${portrait('unit', myFaction().worker, 22)}<b>Miners ${inside} / ${cap}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === G.me;
     named(x.d.name);

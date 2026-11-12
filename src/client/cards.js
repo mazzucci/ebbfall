@@ -74,8 +74,12 @@ export function placesTip(t) {
   return '';
 }
 
-/** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on. */
-const depth = (k) => (BUILDINGS[k].req ? 1 + depth(BUILDINGS[k].req) : 0);
+/** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on; one waiting on a
+ *  research, one past the building that researches it (the Uplink after the Lab). */
+const depth = (k) => {
+  const d = BUILDINGS[k], up = d.reqUp && UPGRADES[d.reqUp]?.req;
+  return d.req ? 1 + depth(d.req) : up ? 1 + depth(up) : 0;
+};
 /** A Build list page in the order its buildings unlock: by requirement depth, the page's own order breaking ties. */
 const byUnlock = (page) => page.map((k, i) => [k, i, depth(k)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([k]) => k);
 

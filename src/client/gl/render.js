@@ -441,10 +441,14 @@ class NodeObj {
   constructor(n) {
     // (with the buildings and units, sorted by its bottom row as a building is: a worker north of it stands behind it)
     this.s = new Sprite(); this.s.position.set(n.x, n.y); this.s.zIndex = (n.ty + n.h) * TILE - 0.5 + (n.id % 97) * 0.002; L.ents.addChild(this.s);
+    // Its door lamp, lit while anyone is inside (the arc's UPDATE 6: a mine being worked, at a glance), only where we
+    // see it now: the fog shows a mine as it was, so a lamp there would tell what we cannot see.
+    this.lamp = new Graphics().circle(0, 0, 5).fill({ color: 0xffc35a, alpha: 0.35 }).circle(0, 0, 2.4).fill({ color: 0xffe7a8, alpha: 0.95 });
+    this.lamp.position.set(n.x + 9, n.y + n.h * TILE / 2 - 18); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
   }
-  update(n) { setTex(this.s, tex(`mine_${mineStage(n)}`)); }
-  show(v) { if (this.s.visible !== v) this.s.visible = v; }
-  destroy() { this.s.destroy(); }
+  update(n) { setTex(this.s, tex(`mine_${mineStage(n)}`)); this.lamp.visible = this.s.visible && n.miners > 0 && !!G.vis[idx(n.tx, n.ty)]; }
+  show(v) { if (this.s.visible !== v) this.s.visible = v; if (!v) this.lamp.visible = false; }
+  destroy() { this.s.destroy(); this.lamp.destroy(); }
 }
 
 function syncPool(pool, list, make, upd) {

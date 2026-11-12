@@ -114,8 +114,8 @@ function boxSelect(x0, y0, x1, y1, add) {
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
 const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
 
-/** A gold mine (a vent, none since the re-theme, is never mined by hand). */
-const field = (e) => e && e.kind === 'node' && e.type !== 'ether' ? e : null;
+/** A gold mine. */
+const field = (e) => e && e.kind === 'node' ? e : null;
 
 /** While placing on touch: put the ghost under the finger, or hide it when the finger is over the HUD (a lift there
  *  must not build under a button, Cancel included). Returns whether the finger is over the map. */

@@ -23,7 +23,7 @@ export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 export const startZoom = () => matchMedia('(pointer: coarse)').matches ? 1 : ZOOM_MIN;
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
-const MM_SALT = '#e8c04a', MM_BRINE = '#a24a2c'; // (the minimap: a gold mine, gold as its veins; a brine seep)
+const MM_GOLD = '#e8c04a'; // (the minimap: a gold mine, gold as its veins)
 /** Units are drawn larger than their collision radius so they are easy to see and to tap. */
 export const UNIT_SCALE = 1.2;
 const hexn = (s) => parseInt(s.slice(1), 16);
@@ -304,7 +304,7 @@ class UnitObj {
     if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE); this.xr.visible = false; L.xray.addChild(this.xr); }
     this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the ring and the rope round the feet: as large as the art)
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
-    this.cargo = light(0xeee6d2, 0.14, 0.5); // (the salt a worker carries: pale, faint)
+    this.cargo = light(0xeee6d2, 0.14, 0.5); // (the gold a worker carries: pale, faint)
     this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
@@ -381,7 +381,7 @@ class BldgObj {
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
     const name = this.name, grow = !b.done && this.bud;
-    this.found.visible = !b.done && !grow; this.scaffold.visible = this.scaffoldPaint.visible = !b.done && (!grow || b.progress > 0); // (a Vael site: its bud once its Glint has begun, no foundation)
+    this.found.visible = !b.done && !grow; this.scaffold.visible = this.scaffoldPaint.visible = !b.done && (!grow || b.progress > 0); // (an Expedition site: its bud once its Bot has begun, no foundation)
     if (b.done) { setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; }
     else { // the bottom k/8 of the art, its bottom edge where the full sprite's would be
       const k = Math.max(1, Math.min(STAGES, Math.ceil(b.progress * STAGES))); setTex(this.body, stage(name, k)); setTex(this.paint, stage(name + '_m', k));
@@ -414,15 +414,15 @@ class BldgObj {
     const sm = this.look.smoke; // chimneys: only while the building works (look.js chimneyActive)
     if (live && sm && chimneyActive(b) && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
-  /** A Vael site: no foundation, its bud (in the scaffold's sprite) once its Glint has begun; the whole building fades in as a lantern-lit ghost, more solid as
-   *  it grows, inside a pulsing ring while a Glint works on it (a site not yet begun is a fainter ghost, no
+  /** An Expedition site: no foundation, its bud (in the scaffold's sprite) once its Bot has begun; the whole building fades in as a lantern-lit ghost, more solid as
+   *  it grows, inside a pulsing ring while a Bot works on it (a site not yet begun is a fainter ghost, no
    *  ring). Seen through fog, only the remembered ghost. */
   growIn(b, t, live) {
     const begun = b.progress > 0;
     setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
     paintAs(this.body, this.paint, this.seat, b.flash > 0 ? 0xffffff : 0xffd6b8, (begun ? 0.22 + 0.6 * b.progress : 0.15) + (b.flash > 0 ? 0.15 : 0)); // (brighter when hit)
     if (begun) this.scaffold.alpha = this.scaffoldPaint.alpha = 1 - 0.75 * b.progress; // (the bud opens as the shell inside it grows)
-    if (!live || !G.units.some(u => u.task.t === 'build' && u.task.b === b)) return; // (the ring only while a Glint works)
+    if (!live || !G.units.some(u => u.task.t === 'build' && u.task.b === b)) return; // (the ring only while a Bot works)
     const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = 0.55 + 0.35 * Math.sin(t * 4);
     bars.ellipse(b.x, cy, rx, ry).fill({ color: 0xff9a5c, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xffa070, alpha: 0.8 * pulse });
     bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xffe6d0, alpha: 0.5 * pulse });
@@ -541,7 +541,7 @@ function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible
 
 let fogTick = -1;
 /** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. In sight
- *  clear; explored but out of sight a blue-grey veil (RGB 18, 22, 34 at 0.45), the ground and what stands on it still
+ *  clear; explored but out of sight a blue-gray veil (RGB 18, 22, 34 at 0.45), the ground and what stands on it still
  *  read; never explored near-black. */
 function updateFogImage() {
   if (G.tick === fogTick) return;
@@ -742,9 +742,9 @@ const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag);
 function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
-const SALT = 0xe6e0d3;
+const MINE_MARK = 0xe6e0d3;
 /** Color of a target: a gold mine pale (style.css --shard), a building to work on amber. */
-const targetColor = (e) => e.kind === 'node' ? SALT : 0xf5a524;
+const targetColor = (e) => e.kind === 'node' ? MINE_MARK : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
 function outline(e, width, color, alpha) {
@@ -812,12 +812,8 @@ function renderMinimap() {
 }
 function minimapBase(c, S, T) {
   c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
-  // Gold mines gold, their footprint; a brine seep red-brown in a gold rim: neither is any seat's color.
-  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) {
-    const x = n.x * S, y = n.y * T;
-    if (n.type === 'mine') { c.fillStyle = MM_SALT; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
-    else { c.fillStyle = MM_SALT; c.fillRect(x - 2.5, y - 2.5, 5, 5); c.fillStyle = MM_BRINE; c.fillRect(x - 1.5, y - 1.5, 3, 3); }
-  }
+  // Gold mines gold, their footprint: not any seat's color.
+  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = MM_GOLD; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
   // Every seat in its color, ours too, as on the field (with two seats as well: ours is no longer the amber of seat 0's
   // old gold); an ally's buildings framed in white (a team game: whose color is on our side, its base and army in our sight).
   const col = seatCss();

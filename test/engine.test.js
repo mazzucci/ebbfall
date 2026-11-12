@@ -345,8 +345,8 @@ function view() {
     tick: G.tick, time: G.time, over: G.over, winner: G.winner, out: G.out, res: G.res, sup: G.sup, stats: G.stats, upgrades: G.upgrades,
     vis: Array.from(G.vis), explored: Array.from(G.explored), occ: Array.from(map.occ),
     units: G.units.map(u => ({ id: u.id, type: u.type, team: u.team, x: u.x, y: u.y, hp: u.hp, maxhp: u.maxhp, sh: u.sh, maxsh: u.maxsh, r: u.r, face: u.face, flash: u.flash, carry: u.carry, cd: u.cd, abCd: u.abCd, mode: u.mode, swap: u.swap, task: { t: u.task.t, phase: u.task.phase, node: id(u.task.node), b: id(u.task.b), target: id(u.task.target) }, dead: u.dead })),
-    bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, vent: id(b.vent), dead: b.dead })),
-    nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners, extractor: id(n.extractor) })),
+    bldgs: G.bldgs.map(b => ({ id: b.id, type: b.type, team: b.team, hp: b.hp, sh: b.sh, progress: b.progress, done: b.done, prog: b.prog, flash: b.flash, aim: b.aim, rally: b.rally && { x: b.rally.x, y: b.rally.y, node: id(b.rally.node) }, queue: b.queue, research: b.research, dead: b.dead })),
+    nodes: map.nodes.map(n => ({ id: n.id, amount: n.amount, miners: n.miners })),
     projs: G.projs,
   });
 }
@@ -398,7 +398,7 @@ test('allies share vision: G.vis is what this side\'s team sees, its fog-free ar
   // Seat 1's Trooper in the middle of a 96x96 map, an enemy (seat 2) beside it; nobody else near. Seen from seat 0.
   const look = (teams) => {
     E.resetGameSeats(31, 1, 0, 0, ['humans', 'vael', 'humans', 'vael'], teams, [false, false, false, false], 0, 96);
-    // (by the middle, off the mine shafts: every shaft and the ground round it is on everyone's map from the start)
+    // (by the middle, on a tile nobody has explored yet)
     let tx = 48, ty = 48;
     for (let r = 0; r < 10 && E.G.explored[E.idx(tx, ty)]; r++) [tx, ty] = [48 + r, 48];
     const x = tx * C.TILE + 16, y = ty * C.TILE + 16, at = E.idx(tx, ty);

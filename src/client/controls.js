@@ -4,7 +4,7 @@
 // - WASD: W A S D always move the map, whatever is selected, and the command card's buttons take their keys by where
 //   they sit (GRID): the same slot, the same key, on every card. The keys that are not commands stay: Ctrl+1–9 and
 //   1–9 (groups), Shift (five, or keep placing), Space (the last alert), Esc, P (pause), Q (the whole army: so not in
-//   the grid), . and , (idle workers, an idle factory), Home. Keys on no button (Stop S, Move M, the other Build
+//   the grid), , (an idle factory), Home. Keys on no button (Stop S, Move M, the other Build
 //   page's buildings) have none in WASD: Hold is on the card, a right-click moves.
 // Holding the middle button and dragging moves the map in both (input.js).
 // Offered only where the primary pointer is fine (a capability, not a device: the one design); on a touch screen

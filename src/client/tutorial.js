@@ -14,6 +14,8 @@ import { alerts } from './tools.js';
 const tut = { on: false, step: 0, start: 0, since: 0 };
 const mine = (type) => G.units.filter(u => u.team === G.me && u.type === type).length;
 const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && b.done);
+/** Our workers standing idle (a new one waits for an order, a builder beside what it built: Stelian, Nov 12). */
+const idleWorkers = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle').length;
 /** How near (px) an enemy fighter must come to one of the player's buildings to be at the base. */
 const AT_BASE = 12 * TILE;
 /** Whether an enemy fighter (not a worker) is at the player's base: within AT_BASE of one of its buildings, seen or
@@ -25,10 +27,10 @@ const enemyAtBase = () => {
 
 /** The step after which the opponent may come (the army is trained, and the Market up for a people with one): its
  *  index in `steps()`. */
-const ARMY = 4;
+const ARMY = 5;
 
 /** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?].
- *  Workers on the crystals, the barracks, a line and its anti-air (six of a 1-population kind, three of a 2-population
+ *  Workers trained and sent to the mine (a new one waits for an order), the barracks (its builder sent back), a line and its anti-air (six of a 1-population kind, three of a 2-population
  *  one), the Market (it needs the barracks; a people without one is told its barracks pays nothing and trains on), hold, then population (where it runs out: the last
  *  army is sized past the headquarters' population, `goal`), then spend the bank on more of the line up to an army of
  *  `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
@@ -42,7 +44,8 @@ function steps() {
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} gold again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}`, por: ['bldg', rax], want: ['build', 'b_' + rax], done: () => built(rax) },
+    { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Gather, then the gold mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
+    { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
     market
       ? { text: `Build ${aName(market.name)} in your base: it ${market.verb} gold by itself`, por: ['bldg', f.market], want: ['build', 'build2', 'b_' + f.market], done: () => built(f.market) }

@@ -4,7 +4,7 @@
 use crate::batch::{Batch, Cell, ECON_AT, GameRec, Kind, LEVELS, TPS};
 use crate::json::Json;
 use crate::stats::{median, mmss, quantile, wilson};
-use endfall_sim::data::{FACTIONS, UNIT_KINDS};
+use endfall_sim::data::{BLDG_KINDS, BldgKind, FACTIONS, UNIT_KINDS, UnitKind};
 use std::fmt::Write;
 
 /// A win rate: `k` of `n` decided games (timeouts left out), what it is the rate of, and its 95% Wilson interval.
@@ -269,6 +269,38 @@ impl Report {
         (all.iter().filter(|g| g.winner.is_none()).count(), all.len())
     }
 
+    /// The Kingdom's win rate against the Expedition in each game-length bin (`LENGTH_BINS`: under 10 minutes, 10 to
+    /// 15, over 15), at `level` and `size` (None: pooled), both seat orders and every classic map pooled, timeouts left
+    /// out (the design target: the Kingdom ahead early, the Expedition late).
+    pub fn length_bins(&self, level: Option<usize>, size: Option<i32>) -> [Rate; 3] {
+        let mut out = LENGTH_BINS.map(|(name, _, _)| Rate {
+            of: format!("Kingdom wins, {name}"),
+            k: 0,
+            n: 0,
+        });
+        for (c, games) in self.level_cells(|c| {
+            classic(c)
+                && c.kind == Kind::Level
+                && !c.mirror()
+                && level.is_none_or(|l| c.levels[0] == l)
+                && size.is_none_or(|s| c.size == s)
+        }) {
+            for g in games {
+                let Some(w) = g.winner else { continue };
+                let t = secs(g.end_tick);
+                let Some(b) = LENGTH_BINS
+                    .iter()
+                    .position(|&(_, lo, hi)| t >= lo * 60.0 && t < hi * 60.0)
+                else {
+                    continue;
+                };
+                out[b].n += 1;
+                out[b].k += rate_seat(c, w) as usize;
+            }
+        }
+        out
+    }
+
     pub fn checks(&self) -> Vec<Check> {
         let mut out = Vec::new();
         for &l in &self.batch.levels {
@@ -282,6 +314,30 @@ impl Report {
                 pass: !off,
                 detail: format!("Humans {} of {}: {}", r.k, r.n, r.show()),
             });
+        }
+        // The design target by game length: the Kingdom ahead in short games, the Expedition in long ones (a bin with no
+        // game passes).
+        for &l in &self.batch.levels {
+            let [early, _, late] = self.length_bins(Some(l), None);
+            if early.n > 0 {
+                out.push(Check {
+                    name: format!("the Kingdom ahead in games under 10 min, {}", LEVELS[l]),
+                    pass: early.p() > 0.5,
+                    detail: format!(
+                        "{} of {}: {} (55–65% wanted)",
+                        early.k,
+                        early.n,
+                        early.show()
+                    ),
+                });
+            }
+            if late.n > 0 {
+                out.push(Check {
+                    name: format!("the Expedition ahead in games over 15 min, {}", LEVELS[l]),
+                    pass: late.p() < 0.5,
+                    detail: format!("the Kingdom {} of {}: {}", late.k, late.n, late.show()),
+                });
+            }
         }
         for (c, g) in self.level_cells(|c| classic(c) && c.kind == Kind::Level && c.mirror()) {
             let r = cell_rate(c, g);
@@ -427,6 +483,12 @@ impl Report {
         } else {
             batch
         };
+        // (likewise only without the mirrors)
+        let batch = if b.mirrors {
+            batch
+        } else {
+            batch.with("mirrors", false)
+        };
         let cells: Vec<Json> = self
             .cells
             .iter()
@@ -465,6 +527,8 @@ impl Report {
             .with("exchange", exchange)
             .with("shore_income", self.shore_income_json())
             .with("pumps_at_5", self.pumps_rate().json())
+            .with("length_bins", self.length_bins_json())
+            .with("top_tier", self.top_tier_json())
             .with(
                 "waves",
                 self.wave_rows()
@@ -563,11 +627,216 @@ impl Report {
                 }
             }
         }
+        s += &self.length_bins_markdown();
+        s += &self.top_tier_markdown();
         s += &self.waves_markdown();
         s += &self.shore_markdown();
         s
     }
+
+    /// Each level's and size's rows of `length_bins`, then each level's pooled over the sizes.
+    fn length_bins_rows(&self) -> Vec<(usize, Option<i32>, [Rate; 3])> {
+        let mut rows = Vec::new();
+        for &l in &self.batch.levels {
+            for &size in &self.batch.sizes {
+                rows.push((l, Some(size), self.length_bins(Some(l), Some(size))));
+            }
+            if self.batch.sizes.len() > 1 {
+                rows.push((l, None, self.length_bins(Some(l), None)));
+            }
+        }
+        rows.retain(|r| r.2.iter().any(|b| b.n > 0));
+        rows
+    }
+    fn length_bins_json(&self) -> Vec<Json> {
+        self.length_bins_rows()
+            .iter()
+            .map(|(l, size, bins)| {
+                LENGTH_BINS.iter().zip(bins).fold(
+                    Json::obj()
+                        .with("level", LEVELS[*l])
+                        .with("size", size.map(|s| s as i64)),
+                    |o, ((name, _, _), r)| o.with(name, r.json()),
+                )
+            })
+            .collect()
+    }
+    fn length_bins_markdown(&self) -> String {
+        let rows = self.length_bins_rows();
+        if rows.is_empty() {
+            return String::new();
+        }
+        let mut s = String::from(
+            "\n## The Kingdom by game length\n\nThe Kingdom's win rate against the Expedition by how long the game ran (both seat orders, every map but the Shore; timeouts left out), with its 95% interval and the games in the bin. The design target: the Kingdom ahead in short games (55–65%), the Expedition in long ones.\n\n| Level | Size |",
+        );
+        for (name, _, _) in LENGTH_BINS {
+            let _ = write!(s, " {name} |");
+        }
+        s += "\n| --- | --- |";
+        s += &" --- |".repeat(LENGTH_BINS.len());
+        s += "\n";
+        for (l, size, bins) in rows {
+            let _ = write!(
+                s,
+                "| {} | {} |",
+                LEVELS[l],
+                size.map_or("all".into(), |s| s.to_string())
+            );
+            for b in &bins {
+                let _ = write!(s, " {} of {} |", b.show(), b.n);
+            }
+            s += "\n";
+        }
+        s
+    }
 }
+
+/// What the top tier's timing follows, per people (`FACTIONS` index): the first top-tier unit (the first of these
+/// kinds trained), then the first of each building finished (and the Expedition's satellite launched).
+pub struct TopTier {
+    pub units: &'static [UnitKind],
+    pub units_name: &'static str,
+    pub bldgs: &'static [BldgKind],
+    pub satellite: bool,
+}
+/// A row of the top tier's table: (people, level, size, seats, each column's times in seconds).
+type TopTierRow = (usize, usize, i32, usize, Vec<Vec<f64>>);
+pub const TOP_TIER: [TopTier; 2] = [
+    TopTier {
+        units: &[UnitKind::Knight, UnitKind::SiegeTank],
+        units_name: "Knight or Cannon",
+        bldgs: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Factory],
+        satellite: false,
+    },
+    TopTier {
+        units: &[UnitKind::Umbra],
+        units_name: "Android",
+        bldgs: &[BldgKind::Loom, BldgKind::Uplink, BldgKind::Eclipse],
+        satellite: true,
+    },
+];
+
+impl Report {
+    /// Of every seat of `race` at `level` and `size` (level cells, classic maps): the ticks of its first top-tier unit,
+    /// of each of `TOP_TIER`'s buildings and of its satellite, each a list of the seats that got there (the column's
+    /// median is of those, out of `seats`).
+    fn top_tier(&self, race: usize, level: usize, size: i32) -> (usize, Vec<Vec<f64>>) {
+        let t = &TOP_TIER[race];
+        let cols = 1 + t.bldgs.len() + t.satellite as usize;
+        let (mut seats, mut out) = (0, vec![Vec::new(); cols]);
+        for (c, games) in self.level_cells(|c| {
+            classic(c) && c.kind == Kind::Level && c.levels[0] == level && c.size == size
+        }) {
+            for g in games {
+                for (si, rec) in g.seats.iter().enumerate() {
+                    if c.races[si] != race {
+                        continue;
+                    }
+                    seats += 1;
+                    if let Some(f) = t
+                        .units
+                        .iter()
+                        .filter_map(|k| rec.first_unit[k.index()])
+                        .min()
+                    {
+                        out[0].push(secs(f));
+                    }
+                    for (i, b) in t.bldgs.iter().enumerate() {
+                        if let Some(f) = rec.first_bldg[b.index()] {
+                            out[1 + i].push(secs(f));
+                        }
+                    }
+                    if let (true, Some(f)) = (t.satellite, rec.satellite) {
+                        out[cols - 1].push(secs(f));
+                    }
+                }
+            }
+        }
+        (seats, out)
+    }
+    fn top_tier_heads(race: usize) -> Vec<String> {
+        let t = &TOP_TIER[race];
+        std::iter::once(format!("first {}", t.units_name))
+            .chain(t.bldgs.iter().map(|b| b.def().name.to_string()))
+            .chain(t.satellite.then(|| "satellite".to_string()))
+            .collect()
+    }
+    fn top_tier_rows(&self) -> Vec<TopTierRow> {
+        let mut rows = Vec::new();
+        for race in 0..TOP_TIER.len() {
+            for &l in &self.batch.levels {
+                for &size in &self.batch.sizes {
+                    let (n, cols) = self.top_tier(race, l, size);
+                    if n > 0 {
+                        rows.push((race, l, size, n, cols));
+                    }
+                }
+            }
+        }
+        rows
+    }
+    fn top_tier_json(&self) -> Vec<Json> {
+        self.top_tier_rows()
+            .into_iter()
+            .map(|(race, l, size, n, cols)| {
+                Self::top_tier_heads(race).iter().zip(&cols).fold(
+                    Json::obj()
+                        .with("race", FACTIONS[race].name)
+                        .with("level", LEVELS[l])
+                        .with("size", size)
+                        .with("seats", n),
+                    |o, (h, v)| {
+                        o.with(
+                            h.as_str(),
+                            Json::obj()
+                                .with("median_s", median(v))
+                                .with("seats", v.len()),
+                        )
+                    },
+                )
+            })
+            .collect()
+    }
+    fn top_tier_markdown(&self) -> String {
+        let rows = self.top_tier_rows();
+        if rows.is_empty() {
+            return String::new();
+        }
+        let mut s = String::from(
+            "\n## The top tier\n\nWhen each people's top tier came, each level against itself (every map but the Shore): the median time of its first top-tier unit and of its first of each building finished, over the seats that got there (how many of all, beside it). The target: the first top-tier unit at about 8–10 min.\n",
+        );
+        for (race, f) in FACTIONS.iter().enumerate().take(TOP_TIER.len()) {
+            let heads = Self::top_tier_heads(race);
+            let _ = write!(s, "\n| {} | Size |", f.name);
+            for h in &heads {
+                let _ = write!(s, " {h} |");
+            }
+            s += "\n| --- | --- |";
+            s += &" --- |".repeat(heads.len());
+            s += "\n";
+            for (_, l, size, n, cols) in rows.iter().filter(|r| r.0 == race) {
+                let _ = write!(s, "| {} | {size} |", LEVELS[*l]);
+                for v in cols {
+                    let _ = write!(
+                        s,
+                        " {} ({}/{n}) |",
+                        median(v).map_or("—".into(), mmss),
+                        v.len()
+                    );
+                }
+                s += "\n";
+            }
+        }
+        s
+    }
+}
+
+/// The game-length bins of the design target (name, from, to, in minutes).
+pub const LENGTH_BINS: [(&str, f64, f64); 3] = [
+    ("under 10 min", 0.0, 10.0),
+    ("10 to 15 min", 10.0, 15.0),
+    ("over 15 min", 15.0, f64::INFINITY),
+];
 
 /// A race's unit mix over `cells`: (kind index, built, lost, share of the race's non-worker units built), kinds it
 /// built, in kind order.
@@ -683,8 +952,14 @@ fn kinds_json(v: &[u32], key: impl Fn(usize) -> &'static str) -> Json {
         .fold(Json::obj(), |o, (i, &n)| o.with(key(i), n))
 }
 
+fn firsts_json(v: &[Option<u32>], key: impl Fn(usize) -> &'static str) -> Json {
+    v.iter()
+        .enumerate()
+        .filter_map(|(i, t)| t.map(|t| (i, t)))
+        .fold(Json::obj(), |o, (i, t)| o.with(key(i), t))
+}
+
 fn game_json(g: &GameRec) -> Json {
-    use endfall_sim::data::BLDG_KINDS;
     let seat = |s: &crate::batch::SeatRec| {
         Json::obj()
             .with(
@@ -747,6 +1022,15 @@ fn game_json(g: &GameRec) -> Json {
             )
             .with("home_dry_tick", s.home_dry)
             .with("second_base_tick", s.second_base)
+            .with(
+                "first_unit_tick",
+                firsts_json(&s.first_unit, |i| UNIT_KINDS[i].def().key),
+            )
+            .with(
+                "first_bldg_tick",
+                firsts_json(&s.first_bldg, |i| BLDG_KINDS[i].def().key),
+            )
+            .with("satellite_tick", s.satellite)
     };
     Json::obj()
         .with("seed", g.seed)

@@ -172,7 +172,8 @@ impl World {
         self.ping(team, x, y);
     }
 
-    /// A harvester building a site: walk to it, then raise it; when it is done, the crew goes back to work.
+    /// A harvester building a site: walk to it, then raise it; when it is done, the crew waits beside it (a site lost or
+    /// cancelled sends it back to work).
     pub(crate) fn update_build(&mut self, uid: Id, b: Id, r: f64, team: u8, dt: f64) {
         let Some(g) = self.bldg(b).filter(|bd| !bd.done).and_then(|_| self.geo(b)) else {
             self.resume_after(uid);
@@ -222,7 +223,8 @@ impl World {
         }
     }
 
-    /// A building just finished: supply, the news, and its crew back to work (`builder`: the one who finished it).
+    /// A building just finished: supply, the news, and its crew idle beside it (`builder`: the one who finished it):
+    /// a builder does not go back to mining by itself (Stelian, Nov 12); the AI sends its own back.
     pub(crate) fn finish_construction(&mut self, b: Id, builder: Option<Id>) {
         let bd = self.bldg(b).unwrap();
         let (bteam, bx, by) = (bd.team, bd.x, bd.y);
@@ -237,7 +239,7 @@ impl World {
             .map(|o| o.id)
             .collect();
         for o in others.into_iter().chain(builder) {
-            self.resume_after(o);
+            self.set_idle(o);
         }
     }
 }

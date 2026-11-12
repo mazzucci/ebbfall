@@ -37,13 +37,43 @@ impl World {
                 let (hx, hy) = self.home_of(u.x, u.y); // never the enemy's fields
                 let n = self
                     .nearest_node(hx, hy, 800.0)
-                    .or_else(|| self.nearest_node(hx, hy, 1200.0));
+                    .or_else(|| self.nearest_node(hx, hy, 1200.0))
+                    .or_else(|| self.our_side_node(hx, hy));
                 if let Some(n) = n {
                     self.start_gather(h, n);
                 }
             }
         }
         brain.pumps = self.pumps(self.seat());
+    }
+
+    /// Every mine near home dry (its idle workers would stand there for good): the nearest mine with gold to (x, y)
+    /// that lies nearer one of our buildings than any enemy's, wherever it is (never the enemy's fields).
+    fn our_side_node(&self, x: f64, y: f64) -> Option<Id> {
+        let e = self.seat();
+        let near = |n: &crate::map::Node, ours: bool| {
+            self.bldgs
+                .iter()
+                .filter(|b| {
+                    if ours {
+                        b.team == e
+                    } else {
+                        self.enemies(e, b.team)
+                    }
+                })
+                .map(|b| dist(b.x, b.y, n.x, n.y))
+                .fold(f64::INFINITY, f64::min)
+        };
+        self.map
+            .nodes
+            .iter()
+            .filter(|n| !n.ether && n.amount > 0 && near(n, true) < near(n, false))
+            .min_by(|a, b| {
+                dist(a.x, a.y, x, y)
+                    .total_cmp(&dist(b.x, b.y, x, y))
+                    .then(a.id.cmp(&b.id))
+            })
+            .map(|n| n.id)
     }
 
     /// The crew the AI trains workers for, with `cores` finished Cores (`harv_target_of` the seat taking its turn).

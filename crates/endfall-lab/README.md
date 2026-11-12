@@ -40,6 +40,7 @@ seeds are for a quick look.
 | `--maps OpenPlains,Labyrinth` | other map kinds, added to Standard |
 | `--levels Easy,Medium,Hard,Brutal` | the levels played (the ladder pairs neighbours among them) |
 | `--no-ladder` | only each level against itself |
+| `--no-mirrors` | each level's Kingdom against the Expedition alone, without the two mirrors: half the games, and the same games in those cells (each game is seeded by its cell and seed) |
 | `--threads N` | parallel games (default: every core); the JSON is the same whatever N |
 | `--length-band 10-20` | the wanted median length on 64x64, in minutes |
 | `--out FILE` | where the JSON goes |
@@ -75,6 +76,22 @@ how many shards a point of ether is worth in practice, the evidence for the shee
 What a game records: units trained (not the starting workers) and lost, and buildings finished (not the starting
 headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
+
+### The Kingdom by game length, and the top tier
+
+**By game length:** the Kingdom's win rate against the Expedition (both seat orders, every map but the Shore, timeouts
+left out) in three bins of the game's length: under 10 minutes, 10 to 15, over 15; per level and size, and per level
+pooled over the sizes, each with its 95% interval and its games. The design target is the Kingdom ahead in short games
+(about 55–65%) and the Expedition in long ones. Two target checks per level follow it: "the Kingdom ahead in games under
+10 min" PASSes on a rate over 50%, "the Expedition ahead in games over 15 min" on one under 50% (point estimates: with
+few games in a bin, read the interval).
+
+**The top tier:** per people, level and size (each level against itself), the median time of the seat's first
+top-tier unit (the Kingdom's first Knight or Cannon, the Expedition's first Android) and of its first of each
+tech building finished (the Blacksmith, the Stables and the Workshop; the Lab, the Uplink and the Portal) and the
+satellite's launch, over the seats that got there, how many of all beside it. The target is the first top-tier unit
+at about 8–10 min. Each seat's record holds the tick of its first unit trained of each kind (`first_unit_tick`), its
+first building finished of each kind (`first_bldg_tick`) and its launch (`satellite_tick`).
 
 ### The Shore map (`--maps Shore`)
 

@@ -294,7 +294,8 @@ fn the_foundry_takes_two_by_two_tiles() {
 #[test]
 fn a_lumen_stays_at_its_vael_site_until_it_stands() {
     // PRD: builders who stay (Stelian, 2026-11-06). The Expedition builds as the Kingdom does: the Bot stays on the
-    // site while it rises, and goes back to the mine once it stands.
+    // site while it rises, and waits idle beside it once it stands (Stelian, Nov 12: no going back to the mine by
+    // itself).
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Spire);
@@ -324,9 +325,10 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
         "nothing left to build on a finished one"
     );
     run(&mut w, 1);
-    assert!(
-        matches!(w.unit(l[0]).unwrap().task, Task::Gather { .. }),
-        "and the Bot went back to the mine: {:?}",
+    assert_eq!(
+        w.unit(l[0]).unwrap().task,
+        Task::Idle,
+        "and the Bot waits beside it: {:?}",
         w.unit(l[0]).unwrap().task
     );
 }
@@ -363,9 +365,9 @@ fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
 }
 
 #[test]
-fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_sends_it_back_to_work() {
+fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_lets_it_wait() {
     // Rule 3: a person's new Market (or Recruiting post) has its builder on it until it stands (it needs no worker
-    // after), and the builder then goes back to the mine, as from any building.
+    // after), and the builder then waits idle beside it, as by any building (Stelian, Nov 12).
     for (mut w, ext, rax) in [
         (rich_vael(9), BldgKind::Siphon, BldgKind::Kiln),
         (rich(9), BldgKind::Extractor, BldgKind::Barracks),
@@ -390,10 +392,10 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_sends_it_
         }
         assert!(w.bldg(b).unwrap().done, "{ext:?}: built");
         run(&mut w, 1);
-        assert!(
-            matches!(w.unit(h).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-            "{ext:?}: its builder back on the mine: {:?}",
-            w.unit(h).unwrap().task
+        assert_eq!(
+            w.unit(h).unwrap().task,
+            Task::Idle,
+            "{ext:?}: its builder waits beside it"
         );
         assert_eq!(
             w.bldg(b).unwrap().pumped > 0.0,

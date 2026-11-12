@@ -125,7 +125,8 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   0 and 1, 2 and 3, ...), and `is_ai(team)` is the
   only difference a seat's player makes (AI income, building in
   unexplored ground, losing as soon as its buildings are gone). A builder of either people stays at its site until the building stands,
-  then goes back to its gold mine (the last it worked, or the nearest), as from any building.
+  then waits idle beside it; a new worker waits at its headquarters (or at its rally point, beside a mine) until it is
+  ordered to gather, and the AI orders its own workers.
 - Two-seat habits the goldens pin stay on two-start maps only: seat 0 facing east and stepping out south (with
   `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
   wave called home to a raid by another) apply only with more than one enemy still in.

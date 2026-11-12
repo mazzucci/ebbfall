@@ -87,8 +87,10 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Cannon's deploy (by itself whenever it stops),
-  construction that stalls without a builder and resumes, workers hopping only to a mine no farther from their
-  drop-off, supply and refunds, turrets, the AI finishing
+  construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a new worker
+  waiting at its headquarters for an order and a rally on a mine walking it there to wait beside it without mining, the
+  AI sending its new workers and builders to a mine within its next turns (`economy`), workers hopping only to a mine
+  no farther from their drop-off, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
   every 16 ticks on a tick of its own; the Kingdom's AI raising its Market early, one a Castle, and a lost one again; one
@@ -196,11 +198,13 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       person's once no worker is left either, or anyone's with no finished headquarters, worker, fighter
                       or factory with a unit in training or the gold to train a fighter; the last team standing), orders (placing:
                       `place_refusal`, the one placement check, a `Refusal` and its words, that `can_place`, the order,
-                      the AI and the client's ghost read), spawn, economy (gold mines: a worker walks
+                      the AI and the client's ghost read), spawn (a new worker waits where it stepped out, or walks
+                      to its rally point, beside the mine for a rally on one: mining starts only on an order; the AI
+                      orders its own, `ai/economy.rs`, from any mine on its side once those by home run dry), economy (gold mines: a worker walks
                       to a mine's side and goes in, `Phase::Mine`, `Unit::inside`: not drawn, not targeted or hit, out
                       of its enemies' sight, pushing nobody, safe from fleeing; up to `MINE_CAP` inside for
                       `MINE_TIME`, the rest waiting at its side, and out with `MINE_LOAD`; an empty mine stays, takes
-                      nobody in, its workers to the nearest other), construction,
+                      nobody in, its workers to the nearest other), construction (a finished building's crew waits idle beside it),
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat (the leash, `CHASE_LEASH` in data: a fight a unit picks up itself, idle, at a rally point,
                       on an attack-move or answering fire, follows its target only that far from where the fight began
@@ -319,7 +323,8 @@ src/client/           everything that touches the browser
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
-  tools.js            player helpers: select idle workers / army / same type, control groups, alerts
+  tools.js            player helpers: select the army / an idle factory / same type, control groups, alerts (no
+                      idle-worker key or counter: workers wait for orders by design)
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
                       everyone (the relay's) and its state on every side; full screen out/in

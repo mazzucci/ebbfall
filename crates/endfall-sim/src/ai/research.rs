@@ -29,7 +29,7 @@ impl World {
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
         // army first)
         let script = &self.factions[e as usize].ai;
-        let (rax, tech_from) = (script.rax, script.tech_from);
+        let (rax, tech_from) = (script.rax, script.tech_from.min(d.tech_from));
         let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
         let techs = d.abilities && t > d.research_from.min(tech_from) && on_schedule;
         // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research

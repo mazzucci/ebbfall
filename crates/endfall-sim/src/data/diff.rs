@@ -84,6 +84,15 @@ pub struct Diff {
     /// round's 25 its all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where the old
     /// cap sent its gold to its machines and Portal instead.
     pub line_max: i32,
+    /// When it raises its tech building (`AiScript::tech`: the Blacksmith, the Lab), its barracks standing: 2:30 on
+    /// every level (the balance lab's plans move it).
+    pub tech_at: f64,
+    /// The times (s) from which it wants each of its towers (`AiScript::tower`), one more at each, sites counted: 2:30
+    /// and 8:00 on every level (a bank it cannot spend must not go into towers).
+    pub towers: &'static [f64],
+    /// Its side's tech time (`AiScript::tech_from`: its techs, its satellite's launch, its second tech building) at
+    /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
+    pub tech_from: f64,
 }
 
 impl Diff {
@@ -158,6 +167,9 @@ pub const DIFF: [Diff; 4] = [
         mix_tier: 0,
         mix_over: &[],
         line_max: 15,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tech_from: NEVER,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -201,6 +213,9 @@ pub const DIFF: [Diff; 4] = [
         mix_tier: 1,
         mix_over: &[],
         line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tech_from: NEVER,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -241,6 +256,9 @@ pub const DIFF: [Diff; 4] = [
         mix_tier: 2,
         mix_over: &[],
         line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tech_from: NEVER,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -287,5 +305,8 @@ pub const DIFF: [Diff; 4] = [
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
         mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
         line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tech_from: NEVER,
     },
 ];

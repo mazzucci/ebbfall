@@ -14,6 +14,7 @@ npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<comm
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
+npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 ```
 
@@ -247,6 +248,26 @@ arrival is the first prong's. Value: shards plus ether at 1.5. `report` sums the
 level (each against itself) and attacking people in "The waves"; `turtle` sums the plain Medium seat's waves against
 the turtle by map and people. "Arrived (to no defence)" counts arrivals with nothing armed within 8 tiles: the defence
 was elsewhere; the ratio's quartiles are over the defended ones. Each game's JSON lists its waves.
+
+### `bets`
+
+The game's core decision (Stelian, Nov 12): a player bets on an army and defenses for a short game, or on the tech
+path for strong late units, and a wrong bet should lose. Three plans a side, each Medium's tuning with a few settings
+moved (`bets.rs`, set per seat through `World::set_ai_plans`, lab only):
+
+- **rush** (army first): three barracks and its first wave at 2:30, no tech building (so no top tier, no siege, no Lab
+  units), no towers, no research, its expansion at 10:00;
+- **defense** (towers first, then an army): six towers by 5:30 (`Diff::towers`), its first wave at 8:00;
+- **tech** (straight to the top tier): its tech building at 1:00 (`Diff::tech_at`), its side's techs and the satellite
+  at once (`Diff::tech_from`), its vehicle bay and air factory early, the top tier mixed in early and thick (a Knight per
+  two Guards, a Cannon per three, an Android per Sellsword), one barracks to start, its first wave at 9:00.
+
+Every ordered pair of two different plans in each people's mirror (six) and every pair across the peoples in either
+seating (eighteen), map seeds 1 to `--seeds` (20) on `--size` (64) Standard maps, a `--cap` (30 min) after which a game
+is a timeout. The report gives, per people's mirror and across the peoples, the 3x3 of the row plan's wins against the
+column plan (both seatings pooled, timeouts apart, with 95% intervals), the same in games over 15 minutes, the median
+lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
+over 15 minutes, each at 55–70%.
 
 ### `turtle`
 

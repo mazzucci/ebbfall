@@ -4,6 +4,7 @@
 //! threads live here; the sim is only stepped and read.
 
 pub mod batch;
+pub mod bets;
 pub mod compare;
 pub mod first_wave;
 pub mod json;

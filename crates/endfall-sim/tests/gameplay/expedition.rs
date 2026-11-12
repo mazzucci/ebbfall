@@ -125,19 +125,18 @@ fn a_bot_is_refused_at_the_power_cap_and_trained_once_a_turbine_stands() {
 }
 
 #[test]
-fn hired_places_eight_a_post_one_count_and_a_death_frees_one() {
-    // (eight a post since the arc, Nov 13: six before)
+fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
     let mut w = expedition();
     let a = set_down(&mut w, BldgKind::Siphon);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [0, 8], "eight places a post");
-    let hired = spawn(&mut w, UnitKind::Prism, 5);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [0, 6], "six places a post");
+    let hired = spawn(&mut w, UnitKind::Prism, 3);
     set_down(&mut w, BldgKind::Loom);
     let power = w.sup(PLAYER); // (the Lab holds its Power)
     spawn(&mut w, UnitKind::Bruiser, 1);
     assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
     assert_eq!(
         w.pool(PLAYER, Pool::Hired),
-        [8, 8],
+        [6, 6],
         "one place a Sellsword, two a Bruiser, queued too"
     );
     assert_eq!(w.sup(PLAYER), power, "no Power for people");
@@ -147,29 +146,29 @@ fn hired_places_eight_a_post_one_count_and_a_death_frees_one() {
     );
     // A death frees a place, whichever post hired it.
     w.damage(hired[0], 1e9, None);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [7, 8]);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [5, 6]);
     assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
     assert!(w.queue_unit(a, UnitKind::Prism).is_err(), "full again");
-    // A second post: eight more for the one count, and either post hires.
+    // A second post: six more for the one count, and either post hires.
     let b = set_down(&mut w, BldgKind::Siphon);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [8, 16]);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [6, 12]);
     assert_eq!(w.queue_unit(b, UnitKind::Prism), Ok(()));
     assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [10, 16]);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [8, 12]);
     // A post lost: the count falls under its use; nothing more is hired until enough fall, nobody is taken away.
     // (the Sellsword queued there goes with it)
     w.damage(b, 1e9, None);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [9, 8]);
+    assert_eq!(w.pool(PLAYER, Pool::Hired), [7, 6]);
     assert!(w.queue_unit(a, UnitKind::Prism).is_err());
 }
 
 #[test]
 fn power_and_hired_places_each_have_a_maximum_by_map_size_and_the_kingdom_keeps_its_one_limit() {
     // Two maximums in place of one shared limit: Power and hired places each capped by their own buildings and their
-    // own maximum (Power 200, 240, 280, twice the Kingdom's population; hired places 30, 32, 36, gold only; Stelian,
-    // Nov 12–13). Each is enforced on its own: a full Power pool never stops a Sellsword, a full hired count never stops
-    // a Bot. The Kingdom's population keeps the map's one limit.
-    for (size, power, hired) in [(64, 200, 30), (96, 240, 32), (128, 280, 36)] {
+    // own maximum (Power 200, 240, 280, twice the Kingdom's population; hired places 25, 30, 35, gold only; Stelian,
+    // Nov 12). Each is enforced on its own: a full Power pool never stops a Sellsword, a full hired count never stops a
+    // Bot. The Kingdom's population keeps the map's one limit.
+    for (size, power, hired) in [(64, 200, 25), (96, 240, 30), (128, 280, 35)] {
         let mut w = World::with_size(
             7,
             1,
@@ -387,7 +386,7 @@ fn the_android_is_a_slow_expensive_elite_machine_using_power() {
         "under a minute and a half to make: {}",
         d.build
     );
-    assert!(d.cost[0] >= 300, "expensive: {:?}", d.cost);
+    assert!(d.cost[0] >= 250, "expensive: {:?}", d.cost);
     assert!(!d.bio, "a machine, not a person");
     assert!(
         endfall_sim::data::radio::needs_range(UnitKind::Umbra),

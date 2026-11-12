@@ -381,10 +381,13 @@ fn notches_between_two_overlapping_uplinks() {
     );
 }
 #[test]
-fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
-    // The Expedition's AI against the Kingdom's, two Rovers in its army from the start: once its first wave is out (with
-    // them) and its satellite up, it raises an Uplink beyond its Data center's range on the way, and the wave goes on
-    // meanwhile.
+fn the_expedition_ai_pushes_an_uplink_then_its_machines() {
+    // The push (the arc: "an Uplink, then the machines"): the Expedition's AI against the Kingdom's (its buildings made
+    // to last), four Rovers and its satellite up from the start. With its goal out of its coverage its machines stay out
+    // of its waves, wait inside its coverage, and it raises Uplinks towards the goal: within eight minutes one stands
+    // farther towards the foe than its Data center's coverage reaches, and its machines stand nearer the foe than they
+    // began; none of them ever leaves its coverage while its Uplinks stand (by more than a tile and a half: a crowd at
+    // the edge jostles, the push between units is not held at it).
     for seed in [3, 11, 77] {
         let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert!(w.set_ai_seats([true, true]));
@@ -394,7 +397,7 @@ fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
             .find(|b| b.team == ENEMY && b.kind == BldgKind::Conflux)
             .map(|b| (b.x, b.y))
             .unwrap();
-        for k in 0..2 {
+        for k in 0..4 {
             w.make_unit(
                 UnitKind::Monolith,
                 ENEMY,
@@ -405,8 +408,6 @@ fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
         w.recalc_supply(ENEMY);
         w.res[ENEMY as usize][0] += 1000;
         w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] = 1;
-        // (the Kingdom's buildings made to last: since the second round's slower economy the head start of two Rovers
-        // and 1000 gold can end the game before the march is long)
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
@@ -417,59 +418,54 @@ fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
             .map(|b| (b.x, b.y))
             .unwrap();
         let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
-        // (beyond the Data center's range, nearer the foe than the Data center is)
-        let far = |_: &World, b: &endfall_sim::world::Bldg| {
-            d((b.x, b.y), hq) > CONFLUX_RANGE * 32.0 && d((b.x, b.y), foe) < d(hq, foe)
+        let nearest_machine = |w: &World| {
+            w.units
+                .iter()
+                .filter(|u| u.team == ENEMY && needs_range(u.kind))
+                .map(|u| d((u.x, u.y), foe))
+                .fold(f64::INFINITY, f64::min)
         };
-        let mut launched = None;
-        let mut forward = None;
+        let start = nearest_machine(&w);
+        let mut forward = false;
+        let mut uplinks_lost = false;
+        let mut seen = 0;
         while w.time < 480.0 && !w.over {
             w.step();
-            if launched.is_none()
-                && let Some(wave) = w.ai_wave_of(ENEMY)
-            {
-                let machines = wave
+            let ups = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && b.done)
+                .count();
+            uplinks_lost |= ups < seen;
+            seen = seen.max(ups);
+            forward |= w.bldgs.iter().any(|b| {
+                b.team == ENEMY
+                    && b.kind == BldgKind::Uplink
+                    && b.done
+                    && d((b.x, b.y), hq) > CONFLUX_RANGE * 32.0
+                    && d((b.x, b.y), foe) < d(hq, foe)
+            });
+            if !uplinks_lost && w.tick % 30 == 0 {
+                for u in w
+                    .units
                     .iter()
-                    .any(|&a| w.unit(a).is_some_and(|u| needs_range(u.kind)));
-                assert!(machines, "seed {seed}: the Rovers go with the wave");
-                assert!(
-                    !w.bldgs
-                        .iter()
-                        .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && far(&w, b)),
-                    "seed {seed}: no forward Uplink before the wave"
-                );
-                launched = Some(w.time);
-            }
-            if launched.is_some()
-                && w.bldgs
-                    .iter()
-                    .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && far(&w, b))
-            {
-                forward = Some(w.time);
-                let site = w
-                    .bldgs
-                    .iter()
-                    .find(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && far(&w, b));
-                assert_eq!(
-                    w.ai_relay_site(ENEMY),
-                    site.map(|b| b.id),
-                    "seed {seed}: the wave's forward Uplink"
-                );
-                assert!(
-                    w.ai_wave_of(ENEMY).is_some(),
-                    "seed {seed}: the wave is still out, not held for it"
-                );
-                break;
+                    .filter(|u| u.team == ENEMY && needs_range(u.kind))
+                {
+                    assert!(
+                        w.in_radio(ENEMY, u.x, u.y) || w.in_radio_by(ENEMY, u.x, u.y, 1.5),
+                        "seed {seed}: a {:?} out of coverage at {:.0} s ({:?})",
+                        u.kind,
+                        w.time,
+                        u.task
+                    );
+                }
             }
         }
-        let t0 = launched.unwrap_or_else(|| panic!("seed {seed}: no wave"));
-        let t1 = forward.unwrap_or_else(|| panic!("seed {seed}: no forward Uplink (wave at {t0:.0} s, now {:.0} s, over {}, res {:?})", w.time, w.over, w.res[ENEMY as usize]));
-        // (within four minutes: at the second round's slower income its 150 gold comes slowly beside the wave's
-        // reinforcements; the Expedition's own PR makes the Uplink the push's first step)
+        assert!(forward, "seed {seed}: an Uplink pushed towards the foe");
         assert!(
-            t1 - t0 < 240.0,
-            "seed {seed}: a forward Uplink {} s after the wave went",
-            t1 - t0
+            nearest_machine(&w) < start,
+            "seed {seed}: its machines nearer the foe ({:.0} px from {start:.0})",
+            nearest_machine(&w)
         );
     }
 }

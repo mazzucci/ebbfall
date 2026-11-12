@@ -536,7 +536,7 @@ pub const MINE_SIZE: i32 = 2;
 pub const MINE_TIME: f64 = 7.5;
 /// The most workers inside a mine at once, of any kind (the largest `UnitDef::mine_cap`), and the largest load.
 pub const MINE_CAP_MOST: i32 = 8;
-pub const MINE_LOAD_MOST: i32 = 18; // (a Bot's 12 with two levels of Better drills)
+pub const MINE_LOAD_MOST: i32 = 18; // (a Bot's 13 with two levels of Better drills)
 /// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
 /// `lay_mines`: seven by a main, 14,000 gold): a main mine lasts a normal game, over 20 minutes at its full rate, so
 /// scarcity comes from the rate (the load, the mine's cap, the worker's price) and expanding is a choice for more of it,

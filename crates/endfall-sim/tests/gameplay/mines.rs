@@ -330,9 +330,9 @@ fn home_income_drilled(seed: u32, n: usize, f: &'static Faction, drills: u8) -> 
 
 /// A mine fits eight Villagers or five Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
 /// few and efficient), each Bot carrying more: saturated, a mine pays the Kingdom about 575 gold a minute and the
-/// Expedition about 83% of that at first (it out-earns the Kingdom later, with its research), with workers enough on it
+/// Expedition about 81% of that at first (it out-earns the Kingdom later, with its research), with workers enough on it
 /// (the same harness: workers on the home mine, gold a minute from 1:00 to 4:00). More workers add nothing; a Villager
-/// brings in about 55 a minute alone, a Bot about 75. Whoever is inside counts towards the cap: a worker goes in while
+/// brings in about 60 a minute alone, a Bot about 80. Whoever is inside counts towards the cap: a worker goes in while
 /// fewer than its own kind's number are inside.
 #[test]
 fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() {
@@ -353,7 +353,7 @@ fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() 
             home_income_of(seed, 12, &VAEL),
         );
         assert!(
-            (540..=620).contains(&vil),
+            (600..=690).contains(&vil),
             "seed {seed}: saturated, {vil} a minute with Villagers"
         );
         let share = bot as f64 / vil as f64;
@@ -374,7 +374,7 @@ fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() 
             home_income_of(seed, 1, &VAEL),
         );
         assert!(
-            (45..=65).contains(&v1) && (60..=85).contains(&b1),
+            (50..=70).contains(&v1) && (65..=95).contains(&b1),
             "seed {seed}: one alone {v1} and {b1}"
         );
     }

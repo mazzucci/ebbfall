@@ -1,6 +1,6 @@
 // The command card's buttons (what they hold: cards.js), the long-press details on touch, and what a button does
 // (doCommand).
-import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, poolMax } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud } from './hud.js';
 import { cardItems, myFaction, leastBusy, researching, mostBusy } from './cards.js';
@@ -86,8 +86,8 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
 
 /** A refused button press. Short of gold, or an ability that is already on or not ready: the button
  *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is
- *  short; a lit ability button says it is on). Anything else (no Power, no free hired or Portal places, the army at its
- *  limit, "Requires …": a decision to make, a building to raise) is
+ *  short; a lit ability button says it is on). Anything else (no Power, no free hired places, a pool at its maximum,
+ *  one Portal only, "Requires …": a decision to make, a building to raise) is
  *  a toast; so is a refusal for a button not on the card (a hotkey). The shake rides through card rebuilds
  *  (`shaking`): the rebuilt button carries it. */
 let shaking = { id: '', until: 0 };
@@ -116,7 +116,13 @@ export function doCommand(id, times = 1) {
       const mine = G.bldgs.filter(b => b.team === G.me), hqs = mine.filter(b => b.d.hq && b.done).length;
       if (mine.filter(b => b.type === k).length >= hqs) { refuse(id, `One ${BUILDINGS[k].name} per ${mine.find(b => b.d.hq)?.d.name ?? 'headquarters'}`); return; }
     }
+    // (one a side, standing or going up: as the sim's `single_room`)
+    if (BUILDINGS[k].single && G.bldgs.some(b => b.team === G.me && b.type === k)) { refuse(id, `Only one ${BUILDINGS[k].name}.`); return; }
     if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough gold'); return; }
+    if (BUILDINGS[k].uses) { // (the Power it uses from placement: as the sim's `power_room`, in its words)
+      const [used, cap] = G.sup[G.me];
+      if (cap - used < BUILDINGS[k].uses) { refuse(id, cap >= poolMax('supply') ? 'Power at maximum.' : `Not enough Power: build a ${BUILDINGS[myFaction().supply].name}.`); return; }
+    }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
   if (id.startsWith('a_')) { const k = id.slice(2), err = castAbility(units, k); if (err) refuse(id, err); return; } // (the cast event plays its sound; a toggle: the units its button names)

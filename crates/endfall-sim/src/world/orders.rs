@@ -139,45 +139,35 @@ impl World {
         if s[0] + d.supply > s[1] {
             return Err(self.pool_full(team, d.pool, s[1]));
         }
-        // (one limit for every pool together: Power, hired and Portal places; the Kingdom's one pool never reaches it
-        // before its own cap does)
-        let limit = self.supply_limit();
-        if self.army_used(team) + d.supply > limit {
-            return Err(format!(
-                "Army at its limit ({limit}): no more until some fall"
-            ));
-        }
         self.pay(team, d.cost, -1);
         self.bm(bid).unwrap().queue.push(kind);
         self.recalc_supply(team);
         Ok(())
     }
 
-    /// What a refusal for want of places in `pool` says (its cap now `cap`). At the map's limit another building adds
-    /// nothing: it says so rather than send the player to build one.
+    /// What a refusal for want of places in `pool` says (its cap now `cap`). At the pool's maximum (`pool_max`) another
+    /// building adds nothing: it says so rather than send the player to build one.
     fn pool_full(&self, team: u8, pool: Pool, cap: i32) -> String {
-        let limit = self.supply_limit();
+        let max = self.pool_max(team, pool);
         let f = self.factions[team as usize];
         match pool {
             // (the Expedition's Power: it has no population)
             Pool::Supply if f.power => {
-                if cap >= limit {
+                if cap >= max {
                     "Power at maximum.".into()
                 } else {
                     format!("Not enough Power: build a {}.", f.supply.def().name)
                 }
             }
             Pool::Supply => {
-                if cap >= limit {
-                    format!("Population at its limit ({limit}): no more until some fall")
+                if cap >= max {
+                    format!("Population at its limit ({max}): no more until some fall")
                 } else {
                     format!("Population full. Build a {}.", f.supply.def().label())
                 }
             }
-            Pool::Hired if cap >= limit => "Hired at maximum.".into(),
+            Pool::Hired if cap >= max => "Hired at maximum.".into(),
             Pool::Hired => "No free places: build another Recruiting post.".into(),
-            Pool::Portal if cap >= limit => "Portal places at maximum.".into(),
-            Pool::Portal => "No free Portal places: build another Portal.".into(),
         }
     }
 
@@ -430,6 +420,17 @@ impl World {
         true
     }
 
+    /// Whether `team` may place another `kind` under the one-a-seat rule (`BldgDef::single`, the Portal: none of its
+    /// kind standing or going up), or the kind has no such rule.
+    pub fn single_room(&self, team: u8, kind: BldgKind) -> bool {
+        !kind.def().single || !self.bldgs.iter().any(|b| b.team == team && b.kind == kind)
+    }
+
+    /// Whether `team` has the Power `kind` uses while it stands (`BldgDef::uses`, the Portal), counted from placement.
+    pub fn power_room(&self, team: u8, kind: BldgKind) -> bool {
+        self.room(team, Pool::Supply) >= kind.def().uses
+    }
+
     /// Cancel an unfinished building: it is removed and 75% of its cost comes back.
     pub fn cancel_construction(&mut self, bid: Id) -> bool {
         let Some(i) = self.bi(bid).filter(|&i| !self.bldgs[i].done) else {
@@ -475,8 +476,14 @@ impl World {
             let hq = self.factions[team as usize].hq.def().name;
             return Err(format!("One {} per {hq}", d.name));
         }
+        if !self.single_room(team, kind) {
+            return Err(format!("Only one {}.", d.name));
+        }
         if !self.can_afford(team, d.cost) {
             return Err(NOT_ENOUGH.into());
+        }
+        if !self.power_room(team, kind) {
+            return Err(self.pool_full(team, Pool::Supply, self.sup(team)[1]));
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);

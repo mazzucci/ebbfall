@@ -160,20 +160,13 @@ impl World {
             }
         }
     }
-    /// A side's satellite is up (`Effect::Launch`): every seat is told (a tell for its foes too: "You launched" for
-    /// the side and its allies, "The enemy launched" for its enemies), with the launch at the building it went up from
-    /// for the client's effect, and the side's own chime and ping.
+    /// A side's satellite is up (`Effect::Launch`): its research-done notice in its own words, for its seat alone (no
+    /// other seat is told: Stelian, the balance pass), its chime and ping; and the launch at the building it went up
+    /// from (`Event::Launch`, for every seat: the client draws the rocket for its own seat or where it sees the spot).
     fn launched(&mut self, bid: Id) {
         let b = self.bldg(bid).unwrap();
         let (team, x, y) = (b.team, b.x, b.y);
-        for t in 0..self.seats() as u8 {
-            let news = if self.allies(team, t) {
-                LAUNCH_OURS
-            } else {
-                LAUNCH_THEIRS
-            };
-            self.toast(t, news, false);
-        }
+        self.toast(team, LAUNCH_OURS, false);
         self.emit(Event::Launch { x, y, team });
         self.sfx(team, "researched");
         self.ping(team, x, y);

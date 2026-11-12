@@ -32,7 +32,7 @@ const RELAY_FRONT: f64 = 4.0;
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
 /// Supply short of the cap that counts as at the cap: a seat 1 or 2 short trains little more than one more unit.
-const CAP_SLACK: i32 = 2;
+pub(crate) const CAP_SLACK: i32 = 2;
 
 /// A unit's worth in an army: its cost in salt.
 fn army_worth(k: UnitKind) -> f64 {
@@ -837,10 +837,14 @@ impl World {
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
     }
 
-    /// Whether `seat`'s army stands at the map's limit, within `CAP_SLACK`: every pool's use together (`army_used`;
-    /// a pool at the limit is the total there too). A wave then goes with everything, the reserve too.
+    /// Whether `seat`'s army stands at its maximum, within `CAP_SLACK`: every pool it has (`pool_max` above 0: the
+    /// Kingdom's population; the Expedition's Power and its hired places, each against its own maximum). A wave then
+    /// goes with everything, the reserve too.
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
-        self.army_used(seat) + CAP_SLACK >= self.supply_limit()
+        ALL_POOLS.into_iter().all(|p| {
+            let max = self.pool_max(seat, p);
+            max == 0 || self.pool(seat, p)[0] + CAP_SLACK >= max
+        })
     }
 
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that

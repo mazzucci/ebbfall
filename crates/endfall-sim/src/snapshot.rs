@@ -104,12 +104,12 @@ record! {
 }
 
 record! {
-    /// Per seat, in seat order: resources, supply (population, or the Expedition's Power), hired and Portal places, stats,
+    /// Per seat, in seat order: resources, supply (population, or the Expedition's Power), hired places, stats,
     /// race (index into FACTIONS), team, out (beaten or conceded).
     SEAT_FIELDS, push_seat, |t: &u8, w| {
         shards = w.res[*t as usize][0], ether = w.res[*t as usize][1], sup_used = w.sup(*t)[0],
         sup_cap = w.sup(*t)[1], hired_used = w.pool(*t, Pool::Hired)[0], hired_cap = w.pool(*t, Pool::Hired)[1],
-        portal_used = w.pool(*t, Pool::Portal)[0], portal_cap = w.pool(*t, Pool::Portal)[1], built = w.stats[*t as usize].built, lost = w.stats[*t as usize].lost,
+        built = w.stats[*t as usize].built, lost = w.stats[*t as usize].lost,
         killed = w.stats[*t as usize].killed, razed = w.stats[*t as usize].razed,
         faction = w.factions[*t as usize].index(), team = w.teams[*t as usize], out = w.out[*t as usize] as u8,
     }

@@ -21,11 +21,15 @@ pub fn range_of(kind: BldgKind) -> f64 {
     }
 }
 
-/// Whether a unit of this kind is a machine the range speeds up (the Expedition's Bot, Buggy, Rover and Drone; its
-/// people and the Kingdom's units are not).
+/// Whether a unit of this kind is a machine the range speeds up (the Expedition's Bot, Buggy, Rover, Drone and, since
+/// the balance pass made it a machine using Power, the Android; its hired people and the Kingdom's units are not).
 pub fn needs_range(kind: UnitKind) -> bool {
     matches!(
         kind,
-        UnitKind::Lumen | UnitKind::Scythe | UnitKind::Monolith | UnitKind::Shrike
+        UnitKind::Lumen
+            | UnitKind::Scythe
+            | UnitKind::Monolith
+            | UnitKind::Shrike
+            | UnitKind::Umbra
     )
 }

@@ -96,8 +96,8 @@ function muzzle(e) {
   const u = G.units.find(u => Math.abs(u.x - e.x) < 1 && Math.abs(u.y - e.y) < 1);
   if (u && MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
 }
-/** A satellite launched (every seat gets the event; the toast says whose): the rocket and its sound, but only from our
- *  side's Data center or one in sight now, so a hidden base is never shown. */
+/** A satellite launched (every seat gets the event; only the launching seat gets a toast): the rocket and its sound,
+ *  but only from our side's Data center or one in sight now, so a hidden base is never shown. */
 function launched(e) {
   if (enemies(G.me, e.team) && !seen(e)) return;
   launchFx(e.x, e.y); sfx('launch', e);

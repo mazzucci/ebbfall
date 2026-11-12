@@ -34,8 +34,8 @@ pub enum Effect {
     /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
     /// tech: a Human builder mines nothing while it builds.
     BuildSpeed,
-    /// Researched, the side has launched its satellite: every seat is told, and it unlocks what needs it (the
-    /// Expedition's Uplink, `BldgDef::req_up`).
+    /// Researched, the side has launched its satellite (its own seat is told, no other), and it unlocks what needs it
+    /// (the Expedition's Uplink, `BldgDef::req_up`).
     Launch,
 }
 
@@ -130,7 +130,7 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
-/// Launch satellite, at the Expedition's Data center once a Lab stands: expensive and slow, told to every seat, and the
+/// Launch satellite, at the Expedition's Data center once a Lab stands: expensive and slow, and the
 /// Uplink's requirement (PRD: the Expedition rework, rule 5).
 const SATELLITE: UpgradeDef = UpgradeDef {
     key: "satellite",
@@ -142,10 +142,8 @@ const SATELLITE: UpgradeDef = UpgradeDef {
     req: Some(BldgKind::Loom),
     ..TECH
 };
-/// What a side and its allies are told when it launches its satellite.
+/// What a side is told when its satellite is up (its research-done notice; no other seat is told).
 pub const LAUNCH_OURS: &str = "You launched a satellite.";
-/// What its enemies are told.
-pub const LAUNCH_THEIRS: &str = "The enemy launched a satellite.";
 
 /// Every upgrade, in index order.
 pub const UPGRADES: [Upgrade; 8] = [

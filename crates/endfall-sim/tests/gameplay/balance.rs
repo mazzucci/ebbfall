@@ -45,7 +45,7 @@ fn anti_air_matrix() {
         ("archer v buggy", &[Lancer], &[Scythe]),
         ("archer v sellsword", &[Lancer], &[Prism]),
         ("sellsword v drone", &[Prism], &[Shrike]),
-        ("marine v drone", &[Umbra], &[Shrike]),
+        ("android v drone", &[Umbra], &[Shrike]),
         ("grd+arch v drone", &[Trooper, Lancer], &[Shrike]),
     ];
     for budget in [2200.0, 4400.0] {
@@ -280,7 +280,7 @@ fn retheme_cross_matrix() {
     let expedition: [(&str, &[UnitKind]); 7] = [
         ("sellsw", &[Prism]),
         ("buggy", &[Scythe]),
-        ("marine", &[Umbra]),
+        ("android", &[Umbra]),
         ("bruiser", &[Bruiser]),
         ("rover", &[Monolith]),
         ("rover+2ss", &[Monolith, Prism, Prism]),
@@ -328,7 +328,13 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
                 d(&[SiegeTank, Knight], &[Monolith]),
                 0.2,
             ),
-            ("Androids outrange Archers", -d(&[Lancer], &[Umbra]), 0.2),
+            // (the Android an elite since the balance pass: it pays in gold for its Power, so the same gold in Archers
+            // beats it; what it buys is strength for its places, which the Expedition runs short of)
+            (
+                "the same gold in Archers beats Androids",
+                d(&[Lancer], &[Umbra]),
+                0.2,
+            ),
             ("Buggies beat Archers", -d(&[Lancer], &[Scythe]), 0.2),
             ("Archers answer Drones", d(&[Lancer], &[Shrike]), 0.3),
             ("Ballistas answer Drones", d(&[Bastion], &[Shrike]), 0.3),

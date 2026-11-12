@@ -1786,8 +1786,10 @@ fn brutal_trains_its_workers_before_its_buildings() {
 fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
     // Each side's air factory (the raiders' factory: the Kingdom's Stables, the Expedition's Factory) waits for its
     // level's `air_at`, less its script's `air_lead`: the Expedition's half a minute sooner (its Rovers and Drones
-    // come from there), the Kingdom's on time. Money to spare, against an idle player, on Hard, over ten maps: every
-    // one comes, never before it is due, and the Expedition's typical Factory before the Kingdom's typical Stables. One
+    // come from there), the Kingdom's on time; the Expedition's sooner still once its hired places stand at their
+    // maximum (the balance pass: its money then goes to machines). Money to spare, against an idle player, on Hard,
+    // over ten maps: every one comes, never before it is due (or its hired places full), and the Expedition's typical
+    // Factory before the Kingdom's typical Stables. One
     // map in ten may be late: a main whose build order keeps two other sites going (supply, a second factory, its
     // natural) has no turn for it for a few minutes.
     let air_at = DIFF[2].air_at;
@@ -1801,8 +1803,11 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
                     (b.hp, b.maxhp) = (1e9, 1e9);
                 }
                 let mut placed = None;
+                let mut full = false;
                 while w.time < 900.0 && placed.is_none() {
                     w.res[ENEMY as usize] = [2000, 1000];
+                    let max = w.pool_max(ENEMY, Pool::Hired);
+                    full = max > 0 && w.pool(ENEMY, Pool::Hired)[0] + 2 >= max;
                     w.step();
                     w.events.clear();
                     placed = w
@@ -1811,7 +1816,8 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
                         .any(|b| b.team == ENEMY && b.kind == f.ai.air)
                         .then_some(w.time);
                 }
-                placed.unwrap_or(f64::MAX)
+                // (placed with its hired places full: due then, whatever the clock)
+                placed.map_or(f64::MAX, |at| if full { due + 1.0 } else { at })
             })
             .collect();
         assert!(

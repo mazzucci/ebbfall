@@ -44,6 +44,10 @@ impl World {
             [r[0] + k[0], r[1] + k[1]]
         };
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
+        // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
+        // cheaper machines fill the Power every round and the Portal is never raised or never trains.
+        let reserve = self.elite_reserve(e, &my_b, t);
+        let tech2 = self.factions[e as usize].ai.tech2;
         // Its scout (`AiScript::scout`, the Balloon): one, from the factory that trains it, nothing held back from it.
         let mut wanted_scout = self.factions[e as usize]
             .ai
@@ -73,24 +77,24 @@ impl World {
         } else {
             enemy_air * 2
         };
-        // Supply tight: the specialists' factories (the air factory, the vehicle bay) take the free places before the
-        // barracks, else several barracks fill them every round and a specialist that is due never fits. With room to
-        // spare, every factory in building order as ever.
+        // Supply tight: the specialists' factories (the second tech building, the Expedition's Portal and its elite,
+        // first; then the air factory and the vehicle bay) take the free places before the barracks, else several
+        // barracks (or the air factory's cheaper machines) fill them every round and a specialist that is due never
+        // fits. With room to spare, every factory in building order as ever.
         let order: Vec<Id> = {
-            // (the places the specialists take: population, or the Expedition's Power, within the shared limit)
+            // (the places the specialists take: population, or the Expedition's Power)
             let room = self.room(e, Pool::Supply);
             let s = &self.factions[e as usize].ai;
-            let first = |id: &Id| {
-                self.bldg(*id)
-                    .is_some_and(|b| b.kind == s.air || s.heavy == Some(b.kind))
+            let rank = |id: &Id| match self.bldg(*id) {
+                Some(b) if s.tech2 == Some(b.kind) => 0,
+                Some(b) if b.kind == s.air || s.heavy == Some(b.kind) => 1,
+                _ => 2,
             };
+            let mut order = my_b.clone();
             if room < SUPPLY_TIGHT {
-                let (mut a, b): (Vec<Id>, Vec<Id>) = my_b.iter().copied().partition(first);
-                a.extend(b);
-                a
-            } else {
-                my_b.clone()
+                order.sort_by_key(rank); // (stable: building order within each rank)
             }
+            order
         };
         for &bid in &order {
             let Some(b) = self.bldg(bid) else { continue };
@@ -202,7 +206,7 @@ impl World {
             } else {
                 b.kind.def().trains[0]
             };
-            let qlen = b.queue.len();
+            let (qlen, bkind) = (b.queue.len(), b.kind);
             if b.rally.is_none() {
                 self.set_rally(bid, rally.x, rally.y, None);
             }
@@ -213,8 +217,12 @@ impl World {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup(e);
+                let elite_room = tech2 == Some(bkind)
+                    || u.def().pool != Pool::Supply
+                    || cap - used >= u.def().supply + reserve;
                 let room = Some(u) == scout
-                    || capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply);
+                    || (capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply)
+                        && elite_room);
                 if room
                     && self.can_afford(e, need(u))
                     && self.queue_unit(bid, u).is_ok()
@@ -223,6 +231,51 @@ impl World {
                     wanted_scout = None; // (one: not one from every factory that trains it this turn)
                 }
             }
+        }
+    }
+
+    /// The Power `e` keeps free for its elite (`AiScript::tech2`, the Expedition's Portal, and the mixed-in unit it
+    /// trains, the Android), so its other factories' machines leave room for them: before the Portal is placed, while
+    /// it is wanted (`tech2_wanted`), the Portal's own use and one Android's; once it stands or goes up, one Android's
+    /// while the mix's ratio to the line calls for another. 0 for a side without one.
+    pub(crate) fn elite_reserve(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
+        let s = &self.factions[e as usize].ai;
+        let Some(k2) = s.tech2 else { return 0 };
+        let level = self.level();
+        let Some((k, per, _)) = s
+            .mix
+            .iter()
+            .map(|&m| level.mix_entry(m))
+            .find(|&(k, _, _)| k2.def().trains.contains(&k) && self.level_allows(k))
+        else {
+            return 0;
+        };
+        if k.def().pool != Pool::Supply {
+            return 0;
+        }
+        let mine = |k: UnitKind| {
+            self.units
+                .iter()
+                .filter(|u| u.team == e && u.kind == k)
+                .count()
+                + self
+                    .bldgs
+                    .iter()
+                    .filter(|b| b.team == e)
+                    .flat_map(|b| b.queue.iter())
+                    .filter(|&&q| q == k)
+                    .count()
+        };
+        if self.ai_count(my_b, false, k2) == 0 {
+            if self.tech2_wanted(e, my_b, t, k2) {
+                k2.def().uses + k.def().supply
+            } else {
+                0
+            }
+        } else if (mine(k) + 1) * per <= mine(s.basic) {
+            k.def().supply
+        } else {
+            0
         }
     }
 

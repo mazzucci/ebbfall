@@ -207,6 +207,7 @@ pub fn data_json() -> String {
         .num("enemy", ENEMY)
         .num("tech_speed", TECH_SPEED)
         .num("tech_build", TECH_BUILD)
+        .num("pump_rate", PUMP_RATE)
         .done();
     Obj::new()
         .raw("consts", consts)

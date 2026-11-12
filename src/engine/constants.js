@@ -11,6 +11,8 @@ export const DUEL_MW = D.consts.mw;
 export const DUEL_MH = D.consts.mh;
 /** Fixed simulation tick, seconds. The sim only ever advances by this. */
 export const DT = D.consts.dt;
+/** Gold a second a finished Market pays (`PUMP_RATE`). */
+export const PUMP_RATE = D.consts.pump_rate;
 
 /** The seats a menu game deals: the player and the scripted opponent (tests and tools; the client itself plays G.me). */
 export const PLAYER = D.consts.player;

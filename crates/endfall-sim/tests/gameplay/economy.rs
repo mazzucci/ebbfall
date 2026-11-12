@@ -4,8 +4,8 @@ use super::common::*;
 
 #[test]
 fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
-    // The Kingdom's Market, built in its base, pays its owner half a gold a second, a whole gold every 2 s, with nobody
-    // on it; it counts as mined. A site pays nothing, and the Expedition's Recruiting post never pays.
+    // The Kingdom's Market, built in its base, pays its owner 0.35 gold a second, a whole gold every 2.9 s or so, with
+    // nobody on it (half a gold a second before the balance round that followed the economy pass); it counts as mined. A site pays nothing, and the Expedition's Recruiting post never pays.
     let mut w = rich(9);
     for h in harvesters(&w, PLAYER) {
         w.stop_unit(h); // (nobody mines: what comes in is the Market's)
@@ -18,15 +18,15 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
     w.damage(site, 1e6, None);
     let market = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
     let mined = w.ledger[PLAYER as usize].mined[0];
+    run(&mut w, 2);
+    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first 2 s");
     run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first second");
-    run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 2 s");
-    run(&mut w, 58);
-    assert_eq!(w.res[PLAYER as usize], [30, 0], "30 gold a minute");
+    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 3 s");
+    run(&mut w, 57);
+    assert_eq!(w.res[PLAYER as usize], [21, 0], "21 gold a minute");
     assert_eq!(
         w.ledger[PLAYER as usize].mined[0] - mined,
-        30,
+        21,
         "counted as mined"
     );
     assert!(
@@ -106,7 +106,8 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
 
 #[test]
 fn an_ai_market_pays_at_its_levels_income() {
-    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (39 gold a minute, not 30).
+    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (27 gold a minute, not 21: 27.3, banked a
+    // whole gold at a time).
     let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
     assert!(w.set_ai_seats([false, true]));
     w.disable_ai();
@@ -119,7 +120,7 @@ fn an_ai_market_pays_at_its_levels_income() {
     w.make_building(BldgKind::Extractor, ENEMY, vx, vy, true);
     w.res[ENEMY as usize] = [0, 0];
     run(&mut w, 60);
-    assert_eq!(w.res[ENEMY as usize][0], 39);
+    assert_eq!(w.res[ENEMY as usize][0], 27);
 }
 
 #[test]

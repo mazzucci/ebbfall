@@ -40,8 +40,8 @@ pub struct Diff {
     /// schedule: the gentle level may starve on a barren map).
     pub expands_when_dry: bool,
     /// While its crew is short of its target, it holds a worker's price back from its buildings, so building never
-    /// leaves its Core idle for want of shards (Brutal's build order spent every shard, and its Human AI, whose
-    /// builders leave the line, fell behind the Vael's in the opening).
+    /// leaves its Castle idle for want of gold (Brutal's build order spent every coin, and its Human AI, whose
+    /// builders leave the line, fell behind the Expedition's in the opening).
     pub workers_first: bool,
     /// Seconds before it raises more than one Market (one a Castle): its main's goes up once it has seven workers, the
     /// expansion's not before this.
@@ -111,7 +111,7 @@ pub const DIFF: [Diff; 4] = [
     // fields its line units and their anti-air only. Its first wave goes at 7:45, so a newcomer is not hit before about
     // 8:00 (at 4:00 it arrived by 4:30: the lab's newcomer, `turtle --weak --attacker-level Easy`). It takes its natural
     // after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still
-    // meets a growing army later. One vent until then: a second's crew of workers would only pile up shards it has no
+    // meets a growing army later. One mine until then: a second's crew of workers would only pile up gold it has no
     // factory to spend on.
     Diff {
         income: 1.0,

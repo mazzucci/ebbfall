@@ -91,7 +91,7 @@ impl World {
                 _ => 2,
             };
             let mut order = my_b.clone();
-            if room < SUPPLY_TIGHT {
+            if room < self.places(e, Pool::Supply, SUPPLY_TIGHT) {
                 order.sort_by_key(rank); // (stable: building order within each rank)
             }
             order
@@ -206,6 +206,13 @@ impl World {
             } else {
                 b.kind.def().trains[0]
             };
+            // (its line at its level's most, `line_max`: nothing more of that pool)
+            let line_pool = self.factions[e as usize].ai.basic.def().pool;
+            if u.def().pool == line_pool
+                && self.pool(e, line_pool)[0] + u.def().supply > self.line_max(e)
+            {
+                continue;
+            }
             let (qlen, bkind) = (b.queue.len(), b.kind);
             if b.rally.is_none() {
                 self.set_rally(bid, rally.x, rally.y, None);

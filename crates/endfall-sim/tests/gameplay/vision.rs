@@ -214,8 +214,9 @@ fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
     // What an ally saw (another enemy's base) neither ends the scouting nor draws the first wave across the map. (Its
     // first wave's goal is what this checks, not its timing: seed 33 left the list with the tower range, one Expedition
     // seat short of a wave within the 7 minutes, and came back with the leash; seed 3 left it then, its seat 3's first
-    // wave going at 8:20, for its foe.)
-    for seed in [14, 33, 21, 8] {
+    // wave going at 8:20, for its foe; seed 8 since the second round, one Kingdom seat building and expanding past
+    // 12:00 before any wave.)
+    for seed in [14, 33, 21, 9] {
         let races = [&HUMANS, &VAEL, &HUMANS, &VAEL];
         let mut w = World::with_size(
             seed,
@@ -228,10 +229,12 @@ fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
         assert!(w.set_ai_seats(vec![true; 4]));
         assert!(w.set_teams(&[0, 0, 1, 1]));
         let foes: Vec<u8> = (0..4).map(|s| w.foe_of(s)).collect();
-        let waves = first_waves(&mut w, 420);
+        let waves = first_waves(&mut w, 720);
         for seat in 0..4u8 {
             let Some(goal) = waves[seat as usize] else {
-                panic!("seed {seed}: seat {seat}: no first wave within 7 minutes")
+                panic!(
+                    "seed {seed}: seat {seat}: no first wave within 12 minutes (7 before the second round's slower economy)"
+                )
             };
             let enemies: Vec<u8> = (0..4).filter(|&s| w.enemies(seat, s)).collect();
             assert_eq!(
@@ -342,7 +345,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         panic!("a miner at work")
     };
     let n = w.map.nodes.iter_mut().find(|n| n.id == node).unwrap();
-    n.amount = MINE_LOAD; // (one trip's worth)
+    n.amount = UnitKind::Harvester.def().mine_load; // (one trip's worth)
     let (x, y) = (n.x, n.y);
     if let Some(s) = watcher {
         let o = w.make_unit(UnitKind::Observer, s, x + 20.0, y);

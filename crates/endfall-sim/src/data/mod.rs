@@ -28,33 +28,46 @@ pub const PLAYER: u8 = 0;
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
-/// The most supply (population) a seat can have, by the map's width in tiles (Roster v2): 60 on 64x64, 70 on 96x96,
-/// 80 on 128x128. Bigger maps run longer, hold more fields, and room for an AI's home reserve beside its wave.
+/// The most supply (population) a seat can have, by the map's width in tiles: 100 on 64x64, 120 on 96x96, 140 on
+/// 128x128 (60, 70 and 80 until the economy's second round: the cap is rarely reached, so the limit on an army is the
+/// rate of gold and when attacks can come, not the cap). Bigger maps run longer, hold more fields, and room for an AI's
+/// home reserve beside its wave.
 pub fn supply_limit(map_w: i32) -> i32 {
     if map_w <= 64 {
-        60
+        100
     } else if map_w <= 96 {
-        70
+        120
     } else {
-        80
+        140
     }
 }
 
-/// The Expedition's most Power, by the map's width (the balance pass): 45 on 64x64, 52 on 96x96, 60 on 128x128. Its
-/// most hired places are the rest of the map's `supply_limit` (`hired_limit`): Power and hired places have a maximum
-/// each, and the two together are the Kingdom's population limit.
+/// The Expedition's most Power, by the map's width: 200 on 64x64, 240 on 96x96, 280 on 128x128, twice the Kingdom's
+/// population (Stelian, Nov 12: the Expedition is limited by Power, the Kingdom by gold; a machine takes about twice
+/// the places a Kingdom unit of its tier does, a Wind turbine gives 20 and the Data center 40, so about eight turbines
+/// fill it). 45, 52 and 60 in the balance pass.
 pub fn power_limit(map_w: i32) -> i32 {
     if map_w <= 64 {
-        45
+        200
     } else if map_w <= 96 {
-        52
+        240
     } else {
-        60
+        280
     }
 }
-/// The Expedition's most hired places, by the map's width: the map's limit less its Power (15, 18, 20).
+/// A machine takes about this many Power places for a Kingdom unit's one of its tier (the AI's margins in Power scale
+/// by it: `World::places`).
+pub const POWER_PER_PLACE: i32 = 2;
+/// The Expedition's most hired places, by the map's width, a maximum of its own (gold only: the early mercenary game):
+/// 25, 30, 35 (15, 18 and 20 in the balance pass, the map's limit less its Power).
 pub fn hired_limit(map_w: i32) -> i32 {
-    supply_limit(map_w) - power_limit(map_w)
+    if map_w <= 64 {
+        25
+    } else if map_w <= 96 {
+        30
+    } else {
+        35
+    }
 }
 
 /// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
@@ -89,6 +102,9 @@ impl Pool {
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
+/// A worker carrying gold walks at this share of its speed (the load slows it; Stelian, Nov 12: calm trips, not a
+/// frantic shuttle): with the workers' own speed cut to about 87%, about 72% of what it was.
+pub const LOADED_SPEED: f64 = 0.83;
 /// The share of its speed a harpooned unit keeps while slowed (`Weapon::slow`; flyers too).
 pub const SLOW_SPEED: f64 = 0.5;
 
@@ -293,6 +309,11 @@ def_struct! {
         name: &'static str = "name",
         /// The faction's worker: mines, builds and repairs; it never starts a fight and is not a threat to anyone.
         worker: bool = "worker",
+        /// A worker's mining (Stelian, Nov 12: the Kingdom many and cheap, the Expedition few and efficient): how many
+        /// may be inside a gold mine at once (counting everyone inside, of either people: one goes in while fewer than
+        /// its own kind's number are), and the gold it comes out with. 0 for every other unit.
+        mine_cap: i32 = "mineCap",
+        mine_load: i32 = "mineLoad",
         /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
@@ -389,6 +410,9 @@ pub struct Faction {
     /// Its `Pool::Supply` is Power, its machines' alone (the Expedition: no population; its people take hired places),
     /// and it has a maximum of each (`World::pool_max`) where the Kingdom has one population limit.
     pub power: bool,
+    /// The workers it starts with, on the mine nearest its headquarters, the nearest of its four tiles first (four for
+    /// both peoples; Stelian, Nov 13: four Villagers, two Bots, half a mine each, set with the balancing phase).
+    pub start_workers: usize,
     /// How the scripted opponent plays this side.
     pub ai: AiScript,
 }
@@ -483,6 +507,8 @@ const UNIT: UnitDef = UnitDef {
     mend: false,
     req: None,
     worker: false,
+    mine_cap: 0,
+    mine_load: 0,
     shields: 0.0,
     weapon: None,
     light: None,
@@ -492,18 +518,23 @@ const UNIT: UnitDef = UnitDef {
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
 /// A gold mine (one per field, map.rs `lay_mines`): its footprint in tiles (the art's, 2x2), the workers inside it at
-/// once (the others wait at its side), the seconds a worker spends inside and the gold it comes out with. A load was 16
-/// (a saturated mine paid what a saturated field of seven crystals paid before the mines); 8 since the economy pass, so
-/// gold forces choices: the AI banked over a thousand by 3:00 and reached its population limit by 6:00 (gameplay test
-/// `a_saturated_mine_pays_what_the_economy_pass_set`).
+/// once and the gold each comes out with are its kind's (`UnitDef::mine_cap`, `mine_load`: eight Villagers with 9, five
+/// Bots with 12), and the seconds a worker spends inside. Calm trips (Stelian, Nov 12): a long stay inside and a big
+/// load. A saturated mine pays the Kingdom about 575 a minute and the Expedition about 83% of it at first
+/// (`a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less`), a Villager bringing in about 55 a
+/// minute, a Bot about 75: the Expedition starts behind and out-earns the Kingdom later, with its research. More income
+/// comes from more mines, the Expedition's research and the Kingdom's Market. Before: 7 inside for 4 s with 8 (the
+/// economy pass; 16 before it), about 10 workers to saturate a mine at about 830 a minute.
 pub const MINE_SIZE: i32 = 2;
-pub const MINE_CAP: i32 = 7;
-pub const MINE_TIME: f64 = 4.0;
-pub const MINE_LOAD: i32 = 8;
+pub const MINE_TIME: f64 = 7.5;
+/// The most workers inside a mine at once, of any kind (the largest `UnitDef::mine_cap`), and the largest load.
+pub const MINE_CAP_MOST: i32 = 8;
+pub const MINE_LOAD_MOST: i32 = 12;
 /// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
-/// `lay_mines`): 1500 before the economy pass; 1000 since, so that with the smaller load the first mines still run dry
-/// by about 9:00 to 10:00.
-pub const CRYSTAL_GOLD: i32 = 1000;
+/// `lay_mines`: seven by a main, 14,000 gold): a main mine lasts a normal game, over 20 minutes at its full rate, so
+/// scarcity comes from the rate (the load, the mine's cap, the worker's price) and expanding is a choice for more of it,
+/// not forced by a dry mine. 1500 before the economy pass, 1000 in it (the first mines dry by about 9:00).
+pub const CRYSTAL_GOLD: i32 = 2000;
 /// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): it pays back its 75 in
 /// about three and a half minutes. 0.5 before the economy pass halved what a worker brings in, which doubled the
 /// Market's worth beside it; a partial cut (the full one, 0.25, swung Hard's 64x64 games the other way in the lab).

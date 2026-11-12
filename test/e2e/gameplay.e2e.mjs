@@ -175,12 +175,12 @@ test('training shows progress, the queue and the time left in the panel', async 
     assert.match(await d.hudText('#selSub', /^Training$/), /Training/);
     assert.equal(await d.page.locator('#queue .qi').count(), 2);
     const w0 = await d.page.locator('#queue .prod i').evaluate(e => parseFloat(e.style.width));
-    // The unit in training shows the seconds it still needs on its slot (a Villager: 12 s), and only that one.
+    // The unit in training shows the seconds it still needs on its slot (a Villager: 18 s), and only that one.
     assert.equal(await d.page.locator('#queue .qi .left').count(), 1);
     const left = async () => +(await d.page.locator('#queue .qi:first-of-type .left').textContent()).replace(/s$/, '');
     await d.page.waitForFunction(() => /^\d+s$/.test(document.querySelector('#queue .qi .left')?.textContent), null, { timeout: 5000 });
     const t0 = await left();
-    assert.ok(t0 >= 1 && t0 <= 12, `at most a Villager's 12 s left: ${t0}`);
+    assert.ok(t0 >= 1 && t0 <= 18, `at most a Villager's 18 s left: ${t0}`);
     await d.skip(3); // (the panel redraws on the next frame: wait for it)
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#queue .prod i').style.width) > w, w0, { timeout: 10000 });
     await d.page.waitForFunction((t) => parseInt(document.querySelector('#queue .qi .left').textContent) < t, t0, { timeout: 10000 });
@@ -1731,7 +1731,7 @@ test('as the Expedition: a Bot refused at the Power cap says so, a Wind turbine 
     const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /Power/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
     assert.ok(t.l >= 0 && t.r <= t.w && t.t >= 0 && t.b <= t.h && !t.cut, `the toast whole on screen: ${JSON.stringify(t)}`);
     await buildAndFinish(d, 's', 'spire', 0, V);
-    await d.hudText('#rSupply', /\/28$/);
+    await d.hudText('#rSupply', /\/60$/);
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a turbine up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);

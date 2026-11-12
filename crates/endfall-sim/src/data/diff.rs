@@ -78,6 +78,12 @@ pub struct Diff {
     /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
+    /// The most places its line (`AiScript::basic`'s pool, where that is not its whole army: the Expedition's hired
+    /// places) takes, below the map's maximum (0: the maximum), on 64x64 (as many more on a bigger map as the maximum
+    /// has). Easy keeps the 15 it had (18 and 21 on the bigger maps): at the economy's second
+    /// round's 25 its all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where the old
+    /// cap sent its gold to its machines and Portal instead.
+    pub line_max: i32,
 }
 
 impl Diff {
@@ -107,7 +113,7 @@ impl super::UnitKind {
 }
 
 pub const DIFF: [Diff; 4] = [
-    // Easy: a slow, plain script. Few workers, one factory to start; no research, raiders, abilities or adapting. It
+    // Easy: a slow, plain script. Few workers, two factories to start; no research, raiders, abilities or adapting. It
     // fields its line units and their anti-air only. Its first wave goes at 7:45, so a newcomer is not hit before about
     // 8:00 (at 4:00 it arrived by 4:30: the lab's newcomer, `turtle --weak --attacker-level Easy`). It takes its natural
     // after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still
@@ -118,7 +124,8 @@ pub const DIFF: [Diff; 4] = [
         wave: 4,
         wave_grow: 2,
         harv: 7,
-        rax: 1,
+        rax: 2, // (two Barracks from the start: the Expedition's Recruiting posts are its places and its factories, so with
+        // the higher caps' hired places its Easy line outgrew one Barracks' before the 7:45 wave)
         extra_rax: 1,
         first: 465.0,
         gap: 80.0,
@@ -150,6 +157,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 0.0,
         mix_tier: 0,
         mix_over: &[],
+        line_max: 15,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -192,6 +200,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 1.0,
         mix_tier: 1,
         mix_over: &[],
+        line_max: 0,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -231,6 +240,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 1.0,
         mix_tier: 2,
         mix_over: &[],
+        line_max: 0,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -276,5 +286,6 @@ pub const DIFF: [Diff; 4] = [
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
         mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
+        line_max: 0,
     },
 ];

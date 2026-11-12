@@ -81,7 +81,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   mines (`mines`: workers at a mine that runs dry going on to the nearest mine with gold; one per field on every map kind and size, holding the field's gold; every map symmetric mine for
   mine, each image holding the same gold and every start seeing the same mines at the same distances; a worker inside
   hidden, out of sight and reach, no healer tending it, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
-  mine taking nobody in; a saturated mine paying half what a saturated field paid on main before the mines (the economy pass: a load of 8), pinned; each
+  mine taking nobody in; a mine fitting eight Villagers or five Bots and a saturated Bot mine paying about 83% of a Villager
+  mine's (pinned), a main mine lasting over 20 minutes at its full rate for either people (mines last the game:
+  scarcity from the rate, `CRYSTAL_GOLD`), a loaded worker walking slower (`economy`); each
   people's AI at every level gathering from mines and taking an expansion's; an AI whose every base is dry taking
   another, a natural still going up counting as a base), the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
@@ -110,7 +112,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   wave's machines attacking out of range not called home), the Expedition rework (`expedition`: Power for machines and
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
   one and a lost post leaving the count over its use; the balance pass's two maximums, Power and hired places each
-  capped at its own (45 and 15, 52 and 18, 60 and 20 by map size) and each enforced on its own, the Kingdom's one
+  capped at its own (Power 200, 240 and 280, twice the Kingdom's population, and hired places 25, 30 and 35 by map size) and each enforced on its own, the Kingdom's one
   population limit unchanged; no Portal pool; one Portal a seat, a second refused while one stands or goes up, its
   Power used from placement and released when it is destroyed or cancelled, refused without the Power for it; the
   Android's numbers, its 3 Power and its training time; the satellite needing a Lab and unlocking the Uplink whose
@@ -173,7 +175,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Recruiting post): a unit's `pool` takes its `supply`, a building's `pool` gets it, and a building
                       that `uses` Power (the Portal) takes it from placement; each pool is capped by its own buildings
                       and its own maximum (`World::pool_max`: the Kingdom's population the map's limit, the
-                      Expedition's Power `power_limit` and hired places `hired_limit`, the two together that limit;
+                      Expedition's Power `power_limit`, twice that limit, and hired places `hired_limit`, its own;
                       `room`). A `single` building (the Portal) is one a seat (`World::single_room`)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
@@ -202,9 +204,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       to its rally point, beside the mine for a rally on one: mining starts only on an order; the AI
                       orders its own, `ai/economy.rs`, from any mine on its side once those by home run dry), economy (gold mines: a worker walks
                       to a mine's side and goes in, `Phase::Mine`, `Unit::inside`: not drawn, not targeted or hit, out
-                      of its enemies' sight, pushing nobody, safe from fleeing; up to `MINE_CAP` inside for
-                      `MINE_TIME`, the rest waiting at its side, and out with `MINE_LOAD`; an empty mine stays, takes
-                      nobody in, its workers to the nearest other), construction (a finished building's crew waits idle beside it),
+                      of its enemies' sight, pushing nobody, safe from fleeing; up to its kind's `mine_cap` inside (eight
+                      Villagers, five Bots: whoever is inside counts) for `MINE_TIME`, the rest waiting at its side,
+                      and out with its kind's `mine_load` (a loaded worker walks at `LOADED_SPEED`); a main mine holds seven
+                      `CRYSTAL_GOLD`, over 20 minutes at its full rate, so a normal game never runs it dry and expanding
+                      is a choice for rate; an empty mine stays, takes nobody in, its workers to the nearest other), construction (a finished building's crew waits idle beside it),
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat (the leash, `CHASE_LEASH` in data: a fight a unit picks up itself, idle, at a rally point,
                       on an attack-move or answering fire, follows its target only that far from where the fight began

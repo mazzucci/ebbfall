@@ -357,7 +357,7 @@ fn two_ais_fight_on_a_larger_map() {
         }
         for seat in 0..2 {
             let army = w.army_log[seat].iter().max().copied().unwrap_or(0);
-            assert!(army >= 1000, "seed {seed} seat {seat}: an army ({army})");
+            assert!(army >= 400, "seed {seed} seat {seat}: an army ({army})"); // (1000 before the second round's slower economy)
         }
         assert!(
             hits[0] > 0 && hits[1] > 0,

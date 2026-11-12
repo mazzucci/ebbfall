@@ -77,13 +77,13 @@ impl World {
         self.upgrades.push([0; UPGRADES.len()]);
     }
 
-    /// A seat's start at its base: the headquarters and four harvesters at work.
+    /// A seat's start at its base: the headquarters and its people's `start_workers` at work (four Villagers, two Bots).
     pub(super) fn deal_start(&mut self, team: u8) {
         let (bx, by) = self.map.bases[team as usize];
         let faction = self.factions[team as usize];
         self.make_building(faction.hq, team, bx, by, true);
-        // Four harvesters, each between the Core and one of the four tiles of the mine nearest it, all gathering
-        // there: the same start for every seat (the map is symmetric), whichever way the base faces.
+        // Its workers, each between the Core and one of the four tiles of the mine nearest it (the nearest tiles first),
+        // all gathering there: the same start for every seat (the map is symmetric), whichever way the base faces.
         let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
         let home = self
             .map
@@ -98,6 +98,10 @@ impl World {
                 let d = jsmath::hypot(x as f64 + 0.5 - cx, y as f64 + 0.5 - cy);
                 near.push((d, n.id, x, y));
             }
+        }
+        if near.len() > faction.start_workers {
+            near.sort_by(|a, b| a.0.total_cmp(&b.0).then((a.3, a.2).cmp(&(b.3, b.2))));
+            near.truncate(faction.start_workers);
         }
         for &(d, node, nx, ny) in &near {
             let k = 3.0 / d.max(3.0); // three tiles out from the Core's center, towards that tile

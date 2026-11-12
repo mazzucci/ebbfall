@@ -853,7 +853,7 @@ impl World {
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
         ALL_POOLS.into_iter().all(|p| {
             let max = self.pool_max(seat, p);
-            max == 0 || self.pool(seat, p)[0] + CAP_SLACK >= max
+            max == 0 || self.pool(seat, p)[0] + self.places(seat, p, CAP_SLACK) >= max
         })
     }
 

@@ -153,7 +153,7 @@ fn a_worker_inside_a_mine_is_hidden_out_of_reach_and_comes_out_with_a_load() {
         w.step();
         let u = w.unit(h).unwrap();
         if !u.inside() {
-            assert_eq!(u.carry, MINE_LOAD, "out with a full load");
+            assert_eq!(u.carry, u.kind.def().mine_load, "out with a full load");
             assert!(
                 matches!(
                     u.task,
@@ -182,7 +182,8 @@ fn a_mine_takes_in_up_to_its_cap_and_the_rest_wait_at_its_side() {
         let u = w.unit(harvesters(&w, PLAYER)[0]).unwrap();
         (u.x, u.y)
     };
-    for _ in 0..MINE_CAP as usize + 5 - 4 {
+    let cap = UnitKind::Harvester.def().mine_cap as usize;
+    for _ in 0..cap + 5 - 4 {
         let u = w.make_unit(UnitKind::Harvester, PLAYER, at.0, at.1);
         w.start_gather(u, mine);
     }
@@ -191,10 +192,7 @@ fn a_mine_takes_in_up_to_its_cap_and_the_rest_wait_at_its_side() {
     for t in 0..90 * TPS {
         w.step();
         let inside = inside_of(&w, mine);
-        assert!(
-            inside <= MINE_CAP as usize,
-            "{inside} inside a mine for {MINE_CAP}"
-        );
+        assert!(inside <= cap, "{inside} inside a mine for {cap}");
         most = most.max(inside);
         waited |= w.units.iter().any(|u| {
             matches!(
@@ -209,7 +207,7 @@ fn a_mine_takes_in_up_to_its_cap_and_the_rest_wait_at_its_side() {
             check_invariants(&w, &format!("tick {t}"));
         }
     }
-    assert_eq!(most, MINE_CAP as usize, "it fills up");
+    assert_eq!(most, cap, "it fills up");
     assert!(waited, "the rest wait at its side");
 }
 
@@ -302,10 +300,10 @@ fn an_empty_mine_takes_nobody_in() {
     }
 }
 
-/// Gold a minute (delivered, from 1:00 to 4:00) that `n` Villagers bring in from the player's home mine on `seed`'s
+/// Gold a minute (delivered, from 1:00 to 4:00) that `n` workers of `f` bring in from the player's home mine on `seed`'s
 /// Standard map, the AI off.
-fn home_income(seed: u32, n: usize) -> i64 {
-    let mut w = World::new(seed, 1);
+fn home_income_of(seed: u32, n: usize, f: &'static Faction) -> i64 {
+    let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [f, f]);
     w.disable_ai();
     let at = {
         let u = w.unit(harvesters(&w, PLAYER)[0]).unwrap();
@@ -314,7 +312,7 @@ fn home_income(seed: u32, n: usize) -> i64 {
     w.units.retain(|u| u.team != PLAYER);
     let mine = home_fields(&w)[0];
     for _ in 0..n {
-        let u = w.make_unit(UnitKind::Harvester, PLAYER, at.0, at.1);
+        let u = w.make_unit(f.worker, PLAYER, at.0, at.1);
         assert!(w.start_gather(u, mine));
     }
     w.recalc_supply(PLAYER);
@@ -324,25 +322,53 @@ fn home_income(seed: u32, n: usize) -> i64 {
     (w.ledger[0].mined[0] - m0) / 3
 }
 
-/// One saturated mine pays what the economy pass set: a load of 8 where it was 16, so half what a saturated field
-/// paid before the mines (measured on main, 811bd13: seven crystals, one worker on each at a time, 8 gold in 2 s; 1674,
-/// 1672 and 1674 gold a minute, which a load of 16 matched), with the same harness: 24 workers on the home mine, gold a
-/// minute from 1:00 to 4:00.
+/// A mine fits eight Villagers or five Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
+/// few and efficient), each Bot carrying more: saturated, a mine pays the Kingdom about 575 gold a minute and the
+/// Expedition about 83% of that at first (it out-earns the Kingdom later, with its research), with workers enough on it
+/// (the same harness: workers on the home mine, gold a minute from 1:00 to 4:00). More workers add nothing; a Villager
+/// brings in about 55 a minute alone, a Bot about 75. Whoever is inside counts towards the cap: a worker goes in while
+/// fewer than its own kind's number are inside.
 #[test]
-fn a_saturated_mine_pays_what_the_economy_pass_set() {
-    assert_eq!(MINE_LOAD, 8);
-    for (seed, field) in [(1u32, 1674i64), (2, 1672), (4, 1674)] {
-        let field = field * MINE_LOAD as i64 / 16;
-        let full = home_income(seed, 24);
+fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() {
+    let (v, b) = (UnitKind::Harvester.def(), UnitKind::Lumen.def());
+    assert_eq!((v.mine_cap, b.mine_cap), (8, 5));
+    assert_eq!(
+        MINE_CAP_MOST,
+        UNIT_KINDS.iter().map(|k| k.def().mine_cap).max().unwrap()
+    );
+    assert_eq!(
+        MINE_LOAD_MOST,
+        UNIT_KINDS.iter().map(|k| k.def().mine_load).max().unwrap()
+    );
+    for seed in [1u32, 2, 4] {
+        let (vil, bot) = (
+            home_income_of(seed, 16, &HUMANS),
+            home_income_of(seed, 12, &VAEL),
+        );
         assert!(
-            (full - field).abs() as f64 <= 0.03 * field as f64,
-            "seed {seed}: a saturated mine {full} a minute, the field {field}"
+            (540..=620).contains(&vil),
+            "seed {seed}: saturated, {vil} a minute with Villagers"
+        );
+        let share = bot as f64 / vil as f64;
+        assert!(
+            (0.78..=0.88).contains(&share),
+            "seed {seed}: a Bot mine pays {bot}, {:.0}% of a Villager mine's {vil}",
+            share * 100.0
         );
         // Saturated: more workers add nothing.
-        let more = home_income(seed, 30);
+        let more = home_income_of(seed, 24, &HUMANS);
         assert!(
-            (more - full).abs() as f64 <= 0.03 * full as f64,
-            "seed {seed}: {full} with 24, {more} with 30"
+            (more - vil).abs() as f64 <= 0.03 * vil as f64,
+            "seed {seed}: {vil} with 16, {more} with 24"
+        );
+        // One alone.
+        let (v1, b1) = (
+            home_income_of(seed, 1, &HUMANS),
+            home_income_of(seed, 1, &VAEL),
+        );
+        assert!(
+            (45..=65).contains(&v1) && (60..=85).contains(&b1),
+            "seed {seed}: one alone {v1} and {b1}"
         );
     }
 }
@@ -368,7 +394,7 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
             (c.hp, c.maxhp) = (1e9, 1e9);
             let ctx = format!("level {diff} {}", race.name);
             let mut inside = false;
-            for t in 0..660 * TPS {
+            for t in 0..780 * TPS {
                 w.step();
                 if t % TPS == 0 {
                     inside |= w.units.iter().any(|u| u.team == ENEMY && u.inside());
@@ -381,7 +407,7 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
                 .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
                 .map(|b| (b.x, b.y))
                 .collect();
-            assert!(cores.len() >= 2, "{ctx}: a second base by 11:00");
+            assert!(cores.len() >= 2, "{ctx}: a second base by 13:00 (11:00 before the second round's slower income)");
             let by_exp = |n: Id| {
                 let m = w.map.node(n).unwrap();
                 cores[1..]
@@ -674,7 +700,7 @@ fn workers_at_a_mine_that_runs_dry_go_on_to_the_nearest_mine_with_gold() {
         .filter(|&(d, _)| d < 900.0)
         .expect("another mine with gold within a worker's reach of the home one")
         .1;
-    w.map.node_mut(mine).unwrap().amount = 3 * MINE_LOAD;
+    w.map.node_mut(mine).unwrap().amount = 3 * UnitKind::Harvester.def().mine_load;
     let hs = harvesters(&w, PLAYER);
     run(&mut w, 40);
     assert_eq!(w.map.node(mine).unwrap().amount, 0, "mined out");
@@ -686,5 +712,36 @@ fn workers_at_a_mine_that_runs_dry_go_on_to_the_nearest_mine_with_gold() {
             "worker {h} works the nearest mine with gold: {:?}",
             u.task
         );
+    }
+}
+
+/// Mines that last the game (the economy's second round): a main mine holds enough gold for over 20 minutes at its
+/// full rate, a saturated crew of either people, so a normal game of 12 to 15 minutes never runs it dry (scarcity comes
+/// from the rate: what a mine takes in at once, the load, the worker's price and time); an expansion's mine, five
+/// crystals, over 14.
+#[test]
+fn a_main_mine_lasts_over_twenty_minutes_at_its_full_rate() {
+    for seed in [1u32, 2, 4] {
+        let w = World::new(seed, 1);
+        let mine = w.map.node(home_fields(&w)[0]).unwrap();
+        assert_eq!(
+            mine.total,
+            7 * CRYSTAL_GOLD,
+            "seed {seed}: a main's seven crystals"
+        );
+        for (f, n) in [(&HUMANS, 16), (&VAEL, 12)] {
+            let full = home_income_of(seed, n, f);
+            let minutes = mine.total as f64 / full as f64;
+            assert!(
+                minutes > 20.0,
+                "seed {seed}, {}: {} gold at {full} a minute lasts {minutes:.1} min",
+                f.name,
+                mine.total
+            );
+            assert!(
+                5.0 * CRYSTAL_GOLD as f64 / full as f64 > 14.0,
+                "seed {seed}: an expansion's"
+            );
+        }
     }
 }

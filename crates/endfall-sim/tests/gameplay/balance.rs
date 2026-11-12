@@ -74,9 +74,11 @@ fn a_turret_or_a_few_lancers_answer_an_early_raider_raid() {
     };
     let undefended = raids(0, 0);
     // (a worker that stays inside its mine while the Riders are there is out of their reach: one or two may live
-    // through it)
+    // through it, and since a mine takes in eight Villagers for 7.5 s, now and then the whole crew is inside as the
+    // raid passes)
     assert!(
-        undefended.iter().all(|&r| r.0 >= 6 && r.1 == 0),
+        undefended.iter().all(|&r| r.1 == 0)
+            && undefended.iter().filter(|&&r| r.0 >= 6).count() >= 10,
         "an undefended mineral line is easy prey: {undefended:?}"
     );
     for (what, v) in [("a turret", raids(1, 0)), ("four Archers", raids(0, 4))] {

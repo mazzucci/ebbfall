@@ -73,12 +73,37 @@ pub fn duel_once(
     off: (f64, f64),
     micro: Micro,
 ) -> f64 {
-    let mut w = flat_arena(16);
     let army = |mix: &[UnitKind]| -> Vec<UnitKind> {
         let per: f64 = mix.iter().map(|&k| unit_value(k)).sum();
         let n = (budget / per).round().max(1.0) as usize;
         (0..n).flat_map(|_| mix.iter().copied()).collect()
     };
+    let (ka, kb) = (army(a), army(b));
+    let spend = |k: &[UnitKind]| k.iter().map(|&u| unit_value(u)).sum::<f64>();
+    let (sa, sb) = (spend(&ka), spend(&kb));
+    assert!(
+        (sa - budget).abs() <= budget * 0.1 && (sb - budget).abs() <= budget * 0.1,
+        "armies of {sa} and {sb} for {budget}"
+    );
+    fight(&ka, &kb, off, micro)
+}
+
+/// Two armies, `n` of `a`'s units against `n` of `b`'s (unit for unit, whatever they cost), played both ways round and
+/// from three spawn offsets as `duel_with`; the median of what is left of each, as a share of what it brought.
+pub fn duel_count(a: UnitKind, b: UnitKind, n: usize, micro: Micro) -> f64 {
+    let (ka, kb) = (vec![a; n], vec![b; n]);
+    let mut r: Vec<f64> = [(0.0, 0.0), (0.0, 13.0), (9.0, -7.0)]
+        .iter()
+        .map(|&off| (fight(&ka, &kb, off, micro) - fight(&kb, &ka, off, micro)) / 2.0)
+        .collect();
+    r.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    r[1]
+}
+
+/// Armies `ka` and `kb` facing each other on open ground until one is gone or two minutes pass: what is left of `ka`
+/// as a share of its worth, less `kb`'s.
+fn fight(ka: &[UnitKind], kb: &[UnitKind], off: (f64, f64), micro: Micro) -> f64 {
+    let mut w = flat_arena(16);
     let spawn = |w: &mut World, kinds: &[UnitKind], team: u8, x0: f64, dir: f64| -> Vec<Id> {
         let gap = kinds.iter().map(|k| k.def().r).fold(0.0, f64::max) * 2.0 + 4.0;
         kinds
@@ -95,15 +120,10 @@ pub fn duel_once(
             })
             .collect()
     };
-    let (ka, kb) = (army(a), army(b));
     let spend = |k: &[UnitKind]| k.iter().map(|&u| unit_value(u)).sum::<f64>();
-    let (sa, sb) = (spend(&ka), spend(&kb));
-    assert!(
-        (sa - budget).abs() <= budget * 0.1 && (sb - budget).abs() <= budget * 0.1,
-        "armies of {sa} and {sb} for {budget}"
-    );
-    let ia = spawn(&mut w, &ka, PLAYER, 880.0, -1.0);
-    let ib = spawn(&mut w, &kb, ENEMY, 1170.0, 1.0);
+    let (sa, sb) = (spend(ka), spend(kb));
+    let ia = spawn(&mut w, ka, PLAYER, 880.0, -1.0);
+    let ib = spawn(&mut w, kb, ENEMY, 1170.0, 1.0);
     let alive = |w: &World, ids: &[Id]| {
         ids.iter()
             .filter_map(|&i| w.unit(i))

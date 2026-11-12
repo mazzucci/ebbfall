@@ -16,6 +16,7 @@ pub enum Upgrade {
     Slipstream,
     RapidConstruction,
     Satellite,
+    Drills,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -37,6 +38,8 @@ pub enum Effect {
     /// Researched, the side has launched its satellite (its own seat is told, no other), and it unlocks what needs it
     /// (the Expedition's Uplink, `BldgDef::req_up`).
     Launch,
+    /// Each level, its workers carry more gold a trip (`DRILL_LOAD`).
+    MineLoad,
 }
 
 /// The speed a `Speed` tech gives its unit, as a multiple.
@@ -132,21 +135,39 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
 
 /// Launch satellite, at the Expedition's Data center once a Lab stands: expensive and slow, and the
 /// Uplink's requirement (PRD: the Expedition rework, rule 5).
+/// The satellite, launched from the Lab once a player (the arc, Nov 13: 60 s at the Data center before; a launch
+/// should feel like an event): its Uplinks connect to it.
 const SATELLITE: UpgradeDef = UpgradeDef {
     key: "satellite",
     name: "Launch satellite",
     short: "Satellite",
     effect: Effect::Launch,
     cost: [[200, 0]; 3],
-    time: [60.0; 3],
+    time: [90.0; 3],
     req: Some(BldgKind::Loom),
     ..TECH
 };
+/// Better drills: the Expedition's mining research at the Lab, two levels (Stelian, Nov 12–13: its economic fork, as
+/// the Market is the Kingdom's). A saturated Bot mine pays about 83% of a Villager mine's at first; the first level
+/// brings it about level, the second to about 115–120%.
+const DRILLS: UpgradeDef = UpgradeDef {
+    key: "drills",
+    name: "Better drills",
+    short: "Drills",
+    effect: Effect::MineLoad,
+    cost: [[150, 0], [175, 0], [175, 0]],
+    time: [60.0, 75.0, 75.0],
+    levels: 2,
+    req: None,
+    ..TECH
+};
+/// The gold a worker's load gains by `Effect::MineLoad` level (0, 1, 2): a Bot's 12 a trip goes to 14, then 17.
+pub const DRILL_LOAD: [i32; 3] = [0, 2, 5];
 /// What a side is told when its satellite is up (its research-done notice; no other seat is told).
 pub const LAUNCH_OURS: &str = "You launched a satellite.";
 
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 8] = [
+pub const UPGRADES: [Upgrade; 9] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -155,6 +176,7 @@ pub const UPGRADES: [Upgrade; 8] = [
     Upgrade::Slipstream,
     Upgrade::RapidConstruction,
     Upgrade::Satellite,
+    Upgrade::Drills,
 ];
 
 impl Upgrade {
@@ -168,6 +190,7 @@ impl Upgrade {
             Upgrade::Slipstream => &SLIPSTREAM,
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
             Upgrade::Satellite => &SATELLITE,
+            Upgrade::Drills => &DRILLS,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

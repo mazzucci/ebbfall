@@ -132,6 +132,8 @@ fn two_ais_play_each_other_to_the_end() {
 fn the_ai_keeps_training_troopers_with_the_second_slot_empty() {
     let mut w = World::new(31, 1);
     run(&mut w, 150);
+    // (gold in hand: since the arc's tech prices its build order holds a Blacksmith's 300 back at 2:30)
+    w.res[ENEMY as usize][0] += 1000;
     let id = w.make_unit(UnitKind::Shrike, PLAYER, 60.0, 60.0); // a flyer far away makes it want Archers
     w.hold_unit(id);
     let before = count(&w, ENEMY, UnitKind::Trooper);
@@ -220,7 +222,8 @@ fn the_ai_answers_flyers_with_ballistas_once_its_workshop_can() {
         if factory {
             // (the mix's Archers, one per Guard, come on top of half the answer)
             assert!(icps >= 1, "Ballistas from the Workshop: {icps}");
-            assert!(lancers <= 4, "Archers to half the answer: {lancers}");
+            // (five: the Workshop's 60 s to raise since the arc leave the Barracks a few more Archers first)
+            assert!(lancers <= 5, "Archers to half the answer: {lancers}");
             assert!(
                 lancers + 2 * icps <= 8,
                 "two answers per flyer, no more: {lancers} Archers, {icps} Ballistas"
@@ -1244,14 +1247,15 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     for &m in VAEL.ai.mix {
         assert!(DIFF.iter().all(|d| d.mix_entry(m) == m), "{m:?}");
     }
-    // In play: the same game at Hard and at Brutal for ten minutes, the Human AI's first Anchor Gun and how many it has
-    // trained by then (Brutal: the first before 5:30, and at least as many). (Seed 5: with the chase leash, seed 7's
-    // Brutal Kingdom loses its first gun early and trains one where Hard trains two.)
+    // In play: the same game at Hard and at Brutal for fifteen minutes, the Human AI's first Anchor Gun and how many it
+    // has trained by then (Brutal: one at all, no later than Hard's, and at least as many; since the arc's tech prices,
+    // Blacksmith and Workshop 300 each, the guns come later than the 5:30 they did). (Seed 5: with the chase leash, seed
+    // 7's Brutal Kingdom loses its first gun early and trains one where Hard trains two.)
     let guns = |level: usize| {
         let mut w = World::with_setup(5, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         let (mut first, mut seen) = (f64::INFINITY, Vec::new());
-        while w.time < 600.0 && !w.over {
+        while w.time < 900.0 && !w.over {
             w.step();
             w.events.clear();
             for u in w
@@ -1269,12 +1273,8 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     };
     let ((hard_first, hard_n), (brutal_first, brutal_n)) = (guns(2), guns(3));
     assert!(
-        hard_first >= 330.0,
-        "Hard's first Anchor Gun at {hard_first:.0} s"
-    );
-    assert!(
-        brutal_first < 330.0,
-        "Brutal's first Anchor Gun at {brutal_first:.0} s"
+        brutal_first < 900.0 && brutal_first <= hard_first,
+        "Brutal's first Anchor Gun at {brutal_first:.0} s, Hard's at {hard_first:.0} s"
     );
     // (at least as many: since the balance pass this game's Kingdom loses fewer and both levels can stand at their
     // population limit with what their mix allows by 10:00, four each)
@@ -1788,10 +1788,8 @@ fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() 
         None
     };
     let hard = researched_at(2).expect("Hard researches Rapid Construction by 10:00");
-    assert!(
-        hard < 300.0,
-        "early, before the army's techs at 5:00: {hard:.0}s"
-    );
+    // (by 5:30: the Blacksmith takes 60 s to raise since the arc, 45 before)
+    assert!(hard < 330.0, "early, before the army's techs: {hard:.0}s");
     assert_eq!(researched_at(0), None, "Easy never researches");
 }
 

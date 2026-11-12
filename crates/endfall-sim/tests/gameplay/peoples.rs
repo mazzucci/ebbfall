@@ -16,8 +16,8 @@ fn each_building_trains_its_peoples_list() {
         (Factory, &[Bastion, SiegeTank, Observer]),
         (Conflux, &[Lumen]),
         (Siphon, &[Prism, Bruiser]),
-        (Kiln, &[Scythe, Monolith, Shrike]),
-        (Eclipse, &[Umbra]),
+        (Kiln, &[Scythe, Shrike]),
+        (Eclipse, &[Umbra, Monolith]),
         (Forge, &[]),
     ];
     for (b, units) in lists {
@@ -34,10 +34,10 @@ fn each_building_trains_its_peoples_list() {
         (Rider, None),
         (Observer, None),
         (Bruiser, Some(Loom)),
-        (Monolith, Some(Loom)),
+        (Monolith, None),
         (Prism, None),
         (Scythe, None),
-        (Shrike, None),
+        (Shrike, Some(Loom)),
         (Umbra, None),
     ] {
         assert_eq!(u.def().req, req, "{u:?}");
@@ -45,16 +45,25 @@ fn each_building_trains_its_peoples_list() {
     // Each people builds its own, the Expedition's Recruiting post first (its barracks).
     assert_eq!(VAEL.build_basic[0], Siphon);
     assert!(Siphon.def().req.is_none());
-    for b in [Kiln, Loom, Ward] {
+    for b in [Kiln, Loom] {
         assert_eq!(b.def().req, Some(Siphon), "{b:?}");
     }
-    // (the Portal: once an Uplink stands, which needs the satellite, launched once a Lab stands)
+    assert_eq!(
+        Ward.def().req,
+        None,
+        "the Sentry mast: basic, the early defense"
+    );
+    // (the Portal: once an Uplink stands, which needs the satellite, launched at the Lab; it trains only while one
+    // stands)
     assert_eq!(Eclipse.def().req, Some(Uplink));
+    assert_eq!(Eclipse.def().trains_with, Some(Uplink));
     assert_eq!(Uplink.def().req_up, Some(Upgrade::Satellite));
     assert_eq!(Upgrade::Satellite.def().req, Some(Loom));
-    assert!(Conflux.def().researches.contains(&Upgrade::Satellite));
-    // The Kingdom's Stables need its Market (one a Castle, built in the base), which needs the Barracks.
-    assert_eq!(Airfield.def().req, Some(Extractor));
+    assert!(Loom.def().researches.contains(&Upgrade::Satellite));
+    assert!(!Conflux.def().researches.contains(&Upgrade::Satellite));
+    // The Kingdom's Stables need its Blacksmith (the top tier's way, serial since the arc); its Market, one a Castle,
+    // built in the base, the Barracks.
+    assert_eq!(Airfield.def().req, Some(Forge));
     assert_eq!(Extractor.def().req, Some(Barracks));
     assert!(Extractor.def().pays && Extractor.def().per_hq && !Siphon.def().pays);
     for f in FACTIONS {

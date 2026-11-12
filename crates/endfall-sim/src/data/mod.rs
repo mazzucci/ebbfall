@@ -59,14 +59,15 @@ pub fn power_limit(map_w: i32) -> i32 {
 /// by it: `World::places`).
 pub const POWER_PER_PLACE: i32 = 2;
 /// The Expedition's most hired places, by the map's width, a maximum of its own (gold only: the early mercenary game):
-/// 25, 30, 35 (15, 18 and 20 in the balance pass, the map's limit less its Power).
+/// 30, 32, 36 (25, 30 and 35 in the economy's second round; 15, 18 and 20 in the balance pass, the map's limit less
+/// its Power).
 pub fn hired_limit(map_w: i32) -> i32 {
     if map_w <= 64 {
-        25
-    } else if map_w <= 96 {
         30
+    } else if map_w <= 96 {
+        32
     } else {
-        35
+        36
     }
 }
 
@@ -386,6 +387,9 @@ def_struct! {
         req: Option<BldgKind> = "req",
         /// A research its side must have done to build it (the Uplink: the satellite).
         req_up: Option<Upgrade> = "reqUp",
+        /// A building its side must have standing, finished, for this one to train (the Portal: an Uplink; the arc,
+        /// Nov 13): its training waits while there is none, and a unit is refused with the reason.
+        trains_with: Option<BldgKind> = "trainsWith",
         /// A turret's weapon; None = no defense.
         weapon: Option<Weapon> = "weapon",
     }
@@ -529,7 +533,7 @@ pub const MINE_SIZE: i32 = 2;
 pub const MINE_TIME: f64 = 7.5;
 /// The most workers inside a mine at once, of any kind (the largest `UnitDef::mine_cap`), and the largest load.
 pub const MINE_CAP_MOST: i32 = 8;
-pub const MINE_LOAD_MOST: i32 = 12;
+pub const MINE_LOAD_MOST: i32 = 17; // (a Bot's 12 with two levels of Better drills)
 /// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
 /// `lay_mines`: seven by a main, 14,000 gold): a main mine lasts a normal game, over 20 minutes at its full rate, so
 /// scarcity comes from the rate (the load, the mine's cap, the worker's price) and expanding is a choice for more of it,
@@ -574,6 +578,7 @@ const BLDG: BldgDef = BldgDef {
     per_hq: false,
     req: None,
     req_up: None,
+    trains_with: None,
     hq: false,
     researches: &[],
     shields: 0.0,

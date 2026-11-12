@@ -305,7 +305,9 @@ impl World {
             };
             return;
         }
-        let (team, load) = (self.u(uid).team, self.u(uid).kind.def().mine_load);
+        let team = self.u(uid).team;
+        let drills = self.effect_level(team, Effect::MineLoad).min(2) as usize;
+        let load = self.u(uid).kind.def().mine_load + DRILL_LOAD[drills];
         let nm = self.map.node_mut(node).unwrap();
         nm.miners -= 1;
         let take = nm.amount.min(load);

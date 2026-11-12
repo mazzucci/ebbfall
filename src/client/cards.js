@@ -97,12 +97,15 @@ export function cardItems() {
   // once (Stelian, Nov 11: no empty slots), and keep them for the game (Nov 12: a newly opened building is appended and
   // never moves the others, the Uplink too, which opens with the satellite rather than a building).
   const open = (k) => hasReq(G.me, k);
+  // (a building that waits on a research alone, the Uplink on the satellite, shows locked from the first: its
+  // requirement in its tip and on a long press, and its slot kept for when it opens; the arc, Nov 13)
+  const locked = (k) => !open(k) && BUILDINGS[k].reqUp && !BUILDINGS[k].req;
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
     const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic, slots = pageSlots(adv ? 'build2' : 'build');
     const kept = (it) => at(pageSlot(slots, it.id), it);
     at(CORNER, adv ? { ...back, id: 'build1' } : back); // (Back first: it keeps the bottom-right slot on both pages)
-    byUnlock(page).filter(open).forEach(k => kept(bldgItem(k)));
+    byUnlock(page).filter(k => open(k) || locked(k)).forEach(k => kept(locked(k) ? { ...bldgItem(k), dis: true } : bldgItem(k)));
     (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
     // Advanced only once something on it can be built (the Barracks or the Recruiting post stands), in the first free
     // slot then (after the three buildings open from the start: slot 3, the second row's left).

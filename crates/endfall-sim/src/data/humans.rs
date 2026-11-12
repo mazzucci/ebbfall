@@ -232,7 +232,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
     speed: 105.0,
     sight: 9.0,
     r: 14.0,
-    build: 40.0,
+    build: 60.0, // (40 before the arc: the Kingdom's top tier comes later)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 0.9,
@@ -303,9 +303,9 @@ pub(super) const FORGE: BldgDef = BldgDef {
         Upgrade::RapidConstruction,
     ],
     name: "Blacksmith",
-    cost: [150, 0],
+    cost: [300, 0], // (150 before the arc: the tech path a bet, about two minutes of income)
     hp: 820.0,
-    build: 45.0,
+    build: 60.0,
     sight: 7.0,
     trains: &[],
     req: Some(BldgKind::Barracks),
@@ -315,11 +315,11 @@ pub(super) const FORGE: BldgDef = BldgDef {
 pub(super) const FACTORY: BldgDef = BldgDef {
     key: "factory",
     name: "Workshop",
-    cost: [125, 0],
+    cost: [300, 0], // (125 before the arc)
     w: 3,
     h: 3,
     hp: 800.0,
-    build: 35.0,
+    build: 60.0,
     sight: 7.0,
     trains: &[UnitKind::Bastion, UnitKind::SiegeTank, UnitKind::Observer],
     req: Some(BldgKind::Barracks),
@@ -329,7 +329,8 @@ pub(super) const TURRET: BldgDef = BldgDef {
     key: "turret",
     name: "Watchtower",
     cost: [100, 0],
-    hp: 320.0,
+    hp: 450.0, // (320 and armor 1 before the arc)
+    armor: 2.0,
     build: 20.0,
     sight: 9.0,
     req: Some(BldgKind::Barracks),
@@ -344,18 +345,19 @@ pub(super) const TURRET: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Stables: Riders, and Knights once the Forge stands.
+/// The Stables: Riders and Knights, once the Blacksmith stands (after it, not beside it, since the arc: the top tier's
+/// way is serial).
 pub(super) const AIRFIELD: BldgDef = BldgDef {
     key: "airfield",
     name: "Stables",
-    cost: [150, 0],
+    cost: [350, 0], // (150 before the arc)
     w: 3,
     h: 3,
     hp: 760.0,
-    build: 50.0,
+    build: 75.0,
     sight: 8.0,
     trains: &[UnitKind::Rider, UnitKind::Knight],
-    req: Some(BldgKind::Extractor), // (the cavalry needs a Market: a branch of its own, beside the Forge)
+    req: Some(BldgKind::Forge),
     researches: &[Upgrade::Afterburners],
     ..BLDG
 };

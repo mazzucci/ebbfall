@@ -432,8 +432,9 @@ fn six_and_eight_ais_play_on_eight_starts() {
                         .filter(|b| b.team == s)
                         .map(|b| (b.kind.def().key, (b.tx - bx).abs().max((b.ty - by).abs())))
                         .collect();
+                    // (four by 3:00: since the arc its build order holds a 300-gold Blacksmith back, five before)
                     assert!(
-                        near >= 5,
+                        near >= 4,
                         "{seats} seats seed {seed}: seat {s} built up ({near}): {all:?}"
                     );
                 }

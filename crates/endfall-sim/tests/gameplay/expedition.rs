@@ -425,7 +425,11 @@ fn the_satellite_needs_a_lab_and_unlocks_the_uplink_whose_standing_unlocks_the_p
     );
     let gold = w.res[PLAYER as usize][0];
     assert_eq!(w.start_research(dc, Upgrade::Satellite), Ok(()));
-    assert_eq!(w.res[PLAYER as usize][0], gold - 200);
+    assert_eq!(
+        w.res[PLAYER as usize][0],
+        gold - 150,
+        "the launch costs 150"
+    );
     run(&mut w, 59);
     assert!(!w.has_req(PLAYER, BldgKind::Uplink), "60 s to launch");
     run(&mut w, 2);

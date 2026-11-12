@@ -137,7 +137,7 @@ const SATELLITE: UpgradeDef = UpgradeDef {
     name: "Launch satellite",
     short: "Satellite",
     effect: Effect::Launch,
-    cost: [[200, 0]; 3],
+    cost: [[150, 0]; 3],
     time: [60.0; 3],
     req: Some(BldgKind::Loom),
     ..TECH

@@ -170,11 +170,12 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Rover: rocket artillery (the Conch's place, its shields counted into its hull); it fires on the move,
-/// splashes, and outranges the towers.
+/// splashes, and outranges the towers. 200 gold (250 before the economy pass: priced for the scarce economy, like the
+/// Expedition's tech path).
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
-    cost: [250, 0],
+    cost: [200, 0],
     supply: 4,
     hp: 200.0,
     armor: 1.0,
@@ -349,7 +350,7 @@ pub(super) const WARD: BldgDef = BldgDef {
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
-    cost: [150, 0],
+    cost: [100, 0],
     hp: 800.0,
     uses: 4,
     single: true,
@@ -360,13 +361,13 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
     ..BLDG
 };
 /// The Uplink: a big satellite dish, unarmed, once the satellite is up; it gives machines range (data/radio.rs) and
-/// unlocks the Portal. 3x3 (a wide, squat dish). 150 gold, a tech building's price: with the satellite's 200 the way to
-/// the Portal costs about what the Lab-to-Portal way did plus the launch, and a forward Uplink (the AI's leapfrog) is
-/// a real investment, not the old 65-gold tower.
+/// unlocks the Portal. 3x3 (a wide, squat dish). 100 gold, and the satellite 150 and the Portal 100 (150, 200 and 150
+/// before the economy pass halved mining: the Expedition's way to its elite then cost twice as long in income as it
+/// was weighed at); a forward Uplink (the AI's leapfrog) is still a real investment, not the old 65-gold tower.
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [150, 0],
+    cost: [100, 0],
     w: 3,
     h: 3,
     hp: 600.0,

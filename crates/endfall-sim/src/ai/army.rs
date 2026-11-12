@@ -16,6 +16,10 @@ const CHASE_S: f64 = 90.0;
 
 /// The longest the guided first game holds the opponent's waves back (s).
 pub const HOLD_WAVES_MAX: f64 = 360.0;
+/// The guided first game's first wave goes once released, and not before this (s): Easy's own first wave went at 4:00
+/// before it moved to 7:45 (a newcomer not hit before about 8:00); the guide holds the wave itself, until its army is
+/// ready, and a wave it waits minutes for after that would leave the newcomer standing.
+pub const GUIDED_FIRST: f64 = 240.0;
 /// The most fighters (counted with those queued) the opponent of the guided first game has while its waves are held:
 /// half the guide's army of six line units and two anti-air, and its first wave's size on Easy (`Diff::wave`).
 pub const GUIDED_ARMY: usize = 4;
@@ -42,7 +46,8 @@ fn army_worth(k: UnitKind) -> f64 {
 impl World {
     /// The guided first game: its hold on the opponent's waves, set by `guided_hold` (the client's `holdWaves`): no
     /// wave while on (until `HOLD_WAVES_MAX` s at most), and meanwhile the opponent's army stops growing at
-    /// `GUIDED_ARMY`; released, the first wave goes, and its army grows to `GUIDED_ARMY_AFTER` at most for the rest of
+    /// `GUIDED_ARMY`; released, the first wave goes (from `GUIDED_FIRST`, whatever its level's first wave), and its
+    /// army grows to `GUIDED_ARMY_AFTER` at most for the rest of
     /// the game (`guided_army_full`). It raises no towers by the clock either (`ai_build`): a Lookout under repair
     /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level.
     pub fn guided_hold(&mut self, on: bool) {
@@ -480,7 +485,13 @@ impl World {
         let held = self.waves_held(t); // (the guided first game: until the player is ready)
         // (at the cap a wave is as big as it gets: it goes whatever its count)
         let short = army.len() < need && !self.at_cap(self.seat());
-        if held || ai.attacking || short || t - ai.last_wave <= d.gap || t <= d.first {
+        // (the guided first game: its first wave when the guide releases it, `GUIDED_FIRST`)
+        let first = if self.guided {
+            d.first.min(GUIDED_FIRST)
+        } else {
+            d.first
+        };
+        if held || ai.attacking || short || t - ai.last_wave <= d.gap || t <= first {
             if !ai.attacking && short {
                 self.ai_mut().ready_since = None;
             }
@@ -1321,7 +1332,8 @@ mod tests {
     fn easy_keeps_todays_waves() {
         let (mut w, _, mut b) = ready(0);
         w.ai_mut().wave = 4;
-        w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
+        b.t = 500.0; // (past Easy's first wave, 7:45)
+        w.ai_mut().army_seen = (30.0 * trooper(), 499.0, 0.0);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "Easy does not wait for strength");
         assert!(w.ai().staging.is_none(), "nor gather");

@@ -8,7 +8,7 @@ export const CHECKS = [300, 2700, 9000];
 /** Each: golden.rs's label, the setup (map: index into MapKind::ALL; factions: index into FACTIONS; ai: the seats
  *  the scripted opponent plays; teams and size, when not a duel's) and the hashes at CHECKS. */
 export const GOLDEN = [
-  { name: 'ashen-easy', seed: 4242, diff: 0, map: 0, side: 0, factions: [0, 0], ai: [0, 1], want: [1155257989, 1683954902, 472038691] },
+  { name: 'ashen-easy', seed: 4242, diff: 0, map: 0, side: 0, factions: [0, 0], ai: [0, 1], want: [1155257989, 1683954902, 1045390934] },
   { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [330852462, 1460516432, 2835363579] },
   { name: 'cinder-hard', seed: 2077, diff: 2, map: 4, side: 0, factions: [0, 0], ai: [0, 1], want: [158882134, 2372422908, 652465715] },
   { name: 'storm-medium', seed: 77, diff: 1, map: 2, side: 0, factions: [0, 0], ai: [0, 1], want: [4072273681, 1227830044, 3715618250] },

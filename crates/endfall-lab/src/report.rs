@@ -1,7 +1,7 @@
 //! `report`: a batch's games turned into per-cell figures, the target checks, the key figures (the Balance reports
 //! database's fields), a Markdown summary and the JSON that `compare` reads.
 
-use crate::batch::{Batch, Cell, GameRec, Kind, LEVELS, TPS};
+use crate::batch::{Batch, Cell, ECON_AT, GameRec, Kind, LEVELS, TPS};
 use crate::json::Json;
 use crate::stats::{median, mmss, quantile, wilson};
 use endfall_sim::data::{FACTIONS, UNIT_KINDS};
@@ -728,6 +728,25 @@ fn game_json(g: &GameRec) -> Json {
                 vec![s.lost_near_field[0], s.lost_near_field[1]],
             )
             .with("south", s.south)
+            .with(
+                "econ",
+                s.econ
+                    .iter()
+                    .zip(ECON_AT)
+                    .map(|(e, m)| {
+                        Json::obj()
+                            .with("min", m)
+                            .with("bank", vec![e.bank[0] as i64, e.bank[1] as i64])
+                            .with("mined", vec![e.mined[0], e.mined[1]])
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .with(
+                "at_max_tick",
+                vec![Json::from(s.at_max[0]), Json::from(s.at_max[1])],
+            )
+            .with("home_dry_tick", s.home_dry)
+            .with("second_base_tick", s.second_base)
     };
     Json::obj()
         .with("seed", g.seed)
@@ -736,6 +755,8 @@ fn game_json(g: &GameRec) -> Json {
         .with("first_attack_tick", g.first_attack)
         .with("pumps_at_5", g.pumps_at_5.map(|p| vec![p[0], p[1]]))
         .with("seats", vec![seat(&g.seats[0]), seat(&g.seats[1])])
+        .with("mines", g.mines)
+        .with("mines_dry_ticks", g.mines_dry.clone())
         .with(
             "routes",
             g.routes.map(|r| vec![Json::from(r[0]), Json::from(r[1])]),

@@ -2,7 +2,7 @@
 //! natively with a read-only record of what happened, and playing them all on threads in a fixed order.
 
 use endfall_sim::data::Move;
-use endfall_sim::data::{BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
+use endfall_sim::data::{ALL_POOLS, BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
 use endfall_sim::map::{Foot, Ground, MapKind, MapSize, ShoreField};
 use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
@@ -179,7 +179,28 @@ pub struct SeatRec {
     pub lost_near_field: [u32; 2],
     /// Which half of the map the seat started in: its headquarters south of the middle row.
     pub south: bool,
+    /// At each of `ECON_AT`'s minutes the game reached: its bank [shards, ether] and what it had mined so far.
+    pub econ: Vec<Econ>,
+    /// The first tick each pool (`ALL_POOLS`: population or Power, hired places) came within `AT_MAX_SLACK` places
+    /// of its maximum (`World::pool_max`; None: never, or a pool the side does not have).
+    pub at_max: [Option<u32>; 2],
+    /// The tick the mine nearest its headquarters ran dry (None: it never did).
+    pub home_dry: Option<u32>,
+    /// The tick it first had two finished headquarters (None: never).
+    pub second_base: Option<u32>,
 }
+
+/// A seat's economy at one of `ECON_AT`'s minutes.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Econ {
+    pub bank: [i32; 2],
+    pub mined: [i64; 2],
+}
+
+/// The minutes the economy is sampled at (`SeatRec::econ`).
+pub const ECON_AT: [u32; 6] = [2, 3, 5, 8, 10, 15];
+/// A pool this many places short of its maximum is at it (a unit takes up to a few places).
+pub const AT_MAX_SLACK: i32 = 2;
 
 /// The tick of the Pumps' count: 5:00.
 pub const PUMPS_AT: u32 = 5 * 60 * TPS;
@@ -207,6 +228,9 @@ pub struct GameRec {
     /// The finished Pumps each seat held at 5:00 (None: the game ended before; PRD: the conversion, the snowball check).
     pub pumps_at_5: Option<[u32; 2]>,
     pub seats: [SeatRec; 2],
+    /// The mines on the map, and the ticks those that ran dry did, in order.
+    pub mines: usize,
+    pub mines_dry: Vec<u32>,
     /// On a map with water: the route lengths (tiles) between the two starts' headquarters, for a walker and for an
     /// amphibian (None: no way).
     pub routes: Option<[Option<f64>; 2]>,
@@ -250,6 +274,9 @@ pub struct Tracker {
     pub seats: [SeatRec; 2],
     /// Each seat's wave out (and whether it has reached yet).
     wave_out: [Option<bool>; 2],
+    /// The mines that have run dry (by node id), with the tick, in order; each seat's home mine (its node id).
+    pub mines_dry: Vec<(u32, u32)>,
+    home_mine: [Option<u32>; 2],
 }
 
 fn standing(w: &World) -> Vec<Seen> {
@@ -281,12 +308,30 @@ impl Tracker {
             // (by the headquarters' middle: its 4x4 block's top-left tile plus two)
             rec.south = w.map.bases.get(s).is_some_and(|b| (b.1 + 2) * 2 > w.map.h);
         }
+        // (each seat's home mine: the one nearest its headquarters' middle)
+        let home_mine = [0, 1].map(|s| {
+            let (bx, by) = w.map.bases.get(s).copied()?;
+            let (x, y) = ((bx + 2) as f64 * 32.0, (by + 2) as f64 * 32.0);
+            w.map
+                .nodes
+                .iter()
+                .filter(|n| !n.ether)
+                .min_by(|a, b| {
+                    (a.x - x)
+                        .hypot(a.y - y)
+                        .total_cmp(&(b.x - x).hypot(b.y - y))
+                        .then(a.id.cmp(&b.id))
+                })
+                .map(|n| n.id)
+        });
         Tracker {
             known: standing(w),
             first_attack: None,
             pumps_at_5: None,
             seats,
             wave_out: [None; 2],
+            mines_dry: vec![],
+            home_mine,
         }
     }
 
@@ -303,6 +348,7 @@ impl Tracker {
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.pools[s][0][0]);
         }
+        self.economy(w, tick);
         self.waves(w);
         if tick.is_multiple_of(SAMPLE) {
             self.ground(w);
@@ -351,6 +397,47 @@ impl Tracker {
             }
         }
         self.known = now;
+    }
+
+    /// The economy: the banks at `ECON_AT`'s minutes, the pools at their maximum, the mines running dry, second bases.
+    fn economy(&mut self, w: &World, tick: u32) {
+        if ECON_AT.iter().any(|&m| m * 60 * TPS == tick) {
+            for (s, rec) in self.seats.iter_mut().enumerate() {
+                rec.econ.push(Econ {
+                    bank: w.res[s],
+                    mined: w.ledger[s].mined,
+                });
+            }
+        }
+        for (s, rec) in self.seats.iter_mut().enumerate() {
+            for (k, pool) in ALL_POOLS.into_iter().enumerate() {
+                let max = w.pool_max(s as u8, pool);
+                if rec.at_max[k].is_none() && max > 0 && w.pools[s][k][0] + AT_MAX_SLACK >= max {
+                    rec.at_max[k] = Some(tick);
+                }
+            }
+            if rec.second_base.is_none()
+                && w.bldgs
+                    .iter()
+                    .filter(|b| b.team as usize == s && b.done && b.kind.def().hq)
+                    .count()
+                    >= 2
+            {
+                rec.second_base = Some(tick);
+            }
+        }
+        if tick.is_multiple_of(SAMPLE) {
+            for n in w.map.nodes.iter().filter(|n| !n.ether && n.amount <= 0) {
+                if !self.mines_dry.iter().any(|d| d.0 == n.id) {
+                    self.mines_dry.push((n.id, tick));
+                    for (s, rec) in self.seats.iter_mut().enumerate() {
+                        if self.home_mine[s] == Some(n.id) {
+                            rec.home_dry = Some(tick);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Waves, every tick (cheap): launched when a seat's AI sends one out, reached when one of its units comes within
@@ -461,6 +548,8 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
         w.events.clear();
     }
     let (first_attack, pumps_at_5) = (track.first_attack, track.pumps_at_5);
+    let mines = w.map.nodes.iter().filter(|n| !n.ether).count();
+    let mines_dry = track.mines_dry.iter().map(|d| d.1).collect();
     GameRec {
         seed,
         winner: (w.winner >= 0).then_some(w.winner as usize),
@@ -468,6 +557,8 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
         first_attack,
         pumps_at_5,
         seats: track.finish(&w),
+        mines,
+        mines_dry,
         routes,
         waves: watch.finish(&w),
     }

@@ -59,10 +59,11 @@ fn a_selection_casts_together_and_only_its_own_units() {
 #[test]
 fn the_ai_uses_abilities_in_its_fights() {
     // Two AIs, the Kingdom against the Expedition: in their fights the Kingdom's Cannon drops anchor by itself.
-    // (over a few games: whether an ability gets its moment depends on how a game goes)
+    // (over a few games: whether an ability gets its moment depends on how a game goes; at Brutal, whose Kingdom
+    // mixes in its Cannons sooner and more of them: since the economy's second round Medium's rarely gets to them)
     let mut cast: Vec<&str> = Vec::new();
     for seed in [6u32, 7, 8, 9] {
-        let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(seed, 3, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         for _ in 0..30 * 60 * 15 {
             if w.over {

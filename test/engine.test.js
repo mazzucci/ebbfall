@@ -221,7 +221,7 @@ test('a Market, built in the base once the Barracks stands, earns gold by itself
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
-  assert.equal(E.G.res[E.PLAYER][0], 10, 'ten gold in 20 s, nobody mining');
+  assert.equal(E.G.res[E.PLAYER][0], 7, 'seven gold in 20 s (0.35 a second), nobody mining');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {

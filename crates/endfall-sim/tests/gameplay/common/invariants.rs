@@ -62,7 +62,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             u.hp
         );
         assert!(
-            u.carry >= 0 && u.carry <= MINE_LOAD,
+            u.carry >= 0 && u.carry <= MINE_LOAD_MOST,
             "{ctx}: unit {} carry {}",
             u.id,
             u.carry
@@ -285,7 +285,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             n.id
         );
         assert!(
-            n.miners <= MINE_CAP,
+            n.miners <= MINE_CAP_MOST,
             "{ctx}: node {} has {} miners",
             n.id,
             n.miners

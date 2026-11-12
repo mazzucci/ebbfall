@@ -42,6 +42,16 @@ impl World {
         self.pools[team as usize].iter().map(|p| p[0]).sum()
     }
 
+    /// `n` places of `pool` for seat `e` in that pool's own units: the Expedition's Power counts `POWER_PER_PLACE` for a
+    /// Kingdom place (the AI's margins and slacks are written in places).
+    pub fn places(&self, e: u8, pool: Pool, n: i32) -> i32 {
+        if pool == Pool::Supply && self.factions[e as usize].power {
+            n * POWER_PER_PLACE
+        } else {
+            n
+        }
+    }
+
     /// The places a unit of `pool` could still take: its pool's free places (its cap is never above its maximum).
     pub fn room(&self, team: u8, pool: Pool) -> i32 {
         let [used, cap] = self.pool(team, pool);
@@ -239,16 +249,17 @@ impl World {
         }
     }
 
-    /// Walking to the mine, or waiting at its side: in when there is room (fewer than `MINE_CAP` inside), else try a
-    /// less crowded mine nearby.
+    /// Walking to the mine, or waiting at its side: in when there is room (fewer inside, whoever they are, than its own
+    /// kind's `UnitDef::mine_cap`: eight Villagers or five Bots), else try a less crowded mine nearby.
     fn gather_arrive(&mut self, uid: Id, n: &Node, phase: Phase, timer: f64, income: f64, dt: f64) {
         let (team, r) = (self.u(uid).team, self.u(uid).r);
         let node = n.id;
         if !self.approach_settled(uid, n.geo(), r + 6.0, SETTLE, dt) {
             return;
         }
+        let cap = self.u(uid).kind.def().mine_cap;
         let nm = self.map.node_mut(node).unwrap();
-        let task = if nm.miners < MINE_CAP {
+        let task = if nm.miners < cap {
             nm.miners += 1;
             Task::Gather {
                 node,
@@ -294,10 +305,10 @@ impl World {
             };
             return;
         }
-        let team = self.u(uid).team;
+        let (team, load) = (self.u(uid).team, self.u(uid).kind.def().mine_load);
         let nm = self.map.node_mut(node).unwrap();
         nm.miners -= 1;
-        let take = nm.amount.min(MINE_LOAD);
+        let take = nm.amount.min(load);
         nm.amount -= take;
         let left = nm.amount;
         // A mine crossing into its last MINE_LOW gold: time to expand.

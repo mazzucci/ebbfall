@@ -31,6 +31,7 @@ pub const VAEL: Faction = Faction {
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: false,
     power: true,
+    start_workers: 4, // (two from the balancing phase: Stelian, Nov 13)
     ai: AiScript {
         rax: BldgKind::Siphon,
         tech: BldgKind::Loom,
@@ -67,10 +68,13 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     name: "Bot",
     cost: [50, 0],
     hp: 40.0,
-    speed: 100.0,
+    speed: 87.0, // (100 before the economy's second round: calmer trips)
     sight: 7.0,
     r: 9.0,
-    build: 12.0,
+    build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
+    supply: 2, // (Power: 1 before the economy's second round, twice a Villager's place as every machine)
+    mine_cap: 5,
+    mine_load: 12,
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,
@@ -85,7 +89,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     key: "scythe",
     name: "Buggy",
     cost: [100, 0],
-    supply: 2,
+    supply: 4, // (Power: 2 before the economy's second round)
     hp: 100.0,
     armor: 1.0,
     speed: 135.0,
@@ -151,7 +155,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
     cost: [300, 0],
-    supply: 3, // (Power)
+    supply: 6, // (Power: 3 before the economy's second round)
     hp: 200.0,
     armor: 2.0,
     speed: 90.0,
@@ -175,7 +179,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
     cost: [250, 0],
-    supply: 4,
+    supply: 6, // (Power: 4 before the economy's second round)
     hp: 200.0,
     armor: 1.0,
     speed: 58.0,
@@ -200,7 +204,7 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
     name: "Drone",
     cost: [175, 0],
-    supply: 2,
+    supply: 4, // (Power: 2 before the economy's second round)
     hp: 120.0,
     speed: 165.0,
     sight: 9.0,
@@ -229,7 +233,7 @@ pub(super) const BRUISER: UnitDef = UnitDef {
     key: "bruiser",
     name: "Bruiser",
     cost: [225, 0],
-    supply: 1,
+    supply: 2, // (hired places: 1 before the economy's second round)
     pool: Pool::Hired,
     hp: 320.0,
     armor: 3.0,
@@ -259,7 +263,7 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 20, // (Power)
+    supply: 40, // (Power: 20 before the economy's second round)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],
@@ -275,7 +279,7 @@ pub(super) const SPIRE: BldgDef = BldgDef {
     short: "Turbine",
     cost: [100, 0],
     hp: 400.0,
-    supply: 8,
+    supply: 20, // (Power: 8 before the economy's second round)
     build: 25.0,
     sight: 6.0,
     ..BLDG
@@ -351,7 +355,7 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
     name: "Portal",
     cost: [150, 0],
     hp: 800.0,
-    uses: 4,
+    uses: 8, // (Power: 4 before the economy's second round)
     single: true,
     build: 45.0,
     sight: 7.0,

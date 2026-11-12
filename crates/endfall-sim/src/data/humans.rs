@@ -25,6 +25,7 @@ pub const HUMANS: Faction = Faction {
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
     power: false,
+    start_workers: 4,
     ai: AiScript {
         rax: BldgKind::Barracks,
         tech: BldgKind::Forge,
@@ -58,9 +59,11 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     worker: true,
     cost: [50, 0],
     hp: 40.0,
-    speed: 96.0,
+    speed: 84.0, // (96 before the economy's second round: calmer trips)
     sight: 7.0,
-    build: 12.0,
+    build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
+    mine_cap: 8,
+    mine_load: 9,
     weapon: Some(Weapon {
         range: 0.6,
         dmg: 4.0,
@@ -122,7 +125,7 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Cannon",
     cost: [175, 0],
-    supply: 3,
+    supply: 2, // (3 before the economy's second round: by tier, gold-dense at the top)
     hp: 140.0,
     armor: 1.0,
     speed: 62.0,
@@ -223,7 +226,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
     key: "knight",
     name: "Knight",
     cost: [225, 0],
-    supply: 4,
+    supply: 2, // (4 before the economy's second round: by tier, gold-dense at the top)
     hp: 280.0,
     armor: 3.0,
     speed: 105.0,

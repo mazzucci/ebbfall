@@ -906,7 +906,8 @@ fn each_ai_seat_plays_at_its_own_difficulty() {
         games[2].state_hash(),
         "Brutal on seat 2: another game"
     );
-    // Each plays its own: Easy keeps fewer harvesters than Brutal (7 and 12), which gathers 30% more on the same fields.
+    // Each plays its own: Easy keeps fewer workers than Brutal (Easy's 7 a crew, Brutal's 12, in each people's workers:
+    // eight Villagers and nine Bots), and Brutal gathers 30% more on the same fields.
     let mut hashes = Vec::new();
     for _ in 0..30 * 240 {
         g.step();
@@ -914,8 +915,9 @@ fn each_ai_seat_plays_at_its_own_difficulty() {
     }
     let w = g.world();
     let (easy, brutal) = (harvesters(w, 1).len(), harvesters(w, 2).len());
+    let (te, tb) = (w.harv_target_of(1, 1), w.harv_target_of(2, 1));
     assert!(
-        easy <= 8 && brutal > easy + 3,
+        te < tb && easy <= te + 1 && brutal + 1 >= tb,
         "Easy {easy} harvesters, Brutal {brutal}"
     );
     assert!(

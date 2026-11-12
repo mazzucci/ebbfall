@@ -100,7 +100,10 @@ impl World {
         let ai = self.ai_mut();
         if saving && !threatened && t >= ai.no_save_until {
             let since = *ai.saving_since.get_or_insert(t);
-            if t - since > SAVE_MAX && !(expand && dry) {
+            // (an expansion's Castle is saved for twice as long: at the second round's slower income, 30 s of saving
+            // came to less than its price, and the AI never expanded)
+            let most = if expand { 2.0 * SAVE_MAX } else { SAVE_MAX };
+            if t - since > most && !(expand && dry) {
                 ai.saving_since = None;
                 ai.no_save_until = t + 30.0; // spend for a while before saving again
                 saving = false;

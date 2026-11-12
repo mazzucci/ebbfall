@@ -21,7 +21,7 @@ pub struct Node {
     /// Gold left; `total`, what it held at the start (a mine's stage reads the two).
     pub amount: i32,
     pub total: i32,
-    /// Workers inside a mine (at most `MINE_CAP`).
+    /// Workers inside a mine (at most `MINE_CAP_MOST`, the largest kind's `mine_cap`).
     pub miners: i32,
     pub r: f64,
     /// Building id of the extractor standing on a mine shaft's vent (none since the re-theme's economy).

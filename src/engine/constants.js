@@ -11,6 +11,8 @@ export const DUEL_MW = D.consts.mw;
 export const DUEL_MH = D.consts.mh;
 /** Fixed simulation tick, seconds. The sim only ever advances by this. */
 export const DT = D.consts.dt;
+/** Gold a second a finished Market pays (`PUMP_RATE`). */
+export const PUMP_RATE = D.consts.pump_rate;
 
 /** The seats a menu game deals: the player and the scripted opponent (tests and tools; the client itself plays G.me). */
 export const PLAYER = D.consts.player;
@@ -62,9 +64,9 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +20 Power. Machines move faster within ${D.radio.sources.conflux} tiles. Launches the satellite.` },
-  spire: { hot: 'S', what: 'Makes +8 Power', desc: '+8 Power.' },
-  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: '+6 hired places. Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.' },
+  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +${D.buildings.conflux.supply} Power. Machines move faster within ${D.radio.sources.conflux} tiles. Launches the satellite.` },
+  spire: { hot: 'S', what: `Makes +${D.buildings.spire.supply} Power`, desc: `+${D.buildings.spire.supply} Power.` },
+  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: `+${D.buildings.siphon.supply} hired places. Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.` },
   kiln: { hot: 'C', what: 'Builds Buggies, Rovers, Drones', desc: 'Builds Buggies, Rovers and Drones.' },
   loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Overclock. Unlocks Rovers and Bruisers.' },
   ward: { hot: 'A', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },

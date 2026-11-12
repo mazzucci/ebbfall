@@ -4,8 +4,8 @@ use super::common::*;
 
 #[test]
 fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
-    // The Kingdom's Market, built in its base, pays its owner half a gold a second, a whole gold every 2 s, with nobody
-    // on it; it counts as mined. A site pays nothing, and the Expedition's Recruiting post never pays.
+    // The Kingdom's Market, built in its base, pays its owner 0.35 gold a second, a whole gold every 2.9 s or so, with
+    // nobody on it (half a gold a second before the balance round that followed the economy pass); it counts as mined. A site pays nothing, and the Expedition's Recruiting post never pays.
     let mut w = rich(9);
     for h in harvesters(&w, PLAYER) {
         w.stop_unit(h); // (nobody mines: what comes in is the Market's)
@@ -18,15 +18,15 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
     w.damage(site, 1e6, None);
     let market = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
     let mined = w.ledger[PLAYER as usize].mined[0];
+    run(&mut w, 2);
+    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first 2 s");
     run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first second");
-    run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 2 s");
-    run(&mut w, 58);
-    assert_eq!(w.res[PLAYER as usize], [30, 0], "30 gold a minute");
+    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 3 s");
+    run(&mut w, 57);
+    assert_eq!(w.res[PLAYER as usize], [21, 0], "21 gold a minute");
     assert_eq!(
         w.ledger[PLAYER as usize].mined[0] - mined,
-        30,
+        21,
         "counted as mined"
     );
     assert!(
@@ -106,7 +106,8 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
 
 #[test]
 fn an_ai_market_pays_at_its_levels_income() {
-    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (39 gold a minute, not 30).
+    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (27 gold a minute, not 21: 27.3, banked a
+    // whole gold at a time).
     let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
     assert!(w.set_ai_seats([false, true]));
     w.disable_ai();
@@ -119,7 +120,7 @@ fn an_ai_market_pays_at_its_levels_income() {
     w.make_building(BldgKind::Extractor, ENEMY, vx, vy, true);
     w.res[ENEMY as usize] = [0, 0];
     run(&mut w, 60);
-    assert_eq!(w.res[ENEMY as usize][0], 39);
+    assert_eq!(w.res[ENEMY as usize][0], 27);
 }
 
 #[test]
@@ -150,13 +151,13 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
 
 #[test]
 fn the_supply_cap_grows_with_the_map() {
-    // Roster v2: 60 on 64x64, 70 on 96x96, 80 on 128x128 (`World::supply_limit`): the Kingdom's population limit, and
-    // the Expedition's Power and hired places together (its Power alone: 52 of the 70 on 96x96). Supply buildings
-    // past the cap add nothing, and a seat at the cap is supply blocked.
+    // 100 on 64x64, 120 on 96x96, 140 on 128x128 since the economy's second round (60, 70, 80 before;
+    // `World::supply_limit`): the Kingdom's population limit; the Expedition's Power is twice it (240 on 96x96,
+    // `power_limit`). Supply buildings past the cap add nothing, and a seat at the cap is supply blocked.
     for (n, limit, cap, f) in [
-        (64, 60, 60, &HUMANS),
-        (96, 70, 52, &VAEL),
-        (128, 80, 80, &HUMANS),
+        (64, 100, 100, &HUMANS),
+        (96, 120, 240, &VAEL),
+        (128, 140, 140, &HUMANS),
     ] {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();
@@ -190,7 +191,7 @@ fn the_supply_cap_grows_with_the_map() {
     }
     assert_eq!(
         [64, 96, 128].map(supply_limit),
-        [60, 70, 80],
+        [100, 120, 140],
         "the table by map width"
     );
 }
@@ -412,7 +413,7 @@ fn busy_workers_only_hop_to_mines_no_farther_from_the_drop_off() {
             move_node(&mut w, fields[1], 24, 37);
         }
         let (x, y) = (w.bldg(core_id).unwrap().x, w.bldg(core_id).unwrap().y);
-        let h: Vec<Id> = (0..MINE_CAP + 4)
+        let h: Vec<Id> = (0..UnitKind::Harvester.def().mine_cap + 4)
             .map(|i| {
                 w.make_unit(
                     UnitKind::Harvester,
@@ -470,6 +471,13 @@ fn a_worker_runs_from_an_armed_enemy_with_nobody_to_fight_it_and_goes_back_after
     w.disable_ai();
     run(&mut w, 12); // (the starting workers are at their field)
     let h = harvesters(&w, PLAYER)[0];
+    // (out of the mine: a worker inside is out of reach, 7.5 s at a time)
+    for _ in 0..15 * TPS {
+        if !w.unit(h).unwrap().inside() {
+            break;
+        }
+        w.step();
+    }
     let field = gather_node(&w, h).expect("mining");
     let (hx, hy) = (w.unit(h).unwrap().x, w.unit(h).unwrap().y);
     let raider = w.make_unit(UnitKind::Trooper, ENEMY, hx + 40.0, hy);
@@ -666,4 +674,35 @@ fn either_half_mines_its_field_alike() {
         }
     }
     assert!(checked >= 6, "enough mirrored starts checked ({checked})");
+}
+
+#[test]
+fn a_worker_carrying_gold_walks_slower_than_an_empty_one() {
+    // Calm trips (Stelian, Nov 12): the workers walk at about 87% of their old speed, and a load of gold slows one to
+    // `LOADED_SPEED` of that (about 72% of the old). Two Villagers on open ground, one carrying gold, sent the same way.
+    let mut w = arena(4);
+    flatten(&mut w, 10..40, 30..40);
+    let (y0, y1) = (34.0 * 32.0 + 16.0, 36.0 * 32.0 + 16.0);
+    let empty = w.make_unit(UnitKind::Harvester, PLAYER, 12.0 * 32.0, y0);
+    let loaded = w.make_unit(UnitKind::Harvester, PLAYER, 12.0 * 32.0, y1);
+    w.units.iter_mut().find(|u| u.id == loaded).unwrap().carry =
+        UnitKind::Harvester.def().mine_load;
+    w.move_to(empty, 38.0 * 32.0, y0);
+    w.move_to(loaded, 38.0 * 32.0, y1);
+    run(&mut w, 1);
+    let (e0, l0) = (w.unit(empty).unwrap().x, w.unit(loaded).unwrap().x);
+    run(&mut w, 4);
+    let (e1, l1) = (w.unit(empty).unwrap().x, w.unit(loaded).unwrap().x);
+    let (ve, vl) = ((e1 - e0) / 4.0, (l1 - l0) / 4.0);
+    assert!(
+        (ve - UnitKind::Harvester.def().speed).abs() < 2.0,
+        "empty: {ve:.1} px/s"
+    );
+    assert!(
+        (vl / ve - LOADED_SPEED).abs() < 0.02,
+        "loaded: {vl:.1} px/s against {ve:.1}"
+    );
+    assert!((0.85..=0.90).contains(&(UnitKind::Harvester.def().speed / 96.0)));
+    assert!((0.85..=0.90).contains(&(UnitKind::Lumen.def().speed / 100.0)));
+    assert!((0.70..=0.75).contains(&(UnitKind::Harvester.def().speed * LOADED_SPEED / 96.0)));
 }

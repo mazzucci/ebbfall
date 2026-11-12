@@ -526,6 +526,9 @@ impl World {
         if u.slowed > 0.0 {
             own *= SLOW_SPEED; // (harpooned)
         }
+        if u.carry > 0 && u.kind.def().worker {
+            own *= LOADED_SPEED; // (a worker carrying gold)
+        }
         own *= self.radio_speed(uid); // (a machine in range)
         match (u.pace, u.task) {
             (Some(p), Task::Move { .. } | Task::AMove { .. }) => own.min(p),

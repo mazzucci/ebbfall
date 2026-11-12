@@ -319,13 +319,27 @@ impl World {
         self.ai_count(my_b, false, s.rax) + s.heavy.map_or(0, |h| self.ai_count(my_b, false, h))
     }
 
+    /// The most places `e`'s line (its `basic` unit's pool) takes: that pool's maximum, or its level's `line_max` below
+    /// it where the pool is not the whole army.
+    pub(crate) fn line_max(&self, e: u8) -> i32 {
+        let pool = self.factions[e as usize].ai.basic.def().pool;
+        let max = self.pool_max(e, pool);
+        let d = self.tuning(e);
+        if d.line_max > 0 && max < self.supply_limit() {
+            // (written for 64x64: as many more on a bigger map as its maximum has)
+            max.min(d.line_max * max / hired_limit(64))
+        } else {
+            max
+        }
+    }
+
     /// Whether `e`'s line (its `basic` unit's pool) stands at its own maximum, within `CAP_SLACK`, while that pool is
-    /// only part of its army (the Expedition's hired places: 15 of the map's 60 on 64x64): its money then goes to its
+    /// only part of its army (the Expedition's hired places: 25, its Power 200 on 64x64): its money then goes to its
     /// other pool's units (machines, from its air factory and its Portal), not to more of the line.
     pub(crate) fn line_capped(&self, e: u8) -> bool {
         let pool = self.factions[e as usize].ai.basic.def().pool;
-        let max = self.pool_max(e, pool);
-        max < self.supply_limit() && self.pool(e, pool)[0] + CAP_SLACK >= max
+        let max = self.line_max(e);
+        max < self.supply_limit() && self.pool(e, pool)[0] + self.places(e, pool, CAP_SLACK) >= max
     }
 
     /// The factory to add when shards pile up for want of one: a bank of `SHARD_FLOAT` with every one of a kind busy
@@ -353,7 +367,7 @@ impl World {
             return (busy_all(s.air)
                 && self.res[e as usize][0] >= SHARD_FLOAT
                 && self.ai_count(my_b, false, s.air) < 1 + d.extra_rax / 2
-                && room >= 4
+                && room >= self.places(e, Pool::Supply, 4)
                 && self.ai().saving_since.is_none())
             .then_some(s.air);
         }
@@ -378,7 +392,7 @@ impl World {
         };
         (self.res[e as usize][0] >= SHARD_FLOAT
             && self.factories(e, my_b) < schedule + d.extra_rax
-            && room >= 4
+            && room >= self.places(e, pool, 4)
             && self.ai().saving_since.is_none()
             && (!d.extras_after_expanding || expanded()))
         .then_some(kind)
@@ -464,10 +478,12 @@ impl World {
         let d = self.level();
         let [used, cap] = self.pool(e, Pool::Hired);
         let rising = building.iter().filter(|&&b| b == k).count();
-        (cap - used <= d.supply_ahead / 2
-            && cap < self.pool_max(e, Pool::Hired)
-            && rising < d.supply_at_once)
-            .then_some(k)
+        let most = if self.factions[e as usize].ai.basic.def().pool == Pool::Hired {
+            self.line_max(e)
+        } else {
+            self.pool_max(e, Pool::Hired)
+        };
+        (cap - used <= d.supply_ahead / 2 && cap < most && rising < d.supply_at_once).then_some(k)
     }
 
     /// The build order: one wanted building at a time, placed by a free harvester.
@@ -504,7 +520,7 @@ impl World {
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         // (and the Power kept for its elite: the Portal and an Android, `elite_reserve`)
-        let supply_margin = d.supply_ahead
+        let supply_margin = self.places(e, Pool::Supply, d.supply_ahead)
             + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply)
             + self.elite_reserve(e, &my_b, t);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
@@ -650,7 +666,7 @@ impl World {
             && t - ai.last_base_at > PASSIVE_BASE_GAP
             && self.bases_dry(&my_b);
         let exp_spot = if ((t > d.expand_at || dry) && hqs < 2 || passive || all_dry)
-            && harv.len() + 2 >= d.harv
+            && harv.len() + 2 >= self.crew_of(e, d.harv)
         {
             self.expansion_spot(cx, cy)
         } else {

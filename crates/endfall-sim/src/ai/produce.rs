@@ -17,6 +17,7 @@ impl World {
             rally,
             saving,
             want,
+            intruder,
             ..
         } = brain.clone();
         // Production. The main factory answers enemy flyers (as far as the AI knows) with its anti-air (Archers,
@@ -38,12 +39,20 @@ impl World {
         // giant never comes. What is held back (for it, and for the building the build order wants next) only
         // counts against a unit for the resources that unit spends.
         let capital_due = self.capital_due(e, &my_b, t);
-        let held = {
+        // Its elite due one at a time (`Diff::elite_hold`): its price held back too, but not from itself.
+        let elite_due = self.elite_due(e, &my_b).filter(|_| intruder.is_none());
+        let held_for = |elite: bool| {
             let r = want.map_or([0, 0], |w| w.def().cost);
             let k = capital_due.map_or([0, 0], |k| k.def().cost);
-            [r[0] + k[0], r[1] + k[1]]
+            let x = elite_due
+                .filter(|_| !elite)
+                .map_or([0, 0], |k| k.def().cost);
+            [r[0] + k[0] + x[0], r[1] + k[1] + x[1]]
         };
+        let (held, held_elite) = (held_for(false), held_for(true));
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
+        let need_elite =
+            |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held_elite[i] } else { 0 });
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
         // cheaper machines fill the Power every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
@@ -111,6 +120,8 @@ impl World {
             let need = |k: UnitKind| {
                 if Some(k) == scout {
                     k.def().cost
+                } else if Some(k) == elite_due {
+                    need_elite(k.def().cost)
                 } else {
                     need(k.def().cost)
                 }
@@ -181,6 +192,8 @@ impl World {
                 heavy_aa.filter(|k| short_of_aa && b.kind.def().trains.contains(k))
             {
                 k
+            } else if let Some(k) = elite_due.filter(|k| b.kind.def().trains.contains(k)) {
+                k // (one at a time: the Portal is idle, see `elite_due`)
             } else if let Some((k, _, _)) = mixed
                 && (b.kind == s.rax
                     || heavy
@@ -272,11 +285,32 @@ impl World {
             } else {
                 0
             }
-        } else if (mine(k) + 1) * per <= mine(s.basic) {
+        } else if (mine(k) + 1) * per <= mine(s.basic) || self.elite_due(e, my_b).is_some() {
             k.def().supply
         } else {
             0
         }
+    }
+
+    /// The elite `e` trains next, one at a time (`Diff::elite_hold`): the unit its finished, idle second tech building
+    /// (the Expedition's Portal) trains for its mix, when its level fields it. None while that building is busy or
+    /// not up, on a level without the hold, and for a side without one.
+    pub(crate) fn elite_due(&self, e: u8, my_b: &[Id]) -> Option<UnitKind> {
+        let level = self.level();
+        if !level.elite_hold {
+            return None;
+        }
+        let s = &self.factions[e as usize].ai;
+        let k2 = s.tech2?;
+        let (k, _, _) = s
+            .mix
+            .iter()
+            .map(|&m| level.mix_entry(m))
+            .find(|&(k, _, _)| k2.def().trains.contains(&k) && self.level_allows(k))?;
+        my_b.iter()
+            .filter_map(|&id| self.bldg(id))
+            .any(|b| b.kind == k2 && b.done && b.queue.is_empty())
+            .then_some(k)
     }
 
     /// Whether the seat taking its turn trains `k` at its level (`Diff::mix_tier`).

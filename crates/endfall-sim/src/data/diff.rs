@@ -78,6 +78,11 @@ pub struct Diff {
     /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
+    /// Its elite one at a time (the Expedition's Android, from its Portal): once the Portal stands idle and no enemy is
+    /// at its buildings, its other factories hold the elite's price back and the Portal trains one, whatever the mix's
+    /// ratio to the line. Under the scarce economy the line spent every coin and Medium's Expedition fielded about one
+    /// Android in five games.
+    pub elite_hold: bool,
 }
 
 impl Diff {
@@ -150,6 +155,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 0.0,
         mix_tier: 0,
         mix_over: &[],
+        elite_hold: false,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -192,6 +198,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 1.0,
         mix_tier: 1,
         mix_over: &[],
+        elite_hold: true,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -231,6 +238,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_below: 1.0,
         mix_tier: 2,
         mix_over: &[],
+        elite_hold: true,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -276,5 +284,6 @@ pub const DIFF: [Diff; 4] = [
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
         mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
+        elite_hold: true,
     },
 ];

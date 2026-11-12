@@ -552,10 +552,8 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
     // its Bots: a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a
     // Portal, never more than one Portal standing or going up, trains Androids there, and never stands above its places
     // but as a lost building leaves it.
-    // (seed 20: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
-    // game before its Portal ever has the four Sellswords and the price an Android waits for)
     for diff in 0..DIFF.len() {
-        let mut w = World::with_setup(20, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
@@ -610,4 +608,74 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
         let t = launched.unwrap_or_else(|| panic!("diff {diff}: no launch"));
         assert!(t > 150.0, "diff {diff}: launched at {t:.0} s, not at once");
     }
+}
+
+#[test]
+fn medium_s_expedition_holds_gold_for_one_android_at_a_time_once_its_portal_stands() {
+    // The balance round after the economy pass (`Diff::elite_hold`): with gold scarce the line spent every coin and the
+    // mix's ratio (an Android per four Sellswords standing) seldom came round, so Medium's Expedition fielded about one
+    // Android in five games. Now, once its Portal stands idle and no enemy is at its buildings, its other factories
+    // hold the Android's price back and the Portal trains one, whatever the line; one at a time (Brutal too, as Hard
+    // and faster). Easy has no hold.
+    let setup = |level: usize| {
+        let mut w = World::with_setup(5, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let (bx, by) = w.map.bases[ENEMY as usize];
+        let mut near = |w: &mut World, k: BldgKind| {
+            let at = (0..400)
+                .map(|i| (bx - 10 + i % 20, by - 10 + i / 20))
+                .find(|&(tx, ty)| w.can_place(k, tx, ty, ENEMY))
+                .expect("room by its base");
+            w.make_building(k, ENEMY, at.0, at.1, true)
+        };
+        for k in [
+            BldgKind::Siphon,
+            BldgKind::Loom,
+            BldgKind::Uplink,
+            BldgKind::Spire,
+        ] {
+            near(&mut w, k);
+        }
+        let portal = near(&mut w, BldgKind::Eclipse);
+        w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] = 1;
+        w.recalc_supply(ENEMY);
+        w.res[ENEMY as usize] = [600, 0];
+        (w, portal)
+    };
+    let androids = |w: &World, portal: Id| {
+        count(w, ENEMY, UnitKind::Umbra)
+            + w.bldg(portal)
+                .unwrap()
+                .queue
+                .iter()
+                .filter(|&&k| k == UnitKind::Umbra)
+                .count()
+    };
+    for level in [1, 2, 3] {
+        let (mut w, portal) = setup(level);
+        assert!(DIFF[level].elite_hold);
+        let mut most_queued = 0;
+        for _ in 0..30 * 40 {
+            w.step();
+            w.events.clear();
+            most_queued = most_queued.max(w.bldg(portal).unwrap().queue.len());
+        }
+        assert!(
+            androids(&w, portal) >= 1,
+            "level {level}: an Android by 0:40 with no line to speak of"
+        );
+        assert_eq!(most_queued, 1, "level {level}: one at a time");
+    }
+    let (mut w, portal) = setup(0);
+    assert!(!DIFF[0].elite_hold);
+    run(&mut w, 40);
+    assert_eq!(androids(&w, portal), 0, "Easy keeps to its mix");
+    // Medium without the hold (a lab plan): the mix's ratio alone, and no line yet, so no Android.
+    let (mut w, portal) = setup(1);
+    let plain = Diff {
+        elite_hold: false,
+        ..DIFF[1]
+    };
+    assert!(w.set_ai_plans(&[None, Some(plain)]));
+    run(&mut w, 40);
+    assert_eq!(androids(&w, portal), 0, "the hold is what trains it");
 }

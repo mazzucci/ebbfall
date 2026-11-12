@@ -115,7 +115,8 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   standing unlocks the Portal, the launch told to its own seat alone ("You launched a satellite.", no toast to any
   other seat) with the rocket an event for every seat, melee Sellswords and Bruisers hitting only the ground up close,
   the Expedition AI at every level raising turbines and posts, launching, raising one Portal at most and training
-  Androids there), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  Androids there, Medium's, Hard's and Brutal's holding gold for one Android at a time once the Portal stands, `Diff::elite_hold`),
+  and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, every pool's
   places (`check_pools`: a pool's use over its cap only as a lost building left it, never by growing; no pool over its
   maximum, `World::pool_max`; one Portal a seat at most),

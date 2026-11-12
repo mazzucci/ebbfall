@@ -236,8 +236,9 @@ impl World {
 
     /// The Power `e` keeps free for its elite (`AiScript::tech2`, the Expedition's Portal, and the mixed-in unit it
     /// trains, the Android), so its other factories' machines leave room for them: before the Portal is placed, while
-    /// it is wanted (`tech2_wanted`), the Portal's own use and one Android's; once it stands or goes up, one Android's
-    /// while the mix's ratio to the line calls for another. 0 for a side without one.
+    /// it is wanted (`tech2_wanted`) and can be placed (its requirement, the Uplink, stands: before that the reserve
+    /// only held its machines back for minutes), the Portal's own use and one Android's; once it stands or goes up,
+    /// one Android's while the mix's ratio to the line calls for another. 0 for a side without one.
     pub(crate) fn elite_reserve(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
         let s = &self.factions[e as usize].ai;
         let Some(k2) = s.tech2 else { return 0 };
@@ -267,7 +268,7 @@ impl World {
                     .count()
         };
         if self.ai_count(my_b, false, k2) == 0 {
-            if self.tech2_wanted(e, my_b, t, k2) {
+            if self.tech2_wanted(e, my_b, t, k2) && self.has_req(e, k2) {
                 k2.def().uses + k.def().supply
             } else {
                 0
@@ -336,7 +337,43 @@ impl World {
 #[cfg(test)]
 mod tests {
     use crate::data::*;
+    use crate::map::{Id, MapKind};
     use crate::world::World;
+
+    #[test]
+    fn the_expedition_keeps_power_for_its_portal_only_once_the_uplink_stands() {
+        // The economy pass: before its Uplink stands the Portal cannot be placed, and the Power kept for it and its
+        // first Android only held the other machines back; with the Uplink up, the Portal's use and an Android's.
+        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        w.ai_turn = ENEMY;
+        let mine = |w: &World| -> Vec<Id> {
+            w.bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY)
+                .map(|b| b.id)
+                .collect()
+        };
+        let t = 400.0; // (past the Android's 5:00 less the Portal's build: the Portal is wanted)
+        assert_eq!(w.elite_reserve(ENEMY, &mine(&w), t), 0, "no Uplink yet");
+        let (bx, by) = w.map.bases[ENEMY as usize];
+        w.make_building(BldgKind::Uplink, ENEMY, bx + 6, by, true);
+        assert_eq!(
+            w.elite_reserve(ENEMY, &mine(&w), t),
+            BldgKind::Eclipse.def().uses + UnitKind::Umbra.def().supply,
+            "the Uplink up: the Portal's Power and an Android's"
+        );
+        // Medium's Expedition mixes more that shoots (a Rover per two Sellswords, an Android per three); its
+        // Kingdom's mix is its own.
+        assert_eq!(
+            DIFF[1].mix_entry((UnitKind::Monolith, 3, 0.0)),
+            (UnitKind::Monolith, 2, 0.0)
+        );
+        assert_eq!(DIFF[2].mix_entry((UnitKind::Umbra, 4, 300.0)).1, 3);
+        assert_eq!(
+            DIFF[1].mix_entry((UnitKind::Lancer, 1, 0.0)),
+            (UnitKind::Lancer, 1, 0.0)
+        );
+    }
 
     #[test]
     fn the_mix_answers_what_the_enemy_fields() {

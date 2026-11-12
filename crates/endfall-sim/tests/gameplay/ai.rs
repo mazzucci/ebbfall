@@ -1267,8 +1267,9 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
 
 #[test]
 fn the_guided_first_game_holds_the_first_wave_until_released() {
-    // Easy, with the waves held: no attack before 4:50 even with an army ready; released, the wave goes.
-    let mut w = World::new(4242, 0);
+    // Medium (Easy's own first wave, 7:45, comes after the hold's longest), with the waves held: no attack before 4:50
+    // even with an army ready; released, the wave goes.
+    let mut w = World::new(4242, 1);
     w.hold_waves = true;
     let mut ever = false;
     for _ in 0..30 * 290 {
@@ -1289,8 +1290,8 @@ fn the_guided_first_game_holds_the_first_wave_until_released() {
 
 #[test]
 fn the_guided_first_game_hold_runs_out_at_six_minutes() {
-    // Held the whole time: no wave before 6:00, one soon after.
-    let mut w = World::new(4242, 0);
+    // Medium, held the whole time: no wave before 6:00, one soon after.
+    let mut w = World::new(4242, 1);
     w.hold_waves = true;
     let mut first = None;
     for _ in 0..30 * 420 {
@@ -1303,6 +1304,29 @@ fn the_guided_first_game_hold_runs_out_at_six_minutes() {
     }
     let t = first.expect("a wave by 7:00");
     assert!((360.0..420.0).contains(&t), "after the hold ran out: {t}");
+}
+
+#[test]
+fn easy_sends_its_first_wave_at_7_45_and_medium_at_4_00() {
+    // The economy pass: a newcomer against Easy is not hit before about 8:00 (its first wave went at 4:00 and arrived
+    // by 4:30; the lab's newcomer, `turtle --weak --attacker-level Easy`, is first hit at 8:00 on 64x64 now), and
+    // Medium's first wave goes at 4:00, the step after it (it went at 2:50). Each people's AI against an idle player.
+    for (diff, due) in [(0usize, DIFF[0].first), (1, DIFF[1].first)] {
+        for race in [&HUMANS, &VAEL] {
+            let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, race]);
+            let mut first = None;
+            while w.time < due + 120.0 && first.is_none() {
+                w.step();
+                w.events.clear();
+                if w.ai_wave().is_some() {
+                    first = Some(w.time);
+                }
+            }
+            let t = first.unwrap_or_else(|| panic!("level {diff} {}: a wave by {}", race.name, due + 120.0));
+            assert!(t > due, "level {diff} {}: not before {due}: {t}", race.name);
+        }
+    }
+    assert_eq!((DIFF[0].first, DIFF[1].first), (465.0, 240.0));
 }
 
 #[test]

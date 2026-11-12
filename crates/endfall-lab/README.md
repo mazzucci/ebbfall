@@ -239,6 +239,9 @@ plain Medium, for the tide's gate (PRD: the tide on the Shore map, R8: a turtlin
 over 70%). Every pairing of the peoples, the turtle in either seat, map seeds 1 to `--seeds` in every cell: 8 cells a
 map. A timeout counts as not lost. The report gives the turtle's loss rate with its 95% interval per pairing and seat,
 per pairing, per map and in all, with its wins, the timeouts and the median length of a game it lost. Flags:
-`--seeds N` (25), `--maps` (Shore), `--raids` (the turtle keeps Medium's raids: `first` = never alone, the PRD's
-letter), `--cap MIN` (30), `--threads N`, `--out FILE`. A turtle that does not lose
-before the tide is Medium's weakness, not the tide's.
+`--seeds N` (25), `--maps` (Shore), `--size 64|96|128` (the maps' size; the Shore is 64x64 only), `--raids` (the
+turtle keeps Medium's raids: `first` = never alone, the PRD's letter), `--weak` (the weak turtle: Easy's economy on one
+base, the newcomer), `--attacker-level` (the attacker's whole tuning; Medium by default), `--cap MIN` (30),
+`--threads N`, `--out FILE`. A turtle that does not lose before the tide is Medium's weakness, not the tide's. "The
+first hit" gives, of each game, when the attacker's first wave arrived, and how many games were hit before 8:00: with
+`--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when a passive newcomer first meets Easy.

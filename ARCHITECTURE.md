@@ -101,7 +101,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   wave's machines attacking out of range not called home), the Expedition rework (`expedition`: Power for machines and
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
   one and a lost post leaving the count over its use; the balance pass's two maximums, Power and hired places each
-  capped at its own (45 and 15, 52 and 18, 60 and 20 by map size) and each enforced on its own, the Kingdom's one
+  capped at its own (46 and 14, 57 and 20, 66 and 22 by map size) and each enforced on its own, the Kingdom's one
   population limit unchanged; no Portal pool; one Portal a seat, a second refused while one stands or goes up, its
   Power used from placement and released when it is destroyed or cancelled, refused without the Power for it; the
   Android's numbers, its 3 Power and its training time; the satellite needing a Lab and unlocking the Uplink whose
@@ -163,7 +163,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Recruiting post): a unit's `pool` takes its `supply`, a building's `pool` gets it, and a building
                       that `uses` Power (the Portal) takes it from placement; each pool is capped by its own buildings
                       and its own maximum (`World::pool_max`: the Kingdom's population the map's limit, the
-                      Expedition's Power `power_limit` and hired places `hired_limit`, the two together that limit;
+                      Expedition's Power `power_limit` and hired places `hired_limit`, together that limit on 64x64;
                       `room`). A `single` building (the Portal) is one a seat (`World::single_room`)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its

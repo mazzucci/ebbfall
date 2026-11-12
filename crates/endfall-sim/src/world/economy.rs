@@ -7,8 +7,8 @@ use super::*;
 pub const MINE_LOW: i32 = 1500;
 
 impl World {
-    /// The most supply a seat can have on this map (`data::supply_limit`): the Kingdom's population limit, and the
-    /// Expedition's Power and hired places together (`pool_max`).
+    /// The most supply a seat can have on this map (`data::supply_limit`): the Kingdom's population limit (the
+    /// Expedition's Power and hired places have their own, `pool_max`).
     pub fn supply_limit(&self) -> i32 {
         supply_limit(self.map.w)
     }
@@ -24,8 +24,8 @@ impl World {
     }
 
     /// The most places a seat's `pool` can have on this map: the Kingdom's population the map's `supply_limit` (it has no
-    /// hired places); the Expedition's Power `power_limit` and its hired places `hired_limit`, the two together the
-    /// Kingdom's one limit.
+    /// hired places); the Expedition's Power `power_limit` and its hired places `hired_limit` (together the Kingdom's
+    /// one limit on 64x64, a tenth more on the larger maps).
     pub fn pool_max(&self, team: u8, pool: Pool) -> i32 {
         let w = self.map.w;
         match (self.factions[team as usize].power, pool) {

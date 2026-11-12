@@ -345,7 +345,7 @@ pub(super) const WARD: BldgDef = BldgDef {
     ..BLDG
 };
 /// The Portal (once an Uplink stands): Androids. One a side (`single`), and it uses 4 Power while it stands, from the
-/// moment it is placed (`uses`: a Rover's worth, so the Portal and three Androids hold 13 of the 45 Power on 64x64:
+/// moment it is placed (`uses`: a Rover's worth, so the Portal and three Androids hold 13 of the 46 Power on 64x64:
 /// the elite is a trade against the other machines, not a free extra).
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",

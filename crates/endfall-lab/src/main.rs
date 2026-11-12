@@ -51,7 +51,7 @@ fn today() -> String {
 fn die(msg: &str) -> ! {
     eprintln!(
         "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- turtle [--seeds N] [--maps Shore] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--cap MIN] [--threads N] [--out FILE]"
+       npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -298,6 +298,13 @@ fn turtle(args: &[String]) {
             }
             "--maps" => batch.maps = val().split(',').map(parse_map).collect(),
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--size" => {
+                batch.size = val()
+                    .parse()
+                    .ok()
+                    .filter(|n| [64, 96, 128].contains(n))
+                    .unwrap_or_else(|| die("--size 64, 96 or 128"))
+            }
             "--raids" => batch.raids = true,
             "--weak" => batch.weak = true,
             "--attacker-level" => batch.attacker_level = parse_level(&val()),
@@ -316,6 +323,9 @@ fn turtle(args: &[String]) {
             "--out" => out = Some(PathBuf::from(val())),
             _ => die(&format!("unknown flag {a}")),
         }
+    }
+    if batch.size != 64 && batch.maps.contains(&MapKind::Shore) {
+        die("the Shore map is 64x64 only");
     }
     let commit = commit();
     let total = turtle::cells(&batch).len();
@@ -346,9 +356,11 @@ fn turtle(args: &[String]) {
     std::fs::write(&path, r.json().write())
         .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
     let header = format!(
-        "Commit {commit}, {}. Batch: maps {:?}, {} seeds a cell, {} min cap{}: {total} games in {secs:.0} s on {threads} threads. JSON: {}",
+        "Commit {commit}, {}. Batch: maps {:?} at {}x{}, {} seeds a cell, {} min cap{}: {total} games in {secs:.0} s on {threads} threads. JSON: {}",
         today(),
         batch.maps,
+        batch.size,
+        batch.size,
         batch.seeds,
         batch.cap_min,
         if batch.raids {

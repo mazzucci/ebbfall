@@ -5,12 +5,12 @@
 use super::common::*;
 use endfall_sim::world::Command;
 
-/// Gold in one crystal of a field before the mines (map.rs `add_shard`), times the map kind's share.
+/// Gold in one crystal of a field before the mines (map.rs `add_shard`, `CRYSTAL_GOLD`), times the map kind's share.
 fn crystal(kind: MapKind) -> i32 {
     match kind {
-        MapKind::DeepFields => 15_000,
-        MapKind::Barren => 600,
-        _ => 1500,
+        MapKind::DeepFields => CRYSTAL_GOLD * 10,
+        MapKind::Barren => CRYSTAL_GOLD * 2 / 5,
+        _ => CRYSTAL_GOLD,
     }
 }
 
@@ -324,12 +324,13 @@ fn home_income(seed: u32, n: usize) -> i64 {
     (w.ledger[0].mined[0] - m0) / 3
 }
 
-/// One saturated mine pays what a saturated field paid. The fields' figures were measured on main before the mines
-/// (811bd13: seven crystals, one worker on each at a time, 8 salt in 2 s), with the same harness: 26 workers on
-/// the home field, gold a minute from 1:00 to 4:00 (24 workers gave within 5 of it: saturated).
+/// One saturated mine pays what the economy pass set: a load of 10 where it was 16, so 10/16 of what a saturated field
+/// paid before the mines (measured on main, 811bd13: seven crystals, one worker on each at a time, 8 salt in 2 s; 1674,
+/// 1672 and 1674 gold a minute), with the same harness: 24 workers on the home mine, gold a minute from 1:00 to 4:00.
 #[test]
-fn a_saturated_mine_pays_what_a_saturated_field_paid() {
+fn a_saturated_mine_pays_what_the_economy_pass_set() {
     for (seed, field) in [(1u32, 1674i64), (2, 1672), (4, 1674)] {
+        let field = field * MINE_LOAD as i64 / 16;
         let full = home_income(seed, 24);
         assert!(
             (full - field).abs() as f64 <= 0.03 * field as f64,

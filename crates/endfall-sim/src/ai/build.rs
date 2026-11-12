@@ -320,7 +320,7 @@ impl World {
     }
 
     /// Whether `e`'s line (its `basic` unit's pool) stands at its own maximum, within `CAP_SLACK`, while that pool is
-    /// only part of its army (the Expedition's hired places: 15 of the map's 60 on 64x64): its money then goes to its
+    /// only part of its army (the Expedition's hired places: 14 of the map's 60 on 64x64): its money then goes to its
     /// other pool's units (machines, from its air factory and its Portal), not to more of the line.
     pub(crate) fn line_capped(&self, e: u8) -> bool {
         let pool = self.factions[e as usize].ai.basic.def().pool;

@@ -160,10 +160,11 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
 #[test]
 fn power_and_hired_places_each_have_a_maximum_by_map_size_and_the_kingdom_keeps_its_one_limit() {
     // Two maximums in place of one shared limit: Power and hired places each capped by their own buildings and their
-    // own maximum, the two together the map's limit (45 + 15 on 64x64, 52 + 18 on 96x96, 60 + 20 on 128x128). Each is
-    // enforced on its own: a full Power pool never stops a Sellsword, a full hired count never stops a Bot. The
-    // Kingdom's population keeps the map's one limit.
-    for (size, power, hired) in [(64, 45, 15), (96, 52, 18), (128, 60, 20)] {
+    // own maximum: 46 + 14 on 64x64, the map's limit; about a tenth more than it on the larger maps, where the
+    // Kingdom's bigger army won the long games (57 + 20 of 70 on 96x96, 66 + 22 of 80 on 128x128). Each is enforced on
+    // its own: a full Power pool never stops a Sellsword, a full hired count never stops a Bot. The Kingdom's
+    // population keeps the map's one limit.
+    for (size, power, hired, over) in [(64, 46, 14, 0), (96, 57, 20, 7), (128, 66, 22, 8)] {
         let mut w = World::with_size(
             7,
             1,
@@ -185,7 +186,11 @@ fn power_and_hired_places_each_have_a_maximum_by_map_size_and_the_kingdom_keeps_
             (power, hired),
             "{size}x{size}"
         );
-        assert_eq!(power + hired, w.supply_limit(), "{size}: the map's limit");
+        assert_eq!(
+            power + hired,
+            w.supply_limit() + over,
+            "{size}: the map's limit, and the larger maps' tenth more"
+        );
         assert_eq!(
             w.pool_max(ENEMY, Pool::Supply),
             w.supply_limit(),
@@ -195,7 +200,7 @@ fn power_and_hired_places_each_have_a_maximum_by_map_size_and_the_kingdom_keeps_
         for _ in 0..8 {
             set_down(&mut w, BldgKind::Spire);
         }
-        let posts: Vec<Id> = (0..4).map(|_| set_down(&mut w, BldgKind::Siphon)).collect();
+        let posts: Vec<Id> = (0..5).map(|_| set_down(&mut w, BldgKind::Siphon)).collect();
         assert_eq!(
             w.sup(PLAYER)[1],
             power,

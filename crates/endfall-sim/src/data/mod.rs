@@ -40,21 +40,29 @@ pub fn supply_limit(map_w: i32) -> i32 {
     }
 }
 
-/// The Expedition's most Power, by the map's width (the balance pass): 45 on 64x64, 52 on 96x96, 60 on 128x128. Its
-/// most hired places are the rest of the map's `supply_limit` (`hired_limit`): Power and hired places have a maximum
-/// each, and the two together are the Kingdom's population limit.
+/// The Expedition's most Power, by the map's width (the balance pass): 46 on 64x64, 57 on 96x96, 66 on 128x128. Power
+/// and hired places (`hired_limit`) have a maximum each: on 64x64 the two together are the Kingdom's population limit;
+/// on the larger maps, where games run long and the Kingdom's bigger army won (the lab: 70 to 90% after the balance
+/// pass), about a tenth more (77 of 70 on 96x96, 88 of 80 on 128x128).
 pub fn power_limit(map_w: i32) -> i32 {
     if map_w <= 64 {
-        45
+        46
     } else if map_w <= 96 {
-        52
+        57
     } else {
-        60
+        66
     }
 }
-/// The Expedition's most hired places, by the map's width: the map's limit less its Power (15, 18, 20).
+/// The Expedition's most hired places, by the map's width: 14 on 64x64 (15 before the economy pass: a line of 15 hired
+/// by 2:40 won the small map's early fights once gold grew scarce), 20 and 22 on the larger maps.
 pub fn hired_limit(map_w: i32) -> i32 {
-    supply_limit(map_w) - power_limit(map_w)
+    if map_w <= 64 {
+        14
+    } else if map_w <= 96 {
+        20
+    } else {
+        22
+    }
 }
 
 /// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
@@ -492,13 +500,18 @@ const UNIT: UnitDef = UnitDef {
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
 /// A gold mine (one per field, map.rs `lay_mines`): its footprint in tiles (the art's, 2x2), the workers inside it at
-/// once (the others wait at its side), the seconds a worker spends inside and the gold it comes out with. Calibrated
-/// so one saturated mine pays what a saturated field of seven crystals paid before the mines (gameplay test
-/// `a_saturated_mine_pays_what_a_saturated_field_paid`).
+/// once (the others wait at its side), the seconds a worker spends inside and the gold it comes out with. A load was 16
+/// (a saturated mine paid what a saturated field of seven crystals paid before the mines); 8 since the economy pass,
+/// so gold forces choices: the AI banked over a thousand by 3:00 and reached its population limit by 6:00 (gameplay
+/// test `a_saturated_mine_pays_what_the_economy_pass_set`).
 pub const MINE_SIZE: i32 = 2;
 pub const MINE_CAP: i32 = 7;
 pub const MINE_TIME: f64 = 4.0;
-pub const MINE_LOAD: i32 = 16;
+pub const MINE_LOAD: i32 = 8;
+/// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
+/// `lay_mines`): 1500 before the economy pass; 1000 since, so that with the smaller load the first mines still run
+/// dry by about 9:00 to 10:00 and a game's gold stays what it was worth in time.
+pub const CRYSTAL_GOLD: i32 = 1000;
 /// Salt a second a finished Pump on a seep pays its owner, with no workers (PRD: the conversion, rule 1): about one
 /// worker's income, so it pays back its 75 in two and a half minutes.
 pub const PUMP_RATE: f64 = 0.5;

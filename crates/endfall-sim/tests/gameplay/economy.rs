@@ -151,11 +151,11 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
 #[test]
 fn the_supply_cap_grows_with_the_map() {
     // Roster v2: 60 on 64x64, 70 on 96x96, 80 on 128x128 (`World::supply_limit`): the Kingdom's population limit, and
-    // the Expedition's Power and hired places together (its Power alone: 52 of the 70 on 96x96). Supply buildings
+    // the Expedition's Power and hired places each have their own (its Power: 57 on 96x96). Supply buildings
     // past the cap add nothing, and a seat at the cap is supply blocked.
     for (n, limit, cap, f) in [
         (64, 60, 60, &HUMANS),
-        (96, 70, 52, &VAEL),
+        (96, 70, 57, &VAEL),
         (128, 80, 80, &HUMANS),
     ] {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);

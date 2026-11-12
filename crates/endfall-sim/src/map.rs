@@ -1,6 +1,6 @@
 //! Terrain, resource nodes and the occupancy grid (port of src/sim/map.js).
 
-use crate::data::{MINE_SIZE, Move, TILE};
+use crate::data::{CRYSTAL_GOLD, MINE_SIZE, Move, TILE};
 use crate::jsmath::{self, PI};
 use crate::rng::Mulberry32;
 
@@ -2014,8 +2014,8 @@ impl Map {
             s: 1,
             x: tx as f64 * TILE + 16.0,
             y: ty as f64 * TILE + 16.0,
-            amount: 1500,
-            total: 1500,
+            amount: CRYSTAL_GOLD,
+            total: CRYSTAL_GOLD,
             miners: 0,
             r: 14.0,
             extractor: None,

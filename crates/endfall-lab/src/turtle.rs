@@ -14,11 +14,15 @@ use endfall_sim::map::MapKind;
 
 const TPS: f64 = 30.0;
 const PEOPLE: [&str; 2] = ["Humans", "Vael"];
+/// A first hit before this (s) is early for a newcomer (the weak turtle against Easy).
+const EARLY_HIT: f64 = 480.0;
 
 /// What the batch plays.
 #[derive(Clone, Debug)]
 pub struct TurtleBatch {
     pub maps: Vec<MapKind>,
+    /// The maps' width and height in tiles (64, 96 or 128; the Shore is 64 only).
+    pub size: i32,
     /// Map seeds 1 to this, in every cell.
     pub seeds: u32,
     pub cap_min: u32,
@@ -39,6 +43,7 @@ impl TurtleBatch {
     pub fn default_batch() -> Self {
         TurtleBatch {
             maps: vec![MapKind::Shore],
+            size: 64,
             seeds: 25,
             cap_min: 30,
             raids: false,
@@ -153,7 +158,17 @@ pub fn run(
     let (mut games, mut waves, mut mins) = (vec![], vec![], vec![]);
     let played = play_jobs(
         &cells,
-        |c| play_watched(c.map, c.pairing, c.map_seed, c.plans(&batch), cap, false),
+        |c| {
+            play_watched(
+                c.map,
+                batch.size,
+                c.pairing,
+                c.map_seed,
+                c.plans(&batch),
+                cap,
+                false,
+            )
+        },
         threads,
         progress,
     );
@@ -290,6 +305,36 @@ impl TurtleRun {
         rows
     }
 
+    /// The first hit, by map and the attacker's people, then in all: of each game's attacker, the tick its first
+    /// wave arrived (None: no wave of it ever arrived).
+    fn first_hits(&self) -> Vec<(String, Vec<Option<u32>>)> {
+        let hits = |keep: &dyn Fn(&Cell) -> bool| {
+            let mut v = vec![];
+            for (c, ws) in self.cells.iter().zip(&self.waves) {
+                if keep(c) {
+                    v.push(
+                        ws.iter()
+                            .filter(|w| w.seat as usize != c.turtle)
+                            .filter_map(|w| w.arrived.map(|a| a.tick))
+                            .min(),
+                    );
+                }
+            }
+            v
+        };
+        let mut rows = vec![];
+        for &map in &self.batch.maps {
+            for (p, people) in PEOPLE.iter().enumerate() {
+                rows.push((
+                    format!("{map:?}: {people}' first hit"),
+                    hits(&|c| c.map == map && c.peoples().1 == p),
+                ));
+            }
+        }
+        rows.push(("**All**".into(), hits(&|_| true)));
+        rows
+    }
+
     fn wave_rows(&self) -> Vec<(String, waves::Summary)> {
         self.attack_groups()
             .into_iter()
@@ -410,6 +455,7 @@ impl TurtleRun {
                             .map(|m| format!("{m:?}"))
                             .collect::<Vec<_>>(),
                     )
+                    .with("size", self.batch.size)
                     .with("seeds", self.batch.seeds)
                     .with("cap_min", self.batch.cap_min)
                     .with("raids", self.batch.raids)
@@ -466,6 +512,30 @@ impl TurtleRun {
         );
         for (label, w) in self.wave_rows() {
             s += &w.row(&label);
+        }
+        s += &format!(
+            "\n## The first hit\n\nOf each game, when the attacker's first wave arrived (a unit within {} tiles of a turtle's building): the earliest, the quartiles and how many games were hit before {}.\n\n| Attacker | Games | Hit | Earliest | 25% | Median | 75% | Hit before {} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n",
+            waves::REACH,
+            mmss(EARLY_HIT),
+            mmss(EARLY_HIT)
+        );
+        for (label, hits) in self.first_hits() {
+            let mut at: Vec<f64> = hits.iter().flatten().map(|&t| t as f64 / TPS).collect();
+            at.sort_by(f64::total_cmp);
+            let q = |f: f64| {
+                at.get(((at.len() as f64 - 1.0) * f).round() as usize)
+                    .map_or("—".into(), |&t| mmss(t))
+            };
+            s += &format!(
+                "| {label} | {} | {} | {} | {} | {} | {} | {} |\n",
+                hits.len(),
+                at.len(),
+                q(0.0),
+                q(0.25),
+                q(0.5),
+                q(0.75),
+                at.iter().filter(|&&t| t < EARLY_HIT).count()
+            );
         }
         s += &format!(
             "\n## Why the waves went\n\nThe attacker's own check as each wave went (`LaunchWhy`), the foe army it expected over the turtle's true army then (armed units, workers left out; the waves that went against an expectation), the wave's worth over that true army, and the share of the wave's value within {} tiles of its first unit to arrive.\n\n{}",

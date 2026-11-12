@@ -106,12 +106,22 @@ impl super::UnitKind {
     }
 }
 
+/// Medium's and Hard's Expedition (the economy pass): a Rover per two Sellswords (its mix has one per three) and an
+/// Android per three (per four) from 5:00. Its melee line won the small map's early fights and lost the big maps' long
+/// ones to the Kingdom's massed Archers (the lab: the Kingdom 70 to 95% on 96x96 and 128x128); more of its army
+/// shoots. The Kingdom's mix is left as it is (a kind of the other race).
+const EXPEDITION_REACH: &[(super::UnitKind, usize, f64)] = &[
+    (super::UnitKind::Monolith, 2, 0.0),
+    (super::UnitKind::Umbra, 3, 300.0),
+];
+
 pub const DIFF: [Diff; 4] = [
     // Easy: a slow, plain script. Few workers, one factory to start; no research, raiders, abilities or adapting. It
-    // fields its line units and their anti-air only. It takes its natural after 9:00
-    // (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still meets a
-    // growing army later. One vent until then: a second's crew of workers would only pile up shards it has no factory
-    // to spend on.
+    // fields its line units and their anti-air only. Its first wave goes at 7:45, so a newcomer is not hit before
+    // about 8:00 (at 4:00 it arrived by 4:30, and the Kingdom's Easy, one Barracks against the Expedition's three
+    // Recruiting posts, lost every game to it in the lab). It takes its natural after 9:00 (after Medium's) and only
+    // then adds a factory to spend on, so a player who holds its early waves still meets a growing army later. One
+    // vent until then: a second's crew of workers would only pile up shards it has no factory to spend on.
     Diff {
         income: 1.0,
         wave: 4,
@@ -119,7 +129,7 @@ pub const DIFF: [Diff; 4] = [
         harv: 7,
         rax: 1,
         extra_rax: 1,
-        first: 240.0,
+        first: 465.0,
         gap: 80.0,
         research_from: NEVER,
         expand_at: 540.0,
@@ -150,7 +160,8 @@ pub const DIFF: [Diff; 4] = [
         mix_tier: 0,
         mix_over: &[],
     },
-    // Medium: the whole script at an even pace, but one attack at a time. Workers by level (7, 10, 11, 12, and 3 more
+    // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's
+    // 7:45; it went at 2:50). Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
     // the Pumps make up the income (the lab after PR 1 tunes them).
     Diff {
@@ -160,7 +171,7 @@ pub const DIFF: [Diff; 4] = [
         harv: 10,
         rax: 2,
         extra_rax: 3,
-        first: 170.0,
+        first: 240.0,
         gap: 60.0,
         research_from: 420.0,
         expand_at: 420.0,
@@ -189,7 +200,7 @@ pub const DIFF: [Diff; 4] = [
         reserve: 0.25,
         retreat_below: 1.0,
         mix_tier: 1,
-        mix_over: &[],
+        mix_over: EXPEDITION_REACH,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -228,7 +239,7 @@ pub const DIFF: [Diff; 4] = [
         reserve: 0.25,
         retreat_below: 1.0,
         mix_tier: 2,
-        mix_over: &[],
+        mix_over: EXPEDITION_REACH,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three

@@ -124,7 +124,7 @@ const allies = () => G.teams.map((_, s) => s).filter(s => s !== G.me && !enemies
 /** This side's game is over: the game is, or every seat of its team is out (a free-for-all goes on without it). */
 const myGameOver = () => G.over || (G.out[G.me] && allies().every(s => G.out[s]));
 /** The end card's line under the result: what ended the game, in the sim's words (`G.outWhy`: a seat's last
- *  building fell, or it had nothing left to fight or build with, or it conceded). */
+ *  building fell, or it had nothing left to fight with and no gold to train more, or it conceded). */
 function endLine(win) {
   const after = ' after ' + fmt(G.time) + '.';
   const mine = allies();
@@ -132,7 +132,7 @@ function endLine(win) {
     const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
-  const myWhy = G.outWhy[G.me], helpless = 'nothing left to fight or build with';
+  const myWhy = G.outWhy[G.me], helpless = 'nothing left to fight with, and no gold to train more,'; // (then ' after mm:ss.')
   if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)
     return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless}` : 'Your last building fell') + after;
   }

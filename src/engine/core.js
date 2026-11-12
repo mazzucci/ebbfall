@@ -63,7 +63,7 @@ function sync() {
   for (let t = 0; t < n; t++) {
     const o = SCHEMA.info.length + t * SS, at = (f) => I[o + fs[f]];
     S.factions[t] = FACTION_KEYS[at('faction')]; S.teams[t] = at('team'); S.out[t] = !!at('out');
-    S.outWhy[t] = OUT_WHYS[at('out_why')]; // ('' in; 'conceded', 'buildings': its last building fell, 'helpless': nothing left to fight or build with)
+    S.outWhy[t] = OUT_WHYS[at('out_why')]; // ('' in; 'conceded', 'buildings': its last building fell, 'helpless': nothing left to fight with, and no gold to train more)
     S.res[t] = [at('shards'), at('ether')]; S.sup[t] = [at('sup_used'), at('sup_cap')];
     S.hired[t] = [at('hired_used'), at('hired_cap')]; // (the Expedition's hired places; sup is its Power)
     S.stats[t] = Object.assign(S.stats[t] || {}, { built: at('built'), lost: at('lost'), killed: at('killed'), razed: at('razed') });

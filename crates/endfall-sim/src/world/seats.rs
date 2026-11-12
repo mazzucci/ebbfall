@@ -207,8 +207,9 @@ impl World {
 
     /// Whether seat `t` is beaten, and how. Its last building fell: an AI's seat is out at once, a person's once no
     /// worker of theirs is left either (a worker can build again). Or, buildings standing, it has nothing left to fight
-    /// or build with: no finished headquarters, no worker, no fighter and no finished building that trains a
-    /// fighter (a few Cottages or a Watchtower do not keep a game going; a Barracks does, gold or not, until it falls).
+    /// with and no gold to train more: no finished headquarters, no worker, no fighter, and no finished factory with a
+    /// unit in training or the gold to train a fighter (a few Cottages do not keep a game going, nor a broke Barracks:
+    /// with the mines run dry, two such sides would never end).
     pub fn beaten(&self, t: u8) -> Option<OutWhy> {
         let worker = self
             .units
@@ -223,8 +224,17 @@ impl World {
             return Some(OutWhy::Buildings);
         }
         let hq = mine().any(|b| b.kind.def().hq && b.done);
-        let factory =
-            mine().any(|b| b.done && b.kind.def().trains.iter().any(|k| k.def().threat()));
+        let factory = mine().any(|b| {
+            b.done
+                && (!b.queue.is_empty()
+                    || b.kind.def().trains.iter().any(|k| {
+                        k.def().threat()
+                            && k.def()
+                                .req
+                                .is_none_or(|r| mine().any(|o| o.kind == r && o.done))
+                            && self.can_afford(t, k.def().cost)
+                    }))
+        });
         (!(hq || worker || fighter || factory)).then_some(OutWhy::Helpless)
     }
 }

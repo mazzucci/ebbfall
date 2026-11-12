@@ -557,6 +557,9 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       await d.grant(1000, 0);
       const depot = await buildAndFinish(d, 'w', 'depot', 0);
       if (d.touch) assert.deepEqual(await d.selection(), [], 'phone: after placing, the worker is let go');
+      // (its builder waits beside it now: walked off, set-up, so a tap on the Cottage takes the Cottage)
+      await d.eval(([id, x, y]) => endfall.engine.moveTo(endfall.G.units.find(u => u.id === id), x, y), [mine(await d.state(), 'harvester')[0].id, depot.x - 200, depot.y + 200]);
+      await d.skip(4);
       const max = await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).maxhp, depot.id);
       await d.eval((id) => endfall.engine.debugSetHp(id, 60), depot.id); // set-up: knock it down
       // The workers stopped (so no gold comes in while the repair's cost is measured, and they stand for a tap); a tap

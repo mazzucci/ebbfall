@@ -1,7 +1,9 @@
-//! The range (the Expedition rework's speed bonus): the Expedition's machines (`data::radio::needs_range`) move at
-//! `IN_RANGE_SPEED` inside the range of a finished Data center (`conflux`) or Uplink (`uplink`) of their own seat or
-//! an ally, and at their normal speed everywhere else; the Drone (the flying machine) goes no more than `LEASH_MARGIN`
-//! tiles past its edge.
+//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"): the Expedition's combat machines
+//! (`data::radio::needs_range`) work only inside the coverage of a finished Data center (`conflux`) or Uplink (`uplink`)
+//! of their own seat or an ally, moving at `IN_RANGE_SPEED` there. An order past its edge takes them to the edge, where
+//! they stop (the step that would leave it is refused, `radio_allows`) and fight what they reach from there. One left
+//! outside (its Uplink fell: stranded) fights where it stands, moves only towards coverage at `STRANDED_SPEED`, and
+//! walks back by itself when idle. With no source at all a seat's machines are free.
 //!
 //! In range means by exact distance: a point is in range when its distance to a source's center is at most the
 //! source's reach (`in_radio`), so the client's circles (`radio_circles`, the same list) and the rule agree. The
@@ -10,7 +12,7 @@
 //! derived from the buildings, so deterministic and not hashed.
 
 use super::*;
-use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, needs_range, range_of};
+use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, STRANDED_SPEED, needs_range, range_of};
 
 /// How far (tiles) inside the edge the Drone backs off to.
 const BACK_OFF: f64 = 2.0;
@@ -28,7 +30,7 @@ pub struct RadioSrc {
 
 /// Whether a building gives range now.
 fn is_source(b: &Bldg) -> bool {
-    b.done && range_of(b.kind) > 0.0
+    b.done && range_of(b.kind, 64) > 0.0
 }
 
 impl World {
@@ -53,7 +55,7 @@ impl World {
                 team: b.team,
                 x: b.x,
                 y: b.y,
-                reach: range_of(b.kind) * TILE,
+                reach: range_of(b.kind, self.map.w) * TILE,
             })
             .collect();
         self.radio_ver = self.radio_ver.wrapping_add(1);
@@ -104,19 +106,28 @@ impl World {
         needs_range(u.kind) && self.in_radio(u.team, u.x, u.y)
     }
 
-    /// `live_speed`'s factor for the range: `IN_RANGE_SPEED` inside it, else 1.
+    /// A machine outside its side's coverage while the side has some (its Uplink fell): stranded.
+    pub fn radio_stranded(&self, uid: Id) -> bool {
+        let u = self.u(uid);
+        needs_range(u.kind)
+            && !self.in_radio(u.team, u.x, u.y)
+            && self.radio_sources(u.team).next().is_some()
+    }
+
+    /// `live_speed`'s factor for coverage: `IN_RANGE_SPEED` inside it, `STRANDED_SPEED` stranded outside, else 1.
     pub(crate) fn radio_speed(&self, uid: Id) -> f64 {
         if self.radio_boosted(uid) {
             IN_RANGE_SPEED
+        } else if self.radio_stranded(uid) {
+            STRANDED_SPEED
         } else {
             1.0
         }
     }
 
-    /// A flying machine (the Drone: its leash applies).
+    /// A machine that needs signal (its leash: coverage).
     fn radio_flyer(&self, uid: Id) -> bool {
-        let k = self.u(uid).kind;
-        needs_range(k) && k.def().air
+        needs_range(self.u(uid).kind)
     }
 
     /// Whether `uid` may move to (nx, ny): always, unless it is the Drone going more than `LEASH_MARGIN` past its range.

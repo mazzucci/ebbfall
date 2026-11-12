@@ -375,7 +375,11 @@ impl World {
         let candidates: Vec<Id> = army
             .iter()
             .copied()
-            .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
+            // (no machine raids since the arc: it would stop at its coverage's edge)
+            .filter(|&a| {
+                self.unit(a)
+                    .is_some_and(|u| u.kind == raider && !radio::needs_range(u.kind))
+            })
             .collect();
         if self.level().raids {
             self.tend_raiders(&candidates, rally);
@@ -566,11 +570,11 @@ impl World {
         ai.prong = order[..split].to_vec();
     }
 
-    /// The tower range: where wave unit `a` is sent for (x, y): that point, or for a Drone the last point of the way
-    /// there within its leash (it gathers where it can stand).
+    /// Coverage: where wave unit `a` is sent for (x, y): that point, or for a machine the last point of the way there
+    /// inside its side's coverage (it gathers where it can stand: the machines push behind the Uplinks).
     fn wave_point(&self, a: Id, x: f64, y: f64) -> (f64, f64) {
         let u = self.u(a);
-        if radio::needs_range(u.kind) && u.kind.def().air {
+        if radio::needs_range(u.kind) {
             self.radio_leash_point(u.team, u.x, u.y, x, y)
         } else {
             (x, y)

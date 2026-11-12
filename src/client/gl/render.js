@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
 import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
@@ -581,21 +581,28 @@ function drawRange(extra) {
 /** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while a building that gives
  *  range is being placed (its own circle with the others). */
 function showRange(selList, place) {
-  const reach = place ? RADIO.sources[place.type] : 0, d = place && BUILDINGS[place.type];
+  const reach = place ? coverageOf(place.type, MW) : 0, d = place && BUILDINGS[place.type];
   const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
   const on = !!extra || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
   if (on) drawRange(extra);
   rangeG.visible = on && rangeCircles.length > 0;
 }
-/** A machine of ours moving in range (where it goes faster): a small double chevron over it, dark-edged so it reads
- *  on any ground. */
-function boosted(x, y) {
-  for (const [w, c, a] of [[3.5, 0x0b1220, 0.7], [1.6, RANGE_COLOR, 1]]) {
-    for (const dy of [0, 4]) bars.moveTo(x - 4, y + dy + 1.5).lineTo(x, y + dy - 2).lineTo(x + 4, y + dy + 1.5);
+/** A machine of ours out of coverage while its side has some (stranded: slowed, and only back towards it): a small
+ *  "no signal" sign over it, an antenna's two arcs struck through, dark-edged and team-neutral so it reads on any
+ *  ground at 1x on a phone (the arc, Nov 13: the one cue; the in-coverage chevron is gone). */
+function noSignal(x, y) {
+  for (const [w, c, a] of [[3.6, 0x0b1220, 0.75], [1.7, 0xf2f2f2, 1]]) {
+    bars.moveTo(x, y + 4).lineTo(x, y - 1); // (the mast)
+    bars.arc(x, y - 1, 3.2, -Math.PI * 0.85, -Math.PI * 0.15);
+    bars.moveTo(x + 6.2 * Math.cos(-Math.PI * 0.85), y - 1 + 6.2 * Math.sin(-Math.PI * 0.85)).arc(x, y - 1, 6.2, -Math.PI * 0.85, -Math.PI * 0.15);
     bars.stroke({ width: w, color: c, alpha: a, cap: 'round', join: 'round' });
   }
+  for (const [w, c, a] of [[3.6, 0x0b1220, 0.75], [1.7, 0xff5a4f, 1]]) {
+    bars.moveTo(x - 6, y + 4).lineTo(x + 6, y - 7); // (struck through)
+    bars.stroke({ width: w, color: c, alpha: a, cap: 'round' });
+  }
 }
-/** Tests: whether the range is drawn, its circles, and which units show the boosted mark. */
+/** Tests: whether the range is drawn, its circles, and which units show the no-signal mark. */
 const markedIds = new Set();
 export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: unionArcs(rangeCircles).length, marked: [...markedIds] });
 
@@ -690,8 +697,8 @@ export function render(selList, place) {
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
-    if (u.team === G.me && o.moving && RADIO.machines.has(u.type) && inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
-      boosted(u.x, u.y - unitTop(u.type) - (bar ? 16 : 9)); markedIds.add(u.id);
+    if (u.team === G.me && RADIO.machines.has(u.type) && G.radio.length && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
+      noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
     }
   });
   showRange(selList, place);

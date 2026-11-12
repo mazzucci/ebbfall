@@ -10,6 +10,9 @@ use crate::common::*;
 use endfall_sim::data::radio::{
     CONFLUX_RANGE, IN_RANGE_SPEED, STRANDED_SPEED, UPLINK_RANGE, UPLINK_RANGE_BIG, needs_range,
 };
+use endfall_sim::jsmath;
+use endfall_sim::world::radio::NO_SIGNAL;
+use endfall_sim::world::{Command, Event};
 
 fn px(t: f64) -> f64 {
     t * 32.0 + 16.0
@@ -359,7 +362,7 @@ fn a_stranded_machine_fights_where_it_stands_and_walks_back_when_idle() {
 fn notches_between_two_overlapping_uplinks() {
     // Two overlapping Uplinks make one connected coverage whose edge has notches where the circles meet. A machine sent
     // from the middle of one to the middle of the other, on a straight line through the waist, gets there (the line
-    // stays in the union); one sent along a line that clips a notch stops short (the edge stop: no rerouting).
+    // stays in the union); one whose straight way clips a notch goes round it inside (`waist`, below).
     let mut w = lane();
     let a = w.make_building(BldgKind::Uplink, ENEMY, 13, 37, true);
     let b = w.make_building(BldgKind::Uplink, ENEMY, 47, 37, true);
@@ -380,6 +383,160 @@ fn notches_between_two_overlapping_uplinks() {
         bx - 32.0
     );
 }
+/// Two Uplinks of the Expedition overlapping in a narrow waist on open ground: their centers (px), and the waist's
+/// half height (tiles), about six. Nobody's AI: orders are a player's.
+fn waist() -> (World, (f64, f64), (f64, f64)) {
+    let mut w = lane();
+    flatten(&mut w, 6..58, 22..54);
+    assert!(w.set_ai_seats([false, false]));
+    let a = w.make_building(BldgKind::Uplink, ENEMY, 11, 37, true);
+    let b = w.make_building(BldgKind::Uplink, ENEMY, 49, 37, true);
+    let (a, b) = (w.bldg(a).unwrap(), w.bldg(b).unwrap());
+    let (a, b) = ((a.x, a.y), (b.x, b.y));
+    w.step();
+    let half = ((b.0 - a.0) / 2.0 / 32.0).powi(2);
+    let waist = (UPLINK_RANGE * UPLINK_RANGE - half).sqrt();
+    assert!(
+        waist > 4.0 && waist < 8.0,
+        "a narrow waist: {waist:.1} tiles"
+    );
+    (w, a, b)
+}
+
+#[test]
+fn a_machine_whose_straight_way_leaves_coverage_goes_round_inside_it() {
+    // Seven tiles off the line between the centers the straight way crosses the waist outside coverage: before, the
+    // machine stopped at the edge for good (and an attack order there never fired). Now its route keeps to the
+    // covered tiles: a Buggy sent across arrives, and one told to attack a Depot over there gets there and hits it,
+    // never leaving coverage on the way.
+    let (mut w, a, b) = waist();
+    let (y, from, to) = (a.1 + 7.0 * 32.0, a.0 + 4.0 * 32.0, b.0 - 4.0 * 32.0);
+    assert!(
+        !w.in_radio(ENEMY, (a.0 + b.0) / 2.0, y),
+        "the straight way leaves coverage"
+    );
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, from, y);
+    assert_eq!(w.apply(ENEMY, &Command::Move { unit: s, x: to, y }), Ok(()));
+    for _ in 0..40 * TPS {
+        w.step();
+        let u = w.unit(s).unwrap();
+        assert!(
+            w.in_radio(ENEMY, u.x, u.y),
+            "inside coverage all the way: ({:.0}, {:.0})",
+            u.x,
+            u.y
+        );
+    }
+    let u = w.unit(s).unwrap();
+    assert!(
+        jsmath::dist(u.x, u.y, to, y) < 40.0,
+        "arrived: at ({:.0}, {:.0}), wanted ({to:.0}, {y:.0})",
+        u.x,
+        u.y
+    );
+    // an attack order across the waist
+    let depot = w.make_building(
+        BldgKind::Depot,
+        PLAYER,
+        (b.0 / 32.0) as i32 - 3,
+        (y / 32.0) as i32 - 1,
+        true,
+    );
+    let k = w.make_unit(UnitKind::Scythe, ENEMY, from, y);
+    assert_eq!(
+        w.apply(
+            ENEMY,
+            &Command::Attack {
+                unit: k,
+                target: depot
+            }
+        ),
+        Ok(())
+    );
+    run(&mut w, 45);
+    assert!(
+        w.bldg(depot).is_none_or(|d| d.hp < d.maxhp),
+        "it got there and fired"
+    );
+}
+
+#[test]
+fn a_target_with_no_covered_way_to_it_stops_the_machine_at_the_edge_and_its_player_is_told() {
+    // A Depot well outside coverage, off the waist: a Buggy told to attack it goes as far as coverage allows and
+    // stops there, never firing, and its player hears why (once for the group).
+    let (mut w, a, b) = waist();
+    let mid = (a.0 + b.0) / 2.0;
+    let depot = w.make_building(
+        BldgKind::Depot,
+        PLAYER,
+        (mid / 32.0) as i32 - 1,
+        (a.1 / 32.0) as i32 + 20,
+        true,
+    );
+    let ks: Vec<Id> = (0..3)
+        .map(|i| {
+            w.make_unit(
+                UnitKind::Scythe,
+                ENEMY,
+                a.0 + 4.0 * 32.0,
+                a.1 + i as f64 * 24.0,
+            )
+        })
+        .collect();
+    w.events.clear();
+    for &k in &ks {
+        assert_eq!(
+            w.apply(
+                ENEMY,
+                &Command::Attack {
+                    unit: k,
+                    target: depot
+                }
+            ),
+            Ok(())
+        );
+    }
+    let told = w
+        .events
+        .iter()
+        .filter(|e| matches!(e, Event::Toast { team, msg, bad: true } if *team == ENEMY && msg == NO_SIGNAL))
+        .count();
+    assert_eq!(told, 1, "told once: {:?}", w.events);
+    run(&mut w, 40);
+    let d = w.bldg(depot).unwrap();
+    assert_eq!(d.hp, d.maxhp, "out of its reach: never fired");
+    for &k in &ks {
+        let u = w.unit(k).unwrap();
+        // (within a tile of it: three at one spot of the edge jostle, and the push between units is not held at it)
+        assert!(w.in_radio_by(ENEMY, u.x, u.y, 1.0), "stopped at coverage");
+        assert!(
+            !w.in_radio_by(ENEMY, u.x, u.y, -3.0),
+            "at its edge, as near as it gets: ({:.0}, {:.0})",
+            u.x,
+            u.y
+        );
+    }
+    // a way there through coverage: nothing said
+    w.events.clear();
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, a.0 + 4.0 * 32.0, a.1);
+    assert_eq!(
+        w.apply(
+            ENEMY,
+            &Command::Move {
+                unit: s,
+                x: b.0,
+                y: b.1
+            }
+        ),
+        Ok(())
+    );
+    assert!(
+        !w.events
+            .iter()
+            .any(|e| matches!(e, Event::Toast { msg, .. } if msg == NO_SIGNAL))
+    );
+}
+
 #[test]
 fn the_expedition_ai_pushes_an_uplink_then_its_machines() {
     // The push (the arc: "an Uplink, then the machines"): the Expedition's AI against the Kingdom's (its buildings made

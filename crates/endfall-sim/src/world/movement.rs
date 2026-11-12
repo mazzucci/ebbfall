@@ -61,8 +61,12 @@ impl World {
         let foot = self.foot(self.u(uid).kind);
         let (a, b) = (self.map.tile_of(ux, uy), self.map.tile_of(x, y));
         let refresh = self.u(uid).path.is_some();
-        let paths::Plan::Route(mut path) = self.plan_walk(team, foot, (ux, uy), a, b, refresh)
-        else {
+        // (a machine keeps to its coverage: paths.rs)
+        let plan = match self.plan_walk(team, foot, (ux, uy), a, b, refresh) {
+            paths::Plan::Route(path) => self.keep_covered(uid, path, b),
+            wait => wait,
+        };
+        let paths::Plan::Route(mut path) = plan else {
             // A unit with a route keeps it until its next replan; one without asks again next tick.
             self.um(uid).repath = if refresh { 0.6 } else { 0.0 };
             return false;
@@ -181,14 +185,20 @@ impl World {
                 // until the next replan meanwhile)
                 let (team, refresh) = (self.u(uid).team, self.u(uid).path.is_some());
                 let foot = self.foot(self.u(uid).kind);
-                let plan = self.plan_to_rect(team, foot, (ux, uy), (tx, ty, w, h), p, refresh);
-                let u = self.um(uid);
+                let plan = match self.plan_to_rect(team, foot, (ux, uy), (tx, ty, w, h), p, refresh)
+                {
+                    paths::Plan::Route(path) => {
+                        self.keep_covered(uid, path, self.map.tile_of(p.0, p.1))
+                    }
+                    wait => wait,
+                };
                 match plan {
                     paths::Plan::Route(path) => {
+                        let u = self.um(uid);
                         u.path = path;
                         u.repath = 0.7;
                     }
-                    paths::Plan::Wait => u.repath = if refresh { 0.7 } else { 0.0 },
+                    paths::Plan::Wait => self.um(uid).repath = if refresh { 0.7 } else { 0.0 },
                 }
             } else {
                 let (tx, ty) = target.center();
@@ -201,11 +211,13 @@ impl World {
             let mv = self.live_speed(uid) * dt;
             let u = self.u(uid);
             let (nx, ny) = (u.x + (p.0 - u.x) / d * mv, u.y + (p.1 - u.y) / d * mv);
+            // (a machine keeps to its coverage here too: no route there is no licence to leave it)
             if self.map.passable(
                 self.foot(u.kind),
                 jsmath::to_i32(nx / TILE),
                 jsmath::to_i32(ny / TILE),
-            ) {
+            ) && self.radio_allows(uid, nx, ny)
+            {
                 let u = self.um(uid);
                 u.x = nx;
                 u.y = ny;

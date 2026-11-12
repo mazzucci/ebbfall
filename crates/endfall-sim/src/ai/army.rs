@@ -1116,8 +1116,8 @@ impl World {
             k.def().armed() && !Self::hits_of(k).0
         };
         let left = alive.iter().filter(|&&a| !air_only(self, a)).count();
-        // (a machine whose way to its target leaves coverage stops at the edge and holds its order there: routes do
-        // not follow coverage. A wave left with only such machines is over; else it never ended, and no other went)
+        // (a machine with no way to its target through coverage stops at the edge and holds its order there. A wave
+        // left with only such machines is over; else it never ended, and no other went)
         let held = |w: &World, a: Id| {
             let u = w.u(a);
             radio::needs_range(u.kind)
@@ -1760,7 +1760,7 @@ mod tests {
     #[test]
     fn a_wave_left_with_only_machines_held_quiet_at_the_coverage_edge_is_over() {
         // The Expedition's wave out: six machines at its Data center's coverage edge, told to attack the foe's
-        // headquarters, which their way leaves coverage to reach (routes do not follow coverage): they hold there.
+        // headquarters, which no way through coverage reaches: they hold there.
         // Quiet for 20 s (not firing, not hit), the wave is over and they go back to the rally, so the next can go;
         // one of them firing lately, it goes on. (Before, such a wave never ended: a three-seat game ran 45 minutes.)
         let scene = |fired_ago: f64| {

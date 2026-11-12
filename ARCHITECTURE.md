@@ -109,8 +109,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   people and the Kingdom never; x1.3 inside coverage, slower stranded outside and only back towards it; by exact
   distance from the source's center, just inside and just outside the edge, off tile centers; from the Data center and
   an Uplink (20 tiles on 64x64, 24 bigger), none from a site or a Sentry mast, gone when the Uplink falls; an ally's
-  counts; a machine ordered past the edge stopping at it and fighting what it reaches from there; a stranded one walking
-  back; two overlapping Uplinks' waist crossed; the Expedition AI's push: an Uplink towards the goal, then its machines,
+  counts; a machine ordered past the edge stopping at it and fighting what it reaches from there, its player told; a
+  stranded one walking back; two overlapping Uplinks' waist crossed, and a way that clips its notch rerouted inside
+  (a move arrives, an attack fires); the Expedition AI's push: an Uplink towards the goal, then its machines,
   none of them leaving coverage), the Expedition rework (`expedition`: Power for machines and
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
   one and a lost post leaving the count over its use; the balance pass's two maximums, Power and hired places each
@@ -225,11 +226,15 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       a finished Data center's 18 tiles or an Uplink's 20 (24 on the bigger maps) of their side or an
                       ally, by exact distance from the building's center, moving x1.3 there; the sources listed again
                       when they change (checked each tick: derived, not hashed), and handed to the client as circles
-                      (`radio_circles`, Game.radioCircles: x, y, reach per source of a side and its allies). A move or
-                      attack past the edge stops at it (fighting what it can reach from there); one left outside
+                      (`radio_circles`, Game.radioCircles: x, y, reach per source of a side and its allies). A machine's
+                      route keeps inside coverage (paths.rs `keep_covered`: a route that leaves it gives way to a
+                      search over the covered tiles, path.rs `astar_within`, budgeted like any search). A move or
+                      attack past the edge stops at it (fighting what it can reach from there; a player is told
+                      "Can't reach: no signal there.", once a tick for a group); one left outside
                       (stranded: its Uplink fell) moves only towards coverage, slower, and walks back when idle; the
                       AI's push (an Uplink towards its goal, its machines kept out of a wave until coverage nears the
-                      goal), its wave's leapfrog Uplink and staging are in ai/army.rs); economy.rs keeps each seat's pools (`World::pools`, `recalc_supply`)
+                      goal), its wave's leapfrog Uplink and staging, and a wave left with only machines held quiet at the edge
+                      ended, are in ai/army.rs); economy.rs keeps each seat's pools (`World::pools`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
                       at-cap check reads each pool against its own maximum (`at_cap`); with its hired line at its

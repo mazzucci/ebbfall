@@ -1,7 +1,9 @@
 //! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"): the Expedition's combat machines
 //! (`data::radio::needs_range`) work only inside the coverage of a finished Data center (`conflux`) or Uplink (`uplink`)
-//! of their own seat or an ally, moving at `IN_RANGE_SPEED` there. An order past its edge takes them to the edge, where
-//! they stop (the step that would leave it is refused, `radio_allows`) and fight what they reach from there. One left
+//! of their own seat or an ally, moving at `IN_RANGE_SPEED` there. Their routes keep inside it (a way that leaves it
+//! gives way to one through covered tiles: `World::keep_covered`, paths.rs). An order past its edge takes them to the
+//! edge, where they stop (the step that would leave it is refused, `radio_allows`) and fight what they reach from
+//! there; a player is told so (`NO_SIGNAL`). One left
 //! outside (its Uplink fell: stranded) fights where it stands, moves only towards coverage at `STRANDED_SPEED`, and
 //! walks back by itself when idle. With no source at all a seat's machines are free.
 //!
@@ -13,6 +15,9 @@
 
 use super::*;
 use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, STRANDED_SPEED, needs_range, range_of};
+
+/// What a player is told when a machine is sent where coverage does not take it.
+pub const NO_SIGNAL: &str = "Can't reach: no signal there.";
 
 /// How far (tiles) inside the edge the Drone backs off to.
 const BACK_OFF: f64 = 2.0;
@@ -90,6 +95,38 @@ impl World {
         self.radio_src
             .iter()
             .filter(move |s| self.allies(s.team, team))
+    }
+
+    /// A player's machine sent where its side's coverage does not take it (no covered way there, or for an attack
+    /// none within its reach of the target): it goes as far as coverage allows (the edge stop), and its player is
+    /// told why, once a tick for a group order. `to`: where it is sent; `reach`: how near it must get (px).
+    pub(crate) fn tell_no_signal(&mut self, seat: u8, uid: Id, to: (f64, f64), reach: f64) {
+        let u = self.u(uid);
+        let (kind, x, y) = (u.kind, u.x, u.y);
+        if self.is_ai(seat)
+            || !needs_range(kind)
+            || !self.in_radio(seat, x, y)
+            || self.plans.signal_told(seat)
+        {
+            return;
+        }
+        let ok = if kind.def().air {
+            self.in_radio_by(seat, to.0, to.1, reach / TILE)
+        } else {
+            let goal = self.map.tile_of(to.0, to.1);
+            self.covered_way(seat, kind, (x, y), goal, reach)
+        };
+        if !ok {
+            self.plans.tell_signal(seat);
+            self.toast(seat, NO_SIGNAL, true);
+        }
+    }
+
+    /// The sources `team` has range from, as (x, y, reach) in px (a route's coverage: paths.rs).
+    pub(crate) fn radio_reach_list(&self, team: u8) -> Vec<(f64, f64, f64)> {
+        self.radio_sources(team)
+            .map(|s| (s.x, s.y, s.reach))
+            .collect()
     }
 
     /// How far (px) (x, y) lies from the nearest edge of `team`'s range grown by `extra` tiles: 0 inside, infinite

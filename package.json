@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Ebbfall: a browser real-time strategy game in the 1998 mold.",
+  "description": "Ebbfall: a classic real-time strategy game for the browser, a medieval kingdom against time travelers.",
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
     "predev": "npm run build:wasm",

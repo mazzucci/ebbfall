@@ -73,7 +73,7 @@
   "phone: a building that trains keeps its Cancel in one place, greyed out with nothing queued": 9.3,
   "phone: a double-tap on a factory selects all of them, the console shows them, and they train as one": 39.7,
   "phone: a long-press on a command button shows what it is and costs, without pressing it": 45.2,
-  "phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and what it fights best beside and what beats it": 47.6,
+  "phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and its strengths and weaknesses in general terms": 47.6,
   "phone: a site that loses its builder says so once; no keyboard letters; group tiles by type": 25.8,
   "phone: a tap on a type tile keeps only that type, a long-press drops it": 15.4,
   "phone: a unit it cannot pay for shakes its button, with no toast over the game": 14.7,

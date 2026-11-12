@@ -17,7 +17,7 @@ const out = process.argv[2] || new URL('public/og.png', root).pathname;
 const W = 1200, H = 630, BUDGET = 300 * 1024, DITHER = 0.8;
 
 /** What the card says: the wordmark, and one line under it (index.html's og:title says the same). */
-const TAG = 'A free browser RTS in the 1998 mold';
+const TAG = 'A free browser RTS: a kingdom against time travelers';
 const SUB = 'KINGDOM VS EXPEDITION · AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
 
 /**

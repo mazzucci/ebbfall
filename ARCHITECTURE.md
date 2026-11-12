@@ -74,7 +74,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   mines (`mines`: one per field on every map kind and size, holding the field's gold; every map symmetric mine for
   mine, each image holding the same gold and every start seeing the same mines at the same distances; a worker inside
   hidden, out of sight and reach, no healer tending it, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
-  mine taking nobody in; a saturated mine paying what a saturated field paid on main before the mines, pinned; each
+  mine taking nobody in; a saturated mine paying half what a saturated field paid on main before the mines (the economy pass: a load of 8), pinned; each
   people's AI at every level gathering from mines and taking an expansion's; an AI whose every base is dry taking
   another, a natural still going up counting as a base), the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit

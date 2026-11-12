@@ -492,13 +492,18 @@ const UNIT: UnitDef = UnitDef {
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
 /// A gold mine (one per field, map.rs `lay_mines`): its footprint in tiles (the art's, 2x2), the workers inside it at
-/// once (the others wait at its side), the seconds a worker spends inside and the gold it comes out with. Calibrated
-/// so one saturated mine pays what a saturated field of seven crystals paid before the mines (gameplay test
-/// `a_saturated_mine_pays_what_a_saturated_field_paid`).
+/// once (the others wait at its side), the seconds a worker spends inside and the gold it comes out with. A load was 16
+/// (a saturated mine paid what a saturated field of seven crystals paid before the mines); 8 since the economy pass, so
+/// gold forces choices: the AI banked over a thousand by 3:00 and reached its population limit by 6:00 (gameplay test
+/// `a_saturated_mine_pays_what_the_economy_pass_set`).
 pub const MINE_SIZE: i32 = 2;
 pub const MINE_CAP: i32 = 7;
 pub const MINE_TIME: f64 = 4.0;
-pub const MINE_LOAD: i32 = 16;
+pub const MINE_LOAD: i32 = 8;
+/// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
+/// `lay_mines`): 1500 before the economy pass; 1000 since, so that with the smaller load the first mines still run dry
+/// by about 9:00 to 10:00.
+pub const CRYSTAL_GOLD: i32 = 1000;
 /// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): about one
 /// worker's income, so it pays back its 75 in two and a half minutes.
 pub const PUMP_RATE: f64 = 0.5;

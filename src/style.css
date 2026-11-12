@@ -200,6 +200,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 .sheet .opt .ib{min-height:30px}
 .sheet .ib.team{min-width:38px;padding-left:6px;padding-right:6px}
 .sheet .ib.team .sw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+/* The host's sheets online: one height whatever the seat (online.js sets it: the tallest sheet's at this width), the
+   footer at the foot; the rows spaced as in a sheet of its own size. */
+.sheet.fixed{display:flex;flex-direction:column} .sheet.fixed>*{flex:none} .sheet.fixed .info{margin:0 0 6px} .sheet.fixed .opt{margin:0 0 5px} .sheet.fixed .ft{margin-top:auto;padding-top:3px}
 /* A phone: every word of the board and the sheet at 16 px (14 for a token's race and side), read at arm's length. */
 @media (pointer:coarse){
   .board .ib.tok{column-gap:5px;padding-right:6px}

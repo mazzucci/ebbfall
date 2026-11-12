@@ -6,14 +6,14 @@
 // an AI the single-player AI token (its race, its level as pips), an open seat a dashed OPEN SEAT for the next friend to
 // join. Your own token opens a sheet with your race (RANDOM: drawn when the game starts, alike on every client,
 // src/engine/util.js seatRaces). The room's host (spot 0) opens any token: puts anyone on any side, sets an AI's race
-// and level, shares, fills (GIVE TO AI) or removes an open seat, frees an AWAY one, removes a person (a stranger who
-// guessed the code: REMOVE in their sheet; the relay lets their address in no more); fills the lowest empty spot with an
-// AI or an open seat (+ AI, + SEAT), eight seats at most; and picks the map (any that seats the room). A guest sees the
-// same board, read-only but their own token, SIT HERE on an open seat, and the map as one line. A seat keeps its spot
-// (and its colour, in the game too) whatever its side; the relay seats the sides together only when the game starts.
-// READY is a lit toggle; the room's code is the title, SHARE LINK beside it (the big button while the host has a seat
-// open). The menu's MULTIPLAYER is shown only where a relay is known: `?relay=ws://...`, the build's VITE_RELAY_URL, or
-// the dev machine's own (port 8788) when the page comes from it.
+// and level, shares (SHARE), fills (COMPUTER) or removes an open seat, opens an AI's seat again (OPEN), frees an AWAY
+// one, removes a person (a stranger who guessed the code: REMOVE in their sheet; the relay lets their address in no
+// more); fills the lowest empty spot with an AI or an open seat (+ AI, + SEAT), eight seats at most; and picks the map
+// (any that seats the room). A guest sees the same board, read-only but their own token, SIT HERE on an open seat, and
+// the map as one line. A seat keeps its spot (and its colour, in the game too) whatever its side; the relay seats the
+// sides together only when the game starts. READY is a lit toggle; the room's code is the title, SHARE LINK beside it
+// (the big button while the host has a seat open). The menu's MULTIPLAYER is shown only where a relay is known:
+// `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
 import { Net, PAUSES } from '../net/net.js';
 import { parseCode, showCode, LETTERS } from '../net/roomcode.js';
 import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/index.js';
@@ -98,6 +98,7 @@ export function initOnline({ game: g }) {
   $('btnOnlineReload').addEventListener('click', reloadNewest);
   holdTaps();
   narrow.addEventListener?.('change', () => { if (lobbyState) renderLobby(lobbyState); }); // (a token's race, short or not)
+  addEventListener('resize', () => { if (lobbyState && editing >= 0) renderSheet(); }); // (an open sheet's height, for the new width)
   simReady.then(() => { preview = ''; if (lobbyState) renderLobby(lobbyState); }, () => {}); // (the map's thumbnail, once the sim can draw it)
   loadName();
   // After UPDATE with no room yet (?online=1): straight back to the multiplayer page.
@@ -375,37 +376,64 @@ function closeSheet(focusOn = editing) {
   editing = -1; renderLobby(lobbyState);
   ($('onlineBoard').querySelector(`[data-k="tok${focusOn}"]`) || $('btnOnlineReady')).focus();
 }
+/** The host's sheet buttons that change a seat's hands, a word each (what they do: their hover titles). */
+const SHEET_BUTTONS = {
+  share: { label: 'SHARE', title: 'Share the link to this room: the first friend to open it takes this seat', k: 'share', big: true },
+  giveai: { label: 'COMPUTER', title: 'Give this seat to the computer: it plays it', k: 'giveai', ghost: true },
+  open: { label: 'OPEN', title: 'Open this seat again, for a friend to take', k: 'open', ghost: true },
+  remove: { label: 'REMOVE', k: 'remove', ghost: true },
+};
+const OPEN_INFO = 'The first friend to open the link takes this seat.';
+/** The height every host's sheet has at this width: the tallest a seat's sheet gets (a computer's with RACE, LEVEL and
+ *  every side offered, or an open seat's with its line and three buttons), each laid out in the dialog out of sight a
+ *  moment and measured. */
+function sheetHeight(dlg) {
+  const no = () => {}, sides = Array.from({ length: MAX_PLAYERS }, (_, team) => ({ team, chip: `SIDE ${team + 1}`, color: seatColor(team) }));
+  const tallest = [
+    seatSheet({ name: aiName(MAX_PLAYERS - 1), race: 'random', diff: 1 }, '', { sub: 'computer player', team: 0, sides, onRace: no, onDiff: no, onSide: no, buttons: [SHEET_BUTTONS.open, SHEET_BUTTONS.remove], onDone: no }),
+    seatSheet({ name: 'OPEN SEAT', race: 'random', diff: 1 }, '', { sub: 'for a friend', info: OPEN_INFO, team: 0, sides, onSide: no, buttons: [SHEET_BUTTONS.share, SHEET_BUTTONS.giveai, SHEET_BUTTONS.remove], onDone: no }),
+  ];
+  for (const t of tallest) { t.classList.add('fixed'); t.querySelector('#sheetTitle')?.removeAttribute('id'); Object.assign(t.style, { position: 'absolute', visibility: 'hidden', left: '0', bottom: '0' }); }
+  dlg.append(...tallest);
+  const h = Math.max(...tallest.map(t => t.offsetHeight));
+  for (const t of tallest) t.remove();
+  return h;
+}
 /** The open seat's sheet (none: closed), redrawn with every lobby, the focus where it was. Yours: your race (the host:
- *  your side too). The host's on an AI: its race, level and side, OPEN FOR A FRIEND, REMOVE; on an open seat: SHARE
- *  LINK, GIVE TO AI, its side, REMOVE; on another person: their side, FREE SEAT while they are away, REMOVE (out of the
- *  room, not let in again: a stranger who guessed the code). READY is not here. */
+ *  your side too). The host's on an AI: its race, level and side, OPEN (an open seat again), REMOVE; on an open seat:
+ *  SHARE (the link), COMPUTER (the computer plays it), its side, REMOVE; on another person: their side, FREE SEAT while
+ *  they are away, REMOVE (out of the room, not let in again: a stranger who guessed the code). READY is not here. The
+ *  buttons' words are short, what they do in their hover titles, and every host's sheet is one size (`sheetHeight`), so
+ *  the sheet stays put as a seat changes hands. */
 function renderSheet() {
   sheet ||= sheetDialog($('onlineSheet'));
   const m = lobbyState, i = editing, me = online.seat, host = me === 0;
   if (!m || i < 0 || !m.seats[i] || (!host && i !== me)) { editing = -1; sheet.close(); return; }
   const dlg = $('onlineSheet'), focus = dlg.contains(document.activeElement) ? document.activeElement.dataset.k : null;
   const s = m.seats[i], mine = i === me, open = isOpen(s), team = m.teams[i], n = seated(m).length;
-  const remove = { label: 'REMOVE', title: `Remove ${open ? 'the open seat' : aiName(i)}`, k: 'remove', ghost: true, on: () => { online.net?.drop(i); closeSheet(); } };
+  const remove = { ...SHEET_BUTTONS.remove, title: `Remove ${open ? 'the open seat' : aiName(i)}`, on: () => { online.net?.drop(i); closeSheet(); } };
   const name = open ? 'OPEN SEAT' : s.ai ? aiName(i) : mine ? 'YOU' : s.name || '…';
-  sheet.show(seatSheet({ name, race: s.race, diff: s.diff ?? 1 }, seatColor(i), {
+  const el = seatSheet({ name, race: s.race, diff: s.diff ?? 1 }, seatColor(i), {
     sub: open ? 'for a friend' : s.ai ? 'computer player' : mine ? 'your seat' : `${raceTitle(s.race)} · ${s.ready && s.here ? 'ready' : s.here ? 'not ready' : 'away'}`,
-    info: open ? 'The first friend to open the link takes this seat.' : '',
+    info: open ? OPEN_INFO : '',
     team, sides: sideChoices(boardOf(m)), onDone: () => closeSheet(),
     onRace: mine ? (r) => online.net?.race(r) : s.ai && host ? (r) => online.net?.ai(i, true, r) : null,
     onDiff: s.ai && host ? (d) => online.net?.ai(i, true, undefined, d) : null,
     onSide: host ? (t) => online.net?.side(i, t) : null,
     buttons: !host ? [] : open ? [
-      { label: 'SHARE LINK', title: 'Share the link to this room', k: 'share', big: true, on: share },
-      { label: 'GIVE TO COMPUTER', title: 'The computer plays this seat', k: 'giveai', ghost: true, on: () => { const like = aiFor(m); online.net?.ai(i, true, like.race, like.diff); } },
+      { ...SHEET_BUTTONS.share, on: share },
+      { ...SHEET_BUTTONS.giveai, on: () => { const like = aiFor(m); online.net?.ai(i, true, like.race, like.diff); } },
       ...(n > 2 && i > 0 ? [remove] : []),
     ] : s.ai ? [
-      { label: 'OPEN FOR A FRIEND', title: 'An open seat again, for a friend', k: 'open', ghost: true, on: () => online.net?.ai(i, false) },
+      { ...SHEET_BUTTONS.open, on: () => online.net?.ai(i, false) },
       ...(n > 2 ? [remove] : []),
     ] : !mine ? [
       ...(!s.here ? [{ label: 'FREE SEAT', title: `${s.name || 'They'} stepped away: open the seat now`, k: 'free', ghost: true, on: () => online.net?.free(i) }] : []),
       { label: 'REMOVE', title: `Remove ${s.name || 'them'} from the room: they can't join it again`, k: 'kick', ghost: true, on: () => { online.net?.remove(i); closeSheet(); } },
     ] : [],
-  }), () => closeSheet());
+  });
+  sheet.show(el, () => closeSheet());
+  if (host) { el.classList.add('fixed'); el.style.height = `${sheetHeight(dlg)}px`; } // (a guest's sheet is only ever their own)
   if (focus) (dlg.querySelector(`[data-k="${focus}"]`) || dlg.querySelector(`[data-k^="${focus.split(':')[0]}:"].on`) || dlg.querySelector('[data-k="done"]'))?.focus();
 }
 /** READY: LOADING… until the game has loaded, RELOAD if it could not; a lit toggle (✓ READY) once ready; the big

@@ -419,7 +419,7 @@ test('nothing on the lobby\'s board moves (upright and on its side) when the hos
   } finally { await a.ctx.close(); }
 });
 
-test('an open seat: SHARE LINK the big button (in the title and the seat\'s sheet), GIVE TO AI, REMOVE; a friend\'s SIT HERE moves them there', { engines: true }, async () => {
+test('an open seat: SHARE LINK the big button in the title, SHARE in the seat\'s sheet, COMPUTER, REMOVE; a friend\'s SIT HERE moves them there', { engines: true }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(PHONE, relayQ);
   try {
@@ -431,19 +431,19 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
     await eventually(() => a.p.evaluate(() => ['btnShare', 'btnOnlineReady'].map(id => document.getElementById(id).classList.contains('big'))), [true, false], 'SHARE LINK the big button while a seat is open; READY plain');
     await sheet(a, 1, [], false);
     await eventually(() => a.p.locator('#onlineSheet .info').textContent(), 'The first friend to open the link takes this seat.');
-    await eventually(() => a.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => [x.textContent, x.classList.contains('big')])), [['SHARE LINK', true], ['GIVE TO COMPUTER', false], ['DONE', false]], 'SHARE LINK first and big; no REMOVE at two seats');
+    await eventually(() => a.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => [x.textContent, x.classList.contains('big')])), [['SHARE', true], ['COMPUTER', false], ['DONE', false]], 'SHARE first and big; no REMOVE at two seats');
     await eventually(() => a.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['SIDE']);
     await a.tap('#onlineSheet [data-k="share"]');
     await a.p.waitForFunction(() => window.shared.length === 1);
     await eventually(() => a.p.evaluate(() => window.shared[0]), new RegExp(`\\?room=${code}`), 'the room\'s link');
-    // GIVE TO COMPUTER: the seat the computer's (RANDOM on Medium, the first); its sheet now a computer's.
+    // COMPUTER: the seat the computer's (RANDOM on Medium, the first); its sheet now a computer's.
     await a.tap('#onlineSheet [data-k="giveai"]');
     await a.p.waitForFunction(() => document.querySelector('#onlineSheet .opt .lbl')?.textContent === 'RACE');
     assert.deepEqual(await a.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE', 'LEVEL', 'SIDE'], 'the computer\'s sheet');
     await eventually(() => a.p.$$eval('#onlineSheet .chips .on', cs => cs.map(c => c.dataset.k)), ['race:random', 'diff:1', 'side:1']);
     await eventually(() => a.p.locator('#onlineStatus').textContent(), 'Ready when you are');
     assert.ok(!(await a.p.locator('#btnShare').getAttribute('class')).includes('big'), 'no seat open: SHARE LINK plain');
-    await a.tap('#onlineSheet [data-k="open"]'); // (OPEN FOR A FRIEND)
+    await a.tap('#onlineSheet [data-k="open"]'); // (OPEN: an open seat again)
     await a.p.waitForFunction(() => !!document.querySelector('#onlineSheet [data-k="share"]'));
     await a.tap('#onlineSheet [data-k="done"]');
     // + SEAT (a side of its own), the first open seat on the host's side; then a friend: the first open seat (the host's
@@ -487,6 +487,55 @@ test('an open seat: SHARE LINK the big button (in the title and the seat\'s shee
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
     } finally { await b.ctx.close(); }
   } finally { await a.ctx.close(); }
+});
+
+test('the host\'s seat sheet keeps one size as the seat changes hands (open, the computer\'s, open again; REMOVE too; your own), on a desktop and a 667x375 phone; short words, their meaning in the hover title', async () => {
+  const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
+  for (const device of [DESKTOP, { ...PHONE, viewport: { width: 667, height: 375 } }]) {
+    const a = await page(device, relayQ), at = `${device.viewport.width}x${device.viewport.height}`;
+    try {
+      await a.tap('#btnOnline'); await a.p.locator('#onlineName').fill('Ann'); await a.tap('#btnNewRoom');
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 2);
+      // The sheet's box once the relay's answer is drawn (two reads a frame apart alike), and whether it all fits: on
+      // the screen, nothing to scroll, the footer one row.
+      const box = async (what) => {
+        const read = () => a.p.evaluate(() => new Promise(r => requestAnimationFrame(() => { const e = document.querySelector('#onlineSheet .sheet'), b = e.getBoundingClientRect(); r([b.x, b.y, b.width, b.height].map(Math.round)); })));
+        let last = await read();
+        for (let now = await read(); JSON.stringify(now) !== JSON.stringify(last); now = await read()) last = now;
+        const fit = await a.p.evaluate(() => {
+          const e = document.querySelector('#onlineSheet .sheet'), b = e.getBoundingClientRect(), tops = new Set([...e.querySelectorAll('.ft button')].map(x => Math.round(x.getBoundingClientRect().top + x.getBoundingClientRect().height / 2)));
+          return [b.top >= 0 && b.bottom <= innerHeight + 0.5, e.scrollHeight <= e.clientHeight + 1, tops.size];
+        });
+        assert.deepEqual(fit, [true, true, 1], `${at}, ${what}: on the screen, nothing to scroll, the buttons in one row`);
+        return last;
+      };
+      const buttons = () => a.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => [x.textContent, x.title]));
+      await sheet(a, 1, [], false);
+      await eventually(buttons, [['SHARE', 'Share the link to this room: the first friend to open it takes this seat'], ['COMPUTER', 'Give this seat to the computer: it plays it'], ['DONE', '']], `${at}: an open seat's buttons`);
+      const first = await box('an open seat');
+      await a.tap('#onlineSheet [data-k="giveai"]');
+      await a.p.waitForFunction(() => document.querySelector('#onlineSheet .opt .lbl')?.textContent === 'RACE', null, { timeout: RUN_MS });
+      await eventually(buttons, [['OPEN', 'Open this seat again, for a friend to take'], ['DONE', '']], `${at}: the computer's buttons`);
+      assert.deepEqual(await box('given to the computer'), first, `${at}: the computer's sheet the same size, in the same place`);
+      await a.tap('#onlineSheet [data-k="open"]');
+      await a.p.waitForFunction(() => !!document.querySelector('#onlineSheet [data-k="share"]'), null, { timeout: RUN_MS });
+      assert.deepEqual(await box('open again'), first, `${at}: open again: the same`);
+      await a.tap('#onlineSheet [data-k="done"]');
+      // A third seat: REMOVE joins the buttons, on the open seat's sheet and the computer's.
+      await a.tap('#onlineBoard [data-k="addseat"]');
+      await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3, null, { timeout: RUN_MS });
+      await sheet(a, 2, [], false);
+      await eventually(() => a.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => x.textContent)), ['SHARE', 'COMPUTER', 'REMOVE', 'DONE']);
+      assert.deepEqual(await box('an open seat, three seats'), first, `${at}: with REMOVE: the same`);
+      await a.tap('#onlineSheet [data-k="giveai"]');
+      await eventually(() => a.p.$$eval('#onlineSheet .ft button', bs => bs.map(x => x.textContent)), ['OPEN', 'REMOVE', 'DONE']);
+      assert.deepEqual(await box('the computer\'s, three seats'), first, `${at}: the computer's with REMOVE: the same`);
+      await a.tap('#onlineSheet [data-k="done"]');
+      await sheet(a, 0, [], false);
+      assert.deepEqual(await box('your own'), first, `${at}: your own seat's: the same`);
+      assert.deepEqual(a.errors, []);
+    } finally { await a.ctx.close(); }
+  }
 });
 
 test('eight seats fit a small phone (667x375), a landscape phone (844x390) and an upright one two abreast (412x915), the corner clear; six, three against three, play the same 128x128 game', async () => {

@@ -250,12 +250,13 @@ src/client/           everything that touches the browser
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
                       board or the map (then it is theirs: saved, and an ordinary game)
   seats.js            the board's eight fixed spots (a seat keeps its spot, and its spot's colour in the game, whatever
-                      its side; adding fills the lowest empty spot, removing empties one: nothing moves): a spot per
-                      entry (`{ race, team, diff }`, null when empty, you in spot 0) and how they become the game's
-                      seats (`arrange` puts each side's seats side by side, your side first; `startSetup`, with
+                      its side; adding fills the lowest empty spot; single player's REMOVE moves the players after it
+                      up a spot and numbers the sides again without a gap, `removeAt`; the lobby's empties the spot): a
+                      spot per entry (`{ race, team, diff }`, null when empty, you in spot 0) and how they become the
+                      game's seats (`arrange` puts each side's seats side by side, your side first; `startSetup`, with
                       `spots`, each seat's spot), pure (test/seats.test.js: `arrange`, `startSetup`, `enemyLevel`,
-                      `newAi`, `canRemove`, `sideChoices`, ...); and the board's DOM pieces, the lobby's too, built from
-                      a seat's view: `tokenEl` (colour band, name, race, level pips, its side's tag; a host's crown, a
+                      `newAi`, `canRemove`, `removeAt`, `sideChoices`, ...); and the board's DOM pieces, the lobby's
+                      too, built from a seat's view: `tokenEl` (colour band, name, race, level pips, its side's tag; a host's crown, a
                       ready check, AWAY, an open seat's SIT HERE), `emptySpot` (+ AI, + SEAT, or a faint outline),
                       `chipRow` (a radio group), `seatSheet` (RACE, LEVEL, SIDE; footer buttons), `sheetDialog` (a
                       modal <dialog>)
@@ -316,8 +317,9 @@ src/client/           everything that touches the browser
   online.js           Multiplayer: the lobby (open/join a room by code or link, a line on how; the room is single
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
-                      share or fill or remove an open seat; + AI / + SEAT in the lowest empty spot; the map list; a
-                      guest's board read-only, SIT HERE; the host's REMOVE in a person's sheet (a stranger who guessed
+                      share or fill or remove an open seat (SHARE, COMPUTER, OPEN: short words, their meaning in the
+                      hover titles; the host's sheet one size whatever the seat); + AI / + SEAT in the lowest empty
+                      spot; the map list; a guest's board read-only, SIT HERE; the host's REMOVE in a person's sheet (a stranger who guessed
                       the code: the relay bars their address from the room); a name first, NEW ROOM and JOIN dimmed
                       without one; in a room the address is ?room=CODE, the link a reload or a friend opens) and the glue between
                       src/net and the game (relay URL: ?relay=, VITE_RELAY_URL, or the dev host's port 8788; a build

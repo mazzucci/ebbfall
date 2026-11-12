@@ -1,8 +1,10 @@
 // The seats of a game against the AI (single player's board; online.js's lobby builds the same board) and the board's
 // pieces. The board is eight fixed SPOTS, the most seats a game has: YOU in spot 0, an AI (online, a person or an open
 // seat too) in any other, the rest empty. A player keeps its spot (its place on the board and its colour, in the game
-// too) whatever its side: the side is a tag on its token, chosen in its sheet; adding fills the lowest empty spot,
-// removing empties one, so nothing on the board ever moves. Side numbers stay as chosen while editing; START GAME seats
+// too) whatever its side: the side is a tag on its token, chosen in its sheet; adding fills the lowest empty spot, and
+// on single player's board removing one moves the players after it up a spot each (no gaps; their names and colours
+// are their new spots') and numbers the sides again from SIDE 1 without the gaps (`removeAt`; online, the lobby's
+// removing empties the spot). Side numbers stay as chosen while editing; START GAME seats
 // the players by side (the sim seats allies side by side only when their seat numbers follow each other: map.rs
 // team_starts): your side first, you first in it, each side's players in spot order (`arrange`), and tells the game
 // which spot each seat came from (its colour). The rules are pure (test/seats.test.js); the DOM builders at the end (a
@@ -64,12 +66,19 @@ export const oneTeam = (spots) => filled(spots).every(i => spots[i].team === spo
 export const freeTeam = (spots) => { let t = 0; while (spots.some(r => r && r.team === t)) t++; return t; };
 /** The lowest empty spot (-1: none; adding fills it). */
 export const firstEmpty = (spots) => spots.findIndex(r => !r);
-/** A seat's name: YOU, or COMPUTER and its spot's number (it keeps it while others come and go). */
+/** A seat's name: YOU, or COMPUTER and its spot's number. */
 export const seatName = (i) => (i ? `COMPUTER ${i}` : 'YOU');
 /** A new AI: on a side of its own, as the last AI (race, level), else Humans on Easy. */
 export function newAi(spots) {
   const like = filled(spots).slice(1).map(i => spots[i]).at(-1) || { race: 'humans', diff: 0 };
   return { race: like.race, team: freeTeam(spots), diff: like.diff };
+}
+/** The board once spot `i`'s player is removed (single player's REMOVE): the players after it each a spot up, so the
+ *  spots are filled from the first with no gap (you stay in spot 0), and the side numbers left closed up in their order
+ *  (SIDE 1, SIDE 3 and SIDE 4 become SIDE 1, 2 and 3), so no side number names a side nobody is on. */
+export function removeAt(spots, i) {
+  const left = spots.filter((r, j) => r && j !== i), keys = [...new Set(left.map(r => r.team))].sort((a, b) => a - b);
+  return Array.from({ length: spots.length }, (_, j) => (left[j] ? { ...left[j], team: keys.indexOf(left[j].team) } : null));
 }
 /** Whether spot `i`'s player may go: an AI, more than two players, and not the last enemy (someone must be left to
  *  fight). */
@@ -169,8 +178,9 @@ export function chipRow(items, on, label, pick, { name = label, cls = '' } = {})
 }
 /** A seat's sheet (its view, as a token's, and `sub`, a line beside its name; `info`, a line under it): RACE chips
  *  when `onRace`, LEVEL chips when `onDiff`, SIDE chips (`sides` [{ team, chip, color }]: seats.js `sideChoices`, the
- *  seat's `team` lit) when `onSide`; the footer's `buttons` ({ label, title, k, on, ghost, big }) and DONE (big unless
- *  one of them is); `onDone` for DONE and ×. It goes into a `sheetDialog`. */
+ *  seat's `team` lit) when `onSide`; the footer's `buttons` ({ label, title (its name for a screen reader and its hover
+ *  title), k, on, ghost, big }) and DONE (big unless one of them is); `onDone` for DONE and ×. It goes into a
+ *  `sheetDialog`. */
 export function seatSheet(view, color, { sub = '', info = '', team = null, sides = [], onRace = null, onDiff = null, onSide = null, buttons = [], onDone }) {
   const s = el('div', 'sheet'), hd = el('div', 'hd'), band = el('i', 'band'); band.style.background = color;
   const title = el('b', '', view.name); title.id = 'sheetTitle';
@@ -186,7 +196,7 @@ export function seatSheet(view, color, { sub = '', info = '', team = null, sides
     opt('SIDE', chipRow(items, team, 'Side', onSide, { name: 'side', cls: 'team' }));
   }
   const ft = el('div', 'ft');
-  for (const k of buttons) { const b = el('button', 'ib' + (k.big ? ' big' : k.ghost ? ' ghost' : ''), k.label); if (k.title) b.setAttribute('aria-label', k.title); b.dataset.k = k.k; b.addEventListener('click', k.on); ft.appendChild(b); }
+  for (const k of buttons) { const b = el('button', 'ib' + (k.big ? ' big' : k.ghost ? ' ghost' : ''), k.label); if (k.title) { b.setAttribute('aria-label', k.title); b.title = k.title; } b.dataset.k = k.k; b.addEventListener('click', k.on); ft.appendChild(b); }
   const done = el('button', 'ib' + (buttons.some(k => k.big) ? '' : ' big'), 'DONE'); done.dataset.k = 'done'; done.addEventListener('click', onDone);
   ft.append(el('span', 'spacer'), done);
   s.appendChild(ft);

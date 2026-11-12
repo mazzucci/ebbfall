@@ -12,7 +12,7 @@ import { lathe, coil, cone } from './vael.js';
 import { deeplight } from './vael2.js';
 import { VP } from './vael-palette.js';
 
-// ---- the family's own materials (colours: vael-palette.js): the Tender's mending light, apart from the weapons' ----
+// ---- the family's own materials (colors: vael-palette.js): the Tender's mending light, apart from the weapons' ----
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
@@ -78,8 +78,8 @@ const roundPetal = (l, w, root = 0.3, n = 18) => {
   for (let i = 0; i <= n; i++) { const a = -Math.PI * 0.62 + Math.PI * 1.24 * i / n; p.push([cx + Math.cos(a) * r, Math.sin(a) * r]); }
   p.push([0, w * root / 2]); return p;
 };
-/** A round petal's tip (top view): the part of its end circle (centre `cx` on the x axis, radius `r`) beyond a chord
- *  `cut` behind the centre. */
+/** A round petal's tip (top view): the part of its end circle (center `cx` on the x axis, radius `r`) beyond a chord
+ *  `cut` behind the center. */
 /** Tender (support, a detector): a flower of pearl round a big aqua heart, 23 across (about 2.6x the Glint's
  *  footprint): six broad round petals cupped up round the heart, notched between their lobes (round 3: six narrow
  *  pointed petals read as a star, a sparkle, the Glint), each petal's tip team glaze behind an ink seam, an ink calyx

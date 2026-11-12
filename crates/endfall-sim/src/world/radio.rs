@@ -3,7 +3,7 @@
 //! an ally, and at their normal speed everywhere else; the Drone (the flying machine) goes no more than `LEASH_MARGIN`
 //! tiles past its edge.
 //!
-//! In range means by exact distance: a point is in range when its distance to a source's centre is at most the
+//! In range means by exact distance: a point is in range when its distance to a source's center is at most the
 //! source's reach (`in_radio`), so the client's circles (`radio_circles`, the same list) and the rule agree. The
 //! sources are listed again whenever they change: checked at the start of every tick (a source counts from the tick
 //! after it is done until the tick after it is gone), when a building is made and when the teams change. The list is
@@ -73,7 +73,7 @@ impl World {
     }
 
     /// Whether (x, y) (world px) is within `team`'s range (its own sources and its allies'): within a source's reach
-    /// of its centre, by exact distance.
+    /// of its center, by exact distance.
     pub fn in_radio(&self, team: u8, x: f64, y: f64) -> bool {
         self.in_radio_by(team, x, y, 0.0)
     }

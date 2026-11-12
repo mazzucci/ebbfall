@@ -7,7 +7,7 @@
 //     base-kingdom-075.png, base-expedition-075.png the same at 0.75 (2x and -1x copies of each)
 //   range-overlay.png (+ -1x): the Expedition base with a machine selected and the Radio tower's and Data centre's range
 //     shown on the ground (the proposed look: a faint pale tint inside, a soft ring at the edge)
-//   models/<name>.png and <name>@2x.png: each new building (and the fixed Castle and Data centre) alone in seats 0, 1 and 6
+//   models/<name>.png and <name>@2x.png: each new building (and the fixed Castle and Data center) alone in seats 0, 1 and 6
 //     with its team share, plus -protan and -deutan copies; the two towers drawn with their heads
 //   shares.json, and the printed shares (review.mjs's measure, facing 0) and sizes at zoom 1.0 (CSS px, w x h)
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -104,11 +104,11 @@ base('kingdom', KINGDOM_BASE, 11);
 const exBase = base('expedition', EXPEDITION_BASE, 13);
 
 // ---- the range overlay mock-up: the Expedition base with a Buggy selected; the Radio tower's and Data centre's range
-// on the ground as a faint pale tint inside and a soft ring at the edge (neutral, not the team's colour: it must read
+// on the ground as a faint pale tint inside and a soft ring at the edge (neutral, not the team's color: it must read
 // in every seat and never fight the grass or the team flags) ----
 {
   const c = crop(exBase, (BW - W) / 2, (BH - H) / 2, W, H), ox = (BW - W) / 2, oy = (BH - H) / 2;
-  const ranges = [[1560 - ox, 500 - oy, 7 * 32 * 2], [1000 - ox, 500 - oy, 9 * 32 * 2]];           // [x, y, radius in 2x px]: 7 tiles round a Radio tower, 9 round the Data centre (stand-in numbers)
+  const ranges = [[1560 - ox, 500 - oy, 7 * 32 * 2], [1000 - ox, 500 - oy, 9 * 32 * 2]];           // [x, y, radius in 2x px]: 7 tiles round a Radio tower, 9 round the Data center (stand-in numbers)
   const SQ = 0.62;                                                                                 // the ground's foreshortening at 40 degrees: a circle on the ground is this ellipse
   const over = canvas(W, H);                                                                       // the overlay's alpha and the ring's: painted first, then composited under the sprites' shadows is not possible here, so it goes over the ground and under nothing (a mock-up)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {

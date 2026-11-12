@@ -68,7 +68,7 @@ fn every_map_has_one_mine_per_field_holding_the_fields_gold() {
                         "{ctx}: mine {} untouched holds what it held",
                         m.id
                     );
-                    // (a field's crystals, all of them: seven by a main, five at an expansion, up to three in the centre)
+                    // (a field's crystals, all of them: seven by a main, five at an expansion, up to three in the center)
                     let k = m.total / crystal(kind);
                     assert!(
                         m.total % crystal(kind) == 0 && (1..=7).contains(&k),

@@ -1,4 +1,4 @@
-// What the device remembers (src/client/store.js): the player's name, one sanitiser and one key for the lobby's NAME
+// What the device remembers (src/client/store.js): the player's name, one sanitizer and one key for the lobby's NAME
 // and OPTIONS' NAME, which takes a name exactly as the relay does (relay/room.js: trimmed, 16 at most).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

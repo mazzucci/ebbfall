@@ -1,4 +1,4 @@
-// The Harbour (the Humans' new look, STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope and brass
+// The Harbor (the Humans' new look, STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope and brass
 // only on small tips. Step 0's slice: the Lighthouse (core); the Rigger and the Picket moved to harbour-infantry.js with
 // the rest of the infantry. Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
@@ -56,7 +56,7 @@ export function lighthouse(M) {
   add(g, cyl(8.2, 8.2, 12, 24), M.lanternPane, TX, 51.3, TZ);                                         // the lantern room: glass, see-through
   for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; add(g, rbox(0.6, 12.4, 0.6, 0.2), M.ironDark, TX + Math.cos(a) * 8.3, 51.3, TZ + Math.sin(a) * 8.3, 0, -a, 0); } // the cage
   for (const y of [45.6, 57]) add(g, cyl(8.5, 8.5, 0.6, 24), M.ironDark, TX, y, TZ);                  // its rails
-  add(g, sph(4.8, 16, 12), M.lampHot, TX, 51.6, TZ);                                                  // the lamp: the brightest Harbour pixel
+  add(g, sph(4.8, 16, 12), M.lampHot, TX, 51.6, TZ);                                                  // the lamp: the brightest Harbor pixel
   add(g, sph(2.4, 12, 8), M.lampCore, TX, 52, TZ + 3.8);                                               // its near-white core on the south face, where the camera looks: 3 px at phone size
   add(g, sph(3.6, 12, 8), M.lampAmber, TX, 52, TZ + 3.8);                                              // a tight amber halo round it, 1 px at phone size
   add(g, sph(6.4, 16, 12), M.lampHalo, TX, 51.6, TZ); add(g, sph(8.6, 16, 12), M.lampHalo2, TX, 51.6, TZ); // its warm halo

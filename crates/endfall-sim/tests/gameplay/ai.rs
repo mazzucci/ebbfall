@@ -559,7 +559,7 @@ fn a_beaten_attack_wave_falls_back() {
 #[test]
 fn the_ai_researches_upgrades_in_a_long_game() {
     let mut w = World::new(33, 1);
-    // A player whose core cannot fall, so the game lasts long enough to watch the AI's later behaviour.
+    // A player whose core cannot fall, so the game lasts long enough to watch the AI's later behavior.
     let c = w
         .bldgs
         .iter_mut()
@@ -1632,7 +1632,7 @@ fn on_a_barren_map_the_ai_takes_its_natural_before_its_home_field_runs_dry() {
 
 #[test]
 fn brutal_spends_its_income_when_its_main_fills_up() {
-    // Brutal's x1.3 income needs more factories than a main pocket has room for: with none left near its centre it
+    // Brutal's x1.3 income needs more factories than a main pocket has room for: with none left near its center it
     // builds farther out (and the Vael raise a Spire out there first, for a field to build in) instead of waiting for
     // its natural. Its mean bank at 6 and 8 minutes over three seeds, against a player who holds: about 3,650 for
     // either race before, about 1,250 / 1,800 (Human / Vael AI) then. Under the cap of 40 (PRD: the conversion) a
@@ -1850,7 +1850,7 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
 
 #[test]
 fn the_ai_raises_its_first_tower_at_two_and_a_half_minutes() {
-    // Its first defence tower (a Turret, a Ward) once its first factory stands and from 2:30 (it was 4:00): an early
+    // Its first defense tower (a Turret, a Ward) once its first factory stands and from 2:30 (it was 4:00): an early
     // wave found nothing at home but a few units (on the Shore map, where the routes are shorter, the Humans lost about
     // three harvesters by 5:00 and won 14 of 40 at Medium; with the tower at 2:30, 1.6 and 17). Money to spare,
     // against an idle player, on Medium.

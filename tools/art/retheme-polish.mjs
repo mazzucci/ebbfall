@@ -57,7 +57,7 @@ writeFileSync(join(outDir, 'before-after.png'), encodePNG(big));
 writeFileSync(join(outDir, 'before-after-1x.png'), encodePNG(half(big)));
 writeFileSync(join(outDir, 'before-after-grey.png'), encodePNG(grey(big)));
 
-// ---- close-ups: each piece before and after at 2x and at 4x (the 2x sprite doubled, nearest neighbour) ----
+// ---- close-ups: each piece before and after at 2x and at 4x (the 2x sprite doubled, nearest neighbor) ----
 function scale2(c) { const o = canvas(c.w * 2, c.h * 2); for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) o.data.set(c.data.subarray(((y >> 1) * c.w + (x >> 1)) * 4, ((y >> 1) * c.w + (x >> 1)) * 4 + 4), (y * o.w + x) * 4); return o; }
 const CLOSE = [['kg_villager_0_0', 0, 120], ['kg_guard_0_0', 0, 150], ['kg_knight_0_0', 0, 170], ['bldg_kg_castle', 0, 420], ['ex_bot_8_0', 1, 120], ['ex_buggy_8_0', 1, 150], ['ex_marine_8_0', 1, 150], ['bldg_ex_hall', 1, 420]];
 const rows = CLOSE.map(([name, seat, P]) => {

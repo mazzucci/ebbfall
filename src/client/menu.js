@@ -28,7 +28,7 @@ import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName,
  *  `team`, an AI's `diff` }); `players`: how many (2 to 8). Drawn at START GAME, in seat order (seats.js `arrange`: your
  *  side first, you first): `races` (a RANDOM one drawn), `ai`, `teams` (an id per seat, empty: free for all), `diffs`
  *  (each AI's; empty: all at `diff`), `diff`, the hardest AI's (the record's), and `spots`, each seat's spot (its
- *  colour); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
+ *  color); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
 export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 /** A race for this game: the one chosen, or either at random. */
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
@@ -69,7 +69,7 @@ function renderMaps() {
   drawPreview($('mapPreview'), menu.map, menu.seed, menu.kind);
 }
 
-// The board: eight fixed spots (seats.js), YOU in the first, an AI in any other, each with its colour (its own in the
+// The board: eight fixed spots (seats.js), YOU in the first, an AI in any other, each with its color (its own in the
 // game), its race, level and side; the lowest empty spot a dashed + AI (a new AI on a side of its own), the rest faint.
 // A token opens its seat's sheet: race, an AI's level and side, REMOVE (not the last enemy). The spots never move; a
 // player removed, the AIs after it move up a spot each and the sides are numbered again without the gap (seats.js
@@ -129,7 +129,7 @@ narrow.addEventListener?.('change', () => { if (menu.board.length) renderSeats()
 // A map's thumbnail at its size: rock, fields, vents and every start (a Random map: a question mark). The canvas is
 // drawn a pixel per tile (64 or 96 across) and shown at one size. The sim draws the map: until its WASM is in (the menu
 // comes first, src/boot.js), a plain ground, the map drawn when it is.
-const PREVIEW = ['#2a3442', '#7d8796', '#e8c04a', '#a24a2c', '#f5a524', '#3f6f7e', '#1f3a63']; // (ground, rock, gold mines, brine seeps, starts, shallows, deep water: the minimap's colours, gl/render.js)
+const PREVIEW = ['#2a3442', '#7d8796', '#e8c04a', '#a24a2c', '#f5a524', '#3f6f7e', '#1f3a63']; // (ground, rock, gold mines, brine seeps, starts, shallows, deep water: the minimap's colors, gl/render.js)
 let simReady = false;
 ready.then(() => { simReady = true; if (!$('start').hidden) renderMaps(); }, () => {});
 export function drawPreview(cv, i, seed, kind) {

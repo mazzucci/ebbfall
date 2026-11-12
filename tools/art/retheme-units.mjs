@@ -53,7 +53,7 @@ const FAMILY = [
   ['ex_buggy_8_0', 980, 565, 1], ['ex_veteran_9_1', 1120, 565, 1],
   ['ex_rover_8_0', 1180, 700, 1], ['ex_marine_10_0', 1000, 690, 1], ['ex_drone_8_0', 890, 700, 1],
 ];
-/** The crowd: about twelve a side meeting at the centre, every unit of both peoples, at the sim's spacing (line units
+/** The crowd: about twelve a side meeting at the center, every unit of both peoples, at the sim's spacing (line units
  *  r 10-11 stand about 24 world px apart in a blob; they overlap when they press). */
 function crowd(cx, cy) {
   const list = [], jit = (k) => ((k * 7919) % 13 - 6) * 3;

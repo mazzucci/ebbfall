@@ -64,7 +64,7 @@ fn px(t: f64) -> f64 {
     t * TILE + 16.0
 }
 
-/// `n` Troopers of `team` in a block (`cols` across, `gap` px apart) centred on world point (x, y).
+/// `n` Troopers of `team` in a block (`cols` across, `gap` px apart) centered on world point (x, y).
 fn troopers(w: &mut World, team: u8, x: f64, y: f64, n: usize, cols: usize, gap: f64) -> Vec<Id> {
     let rows = n.div_ceil(cols);
     (0..n)

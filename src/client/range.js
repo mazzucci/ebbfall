@@ -1,5 +1,5 @@
 // The range's circles (the Expedition's machines move faster inside them: crates/endfall-sim/src/world/radio.rs), pure:
-// whether a point is in range, by the sim's own rule (exact distance from a source's centre, at most its reach), and the
+// whether a point is in range, by the sim's own rule (exact distance from a source's center, at most its reach), and the
 // outline of their union as arcs, for the renderer (gl/render.js). Circles are { x, y, r } in world px (G.radio).
 
 /** Whether (x, y) lies in range: within a circle, its edge included (the sim's `in_radio`, with the same hypot). */

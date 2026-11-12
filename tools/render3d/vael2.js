@@ -37,13 +37,13 @@ export function glint(M, f) {
   add(b, sph(3.4, 18, 12), M.inkSeam, -2.2, 2.35, 0).scale.set(1.15, 0.5, 1.05);              // the ink seam round its edge, a thin ring
   add(b, sph(1.6, 12, 10), M.inkSeam, 2.4, 3.2, 0);                                           // the ink socket on the crown
   deeplight(b, M, 1.2, 2.8, 3.6, 0);                                                         // the one light, on the crown, ahead of the dome
-  add(b, sph(0.45, 8, 6), M.deepWhite, 3.2, 4.1, 0.4);                                         // a brighter centre that survives 1x
+  add(b, sph(0.45, 8, 6), M.deepWhite, 3.2, 4.1, 0.4);                                         // a brighter center that survives 1x
   add(b, cyl(1.1, 2.3, 2.6, 14), M.glaze, -7.9, 0.1, 0, 0, 0, Math.PI / 2);                   // the tail's team sleeve, the aft half of the tail
   add(b, cyl(2.5, 2.5, 0.35, 14), M.inkSeam, -6.5, 0.1, 0, 0, 0, Math.PI / 2);                // its ink seam
   add(b, sph(1.15, 10, 8), M.ring, -9.6, 0.1, 0);                                              // a pearl knob at the tail's end
   // the load: a cube of salt held under the bow by two ink claws, a facet turned up to the light
   const load = grp(); load.position.set(7.4, -1.0, 0); load.rotation.set(0.08, 0.6, 0.06); b.add(load);
-  add(load, rbox(5.4, 5.4, 5.4, 0.3), saltMat(M), 0, 0, 0);                                    // a warm grey cube, its top level to the sun, a band below the pearl so it parts from the head
+  add(load, rbox(5.4, 5.4, 5.4, 0.3), saltMat(M), 0, 0, 0);                                    // a warm gray cube, its top level to the sun, a band below the pearl so it parts from the head
   add(load, rbox(2.4, 1.8, 2.4, 0.25), saltMat(M), 1.0, 3.2, -0.9, 0.2, 0.5, 0.25);              // a smaller cube grown on it
   for (const s of [-1, 1]) limb(b, [3.4, -1.4, s * 2.4], [7.0, -0.8, s * 3.6], 0.8, M.inkSeam); // the claws, gripping its sides
   g.add(b); return g;
@@ -51,7 +51,7 @@ export function glint(M, f) {
 
 /** Lens (ranged): a disc of ink glass in a pearl rim, its deeplight in the middle, a thin pearl ring etched in the glass
  *  (a lens, not an eye); team glaze on two long arcs of the rim between ink seams and on the three pods that stand out
- *  beneath it. Never the Glint: a dark hollow with a bright centre against the Glint's solid pale drop. */
+ *  beneath it. Never the Glint: a dark hollow with a bright center against the Glint's solid pale drop. */
 export function lens(M, f) {
   const g = grp(), b = grp(); b.position.y = 9 + (f % 2) * 0.7; b.rotation.z = -0.16;
   add(b, cyl(7.6, 7.6, 1.4, 40), M.ink, 0, 0, 0);                                           // the disc: the glass big and dark, the one "eye" (a narrow pupil in a wide pale rim read as a pebble, the Glint)
@@ -87,15 +87,15 @@ export function tidewell(M) {
   add(g, cyl(44.4, 44.4, 0.6, 56), M.shellDeep, 0, 16.2, 0);                                  // its seam under the ring
   add(g, cyl(33.5, 33.5, 0.8, 48), M.pool, 0, 16.6, 0);                                       // the pool
   for (const r of [30, 25, 20, 11]) ring(g, r, 0.3, M.shellDeep, 17.05, { seg: 56 });              // ripples, faint pearl rings
-  add(g, cyl(15, 15, 0.4, 40), M.poolDeep, 0, 17.1, 0);                                       // deeper at the centre
+  add(g, cyl(15, 15, 0.4, 40), M.poolDeep, 0, 17.1, 0);                                       // deeper at the center
   add(g, cyl(33, 33, 0.25, 48), M.deepHalo2, 0, 17.4, 0);                                     // a faint sheen over it
-  for (const a of [Math.PI / 2, -Math.PI / 6, -Math.PI * 5 / 6]) {                           // three short sluice channels from the pylons into the pool, stopping well short of the centre
+  for (const a of [Math.PI / 2, -Math.PI / 6, -Math.PI * 5 / 6]) {                           // three short sluice channels from the pylons into the pool, stopping well short of the center
     const x = Math.cos(a), z = Math.sin(a);
     add(g, rbox(11, 1.6, 4.6, 0.5), M.shellDark, x * 27, 17.4, z * 27, 0, -a, 0);
     add(g, rbox(10.6, 0.5, 2.4, 0.2), M.deeplight, x * 27, 18.2, z * 27, 0, -a, 0);          // the lit water in the channel
     add(g, rbox(2.6, 2.2, 5.4, 0.5), M.shell, x * 21.6, 17.8, z * 21.6, 0, -a, 0);            // its pearl mouth
   }
-  deeplight(g, M, 1.6, -4, 18.2, 2);                                                         // a light adrift near the centre
+  deeplight(g, M, 1.6, -4, 18.2, 2);                                                         // a light adrift near the center
   for (const [x, z, r] of [[-14, 12, 1.1], [15, -8, 1.0]]) deeplight(g, M, r, x, 18.2, z);   // lights adrift on the pool
   ring(g, 40, 7, M.ring, 20, { seg: 72 });                                                    // the ring
   ring(g, 40, 7.2, M.shellDark, 18.6, { seg: 72 });                                           // its underside

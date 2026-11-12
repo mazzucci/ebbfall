@@ -1,4 +1,4 @@
-//! The AI's army: watching for intruders, repairs, defence, raids and waves (research is in research.rs, production
+//! The AI's army: watching for intruders, repairs, defense, raids and waves (research is in research.rs, production
 //! in produce.rs).
 
 use super::*;
@@ -694,7 +694,7 @@ impl World {
             .sum()
     }
 
-    /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defence): a wave ready by count and time waits until
+    /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defense): a wave ready by count and time waits until
     /// its armed units' worth beats the enemy army it expects by the margin (fading to even over `margin_fade`
     /// seconds of waiting, if it fades). It expects the army it last saw; a sighting older than `sighting_age` is
     /// stale: it first sends its cheapest armed unit to look (waiting up to `look_for` seconds), then expects the last
@@ -850,7 +850,7 @@ impl World {
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
     /// came within `CHASE_S` of our last wave's end left out (chasers of our wave home, not the foe coming). The
     /// siege rules, the home reserve and the pull-back on contact, are for such a foe only (one that sits behind its
-    /// defence); against a foe that comes at it, its waves go as before.
+    /// defense); against a foe that comes at it, its waves go as before.
     fn passive_foe(&self, t: f64) -> bool {
         t - self.ai().came_at > self.level().passive_expand
     }
@@ -1112,7 +1112,7 @@ mod tests {
     use crate::path::Pt;
     use crate::world::{Task, World};
 
-    /// Seat 1's AI with its wave of six Troopers out by the map's centre and two at home, as four Troopers of
+    /// Seat 1's AI with its wave of six Troopers out by the map's center and two at home, as four Troopers of
     /// another seat stand at its Core: the army phases' turn. Whether the wave was called home.
     fn raided(seats: usize, raider: u8) -> bool {
         let mut w = World::with_size(

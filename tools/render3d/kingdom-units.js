@@ -1,7 +1,7 @@
 // The kingdom's units after the slice (the units family, 2026-11-10; not in the game's atlas: retheme.js renders them
 // by filter): the Archer (the Barracks' ranged line, hits flyers), the Rider (the Stables' light cavalry), the
 // Ballista (the Workshop's giant crossbow, flyers and ground), the Trebuchet (the Workshop's long-range siege, with its
-// travelling and set-up poses) and the Balloon (the kingdom's one flyer, unarmed, long sight). The slice's rules
+// traveling and set-up poses) and the Balloon (the kingdom's one flyer, unarmed, long sight). The slice's rules
 // (kingdom.js, target/art-review/slice/notes.md): a mid-dark body of oak, wool, horse and mail under a pale head of
 // linen or steel, each kind its own head shape and one big prop; team on cloth between ink hems, never a whole
 // surcoat; thin props drawn two to three times their thickness. Same conventions as models.js: game units, units
@@ -30,9 +30,9 @@ function fam(M) {
   const A = {
     horseLight: std({ color: 0x8a6e4e, roughness: 0.75 }),                                      // the Rider's horse: a bay, lighter than the Knight's dark hide
     patched: std({ color: 0xcfc8b4, map: patchTex, roughness: 0.92 }),                            // the Balloon's envelope: patched pale canvas
-    patchedGrey: std({ color: 0xb4b0a4, map: patchTex, roughness: 0.92 }),                        // ... a greyer, more weathered panel
+    patchedGrey: std({ color: 0xb4b0a4, map: patchTex, roughness: 0.92 }),                        // ... a grayer, more weathered panel
     canvasOld: std({ color: 0xa08a68, map: patchTex, roughness: 0.92 }),                          // ... an old tan panel (the patchwork's darker tone; the re-test read clean stripes as modern)
-    drab: std({ color: 0x66563a, map: M.canvas.map, roughness: 0.92 }),                            // the Archer's tunic: a dark drab wool, brown-olive (not the grass's green, not the Villager's grey)
+    drab: std({ color: 0x66563a, map: M.canvas.map, roughness: 0.92 }),                            // the Archer's tunic: a dark drab wool, brown-olive (not the grass's green, not the Villager's gray)
     yew: std({ color: 0x8a6240, map: M.timber.map, roughness: 0.78 }),                             // the Archer's longbow: a warm medium brown (0x9a6a3c read a touch orange; Stelian picked a step duller) (the kingdom's `haft`; 0x2c1c10, near-black yew, until the legibility pass of 2026-11-11: Stelian could not tell the Archer had a bow), its top edge lit by the polish's rim
     rope: M.rope,
   };
@@ -98,7 +98,7 @@ export function archer(M, f) {
   add(bw, cyl(1.45, 1.45, 2.8, 8), M.leather, BR, 0, 0);                                        // the grip
   limb(b, [0.6, 11.2, -3.4], [GX - 0.6, GY, GZ], 1.15, A.drab); add(b, sph(0.9, 8, 6), M.skin, GX - 0.3, GY, GZ);  // the bow arm, out ahead
   limb(b, [0.6, 11.2, 3.4], [1.4, 7.2, 3.9], 1.15, A.drab); add(b, sph(0.9, 8, 6), M.skin, 1.5, 6.8, 3.9);         // the right arm, down at the side
-  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a small grey feather on the hood's left, a leather bracer on the bow arm, ink cuffs, leather bindings on the stave's limbs, an iron ring at the quiver's foot, a dark buckle on the strap
+  if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a small gray feather on the hood's left, a leather bracer on the bow arm, ink cuffs, leather bindings on the stave's limbs, an iron ring at the quiver's foot, a dark buckle on the strap
     add(b, rbox(0.3, 3.0, 0.9, 0.1), M.tunic, -0.8, 16.2, -2.2, 0, 0, 0.7);
     limb(b, [3.6, 10.6, -2.4], [4.9, 10.45, -1.9], 1.3, M.leather);
     add(b, sph(1.25, 8, 6), M.inkLine, 5.2, 10.45, -1.75); add(b, sph(1.2, 8, 6), M.inkLine, 1.3, 7.6, 3.85);
@@ -222,14 +222,14 @@ export function ballista(M, f) {
 
 /** Trebuchet (the Workshop's long-range siege, sim r 20): a tall oak A-frame on a wheeled base, a long throwing arm
  *  pivoted at its apex with a counterweight box at the short end (team cloth over it) and a sling of rope and team
- *  cloth at the long end, a pennant at the apex, a team hanging between the frame's legs. Frames 0-1 travelling
+ *  cloth at the long end, a pennant at the apex, a team hanging between the frame's legs. Frames 0-1 traveling
  *  (the wheels turn: the arm down along the frame, the counterweight hanging under its short end, the sling tucked),
  *  2 half set, 3 set up (today's siege deploy, look.js UNIT_POSE): the arm cocked back and down to the ground with
  *  the sling laid out ahead of it, the counterweight hoisted high, braces staked out. From the camera the tallest
  *  thing on the ground: a tall timber triangle with a long bar and a box in the air; nothing low. */
 export function trebuchet(M, f) {
-  const A = fam(M), g = grp(), st = f < 2 ? 0 : f - 1, turn = (f % 2) * 0.5;                 // 0 travelling, 1 half, 2 set up
-  const H = 23, ang = [-0.85, -0.3, 1.0][st];                                                // the arm's angle below level (the last art round: travelling, the long arm stands raised high, -0.85; set up, cocked back and down to the ground, 1.0); the frame 23 tall for 17
+  const A = fam(M), g = grp(), st = f < 2 ? 0 : f - 1, turn = (f % 2) * 0.5;                 // 0 traveling, 1 half, 2 set up
+  const H = 23, ang = [-0.85, -0.3, 1.0][st];                                                // the arm's angle below level (the last art round: traveling, the long arm stands raised high, -0.85; set up, cocked back and down to the ground, 1.0); the frame 23 tall for 17
   for (const z of [-4.6, 4.6]) add(g, rbox(26, 1.8, 1.8, 0.3), M.timberPale, 0, 2.6, z);        // the base beams along x, light timber (the last round: lighter)
   for (const x of [-9, 0, 9]) add(g, rbox(1.8, 1.6, 11.0, 0.3), M.oak, x, 2.6, 0);               // cross beams
   for (const [x, z] of [[-8.5, -6.2], [8.5, -6.2], [-8.5, 6.2], [8.5, 6.2]]) wheel(g, M, 2.6, x, 2.6, z, turn + x * 0.1);
@@ -251,7 +251,7 @@ export function trebuchet(M, f) {
   add(cw, rbox(7.4, 7.4, 7.4, 0.5), M.timberPale, 0, -5.4, 0);                                  // the box, heavy, light timber
   add(cw, rbox(7.7, 4.6, 7.7, 0.2), M.cloth, 0, -4.0, 0); add(cw, rbox(7.9, 0.4, 7.9, 0.05), M.inkLine, 0, -1.6, 0); add(cw, rbox(7.9, 0.4, 7.9, 0.05), M.inkLine, 0, -6.4, 0); // a team cloth cover round it between ink hems
   add(cw, rbox(7.8, 0.7, 7.8, 0.1), M.ironDark, 0, -8.6, 0);                                      // an iron band at its foot
-  // the sling: two ropes from the long end to a team pouch; tucked up when travelling, laid out ahead when set up
+  // the sling: two ropes from the long end to a team pouch; tucked up when traveling, laid out ahead when set up
   const tip = [-22.6, 0, 0], toLocal = (wx, wy) => [wx * Math.cos(ang) + (wy - H) * Math.sin(ang), -wx * Math.sin(ang) + (wy - H) * Math.cos(ang)]; // a world point in the arm's frame
   if (st === 2) {
     const tw = [-22.6 * Math.cos(ang), H - 22.6 * Math.sin(ang)], P = toLocal(tw[0] + 8.5, 1.2);  // the pouch on the ground ahead of the tip
@@ -280,7 +280,7 @@ export function trebuchet(M, f) {
 
 /** Balloon (the kingdom's one flyer, unarmed and slow, long sight; sim r 14, flies at 30): a medieval patchwork
  *  balloon (the re-test after the polish read a clean striped ball as the Expedition's, 3 of 4): the envelope is
- *  eight cloth panels of uneven widths and tones (pale patched canvas, a greyer one, old tan, two of them the team's)
+ *  eight cloth panels of uneven widths and tones (pale patched canvas, a grayer one, old tan, two of them the team's)
  *  between ink seams, two of them split by a seam into two tones, so no stripe repeats; a rope net always (three
  *  hoops and eight meridians down to the load ring), a neck of old canvas, a round wicker basket with an oak rim hung
  *  on four ropes, a lookout in a pale linen hood, two big heraldic team banners hanging from the rim between ink rims
@@ -345,9 +345,9 @@ export function balloon(M) {
 
 /** Cannon (siege, the sim's `siegeTank` slot in place of the Trebuchet; Stelian, the last art round): a light gunmetal
  *  iron barrel on a warm light wooden carriage with two big spoked wheels, no crew, no small props; team on a small pennant at
- *  the trail and a thin band round the trail. Frames as the Trebuchet's (look.js UNIT_POSE siegeTank): 0-1 travelling
+ *  the trail and a thin band round the trail. Frames as the Trebuchet's (look.js UNIT_POSE siegeTank): 0-1 traveling
  *  (the wheels turn), 2 half, 3 the recoil pose: the barrel elevated and the gun rolled back on its wheels, the trail's
- *  spade down. Wood and bronze, so it never reads as the Expedition's grey Sentry gun with its orange band. From the
+ *  spade down. Wood and bronze, so it never reads as the Expedition's gray Sentry gun with its orange band. From the
  *  camera: two big wheels under a long dark barrel on a brown carriage, a small flag. */
 export function cannon(M, f) {
   const g = grp(), st = f < 2 ? 0 : f - 1, turn = (f % 2) * 0.5, back = [0, 1.5, 3.5][st], elev = [0.08, 0.2, 0.3][st];

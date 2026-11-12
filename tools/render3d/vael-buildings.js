@@ -2,7 +2,7 @@
 // lantern deeplights (vael-palette.js), team glaze between ink seams. Step 1's family: the Sunpetal (spire), the Siphon (siphon),
 // the Cradle (kiln), the Glasshouse (loom), the Anemone (ward), the Gyre (zenith) and the Darkwater (eclipse); the
 // Tidewell (conflux) stays in vael2.js and is the reference. Same conventions: game units (1 tile = 32), y up, +z
-// south (towards the camera); a building's anchor is its footprint's centre. Each building owns a roof from above:
+// south (towards the camera); a building's anchor is its footprint's center. Each building owns a roof from above:
 // a five-petal flower open to the sky, a cluster of soft lobes drinking from a shaft, a half-open shell, a ribbed dome, a star of
 // tentacles with lit tips, a widening spiral ribbon, a dark pool in a crown of arms; the Tidewell is a ring with
 // pylons. No ring of alternating glaze bands anywhere (the Tidewell's read as a lifebuoy): team glaze is one band,
@@ -17,7 +17,7 @@ import { VP } from './vael-palette.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
-// ---- the family's own materials (colours: vael-palette.js): dark glass for faces and panes, the Cradle's basin and bud ----
+// ---- the family's own materials (colors: vael-palette.js): dark glass for faces and panes, the Cradle's basin and bud ----
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
@@ -25,7 +25,7 @@ function fam(M) {
     darkGlass: new THREE.MeshPhysicalMaterial({ color: VP.darkGlass, metalness: 0.5, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 }), // the Glasshouse's panes
     petalGlass: new THREE.MeshPhysicalMaterial({ color: VP.petalGlass[0], emissive: VP.petalGlass[1], emissiveIntensity: 0.5, metalness: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: VP.petalGlass[2] }), // the Sunpetal's faces: deep glass with a light sweep, never flat black
     violetWater: new THREE.MeshStandardMaterial({ color: VP.basin[0], emissive: VP.basin[1], emissiveIntensity: VP.basin[2], metalness: 0.35, roughness: 0.3 }), // the Cradle's basin: deep and lit (violet on the pearl palette), never black
-    bud: new THREE.MeshPhysicalMaterial({ color: VP.bud[0], emissive: VP.bud[1], emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: VP.bud[2] }), // the Cradle's bud: the light's colour under a pale sheen
+    bud: new THREE.MeshPhysicalMaterial({ color: VP.bud[0], emissive: VP.bud[1], emissiveIntensity: 0.5, metalness: 0.1, roughness: 0.35, clearcoat: 0.8, sheen: 0.8, sheenColor: VP.bud[2] }), // the Cradle's bud: the light's color under a pale sheen
     mouth: new THREE.MeshStandardMaterial({ color: VP.mouth[0], emissive: VP.mouth[1], emissiveIntensity: 0.5, metalness: 0.4, roughness: 0.3 }), // the Anemone's mouth: dark, lit from within
   };
   FAM.set(M, A); return A;
@@ -37,7 +37,7 @@ function plinth(g, M, r, k = 0.3) {
   add(g, plate(tri(r, k), 4, 1.5), M.shellDark, 0, 0, 0);
   add(g, plate(tri(r * 0.9, k), 3, 1.4), M.shell, 0, 3.5, 0);
 }
-/** A team band round a drum between two ink seams: radius r (a little over the drum's), height h, centred on y. */
+/** A team band round a drum between two ink seams: radius r (a little over the drum's), height h, centered on y. */
 function skirt(g, M, r, h, y, seg = 36) {
   add(g, cyl(r, r + 0.3, h, seg), M.glaze, 0, y, 0);
   add(g, cyl(r + 0.25, r + 0.45, 0.7, seg), M.inkSeam, 0, y + h / 2 + 0.2, 0);
@@ -241,7 +241,7 @@ export function cradle(M) {
   return g;
 }
 
-/** Anemone (defence, 2x2): an anemone that stings: a fat ink column on a pearl foot, a pearl oral disc with a team
+/** Anemone (defense, 2x2): an anemone that stings: a fat ink column on a pearl foot, a pearl oral disc with a team
  *  rim round a dark mouth lit from within, and five soft pearl tentacles curling out, up and in from the
  *  disc, each tapering to a lantern tip (deeplight, never a pale bulb); a tall team collar round the column, a
  *  hoop on the foot, a team sleeve on each tentacle's middle, all between ink seams. Low and curled, so its
@@ -270,7 +270,7 @@ export function anemone(M) {
 /** Gyre (trains flyers, 3x3): a tall spiral open to the sky: a cone of coil, a flat pearl rail winding two turns up
  *  and inward from a wide base turn to a tight top turn, tapering as it climbs, a team stripe along its outer
  *  edge between ink seams so the turns part; a short ink core inside its foot, the top end to the south under a
- *  deeplight; a team skirt round the base drum. From above: a spiral narrowing to its centre, the only coil. */
+ *  deeplight; a team skirt round the base drum. From above: a spiral narrowing to its center, the only coil. */
 export function gyre(M) {
   const g = grp();
   plinth(g, M, 43, 0.2);
@@ -295,7 +295,7 @@ export function gyre(M) {
 /** Darkwater (the lurker's building, 2x2): the dark pool: a flat, wide, still pool of ink (`poolDeep`, the darkest
  *  thing in it) filling a low basin, four thin pearl arms rising at its rim on the diagonals and leaning outward,
  *  low, with the pool open between them; a team band round the basin, a sleeve on each arm and its root block,
- *  between ink seams; the one deeplight sunk at the centre, dim. Nothing enclosed: the pool is the signature. */
+ *  between ink seams; the one deeplight sunk at the center, dim. Nothing enclosed: the pool is the signature. */
 export function darkwater(M) {
   const g = grp();
   plinth(g, M, 28, 0.3);

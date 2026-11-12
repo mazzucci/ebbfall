@@ -20,7 +20,7 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 /** The range (crates/endfall-sim/src/data/radio.rs): the unit kinds it speeds up (`machines`, a Set), what each
- *  source building gives (`sources`, tiles by kind, a circle round its centre), a machine's speed inside it (`boost`,
+ *  source building gives (`sources`, tiles by kind, a circle round its center), a machine's speed inside it (`boost`,
  *  a multiple) and the Drone's leash past its edge (`leash`, tiles). */
 export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
 

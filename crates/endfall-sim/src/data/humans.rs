@@ -1,4 +1,4 @@
-//! The Kingdom (sim race `humans`; the Harbour before the re-theme): the Castle, villagers that build and repair,
+//! The Kingdom (sim race `humans`; the Harbor before the re-theme): the Castle, villagers that build and repair,
 //! Guards and Archers from the Barracks, Riders and Knights from the Stables, Ballistas, Cannons and the Balloon from
 //! the Workshop, and Towers. Keys never change; the names are display strings only.
 
@@ -71,7 +71,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Sandbags are researched) it stands and
-/// takes the charge: +4 armour, no moving.
+/// takes the charge: +4 armor, no moving.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
     name: "Guard",

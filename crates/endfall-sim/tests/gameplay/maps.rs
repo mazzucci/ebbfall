@@ -441,7 +441,7 @@ fn seated(seed: u32, kind: MapKind, n: i32, seats: usize, side: u32) -> World {
 
 /// What a start has round it, which every start of a fair map has alike: the nearest other start, the rock within 16
 /// tiles, the mines within 45 tiles (each its distance, to a tenth of a tile, and its gold, nearest first) and the vents
-/// within 38, all from its Core's centre.
+/// within 38, all from its Core's center.
 type Share = (i32, usize, Vec<(i64, i32)>, usize);
 fn start_share(w: &World, b: (i32, i32)) -> Share {
     let c = (b.0 as f64 + 1.5, b.1 as f64 + 1.5);
@@ -460,7 +460,7 @@ fn start_share(w: &World, b: (i32, i32)) -> Share {
             rock += (w.map.rock[w.map.idx(x, y)] != 0 && d(x as f64, y as f64) <= 16.0) as usize;
         }
     }
-    // (a mine's centre is half a tile further in than its top-left)
+    // (a mine's center is half a tile further in than its top-left)
     let at = |n: &endfall_sim::map::Node| {
         let s = (n.s - 1) as f64 / 2.0;
         d(n.tx as f64 + s, n.ty as f64 + s)
@@ -485,7 +485,7 @@ fn start_share(w: &World, b: (i32, i32)) -> Share {
 #[test]
 fn maps_for_more_seats_have_a_fair_start_for_each() {
     // M4: 96x96 has four starts (the quarter turns of one), 128x128 eight (the quarter turns and their mirror images),
-    // whatever the seats: every start the same ground, home field and vent, natural expansion and neighbours, all of them in
+    // whatever the seats: every start the same ground, home field and vent, natural expansion and neighbors, all of them in
     // walking reach of each other; the seats spread round them, a start nobody takes left free.
     let seeds: u32 = if cfg!(debug_assertions) { 2 } else { 20 };
     for (n, seats, starts) in [
@@ -612,7 +612,7 @@ fn seats_spread_round_the_starts_and_side_turns_them() {
         "six of eight: two opposite starts free"
     );
     // Fewer seats than starts: which seat sits between two others (or beside a free start) is the side's draw, not
-    // the seat number's: over the draws, every seat meets each place (0, 1 or 2 taken neighbours) equally often.
+    // the seat number's: over the draws, every seat meets each place (0, 1 or 2 taken neighbors) equally often.
     for (k, n) in [(4usize, 3usize), (8, 5), (8, 6), (8, 7)] {
         let mut places = vec![[0u32; 3]; n];
         for side in 0..(k * n) as u32 {
@@ -726,7 +726,7 @@ fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
             (u.face - (cy - oy).atan2(cx - ox)).abs() < 1e-9,
             "seat {s}: a harvester faces the centre"
         );
-        // A Garrison by the Core: a Trooper trained there with no rally point steps out towards the centre.
+        // A Garrison by the Core: a Trooper trained there with no rally point steps out towards the center.
         let at = (-12..=12)
             .flat_map(|dy| (-12..=12).map(move |dx| (bx + dx, by + dy)))
             .filter(|&(x, y)| w.can_place(BldgKind::Barracks, x, y, s))

@@ -23,7 +23,7 @@ pub struct Back {
 /// and modes will change there and only there.
 #[derive(Clone, Copy)]
 pub(crate) struct Live {
-    /// Reach (px, to the target's edge, from the shooter's centre: its radius not counted); 0 while it cannot fire.
+    /// Reach (px, to the target's edge, from the shooter's center: its radius not counted); 0 while it cannot fire.
     pub range: f64,
     /// A siege gun's blind ring (px, the same measure as find_target's: plus its radius); 0 = none.
     pub min: f64,
@@ -355,7 +355,7 @@ pub struct Ledger {
     pub cancelled: [u32; BLDG_KINDS.len()],
 }
 
-/// Why an AI's last wave went (`World::ai_launch_check`; PRD: the AI breaks a defence). For the balance lab; not world
+/// Why an AI's last wave went (`World::ai_launch_check`; PRD: the AI breaks a defense). For the balance lab; not world
 /// state (not hashed, read by no rule).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LaunchWhy {

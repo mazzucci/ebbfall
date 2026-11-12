@@ -1,6 +1,6 @@
-// The Expedition's buildings after the Data centre (the re-theme's buildings family, 2026-11-10; not in the atlas:
+// The Expedition's buildings after the Data center (the re-theme's buildings family, 2026-11-10; not in the atlas:
 // retheme.js renders them by filter). Stelian's rule: modern components, medieval materials. Timber (dark oak frames,
-// weathered planks), cool grey stone footings, rope and canvas, with cables, panels, fans and neutral white LEDs
+// weathered planks), cool gray stone footings, rope and canvas, with cables, panels, fans and neutral white LEDs
 // added; no concrete, no containers. Team on flags, cloths, hi-vis vests, blankets, light strips and thin trim between
 // ink lines, never a roof or deck slab. Each building on its own patch of trodden earth, no two the same shape. Same
 // conventions as models.js: game units (a tile is 32), y up, +z south (to the camera).
@@ -25,15 +25,15 @@ const rackPanelTex = tex(64, (g, n) => {
  *  slice's deck), folds in the tent canvas, tight glints on the ramp, the core's frame and the mast's wire. */
 export function ebMats(M) {
   if (M.planks) return M;
-  M.planks = std({ color: 0x929088, map: boardTex, roughness: 0.95, metalness: 0 });                                    // weathered board walls: a warm grey, matte, horizontal boards (round 3: even vertical ribs read as corrugated steel)
+  M.planks = std({ color: 0x929088, map: boardTex, roughness: 0.95, metalness: 0 });                                    // weathered board walls: a warm gray, matte, horizontal boards (round 3: even vertical ribs read as corrugated steel)
   M.board = std({ color: 0xc4c0b6, map: boardTex, roughness: 0.95 });                                            // a notice board's pale planks
   M.paper = std({ color: 0xd8d4c8, roughness: 0.95 });                                                          // notices pinned up
   M.blanket = M.paintCloth;                                                                                    // team blankets on the cots
-  M.vest = M.paintCloth;                                                                                       // hi-vis vests: the team colour itself (the Mercenary's)
+  M.vest = M.paintCloth;                                                                                       // hi-vis vests: the team color itself (the Mercenary's)
   M.wire = std({ color: 0x9a9ea2, metalness: 0.8, roughness: 0.4 });                                            // the mast's wire and antennas, pale steel
   M.core = std({ color: 0x3a3e44, metalness: 0.7, roughness: 0.3 });                                            // the Portal's imported core, dark machined metal
   M.ramp = std({ color: 0xb8bcc0, metalness: 0.5, roughness: 0.45 });                                            // the Portal's pale steel ramp and platform edge
-  M.canvasGrey = std({ color: 0x8e908a, map: M.canvas.map, roughness: 0.94 });                                     // grey canvas: the Recruiting post's tent (round 3: the tan one was the side's one warm roof)
+  M.canvasGrey = std({ color: 0x8e908a, map: M.canvas.map, roughness: 0.94 });                                     // gray canvas: the Recruiting post's tent (round 3: the tan one was the side's one warm roof)
   M.litGlass = std({ color: 0x7a96a4, emissive: 0x4e6a78, emissiveIntensity: 0.9, metalness: 0.3, roughness: 0.2 }); // the Lab's glass front, lit from inside (the blind test: dark glass made it a troop building)
   M.screen = std({ color: 0xe4f0f4, emissive: 0xd4e8f0, emissiveIntensity: 2.2 });                                  // a glowing screen or bench top, cool white (never orange: seat 0 is gold)
   M.tank = std({ color: 0xa8acb0, metalness: 0.7, roughness: 0.4 });                                                // the Bunkhouse's water tank, pale steel
@@ -44,12 +44,12 @@ export function ebMats(M) {
   M.block = std({ color: 0x6a6e76, metalness: 0.3, roughness: 0.55 });                                              // its charcoal composite body, clean (no shell seams: the neon draws the seams; 0x3a3e44 went near-black under the finish, its faces being in the sun's shade; 0x5a5e66 until the consistency pass of 2026-11-11, a step lighter since)
   M.rackPanel = std({ color: 0x6a7078, map: rackPanelTex, metalness: 0.4, roughness: 0.5 });                        // a rack panel: slot rows with a cyan dot each
   M.neon = std({ color: 0x000000, emissive: 0x00d4ff, emissiveIntensity: 0.9 });                                    // the cyan neon: edges, seams, LED strips, the chip's die and traces (never team; the emissive alone, no red at all: lit cyan paint under the finish's rim and S-curve went to white)
-  M.neonCore = std({ color: 0x000000, emissive: 0x80e8ff, emissiveIntensity: 1.3 });                                // the die's hot centre, a paler cyan
+  M.neonCore = std({ color: 0x000000, emissive: 0x80e8ff, emissiveIntensity: 1.3 });                                // the die's hot center, a paler cyan
   M.neonHalo = new THREE.MeshBasicMaterial({ color: 0x18d0ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }); // the glow round the neon
   M.chip = std({ color: 0x16181c, metalness: 0.4, roughness: 0.35 });                                               // the chip's package, dark epoxy
   if (M.polish) {
     const X = polishTextures(), set = (m, o) => { Object.assign(m, o); m.needsUpdate = true; };
-    set(M.planks, { map: X.hiBoard, bumpMap: X.board, bumpScale: 1.4 });                                       // the boards' seams drawn for 1x (the walls keep their mid grey under the lighter shingles: the slice's split)
+    set(M.planks, { map: X.hiBoard, bumpMap: X.board, bumpScale: 1.4 });                                       // the boards' seams drawn for 1x (the walls keep their mid gray under the lighter shingles: the slice's split)
     set(M.board, { map: X.hiBoard, bumpMap: X.board, bumpScale: 1.0 });
     set(M.canvasGrey, { bumpMap: X.fold, bumpScale: 0.6 });
     set(M.ramp, { roughness: 0.28, envMapIntensity: 2.4, bumpMap: X.scuff, bumpScale: 0.4 });                   // one bright line along the ramp's treads under the key
@@ -181,13 +181,13 @@ export function bunkhouse(M) {
   return g;
 }
 
-/** Recruiting post (Mercenary, Veteran; 2x2): where the locals sign on. A timber booth of the Expedition's grey boards on a
+/** Recruiting post (Mercenary, Veteran; 2x2): where the locals sign on. A timber booth of the Expedition's gray boards on a
  *  stone footing: a board back wall and two long sides (a real hut's depth), oak posts carrying a high board canopy (high so the recruiter
  *  under it stays in the 40-degree camera's view), a plank counter across the open front with a tablet and a form, the
  *  recruiter seated behind it and one local seated before it (small seated props, no team, never units); up front, big,
  *  the notice board of pale planks facing the camera with papers pinned under a small hood, and the rack of five hi-vis
- *  vests in the team colour itself (the Mercenary's); two flags, a team cloth down the counter's front, crates. No canvas:
- *  the Tent is the camp now. From the camera: a small grey board booth with a counter, a pale board and a row of team
+ *  vests in the team color itself (the Mercenary's); two flags, a team cloth down the counter's front, crates. No canvas:
+ *  the Tent is the camp now. From the camera: a small gray board booth with a counter, a pale board and a row of team
  *  vests before it, two figures at the counter, two flags. */
 export function recruitingPost(M) {
   ebMats(M); const g = grp();
@@ -211,7 +211,7 @@ export function recruitingPost(M) {
   for (const [dx, y, w, h] of [[-9, 19.5, 5.6, 5.2], [-2.5, 20.2, 5.4, 4.2], [4, 19, 5.8, 5.4], [10, 20, 3.8, 3.6], [-9.5, 12.6, 5.2, 4.2], [-3, 12, 6.2, 4.6], [4, 12.8, 4.6, 3.8], [9.5, 12.2, 4.2, 4.4], [-7, 6.4, 6.0, 3.0], [2, 6.0, 5.0, 3.2], [8.5, 6.6, 3.4, 2.6]]) add(g, rbox(w, h, 0.5, 0.05), M.paper, BX + dx, y, BZ + 0.9);
   add(g, rbox(25, 3.2, 0.4, 0.05), M.paper, BX, 25.0, BZ + 0.95); add(g, rbox(25.2, 0.3, 0.45, 0.02), M.inkLine, BX, 26.7, BZ + 1.0);
   { const r = add(g, rbox(29, 0.8, 6, 0.2), M.roofDark, BX, 27.4, BZ - 1.4); r.rotation.x = 0.3; }
-  // the vest rack, big and up front at the south-east: a steel rail on two posts, five hi-vis vests in the team colour facing the camera
+  // the vest rack, big and up front at the south-east: a steel rail on two posts, five hi-vis vests in the team color facing the camera
   const VX = X + 18, VZ = CZ + 13;
   for (const dx of [-14, 14]) post(g, M, VX + dx, VZ, 23, 1.1); add(g, cyl(0.55, 0.55, 30, 6), M.steel, VX, 22.6, VZ, 0, 0, Math.PI / 2);
   for (let k = 0; k < 6; k++) { const x = VX - 11.5 + k * 4.6; add(g, rbox(4.2, 11.6, 1.2, 0.5), M.vest, x, 16.2, VZ); for (const y of [22.0, 10.4]) add(g, rbox(4.4, 0.4, 1.3, 0.05), M.inkLine, x, y, VZ); for (const y of [13.4, 17.4]) add(g, rbox(3.6, 0.9, 1.3, 0.05), M.hivis, x, y, VZ); add(g, cyl(0.5, 0.5, 1.2, 6), M.steel, x, 22.3, VZ); }
@@ -228,11 +228,11 @@ export function recruitingPost(M) {
 
 /** Factory (Buggy, Rover, Drone; 3x3): machines are built here. A timber barn along x on a stone footing (plank walls
  *  in a dark oak frame, a silver plank gable roof with a louvred vent), a wide door open on its south side (both
- *  leaves slid back) showing a dark inside with a LED strip; in the yard before it the robot arm on a plinth (grey steel,
+ *  leaves slid back) showing a dark inside with a LED strip; in the yard before it the robot arm on a plinth (gray steel,
  *  team pads on its joints, a white work light at its wrist) bent over a Buggy's bare chassis on trestles; east, under
  *  an open lean-to, the 3D printer: a tall oak-and-steel frame with a dark glass front and a lit bed; a cable run to a
- *  solar rack; drums, a parts crate, a team banner over the door and a flag on the gable. From the camera: a long grey
- *  roof over a wide black doorway, a bent grey arm with team pads in front, a glass box beside. */
+ *  solar rack; drums, a parts crate, a team banner over the door and a flag on the gable. From the camera: a long gray
+ *  roof over a wide black doorway, a bent gray arm with team pads in front, a glass box beside. */
 export function factory(M) {
   ebMats(M); const g = grp();
   earth(g, M, [[-47, -40], [44, -46], [48, 10], [40, 46], [-30, 47], [-47, 20]]);
@@ -296,7 +296,7 @@ export function factory(M) {
 /** Lab (upgrades, 2x2): a timber workshop with a glass front: dark glass panes in an oak frame across its whole south
  *  face under a silver plank roof, screens glinting inside, a bench with instruments; on the roof a dish antenna and two
  *  whip antennas with LEDs, a small weather vane; a solar rack beside it and a cable; team: a flag, a banner across the
- *  glass front's lintel, a cloth on the east gable. From the camera: a grey roof over a dark glass wall with pale
+ *  glass front's lintel, a cloth on the east gable. From the camera: a gray roof over a dark glass wall with pale
  *  glints, a dish and two thin antennas above. */
 export function lab(M) {
   ebMats(M); const g = grp();
@@ -347,7 +347,7 @@ export function lab(M) {
   return g;
 }
 
-/** Radio tower (defence; 2x2): a small home-built kit the Bots put up quickly near the fight (Stelian: modest and
+/** Radio tower (defense; 2x2): a small home-built kit the Bots put up quickly near the fight (Stelian: modest and
  *  light, not a fortification, and at once "their tower" out on the map): a lattice mast of timber and wire, four oak
  *  legs leaning in, cross-braced with pale wire, guyed with ropes to stakes, on four stone pads; a platform half-way up carrying the small turret
  *  (`radioTurret`, the turning head); at the top a cluster of antennas (dipoles, a small dish) with a white LED, and a
@@ -414,12 +414,12 @@ export function radioTurret(M) {
 /** Portal (Marine; 2x2): where the people from the future arrive. Not a ring, a gate or magic, and (round 3) not a
  *  hoist: one cue, a **lit arrival platform people step off**. A raised octagonal platform of stone and boards (r 22,
  *  5 high) with a pale steel edge, a wide pale steel ramp (18 across, 20 long, treads, rails) down to the camera with a
- *  row of white landing LEDs along each rail; two charcoal figures with no team colour at 0.8 of unit scale walking down the ramp
+ *  row of white landing LEDs along each rail; two charcoal figures with no team color at 0.8 of unit scale walking down the ramp
  *  towards the camera (part of the building, not units); the imported core standing on a stone pedestal at the platform's north edge, a squared dark
  *  cabinet in a steel frame with a glass front and white light bars (a device, not a figure); over the platform a light timber gantry (two posts and a beam, no load hanging)
  *  carrying two floodlight bars that light the pad; cables from the core to the lights and to batteries and a solar
  *  rack beside; a team banner hung from each gantry post, two flags. From the camera: a wide pale ramp with two
- *  figures on it leading up to a lit grey platform with a dark drum behind, white dots down both sides. */
+ *  figures on it leading up to a lit gray platform with a dark drum behind, white dots down both sides. */
 export function portal(M) {
   ebMats(M); const g = grp();
   earth(g, M, [[-31, -24], [24, -31], [31, 0], [26, 30], [-20, 31], [-31, 10]], 0.75, 2);
@@ -438,8 +438,8 @@ export function portal(M) {
     limb(g, [x, PY + 1.2 + 4.4, RZ0 + RL * 0.05], [x, 4.4, RZ0 + RL * 0.95], 0.45, M.steel);
     for (let k = 0; k < 5; k++) { const t = 0.1 + k * 0.2; led(g, M, 0.55, x, (PY + 1.2) * (1 - t) + 1.2, RZ0 + RL * t); }                                   // landing lights
   }
-  // two arrivals stepping off with their cases, facing the camera: travellers (expedition.js), unarmed, in plain fatigues
-  // with no team (the blind test read the armed charcoal Marines as seated gunners and the building as a defence tower)
+  // two arrivals stepping off with their cases, facing the camera: travelers (expedition.js), unarmed, in plain fatigues
+  // with no team (the blind test read the armed charcoal Marines as seated gunners and the building as a defense tower)
   const N = { ...M, paint: M.uniform, paintCloth: M.uniform };                                                                                                 // the arrivals' materials: no team (round 4: team at unit scale read as real units)
   for (const [dx, t, f] of [[-4.6, 0.22, 0], [4.8, 0.7, 1]]) { const m = traveller(N, f); m.position.set(PX + dx, (PY + 1.2) * (1 - t) + 0.9, RZ0 + RL * t); m.rotation.y = -Math.PI / 2 - 0.08 * Math.sign(dx); m.scale.multiplyScalar(1.12); g.add(m); } // two figures walking down with cases (frames 0 and 1), about 0.8 of unit scale: part of the building
   // the core on its pedestal at the north edge: a dark machined cylinder with LED rings, ribs, a lit crown
@@ -495,8 +495,8 @@ function rackFace(g, M, x, y0, z, ry, L, rows, cols, skirt = 9) {
   }
   return f;
 }
-/** The microchip motif, lying flat with its centre at (x, y, z): a dark square package with rows of pale steel pins out
- *  of all four sides, a glowing cyan die in the middle with a hot centre, cyan traces from the die to each side's pins,
+/** The microchip motif, lying flat with its center at (x, y, z): a dark square package with rows of pale steel pins out
+ *  of all four sides, a glowing cyan die in the middle with a hot center, cyan traces from the die to each side's pins,
  *  a soft halo over it all. `s` is the package's side. From the camera: a dark square fringed with pale teeth and a
  *  cyan square glowing in its middle, lines running out of it. */
 function microchip(g, M, x, y, z, s) {
@@ -579,7 +579,7 @@ export function serverHall(M) {
 /** A small cyan light with its halo (the Data center's neon). */
 function cyanLed(g, M, r, x, y, z) { add(g, sph(r, 8, 6), M.neon, x, y, z); add(g, sph(r * 2.4, 8, 6), M.neonHalo, x, y, z); }
 /** The turbines' own materials, once per set: a matte pale composite for the blades and the dish (M.white is the
- *  fans'; pale steel went grey under the finish on a thin pole). */
+ *  fans'; pale steel went gray under the finish on a thin pole). */
 function turbineMats(M) {
   if (M.blade) return M;
   M.blade = std({ color: 0xa4a8a6, metalness: 0.1, roughness: 0.75 });                                              // the blades and the dish's face: pale composite, matte (0xd4d6d2 blew out to flat white under the finish)
@@ -664,10 +664,10 @@ function dishGeo(R, d, t, seg = 64) {
 }
 const DISH_R = 36, DISH_D = 10.5, DISH_TILT = 0.82, DISH_TURN = -0.35, DISH_ELBOW = 27;
 /** The Uplink (3x3, unarmed; the sim key `uplink`: "Talks to the satellite we brought along."): a satellite dish on
- *  its stand, nothing else (Stelian's corrections: the face-on dish showed a grey blob in the middle; the hut, struts
+ *  its stand, nothing else (Stelian's corrections: the face-on dish showed a gray blob in the middle; the hut, struts
  *  and props were clutter; round 3: bigger, filling the 3x3, and the dish a separate part). The base (`uplink`): a
- *  round steel base plate, a column up the footprint's centre, the elbow at its top, a small cyan light, one standing
- *  team flag (the team colour, nowhere else). The dish (`uplinkDish`, the turning head, RT_HEADS `uplinkhead`, with
+ *  round steel base plate, a column up the footprint's center, the elbow at its top, a small cyan light, one standing
+ *  team flag (the team color, nowhere else). The dish (`uplinkDish`, the turning head, RT_HEADS `uplinkhead`, with
  *  its shadow): the yoke on the elbow, the back boss, the bowl (r 36, as wide as the footprint and a bit more, in the
  *  air) seen near profile, three-quarter, aimed up and to the right at the sky (its axis 47 degrees from vertical
  *  towards +x, turned 20 degrees towards the camera at frame 0), so the silhouette is the bowl's curve, the rim's
@@ -704,18 +704,18 @@ export function uplinkDish(M) {
   return g;
 }
 
-// ---- the Sentry gun (defence, 2x2; the sim key `ward`, today's Radio tower's slot and its turning head `ward_head`;
+// ---- the Sentry gun (defense, 2x2; the sim key `ward`, today's Radio tower's slot and its turning head `ward_head`;
 // Stelian, 2026-11-11: a small, low, armored gun turret on a short base, the barrel the turning part, pale metal with
 // orange-and-white accents, team on a small flag only, low and squat against the tall turbines and the Kingdom's stone
 // Watchtower; round 3: bigger, much lighter, the band and the barrel clear at 1x, no small details). `radioTower` /
 // `radioTurret` above stay for the record; retheme.js draws these under `radio`.
-/** The pale armor and the hazard colours: aviation orange, yellower than seat 7's red-orange (0xe5553a) and apart from
+/** The pale armor and the hazard colors: aviation orange, yellower than seat 7's red-orange (0xe5553a) and apart from
  *  seat 1 (0xe0386e); the Lab's dome glass and the Portal's gate light (below). */
 function sentryMats(M) {
   if (M.hazOrange) return M;
   M.hazOrange = std({ color: 0xf08a1c, roughness: 0.6, metalness: 0.1 });
   M.hazWhite = std({ color: 0xe6e4de, roughness: 0.6, metalness: 0.1 });
-  M.paleArmor = std({ color: 0xd4d6d2, roughness: 0.6, metalness: 0.25 });                                              // pale grey armor plate and the Lab's white modules
+  M.paleArmor = std({ color: 0xd4d6d2, roughness: 0.6, metalness: 0.25 });                                              // pale gray armor plate and the Lab's white modules
   M.domeGlass = new THREE.MeshPhysicalMaterial({ color: 0x3a5a66, transparent: true, opacity: 0.42, roughness: 0.12, metalness: 0.1, depthWrite: false }); // the Lab's dome: see-through dark glass over the glow
     M.gateSheet = std({ color: 0x9c8cff, emissive: 0xa090ff, emissiveIntensity: 1.4 });                                   // the Portal's sheet of light: a light violet (paler, the white swirl on it did not read)
   M.gatePool = std({ color: 0x5a48e0, emissive: 0x6a56ff, emissiveIntensity: 1.0 });                                    // the ring's pool of light, a deeper violet (seen at a slant, it needs the saturation)
@@ -728,15 +728,15 @@ function sentryMats(M) {
   return M;
 }
 const SENTRY_TOP = 11.5, SENTRY_K = 1.25; // the drum's top: the head sits here; the whole gun's scale (base and head alike)
-/** The Sentry gun's base: a round steel base plate (r 18), a short wide drum of grey metal (r 15.8, 9.5 tall; round
+/** The Sentry gun's base: a round steel base plate (r 18), a short wide drum of gray metal (r 15.8, 9.5 tall; round
  *  4, Stelian: more metal, less white, fewer layers, so it is no layered cake) with a thick orange-and-white hazard
  *  band round its middle between ink rings, the bearing on top, a small team flag on a short mast at its north-west.
- *  The gun (`sentryGunHead`) turns on top. From the camera: a low grey drum with an orange-white ring, a long dark
+ *  The gun (`sentryGunHead`) turns on top. From the camera: a low gray drum with an orange-white ring, a long dark
  *  gun on it, a small flag. */
 export function sentryGun(M) {
   ebMats(M); sentryMats(M); const g = grp(); g.scale.setScalar(SENTRY_K);                                             // (the consistency pass: 1.25x, about the Watchtower's weight on its 2x2)
   add(g, cyl(17.5, 18.5, 2.0, 28), M.steel, 0, 1.0, 0); add(g, cyl(18.7, 18.7, 0.5, 28), M.inkLine, 0, 0.25, 0);          // the base plate
-  add(g, cyl(14.4, 15.8, 9.5, 28), M.paleSteel, 0, 2.0 + 4.75, 0);                                                       // the armor drum, grey metal
+  add(g, cyl(14.4, 15.8, 9.5, 28), M.paleSteel, 0, 2.0 + 4.75, 0);                                                       // the armor drum, gray metal
   for (let k = 0; k < 12; k++) add(g, torus(15.3, 1.5, 6, Math.PI / 6 - 0.015), k % 2 ? M.hazWhite : M.hazOrange, 0, 6.4, 0, Math.PI / 2, 0, k * Math.PI / 6); // the hazard band
   for (const y of [4.5, 8.3]) add(g, torus(15.5, 0.4, 40), M.inkLine, 0, y, 0, Math.PI / 2, 0, 0);                        // between ink rings
   add(g, cyl(8.5, 8.5, 1.2, 20), M.joint, 0, SENTRY_TOP + 0.3, 0);                                                        // the bearing
@@ -809,7 +809,7 @@ export function energyGate(M) {
   return g;
 }
 /** A swirl of light in the xy plane about the origin, facing +z, `r` wide, turned `phase`: three spiral arms of white
- *  segments widening outward over a pale violet disc, a white core at the centre, a violet halo. The vortex. */
+ *  segments widening outward over a pale violet disc, a white core at the center, a violet halo. The vortex. */
 function swirl(g, M, r, phase, disc = M.gateSheet) {
   const v = grp(); v.rotation.z = phase; g.add(v);
   add(v, cyl(r, r, 0.5, 32), disc, 0, 0, 0, Math.PI / 2, 0, 0);                                                          // the violet disc
@@ -836,7 +836,7 @@ export function gateLight(M, phase = 0) {
   return g;
 }
 /** A thick curved accelerator tube: a slice of a big ring (R 26, tube r 4.5, `arc` radians) lying level at height `y`
- *  with its centre at (cx, cz), from angle `a0`: a smooth white cylinder with three dark steel magnet bands and a
+ *  with its center at (cx, cz), from angle `a0`: a smooth white cylinder with three dark steel magnet bands and a
  *  cyan light on each, two short legs to the ground. Silver and white, no blue (seat 0). */
 function acceleratorTube(g, M, cx, y, cz, R, a0, arc) {
   const t = grp(); t.position.set(cx, y, cz); t.rotation.x = Math.PI / 2; t.rotation.z = a0; g.add(t);                   // (lying flat: the torus's xy plane to xz)
@@ -882,7 +882,7 @@ export function ringSwirl(M, phase = 0) {
 // rejecting the energy gate, its tube and the oval ring (kept above for the record). A square landing pad with
 // markings (`landingPad`), and on it a squat generic VTOL dropship (`dropship`, the head, RT_HEADS `padhead`, `spin: 1`
 // with its shadow: its 16 frames are lift heights, frame 0 landed, so the client can lift it off and land it later;
-// not modelled on any game's or film's ship). Clean white and grey metal with cyan lights, team on a flag only, no
+// not modeled on any game's or film's ship). Clean white and gray metal with cyan lights, team on a flag only, no
 // clutter, no earth plate.
 const PAD = 50, PAD_Y = 1.8, SHIP_YAW = -0.42, SHIP_LIFT = 36, SHIP_SCALE = 1.3;
 /** The landing pad: a square plate of pale armor (50 x 50, 1.8 thick) straight on the grass, a dark border line and
@@ -924,7 +924,7 @@ export function dropship(M, phase = 0) {
 // three options, side by side in the pictures: (a) a peaked canvas tent (`postTent`), (b) a local wooden house taken
 // over by the Expedition, a tavern with a crossed-swords sign, a corrugated patch and a cyan work lamp (`postTavern`),
 // (c) a plain small wooden house with the sign (`postHouse`). Team on a small flag only, no props, no earth plate.
-/** A ridge tent: a triangular prism `L` long along z, `W` wide, `H` tall, of grey canvas sloping to the ground, an ink
+/** A ridge tent: a triangular prism `L` long along z, `W` wide, `H` tall, of gray canvas sloping to the ground, an ink
  *  hem, a dark open door in its south end with the flap folded back, at (x, z) turned `ry`. */
 function ridgeTent(g, M, x, z, L, W, H, ry = 0) {
   const t = grp(); t.position.set(x, 0, z); t.rotation.y = ry; g.add(t);
@@ -954,7 +954,7 @@ export function postTent(M) {
   flag(g, M, -6, 24.2, -16, 9, 11, 7);
   return g;
 }
-/** (b) The tavern: a plank hut (34 x 24, 14 tall) under its grey plank gable, a corrugated steel patch on the south
+/** (b) The tavern: a plank hut (34 x 24, 14 tall) under its gray plank gable, a corrugated steel patch on the south
  *  slope, a dark door with a cyan work lamp beside it, the crossed-swords sign hanging over the door, a small team flag
  *  on the ridge's west end. */
 export function postTavern(M) {
@@ -984,9 +984,9 @@ export function postHouse(M) {
 }
 
 // ---- the Factory (Buggy, Rover, Drone; 3x3; the sim key `kiln`, today `factory` above): Stelian's round: a metal
-// hangar in the new style, white and grey metal with cyan lights, a big roll-up door, a large cog on the roof as its
+// hangar in the new style, white and gray metal with cyan lights, a big roll-up door, a large cog on the roof as its
 // icon; no clutter, team on a flag only, no earth plate.
-/** A big cog standing upright (in the xy plane, facing +z) at (x, y, z): a grey steel disc with twelve teeth and a
+/** A big cog standing upright (in the xy plane, facing +z) at (x, y, z): a gray steel disc with twelve teeth and a
  *  dark hub ring with a cyan light in its middle. */
 function cog(g, M, x, y, z, r) {
   const c = grp(); c.position.set(x, y, z); g.add(c);
@@ -995,10 +995,10 @@ function cog(g, M, x, y, z, r) {
   add(c, torus(r * 0.42, r * 0.09, 32), M.joint, 0, 0, 1.4); cyanLed(c, M, r * 0.14, 0, 0, 1.6);
   for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; add(c, rbox(r * 0.28, r * 0.28, 2.8, 0.2), M.joint, Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62, 0, 0, 0, a); } // four lightening holes
 }
-/** The hangar (`hangar`): a white metal hall 70 x 46 and 26 tall under a grey barrel roof (r 23) with three dark ribs,
+/** The hangar (`hangar`): a white metal hall 70 x 46 and 26 tall under a gray barrel roof (r 23) with three dark ribs,
  *  a big dark roll-up door in the south face (34 x 20, pale slat lines, a cyan strip over it), a cyan light at each
  *  roof corner, the big cog (r 11) standing on the roof's crown facing the camera, the team flag on a mast at the
- *  north-west corner. From the camera: a white box with a round grey roof, a wide dark door, a cog on top, a flag. */
+ *  north-west corner. From the camera: a white box with a round gray roof, a wide dark door, a cog on top, a flag. */
 export function hangar(M) {
   ebMats(M); sentryMats(M); const g = grp();
   const W = 70, D = 46, H = 26, R = D / 2;
@@ -1019,7 +1019,7 @@ export function hangar(M) {
 // ---- the Factory as a warehouse (`warehouse`; Stelian, after the hangar: too metallic and round): a boxy rectangular
 // building with a flat low roof and wide loading-bay doors, painted panels in off-white with cyan lights, the cog lying
 // flat on the roof as a big emblem drawn as the chip is on the Data center's roof; no clutter, team on a flag only.
-/** The big cog lying flat with its centre at (x, y, z): a grey steel disc with twelve teeth, four lightening holes, a
+/** The big cog lying flat with its center at (x, y, z): a gray steel disc with twelve teeth, four lightening holes, a
  *  dark hub ring and a cyan light in the middle with a halo (the Data center's chip, in a cog). */
 function cogFlat(g, M, x, y, z, r) {
   const c = grp(); c.position.set(x, y, z); g.add(c);
@@ -1101,7 +1101,7 @@ export function vortex(M) {
 }
 /** The vortex's dust (the head at `phase`): soft cyan particles drifting in a slow inward spiral over the black, as a
  *  space render of a black hole: three arms of ninety small additive discs each, bigger and brighter out at the
- *  rim, smaller and fainter towards the dark centre, scattered a little off their arm, the whole turning with the
+ *  rim, smaller and fainter towards the dark center, scattered a little off their arm, the whole turning with the
  *  phase; a faint glow over the middle. No solid lines. */
 export function vortexSpin(M, phase = 0) {
   ebMats(M); sentryMats(M); vortex(M); const g = grp();

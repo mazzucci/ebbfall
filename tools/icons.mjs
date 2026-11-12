@@ -1,9 +1,9 @@
 // The app icons the install prompt wants (Chrome asks for PNGs of 192 and 512 pixels, and a maskable one) and the
 // Apple touch icon, drawn from public/icon.svg in headless Chromium (tools/chromium.mjs) and written with the art's
 // own PNG encoder, so the same SVG gives the same files. The maskable one is the icon on a full square of its
-// background colour, scaled so that everything drawn keeps inside the safe zone, the circle of radius 40% that a
+// background color, scaled so that everything drawn keeps inside the safe zone, the circle of radius 40% that a
 // launcher's mask (a circle, a squircle) never cuts: the scale is fitted to the icon's content (the farthest drawn
-// pixel from the centre), at most 80%. The Apple touch icon (180, iOS rounds its own corners, no transparency) is
+// pixel from the center), at most 80%. The Apple touch icon (180, iOS rounds its own corners, no transparency) is
 // the icon at 80% on the same square. Run after changing the SVG:
 //   node tools/icons.mjs        (writes public/icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png;
 //                                output is committed)
@@ -21,7 +21,7 @@ const SAFE = 0.4, MARGIN = 0.01; // the maskable safe zone's radius (of the icon
 const browser = await launchChromium();
 try {
   const page = await browser.newPage();
-  // How far from the centre the icon draws (as a fraction of its width): its own background and transparency do not count.
+  // How far from the center the icon draws (as a fraction of its width): its own background and transparency do not count.
   const reach = await page.evaluate(async ({ svg, bg }) => {
     const img = new Image(); img.src = 'data:image/svg+xml;base64,' + btoa(svg); await img.decode();
     const n = 512, cv = document.createElement('canvas'); cv.width = cv.height = n;
@@ -34,7 +34,7 @@ try {
     }
     return Math.sqrt(r2) / n;
   }, { svg, bg });
-  // Fitted to what is drawn, not to the square: a mark on its own plate (a circle of the background's colour) is scaled up
+  // Fitted to what is drawn, not to the square: a mark on its own plate (a circle of the background's color) is scaled up
   // past 1 so it fills the launcher's shape as much as the safe zone allows (the plate's edge is the background, unseen).
   // iOS rounds a square's corners only a little (about 22%): its icon may reach a little further than the safe circle.
   const fit = (r) => Math.min(1.4, Math.floor((r - MARGIN) / reach * 100) / 100);

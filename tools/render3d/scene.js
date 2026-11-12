@@ -83,7 +83,7 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   renderer.setSize(w * SS, h * SS, false);
   let img;
   if (!polish) { img = grab(w, h); finish(img); }
-  else { // the polished path: its lights for the colour pass (restored after), then the depth pass and polish.js's finish
+  else { // the polished path: its lights for the color pass (restored after), then the depth pass and polish.js's finish
     const P = typeof polish === 'object' ? { ...POLISH, ...polish } : POLISH, L = P.unit ? P.unitLights : P.lights;
     const saved = [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity, rim.color.getHex()];
     sun.intensity = L.sun; hemi.intensity = L.hemi; scene.environmentIntensity = L.env; rim.intensity = L.rim; fill.intensity = L.fill;
@@ -140,7 +140,7 @@ const flatMat = (wt, side) => {
  * The team mask of a finished render: the finished pixels of the team-coloured surfaces (materials marked by
  * materials.js `team`), with alpha = their share of the pixel (lamps a fraction), everything else transparent. A second
  * pass draws the same camera with team materials flat white (their weight) and every other surface flat black, so
- * nearer geometry still hides paint; no shadows, no glow shells. The client tints it with the seat's colour.
+ * nearer geometry still hides paint; no shadows, no glow shells. The client tints it with the seat's color.
  */
 function teamMask(obj, img) {
   const saved = [];
@@ -165,7 +165,7 @@ function teamMask(obj, img) {
 }
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-// The catcher draws pure black at opacity 0.65 (alpha ≈ 166); anti-aliased model edges are coloured or more opaque.
+// The catcher draws pure black at opacity 0.65 (alpha ≈ 166); anti-aliased model edges are colored or more opaque.
 const isShadow = (d, i) => d[i + 3] <= 180 && d[i] < 24 && d[i + 1] < 24 && d[i + 2] < 24;
 /**
  * The late-90s render look: hard cast shadows, dark ink along silhouettes and sharp internal edges, a contrast

@@ -119,7 +119,7 @@ export function board(page, scope = 'solo') {
     }),
     /** Each spot: a token's name, '+' for the add cell, '' for an empty spot. */
     spots: () => page.$$eval(`${B} > *`, cs => cs.map(c => (c.matches('.add, .split') ? '+' : c.querySelector('b')?.firstChild?.textContent ?? (c.matches('.tok') ? 'OPEN' : '')))),
-    /** Each player's band colour, in spot order. */
+    /** Each player's band color, in spot order. */
     bands: () => page.$$eval(`${B} .tok`, ts => ts.map(t => t.querySelector('.band').style.background)),
     /** Every cell's box, by spot (to see that nothing moved), once the board is laid out: shown, eight cells each with
      *  a size, the same on two reads a frame apart (read in one go in the page: a lobby redrawing the board between a
@@ -230,12 +230,12 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
      *  can pick, is waited for: fast-forward until it comes out). */
     async clickEntity(id) {
       await d.skipUntil((id) => !endfall.G.units.find(u => u.id === id)?.inside, id, { seconds: 10, step: 1 / 30 });
-      // Units move ~3 px per frame: centre on the live position and get its screen point in one round trip,
+      // Units move ~3 px per frame: center on the live position and get its screen point in one round trip,
       // then click right away.
       const canvas = await page.locator('#game').boundingBox();
       if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
       // (a unit on its body's middle, half its drawn height above its feet, where a player taps it; a building on its
-      // footprint's centre)
+      // footprint's center)
       const p = await ev((id) => {
         const u = endfall.G.units.find(u => u.id === id), e = u || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
         const y = u ? u.y - endfall.unitTop(u.type) / 2 : e.y;

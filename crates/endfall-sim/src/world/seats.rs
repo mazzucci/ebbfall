@@ -98,7 +98,7 @@ impl World {
             }
         }
         for &(d, node, nx, ny) in &near {
-            let k = 3.0 / d.max(3.0); // three tiles out from the Core's centre, towards that tile
+            let k = 3.0 / d.max(3.0); // three tiles out from the Core's center, towards that tile
             let at = (
                 jsmath::to_i32(cx + (nx as f64 + 0.5 - cx) * k),
                 jsmath::to_i32(cy + (ny as f64 + 0.5 - cy) * k),

@@ -7,7 +7,7 @@ import { tile } from './terrain2.js';
 import { SEAT_COLORS } from '../../src/client/look.js';
 
 export const canvas = (w, h) => ({ w, h, data: new Uint8ClampedArray(w * h * 4) });
-/** Seat 0 drawn royal blue (the PM, slice round 3): seat 5's fitted tint scaled channel by channel to the new colour. */
+/** Seat 0 drawn royal blue (the PM, slice round 3): seat 5's fitted tint scaled channel by channel to the new color. */
 export const SEAT0 = 0x2f63d6;
 export function seatTints(tints) {
   const T = [...tints], ch = (c, k) => c >> (16 - 8 * k) & 255;
@@ -76,7 +76,7 @@ export function repaint(t, { dark, light, dirt }) {
 }
 export const GRASS = { name: 'grass', dark: [52, 74, 38], light: [118, 144, 74], dirt: [96, 90, 58] };
 
-// ---- resampling and colour ----
+// ---- resampling and color ----
 export function half(c) {
   const o = canvas(c.w >> 1, c.h >> 1);
   for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) for (let k = 0; k < 4; k++) { const i = (2 * y * c.w + 2 * x) * 4 + k; o.data[(y * o.w + x) * 4 + k] = Math.round((c.data[i] + c.data[i + 4] + c.data[i + c.w * 4] + c.data[i + c.w * 4 + 4]) / 4); }

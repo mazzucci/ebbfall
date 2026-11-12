@@ -224,7 +224,7 @@ def_struct! {
         cd: f64 = "cd",
         proj: Option<ProjKind> = "proj",
         melee: bool = "melee",
-        /// Splash: this share of a shot's damage also hits the target's walking neighbours within `splash_r` px.
+        /// Splash: this share of a shot's damage also hits the target's walking neighbors within `splash_r` px.
         splash: f64 = "splash",
         splash_r: f64 = "splashR",
         /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
@@ -365,7 +365,7 @@ def_struct! {
         req: Option<BldgKind> = "req",
         /// A research its side must have done to build it (the Uplink: the satellite).
         req_up: Option<Upgrade> = "reqUp",
-        /// A turret's weapon; None = no defence.
+        /// A turret's weapon; None = no defense.
         weapon: Option<Weapon> = "weapon",
     }
 }

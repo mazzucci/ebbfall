@@ -14,7 +14,7 @@ impl World {
         self.terrain_changed();
     }
 
-    /// Which way a new unit of `team` faces: towards the map's centre from its start (two starts: seat 0 east, the
+    /// Which way a new unit of `team` faces: towards the map's center from its start (two starts: seat 0 east, the
     /// rest west, as always).
     fn home_face(&self, team: u8) -> f64 {
         match self.map.bases.get(team as usize) {
@@ -174,12 +174,12 @@ impl World {
 
     /// The free tile around the building a new unit steps out onto: an uncrowded one if there is any (so a batch
     /// stands side by side instead of on one spot), nearest the building, towards the rally point (or the far side of
-    /// the map, or its centre with more than two starts).
+    /// the map, or its center with more than two starts).
     fn exit_tile(&self, b: &Bldg, kind: UnitKind) -> (i32, i32) {
         let air = kind.def().air;
         let rf = match b.rally {
             Some(rl) => (rl.x, rl.y),
-            // (more than two starts: the map's centre; two: seat 0 south, the rest north, as always)
+            // (more than two starts: the map's center; two: seat 0 south, the rest north, as always)
             None if self.map.bases.len() > 2 => (self.map.ww() / 2.0, self.map.wh() / 2.0),
             None => (
                 b.x,
@@ -187,7 +187,7 @@ impl World {
             ),
         };
         // (crowded, ring, distance to the rally side, clockwise of the line from the building to it, along that line,
-        // y, x): compared in that order, smaller better but the side and the along (higher better). From tile centres, so a half turn of the map
+        // y, x): compared in that order, smaller better but the side and the along (higher better). From tile centers, so a half turn of the map
         // (the starts' symmetry) gives the turned choice (`Map::nearest_passable_to`'s rule).
         let (bx, by) = (b.x, b.y);
         type Spot = (bool, i32, f64, f64, f64, i32, i32);

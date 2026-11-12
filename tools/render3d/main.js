@@ -19,7 +19,7 @@ import { rethemeSprites, atlasSprites, ATLAS_UNITS, ATLAS_BUILDINGS } from './re
 // this file's models stay only for the two healers (the Medic and the Halo: in the sim's tables, trained nowhere) and
 // for fitTints' reference sprites. The retired kinds (RETIRED) are no longer drawn.
 // The step-2 look (STYLE.md), kind by kind as it was made: these entries replaced the older models for their keys.
-// Harbour infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
+// Harbor infantry (harbour-infantry.js): the Rigger, the Picket (0-1 the march, 2 settling, 3 dug in: look.js UNIT_POSE), the Harpooner, the Mender
 Object.assign(UNIT_MODELS, {
   harvester: { build: rigger, frames: 2, r: 12, h: 18 }, trooper: { build: picket, frames: 4, r: 17, h: 20 },
   lancer: { build: harpooner, frames: 2, r: 29, h: 31 }, medic: { build: mender, frames: 2, r: 15, h: 21 },
@@ -31,15 +31,15 @@ Object.assign(VAEL_BUILDINGS, { conflux: [4, tidewell, 62] });
 Object.assign(VAEL_UNITS, {
   scythe: { build: needle, frames: 2, r: 17, h: 10 }, halo: { build: tender, frames: 2, r: 13, h: 13 },
   monolith: { build: conch, frames: 2, r: 17, h: 22 }, umbra: { build: undertow, frames: 3, r: 14, h: 12 },
-  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the centre)
+  shrike: { build: petrel, frames: 1, r: 20, h: 24 }, // (r 20: the gull wing's tip reaches 19.4 from the center)
 });
-// Harbour machines (step 1, harbour-machines.js): the Breakwater (0-1 the walk, 2 settling, 3 beached; a fitTints
-// reference) and the Anchor Gun (0-1 travelling, 2 half, 3 anchored).
+// Harbor machines (step 1, harbour-machines.js): the Breakwater (0-1 the walk, 2 settling, 3 beached; a fitTints
+// reference) and the Anchor Gun (0-1 traveling, 2 half, 3 anchored).
 Object.assign(UNIT_MODELS, {
   vanguard: { build: breakwater, frames: 4, r: 22, h: 20 },   // (r 22: the spades and legs splay past 17 beached and in some walk facings; the mortar's muzzle about 16.7 ahead)
   siegeTank: { build: anchorGun, frames: 4, r: 31, h: 24 },   // (r 31: the muzzle reaches 24.4 ahead, the dropped anchor about 29 astern; h 24: raised)
 });
-// Harbour air (step 1, harbour-air.js): the Spyglass (at 26) and the Windjammer (at 24, 44 long); one frame each. The
+// Harbor air (step 1, harbour-air.js): the Spyglass (at 26) and the Windjammer (at 24, 44 long); one frame each. The
 // cells hold the flyer and its shadow, which lands 0.4 of the height east and 0.3 south of it.
 Object.assign(UNIT_MODELS, {
   observer: { build: spyglass, frames: 1, r: 11, h: 30 }, bastion: { build: windjammer, frames: 1, r: 25, h: 40 },
@@ -67,21 +67,21 @@ function unitCell(r, h) {
   return { w: Math.ceil((left + right) * S), h: Math.ceil((up + down) * S), ax: Math.round(left * S), ay: Math.round(up * S) };
 }
 
-/** Cell around a building footprint (n tiles): height above, shadow right/below. Anchor = footprint centre. */
+/** Cell around a building footprint (n tiles): height above, shadow right/below. Anchor = footprint center. */
 function bldgCell(n, h) {
   const W = n * 32, left = 4, right = h * 0.5 + 6, up = h * LIFT + 6, down = h * 0.4 + 6;
   return { w: Math.ceil((left + W + right) * S), h: Math.ceil((up + W + down) * S), ax: Math.round((left + W / 2) * S), ay: Math.round((up + W / 2) * S) };
 }
 const BUILDINGS = { core: [4, lighthouse, 68], depot: [2, B.depot, 32], extractor: [2, B.extractor, 58], barracks: [3, B.barracks, 44], forge: [2, B.forge, 72], turret: [2, B.turretBase, 14], airfield: [3, B.airfield, 58], factory: [3, B.factory, 48] };
-// Harbour buildings (step 1, harbour-buildings.js): the seven after the Lighthouse; the Lookout's gun is the turret head
+// Harbor buildings (step 1, harbour-buildings.js): the seven after the Lighthouse; the Lookout's gun is the turret head
 // (drawn over the base, turning). Cells taller than the old models' where the new ones rise higher (the Windmast's mast
 // 32 -> 42, the Lookout's nest and pennant 14 -> 36, its gun 30 -> 62: a north-facing muzzle stands about 74 above the
-// anchor), so nothing touches a cell's top; the anchor stays the footprint's centre, so the head still seats on the base.
+// anchor), so nothing touches a cell's top; the anchor stays the footprint's center, so the head still seats on the base.
 Object.assign(BUILDINGS, { depot: [2, HB.windmast, 42], extractor: [2, HB.excavator, 58], barracks: [3, HB.crewHall, 44], forge: [2, HB.workshop, 72], turret: [2, HB.lookout, 36], airfield: [3, HB.loft, 58], factory: [3, HB.slipway, 48] });
 /**
- * The mask tint per seat: the colour that, multiplied into the neutral team mask, comes closest to paint of the seat's
- * colour (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
- * multiply by the paint colour would read paler). Least squares over the solid mask pixels of a few reference sprites.
+ * The mask tint per seat: the color that, multiplied into the neutral team mask, comes closest to paint of the seat's
+ * color (SEAT_COLORS) rendered and finished for real (the finish's contrast curve deepens dark channels, so a plain
+ * multiply by the paint color would read paler). Least squares over the solid mask pixels of a few reference sprites.
  */
 function fitTints() {
   const turn = (o, dir) => { o.rotation.y = -dir / FACINGS * Math.PI * 2; return o; };

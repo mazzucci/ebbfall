@@ -3,10 +3,10 @@
 // game's own sprites (public/art: the Kingdom in seat 0's color from the left, the Expedition in seat 1's from the
 // right, their team masks tinted as the client tints them), composed as a page in headless Chromium
 // (tools/chromium.mjs) and written as a PNG. Kept small for the apps that fetch it (WhatsApp skips large images):
-// the screenshot's colours are reduced to a palette (an indexed PNG) when that is what fits. Run after changing the
+// the screenshot's colors are reduced to a palette (an indexed PNG) when that is what fits. Run after changing the
 // icon, the art or the wording:
 //   node tools/og.mjs [out.png]     (default public/og.png; output is committed; OG_RAW=raw.png also writes the
-//                                    screenshot before its colours are reduced)
+//                                    screenshot before its colors are reduced)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { launchChromium } from './chromium.mjs';
@@ -129,9 +129,9 @@ try {
 } finally { await browser.close(); }
 
 /**
- * RGBA pixels reduced to 256 colours (median cut over the image's colours, each pixel its nearest palette entry after
+ * RGBA pixels reduced to 256 colors (median cut over the image's colors, each pixel its nearest palette entry after
  * a light error diffusion, DITHER: gradients keep from banding, flat areas stay flat and compress), written as an
- * indexed PNG (colour type 3), opaque, filter 0 on every row.
+ * indexed PNG (color type 3), opaque, filter 0 on every row.
  */
 function indexed({ w, h, data }) {
   const n = w * h, rgb = new Uint32Array(n);
@@ -169,7 +169,7 @@ function indexed({ w, h, data }) {
     return i;
   };
   // Floyd-Steinberg error diffusion (a gradient's steps become a fine grain instead of bands), the error carried in
-  // floats per row; nearest entries cached by the colour asked for, rounded.
+  // floats per row; nearest entries cached by the color asked for, rounded.
   const raw = Buffer.alloc((w + 1) * h);
   let err = new Float32Array((w + 2) * 3), next = new Float32Array((w + 2) * 3);
   const clamp = (v) => (v < 0 ? 0 : v > 255 ? 255 : Math.round(v));

@@ -22,7 +22,7 @@ export const POLISH = {
   unitShadow: { alpha: 110, soft: 1 }, // the units' (the legibility pass, 2026-11-11: at 150 and crisp the shadow was a black blot under the unit's dark side, and its props vanished into it)
   ao: { radius: 10, range: 1.5, bias: 0.3, maxH: 16, strength: 1.0 }, // occlusion between parts: a step of `range` view units darkens fully, fading out by maxH
   contact: { radius: 5, squash: 0.7, hMin: 0.15, hMax: 3.5, lee: -1, alpha: 120 }, // a crisp dark ellipse (radius px, squashed to the ground's foreshortening) under every part that stands on the ground (its pixels between hMin and hMax game units up), on the sun's lee side only (dx + dy >= lee: the sun is north-west)
-  rim: { gain: 0.45, bias: 1.0 },  // the lit edge: a model pixel whose up or left neighbour is farther by `bias` or is the sky
+  rim: { gain: 0.45, bias: 1.0 },  // the lit edge: a model pixel whose up or left neighbor is farther by `bias` or is the sky
   ink: { edge: 0.68, step: 0.82, stepBias: 1.2, lum: 0.95 }, // silhouette ink (0.45 in the plain finish), ink behind a nearer part, and the plain finish's luminance ink (0.8), nearly off
   band: 4,                         // the banding step: 6 bits (the plain finish's 8 is 5 bits)
   blur: true,                      // a 3x3 blur on the occlusion before it is applied
@@ -37,7 +37,7 @@ function disc(r) {
   return out;
 }
 /** Occlusion of pixel (x, y) from the depth field: for each sample direction the pair of opposite samples is compared
- *  with the centre (`2 zc - z+ - z-`: zero on any plane, however it slopes, positive in a crease or behind a step), so
+ *  with the center (`2 zc - z+ - z-`: zero on any plane, however it slopes, positive in a crease or behind a step), so
  *  flat faces at a grazing angle do not darken themselves. A sky sample (Infinity) makes the pair one-sided. Returns
  *  0..1 before `strength`. */
 function occlusion(z, w, h, x, y, D, { range, bias, maxH }) {
@@ -134,7 +134,7 @@ function blur3(f, w, h, mask) {
   return o;
 }
 
-// ---------------- material texture (light bases; bump maps keep the style sheet's colours) ----------------
+// ---------------- material texture (light bases; bump maps keep the style sheet's colors) ----------------
 function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
   const c = document.createElement('canvas'); c.width = c.height = size;
   draw(c.getContext('2d'), size);

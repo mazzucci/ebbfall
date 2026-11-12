@@ -221,7 +221,7 @@ for (const name of NEW) {
   writeFileSync(join(outDir, 'models', `${name}@2x.png`), encodePNG(c)); writeFileSync(join(outDir, 'models', `${name}.png`), encodePNG(half(c)));
 }
 
-// ---- the maker's checks: the ground's values in grey under the polished pieces, the gold against the grass ----
+// ---- the maker's checks: the ground's values in gray under the polished pieces, the gold against the grass ----
 {
   const g = grey(z100), at = (x, y) => g.data[(y * g.w + x) * 4], med = (v) => { v.sort((a, b) => a - b); return v.length ? `${v[v.length >> 1]} (p90 ${v[Math.floor(v.length * 0.9)]})` : 'none'; };
   const X0 = (2304 - W) / 2, Y0 = (1088 - H) / 2, bins = { grass: [], forest: [], hill: [] };

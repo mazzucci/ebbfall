@@ -1,6 +1,6 @@
 // A1 (2026-11-11): the Wind turbine (the Power source, replacing the Cabin) and the Uplink (3x3), models and pictures
 // only (the atlas is wired in the UI PR). Pictures at 2x with a -1x copy in CSS px and a -075 copy at zoom 0.75, on
-// the game's grass tiles in the seats' colours, into target/a1 (or [outdir]). The rotors are drawn over the masts as
+// the game's grass tiles in the seats' colors, into target/a1 (or [outdir]). The rotors are drawn over the masts as
 // the game draws a turning head (retheme.js RT_HEADS `spin`: 16 phases of a third of a turn).
 //   node tools/art/retheme-a1.mjs --trial   the Uplink at -30 .. +30 at 1x, seat 0, each angle's fit scale and spill
 //     (trial.png); renders cached under <outdir>/cache (--fresh)
@@ -129,7 +129,7 @@ if (mode === 'units') {
   const box = (s) => { const { w, h, data } = s.img; let x0 = w, x1 = -1, y0 = h, y1 = -1; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (data[i + 3] === 255 && (data[i] | data[i + 1] | data[i + 2])) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } } return x1 < 0 ? null : { w: (x1 - x0 + 1) / 2, h: (y1 - y0 + 1) / 2, x0, y0, x1, y1 }; };
   const union = (a, b) => !a ? b : !b ? a : { w: 0, h: 0, x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
   const fin = (b) => ({ w: (b.x1 - b.x0 + 1) / 2, h: (b.y1 - b.y0 + 1) / 2 });
-  // the units sheet: both seats, each unit facing the camera (4) and east (0), labelled
+  // the units sheet: both seats, each unit facing the camera (4) and east (0), labeled
   {
     const cw = 4 * T, rh = 6 * T, c = cv(cw * ALL.length, rh * 2); grass(c, 5);
     [0, 1].forEach(seat => ALL.forEach((u, i) => {
@@ -149,7 +149,7 @@ if (mode === 'units') {
     save('units-changed', c);
   }
   // the review sheet (the last batch): the Kingdom base with the hip-roof Cottage in its slots, and beside it, per seat,
-  // the Cannon travelling and in recoil and the Marine beside the Sellsword
+  // the Cannon traveling and in recoil and the Marine beside the Sellsword
   {
     const KGB = [['kg_castle', 10, 7], ['kg_cottagehip', 5, 2], ['kg_cottagehip', 8, 2], ['kg_cottagehip', 5, 5], ['kg_cottagehip', 8, 5], ['kg_blacksmith', 12, 3], ['kg_barracks', 15, 2], ['kg_market', 16, 7], ['kg_stables', 16, 11], ['kg_workshop', 4, 10], ['kg_tower', 21, 4], ['kg_tower', 21, 13], ['kg_cottagehip', 12, 12]];
     const KGU = [['kg_villager_0_0', 15.2, 9.4], ['kg_villager_2_0', 18.6, 8.2], ['kg_villager_8_0', 19.8, 10.1], ['kg_villager_12_0', 20.4, 7.3], ['kg_guard_4_0', 15.5, 5.8], ['kg_guard_4_0', 16.4, 5.9], ['kg_archer_4_0', 17.3, 6.0], ['kg_guard_0_0', 9.5, 12.6]];

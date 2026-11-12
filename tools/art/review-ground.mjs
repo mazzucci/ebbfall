@@ -4,11 +4,11 @@
 //   ground@2x.png, ground.png   a phone's screen (844x390 CSS px; @2x: atlas px, 1:1) of seabed with a reef plateau, the
 //                    salt field at its four stages, and the scenery as the game scatters it (no mine shaft since the re-theme)
 //                    (src/client/scenery.js on this patch); the game's shade layer over it as gl/render.js draws it
-//   units@2x.png, units.png     the same sheet with Harbour and Vael units (seats 0, 1, 6) and a building of each people
+//   units@2x.png, units.png     the same sheet with Harbor and Vael units (seats 0, 1, 6) and a building of each people
 //   ground-grey.png, ground-protan.png, ground-deutan.png, units-*.png   the phone sheets in greyscale and under Machado
 //                    et al. 2009 protanopia and deuteranopia at full severity
 //   scenery.png      every prop at 1:1 on the seabed, in the atlas's order (scenery.json names the cells)
-//   construction.png the Harbour's foundation, scaffold over a rising Lighthouse (3/8 and 6/8 as the renderer reveals it),
+//   construction.png the Harbor's foundation, scaffold over a rising Lighthouse (3/8 and 6/8 as the renderer reveals it),
 //                    the whole and its rubble; the Vael's bud, the bud over the Tidewell's warp ghost, the whole and its
 //                    rubble; the three sizes' foundations, scaffolds, buds and rubble below
 //   projectiles.png  bolt, shell, missile, harpoon and beam at 1:1 and at 4x, beside a Harpooner and a Lens
@@ -16,7 +16,7 @@
 //                    its arc of salt fields, the scatter, a few workers
 //                    and troopers; `--base-only` writes only these
 //   shore@2x.png, shore.png     a Shore-like patch: a cove, shallows, a deep channel and a reef basin, with the shade
-//                    layer's water tints as render.js multiplies them, and the minimap's colours for the same tiles (x4)
+//                    layer's water tints as render.js multiplies them, and the minimap's colors for the same tiles (x4)
 // Nothing here renders the whole atlas: render3d takes a filter.
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -58,11 +58,11 @@ function draw(c, s, x, y, seat = null, { alpha = 1, tint = null, fromRow = 0 } =
   }
 }
 /** A patch of map: `rock(tx, ty)` and `height(tx, ty)` over tw x th tiles; the dual grid drawn as gl/render.js draws it
- *  (a cell between four tiles, at their centres' offset), its tiles picked as the game picks them (gl/ground.js
+ *  (a cell between four tiles, at their centers' offset), its tiles picked as the game picks them (gl/ground.js
  *  groundTile, seeded), and the game's shade layers over it (gl/ground.js shadeLayers, linear-filtered as the GPU does):
  *  the multiply (the map's large-scale noise on land, the wet line, the water tints) and the add (the water's light). */
 const tiles = {}; const getTile = (m, v) => tiles[m + '_' + v] ??= tile(m, v);
-const MINI = { rock: '#6b665a', shallow: '#467c80', deep: '#1d3658' }; // the minimap's colours (render.js: the land hsl(36,10%,14-23%))
+const MINI = { rock: '#6b665a', shallow: '#467c80', deep: '#1d3658' }; // the minimap's colors (render.js: the land hsl(36,10%,14-23%))
 function patch(c, { tw, th, rock = () => 0, height = () => 1, seed = 1, shade = true, kelp = null, shadeAt = null }) {
   const R = (x, y) => x < 0 || y < 0 || x >= tw || y >= th ? 1 : rock(x, y);
   const rnd = mulberry(seed * 7 + 3);
@@ -71,7 +71,7 @@ function patch(c, { tw, th, rock = () => 0, height = () => 1, seed = 1, shade = 
     const wet = [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].some(([x, y]) => !R(x, y) && height(x, y) <= 0);
     const t = m === 0 ? getTile(0, groundTile(r, i, j, seed, wet)) : getTile(m, +rockTile(m, r).split('_')[2]);
     for (let y = 0; y < T; y++) { const py = j * T + T / 2 + y; if (py < 0 || py >= c.h) continue; for (let x = 0; x < T; x++) { const px = i * T + T / 2 + x; if (px < 0 || px >= c.w) continue; c.data.set(t.data.subarray((y * T + x) * 4, (y * T + x) * 4 + 4), (py * c.w + px) * 4); } }
-    if (kelp && m === 0 && groundTile(r, i, j, seed, wet) >= 8) {                                   // (the grey check: where this tile's kelp lies)
+    if (kelp && m === 0 && groundTile(r, i, j, seed, wet) >= 8) {                                   // (the gray check: where this tile's kelp lies)
       const L = (o) => 0.2126 * t.data[o] + 0.7152 * t.data[o + 1] + 0.0722 * t.data[o + 2], base = getTile(0, 0), Lb = (o) => 0.2126 * base.data[o] + 0.7152 * base.data[o + 1] + 0.0722 * base.data[o + 2];
       for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) { const o = (y * T + x) * 4, px = i * T + T / 2 + x, py = j * T + T / 2 + y; if (px >= 0 && py >= 0 && px < c.w && py < c.h && L(o) < Lb(o) * 0.7) kelp.push([px, py]); }
     }
@@ -80,7 +80,7 @@ function patch(c, { tw, th, rock = () => 0, height = () => 1, seed = 1, shade = 
   const gd = (x, y) => height(x, y) > 0 ? 'land' : height(x, y) > -2 ? 'shallow' : 'deep';
   const sh = shadeLayers(tw, th, { rock: (x, y) => !!rock(x, y), ground: gd, shade: shadeAt ?? ((x, y) => 0.1 + vnoise(x, y, 5, 3 + seed, 0) * 0.5) });
   const texel = (a, x, y) => { x = Math.max(0, Math.min(sh.w - 1, x)); y = Math.max(0, Math.min(sh.h - 1, y)); return (y * sh.w + x) * 4; };
-  for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) {                                       // linear filtering between texel centres
+  for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) {                                       // linear filtering between texel centers
     const fx = x * sh.k / T - 0.5, fy = y * sh.k / T - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
     const i = (y * c.w + x) * 4, q = [texel(0, x0, y0), texel(0, x0 + 1, y0), texel(0, x0, y0 + 1), texel(0, x0 + 1, y0 + 1)], wts = [(1 - u) * (1 - v), u * (1 - v), (1 - u) * v, u * v];
     for (let k = 0; k < 3; k++) {
@@ -162,7 +162,7 @@ if (!BASE_ONLY) {
   writeFileSync(join(outDir, 'scenery.json'), JSON.stringify({ columns: cols, cells: names, what: { boulders: 'a heap of shells', spire: 'pilings', ruin: "a boat's ribs", wreck: 'a hull on its side', crater_0: 'an anchor in the sand', crater_1: 'a tide pool', debris: 'flotsam' } }, null, 1));
 }
 
-// ---- 3. construction and wrecks: the Harbour's Lighthouse and the Vael's Tidewell through their stages ----
+// ---- 3. construction and wrecks: the Harbor's Lighthouse and the Vael's Tidewell through their stages ----
 if (!BASE_ONLY) {
   const c = canvas(1500, 760); patch(c, { tw: 24, th: 12, seed: 11 });
   const core = get('bldg_core'), conflux = get('bldg_conflux'), stageRow = (s, k) => Math.round(s.img.h * (1 - k / 8));
@@ -189,7 +189,7 @@ if (!BASE_ONLY) {
   save('projectiles.png', c);
 }
 
-// ---- 5. a Shore-like patch: the shade layer's water tints over the new ground, and the minimap's colours ----
+// ---- 5. a Shore-like patch: the shade layer's water tints over the new ground, and the minimap's colors ----
 if (!BASE_ONLY) {
   const SW = 27, SH = 13;
   const h = (x, y) => { // a cove on land to the west, shallows, a deep channel, shallows, a reef basin to the east
@@ -247,7 +247,7 @@ if (!BASE_ONLY) {
 // ---- the maker's checks: values of the ground family against the units' pale tops ----
 if (!process.env.NO3D && !BASE_ONLY) console.log('luminance of the solid pixels (mean / p95, 1 = white; peak in sRGB 0-255):');
 if (!process.env.NO3D && !BASE_ONLY) for (const n of ['shard_0', 'shard_1', 'shard_2', 'shard_3', 'rubble_3', 'rubble_vael_3', 'doodad_boulders_0', 'doodad_spire_0', 'doodad_wreck_0', 'doodad_crater_1', 'scaffold_3', 'bud_3', 'rubble_vael_3', 'trooper_0_0', 'lumen_0_0', 'bldg_core']) { const l = lum(n); console.log(`  ${n.padEnd(20)} ${l.mean} / ${l.p95}  peak ${l.peak}`); }
-// ---- the grey check: medians in the units sheet in grey (sRGB 0-255) of the bare ground, the kelp, each resource's
+// ---- the gray check: medians in the units sheet in gray (sRGB 0-255) of the bare ground, the kelp, each resource's
 // and prop's solid pixels and the units', so the order (units, then the shaft and the full salt, kelp never) is measured ----
 if (!process.env.NO3D && !BASE_ONLY) {
   const g = simulate(unitsSheet, 'grey'), at = (i) => g.data[i * 4], med = (v) => { v.sort((a, b) => a - b); return v.length ? `${String(v[v.length >> 1]).padStart(3)}  p90 ${String(v[Math.floor(v.length * 0.9)]).padStart(3)}` : 'none'; };

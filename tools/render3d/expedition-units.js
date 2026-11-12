@@ -4,7 +4,7 @@
 // Factory's artillery: black-powder rockets on an electric cart) and the Drone (the Factory's fast low flyer). The
 // slice's rules (expedition.js, target/art-review/slice/notes.md): charcoal kit, dark rounded heads, neutral white
 // LEDs, one pale mark per unit, team on stripes, pads, packs, bumpers and rotor guards between ink trims, never a
-// body slab; the Mercenary's hi-vis vest is the team colour itself (the PM). Same conventions as models.js: game
+// body slab; the Mercenary's hi-vis vest is the team color itself (the PM). Same conventions as models.js: game
 // units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
@@ -20,8 +20,8 @@ function fam(M) {
   const A = {
     reflect: new THREE.MeshStandardMaterial({ color: 0xe4e6e0, metalness: 0.55, roughness: 0.2, envMapIntensity: 2.0 }), // the Mercenary's reflective tape: pale and glossy, so it catches the key and reads as hi-vis (expedition.js's `hivis` is dull in daylight)
     plate: new THREE.MeshStandardMaterial({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }),                        // the Android's white shell plates (head, chest, thighs, upper arms)
-    plateGrey: new THREE.MeshStandardMaterial({ color: 0xaeb2b0, metalness: 0.3, roughness: 0.6 }),                    // its light grey plates (the lower body, shins, forearms): the segments part in two tones
-    head: new THREE.MeshStandardMaterial({ color: 0x8e9492, metalness: 0.3, roughness: 0.6 }),                         // its head, a mid grey: under the sun from above the light grey plate came out as white as the Marine's helmet (round 2)
+    plateGrey: new THREE.MeshStandardMaterial({ color: 0xaeb2b0, metalness: 0.3, roughness: 0.6 }),                    // its light gray plates (the lower body, shins, forearms): the segments part in two tones
+    head: new THREE.MeshStandardMaterial({ color: 0x8e9492, metalness: 0.3, roughness: 0.6 }),                         // its head, a mid gray: under the sun from above the light gray plate came out as white as the Marine's helmet (round 2)
     visor: new THREE.MeshStandardMaterial({ color: 0x0c6a88, emissive: 0x28d0ff, emissiveIntensity: 1.0, metalness: 0, roughness: 0.7 }), // its cyan visor strip: the Marine's cyan, matte and dark under the glow, so the band's lit top stays cyan and not white (round 2)
     visorHalo: new THREE.MeshBasicMaterial({ color: 0x30d8ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }), // the strip's halo, cyan (the white LED halo washed the strip to white at 1x)
   };
@@ -54,12 +54,12 @@ function sword(parent, M, x, y, z, rz, len = 12) {
 /** Mercenary (the line, a hired local, sim r 10-11, scale 1.06; the Sellsword in the game's words; melee since A2,
  *  2026-11-11: the rifle went): a local in rough clothes (dark trousers and leather boots, canvas shirt sleeves) under
  *  the company's kit, which must be the read (the whole-set blind test: all four testers saw "a soldier in a medieval
- *  tunic with a long gun", the kingdom's): a big hi-vis vest, the team colour itself between ink hems, with bright
+ *  tunic with a long gun", the kingdom's): a big hi-vis vest, the team color itself between ink hems, with bright
  *  reflective tape that catches the light (two bands round the body, a strip over each shoulder, a strip down the
  *  front and back on each side: the vest's pattern), a headset (a band over the cap to ear cups) and a radio on the
  *  belt with its antenna, and a light sword held up and ahead in the right hand: a slim bright blade half the Guard's
  *  spear, all steel, no haft. No shield (the Guard's round team disc and the Bruiser's big plate are theirs). A dark
- *  peaked cap (Expedition heads are dark; the Villager's pale coif parts from it in grey), a satchel on the hip; no
+ *  peaked cap (Expedition heads are dark; the Villager's pale coif parts from it in gray), a satchel on the hip; no
  *  tunic skirt under the vest (the trousers run up to it). From the camera: a dark small head over a big team vest
  *  barred with pale glossy lines, a short bright blade angled up beside it; no helmet, no goggles, no camouflage: not
  *  the Marine; no pale disc, no long bar, no shield: not the Guard. Frames 0-1 the step. */
@@ -102,33 +102,33 @@ export function mercenary(M, f) {
 }
 
 /** Android (the elite, the `umbra` slot, sim r 10-11; an alternative to the Marine for Stelian's pick, 2026-11-11): a
- *  robot, not a person in armor. A faceless head, a tall rounded block in mid grey, with one glowing cyan strip
- *  wrapped round its front and sides at eye height (no face, no rim, no seam); white and grey shell plates over a dark
+ *  robot, not a person in armor. A faceless head, a tall rounded block in mid gray, with one glowing cyan strip
+ *  wrapped round its front and sides at eye height (no face, no rim, no seam); white and gray shell plates over a dark
  *  frame: a white chest shell, widest at the shoulders, tapering to a narrow dark waist (a dark cylinder between the
- *  chest and a grey pelvis plate: the hourglass that reads as a machine from every facing), dark ball joints at the
- *  shoulders, elbows, hips, knees and ankles with the limbs in two tones (white upper segments, grey lower ones), flat
+ *  chest and a gray pelvis plate: the hourglass that reads as a machine from every facing), dark ball joints at the
+ *  shoulders, elbows, hips, knees and ankles with the limbs in two tones (white upper segments, gray lower ones), flat
  *  dark feet, no boots, no belt, no skin anywhere; a slim dark power pack on the back. Lean and a hair taller than the
  *  Marine, at its own scale 1.0. Team on both shoulders, two pads between ink lines, capping the shoulder joints. The
  *  compact rifle (the Marine's) carried low across the hips, the right arm hanging straight to its grip (round 1 held
  *  it level at the chest as the Marine does, and the bar hid the waist). From the camera: a pale slim figure with a
- *  grey block head crossed by a cyan line, a team square at each shoulder, a dark break at its waist and dark dots at
+ *  gray block head crossed by a cyan line, a team square at each shoulder, a dark break at its waist and dark dots at
  *  its joints, a short dark level bar low across its legs; beside the Marine, the one with a strip for a face and a
  *  waist you can see. Frames 0-1 the march. */
 export function android(M, f) {
   const A = fam(M), g = grp(), st = [3.2, -3.2][f % 2];
-  for (const side of [-1, 1]) {                                                                  // the legs: hip, knee and ankle joints as dark balls, white thigh, grey shin, a flat dark foot
+  for (const side of [-1, 1]) {                                                                  // the legs: hip, knee and ankle joints as dark balls, white thigh, gray shin, a flat dark foot
     const z = side * 2.0, s = st * side, kn = [s * 0.5, 3.7, z * 1.05], an = [s, 1.3, z];
     add(g, sph(1.0, 10, 8), M.joint, 0, 6.4, z);                                                 // the hip joint
     limb(g, [0, 6.4, z], kn, 0.95, A.plate);                                                     // the thigh, white
     add(g, sph(1.05, 10, 8), M.joint, ...kn);                                                    // the knee joint
-    limb(g, kn, an, 0.8, A.plateGrey);                                                           // the shin, grey
+    limb(g, kn, an, 0.8, A.plateGrey);                                                           // the shin, gray
     add(g, sph(0.8, 10, 8), M.joint, ...an);                                                     // the ankle
     add(g, rbox(3.2, 1.1, 2.0, 0.5), M.armour, s + 0.6, 0.55, z);                                // the foot: flat and dark, no boot
   }
   const b = grp(); g.add(b);
-  add(b, rbox(3.8, 1.8, 4.8, 0.6), A.plateGrey, 0, 6.9, 0);                                      // the pelvis plate, grey
+  add(b, rbox(3.8, 1.8, 4.8, 0.6), A.plateGrey, 0, 6.9, 0);                                      // the pelvis plate, gray
   add(b, cyl(1.25, 1.35, 1.8, 12), M.joint, 0, 8.3, 0);                                          // the waist: a narrow dark cylinder, the gap that reads as a machine
-  add(b, rbox(3.4, 1.4, 4.0, 0.5), A.plateGrey, 0.1, 9.4, 0);                                    // the lower chest, grey, narrower
+  add(b, rbox(3.4, 1.4, 4.0, 0.5), A.plateGrey, 0.1, 9.4, 0);                                    // the lower chest, gray, narrower
   add(b, rbox(4.4, 4.0, 6.0, 1.2), A.plate, 0.2, 11.4, 0);                                       // the chest shell, white, widest at the shoulders
   add(b, rbox(4.6, 0.3, 6.2, 0.1), M.inkLine, 0.2, 9.45, 0);                                     // an ink line under it
   add(b, rbox(1.6, 3.4, 3.6, 0.5), M.joint, -2.8, 11.4, 0);                                      // the power pack on the back, slim and dark
@@ -137,11 +137,11 @@ export function android(M, f) {
     add(b, rbox(4.2, 2.2, 3.4, 0.7), M.paint, 0.2, 13.9, sz * 3.6); add(b, rbox(4.4, 0.3, 3.6, 0.1), M.inkLine, 0.2, 12.75, sz * 3.6); add(b, rbox(4.4, 0.3, 3.6, 0.1), M.inkLine, 0.2, 15.05, sz * 3.6);
   }
   add(b, cyl(0.9, 0.9, 1.6, 10), M.joint, 0.3, 13.9, 0);                                         // the neck, dark and visible
-  add(b, rbox(3.8, 4.4, 4.0, 1.2), A.head, 0.3, 16.6, 0);                                        // the head: a tall rounded block, blank, mid grey (the Marine's helmet is off-white and round)
+  add(b, rbox(3.8, 4.4, 4.0, 1.2), A.head, 0.3, 16.6, 0);                                        // the head: a tall rounded block, blank, mid gray (the Marine's helmet is off-white and round)
   const vis = new THREE.CylinderGeometry(2.7, 2.7, 2.2, 16, 1, false, 0, Math.PI);                // the visor strip: a half-ring proud of the head's front and sides at eye height (theta from +z over +x to -z), half the head's height, its top rim a cyan crescent from above
   add(b, vis, A.visor, 0.3, 16.9, 0); add(b, sph(2.8, 8, 6), A.visorHalo, 2.6, 16.9, 0).scale.set(0.5, 0.6, 1); // with a cyan halo ahead of it
   compactRifle(b, M, 3.2, 8.0, 0);                                                               // the compact rifle, carried low across the hips
-  // the arms: white upper arm, dark elbow ball, grey forearm, dark hand; the right hangs straight to the grip, the
+  // the arms: white upper arm, dark elbow ball, gray forearm, dark hand; the right hangs straight to the grip, the
   // left reaches down to the handguard
   const el = [[1.4, 9.6, 3.0], [2.6, 10.0, -3.4]];
   limb(b, [0.4, 12.4, 3.4], el[0], 0.9, A.plate); add(b, sph(0.9, 10, 8), M.joint, ...el[0]); limb(b, el[0], [2.0, 6.9, 1.1], 0.75, A.plateGrey); add(b, sph(0.85, 8, 6), M.joint, 2.1, 6.8, 1.0);
@@ -155,12 +155,12 @@ export function android(M, f) {
 }
 
 /** Veteran (the heavy top tier, an experienced mercenary, sim r 13, scale 1.2; the Bruiser in the game's words; a
- *  shield and an axe since A2, 2026-11-11: the heavy gun went): a burly local in mixed plate and modern body armour:
+ *  shield and an axe since A2, 2026-11-11: the heavy gun went): a burly local in mixed plate and modern body armor:
  *  a wide torso in a charcoal carrier over a canvas coat, steel pauldrons (local plate) over team pads on both upper
  *  arms, steel greaves, a dark helmet with a white visor LED, a big riot shield on the left arm, the unit's biggest
  *  shape: a tall charcoal plate in a pale steel frame, held out ahead and leaned back so its face shows from the camera
  *  at every facing, two wide team bands across it between ink lines (a rectangle: the Guard's shield is a round team
- *  disc); and in the right hand a big axe shouldered: a grey timber haft with a team wrap, a broad pale steel head
+ *  disc); and in the right hand a big axe shouldered: a gray timber haft with a team wrap, a broad pale steel head
  *  with a bright edge up over the shoulder; a team pack strip and knee pads. Wide and big on screen: clearly heavier
  *  than the Marine and the Sellsword. From the camera: a wide dark figure with a big pale-framed plate beside it and
  *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march. */
@@ -205,7 +205,7 @@ export function veteran(M, f) {
   for (const y of [4.6, -2.6]) { add(sh, rbox(1.3, 3.8, SW - 1.2, 0.1), M.paint, 0.1, y, 0); add(sh, rbox(1.4, 0.35, SW - 1.0, 0.05), M.inkLine, 0.1, y + 2.0, 0); add(sh, rbox(1.4, 0.35, SW - 1.0, 0.05), M.inkLine, 0.1, y - 2.0, 0); } // two wide team bands over half the face, between ink lines
   add(sh, rbox(1.4, 3.0, 3.0, 0.3), M.joint, -0.8, 0.5, 0);                                      // the grip block behind
   limb(b, [0.6, 11.8, -4.4], [4.0, 9.2, -4.6], 1.35, M.canvasLocal);                             // the shield arm, out to the grip
-  // the axe in the right hand, shouldered: a grey timber haft leaned back over the shoulder with a team wrap, a broad
+  // the axe in the right hand, shouldered: a gray timber haft leaned back over the shoulder with a team wrap, a broad
   // pale steel head up over it with a bright edge ahead and a spike behind (the Guard's spear is a long bar with a
   // small steel leaf; this is a short bar under a big pale block)
   const ax = grp(); ax.position.set(2.4, 9.8, 4.6); ax.rotation.set(0.1, 0, 0.5); b.add(ax);
@@ -217,7 +217,7 @@ export function veteran(M, f) {
   add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 10.6, 0);                                           // the eye round the haft
   limb(b, [0.6, 11.8, 4.4], [2.2, 9.6, 4.6], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 2.4, 9.4, 4.7); // the axe arm and gloved hand
   if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, rivets on the axe's eye (no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)
-    for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), M.joint, 3.5, 10.9, z, 0, 0, -0.2);  // (joint, darker than the charcoal carrier, as the Marine's armour straps are darker than its camo)
+    for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), M.joint, 3.5, 10.9, z, 0, 0, -0.2);  // (joint, darker than the charcoal carrier, as the Marine's armor straps are darker than its camo)
     add(b, rbox(1.4, 1.2, 0.6, 0.1), M.steel, 3.3, 7.4, 0);
     for (const z of [-2.6, 2.6]) add(b, rbox(1.0, 0.6, 2.4, 0.1), M.leather, 0.6, 13.85, z);
     for (const [y, z] of [[1.0 + SH / 2, -SW / 2 + 0.5], [1.0 + SH / 2, SW / 2 - 0.5], [1.0 - SH / 2, -SW / 2 + 0.5], [1.0 - SH / 2, SW / 2 - 0.5]]) add(sh, sph(0.55, 8, 6), M.steel, 0.65, y, z);
@@ -236,7 +236,7 @@ export function veteran(M, f) {
 export function rover(M, f) {
   const g = grp(), b = grp(); b.position.y = 5.0; g.add(b);
   add(b, rbox(24, 2.4, 11, 0.9), M.trim, 0, 0, 0);                                              // the chassis tub
-  add(b, rbox(23.2, 1.2, 10.4, 0.5), M.panelLight, 0, 1.6, 0);                                  // the body panel, light grey (the last round: lighter paint)
+  add(b, rbox(23.2, 1.2, 10.4, 0.5), M.panelLight, 0, 1.6, 0);                                  // the body panel, light gray (the last round: lighter paint)
   for (const z of [-5.5, 5.5]) { add(b, rbox(20, 2.4, 0.6, 0.1), M.paint, 0, 1.2, z); add(b, rbox(20.2, 0.25, 0.65, 0.05), M.inkLine, 0, 2.5, z); add(b, rbox(20.2, 0.25, 0.65, 0.05), M.inkLine, 0, -0.1, z); } // the team stripe along each side
   for (const [x, z] of [[-7.5, -7.0], [7.5, -7.0], [-7.5, 7.0], [7.5, 7.0]]) {                   // the wheels: big and pale
     add(b, cyl(4.4, 4.4, 3.0, 20), M.tyrePale, x, -0.6, z, Math.PI / 2, 0, 0);

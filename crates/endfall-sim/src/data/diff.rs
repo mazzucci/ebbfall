@@ -47,7 +47,7 @@ pub struct Diff {
     /// seven workers, the rest not before this; then the expansion's.
     pub vents_from: f64,
     /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
-    /// the AI breaks a defence; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
+    /// the AI breaks a defense; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
     /// waiting (NEVER: it does not fade). A sighting older than `sighting_age` is stale: it first sends a unit to
     /// look (waiting up to `look_for` seconds for it), then counts the foe as the last sighting plus what its own army
     /// has grown since. With full supply, or `all_in_after` seconds since its last wave, it goes with everything.

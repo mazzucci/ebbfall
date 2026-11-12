@@ -42,7 +42,7 @@ function curve(ctrl, steps = 6) {
  *  Sand with slate showing through, soft ripples, low ridges; then by variant (src/client/gl/ground.js GROUND_BASES,
  *  GROUND_MARKS): faint pale salt veins, each base (0..7) its own; a mark tile (8..19) one mark, each of its own size,
  *  turn, mirror and size: kelp drying in a dark patch (the shore litter's pale pebble pairs went in round 3). Veins and
- *  marks fade out at the tile's edge (the neighbours are other variants). */
+ *  marks fade out at the tile's edge (the neighbors are other variants). */
 function ground(x, y, variant) {
   const n2 = vnoise(x, y, 8, 9, 8), n3 = vnoise(x, y, 4, 13, 16), n4 = vnoise(x, y, 2, 15, 32), n5 = vnoise(x, y, 16, 19, 4);
   let c = mix(SAND, SLATE, clamp01(0.3 + (n2 - 0.5) * 0.9));                                // sand with slate showing through
@@ -56,7 +56,7 @@ function ground(x, y, variant) {
   c = veins(c, x, y, variant < 8 ? variant : 8, win);
   if (variant < 8) return c;
   const m = variant - 8;
-  // The mark's own frame: its centre, a turn, a mirror and a scale, so no two marks lie the same way.
+  // The mark's own frame: its center, a turn, a mirror and a scale, so no two marks lie the same way.
   const cx = 32 + (r(1) - 0.5) * 14, cy = 32 + (r(2) - 0.5) * 14, a = r(3) * Math.PI * 2, mir = r(4) < 0.5 ? -1 : 1;
   const dx = x + 0.5 - cx, dy = y + 0.5 - cy, lx = (dx * Math.cos(a) + dy * Math.sin(a)) * mir, ly = -dx * Math.sin(a) + dy * Math.cos(a);
   // kelp drying in a dark patch: two or three lobes, fibrous inside, a damp halo; the twelve marks spread from a scrap

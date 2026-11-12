@@ -1,4 +1,4 @@
-// The Harbour machines (STYLE.md, "Harbour machines"): boxes and hulls, a dark tarred hull under pale canvas, timber
+// The Harbor machines (STYLE.md, "Harbour machines"): boxes and hulls, a dark tarred hull under pale canvas, timber
 // and rope in small amounts, brass only on a muzzle. Step 1's family: the Breakwater (vanguard, a walking hull with
 // its beached state), the Anchor Gun (siegeTank, a long gun on a heavy frame with its anchored state) and the Netter
 // (interceptor, a wheeled box with a flak mount and a folded net). Same conventions as models.js: game units, units
@@ -36,7 +36,7 @@ function barrel(g, M, x0, len, r0, r1, y = 0, z = 0) {
  *  along its ridge and a dark hem, pale forward and team aft of an ink bar; a team strake along both hull
  *  sides between ink lines and the aft deck painted team inside an ink seam; a short splash mortar on the stem. The
  *  legs are dark iron with team knee caps and team-topped foot pads (pale shins read as a second pale mass in
- *  grey). Frames 0-1 the walk (diagonal pairs stride), 2 settling (the hull coming down, the spades swinging out),
+ *  gray). Frames 0-1 the walk (diagonal pairs stride), 2 settling (the hull coming down, the spades swinging out),
  *  3 beached (look.js UNIT_POSE): the hull down on the sand, the legs crouched tight, four pale-bladed spades out on
  *  the ground either side. A dark hull under canvas on legs, never a pale egg on stilts. */
 export function breakwater(M, f) {
@@ -97,12 +97,12 @@ export function breakwater(M, f) {
 /** Anchor Gun (siegeTank, heavy): a long gun on a heavy frame: a tarred carriage between two iron-shod timber runners
  *  on six spoked wheels, its whole deck team canvas between ink lines, a low pale canvas hood on hoops over the crew
  *  at the stern (the pale top); the gun a 21-unit tapered iron barrel on iron trunnion cheeks forward, a team band
- *  round its breech, a brass muzzle ring. Frames 0-1 travelling (the gun level, the anchor lashed on the hood), 2 half
+ *  round its breech, a brass muzzle ring. Frames 0-1 traveling (the gun level, the anchor lashed on the hood), 2 half
  *  anchored (the gun rising, the anchor swinging down off the stern), 3 anchored (look.js UNIT_POSE): the gun raised
  *  and an anchor dropped on the sand astern, a pale hawser taut to it. The long gun ahead of a box: nothing else in
  *  the family has one. */
 export function anchorGun(M, f) {
-  const g = grp(), st = f < 2 ? 0 : f - 1;                                                     // 0 travelling, 1 half, 2 anchored
+  const g = grp(), st = f < 2 ? 0 : f - 1;                                                     // 0 traveling, 1 half, 2 anchored
   const elev = [0.03, 0.26, 0.46][st];
   for (const side of [-1, 1]) {                                                                // the runners and the wheels
     const z = side * 7.4;

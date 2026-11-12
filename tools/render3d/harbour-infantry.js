@@ -1,4 +1,4 @@
-// Harbour infantry (STYLE.md, "Harbour infantry"): sailors in tar oilskin coats, team canvas on the sleeves. The
+// Harbor infantry (STYLE.md, "Harbour infantry"): sailors in tar oilskin coats, team canvas on the sleeves. The
 // Rigger (harvester) and the Picket (trooper, with its dug-in state) from step 0; the Harpooner (lancer) and the
 // Mender (medic) from step 1. Each kind owns a signature bigger than its hat, read at 18 px, every figure upright: the
 // Rigger the smallest, a dark cap and a fat pale sack slung across its back; the Picket a pale round hat and a thin
@@ -15,7 +15,7 @@ function infantryMats(M) {
   if (M.ash) return M;
   const std = (o) => new THREE.MeshStandardMaterial(o);
   M.ash = std({ color: 0xaaa696, map: M.canvas.map, roughness: 0.92, metalness: 0 });                   // the Mender's coat: ash sailcloth, a band below the hat's pale canvas, far above tar
-  M.satchel = std({ color: 0xe8e0c8, map: M.canvas.map, roughness: 0.9, metalness: 0 });               // the Mender's satchel: cream canvas, the palest cloth on a Harbour figure, never team, so the dark cross reads on it in every seat
+  M.satchel = std({ color: 0xe8e0c8, map: M.canvas.map, roughness: 0.9, metalness: 0 });               // the Mender's satchel: cream canvas, the palest cloth on a Harbor figure, never team, so the dark cross reads on it in every seat
   M.lampSmall = std({ color: 0xfff6dc, emissive: 0xffe9b0, emissiveIntensity: 3.2 });                  // the Mender's hand lamp (r 1): warm, dimmer than the Lighthouse's, not team
   M.lampSmallHalo = new THREE.MeshBasicMaterial({ color: 0xffc870, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
   M.sandbagPale = std({ color: 0xd2c8aa, map: M.sandbag.map, roughness: 1, metalness: 0 });            // the dug-in ring: pale burlap, so the ring reads on dark ground in every seat
@@ -64,7 +64,7 @@ function hat(M, b, { brim = 4.4, crown = 3.1, h = 4.05, band = 1.9 } = {}) {
   return g;
 }
 
-/** Rigger (worker): the smallest Harbour figure and the one that carries things: a fat pale salt sack across both
+/** Rigger (worker): the smallest Harbor figure and the one that carries things: a fat pale salt sack across both
  *  shoulders behind the head, wider than the body, its bunched ends drooping either side, tied with two team cords;
  *  both hands up holding it, the body leant forward under the load. A dark tar cap with a team band (no pale hat:
  *  the sack is its one pale mass, so it never reads as the others' white hat). Team sleeves, cap band, cords and an
@@ -193,12 +193,12 @@ export function harpooner(M, f) {
   return g;
 }
 
-/** Mender (medic, unarmed): the palest-bodied Harbour human: an ash sailcloth coat under the round hat with a tall
+/** Mender (medic, unarmed): the palest-bodied Harbor human: an ash sailcloth coat under the round hat with a tall
  *  crown and a narrow brim, and on its back the kind's signature, a big cream canvas satchel (never team) with a
  *  dark cross on its lid, its back and both ends, inside an ink hem, so a cross shows in every facing; two team straps
  *  over the shoulders, a team hem round the coat's skirt, team sleeves and the hat band; a small warm hand lamp in a
  *  brass cage carried low in the right hand at the hip. From above a pale disc beside a pale square with a dark
- *  cross, one small warm dot at its side: no long bar, no bolster across the shoulders. The one light on Harbour
+ *  cross, one small warm dot at its side: no long bar, no bolster across the shoulders. The one light on Harbor
  *  infantry (r 1, not team). Frames: 0-1 the march. */
 export function mender(M, f) {
   infantryMats(M);

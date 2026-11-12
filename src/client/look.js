@@ -1,9 +1,9 @@
 // How kinds look and sound beyond their sprites, by kind key: lights, turret heads, chimney smoke, radio voices, poses.
 // The renderer and the sound engine read this table instead of naming kinds, so a new race adds rows here.
 
-/** Seat colours, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
+/** Seat colors, by seat: the team paint of every unit, building and turret head (the art is rendered once in a neutral
  *  white with a team mask the renderer tints, Notion: Ebbfall art), the menus' swatches and the minimap's dots. Seat 0
- *  royal blue (gold is the resource's colour now, so no seat is gold, amber or yellow), then magenta, teal, lilac,
+ *  royal blue (gold is the resource's color now, so no seat is gold, amber or yellow), then magenta, teal, lilac,
  *  green, aqua, plum, red. Apart from each other in normal vision and under protanopia and deuteranopia (Machado et al.
  *  2009 at full severity, CIEDE2000, the re-theme's pick of 2026-11-10: every pair at least 19.7 apart in normal vision,
  *  14.1 under protanopia, 10.6 under deuteranopia, where gold, magenta, blue and violet had come down to 5.4), from the
@@ -14,24 +14,24 @@ export const SEAT_COLORS = [0x2f63d6, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x
 /** Units are rendered this much larger than their size in the sim (tools/render3d/main.js), so they read at the
  *  re-theme's lower camera (buildings keep their footprints). The renderer's hit test and selection rings scale by it. */
 export const UNIT_ART_SCALE = 1.4;
-/** Each game seat's spot on the menus' board (seats.js): a player keeps its spot's colour in the game, whatever seat
+/** Each game seat's spot on the menus' board (seats.js): a player keeps its spot's color in the game, whatever seat
  *  its side gives it. Set when a game starts (single player's `startSetup`, a room's `setup.spots`); none: a seat's
  *  own number. */
 let spotOf = [];
 export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice() : []; };
-/** The colour (an index into SEAT_COLORS) seat `seat` plays in. */
+/** The color (an index into SEAT_COLORS) seat `seat` plays in. */
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
 
-/** Buildings: `glow` [colour, size, strength, px above the centre (negative: below), flicker, px east of the centre], `head` (a head sprite
+/** Buildings: `glow` [color, size, strength, px above the center (negative: below), flicker, px east of the center], `head` (a head sprite
  * drawn over the base in 16 frames: by default it turns to aim, a turret's; `spin` [frames a second]: it cycles through
  * them on the renderer's clock, a rotor; `pan` [frames either side, seconds a sweep]: it sweeps slowly to and fro about
  * its first frame, a dish), `smoke` (points in px from the footprint's top-left corner: a puff rises from one of them now and then,
  * only while the building works, `chimneyActive`: training or researching; the sprites carry no baked smoke). Each
  * measured on its model (tools/render3d/kingdom-buildings.js, expedition-buildings.js), turned and scaled as the atlas
- * draws it (retheme.js BLDG_YAW): a point (x, y, z) of a model centred on its footprint, turned `yaw` about the vertical
+ * draws it (retheme.js BLDG_YAW): a point (x, y, z) of a model centered on its footprint, turned `yaw` about the vertical
  * and scaled k, lands at x' = k (x cos yaw + z sin yaw), z' = k (z cos yaw - x sin yaw), and is drawn x' east and
- * k y * 1.19 - z' above the centre at the 40-degree camera. The smoke points are the chimney caps' tops. The Cottage has
+ * k y * 1.19 - z' above the center at the 40-degree camera. The smoke points are the chimney caps' tops. The Cottage has
  * no smoke: nobody works there. */
 export const BLDG_LOOK = {
   core: { smoke: [[97, 4]] },                                                        // (the Castle, +11 at 0.88: the great hall's chimney; no light)
@@ -39,7 +39,7 @@ export const BLDG_LOOK = {
   forge: { glow: [0xff5a1e, 0.6, 0.45, -3, true, 1], smoke: [[22, -24], [35, 21]] }, // (the Blacksmith, -20: the ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
   turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
   // the Expedition: its cyan lights (tools/render3d/expedition-buildings.js `cyanLed`, the neon: never warm, never a seat's)
-  conflux: { glow: [0x20d8ff, 1.0, 0.3, 48, false, 1] },                            // (the Data center, the server hall at -20: the chip's die glowing on its roof, cyan as its neon; the die's centre at (0, 39.3, -3))
+  conflux: { glow: [0x20d8ff, 1.0, 0.3, 48, false, 1] },                            // (the Data center, the server hall at -20: the chip's die glowing on its roof, cyan as its neon; the die's center at (0, 39.3, -3))
   siphon: { glow: [0x3fe0ff, 0.45, 0.45, 0, false, -2] },                            // (the Recruiting post, the tavern hall at -20: the cyan work lamp by its door, at (2, 10.8, 13))
   loom: { glow: [0x3fe0ff, 1.0, 0.3, 20, false, 0] },                                // (the Lab, the dome at -20: the glow inside it, at (0, 18, 0); the Factory's roof lights are in its sprite)
   ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
@@ -62,8 +62,8 @@ export function portalOpen(st, b, now) {
   const after = since < PORTAL.hold ? 1 : Math.max(0, 1 - (since - PORTAL.hold) / PORTAL.fade);
   return Math.max(rising, after);
 }
-/** A selected building's mark: a flat oval on the ground under it, sized to its footprint (centre and radii, world
- *  px; `b` has the sim's centre x, y and footprint w, h in tiles). A unit has its broken ring; a placement ghost stays
+/** A selected building's mark: a flat oval on the ground under it, sized to its footprint (center and radii, world
+ *  px; `b` has the sim's center x, y and footprint w, h in tiles). A unit has its broken ring; a placement ghost stays
  *  square. */
 export const selOval = (b) => ({ x: b.x, y: b.y + b.h * 32 * 0.06, rx: b.w * 32 * 0.64, ry: b.h * 32 * 0.5 });
 /** The head's frame (0-15) for a building's look `look` at `now` (the renderer's clock, s) aiming at `aim` (radians):

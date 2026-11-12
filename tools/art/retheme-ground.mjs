@@ -99,7 +99,7 @@ function earthBed(c, nodes) {
     const i = (y * c.w + x) * 4; for (let k = 0; k < 3; k++) c.data[i + k] = c.data[i + k] * (1 - a) + col[k] * a;
   }
 }
-/** The explored-but-unseen dim: the fog layer's colour at alpha `a` over everything, from x0 on (softened over 24 px). */
+/** The explored-but-unseen dim: the fog layer's color at alpha `a` over everything, from x0 on (softened over 24 px). */
 function fogDim(c, x0, rgb, a) {
   for (let y = 0; y < c.h; y++) for (let x = Math.max(0, x0 - 12); x < c.w; x++) { const k = a * Math.min(1, (x - x0 + 12) / 24), i = (y * c.w + x) * 4; for (let q = 0; q < 3; q++) c.data[i + q] = c.data[i + q] * (1 - k) + rgb[q] * k; }
 }
@@ -258,7 +258,7 @@ for (const name of NEW) {
   if (team || /^rt_gold_/.test(name)) for (const mode of ['protan', 'deutan']) writeFileSync(join(outDir, 'models', `${name}-${mode}.png`), encodePNG(simulate(h1, mode)));
 }
 
-// ---- the maker's checks: the ground's values in grey, the gold against the grass ----
+// ---- the maker's checks: the ground's values in gray, the gold against the grass ----
 {
   const g = grey(z100), at = (x, y) => g.data[(y * g.w + x) * 4], med = (v) => { v.sort((a, b) => a - b); return v.length ? `${v[v.length >> 1]} (p90 ${v[Math.floor(v.length * 0.9)]})` : 'none'; };
   const X0 = (2304 - W) / 2, Y0 = (1088 - H) / 2, bins = { grass: [], forest: [], hill: [] };

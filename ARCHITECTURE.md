@@ -95,7 +95,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
   under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), the range (`radio`: machines at their own speed out of range and x1.3 in it, people never; range by
-  exact distance from the source's centre, just inside and just outside the edge, off tile centres; from the Data
+  exact distance from the source's center, just inside and just outside the edge, off tile centers; from the Data
   center and an Uplink, none from a site or a Sentry mast, gone when the Uplink falls; an ally's counts; the Drone's
   leash and its back-off when left beyond it; the Expedition AI's forward Uplink on a machine wave's march, and its
   wave's machines attacking out of range not called home), the Expedition rework (`expedition`: Power for machines and

@@ -42,7 +42,7 @@ input.enabled = () => started && !overlay() && !paused();
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
   stopOnline();
-  setSpots(g.spots); // (each player in its spot's colour)
+  setSpots(g.spots); // (each player in its spot's color)
   if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs));
   else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size));
 }

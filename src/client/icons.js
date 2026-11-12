@@ -1,4 +1,4 @@
-// HUD icons: simple line drawings (24x24, stroked in the current text colour) for commands, the top bar and the menu.
+// HUD icons: simple line drawings (24x24, stroked in the current text color) for commands, the top bar and the menu.
 // No imports: the menu (src/boot.js) draws them before the game has loaded. Sprite portraits: gl/render.js `portrait`.
 
 const P = {

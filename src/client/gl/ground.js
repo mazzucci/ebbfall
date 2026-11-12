@@ -2,7 +2,7 @@
 // same for the art's review. Which countryside tile a cell of the dual grid draws (tools/art/terrain3.js), which kind
 // each rock region is (a forest or a rocky hill), and the shade layers over the terrain and the scenery: a multiply
 // (the land's large-scale shade, the wet line along a shore, the water's tints) and, on a map with water, an add (the
-// water's own light, which lifts the shallows over the land so the shore and the deep channel's edge read in grey too).
+// water's own light, which lifts the shallows over the land so the shore and the deep channel's edge read in gray too).
 
 /** The grass tiles (tools/art/terrain3.js): `ground_0..7` the plain bases, `ground_8..19` a soft patch each (eight of
  *  trodden dirt, four of dry grass), from a third of a tile to near a tile across, every one its own turn and mirror. */
@@ -93,7 +93,7 @@ export function shadeLayers(w, h, { rock, ground, shade }) {
   }
   const k = wet ? Math.max(1, Math.min(16, Math.floor(2048 / Math.max(w, h)))) : 1, W = w * k, H = h * k, mul = new Uint8ClampedArray(W * H * 4), add = wet ? new Uint8ClampedArray(W * H * 4) : null;
   const at = (a, x, y) => a[Math.max(0, Math.min(h - 1, y)) * w + Math.max(0, Math.min(w - 1, x))];
-  const lerp2 = (a, fx, fy, f = (v) => v) => {   // bilinear between tile centres, as the old one-texel-a-tile layer drew
+  const lerp2 = (a, fx, fy, f = (v) => v) => {   // bilinear between tile centers, as the old one-texel-a-tile layer drew
     const x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
     return (f(at(a, x0, y0)) * (1 - u) + f(at(a, x0 + 1, y0)) * u) * (1 - v) + (f(at(a, x0, y0 + 1)) * (1 - u) + f(at(a, x0 + 1, y0 + 1)) * u) * v;
   };

@@ -4,7 +4,7 @@
 // of roles and asked which image is which. Writes into outdir (target/art-review/blind by default):
 //   NN.png (CSS px, 1x) and 2x/NN.png (device px): 31 images, numbered 01.. in the shuffled order
 //     units (15): one image each, the unit twice side by side, seat 0 (royal blue, facing 0) then seat 1 (magenta, dir 2)
-//       (the Trebuchet travelling, frame 0; the Balloon its one frame)
+//       (the Trebuchet traveling, frame 0; the Balloon its one frame)
 //     buildings (15): one image each in one seat, seats alternating 0, 1, 0, ... down the list (the kingdom's then the
 //       Expedition's); the Watchtower and the Radio tower drawn with their heads (dir 2)
 //     the Portal check (1): the Portal in seat 1 with three Marines of seat 1 standing beside it
@@ -114,7 +114,7 @@ const key = {}, pad = String(items.length).length;
 order.forEach((k, n) => {
   const it = items[k], cell = cellOf[it.group], id = String(n + 1).padStart(pad, '0');
   const c = canvas(cell.w * it.copies.length, cell.h); plainGrass(c, 11 + n * 7);
-  const bs = it.copies.map(copyBox), gy = Math.round(cell.h / 2 - (Math.min(...bs.map(b => b[1])) + Math.max(...bs.map(b => b[3]))) / 2); // one ground line, the pair centred
+  const bs = it.copies.map(copyBox), gy = Math.round(cell.h / 2 - (Math.min(...bs.map(b => b[1])) + Math.max(...bs.map(b => b[3]))) / 2); // one ground line, the pair centered
   it.copies.forEach((parts, j) => {
     const b = bs[j], gx = Math.round(cell.w * j + cell.w / 2 - (b[0] + b[2]) / 2);
     if (gx + b[0] < cell.w * j || gx + b[2] > cell.w * (j + 1) || gy + b[1] < 0 || gy + b[3] > cell.h) throw new Error(`${parts[0][0]} does not fit its cell`);

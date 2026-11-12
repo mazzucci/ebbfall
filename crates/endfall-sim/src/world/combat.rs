@@ -30,7 +30,7 @@ pub fn absorb(
     on - took
 }
 
-/// What a hit's `rest` (past the shields: `absorb`) takes off a hull with `armor`: the armour off, at least 1.
+/// What a hit's `rest` (past the shields: `absorb`) takes off a hull with `armor`: the armor off, at least 1.
 pub fn hull_loss(rest: f64, armor: f64) -> f64 {
     (rest - armor).max(1.0)
 }
@@ -606,7 +606,7 @@ impl World {
             let d = dist(p.x, p.y, tp.0, tp.1);
             let mv = p.speed * dt;
             if d <= mv + t.r() * 0.3 {
-                // A splashing shot also hurts the target's walking neighbours (the counter to clumped infantry).
+                // A splashing shot also hurts the target's walking neighbors (the counter to clumped infantry).
                 let splash: Vec<Id> = if p.splash > 0.0 {
                     let team = self.team_of(p.target);
                     self.units
@@ -950,7 +950,7 @@ impl World {
     }
 }
 
-/// The armour a unit's toggle adds while it is settled in (a braced Guard); none while settling or packing up.
+/// The armor a unit's toggle adds while it is settled in (a braced Guard); none while settling or packing up.
 pub(crate) fn settled_armor(u: &Unit) -> f64 {
     match u.mode.filter(|_| u.swap <= 0.0).map(|k| k.def().effect) {
         Some(AbilityEffect::Settle { armor, .. }) => armor,

@@ -1,5 +1,5 @@
 // The Data center's redraw and the depth pass (2026-11-11, Stelian's briefs): pictures at 2x with a -1x copy in CSS
-// px, on the game's grass tiles in the seats' colours, into target/datacenter (or [outdir]). "Today" is the branch
+// px, on the game's grass tiles in the seats' colors, into target/datacenter (or [outdir]). "Today" is the branch
 // point's committed atlas (public/art on origin/retheme-legibility, read with `git show`): what the game drew before.
 //   node tools/art/retheme-datacenter.mjs --trial   the two options (retheme.js ex_hall, the server hall; ex_datablock,
 //     the block) at -20 .. +20 at 1x, seat 0, each angle's fit scale, spill and whether the chip's die still shows

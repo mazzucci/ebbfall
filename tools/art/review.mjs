@@ -1,6 +1,6 @@
 // The review pack for the new look (tools/render3d/STYLE.md): node tools/art/review.mjs <outdir> [--family=NAME] [filterRegex]
 // Renders a family (FAMILIES: `slice`, the six step-0 kinds and the salt field, by default; `vael-units`, the Vael's
-// units; `hinf`, the Harbour infantry; `vbld`, the Vael's buildings; `hbld`, the Harbour buildings; the families of
+// units; `hinf`, the Harbor infantry; `vbld`, the Vael's buildings; `hbld`, the Harbor buildings; the families of
 // the retired kinds and the mine shaft are gone with them) and writes into <outdir>:
 //   contact.png      each sprite at 1:1 (atlas px) in seats 0, 1 and 6 and its bare team mask; contact.json names the rows
 //   phone@2x.png     the sprites at their game size on the seabed beside a salt field, as a 2x phone shows them (atlas px);
@@ -12,7 +12,7 @@
 //   blind/<letter>.png   each unit alone at phone size, in seats 0 and 6, each on its own patch of plain seabed; blind/key.json
 //                    maps the letters to the kinds (a building family's images are wider, `blindSize`)
 //   battle-desktop.png (1280x720 CSS px), battle-phone.png (844x390) and battle-phone@2x.png   the family beside the
-//                    slice as a small scene: a Lighthouse with Riggers and Pickets (and the family's Harbour units) at a salt field against a Tidewell
+//                    slice as a small scene: a Lighthouse with Riggers and Pickets (and the family's Harbor units) at a salt field against a Tidewell
 //                    with the Vael
 // It prints, per sprite, the team mask's share of its opaque pixels in the facing-0 frame (rule 3: 1/6 is the floor).
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -25,7 +25,7 @@ const VAEL = [['lumen', 'Glint'], ['prism', 'Lens'], ['scythe', 'Needle'], ['hal
 /** A family: what to render (`filter`), the contact sheet's unit rows (`units`: kind -> frames) and extra rows, the
  *  sprites whose team share is printed, the phone sheet's row of units (names at facing 0), the blind set's kinds
  *  (sprite name -> what it is) and the family's extra placements in the battle stand-in (`vael`: [name, x, y, seat], the
- *  Vael side and any Harbour units the family adds; x, y about its centre). */
+ *  Vael side and any Harbor units the family adds; x, y about its center). */
 const FAMILIES = {
   slice: {
     filter: '^(harvester|lumen|prism)_\\d+_\\d+$|^trooper_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
@@ -53,7 +53,7 @@ const FAMILIES = {
       ['monolith_8_0', cx + 300, cy + 110, 1],
     ],
   },
-  // Harbour infantry (harbour-infantry.js): the Rigger and the Picket beside the Harpooner and the Mender, the slice's
+  // Harbor infantry (harbour-infantry.js): the Rigger and the Picket beside the Harpooner and the Mender, the slice's
   // Glint and Lens with them for the peoples; the battle adds Harpooners and Menders on both sides
   hinf: {
     filter: '^(harvester|trooper|lancer|medic|lumen|prism)_\\d+_\\d+$|^bldg_(core|conflux)$|^shard_\\d$',
@@ -69,11 +69,11 @@ const FAMILIES = {
     ],
   },
 };
-// Harbour buildings (harbour-buildings.js): the eight buildings (the Lookout's gun its own sprite) with the slice's
+// Harbor buildings (harbour-buildings.js): the eight buildings (the Lookout's gun its own sprite) with the slice's
 // Rigger and Picket for scale; a family of buildings, so the phone sheet is a scene of its own (`phoneScene`: the
 // Lighthouse, Windmast, Excavator, Crew Hall and Workshop in seat 0, the Slipway, Lookout and Loft in seat 6, a Windmast, a
 // Lookout and an Excavator in seat 1, a salt field, the Tidewell, Pickets, Riggers, a Glint and a Lens), the blind
-// images are wider (`blindSize`) and the battle stand-in (`vael`) adds a Harbour base of every building but the
+// images are wider (`blindSize`) and the battle stand-in (`vael`) adds a Harbor base of every building but the
 // Lighthouse, already in the battle, to the slice's Vael side
 const HBLD = [['core', 'Lighthouse'], ['depot', 'Windmast'], ['extractor', 'Excavator'], ['barracks', 'Crew Hall'], ['forge', 'Workshop'], ['factory', 'Slipway'], ['turret', 'Lookout'], ['airfield', 'Loft']];
 FAMILIES.hbld = {
@@ -125,7 +125,7 @@ FAMILIES.vbld = {
 // The Vael's palette (tools/render3d/vael-palette.js, Fen lantern): every
 // Vael unit and building, with the bud, the rubble and the beam, in seats 0, 1, 2 and 6 on the seabed at a phone's size
 // (`palette.png`, its greyscale `palette-grey.png`, and `palette@2x.png`, atlas px), beside the usual contact sheet, the
-// phone sheets and a battle of a whole Vael base and army against the Harbour.
+// phone sheets and a battle of a whole Vael base and army against the Harbor.
 FAMILIES['vael-palette'] = {
   filter: '^harvester_(0|1|2|14)_[01]$|^trooper_[01]_[0-3]$|^(lumen|prism|scythe|halo|monolith|umbra|shrike)_\\d+_\\d+$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|eclipse)$|^(bud|rubble_vael)_[234]$|^shard_\\d$',
   units: { lumen: [0], prism: [0], scythe: [0], halo: [0], monolith: [0], umbra: [0, 1], shrike: [0] }, rows: VBLD.map(([k]) => `bldg_${k}`),

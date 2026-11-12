@@ -67,7 +67,7 @@ function drawBldg(c, kind, x, y, seat, head = 0) {
   draw(c, get(`bldg_${kind}`), x, y, seat);
   if (kind === 'turret') draw(c, get(`turret_head_${head}`), x, y, seat);
 }
-/** The seabed as the game lays it: the atlas's ground tiles on the dual grid (a cell between four tiles' centres), picked
+/** The seabed as the game lays it: the atlas's ground tiles on the dual grid (a cell between four tiles' centers), picked
  *  by gl/ground.js `groundTile` for `seed`, and the land's shade multiply over it (gl/ground.js `shadeLayers`, one texel a
  *  tile, linear-filtered). `plain`: the base tile only, no shade (the blind images judge the unit, not the tile). */
 function seabed(c, seed = 1, plain = false) {
@@ -158,7 +158,7 @@ const save = (name, c) => writeFileSync(join(outDir, name), encodePNG(c));
   for (const mode of ['grey', 'protan', 'deutan']) save(`phone-${mode}.png`, simulate(p, mode));
 }
 
-// ---- 2b. every seat's team colour: a row per seat (0-7) of the Harbour's units and its canvas-roofed buildings, then the
+// ---- 2b. every seat's team color: a row per seat (0-7) of the Harbor's units and its canvas-roofed buildings, then the
 // Vael's units and pale shells, at game size; the same in deuteranopia and protanopia (seats.png, seats-deutan.png,
 // seats-protan.png): whether each seat's team reads, and seat 0's gold apart from seat 6's violet ----
 {

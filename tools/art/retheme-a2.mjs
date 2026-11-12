@@ -1,7 +1,7 @@
 // A2, the two hired fighters go melee (tools/render3d/expedition-units.js `mercenary` -> the Sellsword with a light
 // sword, `veteran` -> the Bruiser with a big shield and an axe; 2026-11-11): node tools/art/retheme-a2.mjs [outdir] [--save-old]
 // Renders in the approved look (the polish at the game's 40-degree camera and 420 sun) on the real countryside grass
-// tiles (terrain3.js), the game's seat colours (seat 0 blue, seat 1 magenta), and writes to <outdir> (default target/a2):
+// tiles (terrain3.js), the game's seat colors (seat 0 blue, seat 1 magenta), and writes to <outdir> (default target/a2):
 //   --save-old       first, before the model changes: renders today's Mercenary and Veteran alone and keeps them in <outdir>/old.json
 //   models-2x.png    a phone at zoom 1.0 (2x device px; models-1x.png the CSS-px copy, models-grey.png in greyscale): per
 //                    seat, a row per unit: today's model E S W N, the new one E S W N, then the Guard E S beside them
@@ -44,7 +44,7 @@ const FILTER = `${OLD_FILTER}|^kg_(guard|archer)_(0|1|2|4|8|12|14|15)_[01]$|^ex_
 const t0 = Date.now();
 const fresh = await render3d(FILTER, { polish: true });
 console.log(`rendered ${fresh.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
-const P = makeScene([...oldSprites, ...fresh], fresh.tints); // (the game's own seat colours)
+const P = makeScene([...oldSprites, ...fresh], fresh.tints); // (the game's own seat colors)
 
 // ---- the ground: the countryside's grass tiles, picked as the client picks them ----
 const tiles = {}; const getTile = (v) => tiles[v] ??= tile(0, v);
@@ -111,10 +111,10 @@ function row(unit, seat, y) {
   save('closeups-4x.png', out);
 }
 
-// ---- the crowd: the two sides meeting at the sim's spacing, the melee at the centre ----
+// ---- the crowd: the two sides meeting at the sim's spacing, the melee at the center ----
 function crowd(cx, cy) {
   const list = [], jit = (k) => ((k * 7919) % 13 - 6) * 3;
-  const side = (sd, kinds, dirs, sign, seat) => kinds.forEach((kind, k) => { const col = Math.floor(k / 4), r = k % 4; list.push([`${sd}_${kind}_${dirs[k % dirs.length]}_${k % 2}`, cx + sign * (12 + col * 50) + jit(k), cy - 90 + r * 60 + jit(k + 5) + (col % 2) * 20, seat]); }); // (the front columns mesh at the centre: the melee)
+  const side = (sd, kinds, dirs, sign, seat) => kinds.forEach((kind, k) => { const col = Math.floor(k / 4), r = k % 4; list.push([`${sd}_${kind}_${dirs[k % dirs.length]}_${k % 2}`, cx + sign * (12 + col * 50) + jit(k), cy - 90 + r * 60 + jit(k + 5) + (col % 2) * 20, seat]); }); // (the front columns mesh at the center: the melee)
   side('kg', ['guard', 'guard', 'guard', 'guard', 'archer', 'guard', 'archer', 'guard', 'archer', 'archer', 'guard', 'archer'], [0, 1, 15, 2, 14], -1, 0);
   side('ex', ['veteran', 'mercenary', 'mercenary', 'veteran', 'mercenary', 'marine', 'veteran', 'mercenary', 'marine', 'mercenary', 'marine', 'veteran'], [8, 9, 7, 10, 6], 1, 1);
   return list;

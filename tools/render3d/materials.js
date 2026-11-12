@@ -1,4 +1,4 @@
-// Materials and procedural textures for the models. Team colour is a parameter; everything else is shared.
+// Materials and procedural textures for the models. Team color is a parameter; everything else is shared.
 import * as THREE from 'three';
 
 function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
@@ -11,7 +11,7 @@ function canvasTex(size, draw, { repeat = 1, srgb = true } = {}) {
 }
 let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
-/** Light grey plating: seams, rivets and grime; used as a colour map multiplied with the material colour. */
+/** Light gray plating: seams, rivets and grime; used as a color map multiplied with the material color. */
 const panel = canvasTex(256, (g, n) => {
   g.fillStyle = '#e6e6e6'; g.fillRect(0, 0, n, n);
   for (let i = 0; i < 2600; i++) { const v = 200 + rnd() * 55; g.fillStyle = `rgba(${v},${v},${v},0.35)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 3, 1 + rnd() * 3); }
@@ -50,10 +50,10 @@ const hazardTex = canvasTex(64, (g, n) => {
 });
 const treadTex = canvasTex(64, (g, n) => { g.fillStyle = '#2a2a2a'; g.fillRect(0, 0, n, n); g.fillStyle = '#111'; for (let k = 0; k < n; k += 8) g.fillRect(k, 0, 4, n); g.fillStyle = 'rgba(255,255,255,0.08)'; for (let k = 2; k < n; k += 8) g.fillRect(k, 0, 1, n); });
 
-// ---- the Harbour (tools/render3d/STYLE.md): tarred planking, canvas, timber, rope, sandbags ----
+// ---- the Harbor (tools/render3d/STYLE.md): tarred planking, canvas, timber, rope, sandbags ----
 /** Tarred hull planking: near-black with plank seams, a few pale scuffs where the tar has worn, caulking lines. */
 const tarTex = canvasTex(256, (g, n) => {
-  g.fillStyle = '#d8d4cc'; g.fillRect(0, 0, n, n); // (a light base: the material colour darkens it; keeps the finish's banding from crushing it)
+  g.fillStyle = '#d8d4cc'; g.fillRect(0, 0, n, n); // (a light base: the material color darkens it; keeps the finish's banding from crushing it)
   seed = 101;
   for (let i = 0; i < 3000; i++) { const v = 150 + rnd() * 90; g.fillStyle = `rgba(${v},${v - 4},${v - 10},0.3)`; g.fillRect(rnd() * n, rnd() * n, 1 + rnd() * 4, 1 + rnd() * 2); }
   g.strokeStyle = 'rgba(20,18,16,0.85)'; g.lineWidth = 2.5;
@@ -95,7 +95,7 @@ const flagBump = canvasTex(256, (g, n) => { g.fillStyle = '#808080'; g.fillRect(
 const burlapTex = canvasTex(64, (g, n) => { g.fillStyle = '#cfc8b4'; g.fillRect(0, 0, n, n); g.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < n; k += 2) g.fillRect(k, 0, 1, n); g.fillStyle = 'rgba(0,0,0,0.1)'; for (let k = 1; k < n; k += 2) g.fillRect(0, k, n, 1); seed = 409; for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(60,45,25,${0.1 + rnd() * 0.15})`; g.beginPath(); g.ellipse(rnd() * n, rnd() * n, 3 + rnd() * 8, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); } }, { repeat: 4 });
 
 /** Team paint: per-seat frames are rendered once in NEUTRAL (white paint, white lamps) with a team mask the client
- *  tints with the seat's colour (Notion: Ebbfall art); scaffolds and rubble keep the gold that was seat 0's (GOLD; seat 0
+ *  tints with the seat's color (Notion: Ebbfall art); scaffolds and rubble keep the gold that was seat 0's (GOLD; seat 0
  *  is blue since the re-theme, and the new ground art replaces these). */
 export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: 0xd98a1f, light: 0xffc65a };
 /** Mark a material as team-coloured: its share of the team mask (1 paint; lamps less, so they read as a pale tint). */
@@ -126,14 +126,14 @@ export function makeMats(tc = NEUTRAL) {
     medRed: std({ color: 0xc8242c, metalness: 0.1, roughness: 0.5 }),
     healGlow: std({ color: 0x103018, emissive: 0x6dff9a, emissiveIntensity: 2.4 }),
     rotor: std({ color: 0x15181d, metalness: 0.5, roughness: 0.5 }),
-    // Building families (see Notion: Ebbfall art): command/civil = trim (grey steel), military = khaki, industry = iron.
+    // Building families (see Notion: Ebbfall art): command/civil = trim (gray steel), military = khaki, industry = iron.
     khaki: std({ color: 0x8e8664, map: panel, bumpMap: bump, bumpScale: 0.9, metalness: 0.55, roughness: 0.5 }),
     iron: std({ color: 0x3d3835, map: panel, bumpMap: bump, bumpScale: 1.0, metalness: 0.75, roughness: 0.55 }),
     ember: std({ color: 0x4a1200, emissive: 0xffb23a, emissiveIntensity: 3.2 }),
     etherSoft: std({ color: 0x4a2f9a, emissive: 0x9a7cf0, emissiveIntensity: 0.9, roughness: 0.3 }),
     mark: std({ color: 0xe4e0d4, metalness: 0.1, roughness: 0.7 }),
     beacon: std({ color: 0x300000, emissive: 0xff2a2a, emissiveIntensity: 3 }),
-    // The Harbour (STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope, brass only on small tips.
+    // The Harbor (STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope, brass only on small tips.
     tar: std({ color: 0x4a4542, map: tarTex, bumpMap: tarBump, bumpScale: 1.6, metalness: 0.3, roughness: 0.5 }),      // tarred planking (reads ~0x24211e lit, the seams showing)
     ironDark: std({ color: 0x2c2e31, map: panel, bumpMap: bump, bumpScale: 0.8, metalness: 0.85, roughness: 0.5 }),      // black iron: bands, fittings, gun metal
     canvas: std({ color: 0xd4ccb6, map: canvasWeave, roughness: 0.92, metalness: 0 }),                                    // pale canvas: hats, awnings, sails
@@ -154,7 +154,7 @@ export function makeMats(tc = NEUTRAL) {
     lampCore: std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 8, toneMapped: false }),                      // the lamp's near-white core
     lampAmber: new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }), // the core's tight amber halo
     canvasShade: std({ color: 0xb4ac96, map: canvasWeave, roughness: 0.94, metalness: 0 }),                               // canvas a band below pale: the lantern roof, under the lamp
-    slateLit: std({ color: 0x737a80, roughness: 0.85, metalness: 0.05, flatShading: true }),                              // a kerb's lit top edge                                           // the lantern's lamp: the brightest Harbour pixel
+    slateLit: std({ color: 0x737a80, roughness: 0.85, metalness: 0.05, flatShading: true }),                              // a kerb's lit top edge                                           // the lantern's lamp: the brightest Harbor pixel
     lampHalo: new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }),
     lampHalo2: new THREE.MeshBasicMaterial({ color: 0xffb860, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false }),
   };

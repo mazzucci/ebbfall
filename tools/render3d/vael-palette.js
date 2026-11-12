@@ -1,9 +1,9 @@
 // The Vael's palette, Fen lantern (STYLE.md, "The Vael: the palette"; Stelian's pick, 2026-11-07, over today's pearl
-// and a verdigris: blind testers read white-and-gold shells with violet cores as StarCraft's Protoss): every colour of
-// the Vael's own materials in one place. Shapes, frames and the team glaze (the seat's colour) never change with it.
+// and a verdigris: blind testers read white-and-gold shells with violet cores as StarCraft's Protoss): every color of
+// the Vael's own materials in one place. Shapes, frames and the team glaze (the seat's color) never change with it.
 // Pure data, no three.js: tools/art/effects2.js (the Lens's beam) reads it in Node too.
 
-/** The team glaze's map: the shell's marks in neutral greys, so the team mask carries no hue of the shell's. */
+/** The team glaze's map: the shell's marks in neutral grays, so the team mask carries no hue of the shell's. */
 const GLAZE_TEX = { base: '#ecebe8', grain: [225, 30, 0], mottle: [[200, 200, 200], 0.04, 0.06, 14], seamW: 1.8,
   seam: 'rgba(48,48,48,0.8)', groove: 'rgba(76,76,76,0.5)', inlay: 'rgba(214,214,214,0.75)', light: 'rgba(255,255,255,0.55)' };
 

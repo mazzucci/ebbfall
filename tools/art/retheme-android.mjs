@@ -1,6 +1,6 @@
 // The Android (2026-11-11): an alternative model for the Expedition's elite (the `umbra` slot, renamed the Android),
 // a robot beside the current Marine, pictures only, for Stelian's pick. One sheet at 2x with a -1x copy in CSS px and
-// a -075 copy at zoom 0.75, on the game's grass tiles in the seats' colours, into target/android (or [outdir]):
+// a -075 copy at zoom 0.75, on the game's grass tiles in the seats' colors, into target/android (or [outdir]):
 //   node tools/art/retheme-android.mjs [outdir] [--fresh]   android.png: the Android, the Marine, the Sellsword and the
 //     Bot side by side, each facing the camera and east, seat 0 above and seat 1 below; the table: height, width,
 //     length, team share and brightness, measured as retheme-a1.mjs measures its units.json (android.json)
@@ -54,7 +54,7 @@ const DIRS = [0, 4, 8, 12]; // (east, the camera, west, away: the sheet shows th
 const U = await rendered('units', `^ex_(${COLS.map(c => c[0]).join('|')})_(${DIRS.join('|')})_(0|1)$`, { polish: true });
 const P = makePainters(U, seatTints(U.tints));
 
-// the sheet: both seats, each unit facing the camera (4) and east (0), labelled
+// the sheet: both seats, each unit facing the camera (4) and east (0), labeled
 {
   const cw = 5 * T, rh = 6 * T, c = cv(cw * COLS.length, rh * 2); grass(c, 5);
   [0, 1].forEach(seat => COLS.forEach(([k, txt], i) => {

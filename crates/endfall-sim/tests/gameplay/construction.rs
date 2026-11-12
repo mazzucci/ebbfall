@@ -289,7 +289,7 @@ fn the_foundry_takes_two_by_two_tiles() {
 
 #[test]
 fn a_lumen_stays_at_its_vael_site_until_it_stands() {
-    // PRD: builders who stay (Stelian, 2026-11-06). The Vael build as the Harbour does: the Glint stays on the site
+    // PRD: builders who stay (Stelian, 2026-11-06). The Vael build as the Harbor does: the Glint stays on the site
     // while it rises, and goes back to the salt once it stands.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
@@ -329,7 +329,7 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
 
 #[test]
 fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
-    // The Harbour's rule, now both peoples': no builder, no progress; another Glint sent to it finishes it.
+    // The Harbor's rule, now both peoples': no builder, no progress; another Glint sent to it finishes it.
     for (mut w, kind) in [
         (rich_vael(4242), BldgKind::Spire),
         (rich(4242), BldgKind::Depot),

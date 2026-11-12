@@ -29,7 +29,7 @@ function selectOrDouble(hit, add, at = performance.now()) {
   select([hit], add);
 }
 import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
-/** Where a unit is drawn, as a circle round its body: centred half its drawn height above its feet (a flyer's art,
+/** Where a unit is drawn, as a circle round its body: centered half its drawn height above its feet (a flyer's art,
  *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
 const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
 /** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */

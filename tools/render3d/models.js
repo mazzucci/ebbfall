@@ -184,7 +184,7 @@ export function lancer(M, f) {
   return g;
 }
 
-/** Medic: light armour, a white medical pack with a red cross, and a healing emitter instead of a rifle. */
+/** Medic: light armor, a white medical pack with a red cross, and a healing emitter instead of a rifle. */
 export function medic(M, f) {
   const g = infantry(M, f, { torso: M.medWhite, pads: M.paint });
   add(g, rbox(3.4, 5, 5.6, 1), M.medWhite, -3.6, 10, 0);
@@ -261,19 +261,19 @@ export function observer(M, f) {
   return g;
 }
 
-/** Bastion: the Humans' capital gunship. An armoured wedge on four ducted fans, hovering 24 units up, a twin-cannon
+/** Bastion: the Humans' capital gunship. An armored wedge on four ducted fans, hovering 24 units up, a twin-cannon
  *  turret on the spine and a chin gun; frames turn the fan blades. */
 export function bastion(M, f) {
   const g = grp(), body = grp();
   body.position.y = 24;
   const hull = [[-20, -10], [8, -12], [20, -6], [23, 0], [20, 6], [8, 12], [-20, 10], [-24, 0]];
-  add(body, plate(hull, 7, 1.6), M.trim, 0, -3.5, 0);                                         // armoured hull
+  add(body, plate(hull, 7, 1.6), M.trim, 0, -3.5, 0);                                         // armored hull
   add(body, plate(hull.map(([x, z]) => [x * 0.86, z * 0.8]), 2.2, 0.8), M.dark, 0, -5, 0);      // belly
   add(body, plate([[6, -9], [18, -5], [21, 0], [18, 5], [6, 9]], 7.4, 1.2), M.paint, 0, -3.6, 0); // team-painted prow
   add(body, plate([[-16, -6], [4, -7], [10, -3], [10, 3], [4, 7], [-16, 6]], 3, 1), M.trim, 0, 3.4, 0); // spine deck
   for (const side of [-1, 1]) {
     add(body, rbox(30, 1.2, 1.6, 0.4), M.hazard, -3, 3.6, side * 9.4);                          // deck edge stripes
-    add(body, rbox(8, 2, 3, 0.6), M.paint, -4, 4.6, side * 6);                                   // armour plates
+    add(body, rbox(8, 2, 3, 0.6), M.paint, -4, 4.6, side * 6);                                   // armor plates
     // Ducted fans at the four corners, on stub pylons.
     for (const fx of [-15, 9]) {
       add(body, rbox(4, 2, 7, 0.6), M.gunmetal, fx, 0.5, side * 14);
@@ -340,7 +340,7 @@ export function siegeTank(M, f) {
     for (const dz of [-2.4, 2.4]) add(body, rbox(1.2, 1.4, 1, 0.3), M.gunmetal, 12.2, 8.6, dz);
     add(body, rbox(1.4, 0.6, 5.8, 0.25), M.hazard, 12.2, 9, 0);
   }
-  // Turret: a low, wide armoured slab set back on the hull, team cheeks, hatch, sensor.
+  // Turret: a low, wide armored slab set back on the hull, team cheeks, hatch, sensor.
   add(body, cyl(6.2, 6.6, 1, 24), M.gunmetal, -4, 8, 0);
   add(body, plate([[-13.5, -6.6], [-3, -7.4], [3, -5], [3, 5], [-3, 7.4], [-13.5, 6.6]], 3.4, 1), M.trim, 0, 8.3, 0);
   for (const side of [-1, 1]) add(body, rbox(10, 2, 1, 0.35), M.paint, -5.5, 9.9, side * 7.2);
@@ -360,7 +360,7 @@ export function siegeTank(M, f) {
   add(gun, rbox(3.4, 2.6, 3.4, 0.7), M.dark, 23.4 + ext, 0, 0);                                 // muzzle brake
   body.add(gun);
   g.add(body);
-  // Outriggers: four heavy hydraulic spades at the hull's corners, over the tracks' ends. Travelling they lie folded
+  // Outriggers: four heavy hydraulic spades at the hull's corners, over the tracks' ends. Traveling they lie folded
   // flat along the deck; deploying they swing down and out past the tracks, short and stout, and plant broad pads.
   const fold = new THREE.Vector3(-1, -0.06, 0).normalize(), plant = new THREE.Vector3(0.42, -0.62, 0.66).normalize();
   const dir = fold.clone().lerp(plant, st / 2).normalize(), L = 7.6;
@@ -436,7 +436,7 @@ export function interceptor(M, f) {
 }
 
 export const UNIT_MODELS = {
-  // r: the farthest any part reaches from the centre (any facing must fit), h: height
+  // r: the farthest any part reaches from the center (any facing must fit), h: height
   harvester: { build: harvester, frames: 2, r: 23, h: 15 },
   trooper: { build: trooper, frames: 4, r: 18, h: 16 },
   vanguard: { build: vanguard, frames: 4, r: 26, h: 24 },

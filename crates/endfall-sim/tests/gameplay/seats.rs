@@ -748,7 +748,7 @@ const GREY_WARRENS: (u32, u32) = (2, 4);
 
 #[test]
 fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
-    // M4 step 2e: the menus' teams are consecutive seats (2v2, 3v3, 4v4, 2v2v2v2), which must start as neighbours
+    // M4 step 2e: the menus' teams are consecutive seats (2v2, 3v3, 4v4, 2v2v2v2), which must start as neighbors
     // round the ring of starts for every `side` the menus and the relay draw: each ally's start is about as near the next
     // ally's as the nearest two starts on the map (the eight starts are 44 tiles from the next on their side and about
     // as far round the corner); six seats on eight starts used to split a team round a free start when the draw turned

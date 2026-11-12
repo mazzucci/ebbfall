@@ -223,7 +223,7 @@ export function sfx(name, o = {}) {
   } catch { /* no audio available */ }
 }
 
-/** The wind: filtered noise, its colour drifting slowly; very quiet, under everything. */
+/** The wind: filtered noise, its color drifting slowly; very quiet, under everything. */
 function startWind() {
   if (wind || audio.muted || !actx) return;
   const n = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(), lfo = actx.createOscillator(), depth = actx.createGain();

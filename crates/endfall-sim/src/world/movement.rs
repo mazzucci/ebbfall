@@ -373,7 +373,7 @@ impl World {
                 let (cx, cy) = (f.0 as f64 * TILE + 16.0, f.1 as f64 * TILE + 16.0);
                 let d = dist(u.x, u.y, cx, cy);
                 if d < 6.0 {
-                    // (easing out rather than snapping to the centre, so several pushed in do not land on one spot)
+                    // (easing out rather than snapping to the center, so several pushed in do not land on one spot)
                     u.x = cx;
                     u.y = cy;
                 } else {

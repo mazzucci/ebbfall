@@ -1,4 +1,4 @@
-// Building, resource and debris models. Buildings are centred on their footprint (1 tile = 32 units).
+// Building, resource and debris models. Buildings are centered on their footprint (1 tile = 32 units).
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
 
@@ -89,7 +89,7 @@ export function extractor(M) {
 export function barracks(M) {
   const g = grp();
   add(g, rbox(92, 3, 92, 1), M.concrete, 0, 1.5, 0);
-  const R = 12, L = 52, ZC = -14;                                                                   // vault radius, length, centre z
+  const R = 12, L = 52, ZC = -14;                                                                   // vault radius, length, center z
   for (const x of [-28, 0, 28]) {
     add(g, rbox(2 * R + 2, 3, L + 2, 0.6), M.dark, x, 4, ZC);                                      // plinth
     add(g, vault(R, L), M.khaki, x, 5.5, ZC);
@@ -161,7 +161,7 @@ export function forge(M) {
   return g;
 }
 
-/** A prism along x (length `len`, centred) from a side profile of [z, y] points. */
+/** A prism along x (length `len`, centered) from a side profile of [z, y] points. */
 function prismX(profile, len) {
   const s = new THREE.Shape(profile.map(([z, y]) => new THREE.Vector2(-z, y)));
   const geo = new THREE.ExtrudeGeometry(s, { depth: len, bevelEnabled: false });

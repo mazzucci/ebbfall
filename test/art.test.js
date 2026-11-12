@@ -102,7 +102,7 @@ test('one frame per kind, not one per seat, and a mask tint for every seat', () 
 
 test('the frames the client draws for each people\'s construction, rubble, worn dirt and shots are in the atlas', () => {
   for (const n of [2, 3, 4]) for (const k of ['foundation', 'scaffold', 'rubble', 'bud', 'rubble_vael', 'worn']) assert.ok(frames[`${k}_${n}`], `${k}_${n}`);
-  for (const n of [2, 3, 4]) for (const k of ['scaffold', 'bud']) paired(`${k}_${n}`); // (a scaffold's cloth and flags in the seat's colour)
+  for (const n of [2, 3, 4]) for (const k of ['scaffold', 'bud']) paired(`${k}_${n}`); // (a scaffold's cloth and flags in the seat's color)
   const shots = new Set([...Object.values(SHOT_LOOK), ...Object.values(PEOPLE_SHOT).flatMap(Object.values), ...Object.values(TOWER_SHOT)]);
   for (const k of shots) assert.ok(frames[k], `the shot ${k}`);
   for (const k of Object.values(SHOT_TRAIL)) assert.ok(index.animations[k]?.every(n => frames[n]), `the trail ${k}`);

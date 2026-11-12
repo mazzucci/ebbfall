@@ -164,12 +164,13 @@ pub fn play_seats(
     cap_min: u32,
     tide: bool,
 ) -> Played {
-    play_watched(map, pairing, map_seed, plans, cap_min, tide).0
+    play_watched(map, 64, pairing, map_seed, plans, cap_min, tide).0
 }
 
-/// `play_seats`, and every wave of the game (`waves::Watch`).
+/// `play_seats` on a map `size` tiles square, and every wave of the game (`waves::Watch`).
 pub fn play_watched(
     map: MapKind,
+    size: i32,
     pairing: usize,
     map_seed: u32,
     plans: [Option<Diff>; 2],
@@ -185,7 +186,7 @@ pub fn play_watched(
         map_seed,
         BASE,
         map,
-        MapSize::square(64),
+        MapSize::square(size),
         0,
         &[FACTIONS[pair[0]], FACTIONS[pair[1]]],
     );

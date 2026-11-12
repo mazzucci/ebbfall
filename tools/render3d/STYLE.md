@@ -1,4 +1,11 @@
-# Ebbfall's look: the style sheet
+# Ebbfall's look: the style sheet (historical)
+
+> **Historical: the pre-re-theme style sheet.** It describes the salt-country look (the sea ebbed, the Harbour and
+> the Vael) that the re-theme of November 2026 replaced with the Kingdom and the Expedition. The pipeline it describes
+> (lit three.js models shot by `scene.js`, ink, banding, packed at 2x) still holds, but its peoples, models, materials
+> and palette do not: for today's look read the re-theme makers (`retheme.js`, `kingdom*.js`, `expedition*.js`,
+> `country.js`) and Notion's "Ebbfall art". Kept for the record.
+
 
 The sea has ebbed and left a country of salt; two peoples fight over it. Every sprite is a lit 3D model (three.js,
 `tools/render3d`) shot by `scene.js` at 4x, finished (hard cast shadow, ink on silhouettes and sharp edges, a contrast

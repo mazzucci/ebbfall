@@ -368,7 +368,7 @@ pub fn make_room(w: &mut World, team: u8, room: i32) {
     fighters.sort();
     let fighters: Vec<Id> = fighters.into_iter().map(|(_, id)| id).collect();
     for id in fighters {
-        // (room in population or Power, within the one army limit)
+        // (room in population or Power)
         if w.room(team, Pool::Supply) >= room {
             break;
         }

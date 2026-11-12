@@ -316,6 +316,20 @@ export function buggy(M, f) {
   return g;
 }
 
+/** The compact rifle (the Marine's and the Android's): short, in mid gunmetal, a dark sight, held level along local
+ *  +x from (x, y, z), turned a little across the body (the stock south-west, the muzzle north-east). */
+export function compactRifle(parent, M, x, y, z) {
+  const gun = grp(); gun.position.set(x, y, z); gun.rotation.set(0, 0.3, 0.04); parent.add(gun);
+  add(gun, rbox(2.6, 1.9, 1.6, 0.4), M.gun, -2.6, 0, 0);                                                                // the stock, short
+  add(gun, rbox(4.0, 2.2, 1.8, 0.4), M.gun, 0.3, 0, 0);                                                                 // the receiver
+  add(gun, rbox(1.3, 2.4, 1.2, 0.3), M.gun, 0.3, -1.9, 0);                                                              // the magazine
+  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2, -1.4, 0);                                                             // the grip
+  add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5, 0);                                                             // the sight
+  add(gun, rbox(3.6, 1.9, 1.8, 0.4), M.gun, 4.1, 0, 0);                                                                 // the handguard, short
+  add(gun, cyl(0.9, 0.9, 2.4, 8), M.gun, 7.1, 0.15, 0, 0, 0, Math.PI / 2);                                               // the barrel, stubby
+  return gun;
+}
+
 /** Marine (the signature unit, line class, sim r 10-11, scale 1.08; the last batch, Stelian: a light near-future
  *  soldier matching the Expedition's buildings' white, grey and cyan): the Guard's build in a light grey suit with
  *  slim off-white armor plates (chest, shins, a small pack; nothing bulky or knight-like), an off-white rounded helmet
@@ -346,15 +360,7 @@ export function marine(M, f) {
   add(b, cyl(2.8, 2.8, 0.4, 16), M.inkLine, 0.1, 13.1, 0);                                                              // its rim line
   add(b, rbox(1.4, 1.8, 4.6, 0.5), M.visorCyan, 2.3, 13.7, 0); add(b, sph(2.4, 8, 6), M.ledHalo, 2.6, 13.7, 0).scale.set(0.5, 0.5, 1); // the cyan visor across the face, with a halo
   add(b, rbox(0.4, 0.8, 5.4, 0.1), M.joint, 0.2, 15.3, 0);                                                              // a dark seam over the crown
-  // the compact rifle: short, in mid gunmetal, held level across the body ahead of the chest
-  const gun = grp(); gun.position.set(3.4, 9.6, 0); gun.rotation.set(0, 0.3, 0.04); b.add(gun);
-  add(gun, rbox(2.6, 1.9, 1.6, 0.4), M.gun, -2.6, 0, 0);                                                                // the stock, short
-  add(gun, rbox(4.0, 2.2, 1.8, 0.4), M.gun, 0.3, 0, 0);                                                                 // the receiver
-  add(gun, rbox(1.3, 2.4, 1.2, 0.3), M.gun, 0.3, -1.9, 0);                                                              // the magazine
-  add(gun, rbox(1.2, 1.6, 1.2, 0.2), M.gun, -1.2, -1.4, 0);                                                             // the grip
-  add(gun, rbox(1.6, 0.9, 1.1, 0.2), M.joint, 0.4, 1.5, 0);                                                             // the sight
-  add(gun, rbox(3.6, 1.9, 1.8, 0.4), M.gun, 4.1, 0, 0);                                                                 // the handguard, short
-  add(gun, cyl(0.9, 0.9, 2.4, 8), M.gun, 7.1, 0.15, 0, 0, 0, Math.PI / 2);                                               // the barrel, stubby
+  compactRifle(b, M, 3.4, 9.6, 0);                                                                                      // the compact rifle, held level across the body ahead of the chest
   limb(b, [0.6, 11.4, 3.6], [2.4, 9.4, 1.6], 1.05, M.suitGrey); add(b, sph(0.85, 8, 6), M.armour, 2.6, 9.2, 1.4);        // the trigger hand, gloved dark
   limb(b, [0.6, 11.4, -3.6], [4.8, 9.8, -1.2], 1.05, M.suitGrey); add(b, sph(0.85, 8, 6), M.armour, 5.2, 9.8, -1.0);     // the fore hand on the handguard
   if (M.polish) { for (const z of [-1.8, 1.8]) add(b, rbox(0.7, 3.0, 0.9, 0.3), M.joint, 2.9, 11.6, z, 0, 0, -0.25); add(b, torus(2.72, 0.2), M.joint, 0.1, 14.4, 0, Math.PI / 2, 0, 0); } // the pack's straps, a band round the helmet

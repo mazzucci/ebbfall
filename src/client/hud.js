@@ -1,6 +1,6 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
 import { shownBldgs } from './memory.js';
-import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies, poolMax } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
@@ -18,9 +18,9 @@ export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; //
 export function bldgStatus(b) {
   if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
-  // (a building, training or not, that gives hired or Portal places: the side's count of them, used over made)
-  if (b.team === G.me && b.done && b.d.pool === 'hired') { const [u, c] = G.hired[G.me]; return `Hired ${u} / ${c}`; }
-  if (b.team === G.me && b.done && b.d.pool === 'portal') { const [u, c] = G.portal[G.me]; return `Portal places ${u} / ${c}`; }
+  // (a building, training or not, that gives hired places: the side's count of them, used over made, and whether
+  // that is the most it can have)
+  if (b.team === G.me && b.done && b.d.pool === 'hired' && b.d.supply > 0) { const [u, c] = G.hired[G.me]; return `Hired ${u} / ${c}` + (c >= poolMax('hired') ? ' (maximum)' : ''); }
   if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
   if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} gold: 1 every 2 s`;
@@ -39,8 +39,8 @@ export function updateHud() {
   buildCard();
 }
 
-/** The top bar's figures: gold, then the Kingdom's population or the Expedition's Power (its hired and Portal places
- *  are on the Recruiting post's and the Portal's panel: `bldgStatus`). A figure at its cap pulses. */
+/** The top bar's figures: gold, then the Kingdom's population or the Expedition's Power (its hired places are on the
+ *  Recruiting post's panel: `bldgStatus`). A figure at its cap pulses. */
 function topBar() {
   const [s] = G.res[G.me], [su, sc] = G.sup[G.me], ex = !!myFaction().power;
   const put = (id, v) => { const e = $(id); if (e.textContent !== v) e.textContent = v; };
@@ -116,7 +116,7 @@ function renderSelection() {
     named(x.d.name);
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
-    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length && !['hired', 'portal'].includes(x.d.pool) ? 'Training' : bldgStatus(x);
+    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length && x.d.pool !== 'hired' ? 'Training' : bldgStatus(x);
     life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp, '', x.sh, x.maxsh);
     if (x.kind === 'bldg' && own && !x.done) {
       module('build' + x.id, '<div class="bar build"><i></i></div>');

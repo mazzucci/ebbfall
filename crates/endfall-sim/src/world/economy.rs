@@ -7,7 +7,8 @@ use super::*;
 pub const MINE_LOW: i32 = 1500;
 
 impl World {
-    /// The most supply a seat can have on this map (`data::supply_limit`).
+    /// The most supply a seat can have on this map (`data::supply_limit`): the Kingdom's population limit, and the
+    /// Expedition's Power and hired places together (`pool_max`).
     pub fn supply_limit(&self) -> i32 {
         supply_limit(self.map.w)
     }
@@ -22,20 +23,34 @@ impl World {
         self.pools[team as usize][pool.index()]
     }
 
-    /// Every pool's use of a seat together: at most the map's limit (`queue_unit`), whatever each pool's own cap.
+    /// The most places a seat's `pool` can have on this map: the Kingdom's population the map's `supply_limit` (it has no
+    /// hired places); the Expedition's Power `power_limit` and its hired places `hired_limit`, the two together the
+    /// Kingdom's one limit.
+    pub fn pool_max(&self, team: u8, pool: Pool) -> i32 {
+        let w = self.map.w;
+        match (self.factions[team as usize].power, pool) {
+            (true, Pool::Supply) => power_limit(w),
+            (true, Pool::Hired) => hired_limit(w),
+            (false, Pool::Supply) => supply_limit(w),
+            (false, Pool::Hired) => 0,
+        }
+    }
+
+    /// Every pool's use of a seat together (the balance lab's army size; nothing caps the sum: each pool has its own
+    /// maximum, `pool_max`).
     pub fn army_used(&self, team: u8) -> i32 {
         self.pools[team as usize].iter().map(|p| p[0]).sum()
     }
 
-    /// The places a unit of `pool` could still take: its pool's free places, and no more than the shared limit has
-    /// left (the Kingdom's one pool: its free population).
+    /// The places a unit of `pool` could still take: its pool's free places (its cap is never above its maximum).
     pub fn room(&self, team: u8, pool: Pool) -> i32 {
         let [used, cap] = self.pool(team, pool);
-        (cap - used).min(self.supply_limit() - self.army_used(team))
+        cap - used
     }
 
     /// Count a seat's places again, every pool: its units and those queued use them, its finished buildings give them,
-    /// each pool capped at the map's limit. A building lost can leave a pool's use above its cap: nothing more of it is
+    /// each pool capped at its maximum (`pool_max`); a building that uses Power (`BldgDef::uses`, the Portal) uses it
+    /// from the moment it is placed. A building lost can leave a pool's use above its cap: nothing more of it is
     /// trained until enough fall (`queue_unit`), nothing is taken away.
     pub fn recalc_supply(&mut self, team: u8) {
         let mut p = [[0; 2]; POOLS];
@@ -44,17 +59,19 @@ impl World {
             p[d.pool.index()][0] += d.supply;
         }
         for b in self.bldgs.iter().filter(|b| b.team == team) {
+            let d = b.kind.def();
             if b.done {
-                let d = b.kind.def();
                 p[d.pool.index()][1] += d.supply;
             }
+            p[Pool::Supply.index()][0] += d.uses;
             for q in &b.queue {
                 p[q.def().pool.index()][0] += q.def().supply;
             }
         }
-        let limit = self.supply_limit();
-        for s in &mut p {
-            s[1] = s[1].min(limit);
+        for pool in ALL_POOLS {
+            let max = self.pool_max(team, pool);
+            let s = &mut p[pool.index()];
+            s[1] = s[1].min(max);
         }
         self.pools[team as usize] = p;
     }

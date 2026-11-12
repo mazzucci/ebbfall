@@ -59,10 +59,10 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   shallows round it. Starts by people: a seat whose builders are Amph starts in its start's basin (`Map::basins`;
   nobody since the re-theme), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
   a cove or a basin (no shaft either, since the re-theme's economy). A Shore
-  with more than two starts falls back to Standard ground. The menus offer it as its own maps (Tidewater Reef, Random
-  Shore, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
+  with more than two starts falls back to Standard ground. The menus offer it as its own maps (Mirror Lake, Random
+  Lake, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
   tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
-  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, to the Core's flank; `CHANNEL` and
+  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, to the headquarters' flank; `CHANNEL` and
   `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
   the network and not hashed, `Map::generate_with`).
 
@@ -79,13 +79,13 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   another, a natural still going up counting as a base), the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
-  Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Trebuchet's deploy,
+  Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Cannon's deploy (by itself whenever it stops),
   construction that stalls without a builder and resumes, workers hopping only to a mine no farther from their
   drop-off, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
   eight-seat games to their end through `Game::with_seats`; a seat that is out refused and inert; every AI thinking
   every 16 ticks on a tick of its own; the Kingdom's AI raising its Market early, one a Castle, and a lost one again; one
-  Core by each mine, and another base once every base's mines run dry), maps of 2, 4 and 8 starts that are walkable and
+  headquarters by each mine, and another base once every base's mines run dry), maps of 2, 4 and 8 starts that are walkable and
   alike for every start (no vent by any main or expansion, one mine by each main), group paths (one search for a group's order, long searches budgeted,
   no shared route through rock), water (each unit's movement class, a walker's route around deep water and an
   amphibian's across it, wading, nothing firing from deep water, each people building on its own ground: a hand-built map), the Shore map (point-symmetric
@@ -100,14 +100,18 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   leash and its back-off when left beyond it; the Expedition AI's forward Uplink on a machine wave's march, and its
   wave's machines attacking out of range not called home), the Expedition rework (`expedition`: Power for machines and
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
-  one and a lost post leaving the count over its use, one army limit for every pool together (a Bot or a Sellsword
-  refused at it with room in its own pool), four Portal places a Portal, the satellite needing a Lab and
-  unlocking the Uplink whose standing unlocks the Portal, the launch told to every seat in its side's words ("You
-launched" for the side and its allies, "The enemy launched" for the rest), melee Sellswords and Bruisers
-  hitting only the ground up close, the Expedition AI at every level raising turbines and posts, launching, and
-  reaching the Portal), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
+  one and a lost post leaving the count over its use; the balance pass's two maximums, Power and hired places each
+  capped at its own (45 and 15, 52 and 18, 60 and 20 by map size) and each enforced on its own, the Kingdom's one
+  population limit unchanged; no Portal pool; one Portal a seat, a second refused while one stands or goes up, its
+  Power used from placement and released when it is destroyed or cancelled, refused without the Power for it; the
+  Android's numbers, its 3 Power and its training time; the satellite needing a Lab and unlocking the Uplink whose
+  standing unlocks the Portal, the launch told to its own seat alone ("You launched a satellite.", no toast to any
+  other seat) with the rocket an event for every seat, melee Sellswords and Bruisers hitting only the ground up close,
+  the Expedition AI at every level raising turbines and posts, launching, raising one Portal at most and training
+  Androids there), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, every pool's
-  places (`check_pools`: a pool's use over its cap only as a lost building left it, never by growing),
+  places (`check_pools`: a pool's use over its cap only as a lost building left it, never by growing; no pool over its
+  maximum, `World::pool_max`; one Portal a seat at most),
   resources, miner counters, a worker inside a mine out of reach and out of its enemies' sight) after every tick. Add a
   scenario here for every rule you add or change.
 
@@ -151,17 +155,20 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
                       upgrades.rs (Launch satellite among them: the Expedition's, at its Data center once a Lab
-                      stands, told to every seat, the Uplink's requirement), diff.rs (AI tuning per difficulty),
+                      stands, told to its own seat alone, the Uplink's requirement), diff.rs (AI tuning per difficulty),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (the range's numbers: which
                       machines it speeds up, what gives it, the bonus and the Drone's leash), export.rs (the tables as
                       JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and
-                      the Expedition's Power; `Hired`, the Expedition's hired places, six a Recruiting post; `Portal`,
-                      four a Portal): a unit's `pool` takes its `supply`, a building's `pool` gets it; each pool is capped by its own
-                      buildings and all of them together by the map's limit (`World::army_used`, `room`)
+                      the Expedition's Power, its Androids' too; `Hired`, the Expedition's hired places, six a
+                      Recruiting post): a unit's `pool` takes its `supply`, a building's `pool` gets it, and a building
+                      that `uses` Power (the Portal) takes it from placement; each pool is capped by its own buildings
+                      and its own maximum (`World::pool_max`: the Kingdom's population the map's limit, the
+                      Expedition's Power `power_limit` and hired places `hired_limit`, the two together that limit;
+                      `room`). A `single` building (the Portal) is one a seat (`World::single_room`)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's crystals in an
-                      uneven clump to one flank of its Core, `add_clump`; no map has a mine shaft since the re-theme's
+                      uneven clump to one flank of its headquarters, `add_clump`; no map has a mine shaft since the re-theme's
                       economy: the generator still lays them, so the ground they shaped stays, and takes them up at the
                       end, `take_up_shafts`; then each field's crystals become one gold mine, `lay_mines`: 2x2
                       (`MINE_SIZE`), neutral, holding the field's gold, by orbit under the map's symmetry: the orbit's
@@ -195,7 +202,12 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       beyond it; the AI's leapfrog Uplink, staging at it and its Drones' wave moves clamped to the
                       leash are in ai/army.rs); economy.rs keeps each seat's pools (`World::pools`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
-                      economy, build, research, produce, army, scouting
+                      economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
+                      at-cap check reads each pool against its own maximum (`at_cap`); with its hired line at its
+                      maximum (`line_capped`) it raises its Factory sooner and adds Factories, not posts, as money
+                      piles up; it keeps Power free for its Portal and an Android (`elite_reserve`), raises one Portal
+                      (`tech2_due`, never a second, a turbine first if the Power is short), and trains the Android there
+                      first when Power is tight
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
@@ -275,7 +287,7 @@ src/client/           everything that touches the browser
                       cancelled sheet says nothing
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint, toasts, setSelection
   hud.js              top bar (gold as coins, the Kingdom's population or the Expedition's Power) and selection panel (a
-                      Recruiting post's hired places, a Portal's Portal places)
+                      Recruiting post's hired places, and "(maximum)" once they reach theirs, `Game.poolMax`)
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
                       test/cards.test.js)
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
@@ -303,7 +315,7 @@ src/client/           everything that touches the browser
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
-                      shards/ether, in each race's voice): STYLES, three a race, and each race's device style
+                      gold, in each race's voice): STYLES, three a race, and each race's device style
   speech.js           the announcer in the device's own voice (Web Speech API): a voice per race picked from the device's
                       English voices, the synth where it has none; unlocked in a gesture, cut by the pause card and mute.
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
@@ -370,8 +382,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
                       seat 2 (the start arranges the sides)
-test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an extractor on a far shaft unseen until a
-                      unit looks, remembered after it walks away and after it dies out of sight, own and allied ones live
+test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
+                      looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
 test/cards.test.js    every card of both races (units, buildings, Build pages, armed orders, placing) on the WASM sim:
                       a WASD key per button by slot, none twice on a card, never W A S D, Q or P

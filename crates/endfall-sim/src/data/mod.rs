@@ -40,22 +40,38 @@ pub fn supply_limit(map_w: i32) -> i32 {
     }
 }
 
+/// The Expedition's most Power, by the map's width (the balance pass): 45 on 64x64, 52 on 96x96, 60 on 128x128. Its
+/// most hired places are the rest of the map's `supply_limit` (`hired_limit`): Power and hired places have a maximum
+/// each, and the two together are the Kingdom's population limit.
+pub fn power_limit(map_w: i32) -> i32 {
+    if map_w <= 64 {
+        45
+    } else if map_w <= 96 {
+        52
+    } else {
+        60
+    }
+}
+/// The Expedition's most hired places, by the map's width: the map's limit less its Power (15, 18, 20).
+pub fn hired_limit(map_w: i32) -> i32 {
+    supply_limit(map_w) - power_limit(map_w)
+}
+
 /// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
 /// per seat (`World::pools`): the Kingdom's population and the Expedition's Power (`Supply`, the same pool under two
-/// names: every Kingdom unit, and the Expedition's machines), the Expedition's hired places (`Hired`: its Sellswords,
-/// Bruisers and Medics, from its Recruiting posts) and its Portal places (`Portal`: its Androids, from its Portals).
-/// Each pool is capped by its own buildings, and all of them together at the map's `supply_limit` (one army limit:
-/// `World::army_used`, `queue_unit`).
+/// names: every Kingdom unit, and the Expedition's machines, its Androids too) and the Expedition's hired places
+/// (`Hired`: its Sellswords, Bruisers and Medics, from its Recruiting posts). Each pool is capped by its own buildings
+/// and by its own maximum (`World::pool_max`: the Kingdom's population the map's `supply_limit`; the Expedition's
+/// Power `power_limit` and its hired places `hired_limit`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Pool {
     Supply,
     Hired,
-    Portal,
 }
 /// How many pools there are (`Pool`'s index into `World::pools`).
-pub const POOLS: usize = 3;
+pub const POOLS: usize = 2;
 /// Every pool, in index order.
-pub const ALL_POOLS: [Pool; POOLS] = [Pool::Supply, Pool::Hired, Pool::Portal];
+pub const ALL_POOLS: [Pool; POOLS] = [Pool::Supply, Pool::Hired];
 impl Pool {
     pub fn index(self) -> usize {
         self as usize
@@ -64,8 +80,10 @@ impl Pool {
         match self {
             Pool::Supply => "supply",
             Pool::Hired => "hired",
-            Pool::Portal => "portal",
         }
+    }
+    pub fn parse(s: &str) -> Option<Pool> {
+        ALL_POOLS.into_iter().find(|p| p.key() == s)
     }
 }
 
@@ -278,7 +296,7 @@ def_struct! {
         /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
-        /// The places it takes in its `pool` (population or Power, hired places, Portal places).
+        /// The places it takes in its `pool` (population or Power, or hired places).
         supply: i32 = "supply",
         pool: Pool = "pool",
         hp: f64 = "hp",
@@ -328,9 +346,14 @@ def_struct! {
         h: i32 = "h",
         hp: f64 = "hp",
         armor: f64 = "armor",
-        /// The places it adds to its `pool` once finished (population or Power, hired places, Portal places).
+        /// The places it adds to its `pool` once finished (population or Power, or hired places).
         supply: i32 = "supply",
         pool: Pool = "pool",
+        /// The Power (`Pool::Supply`) it uses while it stands, from the moment it is placed until it is destroyed or
+        /// cancelled (the Portal).
+        uses: i32 = "uses",
+        /// At most one a seat, standing or going up (the Portal: `World::single_room`).
+        single: bool = "single",
         build: f64 = "build",
         sight: f64 = "sight",
         trains: &'static [UnitKind] = "trains",
@@ -363,8 +386,8 @@ pub struct Faction {
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings.
     pub repairs: bool,
-    /// Its `Pool::Supply` is Power, its machines' alone (the Expedition: no population; its people take hired and
-    /// Portal places): only the words differ.
+    /// Its `Pool::Supply` is Power, its machines' alone (the Expedition: no population; its people take hired places),
+    /// and it has a maximum of each (`World::pool_max`) where the Kingdom has one population limit.
     pub power: bool,
     /// How the scripted opponent plays this side.
     pub ai: AiScript,
@@ -499,6 +522,8 @@ const BLDG: BldgDef = BldgDef {
     armor: 1.0,
     supply: 0,
     pool: Pool::Supply,
+    uses: 0,
+    single: false,
     build: 20.0,
     sight: 5.0,
     trains: &[],

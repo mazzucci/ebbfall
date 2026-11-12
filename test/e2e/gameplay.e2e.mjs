@@ -1619,7 +1619,7 @@ test('as the Expedition: the top bar shows gold as coins and Power, whole, on a 
       const s = await d.state();
       assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'Power: used over made');
       assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Power');
-      assert.equal(await d.page.locator('#top .res').count(), 2, 'gold and Power only: no hired or Portal places on top');
+      assert.equal(await d.page.locator('#top .res').count(), 2, 'gold and Power only: no hired places on top');
       assert.ok(await d.eval(() => getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'gold shown with its coins');
       // Every figure and button whole and on the screen, with wide figures (set and measured in one go: the HUD
       // writes its own back on its next tick).
@@ -1851,7 +1851,7 @@ test('phone: a double-tap on a factory selects all of them, the console shows th
   } finally { await d.close(); }
 });
 
-test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and what it fights best beside and what beats it', { chromium: CDP_TOUCH }, async () => {
+test('phone: a long-press on a unit to train shows what it is and costs, its base stats in two rows, and its strengths and weaknesses in general terms', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(1000, 0);
@@ -2413,7 +2413,7 @@ test('single player, five to eight (M4 2e): the 128x128 maps; free for all, four
     for (let n = 3; n <= 8; n++) {
       await seats.add(); // (each on a side of its own: free for all)
       if (n < 5) continue;
-      assert.deepEqual(await page.$$eval('#mapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Grey Warrens · up to 8', 'Random · up to 8'], `${n}: the 128x128 maps`);
+      assert.deepEqual(await page.$$eval('#mapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Gray Warrens · up to 8', 'Random · up to 8'], `${n}: the 128x128 maps`);
       await fitsPage(page, `${n} players, each alone`);
     }
     assert.equal(await page.locator('#soloBoard .add').count(), 0, 'eight: no room for another');
@@ -3102,7 +3102,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(post), ['bruiser', 'bruiser'], `${key} trains another`);
     await pickControls(d, 'classic');
-    // The satellite, launched from the Data center's card (L): every seat is told; then the Uplink, then the Portal.
+    // The satellite, launched from the Data center's card (L): our seat alone is told; then the Uplink, then the Portal.
     const dc = myBldg(await d.state(), 'conflux')[0];
     await d.clickEntity(dc.id);
     await d.readyCard('Satellite');
@@ -3116,6 +3116,13 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Android 0', 'Rally 1', 'Cancel 5'], 'the Portal: Androids');
     await d.key('u');
     assert.deepEqual(await queue(portal), ['umbra'], `U trains an Android (toasts: ${(await d.toasts()).join(' | ')})`);
+    // One Portal a side: a second is refused from the Build card (B, D), in plain words, before any ghost.
+    const bot = mine(await d.state(), 'lumen')[0];
+    await d.clickEntity(bot.id);
+    await d.key('b'); await d.key('d');
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'Only one Portal.'), null, { timeout: 5000 });
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'no ghost for a second Portal');
+    await d.key('Escape');
     await until(d, async () => mine(await d.state(), 'bruiser').length > 0, { seconds: 60, step: 0.5, what: 'the Bruiser' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

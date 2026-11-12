@@ -182,7 +182,17 @@ pub fn check_invariants(w: &World, ctx: &str) {
                     .flat_map(|b| b.queue.iter())
                     .filter(|k| k.def().pool == pool)
                     .map(|k| k.def().supply)
-                    .sum::<i32>();
+                    .sum::<i32>()
+                // (the Power a building uses while it stands, from placement: the Portal's)
+                + if pool == Pool::Supply {
+                    w.bldgs
+                        .iter()
+                        .filter(|b| b.team as usize == t)
+                        .map(|b| b.kind.def().uses)
+                        .sum::<i32>()
+                } else {
+                    0
+                };
             let p = w.pools[t][pool.index()];
             assert_eq!(p[0], used, "{ctx}: team {t} {pool:?} used");
             let cap: i32 = w
@@ -193,7 +203,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
                 .sum();
             assert_eq!(
                 p[1],
-                cap.min(w.supply_limit()),
+                cap.min(w.pool_max(t as u8, pool)),
                 "{ctx}: team {t} {pool:?} cap"
             );
         }
@@ -286,14 +296,26 @@ pub fn check_invariants(w: &World, ctx: &str) {
 /// Every pool's use within its cap, or over it only as a building's loss left it (`recalc_supply`): a pool over its
 /// cap got there by its cap falling, never by its use growing; and all of them together within the map's limit. `prev`: each seat's pools at the last check.
 pub fn check_pools(prev: &mut Vec<[[i32; 2]; POOLS]>, w: &World, ctx: &str) {
-    // One army limit for every pool together (`queue_unit`): never passed, since only training adds use.
+    // Each pool's maximum (`World::pool_max`: the Kingdom's population limit, the Expedition's Power and hired
+    // places apart): never passed, since a pool's cap never is and only what fits adds use. And one Portal a seat at
+    // most (`BldgDef::single`), standing or going up.
     for t in 0..w.pools.len() as u8 {
-        assert!(
-            w.army_used(t) <= w.supply_limit(),
-            "{ctx}: team {t} army {} over the limit {}",
-            w.army_used(t),
-            w.supply_limit()
-        );
+        for pool in ALL_POOLS {
+            let [used, cap] = w.pool(t, pool);
+            let max = w.pool_max(t, pool);
+            assert!(
+                used <= max && cap <= max,
+                "{ctx}: team {t} {pool:?} {used}/{cap} over its maximum {max}"
+            );
+        }
+        for k in BLDG_KINDS.into_iter().filter(|k| k.def().single) {
+            let n = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == t && b.kind == k)
+                .count();
+            assert!(n <= 1, "{ctx}: team {t} has {n} of {k:?}");
+        }
     }
     if prev.len() == w.pools.len() {
         for (t, (now, before)) in w.pools.iter().zip(prev.iter()).enumerate() {

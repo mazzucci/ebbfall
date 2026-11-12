@@ -318,7 +318,8 @@ pub enum Event {
         weapon: &'static str,
         seen: u8,
     },
-    /// A satellite launched from (x, y) by `team`'s building (every seat sees it: the rocket rising).
+    /// A satellite launched from (x, y) by `team`'s building: the rocket rising, for every seat (the client shows it
+    /// to its own seat or where it sees the spot; no toast goes with it to any other seat).
     Launch {
         x: f64,
         y: f64,

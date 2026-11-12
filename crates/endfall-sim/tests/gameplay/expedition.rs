@@ -1,8 +1,10 @@
 //! The Expedition rework (PRD: power, hired guns, the satellite): no population. Its machines use Power (the Data center
-//! +20, a wind turbine +8); its hired guns (the Sellsword, the Bruiser, the Medic) take hired places, six a Recruiting
-//! post, one count for the side; its Androids take Portal places, four a Portal. Launch satellite (at the Data center,
-//! once a Lab stands) is told to every seat and unlocks the Uplink, which unlocks the Portal. The hired guns fight in
-//! melee. The range's speed bonus and the Drone's leash: radio.rs.
+//! +20, a wind turbine +8), its Androids too; its hired guns (the Sellsword, the Bruiser, the Medic) take hired places,
+//! six a Recruiting post, one count for the side. Power and hired places each have a maximum (the balance pass: 45 and
+//! 15 on 64x64, the two together the Kingdom's population limit). Launch satellite (at the Data center, once a Lab
+//! stands) is told to its own seat alone and unlocks the Uplink, which unlocks the Portal: one a side, using Power from
+//! the moment it is placed, where the Android, a slow and expensive elite, is made. The hired guns fight in melee. The
+//! range's speed bonus and the Drone's leash: radio.rs.
 
 use crate::common::*;
 
@@ -59,38 +61,30 @@ fn the_expedition_has_power_for_machines_and_no_population() {
         "the Data center's 20 Power, the Bots' use"
     );
     assert_eq!(w.pool(PLAYER, Pool::Hired), [0, 0]);
-    assert_eq!(w.pool(PLAYER, Pool::Portal), [0, 0]);
     // A wind turbine: +8 Power, for 100 gold.
     assert_eq!(BldgKind::Spire.def().name, "Wind turbine");
     assert_eq!(BldgKind::Spire.def().cost, [100, 0]);
     let bot = harvesters(&w, PLAYER)[0];
     build(&mut w, BldgKind::Spire, bot, 60);
     assert_eq!(w.sup(PLAYER)[1], 28);
-    // Every machine uses Power at its old supply; the people none.
+    // Every machine uses Power at its old supply, the Android three; the people none.
     for (k, p) in [
         (UnitKind::Lumen, 1),
         (UnitKind::Scythe, 2),
         (UnitKind::Monolith, 4),
         (UnitKind::Shrike, 2),
+        (UnitKind::Umbra, 3),
     ] {
         assert_eq!((k.def().pool, k.def().supply), (Pool::Supply, p), "{k:?}");
     }
     for k in [UnitKind::Prism, UnitKind::Bruiser, UnitKind::Halo] {
         assert_eq!((k.def().pool, k.def().supply), (Pool::Hired, 1), "{k:?}");
     }
-    assert_eq!(
-        (UnitKind::Umbra.def().pool, UnitKind::Umbra.def().supply),
-        (Pool::Portal, 1)
-    );
-    // The Power cap: the map's limit, like the Kingdom's population.
+    // The Power cap: its own maximum (45 on 64x64).
     for _ in 0..12 {
         set_down(&mut w, BldgKind::Spire);
     }
-    assert_eq!(
-        w.sup(PLAYER)[1],
-        w.supply_limit(),
-        "Power at the map's limit"
-    );
+    assert_eq!(w.sup(PLAYER)[1], 45, "Power at its maximum");
     // The Kingdom keeps its population.
     assert!(
         HUMANS
@@ -164,70 +158,248 @@ fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
 }
 
 #[test]
-fn one_army_limit_holds_power_and_places_together() {
-    // Power, hired and Portal places each have their own cap, and all of them together the map's limit (60 here): with
-    // Power and hired places filled to it between them, a Sellsword and a Bot are refused though their own pools have
-    // room; a death makes room again.
-    let mut w = expedition();
-    let limit = w.supply_limit();
-    assert_eq!(limit, 60);
-    for _ in 0..5 {
-        set_down(&mut w, BldgKind::Spire);
+fn power_and_hired_places_each_have_a_maximum_by_map_size_and_the_kingdom_keeps_its_one_limit() {
+    // Two maximums in place of one shared limit: Power and hired places each capped by their own buildings and their
+    // own maximum, the two together the map's limit (45 + 15 on 64x64, 52 + 18 on 96x96, 60 + 20 on 128x128). Each is
+    // enforced on its own: a full Power pool never stops a Sellsword, a full hired count never stops a Bot. The
+    // Kingdom's population keeps the map's one limit.
+    for (size, power, hired) in [(64, 45, 15), (96, 52, 18), (128, 60, 20)] {
+        let mut w = World::with_size(
+            7,
+            1,
+            MapKind::Standard,
+            MapSize::square(size),
+            0,
+            &[&VAEL, &HUMANS],
+        );
+        w.disable_ai();
+        w.res[PLAYER as usize] = [50_000, 0];
+        for e in &mut w.explored {
+            e.fill(1);
+        }
+        assert_eq!(
+            (
+                w.pool_max(PLAYER, Pool::Supply),
+                w.pool_max(PLAYER, Pool::Hired)
+            ),
+            (power, hired),
+            "{size}x{size}"
+        );
+        assert_eq!(power + hired, w.supply_limit(), "{size}: the map's limit");
+        assert_eq!(
+            w.pool_max(ENEMY, Pool::Supply),
+            w.supply_limit(),
+            "{size}: the Kingdom's population limit"
+        );
+        // Buildings past either maximum add nothing.
+        for _ in 0..8 {
+            set_down(&mut w, BldgKind::Spire);
+        }
+        let posts: Vec<Id> = (0..4).map(|_| set_down(&mut w, BldgKind::Siphon)).collect();
+        assert_eq!(
+            w.sup(PLAYER)[1],
+            power,
+            "{size}: Power capped at its maximum"
+        );
+        assert_eq!(
+            w.pool(PLAYER, Pool::Hired)[1],
+            hired,
+            "{size}: hired places capped at theirs"
+        );
+        // Power full: no Bot, but a Sellsword still.
+        let used = w.sup(PLAYER)[0];
+        spawn(&mut w, UnitKind::Lumen, (power - used) as usize);
+        assert_eq!(w.sup(PLAYER), [power, power]);
+        let dc = hq(&w, PLAYER);
+        assert_eq!(
+            w.queue_unit(dc, UnitKind::Lumen),
+            Err("Power at maximum.".to_string())
+        );
+        assert_eq!(w.queue_unit(posts[0], UnitKind::Prism), Ok(()), "{size}");
+        // Hired full: no Sellsword; and with a Bot gone, a Bot again.
+        let fill = hired - w.pool(PLAYER, Pool::Hired)[0];
+        spawn(&mut w, UnitKind::Prism, fill as usize);
+        assert_eq!(w.pool(PLAYER, Pool::Hired), [hired, hired]);
+        assert_eq!(
+            w.queue_unit(posts[1], UnitKind::Prism),
+            Err("Hired at maximum.".to_string())
+        );
+        let bot = harvesters(&w, PLAYER)[0];
+        w.damage(bot, 1e9, None);
+        assert_eq!(w.queue_unit(dc, UnitKind::Lumen), Ok(()), "{size}");
+        assert_eq!(w.army_used(PLAYER), power + hired);
     }
-    let post = set_down(&mut w, BldgKind::Siphon);
+    // The Kingdom: one population limit, unchanged (60 on 64x64), and no hired places.
+    let mut w = rich(7);
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    assert_eq!(w.pool_max(PLAYER, Pool::Supply), 60);
+    assert_eq!(w.pool_max(PLAYER, Pool::Hired), 0);
     for _ in 0..7 {
-        set_down(&mut w, BldgKind::Siphon);
+        let (tx, ty) = spot(&w, BldgKind::Depot);
+        w.make_building(BldgKind::Depot, PLAYER, tx, ty, true);
     }
-    assert_eq!(w.sup(PLAYER)[1], 60);
-    assert_eq!(w.pool(PLAYER, Pool::Hired)[1], 48);
-    let bots = w.sup(PLAYER)[0];
-    spawn(&mut w, UnitKind::Lumen, (30 - bots) as usize);
-    let hired = spawn(&mut w, UnitKind::Prism, 30);
-    assert_eq!(w.sup(PLAYER), [30, 60]);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [30, 48]);
-    assert_eq!(w.army_used(PLAYER), limit);
-    let told = Err(format!(
-        "Army at its limit ({limit}): no more until some fall"
-    ));
+    w.recalc_supply(PLAYER);
+    assert_eq!(w.sup(PLAYER)[1], 60, "population capped at the map's limit");
+}
+
+#[test]
+fn the_expedition_has_no_portal_pool() {
+    // Two pools only: population or Power, and hired places. The Portal adds no places; the Android takes Power.
+    assert_eq!(POOLS, 2);
+    assert_eq!(ALL_POOLS, [Pool::Supply, Pool::Hired]);
+    assert_eq!(Pool::parse("portal"), None);
+    let d = BldgKind::Eclipse.def();
+    assert_eq!(d.supply, 0, "the Portal gives no places");
+    assert_eq!(UnitKind::Umbra.def().pool, Pool::Supply);
+    let mut w = expedition();
+    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
+    set_down(&mut w, BldgKind::Uplink);
+    let before = w.pools[PLAYER as usize];
+    set_down(&mut w, BldgKind::Eclipse);
+    let after = w.pools[PLAYER as usize];
+    assert_eq!(after[Pool::Hired.index()], before[Pool::Hired.index()]);
     assert_eq!(
-        w.queue_unit(post, UnitKind::Prism),
-        told,
-        "hired places to spare"
-    );
-    let dc = hq(&w, PLAYER);
-    assert_eq!(w.queue_unit(dc, UnitKind::Lumen), told, "Power to spare");
-    w.damage(hired[0], 1e9, None);
-    assert_eq!(
-        w.queue_unit(dc, UnitKind::Lumen),
-        Ok(()),
-        "a death makes room"
-    );
-    assert!(
-        w.queue_unit(post, UnitKind::Prism).is_err(),
-        "and the Bot took it"
+        after[Pool::Supply.index()],
+        [
+            before[Pool::Supply.index()][0] + d.uses,
+            before[Pool::Supply.index()][1]
+        ],
+        "it only uses Power"
     );
 }
 
 #[test]
-fn each_portal_holds_four_marines() {
+fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_cancel() {
+    let mut w = expedition();
+    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
+    set_down(&mut w, BldgKind::Uplink);
+    set_down(&mut w, BldgKind::Spire);
+    let uses = BldgKind::Eclipse.def().uses;
+    assert!(uses > 0);
+    let power = w.sup(PLAYER);
+    // Placed: its Power is used at once, while it goes up.
+    let (px, py) = spot(&w, BldgKind::Eclipse);
+    let site = w
+        .place_building(PLAYER, BldgKind::Eclipse, px, py, None)
+        .unwrap();
+    assert_eq!(
+        w.sup(PLAYER),
+        [power[0] + uses, power[1]],
+        "used from placement"
+    );
+    // A second, while the first goes up: refused.
+    let (qx, qy) = spot(&w, BldgKind::Eclipse);
+    let only_one = Err("Only one Portal.".to_string());
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Eclipse, qx, qy, None),
+        only_one,
+        "one going up"
+    );
+    // Cancelled: its Power comes back, and another may be placed.
+    assert!(w.cancel_construction(site));
+    assert_eq!(w.sup(PLAYER), power, "released on cancel");
+    let portal = w
+        .place_building(PLAYER, BldgKind::Eclipse, qx, qy, None)
+        .unwrap();
+    assert_eq!(w.sup(PLAYER)[0], power[0] + uses);
+    // Finished: still one only, still its Power.
+    let bot = harvesters(&w, PLAYER)[0];
+    w.start_build(bot, portal);
+    run(&mut w, 70);
+    assert!(w.bldg(portal).unwrap().done, "finished");
+    assert_eq!(w.sup(PLAYER)[0], power[0] + uses, "used while it stands");
+    let (rx, ry) = spot(&w, BldgKind::Eclipse);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Eclipse, rx, ry, None),
+        only_one,
+        "one standing"
+    );
+    // Destroyed: released, and another may be placed.
+    w.damage(portal, 1e9, None);
+    assert_eq!(w.sup(PLAYER)[0], power[0], "released on its loss");
+    assert!(
+        w.place_building(PLAYER, BldgKind::Eclipse, rx, ry, None)
+            .is_ok()
+    );
+    // Without the Power for it: refused in the Power's words.
+    let mut w = expedition();
+    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
+    set_down(&mut w, BldgKind::Uplink);
+    let [used, cap] = w.sup(PLAYER);
+    spawn(&mut w, UnitKind::Lumen, (cap - used - uses + 1) as usize);
+    let (px, py) = spot(&w, BldgKind::Eclipse);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Eclipse, px, py, None),
+        Err("Not enough Power: build a Wind turbine.".to_string())
+    );
+}
+
+#[test]
+fn a_building_that_uses_no_power_goes_up_whatever_the_pools() {
+    // Over its cap (its use above what its buildings give, as after a lost Cottage or turbine), a seat still places
+    // the building that gives more: only a building that uses Power (the Portal) asks for room.
+    let mut w = rich(7);
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    w.pools[PLAYER as usize][Pool::Supply.index()] = [30, 20];
+    let (tx, ty) = spot(&w, BldgKind::Depot);
+    assert!(
+        w.place_building(PLAYER, BldgKind::Depot, tx, ty, None)
+            .is_ok(),
+        "the Kingdom's Cottage"
+    );
+    let mut w = expedition();
+    let used = w.sup(PLAYER)[0];
+    w.pools[PLAYER as usize][Pool::Supply.index()] = [used + 10, used];
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    assert!(
+        w.place_building(PLAYER, BldgKind::Spire, tx, ty, None)
+            .is_ok(),
+        "the Expedition's turbine"
+    );
+}
+
+#[test]
+fn the_android_is_a_slow_expensive_elite_machine_using_power() {
+    let d = UnitKind::Umbra.def();
+    let wp = d.weapon.unwrap();
+    assert_eq!((d.hp, d.armor), (200.0, 2.0));
+    assert_eq!((wp.dmg, wp.range), (25.0, 7.0));
+    assert!(wp.dmg_air > 0.0, "it hits the air");
+    assert_eq!((d.pool, d.supply), (Pool::Supply, 3), "three Power");
+    assert!(
+        (60.0..=120.0).contains(&d.build),
+        "one to two minutes to make: {}",
+        d.build
+    );
+    assert!(d.cost[0] >= 300, "expensive: {:?}", d.cost);
+    assert!(!d.bio, "a machine, not a person");
+    assert!(
+        endfall_sim::data::radio::needs_range(UnitKind::Umbra),
+        "sped up in range like the other machines"
+    );
+    // Trained at the Portal: three Power queued, and refused without them.
     let mut w = expedition();
     w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     set_down(&mut w, BldgKind::Uplink);
     let p = set_down(&mut w, BldgKind::Eclipse);
-    assert_eq!(w.pool(PLAYER, Pool::Portal), [0, 4]);
-    let power = w.sup(PLAYER);
-    spawn(&mut w, UnitKind::Umbra, 3);
+    let [used, cap] = w.sup(PLAYER);
     assert_eq!(w.queue_unit(p, UnitKind::Umbra), Ok(()));
-    assert_eq!(w.pool(PLAYER, Pool::Portal), [4, 4]);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [0, 0], "not hired places");
-    assert_eq!(w.sup(PLAYER), power, "nor Power");
+    assert_eq!(w.sup(PLAYER), [used + 3, cap]);
+    spawn(&mut w, UnitKind::Lumen, (cap - used - 3 - 2) as usize);
     assert_eq!(
         w.queue_unit(p, UnitKind::Umbra),
-        Err("No free Portal places: build another Portal.".to_string())
+        Err("Not enough Power: build a Wind turbine.".to_string())
     );
-    let q = set_down(&mut w, BldgKind::Eclipse);
-    assert_eq!(w.pool(PLAYER, Pool::Portal), [4, 8]);
-    assert_eq!(w.queue_unit(q, UnitKind::Umbra), Ok(()));
+    // It takes its whole training time.
+    let before = count(&w, PLAYER, UnitKind::Umbra);
+    run(&mut w, d.build as u32 - 2);
+    assert_eq!(count(&w, PLAYER, UnitKind::Umbra), before, "not yet");
+    run(&mut w, 3);
+    assert_eq!(count(&w, PLAYER, UnitKind::Umbra), before + 1, "trained");
 }
 
 #[test]
@@ -275,11 +447,11 @@ fn the_satellite_needs_a_lab_and_unlocks_the_uplink_whose_standing_unlocks_the_p
 }
 
 #[test]
-fn the_launch_is_told_to_every_seat() {
+fn the_launch_is_told_to_its_own_seat_alone() {
     // Four seats on 96x96: the Expedition in seats 0 and 3, the Kingdom in 1 and 2, seats 0 and 1 a team against 2 and
-    // 3. Seat 0 launches: every seat is told, "You launched" on its side (its ally of the other people too) and "The
-    // enemy launched" on the other (its fellow Expedition too), and the launch is an event at its Data center (the
-    // client's rocket), once.
+    // 3. Seat 0 launches: only seat 0 is told ("You launched", its research-done notice), no other seat (neither its
+    // ally nor its foes) gets a toast about it, and the launch is an event at its Data center (the client's rocket,
+    // shown where a seat sees it), once.
     let mut w = World::with_size(
         5,
         1,
@@ -305,20 +477,19 @@ fn the_launch_is_told_to_every_seat() {
         for e in w.events.drain(..) {
             match e {
                 endfall_sim::world::Event::Toast { team, msg, .. }
-                    if msg == LAUNCH_OURS || msg == LAUNCH_THEIRS =>
+                    if msg.contains("satellite") || msg.contains("launch") =>
                 {
-                    told.push((team, msg == LAUNCH_OURS))
+                    told.push((team, msg))
                 }
                 endfall_sim::world::Event::Launch { x, y, team } => launches.push((x, y, team)),
                 _ => {}
             }
         }
     }
-    told.sort();
     assert_eq!(
         told,
-        vec![(0, true), (1, true), (2, false), (3, false)],
-        "every seat told once, in its side's words"
+        vec![(0, LAUNCH_OURS.to_string())],
+        "its own seat told once, no other seat"
     );
     let b = w.bldg(dc).unwrap();
     assert_eq!(
@@ -371,22 +542,24 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 }
 
 #[test]
-fn the_expedition_ai_powers_hires_launches_and_reaches_the_portal_at_every_level() {
-    // The Expedition's AI against the Kingdom's, at every level (the Kingdom's buildings made to last, so the game runs
-    // its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields none but its Bots:
-    // a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a Portal, and
-    // never stands above its places but as a lost building leaves it.
+fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_at_every_level() {
+    // The Expedition's AI against the Kingdom's, at every level (every starting building made to last, so the game runs
+    // its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields few machines but
+    // its Bots: a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a
+    // Portal, never more than one Portal standing or going up, trains Androids there, and never stands above its places
+    // but as a lost building leaves it.
     for diff in 0..DIFF.len() {
         let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
-        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
-        let mut seen = [false; 4]; // turbine, post, Uplink, Portal (finished)
+        let mut seen = [false; 5]; // turbine, post, Uplink, Portal (finished), an Android
         let mut launched = None;
         let mut power_full = false;
+        let mut portals = 0;
         let mut prev = Vec::new();
-        while w.time < 15.0 * 60.0 && !(seen.iter().all(|&s| s) && launched.is_some()) {
+        while w.time < 20.0 * 60.0 && !(seen.iter().all(|&s| s) && launched.is_some()) {
             w.step();
             w.events.clear();
             for b in w.bldgs.iter().filter(|b| b.team == ENEMY && b.done) {
@@ -402,6 +575,13 @@ fn the_expedition_ai_powers_hires_launches_and_reaches_the_portal_at_every_level
                     seen[k] = true;
                 }
             }
+            seen[4] |= count(&w, ENEMY, UnitKind::Umbra) > 0;
+            let n = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == BldgKind::Eclipse)
+                .count();
+            portals = portals.max(n);
             if launched.is_none() && w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] > 0 {
                 launched = Some(w.time);
             }
@@ -412,14 +592,15 @@ fn the_expedition_ai_powers_hires_launches_and_reaches_the_portal_at_every_level
                 break;
             }
         }
-        let want = [diff > 0 || power_full, true, true, true];
+        let want = [diff > 0 || power_full, true, true, true, true];
         assert!(
             seen.iter().zip(want).all(|(&s, w)| s || !w),
-            "diff {diff}: turbine, post, Uplink, Portal: {seen:?} by {:.0} s (over {}, winner {})",
+            "diff {diff}: turbine, post, Uplink, Portal, Android: {seen:?} by {:.0} s (over {}, winner {})",
             w.time,
             w.over,
             w.winner
         );
+        assert_eq!(portals, 1, "diff {diff}: one Portal at most");
         let t = launched.unwrap_or_else(|| panic!("diff {diff}: no launch"));
         assert!(t > 150.0, "diff {diff}: launched at {t:.0} s, not at once");
     }

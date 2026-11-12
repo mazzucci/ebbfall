@@ -97,8 +97,8 @@ impl super::UnitKind {
     pub fn ai_tier(self) -> u8 {
         use super::UnitKind::*;
         match self {
-            // (the Android: the Expedition's only infantry that hits the air since its hired guns went melee, as the
-            // Archer is the Kingdom's)
+            // (the Android: the Expedition's elite from its one Portal, and its answer to flyers on foot since its
+            // hired guns went melee, as the Archer is the Kingdom's: every level fields it)
             Harvester | Lumen | Trooper | Lancer | Prism | Umbra | Observer => 0,
             Knight | Bruiser => 2,
             _ => 1,

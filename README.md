@@ -1,7 +1,6 @@
 # Ebbfall
 
-A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. Naturally, we
-went back six centuries to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
+A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
 peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
 all or in teams of any shape, or friends over the Internet with AIs in the empty seats), fourteen maps of three sizes
@@ -42,8 +41,9 @@ Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at 
 Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
 Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
 machines that run on Power from the Data center and wind turbines, and faster near the Data center or an Uplink; the
-Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks trains Androids (elite soldiers),
-four to a Portal. Sentry masts hit ground and air. A unit's button names what it fights best beside and what beats it.
+Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks (one per player, using Power while
+it stands) trains Androids, elite machines, slow to make and costly. Power and hired places each have a maximum (45 and
+15 on the smallest maps), together the Kingdom's population limit. Sentry masts hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 
@@ -54,11 +54,11 @@ game as a challenge.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
-**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold field to gather.
+**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold mine to gather.
 Two fingers pan. Drag on the minimap to scroll.
 
 The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of
-it, through a relay. See `CLAUDE.md` for how the code is organized.
+it, through a relay. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organized.
 
 ## License
 

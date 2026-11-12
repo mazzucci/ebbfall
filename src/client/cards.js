@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, supplyLimit } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, poolMax } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -38,12 +38,11 @@ function abilityItems(units) {
 /** Why the sim would refuse unit `t` for want of places now (its words, crates/endfall-sim/src/world/orders.rs
  *  `pool_full`), or '' when there is room: the button's tooltip says it before the tap does. */
 export function placesTip(t) {
-  const d = UNITS[t], f = myFaction(), limit = supplyLimit();
-  const [used, cap] = (d.pool === 'hired' ? G.hired : d.pool === 'portal' ? G.portal : G.sup)[G.me] || [0, 0];
+  const d = UNITS[t], f = myFaction();
+  const [used, cap] = (d.pool === 'hired' ? G.hired : G.sup)[G.me] || [0, 0];
   if (used + (d.supply || 0) <= cap) return '';
-  const max = cap >= limit;
+  const max = cap >= poolMax(d.pool); // (each pool's own maximum: the Expedition's Power and hired places apart)
   if (d.pool === 'hired') return max ? 'Hired at maximum.' : 'No free places: build another Recruiting post.';
-  if (d.pool === 'portal') return max ? 'Portal places at maximum.' : 'No free Portal places: build another Portal.';
   if (f.power) return max ? 'Power at maximum.' : `Not enough Power: build a ${BUILDINGS[f.supply].name}.`;
   return '';
 }

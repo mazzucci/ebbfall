@@ -73,7 +73,7 @@ pub struct World {
     pub bldgs: Vec<Bldg>,
     pub projs: Vec<Proj>,
     pub res: Vec<[i32; 2]>,
-    /// Each seat's places, `[used, cap]` per `Pool` (population or Power, hired places, Portal places; `recalc_supply`).
+    /// Each seat's places, `[used, cap]` per `Pool` (population or Power, hired places; `recalc_supply`).
     pub pools: Vec<[[i32; 2]; POOLS]>,
     /// Tiles each seat has ever seen, and sees now (from `update_fog`: its own sight and its allies'). Not hashed: a
     /// difference shows in what the AI does, which is.

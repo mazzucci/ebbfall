@@ -4,9 +4,10 @@
 //!
 //! No population (PRD: the Expedition rework): its machines (Bot, Buggy, Rover, Drone) use Power (`Pool::Supply`), from
 //! the Data center and wind turbines; its hired guns (Sellsword, Bruiser, Medic) take hired places (`Pool::Hired`), six
-//! a Recruiting post; its Androids take Portal places (`Pool::Portal`), four a Portal. The satellite (researched at the
-//! Data center once a Lab stands) unlocks the Uplink, which unlocks the Portal; machines move faster inside the range
-//! of the Data center or an Uplink (data/radio.rs).
+//! a Recruiting post. Power and hired places each have a maximum (`power_limit`, `hired_limit`). The satellite
+//! (researched at the Data center once a Lab stands) unlocks the Uplink, which unlocks the Portal: one a side, using
+//! Power while it stands, where the Android, a slow and expensive elite machine, is made. Machines move faster inside
+//! the range of the Data center or an Uplink (data/radio.rs).
 
 use super::*;
 
@@ -143,27 +144,28 @@ pub(super) const HALO: UnitDef = UnitDef {
     pool: Pool::Hired, // (a hired local: one place)
     ..UNIT
 };
-/// The Android: the Expedition's elite ranged soldier, from the Portal; never hidden.
+/// The Android: the Expedition's elite, from its one Portal (the balance pass): a machine (three Power), slow and
+/// expensive to make (two minutes, 300 gold: three Sellswords' price for three Power; the formula sheet's least
+/// efficient unit for its gold, by design), tough, armored and long-ranged, hitting the ground and the air at its old
+/// fire rate (a shot a second instead made no difference the lab could see); never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [125, 0],
-    supply: 1,
-    pool: Pool::Portal, // (one of its Portals' places)
-    hp: 110.0,
-    armor: 1.0,
+    cost: [300, 0],
+    supply: 3, // (Power)
+    hp: 200.0,
+    armor: 2.0,
     speed: 90.0,
     sight: 9.0,
     r: 10.0,
-    build: 28.0,
-    bio: true,
+    build: 120.0,
     weapon: Some(Weapon {
-        range: 6.0,
-        dmg: 15.0,
-        dmg_air: 12.0,
+        range: 7.0,
+        dmg: 25.0,
+        dmg_air: 20.0,
         cd: 1.2,
         proj: Some(ProjKind::Bolt),
-        up_dmg: 2.0,
+        up_dmg: 3.0,
         ..W
     }),
     ..UNIT
@@ -219,9 +221,11 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Bruiser: a hired local with a big shield and an axe, the Expedition's tough melee front line (the Recruiting
-/// post's, once a Lab stands; ground only). One hired place. Against the Knight (the formula sheet): the same price,
-/// more hull and armor, less damage and far slower: it holds the line rather than runs it down (Lanchester 0.12 to the
-/// Knight's 0.12).
+/// post's, once a Lab stands; ground only). One hired place (the balance pass weighed two: the formula sheet makes it the
+/// strongest unit for its place by far, 18 DPS and 320 hull a place to the Sellsword's 13 and 110, but the lab's Hard
+/// Kingdom went from 59% to 76% against the Expedition with it at two: under the hired maximum the Expedition needs
+/// it). Against the Knight (the formula sheet): the same price, more hull and armor, less damage and far slower: it
+/// holds the line rather than runs it down (Lanchester 0.12 to the Knight's 0.12).
 pub(super) const BRUISER: UnitDef = UnitDef {
     key: "bruiser",
     name: "Bruiser",
@@ -340,14 +344,16 @@ pub(super) const WARD: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Portal (once an Uplink stands): Androids. Each adds four Portal places.
+/// The Portal (once an Uplink stands): Androids. One a side (`single`), and it uses 4 Power while it stands, from the
+/// moment it is placed (`uses`: a Rover's worth, so the Portal and three Androids hold 13 of the 45 Power on 64x64:
+/// the elite is a trade against the other machines, not a free extra).
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
     cost: [150, 0],
     hp: 800.0,
-    supply: 4,
-    pool: Pool::Portal,
+    uses: 4,
+    single: true,
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Uplink),

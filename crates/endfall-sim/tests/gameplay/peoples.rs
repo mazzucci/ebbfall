@@ -63,7 +63,7 @@ fn each_building_trains_its_peoples_list() {
             assert!(!other.builds(b), "{b:?} is {}'s only", f.key);
         }
     }
-    // Every unit takes places in its pool (population or Power, hired or Portal places).
+    // Every unit takes places in its pool (population or Power, or hired places).
     for k in UNIT_KINDS {
         assert!(k.def().supply >= 1, "{k:?}");
     }

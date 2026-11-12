@@ -47,7 +47,7 @@ export const MAPS = [
   // open plain round a walled centre, a maze of rock)
   { name: 'Iron Compass', seed: 5, kind: 0, size: 128 },
   { name: 'Sunken Court', seed: 9, kind: 3, size: 128 },
-  { name: 'Grey Warrens', seed: 2, kind: 4, size: 128 },
+  { name: 'Gray Warrens', seed: 2, kind: 4, size: 128 },
   { name: 'Random', random: true, size: 128 },
   // (the Shore map: two starts, 64x64; a Human seat starts in its cove, a Vael seat in its reef basin; a random Shore
   // keeps its character and draws only its seed)
@@ -85,7 +85,7 @@ export function teamList(players, teams) {
   return Array.from({ length: players }, (_, s) => Math.floor(s / size));
 }
 
-const FIRST = ['Ashen', 'Glass', 'Hollow', 'Iron', 'Sunken', 'Cinder', 'Pale', 'Shattered', 'Silent', 'Rust', 'Frozen', 'Amber', 'Broken', 'Ember', 'Grey', 'Last'];
+const FIRST = ['Ashen', 'Glass', 'Hollow', 'Iron', 'Sunken', 'Cinder', 'Pale', 'Shattered', 'Silent', 'Rust', 'Frozen', 'Amber', 'Broken', 'Ember', 'Gray', 'Last'];
 const SECOND = ['Basin', 'Ridge', 'Reach', 'Mesa', 'Hollows', 'Expanse', 'Crossing', 'Wastes', 'Divide', 'Plateau', 'Gorge', 'Flats', 'Rim', 'Fields', 'Shelf', 'Sink'];
 /** A name for a random map, the same every time for its seed. */
 export function mapName(seed) { const r = mulberry(seed ^ 0x5bd1e995); return FIRST[Math.floor(r() * FIRST.length)] + ' ' + SECOND[Math.floor(r() * SECOND.length)]; }

@@ -47,7 +47,7 @@ const UNIT_TEXT = {
   monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Long-range rockets that hit an area. Fires while moving; fragile up close. Can\'t hit flyers, and outranged by siege. A machine: faster near the Data center or an Uplink.' },
   shrike: { hot: 'E', what: 'Flies fast, raids workers', desc: `Fast low flyer. Hits ground and air, raids workers. Fragile against anti-air. Faster after Overclock. A machine: faster near the Data center or an Uplink, and goes at most ${D.radio.leash} tiles past it.` },
   halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
-  umbra: { hot: 'U', what: 'Strikes hard from range', desc: 'Long reach, hits hard, ground and air. Weak against armor up close. Takes a Portal place.' },
+  umbra: { hot: 'U', what: 'Elite, strikes from range', desc: 'Tough and armored, with a long reach; hits ground and air. Slow to make and costly. A machine: faster near the Data center or an Uplink.' },
   bruiser: { hot: 'B', what: 'Holds the front line', desc: 'The toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Takes a hired place.' },
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
@@ -69,11 +69,11 @@ const BLDG_TEXT = {
   loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Overclock. Unlocks Rovers and Bruisers.' },
   ward: { hot: 'A', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   uplink: { hot: 'U', what: 'Speeds machines, opens Portal', desc: `Speeds up machines within ${D.radio.sources.uplink} tiles. Unlocks the Portal.` },
-  eclipse: { hot: 'D', what: 'Trains Androids', desc: '+4 Portal places. Trains Androids.' },
+  eclipse: { hot: 'D', what: 'Trains Androids', desc: `Trains Androids. Uses ${D.buildings.eclipse.uses} Power while it stands. Only one.` },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' },
-  satellite: { hot: 'L', desc: 'Launches the Expedition\'s satellite: every player is told. Unlocks the Uplink, which unlocks the Portal. Needs a Lab.' } };
+  satellite: { hot: 'L', desc: 'Launches the Expedition\'s satellite. Unlocks the Uplink, which unlocks the Portal. Needs a Lab.' } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */

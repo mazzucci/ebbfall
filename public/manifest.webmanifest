@@ -1,7 +1,7 @@
 {
   "name": "Ebbfall",
   "short_name": "Ebbfall",
-  "description": "A browser real-time strategy game in the 1998 mold.",
+  "description": "A classic real-time strategy game for the browser: a medieval kingdom against time travelers.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

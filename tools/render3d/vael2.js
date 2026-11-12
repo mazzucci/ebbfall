@@ -1,13 +1,11 @@
-// The Vael's new look (STYLE.md): pale shells on an ink core, "deeplight" (the lantern light, vael-palette.js) in a few small lights.
-// Step 0's slice: the Glint (lumen), the Lens (prism) and the Tidewell (conflux). Same conventions as vael.js: game
-// units, units face +x, y up, +z south; everything hovers. Team glaze sits between thin ink seams, so a white seat
-// still parts from the pearl.
+// An older Expedition look (STYLE.md): pale shells on an ink core, "deeplight" (the lantern light, vael-palette.js) in a
+// few small lights. Two remain, fitTints references (main.js): `glint` (lumen) and `tidewell` (conflux). Same
+// conventions as vael.js: game units, units face +x, y up, +z south; everything hovers. Team glaze sits between thin
+// ink seams, so a white seat still parts from the pearl.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
-import { ring, torus, cone } from './vael.js';
+import { ring, cone } from './vael.js';
 
-const cache = new Map();
-const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
 const tri = (r, k = 0.55) => { const p = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, rr = r * (1 - k * 0.5 + k * 0.5 * Math.cos(3 * a)); p.push([Math.cos(a) * rr, Math.sin(a) * rr]); } return p; };
 /** A small deeplight: a lantern bead with a cream heart and a soft falloff. */
 export function deeplight(parent, M, r, x, y, z) {
@@ -17,8 +15,6 @@ export function deeplight(parent, M, r, x, y, z) {
   add(parent, sph(r * 2.5, 10, 8), M.deepHalo2, x, y, z);
   add(parent, sph(r * 3.4, 10, 8), M.deepHalo3, x, y, z);
 }
-/** A band over the back of a body round the x axis (a half torus in the yz plane, open side down). */
-const saddle = (r, t, seg = 28) => memo(`sd${r},${t},${seg}`, () => { const g = new THREE.TorusGeometry(r, t, 8, seg, Math.PI); g.rotateY(Math.PI / 2); return g; });
 
 /** The Glint's own material: the salt crystal it carries (halite, flat-shaded facets, no light). */
 const SALT = new WeakMap();
@@ -46,32 +42,6 @@ export function glint(M, f) {
   add(load, rbox(5.4, 5.4, 5.4, 0.3), saltMat(M), 0, 0, 0);                                    // a warm gray cube, its top level to the sun, a band below the pearl so it parts from the head
   add(load, rbox(2.4, 1.8, 2.4, 0.25), saltMat(M), 1.0, 3.2, -0.9, 0.2, 0.5, 0.25);              // a smaller cube grown on it
   for (const s of [-1, 1]) limb(b, [3.4, -1.4, s * 2.4], [7.0, -0.8, s * 3.6], 0.8, M.inkSeam); // the claws, gripping its sides
-  g.add(b); return g;
-}
-
-/** Lens (ranged): a disc of ink glass in a pearl rim, its deeplight in the middle, a thin pearl ring etched in the glass
- *  (a lens, not an eye); team glaze on two long arcs of the rim between ink seams and on the three pods that stand out
- *  beneath it. Never the Glint: a dark hollow with a bright center against the Glint's solid pale drop. */
-export function lens(M, f) {
-  const g = grp(), b = grp(); b.position.y = 9 + (f % 2) * 0.7; b.rotation.z = -0.16;
-  add(b, cyl(7.6, 7.6, 1.4, 40), M.ink, 0, 0, 0);                                           // the disc: the glass big and dark, the one "eye" (a narrow pupil in a wide pale rim read as a pebble, the Glint)
-  ring(b, 5, 0.18, M.shellDeep, 0.72, { seg: 36 });                                           // the etched ring, faint
-  ring(b, 7.9, 1.0, M.ring, 0, { seg: 44 });                                                  // the pearl rim, narrow
-  ring(b, 7.9, 0.8, M.shellDark, -0.8, { seg: 44 });
-  for (const a0 of [0.35, Math.PI + 0.35]) {                                                  // team arcs: bow and stern
-    ring(b, 7.9, 1.1, M.glaze, 0.08, { arc: Math.PI * 0.56, a0, seg: 44 });
-    ring(b, 7.9, 1.16, M.inkSeam, 0.1, { arc: 0.06, a0: a0 - 0.06, seg: 44 });                // ink seams at the arc's ends
-    ring(b, 7.9, 1.16, M.inkSeam, 0.1, { arc: 0.06, a0: a0 + Math.PI * 0.56, seg: 44 });
-    ring(b, 6.85, 0.25, M.inkSeam, 1.05, { arc: Math.PI * 0.56, a0, seg: 44 });               // and along its inner shoulder
-    ring(b, 6.1, 0.5, M.ring, 0.8, { arc: Math.PI * 0.56 + 0.12, a0: a0 - 0.06, seg: 44 }); // a pearl keyline inside it, on the glass: the team band always has a light edge against the black (seat 1 under protanopia)
-  }
-  deeplight(b, M, 1.3, 0, 1.3, 0);                                                           // the light in the middle
-  for (let k = 0; k < 3; k++) {                                                               // three pods under the rim
-    const a = k / 3 * Math.PI * 2 + Math.PI, x = Math.cos(a) * 8.5, z = Math.sin(a) * 8.5;
-    add(b, rbox(3.2, 2.2, 2.6, 0.8), M.shell, x, -2, z, 0, -a, 0);
-    add(b, rbox(2.8, 0.5, 2.3, 0.2), M.glaze, x * 1.05, -0.85, z * 1.05, 0, -a, 0);          // team cap
-    add(b, rbox(3, 0.2, 2.5, 0.1), M.inkSeam, x * 1.05, -1.2, z * 1.05, 0, -a, 0);
-  }
   g.add(b); return g;
 }
 

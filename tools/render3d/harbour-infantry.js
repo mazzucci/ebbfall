@@ -1,10 +1,8 @@
-// Harbor infantry (STYLE.md, "Harbour infantry"): sailors in tar oilskin coats, team canvas on the sleeves. The
-// Rigger (harvester) and the Picket (trooper, with its dug-in state) from step 0; the Harpooner (lancer) and the
-// Mender (medic) from step 1. Each kind owns a signature bigger than its hat, read at 18 px, every figure upright: the
-// Rigger the smallest, a dark cap and a fat pale sack slung across its back; the Picket a pale round hat and a thin
-// rifle angled up, dug in inside a ring of pale sandbags; the Harpooner the longest gun in the infantry, past the body
-// at both ends, a drum of pale line on it; the Mender an ash coat and a big cream satchel with a dark cross, a lamp
-// held low and no gun at all. Same conventions as models.js: game units, units face +x, y up, +z south.
+// An older infantry look (STYLE.md, "Harbour infantry"): sailors in tar oilskin coats, team canvas on the sleeves. Two
+// remain: the Picket (trooper, with its dug-in state; a fitTints reference, main.js) and the Mender (medic, a healer the
+// sim keeps but trains nowhere). The Picket a pale round hat and a thin rifle angled up, dug in inside a ring of pale
+// sandbags; the Mender an ash coat and a big cream satchel with a dark cross, a lamp held low and no gun at all. Same
+// conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { lathe, torus } from './harbour.js';
@@ -64,46 +62,6 @@ function hat(M, b, { brim = 4.4, crown = 3.1, h = 4.05, band = 1.9 } = {}) {
   return g;
 }
 
-/** Rigger (worker): the smallest Harbor figure and the one that carries things: a fat pale salt sack across both
- *  shoulders behind the head, wider than the body, its bunched ends drooping either side, tied with two team cords;
- *  both hands up holding it, the body leant forward under the load. A dark tar cap with a team band (no pale hat:
- *  the sack is its one pale mass, so it never reads as the others' white hat). Team sleeves, cap band, cords and an
- *  apron. From above a fat pale bar across the body behind a small dark head: not a disc, not a bar ahead. The
- *  hand-barrow of step 0 is gone (a low dark cart read as a figure lying low). Frames: 0-1 the march. */
-export function rigger(M, f) {
-  infantryMats(M);
-  const g = sailor(M, f), b = g.body;
-  b.rotation.z = -0.14;                                                                           // leant forward under the load
-  add(b, sph(2.55, 14, 10), M.oilskin, 0.3, 15.0, 0).scale.set(1, 0.62, 1);                     // a dark tar cap, close on the head
-  add(b, cyl(2.6, 2.65, 1.0, 14), M.paintCanvas, 0.3, 14.7, 0);                                   // its team band
-  add(b, cyl(2.72, 2.72, 0.3, 14), M.inkLine, 0.3, 14.1, 0); add(b, cyl(2.72, 2.72, 0.3, 14), M.inkLine, 0.3, 15.25, 0);
-  add(b, rbox(1.8, 0.4, 3, 0.15), M.oilskin, 2.7, 14.4, 0);                                       // its peak
-  add(b, rbox(0.6, 5.2, 4.4, 0.3), M.paintCanvas, 2.7, 9.6, 0);                                   // the apron over the coat's front (team)
-  add(b, rbox(0.7, 0.4, 4.6, 0.1), M.inkLine, 2.75, 12.3, 0); add(b, rbox(0.7, 0.4, 4.6, 0.1), M.inkLine, 2.75, 6.9, 0);
-  // the salt sack across the shoulders, behind the head: a fat pale bolster wider than the body, its ends bunched
-  // and drooping, two team cords round it between ink rings
-  add(b, rbox(3.4, 5.6, 6.6, 0.8), M.paintCanvas, -2.9, 10.0, 0);                                  // a team waistcoat's back, under the load
-  add(b, rbox(3.6, 0.4, 6.8, 0.1), M.inkLine, -2.9, 7.3, 0);
-  const sk = grp(); sk.position.set(-3.1, 14.8, 0); sk.rotation.y = -0.5; b.add(sk);                // slung across the back over the left shoulder, its left end forward: a slant in every facing
-  add(sk, sph(3.0, 18, 12), M.canvas, 0, 0, 0).scale.set(1, 0.9, 1.9);
-  add(sk, sph(1.9, 12, 10), M.canvas, -0.4, 1.6, 1.2).scale.set(1, 0.8, 1.4);                     // a lump of salt in it, so the sack is lumpy, not a cigar
-  for (const side of [-1, 1]) {
-    add(sk, sph(2.3, 12, 10), M.canvas, -0.1, -2.0, side * 5.6).scale.set(1, 1.15, 0.9);           // a bunched end, draped down
-    add(sk, cyl(3.05, 3.05, 1.3, 16), M.paintCanvas, 0, 0, side * 3.2, Math.PI / 2, 0, 0).scale.set(1, 1, 0.9); // a cord (team)
-    for (const dz of [-0.82, 0.82]) add(sk, cyl(3.15, 3.15, 0.3, 16), M.inkLine, 0, 0, side * 3.2 + dz, Math.PI / 2, 0, 0).scale.set(1, 1, 0.9);
-  }
-  // the left hand up on the sack's forward end over the shoulder; the right arm down, the hand on a short pick at the hip
-  limb(b, [0.6, 11, -3.6], [0.2, 14.0, -4.4], 1.2, M.paintCanvas);
-  add(b, sph(0.9, 8, 6), M.oilskin, 0.0, 14.5, -4.5);
-  limb(b, [0.6, 11, 3.6], [1.8, 7.6, 3.9], 1.2, M.paintCanvas);
-  add(b, sph(0.9, 8, 6), M.oilskin, 2.0, 7.1, 3.9);
-  add(b, cyl(0.42, 0.42, 4.6, 8), M.timber, 3.4, 6.5, 3.9, 0, 0, -1.2);                           // a short handle, down and ahead
-  add(b, rbox(1.0, 1.1, 3.8, 0.3), M.canvas, 5.4, 5.7, 3.9);                                      // the pick's head, across, crusted pale with salt
-  for (const side of [-1, 1]) add(b, new THREE.ConeGeometry(0.45, 1.4, 6), M.brass, 5.4, 5.7, 3.9 + side * 2.5, side * Math.PI / 2, 0, 0);
-  g.scale.setScalar(0.95);
-  return g;
-}
-
 /** Picket (line infantry): a sailor under a round canvas hat, pale brim and crown, the team band round the crown
  *  between two black ink rings; team canvas sleeves and a narrow team pack on the back; a slim rifle, its stock and
  *  muzzle wrapped in pale canvas round a thin dark barrel (pale timber was seat 0's own hue, and the rifle vanished
@@ -146,49 +104,6 @@ export function picket(M, f) {
       add(g, cyl(6.8, 6.8, 0.35, 28), M.inkLine, 0, 0.17, 0);
     }
   }
-  g.scale.setScalar(1.08);
-  return g;
-}
-
-/** Harpooner (lancer): a sailor under a low-crowned hat, standing tall with the harpoon gun shouldered and angled
- *  up ahead (a level gun made the figure read as lying prone). The gun is the longest thing in the infantry, past
- *  the body at both ends: a long timber butt well behind the back, a thick tube served with pale canvas, a fat drum
- *  of pale line wound round the tube ahead of the hands between ink rings, an iron muzzle ring, the harpoon's thick
- *  pale shaft out of it with a cork float near the tip and a big brass head with barbs. From above: a pale disc on a
- *  long thick pale bar with a knot in it, a barbed tip. Team: the sleeves, the hat band, the pack, the grip and the
- *  breech wrap, each between ink rings. Frames: 0-1 the march. */
-export function harpooner(M, f) {
-  infantryMats(M);
-  const g = sailor(M, f), b = g.body;
-  hat(M, b, { brim: 4.5, crown: 3.0, h: 4.3, band: 2.7 });                                          // a lower crown than the Picket's, a wide band
-  add(b, rbox(3.2, 5.2, 5.2, 0.7), M.paintCanvas, -4.0, 10.4, 0);                                // the pack (team)
-  add(b, rbox(3.4, 0.4, 5.4, 0.1), M.inkLine, -4.0, 13.05, 0); add(b, rbox(3.4, 0.4, 5.4, 0.1), M.inkLine, -4.0, 7.75, 0);
-  // the harpoon gun: on the right shoulder, angled up ahead
-  const A = 0.46, gun = grp(); gun.position.set(0.4, 11.4, 3.0); gun.rotation.z = A; b.add(gun);
-  add(gun, rbox(7.4, 2.4, 2.4, 0.7), M.paintCanvas, -7.6, -0.4, 0);                              // the long butt, out behind the back, wrapped in team canvas
-  for (const x of [-4.6, -10.3]) add(gun, rbox(0.4, 2.6, 2.6, 0.1), M.inkLine, x, -0.4, 0);
-  add(gun, rbox(1.8, 2.8, 2.8, 0.4), M.ironDark, -11.2, -0.4, 0);                                // its iron heel
-  add(gun, rbox(3.6, 2.9, 2.9, 0.4), M.paintCanvas, -2.4, -0.3, 0);                              // the grip, team canvas
-  add(gun, rbox(0.4, 3.1, 3.1, 0.1), M.inkLine, -4.3, -0.3, 0); add(gun, rbox(0.4, 3.1, 3.1, 0.1), M.inkLine, -0.5, -0.3, 0);
-  add(gun, rbox(1.2, 1.8, 1.8, 0.3), M.ironDark, -1.6, -1.9, 0);                                 // the trigger block
-  add(gun, cyl(1.75, 1.75, 14, 14), M.canvas, 6.4, 0, 0, 0, 0, Math.PI / 2);                     // the tube, thick, served with pale canvas
-  add(gun, cyl(1.9, 1.9, 4.6, 14), M.paintCanvas, 1.8, 0, 0, 0, 0, Math.PI / 2);                 // team canvas over the breech
-  for (const x of [-0.4, 4.1]) add(gun, cyl(2.05, 2.05, 0.8, 14), M.inkLine, x, 0, 0, 0, 0, Math.PI / 2); // its ink rings
-  // the line: a fat drum of pale rope wound round the tube ahead of the breech, turn by turn, between ink rings
-  for (let k = 0; k < 5; k++) add(gun, torus(2.45, 0.62, 16), M.ropePale, 5.6 + k * 1.05, 0, 0, 0, Math.PI / 2, 0);
-  for (const x of [4.75, 10.65]) add(gun, cyl(3.0, 3.0, 0.5, 16), M.inkLine, x, 0, 0, 0, 0, Math.PI / 2);
-  add(gun, cyl(2.15, 2.15, 1.6, 14), M.ironDark, 13.4, 0, 0, 0, 0, Math.PI / 2);                 // the iron muzzle ring
-  const far = [];                                                                                 // the shaft, float and head: no cast shadow (scene.js `noShadow`), so the raised gun's shadow stays short
-  far.push(add(gun, cyl(0.8, 0.8, 10, 8), M.canvas, 19, 0, 0, 0, 0, Math.PI / 2));               // the harpoon's shaft, thick and pale, out of the tube
-  far.push(add(gun, cyl(0.25, 0.25, 9.6, 6), M.ropePale, 18.6, 1.0, 0, 0, 0, Math.PI / 2));      // the line along it to the shank
-  far.push(add(gun, sph(1.3, 10, 8), M.canvasDark, 20.6, 1.1, 0));                               // the cork float on the line, near the tip
-  far.push(add(gun, new THREE.ConeGeometry(1.45, 4.6, 8), M.brass, 26.2, 0, 0, 0, 0, -Math.PI / 2)); // the head: brass, a tip only
-  for (const side of [-1, 1]) far.push(add(gun, rbox(2.6, 0.55, 1.2, 0.1), M.brass, 23.6, 0, side * 1.25, 0, side * 0.65, 0)); // barbs
-  for (const m of far) m.userData.noShadow = true;
-  limb(b, [0.6, 11, 3.6], [3.8, 12.4, 3.2], 1.4, M.paintCanvas);                                 // the fore hand, up under the tube behind the drum
-  add(b, sph(1, 8, 6), M.oilskin, 4.1, 12.6, 3.1);
-  limb(b, [0.6, 11, -3.6], [-1.3, 9.5, 1.8], 1.4, M.paintCanvas);                                // the rear hand, at the grip across the chest
-  add(b, sph(1, 8, 6), M.oilskin, -1.5, 9.5, 2.2);
   g.scale.setScalar(1.08);
   return g;
 }

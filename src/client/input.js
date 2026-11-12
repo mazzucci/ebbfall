@@ -112,7 +112,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
-const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
+const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (a people that does not repair: none now)
 
 /** A gold mine. */
 const field = (e) => e && e.kind === 'node' ? e : null;

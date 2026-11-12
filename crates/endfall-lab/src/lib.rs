@@ -159,7 +159,9 @@ mod tests {
             &json[..300]
         );
         let md = r.markdown("");
-        assert!(md.contains("## The Kingdom by game length") && md.contains("## The top tier"));
+        // (the length section only with a decided game: Medium on 64 may run past twelve minutes in all four)
+        assert_eq!(md.contains("## The Kingdom by game length"), decided > 0);
+        assert!(md.contains("## The top tier"));
         // (each seat's firsts: its first trained unit's tick no later than the game's end, and some trained by 12:00)
         let firsts: Vec<u32> = r
             .games

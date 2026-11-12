@@ -224,15 +224,15 @@ impl BetRun {
     /// The target checks: in each people's mirror, each plan against the one it should beat (tech in long games).
     pub fn checks(&self) -> Vec<(String, bool, String)> {
         let mut out = Vec::new();
-        for r in 0..2 {
-            for a in 0..PLANS.len() {
+        for (r, fac) in FACTIONS.iter().enumerate().take(2) {
+            for (a, plan) in PLANS.iter().enumerate() {
                 let b = BEATS[a];
                 let t = self.tally(r, a, r, b, a == 2);
                 out.push((
                     format!(
                         "{}: {} beats {}{}",
-                        FACTIONS[r].name,
-                        PLANS[a],
+                        fac.name,
+                        plan,
                         PLANS[b],
                         if a == 2 { " in games over 15 min" } else { "" }
                     ),
@@ -264,8 +264,8 @@ impl BetRun {
                     PLANS.join(" | "),
                     " --- |".repeat(PLANS.len())
                 );
-                for a in 0..PLANS.len() {
-                    let _ = write!(s, "| {} |", PLANS[a]);
+                for (a, plan) in PLANS.iter().enumerate() {
+                    let _ = write!(s, "| {} |", plan);
                     for b in 0..PLANS.len() {
                         let cell = if ra == rb && a == b {
                             "—".into()
@@ -283,8 +283,8 @@ impl BetRun {
                 PLANS.join(" | "),
                 " --- |".repeat(PLANS.len())
             );
-            for a in 0..PLANS.len() {
-                let _ = write!(s, "| {} |", PLANS[a]);
+            for (a, plan) in PLANS.iter().enumerate() {
+                let _ = write!(s, "| {} |", plan);
                 for b in 0..PLANS.len() {
                     let t = self.tally(ra, a, rb, b, false);
                     let cell = if ra == rb && a == b {
@@ -307,8 +307,8 @@ impl BetRun {
     pub fn json(&self) -> Json {
         let mut mats = Vec::new();
         for (title, ra, rb) in Self::matrices() {
-            for a in 0..PLANS.len() {
-                for b in 0..PLANS.len() {
+            for (a, row) in PLANS.iter().enumerate() {
+                for (b, col) in PLANS.iter().enumerate() {
                     if ra == rb && a == b {
                         continue;
                     }
@@ -318,8 +318,8 @@ impl BetRun {
                         mats.push(
                             Json::obj()
                                 .with("matrix", title.as_str())
-                                .with("row", PLANS[a])
-                                .with("col", PLANS[b])
+                                .with("row", *row)
+                                .with("col", *col)
                                 .with("long", long)
                                 .with("k", t.k)
                                 .with("n", t.n)

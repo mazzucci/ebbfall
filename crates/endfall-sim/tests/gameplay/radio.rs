@@ -445,7 +445,7 @@ fn the_expedition_ai_pushes_an_uplink_then_its_machines() {
                     && d((b.x, b.y), hq) > CONFLUX_RANGE * 32.0
                     && d((b.x, b.y), foe) < d(hq, foe)
             });
-            if !uplinks_lost && w.tick % 30 == 0 {
+            if !uplinks_lost && w.tick.is_multiple_of(30) {
                 for u in w
                     .units
                     .iter()

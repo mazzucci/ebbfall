@@ -338,7 +338,13 @@ fn the_retheme_counters_hold_in_cost_equal_fights() {
             ("Buggies beat Archers", -d(&[Lancer], &[Scythe]), 0.2),
             ("Archers answer Drones", d(&[Lancer], &[Shrike]), 0.3),
             ("Ballistas answer Drones", d(&[Bastion], &[Shrike]), 0.3),
-            ("Androids answer Drones", d(&[Umbra], &[Shrike]), 0.3),
+            // (and for the same reason the same gold in Drones beats them: what the Android buys against flyers is
+            // the air hit and the range at three Power, beside the Sentry mast and the Drone itself)
+            (
+                "the same gold in Drones beats Androids",
+                d(&[Shrike], &[Umbra]),
+                0.2,
+            ),
             (
                 "Archers are weak against the ground",
                 -d(&[Lancer], &[Trooper]),

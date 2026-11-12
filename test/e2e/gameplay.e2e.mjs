@@ -2358,7 +2358,7 @@ test('single player, five to eight (M4 2e): the 128x128 maps; free for all, four
     for (let n = 3; n <= 8; n++) {
       await seats.add(); // (each on a side of its own: free for all)
       if (n < 5) continue;
-      assert.deepEqual(await page.$$eval('#mapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Grey Warrens · up to 8', 'Random · up to 8'], `${n}: the 128x128 maps`);
+      assert.deepEqual(await page.$$eval('#mapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Gray Warrens · up to 8', 'Random · up to 8'], `${n}: the 128x128 maps`);
       await fitsPage(page, `${n} players, each alone`);
     }
     assert.equal(await page.locator('#soloBoard .add').count(), 0, 'eight: no room for another');

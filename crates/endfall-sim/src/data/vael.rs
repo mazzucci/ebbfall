@@ -46,12 +46,12 @@ pub const VAEL: Faction = Faction {
         heavy_anti_air: None,
         // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Rover per three and a Drone
         // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; an Android per
-        // four from the Portal from 5:00)
+        // three from the Portal from 5:00)
         mix: &[
             (UnitKind::Bruiser, 4, 0.0),
             (UnitKind::Monolith, 3, 0.0),
             (UnitKind::Shrike, 4, 0.0),
-            (UnitKind::Umbra, 4, 300.0),
+            (UnitKind::Umbra, 3, 300.0),
         ],
         raider: UnitKind::Scythe,
         scout: None,
@@ -145,11 +145,13 @@ pub(super) const HALO: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Android: the Expedition's elite, from its one Portal (the balance pass): a machine (three Power), slow and
-/// expensive to make, tough, armored and long-ranged, hitting the ground and the air; never hidden.
+/// expensive to make (two minutes, 300 gold: three Sellswords' price for three Power), tough, armored and long-ranged,
+/// hitting the ground and the air, firing every second (a little faster than before the pass: per Power it then just
+/// beats the Kingdom's line, 8.3 DPS a place to an Archer's 6.4 and a Guard's 6.8); never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [350, 0],
+    cost: [300, 0],
     supply: 3, // (Power)
     hp: 200.0,
     armor: 2.0,
@@ -161,7 +163,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
         range: 7.0,
         dmg: 25.0,
         dmg_air: 20.0,
-        cd: 1.2,
+        cd: 1.0,
         proj: Some(ProjKind::Bolt),
         up_dmg: 3.0,
         ..W
@@ -219,9 +221,11 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Bruiser: a hired local with a big shield and an axe, the Expedition's tough melee front line (the Recruiting
-/// post's, once a Lab stands; ground only). One hired place. Against the Knight (the formula sheet): the same price,
-/// more hull and armor, less damage and far slower: it holds the line rather than runs it down (Lanchester 0.12 to the
-/// Knight's 0.12).
+/// post's, once a Lab stands; ground only). One hired place (the balance pass weighed two: the formula sheet makes it the
+/// strongest unit for its place by far, 18 DPS and 320 hull a place to the Sellsword's 13 and 110, but the lab's Hard
+/// Kingdom went from 59% to 76% against the Expedition with it at two: under the hired maximum the Expedition needs
+/// it). Against the Knight (the formula sheet): the same price, more hull and armor, less damage and far slower: it
+/// holds the line rather than runs it down (Lanchester 0.12 to the Knight's 0.12).
 pub(super) const BRUISER: UnitDef = UnitDef {
     key: "bruiser",
     name: "Bruiser",

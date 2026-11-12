@@ -518,7 +518,7 @@ test('eight seats fit a small phone (667x375), a landscape phone (844x390) and a
       await sheet(a, 7, ['remove'], false);
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 6);
       await sidesAre(a, [['YOU', 'COMPUTER 2', 'COMPUTER 4'], ['Bo', 'COMPUTER 3', 'COMPUTER 5']]);
-      assert.deepEqual(await a.p.$$eval('#onlineMapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Grey Warrens · up to 8', 'Random · up to 8'], 'six: the 128x128 maps');
+      assert.deepEqual(await a.p.$$eval('#onlineMapSel option:not(:disabled)', os => os.map(o => o.textContent)), ['Iron Compass · up to 8', 'Sunken Court · up to 8', 'Gray Warrens · up to 8', 'Random · up to 8'], 'six: the 128x128 maps');
       assert.deepEqual(await fits(a), [], 'six seats fit');
       await a.p.waitForFunction(() => /Ready when you are/.test(document.getElementById('onlineStatus').textContent));
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');

@@ -72,8 +72,10 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   `combat`, `leash`, `ai`, `maps`, `mines`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`,
   `expedition`, `random_play`, ...): the leash (`leash`: an idle Guard chasing a passer-by only `CHASE_LEASH` from its
   spot and walking back, an attack-move group never more than the leash off its line after a fleeing unit and all
-  reaching its goal, an attack order with none), the end (`combat`: a side with nothing left to fight or build with is
-  out, a Barracks keeping it in gold or not, an AI's out when its last building falls, each with its `OutWhy`),
+  reaching its goal, an attack-move killing an Archer where its route bends far off the straight line (Standard seed 2,
+  the Shore seed 1), Guards shelled from past their leash going for the gun, an attack order with none), the end (`combat`: a side with nothing left to fight with and no gold
+  to train more is out, a Barracks keeping it in only with the gold for a fighter, an AI with a Barracks out when it
+  falls or at once when broke, each with its `OutWhy`),
   placement (`construction`: every refusal named, unexplored ground before what lies under it, the order's error in
   the same words, `can_place` exactly "no refusal" over the map, deep water), gold
   mines (`mines`: workers at a mine that runs dry going on to the nearest mine with gold; one per field on every map kind and size, holding the field's gold; every map symmetric mine for
@@ -139,7 +141,7 @@ src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sou
                       (an update reloads the menu at once, into the room or the challenge it was on)
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens (the end card's line says what ended the game from the sim's `G.outWhy`: a side's last
-                      building fell, it had nothing left to fight or build with, or it conceded), events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
+                      building fell, it had nothing left to fight with and no gold to train more, or it conceded), events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
 src/style.css         all styling; design tokens at the top of :root
 src/engine/           the client's view of the Rust sim: index.js starts instantiating the WASM (`ready`: nothing calls
                       the sim before it has resolved), core.js mirrors it into the
@@ -192,7 +194,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/world/          the world: mod.rs (World, step, state_hash), types (entities, events), seats.rs (seats, teams,
                       starts, who is out and why, `beaten`, `OutWhy`: an AI's seat once its last building falls, a
                       person's once no worker is left either, or anyone's with no finished headquarters, worker, fighter
-                      or building that trains fighters, gold or not; the last team standing), orders (placing:
+                      or factory with a unit in training or the gold to train a fighter; the last team standing), orders (placing:
                       `place_refusal`, the one placement check, a `Refusal` and its words, that `can_place`, the order,
                       the AI and the client's ghost read), spawn, economy (gold mines: a worker walks
                       to a mine's side and goes in, `Phase::Mine`, `Unit::inside`: not drawn, not targeted or hit, out
@@ -201,9 +203,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       nobody in, its workers to the nearest other), construction,
                       wire.rs (commands as numbers for the network: encode, a total decode),
                       combat (the leash, `CHASE_LEASH` in data: a fight a unit picks up itself, idle, at a rally point,
-                      on an attack-move or answering fire, follows its target only that far, its reach on top, from its
-                      spot or its attack-move's line, `Back`, `Task::AMove`'s start; then back to its spot or its march;
-                      a target off the leash is not picked up), movement, paths.rs (a group's one route shared by the units of one order, long
+                      on an attack-move or answering fire, follows its target only that far from where the fight began
+                      (its spot, or the point of its route where the march turned: `Back`), the longer reach of the two
+                      on top (a gun shelling it from afar can be gone for); let go there, it walks back to that point
+                      (`Task::AMove`'s `rejoin`, picking no fight on the way) and only then marches on, so a fleeing
+                      target cannot pull it along leash by leash; a shooter off the leash is not answered), movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
                       retreat, the sweep), radio.rs (the range: the Expedition's machines move x1.3 within a finished
                       Data center's 18 tiles or an Uplink's 12 of their side or an ally, by exact distance from the
@@ -327,7 +331,7 @@ src/client/           everything that touches the browser
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
                       on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
                       footprint and the rock just over it; a worker inside a mine is not picked or boxed; workers sent
-                      to an empty mine are told so ("This mine is empty."; the sim sends them on to the nearest with gold)
+                      to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold)
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough

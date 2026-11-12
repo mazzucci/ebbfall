@@ -568,7 +568,7 @@ impl World {
             Task::Idle => self.update_idle(uid, false, c, dt),
             Task::Hold => self.update_idle(uid, true, c, dt),
             Task::Move { x, y } => self.update_move(uid, x, y, dt),
-            Task::AMove { x, y, ox, oy } => self.update_amove(uid, (x, y), (ox, oy), c, dt),
+            Task::AMove { x, y, rejoin } => self.update_amove(uid, (x, y), rejoin, c, dt),
             Task::Attack { target, back } => self.update_attack(uid, target, back, c, dt),
             Task::Gather { node, phase, timer } => self.update_gather(uid, node, phase, timer, dt),
             Task::Repair { b } => self.update_repair(uid, b, c.r, c.team, dt),

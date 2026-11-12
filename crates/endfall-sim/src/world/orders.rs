@@ -296,16 +296,24 @@ impl World {
         self.path_to(uid, x, y);
     }
     pub fn attack_move(&mut self, uid: Id, x: f64, y: f64) {
-        let (ox, oy) = (self.u(uid).x, self.u(uid).y);
-        self.attack_move_from(uid, x, y, ox, oy);
-    }
-    /// Attack-move to (x, y) on the leash of a line that starts at (ox, oy): a new order's from where the unit stands,
-    /// a march resumed after a fight's from where that order was given (so a chase never moves the line).
-    pub(crate) fn attack_move_from(&mut self, uid: Id, x: f64, y: f64, ox: f64, oy: f64) {
         self.release_mine(uid);
         self.pack_up_to_move(uid);
-        self.set_task(uid, Task::AMove { x, y, ox, oy });
+        self.set_task(uid, Task::AMove { x, y, rejoin: None });
         self.path_to(uid, x, y);
+    }
+    /// Back to (ax, ay), where the march left its route for a chase now let go, then on to (x, y) (combat.rs
+    /// `let_go`).
+    pub(crate) fn rejoin_march(&mut self, uid: Id, x: f64, y: f64, ax: f64, ay: f64) {
+        self.pack_up_to_move(uid);
+        self.set_task(
+            uid,
+            Task::AMove {
+                x,
+                y,
+                rejoin: Some((ax, ay)),
+            },
+        );
+        self.path_to(uid, ax, ay);
     }
     pub fn attack_ent(&mut self, uid: Id, target: Id) {
         if self

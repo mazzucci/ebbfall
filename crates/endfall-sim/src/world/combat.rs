@@ -260,37 +260,41 @@ impl World {
     }
 
     /// Unit `i` was hit by `by`: it shoots back if it can (idle or attack-moving, or busy with a lesser target it
-    /// picked up itself), and idle armed friends within 180 px join in.
+    /// picked up itself), and idle armed friends within 180 px join in; each only when the shooter is on the leash
+    /// of where its fight would begin (`on_leash`: the shooter's own reach counts, so a gun shelling it from afar is
+    /// answered), else it keeps to what it was doing.
     fn answer_fire(&mut self, i: usize, by: Id) {
         let u = &self.units[i];
-        let (ux, uy, team) = (u.x, u.y, u.team);
+        let (uid, ux, uy, team) = (u.id, u.x, u.y, u.team);
         let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
         let me_air = self.units[i].kind.def().air;
         // Busy with a target it picked up itself that matters less than the one shooting it: answer.
         let lesser = match self.units[i].task {
             Task::Attack {
                 target: cur,
-                back: Some(_),
-            } => self.threat_tier(cur, me_air) > self.threat_tier(by, me_air),
+                back: Some(b),
+            } => {
+                self.threat_tier(cur, me_air) > self.threat_tier(by, me_air)
+                    && self.on_leash(&b, uid, by)
+            }
             _ => false,
         };
+        // Idle: back to this spot afterwards; on the march: back on it from here (walking back to its route only if
+        // the chase is let go at the leash). Not while walking back to its route.
+        let back = match self.units[i].task {
+            Task::Idle => Some(Back::spot(ux, uy)),
+            Task::AMove {
+                x, y, rejoin: None, ..
+            } => Some(Back::march(x, y, ux, uy)),
+            _ => None,
+        }
+        .filter(|b| self.on_leash(b, uid, by));
         // (a siege gun never answers a shooter inside its blind ring: it could never fire at it)
         let blind = self.inside_ring(i, by);
         let u = &mut self.units[i];
         let answers = !u.kind.def().worker && u.kind.def().damage_vs(by_air) > 0.0 && !blind;
         match u.task {
-            Task::Idle | Task::AMove { .. } if answers => {
-                // Idle: come back to this spot afterwards (and the leash applies).
-                let back = match u.task {
-                    Task::AMove { x, y, ox, oy } => Some(Back {
-                        x,
-                        y,
-                        amove: true,
-                        ox,
-                        oy,
-                    }),
-                    _ => Some(Back::spot(u.x, u.y)),
-                };
+            Task::Idle | Task::AMove { .. } if answers && back.is_some() => {
                 u.task = Task::Attack { target: by, back };
             }
             Task::Attack { ref mut target, .. } if answers && lesser => *target = by,
@@ -299,20 +303,21 @@ impl World {
         for a in self.nearby(ux, uy, 180.0) {
             if let Some(j) = self.ui(a) {
                 let blind = self.inside_ring(j, by);
-                let o = &mut self.units[j];
+                let o = &self.units[j];
+                let spot = Back::spot(o.x, o.y);
                 if o.team != team
+                    || o.task != Task::Idle
                     || o.kind.def().worker
                     || o.kind.def().damage_vs(by_air) <= 0.0
                     || blind
+                    || !self.on_leash(&spot, o.id, by)
                 {
                     continue;
                 }
-                if o.task == Task::Idle {
-                    o.task = Task::Attack {
-                        target: by,
-                        back: Some(Back::spot(o.x, o.y)),
-                    };
-                }
+                self.units[j].task = Task::Attack {
+                    target: by,
+                    back: Some(spot),
+                };
             }
         }
     }
@@ -689,16 +694,29 @@ impl World {
         }
     }
 
-    /// Attack-move: walk to (x, y), turning on any enemy met on the way within the leash of its line (from (ox, oy),
-    /// where the order was given; `CHASE_LEASH`).
+    /// Attack-move: walk to (x, y), turning on any enemy met on the way (its leash tied where it turns). Walking back
+    /// to its route first (`rejoin`, a chase let go), it picks no fight until it is there.
     pub(crate) fn update_amove(
         &mut self,
         uid: Id,
         (x, y): (f64, f64),
-        (ox, oy): (f64, f64),
+        rejoin: Option<(f64, f64)>,
         c: Live,
         dt: f64,
     ) {
+        if let Some((ax, ay)) = rejoin {
+            let u = self.um(uid);
+            u.repath -= dt;
+            if u.path.is_none() && u.repath <= 0.0 && !self.path_to(uid, ax, ay) {
+                return; // (waiting for its route: it stands this tick)
+            }
+            if self.u(uid).path.is_none() || self.step_path(uid, dt) {
+                let pace = self.u(uid).pace;
+                self.attack_move(uid, x, y);
+                self.um(uid).pace = pace;
+            }
+            return;
+        }
         let deep = self.in_deep(uid); // (crossing deep water, it picks no fight: it could not fire from there)
         let u = self.um(uid);
         u.aggro_cd -= dt;
@@ -715,20 +733,11 @@ impl World {
                 c.hits,
                 c.kind.def().air,
             );
-            let back = Back {
-                x,
-                y,
-                amove: true,
-                ox,
-                oy,
-            };
-            // (one off the leash is not picked up: it would be let go at once)
-            if let (Some(t), true) = (t, c.combat)
-                && self.on_leash(&back, uid, t, c)
-            {
+            // (what it sees from its route is within the leash of where it turns: it looks less far than that)
+            if let (Some(t), true) = (t, c.combat) {
                 self.um(uid).task = Task::Attack {
                     target: t,
-                    back: Some(back),
+                    back: Some(Back::march(x, y, ux, uy)),
                 };
                 return;
             }
@@ -742,22 +751,25 @@ impl World {
         self.update_move(uid, x, y, dt);
     }
 
-    /// The leash (`CHASE_LEASH`): whether `target` lies within it of what `b` ties unit `uid` to (its spot, or its
-    /// attack-move's line), the unit's own reach on top (its weapon's, a siege gun's deployed reach).
-    pub(crate) fn on_leash(&self, b: &Back, uid: Id, target: Id, c: Live) -> bool {
+    /// The leash (`CHASE_LEASH`): whether `target` is within it of where `b` ties unit `uid` (where its fight began),
+    /// the longer reach of the two on top (the unit's weapon, or the target's: a gun that can shell that spot can be
+    /// gone for).
+    pub(crate) fn on_leash(&self, b: &Back, uid: Id, target: Id) -> bool {
         let Some(g) = self.geo(target) else {
             return false;
         };
-        let (cx, cy) = g.center();
-        let (qx, qy) = b.nearest(cx, cy);
-        let weapon = self
-            .u(uid)
-            .kind
-            .def()
-            .weapon
-            .map_or(0.0, |w| w.range * TILE);
-        let reach = weapon.max(c.range).max(c.siege.unwrap_or(0.0)) + c.r;
-        g.edge_dist(qx, qy) <= CHASE_LEASH * TILE + reach
+        let own = self.unit(uid).map_or(0.0, |u| self.reach_of(u.id) + u.r);
+        g.edge_dist(b.ox, b.oy) <= CHASE_LEASH * TILE + own.max(self.reach_of(target))
+    }
+
+    /// How far (px) a unit's or building's weapon reaches (its kind's, a siege gun's deployed reach); 0 unarmed.
+    pub(crate) fn reach_of(&self, id: Id) -> f64 {
+        let w = match (self.unit(id), self.bldg(id)) {
+            (Some(u), _) => u.kind.def().weapon,
+            (_, Some(b)) => b.kind.def().weapon,
+            _ => None,
+        };
+        w.map_or(0.0, |w| w.range * TILE)
     }
 
     /// Whether an armed ally of `uid` is fighting (attacking something) within `r` px of it (edge distance).
@@ -772,12 +784,23 @@ impl World {
         })
     }
 
-    /// Attack a target; a self-picked one gives way to a bigger threat and is let go well out of sight.
+    /// A chase given up (out of sight, or off its leash): back to where it began, its spot or the point where the
+    /// march left its route, and only then on (so a target that keeps fleeing cannot pull it along leash by leash), at
+    /// the group's pace if it had one.
+    fn let_go(&mut self, uid: Id, b: Back) {
+        if !b.amove {
+            return self.resume_back(uid, b);
+        }
+        let pace = self.u(uid).pace;
+        self.rejoin_march(uid, b.x, b.y, b.ox, b.oy);
+        self.um(uid).pace = pace;
+    }
+
     /// Back to the march a fight interrupted, at the group's pace if it had one (the group re-forms).
     fn resume_back(&mut self, uid: Id, b: Back) {
         let pace = self.u(uid).pace;
         if b.amove {
-            self.attack_move_from(uid, b.x, b.y, b.ox, b.oy);
+            self.attack_move(uid, b.x, b.y);
         } else {
             self.move_to(uid, b.x, b.y);
         }
@@ -829,11 +852,15 @@ impl World {
             && c.combat
         {
             let (ux, uy) = (self.u(uid).x, self.u(uid).y);
-            // The leash: a target that got well out of sight, or farther than `CHASE_LEASH` from the unit's spot or
-            // its attack-move's line, is let go, and the unit goes back to what it was doing (a scout cannot lead a
-            // fresh Guard across the map, nor a fleeing unit pull an attack-move off its way).
-            if t.edge_dist(ux, uy) > c.sight * TILE * 1.5 || !self.on_leash(&b, uid, target, c) {
-                self.resume_back(uid, b);
+            // The leash: a target that got well out of sight (and out of its own reach of the unit: a gun shelling it
+            // from afar is not), or farther than `CHASE_LEASH` from where the fight began, is let go, and the unit goes
+            // back there, then to what it was doing (a scout cannot lead a fresh Guard across the map, nor a fleeing
+            // unit pull an attack-move off its way).
+            let lost = c.sight * TILE * 1.5;
+            if t.edge_dist(ux, uy) > lost.max(self.reach_of(target))
+                || !self.on_leash(&b, uid, target)
+            {
+                self.let_go(uid, b);
                 return;
             }
             if self.u(uid).aggro_cd <= 0.0 {
@@ -856,9 +883,7 @@ impl World {
                             flier,
                         )
                     })
-                    .filter(|&t2| {
-                        self.threat_tier(t2, flier) < now && self.on_leash(&b, uid, t2, c)
-                    });
+                    .filter(|&t2| self.threat_tier(t2, flier) < now && self.on_leash(&b, uid, t2));
                 if let Some(t2) = better
                     && let Task::Attack { target, .. } = &mut self.um(uid).task
                 {

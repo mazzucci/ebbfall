@@ -12,9 +12,9 @@ pub enum Phase {
     Return,
 }
 
-/// What a unit goes back to after a fight it picked up itself: (x, y), its spot (idle) or its attack-move's goal; and
-/// where its leash is tied (`CHASE_LEASH`): the line from (ox, oy) to (x, y), its attack-move's from where the order
-/// was given, or its spot alone (ox, oy the same as x, y).
+/// What a unit goes back to after a fight it picked up itself: (x, y), its spot (idle) or its attack-move's goal
+/// (`amove`); and (ox, oy), where its leash is tied (`CHASE_LEASH`): where the fight began (the idle spot itself, or
+/// where on its route the march turned to fight).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Back {
     pub x: f64,
@@ -35,15 +35,15 @@ impl Back {
             oy: y,
         }
     }
-    /// The point of the leash's line nearest (px, py).
-    pub fn nearest(&self, px: f64, py: f64) -> (f64, f64) {
-        let (dx, dy) = (self.x - self.ox, self.y - self.oy);
-        let len2 = dx * dx + dy * dy;
-        if len2 <= 0.0 {
-            return (self.ox, self.oy);
+    /// Back on the march to (x, y), the fight begun at (ox, oy): its leash tied there.
+    pub fn march(x: f64, y: f64, ox: f64, oy: f64) -> Back {
+        Back {
+            x,
+            y,
+            amove: true,
+            ox,
+            oy,
         }
-        let t = clamp(((px - self.ox) * dx + (py - self.oy) * dy) / len2, 0.0, 1.0);
-        (self.ox + dx * t, self.oy + dy * t)
     }
 }
 
@@ -84,13 +84,12 @@ pub enum Task {
         x: f64,
         y: f64,
     },
-    /// Walk to (x, y), fighting what is met on the way; (ox, oy): where the order was given (its leash's line starts
-    /// there).
+    /// Walk to (x, y), fighting what is met on the way. `rejoin`: first walking back to where it left its route
+    /// (a chase let go at its leash), picking no fight on the way, then on.
     AMove {
         x: f64,
         y: f64,
-        ox: f64,
-        oy: f64,
+        rejoin: Option<(f64, f64)>,
     },
     Attack {
         target: Id,
@@ -434,7 +433,8 @@ pub enum OutWhy {
     Conceded,
     /// Its last building fell (a person's: with no worker left either).
     Buildings,
-    /// No headquarters, worker, fighter or building that trains fighters left: nothing to fight or build with.
+    /// No headquarters, worker or fighter left, and no factory training a unit or with the gold to train one: nothing
+    /// left to fight with, and no gold to train more.
     Helpless,
 }
 

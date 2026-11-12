@@ -1602,7 +1602,7 @@ test('a worker sent to an empty mine (desktop right-click, phone tap) is told th
       await d.skip(2);
       await d.clickEntity(h.id);
       if (d.touch) await d.clickWorld(node.x, node.y); else await d.rightClickWorld(node.x, node.y);
-      await d.page.locator('#msg .toast', { hasText: 'This mine is empty.' }).waitFor({ timeout: 5000 });
+      await d.page.locator('#msg .toast', { hasText: 'This mine is empty' }).waitFor({ timeout: 5000 });
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -1838,7 +1838,7 @@ test('the end screen says what ended the game, counts the result on the menu, an
     // What ended it, in the sim's words: its last building fell, or (its workers gone too) nothing was left to it.
     const why = await d.eval(() => endfall.G.outWhy[1]);
     assert.ok(['buildings', 'helpless'].includes(why), `the enemy is out for a reason: ${why}`);
-    assert.match(await d.page.locator('#endSub').textContent(), why === 'buildings' ? /^Their last building fell after \d\d:\d\d\.$/ : /^The enemy had nothing left to fight or build with after \d\d:\d\d\.$/);
+    assert.match(await d.page.locator('#endSub').textContent(), why === 'buildings' ? /^Their last building fell after \d\d:\d\d\.$/ : /^The enemy had nothing left to fight with, and no gold to train more, after \d\d:\d\d\.$/);
     await d.page.locator('#btnRematch').click();
     await until(d, async () => !(await d.state()).over, { seconds: 10, step: 0.5, what: 'the rematch' });
     assert.ok(await d.page.locator('#end').isHidden(), 'Rematch starts at once');

@@ -45,7 +45,7 @@ export const RT_UNITS = {
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
     rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
     android: { build: android, r: 15, h: 20 }, // (the Marine's cell; the `umbra` slot's model since the balance pass, Stelian's pick of 2026-11-11)
-    launcher: { build: launcher, r: 28, h: 28 }, // (the Rover's redraw as a tracked rocket launcher, 2026-11-12: the Rover's cell and frames; pictures only until Stelian approves the sheet)
+    launcher: { build: launcher, r: 28, h: 28 }, // (the Rover since 2026-11-12, a tracked rocket launcher: the rocket cart's cell and frames)
   },
 };
 /** The two main buildings; the Data center is the server hall (expedition-buildings.js `serverHall`, under `datahall`:
@@ -213,7 +213,7 @@ export function* rethemeSprites(want, opts = {}) {
 /** Unit kind -> [people, model] (RT_UNITS). */
 export const ATLAS_UNITS = {
   harvester: ['kg', 'villager'], trooper: ['kg', 'guard'], lancer: ['kg', 'archer'], siegeTank: ['kg', 'cannon'], bastion: ['kg', 'ballista'], observer: ['kg', 'balloon'],
-  lumen: ['ex', 'bot'], scythe: ['ex', 'buggy'], prism: ['ex', 'mercenary'], umbra: ['ex', 'android'], monolith: ['ex', 'rover'], shrike: ['ex', 'drone'],
+  lumen: ['ex', 'bot'], scythe: ['ex', 'buggy'], prism: ['ex', 'mercenary'], umbra: ['ex', 'android'], monolith: ['ex', 'launcher'], shrike: ['ex', 'drone'], // (the Rover: the tracked Launcher since 2026-11-12, Stelian's pick from the sheet; `rover`, the rocket cart, kept for the record)
   rider: ['kg', 'rider'], knight: ['kg', 'knight'], bruiser: ['ex', 'veteran'],
 };
 /** Building type -> [people, model] (RT_BUILDINGS); each footprint is its type's (n tiles). The Expedition rework's

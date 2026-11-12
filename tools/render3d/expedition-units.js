@@ -278,13 +278,14 @@ export function rover(M, f) {
 
 /** Launcher (the Rover's redraw, 2026-11-12: the long-range rocket artillery that comes through the Portal; sim r 15,
  *  scale 1.4 as the Rover's, its cell and frames): a long, low tracked launcher vehicle, the company's own machine, not
- *  a cart. Two dark track blocks under gray skirts (pale sprockets at both ends, their marks and the pale tread bars
- *  moving by frame: the roll), a white deck over a gray lower hull, a low enclosed white cab at the bow with one cyan
+ *  a cart. Two light-gray track frames under light-gray skirts, their sprockets and road wheels black (Stelian's one
+ *  change after the sheet: the dark running gear could not be read as tracks), the marks and wheels moving by frame
+ *  (the roll), a white deck over a gray lower hull, a low enclosed white cab at the bow with one cyan
  *  visor strip across its front (the Android's cyan: the Expedition's lights) and a team panel on its roof, and over
  *  the rear two thirds, on a dark turntable, the launcher: a big mid-gray box of tubes pitched up ahead under a white
  *  lid, six dark tube mouths proud of its front face, a dark rear plate. White only on the cab and the lid, light gray
  *  on the deck, mid gray on the hull's and the box's sides (the Android's three plate tones: a light gray top face
- *  comes out white under the units' sun). Team on the trim only: a stripe along each skirt, a stripe along each flank
+ *  comes out white under the units' sun; the base light gray so the black wheels read on it). Team on the trim only: a stripe along each skirt, a stripe along each flank
  *  of the box, a narrow stripe along each edge of the lid, the bumper bar at the bow, a band across the box's rear
  *  plate and the cab's roof panel, each between ink lines; no team slab anywhere. No cables, no props, no antenna (the brief: nothing tiny). From the camera: a long
  *  pale low machine with a tilted box of holes rising over its back and a cyan line at its nose; beside the Buggy,
@@ -292,12 +293,12 @@ export function rover(M, f) {
 export function launcher(M, f) {
   const A = fam(M), g = grp(), b = grp(); b.position.y = 3.6; g.add(b);                         // the hull's floor: low (the Buggy's tub at 5.2)
   for (const z of [-6.2, 6.2]) {                                                                 // the tracks: two long dark blocks, their bottoms on the ground, a wide stance
-    add(b, rbox(26, 3.6, 3.6, 1.2), M.tyre, 0, -1.6, z);
-    for (const x of [-10.6, 10.6]) { add(b, cyl(1.9, 1.9, 3.8, 16), M.paleSteel, x, -1.6, z, Math.PI / 2, 0, 0); add(b, rbox(2.8, 0.5, 3.9, 0.1), M.joint, x, -1.6, z, Math.PI / 2, (f % 2) * 0.6, 0); } // the sprockets, pale, a dark mark on each turning by frame
-    for (let k = 0; k < 4; k++) add(b, rbox(1.4, 1.4, 3.9, 0.1), M.paleSteel, -6.4 + k * 4.2 + (f % 2) * 2.1, -2.2, z); // pale tread bars along the track's lower half, shifting by frame (they read as road wheels)
+    add(b, rbox(26, 3.6, 3.6, 1.2), A.plateGrey, 0, -1.6, z);                                   // the track's frame, light gray (Stelian, after the sheet: dark on dark, the running gear could not be read; black wheels on a light base)
+    for (const x of [-10.6, 10.6]) { add(b, cyl(1.9, 1.9, 3.8, 16), M.joint, x, -1.6, z, Math.PI / 2, 0, 0); add(b, rbox(2.8, 0.5, 3.9, 0.1), M.paleSteel, x, -1.6, z, Math.PI / 2, (f % 2) * 0.6, 0); } // the sprockets, black, a pale mark on each turning by frame
+    for (let k = 0; k < 4; k++) add(b, rbox(1.4, 1.4, 3.9, 0.1), M.joint, -6.4 + k * 4.2 + (f % 2) * 2.1, -2.2, z); // black road wheels along the track's lower half, shifting by frame
   }
   add(b, rbox(27, 2.6, 11.6, 0.8), M.trim, 0, 0.4, 0);                                          // the chassis between the tracks, dark edging
-  add(b, rbox(26, 2.8, 13.0, 0.8), A.head, 0, 2.5, 0);                                          // the lower hull, mid-gray plates (the Android's head's gray): its skirts over the tracks' tops
+  add(b, rbox(26, 2.8, 13.0, 0.8), A.plateGrey, 0, 2.5, 0);                                     // the lower hull and its skirts over the tracks' tops, light gray (Stelian's change: the base reads light, the wheels black)
   add(b, rbox(24, 1.4, 11.6, 0.7), A.plateGrey, -1, 4.4, 0);                                    // the deck, light gray (round 1's white deck took the whole machine to 0.46: too bright; the light gray plate itself comes out near white on a top face under the units' sun, so the big side faces go a step darker)
   for (const z of [-6.55, 6.55]) { add(b, rbox(22, 1.6, 0.5, 0.1), M.paint, -1, 2.5, z); add(b, rbox(22.2, 0.3, 0.55, 0.05), M.inkLine, -1, 3.45, z); add(b, rbox(22.2, 0.3, 0.55, 0.05), M.inkLine, -1, 1.55, z); } // a team stripe along each skirt between ink lines
   // the cab at the bow: a low white block, a cyan visor strip across its front with a cyan halo, a team panel on its roof

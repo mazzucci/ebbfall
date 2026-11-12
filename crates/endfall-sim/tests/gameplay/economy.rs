@@ -223,28 +223,152 @@ fn a_full_core_reports_supply_blocked() {
 }
 
 #[test]
-fn builders_go_back_to_the_mine() {
-    // The builder of a Market, as of anything else, goes back to the mine it was working (nobody works a Market).
+fn builders_wait_beside_what_they_built() {
+    // Stelian, Nov 12: a builder stays idle beside the building it finished, a Market as anything else (nobody works a
+    // Market), instead of going back to mining by itself; it mines again on an order.
     let mut w = rich(5);
     run(&mut w, 3);
     let h = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Barracks);
     w.make_building(BldgKind::Barracks, PLAYER, tx, ty, true); // (a Market needs the Barracks)
-    build(&mut w, BldgKind::Extractor, h[0], 90);
+    let market = build(&mut w, BldgKind::Extractor, h[0], 90);
+    let depot = build(&mut w, BldgKind::Depot, h[1], 90);
+    run(&mut w, 5);
+    for (u, b) in [(h[0], market), (h[1], depot)] {
+        let (u, b) = (w.unit(u).unwrap(), w.bldg(b).unwrap());
+        assert_eq!(u.task, Task::Idle, "{:?}'s builder waits", b.kind);
+        assert!(
+            ((u.x - b.x).abs() - b.w as f64 * 16.0).max((u.y - b.y).abs() - b.h as f64 * 16.0)
+                < 2.0 * 32.0,
+            "{:?}'s builder beside it",
+            b.kind
+        );
+    }
+    // On an order, back to the mine.
+    let mine = home_fields(&w)[0];
+    assert!(w.start_gather(h[0], mine));
     run(&mut w, 1);
+    assert!(matches!(w.unit(h[0]).unwrap().task, Task::Gather { .. }));
+}
+
+#[test]
+fn a_new_worker_waits_for_an_order_and_a_rally_on_a_mine_walks_it_there_to_wait() {
+    // Stelian, Nov 12: a new Villager or Bot appears at its Castle or Data center and waits: no gathering by itself.
+    // A rally point on a gold mine walks it to the mine, where it waits beside it without mining; mining starts only on
+    // an order. The starting workers begin on the mine as ever.
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [f, f]);
+        w.disable_ai();
+        w.res[PLAYER as usize] = [1000, 0];
+        assert!(
+            harvesters(&w, PLAYER)
+                .iter()
+                .all(|&h| matches!(w.unit(h).unwrap().task, Task::Gather { .. })),
+            "{}: the starting workers mine",
+            f.name
+        );
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .unwrap()
+            .id;
+        let before = harvesters(&w, PLAYER);
+        assert_eq!(w.queue_unit(hq, f.worker), Ok(()));
+        run(&mut w, f.worker.def().build as u32 + 1);
+        let new: Vec<Id> = harvesters(&w, PLAYER)
+            .into_iter()
+            .filter(|h| !before.contains(h))
+            .collect();
+        assert_eq!(new.len(), 1);
+        run(&mut w, 20);
+        let u = w.unit(new[0]).unwrap();
+        let b = w.bldg(hq).unwrap();
+        assert_eq!(u.task, Task::Idle, "{}: the new worker waits", f.name);
+        assert!(
+            (u.x - b.x).hypot(u.y - b.y) < 4.0 * 32.0,
+            "{}: at its headquarters",
+            f.name
+        );
+        assert_eq!(u.carry, 0);
+        // A rally on the home mine: the next walks there and waits beside it, outside, carrying nothing.
+        let mine = home_fields(&w)[0];
+        let (mx, my) = (w.map.node(mine).unwrap().x, w.map.node(mine).unwrap().y);
+        w.set_rally(hq, mx, my, Some(mine));
+        let before = harvesters(&w, PLAYER);
+        assert_eq!(w.queue_unit(hq, f.worker), Ok(()));
+        run(&mut w, f.worker.def().build as u32 + 1);
+        let next = harvesters(&w, PLAYER)
+            .into_iter()
+            .find(|h| !before.contains(h))
+            .unwrap();
+        let mined = w.ledger[PLAYER as usize].mined[0];
+        for _ in 0..30 * TPS {
+            w.step();
+            let u = w.unit(next).unwrap();
+            assert!(!u.inside() && u.carry == 0, "{}: it never mines", f.name);
+        }
+        let u = w.unit(next).unwrap();
+        assert_eq!(u.task, Task::Idle, "{}: waiting at the mine", f.name);
+        assert!(
+            (u.x - mx).hypot(u.y - my) < 3.0 * 32.0,
+            "{}: beside the mine ({:.0} px)",
+            f.name,
+            (u.x - mx).hypot(u.y - my)
+        );
+        // (the starting crew mined on meanwhile)
+        assert!(w.ledger[PLAYER as usize].mined[0] > mined);
+        // An order sends it in.
+        assert!(w.start_gather(next, mine));
+        run(&mut w, 15);
+        assert!(
+            w.unit(next).unwrap().carry > 0
+                || w.unit(next).unwrap().inside()
+                || w.ledger[PLAYER as usize].mined[0] > mined
+        );
+    }
+}
+
+#[test]
+fn the_ai_sends_its_new_workers_and_its_builders_to_the_mine() {
+    // The AI orders its own workers (Stelian, Nov 12: no worker gathers by itself): each it trains goes to a mine within
+    // its next turns, and so does each builder once its building stands, so its economy keeps its pace; an idle worker
+    // of an AI never waits long.
+    let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    let mut idle_for: Vec<(Id, u32)> = Vec::new();
+    let mut longest = 0;
+    let mut trained = 0;
+    let start: Vec<Id> = w.units.iter().map(|u| u.id).collect();
+    while w.time < 360.0 {
+        w.step();
+        w.events.clear();
+        let idle: Vec<Id> = w
+            .units
+            .iter()
+            .filter(|u| u.kind.def().worker && u.task == Task::Idle)
+            .map(|u| u.id)
+            .collect();
+        idle_for.retain(|e| idle.contains(&e.0));
+        for id in idle {
+            match idle_for.iter_mut().find(|e| e.0 == id) {
+                Some(e) => {
+                    e.1 += 1;
+                    longest = longest.max(e.1);
+                }
+                None => idle_for.push((id, 1)),
+            }
+        }
+        trained = w
+            .units
+            .iter()
+            .filter(|u| u.kind.def().worker && !start.contains(&u.id))
+            .count();
+    }
+    assert!(trained >= 8, "both AIs trained workers: {trained}");
     assert!(
-        matches!(w.unit(h[0]).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-        "a Market's builder goes back to the mine: {:?}",
-        w.unit(h[0]).unwrap().task
-    );
-    let h1 = h[1];
-    let depot = build(&mut w, BldgKind::Depot, h1, 90);
-    run(&mut w, 1);
-    assert!(w.bldg(depot).is_some());
-    assert!(
-        matches!(w.unit(h1).unwrap().task, Task::Gather { node, .. } if w.map.node(node).is_some_and(|n| !n.ether)),
-        "a Cottage's builder goes back to the mine: {:?}",
-        w.unit(h1).unwrap().task
+        longest <= 2 * 16,
+        "no AI worker idle for more than two of its turns: {longest} ticks"
     );
 }
 

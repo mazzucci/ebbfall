@@ -1,9 +1,8 @@
 // Battle-awareness and selection helpers: "under attack" alerts (toast, sound, minimap ping, jump with Space or the
-// ⚠ chip), the whole-army (Q) and idle-factory (,) keys, the idle-harvester key, double-click "all of this type on screen", control-group tabs
+// ⚠ chip), the whole-army (Q) and idle-factory (,) keys (no idle-worker key or counter: Stelian, Nov 12), double-click "all of this type on screen", control-group tabs
 // (tap to recall, long-press or Ctrl+click to save). The pause card is pause.js.
 import { G, UNITS, TILE, visibleEnt, enemies } from '../engine/index.js';
-import { plural } from '../engine/util.js';
-import { updateHud, myFaction } from './hud.js';
+import { updateHud } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
 import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
@@ -38,12 +37,11 @@ export function goHome() {
   if (c) centerOn(c.x, c.y); else toast('No base left');
 }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); idleIndex = 0; prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };
 
-let idleIndex = 0;
 const idleHarvesters = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle');
 const army = () => G.units.filter(u => u.team === G.me && !u.d.worker);
 /** Our finished factories (they train more than workers) with nothing queued. */
@@ -55,11 +53,6 @@ export function selectIdleFactory() {
   const b = idle[prodIndex++ % idle.length]; choose([b]); centerOn(b.x, b.y);
 }
 
-/** Select the next idle harvester and look at it. */
-export function selectIdle() {
-  const idle = idleHarvesters(); if (!idle.length) { toast(`No idle ${plural(UNITS[myFaction().worker].name)}`); return; }
-  const u = idle[idleIndex++ % idle.length]; choose([u]); centerOn(u.x, u.y);
-}
 /** Select every combat unit; a second tap within a second also looks at them. */
 let armyAt = 0;
 export function selectArmy() {

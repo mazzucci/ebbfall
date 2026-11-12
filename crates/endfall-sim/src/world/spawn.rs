@@ -147,17 +147,15 @@ impl World {
         let u = self.make_unit(kind, b.team, x, y);
         self.stats[b.team as usize].built += 1;
         self.sfx(b.team, "ready");
+        // A new worker waits where it stepped out, or at its rally point; a rally on a gold mine walks it to the mine,
+        // where it waits beside it: mining starts only on an order (Stelian, Nov 12). The AI orders its own.
         if let Some(rl) = b.rally {
-            match rl.node {
+            match rl.node.and_then(|n| self.map.node(n)) {
                 Some(n) if kind.def().worker => {
-                    self.start_gather(u, n);
+                    let (nx, ny) = (n.x, n.y);
+                    self.move_to(u, nx, ny); // (the mine blocks its tiles: the route ends beside it)
                 }
                 _ => self.move_to(u, rl.x, rl.y),
-            }
-        } else if kind.def().worker && b.kind.def().dropoff {
-            let (ux, uy) = (self.u(u).x, self.u(u).y);
-            if let Some(nd) = self.nearest_node(ux, uy, 900.0) {
-                self.start_gather(u, nd);
             }
         }
         self.recalc_supply(b.team);

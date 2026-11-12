@@ -9,7 +9,7 @@ import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelectio
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
 import { askLeave } from './screen.js';
-import { goHome, selectIdle, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup } from './tools.js';
+import { goHome, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup } from './tools.js';
 import { togglePause, paused } from './pause.js';
 import { wasd } from './controls.js';
 
@@ -378,7 +378,7 @@ function bindSelectButton() {
   }
 }
 
-/** Hotkeys: control groups, alerts, idle workers, pause, Home, the command card's keys (the controls scheme's:
+/** Hotkeys: control groups, alerts, an idle factory, pause, Home, the command card's keys (the controls scheme's:
  *  cards.js gives each button its key); held keys for the camera (in WASD, W A S D only move it). */
 function bindKeys() {
   window.addEventListener('keydown', ev => {
@@ -394,7 +394,6 @@ function bindKeys() {
       return;
     }
     if (k === ' ') { if (!ev.repeat) jumpToAlert(); ev.preventDefault(); return; } // (held: one look, not a spin)
-    if (k === '.') { selectIdle(); return; }
     if (k === ',') { selectIdleFactory(); return; }
     if (k === 'p' || k === 'P') { stopGlide(); togglePause(); return; }
     if (k === 'Escape') { doCommand('esc'); return; }

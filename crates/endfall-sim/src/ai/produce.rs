@@ -53,7 +53,8 @@ impl World {
         // The gate's elite (the arc: the Expedition's Portal, its Android or Rover): while its Portal stands idle with an
         // Uplink open, the other factories hold an elite's price back, or the posts spend every coin first each turn and
         // the Portal never trains (`gate_hold`).
-        let gate_hold = self.gate_hold(e, &my_b) + self.launch_hold(e, t);
+        let gate_hold =
+            self.gate_hold(e, &my_b) + self.launch_hold(e, t) + self.siege_hold(e, &my_b, t);
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
         // cheaper machines fill the Power every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
@@ -119,8 +120,11 @@ impl World {
                         .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
             });
             let at_gate = Some(b.kind) == self.factions[e as usize].ai.tech2;
+            // (the vehicle bay's siege, the Kingdom's top tier, holds nothing back for a building either: its Cannons
+            // came at 14 minutes, the bay waiting on every Cottage and tower; the arc)
+            let siege_bay = s.heavy == Some(b.kind);
             let need = |k: UnitKind| {
-                if Some(k) == scout {
+                if Some(k) == scout || siege_bay {
                     k.def().cost
                 } else if at_gate {
                     need(k.def().cost)
@@ -154,8 +158,11 @@ impl World {
                         && k.def()
                             .req
                             .is_none_or(|r| self.ai_count(&my_b, true, r) >= 1)
-                        // (the gate's elites, at the Portal, whatever its line: the Expedition's late game; the arc)
-                        && (at_gate || (mine(self, k) + 1) * per <= mine(self, s.basic))
+                        // (the gate's elites, at the Portal, and the vehicle bay's siege, whatever its line: each people's
+                        // top tier; the arc)
+                        && (at_gate
+                            || s.heavy == Some(b.kind)
+                            || (mine(self, k) + 1) * per <= mine(self, s.basic))
                 })
                 .min_by_key(|&(k, per, _)| (mine(self, k) + 1) * self.answer_ratio(k, per));
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
@@ -254,6 +261,36 @@ impl World {
                 }
             }
         }
+    }
+
+    /// The gold `e`'s other factories hold back for its vehicle bay's siege (`AiScript::heavy`: the Kingdom's Workshop and
+    /// its Cannons, its top tier; the arc): while the bay stands idle and a siege unit of its mix is due (its time come,
+    /// its requirement standing, on a level that fields it), that unit's price; else 0. (Its Barracks spent every coin
+    /// first each turn, and its Cannons came at 14 minutes.)
+    pub(crate) fn siege_hold(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
+        let s = &self.factions[e as usize].ai;
+        let Some(heavy) = s.heavy else { return 0 };
+        let idle = my_b
+            .iter()
+            .filter_map(|&id| self.bldg(id))
+            .any(|b| b.kind == heavy && b.done && b.queue.is_empty());
+        if !idle {
+            return 0;
+        }
+        let level = self.level();
+        s.mix
+            .iter()
+            .map(|&m| level.mix_entry(m))
+            .filter(|&(k, _, from)| {
+                heavy.def().trains.contains(&k)
+                    && t >= from
+                    && self.level_allows(k)
+                    && k.def().req.is_none_or(|r| self.has_bldg(e, r))
+                    && k.def().weapon.is_some_and(|w| w.siege)
+            })
+            .map(|(k, _, _)| k.def().cost[0])
+            .min()
+            .unwrap_or(0)
     }
 
     /// The gold `e`'s factories hold back for its satellite (the arc: the Expedition's way to its late game; a tech is

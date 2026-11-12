@@ -337,6 +337,32 @@ fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_c
 }
 
 #[test]
+fn a_building_that_uses_no_power_goes_up_whatever_the_pools() {
+    // Over its cap (its use above what its buildings give, as after a lost Cottage or turbine), a seat still places
+    // the building that gives more: only a building that uses Power (the Portal) asks for room.
+    let mut w = rich(7);
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    w.pools[PLAYER as usize][Pool::Supply.index()] = [30, 20];
+    let (tx, ty) = spot(&w, BldgKind::Depot);
+    assert!(
+        w.place_building(PLAYER, BldgKind::Depot, tx, ty, None)
+            .is_ok(),
+        "the Kingdom's Cottage"
+    );
+    let mut w = expedition();
+    let used = w.sup(PLAYER)[0];
+    w.pools[PLAYER as usize][Pool::Supply.index()] = [used + 10, used];
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    assert!(
+        w.place_building(PLAYER, BldgKind::Spire, tx, ty, None)
+            .is_ok(),
+        "the Expedition's turbine"
+    );
+}
+
+#[test]
 fn the_android_is_a_slow_expensive_elite_machine_using_power() {
     let d = UnitKind::Umbra.def();
     let wp = d.weapon.unwrap();

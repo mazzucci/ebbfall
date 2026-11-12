@@ -426,9 +426,11 @@ impl World {
         !kind.def().single || !self.bldgs.iter().any(|b| b.team == team && b.kind == kind)
     }
 
-    /// Whether `team` has the Power `kind` uses while it stands (`BldgDef::uses`, the Portal), counted from placement.
+    /// Whether `team` has the Power `kind` uses while it stands (`BldgDef::uses`, the Portal), counted from placement;
+    /// always, for a kind that uses none (a seat over its cap, a lost building's, still builds its Cottage or turbine).
     pub fn power_room(&self, team: u8, kind: BldgKind) -> bool {
-        self.room(team, Pool::Supply) >= kind.def().uses
+        let uses = kind.def().uses;
+        uses <= 0 || self.room(team, Pool::Supply) >= uses
     }
 
     /// Cancel an unfinished building: it is removed and 75% of its cost comes back.

@@ -2110,7 +2110,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.page.waitForTimeout(300);
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Villager button pulses');
     await d.pressCard('Villager'); await d.pressCard('Villager');
-    await d.skip(30);
+    await d.skip(40); // (two Villagers, 18 s each)
     await d.hudText('#tut', /2\/8/);
     // Step 2: the new Villagers wait by the Castle: one selected, Gather pulses; both sent to the mine end the step.
     assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Gather, then the gold mine/);

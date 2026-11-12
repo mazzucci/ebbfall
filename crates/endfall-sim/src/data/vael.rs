@@ -65,7 +65,7 @@ pub const VAEL: Faction = Faction {
         // (its Factory half a minute sooner: its Rovers and Drones come from there)
         air_lead: 30.0,
         // (three more Sentry masts by 6:30: its defense while it goes for the Portal)
-        towers_more: &[240.0, 300.0, 390.0],
+        towers_more: &[],
     },
 };
 
@@ -81,7 +81,7 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     supply: 2, // (Power: 1 before the economy's second round, twice a Villager's place as every machine)
     mine_cap: 5,
-    mine_load: 12,
+    mine_load: 13,
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,
@@ -162,7 +162,7 @@ pub(super) const HALO: UnitDef = UnitDef {
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [300, 0],
+    cost: [250, 0],
     supply: 6, // (Power: 3 before the economy's second round)
     hp: 220.0,
     armor: 3.0,
@@ -186,7 +186,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
-    cost: [275, 0],
+    cost: [240, 0],
     supply: 8, // (Power: 4 before the economy's second round, 6 in it)
     hp: 220.0,
     armor: 1.0,
@@ -392,7 +392,7 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [150, 0],
+    cost: [125, 0],
     w: 3,
     h: 3,
     hp: 750.0,

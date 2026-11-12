@@ -34,6 +34,10 @@ const RELAY_GOAL_ROOM: f64 = 10.0;
 const RELAY_FRONT: f64 = 4.0;
 /// The push: machines kept home (their goal out of coverage) before the next Uplink goes up towards it.
 const PUSH_MACHINES: usize = 4;
+/// The push: how far (tiles) past its coverage's edge a goal may lie for its machines to go with the wave.
+const PUSH_REACH: f64 = 8.0;
+/// The push's next Uplink goes this many tiles inside its coverage's edge towards the goal.
+const PUSH_INSIDE: f64 = 3.0;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
@@ -401,7 +405,9 @@ impl World {
         // wave goes without them (else they stopped at the edge and the wave went in split); they go once coverage
         // reaches the goal (a forward Uplink).
         let seat = self.seat();
-        let covered = self.in_radio(seat, goal.0, goal.1);
+        // (near enough: the goal within `PUSH_REACH` tiles past its coverage's edge, where its machines strike it from
+        // inside: the Rover's rockets reach 12)
+        let covered = self.in_radio_by(seat, goal.0, goal.1, PUSH_REACH);
         let army: Vec<Id> = if covered {
             army
         } else {
@@ -410,7 +416,7 @@ impl World {
             let (machines, rest): (Vec<Id>, Vec<Id>) = army
                 .into_iter()
                 .partition(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
-            self.tend_push(&machines, goal);
+            self.tend_push(&machines, &rest, goal);
             rest
         };
         self.ai_launch_wave(&army, t, goal);
@@ -649,7 +655,7 @@ impl World {
     /// The push (the arc: "an Uplink, then the machines"): while its goal lies out of its coverage, its machines (kept
     /// out of the waves) wait at its forward-most Uplink on the way, and once it has `PUSH_MACHINES` of them it raises
     /// the next Uplink past its coverage's edge towards the goal (one site at a time, as the wave's leapfrog does).
-    fn tend_push(&mut self, machines: &[Id], goal: (f64, f64)) {
+    fn tend_push(&mut self, machines: &[Id], rest: &[Id], goal: (f64, f64)) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
             return;
@@ -673,6 +679,22 @@ impl World {
         }
         self.ai_mut().relay_off = false;
         self.raise_relay(machines, goal, false);
+        // (its site guarded: the army at home, idle, goes to stand by it while it rises)
+        if let Some((sx, sy)) = self
+            .ai()
+            .relay_site
+            .and_then(|id| self.bldg(id))
+            .filter(|b| !b.done)
+            .map(|b| (b.x, b.y))
+            && !self.ai().attacking
+        {
+            for &a in rest {
+                let u = self.u(a);
+                if matches!(u.task, Task::Idle) && dist(u.x, u.y, sx, sy) > 5.0 * TILE {
+                    self.attack_move(a, sx, sy);
+                }
+            }
+        }
     }
 
     /// One leapfrog Uplink (`AiScript::relay`): `RELAY_AHEAD` tiles past the edge of its coverage along the way from
@@ -723,7 +745,13 @@ impl World {
         else {
             return; // (covered all the way)
         };
-        let at = edge + RELAY_AHEAD * TILE;
+        // (a wave's leapfrog past the edge, where its front stands; the push just inside it, where its machines can
+        // guard the site from their coverage)
+        let at = if front_needed {
+            edge + RELAY_AHEAD * TILE
+        } else {
+            (edge - PUSH_INSIDE * TILE).max(TILE)
+        };
         if at > len - RELAY_GOAL_ROOM * TILE {
             return;
         }

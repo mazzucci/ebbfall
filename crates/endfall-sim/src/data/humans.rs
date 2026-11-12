@@ -64,7 +64,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     sight: 7.0,
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     mine_cap: 8,
-    mine_load: 9,
+    mine_load: 10,
     weapon: Some(Weapon {
         range: 0.6,
         dmg: 4.0,

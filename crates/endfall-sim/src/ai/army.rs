@@ -2042,7 +2042,9 @@ mod tests {
                 && at(1, 480.0, Umbra)
                 && at(1, 480.0, Knight)
         );
-        assert!(at(2, 0.0, Knight));
+        // (Hard, the menus' since Nov 13: its top tier from 6:00; the sim's level 3 from the start)
+        assert!(at(2, 0.0, Scythe) && !at(2, 350.0, Knight) && at(2, 360.0, Knight));
+        assert!(at(3, 0.0, Knight));
     }
 
     #[test]

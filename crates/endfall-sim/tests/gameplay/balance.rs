@@ -797,3 +797,65 @@ fn entrenched_probe() {
         println!("{name:>36}: {}", row.join("  "));
     }
 }
+
+#[test]
+#[ignore]
+fn basic_scaling_probe() {
+    // Do basic units scale too cheaply (Stelian, Nov 13)? For each people's basic mass against each people's top tier:
+    // the gold, as a share of the other side's, at which the basic mass starts winning: in the open against three of
+    // the top unit (`breakeven`), and against three siege units behind towers (`entrenched`, the share of the siege's
+    // own gold, the towers on top; swept 0.75x to 3x).
+    use UnitKind::*;
+    let lines: [(&str, &[UnitKind]); 2] = [
+        (
+            "Kingdom line (2 Guards, an Archer)",
+            &[Trooper, Trooper, Lancer],
+        ),
+        ("Expedition line (Sellswords)", &[Prism]),
+    ];
+    for (top, who) in [(Knight, "3 Knights"), (Umbra, "3 Androids")] {
+        for (name, line) in lines {
+            println!(
+                "open: {name} against {who}: wins from {:.2}x the gold",
+                breakeven(top, 3, line, no_micro)
+            );
+        }
+    }
+    let sieges = [
+        (
+            "3 Cannons + 2 Watchtowers",
+            PLAYER,
+            (SiegeTank, 3),
+            (BldgKind::Turret, 2),
+        ),
+        (
+            "3 Rovers + a Sentry mast",
+            ENEMY,
+            (Monolith, 3),
+            (BldgKind::Ward, 1),
+        ),
+    ];
+    for (who, def, siege, towers) in sieges {
+        let towers_gold = towers.0.def().cost[0] as f64 * towers.1 as f64;
+        let siege_gold = siege.0.def().cost[0] as f64 * siege.1 as f64;
+        for (name, line) in lines {
+            let mut from = None;
+            let mut r = 0.75;
+            while r <= 3.0 + 1e-9 {
+                if entrenched(def, siege, towers, line, r) < 0.0 {
+                    from = Some(r);
+                    break;
+                }
+                r += 0.25;
+            }
+            println!(
+                "entrenched: {name} against {who}: wins from {} the siege's gold ({} with the towers)",
+                from.map_or("over 3x".into(), |r| format!("{r:.2}x")),
+                from.map_or("—".into(), |r| format!(
+                    "{:.2}x",
+                    r * siege_gold / (siege_gold + towers_gold)
+                ))
+            );
+        }
+    }
+}

@@ -56,6 +56,11 @@ pub struct Diff {
     pub sighting_age: f64,
     pub look_for: f64,
     pub all_in_after: f64,
+    /// A stalled game (the PM, Nov 13: games that grind): from this game time, a seat whose side has razed no enemy
+    /// building for `STALL_WINDOW` seconds masses its next wave for up to `STALL_HOLD` seconds (to the cap, or until it
+    /// crushes the foe's army), never while the foe is at its buildings, then goes all in and fights to its last unit:
+    /// one decisive push instead of even waves traded for ever against Cannons and towers (NEVER: never; Easy).
+    pub stall_from: f64,
     /// A wave first gathers this many tiles short of its goal (0: it goes straight in) and goes in together once most
     /// of it is there, or after `stage_wait` seconds.
     pub stage: f64,
@@ -192,6 +197,7 @@ pub const DIFF: [Diff; 4] = [
         sighting_age: 120.0,
         look_for: 60.0,
         all_in_after: NEVER,
+        stall_from: NEVER,
         stage: 0.0,
         stage_wait: 30.0,
         passive_expand: NEVER,
@@ -249,6 +255,7 @@ pub const DIFF: [Diff; 4] = [
         sighting_age: 120.0,
         look_for: 60.0,
         all_in_after: 300.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
+        stall_from: 900.0,
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
@@ -301,6 +308,7 @@ pub const DIFF: [Diff; 4] = [
         sighting_age: 120.0,
         look_for: 60.0,
         all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
+        stall_from: 900.0,
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
@@ -358,6 +366,7 @@ pub const DIFF: [Diff; 4] = [
         sighting_age: 120.0,
         look_for: 60.0,
         all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
+        stall_from: 900.0,
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,

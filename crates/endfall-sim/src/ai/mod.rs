@@ -99,6 +99,12 @@ pub(crate) struct Ai {
     pub reached: bool,
     /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
     pub check: Option<crate::world::LaunchCheck>,
+    /// The enemy buildings its side had razed when it last saw the count grow, and when (`Diff::stall_from`).
+    pub razed: (u32, f64),
+    /// Whether its game has stalled (`World::stalled`), as of its last turn, and whether the wave out is a stalled
+    /// game's push (it fights to its last unit).
+    pub stall: bool,
+    pub push: bool,
 }
 
 impl World {
@@ -237,6 +243,9 @@ impl World {
             relay_hp: 0.0,
             relay_off: false,
             check: None,
+            razed: (0, 0.0),
+            stall: false,
+            push: false,
             reached: false,
             sweep: 0,
             sweep_since: 0.0,

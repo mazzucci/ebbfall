@@ -141,6 +141,30 @@ impl World {
         self.ai.get(seat as usize)?.as_ref()?.check
     }
 
+    /// Seat `seat`'s AI's state in one line (the balance lab's `trace`: why a game stalls; read by no rule): its wave
+    /// count, whether one is out and how many of it stand, its last wave's time, since when the next is ready, the
+    /// enemy army it expects (`army_seen`: worth, when), its reserve, guards and raiders.
+    #[doc(hidden)]
+    pub fn ai_trace(&self, seat: u8) -> Option<String> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        let left = a.attackers.as_ref().map_or(0, |v| {
+            v.iter().filter(|&&id| self.unit(id).is_some()).count()
+        });
+        Some(format!(
+            "wave {} out {} ({left}/{}) last {:.0} ready {} seen {:.0}@{:.0} res {} grd {} raid {}",
+            a.wave,
+            a.attacking,
+            a.wave_size,
+            a.last_wave,
+            a.ready_since.map_or("-".into(), |r| format!("{r:.0}")),
+            a.army_seen.0,
+            a.army_seen.1,
+            a.reserve.len(),
+            a.guards.len(),
+            a.raiders.len(),
+        ))
+    }
+
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
     pub fn ai_turns(&self) -> Vec<u32> {
         self.ai

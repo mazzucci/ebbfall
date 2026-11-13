@@ -126,7 +126,7 @@ export function makeExpeditionMats(tc, polish = false) {
   M.camo = std({ color: 0x9a9e98, map: camoTex, roughness: 0.9 });                                                   // the Marine's urban camouflage: gray-charcoal blotches (Stelian: camouflage, slimmer)
   M.camoTan = std({ color: 0xc2aa80, map: camoTex, roughness: 0.9 });                                                // the Marine's tan desert camouflage (the last art round: not green, so it never vanishes on grass)
   M.panelLight = std({ color: 0x9ea29a, map: shellTex, metalness: P.metal, roughness: P.rough });                     // lighter painted shells: the Bot, Buggy and Rover (the last art round: lighter paint, more team)
-  M.tyrePale = std({ color: 0x8e908a, map: M.rubber.map, roughness: 0.9, metalness: 0.05 });                          // the Buggy's big pale wheels (the units family: the Buggy must part from the Bot in a crowd)
+  M.tyrePale = std({ color: 0x9a9c96, roughness: 0.9, metalness: 0.05 });                                              // the Buggy's big pale wheels (the units family: the Buggy must part from the Bot in a crowd; plain since the art polish: the tread map's near-black base took them to a quarter of this)
   M.brightSteel = std({ color: 0xc8ccd0, metalness: 0.6, roughness: 0.35 });                                           // the Buggy's bull bar: its brightest element
   // the art polish (2026-11-13): each machine its own non-team base color, team on the trim only
   M.shellWhite = std({ color: 0xdcdedb, map: shellTex, metalness: 0.2, roughness: 0.55 });                            // the Bot's white shell
@@ -283,6 +283,8 @@ export function buggy(M, f) {
   add(b, rbox(22, 2.2, 10, 0.9), M.khakiDark, 0, 0, 0);                                        // the chassis tub, a darker khaki (the art polish: a sand-khaki machine, team on the trim; charcoal and light gray with team panels until then)
   add(b, rbox(21.2, 1.2, 9.4, 0.5), M.khaki, 0, 1.5, 0);                                       // the body panel over it, khaki
   add(b, rbox(7.0, 1.2, 8.8, 0.5), M.khaki, 7.2, 2.3, 0, 0, 0, -0.1);                            // the bonnet, sloping down ahead
+  add(b, rbox(1.4, 0.5, 8.4, 0.15), M.paint, 10.2, 2.6, 0, 0, 0, -0.1); add(b, rbox(1.6, 0.2, 8.6, 0.05), M.inkLine, 10.2, 2.4, 0, 0, 0, -0.1); // a team stripe across the bonnet's front edge
+  for (const z of [-2.9, 2.9]) { add(b, rbox(5.4, 0.5, 0.9, 0.15), M.paint, -1.75, 7.2, z); add(b, rbox(5.6, 0.2, 1.1, 0.05), M.inkLine, -1.75, 7.0, z); } // and along the roof panel's long edges (the trim seen from above)
   for (const z of [-5.0, 5.0]) { add(b, rbox(18, 1.4, 0.6, 0.1), M.paint, -1, 1.2, z); add(b, rbox(18.2, 0.25, 0.65, 0.05), M.inkLine, -1, 2.0, z); add(b, rbox(18.2, 0.25, 0.65, 0.05), M.inkLine, -1, 0.4, z); } // a team stripe along each door, between trims
   for (const z of [-5.0, 5.0]) { add(b, rbox(16, 0.5, 1.2, 0.1), M.paint, -1, 2.3, z * 0.86); add(b, rbox(16.2, 0.2, 1.4, 0.05), M.inkLine, -1, 2.5, z * 0.86); } // and along the body's top edges
   for (const z of [-2.8, 2.8]) led(b, M, 0.6, 11.0, 2.6, z);                                     // the headlights, white

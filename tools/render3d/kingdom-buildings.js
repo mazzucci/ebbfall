@@ -45,14 +45,14 @@ export function kbMats(M) {
   M.rail = std({ color: 0xe8e4da, roughness: 0.85 });                                        // the yard's solid white rails
   M.boards = std({ color: 0xb09672, map: plankTex, bumpMap: plankBump, bumpScale: 1.2, roughness: 0.88 }); // pale plank walls: the Workshop's one timber mass
   M.post = std({ color: 0x7a5a38, map: M.timber.map, roughness: 0.85 });                      // mid-brown posts and beams (the hip-roof Cottage's `beam`)
-  M.tile = std({ color: 0xa8664a, map: tileTex, roughness: 0.9 });                            // terracotta tiles: the Blacksmith's roof (a muted brick: 0xc27a56 came out orange under the key)
+  M.tile = std({ color: 0x86563e, map: tileTex, roughness: 0.92 });                           // terracotta tiles: the Blacksmith's roof (a muted brick: 0xc27a56 and 0xa8664a both came out bright orange under the key and the S-curve)
   M.fireHalo = new THREE.MeshBasicMaterial({ color: 0xff9a40, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }); // the forge's glow in the air over the hearth
   M.doorPale ??= std({ color: 0xa88a60, map: M.timber.map, roughness: 0.8 });                 // a door in pale timber (the Cottage's)
   if (M.polish) {
     const X = polishTextures();
     M.thatch.map = hiThatchTex(); M.thatch.color.setHex(0x5e5a48); M.thatch.needsUpdate = true;   // the courses drawn for 1x; the color a step cooler than the plain 0x6e6448 (the judge: 0x665e48 was the one warm hue on the kingdom base), a dull gray straw under the polish's key, never orange beside the coins' gold
     M.straw.bumpMap = X.fold; M.straw.bumpScale = 0.5; M.straw.needsUpdate = true;
-    M.strawRoof.map = hiThatchTex(); M.strawRoof.color.setHex(0xb08c58); M.strawRoof.needsUpdate = true;                             // the courses drawn for 1x, the straw kept warm
+    M.strawRoof.map = hiThatchTex(); M.strawRoof.color.setHex(0xa6865a); M.strawRoof.needsUpdate = true;                             // the courses drawn for 1x, the straw kept warm
     M.boards.bumpScale = 1.8; M.boards.needsUpdate = true;
     M.horsePale.map = X.hide; M.horsePale.needsUpdate = true;
     M.anvil.roughness = 0.3; M.anvil.envMapIntensity = 2.0; M.anvil.bumpMap = X.scuff; M.anvil.bumpScale = 0.3; M.anvil.needsUpdate = true; // one glint on the anvil's face under the key

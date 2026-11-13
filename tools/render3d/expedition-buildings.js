@@ -639,7 +639,7 @@ export function windTurbine(M) {
   ebMats(M); turbineMats(M); sentryMats(M); const g = grp();
   add(g, cyl(9, 10, 4.6, 20), M.paleArmor, 0, 2.3, 0); add(g, cyl(10.2, 10.2, 0.6, 20), M.inkLine, 0, 0.3, 0);          // the squat base: a pale drum (the art polish)
   turbineMast(g, M, 0, 0, TURBINE_H, TURBINE_R, TURBINE_YAW, M.polish);
-  flag(g, M, -15, 0, -12, 26, 28, 16);                                                                                   // the team flag, a tile wide
+  flag(g, M, -15, 0, -12, 26, 20, 12);                                                                                   // the team flag (a tile-wide one took the thin turbine's share to a third)
   return g;
 }
 /** The Wind turbine's rotor at `phase` (0 to 2 pi / 3: three blades repeat every third of a turn), the turning head
@@ -696,7 +696,7 @@ export function uplink(M) {
   add(g, cyl(3.4, 4.2, DISH_ELBOW - 2 - 2.6, 14), M.steel, 0, 2.6 + (DISH_ELBOW - 2 - 2.6) / 2, 0);                        // the column
   add(g, sph(4.6, 14, 10), M.joint, 0, DISH_ELBOW, 0);                                                                   // the elbow
   cyanLed(g, M, 0.7, 6.5, 2.2, 8.4);                                                                                     // a small light on the base plate's rim
-  flag(g, M, 7.5, 2.6, 6.5, 22, 26, 15);                                                                                   // the one team flag, on the dish's mount (the art polish: on the base plate by the column, a tile wide; out on the ground until then)
+  flag(g, M, 7.5, 2.6, 6.5, 22, 18, 11);                                                                                   // the one team flag, on the dish's mount (the art polish: on the base plate by the column, a tile wide; out on the ground until then)
   if (M.polish) add(g, torus(4.4, 0.35, 14), M.paleSteel, 0, 3.6, 0, Math.PI / 2, 0, 0);                      // a collar on the column
   return g;
 }
@@ -1108,14 +1108,14 @@ const VORTEX_R = 19, VORTEX_Y = 26;                                             
  *  lower sides; a dark sheet fills it behind the vortex (the head `vortexSpin`); the team flag beside it, a tile wide. */
 export function vortex(M) {
   ebMats(M); sentryMats(M); const g = grp();
-  if (!M.hole) { M.hole = std({ color: 0x0a0c12, roughness: 1, metalness: 0 }); M.ringWhite = std({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }); M.vortexSheet = std({ color: 0x0c7090, emissive: 0x20c0f0, emissiveIntensity: 1.2, roughness: 0.6 }); M.vortexHalo = new THREE.MeshBasicMaterial({ color: 0x30d0ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }); M.vortexWhite = std({ color: 0xffffff, emissive: 0xe0f8ff, emissiveIntensity: 2.2 }); }
+  if (!M.hole) { M.hole = std({ color: 0x0a0c12, roughness: 1, metalness: 0 }); M.ringWhite = std({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }); M.vortexSheet = std({ color: 0x043a52, emissive: 0x0a90c8, emissiveIntensity: 0.55, roughness: 0.8 }); M.vortexHalo = new THREE.MeshBasicMaterial({ color: 0x20b8f0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false }); M.vortexWhite = std({ color: 0x80d8ff, emissive: 0x70dcff, emissiveIntensity: 1.0 }); } // (rounds 1 and 2 came out a white disc under the finish's S-curve: a deep cyan sheet at half the glow, cyan arms, a faint halo) // (the first round came out a white disc under the finish: a deeper cyan sheet, pale cyan arms, a fainter halo)
   add(g, cyl(15, 16, 3.0, 24), M.steel, 0, 1.5, 0); add(g, cyl(16.2, 16.2, 0.5, 24), M.inkLine, 0, 0.3, 0);               // the pedestal: a steel drum
   add(g, rbox(20, 4.0, 12, 1.0), M.paleArmor, 0, 5.0, 0);                                                                // a pale block over it
   for (const sx of [-1, 1]) limb(g, [sx * 7, 6.5, 0], [sx * VORTEX_R * 0.72, VORTEX_Y - VORTEX_R * 0.7, 0], 2.2, M.paleArmor); // two legs up to the ring's lower sides
   add(g, torus(VORTEX_R, 3.2, 48), M.ringWhite, 0, VORTEX_Y, 0);                                                        // the ring, standing to face the camera, thick
   add(g, torus(VORTEX_R - 2.6, 0.6, 48), M.neon, 0, VORTEX_Y, 1.4); add(g, torus(VORTEX_R - 2.6, 1.4, 48), M.neonHalo, 0, VORTEX_Y, 1.4); // the cyan neon round its inner edge
   add(g, cyl(VORTEX_R - 2.2, VORTEX_R - 2.2, 0.6, 48), M.hole, 0, VORTEX_Y, -1.2, Math.PI / 2, 0, 0);                    // the dark sheet behind the vortex
-  flag(g, M, -VORTEX_R - 4, 0, 8, 24, 26, 15);
+  flag(g, M, -VORTEX_R - 4, 0, 8, 24, 20, 12);
   return g;
 }
 /** The vortex (the head at `phase`): a bright cyan disc standing in the ring, three arms of white-cyan light spiraling
@@ -1127,9 +1127,9 @@ export function vortexSpin(M, phase = 0) {
   add(v, cyl(R, R, 0.5, 48), M.vortexSheet, 0, 0, 0, Math.PI / 2, 0, 0);                                                 // the cyan disc
   for (let arm = 0; arm < 3; arm++) for (let k = 0; k < 7; k++) {
     const t = k / 6, th = arm * Math.PI * 2 / 3 + t * 3.2, rho = R * (0.18 + 0.72 * t), w = 2.4 - 1.2 * t;
-    add(v, rbox(rho * 0.5 + 1.5, w, 0.6, 0.3), k < 3 ? M.vortexWhite : M.neonCore, Math.cos(th) * rho, Math.sin(th) * rho, 0.5, 0, 0, th + Math.PI / 2 + 0.35);
+    add(v, rbox(rho * 0.5 + 1.5, w, 0.6, 0.3), k < 3 ? M.vortexWhite : M.neon, Math.cos(th) * rho, Math.sin(th) * rho, 0.5, 0, 0, th + Math.PI / 2 + 0.35);
   }
-  add(v, sph(R * 0.22, 16, 12), M.vortexWhite, 0, 0, 0.5).scale.set(1, 1, 0.4);                                           // the white core
+  add(v, sph(R * 0.16, 16, 12), M.vortexWhite, 0, 0, 0.5).scale.set(1, 1, 0.4);                                           // the pale core
   add(v, cyl(R * 1.08, R * 1.08, 0.6, 48), M.vortexHalo, 0, 0, 0.3, Math.PI / 2, 0, 0);                                   // the halo
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return g;

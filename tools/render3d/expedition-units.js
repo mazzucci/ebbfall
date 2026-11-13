@@ -132,7 +132,7 @@ export function android(M, f) {
   add(b, cyl(1.25, 1.35, 1.8, 12), M.joint, 0, 8.3, 0);                                          // the waist: a narrow dark cylinder, the gap that reads as a machine
   add(b, rbox(3.4, 1.4, 4.0, 0.5), A.plateGrey, 0.1, 9.4, 0);                                    // the lower chest, gray, narrower
   add(b, rbox(5.2, 4.4, 7.2, 1.2), A.plate, 0.3, 11.5, 0);                                       // the chest shell, white and wide (the art polish: the Android's one big block)
-  add(b, rbox(4.6, 0.3, 6.2, 0.1), M.inkLine, 0.2, 9.45, 0);                                     // an ink line under it
+  add(b, rbox(5.3, 1.1, 7.3, 0.2), M.paint, 0.3, 9.6, 0); add(b, rbox(5.4, 0.3, 7.4, 0.1), M.inkLine, 0.3, 10.2, 0); add(b, rbox(5.4, 0.3, 7.4, 0.1), M.inkLine, 0.3, 9.0, 0); // a team band along the chest plate's foot, between ink lines (the trim)
   add(b, rbox(1.6, 3.4, 3.6, 0.5), M.joint, -2.8, 11.4, 0);                                      // the power pack on the back, slim and dark
   for (const sz of [-1, 1]) {                                                                    // the shoulders: a dark ball joint under a team pad between ink lines (the Marine's pads' size)
     add(b, sph(1.3, 10, 8), M.joint, 0.3, 12.7, sz * 3.4);
@@ -168,7 +168,7 @@ export function android(M, f) {
  *  than the Marine and the Sellsword. From the camera: a wide dark figure with a big pale-framed plate beside it and
  *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march. */
 export function veteran(M, f) {
-  const g = grp(), st = [3.0, -3.0][f % 2];
+  const A = fam(M), g = grp(), st = [3.0, -3.0][f % 2];
   for (const side of [-1, 1]) {                                                                  // a wide stance, heavy legs in dark trousers with steel greaves
     const z = side * 2.8, s = st * side;
     add(g, rbox(4.0, 1.7, 2.6, 0.6), M.boot, s + 0.6, 0.85, z);
@@ -307,6 +307,7 @@ export function launcher(M, f) {
   for (const z of [-6.55, 6.55]) { add(b, rbox(22, 1.6, 0.5, 0.1), M.paint, -1, 2.5, z); add(b, rbox(22.2, 0.3, 0.55, 0.05), M.inkLine, -1, 3.45, z); add(b, rbox(22.2, 0.3, 0.55, 0.05), M.inkLine, -1, 1.55, z); } // a team stripe along each skirt between ink lines
   // the cab at the bow: a low white block, a cyan visor strip across its front with a cyan halo, a team panel on its roof
   add(b, rbox(6.4, 4.2, 9.0, 1.0), A.plate, 9.6, 6.2, 0);
+  add(b, rbox(1.2, 0.6, 8.6, 0.2), M.paint, 12.2, 8.5, 0); add(b, rbox(1.4, 0.2, 8.8, 0.05), M.inkLine, 12.2, 8.3, 0);   // a team stripe along the cab roof's front edge (the roof panel went with the art polish)
   add(b, rbox(1.0, 2.6, 7.6, 0.3), A.visor, 12.7, 6.9, 0, 0, 0, -0.25); add(b, sph(3.6, 8, 6), A.visorHalo, 13.6, 6.9, 0).scale.set(0.4, 0.5, 1);
   add(b, rbox(1.2, 2.0, 12.0, 0.3), M.paint, 13.9, 2.8, 0); add(b, rbox(1.3, 0.3, 12.2, 0.1), M.inkLine, 13.9, 3.95, 0); add(b, rbox(1.3, 0.3, 12.2, 0.1), M.inkLine, 13.9, 1.65, 0); // the bumper bar at the bow, team between ink lines
   // the launcher over the back: a dark turntable, then the box of tubes pitched up ahead (0.45 rad), its rear resting
@@ -338,6 +339,7 @@ export function drone(M, f) {
   const g = grp(), FY = 15, b = grp(); b.position.y = FY; g.add(b);                              // (FY 19 until the art polish: lower, so its shadow sits closer under it)
   add(b, rbox(10.4, 2.4, 8.4, 1.0), M.gunmetal, 0, 0, 0);                                        // the body: one solid gunmetal block reaching between the rotors (the art polish; a small charcoal box on long arms until then)
   add(b, rbox(5.0, 0.6, 4.0, 0.2), M.panelDark, -0.6, 1.4, 0);                                   // its top hatch
+  add(b, rbox(4.2, 0.4, 3.2, 0.15), M.paint, -0.6, 1.85, 0); add(b, rbox(4.5, 0.2, 3.5, 0.05), M.inkLine, -0.6, 1.7, 0); // a team panel on the hatch, seen from above
   for (const z of [-3.6, 3.6]) { add(b, rbox(9.0, 0.6, 1.0, 0.1), M.paint, 0, 1.3, z); add(b, rbox(9.2, 0.2, 1.2, 0.05), M.inkLine, 0, 1.0, z); } // a team stripe along each flank's top edge: the trim
   led(b, M, 0.5, 2.7, 0.2, 0);                                                                   // the nose light
   add(b, sph(1.3, 10, 8), M.joint, 1.0, -1.6, 0);                                                // the camera pod

@@ -82,8 +82,9 @@ pub struct Diff {
     pub wave_only: bool,
     pub retreat_any: bool,
     pub give_up: usize,
-    /// Until when (s) those clumsy waves last: past it (Easy: 12:00) its waves are whole armies that pull back as every
-    /// level's do (`Diff::at`), so its games end (with its waves at three or four for good, Easy against Easy, and
+    /// Until when (s) those clumsy waves last: past it (Easy: 12:00), once a wave of its has reached the foe (`Ai::reached`:
+    /// a newcomer's first hit stays a clumsy one), its waves are whole armies that pull back as every level's do
+    /// (`Diff::at`), so its games end (with its waves at three or four for good, Easy against Easy, and
     /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
     pub clumsy_until: f64,
     /// The most advanced units it trains from the start (`UnitKind::ai_tier`): 0 its line units and the scout (Easy),

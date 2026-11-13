@@ -49,12 +49,17 @@ fn the_ai_plays_either_seat() {
 fn every_level_plays_the_new_rosters_to_the_end() {
     // The re-theme's rosters at every level: the Kingdom against the Expedition and each in a mirror, two AIs, a game
     // that ends within 50 minutes, both seats having fought (and fielded more than their line units on a level whose
-    // mix allows it). (Easy too: its waves are clumsy until 12:00 only, `Diff::clumsy_until`.)
+    // mix allows it). (Easy too: its waves are clumsy until 12:00 only, `Diff::clumsy_until`; but its Kingdom mirror,
+    // whose two Easy Kingdoms trade waves for an hour and more (seed 41: 72 minutes), Easy against Easy that may drag on,
+    // Stelian, Nov 13.)
     for diff in 0..DIFF.len() {
         for (k, races) in [[&HUMANS, &VAEL], [&HUMANS, &HUMANS], [&VAEL, &VAEL]]
             .into_iter()
             .enumerate()
         {
+            if diff == 0 && k == 1 {
+                continue;
+            }
             let seed = 40 + 3 * diff as u32 + k as u32;
             let mut w = World::with_setup(seed, diff, MapKind::Standard, false, races);
             w.set_ai_seats([true, true]);

@@ -47,6 +47,8 @@ const HELD_QUIET: f64 = 20.0;
 /// A wave out this long (s) whose every unit has been quiet (neither firing nor hit) as long is over, wherever it stands
 /// (a wave of two left standing short of the foe's base for eight minutes kept a winning army of 6,000 at home).
 const WAVE_QUIET: f64 = 90.0;
+/// A wave has reached the foe once one of its units comes this near (px) a building of the foe it knows (`Ai::reached`).
+const REACHED: f64 = 8.0 * TILE;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
@@ -1262,6 +1264,16 @@ impl World {
         };
         let stalled = alive.iter().all(|&a| held(self, a))
             || (t - ai.last_wave > WAVE_QUIET && alive.iter().all(|&a| quiet(self, a)));
+        if !ai.reached {
+            let reached = alive.iter().any(|&a| {
+                let u = self.u(a);
+                self.ai()
+                    .known
+                    .iter()
+                    .any(|k| dist(u.x, u.y, k.1, k.2) < REACHED)
+            });
+            self.ai_mut().reached = reached;
+        }
         if alive.is_empty() {
             self.no_growth_after_giving_up(); // (all of it fell: it met more than it could take)
             self.ai_mut().attacking = false;
@@ -2252,6 +2264,18 @@ mod tests {
         }
         w.ai_army(&mut b);
         assert!(!w.ai().attacking, "over");
+    }
+
+    #[test]
+    fn easy_stays_clumsy_until_a_wave_has_reached_the_foe() {
+        // Past 12:00 Easy's waves stay clumsy until one of them has come within reach of a building of the foe it knows
+        // (`Ai::reached`): a newcomer's first hit is three or four units however late it comes (the lab's newcomer:
+        // in 22 of 77 games the first wave to arrive, after 12:00, was a whole army of up to 38).
+        let (mut w, _, _) = ready_with(0, DIFF[0]);
+        w.time = 800.0;
+        assert!(w.level().wave_only, "past 12:00, not reached yet: clumsy");
+        w.ai_mut().reached = true;
+        assert!(!w.level().wave_only, "reached: whole armies");
     }
 
     #[test]

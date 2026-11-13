@@ -10,12 +10,12 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub const TPS: u32 = 30;
-/// The AI levels by the sim's index. The menus offer Easy, Medium and Hard, which is the sim's level 3 (src/engine/
-/// util.js `LEVELS`); the sim's level 2 is kept in its table and here ("Hard2"), not offered. ("Brutal" still reads
-/// as Hard on the command line.)
-pub const LEVELS: [&str; 4] = ["Easy", "Medium", "Hard2", "Hard"];
-/// The menus' Hard: the sim's level 3.
-pub const HARD: usize = 3;
+/// The AI levels by the sim's index. The menus offer Easy, Medium and Hard, which is the sim's level 2 since Nov 13
+/// (src/engine/util.js `LEVELS`); the sim's level 3 is kept in its table and here ("Hard3"; "Brutal" on the command
+/// line too), not offered.
+pub const LEVELS: [&str; 4] = ["Easy", "Medium", "Hard", "Hard3"];
+/// The menus' Hard: the sim's level 2.
+pub const HARD: usize = 2;
 
 /// What a cell measures: both seats at one level, a level against the one below it, or Hard against a lower level
 /// (`Cross`: does Hard finish its games?).
@@ -77,8 +77,8 @@ pub struct Batch {
     /// The two mirrors (each people against itself) in each level's cells; `--no-mirrors` plays the Kingdom against
     /// the Expedition alone, half the games (each game is seeded by its cell and seed, so the others are the same).
     pub mirrors: bool,
-    /// Hard (`HARD`) against each lower level of the batch's on 96x96 Standard (`Kind::Cross`): every pairing of the
-    /// peoples, Hard in either seat; `--no-cross` leaves them out.
+    /// Each level of the batch's against each higher one, Hard (`HARD`) included, on 96x96 Standard (`Kind::Cross`):
+    /// every pairing of the peoples, the higher level in either seat; `--no-cross` leaves them out.
     pub cross: bool,
 }
 
@@ -149,9 +149,24 @@ impl Batch {
                     }
                 }
                 if self.cross && size == 96 && map == MapKind::Standard {
-                    for &l in self.levels.iter().filter(|&&l| l < HARD) {
+                    // (each pair of a level of the batch's and a higher one, Hard included: the ladder's steps, Easy to
+                    // Medium and Medium to Hard, and Hard against Easy)
+                    let mut his: Vec<usize> = self.levels.clone();
+                    his.push(HARD);
+                    his.sort_unstable();
+                    his.dedup();
+                    let pairs: Vec<(usize, usize)> = his
+                        .iter()
+                        .flat_map(|&hi| {
+                            self.levels
+                                .iter()
+                                .filter(move |&&lo| lo < hi)
+                                .map(move |&lo| (hi, lo))
+                        })
+                        .collect();
+                    for (hi, l) in pairs {
                         for races in [[h, v], [v, h], [h, h], [v, v]] {
-                            for levels in [[HARD, l], [l, HARD]] {
+                            for levels in [[hi, l], [l, hi]] {
                                 out.push(Cell {
                                     kind: Kind::Cross,
                                     map,

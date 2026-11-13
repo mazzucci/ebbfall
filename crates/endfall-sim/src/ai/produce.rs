@@ -637,6 +637,48 @@ mod tests {
     }
 
     #[test]
+    fn the_portal_s_lost_uplink_is_raised_again_at_home_inside_coverage() {
+        // The gate's lifeline (the Uplink its Portal trains with): with the Portal standing and no Uplink, the build
+        // order wants one again; and the Portal's Uplink is sited at home, on the way to the foe inside its coverage
+        // (a lone forward one fell to the first wave, the Portal idle for good).
+        let mut w = World::with_size(
+            1,
+            1,
+            crate::map::MapKind::Standard,
+            crate::map::MapSize::square(96),
+            0,
+            &[&HUMANS, &VAEL],
+        );
+        w.ai_turn = ENEMY;
+        w.time = 900.0;
+        let (bx, by) = w.map.bases[ENEMY as usize];
+        let sx = if bx > 48 { -8 } else { 8 };
+        w.make_building(BldgKind::Loom, ENEMY, bx + sx, by, true);
+        w.make_building(BldgKind::Eclipse, ENEMY, bx + sx, by + 6, true);
+        w.refresh_radio(true);
+        let my_b: Vec<_> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY)
+            .map(|b| b.id)
+            .collect();
+        assert_eq!(
+            w.tech2_due(ENEMY, &my_b, 900.0),
+            Some(BldgKind::Uplink),
+            "the Portal's Uplink again"
+        );
+        let goal = w.attack_target();
+        let (hx, hy) = w.relay_home_point(goal).expect("a home point");
+        assert!(w.in_radio(ENEMY, hx, hy), "inside its coverage");
+        let home = ((bx as f64 + 2.0) * 32.0, (by as f64 + 2.0) * 32.0);
+        let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
+        assert!(
+            d((hx, hy), goal) < d(home, goal),
+            "on the way towards the foe"
+        );
+    }
+
+    #[test]
     fn a_plan_s_tech_from_brings_its_side_s_tech_time_forward() {
         // The balance lab's tech-first plan (`Diff::tech_from`): its seat's tech time is the plan's when sooner than its
         // people's own; the other seat keeps its level's.

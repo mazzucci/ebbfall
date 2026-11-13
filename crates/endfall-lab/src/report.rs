@@ -238,18 +238,28 @@ impl Report {
             .sum();
         (median(&all), timeouts, cells().map(|(_, g)| g.len()).sum())
     }
-    /// Hard (`HARD`) against `low` (`Kind::Cross` cells): Hard's wins of all games (a timeout is not a win), the median
-    /// length of all games with a timeout counted at the cap, and the timeouts.
-    fn cross(&self, low: usize) -> (Rate, Option<f64>, usize) {
+    /// Level `hi` against `low` (`Kind::Cross` cells; `pairing`: (higher's people, lower's), None for all): the higher
+    /// level's wins of all games (a timeout is not a win), the median length of all games with a timeout counted at the
+    /// cap, and the timeouts.
+    fn cross(
+        &self,
+        hi: usize,
+        low: usize,
+        pairing: Option<(usize, usize)>,
+    ) -> (Rate, Option<f64>, usize) {
         let mut r = Rate {
-            of: format!("Hard wins against {}", LEVELS[low]),
+            of: format!("{} wins against {}", LEVELS[hi], LEVELS[low]),
             k: 0,
             n: 0,
         };
         let (mut len, mut timeouts) = (Vec::new(), 0);
         for (c, g) in self.level_cells(|c| {
-            c.kind == Kind::Cross && c.levels.contains(&HARD) && c.levels.contains(&low)
+            c.kind == Kind::Cross && c.levels.contains(&hi) && c.levels.contains(&low)
         }) {
+            let hs = (c.levels[1] == hi) as usize;
+            if pairing.is_some_and(|(a, b)| c.races[hs] != a || c.races[1 - hs] != b) {
+                continue;
+            }
             for g in g {
                 r.n += 1;
                 r.k += g.winner.is_some_and(|w| rate_seat(c, w)) as usize;
@@ -259,12 +269,13 @@ impl Report {
         }
         (r, median(&len), timeouts)
     }
-    fn cross_levels(&self) -> Vec<usize> {
-        let mut l: Vec<usize> = self
+    /// The (higher, lower) level pairs of the cross cells, in order.
+    fn cross_pairs(&self) -> Vec<(usize, usize)> {
+        let mut l: Vec<(usize, usize)> = self
             .cells
             .iter()
             .filter(|c| c.kind == Kind::Cross)
-            .map(|c| c.levels[0].min(c.levels[1]))
+            .map(|c| (c.levels[0].max(c.levels[1]), c.levels[0].min(c.levels[1])))
             .collect();
         l.sort_unstable();
         l.dedup();
@@ -380,8 +391,8 @@ impl Report {
         }
         // Hard finishes its games (Stelian, Nov 13): against Easy decisively (90%+ of the games won, the median length,
         // timeouts at the cap, 15:00 or less), against Medium it ends rather than grinds (timeouts 5% or less).
-        for low in self.cross_levels() {
-            let (r, len, timeouts) = self.cross(low);
+        for (hi, low) in self.cross_pairs().into_iter().filter(|&(hi, _)| hi == HARD) {
+            let (r, len, timeouts) = self.cross(hi, low, None);
             let detail = format!(
                 "Hard won {} of {}: {}; median length {} (timeouts at the cap); {timeouts} timeouts",
                 r.k,
@@ -389,6 +400,19 @@ impl Report {
                 r.show(),
                 mmss(len.unwrap_or(f64::NAN))
             );
+            if low == 1 {
+                // (the step from Medium: a ladder, not a wall; the PM, Nov 13)
+                out.push(Check {
+                    name: "Medium to Hard, a step not a wall, on 96".into(),
+                    pass: (0.75..=0.9).contains(&r.p()),
+                    detail: format!(
+                        "Hard won {} of {}: {} (about 75–90% wanted)",
+                        r.k,
+                        r.n,
+                        r.show()
+                    ),
+                });
+            }
             out.push(if low == 0 {
                 Check {
                     name: "Hard beats Easy decisively on 96".into(),
@@ -655,6 +679,29 @@ impl Report {
                         "| {} | {size} | {} | {t} of {n} |",
                         LEVELS[l],
                         mmss(m.unwrap_or(f64::NAN))
+                    );
+                }
+            }
+        }
+        let pairs = self.cross_pairs();
+        if !pairs.is_empty() {
+            let _ = writeln!(
+                s,
+                "\n## Between the levels (96x96)\n\nThe higher level's wins of all its games against the lower (a timeout is not a win), and the median length with timeouts at the cap, by the peoples (the higher level's first), Hard in either seat. A step near 100% while the one below is gentle is a cliff.\n\n| Higher | Lower | Peoples | Higher wins | Median length | Timeouts |\n| --- | --- | --- | --- | --- | --- |"
+            );
+            for (hi, low) in pairs {
+                for pairing in [None, Some((0, 1)), Some((1, 0)), Some((0, 0)), Some((1, 1))] {
+                    let (r, len, t) = self.cross(hi, low, pairing);
+                    let peoples = pairing.map_or("all".to_string(), |(a, b)| {
+                        format!("{} v {}", FACTIONS[a].name, FACTIONS[b].name)
+                    });
+                    let _ = writeln!(
+                        s,
+                        "| {} | {} | {peoples} | {} | {} | {t} |",
+                        LEVELS[hi],
+                        LEVELS[low],
+                        r.show(),
+                        mmss(len.unwrap_or(f64::NAN))
                     );
                 }
             }

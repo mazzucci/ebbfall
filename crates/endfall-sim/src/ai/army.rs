@@ -33,6 +33,8 @@ pub const GUIDED_ARMY_AFTER: usize = 3;
 /// nearer its goal than `RELAY_GOAL_ROOM` tiles; a wave's own, once the wave's front is within `RELAY_FRONT` tiles of
 /// that spot (or past it).
 const RELAY_COVER_ROOM: f64 = 8.0;
+/// The Portal's Uplink goes no farther than this many tiles inside the edge of its side's coverage (`relay_home_point`).
+const RELAY_HOME_INSIDE: f64 = 4.0;
 const RELAY_GOAL_ROOM: f64 = 10.0;
 const RELAY_FRONT: f64 = 4.0;
 /// The push: machines kept home (their goal out of coverage) before the next Uplink goes up towards it.
@@ -883,6 +885,31 @@ impl World {
             return None;
         }
         Some((at, len, way[((at / TILE) as usize).min(way.len() - 1)]))
+    }
+
+    /// Where the seat taking its turn raises the Uplink its Portal trains with: on the walkers' way to `goal` (px), at
+    /// its forward point (`relay_point`) if that lies inside its coverage, else `RELAY_HOME_INSIDE` tiles inside the
+    /// edge of its coverage on the way (in its base, where its army and towers hold it: a lone forward Uplink at
+    /// midfield fell to the first wave, and the Portal with it). None where the way is too short.
+    pub(crate) fn relay_home_point(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64)> {
+        let seat = self.seat();
+        let tower = self.factions[seat as usize].ai.relay?;
+        let reach = radio::range_of(tower) * TILE;
+        let way = self.relay_way(self.rally_or_home(), (gx, gy));
+        if way.len() < 2 {
+            return None;
+        }
+        let len = way.len() as f64 * TILE;
+        let edge = way
+            .iter()
+            .position(|&(x, y)| !self.in_radio(seat, x, y))
+            .map_or(len, |i| i as f64 * TILE);
+        let cover = way
+            .iter()
+            .position(|&(x, y)| dist(x, y, gx, gy) <= reach - RELAY_COVER_ROOM * TILE)
+            .map_or(len, |i| i as f64 * TILE);
+        let at = cover.min(edge - RELAY_HOME_INSIDE * TILE).max(0.0);
+        Some(way[((at / TILE) as usize).min(way.len() - 1)])
     }
 
     /// A spot for the forward Uplink near `point` (px, its `relay_point`) whose coverage takes in `goal` (px) with
@@ -2015,7 +2042,9 @@ mod tests {
                 && at(1, 480.0, Umbra)
                 && at(1, 480.0, Knight)
         );
-        assert!(at(2, 0.0, Knight));
+        // (Hard, the menus' since Nov 13: its top tier from 6:00; the sim's level 3 from the start)
+        assert!(at(2, 0.0, Scythe) && !at(2, 350.0, Knight) && at(2, 360.0, Knight));
+        assert!(at(3, 0.0, Knight));
     }
 
     #[test]

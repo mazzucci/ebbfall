@@ -60,7 +60,7 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
     const { page } = a, sb = board(page);
     await page.locator('#btnSolo').click();
     // You against two AIs (a Hard Expedition, a Medium Human), on a random 96x96 map: a seed and a character of its own.
-    await sb.add(); await sb.race(1, 'vael'); await sb.diff(1, 3); await sb.diff(2, 1);
+    await sb.add(); await sb.race(1, 'vael'); await sb.diff(1, 2); await sb.diff(2, 1);
     const random96 = MAPS.findIndex(m => m.random && m.size === 96);
     await page.selectOption('#mapSel', String(random96));
     assert.doesNotMatch(await page.locator('#soloNote').textContent(), /CHALLENGE/, 'no challenge line on an ordinary setup');
@@ -128,7 +128,7 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
 });
 
 test('a challenge link opens its setup; a change makes it the player\'s; a bad link opens the plain menu', { engines: true }, async () => {
-  const code = encode({ map: MAPS.findIndex(m => m.name === 'Dust Quarter'), side: 2, secs: 754, spots: [{ race: 'vael', team: 0 }, null, { race: 'humans', team: 1, diff: 3 }, { race: 'vael', team: 1, diff: 1 }] });
+  const code = encode({ map: MAPS.findIndex(m => m.name === 'Dust Quarter'), side: 2, secs: 754, spots: [{ race: 'vael', team: 0 }, null, { race: 'humans', team: 1, diff: 2 }, { race: 'vael', team: 1, diff: 1 }] });
   const g = await open(`?vs=${code}&seed=7`);
   try {
     const { page } = g;
@@ -142,7 +142,7 @@ test('a challenge link opens its setup; a change makes it the player\'s; a bad l
     await board(page).diff(3, 0);
     assert.equal(await page.locator('#soloNote').textContent(), '');
     const saved = await page.evaluate(() => [JSON.parse(localStorage.getItem('endfall.seats')), localStorage.getItem('endfall.map')]);
-    assert.deepEqual(saved[0].slice(0, 4), [{ race: 'vael', team: 0 }, null, { race: 'humans', team: 1, diff: 3 }, { race: 'vael', team: 1, diff: 0 }]);
+    assert.deepEqual(saved[0].slice(0, 4), [{ race: 'vael', team: 0 }, null, { race: 'humans', team: 1, diff: 2 }, { race: 'vael', team: 1, diff: 0 }]);
     assert.equal(saved[1], String(MAPS.findIndex(m => m.name === 'Dust Quarter')));
     assert.deepEqual(g.errors, []);
   } finally { await g.ctx.close(); }

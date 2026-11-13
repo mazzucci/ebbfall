@@ -53,7 +53,7 @@ function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
   menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's color: the room's setup says, alike on every client)
   // (races: a RANDOM seat already drawn, online.js)
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (an old Hard, 2: today's, 3; alike on every client)
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (a Hard of Nov 11 to 13, 3: today's, 2; alike on every client)
 }
 
 function begin(reset) {

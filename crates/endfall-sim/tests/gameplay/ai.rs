@@ -1268,7 +1268,8 @@ fn each_level_trains_only_its_own_mix() {
     for k in [Knight, Bruiser, Umbra, Monolith] {
         assert_eq!(k.ai_tier(), 2, "{k:?}");
     }
-    assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 2, 2]);
+    assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 1, 2]);
+    assert_eq!(DIFF[2].tier_at, &[360.0], "Hard's top tier from 6:00");
 }
 
 #[test]
@@ -2495,9 +2496,8 @@ fn easy_never_hits_a_newcomer_before_8_00_on_any_map() {
 
 #[test]
 fn hard_beats_easy_on_a_two_player_96_map_within_sixteen_minutes() {
-    // Hard finishes its games (Stelian, Nov 13): the menus' Hard (the sim's level 3) against Easy on a two-player 96x96
-    // map, either people on either side, wins well within sixteen minutes (the lab's cross cells: every one of 80
-    // games, median 11:14).
+    // Hard finishes its games (Stelian, Nov 13): the menus' Hard (the sim's level 2 since Nov 13) against Easy on a
+    // two-player 96x96 map, either people on either side, wins within sixteen minutes.
     for (races, hard) in [([&HUMANS, &VAEL], 0u8), ([&HUMANS, &VAEL], 1u8)] {
         let mut w = World::with_size(1, 3, MapKind::Standard, MapSize::square(96), 0, &races);
         let mut diffs = [0u8; 2];

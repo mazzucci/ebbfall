@@ -340,7 +340,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       await sidesAre(b, [['YOU', 'COMPUTER 3'], ['Ann', 'COMPUTER 2']]);
       assert.equal(await b.p.evaluate(() => endfall.online.seat), 1, 'the friend still in its seat');
       assert.deepEqual({ a: await board(a.p, 'online').boxes(), b: await board(b.p, 'online').boxes() }, boxes, 'every spot where it was, on both boards');
-      await sheet(a, 3, ['diff:3', 'race:vael']); // (AI 3: Hard, Expedition)
+      await sheet(a, 3, ['diff:2', 'race:vael']); // (AI 3: Hard, Expedition)
       await sheet(a, 2, ['diff:0']); // (AI 2: Easy)
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard [data-k="tok3"] .lvl i.on').length === 3 && document.querySelectorAll('#onlineBoard [data-k="tok2"] .lvl i.on').length === 1);
       await b.p.waitForFunction(() => /^COMPUTER 3 (EXPEDITION|EXP, Expedition), Hard/.test(document.querySelector('#onlineBoard [data-k="tok3"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
@@ -362,7 +362,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: START_MS });
       const setup = await a.p.evaluate(() => { const s = endfall.online.setup; return [s.ai, s.teams, s.diffs, s.diff, s.races, s.spots, endfall.engine.MW, endfall.online.names]; });
-      assert.deepEqual(setup, [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 3], 3, ['humans', 'vael', 'random', 'vael'], [0, 1, 2, 3], 96, ['Ann', 'Bo', 'the computer', 'the computer']], 'two people against two AIs on 96x96, each AI at its own level');
+      assert.deepEqual(setup, [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 2], 2, ['humans', 'vael', 'random', 'vael'], [0, 1, 2, 3], 96, ['Ann', 'Bo', 'the computer', 'the computer']], 'two people against two AIs on 96x96, each AI at its own level');
       assert.deepEqual(await Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.me))), [0, 1]);
       assert.equal(new Set(bands).size, 4);
       for (const x of [a, b]) assert.deepEqual(await x.p.evaluate(() => [0, 1, 2, 3].map(s => endfall.seatTint(s) === endfall.spotTint(endfall.online.setup.spots[s]))), [true, true, true, true], 'each seat in its spot\'s colour');

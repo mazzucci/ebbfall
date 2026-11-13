@@ -8,13 +8,15 @@ game's own tables. Nothing here changes the game: the sim is only stepped and re
 
 ```sh
 npm run lab -- report            # the default batch: a Markdown summary, and target/lab/report-<commit>.json
-npm run lab -- report --quick    # a small batch (64x64, Medium and Hard2, 3 seeds): 50 s on 4 cores
+npm run lab -- report --quick    # a small batch (64x64, Medium and Hard, 3 seeds): 50 s on 4 cores
 npm run lab -- compare A.json B.json
 npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<commit>.csv
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
 npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
+npm run lab -- tiers             # attack now or invest further: a committer per layer against a teching opponent
+npm run lab -- tiers --greedy    # the same against the greedy human
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 npm run lab -- trace --size 96 --races Kingdom,Expedition --levels Medium --seed 3   # one game, traced
 ```
@@ -26,10 +28,11 @@ menus):
 
 - Easy and Medium each against itself, in four matchups: Kingdom vs Expedition, Expedition vs Kingdom, and the two
   mirrors;
-- Hard (the menus' Hard: the sim's level 3, "Hard" here; the sim's level 2 is "Hard2") against Easy and against Medium
-  on 96x96 (`Kind::Cross`), every pairing of the peoples, Hard in either seat.
+- each level against each higher one on 96x96, the menus' Hard included (`Kind::Cross`: Medium against Easy, Hard
+  against Easy and against Medium: the ladder's steps), every pairing of the peoples, the higher level in either seat.
+  Hard is the menus' Hard, the sim's level 2 since Nov 13; the sim's level 3 is "Hard3" ("Brutal" reads as it).
 
-That is 32 cells, 10 seeds each (seeds 1 to 10), with a 30 game-minute cap: 320 games, about 15 minutes on 3 threads.
+That is 40 cells, 10 seeds each (seeds 1 to 10), with a 30 game-minute cap: 400 games, about 25 minutes on 3 threads.
 A game still running at the cap is a timeout: it is reported, not counted as a win.
 
 **Baselines and before/after pairs use `--seeds 30`**; 10-seed screens are compared seed for seed with the baseline
@@ -37,14 +40,14 @@ A game still running at the cap is a timeout: it is reported, not counted as a w
 
 | Flag | What it does |
 | --- | --- |
-| `--quick` | a small batch (64x64, Medium and Hard2 and the ladder between them, 3 seeds) |
+| `--quick` | a small batch (64x64, Medium and Hard and the ladder between them, 3 seeds) |
 | `--seeds N` | seeds 1 to N in every cell |
 | `--cap MIN` | the timeout, in game minutes |
 | `--sizes 96,128` | map sizes (64, 72, 80, 96 or 128) |
 | `--maps OpenPlains,Labyrinth` | other map kinds, added to Standard |
-| `--levels Easy,Medium,Hard2,Hard` | the levels played ("Brutal" reads as Hard) |
+| `--levels Easy,Medium,Hard,Hard3` | the levels played ("Brutal" reads as Hard3) |
 | `--ladder` | each level against the one below it too, each race a mirror, the higher level in either seat |
-| `--no-cross` | without Hard's cross cells |
+| `--no-cross` | without the cross cells between the levels |
 | `--no-mirrors` | each level's Kingdom against the Expedition alone, without the two mirrors: half the games, and the same games in those cells |
 | `--threads N` | parallel games (default: every core); the JSON is the same whatever N |
 | `--length-band 10-15` | Medium's aimed median length, in minutes (reported, not gated) |
@@ -64,7 +67,8 @@ The target checks print PASS or WARN. They are signals for a person, not gates (
 - **Kingdom vs Expedition** at each level above Easy and each size (both seat orders pooled) PASSes within 35–65% (the
   guardrail; 40–60% aimed). Easy is reported in the tables, not gated.
 - **Hard beats Easy decisively on 96**: Hard wins 90% or more of all its games against Easy, and the median length
-  (timeouts counted at the cap) is 15:00 or less. **Hard against Medium ends on 96**: 5% timeouts or less.
+  (timeouts counted at the cap) is 15:00 or less. **Hard against Medium ends on 96**: 5% timeouts or less. **Medium to Hard, a step not a wall**: Hard wins about
+  75–90% of its games against Medium (the PM, Nov 13).
 - **The Kingdom ahead in short games, the Expedition in long ones** (below), at each level above Easy.
 - **A mirror** WARNs when its interval leaves out 50%: the seat or start position matters.
 - **The ladder** (with `--ladder`) WARNs when a level beats the one below it less than 70% of the time.
@@ -72,7 +76,8 @@ The target checks print PASS or WARN. They are signals for a person, not gates (
   and not gated.
 
 **Game length** (a table after the checks): each level against itself per size, the median of the finished games and
-the timeouts beside it. Reported, not gated.
+the timeouts beside it. Reported, not gated. **Between the levels**: each cross pair's higher-level wins and median
+length, pooled and by the peoples (the ladder's steps: a step near 100% while the one below is gentle is a cliff).
 
 With 10 seeds a cell, a single cell's interval is about ±30 points: per-cell figures rarely mean much alone. The
 pooled checks (about 20 games per level and size for Kingdom vs Expedition, 80 per Hard cross check) carry the signal.
@@ -286,6 +291,23 @@ is a timeout. The report gives, per people's mirror and across the peoples, the 
 column plan (both seatings pooled, timeouts apart, with 95% intervals), the same in games over 15 minutes, the median
 lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
 over 15 minutes, each at 55–70%.
+
+### `tiers`
+
+Attack now or invest further (Stelian, Nov 13). Each people's tech has three layers: **basic** (the Barracks; the
+Recruiting post and the Factory), **mid** (the Blacksmith and the Workshop's Cannon; the Lab, the Uplink and the Drone)
+and **top** (the Stables and the Knight; the Portal, the Rover and the Android). A committer (tiers.rs `commit`, from
+Medium's tuning) stops teching at its layer and goes for the foe: basic its barracks alone, its first wave at 4:00; mid
+its tech building and what it opens, no Stables or Portal, its first wave at 7:00; top straight up, its first wave at
+10:00. Its opponent keeps teching: the bets' tech plan (one barracks, its first wave at 9:00: a weak benchmark, an upper
+bound for "attack before it"), or with `--greedy` the greedy human (the PM: the tech plan on Medium's barracks, two
+towers by 5:00, a reserve at home, its first move at 10:00 when its top tier lands). Every pairing of the peoples, the
+committer in either seat, map seeds 1 to `--seeds` (10) on `--size` (96). The report gives the committer's wins of the
+decided games by layer and pairing, timeouts, lengths and first waves, and two checks per people: no dominant layer
+(over 65%) and no dead one (under 20%).
+
+`trace --plans top,greedy` plays one such game traced (a plan per seat: `rush`, `defense`, `tech`, `basic`, `mid`,
+`top`, `greedy`, or `-` for the level's own).
 
 ### `turtle`
 

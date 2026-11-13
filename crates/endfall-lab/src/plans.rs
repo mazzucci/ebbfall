@@ -106,6 +106,7 @@ impl Plan {
             harv: self.harv,
             first: self.first,
             expand_at: self.expand_at,
+            expand_at_of: &[], // (the plan's for either people)
             income: base.income * if plant && self.planted { PLANT } else { 1.0 },
             ..base
         }

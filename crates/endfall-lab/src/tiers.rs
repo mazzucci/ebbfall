@@ -19,7 +19,11 @@ use std::fmt::Write;
 
 const TPS: f64 = 30.0;
 /// The layers, in their order.
-pub const TIERS: [&str; 3] = ["basic", "mid", "top"];
+pub const TIERS: [&str; 5] = ["basic", "mid", "top", "basic late", "mid late"];
+/// The layers proper (the first three of `TIERS`); the last two are basic and mid launched after 10:00 (`LATE`).
+pub const LAYERS: usize = 3;
+/// When the late attacks go (s): past the greedy human's top tier landing at 10:00.
+pub const LATE: f64 = 630.0;
 /// A layer dominates when its commit wins more than this share of its decided games, and is dead under `DEAD`.
 pub const DOMINANT: f64 = 0.65;
 pub const DEAD: f64 = 0.2;
@@ -61,12 +65,35 @@ pub fn commit(race: usize, k: usize) -> Diff {
             all_in_after: 120.0,
             ..medium
         },
-        // The top layer, then the foe: `bets`' tech plan with its first wave at 10:00, going in without a margin.
-        _ => Diff {
+        // The top layer, then the foe, a fair committer (the PM, Nov 13): Medium's two barracks, its tech building at
+        // 1:00 and its side's techs at once, every unit allowed with the top tier queued steadily (an elite per line
+        // unit, siege per three), no expansion and no towers before its first wave at 10:00, going in without a
+        // margin.
+        2 => Diff {
+            tech_at: 60.0,
+            tech_from: 120.0,
+            heavy_at: 0.0,
+            air_at: 150.0,
+            mix_tier: 2,
+            tier_at: &[],
+            mix_over: &[
+                (endfall_sim::data::UnitKind::Knight, 1, 0.0),
+                (endfall_sim::data::UnitKind::SiegeTank, 3, 0.0),
+                (endfall_sim::data::UnitKind::Umbra, 1, 0.0),
+            ],
+            expand_at: NEVER,
+            expand_at_of: &[],
+            passive_expand: NEVER,
+            towers: &[],
             first: 600.0,
             wave_margin: 1.0,
             all_in_after: 120.0,
-            ..crate::bets::plan(2)
+            ..medium
+        },
+        // Basic or mid, but its first wave past the greedy human's top tier (`LATE`).
+        k => Diff {
+            first: LATE,
+            ..commit(race, k - LAYERS)
         },
     }
 }
@@ -75,6 +102,51 @@ pub fn commit(race: usize, k: usize) -> Diff {
 /// bound for "attack before it").
 pub fn teching() -> Diff {
     crate::bets::plan(2)
+}
+
+/// The teching opponent a batch plays against.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Foe {
+    Tech,
+    Greedy,
+    Steady,
+}
+
+impl Foe {
+    pub fn plan(self) -> Diff {
+        match self {
+            Foe::Tech => teching(),
+            Foe::Greedy => greedy(),
+            Foe::Steady => steady(),
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Foe::Tech => "tech",
+            Foe::Greedy => "greedy",
+            Foe::Steady => "steady",
+        }
+    }
+    fn words(self) -> &'static str {
+        match self {
+            Foe::Tech => "the bets' tech plan: one barracks, its first wave at 9:00",
+            Foe::Greedy => {
+                "the greedy human: teching on Medium's economy and factories, a small army at home and two towers, its first move at 10:00 when its top tier lands"
+            }
+            Foe::Steady => {
+                "the steady teching player: Medium itself, teching on Medium's schedule and building units as Medium does, its first move at 10:00 when its top tier lands"
+            }
+        }
+    }
+}
+
+/// The steady teching player (the PM, Nov 13: a teching opponent that keeps Medium's army growth): Medium's tuning, its
+/// first move at 10:00, past its top tier's 8:00.
+pub fn steady() -> Diff {
+    Diff {
+        first: 600.0,
+        ..DIFF[BASE]
+    }
 }
 
 /// The greedy human (the PM, Nov 13): teching as `teching` does, but on Medium's economy and factories, with a small
@@ -97,8 +169,9 @@ pub struct TierBatch {
     pub seeds: u32,
     pub cap_min: u32,
     pub threads: usize,
-    /// The opponent: the greedy human (`greedy`, `--greedy`) rather than `teching`.
-    pub greedy: bool,
+    /// The opponent (`Foe`): the bets' tech plan, the greedy human (`--greedy`) or the steady teching player
+    /// (`--steady`).
+    pub foe: Foe,
 }
 
 /// A cell: the peoples' pairing (`PAIRINGS`' index), the committing seat and its layer.
@@ -141,7 +214,7 @@ pub fn run(b: TierBatch, commit_id: &str, progress: &(dyn Fn(usize, usize) + Syn
         &jobs,
         |&(c, seed)| {
             let races = PAIRINGS[c.pairing];
-            let foe = if b.greedy { greedy() } else { teching() };
+            let foe = b.foe.plan();
             let mut plans = [Some(foe), Some(foe)];
             plans[c.seat] = Some(commit(races[c.seat], c.tier));
             play_watched(
@@ -230,11 +303,11 @@ impl TierRun {
         let mut out = Vec::new();
         for (r, f) in FACTIONS.iter().enumerate().take(2) {
             let rates: Vec<Tally> = (0..TIERS.len()).map(|k| self.tally(r, None, k)).collect();
-            let dominant: Vec<&str> = (0..TIERS.len())
+            let dominant: Vec<&str> = (0..LAYERS)
                 .filter(|&k| rates[k].n > 0 && rates[k].p() > DOMINANT)
                 .map(|k| TIERS[k])
                 .collect();
-            let dead: Vec<&str> = (0..TIERS.len())
+            let dead: Vec<&str> = (0..LAYERS)
                 .filter(|&k| rates[k].n > 0 && rates[k].p() < DEAD)
                 .map(|k| TIERS[k])
                 .collect();
@@ -273,13 +346,9 @@ impl TierRun {
     }
 
     pub fn markdown(&self, header: &str) -> String {
-        let foe = if self.batch.greedy {
-            "the greedy human: teching on Medium's economy and factories, a small army at home and two towers, its first move at 10:00 when its top tier lands"
-        } else {
-            "the bets' tech plan: one barracks, its first wave at 9:00"
-        };
+        let foe = self.batch.foe.words();
         let mut s = format!(
-            "# Attack now or invest further: the layers\n\n{header}\n\nA committer stops teching at a layer and goes for the foe (crates/endfall-lab/src/tiers.rs): **basic** its barracks alone, its first wave at 4:00; **mid** its tech building and what it opens, no Stables or Portal, its first wave at 7:00; **top** straight to its top layer, its first wave at 10:00. Its opponent keeps teching ({foe}). A cell is the committer's wins of the decided games, both seats pooled, timeouts apart, with the 95% interval. The target: no layer dominant (over {}%), none dead (under {}%).\n\n## Target checks\n\n",
+            "# Attack now or invest further: the layers\n\n{header}\n\nA committer stops teching at a layer and goes for the foe (crates/endfall-lab/src/tiers.rs): **basic** its barracks alone, its first wave at 4:00; **mid** its tech building and what it opens, no Stables or Portal, its first wave at 7:00; **top** straight to its top layer on two barracks, an elite per line unit, no expansion or towers, its first wave at 10:00; **basic late** and **mid late** the same as basic and mid, their first wave at 10:30, past the opponent's top tier. Its opponent keeps teching ({foe}). A cell is the committer's wins of the decided games, both seats pooled, timeouts apart, with the 95% interval. The target: no layer dominant (over {}%), none dead (under {}%).\n\n## Target checks\n\n",
             (DOMINANT * 100.0) as u32,
             (DEAD * 100.0) as u32
         );
@@ -343,7 +412,7 @@ impl TierRun {
                     .with("size", self.batch.size)
                     .with("seeds", self.batch.seeds)
                     .with("cap_min", self.batch.cap_min)
-                    .with("greedy", self.batch.greedy),
+                    .with("foe", self.batch.foe.name()),
             )
             .with(
                 "checks",
@@ -382,7 +451,7 @@ mod tests {
 
     #[test]
     fn the_layers_play_every_pairing_and_seat_and_tally_each_game_once() {
-        assert_eq!(cells().len(), 4 * 3 * 2);
+        assert_eq!(cells().len(), 4 * TIERS.len() * 2);
         // The plans differ from Medium where they say: basic has no tech building, mid no top tier, and only the
         // Kingdom's mid and basic go without its Stables (its raiders' factory, the top layer's building).
         assert_eq!(commit(0, 0).tech_at, NEVER);
@@ -394,18 +463,23 @@ mod tests {
         assert_eq!(commit(0, 1).air_at, NEVER);
         assert_eq!(commit(1, 1).air_at, DIFF[BASE].air_at);
         assert_eq!(commit(0, 2).mix_tier, 2);
+        // The fair top committer: Medium's barracks, no expansion, no towers; the late ones basic and mid at 10:30.
+        let top = commit(1, 2);
+        assert!(top.rax == DIFF[BASE].rax && top.expand_at == NEVER && top.towers.is_empty());
+        assert_eq!((commit(0, 3).first, commit(0, 3).tech_at), (LATE, NEVER));
+        assert_eq!((commit(1, 4).first, commit(1, 4).mix_tier), (LATE, 1));
         let b = TierBatch {
             size: 64,
             seeds: 1,
             cap_min: 3,
             threads: 2,
-            greedy: false,
+            foe: Foe::Tech,
         };
         let r = run(b, "test", &|_, _| {});
         assert_eq!(r.games.len(), cells().len());
         // Each game counts once, for its committer.
         let counted: usize = (0..2)
-            .flat_map(|race| (0..3).map(move |k| (race, k)))
+            .flat_map(|race| (0..TIERS.len()).map(move |k| (race, k)))
             .map(|(race, k)| {
                 let t = r.tally(race, None, k);
                 t.n + t.timeouts

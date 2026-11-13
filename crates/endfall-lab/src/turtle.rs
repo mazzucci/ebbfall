@@ -81,6 +81,7 @@ pub fn weak_turtle() -> Diff {
         extra_rax: easy.extra_rax,
         vents_from: easy.vents_from,
         expand_at: NEVER,
+        expand_at_of: &[],
         expands_when_dry: false,
         passive_expand: NEVER,
         max_bases: 1,

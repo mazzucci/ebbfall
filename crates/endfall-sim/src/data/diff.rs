@@ -116,6 +116,12 @@ pub struct Diff {
     /// named builds all of them). Easy and Medium's Expedition, one Sentry mast: two held its base against waves long
     /// past the 10-15 minutes Medium is for, its gold better spent on its army.
     pub tower_max: &'static [(super::BldgKind, usize)],
+    /// When a people takes its natural at this level, by its headquarters' kind, in place of `expand_at` (none: every
+    /// people at `expand_at`): on maps up to 96 tiles wide, and on bigger ones. Medium's and Hard's Kingdom later (Nov
+    /// 13): its tech, its towers and an early Castle at once left its army thin, and Medium's Kingdom won a third of its
+    /// games against the Expedition on 96, a fifth on 128 (the lab, 30 seeds: at 8:00 on both it won 54% on 96 and 29%
+    /// on 128, at 10:00 85% and 57%).
+    pub expand_at_of: &'static [(super::BldgKind, f64, f64)],
     /// Its side's tech time (`AiScript::tech_from`: its techs, its second tech building) at
     /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
     pub tech_from: f64,
@@ -206,6 +212,7 @@ pub const DIFF: [Diff; 4] = [
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[(super::BldgKind::Ward, 1), (super::BldgKind::Turret, 1)],
+        expand_at_of: &[],
         tech_from: NEVER,
         tech_not_before: 540.0,
     },
@@ -223,7 +230,7 @@ pub const DIFF: [Diff; 4] = [
         first: 240.0,
         gap: 60.0,
         research_from: 420.0,
-        expand_at: 420.0,
+        expand_at: 420.0, // (the Kingdom's later: `expand_at_of`)
         air_at: 330.0,
         heavy_at: 0.0,
         raids: true,
@@ -260,6 +267,7 @@ pub const DIFF: [Diff; 4] = [
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[(super::BldgKind::Ward, 1)],
+        expand_at_of: &[(super::BldgKind::Core, 480.0, 600.0)],
         tech_from: NEVER,
         tech_not_before: 0.0,
     },
@@ -274,7 +282,7 @@ pub const DIFF: [Diff; 4] = [
         first: 240.0, // (no sooner than Medium's: the PM, Nov 13; 2:30 before)
         gap: 50.0,
         research_from: 300.0,
-        expand_at: 330.0,
+        expand_at: 330.0, // (the Kingdom's later: `expand_at_of`)
         air_at: 300.0,
         heavy_at: 0.0,
         raids: true,
@@ -312,6 +320,7 @@ pub const DIFF: [Diff; 4] = [
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[],
+        expand_at_of: &[(super::BldgKind::Core, 480.0, 600.0)],
         tech_from: NEVER,
         tech_not_before: 0.0,
     },
@@ -369,6 +378,7 @@ pub const DIFF: [Diff; 4] = [
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[],
+        expand_at_of: &[],
         tech_from: NEVER,
         tech_not_before: 0.0,
     },

@@ -117,7 +117,7 @@ for (const race of ['humans', 'vael']) {
         const letters = items.map(i => i.key).filter(k => k && k !== 'Esc');
         assert.equal(new Set(letters).size, letters.length, `${what}: no CLASSIC key twice (${items.map(i => i.label + ' ' + i.key).join(', ')})`);
       }
-      // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
+      // A selection with workers can always build, on touch and in WASD too (Mine and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
       // No automatic ability (the Cannon's Set Up) has a button.
       assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);

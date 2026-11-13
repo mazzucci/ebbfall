@@ -44,7 +44,7 @@ function steps() {
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} gold again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Gather, then the gold mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
+    { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Mine, then the gold mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
     market

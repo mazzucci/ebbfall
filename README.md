@@ -22,7 +22,7 @@ npm run dev      # http://localhost:5173
 npm test         # headless simulation tests
 ```
 
-**Mouse and keyboard:** left-click or drag to select, right-click to move / attack / gather / set a rally point; hold
+**Mouse and keyboard:** left-click or drag to select, right-click to move / attack / mine / set a rally point; hold
 the middle button and drag to move the map. Two keyboard schemes, chosen in OPTIONS (the menu's first page or the pause
 card, with a mouse): **Classic** moves the map with the arrow keys or the screen's edge, and each command has its own
 letter (`A` attack-move, `S` stop, `H` hold, `B` build with workers selected); **WASD** moves the map with `W` `A`
@@ -55,7 +55,7 @@ game as a challenge.
 
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
-**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold mine to gather.
+**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold mine to mine it.
 Two fingers pan. Drag on the minimap to scroll.
 
 The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of

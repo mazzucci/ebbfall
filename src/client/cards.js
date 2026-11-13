@@ -121,7 +121,7 @@ export function cardItems() {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // (both peoples repair buildings now; kept for one that does not)
+    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Mine', key: 'G', icon: 'gather', tip: 'Then tap a gold mine: they dig its gold and carry it home.' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // (both peoples repair buildings now; kept for one that does not)
     const abilities = abilityItems(units);
     // Every button ability the selection has, hidden ones too: the room they take, so the card keeps its shape (Deselect
     // in its place) when a tech lands.
@@ -130,7 +130,7 @@ export function cardItems() {
     else {
       orders.forEach(next); abilities.forEach(next); // (the orders, then the abilities shown, packed)
       // Workers in an army: after them. Where the army's abilities need the room (the card keeps its three rows), Build
-      // stays and Gather and Repair give way (their keys still work in CLASSIC; a tap on a field or a damaged
+      // stays and Mine and Repair give way (their keys still work in CLASSIC; a tap on a field or a damaged
       // building still gathers or repairs).
       const room = COLS * 3 - 1 - orders.length - span; // (the last slot: Deselect)
       if (workers) work.forEach((it, i) => i < Math.max(1, room) ? next(it) : hidden(it));

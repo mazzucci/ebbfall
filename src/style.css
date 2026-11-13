@@ -131,8 +131,9 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #cmd{background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
 #cmd:empty{visibility:hidden} /* (its room kept: the console does not move) */
 .cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0 2px;font:600 10px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;overflow:hidden}
-.cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico,.cb .por{order:1} .cb .c{order:3}
-.cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)}
+.cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico{order:1} .cb .c{order:3}
+.cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)} .cb .ico.gl{width:26px;height:26px} /* (a unit or a building: its symbol, as big as the old portraits) */
+.ico .f{fill:currentColor;fill-opacity:.3;stroke:none} /* (a two-tone symbol's faint fill: icons.js) */
 .cb.gap{visibility:hidden}
 .cb:hover{border-color:var(--ally)} .cb:focus-visible{outline:2px solid var(--ally)}
 .cb.active{border-color:var(--ally);background:#2a2415}
@@ -141,9 +142,8 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb .c{font:10px var(--mono);color:var(--muted)}
 .cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
-/* An available button's unit or building picture in a yellow duotone, deep amber to the glyphs' yellow (the SVG
-   filter #duotone in index.html), so it reads like Rally's flag and keeps its detail. Unavailable ones keep the sprite. */
-.cb:not(:disabled):not(.poor) .por{filter:url(#duotone)}
+/* Unavailable or unaffordable: its glyph in gray, dimmed with the button. */
+.cb:disabled:not(.cancel) .ico,.cb.poor:not(.cancel) .ico{color:var(--muted)}
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}

@@ -31,8 +31,9 @@ export const UNIT_SCALE = UNIT_ART_SCALE; // (look.js: the game draws its units 
 /** The sun's height for the units (scene.js SUN_UP 420 for everything else): a shade higher, so a unit's cast shadow is
  *  0.31 of its height long instead of 0.36 and sits closer under it (the legibility pass, 2026-11-11). */
 export const UNIT_SUN = 480;
-/** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render) and its
- *  frames (2 by default: the walk). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
+/** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render), its
+ *  frames (2 by default: the walk) and `shot`, polish.js settings of its own merged over the units' (a flyer's softer
+ *  shadow). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
   kg: {
     villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 },
@@ -43,7 +44,7 @@ export const RT_UNITS = {
   ex: {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
-    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
+    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24, shot: { unitShadow: { alpha: 80, soft: 3 } } }, // (the Rover 1.4x since the last art round: its cell too; the Drone's shadow softer and lighter than the walkers': the art polish, 2026-11-13, `shot` merged into its polish settings)
     android: { build: android, r: 15, h: 20 }, // (the Marine's cell; the `umbra` slot's model since the balance pass, Stelian's pick of 2026-11-11)
     launcher: { build: launcher, r: 28, h: 28 }, // (the Rover since 2026-11-12, a tracked rocket launcher: the rocket cart's cell and frames)
   },
@@ -74,7 +75,7 @@ Object.assign(RT_BUILDINGS.ex, {
   hangar: { build: EB.hangar, n: 3, h: 74 }, // (the Factory as a metal hangar with a cog: rejected, kept for the record)
   warehouse: { build: EB.warehouse, n: 3, h: 50 }, // (the Factory as a warehouse with the cog flat on its roof)
   platform: { build: EB.platform, n: 2, h: 40 }, // (the Portal as an arrival platform: rejected, kept for the record)
-  vortex: { build: EB.vortex, n: 2, h: 24 }, // (the Portal as a black-hole vortex; its spiral the head `vortexhead`)
+  vortex: { build: EB.vortex, n: 2, h: 52 }, // (the Portal: a standing white ring with the cyan vortex as its head `vortexhead`; the flat black hole, h 24, until the art polish of 2026-11-13)
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
@@ -86,7 +87,7 @@ export const RT_HEADS = {
   kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
   ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 45 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true },
     uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, gatetubehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, ringhead: { build: EB.ringSwirl, n: 2, h: 20, spin: 1 },
-    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true }, vortexhead: { build: EB.vortexSpin, n: 2, h: 24, spin: 1 } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
+    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true }, vortexhead: { build: EB.vortexSpin, n: 2, h: 52, spin: 1 } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
 };
 /** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
 function head(b, mats, dir) {
@@ -177,7 +178,7 @@ export function* rethemeSprites(want, opts = {}) {
       for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
         const name = `${side}_${kind}_${dir}_${f}`; if (!want(name)) continue;
         const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
-        yield [name, obj, cell, ou, true];
+        yield [name, obj, cell, m.shot && ou.polish ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true];
       }
     }
     for (const kind of Object.keys(RT_BUILDINGS[side])) {
@@ -245,7 +246,7 @@ export function* atlasSprites(want = () => true) {
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
       const name = `${kind}_${dir}_${f}`; if (!want(name)) continue;
       const obj = m.build(mats(side), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
-      yield [name, obj, cell, ou, true, { anim: `${kind}_${dir}`, frame: f }];
+      yield [name, obj, cell, m.shot ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true, { anim: `${kind}_${dir}`, frame: f }];
     }
   }
   for (const [type, [side, model]] of Object.entries(ATLAS_BUILDINGS)) {

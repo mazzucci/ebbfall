@@ -80,6 +80,13 @@ const depth = (k) => {
   const d = BUILDINGS[k], up = d.reqUp && UPGRADES[d.reqUp]?.req;
   return d.req ? 1 + depth(d.req) : up ? 1 + depth(up) : 0;
 };
+/** The Build list's two pages for side `f`: the sim's lists, with every defense (a building that fights and trains
+ *  nothing: the Watchtower, the Sentry mast) on the basic page, after its own buildings, so it opens there before
+ *  Advanced (Stelian, Nov 13). A fixed layout: a defense is on the basic page from the start of a game. */
+export function buildPages(f) {
+  const defense = (k) => !!BUILDINGS[k].weapon && !BUILDINGS[k].trains?.length;
+  return { basic: [...f.buildBasic.filter(k => !defense(k)), ...[...f.buildBasic, ...f.buildAdvanced].filter(defense)], advanced: f.buildAdvanced.filter(k => !defense(k)) };
+}
 /** A Build list page in the order its buildings unlock: by requirement depth, the page's own order breaking ties. */
 const byUnlock = (page) => page.map((k, i) => [k, i, depth(k)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([k]) => k);
 
@@ -106,14 +113,14 @@ export function cardItems() {
   const locked = (k) => !open(k) && BUILDINGS[k].reqUp && !BUILDINGS[k].req;
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
-    const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic, slots = pageSlots(adv ? 'build2' : 'build');
+    const { basic, advanced } = buildPages(myFaction()), adv = ui.mode === 'build2', page = adv ? advanced : basic, slots = pageSlots(adv ? 'build2' : 'build');
     const kept = (it) => at(pageSlot(slots, it.id), it);
     at(CORNER, adv ? { ...back, id: 'build1' } : back); // (Back first: it keeps the bottom-right slot on both pages)
     byUnlock(page).filter(k => open(k) || locked(k)).forEach(k => kept(locked(k) ? { ...bldgItem(k), dis: true } : bldgItem(k)));
-    (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
+    (adv ? basic : advanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
     // Advanced only once something on it can be built (the Barracks or the Recruiting post stands), in the first free
-    // slot then (after the three buildings open from the start: slot 3, the second row's left).
-    if (!adv && f.buildAdvanced.some(open)) kept({ id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: f.buildAdvanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
+    // slot then (after the basic page's four: slot 4, the second row's middle; the defense opens with it and comes first).
+    if (!adv && advanced.some(open)) kept({ id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: advanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
   } else if (units.length) {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)

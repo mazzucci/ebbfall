@@ -249,7 +249,8 @@ test('a whole game against the AI runs to the end without errors', { engines: tr
   const d = await newGame(DESKTOP, 3);
   try {
     await until(d, async () => (await d.state()).over, { seconds: 1500, step: 30, what: 'the game to end' });
-    await d.page.waitForTimeout(400);
+    // (the end screen comes on a later frame: WebKit and Firefox may take more than a moment, so wait for it)
+    await d.page.locator('#end').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
     assert.ok(await d.page.locator('#end').isVisible(), 'the end screen shows');
     assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
     assert.match(await d.page.locator('#endMap').textContent(), /balanced fields/, 'the end screen tells the map story');
@@ -1326,7 +1327,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['landscape phone', { ...PH
   });
 }
 
-test('the Build list packs its buttons in the order they open: a newly opened building comes last and moves none of the others', async () => {
+test('the Build list packs its buttons in the order they open: a newly opened building comes last and moves none of the others; the Watchtower on the basic page', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
@@ -1341,10 +1342,11 @@ test('the Build list packs its buttons in the order they open: a newly opened bu
       await d.pressCard('Back'); if (adv) await d.pressCard('Back');
       return got;
     };
-    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Advanced 3', 'Back 5'], 'the basic page: Advanced right after the open buildings, Back in the corner');
-    assert.deepEqual(await page(true), ['Blacksmith 0', 'Watchtower 1', 'Workshop 2', 'Market 3', 'Back 5'], 'the advanced page packed from the first slot, no gap for the Stables');
+    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page: the Watchtower (a defense is basic, as the Sentry mast), then Advanced, Back in the corner');
+    assert.deepEqual(await page(true), ['Blacksmith 0', 'Workshop 1', 'Market 2', 'Back 5'], 'the advanced page packed from the first slot, no gap for the Stables');
     await buildAndFinish(d, 'k', 'forge', 1);
-    assert.deepEqual(await page(true), ['Blacksmith 0', 'Watchtower 1', 'Workshop 2', 'Market 3', 'Stables 4', 'Back 5'], 'the Stables open last (once a Blacksmith stands); the others keep their slots');
+    assert.deepEqual(await page(true), ['Blacksmith 0', 'Workshop 1', 'Market 2', 'Stables 3', 'Back 5'], 'the Stables open last (once a Blacksmith stands); the others keep their slots');
+    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page unchanged');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1367,7 +1369,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     await d.pressCard('Build');
     await d.readyCard('Advanced'); // (once the Barracks stands)
     await d.pressCard('Advanced');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Blacksmith', 'Watchtower', 'Workshop', 'Market', 'Back'], 'the advanced page (the Market: it needs the Barracks; no Stables before a Market stands)');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Blacksmith', 'Workshop', 'Market', 'Back'], 'the advanced page (the Market: it needs the Barracks; no Stables before a Blacksmith stands; the Watchtower on the basic page)');
     await d.pressCard('Back');
     assert.ok((await d.card()).some(c => c.label === 'Cottage'), 'back to the basic page');
     await d.pressCard('Back');
@@ -3219,7 +3221,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     const page1 = await cardKeys(d);
     assert.deepEqual(page1.map(([, k, l]) => `${l} ${k}`).slice(0, 2), ['Barracks E', 'Cottage R'], 'the Build page\'s keys');
     for (const [slot, k] of page1) assert.equal(k, GRID[slot]);
-    await d.key('f'); // Advanced (slot 3: right after the three open buildings)
+    await d.key('g'); // Advanced (slot 4: after the three open from the start and the Watchtower)
     await page.locator('#cmd [data-id="build1"]').waitFor({ timeout: 5000 });
     for (const [slot, k] of await cardKeys(d)) assert.equal(k, GRID[slot], 'the Advanced page\'s keys');
     await d.key('Escape'); await d.key('Escape');

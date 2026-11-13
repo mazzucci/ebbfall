@@ -100,7 +100,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 /* The unit in training: the time it still needs, across the foot of its slot (a slow one never looks stuck). */
 .qi .left{position:absolute;left:0;right:0;bottom:0;font:700 10px/12px var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);background:rgba(8,11,16,.72);text-align:center;pointer-events:none}
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:9px;height:7.5px}
+#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:700 17px/1 var(--mono);font-variant-numeric:tabular-nums;color:#f3c94a;display:flex;gap:5px;align-items:center} #cmdInfo .c .dot{width:16px;height:13px} /* (gold first: the eye's first stop, Stelian, Nov 13) */
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
 /* Its stat chips (stats.js): two rows, toughness then attack, each slot in the same place for every unit; the figures
    in the HUD's mono font, the icons the console's; a slot with nothing in it (no armor, no weapon) dimmed, not gone. */
@@ -110,6 +110,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #cmdInfo .sc .ico{width:14px;height:14px;color:var(--ally2)} #cmdInfo .sc.hp .ico{color:var(--ok)} #cmdInfo .sc.shields .ico{color:#cfe6ff} /* (the shield bar's pale blue) */
 #cmdInfo .sc.hp,#cmdInfo .sc.dmg{min-width:7ch} /* (the second slot of both rows lines up when the first is short) */
 #cmdInfo .sc.targets{gap:1px} #cmdInfo .sc.dim{opacity:.4}
+#cmdInfo .stats.small .sr{min-height:14px} #cmdInfo .stats.small .sc{font-size:11px;color:var(--muted)} #cmdInfo .stats.small .sc .ico{width:12px;height:12px} #cmdInfo .stats.small .sc.hp{min-width:0} /* (a building's Health and Armor: under its gold) */
 #cmdInfo .tg{font:11px/1 var(--mono);color:var(--muted);border:1px solid var(--line2);border-radius:3px;padding:2px 4px;letter-spacing:.04em;white-space:nowrap}
 #group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start;flex:1 1 100%}
 #group .gi{cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}

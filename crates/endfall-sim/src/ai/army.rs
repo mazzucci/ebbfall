@@ -100,8 +100,7 @@ impl World {
     /// Seat `e`'s fighters (armed, not workers), queued ones counted.
     pub(crate) fn fighters_of(&self, e: u8) -> usize {
         let fighter = |k: UnitKind| !k.def().worker && k.def().armed();
-        let have = self
-            .units
+        self.units
             .iter()
             .filter(|u| u.team == e && fighter(u.kind))
             .count()
@@ -111,8 +110,7 @@ impl World {
                 .filter(|b| b.team == e)
                 .flat_map(|b| b.queue.iter())
                 .filter(|&&k| fighter(k))
-                .count();
-        have
+                .count()
     }
 
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it

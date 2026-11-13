@@ -89,12 +89,12 @@ pub struct Diff {
     /// player's job.
     pub army_max: usize,
     /// The most advanced units it trains from the start (`UnitKind::ai_tier`): 0 its line units and the scout (Easy),
-    /// 1 its raiders, the Cannon, the Ballista and the Drone too (Medium), 2 everything (Hard and up).
+    /// 1 its raiders, the Cannon, the Ballista and the Drone too (Medium and Hard), 2 everything (the sim's level 3).
     pub mix_tier: u8,
     /// The game times (s) from which its tier rises by one each, above `mix_tier` (Stelian, Nov 13: a slow tech climb,
     /// "our whole story about the Expedition is to get to the machines"): Easy climbs the whole ladder late and slowly,
-    /// its raiders, siege and Drones from 9:00 and its top tier from 13:00; Medium its top tier from 8:00. Hard and up:
-    /// none.
+    /// its raiders, siege and Drones from 9:00 and its top tier from 13:00; Medium its top tier from 8:00, Hard from 6:00.
+    /// The sim's level 3: none.
     pub tier_at: &'static [f64],
     /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
     /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
@@ -263,7 +263,7 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
     },
-    // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
+    // Hard (the menus' Hard since Nov 13): a bigger first wave (8), more factories behind it, and it splits its waves.
     Diff {
         income: 1.1, // (Roster v2 balance pass: the ladder, Hard over Medium; Brutal has 1.3)
         wave: 8,
@@ -271,7 +271,7 @@ pub const DIFF: [Diff; 4] = [
         harv: 11,
         rax: 3,
         extra_rax: 4,
-        first: 150.0,
+        first: 240.0, // (no sooner than Medium's: the PM, Nov 13; 2:30 before)
         gap: 50.0,
         research_from: 300.0,
         expand_at: 330.0,
@@ -304,8 +304,9 @@ pub const DIFF: [Diff; 4] = [
         give_up: 4,
         clumsy_until: 0.0,
         army_max: 0,
-        mix_tier: 2,
-        tier_at: &[],
+        mix_tier: 1,
+        tier_at: &[360.0], // (its top tier from 6:00, Medium's from 8:00: from the start its Expedition saved for its
+        // Portal and had no army until 12:00; the PM, Nov 13)
         mix_over: &[],
         line_max: 0,
         tech_at: 150.0,

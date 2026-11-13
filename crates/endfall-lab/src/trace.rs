@@ -21,6 +21,21 @@ pub struct Setup {
     pub teams: Option<Vec<u8>>,
     pub seed: u32,
     pub side: u32,
+    /// Each seat's plan by name (`plan_named`; None or a missing entry: its level's own tuning).
+    pub plans: Vec<Option<String>>,
+}
+
+/// A lab plan by name for a seat of people `race`: `rush`, `defense`, `tech` (`bets`), `basic`, `mid`, `top` (a
+/// `tiers` committer) or `greedy` (`tiers::greedy`).
+pub fn plan_named(name: &str, race: usize) -> Option<endfall_sim::data::Diff> {
+    let tier = crate::tiers::TIERS.iter().position(|t| *t == name);
+    let bet = crate::bets::PLANS.iter().position(|p| *p == name);
+    match (tier, bet) {
+        (Some(k), _) => Some(crate::tiers::commit(race, k)),
+        (_, Some(b)) => Some(crate::bets::plan(b)),
+        _ if name == "greedy" => Some(crate::tiers::greedy()),
+        _ => None,
+    }
 }
 
 /// The trace of `setup`'s game, a line per seat every `every` s, to its end or `cap_min` minutes.
@@ -39,12 +54,32 @@ pub fn trace(s: &Setup, cap_min: u32, every: u32) -> String {
         .map(|i| *s.levels.get(i).unwrap_or(&s.levels[0]) as u8)
         .collect();
     assert!(w.set_diffs(&levels), "per-seat levels");
+    let plans: Vec<Option<endfall_sim::data::Diff>> = (0..n)
+        .map(|i| {
+            s.plans
+                .get(i)
+                .cloned()
+                .flatten()
+                .and_then(|p| plan_named(&p, s.races[i]))
+        })
+        .collect();
+    if plans.iter().any(|p| p.is_some()) {
+        assert!(w.set_ai_plans(&plans), "per-seat plans");
+    }
     assert!(w.set_ai_seats(vec![true; n]), "AI seats");
     if let Some(t) = &s.teams {
         assert!(w.set_teams(t), "teams");
     }
     let names: Vec<String> = (0..n)
-        .map(|i| format!("{} {}", factions[i].name, LEVELS[levels[i] as usize]))
+        .map(|i| {
+            let plan = s.plans.get(i).cloned().flatten();
+            format!(
+                "{} {}{}",
+                factions[i].name,
+                LEVELS[levels[i] as usize],
+                plan.map_or(String::new(), |p| format!(" ({p})"))
+            )
+        })
         .collect();
     let mut out = format!(
         "# {} {:?} seed {} side {}: {} teams {:?}\n",

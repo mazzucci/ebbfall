@@ -49,7 +49,7 @@ test("a room's link has a card of its own: which room, the canonical page with t
   assert.equal(preview(at('index.html?room=WGNJKL')).url, 'https://ebbfall.com/?room=WGNJKL');
 });
 
-const VS = '1.8.5.ky.h00v13v23v33'; // (Iron Compass, you against three Hard Expedition AIs, won in 12:34: test/challenge.test.js)
+const VS = '1.8.5.ky.h00v12v22v32'; // (Iron Compass, you against three Hard Expedition AIs, won in 12:34: test/challenge.test.js)
 test("a challenge's link has a card of its own: the setup in words, its link made again from the code's values", () => {
   assert.deepEqual(preview(at(`?vs=${VS}`)), {
     title: 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass',

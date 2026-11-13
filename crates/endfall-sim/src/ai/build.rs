@@ -410,7 +410,14 @@ impl World {
         let s = &self.factions[e as usize].ai;
         let k = s.tech2?;
         if self.ai_count(my_b, false, k) > 0 || !self.single_room(e, k) {
-            return None;
+            // (its gate's lifeline lost, the Uplink it trains with: another; with none, the Portal it paid for stood idle
+            // for the rest of the game)
+            return k.def().trains_with.filter(|&r| {
+                self.ai_count(my_b, false, k) > 0
+                    && self.ai_count(my_b, false, r) == 0
+                    && self.has_req(e, r)
+                    && self.factions[e as usize].builds(r)
+            });
         }
         let k = if self.has_req(e, k) {
             if !self.power_room(e, k) {
@@ -608,16 +615,15 @@ impl World {
                 && self.has_req(e, w)
                 && self.can_afford(e, [0, 1].map(|i| w.def().cost[i] + hold[i]))
         });
-        // Its Uplink (`AiScript::relay`) forward, where one covers its push on the foe (`relay_point`), else at home.
-        let goal = self.attack_target();
-        let forward = placeable
+        // Its Portal's Uplink (`AiScript::relay`) at home, on the way towards the foe inside its coverage
+        // (`relay_home_point`): the gate's lifeline is held there, and the push raises its own forward one.
+        let home = placeable
             .filter(|&w| Some(w) == f.ai.relay)
-            .and_then(|_| self.relay_point(goal))
-            .map(|(_, _, point)| point);
+            .and_then(|_| self.relay_home_point(self.attack_target()));
         let spot = match placeable {
-            Some(w) if forward.is_some() => {
-                let point = forward.unwrap_or_default();
-                self.relay_spot(point, goal)
+            Some(w) if home.is_some() => {
+                let (hx, hy) = home.unwrap_or_default();
+                self.find_spot(w, hx / TILE, hy / TILE)
                     .or_else(|| self.find_spot(w, cx, cy))
             }
             Some(w) => {

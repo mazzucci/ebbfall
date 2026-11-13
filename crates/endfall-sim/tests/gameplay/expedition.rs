@@ -524,7 +524,7 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
     // for an order, Brutal's Expedition in seed 20's; since Easy's slow climb and its Kingdom's line on par (Nov 13),
     // Easy's Kingdom killed seed 24's Bots by 14:00, leaving its immortal buildings without a coin; in many games one
     // level's Kingdom crushes the Expedition's army before its Portal pays for an Android, here none does)
-    for diff in 0..DIFF.len() {
+    for (diff, level) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(2, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         for b in w.bldgs.iter_mut() {
@@ -532,6 +532,7 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
         }
         let mut seen = [false; 5]; // turbine, post, Uplink, Portal (finished), an Android
         let mut uplink_at = None;
+        let mut capped_at_portal = (false, false);
         let mut power_full = false;
         let mut portals = 0;
         let mut prev = Vec::new();
@@ -563,14 +564,35 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
             }
             let [used, cap] = w.sup(ENEMY);
             power_full |= used >= cap;
+            // (Easy at its army's cap when its Portal stands: it trains nothing more, an Android neither)
+            if seen[3] && !capped_at_portal.0 {
+                capped_at_portal = (
+                    true,
+                    level.army_max > 0
+                        && w.units
+                            .iter()
+                            .filter(|u| {
+                                u.team == ENEMY && !u.kind.def().worker && u.kind.def().armed()
+                            })
+                            .count()
+                            >= level.army_max,
+                );
+            }
             check_pools(&mut prev, &w, &format!("diff {diff} t {:.0}", w.time));
             if w.over {
                 break;
             }
         }
         // (an Android at every level again by 25:00, Nov 13: its Portal holds the price of the elite it trains next, the
-        // Android first; Easy's climb brings its top tier from 13:00)
-        let want = [diff > 0 || power_full, true, true, true, true];
+        // Android first; Easy's climb brings its top tier from 13:00; but not Easy at its 14 fighters when its Portal
+        // stands, as in seed 2's game since its Portal's Uplink stands at home: it trains nothing more)
+        let want = [
+            diff > 0 || power_full,
+            true,
+            true,
+            true,
+            !capped_at_portal.1,
+        ];
         assert!(
             seen.iter().zip(want).all(|(&s, w)| s || !w),
             "diff {diff}: turbine, post, Uplink, Portal, Android: {seen:?} by {:.0} s (over {}, winner {})",

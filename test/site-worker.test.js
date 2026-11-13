@@ -167,7 +167,7 @@ test("a room's link: its own card in the og: and twitter: tags, with or without 
 });
 
 test("a challenge's link: its own card, the setup in words and its link made again from the code; the rest as it is", async () => {
-  const VS = '1.8.5.ky.h00v13v23v33'; // (test/challenge.test.js)
+  const VS = '1.8.5.ky.h00v12v22v32'; // (test/challenge.test.js)
   for (const env of [{}, { CF_ANALYTICS_TOKEN: 'abc' }]) {
     for (const q of [`?vs=${VS}`, `?vs=${VS}&relay=wss://x.example/`, `?seed=7&vs=${VS}`]) {
       const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();

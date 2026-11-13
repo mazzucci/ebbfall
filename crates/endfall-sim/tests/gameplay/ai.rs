@@ -2495,9 +2495,8 @@ fn easy_never_hits_a_newcomer_before_8_00_on_any_map() {
 
 #[test]
 fn hard_beats_easy_on_a_two_player_96_map_within_sixteen_minutes() {
-    // Hard finishes its games (Stelian, Nov 13): the menus' Hard (the sim's level 3) against Easy on a two-player 96x96
-    // map, either people on either side, wins well within sixteen minutes (the lab's cross cells: every one of 80
-    // games, median 11:14).
+    // Hard finishes its games (Stelian, Nov 13): the menus' Hard (the sim's level 2 since Nov 13) against Easy on a
+    // two-player 96x96 map, either people on either side, wins within sixteen minutes.
     for (races, hard) in [([&HUMANS, &VAEL], 0u8), ([&HUMANS, &VAEL], 1u8)] {
         let mut w = World::with_size(1, 3, MapKind::Standard, MapSize::square(96), 0, &races);
         let mut diffs = [0u8; 2];

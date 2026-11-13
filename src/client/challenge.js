@@ -68,7 +68,7 @@ export function decode(code) {
   const c = { map: parseInt(m[1], 36), side: parseInt(m[2], 36), secs: parseInt(m[3], 36), spots: Array.from({ length: SPOTS }, (_, i) => spots[i] ?? null) };
   if (m[5] !== undefined) Object.assign(c, { kind: +m[5], seed: parseInt(m[6], 36) });
   if (encode(c) !== code) return null;
-  for (const r of c.spots) if (r && r.diff !== undefined) r.diff = levelOf(r.diff); // (an old Hard, 2: today's Hard, 3)
+  for (const r of c.spots) if (r && r.diff !== undefined) r.diff = levelOf(r.diff); // (a Hard of Nov 11 to 13, 3: today's Hard, 2)
   return c;
 }
 

@@ -35,24 +35,24 @@ test('one side, the lowest empty spot, a new AI on a side of its own', () => {
   assert.ok(oneTeam(board(2, 2, null, 2))); assert.ok(!oneTeam(board(0, 0, 1)));
   assert.equal(freeTeam(board(0, 1, 2)), 3); assert.equal(freeTeam(board(0, 2, 2)), 1);
   assert.equal(firstEmpty(board(0, 1, null, 2)), 2); assert.equal(firstEmpty(board(0, 1, 2, 3, 4, 5, 6, 7)), -1);
-  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 3 }, null, { race: 'random', team: 1, diff: 1 }, ...Array(4).fill(null)];
+  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 2 }, null, { race: 'random', team: 1, diff: 1 }, ...Array(4).fill(null)];
   assert.deepEqual(newAi(b), { race: 'random', team: 2, diff: 1 }, 'like the last AI, a side of its own');
   assert.deepEqual(newAi(board(0)), { race: 'humans', team: 1, diff: 0 }, 'no AI yet: Humans on Easy');
   assert.deepEqual([0, 1, 3].map(seatName), ['YOU', 'COMPUTER 1', 'COMPUTER 3'], 'an AI is named by its spot');
 });
 
 test('a saved board: a good one as it is, one saved before the spots in the first spots, anything else not at all', () => {
-  const good = [{ race: 'vael', team: 0 }, null, { race: 'random', team: 1, diff: 3 }, null, null, { race: 'humans', team: 1, diff: 0 }, null, null];
+  const good = [{ race: 'vael', team: 0 }, null, { race: 'random', team: 1, diff: 2 }, null, null, { race: 'humans', team: 1, diff: 0 }, null, null];
   assert.deepEqual(validRows(good), good);
-  assert.deepEqual(validRows([good[0], { race: 'humans', team: 1, diff: 2 }]).slice(0, 2), [good[0], { race: 'humans', team: 1, diff: 3 }], 'a saved old Hard (2): today\'s Hard (3), three levels at launch');
+  assert.deepEqual(validRows([good[0], { race: 'humans', team: 1, diff: 3 }]).slice(0, 2), [good[0], { race: 'humans', team: 1, diff: 2 }], 'a Hard saved from Nov 11 to 13 (the sim\'s 3): today\'s Hard (2), three levels at launch');
   assert.deepEqual(validRows([{ race: 'vael', team: 0, diff: 2, x: 1 }, { race: 'humans', team: 1, diff: 1, n: 4 }]), [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 1 }, ...Array(6).fill(null)], 'a list from before the spots: only what a seat holds');
   for (const bad of [null, 'x', {}, [], [good[0]], [null, good[2]], [good[0], null, null], Array(9).fill(good[2]), [good[0], { race: 'orcs', team: 1, diff: 0 }], [good[0], { race: 'humans', team: 8, diff: 0 }],
     [good[0], { race: 'humans', team: 1 }], [good[0], { race: 'humans', team: 1, diff: 4 }], [good[0], { race: 'humans', team: 1.5, diff: 0 }], [good[0], 7]]) assert.equal(validRows(bad), null, JSON.stringify(bad));
 });
 
 test('START GAME: the seats in side order, each seat\'s spot, each AI\'s difficulty (none when all alike), the hardest the game\'s', () => {
-  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null, { race: 'random', team: 0, diff: 3 }, { race: 'humans', team: 1, diff: 2 }, null, null, null];
-  assert.deepEqual(startSetup(b, (k) => (k === 'random' ? 'vael' : k)), { races: ['vael', 'vael', 'humans', 'humans'], ai: [false, true, true, true], teams: [0, 0, 1, 1], diffs: [0, 3, 0, 2], diff: 2, spots: [0, 3, 1, 4] },
+  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null, { race: 'random', team: 0, diff: 2 }, { race: 'humans', team: 1, diff: 2 }, null, null, null];
+  assert.deepEqual(startSetup(b, (k) => (k === 'random' ? 'vael' : k)), { races: ['vael', 'vael', 'humans', 'humans'], ai: [false, true, true, true], teams: [0, 0, 1, 1], diffs: [0, 2, 0, 2], diff: 2, spots: [0, 3, 1, 4] },
     'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own colour), its RANDOM drawn; the record counts the enemies\' hardest (not the stronger ally)');
   assert.equal(startSetup(board(0, 0, 1)).diff, 0);
   const alike = [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 2 }, { race: 'humans', team: 2, diff: 2 }, ...Array(5).fill(null)];
@@ -61,7 +61,7 @@ test('START GAME: the seats in side order, each seat\'s spot, each AI\'s difficu
 
 test('the old menu\'s saved choices make the first spots: players, teams, races, difficulty', () => {
   assert.deepEqual(legacyRows({ race: 'vael', enemy: 'random', diff: 2, players: 4, teams: teamList(4, '2v2') }),
-    [{ race: 'vael', team: 0 }, { race: 'random', team: 0, diff: 3 }, { race: 'random', team: 1, diff: 3 }, { race: 'random', team: 1, diff: 3 }, null, null, null, null], 'an old Hard (2): today\'s Hard (3)');
+    [{ race: 'vael', team: 0 }, { race: 'random', team: 0, diff: 2 }, { race: 'random', team: 1, diff: 2 }, { race: 'random', team: 1, diff: 2 }, null, null, null, null], 'an old Hard (2): today\'s Hard (2)');
   assert.deepEqual(legacyRows({ race: null, enemy: null, diff: null, players: 0, teams: [] }).slice(0, 3), [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null], 'nothing saved: you and an AI on Easy');
   assert.ok(validRows(legacyRows({ players: 8, teams: teamList(8, '2v2v2v2') })), 'a good setup');
 });
@@ -79,11 +79,11 @@ test('REMOVE on single player\'s board: the players after it a spot up each, no 
   assert.deepEqual(sides(removeAt(board(0, 1, 0, 1), 2)), [0, 1, 1, null, null, null, null, null], 'an ally removed: the sides already have no gap');
   assert.deepEqual(sides(removeAt(board(2, 0, 5, 2), 1)), [0, 1, 0, null, null, null, null, null], 'SIDE 3 and 6 left: SIDE 1 and 2, in that order');
   assert.deepEqual(sides(removeAt(board(0, null, 1, null, 2, 1), 4)), [0, 1, 1, null, null, null, null, null], 'a board saved with gaps: closed up too');
-  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, { race: 'random', team: 2, diff: 3 }, { race: 'humans', team: 2, diff: 1 }, ...Array(4).fill(null)];
+  const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, { race: 'random', team: 2, diff: 2 }, { race: 'humans', team: 2, diff: 1 }, ...Array(4).fill(null)];
   const after = removeAt(b, 1);
-  assert.deepEqual(after, [{ race: 'vael', team: 0 }, { race: 'random', team: 1, diff: 3 }, { race: 'humans', team: 1, diff: 1 }, ...Array(5).fill(null)], 'each keeps its race and level');
+  assert.deepEqual(after, [{ race: 'vael', team: 0 }, { race: 'random', team: 1, diff: 2 }, { race: 'humans', team: 1, diff: 1 }, ...Array(5).fill(null)], 'each keeps its race and level');
   assert.equal(after.length, SPOTS); assert.deepEqual(sideChoices(after).map(s => s.chip), ['SIDE 1', 'SIDE 2', 'SIDE 3'], 'as many sides as players, none past them');
-  assert.deepEqual(startSetup(after), { races: ['vael', 'random', 'humans'], ai: [false, true, true], teams: [0, 1, 1], diffs: [0, 3, 1], diff: 3, spots: [0, 1, 2] }, 'the game: the board as it shows');
+  assert.deepEqual(startSetup(after), { races: ['vael', 'random', 'humans'], ai: [false, true, true], teams: [0, 1, 1], diffs: [0, 2, 1], diff: 2, spots: [0, 1, 2] }, 'the game: the board as it shows');
   assert.notEqual(after[1], b[2], 'a new board, the old one untouched'); assert.equal(b[1].team, 1);
 });
 

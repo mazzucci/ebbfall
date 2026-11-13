@@ -8,7 +8,7 @@ game's own tables. Nothing here changes the game: the sim is only stepped and re
 
 ```sh
 npm run lab -- report            # the default batch: a Markdown summary, and target/lab/report-<commit>.json
-npm run lab -- report --quick    # a small batch (64x64, Medium and Hard, 3 seeds): 50 s on 4 cores
+npm run lab -- report --quick    # a small batch (64x64, Medium and Hard2, 3 seeds): 50 s on 4 cores
 npm run lab -- compare A.json B.json
 npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<commit>.csv
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
@@ -21,30 +21,33 @@ npm run lab -- trace --size 96 --races Kingdom,Expedition --levels Medium --seed
 
 ### `report`
 
-The default batch, on 64x64 and 96x96 Standard maps:
+The default batch (Stelian, Nov 13: the main rows), on two-player 96x96 and 128x128 Standard maps (64x64 is gone from the
+menus):
 
-- every AI level against itself, in four matchups: Humans vs Vael, Vael vs Humans, and the two mirrors;
-- the ladder: each level against the one below it, each race a mirror, the higher level in either seat.
+- Easy and Medium each against itself, in four matchups: Kingdom vs Expedition, Expedition vs Kingdom, and the two
+  mirrors;
+- Hard (the menus' Hard: the sim's level 3, "Hard" here; the sim's level 2 is "Hard2") against Easy and against Medium
+  on 96x96 (`Kind::Cross`), every pairing of the peoples, Hard in either seat.
 
-That is 56 cells, 5 seeds each (seeds 1 to 5), with a 30 game-minute cap. A game still running at the cap is a
-timeout: it is reported, not counted as a win. The default batch is 280 games: 432 s on 4 cores (about 3 s a
-64x64 game, 8 s a 96x96 one), less with more cores.
+That is 32 cells, 10 seeds each (seeds 1 to 10), with a 30 game-minute cap: 320 games, about 15 minutes on 3 threads.
+A game still running at the cap is a timeout: it is reported, not counted as a win.
 
-**Baselines and before/after pairs use `--seeds 30`** (1,680 games, about 45 minutes on 4 cores); the default's 5
-seeds are for a quick look.
+**Baselines and before/after pairs use `--seeds 30`**; 10-seed screens are compared seed for seed with the baseline
+(each game is seeded by its cell and seed, so the same cell and seed is the same game).
 
 | Flag | What it does |
 | --- | --- |
-| `--quick` | the small batch above |
+| `--quick` | a small batch (64x64, Medium and Hard2 and the ladder between them, 3 seeds) |
 | `--seeds N` | seeds 1 to N in every cell |
 | `--cap MIN` | the timeout, in game minutes |
-| `--sizes 64,96` | map sizes (64, 96 or 128) |
+| `--sizes 96,128` | map sizes (64, 72, 80, 96 or 128) |
 | `--maps OpenPlains,Labyrinth` | other map kinds, added to Standard |
-| `--levels Easy,Medium,Hard,Brutal` | the levels played (the ladder pairs neighbours among them) |
-| `--no-ladder` | only each level against itself |
-| `--no-mirrors` | each level's Kingdom against the Expedition alone, without the two mirrors: half the games, and the same games in those cells (each game is seeded by its cell and seed) |
+| `--levels Easy,Medium,Hard2,Hard` | the levels played ("Brutal" reads as Hard) |
+| `--ladder` | each level against the one below it too, each race a mirror, the higher level in either seat |
+| `--no-cross` | without Hard's cross cells |
+| `--no-mirrors` | each level's Kingdom against the Expedition alone, without the two mirrors: half the games, and the same games in those cells |
 | `--threads N` | parallel games (default: every core); the JSON is the same whatever N |
-| `--length-band 10-20` | the wanted median length on 64x64, in minutes |
+| `--length-band 10-15` | Medium's aimed median length, in minutes (reported, not gated) |
 | `--out FILE` | where the JSON goes |
 
 The same commit and flags give a byte-identical JSON file: games are seeded, results are sorted by cell and seed
@@ -58,18 +61,23 @@ higher level's on the ladder.
 
 The target checks print PASS or WARN. They are signals for a person, not gates (the command always exits 0):
 
-- **Humans vs Vael** at a level (both seat orders and both maps pooled) WARNs when the Humans' rate is outside
-  45–55% *and* its interval leaves out 50%: a real lean, not noise.
+- **Kingdom vs Expedition** at each level above Easy and each size (both seat orders pooled) PASSes within 35–65% (the
+  guardrail; 40–60% aimed). Easy is reported in the tables, not gated.
+- **Hard beats Easy decisively on 96**: Hard wins 90% or more of all its games against Easy, and the median length
+  (timeouts counted at the cap) is 15:00 or less. **Hard against Medium ends on 96**: 5% timeouts or less.
+- **The Kingdom ahead in short games, the Expedition in long ones** (below), at each level above Easy.
 - **A mirror** WARNs when its interval leaves out 50%: the seat or start position matters.
-- **The ladder** WARNs when a level beats the one below it less than 70% of the time (races, seats, maps pooled).
-- **Game length on 64x64** WARNs when the median of the finished 64x64 games of each level against itself is
-  outside the band (10–20 min). Timeouts are left out (the check says how many), so many timeouts pull it short.
-- **Timeouts** WARN when more than 5% of any cell's games hit the cap.
+- **The ladder** (with `--ladder`) WARNs when a level beats the one below it less than 70% of the time.
+- **Timeouts** WARN when more than 5% of any cell's games hit the cap; Easy against Easy is counted apart, reported
+  and not gated.
 
-With 5 seeds a cell, a single cell's interval is about ±35 points: per-cell figures rarely mean much alone. The
-pooled checks (about 20 games per level for Humans vs Vael, 40 per ladder step) carry the signal. And with many
-checks, some WARN by chance: a 95% interval misses the truth one time in twenty, so among the default batch's 16
-mirror checks one stray WARN is expected. A WARN that repeats with `--seeds 30` is worth a look.
+**Game length** (a table after the checks): each level against itself per size, the median of the finished games and
+the timeouts beside it. Reported, not gated.
+
+With 10 seeds a cell, a single cell's interval is about ±30 points: per-cell figures rarely mean much alone. The
+pooled checks (about 20 games per level and size for Kingdom vs Expedition, 80 per Hard cross check) carry the signal.
+And with many checks, some WARN by chance: a 95% interval misses the truth one time in twenty, so among the default
+batch's 8 mirror checks a stray WARN can come. A WARN that repeats with `--seeds 30` is worth a look.
 
 The key figures block is the Balance reports database's fields (Notion), one per line, ready to copy. The
 observed exchange rate is the median over games of shards mined over ether mined, and the same for what was spent:

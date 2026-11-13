@@ -30,6 +30,8 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
 /* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 gold, 40/40 supply). */
 #rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
+/* The game clock (clock.js): quiet, beside the buttons, a fixed slot up to 99:59. */
+#resClock{font-size:14px;color:var(--muted)} #rClock{display:inline-block;min-width:5ch;text-align:right;font-weight:400}
 /* Gold as money (a cost, the top bar's figure, a toast that names gold): two small stacks of gold coins, lit faces
    over darker rims, a brown outline (the field on the map stays raw gold). Drawn in a 12x10 box, so it keeps its
    shape at any size. */

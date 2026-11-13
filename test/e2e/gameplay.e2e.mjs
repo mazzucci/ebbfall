@@ -3,6 +3,7 @@
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { SEAT_COLORS } from '../../src/client/look.js';
+import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
 before(start);
@@ -636,19 +637,16 @@ test('control groups: Ctrl+number saves the selection, the number recalls it, a 
   } finally { await d.close(); }
 });
 
-test('the Shore map: chosen from the list, its line said; each people starts in its cove (every ground unit walks since the re-theme), water drawn', { engines: true }, async () => {
+test('the Shore map (64x64, hidden from the list: opened by ?map=): each people starts in its cove (every ground unit walks since the re-theme), water drawn', { engines: true }, async () => {
   const ctx = await browserContext(DESKTOP);
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   try {
-    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl()}?map=12`, { waitUntil: 'networkidle' }); // (12: Mirror Lake, maps.js MAPS)
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnSolo').click();
     await board(page).race(1, 'vael');
-    const shore = await page.$$eval('#mapSel option', os => os.findIndex(o => o.textContent.startsWith('Mirror Lake')));
-    assert.ok(shore >= 0, 'the Shore map in the list');
-    await page.locator('#mapSel').selectOption(String(shore));
-    await page.waitForFunction(() => /A lake: each side holds a cove, with the shallows between\./.test(document.getElementById('soloNote').textContent));
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Mirror Lake · up to 2', 'listed while it is the map chosen');
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const got = await page.evaluate(() => {
@@ -664,7 +662,7 @@ test('the Shore map: chosen from the list, its line said; each people starts in 
   } finally { await ctx.close(); }
 });
 
-test('the menu: every map in one list (the duel\'s three and a random one first), the opponent and sound; the choices start the game', { engines: true }, async () => {
+test('the menu: every map offered in one list (96x96 first, no 64x64 one), the opponent and sound; the choices start the game', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device);
     const page = await ctx.newPage();
@@ -674,9 +672,9 @@ test('the menu: every map in one list (the duel\'s three and a random one first)
       const touch = !!device.hasTouch, press = (sel) => touch ? page.locator(sel).tap() : page.locator(sel).click();
       assert.ok(await page.locator('#start').isVisible(), 'straight to the menu (no tap-to-play screen)');
       await press('#btnSolo');
-      assert.deepEqual((await page.$$eval('#mapSel option', os => os.map(o => o.textContent))).slice(0, 4), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2'], 'named maps, nothing given away');
-      assert.equal(await page.locator('#mapSel option').count(), 14, 'every map of every size (the Shore\'s two last)');
-      assert.equal(await page.locator('#mapSel').inputValue(), '0', 'the standard map is the default');
+      assert.deepEqual((await page.$$eval('#mapSel option', os => os.map(o => o.textContent))).slice(0, 4), ['Dust Quarter · up to 4', 'Gold Crown · up to 4', 'Long Steppe · up to 4', 'Random · up to 4'], 'named maps, nothing given away');
+      assert.equal(await page.locator('#mapSel option').count(), 8, 'every map of the two sizes offered');
+      assert.equal(await page.locator('#mapSel').inputValue(), '4', 'the standard map at 96x96 is the default');
       // The opponent's level: in its token's sheet (LEVEL), its name only.
       await board(page).open(1);
       assert.deepEqual(await page.$$eval('#soloSheet [data-k^="diff:"]', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD'], 'three levels at launch, exactly');
@@ -688,12 +686,12 @@ test('the menu: every map in one list (the duel\'s three and a random one first)
       assert.equal(await page.locator('#soloSheet .hint, #soloSheet [aria-describedby]').count(), 0, 'no line on what a level means');
       await press('#soloSheet [data-k="done"]');
       assert.ok(await page.locator('#soloSheet').isHidden(), 'DONE closes the sheet');
-      await page.locator('#mapSel').selectOption('1');
+      await page.locator('#mapSel').selectOption('5');
       await press('#cornerSound'); // (the speaker in the corner)
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
-      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
+      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [2940, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
       // How to play is in the pause menu (no Help button in the top bar); the game waits; back to the pause menu.
       assert.equal(await page.locator('#btnHelp').count(), 0, 'no Help button in the top bar');
@@ -712,12 +710,48 @@ test('the menu: every map in one list (the duel\'s three and a random one first)
       assert.equal(await page.locator('#soloBoard [data-k="tok1"] .lvl i.on').count(), [0, 1, 3].indexOf(level) + 1, 'its level as pips (three)');
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
       // The random map is a new one each game.
-      assert.equal(await page.locator('#mapSel').inputValue(), '1', 'the map remembered');
-      await page.locator('#mapSel').selectOption('3'); await press('#btnStart');
+      assert.equal(await page.locator('#mapSel').inputValue(), '5', 'the map remembered');
+      await page.locator('#mapSel').selectOption('7'); await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
-      assert.ok(![4242, 1998, 2077].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
+      assert.ok(![1291, 2940, 1582].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
     } finally { await ctx.close(); }
   }
+});
+
+test('no 64x64 map in the list: a new single player game is two players on a 96x96 map, and starts; a saved hidden map opens the default; a challenge on one plays it', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    const options = () => page.$$eval('#mapSel option', os => os.map(o => [+o.value, o.textContent]));
+    const listed = await options();
+    assert.deepEqual(listed.filter(([i, t]) => [0, 1, 2, 3, 12, 13].includes(i) || / up to 2$/.test(t)), [], `no 64x64 map: ${JSON.stringify(listed)}`);
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the default: a 96x96 map');
+    assert.deepEqual(await board(page).spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], 'two players');
+    assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96);
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    const got = await page.evaluate(() => [endfall.engine.MW, endfall.G.factions.length, endfall.G.bldgs.filter(b => b.d.hq).map(b => [b.tx, b.ty])]);
+    assert.deepEqual(got.slice(0, 2), [96, 2], 'two seats on 96x96');
+    assert.equal(got[2].length, 2, 'a headquarters each, two starts free');
+    const [[ax, ay], [bx, by]] = got[2];
+    assert.ok(Math.hypot(ax - bx, ay - by) > 50, `the two far apart: ${JSON.stringify(got[2])}`);
+    await page.evaluate(() => endfall.skip(5));
+    // A map saved before they were hidden (Mirror Lake): the default instead.
+    await page.evaluate(() => localStorage.setItem('endfall.map', '12'));
+    await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#btnSolo').click();
+    assert.equal(await page.locator('#mapSel').inputValue(), '4', 'a saved hidden map: the default');
+    // A challenge link on a hidden map (Ashen Basin) plays it, listed while chosen; another map picked, gone from the list.
+    const code = encode({ map: 0, side: 1, secs: 200, spots: [{ race: 'humans', team: 0 }, { race: 'vael', team: 1, diff: 1 }] });
+    await page.goto(`${baseUrl()}?vs=${code}`, { waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Ashen Basin · up to 2', 'the challenge\'s map');
+    await page.locator('#mapSel').selectOption('5');
+    assert.deepEqual((await options()).map(([i]) => i), listed.map(([i]) => i), 'once another is picked: the list without it');
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
 });
 
 test('the menu opens on two modes; each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
@@ -2281,11 +2315,11 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
     const pixels = () => page.evaluate(() => { const c = document.getElementById('mapPreview'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); });
     await page.locator('#btnSolo').click();
     const first = await pixels();
-    await page.locator('#mapSel').selectOption({ label: 'Glass Reach · up to 2' });
+    await page.locator('#mapSel').selectOption({ label: 'Gold Crown · up to 4' });
     const second = await pixels();
     assert.notEqual(first, second, 'another map, another thumbnail');
     assert.ok(new Set(second.split(',')).size > 8, 'rock, fields and starts in it');
-    await page.locator('#mapSel').selectOption({ label: 'Random · up to 2' });
+    await page.locator('#mapSel').selectOption({ label: 'Random · up to 4' });
     assert.equal(await page.locator('#mapPreview').getAttribute('title'), 'A new map every time');
   } finally { await ctx.close(); }
 });
@@ -2327,19 +2361,19 @@ test('single player: eight fixed spots; + SEAT fills the lowest empty one on a s
     const usable = () => page.$$eval('#mapSel option', os => os.filter(o => !o.disabled).map(o => o.textContent));
     await page.locator('#btnSolo').tap();
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], 'a duel by default; + SEAT in the next spot');
-    assert.equal((await usable()).length, 14, 'two players: every map (the Shore\'s two included)');
+    assert.equal((await usable()).length, 8, 'two players: every map offered (96x96 and 128x128)');
     await seats.open(1);
     assert.equal(await page.locator('#soloSheet [data-k="remove"]').count(), 0, 'the last enemy stays');
     assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => b.textContent)), ['SIDE 1', 'SIDE 2'], 'as many sides as players');
     assert.ok(await sheetFits(page), 'the sheet fits the screen');
     await page.locator('#soloSheet [data-k="close"]').tap();
     await seats.diff(1, 1); await seats.race(1, 'vael');
-    // + AI: AI 2 in spot 2, on a side of its own, like the last AI. Three players: the duel's map gives way.
+    // + AI: AI 2 in spot 2, on a side of its own, like the last AI. Three players: the default map seats them.
     await seats.add();
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', '']);
     assert.equal(await label(2), 'COMPUTER 2 EXP, Expedition, Medium, Side 3: edit', 'a new AI: a side of its own, like the last AI');
-    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the smallest map that seats three');
-    assert.deepEqual(await page.$$eval('#mapSel option:disabled', os => os.map(o => o.textContent)), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2', 'Mirror Lake · up to 2', 'Random Lake · up to 2'], 'the duel\'s maps not for three (the Shore\'s too)');
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the default map seats three');
+    assert.deepEqual(await page.$$eval('#mapSel option:disabled', os => os.map(o => o.textContent)), [], 'every map offered seats three');
     assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96, 'the preview at the map\'s size');
     await seats.add();
     // Sides through the sheet: two against two, each token's tag; nothing on the board moved.
@@ -2419,9 +2453,9 @@ test('single player: a seat that outgrows the map moves to a bigger one with no 
       const before = await start();
       // Every line the footer's note shows from here on, however briefly.
       await page.evaluate(() => { window.notes = []; new MutationObserver(() => window.notes.push(document.getElementById('soloNote').textContent)).observe(document.getElementById('soloNote'), { childList: true, characterData: true, subtree: true }); });
-      assert.equal(await map(), 'Ashen Basin · up to 2', `${at}: a duel's map`);
+      assert.equal(await map(), 'Dust Quarter · up to 4', `${at}: the default map`);
       await seats.add();
-      assert.equal(await map(), 'Dust Quarter · up to 4', `${at}: three players: the smallest map that seats them`);
+      assert.equal(await map(), 'Dust Quarter · up to 4', `${at}: three players: the same map`);
       assert.deepEqual(await start(), before, `${at}: START GAME where it was`);
       await seats.add(); await seats.add();
       assert.equal(await map(), 'Iron Compass · up to 8', `${at}: five players: an eight-start map`);

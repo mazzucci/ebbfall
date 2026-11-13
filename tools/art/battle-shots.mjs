@@ -22,6 +22,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { start, stop, browserContext, baseUrl, board, DESKTOP, PHONE } from '../../test/e2e/harness.mjs';
+import { MAPS } from '../../src/client/maps.js';
 
 const [outArg, ...only] = process.argv.slice(2);
 const outDir = outArg ?? fileURLToPath(new URL('../../target/art-review/step2/battle/', import.meta.url));
@@ -45,14 +46,14 @@ async function newGame(device, races, mapName) {
   const ctx = await browserContext(device), page = await ctx.newPage(), touch = !!device.hasTouch, errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install(); // (runs with real time until held: `freeze`)
-  await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
+  const map = mapName ? `&map=${MAPS.findIndex(m => m.name === mapName)}` : ''; // (by ?map=: the Lake is in no list since the 64x64 maps were hidden)
+  await page.goto(`${baseUrl()}?seed=4242${map}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
   const press = (sel) => (touch ? page.locator(sel).tap() : page.locator(sel).click());
   await press('#btnSolo');
   const b = board(page);
   if (races[0] !== 'humans') await b.race(0, races[0]);
   await b.race(1, races[1]);
-  if (mapName) { const i = await page.$$eval('#mapSel option', (os, n) => os.findIndex(o => o.textContent.startsWith(n)), mapName); await page.locator('#mapSel').selectOption(String(i)); }
   await press('#btnStart');
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   await page.evaluate(() => endfall.engine.disableAi());

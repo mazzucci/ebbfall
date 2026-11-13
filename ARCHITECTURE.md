@@ -254,7 +254,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`, `retreat_any`, `give_up`):
                       its waves are just their size (its first three or four units at 7:45, the rest at home), growing
                       by one, and they give up and walk home on contact with a defense near their worth or after early
-                      losses, until 12:00 (`clumsy_until`; then whole armies that wait for an edge). A level may cap a
+                      losses, until 12:00 and a wave of its has reached the foe (`clumsy_until`, `Ai::reached`; then
+                      whole armies that wait for an edge). A level may cap a
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
                       90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees

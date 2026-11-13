@@ -134,9 +134,10 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico{order:1} .cb .c{order:3}
 .cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)} .cb .ico.gl{width:26px;height:26px} /* (a unit or a building: its symbol, as big as the old portraits) */
 .ico .f{fill:currentColor;fill-opacity:.3;stroke:none} /* (a two-tone symbol's faint fill: icons.js) */
+.ico .b{fill:currentColor;stroke:none} .ico .k{fill:none;stroke:var(--cbg,var(--panel2));stroke-width:4.5} /* (a symbol's solid part, a person's bust, and the gap of the button's color round the tool held in front of it) */
 .cb.gap{visibility:hidden}
 .cb:hover{border-color:var(--ally)} .cb:focus-visible{outline:2px solid var(--ally)}
-.cb.active{border-color:var(--ally);background:#2a2415}
+.cb.active{border-color:var(--ally);background:#2a2415;--cbg:#2a2415}
 .cb:disabled{opacity:.38;cursor:default}
 .cb .k{position:absolute;top:2px;right:3px;font:9px var(--mono);color:var(--ally2)}
 .cb .c{font:10px var(--mono);color:var(--muted)}

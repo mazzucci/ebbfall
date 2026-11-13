@@ -266,7 +266,6 @@ fn the_expedition_has_no_portal_pool() {
     assert_eq!(d.supply, 0, "the Portal gives no places");
     assert_eq!(UnitKind::Umbra.def().pool, Pool::Supply);
     let mut w = expedition();
-    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     set_down(&mut w, BldgKind::Uplink);
     let before = w.pools[PLAYER as usize];
     set_down(&mut w, BldgKind::Eclipse);
@@ -285,7 +284,6 @@ fn the_expedition_has_no_portal_pool() {
 #[test]
 fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_cancel() {
     let mut w = expedition();
-    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     set_down(&mut w, BldgKind::Uplink);
     set_down(&mut w, BldgKind::Spire);
     let uses = BldgKind::Eclipse.def().uses;
@@ -337,7 +335,6 @@ fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_c
     );
     // Without the Power for it: refused in the Power's words.
     let mut w = expedition();
-    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     set_down(&mut w, BldgKind::Uplink);
     let [used, cap] = w.sup(PLAYER);
     spawn(&mut w, UnitKind::Lumen, (cap - used - uses + 1) as usize);
@@ -396,7 +393,6 @@ fn the_android_is_a_slow_expensive_elite_machine_using_power() {
     );
     // Trained at the Portal: ten Power queued, and refused without them.
     let mut w = expedition();
-    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     set_down(&mut w, BldgKind::Uplink);
     let p = set_down(&mut w, BldgKind::Eclipse);
     let [used, cap] = w.sup(PLAYER);
@@ -421,21 +417,16 @@ fn the_android_is_a_slow_expensive_elite_machine_using_power() {
 }
 
 #[test]
-fn the_satellite_is_launched_at_the_lab_once_and_unlocks_the_uplink_whose_standing_unlocks_the_portal()
- {
-    // The arc (Nov 13): the satellite is a research at the Lab (the Data center no longer launches it), once a player;
-    // the Uplink is refused until it is up; the Portal needs an Uplink to be placed, and trains only while one stands.
+fn the_lab_unlocks_the_uplink_whose_standing_unlocks_the_portal() {
+    // One dish, no satellite (Stelian, Nov 13): the Uplink is refused until a Lab stands, and costs what the Uplink and
+    // its satellite did together; the Portal needs an Uplink to be placed, and trains only while one stands.
     let mut w = expedition();
-    let dc = hq(&w, PLAYER);
     let (ux, uy) = spot(&w, BldgKind::Uplink);
-    assert!(
-        w.start_research(dc, Upgrade::Satellite).is_err(),
-        "not at the Data center"
-    );
+    assert_eq!(BldgKind::Uplink.def().cost, [275, 0]);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Uplink, ux, uy, None),
-        Err("Requires Launch satellite".to_string()),
-        "the Uplink refused before the launch"
+        Err("Requires Lab".to_string()),
+        "the Uplink refused before a Lab stands"
     );
     set_down(&mut w, BldgKind::Siphon);
     let lab = set_down(&mut w, BldgKind::Loom);
@@ -445,19 +436,9 @@ fn the_satellite_is_launched_at_the_lab_once_and_unlocks_the_uplink_whose_standi
         Err("Requires Uplink".to_string()),
         "the Portal needs the Uplink, the Lab is not enough"
     );
-    let gold = w.res[PLAYER as usize][0];
-    let (cost, time) = (Upgrade::Satellite.cost(1)[0], Upgrade::Satellite.time(1));
-    assert_eq!(w.start_research(lab, Upgrade::Satellite), Ok(()));
-    assert_eq!(w.res[PLAYER as usize][0], gold - cost);
-    run(&mut w, time as u32 - 1);
-    assert!(!w.has_req(PLAYER, BldgKind::Uplink), "{time} s to launch");
-    run(&mut w, 2);
-    assert_eq!(w.upgrades[PLAYER as usize][Upgrade::Satellite.index()], 1);
-    assert!(w.has_req(PLAYER, BldgKind::Uplink));
-    // Once a player: no second launch.
     assert!(
-        w.start_research(lab, Upgrade::Satellite).is_err(),
-        "launched once"
+        w.has_req(PLAYER, BldgKind::Uplink),
+        "the Lab standing opens it"
     );
     let bot = harvesters(&w, PLAYER)[0];
     let up = build(&mut w, BldgKind::Uplink, bot, 90);
@@ -484,54 +465,10 @@ fn the_satellite_is_launched_at_the_lab_once_and_unlocks_the_uplink_whose_standi
         w.bldg(portal).unwrap().prog > prog,
         "and goes on with one again"
     );
-}
-
-#[test]
-fn the_launch_is_told_to_its_own_seat_alone() {
-    // Four seats on 96x96: the Expedition in seats 0 and 3, the Kingdom in 1 and 2, seats 0 and 1 a team against 2 and
-    // 3. Seat 0 launches: only seat 0 is told ("You launched", its research-done notice), no other seat (neither its
-    // ally nor its foes) gets a toast about it, and the launch is an event at its Lab (the client's rocket, shown where
-    // a seat sees it), once.
-    let mut w = World::with_size(
-        5,
-        1,
-        MapKind::Standard,
-        MapSize::square(96),
-        0,
-        &[&VAEL, &HUMANS, &HUMANS, &VAEL],
-    );
-    w.disable_ai();
-    w.set_teams(&[0, 0, 1, 1]);
-    let (tx, ty) = (4..92)
-        .flat_map(|y| (4..92).map(move |x| (x, y)))
-        .find(|&(x, y)| w.can_place(BldgKind::Loom, x, y, 0))
-        .unwrap();
-    let lab = w.make_building(BldgKind::Loom, 0, tx, ty, true);
-    w.res[0][0] = 1000;
-    assert_eq!(w.start_research(lab, Upgrade::Satellite), Ok(()));
-    w.events.clear();
-    let (mut told, mut launches) = (Vec::new(), Vec::new());
-    for _ in 0..(Upgrade::Satellite.time(1) as u32 + 1) * TPS {
-        w.step();
-        for e in w.events.drain(..) {
-            match e {
-                endfall_sim::world::Event::Toast { team, msg, .. }
-                    if msg.contains("satellite") || msg.contains("launch") =>
-                {
-                    told.push((team, msg))
-                }
-                endfall_sim::world::Event::Launch { x, y, team } => launches.push((x, y, team)),
-                _ => {}
-            }
-        }
-    }
-    assert_eq!(
-        told,
-        vec![(0, LAUNCH_OURS.to_string())],
-        "its own seat told once, no other seat"
-    );
-    let b = w.bldg(lab).unwrap();
-    assert_eq!(launches, vec![(b.x, b.y, 0)], "one launch, at the Lab");
+    // The Lab lost: the Uplink standing still works, but no new one goes up.
+    w.damage(lab, 1e9, None);
+    assert!(!w.has_req(PLAYER, BldgKind::Uplink));
+    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
 }
 
 #[test]
@@ -577,12 +514,12 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 }
 
 #[test]
-fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_at_every_level() {
+fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_level() {
     // The Expedition's AI against the Kingdom's, at every level (every starting building made to last, so the game runs
     // its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields few machines but
-    // its Bots: a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a
-    // Portal, never more than one Portal standing or going up, trains Androids there, and never stands above its places
-    // but as a lost building leaves it.
+    // its Bots: a turbine only if those fill its Data center's 20), raises an Uplink and a Portal, never more than one
+    // Portal standing or going up, trains Androids there, and never stands above its places but as a lost building
+    // leaves it.
     // (seed 2: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
     // game before its Portal ever has the four Sellswords and the price an Android waits for; since new workers wait
     // for an order, Brutal's Expedition in seed 20's; since Easy's slow climb and its Kingdom's line on par (Nov 13),
@@ -595,11 +532,11 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
         let mut seen = [false; 5]; // turbine, post, Uplink, Portal (finished), an Android
-        let mut launched = None;
+        let mut uplink_at = None;
         let mut power_full = false;
         let mut portals = 0;
         let mut prev = Vec::new();
-        while w.time < 25.0 * 60.0 && !(seen.iter().all(|&s| s) && launched.is_some()) {
+        while w.time < 25.0 * 60.0 && !seen.iter().all(|&s| s) {
             w.step();
             w.events.clear();
             for b in w.bldgs.iter().filter(|b| b.team == ENEMY && b.done) {
@@ -622,8 +559,8 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
                 .filter(|b| b.team == ENEMY && b.kind == BldgKind::Eclipse)
                 .count();
             portals = portals.max(n);
-            if launched.is_none() && w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] > 0 {
-                launched = Some(w.time);
+            if uplink_at.is_none() && seen[2] {
+                uplink_at = Some(w.time);
             }
             let [used, cap] = w.sup(ENEMY);
             power_full |= used >= cap;
@@ -643,7 +580,7 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
             w.winner
         );
         assert_eq!(portals, 1, "diff {diff}: one Portal at most");
-        let t = launched.unwrap_or_else(|| panic!("diff {diff}: no launch"));
-        assert!(t > 150.0, "diff {diff}: launched at {t:.0} s, not at once");
+        let t = uplink_at.unwrap_or_else(|| panic!("diff {diff}: no Uplink"));
+        assert!(t > 150.0, "diff {diff}: an Uplink at {t:.0} s, not at once");
     }
 }

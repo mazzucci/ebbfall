@@ -1792,38 +1792,27 @@ test('as the Expedition: a Bot refused at the Power cap says so, a Wind turbine 
   } finally { await d.close(); }
 });
 
-test('as the Expedition: the Uplink shown locked on the Build card from the first, the satellite launched at the Lab (a toast, a rocket), then the Uplink open in its slot (no button moves), its circle shown while placing it', async () => {
+test('as the Expedition: the Uplink opens with the Lab on the Build card (appended, no button moves), its circle shown while placing it', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(4000, 0);
     await buildAndFinish(d, 'i', 'siphon', 0, V);
-    const lab = await buildAndFinish(d, 'g', 'loom', 1, V);
-    // The Build card's advanced page, as a Bot shows it: each button with its slot, and whether it can be pressed.
+    // The Build card's advanced page, as a Bot shows it: each button with its slot.
     const advanced = async () => {
       const w = mine(await d.state(), 'lumen')[2];
       for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); } // (a Bot moves: again until it is picked)
       await d.pressCard('Build'); await d.readyCard('Advanced'); await d.pressCard('Advanced');
       await d.readyCard('Factory');
-      const got = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), uplink = (await d.card()).find(c => c.label === 'Uplink');
+      const got = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
       await d.pressCard('Back'); await d.pressCard('Back');
-      return [got, uplink?.enabled];
+      return got;
     };
-    const [before, lockedBefore] = await advanced();
-    assert.deepEqual(before, ['Factory 0', 'Lab 1', 'Uplink 2', 'Back 5'], 'the advanced page before the satellite: the Uplink there, in its slot');
-    assert.equal(lockedBefore, false, 'the Uplink greyed out before the satellite');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Back 5'], 'the advanced page before the Lab: no Uplink');
+    await buildAndFinish(d, 'g', 'loom', 1, V);
+    // The Uplink: open now, appended; nothing else moved. Armed, its ghost follows the mouse with its circle.
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Uplink 2', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
     const hq = myBldg(await d.state(), 'conflux')[0];
-    await d.centerOn(lab.x, lab.y);
-    await d.clickEntity(lab.id);
-    await d.pressCard('Satellite');
-    assert.ok(await d.skipUntil(() => endfall.G.upgrades[endfall.G.me].satellite > 0, null, { seconds: 120 }), 'the satellite launched');
-    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'You launched a satellite.'), null, { timeout: 5000 });
-    const rockets = await d.eval(() => endfall.launches());
-    assert.ok(rockets.length === 1 && Math.abs(rockets[0].x - lab.x) < 3 && rockets[0].y < lab.y, `a rocket rising from the Lab: ${JSON.stringify(rockets)}`);
-    // The Uplink: open now, in the slot it held; nothing else moved. Armed, its ghost follows the mouse with its circle.
-    const [after, open] = await advanced();
-    assert.deepEqual(after, before, 'the Uplink open in its slot; nothing moved');
-    assert.equal(open, true, 'the Uplink can be built');
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
     await d.centerOn(hq.x, hq.y);
@@ -1831,7 +1820,8 @@ test('as the Expedition: the Uplink shown locked on the Build card from the firs
     await d.pressCard('Uplink');
     const [x, y] = await d.screen(hq.x + 12 * 32, hq.y);
     await d.page.mouse.move(x, y); await d.page.waitForTimeout(200);
-    const reach = await d.eval(() => endfall.engine.coverageOf('uplink', endfall.engine.MW) * 32);
+    const reach = await d.eval(() => endfall.engine.coverageOf('uplink') * 32);
+    assert.equal(reach, 54 * 32, 'the Uplink reaches 54 tiles');
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
     await d.key('Escape');
@@ -3229,7 +3219,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
-test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their units and no button moves when one unlocks (Rally fixed), the satellite launched at the Lab opens the Uplink, the Uplink the Portal, which trains Androids and Rovers', async () => {
+test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their units and no button moves when one unlocks (Rally fixed), the Lab opens the Uplink, the Uplink the Portal, which trains Androids and Rovers', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
@@ -3246,7 +3236,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.readyCard('Buggy');
     const kilnBefore = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
     assert.deepEqual(kilnBefore, ['Buggy 0', 'Rally 4', 'Cancel 5'], 'the Factory before a Lab: packed, no gap for the Drone; Rally in its place');
-    const lab = await buildAndFinish(d, 'g', 'loom', 3, V);
+    await buildAndFinish(d, 'g', 'loom', 3, V);
     await d.clickEntity(post.id);
     await d.readyCard('Bruiser');
     const postAfter = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
@@ -3270,14 +3260,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(post), ['bruiser', 'bruiser'], `${key} trains another`);
     await pickControls(d, 'classic');
-    // The satellite, launched from the Lab's card (S): our seat alone is told; then the Uplink, then the Portal.
-    await d.clickEntity(lab.id);
-    await d.readyCard('Satellite');
-    await d.key('s');
-    assert.ok(await d.skipUntil(() => endfall.G.upgrades[endfall.G.me].satellite > 0, null, { seconds: 120 }), 'the satellite launched');
-    // (told on the frame after the step that launched it: waited for, not read at once)
-    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'You launched a satellite.'), null, { timeout: 5000 })
-      .catch(async (e) => { throw new Error(`the launch told: ${e.message} (toasts: ${(await d.toasts()).join(' | ')})`); });
+    // The Lab standing: the Uplink (B, V, U), then the Portal.
     await buildAndFinish(d, 'u', 'uplink', 0, V);
     const portal = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
     await d.clickEntity(portal.id);

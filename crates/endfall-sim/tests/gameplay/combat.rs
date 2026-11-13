@@ -920,7 +920,8 @@ fn nothing_has_shields_and_bots_repair_buildings_only() {
         assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
     }
     let mut w = rich_vael(4242);
-    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
+    let (lx, ly) = spot(&w, BldgKind::Loom);
+    w.make_building(BldgKind::Loom, PLAYER, lx, ly, true); // (the Uplink's requirement)
     let l = harvesters(&w, PLAYER);
     let uplink = build(&mut w, BldgKind::Uplink, l[0], 120);
     w.damage(uplink, 300.0, None);

@@ -385,8 +385,6 @@ def_struct! {
         /// At most one a finished headquarters of its side (the Market: a new Castle at an expansion allows another).
         per_hq: bool = "perHq",
         req: Option<BldgKind> = "req",
-        /// A research its side must have done to build it (the Uplink: the satellite).
-        req_up: Option<Upgrade> = "reqUp",
         /// A building its side must have standing, finished, for this one to train (the Portal: an Uplink; the arc,
         /// Nov 13): its training waits while there is none, and a unit is refused with the reason.
         trains_with: Option<BldgKind> = "trainsWith",
@@ -587,7 +585,6 @@ const BLDG: BldgDef = BldgDef {
     pays: false,
     per_hq: false,
     req: None,
-    req_up: None,
     trains_with: None,
     hq: false,
     researches: &[],

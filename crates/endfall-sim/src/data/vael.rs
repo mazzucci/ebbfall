@@ -4,10 +4,10 @@
 //!
 //! No population (PRD: the Expedition rework): its machines (Bot, Buggy, Rover, Drone) use Power (`Pool::Supply`), from
 //! the Data center and wind turbines; its hired guns (Sellsword, Bruiser, Medic) take hired places (`Pool::Hired`), six
-//! a Recruiting post. Power and hired places each have a maximum (`power_limit`, `hired_limit`). The satellite
-//! (researched at the Data center once a Lab stands) unlocks the Uplink, which unlocks the Portal: one a side, using
-//! Power while it stands, where the Android, a slow and expensive elite machine, is made. Machines move faster inside
-//! the range of the Data center or an Uplink (data/radio.rs).
+//! a Recruiting post. Power and hired places each have a maximum (`power_limit`, `hired_limit`). The Lab
+//! unlocks the Uplink, which unlocks the Portal: one a side, using Power while it stands, where the Android, a slow and
+//! expensive elite machine, is made. Machines work and move faster inside the coverage of the Data center or an Uplink
+//! (data/radio.rs).
 
 use super::*;
 
@@ -335,12 +335,11 @@ pub(super) const LOOM: BldgDef = BldgDef {
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Siphon),
-    // (the Expedition's research: its weapons, armor and its Drones' speed, the satellite and its Bots' drills)
+    // (the Expedition's research: its weapons, armor and its Drones' speed, and its Bots' drills)
     researches: &[
         Upgrade::Weapons,
         Upgrade::Armor,
         Upgrade::Slipstream,
-        Upgrade::Satellite,
         Upgrade::Drills,
     ],
     ..BLDG
@@ -387,14 +386,14 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
     trains: &[UnitKind::Umbra, UnitKind::Monolith],
     ..BLDG
 };
-/// The Uplink: a big satellite dish, unarmed, once the satellite is up; it gives machines range (data/radio.rs) and
-/// unlocks the Portal. 3x3 (a wide, squat dish). 150 gold, a tech building's price: with the satellite's 200 the way to
-/// the Portal costs about what the Lab-to-Portal way did plus the launch, and a forward Uplink (the AI's leapfrog) is
-/// a real investment, not the old 65-gold tower.
+/// The Uplink: a large dish that extends the signal's range (the Data center's small receiver sits on an existing
+/// link), unarmed, once a Lab stands; it gives machines coverage (data/radio.rs) and unlocks the Portal. 3x3 (a wide,
+/// squat dish). 275 gold: what the Uplink and the satellite it once needed cost together (Stelian, Nov 13: one dish,
+/// no satellite), so a forward Uplink is a real investment.
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [150, 0], // (125 before the economy pass, Nov 13: a bet between units and construction)
+    cost: [275, 0], // (125 before the economy pass, then 150 with a 100-gold satellite before it, Nov 13)
     w: 3,
     h: 3,
     hp: 750.0,
@@ -402,6 +401,6 @@ pub(super) const UPLINK: BldgDef = BldgDef {
     uses: 6,
     build: 40.0,
     sight: 8.0,
-    req_up: Some(Upgrade::Satellite),
+    req: Some(BldgKind::Loom),
     ..BLDG
 };

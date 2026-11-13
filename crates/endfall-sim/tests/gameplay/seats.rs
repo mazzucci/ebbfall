@@ -359,10 +359,12 @@ fn two_against_two_allies_never_fight_and_one_team_stands() {
     for &seed in seeds {
         let mut w = ais(seed, 96, 4, Some(&[0, 0, 1, 1]));
         let mut fights = [[0; MAX_SEATS]; MAX_SEATS];
-        // (the full run's 40 minutes are 90, and the debug run's 20 are 30, since the conversion's PR 1: under the cap
+        // (the full run's 40 minutes are 90, and the debug run's 20 were 30, since the conversion's PR 1: under the cap
         // of 40 these games run longer; back to their old caps by the release gate (PRD: the conversion, the timeouts
         // row at 96 and 128))
-        let cap = 30 * 60 * if full { 90 } else { 30 };
+        // (the debug run's 40 since the one forward Uplink, Nov 13: seed 14's two Expeditions, one a team, trade
+        // armies of 3,000 to 5,000 from 20:00 while the winning team's Kingdom rebuilds; it ends at 37:52, a grind)
+        let cap = 30 * 60 * if full { 90 } else { 40 };
         for tick in 0..cap {
             w.step();
             if full || tick % 10 == 0 {

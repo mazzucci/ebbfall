@@ -31,28 +31,6 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
         .map(|b| b.id)
         .collect();
     for i in 0.. {
-        let has = |w: &World, k: BldgKind| {
-            w.bldgs
-                .iter()
-                .any(|b| b.team == PLAYER && b.kind == k && b.done)
-        };
-        // (a building that waits for a research, the Uplink for the satellite: researched once nothing else can go up)
-        if !todo.iter().any(|&k| w.has_req(PLAYER, k))
-            && let Some(up) = todo.iter().find_map(|&k| {
-                k.def()
-                    .req_up
-                    .filter(|u| u.def().req.is_none_or(|r| has(&w, r)))
-            })
-        {
-            let at = w
-                .bldgs
-                .iter()
-                .find(|b| b.team == PLAYER && b.done && b.kind.def().researches.contains(&up))
-                .unwrap()
-                .id;
-            w.start_research(at, up).unwrap();
-            run(&mut w, (up.time(1) + 1.0) as u32);
-        }
         let Some(at) = todo.iter().position(|&k| w.has_req(PLAYER, k)) else {
             assert!(todo.is_empty(), "{}: {todo:?} can never be built", f.key);
             break;
@@ -292,15 +270,13 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         Err("Factory cannot train that".into()),
         "no healer in the build"
     );
-    let lab = build(&mut w, BldgKind::Loom, l[2], 150);
+    build(&mut w, BldgKind::Loom, l[2], 150);
     assert!(
         w.queue_unit(post, UnitKind::Bruiser).is_ok(),
         "once the Lab stands"
     );
     assert!(w.queue_unit(kiln, UnitKind::Shrike).is_ok(), "a Drone too");
     assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "not the Lab alone");
-    assert!(w.start_research(lab, Upgrade::Satellite).is_ok());
-    run(&mut w, Upgrade::Satellite.time(1) as u32 + 1);
     build(&mut w, BldgKind::Uplink, l[3], 150);
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);

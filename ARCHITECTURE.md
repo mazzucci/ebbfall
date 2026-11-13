@@ -112,21 +112,21 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), coverage (`radio`, the arc: the combat machines need signal, Bots,
   people and the Kingdom never; x1.3 inside coverage, slower stranded outside and only back towards it; by exact
   distance from the source's center, just inside and just outside the edge, off tile centers; from the Data center and
-  an Uplink (20 tiles on 64x64, 24 bigger), none from a site or a Sentry mast, gone when the Uplink falls; an ally's
+  an Uplink (54 tiles on every map), none from a site or a Sentry mast, gone when the Uplink falls; an ally's
   counts; a machine ordered past the edge stopping at it and fighting what it reaches from there, its player told; a
-  stranded one walking back; two overlapping Uplinks' waist crossed, and a way that clips its notch rerouted inside
-  (a move arrives, an attack fires); the Expedition AI's push: an Uplink towards the goal, then its machines,
-  none of them leaving coverage), the Expedition rework (`expedition`: Power for machines and
+  stranded one walking back; two overlapping sources' waist crossed, and a way that clips its notch rerouted inside
+  (a move arrives, an attack fires; the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most
+  of a 64x64 map); the Expedition AI's push on 96x96: one forward Uplink whose coverage takes in the foe, then its
+  machines, none of them leaving coverage), the Expedition rework (`expedition`: Power for machines and
   its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
   one and a lost post leaving the count over its use; the balance pass's two maximums, Power and hired places each
   capped at its own (Power 200, 240 and 280, twice the Kingdom's population, and hired places 25, 30 and 35 by map size) and each enforced on its own, the Kingdom's one
   population limit unchanged; no Portal pool; one Portal a seat, a second refused while one stands or goes up, its
   Power used from placement and released when it is destroyed or cancelled, refused without the Power for it; the
-  Android's numbers, its Power and its training time; the satellite launched at the Lab once a player and unlocking the
-  Uplink whose standing unlocks the Portal, the Portal training (Androids and Rovers) only while an Uplink stands, the
-  launch told to its own seat alone ("You launched a satellite.", no toast to any other seat) with the rocket an event
-  for every seat at the Lab; Bots repairing buildings and no machine; melee Sellswords and Bruisers hitting only the ground up close,
-  the Expedition AI at every level raising turbines and posts, launching, raising one Portal at most and training
+  Android's numbers, its Power and its training time; the Lab unlocking the Uplink (275 gold; no satellite since Nov
+  13) whose standing unlocks the Portal, the Portal training (Androids and Rovers) only while an Uplink stands; Bots
+  repairing buildings and no machine; melee Sellswords and Bruisers hitting only the ground up close,
+  the Expedition AI at every level raising turbines and posts, an Uplink, one Portal at most and training
   Androids there), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
   `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, every pool's
   places (`check_pools`: a pool's use over its cap only as a lost building left it, never by growing; no pool over its
@@ -178,9 +178,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
-                      upgrades.rs (Launch satellite among them: the Expedition's, at its Lab, once, told to its own
-                      seat alone, the Uplink's requirement; Better drills, two levels at the Lab: a Bot's load
-                      `DRILL_LOAD` more), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
+                      upgrades.rs (Better drills, two levels at the Lab: a Bot's load `DRILL_LOAD` more), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
                       climbing to its top tier late and Medium's from 8:00; Easy's clumsy waves growing by one from
                       `clumsy_until`),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
@@ -233,7 +231,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       target cannot pull it along leash by leash; a shooter off the leash is not answered), movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
                       retreat, the sweep), radio.rs (coverage: the Expedition's combat machines work only within
-                      a finished Data center's 18 tiles or an Uplink's 20 (24 on the bigger maps) of their side or an
+                      a finished Data center's 18 tiles or an Uplink's 54 (on every map) of their side or an
                       ally, by exact distance from the building's center, moving x1.3 there; the sources listed again
                       when they change (checked each tick: derived, not hashed), and handed to the client as circles
                       (`radio_circles`, Game.radioCircles: x, y, reach per source of a side and its allies). A machine's
@@ -242,8 +240,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       attack past the edge stops at it (fighting what it can reach from there; a player is told
                       "Can't reach: no signal there.", once a tick for a group); one left outside
                       (stranded: its Uplink fell) moves only towards coverage, slower, and walks back when idle; the
-                      AI's push (an Uplink towards its goal, its machines kept out of a wave until coverage nears the
-                      goal), its wave's leapfrog Uplink and staging, and a wave left with only machines held quiet at the edge
+                      AI's push (one forward Uplink that covers its goal, its machines kept out of a wave until
+                      coverage nears the goal), its wave's own Uplink and staging, and a wave left with only machines held quiet at the edge
                       ended, are in ai/army.rs); economy.rs keeps each seat's pools (`World::pools`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
@@ -262,9 +260,12 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
                       90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees
-                      fall (`army_seen_ids`), and a wave short of its count goes when it crushes that (`crushing`). The
-                      relay (push and leapfrog) is sited along the walkers' way, over the last stretch to the goal
-                      too, and its price is held while a wave with machines is out (`relay_hold`). Against enemy siege
+                      fall (`army_seen_ids`), and a wave short of its count goes when it crushes that (`crushing`). Its
+                      Uplink (the Portal's requirement, the push's and a wave's alike) goes forward, at the first point
+                      of the walkers' way to the goal whose 54 tiles take in the goal with 8 to spare (`relay_point`,
+                      `relay_spot`), so one covers the push and stands as far back as that allows (its army answers
+                      an enemy at it as at any building), and its price is held while a wave with machines is out
+                      (`relay_hold`). Against enemy siege
                       seen (`siege_seen`, the Cannon, the Rover) a level that adapts trains its dive unit (`AiScript::
                       dive`: the Knight, the Drone) one per line unit and holds its price (`dive_hold`); its Portal
                       holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with
@@ -284,8 +285,6 @@ src/client/           everything that touches the browser
                       the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`);
-                      the satellite's rocket rising from its Data center (`launchFx`, `launchesShown` for the tests:
-                      main.js draws it only for our side or a Data center in sight);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's

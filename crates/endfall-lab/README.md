@@ -99,10 +99,10 @@ few games in a bin, read the interval).
 
 **The top tier:** per people, level and size (each level against itself), the median time of the seat's first
 top-tier unit (the Kingdom's first Knight or Cannon, the Expedition's first Android) and of its first of each
-tech building finished (the Blacksmith, the Stables and the Workshop; the Lab, the Uplink and the Portal) and the
-satellite's launch, over the seats that got there, how many of all beside it. The target is the first top-tier unit
-at about 8–10 min. Each seat's record holds the tick of its first unit trained of each kind (`first_unit_tick`), its
-first building finished of each kind (`first_bldg_tick`) and its launch (`satellite_tick`).
+tech building finished (the Blacksmith, the Stables and the Workshop; the Lab, the Uplink and the Portal), over the
+seats that got there, how many of all beside it. The target is the first top-tier unit at about 8–10 min. Each seat's
+record holds the tick of its first unit trained of each kind (`first_unit_tick`) and its first building finished of
+each kind (`first_bldg_tick`).
 
 ### The Shore map (`--maps Shore`)
 
@@ -268,7 +268,7 @@ moved (`bets.rs`, set per seat through `World::set_ai_plans`, lab only):
 - **rush** (army first): three barracks and its first wave at 2:30, no tech building (so no top tier, no siege, no Lab
   units), no towers, no research, its expansion at 10:00;
 - **defense** (towers first, then an army): six towers by 5:30 (`Diff::towers`), its first wave at 8:00;
-- **tech** (straight to the top tier): its tech building at 1:00 (`Diff::tech_at`), its side's techs and the satellite
+- **tech** (straight to the top tier): its tech building at 1:00 (`Diff::tech_at`), its side's techs
   at once (`Diff::tech_from`), its vehicle bay and air factory early, the top tier mixed in early and thick (a Knight per
   two Guards, a Cannon per three, an Android per Sellsword), one barracks to start, its first wave at 9:00.
 

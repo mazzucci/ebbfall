@@ -203,23 +203,17 @@ test('a building opened mid-game is appended to its Build page: the shown ones k
   const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
   raise('siphon');
   assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
-  // The Uplink shows from the first, locked until the satellite is up (the arc, Nov 13: its requirement on its tip), in
-  // the slot it keeps when it opens.
-  const advanced = () => { ui.sel = [lumen()]; ui.mode = 'build2'; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the advanced page before the satellite');
-  const locked = advanced().find(i => i.id === 'b_uplink');
-  assert.ok(locked.dis && /Needs the satellite: launch it from the Lab\./.test(locked.tip), 'locked, its requirement in its tip');
-  E.debugResearch(E.G.me, 'satellite', 1);
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the Uplink open in its slot, the others where they were');
-  assert.ok(!advanced().find(i => i.id === 'b_uplink').dis, 'and no longer locked');
+  // The Uplink opens with the Lab (one dish, no satellite: Stelian, Nov 13), appended after the shown ones.
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'the advanced page before the Lab');
+  raise('loom');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the Uplink appended, the others where they were');
   raise('uplink');
   assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'b_eclipse@3', 'build1@5'], 'then the Portal, appended');
   assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
   // A new game forgets them.
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
-  E.debugResearch(E.G.me, 'satellite', 1);
   raise('siphon');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'a new game: its own slots');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'a new game: its own slots');
   ui.sel = []; ui.mode = null;
 });
 
@@ -245,7 +239,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
         kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2', 'r_satellite@3', 'r_drills@4'],
+        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2', 'r_drills@3'],
         eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],

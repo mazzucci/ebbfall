@@ -26,7 +26,7 @@ impl World {
     }
 
     /// A spot for `kind` in rings from `from` to `room` tiles around (cx, cy), where `ok` also allows it.
-    fn find_spot_within(
+    pub(crate) fn find_spot_within(
         &mut self,
         kind: BldgKind,
         cx: f64,
@@ -403,7 +403,7 @@ impl World {
     /// another factory of its own, already placed, trains) due by the time it stands, on a level that fields it, or
     /// one of its techs of use and not yet researched, from the side's tech time on a level that uses them.
     /// While its own requirement does not stand yet, that requirement instead when it can be built (the Portal's
-    /// Uplink, once the satellite is up) and is not already going up.
+    /// Uplink, once a Lab stands) and is not already going up.
     /// Never a second of a kind its side may have only one of (`BldgDef::single`, the Portal: counted with those going
     /// up, as `World::single_room` counts them), nor one whose Power it lacks (`World::power_room`): a turbine first.
     pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
@@ -608,7 +608,18 @@ impl World {
                 && self.has_req(e, w)
                 && self.can_afford(e, [0, 1].map(|i| w.def().cost[i] + hold[i]))
         });
+        // Its Uplink (`AiScript::relay`) forward, where one covers its push on the foe (`relay_point`), else at home.
+        let goal = self.attack_target();
+        let forward = placeable
+            .filter(|&w| Some(w) == f.ai.relay)
+            .and_then(|_| self.relay_point(goal))
+            .map(|(_, _, point)| point);
         let spot = match placeable {
+            Some(w) if forward.is_some() => {
+                let point = forward.unwrap_or_default();
+                self.relay_spot(point, goal)
+                    .or_else(|| self.find_spot(w, cx, cy))
+            }
             Some(w) => {
                 let (fx, fy) = (cx, cy);
                 // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.

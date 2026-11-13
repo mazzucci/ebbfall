@@ -56,7 +56,6 @@ impl World {
         // Uplink open, the other factories hold an elite's price back, or the posts spend every coin first each turn and
         // the Portal never trains (`gate_hold`).
         let gate_hold = self.gate_hold(e, &my_b)
-            + self.launch_hold(e, t)
             + self.siege_hold(e, &my_b, t)
             + self.dive_hold(e, &my_b, t)
             + self.relay_hold(e);
@@ -368,26 +367,6 @@ impl World {
         }
     }
 
-    /// The gold `e`'s factories hold back for its satellite (the arc: the Expedition's way to its late game; a tech is
-    /// never saved for, and its posts spent every coin first): half the launch's price, from `LAUNCH_LEAD` before its
-    /// side's tech time, while its Lab stands and the launch is neither done nor under way.
-    pub(crate) fn launch_hold(&self, e: u8, t: f64) -> i32 {
-        let up = Upgrade::Satellite;
-        let script = &self.factions[e as usize].ai;
-        let tech_from = self.tech_time(e);
-        let lab = up.def().req;
-        let busy = self
-            .bldgs
-            .iter()
-            .any(|b| b.team == e && b.research.is_some_and(|(u, _)| u == up));
-        let wanted = script.tech2.is_some()
-            && t > tech_from - super::research::LAUNCH_LEAD
-            && self.upgrades[e as usize][up.index()] == 0
-            && !busy
-            && lab.is_none_or(|l| self.has_bldg(e, l));
-        if wanted { up.cost(1)[0] / 2 } else { 0 }
-    }
-
     /// The gold `e`'s other factories hold back for its gate's elite (`gate_hold` in `ai_produce`): the price of the unit
     /// its finished Portal (`AiScript::tech2`) trains next by the mix (the one furthest behind its ratio, as the Portal
     /// picks it; the cheapest it trains with none due), while that Portal is idle and may train (`BldgDef::trains_with`
@@ -485,7 +464,7 @@ impl World {
         k.ai_tier() <= d.mix_tier + risen
     }
 
-    /// Seat `e`'s side's tech time (its techs, its satellite's launch, its second tech building): its people's
+    /// Seat `e`'s side's tech time (its techs, its second tech building): its people's
     /// (`AiScript::tech_from`), its tuning's if sooner, and never before its tuning's `tech_not_before` (Easy: late).
     pub(crate) fn tech_time(&self, e: u8) -> f64 {
         let d = self.tuning(e);
@@ -634,7 +613,6 @@ mod tests {
         );
         w.ai_turn = ENEMY;
         w.time = 900.0;
-        w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] = 1;
         let (bx, by) = w.map.bases[ENEMY as usize];
         w.make_building(BldgKind::Uplink, ENEMY, bx + 6, by - 2, true);
         w.make_building(BldgKind::Eclipse, ENEMY, bx + 6, by + 5, true);
@@ -659,6 +637,25 @@ mod tests {
     }
 
     #[test]
+    fn a_plan_s_tech_from_brings_its_side_s_tech_time_forward() {
+        // The balance lab's tech-first plan (`Diff::tech_from`): its seat's tech time is the plan's when sooner than its
+        // people's own; the other seat keeps its level's.
+        let mut w = World::with_setup(4, 1, crate::map::MapKind::Standard, false, [&VAEL, &VAEL]);
+        let own = w.tech_time(1);
+        let plan = Diff {
+            tech_from: 120.0,
+            ..DIFF[1]
+        };
+        assert!(w.set_ai_plans(&[Some(plan), None]));
+        assert_eq!(w.tech_time(0), 120.0_f64.min(own));
+        assert!(
+            w.tech_time(0) < own,
+            "sooner than its people's own ({own} s)"
+        );
+        assert_eq!(w.tech_time(1), own);
+    }
+
+    #[test]
     fn a_wave_with_machines_out_holds_its_relay_s_price() {
         // A wave with a machine out and the Uplink unlocked: its factories hold an Uplink's price for the wave's leapfrog
         // relay (spent on units first, it was never paid for when the wave's front got there); none without a machine
@@ -671,8 +668,8 @@ mod tests {
             [&HUMANS, &VAEL],
         );
         w.ai_turn = ENEMY;
-        w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] = 1;
         let (bx, by) = w.map.bases[ENEMY as usize];
+        w.make_building(BldgKind::Loom, ENEMY, bx + 6, by - 2, true); // (the Uplink's requirement)
         let (x, y) = ((bx as f64 - 3.0) * 32.0, by as f64 * 32.0);
         let sellsword = w.make_unit(UnitKind::Prism, ENEMY, x, y);
         let rover = w.make_unit(UnitKind::Monolith, ENEMY, x + 30.0, y);

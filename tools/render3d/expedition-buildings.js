@@ -663,7 +663,7 @@ function dishGeo(R, d, t, seg = 64) {
   return new THREE.LatheGeometry(pts.reverse(), seg); // (reversed: the lathe's normals follow the profile's direction, and the bowl's face must light from inside)
 }
 const DISH_R = 36, DISH_D = 10.5, DISH_TILT = 0.82, DISH_TURN = -0.35, DISH_ELBOW = 27;
-/** The Uplink (3x3, unarmed; the sim key `uplink`: "Talks to the satellite we brought along."): a satellite dish on
+/** The Uplink (3x3, unarmed; the sim key `uplink`: "A large dish that extends the signal's range."): a big dish on
  *  its stand, nothing else (Stelian's corrections: the face-on dish showed a gray blob in the middle; the hut, struts
  *  and props were clutter; round 3: bigger, filling the 3x3, and the dish a separate part). The base (`uplink`): a
  *  round steel base plate, a column up the footprint's center, the elbow at its top, a small cyan light, one standing

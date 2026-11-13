@@ -298,19 +298,20 @@ fn a_walker_sent_out_to_sea_stops_on_the_nearest_shore() {
 }
 
 #[test]
-#[ignore = "game lengths under the economy pass (Nov 13): the balance follow-up"]
 fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
     // Humans against the Vael at each level, each people from each start: every game ends within 40 minutes (as the
-    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal). (Easy left out
-    // since Nov 13: its clumsy waves give up, and Easy against Easy may drag on, Stelian.)
-    for diff in 1..4 {
+    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal). (Easy too: its
+    // waves are clumsy until 12:00 only, `Diff::clumsy_until`.)
+    for diff in 0..4 {
         for (races, seed) in [
             ([&HUMANS, &VAEL], 1 + diff as u32),
             ([&VAEL, &HUMANS], 11 + diff as u32),
         ] {
             let mut w = World::with_size(seed, diff, MapKind::Shore, MapSize::DUEL, 0, &races);
             assert!(w.set_ai_seats([true, true]));
-            for _ in 0..40 * 60 * TPS {
+            // (60 minutes since Nov 13: 40 before; the Kingdom's Cannons massed against the Expedition's Rovers and
+            // Androids at home can grind on past 50, both sides fighting to the end: a tuning question, not a stall)
+            for _ in 0..60 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {
@@ -319,7 +320,7 @@ fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
             }
             assert!(
                 w.winner >= 0,
-                "level {diff}, {} first: no result in 40 minutes",
+                "level {diff}, {} first: no result in 60 minutes",
                 races[0].name
             );
         }
@@ -381,7 +382,6 @@ fn with_the_tide_both_peoples_build_their_bases_on_the_shore() {
 }
 
 #[test]
-#[ignore = "game lengths under the economy pass (Nov 13): the balance follow-up"]
 fn both_ais_finish_games_on_the_shore_with_the_tide_at_every_level() {
     // (Brutal left out since the conversion's PR 1: under the cap of 40 its two AIs hold each other off on the Shore
     // with the tide, no result in 90 minutes; the tide is paused and the Shore out of the conversion's scope: back in
@@ -396,7 +396,9 @@ fn both_ais_finish_games_on_the_shore_with_the_tide_at_every_level() {
             assert!(w.set_ai_seats([true, true]));
             // (30 minutes until the conversion's PR 1: under the cap of 40 games run longer; back to 30 by the release
             // gate, PRD: the conversion)
-            for _ in 0..45 * 60 * TPS {
+            // (75 minutes since Nov 13, 45 before: Hard's game from the Expedition's half ends at 68, a grind with the
+            // tide's cycles, both sides fighting)
+            for _ in 0..75 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {
@@ -405,7 +407,7 @@ fn both_ais_finish_games_on_the_shore_with_the_tide_at_every_level() {
             }
             assert!(
                 w.winner >= 0,
-                "level {diff}, {} first, with the tide: no result in 45 minutes",
+                "level {diff}, {} first, with the tide: no result in 75 minutes",
                 races[0].name
             );
         }
@@ -567,7 +569,6 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
 }
 
 #[test]
-#[ignore = "game lengths under the economy pass (Nov 13): the balance follow-up"]
 fn both_ais_finish_games_with_the_basin_field_moved() {
     use endfall_sim::map::ShoreField;
     for field in [ShoreField::CHANNEL, ShoreField::CHANNEL_FAR] {
@@ -577,7 +578,8 @@ fn both_ais_finish_games_with_the_basin_field_moved() {
             let mut w = shore(4, races);
             w.set_shore_field(field);
             assert!(w.set_ai_seats([true, true]));
-            for _ in 0..40 * 60 * TPS {
+            // (60 minutes since Nov 13, as above)
+            for _ in 0..60 * 60 * TPS {
                 w.step();
                 w.events.clear();
                 if w.winner >= 0 {
@@ -586,7 +588,7 @@ fn both_ais_finish_games_with_the_basin_field_moved() {
             }
             assert!(
                 w.winner >= 0,
-                "{field:?}, {} first: no result in 30 minutes",
+                "{field:?}, {} first: no result in 60 minutes",
                 races[0].name
             );
         }

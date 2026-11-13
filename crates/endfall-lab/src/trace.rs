@@ -102,10 +102,15 @@ fn at(w: &World) -> String {
             .filter(|u| u.team == seat && u.kind.def().worker)
             .count();
         let bldgs = w.bldgs.iter().filter(|b| b.team == seat && b.done).count();
+        let mut bk: BTreeMap<&str, u32> = BTreeMap::new();
+        for b in w.bldgs.iter().filter(|b| b.team == seat) {
+            *bk.entry(b.kind.def().key).or_default() += 1;
+        }
+        let bk: Vec<String> = bk.iter().map(|(k, n)| format!("{k}{n}")).collect();
         let army: Vec<String> = kinds.iter().map(|(k, n)| format!("{k}{n}")).collect();
         let _ = writeln!(
             s,
-            "{:02}:{:02} s{seat} gold {:4} mined {:6} wk {:2} bl {:2} army {:5.0} [{}] | {}",
+            "{:02}:{:02} s{seat} gold {:4} mined {:6} wk {:2} bl {:2} army {:5.0} [{}] | {} | {}",
             t / 60,
             t % 60,
             w.res[seat as usize][0],
@@ -114,7 +119,8 @@ fn at(w: &World) -> String {
             bldgs,
             army_of(w, |x| x == seat as usize),
             army.join(" "),
-            w.ai_trace(seat).unwrap_or_default()
+            w.ai_trace(seat).unwrap_or_default(),
+            bk.join(" ")
         );
     }
     s

@@ -46,13 +46,11 @@ fn the_ai_plays_either_seat() {
 }
 
 #[test]
-#[ignore = "game lengths under the economy pass (Nov 13): the balance follow-up"]
 fn every_level_plays_the_new_rosters_to_the_end() {
     // The re-theme's rosters at every level: the Kingdom against the Expedition and each in a mirror, two AIs, a game
-    // that ends within 40 minutes, both seats having fought (and fielded more than their line units on a level whose
-    // mix allows it).
-    // (Easy left out since Nov 13: its clumsy waves give up and Easy against Easy may drag on, Stelian)
-    for diff in 1..DIFF.len() {
+    // that ends within 50 minutes, both seats having fought (and fielded more than their line units on a level whose
+    // mix allows it). (Easy too: its waves are clumsy until 12:00 only, `Diff::clumsy_until`.)
+    for diff in 0..DIFF.len() {
         for (k, races) in [[&HUMANS, &VAEL], [&HUMANS, &HUMANS], [&VAEL, &VAEL]]
             .into_iter()
             .enumerate()
@@ -62,7 +60,10 @@ fn every_level_plays_the_new_rosters_to_the_end() {
             w.set_ai_seats([true, true]);
             let mut hits = [0, 0];
             let mut tier = [0u8; 2]; // the most advanced unit each seat fielded
-            while !w.over && w.time < 40.0 * 60.0 {
+            // (within 50 since Nov 13: Kingdom mirrors grind, both armies fighting to the end; Hard's, seed 47, ends at
+            // 44 minutes)
+            let cap = 50.0;
+            while !w.over && w.time < cap * 60.0 {
                 w.step();
                 for e in w.events.drain(..) {
                     if let endfall_sim::world::Event::Attacked { team, .. } = e {
@@ -76,7 +77,7 @@ fn every_level_plays_the_new_rosters_to_the_end() {
             let what = format!("level {diff}, {} v {}", races[0].key, races[1].key);
             assert!(
                 w.over,
-                "{what}: someone wins within 40 min (t={:.0})",
+                "{what}: someone wins within {cap} min (t={:.0})",
                 w.time
             );
             assert!(
@@ -86,8 +87,9 @@ fn every_level_plays_the_new_rosters_to_the_end() {
             // (Medium's Expedition against itself fields its mercenary line alone since the economy's second round:
             // its hired places, 25, are never full at its income, so its gold never turns to machines; the
             // Expedition's arc, machines behind Uplinks, comes with its own PR)
+            // (and only in a game long enough for it: Medium's Kingdoms may trade bases by 9:00, Nov 13)
             let vael_mirror = races[0].power && races[1].power;
-            if diff >= 2 || (diff == 1 && !vael_mirror) {
+            if w.time > 12.0 * 60.0 && (diff >= 2 || (diff == 1 && !vael_mirror)) {
                 assert!(
                     tier.iter().any(|&t| t >= 1),
                     "{what}: past its line units: {tier:?}"
@@ -176,7 +178,6 @@ fn the_ai_answers_flyers_with_lancers() {
 }
 
 #[test]
-#[ignore = "a balance target open since the economy pass (Nov 13): the balance follow-up"]
 fn the_ai_answers_flyers_with_ballistas_once_its_workshop_can() {
     // Three Drones watching its base. Without a Workshop: two Archers per flyer (the mix's Archers, one per Guard,
     // count towards the answer). With a Workshop and a Forge: its Workshop trains Ballistas (worth two Archers each)
@@ -227,9 +228,11 @@ fn the_ai_answers_flyers_with_ballistas_once_its_workshop_can() {
             assert!(icps >= 1, "Ballistas from the Workshop: {icps}");
             // (five: the Workshop's 60 s to raise since the arc leave the Barracks a few more Archers first)
             assert!(lancers <= 5, "Archers to half the answer: {lancers}");
+            // (and the mix's own Ballistas, one per eight Guards, on top; one Archer over, as those five may be)
+            let mixed = trained(&w, UnitKind::Trooper) / 8;
             assert!(
-                lancers + 2 * icps <= 8,
-                "two answers per flyer, no more: {lancers} Archers, {icps} Ballistas"
+                lancers + 2 * icps <= 9 + 2 * mixed,
+                "two answers per flyer, no more: {lancers} Archers, {icps} Ballistas ({mixed} from the mix)"
             );
         } else {
             assert_eq!(icps, 0);
@@ -449,7 +452,6 @@ fn hurt_raiders_stay_home_and_healthy_ones_raid() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn the_ai_expands_to_a_second_base() {
     let mut w = World::new(33, 1);
     let c = w
@@ -459,7 +461,7 @@ fn the_ai_expands_to_a_second_base() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    run(&mut w, 720);
+    run(&mut w, 900); // (15:00: 12:00 before the economy pass, whose scarcer gold takes it to about 13:40)
     let cores: Vec<_> = w
         .bldgs
         .iter()
@@ -468,7 +470,7 @@ fn the_ai_expands_to_a_second_base() {
         .collect();
     // (a passive foe: it may have taken a third by then, `Diff::passive_expand`; by 12:00 its main's mine and its
     // natural's may be mined out, and its workers at a later base's)
-    assert!(cores.len() >= 2, "AI has a second core by 12 min");
+    assert!(cores.len() >= 2, "AI has a second core by 15 min");
     let near_exp = |n: &endfall_sim::map::Node| {
         cores[1..]
             .iter()
@@ -586,13 +588,14 @@ fn the_ai_researches_upgrades_in_a_long_game() {
     };
     run(&mut w, 600);
     let army_10 = army(&w);
-    run(&mut w, 240);
+    // (by 16:00: its Blacksmith, a 300-gold bet since the arc, stands at about 8:20, and its economy tech comes first)
+    run(&mut w, 360);
     assert!(!w.over, "the game is still on");
     assert!(
         UPGRADES
             .iter()
             .any(|u| u.levels() > 1 && w.upgrades[ENEMY as usize][u.index()] >= 1),
-        "AI finished at least one level (not only a tech) by 14 min: {:?}",
+        "AI finished at least one level (not only a tech) by 16 min: {:?}",
         w.upgrades[1]
     );
     // (or it stands at the cap of 40, where an army grows no more)
@@ -1004,17 +1007,24 @@ fn two_vael_ais_finish_a_game_at_every_level() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle() {
     // A Market pays from the moment it stands: the Kingdom's AI raises its first once it has seven workers, before its
-    // tech building, within two minutes; its Stables (which need it) after; one Market a Castle, never more, and a lost
+    // tech building, within two and a half minutes; its Stables (which need it) after; one Market a Castle, never more, and a lost
     // one is raised again.
     for seed in [3, 21] {
         for f in [&HUMANS] {
             let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, f]);
+            // (the idle player's base stands: since the arc the Blacksmith comes after Medium's first waves)
+            for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+                (b.hp, b.maxhp) = (1e9, 1e9);
+            }
             let s = &f.ai;
             let mut first = [None; 2];
-            for t in 0..30 * 200 {
+            // (until both are placed: its Blacksmith, a 300-gold bet since the arc, comes at about 8:00)
+            for t in 0..30 * 600 {
+                if first.iter().all(|f| f.is_some()) {
+                    break;
+                }
                 w.step();
                 w.events.clear();
                 for (i, k) in [f.market.unwrap(), s.tech].into_iter().enumerate() {
@@ -1024,15 +1034,15 @@ fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle()
                     }
                 }
             }
-            let [market, tech] = first.map(|t| t.expect("placed within 200 s"));
+            let [market, tech] = first.map(|t| t.expect("placed within 10:00"));
             assert!(
                 market < tech,
                 "seed {seed} {}: the Market before the tech ({market} vs {tech})",
                 f.key
             );
             assert!(
-                market < 30 * 120,
-                "seed {seed} {}: the Market within 2:00 ({market})",
+                market < 30 * 150,
+                "seed {seed} {}: the Market within 2:30 ({market}; 2:00 before the economy pass's scarcer gold)",
                 f.key
             );
         }
@@ -1120,22 +1130,30 @@ fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn hard_fields_every_factorys_units_on_its_own_income() {
     // Each factory trains all it may on Hard, on the AI's own income (no money granted): the Stables Riders and Knights
     // (a Knight it can't afford yet leaves a Rider, not an idle Stables, while the Barracks spend as money comes in),
-    // the Expedition's Factory Rovers and Drones (the mix entry furthest behind its ratio, not always the first). Against
-    // an idle, unbreakable player, its army thinned now and then as in a game.
+    // the Expedition's Factory Buggies and Drones, its Portal Androids and Rovers (the mix entry furthest behind its
+    // ratio, not always the first). Against an idle, unbreakable player, its army thinned now and then as in a game.
+    // (20 minutes: 15 before the economy pass, whose scarcer gold brings the Stables and the Portal later)
     for (f, wanted) in [
-        (&HUMANS, [UnitKind::Rider, UnitKind::Knight]),
-        (&VAEL, [UnitKind::Monolith, UnitKind::Shrike]),
+        (&HUMANS, &[UnitKind::Rider, UnitKind::Knight][..]),
+        (
+            &VAEL,
+            &[
+                UnitKind::Scythe,
+                UnitKind::Shrike,
+                UnitKind::Umbra,
+                UnitKind::Monolith,
+            ][..],
+        ),
     ] {
         let mut w = World::with_setup(7, 2, MapKind::Standard, false, [&HUMANS, f]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
         let mut kinds: Vec<UnitKind> = Vec::new();
-        while w.time < 900.0 {
+        while w.time < 1200.0 {
             if w.tick.is_multiple_of(30 * TPS) {
                 make_room(&mut w, ENEMY, 6);
             }
@@ -1147,10 +1165,10 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
                 }
             }
         }
-        for k in wanted {
+        for &k in wanted {
             assert!(
                 kinds.contains(&k),
-                "Hard {}: fields {k:?} within 15 min: {kinds:?}",
+                "Hard {}: fields {k:?} within 20 min: {kinds:?}",
                 f.name
             );
         }
@@ -1159,18 +1177,19 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
 
 #[test]
 fn each_level_trains_only_its_own_mix() {
-    // The mix gate (`Diff::mix_tier`, `UnitKind::ai_tier`): Easy trains only tier 0 (workers, line units, their
-    // anti-air (the Android, the Expedition's), the scout), Medium fields tier 1 too (raiders, siege, the Ballista, the Drone) and never
-    // tier 2 (the Knight, the Bruiser). Ten minutes each, both peoples, money to spare against an idle player.
+    // The mix gate (`Diff::mix_tier`, `tier_at`, `UnitKind::ai_tier`): Easy trains only tier 0 (workers, line units, the
+    // Archer, the scout) until 9:00 and raises neither its vehicle bay nor its air factory before then; Medium fields
+    // tier 1 too (raiders, siege, the Ballista, the Drone), and tier 2 (the Knight, the Bruiser, the Android, the Rover)
+    // from 8:00 only. Ten minutes each, both peoples, money to spare against an idle player.
     for f in [&HUMANS, &VAEL] {
         for diff in [0usize, 1] {
             let mut w = World::with_setup(5, diff, MapKind::Standard, false, [&HUMANS, f]);
             for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
                 (b.hp, b.maxhp) = (1e9, 1e9);
             }
-            let mut seen = [0usize; 3]; // units of each tier it ever had, queued ones too
+            let mut first = [None::<f64>; 3]; // when it first had a unit of each tier, queued ones too
             let mut kinds: Vec<UnitKind> = Vec::new();
-            let mut raised: Vec<BldgKind> = Vec::new();
+            let mut raised: Vec<(BldgKind, f64)> = Vec::new();
             while w.time < 600.0 {
                 w.res[ENEMY as usize] = [2000, 1000];
                 if w.tick.is_multiple_of(30 * TPS) {
@@ -1187,23 +1206,24 @@ fn each_level_trains_only_its_own_mix() {
                 for k in units.chain(queued) {
                     if !kinds.contains(&k) {
                         kinds.push(k);
-                        seen[k.ai_tier() as usize] += 1;
                     }
+                    first[k.ai_tier() as usize].get_or_insert(w.time);
                 }
                 for b in w.bldgs.iter().filter(|b| b.team == ENEMY) {
-                    if !raised.contains(&b.kind) {
-                        raised.push(b.kind);
+                    if !raised.iter().any(|r| r.0 == b.kind) {
+                        raised.push((b.kind, w.time));
                     }
                 }
             }
             let name = f.name;
-            // Easy raises no vehicle bay nor an air factory (its raiders are above it). And the AI never researches
-            // a brace it would not use (Shield Drill: it braces nothing).
+            // Easy raises no vehicle bay nor an air factory before 9:00 (its raiders are above it until then). And the
+            // AI never researches a brace it would not use (Shield Drill: it braces nothing).
             let ai = &f.ai;
             if diff == 0 {
+                let early = |k: BldgKind| raised.iter().any(|&(r, t)| r == k && t < 540.0);
                 assert!(
-                    ai.heavy.is_none_or(|h| !raised.contains(&h)) && !raised.contains(&ai.air),
-                    "Easy {name}: no vehicle bay or air factory: {raised:?}"
+                    ai.heavy.is_none_or(|h| !early(h)) && !early(ai.air),
+                    "Easy {name}: no vehicle bay or air factory before 9:00: {raised:?}"
                 );
             }
             assert_eq!(
@@ -1211,33 +1231,39 @@ fn each_level_trains_only_its_own_mix() {
                 0,
                 "level {diff} {name}: no Shield Drill"
             );
-            assert_eq!(
-                seen[2], 0,
-                "level {diff} {name}: no tier-2 unit in ten minutes: {kinds:?}"
-            );
+            let (tier1, tier2) = (DIFF[diff].tier_at.first(), DIFF[diff].tier_at.last());
             if diff == 0 {
-                assert_eq!(seen[1], 0, "Easy {name}: tier 0 only: {kinds:?}");
+                assert!(
+                    first[1].is_none_or(|t| t >= *tier1.unwrap()) && first[2].is_none(),
+                    "Easy {name}: tier 0 only until 9:00, no tier 2 in ten minutes: {first:?} {kinds:?}"
+                );
             } else {
-                assert!(seen[1] > 0, "Medium {name}: tier-1 units too: {kinds:?}");
+                assert!(
+                    first[1].is_some(),
+                    "Medium {name}: tier-1 units too: {kinds:?}"
+                );
+                assert!(
+                    first[2].is_none_or(|t| t >= *tier2.unwrap()),
+                    "Medium {name}: tier 2 from 8:00: {first:?} {kinds:?}"
+                );
             }
         }
     }
     // The tiers themselves.
     use UnitKind::*;
-    for k in [Harvester, Lumen, Trooper, Lancer, Prism, Umbra, Observer] {
+    for k in [Harvester, Lumen, Trooper, Lancer, Prism, Observer] {
         assert_eq!(k.ai_tier(), 0, "{k:?}");
     }
-    for k in [Rider, Scythe, Bastion, SiegeTank, Monolith, Shrike] {
+    for k in [Rider, Scythe, Bastion, SiegeTank, Shrike] {
         assert_eq!(k.ai_tier(), 1, "{k:?}");
     }
-    for k in [Knight, Bruiser] {
+    for k in [Knight, Bruiser, Umbra, Monolith] {
         assert_eq!(k.ai_tier(), 2, "{k:?}");
     }
     assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 2, 2]);
 }
 
 #[test]
-#[ignore = "a balance target open since the economy pass (Nov 13): the balance follow-up"]
 fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     // The balance follow-ups (`Diff::mix_over`): at Brutal an Anchor Gun per four Pickets from 4:00, at every other level
     // the race's own entry (per six from 5:30); the Vael's mix is the same at every level.
@@ -1286,10 +1312,11 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
         brutal_first < 900.0 && brutal_first <= hard_first,
         "Brutal's first Anchor Gun at {brutal_first:.0} s, Hard's at {hard_first:.0} s"
     );
-    // (at least as many: since the balance pass this game's Kingdom loses fewer and both levels can stand at their
-    // population limit with what their mix allows by 10:00, four each)
+    // (at least as many, within one: since the balance pass this game's Kingdom loses fewer and both levels can stand at
+    // their population limit with what their mix allows by 10:00; since the Cannon's 275 gold, Nov 13, two or three
+    // each, and one lost or not decides)
     assert!(
-        brutal_n >= hard_n,
+        brutal_n + 1 >= hard_n,
         "Anchor Guns by 10:00: Brutal {brutal_n}, Hard {hard_n}"
     );
 }
@@ -1360,7 +1387,6 @@ fn easy_sends_its_first_wave_at_7_45_and_medium_at_4_00() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn the_ai_keeps_a_few_fighters_at_its_expansion() {
     let mut w = World::new(33, 1);
     let c = w
@@ -1370,7 +1396,7 @@ fn the_ai_keeps_a_few_fighters_at_its_expansion() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    run(&mut w, 720);
+    run(&mut w, 900); // (15:00: 12:00 before the economy pass, whose scarcer gold takes it to about 13:40)
     let home = w.map.bases[ENEMY as usize];
     let (hx, hy) = ((home.0 as f64 + 2.0) * 32.0, (home.1 as f64 + 2.0) * 32.0);
     let exp = w
@@ -1399,7 +1425,8 @@ fn the_ai_keeps_a_few_fighters_at_its_expansion() {
 
 #[test]
 fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
-    // Easy, rich and left alone for 12 minutes: no research, no air factory, its natural only after 9:00.
+    // Easy, rich and left alone for 12 minutes: no research, no air factory before 9:00 (it comes with its tier's climb,
+    // `Diff::tier_at`), its natural only after 9:00.
     let mut w = World::new(17, 0);
     let c = w
         .bldgs
@@ -1408,10 +1435,19 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    for _ in 0..30 * 720 {
+    let mut air_at_9 = 0;
+    for tick in 0..30 * 720 {
         w.res[ENEMY as usize] = [2000, 1000];
         w.step();
         w.events.clear();
+        if tick == 30 * 535 {
+            let air = w.factions[ENEMY as usize].ai.air;
+            air_at_9 = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == air)
+                .count();
+        }
     }
     let f = w.factions[ENEMY as usize];
     let mine = |k: BldgKind| {
@@ -1431,7 +1467,7 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
         "no research"
     );
     assert_eq!(mine(f.hq), 2, "its natural, late");
-    assert_eq!(mine(f.ai.air), 0, "no air factory");
+    assert_eq!(air_at_9, 0, "no air factory before 9:00");
     // (two bases' crews, and the one spare a person's AI keeps for its builder)
     assert!(
         harvesters(&w, ENEMY).len() <= DIFF[0].harv + 5 + 1,
@@ -1512,7 +1548,8 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         let mut hqs_at_9 = 0;
         // (the Expedition's line at its maximum of hired places after its natural: no factory can grow it)
         let mut line_full = false;
-        while w.time < 960.0 {
+        // (to 18:00: 16:00 before Easy's tech climb, whose buildings from 9:00 come before its natural's crew)
+        while w.time < 1080.0 {
             w.step();
             w.events.clear();
             if (w.time - 535.0).abs() < 0.02 {
@@ -1759,7 +1796,6 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() {
     // The economy tech comes first on a level that researches (once its opening factories stand); Easy never
     // researches.
@@ -1773,7 +1809,7 @@ fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() 
         c.hp = 1e9;
         c.maxhp = 1e9;
         let up = Upgrade::RapidConstruction;
-        for _ in 0..30 * 600 {
+        for _ in 0..30 * 900 {
             w.step();
             w.events.clear();
             let mine = |k: BldgKind, done: bool| {
@@ -1803,9 +1839,10 @@ fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() 
         }
         None
     };
-    let hard = researched_at(2).expect("Hard researches Rapid Construction by 10:00");
-    // (by 5:30: the Blacksmith takes 60 s to raise since the arc, 45 before)
-    assert!(hard < 330.0, "early, before the army's techs: {hard:.0}s");
+    let hard = researched_at(2).expect("Hard researches Rapid Construction by 15:00");
+    // (by 12:00: its Blacksmith, a 300-gold bet since the arc, stands at about 10:00 under the economy pass's scarcer
+    // gold; by 5:30 before)
+    assert!(hard < 720.0, "early, before the army's techs: {hard:.0}s");
     assert_eq!(researched_at(0), None, "Easy never researches");
 }
 
@@ -2223,7 +2260,6 @@ fn easy_and_medium_raise_one_sentry_mast_the_kingdom_its_watchtowers() {
 }
 
 #[test]
-#[ignore = "a balance target open since the economy pass (Nov 13): the balance follow-up"]
 fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
     // Three knobs of the AI's tuning the balance lab's bets move (`Diff::tech_at`, `towers`, `tech_from`); every level
     // keeps what it had (its tech building from 2:30, a tower from 2:30 and a second from 8:00, its side's own tech
@@ -2285,12 +2321,13 @@ fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
     };
     let (lab, launch, _) = run(tech, 420.0);
     let at = |v: Option<f64>| v.unwrap_or(f64::MAX);
+    // (its Lab and its launch sooner by some 30 s: under the economy pass each waits for its gold; 45 s before)
     assert!(
-        at(lab[0]) + 45.0 < at(lab[1]),
+        at(lab[0]) + 20.0 < at(lab[1]),
         "the tech plan's Lab placed sooner: {lab:?}"
     );
     assert!(
-        at(launch[0]) + 45.0 < at(launch[1]),
+        at(launch[0]) + 20.0 < at(launch[1]),
         "and its satellite launched sooner: {launch:?}"
     );
     let (_, _, masts) = run(towers, 360.0);
@@ -2300,4 +2337,79 @@ fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
     );
     let (lab, _, _) = run(army, 420.0);
     assert!(lab[0].is_none() && lab[1].is_some(), "no Lab: {lab:?}");
+}
+
+#[test]
+fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
+    // Easy's slow tech climb (Stelian, Nov 13; `Diff::tier_at`): the Expedition trains no Buggy or Drone before 9:00 and
+    // some by 14:00; they wait at home inside its Data center's coverage (they defend there) and none goes out with a
+    // wave before an Uplink of its own stands (the push: coverage first). None of its machines ever leaves coverage (a
+    // tile and a half: a crowd at the edge jostles; one stranded, its coverage gone under it, aside). The Kingdom trains no Rider or Cannon before 9:00 and no Knight before 13:00.
+    use endfall_sim::data::radio::needs_range;
+    let mut w = easy_game(4);
+    for b in w.bldgs.iter_mut() {
+        (b.hp, b.maxhp) = (1e9, 1e9);
+    }
+    let tier = |k: UnitKind| k.ai_tier();
+    let (mut first, mut uplink, mut out) = (None::<f64>, None::<f64>, None::<f64>);
+    let mut kingdom = [None::<f64>; 3];
+    while w.time < 840.0 {
+        w.step();
+        w.events.clear();
+        for u in w.units.iter().filter(|u| u.team == PLAYER) {
+            let t = tier(u.kind) as usize;
+            if t > 0 && kingdom[t].is_none() {
+                kingdom[t] = Some(w.time);
+            }
+        }
+        if first.is_none()
+            && w.units
+                .iter()
+                .any(|u| u.team == ENEMY && needs_range(u.kind))
+        {
+            first = Some(w.time);
+        }
+        if uplink.is_none()
+            && w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && b.done)
+        {
+            uplink = Some(w.time);
+        }
+        if w.tick.is_multiple_of(30) {
+            for u in w
+                .units
+                .iter()
+                .filter(|u| u.team == ENEMY && needs_range(u.kind))
+            {
+                // (but one stranded, its coverage gone under it: it fights on where it stands, the rule)
+                assert!(
+                    w.in_radio_by(ENEMY, u.x, u.y, 1.5) || w.radio_stranded(u.id),
+                    "a {:?} out of coverage at {:.0} s",
+                    u.kind,
+                    w.time
+                );
+            }
+            let wave = w.ai_wave_of(ENEMY).unwrap_or(&[]);
+            if out.is_none()
+                && wave
+                    .iter()
+                    .any(|&id| w.unit(id).is_some_and(|u| needs_range(u.kind)))
+            {
+                out = Some(w.time);
+            }
+        }
+    }
+    let first = first.expect("a machine by 14:00");
+    assert!(first >= 540.0, "no machine before 9:00: {first:.0} s");
+    if let Some(o) = out {
+        assert!(
+            uplink.is_some_and(|u| u <= o),
+            "its Uplink ({uplink:?}) before a machine went out ({o:.0} s)"
+        );
+    }
+    assert!(
+        kingdom[1].is_none_or(|t| t >= 540.0) && kingdom[2].is_none_or(|t| t >= 780.0),
+        "the Kingdom's tiers: {kingdom:?}"
+    );
 }

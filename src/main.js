@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, muzzleFx, launchFx, launchesShown, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, muzzleFx, launchFx, launchesShown, heavyHit, heavyMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -16,7 +16,7 @@ import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { levelOf } from './engine/util.js';
-import { setSpots, MUZZLE_SMOKE } from './client/look.js';
+import { setSpots, MUZZLE_SMOKE, HEAVY } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
@@ -94,7 +94,20 @@ function quitToTitle() {
 function muzzle(e) {
   if (!nearView(e.x, e.y)) return;
   const u = G.units.find(u => Math.abs(u.x - e.x) < 1 && Math.abs(u.y - e.y) < 1);
-  if (u && MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
+  if (!u) return;
+  if (MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
+  const heavy = HEAVY[u.type];
+  if (!heavy) return;
+  heavyMuzzle(e.x, e.y, u.face, heavy);
+  const t = u.task.target; // (a top melee unit, no flash: its blow lands at once, on its target)
+  if (!heavy.flash && t && !t.dead) heavyHit(t.x, t.y - 6, heavy);
+}
+/** A shot landed (a `hit` event at its target): the top unit that fired it, if one did (look.js HEAVY), told by the
+ *  shot of the last mirror nearest the spot, aimed within 16 px of it; else none. */
+function heavyOf(e) {
+  let best = null, bd = 16 * 16;
+  for (const p of G.projsBefore) { const dx = p.ax - e.x, dy = p.ay - e.y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = p; } }
+  return best && HEAVY[best.by];
 }
 /** A satellite launched (every seat gets the event; only the launching seat gets a toast): the rocket and its sound,
  *  but only from our side's Data center or one in sight now, so a hidden base is never shown. */
@@ -109,7 +122,7 @@ function drainEvents() {
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r, G.factions[e.team]); if (seen(e)) sfx('boom', e); } // (particles on screen only)
-    else if (e.t === 'hit') { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
+    else if (e.t === 'hit') { const h = nearView(e.x, e.y) && heavyOf(e); if (h) heavyHit(e.x, e.y, h); else { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); } if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
     else if (e.t === 'launch') launched(e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }

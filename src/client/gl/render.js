@@ -516,6 +516,20 @@ function updateRockets(dt) {
   }
 }
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
+/** A top unit's blow lands (look.js HEAVY): an explosion or a bright flash with sparks, and a capped jolt. */
+export function heavyHit(x, y, look) {
+  if (!nearView(x, y)) return;
+  const k = look.size;
+  if (look.hit === 'blast') addEffect('boom_small', x, y, { light: look.light, lightScale: 1.3 * k, life: 0.45, scale: 1.1 * k });
+  addEffect('flash', x, y - 4, { life: 0.16, light: look.light, lightScale: 0.6 * k, scale: 0.9 * k, tint: look.light });
+  for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, v = 50 + Math.random() * 70; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.25 + Math.random() * 0.2 }); }
+  if (look.shake && nearView(x, y, 0)) shake = Math.max(shake, Math.min(5, shake + look.shake));
+}
+/** A top ranged unit fires (look.js HEAVY `flash`): a big bright flash out ahead of it (`face`, radians). */
+export function heavyMuzzle(x, y, face, look) {
+  if (!look.flash) return;
+  addEffect('flash', x + Math.cos(face) * 14, y + Math.sin(face) * 9 - 10, { life: 0.14, light: look.light, lightScale: 0.8 * look.flash, scale: look.flash });
+}
 const decals = [];
 
 function updateEffects(dt) {

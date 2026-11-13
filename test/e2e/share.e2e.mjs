@@ -116,7 +116,7 @@ test('SHARE after a victory: the link copied, or shared with its line; it opens 
     assert.deepEqual(await sb2.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', '']);
     const tokens = (p) => p.$$eval('#soloBoard .tok', ts => ts.map(t => t.getAttribute('aria-label').split(':')[0])); // (name, race, level, side)
     assert.deepEqual(await tokens(page2), await tokens(page), 'the same board as the winner\'s');
-    const own = [null, '0']; // (what a first visit saves: no board, the first map)
+    const own = [null, String(MAPS.findIndex(m => m.name === 'Dust Quarter'))]; // (what a first visit saves: no board, the default map)
     assert.deepEqual(await page2.evaluate(() => [localStorage.getItem('endfall.seats'), localStorage.getItem('endfall.map')]), own, 'nothing of the challenge saved');
     // START: the same game (the same map, races, sides and starts).
     await page2.locator('#btnStart').click();

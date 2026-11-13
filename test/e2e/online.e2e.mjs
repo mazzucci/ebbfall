@@ -309,7 +309,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       assert.equal(await b.p.locator('#onlineBoard .add').count(), 0, 'no + SEAT for the friend');
       assert.deepEqual(await board(a.p, 'online').spots(), ['YOU', 'Bo', '+', '', '', '', '', ''], 'the host: + SEAT in the next spot');
       assert.ok(await b.p.locator('#onlineMaps').isHidden() && await b.p.locator('#onlineMapLine').isVisible(), 'no map list: one line');
-      assert.equal(await b.p.locator('#onlineMapLine').textContent(), "ASHEN BASINAnn's pick");
+      assert.equal(await b.p.locator('#onlineMapLine').textContent(), "DUST QUARTERAnn's pick", 'a new room: the default map, 96x96');
       // Its own token: a sheet with RACE only (no level, no side, and no READY).
       await sheet(b, 1, [], false);
       await eventually(() => b.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE'], 'its own sheet: RACE only');
@@ -452,8 +452,8 @@ test('an open seat: SHARE LINK the big button in the title, SHARE in the seat\'s
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 2);
     await sheet(a, 1, ['side:0']);
     await sidesAre(a, [['YOU', 'OPEN'], ['OPEN']]);
-    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Map: Dust Quarter (up to 4)', 'a seat past the map\'s starts: the smallest map that seats them, said a moment');
-    await a.p.waitForFunction(() => document.getElementById('onlineStatus').textContent === '2 seats are open: share the link, or give them to the computer', null, { timeout: 8000 });
+    assert.equal(await a.p.locator('#onlineMapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'three seats: the default map seats them, no change');
+    await eventually(() => a.p.locator('#onlineStatus').textContent(), '2 seats are open: share the link, or give them to the computer', 'nothing said about the map');
     const b = await joinByLink(PHONE, `${relayQ}&room=${code}`, 'Bo');
     try {
       await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);

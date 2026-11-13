@@ -40,9 +40,10 @@ floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlo
 Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at each building until it stands; the
 Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
 Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
-machines that run on Power from the Data center and wind turbines, and faster near the Data center or an Uplink; the
-Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks (one per player, using Power while
-it stands) trains Androids, elite machines, slow to make and costly. Power and hired places each have a maximum (45 and
+machines that run on Power from the Data center and wind turbines, and work only within reach of the Data center's
+small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the signal's range), faster there; the
+Portal the Uplink unlocks (one per player, using Power while it stands) trains Androids, elite machines, slow to make
+and costly. Power and hired places each have a maximum (45 and
 15 on the smallest maps), together the Kingdom's population limit. Sentry masts hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

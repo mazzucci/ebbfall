@@ -1,7 +1,7 @@
 //! `report`: a batch's games turned into per-cell figures, the target checks, the key figures (the Balance reports
 //! database's fields), a Markdown summary and the JSON that `compare` reads.
 
-use crate::batch::{Batch, Cell, ECON_AT, GameRec, Kind, LEVELS, TPS};
+use crate::batch::{Batch, Cell, ECON_AT, GameRec, HARD, Kind, LEVELS, TPS};
 use crate::json::Json;
 use crate::stats::{median, mmss, quantile, wilson};
 use endfall_sim::data::{BLDG_KINDS, BldgKind, FACTIONS, UNIT_KINDS, UnitKind};
@@ -54,18 +54,18 @@ impl Rate {
     }
 }
 
-/// The seat whose wins a cell's rate counts: Humans in Humans vs Vael, the higher level on the ladder, the first
-/// seat in a mirror.
+/// The seat whose wins a cell's rate counts: Humans in Humans vs Vael, the higher level on the ladder and in Hard's
+/// cross cells, the first seat in a mirror.
 fn rate_seat(c: &Cell, seat: usize) -> bool {
     match c.kind {
-        Kind::Ladder => c.levels[seat] > c.levels[1 - seat],
+        Kind::Ladder | Kind::Cross => c.levels[seat] > c.levels[1 - seat],
         Kind::Level if c.mirror() => seat == 0,
         Kind::Level => c.races[seat] == 0,
     }
 }
 fn rate_of(c: &Cell) -> String {
     match c.kind {
-        Kind::Ladder => format!("{} wins", LEVELS[c.levels[0].max(c.levels[1])]),
+        Kind::Ladder | Kind::Cross => format!("{} wins", LEVELS[c.levels[0].max(c.levels[1])]),
         Kind::Level if c.mirror() => "first seat wins".into(),
         Kind::Level => "Humans win".into(),
     }
@@ -174,6 +174,26 @@ impl Report {
         }
         r
     }
+    /// Humans vs Vael at `level` on `size`, both seat orders and every classic map pooled.
+    fn humans_vs_vael_at(&self, level: usize, size: i32) -> Rate {
+        let mut r = Rate {
+            of: "Humans win".into(),
+            k: 0,
+            n: 0,
+        };
+        for (c, g) in self.level_cells(|c| {
+            classic(c)
+                && c.kind == Kind::Level
+                && !c.mirror()
+                && c.levels[0] == level
+                && c.size == size
+        }) {
+            let x = cell_rate(c, g);
+            r.k += x.k;
+            r.n += x.n;
+        }
+        r
+    }
     /// The higher level against `level - 1`, races, seat orders and maps pooled.
     fn ladder(&self, level: usize) -> Rate {
         let mut r = Rate {
@@ -201,19 +221,54 @@ impl Report {
         l.dedup();
         l
     }
-    /// The median length of the finished 64x64 games of each level against itself (the ladder's games, between
-    /// unequal sides, left out; timeouts left out too: `timeouts_64` says how many).
-    fn length_64(&self) -> Option<f64> {
-        let all: Vec<f64> = self
-            .level_cells(|c| classic(c) && c.size == 64 && c.kind == Kind::Level)
-            .flat_map(|(_, g)| lengths(g))
-            .collect();
-        median(&all)
-    }
-    fn timeouts_64(&self) -> usize {
-        self.level_cells(|c| classic(c) && c.size == 64 && c.kind == Kind::Level)
+    /// Of `level` against itself (every pairing of the peoples) on classic maps of `size` (None: every size): the
+    /// median length of the finished games, how many timed out, and how many games.
+    fn level_length(&self, level: usize, size: Option<i32>) -> (Option<f64>, usize, usize) {
+        let cells = || {
+            self.level_cells(move |c| {
+                classic(c)
+                    && c.kind == Kind::Level
+                    && c.levels[0] == level
+                    && size.is_none_or(|s| c.size == s)
+            })
+        };
+        let all: Vec<f64> = cells().flat_map(|(_, g)| lengths(g)).collect();
+        let timeouts = cells()
             .map(|(_, g)| g.iter().filter(|g| g.winner.is_none()).count())
-            .sum()
+            .sum();
+        (median(&all), timeouts, cells().map(|(_, g)| g.len()).sum())
+    }
+    /// Hard (`HARD`) against `low` (`Kind::Cross` cells): Hard's wins of all games (a timeout is not a win), the median
+    /// length of all games with a timeout counted at the cap, and the timeouts.
+    fn cross(&self, low: usize) -> (Rate, Option<f64>, usize) {
+        let mut r = Rate {
+            of: format!("Hard wins against {}", LEVELS[low]),
+            k: 0,
+            n: 0,
+        };
+        let (mut len, mut timeouts) = (Vec::new(), 0);
+        for (c, g) in self.level_cells(|c| {
+            c.kind == Kind::Cross && c.levels.contains(&HARD) && c.levels.contains(&low)
+        }) {
+            for g in g {
+                r.n += 1;
+                r.k += g.winner.is_some_and(|w| rate_seat(c, w)) as usize;
+                timeouts += g.winner.is_none() as usize;
+                len.push(secs(g.end_tick));
+            }
+        }
+        (r, median(&len), timeouts)
+    }
+    fn cross_levels(&self) -> Vec<usize> {
+        let mut l: Vec<usize> = self
+            .cells
+            .iter()
+            .filter(|c| c.kind == Kind::Cross)
+            .map(|c| c.levels[0].min(c.levels[1]))
+            .collect();
+        l.sort_unstable();
+        l.dedup();
+        l
     }
     /// (seat-games' mined, spent) for `race` on (size, map), or everywhere.
     fn ledgers(
@@ -303,21 +358,54 @@ impl Report {
 
     pub fn checks(&self) -> Vec<Check> {
         let mut out = Vec::new();
-        for &l in &self.batch.levels {
-            let r = self.humans_vs_vael(Some(l));
-            if r.n == 0 {
-                continue;
+        // The Kingdom against the Expedition per level above Easy and size (both seatings): the guardrail 35–65%, 40–60%
+        // aimed (Stelian, Nov 13). Easy is reported in the tables, not gated (a PRD is coming).
+        for &l in self.batch.levels.iter().filter(|&&l| l > 0) {
+            for &size in &self.batch.sizes {
+                let r = self.humans_vs_vael_at(l, size);
+                if r.n == 0 {
+                    continue;
+                }
+                out.push(Check {
+                    name: format!("Kingdom vs Expedition, {}, {size}", LEVELS[l]),
+                    pass: (0.35..=0.65).contains(&r.p()),
+                    detail: format!(
+                        "Kingdom {} of {}: {} (35–65% the guardrail, 40–60% aimed)",
+                        r.k,
+                        r.n,
+                        r.show()
+                    ),
+                });
             }
-            let off = !(0.45..=0.55).contains(&r.p()) && r.excludes_half();
-            out.push(Check {
-                name: format!("Humans vs Vael, {}", LEVELS[l]),
-                pass: !off,
-                detail: format!("Humans {} of {}: {}", r.k, r.n, r.show()),
+        }
+        // Hard finishes its games (Stelian, Nov 13): against Easy decisively (90%+ of the games won, the median length,
+        // timeouts at the cap, 15:00 or less), against Medium it ends rather than grinds (timeouts 5% or less).
+        for low in self.cross_levels() {
+            let (r, len, timeouts) = self.cross(low);
+            let detail = format!(
+                "Hard won {} of {}: {}; median length {} (timeouts at the cap); {timeouts} timeouts",
+                r.k,
+                r.n,
+                r.show(),
+                mmss(len.unwrap_or(f64::NAN))
+            );
+            out.push(if low == 0 {
+                Check {
+                    name: "Hard beats Easy decisively on 96".into(),
+                    pass: r.p() >= 0.9 && len.is_some_and(|m| m <= 15.0 * 60.0),
+                    detail: format!("{detail} (90%+ and 15:00 or less wanted)"),
+                }
+            } else {
+                Check {
+                    name: format!("Hard against {} ends on 96", LEVELS[low]),
+                    pass: timeouts as f64 <= 0.05 * r.n as f64,
+                    detail: format!("{detail} (5% timeouts or less wanted)"),
+                }
             });
         }
         // The design target by game length: the Kingdom ahead in short games, the Expedition in long ones (a bin with no
         // game passes).
-        for &l in &self.batch.levels {
+        for &l in self.batch.levels.iter().filter(|&&l| l > 0) {
             let [early, _, late] = self.length_bins(Some(l), None);
             if early.n > 0 {
                 out.push(Check {
@@ -355,33 +443,30 @@ impl Report {
                 detail: format!("{} of {}: {} (70% wanted)", r.k, r.n, r.show()),
             });
         }
-        if let Some(m) = self.length_64() {
-            let (lo, hi) = self.band;
-            out.push(Check {
-                name: "game length on 64x64".into(),
-                pass: (lo * 60.0..=hi * 60.0).contains(&m),
-                detail: format!(
-                    "median {} of the finished games, each level against itself ({lo}–{hi} min wanted; {} timeouts left out)",
-                    mmss(m),
-                    self.timeouts_64()
-                ),
-            });
-        }
+        // Timeouts: no cell over 5%, Easy against Easy apart (reported, not gated: Stelian, Nov 13).
+        let easy = |c: &Cell| c.levels == [0, 0];
         let mut over: Vec<String> = Vec::new();
-        for (c, g) in self.level_cells(|_| true) {
+        for (c, g) in self.level_cells(|c| !easy(c)) {
             let t = g.iter().filter(|g| g.winner.is_none()).count();
             if !g.is_empty() && t as f64 > 0.05 * g.len() as f64 {
                 over.push(format!("{} ({t} of {})", c.id(), g.len()));
             }
         }
         let (t, n) = self.timeouts();
+        let easy_t: usize = self
+            .level_cells(easy)
+            .map(|(_, g)| g.iter().filter(|g| g.winner.is_none()).count())
+            .sum();
         out.push(Check {
             name: "timeouts".into(),
             pass: over.is_empty(),
             detail: if over.is_empty() {
-                format!("{t} of {n} games, no cell over 5%")
+                format!("{t} of {n} games ({easy_t} Easy against Easy, not gated), no other cell over 5%")
             } else {
-                format!("{t} of {n} games; over 5%: {}", over.join("; "))
+                format!(
+                    "{t} of {n} games ({easy_t} Easy against Easy, not gated); over 5%: {}",
+                    over.join("; ")
+                )
             },
         });
         // The Shore map's gate (when the report played it), so `compare` follows it too.
@@ -432,8 +517,8 @@ impl Report {
                 .into(),
             ),
             (
-                "Median length 64x64 (min)",
-                num(self.length_64().map(|s| s / 60.0), 1),
+                "Median length Medium (min)",
+                num(self.level_length(1, None).0.map(|s| s / 60.0), 1),
             ),
             ("Observed shards per ether", num(self.shards_per_ether(), 2)),
             ("More Pumps at 5:00 won", self.pumps_rate().show()),
@@ -555,6 +640,24 @@ impl Report {
         let _ = writeln!(s, "\n## Target checks\n");
         for c in &checks {
             let _ = writeln!(s, "{}", c.line());
+        }
+        let (lo, hi) = self.band;
+        let _ = writeln!(
+            s,
+            "\n## Game length\n\nEach level against itself (every pairing of the peoples), classic maps: the median of the finished games (timeouts left out, counted beside it). Reported, not gated (Medium aimed at {lo}–{hi} min).\n\n| Level | Size | Median length | Timeouts |\n| --- | --- | --- | --- |"
+        );
+        for &l in &self.batch.levels {
+            for &size in &self.batch.sizes {
+                let (m, t, n) = self.level_length(l, Some(size));
+                if n > 0 {
+                    let _ = writeln!(
+                        s,
+                        "| {} | {size} | {} | {t} of {n} |",
+                        LEVELS[l],
+                        mmss(m.unwrap_or(f64::NAN))
+                    );
+                }
+            }
         }
         for &size in &self.batch.sizes {
             for &map in &self.batch.maps {
@@ -694,12 +797,11 @@ impl Report {
 }
 
 /// What the top tier's timing follows, per people (`FACTIONS` index): the first top-tier unit (the first of these
-/// kinds trained), then the first of each building finished (and the Expedition's satellite launched).
+/// kinds trained), then the first of each building finished.
 pub struct TopTier {
     pub units: &'static [UnitKind],
     pub units_name: &'static str,
     pub bldgs: &'static [BldgKind],
-    pub satellite: bool,
 }
 /// A row of the top tier's table: (people, level, size, seats, each column's times in seconds).
 type TopTierRow = (usize, usize, i32, usize, Vec<Vec<f64>>);
@@ -708,23 +810,21 @@ pub const TOP_TIER: [TopTier; 2] = [
         units: &[UnitKind::Knight, UnitKind::SiegeTank],
         units_name: "Knight or Cannon",
         bldgs: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Factory],
-        satellite: false,
     },
     TopTier {
         units: &[UnitKind::Umbra],
         units_name: "Android",
         bldgs: &[BldgKind::Loom, BldgKind::Uplink, BldgKind::Eclipse],
-        satellite: true,
     },
 ];
 
 impl Report {
     /// Of every seat of `race` at `level` and `size` (level cells, classic maps): the ticks of its first top-tier unit,
-    /// of each of `TOP_TIER`'s buildings and of its satellite, each a list of the seats that got there (the column's
+    /// of each of `TOP_TIER`'s buildings, each a list of the seats that got there (the column's
     /// median is of those, out of `seats`).
     fn top_tier(&self, race: usize, level: usize, size: i32) -> (usize, Vec<Vec<f64>>) {
         let t = &TOP_TIER[race];
-        let cols = 1 + t.bldgs.len() + t.satellite as usize;
+        let cols = 1 + t.bldgs.len();
         let (mut seats, mut out) = (0, vec![Vec::new(); cols]);
         for (c, games) in self.level_cells(|c| {
             classic(c) && c.kind == Kind::Level && c.levels[0] == level && c.size == size
@@ -748,9 +848,6 @@ impl Report {
                             out[1 + i].push(secs(f));
                         }
                     }
-                    if let (true, Some(f)) = (t.satellite, rec.satellite) {
-                        out[cols - 1].push(secs(f));
-                    }
                 }
             }
         }
@@ -760,7 +857,6 @@ impl Report {
         let t = &TOP_TIER[race];
         std::iter::once(format!("first {}", t.units_name))
             .chain(t.bldgs.iter().map(|b| b.def().name.to_string()))
-            .chain(t.satellite.then(|| "satellite".to_string()))
             .collect()
     }
     fn top_tier_rows(&self) -> Vec<TopTierRow> {
@@ -1043,7 +1139,6 @@ fn game_json(g: &GameRec) -> Json {
                 "first_bldg_tick",
                 firsts_json(&s.first_bldg, |i| BLDG_KINDS[i].def().key),
             )
-            .with("satellite_tick", s.satellite)
     };
     Json::obj()
         .with("seed", g.seed)

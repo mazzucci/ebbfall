@@ -36,13 +36,18 @@ pub fn core(w: &World, team: u8) -> (i32, i32) {
 
 /// A free spot for `kind` in rings around the player's core.
 pub fn spot(w: &World, kind: BldgKind) -> (i32, i32) {
-    let (cx, cy) = core(w, PLAYER);
+    spot_for(w, PLAYER, kind)
+}
+
+/// A free spot for `kind` in rings around `team`'s core.
+pub fn spot_for(w: &World, team: u8, kind: BldgKind) -> (i32, i32) {
+    let (cx, cy) = core(w, team);
     for r in 3..14 {
         for a in 0..24 {
             let ang = a as f64 / 24.0 * std::f64::consts::TAU;
             let tx = (cx as f64 + 2.0 + ang.cos() * r as f64 - 1.0).round() as i32;
             let ty = (cy as f64 + 2.0 + ang.sin() * r as f64 - 1.0).round() as i32;
-            if w.can_place(kind, tx, ty, PLAYER) {
+            if w.can_place(kind, tx, ty, team) {
                 return (tx, ty);
             }
         }

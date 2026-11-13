@@ -147,10 +147,6 @@ impl World {
             if p >= 1.0 {
                 self.bm(bid).unwrap().research = None;
                 self.upgrades[team as usize][up.index()] = level;
-                if up.def().effect == Effect::Launch {
-                    self.launched(bid);
-                    return;
-                }
                 self.toast(
                     team,
                     format!(
@@ -167,17 +163,6 @@ impl World {
                 self.bm(bid).unwrap().research = Some((up, p));
             }
         }
-    }
-    /// A side's satellite is up (`Effect::Launch`): its research-done notice in its own words, for its seat alone (no
-    /// other seat is told: Stelian, the balance pass), its chime and ping; and the launch at the building it went up
-    /// from (`Event::Launch`, for every seat: the client draws the rocket for its own seat or where it sees the spot).
-    fn launched(&mut self, bid: Id) {
-        let b = self.bldg(bid).unwrap();
-        let (team, x, y) = (b.team, b.x, b.y);
-        self.toast(team, LAUNCH_OURS, false);
-        self.emit(Event::Launch { x, y, team });
-        self.sfx(team, "researched");
-        self.ping(team, x, y);
     }
 
     /// A harvester building a site: walk to it, then raise it; when it is done, the crew waits beside it (a site lost or

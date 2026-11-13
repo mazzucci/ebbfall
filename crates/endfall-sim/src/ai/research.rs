@@ -2,10 +2,6 @@
 
 use super::*;
 
-/// How long (s) before its side's `tech_from` the AI may launch its satellite (`Effect::Launch`), on every level: the
-/// launch (60 s), the Uplink and the Portal then stand about when its Androids are due.
-pub(crate) const LAUNCH_LEAD: f64 = 120.0;
-
 impl World {
     /// Research, and saving up for it or for an expansion (never while threatened, never for long).
     pub(crate) fn ai_research(&mut self, brain: &mut Brain) {
@@ -37,11 +33,9 @@ impl World {
         // scarcer gold Hard's later factories ran behind for good, and it researched its weapons, never this.)
         let economy = d.research_from < NEVER && self.ai_count(&my_b, true, rax) >= d.rax;
         let levels_due = t > d.research_from;
-        // (the satellite: on every level, from `LAUNCH_LEAD` before the side's tech time, once its Lab stands)
-        let launch = t > tech_from - LAUNCH_LEAD && on_schedule;
         let threatened = intruder.is_some() || (enemy_air > 0 && anti_air < enemy_air * 2);
         let mut saving = false;
-        if (techs || levels_due || economy || launch) && !expand {
+        if (techs || levels_due || economy) && !expand {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
                 if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
@@ -66,8 +60,6 @@ impl World {
                         here.contains(&up)
                             && (if is_economy(up) {
                                 economy
-                            } else if up.def().effect == Effect::Launch {
-                                launch
                             } else if up.levels() == 1 {
                                 techs
                             } else {

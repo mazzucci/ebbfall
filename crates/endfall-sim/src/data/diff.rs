@@ -116,11 +116,11 @@ pub struct Diff {
     /// named builds all of them). Easy and Medium's Expedition, one Sentry mast: two held its base against waves long
     /// past the 10-15 minutes Medium is for, its gold better spent on its army.
     pub tower_max: &'static [(super::BldgKind, usize)],
-    /// Its side's tech time (`AiScript::tech_from`: its techs, its satellite's launch, its second tech building) at
+    /// Its side's tech time (`AiScript::tech_from`: its techs, its second tech building) at
     /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
     pub tech_from: f64,
-    /// Its side's tech time no sooner than this (s): 0 on every level but Easy, whose satellite (so its Uplink and
-    /// Portal) and techs come late, with its tier (`tier_at`).
+    /// Its side's tech time no sooner than this (s): 0 on every level but Easy, whose Uplink and Portal
+    /// and techs come late, with its tier (`tier_at`).
     pub tech_not_before: f64,
 }
 

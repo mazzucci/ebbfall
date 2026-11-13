@@ -82,6 +82,7 @@ pub fn commit(race: usize, k: usize) -> Diff {
                 (endfall_sim::data::UnitKind::Umbra, 1, 0.0),
             ],
             expand_at: NEVER,
+            expand_at_of: &[],
             passive_expand: NEVER,
             towers: &[],
             first: 600.0,

@@ -41,6 +41,7 @@ pub fn plan(p: usize) -> Diff {
             tech_at: NEVER,
             towers: &[],
             expand_at: 600.0,
+            expand_at_of: &[], // (the plan's for either people)
             ..medium
         },
         // Towers first: six by 5:30, then an army; its first wave at 8:00.

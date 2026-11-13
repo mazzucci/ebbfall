@@ -65,6 +65,17 @@ impl World {
         None
     }
 
+    /// When seat `e` takes its natural (s): its tuning's `expand_at`, or its people's own (`Diff::expand_at_of`, by its
+    /// headquarters' kind and the map's width).
+    pub(crate) fn expand_time(&self, e: u8) -> f64 {
+        let d = self.tuning(e);
+        let hq = self.factions[e as usize].hq;
+        d.expand_at_of
+            .iter()
+            .find(|o| o.0 == hq)
+            .map_or(d.expand_at, |o| if self.map.w <= 96 { o.1 } else { o.2 })
+    }
+
     /// Room out past the main (rings `from` to `ROOM_FAR`): only where a worker can walk from the main (rings that far
     /// out can fall in a sealed pocket), clear of the natural's site (the Core it saves for goes there), of every
     /// expansion (a neighbor's natural may lie that far out) and of every other start.
@@ -595,8 +606,8 @@ impl World {
         };
         // The natural is due (its Core is being saved for): building far out must not spend that bank.
         let hq_cost = f.hq.def().cost;
-        let expansion_due =
-            (t > d.expand_at || self.home_dry(cx, cy)) && self.ai_count(&my_b, false, f.hq) < 2;
+        let expansion_due = (t > self.expand_time(e) || self.home_dry(cx, cy))
+            && self.ai_count(&my_b, false, f.hq) < 2;
         // Workers first (`Diff::workers_first`): while its crew is short, a worker's price stays in the bank, so a
         // building waits a moment rather than leave the Core idle for want of shards.
         // Only while a worker can be trained now (a Core, room in supply): the reserve must never hold back the Depot
@@ -695,7 +706,7 @@ impl World {
             && hqs < d.max_bases
             && t - ai.last_base_at > PASSIVE_BASE_GAP
             && self.bases_dry(&my_b);
-        let exp_spot = if ((t > d.expand_at || dry) && hqs < 2 || passive || all_dry)
+        let exp_spot = if ((t > self.expand_time(e) || dry) && hqs < 2 || passive || all_dry)
             && harv.len() + 2 >= self.crew_of(e, d.harv)
         {
             self.expansion_spot(cx, cy)

@@ -514,8 +514,8 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 
 #[test]
 fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_level() {
-    // The Expedition's AI against the Kingdom's, at every level (every starting building made to last, so the game runs
-    // its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields few machines but
+    // The Expedition's AI against a Kingdom that only stands, at every level (every starting building made to last, so
+    // the game runs its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields few machines but
     // its Bots: a turbine only if those fill its Data center's 20), raises an Uplink and a Portal, never more than one
     // Portal standing or going up, trains Androids there, and never stands above its places but as a lost building
     // leaves it.
@@ -523,10 +523,12 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
     // game before its Portal ever has the four Sellswords and the price an Android waits for; since new workers wait
     // for an order, Brutal's Expedition in seed 20's; since Easy's slow climb and its Kingdom's line on par (Nov 13),
     // Easy's Kingdom killed seed 24's Bots by 14:00, leaving its immortal buildings without a coin; in many games one
-    // level's Kingdom crushes the Expedition's army before its Portal pays for an Android, here none does)
+    // level's Kingdom crushes the Expedition's army before its Portal pays for an Android, here none does; since the
+    // Kingdom AI takes its natural later on Medium and Hard (Nov 13) no seed of 1 to 8 had an Android at every level,
+    // one level's Kingdom crushing it first: the path tested is the Expedition's own, so the Kingdom only stands)
     for (diff, level) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(2, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
-        w.set_ai_seats([true, true]);
+        w.set_ai_seats([false, true]);
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }

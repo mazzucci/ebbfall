@@ -26,10 +26,11 @@ fn the_ai_finishes_games_on_every_difficulty() {
 #[test]
 fn the_ai_plays_either_seat() {
     // On seat 0 against an idle seat 1, it wins the same way (it knows its own base and its foe's from its seat).
+    // (within 16 minutes: seed 2's game ends at 15:07 since Medium's Kingdom takes its natural at 8:00, Nov 13)
     for seed in [2u32, 99] {
         let mut w = World::new(seed, 1);
         w.set_ai_seats([true, false]);
-        for _ in 0..30 * 60 * 15 {
+        for _ in 0..30 * 60 * 16 {
             if w.over {
                 break;
             }

@@ -387,8 +387,11 @@ src/client/           everything that touches the browser
                       follows fast-forward; written only when its text changes; `clock`, the format the pause card uses
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded), and a flat
                       two-tone symbol for every unit and building of both peoples (`glyph`: lines over a faint fill),
-                      the command card's pictures; test/cards.test.js: every button has its drawing, no two buttons
-                      a card shows together share one, nor any two units or buildings
+                      the command card's pictures. A unit shows who, an action a tool: a person is one solid bust
+                      holding a big tool (`who`, `BUST`), a mount its horse or helm, a machine its machine;
+                      test/cards.test.js: every button has its drawing, no two buttons a card shows together share
+                      one, nor any two units or buildings, no unit is drawn like an action, every person has the bust
+                      and nothing else does
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance) and `unionArcs` (the outline
                       of their union) (test/range.test.js)
   look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on

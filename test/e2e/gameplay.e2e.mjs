@@ -231,7 +231,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     const depot = d.page.locator('#cmd button', { hasText: 'Cottage' });
     assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
     assert.equal(await depot.locator('.c .s').textContent(), '100');
-    assert.ok(await depot.locator('img.por').count(), 'the Cottage button has a portrait');
+    assert.ok(await depot.locator('svg.ico.gl').count() && !(await depot.locator('img.por').count()), 'the Cottage button has its symbol, no portrait');
     await d.pressCard('Back');
     await d.clickEntity(coreOf(s).id);
     await d.pressCard('Villager');

@@ -6,9 +6,8 @@ import { updateHud } from './hud.js';
 import { cardItems, myFaction, leastBusy, researching, mostBusy } from './cards.js';
 import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
-import { icon } from './icons.js';
+import { icon, glyph } from './icons.js';
 import { statsHtml } from './stats.js';
-import { portrait } from './gl/render.js';
 
 let cardKey = '';
 export function invalidateCard() { cardKey = ''; }
@@ -32,7 +31,7 @@ export function buildCard() {
     if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis;
     b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
-    const pic = it.por ? portrait(it.por[0], it.por[1], 26) : it.icon ? icon(it.icon) : '';
+    const pic = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon) : ''; // (a unit or a building: its symbol, `por` [what, kind])
     b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} gold"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';

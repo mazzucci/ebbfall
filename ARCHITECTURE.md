@@ -286,7 +286,7 @@ src/client/           everything that touches the browser
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
-                      atlas (`portrait`)
+                      atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
                       kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
                       `rockTile`), and the shade layers (the land's shade, the water's tints and light) (test/ground.test.js)
@@ -366,7 +366,9 @@ src/client/           everything that touches the browser
                       the game (per seat and page, forgotten when a new WASM game starts), so a newly opened one (the
                       Uplink too) takes the first free slot, and Back keeps the corner; `buildPages`: the sim's two
                       lists with every defense (the Watchtower, the Sentry mast) on the basic page, before Advanced
-  card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
+  card.js             the command card's buttons (cards.js holds them), long-press details, what a button does; a unit
+                      or a building button (its item's `por`: [what, kind]) shows its symbol (icons.js `glyph`), the
+                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
@@ -377,7 +379,10 @@ src/client/           everything that touches the browser
                       everyone (the relay's) and its state on every side; full screen out/in
   clock.js            the top bar's game clock (#rClock, m:ss): the sim's time (G.time), so it stops when paused and
                       follows fast-forward; written only when its text changes; `clock`, the format the pause card uses
-  icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
+  icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded), and a flat
+                      two-tone symbol for every unit and building of both peoples (`glyph`: lines over a faint fill),
+                      the command card's pictures; test/cards.test.js: every button has its drawing, no two buttons
+                      a card shows together share one, nor any two units or buildings
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance) and `unionArcs` (the outline
                       of their union) (test/range.test.js)
   look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on

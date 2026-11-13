@@ -163,8 +163,11 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
                       compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
-                      turtle.rs (a never-attacking Medium against Medium), waves.rs (every AI wave: its value against
-                      the defense on arrival, its result, where its units fell; in report and turtle),
+                      turtle.rs (a never-attacking Medium against Medium; with --weak against Easy, the newcomer's
+                      first hit: when, and that wave's units), waves.rs (every AI wave: its units and value, against
+                      the defense on arrival, its result, where its units fell; in report and turtle), human.rs (a
+                      human's opening: a plain scripted player alone, its bank, its waits for gold and its production's
+                      busy share from 1:00 to 8:00; in report),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
@@ -241,7 +244,12 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       maximum (`line_capped`) it raises its Factory sooner and adds Factories, not posts, as money
                       piles up; it keeps Power free for its Portal and an Android (`elite_reserve`), raises one Portal
                       (`tech2_due`, never a second, a turbine first if the Power is short), and trains the Android there
-                      first when Power is tight
+                      first when Power is tight. Its crew is sized by income (`crew_of`: as much gold a trip as the
+                      Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`, `retreat_any`, `give_up`):
+                      its waves are just their size (its first three or four units at 7:45, the rest at home), growing
+                      by one, and they give up and walk home on contact with a defense near their worth or after early
+                      losses. A level may cap a race's towers (`tower_max`: one Sentry mast for Easy and Medium). A wave
+                      left with only machines held quiet at their coverage's edge is over (army.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
@@ -341,6 +349,8 @@ src/client/           everything that touches the browser
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
                       everyone (the relay's) and its state on every side; full screen out/in
+  clock.js            the top bar's game clock (#rClock, m:ss): the sim's time (G.time), so it stops when paused and
+                      follows fast-forward; written only when its text changes; `clock`, the format the pause card uses
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance) and `unionArcs` (the outline
                       of their union) (test/range.test.js)
@@ -411,6 +421,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
                       iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
+                      clock.e2e.mjs (the top bar's clock on a desktop and a landscape phone: at the start, after a
+                      fast-forward, still while paused, clear of POP and the buttons),
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
                       fit, no page scroll, the map fills the room and fits again when the bars collapse),
                       share.e2e.mjs (SHARE after a victory: the link copied or shared, a cancelled sheet, the end card on

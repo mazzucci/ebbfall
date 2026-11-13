@@ -456,7 +456,7 @@ impl World {
             });
         let d = self.level();
         let techs = d.abilities
-            && t > d.research_from.min(self.tech_time(e))
+            && t > d.research_from.min(s.tech_from.min(d.tech_from))
             && k.def().researches.iter().any(|&up| {
                 self.upgrades[e as usize][up.index()] < up.levels() && self.tech_of_use(e, my_b, up)
             });

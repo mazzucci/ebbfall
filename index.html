@@ -50,6 +50,7 @@
     <div class="res" id="resShard" title="Gold"><span class="dot shard"></span><b id="rShard">50</b></div>
     <div class="res" id="resSup" title="Population"><span class="lbl" id="lSupply">POP</span><b id="rSupply">4/10</b></div>
     <div class="spacer"></div>
+    <div class="res" id="resClock" title="Game time"><b id="rClock">0:00</b></div>
     <button class="ib icon" id="btnFull" aria-label="Toggle full screen" title="Full screen"></button>
     <button class="ib icon" id="btnSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button>
     <button class="ib icon" id="btnPause" aria-label="Pause" title="Pause (P)"></button>
@@ -196,5 +197,12 @@
   <div id="corner"><button class="ib" id="cornerFull" title="Full screen" aria-label="Full screen" aria-pressed="false"></button><button class="ib" id="cornerSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button></div>
 </div>
 <script type="module" src="/src/boot.js"></script>
+  <!-- The command card's available unit and building pictures in a yellow duotone (style.css, .cb .por): each pixel's
+       luminance mapped from a deep amber (#4a2c08) to the glyphs' yellow (#ffd27a, --ally2), the curve stretched so a dark
+       sprite still ends mostly bright, its inner detail kept; the sprite's faint parts (a ground shadow) cut. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="duotone" color-interpolation-filters="sRGB">
+    <feColorMatrix type="matrix" values=".2126 .7152 .0722 0 0  .2126 .7152 .0722 0 0  .2126 .7152 .0722 0 0  0 0 0 1 0" />
+    <feComponentTransfer><feFuncR type="table" tableValues=".29 .61 .858 1 1 1" /><feFuncG type="table" tableValues=".173 .466 .694 .824 .824 .824" /><feFuncB type="table" tableValues=".031 .232 .389 .478 .478 .478" /><feFuncA type="table" tableValues="0 0 1 1" /></feComponentTransfer>
+  </filter></svg>
 </body>
 </html>

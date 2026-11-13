@@ -525,27 +525,30 @@ const UNIT: UnitDef = UnitDef {
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
 /// A gold mine (one per field, map.rs `lay_mines`): its footprint in tiles (the art's, 2x2), the workers inside it at
-/// once and the gold each comes out with are its kind's (`UnitDef::mine_cap`, `mine_load`: eight Villagers with 9, five
-/// Bots with 12), and the seconds a worker spends inside. Calm trips (Stelian, Nov 12): a long stay inside and a big
-/// load. A saturated mine pays the Kingdom about 575 a minute and the Expedition about 83% of it at first
-/// (`a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less`), a Villager bringing in about 55 a
-/// minute, a Bot about 75: the Expedition starts behind and out-earns the Kingdom later, with its research. More income
-/// comes from more mines, the Expedition's research and the Kingdom's Market. Before: 7 inside for 4 s with 8 (the
-/// economy pass; 16 before it), about 10 workers to saturate a mine at about 830 a minute.
+/// once and the gold each comes out with are its kind's (`UnitDef::mine_cap`, `mine_load`: eight Villagers with 7, six
+/// Bots with 9), and the seconds a worker spends inside. Calm trips (Stelian, Nov 12): a long stay inside and a big
+/// load. A saturated mine pays the Kingdom about 450 a minute and the Expedition about 96% of it at first
+/// (`a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_a_little_less`; its Better drills take it past the
+/// Kingdom's), a Villager bringing in about 38 a minute, a Bot about 50. More income comes from more mines, the
+/// Expedition's research and the Kingdom's Market. Gold is scarce for a person too (the PM, Nov 13; the lab's "A human's
+/// opening"): from 2:00 to 6:00 one production building kept busy or a second one built, not both. Before Nov 13 the
+/// loads were 10 and 13 (a human's bank piled up from 2:00, two Barracks busy and more) and five Bots fitted a mine (at
+/// 80% of a Villager mine, with the cut the Expedition fell behind); before the economy's rounds 7 inside for 4 s with
+/// 8, about 10 workers to saturate a mine at about 830 a minute.
 pub const MINE_SIZE: i32 = 2;
-pub const MINE_TIME: f64 = 11.0; // (7.5 before Nov 13: a human's bank piled up from 2:00, two Barracks busy and more; the PM)
+pub const MINE_TIME: f64 = 7.5;
 /// The most workers inside a mine at once, of any kind (the largest `UnitDef::mine_cap`), and the largest load.
 pub const MINE_CAP_MOST: i32 = 8;
-pub const MINE_LOAD_MOST: i32 = 18; // (a Bot's 13 with two levels of Better drills)
+pub const MINE_LOAD_MOST: i32 = 11; // (a Bot's 9 with two levels of Better drills)
 /// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
 /// `lay_mines`: seven by a main, 14,000 gold): a main mine lasts a normal game, over 20 minutes at its full rate, so
 /// scarcity comes from the rate (the load, the mine's cap, the worker's price) and expanding is a choice for more of it,
 /// not forced by a dry mine. 1500 before the economy pass, 1000 in it (the first mines dry by about 9:00).
 pub const CRYSTAL_GOLD: i32 = 2000;
 /// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): it pays back its 75 in
-/// about three and a half minutes. 0.5 before the economy pass halved what a worker brings in, which doubled the
-/// Market's worth beside it; a partial cut (the full one, 0.25, swung Hard's 64x64 games the other way in the lab).
-pub const PUMP_RATE: f64 = 0.24; // (0.35 before Nov 13: cut in step with the mines' income)
+/// about five minutes. 0.35 before Nov 13, cut in step with the mines' income (the loads 30% down); 0.5 before the
+/// economy pass halved what a worker brings in.
+pub const PUMP_RATE: f64 = 0.24;
 /// What a refusal for want of gold says (the client's announcer keys on it).
 pub const NOT_ENOUGH: &str = "Not enough gold";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.

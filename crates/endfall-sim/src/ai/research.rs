@@ -29,15 +29,13 @@ impl World {
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
         // army first)
         let script = &self.factions[e as usize].ai;
-        let (rax, tech_from) = (script.rax, self.tech_time(e));
+        let (rax, tech_from) = (script.rax, script.tech_from.min(d.tech_from));
         let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
         let techs = d.abilities && t > d.research_from.min(tech_from) && on_schedule;
         // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research
-        // at all: it pays back over the whole game. (Not Easy's: it researches only its levels, from 10:00, clumsy.)
-        let economy = d.research_from < NEVER
-            && d.abilities
-            && on_schedule
-            && self.ai_count(&my_b, true, rax) >= d.rax;
+        // at all: it pays back over the whole game.
+        let economy =
+            d.research_from < NEVER && on_schedule && self.ai_count(&my_b, true, rax) >= d.rax;
         let levels_due = t > d.research_from;
         // (the satellite: on every level, from `LAUNCH_LEAD` before the side's tech time, once its Lab stands)
         let launch = t > tech_from - LAUNCH_LEAD && on_schedule;

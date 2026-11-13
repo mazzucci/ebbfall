@@ -78,10 +78,10 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     speed: 87.0, // (100 before the economy's second round: calmer trips)
     sight: 7.0,
     r: 9.0,
-    build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
+    build: 18.0,  // (12 before: the ramp comes from time, every worker an investment)
     supply: 2, // (Power: 1 before the economy's second round, twice a Villager's place as every machine)
-    mine_cap: 5,
-    mine_load: 13,
+    mine_cap: 6, // (5 before Nov 13: with the income cut a Bot mine paid 80% of a Villager mine and the Expedition fell behind; now about 95%, the PM)
+    mine_load: 9, // (13 before Nov 13: cut in step with the Villager's, a 30% cut for gold that is scarce for a person too)
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,
@@ -162,9 +162,9 @@ pub(super) const HALO: UnitDef = UnitDef {
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [450, 0],
-    supply: 10, // (Power: 3 before the economy's second round)
-    hp: 440.0,
+    cost: [250, 0],
+    supply: 6, // (Power: 3 before the economy's second round)
+    hp: 220.0,
     armor: 3.0,
     speed: 90.0,
     sight: 9.0,
@@ -172,8 +172,8 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 8.0,
-        dmg: 66.0,
-        dmg_air: 53.0,
+        dmg: 30.0,
+        dmg_air: 24.0,
         cd: 1.2,
         proj: Some(ProjKind::Bolt),
         up_dmg: 3.0,
@@ -186,9 +186,9 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
-    cost: [380, 0],
-    supply: 12, // (Power: 4 before the economy's second round, 6 in it)
-    hp: 360.0,
+    cost: [240, 0],
+    supply: 8, // (Power: 4 before the economy's second round, 6 in it)
+    hp: 220.0,
     armor: 1.0,
     speed: 58.0,
     sight: 9.0,
@@ -197,7 +197,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     weapon: Some(Weapon {
         range: 11.0, // (12 at the arc: 11 with the Cannon, Nov 13: a duel decided by spotting and position)
         min_range: 3.0,
-        dmg: 70.0,
+        dmg: 45.0,
         cd: 2.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 4.0,
@@ -327,7 +327,7 @@ pub(super) const KILN: BldgDef = BldgDef {
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
     name: "Lab",
-    cost: [250, 0], // (120 before the economy pass, Nov 13: a bet between units and construction)
+    cost: [200, 0], // (120 before the economy pass, Nov 13: a bet between units and construction)
     hp: 800.0,
     uses: 4,
     build: 45.0,
@@ -372,7 +372,7 @@ pub(super) const WARD: BldgDef = BldgDef {
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
-    cost: [400, 0], // (150 before the economy pass, Nov 13: one a player, the big bet)
+    cost: [350, 0], // (150 before the economy pass, Nov 13: one a player, the big bet)
     hp: 1000.0,
     armor: 2.0,
     uses: 8, // (Power: 4 before the economy's second round)
@@ -392,7 +392,7 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [175, 0], // (125 before the economy pass, Nov 13: a bet between units and construction)
+    cost: [150, 0], // (125 before the economy pass, Nov 13: a bet between units and construction)
     w: 3,
     h: 3,
     hp: 750.0,

@@ -14,6 +14,9 @@ use endfall_sim::map::MapKind;
 
 const TPS: f64 = 30.0;
 const PEOPLE: [&str; 2] = ["Humans", "Vael"];
+/// A game's first hit: the tick its attacker's first wave arrived and that wave's units (None: none arrived).
+type FirstHit = Option<(u32, usize)>;
+
 /// A first hit before this (s) is early for a newcomer (the weak turtle against Easy).
 const EARLY_HIT: f64 = 480.0;
 
@@ -307,7 +310,7 @@ impl TurtleRun {
 
     /// The first hit, by map and the attacker's people, then in all: of each game's attacker, the tick its first
     /// wave arrived and that wave's units as it went (None: no wave of it ever arrived).
-    fn first_hits(&self) -> Vec<(String, Vec<Option<(u32, usize)>>)> {
+    fn first_hits(&self) -> Vec<(String, Vec<FirstHit>)> {
         let hits = |keep: &dyn Fn(&Cell) -> bool| {
             let mut v = vec![];
             for (c, ws) in self.cells.iter().zip(&self.waves) {

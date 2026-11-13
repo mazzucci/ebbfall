@@ -379,6 +379,7 @@ impl World {
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
+        self.leash_home_army(&army, &brain.my_b, rally);
         self.recall_wave(&army, raid, intruder, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
@@ -476,6 +477,42 @@ impl World {
             };
             if go && self.can_hit(a, intr) {
                 self.attack_ent(a, intr);
+            }
+        }
+    }
+
+    /// The home army's chases on a leash: a unit at home (not out with the wave, nor raiding) after an enemy unit more
+    /// than `CHASE_LEASH` tiles past where it counts as at our buildings (`ai_watch`'s reach) gives up and walks back to
+    /// the rally. (Found on main: a player's worker that came near and ran home was chased across the map, and the
+    /// chasers, idle at its base, took on its headquarters minutes before the first wave.)
+    fn leash_home_army(&mut self, army: &[Id], my_b: &[Id], rally: Pt) {
+        let ai = self.ai();
+        let out: Vec<Id> = ai
+            .attackers
+            .iter()
+            .flatten()
+            .chain(ai.raiders.iter())
+            .copied()
+            .collect();
+        for &a in army {
+            if out.contains(&a) {
+                continue;
+            }
+            let Task::Attack { target, .. } = self.u(a).task else {
+                continue;
+            };
+            let Some(t) = self.unit(target) else {
+                continue;
+            };
+            let (tx, ty) = (t.x, t.y);
+            let home = my_b
+                .iter()
+                .filter_map(|&b| self.bldg(b))
+                .any(|b| dist(tx, ty, b.x, b.y) < 420.0 + b.r + CHASE_LEASH * TILE);
+            if !home {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
             }
         }
     }
@@ -602,6 +639,16 @@ impl World {
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
         ai.prong = order[..split].to_vec();
+    }
+
+    /// A clumsy level's wave that gave up or fell (`Diff::wave_only`) does not grow the next: its first hit stays its first
+    /// wave's size (three or four units) however often it turns back.
+    fn no_growth_after_giving_up(&mut self) {
+        let d = self.level();
+        if d.wave_only {
+            let ai = self.ai_mut();
+            ai.wave = ai.wave.saturating_sub(d.wave_grow).max(d.wave);
+        }
     }
 
     /// Coverage: where wave unit `a` is sent for (x, y): that point, or for a machine the last point of the way there
@@ -1133,6 +1180,7 @@ impl World {
         };
         let stalled = alive.iter().all(|&a| held(self, a));
         if alive.is_empty() {
+            self.no_growth_after_giving_up(); // (all of it fell: it met more than it could take)
             self.ai_mut().attacking = false;
         } else if lost
             || left == 0
@@ -1145,6 +1193,7 @@ impl World {
                 let oy = (self.rnd() - 0.5) * 120.0;
                 self.move_to(a, rally.x + ox, rally.y + oy);
             }
+            self.no_growth_after_giving_up();
             let ai = self.ai_mut();
             ai.attacking = false;
             ai.attackers = None;
@@ -1156,6 +1205,7 @@ impl World {
                 let oy = (self.rnd() - 0.5) * 120.0;
                 self.move_to(a, rally.x + ox, rally.y + oy);
             }
+            self.no_growth_after_giving_up();
             let ai = self.ai_mut();
             ai.attacking = false;
             ai.attackers = None;
@@ -1293,9 +1343,11 @@ mod tests {
     /// last wave at 300): the world, its army and its brain. Its tuning is its level's without a home reserve or a
     /// retreat on contact (the scenes of those set their own: `ready_with`).
     fn ready(level: usize) -> (World, Vec<Id>, Brain) {
+        // (a margin of at most 1.3, the levels' before Nov 13: the scenes are about the mechanism; Easy's none)
         let plan = Diff {
             reserve: 0.0,
             retreat_below: 0.0,
+            wave_margin: DIFF[level].wave_margin.min(1.3),
             ..DIFF[level]
         };
         ready_with(level, plan)
@@ -1420,6 +1472,7 @@ mod tests {
             all_in_after: all_in,
             reserve: 0.0,
             retreat_below: 0.0,
+            wave_margin: 1.3,
             ..DIFF[1]
         };
         let (mut w, _, mut b) = ready(1);
@@ -1581,8 +1634,8 @@ mod tests {
         // the same against a foe that has just come at its buildings: it fights on, as today
         let (w, _, _) = scene(14, true);
         assert!(w.ai().attacking, "not a passive foe: it fights on");
-        // Easy never retreats
-        assert_eq!(DIFF[0].retreat_below, 0.0);
+        // Easy retreats on contact whatever the foe has done (`retreat_any`: `easy_gives_up_on_contact...`)
+        assert!(DIFF[0].retreat_any && DIFF[0].retreat_below > 0.0);
     }
 
     #[test]
@@ -1815,23 +1868,6 @@ mod tests {
         }
         // Medium does not (it retreats only from a passive foe, `retreat_below`)
         assert!(!DIFF[1].retreat_any && DIFF[0].retreat_any);
-    }
-
-    #[test]
-    fn easy_s_tier_rises_with_the_clock() {
-        // Easy's tier (`Diff::tier_at`): its line units from the start, its raiders, siege and machines from 9:00, its
-        // Knights and Bruisers from 13:00. Medium's never moves.
-        let (mut w, _, _) = ready_with(0, DIFF[0]);
-        let at = |w: &mut World, t: f64, k: UnitKind| {
-            w.time = t;
-            w.level_allows(k)
-        };
-        assert!(at(&mut w, 0.0, UnitKind::Trooper) && at(&mut w, 0.0, UnitKind::Umbra));
-        assert!(!at(&mut w, 530.0, UnitKind::Scythe) && at(&mut w, 550.0, UnitKind::Scythe));
-        assert!(at(&mut w, 550.0, UnitKind::SiegeTank) && !at(&mut w, 770.0, UnitKind::Knight));
-        assert!(at(&mut w, 790.0, UnitKind::Knight) && at(&mut w, 790.0, UnitKind::Bruiser));
-        let (mut m, _, _) = ready_with(1, DIFF[1]);
-        assert!(at(&mut m, 0.0, UnitKind::Scythe) && !at(&mut m, 3000.0, UnitKind::Knight));
     }
 
     #[test]

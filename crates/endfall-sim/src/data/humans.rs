@@ -64,7 +64,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     sight: 7.0,
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     mine_cap: 8,
-    mine_load: 10,
+    mine_load: 7, // (10 before Nov 13: gold scarce for a person too, the PM)
     weapon: Some(Weapon {
         range: 0.6,
         dmg: 4.0,
@@ -125,9 +125,9 @@ pub(super) const LANCER: UnitDef = UnitDef {
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Cannon",
-    cost: [275, 0],
-    supply: 3, // (3 before the economy's second round: by tier, gold-dense at the top)
-    hp: 240.0,
+    cost: [175, 0],
+    supply: 2, // (3 before the economy's second round: by tier, gold-dense at the top)
+    hp: 140.0,
     armor: 1.0,
     speed: 62.0,
     sight: 10.0,
@@ -138,7 +138,7 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
         range: 11.0,
         min_range: 2.5,
         siege: true,
-        dmg: 85.0,
+        dmg: 55.0,
         cd: 3.0,
         proj: Some(ProjKind::Shell),
         up_dmg: 5.0,
@@ -226,9 +226,9 @@ pub(super) const RIDER: UnitDef = UnitDef {
 pub(super) const KNIGHT: UnitDef = UnitDef {
     key: "knight",
     name: "Knight",
-    cost: [325, 0],
-    supply: 3, // (4 before the economy's second round: by tier, gold-dense at the top)
-    hp: 420.0,
+    cost: [225, 0],
+    supply: 2, // (4 before the economy's second round: by tier, gold-dense at the top)
+    hp: 280.0,
     armor: 3.0,
     speed: 105.0,
     sight: 9.0,
@@ -237,7 +237,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 0.9,
-        dmg: 38.0,
+        dmg: 26.0,
         cd: 1.2,
         melee: true,
         up_dmg: 3.0,

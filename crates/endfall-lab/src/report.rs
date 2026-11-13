@@ -801,7 +801,13 @@ impl Report {
     }
     /// A human's opening (human.rs) at each size of the batch (sizes the openings' maps are made at only).
     fn human_rows(&self) -> Vec<(&'static str, i32, crate::human::Figures)> {
-        let sizes: Vec<i32> = self.batch.sizes.iter().copied().filter(|&s| s <= 96).collect();
+        let sizes: Vec<i32> = self
+            .batch
+            .sizes
+            .iter()
+            .copied()
+            .filter(|&s| s <= 96)
+            .collect();
         crate::human::rows(&sizes)
     }
     fn top_tier_markdown(&self) -> String {

@@ -33,7 +33,10 @@ pub struct Opening {
 /// A free spot for `kind` in rings round `team`'s headquarters.
 fn spot(w: &World, team: u8, kind: BldgKind) -> Option<(i32, i32)> {
     let hq = w.bldgs.iter().find(|b| b.team == team && b.kind.def().hq)?;
-    let (cx, cy) = (hq.tx as f64 + hq.w as f64 / 2.0, hq.ty as f64 + hq.h as f64 / 2.0);
+    let (cx, cy) = (
+        hq.tx as f64 + hq.w as f64 / 2.0,
+        hq.ty as f64 + hq.h as f64 / 2.0,
+    );
     for r in 4..16 {
         for a in 0..24 {
             let ang = a as f64 / 24.0 * std::f64::consts::TAU;
@@ -49,8 +52,19 @@ fn spot(w: &World, team: u8, kind: BldgKind) -> Option<(i32, i32)> {
 
 /// Play one opening of `faction` on map `seed` at `size` tiles.
 pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
-    let other = FACTIONS.iter().copied().find(|f| f.name != faction.name).unwrap();
-    let mut w = World::with_size(seed, 1, MapKind::Standard, MapSize::square(size), 0, &[faction, other]);
+    let other = FACTIONS
+        .iter()
+        .copied()
+        .find(|f| f.name != faction.name)
+        .unwrap();
+    let mut w = World::with_size(
+        seed,
+        1,
+        MapKind::Standard,
+        MapSize::square(size),
+        0,
+        &[faction, other],
+    );
     assert!(w.set_ai_seats([false, false]), "nobody's AI");
     let me = 0u8;
     let crew = w.harv_target_of(me, 1);
@@ -60,10 +74,14 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
     while w.time < END {
         w.step();
         w.events.clear();
-        if w.tick % EVERY != 0 {
+        if !w.tick.is_multiple_of(EVERY) {
             continue;
         }
-        let hq = w.bldgs.iter().find(|b| b.team == me && b.kind.def().hq && b.done).map(|b| (b.id, b.x, b.y));
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == me && b.kind.def().hq && b.done)
+            .map(|b| (b.id, b.x, b.y));
         let Some((hq, hx, hy)) = hq else { break };
         // Idle workers to the nearest mine with gold.
         let idle: Vec<Id> = w
@@ -89,7 +107,11 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
             }
         }
         // Its wants, in order; it saves for the first it cannot pay for.
-        let workers = w.units.iter().filter(|u| u.team == me && u.kind == faction.worker).count();
+        let workers = w
+            .units
+            .iter()
+            .filter(|u| u.team == me && u.kind == faction.worker)
+            .count();
         let hq_queue = w.bldg(hq).map_or(0, |b| b.queue.len());
         let [used, cap] = w.pool(me, Pool::Supply);
         let supply_rising = w
@@ -97,7 +119,11 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
             .iter()
             .any(|b| b.team == me && b.kind == faction.supply && !b.done);
         let prods: Vec<Id> = placed.clone();
-        let done: Vec<Id> = prods.iter().copied().filter(|&b| w.bldg(b).is_some_and(|b| b.done)).collect();
+        let done: Vec<Id> = prods
+            .iter()
+            .copied()
+            .filter(|&b| w.bldg(b).is_some_and(|b| b.done))
+            .collect();
         let mut wants: Vec<Want> = vec![];
         if workers + hq_queue < crew && hq_queue == 0 {
             wants.push(Want::Unit(hq, faction.worker));
@@ -154,8 +180,12 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
             }
         }
         if w.time >= 60.0 {
-            let busy = done.iter().filter(|&&b| w.bldg(b).is_some_and(|b| !b.queue.is_empty())).count();
-            out.looks.push((w.time, w.res[me as usize][0], waiting, done.len(), busy));
+            let busy = done
+                .iter()
+                .filter(|&&b| w.bldg(b).is_some_and(|b| !b.queue.is_empty()))
+                .count();
+            out.looks
+                .push((w.time, w.res[me as usize][0], waiting, done.len(), busy));
         }
         if (w.time - TO).abs() < 0.26 {
             out.workers_at_6 = workers;
@@ -188,8 +218,11 @@ fn median(mut v: Vec<f64>) -> f64 {
 }
 
 pub fn figures(ops: &[Opening]) -> Figures {
-    let window: Vec<&(f64, i32, bool, usize, usize)> =
-        ops.iter().flat_map(|o| o.looks.iter()).filter(|l| l.0 >= FROM && l.0 <= TO).collect();
+    let window: Vec<&(f64, i32, bool, usize, usize)> = ops
+        .iter()
+        .flat_map(|o| o.looks.iter())
+        .filter(|l| l.0 >= FROM && l.0 <= TO)
+        .collect();
     let n = window.len().max(1) as f64;
     let prod: usize = window.iter().map(|l| l.3).sum();
     let busy: usize = window.iter().map(|l| l.4).sum();
@@ -208,7 +241,11 @@ pub fn figures(ops: &[Opening]) -> Figures {
         bank_median: median(window.iter().map(|l| l.1 as f64).collect()),
         bank_most: window.iter().map(|l| l.1).max().unwrap_or(0),
         waiting: window.iter().filter(|l| l.2).count() as f64 / n,
-        busy: if prod > 0 { busy as f64 / prod as f64 } else { 0.0 },
+        busy: if prod > 0 {
+            busy as f64 / prod as f64
+        } else {
+            0.0
+        },
         second_at: (!seconds.is_empty()).then(|| median(seconds.clone())),
         workers: median(ops.iter().map(|o| o.workers_at_6 as f64).collect()),
         bank_at,
@@ -271,8 +308,14 @@ mod tests {
     #[test]
     fn a_human_s_opening_builds_its_two_production_buildings_and_records_its_bank() {
         let o = play(FACTIONS[0], 1, 64);
-        assert!(o.second_at.is_some(), "its second production building placed");
-        assert!(o.looks.len() > 800, "looks from 1:00 to 8:00, every half second");
+        assert!(
+            o.second_at.is_some(),
+            "its second production building placed"
+        );
+        assert!(
+            o.looks.len() > 800,
+            "looks from 1:00 to 8:00, every half second"
+        );
         assert!(o.workers_at_6 >= 6, "its crew grew: {}", o.workers_at_6);
         let f = figures(&[o]);
         assert!(f.busy > 0.0 && f.bank_at.len() == 8);

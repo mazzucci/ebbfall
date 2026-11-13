@@ -94,8 +94,8 @@ pub(crate) struct Ai {
     pub relay_hp: f64,
     pub relay_off: bool,
     /// Whether a wave of its has reached the foe (a unit within `REACHED` of a building of the foe it knows): a clumsy
-    /// level's waves stay clumsy until then, whatever the clock (`Diff::clumsy_until`), so a newcomer's first hit is a
-    /// clumsy one.
+    /// level's waves do not grow until then, whatever the clock (`Diff::clumsy_until`), so a newcomer's first hit is
+    /// three or four units.
     pub reached: bool,
     /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
     pub check: Option<crate::world::LaunchCheck>,
@@ -250,12 +250,7 @@ impl World {
     /// The tuning of the AI taking its turn (each AI seat may have its own level, `World::diff_of`, or a lab's plan:
     /// `World::tuning`).
     pub(crate) fn level(&self) -> Diff {
-        let d = self.tuning(self.seat());
-        if self.ai().reached {
-            d.at(self.time)
-        } else {
-            d
-        }
+        self.tuning(self.seat())
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two

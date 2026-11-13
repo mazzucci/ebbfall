@@ -15,7 +15,6 @@ pub enum Upgrade {
     Afterburners,
     Slipstream,
     RapidConstruction,
-    Satellite,
     Drills,
 }
 
@@ -35,9 +34,6 @@ pub enum Effect {
     /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
     /// tech: a Human builder mines nothing while it builds.
     BuildSpeed,
-    /// Researched, the side has launched its satellite (its own seat is told, no other), and it unlocks what needs it
-    /// (the Expedition's Uplink, `BldgDef::req_up`).
-    Launch,
     /// Each level, its workers carry more gold a trip (`DRILL_LOAD`).
     MineLoad,
 }
@@ -59,7 +55,7 @@ pub struct UpgradeDef {
     pub time: [f64; 3],
     /// How many levels it has: 3, or 1 for a tech (only the first cost and time count).
     pub levels: u8,
-    /// A finished building of this kind its side needs to start it (the satellite: a Lab).
+    /// A finished building of this kind its side needs to start it.
     pub req: Option<BldgKind>,
 }
 
@@ -133,20 +129,6 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
-/// Launch satellite, at the Expedition's Data center once a Lab stands: expensive and slow, and the
-/// Uplink's requirement (PRD: the Expedition rework, rule 5).
-/// The satellite, launched from the Lab once a player (the arc, Nov 13: 60 s at the Data center before; a launch
-/// should feel like an event): its Uplinks connect to it.
-const SATELLITE: UpgradeDef = UpgradeDef {
-    key: "satellite",
-    name: "Launch satellite",
-    short: "Satellite",
-    effect: Effect::Launch,
-    cost: [[100, 0]; 3], // (200 before the economy pass, Nov 13: the Expedition's way to its top tier as dear as the Kingdom's)
-    time: [90.0; 3],
-    req: Some(BldgKind::Loom),
-    ..TECH
-};
 /// Better drills: the Expedition's mining research at the Lab, two levels (Stelian, Nov 12–13: its economic fork, as
 /// the Market is the Kingdom's). A saturated Bot mine pays about 83% of a Villager mine's at first; the first level
 /// brings it about level, the second to about 115–120%.
@@ -163,11 +145,9 @@ const DRILLS: UpgradeDef = UpgradeDef {
 /// The gold a worker's load gains by `Effect::MineLoad` level (0, 1, 2): a Bot's 9 a trip goes to 10, then 11, its mine
 /// from about 95% of a Villager mine to about 107%, then 118% (Stelian: level, then 115-120%).
 pub const DRILL_LOAD: [i32; 3] = [0, 1, 2];
-/// What a side is told when its satellite is up (its research-done notice; no other seat is told).
-pub const LAUNCH_OURS: &str = "You launched a satellite.";
 
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 9] = [
+pub const UPGRADES: [Upgrade; 8] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -175,7 +155,6 @@ pub const UPGRADES: [Upgrade; 9] = [
     Upgrade::Afterburners,
     Upgrade::Slipstream,
     Upgrade::RapidConstruction,
-    Upgrade::Satellite,
     Upgrade::Drills,
 ];
 
@@ -189,7 +168,6 @@ impl Upgrade {
             Upgrade::Afterburners => &AFTERBURNERS,
             Upgrade::Slipstream => &SLIPSTREAM,
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
-            Upgrade::Satellite => &SATELLITE,
             Upgrade::Drills => &DRILLS,
         }
     }

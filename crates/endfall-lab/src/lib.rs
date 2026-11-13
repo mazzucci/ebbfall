@@ -67,6 +67,7 @@ mod tests {
             shore_field: endfall_sim::map::ShoreField::BACK,
             tide: false,
             mirrors: true,
+            cross: false,
         };
         let quiet = |_: usize, _: usize| {};
         let one = run_report(batch.clone(), (10.0, 20.0), "test", 1, &quiet)
@@ -126,6 +127,7 @@ mod tests {
             shore_field: endfall_sim::map::ShoreField::BACK,
             tide: false,
             mirrors: false,
+            cross: false,
         };
         assert_eq!(batch.cells().len(), 2);
         assert!(batch.cells().iter().all(|c| !c.mirror()));

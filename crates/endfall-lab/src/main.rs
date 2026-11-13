@@ -51,7 +51,7 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--no-ladder] [--no-mirrors] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- bets [--seeds N] [--size 64] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--cap MIN] [--threads N] [--out FILE]"
     );
@@ -65,6 +65,9 @@ fn parse_map(s: &str) -> MapKind {
         .unwrap_or_else(|| die(&format!("no map '{s}'")))
 }
 fn parse_level(s: &str) -> usize {
+    if s.eq_ignore_ascii_case("brutal") {
+        return endfall_lab::batch::HARD;
+    }
     LEVELS
         .iter()
         .position(|l| l.eq_ignore_ascii_case(s))
@@ -76,7 +79,7 @@ fn report(args: &[String]) {
     let mut batch = Batch::default_batch();
     let (mut threads, mut band, mut out) = (
         std::thread::available_parallelism().map_or(1, |n| n.get()),
-        (10.0, 20.0),
+        (10.0, 15.0),
         None,
     );
     let mut extra_maps = Vec::new();
@@ -107,6 +110,8 @@ fn report(args: &[String]) {
             "--maps" => extra_maps = val().split(',').map(parse_map).collect(),
             "--levels" => batch.levels = val().split(',').map(parse_level).collect(),
             "--no-ladder" => batch.ladder = false,
+            "--ladder" => batch.ladder = true,
+            "--no-cross" => batch.cross = false,
             "--no-mirrors" => batch.mirrors = false,
             "--shore-field" => {
                 use endfall_sim::map::ShoreField;
@@ -165,7 +170,7 @@ fn report(args: &[String]) {
     std::fs::write(&path, r.json().write())
         .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
     let header = format!(
-        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}{}, {} seeds a cell, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
+        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}{}{}, {} seeds a cell, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
         today(),
         batch.sizes,
         batch.maps,
@@ -177,6 +182,11 @@ fn report(args: &[String]) {
             .join(", "),
         if batch.ladder { "yes" } else { "no" },
         if batch.mirrors { "" } else { ", no mirrors" },
+        if batch.cross && batch.sizes.contains(&96) {
+            ", Hard against each lower level on 96"
+        } else {
+            ""
+        },
         batch.seeds,
         batch.cap_min,
         batch.moved_shore_field().map_or(String::new(), |f| {

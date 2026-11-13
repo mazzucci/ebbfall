@@ -153,7 +153,6 @@ fn upgrade(d: &UpgradeDef) -> String {
         Effect::Unlock(a) => ("unlock", a.def().key),
         Effect::Speed(u) => ("speed", u.def().key),
         Effect::BuildSpeed => ("build", ""),
-        Effect::Launch => ("launch", ""),
         Effect::MineLoad => ("mine", ""),
     };
     Obj::new()
@@ -242,16 +241,13 @@ fn radio_json() -> String {
         .iter()
         .filter(|&&k| radio::needs_range(k))
         .map(|k| quote(k.def().key));
-    let sources = |w: i32| {
-        BLDG_KINDS
-            .iter()
-            .filter(|&&k| radio::range_of(k, 64) > 0.0)
-            .map(move |k| (k.def().key, radio::range_of(*k, w).to_string()))
-    };
+    let sources = BLDG_KINDS
+        .iter()
+        .filter(|&&k| radio::range_of(k) > 0.0)
+        .map(|k| (k.def().key, radio::range_of(*k).to_string()));
     Obj::new()
         .raw("machines", array(machines))
-        .raw("sources", map(sources(64)))
-        .raw("sourcesBig", map(sources(96)))
+        .raw("sources", map(sources))
         .num("stranded", radio::STRANDED_SPEED)
         .num("boost", radio::IN_RANGE_SPEED)
         .num("leash", radio::LEASH_MARGIN)

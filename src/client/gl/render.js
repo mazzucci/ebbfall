@@ -274,7 +274,6 @@ export function renderTerrain() {
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   L.worn.removeChildren().forEach(c => c.destroy()); // (the buildings' own, gone with them above)
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
-  for (const r of rockets) { r.s.destroy(); r.l.destroy(); } rockets.length = 0; // (a launch still rising from the last game)
 }
 
 // ---- entity display objects, keyed by sim id ----
@@ -510,28 +509,6 @@ export function muzzleFx(x, y, face, size = 1) {
   addEffect('puff', mx, my, { vx: Math.cos(face) * 30, vy: Math.sin(face) * 20 - 12, life: 0.9, scale: size, fade: 0.9 });
   addEffect('flash', mx, my, { life: 0.12, light: 0xffc070, lightScale: 0.5, scale: 0.6 });
 }
-// A satellite launch (the sim's `launch` event): a rocket rises from the Data center over three seconds, faster and
-// faster, a smoke trail left behind it and a cloud at its foot; drawn on the renderer's clock.
-const rockets = [];
-/** Launch a rocket from (x, y), the building's center. */
-export function launchFx(x, y) {
-  const s = new Sprite(tex('rocket')); s.anchor.set(0.5); s.rotation = -Math.PI / 2; s.scale.set(1.6); s.position.set(x, y - 20); L.air.addChild(s);
-  const l = light(0xffb050, 0.9, 0.9); l.position.copyFrom(s.position);
-  rockets.push({ s, l, x, y: y - 20, t: 0 });
-  for (let i = 0; i < 8; i++) { const a = Math.random() * Math.PI * 2; addEffect('puff', x + Math.cos(a) * 14, y + Math.sin(a) * 8, { vx: Math.cos(a) * 30, vy: Math.sin(a) * 12 - 6, life: 1.6 + Math.random() * 0.6, scale: 1.5, fade: 0.9 }); }
-}
-/** The launches in flight, for the tests: where each rocket is now (world px). */
-export const launchesShown = () => rockets.map(r => ({ x: r.s.x, y: r.s.y, t: r.t }));
-function updateRockets(dt) {
-  for (let i = rockets.length - 1; i >= 0; i--) {
-    const r = rockets[i]; r.t += dt;
-    if (r.t > 3.2) { r.s.destroy(); r.l.destroy(); rockets.splice(i, 1); continue; }
-    const climb = 30 * r.t + 60 * r.t * r.t; // (px: slow off the pad, then away)
-    r.s.position.set(r.x + Math.sin(r.t * 7) * 0.6, r.y - climb); r.s.alpha = Math.min(1, (3.2 - r.t) / 0.6);
-    r.l.position.set(r.s.x, r.s.y + 14); r.l.alpha = 0.9 * r.s.alpha;
-    if (Math.random() < dt * 30) addEffect('trail', r.s.x + (Math.random() - 0.5) * 3, r.s.y + 16, { life: 1.4, fade: 0.85, scale: 1.3, vy: 6 });
-  }
-}
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
 
@@ -598,7 +575,7 @@ function drawRange(extra) {
 /** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while a building that gives
  *  range is being placed (its own circle with the others). */
 function showRange(selList, place) {
-  const reach = place ? coverageOf(place.type, MW) : 0, d = place && BUILDINGS[place.type];
+  const reach = place ? coverageOf(place.type) : 0, d = place && BUILDINGS[place.type];
   const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
   const on = !!extra || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
   if (on) drawRange(extra);
@@ -743,7 +720,7 @@ export function render(selList, place) {
   }
   for (let i = ki; i < partPool.length; i++) partPool[i].visible = false;
 
-  updateEffects(dt); updateRockets(dt);
+  updateEffects(dt);
   updateFogImage();
 
   ghost.visible = ghostPaint.visible = ghostRect.visible = !!place; ghostRect.clear();

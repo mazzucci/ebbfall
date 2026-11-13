@@ -69,25 +69,18 @@ impl World {
         }
     }
 
-    /// Whether `team` has what `kind` needs: its building (`req`) finished and its research (`req_up`) done.
+    /// Whether `team` has what `kind` needs: its building (`req`) finished.
     pub fn has_req(&self, team: u8, kind: BldgKind) -> bool {
-        let d = kind.def();
-        d.req.is_none_or(|r| {
+        kind.def().req.is_none_or(|r| {
             self.bldgs
                 .iter()
                 .any(|b| b.team == team && b.kind == r && b.done)
-        }) && d
-            .req_up
-            .is_none_or(|u| self.upgrades[team as usize][u.index()] > 0)
+        })
     }
 
     /// What a refusal for want of `kind`'s requirement says.
-    pub fn req_message(&self, team: u8, kind: BldgKind) -> String {
-        let d = kind.def();
-        match d.req {
-            Some(r) if !self.has_bldg(team, r) => format!("Requires {}", r.def().name),
-            _ => format!("Requires {}", d.req_up.map_or("", |u| u.def().name)),
-        }
+    pub fn req_message(kind: BldgKind) -> String {
+        format!("Requires {}", kind.def().req.map_or("", |r| r.def().name))
     }
 
     /// Whether `team` has a finished building of `kind`.
@@ -498,7 +491,7 @@ impl World {
             return Err(why.message().into());
         }
         if !self.has_req(team, kind) {
-            return Err(self.req_message(team, kind));
+            return Err(Self::req_message(kind));
         }
         if !self.hq_room(team, kind) {
             let hq = self.factions[team as usize].hq.def().name;

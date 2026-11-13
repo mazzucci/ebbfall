@@ -35,7 +35,7 @@ pub struct RadioSrc {
 
 /// Whether a building gives range now.
 fn is_source(b: &Bldg) -> bool {
-    b.done && range_of(b.kind, 64) > 0.0
+    b.done && range_of(b.kind) > 0.0
 }
 
 impl World {
@@ -60,7 +60,7 @@ impl World {
                 team: b.team,
                 x: b.x,
                 y: b.y,
-                reach: range_of(b.kind, self.map.w) * TILE,
+                reach: range_of(b.kind) * TILE,
             })
             .collect();
         self.radio_ver = self.radio_ver.wrapping_add(1);

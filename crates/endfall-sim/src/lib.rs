@@ -758,7 +758,6 @@ fn event_json(e: &Event) -> String {
             .num("mend", mend),
         Event::Hit { x, y, big } => o("hit").num("x", x).num("y", y).num("big", big),
         Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
-        Event::Launch { x, y, team } => o("launch").num("x", x).num("y", y).num("team", team),
         Event::Cast { x, y, ability, .. } => {
             o("cast").num("x", x).num("y", y).str("ability", ability)
         }

@@ -53,14 +53,10 @@ fn each_building_trains_its_peoples_list() {
         None,
         "the Sentry mast: basic, the early defense"
     );
-    // (the Portal: once an Uplink stands, which needs the satellite, launched at the Lab; it trains only while one
-    // stands)
+    // (the Portal: once an Uplink stands, which needs a Lab; it trains only while one stands)
     assert_eq!(Eclipse.def().req, Some(Uplink));
     assert_eq!(Eclipse.def().trains_with, Some(Uplink));
-    assert_eq!(Uplink.def().req_up, Some(Upgrade::Satellite));
-    assert_eq!(Upgrade::Satellite.def().req, Some(Loom));
-    assert!(Loom.def().researches.contains(&Upgrade::Satellite));
-    assert!(!Conflux.def().researches.contains(&Upgrade::Satellite));
+    assert_eq!(Uplink.def().req, Some(Loom));
     // The Kingdom's Stables need its Blacksmith (the top tier's way, serial since the arc); its Market, one a Castle,
     // built in the base, the Barracks.
     assert_eq!(Airfield.def().req, Some(Forge));

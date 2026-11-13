@@ -28,18 +28,17 @@ pub const GUIDED_ARMY: usize = 4;
 /// The most it has once they are released, for the rest of the game: fewer than its first wave, so it sends no other
 /// (Easy's next wave is six) and the guide's last step, an attack with ten, wins (with six it rarely did).
 pub const GUIDED_ARMY_AFTER: usize = 3;
-/// The range: a wave's forward Uplink goes this many tiles past the edge of its side's range along its way, never
-/// nearer its goal than `RELAY_GOAL_ROOM` tiles, once the wave's front is within `RELAY_FRONT` tiles of that spot (or
-/// past it).
-const RELAY_AHEAD: f64 = 7.0;
+/// The range: the forward Uplink goes at the first point of the walkers' way from its rally point to the goal whose
+/// coverage takes in the goal with `RELAY_COVER_ROOM` tiles to spare (one Uplink covers the push: Stelian, Nov 13), never
+/// nearer its goal than `RELAY_GOAL_ROOM` tiles; a wave's own, once the wave's front is within `RELAY_FRONT` tiles of
+/// that spot (or past it).
+const RELAY_COVER_ROOM: f64 = 8.0;
 const RELAY_GOAL_ROOM: f64 = 10.0;
 const RELAY_FRONT: f64 = 4.0;
 /// The push: machines kept home (their goal out of coverage) before the next Uplink goes up towards it.
 const PUSH_MACHINES: usize = 4;
 /// The push: how far (tiles) past its coverage's edge a goal may lie for its machines to go with the wave.
 const PUSH_REACH: f64 = 8.0;
-/// The push's next Uplink goes this many tiles inside its coverage's edge towards the goal.
-const PUSH_INSIDE: f64 = 3.0;
 /// A machine of a wave held at its coverage's edge: within `EDGE_NEAR` tiles of it (or past it), quiet (neither firing
 /// nor hit) for `HELD_QUIET` s.
 const EDGE_NEAR: f64 = 1.5;
@@ -721,10 +720,10 @@ impl World {
         (dist(b.x, b.y, gx, gy) < from_rally - 4.0 * TILE).then_some((b.x, b.y))
     }
 
-    /// The range: the leapfrog relay (`AiScript::relay`, the Uplink, once its satellite is up: later in the game).
-    /// While a wave with machines is out, the AI keeps one relay site at a time going `RELAY_AHEAD` tiles past the edge
-    /// of its range along the way from its rally point to the goal, once the wave's front has come that far; never
-    /// holding the wave for it. A site under fire is abandoned (its cost partly back) and the wave places no other.
+    /// The range: the forward Uplink (`AiScript::relay`, once its Lab stands) for a wave with machines out: while one
+    /// is out, the AI keeps one site at a time going at its point for the goal (`relay_point`) once the wave's front has
+    /// come that far, never holding the wave for it. A site under fire is abandoned (its cost partly back) and the wave
+    /// places no other.
     fn tend_relay(&mut self, attackers: &[Id], (gx, gy): (f64, f64)) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
@@ -741,7 +740,7 @@ impl World {
 
     /// The push (the arc: "an Uplink, then the machines"): while its goal lies out of its coverage, its machines (kept
     /// out of the waves) wait at its forward-most Uplink on the way, and once it has `PUSH_MACHINES` of them it raises
-    /// the next Uplink past its coverage's edge towards the goal (one site at a time, as the wave's leapfrog does).
+    /// an Uplink at its point for the goal (`relay_point`: one that covers it), its idle army guarding the site.
     fn tend_push(&mut self, machines: &[Id], rest: &[Id], goal: (f64, f64)) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
@@ -784,8 +783,8 @@ impl World {
         }
     }
 
-    /// One leapfrog Uplink (`AiScript::relay`): `RELAY_AHEAD` tiles past the edge of its coverage along the way from
-    /// its rally point to the goal; with `front`, only once the escort's unit nearest the goal has come about that far.
+    /// The forward Uplink (`AiScript::relay`) at its point for the goal (`relay_point`); with `front`, only once the
+    /// escort's unit nearest the goal has come about that far.
     fn raise_relay(&mut self, escort: &[Id], (gx, gy): (f64, f64), front_needed: bool) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
@@ -818,36 +817,9 @@ impl World {
                 }
             }
         }
-        // The edge of its range on the way, and the spot past it: along the walkers' way from its rally point to the
-        // goal, a point a tile (straight across before Nov 13: where that crossed water or rock, the Shore's channel, no
-        // site was ever found and the push stood still).
-        let way = self.relay_way(self.rally_or_home(), (gx, gy));
-        let len = way.len() as f64 * TILE;
-        if way.len() < 2 {
+        let Some((at, len, (px, py))) = self.relay_point((gx, gy)) else {
             return;
-        }
-        let Some(edge) = way
-            .iter()
-            .position(|&(x, y)| !self.in_radio(seat, x, y))
-            .map(|i| i as f64 * TILE)
-        else {
-            return; // (covered all the way)
         };
-        // (a wave's leapfrog past the edge, where its front stands; the push just inside it, where its machines can
-        // guard the site from their coverage; either no nearer the goal than `RELAY_GOAL_ROOM`, and then worth it while
-        // its coverage reaches past today's edge: the last stretch to the goal, short of a whole leap, was never covered
-        // before Nov 13, and machine waves stood at the edge a few tiles short of the foe's base for good)
-        let ahead = if front_needed {
-            edge + RELAY_AHEAD * TILE
-        } else {
-            (edge - PUSH_INSIDE * TILE).max(TILE)
-        };
-        let at = ahead.min(len - RELAY_GOAL_ROOM * TILE);
-        let reach = radio::range_of(tower, self.map.w) * TILE;
-        if at < TILE || at + reach < edge + PUSH_INSIDE * TILE {
-            return;
-        }
-        let (px, py) = way[((at / TILE) as usize).min(way.len() - 1)];
         // The wave's front (its unit nearest the goal) must be about there already (for a wave's leapfrog).
         let front = attackers
             .iter()
@@ -859,7 +831,7 @@ impl World {
         {
             return;
         }
-        let Some(spot) = self.find_spot(tower, px / TILE, py / TILE) else {
+        let Some(spot) = self.relay_spot((px, py), (gx, gy)) else {
             return;
         };
         let workers: Vec<Id> = self
@@ -877,6 +849,54 @@ impl World {
             ai.relay_site = Some(id);
             ai.relay_hp = hp;
         }
+    }
+
+    /// Where the seat taking its turn raises its forward Uplink (`AiScript::relay`) for `goal` (px): how far along the
+    /// walkers' way from its rally point (px), the way's length (px) and the point there. The first point of the way whose coverage takes in
+    /// the goal with `RELAY_COVER_ROOM` tiles to spare (so one Uplink covers the push, and stands as far back as that
+    /// allows, where its army can hold it; before Nov 13 a chain of them leapfrogged a few tiles past the edge), never
+    /// nearer the goal than `RELAY_GOAL_ROOM` tiles. None when its coverage already takes in the goal so, when the way
+    /// is too short, or when the site would add nothing (its coverage no farther along the way than today's edge).
+    pub(crate) fn relay_point(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64, (f64, f64))> {
+        let seat = self.seat();
+        let tower = self.factions[seat as usize].ai.relay?;
+        let reach = radio::range_of(tower) * TILE;
+        let spare = RELAY_COVER_ROOM * TILE;
+        if self.in_radio_by(seat, gx, gy, -RELAY_COVER_ROOM) {
+            return None;
+        }
+        let way = self.relay_way(self.rally_or_home(), (gx, gy));
+        if way.len() < 2 {
+            return None;
+        }
+        let len = way.len() as f64 * TILE;
+        let edge = way
+            .iter()
+            .position(|&(x, y)| !self.in_radio(seat, x, y))
+            .map_or(len, |i| i as f64 * TILE);
+        let cover = way
+            .iter()
+            .position(|&(x, y)| dist(x, y, gx, gy) <= reach - spare)
+            .map_or(len, |i| i as f64 * TILE);
+        let at = cover.min(len - RELAY_GOAL_ROOM * TILE);
+        if at < TILE || at + reach < edge {
+            return None;
+        }
+        Some((at, len, way[((at / TILE) as usize).min(way.len() - 1)]))
+    }
+
+    /// A spot for the forward Uplink near `point` (px, its `relay_point`) whose coverage takes in `goal` (px) with
+    /// `RELAY_COVER_ROOM` tiles to spare, as the point's does (a site in rings round the point at any angle fell short
+    /// of the goal, and another went up beside it, and another).
+    pub(crate) fn relay_spot(&mut self, point: (f64, f64), goal: (f64, f64)) -> Option<(i32, i32)> {
+        let tower = self.factions[self.seat() as usize].ai.relay?;
+        let d = tower.def();
+        let most = radio::range_of(tower) - RELAY_COVER_ROOM;
+        let ok = move |_: &World, tx: i32, ty: i32| {
+            let (cx, cy) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
+            jsmath::hypot(cx - goal.0 / TILE, cy - goal.1 / TILE) <= most
+        };
+        self.find_spot_within(tower, point.0 / TILE, point.1 / TILE, 0.0, 15.0, &ok)
     }
 
     /// The walkers' way from `from` to `to` (px), a point every tile along it from `from` (the relay's sites are looked
@@ -2011,7 +2031,7 @@ mod tests {
             w.ai_turn = 1;
             let (bx, by) = w.map.bases[1];
             let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
-            let reach = crate::data::radio::range_of(BldgKind::Conflux, w.map.w) * TILE;
+            let reach = crate::data::radio::range_of(BldgKind::Conflux) * TILE;
             let (fx, fy) = w.map.bases[0];
             let core = w.bldgs.iter().find(|b| b.team == 0).unwrap().id;
             let (dx, dy) = ((fx - bx) as f64, (fy - by) as f64);

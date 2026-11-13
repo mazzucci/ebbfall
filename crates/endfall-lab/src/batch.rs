@@ -2,7 +2,7 @@
 //! natively with a read-only record of what happened, and playing them all on threads in a fixed order.
 
 use endfall_sim::data::Move;
-use endfall_sim::data::{ALL_POOLS, BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS, Upgrade};
+use endfall_sim::data::{ALL_POOLS, BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
 use endfall_sim::map::{Foot, Ground, MapKind, MapSize, ShoreField};
 use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
@@ -10,14 +10,20 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub const TPS: u32 = 30;
-/// The AI levels, as the menus name them (src/engine/util.js DIFF_NAMES).
-pub const LEVELS: [&str; 4] = ["Easy", "Medium", "Hard", "Brutal"];
+/// The AI levels by the sim's index. The menus offer Easy, Medium and Hard, which is the sim's level 3 (src/engine/
+/// util.js `LEVELS`); the sim's level 2 is kept in its table and here ("Hard2"), not offered. ("Brutal" still reads
+/// as Hard on the command line.)
+pub const LEVELS: [&str; 4] = ["Easy", "Medium", "Hard2", "Hard"];
+/// The menus' Hard: the sim's level 3.
+pub const HARD: usize = 3;
 
-/// What a cell measures: both seats at one level, or a level against the one below it.
+/// What a cell measures: both seats at one level, a level against the one below it, or Hard against a lower level
+/// (`Cross`: does Hard finish its games?).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Kind {
     Level,
     Ladder,
+    Cross,
 }
 
 /// One cell: a map, the races and levels by seat. Seat 0 is the one named first.
@@ -71,21 +77,27 @@ pub struct Batch {
     /// The two mirrors (each people against itself) in each level's cells; `--no-mirrors` plays the Kingdom against
     /// the Expedition alone, half the games (each game is seeded by its cell and seed, so the others are the same).
     pub mirrors: bool,
+    /// Hard (`HARD`) against each lower level of the batch's on 96x96 Standard (`Kind::Cross`): every pairing of the
+    /// peoples, Hard in either seat; `--no-cross` leaves them out.
+    pub cross: bool,
 }
 
 impl Batch {
-    /// The default batch (R2): 64x64 and 96x96 Standard, every level against itself and the ladder.
+    /// The default batch (Stelian, Nov 13: the main rows): two-player 96x96 and 128x128 Standard (64x64 is gone from
+    /// the menus), Easy and Medium each against itself (both peoples, both seatings, the mirrors), and Hard against
+    /// each of them on 96x96 (`cross`).
     pub fn default_batch() -> Batch {
         Batch {
-            sizes: vec![64, 96],
+            sizes: vec![96, 128],
             maps: vec![MapKind::Standard],
-            levels: vec![0, 1, 2, 3],
-            ladder: true,
-            seeds: 5,
+            levels: vec![0, 1],
+            ladder: false,
+            seeds: 10,
             cap_min: 30,
             shore_field: ShoreField::BACK,
             tide: false,
             mirrors: true,
+            cross: true,
         }
     }
     /// `--quick`: 64x64 only, Medium and Hard and the ladder between them, three seeds (about 30 s on a laptop).
@@ -100,6 +112,7 @@ impl Batch {
             shore_field: ShoreField::BACK,
             tide: false,
             mirrors: true,
+            cross: false,
         }
     }
 
@@ -133,6 +146,21 @@ impl Batch {
                             races,
                             levels: [l, l],
                         });
+                    }
+                }
+                if self.cross && size == 96 && map == MapKind::Standard {
+                    for &l in self.levels.iter().filter(|&&l| l < HARD) {
+                        for races in [[h, v], [v, h], [h, h], [v, v]] {
+                            for levels in [[HARD, l], [l, HARD]] {
+                                out.push(Cell {
+                                    kind: Kind::Cross,
+                                    map,
+                                    size,
+                                    races,
+                                    levels,
+                                });
+                            }
+                        }
                     }
                 }
                 if self.ladder {
@@ -200,8 +228,6 @@ pub struct SeatRec {
     pub first_unit: Vec<Option<u32>>,
     /// By building kind index: the tick its first one was finished (None: never; the starting headquarters is not).
     pub first_bldg: Vec<Option<u32>>,
-    /// The tick its satellite was launched (`Upgrade::Satellite` researched; None: never).
-    pub satellite: Option<u32>,
 }
 
 /// A seat's economy at one of `ECON_AT`'s minutes.
@@ -363,9 +389,6 @@ impl Tracker {
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.pools[s][0][0]);
-            if rec.satellite.is_none() && w.upgrades[s][Upgrade::Satellite.index()] > 0 {
-                rec.satellite = Some(tick);
-            }
         }
         self.economy(w, tick);
         self.waves(w);
@@ -738,6 +761,7 @@ mod shore_tests {
             shore_field: ShoreField::BACK,
             tide: false,
             mirrors: true,
+            cross: false,
         };
         let cells = b.cells();
         assert!(

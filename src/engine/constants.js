@@ -25,8 +25,8 @@ export const TECH_BUILD = D.consts.tech_build;
  *  source building gives (`sources`, tiles by kind, a circle round its center), a machine's speed inside it (`boost`,
  *  a multiple) and the Drone's leash past its edge (`leash`, tiles). */
 export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
-/** The coverage a source of `type` gives on the current map (wider on the bigger maps), tiles. */
-export const coverageOf = (type, mapW) => (mapW > 64 ? RADIO.sourcesBig : RADIO.sources)[type] || 0;
+/** The coverage a source of `type` gives, tiles (the same on every map). */
+export const coverageOf = (type) => RADIO.sources[type] || 0;
 
 /** Hotkeys, descriptions and `what` (a short line, a verb first and about 25 characters, under the health bar on the selection console;
  *  none for a kind players cannot get),
@@ -66,18 +66,17 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +${D.buildings.conflux.supply} Power. Coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there.` },
+  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +${D.buildings.conflux.supply} Power. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there.` },
   spire: { hot: 'S', what: `Makes +${D.buildings.spire.supply} Power`, desc: `+${D.buildings.spire.supply} Power.` },
   siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: `+${D.buildings.siphon.supply} hired places. Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.` },
   kiln: { hot: 'C', what: 'Builds Buggies and Drones', desc: 'Builds Buggies, and Drones once a Lab stands.' },
-  loom: { hot: 'G', what: 'Researches, launches the satellite', desc: 'Researches Weapons, Armor, Overclock and Better drills, and launches the satellite. Unlocks Drones and Bruisers.' },
+  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor, Overclock and Better drills. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
-  uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `Coverage: machines work within ${D.radio.sources.uplink} tiles (${D.radio.sourcesBig.uplink} on the bigger maps), and move faster there. Unlocks the Portal.` },
+  uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles, and move faster there. Unlocks the Portal.` },
   eclipse: { hot: 'D', what: 'Trains Androids and Rovers', desc: 'Trains Androids and Rovers, while an Uplink stands. Only one.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' },
-  satellite: { hot: 'S', desc: 'Launches your satellite, once: your Uplinks connect to it. Unlocks the Uplink, which unlocks the Portal.' },
   drills: { hot: 'D', desc: `Bots carry more gold a trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
@@ -86,7 +85,6 @@ export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Needs a X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) { const n = D.buildings[d.req].name; d.desc += ` Needs ${/^[AEIOU]/.test(n) ? 'an' : 'a'} ${n}.`; }
-for (const d of Object.values(BUILDINGS)) if (d.reqUp) d.desc += ' Needs the satellite: launch it from the Lab.';
 // (a building that holds Power while it stands says so, from the tables)
 for (const d of Object.values(BUILDINGS)) if (d.uses) d.desc += ` Uses ${d.uses} Power while it stands.`;
 /** Extra damage per Weapons level, by unit or building type. */

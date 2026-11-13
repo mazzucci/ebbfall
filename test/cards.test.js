@@ -131,10 +131,8 @@ for (const race of ['humans', 'vael']) {
 
 test('every research and command the card can show has an icon, and every unit and building a symbol (a key with no drawing renders a blank button)', { skip }, async () => {
   const { hasIcon, hasGlyph } = await import('../src/client/icons.js');
-  // (the satellite is left out: its research is being removed, button and all)
-  const GOING = new Set(['satellite']);
   // Every research and every button ability of either people, shown or not yet: the button's icon is its key.
-  const keys = [...Object.keys(E.UPGRADES), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)].filter(k => !GOING.has(k));
+  const keys = [...Object.keys(E.UPGRADES), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)];
   for (const k of keys) assert.ok(hasIcon(k), `${k} has an icon`);
   // Every unit and building of either people has a symbol (`glyph`), whether a card shows it yet or not.
   for (const f of Object.values(E.FACTIONS)) for (const k of E.kindsOf(f)) assert.ok(hasGlyph(k), `${k} has a symbol`);
@@ -142,7 +140,7 @@ test('every research and command the card can show has an icon, and every unit a
   // its icon.
   let pictures = 0;
   for (const race of ['humans', 'vael']) for (const [what, items] of cards(race)) {
-    for (const it of items.filter(i => !i.hidden && !GOING.has(i.icon))) {
+    for (const it of items.filter(i => !i.hidden)) {
       if (it.por) { pictures++; assert.ok(hasGlyph(it.por[1]), `${what}: ${it.label} (${it.por[1]}) has a symbol`); } else assert.ok(it.icon && hasIcon(it.icon), `${what}: ${it.label} (${it.icon}) has an icon`);
     }
   }
@@ -240,23 +238,17 @@ test('a building opened mid-game is appended to its Build page: the shown ones k
   const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
   raise('siphon');
   assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
-  // The Uplink shows from the first, locked until the satellite is up (the arc, Nov 13: its requirement on its tip), in
-  // the slot it keeps when it opens.
-  const advanced = () => { ui.sel = [lumen()]; ui.mode = 'build2'; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the advanced page before the satellite');
-  const locked = advanced().find(i => i.id === 'b_uplink');
-  assert.ok(locked.dis && /Needs the satellite: launch it from the Lab\./.test(locked.tip), 'locked, its requirement in its tip');
-  E.debugResearch(E.G.me, 'satellite', 1);
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the Uplink open in its slot, the others where they were');
-  assert.ok(!advanced().find(i => i.id === 'b_uplink').dis, 'and no longer locked');
+  // The Uplink opens with the Lab (one dish, no satellite: Stelian, Nov 13), appended after the shown ones.
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'the advanced page before the Lab');
+  raise('loom');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the Uplink appended, the others where they were');
   raise('uplink');
   assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'b_eclipse@3', 'build1@5'], 'then the Portal, appended');
   assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
   // A new game forgets them.
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
-  E.debugResearch(E.G.me, 'satellite', 1);
   raise('siphon');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'a new game: its own slots');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'a new game: its own slots');
   ui.sel = []; ui.mode = null;
 });
 
@@ -303,7 +295,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
         kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2', 'r_satellite@3', 'r_drills@4'],
+        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2', 'r_drills@3'],
         eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],

@@ -41,7 +41,7 @@ const SCENES = {
   'base-kingdom': { races: ['humans', 'vael'], base: true },
   'base-expedition': { races: ['vael', 'humans'], base: true },
   'home-kingdom': { races: ['humans', 'vael'], base: true, army: H_ARMY, zoom: 1 },                                      // (the art polish's in-game shots: a base with its buildings and an army standing before it, at zoom 1)
-  'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1, research: ['satellite'] },      // (the Uplink needs the satellite launched, and the Portal the Uplink)
+  'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1 },      // (the Uplink needs the Lab, and the Portal the Uplink: the base's rounds raise them in turn)
   'mine-swarm': { races: ['vael', 'humans'], swarm: { lumen: 7, shrike: 6 }, zoom: 1 },                                  // (the follow-up to the art polish: a Bot group and a Drone swarm by a mine, the gold beside them)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
 };

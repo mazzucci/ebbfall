@@ -251,7 +251,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'launch', 'mine'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'mine'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
   // its own; each ability's tech is found. Shields (shields, data since the re-theme: no building researches it) keeps
   // only its place.
@@ -259,7 +259,6 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.ok(researched('entrenching') && !researched('shields'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
-    else if (u.effect === 'launch') assert.ok(Object.values(C.BUILDINGS).some(b => b.reqUp === k) && /Uplink/.test(u.desc), `${k} unlocks a building and says which`);
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }

@@ -120,7 +120,7 @@ export function cardItems() {
     (adv ? basic : advanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
     // Advanced only once something on it can be built (the Barracks or the Recruiting post stands), in the first free
     // slot then (after the basic page's four: slot 4, the second row's middle; the defense opens with it and comes first).
-    if (!adv && advanced.some(open)) kept({ id: 'build2', label: 'Advanced', key: 'V', icon: 'build', tip: advanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
+    if (!adv && advanced.some(open)) kept({ id: 'build2', label: 'Advanced', key: 'V', icon: 'advanced', tip: advanced.filter(open).map(k => BUILDINGS[k].name).join(', ') });
   } else if (units.length) {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)

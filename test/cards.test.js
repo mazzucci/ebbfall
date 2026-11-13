@@ -129,17 +129,41 @@ for (const race of ['humans', 'vael']) {
   });
 }
 
-test('every research and command the card can show has an icon (a key with no drawing renders a blank button)', { skip }, async () => {
-  const { hasIcon } = await import('../src/client/icons.js');
+test('every research and command the card can show has an icon, and every unit and building a symbol (a key with no drawing renders a blank button)', { skip }, async () => {
+  const { hasIcon, hasGlyph } = await import('../src/client/icons.js');
   // (the satellite is left out: its research is being removed, button and all)
   const GOING = new Set(['satellite']);
   // Every research and every button ability of either people, shown or not yet: the button's icon is its key.
   const keys = [...Object.keys(E.UPGRADES), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)].filter(k => !GOING.has(k));
   for (const k of keys) assert.ok(hasIcon(k), `${k} has an icon`);
-  // And every button on every card the game draws (a portrait stands in for an icon on a unit or a building).
+  // Every unit and building of either people has a symbol (`glyph`), whether a card shows it yet or not.
+  for (const f of Object.values(E.FACTIONS)) for (const k of E.kindsOf(f)) assert.ok(hasGlyph(k), `${k} has a symbol`);
+  // And every button on every card the game draws: a unit or a building (`por`: [what, kind]) its symbol, anything else
+  // its icon.
+  let pictures = 0;
   for (const race of ['humans', 'vael']) for (const [what, items] of cards(race)) {
-    for (const it of items.filter(i => !i.hidden && !i.por && !GOING.has(i.icon))) assert.ok(it.icon && hasIcon(it.icon), `${what}: ${it.label} (${it.icon}) has an icon`);
+    for (const it of items.filter(i => !i.hidden && !GOING.has(i.icon))) {
+      if (it.por) { pictures++; assert.ok(hasGlyph(it.por[1]), `${what}: ${it.label} (${it.por[1]}) has a symbol`); } else assert.ok(it.icon && hasIcon(it.icon), `${what}: ${it.label} (${it.icon}) has an icon`);
+    }
   }
+  assert.ok(pictures > 0, 'units and buildings were drawn');
+});
+
+test('no two buttons a card shows together share a drawing', { skip }, async () => {
+  const { icon, glyph } = await import('../src/client/icons.js');
+  // (a Cancel with a badge shows what it cancels, the unit queued or the research, in red: that one is meant)
+  for (const race of ['humans', 'vael']) for (const [what, items] of cards(race)) {
+    const shown = items.filter(i => !i.hidden && !i.badge), seen = new Map();
+    for (const it of shown) {
+      const d = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon).replace('class="ico"', 'class="ico gl"') : '';
+      if (!d) continue;
+      assert.ok(!seen.has(d), `${what}: ${it.label} looks like ${seen.get(d)}`);
+      seen.set(d, it.label);
+    }
+  }
+  // Nor any two units or buildings, of either people.
+  const kinds = [...new Set(Object.values(E.FACTIONS).flatMap(f => [...E.kindsOf(f)]))];
+  assert.equal(new Set(kinds.map(glyph)).size, kinds.length, 'one symbol a kind');
 });
 
 test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {

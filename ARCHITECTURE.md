@@ -184,8 +184,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
                       upgrades.rs (Better drills, two levels at the Lab: a Bot's load `DRILL_LOAD` more), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
-                      climbing to its top tier late and Medium's from 8:00; Easy's clumsy waves growing by one from
-                      `clumsy_until`),
+                      climbing to its top tier late, Medium's from 8:00 and Hard's from 6:00; Easy's clumsy waves
+                      growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
+                      Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, read through `World::expand_time`),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
                       machines need signal, what gives it and how far, the bonus inside and the stranded speed), export.rs (the tables as
                       JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and

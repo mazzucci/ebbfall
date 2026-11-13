@@ -3,7 +3,7 @@
 // at 0 too, dimmed). Row 2, attack: damage per hit, what it can hit (ground, air or both), then tags (Splash, Slows,
 // Heals, Flying); an unarmed unit (workers too, as in the selection console) shows a dimmed "—" in the damage slot.
 // Base stats only, read from the sim's tables (src/engine/constants.js): no upgrades, range, rate or speed.
-// A building's card has row 1 only.
+// A building's card has row 1 only, smaller (`small`: its gold the larger figure).
 import { UNITS, BUILDINGS, FACTIONS, kindsOf } from '../engine/constants.js';
 import { icon } from './icons.js';
 
@@ -64,5 +64,5 @@ function chipHtml(c) {
 /** The chips' markup for the preview card of kind `k` ('' for a kind with none). */
 export function statsHtml(k) {
   const rows = statRows(k);
-  return rows.length ? `<span class="stats">${rows.map(r => `<span class="sr">${r.map(chipHtml).join('')}</span>`).join('')}</span>` : '';
+  return rows.length ? `<span class="stats${UNITS[k] ? '' : ' small'}">${rows.map(r => `<span class="sr">${r.map(chipHtml).join('')}</span>`).join('')}</span>` : '';
 }

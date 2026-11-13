@@ -61,21 +61,34 @@ export const seatTint = (team) => spotTint(colorOf(team));
 /** Two tints at once (a seat's paint under an effect's tint): channel by channel product. */
 const mulTint = (a, b) => b === 0xffffff ? a : ((a >> 16) * (b >> 16) / 255) << 16 | ((a >> 8 & 255) * (b >> 8 & 255) / 255) << 8 | (a & 255) * (b & 255) / 255;
 const hex6 = (c) => '#' + c.toString(16).padStart(6, '0');
-const iconCache = new Map();
+const iconCache = new Map(), artTops = new Map();
+/** The first row of frame `name` (frame px from its top) with paint in it: a flyer's art starts far above its ground
+ *  point (the height it flies at). Read once from the decoded page, cached. */
+function artTop(name) {
+  if (artTops.has(name)) return artTops.get(name);
+  const { img, f } = frames[name], c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  const a = ctx.getImageData(0, 0, f.w, f.h).data;
+  let top = 0;
+  rows: for (; top < f.h; top++) for (let x = 0; x < f.w; x++) if (a[(top * f.w + x) * 4 + 3] > 24) break rows;
+  artTops.set(name, top);
+  return top;
+}
 /**
  * A small portrait of a sprite for the HTML HUD, as a data URL: the frame scaled so its larger side is `zoom` x
- * `size` css px, centered a little above its ground point, cut to a size x size square. With `tint`, its team mask
+ * `size` css px, centered a little above its ground point, cut to a size x size square; with `fit`, lowered when its
+ * art would start above the square's top (the Drone's rotors), so its top is never cut. With `tint`, its team mask
  * (`name_m`) in that color over it, as the renderer draws it. Cached.
  */
-export function artIcon(name, size = 28, zoom = 1, tint = null) {
-  const key = `${name}|${size}|${zoom}|${tint}`;
+export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false) {
+  const key = `${name}|${size}|${zoom}|${tint}|${fit}`;
   if (iconCache.has(key)) return iconCache.get(key);
   const fr = frames[name]; let url = '';
   if (fr) {
     const dpr = Math.min(2, window.devicePixelRatio || 1), n = Math.round(size * dpr), { x, y, w, h } = fr.f;
     const c = document.createElement('canvas'); c.width = c.height = n;
     const ctx = c.getContext('2d', { willReadFrequently: true }), k = n * zoom / Math.max(w, h); // a CPU canvas: no GPU upload of the page
-    const ox = n / 2 - w * fr.a.x * k, oy = n / 2 - (h * fr.a.y - h * 0.08) * k;
+    const ox = n / 2 - w * fr.a.x * k, oy = Math.max(n / 2 - (h * fr.a.y - h * 0.08) * k, fit ? n * 0.04 - artTop(name) * k : -Infinity);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(fr.img, x, y, w, h, ox, oy, w * k, h * k);
     const m = tint == null ? null : frames[name + '_m'];
@@ -95,7 +108,7 @@ export function artIcon(name, size = 28, zoom = 1, tint = null) {
 /** An <img> portrait of a unit type, building type or gold mine ('node'), or ''. In `team`'s
  * colors: this client's own seat unless told otherwise. */
 export function portrait(kind, type, size = 26, team = G.me) {
-  const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team)) // unit frames carry room for the shadow
+  const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
     : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }

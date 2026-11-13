@@ -355,7 +355,8 @@ src/client/           everything that touches the browser
                       corner (5), its researches from slot 3 (from 0 on one that trains nothing), a running one's
                       Cancel in its own place; a Build page keeps each building in the slot it was first shown in for
                       the game (per seat and page, forgotten when a new WASM game starts), so a newly opened one (the
-                      Uplink too) takes the first free slot, and Back keeps the corner
+                      Uplink too) takes the first free slot, and Back keeps the corner; `buildPages`: the sim's two
+                      lists with every defense (the Watchtower, the Sentry mast) on the basic page, before Advanced
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base

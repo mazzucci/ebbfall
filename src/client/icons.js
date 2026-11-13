@@ -2,7 +2,7 @@
 // and the command card's unit and building symbols (`glyph`). No imports: the menu (src/boot.js) draws them before the
 // game has loaded. Sprite portraits (the selection console, the guided first game): gl/render.js `portrait`.
 // An entry is a line drawing, or [line drawing, fill]: the fill, under the lines in the same color but faint, makes a
-// flat two-tone symbol.
+// flat two-tone symbol (a unit's may add a solid part: `who`, below).
 
 const P = {
   move: 'M5 19 19 5M9 5h10v10',
@@ -42,18 +42,24 @@ const P = {
 };
 
 // The command card's units and buildings, both peoples, by kind: a symbol each, none like another (test/cards.test.js
-// draws every unit and building button). `glyph(kind)`.
+// draws every unit and building button). `glyph(kind)`. A unit's symbol shows who, an action's icon a tool: a person is
+// one solid bust holding a big tool (`who`), a mounted unit its horse or helm, a machine its machine.
+// An entry may add a third path, drawn solid under the rest, and a fourth flag: a gap of the button's color round the
+// lines where they cross that solid (a tool held in front of the bust).
+/** The bust every person shares: a head and shoulders, bottom left, the right half left for the tool. */
+export const BUST = 'M6.5 4.5a3 3 0 1 0 .01 0zM1 22v-1.5C1 16 3.3 13.5 6.5 13.5S12 16 12 20.5V22z';
+const who = (line, fill) => [line, fill, BUST, true];
 const U = {
   // the Kingdom's units
-  harvester: ['M5 21 15.5 6.5M9 3c5-1.4 9.6.6 12 5.5', 'M9 3c5-1.4 9.6.6 12 5.5-3.6-2.6-7.6-4-12-5.5z'], // Villager: a pickaxe
-  trooper: ['M19 22V3M16.5 6.5 19 2l2.5 4.5M10 7.5a6 6 0 1 0 .01 0M10 13.5h.01', 'M10 7.5a6 6 0 1 0 .01 0z'], // Guard: a round shield and a spear
-  lancer: ['M8 3Q19 12 8 21M8 3v18M3 12h18M18 9l3 3-3 3M3 12l-1-2M3 12l-1 2', 'M8 3Q19 12 8 21z'], // Archer: a bow and an arrow
+  harvester: who('M10.5 21.5 18.5 7M12.5 4.5c4-1.2 7.8.4 10 4.5', 'M12.5 4.5c4-1.2 7.8.4 10 4.5-3-2.2-6.3-3.4-10-4.5z'), // Villager: a person with a pickaxe
+  trooper: who('M21 7.5V22M21 1l1.9 3.8L21 7.5l-1.9-2.7zM11.5 11.5h7v4c0 3-1.5 5-3.5 6.5-2-1.5-3.5-3.5-3.5-6.5z', 'M21 1l1.9 3.8L21 7.5l-1.9-2.7zM11.5 11.5h7v4c0 3-1.5 5-3.5 6.5-2-1.5-3.5-3.5-3.5-6.5z'), // Guard: a person with a shield and a spear
+  lancer: who('M14 2.5Q25 12 14 21.5M14 2.5v19M10.5 12H22.5M20 9.5l2.5 2.5-2.5 2.5', 'M14 2.5Q25 12 14 21.5z'), // Archer: a person with a bow and an arrow
   rider: ['M18 21c0-8-1-14-4-17l-1-2-1.5 3C8 7 5 10 3.5 12.5L5 15h3l3-2c0 3-1 6-2 8zM10 8.5h.01', 'M18 21c0-8-1-14-4-17l-1-2-1.5 3C8 7 5 10 3.5 12.5L5 15h3l3-2c0 3-1 6-2 8z'], // Rider: a horse's head
   knight: ['M5 21V11.5C5 7 8 5 12 5s7 2 7 6.5V21zM5 13.5h14M12 16.5v3M12 5C12.5 2.5 15.5 1 20 1.8c-2.6 1-4.4 2.8-5.3 5.2', 'M5 21V11.5C5 7 8 5 12 5s7 2 7 6.5V21zM12 5C12.5 2.5 15.5 1 20 1.8c-2.6 1-4.4 2.8-5.3 5.2z'], // Knight: a great helm with a plume sweeping back (the glyph round after #277: the bare helm read as a bucket)
   bastion: ['M4 15.5 19.5 6M16 2.5q5.5 3.5 1.5 9.5M6.5 18.5h11M6.5 18.5a3 3 0 1 0 .01 0M17.5 18.5a3 3 0 1 0 .01 0', 'M6.5 18.5a3 3 0 1 0 .01 0zM17.5 18.5a3 3 0 1 0 .01 0z'], // Ballista, side on: a stock angled up with its bow arm at the head, on a two-wheel carriage (the glyph round: the front view was a tangle)
   siegeTank: ['M3 13.3 18 4.3l2 3.4-15 9zM10 12.5a4.5 4.5 0 1 0 .01 0M10 17h.01', 'M3 13.3 18 4.3l2 3.4-15 9z'], // Cannon: a barrel on a wheel
-  observer: ['M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 4.5 5.5 6.5 7 8h3c1.5-1.5 7-3.5 7-8A8.5 8.5 0 0 0 12 1.5zM10 18v2.5M14 18v2.5M9 20.5h6V23H9z', 'M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 4.5 5.5 6.5 7 8h3c1.5-1.5 7-3.5 7-8A8.5 8.5 0 0 0 12 1.5z'], // Balloon: a wide teardrop envelope over a hanging basket (the glyph round: the narrow one read as a light bulb)
-  medic: ['M12 3a9 9 0 1 0 .01 0M12 8v8M8 12h8', 'M12 3a9 9 0 1 0 .01 0z'], // Healer (no building trains one)
+  observer: ['M3 18V9.5L5 4h4l1 5.5V18M21 18V9.5L19 4h-4l-1 5.5V18M10 10.5h4M6.5 14a3.5 3.5 0 1 0 .01 0M17.5 14a3.5 3.5 0 1 0 .01 0', 'M6.5 14a3.5 3.5 0 1 0 .01 0zM17.5 14a3.5 3.5 0 1 0 .01 0z'], // Balloon (the scout): binoculars
+  medic: who('M17.5 7v12M11.5 13h12', 'M15.5 7h4v4h4v4h-4v4h-4v-4h-4v-4h4z'), // Healer: a person and a cross (no building trains one)
   // the Kingdom's buildings
   core: ['M3 21V5h4v3h3.5V5h3v3H17V5h4v16zM9.5 21v-4a2.5 2.5 0 0 1 5 0v4', 'M3 21V5h4v3h3.5V5h3v3H17V5h4v16z'], // Castle: a wall, three merlons and a gate
   barracks: ['M3 3l3.5 1 8 8-2.5 2.5-8-8zM10.5 17.5l7-7M15.5 15.5l3.5 3.5M20 20h.01M21 3l-3.5 1-8 8 2.5 2.5 8-8zM13.5 17.5l-7-7M8.5 15.5 5 19M4 20h.01', 'M3 3l3.5 1 8 8-2.5 2.5-8-8zM21 3l-3.5 1-8 8 2.5 2.5 8-8z'], // crossed swords
@@ -68,10 +74,10 @@ const U = {
   scythe: ['M2 16v-3.5l3-1 2.5-4h8l3 4 3.5 1V16zM7 14a2.5 2.5 0 1 0 .01 0M17 14a2.5 2.5 0 1 0 .01 0', 'M2 16v-3.5l3-1 2.5-4h8l3 4 3.5 1V16z'], // Buggy: a car on two wheels
   shrike: ['M7.5 7.5l9 9M16.5 7.5l-9 9M10 10h4v4h-4zM6 3a3 3 0 1 0 .01 0M18 3a3 3 0 1 0 .01 0M6 15a3 3 0 1 0 .01 0M18 15a3 3 0 1 0 .01 0', 'M6 3a3 3 0 1 0 .01 0zM18 3a3 3 0 1 0 .01 0zM6 15a3 3 0 1 0 .01 0zM18 15a3 3 0 1 0 .01 0z'], // Drone: four rotors on an X
   monolith: ['M12 2c3 2 4 6 4 10v5H8v-5c0-4 1-8 4-10zM8 13l-3 4v3.5l3-2M16 13l3 4v3.5l-3-2M10 20l2 2.5 2-2.5M12 8.5h.01', 'M12 2c3 2 4 6 4 10v5H8v-5c0-4 1-8 4-10z'], // Rover: a rocket
-  umbra: ['M8 8.5a4 4 0 0 1 8 0V12a4 4 0 0 1-8 0zM8.5 9.5h7M4 22c0-4 3.5-6 8-6s8 2 8 6', 'M8 8.5a4 4 0 0 1 8 0V12a4 4 0 0 1-8 0zM4 22c0-4 3.5-6 8-6s8 2 8 6z'], // Android: a head with a visor, its shoulders
-  prism: ['M12 2l2 3v11h-4V5zM6.5 16h11M12 16v4M12 21.8h.01', 'M12 2l2 3v11h-4V5z'], // Sellsword: a sword
-  bruiser: ['M3.5 20.5 14.5 9.5M21.2 9.1 18.1 12.2 11.8 5.9 14.9 2.8z', 'M21.2 9.1 18.1 12.2 11.8 5.9 14.9 2.8z'], // Bruiser: a maul at an angle, its big block head up right (the glyph round: the upright one read as a T)
-  halo: ['M12 2.5 20.2 7.2v9.6L12 21.5l-8.2-4.7V7.2zM12 8v8M8 12h8', 'M12 2.5 20.2 7.2v9.6L12 21.5l-8.2-4.7V7.2z'], // Medic (no building trains one)
+  umbra: ['M7.5 3.5h9l1.5 2v9l-2.5 2.5h-7L6 14.5v-9zM6 8h12v3.5H6zM4.5 8.5v3M19.5 8.5v3M10 17v2M14 17v2M2.5 23l1.5-3.5h16l1.5 3.5', 'M7.5 3.5h9l1.5 2v9l-2.5 2.5h-7L6 14.5v-9zM2.5 23l1.5-3.5h16l1.5 3.5z', 'M6 8h12v3.5H6z'], // Android: a tall robot head, a solid visor bar across it, a jointed neck and square shoulders (not the Bot's boxy face)
+  prism: who('M22.5 1.5 22.2 4.7 15.7 15.9 13.3 14.5 19.8 3.3zM17.9 17.2 11.1 13.2M14.5 15.2 12.7 18.2M12.2 19.2h.01', 'M22.5 1.5 22.2 4.7 15.7 15.9 13.3 14.5 19.8 3.3z'), // Sellsword: a person with a sword raised
+  bruiser: who('M8.5 21.5 16.1 10M22.6 8.6 19.8 12.6 12.4 7.4 15.2 3.4z', 'M22.6 8.6 19.8 12.6 12.4 7.4 15.2 3.4z'), // Bruiser: a person with a maul, its big block head up right
+  halo: who('M12 10h11v11H12zM15.5 10V7.5h4V10M17.5 12.5v6M14.5 15.5h6', 'M12 10h11v11H12z'), // Medic: a person and a medical bag (no building trains one)
   // the Expedition's buildings
   conflux: ['M5 3h14v18H5zM5 9h14M5 15h14M8 6h.01M8 12h.01M8 18h.01M11.5 6H16M11.5 12H16M11.5 18H16', 'M5 3h14v18H5z'], // Data center: a server rack
   siphon: ['M2 20 12 4l10 16zM9 20l3-6 3 6M12 4V1.5h3.5l-1 1.2 1 1.3H12', 'M2 20 12 4l10 16z'], // Recruiting post: a tent and its pennant
@@ -96,9 +102,15 @@ Object.assign(P, { afterburners: P.horseshoe, slipstream: P.bolt, rapidConstruct
 export const hasIcon = (name) => !!P[name];
 /** Whether unit or building kind `kind` has a symbol (test/cards.test.js: every one a card shows). */
 export const hasGlyph = (kind) => !!U[kind];
+/** The names of every line icon (test/cards.test.js: no unit's symbol is drawn like an action). */
+export const iconNames = () => Object.keys(P);
+/** A drawing's paths: [line, faint fill, solid, gap round the lines] (missing ones ''). */
+export const paths = (d) => { const [line = '', fill = '', solid = '', gap = false] = Array.isArray(d) ? d : [d || '']; return { line, fill, solid, gap }; };
+export const glyphPaths = (kind) => paths(U[kind]);
+export const iconPaths = (name) => paths(P[name]);
 const svg = (d, cls) => {
-  const [line, fill] = Array.isArray(d) ? d : [d || ''];
-  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${fill ? `<path class="f" d="${fill}"/>` : ''}<path d="${line}"/></svg>`;
+  const { line, fill, solid, gap } = paths(d);
+  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${solid ? `<path class="b" d="${solid}"/>` : ''}${gap ? `<path class="k" d="${line}"/>` : ''}${fill ? `<path class="f" d="${fill}"/>` : ''}<path d="${line}"/></svg>`;
 };
 /** Inline SVG markup for a line icon. */
 export const icon = (name) => svg(P[name], 'ico');

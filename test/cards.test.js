@@ -164,6 +164,23 @@ test('no two buttons a card shows together share a drawing', { skip }, async () 
   assert.equal(new Set(kinds.map(glyph)).size, kinds.length, 'one symbol a kind');
 });
 
+test('a unit symbol shows who, an action icon a tool: no unit is drawn like an action, and every person shares the bust', { skip }, async () => {
+  const { glyphPaths, iconPaths, iconNames, BUST } = await import('../src/client/icons.js');
+  const actions = iconNames().map(n => [n, iconPaths(n)]);
+  for (const k of Object.keys(E.UNITS)) {
+    const g = glyphPaths(k);
+    assert.ok(g.line, `${k} has a symbol`);
+    for (const [n, a] of actions) assert.ok(g.line !== a.line && !(g.fill && g.fill === a.fill), `${k} is drawn like the ${n} icon`);
+  }
+  // The people (a worker, foot soldiers, hired hands, healers) are one bust holding their tool: no tool alone.
+  const people = ['harvester', 'trooper', 'lancer', 'medic', 'prism', 'bruiser', 'halo'];
+  for (const k of people) assert.equal(glyphPaths(k).solid, BUST, `${k}: a person, the bust`);
+  // And nothing else wears it: no machine, mount, building or action.
+  const kinds = [...new Set(Object.values(E.FACTIONS).flatMap(f => [...E.kindsOf(f)]))];
+  for (const k of kinds.filter(k => !people.includes(k))) assert.notEqual(glyphPaths(k).solid, BUST, `${k} is no person`);
+  for (const [n, a] of actions) assert.equal(a.solid, '', `the ${n} icon is a tool, no bust`);
+});
+
 test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);

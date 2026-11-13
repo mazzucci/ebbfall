@@ -40,7 +40,7 @@ const SCENES = {
   'base-kingdom': { races: ['humans', 'vael'], base: true },
   'base-expedition': { races: ['vael', 'humans'], base: true },
   'home-kingdom': { races: ['humans', 'vael'], base: true, army: H_ARMY, zoom: 1 },                                      // (the art polish's in-game shots: a base with its buildings and an army standing before it, at zoom 1)
-  'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1 },
+  'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1, research: ['satellite'] },      // (the Uplink needs the satellite launched, and the Portal the Uplink)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
 };
 
@@ -93,7 +93,7 @@ const raiseBase = (page) => page.evaluate(() => {
   const rects = G.bldgs.filter(b => b.team === me).map(b => [b.tx, b.ty, b.w, b.h]);
   const clear = (tx, ty, w, h) => rects.every(([x, y, rw, rh]) => tx + w + 1 <= x || x + rw + 1 <= tx || ty + h + 1 <= y || y + rh + 1 <= ty);
   const why = {}, placed = [], spots = []; for (let r = 0; r <= 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) spots.push([core.tx + dx, core.ty + dy]);
-  for (let round = 0; round < 6 && todo.length; round++) {
+  for (let round = 0; round < 9 && todo.length; round++) {                                                           // (nine rounds: the Expedition's Portal needs the Uplink, which needs the Lab)
     engine.setResources(me, 99999, 99999);
     const workers = G.units.filter(u => u.team === me && engine.UNITS[u.type].worker);
     for (const k of todo.slice()) {
@@ -133,6 +133,7 @@ async function shoot(name, scene, device, label) {
   const g = await newGame(device, scene.races, scene.map), { page } = g, file = join(outDir, `${name}-${label}.png`);
   try {
     let at, note = '';
+    if (scene.research) await page.evaluate((keys) => { for (const k of keys) endfall.engine.debugResearch(endfall.G.me, k); }, scene.research); // (a research granted before the base goes up, so every building can)
     if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
     else { at = await fight(page, scene.armies); note = `spawned ${at.spawned.join(' and ')}; `; }
     await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);

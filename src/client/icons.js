@@ -49,10 +49,10 @@ const U = {
   trooper: ['M19 22V3M16.5 6.5 19 2l2.5 4.5M10 7.5a6 6 0 1 0 .01 0M10 13.5h.01', 'M10 7.5a6 6 0 1 0 .01 0z'], // Guard: a round shield and a spear
   lancer: ['M8 3Q19 12 8 21M8 3v18M3 12h18M18 9l3 3-3 3M3 12l-1-2M3 12l-1 2', 'M8 3Q19 12 8 21z'], // Archer: a bow and an arrow
   rider: ['M18 21c0-8-1-14-4-17l-1-2-1.5 3C8 7 5 10 3.5 12.5L5 15h3l3-2c0 3-1 6-2 8zM10 8.5h.01', 'M18 21c0-8-1-14-4-17l-1-2-1.5 3C8 7 5 10 3.5 12.5L5 15h3l3-2c0 3-1 6-2 8z'], // Rider: a horse's head
-  knight: ['M5 21V9.5C5 5 8 3 12 3s7 2 7 6.5V21zM5 11.5h14M12 14.5V19M12 3V1', 'M5 21V9.5C5 5 8 3 12 3s7 2 7 6.5V21z'], // Knight: a great helm
-  bastion: ['M3 10Q12 3 21 10M3 10l9 4 9-4M12 3v15M9.5 5.5 12 2.5l2.5 3M12 18l-5 4M12 18l5 4', 'M3 10Q12 3 21 10l-9 4z'], // Ballista: a bolt on its bow arms, on a stand
+  knight: ['M5 21V11.5C5 7 8 5 12 5s7 2 7 6.5V21zM5 13.5h14M12 16.5v3M12 5C12.5 2.5 15.5 1 20 1.8c-2.6 1-4.4 2.8-5.3 5.2', 'M5 21V11.5C5 7 8 5 12 5s7 2 7 6.5V21zM12 5C12.5 2.5 15.5 1 20 1.8c-2.6 1-4.4 2.8-5.3 5.2z'], // Knight: a great helm with a plume sweeping back (the glyph round after #277: the bare helm read as a bucket)
+  bastion: ['M4 15.5 19.5 6M16 2.5q5.5 3.5 1.5 9.5M6.5 18.5h11M6.5 18.5a3 3 0 1 0 .01 0M17.5 18.5a3 3 0 1 0 .01 0', 'M6.5 18.5a3 3 0 1 0 .01 0zM17.5 18.5a3 3 0 1 0 .01 0z'], // Ballista, side on: a stock angled up with its bow arm at the head, on a two-wheel carriage (the glyph round: the front view was a tangle)
   siegeTank: ['M3 13.3 18 4.3l2 3.4-15 9zM10 12.5a4.5 4.5 0 1 0 .01 0M10 17h.01', 'M3 13.3 18 4.3l2 3.4-15 9z'], // Cannon: a barrel on a wheel
-  observer: ['M12 2a7 7 0 0 0-7 7c0 3.5 4 6.5 5 8h4c1-1.5 5-4.5 5-8a7 7 0 0 0-7-7zM10 17v2.5M14 17v2.5M9.5 19.5h5V22h-5z', 'M12 2a7 7 0 0 0-7 7c0 3.5 4 6.5 5 8h4c1-1.5 5-4.5 5-8a7 7 0 0 0-7-7z'], // Balloon
+  observer: ['M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 4.5 5.5 6.5 7 8h3c1.5-1.5 7-3.5 7-8A8.5 8.5 0 0 0 12 1.5zM10 18v2.5M14 18v2.5M9 20.5h6V23H9z', 'M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 4.5 5.5 6.5 7 8h3c1.5-1.5 7-3.5 7-8A8.5 8.5 0 0 0 12 1.5z'], // Balloon: a wide teardrop envelope over a hanging basket (the glyph round: the narrow one read as a light bulb)
   medic: ['M12 3a9 9 0 1 0 .01 0M12 8v8M8 12h8', 'M12 3a9 9 0 1 0 .01 0z'], // Healer (no building trains one)
   // the Kingdom's buildings
   core: ['M3 21V5h4v3h3.5V5h3v3H17V5h4v16zM9.5 21v-4a2.5 2.5 0 0 1 5 0v4', 'M3 21V5h4v3h3.5V5h3v3H17V5h4v16z'], // Castle: a wall, three merlons and a gate
@@ -70,7 +70,7 @@ const U = {
   monolith: ['M12 2c3 2 4 6 4 10v5H8v-5c0-4 1-8 4-10zM8 13l-3 4v3.5l3-2M16 13l3 4v3.5l-3-2M10 20l2 2.5 2-2.5M12 8.5h.01', 'M12 2c3 2 4 6 4 10v5H8v-5c0-4 1-8 4-10z'], // Rover: a rocket
   umbra: ['M8 8.5a4 4 0 0 1 8 0V12a4 4 0 0 1-8 0zM8.5 9.5h7M4 22c0-4 3.5-6 8-6s8 2 8 6', 'M8 8.5a4 4 0 0 1 8 0V12a4 4 0 0 1-8 0zM4 22c0-4 3.5-6 8-6s8 2 8 6z'], // Android: a head with a visor, its shoulders
   prism: ['M12 2l2 3v11h-4V5zM6.5 16h11M12 16v4M12 21.8h.01', 'M12 2l2 3v11h-4V5z'], // Sellsword: a sword
-  bruiser: ['M12 9v13M4.5 3h15v6h-15z', 'M4.5 3h15v6h-15z'], // Bruiser: a maul
+  bruiser: ['M3.5 20.5 14.5 9.5M21.2 9.1 18.1 12.2 11.8 5.9 14.9 2.8z', 'M21.2 9.1 18.1 12.2 11.8 5.9 14.9 2.8z'], // Bruiser: a maul at an angle, its big block head up right (the glyph round: the upright one read as a T)
   halo: ['M12 2.5 20.2 7.2v9.6L12 21.5l-8.2-4.7V7.2zM12 8v8M8 12h8', 'M12 2.5 20.2 7.2v9.6L12 21.5l-8.2-4.7V7.2z'], // Medic (no building trains one)
   // the Expedition's buildings
   conflux: ['M5 3h14v18H5zM5 9h14M5 15h14M8 6h.01M8 12h.01M8 18h.01M11.5 6H16M11.5 12H16M11.5 18H16', 'M5 3h14v18H5z'], // Data center: a server rack
@@ -78,7 +78,7 @@ const U = {
   spire: ['M12 10.5V22M9 22h6M12 7.5Q13.8 5 12 1Q11.4 5 12 7.5zM13.3 9.8Q14.6 12.6 18.9 13Q15.8 10.5 13.3 9.8zM10.7 9.8Q7.6 9.4 5.1 13Q8.8 11.5 10.7 9.8zM12 9h.01', 'M12 7.5Q13.8 5 12 1Q11.4 5 12 7.5zM13.3 9.8Q14.6 12.6 18.9 13Q15.8 10.5 13.3 9.8zM10.7 9.8Q7.6 9.4 5.1 13Q8.8 11.5 10.7 9.8z'], // Turbine: three blades on a mast
   kiln: ['M2 21V11l5 3v-3l5 3v-3l5 3V4h4v17zM6 17.5h2M11 17.5h2', 'M2 21V11l5 3v-3l5 3v-3l5 3V4h4v17z'], // Factory: a sawtooth roof and a chimney
   loom: ['M9 3h6M10 3v6L4.5 19.2A1.3 1.3 0 0 0 5.6 21h12.8a1.3 1.3 0 0 0 1.1-1.8L14 9V3M7 15h10', 'M7 15h10l2.5 4.2a1.3 1.3 0 0 1-1.1 1.8H5.6a1.3 1.3 0 0 1-1.1-1.8z'], // Lab: a flask
-  ward: ['M8.5 22 12 7l3.5 15M10 16h4M10.9 11.5h2.2M12 5h.01M14.5 4.5 22 2v6l-7.5-2.5', 'M14.5 4.5 22 2v6z'], // Sentry mast: a mast and its beam
+  ward: ['M3 21h18M5 21v-5a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v5M11 12.5 20.2 3l2 2-9.2 9.5', 'M5 21v-5a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v5zM11 12.5 20.2 3l2 2-9.2 9.5z'], // Sentry gun: a squat drum on its plate with a long barrel up right, like the sprite (the glyph round: the mast read as an A)
   uplink: ['M4 5a10 10 0 0 0 13 13zM10.5 11.5 16 6M17 5h.01M8.5 15.5 6 21h7l-2-4', 'M4 5a10 10 0 0 0 13 13z'], // Uplink: a dish
   eclipse: ['M12 2c4 0 6 4.5 6 10s-2 10-6 10-6-4.5-6-10 2-10 6-10zM12 7.5l1.2 3.3 3.3 1.2-3.3 1.2-1.2 3.3-1.2-3.3-3.3-1.2 3.3-1.2z', 'M12 2c4 0 6 4.5 6 10s-2 10-6 10-6-4.5-6-10 2-10 6-10z'], // Portal: a ring and a spark
 };

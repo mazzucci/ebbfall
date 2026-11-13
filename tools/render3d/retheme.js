@@ -44,7 +44,7 @@ export const RT_UNITS = {
   ex: {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
     mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
-    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24, shot: { unitShadow: { alpha: 80, soft: 3 } } }, // (the Rover 1.4x since the last art round: its cell too; the Drone's shadow softer and lighter than the walkers': the art polish, 2026-11-13, `shot` merged into its polish settings)
+    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24, shot: { unitShadow: { alpha: 70, soft: 3 } } }, // (the Rover 1.4x since the last art round: its cell too; the Drone's shadow softer and lighter than the walkers': the art polish, 2026-11-13, `shot` merged into its polish settings)
     android: { build: android, r: 15, h: 20 }, // (the Marine's cell; the `umbra` slot's model since the balance pass, Stelian's pick of 2026-11-11)
     launcher: { build: launcher, r: 28, h: 28 }, // (the Rover since 2026-11-12, a tracked rocket launcher: the rocket cart's cell and frames)
   },

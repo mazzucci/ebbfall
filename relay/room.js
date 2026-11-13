@@ -38,7 +38,9 @@
 // in the order they first appear by spot, each team's seats in spot order, the teams numbered 0, 1, ... in that order;
 // in a game a seat's number is its game seat (`this.seats` in that order), and a rematch's lobby puts them back on
 // their spots (a connection whose number changes told its spot first). The room's map always seats the room: a map
-// that does not is refused, and a seat added past the map's starts takes the smallest that does (maps.js fitMap).
+// that does not is refused, and a seat added past the map's starts takes the smallest that does (maps.js fitMap). A
+// new room opens on maps.js DEFAULT_MAP (96x96); a hidden map (64x64) a host picks is still taken: no menu lists one,
+// but a client from before they were hidden may.
 //
 // The lobby holds a seat whose connection is gone (a phone that switched apps to send the code, a reload): the seat
 // stays its player's (name, race, token, the host's role), away (`here: false`) and not ready, for LOBBY_HOLD_MS; its
@@ -51,7 +53,7 @@
 // (the sim's `ai_seats`: deterministic, from the setup's `ai` list), so the relay never waits for it (no load, no acks,
 // never away), it sends nothing, and it needs no ready; it has no say in a rematch or a hash check.
 
-import { MAPS, fits, fitMap } from '../src/client/maps.js';
+import { MAPS, DEFAULT_MAP, fits, fitMap } from '../src/client/maps.js';
 
 export const PROTO = 7; // (2: hello carries the sim build; 3: seat counts, AI seats, teams; 4: the sides board: side, add, drop, a level per AI seat; 5: fixed spots, arranged at the start; 6: the Shore maps, map indices 12 and 13, which a client of 5 does not know; 7: six-letter codes (src/net/roomcode.js), the limits' error `limit`, the host's remove) // the protocol's version: a client of another version is told to update
 export const TURN_MS = 100;
@@ -80,7 +82,7 @@ export class Room {
     this.onLobby = onLobby; // (told after every change to the lobby: an adapter may keep it, `keep()`)
     this.seats = Array.from({ length: seats }, (_, i) => this.empty(i, i)); // (spots 0 to seats-1, each its own team)
     this.phase = 'lobby'; // lobby, game, over
-    this.map = fitMap(0, seats); this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
+    this.map = fitMap(DEFAULT_MAP, seats); this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
     this.running = false; this.loadFrom = 0; // (the clock: once every seat has loaded, from loadFrom on)
     this.hold = null; // a pause a seat called: { seat, until }
     this.barred = new Set(); // addresses the host removed someone from (their key, relay/limits.js addressKey): not let in again

@@ -1,8 +1,10 @@
 // The maps the menus offer (single player and the multiplayer lobby): fixed ones with made-up names and hidden
 // characters (MapKind in the sim; the end screen tells the story), and a random one generated each time, at each size
-// the menus offer. Every map is offered whatever the players: the chosen map decides the size, and it seats them if it
-// has a start for each (a duel on an eight-start map leaves six free); with more players than its starts, the smallest
-// map that seats them instead. Each size has its own maps: the generator lays a seed out differently at another size,
+// the menus offer. Every map offered is there whatever the players: the chosen map decides the size, and it seats them if
+// it has a start for each (a duel on an eight-start map leaves six free); with more players than its starts, the
+// smallest offered map that seats them instead. The 64x64 maps (the duel's and the Lake's) are hidden since 2026-11-13
+// (Stelian: "the small map is too small"): kept, under their indices, so an old link, a room or a challenge naming one
+// still plays it, but no menu lists or falls back to one. Each size has its own maps: the generator lays a seed out differently at another size,
 // so a 96x96 map is a map of its own, with its own name. The team splits a saved setup of the menu before the board
 // names are here too. Pure: no DOM, no WASM (test/maps.test.js; the relay checks a room's map with it too).
 import { mulberry } from '../engine/util.js';
@@ -22,8 +24,9 @@ export const MAP_KINDS = [
 /** The characters a random map draws from: the first six (Shore has random maps of its own, `kind` fixed). */
 export const RANDOM_KINDS = 6;
 
-/** The sizes the menus offer (tiles across) and the players each seats (its starts: crates/endfall-sim map::max_starts). */
-export const SIZES = [{ size: 64, seats: 2 }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];
+/** The sizes (tiles across), the players each seats (its starts: crates/endfall-sim map::max_starts), and whether the
+ *  menus hide its maps (64x64: too small; the sim still plays them). */
+export const SIZES = [{ size: 64, seats: 2, hidden: true }, { size: 96, seats: 4 }, { size: 128, seats: 8 }];
 /** The most players a game may have. */
 export const MAX_PLAYERS = SIZES.at(-1).seats;
 
@@ -55,13 +58,21 @@ export const MAPS = [
   { name: 'Random Lake', random: true, kind: 6, size: 64, line: SHORE_LINE },
 ];
 
-/** Tiles across of the smallest size that seats `players`. */
-export const sizeFor = (players) => (SIZES.find(s => s.seats >= players) || SIZES.at(-1)).size;
+/** The map a new game opens on (single player's first visit, a new room): Dust Quarter, the standard character at
+ *  96x96, two players on its four starts. */
+export const DEFAULT_MAP = MAPS.findIndex(m => m.name === 'Dust Quarter');
+/** Tiles across of the smallest offered size that seats `players`. */
+export const sizeFor = (players) => (SIZES.find(s => !s.hidden && s.seats >= players) || SIZES.at(-1)).size;
 /** How many players map `i` seats (its starts). */
 export const seatsOf = (i) => SIZES.find(s => s.size === MAPS[i].size).seats;
-/** Whether map `i` is one and seats `players`. */
-export const fits = (i, players) => Number.isInteger(i) && i >= 0 && i < MAPS.length && seatsOf(i) >= players;
-/** Map `i` if it seats `players`; else the smallest size's that does: its random map for a random one, else its first. */
+/** Whether `i` is a map's index. */
+const isMap = (i) => Number.isInteger(i) && i >= 0 && i < MAPS.length;
+/** Whether map `i` is one the menus list (not a hidden size's). */
+export const offered = (i) => isMap(i) && !SIZES.find(s => s.size === MAPS[i].size).hidden;
+/** Whether map `i` is one and seats `players` (a hidden one too: a room or a link may name it). */
+export const fits = (i, players) => isMap(i) && seatsOf(i) >= players;
+/** Map `i` if it seats `players` (hidden or not); else the smallest offered size's that does: its random map for a
+ *  random one, else its first. */
 export function fitMap(i, players) {
   if (fits(i, players)) return i;
   const size = sizeFor(players), random = MAPS[i]?.random === true;

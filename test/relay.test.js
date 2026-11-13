@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS, LOBBY_HOLD_MS } from '../relay/room.js';
 import { PAUSES as NET_PAUSES } from '../src/net/net.js';
-import { fits } from '../src/client/maps.js';
+import { DEFAULT_MAP, fits } from '../src/client/maps.js';
 
 /** A room with fake connections that record what they are sent (and whether they were kicked). */
 function room(seats = 2) {
@@ -73,7 +73,7 @@ test('the lobby seats players, and the game starts when everyone is ready', () =
   assert.deepEqual(l.teams, [0, 1, ...Array(MAX_SEATS - 2).fill(null)], 'and a team per spot');
   assert.equal(l.map, 2);
   r.receive(a, { t: 'map', map: 99 }); r.receive(a, { t: 'map', map: -1 }); r.receive(a, { t: 'map', map: '4' });
-  assert.equal(r.map, 2, 'no such map: refused');
+  assert.equal(r.map, 2, 'no such map: refused (a hidden one, 64x64, is a map: a client from before they were hidden may pick it)');
   r.receive(a, { t: 'ready', ready: true });
   assert.equal(r.phase, 'lobby');
   r.receive(b, { t: 'ready', ready: true });
@@ -488,7 +488,7 @@ test('a two-seat room is as it was: the same draws for the setup, each seat its 
   r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
   const s = got(a, 'start')[0].setup;
   // (the seed and side the relay drew before seat counts, with the room's seed 7)
-  assert.deepEqual({ seed: s.seed, map: s.map, side: s.side, races: s.races, names: s.names }, { seed: 271533, map: 0, side: 0, races: ['humans', 'humans'], names: ['Ann', 'Bo'] });
+  assert.deepEqual({ seed: s.seed, map: s.map, side: s.side, races: s.races, names: s.names }, { seed: 271533, map: DEFAULT_MAP, side: 0, races: ['humans', 'humans'], names: ['Ann', 'Bo'] }, '(a new room on the default map, 96x96, since the 64x64 maps were hidden)');
   assert.deepEqual([s.teams, s.ai, s.diffs, s.diff, s.spots], [[0, 1], [0, 0], [0, 0], 1, [0, 1]]);
   assert.deepEqual([filled(got(a, 'lobby').at(-1)).length, teamsOf(got(a, 'lobby').at(-1))], [2, [0, 1]], 'two seats, each its own side');
 });

@@ -529,6 +529,7 @@ impl Report {
             .with("pumps_at_5", self.pumps_rate().json())
             .with("length_bins", self.length_bins_json())
             .with("top_tier", self.top_tier_json())
+            .with("human", crate::human::json(&self.human_rows()))
             .with(
                 "waves",
                 self.wave_rows()
@@ -629,6 +630,7 @@ impl Report {
         }
         s += &self.length_bins_markdown();
         s += &self.top_tier_markdown();
+        s += &crate::human::markdown(&self.human_rows());
         s += &self.waves_markdown();
         s += &self.shore_markdown();
         s
@@ -796,6 +798,17 @@ impl Report {
                 )
             })
             .collect()
+    }
+    /// A human's opening (human.rs) at each size of the batch (sizes the openings' maps are made at only).
+    fn human_rows(&self) -> Vec<(&'static str, i32, crate::human::Figures)> {
+        let sizes: Vec<i32> = self
+            .batch
+            .sizes
+            .iter()
+            .copied()
+            .filter(|&s| s <= 96)
+            .collect();
+        crate::human::rows(&sizes)
     }
     fn top_tier_markdown(&self) -> String {
         let rows = self.top_tier_rows();

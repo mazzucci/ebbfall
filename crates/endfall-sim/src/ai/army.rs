@@ -379,6 +379,7 @@ impl World {
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
+        self.leash_home_army(&army, &brain.my_b, rally);
         self.recall_wave(&army, raid, intruder, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
@@ -480,6 +481,42 @@ impl World {
         }
     }
 
+    /// The home army's chases on a leash: a unit at home (not out with the wave, nor raiding) after an enemy unit more
+    /// than `CHASE_LEASH` tiles past where it counts as at our buildings (`ai_watch`'s reach) gives up and walks back to
+    /// the rally. (Found on main: a player's worker that came near and ran home was chased across the map, and the
+    /// chasers, idle at its base, took on its headquarters minutes before the first wave.)
+    fn leash_home_army(&mut self, army: &[Id], my_b: &[Id], rally: Pt) {
+        let ai = self.ai();
+        let out: Vec<Id> = ai
+            .attackers
+            .iter()
+            .flatten()
+            .chain(ai.raiders.iter())
+            .copied()
+            .collect();
+        for &a in army {
+            if out.contains(&a) {
+                continue;
+            }
+            let Task::Attack { target, .. } = self.u(a).task else {
+                continue;
+            };
+            let Some(t) = self.unit(target) else {
+                continue;
+            };
+            let (tx, ty) = (t.x, t.y);
+            let home = my_b
+                .iter()
+                .filter_map(|&b| self.bldg(b))
+                .any(|b| dist(tx, ty, b.x, b.y) < 420.0 + b.r + CHASE_LEASH * TILE);
+            if !home {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
+            }
+        }
+    }
+
     /// Home, wave: with `raid` armed enemies at our buildings (any enemy's: a third player's, or the foe's own wave
     /// that passed ours on the way), three or more and more than the army at home, the wave out comes back to fight
     /// them (as when most of it fell, the next one waits its gap).
@@ -532,6 +569,12 @@ impl World {
         if !self.strong_enough(army, t) {
             return;
         }
+        // (a clumsy level sends only its wave's size, its oldest units; the rest stay home)
+        let army = if d.wave_only {
+            &army[..need.min(army.len())]
+        } else {
+            army
+        };
         let stage = if d.stage > 0.0 {
             self.stage_point((gx, gy), d.stage)
         } else {
@@ -596,6 +639,16 @@ impl World {
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
         ai.prong = order[..split].to_vec();
+    }
+
+    /// A clumsy level's wave that gave up or fell (`Diff::wave_only`) does not grow the next: its first hit stays its first
+    /// wave's size (three or four units) however often it turns back.
+    fn no_growth_after_giving_up(&mut self) {
+        let d = self.level();
+        if d.wave_only {
+            let ai = self.ai_mut();
+            ai.wave = ai.wave.saturating_sub(d.wave_grow).max(d.wave);
+        }
     }
 
     /// Coverage: where wave unit `a` is sent for (x, y): that point, or for a machine the last point of the way there
@@ -1127,25 +1180,32 @@ impl World {
         };
         let stalled = alive.iter().all(|&a| held(self, a));
         if alive.is_empty() {
+            self.no_growth_after_giving_up(); // (all of it fell: it met more than it could take)
             self.ai_mut().attacking = false;
-        } else if lost || left == 0 || stalled || (wave_size >= 4 && left * 10 < wave_size * 4) {
+        } else if lost
+            || left == 0
+            || stalled
+            || (wave_size >= 4 && left * 10 < wave_size * self.level().give_up)
+        {
             // Pull the survivors back instead of feeding them in one by one.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
                 self.move_to(a, rally.x + ox, rally.y + oy);
             }
+            self.no_growth_after_giving_up();
             let ai = self.ai_mut();
             ai.attacking = false;
             ai.attackers = None;
             ai.last_wave = t;
-        } else if self.passive_foe(t) && self.outmatched(&alive) {
+        } else if (self.level().retreat_any || self.passive_foe(t)) && self.outmatched(&alive) {
             // Outmatched on contact with a passive foe: back to its rally, where its reserve and towers meet whoever chases it.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
                 self.move_to(a, rally.x + ox, rally.y + oy);
             }
+            self.no_growth_after_giving_up();
             let ai = self.ai_mut();
             ai.attacking = false;
             ai.attackers = None;
@@ -1283,9 +1343,11 @@ mod tests {
     /// last wave at 300): the world, its army and its brain. Its tuning is its level's without a home reserve or a
     /// retreat on contact (the scenes of those set their own: `ready_with`).
     fn ready(level: usize) -> (World, Vec<Id>, Brain) {
+        // (a margin of at most 1.3, the levels' before Nov 13: the scenes are about the mechanism; Easy's none)
         let plan = Diff {
             reserve: 0.0,
             retreat_below: 0.0,
+            wave_margin: DIFF[level].wave_margin.min(1.3),
             ..DIFF[level]
         };
         ready_with(level, plan)
@@ -1410,6 +1472,7 @@ mod tests {
             all_in_after: all_in,
             reserve: 0.0,
             retreat_below: 0.0,
+            wave_margin: 1.3,
             ..DIFF[1]
         };
         let (mut w, _, mut b) = ready(1);
@@ -1571,8 +1634,8 @@ mod tests {
         // the same against a foe that has just come at its buildings: it fights on, as today
         let (w, _, _) = scene(14, true);
         assert!(w.ai().attacking, "not a passive foe: it fights on");
-        // Easy never retreats
-        assert_eq!(DIFF[0].retreat_below, 0.0);
+        // Easy retreats on contact whatever the foe has done (`retreat_any`: `easy_gives_up_on_contact...`)
+        assert!(DIFF[0].retreat_any && DIFF[0].retreat_below > 0.0);
     }
 
     #[test]
@@ -1755,6 +1818,56 @@ mod tests {
         w.ai_mut().known.push(foe);
         w.tend_scout(&harv);
         assert_eq!(w.ai().scout, None, "the foe's: done");
+    }
+
+    #[test]
+    fn easy_gives_up_on_contact_and_its_survivors_go_home() {
+        // Easy is clumsy (Stelian, Nov 13: "it should give up and retreat quickly"): its wave is its four (the rest stay
+        // home), and meeting a defence near its own worth it walks home whatever the foe has done before (no passive
+        // foe needed, `Diff::retreat_any`); against less it fights on.
+        let scene = |enemies: usize| {
+            let (mut w, army, mut b) = ready_with(0, DIFF[0]);
+            b.t = 480.0; // (past its first wave's 7:45)
+            w.ai_army(&mut b);
+            assert!(w.ai().attacking, "its first wave goes");
+            let wave = w.ai().attackers.clone().unwrap();
+            assert_eq!(wave.len(), 4, "four go");
+            assert!(
+                army.iter().filter(|a| !wave.contains(a)).count() == 6,
+                "six stay home"
+            );
+            let (gx, gy) = w.attack_target();
+            let (mx, my) = ((b.rally.x + gx) / 2.0, (b.rally.y + gy) / 2.0);
+            for (i, &a) in wave.iter().enumerate() {
+                let u = w.um(a);
+                (u.x, u.y) = (mx + i as f64 * 20.0, my);
+                u.task = Task::Idle;
+            }
+            for i in 0..enemies {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    0,
+                    mx + 120.0 + (i % 5) as f64 * 20.0,
+                    my + (i / 5) as f64 * 20.0,
+                );
+            }
+            w.update_fog();
+            b.t = 490.0;
+            w.ai_army(&mut b);
+            (w, wave, b)
+        };
+        let (w, _, _) = scene(2);
+        assert!(w.ai().attacking, "four against two: it fights on");
+        let (w, wave, b) = scene(4);
+        assert!(!w.ai().attacking, "four against four: it gives up");
+        for &a in &wave {
+            assert!(
+                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, b.rally.x, b.rally.y) < 100.0),
+                "home to its rally"
+            );
+        }
+        // Medium does not (it retreats only from a passive foe, `retreat_below`)
+        assert!(!DIFF[1].retreat_any && DIFF[0].retreat_any);
     }
 
     #[test]

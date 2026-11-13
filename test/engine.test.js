@@ -221,7 +221,7 @@ test('a Market, built in the base once the Barracks stands, earns gold by itself
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
-  assert.equal(E.G.res[E.PLAYER][0], 7, 'seven gold in 20 s (0.35 a second), nobody mining');
+  assert.equal(E.G.res[E.PLAYER][0], 4, 'four gold in 20 s (0.24 a second), nobody mining');
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
@@ -353,7 +353,7 @@ function view() {
 
 test('advance() then one read of G is the same as step() after step(): the same world, every tick\'s events, the dead let go', { skip }, () => {
   const setup = () => E.resetGameSeats(77, 2, 0, 0, ['humans', 'vael', 'vael', 'humans'], [], [true, true, true, true], 0, 96);
-  const runs = [], TICKS = 30 * 240, chunk = (k) => 1 + (k * 5) % 7; // (1 to 7 ticks between reads)
+  const runs = [], TICKS = 30 * 360, chunk = (k) => 1 + (k * 5) % 7; // (1 to 7 ticks between reads)
   // Eagerly mirrored: a step, its events; the world and the events since the last read at each read of the other run.
   setup();
   let events = [];

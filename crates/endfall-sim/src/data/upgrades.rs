@@ -142,7 +142,7 @@ const SATELLITE: UpgradeDef = UpgradeDef {
     name: "Launch satellite",
     short: "Satellite",
     effect: Effect::Launch,
-    cost: [[200, 0]; 3],
+    cost: [[100, 0]; 3], // (200 before the economy pass, Nov 13: the Expedition's way to its top tier as dear as the Kingdom's)
     time: [90.0; 3],
     req: Some(BldgKind::Loom),
     ..TECH
@@ -160,8 +160,9 @@ const DRILLS: UpgradeDef = UpgradeDef {
     levels: 2,
     req: None,
 };
-/// The gold a worker's load gains by `Effect::MineLoad` level (0, 1, 2): a Bot's 12 a trip goes to 14, then 17.
-pub const DRILL_LOAD: [i32; 3] = [0, 2, 5];
+/// The gold a worker's load gains by `Effect::MineLoad` level (0, 1, 2): a Bot's 9 a trip goes to 10, then 11, its mine
+/// from about 95% of a Villager mine to about 107%, then 118% (Stelian: level, then 115-120%).
+pub const DRILL_LOAD: [i32; 3] = [0, 1, 2];
 /// What a side is told when its satellite is up (its research-done notice; no other seat is told).
 pub const LAUNCH_OURS: &str = "You launched a satellite.";
 

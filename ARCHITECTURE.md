@@ -163,8 +163,11 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON),
                       compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
-                      turtle.rs (a never-attacking Medium against Medium), waves.rs (every AI wave: its value against
-                      the defense on arrival, its result, where its units fell; in report and turtle),
+                      turtle.rs (a never-attacking Medium against Medium; with --weak against Easy, the newcomer's
+                      first hit: when, and that wave's units), waves.rs (every AI wave: its units and value, against
+                      the defense on arrival, its result, where its units fell; in report and turtle), human.rs (a
+                      human's opening: a plain scripted player alone, its bank, its waits for gold and its production's
+                      busy share from 1:00 to 8:00; in report),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
@@ -241,7 +244,12 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       maximum (`line_capped`) it raises its Factory sooner and adds Factories, not posts, as money
                       piles up; it keeps Power free for its Portal and an Android (`elite_reserve`), raises one Portal
                       (`tech2_due`, never a second, a turbine first if the Power is short), and trains the Android there
-                      first when Power is tight
+                      first when Power is tight. Its crew is sized by income (`crew_of`: as much gold a trip as the
+                      Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`, `retreat_any`, `give_up`):
+                      its waves are just their size (its first three or four units at 7:45, the rest at home), growing
+                      by one, and they give up and walk home on contact with a defense near their worth or after early
+                      losses. A level may cap a race's towers (`tower_max`: one Sentry mast for Easy and Medium). A wave
+                      left with only machines held quiet at their coverage's edge is over (army.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)

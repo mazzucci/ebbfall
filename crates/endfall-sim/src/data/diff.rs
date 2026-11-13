@@ -71,6 +71,13 @@ pub struct Diff {
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
+    /// Clumsy waves (Easy; Stelian, Nov 13: "first attack only with 3-4 units; it should give up and retreat
+    /// quickly"): `wave_only` sends just its wave's size (`wave`, growing by `wave_grow`), the rest staying home;
+    /// `retreat_any` pulls a wave back when outmatched (`retreat_below`) whatever the foe has done; and a wave pulls
+    /// back once fewer than `give_up` tenths of it are left (4 on every level but Easy's 7).
+    pub wave_only: bool,
+    pub retreat_any: bool,
+    pub give_up: usize,
     /// The most advanced units it trains (`UnitKind::ai_tier`): 0 its line units, their anti-air and the scout (Easy),
     /// 1 its raiders, siege, anti-air vehicles, Androids and Drones too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
@@ -134,8 +141,8 @@ pub const DIFF: [Diff; 4] = [
     // factory to spend on.
     Diff {
         income: 1.0,
-        wave: 4,
-        wave_grow: 2,
+        wave: 4, // (its first wave: four of the Kingdom's, three of the Expedition's (its `wave_scale`), the rest at home)
+        wave_grow: 1, // (its waves grow slowly: 4, 5, 6 ... to 12; the Expedition's at its 0.6)
         harv: 7,
         rax: 2, // (two Barracks from the start: the Expedition's Recruiting posts are its places and its factories, so with
         // the higher caps' hired places its Easy line outgrew one Barracks' before the 7:45 wave)
@@ -167,7 +174,10 @@ pub const DIFF: [Diff; 4] = [
         passive_expand: NEVER,
         max_bases: 2,
         reserve: 0.0,
-        retreat_below: 0.0,
+        retreat_below: 1.2, // (it gives up on contact with a defence near its own worth)
+        wave_only: true,
+        retreat_any: true,
+        give_up: 7,
         mix_tier: 0,
         mix_over: &[],
         line_max: 0,
@@ -215,6 +225,9 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        wave_only: false,
+        retreat_any: false,
+        give_up: 4,
         mix_tier: 1,
         mix_over: &[],
         line_max: 0,
@@ -259,6 +272,9 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        wave_only: false,
+        retreat_any: false,
+        give_up: 4,
         mix_tier: 2,
         mix_over: &[],
         line_max: 0,
@@ -307,6 +323,9 @@ pub const DIFF: [Diff; 4] = [
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        wave_only: false,
+        retreat_any: false,
+        give_up: 4,
         mix_tier: 2,
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)

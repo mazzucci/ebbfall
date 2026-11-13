@@ -78,6 +78,15 @@ What a game records: units trained (not the starting workers) and lost, and buil
 headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
 
+### A human's opening
+
+The AIs spend every coin at once, so the gold checks never show what a person feels. `report` also plays a plain
+scripted player alone (no AI, no foe moving), three map seeds a people and size: workers to its crew, supply when
+short, a production building from 1:00, a second once the first stands, then units from each, one at a time, saving
+for the first thing it cannot pay for (human.rs). Over 2:00-6:00 it gives the bank (median, most), the share of the
+time it waits for gold and the share of its production buildings' time busy, then its bank each minute to 8:00. The
+target (the PM, Nov 13): one production building kept busy or a second one built, not both, and no bank piling up.
+
 ### The Kingdom by game length, and the top tier
 
 **By game length:** the Kingdom's win rate against the Expedition (both seat orders, every map but the Shore, timeouts
@@ -281,5 +290,6 @@ per pairing, per map and in all, with its wins, the timeouts and the median leng
 turtle keeps Medium's raids: `first` = never alone, the PRD's letter), `--weak` (the weak turtle: Easy's economy on one
 base, the newcomer), `--attacker-level` (the attacker's whole tuning; Medium by default), `--cap MIN` (30),
 `--threads N`, `--out FILE`. A turtle that does not lose before the tide is Medium's weakness, not the tide's. "The
-first hit" gives, of each game, when the attacker's first wave arrived, and how many games were hit before 8:00: with
-`--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when a passive newcomer first meets Easy.
+first hit" gives, of each game, when the attacker's first wave arrived, how many games were hit before 8:00, and that
+wave's units (median, most): with `--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when, and with
+how many, a passive newcomer first meets Easy (since Nov 13: no sooner than 7:45, and four units at most).

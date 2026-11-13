@@ -78,10 +78,10 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     speed: 87.0, // (100 before the economy's second round: calmer trips)
     sight: 7.0,
     r: 9.0,
-    build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
+    build: 18.0,  // (12 before: the ramp comes from time, every worker an investment)
     supply: 2, // (Power: 1 before the economy's second round, twice a Villager's place as every machine)
-    mine_cap: 5,
-    mine_load: 13,
+    mine_cap: 6, // (5 before Nov 13: with the income cut a Bot mine paid 80% of a Villager mine and the Expedition fell behind; now about 95%, the PM)
+    mine_load: 9, // (13 before Nov 13: cut in step with the Villager's, a 30% cut for gold that is scarce for a person too)
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,
@@ -169,7 +169,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     speed: 90.0,
     sight: 9.0,
     r: 10.0,
-    build: 45.0, // (120 s before the arc, Nov 13)
+    build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 8.0,
         dmg: 30.0,
@@ -193,7 +193,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     speed: 58.0,
     sight: 9.0,
     r: 15.0,
-    build: 40.0,
+    build: 52.0, // (40.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 11.0, // (12 at the arc: 11 with the Cannon, Nov 13: a duel decided by spotting and position)
         min_range: 3.0,
@@ -327,7 +327,7 @@ pub(super) const KILN: BldgDef = BldgDef {
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
     name: "Lab",
-    cost: [120, 0],
+    cost: [200, 0], // (120 before the economy pass, Nov 13: a bet between units and construction)
     hp: 800.0,
     uses: 4,
     build: 45.0,
@@ -349,7 +349,7 @@ pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
     name: "Sentry mast",
     short: "Sentry mast",
-    cost: [65, 0],
+    cost: [125, 0], // (65 before the economy pass, Nov 13: a bet between units and construction)
     hp: 220.0,
     armor: 0.0,
     uses: 2,
@@ -372,12 +372,12 @@ pub(super) const WARD: BldgDef = BldgDef {
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
-    cost: [150, 0],
+    cost: [350, 0], // (150 before the economy pass, Nov 13: one a player, the big bet)
     hp: 1000.0,
     armor: 2.0,
     uses: 8, // (Power: 4 before the economy's second round)
     single: true,
-    build: 45.0,
+    build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     sight: 7.0,
     req: Some(BldgKind::Uplink),
     trains_with: Some(BldgKind::Uplink),
@@ -392,7 +392,7 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [125, 0],
+    cost: [150, 0], // (125 before the economy pass, Nov 13: a bet between units and construction)
     w: 3,
     h: 3,
     hp: 750.0,

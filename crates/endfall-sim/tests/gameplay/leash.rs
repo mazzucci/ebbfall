@@ -233,13 +233,14 @@ fn an_attack_move_fights_what_stands_on_its_route_where_the_route_bends_far_off_
 
 #[test]
 fn units_shelled_from_past_their_leash_go_for_the_gun() {
-    // Idle Guards shelled by a deployed Cannon from near its full reach (farther than a Guard's own leash and reach):
-    // the gun's reach counts, so they charge it, inside its blind ring, rather than stand under its shells.
+    // Idle Riders shelled by a deployed Cannon from near its full reach (farther than a Rider's own leash and reach):
+    // the gun's reach counts, so they charge it, inside its blind ring, rather than stand under its shells. (Riders
+    // since Nov 13: the Cannon's 85 kills a Guard outright, which then charges nothing.)
     let mut w = flat_arena(3);
     let guards: Vec<Id> = (0..4)
         .map(|i| {
             w.make_unit(
-                UnitKind::Trooper,
+                UnitKind::Rider,
                 PLAYER,
                 18.0 * TILE,
                 (31.0 + i as f64) * TILE,
@@ -256,6 +257,11 @@ fn units_shelled_from_past_their_leash_go_for_the_gun() {
                 .is_some_and(|u| matches!(u.task, Task::Attack { target, .. } if target == gun))
         });
     }
-    assert!(charged, "the Guards went for the gun");
-    assert!(w.unit(gun).is_none(), "and destroyed it");
+    assert!(charged, "the Riders went for the gun");
+    let left = guards.iter().filter(|&&g| w.unit(g).is_some()).count();
+    assert!(
+        w.unit(gun).is_none(),
+        "and destroyed it: {left} Riders left, the gun at {:?}",
+        w.unit(gun).map(|u| u.hp)
+    );
 }

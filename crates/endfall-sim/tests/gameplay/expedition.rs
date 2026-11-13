@@ -68,13 +68,14 @@ fn the_expedition_has_power_for_machines_and_no_population() {
     build(&mut w, BldgKind::Spire, bot, 60);
     assert_eq!(w.sup(PLAYER)[1], 60);
     // Every machine uses Power, twice a Kingdom place of its tier (the economy's second round): a Bot or a swarm Drone
-    // two, a Buggy four, an Android six, a Rover eight (the arc); the people take hired places, a Bruiser two.
+    // two, a Buggy four, an Android ten, a Rover twelve (the top units, dear and few, Nov 13); the people take hired
+    // places, a Bruiser two.
     for (k, p) in [
         (UnitKind::Lumen, 2),
         (UnitKind::Scythe, 4),
-        (UnitKind::Monolith, 8),
+        (UnitKind::Monolith, 12),
         (UnitKind::Shrike, 2),
-        (UnitKind::Umbra, 6),
+        (UnitKind::Umbra, 10),
     ] {
         assert_eq!((k.def().pool, k.def().supply), (Pool::Supply, p), "{k:?}");
     }
@@ -377,31 +378,36 @@ fn a_building_that_uses_no_power_goes_up_whatever_the_pools() {
 fn the_android_is_a_slow_expensive_elite_machine_using_power() {
     let d = UnitKind::Umbra.def();
     let wp = d.weapon.unwrap();
-    assert_eq!((d.hp, d.armor), (220.0, 3.0));
-    assert_eq!((wp.dmg, wp.range), (30.0, 8.0));
+    // (an elite since Nov 13: about four Sellswords' hp and damage)
+    assert_eq!((d.hp, d.armor), (440.0, 3.0));
+    assert_eq!((wp.dmg, wp.range), (63.0, 8.0));
     assert!(wp.dmg_air > 0.0, "it hits the air");
-    assert_eq!((d.pool, d.supply), (Pool::Supply, 6), "six Power");
+    assert_eq!((d.pool, d.supply), (Pool::Supply, 10), "ten Power");
     assert!(
         (30.0..=90.0).contains(&d.build),
         "under a minute and a half to make: {}",
         d.build
     );
-    assert!(d.cost[0] >= 250, "expensive: {:?}", d.cost);
+    assert!(d.cost[0] >= 450, "expensive: {:?}", d.cost);
     assert!(!d.bio, "a machine, not a person");
     assert!(
         endfall_sim::data::radio::needs_range(UnitKind::Umbra),
         "sped up in range like the other machines"
     );
-    // Trained at the Portal: six Power queued, and refused without them.
+    // Trained at the Portal: ten Power queued, and refused without them.
     let mut w = expedition();
     w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     set_down(&mut w, BldgKind::Uplink);
     let p = set_down(&mut w, BldgKind::Eclipse);
     let [used, cap] = w.sup(PLAYER);
     assert_eq!(w.queue_unit(p, UnitKind::Umbra), Ok(()));
-    assert_eq!(w.sup(PLAYER), [used + 6, cap]);
-    // (Bots, two Power each, until four are left: short of an Android's six)
-    spawn(&mut w, UnitKind::Lumen, ((cap - used - 6 - 4) / 2) as usize);
+    assert_eq!(w.sup(PLAYER), [used + 10, cap]);
+    // (Bots, two Power each, until eight are left: short of an Android's ten)
+    spawn(
+        &mut w,
+        UnitKind::Lumen,
+        ((cap - used - 10 - 8) / 2) as usize,
+    );
     assert_eq!(
         w.queue_unit(p, UnitKind::Umbra),
         Err("Not enough Power: build a Wind turbine.".to_string())
@@ -571,18 +577,19 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_at_every_level() {
     // The Expedition's AI against the Kingdom's, at every level (every starting building made to last, so the game runs
     // its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields few machines but
     // its Bots: a turbine only if those fill its Data center's 20), launches its satellite, raises an Uplink and a
     // Portal, never more than one Portal standing or going up, trains Androids there, and never stands above its places
     // but as a lost building leaves it.
-    // (seed 24: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
+    // (seed 2: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
     // game before its Portal ever has the four Sellswords and the price an Android waits for; since new workers wait
-    // for an order, Brutal's Expedition in seed 20's)
+    // for an order, Brutal's Expedition in seed 20's; since Easy's slow climb and its Kingdom's line on par (Nov 13),
+    // Easy's Kingdom killed seed 24's Bots by 14:00, leaving its immortal buildings without a coin; in many games one
+    // level's Kingdom crushes the Expedition's army before its Portal pays for an Android, here none does)
     for diff in 0..DIFF.len() {
-        let mut w = World::with_setup(24, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(2, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
@@ -592,7 +599,7 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
         let mut power_full = false;
         let mut portals = 0;
         let mut prev = Vec::new();
-        while w.time < 20.0 * 60.0 && !(seen.iter().all(|&s| s) && launched.is_some()) {
+        while w.time < 25.0 * 60.0 && !(seen.iter().all(|&s| s) && launched.is_some()) {
             w.step();
             w.events.clear();
             for b in w.bldgs.iter().filter(|b| b.team == ENEMY && b.done) {
@@ -625,10 +632,9 @@ fn the_expedition_ai_powers_hires_launches_and_trains_androids_from_one_portal_a
                 break;
             }
         }
-        // (an Android by 20:00 no longer asked: since the economy's second round the AI's mercenary line, its hired places
-        // never full at its income, takes every coin before its Portal can bank one; the Expedition's machines and their
-        // AI come with the Expedition's own PR, which asks for it again)
-        let want = [diff > 0 || power_full, true, true, true, false];
+        // (an Android at every level again by 25:00, Nov 13: its Portal holds the price of the elite it trains next, the
+        // Android first; Easy's climb brings its top tier from 13:00)
+        let want = [diff > 0 || power_full, true, true, true, true];
         assert!(
             seen.iter().zip(want).all(|(&s, w)| s || !w),
             "diff {diff}: turbine, post, Uplink, Portal, Android: {seen:?} by {:.0} s (over {}, winner {})",

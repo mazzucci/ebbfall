@@ -62,6 +62,8 @@ pub(crate) struct Ai {
     /// Its mix answers: splash against massed infantry, fewer heavies of its own against heavies.
     pub infantry_seen: (usize, f64),
     pub heavy_seen: (usize, f64),
+    /// The most enemy siege units (the Cannon, the Rover) seen at once lately, and when: its answer (`AiScript::dive`).
+    pub siege_seen: (usize, f64),
     /// Units kept home at its own expansion (out of the waves).
     pub guards: Vec<Id>,
     /// Its home reserve (`Diff::reserve`): fighters kept out of the waves.
@@ -72,6 +74,9 @@ pub(crate) struct Ai {
     /// its own army's value then (a stale sighting grows by what its own army has grown since): what a wave must
     /// beat (`Diff::wave_margin`).
     pub army_seen: (f64, f64, f64),
+    /// The enemy units of that sighting: as they fall (to its army or towers, mostly), what it expects falls with them
+    /// (a wave it wiped out at home no longer holds its counterattack back).
+    pub army_seen_ids: Vec<Id>,
     /// The unit it sent to look at the foe's army (a stale sighting), and since when.
     pub looking: Option<(Id, f64)>,
     /// When an armed enemy last came at its buildings, and when it last placed a base (`Diff::passive_expand`).
@@ -88,6 +93,10 @@ pub(crate) struct Ai {
     pub relay_site: Option<Id>,
     pub relay_hp: f64,
     pub relay_off: bool,
+    /// Whether a wave of its has reached the foe (a unit within `REACHED` of a building of the foe it knows): a clumsy
+    /// level's waves stay clumsy until then, whatever the clock (`Diff::clumsy_until`), so a newcomer's first hit is a
+    /// clumsy one.
+    pub reached: bool,
     /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
     pub check: Option<crate::world::LaunchCheck>,
 }
@@ -141,6 +150,31 @@ impl World {
         self.ai.get(seat as usize)?.as_ref()?.check
     }
 
+    /// Seat `seat`'s AI's state in one line (the balance lab's `trace`: why a game stalls; read by no rule): its wave
+    /// count, whether one is out and how many of it stand, its last wave's time, since when the next is ready, the
+    /// enemy army it expects (`army_seen`: worth, when), its reserve, guards and raiders.
+    #[doc(hidden)]
+    pub fn ai_trace(&self, seat: u8) -> Option<String> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        let left = a.attackers.as_ref().map_or(0, |v| {
+            v.iter().filter(|&&id| self.unit(id).is_some()).count()
+        });
+        Some(format!(
+            "wave {} out {} ({left}/{}) last {:.0} ready {} seen {:.0}@{:.0} res {} grd {} raid {} siege {}",
+            a.wave,
+            a.attacking,
+            a.wave_size,
+            a.last_wave,
+            a.ready_since.map_or("-".into(), |r| format!("{r:.0}")),
+            a.army_seen.0,
+            a.army_seen.1,
+            a.reserve.len(),
+            a.guards.len(),
+            a.raiders.len(),
+            a.siege_seen.0,
+        ))
+    }
+
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
     pub fn ai_turns(&self) -> Vec<u32> {
         self.ai
@@ -187,10 +221,12 @@ impl World {
             wave_size: 0,
             infantry_seen: (0, 0.0),
             heavy_seen: (0, 0.0),
+            siege_seen: (0, 0.0),
             guards: Vec::new(),
             reserve: Vec::new(),
             prong: Vec::new(),
             army_seen: (0.0, 0.0, 0.0),
+            army_seen_ids: Vec::new(),
             looking: None,
             attacked_at: 0.0,
             came_at: 0.0,
@@ -201,6 +237,7 @@ impl World {
             relay_hp: 0.0,
             relay_off: false,
             check: None,
+            reached: false,
             sweep: 0,
             sweep_since: 0.0,
         }
@@ -213,7 +250,12 @@ impl World {
     /// The tuning of the AI taking its turn (each AI seat may have its own level, `World::diff_of`, or a lab's plan:
     /// `World::tuning`).
     pub(crate) fn level(&self) -> Diff {
-        self.tuning(self.seat())
+        let d = self.tuning(self.seat());
+        if self.ai().reached {
+            d.at(self.time)
+        } else {
+            d
+        }
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two

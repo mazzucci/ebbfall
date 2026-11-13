@@ -2,7 +2,8 @@
 
 use endfall_lab::batch::{Batch, LEVELS};
 use endfall_lab::json::Json;
-use endfall_lab::{compare, run_report, sheet};
+use endfall_lab::{compare, run_report, sheet, trace};
+use endfall_sim::data::FACTIONS;
 use endfall_sim::map::MapKind;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -465,6 +466,59 @@ fn read(path: &str) -> Json {
     Json::parse(&text).unwrap_or_else(|e| die(&format!("{path}: {e}")))
 }
 
+/// `trace`: one game, a line per seat every `--every` s (default 30): `--size 96 --map Standard --races Humans,Vael
+/// --levels Medium[,Easy] --seed 3 --cap 30`; `--races` names every seat (four for four seats), `--teams 0,0,1,1`,
+/// `--side N` the seats' turn on the map (default 0).
+fn trace(args: &[String]) {
+    let mut s = trace::Setup {
+        size: 64,
+        map: MapKind::Standard,
+        races: vec![0, 1],
+        levels: vec![1],
+        teams: None,
+        seed: 1,
+        side: 0,
+    };
+    let (mut cap, mut every) = (30, 30);
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let v = it
+            .next()
+            .unwrap_or_else(|| die(&format!("{a} needs a value")));
+        match a.as_str() {
+            "--size" => s.size = v.parse().unwrap_or_else(|_| die("--size 64|96|128")),
+            "--map" => s.map = parse_map(v),
+            "--races" => {
+                s.races = v
+                    .split(',')
+                    .map(|n| {
+                        FACTIONS
+                            .iter()
+                            .position(|f| {
+                                f.name.eq_ignore_ascii_case(n) || f.key.eq_ignore_ascii_case(n)
+                            })
+                            .unwrap_or_else(|| die(&format!("no people '{n}'")))
+                    })
+                    .collect()
+            }
+            "--levels" => s.levels = v.split(',').map(parse_level).collect(),
+            "--teams" => {
+                s.teams = Some(
+                    v.split(',')
+                        .map(|t| t.parse().unwrap_or_else(|_| die("--teams 0,0,1,1")))
+                        .collect(),
+                )
+            }
+            "--seed" => s.seed = v.parse().unwrap_or_else(|_| die("--seed N")),
+            "--side" => s.side = v.parse().unwrap_or_else(|_| die("--side N")),
+            "--cap" => cap = v.parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--every" => every = v.parse().unwrap_or_else(|_| die("--every SECONDS")),
+            _ => die(&format!("unknown flag {a}")),
+        }
+    }
+    print!("{}", trace::trace(&s, cap, every));
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -472,6 +526,7 @@ fn main() {
         Some("plans") => plans(&args[1..]),
         Some("turtle") => turtle(&args[1..]),
         Some("bets") => bets(&args[1..]),
+        Some("trace") => trace(&args[1..]),
         Some("compare") => {
             let [a, b] = &args[1..] else {
                 die("compare A.json B.json")

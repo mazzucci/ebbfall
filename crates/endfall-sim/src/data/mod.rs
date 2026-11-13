@@ -449,6 +449,10 @@ pub struct AiScript {
     /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands, and not before
     /// `.2` seconds of game time: a late specialist).
     pub mix: &'static [(UnitKind, usize, f64)],
+    /// Its answer to entrenched siege (Stelian, Nov 13: the other side's tech, never more basics): a unit that dives
+    /// inside a siege gun's ring, which a level that adapts (`Diff::answers`) trains more of, and saves for, while it
+    /// sees the enemy's siege (`World::dive_hold`): the Kingdom's Knight, the Expedition's Drone.
+    pub dive: Option<UnitKind>,
     /// The fast raider (raids workers; at most six), trained at the `air` factory (the Rider at the Stables, the Buggy
     /// at the Expedition's Factory).
     pub raider: UnitKind,

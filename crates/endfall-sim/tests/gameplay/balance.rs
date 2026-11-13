@@ -312,58 +312,91 @@ fn retheme_cross_matrix() {
 }
 
 #[test]
-#[ignore = "the counter guarantee, re-shaped with the top units in the balance follow-up"]
-fn every_machine_has_a_kingdom_answer_and_beats_its_units_one_for_one() {
-    // The arc's guarantee (Stelian, Nov 13; it replaces the re-theme's equal-gold counters, Archers over the Android
-    // and Guards over Buggies): the Expedition's machines beat the Kingdom's units unit for unit, and the Kingdom wins
-    // by numbers, timing and cutting the Expedition's Power and signal; every machine has a Kingdom answer at some cost
-    // (here at equal gold, every tech on both sides, at two budgets; on the map, killing the Uplink is the other).
-    // Thresholds sit inside what `arc_counter_probe` measured (Nov 13).
+fn top_units_beat_lines_siege_holds_and_only_tech_answers_it() {
+    // The top units and siege (Stelian and the PM, Nov 13; it replaces the arc's counter guarantee, machines over the
+    // Kingdom's units one for one):
+    // - an elite (the Knight, the Android) is a big step per unit ("a marine against a battle cruiser"): one beats
+    //   four of its side's line, and in the open three beat about 1.3 to 1.5 times their gold of the other side's line;
+    // - siege (the Cannon, the Rover) behind towers holds against two to three times its gold of massed basics;
+    // - the answer to entrenched siege is the other side's tech, never more basics: diving inside its ring (Drones,
+    //   Knights), out-spotting it (Rovers with Drones), or its own siege, each winning at a ratio the basics lose at;
+    // - tech against tech stays a fight. Thresholds sit inside what `top_unit_probe` and `entrenched_probe` measured
+    //   (Nov 13). No upgrades.
     use UnitKind::*;
-    // Unit for unit: eight against eight.
-    let one = |m: UnitKind, k: UnitKind| duel_count(m, k, 8, tech_micro);
-    for k in [Trooper, Lancer, Rider, Knight, Bastion, SiegeTank] {
-        assert!(one(Monolith, k) > 0.3, "a Rover beats {k:?} one for one");
-        assert!(one(Umbra, k) > 0.15, "an Android beats {k:?} one for one");
-    }
-    for k in [Trooper, Lancer, Rider] {
-        assert!(one(Scythe, k) > 0.3, "a Buggy beats {k:?} one for one");
-    }
-    for k in [Trooper, Rider, Knight, SiegeTank] {
+    let kingdom_line = [Trooper, Trooper, Lancer];
+    // The per-unit step: one elite against four of its own side's line unit.
+    assert!(
+        duel_n(Knight, 1, &[Trooper], 4, no_micro) > 0.3,
+        "a Knight beats four Guards"
+    );
+    assert!(
+        duel_n(Umbra, 1, &[Prism], 4, no_micro) > 0.3,
+        "an Android beats four Sellswords"
+    );
+    // Per gold in the open: three elites beat 1.2 times their gold of the other side's line, and lose to 1.7 times.
+    let per_gold = |top: UnitKind, line: &[UnitKind], r: f64| {
+        let per: f64 = line.iter().map(|&k| unit_value(k)).sum::<f64>() / line.len() as f64;
+        let m = (unit_value(top) * 3.0 * r / per).round() as usize;
+        duel_n(top, 3, line, m, no_micro)
+    };
+    for (top, line) in [(Knight, &[Prism][..]), (Umbra, &kingdom_line[..])] {
         assert!(
-            one(Shrike, k) > 0.5,
-            "a Drone beats {k:?}, which cannot hit it"
+            per_gold(top, line, 1.2) > 0.0,
+            "{top:?} beats 1.2 times its gold of the line"
+        );
+        assert!(
+            per_gold(top, line, 1.7) < 0.0,
+            "{top:?} loses to 1.7 times its gold of the line"
         );
     }
-    // An answer for every machine, at equal gold.
-    for budget in [2200.0, 4400.0] {
-        let d = |a: &[UnitKind], b: UnitKind| duel_with(a, &[b], budget, tech_micro);
-        let checks: [(&str, f64, f64); 5] = [
-            (
-                "Cannons behind a Knight stop Buggies",
-                d(&[SiegeTank, Knight], Scythe),
-                0.05,
-            ),
-            (
-                "Cannons behind a Knight hold the Rover",
-                d(&[SiegeTank, Knight], Monolith),
-                0.3,
-            ),
-            (
-                "Guards and Archers in numbers beat Androids",
-                d(&[Trooper, Trooper, Lancer], Umbra),
-                0.2,
-            ),
-            ("Knights beat Androids", d(&[Knight], Umbra), 0.3),
-            ("Ballistas answer a Drone swarm", d(&[Bastion], Shrike), 0.0),
-        ];
-        for (claim, got, floor) in checks {
-            assert!(
-                got > floor,
-                "{budget}: {claim}: {got:+.2} (more than {floor:+.2} wanted)"
-            );
-        }
+    // Entrenched siege holds against massed basics at twice its gold (two and a half for the Cannons' splash)...
+    let cannons = |att: &[UnitKind], r: f64| {
+        entrenched(PLAYER, (SiegeTank, 3), (BldgKind::Turret, 2), att, r)
+    };
+    let rovers =
+        |att: &[UnitKind], r: f64| entrenched(ENEMY, (Monolith, 3), (BldgKind::Ward, 1), att, r);
+    let held: [(&str, f64); 3] = [
+        (
+            "3 Cannons and 2 Watchtowers hold 2.5 times their gold of Sellswords",
+            cannons(&[Prism], 2.5),
+        ),
+        (
+            "3 Rovers behind a mast hold twice their gold of Guards",
+            rovers(&[Trooper], 2.0),
+        ),
+        ("... and of Guards and Archers", rovers(&kingdom_line, 2.0)),
+    ];
+    // ... and falls to the other side's tech at no more than that.
+    let broken: [(&str, f64); 4] = [
+        (
+            "Drones dive the Cannons and towers at their gold",
+            cannons(&[Shrike], 1.0),
+        ),
+        (
+            "Rovers with Drones out-spot them at twice it",
+            cannons(&[Monolith, Shrike], 2.0),
+        ),
+        (
+            "Knights dive the Rovers at 1.5 times",
+            rovers(&[Knight], 1.5),
+        ),
+        (
+            "Cannons out-shell the Rovers at their gold",
+            rovers(&[SiegeTank], 1.0),
+        ),
+    ];
+    for (claim, got) in held {
+        assert!(got > 0.0, "{claim}: {got:+.2}");
     }
+    for (claim, got) in broken {
+        assert!(got < 0.0, "{claim}: {got:+.2}");
+    }
+    // Tech against tech: the Knight and the Android, equal gold, neither wiped out.
+    let k = duel(&[Knight], &[Umbra], 2200.0);
+    assert!(
+        k.abs() < 0.7,
+        "Knights against Androids stay a fight: {k:+.2}"
+    );
 }
 
 #[test]
@@ -513,5 +546,254 @@ fn arc_counter_probe() {
                 .collect();
             println!("{a:?}: {}", row.join(" "));
         }
+    }
+}
+
+#[test]
+#[ignore]
+fn top_unit_probe() {
+    // The top units against basic lines: the most of each line (by gold, a share of the top units' price) that 3 of the
+    // top unit beat, no upgrades; and one top unit against N of its own side's basic unit.
+    use UnitKind::*;
+    let kingdom_line = [Trooper, Trooper, Lancer];
+    let exp_line = [Prism];
+    for b in [1000.0, 2000.0] {
+        println!(
+            "lines at {b}: Guard+Archer v Sellsword {:+.2}, 2 Guards+Archer v Sellsword {:+.2}, Guard v Sellsword {:+.2}",
+            duel(&[Trooper, Lancer], &[Prism], b),
+            duel(&kingdom_line, &[Prism], b),
+            duel(&[Trooper], &[Prism], b)
+        );
+    }
+    for (top, line) in [
+        (Knight, &exp_line[..]),
+        (SiegeTank, &exp_line[..]),
+        (Umbra, &kingdom_line[..]),
+        (Monolith, &kingdom_line[..]),
+    ] {
+        let own = if matches!(top, Knight | SiegeTank) {
+            &kingdom_line[..]
+        } else {
+            &exp_line[..]
+        };
+        println!(
+            "{top:?}: 3 beat {:.2}x of the other line, {:.2}x of their own; one against N of its own basic: {}",
+            breakeven(top, 3, line, no_micro),
+            breakeven(top, 3, own, no_micro),
+            (2..9)
+                .map(|n| format!("{n}:{:+.2}", duel_n(top, 1, &own[..1], n, no_micro)))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+    }
+}
+
+/// Entrenched siege (Stelian, Nov 13: "range plus splash crush a mass"): `siege` (a kind and how many) of seat `def`
+/// a few tiles behind `towers` (a kind and how many, finished), on flat ground (with an Uplink behind them for a side
+/// whose machines need coverage), as attackers worth `ratio` times the siege units' gold (`attackers`, a mix as in
+/// `duel`) attack-move in from 25 tiles off. Scored like `duel`, the towers counted at their price (+: the defense
+/// held). Played from three offsets, the median.
+pub fn entrenched(
+    def: u8,
+    siege: (UnitKind, usize),
+    towers: (BldgKind, usize),
+    attackers: &[UnitKind],
+    ratio: f64,
+) -> f64 {
+    let mut r: Vec<f64> = [0.0, 40.0, -50.0]
+        .iter()
+        .map(|&off| entrenched_once(def, siege, towers, attackers, ratio, off))
+        .collect();
+    r.sort_by(|p, q| p.partial_cmp(q).unwrap());
+    r[1]
+}
+
+fn entrenched_once(
+    def: u8,
+    siege: (UnitKind, usize),
+    towers: (BldgKind, usize),
+    attackers: &[UnitKind],
+    ratio: f64,
+    off: f64,
+) -> f64 {
+    let mut w = flat_arena(16);
+    let att = 1 - def;
+    let y0 = 32.0 * TILE + off;
+    let mut line = Vec::new();
+    for i in 0..siege.1 {
+        let y = y0 + (i as f64 - (siege.1 as f64 - 1.0) / 2.0) * 44.0;
+        line.push(w.make_unit(siege.0, def, 15.0 * TILE, y));
+    }
+    let mut keep = Vec::new();
+    for i in 0..towers.1 {
+        let ty = (y0 / TILE) as i32 + (i as i32 - towers.1 as i32 / 2) * 4;
+        keep.push(w.make_building(towers.0, def, 19, ty, true));
+    }
+    let machines = |k: &[UnitKind]| k.iter().any(|&u| endfall_sim::data::radio::needs_range(u));
+    if machines(&[siege.0]) {
+        w.make_building(BldgKind::Uplink, def, 9, (y0 / TILE) as i32 - 1, true);
+    }
+    if machines(attackers) {
+        w.make_building(BldgKind::Uplink, att, 30, (y0 / TILE) as i32 + 6, true);
+    }
+    w.recalc_supply(def);
+    w.recalc_supply(att);
+    for &t in &line {
+        let _ = w.cast(t, AbilityKind::Deploy);
+    }
+    let spent_siege: f64 = line
+        .iter()
+        .map(|&u| unit_value(w.unit(u).unwrap().kind))
+        .sum();
+    let spent_a = spent_siege
+        + keep
+            .iter()
+            .map(|&b| w.bldg(b).unwrap().kind.def().cost[0] as f64)
+            .sum::<f64>();
+    let per: f64 = attackers.iter().map(|&k| unit_value(k)).sum();
+    let n = (spent_siege * ratio / per).round().max(1.0) as usize;
+    let kinds: Vec<UnitKind> = (0..n).flat_map(|_| attackers.iter().copied()).collect();
+    let gap = kinds.iter().map(|k| k.def().r).fold(0.0, f64::max) * 2.0 + 4.0;
+    let foes: Vec<Id> = kinds
+        .iter()
+        .enumerate()
+        .map(|(i, &k)| {
+            let (col, row) = ((i / 8) as f64, (i % 8) as f64 - 3.5);
+            w.make_unit(k, att, 40.0 * TILE + col * gap, y0 + row * gap)
+        })
+        .collect();
+    w.recalc_supply(att);
+    let spent_b: f64 = kinds.iter().map(|&k| unit_value(k)).sum();
+    run(&mut w, 3); // (the siege settles in)
+    let alive = |w: &World| {
+        let units: f64 = line
+            .iter()
+            .filter_map(|&i| w.unit(i))
+            .map(|u| unit_value(u.kind) * u.hp / u.maxhp)
+            .sum();
+        let bldgs: f64 = keep
+            .iter()
+            .filter_map(|&b| w.bldg(b))
+            .map(|b| b.kind.def().cost[0] as f64 * b.hp / b.maxhp)
+            .sum();
+        let them: f64 = foes
+            .iter()
+            .filter_map(|&i| w.unit(i))
+            .map(|u| unit_value(u.kind) * u.hp / u.maxhp)
+            .sum();
+        (units + bldgs, them)
+    };
+    for t in 0..150 * TPS {
+        if t % TPS == 0 {
+            // (the attackers keep coming: an idle one walks at the line again)
+            for &f in &foes {
+                if w.unit(f).is_some_and(|u| u.task == Task::Idle) {
+                    w.attack_move(f, 12.0 * TILE, y0);
+                }
+            }
+        }
+        w.step();
+        w.events.clear();
+        let (a, b) = alive(&w);
+        if a < 1.0 || b < 1.0 {
+            break;
+        }
+    }
+    let (a, b) = alive(&w);
+    a / spent_a - b / spent_b
+}
+
+#[test]
+#[ignore]
+fn entrenched_probe() {
+    // Entrenched siege against masses of basics at 1 to 4 times the siege's gold, and the tech answers at 1 to 2 times.
+    use UnitKind::*;
+    let k = (BldgKind::Turret, 2);
+    let e = (BldgKind::Ward, 1);
+    type Scene<'a> = (
+        &'a str,
+        u8,
+        (UnitKind, usize),
+        (BldgKind, usize),
+        &'a [UnitKind],
+    );
+    let scenes: [Scene; 10] = [
+        (
+            "3 Cannons + 2 towers v Sellswords",
+            PLAYER,
+            (SiegeTank, 3),
+            k,
+            &[Prism],
+        ),
+        (
+            "3 Cannons + 2 towers v Bruisers+Ss",
+            PLAYER,
+            (SiegeTank, 3),
+            k,
+            &[Bruiser, Prism, Prism],
+        ),
+        (
+            "3 Cannons + 2 towers v Drones",
+            PLAYER,
+            (SiegeTank, 3),
+            k,
+            &[Shrike],
+        ),
+        (
+            "3 Cannons + 2 towers v Rovers",
+            PLAYER,
+            (SiegeTank, 3),
+            k,
+            &[Monolith],
+        ),
+        (
+            "3 Cannons + 2 towers v Rover+Drone",
+            PLAYER,
+            (SiegeTank, 3),
+            k,
+            &[Monolith, Shrike],
+        ),
+        (
+            "3 Cannons + 2 towers v Androids",
+            PLAYER,
+            (SiegeTank, 3),
+            k,
+            &[Umbra],
+        ),
+        (
+            "3 Rovers + mast v Guards",
+            ENEMY,
+            (Monolith, 3),
+            e,
+            &[Trooper],
+        ),
+        (
+            "3 Rovers + mast v Guards+Archers",
+            ENEMY,
+            (Monolith, 3),
+            e,
+            &[Trooper, Trooper, Lancer],
+        ),
+        (
+            "3 Rovers + mast v Knights",
+            ENEMY,
+            (Monolith, 3),
+            e,
+            &[Knight],
+        ),
+        (
+            "3 Rovers + mast v Cannons",
+            ENEMY,
+            (Monolith, 3),
+            e,
+            &[SiegeTank],
+        ),
+    ];
+    for (name, def, siege, towers, att) in scenes {
+        let row: Vec<String> = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0]
+            .iter()
+            .map(|&r| format!("{r}x {:+.2}", entrenched(def, siege, towers, att, r)))
+            .collect();
+        println!("{name:>36}: {}", row.join("  "));
     }
 }

@@ -381,10 +381,10 @@ fn a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_a_little_less() {
 }
 
 #[test]
-#[ignore = "the economy pass (Nov 13) moved the AI's timings; re-measured and re-tuned in the balance follow-up"]
 fn every_ai_gathers_from_mines_and_expands_to_them() {
     // Each people's AI at every level against a seat that does nothing (its Castle unbreakable): its workers go into
-    // its mines, and by 11:00 it has a second base whose mine its workers work.
+    // its mines, and by 17:00 it has a second base whose mine its workers work (11:00 before the economy's second round,
+    // 13:00 before Easy's tech climb, whose buildings from 9:00 come before its Kingdom's natural, at about 16:00).
     for diff in 0..4 {
         for race in [&HUMANS, &VAEL] {
             let mut w = World::with_setup(
@@ -402,7 +402,7 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
             (c.hp, c.maxhp) = (1e9, 1e9);
             let ctx = format!("level {diff} {}", race.name);
             let mut inside = false;
-            for t in 0..780 * TPS {
+            for t in 0..1020 * TPS {
                 w.step();
                 if t % TPS == 0 {
                     inside |= w.units.iter().any(|u| u.team == ENEMY && u.inside());
@@ -415,10 +415,7 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
                 .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
                 .map(|b| (b.x, b.y))
                 .collect();
-            assert!(
-                cores.len() >= 2,
-                "{ctx}: a second base by 13:00 (11:00 before the second round's slower income)"
-            );
+            assert!(cores.len() >= 2, "{ctx}: a second base by 17:00");
             let by_exp = |n: Id| {
                 let m = w.map.node(n).unwrap();
                 cores[1..]

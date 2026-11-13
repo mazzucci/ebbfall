@@ -16,6 +16,7 @@ npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% 
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
 npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
+npm run lab -- trace --size 96 --races Kingdom,Expedition --levels Medium --seed 3   # one game, traced
 ```
 
 ### `report`
@@ -293,3 +294,13 @@ base, the newcomer), `--attacker-level` (the attacker's whole tuning; Medium by 
 first hit" gives, of each game, when the attacker's first wave arrived, how many games were hit before 8:00, and that
 wave's units (median, most): with `--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when, and with
 how many, a passive newcomer first meets Easy (since Nov 13: no sooner than 7:45, and four units at most).
+
+### `trace`
+
+One game, a line per seat every `--every` seconds (30): its gold, gold mined, workers, finished buildings, army worth
+and units by kind, its AI's wave state (`World::ai_trace`: the wave's count, whether one is out and how much of it
+stands, its last wave, since when the next is ready, the enemy army it expects and when it saw it, its reserve, guards
+and raiders, the enemy siege it saw) and its buildings by kind, then how it ended. For telling a stall (armies idle at
+home, a wave stuck, an AI that stops building or attacking) from a grind (waves trading, both rebuilding). Flags:
+`--size` (64), `--map` (Standard), `--races` (one per seat, by name or key: four for four seats), `--levels` (one, or
+one per seat), `--teams 0,0,1,1`, `--seed`, `--side` (the seats' turn on the map, 0), `--cap` (30 min), `--every`.

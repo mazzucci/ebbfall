@@ -2,8 +2,11 @@
 
 use super::*;
 
-/// Workers the AI adds for its second base.
+/// Workers the AI adds for each base past its first, up to `CREW_BASES` of them (one before Nov 13: under the cap of
+/// 40 a third base brought only a Market and fresh fields; under caps of 100 and more a crew of two bases left every
+/// later base idle, and long games flat).
 const EXP_CREW: usize = 3;
+const CREW_BASES: usize = 3;
 /// The workers inside a mine at once the levels' crews (`Diff::harv`) are written for (seven before the economy's
 /// second round, the cap of every worker then).
 const CREW_CAP: usize = 7;
@@ -85,10 +88,10 @@ impl World {
     }
 
     /// The crew AI seat `e` trains workers for, with `cores` finished Cores: its difficulty's, and `EXP_CREW` more
-    /// with a second base (no more for a third or fourth: under a cap of 40 a base past the second brings a Market and
-    /// fresh fields for the crew it has, not more workers); in its worker's crew size for a mine (`crew_of`).
+    /// for each base past the first, up to `CREW_BASES`; in its worker's crew size for a mine (`crew_of`).
     pub fn harv_target_of(&self, e: u8, cores: usize) -> usize {
-        self.crew_of(e, self.tuning(e).harv + EXP_CREW * (cores >= 2) as usize)
+        let more = cores.saturating_sub(1).min(CREW_BASES);
+        self.crew_of(e, self.tuning(e).harv + EXP_CREW * more)
     }
 
     /// A crew of `n` in seat `e`'s workers, sized by income: the levels' crews are written for a mine of `CREW_CAP`
@@ -190,5 +193,24 @@ impl World {
             }
         }
         brain.cores = cores;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::*;
+    use crate::world::World;
+
+    #[test]
+    fn the_crew_grows_with_each_base_up_to_four() {
+        // Workers for each base past the first (`EXP_CREW`), up to four bases: under caps of 100 and more a crew of two
+        // bases left every later base idle, and long games flat.
+        let w = World::new(17, 1);
+        let crew: Vec<usize> = (1..=5).map(|c| w.harv_target_of(ENEMY, c)).collect();
+        assert!(
+            crew[0] < crew[1] && crew[1] < crew[2] && crew[2] < crew[3],
+            "{crew:?}"
+        );
+        assert_eq!(crew[3], crew[4], "no more past four: {crew:?}");
     }
 }

@@ -197,5 +197,9 @@
   <div id="corner"><button class="ib" id="cornerFull" title="Full screen" aria-label="Full screen" aria-pressed="false"></button><button class="ib" id="cornerSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button></div>
 </div>
 <script type="module" src="/src/boot.js"></script>
+  <!-- The command card's available unit and building pictures as flat silhouettes in the glyphs' yellow (style.css,
+       .cb .por): the sprite's alpha as a stencil, filled; its faint
+       parts (a ground shadow) cut, the edges kept smooth. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="silhouette" color-interpolation-filters="sRGB"><feComponentTransfer in="SourceAlpha" result="a"><feFuncA type="table" tableValues="0 0 1 1" /></feComponentTransfer><feFlood class="fill" /><feComposite in2="a" operator="in" /></filter></svg>
 </body>
 </html>

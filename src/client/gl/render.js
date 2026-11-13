@@ -78,10 +78,11 @@ function artTop(name) {
  * A small portrait of a sprite for the HTML HUD, as a data URL: the frame scaled so its larger side is `zoom` x
  * `size` css px, centered a little above its ground point, cut to a size x size square; with `fit`, lowered when its
  * art would start above the square's top (the Drone's rotors), so its top is never cut. With `tint`, its team mask
- * (`name_m`) in that color over it, as the renderer draws it. Cached.
+ * (`name_m`) in that color over it, as the renderer draws it. With `head`, that frame (a building's turret, dish or
+ * rotor, BLDG_LOOK) over it on the same ground point and at the same scale, painted the same way. Cached.
  */
-export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false) {
-  const key = `${name}|${size}|${zoom}|${tint}|${fit}`;
+export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, head = null) {
+  const key = `${name}|${size}|${zoom}|${tint}|${fit}|${head}`;
   if (iconCache.has(key)) return iconCache.get(key);
   const fr = frames[name]; let url = '';
   if (fr) {
@@ -90,26 +91,31 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false) {
     const ctx = c.getContext('2d', { willReadFrequently: true }), k = n * zoom / Math.max(w, h); // a CPU canvas: no GPU upload of the page
     const ox = n / 2 - w * fr.a.x * k, oy = Math.max(n / 2 - (h * fr.a.y - h * 0.08) * k, fit ? n * 0.04 - artTop(name) * k : -Infinity);
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(fr.img, x, y, w, h, ox, oy, w * k, h * k);
-    const m = tint == null ? null : frames[name + '_m'];
-    if (m) { // the mask on a canvas of its own, multiplied by the color, cut back to the mask's shape, then over the base
+    const paint = (nm, fx, ox, oy) => { // a frame and its team mask, its top left at ox, oy
+      ctx.drawImage(fx.img, fx.f.x, fx.f.y, fx.f.w, fx.f.h, ox, oy, fx.f.w * k, fx.f.h * k);
+      const m = tint == null ? null : frames[nm + '_m'];
+      if (!m) return; // the mask on a canvas of its own, multiplied by the color, cut back to the mask's shape, then over the base
       const t = document.createElement('canvas'); t.width = t.height = n; // (a CPU canvas as well)
       const tc = t.getContext('2d', { willReadFrequently: true }), mask = () => tc.drawImage(m.img, m.f.x, m.f.y, m.f.w, m.f.h, ox + m.at.x * k, oy + m.at.y * k, m.f.w * k, m.f.h * k);
       tc.imageSmoothingQuality = 'high'; mask();
       tc.globalCompositeOperation = 'multiply'; tc.fillStyle = hex6(tint); tc.fillRect(0, 0, n, n);
       tc.globalCompositeOperation = 'destination-in'; mask();
       ctx.drawImage(t, 0, 0);
-    }
+    };
+    paint(name, fr, ox, oy);
+    const hf = head && frames[head];
+    if (hf) { const gx = ox + w * fr.a.x * k, gy = oy + h * fr.a.y * k; paint(head, hf, gx - hf.f.w * hf.a.x * k, gy - hf.f.h * hf.a.y * k); } // (head frames are untrimmed, as the base)
     url = c.toDataURL();
   }
   iconCache.set(key, url);
   return url;
 }
 /** An <img> portrait of a unit type, building type or gold mine ('node'), or ''. In `team`'s
- * colors: this client's own seat unless told otherwise. */
+ * colors: this client's own seat unless told otherwise. A building with a head (BLDG_LOOK) has it on, at rest. */
 export function portrait(kind, type, size = 26, team = G.me) {
+  const head = BLDG_LOOK[type]?.head;
   const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
-    : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team));
+    : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, head ? head + '_0' : null);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;

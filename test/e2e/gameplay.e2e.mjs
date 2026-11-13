@@ -2011,7 +2011,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     assert.match(trooper.text, /Cheap and steady\./, 'and what it does');
     assert.match(trooper.text, /Weak against splash\./, 'its weakness in general terms');
     assert.doesNotMatch(trooper.text, /Best with|Beaten by/, 'and never another unit by name');
-    assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
+    assert.equal(await info.locator('img').count(), 1, 'its own sprite, no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Guard' }).getAttribute('title'), /Best with|Beaten by|Health|Damage/i, 'nor another unit or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
     assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armor ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
@@ -2028,6 +2028,77 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.x)), trooper.rows.map(r => r.chips.map(c => c.x)), 'the same positions as the Guard\'s');
     await release();
     assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'the long-presses trained nothing');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+// The details panel shows the kind's sprite (the selection console's portrait, larger) beside its name, gold and stats,
+// so a symbol on the card is tied to what walks the map: a long press on a phone, hover with a mouse.
+// `ENDFALL_SHOTS` (a folder): screenshots of the panels, for a look by eye.
+const SPRITE_PX = 72; // (card.js SPRITE)
+const spriteOf = (d) => d.page.locator('#cmdInfo .pic img').evaluate(i => { const r = i.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), loaded: i.complete && i.naturalWidth > 0, png: i.src.startsWith('data:image/png') }; });
+const shot = async (d, name) => { if (process.env.ENDFALL_SHOTS) await d.page.screenshot({ path: `${process.env.ENDFALL_SHOTS}/${name}.png` }).catch(() => {}); };
+for (const [race, hq, worker, unit, bldg] of [['humans', 'core', 'harvester', 'Villager', 'Cottage'], ['vael', 'conflux', 'lumen', 'Bot', 'Turbine']]) {
+  test(`phone, ${race}: a long-press on a unit's or a building's button shows its sprite in the details`, { chromium: CDP_TOUCH }, async () => {
+    const d = await newGame(PHONE, 1, 4242, { ai: false, race });
+    try {
+      await d.grant(2000, 0);
+      const cdp = await d.page.context().newCDPSession(d.page), info = d.page.locator('#cmdInfo');
+      const hold = async (label) => {
+        const b = await d.page.locator('#cmd button', { hasText: label }).first().boundingBox();
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
+        await d.page.waitForTimeout(700);
+        assert.ok(await info.isVisible(), `${label}: details show while held`);
+      };
+      const release = async () => { await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await info.waitFor({ state: 'hidden', timeout: 5000 }); };
+      // A unit (its headquarters trains it): the sprite, at its size, before the name.
+      await d.clickEntity(myBldg(await d.state(), hq)[0].id);
+      await d.readyCard(unit);
+      await hold(unit);
+      assert.deepEqual(await spriteOf(d), { w: SPRITE_PX, h: SPRITE_PX, loaded: true, png: true }, `${unit}: its sprite`);
+      assert.equal(await info.locator('img').count(), 1, 'one picture: its own');
+      assert.match(await info.textContent(), new RegExp(`^${unit}`), 'its name first in the text');
+      const box = await info.boundingBox(), vp = d.page.viewportSize();
+      assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, `the panel fits the screen: ${JSON.stringify(box)}`);
+      await shot(d, `phone-${race}-unit`);
+      await release();
+      // A building (a worker's Build page): its sprite as well.
+      const h = mine(await d.state(), worker)[0];
+      for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
+      await d.pressCard('Build'); await d.readyCard(bldg);
+      await hold(bldg);
+      assert.deepEqual(await spriteOf(d), { w: SPRITE_PX, h: SPRITE_PX, loaded: true, png: true }, `${bldg}: its sprite`);
+      await shot(d, `phone-${race}-building`);
+      await release();
+      assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-presses placed nothing');
+      assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'and trained nothing');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+test('desktop: hovering a command button shows the same details with the sprite in place of its title; they stay through a rebuild and go on leave', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const info = d.page.locator('#cmdInfo');
+    await d.clickEntity(coreOf(await d.state()).id);
+    await d.readyCard('Villager');
+    const btn = d.page.locator('#cmd button', { hasText: 'Villager' });
+    assert.match(await btn.getAttribute('title'), /^Villager/, 'a title before the mouse comes');
+    await btn.hover();
+    await info.waitFor({ state: 'visible', timeout: 2000 });
+    assert.deepEqual(await spriteOf(d), { w: SPRITE_PX, h: SPRITE_PX, loaded: true, png: true }, 'its sprite');
+    assert.match(await info.textContent(), /^Villager/, 'its name');
+    assert.equal(await d.page.locator('#cmd button', { hasText: 'Villager' }).getAttribute('title'), null, 'no browser tooltip over the panel');
+    await shot(d, 'desktop-humans-unit');
+    // The card rebuilt under the mouse (the gold changes what it can afford): the panel stays.
+    await d.grant(0, 0); await d.page.waitForTimeout(250); await d.grant(5000, 0); await d.page.waitForTimeout(250);
+    assert.ok(await info.isVisible(), 'still shown after a rebuild');
+    // Off the card: gone, and nothing was trained.
+    const canvas = await d.page.locator('#game').boundingBox();
+    await d.page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 3, { steps: 4 });
+    await info.waitFor({ state: 'hidden', timeout: 2000 });
+    assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'hovering trained nothing');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -1,5 +1,5 @@
-// The command card's buttons (what they hold: cards.js), the long-press details on touch, and what a button does
-// (doCommand).
+// The command card's buttons (what they hold: cards.js), their details (a long press on touch, hover with a mouse),
+// and what a button does (doCommand).
 import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, poolMax } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud } from './hud.js';
@@ -8,6 +8,7 @@ import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
 import { icon, glyph } from './icons.js';
 import { statsHtml } from './stats.js';
+import { portrait } from './gl/render.js';
 
 let cardKey = '';
 export function invalidateCard() { cardKey = ''; }
@@ -18,6 +19,7 @@ onControls(() => { cardKey = ''; buildCard(); });
 export function buildCard() {
   const items = cardItems().filter(i => !i.hidden);
   if (press.held && press.held[0] !== '@' && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed; '@': held off the card)
+  if (hover.id && !items.some(i => i.id === hover.id)) hideHover(); // the hovered one too
   const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key]));
   if (key === cardKey) return; cardKey = key;
   const c = $('cmd'); c.innerHTML = '';
@@ -37,18 +39,23 @@ export function buildCard() {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
       if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
     });
-    b.addEventListener('pointerleave', () => clearTimeout(press.timer)); // slid off before the details showed
+    b.addEventListener('pointerleave', () => { clearTimeout(press.timer); if (hover.id === it.id) hideHover(); }); // slid off before the details showed
+    // A mouse: the same details while over the button, in place of its title (a rebuilt button has it again).
+    b.addEventListener('pointerenter', ev => { if (ev.pointerType === 'mouse') { hover.id = it.id; b.removeAttribute('title'); showDetail(it); } });
     b.addEventListener('contextmenu', ev => ev.preventDefault()); // (the long-press menu of the browser)
     b.addEventListener('click', ev => {
       if (press.held === it.id) { press.held = ''; return; } // a long-press shows the details; it does not press the button
       hideDetail(); doCommand(it.id, ev.shiftKey ? 5 : 1); cardKey = ''; updateHud(); // immediate feedback, even on slow frames
     });
     c.appendChild(b);
+    if (hover.id === it.id) { b.removeAttribute('title'); showDetail(it); } // rebuilt under the mouse: its panel stays, up to date
   }
 }
 
-// ---- long-press on a command button (touch): what it is, what it costs, its stats (stats.js), what it needs ----
-const press = { timer: 0, held: '', hide: 0 };
+// ---- the details of a command button: a long press (touch) or hover (mouse): its sprite, what it is, what it
+// costs, its stats (stats.js), what it needs ----
+const press = { timer: 0, held: '', hide: 0 }, hover = { id: '' };
+const SPRITE = 72; // (css px: the unit or building as it looks on the map, beside its name)
 function showDetail(it, anchor = $('cmd')) {
   // (over the card, right-aligned; or over another anchor, left-aligned: the selection console's portrait)
   const box = $('cmdInfo'), r = anchor.getBoundingClientRect(), left = anchor !== $('cmd'); // (the card survives rebuilds; its buttons may not)
@@ -58,11 +65,12 @@ function showDetail(it, anchor = $('cmd')) {
   if (left) { box.style.left = r.left + 'px'; box.style.right = ''; } else { box.style.right = (innerWidth - r.right) + 'px'; box.style.left = ''; }
   box.style.bottom = (innerHeight - r.top + 6) + 'px';
   const kind = /^[tb]_/.test(it.id) ? it.id.slice(2) : ''; // (a unit to train or a building to place: its stats)
-  box.innerHTML = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}<span class="d">${it.tip || ''}</span>`;
+  const head = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}`, pic = it.por ? portrait(it.por[0], it.por[1], SPRITE) : '';
+  box.innerHTML = (pic ? `<span class="pic">${pic}</span><span class="hd">${head}</span>` : head) + `<span class="d">${it.tip || ''}</span>`;
   // Wide enough for the stat rows on one line each; wider still, up to the screen's width, while it is too tall for
   // the room above the card (a short landscape phone and a long description).
   const room = Math.max(220, left ? innerWidth - r.left - 8 : r.right - 8);
-  for (const w of [300, 380, 480, room]) { box.style.maxWidth = Math.min(Math.max(w, r.width), room) + 'px'; if (box.getBoundingClientRect().top >= 4) break; }
+  for (const w of [300, 380, 480, room].map(w => w + (pic ? SPRITE + 10 : 0))) { box.style.maxWidth = Math.min(Math.max(w, r.width), room) + 'px'; if (box.getBoundingClientRect().top >= 4) break; }
   const top = box.getBoundingClientRect().top; // still too tall (the smallest phones): lowered over the card's top edge
   if (top < 4) box.style.bottom = (innerHeight - r.top + 6 - (4 - top)) + 'px';
 }
@@ -77,6 +85,9 @@ export function holdForDetail(el, item, anchor) {
   el.addEventListener('contextmenu', ev => ev.preventDefault());
 }
 function hideDetail() { clearTimeout(press.hide); $('cmdInfo').hidden = true; }
+function hideHover() { hover.id = ''; hideDetail(); }
+// The mouse left the card while it was rebuilt (the new button never saw it come in): the panel goes.
+window.addEventListener('pointermove', ev => { if (hover.id && ev.pointerType === 'mouse' && !ev.target.closest?.('#cmd .cb')) hideHover(); }, true);
 // Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.
 for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => {
   clearTimeout(press.timer);

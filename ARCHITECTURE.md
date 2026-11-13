@@ -349,6 +349,8 @@ src/client/           everything that touches the browser
   bench.js            the device test (?bench): the card, its game, the per-frame timings, the report and its code
   pause.js            the pause card: alone it pauses, online a menu over a game that goes on, with a pause for
                       everyone (the relay's) and its state on every side; full screen out/in
+  clock.js            the top bar's game clock (#rClock, m:ss): the sim's time (G.time), so it stops when paused and
+                      follows fast-forward; written only when its text changes; `clock`, the format the pause card uses
   icons.js            line icons (inline SVG; no imports: the menu draws them before the game has loaded)
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance) and `unionArcs` (the outline
                       of their union) (test/range.test.js)
@@ -419,6 +421,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
                       iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
+                      clock.e2e.mjs (the top bar's clock on a desktop and a landscape phone: at the start, after a
+                      fast-forward, still while paused, clear of POP and the buttons),
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
                       fit, no page scroll, the map fills the room and fits again when the bars collapse),
                       share.e2e.mjs (SHARE after a victory: the link copied or shared, a cancelled sheet, the end card on

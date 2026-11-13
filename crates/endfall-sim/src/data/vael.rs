@@ -49,15 +49,17 @@ pub const VAEL: Faction = Faction {
         // (the Android, from the Portal: its hired guns are melee since the rework; its Drones, mixed in, hit the air too)
         anti_air: UnitKind::Umbra,
         heavy_anti_air: None,
-        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Rover per three and a Drone
-        // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; an Android per
-        // four from the Portal from 5:00)
+        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Drone per four from the
+        // Factory, between its Buggies, the anti-air the melee line lacks; from the Portal an Android per three from 5:00
+        // and a Rover per four, the Android first (Nov 13: with the Rover first, Rovers lost one by one were made again
+        // and again, and the Android never came))
         mix: &[
             (UnitKind::Bruiser, 4, 0.0),
-            (UnitKind::Monolith, 3, 0.0),
+            (UnitKind::Monolith, 4, 0.0),
             (UnitKind::Shrike, 4, 0.0),
-            (UnitKind::Umbra, 4, 300.0),
+            (UnitKind::Umbra, 3, 300.0),
         ],
+        dive: Some(UnitKind::Shrike),
         raider: UnitKind::Scythe,
         scout: None,
         wave_scale: 0.6,
@@ -123,7 +125,7 @@ pub(super) const PRISM: UnitDef = UnitDef {
     cost: [100, 0],
     supply: 1,
     pool: Pool::Hired,
-    hp: 110.0,
+    hp: 100.0, // (110 before Nov 13: the Kingdom's Guards and Archers on par at equal gold)
     armor: 1.0,
     speed: 92.0,
     sight: 8.0,
@@ -162,9 +164,9 @@ pub(super) const HALO: UnitDef = UnitDef {
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [250, 0],
-    supply: 6, // (Power: 3 before the economy's second round)
-    hp: 220.0,
+    cost: [525, 0], // (250 before Nov 13: an elite, about four Sellswords' hp and damage; armies of them stay small)
+    supply: 10,     // (Power: 6 before Nov 13, 3 before the economy's second round)
+    hp: 440.0,      // (220 before Nov 13)
     armor: 3.0,
     speed: 90.0,
     sight: 9.0,
@@ -172,8 +174,8 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 8.0,
-        dmg: 30.0,
-        dmg_air: 24.0,
+        dmg: 63.0, // (30 before Nov 13)
+        dmg_air: 50.0,
         cd: 1.2,
         proj: Some(ProjKind::Bolt),
         up_dmg: 3.0,
@@ -186,18 +188,18 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
-    cost: [240, 0],
-    supply: 8, // (Power: 4 before the economy's second round, 6 in it)
-    hp: 220.0,
+    cost: [380, 0], // (240 before Nov 13: siege that crushes a mass, dear and few)
+    supply: 12,     // (Power: 8 before Nov 13, 4 before the economy's second round)
+    hp: 360.0,      // (220 before Nov 13)
     armor: 1.0,
     speed: 58.0,
     sight: 9.0,
     r: 15.0,
     build: 52.0, // (40.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
-        range: 11.0, // (12 at the arc: 11 with the Cannon, Nov 13: a duel decided by spotting and position)
+        range: 12.0, // (11 for a day, Nov 13; 12 again since: it out-ranges the Cannon, its answer to entrenched siege)
         min_range: 3.0,
-        dmg: 45.0,
+        dmg: 70.0, // (45 before Nov 13)
         cd: 2.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 4.0,

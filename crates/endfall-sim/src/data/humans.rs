@@ -45,6 +45,7 @@ pub const HUMANS: Faction = Faction {
             (UnitKind::Bastion, 8, 0.0),
             (UnitKind::Knight, 4, 0.0),
         ],
+        dive: Some(UnitKind::Knight),
         raider: UnitKind::Rider,
         scout: Some(UnitKind::Observer),
         wave_scale: 1.0,
@@ -125,9 +126,9 @@ pub(super) const LANCER: UnitDef = UnitDef {
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Cannon",
-    cost: [175, 0],
-    supply: 2, // (3 before the economy's second round: by tier, gold-dense at the top)
-    hp: 140.0,
+    cost: [275, 0], // (175 before Nov 13: siege that crushes a mass, dear and few)
+    supply: 3,      // (2 before Nov 13; 3 before the economy's second round)
+    hp: 240.0,      // (140 before Nov 13)
     armor: 1.0,
     speed: 62.0,
     sight: 10.0,
@@ -138,7 +139,7 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
         range: 11.0,
         min_range: 2.5,
         siege: true,
-        dmg: 55.0,
+        dmg: 85.0, // (55 before Nov 13)
         cd: 3.0,
         proj: Some(ProjKind::Shell),
         up_dmg: 5.0,
@@ -226,9 +227,9 @@ pub(super) const RIDER: UnitDef = UnitDef {
 pub(super) const KNIGHT: UnitDef = UnitDef {
     key: "knight",
     name: "Knight",
-    cost: [225, 0],
-    supply: 2, // (4 before the economy's second round: by tier, gold-dense at the top)
-    hp: 280.0,
+    cost: [325, 0], // (225 before Nov 13: an elite, a big gap to a Guard; armies of them stay small)
+    supply: 3,      // (2 before Nov 13; 4 before the economy's second round)
+    hp: 420.0,      // (280 before Nov 13)
     armor: 3.0,
     speed: 105.0,
     sight: 9.0,
@@ -237,7 +238,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 0.9,
-        dmg: 26.0,
+        dmg: 38.0, // (26 before Nov 13)
         cd: 1.2,
         melee: true,
         up_dmg: 3.0,

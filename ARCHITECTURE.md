@@ -73,7 +73,10 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   `expedition`, `random_play`, ...): the leash (`leash`: an idle Guard chasing a passer-by only `CHASE_LEASH` from its
   spot and walking back, an attack-move group never more than the leash off its line after a fleeing unit and all
   reaching its goal, an attack-move killing an Archer where its route bends far off the straight line (Standard seed 2,
-  the Shore seed 1), Guards shelled from past their leash going for the gun, an attack order with none), the end (`combat`: a side with nothing left to fight with and no gold
+  the Shore seed 1), Riders shelled from past their leash going for the gun, an attack order with none), the top units
+  and siege (`balance`: an elite against four of its line and 1.2-1.7 times its gold of the other's, siege behind towers
+  holding 2-2.5 times its gold of massed basics and falling to the other side's tech at no more, `entrenched`; the
+  probes `top_unit_probe` and `entrenched_probe` print the curves), the end (`combat`: a side with nothing left to fight with and no gold
   to train more is out, a Barracks keeping it in only with the gold for a fighter, an AI with a Barracks out when it
   falls or at once when broke, each with its `OutWhy`),
   placement (`construction`: every refusal named, unexplored ground before what lies under it, the order's error in
@@ -167,7 +170,8 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       first hit: when, and that wave's units), waves.rs (every AI wave: its units and value, against
                       the defense on arrival, its result, where its units fell; in report and turtle), human.rs (a
                       human's opening: a plain scripted player alone, its bank, its waits for gold and its production's
-                      busy share from 1:00 to 8:00; in report),
+                      busy share from 1:00 to 8:00; in report), trace.rs (one game of any seats and teams, each
+                      seat's gold, workers, buildings, army and AI wave state at intervals: a stall from a grind),
                       model.rs (logistic regression by IRLS, deterministic)
 crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Builds natively for cargo test.
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
@@ -175,7 +179,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
                       upgrades.rs (Launch satellite among them: the Expedition's, at its Lab, once, told to its own
                       seat alone, the Uplink's requirement; Better drills, two levels at the Lab: a Bot's load
-                      `DRILL_LOAD` more), diff.rs (AI tuning per difficulty),
+                      `DRILL_LOAD` more), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
+                      climbing to its top tier late and Medium's from 8:00; Easy's clumsy waves until `clumsy_until`,
+                      `Diff::at`),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
                       machines need signal, what gives it and how far, the bonus inside and the stranded speed), export.rs (the tables as
                       JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and
@@ -248,8 +254,17 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`, `retreat_any`, `give_up`):
                       its waves are just their size (its first three or four units at 7:45, the rest at home), growing
                       by one, and they give up and walk home on contact with a defense near their worth or after early
-                      losses. A level may cap a race's towers (`tower_max`: one Sentry mast for Easy and Medium). A wave
-                      left with only machines held quiet at their coverage's edge is over (army.rs)
+                      losses, until 12:00 (`clumsy_until`; then whole armies that wait for an edge). A level may cap a
+                      race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
+                      left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
+                      90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees
+                      fall (`army_seen_ids`), and a wave short of its count goes when it crushes that (`crushing`). The
+                      relay (push and leapfrog) is sited along the walkers' way, over the last stretch to the goal
+                      too, and its price is held while a wave with machines is out (`relay_hold`). Against enemy siege
+                      seen (`siege_seen`, the Cannon, the Rover) a level that adapts trains its dive unit (`AiScript::
+                      dive`: the Knight, the Drone) one per line unit and holds its price (`dive_hold`); its Portal
+                      holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with
+                      each base past the first up to four (army.rs, produce.rs, economy.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)

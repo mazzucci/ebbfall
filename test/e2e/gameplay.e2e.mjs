@@ -226,7 +226,7 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     assert.ok(info.x >= mm.x + mm.width && info.x + info.width <= cmd.x, 'the console sits between the minimap and the command card');
     const vh = await d.eval(() => innerHeight); // (390, or more where full screen takes the whole display: Firefox)
     assert.ok(info.height <= 70 && info.y + info.height <= vh && info.y >= vh - 80, `low, at the bottom of the screen: ${JSON.stringify(info)} in ${vh}`);
-    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Attack', 'Hold', 'Deselect'], 'a Villager card: three a row, leading with Build, Deselect last');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Mine', 'Repair', 'Attack', 'Hold', 'Deselect'], 'a Villager card: three a row, leading with Build, Deselect last');
     await d.pressCard('Build');
     const depot = d.page.locator('#cmd button', { hasText: 'Cottage' });
     assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
@@ -1376,9 +1376,9 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     await d.pressCard('Back');
     const cols = await d.page.$$eval('#cmd > *', els => new Set(els.map(e => Math.round(e.getBoundingClientRect().x))).size);
     assert.equal(cols, 3, 'three columns');
-    await d.pressCard('Gather');
+    await d.pressCard('Mine');
     let card = await d.card();
-    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold', 'Deselect'], 'Gather armed: its button is Cancel, in place');
+    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold', 'Deselect'], 'Mine armed: its button is Cancel, in place');
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.mode), null, 'Cancel disarms');
     await d.pressCard('Deselect');
@@ -2220,12 +2220,12 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.pressCard('Villager'); await d.pressCard('Villager');
     await d.skip(40); // (two Villagers, 18 s each)
     await d.hudText('#tut', /2\/8/);
-    // Step 2: the new Villagers wait by the Castle: one selected, Gather pulses; both sent to the mine end the step.
-    assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Gather, then the gold mine/);
+    // Step 2: the new Villagers wait by the Castle: one selected, Mine pulses; both sent to the mine end the step.
+    assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Mine, then the gold mine/);
     const idle = await d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'idle').id);
     await d.clickEntity(idle);
     await d.page.waitForTimeout(300);
-    assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 'gather', 'the Gather button pulses');
+    assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 'gather', 'the Mine button pulses');
     await d.key('Escape');
     await sendIdleToMine(d);
     await d.hudText('#tut', /3\/8/);

@@ -139,8 +139,8 @@ fn report(args: &[String]) {
         }
     }
     for &s in &batch.sizes {
-        if ![64, 96, 128].contains(&s) {
-            die("sizes are 64, 96 or 128");
+        if ![64, 72, 80, 96, 128].contains(&s) {
+            die("sizes are 64, 72, 80, 96 or 128 (72 and 80: two-start sizes for the lab)");
         }
     }
     let commit = commit();
@@ -306,8 +306,8 @@ fn bets(args: &[String]) {
                 b.size = val()
                     .parse()
                     .ok()
-                    .filter(|n| [64, 96, 128].contains(n))
-                    .unwrap_or_else(|| die("--size 64, 96 or 128"))
+                    .filter(|n| [64, 72, 80, 96, 128].contains(n))
+                    .unwrap_or_else(|| die("--size 64, 72, 80, 96 or 128"))
             }
             "--cap" => b.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
             "--threads" => b.threads = val().parse().unwrap_or_else(|_| die("--threads N")),
@@ -377,8 +377,8 @@ fn turtle(args: &[String]) {
                 batch.size = val()
                     .parse()
                     .ok()
-                    .filter(|n| [64, 96, 128].contains(n))
-                    .unwrap_or_else(|| die("--size 64, 96 or 128"))
+                    .filter(|n| [64, 72, 80, 96, 128].contains(n))
+                    .unwrap_or_else(|| die("--size 64, 72, 80, 96 or 128"))
             }
             "--raids" => batch.raids = true,
             "--weak" => batch.weak = true,

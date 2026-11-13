@@ -9,7 +9,7 @@ const P = {
   stop: 'M7 4h10l3 3v10l-3 3H7l-3-3V7z',
   attack: 'M12 5a7 7 0 1 0 .01 0M12 2v6M12 16v6M2 12h6M16 12h6',
   hold: 'M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z',
-  gather: ['M21.5 2.5 8.8 12.2M6.2 5.3Q4.8 15.3 14.6 16.5Q7.2 13.5 6.2 5.3zM15.5 20 16.5 17.2 19.5 16.2 22 18 21.5 21.2 18 22.2zM15.5 20l6.5-2M12.7 19.3l-2.9 1M14.2 21.3l-1.5 2.1', 'M6.2 5.3Q4.8 15.3 14.6 16.5Q7.2 13.5 6.2 5.3zM15.5 20 16.5 17.2 19.5 16.2 22 18 21.5 21.2 18 22.2z'], // Mine: a pickaxe striking a gold nugget
+  gather: ['M3.5 21.5 12 4.5M5 6Q12 .8 19.5 9.5M13.5 17.5 15.5 13 20.5 11.5 23 15.5 21 20.5 16 21z', 'M5 6Q12 .8 19.5 9.5Q12.5 3.6 5 6zM13.5 17.5 15.5 13 20.5 11.5 23 15.5 21 20.5 16 21z'], // Mine: a pickaxe striking a gold nugget (no bust: the Villager holds one)
   build: 'M13 7l4 4M4 20l8.5-8.5M10 5l3-2 8 8-2 3z',
   advanced: 'M13 7l4 4M4 20l8.5-8.5M10 5l3-2 8 8-2 3zM18 15v6M15 18h6', // (Build's hammer, and a +: the advanced page)
   rally: 'M6 21V4M6 4h11l-3 4 3 4H6',

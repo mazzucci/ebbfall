@@ -150,13 +150,13 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
   // The Build list: the basic page is all there from the start; no Advanced before the Recruiting post stands.
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Recruiting post first; no Advanced yet');
+  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'esc@5'], 'the Recruiting post first, the Sentry mast basic (the arc); no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
   // A Recruiting post up: Advanced comes right after the three open buildings (slot 3, the second row's left), Back stays
   // in the bottom-right slot, on both pages; the advanced page packs from slot 0.
   raise('siphon');
   ui.sel = [E.G.units.find(u => u.id === lumen.id)]; ui.mode = 'build';
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'Advanced packed into slot 3, Back in the corner');
+  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'Advanced packed into slot 4, Back in the corner');
   ui.mode = 'build2';
   const adv = slots();
   assert.equal(adv.at(-1), 'build1@5', `Back in the corner on the advanced page too: ${adv}`);
@@ -202,19 +202,24 @@ test('a building opened mid-game is appended to its Build page: the shown ones k
   const lumen = () => E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
   raise('siphon');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'the basic page');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'build1@5'], 'the advanced page before the satellite');
-  // The satellite opens the Uplink (no building required: it would come first in the order things unlock): appended.
+  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
+  // The Uplink shows from the first, locked until the satellite is up (the arc, Nov 13: its requirement on its tip), in
+  // the slot it keeps when it opens.
+  const advanced = () => { ui.sel = [lumen()]; ui.mode = 'build2'; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the advanced page before the satellite');
+  const locked = advanced().find(i => i.id === 'b_uplink');
+  assert.ok(locked.dis && /Needs the satellite: launch it from the Lab\./.test(locked.tip), 'locked, its requirement in its tip');
   E.debugResearch(E.G.me, 'satellite', 1);
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'b_uplink@3', 'build1@5'], 'the Uplink appended, the others where they were');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the Uplink open in its slot, the others where they were');
+  assert.ok(!advanced().find(i => i.id === 'b_uplink').dis, 'and no longer locked');
   raise('uplink');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'b_uplink@3', 'b_eclipse@4', 'build1@5'], 'then the Portal, in the last free slot before Back');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'the basic page unchanged');
-  // A new game forgets them: several opening at once take the first free slots in the order they unlock.
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'b_eclipse@3', 'build1@5'], 'then the Portal, appended');
+  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  // A new game forgets them.
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   E.debugResearch(E.G.me, 'satellite', 1);
   raise('siphon');
-  assert.deepEqual(page('build2'), ['b_uplink@0', 'b_kiln@1', 'b_loom@2', 'b_ward@3', 'build1@5'], 'a new game: its own slots');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'a new game: its own slots');
   ui.sel = []; ui.mode = null;
 });
 
@@ -237,16 +242,16 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
     },
     vael: {
       before: {
-        conflux: ['t_lumen@0', 'r_satellite@3', 'rally@4', 'cancelq@5'],
+        conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
-        kiln: ['t_scythe@0', 't_shrike@1', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2'],
-        eclipse: ['t_umbra@0', 'rally@4', 'cancelq@5'],
+        kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
+        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2', 'r_satellite@3', 'r_drills@4'],
+        eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],
       after: {
         siphon: ['t_prism@0', 't_bruiser@1', 'rally@4', 'cancelq@5'],
-        kiln: ['t_scythe@0', 't_shrike@1', 't_monolith@2', 'rally@4', 'cancelq@5'],
+        kiln: ['t_scythe@0', 't_shrike@1', 'rally@4', 'cancelq@5'],
       },
     },
   };

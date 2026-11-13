@@ -456,7 +456,7 @@ impl World {
             });
         let d = self.level();
         let techs = d.abilities
-            && t > d.research_from.min(s.tech_from)
+            && t > d.research_from.min(s.tech_from.min(d.tech_from))
             && k.def().researches.iter().any(|&up| {
                 self.upgrades[e as usize][up.index()] < up.levels() && self.tech_of_use(e, my_b, up)
             });
@@ -540,7 +540,7 @@ impl World {
         } else if self.ai_count(&my_b, true, s.rax) >= 1
             && (pumps > 0 || f.market.is_none())
             && self.ai_count(&my_b, false, s.tech) == 0
-            && t > 150.0
+            && t > d.tech_at
         {
             Some(s.tech)
         } else if let Some(heavy) = s.heavy
@@ -550,10 +550,23 @@ impl World {
             && t > d.heavy_at
         {
             Some(heavy) // (once its vehicles' tech stands)
-        // Its towers by the clock, two at most (sites counted): a bank it cannot spend must not go into towers (under
-        // the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games stalled).
+        // Its towers by the clock (`Diff::towers`; two on every level, sites counted): a bank it cannot spend must not go
+        // into towers (under the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games
+        // stalled).
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && self.ai_count(&my_b, false, s.tower) < (t > 150.0) as usize + (t > 480.0) as usize
+            && self.ai_count(&my_b, false, s.tower)
+                < (d.towers.iter().filter(|&&a| t > a).count()
+                    + if d.towers.is_empty() {
+                        0
+                    } else {
+                        s.towers_more.iter().filter(|&&a| t > a).count()
+                    })
+                .min(
+                    d.tower_max
+                        .iter()
+                        .find(|m| m.0 == s.tower)
+                        .map_or(usize::MAX, |m| m.1),
+                )
             && !self.guided
         // (the guided first game: none; `guided_hold`)
         {

@@ -4,7 +4,7 @@ use super::*;
 
 /// How long (s) before its side's `tech_from` the AI may launch its satellite (`Effect::Launch`), on every level: the
 /// launch (60 s), the Uplink and the Portal then stand about when its Androids are due.
-const LAUNCH_LEAD: f64 = 120.0;
+pub(crate) const LAUNCH_LEAD: f64 = 120.0;
 
 impl World {
     /// Research, and saving up for it or for an expansion (never while threatened, never for long).
@@ -29,7 +29,7 @@ impl World {
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
         // army first)
         let script = &self.factions[e as usize].ai;
-        let (rax, tech_from) = (script.rax, script.tech_from);
+        let (rax, tech_from) = (script.rax, script.tech_from.min(d.tech_from));
         let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
         let techs = d.abilities && t > d.research_from.min(tech_from) && on_schedule;
         // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research

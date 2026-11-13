@@ -173,6 +173,48 @@ pub fn astar_capped(
     gy: i32,
     cap: usize,
 ) -> Option<Vec<Pt>> {
+    search(
+        map,
+        foot,
+        s,
+        (sx, sy),
+        (gx, gy),
+        cap,
+        |_, _| true,
+        |_, _| true,
+    )
+    .map(|r| r.0)
+}
+
+/// `astar_capped` over the tiles `ok` allows as well (a machine's way through its side's coverage: the tiles in it),
+/// its straight legs where `leg_ok` allows them too. With the route, whether it got to the goal (else it ends at the
+/// nearest point it found).
+#[allow(clippy::too_many_arguments)]
+pub fn astar_within(
+    map: &Map,
+    foot: Foot,
+    s: &mut PathScratch,
+    from: (i32, i32),
+    to: (i32, i32),
+    cap: usize,
+    ok: impl Fn(i32, i32) -> bool,
+    leg_ok: impl Fn(Pt, Pt) -> bool,
+) -> Option<(Vec<Pt>, bool)> {
+    search(map, foot, s, from, to, cap, ok, leg_ok)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn search(
+    map: &Map,
+    foot: Foot,
+    s: &mut PathScratch,
+    (sx, sy): (i32, i32),
+    (gx, gy): (i32, i32),
+    cap: usize,
+    ok: impl Fn(i32, i32) -> bool,
+    leg_ok: impl Fn(Pt, Pt) -> bool,
+) -> Option<(Vec<Pt>, bool)> {
+    let pass = |x: i32, y: i32| map.passable(foot, x, y) && ok(x, y);
     let r = goal_radius(map, foot, (gx, gy))?;
     // (a start on a blocked tile: the free tile beside it nearest the goal)
     let (sx, sy) = map.nearest_passable_to(
@@ -183,7 +225,7 @@ pub fn astar_capped(
         (gx as f64 * TILE + 16.0, gy as f64 * TILE + 16.0),
     )?;
     let is_goal = |x: i32, y: i32| {
-        (x - gx).abs().max((y - gy).abs()) == r && (r == 0 || map.passable(foot, x, y))
+        (x - gx).abs().max((y - gy).abs()) == r && (r == 0 || map.passable(foot, x, y)) && ok(x, y)
     };
     let oct = |x: i32, y: i32| {
         let (dx, dy) = ((x - gx).abs() as f64, (y - gy).abs() as f64);
@@ -279,13 +321,10 @@ pub fn astar_capped(
                     continue;
                 }
                 let (nx, ny) = (c.x + dx, c.y + dy);
-                if !map.passable(foot, nx, ny) {
+                if !pass(nx, ny) {
                     continue;
                 }
-                if dx != 0
-                    && dy != 0
-                    && (!map.passable(foot, c.x + dx, c.y) || !map.passable(foot, c.x, c.y + dy))
-                {
+                if dx != 0 && dy != 0 && (!pass(c.x + dx, c.y) || !pass(c.x, c.y + dy)) {
                     continue;
                 }
                 let ni = map.idx(nx, ny);
@@ -307,6 +346,7 @@ pub fn astar_capped(
     }
     s.searches += 1;
     s.expanded += n as u64;
+    let reached = found.is_some();
     let best = best?;
     let mut path = Vec::new();
     let mut i = best as i32;
@@ -330,14 +370,14 @@ pub fn astar_capped(
     let mut k = 0;
     while k < path.len() {
         let mut j = (path.len() - 1).min(k + SMOOTH_LOOK);
-        while j > k && !los(map, foot, cur, path[j]) {
+        while j > k && !(los(map, foot, cur, path[j]) && leg_ok(cur, path[j])) {
             j -= 1;
         }
         out.push(path[j]);
         cur = path[j];
         k = j + 1;
     }
-    Some(out)
+    Some((out, reached))
 }
 
 /// True when a unit-sized body with `foot` can travel the straight segment a→b touching only tiles it may stand on.

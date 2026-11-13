@@ -66,13 +66,14 @@ fn cancelling_construction_refunds_three_quarters() {
     let forge = w
         .place_building(PLAYER, BldgKind::Forge, tx, ty, Some(h[1]))
         .unwrap();
+    let price = BldgKind::Forge.def().cost[0];
     assert_eq!(
         w.res[PLAYER as usize],
-        [850, 1000],
+        [1000 - price, 1000],
         "nothing paid in the second slot"
     );
     assert!(w.cancel_construction(forge));
-    assert_eq!(w.res[PLAYER as usize], [850 + 112, 1000]);
+    assert_eq!(w.res[PLAYER as usize], [1000 - price + price * 3 / 4, 1000]);
     assert!(
         w.bldg(forge).is_none() && w.can_place(BldgKind::Forge, tx, ty, PLAYER),
         "the site is free again"
@@ -536,11 +537,14 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
         u.x,
         u.y
     );
+    let d0 = ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt();
     run(&mut w, 15);
     let u = w.unit(s).unwrap();
+    // (a machine needs signal since the arc: it walks to its rally, or to its coverage's edge on the way)
+    let d = ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt();
     assert!(
-        ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt() < 3.0 * 32.0,
-        "it walked to its rally: ({}, {})",
+        (d < 3.0 * 32.0 || d < d0 - 3.0 * 32.0) && w.in_radio(u.team, u.x, u.y),
+        "it walked towards its rally: ({}, {})",
         u.x,
         u.y
     );

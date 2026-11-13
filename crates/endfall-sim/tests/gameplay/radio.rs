@@ -1,14 +1,18 @@
-//! The range (the Expedition rework's speed bonus): the Expedition's machines move at `IN_RANGE_SPEED` inside the
-//! range of a finished Data center (`conflux`, 18 tiles) or Uplink (`uplink`, 12 tiles) of their side or an ally,
-//! measured by exact distance from the source's center, and at their normal speed everywhere else. The Sentry mast
-//! (`ward`) gives none. The Drone (`shrike`) goes at most `LEASH_MARGIN` tiles past the range and backs off inside
-//! rather than idle out there. People and the Kingdom are unaffected.
+//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"): the Expedition's combat machines (the
+//! Buggy, the Drone, the Rover, the Android) work only inside the coverage of a finished Data center (`conflux`, 18
+//! tiles) or Uplink (`uplink`, 20 tiles on 64x64, 24 on the bigger maps) of their side or an ally, by exact distance from
+//! the source's center, and move at `IN_RANGE_SPEED` there. Ordered past its edge they stop at it and fight what they
+//! reach from there; one left outside (its Uplink fell: stranded) moves only towards coverage, at `STRANDED_SPEED`,
+//! and walks back by itself when idle. The Sentry mast (`ward`) gives none. Bots, people and the Kingdom are free.
 //! Seed 3's Expedition Data center stands at tile (52, 8); the lane at y 40, x 18..46 is at least 31 tiles from it.
 
 use crate::common::*;
 use endfall_sim::data::radio::{
-    CONFLUX_RANGE, IN_RANGE_SPEED, LEASH_MARGIN, UPLINK_RANGE, needs_range,
+    CONFLUX_RANGE, IN_RANGE_SPEED, STRANDED_SPEED, UPLINK_RANGE, UPLINK_RANGE_BIG, needs_range,
 };
+use endfall_sim::jsmath;
+use endfall_sim::world::radio::NO_SIGNAL;
+use endfall_sim::world::{Command, Event};
 
 fn px(t: f64) -> f64 {
     t * 32.0 + 16.0
@@ -28,19 +32,18 @@ fn lane() -> World {
     for x in 18..46 {
         assert!(
             !w.in_radio(ENEMY, px(x as f64), px(40.0)),
-            "the lane starts out of range"
+            "the lane starts out of coverage"
         );
     }
     w
 }
 
-/// How far (px) a unit of `kind` at the lane's west end, sent east, gets in `secs` seconds.
-fn walked(w: &mut World, kind: UnitKind, secs: u32) -> f64 {
-    let id = w.make_unit(kind, ENEMY, px(20.0), px(40.0));
-    w.move_to(id, px(45.0), px(40.0));
+/// How far (px) a unit of `kind` at (x0, 40), sent to (x1, 40), gets in `secs` seconds.
+fn walked_from(w: &mut World, kind: UnitKind, x0: f64, x1: f64, secs: u32) -> f64 {
+    let id = w.make_unit(kind, ENEMY, px(x0), px(40.0));
+    w.move_to(id, px(x1), px(40.0));
     run(w, secs);
-    let u = w.unit(id).unwrap();
-    u.x - px(20.0)
+    (w.unit(id).unwrap().x - px(x0)).abs()
 }
 
 fn dist_to(w: &World, u: Id, b: Id) -> f64 {
@@ -49,53 +52,85 @@ fn dist_to(w: &World, u: Id, b: Id) -> f64 {
 }
 
 const MACHINES: [UnitKind; 4] = [
-    UnitKind::Lumen,
     UnitKind::Scythe,
     UnitKind::Monolith,
     UnitKind::Shrike,
+    UnitKind::Umbra,
 ];
 
 #[test]
-fn a_machine_moves_at_its_normal_speed_out_of_range_and_faster_in_it() {
-    // Out of range: every machine at its own speed (the Drone flying towards its Data center's range, which its leash
-    // allows).
-    for kind in MACHINES {
-        let mut w = lane();
-        let speed = kind.def().speed;
-        let d = walked(&mut w, kind, 3);
-        assert!(
-            (d - speed * 3.0).abs() < 10.0,
-            "{kind:?} out of range: {d} px in 3 s at {speed} px/s"
-        );
+fn machines_need_signal_bots_and_people_go_anywhere() {
+    for k in MACHINES {
+        assert!(needs_range(k), "{k:?} needs signal");
     }
-    // In an Uplink's range (west of the lane, the walk well inside it for a second): faster.
+    for k in [
+        UnitKind::Lumen,
+        UnitKind::Prism,
+        UnitKind::Bruiser,
+        UnitKind::Trooper,
+    ] {
+        assert!(!needs_range(k), "{k:?} goes anywhere");
+    }
+    // Faster inside coverage (an Uplink west of the lane; a second's walk well inside it).
     for kind in MACHINES {
         let mut w = lane();
         w.make_building(BldgKind::Uplink, ENEMY, 17, 36, true);
         w.step();
         let speed = kind.def().speed;
-        let d = walked(&mut w, kind, 1);
+        let d = walked_from(&mut w, kind, 20.0, 45.0, 1);
         assert!(
             (d - speed * IN_RANGE_SPEED).abs() < 8.0,
-            "{kind:?} in range: {d} px in 1 s, {IN_RANGE_SPEED} of {speed} px/s"
+            "{kind:?} in coverage: {d} px in 1 s, {IN_RANGE_SPEED} of {speed} px/s"
         );
     }
-    // People are no machines: a Sellsword keeps its own speed in range.
-    let mut w = lane();
-    w.make_building(BldgKind::Uplink, ENEMY, 17, 36, true);
-    w.step();
-    let speed = UnitKind::Prism.def().speed;
-    let d = walked(&mut w, UnitKind::Prism, 1);
-    assert!(
-        (d - speed).abs() < 8.0,
-        "a Sellsword: {d} px in 1 s at {speed} px/s"
-    );
+    // Stranded outside it (the Data center's coverage far off): slower, and only towards it.
+    for kind in MACHINES {
+        let mut w = lane();
+        let speed = kind.def().speed;
+        // (the Data center north-east of the lane: east is towards it)
+        let d = walked_from(&mut w, kind, 30.0, 45.0, 1);
+        assert!(
+            (d - speed * STRANDED_SPEED).abs() < 8.0,
+            "{kind:?} stranded: {d} px in 1 s, {STRANDED_SPEED} of {speed} px/s"
+        );
+        // (sent west, away from it: refused at the first step; idle, it then walks back towards it by itself)
+        let mut w = lane();
+        let id = w.make_unit(kind, ENEMY, px(30.0), px(40.0));
+        w.move_to(id, px(14.0), px(40.0));
+        let mut west = px(30.0);
+        for _ in 0..2 * TPS {
+            w.step();
+            west = west.min(w.unit(id).unwrap().x);
+        }
+        assert!(
+            west > px(30.0) - 4.0,
+            "{kind:?}: no farther from coverage ({west} px)"
+        );
+    }
+    // A Bot and a Sellsword: their own speed in coverage and out of it, anywhere.
+    for kind in [UnitKind::Lumen, UnitKind::Prism] {
+        for uplink in [false, true] {
+            let mut w = lane();
+            if uplink {
+                w.make_building(BldgKind::Uplink, ENEMY, 17, 36, true);
+                w.step();
+            }
+            let speed = kind.def().speed;
+            let d = walked_from(&mut w, kind, 20.0, 45.0, 1);
+            assert!(
+                (d - speed).abs() < 8.0,
+                "{kind:?}: {d} px in 1 s at {speed} px/s"
+            );
+            let away = walked_from(&mut w, kind, 30.0, 14.0, 1);
+            assert!((away - speed).abs() < 8.0, "{kind:?} goes anywhere");
+        }
+    }
 }
 
 #[test]
-fn range_is_by_exact_distance_from_the_sources_centre() {
+fn coverage_is_by_exact_distance_from_the_sources_centre() {
     // An Uplink's center lies on a tile corner (3x3 at (29, 37): center (30.5, 38.5) tiles); points just inside and just
-    // outside its reach, along a diagonal (off every tile center), are in and out of range, and so is a Bot set there.
+    // outside its reach, along a diagonal (off every tile center), are in and out of coverage, and so is a Buggy there.
     let mut w = lane();
     let up = w.make_building(BldgKind::Uplink, ENEMY, 29, 37, true);
     let (cx, cy) = (w.bldg(up).unwrap().x, w.bldg(up).unwrap().y);
@@ -107,40 +142,43 @@ fn range_is_by_exact_distance_from_the_sources_centre() {
         let (ox, oy) = at(reach + 0.5);
         assert!(w.in_radio(ENEMY, ix, iy), "just inside ({ax}, {ay})");
         assert!(!w.in_radio(ENEMY, ox, oy), "just outside ({ax}, {ay})");
-        let inside = w.make_unit(UnitKind::Lumen, ENEMY, ix, iy);
-        let outside = w.make_unit(UnitKind::Lumen, ENEMY, ox, oy);
-        assert!(w.radio_boosted(inside), "a Bot just inside ({ax}, {ay})");
-        assert!(!w.radio_boosted(outside), "a Bot just outside ({ax}, {ay})");
+        let inside = w.make_unit(UnitKind::Scythe, ENEMY, ix, iy);
+        let outside = w.make_unit(UnitKind::Scythe, ENEMY, ox, oy);
+        assert!(
+            w.radio_boosted(inside) && !w.radio_stranded(inside),
+            "a Buggy just inside ({ax}, {ay})"
+        );
+        assert!(
+            !w.radio_boosted(outside) && w.radio_stranded(outside),
+            "a Buggy just outside ({ax}, {ay})"
+        );
     }
 }
 
 #[test]
-fn a_site_and_a_sentry_mast_give_no_range() {
-    // An Uplink under construction gives no range; nor does a finished Sentry mast; a finished Uplink does, to its own
-    // side only.
+fn a_site_and_a_sentry_mast_give_no_coverage() {
+    // An Uplink under construction gives none; nor does a finished Sentry mast; a finished Uplink does, to its own side
+    // only.
     let mut w = lane();
     w.make_building(BldgKind::Uplink, ENEMY, 19, 37, false);
     w.make_building(BldgKind::Ward, ENEMY, 23, 37, true);
     w.step();
-    assert!(!w.in_radio(ENEMY, px(20.0), px(40.0)), "a site: no range");
+    assert!(!w.in_radio(ENEMY, px(20.0), px(40.0)), "a site: none");
     assert!(
         !w.in_radio(ENEMY, px(24.0), px(38.0)),
-        "a Sentry mast: no range"
+        "a Sentry mast: none"
     );
-    let d = walked(&mut w, UnitKind::Scythe, 1);
-    let speed = UnitKind::Scythe.def().speed;
-    assert!((d - speed).abs() < 8.0, "no bonus by a mast: {d} px in 1 s");
     let mut w = lane();
     w.make_building(BldgKind::Uplink, ENEMY, 19, 37, true);
     assert!(w.in_radio(ENEMY, px(20.0), px(40.0)));
     assert!(
         !w.in_radio(PLAYER, px(20.0), px(40.0)),
-        "range is the side's own"
+        "coverage is the side's own"
     );
 }
 
 #[test]
-fn the_data_center_and_an_uplink_give_range_until_the_uplink_falls() {
+fn the_data_center_and_an_uplink_give_coverage_until_the_uplink_falls() {
     let mut w = lane();
     let hq = w
         .bldgs
@@ -153,9 +191,9 @@ fn the_data_center_and_an_uplink_give_range_until_the_uplink_falls() {
     assert!(!w.in_radio(ENEMY, hq.0, hq.1 + (CONFLUX_RANGE + 0.1) * 32.0));
     assert!(
         !w.in_radio(PLAYER, hq.0, hq.1),
-        "the Kingdom has no range of its own"
+        "the Kingdom has none of its own"
     );
-    // An Uplink: 12 tiles round its middle, from the tick it is done.
+    // An Uplink: 20 tiles round its middle on 64x64, from the tick it is done.
     let up = w.make_building(BldgKind::Uplink, ENEMY, 29, 39, true);
     let (ux, uy) = (30.5 * 32.0, 40.5 * 32.0);
     assert!(w.in_radio(ENEMY, ux + (UPLINK_RANGE - 0.1) * 32.0, uy));
@@ -163,13 +201,11 @@ fn the_data_center_and_an_uplink_give_range_until_the_uplink_falls() {
     let ver = w.radio_version();
     w.step();
     assert_eq!(w.radio_version(), ver, "nothing changed: not built again");
-    // Destroyed: its range goes with it (the next tick).
     w.damage(up, 1e9, None);
     assert!(w.bldg(up).is_none());
     w.step();
-    assert!(!w.in_radio(ENEMY, ux, uy), "the Uplink's range is gone");
+    assert!(!w.in_radio(ENEMY, ux, uy), "the Uplink's coverage is gone");
     assert!(w.in_radio(ENEMY, hq.0, hq.1), "the Data center's stays");
-    // The circles the client draws: the Data center's alone now, at its center with its reach; none for the Kingdom.
     assert_eq!(
         w.radio_circles(ENEMY),
         vec![hq.0, hq.1, CONFLUX_RANGE * 32.0]
@@ -178,8 +214,8 @@ fn the_data_center_and_an_uplink_give_range_until_the_uplink_falls() {
 }
 
 #[test]
-fn an_allys_range_counts() {
-    // Two Expedition seats on one team against two Kingdom seats, 96x96.
+fn an_allys_coverage_counts_and_an_uplink_reaches_farther_on_a_bigger_map() {
+    // Two Expedition seats on one team against two Kingdom seats, 96x96 (an Uplink's 24 tiles there).
     let mut w = World::with_size(
         5,
         1,
@@ -191,7 +227,6 @@ fn an_allys_range_counts() {
     assert!(w.set_teams(&[0, 0, 1, 1]));
     w.disable_ai();
     w.units.clear();
-    // A spot far from every Data center: an ally's Uplink there gives seat 0 range, not the enemy.
     let (tx, ty) = (4..92)
         .flat_map(|y| (4..92).map(move |x| (x, y)))
         .find(|&(x, y)| {
@@ -199,7 +234,7 @@ fn an_allys_range_counts() {
                 && w.can_place(BldgKind::Uplink, x, y, 1)
                 && (0..5).all(|dx| w.map.rock[w.map.idx(x + 3 + dx, y + 1)] == 0)
         })
-        .expect("a spot out of range");
+        .expect("a spot out of coverage");
     let (cx, cy) = ((tx as f64 + 1.5) * 32.0, (ty as f64 + 1.5) * 32.0);
     assert!(!w.in_radio(0, cx, cy));
     w.make_building(BldgKind::Uplink, 1, tx, ty, true);
@@ -209,150 +244,307 @@ fn an_allys_range_counts() {
         !w.in_radio(2, cx, cy) && !w.in_radio(3, cx, cy),
         "not the enemy's"
     );
-    // The circles the client draws for seat 0 hold its ally's Uplink (after its Data center), not the enemy's.
     let circles = w.radio_circles(0);
-    assert_eq!(circles[circles.len() - 3..], [cx, cy, UPLINK_RANGE * 32.0]);
+    assert_eq!(
+        circles[circles.len() - 3..],
+        [cx, cy, UPLINK_RANGE_BIG * 32.0]
+    );
     assert!(
         w.radio_circles(2)
             .chunks(3)
             .all(|c| c[0] != cx || c[1] != cy)
     );
-    // And seat 0's Bot beside it, out of its own seat's range, moves faster in its ally's.
+    // Seat 0's Buggy beside it, out of its own seat's coverage, moves faster in its ally's.
     let (bx, by) = (px(tx as f64 + 3.0), px(ty as f64 + 1.0));
-    let bot = w.make_unit(UnitKind::Lumen, 0, bx, by);
-    let speed = UnitKind::Lumen.def().speed;
-    w.move_to(bot, bx + 4.0 * 32.0, by);
-    run(&mut w, 1);
-    let d = w.unit(bot).unwrap().x - bx;
+    let buggy = w.make_unit(UnitKind::Scythe, 0, bx, by);
+    let speed = UnitKind::Scythe.def().speed;
+    w.move_to(buggy, bx + 4.0 * 32.0, by);
+    for _ in 0..15 {
+        w.step();
+    }
+    let d = (w.unit(buggy).unwrap().x - bx) * 2.0; // (px a second, over half a second)
     assert!(
         d > speed * 1.2,
-        "a Bot in its ally's range: {d} px in 1 s at {speed} px/s"
+        "a Buggy in its ally's coverage: {d} px in 1 s at {speed} px/s"
     );
 }
 
 #[test]
-fn a_drone_stops_at_its_leash_and_stays_there_and_fights_what_it_reaches_from_there() {
-    let mut w = lane();
-    let ward = w.make_building(BldgKind::Uplink, ENEMY, 19, 37, true);
-    let edge = UPLINK_RANGE * 32.0;
-    let leash = (UPLINK_RANGE + LEASH_MARGIN) * 32.0;
-    // Sent far east: it flies to the end of its leash, never past it, and stops there; idle within the leash, it stays.
-    let s = w.make_unit(UnitKind::Shrike, ENEMY, px(21.0), px(40.0));
-    w.move_to(s, px(45.0), px(40.0));
-    let mut farthest: f64 = 0.0;
-    for _ in 0..12 * TPS {
-        w.step();
-        farthest = farthest.max(dist_to(&w, s, ward));
+fn a_machine_ordered_past_coverage_stops_at_its_edge_stays_there_and_fights_what_it_reaches() {
+    for kind in [UnitKind::Scythe, UnitKind::Shrike] {
+        let mut w = lane();
+        let up = w.make_building(BldgKind::Uplink, ENEMY, 19, 37, true);
+        let edge = UPLINK_RANGE * 32.0;
+        // Sent far east: it goes to the edge, never past it, and stops there; idle at the edge, it stays.
+        let s = w.make_unit(kind, ENEMY, px(21.0), px(40.0));
+        w.move_to(s, px(50.0), px(40.0));
+        let mut farthest: f64 = 0.0;
+        for _ in 0..15 * TPS {
+            w.step();
+            farthest = farthest.max(dist_to(&w, s, up));
+        }
+        assert!(
+            farthest <= edge + 1.0 && farthest > edge - 12.0,
+            "{kind:?}: out to the edge: {farthest} px"
+        );
+        let d = dist_to(&w, s, up);
+        let task = w.unit(s).unwrap().task;
+        assert!(
+            d > edge - 12.0 && task == Task::Idle,
+            "{kind:?} stays at the edge: {d} px ({task:?})"
+        );
+        // Told to attack a building out of its reach from the edge: it does not go out there.
+        let depot = w.make_building(BldgKind::Depot, PLAYER, 47, 39, true);
+        w.attack_ent(s, depot);
+        for _ in 0..10 * TPS {
+            w.step();
+            assert!(dist_to(&w, s, up) <= edge + 1.0, "{kind:?} within coverage");
+        }
+        let b = w.bldg(depot).unwrap();
+        assert_eq!(b.hp, b.maxhp, "{kind:?}: the Depot is out of its reach");
+        // A building within its reach from the edge: it fights it from there.
+        let near = w.make_building(BldgKind::Depot, PLAYER, 41, 39, true);
+        w.attack_ent(s, near);
+        run(&mut w, 8);
+        assert!(
+            dist_to(&w, s, up) <= edge + 1.0,
+            "{kind:?} still within coverage"
+        );
+        let b = w.bldg(near).unwrap();
+        assert!(b.hp < b.maxhp, "{kind:?} strikes the near Depot from there");
     }
-    assert!(
-        farthest <= leash + 1.0 && farthest > leash - 8.0,
-        "out to the end of its leash: {farthest} px"
-    );
-    let d = dist_to(&w, s, ward);
-    let task = w.unit(s).unwrap().task;
-    assert!(
-        d > leash - 8.0 && task == Task::Idle,
-        "it stays at its leash: {d} px from the Uplink ({task:?})"
-    );
-    // Told to attack a building past its leash's reach, it does not chase it out there either.
-    let depot = w.make_building(BldgKind::Depot, PLAYER, 46, 39, true);
-    w.attack_ent(s, depot);
-    for _ in 0..12 * TPS {
-        w.step();
-        assert!(dist_to(&w, s, ward) <= leash + 1.0, "within its leash");
-    }
-    let b = w.bldg(depot).unwrap();
-    assert_eq!(b.hp, b.maxhp, "the Depot is out of its reach");
-    // A building within its reach of the end of its leash: it fights it from there.
-    let near = w.make_building(BldgKind::Depot, PLAYER, 38, 39, true);
-    w.attack_ent(s, near);
-    run(&mut w, 8);
-    let d = dist_to(&w, s, ward);
-    assert!(d > edge && d <= leash + 1.0, "out at its leash: {d} px");
-    let b = w.bldg(near).unwrap();
-    assert!(b.hp < b.maxhp, "it strikes the near Depot from there");
 }
 
 #[test]
-fn a_drone_left_beyond_its_leash_backs_off_inside_its_range() {
-    // Two Uplinks; the Drone rests by the eastern one. That one falls: beyond the western one's leash, it backs off
-    // inside that one's range.
+fn a_stranded_machine_fights_where_it_stands_and_walks_back_when_idle() {
+    // Two Uplinks; the Buggy rests by the eastern one. That one falls: out of the western one's coverage, it walks back
+    // inside it by itself, slowly; before, it answers what attacks it where it stands.
     let mut w = lane();
-    let west = w.make_building(BldgKind::Uplink, ENEMY, 19, 37, true);
-    let east = w.make_building(BldgKind::Uplink, ENEMY, 37, 37, true);
-    let s = w.make_unit(UnitKind::Shrike, ENEMY, px(43.0), px(40.0));
+    let west = w.make_building(BldgKind::Uplink, ENEMY, 13, 37, true);
+    let east = w.make_building(BldgKind::Uplink, ENEMY, 40, 37, true);
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, px(48.0), px(40.0));
     run(&mut w, 2);
-    assert!(dist_to(&w, s, west) > (UPLINK_RANGE + LEASH_MARGIN) * 32.0);
+    assert!(dist_to(&w, s, west) > UPLINK_RANGE * 32.0);
     assert_eq!(
         w.unit(s).unwrap().task,
         Task::Idle,
         "idle by the eastern Uplink"
     );
     w.damage(east, 1e9, None);
-    run(&mut w, 15);
-    let d = dist_to(&w, s, west);
+    w.step();
+    assert!(w.radio_stranded(s), "stranded");
+    run(&mut w, 40);
+    // (into its side's coverage: the Data center's or the western Uplink's, whichever edge is nearer)
+    let u = w.unit(s).unwrap();
     assert!(
-        d < UPLINK_RANGE * 32.0,
-        "back inside the western Uplink's range: {d} px"
+        w.in_radio(ENEMY, u.x, u.y) && !w.radio_stranded(s),
+        "back inside coverage: at ({:.0}, {:.0})",
+        u.x / 32.0,
+        u.y / 32.0
+    );
+    let _ = west;
+    // Stranded again, with a foe in reach: it fights it there.
+    let mut w = lane();
+    w.make_building(BldgKind::Uplink, ENEMY, 13, 37, true);
+    let east = w.make_building(BldgKind::Uplink, ENEMY, 40, 37, true);
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, px(48.0), px(40.0));
+    run(&mut w, 1);
+    w.damage(east, 1e9, None);
+    let foe = w.make_unit(UnitKind::Trooper, PLAYER, px(50.0), px(40.0));
+    w.hold_unit(foe);
+    run(&mut w, 3);
+    let f = w.unit(foe).unwrap();
+    assert!(f.hp < f.maxhp, "it fights where it stands");
+    assert!(w.radio_stranded(s), "still out there");
+}
+
+#[test]
+fn notches_between_two_overlapping_uplinks() {
+    // Two overlapping Uplinks make one connected coverage whose edge has notches where the circles meet. A machine sent
+    // from the middle of one to the middle of the other, on a straight line through the waist, gets there (the line
+    // stays in the union); one whose straight way clips a notch goes round it inside (`waist`, below).
+    let mut w = lane();
+    let a = w.make_building(BldgKind::Uplink, ENEMY, 13, 37, true);
+    let b = w.make_building(BldgKind::Uplink, ENEMY, 47, 37, true);
+    let (ax, ay, bx) = (
+        w.bldg(a).unwrap().x,
+        w.bldg(a).unwrap().y,
+        w.bldg(b).unwrap().x,
+    );
+    w.step();
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, ax + 32.0, ay);
+    w.move_to(s, bx - 32.0, ay);
+    run(&mut w, 20);
+    let u = w.unit(s).unwrap();
+    assert!(
+        (u.x - (bx - 32.0)).abs() < 40.0,
+        "across the waist: at {:.0}, wanted {:.0}",
+        u.x,
+        bx - 32.0
+    );
+}
+/// Two Uplinks of the Expedition overlapping in a narrow waist on open ground: their centers (px), and the waist's
+/// half height (tiles), about six. Nobody's AI: orders are a player's.
+fn waist() -> (World, (f64, f64), (f64, f64)) {
+    let mut w = lane();
+    flatten(&mut w, 6..58, 22..54);
+    assert!(w.set_ai_seats([false, false]));
+    let a = w.make_building(BldgKind::Uplink, ENEMY, 11, 37, true);
+    let b = w.make_building(BldgKind::Uplink, ENEMY, 49, 37, true);
+    let (a, b) = (w.bldg(a).unwrap(), w.bldg(b).unwrap());
+    let (a, b) = ((a.x, a.y), (b.x, b.y));
+    w.step();
+    let half = ((b.0 - a.0) / 2.0 / 32.0).powi(2);
+    let waist = (UPLINK_RANGE * UPLINK_RANGE - half).sqrt();
+    assert!(
+        waist > 4.0 && waist < 8.0,
+        "a narrow waist: {waist:.1} tiles"
+    );
+    (w, a, b)
+}
+
+#[test]
+fn a_machine_whose_straight_way_leaves_coverage_goes_round_inside_it() {
+    // Seven tiles off the line between the centers the straight way crosses the waist outside coverage: before, the
+    // machine stopped at the edge for good (and an attack order there never fired). Now its route keeps to the
+    // covered tiles: a Buggy sent across arrives, and one told to attack a Depot over there gets there and hits it,
+    // never leaving coverage on the way.
+    let (mut w, a, b) = waist();
+    let (y, from, to) = (a.1 + 7.0 * 32.0, a.0 + 4.0 * 32.0, b.0 - 4.0 * 32.0);
+    assert!(
+        !w.in_radio(ENEMY, (a.0 + b.0) / 2.0, y),
+        "the straight way leaves coverage"
+    );
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, from, y);
+    assert_eq!(w.apply(ENEMY, &Command::Move { unit: s, x: to, y }), Ok(()));
+    for _ in 0..40 * TPS {
+        w.step();
+        let u = w.unit(s).unwrap();
+        assert!(
+            w.in_radio(ENEMY, u.x, u.y),
+            "inside coverage all the way: ({:.0}, {:.0})",
+            u.x,
+            u.y
+        );
+    }
+    let u = w.unit(s).unwrap();
+    assert!(
+        jsmath::dist(u.x, u.y, to, y) < 40.0,
+        "arrived: at ({:.0}, {:.0}), wanted ({to:.0}, {y:.0})",
+        u.x,
+        u.y
+    );
+    // an attack order across the waist
+    let depot = w.make_building(
+        BldgKind::Depot,
+        PLAYER,
+        (b.0 / 32.0) as i32 - 3,
+        (y / 32.0) as i32 - 1,
+        true,
+    );
+    let k = w.make_unit(UnitKind::Scythe, ENEMY, from, y);
+    assert_eq!(
+        w.apply(
+            ENEMY,
+            &Command::Attack {
+                unit: k,
+                target: depot
+            }
+        ),
+        Ok(())
+    );
+    run(&mut w, 45);
+    assert!(
+        w.bldg(depot).is_none_or(|d| d.hp < d.maxhp),
+        "it got there and fired"
     );
 }
 
 #[test]
-fn an_expedition_waves_machines_keep_attacking_out_of_range() {
-    // The Expedition's AI against a Kingdom player who does nothing, two Rovers in its army from the start. Once its
-    // wave is out, a Rover of it told to attack the Kingdom's Core (far beyond its range, as the wave's `engage` does)
-    // keeps at it over the AI's next turns: machines are no slower out of range, so the AI calls none home for it.
-    let mut w = World::with_setup(3, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
-    let hq = w
-        .bldgs
-        .iter()
-        .find(|b| b.team == ENEMY && b.kind == BldgKind::Conflux)
-        .map(|b| (b.x, b.y))
-        .unwrap();
-    for k in 0..2 {
-        w.make_unit(
-            UnitKind::Monolith,
-            ENEMY,
-            hq.0 + 96.0,
-            hq.1 + 32.0 * k as f64,
+fn a_target_with_no_covered_way_to_it_stops_the_machine_at_the_edge_and_its_player_is_told() {
+    // A Depot well outside coverage, off the waist: a Buggy told to attack it goes as far as coverage allows and
+    // stops there, never firing, and its player hears why (once for the group).
+    let (mut w, a, b) = waist();
+    let mid = (a.0 + b.0) / 2.0;
+    let depot = w.make_building(
+        BldgKind::Depot,
+        PLAYER,
+        (mid / 32.0) as i32 - 1,
+        (a.1 / 32.0) as i32 + 20,
+        true,
+    );
+    let ks: Vec<Id> = (0..3)
+        .map(|i| {
+            w.make_unit(
+                UnitKind::Scythe,
+                ENEMY,
+                a.0 + 4.0 * 32.0,
+                a.1 + i as f64 * 24.0,
+            )
+        })
+        .collect();
+    w.events.clear();
+    for &k in &ks {
+        assert_eq!(
+            w.apply(
+                ENEMY,
+                &Command::Attack {
+                    unit: k,
+                    target: depot
+                }
+            ),
+            Ok(())
         );
     }
-    w.recalc_supply(ENEMY);
-    let core = w
-        .bldgs
+    let told = w
+        .events
         .iter()
-        .find(|b| b.team == PLAYER && b.kind.def().hq)
-        .map(|b| (b.id, b.x, b.y))
-        .unwrap();
-    assert!(!w.in_radio_by(ENEMY, core.1, core.2, 3.0));
-    let rover = loop {
-        w.step();
-        assert!(w.time < 300.0, "no wave");
-        if let Some(r) = w.ai_wave_of(ENEMY).and_then(|v| {
-            v.iter()
-                .copied()
-                .find(|&a| w.unit(a).is_some_and(|u| u.kind == UnitKind::Monolith))
-        }) {
-            break r;
-        }
-    };
-    w.attack_ent(rover, core.0);
-    for _ in 0..4 * 16 {
-        w.step();
-        let task = w.unit(rover).map(|u| u.task);
+        .filter(|e| matches!(e, Event::Toast { team, msg, bad: true } if *team == ENEMY && msg == NO_SIGNAL))
+        .count();
+    assert_eq!(told, 1, "told once: {:?}", w.events);
+    run(&mut w, 40);
+    let d = w.bldg(depot).unwrap();
+    assert_eq!(d.hp, d.maxhp, "out of its reach: never fired");
+    for &k in &ks {
+        let u = w.unit(k).unwrap();
+        // (within a tile of it: three at one spot of the edge jostle, and the push between units is not held at it)
+        assert!(w.in_radio_by(ENEMY, u.x, u.y, 1.0), "stopped at coverage");
         assert!(
-            matches!(task, Some(Task::Attack { target, .. }) if target == core.0),
-            "the Rover keeps attacking the Core: {task:?} at tick {}",
-            w.tick
+            !w.in_radio_by(ENEMY, u.x, u.y, -3.0),
+            "at its edge, as near as it gets: ({:.0}, {:.0})",
+            u.x,
+            u.y
         );
     }
+    // a way there through coverage: nothing said
+    w.events.clear();
+    let s = w.make_unit(UnitKind::Scythe, ENEMY, a.0 + 4.0 * 32.0, a.1);
+    assert_eq!(
+        w.apply(
+            ENEMY,
+            &Command::Move {
+                unit: s,
+                x: b.0,
+                y: b.1
+            }
+        ),
+        Ok(())
+    );
+    assert!(
+        !w.events
+            .iter()
+            .any(|e| matches!(e, Event::Toast { msg, .. } if msg == NO_SIGNAL))
+    );
 }
 
 #[test]
-fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
-    // The Expedition's AI against the Kingdom's, two Rovers in its army from the start: once its first wave is out (with
-    // them) and its satellite up, it raises an Uplink beyond its Data center's range on the way, and the wave goes on
-    // meanwhile.
+fn the_expedition_ai_pushes_an_uplink_then_its_machines() {
+    // The push (the arc: "an Uplink, then the machines"): the Expedition's AI against the Kingdom's (its buildings made
+    // to last), four Rovers and its satellite up from the start. With its goal out of its coverage its machines stay out
+    // of its waves, wait inside its coverage, and it raises Uplinks towards the goal: within eight minutes one stands
+    // farther towards the foe than its Data center's coverage reaches, and its machines stand nearer the foe than they
+    // began; none of them ever leaves its coverage while its Uplinks stand (by more than a tile and a half: a crowd at
+    // the edge jostles, the push between units is not held at it).
     for seed in [3, 11, 77] {
         let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert!(w.set_ai_seats([true, true]));
@@ -362,7 +554,7 @@ fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
             .find(|b| b.team == ENEMY && b.kind == BldgKind::Conflux)
             .map(|b| (b.x, b.y))
             .unwrap();
-        for k in 0..2 {
+        for k in 0..4 {
             w.make_unit(
                 UnitKind::Monolith,
                 ENEMY,
@@ -373,8 +565,6 @@ fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
         w.recalc_supply(ENEMY);
         w.res[ENEMY as usize][0] += 1000;
         w.upgrades[ENEMY as usize][Upgrade::Satellite.index()] = 1;
-        // (the Kingdom's buildings made to last: since the second round's slower economy the head start of two Rovers
-        // and 1000 gold can end the game before the march is long)
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
@@ -385,59 +575,54 @@ fn the_expedition_ai_places_a_forward_uplink_on_a_machine_waves_march() {
             .map(|b| (b.x, b.y))
             .unwrap();
         let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
-        // (beyond the Data center's range, nearer the foe than the Data center is)
-        let far = |_: &World, b: &endfall_sim::world::Bldg| {
-            d((b.x, b.y), hq) > CONFLUX_RANGE * 32.0 && d((b.x, b.y), foe) < d(hq, foe)
+        let nearest_machine = |w: &World| {
+            w.units
+                .iter()
+                .filter(|u| u.team == ENEMY && needs_range(u.kind))
+                .map(|u| d((u.x, u.y), foe))
+                .fold(f64::INFINITY, f64::min)
         };
-        let mut launched = None;
-        let mut forward = None;
+        let start = nearest_machine(&w);
+        let mut forward = false;
+        let mut uplinks_lost = false;
+        let mut seen = 0;
         while w.time < 480.0 && !w.over {
             w.step();
-            if launched.is_none()
-                && let Some(wave) = w.ai_wave_of(ENEMY)
-            {
-                let machines = wave
+            let ups = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && b.done)
+                .count();
+            uplinks_lost |= ups < seen;
+            seen = seen.max(ups);
+            forward |= w.bldgs.iter().any(|b| {
+                b.team == ENEMY
+                    && b.kind == BldgKind::Uplink
+                    && b.done
+                    && d((b.x, b.y), hq) > CONFLUX_RANGE * 32.0
+                    && d((b.x, b.y), foe) < d(hq, foe)
+            });
+            if !uplinks_lost && w.tick.is_multiple_of(30) {
+                for u in w
+                    .units
                     .iter()
-                    .any(|&a| w.unit(a).is_some_and(|u| needs_range(u.kind)));
-                assert!(machines, "seed {seed}: the Rovers go with the wave");
-                assert!(
-                    !w.bldgs
-                        .iter()
-                        .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && far(&w, b)),
-                    "seed {seed}: no forward Uplink before the wave"
-                );
-                launched = Some(w.time);
-            }
-            if launched.is_some()
-                && w.bldgs
-                    .iter()
-                    .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && far(&w, b))
-            {
-                forward = Some(w.time);
-                let site = w
-                    .bldgs
-                    .iter()
-                    .find(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && far(&w, b));
-                assert_eq!(
-                    w.ai_relay_site(ENEMY),
-                    site.map(|b| b.id),
-                    "seed {seed}: the wave's forward Uplink"
-                );
-                assert!(
-                    w.ai_wave_of(ENEMY).is_some(),
-                    "seed {seed}: the wave is still out, not held for it"
-                );
-                break;
+                    .filter(|u| u.team == ENEMY && needs_range(u.kind))
+                {
+                    assert!(
+                        w.in_radio(ENEMY, u.x, u.y) || w.in_radio_by(ENEMY, u.x, u.y, 1.5),
+                        "seed {seed}: a {:?} out of coverage at {:.0} s ({:?})",
+                        u.kind,
+                        w.time,
+                        u.task
+                    );
+                }
             }
         }
-        let t0 = launched.unwrap_or_else(|| panic!("seed {seed}: no wave"));
-        let t1 = forward.unwrap_or_else(|| panic!("seed {seed}: no forward Uplink (wave at {t0:.0} s, now {:.0} s, over {}, res {:?})", w.time, w.over, w.res[ENEMY as usize]));
-        // (within four minutes: at the second round's slower income its 150 gold comes slowly beside the wave's
-        // reinforcements; the Expedition's own PR makes the Uplink the push's first step)
+        assert!(forward, "seed {seed}: an Uplink pushed towards the foe");
         assert!(
-            t1 - t0 < 240.0,
-            "seed {seed}: a forward Uplink {} s after the wave went",
-            t1 - t0
+            nearest_machine(&w) < start,
+            "seed {seed}: its machines nearer the foe ({:.0} px from {start:.0})",
+            nearest_machine(&w)
         );
     }
 }

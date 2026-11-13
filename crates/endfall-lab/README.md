@@ -14,6 +14,7 @@ npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<comm
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
+npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 ```
 
@@ -76,6 +77,15 @@ how many shards a point of ether is worth in practice, the evidence for the shee
 What a game records: units trained (not the starting workers) and lost, and buildings finished (not the starting
 headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
+
+### A human's opening
+
+The AIs spend every coin at once, so the gold checks never show what a person feels. `report` also plays a plain
+scripted player alone (no AI, no foe moving), three map seeds a people and size: workers to its crew, supply when
+short, a production building from 1:00, a second once the first stands, then units from each, one at a time, saving
+for the first thing it cannot pay for (human.rs). Over 2:00-6:00 it gives the bank (median, most), the share of the
+time it waits for gold and the share of its production buildings' time busy, then its bank each minute to 8:00. The
+target (the PM, Nov 13): one production building kept busy or a second one built, not both, and no bank piling up.
 
 ### The Kingdom by game length, and the top tier
 
@@ -248,6 +258,26 @@ level (each against itself) and attacking people in "The waves"; `turtle` sums t
 the turtle by map and people. "Arrived (to no defence)" counts arrivals with nothing armed within 8 tiles: the defence
 was elsewhere; the ratio's quartiles are over the defended ones. Each game's JSON lists its waves.
 
+### `bets`
+
+The game's core decision (Stelian, Nov 12): a player bets on an army and defenses for a short game, or on the tech
+path for strong late units, and a wrong bet should lose. Three plans a side, each Medium's tuning with a few settings
+moved (`bets.rs`, set per seat through `World::set_ai_plans`, lab only):
+
+- **rush** (army first): three barracks and its first wave at 2:30, no tech building (so no top tier, no siege, no Lab
+  units), no towers, no research, its expansion at 10:00;
+- **defense** (towers first, then an army): six towers by 5:30 (`Diff::towers`), its first wave at 8:00;
+- **tech** (straight to the top tier): its tech building at 1:00 (`Diff::tech_at`), its side's techs and the satellite
+  at once (`Diff::tech_from`), its vehicle bay and air factory early, the top tier mixed in early and thick (a Knight per
+  two Guards, a Cannon per three, an Android per Sellsword), one barracks to start, its first wave at 9:00.
+
+Every ordered pair of two different plans in each people's mirror (six) and every pair across the peoples in either
+seating (eighteen), map seeds 1 to `--seeds` (20) on `--size` (64) Standard maps, a `--cap` (30 min) after which a game
+is a timeout. The report gives, per people's mirror and across the peoples, the 3x3 of the row plan's wins against the
+column plan (both seatings pooled, timeouts apart, with 95% intervals), the same in games over 15 minutes, the median
+lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
+over 15 minutes, each at 55–70%.
+
 ### `turtle`
 
 A Medium AI seat that never attacks (Medium's tuning with `first` = never, so no wave launches, and no raids, since
@@ -260,5 +290,6 @@ per pairing, per map and in all, with its wins, the timeouts and the median leng
 turtle keeps Medium's raids: `first` = never alone, the PRD's letter), `--weak` (the weak turtle: Easy's economy on one
 base, the newcomer), `--attacker-level` (the attacker's whole tuning; Medium by default), `--cap MIN` (30),
 `--threads N`, `--out FILE`. A turtle that does not lose before the tide is Medium's weakness, not the tide's. "The
-first hit" gives, of each game, when the attacker's first wave arrived, and how many games were hit before 8:00: with
-`--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when a passive newcomer first meets Easy.
+first hit" gives, of each game, when the attacker's first wave arrived, how many games were hit before 8:00, and that
+wave's units (median, most): with `--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when, and with
+how many, a passive newcomer first meets Easy (since Nov 13: no sooner than 7:45, and four units at most).

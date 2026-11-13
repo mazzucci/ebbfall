@@ -14,6 +14,9 @@ use endfall_sim::map::MapKind;
 
 const TPS: f64 = 30.0;
 const PEOPLE: [&str; 2] = ["Humans", "Vael"];
+/// A game's first hit: the tick its attacker's first wave arrived and that wave's units (None: none arrived).
+type FirstHit = Option<(u32, usize)>;
+
 /// A first hit before this (s) is early for a newcomer (the weak turtle against Easy).
 const EARLY_HIT: f64 = 480.0;
 
@@ -306,8 +309,8 @@ impl TurtleRun {
     }
 
     /// The first hit, by map and the attacker's people, then in all: of each game's attacker, the tick its first
-    /// wave arrived (None: no wave of it ever arrived).
-    fn first_hits(&self) -> Vec<(String, Vec<Option<u32>>)> {
+    /// wave arrived and that wave's units as it went (None: no wave of it ever arrived).
+    fn first_hits(&self) -> Vec<(String, Vec<FirstHit>)> {
         let hits = |keep: &dyn Fn(&Cell) -> bool| {
             let mut v = vec![];
             for (c, ws) in self.cells.iter().zip(&self.waves) {
@@ -315,7 +318,7 @@ impl TurtleRun {
                     v.push(
                         ws.iter()
                             .filter(|w| w.seat as usize != c.turtle)
-                            .filter_map(|w| w.arrived.map(|a| a.tick))
+                            .filter_map(|w| w.arrived.map(|a| (a.tick, w.units)))
                             .min(),
                     );
                 }
@@ -514,20 +517,29 @@ impl TurtleRun {
             s += &w.row(&label);
         }
         s += &format!(
-            "\n## The first hit\n\nOf each game, when the attacker's first wave arrived (a unit within {} tiles of a turtle's building): the earliest, the quartiles and how many games were hit before {}.\n\n| Attacker | Games | Hit | Earliest | 25% | Median | 75% | Hit before {} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n",
+            "\n## The first hit\n\nOf each game, when the attacker's first wave arrived (a unit within {} tiles of a turtle's building): the earliest, the quartiles and how many games were hit before {}; and that wave's units as it went (median, most).\n\n| Attacker | Games | Hit | Earliest | 25% | Median | 75% | Hit before {} | Units (median, most) |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n",
             waves::REACH,
             mmss(EARLY_HIT),
             mmss(EARLY_HIT)
         );
         for (label, hits) in self.first_hits() {
-            let mut at: Vec<f64> = hits.iter().flatten().map(|&t| t as f64 / TPS).collect();
+            let mut at: Vec<f64> = hits
+                .iter()
+                .flatten()
+                .map(|&(t, _)| t as f64 / TPS)
+                .collect();
+            let mut units: Vec<usize> = hits.iter().flatten().map(|&(_, n)| n).collect();
+            units.sort_unstable();
+            let units = units
+                .get(units.len() / 2)
+                .map_or("—".into(), |m| format!("{m}, {}", units[units.len() - 1]));
             at.sort_by(f64::total_cmp);
             let q = |f: f64| {
                 at.get(((at.len() as f64 - 1.0) * f).round() as usize)
                     .map_or("—".into(), |&t| mmss(t))
             };
             s += &format!(
-                "| {label} | {} | {} | {} | {} | {} | {} | {} |\n",
+                "| {label} | {} | {} | {} | {} | {} | {} | {} | {units} |\n",
                 hits.len(),
                 at.len(),
                 q(0.0),
@@ -694,6 +706,10 @@ mod tests {
         assert!(hits.iter().all(|(_, v)| v.iter().all(Option::is_none)));
         assert_eq!(hits.last().map(|(_, v)| v.len()), Some(24));
         assert!(r.markdown("test").contains("| **All** | 24 | 0 | — |"));
+        assert!(
+            r.markdown("test").contains("| 0 | — |\n"),
+            "no wave: no units"
+        );
     }
 
     #[test]

@@ -419,8 +419,9 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
             g.wave <= 4,
             "{ctx}: the first wave is half the guide's army"
         );
+        // (driven off: since Nov 13 Easy's clumsy wave gives up on contact and walks home, the guide's army standing)
         assert!(
-            g.kills + 1 >= g.wave,
+            g.kills + 1 >= g.wave || g.army_left >= g.wave,
             "{ctx}: the wave is destroyed or driven off"
         );
         assert!(g.core, "{ctx}: the Lighthouse stands");

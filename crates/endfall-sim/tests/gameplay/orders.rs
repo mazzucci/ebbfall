@@ -187,9 +187,9 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 
 #[test]
 fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge() {
-    // The Kingdom: the Barracks (Guards, Archers), then the Stables (they need a Market; Riders; Knights once the Forge
-    // stands) and the Workshop (the Balloon; Ballistas and Cannons once the Forge stands). No building trains a
-    // healer.
+    // The Kingdom: the Barracks (Guards, Archers), then the Workshop (the Balloon; Ballistas and Cannons once the Forge
+    // stands) and, after the Forge (serial since the arc, Nov 13: the top tier's way), the Stables (Riders, Knights). No
+    // building trains a healer.
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
     for k in [BldgKind::Airfield, BldgKind::Factory] {
@@ -197,7 +197,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         assert_eq!(
             w.place_building(PLAYER, k, tx, ty, Some(h[1])),
             Err(format!("Requires {}", k.def().req.unwrap().def().name)),
-            "cavalry (off the Market) and machines (off the Barracks): {k:?}"
+            "cavalry (off the Blacksmith) and machines (off the Barracks): {k:?}"
         );
     }
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
@@ -207,13 +207,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         "no healer in the build"
     );
     let fac = build(&mut w, BldgKind::Factory, h[3], 120);
-    build(&mut w, BldgKind::Extractor, h[2], 120); // (the Stables need a Market)
-    let stables = build(&mut w, BldgKind::Airfield, h[1], 120);
-    for (at, k) in [
-        (fac, UnitKind::Bastion),
-        (fac, UnitKind::SiegeTank),
-        (stables, UnitKind::Knight),
-    ] {
+    for (at, k) in [(fac, UnitKind::Bastion), (fac, UnitKind::SiegeTank)] {
         assert_eq!(
             w.queue_unit(at, k),
             Err("Requires Blacksmith".into()),
@@ -230,11 +224,18 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         w.queue_unit(fac, UnitKind::Observer).is_ok(),
         "no Forge for a Balloon"
     );
-    assert!(
-        w.queue_unit(stables, UnitKind::Rider).is_ok(),
-        "nor for a Rider"
+    let (tx, ty) = spot(&w, BldgKind::Airfield);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
+        Err("Requires Blacksmith".into()),
+        "the Stables after the Blacksmith"
     );
     build(&mut w, BldgKind::Forge, h[2], 120);
+    let stables = build(&mut w, BldgKind::Airfield, h[1], 120);
+    assert!(
+        w.queue_unit(stables, UnitKind::Rider).is_ok(),
+        "a Rider at once"
+    );
     for (at, k) in [
         (fac, UnitKind::Bastion),
         (fac, UnitKind::SiegeTank),
@@ -246,18 +247,17 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
-    // The Expedition: the Recruiting post (Sellswords; Bruisers once a Lab stands) needs nothing, the Factory (Buggies,
-    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Androids) an Uplink, which needs
-    // the satellite, launched at the Data center once the Lab stands.
+    // The Expedition (the arc, Nov 13): the Recruiting post (Sellswords; Bruisers once a Lab stands) and the Sentry mast
+    // need nothing, the Factory (Buggies; Drones once a Lab stands) and the Lab need the post, the Portal (Androids and
+    // Rovers) an Uplink, which needs the satellite, launched at the Lab.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
-    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
+    for k in [BldgKind::Kiln, BldgKind::Loom] {
         assert!(!w.has_req(PLAYER, k), "{k:?} waits for the Recruiting post");
     }
-    assert!(
-        w.has_req(PLAYER, BldgKind::Siphon),
-        "the Recruiting post needs nothing"
-    );
+    for k in [BldgKind::Siphon, BldgKind::Ward] {
+        assert!(w.has_req(PLAYER, k), "{k:?} needs nothing");
+    }
     let post = build(&mut w, BldgKind::Siphon, l[0], 150);
     build(&mut w, BldgKind::Spire, l[3], 90); // (room for them all)
     for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
@@ -277,36 +277,35 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         "a Sellsword at once"
     );
     let kiln = build(&mut w, BldgKind::Kiln, l[1], 150);
-    for k in [UnitKind::Scythe, UnitKind::Shrike] {
-        assert!(w.queue_unit(kiln, k).is_ok(), "{k:?}");
-    }
+    assert!(w.queue_unit(kiln, UnitKind::Scythe).is_ok(), "a Buggy");
+    assert_eq!(
+        w.queue_unit(kiln, UnitKind::Shrike),
+        Err("Requires Lab".into())
+    );
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Monolith),
-        Err("Requires Lab".into())
+        Err("Factory cannot train that".into()),
+        "the Rover comes through the Portal"
     );
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Halo),
         Err("Factory cannot train that".into()),
         "no healer in the build"
     );
-    build(&mut w, BldgKind::Loom, l[2], 150);
+    let lab = build(&mut w, BldgKind::Loom, l[2], 150);
     assert!(
         w.queue_unit(post, UnitKind::Bruiser).is_ok(),
         "once the Lab stands"
     );
+    assert!(w.queue_unit(kiln, UnitKind::Shrike).is_ok(), "a Drone too");
     assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "not the Lab alone");
-    let dc = w
-        .bldgs
-        .iter()
-        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
-        .unwrap()
-        .id;
-    assert!(w.start_research(dc, Upgrade::Satellite).is_ok());
-    run(&mut w, 61);
+    assert!(w.start_research(lab, Upgrade::Satellite).is_ok());
+    run(&mut w, Upgrade::Satellite.time(1) as u32 + 1);
     build(&mut w, BldgKind::Uplink, l[3], 150);
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
+    assert!(w.queue_unit(portal, UnitKind::Monolith).is_ok());
     assert!(!UnitKind::Umbra.def().air, "the Android is a ground unit");
 }
 

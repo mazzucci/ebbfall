@@ -71,6 +71,13 @@ pub struct Diff {
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
+    /// Clumsy waves (Easy; Stelian, Nov 13: "first attack only with 3-4 units; it should give up and retreat
+    /// quickly"): `wave_only` sends just its wave's size (`wave`, growing by `wave_grow`), the rest staying home;
+    /// `retreat_any` pulls a wave back when outmatched (`retreat_below`) whatever the foe has done; and a wave pulls
+    /// back once fewer than `give_up` tenths of it are left (4 on every level but Easy's 7).
+    pub wave_only: bool,
+    pub retreat_any: bool,
+    pub give_up: usize,
     /// The most advanced units it trains (`UnitKind::ai_tier`): 0 its line units, their anti-air and the scout (Easy),
     /// 1 its raiders, siege, anti-air vehicles, Androids and Drones too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
@@ -84,6 +91,19 @@ pub struct Diff {
     /// round's 25 its all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where the old
     /// cap sent its gold to its machines and Portal instead.
     pub line_max: i32,
+    /// When it raises its tech building (`AiScript::tech`: the Blacksmith, the Lab), its barracks standing: 2:30 on
+    /// every level (the balance lab's plans move it).
+    pub tech_at: f64,
+    /// The times (s) from which it wants each of its towers (`AiScript::tower`), one more at each, sites counted: 2:30
+    /// and 8:00 on every level (a bank it cannot spend must not go into towers).
+    pub towers: &'static [f64],
+    /// The most towers of a kind it raises at this level, below `towers` (matched by kind: a race whose tower is not
+    /// named builds all of them). Easy and Medium's Expedition, one Sentry mast: two held its base against waves long
+    /// past the 10-15 minutes Medium is for, its gold better spent on its army.
+    pub tower_max: &'static [(super::BldgKind, usize)],
+    /// Its side's tech time (`AiScript::tech_from`: its techs, its satellite's launch, its second tech building) at
+    /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
+    pub tech_from: f64,
 }
 
 impl Diff {
@@ -121,8 +141,8 @@ pub const DIFF: [Diff; 4] = [
     // factory to spend on.
     Diff {
         income: 1.0,
-        wave: 4,
-        wave_grow: 2,
+        wave: 4, // (its first wave: four of the Kingdom's, three of the Expedition's (its `wave_scale`), the rest at home)
+        wave_grow: 1, // (its waves grow slowly: 4, 5, 6 ... to 12; the Expedition's at its 0.6)
         harv: 7,
         rax: 2, // (two Barracks from the start: the Expedition's Recruiting posts are its places and its factories, so with
         // the higher caps' hired places its Easy line outgrew one Barracks' before the 7:45 wave)
@@ -154,10 +174,17 @@ pub const DIFF: [Diff; 4] = [
         passive_expand: NEVER,
         max_bases: 2,
         reserve: 0.0,
-        retreat_below: 0.0,
+        retreat_below: 1.2, // (it gives up on contact with a defence near its own worth)
+        wave_only: true,
+        retreat_any: true,
+        give_up: 7,
         mix_tier: 0,
         mix_over: &[],
-        line_max: 15,
+        line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tower_max: &[(super::BldgKind::Ward, 1)],
+        tech_from: NEVER,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -181,7 +208,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 4,
-        wave_max: 14,
+        wave_max: 24, // (14 before the arc: under caps of 100 and more, waves of fourteen trickled in and the games stalled)
         supply_at_once: 1,
         expands_when_dry: true,
         extras_after_expanding: false,
@@ -191,16 +218,23 @@ pub const DIFF: [Diff; 4] = [
         margin_fade: NEVER,
         sighting_age: 120.0,
         look_for: 60.0,
-        all_in_after: NEVER,
+        all_in_after: 300.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        wave_only: false,
+        retreat_any: false,
+        give_up: 4,
         mix_tier: 1,
         mix_over: &[],
         line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tower_max: &[(super::BldgKind::Ward, 1)],
+        tech_from: NEVER,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -221,7 +255,7 @@ pub const DIFF: [Diff; 4] = [
         answers: true,
         abilities: true,
         supply_ahead: 6,
-        wave_max: 16,
+        wave_max: 26,
         supply_at_once: 1,
         expands_when_dry: true,
         extras_after_expanding: false,
@@ -231,16 +265,23 @@ pub const DIFF: [Diff; 4] = [
         margin_fade: NEVER,
         sighting_age: 120.0,
         look_for: 60.0,
-        all_in_after: NEVER,
+        all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        wave_only: false,
+        retreat_any: false,
+        give_up: 4,
         mix_tier: 2,
         mix_over: &[],
         line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tower_max: &[],
+        tech_from: NEVER,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -275,17 +316,24 @@ pub const DIFF: [Diff; 4] = [
         margin_fade: NEVER,
         sighting_age: 120.0,
         look_for: 60.0,
-        all_in_after: NEVER,
+        all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
         max_bases: 4,
         reserve: 0.25,
         retreat_below: 1.0,
+        wave_only: false,
+        retreat_any: false,
+        give_up: 4,
         mix_tier: 2,
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
         mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
         line_max: 0,
+        tech_at: 150.0,
+        towers: &[150.0, 480.0],
+        tower_max: &[],
+        tech_from: NEVER,
     },
 ];

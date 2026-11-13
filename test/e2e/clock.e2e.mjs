@@ -53,7 +53,7 @@ async function buildAndFinish(d, hotkey, type, i) {
   assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(x => x.id === id)?.done, b.id, { seconds: 120 }), `${type} done`);
   return b;
 }
-/** Select building `id` by a click or tap; the command card's height and its buttons' rows once it shows. */
+/** Select `id` (a building, or a unit) by a click or tap; the command card's height and its buttons' rows once it shows. */
 async function cardOf(d, id) {
   for (let i = 0; i < 8 && !(await d.selection()).some(e => e.id === id); i++) { if (i) await d.page.waitForTimeout(200); await d.clickEntity(id); }
   await d.page.waitForFunction(() => document.querySelectorAll('#cmd button').length > 0, null, { timeout: 5000 });
@@ -71,10 +71,14 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       await d.grant(4000, 0);
       await buildAndFinish(d, 'i', 'siphon', 0);
       const lab = await buildAndFinish(d, 'g', 'loom', 1);
-      const hq = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'conflux');
-      const two = await cardOf(d, hq.id), one = await cardOf(d, lab.id);
-      assert.equal(two.rows, 2, 'the Data center: two rows of buttons');
-      assert.equal(one.rows, 1, 'the Lab: one row of buttons');
+      // (one row: a building site's card, its Cancel alone; the Lab's five researches since the arc fill two rows)
+      const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
+      const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
+      await d.buildWithUI('s', 'spire', spot.tx, spot.ty, s.units.filter(u => u.team === 0 && u.type === 'lumen')[2].id);
+      const site = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'spire' && !b.done);
+      const one = await cardOf(d, site.id), two = await cardOf(d, lab.id);
+      assert.equal(two.rows, 2, 'the Lab: two rows of buttons');
+      assert.equal(one.rows, 1, 'a building site: one row of buttons');
       assert.equal(one.height, two.height, `the card as tall for one row as for two: ${JSON.stringify({ one, two })}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }

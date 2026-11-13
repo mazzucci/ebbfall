@@ -74,8 +74,12 @@ export function placesTip(t) {
   return '';
 }
 
-/** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on. */
-const depth = (k) => (BUILDINGS[k].req ? 1 + depth(BUILDINGS[k].req) : 0);
+/** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on; one waiting on a
+ *  research, one past the building that researches it (the Uplink after the Lab). */
+const depth = (k) => {
+  const d = BUILDINGS[k], up = d.reqUp && UPGRADES[d.reqUp]?.req;
+  return d.req ? 1 + depth(d.req) : up ? 1 + depth(up) : 0;
+};
 /** A Build list page in the order its buildings unlock: by requirement depth, the page's own order breaking ties. */
 const byUnlock = (page) => page.map((k, i) => [k, i, depth(k)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([k]) => k);
 
@@ -97,12 +101,15 @@ export function cardItems() {
   // once (Stelian, Nov 11: no empty slots), and keep them for the game (Nov 12: a newly opened building is appended and
   // never moves the others, the Uplink too, which opens with the satellite rather than a building).
   const open = (k) => hasReq(G.me, k);
+  // (a building that waits on a research alone, the Uplink on the satellite, shows locked from the first: its
+  // requirement in its tip and on a long press, and its slot kept for when it opens; the arc, Nov 13)
+  const locked = (k) => !open(k) && BUILDINGS[k].reqUp && !BUILDINGS[k].req;
   const back = { id: 'esc', label: 'Back', key: 'Esc', cancel: true, icon: 'back' };
   if (units.length && (ui.mode === 'build' || ui.mode === 'build2')) {
     const f = myFaction(), adv = ui.mode === 'build2', page = adv ? f.buildAdvanced : f.buildBasic, slots = pageSlots(adv ? 'build2' : 'build');
     const kept = (it) => at(pageSlot(slots, it.id), it);
     at(CORNER, adv ? { ...back, id: 'build1' } : back); // (Back first: it keeps the bottom-right slot on both pages)
-    byUnlock(page).filter(open).forEach(k => kept(bldgItem(k)));
+    byUnlock(page).filter(k => open(k) || locked(k)).forEach(k => kept(locked(k) ? { ...bldgItem(k), dis: true } : bldgItem(k)));
     (adv ? f.buildBasic : f.buildAdvanced).filter(open).forEach(k => hidden(bldgItem(k))); // B then K still builds a Workshop from the keyboard
     // Advanced only once something on it can be built (the Barracks or the Recruiting post stands), in the first free
     // slot then (after the three buildings open from the start: slot 3, the second row's left).
@@ -111,7 +118,7 @@ export function cardItems() {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // the Vael regenerate shields instead
+    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Gather', key: 'G', icon: 'gather' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // (both peoples repair buildings now; kept for one that does not)
     const abilities = abilityItems(units);
     // Every button ability the selection has, hidden ones too: the room they take, so the card keeps its shape (Deselect
     // in its place) when a tech lands.

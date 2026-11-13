@@ -18,15 +18,18 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
     w.damage(site, 1e6, None);
     let market = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
     let mined = w.ledger[PLAYER as usize].mined[0];
-    run(&mut w, 2);
-    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first 2 s");
+    run(&mut w, 4);
+    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first 4 s");
     run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 3 s");
-    run(&mut w, 57);
-    assert_eq!(w.res[PLAYER as usize], [21, 0], "21 gold a minute");
+    assert_eq!(
+        w.res[PLAYER as usize][0], 1,
+        "one gold after 5 s (0.24 a second since Nov 13)"
+    );
+    run(&mut w, 55);
+    assert_eq!(w.res[PLAYER as usize], [14, 0], "14 gold a minute");
     assert_eq!(
         w.ledger[PLAYER as usize].mined[0] - mined,
-        21,
+        14,
         "counted as mined"
     );
     assert!(
@@ -106,7 +109,7 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
 
 #[test]
 fn an_ai_market_pays_at_its_levels_income() {
-    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (27 gold a minute, not 21: 27.3, banked a
+    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (18 gold a minute, not 14: 18.7, banked a
     // whole gold at a time).
     let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
     assert!(w.set_ai_seats([false, true]));
@@ -120,7 +123,7 @@ fn an_ai_market_pays_at_its_levels_income() {
     w.make_building(BldgKind::Extractor, ENEMY, vx, vy, true);
     w.res[ENEMY as usize] = [0, 0];
     run(&mut w, 60);
-    assert_eq!(w.res[ENEMY as usize][0], 27);
+    assert_eq!(w.res[ENEMY as usize][0], 18);
 }
 
 #[test]
@@ -663,8 +666,8 @@ fn either_half_mines_its_field_alike() {
             run(&mut w, 180);
             let mined = |t: usize| w.ledger[t].mined[0];
             let (m0, m1) = (mined(0), mined(1));
-            // (over 1000 by 3:00 with a load of 16; half that since the economy pass's 8)
-            assert!(m0 > 500, "seed {seed} {kind:?}: the harvesters mine ({m0})");
+            // (over 1000 by 3:00 with a load of 16; half that since the economy pass's 8; less since Nov 13's cut)
+            assert!(m0 > 350, "seed {seed} {kind:?}: the harvesters mine ({m0})");
             // (a delivery or two apart at most: mirrored positions round differently in the last bits)
             assert!(
                 (m0 - m1).abs() <= 20,

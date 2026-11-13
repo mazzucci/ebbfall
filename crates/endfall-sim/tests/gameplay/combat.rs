@@ -672,6 +672,9 @@ fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
     let mate = w.make_unit(UnitKind::Lancer, PLAYER, 31.0 * TILE, 32.0 * TILE);
     let raider = w.make_unit(UnitKind::Shrike, ENEMY, 30.0 * TILE, 38.0 * TILE);
     w.hold_unit(raider);
+    // (made to last: the swarm Drone is fragile, and the Archers' first volley must not end the scene)
+    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
+    (o.hp, o.maxhp) = (1e6, 1e6);
     run(&mut w, 1);
     w.damage(me, 1.0, Some(raider));
     assert_eq!(target_of(&w, me), Some(raider));
@@ -907,9 +910,9 @@ fn shields_take_hits_first_and_come_back_out_of_combat() {
 }
 
 #[test]
-fn nothing_has_shields_and_bots_do_not_repair() {
-    // No shields since the re-theme (the mechanism stays, as data): no unit or building has any, and a Bot still
-    // cannot repair, so a damaged Expedition building stays damaged.
+fn nothing_has_shields_and_bots_repair_buildings_only() {
+    // No shields since the re-theme (the mechanism stays, as data): no unit or building has any. A Bot repairs a
+    // damaged building as a Villager does (the arc, Nov 13: an Uplink, say), and no machine: those are not repaired.
     for k in BLDG_KINDS {
         assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
     }
@@ -917,22 +920,27 @@ fn nothing_has_shields_and_bots_do_not_repair() {
         assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
     }
     let mut w = rich_vael(4242);
+    w.upgrades[PLAYER as usize][Upgrade::Satellite.index()] = 1;
     let l = harvesters(&w, PLAYER);
-    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
-    w.damage(spire, 50.0, None);
-    let b = w.bldg(spire).unwrap();
+    let uplink = build(&mut w, BldgKind::Uplink, l[0], 120);
+    w.damage(uplink, 300.0, None);
+    let b = w.bldg(uplink).unwrap();
     assert_eq!((b.sh, b.maxsh), (0.0, 0.0));
-    assert!(b.hp < b.maxhp, "the hull took it");
-    let hull = b.hp;
-    assert!(!w.can_repair(l[1], spire), "a Lumen cannot repair");
-    assert!(!w.start_repair(l[1], spire));
-    run(&mut w, 20);
-    assert_eq!(
-        w.bldg(spire).unwrap().hp,
-        hull,
-        "the hull never heals by itself"
-    );
-    // The humans still repair.
+    let (hull, max) = (b.hp, b.maxhp);
+    assert!(hull < max, "the hull took it");
+    assert!(w.can_repair(l[1], uplink), "a Bot repairs an Uplink");
+    let spent = w.ledger[PLAYER as usize].spent[0];
+    assert!(w.start_repair(l[1], uplink));
+    run(&mut w, 60);
+    assert_eq!(w.bldg(uplink).unwrap().hp, max, "repaired in full");
+    assert!(w.ledger[PLAYER as usize].spent[0] > spent, "at a price");
+    // A machine is not repaired.
+    let (x, y) = (w.unit(l[1]).unwrap().x, w.unit(l[1]).unwrap().y);
+    let buggy = w.make_unit(UnitKind::Scythe, PLAYER, x + 40.0, y);
+    w.damage(buggy, 30.0, None);
+    assert!(!w.can_repair(l[1], buggy), "a Bot cannot repair a Buggy");
+    assert!(!w.start_repair(l[1], buggy));
+    // The Kingdom still repairs.
     let mut w = rich(4242);
     let h = harvesters(&w, PLAYER);
     let depot = build(&mut w, BldgKind::Depot, h[0], 90);
@@ -946,7 +954,7 @@ fn a_monolith_splashes_with_its_own_numbers() {
     w.factions = vec![&VAEL, &HUMANS];
     let d = UnitKind::Monolith.def();
     let wp = d.weapon.unwrap();
-    assert_eq!((wp.splash, wp.splash_r), (0.5, 44.0));
+    assert_eq!((wp.splash, wp.splash_r), (0.6, 54.0));
     let m = w.make_unit(UnitKind::Monolith, PLAYER, 560.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 930.0); // 30 px: in its splash
@@ -967,7 +975,11 @@ fn a_monolith_splashes_with_its_own_numbers() {
         wp.dmg.min(start[0]),
         "the target takes the shot"
     );
-    assert_eq!(start[1] - lost[1], wp.dmg * 0.5, "its neighbour takes half");
+    assert_eq!(
+        start[1] - lost[1],
+        wp.dmg * wp.splash,
+        "its neighbour takes its splash share"
+    );
 }
 
 #[test]

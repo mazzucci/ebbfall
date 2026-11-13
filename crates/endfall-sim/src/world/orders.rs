@@ -136,6 +136,11 @@ impl World {
         {
             return Err(format!("Requires {}", r.def().name));
         }
+        if let Some(r) = b.kind.def().trains_with
+            && !self.has_bldg(team, r)
+        {
+            return Err(format!("Needs a standing {}.", r.def().name));
+        }
         if qlen >= crate::data::QUEUE_MAX {
             return Err("Queue is full".into());
         }

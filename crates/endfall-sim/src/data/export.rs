@@ -154,6 +154,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         Effect::Speed(u) => ("speed", u.def().key),
         Effect::BuildSpeed => ("build", ""),
         Effect::Launch => ("launch", ""),
+        Effect::MineLoad => ("mine", ""),
     };
     Obj::new()
         .str("name", d.name)
@@ -208,6 +209,7 @@ pub fn data_json() -> String {
         .num("tech_speed", TECH_SPEED)
         .num("tech_build", TECH_BUILD)
         .num("pump_rate", PUMP_RATE)
+        .raw("drill_load", array(DRILL_LOAD))
         .done();
     Obj::new()
         .raw("consts", consts)
@@ -240,13 +242,17 @@ fn radio_json() -> String {
         .iter()
         .filter(|&&k| radio::needs_range(k))
         .map(|k| quote(k.def().key));
-    let sources = BLDG_KINDS
-        .iter()
-        .filter(|&&k| radio::range_of(k) > 0.0)
-        .map(|k| (k.def().key, radio::range_of(*k).to_string()));
+    let sources = |w: i32| {
+        BLDG_KINDS
+            .iter()
+            .filter(|&&k| radio::range_of(k, 64) > 0.0)
+            .map(move |k| (k.def().key, radio::range_of(*k, w).to_string()))
+    };
     Obj::new()
         .raw("machines", array(machines))
-        .raw("sources", map(sources))
+        .raw("sources", map(sources(64)))
+        .raw("sourcesBig", map(sources(96)))
+        .num("stranded", radio::STRANDED_SPEED)
         .num("boost", radio::IN_RANGE_SPEED)
         .num("leash", radio::LEASH_MARGIN)
         .done()

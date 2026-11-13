@@ -58,7 +58,7 @@ const U = {
   knight: ['M5 21V11.5C5 7 8 5 12 5s7 2 7 6.5V21zM5 13.5h14M12 16.5v3M12 5C12.5 2.5 15.5 1 20 1.8c-2.6 1-4.4 2.8-5.3 5.2', 'M5 21V11.5C5 7 8 5 12 5s7 2 7 6.5V21zM12 5C12.5 2.5 15.5 1 20 1.8c-2.6 1-4.4 2.8-5.3 5.2z'], // Knight: a great helm with a plume sweeping back (the glyph round after #277: the bare helm read as a bucket)
   bastion: ['M4 15.5 19.5 6M16 2.5q5.5 3.5 1.5 9.5M6.5 18.5h11M6.5 18.5a3 3 0 1 0 .01 0M17.5 18.5a3 3 0 1 0 .01 0', 'M6.5 18.5a3 3 0 1 0 .01 0zM17.5 18.5a3 3 0 1 0 .01 0z'], // Ballista, side on: a stock angled up with its bow arm at the head, on a two-wheel carriage (the glyph round: the front view was a tangle)
   siegeTank: ['M3 13.3 18 4.3l2 3.4-15 9zM10 12.5a4.5 4.5 0 1 0 .01 0M10 17h.01', 'M3 13.3 18 4.3l2 3.4-15 9z'], // Cannon: a barrel on a wheel
-  observer: ['M3 18V9.5L5 4h4l1 5.5V18M21 18V9.5L19 4h-4l-1 5.5V18M10 10.5h4M6.5 14a3.5 3.5 0 1 0 .01 0M17.5 14a3.5 3.5 0 1 0 .01 0', 'M6.5 14a3.5 3.5 0 1 0 .01 0zM17.5 14a3.5 3.5 0 1 0 .01 0z'], // Balloon (the scout): binoculars
+  observer: ['M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 4.5 5.5 6.5 7 8h3c1.5-1.5 7-3.5 7-8A8.5 8.5 0 0 0 12 1.5zM10 18v2.5M14 18v2.5M9 20.5h6V23H9z', 'M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 4.5 5.5 6.5 7 8h3c1.5-1.5 7-3.5 7-8A8.5 8.5 0 0 0 12 1.5z'], // Balloon: a wide teardrop envelope over a hanging basket (the glyph round: the narrow one read as a light bulb)
   medic: who('M17.5 7v12M11.5 13h12', 'M15.5 7h4v4h4v4h-4v4h-4v-4h-4v-4h4z'), // Healer: a person and a cross (no building trains one)
   // the Kingdom's buildings
   core: ['M3 21V5h4v3h3.5V5h3v3H17V5h4v16zM9.5 21v-4a2.5 2.5 0 0 1 5 0v4', 'M3 21V5h4v3h3.5V5h3v3H17V5h4v16z'], // Castle: a wall, three merlons and a gate

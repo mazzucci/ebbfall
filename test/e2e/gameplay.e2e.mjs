@@ -1694,16 +1694,16 @@ test('as the Expedition: the top bar shows gold as coins and Power, whole, on a 
       const s = await d.state();
       assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'Power: used over made');
       assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Power');
-      assert.equal(await d.page.locator('#top .res').count(), 2, 'gold and Power only: no hired places on top');
+      assert.equal(await d.page.locator('#top .res:not(#resClock)').count(), 2, 'gold and Power only (and the clock): no hired places on top');
       assert.ok(await d.eval(() => getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'gold shown with its coins');
       // Every figure and button whole and on the screen, with wide figures (set and measured in one go: the HUD
       // writes its own back on its next tick).
       const boxes = await d.eval(() => {
-        document.getElementById('rShard').textContent = '12500'; document.getElementById('rSupply').textContent = '76/80';
+        document.getElementById('rShard').textContent = '12500'; document.getElementById('rSupply').textContent = '76/80'; document.getElementById('rClock').textContent = '58:58';
         return [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && !e.classList.contains('spacer')).map(e => { const r = e.getBoundingClientRect(); return { id: e.id, l: r.left, r: r.right, cut: [...e.querySelectorAll('*')].some(c => c.scrollWidth > c.clientWidth + 1 && getComputedStyle(c).display !== 'inline') }; });
       });
       const bar = await d.eval(() => { const r = document.getElementById('top').getBoundingClientRect(); return [Math.max(0, r.left), Math.min(innerWidth, r.right)]; }); // (and on the screen)
-      assert.deepEqual(boxes.map(b => b.id).filter(id => id.startsWith('res')), ['resShard', 'resSup']);
+      assert.deepEqual(boxes.map(b => b.id).filter(id => id.startsWith('res')), ['resShard', 'resSup', 'resClock']);
       assert.ok(boxes.some(b => b.id === 'btnPause'), 'Pause shown');
       for (const [i, b] of boxes.entries()) {
         assert.ok(b.l >= bar[0] && b.r <= bar[1], `${b.id} inside the bar on screen (${JSON.stringify(b)} in ${bar})`);
@@ -2234,12 +2234,12 @@ test('the HUD tells the first enemy flyer seen, and an army wiped out', async ()
   } finally { await d.close(); }
 });
 
-test('the screen is lean: resources, supply, full screen, sound and pause on top, no empty panel; the clock lives in the pause card', async () => {
+test('the screen is lean: resources, supply, the game clock, full screen, sound and pause on top, no empty panel; the clock in the pause card too', async () => {
   for (const dev of [DESKTOP, PHONE]) {
     const d = await newGame(dev, 1, 4242, { ai: false });
     try {
       const shown = await d.eval(() => [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && getComputedStyle(e).display !== 'none' && !e.classList.contains('spacer')).map(e => e.id || e.className));
-      const want = ['resShard', 'resSup', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
+      const want = ['resShard', 'resSup', 'resClock', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
       assert.deepEqual(shown, want, 'the top bar at the start: ' + shown.join(' '));
       assert.ok(await d.page.locator('#info').isHidden(), 'nothing selected: no panel');
       await d.skip(30);

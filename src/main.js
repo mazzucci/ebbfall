@@ -12,6 +12,7 @@ import { fx, burst, hit, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
+import { updateClock } from './client/clock.js';
 import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
@@ -229,7 +230,7 @@ function loop(now) {
   const draw = started && now - drawn >= (running() ? 12 : 50);
   if (draw) { drawn = now; render(ui.sel, ui.place); }
   if (probe.on) probe.lap('render', draw);
-  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
+  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateClock(); updateTools(); updateTutorial(); } }
   if (probe.on) probe.lap('end');
   requestAnimationFrame(loop);
 }

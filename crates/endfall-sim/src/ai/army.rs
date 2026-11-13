@@ -660,11 +660,13 @@ impl World {
         ai.prong = order[..split].to_vec();
     }
 
-    /// A clumsy level's wave that gave up or fell (`Diff::wave_only`) does not grow the next: its first hit stays its first
-    /// wave's size (three or four units) however often it turns back.
+    /// A clumsy level's wave that gave up or fell (`Diff::wave_only`) does not grow the next until 12:00 and a wave of its
+    /// has reached the foe (`Diff::clumsy_until`): its first hit stays its first wave's size (three or four units) however
+    /// often it turns back; after that its waves grow by one each, still clumsy.
     fn no_growth_after_giving_up(&mut self) {
         let d = self.level();
-        if d.wave_only {
+        // (until 12:00 and a wave has reached the foe: then each grows by one whatever, `Diff::clumsy_until`)
+        if d.wave_only && (self.time < d.clumsy_until || !self.ai().reached) {
             let ai = self.ai_mut();
             ai.wave = ai.wave.saturating_sub(d.wave_grow).max(d.wave);
         }
@@ -2267,28 +2269,30 @@ mod tests {
     }
 
     #[test]
-    fn easy_stays_clumsy_until_a_wave_has_reached_the_foe() {
-        // Past 12:00 Easy's waves stay clumsy until one of them has come within reach of a building of the foe it knows
-        // (`Ai::reached`): a newcomer's first hit is three or four units however late it comes (the lab's newcomer:
-        // in 22 of 77 games the first wave to arrive, after 12:00, was a whole army of up to 38).
+    fn easy_s_waves_grow_by_one_after_12_00_and_a_hit_still_clumsy() {
+        // Stelian, Nov 13: after 12:00 Easy's waves grow slowly from three or four, still clumsy (just their size) and
+        // quick to give up, never its whole army. A wave that gives up does not grow the next before 12:00, nor after it
+        // until a wave has reached the foe; then it does, by one.
         let (mut w, _, _) = ready_with(0, DIFF[0]);
-        w.time = 800.0;
-        assert!(w.level().wave_only, "past 12:00, not reached yet: clumsy");
-        w.ai_mut().reached = true;
-        assert!(!w.level().wave_only, "reached: whole armies");
-    }
-
-    #[test]
-    fn easy_is_clumsy_until_12_00_only() {
-        // `Diff::clumsy_until`: Easy's waves are its clumsy ones (just their size, giving up on contact) until 12:00, then
-        // whole armies that pull back as Medium's do and wait for an edge (`Diff::at`); the other levels never change.
-        let (early, late) = (DIFF[0].at(700.0), DIFF[0].at(720.0));
-        assert!(early.wave_only && early.retreat_any && early.give_up == 7);
-        assert!(!late.wave_only && !late.retreat_any && late.give_up == 4);
-        assert!(late.wave_margin >= 1.3 && late.all_in_after <= 300.0);
-        for d in &DIFF[1..] {
-            assert_eq!(d.at(0.0), *d);
-            assert_eq!(d.at(3000.0), *d);
+        for (t, reached, grows) in [
+            (700.0, true, false),
+            (800.0, false, false),
+            (800.0, true, true),
+        ] {
+            w.time = t;
+            w.ai_mut().reached = reached;
+            w.ai_mut().wave = 5; // (its launch grew it from 4)
+            w.no_growth_after_giving_up();
+            assert_eq!(
+                w.ai().wave,
+                if grows { 5 } else { 4 },
+                "at {t}, reached {reached}"
+            );
         }
+        let d = w.level();
+        assert!(
+            d.wave_only && d.retreat_any && d.give_up == 7,
+            "still clumsy past 12:00"
+        );
     }
 }

@@ -3,10 +3,6 @@
 
 /// A time for a step it never takes.
 pub const NEVER: f64 = f64::MAX;
-/// Past its clumsy waves (`Diff::clumsy_until`) a level's wave waits for this edge over the army it expects, as
-/// Medium's does, and goes all in after this many seconds without one (`Diff::at`).
-const LATE_MARGIN: f64 = 1.3;
-const LATE_ALL_IN: f64 = 300.0;
 
 /// AI tuning per difficulty. `first`/`gap`: seconds before the first wave and between waves. `extra_rax`: main
 /// factories it may add beyond its schedule (`rax`, one more after 5 and 9 minutes) to spend shards piling up.
@@ -82,9 +78,10 @@ pub struct Diff {
     pub wave_only: bool,
     pub retreat_any: bool,
     pub give_up: usize,
-    /// Until when (s) those clumsy waves last: past it (Easy: 12:00), once a wave of its has reached the foe (`Ai::reached`:
-    /// a newcomer's first hit stays a clumsy one), its waves are whole armies that pull back as every level's do
-    /// (`Diff::at`), so its games end (with its waves at three or four for good, Easy against Easy, and
+    /// Until when (s) a clumsy wave that gave up or fell does not grow the next: past it (Easy: 12:00), once a wave of its
+    /// has reached the foe (`Ai::reached`: a newcomer's first hit stays three or four units), each wave is one more than
+    /// the last, still clumsy and quick to give up (Stelian, Nov 13: slowly from three or four, never its whole army), so
+    /// its games end (with its waves at three or four for good, Easy against Easy, and
     /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
     pub clumsy_until: f64,
     /// The most advanced units it trains from the start (`UnitKind::ai_tier`): 0 its line units and the scout (Easy),
@@ -124,21 +121,6 @@ pub struct Diff {
 }
 
 impl Diff {
-    /// This tuning as it plays at game time `t` (s): past `clumsy_until` its waves are no longer clumsy.
-    pub fn at(self, t: f64) -> Diff {
-        if t < self.clumsy_until {
-            return self;
-        }
-        Diff {
-            wave_only: false,
-            retreat_any: false,
-            give_up: self.give_up.min(4),
-            wave_margin: self.wave_margin.max(LATE_MARGIN),
-            all_in_after: self.all_in_after.min(LATE_ALL_IN),
-            ..self
-        }
-    }
-
     /// A race's mix entry as this level plays it (`mix_over`).
     pub fn mix_entry(&self, entry: (super::UnitKind, usize, f64)) -> (super::UnitKind, usize, f64) {
         self.mix_over

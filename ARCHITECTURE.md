@@ -180,8 +180,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       upgrades.rs (Launch satellite among them: the Expedition's, at its Lab, once, told to its own
                       seat alone, the Uplink's requirement; Better drills, two levels at the Lab: a Bot's load
                       `DRILL_LOAD` more), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
-                      climbing to its top tier late and Medium's from 8:00; Easy's clumsy waves until `clumsy_until`,
-                      `Diff::at`),
+                      climbing to its top tier late and Medium's from 8:00; Easy's clumsy waves growing by one from
+                      `clumsy_until`),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
                       machines need signal, what gives it and how far, the bonus inside and the stranded speed), export.rs (the tables as
                       JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and
@@ -254,8 +254,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`, `retreat_any`, `give_up`):
                       its waves are just their size (its first three or four units at 7:45, the rest at home), growing
                       by one, and they give up and walk home on contact with a defense near their worth or after early
-                      losses, until 12:00 and a wave of its has reached the foe (`clumsy_until`, `Ai::reached`; then
-                      whole armies that wait for an edge). A level may cap a
+                      losses, for good: until 12:00 and a wave of its has reached the foe (`clumsy_until`,
+                      `Ai::reached`) a wave that gave up does not grow the next, then each grows by one. A level may cap a
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
                       90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees

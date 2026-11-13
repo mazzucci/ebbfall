@@ -300,9 +300,10 @@ fn a_walker_sent_out_to_sea_stops_on_the_nearest_shore() {
 #[test]
 fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
     // Humans against the Vael at each level, each people from each start: every game ends within 40 minutes (as the
-    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal). (Easy too: its
-    // waves are clumsy until 12:00 only, `Diff::clumsy_until`.)
-    for diff in 0..4 {
+    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal). (Easy left out:
+    // its waves grow by one at a time after 12:00, clumsy for good (Stelian, Nov 13), and on the Shore an Easy game may
+    // run on for hours.)
+    for diff in 1..4 {
         for (races, seed) in [
             ([&HUMANS, &VAEL], 1 + diff as u32),
             ([&VAEL, &HUMANS], 11 + diff as u32),

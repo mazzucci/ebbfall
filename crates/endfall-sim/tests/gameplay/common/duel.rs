@@ -165,6 +165,35 @@ fn fight(ka: &[UnitKind], kb: &[UnitKind], off: (f64, f64), micro: Micro) -> f64
     alive(&w, &ia) / sa - alive(&w, &ib) / sb
 }
 
+/// `n` of `a` against `m` of `b` (whatever they cost), played both ways round and from three spawn offsets: the
+/// median of what is left of each, as a share of what it brought (+: `a`'s side won).
+pub fn duel_n(a: UnitKind, n: usize, b: &[UnitKind], m: usize, micro: Micro) -> f64 {
+    let ka = vec![a; n];
+    let kb: Vec<UnitKind> = (0..m).map(|i| b[i % b.len()]).collect();
+    let mut r: Vec<f64> = [(0.0, 0.0), (0.0, 13.0), (9.0, -7.0)]
+        .iter()
+        .map(|&off| (fight(&ka, &kb, off, micro) - fight(&kb, &ka, off, micro)) / 2.0)
+        .collect();
+    r.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    r[1]
+}
+
+/// The most of `line` (by gold, as a share of `n` `top` units' price) that `n` of `top` beat: the first share, in steps
+/// of a tenth from a half, at which the line wins.
+pub fn breakeven(top: UnitKind, n: usize, line: &[UnitKind], micro: Micro) -> f64 {
+    let per: f64 = line.iter().map(|&k| unit_value(k)).sum::<f64>() / line.len() as f64;
+    let budget = unit_value(top) * n as f64;
+    let mut r = 0.5;
+    while r < 4.0 {
+        let m = (budget * r / per).round().max(1.0) as usize;
+        if duel_n(top, n, line, m, micro) < 0.0 {
+            return m as f64 * per / budget;
+        }
+        r += 0.1;
+    }
+    r
+}
+
 /// A duel played both ways round (who spawns first updates first) and from three spawn offsets; the median.
 pub fn duel(a: &[UnitKind], b: &[UnitKind], budget: f64) -> f64 {
     duel_with(a, b, budget, no_micro)

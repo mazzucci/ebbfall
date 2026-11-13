@@ -7,6 +7,7 @@ pub mod batch;
 pub mod bets;
 pub mod compare;
 pub mod first_wave;
+pub mod human;
 pub mod json;
 pub mod minutes;
 pub mod model;

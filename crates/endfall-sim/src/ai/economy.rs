@@ -91,12 +91,22 @@ impl World {
         self.crew_of(e, self.tuning(e).harv + EXP_CREW * (cores >= 2) as usize)
     }
 
-    /// A crew of `n` in seat `e`'s workers: the levels' crews are written for a mine of `CREW_CAP` inside at once, and
-    /// a people whose worker fits more (eight Villagers) or fewer (five Bots) keeps as many more or fewer
-    /// (Stelian, Nov 12: the Kingdom many and cheap, the Expedition few and efficient).
+    /// A crew of `n` in seat `e`'s workers, sized by income: the levels' crews are written for a mine of `CREW_CAP`
+    /// inside at once, so the worker a mine fits most of (`MINE_CAP_MOST`: eight Villagers) keeps as many more, and
+    /// any other people's crew brings in at least as much gold a trip as that one (five Bots fit a mine, but each
+    /// carries more: fewer of them, as much income). Sized by the mine's cap instead, the Expedition's crew mined
+    /// some 15% less than the Kingdom's on every level, and Easy's, with no machines, lost every game (the PM, Nov
+    /// 13; Stelian, Nov 12: the Kingdom many and cheap, the Expedition few and efficient).
     pub(crate) fn crew_of(&self, e: u8, n: usize) -> usize {
-        let cap = self.factions[e as usize].worker.def().mine_cap as usize;
-        (n * cap + CREW_CAP / 2) / CREW_CAP
+        let most = FACTIONS
+            .iter()
+            .map(|f| f.worker.def())
+            .max_by_key(|w| w.mine_cap)
+            .unwrap();
+        let reference = (n * MINE_CAP_MOST as usize + CREW_CAP / 2) / CREW_CAP;
+        let gold = reference * most.mine_load as usize;
+        let load = self.factions[e as usize].worker.def().mine_load.max(1) as usize;
+        gold.div_ceil(load)
     }
 
     /// More harvesters while short of the target; an expansion gets five from the main base.

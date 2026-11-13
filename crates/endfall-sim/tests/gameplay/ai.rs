@@ -1,6 +1,7 @@
 //! The scripted opponent: it finishes games, scouts, raids, expands, retreats, answers flyers.
 
 use super::common::*;
+use endfall_sim::data::radio::needs_range;
 
 #[test]
 fn the_ai_finishes_games_on_every_difficulty() {
@@ -1388,7 +1389,8 @@ fn the_ai_keeps_a_few_fighters_at_its_expansion() {
 
 #[test]
 fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
-    // Easy, rich and left alone for 12 minutes: no research, no air factory, its natural only after 9:00.
+    // Easy, rich and left alone for 12 minutes: no research and no air factory before 9:00 (they come later: its
+    // tier climbs, `Diff::tier_at`), its natural only after 9:00.
     let mut w = World::new(17, 0);
     let c = w
         .bldgs
@@ -1397,11 +1399,28 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
         .unwrap();
     c.hp = 1e9;
     c.maxhp = 1e9;
-    for _ in 0..30 * 720 {
+    let (mut research_at_9, mut air_at_9) = (0, 0);
+    for tick in 0..30 * 720 {
         w.res[ENEMY as usize] = [2000, 1000];
         w.step();
         w.events.clear();
+        if tick == 30 * 535 {
+            let f = w.factions[ENEMY as usize];
+            // (the Expedition's satellite aside: launched on every level, its way to the Portal)
+            research_at_9 = w.upgrades[ENEMY as usize].iter().sum::<u8>()
+                - w.upgrades[ENEMY as usize][Upgrade::Satellite.index()];
+            air_at_9 = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == f.ai.air)
+                .count();
+        }
     }
+    assert_eq!(
+        (research_at_9, air_at_9),
+        (0, 0),
+        "no research, no air factory before 9:00"
+    );
     let f = w.factions[ENEMY as usize];
     let mine = |k: BldgKind| {
         w.bldgs
@@ -1414,13 +1433,7 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
         1,
         "its tech building stands (so no research is a choice)"
     );
-    assert_eq!(
-        w.upgrades[ENEMY as usize].iter().sum::<u8>(),
-        0,
-        "no research"
-    );
     assert_eq!(mine(f.hq), 2, "its natural, late");
-    assert_eq!(mine(f.ai.air), 0, "no air factory");
     // (two bases' crews, and the one spare a person's AI keeps for its builder)
     assert!(
         harvesters(&w, ENEMY).len() <= DIFF[0].harv + 5 + 1,
@@ -1498,7 +1511,7 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         // (main factories and a vehicle bay: both count against the schedule)
         let factories =
             |w: &World| count(w, f_ai.ai.rax) + f_ai.ai.heavy.map_or(0, |h| count(w, h));
-        let mut hqs_at_9 = 0;
+        let (mut hqs_at_9, mut research_at_10) = (0, 0);
         // (the Expedition's line at its maximum of hired places after its natural: no factory can grow it)
         let mut line_full = false;
         while w.time < 960.0 {
@@ -1506,6 +1519,10 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
             w.events.clear();
             if (w.time - 535.0).abs() < 0.02 {
                 hqs_at_9 = count(&w, f_ai.hq);
+            }
+            if (w.time - 595.0).abs() < 0.02 {
+                let sat = w.upgrades[ENEMY as usize][Upgrade::Satellite.index()];
+                research_at_10 = w.upgrades[ENEMY as usize].iter().sum::<u8>() - sat;
             }
             if w.time > 600.0 && f_ai.power {
                 line_full |= w.pool(ENEMY, Pool::Hired)[0] >= w.pool_max(ENEMY, Pool::Hired);
@@ -1526,13 +1543,8 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
             "{name}: its schedule's factories: {}, or its line at its maximum",
             factories(&w)
         );
-        // (but the Expedition's satellite, launched on every level: its way to the Portal)
-        let sat = w.upgrades[ENEMY as usize][Upgrade::Satellite.index()];
-        assert_eq!(
-            w.upgrades[ENEMY as usize].iter().sum::<u8>() - sat,
-            0,
-            "{name}: still no research"
-        );
+        // (but the Expedition's satellite, launched on every level: its way to the Portal; its research from 10:00)
+        assert_eq!(research_at_10, 0, "{name}: no research before 10:00");
     }
 }
 
@@ -2000,6 +2012,135 @@ fn a_seat_s_plan_replaces_its_level_s_tuning() {
         "the quick plan's wave before its level's own first wave could leave ({a:.0} s, Medium {} s)",
         DIFF[1].first
     );
+}
+
+/// An Easy game, the Kingdom against the Expedition, both AIs.
+fn easy_game(seed: u32) -> World {
+    let mut w = World::with_setup(seed, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    assert!(w.set_ai_seats([true, true]));
+    w
+}
+
+#[test]
+fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
+    // Easy is clumsy (Stelian, Nov 13: "first attack only with 3-4 units"): with twenty fighters each at home from the
+    // start, its first wave goes no sooner than 7:45 with four of the Kingdom's and three of the Expedition's (its
+    // `wave_scale`), the rest staying home.
+    let mut w = easy_game(4);
+    for s in 0..2u8 {
+        let (bx, by) = w.map.bases[s as usize];
+        let kind = if s == 0 {
+            UnitKind::Trooper
+        } else {
+            UnitKind::Prism
+        };
+        for i in 0..20 {
+            let (x, y) = (
+                (bx as f64 + 2.0) * 32.0 + 70.0 + (i % 5) as f64 * 22.0,
+                (by as f64 + 2.0) * 32.0 + 90.0 + (i / 5) as f64 * 22.0,
+            );
+            w.make_unit(kind, s, x, y);
+        }
+        w.recalc_supply(s);
+    }
+    let mut first: [Option<(f64, usize)>; 2] = [None; 2];
+    while w.time < 600.0 && first.iter().any(Option::is_none) && w.winner < 0 {
+        w.step();
+        w.events.clear();
+        for s in 0..2u8 {
+            if first[s as usize].is_none()
+                && let Some(wave) = w.ai_wave_of(s)
+            {
+                first[s as usize] = Some((w.time, wave.len()));
+            }
+        }
+    }
+    let [(kt, kn), (et, en)] = first.map(|f| f.expect("a first wave"));
+    assert!(
+        kt >= 465.0 && et >= 465.0,
+        "no sooner than 7:45: {kt:.0} s, {et:.0} s"
+    );
+    assert_eq!(
+        (kn, en),
+        (4, 3),
+        "four of the Kingdom's, three of the Expedition's"
+    );
+}
+
+#[test]
+fn easy_climbs_its_tier_as_the_game_goes_on() {
+    // Easy is no longer held to its line units (Stelian, Nov 13): its tier rises with the clock (`Diff::tier_at`). The
+    // Expedition trains no Buggy, Drone or Rover before 9:00, and some by 12:00; its Uplink stands before its first
+    // Buggy (its machines go out behind coverage, the push), and none of its machines leaves coverage while it has
+    // some (a tile and a half: a crowd at the edge jostles).
+    let mut w = easy_game(4);
+    for b in w.bldgs.iter_mut() {
+        (b.hp, b.maxhp) = (1e9, 1e9);
+    }
+    let tier1 = |k: UnitKind| matches!(k, UnitKind::Scythe | UnitKind::Shrike | UnitKind::Monolith);
+    let (mut first, mut uplink) = (None::<f64>, None::<f64>);
+    while w.time < 720.0 {
+        w.step();
+        w.events.clear();
+        if first.is_none() && w.units.iter().any(|u| u.team == ENEMY && tier1(u.kind)) {
+            first = Some(w.time);
+        }
+        if uplink.is_none()
+            && w.bldgs
+                .iter()
+                .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && b.done)
+        {
+            uplink = Some(w.time);
+        }
+        if w.tick % 30 == 0 {
+            for u in w
+                .units
+                .iter()
+                .filter(|u| u.team == ENEMY && needs_range(u.kind))
+            {
+                assert!(
+                    w.in_radio_by(ENEMY, u.x, u.y, 1.5),
+                    "a {:?} out of coverage at {:.0} s",
+                    u.kind,
+                    w.time
+                );
+            }
+        }
+    }
+    let first = first.expect("a machine of its higher tier by 12:00");
+    assert!(first > 540.0, "none before 9:00: {first:.0} s");
+    assert!(
+        uplink.is_some_and(|u| u < first),
+        "its Uplink ({uplink:?}) before its first machine of the tier ({first:.0} s)"
+    );
+}
+
+#[test]
+fn each_people_s_ai_crew_is_sized_by_income_not_by_its_mine_cap() {
+    // (the PM, Nov 13) On every level, with one base and with two, the Expedition's AI trains enough Bots to bring in
+    // at least as much gold a trip as the Kingdom's Villagers, and no more than one Bot's load beyond: fewer workers
+    // (a Bot carries 13 to a Villager's 10), as much income. Sized by the mine's cap (five Bots to eight Villagers), it
+    // mined some 15% less, and Easy's Expedition lost every game.
+    for level in 0..DIFF.len() {
+        let mut w = World::with_setup(4, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        assert!(w.set_ai_seats([true, true]));
+        let load = |s: u8| w.factions[s as usize].worker.def().mine_load as usize;
+        for cores in [1, 2] {
+            let (k, e) = (
+                w.harv_target_of(PLAYER, cores),
+                w.harv_target_of(ENEMY, cores),
+            );
+            let (kg, eg) = (k * load(PLAYER), e * load(ENEMY));
+            assert!(
+                e < k,
+                "level {level}, {cores} bases: fewer Bots ({e}) than Villagers ({k})"
+            );
+            assert!(
+                eg >= kg && eg < kg + load(ENEMY),
+                "level {level}, {cores} bases: {e} Bots bring {eg} a trip to {k} Villagers' {kg}"
+            );
+        }
+    }
 }
 
 #[test]

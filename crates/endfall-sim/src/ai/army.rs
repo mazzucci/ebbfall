@@ -532,6 +532,12 @@ impl World {
         if !self.strong_enough(army, t) {
             return;
         }
+        // (a clumsy level sends only its wave's size, its oldest units; the rest stay home)
+        let army = if d.wave_only {
+            &army[..need.min(army.len())]
+        } else {
+            army
+        };
         let stage = if d.stage > 0.0 {
             self.stage_point((gx, gy), d.stage)
         } else {
@@ -1128,7 +1134,11 @@ impl World {
         let stalled = alive.iter().all(|&a| held(self, a));
         if alive.is_empty() {
             self.ai_mut().attacking = false;
-        } else if lost || left == 0 || stalled || (wave_size >= 4 && left * 10 < wave_size * 4) {
+        } else if lost
+            || left == 0
+            || stalled
+            || (wave_size >= 4 && left * 10 < wave_size * self.level().give_up)
+        {
             // Pull the survivors back instead of feeding them in one by one.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
@@ -1139,7 +1149,7 @@ impl World {
             ai.attacking = false;
             ai.attackers = None;
             ai.last_wave = t;
-        } else if self.passive_foe(t) && self.outmatched(&alive) {
+        } else if (self.level().retreat_any || self.passive_foe(t)) && self.outmatched(&alive) {
             // Outmatched on contact with a passive foe: back to its rally, where its reserve and towers meet whoever chases it.
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
@@ -1755,6 +1765,73 @@ mod tests {
         w.ai_mut().known.push(foe);
         w.tend_scout(&harv);
         assert_eq!(w.ai().scout, None, "the foe's: done");
+    }
+
+    #[test]
+    fn easy_gives_up_on_contact_and_its_survivors_go_home() {
+        // Easy is clumsy (Stelian, Nov 13: "it should give up and retreat quickly"): its wave is its four (the rest stay
+        // home), and meeting a defence near its own worth it walks home whatever the foe has done before (no passive
+        // foe needed, `Diff::retreat_any`); against less it fights on.
+        let scene = |enemies: usize| {
+            let (mut w, army, mut b) = ready_with(0, DIFF[0]);
+            b.t = 480.0; // (past its first wave's 7:45)
+            w.ai_army(&mut b);
+            assert!(w.ai().attacking, "its first wave goes");
+            let wave = w.ai().attackers.clone().unwrap();
+            assert_eq!(wave.len(), 4, "four go");
+            assert!(
+                army.iter().filter(|a| !wave.contains(a)).count() == 6,
+                "six stay home"
+            );
+            let (gx, gy) = w.attack_target();
+            let (mx, my) = ((b.rally.x + gx) / 2.0, (b.rally.y + gy) / 2.0);
+            for (i, &a) in wave.iter().enumerate() {
+                let u = w.um(a);
+                (u.x, u.y) = (mx + i as f64 * 20.0, my);
+                u.task = Task::Idle;
+            }
+            for i in 0..enemies {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    0,
+                    mx + 120.0 + (i % 5) as f64 * 20.0,
+                    my + (i / 5) as f64 * 20.0,
+                );
+            }
+            w.update_fog();
+            b.t = 490.0;
+            w.ai_army(&mut b);
+            (w, wave, b)
+        };
+        let (w, _, _) = scene(2);
+        assert!(w.ai().attacking, "four against two: it fights on");
+        let (w, wave, b) = scene(4);
+        assert!(!w.ai().attacking, "four against four: it gives up");
+        for &a in &wave {
+            assert!(
+                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, b.rally.x, b.rally.y) < 100.0),
+                "home to its rally"
+            );
+        }
+        // Medium does not (it retreats only from a passive foe, `retreat_below`)
+        assert!(!DIFF[1].retreat_any && DIFF[0].retreat_any);
+    }
+
+    #[test]
+    fn easy_s_tier_rises_with_the_clock() {
+        // Easy's tier (`Diff::tier_at`): its line units from the start, its raiders, siege and machines from 9:00, its
+        // Knights and Bruisers from 13:00. Medium's never moves.
+        let (mut w, _, _) = ready_with(0, DIFF[0]);
+        let at = |w: &mut World, t: f64, k: UnitKind| {
+            w.time = t;
+            w.level_allows(k)
+        };
+        assert!(at(&mut w, 0.0, UnitKind::Trooper) && at(&mut w, 0.0, UnitKind::Umbra));
+        assert!(!at(&mut w, 530.0, UnitKind::Scythe) && at(&mut w, 550.0, UnitKind::Scythe));
+        assert!(at(&mut w, 550.0, UnitKind::SiegeTank) && !at(&mut w, 770.0, UnitKind::Knight));
+        assert!(at(&mut w, 790.0, UnitKind::Knight) && at(&mut w, 790.0, UnitKind::Bruiser));
+        let (mut m, _, _) = ready_with(1, DIFF[1]);
+        assert!(at(&mut m, 0.0, UnitKind::Scythe) && !at(&mut m, 3000.0, UnitKind::Knight));
     }
 
     #[test]

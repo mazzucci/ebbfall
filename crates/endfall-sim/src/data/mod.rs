@@ -533,7 +533,7 @@ pub const QUEUE_MAX: usize = 5;
 /// comes from more mines, the Expedition's research and the Kingdom's Market. Before: 7 inside for 4 s with 8 (the
 /// economy pass; 16 before it), about 10 workers to saturate a mine at about 830 a minute.
 pub const MINE_SIZE: i32 = 2;
-pub const MINE_TIME: f64 = 7.5;
+pub const MINE_TIME: f64 = 11.0; // (7.5 before Nov 13: a human's bank piled up from 2:00, two Barracks busy and more; the PM)
 /// The most workers inside a mine at once, of any kind (the largest `UnitDef::mine_cap`), and the largest load.
 pub const MINE_CAP_MOST: i32 = 8;
 pub const MINE_LOAD_MOST: i32 = 18; // (a Bot's 13 with two levels of Better drills)
@@ -545,7 +545,7 @@ pub const CRYSTAL_GOLD: i32 = 2000;
 /// Gold a second a finished Market pays its owner, with no workers (PRD: the conversion, rule 1): it pays back its 75 in
 /// about three and a half minutes. 0.5 before the economy pass halved what a worker brings in, which doubled the
 /// Market's worth beside it; a partial cut (the full one, 0.25, swung Hard's 64x64 games the other way in the lab).
-pub const PUMP_RATE: f64 = 0.35;
+pub const PUMP_RATE: f64 = 0.24; // (0.35 before Nov 13: cut in step with the mines' income)
 /// What a refusal for want of gold says (the client's announcer keys on it).
 pub const NOT_ENOUGH: &str = "Not enough gold";
 /// How far (tiles) from a busy field a harvester looks for a quieter one.

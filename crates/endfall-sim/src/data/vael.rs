@@ -162,18 +162,18 @@ pub(super) const HALO: UnitDef = UnitDef {
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [250, 0],
-    supply: 6, // (Power: 3 before the economy's second round)
-    hp: 220.0,
+    cost: [450, 0],
+    supply: 10, // (Power: 3 before the economy's second round)
+    hp: 440.0,
     armor: 3.0,
     speed: 90.0,
     sight: 9.0,
     r: 10.0,
-    build: 45.0, // (120 s before the arc, Nov 13)
+    build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 8.0,
-        dmg: 30.0,
-        dmg_air: 24.0,
+        dmg: 66.0,
+        dmg_air: 53.0,
         cd: 1.2,
         proj: Some(ProjKind::Bolt),
         up_dmg: 3.0,
@@ -186,18 +186,18 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
-    cost: [240, 0],
-    supply: 8, // (Power: 4 before the economy's second round, 6 in it)
-    hp: 220.0,
+    cost: [380, 0],
+    supply: 12, // (Power: 4 before the economy's second round, 6 in it)
+    hp: 360.0,
     armor: 1.0,
     speed: 58.0,
     sight: 9.0,
     r: 15.0,
-    build: 40.0,
+    build: 52.0, // (40.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 11.0, // (12 at the arc: 11 with the Cannon, Nov 13: a duel decided by spotting and position)
         min_range: 3.0,
-        dmg: 45.0,
+        dmg: 70.0,
         cd: 2.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 4.0,
@@ -327,7 +327,7 @@ pub(super) const KILN: BldgDef = BldgDef {
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
     name: "Lab",
-    cost: [120, 0],
+    cost: [250, 0], // (120 before the economy pass, Nov 13: a bet between units and construction)
     hp: 800.0,
     uses: 4,
     build: 45.0,
@@ -349,7 +349,7 @@ pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
     name: "Sentry mast",
     short: "Sentry mast",
-    cost: [65, 0],
+    cost: [125, 0], // (65 before the economy pass, Nov 13: a bet between units and construction)
     hp: 220.0,
     armor: 0.0,
     uses: 2,
@@ -372,12 +372,12 @@ pub(super) const WARD: BldgDef = BldgDef {
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
-    cost: [150, 0],
+    cost: [400, 0], // (150 before the economy pass, Nov 13: one a player, the big bet)
     hp: 1000.0,
     armor: 2.0,
     uses: 8, // (Power: 4 before the economy's second round)
     single: true,
-    build: 45.0,
+    build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     sight: 7.0,
     req: Some(BldgKind::Uplink),
     trains_with: Some(BldgKind::Uplink),
@@ -392,7 +392,7 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [125, 0],
+    cost: [175, 0], // (125 before the economy pass, Nov 13: a bet between units and construction)
     w: 3,
     h: 3,
     hp: 750.0,

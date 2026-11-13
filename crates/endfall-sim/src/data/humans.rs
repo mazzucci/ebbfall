@@ -125,20 +125,20 @@ pub(super) const LANCER: UnitDef = UnitDef {
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Cannon",
-    cost: [175, 0],
-    supply: 2, // (3 before the economy's second round: by tier, gold-dense at the top)
-    hp: 140.0,
+    cost: [275, 0],
+    supply: 3, // (3 before the economy's second round: by tier, gold-dense at the top)
+    hp: 240.0,
     armor: 1.0,
     speed: 62.0,
     sight: 10.0,
     r: 14.0,
-    build: 32.0,
+    build: 42.0, // (32.0 s before the economy pass: a bet in time as well as gold)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 11.0,
         min_range: 2.5,
         siege: true,
-        dmg: 55.0,
+        dmg: 85.0,
         cd: 3.0,
         proj: Some(ProjKind::Shell),
         up_dmg: 5.0,
@@ -226,18 +226,18 @@ pub(super) const RIDER: UnitDef = UnitDef {
 pub(super) const KNIGHT: UnitDef = UnitDef {
     key: "knight",
     name: "Knight",
-    cost: [225, 0],
-    supply: 2, // (4 before the economy's second round: by tier, gold-dense at the top)
-    hp: 280.0,
+    cost: [325, 0],
+    supply: 3, // (4 before the economy's second round: by tier, gold-dense at the top)
+    hp: 420.0,
     armor: 3.0,
     speed: 105.0,
     sight: 9.0,
     r: 14.0,
-    build: 60.0, // (40 before the arc: the Kingdom's top tier comes later)
+    build: 75.0, // (60.0 s before the economy pass: a bet in time as well as gold)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 0.9,
-        dmg: 26.0,
+        dmg: 38.0,
         cd: 1.2,
         melee: true,
         up_dmg: 3.0,
@@ -320,7 +320,7 @@ pub(super) const FACTORY: BldgDef = BldgDef {
     w: 3,
     h: 3,
     hp: 800.0,
-    build: 60.0,
+    build: 80.0, // (60.0 s before the economy pass: a bet in time as well as gold)
     sight: 7.0,
     trains: &[UnitKind::Bastion, UnitKind::SiegeTank, UnitKind::Observer],
     req: Some(BldgKind::Barracks),
@@ -329,7 +329,7 @@ pub(super) const FACTORY: BldgDef = BldgDef {
 pub(super) const TURRET: BldgDef = BldgDef {
     key: "turret",
     name: "Watchtower",
-    cost: [100, 0],
+    cost: [150, 0], // (100 before the economy pass, Nov 13: a bet between units and construction)
     hp: 380.0, // (320 and armor 1 before the arc; 450 and armor 2 in it, Nov 13: bases held past 10-15 min)
     armor: 1.0,
     build: 20.0,
@@ -355,7 +355,7 @@ pub(super) const AIRFIELD: BldgDef = BldgDef {
     w: 3,
     h: 3,
     hp: 760.0,
-    build: 75.0,
+    build: 95.0, // (75.0 s before the economy pass: a bet in time as well as gold)
     sight: 8.0,
     trains: &[UnitKind::Rider, UnitKind::Knight],
     req: Some(BldgKind::Forge),

@@ -299,7 +299,7 @@ impl World {
     pub(crate) fn launch_hold(&self, e: u8, t: f64) -> i32 {
         let up = Upgrade::Satellite;
         let script = &self.factions[e as usize].ai;
-        let tech_from = script.tech_from.min(self.tuning(e).tech_from);
+        let tech_from = self.tech_time(e);
         let lab = up.def().req;
         let busy = self
             .bldgs
@@ -381,9 +381,22 @@ impl World {
         }
     }
 
-    /// Whether the seat taking its turn trains `k` at its level (`Diff::mix_tier`).
+    /// Whether the seat taking its turn trains `k` at its level now (`Diff::mix_tier`, risen by `tier_at`).
     pub(crate) fn level_allows(&self, k: UnitKind) -> bool {
-        k.ai_tier() <= self.level().mix_tier
+        let d = self.level();
+        let risen = d.tier_at.iter().filter(|&&at| self.time > at).count() as u8;
+        k.ai_tier() <= d.mix_tier + risen
+    }
+
+    /// Seat `e`'s side's tech time (its techs, its satellite's launch, its second tech building): its people's
+    /// (`AiScript::tech_from`), its tuning's if sooner, and never before its tuning's `tech_not_before` (Easy: late).
+    pub(crate) fn tech_time(&self, e: u8) -> f64 {
+        let d = self.tuning(e);
+        self.factions[e as usize]
+            .ai
+            .tech_from
+            .min(d.tech_from)
+            .max(d.tech_not_before)
     }
 
     /// The capital unit `e`'s finished air factory should raise now (one after CAPITAL_AT[0] s, a second after

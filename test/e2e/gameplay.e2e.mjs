@@ -77,7 +77,7 @@ test('every finished production building offers its unit, and pressing it trains
       const before = mine(await d.state(), unit).length;
       await d.pressCard(label);
       assert.equal((await d.state()).bldgs.find(x => x.id === b.id).queue[0], unit, `${label} queued`);
-      await until(d, async () => mine(await d.state(), unit).length > before, { seconds: 70, what: `${label} to be trained` });
+      await until(d, async () => mine(await d.state(), unit).length > before, { seconds: 90, what: `${label} to be trained` });
     }
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -2673,7 +2673,7 @@ test('single player: every split of five to eight, over any spots, fits 667x375,
 test('two against two: out while the ally fights on (orders refused, told once), then the end card speaks for the team', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
-    await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl()}?seed=3`, { waitUntil: 'networkidle' }); // (seed 3: this seat out at about 5:30, the game on to about 11:40; in seed 7 its ally fell first since Nov 13's economy)
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
     const seats = board(page); await seats.diff(1, 3); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
@@ -2690,24 +2690,30 @@ test('two against two: out while the ally fights on (orders refused, told once),
     const toasts = new Set();
     await page.exposeFunction('sawToast', (t) => toasts.add(t));
     await page.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
-    let out = false;
-    for (let i = 0; i < 100 && !(await page.evaluate(() => endfall.G.over)); i++) {
-      await page.evaluate(() => endfall.skip(30));
-      await page.waitForTimeout(150); // (a frame or two: the loop notices)
-      if (!out && await page.evaluate(() => endfall.G.out[0] && !endfall.G.over)) {
-        out = true;
-        // Out: an order from this seat changes nothing.
-        const task = await page.evaluate(() => { const u = endfall.G.units.find(x => x.team === 0); if (!u) return 'idle'; endfall.engine.moveTo(u, 100, 100); endfall.skip(1); return u.dead ? 'idle' : u.task.t; });
-        assert.equal(task, 'idle', 'a seat that is out gives no orders: its units stay idle');
-        await page.waitForTimeout(300);
-      }
+    // (fast-forward in the page until this seat is out or the game is over, checked every half second of game time:
+    // 30-second skips between checks could jump past the moment it was out with the game still on)
+    const until = (cond) => page.evaluate((src) => {
+      const f = (0, eval)(`(${src})`);
+      for (let t = 0; t < 3000 && !f(); t += 0.5) endfall.skip(0.5);
+      return f();
+    }, cond.toString());
+    await until(() => endfall.G.out[0] || endfall.G.over);
+    const out = await page.evaluate(() => endfall.G.out[0] && !endfall.G.over);
+    if (out) {
+      await page.waitForTimeout(300); // (a frame or two: the toast shows)
+      // Out: an order from this seat changes nothing.
+      const task = await page.evaluate(() => { const u = endfall.G.units.find(x => x.team === 0); if (!u) return 'idle'; endfall.engine.moveTo(u, 100, 100); endfall.skip(1); return u.dead ? 'idle' : u.task.t; });
+      assert.equal(task, 'idle', 'a seat that is out gives no orders: its units stay idle');
+      await page.waitForTimeout(300);
     }
+    await until(() => endfall.G.over);
+    await page.waitForTimeout(300);
     assert.ok(await page.evaluate(() => endfall.G.over), 'the game ended');
     await page.locator('#end').waitFor({ state: 'visible' });
     const won = await page.evaluate(() => endfall.G.winner === endfall.G.teams[0]);
     assert.equal(await page.locator('#result').textContent(), won ? 'VICTORY' : 'DEFEAT');
     assert.match(await page.locator('#endSub').textContent(), won ? /^Your team wins after \d\d:\d\d\.$/ : /^Your team lost after \d\d:\d\d\.$/);
-    assert.ok(out, "this seat was out before the end (seed 7: deterministic)");
+    assert.ok(out, "this seat was out before the end (seed 3: deterministic)");
     assert.ok([...toasts].some(t => /You are out: your team fights on/.test(t)), `told once out: ${[...toasts]}`);
   } finally { await ctx.close(); }
 });
@@ -2722,7 +2728,8 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
-    await page.evaluate(() => endfall.skip(150)); // (the ally builds and trains; this player gives no order)
+    // (the ally builds and trains, this player giving no order: until it has a fighter, by 2:30 before Nov 13's scarcer gold)
+    await page.evaluate(() => { for (let t = 0; t < 600 && (endfall.G.time < 150 || !endfall.G.units.some(u => u.team === 1 && !u.d.worker)); t += 1) endfall.skip(1); });
     await page.waitForTimeout(400); // (a frame or two: the minimap redrawn)
     const seen = await page.evaluate(() => {
       const { G, engine: E } = endfall, I = (x, y) => E.idx(Math.floor(x / E.TILE), Math.floor(y / E.TILE));

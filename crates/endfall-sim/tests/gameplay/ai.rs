@@ -661,13 +661,15 @@ fn ai_beats_idle_player(diff: usize) {
             let seed = m * 104_729 + 3;
             let mut w = World::new(seed, diff);
             let mut t = 0;
-            while !w.over && t < 30 * 60 * 20 {
+            // (Easy 30 minutes since Nov 13: its clumsy waves give up on contact and gold is scarcer)
+            let mins = if diff == 0 { 30 } else { 20 };
+            while !w.over && t < 30 * 60 * mins {
                 w.step();
                 t += 1;
             }
             assert!(
                 w.over && w.winner == ENEMY as i32,
-                "diff {diff} seed {seed}: no AI win after 20 min"
+                "diff {diff} seed {seed}: no AI win after {mins} min"
             );
             slowest = slowest.max((t / 30, seed));
         }

@@ -255,7 +255,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its waves are just their size (its first three or four units at 7:45, the rest at home), growing
                       by one, and they give up and walk home on contact with a defense near their worth or after early
                       losses, for good: until 12:00 and a wave of its has reached the foe (`clumsy_until`,
-                      `Ai::reached`) a wave that gave up does not grow the next, then each grows by one. A level may cap a
+                      `Ai::reached`) a wave that gave up does not grow the next, then each grows by one; its first wave leaves
+                      at 8:00 (no hit before it on any map) and its army stops at 14 fighters (`army_max`, by units: its
+                      gold banks). A level may cap a
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
                       90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees

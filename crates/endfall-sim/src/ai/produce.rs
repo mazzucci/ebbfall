@@ -256,7 +256,9 @@ impl World {
             // Units wait while the money is spoken for by the building the build order wants next (supply, a
             // factory, the tech, the air factory): otherwise the army spends every shard as it comes in.
             // (the guided first game: its army no bigger than `GUIDED_ARMY`, then `GUIDED_ARMY_AFTER`)
-            if qlen < 2 && !saving && !self.guided_army_full(e, t) {
+            // (and nothing past its level's most fighters, `Diff::army_max`: its gold banks; a worker or its scout still)
+            let full = self.army_full(e) && !u.def().worker && u.def().armed();
+            if qlen < 2 && !saving && !self.guided_army_full(e, t) && !full {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup(e);

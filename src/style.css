@@ -116,7 +116,9 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
 .gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
 .gi b{position:absolute;right:2px;top:1px;font:600 8px var(--display);color:var(--ally2);text-shadow:0 0 2px #000} /* tells look-alike infantry apart */
-#cmd{display:grid;grid-template-columns:repeat(3,66px);grid-auto-rows:52px;gap:4px;align-content:start}
+/* The command card: two rows at least (blank slots stay blank), so its height does not change with the selection; a
+   third row, when a card has one, is added below. */
+#cmd{display:grid;grid-template-columns:repeat(3,66px);grid-template-rows:repeat(2,52px);grid-auto-rows:52px;gap:4px;align-content:start}
 /* The HUD floats over the map on every screen (no band across the bottom: the map keeps its height): the minimap
    bottom-left, the selection console bottom-centre at one width, the command card bottom-right (phones: below). */
 #hud{position:fixed;z-index:5;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;
@@ -138,6 +140,11 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb .c{font:10px var(--mono);color:var(--muted)}
 .cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
+/* An available button's picture lit: a soft light glow behind it (neutral, not the seat's color) and a lift with a light
+   edge, so a dark figure reads on the dark button. Unavailable ones (disabled, can't afford) stay as they are. Static. */
+.cb:not(:disabled):not(.poor) :is(.por,.ico){background:radial-gradient(closest-side,rgba(255,244,222,.38),rgba(255,244,222,.14) 55%,transparent);border-radius:50%}
+.cb:not(:disabled):not(.poor) .por{filter:brightness(1.3) contrast(1.06) drop-shadow(0 0 1px rgba(255,248,232,.6))}
+.cb:not(:disabled):not(.poor) .ico{filter:drop-shadow(0 0 2px rgba(255,236,190,.45))}
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
@@ -272,7 +279,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #info{width:auto;max-height:none;margin:0} #cmd{background:none;border:0;box-shadow:none;padding:0}
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
-  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
+  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,58px);grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
 }
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
@@ -308,7 +315,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #hud>*{pointer-events:auto}
   #info{display:none}
   #minimap{width:128px;height:128px;box-shadow:0 2px 10px rgba(0,0,0,.5)} /* (as wide as SELECT, HOME and ARMY above it) */
-  #cmd{grid-template-columns:repeat(3,64px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #cmd{grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,54px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
   .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:6px;height:5px} .cb .ico{width:18px;height:18px}
   /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */

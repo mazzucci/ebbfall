@@ -2,7 +2,7 @@
 // trim-only team color). Renders in the approved look (the polish at the game's camera and sun) on the countryside's
 // grass tiles with the game's seat colors, and compares today's sprites (kept in old.json before the models change)
 // with the branch's:
-//   node tools/art/art-polish.mjs --save-old            before any model change: renders every sprite the items touch into <out>/old.json
+//   node tools/art/art-polish.mjs --save-old [item...]  before any model change: renders every sprite the items (all by default) touch into <out>/old.json
 //   node tools/art/art-polish.mjs <item>...              one sheet per item at 1x, 2x (desktop) and 3x: per sprite, seat 0 above seat 1 below,
 //                                                        today's facing E and S, then the new one facing E and S (a building once); a table
 //                                                        of team share and the darkest material's luminance, before and after
@@ -34,6 +34,7 @@ export const ITEMS = {
   10: ['ex_mercenary', 'ex_veteran'],
   11: ['rt_kg_scaffold_2', 'rt_kg_scaffold_3', 'rt_ex_scaffold_2', 'rt_ex_scaffold_3'],
   12: ['rt_doodad_boulders_0', 'rt_doodad_boulders_1', 'rt_doodad_boulders_2'],
+  13: ['ex_bot', 'ex_drone'], // (the follow-up round after #277: the Bot off the gold, the Drone's body and lighter shadow)
 };
 const HEADS = { bldg_ex_vortex: 'ex_vortexhead_0', bldg_ex_turbine: 'ex_turbinehead_0', bldg_ex_uplink: 'ex_uplinkhead_0', bldg_kg_tower: 'kg_towerhead_4' };
 const isUnit = (n) => /^(kg|ex)_/.test(n);
@@ -46,7 +47,8 @@ const filterOf = (bases) => bases.flatMap(expand).map(n => `^${n}$`).join('|');
 const pack = (s) => ({ ...s, img: undefined, w: s.img.w, h: s.img.h, data: Buffer.from(s.img.data).toString('base64') });
 const unpack = (s) => ({ ...s, w: undefined, h: undefined, data: undefined, img: { w: s.w, h: s.h, data: new Uint8ClampedArray(Buffer.from(s.data, 'base64')) } });
 if (argv.includes('--save-old')) {
-  const t0 = Date.now(), old = await render3d(filterOf(ALL), { polish: true });
+  const only = argv.filter(a => ITEMS[a]), bases = only.length ? [...new Set(only.flatMap(i => ITEMS[i]))] : ALL;
+  const t0 = Date.now(), old = await render3d(filterOf(bases), { polish: true });
   writeFileSync(OLD, JSON.stringify({ tints: old.tints, sprites: old.map(pack) }));
   console.log(`kept today's ${old.length} sprites in ${OLD} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   process.exit(0);

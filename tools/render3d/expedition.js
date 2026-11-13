@@ -173,13 +173,13 @@ export function utilityBot(M, f) {
   for (const z of [-3.4, 0, 3.4]) led(b, M, 0.5, 8.0, 3.8, z);
   add(b, rbox(1.2, 1.4, 12.0, 0.3), M.paint, 7.9, 2.2, 0); add(b, rbox(1.3, 0.3, 12.2, 0.1), M.inkLine, 7.9, 3.0, 0); add(b, rbox(1.3, 0.3, 12.2, 0.1), M.inkLine, 7.9, 1.4, 0); // the front bumper, team between trims
   // the tray: big, shallow and flat over most of the back, a flat layer of coins in it inside a dark rim
-  const tr = grp(); tr.position.set(-2.0, 3.9, 0); b.add(tr);                                   // (the art polish: the tray smaller, 8 x 8.4 for 10.6 x 11, so the gold is a load on a white machine, not the machine)
-  add(tr, rbox(8.0, 1.2, 8.4, 0.3), M.panelDark, 0, 0.6, 0);
-  add(tr, rbox(8.2, 0.4, 8.6, 0.1), M.inkLine, 0, 1.2, 0);                                      // its rim
-  add(tr, rbox(7.2, 0.5, 7.6, 0.2), M.gold, 0, 1.35, 0);                                        // the coins, a flat gold layer
-  add(tr, rbox(7.6, 0.3, 8.0, 0.1), M.inkLine, 0, 1.3, 0);                                      // a dark rim under its edge
-  add(tr, sph(0.5, 8, 6), M.glint, 2.0, 1.9, -2.4); add(tr, sph(0.4, 8, 6), M.glint, -2.4, 1.85, 3.0); add(tr, sph(0.35, 8, 6), M.glint, 0.4, 1.9, 0.6); // white glints
-  for (const [x, z] of [[2.4, 2.2], [-2.0, -2.6], [0.6, 0.2], [-2.6, 2.8], [2.6, -1.6], [0.2, -3.2], [-0.8, 3.0]]) add(tr, cyl(0.9, 0.9, 0.35, 10), M.gold, x, 1.75, z, (x - z) * 0.1, x, 0.1);
+  const tr = grp(); tr.position.set(-2.0, 3.9, 0); b.add(tr);                                   // (the follow-up to the art polish: a white tray with a small heap of gold in its middle; the flat gold layer over the whole tray made a group by the mine read as nuggets)
+  add(tr, rbox(8.4, 1.4, 8.8, 0.4), M.shellWhite, 0, 0.7, 0);                                   // the tray: white, a raised block on the back
+  add(tr, rbox(8.6, 0.3, 9.0, 0.1), M.inkLine, 0, 1.45, 0);                                     // its rim line
+  add(tr, sph(2.4, 12, 8), M.gold, 0, 1.5, 0).scale.set(1.1, 0.55, 1);                           // the load: a small heap of gold, a third of the tray
+  add(tr, torus(2.5, 0.25, 16), M.inkLine, 0, 1.55, 0, Math.PI / 2, 0, 0).scale.set(1.1, 1, 1);   // a dark rim round it
+  add(tr, sph(0.4, 8, 6), M.glint, 0.6, 2.9, -0.6); add(tr, sph(0.3, 8, 6), M.glint, -0.9, 2.7, 0.7); // white glints
+  for (const [x, z] of [[1.6, 1.2], [-1.4, -1.0], [0.2, -1.8]]) add(tr, cyl(0.7, 0.7, 0.3, 10), M.gold, x, 2.3, z, (x - z) * 0.1, x, 0.1);
   // the arm: a turret on the bow, a steel upper arm and forearm reaching ahead and down to a scoop, held low
   const arm = grp(); arm.position.set(5.8, 3.9, 0); b.add(arm);
   add(arm, cyl(1.3, 1.5, 1.2, 12), M.joint, 0, 0, 0);
@@ -191,7 +191,7 @@ export function utilityBot(M, f) {
   if (M.polish) { // secondary detail: bolt rings on the hubs, a cable from the arm's turret into the shell, the tray's handles, a sensor dome (round 2 dropped the stern's vent slots)
     for (const [x, z] of [[-5.2, -6.3], [5.2, -6.3], [-5.2, 6.3], [5.2, 6.3]]) add(b, torus(0.75, 0.15), M.joint, x, 2.0, z + Math.sign(z) * 1.0);
     limb(b, [5.0, 4.3, -2.2], [2.6, 4.1, -5.2], 0.3, M.cable);
-    for (const x of [-4.3, 4.3]) add(tr, rbox(0.6, 0.6, 2.6, 0.2), M.joint, x, 1.2, 0);
+    for (const x of [-4.5, 4.5]) add(tr, rbox(0.6, 0.6, 2.6, 0.2), M.joint, x, 1.4, 0);
     add(b, sph(0.8, 8, 6), M.joint, 6.6, 4.5, -4.2);
   }
   return g;

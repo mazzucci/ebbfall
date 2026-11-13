@@ -15,6 +15,7 @@
 //   expedition an Expedition mirror
 //   base-kingdom, base-expedition   a base with every building of its people
 //   home-kingdom, home-expedition   the same base with an army of every kind drawn up south of it, at zoom 1
+//   mine-swarm the Expedition's Bots and Drones crowded round your base's gold mine, at zoom 1
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
 //   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
@@ -41,6 +42,7 @@ const SCENES = {
   'base-expedition': { races: ['vael', 'humans'], base: true },
   'home-kingdom': { races: ['humans', 'vael'], base: true, army: H_ARMY, zoom: 1 },                                      // (the art polish's in-game shots: a base with its buildings and an army standing before it, at zoom 1)
   'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1, research: ['satellite'] },      // (the Uplink needs the satellite launched, and the Portal the Uplink)
+  'mine-swarm': { races: ['vael', 'humans'], swarm: { lumen: 7, shrike: 6 }, zoom: 1 },                                  // (the follow-up to the art polish: a Bot group and a Drone swarm by a mine, the gold beside them)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
 };
 
@@ -125,6 +127,20 @@ const muster = (page, army, at) => page.evaluate(([army, at]) => {
   return { x: at.x, y: (at.y + south + 2 * T) / 2 };
 }, [army, at]);
 
+/** Bots and Drones round your base's nearest gold field (the art polish's follow-up: a worker group against the gold). */
+const swarm = (page, army) => page.evaluate((army) => {
+  const { G, map, engine } = endfall, T = engine.TILE, me = G.me, core = G.bldgs.find(b => b.team === me);
+  const field = map.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+  const free = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor(y / T); return engine.inMap(tx, ty) && !map.rock[engine.idx(tx, ty)] && !map.occ[engine.idx(tx, ty)]; };
+  let k = 0; const kinds = Object.entries(army).flatMap(([kind, n]) => Array(n).fill(kind));
+  for (let r = 1.6; k < kinds.length && r < 6; r += 1.1) for (let a = 0; a < Math.PI * 2 && k < kinds.length; a += Math.PI / 5) {
+    const x = field.x + Math.cos(a) * r * T, y = field.y + Math.sin(a) * r * T * 0.8;
+    if (!engine.UNITS[kinds[k]].air && !free(x, y)) continue;
+    engine.debugSpawn(me, kinds[k++], x, y);
+  }
+  return { x: field.x, y: field.y };
+}, army);
+
 /** Hold the page's clock (no frame, no tick until `frame`; far enough ahead that a loaded machine reaches it before the hold), and draw `ms` of frames. */
 const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 15000);
 const frame = (page, ms = 60) => page.clock.runFor(ms);
@@ -134,7 +150,8 @@ async function shoot(name, scene, device, label) {
   try {
     let at, note = '';
     if (scene.research) await page.evaluate((keys) => { for (const k of keys) endfall.engine.debugResearch(endfall.G.me, k); }, scene.research); // (a research granted before the base goes up, so every building can)
-    if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
+    if (scene.swarm) { at = await swarm(page, scene.swarm); note = 'the swarm by the mine; '; }
+    else if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
     else { at = await fight(page, scene.armies); note = `spawned ${at.spawned.join(' and ')}; `; }
     await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);
     await frame(page, 100);
@@ -145,7 +162,7 @@ async function shoot(name, scene, device, label) {
       else { await page.mouse.move(sx(x0) - 20, sy(y0) - 20); await page.mouse.down(); await page.mouse.move(sx(x1) + 20, sy(y1) + 20, { steps: 6 }); await page.mouse.up(); await page.mouse.move(canvas.x + canvas.width * 0.8, canvas.y + canvas.height * 0.2); }
       await frame(page, 100);
     }
-    if (!scene.base) await page.evaluate((s) => endfall.skip(s), scene.skip ?? 2.5);
+    if (!scene.base && !scene.swarm) await page.evaluate((s) => endfall.skip(s), scene.skip ?? 2.5);
     await freeze(page);
     await page.evaluate(([x, y]) => endfall.centerOn(x, y), [at.x, at.y]);
     // Frame by frame (a tick or so each) until the scene's shots are in flight on the frame drawn: all of them if they
@@ -155,7 +172,7 @@ async function shoot(name, scene, device, label) {
     while (scene.shots && k++ < 150 && !(await page.evaluate((want) => want.every(w => endfall.G.projs.some(p => p.by === w)), scene.shots)));
     const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0 }));
     await page.screenshot({ path: file });
-    console.log(`${file}: ${scene.base ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
+    console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
   } finally { await g.ctx.close(); }
 }
 

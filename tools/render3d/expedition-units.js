@@ -336,26 +336,28 @@ export function launcher(M, f) {
  *  off). From the camera: a small dark cross with four team rings and a close shadow; nothing on the ground is a
  *  ring. Frames 0-1 the rotors turn. */
 export function drone(M, f) {
-  const g = grp(), FY = 15, b = grp(); b.position.y = FY; g.add(b);                              // (FY 19 until the art polish: lower, so its shadow sits closer under it)
-  add(b, rbox(10.4, 2.4, 8.4, 1.0), M.gunmetal, 0, 0, 0);                                        // the body: one solid gunmetal block reaching between the rotors (the art polish; a small charcoal box on long arms until then)
-  add(b, rbox(5.0, 0.6, 4.0, 0.2), M.panelDark, -0.6, 1.4, 0);                                   // its top hatch
-  add(b, rbox(4.2, 0.4, 3.2, 0.15), M.paint, -0.6, 1.85, 0); add(b, rbox(4.5, 0.2, 3.5, 0.05), M.inkLine, -0.6, 1.7, 0); // a team panel on the hatch, seen from above
-  for (const z of [-3.6, 3.6]) { add(b, rbox(9.0, 0.6, 1.0, 0.1), M.paint, 0, 1.3, z); add(b, rbox(9.2, 0.2, 1.2, 0.05), M.inkLine, 0, 1.0, z); } // a team stripe along each flank's top edge: the trim
+  const A = fam(M), g = grp(), FY = 13, b = grp(); b.position.y = FY; g.add(b);                 // (FY 19 until the art polish, 15 after it: lower in the follow-up, so its shadow sits close under it and short; at 11 the hull hid it and the flyer read as a ground unit)
+  add(b, rbox(12.0, 3.6, 9.6, 1.2), M.gunmetal, 0, 0, 0);                                        // the hull: one big gunmetal block, mid gray, the rotors out past its corners (the follow-up: at 1x the rotors were the whole silhouette)
+  add(b, rbox(9.6, 0.7, 7.4, 0.3), A.plateGrey, -0.2, 2.0, 0);                                   // a lit light-gray top plate: the hull reads from above
+  add(b, rbox(4.6, 0.6, 3.6, 0.2), M.panelDark, -0.8, 2.5, 0);                                   // its hatch
+  add(b, rbox(3.8, 0.4, 2.8, 0.15), M.paint, -0.8, 2.95, 0); add(b, rbox(4.1, 0.2, 3.1, 0.05), M.inkLine, -0.8, 2.8, 0); // a team panel on the hatch, seen from above
+  for (const z of [-4.3, 4.3]) { add(b, rbox(10.4, 0.7, 1.0, 0.1), M.paint, 0, 1.9, z); add(b, rbox(10.6, 0.2, 1.2, 0.05), M.inkLine, 0, 1.5, z); } // a team stripe along each flank's top edge: the trim
   led(b, M, 0.5, 2.7, 0.2, 0);                                                                   // the nose light
   add(b, sph(1.3, 10, 8), M.joint, 1.0, -1.6, 0);                                                // the camera pod
   add(b, cyl(0.7, 0.7, 0.6, 10), M.glass, 2.2, -1.6, 0, 0, 0, Math.PI / 2); led(b, M, 0.3, 1.2, -2.6, 0); // its lens and lamp
-  for (const z of [-1.6, 1.6]) { limb(b, [1.6, -0.9, z], [1.6, -2.6, z * 1.1], 0.3, M.joint); limb(b, [-1.6, -0.9, z], [-1.6, -2.6, z * 1.1], 0.3, M.joint); add(b, rbox(5.0, 0.4, 0.5, 0.15), M.joint, 0, -2.8, z * 1.1); } // the skids
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {                                  // four arms to four rotors
-    const x = sx * 4.6, z = sz * 4.6;
-    add(b, cyl(1.1, 1.2, 1.8, 10), M.joint, x, 1.4, z);                                            // the motor, on the body's corner
-    add(b, cyl(3.2, 3.2, 0.2, 20), M.rotor, x, 2.3, z);                                            // the rotor's disc, a blur
-    add(b, rbox(6.2, 0.25, 0.9, 0.1), M.paleSteel, x, 2.4, z, 0, (f % 2) * 0.8 + sx * sz * 0.4, 0); // the two blades, pale (the pale mark)
-    add(b, torus(3.5, 0.45, 24), M.gunmetal, x, 2.2, z, Math.PI / 2, 0, 0);                        // the rotor guard, gunmetal (team until the art polish: team is the body's stripes)
-    add(b, torus(3.5, 0.5, 24), M.inkLine, x, 1.9, z, Math.PI / 2, 0, 0);                         // its ink ring, under
+  for (const z of [-2.0, 2.0]) { limb(b, [2.0, -1.6, z], [2.0, -3.2, z * 1.1], 0.3, M.joint); limb(b, [-2.0, -1.6, z], [-2.0, -3.2, z * 1.1], 0.3, M.joint); add(b, rbox(6.0, 0.4, 0.5, 0.15), M.joint, 0, -3.4, z * 1.1); } // the skids
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {                                  // four rotors out past the hull's corners, above its top
+    const x = sx * 5.9, z = sz * 5.5;
+    limb(b, [sx * 4.6, 1.6, sz * 4.0], [x, 2.6, z], 0.6, M.joint);                                  // a short arm from the hull's corner
+    add(b, cyl(1.0, 1.1, 1.6, 10), M.joint, x, 2.8, z);                                            // the motor
+    add(b, cyl(2.9, 2.9, 0.2, 20), M.rotor, x, 3.5, z).userData.noShadow = true;                   // the rotor's disc, a blur (no shadow: four round blots made the shadow a second object at 1x)
+    add(b, rbox(5.6, 0.25, 0.8, 0.1), M.paleSteel, x, 3.6, z, 0, (f % 2) * 0.8 + sx * sz * 0.4, 0); // the two blades, pale (the pale mark)
+    add(b, torus(3.1, 0.4, 24), M.gunmetal, x, 3.4, z, Math.PI / 2, 0, 0);                         // the rotor guard, gunmetal
+    add(b, torus(3.1, 0.4, 24), M.inkLine, x, 3.15, z, Math.PI / 2, 0, 0);                         // its ink ring, under
   }
   if (M.polish) { // secondary detail (the polish pass): a battery pack strapped on the hatch, three struts from each motor out to its guard ring, a dark hub cap over each rotor
-    add(b, rbox(2.6, 0.9, 2.2, 0.3), M.panelDark, -1.0, 2.1, 0); add(b, rbox(0.7, 1.0, 2.5, 0.1), M.joint, -1.0, 2.15, 0);
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(b, sph(0.55, 8, 6), M.joint, sx * 4.6, 2.55, sz * 4.6);
+    add(b, rbox(2.6, 0.9, 2.2, 0.3), M.panelDark, 2.6, 2.6, 0); add(b, rbox(0.7, 1.0, 2.5, 0.1), M.joint, 2.6, 2.65, 0);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(b, sph(0.5, 8, 6), M.joint, sx * 5.9, 3.75, sz * 5.5);
   }
   return g;
 }

@@ -53,7 +53,7 @@ fn die(msg: &str) -> ! {
     eprintln!(
         "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- bets [--seeds N] [--size 64] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- tiers [--seeds N] [--size 96] [--greedy] [--cap MIN] [--threads N] [--out FILE]
+       npm run lab -- tiers [--seeds N] [--size 96] [--greedy | --steady] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
@@ -367,7 +367,7 @@ fn tiers(args: &[String]) {
         seeds: 10,
         cap_min: 30,
         threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
-        greedy: false,
+        foe: tiers::Foe::Tech,
     };
     let mut out = None;
     let mut it = args.iter();
@@ -395,7 +395,8 @@ fn tiers(args: &[String]) {
             "--cap" => b.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
             "--threads" => b.threads = val().parse().unwrap_or_else(|_| die("--threads N")),
             "--out" => out = Some(PathBuf::from(val())),
-            "--greedy" => b.greedy = true,
+            "--greedy" => b.foe = tiers::Foe::Greedy,
+            "--steady" => b.foe = tiers::Foe::Steady,
             _ => die(&format!("unknown flag {a}")),
         }
     }

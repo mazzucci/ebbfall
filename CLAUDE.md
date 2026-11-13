@@ -139,9 +139,10 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   tide (`World::set_tide`) is a world switch, off by default, and enters the hash only when on. The Shore map is its
   own generator (`generate_shore`), so the other kinds' maps never change. On a map without water all of it is inert
   (the goldens pin that).
-- The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
-  with four and 128x128 with eight, each size with maps of its own, any of them for as many players as its starts
-  (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index
+- The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 96x96 with four starts and 128x128 with
+  eight, each size with maps of its own, any of them for as many players as its starts, a duel too; 64x64,
+  `MapSize::DUEL`, with two, is hidden from the menus but still generated and played: the goldens, `?seed=`, a
+  challenge or room naming one (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index
   grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
   client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
   are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.

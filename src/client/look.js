@@ -92,6 +92,17 @@ export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research))
 
 /** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
 export const MUZZLE_SMOKE = { siegeTank: 1.4 };
+/** The top units (the Knight, the Cannon, the Android, the Rover) hit heavier than the basic lines, so they read as
+ *  more powerful at a glance: `flash`, the size of the flash where they fire (a ranged one's; 0: none), `hit` the impact
+ *  where they land ('blast': an explosion, the Cannon's and the Rover's; 'blow': a bright flash and sparks, the Knight's
+ *  sword and the Android's rifle) at `size`, in the light `light`, and `shake` (px) the screen's jolt when one lands in
+ *  view (capped, so a battery of them does not blur the field). */
+export const HEAVY = {
+  knight: { flash: 0, hit: 'blow', size: 1.0, light: 0xffe0a8 },
+  siegeTank: { flash: 1.0, hit: 'blast', size: 1.0, light: 0xff9a3a, shake: 3 },
+  umbra: { flash: 0.7, hit: 'blow', size: 0.8, light: 0x9fe8ff },
+  monolith: { flash: 0.8, hit: 'blast', size: 0.85, light: 0xffa050, shake: 2.5 },
+};
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */
 export const SHOT_TRAIL = { rocket: 'trail' };
 /** The shots that carry a light of their own (a small warm glow under them): the tracers, the tower's shot, the rocket's flame. */

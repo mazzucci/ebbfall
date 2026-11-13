@@ -24,7 +24,7 @@ let game = null, dirty = true, occStale = false, gen = 0, radioSeen = -1, radioM
 export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], outWhy: ['', ''], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]],
+  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], outWhy: ['', ''], time: 0, tick: 0, units: [], bldgs: [], projs: [], projsBefore: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: [], radioVer: 0, over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
@@ -129,7 +129,7 @@ function sync() {
   retire(units);
   for (let i = 0; i < attacks.length; i += 2) attacks[i].task.target = units.get(attacks[i + 1]) || bldgs.get(attacks[i + 1]) || null;
 
-  const P = game.projectiles(); S.projs = [];
+  const P = game.projectiles(); S.projsBefore = S.projs; S.projs = []; // (the last mirror's: who fired what lands now)
   for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], by: UNIT_KEYS[P[o + fp.by]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
 
   const ev = game.drainEvents();

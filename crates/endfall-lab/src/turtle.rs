@@ -19,6 +19,8 @@ type FirstHit = Option<(u32, usize)>;
 
 /// A first hit before this (s) is early for a newcomer (the weak turtle against Easy).
 const EARLY_HIT: f64 = 480.0;
+/// The most units of a newcomer's first hit (the newcomer check).
+const NEWCOMER_UNITS: usize = 4;
 
 /// What the batch plays.
 #[derive(Clone, Debug)]
@@ -522,7 +524,14 @@ impl TurtleRun {
             mmss(EARLY_HIT),
             mmss(EARLY_HIT)
         );
+        let (mut early, mut most) = (0, 0);
         for (label, hits) in self.first_hits() {
+            most = most.max(hits.iter().flatten().map(|&(_, n)| n).max().unwrap_or(0));
+            early += hits
+                .iter()
+                .flatten()
+                .filter(|&&(t, _)| (t as f64 / TPS) < EARLY_HIT)
+                .count();
             let mut at: Vec<f64> = hits
                 .iter()
                 .flatten()
@@ -549,6 +558,15 @@ impl TurtleRun {
                 at.iter().filter(|&&t| t < EARLY_HIT).count()
             );
         }
+        // (the newcomer check, the PM's: with `--weak --attacker-level Easy`, no hit before 8:00 on any map, and three or
+        // four units at most; a FAIL, not a signal)
+        let ok = |b: bool| if b { "PASS" } else { "FAIL" };
+        s += &format!(
+            "\nThe newcomer check (with `--weak --attacker-level Easy`):\n\n- **{}** no hit before {}: {early} games hit sooner\n- **{}** the first hit four units at most: {most} at most\n",
+            ok(early == 0),
+            mmss(EARLY_HIT),
+            ok(most <= NEWCOMER_UNITS),
+        );
         s += &format!(
             "\n## Why the waves went\n\nThe attacker's own check as each wave went (`LaunchWhy`), the foe army it expected over the turtle's true army then (armed units, workers left out; the waves that went against an expectation), the wave's worth over that true army, and the share of the wave's value within {} tiles of its first unit to arrive.\n\n{}",
             waves::REACH,

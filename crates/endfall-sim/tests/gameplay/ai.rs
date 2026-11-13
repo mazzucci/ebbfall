@@ -7,7 +7,9 @@ fn the_ai_finishes_games_on_every_difficulty() {
     for diff in 0..3 {
         for seed in [2u32, 99] {
             let mut w = World::new(seed, diff);
-            for _ in 0..30 * 60 * 15 {
+            // (Easy within 30: its clumsy waves of four, growing by one, from an army of 14 at most, the PM, Nov 13)
+            let mins = if diff == 0 { 30 } else { 15 };
+            for _ in 0..30 * 60 * mins {
                 if w.over {
                     break;
                 }
@@ -15,7 +17,7 @@ fn the_ai_finishes_games_on_every_difficulty() {
             }
             assert!(
                 w.over && w.winner == ENEMY as i32,
-                "diff {diff} seed {seed}: AI should beat an idle player in 15 min"
+                "diff {diff} seed {seed}: AI should beat an idle player in {mins} min"
             );
         }
     }
@@ -49,15 +51,14 @@ fn the_ai_plays_either_seat() {
 fn every_level_plays_the_new_rosters_to_the_end() {
     // The re-theme's rosters at every level: the Kingdom against the Expedition and each in a mirror, two AIs, a game
     // that ends within 50 minutes, both seats having fought (and fielded more than their line units on a level whose
-    // mix allows it). (Easy too: its waves are clumsy until 12:00 only, `Diff::clumsy_until`; but its Kingdom mirror,
-    // whose two Easy Kingdoms trade waves for an hour and more (seed 41: 72 minutes), Easy against Easy that may drag on,
-    // Stelian, Nov 13.)
+    // mix allows it). (Easy left out: its waves clumsy for good and its army 14 at most, Easy against Easy may drag on
+    // for hours, accepted and reported by the lab, not gated; the PM and Stelian, Nov 13.)
     for diff in 0..DIFF.len() {
         for (k, races) in [[&HUMANS, &VAEL], [&HUMANS, &HUMANS], [&VAEL, &VAEL]]
             .into_iter()
             .enumerate()
         {
-            if diff == 0 && k == 1 {
+            if diff == 0 {
                 continue;
             }
             let seed = 40 + 3 * diff as u32 + k as u32;
@@ -940,7 +941,9 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
             let mut w = World::with_setup(seed, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
             let mut t = 0;
             let mut power_full = false;
-            while !w.over && t < 30 * 60 * 15 {
+            // (Easy within 30 minutes, as above)
+            let mins = if diff == 0 { 30 } else { 15 };
+            while !w.over && t < 30 * 60 * mins {
                 w.step();
                 t += 1;
                 let [used, cap] = w.sup(ENEMY);
@@ -1328,7 +1331,7 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
 
 #[test]
 fn the_guided_first_game_holds_the_first_wave_until_released() {
-    // Medium (Easy's own first wave, 7:45, comes after the hold's longest), with the waves held: no attack before 4:50
+    // Medium (Easy's own first wave, 8:00, comes after the hold's longest), with the waves held: no attack before 4:50
     // even with an army ready; released, the wave goes.
     let mut w = World::new(4242, 1);
     w.hold_waves = true;
@@ -1388,7 +1391,7 @@ fn easy_sends_its_first_wave_at_7_45_and_medium_at_4_00() {
             assert!(t > due, "level {diff} {}: not before {due}: {t}", race.name);
         }
     }
-    assert_eq!((DIFF[0].first, DIFF[1].first), (465.0, 240.0));
+    assert_eq!((DIFF[0].first, DIFF[1].first), (480.0, 240.0));
 }
 
 #[test]
@@ -2070,7 +2073,7 @@ fn easy_game(seed: u32) -> World {
 #[test]
 fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
     // Easy is clumsy (Stelian, Nov 13: "first attack only with 3-4 units"): with twenty fighters each at home from the
-    // start, its first wave goes no sooner than 7:45 with four of the Kingdom's and three of the Expedition's (its
+    // start, its first wave goes no sooner than 8:00 with four of the Kingdom's and three of the Expedition's (its
     // `wave_scale`), the rest staying home.
     let mut w = easy_game(4);
     for s in 0..2u8 {
@@ -2103,8 +2106,8 @@ fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
     }
     let [(kt, kn), (et, en)] = first.map(|f| f.expect("a first wave"));
     assert!(
-        kt >= 465.0 && et >= 465.0,
-        "no sooner than 7:45: {kt:.0} s, {et:.0} s"
+        kt >= 480.0 && et >= 480.0,
+        "no sooner than 8:00: {kt:.0} s, {et:.0} s"
     );
     assert_eq!(
         (kn, en),
@@ -2117,7 +2120,7 @@ fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
 fn defenders_chase_a_worker_that_came_near_only_on_a_leash_and_walk_home() {
     // (found on main: "attacked after 3 minutes") A player's worker comes by the AI's base at 2:00 and runs home. The
     // AI's home army goes for it, but on a leash tied where it was met (`CHASE_LEASH`): the chasers let it go, walk back,
-    // and nothing of the AI's comes near the player's headquarters before its first wave (7:45; arriving later).
+    // and nothing of the AI's comes near the player's headquarters before its first wave (8:00; arriving later).
     let mut w = World::with_setup(4, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
     assert!(w.set_ai_seats([false, true]));
     let ((px, py), (ex, ey)) = (w.map.bases[0], w.map.bases[1]);
@@ -2417,4 +2420,77 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
         kingdom[1].is_none_or(|t| t >= 540.0) && kingdom[2].is_none_or(|t| t >= 780.0),
         "the Kingdom's tiers: {kingdom:?}"
     );
+}
+
+#[test]
+fn easy_s_army_stops_growing_at_its_cap_and_its_gold_banks() {
+    // Easy holds 14 fighters at most, home and out (`Diff::army_max`, by units; the PM, Nov 13): rich and left alone, both
+    // peoples' armies stop there (a unit or two in training may finish over a lost one), and the gold banks.
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(5, 0, MapKind::Standard, false, [&HUMANS, f]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let fighters = |w: &World| {
+            w.units
+                .iter()
+                .filter(|u| u.team == ENEMY && !u.kind.def().worker && u.kind.def().armed())
+                .count()
+        };
+        let mut most = 0;
+        while w.time < 900.0 {
+            w.res[ENEMY as usize][0] = w.res[ENEMY as usize][0].max(600);
+            w.step();
+            w.events.clear();
+            most = most.max(fighters(&w));
+        }
+        let cap = DIFF[0].army_max;
+        assert_eq!(cap, 14);
+        assert!(
+            most <= cap,
+            "{}: {most} fighters at most, {cap} wanted",
+            f.name
+        );
+        assert!(most >= cap - 2, "{}: it does reach its cap: {most}", f.name);
+    }
+}
+
+#[test]
+fn easy_never_hits_a_newcomer_before_8_00_on_any_map() {
+    // The newcomer check (the PM, Nov 13): Easy's first wave leaves at 8:00, so whatever the map's size its first hit
+    // (a unit of a wave within 8 tiles of a building of the idle player's) comes no sooner, and is four units at most.
+    for size in [64, 72, 80, 96] {
+        for f in [&HUMANS, &VAEL] {
+            let mut w = World::with_size(
+                3,
+                0,
+                MapKind::Standard,
+                MapSize::square(size),
+                0,
+                &[&HUMANS, f],
+            );
+            for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+                (b.hp, b.maxhp) = (1e9, 1e9);
+            }
+            let mut hit = None;
+            while w.time < 720.0 && hit.is_none() {
+                w.step();
+                w.events.clear();
+                if let Some(wave) = w.ai_wave_of(ENEMY) {
+                    let near = wave.iter().filter_map(|&id| w.unit(id)).any(|u| {
+                        w.bldgs.iter().filter(|b| b.team == PLAYER).any(|b| {
+                            ((u.x - b.x).powi(2) + (u.y - b.y).powi(2)).sqrt() < 8.0 * TILE + b.r
+                        })
+                    });
+                    if near {
+                        hit = Some((w.time, wave.len()));
+                    }
+                }
+            }
+            if let Some((t, n)) = hit {
+                assert!(t >= 480.0, "{size} {}: hit at {t:.0} s", f.name);
+                assert!(n <= 4, "{size} {}: {n} units", f.name);
+            }
+        }
+    }
 }

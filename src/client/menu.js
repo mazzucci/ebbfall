@@ -6,8 +6,10 @@
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
 // The menu always opens on its first page (a join link opens the lobby instead; a challenge link, the single-player
 // page).
-// The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
-// others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
+// The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map at 96x96,
+// the others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
+// The 64x64 maps are hidden: never listed, never a fallback (a saved one opens the default); a challenge link naming
+// one plays it, listed while it is the map chosen.
 // The board (races, sides, levels) and the map are remembered on this device. A challenge link (`?vs=`, SHARE after a
 // victory: challenge.js) opens the single-player page on its setup, its seed and starts too, with a line that says so;
 // it is not remembered: the player's own saved setup is back on the next visit, and the first change to the board or
@@ -19,7 +21,7 @@ import { enterFullscreen } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
-import { MAPS, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
+import { MAPS, DEFAULT_MAP, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, offered, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, removeAt, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
@@ -29,11 +31,14 @@ import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName,
  *  side first, you first): `races` (a RANDOM one drawn), `ai`, `teams` (an id per seat, empty: free for all), `diffs`
  *  (each AI's; empty: all at `diff`), `diff`, the hardest AI's (the record's), and `spots`, each seat's spot (its
  *  color); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
-export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
+export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[DEFAULT_MAP].seed, kind: MAPS[DEFAULT_MAP].kind, map: DEFAULT_MAP, name: MAPS[DEFAULT_MAP].name, size: MAPS[DEFAULT_MAP].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 /** A race for this game: the one chosen, or either at random. */
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
-/** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
+/** ?seed=N in the URL plays a random-slot map of that seed, standard character: the first random slot, the hidden
+ *  64x64 one, unless ?map= names another (tests use both). */
 const urlSeed = new URLSearchParams(location.search).get('seed');
+/** ?map=N in the URL opens on map N, a hidden one too (tests use it: the 64x64 maps and the Lake are in no list). */
+const urlMap = ((q) => (/^\d{1,3}$/.test(q ?? '') && MAPS[+q] ? +q : null))(new URLSearchParams(location.search).get('map'));
 
 /** Pick map `i` (remembered); the random one draws a new seed and a hidden character each time it is chosen or played.
  *  (A challenge's map, seed and starts are its own: picking one makes the setup the player's.) */
@@ -48,13 +53,17 @@ function choose(i) {
   else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: m.kind ?? Math.floor(Math.random() * RANDOM_KINDS), name: mapName(seed) }); }
 }
 
-/** The map list into `sel` (a <select>): every map, its name and the players it seats ("Iron Compass · up to 8"), those
- *  with fewer starts than `players` there but not to be chosen; `on` chosen; `pick(i)` when another is. The options are
- *  made again only when the players change (a lobby arriving while the list is open leaves it open). */
+/** The map list into `sel` (a <select>): every map offered (no hidden one: maps.js `offered`), its name and the players
+ *  it seats ("Iron Compass · up to 8"), those with fewer starts than `players` there but not to be chosen; `on` chosen
+ *  (a hidden map, a challenge's or an old room's, listed too while it is); `pick(i)` when another is. The options are
+ *  made again only when the players or the hidden map listed change (a lobby arriving while the list is open leaves it
+ *  open). */
 export function mapSelect(sel, players, on, pick) {
-  if (sel.dataset.players !== String(players) || sel.options.length !== MAPS.length) {
-    sel.replaceChildren(...MAPS.map((m, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
-    sel.dataset.players = String(players);
+  const key = `${players}:${offered(on) ? '' : on}`;
+  if (sel.dataset.key !== key) {
+    const shown = MAPS.flatMap((_, i) => (offered(i) || i === on ? [i] : []));
+    sel.replaceChildren(...shown.map((i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
+    sel.dataset.key = key;
   }
   if (sel.value !== String(on)) sel.value = String(on);
   sel.onchange = () => { sfx('select'); pick(+sel.value); };
@@ -159,11 +168,12 @@ export function initMenu({ onStart }) {
     $(id).appendChild(shore);
   }
   // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
-  // chosen, if it seats them; else the smallest that does; ?seed=: a random one).
+  // chosen, if it seats them; else the smallest offered that does; a hidden one, or none yet: the default; ?map=: that
+  // one; ?seed=: a random one).
   let saved = null; try { saved = JSON.parse(store.get('seats')); } catch { /* none, or not ours */ }
   menu.board = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = filled(menu.board).length;
   const last = store.get('map') === null ? -1 : +store.get('map');
-  choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
+  choose(fitMap(urlMap ?? (urlSeed !== null ? MAPS.findIndex(m => m.random) : offered(last) ? last : DEFAULT_MAP), menu.players));
   takeChallenge(); renderMaps(); renderSeats(); showFirstGame();
   $('btnFirstHome').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
@@ -208,7 +218,8 @@ export function pendingChallenge() {
   return `${location.origin}${location.pathname}?${q}${location.hash}`;
 }
 
-/** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */
+/** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Ashen Basin: a hidden
+ *  64x64 map, the guided game's own; Humans against Humans). */
 export function setup() {
   if (!menu.tutorial) return { ...menu };
   const m = MAPS[0];

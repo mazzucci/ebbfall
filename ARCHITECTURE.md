@@ -59,8 +59,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   shallows round it. Starts by people: a seat whose builders are Amph starts in its start's basin (`Map::basins`;
   nobody since the re-theme), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
   a cove or a basin (no shaft either, since the re-theme's economy). A Shore
-  with more than two starts falls back to Standard ground. The menus offer it as its own maps (Mirror Lake, Random
-  Lake, appended to `MAPS`, with their line); the other random maps never draw it (`RANDOM_KINDS`). The renderer
+  with more than two starts falls back to Standard ground. It has maps of its own (Mirror Lake, Random Lake, appended
+  to `MAPS`, with their line), hidden from the menus with every 64x64 map since 2026-11-13 (`?map=12` opens it for the
+  tests); the other random maps never draw it (`RANDOM_KINDS`). The renderer
   tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
   a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, to the headquarters' flank; `CHANNEL` and
   `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
@@ -255,7 +256,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its waves are just their size (its first three or four units at 7:45, the rest at home), growing
                       by one, and they give up and walk home on contact with a defense near their worth or after early
                       losses, for good: until 12:00 and a wave of its has reached the foe (`clumsy_until`,
-                      `Ai::reached`) a wave that gave up does not grow the next, then each grows by one. A level may cap a
+                      `Ai::reached`) a wave that gave up does not grow the next, then each grows by one; its first wave leaves
+                      at 8:00 (no hit before it on any map) and its army stops at 14 fighters (`army_max`, by units: its
+                      gold banks). A level may cap a
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
                       90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees
@@ -314,9 +317,13 @@ src/client/           everything that touches the browser
                       from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
                       (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
-                      + AI in the lowest empty spot; the map list, any map that seats them, with a preview; no FIRST GAME there),
+                      + AI in the lowest empty spot; the map list, any offered map that seats them, with a preview, on
+                      Dust Quarter (96x96, two players) by default, a saved hidden map opening the default; no FIRST
+                      GAME there; `?seed=` plays the hidden 64x64 random slot, `?map=N` opens map N, hidden ones too:
+                      the tests' ways to a 64x64 game),
                       the About page (the source, the device check, the version); the map list and preview the lobby
-                      shares; a challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
+                      shares (a hidden map listed only while it is the one chosen: a challenge's or an old room's); a
+                      challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
                       board or the map (then it is theirs: saved, and an ordinary game)
   seats.js            the board's eight fixed spots (a seat keeps its spot, and its spot's color in the game, whatever
@@ -332,8 +339,11 @@ src/client/           everything that touches the browser
                       modal <dialog>)
   maps.js             the maps the menus offer, every one whatever the players (a map seats as many as its starts: 2
                       on 64x64, 4 on 96x96, 8 on 128x128; the chosen map decides the size; `fits`, `fitMap`: the
-                      smallest that seats them when they outgrow it), named fixed maps and a random one per size, a
-                      map's label ("Iron Compass · up to 8"), the map an online setup plays, the team splits a saved
+                      smallest offered that seats them when they outgrow it), named fixed maps and a random one per
+                      size; the 64x64 maps (the duel's and the Lake's) hidden (`SIZES`' `hidden`, `offered`: in no
+                      list, never a fallback; kept under their indices, which rooms and links name, and still played
+                      when one is named; the guided first game plays Ashen Basin); `DEFAULT_MAP` (Dust Quarter: single
+                      player's first visit and a new room); a map's label ("Iron Compass · up to 8"), the map an online setup plays, the team splits a saved
                       setup of the menu before the board names; pure (test/maps.test.js; the relay imports it too)
   challenge.js        SHARE's challenge link (`?vs=CODE`): a single-player setup (the map, its seed and starts, each
                       spot's race, side and level) and the winner's time as a short versioned code of numbers and
@@ -489,12 +499,13 @@ test/store.test.js    the player's name: `cleanName` (and that the relay names a
 test/challenge.test.js a challenge's code (src/client/challenge.js): setups round-trip, the code canonical (sides as they
                       first appear, the side modulo starts x players), hostile, malformed and other versions refused (a
                       fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text
-test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, maps that fit (the smallest that
-                      does when they outgrow one), labels, an online setup's map at its own size, the team splits
+test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, the hidden 64x64 maps and the
+                      default, maps that fit (the smallest offered that does when they outgrow one), labels, an online
+                      setup's map at its own size, the team splits
 relay/                the multiplayer relay (Notion: Multiplayer design): room.js, the rules as a pure state machine (seats on
                       the board's fixed spots (a seat keeps its spot in the lobby), AI seats and their levels, the
                       game's seats arranged by side only at the start (`setup.spots`), the room's map checked against
-                      its seats (it imports src/client/maps.js), lobby, the turn clock, the log, away and back,
+                      its seats (it imports src/client/maps.js; a new room on `DEFAULT_MAP`), lobby, the turn clock, the log, away and back,
                       desync checks, the host's remove: the address barred while the room lasts, in its record);
                       server.mjs, a Node WebSocket server for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not

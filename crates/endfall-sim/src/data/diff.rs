@@ -84,6 +84,10 @@ pub struct Diff {
     /// its games end (with its waves at three or four for good, Easy against Easy, and
     /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
     pub clumsy_until: f64,
+    /// The most fighters it holds, home and out (armed units, workers left out; queued ones counted), by units: 0 for no
+    /// cap. Easy's 14 (the PM, Nov 13): its army stops growing there and its gold banks; ending an Easy game is the
+    /// player's job.
+    pub army_max: usize,
     /// The most advanced units it trains from the start (`UnitKind::ai_tier`): 0 its line units and the scout (Easy),
     /// 1 its raiders, the Cannon, the Ballista and the Drone too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
@@ -147,7 +151,7 @@ impl super::UnitKind {
 
 pub const DIFF: [Diff; 4] = [
     // Easy: a slow, plain script. Few workers, two factories to start; no research, raiders, abilities or adapting. It
-    // fields its line units and their anti-air only. Its first wave goes at 7:45, so a newcomer is not hit before about
+    // fields its line units and their anti-air only. Its first wave goes at 8:00, so a newcomer is never hit before
     // 8:00 (at 4:00 it arrived by 4:30: the lab's newcomer, `turtle --weak --attacker-level Easy`). It takes its natural
     // after 9:00 (after Medium's) and only then adds a factory to spend on, so a player who holds its early waves still
     // meets a growing army later. One mine until then: a second's crew of workers would only pile up gold it has no
@@ -158,9 +162,9 @@ pub const DIFF: [Diff; 4] = [
         wave_grow: 1, // (its waves grow slowly: 4, 5, 6 ... to 12; the Expedition's at its 0.6)
         harv: 7,
         rax: 2, // (two Barracks from the start: the Expedition's Recruiting posts are its places and its factories, so with
-        // the higher caps' hired places its Easy line outgrew one Barracks' before the 7:45 wave)
+        // the higher caps' hired places its Easy line outgrew one Barracks' before the 8:00 wave)
         extra_rax: 1,
-        first: 465.0,
+        first: 480.0, // (7:45 before Nov 13: a wave that leaves at 8:00 cannot hit before it, on any map)
         gap: 80.0,
         research_from: NEVER,
         expand_at: 540.0,
@@ -192,6 +196,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_any: true,
         give_up: 7,
         clumsy_until: 720.0,
+        army_max: 14,
         mix_tier: 0,
         tier_at: &[540.0, 780.0],
         // (an Archer per two Guards, not one: its line meets the Expedition's melee Sellswords alone until 9:00, where the
@@ -204,7 +209,7 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 540.0,
     },
-    // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
+    // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 8:00;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
     // with a second base): under a cap of 40 (PRD: the conversion) a crew of 12 to 18 left too little room for an army;
     // the Markets make up the income (the lab after PR 1 tunes them).
@@ -247,6 +252,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_any: false,
         give_up: 4,
         clumsy_until: 0.0,
+        army_max: 0,
         mix_tier: 1,
         tier_at: &[480.0],
         mix_over: &[],
@@ -297,6 +303,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_any: false,
         give_up: 4,
         clumsy_until: 0.0,
+        army_max: 0,
         mix_tier: 2,
         tier_at: &[],
         mix_over: &[],
@@ -351,6 +358,7 @@ pub const DIFF: [Diff; 4] = [
         retreat_any: false,
         give_up: 4,
         clumsy_until: 0.0,
+        army_max: 0,
         mix_tier: 2,
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)

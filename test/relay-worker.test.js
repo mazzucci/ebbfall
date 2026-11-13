@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import entry, { RoomObject } from '../relay/worker.js';
 import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
 import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
+import { DEFAULT_MAP } from '../src/client/maps.js';
 import { readFileSync } from 'node:fs';
 import { rateLimit, OpenBudget, Limiter, addressKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, MISS_COST, MINUTE, HOUR } from '../relay/limits.js';
 import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
@@ -284,7 +285,7 @@ test('a stored record of a bad shape comes back as an empty lobby, never a broke
     const seats = o.room.seats;
     assert.ok(seats.length >= 2 && seats.length <= 8, `${JSON.stringify(lobby)}: ${seats.length} seats`);
     assert.ok(got(c, 'seat').length === 1, `${JSON.stringify(lobby)}: a seat`);
-    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, seats.map(s => s.team)], [['Ann', 'Cy'], 1, 0, [0, 0]], 'the good parts kept (Ann held, the one side), the bad dropped (Bo, no token: open; the map)');
+    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, seats.map(s => s.team)], [['Ann', 'Cy'], 1, DEFAULT_MAP, [0, 0]], 'the good parts kept (Ann held, the one side), the bad dropped (Bo, no token: open; the map: a new room\'s)');
     else assert.equal(got(c, 'seat')[0].seat, 0, `${JSON.stringify(lobby)}: an empty lobby`);
     c.close();
   }

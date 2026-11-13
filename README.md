@@ -3,9 +3,9 @@
 A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
 peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
-all or in teams of any shape, or friends over the Internet with AIs in the empty seats), fourteen maps of three sizes
-(for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each
-size, and a lake map with a random one of its own). Pre-alpha.
+all or in teams of any shape, or friends over the Internet with AIs in the empty seats), eight maps of two sizes
+(for up to four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each
+size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the

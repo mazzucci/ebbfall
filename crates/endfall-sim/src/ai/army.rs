@@ -88,9 +88,19 @@ impl World {
         } else {
             GUIDED_ARMY_AFTER
         };
+        self.fighters_of(e) >= cap
+    }
+
+    /// Whether seat `e` holds its level's most fighters (`Diff::army_max`, Easy's 14): it trains no more.
+    pub(crate) fn army_full(&self, e: u8) -> bool {
+        let most = self.tuning(e).army_max;
+        most > 0 && self.fighters_of(e) >= most
+    }
+
+    /// Seat `e`'s fighters (armed, not workers), queued ones counted.
+    pub(crate) fn fighters_of(&self, e: u8) -> usize {
         let fighter = |k: UnitKind| !k.def().worker && k.def().armed();
-        let have = self
-            .units
+        self.units
             .iter()
             .filter(|u| u.team == e && fighter(u.kind))
             .count()
@@ -100,8 +110,7 @@ impl World {
                 .filter(|b| b.team == e)
                 .flat_map(|b| b.queue.iter())
                 .filter(|&&k| fighter(k))
-                .count();
-        have >= cap
+                .count()
     }
 
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
@@ -1598,7 +1607,7 @@ mod tests {
     fn easy_keeps_todays_waves() {
         let (mut w, _, mut b) = ready(0);
         w.ai_mut().wave = 4;
-        b.t = 500.0; // (past Easy's first wave, 7:45)
+        b.t = 500.0; // (past Easy's first wave, 8:00)
         w.ai_mut().army_seen = (30.0 * trooper(), 499.0, 0.0);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "Easy does not wait for strength");
@@ -1924,7 +1933,7 @@ mod tests {
         // foe needed, `Diff::retreat_any`); against less it fights on.
         let scene = |enemies: usize| {
             let (mut w, army, mut b) = ready_with(0, DIFF[0]);
-            b.t = 480.0; // (past its first wave's 7:45)
+            b.t = 490.0; // (past its first wave's 8:00)
             w.ai_army(&mut b);
             assert!(w.ai().attacking, "its first wave goes");
             let wave = w.ai().attackers.clone().unwrap();

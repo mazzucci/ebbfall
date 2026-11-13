@@ -14,6 +14,7 @@
 //   kingdom    a Kingdom mirror (seats 0 and 1)
 //   expedition an Expedition mirror
 //   base-kingdom, base-expedition   a base with every building of its people
+//   home-kingdom, home-expedition   the same base with an army of every kind drawn up south of it, at zoom 1
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
 //   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
@@ -38,6 +39,8 @@ const SCENES = {
   expedition: { races: ['vael', 'vael'], armies: [V_ARMY, { scythe: 3, prism: 4, bruiser: 3, monolith: 2, umbra: 1 }] },
   'base-kingdom': { races: ['humans', 'vael'], base: true },
   'base-expedition': { races: ['vael', 'humans'], base: true },
+  'home-kingdom': { races: ['humans', 'vael'], base: true, army: H_ARMY, zoom: 1 },                                      // (the art polish's in-game shots: a base with its buildings and an army standing before it, at zoom 1)
+  'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1 },      // (the Uplink needs the Lab, and the Portal the Uplink: the base's rounds raise them in turn)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
 };
 
@@ -90,7 +93,7 @@ const raiseBase = (page) => page.evaluate(() => {
   const rects = G.bldgs.filter(b => b.team === me).map(b => [b.tx, b.ty, b.w, b.h]);
   const clear = (tx, ty, w, h) => rects.every(([x, y, rw, rh]) => tx + w + 1 <= x || x + rw + 1 <= tx || ty + h + 1 <= y || y + rh + 1 <= ty);
   const why = {}, placed = [], spots = []; for (let r = 0; r <= 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) spots.push([core.tx + dx, core.ty + dy]);
-  for (let round = 0; round < 6 && todo.length; round++) {
+  for (let round = 0; round < 9 && todo.length; round++) {                                                           // (nine rounds: the Expedition's Portal needs the Uplink, which needs the Lab)
     engine.setResources(me, 99999, 99999);
     const workers = G.units.filter(u => u.team === me && engine.UNITS[u.type].worker);
     for (const k of todo.slice()) {
@@ -109,6 +112,19 @@ const raiseBase = (page) => page.evaluate(() => {
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, left: todo.map(k => `${k} (${why[k]})`), built: mine.map(b => b.type) };
 });
 
+/** An army of every kind drawn up in rows south of the base's middle (the art polish's in-game shots). */
+const muster = (page, army, at) => page.evaluate(([army, at]) => {
+  const { G, map, engine } = endfall, T = engine.TILE, me = G.me, kinds = Object.entries(army).flatMap(([k, n]) => Array(n).fill(k));
+  const free = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor(y / T); return engine.inMap(tx, ty) && !map.rock[engine.idx(tx, ty)] && !map.occ[engine.idx(tx, ty)]; };
+  const south = Math.max(...G.bldgs.filter(b => b.team === me).map(b => b.y + b.h * T / 2)) + 1.5 * T;
+  let k = 0; for (let row = 0; k < kinds.length && row < 4; row++) for (let col = -5; col <= 5 && k < kinds.length; col++) {
+    const x = at.x + col * 1.3 * T, y = south + row * 1.3 * T;
+    if (!engine.UNITS[kinds[k]].air && !free(x, y)) continue;
+    engine.debugSpawn(me, kinds[k++], x, y);
+  }
+  return { x: at.x, y: (at.y + south + 2 * T) / 2 };
+}, [army, at]);
+
 /** Hold the page's clock (no frame, no tick until `frame`; far enough ahead that a loaded machine reaches it before the hold), and draw `ms` of frames. */
 const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 15000);
 const frame = (page, ms = 60) => page.clock.runFor(ms);
@@ -117,7 +133,8 @@ async function shoot(name, scene, device, label) {
   const g = await newGame(device, scene.races, scene.map), { page } = g, file = join(outDir, `${name}-${label}.png`);
   try {
     let at, note = '';
-    if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; }
+    if (scene.research) await page.evaluate((keys) => { for (const k of keys) endfall.engine.debugResearch(endfall.G.me, k); }, scene.research); // (a research granted before the base goes up, so every building can)
+    if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
     else { at = await fight(page, scene.armies); note = `spawned ${at.spawned.join(' and ')}; `; }
     await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);
     await frame(page, 100);

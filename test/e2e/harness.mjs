@@ -325,7 +325,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
         // The button as the card shows it, on the page of the Build menu its race lists it on.
         const { advanced, label } = await ev((t) => {
           const d = endfall.engine.BUILDINGS[t];
-          return { advanced: Object.values(endfall.engine.FACTIONS).some(f => f.buildAdvanced.includes(t)), label: d.short || d.name.split(' ').pop() };
+          const defense = d.weapon && !d.trains?.length; // (a defense is on the basic page: src/client/cards.js `buildPages`)
+          return { advanced: !defense && Object.values(endfall.engine.FACTIONS).some(f => f.buildAdvanced.includes(t)), label: d.short || d.name.split(' ').pop() };
         }, type);
         await d.pressCard('Build'); if (advanced) await d.pressCard('Advanced'); await d.pressCard(label);
       }

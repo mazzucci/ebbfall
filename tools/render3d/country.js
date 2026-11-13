@@ -27,9 +27,9 @@ export const CMATS = {
   earth: std({ color: 0x66604f, map: earthTex, roughness: 1 }),                                  // dug earth: the dirt's color
   earthDark: std({ color: 0x3e3a32, roughness: 1, flatShading: true }),                          // a dug hollow
   pit: std({ color: 0x1a1816, roughness: 1 }),                                                   // the mined-out pit's bottom
-  leaf: std({ color: 0x3e6a2e, roughness: 0.9, flatShading: true }),
-  leafLight: std({ color: 0x5a8a3a, roughness: 0.9, flatShading: true }),
-  leafDark: std({ color: 0x2a4820, roughness: 0.95, flatShading: true }),
+  leaf: std({ color: 0x38602a, roughness: 0.9 }),                                                 // (the art polish, 2026-11-13: smooth, a step darker; flat-shaded facets read as a cartoon)
+  leafLight: std({ color: 0x4e7a34, roughness: 0.9 }),
+  leafDark: std({ color: 0x24401c, roughness: 0.95 }),
   bark: std({ color: 0x4a3826, roughness: 0.95 }),
   barkLight: std({ color: 0x7a6248, roughness: 0.9 }),                                           // a cut trunk's rings
   fieldstone: std({ color: 0x7c7466, map: ashlarTex, bumpMap: ashlarBump, bumpScale: 1.2, roughness: 0.92 }),   // a ruin's old warm fieldstone (not the kingdom's slate; round 1's pale gray vanished on the hill)
@@ -41,6 +41,9 @@ export const CMATS = {
   pebble: std({ color: 0x78766e, roughness: 0.9, flatShading: true }),
   timberFresh: std({ color: 0x9c7e56, roughness: 0.82 }),                                          // fresh-cut building timber (the kingdom's oak is dark, the scaffold must read against the grass)
   timberGrey: std({ color: 0x8c7e68, roughness: 0.85 }),                                           // the Expedition's scaffold: weathered timber the locals brought (round 1's Harbor timber went near black)
+  postWhite: std({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }),                             // the Expedition's scaffold since the art polish (2026-11-13): white steel posts
+  strip: std({ color: 0x000000, emissive: 0x00d4ff, emissiveIntensity: 0.9 }),                      // its cyan strip light (the Data center's neon)
+  stripHalo: new THREE.MeshBasicMaterial({ color: 0x18d0ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }),
   mortar: std({ color: 0xb0aca0, roughness: 1 }),
   clothDull: std({ color: 0x4a4740, roughness: 0.95 }),                                            // a dead building's cloth, grayed
   iron: std({ color: 0x3a3c40, metalness: 0.6, roughness: 0.5 }),                                   // a cart's tyres, pegs (defined always, used by the polish)
@@ -170,7 +173,7 @@ export function tree(v) {
   const balls = v === 1 ? [[0, H + 2, 0, R], [0, H + 8, 0, R * 0.85], [0, H + 13, 0, R * 0.6], [-2, H + 5, 1, R * 0.7], [2, H + 9, -1, R * 0.6]]
     : v === 2 ? [[-1, H + 3, 0, R], [5, H + 1, 2, R * 0.75], [2, H + 7, -1, R * 0.8], [-5, H + 5, -2, R * 0.65], [1, H + 10, 1, R * 0.55]]
       : [[0, H + 4, 0, R], [-5, H + 2, 2, R * 0.75], [5, H + 3, -2, R * 0.75], [1, H + 9, 1, R * 0.7], [-2, H + 6, -5, R * 0.6]];
-  balls.forEach(([x, y, z, r], k) => add(g, sph(r, 7, 5), k === balls.length - 1 || (k === 3) ? CM.leafLight : k % 2 ? CM.leaf : CM.leafDark, x, y, z, rnd() * 3, rnd() * 3, 0));
+  balls.forEach(([x, y, z, r], k) => add(g, sph(r * 1.08, 14, 10), k === balls.length - 1 || (k === 3) ? CM.leafLight : k % 2 ? CM.leaf : CM.leafDark, x, y, z, rnd() * 3, rnd() * 3, 0)); // (round, smooth balls a little bigger, so they merge into one canopy: the art polish)
   return g;
 }
 /** A rock spire (`spire_v`, solid): stacked lumps of gray rock narrowing to a pale top, leaning a little, a smaller
@@ -273,11 +276,9 @@ function stringLine(g, h, peg, rope) {
 function poles(g, n, W, H, timber, rope, polish = false) {
   const h = W / 2, ps = [];
   for (let x = -h; x <= h + 0.1; x += W / Math.max(2, n)) for (const z of [-h, h]) ps.push([x, z], [z, x]);
-  for (const [x, z] of ps) { add(g, cyl(0.9, 1.1, H + 2, 8), timber, x, (H + 2) / 2, z, (rnd() - 0.5) * 0.04, 0, (rnd() - 0.5) * 0.04); add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H - 0.6, z, Math.PI / 2); if (polish) add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H * 0.5 + 0.9, z, Math.PI / 2); }
+  for (const [x, z] of ps) { add(g, cyl(rope ? 0.9 : 1.1, rope ? 1.1 : 1.1, H + 2, 8), timber, x, (H + 2) / 2, z, rope ? (rnd() - 0.5) * 0.04 : 0, 0, rope ? (rnd() - 0.5) * 0.04 : 0); if (rope) { add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H - 0.6, z, Math.PI / 2); if (polish) add(g, torus(1.25, 0.3, Math.PI * 2, 12), rope, x, H * 0.5 + 0.9, z, Math.PI / 2); } } // (no rope: the Expedition's steel posts, straight and bare)
   for (const y of [H * 0.5, H]) for (const [x, z, rot] of [[0, -h, 0], [0, h, 0], [-h, 0, Math.PI / 2], [h, 0, Math.PI / 2]]) add(g, rbox(W + 2, 1.2, 1.2, 0.4), timber, x, y, z, 0, rot, 0);
-  for (const x of [-h, h]) limb(g, [x, 1, -h], [x, H * 0.95, h], 0.3, rope);
-  for (const z of [-h, h]) limb(g, [-h, 1, z], [h, H * 0.95, z], 0.3, rope);
-  if (polish) ladder(g, h * 0.45, h + 4.5, h + 0.6, H + 1.5, timber);
+  if (polish) ladder(g, h * 0.45, h + 4.5, h + 0.6, H + 1.5, timber);                                                     // (the art polish, 2026-11-13: the diagonal rope braces went, both peoples')
   return h;
 }
 /** A ladder from the ground at (x, z0) leaning to the top ledger at (x, z1, y1): two rails and a rung every 3 units. */
@@ -292,10 +293,10 @@ function hungCloth(g, M, x, y, z, len, h) {
   add(g, rbox(len + 0.2, 0.6, 0.6, 0.1), M.inkLine, x, y + h / 2 + 0.2, z);
   add(g, rbox(len + 0.2, 0.6, 0.6, 0.1), M.inkLine, x, y - h / 2 - 0.2, z);
 }
-/** A team pennant on a pole's top. */
+/** A team pennant on a pole's top (the art polish: 8 x 4.6, a flag; the hung banner went). */
 function pennant(g, M, x, y, z) {
-  add(g, rbox(5, 3.4, 0.5, 0.1), M.cloth === M.paintCanvas ? M.cloth : M.paintCloth, x + 2.6, y + 1.8, z);
-  add(g, rbox(5.2, 0.4, 0.6, 0.1), M.inkLine, x + 2.6, y, z);
+  add(g, rbox(8, 4.6, 0.5, 0.1), M.cloth === M.paintCanvas ? M.cloth : M.paintCloth, x + 4.1, y + 2.4, z);
+  add(g, rbox(8.2, 0.4, 0.6, 0.1), M.inkLine, x + 4.1, y, z); add(g, rbox(8.2, 0.4, 0.6, 0.1), M.inkLine, x + 4.1, y + 4.8, z);
 }
 
 /** The kingdom's foundation (`rt_kg_foundation_n`): a sill of fresh-cut timber pegged round the site, stone footings
@@ -322,8 +323,7 @@ export function scaffoldKg(n, K) {
   const g = grp(), W = n * 32 - 8, H = 10 + n * 6, C = cm(K.polish); s = 81 + n;
   const h = poles(g, n, W, H, C.timberFresh, K.rope, !!K.polish);                                                        // (polish: the middle lashings and a ladder on the south face)
   add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), C.timberFresh, 0, H + 0.9, -h + 1.2); add(g, rbox(3.6, 0.6, W * 0.55, 0.1), C.timberFresh, h - 1.2, H + 0.9, 0);   // the plank walk
-  hungCloth(g, K, -W * 0.08, H * 0.7, -h + 0.9, W * 0.4, H * 0.34);                                                      // (round 2: a hanging, not a billboard; 0.62 x 0.42 gave 0.30)
-  pennant(g, K, -h, H + 2.1, -h); pennant(g, K, h - 5.2, H + 2.1, -h);
+  pennant(g, K, -h, H + 2.1, -h); pennant(g, K, h - 8.2, H + 2.1, -h);                                                   // (the art polish: two pennants carry the team; the hung cloth over the rising building went)
   return g;
 }
 /** The kingdom's rubble (`rt_kg_rubble_n`): tumbled ashlar, broken oak beams, slates thrown down, a stub of wall still
@@ -366,19 +366,11 @@ export function foundationEx(n, E) {
  *  the mast, a team cloth hung on the east side. No shadow. */
 export function scaffoldEx(n, E) {
   const g = grp(), W = n * 32 - 8, H = 10 + n * 6, C = cm(E.polish); s = 181 + n;
-  const h = poles(g, n, W, H, C.timberGrey, E.rope, !!E.polish);                                                         // (polish: the middle lashings and a ladder on the south face)
-  add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), E.deck, 0, H + 0.9, -h + 1.2);
-  const MX = -h + 2, MZ = h - 2, MH = H + 12;
-  add(g, cyl(1.1, 1.3, MH, 8), C.timberGrey, MX, MH / 2, MZ);                                                             // the mast
-  limb(g, [MX, MH - 3, MZ], [MX + 11, MH + 2, MZ - 4], 0.9, C.timberGrey);                                               // the jib
-  limb(g, [MX, MH - 10, MZ], [MX + 8, MH + 0.7, MZ - 2.9], 0.5, C.timberGrey);                                           // its strut
-  add(g, cyl(1.1, 1.1, 0.8, 10), E.steel, MX + 11, MH + 2.2, MZ - 4, Math.PI / 2, 0, 0);                                  // the pulley
-  limb(g, [MX + 11, MH + 1.5, MZ - 4], [MX + 11.3, H * 0.55 + 3, MZ - 4.2], 0.28, E.cable);                               // the cable
-  add(g, torus(0.8, 0.25, Math.PI * 1.5, 10), E.steel, MX + 11.3, H * 0.55 + 2.4, MZ - 4.2, 0, 0, Math.PI);
-  add(g, rbox(4.4, 3.8, 4.4, 0.3), E.panelDark, MX + 11.3, H * 0.55, MZ - 4.2, 0, 0.4, 0);                               // the crate on the hook
-  limb(g, [MX, MH - 1, MZ], [MX + 11, MH + 2.2, MZ - 4], 0.25, E.cable);                                                 // the jib's stay
-  add(g, rbox(7, 4.2, 0.5, 0.1), E.paintCloth, MX + 3.6, MH + 2.6, MZ); add(g, rbox(7.2, 0.4, 0.6, 0.1), E.inkLine, MX + 3.6, MH + 0.4, MZ); add(g, rbox(7.2, 0.4, 0.6, 0.1), E.inkLine, MX + 3.6, MH + 4.8, MZ);   // the flag
-  hungCloth(g, E, 4, H * 0.7, -h + 0.9, W * 0.38, H * 0.32);
+  const h = poles(g, n, W, H, C.postWhite, null, !!E.polish);                                                             // white steel posts and ledgers, no lashings (the art polish, 2026-11-13: the wooden scaffold with its hoist, cables and crate went; polish: a ladder on the south face)
+  add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), E.deck, 0, H + 0.9, -h + 1.2);                                                   // the plank walk
+  add(g, rbox(W + 2, 0.7, 0.7, 0.2), C.strip, 0, H + 0.95, h + 0.9); add(g, rbox(W + 2.4, 1.8, 1.8, 0.4), C.stripHalo, 0, H + 0.95, h + 0.9); // the strip light along the south ledger, cyan
+  for (const x of [-h, h]) { add(g, rbox(0.7, 0.7, W * 0.6, 0.2), C.strip, x + (x < 0 ? -0.9 : 0.9), H + 0.95, 0); add(g, rbox(1.8, 1.8, W * 0.6, 0.4), C.stripHalo, x + (x < 0 ? -0.9 : 0.9), H + 0.95, 0); } // and along the east and west ledgers
+  pennant(g, E, -h, H + 2.1, -h); pennant(g, E, h - 8.2, H + 2.1, -h);                                                   // two team pennants on the north posts
   return g;
 }
 /** The Expedition's rubble (`rt_ex_rubble_n`): broken planks, a bent panel or two, loops of cable, a drum on its side,

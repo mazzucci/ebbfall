@@ -266,7 +266,7 @@ export function polishMats(M, side) {
     M.horse.map = X.hide; M.horse.needsUpdate = true; M.horseDark.map = X.hide; M.horseDark.needsUpdate = true;
     bump(M.tunic, X.fold, 1.0); bump(M.hose, X.fold, 0.8); bump(M.linen, X.fold, 0.6); bump(M.clothPale, X.fold, 1.0);
     bump(M.oak, X.grain, 0.8); bump(M.timber, X.grain, 0.8); bump(M.timberPale, X.grain, 0.8);
-    courses(M.wall, X.hiAshlar, 0x8c8e96); courses(M.wallDark, X.hiAshlar); courses(M.plinth, X.hiAshlar); // the courses drawn for 1x; the wall a step lighter (round 3: the castle read as a black block)
+    courses(M.wall, X.hiAshlar, 0xaa9c8a); courses(M.wallDark, X.hiAshlar); courses(M.plinth, X.hiAshlar); // the courses drawn for 1x; the wall a step lighter (round 3: the castle read as a black block), warmed to sandstone with the palette (the art polish)
     bump(M.wall, M.wall.bumpMap, 2.2); bump(M.wallDark, M.wallDark.bumpMap, 2.2); bump(M.plinth, M.plinth.bumpMap, 2.0);
     courses(M.roof, X.hiSlate, 0x545a62); bump(M.roof, X.slate, 1.6);                                     // slate half a step lighter: under the stronger key the sun-lit slates part from the fill-lit walls (a darker slate sank into them)
     bump(M.yard, M.yard.bumpMap, 1.6);

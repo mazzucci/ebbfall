@@ -129,6 +129,17 @@ for (const race of ['humans', 'vael']) {
   });
 }
 
+test('every research and command the card can show has an icon (a key with no drawing renders a blank button)', { skip }, async () => {
+  const { hasIcon } = await import('../src/client/icons.js');
+  // Every research and every button ability of either people, shown or not yet: the button's icon is its key.
+  const keys = [...Object.keys(E.UPGRADES), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)];
+  for (const k of keys) assert.ok(hasIcon(k), `${k} has an icon`);
+  // And every button on every card the game draws (a portrait stands in for an icon on a unit or a building).
+  for (const race of ['humans', 'vael']) for (const [what, items] of cards(race)) {
+    for (const it of items.filter(i => !i.hidden && !i.por)) assert.ok(it.icon && hasIcon(it.icon), `${what}: ${it.label} (${it.icon}) has an icon`);
+  }
+});
+
 test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);
@@ -214,6 +225,27 @@ test('a building opened mid-game is appended to its Build page: the shown ones k
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   raise('siphon');
   assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'a new game: its own slots');
+  ui.sel = []; ui.mode = null;
+});
+
+test('the Kingdom\'s Build list: the Watchtower on the basic page, before Advanced (as the Sentry mast); the advanced page packed without it', { skip }, () => {
+  E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
+  const villager = () => E.G.units.find(u => u.team === E.G.me && u.type === 'harvester');
+  const page = (mode) => { ui.sel = [villager()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
+  assert.deepEqual(page('build'), ['b_barracks@0', 'b_depot@1', 'b_core@2', 'esc@5'], 'from the start: no Watchtower nor Advanced before a Barracks');
+  raise('barracks');
+  assert.deepEqual(page('build'), ['b_barracks@0', 'b_depot@1', 'b_core@2', 'b_turret@3', 'build2@4', 'esc@5'], 'a Barracks up: the Watchtower, then Advanced, Back in the corner');
+  assert.deepEqual(page('build2'), ['b_forge@0', 'b_factory@1', 'b_extractor@2', 'build1@5'], 'the advanced page, no Watchtower');
+  raise('forge');
+  assert.deepEqual(page('build2'), ['b_forge@0', 'b_factory@1', 'b_extractor@2', 'b_airfield@3', 'build1@5'], 'the Stables appended');
+  assert.deepEqual(page('build'), ['b_barracks@0', 'b_depot@1', 'b_core@2', 'b_turret@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  // Both peoples' pages: the defense on the basic one, and the basic page fits its two rows with Advanced and Back.
+  for (const f of Object.values(E.FACTIONS)) {
+    const { basic, advanced } = C.buildPages(f);
+    assert.ok(basic.some(k => E.BUILDINGS[k].weapon) && !advanced.some(k => E.BUILDINGS[k].weapon && !E.BUILDINGS[k].trains?.length), `${f.name}: the defense on the basic page`);
+    assert.ok(basic.length + 2 <= 6, `${f.name}: the basic page, Advanced and Back in two rows`);
+    assert.deepEqual([...basic, ...advanced].sort(), [...f.buildBasic, ...f.buildAdvanced].sort(), `${f.name}: every building on one page`);
+  }
   ui.sel = []; ui.mode = null;
 });
 

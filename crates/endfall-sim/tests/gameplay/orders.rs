@@ -227,7 +227,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
     // The Expedition (the arc, Nov 13): the Recruiting post (Sellswords; Bruisers once a Lab stands) and the Sentry mast
     // need nothing, the Factory (Buggies; Drones once a Lab stands) and the Lab need the post, the Portal (Androids and
-    // Rovers) an Uplink, which needs the satellite, launched at the Lab.
+    // Rovers) an Uplink, which needs the Lab.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
     for k in [BldgKind::Kiln, BldgKind::Loom] {

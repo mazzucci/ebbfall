@@ -1,9 +1,8 @@
-//! The Expedition rework (PRD: power, hired guns, the satellite): no population. Its machines use Power (the Data center
-//! +20, a wind turbine +8), its Androids too; its hired guns (the Sellsword, the Bruiser, the Medic) take hired places,
-//! six a Recruiting post, one count for the side. Power and hired places each have a maximum (the balance pass: 45 and
-//! 15 on 64x64, the two together the Kingdom's population limit). Launch satellite (at the Data center, once a Lab
-//! stands) is told to its own seat alone and unlocks the Uplink, which unlocks the Portal: one a side, using Power from
-//! the moment it is placed, where the Android, a slow and expensive elite, is made. The hired guns fight in melee. The
+//! The Expedition rework (PRD: power, hired guns, the satellite; one dish and no satellite since Nov 13): no
+//! population. Its machines use Power (the Data center +20, a wind turbine +8), its Androids too; its hired guns (the
+//! Sellsword, the Bruiser, the Medic) take hired places, six a Recruiting post, one count for the side. Power and hired
+//! places each have a maximum (the balance pass: 45 and 15 on 64x64, the two together the Kingdom's population limit).
+//! The Lab unlocks the Uplink, which unlocks the Portal: one a side, using Power from the moment it is placed, where the Android, a slow and expensive elite, is made. The hired guns fight in melee. The
 //! range's speed bonus and the Drone's leash: radio.rs.
 
 use crate::common::*;

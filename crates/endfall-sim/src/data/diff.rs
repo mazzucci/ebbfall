@@ -3,6 +3,10 @@
 
 /// A time for a step it never takes.
 pub const NEVER: f64 = f64::MAX;
+/// Past its clumsy waves (`Diff::clumsy_until`) a level's wave waits for this edge over the army it expects, as
+/// Medium's does, and goes all in after this many seconds without one (`Diff::at`).
+const LATE_MARGIN: f64 = 1.3;
+const LATE_ALL_IN: f64 = 300.0;
 
 /// AI tuning per difficulty. `first`/`gap`: seconds before the first wave and between waves. `extra_rax`: main
 /// factories it may add beyond its schedule (`rax`, one more after 5 and 9 minutes) to spend shards piling up.
@@ -78,9 +82,18 @@ pub struct Diff {
     pub wave_only: bool,
     pub retreat_any: bool,
     pub give_up: usize,
-    /// The most advanced units it trains (`UnitKind::ai_tier`): 0 its line units, their anti-air and the scout (Easy),
-    /// 1 its raiders, siege, anti-air vehicles, Androids and Drones too (Medium), 2 everything (Hard and up).
+    /// Until when (s) those clumsy waves last: past it (Easy: 12:00) its waves are whole armies that pull back as every
+    /// level's do (`Diff::at`), so its games end (with its waves at three or four for good, Easy against Easy, and
+    /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
+    pub clumsy_until: f64,
+    /// The most advanced units it trains from the start (`UnitKind::ai_tier`): 0 its line units and the scout (Easy),
+    /// 1 its raiders, the Cannon, the Ballista and the Drone too (Medium), 2 everything (Hard and up).
     pub mix_tier: u8,
+    /// The game times (s) from which its tier rises by one each, above `mix_tier` (Stelian, Nov 13: a slow tech climb,
+    /// "our whole story about the Expedition is to get to the machines"): Easy climbs the whole ladder late and slowly,
+    /// its raiders, siege and Drones from 9:00 and its top tier from 13:00; Medium its top tier from 8:00. Hard and up:
+    /// none.
+    pub tier_at: &'static [f64],
     /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
     /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
@@ -104,9 +117,27 @@ pub struct Diff {
     /// Its side's tech time (`AiScript::tech_from`: its techs, its satellite's launch, its second tech building) at
     /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
     pub tech_from: f64,
+    /// Its side's tech time no sooner than this (s): 0 on every level but Easy, whose satellite (so its Uplink and
+    /// Portal) and techs come late, with its tier (`tier_at`).
+    pub tech_not_before: f64,
 }
 
 impl Diff {
+    /// This tuning as it plays at game time `t` (s): past `clumsy_until` its waves are no longer clumsy.
+    pub fn at(self, t: f64) -> Diff {
+        if t < self.clumsy_until {
+            return self;
+        }
+        Diff {
+            wave_only: false,
+            retreat_any: false,
+            give_up: self.give_up.min(4),
+            wave_margin: self.wave_margin.max(LATE_MARGIN),
+            all_in_after: self.all_in_after.min(LATE_ALL_IN),
+            ..self
+        }
+    }
+
     /// A race's mix entry as this level plays it (`mix_over`).
     pub fn mix_entry(&self, entry: (super::UnitKind, usize, f64)) -> (super::UnitKind, usize, f64) {
         self.mix_over
@@ -118,15 +149,14 @@ impl Diff {
 }
 
 impl super::UnitKind {
-    /// How advanced a unit is for the AI's per-level mix (`Diff::mix_tier`): 0 the workers, line units, their
-    /// anti-air and the scout; 2 the top tier (the Knight, the Bruiser); 1 the rest.
+    /// How advanced a unit is for the AI's per-level mix (`Diff::mix_tier`, `tier_at`): 0 the workers, line units,
+    /// the Archer and the scout; 2 the top tier (the Knight, the Bruiser, and the Portal's Android and Rover, since Nov
+    /// 13: elites and siege, dear and few); 1 the rest (raiders, the Cannon, the Ballista, the Drone).
     pub fn ai_tier(self) -> u8 {
         use super::UnitKind::*;
         match self {
-            // (the Android: the Expedition's elite from its one Portal, and its answer to flyers on foot since its
-            // hired guns went melee, as the Archer is the Kingdom's: every level fields it)
-            Harvester | Lumen | Trooper | Lancer | Prism | Umbra | Observer => 0,
-            Knight | Bruiser => 2,
+            Harvester | Lumen | Trooper | Lancer | Prism | Observer => 0,
+            Knight | Bruiser | Umbra | Monolith => 2,
             _ => 1,
         }
     }
@@ -151,8 +181,8 @@ pub const DIFF: [Diff; 4] = [
         gap: 80.0,
         research_from: NEVER,
         expand_at: 540.0,
-        air_at: NEVER,
-        heavy_at: NEVER, // (Roster v2: Easy trains nothing of its vehicle bay's)
+        air_at: 540.0, // (its raiders' factory with its tier's first rise: the Expedition's Factory, the Kingdom's Stables)
+        heavy_at: 600.0, // (its vehicle bay late too: the Kingdom's Workshop, its Cannons from about 10:00)
         raids: false,
         prong: false,
         answers: false,
@@ -178,13 +208,18 @@ pub const DIFF: [Diff; 4] = [
         wave_only: true,
         retreat_any: true,
         give_up: 7,
+        clumsy_until: 720.0,
         mix_tier: 0,
-        mix_over: &[],
-        line_max: 0,
+        tier_at: &[540.0, 780.0],
+        // (an Archer per two Guards, not one: its line meets the Expedition's melee Sellswords alone until 9:00, where the
+        // Archers fell first; Medium's Archers stay one a Guard, its answer to the Buggies and Drones that come sooner)
+        mix_over: &[(super::UnitKind::Lancer, 2, 0.0)],
+        line_max: 15,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
-        tower_max: &[(super::BldgKind::Ward, 1)],
+        tower_max: &[(super::BldgKind::Ward, 1), (super::BldgKind::Turret, 1)],
         tech_from: NEVER,
+        tech_not_before: 540.0,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 7:45;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -228,13 +263,16 @@ pub const DIFF: [Diff; 4] = [
         wave_only: false,
         retreat_any: false,
         give_up: 4,
+        clumsy_until: 0.0,
         mix_tier: 1,
+        tier_at: &[480.0],
         mix_over: &[],
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[(super::BldgKind::Ward, 1)],
         tech_from: NEVER,
+        tech_not_before: 0.0,
     },
     // Hard: a bigger first wave (8, at about 3:15), more factories behind it, and it splits its waves.
     Diff {
@@ -275,13 +313,16 @@ pub const DIFF: [Diff; 4] = [
         wave_only: false,
         retreat_any: false,
         give_up: 4,
+        clumsy_until: 0.0,
         mix_tier: 2,
+        tier_at: &[],
         mix_over: &[],
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[],
         tech_from: NEVER,
+        tech_not_before: 0.0,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -326,14 +367,17 @@ pub const DIFF: [Diff; 4] = [
         wave_only: false,
         retreat_any: false,
         give_up: 4,
+        clumsy_until: 0.0,
         mix_tier: 2,
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
+        tier_at: &[],
         mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
         line_max: 0,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[],
         tech_from: NEVER,
+        tech_not_before: 0.0,
     },
 ];

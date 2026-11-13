@@ -62,6 +62,8 @@ pub(crate) struct Ai {
     /// Its mix answers: splash against massed infantry, fewer heavies of its own against heavies.
     pub infantry_seen: (usize, f64),
     pub heavy_seen: (usize, f64),
+    /// The most enemy siege units (the Cannon, the Rover) seen at once lately, and when: its answer (`AiScript::dive`).
+    pub siege_seen: (usize, f64),
     /// Units kept home at its own expansion (out of the waves).
     pub guards: Vec<Id>,
     /// Its home reserve (`Diff::reserve`): fighters kept out of the waves.
@@ -72,6 +74,9 @@ pub(crate) struct Ai {
     /// its own army's value then (a stale sighting grows by what its own army has grown since): what a wave must
     /// beat (`Diff::wave_margin`).
     pub army_seen: (f64, f64, f64),
+    /// The enemy units of that sighting: as they fall (to its army or towers, mostly), what it expects falls with them
+    /// (a wave it wiped out at home no longer holds its counterattack back).
+    pub army_seen_ids: Vec<Id>,
     /// The unit it sent to look at the foe's army (a stale sighting), and since when.
     pub looking: Option<(Id, f64)>,
     /// When an armed enemy last came at its buildings, and when it last placed a base (`Diff::passive_expand`).
@@ -151,7 +156,7 @@ impl World {
             v.iter().filter(|&&id| self.unit(id).is_some()).count()
         });
         Some(format!(
-            "wave {} out {} ({left}/{}) last {:.0} ready {} seen {:.0}@{:.0} res {} grd {} raid {}",
+            "wave {} out {} ({left}/{}) last {:.0} ready {} seen {:.0}@{:.0} res {} grd {} raid {} siege {}",
             a.wave,
             a.attacking,
             a.wave_size,
@@ -162,6 +167,7 @@ impl World {
             a.reserve.len(),
             a.guards.len(),
             a.raiders.len(),
+            a.siege_seen.0,
         ))
     }
 
@@ -211,10 +217,12 @@ impl World {
             wave_size: 0,
             infantry_seen: (0, 0.0),
             heavy_seen: (0, 0.0),
+            siege_seen: (0, 0.0),
             guards: Vec::new(),
             reserve: Vec::new(),
             prong: Vec::new(),
             army_seen: (0.0, 0.0, 0.0),
+            army_seen_ids: Vec::new(),
             looking: None,
             attacked_at: 0.0,
             came_at: 0.0,
@@ -237,7 +245,7 @@ impl World {
     /// The tuning of the AI taking its turn (each AI seat may have its own level, `World::diff_of`, or a lab's plan:
     /// `World::tuning`).
     pub(crate) fn level(&self) -> Diff {
-        self.tuning(self.seat())
+        self.tuning(self.seat()).at(self.time)
     }
     /// The enemy seat it plays against (scouts, sweeps from, rallies towards): the one whose base is nearest its own,
     /// among those still in (then among all). Seats sit round the map in order, so on a ring of starts each has two

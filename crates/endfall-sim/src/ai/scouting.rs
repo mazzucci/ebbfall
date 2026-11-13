@@ -4,6 +4,8 @@ use super::*;
 
 /// How long (s) the AI remembers the most enemy infantry or heavies it saw at once.
 const COMPOSITION_MEMORY: f64 = 90.0;
+/// The same for the enemy's siege (`Ai::siege_seen`), longer: it stays behind its defense, seen when a wave gets there.
+const SIEGE_MEMORY: f64 = 300.0;
 
 impl World {
     /// Whether the AI can see a point right now (it plays with fog of war like the player).
@@ -51,7 +53,7 @@ impl World {
             .map(|k| k.0)
             .collect();
         // What the enemy fields, as far as it is seen: walking infantry and heavy walkers.
-        let (mut inf, mut heavy) = (0, 0);
+        let (mut inf, mut heavy, mut siege) = (0, 0, 0);
         for u in self
             .units
             .iter()
@@ -67,10 +69,17 @@ impl World {
             if d.armor >= 2.0 {
                 heavy += 1;
             }
+            if d.weapon.is_some_and(|w| w.min_range > 0.0) {
+                siege += 1;
+            }
         }
         let ai = self.ai_mut();
-        for (memo, n) in [(&mut ai.infantry_seen, inf), (&mut ai.heavy_seen, heavy)] {
-            if n >= memo.0 || t - memo.1 > COMPOSITION_MEMORY {
+        for (memo, n, age) in [
+            (&mut ai.infantry_seen, inf, COMPOSITION_MEMORY),
+            (&mut ai.heavy_seen, heavy, COMPOSITION_MEMORY),
+            (&mut ai.siege_seen, siege, SIEGE_MEMORY),
+        ] {
+            if n >= memo.0 || t - memo.1 > age {
                 *memo = (n, t);
             }
         }

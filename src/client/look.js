@@ -45,7 +45,7 @@ export const BLDG_LOOK = {
   ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
   spire: { head: 'spire_head', spin: 10 },                                           // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn)
   uplink: { head: 'uplink_head', pan: [3, 9] },                                      // (the Uplink's dish pans 3 facings either way)
-  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 8, false, 0] }, // (its cyan light, only as a unit comes through)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
+  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 31, false, 0] }, // (its cyan light, only as a unit comes through, at the standing ring's center: 26 up, so 31 px at the 40-degree camera; 8 while the Portal lay flat)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
 };
 /** The Portal's swirl brightens each time a unit comes through, then settles (Stelian, R2); it stays multi-use and
  *  keeps training. Returns how bright it is above its settled state, 0 to 1, and keeps its own clock in `st` (one object

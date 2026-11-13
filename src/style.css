@@ -140,11 +140,6 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb .c{font:10px var(--mono);color:var(--muted)}
 .cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
-/* An available button has a lighter face (a mid slate plate), so a dark figure has something light behind it, and its
-   sprite a lift with a crisp 1 px light rim (four hard drop-shadows, not a halo). Glyph icons (Rally, Back) keep their
-   own color; unavailable buttons (disabled, can't afford) keep the dark face and stay as they are. Static. */
-.cb:is(button):not(:disabled):not(.poor):not(.active){background:#3a4b61;border-color:#536a85} .cb:is(button):not(:disabled):not(.poor):not(.active):hover{border-color:var(--ally)}
-.cb:not(:disabled):not(.poor) .por{filter:brightness(1.4) drop-shadow(1px 0 0 rgba(235,242,250,.5)) drop-shadow(-1px 0 0 rgba(235,242,250,.5)) drop-shadow(0 1px 0 rgba(235,242,250,.5)) drop-shadow(0 -1px 0 rgba(235,242,250,.5))}
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}

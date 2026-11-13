@@ -1607,7 +1607,7 @@ mod tests {
     fn easy_keeps_todays_waves() {
         let (mut w, _, mut b) = ready(0);
         w.ai_mut().wave = 4;
-        b.t = 500.0; // (past Easy's first wave, 7:45)
+        b.t = 500.0; // (past Easy's first wave, 8:00)
         w.ai_mut().army_seen = (30.0 * trooper(), 499.0, 0.0);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "Easy does not wait for strength");
@@ -1933,7 +1933,7 @@ mod tests {
         // foe needed, `Diff::retreat_any`); against less it fights on.
         let scene = |enemies: usize| {
             let (mut w, army, mut b) = ready_with(0, DIFF[0]);
-            b.t = 480.0; // (past its first wave's 7:45)
+            b.t = 490.0; // (past its first wave's 8:00)
             w.ai_army(&mut b);
             assert!(w.ai().attacking, "its first wave goes");
             let wave = w.ai().attackers.clone().unwrap();

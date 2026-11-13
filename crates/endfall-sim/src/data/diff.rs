@@ -162,7 +162,7 @@ pub const DIFF: [Diff; 4] = [
         wave_grow: 1, // (its waves grow slowly: 4, 5, 6 ... to 12; the Expedition's at its 0.6)
         harv: 7,
         rax: 2, // (two Barracks from the start: the Expedition's Recruiting posts are its places and its factories, so with
-        // the higher caps' hired places its Easy line outgrew one Barracks' before the 7:45 wave)
+        // the higher caps' hired places its Easy line outgrew one Barracks' before the 8:00 wave)
         extra_rax: 1,
         first: 480.0, // (7:45 before Nov 13: a wave that leaves at 8:00 cannot hit before it, on any map)
         gap: 80.0,

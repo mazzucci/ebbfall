@@ -1331,7 +1331,7 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
 
 #[test]
 fn the_guided_first_game_holds_the_first_wave_until_released() {
-    // Medium (Easy's own first wave, 7:45, comes after the hold's longest), with the waves held: no attack before 4:50
+    // Medium (Easy's own first wave, 8:00, comes after the hold's longest), with the waves held: no attack before 4:50
     // even with an army ready; released, the wave goes.
     let mut w = World::new(4242, 1);
     w.hold_waves = true;
@@ -2073,7 +2073,7 @@ fn easy_game(seed: u32) -> World {
 #[test]
 fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
     // Easy is clumsy (Stelian, Nov 13: "first attack only with 3-4 units"): with twenty fighters each at home from the
-    // start, its first wave goes no sooner than 7:45 with four of the Kingdom's and three of the Expedition's (its
+    // start, its first wave goes no sooner than 8:00 with four of the Kingdom's and three of the Expedition's (its
     // `wave_scale`), the rest staying home.
     let mut w = easy_game(4);
     for s in 0..2u8 {
@@ -2120,7 +2120,7 @@ fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
 fn defenders_chase_a_worker_that_came_near_only_on_a_leash_and_walk_home() {
     // (found on main: "attacked after 3 minutes") A player's worker comes by the AI's base at 2:00 and runs home. The
     // AI's home army goes for it, but on a leash tied where it was met (`CHASE_LEASH`): the chasers let it go, walk back,
-    // and nothing of the AI's comes near the player's headquarters before its first wave (7:45; arriving later).
+    // and nothing of the AI's comes near the player's headquarters before its first wave (8:00; arriving later).
     let mut w = World::with_setup(4, 0, MapKind::Standard, false, [&HUMANS, &VAEL]);
     assert!(w.set_ai_seats([false, true]));
     let ((px, py), (ex, ey)) = (w.map.bases[0], w.map.bases[1]);

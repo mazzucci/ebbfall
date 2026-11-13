@@ -569,14 +569,21 @@ impl World {
     }
 
     /// Whether the game has stalled for the seat taking its turn (`Diff::stall_from`): past that time, with no enemy
-    /// building razed by its side for `STALL_WINDOW` seconds. Keeps the count of what it razed up to date.
+    /// building razed by its side for `STALL_WINDOW` seconds, and the foe's army it expects (`Ai::army_seen`) at least
+    /// half its own. Keeps the count of what it razed up to date.
     pub(crate) fn stalled(&mut self, t: f64) -> bool {
         let seat = self.seat();
         let razed = self.stats[seat as usize].razed;
         if razed > self.ai().razed.0 {
             self.ai_mut().razed = (razed, t);
         }
-        t >= self.level().stall_from && t > self.stall_began()
+        // (and only against a foe that stands with an army: against one it has crushed, or an idle one, it hunts what is
+        // left without waiting)
+        let foe_army = self.ai().army_seen.0;
+        t >= self.level().stall_from
+            && t > self.stall_began()
+            && foe_army > 0.0
+            && foe_army * 2.0 >= self.own_army_worth(seat)
     }
 
     /// When the current stall began for the seat taking its turn: `STALL_WINDOW` after its side last razed a building,
@@ -2598,6 +2605,7 @@ mod tests {
         let ai = w.ai_mut();
         ai.last_wave = 800.0;
         ai.razed = (0, 600.0); // (its last building razed at 10:00: stalled since 15:00)
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0); // (a foe that stands with an army)
         w.time = 1000.0;
         b.t = w.time;
         w.ai_army(&mut b);
@@ -2619,10 +2627,23 @@ mod tests {
         // Easy never stalls: its wave goes at once.
         let (mut w, _, mut b) = ready(0);
         w.ai_mut().last_wave = 800.0;
+        w.ai_mut().army_seen = (6.0 * trooper(), 990.0, 0.0);
         w.time = 1000.0;
         b.t = w.time;
         w.ai_army(&mut b);
         assert!(!w.ai().stall && w.ai().attacking, "Easy goes as ever");
+        // Nor against a foe with no army in sight (an idle one, one it crushed): it hunts what is left at once.
+        let (mut w, _, mut b) = ready(1);
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.razed = (0, 600.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(
+            !w.ai().stall && w.ai().attacking,
+            "no stall without a foe's army"
+        );
     }
 
     #[test]
@@ -2632,6 +2653,7 @@ mod tests {
         let ai = w.ai_mut();
         ai.last_wave = 800.0;
         ai.razed = (0, 600.0);
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
         w.time = 900.0 + super::STALL_HOLD + 10.0;
         b.t = w.time;
         let intruder = w.make_unit(UnitKind::Trooper, 0, b.rally.x + 40.0, b.rally.y + 40.0);

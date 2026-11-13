@@ -1268,7 +1268,8 @@ fn each_level_trains_only_its_own_mix() {
     for k in [Knight, Bruiser, Umbra, Monolith] {
         assert_eq!(k.ai_tier(), 2, "{k:?}");
     }
-    assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 2, 2]);
+    assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 1, 2]);
+    assert_eq!(DIFF[2].tier_at, &[360.0], "Hard's top tier from 6:00");
 }
 
 #[test]

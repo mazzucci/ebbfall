@@ -574,9 +574,10 @@ fn both_ais_finish_games_with_the_basin_field_moved() {
     use endfall_sim::map::ShoreField;
     for field in [ShoreField::CHANNEL, ShoreField::CHANNEL_FAR] {
         for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
-            // (seed 4: in seed 3's far-field game, since new workers wait for an order, every mine ran dry before
-            // either side won, and two broke sides stood for good)
-            let mut w = shore(4, races);
+            // (seed 6: in seed 3's far-field game, since new workers wait for an order, every mine ran dry before
+            // either side won, and two broke sides stood for good; seed 4's far field with the Kingdom first, since the
+            // Portal's Uplink stands at home (Nov 13), is a grind past two hours, both sides trading waves of 10 to 25)
+            let mut w = shore(6, races);
             w.set_shore_field(field);
             assert!(w.set_ai_seats([true, true]));
             // (60 minutes since Nov 13, as above)

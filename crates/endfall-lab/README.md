@@ -15,6 +15,8 @@ npm run lab -- plans             # 2,000 games with random AI plans: which setti
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
 npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
+npm run lab -- tiers             # attack now or invest further: a committer per layer against a teching opponent
+npm run lab -- tiers --greedy    # the same against the greedy human
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 npm run lab -- trace --size 96 --races Kingdom,Expedition --levels Medium --seed 3   # one game, traced
 ```
@@ -289,6 +291,23 @@ is a timeout. The report gives, per people's mirror and across the peoples, the 
 column plan (both seatings pooled, timeouts apart, with 95% intervals), the same in games over 15 minutes, the median
 lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
 over 15 minutes, each at 55–70%.
+
+### `tiers`
+
+Attack now or invest further (Stelian, Nov 13). Each people's tech has three layers: **basic** (the Barracks; the
+Recruiting post and the Factory), **mid** (the Blacksmith and the Workshop's Cannon; the Lab, the Uplink and the Drone)
+and **top** (the Stables and the Knight; the Portal, the Rover and the Android). A committer (tiers.rs `commit`, from
+Medium's tuning) stops teching at its layer and goes for the foe: basic its barracks alone, its first wave at 4:00; mid
+its tech building and what it opens, no Stables or Portal, its first wave at 7:00; top straight up, its first wave at
+10:00. Its opponent keeps teching: the bets' tech plan (one barracks, its first wave at 9:00: a weak benchmark, an upper
+bound for "attack before it"), or with `--greedy` the greedy human (the PM: the tech plan on Medium's barracks, two
+towers by 5:00, a reserve at home, its first move at 10:00 when its top tier lands). Every pairing of the peoples, the
+committer in either seat, map seeds 1 to `--seeds` (10) on `--size` (96). The report gives the committer's wins of the
+decided games by layer and pairing, timeouts, lengths and first waves, and two checks per people: no dominant layer
+(over 65%) and no dead one (under 20%).
+
+`trace --plans top,greedy` plays one such game traced (a plan per seat: `rush`, `defense`, `tech`, `basic`, `mid`,
+`top`, `greedy`, or `-` for the level's own).
 
 ### `turtle`
 

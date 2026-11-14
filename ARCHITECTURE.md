@@ -300,7 +300,9 @@ src/client/           everything that touches the browser
                       chevron over a machine of ours moving in range, by exact distance as the sim; `rangeShown` for
                       the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
-                      swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`);
+                      swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
+                      gunners' muzzle flash (`muzzleFlash`), a melee blow's spark on its target and a heavy one's dust
+                      (`meleeHit`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
@@ -408,7 +410,8 @@ src/client/           everything that touches the browser
                       the turned models; puffs only while the building trains or researches, `chimneyActive`) and
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
                       swirl brightening each time a unit comes through, then settling, `portalOpen`),
-                      a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`), each shot's
+                      a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`) and flash (`MUZZLE_FLASH`), a melee
+                      blow's dust (`MELEE_PUFF`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
@@ -454,6 +457,9 @@ test/art.test.js      the atlas against the game: every unit, building and turre
                       tiles in both rock kinds, every stage and variant of the gold outcrop (the link preview's), the
                       gold mine's three stages, neutral; and look.js's presentation: a selected building's oval, the
                       heads' frames (aimed, spun, panned), the Portal brightening as a unit comes through
+test/strike.test.js   the melee units' strike poses (look.js `strikePose`): the strike just after a blow, the wind-up
+                      in reach between blows, the walk on the move; reach as the sim's; both frames in every facing with
+                      their masks, out of the walk animation
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
@@ -567,7 +573,8 @@ scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
 tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js). The
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
-                      its models, `atlasSprites` renders them under today's names; `BLDG_YAW` gives each building its
+                      its models, `atlasSprites` renders them under today's names, the melee units' two strike poses besides their walk,
+                      `STRIKE_POSES`, in a larger cell trimmed in the atlas; `BLDG_YAW` gives each building its
                       fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
                       than the square model's, the round towers square): the kingdom (kingdom.js,
                       kingdom-units.js, kingdom-buildings.js; the hip-roof Cottage, the Cannon in the siege slot), the Expedition
@@ -583,7 +590,8 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
                       light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures
-                      (retheme-*.mjs, battle-shots.mjs; retheme-datacenter.mjs: the Data center's two options at their
+                      (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
+                      unit's walk, wind-up and strike in every facing at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
                       angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
                       building); see Notion: Ebbfall art
 public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed

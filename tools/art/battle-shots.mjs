@@ -19,6 +19,8 @@
 //   turbines   the Expedition base with three more Wind turbines by the Core, the camera on them, at zoom 1
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
+//   brawl, brawl-close   the five melee kinds (Guards, Riders, Knights against Sellswords, Bruisers) hand to hand, at
+//              zoom 1 and at 2 (their strike poses); the phone at 3x
 //   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
 // It prints, per shot, what was in flight (the projectiles by shooter) and the units on screen.
 import { mkdirSync } from 'node:fs';
@@ -46,6 +48,9 @@ const SCENES = {
   'mine-swarm': { races: ['vael', 'humans'], swarm: { lumen: 7, shrike: 6 }, zoom: 1 },                                  // (the follow-up to the art polish: a Bot group and a Drone swarm by a mine, the gold beside them)
   turbines: { races: ['vael', 'humans'], base: true, extra: ['spire', 'spire', 'spire'], focus: 'spire', zoom: 1 },        // (the Wind turbine's blades without the blur disc: the base with four turbines by the Core, the camera on them)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
+  // (the strike poses' review: the five melee kinds fighting hand to hand, at zoom 1 and up close; the phone at 3x)
+  brawl: { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 1, phoneDpr: 3 },
+  'brawl-close': { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 2, phoneDpr: 3 },
 };
 
 /** A single-player game through the menu: your race and the AI's on the board, START; the AI then switched off. */
@@ -186,6 +191,6 @@ try {
   for (const [name, scene] of Object.entries(SCENES)) {
     if (only.length && !only.includes(name)) continue;
     await shoot(name, scene, DESKTOP, 'desktop');
-    await shoot(name, scene, PHONE, 'phone');
+    await shoot(name, scene, scene.phoneDpr ? { ...PHONE, deviceScaleFactor: scene.phoneDpr } : PHONE, 'phone');
   }
 } finally { await stop(); }

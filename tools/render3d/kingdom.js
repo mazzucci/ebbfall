@@ -158,12 +158,14 @@ export function banner(g, M, x, y, z, h, w, d) {
   add(g, rbox(0.4, 0.4, d + 0.2, 0.05), M.inkLine, x + 0.4, y + h - 0.8, z + d / 2);
 }
 
-/** A figure in a tunic and hose: legs by frame (two strides), the body group `body` to hang gear on; the head at
- *  y 13.5. The tunic's skirt flares to `skirt`. Shared with the Expedition's Mercenary (a local). */
+/** A figure in a tunic and hose: legs by frame (two strides; from f 2 on, the strike poses' fighting stance: the feet
+ *  planted a little wider, the left a step forward and the right back, the same in both poses), the body group `body`
+ *  to hang gear on; the head at y 13.5. The tunic's skirt flares to `skirt`. Shared with the Expedition's Mercenary (a
+ *  local). Frames 0 and 1 are exactly the walk they were. */
 export function figure(M, f, { tunic = M.tunic, hose = M.hose, skirt = 4.0 } = {}) {
-  const g = grp(), st = [3.2, -3.2][f % 2];
+  const g = grp(), st = [3.2, -3.2][f % 2], stance = f >= 2;
   for (const side of [-1, 1]) {
-    const z = side * 2.1, s = st * side;
+    const z = side * (stance ? 2.7 : 2.1), s = stance ? (side < 0 ? 2.6 : -2.2) : st * side;
     add(g, rbox(3.4, 1.5, 2.2, 0.6), M.leather, s + 0.5, 0.75, z);                           // a boot
     limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, hose);
     limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.05, hose);
@@ -230,7 +232,7 @@ export function villager(M, f) {
  *  shield with an ink rim and a steel boss on the left arm, its face turned up and to the camera, and the signature:
  *  a long spear in the right hand angled up ahead, an oak shaft with a bright steel leaf head, reaching well past the
  *  body at both ends. From the camera: a pale disc, a team disc beside it, a long thin bar angled up. Frames 0-1 the
- *  march. */
+ *  march; 2-3 the strike poses (the spear drawn back level, then thrust: at the spear below). */
 export function guard(M, f) {
   const g = figure(M, f, { tunic: M.tunic, skirt: 4.2 }), b = g.body;                          // (an undyed surcoat: the PM's rule, no torso slab; the team is sleeves, hem, shield)
   add(b, cyl(4.1, 4.4, 1.6, 12), M.cloth, 0, 6.2, 0); add(b, cyl(4.2, 4.2, 0.4, 12), M.inkLine, 0, 7.1, 0); add(b, cyl(4.45, 4.45, 0.45, 12), M.inkLine, 0, 5.4, 0); // a team hem band on the skirt
@@ -249,13 +251,21 @@ export function guard(M, f) {
   add(b, rbox(2.8, 5.0, 4.6, 0.6), M.cloth, -3.9, 10.4, 0); add(b, rbox(3.0, 0.4, 4.8, 0.1), M.inkLine, -3.9, 13.0, 0); add(b, rbox(3.0, 0.4, 4.8, 0.1), M.inkLine, -3.9, 7.8, 0); // a team pack on the back
   add(sh, sph(1.2, 10, 8), M.shine, 0, 0.5, 0);                                               // the boss, bright
   limb(b, [0.6, 11, -3.6], [1.2, 9.8, -4.0], 1.2, M.cloth);                                    // team sleeves (the family trait; the Guard keeps more team than the Villager)
-  // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule
-  const sp = grp(); sp.position.set(0.8, 10.0, 3.4); sp.rotation.z = 0.7; b.add(sp);
-  add(sp, cyl(1.05, 1.05, 26, 8), M.haft, 5.0, 0, 0, 0, 0, Math.PI / 2);                      // (the shaft in warm haft brown, 3.2 px wide at zoom 1.0 (0.85, 2.6 px, in dark oak until the legibility pass): the PM's rule, nothing important under 2 CSS px)
-  add(sp, cyl(1.2, 1.2, 1.6, 8), M.steel, 18.2, 0, 0, 0, 0, Math.PI / 2);                     // the socket
-  add(sp, cone(1.6, 5.4, 8), M.steel, 21.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5);   // the leaf head
-  add(sp, cyl(1.2, 1.1, 1.4, 8), M.steel, -8.4, 0, 0, 0, 0, Math.PI / 2);                     // the butt's ferrule
-  limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5);
+  // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule. The
+  // strike poses (f 2 the wind-up, 3 the strike; retheme.js STRIKE_POSES): the spear gripped nearer its middle and held
+  // level; the wind-up draws the hand back under the shoulder, the elbow cocked back, the point raised a little; the
+  // strike drives the arm straight out and the spear with it, level, the head 27 ahead. Nothing but the arm and the
+  // spear moves between the two.
+  const pose = f >= 2 ? f - 1 : 0;                                                            // 0 the walk, 1 the wind-up, 2 the strike
+  const [SX, SY, SZ, SA, SG] = [[0.8, 10.0, 3.4, 0.7, 5.0], [-0.8, 9.4, 4.3, 0.42, 2.0], [5.8, 10.4, 3.4, -0.06, 2.0]][pose]; // the hand, the spear's angle, the shaft's center along it (the grip)
+  const sp = grp(); sp.position.set(SX, SY, SZ); sp.rotation.z = SA; b.add(sp);
+  add(sp, cyl(1.05, 1.05, 26, 8), M.haft, SG, 0, 0, 0, 0, Math.PI / 2);                       // (the shaft in warm haft brown, 3.2 px wide at zoom 1.0 (0.85, 2.6 px, in dark oak until the legibility pass): the PM's rule, nothing important under 2 CSS px)
+  add(sp, cyl(1.2, 1.2, 1.6, 8), M.steel, SG + 13.2, 0, 0, 0, 0, Math.PI / 2);                // the socket
+  add(sp, cone(1.6, 5.4, 8), M.steel, SG + 16.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5); // the leaf head
+  add(sp, cyl(1.2, 1.1, 1.4, 8), M.steel, SG - 13.4, 0, 0, 0, 0, Math.PI / 2);                // the butt's ferrule
+  if (pose === 0) { limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5); }
+  else if (pose === 1) { limb(b, [0.6, 11, 3.6], [-2.2, 10.6, 4.9], 1.2, M.cloth); limb(b, [-2.2, 10.6, 4.9], [-1.0, 9.4, 4.4], 1.1, M.cloth); add(b, sph(0.9, 8, 6), M.skin, -0.8, 9.4, 4.3); } // the upper arm back, the forearm to the hand under the shoulder
+  else { limb(b, [0.6, 11, 3.6], [5.6, 10.4, 3.4], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 5.8, 10.4, 3.4); }        // the arm straight out
   if (M.polish) { // secondary detail: a buckle, a sword in a scabbard at the left hip, leather bindings on the spear (round 2 dropped the rim studs: not found at 4x)
     add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
     add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.6, 5.6, -3.4, 0.3, 0, 0.55); add(b, rbox(2.2, 0.45, 0.5, 0.1), M.steel, -0.3, 8.9, -3.5); add(b, sph(0.5, 8, 6), M.steel, 0.2, 9.4, -3.5);
@@ -269,7 +279,8 @@ export function guard(M, f) {
  *  (the cloth over the horse's body down to its knees, an ink hem at its foot), a great helm of steel with a team
  *  plume, a team surcoat, a round team shield on the left side, and a long lance in the right hand angled up ahead
  *  with a team pennon flying near its point. From the camera: a long dark body under a team cloth, four legs, a
- *  bright helm up top, a long bar ahead with a flag on it: mounted, never a man on foot. Frames 0-1 the gallop. */
+ *  bright helm up top, a long bar ahead with a flag on it: mounted, never a man on foot. Frames 0-1 the gallop; 2-3 the
+ *  strike poses (the horse standing, the lance raised, then couched and driven: at the lance below). */
 export function knight(M, f) {
   const g = grp(), st = f % 2 ? -1 : 1;
   // the horse: a barrel body, a rising neck, a head down ahead, four legs in stride, a tail
@@ -282,8 +293,9 @@ export function knight(M, f) {
   for (const z of [-1.1, 1.1]) add(h, cone(0.6, 1.8, 6), M.horseDark, 11.4, 19.8, z);          // ears
   for (let k = 0; k < 5; k++) add(h, rbox(1.6, 1.4, 2.0, 0.6), M.horseDark, 6.2 + k * 1.1, 14.6 + k * 1.1, 0); // the mane along the neck
   limb(h, [-10.5, 11.5, 0], [-13.5, 4.5, 0.6], 0.9, M.horseDark);                              // the tail
-  for (const [x, side, fore] of [[5, -1, 1], [5, 1, 1], [-7, -1, 0], [-7, 1, 0]]) {            // the legs: fore and hind pairs in opposite swing
-    const z = side * 2.4, s = (fore ? 1 : -1) * st * side * 2.4;
+  const pose = f >= 2 ? f - 1 : 0;                                                            // 0 the gallop, 1 the wind-up, 2 the strike (retheme.js STRIKE_POSES)
+  for (const [x, side, fore] of [[5, -1, 1], [5, 1, 1], [-7, -1, 0], [-7, 1, 0]]) {            // the legs: fore and hind pairs in opposite swing; in the strike poses the horse stands square, all four planted
+    const z = side * 2.4, s = pose ? (fore ? 0.5 : -0.5) : (fore ? 1 : -1) * st * side * 2.4;
     limb(h, [x, 8.5, z], [x + s * 0.6, 4.4, z], 1.3, M.horse);
     limb(h, [x + s * 0.6, 4.4, z], [x + s * 1.3, 0.9, z], 1.0, M.horse);
     add(h, rbox(1.8, 1.2, 1.9, 0.4), M.horseDark, x + s * 1.3, 0.6, z);                        // a hoof
@@ -310,17 +322,21 @@ export function knight(M, f) {
   add(sh, cyl(3.6, 3.6, 0.6, 20), M.oak, 0, 0, 0); add(sh, cyl(3.1, 3.1, 0.4, 20), M.clothPale, 0, 0.3, 0);          // the shield's face cream (the art polish: team on the trim)
   add(sh, torus(3.3, 0.5, 20), M.cloth, 0, 0.4, 0, Math.PI / 2, 0, 0); add(sh, torus(2.8, 0.2, 20), M.inkLine, 0, 0.5, 0, Math.PI / 2, 0, 0); add(sh, sph(0.9, 8, 6), M.steel, 0, 0.5, 0); // a team rim round it
   limb(r, [0, 6, -3], [1.2, 4.4, -4.0], 1.1, M.mail);
-  // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon
-  const ln = grp(); ln.position.set(2.0, 4.8, 3.6); ln.rotation.z = 0.42; r.add(ln);
+  // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon. The strike
+  // poses (f 2, 3): the wind-up raises the lance steep (0.95 rad), its butt down by the stirrup and the hand on the
+  // grip at the hip; the strike couches it level under the arm and drives it ahead, the hand forward, the point 27
+  // ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay where they are.
+  const [LX, LY, LZ, LA] = [[2.0, 4.8, 3.6, 0.42], [0.6, 3.6, 3.9, 0.95], [3.0, 4.4, 3.5, -0.02]][pose]; // the hand and the lance's angle
+  const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.z = LA; r.add(ln);
   add(ln, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
   add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
   add(ln, cone(1.3, 3.6, 8), M.steel, 20.0, 0, 0, 0, 0, -Math.PI / 2);                        // the point
-  const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -0.42 + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
+  const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -LA + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
   add(ln, rbox(0.4, 0.4, 5.4, 0.05), M.inkLine, 20.6, 0.4, 0.2);                             // its ink edge at the staff
-  limb(r, [0, 6, 3], [2.0, 4.8, 3.6], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, 2.2, 4.8, 3.7);
+  limb(r, [0, 6, 3], [LX, LY, LZ], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, LX + 0.2, LY, LZ + 0.1);
   if (M.polish) { // secondary detail: the bridle and reins, a breast strap and girth, saddle pommel and cantle, stirrups, the helm's cross, bands on the lance
     add(h, torus(1.9, 0.28), M.leather, 13.9, 17.0, 0, 0, Math.PI / 2, -0.35);                   // the noseband
-    for (const z of [-1.4, 1.4]) { limb(h, [12.2, 18.8, z], [13.5, 16.5, z * 1.1], 0.26, M.leather); limb(h, [14.4, 16.7, z], [2.2, 19.0, z * 2.6], 0.3, M.leather); } // the headstall, the reins back to the hands
+    for (const z of [-1.4, 1.4]) { limb(h, [12.2, 18.8, z], [13.5, 16.5, z * 1.1], 0.26, M.leather); limb(h, [14.4, 16.7, z], pose && z > 0 ? [0.5 + LX + 0.2, 14.8 + LY, LZ + 0.1] : [2.2, 19.0, z * 2.6], 0.3, M.leather); } // the headstall, the reins back to the hands (the right rein follows the lance hand in the strike poses)
     for (const z of [-3.9, 3.9]) limb(h, [3.5, 13.4, z], [7.7, 10.8, 0], 0.4, M.leather);        // the breast strap
     add(h, rbox(2.0, 7.2, 8.0, 0.2), M.leather, 0.5, 9.4, 0);                                     // the girth
     add(h, rbox(1.2, 2.2, 5.0, 0.4), M.leather, -2.9, 15.3, 0); add(h, rbox(1.0, 1.4, 3.0, 0.3), M.leather, 3.9, 15.2, 0); // cantle and pommel

@@ -7,7 +7,7 @@
 // body slab; the Mercenary's hi-vis vest is the team color itself (the PM). Same conventions as models.js: game
 // units, units face +x, y up, +z south.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, limb } from './models.js';
+import { grp, add, rbox, cyl, sph, limb, toward } from './models.js';
 import { torus } from './harbour.js';
 import { cone } from './vael.js';
 import { figure } from './kingdom.js';
@@ -63,9 +63,18 @@ function sword(parent, M, x, y, z, rz, len = 12) {
  *  peaked cap (Expedition heads are dark; the Villager's pale coif parts from it in gray), a satchel on the hip; no
  *  tunic skirt under the vest (the trousers run up to it). From the camera: a dark small head over a big team vest
  *  barred with pale glossy lines, a short bright blade angled up beside it; no helmet, no goggles, no camouflage: not
- *  the Marine; no pale disc, no long bar, no shield: not the Guard. Frames 0-1 the step. */
+ *  the Marine; no pale disc, no long bar, no shield: not the Guard. Frames 0-1 the step; 2-3 the strike poses (the
+ *  shoulder turned back with the sword cocked over it, then forward with the cut: below). */
 export function mercenary(M, f) {
   const A = fam(M), g = figure({ ...M, tunic: M.hose, hose: M.hose }, f, { skirt: 3.3 }), b = g.body; // (the figure's tunic in the trousers' dark cloth, straight: under the vest nothing reads as a tunic's skirt)
+  // The strike poses (f 2 the wind-up, 3 the strike; retheme.js STRIKE_POSES): a short sword moved by the arm alone is
+  // nothing at game size, so the upper body turns with it: the wind-up turns the right shoulder back (0.35 rad) and
+  // cocks the sword up over it, the blade standing behind the head; the strike turns the shoulder forward and sweeps
+  // the blade down and ahead, a little across to the left. The legs, the hips (the belt, the satchel, the radio) and
+  // the head (the face, the cap, the headset) stay put: they sit in groups turned back by the same angle.
+  const pose = f >= 2 ? f - 1 : 0, yaw = [0, -0.35, 0.35][pose], back = yaw ? -yaw : 0;
+  b.rotation.y = yaw;
+  const hp = grp(), hd = grp(); hp.rotation.y = back; hd.rotation.y = back;                     // the hips and the head, held still (identity in the walk)
   add(b, rbox(6.2, 5.6, 8.0, 0.5), M.safety, 0.2, 10.5, 0);                                      // the hi-vis vest: safety orange, big (the art polish: the hired fighters' Expedition accent; the team color itself until then)
   add(b, rbox(6.4, 0.35, 8.2, 0.1), M.inkLine, 0.2, 13.35, 0); add(b, rbox(6.4, 0.35, 8.2, 0.1), M.inkLine, 0.2, 7.65, 0); // its hems
   add(b, rbox(6.5, 1.3, 8.3, 0.1), M.paintCloth, 0.2, 8.4, 0); add(b, rbox(6.6, 0.3, 8.4, 0.05), M.inkLine, 0.2, 9.15, 0); // a team band along the vest's hem: the trim
@@ -75,29 +84,34 @@ export function mercenary(M, f) {
     add(b, rbox(5.9, 1.4, 0.7, 0.1), A.reflect, 0.2, 13.55, z);                                  // a reflective strip over each shoulder
     add(b, rbox(6.5, 5.3, 0.7, 0.1), A.reflect, 0.2, 10.5, z);                                   // and down the front and back, through the bands: the vest's pattern
   }
-  add(b, rbox(5.2, 0.8, 6.8, 0.3), M.leather, 0, 7.3, 0);                                        // the belt
-  add(b, rbox(2.2, 2.6, 3.2, 0.5), M.canvasLocal, -2.4, 7.0, 3.6);                                // a satchel on the hip
-  add(b, rbox(1.3, 2.0, 1.1, 0.3), M.joint, -3.6, 7.6, -1.6); add(b, cyl(0.5, 0.5, 6.5, 6), M.joint, -3.6, 11.6, -1.6); // the radio on the belt's back and its antenna (drawn thick)
-  add(b, sph(1.7, 12, 10), M.skin, 0.9, 13.3, 0).scale.set(0.8, 0.95, 0.9);                     // the face
-  add(b, sph(2.4, 14, 10), M.armour, 0.1, 14.3, 0).scale.set(1, 0.7, 1);                        // the cap, dark
-  add(b, cyl(2.5, 2.5, 0.35, 14), M.inkLine, 0.1, 13.5, 0);                                     // its band
-  add(b, rbox(2.6, 0.4, 3.4, 0.15), M.armour, 2.4, 13.8, 0, 0, 0, -0.2);                        // its peak
-  add(b, torus(2.55, 0.3, 16, Math.PI), M.joint, 0.1, 13.6, 0, 0, Math.PI / 2, 0);              // the headset: a band over the cap
-  for (const z of [-2.5, 2.5]) add(b, sph(0.8, 8, 6), M.joint, 0.1, 13.5, z);                     // to an ear cup each side
+  b.add(hp);
+  add(hp, rbox(5.2, 0.8, 6.8, 0.3), M.leather, 0, 7.3, 0);                                       // the belt
+  add(hp, rbox(2.2, 2.6, 3.2, 0.5), M.canvasLocal, -2.4, 7.0, 3.6);                               // a satchel on the hip
+  add(hp, rbox(1.3, 2.0, 1.1, 0.3), M.joint, -3.6, 7.6, -1.6); add(hp, cyl(0.5, 0.5, 6.5, 6), M.joint, -3.6, 11.6, -1.6); // the radio on the belt's back and its antenna (drawn thick)
+  b.add(hd);
+  add(hd, sph(1.7, 12, 10), M.skin, 0.9, 13.3, 0).scale.set(0.8, 0.95, 0.9);                    // the face
+  add(hd, sph(2.4, 14, 10), M.armour, 0.1, 14.3, 0).scale.set(1, 0.7, 1);                       // the cap, dark
+  add(hd, cyl(2.5, 2.5, 0.35, 14), M.inkLine, 0.1, 13.5, 0);                                    // its band
+  add(hd, rbox(2.6, 0.4, 3.4, 0.15), M.armour, 2.4, 13.8, 0, 0, 0, -0.2);                       // its peak
+  add(hd, torus(2.55, 0.3, 16, Math.PI), M.joint, 0.1, 13.6, 0, 0, Math.PI / 2, 0);             // the headset: a band over the cap
+  for (const z of [-2.5, 2.5]) add(hd, sph(0.8, 8, 6), M.joint, 0.1, 13.5, z);                    // to an ear cup each side
   // the sword in the right hand, held up and ahead (0.65 rad, the Guard's spear's angle at under half its length: at
   // 0.8 rad and more the point left the cell (r 15, h 19, kept) at facing 11, where the blade's reach north adds to
   // its rise on screen), its blade clear of the head on the south side; the left arm swings free, the hand low at
   // the hip; a team armband on each upper arm between ink rings (the company's: they keep the share over the floor
-  // from behind, where the blade's bright pixels took it under)
-  limb(b, [0.6, 11.4, 3.6], [3.0, 9.4, 4.0], 1.1, M.canvasLocal); add(b, sph(0.9, 8, 6), M.skin, 3.3, 9.3, 4.1);   // the sword arm and hand
-  sword(b, M, 3.4, 9.4, 4.1, 0.65, 10);
+  // from behind, where the blade's bright pixels took it under). In the strike poses the hand goes back and up behind
+  // the turned shoulder (the blade up and back, 1.9 rad), then out ahead (the blade level, a shade down and across).
+  const [HX, HY, HZ, SA, SY] = [[3.0, 9.4, 4.0, 0.65, 0], [-2.4, 10.6, 4.6, 1.9, 0], [4.4, 9.6, 2.8, -0.25, 0.1]][pose]; // the hand, the sword's angle and its turn across
+  if (pose === 0) { limb(b, [0.6, 11.4, 3.6], [3.0, 9.4, 4.0], 1.1, M.canvasLocal); add(b, sph(0.9, 8, 6), M.skin, 3.3, 9.3, 4.1); sword(b, M, 3.4, 9.4, 4.1, 0.65, 10); } // the sword arm and hand
+  else { limb(b, [0.6, 11.4, 3.6], [HX, HY, HZ], 1.1, M.canvasLocal); add(b, sph(0.9, 8, 6), M.skin, HX + 0.3, HY - 0.1, HZ + 0.1); sword(b, M, HX + 0.4, HY, HZ + 0.1, SA, 10).rotation.y = SY; }
   limb(b, [0.6, 11.4, -3.6], [1.4, 7.6, -4.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 1.6, 7.0, -4.2); // the free arm
   band(b, M, 1.4, 2.4, 0.9, 10.2, -3.8, 0, 0, -0.2); band(b, M, 1.4, 2.4, 1.5, 10.6, 3.8, 0, 0, -0.9); // the armbands
   if (M.polish) { // secondary detail (the polish pass, what reads at 2x): a belt buckle, a pouch on the other hip, ink cuffs at the wrists, a scabbard at the left hip (the satchel's diagonal strap across the vest went with the blind test's fix: nothing crosses the vest)
-    add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 7.3, 0);
-    add(b, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 6.8, 1.6);
-    add(b, sph(1.2, 8, 6), M.inkLine, 2.75, 9.55, 3.9); add(b, sph(1.2, 8, 6), M.inkLine, 1.25, 7.9, -4.15);
-    add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.8, 5.4, -3.4, 0.3, 0, 0.55);
+    add(hp, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 7.3, 0);
+    add(hp, rbox(1.4, 1.9, 1.8, 0.4), M.leather, 1.0, 6.8, 1.6);
+    if (pose === 0) add(b, sph(1.2, 8, 6), M.inkLine, 2.75, 9.55, 3.9); else add(b, sph(1.2, 8, 6), M.inkLine, ...toward([HX + 0.3, HY - 0.1, HZ + 0.1], [0.6, 11.4, 3.6], 0.6)); // the sword hand's cuff, a step up the forearm
+    add(b, sph(1.2, 8, 6), M.inkLine, 1.25, 7.9, -4.15);
+    add(hp, cyl(0.5, 0.4, 7, 6), M.leather, -1.8, 5.4, -3.4, 0.3, 0, 0.55);
   }
   g.scale.setScalar(1.06);
   return g;
@@ -166,11 +180,12 @@ export function android(M, f) {
  *  disc); and in the right hand a big axe shouldered: a gray timber haft with a team wrap, a broad pale steel head
  *  with a bright edge up over the shoulder; a team pack strip and knee pads. Wide and big on screen: clearly heavier
  *  than the Marine and the Sellsword. From the camera: a wide dark figure with a big pale-framed plate beside it and
- *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march. */
+ *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march; 2-3 the strike poses
+ *  (the hammer raised high, then chopped down in front: at the axe below). */
 export function veteran(M, f) {
-  const A = fam(M), g = grp(), st = [3.0, -3.0][f % 2];
-  for (const side of [-1, 1]) {                                                                  // a wide stance, heavy legs in dark trousers with steel greaves
-    const z = side * 2.8, s = st * side;
+  const A = fam(M), g = grp(), st = [3.0, -3.0][f % 2], pose = f >= 2 ? f - 1 : 0;          // (pose: 0 the march, 1 the wind-up, 2 the strike; retheme.js STRIKE_POSES)
+  for (const side of [-1, 1]) {                                                                  // a wide stance, heavy legs in dark trousers with steel greaves; in the strike poses planted, the left a step forward
+    const z = side * 2.8, s = pose ? (side < 0 ? 2.4 : -2.0) : st * side;
     add(g, rbox(4.0, 1.7, 2.6, 0.6), M.boot, s + 0.6, 0.85, z);
     limb(g, [0, 6.6, z], [s * 0.55, 3.6, z * 1.05], 1.5, M.hose);
     limb(g, [s * 0.55, 3.6, z * 1.05], [s, 1.4, z], 1.35, M.steel);                             // greaves
@@ -213,13 +228,18 @@ export function veteran(M, f) {
   // the axe in the right hand, shouldered: a gray timber haft leaned back over the shoulder with a team wrap, a broad
   // pale steel head up over it with a bright edge ahead and a spike behind (the Guard's spear is a long bar with a
   // small steel leaf; this is a short bar under a big pale block)
-  const ax = grp(); ax.position.set(2.4, 9.8, 4.6); ax.rotation.set(0.1, 0, 0.5); b.add(ax);
+  // The strike poses (f 2, 3): the wind-up raises the hammer high, the hand up over the pauldron and the haft leaned back
+  // 0.8 rad, the bright head over and behind the shoulder above the helmet; the strike swings it down in front, the arm
+  // out level and the haft 60 degrees down, the head low ahead just off the ground. The shield and the body stay put.
+  const [AX, AY, AZ, ARX, ARZ] = [[2.4, 9.8, 4.6, 0.1, 0.5], [0.0, 15.2, 5.0, 0.1, 0.8], [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
+  const ax = grp(); ax.position.set(AX, AY, AZ); ax.rotation.set(ARX, 0, ARZ); b.add(ax);
   add(ax, cyl(0.95, 1.05, 13, 8), M.oakPale, 0, 5.0, 0);                                        // the haft (2.7 px wide at zoom 1.0)
   band(ax, M, 1.15, 4.0, 0, 5.6, 0);                                                             // a team wrap up the haft between ink rings, above the hand (at the grip the hand hid it, and facing east, the shield behind the body, fell under the share's floor)
   add(ax, rbox(7.0, 4.2, 4.4, 0.6), M.brightSteel, 0.4, 11.0, 0);                                 // the head: one big bright steel block, a hammer's (the art polish; an axe's pale plate until then)
   add(ax, rbox(7.2, 0.4, 4.6, 0.1), M.inkLine, 0.4, 8.85, 0);                                    // an ink line under it
   add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 8.3, 0);                                            // the eye round the haft
-  limb(b, [0.6, 11.8, 4.4], [2.2, 9.6, 4.6], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 2.4, 9.4, 4.7); // the axe arm and gloved hand
+  if (pose === 0) { limb(b, [0.6, 11.8, 4.4], [2.2, 9.6, 4.6], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 2.4, 9.4, 4.7); } // the axe arm and gloved hand
+  else { limb(b, [0.6, 11.8, 4.4], [AX - 0.2, AY - 0.2, AZ], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, AX, AY - 0.4, AZ + 0.1); }
   if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, rivets on the axe's eye (no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)
     for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), M.joint, 3.5, 10.9, z, 0, 0, -0.2);  // (joint, darker than the charcoal carrier, as the Marine's armor straps are darker than its camo)
     add(b, rbox(1.4, 1.2, 0.6, 0.1), M.steel, 3.3, 7.4, 0);

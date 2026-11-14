@@ -115,6 +115,13 @@ export const UNIT_FPS = { observer: 0 };
  *  frames rolling, half set, set up: the barrel raised, rolled back on its wheels (tools/render3d/kingdom-units.js `cannon`). The Guard (trooper) has no such pose: braced, it
  *  stands. */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };
+/** The melee units' strike poses (tools/render3d: `<kind>_<dir>_wind` and `<kind>_<dir>_strike`, 16 facings, not in
+ *  the walk animation): only the weapon arm moves, the feet planted, the body and the anchor where they stand. The
+ *  strike (the weapon thrust or chopped) shows for `HOLD` s after the blow, when the cooldown starts again; the
+ *  wind-up (the weapon drawn back or raised) whenever the unit stands with its target in reach otherwise: as the next
+ *  blow nears, and on guard between blows (two frames, so the wait is the wind-up held: a fighter never stands frozen
+ *  mid-stride). */
+export const STRIKE = { kinds: new Set(['trooper', 'rider', 'knight', 'prism', 'bruiser']), HOLD: 0.15 };
 /** The edge distance from (x, y) to `t` (a unit: its center less its radius; a building: the nearest point of its
  *  footprint), in world px: the sim's `Geo::edge_dist`. */
 function edgeDist(x, y, t) {
@@ -127,4 +134,14 @@ function edgeDist(x, y, t) {
 export function inReach(u, t = u.task?.target) {
   const w = u.d?.weapon;
   return !!(w && t && !t.dead && edgeDist(u.x, u.y, t) <= w.range * 32 + u.r * 0.5 + 2);
+}
+/** The strike pose a unit shows now ('wind', 'strike' or null: its walk or toggle), from the client's mirror: its
+ *  cooldown `u.cd` (s; the sim sets it to the weapon's `cd` as the blow lands and counts it down, past zero while
+ *  nothing is fought), its target (`u.task.target`) and whether it is on the move. */
+export function strikePose(u, moving) {
+  if (!STRIKE.kinds.has(u.type) || u.inside) return null;
+  const cd = u.d?.weapon?.cd; if (!cd) return null;
+  if (u.cd > cd - STRIKE.HOLD) return 'strike'; // (the blow just landed)
+  if (moving || !inReach(u)) return null;
+  return 'wind'; // (the blow coming, or on guard till then)
 }

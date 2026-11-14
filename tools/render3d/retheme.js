@@ -32,18 +32,18 @@ export const UNIT_SCALE = UNIT_ART_SCALE; // (look.js: the game draws its units 
  *  0.31 of its height long instead of 0.36 and sits closer under it (the legibility pass, 2026-11-11). */
 export const UNIT_SUN = 480;
 /** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render), its
- *  frames (2 by default: the walk) and `shot`, polish.js settings of its own merged over the units' (a flyer's softer
- *  shadow). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
+ *  frames (2 by default: the walk), `strike` (the melee units: two strike poses besides, STRIKE_POSES) and `shot`,
+ *  polish.js settings of its own merged over the units' (a flyer's softer shadow). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
   kg: {
-    villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 },
-    archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32 },
+    villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26, strike: true }, knight: { build: knight, r: 27, h: 32, strike: true },
+    archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32, strike: true },
     ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 27, h: 44, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
     cannon: { build: cannon, r: 22, h: 24, frames: 4 }, // (the Cannon takes the siegeTank slot in R2; the Trebuchet stays for the record)
   },
   ex: {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
-    mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
+    mercenary: { build: mercenary, r: 15, h: 19, strike: true }, veteran: { build: veteran, r: 18, h: 24, strike: true },
     rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24, shot: { unitShadow: { alpha: 70, soft: 3 } } }, // (the Rover 1.4x since the last art round: its cell too; the Drone's shadow softer and lighter than the walkers': the art polish, 2026-11-13, `shot` merged into its polish settings)
     android: { build: android, r: 15, h: 20 }, // (the Marine's cell; the `umbra` slot's model since the balance pass, Stelian's pick of 2026-11-11)
     launcher: { build: launcher, r: 28, h: 28 }, // (the Rover since 2026-11-12, a tracked rocket launcher: the rocket cart's cell and frames)
@@ -94,6 +94,20 @@ export const RT_HEADS = {
 function head(b, mats, dir) {
   if (b.spin) return b.build(mats, dir / FACINGS * Math.PI * 2 / b.spin);
   const obj = b.build(mats); obj.rotation.y = -dir / FACINGS * Math.PI * 2; return obj;
+}
+/** The melee units' strike poses (look.js STRIKE): the builder's frame number for each, after the walk's 0 and 1, and
+ *  the name it goes under (`<kind>_<dir>_wind`, `<kind>_<dir>_strike`): the weapon drawn back or raised, then thrust
+ *  or chopped; only the weapon arm moves, the feet planted, the body and the anchor where they stand. Not in the walk
+ *  animation (nor the drawn height, generate.mjs `unitTops`, which is the walk's). */
+export const STRIKE_POSES = [[2, 'wind'], [3, 'strike']];
+/** A strike pose's cell: the walk's grown `STRIKE_ROOM` world units on every side (a thrust reaches past the walk's
+ *  cell), its shadow cast at the walk cell's reach (scene.js `shadowR`) so the body's shadow is the walk's, and its
+ *  frame trimmed to its content in the atlas (`trim`), so the room costs nothing there. */
+const STRIKE_ROOM = 14;
+function strikeShot(m, lift, o) {
+  const r = m.r * UNIT_SCALE, h = m.h * UNIT_SCALE, walk = unitCell(r, h, lift), cell = unitCell(r + STRIKE_ROOM, h, lift);
+  // (unitCell grows left, right, up and down by the room through r; the anchor moves with it, the ground point)
+  return [cell, { ...o, shadowR: Math.max(walk.w, walk.h) / S }];
 }
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
@@ -180,6 +194,12 @@ export function* rethemeSprites(want, opts = {}) {
         const name = `${side}_${kind}_${dir}_${f}`; if (!want(name)) continue;
         const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
         yield [name, obj, cell, m.shot && ou.polish ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true];
+      }
+      if (m.strike) for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
+        const name = `${side}_${kind}_${dir}_${pose}`; if (!want(name)) continue;
+        const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+        const [sc, so] = strikeShot(m, lift, ou);
+        yield [name, obj, sc, so, true, { trim: true }];
       }
     }
     for (const kind of Object.keys(RT_BUILDINGS[side])) {
@@ -268,4 +288,15 @@ export function* atlasSprites(want = () => true) {
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = v ? `shard_${st}_${v}` : `shard_${st}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; } // (variant 0 keeps the plain name: the portrait's)
   for (const st of MINE_STAGES) { const name = `mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine, one per field (mine.js): drawn by nothing yet; the rules change that puts one mine per field takes it up
   for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
+  // The melee units' strike poses, last (after every sprite drawn before them, so nothing they build first can touch
+  // the rest), in a larger cell than the walk's (strikeShot).
+  for (const [kind, [side, model]] of Object.entries(ATLAS_UNITS)) {
+    const m = RT_UNITS[side][model]; if (!m.strike) continue;
+    const [cell, so] = strikeShot(m, lift, m.shot ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou);
+    for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
+      const name = `${kind}_${dir}_${pose}`; if (!want(name)) continue;
+      const obj = m.build(mats(side), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+      yield [name, obj, cell, so, true, { trim: true }];
+    }
+  }
 }

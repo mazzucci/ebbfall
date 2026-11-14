@@ -33,6 +33,8 @@ export function plate(pts, depth, bevel = 1) {
     return g;
   });
 }
+/** The point `d` units from `a` towards `b` (arrays): a cuff a step up a forearm from a moved hand. */
+export const toward = (a, b, d) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1; return a.map((v, i) => v + (b[i] - v) / L * d); };
 /** A capsule from point a to point b (THREE.Vector3-like arrays). */
 export function limb(parent, a, b, r, mat) {
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), len = A.distanceTo(B);

@@ -3176,6 +3176,41 @@ test('every unit and building is drawn twice: its art, then its team mask in its
   } finally { await d.close(); }
 });
 
+test('melee units in a fight show their strike poses, and each blow glints on its target, a heavy one with dust', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
+    // (a Knight against a Bruiser: both melee, both heavy hitters, and long-lived enough for a dozen blows each; they
+    // close on each other by themselves, nothing ordered)
+    const [kn, br] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'knight', x, y), endfall.engine.debugSpawn(1, 'bruiser', x + 40, y)], [x, y]);
+    await d.centerOn(x + 20, y);
+    const pose = (id) => endfall.teamLayers().find(l => l.id === id && l.shown)?.base ?? '';
+    // Fast-forward to a tick just after the Knight's blow lands, then read the very next frame drawn: its strike pose,
+    // the glint on the Bruiser and the dust at its feet (the strike holds 0.15 s, so a slow frame can miss it: a few tries).
+    let seen = null;
+    for (let k = 0; k < 8 && !seen?.pose.endsWith('_strike'); k++) {
+      await d.skip(0.3); // (past this blow's window)
+      seen = await d.eval(([kn, br, src]) => {
+        const pose = (0, eval)(`(${src})`), unit = (id) => endfall.G.units.find(u => u.id === id);
+        for (let t = 0; t < 150; t++) { const u = unit(kn); if (!u || u.cd > u.d.weapon.cd - 1 / 30 - 1e-6) break; endfall.skip(1 / 30); } // (to the tick of its next blow)
+        return new Promise(r => requestAnimationFrame(() => {
+          const b = unit(br);
+          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40).map(e => e.anim) });
+        }));
+      }, [kn, br, pose.toString()]);
+    }
+    assert.match(seen.pose, /^knight_\d+_strike$/, `the Knight's strike pose on the frame after its blow (${seen.pose})`);
+    assert.ok(seen.near.includes('glint'), `a glint of steel on the Bruiser (${seen.near.join(' ')})`);
+    assert.ok(seen.near.includes('puff'), `dust at its feet (${seen.near.join(' ')})`);
+    // Between blows, standing in the fight: the wind-up (on guard), never a walk frame frozen mid-stride.
+    await d.skip(0.4);
+    const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
+    assert.match(between[0], /^knight_\d+_wind$/, `the Knight on guard between blows (${between[0]})`);
+    assert.match(between[1], /^bruiser_\d+_(wind|strike)$/, `the Bruiser in its strike poses too (${between[1]})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 // ---- Controls (src/client/controls.js, the OPTIONS card: options.js): CLASSIC or WASD, the middle button's pan ----
 
 /** Hold `key` for `ms`, and on until a frame has moved the camera (a software-rendered page draws few frames a second;

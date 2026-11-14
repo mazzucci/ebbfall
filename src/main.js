@@ -3,12 +3,12 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, muzzleFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, audioState } from './client/audio.js';
-import { fx, burst, hit, updateFx } from './client/fx.js';
+import { fx, burst, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
@@ -17,7 +17,7 @@ import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { levelOf } from './engine/util.js';
-import { setSpots, MUZZLE_SMOKE } from './client/look.js';
+import { setSpots, MUZZLE_SMOKE, MUZZLE_FLASH, MELEE_PUFF, inReach, impactOf } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
@@ -90,12 +90,28 @@ function quitToTitle() {
   started = false; closePause(); $('end').hidden = true; $('help').hidden = true; $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
-/** A shot fired (the shooter stands at the event's spot): a kind with muzzle smoke (look.js MUZZLE_SMOKE, the Cannon)
- *  leaves its puff. */
+/** A shot fired or a blow struck (the shooter stands at the event's spot, a building at its center): a kind with
+ *  muzzle smoke (look.js MUZZLE_SMOKE, the Cannon) leaves its puff, one with a muzzle flash (MUZZLE_FLASH) flashes at
+ *  its gun's mouth, and a melee blow glints on its target (MELEE_PUFF: with a puff of dust). */
 function muzzle(e) {
   if (!nearView(e.x, e.y)) return;
-  const u = G.units.find(u => Math.abs(u.x - e.x) < 1 && Math.abs(u.y - e.y) < 1);
-  if (u && MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
+  const at = (o) => Math.abs(o.x - e.x) < 1 && Math.abs(o.y - e.y) < 1;
+  const u = G.units.find(at);
+  if (!u) { const b = G.bldgs.find(b => b.done && MUZZLE_FLASH[b.type] && at(b)); if (b) muzzleFlash(e.x, e.y, b.aim, MUZZLE_FLASH[b.type]); return; }
+  if (MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
+  if (MUZZLE_FLASH[u.type]) muzzleFlash(e.x, e.y, u.face, MUZZLE_FLASH[u.type]);
+  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) meleeHit(u, t, MELEE_PUFF[u.type]); }
+}
+/** What a melee blow struck: the unit's target, else (held in place, the sim's Hold: no target in its task) the
+ *  nearest enemy in its reach. */
+function meleeTarget(u) {
+  if (inReach(u)) return u.task.target;
+  let best = null, bd = Infinity;
+  for (const o of [...G.units, ...G.bldgs]) {
+    if (!enemies(u.team, o.team) || o.inside || !inReach(u, o)) continue;
+    const d = Math.hypot(o.x - u.x, o.y - u.y); if (d < bd) { bd = d; best = o; }
+  }
+  return best;
 }
 /** Turn sim events into client effects. */
 function drainEvents() {
@@ -103,8 +119,8 @@ function drainEvents() {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
-    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r, G.factions[e.team]); if (seen(e)) sfx('boom', e); } // (particles on screen only)
-    else if (e.t === 'hit') { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); if (seen(e)) sfx('hit', e); }
+    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (particles on screen only)
+    else if (e.t === 'hit') { impactFx(e.x, e.y, impactOf(e)); if (seen(e)) sfx('hit', e); }
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);

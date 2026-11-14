@@ -7,7 +7,6 @@ export function burst(x, y, r, color, n = 10) {
     fx.list.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.4 + Math.random() * 0.5, t: 0, color, r: 1 + Math.random() * (r / 5) });
   }
 }
-export function hit(x, y, big) { fx.list.push({ x, y, vx: 0, vy: 0, life: 0.15, t: 0, color: '#fff4c2', r: big ? 7 : 3 }); }
 export function marker(x, y, color) { fx.list.push({ x, y, ring: true, color, life: 0.5, t: 0, vx: 0, vy: 0 }); }
 
 export function updateFx(dt) {

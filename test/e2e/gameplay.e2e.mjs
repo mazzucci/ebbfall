@@ -1329,11 +1329,11 @@ test('the Build list packs its buttons in the order they open: a newly opened bu
       await d.pressCard('Back'); if (adv) await d.pressCard('Back');
       return got;
     };
-    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page: the Watchtower (a defense is basic, as the Sentry mast), then Advanced, Back in the corner');
+    assert.deepEqual(await page(false), ['Castle 0', 'Barracks 1', 'Cottage 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page: the Watchtower (a defense is basic, as the Sentry mast), then Advanced, Back in the corner');
     assert.deepEqual(await page(true), ['Blacksmith 0', 'Workshop 1', 'Market 2', 'Back 5'], 'the advanced page packed from the first slot, no gap for the Stables');
     await buildAndFinish(d, 'k', 'forge', 1);
     assert.deepEqual(await page(true), ['Blacksmith 0', 'Workshop 1', 'Market 2', 'Stables 3', 'Back 5'], 'the Stables open last (once a Blacksmith stands); the others keep their slots');
-    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page unchanged');
+    assert.deepEqual(await page(false), ['Castle 0', 'Barracks 1', 'Cottage 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page unchanged');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1753,8 +1753,8 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     // Set up: Bots until the Data center's grid is all drawn.
     await d.eval(([x, y]) => { const need = endfall.engine.UNITS.lumen.supply; for (let i = 0; i < 40 && endfall.G.sup[0][0] + need <= endfall.G.sup[0][1]; i++) endfall.engine.debugSpawn(0, 'lumen', x + (i % 6) * 14, y); }, [hq.x - 40, hq.y + 110]);
     await d.page.waitForTimeout(300);
-    await d.hudText('#rSupply', /^54\/55$/);
-    assert.ok(await d.page.locator('#resSup.low').isVisible(), 'the grid full (one left, short of a Bot\'s two): the figure warns');
+    await d.hudText('#rSupply', /^28\/28$/);
+    assert.ok(await d.page.locator('#resSup.low').isVisible(), 'the grid full (none left for a Bot\'s one): the figure warns');
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
     await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough grid: build a Substation\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; grid ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
@@ -1763,7 +1763,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /grid/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
     assert.ok(t.l >= 0 && t.r <= t.w && t.t >= 0 && t.b <= t.h && !t.cut, `the toast whole on screen: ${JSON.stringify(t)}`);
     await buildAndFinish(d, 'w', 'substation', 0, V);
-    await d.hudText('#rSupply', /\/75$/);
+    await d.hudText('#rSupply', /\/38$/);
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a Substation up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);
@@ -1773,7 +1773,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
     await d.pressCard('Build');
     await d.readyCard('Advanced');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Recruiting 0', 'Substation 1', 'Data center 2', 'Sentry mast 3', 'Advanced 4', 'Back 5'], 'Advanced packed into slot 4');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Data center 0', 'Recruiting 1', 'Substation 2', 'Sentry mast 3', 'Advanced 4', 'Back 5'], 'Advanced packed into slot 4');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1798,9 +1798,81 @@ test('as the Expedition: a Wind turbine, once a Recruiting post stands, earns en
     const w = mine(await d.state(), 'lumen')[3];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
     await d.pressCard('Build'); await d.pressCard('Advanced'); await d.pressCard('Turbine');
-    await d.page.locator('#msg .toast', { hasText: /At most 5 Wind turbines per Data center/ }).waitFor({ timeout: 5000 });
+    await d.page.locator('#msg .toast', { hasText: 'Maximum of 5 turbines per Data center reached.' }).waitFor({ timeout: 5000 });
     assert.equal(await d.eval(() => endfall.ui.place), null, 'no ghost for a sixth');
     assert.equal((await d.state()).bldgs.filter(b => b.team === 0 && b.type === 'spire').length, 5);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('the price shows each unit\'s population or grid beside it (tooltip and button); buildings draw no grid; the Lab offers Energy efficiency', async () => {
+  // (Stelian, Nov 14: "1 population" for the Kingdom, "2 grid" for the Expedition, with an icon; buildings take none)
+  const hoverInfo = async (d, label) => {
+    const btn = d.page.locator('#cmd button', { hasText: label }).first();
+    await btn.hover();
+    const info = d.page.locator('#cmdInfo');
+    await info.waitFor({ state: 'visible', timeout: 2000 });
+    const got = await d.eval(() => ({ text: document.getElementById('cmdInfo').textContent, pl: document.querySelector('#cmdInfo .pl')?.textContent ?? null, ico: !!document.querySelector('#cmdInfo .pl svg') }));
+    await d.page.mouse.move(5, 300);
+    await info.waitFor({ state: 'hidden', timeout: 2000 });
+    return got;
+  };
+  const k = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await k.clickEntity(coreOf(await k.state()).id);
+    await k.readyCard('Villager');
+    assert.deepEqual(await hoverInfo(k, 'Villager').then(g => [g.pl, g.ico]), ['1 population', true], 'the Kingdom: population');
+    assert.equal(await k.page.locator('#cmd button', { hasText: 'Villager' }).locator('.c .p').getAttribute('title'), '1 population', 'on the button too');
+    assert.deepEqual(k.errors, []);
+  } finally { await k.close(); }
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(4000, 0);
+    const before = (await d.state()).sup[0][0];
+    await buildAndFinish(d, 'i', 'siphon', 0, V);
+    const post = await buildAndFinish(d, 'i', 'siphon', 1, V);
+    await buildAndFinish(d, 'g', 'loom', 2, V);
+    assert.equal((await d.state()).sup[0][0], before, 'buildings draw no grid');
+    // The Build card: the Recruiting post's new words; the Factory's say nothing of the grid.
+    const w = mine(await d.state(), 'lumen')[3];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
+    await d.pressCard('Build');
+    await d.readyCard('Recruiting');
+    const recruiting = await hoverInfo(d, 'Recruiting');
+    assert.match(recruiting.text, /Locals sign on here for the Expedition's pay\. Hires Sellswords, and Bruisers once a Lab stands\./);
+    assert.doesNotMatch(recruiting.text, /coin|as many as you like/i);
+    assert.equal(recruiting.pl, null, 'a building: no places beside its price');
+    await d.pressCard('Advanced'); await d.readyCard('Factory');
+    const factory = await hoverInfo(d, 'Factory');
+    assert.doesNotMatch(factory.text, /grid/i, 'the Factory draws no grid');
+    assert.match((await hoverInfo(d, 'Turbine')).text, /Generates energy over time, with no workers\. Each Data center's computers run up to 5\./);
+    await d.pressCard('Back'); await d.pressCard('Back');
+    // A Sellsword at the post: "1 grid", the Bruiser "2 grid".
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === post.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(post.id); }
+    await d.readyCard('Bruiser');
+    assert.deepEqual(await hoverInfo(d, 'Sellsword').then(g => [g.pl, g.ico]), ['1 grid', true], 'the Expedition: grid');
+    assert.equal((await hoverInfo(d, 'Bruiser')).pl, '2 grid');
+    // The Lab: Energy efficiency, its words.
+    const lab = myBldg(await d.state(), 'loom')[0];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === lab.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(lab.id); }
+    await d.readyCard('Energy');
+    assert.match((await hoverInfo(d, 'Energy')).text, /Machines cost 10% less energy per level\./);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone (667x375): a unit\'s grid figure fits on its button beside the price, nothing cut', async () => {
+  const d = await newGame(SMALL_PHONE, 0, 4242, { ai: false, race: 'vael' });
+  try {
+    await d.clickEntity(myBldg(await d.state(), 'conflux')[0].id);
+    await d.readyCard('Bot');
+    const fit = await d.eval(() => { const b = [...document.querySelectorAll('#cmd button')].find(b => /Bot/.test(b.textContent)), c = b.querySelector('.c'), p = c.querySelector('.p'), s = c.querySelector('.s'), bb = b.getBoundingClientRect(), pb = p.getBoundingClientRect(), sb = s.getBoundingClientRect();
+      return { text: p.textContent, inside: pb.left >= bb.left && pb.right <= bb.right, apart: sb.right <= pb.left, cut: c.scrollWidth > c.clientWidth + 1 || b.scrollWidth > b.clientWidth + 1 }; });
+    assert.deepEqual(fit, { text: '1', inside: true, apart: true, cut: false }, 'the grid figure on the button, clear of the price');
+    // A wide price: still clear (the Expedition's dearest, the Rover's 550 and its 6 grid, shown the same way).
+    const wide = await d.eval(() => { const c = document.querySelector('#cmd button .c'); c.querySelector('.s').lastChild.textContent = '550'; c.querySelector('.p').lastChild.textContent = '6'; const pb = c.querySelector('.p').getBoundingClientRect(), sb = c.querySelector('.s').getBoundingClientRect(); return { apart: sb.right <= pb.left, cut: c.scrollWidth > c.clientWidth + 1 }; });
+    assert.deepEqual(wide, { apart: true, cut: false });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

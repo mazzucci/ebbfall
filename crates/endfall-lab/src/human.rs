@@ -128,7 +128,9 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
         if workers + hq_queue < crew && hq_queue == 0 {
             wants.push(Want::Unit(hq, faction.worker));
         }
-        if cap - used < 3 && cap < w.sup_max(me) && !supply_rising {
+        // (3 places free; on the grid 2 since it was halved, Nov 14: 3 then was 1.5 machines' worth)
+        let low = if faction.grid { 2 } else { 3 };
+        if cap - used < low && cap < w.sup_max(me) && !supply_rising {
             wants.push(Want::Bldg(faction.supply));
         }
         if w.time >= 60.0 && prods.is_empty() {
@@ -145,7 +147,7 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
         let mut waiting = false;
         for want in wants {
             let cost = match want {
-                Want::Unit(_, k) => k.def().cost,
+                Want::Unit(_, k) => w.unit_cost(me, k),
                 Want::Bldg(k) => k.def().cost,
             };
             if !w.can_afford(me, cost) {

@@ -1,6 +1,5 @@
 //! The AI's research, and saving up for it or for an expansion.
 
-use super::army::CAP_SLACK;
 use super::*;
 
 impl World {
@@ -67,8 +66,9 @@ impl World {
                                 levels_due
                             })
                             && self.tech_of_use(e, &my_b, up)
-                            // (Trade once its natural stands: before, its price held the expansion back)
-                            && (up.def().effect != Effect::PumpRate
+                            // (Trade and Energy efficiency once its natural stands: before, their price held the
+                            // expansion back)
+                            && (!spare_only(up)
                                 || self.ai_count(&my_b, true, self.factions[e as usize].hq) >= 2)
                             && up.def().req.is_none_or(|r| self.has_bldg(e, r))
                             && self.upgrades[e as usize][up.index()] < up.levels()
@@ -82,9 +82,9 @@ impl World {
                         let _ = self.start_research(bid, up);
                         break;
                     }
-                    // (Trade, the Market's: only with spare gold, never saved for; saved for, its 150 held the
-                    // Kingdom's expansion and its tech back)
-                    if up.levels() > 1 && up.def().effect != Effect::PumpRate {
+                    // (Trade, the Market's, and Energy efficiency, the Lab's: only with spare gold, never saved for;
+                    // saved for, Trade's 150 held the Kingdom's expansion and its tech back)
+                    if up.levels() > 1 && !spare_only(up) {
                         saving = true;
                         break;
                     }
@@ -122,10 +122,6 @@ impl World {
             // (not a toggle: the AI never braces a unit, its siege guns anchor by their own rule)
             Effect::Unlock(_) => return false,
             Effect::Speed(units) => &move |k: UnitKind| units.contains(&k),
-            // (Grid efficiency only once its grid is near its maximum: below it a Substation gives more for less)
-            Effect::GridUse => {
-                return self.sup(e)[1] + self.places(e, CAP_SLACK) >= self.sup_max(e);
-            }
             _ => return true,
         };
         my_b.iter()
@@ -137,4 +133,10 @@ impl World {
 /// A tech for the economy rather than the army (researched early, on every level that researches).
 fn is_economy(up: Upgrade) -> bool {
     up.def().effect == Effect::BuildSpeed
+}
+
+/// An economy level the AI buys only with spare gold, never saving for it, and only once its natural expansion stands:
+/// Trade (#290) and Energy efficiency (Stelian, Nov 14: the AI researches it as it does Trade).
+fn spare_only(up: Upgrade) -> bool {
+    matches!(up.def().effect, Effect::PumpRate | Effect::EnergyCost)
 }

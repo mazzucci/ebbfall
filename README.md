@@ -43,8 +43,8 @@ prints from energy; the Factory builds Buggies (fast raiders) and Drones (fast l
 within reach of the Data center's small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the
 signal's range), faster there; the Portal the Uplink unlocks (one per player) brings Rovers (rocket artillery that
 fires on the move) and Androids, elite machines, slow to make and costly. The Expedition runs on energy: its Bots dig
-thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; everything it
-runs draws on the grid, from the Data center and its Substations (up to 300; the Kingdom's population, up to 120).
+thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; its units draw
+on the grid, from the Data center and its Substations (up to 150; the Kingdom's population, up to 120).
 Energy builds things; the grid keeps them running. Sentry masts hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

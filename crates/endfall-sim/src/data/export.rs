@@ -154,7 +154,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         Effect::BuildSpeed => ("build", String::new()),
         Effect::MineLoad => ("mine", String::new()),
         Effect::PumpRate => ("trade", String::new()),
-        Effect::GridUse => ("grid", String::new()),
+        Effect::EnergyCost => ("energy", String::new()),
     };
     Obj::new()
         .str("name", d.name)
@@ -220,7 +220,7 @@ pub fn data_json() -> String {
         .num("tech_build", TECH_BUILD)
         .num("pump_rate", PUMP_RATE)
         .num("turbine_rate", TURBINE_RATE)
-        .raw("grid_use", array(GRID_USE))
+        .raw("energy_cost", array(ENERGY_COST))
         .num("pop_max", POP_MAX)
         .num("grid_max", GRID_MAX)
         .raw("drill_load", array(DRILL_LOAD))

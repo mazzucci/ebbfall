@@ -805,3 +805,96 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
         }
     }
 }
+
+/// For every seat on a generated map: each gold mine beyond its main's (more than 12 tiles from its headquarters, as the
+/// AI's expansions are) and the farthest ring spot round it (4 to 10 tiles out, the AI's rings) where a headquarters
+/// could go but for `HQ_SPACING`, as that spot's distance from the main's headquarters (center to center); the
+/// smallest of them over the map, with the mine. On every kind, size (the Shore 64x64 only) and people.
+fn closest_expansion(w: &World) -> (f64, String) {
+    let mut worst = (f64::MAX, String::new());
+    for seat in 0..w.seats() as u8 {
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == seat && b.kind.def().hq)
+            .unwrap();
+        let kind = hq.kind;
+        let (hx, hy) = (hq.tx as f64 + 2.0, hq.ty as f64 + 2.0);
+        for n in w.map.nodes.iter().filter(|n| !n.ether && n.amount > 300) {
+            let (nx, ny) = (n.tx as f64, n.ty as f64);
+            if (nx - hx).hypot(ny - hy) <= 12.0 {
+                continue; // (the main's own)
+            }
+            let mut best: Option<f64> = None;
+            for r in 4..10 {
+                for k in 0..16 {
+                    let a = k as f64 / 16.0 * std::f64::consts::TAU;
+                    let tx = (nx + a.cos() * r as f64 - 2.0).round() as i32;
+                    let ty = (ny + a.sin() * r as f64 - 2.0).round() as i32;
+                    let why = w.place_refusal(kind, tx, ty, seat);
+                    if why.is_none() || why == Some(Refusal::NearBase) {
+                        let d = (tx as f64 + 2.0 - hx).hypot(ty as f64 + 2.0 - hy);
+                        best = Some(best.map_or(d, |b: f64| b.max(d)));
+                    }
+                }
+            }
+            // (a mine with no spot at all round it, rule or not, is no expansion: walled by rock or water)
+            if let Some(b) = best
+                && b < worst.0
+            {
+                worst = (
+                    b,
+                    format!("seat {seat} {kind:?}, mine at {},{}", n.tx, n.ty),
+                );
+            }
+        }
+    }
+    worst
+}
+
+fn every_map(mut f: impl FnMut(&World, String)) {
+    for kind in MapKind::ALL {
+        let sizes: &[i32] = if kind == MapKind::Shore {
+            &[64]
+        } else {
+            &[64, 96, 128]
+        };
+        for &n in sizes {
+            for seed in 1..=12 {
+                for side in 0..2 {
+                    let seats = endfall_sim::map::max_starts(MapSize::square(n))
+                        .min(if kind == MapKind::Shore { 2 } else { 8 });
+                    let races: Vec<&'static Faction> = (0..seats)
+                        .map(|s| if (s + side) % 2 == 0 { &HUMANS } else { &VAEL })
+                        .collect();
+                    let mut w = World::with_size(seed, 1, kind, MapSize::square(n), 0, &races);
+                    w.disable_ai();
+                    for e in &mut w.explored {
+                        e.fill(1);
+                    }
+                    f(&w, format!("{kind:?} {n}x{n} seed {seed} side {side}"));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_field_beyond_the_main_takes_a_headquarters() {
+    // Stelian, Nov 14: a headquarters keeps `HQ_SPACING` from its seat's own others, and that must never block a real
+    // expansion: on every map, round every mine beyond the main's, a spot stays farther than that from the main.
+    let mut worst = (f64::MAX, String::new());
+    every_map(|w, what| {
+        let (d, at) = closest_expansion(w);
+        if d < worst.0 {
+            worst = (d, format!("{what}: {at}"));
+        }
+    });
+    eprintln!("closest expansion spot: {:.2} tiles ({})", worst.0, worst.1);
+    assert!(
+        worst.0 >= HQ_SPACING + 2.0,
+        "an expansion spot only {:.2} tiles from its main ({}): HQ_SPACING {HQ_SPACING} leaves too little margin",
+        worst.0,
+        worst.1
+    );
+}

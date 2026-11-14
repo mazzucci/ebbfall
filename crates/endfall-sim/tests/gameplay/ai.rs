@@ -615,6 +615,53 @@ fn the_ai_researches_upgrades_in_a_long_game() {
 }
 
 #[test]
+fn the_expedition_ai_researches_energy_efficiency_once_its_natural_stands() {
+    // As Trade (Stelian, Nov 14): only once its natural expansion stands, a second finished Data center, and never saved
+    // for. A player whose headquarters cannot fall, so the game lasts.
+    let mut w = World::with_setup(33, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    let g = Upgrade::EnergyEfficiency;
+    let dcs = |w: &World| {
+        w.bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Conflux && b.done)
+            .count()
+    };
+    let mut first = None;
+    for _ in 0..30 * 60 * 22 {
+        let started = w
+            .bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.research.is_some_and(|(u, _)| u == g));
+        if started && first.is_none() {
+            first = Some(w.time);
+            assert!(
+                dcs(&w) >= 2,
+                "researched before its natural stands, at {:.0} s",
+                w.time
+            );
+        }
+        w.step();
+        w.events.clear();
+        if w.over {
+            break;
+        }
+    }
+    assert!(
+        first.is_some(),
+        "researched by 22:00 (two Data centers: {}, levels {:?})",
+        dcs(&w),
+        w.upgrades[ENEMY as usize]
+    );
+}
+
+#[test]
 fn the_ai_survives_its_building_sites_being_starved() {
     // An army camping outside the AI base kills every harvester that goes near a site under construction, so the
     // AI's watchdog eventually cancels the site. That used to crash the AI turn.

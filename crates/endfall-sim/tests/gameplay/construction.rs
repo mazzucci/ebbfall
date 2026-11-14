@@ -672,3 +672,96 @@ fn deep_water_is_refused_as_water() {
         Some(Refusal::Water)
     );
 }
+
+#[test]
+fn a_headquarters_keeps_its_distance_from_its_seats_own_others_but_not_from_an_allys() {
+    // Stelian, Nov 14: a Castle or a Data center not within `HQ_SPACING` of its seat's own headquarters, standing or going
+    // up (so stacked headquarters never multiply the one-Market-a-Castle and five-turbines-a-Data-center caps);
+    // anywhere else it may go, no mine needed. An ally's do not count; a destroyed one blocks nothing.
+    let mut w = World::with_size(
+        5,
+        1,
+        MapKind::Standard,
+        MapSize::square(96),
+        0,
+        &[&HUMANS, &VAEL, &HUMANS, &VAEL],
+    );
+    assert!(w.set_teams(&[0, 0, 1, 1]));
+    w.disable_ai();
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    w.res[0] = [20_000, 0];
+    let main = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == 0 && b.kind == BldgKind::Core)
+        .unwrap()
+        .id;
+    let (mx, my) = core(&w, 0);
+    // Round its main: free ground refused in the rule's words, and nothing else wrong with it.
+    let ring = |r0: i32, r1: i32| {
+        (r0..r1).flat_map(move |r| {
+            (0..32).map(move |a| {
+                let a = a as f64 / 32.0 * std::f64::consts::TAU;
+                (
+                    mx + (a.cos() * r as f64).round() as i32,
+                    my + (a.sin() * r as f64).round() as i32,
+                )
+            })
+        })
+    };
+    let near = ring(5, 11)
+        .find(|&(x, y)| w.place_refusal(BldgKind::Core, x, y, 0) == Some(Refusal::NearBase))
+        .expect("free ground near the main");
+    assert_eq!(
+        w.place_building(0, BldgKind::Core, near.0, near.1, None),
+        Err("Too close to your other base.".to_string())
+    );
+    // Any other building goes there.
+    assert!(w.can_place(BldgKind::Depot, near.0, near.1, 0));
+    // Farther out, anywhere (no mine needed): allowed, and a site going up counts like a standing one.
+    // (and far from `near` too, so the site leaves that spot to the last check)
+    let far = ring(13, 30)
+        .find(|&(x, y)| {
+            ((x - near.0) as f64).hypot((y - near.1) as f64) > HQ_SPACING + 1.0
+                && w.can_place(BldgKind::Core, x, y, 0)
+        })
+        .expect("room farther out");
+    let site = w
+        .place_building(0, BldgKind::Core, far.0, far.1, None)
+        .unwrap();
+    assert!(!w.bldg(site).unwrap().done);
+    let by_site = ring(13, 30)
+        .find(|&(x, y)| {
+            let d = ((x - far.0) as f64).hypot((y - far.1) as f64);
+            d < HQ_SPACING - 1.0
+                && w.place_refusal(BldgKind::Core, x, y, 0) == Some(Refusal::NearBase)
+        })
+        .expect("ground by the site");
+    assert!(
+        !w.can_place(BldgKind::Core, by_site.0, by_site.1, 0),
+        "a site counts"
+    );
+    // An ally's headquarters is no reason: seat 1 (the same team) may build its own by seat 0's main.
+    assert!(w.allies(0, 1));
+    let ally = ring(5, 11)
+        .find(|&(x, y)| w.can_place(BldgKind::Conflux, x, y, 1))
+        .expect("an ally may build by seat 0's main");
+    assert_ne!(
+        w.place_refusal(BldgKind::Conflux, ally.0, ally.1, 1),
+        Some(Refusal::NearBase)
+    );
+    // Its main destroyed: the old spot's neighbor is free again.
+    w.damage(main, 1e9, None);
+    assert!(w.bldg(main).is_none());
+    assert_eq!(
+        w.place_refusal(BldgKind::Core, near.0, near.1, 0),
+        None,
+        "a destroyed headquarters blocks nothing"
+    );
+    assert!(
+        w.place_building(0, BldgKind::Core, near.0, near.1, None)
+            .is_ok()
+    );
+}

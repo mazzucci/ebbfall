@@ -21,18 +21,18 @@ pub(crate) const AI_TURN: u32 = 16;
 /// Free supply below which the specialists' factories train first (produce.rs).
 pub(crate) const SUPPLY_TIGHT: i32 = 8;
 /// The grid of its line a grid side keeps a barracks for (`World::posts_due`): six mercenaries a Recruiting post, the
-/// hired places one gave until Nov 14.
-pub(crate) const LINE_PER_POST: i32 = 12;
+/// hired places one gave until Nov 14 (12 before the grid was halved, Nov 14).
+pub(crate) const LINE_PER_POST: i32 = 6;
 /// The grid a grid side's line (the Expedition's mercenaries) takes at most, the AI's own share of its `GRID_MAX`, by
-/// the map's width: the hired places' maximum before Nov 14 (25, 30 and 35) at two grid a place, so its line and its
-/// machines keep the shares they had. Past it its money goes to its machines.
+/// the map's width: the hired places' maximum before Nov 14 (25, 30 and 35) at one grid a place (two before the grid
+/// was halved), so its line and its machines keep the shares they had. Past it its money goes to its machines.
 pub(crate) fn line_grid(map_w: i32) -> i32 {
     if map_w <= 64 {
-        50
+        25
     } else if map_w <= 96 {
-        60
+        30
     } else {
-        70
+        35
     }
 }
 

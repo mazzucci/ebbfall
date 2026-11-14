@@ -16,6 +16,7 @@
 //   base-kingdom, base-expedition   a base with every building of its people
 //   home-kingdom, home-expedition   the same base with an army of every kind drawn up south of it, at zoom 1
 //   mine-swarm the Expedition's Bots and Drones crowded round your base's gold mine, at zoom 1
+//   turbines   the Expedition base with three more Wind turbines by the Core, the camera on them, at zoom 1
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
 //   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
@@ -43,6 +44,7 @@ const SCENES = {
   'home-kingdom': { races: ['humans', 'vael'], base: true, army: H_ARMY, zoom: 1 },                                      // (the art polish's in-game shots: a base with its buildings and an army standing before it, at zoom 1)
   'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1 },      // (the Uplink needs the Lab, and the Portal the Uplink: the base's rounds raise them in turn)
   'mine-swarm': { races: ['vael', 'humans'], swarm: { lumen: 7, shrike: 6 }, zoom: 1 },                                  // (the follow-up to the art polish: a Bot group and a Drone swarm by a mine, the gold beside them)
+  turbines: { races: ['vael', 'humans'], base: true, extra: ['spire', 'spire', 'spire'], focus: 'spire', zoom: 1 },        // (the Wind turbine's blades without the blur disc: the base with four turbines by the Core, the camera on them)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
 };
 
@@ -88,17 +90,20 @@ const fight = (page, armies) => page.evaluate((armies) => {
 }, armies);
 
 /** Every building of your people raised round your Core through the engine's build orders, a tier at a time, with
- *  resources granted and time skipped; each footprint kept a tile clear of the others. Returns the base's middle. */
-const raiseBase = (page) => page.evaluate(() => {
+ *  resources granted and time skipped; each footprint kept a tile clear of the others. `extra` kinds go up first, so they
+ *  get the spots nearest the Core (several of one kind: the turbines scene). Returns the base's middle, or, with `focus`,
+ *  the middle of that kind's buildings. */
+const raiseBase = (page, extra = [], focus) => page.evaluate(([extra, focus]) => {
   const { G, map, engine } = endfall, me = G.me, T = engine.TILE, f = engine.FACTIONS[G.factions[me]];
-  const core = G.bldgs.find(b => b.team === me), todo = [...f.buildBasic, ...f.buildAdvanced].filter((k, i, a) => k !== f.hq && a.indexOf(k) === i);
+  const core = G.bldgs.find(b => b.team === me), todo = [...extra, ...[...f.buildBasic, ...f.buildAdvanced].filter((k, i, a) => k !== f.hq && a.indexOf(k) === i)];
   const rects = G.bldgs.filter(b => b.team === me).map(b => [b.tx, b.ty, b.w, b.h]);
   const clear = (tx, ty, w, h) => rects.every(([x, y, rw, rh]) => tx + w + 1 <= x || x + rw + 1 <= tx || ty + h + 1 <= y || y + rh + 1 <= ty);
   const why = {}, placed = [], spots = []; for (let r = 0; r <= 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) spots.push([core.tx + dx, core.ty + dy]);
   for (let round = 0; round < 9 && todo.length; round++) {                                                           // (nine rounds: the Expedition's Portal needs the Uplink, which needs the Lab)
     engine.setResources(me, 99999, 99999);
-    const workers = G.units.filter(u => u.team === me && engine.UNITS[u.type].worker);
+    const workers = G.units.filter(u => u.team === me && engine.UNITS[u.type].worker), from = placed.length;
     for (const k of todo.slice()) {
+      if (placed.length - from >= workers.length) break;                                                            // (one site a worker a round: a second order pulls the builder off its first site, which then stands paused)
       if (!engine.hasReq(me, k)) continue;
       const d = engine.BUILDINGS[k], at = spots.find(([tx, ty]) => clear(tx, ty, d.w, d.h) && engine.canPlace(k, tx, ty, me));
       const err = at ? engine.placeBuilding(me, k, at[0], at[1], workers[placed.length % workers.length]) : 'no room';
@@ -107,12 +112,12 @@ const raiseBase = (page) => page.evaluate(() => {
     }
     for (let s = 0; s < 150; s++) { // (a builder walks to its site before the building appears)
       endfall.skip(1);
-      if (placed.every(k => G.bldgs.some(b => b.team === me && b.type === k && b.done))) break;
+      if (placed.every(k => G.bldgs.filter(b => b.team === me && b.type === k && b.done).length >= placed.filter(p => p === k).length)) break;
     }
   }
-  const mine = G.bldgs.filter(b => b.team === me), xs = mine.map(b => b.x), ys = mine.map(b => b.y);
+  const mine = G.bldgs.filter(b => b.team === me), seen = focus ? mine.filter(b => b.type === focus) : mine, xs = seen.map(b => b.x), ys = seen.map(b => b.y);
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, left: todo.map(k => `${k} (${why[k]})`), built: mine.map(b => b.type) };
-});
+}, [extra, focus]);
 
 /** An army of every kind drawn up in rows south of the base's middle (the art polish's in-game shots). */
 const muster = (page, army, at) => page.evaluate(([army, at]) => {
@@ -151,7 +156,7 @@ async function shoot(name, scene, device, label) {
     let at, note = '';
     if (scene.research) await page.evaluate((keys) => { for (const k of keys) endfall.engine.debugResearch(endfall.G.me, k); }, scene.research); // (a research granted before the base goes up, so every building can)
     if (scene.swarm) { at = await swarm(page, scene.swarm); note = 'the swarm by the mine; '; }
-    else if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
+    else if (scene.base) { const b = await raiseBase(page, scene.extra, scene.focus); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
     else { at = await fight(page, scene.armies); note = `spawned ${at.spawned.join(' and ')}; `; }
     await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);
     await frame(page, 100);

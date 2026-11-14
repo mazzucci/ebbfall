@@ -623,16 +623,15 @@ function rotor(g, M, hub, L, yaw, phase) {
   add(r, cone(1.5 * w, 3.2 * w, 12), M.paleSteel, 0, 0, 3.0 * w, Math.PI / 2, 0, 0);
   const s = grp(); s.position.set(0, 0, 1.4 * w); s.rotation.z = phase; r.add(s);
   const blade = plate([[0, -1.4 * w], [L * 0.22, -2.6 * w], [L, -0.9 * w], [L, 0.8 * w], [L * 0.22, 2.6 * w], [0, 1.4 * w]], 0.8 * w, 0.15 * w); // (wide: at 1x a thin blade is a thread, the first check; wider still with the art polish)
-  for (let k = 0; k < 3; k++) { const b = grp(); b.rotation.z = k * Math.PI * 2 / 3 + Math.PI / 2; s.add(b); add(b, blade, M.blade, 0, 0, 0, Math.PI / 2, 0, 0); }
-  if (L > 15) { M.rotorDisc ??= new THREE.MeshBasicMaterial({ color: 0xe8ecea, transparent: true, opacity: 0.2, depthWrite: false }); add(s, cyl(L * 0.98, L * 0.98, 0.3, 48), M.rotorDisc, 0, 0, -0.3, Math.PI / 2, 0, 0); } // a faint disc behind the big rotor's blades, so it reads as a disc at 1x (the art polish)
+  for (let k = 0; k < 3; k++) { const b = grp(); b.rotation.z = k * Math.PI * 2 / 3 + Math.PI / 2; s.add(b); add(b, blade, M.blade, 0, 0, 0, Math.PI / 2, 0, 0); } // (three solid blades, nothing between them: the art polish's faint disc behind them read as motion blur, a fan at full speed; Stelian, 2026-11-14: "it is not a ventilator")
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return r;
 }
-const TURBINE_H = 38, TURBINE_R = 4.2, TURBINE_YAW = -0.72, TURBINE_L = 27; // (the art polish, 2026-11-13: 56, 2.6, -0.5, 20 until then: a shorter, thicker mast, the rotor oversized and turned three-quarter so it reads as a disc)
+const TURBINE_H = 38, TURBINE_R = 4.2, TURBINE_YAW = -0.72, TURBINE_L = 27; // (the art polish, 2026-11-13: 56, 2.6, -0.5, 20 until then: a shorter, thicker mast, the rotor oversized and turned three-quarter so its three blades read at 1x)
 /** The Wind turbine (the Power source; 2x2, replacing the Cabin: the sim key `spire`): one tall turbine. A pale
  *  tapered pole 56 tall in one smooth tone going straight into the grass (rounds 2 to 4, Stelian: no footing, earth
  *  plate, guy ropes, battery box, cable, rings, rungs or band; a detail too small to understand reads as clutter); the
- *  nacelle at the top turned a little west of the camera so the rotor disc shows, a cyan tail light; the team flag on
+ *  nacelle at the top turned a little west of the camera so the rotor's three blades show, a cyan tail light; the team flag on
  *  a short mast (the only team). The rotor is `turbineRotor` (the turning head). From the camera: a tall thin pale
  *  pole with a three-blade star on top and a flag. */
 export function windTurbine(M) {

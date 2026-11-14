@@ -43,7 +43,7 @@ export const BLDG_LOOK = {
   siphon: { glow: [0x3fe0ff, 0.45, 0.45, 0, false, -2] },                            // (the Recruiting post, the tavern hall at -20: the cyan work lamp by its door, at (2, 10.8, 13))
   loom: { glow: [0x3fe0ff, 1.0, 0.3, 20, false, 0] },                                // (the Lab, the dome at -20: the glow inside it, at (0, 18, 0); the Factory's roof lights are in its sprite)
   ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
-  spire: { head: 'spire_head', spin: 10 },                                           // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn)
+  spire: { head: 'spire_head', spin: 7 },                                            // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn; 7 a second is a turn in 7 s, a slow calm turbine, not a fan: 10 until 2026-11-14)
   uplink: { head: 'uplink_head', pan: [3, 9] },                                      // (the Uplink's dish pans 3 facings either way)
   eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 31, false, 0] }, // (its cyan light, only as a unit comes through, at the standing ring's center: 26 up, so 31 px at the 40-degree camera; 8 while the Portal lay flat)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
 };

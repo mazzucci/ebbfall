@@ -493,6 +493,8 @@ impl Report {
                 )
             },
         });
+        // The AI styles' parity (styles.rs).
+        out.extend(self.style_checks());
         // The Shore map's gate (when the report played it), so `compare` follows it too.
         for g in self.shore_gate() {
             out.push(Check {
@@ -638,6 +640,7 @@ impl Report {
             .with("pumps_at_5", self.pumps_rate().json())
             .with("length_bins", self.length_bins_json())
             .with("top_tier", self.top_tier_json())
+            .with("styles", self.style_json())
             .with("human", crate::human::json(&self.human_rows()))
             .with(
                 "waves",
@@ -778,6 +781,7 @@ impl Report {
                 }
             }
         }
+        s += &self.style_markdown();
         s += &self.length_bins_markdown();
         s += &self.top_tier_markdown();
         s += &crate::human::markdown(&self.human_rows());
@@ -1187,6 +1191,8 @@ fn game_json(g: &GameRec) -> Json {
                 "first_bldg_tick",
                 firsts_json(&s.first_bldg, |i| BLDG_KINDS[i].def().key),
             )
+            .with("style", s.style.map(|st| st.name()))
+            .with("focus", s.focus.map(|k| k.def().key))
     };
     Json::obj()
         .with("seed", g.seed)

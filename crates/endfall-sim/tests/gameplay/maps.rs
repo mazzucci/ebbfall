@@ -343,6 +343,8 @@ fn two_ais_fight_on_a_larger_map() {
     for (seed, kind) in [(11u32, MapKind::Standard), (27, MapKind::Labyrinth)] {
         let mut w = World::with_size(seed, 1, kind, MapSize::square(96), 0, &[&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
+        // (each its level's own plan: a Boom seat's first wave may come after eight minutes, Nov 14)
+        assert!(w.set_ai_styles(&[Some(Style::Timing); 2]));
         let mut hits = [0, 0];
         for tick in 0..30 * 60 * 8 {
             w.step();

@@ -456,11 +456,30 @@ impl World {
         }
     }
 
-    /// Whether the seat taking its turn trains `k` at its level now (`Diff::mix_tier`, risen by `tier_at`).
+    /// Whether the seat taking its turn trains `k` at its level now (`Diff::mix_tier`, risen by `tier_at`), and for a
+    /// top-tier unit, whether it holds fewer than its most (`Diff::top_max`, queued ones counted).
     pub(crate) fn level_allows(&self, k: UnitKind) -> bool {
         let d = self.level();
         let risen = d.tier_at.iter().filter(|&&at| self.time >= at).count() as u8;
-        k.ai_tier() <= d.mix_tier + risen
+        if k.ai_tier() > d.mix_tier + risen {
+            return false;
+        }
+        d.top_max == 0 || k.ai_tier() < 2 || self.top_tier_of(self.seat()) < d.top_max
+    }
+
+    /// Seat `e`'s top-tier units (`UnitKind::ai_tier` 2), queued ones counted.
+    pub(crate) fn top_tier_of(&self, e: u8) -> usize {
+        self.units
+            .iter()
+            .filter(|u| u.team == e && u.kind.ai_tier() == 2)
+            .count()
+            + self
+                .bldgs
+                .iter()
+                .filter(|b| b.team == e)
+                .flat_map(|b| b.queue.iter())
+                .filter(|k| k.ai_tier() == 2)
+                .count()
     }
 
     /// Seat `e`'s side's tech time (its techs, its second tech building): its people's

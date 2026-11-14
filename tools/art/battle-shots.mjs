@@ -52,7 +52,7 @@ const SCENES = {
   // (the strike poses' review: the five melee kinds fighting hand to hand, at zoom 1 and up close; the phone at 3x)
   brawl: { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 1, phoneDpr: 3 },
   // (the gunners' shots and impacts: Androids and Buggies against a Cannon with Guards and Archers)
-  gunners: { races: ['humans', 'vael'], armies: [{ siegeTank: 1, trooper: 3, lancer: 3 }, { umbra: 3, scythe: 3 }], skip: 1.5, zoom: 1.5, phoneDpr: 3 },
+  gunners: { races: ['humans', 'vael'], armies: [{ siegeTank: 1, trooper: 3, lancer: 3 }, { umbra: 3, scythe: 3 }], fx: ['muzzle'], skip: 1.5, zoom: 1.5, phoneDpr: 3 },
   'brawl-close': { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 2, phoneDpr: 3 },
 };
 
@@ -178,11 +178,11 @@ async function shoot(name, scene, device, label) {
     if (!scene.base && !scene.swarm) await page.evaluate((s) => { endfall.skip(s); endfall.G.events.length = 0; }, scene.skip ?? 2.5); // (the skipped seconds' events dropped: each shot shows one instant, not 2.5 s of deaths at once)
     await freeze(page);
     await page.evaluate(([x, y]) => endfall.centerOn(x, y), [at.x, at.y]);
-    // Frame by frame (a tick or so each) until the scene's shots are in flight on the frame drawn: all of them if they
+    // Frame by frame (a tick or so each) until the scene's shots are in flight (and its `fx` effects shown) on the frame drawn: all of them if they
     // come within 150 frames, else the last frame with any
     let k = 0;
     do await frame(page, 34);
-    while (scene.shots && k++ < 150 && !(await page.evaluate((want) => want.every(w => endfall.G.projs.some(p => p.by === w)), scene.shots)));
+    while ((scene.shots || scene.fx) && k++ < 150 && !(await page.evaluate(([want, fx]) => (want ?? []).every(w => endfall.G.projs.some(p => p.by === w)) && (fx ?? []).every(a => endfall.effects().some(e => e.anim === a)), [scene.shots, scene.fx])));
     const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0, fx: Object.entries(endfall.effects().reduce((n, e) => (n[e.anim] = (n[e.anim] || 0) + 1, n), {})).map(([k, v]) => `${k} ${v}`).join(', ') }));
     await page.screenshot({ path: file });
     console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected; effects shown: ${seen.fx || 'none'}`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);

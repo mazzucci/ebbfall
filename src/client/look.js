@@ -125,8 +125,9 @@ export const AIR_PUFF = { anim: 'trail', lift: 0.7, tint: 0xe8dcc0, scale: 4.2, 
 export const deathOf = (unit, air) => (!unit || MACHINES.has(unit) ? 'machine' : air ? 'air' : 'dust');
 /** Slowed (an Archer's arrow, `u.slowed` s left): the unit's body (not its team paint) tinted a cold gray-blue, and,
  *  since a tint can only darken, a cold blue added over it (`glow`, at `glowAlpha`: the unit's additive hit-flash
- *  layer, while no hit flash shows); both back to nothing over the last `fade` s. */
-export const SLOW = { tint: 0xa8bccc, glow: 0x3f7fc0, glowAlpha: 0.3, fade: 1.5 };
+ *  layer, while no hit flash shows; 0.45 read as slowed at a glance where 0.3 read as merely shaded); both back to
+ *  nothing over the last `fade` s. The Archer's slow is a rule the player must see. */
+export const SLOW = { tint: 0xa8bccc, glow: 0x3f7fc0, glowAlpha: 0.45, fade: 1.5 };
 /** How much of the slow's look shows with `slowed` s of slow left: 1 until its last `fade` s, then down to 0. */
 export const slowK = (slowed) => (slowed > 0 ? Math.min(1, slowed / SLOW.fade) : 0);
 /** A unit's additive flash layer (over its body) with `flash` s of hit flash and `slowed` s of slow left: shown while

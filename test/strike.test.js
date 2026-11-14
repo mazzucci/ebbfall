@@ -142,7 +142,7 @@ test('slowed: the body tinted cold gray-blue under a cold blue glow, both gone o
   assert.equal(slowTint(undefined), 0xffffff);
   assert.equal(slowTint(3), SLOW.tint, 'freshly hit');
   assert.equal(slowTint(1.5), 0xa8bccc, 'still full at 1.5 s left');
-  assert.deepEqual([SLOW.glow, SLOW.glowAlpha], [0x3f7fc0, 0.3], 'the glow: a cold blue, added');
+  assert.deepEqual([SLOW.glow, SLOW.glowAlpha], [0x3f7fc0, 0.45], 'the glow: a cold blue, added');
   assert.deepEqual([slowK(0), slowK(undefined), slowK(3), slowK(1.5), slowK(0.75)], [0, 0, 1, 1, 0.5], 'how much shows');
   const ch = (c, s) => (c >> s) & 255, half = slowTint(0.75), end = slowTint(0.01);
   for (const s of [16, 8, 0]) {

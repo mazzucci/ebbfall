@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3195,7 +3195,7 @@ test('melee units in a fight show their strike poses, and each blow glints on it
         for (let t = 0; t < 150; t++) { const u = unit(kn); if (!u || u.cd > u.d.weapon.cd - 1 / 30 - 1e-6) break; endfall.skip(1 / 30); } // (to the tick of its next blow)
         return new Promise(r => requestAnimationFrame(() => {
           const b = unit(br);
-          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40).map(e => e.anim) });
+          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40 && Math.hypot(e.sx - e.x, e.sy - e.y) < 8).map(e => e.anim) }); // (each drawn where it was spawned, give or take its drift)
         }));
       }, [kn, br, pose.toString()]);
     }
@@ -3238,8 +3238,13 @@ test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball
     const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.x, u.y, endfall.unitTop('observer')]; }, ob);
     assert.ok(await d.skipUntil((id) => !endfall.G.units.some(u => u.id === id), ob, { seconds: 10, step: 1 / 30 }), 'the Balloon falls');
     const fx = await d.eval(([x, y]) => endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120), at);
-    const up = at[1] - at[2] * 0.7, puffs = fx.filter(e => e.anim === 'puff');
-    assert.ok(puffs.some(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2), `a puff at its altitude (${JSON.stringify(fx)})`);
+    const up = at[1] - at[2] * AIR_PUFF.lift, puffs = fx.filter(e => ['puff', AIR_PUFF.anim].includes(e.anim));
+    const puff = puffs.find(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2);
+    assert.ok(puff, `a puff at its altitude (${JSON.stringify(fx)})`);
+    assert.ok(Math.abs(puff.sx - puff.x) < 2 && puff.sy >= puff.y && puff.sy < puff.y + 20, `drawn there, sinking (${JSON.stringify(puff)})`);
+    assert.equal(puff.anim, AIR_PUFF.anim);
+    assert.equal(puff.tint, 0xe8dcc0, 'pale canvas');
+    assert.equal(puff.scale, AIR_PUFF.scale);
     assert.ok(!puffs.some(e => e.y > at[1] - 10), 'no dust off the ground');
     assert.ok(!fx.some(e => e.anim.startsWith('boom')), 'no fireball');
     assert.deepEqual(d.errors, []);

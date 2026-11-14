@@ -479,15 +479,17 @@ const effects = [];
  *  `fade`: its opacity at the start, falling to nothing over its life (a trail's puffs overlap into one soft streak). */
 export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;
-  const s = new Sprite(frames[0]); s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base) s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
+  const s = new Sprite(frames[0]); s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base)
+  s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
   if (o.fade) s.alpha = o.fade;
   L.fx.addChild(s);
   const e = { s, frames, anim, x, y, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
   if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
   effects.push(e);
 }
-/** The effects alive now, each with its animation and where it was spawned (world px): read-only, for the tests. */
-export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y }));
+/** The effects alive now, each with its animation, where it was spawned (world px) and its sprite as drawn (where it
+ *  is now, its scale and tint): read-only, for the tests. */
+export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y, sx: e.s.x, sy: e.s.y, scale: e.s.scale.x, tint: e.s.tint }));
 /** Where a death at ground point (x, y) plays, its y: a flyer that is no machine (the Balloon) up where it flew
  *  (look.js AIR_PUFF `lift` of its drawn height), anything else on the ground. */
 export const deathY = (y, unit) => (unit && deathOf(unit, UNITS[unit]?.air) === 'air' ? y - unitTop(unit) * AIR_PUFF.lift : y);
@@ -497,7 +499,7 @@ export const deathY = (y, unit) => (unit && deathOf(unit, UNITS[unit]?.air) === 
  *  and a shake and rubble (its people's: `race`) for big ones. */
 export function boom(x, y, r, race, unit = null) {
   const how = deathOf(unit, unit && UNITS[unit]?.air);
-  if (how === 'air') { const { tint, scale, life, vy, fade } = AIR_PUFF; addEffect('puff', x, deathY(y, unit), { vy, life, scale, tint, fade }); return; }
+  if (how === 'air') { const { anim, tint, scale, life, vy, fade } = AIR_PUFF; addEffect(anim, x, deathY(y, unit), { vy, life, scale, tint, fade }); return; }
   if (how === 'dust') { addEffect('puff', x, y - 4, { vy: -10, life: 0.8, scale: 1.3, tint: DUST, fade: 0.85 }); return; }
   const big = r >= 20;
   addEffect(big ? 'boom_big' : 'boom_small', x, y, { light: 0xff9a3a, lightScale: big ? 2.4 : 0.7, life: big ? 0.7 : 0.4, scale: big ? Math.min(2, r / 28) : 1 });

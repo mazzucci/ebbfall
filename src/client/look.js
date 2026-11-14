@@ -104,8 +104,10 @@ export const MACHINES = new Set(['siegeTank', 'bastion', 'scythe', 'monolith', '
 /** The dust's tint: earth, so a melee blow's puff or a fallen fighter reads as dust, not smoke. */
 export const DUST = 0xd8c49a;
 /** A fallen flyer that is no machine (the Balloon): no fireball and no dust off the ground, but a puff of pale canvas
- *  where it flew, `lift` of its drawn height (render.js unitTop) above its ground point, sinking as it fades. */
-export const AIR_PUFF = { lift: 0.7, tint: 0xe8dcc0, scale: 2.2, life: 1.0, vy: 20, fade: 0.85 };
+ *  where it flew, `lift` of its drawn height (render.js unitTop) above its ground point, sinking as it fades. The
+ *  rocket's pale round smoke (`trail`), not the gray `puff`, which under the canvas tint reads as a stone; about as
+ *  wide as the envelope. */
+export const AIR_PUFF = { anim: 'trail', lift: 0.7, tint: 0xe8dcc0, scale: 4.2, life: 1.0, vy: 20, fade: 0.85 };
 /** How a unit of kind `unit` falls (`air`: it flies): 'machine' (it explodes), 'air' (AIR_PUFF) or 'dust' (a
  *  fighter's puff of earth); a building (`unit` null) explodes as a machine does. */
 export const deathOf = (unit, air) => (!unit || MACHINES.has(unit) ? 'machine' : air ? 'air' : 'dust');

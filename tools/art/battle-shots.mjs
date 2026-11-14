@@ -180,9 +180,9 @@ async function shoot(name, scene, device, label) {
     let k = 0;
     do await frame(page, 34);
     while (scene.shots && k++ < 150 && !(await page.evaluate((want) => want.every(w => endfall.G.projs.some(p => p.by === w)), scene.shots)));
-    const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0, fx: Object.entries(endfall.effects().reduce((n, e) => (n[e.anim] = (n[e.anim] || 0) + 1, n), {})).map(([k, v]) => `${k} ${v}`).join(', ') }));
+    const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0 }));
     await page.screenshot({ path: file });
-    console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected; effects shown: ${seen.fx || 'none'}`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
+    console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
   } finally { await g.ctx.close(); }
 }
 

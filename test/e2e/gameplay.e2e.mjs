@@ -3176,7 +3176,7 @@ test('every unit and building is drawn twice: its art, then its team mask in its
   } finally { await d.close(); }
 });
 
-test('melee units in a fight show their strike poses, and each blow glints on its target, a heavy one with dust', async () => {
+test('melee units in a fight show their strike poses, and each blow sparks on its target, a heavy one with dust', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
@@ -3186,7 +3186,7 @@ test('melee units in a fight show their strike poses, and each blow glints on it
     await d.centerOn(x + 20, y);
     const pose = (id) => endfall.teamLayers().find(l => l.id === id && l.shown)?.base ?? '';
     // Fast-forward to a tick just after the Knight's blow lands, then read the very next frame drawn: its strike pose,
-    // the glint on the Bruiser and the dust at its feet (the strike holds 0.15 s, so a slow frame can miss it: a few tries).
+    // the spark on the Bruiser and the dust at its feet (the strike holds 0.15 s, so a slow frame can miss it: a few tries).
     let seen = null;
     for (let k = 0; k < 8 && !seen?.pose.endsWith('_strike'); k++) {
       await d.skip(0.3); // (past this blow's window)
@@ -3200,7 +3200,7 @@ test('melee units in a fight show their strike poses, and each blow glints on it
       }, [kn, br, pose.toString()]);
     }
     assert.match(seen.pose, /^knight_\d+_strike$/, `the Knight's strike pose on the frame after its blow (${seen.pose})`);
-    assert.ok(seen.near.includes('glint'), `a glint of steel on the Bruiser (${seen.near.join(' ')})`);
+    assert.ok(seen.near.includes('spark'), `a spark on the Bruiser (${seen.near.join(' ')})`);
     assert.ok(seen.near.includes('puff'), `dust at its feet (${seen.near.join(' ')})`);
     // Between blows, standing in the fight: the wind-up (on guard), never a walk frame frozen mid-stride.
     await d.skip(0.4);

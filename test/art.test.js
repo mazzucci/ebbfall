@@ -106,7 +106,7 @@ test('the frames the client draws for each people\'s construction, rubble, worn 
   const shots = new Set([...Object.values(SHOT_LOOK), ...Object.values(PEOPLE_SHOT).flatMap(Object.values), ...Object.values(TOWER_SHOT)]);
   for (const k of shots) assert.ok(frames[k], `the shot ${k}`);
   for (const k of Object.values(SHOT_TRAIL)) assert.ok(index.animations[k]?.every(n => frames[n]), `the trail ${k}`);
-  for (const k of ['boom_big', 'boom_small', 'puff', 'flash', 'spark', 'glint']) assert.ok(index.animations[k]?.length && index.animations[k].every(n => frames[n]), `the animation ${k}`);
+  for (const k of ['boom_big', 'boom_small', 'puff', 'flash', 'spark']) assert.ok(index.animations[k]?.length && index.animations[k].every(n => frames[n]), `the animation ${k}`);
 });
 
 test('the ground: every grass tile, and every rock mask in its hill and forest variants (gl/ground.js rockTile)', () => {

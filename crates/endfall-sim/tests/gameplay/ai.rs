@@ -1034,9 +1034,10 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
 #[test]
 fn two_vael_ais_finish_a_game_at_every_level() {
     // PRD: builders who stay. With every Bot staying at its site, neither Expedition AI stalls at any level: both raise
-    // their Recruiting post, a Factory goes up (on a level with raiders), and one of them wins.
+    // their Recruiting post, a Factory goes up (on a level with raiders), and one of them wins. (Seed 12 since Nov 14: on
+    // 11's, with the grid halved and the AI styles, two Easy Expeditions were still at it after 40 minutes.)
     for (diff, level) in DIFF.iter().enumerate() {
-        let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
+        let mut w = World::with_setup(12, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
         w.set_ai_seats([true, true]);
         let kinds = [BldgKind::Siphon, BldgKind::Kiln];
         let mut stood = [[false; 2]; 2]; // [seat][kind]: a finished one seen

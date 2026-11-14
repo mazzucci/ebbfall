@@ -1172,12 +1172,15 @@ function transformer(g, M, x, z, W, H, D, n, r, hi, band) {
   for (let k = -1; k <= 1; k++) add(g, rbox(RW, H - 5, RD, 0.4), M.subGray, x + W / 2 + RW / 2 - 0.3, H / 2 - 1.0, z + k * gap);
   add(g, cyl(2.8, 2.8, W - 5, 16), M.paleArmor, x, H + 2.4, z - D / 2 + 3.4, 0, 0, Math.PI / 2);                            // the conservator tank, along x at the back
   for (const sx of [-1, 1]) add(g, sph(2.8, 12, 8), M.paleArmor, x + sx * (W - 5) / 2, H + 2.4, z - D / 2 + 3.4);           // its rounded ends
-  if (band) { add(g, rbox(W + 0.6, 2.2, D + 0.6, 0.3), M.paint, x, H - 3.4, z); for (const y of [H - 4.7, H - 2.1]) add(g, rbox(W + 0.8, 0.5, D + 0.8, 0.1), M.inkLine, x, y, z); } // the team trim band
+  if (band) { const bh = SUB_BAND_H, y = H - 3.4; add(g, rbox(W + 0.6, bh, D + 0.6, 0.3), M.paint, x, y, z); for (const yl of [y - bh / 2 - 0.2, y + bh / 2 + 0.2]) add(g, rbox(W + 0.8, 0.5, D + 0.8, 0.1), M.inkLine, x, yl, z); } // the team trim band (`SUB_BAND_H` tall, between ink lines)
   const tops = [], pitch = (W - 2 * r - 2) / Math.max(1, n - 1);
   for (let k = 0; k < n; k++) tops.push(insulator(g, M, x - (n - 1) / 2 * pitch + k * pitch, H, z + D / 2 - r - 1.6, r, 4, hi));
   return tops;
 }
 const SUB_W = 50, SUB_D = 44, SUB_GANTRY_Z = -17, SUB_GANTRY_H = 21;
+/** The team trim band's height round each transformer: 3.2 since Nov 14, a small team-color boost (the PM: the
+ *  Substation read too pale beside the other buildings' team color); 2.2 before. */
+const SUB_BAND_H = 3.2;
 /** The Substation (`substation`): a pale concrete pad (50 x 44) with a pale kerb, the big transformer (24 x 14 x 14)
  *  at the north-west with three insulators and the team band, a smaller one (15 x 10 x 11) at the south-east with
  *  two, a gantry of two pale steel posts and a crossbeam along the back carrying three insulators, cyan busbars from

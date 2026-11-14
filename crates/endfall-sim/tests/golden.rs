@@ -144,7 +144,7 @@ fn golden_hashes_pin_behaviour_during_refactors() {
 }
 
 /// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
-const EXPECTED_VAEL: [u32; 3] = [2029183129, 3458465427, 4197198437];
+const EXPECTED_VAEL: [u32; 3] = [2690341402, 1626253182, 4044233612];
 
 #[test]
 fn golden_hashes_pin_a_vael_game() {
@@ -166,7 +166,7 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-const EXPECTED_VAEL_AI: [u32; 3] = [2234060534, 1856597280, 3969633665];
+const EXPECTED_VAEL_AI: [u32; 3] = [1419946797, 2953759792, 2439383661];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -195,7 +195,7 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
 
 /// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
 /// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
-const EXPECTED_SHORE_AI: [u32; 3] = [1816242034, 3715644699, 3592396849];
+const EXPECTED_SHORE_AI: [u32; 3] = [1303719847, 3384913121, 3742724662];
 
 #[test]
 fn golden_hashes_pin_the_shore() {
@@ -221,7 +221,7 @@ fn golden_hashes_pin_the_shore() {
 
 /// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [148213589, 1284161845, 84168218];
+const EXPECTED_SHORE_TIDE: [u32; 3] = [1496456206, 2495100424, 4107814286];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {
@@ -308,7 +308,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [254770944, 758921057, 2567405356];
+const EXPECTED_TEAMS_AI: [u32; 3] = [73556628, 2905761623, 159379398];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

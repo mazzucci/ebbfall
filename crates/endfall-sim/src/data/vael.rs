@@ -281,8 +281,8 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 60, // (grid: 40 as Power, 20 before the economy's second round; 60 since Nov 14, the places its first two
-    // Recruiting posts gave its mercenaries before)
+    supply: 55, // (grid: 40 as Power, 20 before the economy's second round; 55 since Nov 14, about the places its
+    // first two Recruiting posts gave its mercenaries before: 60 had the Expedition ahead on 96x96, the lab)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],

@@ -45,7 +45,7 @@ function topBar() {
   put('rShard', String(s)); put('rSupply', su + '/' + sc); put('lSupply', ex ? 'GRID' : 'POP');
   const title = ex ? 'Grid' : 'Population'; if ($('resSup').title !== title) $('resSup').title = title;
   const money = ex ? 'Energy' : 'Gold'; if ($('resShard').title !== money) { $('resShard').title = money; $('resShard').querySelector('.dot').className = moneyDot(); }
-  $('resSup').classList.toggle('low', su >= sc);
+  $('resSup').classList.toggle('low', su + (UNITS[myFaction().worker]?.supply || 1) > sc); // (full: not even a worker fits, the smallest a side trains)
 }
 
 /** A figure in the panel: an icon, the base value and, in gold, what upgrades add. */

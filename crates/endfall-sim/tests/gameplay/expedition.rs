@@ -1,7 +1,7 @@
 //! The Expedition's economy (PRD: the Expedition runs on energy, Nov 14; the rework before it: power, hired guns, the
 //! satellite): no population. It spends energy (the sim's one cost slot, gold's number), from its Bots' thorium and its
 //! Wind turbines, and everything it runs draws on the grid while it exists: its machines and its mercenaries, and the
-//! buildings that draw (`uses`), from the Data center's 60 and its Substations' 20 each, up to `GRID_MAX`. Grid
+//! buildings that draw (`uses`), from the Data center's 55 and its Substations' 20 each, up to `GRID_MAX`. Grid
 //! efficiency, at the Lab in place of Armor, cuts what its machines draw. The Lab unlocks the Uplink, which unlocks the
 //! Portal: one a side, drawing grid from the moment it is placed, where the Android, a slow and expensive elite, is
 //! made. The hired guns fight in melee. The range's speed bonus and the Drone's leash: radio.rs.
@@ -57,8 +57,8 @@ fn the_expedition_runs_on_a_grid_and_has_no_population() {
     let bots = harvesters(&w, PLAYER).len() as i32;
     assert_eq!(
         w.sup(PLAYER),
-        [2 * bots, 60],
-        "the Data center's 60 grid, the Bots' draw (two each)"
+        [2 * bots, 55],
+        "the Data center's 55 grid, the Bots' draw (two each)"
     );
     // A Substation: +20 grid, for 100 energy (the Expedition's Cottage); the Wind turbine gives none.
     let sub = BldgKind::Substation.def();
@@ -70,7 +70,7 @@ fn the_expedition_runs_on_a_grid_and_has_no_population() {
     assert_eq!(BldgKind::Spire.def().supply, 0, "a turbine gives no grid");
     let bot = harvesters(&w, PLAYER)[0];
     build(&mut w, BldgKind::Substation, bot, 60);
-    assert_eq!(w.sup(PLAYER)[1], 80);
+    assert_eq!(w.sup(PLAYER)[1], 75);
     // Everything it trains draws on the one grid, twice a Kingdom place of its tier: a Bot or a swarm Drone two, a Buggy
     // four, an Android ten, a Rover twelve; its mercenaries too, a Sellsword two, a Bruiser four (no hired places since
     // Nov 14: their quarters and contract upkeep).
@@ -98,20 +98,24 @@ fn the_expedition_runs_on_a_grid_and_has_no_population() {
 fn a_full_grid_refuses_a_bot_and_a_sellsword_alike_until_a_substation_stands() {
     let mut w = expedition();
     let used = w.sup(PLAYER)[0];
-    spawn(&mut w, UnitKind::Lumen, ((60 - used) / 2) as usize);
-    assert_eq!(w.sup(PLAYER), [60, 60]);
+    spawn(&mut w, UnitKind::Lumen, ((55 - used) / 2) as usize);
+    assert_eq!(
+        w.sup(PLAYER),
+        [54, 55],
+        "one grid left: short of a Bot's two"
+    );
     let dc = hq(&w, PLAYER);
     let full = Err("Not enough grid: build a Substation.".to_string());
     assert_eq!(w.queue_unit(dc, UnitKind::Lumen), full);
     // One grid for machines and mercenaries: a full grid stops a Sellsword too (the hired places were apart until Nov 14).
     let post = set_down(&mut w, BldgKind::Siphon);
-    assert_eq!(w.sup(PLAYER), [60, 60], "a Recruiting post gives no places");
+    assert_eq!(w.sup(PLAYER), [54, 55], "a Recruiting post gives no places");
     assert_eq!(w.queue_unit(post, UnitKind::Prism), full);
     let bot = harvesters(&w, PLAYER)[0];
     build(&mut w, BldgKind::Substation, bot, 60);
     assert_eq!(w.queue_unit(dc, UnitKind::Lumen), Ok(()));
     assert_eq!(w.queue_unit(post, UnitKind::Prism), Ok(()));
-    assert_eq!(w.sup(PLAYER), [64, 80]);
+    assert_eq!(w.sup(PLAYER), [58, 75]);
     let before = count(&w, PLAYER, UnitKind::Lumen);
     run(&mut w, UnitKind::Lumen.def().build as u32 + 1);
     assert_eq!(count(&w, PLAYER, UnitKind::Lumen), before + 1, "trained");
@@ -634,7 +638,7 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
  {
     // The Expedition's AI against a Kingdom that only stands, at every level (every starting building made to last, so
     // the game runs its course): it raises Recruiting posts, Substations as its grid fills (Easy fields few machines: a
-    // Substation only if its army fills its Data center's 60), Wind turbines as its Market (five a Data center at
+    // Substation only if its army fills its Data center's 55), Wind turbines as its Market (five a Data center at
     // most), an Uplink and a Portal, never more than one Portal standing or going up, trains Androids there, and never
     // stands above its places but as a lost building leaves it.
     // (seed 2: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's

@@ -1,7 +1,7 @@
 # Ebbfall: notes for coding agents
 
-A browser real-time strategy game, a classic base-building RTS (one resource, gold, which the Expedition calls
-energy; a population cap, the Expedition's the grid instead; two peoples), built as
+A browser real-time strategy game, a classic base-building RTS (one resource, a population cap (the Expedition: Power
+and a maximum of hired places instead), two peoples), built as
 a learning-and-fun project. The simulation is Rust compiled to WASM (`crates/endfall-sim`); the client is plain
 JavaScript ES modules, Vite and PixiJS 8 (WebGL) over code-generated sprite sheets (pre-rendered 3D units and
 buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer

@@ -1159,7 +1159,14 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
     ] {
         // (on 96x96, the menus' size, since the fixed caps of Nov 14: on the hidden 64x64 the Kingdom's population, 100
         // until then, became 120, and seed 7's Hard Kingdom kept its Stables on Knights)
-        let mut w = World::with_size(7, 2, MapKind::Standard, MapSize::square(96), 0, &[&HUMANS, f]);
+        let mut w = World::with_size(
+            7,
+            2,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS, f],
+        );
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }

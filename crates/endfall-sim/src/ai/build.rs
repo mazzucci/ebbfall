@@ -538,7 +538,9 @@ impl World {
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
         // (and the grid kept for its elite: the Portal and an Android, `elite_reserve`)
         let supply_margin = self.places(e, d.supply_ahead)
-            + self.capital_due(e, &my_b, t).map_or(0, |k| self.takes(e, k))
+            + self
+                .capital_due(e, &my_b, t)
+                .map_or(0, |k| self.takes(e, k))
             + self.elite_reserve(e, &my_b, t);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
         let want = if cap - used <= supply_margin

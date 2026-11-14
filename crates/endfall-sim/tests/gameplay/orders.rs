@@ -238,7 +238,12 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     }
     let post = build(&mut w, BldgKind::Siphon, l[0], 150);
     build(&mut w, BldgKind::Substation, l[3], 90); // (room for them all)
-    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Spire, BldgKind::Ward] {
+    for k in [
+        BldgKind::Kiln,
+        BldgKind::Loom,
+        BldgKind::Spire,
+        BldgKind::Ward,
+    ] {
         assert!(w.has_req(PLAYER, k), "{k:?} once it stands");
     }
     assert!(

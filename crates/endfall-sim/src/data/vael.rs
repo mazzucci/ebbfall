@@ -91,7 +91,7 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     speed: 87.0, // (100 before the economy's second round: calmer trips)
     sight: 7.0,
     r: 9.0,
-    build: 18.0,  // (12 before: the ramp comes from time, every worker an investment)
+    build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     supply: 2, // (grid; Power: 1 before the economy's second round, twice a Villager's place as every machine)
     // (seven with 8 a trip since Nov 14: a Bot mine pays as a Villager mine from the start, 7 x 8 = 8 x 7; six with 9,
     // 96%, before, and five, 80%, before Nov 13)
@@ -175,7 +175,7 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     name: "Android",
     cost: [525, 0], // (250 before Nov 13: an elite, about four Sellswords' hp and damage; armies of them stay small)
     supply: 10,     // (grid; Power: 6 before Nov 13, 3 before the economy's second round)
-    hp: 575.0,      // (220 before Nov 13; 440 and armor 3 before Nov 14: the module's note on armor)
+    hp: 575.0, // (220 before Nov 13; 440 and armor 3 before Nov 14: the module's note on armor)
     speed: 90.0,
     sight: 9.0,
     r: 10.0,
@@ -200,7 +200,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     name: "Rover",
     cost: [550, 0], // (240 before Nov 13: siege that crushes a mass, dear and few; 380 before Nov 14, under the Android)
     supply: 12,     // (grid; Power: 8 before Nov 13, 4 before the economy's second round)
-    hp: 388.0,      // (220 before Nov 13; 360 and armor 1 before Nov 14: the module's note on armor)
+    hp: 388.0, // (220 before Nov 13; 360 and armor 1 before Nov 14: the module's note on armor)
     speed: 58.0,
     sight: 9.0,
     r: 15.0,

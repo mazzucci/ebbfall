@@ -62,7 +62,10 @@ fn the_expedition_runs_on_a_grid_and_has_no_population() {
     );
     // A Substation: +20 grid, for 100 energy (the Expedition's Cottage); the Wind turbine gives none.
     let sub = BldgKind::Substation.def();
-    assert_eq!((sub.name, sub.cost, sub.supply), ("Substation", [100, 0], 20));
+    assert_eq!(
+        (sub.name, sub.cost, sub.supply),
+        ("Substation", [100, 0], 20)
+    );
     assert_eq!(VAEL.supply, BldgKind::Substation);
     assert_eq!(BldgKind::Spire.def().supply, 0, "a turbine gives no grid");
     let bot = harvesters(&w, PLAYER)[0];
@@ -137,7 +140,10 @@ fn a_mercenary_draws_grid_while_it_lives_and_a_lost_substation_stops_more() {
         w.queue_unit(a, UnitKind::Prism),
         Err("Not enough grid: build a Substation.".to_string())
     );
-    assert_eq!(count(&w, PLAYER, UnitKind::Prism), hired.len() - 1 + ((cap - used - 6) / 2) as usize);
+    assert_eq!(
+        count(&w, PLAYER, UnitKind::Prism),
+        hired.len() - 1 + ((cap - used - 6) / 2) as usize
+    );
 }
 
 #[test]
@@ -212,7 +218,10 @@ fn wind_turbines_pay_energy_five_a_data_center_as_one_market_at_full_trade() {
     w.res[PLAYER as usize] = [0, 0];
     run(&mut w, 300);
     let got = w.res[PLAYER as usize][0];
-    assert!((104..=108).contains(&got), "five turbines in five minutes: {got}");
+    assert!(
+        (104..=108).contains(&got),
+        "five turbines in five minutes: {got}"
+    );
 }
 
 #[test]
@@ -242,7 +251,11 @@ fn grid_efficiency_replaces_armor_at_the_lab_and_cuts_what_machines_draw() {
             assert_eq!(w.start_research(l, g), Ok(()));
             run(&mut w, g.time(level + 1) as u32 + 1);
             assert_eq!(w.upgrades[PLAYER as usize][g.index()], level + 1);
-            assert!(w.sup(PLAYER)[0] < used, "drawn less at once: {:?}", w.sup(PLAYER));
+            assert!(
+                w.sup(PLAYER)[0] < used,
+                "drawn less at once: {:?}",
+                w.sup(PLAYER)
+            );
         }
     }
     assert!(w.unit(rovers[0]).is_some());
@@ -264,7 +277,8 @@ fn no_expedition_unit_has_armor_and_its_hp_carries_what_armor_did() {
     .iter()
     .map(|k| k.def().weapon.unwrap().dmg)
     .collect();
-    let topped = |hp: f64, a: f64| hp * main.iter().map(|d| d / (d - a)).sum::<f64>() / main.len() as f64;
+    let topped =
+        |hp: f64, a: f64| hp * main.iter().map(|d| d / (d - a)).sum::<f64>() / main.len() as f64;
     for (k, hp, armor) in [
         (UnitKind::Scythe, 110.0, 1.0),
         (UnitKind::Prism, 100.0, 1.0),
@@ -290,9 +304,16 @@ fn no_expedition_unit_has_armor_and_its_hp_carries_what_armor_did() {
 fn the_rover_fires_a_heavy_salvo_slowly_and_costs_more_than_the_android() {
     let r = UnitKind::Monolith.def();
     let wp = r.weapon.unwrap();
-    assert!((95.0..=105.0).contains(&wp.dmg), "about 100 a salvo: {}", wp.dmg);
+    assert!(
+        (95.0..=105.0).contains(&wp.dmg),
+        "about 100 a salvo: {}",
+        wp.dmg
+    );
     assert!((3.3..=3.7).contains(&wp.cd), "about every 3.5 s: {}", wp.cd);
-    assert!(r.cost[0] > UnitKind::Umbra.def().cost[0], "priced above the Android");
+    assert!(
+        r.cost[0] > UnitKind::Umbra.def().cost[0],
+        "priced above the Android"
+    );
 }
 
 #[test]
@@ -366,7 +387,11 @@ fn one_portal_a_side_its_grid_held_from_placement_and_released_on_its_loss_or_ca
     let mut w = expedition();
     set_down(&mut w, BldgKind::Uplink);
     let [used, cap] = w.sup(PLAYER);
-    spawn(&mut w, UnitKind::Lumen, ((cap - used - uses) / 2 + 1) as usize);
+    spawn(
+        &mut w,
+        UnitKind::Lumen,
+        ((cap - used - uses) / 2 + 1) as usize,
+    );
     let (px, py) = spot(&w, BldgKind::Eclipse);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Eclipse, px, py, None),
@@ -545,7 +570,8 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 }
 
 #[test]
-fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_portal_at_every_level() {
+fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_portal_at_every_level()
+ {
     // The Expedition's AI against a Kingdom that only stands, at every level (every starting building made to last, so
     // the game runs its course): it raises Recruiting posts, Substations as its grid fills (Easy fields few machines: a
     // Substation only if its army fills its Data center's 40), Wind turbines as its Market (five a Data center at
@@ -605,7 +631,10 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
                 .iter()
                 .filter(|b| b.team == ENEMY && b.kind == BldgKind::Conflux && b.done)
                 .count();
-            assert!(turbines <= 5 * centers, "diff {diff}: {turbines} turbines, {centers} Data centers");
+            assert!(
+                turbines <= 5 * centers,
+                "diff {diff}: {turbines} turbines, {centers} Data centers"
+            );
             if uplink_at.is_none() && seen[2] {
                 uplink_at = Some(w.time);
             }

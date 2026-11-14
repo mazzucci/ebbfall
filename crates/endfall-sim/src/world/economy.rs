@@ -310,7 +310,11 @@ impl World {
         // A mine crossing into its last MINE_LOW gold: time to expand.
         if left < MINE_LOW && left + take >= MINE_LOW {
             let ore = self.factions[team as usize].ore;
-            self.toast(team, format!("A {ore} mine is running low: time to expand"), true);
+            self.toast(
+                team,
+                format!("A {ore} mine is running low: time to expand"),
+                true,
+            );
             self.ping(team, n.x, n.y);
         }
         let u = self.um(uid);

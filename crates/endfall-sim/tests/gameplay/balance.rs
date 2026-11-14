@@ -367,7 +367,10 @@ fn top_units_beat_lines_siege_holds_and_only_tech_answers_it() {
             "3 Rovers behind a mast hold 1.4 times their gold of Guards",
             rovers(&[Trooper], 1.4),
         ),
-        ("... and 1.25 times of Guards and Archers", rovers(&kingdom_line, 1.25)),
+        (
+            "... and 1.25 times of Guards and Archers",
+            rovers(&kingdom_line, 1.25),
+        ),
     ];
     // ... and falls to the other side's tech at no more than that.
     let broken: [(&str, f64); 4] = [

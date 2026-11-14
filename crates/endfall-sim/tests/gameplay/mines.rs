@@ -332,7 +332,11 @@ fn home_income_of(seed: u32, n: usize, f: &'static Faction) -> i64 {
 fn a_mine_fits_eight_villagers_or_seven_bots_and_a_bot_mine_pays_as_much() {
     let (v, b) = (UnitKind::Harvester.def(), UnitKind::Lumen.def());
     assert_eq!((v.mine_cap, b.mine_cap), (8, 7));
-    assert_eq!(v.mine_cap * v.mine_load, b.mine_cap * b.mine_load, "as much a round inside");
+    assert_eq!(
+        v.mine_cap * v.mine_load,
+        b.mine_cap * b.mine_load,
+        "as much a round inside"
+    );
     assert_eq!(
         MINE_CAP_MOST,
         UNIT_KINDS.iter().map(|k| k.def().mine_cap).max().unwrap()
@@ -748,4 +752,3 @@ fn a_main_mine_lasts_over_twenty_minutes_at_its_full_rate() {
         }
     }
 }
-

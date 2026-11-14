@@ -262,7 +262,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
     else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : u.of.split(',').every(k => C.UNITS[k]), `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
-  // The Guard's Brace waits for Shield Drill; the Cannon's Deploy is how it fires at all: no tech. (The re-theme removed
+  // The Guard's Brace waits for Shield Wall; the Cannon's Deploy is how it fires at all: no tech. (The re-theme removed
   // the others: the boosts, the hop, the cloaks.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['entrench', 'entrenching'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));

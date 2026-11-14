@@ -36,7 +36,7 @@ export const coverageOf = (type) => RADIO.sources[type] || 0;
 const UNIT_TEXT = {
   // the Kingdom (sim race `humans`)
   harvester: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds and repairs.' },
-  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Cheap and steady. Fights up close, ground only. Weak against splash. Can Brace (no moving, more armor) after Shield Drill.' },
+  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Cheap and steady. Fights up close, ground only. Weak against splash. Can Brace (no moving, more armor) after Shield Wall.' },
   lancer: { hot: 'H', what: 'Shoots ground and air', desc: 'Shoots ground and air, hits flyers hard. What it hits slows down for 3 s. Fragile up close.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   observer: { hot: 'S', what: 'Scouts far, unarmed', desc: 'Unarmed. Slow, sees far, floats over cliffs.' },
@@ -61,7 +61,7 @@ const BLDG_TEXT = {
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
   extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle.' },
   barracks: { hot: 'C', what: 'Trains Guards and Archers', desc: 'Trains Guards and Archers.' },
-  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Shield Drill. Unlocks Knights, Cannons and Ballistas.' },
+  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Shield Wall. Unlocks Knights, Cannons and Ballistas.' },
   factory: { hot: 'S', what: 'Builds siege and Balloon', desc: 'Builds Ballistas, Cannons and the Balloon.' },
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },

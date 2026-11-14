@@ -11,7 +11,7 @@ pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching, // (Shield Drill: unlocks the Guard's Brace)
+    Entrenching, // (Shield Wall: unlocks the Guard's Brace)
     Afterburners,
     // (Overclock, the Drone's speed: no longer offered, Nov 14: too late, no real value; its slot kept for the wire's
     // indices)
@@ -101,10 +101,10 @@ const TECH: UpgradeDef = UpgradeDef {
     levels: 1,
     req: None,
 };
-/// Shield Drill: unlocks the Guard's Brace (Dig In's tech before the re-theme).
+/// Shield Wall: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
-    name: "Shield Drill",
+    name: "Shield Wall",
     short: "",
     effect: Effect::Unlock(AbilityKind::Entrench),
     cost: [[125, 0]; 3],

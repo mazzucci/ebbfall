@@ -132,12 +132,12 @@ fn an_attack_order_packs_a_deployed_unit_up_and_a_lost_target_or_stop_leaves_it_
 
 #[test]
 fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
-    // The Guard's Brace waits for Shield Drill, researched at the Forge (`Upgrade::Entrenching`, one level).
+    // The Guard's Brace waits for Shield Wall, researched at the Forge (`Upgrade::Entrenching`, one level).
     let (mut w, forge) = forge_arena(11);
     let p = w.make_unit(UnitKind::Trooper, PLAYER, 640.0, 1280.0);
     assert_eq!(
         w.cast(p, AbilityKind::Entrench),
-        Err("Research Shield Drill first".to_string())
+        Err("Research Shield Wall first".to_string())
     );
     assert!(w.unit(p).unwrap().mode.is_none());
     research_level(&mut w, forge, Upgrade::Entrenching);
@@ -147,14 +147,14 @@ fn an_ability_waits_for_its_tech_and_a_tech_has_one_level() {
     );
     assert_eq!(
         w.start_research(forge, Upgrade::Entrenching),
-        Err("Shield Drill is fully upgraded".into()),
+        Err("Shield Wall is fully upgraded".into()),
         "one level"
     );
     // The other side's Guards are not: a tech is a team's.
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 900.0, 1280.0);
     assert_eq!(
         w.cast(foe, AbilityKind::Entrench),
-        Err("Research Shield Drill first".to_string())
+        Err("Research Shield Wall first".to_string())
     );
 }
 

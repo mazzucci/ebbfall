@@ -216,7 +216,7 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   assert.equal(adv.at(-1), 'build1@5', `Back in the corner on the advanced page too: ${adv}`);
   assert.deepEqual(adv.slice(0, -1).map(s => +s.split('@')[1]), adv.slice(0, -1).map((_, i) => i), `the advanced page packed from slot 0: ${adv}`);
   // A unit's ability waiting for its tech is left out, and its card keeps its shape (Deselect stays put): the Guard's
-  // Brace waits for Shield Drill.
+  // Brace waits for Shield Wall.
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const core = E.G.bldgs.find(b => b.team === E.G.me);
   const guard = E.debugSpawn(E.G.me, 'trooper', core.x + 120, core.y + 90);

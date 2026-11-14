@@ -117,20 +117,22 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   stranded one walking back; two overlapping sources' waist crossed, and a way that clips its notch rerouted inside
   (a move arrives, an attack fires; the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most
   of a 64x64 map); the Expedition AI's push on 96x96: one forward Uplink whose coverage takes in the foe, then its
-  machines, none of them leaving coverage), the Expedition rework (`expedition`: Power for machines and
-  its cap, a Bot refused at the cap and trained once a turbine stands, hired places six a post with a death freeing
-  one and a lost post leaving the count over its use; the balance pass's two maximums, Power and hired places each
-  capped at its own (Power 200, 240 and 280, twice the Kingdom's population, and hired places 25, 30 and 35 by map size) and each enforced on its own, the Kingdom's one
-  population limit unchanged; no Portal pool; one Portal a seat, a second refused while one stands or goes up, its
-  Power used from placement and released when it is destroyed or cancelled, refused without the Power for it; the
-  Android's numbers, its Power and its training time; the Lab unlocking the Uplink (275 gold; no satellite since Nov
+  machines, none of them leaving coverage), the Expedition's economy (`expedition`: energy and one grid, Nov 14: the
+  grid from the Data center and Substations up to `GRID_MAX` 300, the Kingdom's population `POP_MAX` 120; machines and
+  mercenaries alike refused on a full grid and trained once a Substation stands; a mercenary's grid freed by its death,
+  a lost Substation leaving the use over the cap; "Not enough energy" and the grid's refusals; Wind turbines paying
+  `TURBINE_RATE`, five a Data center, as one Market at full Trade; Grid efficiency at the Lab, in place of Armor and
+  Better drills, cutting what machines draw; no armor on its units, their hp carrying it; the Rover's heavy slow salvo;
+  the Portal giving no grid and drawing its own; one Portal a seat, a second refused while one stands or goes up, its
+  grid drawn from placement and released when it is destroyed or cancelled, refused without the grid for it; the
+  Android's numbers, its grid and its training time; the Lab unlocking the Uplink (275 gold; no satellite since Nov
   13) whose standing unlocks the Portal, the Portal training (Androids and Rovers) only while an Uplink stands; Bots
   repairing buildings and no machine; melee Sellswords and Bruisers hitting only the ground up close,
-  the Expedition AI at every level raising turbines and posts, an Uplink, one Portal at most and training
+  the Expedition AI at every level raising Substations, turbines (five a Data center at most) and posts, an Uplink, one Portal at most and training
   Androids there), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
-  `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, every pool's
-  places (`check_pools`: a pool's use over its cap only as a lost building left it, never by growing; no pool over its
-  maximum, `World::pool_max`; one Portal a seat at most),
+  `Game` API the browser uses, across many seeds, checking world invariants (positions, no walker in deep water, hp, occupancy grid, each seat's
+  places (`check_pools`: the use over the cap only as a lost building left it, never by growing; nothing over the
+  maximum, `World::sup_max`; one Portal a seat at most),
   resources, miner counters, a worker inside a mine out of reach and out of its enemies' sight) after every tick. Add a
   scenario here for every rule you add or change.
 
@@ -183,19 +185,19 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
-                      upgrades.rs (Better drills, two levels at the Lab: a Bot's load `DRILL_LOAD` more), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
+                      upgrades.rs (Grid efficiency, two levels at the Lab: machines draw `GRID_USE` of their grid; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
                       climbing to its top tier late, Medium's from 8:00 and Hard's from 6:00; Easy's clumsy waves
                       growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
                       Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, read through `World::expand_time`),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
                       machines need signal, what gives it and how far, the bonus inside and the stranded speed), export.rs (the tables as
-                      JSON, one small writer). Places come in pools (`Pool`: `Supply`, the Kingdom's population and
-                      the Expedition's Power, its Androids' too; `Hired`, the Expedition's hired places, six a
-                      Recruiting post): a unit's `pool` takes its `supply`, a building's `pool` gets it, and a building
-                      that `uses` Power (the Portal) takes it from placement; each pool is capped by its own buildings
-                      and its own maximum (`World::pool_max`: the Kingdom's population the map's limit, the
-                      Expedition's Power `power_limit`, twice that limit, and hired places `hired_limit`, its own;
-                      `room`). A `single` building (the Portal) is one a seat (`World::single_room`)
+                      JSON, one small writer). Places: the Kingdom's population, the Expedition's grid (`Faction::grid`):
+                      a unit takes its `supply` (a machine less by Grid efficiency, `World::takes`), a building
+                      gives its `supply` once finished, and one that `uses` grid draws it from placement; capped by
+                      the buildings and the maximum (`World::sup_max`: `POP_MAX`, `GRID_MAX`, the same on every
+                      map; `room`). A building that `pays` earns its rate a second (the Market, the Wind turbine),
+                      `per_hq` of them a finished headquarters. Each side's words: `Faction::money` (gold, energy)
+                      and `ore` (gold, thorium). A `single` building (the Portal) is one a seat (`World::single_room`)
   src/jsmath.rs       JS-exact helpers: Math.round, Math.sign, ToInt32, V8's Math.hypot; libm for trig
   src/map.rs          the map's size (`MapSize`), terrain generation (2, 4 or 8 starts, one start's share and its
                       symmetric images: `max_starts`, `seat_starts`, `team_starts`), nodes (each base's crystals in an
@@ -248,14 +250,14 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       (stranded: its Uplink fell) moves only towards coverage, slower, and walks back when idle; the
                       AI's push (one forward Uplink that covers its goal, its machines kept out of a wave until
                       coverage nears the goal), its wave's own Uplink and staging, and a wave left with only machines held quiet at the edge
-                      ended, are in ai/army.rs); economy.rs keeps each seat's pools (`World::pools`, `recalc_supply`)
+                      ended, are in ai/army.rs); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
-                      at-cap check reads each pool against its own maximum (`at_cap`); with its hired line at its
-                      maximum (`line_capped`) it raises its Factory sooner and adds Factories, not posts, as money
-                      piles up; it keeps Power free for its Portal and an Android (`elite_reserve`), raises one Portal
-                      (`tech2_due`, never a second, a turbine first if the Power is short), and trains the Android there
-                      first when Power is tight. Its crew is sized by income (`crew_of`: as much gold a trip as the
+                      mercenary line is held to its own share of the grid (`line_grid`, `line_max`); at that share
+                      (`line_capped`) it raises its Factory sooner and adds Factories, not posts, as money piles up;
+                      it keeps grid free for its Portal and an Android (`elite_reserve`), raises one Portal
+                      (`tech2_due`, never a second, a Substation first if the grid is short), and trains the Android
+                      there first when the grid is tight; its Wind turbines are its Market (five a Data center). Its crew is sized by income (`crew_of`: as much gold a trip as the
                       Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`, `retreat_any`, `give_up`):
                       its waves are just their size (its first three or four units at 7:45, the rest at home), growing
                       by one, and they give up and walk home on contact with a defense near their worth or after early
@@ -368,8 +370,8 @@ src/client/           everything that touches the browser
                       cancelled sheet says nothing
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
-  hud.js              top bar (gold as coins, the Kingdom's population or the Expedition's Power) and selection panel (a
-                      Recruiting post's hired places, and "(maximum)" once they reach theirs, `Game.poolMax`; the unit in
+  hud.js              top bar (the Kingdom's gold as coins and population, the Expedition's energy as a bolt and grid)
+                      and selection panel (what a Market or a Wind turbine earns, in its side's money; the unit in
                       training shows the time it still needs on its slot, `timeLeft`)
   cards.js            what the command card holds for a selection: its buttons by slot and their keys (pure: read by
                       test/cards.test.js). Three columns; buttons of a type (units, researches, orders, abilities) pack

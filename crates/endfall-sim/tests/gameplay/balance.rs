@@ -360,11 +360,14 @@ fn top_units_beat_lines_siege_holds_and_only_tech_answers_it() {
             "3 Cannons and 2 Watchtowers hold 2.5 times their gold of Sellswords",
             cannons(&[Prism], 2.5),
         ),
+        // (1.4 and 1.25 times since Nov 14, twice before: the Rover priced above the Android, 550 for 380, its damage a
+        // second the same in a heavier, slower salvo; 1.4 times is as many Guards as twice its old price bought, and
+        // with Archers it ties at 1.4)
         (
-            "3 Rovers behind a mast hold twice their gold of Guards",
-            rovers(&[Trooper], 2.0),
+            "3 Rovers behind a mast hold 1.4 times their gold of Guards",
+            rovers(&[Trooper], 1.4),
         ),
-        ("... and of Guards and Archers", rovers(&kingdom_line, 2.0)),
+        ("... and 1.25 times of Guards and Archers", rovers(&kingdom_line, 1.25)),
     ];
     // ... and falls to the other side's tech at no more than that.
     let broken: [(&str, f64); 4] = [

@@ -298,14 +298,15 @@ fn weapons_upgrades_add_each_units_bonus() {
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        // (but Hardshell: shields are data since the re-theme, and nothing researches it; nor Master Builders and
-        // Overclock since Nov 14, their slots kept)
+        // (but Hardshell: shields are data since the re-theme, and nothing researches it; nor Master Builders,
+        // Overclock and Better drills since Nov 14, their slots kept)
         assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
             ![
                 Upgrade::Shields,
                 Upgrade::RapidConstruction,
-                Upgrade::Slipstream
+                Upgrade::Slipstream,
+                Upgrade::Drills
             ]
             .contains(&u),
             "{u:?} is researched at some building"
@@ -415,6 +416,7 @@ fn a_shell_splashes_walking_neighbours_only() {
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     set_hp(&mut w, target, 500.0); // (it outlives the first rocket: the whole hit shows)
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 925.0); // 25 px from the target
+    set_hp(&mut w, near, 500.0); // (the splash share whole, too: 60 of the Rover's 100 since Nov 14)
     let far = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 960.0); // 60 px: out of the splash
     let friend = w.make_unit(UnitKind::Medic, PLAYER, 760.0, 880.0);
     for u in [target, near, far, friend] {
@@ -965,6 +967,7 @@ fn a_monolith_splashes_with_its_own_numbers() {
     let m = w.make_unit(UnitKind::Monolith, PLAYER, 560.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 930.0); // 30 px: in its splash
+    set_hp(&mut w, near, 500.0);
     for u in [target, near] {
         w.hold_unit(u);
     }

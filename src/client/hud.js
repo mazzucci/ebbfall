@@ -19,8 +19,8 @@ export function bldgStatus(b) {
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + upName(u, lv); }
   if (b.queue.length) return (b.d.training || 'Training') + ' ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
-  // (a Market, raised by Trade, or a Wind turbine: what it pays, in its side's money)
-  if (b.d.pays && b.done) { const rate = b.d.pays * (b.type === 'extractor' ? TRADE_RATE[Math.min(effectLevel(G.upgrades[b.team], 'trade'), 2)] : 1); return `${BUILDINGS[b.type].doing} ${FACTIONS[G.factions[b.team]]?.money || 'gold'}: 1 every ${Math.round(10 / rate) / 10} s`; }
+  // (a Market, raised by its side's Trade, or a Wind turbine: what it pays, in its side's money)
+  if (b.d.pays && b.done) { const rate = b.d.pays * TRADE_RATE[Math.min(effectLevel(G.upgrades[b.team], 'trade'), 2)]; return `${BUILDINGS[b.type].doing} ${FACTIONS[G.factions[b.team]]?.money || 'gold'}: 1 every ${Math.round(10 / rate) / 10} s`; }
   return '';
 }
 

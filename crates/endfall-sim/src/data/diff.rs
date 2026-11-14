@@ -106,9 +106,10 @@ pub struct Diff {
     /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
     /// The most grid its line takes on a grid side (the Expedition's mercenaries, only part of its army), below the AI's
-    /// share `LINE_GRID` (0: that share). Easy keeps the 18 hired places it had on 96x96, 36 grid: at the economy's
-    /// second round's 30 its all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where
-    /// the lower cap sent its money to its machines and Portal instead.
+    /// share `line_grid` (0: that share), on 64x64 (as many more on a bigger map as that share has). Easy keeps the 15
+    /// hired places it had, 30 grid (36 and 42 on the bigger maps): at the economy's second round's 25 its
+    /// all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where the lower cap sent its
+    /// money to its machines and Portal instead.
     pub line_max: i32,
     /// When it raises its tech building (`AiScript::tech`: the Blacksmith, the Lab), its barracks standing: 2:30 on
     /// every level (the balance lab's plans move it).
@@ -213,7 +214,7 @@ pub const DIFF: [Diff; 4] = [
         // (an Archer per two Guards, not one: its line meets the Expedition's melee Sellswords alone until 9:00, where the
         // Archers fell first; Medium's Archers stay one a Guard, its answer to the Buggies and Drones that come sooner)
         mix_over: &[(super::UnitKind::Lancer, 2, 0.0)],
-        line_max: 36,
+        line_max: 30,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[(super::BldgKind::Ward, 1), (super::BldgKind::Turret, 1)],

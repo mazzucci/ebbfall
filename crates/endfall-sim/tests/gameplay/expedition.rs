@@ -189,8 +189,11 @@ fn wind_turbines_pay_energy_five_a_data_center_as_one_market_at_full_trade() {
         (210.0..=270.0).contains(&payback),
         "pays back in about four minutes: {payback:.0} s"
     );
-    // Five a finished Data center, sites counted: a sixth refused.
+    // Five a finished Data center, sites counted: a sixth refused (once a Recruiting post stands, as the Market waits
+    // for the Barracks).
     let mut w = expedition();
+    assert_eq!(d.req, Some(BldgKind::Siphon));
+    set_down(&mut w, BldgKind::Siphon);
     let mut turbines = vec![];
     for _ in 0..5 {
         let (tx, ty) = spot(&w, BldgKind::Spire);
@@ -201,14 +204,15 @@ fn wind_turbines_pay_energy_five_a_data_center_as_one_market_at_full_trade() {
         w.place_building(PLAYER, BldgKind::Spire, tx, ty, None),
         Err("At most 5 Wind turbines per Data center".to_string())
     );
-    // They pay by themselves: 5 x 0.072 a second, 108 in five minutes.
+    // They pay by themselves: 5 x 0.072 a second, 108 in five minutes (each banks whole ones from its own fraction: 21
+    // each, 0.6 left over).
     for h in harvesters(&w, PLAYER) {
         w.stop_unit(h);
     }
     w.res[PLAYER as usize] = [0, 0];
     run(&mut w, 300);
     let got = w.res[PLAYER as usize][0];
-    assert!((106..=108).contains(&got), "five turbines in five minutes: {got}");
+    assert!((104..=108).contains(&got), "five turbines in five minutes: {got}");
 }
 
 #[test]
@@ -386,6 +390,7 @@ fn a_building_that_draws_no_grid_goes_up_whatever_the_places() {
         "the Kingdom's Cottage"
     );
     let mut w = expedition();
+    set_down(&mut w, BldgKind::Siphon);
     let used = w.sup(PLAYER)[0];
     w.supply[PLAYER as usize] = [used + 10, used];
     for k in [BldgKind::Substation, BldgKind::Spire] {

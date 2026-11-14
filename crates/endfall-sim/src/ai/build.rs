@@ -349,16 +349,18 @@ impl World {
     }
 
     /// The most places `e`'s line takes: on a grid side (the Expedition, whose line is only part of its army) the AI's
-    /// own share for its mercenaries, `LINE_GRID`, or its level's `line_max` below it; elsewhere the whole maximum.
+    /// own share for its mercenaries, `line_grid`, or its level's `line_max` below it (written for 64x64: as many more
+    /// on a bigger map as that share has); elsewhere the whole maximum.
     pub fn line_max(&self, e: u8) -> i32 {
         if !self.factions[e as usize].grid {
             return self.sup_max(e);
         }
+        let most = line_grid(self.map.w);
         let d = self.tuning(e);
         if d.line_max > 0 {
-            d.line_max.min(LINE_GRID)
+            most.min(d.line_max * most / line_grid(64))
         } else {
-            LINE_GRID
+            most
         }
     }
 
@@ -518,13 +520,19 @@ impl World {
         // built again on the same terms. (Not in the guided first game: its opponent's income stays as the guide was
         // tuned with. Only once its requirement stands, the barracks: wanted before then it would hold the rest of the
         // build order, the barracks too, behind a building it cannot place.)
-        let market = f.market.filter(|&m| {
+        let market_ok = f.market.filter(|&m| {
             !building.contains(&m)
                 && harv.len() >= 7
-                && (pumps < m.def().per_hq as usize || t > d.vents_from)
                 && !self.guided
                 && self.has_req(e, m)
                 && self.hq_room(e, m)
+        });
+        let several = market_ok.is_some_and(|m| m.def().per_hq > 1);
+        let market = market_ok.filter(|_| pumps == 0 || (!several && t > d.vents_from));
+        // (the Expedition's further Wind turbines, five a Data center: after its factories, tech and towers, the
+        // first in the Market's place; at an expansion from `vents_from`)
+        let more_turbines = market_ok.filter(|&m| {
+            several && pumps > 0 && (pumps < m.def().per_hq as usize || t > d.vents_from)
         });
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
@@ -545,7 +553,8 @@ impl World {
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
             Some(k)
         } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && (pumps > 0 || f.market.is_none())
+            // (the Kingdom's after its Market; the Expedition's turbines, cheap and several, hold nothing back)
+            && (pumps > 0 || f.market.is_none_or(|m| m.def().per_hq > 1))
             && self.ai_count(&my_b, false, s.tech) == 0
             && t > d.tech_at
         {
@@ -590,6 +599,8 @@ impl World {
             && self.has_req(e, s.air)
         {
             Some(s.air)
+        } else if let Some(m) = more_turbines {
+            Some(m)
         } else {
             self.tech2_due(e, &my_b, t) // (its second tech: the Portal)
         };

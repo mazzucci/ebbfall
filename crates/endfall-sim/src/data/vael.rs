@@ -29,13 +29,14 @@ pub const VAEL: Faction = Faction {
     build_basic: &[
         BldgKind::Siphon,
         BldgKind::Substation,
-        BldgKind::Spire,
         BldgKind::Conflux,
         BldgKind::Ward,
     ],
+    // (the Wind turbines once a Recruiting post stands, as the Kingdom's Market once its Barracks does)
     build_advanced: &[
         BldgKind::Kiln,
         BldgKind::Loom,
+        BldgKind::Spire,
         BldgKind::Uplink,
         BldgKind::Eclipse,
     ],
@@ -92,8 +93,10 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     r: 9.0,
     build: 18.0,  // (12 before: the ramp comes from time, every worker an investment)
     supply: 2, // (grid; Power: 1 before the economy's second round, twice a Villager's place as every machine)
-    mine_cap: 6, // (5 before Nov 13: with the income cut a Bot mine paid 80% of a Villager mine and the Expedition fell behind; now about 95%, the PM)
-    mine_load: 9, // (13 before Nov 13: cut in step with the Villager's, a 30% cut for gold that is scarce for a person too)
+    // (seven with 8 a trip since Nov 14: a Bot mine pays as a Villager mine from the start, 7 x 8 = 8 x 7; six with 9,
+    // 96%, before, and five, 80%, before Nov 13)
+    mine_cap: 7,
+    mine_load: 8, // (13 before Nov 13, cut in step with the Villager's, for gold that is scarce for a person too; 9 before Nov 14)
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,
@@ -297,6 +300,7 @@ pub(super) const SPIRE: BldgDef = BldgDef {
     sight: 6.0,
     pays: TURBINE_RATE,
     per_hq: 5,
+    req: Some(BldgKind::Siphon),
     ..BLDG
 };
 /// The Substation: +20 grid, the Expedition's Cottage (the Wind turbine's role and numbers before Nov 14).

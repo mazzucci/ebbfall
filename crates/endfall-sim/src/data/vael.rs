@@ -166,6 +166,7 @@ pub(super) const HALO: UnitDef = UnitDef {
     mend: true,
     req: Some(BldgKind::Loom),
     supply: 2, // (a hired local: two grid)
+    bio: true, // (a person, no machine: Grid efficiency leaves its draw)
     ..UNIT
 };
 /// The Android: the Expedition's elite, from its one Portal (the balance pass): a machine, slow and expensive to make
@@ -280,7 +281,8 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 60, // (grid; Power: 20 before the economy's second round)
+    supply: 60, // (grid: 40 as Power, 20 before the economy's second round; 60 since Nov 14, the places its first two
+    // Recruiting posts gave its mercenaries before)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],

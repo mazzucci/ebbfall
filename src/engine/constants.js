@@ -86,7 +86,7 @@ const BLDG_TEXT = {
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, entrenching: { hot: 'S' },
   drills: { hot: 'D', desc: `Bots mine more per trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` },
-  gridEfficiency: { hot: 'G', desc: `Machines draw ${Math.round((1 - D.consts.grid_use[1]) * 100)}% less grid per level.` },
+  gridEfficiency: { hot: 'G', desc: `Machines draw less grid: about ${Math.round((1 - D.consts.grid_use[1]) * 100)}% less per level, each rounded to whole grid.` },
   trade: { hot: 'T', desc: `Every Market pays more gold: ${Math.round((D.consts.trade_rate[1] - 1) * 100)}% more, then ${Math.round((D.consts.trade_rate[2] - 1) * 100)}% more.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));

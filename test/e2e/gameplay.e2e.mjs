@@ -1744,7 +1744,7 @@ test('as the Expedition: the top bar shows energy as a bolt and the grid, whole,
   }
 });
 
-test('as the Expedition: a Bot refused on a full grid says so, a Substation built, the Bot trains; Advanced in slot 4; a Wind turbine earns energy, five a Data center', async () => {
+test('as the Expedition: a Bot refused on a full grid says so, a Substation built, the Bot trains; Advanced in slot 4; a Wind turbine earns energy', async () => {
   const d = await newGame(SMALL_PHONE, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
@@ -1763,7 +1763,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /grid/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
     assert.ok(t.l >= 0 && t.r <= t.w && t.t >= 0 && t.b <= t.h && !t.cut, `the toast whole on screen: ${JSON.stringify(t)}`);
     await buildAndFinish(d, 'w', 'substation', 0, V);
-    await d.hudText('#rSupply', /\/60$/);
+    await d.hudText('#rSupply', /\/80$/);
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a Substation up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);
@@ -1779,8 +1779,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     await d.page.keyboard.press('Escape');
     const turbine = await buildAndFinish(d, 's', 'spire', 3, V);
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); } // (its Bot waits beside it: again until the turbine is picked)
-    await d.hudText('#selSub', /^Generating energy: 1 every 13\.9 s$/);
-    assert.deepEqual(d.errors, []);
+    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Generating energy: 1 every 13.9 s', null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (it reads: ${await d.page.locator('#selSub').textContent()})`); });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

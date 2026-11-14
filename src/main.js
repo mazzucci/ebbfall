@@ -126,17 +126,17 @@ function endLine(win) {
     const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
-  // (then ' after mm:ss.'; in each side's money: the Expedition's energy)
-  const myWhy = G.outWhy[G.me], helpless = (s) => `nothing left to fight with, and no ${FACTIONS[G.factions[s]]?.money || 'gold'} to train more,`;
+  // (then ' after mm:ss.'; in the viewer's own money word, whoever ran out: the Kingdom only ever sees gold)
+  const myWhy = G.outWhy[G.me], helpless = () => `nothing left to fight with, and no ${FACTIONS[G.factions[G.me]]?.money || 'gold'} to train more,`;
   if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)
-    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless(G.me)}` : 'Your last building fell') + after;
+    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless()}` : 'Your last building fell') + after;
   }
   // A duel: online, the other side has a name (a friend's, as typed in the lobby). "Conceded" is said only of an enemy.
   const them = online.playing ? online.names[foes()[0]] || '' : '';
   if (G.conceded === G.me) return (them ? `You conceded to ${them}` : 'You conceded') + after;
   if (G.conceded >= 0) return `${them || 'The enemy'} conceded` + after;
-  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless(foes()[0])}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
-  return (myWhy === 'helpless' ? `You had ${helpless(G.me)}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
+  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless()}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
+  return (myWhy === 'helpless' ? `You had ${helpless()}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
 }
 
 function endGame() {

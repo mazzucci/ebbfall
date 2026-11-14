@@ -34,7 +34,7 @@ pub const POP_MAX: i32 = 120;
 /// The Expedition's most grid, the same on every map: what its machines, its mercenaries and its buildings draw while
 /// they exist (PRD: the Expedition runs on energy, Nov 14: "Energy builds things; the grid keeps them running"). The
 /// Power and the hired places it replaces were 240 and 30 on 96x96 (a hired place two grid: 300), 280 and 35 on
-/// 128x128; the Data center gives 40 and a Substation 20, so about thirteen Substations fill it.
+/// 128x128; the Data center gives 60 and a Substation 20, so twelve Substations fill it.
 pub const GRID_MAX: i32 = 300;
 /// A machine takes about this many grid for a Kingdom unit's one place of its tier, a mercenary as much (the AI's
 /// margins in grid scale by it: `World::places`).

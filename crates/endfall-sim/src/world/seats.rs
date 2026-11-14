@@ -237,6 +237,8 @@ impl World {
                                 .req
                                 .is_none_or(|r| mine().any(|o| o.kind == r && o.done))
                             && self.can_afford(t, k.def().cost)
+                            // (and room for it: an Expedition with no Data center nor Substation left has no grid)
+                            && self.room(t) >= self.takes(t, *k)
                     }))
         });
         (!(hq || worker || fighter || factory)).then_some(OutWhy::Helpless)

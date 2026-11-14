@@ -301,7 +301,7 @@ src/client/           everything that touches the browser
                       the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
-                      gunners' muzzle flash (`muzzleFlash`), a melee blow's spark on its target and a heavy one's dust
+                      gunners' muzzle flash (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
                       (`meleeHit`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)

@@ -28,78 +28,20 @@ pub const PLAYER: u8 = 0;
 pub const ENEMY: u8 = 1;
 /// The most seats a World can have (bit masks of seats fit a u8: `Event::Fire::seen`, the snapshot's `hid`).
 pub const MAX_SEATS: usize = 8;
-/// The most supply (population) a seat can have, by the map's width in tiles: 100 on 64x64, 120 on 96x96, 140 on
-/// 128x128 (60, 70 and 80 until the economy's second round: the cap is rarely reached, so the limit on an army is the
-/// rate of gold and when attacks can come, not the cap). Bigger maps run longer, hold more fields, and room for an AI's
-/// home reserve beside its wave.
-pub fn supply_limit(map_w: i32) -> i32 {
-    if map_w <= 64 {
-        100
-    } else if map_w <= 96 {
-        120
-    } else {
-        140
-    }
-}
-
-/// The Expedition's most Power, by the map's width: 200 on 64x64, 240 on 96x96, 280 on 128x128, twice the Kingdom's
-/// population (Stelian, Nov 12: the Expedition is limited by Power, the Kingdom by gold; a machine takes about twice
-/// the places a Kingdom unit of its tier does, a Wind turbine gives 20 and the Data center 40, so about eight turbines
-/// fill it). 45, 52 and 60 in the balance pass.
-pub fn power_limit(map_w: i32) -> i32 {
-    if map_w <= 64 {
-        200
-    } else if map_w <= 96 {
-        240
-    } else {
-        280
-    }
-}
-/// A machine takes about this many Power places for a Kingdom unit's one of its tier (the AI's margins in Power scale
-/// by it: `World::places`).
-pub const POWER_PER_PLACE: i32 = 2;
-/// The Expedition's most hired places, by the map's width, a maximum of its own (gold only: the early mercenary game):
-/// 25, 30, 35 (15, 18 and 20 in the balance pass, the map's limit less
-/// its Power).
-pub fn hired_limit(map_w: i32) -> i32 {
-    if map_w <= 64 {
-        25
-    } else if map_w <= 96 {
-        30
-    } else {
-        35
-    }
-}
-
-/// The pools a unit's places come from (`UnitDef::pool`) and a building adds to (`BldgDef::pool`), each a `[used, cap]`
-/// per seat (`World::pools`): the Kingdom's population and the Expedition's Power (`Supply`, the same pool under two
-/// names: every Kingdom unit, and the Expedition's machines, its Androids too) and the Expedition's hired places
-/// (`Hired`: its Sellswords, Bruisers and Medics, from its Recruiting posts). Each pool is capped by its own buildings
-/// and by its own maximum (`World::pool_max`: the Kingdom's population the map's `supply_limit`; the Expedition's
-/// Power `power_limit` and its hired places `hired_limit`).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Pool {
-    Supply,
-    Hired,
-}
-/// How many pools there are (`Pool`'s index into `World::pools`).
-pub const POOLS: usize = 2;
-/// Every pool, in index order.
-pub const ALL_POOLS: [Pool; POOLS] = [Pool::Supply, Pool::Hired];
-impl Pool {
-    pub fn index(self) -> usize {
-        self as usize
-    }
-    pub fn key(self) -> &'static str {
-        match self {
-            Pool::Supply => "supply",
-            Pool::Hired => "hired",
-        }
-    }
-    pub fn parse(s: &str) -> Option<Pool> {
-        ALL_POOLS.into_iter().find(|p| p.key() == s)
-    }
-}
+/// The Kingdom's most population, the same on every map (PRD: the Expedition runs on energy, Nov 14: fixed caps, tuned
+/// together with the grid's). 100, 120 and 140 by the map's width before.
+pub const POP_MAX: i32 = 120;
+/// The Expedition's most grid, the same on every map: what its machines, its mercenaries and its buildings draw while
+/// they exist (PRD: the Expedition runs on energy, Nov 14: "Energy builds things; the grid keeps them running"). The
+/// Power and the hired places it replaces were 240 and 30 on 96x96 (a hired place two grid: 300), 280 and 35 on
+/// 128x128; the Data center gives 40 and a Substation 20, so about thirteen Substations fill it.
+pub const GRID_MAX: i32 = 300;
+/// A machine takes about this many grid for a Kingdom unit's one place of its tier, a mercenary as much (the AI's
+/// margins in grid scale by it: `World::places`).
+pub const GRID_PER_PLACE: i32 = 2;
+/// The share of its grid a machine draws by Grid efficiency level (`Effect::GridUse`, the Expedition's research at the
+/// Lab in place of its Armor), each level 15% less: a unit's draw rounds to whole grid (`World::takes`).
+pub const GRID_USE: [f64; 3] = [1.0, 0.85, 0.7];
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
@@ -198,6 +140,7 @@ kinds! {
         Factory => humans::FACTORY,
         Eclipse => vael::ECLIPSE,
         Uplink => vael::UPLINK,
+        Substation => vael::SUBSTATION,
     }
 }
 
@@ -318,9 +261,9 @@ def_struct! {
         /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
-        /// The places it takes in its `pool` (population or Power, or hired places).
+        /// The places it takes: the Kingdom's population, or the Expedition's grid (its machines and its mercenaries
+        /// alike; a machine's draw falls with Grid efficiency, `World::takes`).
         supply: i32 = "supply",
-        pool: Pool = "pool",
         hp: f64 = "hp",
         armor: f64 = "armor",
         speed: f64 = "speed",
@@ -368,10 +311,9 @@ def_struct! {
         h: i32 = "h",
         hp: f64 = "hp",
         armor: f64 = "armor",
-        /// The places it adds to its `pool` once finished (population or Power, or hired places).
+        /// The places it adds once finished (population, or the Expedition's grid).
         supply: i32 = "supply",
-        pool: Pool = "pool",
-        /// The Power (`Pool::Supply`) it uses while it stands, from the moment it is placed until it is destroyed or
+        /// The grid it uses while it stands, from the moment it is placed until it is destroyed or
         /// cancelled (the Portal).
         uses: i32 = "uses",
         /// At most one a seat, standing or going up (the Portal: `World::single_room`).
@@ -380,10 +322,12 @@ def_struct! {
         sight: f64 = "sight",
         trains: &'static [UnitKind] = "trains",
         dropoff: bool = "dropoff",
-        /// Pays its owner gold by itself, with no workers (`PUMP_RATE` a second): the Kingdom's Market.
-        pays: bool = "pays",
-        /// At most one a finished headquarters of its side (the Market: a new Castle at an expansion allows another).
-        per_hq: bool = "perHq",
+        /// Pays its owner by itself, with no workers, this much a second (0: nothing): the Kingdom's Market
+        /// `PUMP_RATE`, the Expedition's Wind turbine `TURBINE_RATE`.
+        pays: f64 = "pays",
+        /// At most this many a finished headquarters of its side (0: no such rule): one Market a Castle, five Wind
+        /// turbines a Data center (a new headquarters at an expansion allows more).
+        per_hq: i32 = "perHq",
         req: Option<BldgKind> = "req",
         /// A building its side must have standing, finished, for this one to train (the Portal: an Uplink; the arc,
         /// Nov 13): its training waits while there is none, and a unit is refused with the reason.
@@ -401,17 +345,20 @@ pub struct Faction {
     pub worker: UnitKind,
     pub build_basic: &'static [BldgKind],
     pub build_advanced: &'static [BldgKind],
-    /// Its supply building, and its income building if it has one (the Kingdom's Market; the Expedition has none): the
-    /// roles its messages and its AI name.
+    /// Its supply building (the Cottage, the Substation), and its income building if it has one (the Kingdom's Market,
+    /// the Expedition's Wind turbine): the roles its messages and its AI name.
     pub supply: BldgKind,
     pub market: Option<BldgKind>,
+    /// What it spends, in its player's words: the Kingdom's gold, the Expedition's energy (the same number in the sim's
+    /// one cost slot; refusals say "Not enough gold" or "Not enough energy", `Faction::not_enough`).
+    pub money: &'static str,
     /// The sound of its shots, by projectile: [bolt, shell, missile, melee] (recipe names in src/client/audio.js).
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings.
     pub repairs: bool,
-    /// Its `Pool::Supply` is Power, its machines' alone (the Expedition: no population; its people take hired places),
-    /// and it has a maximum of each (`World::pool_max`) where the Kingdom has one population limit.
-    pub power: bool,
+    /// Its places are a grid (the Expedition: no population; energy for gold in its words), up to `GRID_MAX` where
+    /// the Kingdom's population is up to `POP_MAX` (`World::sup_max`).
+    pub grid: bool,
     /// The workers it starts with, on the mine nearest its headquarters, the nearest of its four tiles first (four for
     /// both peoples; Stelian, Nov 13: four Villagers, two Bots, half a mine each, set with the balancing phase).
     pub start_workers: usize,
@@ -488,6 +435,10 @@ impl Faction {
     pub fn builds(&self, kind: BldgKind) -> bool {
         self.build_basic.contains(&kind) || self.build_advanced.contains(&kind)
     }
+    /// What a refusal for want of its money says (the client's announcer keys on "Not enough").
+    pub fn not_enough(&self) -> String {
+        format!("Not enough {}", self.money)
+    }
     /// Index in FACTIONS (what the client is sent).
     pub fn index(&self) -> usize {
         FACTIONS.iter().position(|f| f.key == self.key).unwrap_or(0)
@@ -502,7 +453,6 @@ const UNIT: UnitDef = UnitDef {
     name: "",
     cost: [0, 0],
     supply: 1,
-    pool: Pool::Supply,
     hp: 1.0,
     armor: 0.0,
     speed: 90.0,
@@ -551,8 +501,11 @@ pub const CRYSTAL_GOLD: i32 = 2000;
 /// about five minutes. 0.35 before Nov 13, cut in step with the mines' income (the loads 30% down); 0.5 before the
 /// economy pass halved what a worker brings in.
 pub const PUMP_RATE: f64 = 0.24;
-/// What a refusal for want of gold says (the client's announcer keys on it).
-pub const NOT_ENOUGH: &str = "Not enough gold";
+/// Energy a second a finished Wind turbine pays its owner (PRD: the Expedition runs on energy, Nov 14: several weak
+/// turbines, the Expedition's Market): five a Data center (`BldgDef::per_hq`) pay what one Market does at full Trade
+/// (`PUMP_RATE` x 1.5, 0.36 a second), each paying back its price in about four minutes. No research raises it: the
+/// Expedition grows by building more.
+pub const TURBINE_RATE: f64 = 0.072;
 /// How far (tiles) from a busy field a harvester looks for a quieter one.
 pub const SPREAD_RANGE: f64 = 7.0;
 /// The leash (tiles): how far a unit follows a fight it picked up itself (idle, holding a rally point, on an
@@ -575,15 +528,14 @@ const BLDG: BldgDef = BldgDef {
     hp: 1.0,
     armor: 1.0,
     supply: 0,
-    pool: Pool::Supply,
     uses: 0,
     single: false,
     build: 20.0,
     sight: 5.0,
     trains: &[],
     dropoff: false,
-    pays: false,
-    per_hq: false,
+    pays: 0.0,
+    per_hq: 0,
     req: None,
     trains_with: None,
     hq: false,

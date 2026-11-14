@@ -95,7 +95,7 @@ fn every_level_plays_the_new_rosters_to_the_end() {
             // its hired places, 25, are never full at its income, so its gold never turns to machines; the
             // Expedition's arc, machines behind Uplinks, comes with its own PR)
             // (and only in a game long enough for it: Medium's Kingdoms may trade bases by 9:00, Nov 13)
-            let vael_mirror = races[0].power && races[1].power;
+            let vael_mirror = races[0].grid && races[1].grid;
             if w.time > 12.0 * 60.0 && (diff >= 2 || (diff == 1 && !vael_mirror)) {
                 assert!(
                     tier.iter().any(|&t| t >= 1),
@@ -787,7 +787,7 @@ fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
     let markets: Vec<Id> = w
         .bldgs
         .iter()
-        .filter(|b| b.team == ENEMY && b.kind.def().pays)
+        .filter(|b| b.team == ENEMY && b.kind.def().pays > 0.0)
         .map(|b| b.id)
         .collect();
     for p in markets {
@@ -1557,7 +1557,7 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         let factories =
             |w: &World| count(w, f_ai.ai.rax) + f_ai.ai.heavy.map_or(0, |h| count(w, h));
         let mut hqs_at_9 = 0;
-        // (the Expedition's line at its maximum of hired places after its natural: no factory can grow it)
+        // (the Expedition's line at its own maximum after its natural, `line_max`: no factory can grow it)
         let mut line_full = false;
         // (to 18:00: 16:00 before Easy's tech climb, whose buildings from 9:00 come before its natural's crew)
         while w.time < 1080.0 {
@@ -1566,8 +1566,8 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
             if (w.time - 535.0).abs() < 0.02 {
                 hqs_at_9 = count(&w, f_ai.hq);
             }
-            if w.time > 600.0 && f_ai.power {
-                line_full |= w.pool(ENEMY, Pool::Hired)[0] >= w.pool_max(ENEMY, Pool::Hired);
+            if w.time > 600.0 && f_ai.grid {
+                line_full |= w.line_used(ENEMY) >= w.line_max(ENEMY);
             }
         }
         let name = f[1].name;
@@ -1785,8 +1785,8 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                     w.step();
                     w.events.clear();
                 }
-                // (at the cap: its army at the one limit of all its pools together)
-                if w.army_used(ENEMY) + 2 < w.supply_limit() {
+                // (at the cap: its army at its population or grid maximum)
+                if w.sup(ENEMY)[0] + 2 < w.sup_max(ENEMY) {
                     banked.push(w.res[ENEMY as usize][0]);
                 } else {
                     capped += 1;
@@ -1888,8 +1888,7 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
                 let mut full = false;
                 while w.time < 900.0 && placed.is_none() {
                     w.res[ENEMY as usize] = [2000, 1000];
-                    let max = w.pool_max(ENEMY, Pool::Hired);
-                    full = max > 0 && w.pool(ENEMY, Pool::Hired)[0] + 2 >= max;
+                    full = w.line_capped(ENEMY);
                     w.step();
                     w.events.clear();
                     placed = w

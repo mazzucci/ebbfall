@@ -112,7 +112,7 @@ impl World {
     /// its Market still ends).
     pub(crate) fn spared(&self, team: u8, b: &Bldg) -> bool {
         self.guided
-            && b.kind.def().pays
+            && b.kind.def().pays > 0.0
             && self.is_ai(team)
             && !self.is_ai(b.team)
             && self

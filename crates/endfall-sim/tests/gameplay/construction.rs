@@ -400,7 +400,7 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_lets_it_w
         );
         assert_eq!(
             w.bldg(b).unwrap().pumped > 0.0,
-            ext.def().pays,
+            ext.def().pays > 0.0,
             "{ext:?}: the Market earns by itself, the Recruiting post nothing"
         );
     }
@@ -479,7 +479,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
 #[test]
 fn supply_blocked_names_the_right_building_for_each_race() {
     let mut w = rich_vael(4242);
-    w.pools[PLAYER as usize][0] = [10, 10];
+    w.supply[PLAYER as usize] = [10, 10];
     let hq = w
         .bldgs
         .iter()
@@ -488,7 +488,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Not enough Power: build a Wind turbine.".to_string())
+        Err("Not enough grid: build a Substation.".to_string())
     );
 }
 

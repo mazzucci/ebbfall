@@ -53,7 +53,7 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
         w.res[PLAYER as usize][0], 0,
         "a Recruiting post pays nothing"
     );
-    assert!(!BldgKind::Siphon.def().pays && BldgKind::Extractor.def().pays);
+    assert!(BldgKind::Siphon.def().pays == 0.0 && BldgKind::Extractor.def().pays > 0.0);
 }
 
 #[test]
@@ -153,19 +153,20 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
 }
 
 #[test]
-fn the_supply_cap_grows_with_the_map() {
-    // 100 on 64x64, 120 on 96x96, 140 on 128x128 since the economy's second round (60, 70, 80 before;
-    // `World::supply_limit`): the Kingdom's population limit; the Expedition's Power is twice it (240 on 96x96,
-    // `power_limit`). Supply buildings past the cap add nothing, and a seat at the cap is supply blocked.
-    for (n, limit, cap, f) in [
-        (64, 100, 100, &HUMANS),
-        (96, 120, 240, &VAEL),
-        (128, 140, 140, &HUMANS),
+fn the_caps_are_fixed_population_120_and_grid_300() {
+    // The same on every map since Nov 14 (PRD: the Expedition runs on energy; 100, 120 and 140 population by the map's
+    // width before, and the Expedition's Power and hired places apart): the Kingdom's population `POP_MAX`, the
+    // Expedition's grid `GRID_MAX`. Supply buildings past the cap add nothing, and a seat at the cap is supply blocked.
+    assert_eq!((POP_MAX, GRID_MAX), (120, 300));
+    for (n, cap, f) in [
+        (64, 120, &HUMANS),
+        (96, 300, &VAEL),
+        (128, 120, &HUMANS),
+        (128, 300, &VAEL),
     ] {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();
-        assert_eq!(w.supply_limit(), limit, "{n}x{n}");
-        assert_eq!(w.pool_max(PLAYER, Pool::Supply), cap, "{n}x{n}");
+        assert_eq!(w.sup_max(PLAYER), cap, "{n}x{n}");
         // Supply buildings round the headquarters (Cottages or Sunpetals), one past what reaches the cap.
         let each = f.supply.def().supply;
         let hq = f.hq.def().supply;
@@ -177,26 +178,21 @@ fn the_supply_cap_grows_with_the_map() {
         w.recalc_supply(PLAYER);
         assert_eq!(w.sup(PLAYER)[1], cap, "{n}x{n}: capped at {cap}");
         // Filled to the cap: blocked, and told the limit (another population building would not help).
-        w.pools[PLAYER as usize][0][0] = cap;
+        w.supply[PLAYER as usize][0] = cap;
         let hq_id = w
             .bldgs
             .iter()
             .find(|b| b.team == PLAYER && b.kind.def().hq)
             .unwrap()
             .id;
-        // (the Expedition's Power)
-        let told = if f.power {
-            "Power at maximum.".to_string()
+        // (the Expedition's grid)
+        let told = if f.grid {
+            "Grid at maximum.".to_string()
         } else {
             format!("Population at its limit ({cap}): no more until some fall")
         };
         assert_eq!(w.queue_unit(hq_id, f.worker), Err(told), "{n}x{n}");
     }
-    assert_eq!(
-        [64, 96, 128].map(supply_limit),
-        [100, 120, 140],
-        "the table by map width"
-    );
 }
 
 #[test]

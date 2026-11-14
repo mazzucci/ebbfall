@@ -1174,7 +1174,8 @@ fn game_json(g: &GameRec) -> Json {
             )
             .with(
                 "at_max_tick",
-                vec![Json::from(s.at_max[0]), Json::from(s.at_max[1])],
+                // (a second entry for the hired places until Nov 14: none since, kept so reports compare)
+                vec![Json::from(s.at_max), Json::from(None::<u32>)],
             )
             .with("home_dry_tick", s.home_dry)
             .with("second_base_tick", s.second_base)

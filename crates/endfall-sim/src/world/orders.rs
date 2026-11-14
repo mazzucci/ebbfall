@@ -89,16 +89,17 @@ impl World {
             .iter()
             .any(|b| b.team == team && b.kind == kind && b.done)
     }
-    /// Whether `team` has room for another `kind` under its one-per-headquarters rule (`BldgDef::per_hq`: one Market a
-    /// finished Castle, sites counted), or the kind has no such rule.
+    /// Whether `team` has room for another `kind` under its per-headquarters rule (`BldgDef::per_hq`: one Market a
+    /// finished Castle, five Wind turbines a finished Data center, sites counted), or the kind has no such rule.
     pub fn hq_room(&self, team: u8, kind: BldgKind) -> bool {
-        if !kind.def().per_hq {
+        let per = kind.def().per_hq;
+        if per <= 0 {
             return true;
         }
         let count = |f: &dyn Fn(&Bldg) -> bool| {
-            self.bldgs.iter().filter(|b| b.team == team && f(b)).count()
+            self.bldgs.iter().filter(|b| b.team == team && f(b)).count() as i32
         };
-        count(&|b| b.kind == kind) < count(&|b| b.kind.def().hq && b.done)
+        count(&|b| b.kind == kind) < per * count(&|b| b.kind.def().hq && b.done)
     }
     pub fn can_afford(&self, team: u8, cost: [i32; 2]) -> bool {
         self.res[team as usize][0] >= cost[0] && self.res[team as usize][1] >= cost[1]
@@ -138,11 +139,11 @@ impl World {
             return Err("Queue is full".into());
         }
         if !self.can_afford(team, d.cost) {
-            return Err(NOT_ENOUGH.into());
+            return Err(self.factions[team as usize].not_enough());
         }
-        let s = self.pool(team, d.pool);
-        if s[0] + d.supply > s[1] {
-            return Err(self.pool_full(team, d.pool, s[1]));
+        let [used, cap] = self.sup(team);
+        if used + self.takes(team, kind) > cap {
+            return Err(self.sup_full(team));
         }
         self.pay(team, d.cost, -1);
         self.bm(bid).unwrap().queue.push(kind);
@@ -150,29 +151,17 @@ impl World {
         Ok(())
     }
 
-    /// What a refusal for want of places in `pool` says (its cap now `cap`). At the pool's maximum (`pool_max`) another
-    /// building adds nothing: it says so rather than send the player to build one.
-    fn pool_full(&self, team: u8, pool: Pool, cap: i32) -> String {
-        let max = self.pool_max(team, pool);
+    /// What a refusal for want of places says. At the maximum (`sup_max`) another building adds nothing: it says so
+    /// rather than send the player to build one.
+    fn sup_full(&self, team: u8) -> String {
+        let (cap, max) = (self.sup(team)[1], self.sup_max(team));
         let f = self.factions[team as usize];
-        match pool {
-            // (the Expedition's Power: it has no population)
-            Pool::Supply if f.power => {
-                if cap >= max {
-                    "Power at maximum.".into()
-                } else {
-                    format!("Not enough Power: build a {}.", f.supply.def().name)
-                }
-            }
-            Pool::Supply => {
-                if cap >= max {
-                    format!("Population at its limit ({max}): no more until some fall")
-                } else {
-                    format!("Population full. Build a {}.", f.supply.def().label())
-                }
-            }
-            Pool::Hired if cap >= max => "Hired at maximum.".into(),
-            Pool::Hired => "No free places: build another Recruiting post.".into(),
+        match (f.grid, cap >= max) {
+            // (the Expedition's grid: it has no population)
+            (true, true) => "Grid at maximum.".into(),
+            (true, false) => format!("Not enough grid: build a {}.", f.supply.def().name),
+            (false, true) => format!("Population at its limit ({max}): no more until some fall"),
+            (false, false) => format!("Population full. Build a {}.", f.supply.def().label()),
         }
     }
 
@@ -233,7 +222,7 @@ impl World {
         }
         let cost = up.cost(level);
         if !self.can_afford(team, cost) {
-            return Err(NOT_ENOUGH.into());
+            return Err(self.factions[team as usize].not_enough());
         }
         self.pay(team, cost, -1);
         self.bm(bid).unwrap().research = Some((up, 0.0));
@@ -445,11 +434,11 @@ impl World {
         !kind.def().single || !self.bldgs.iter().any(|b| b.team == team && b.kind == kind)
     }
 
-    /// Whether `team` has the Power `kind` uses while it stands (`BldgDef::uses`, the Portal), counted from placement;
-    /// always, for a kind that uses none (a seat over its cap, a lost building's, still builds its Cottage or turbine).
-    pub fn power_room(&self, team: u8, kind: BldgKind) -> bool {
+    /// Whether `team` has the grid `kind` draws while it stands (`BldgDef::uses`), counted from placement; always, for
+    /// a kind that draws none (a seat over its cap, a lost building's, still builds its Cottage or Substation).
+    pub fn grid_room(&self, team: u8, kind: BldgKind) -> bool {
         let uses = kind.def().uses;
-        uses <= 0 || self.room(team, Pool::Supply) >= uses
+        uses <= 0 || self.room(team) >= uses
     }
 
     /// Cancel an unfinished building: it is removed and 75% of its cost comes back.
@@ -495,16 +484,19 @@ impl World {
         }
         if !self.hq_room(team, kind) {
             let hq = self.factions[team as usize].hq.def().name;
-            return Err(format!("One {} per {hq}", d.name));
+            return Err(match d.per_hq {
+                1 => format!("One {} per {hq}", d.name),
+                n => format!("At most {n} {}s per {hq}", d.name),
+            });
         }
         if !self.single_room(team, kind) {
             return Err(format!("Only one {}.", d.name));
         }
         if !self.can_afford(team, d.cost) {
-            return Err(NOT_ENOUGH.into());
+            return Err(self.factions[team as usize].not_enough());
         }
-        if !self.power_room(team, kind) {
-            return Err(self.pool_full(team, Pool::Supply, self.sup(team)[1]));
+        if !self.grid_room(team, kind) {
+            return Err(self.sup_full(team));
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);

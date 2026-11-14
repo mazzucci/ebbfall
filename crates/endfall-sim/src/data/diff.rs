@@ -105,11 +105,10 @@ pub struct Diff {
     /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
     pub mix_over: &'static [(super::UnitKind, usize, f64)],
-    /// The most places its line (`AiScript::basic`'s pool, where that is not its whole army: the Expedition's hired
-    /// places) takes, below the map's maximum (0: the maximum), on 64x64 (as many more on a bigger map as the maximum
-    /// has). Easy keeps the 15 it had (18 and 21 on the bigger maps): at the economy's second
-    /// round's 25 its all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where the old
-    /// cap sent its gold to its machines and Portal instead.
+    /// The most grid its line takes on a grid side (the Expedition's mercenaries, only part of its army), below the AI's
+    /// share `LINE_GRID` (0: that share). Easy keeps the 18 hired places it had on 96x96, 36 grid: at the economy's
+    /// second round's 30 its all-Sellsword line beat the Easy Kingdom's Guards and Archers in nearly every game, where
+    /// the lower cap sent its money to its machines and Portal instead.
     pub line_max: i32,
     /// When it raises its tech building (`AiScript::tech`: the Blacksmith, the Lab), its barracks standing: 2:30 on
     /// every level (the balance lab's plans move it).
@@ -172,8 +171,8 @@ pub const DIFF: [Diff; 4] = [
         wave: 4, // (its first wave: four of the Kingdom's, three of the Expedition's (its `wave_scale`), the rest at home)
         wave_grow: 1, // (its waves grow slowly: 4, 5, 6 ... to 12; the Expedition's at its 0.6)
         harv: 7,
-        rax: 2, // (two Barracks from the start: the Expedition's Recruiting posts are its places and its factories, so with
-        // the higher caps' hired places its Easy line outgrew one Barracks' before the 8:00 wave)
+        rax: 2, // (two Barracks from the start: with the higher caps' hired places, before the grid, its Easy line outgrew
+        // one Barracks' before the 8:00 wave)
         extra_rax: 1,
         first: 480.0, // (7:45 before Nov 13: a wave that leaves at 8:00 cannot hit before it, on any map)
         gap: 80.0,
@@ -214,7 +213,7 @@ pub const DIFF: [Diff; 4] = [
         // (an Archer per two Guards, not one: its line meets the Expedition's melee Sellswords alone until 9:00, where the
         // Archers fell first; Medium's Archers stay one a Guard, its answer to the Buggies and Drones that come sooner)
         mix_over: &[(super::UnitKind::Lancer, 2, 0.0)],
-        line_max: 15,
+        line_max: 36,
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[(super::BldgKind::Ward, 1), (super::BldgKind::Turret, 1)],

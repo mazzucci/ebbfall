@@ -75,8 +75,8 @@ pub struct World {
     pub bldgs: Vec<Bldg>,
     pub projs: Vec<Proj>,
     pub res: Vec<[i32; 2]>,
-    /// Each seat's places, `[used, cap]` per `Pool` (population or Power, hired places; `recalc_supply`).
-    pub pools: Vec<[[i32; 2]; POOLS]>,
+    /// Each seat's places, `[used, cap]`: the Kingdom's population, the Expedition's grid (`recalc_supply`).
+    pub supply: Vec<[i32; 2]>,
     /// Tiles each seat has ever seen, and sees now (from `update_fog`: its own sight and its allies'). Not hashed: a
     /// difference shows in what the AI does, which is.
     pub explored: Vec<Vec<u8>>,
@@ -229,7 +229,7 @@ impl World {
             bldgs: Vec::new(),
             projs: Vec::new(),
             res: Vec::new(),
-            pools: Vec::new(),
+            supply: Vec::new(),
             explored: Vec::new(),
             vis: Vec::new(),
             over: false,
@@ -644,11 +644,9 @@ impl World {
         // Hidden state too, so a divergence shows on the tick it happens, not when a position drifts later.
         mix(self.rng.state() as i32);
         mix(self.next_id as i32);
-        for p in &self.pools {
-            for s in p {
-                mix(s[0]);
-                mix(s[1]);
-            }
+        for s in &self.supply {
+            mix(s[0]);
+            mix(s[1]);
         }
         for n in &self.map.nodes {
             mix(n.id as i32);

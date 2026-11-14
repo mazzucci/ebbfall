@@ -20,6 +20,9 @@ use crate::world::{Phase, Task, World};
 pub(crate) const AI_TURN: u32 = 16;
 /// Free supply below which the specialists' factories train first (produce.rs).
 pub(crate) const SUPPLY_TIGHT: i32 = 8;
+/// The grid a grid side's line (the Expedition's mercenaries) takes at most, the AI's own share of its `GRID_MAX` (the
+/// hired places' maximum on 96x96 before Nov 14, 30, at two grid a place): past it its money goes to its machines.
+pub(crate) const LINE_GRID: i32 = 60;
 
 /// How many ticks after the first brain's turns the k-th of m brains takes its own: spread evenly over `AI_TURN`, so up
 /// to `AI_TURN` brains each have a tick of their own.

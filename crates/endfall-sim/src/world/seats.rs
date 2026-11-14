@@ -49,7 +49,7 @@ impl World {
         self.out.clear();
         self.out_why.clear();
         self.res.clear();
-        self.pools.clear();
+        self.supply.clear();
         self.explored.clear();
         self.vis.clear();
         self.stats.clear();
@@ -67,7 +67,7 @@ impl World {
         self.out.push(false);
         self.out_why.push(OutWhy::In);
         self.res.push([50, 0]);
-        self.pools.push([[0, 0]; POOLS]);
+        self.supply.push([0, 0]);
         self.explored.push(vec![0; tiles]);
         self.vis.push(vec![0; tiles]);
         self.stats.push(Stats::default());

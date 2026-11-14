@@ -60,7 +60,7 @@ impl World {
             + self.dive_hold(e, &my_b, t)
             + self.relay_hold(e);
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
-        // cheaper machines fill the Power every round and the Portal is never raised or never trains.
+        // cheaper machines fill the grid every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
         let tech2 = self.factions[e as usize].ai.tech2;
         // Its scout (`AiScript::scout`, the Balloon): one, from the factory that trains it, nothing held back from it.
@@ -97,8 +97,8 @@ impl World {
         // barracks (or the air factory's cheaper machines) fill them every round and a specialist that is due never
         // fits. With room to spare, every factory in building order as ever.
         let order: Vec<Id> = {
-            // (the places the specialists take: population, or the Expedition's Power)
-            let room = self.room(e, Pool::Supply);
+            // (the places the specialists take: population, or the Expedition's grid)
+            let room = self.room(e);
             let s = &self.factions[e as usize].ai;
             let rank = |id: &Id| match self.bldg(*id) {
                 Some(b) if s.tech2 == Some(b.kind) => 0,
@@ -106,7 +106,7 @@ impl World {
                 _ => 2,
             };
             let mut order = my_b.clone();
-            if room < self.places(e, Pool::Supply, SUPPLY_TIGHT) {
+            if room < self.places(e, SUPPLY_TIGHT) {
                 order.sort_by_key(rank); // (stable: building order within each rank)
             }
             order
@@ -241,10 +241,10 @@ impl World {
             } else {
                 b.kind.def().trains[0]
             };
-            // (its line at its level's most, `line_max`: nothing more of that pool)
-            let line_pool = self.factions[e as usize].ai.basic.def().pool;
-            if u.def().pool == line_pool
-                && self.pool(e, line_pool)[0] + u.def().supply > self.line_max(e)
+            // (its line at its level's most on a grid side, `line_max`: nothing more of it)
+            if self.factions[e as usize].grid
+                && s.rax.def().trains.contains(&u)
+                && self.line_used(e) + self.takes(e, u) > self.line_max(e)
             {
                 continue;
             }
@@ -261,11 +261,10 @@ impl World {
                 // (and the giant's supply: it needs several free places at once; the build order wants supply
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup(e);
-                let elite_room = tech2 == Some(bkind)
-                    || u.def().pool != Pool::Supply
-                    || cap - used >= u.def().supply + reserve;
+                let takes = self.takes(e, u);
+                let elite_room = tech2 == Some(bkind) || cap - used >= takes + reserve;
                 let room = Some(u) == scout
-                    || (capital_due.is_none_or(|k| cap - used >= u.def().supply + k.def().supply)
+                    || (capital_due.is_none_or(|k| cap - used >= takes + self.takes(e, k))
                         && elite_room);
                 if room
                     && self.can_afford(e, need(u))
@@ -412,7 +411,7 @@ impl World {
         .unwrap_or(0)
     }
 
-    /// The Power `e` keeps free for its elite (`AiScript::tech2`, the Expedition's Portal, and the mixed-in unit it
+    /// The grid `e` keeps free for its elite (`AiScript::tech2`, the Expedition's Portal, and the mixed-in unit it
     /// trains, the Android), so its other factories' machines leave room for them: before the Portal is placed, while
     /// it is wanted (`tech2_wanted`), the Portal's own use and one Android's; once it stands or goes up, one Android's
     /// while the mix's ratio to the line calls for another. 0 for a side without one.
@@ -428,9 +427,6 @@ impl World {
         else {
             return 0;
         };
-        if k.def().pool != Pool::Supply {
-            return 0;
-        }
         let mine = |k: UnitKind| {
             self.units
                 .iter()
@@ -446,12 +442,12 @@ impl World {
         };
         if self.ai_count(my_b, false, k2) == 0 {
             if self.tech2_wanted(e, my_b, t, k2) {
-                k2.def().uses + k.def().supply
+                k2.def().uses + self.takes(e, k)
             } else {
                 0
             }
         } else if (mine(k) + 1) * per <= mine(s.basic) {
-            k.def().supply
+            self.takes(e, k)
         } else {
             0
         }

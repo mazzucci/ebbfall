@@ -61,7 +61,7 @@ fn each_building_trains_its_peoples_list() {
     // built in the base, the Barracks.
     assert_eq!(Airfield.def().req, Some(Forge));
     assert_eq!(Extractor.def().req, Some(Barracks));
-    assert!(Extractor.def().pays && Extractor.def().per_hq && !Siphon.def().pays);
+    assert!(Extractor.def().pays > 0.0 && Extractor.def().per_hq == 1 && Siphon.def().pays == 0.0);
     for f in FACTIONS {
         let other = FACTIONS.iter().find(|o| o.key != f.key).unwrap();
         for &b in f.build_basic.iter().chain(f.build_advanced) {

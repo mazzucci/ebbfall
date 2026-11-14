@@ -53,7 +53,7 @@ impl World {
         let owed = [0, 1].map(|k| debt[k] + cost[k] as f64 * REPAIR_COST * heal / maxhp);
         let charge = owed.map(|o| o.floor() as i32);
         if !self.can_afford(team, charge) {
-            let msg = format!("{NOT_ENOUGH} to repair");
+            let msg = format!("{} to repair", self.factions[team as usize].not_enough());
             self.toast(team, msg, true);
             let time = self.time;
             self.um(uid).no_build_until = time + 30.0; // the AI does not send it straight back
@@ -99,7 +99,7 @@ impl World {
             return; // (it rises only while a builder works on it: `update_build`)
         }
         let d = b.kind.def();
-        if d.pays {
+        if d.pays > 0.0 {
             self.pump(bid, dt);
         }
         let b = self.bm(bid).unwrap();
@@ -147,6 +147,7 @@ impl World {
             if p >= 1.0 {
                 self.bm(bid).unwrap().research = None;
                 self.upgrades[team as usize][up.index()] = level;
+                self.recalc_supply(team); // (Grid efficiency: its machines draw less from now)
                 self.toast(
                     team,
                     format!(

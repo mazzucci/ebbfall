@@ -75,7 +75,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Drill is researched) it stands and
+/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Wall is researched) it stands and
 /// takes the charge: +4 armor, no moving.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
@@ -298,12 +298,7 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
 };
 pub(super) const FORGE: BldgDef = BldgDef {
     key: "forge",
-    researches: &[
-        Upgrade::Weapons,
-        Upgrade::Armor,
-        Upgrade::Entrenching,
-        Upgrade::RapidConstruction,
-    ],
+    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Entrenching],
     name: "Blacksmith",
     cost: [300, 0], // (150 before the arc: the tech path a bet, about two minutes of income)
     hp: 820.0,

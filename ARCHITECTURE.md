@@ -274,7 +274,14 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       at home, on that way inside its coverage (`relay_home_point`), and is raised again when lost
                       (`tech2_due`: with none, the Portal stood idle for good). Against enemy siege
                       seen (`siege_seen`, the Cannon, the Rover) a level that adapts trains its dive unit (`AiScript::
-                      dive`: the Knight, the Drone) one per line unit and holds its price (`dive_hold`); its Portal
+                      dive`: the Knight, the Drone) one per line unit and holds its price (`dive_hold`); on contact
+                      its wave's melee units and dive unit go for the nearest enemy siege gun it sees within 14 tiles
+                      (`dive_at_siege`) and its Balloon flies over its wave, its sight past a Cannon's reach
+                      (`escort_scout`), both on a level that adapts; a stalled game (`Diff::stall_from`, 15:00 for
+                      Medium and up: nothing razed by its side for 5 minutes, `STALL_WINDOW`, with some of the foe's army
+                      it saw still standing) masses its next wave for
+                      up to 3 minutes towards the cap (`STALL_HOLD`), never leaves while the foe is at its buildings,
+                      and pushes without giving up (`Ai::push`); its Portal
                       holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with
                       each base past the first up to four (army.rs, produce.rs, economy.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)

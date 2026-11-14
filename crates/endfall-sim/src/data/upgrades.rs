@@ -11,9 +11,13 @@ pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching, // (Shield Drill: unlocks the Guard's Brace)
+    Entrenching, // (Shield Wall: unlocks the Guard's Brace)
     Afterburners,
+    // (Overclock, the Drone's speed: no longer offered, Nov 14: too late, no real value; its slot kept for the wire's
+    // indices)
     Slipstream,
+    // (Master Builders: no longer offered, Nov 14: it came too late to matter; kept so the indices the snapshot and the
+    // wire send stay where they were)
     RapidConstruction,
     Drills,
 }
@@ -29,8 +33,8 @@ pub enum Effect {
     Shields,
     /// Researched, the ability can be used (until then its button is locked).
     Unlock(AbilityKind),
-    /// Researched, this unit kind moves `TECH_SPEED` times as fast.
-    Speed(UnitKind),
+    /// Researched, these unit kinds move `TECH_SPEED` times as fast.
+    Speed(&'static [UnitKind]),
     /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
     /// tech: a Human builder mines nothing while it builds.
     BuildSpeed,
@@ -97,10 +101,10 @@ const TECH: UpgradeDef = UpgradeDef {
     levels: 1,
     req: None,
 };
-/// Shield Drill: unlocks the Guard's Brace (Dig In's tech before the re-theme).
+/// Shield Wall: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
-    name: "Shield Drill",
+    name: "Shield Wall",
     short: "",
     effect: Effect::Unlock(AbilityKind::Entrench),
     cost: [[125, 0]; 3],
@@ -111,16 +115,18 @@ const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
     name: "Horseshoes",
     short: "",
-    effect: Effect::Speed(UnitKind::Rider),
+    effect: Effect::Speed(&[UnitKind::Rider, UnitKind::Knight]), // (the Knight too since Nov 14: Stelian)
     ..TECH
 };
+/// (no building researches it since Nov 14)
 const SLIPSTREAM: UpgradeDef = UpgradeDef {
     key: "slipstream",
     name: "Overclock",
-    effect: Effect::Speed(UnitKind::Shrike),
+    effect: Effect::Speed(&[UnitKind::Shrike]),
     ..TECH
 };
 
+/// (no building researches it since Nov 14: Stelian, it unlocked too late to matter)
 const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     key: "rapidConstruction",
     name: "Master Builders",

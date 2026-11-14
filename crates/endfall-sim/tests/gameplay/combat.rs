@@ -298,10 +298,16 @@ fn weapons_upgrades_add_each_units_bonus() {
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        // (but Hardshell: shields are data since the re-theme, and nothing researches it)
+        // (but Hardshell: shields are data since the re-theme, and nothing researches it; nor Master Builders and
+        // Overclock since Nov 14, their slots kept)
         assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
-            u != Upgrade::Shields,
+            ![
+                Upgrade::Shields,
+                Upgrade::RapidConstruction,
+                Upgrade::Slipstream
+            ]
+            .contains(&u),
             "{u:?} is researched at some building"
         );
         assert_eq!(Upgrade::parse(u.def().key), Some(u));

@@ -36,20 +36,20 @@ export const coverageOf = (type) => RADIO.sources[type] || 0;
 const UNIT_TEXT = {
   // the Kingdom (sim race `humans`)
   harvester: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds and repairs.' },
-  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Cheap and steady. Fights up close, ground only. Weak against splash. Can Brace (no moving, more armor) after Shield Drill.' },
+  trooper: { hot: 'K', what: 'Holds the line, cheaply', desc: 'Cheap and steady. Fights up close, ground only. Weak against splash. Can Brace (no moving, more armor) after Shield Wall.' },
   lancer: { hot: 'H', what: 'Shoots ground and air', desc: 'Shoots ground and air, hits flyers hard. What it hits slows down for 3 s. Fragile up close.' },
   medic: { hot: 'M', desc: 'Heals nearby infantry. Unarmed.' },
   observer: { hot: 'S', what: 'Scouts far, unarmed', desc: 'Unarmed. Slow, sees far, floats over cliffs.' },
   siegeTank: { hot: 'A', what: 'Fires cannonballs from afar', desc: 'Sets up where it stops and fires cannonballs far, with splash. Can\'t hit flyers or anything close.' },
   bastion: { hot: 'B', what: 'Shoots down flyers', desc: 'The answer to flyers, and it hits the ground too. Weak against infantry.' },
   rider: { hot: 'E', what: 'Raids workers, fast', desc: 'Fast, raids workers. Faster after Horseshoes. Light armor: falls fast under ranged fire.' },
-  knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Fast and tough in heavy armor, hits hard up close. Can\'t hit flyers.' },
+  knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Fast and tough in heavy armor, hits hard up close. Faster after Horseshoes. Can\'t hit flyers.' },
   // the Expedition (`vael`)
   lumen: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds, staying at each building until it stands, and repairs buildings. Goes anywhere.' },
   scythe: { hot: 'N', what: 'Fast, escorts and defends', desc: 'Fast, with a light gun: catches raiders and escorts. Can\'t hit flyers. Weak against infantry in numbers. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
   prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Cheap and quick to field. Fights up close, ground only. Weak against armor. Takes a hired place. Fights anywhere.' },
   monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Long-range rockets that hit an area. Fires while moving; can\'t hit what is close or flying, and sees no farther than others: it needs spotters. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
-  shrike: { hot: 'E', what: 'Swarms, fast and small', desc: `A small, fast attack drone: weak alone, dangerous in a swarm. Fragile. Hits ground and air. Faster after Overclock. Needs signal: works only inside the Data center's or an Uplink's coverage.` },
+  shrike: { hot: 'E', what: 'Swarms, fast and small', desc: `A small, fast attack drone: weak alone, dangerous in a swarm. Fragile. Hits ground and air. Needs signal: works only inside the Data center's or an Uplink's coverage.` },
   halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
   umbra: { hot: 'U', what: 'Elite, strikes from range', desc: 'Tough and armored, with a long reach; hits ground and air. Costly. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
   bruiser: { hot: 'B', what: 'Holds the front line', desc: 'The toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Takes two hired places. Fights anywhere.' },
@@ -61,7 +61,7 @@ const BLDG_TEXT = {
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
   extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle.' },
   barracks: { hot: 'C', what: 'Trains Guards and Archers', desc: 'Trains Guards and Archers.' },
-  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor, Shield Drill and Master Builders. Unlocks Knights, Cannons and Ballistas.' },
+  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Shield Wall. Unlocks Knights, Cannons and Ballistas.' },
   factory: { hot: 'S', what: 'Builds siege and Balloon', desc: 'Builds Ballistas, Cannons and the Balloon.' },
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
@@ -70,15 +70,15 @@ const BLDG_TEXT = {
   spire: { hot: 'S', what: `Makes +${D.buildings.spire.supply} Power`, desc: `+${D.buildings.spire.supply} Power.` },
   siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: `+${D.buildings.siphon.supply} hired places. Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.` },
   kiln: { hot: 'C', what: 'Builds Buggies and Drones', desc: 'Builds Buggies, and Drones once a Lab stands.' },
-  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor, Overclock and Better drills. Unlocks Drones, Bruisers and the Uplink.' },
+  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Better drills. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
   uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles, and move faster there. Unlocks the Portal.` },
   // (the Portal teleports what it makes: `training`, its word for Training in the panel)
   eclipse: { hot: 'D', what: 'Teleports Rovers, Androids', training: 'Teleporting', desc: 'Teleports Rovers and Androids from the future, while an Uplink stands. Only one.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
-  afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' },
-  drills: { hot: 'D', desc: `Bots carry more gold a trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` } };
+  afterburners: { hot: 'T' }, entrenching: { hot: 'S' },
+  drills: { hot: 'D', desc: `Bots mine more per trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */
@@ -112,7 +112,7 @@ export const ABILITIES = merge(D.abilities, ABILITY_TEXT);
 for (const u of Object.values(UPGRADES)) {
   const who = (k) => Object.values(UNITS).filter(d => (d.abilities || []).includes(k)).map(d => plural(d.name)).join(' and ');
   if (u.effect === 'unlock') u.desc = `Unlocks ${ABILITIES[u.of].name} for ${who(u.of)}.`;
-  if (u.effect === 'speed') u.desc = `${plural(UNITS[u.of].name)} move ${Math.round((TECH_SPEED - 1) * 100)}% faster.`;
+  if (u.effect === 'speed') u.desc = `${u.of.split(',').map(k => plural(UNITS[k].name)).join(' and ')} move faster.`;
   if (u.effect === 'build') u.desc = `Buildings go up ${Math.round((TECH_BUILD - 1) * 100)}% faster, those already rising too.`;
 }
 /** The tech that unlocks ability `k` (its key), or null when none does. */

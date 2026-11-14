@@ -39,7 +39,6 @@ const P = {
   drills: 'M9 2h6v5H9zM7 7h10M9.5 7 12 22l2.5-15M10.2 10.5l3.6 2M10.9 14.5l2.4 1.4', // (a drill bit under its chuck)
   help: 'M12 3a9 9 0 1 0 .01 0M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01',
   horseshoe: ['M4 3h4v8a4 4 0 0 0 8 0V3h4v8a8 8 0 0 1-16 0zM6 6.5h.01M18 6.5h.01M6.8 12h.01M17.2 12h.01', 'M4 3h4v8a4 4 0 0 0 8 0V3h4v8a8 8 0 0 1-16 0z'],
-  bolt: ['M13.5 2 4.5 13.5h7L10 22l9.5-12h-7z', 'M13.5 2 4.5 13.5h7L10 22l9.5-12h-7z'], // (Overclock: a lightning bolt)
 };
 
 // The command card's units and buildings, both peoples, by kind: a symbol each, none like another (test/cards.test.js
@@ -98,7 +97,7 @@ export function setIconButton(el, name, label, alt = '') {
 }
 
 // A tech shows the icon of what it gives.
-Object.assign(P, { afterburners: P.horseshoe, slipstream: P.bolt, rapidConstruction: P.frames, entrenching: P.entrench });
+Object.assign(P, { afterburners: P.horseshoe, entrenching: P.entrench });
 /** Whether `name` has a drawing (test/cards.test.js: every key the command card shows has one). */
 export const hasIcon = (name) => !!P[name];
 /** Whether unit or building kind `kind` has a symbol (test/cards.test.js: every one a card shows). */

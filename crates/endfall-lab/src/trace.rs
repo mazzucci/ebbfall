@@ -112,6 +112,17 @@ pub fn trace(s: &Setup, cap_min: u32, every: u32) -> String {
         },
         w.out
     );
+    // (the style each AI seat drew at its first turn, and its leaning unit: the lab's only, never the player's)
+    let styles: Vec<String> = (0..n as u8)
+        .map(|seat| {
+            format!(
+                "s{seat} {} (leaning {})",
+                w.ai_style(seat).map_or("-", |st| st.name()),
+                w.tuning(seat).focus.map_or("-", |k| k.def().key)
+            )
+        })
+        .collect();
+    let _ = writeln!(out, "styles {}", styles.join(", "));
     out
 }
 

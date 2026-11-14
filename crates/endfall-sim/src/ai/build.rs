@@ -66,14 +66,16 @@ impl World {
     }
 
     /// When seat `e` takes its natural (s): its tuning's `expand_at`, or its people's own (`Diff::expand_at_of`, by its
-    /// headquarters' kind and the map's width).
+    /// headquarters' kind and the map's width), moved by its style (`Diff::expand_shift`; NEVER stays NEVER).
     pub(crate) fn expand_time(&self, e: u8) -> f64 {
         let d = self.tuning(e);
         let hq = self.factions[e as usize].hq;
-        d.expand_at_of
+        let at = d
+            .expand_at_of
             .iter()
             .find(|o| o.0 == hq)
-            .map_or(d.expand_at, |o| if self.map.w <= 96 { o.1 } else { o.2 })
+            .map_or(d.expand_at, |o| if self.map.w <= 96 { o.1 } else { o.2 });
+        if at < NEVER { at + d.expand_shift } else { at }
     }
 
     /// Room out past the main (rings `from` to `ROOM_FAR`): only where a worker can walk from the main (rings that far
@@ -647,6 +649,12 @@ impl World {
             f.worker.def().cost
         } else {
             [0, 0]
+        };
+        // (its natural first, `Diff::natural_first`: the Core's price held from every building but supply)
+        let hold = if d.natural_first && expansion_due && want != Some(f.supply) {
+            [0, 1].map(|i| hold[i] + hq_cost[i])
+        } else {
+            hold
         };
         let placeable = want.filter(|&w| {
             building.len() < d.supply_at_once + 1 // (two at once; three where supply goes up in pairs)

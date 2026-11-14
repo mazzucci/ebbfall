@@ -66,6 +66,9 @@ pub struct World {
     /// Rust, never by the menus, JS or the network, so not hashed. Empty (always, outside the lab): every AI plays its
     /// level. Read through `tuning`.
     pub ai_plans: Vec<Option<Diff>>,
+    /// A seat's AI style in place of the one it draws (`set_ai_styles`): the balance lab's per-style rows, set only from
+    /// Rust, never by the menus, JS or the network, so not hashed. Empty outside the lab: every AI draws its own.
+    pub ai_styles: Vec<Option<Style>>,
     /// Where a Shore reef basin's main field lies (`set_shore_field`): the balance lab's exposed-income variants, set
     /// only from Rust, never by the menus, JS or the network, so not hashed (the map it makes is). `BACK` outside the lab.
     pub shore_field: ShoreField,
@@ -214,6 +217,7 @@ impl World {
             diff,
             diffs: Vec::new(),
             ai_plans: Vec::new(),
+            ai_styles: Vec::new(),
             shore_field: ShoreField::BACK,
             map_kind,
             map_size,
@@ -375,14 +379,30 @@ impl World {
     pub fn diff_of(&self, team: u8) -> usize {
         self.diffs.get(team as usize).copied().unwrap_or(self.diff)
     }
-    /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`). Every AI
-    /// decision reads its numbers here.
+    /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`) as its style
+    /// plays it (`data::style`, drawn at its first turn; before that, its level's own). Every AI decision reads its
+    /// numbers here.
     pub fn tuning(&self, team: u8) -> Diff {
         self.ai_plans
             .get(team as usize)
             .copied()
             .flatten()
+            .or_else(|| self.ai.get(team as usize)?.as_ref()?.tuned)
             .unwrap_or(DIFF[self.diff_of(team)])
+    }
+    /// The style seat `team`'s AI drew (None: not an AI seat, or before its first turn). The balance lab's and the
+    /// tests'; never shown to the player.
+    pub fn ai_style(&self, team: u8) -> Option<Style> {
+        self.ai.get(team as usize)?.as_ref()?.style
+    }
+    /// Force each seat's AI style (None: its own draw; empty: none forced) before play: the balance lab's per-style
+    /// rows. Never from the menus, JS or the network. False (nothing changes) for a list of another length.
+    pub fn set_ai_styles(&mut self, styles: &[Option<Style>]) -> bool {
+        if !styles.is_empty() && styles.len() != self.seats() {
+            return false;
+        }
+        self.ai_styles = styles.to_vec();
+        true
     }
     /// Move a Shore reef basin's main field (the balance lab's exposed-income variants) and start the game again on the
     /// map that makes: call it first, before the seats' levels, plans and AI seats. Nothing else changes; on a map

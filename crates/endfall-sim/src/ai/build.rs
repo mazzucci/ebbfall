@@ -496,6 +496,25 @@ impl World {
         unlocks || techs
     }
 
+    /// Another of its barracks for its line on a grid side (the Expedition's Recruiting post), kept as the hired places
+    /// kept it until Nov 14: a post a `LINE_PER_POST` of its line's grid (six mercenaries), one more when its line has
+    /// run up to its posts' share less its margin (half its level's `supply_ahead`), under its line's maximum
+    /// (`line_max`), with fewer than `supply_at_once` going up. None elsewhere.
+    fn posts_due(&self, e: u8, my_b: &[Id], building: &[BldgKind]) -> Option<BldgKind> {
+        let f = self.factions[e as usize];
+        if !f.grid {
+            return None;
+        }
+        let k = f.ai.rax;
+        let d = self.level();
+        let share = LINE_PER_POST * self.ai_count(my_b, false, k) as i32;
+        let rising = building.iter().filter(|&&b| b == k).count();
+        (share - self.line_used(e) <= self.places(e, d.supply_ahead / 2)
+            && share < self.line_max(e)
+            && rising < d.supply_at_once)
+            .then_some(k)
+    }
+
     /// The build order: one wanted building at a time, placed by a free harvester.
     pub(crate) fn ai_build(&mut self, brain: &mut Brain) {
         let Brain {
@@ -528,11 +547,18 @@ impl World {
                 && self.hq_room(e, m)
         });
         let several = market_ok.is_some_and(|m| m.def().per_hq > 1);
-        let market = market_ok.filter(|_| pumps == 0 || (!several && t > d.vents_from));
-        // (the Expedition's further Wind turbines, five a Data center: after its factories, tech and towers, the
-        // first in the Market's place; at an expansion from `vents_from`)
+        // (the Expedition's Wind turbines, five a Data center, not before its first wave's time, whose army they would
+        // thin (each pays back in about four minutes): the first in the Market's place, the others after its
+        // factories, tech and towers; at an expansion from `vents_from`)
+        let first_wave = self.tuning(e).first;
+        let market = market_ok.filter(|_| {
+            (pumps == 0 && (!several || t > first_wave)) || (!several && t > d.vents_from)
+        });
         let more_turbines = market_ok.filter(|&m| {
-            several && pumps > 0 && (pumps < m.def().per_hq as usize || t > d.vents_from)
+            several
+                && pumps > 0
+                && t > first_wave
+                && (pumps < m.def().per_hq as usize || t > d.vents_from)
         });
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
@@ -550,6 +576,8 @@ impl World {
             Some(f.supply)
         } else if let Some(m) = market {
             Some(m)
+        } else if let Some(k) = self.posts_due(e, &my_b, &building) {
+            Some(k) // (its line's share: another Recruiting post)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {

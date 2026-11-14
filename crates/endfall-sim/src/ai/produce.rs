@@ -262,7 +262,10 @@ impl World {
                 // earlier meanwhile, see `ai_build`)
                 let [used, cap] = self.sup(e);
                 let takes = self.takes(e, u);
-                let elite_room = tech2 == Some(bkind) || cap - used >= takes + reserve;
+                // (the Expedition's mercenaries too: they took hired places of their own until Nov 14, and their share
+                // of the grid has its own cap, `line_max`; held back for the elite, its line starved)
+                let line = self.factions[e as usize].grid && s.rax.def().trains.contains(&u);
+                let elite_room = tech2 == Some(bkind) || line || cap - used >= takes + reserve;
                 let room = Some(u) == scout
                     || (capital_due.is_none_or(|k| cap - used >= takes + self.takes(e, k))
                         && elite_room);

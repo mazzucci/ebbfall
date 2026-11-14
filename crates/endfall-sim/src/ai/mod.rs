@@ -20,6 +20,9 @@ use crate::world::{Phase, Task, World};
 pub(crate) const AI_TURN: u32 = 16;
 /// Free supply below which the specialists' factories train first (produce.rs).
 pub(crate) const SUPPLY_TIGHT: i32 = 8;
+/// The grid of its line a grid side keeps a barracks for (`World::posts_due`): six mercenaries a Recruiting post, the
+/// hired places one gave until Nov 14.
+pub(crate) const LINE_PER_POST: i32 = 12;
 /// The grid a grid side's line (the Expedition's mercenaries) takes at most, the AI's own share of its `GRID_MAX`, by
 /// the map's width: the hired places' maximum before Nov 14 (25, 30 and 35) at two grid a place, so its line and its
 /// machines keep the shares they had. Past it its money goes to its machines.

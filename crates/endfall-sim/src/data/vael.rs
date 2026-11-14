@@ -279,7 +279,7 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 40, // (grid; Power: 20 before the economy's second round)
+    supply: 60, // (grid; Power: 20 before the economy's second round)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],

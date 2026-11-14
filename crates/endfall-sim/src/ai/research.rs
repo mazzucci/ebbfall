@@ -1,6 +1,7 @@
 //! The AI's research, and saving up for it or for an expansion.
 
 use super::*;
+use super::army::CAP_SLACK;
 
 impl World {
     /// Research, and saving up for it or for an expansion (never while threatened, never for long).
@@ -121,6 +122,10 @@ impl World {
             // (not a toggle: the AI never braces a unit, its siege guns anchor by their own rule)
             Effect::Unlock(_) => return false,
             Effect::Speed(units) => &move |k: UnitKind| units.contains(&k),
+            // (Grid efficiency only once its grid is near its maximum: below it a Substation gives more for less)
+            Effect::GridUse => {
+                return self.sup(e)[1] + self.places(e, CAP_SLACK) >= self.sup_max(e);
+            }
             _ => return true,
         };
         my_b.iter()

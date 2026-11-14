@@ -234,10 +234,11 @@ export function veteran(M, f) {
   const [AX, AY, AZ, ARX, ARZ] = [[2.4, 9.8, 4.6, 0.1, 0.5], [0.0, 15.2, 5.0, 0.1, 0.8], [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
   const ax = grp(); ax.position.set(AX, AY, AZ); ax.rotation.set(ARX, 0, ARZ); b.add(ax);
   add(ax, cyl(0.95, 1.05, 13, 8), M.oakPale, 0, 5.0, 0);                                        // the haft (2.7 px wide at zoom 1.0)
-  band(ax, M, 1.15, 4.0, 0, 5.6, 0);                                                             // a team wrap up the haft between ink rings, above the hand (at the grip the hand hid it, and facing east, the shield behind the body, fell under the share's floor)
+  band(ax, M, 1.15, 4.0, 0, pose ? 4.6 : 5.6, 0);                                                // a team wrap up the haft between ink rings, above the hand (at the grip the hand hid it, and facing east, the shield behind the body, fell under the share's floor); in the strike poses a step lower, so bare haft shows between it and the head
   add(ax, rbox(7.0, 4.2, 4.4, 0.6), M.brightSteel, 0.4, 11.0, 0);                                 // the head: one big bright steel block, a hammer's (the art polish; an axe's pale plate until then)
   add(ax, rbox(7.2, 0.4, 4.6, 0.1), M.inkLine, 0.4, 8.85, 0);                                    // an ink line under it
-  add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 8.3, 0);                                            // the eye round the haft
+  if (pose === 0) add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 8.3, 0);                            // the eye round the haft (dark steel, against the pauldron on the march)
+  else add(ax, cyl(1.2, 1.2, 2.0, 8), M.paleSteel, 0, 8.4, 0);                                   // in the strike poses pale and shorter: over open ground the dark eye read as a gap between the wrap and the head, the head detached
   if (pose === 0) { limb(b, [0.6, 11.8, 4.4], [2.2, 9.6, 4.6], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 2.4, 9.4, 4.7); } // the axe arm and gloved hand
   else { limb(b, [0.6, 11.8, 4.4], [AX - 0.2, AY - 0.2, AZ], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, AX, AY - 0.4, AZ + 0.1); }
   if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, rivets on the axe's eye (no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)

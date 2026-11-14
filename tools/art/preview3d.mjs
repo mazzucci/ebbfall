@@ -6,7 +6,8 @@ import { encodePNG } from './png.js';
 import { render3d } from './render3d.mjs';
 const [out = '/tmp/p3d.png', filter = '', scale = '2', seatList = '0,1'] = process.argv.slice(2);
 const all = await render3d(filter), S = +scale, TINTS = all.tints, masks = new Map(all.filter(s => s.name.endsWith('_m')).map(s => [s.name.slice(0, -2), s.img]));
-const cells = all.filter(s => !s.name.endsWith('_m')) // (by name: a strike pose's base is trimmed too).flatMap(s => masks.has(s.name) ? seatList.split(',').map(k => ({ s, k })) : [{ s }]);
+// (masks and bases told apart by name: a strike pose's base is trimmed too)
+const cells = all.filter(s => !s.name.endsWith('_m')).flatMap(s => masks.has(s.name) ? seatList.split(',').map(k => ({ s, k })) : [{ s }]);
 const cols = Math.min(8, cells.length), cw = Math.max(...cells.map(c => c.s.img.w)) + 8, ch = Math.max(...cells.map(c => c.s.img.h)) + 8;
 const W = cols * cw * S, H = Math.ceil(cells.length / cols) * ch * S, data = new Uint8ClampedArray(W * H * 4);
 for (let i = 0; i < W * H; i++) data.set([40, 48, 58, 255], i * 4);

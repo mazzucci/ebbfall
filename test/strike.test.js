@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT } from '../src/client/look.js';
+import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, SLOW, slowTint } from '../src/client/look.js';
+import { fx, burst, partSize, updateFx } from '../src/client/fx.js';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
@@ -79,4 +80,45 @@ test('only machines explode when they fall; fighters turn to dust', () => {
   for (const k of MACHINES) assert.ok(UNITS[k], `${k} is a unit`);
   for (const k of [...STRIKE.kinds, 'lancer', 'harvester', 'halo']) assert.ok(!MACHINES.has(k), `${k} falls as a fighter`);
   for (const k of ['siegeTank', 'bastion', 'scythe', 'monolith', 'shrike', 'lumen', 'umbra']) assert.ok(MACHINES.has(k), `${k} explodes`);
+});
+
+test('a fallen Balloon puffs as canvas up where it flew; fighters turn to dust; machines and buildings explode', () => {
+  assert.equal(deathOf('observer', true), 'air', 'the Balloon');
+  assert.equal(deathOf('shrike', true), 'machine', 'the Drone, a flying machine');
+  assert.equal(deathOf('trooper', false), 'dust');
+  assert.equal(deathOf('siegeTank', false), 'machine');
+  assert.equal(deathOf(null, false), 'machine', 'a building');
+  assert.ok(!MACHINES.has('observer'), 'the Balloon stays out of the machines');
+  assert.equal(AIR_PUFF.tint, 0xe8dcc0, 'canvas, not dust');
+  assert.notEqual(AIR_PUFF.tint, DUST);
+  assert.ok(AIR_PUFF.vy > 0 && AIR_PUFF.lift > 0, 'up where it flew, sinking');
+});
+
+test('slowed: the body tinted cold gray-blue, back to white over the last 1.5 s', () => {
+  assert.equal(slowTint(0), 0xffffff, 'not slowed');
+  assert.equal(slowTint(-0.1), 0xffffff);
+  assert.equal(slowTint(undefined), 0xffffff);
+  assert.equal(slowTint(3), SLOW.tint, 'freshly hit');
+  assert.equal(slowTint(1.5), 0xbcc8d4, 'still full at 1.5 s left');
+  const ch = (c, s) => (c >> s) & 255, half = slowTint(0.75), end = slowTint(0.01);
+  for (const s of [16, 8, 0]) {
+    assert.equal(ch(half, s), Math.round((ch(SLOW.tint, s) + 255) / 2), 'half way back at 0.75 s left');
+    assert.ok(ch(end, s) >= 254, 'nearly white as it wears off');
+  }
+  assert.ok(ch(SLOW.tint, 0) > ch(SLOW.tint, 16), 'cold: bluer than red');
+});
+
+test('a death\'s team debris is thin: a third of the pieces, 1 to 2 px, gone in 0.3 to 0.5 s', () => {
+  fx.list = [];
+  burst(100, 100, '#ff0000', 24);
+  assert.equal(fx.list.length, 8);
+  burst(100, 100, '#ff0000', 10);
+  assert.equal(fx.list.length, 8 + 4);
+  for (const f of fx.list) {
+    assert.ok(f.r >= 1 && f.r <= 2, `size ${f.r}`);
+    assert.ok(f.life >= 0.3 && f.life <= 0.5, `life ${f.life}`);
+    for (const k of [1, 0.5, 0]) assert.ok([1, 2].includes(partSize(f, k)), `drawn 1 or 2 px (${partSize(f, k)})`);
+  }
+  for (let i = 0; i < 20; i++) updateFx(0.03);
+  assert.equal(fx.list.length, 0, 'all gone within 0.6 s');
 });

@@ -183,6 +183,32 @@ test('a unit symbol shows who, an action icon a tool: no unit is drawn like an a
   for (const [n, a] of actions) assert.equal(a.solid, '', `the ${n} icon is a tool, no bust`);
 });
 
+test('Mine shows each people\'s tool on gold: the Kingdom\'s pickaxe, the Expedition\'s drill, neither like Better drills or a unit', { skip }, async () => {
+  const { iconPaths, glyphPaths } = await import('../src/client/icons.js');
+  for (const [race, want] of [['humans', 'gather'], ['vael', 'gatherDrill']]) {
+    E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+    const worker = E.G.units.find(u => u.team === E.G.me && u.type === E.FACTIONS[race].worker);
+    ui.sel = [worker]; ui.mode = null; ui.place = null;
+    assert.equal(C.cardItems().find(i => i.id === 'gather')?.icon, want, `${race}: the worker's Mine button`);
+  }
+  ui.sel = [];
+  const drill = iconPaths('gatherDrill'), pick = iconPaths('gather'), bit = iconPaths('drills');
+  assert.ok(drill.line && drill.line !== pick.line && drill.fill !== pick.fill, 'the drill on gold is not the pickaxe');
+  assert.ok(drill.line !== bit.line && drill.fill !== bit.fill, 'the drill on gold is not Better drills\' bare bit');
+  for (const k of Object.keys(E.UNITS)) {
+    const g = glyphPaths(k);
+    assert.ok(g.line !== drill.line && g.fill !== drill.fill, `${k} is not drawn like the drill on gold`);
+  }
+});
+
+test('the Portal teleports: its lines say so, and only its queue reads Teleporting', { skip }, () => {
+  const p = E.BUILDINGS.eclipse;
+  assert.equal(p.what, 'Teleports Rovers, Androids');
+  assert.match(p.desc, /^Teleports Rovers and Androids from the future/);
+  assert.equal(p.training, 'Teleporting');
+  for (const [k, d] of Object.entries(E.BUILDINGS)) if (k !== 'eclipse' && d.trains?.length) assert.equal(d.training, undefined, `${k} keeps Training`);
+});
+
 test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);

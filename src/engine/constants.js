@@ -73,7 +73,8 @@ const BLDG_TEXT = {
   loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Better drills. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
   uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles, and move faster there. Unlocks the Portal.` },
-  eclipse: { hot: 'D', what: 'Trains Androids and Rovers', desc: 'Trains Androids and Rovers, while an Uplink stands. Only one.' },
+  // (the Portal teleports what it makes: `training`, its word for Training in the panel)
+  eclipse: { hot: 'D', what: 'Teleports Rovers, Androids', training: 'Teleporting', desc: 'Teleports Rovers and Androids from the future, while an Uplink stands. Only one.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, entrenching: { hot: 'S' },

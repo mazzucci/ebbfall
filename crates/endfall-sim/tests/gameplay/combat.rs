@@ -1192,3 +1192,36 @@ fn a_kill_by_a_shell_whose_shooter_died_still_counts() {
         "counted under the Rover"
     );
 }
+
+#[test]
+fn a_landing_shot_says_what_it_was_and_a_fallen_unit_what_it_was() {
+    use endfall_sim::world::Event;
+    // (presentation only: the client draws a rocket's impact as a burst and an arrow's as a glint, a fighter's fall
+    // as dust and a machine's as fire; none of it is in the state hash)
+    let mut w = arena(16);
+    w.factions = vec![&VAEL, &HUMANS];
+    let me = w.make_unit(UnitKind::Monolith, PLAYER, 400.0, 900.0);
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 400.0 + 8.0 * TILE, 900.0);
+    w.hold_unit(foe);
+    w.attack_ent(me, foe);
+    let (mut hit, mut fell) = (None, None);
+    for _ in 0..30 * TPS {
+        w.step();
+        for e in w.events.drain(..) {
+            match e {
+                Event::Hit { shot: Some(s), .. } if hit.is_none() => hit = Some(s),
+                Event::Burst { unit, .. } if fell.is_none() => fell = Some(unit),
+                _ => {}
+            }
+        }
+        if hit.is_some() && fell.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        hit,
+        Some((ProjKind::Missile, UnitKind::Monolith.index(), PLAYER)),
+        "the Rover's rocket landed, named with its shooter and seat"
+    );
+    assert_eq!(fell, Some(Some(UnitKind::Trooper)), "the Guard fell, named");
+}

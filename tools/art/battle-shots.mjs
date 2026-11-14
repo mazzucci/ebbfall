@@ -19,6 +19,9 @@
 //   turbines   the Expedition base with three more Wind turbines by the Core, the camera on them, at zoom 1
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
+//   gunners    Androids and Buggies against a Cannon, Guards and Archers at zoom 1.5 (the rifles' flashes, the impacts)
+//   brawl, brawl-close   the five melee kinds (Guards, Riders, Knights against Sellswords, Bruisers) hand to hand, at
+//              zoom 1 and at 2 (their strike poses); the phone at 3x
 //   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
 // It prints, per shot, what was in flight (the projectiles by shooter) and the units on screen.
 import { mkdirSync } from 'node:fs';
@@ -46,6 +49,11 @@ const SCENES = {
   'mine-swarm': { races: ['vael', 'humans'], swarm: { lumen: 7, shrike: 6 }, zoom: 1 },                                  // (the follow-up to the art polish: a Bot group and a Drone swarm by a mine, the gold beside them)
   turbines: { races: ['vael', 'humans'], base: true, extra: ['spire', 'spire', 'spire'], focus: 'spire', zoom: 1 },        // (the Wind turbine's blades without the blur disc: the base with four turbines by the Core, the camera on them)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
+  // (the strike poses' review: the five melee kinds fighting hand to hand, at zoom 1 and up close; the phone at 3x)
+  brawl: { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 1, phoneDpr: 3 },
+  // (the gunners' shots and impacts: Androids and Buggies against a Cannon with Guards and Archers)
+  gunners: { races: ['humans', 'vael'], armies: [{ siegeTank: 1, trooper: 3, lancer: 3 }, { umbra: 3, scythe: 3 }], fx: ['muzzle'], skip: 1.5, zoom: 1.5, phoneDpr: 3 },
+  'brawl-close': { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 2, phoneDpr: 3 },
 };
 
 /** A single-player game through the menu: your race and the AI's on the board, START; the AI then switched off. */
@@ -167,17 +175,17 @@ async function shoot(name, scene, device, label) {
       else { await page.mouse.move(sx(x0) - 20, sy(y0) - 20); await page.mouse.down(); await page.mouse.move(sx(x1) + 20, sy(y1) + 20, { steps: 6 }); await page.mouse.up(); await page.mouse.move(canvas.x + canvas.width * 0.8, canvas.y + canvas.height * 0.2); }
       await frame(page, 100);
     }
-    if (!scene.base && !scene.swarm) await page.evaluate((s) => endfall.skip(s), scene.skip ?? 2.5);
+    if (!scene.base && !scene.swarm) await page.evaluate((s) => { endfall.skip(s); endfall.G.events.length = 0; }, scene.skip ?? 2.5); // (the skipped seconds' events dropped: each shot shows one instant, not 2.5 s of deaths at once)
     await freeze(page);
     await page.evaluate(([x, y]) => endfall.centerOn(x, y), [at.x, at.y]);
-    // Frame by frame (a tick or so each) until the scene's shots are in flight on the frame drawn: all of them if they
+    // Frame by frame (a tick or so each) until the scene's shots are in flight (and its `fx` effects shown) on the frame drawn: all of them if they
     // come within 150 frames, else the last frame with any
     let k = 0;
     do await frame(page, 34);
-    while (scene.shots && k++ < 150 && !(await page.evaluate((want) => want.every(w => endfall.G.projs.some(p => p.by === w)), scene.shots)));
-    const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0 }));
+    while ((scene.shots || scene.fx) && k++ < 150 && !(await page.evaluate(([want, fx]) => (want ?? []).every(w => endfall.G.projs.some(p => p.by === w)) && (fx ?? []).every(a => endfall.effects().some(e => e.anim === a)), [scene.shots, scene.fx])));
+    const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0, fx: Object.entries(endfall.effects().reduce((n, e) => (n[e.anim] = (n[e.anim] || 0) + 1, n), {})).map(([k, v]) => `${k} ${v}`).join(', ') }));
     await page.screenshot({ path: file });
-    console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
+    console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected; effects shown: ${seen.fx || 'none'}`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
   } finally { await g.ctx.close(); }
 }
 
@@ -186,6 +194,6 @@ try {
   for (const [name, scene] of Object.entries(SCENES)) {
     if (only.length && !only.includes(name)) continue;
     await shoot(name, scene, DESKTOP, 'desktop');
-    await shoot(name, scene, PHONE, 'phone');
+    await shoot(name, scene, scene.phoneDpr ? { ...PHONE, deviceScaleFactor: scene.phoneDpr } : PHONE, 'phone');
   }
 } finally { await stop(); }

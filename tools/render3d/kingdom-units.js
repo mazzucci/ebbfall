@@ -7,7 +7,7 @@
 // surcoat; thin props drawn two to three times their thickness. Same conventions as models.js: game units, units
 // face +x, y up, +z south.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
+import { grp, add, rbox, cyl, sph, plate, limb, toward } from './models.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
 import { tex, figure, pennant } from './kingdom.js';
@@ -116,7 +116,8 @@ export function archer(M, f) {
  *  Knight's is the closed great helm), a team cape at the shoulders, a short spear held up in the right hand point up
  *  (half the lance's length, no pennon) and two javelins in a case by the saddle. From the camera: a slim pale horse
  *  with legs flying, a small pale cap, a short upright bar: quick and light, never the Knight's dark caparisoned
- *  mass under a flag. Frames 0-1 the gallop. */
+ *  mass under a flag. Frames 0-1 the gallop; 2-3 the strike poses (the horse standing, the spear cocked overarm, then
+ *  thrust down: at the spear below). */
 export function rider(M, f) {
   const A = fam(M), g = grp(), st = f % 2 ? -1 : 1;
   const h = grp(); g.add(h);
@@ -128,8 +129,9 @@ export function rider(M, f) {
   for (const z of [-0.9, 0.9]) add(h, cone(0.5, 1.6, 6), M.horseDark, 10.4, 20.4, z);            // ears
   for (let k = 0; k < 5; k++) add(h, rbox(1.3, 1.1, 1.4, 0.4), M.horseDark, 5.6 + k * 1.0, 14.8 + k * 1.2, 0); // the mane
   limb(h, [-8.8, 12.0, 0], [-13.4, 6.0, 0.4], 0.7, M.horseDark);                                 // the tail, flying
-  for (const [x, side, fore] of [[4.4, -1, 1], [4.4, 1, 1], [-5.8, -1, 0], [-5.8, 1, 0]]) {      // the legs: long and thin, a long stride
-    const z = side * 1.8, s = (fore ? 1 : -1) * st * side * 3.4;
+  const pose = f >= 2 ? f - 1 : 0;                                                              // 0 the gallop, 1 the wind-up, 2 the strike (retheme.js STRIKE_POSES)
+  for (const [x, side, fore] of [[4.4, -1, 1], [4.4, 1, 1], [-5.8, -1, 0], [-5.8, 1, 0]]) {      // the legs: long and thin, a long stride; in the strike poses the horse stands square, all four planted
+    const z = side * 1.8, s = pose ? (fore ? 0.6 : -0.6) : (fore ? 1 : -1) * st * side * 3.4;
     limb(h, [x, 9.6, z], [x + s * 0.6, 4.8, z], 1.0, A.horseLight);
     limb(h, [x + s * 0.6, 4.8, z], [x + s * 1.5, 0.9, z], 0.75, A.horseLight);
     add(h, rbox(1.5, 1.0, 1.5, 0.3), M.horseDark, x + s * 1.5, 0.5, z);                          // a hoof
@@ -154,11 +156,16 @@ export function rider(M, f) {
   add(r, lathe([[0, 0], [2.3, 0], [2.4, 0.3], [2.2, 1.6], [1.4, 2.6], [0, 3.0]]), M.steel, 0.1, 8.0, 0); // the open helm: a steel skullcap, pale
   add(r, cyl(2.4, 2.4, 0.35, 16), M.inkLine, 0.1, 7.85, 0);                                    // its rim line over the brow
   add(r, rbox(1.2, 2.0, 0.6, 0.1), M.steel, 2.3, 7.4, 0);                                      // the nasal bar
-  // the short spear in the right hand, held up, point up (half the lance; the Knight's is couched ahead with a pennon)
-  const sp = grp(); sp.position.set(1.6, 4.0, 3.2); sp.rotation.z = -0.35; r.add(sp);
+  // the short spear in the right hand, held up, point up (half the lance; the Knight's is couched ahead with a pennon).
+  // The strike poses (f 2, 3): the wind-up cocks it overarm, the hand raised beside the helm and the spear held level
+  // over the horse's neck, point ahead; the strike throws the arm out and down and drives the point down and ahead at
+  // a man on foot, the head reaching the horse's muzzle. The horse, the rider's body and helm stay where they are.
+  const [PX, PY, PZ, PA] = [[1.6, 4.0, 3.2, -0.35], [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.35)], [3.4, 5.2, 3.4, -(Math.PI / 2 + 0.6)]][pose]; // the hand and the spear's angle from upright (the shaft runs up local y)
+  const sp = grp(); sp.position.set(PX, PY, PZ); sp.rotation.z = PA; r.add(sp);
   add(sp, cyl(1.05, 1.05, 14, 8), M.haft, 0, 3.0, 0);                                           // (2.9 px wide at zoom 1.0 in warm haft brown; 0.8 in dark oak until the legibility pass)
   add(sp, cyl(1.2, 1.2, 1.2, 8), M.steel, 0, 10.2, 0); add(sp, cone(1.4, 4.0, 8), M.steel, 0, 12.8, 0); // the socket and head
-  limb(r, [0, 6, 2.8], [1.6, 4.6, 3.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 1.6, 4.4, 3.3); // the spear arm, a team sleeve
+  if (pose === 0) { limb(r, [0, 6, 2.8], [1.6, 4.6, 3.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 1.6, 4.4, 3.3); } // the spear arm, a team sleeve
+  else { limb(r, [0, 6, 2.8], [PX, PY, PZ], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, PX, PY, PZ + 0.1); }
   limb(r, [0, 6, -2.8], [3.0, 5.0, -1.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 3.2, 5.0, -1.0); // the rein hand
   limb(h, [3.4, 15.6, -1.0], [12.6, 17.6, -0.6], 0.3, M.leather);                                 // the rein
   if (M.polish) { // secondary detail (the polish pass): the bridle (a noseband and headstall) and the second rein, a girth over the flaps, a crupper to the rump, a belt buckle, ink cuffs, leather bindings on the spear
@@ -168,7 +175,8 @@ export function rider(M, f) {
     add(h, rbox(1.2, 5.8, 5.9, 0.2), M.leather, 0.3, 11.3, 0);                                       // the girth, over the flaps
     limb(h, [-2.2, 14.8, 0], [-7.0, 14.3, 0], 0.3, M.leather);                                       // the crupper
     add(r, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.3, 1.8, 0);
-    add(r, sph(1.1, 8, 6), M.inkLine, 1.36, 4.81, 3.14); add(r, sph(1.1, 8, 6), M.inkLine, 2.55, 5.15, -1.44);
+    if (pose === 0) add(r, sph(1.1, 8, 6), M.inkLine, 1.36, 4.81, 3.14); else add(r, sph(1.1, 8, 6), M.inkLine, ...toward([PX, PY, PZ + 0.1], [0, 6, 2.8], 0.5)); // the spear hand's cuff follows the hand
+    add(r, sph(1.1, 8, 6), M.inkLine, 2.55, 5.15, -1.44);
     add(sp, cyl(1.2, 1.2, 2.0, 8), M.leather, 0, 8.4, 0); add(sp, cyl(1.2, 1.2, 2.4, 8), M.leather, 0, 1.8, 0);
   }
   return g;

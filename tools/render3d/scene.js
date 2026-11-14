@@ -66,7 +66,7 @@ const octx = out.getContext('2d', { willReadFrequently: true });
  * `polish`: the re-theme's polished finish (polish.js: a depth pass, ambient occlusion, lit edges, a soft contact
  * shadow, lighter ink, finer banding) instead of `finish`; the atlas's re-themed models pass it, the old ones do not.
  */
-export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, sunDir = SUN_OUT, polish = false }) {
+export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask = false, elev = ELEV, sun: sunUp = SUN_UP, sunDir = SUN_OUT, polish = false, shadowR }) {
   scene.add(obj);
   obj.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = !o.userData.noReceive; } }); // (`noShadow`: a raised part whose shadow would stretch the sprite's, Harbour infantry's harpoon; `noReceive`: a surface at a grazing angle to the sun, which the shadow map stripes: the Uplink's bowl)
   catcher.visible = shadow;
@@ -77,7 +77,7 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
   camera.lookAt(gx, 0, gz);
   camera.updateProjectionMatrix();
   sun.target.position.set(gx, 0, gz); sun.position.set(gx + sunDir[0], sunUp, gz + sunDir[1]);
-  const r = Math.max(w, h) / S;
+  const r = shadowR ?? Math.max(w, h) / S; // (`shadowR`: the shadow map's reach, ground units, when a larger cell must cast the shadow its body casts in a smaller one: a strike pose's)
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1200 });
   sun.shadow.camera.updateProjectionMatrix();
   renderer.setSize(w * SS, h * SS, false);

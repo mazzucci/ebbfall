@@ -247,11 +247,11 @@ export function effectSprites() {
   return out;
 }
 
-/** The atlas's effects (generate.mjs): effectSprites under the names the renderer asks for. The muzzle flash is left
- *  out: nothing draws one yet. */
+/** The atlas's effects (generate.mjs): effectSprites under the names the renderer asks for (the muzzle flash: the
+ *  rifles', gl/render.js muzzleFlash). */
 const ATLAS_NAMES = [[/^rt_arrow$/, 'arrow'], [/^rt_bolt$/, 'ballista_bolt'], [/^rt_cannonball$/, 'cannonball'], [/^rt_tracer$/, 'tracer'], [/^rt_dart$/, 'dart'],
   [/^rt_tower_shot$/, 'tower_shot'], [/^rt_rocket$/, 'rocket'], [/^rt_hit_/, 'flash_'], [/^rt_puff_/, 'puff_'], [/^rt_trail_/, 'trail_'],
-  [/^rt_boom_small_/, 'boom_small_'], [/^rt_boom_/, 'boom_big_'], [/^rt_spark_/, 'spark_'], [/^rt_glint_/, 'glint_'], [/^rt_worn_/, 'worn_']];
+  [/^rt_boom_small_/, 'boom_small_'], [/^rt_boom_/, 'boom_big_'], [/^rt_spark_/, 'spark_'], [/^rt_glint_/, 'glint_'], [/^rt_muzzle_/, 'muzzle_'], [/^rt_worn_/, 'worn_']];
 export function atlasEffects() {
   const out = [];
   for (const s of effectSprites()) { const hit = ATLAS_NAMES.find(([re]) => re.test(s.name)); if (hit) out.push({ ...s, name: s.name.replace(hit[0], hit[1]) }); }

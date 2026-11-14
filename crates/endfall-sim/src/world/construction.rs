@@ -76,6 +76,7 @@ impl World {
                 x: ux + (bx - ux) * k,
                 y: uy + (by - uy) * k,
                 big: false,
+                shot: None,
             });
         }
         if full {

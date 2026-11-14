@@ -301,8 +301,8 @@ src/client/           everything that touches the browser
                       the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
-                      gunners' muzzle flash (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
-                      (`meleeHit`); a melee unit's strike poses in a fight (look.js `strikePose`);
+                      rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
+                      (`meleeHit`), each shot's impact (`impactFx`), a fighter falling into dust and a machine exploding (`boom`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
@@ -411,7 +411,7 @@ src/client/           everything that touches the browser
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
                       swirl brightening each time a unit comes through, then settling, `portalOpen`),
                       a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`) and flash (`MUZZLE_FLASH`), a melee
-                      blow's dust (`MELEE_PUFF`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
+                      blow's dust (`MELEE_PUFF`, earth-tinted: `DUST`), each shot's impact (`IMPACT`, `impactOf`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)

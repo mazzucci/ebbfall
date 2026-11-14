@@ -6,7 +6,7 @@ import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphic
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx } from '../fx.js';
-import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, MACHINES, DUST, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
@@ -483,7 +483,7 @@ const effects = [];
  *  `fade`: its opacity at the start, falling to nothing over its life (a trail's puffs overlap into one soft streak). */
 export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;
-  const s = new Sprite(frames[0]); s.anchor.set(0.5); s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
+  const s = new Sprite(frames[0]); s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base) s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
   if (o.fade) s.alpha = o.fade;
   L.fx.addChild(s);
   const e = { s, frames, anim, x, y, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
@@ -492,10 +492,13 @@ export function addEffect(anim, x, y, o = {}) {
 }
 /** The effects alive now, each with its animation and where it was spawned (world px): read-only, for the tests. */
 export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y }));
-/** A unit or building died: explosion sized to it, debris, a scorch mark, and a shake and rubble (its people's: `race`) for big ones. */
-export function boom(x, y, r, race) {
+/** A unit or building died (`unit`: the unit's kind, null for a building). A fighter falls into a puff of earth-colored
+ *  dust (look.js MACHINES: every unit not a machine; no fire, no light, no scorch); a machine and a building explode,
+ *  sized to them, with debris, a scorch mark, and a shake and rubble (its people's: `race`) for big ones. */
+export function boom(x, y, r, race, unit = null) {
+  if (unit && !MACHINES.has(unit)) { addEffect('puff', x, y - 4, { vy: -10, life: 0.8, scale: 1.3, tint: DUST, fade: 0.85 }); return; }
   const big = r >= 20;
-  addEffect(big ? 'boom_big' : 'boom_small', x, y, { light: 0xff9a3a, lightScale: big ? 2.4 : 1.1, life: big ? 0.7 : 0.45, scale: big ? Math.min(2, r / 28) : 1 });
+  addEffect(big ? 'boom_big' : 'boom_small', x, y, { light: 0xff9a3a, lightScale: big ? 2.4 : 0.7, life: big ? 0.7 : 0.4, scale: big ? Math.min(2, r / 28) : 1 });
   for (let i = 0; i < (big ? 10 : 4); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
   const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24); scorch.position.set(x, y + 2); L.decals.addChild(scorch);
   decals.push({ s: scorch, t: 0, life: 25 });
@@ -517,10 +520,10 @@ export function muzzleFx(x, y, face, size = 1) {
   addEffect('puff', mx, my, { vx: Math.cos(face) * 30, vy: Math.sin(face) * 20 - 12, life: 0.9, scale: size, fade: 0.9 });
   addEffect('flash', mx, my, { life: 0.12, light: 0xffc070, lightScale: 0.5, scale: 0.6 });
 }
-/** A shot's flash at a gun's mouth (look.js MUZZLE_FLASH: `fwd` px ahead of the ground point (x, y) along `face`,
+/** A rifle's flash at its mouth, a pale cone turned along the aim (look.js MUZZLE_FLASH: `fwd` px ahead of the ground point (x, y) along `face`,
  *  radians, the ground's depth as the camera sees it, and `up` px above it), brief, with a warm light. */
 export function muzzleFlash(x, y, face, { fwd, up, scale }) {
-  addEffect('flash', x + Math.cos(face) * fwd, y + Math.sin(face) * fwd - up, { life: 0.09, light: 0xffd080, lightScale: 0.35, scale });
+  addEffect('muzzle', x + Math.cos(face) * fwd, y + Math.sin(face) * fwd - up, { rot: face, anchor: [0.07, 0.5], life: 0.08, tint: 0xfff2cc, light: 0xffe8b0, lightScale: 0.25, scale });
 }
 /** A melee blow lands on `t`: a glint of steel on it, at the point of it nearest the striker `u` (a unit's body half way up
  *  its drawn height, a building's nearest wall), and with `puff` (look.js MELEE_PUFF) dust kicked up at its feet. */
@@ -529,9 +532,16 @@ export function meleeHit(u, t, puff) {
   if (t.kind === 'bldg') { x = Math.min(Math.max(u.x, t.tx * TILE + 4), (t.tx + t.w) * TILE - 4); y = Math.min(Math.max(u.y, t.ty * TILE + 4), (t.ty + t.h) * TILE - 4); }
   const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * 0.5, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
   addEffect('glint', x + dx / d * k, y + dy / d * k - lift, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 }); // (steel's glint: small and pale; fire is the gunpowder's)
-  if (puff) addEffect('puff', x + dx / d * k, y + 2, { vx: -dx / d * 12, vy: -6, life: 0.55, scale: puff, fade: 0.75 });
+  if (puff) addEffect('puff', x + dx / d * k, y + 2, { vx: -dx / d * 12, vy: -6, life: 0.55, scale: puff, fade: 0.75, tint: DUST });
 }
-export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
+/** A shot lands at (x, y), its look by `how` (look.js impactOf): steel's glint (an arrow, a bolt, a dart), a spark
+ *  (a tracer, the tower's shot), the cannonball's and the rocket's burst, or a repairer's welding spark. */
+export function impactFx(x, y, how) {
+  if (how === 'glint') addEffect('glint', x, y, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 });
+  else if (how === 'shell' || how === 'rocket') addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.5, life: 0.35, scale: how === 'shell' ? 0.7 : 0.6 });
+  else if (how === 'spark') addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.2 });
+  else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); // (welding)
+}
 const decals = [];
 
 function updateEffects(dt) {

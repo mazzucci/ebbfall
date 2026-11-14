@@ -92,11 +92,23 @@ export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research))
 
 /** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
 export const MUZZLE_SMOKE = { siegeTank: 1.4 };
+/** A shot's impact by its sprite (`shotArt`): the arrows, the ballista bolt and the Drone's dart glint on steel; the
+ *  tracers and the tower's shot spark; the cannonball and the rocket burst (`shell`, `rocket`: the only fire, with a
+ *  dying machine's). A repairer's welding (no shot) sparks too. */
+export const IMPACT = { arrow: 'glint', ballista_bolt: 'glint', dart: 'glint', tracer: 'spark', tower_shot: 'spark', cannonball: 'shell', rocket: 'rocket' };
+/** The impact of a `hit` event (src/engine/core.js gives it the shot's `proj`, its shooter's kind `by` and `people`). */
+export const impactOf = (e) => (e.proj ? IMPACT[shotArt(e.by, e.proj, e.people)] ?? 'spark' : 'weld');
+/** The units that fall as machines (a small explosion and its light); every other unit falls as a fighter, into a
+ *  puff of earth-colored dust (no fire, no scorch). */
+export const MACHINES = new Set(['siegeTank', 'bastion', 'scythe', 'monolith', 'shrike', 'lumen', 'umbra']);
+/** The dust's tint: earth, so a melee blow's puff or a fallen fighter reads as dust, not smoke. */
+export const DUST = 0xd8c49a;
 /** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
  *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
  *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel
- *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big. */
-export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.45 }, scythe: { fwd: 6, up: 22, scale: 0.5 }, ward: { fwd: 42, up: 23, scale: 0.7 } };
+ *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
+ *  rifle's cone (`muzzle`, pale, turned to the aim) on every shot. No flash for the Drone. */
+export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 42, up: 23, scale: 0.85 } };
 /** A melee blow landing (a `fire` event at a melee shooter): a glint of steel at its target (glint_f: small and pale, the fiery spark being the gunpowder's), and for the heavy hitters (the
  *  Knight's lance, the Bruiser's hammer) a small puff of dust there too, of this size. */
 export const MELEE_PUFF = { knight: 0.75, bruiser: 0.65 };

@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF } from '../src/client/look.js';
+import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT } from '../src/client/look.js';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
@@ -61,4 +61,22 @@ test('every melee fighter has its two strike frames in all facings, each with it
 test('the muzzle flashes and the melee dust name real shooters', () => {
   for (const k of Object.keys(MUZZLE_FLASH)) assert.ok((UNITS[k] ?? BUILDINGS[k])?.weapon && !(UNITS[k] ?? BUILDINGS[k]).weapon.melee, `${k} shoots`);
   for (const k of Object.keys(MELEE_PUFF)) assert.ok(UNITS[k].weapon.melee, `${k} fights hand to hand`);
+});
+
+test('impacts: steel glints for arrows, bolts and darts, sparks for tracers, fire only for the cannonball and the rocket', () => {
+  const shots = new Set([...Object.values(SHOT_LOOK), ...Object.values(PEOPLE_SHOT).flatMap(Object.values), ...Object.values(TOWER_SHOT)]);
+  for (const s of shots) assert.ok(IMPACT[s], `${s} has an impact`);
+  assert.deepEqual(Object.keys(IMPACT).filter(s => ['shell', 'rocket'].includes(IMPACT[s])).sort(), ['cannonball', 'rocket']);
+  assert.equal(impactOf({ proj: 'missile', by: 'lancer', people: 'humans' }), 'glint', 'an Archer\'s arrow');
+  assert.equal(impactOf({ proj: 'bolt', by: 'umbra', people: 'vael' }), 'spark', 'an Android\'s tracer');
+  assert.equal(impactOf({ proj: 'missile', by: 'monolith', people: 'vael' }), 'rocket', 'a Rover\'s rocket');
+  assert.equal(impactOf({ proj: 'shell', by: 'siegeTank', people: 'humans' }), 'shell', 'a cannonball');
+  assert.equal(impactOf({ proj: 'bolt', by: undefined, people: 'humans' }), 'glint', 'the Watchtower\'s arrow');
+  assert.equal(impactOf({}), 'weld', 'a repairer\'s welding');
+});
+
+test('only machines explode when they fall; fighters turn to dust', () => {
+  for (const k of MACHINES) assert.ok(UNITS[k], `${k} is a unit`);
+  for (const k of [...STRIKE.kinds, 'lancer', 'harvester', 'halo']) assert.ok(!MACHINES.has(k), `${k} falls as a fighter`);
+  for (const k of ['siegeTank', 'bastion', 'scythe', 'monolith', 'shrike', 'lumen', 'umbra']) assert.ok(MACHINES.has(k), `${k} explodes`);
 });

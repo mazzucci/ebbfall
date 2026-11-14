@@ -15,7 +15,7 @@ mod rng;
 pub mod snapshot;
 pub mod world;
 
-use data::{BldgKind, UnitKind};
+use data::{BldgKind, ProjKind, UNIT_KINDS, UnitKind};
 pub use rng::Mulberry32;
 use wasm_bindgen::prelude::*;
 use world::{Command, Event, World};
@@ -739,12 +739,20 @@ fn event_json(e: &Event) -> String {
         Event::Sfx { name, .. } => o("sfx").str("name", name),
         Event::Toast { msg, bad, .. } => o("toast").str("msg", msg).num("bad", bad),
         Event::Ping { x, y, .. } => o("ping").num("x", x).num("y", y),
-        Event::Burst { x, y, r, team, n } => o("burst")
+        Event::Burst {
+            x,
+            y,
+            r,
+            team,
+            n,
+            unit,
+        } => o("burst")
             .num("x", x)
             .num("y", y)
             .num("r", r)
             .num("team", team)
-            .num("n", n),
+            .num("n", n)
+            .num("unit", unit.map_or(-1.0, |k| k.index() as f64)), // (its index in `unitKinds`, -1 for a building)
         Event::Attacked { x, y, building, .. } => o("attacked")
             .num("x", x)
             .num("y", y)
@@ -757,7 +765,33 @@ fn event_json(e: &Event) -> String {
             .num("tx", tx)
             .num("ty", ty)
             .num("mend", mend),
-        Event::Hit { x, y, big } => o("hit").num("x", x).num("y", y).num("big", big),
+        Event::Hit { x, y, big, shot } => {
+            // (the shot: its kind 0 bolt, 1 shell, 2 missile, -1 none; `by` the shooter's unit kind, its index in
+            // `unitKinds`, -1 for a building's or none; `team` its seat, -1 for none)
+            let (kind, by, team) = match shot {
+                Some((k, slot, t)) => (
+                    match k {
+                        ProjKind::Bolt => 0.0,
+                        ProjKind::Shell => 1.0,
+                        ProjKind::Missile => 2.0,
+                    },
+                    if *slot < UNIT_KINDS.len() {
+                        *slot as f64
+                    } else {
+                        -1.0
+                    },
+                    *t as f64,
+                ),
+                None => (-1.0, -1.0, -1.0),
+            };
+            o("hit")
+                .num("x", x)
+                .num("y", y)
+                .num("big", big)
+                .num("kind", kind)
+                .num("by", by)
+                .num("team", team)
+        }
         Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
         Event::Cast { x, y, ability, .. } => {
             o("cast").num("x", x).num("y", y).str("ability", ability)

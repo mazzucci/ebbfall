@@ -1744,7 +1744,7 @@ test('as the Expedition: the top bar shows energy as a bolt and the grid, whole,
   }
 });
 
-test('as the Expedition: a Bot refused on a full grid says so, a Substation built, the Bot trains; Advanced in slot 4; a Wind turbine earns energy', async () => {
+test('as the Expedition: a Bot refused on a full grid says so, a Substation built, the Bot trains; Advanced in slot 4', async () => {
   const d = await newGame(SMALL_PHONE, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
@@ -1774,18 +1774,33 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     await d.pressCard('Build');
     await d.readyCard('Advanced');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Recruiting 0', 'Substation 1', 'Data center 2', 'Sentry mast 3', 'Advanced 4', 'Back 5'], 'Advanced packed into slot 4');
-    // A Wind turbine (on the advanced page, once the Recruiting post stands): it earns energy by itself, and its panel
-    // says so in the Expedition's words.
-    await d.page.keyboard.press('Escape');
-    const turbine = await buildAndFinish(d, 's', 'spire', 3, V);
-    // (its Bot waits beside it: off to the mine first, so the tap picks the turbine)
-    const builder = mine(await d.state(), 'lumen')[3];
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('as the Expedition: a Wind turbine, once a Recruiting post stands, earns energy by itself and says so; five a Data center, a sixth refused', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(3000, 0);
+    await buildAndFinish(d, 'i', 'siphon', 0, V);
+    const turbine = await buildAndFinish(d, 's', 'spire', 1, V);
+    // (its Bot waits beside it: off to the mine first, so the click picks the turbine)
+    const hq = myBldg(await d.state(), 'conflux')[0], builder = mine(await d.state(), 'lumen')[1];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === builder.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(builder.id); }
-    const st = await d.state(), gold = st.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
-    await d.clickWorld(gold.x, gold.y);
+    const gold = (await d.state()).nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
+    await d.rightClickWorld(gold.x, gold.y);
     await d.skip(3);
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id && e.kind === 'bldg'); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); }
-    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Generating energy: 1 every 13.9 s', null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (it reads: ${await d.page.locator('#selSub').textContent()})`); });
+    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Generating energy: 1 every 13.9 s', null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (it reads: ${await d.page.locator('#selSub').textContent()}; selection ${JSON.stringify(await d.selection())})`); });
+    // Four more, then a sixth: refused in the sim's words (the card checks as the sim does), and nothing to place.
+    for (const i of [2, 3, 0, 2]) await buildAndFinish(d, 's', 'spire', i, V);
+    const w = mine(await d.state(), 'lumen')[3];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
+    await d.pressCard('Build'); await d.pressCard('Advanced'); await d.pressCard('Turbine');
+    await d.page.locator('#msg .toast', { hasText: /At most 5 Wind turbines per Data center/ }).waitFor({ timeout: 5000 });
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'no ghost for a sixth');
+    assert.equal((await d.state()).bldgs.filter(b => b.team === 0 && b.type === 'spire').length, 5);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

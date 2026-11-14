@@ -42,7 +42,9 @@ pub fn spot(w: &World, kind: BldgKind) -> (i32, i32) {
 /// A free spot for `kind` in rings around `team`'s core.
 pub fn spot_for(w: &World, team: u8, kind: BldgKind) -> (i32, i32) {
     let (cx, cy) = core(w, team);
-    for r in 3..14 {
+    // (a headquarters farther out: `HQ_SPACING` from the seat's own)
+    let most = if kind.def().hq { 30 } else { 14 };
+    for r in 3..most {
         for a in 0..24 {
             let ang = a as f64 / 24.0 * std::f64::consts::TAU;
             let tx = (cx as f64 + 2.0 + ang.cos() * r as f64 - 1.0).round() as i32;

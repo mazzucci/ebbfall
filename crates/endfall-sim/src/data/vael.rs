@@ -196,8 +196,8 @@ pub(super) const UMBRA: UnitDef = UnitDef {
 };
 /// The Rover: a rocket launcher, the Expedition's artillery, through the Portal beside the Android (the arc, Nov 13):
 /// it fires on the move, splashes, and outranges the towers, but sees no farther than any unit: it needs spotters. A
-/// heavy salvo, slow to reload (PRD: the Expedition runs on energy, Nov 14: about 100 every 3.5 s), priced above the
-/// Android.
+/// heavy salvo, slow to reload (PRD: the Expedition runs on energy, Nov 14: about 100 every 3.5 s; 120 since the
+/// commit-at-tier check), priced above the Android.
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
@@ -211,7 +211,8 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     weapon: Some(Weapon {
         range: 12.0, // (11 for a day, Nov 13; 12 again since: it out-ranges the Cannon, its answer to entrenched siege)
         min_range: 3.0,
-        dmg: 100.0, // (45 before Nov 13, 70 every 2.5 s before Nov 14)
+        dmg: 120.0, // (45 before Nov 13, 70 every 2.5 s before Nov 14, 100 until the commit-at-tier check of Nov 14 found
+        // the Expedition's top tier its weakest layer, against the steady player and the greedy one)
         cd: 3.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 4.0,

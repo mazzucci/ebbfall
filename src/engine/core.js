@@ -132,7 +132,11 @@ function sync() {
   for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], by: UNIT_KEYS[P[o + fp.by]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
 
   const ev = game.drainEvents();
-  if (ev !== '[]') for (const e of JSON.parse(ev)) S.events.push(e);
+  if (ev !== '[]') for (const e of JSON.parse(ev)) {
+    if (e.t === 'burst') e.unit = e.unit >= 0 ? UNIT_KEYS[e.unit] : null; // (what fell: a unit's kind, null for a building)
+    if (e.t === 'hit' && e.kind >= 0) { e.proj = PROJ_KINDS[e.kind]; e.by = UNIT_KEYS[e.by]; e.people = S.factions[e.team]; } // (a shot's impact: its projectile, the shooter's kind (undefined: a building's) and people, for its look)
+    S.events.push(e);
+  }
 }
 const attacks = []; // (units attacking, and their target's id: resolved once every unit is in)
 

@@ -46,7 +46,7 @@ pub fn commit(race: usize, k: usize) -> Diff {
             tech_at: NEVER,
             research_from: NEVER,
             mix_tier: 1,
-            tier_at: &[],
+            tier_at: [NEVER, NEVER],
             air_at: no_stables,
             first: 240.0,
             wave_margin: 1.0,
@@ -58,7 +58,7 @@ pub fn commit(race: usize, k: usize) -> Diff {
         1 => Diff {
             tech_at: 120.0,
             mix_tier: 1,
-            tier_at: &[],
+            tier_at: [NEVER, NEVER],
             air_at: no_stables,
             first: 420.0,
             wave_margin: 1.0,
@@ -75,7 +75,7 @@ pub fn commit(race: usize, k: usize) -> Diff {
             heavy_at: 0.0,
             air_at: 150.0,
             mix_tier: 2,
-            tier_at: &[],
+            tier_at: [NEVER, NEVER],
             mix_over: &[
                 (endfall_sim::data::UnitKind::Knight, 1, 0.0),
                 (endfall_sim::data::UnitKind::SiegeTank, 3, 0.0),
@@ -458,7 +458,7 @@ mod tests {
         assert!(
             commit(1, 1).tech_at < NEVER
                 && commit(1, 1).mix_tier == 1
-                && commit(1, 1).tier_at.is_empty()
+                && commit(1, 1).tier_at == [NEVER, NEVER]
         );
         assert_eq!(commit(0, 1).air_at, NEVER);
         assert_eq!(commit(1, 1).air_at, DIFF[BASE].air_at);

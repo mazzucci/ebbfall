@@ -120,6 +120,10 @@ pub(crate) struct Ai {
     /// game's push (it fights to its last unit).
     pub stall: bool,
     pub push: bool,
+    /// Its style for the game and its tuning played in it (`data::style`), drawn at its first turn (None until then: its
+    /// level's tuning). Never shown to the player.
+    pub style: Option<Style>,
+    pub tuned: Option<Diff>,
 }
 
 impl World {
@@ -262,8 +266,39 @@ impl World {
             stall: false,
             push: false,
             reached: false,
+            style: None,
+            tuned: None,
             sweep: 0,
             sweep_since: 0.0,
+        }
+    }
+
+    /// The style of the seat taking its turn (PRD: AI styles and the level ladder), drawn at its first turn from the
+    /// world's RNG (`data::style::StyleDraws`: six draws, always, in their order; the order is part of the rules), and
+    /// its tuning played in it. A seat the balance lab gave a plan (`set_ai_plans`) plays that plan as it is; a style the
+    /// lab forced (`set_ai_styles`) replaces the drawn one, its other draws kept. Nothing is emitted: the player never
+    /// learns the style.
+    fn draw_style(&mut self) {
+        let e = self.seat();
+        let mut r = [0.0; 6];
+        for v in r.iter_mut() {
+            *v = self.rnd();
+        }
+        let level = self.diff_of(e);
+        let st = self
+            .ai_styles
+            .get(e as usize)
+            .copied()
+            .flatten()
+            .unwrap_or_else(|| style_of(level, r[0]));
+        let mix = self.factions[e as usize].ai.mix;
+        let tuned = styled(DIFF[level], level, st, mix, &StyleDraws(r));
+        let planned = self.ai_plans.get(e as usize).copied().flatten().is_some();
+        let a = self.ai_mut();
+        a.style = Some(st);
+        a.tuned = Some(tuned);
+        if !planned {
+            a.wave = tuned.wave; // (its first wave's size as its style plays it: no wave has gone yet)
         }
     }
 
@@ -348,6 +383,9 @@ impl World {
         }
         a.wait = AI_TURN;
         a.turns += 1;
+        if a.turns == 1 {
+            self.draw_style();
+        }
         self.update_knowledge();
         let (e, t) = (self.seat(), self.time);
         let my_b: Vec<Id> = self

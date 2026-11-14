@@ -2,7 +2,7 @@
 //! natively with a read-only record of what happened, and playing them all on threads in a fixed order.
 
 use endfall_sim::data::Move;
-use endfall_sim::data::{BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
+use endfall_sim::data::{BLDG_KINDS, FACTIONS, Faction, Style, UNIT_KINDS, UnitKind};
 use endfall_sim::map::{Foot, Ground, MapKind, MapSize, ShoreField};
 use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
@@ -243,6 +243,9 @@ pub struct SeatRec {
     pub first_unit: Vec<Option<u32>>,
     /// By building kind index: the tick its first one was finished (None: never; the starting headquarters is not).
     pub first_bldg: Vec<Option<u32>>,
+    /// The style its AI drew and its leaning unit (`World::ai_style`, `Diff::focus`; None: no AI, or a lab plan's seat).
+    pub style: Option<Style>,
+    pub focus: Option<UnitKind>,
 }
 
 /// A seat's economy at one of `ECON_AT`'s minutes.
@@ -552,6 +555,8 @@ impl Tracker {
             }
             let st = &w.stats[s];
             rec.stats = [st.built, st.lost, st.killed, st.razed];
+            rec.style = w.ai_style(s as u8);
+            rec.focus = w.tuning(s as u8).focus;
         }
         self.seats
     }

@@ -373,6 +373,7 @@ impl World {
                 r: u.r,
                 team,
                 n: 10,
+                unit: Some(u.kind),
             });
             self.stats[team as usize].lost += 1;
             let by = by.filter(|&k| self.enemies(k, team));
@@ -410,6 +411,7 @@ impl World {
                 r: b.r,
                 team,
                 n: 24,
+                unit: None,
             });
             if let Some(k) = by.filter(|&k| self.enemies(k, team)) {
                 self.stats[k as usize].razed += 1;
@@ -638,6 +640,7 @@ impl World {
                     x: tp.0,
                     y: tp.1,
                     big: p.kind == ProjKind::Shell,
+                    shot: Some((p.kind, p.by_slot, p.team)),
                 });
                 self.projs.remove(i);
             } else {

@@ -699,9 +699,11 @@ impl World {
         let need =
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
         let held = self.waves_held(t); // (the guided first game: until the player is ready)
-        // (at the cap a wave is as big as it gets: it goes whatever its count; and so does a wave that crushes what the
-        // foe has shown of its army, `crushing`)
-        let short = army.len() < need && !self.at_cap(self.seat()) && !self.crushing(army, need, t);
+        // (at the cap a wave is as big as it gets: it goes whatever its count, at its places' cap or at its level's most
+        // fighters, `army_full`: an Easy army of eight, three of them guards, waited for ever for a wave of six; and so
+        // does a wave that crushes what the foe has shown of its army, `crushing`)
+        let full = self.at_cap(self.seat()) || self.army_full(self.seat());
+        let short = army.len() < need && !full && !self.crushing(army, need, t);
         let short =
             short || (massing && !self.at_cap(self.seat()) && !self.crushing(army, need, t));
         // (the guided first game: its first wave when the guide releases it, `GUIDED_FIRST`)
@@ -1914,8 +1916,8 @@ mod tests {
         // the same against a foe that has just come at its buildings: it fights on, as today
         let (w, _, _) = scene(14, true);
         assert!(w.ai().attacking, "not a passive foe: it fights on");
-        // Easy retreats on contact whatever the foe has done (`retreat_any`: `easy_gives_up_on_contact...`)
-        assert!(DIFF[0].retreat_any && DIFF[0].retreat_below > 0.0);
+        // Easy never retreats (Stelian, Nov 14: `easy_does_not_retreat_its_wave_fights_to_the_last_unit`)
+        assert!(!DIFF[0].retreat_any && DIFF[0].retreat_below == 0.0);
     }
 
     #[test]
@@ -2101,10 +2103,30 @@ mod tests {
     }
 
     #[test]
-    fn easy_gives_up_on_contact_and_its_survivors_go_home() {
-        // Easy is clumsy (Stelian, Nov 13: "it should give up and retreat quickly"): its wave is its four (the rest stay
-        // home), and meeting a defence near its own worth it walks home whatever the foe has done before (no passive
-        // foe needed, `Diff::retreat_any`); against less it fights on.
+    fn at_its_most_fighters_a_wave_goes_whatever_its_count() {
+        // Easy's army cap is drawn as low as 8 (`Diff::army_max`): an army at its cap is as big as it gets, so its wave
+        // goes whatever its count (an army of eight, three of them guards, waited for ever for a wave of six). Ten
+        // Troopers, a wave of twelve wanted: with a cap of 20 it waits; with a cap of 10 it goes, its twelve or what it has.
+        let go = |most: usize| {
+            let plan = Diff {
+                army_max: most,
+                ..DIFF[0]
+            };
+            let (mut w, _, mut b) = ready_with(0, plan);
+            w.ai_mut().wave = 12;
+            b.t = 490.0;
+            w.ai_army(&mut b);
+            w.ai().attacking
+        };
+        assert!(!go(20), "short of its count, room to grow: it waits");
+        assert!(go(10), "at its most: it goes");
+    }
+
+    #[test]
+    fn easy_does_not_retreat_its_wave_fights_to_the_last_unit() {
+        // Easy is clumsy (Stelian, Nov 13): its wave is its four, the rest stay home. It does not retreat (Stelian, Nov
+        // 14: retreat is a strong level's skill): meeting a defence twice its worth it fights on, and with three of its
+        // four fallen the last one fights on too (`Diff::give_up` 0, no `retreat_below`).
         let scene = |enemies: usize| {
             let (mut w, army, mut b) = ready_with(0, DIFF[0]);
             b.t = 490.0; // (past its first wave's 8:00)
@@ -2138,22 +2160,26 @@ mod tests {
         };
         let (w, _, _) = scene(2);
         assert!(w.ai().attacking, "four against two: it fights on");
-        let (w, wave, b) = scene(4);
-        assert!(!w.ai().attacking, "four against four: it gives up");
-        for &a in &wave {
-            assert!(
-                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, b.rally.x, b.rally.y) < 100.0),
-                "home to its rally"
-            );
-        }
-        // Medium does not (it retreats only from a passive foe, `retreat_below`)
-        assert!(!DIFF[1].retreat_any && DIFF[0].retreat_any);
+        let (mut w, wave, mut b) = scene(8);
+        assert!(w.ai().attacking, "four against eight: it fights on");
+        w.units.retain(|u| !wave[..3].contains(&u.id));
+        b.army.retain(|a| !wave[..3].contains(a));
+        b.t = 495.0;
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "one of four left: it fights on");
+        assert!(
+            !matches!(w.u(wave[3]).task, Task::Move { x, y } if crate::jsmath::dist(x, y, b.rally.x, b.rally.y) < 100.0),
+            "not sent home"
+        );
+        // Medium does pull back from a passive foe that outmatches it (`retreat_below`), and below four tenths of a wave
+        assert!(DIFF[1].retreat_below > 0.0 && DIFF[1].give_up == 4);
     }
 
     #[test]
     fn the_tier_rises_with_the_clock_on_easy_and_medium() {
-        // A level's tier (`Diff::tier_at`): Easy its line units from the start, its raiders, siege and Drones from 9:00,
-        // its top tier (the Knight, the Android, the Rover) from 13:00; Medium its top tier from 8:00; Hard everything.
+        // A level's tier (`Diff::tier_at`): Easy its line units from the start, its raiders, siege and Drones from the
+        // time its style draws (10:00 here, its level's own), never its top tier (the Knight, the Android, the Rover) but
+        // in Boom (`top_max`, below); Medium its top tier from 8:00; Hard everything.
         use UnitKind::*;
         let at = |level: usize, t: f64, k: UnitKind| {
             let (mut w, _, _) = ready_with(level, DIFF[level]);
@@ -2161,8 +2187,8 @@ mod tests {
             w.level_allows(k)
         };
         assert!(at(0, 0.0, Trooper) && at(0, 0.0, Prism) && !at(0, 0.0, Umbra));
-        assert!(!at(0, 530.0, Scythe) && at(0, 540.0, Scythe) && at(0, 600.0, SiegeTank));
-        assert!(!at(0, 770.0, Knight) && at(0, 780.0, Knight) && at(0, 780.0, Monolith));
+        assert!(!at(0, 590.0, Scythe) && at(0, 600.0, Scythe) && at(0, 600.0, SiegeTank));
+        assert!(!at(0, 1800.0, Knight) && !at(0, 1800.0, Monolith));
         assert!(
             at(1, 0.0, Scythe)
                 && !at(1, 470.0, Umbra)
@@ -2172,6 +2198,25 @@ mod tests {
         // (Hard, the menus' since Nov 13: its top tier from 6:00; the sim's level 3 from the start)
         assert!(at(2, 0.0, Scythe) && !at(2, 350.0, Knight) && at(2, 360.0, Knight));
         assert!(at(3, 0.0, Knight));
+        // Easy's Boom: its top tier from 15:00, two units of it at most, queued ones counted (`Diff::top_max`).
+        let boom = Diff {
+            tier_at: [600.0, 900.0],
+            top_max: 2,
+            ..DIFF[0]
+        };
+        let (mut w, _, _) = ready_with(0, boom);
+        w.time = 890.0;
+        assert!(!w.level_allows(Knight));
+        w.time = 900.0;
+        assert!(w.level_allows(Knight) && w.level_allows(Rider));
+        w.make_unit(Knight, ENEMY, 800.0, 800.0);
+        let hq = w.bldgs.iter().position(|b| b.team == ENEMY).unwrap();
+        w.bldgs[hq].queue.push(Knight); // (queued: counted, whatever trains it)
+        assert!(
+            !w.level_allows(Knight) && !w.level_allows(Monolith),
+            "two at most"
+        );
+        assert!(w.level_allows(Rider), "its mid tier still");
     }
 
     #[test]
@@ -2476,8 +2521,8 @@ mod tests {
         }
         let d = w.level();
         assert!(
-            d.wave_only && d.retreat_any && d.give_up == 7,
-            "still clumsy past 12:00"
+            d.wave_only && !d.retreat_any && d.give_up == 0,
+            "still clumsy past 12:00, and never retreating"
         );
     }
 

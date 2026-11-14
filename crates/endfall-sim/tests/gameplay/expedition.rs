@@ -411,8 +411,8 @@ fn the_rover_fires_a_heavy_salvo_slowly_and_costs_more_than_the_android() {
     let r = UnitKind::Monolith.def();
     let wp = r.weapon.unwrap();
     assert!(
-        (95.0..=105.0).contains(&wp.dmg),
-        "about 100 a salvo: {}",
+        (115.0..=125.0).contains(&wp.dmg),
+        "about 120 a salvo (100 before Nov 14's commit-at-tier check): {}",
         wp.dmg
     );
     assert!((3.3..=3.7).contains(&wp.cd), "about every 3.5 s: {}", wp.cd);
@@ -667,9 +667,11 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
     // level's Kingdom crushes the Expedition's army before its Portal pays for an Android, here none does; since the
     // Kingdom AI takes its natural later on Medium and Hard (Nov 13) no seed of 1 to 8 had an Android at every level,
     // one level's Kingdom crushing it first: the path tested is the Expedition's own, so the Kingdom only stands)
-    for (diff, level) in DIFF.iter().enumerate() {
+    for diff in 0..DIFF.len() {
         let mut w = World::with_setup(2, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([false, true]);
+        past_first_turns(&mut w); // (its style drawn at its first turn: its tuning as it plays it)
+        let level = &w.tuning(ENEMY);
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
@@ -745,12 +747,15 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
         // (an Android at every level again by 25:00, Nov 13: its Portal holds the price of the elite it trains next, the
         // Android first; Easy's climb brings its top tier from 13:00; but not Easy at its 14 fighters when its Portal
         // stands, as in seed 2's game since its Portal's Uplink stands at home: it trains nothing more)
+        // (and only on a style that reaches the top tier: Easy's Boom alone, from 15:00, Nov 14)
+        let top =
+            level.mix_tier as usize + level.tier_at.iter().filter(|&&t| t < NEVER).count() >= 2;
         let want = [
             diff > 0 || grid_full,
             true,
             true,
             true,
-            !capped_at_portal.1,
+            !capped_at_portal.1 && top,
             true,
         ];
         assert!(
@@ -764,4 +769,42 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
         let t = uplink_at.unwrap_or_else(|| panic!("diff {diff}: no Uplink"));
         assert!(t > 150.0, "diff {diff}: an Uplink at {t:.0} s, not at once");
     }
+}
+
+#[test]
+fn a_rover_salvo_kills_the_guards_it_lands_among() {
+    // The Rover, the Expedition's top tier (550, its salvo 120 every 3.5 s since Nov 14's commit-at-tier check; 100
+    // before): its splash (0.6 of the salvo, 72) now kills the Guards beside the one it hits (60 hp, armor 1), where 100
+    // left them standing at one hp. Inside its Data center's coverage, three Guards clumped nine tiles off, idle.
+    let d = UnitKind::Monolith.def();
+    let wp = d.weapon.unwrap();
+    assert_eq!(
+        (d.cost, wp.dmg, wp.cd, wp.splash),
+        ([550, 0], 120.0, 3.5, 0.6)
+    );
+    let mut w = expedition();
+    w.disable_ai();
+    let (tx, ty) = core(&w, PLAYER);
+    let (x, y) = ((tx as f64 + 2.0) * TILE, (ty as f64 + 6.0) * TILE);
+    let rover = w.make_unit(UnitKind::Monolith, PLAYER, x, y);
+    let guards: Vec<Id> = (0..3)
+        .map(|i| {
+            w.make_unit(
+                UnitKind::Trooper,
+                ENEMY,
+                x + 9.0 * TILE,
+                y + i as f64 * 14.0,
+            )
+        })
+        .collect();
+    for &g in &guards {
+        w.hold_unit(g);
+    }
+    w.attack_ent(rover, guards[1]);
+    // (one salvo: up to its first shot's landing, well short of a second)
+    for _ in 0..(3.0 * TPS as f64) as u32 {
+        w.step();
+    }
+    let left = guards.iter().filter(|&&g| w.unit(g).is_some()).count();
+    assert_eq!(left, 0, "one salvo: the three Guards fall");
 }

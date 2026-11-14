@@ -8,14 +8,14 @@ export const CHECKS = [300, 2700, 9000];
 /** Each: golden.rs's label, the setup (map: index into MapKind::ALL; factions: index into FACTIONS; ai: the seats
  *  the scripted opponent plays; teams and size, when not a duel's) and the hashes at CHECKS. */
 export const GOLDEN = [
-  { name: 'ashen-easy', seed: 4242, diff: 0, map: 0, side: 0, factions: [0, 0], ai: [0, 1], want: [2256848777, 2640241959, 3202712967] },
-  { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [1341728966, 3287371415, 1016181028] },
-  { name: 'cinder-hard', seed: 2077, diff: 2, map: 4, side: 0, factions: [0, 0], ai: [0, 1], want: [2042868486, 194953447, 4031756077] },
-  { name: 'storm-medium', seed: 77, diff: 1, map: 2, side: 0, factions: [0, 0], ai: [0, 1], want: [4208020193, 1244375288, 639574432] },
-  { name: 'vael-player', seed: 4242, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [0, 1], want: [3316038847, 1673711539, 2730937973] },
-  { name: 'vael-ai-vs-human-ai', seed: 77, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [1, 1], want: [172019467, 3504731442, 4157325160] },
-  { name: 'vael-ai-vs-human-ai-shore', seed: 1, diff: 1, map: 6, side: 0, factions: [1, 0], ai: [1, 1], want: [4050937041, 2410434943, 2816713121] },
-  { name: 'teams-2v2-ai', seed: 31, diff: 1, map: 0, side: 0, factions: [0, 1, 0, 1], teams: [0, 0, 1, 1], ai: [1, 1, 1, 1], size: 96, want: [89660928, 1632354811, 485532542] },
+  { name: 'ashen-easy', seed: 4242, diff: 0, map: 0, side: 0, factions: [0, 0], ai: [0, 1], want: [1487824803, 1583768093, 2630337565] },
+  { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [4217339268, 4157029985, 1899503693] },
+  { name: 'cinder-hard', seed: 2077, diff: 2, map: 4, side: 0, factions: [0, 0], ai: [0, 1], want: [1393780712, 2041274309, 2032080279] },
+  { name: 'storm-medium', seed: 77, diff: 1, map: 2, side: 0, factions: [0, 0], ai: [0, 1], want: [2996388811, 2130866881, 3511166913] },
+  { name: 'vael-player', seed: 4242, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [0, 1], want: [1404542621, 3573811457, 1079330746] },
+  { name: 'vael-ai-vs-human-ai', seed: 77, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [1, 1], want: [1357671527, 2372872147, 3883273304] },
+  { name: 'vael-ai-vs-human-ai-shore', seed: 1, diff: 1, map: 6, side: 0, factions: [1, 0], ai: [1, 1], want: [2383085, 1120349639, 3914294870] },
+  { name: 'teams-2v2-ai', seed: 31, diff: 1, map: 0, side: 0, factions: [0, 1, 0, 1], teams: [0, 0, 1, 1], ai: [1, 1, 1, 1], size: 96, want: [939428472, 2331441675, 1231469759] },
 ];
 
 /** Play golden game `g` on `sim` (the WASM module's exports) and return its hashes at CHECKS. `slice(ticks)` is

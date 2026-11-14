@@ -76,10 +76,10 @@ pub struct Diff {
     /// Retreat on contact: a wave whose worth is under this many times what it sees of the enemy's armed units and
     /// working towers near it pulls back to its rally, where its reserve and towers meet the chasers (0: never).
     pub retreat_below: f64,
-    /// Clumsy waves (Easy; Stelian, Nov 13: "first attack only with 3-4 units; it should give up and retreat
-    /// quickly"): `wave_only` sends just its wave's size (`wave`, growing by `wave_grow`), the rest staying home;
-    /// `retreat_any` pulls a wave back when outmatched (`retreat_below`) whatever the foe has done; and a wave pulls
-    /// back once fewer than `give_up` tenths of it are left (4 on every level but Easy's 7).
+    /// Clumsy waves (Easy; Stelian, Nov 13: "first attack only with 3-4 units"): `wave_only` sends just its wave's size
+    /// (`wave`, growing by `wave_grow`), the rest staying home; `retreat_any` pulls a wave back when outmatched
+    /// (`retreat_below`) whatever the foe has done (no level since Nov 14); and a wave pulls back once fewer than
+    /// `give_up` tenths of it are left (4 on every level but Easy's 0: Easy does not retreat, Stelian, Nov 14).
     pub wave_only: bool,
     pub retreat_any: bool,
     pub give_up: usize,
@@ -90,17 +90,31 @@ pub struct Diff {
     /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
     pub clumsy_until: f64,
     /// The most fighters it holds, home and out (armed units, workers left out; queued ones counted), by units: 0 for no
-    /// cap. Easy's 14 (the PM, Nov 13): its army stops growing there and its gold banks; ending an Easy game is the
-    /// player's job.
+    /// cap. Easy's 14 (the PM, Nov 13), its style's draw since Nov 14, 8 to 14 a game (`style`; Stelian: "an easy player
+    /// might only make a handful of units"): its army stops growing there and its gold banks; ending an Easy game is
+    /// the player's job.
     pub army_max: usize,
     /// The most advanced units it trains from the start (`UnitKind::ai_tier`): 0 its line units and the scout (Easy),
     /// 1 its raiders, the Cannon, the Ballista and the Drone too (Medium and Hard), 2 everything (the sim's level 3).
     pub mix_tier: u8,
-    /// The game times (s) from which its tier rises by one each, above `mix_tier` (Stelian, Nov 13: a slow tech climb,
-    /// "our whole story about the Expedition is to get to the machines"): Easy climbs the whole ladder late and slowly,
-    /// its raiders, siege and Drones from 9:00 and its top tier from 13:00; Medium its top tier from 8:00, Hard from 6:00.
-    /// The sim's level 3: none.
-    pub tier_at: &'static [f64],
+    /// The game times (s) from which its tier rises by one each, above `mix_tier` (NEVER: it does not; Stelian, Nov 13:
+    /// a slow tech climb, "our whole story about the Expedition is to get to the machines"): Easy to the mid tier only,
+    /// its raiders, siege and Drones at a time its style draws between 10:00 and 13:00 (`style`); Medium its top tier
+    /// from 8:00, Hard from 6:00. The sim's level 3: none.
+    pub tier_at: [f64; 2],
+    /// The most top-tier units (`UnitKind::ai_tier` 2) it holds, queued ones counted: 0 for no cap. Easy's Boom draws
+    /// one or two, from 15:00 (Stelian, Nov 14: a few at most, late, as part of the draw).
+    pub top_max: usize,
+    /// Its leaning unit (`style`): one of its race's mix entries (`AiScript::mix`) it fields more of, its ratio to the
+    /// line at two thirds (one per four line units becomes one per three). None: none.
+    pub focus: Option<super::UnitKind>,
+    /// Seconds added to the time it takes its natural (`World::expand_time`; its style's: Boom's sooner, Pressure's
+    /// later).
+    pub expand_shift: f64,
+    /// Its natural before its buildings (Boom's, `style`): while the natural is due, a building but supply waits until
+    /// the bank pays for both (its buildings otherwise spent every coin first each turn, and the natural came when the
+    /// build order ran dry, whatever its time).
+    pub natural_first: bool,
     /// Entries of a race's mix (`AiScript::mix`: kind, one per that many line units, from that many seconds) this level
     /// plays differently, matched by kind (Brutal: the Kingdom's Cannons sooner and more of them). A kind of the
     /// other race leaves that race's mix as it is.
@@ -136,13 +150,19 @@ pub struct Diff {
 }
 
 impl Diff {
-    /// A race's mix entry as this level plays it (`mix_over`).
+    /// A race's mix entry as this level plays it (`mix_over`), its leaning unit (`focus`) at two thirds of its ratio.
     pub fn mix_entry(&self, entry: (super::UnitKind, usize, f64)) -> (super::UnitKind, usize, f64) {
-        self.mix_over
+        let (k, per, from) = self
+            .mix_over
             .iter()
             .copied()
             .find(|o| o.0 == entry.0)
-            .unwrap_or(entry)
+            .unwrap_or(entry);
+        if self.focus == Some(k) {
+            (k, (per * 2).div_ceil(3).max(1), from)
+        } else {
+            (k, per, from)
+        }
     }
 }
 
@@ -203,14 +223,21 @@ pub const DIFF: [Diff; 4] = [
         passive_expand: NEVER,
         max_bases: 2,
         reserve: 0.0,
-        retreat_below: 1.2, // (it gives up on contact with a defence near its own worth)
+        // (no retreat, Stelian, Nov 14: in every game studied retreat is a strong level's skill, and an Easy that saved
+        // its army was the harder to beat; its waves fight on, clumsily, to the last unit. 1.2, `retreat_any` and 7
+        // before)
+        retreat_below: 0.0,
         wave_only: true,
-        retreat_any: true,
-        give_up: 7,
+        retreat_any: false,
+        give_up: 0,
         clumsy_until: 720.0,
-        army_max: 14,
+        army_max: 14, // (its style draws 8 to 14 a game, `style`)
         mix_tier: 0,
-        tier_at: &[540.0, 780.0],
+        tier_at: [600.0, NEVER], // (the mid tier only; its style draws the time, 10:00 to 13:00, `style`)
+        top_max: 0,
+        focus: None,
+        expand_shift: 0.0,
+        natural_first: false,
         // (an Archer per two Guards, not one: its line meets the Expedition's melee Sellswords alone until 9:00, where the
         // Archers fell first; Medium's Archers stay one a Guard, its answer to the Buggies and Drones that come sooner)
         mix_over: &[(super::UnitKind::Lancer, 2, 0.0)],
@@ -268,7 +295,11 @@ pub const DIFF: [Diff; 4] = [
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 1,
-        tier_at: &[480.0],
+        tier_at: [480.0, NEVER],
+        top_max: 0,
+        focus: None,
+        expand_shift: 0.0,
+        natural_first: false,
         mix_over: &[],
         line_max: 0,
         tech_at: 150.0,
@@ -321,8 +352,12 @@ pub const DIFF: [Diff; 4] = [
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 1,
-        tier_at: &[360.0], // (its top tier from 6:00, Medium's from 8:00: from the start its Expedition saved for its
+        tier_at: [360.0, NEVER], // (its top tier from 6:00, Medium's from 8:00: from the start its Expedition saved for its
         // Portal and had no army until 12:00; the PM, Nov 13)
+        top_max: 0,
+        focus: None,
+        expand_shift: 0.0,
+        natural_first: false,
         mix_over: &[],
         line_max: 0,
         tech_at: 150.0,
@@ -381,7 +416,11 @@ pub const DIFF: [Diff; 4] = [
         mix_tier: 2,
         // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
         // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
-        tier_at: &[],
+        tier_at: [NEVER, NEVER],
+        top_max: 0,
+        focus: None,
+        expand_shift: 0.0,
+        natural_first: false,
         mix_over: &[(super::UnitKind::SiegeTank, 4, 240.0)],
         line_max: 0,
         tech_at: 150.0,

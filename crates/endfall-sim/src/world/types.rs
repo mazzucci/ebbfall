@@ -329,17 +329,24 @@ pub enum Event {
         msg: String,
         bad: bool,
     },
+    /// Something destroyed at (x, y), `r` its size: a unit (`unit`: its kind, for the client to draw a fighter's fall
+    /// apart from a machine's) or a building (None). Presentation only: no event enters the state hash.
     Burst {
         x: f64,
         y: f64,
         r: f64,
         team: u8,
         n: u32,
+        unit: Option<UnitKind>,
     },
+    /// Something struck at (x, y): `big` a shell; `shot` the projectile that landed (its kind, the shooter's kind as
+    /// `Proj::by_slot` has it, usize::MAX for a building's, and its seat), for the client to draw each shot's impact
+    /// its own way; None for a repairer's welding sparks. Presentation only: no event enters the state hash.
     Hit {
         x: f64,
         y: f64,
         big: bool,
+        shot: Option<(ProjKind, usize, u8)>,
     },
     /// A shot: where, the weapon ("bolt", "shell", "missile", "melee") and which seats see it (bit `t` for seat `t`:
     /// their own shots, or the shooter in their sight).

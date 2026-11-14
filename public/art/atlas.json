@@ -47,6 +47,16 @@
    "spark_2",
    "spark_3"
   ],
+  "glint": [
+   "glint_0",
+   "glint_1",
+   "glint_2"
+  ],
+  "muzzle": [
+   "muzzle_0",
+   "muzzle_1",
+   "muzzle_2"
+  ],
   "trail": [
    "trail_0",
    "trail_1",

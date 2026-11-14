@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3244,6 +3244,81 @@ test('every unit and building is drawn twice: its art, then its team mask in its
       assert.equal(l.seat, tints[teams[l.id]], `${l.base}: its seat's colour`);
       assert.equal(l.tint, l.seat, `${l.base}: the mask tinted with it (no effect on)`);
     }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('melee units in a fight show their strike poses, and each blow glints on its target, a heavy one with dust', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
+    // (a Knight against a Bruiser: both melee, both heavy hitters, and long-lived enough for a dozen blows each; they
+    // close on each other by themselves, nothing ordered)
+    const [kn, br] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'knight', x, y), endfall.engine.debugSpawn(1, 'bruiser', x + 40, y)], [x, y]);
+    await d.centerOn(x + 20, y);
+    const pose = (id) => endfall.teamLayers().find(l => l.id === id && l.shown)?.base ?? '';
+    // Fast-forward to a tick just after the Knight's blow lands, then read the very next frame drawn: its strike pose,
+    // the glint on the Bruiser and the dust at its feet (the strike holds 0.15 s, so a slow frame can miss it: a few tries).
+    let seen = null;
+    for (let k = 0; k < 8 && !seen?.pose.endsWith('_strike'); k++) {
+      await d.skip(0.3); // (past this blow's window)
+      seen = await d.eval(([kn, br, src]) => {
+        const pose = (0, eval)(`(${src})`), unit = (id) => endfall.G.units.find(u => u.id === id);
+        for (let t = 0; t < 150; t++) { const u = unit(kn); if (!u || u.cd > u.d.weapon.cd - 1 / 30 - 1e-6) break; endfall.skip(1 / 30); } // (to the tick of its next blow)
+        return new Promise(r => requestAnimationFrame(() => {
+          const b = unit(br);
+          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40 && Math.hypot(e.sx - e.x, e.sy - e.y) < 8).map(e => e.anim) }); // (each drawn where it was spawned, give or take its drift)
+        }));
+      }, [kn, br, pose.toString()]);
+    }
+    assert.match(seen.pose, /^knight_\d+_strike$/, `the Knight's strike pose on the frame after its blow (${seen.pose})`);
+    assert.ok(seen.near.includes('glint'), `a glint of steel on the Bruiser (${seen.near.join(' ')})`);
+    assert.ok(seen.near.includes('puff'), `dust at its feet (${seen.near.join(' ')})`);
+    // Between blows, standing in the fight: the wind-up (on guard), never a walk frame frozen mid-stride.
+    await d.skip(0.4);
+    const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
+    assert.match(between[0], /^knight_\d+_wind$/, `the Knight on guard between blows (${between[0]})`);
+    assert.match(between[1], /^bruiser_\d+_(wind|strike)$/, `the Bruiser in its strike poses too (${between[1]})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('an arrow slows its target: its body tinted a cold gray-blue, its team paint untouched, white again as it wears off', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
+    const [, kn] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'lancer', x, y), endfall.engine.debugSpawn(1, 'knight', x + 110, y)], [x, y]);
+    await d.centerOn(x + 50, y);
+    const layer = (id) => d.eval((id) => endfall.teamLayers().find(l => l.id === id), id);
+    assert.ok(await d.skipUntil((id) => endfall.G.units.find(u => u.id === id)?.slowed > 2.5, kn, { seconds: 15, step: 1 / 30 }), 'an arrow lands on the Knight');
+    const slowed = await layer(kn);
+    assert.equal(slowed.bodyTint, 0xbcc8d4, 'its body cold gray-blue');
+    assert.equal(slowed.tint, slowed.seat, 'its team paint in its seat\'s color');
+    // (the Knight rides the Archer down; then the slow wears off)
+    assert.ok(await d.skipUntil((id) => !(endfall.G.units.find(u => u.id === id)?.slowed > 0), kn, { seconds: 20, step: 0.1 }), 'the slow wears off');
+    assert.equal((await layer(kn)).bodyTint, 0xffffff, 'white again');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball, no dust off the ground', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 120;
+    const ob = await d.eval(([x, y]) => { const ob = endfall.engine.debugSpawn(1, 'observer', x, y); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'lancer', x - 30 + i * 30, y + 70); endfall.engine.debugSetHp(ob, 1); return ob; }, [x, y]);
+    await d.centerOn(x, y);
+    const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.x, u.y, endfall.unitTop('observer')]; }, ob);
+    assert.ok(await d.skipUntil((id) => !endfall.G.units.some(u => u.id === id), ob, { seconds: 10, step: 1 / 30 }), 'the Balloon falls');
+    const fx = await d.eval(([x, y]) => endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120), at);
+    const up = at[1] - at[2] * AIR_PUFF.lift, puffs = fx.filter(e => ['puff', AIR_PUFF.anim].includes(e.anim));
+    const puff = puffs.find(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2);
+    assert.ok(puff, `a puff at its altitude (${JSON.stringify(fx)})`);
+    assert.ok(Math.abs(puff.sx - puff.x) < 2 && puff.sy >= puff.y && puff.sy < puff.y + 20, `drawn there, sinking (${JSON.stringify(puff)})`);
+    assert.equal(puff.anim, AIR_PUFF.anim);
+    assert.equal(puff.tint, 0xe8dcc0, 'pale canvas');
+    assert.equal(puff.scale, AIR_PUFF.scale);
+    assert.ok(!puffs.some(e => e.y > at[1] - 10), 'no dust off the ground');
+    assert.ok(!fx.some(e => e.anim.startsWith('boom')), 'no fireball');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

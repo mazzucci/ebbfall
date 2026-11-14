@@ -6,10 +6,10 @@
 
 use crate::json::Json;
 use crate::minutes::{self, Sample};
-use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_watched};
+use crate::plans::{BASE, PAIRINGS, Played, Seats, play_jobs, play_levels};
 use crate::stats::{median, mmss, wilson};
 use crate::waves::{self, TABLE_HEAD, Wave};
-use endfall_sim::data::{DIFF, Diff, NEVER};
+use endfall_sim::data::{DIFF, Diff, NEVER, Style};
 use endfall_sim::map::MapKind;
 
 const TPS: f64 = 30.0;
@@ -38,8 +38,11 @@ pub struct TurtleBatch {
     pub attacker_income: Option<f64>,
     /// The attacker's `Diff::retreat_below` (None: its level's).
     pub attacker_retreat: Option<f64>,
-    /// The attacker's level (`DIFF`'s index; `BASE`, Medium, by default): its whole tuning, as a plan.
+    /// The attacker's level (`DIFF`'s index; `BASE`, Medium, by default): its whole tuning, played in the style it
+    /// draws (as a plan, without a style, with `attacker_income` or `attacker_retreat`).
     pub attacker_level: usize,
+    /// The attacker's style (`World::set_ai_styles`; None: its own draw): the newcomer check per style.
+    pub attacker_style: Option<Style>,
     /// The weak turtle (`weak_turtle`; the gate's newcomers row): Easy's economy, no expansion.
     pub weak: bool,
 }
@@ -55,6 +58,7 @@ impl TurtleBatch {
             attacker_income: None,
             attacker_retreat: None,
             attacker_level: BASE,
+            attacker_style: None,
             weak: false,
         }
     }
@@ -104,21 +108,33 @@ impl Cell {
         let p = PAIRINGS[self.pairing];
         (p[self.turtle], p[1 - self.turtle])
     }
-    /// Each seat's plan: the turtle's on its seat, plain Medium (no plan) on the other, or Medium with
-    /// `attacker_income` for its income.
+    /// Each seat's plan: the turtle's on its seat; on the other the attacker's level (no plan: it plays its level in
+    /// the style it draws), or its level with `attacker_income` for its income and `attacker_retreat` for its retreat.
     fn plans(&self, b: &TurtleBatch) -> [Option<Diff>; 2] {
         let (raids, attacker_income) = (b.raids, b.attacker_income);
         let mut plans = [None, None];
         plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
         let level = DIFF[b.attacker_level];
-        let changed =
-            attacker_income.is_some() || b.attacker_retreat.is_some() || b.attacker_level != BASE;
+        let changed = attacker_income.is_some() || b.attacker_retreat.is_some();
         plans[1 - self.turtle] = changed.then(|| Diff {
             income: attacker_income.unwrap_or(level.income),
             retreat_below: b.attacker_retreat.unwrap_or(level.retreat_below),
             ..level
         });
         plans
+    }
+    /// Each seat's level, plan and style (`plans::Seats`): the turtle on Medium's level under its plan, the attacker
+    /// on its level, in `attacker_style` if set.
+    fn seats(&self, b: &TurtleBatch) -> Seats {
+        let mut levels = [BASE; 2];
+        levels[1 - self.turtle] = b.attacker_level;
+        let mut styles = [None; 2];
+        styles[1 - self.turtle] = b.attacker_style;
+        Seats {
+            levels,
+            plans: self.plans(b),
+            styles,
+        }
     }
 }
 
@@ -165,12 +181,12 @@ pub fn run(
     let played = play_jobs(
         &cells,
         |c| {
-            play_watched(
+            play_levels(
                 c.map,
                 batch.size,
                 c.pairing,
                 c.map_seed,
-                c.plans(&batch),
+                c.seats(&batch),
                 cap,
                 false,
             )
@@ -471,6 +487,10 @@ impl TurtleRun {
                         "attacker_level",
                         crate::batch::LEVELS[self.batch.attacker_level],
                     )
+                    .with(
+                        "attacker_style",
+                        self.batch.attacker_style.map(|s| s.name()),
+                    )
                     .with("weak", self.batch.weak),
             )
             .with("rows", rows)
@@ -662,7 +682,14 @@ mod tests {
                 attacker_level: 2,
                 ..b.clone()
             };
-            assert_eq!(c.plans(&hard)[1 - c.turtle], Some(DIFF[2]), "against Hard");
+            assert_eq!(c.plans(&hard)[1 - c.turtle], None, "Hard plays its level");
+            assert_eq!(c.seats(&hard).levels[1 - c.turtle], 2);
+            let boom = TurtleBatch {
+                attacker_style: Some(Style::Boom),
+                ..hard
+            };
+            assert_eq!(c.seats(&boom).styles[1 - c.turtle], Some(Style::Boom));
+            assert_eq!(c.seats(&boom).styles[c.turtle], None);
         }
     }
 
@@ -742,6 +769,7 @@ mod tests {
             attacker_income: None,
             attacker_retreat: None,
             attacker_level: BASE,
+            attacker_style: None,
             weak: false,
         };
         let c = cells(&b);

@@ -9,7 +9,7 @@ use crate::json::Json;
 use crate::model::{self, Fit};
 use crate::stats::{median, mmss, wilson};
 use endfall_sim::Mulberry32;
-use endfall_sim::data::{DIFF, Diff, FACTIONS, NEVER};
+use endfall_sim::data::{DIFF, Diff, FACTIONS, NEVER, Style};
 use endfall_sim::map::{MapKind, MapSize};
 use endfall_sim::world::World;
 use std::sync::Mutex;
@@ -182,6 +182,42 @@ pub fn play_watched(
     Vec<crate::waves::Wave>,
     Vec<[crate::minutes::Sample; 2]>,
 ) {
+    let seats = Seats {
+        levels: [BASE; 2],
+        plans,
+        styles: [None; 2],
+    };
+    play_levels(map, size, pairing, map_seed, seats, cap_min, tide)
+}
+
+/// Each seat's level (`DIFF`'s index), its plan in place of it (None: its level, played in the style it draws), and
+/// the style it is made to play (`World::set_ai_styles`; None: its own draw; a plan's seat plays no style).
+#[derive(Clone, Copy, Debug)]
+pub struct Seats {
+    pub levels: [usize; 2],
+    pub plans: [Option<Diff>; 2],
+    pub styles: [Option<Style>; 2],
+}
+
+/// `play_watched` with each seat's level and style (`Seats`).
+pub fn play_levels(
+    map: MapKind,
+    size: i32,
+    pairing: usize,
+    map_seed: u32,
+    seats: Seats,
+    cap_min: u32,
+    tide: bool,
+) -> (
+    Played,
+    Vec<crate::waves::Wave>,
+    Vec<[crate::minutes::Sample; 2]>,
+) {
+    let Seats {
+        levels,
+        plans,
+        styles,
+    } = seats;
     let pair = PAIRINGS[pairing];
     let mut w = World::with_size(
         map_seed,
@@ -194,8 +230,12 @@ pub fn play_watched(
     if tide {
         w.set_tide(true);
     }
-    assert!(w.set_diffs(&[BASE as u8, BASE as u8]), "per-seat levels");
+    assert!(
+        w.set_diffs(&[levels[0] as u8, levels[1] as u8]),
+        "per-seat levels"
+    );
     assert!(w.set_ai_plans(&plans), "per-seat plans");
+    assert!(w.set_ai_styles(&styles), "per-seat styles");
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     let cap = cap_min * 60 * TPS;
     let (mut watch, mut first) = (crate::waves::Watch::default(), Watcher::default());

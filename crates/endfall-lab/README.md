@@ -92,6 +92,17 @@ What a game records: units trained (not the starting workers) and lost, and buil
 headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
 
+### The AI styles
+
+Each AI seat draws a style at its first turn (PRD: AI styles and the level ladder; `endfall_sim::data::style`):
+Pressure, Timing or Boom, weighted per level (Easy never Pressure), with a leaning unit and, on Easy, its army cap and
+the time it climbs to the mid tier. Each seat's style and leaning unit are in its record (`style`, `focus`). "The AI
+styles" gives, per level, opponent level and style, the seats' wins of the decided games pooled, by size and by people,
+with their games and timeouts. **Style parity** (a target check per level and opponent) PASSes when every style with 10
+decided games or more holds 50% in its interval against its own level, and the pooled rate of that level's seats across
+the levels (not where that rate is under 3% or over 97%). A seat with a lab plan (`plans`, `bets`, `tiers`, the turtle)
+plays its plan, no style.
+
 ### A human's opening
 
 The AIs spend every coin at once, so the gold checks never show what a person feels. `report` also plays a plain
@@ -321,7 +332,8 @@ map. A timeout counts as not lost. The report gives the turtle's loss rate with 
 per pairing, per map and in all, with its wins, the timeouts and the median length of a game it lost. Flags:
 `--seeds N` (25), `--maps` (Shore), `--size 64|96|128` (the maps' size; the Shore is 64x64 only), `--raids` (the
 turtle keeps Medium's raids: `first` = never alone, the PRD's letter), `--weak` (the weak turtle: Easy's economy on one
-base, the newcomer), `--attacker-level` (the attacker's whole tuning; Medium by default), `--cap MIN` (30),
+base, the newcomer), `--attacker-level` (the attacker's level, played in the style it draws; Medium by default),
+`--attacker-style Timing` (the attacker made to play that style: the newcomer check per Easy style), `--cap MIN` (30),
 `--threads N`, `--out FILE`. A turtle that does not lose before the tide is Medium's weakness, not the tide's. "The
 first hit" gives, of each game, when the attacker's first wave arrived, how many games were hit before 8:00, and that
 wave's units (median, most): with `--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when, and with
@@ -332,7 +344,7 @@ how many, a passive newcomer first meets Easy (since Nov 13: no sooner than 7:45
 One game, a line per seat every `--every` seconds (30): its gold, gold mined, workers, finished buildings, army worth
 and units by kind, its AI's wave state (`World::ai_trace`: the wave's count, whether one is out and how much of it
 stands, its last wave, since when the next is ready, the enemy army it expects and when it saw it, its reserve, guards
-and raiders, the enemy siege it saw) and its buildings by kind, then how it ended. For telling a stall (armies idle at
+and raiders, the enemy siege it saw) and its buildings by kind, then how it ended and each seat's style and leaning unit. For telling a stall (armies idle at
 home, a wave stuck, an AI that stops building or attacking) from a grind (waves trading, both rebuilding). Flags:
 `--size` (64), `--map` (Standard), `--races` (one per seat, by name or key: four for four seats), `--levels` (one, or
 one per seat), `--teams 0,0,1,1`, `--seed`, `--side` (the seats' turn on the map, 0), `--cap` (30 min), `--every`.

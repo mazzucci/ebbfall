@@ -15,6 +15,7 @@ pub mod plans;
 pub mod report;
 pub mod sheet;
 pub mod stats;
+pub mod styles;
 pub mod tiers;
 pub mod trace;
 pub mod turtle;

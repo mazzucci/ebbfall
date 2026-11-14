@@ -92,6 +92,43 @@ export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research))
 
 /** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
 export const MUZZLE_SMOKE = { siegeTank: 1.4 };
+/** A shot's impact by its sprite (`shotArt`): the arrows, the ballista bolt and the Drone's dart glint on steel; the
+ *  tracers and the tower's shot spark; the cannonball and the rocket burst (`shell`, `rocket`: the only fire, with a
+ *  dying machine's). A repairer's welding (no shot) sparks too. */
+export const IMPACT = { arrow: 'glint', ballista_bolt: 'glint', dart: 'glint', tracer: 'spark', tower_shot: 'spark', cannonball: 'shell', rocket: 'rocket' };
+/** The impact of a `hit` event (src/engine/core.js gives it the shot's `proj`, its shooter's kind `by` and `people`). */
+export const impactOf = (e) => (e.proj ? IMPACT[shotArt(e.by, e.proj, e.people)] ?? 'spark' : 'weld');
+/** The units that fall as machines (a small explosion and its light); every other unit falls as a fighter, into a
+ *  puff of earth-colored dust (no fire, no scorch), or a flyer into a puff of canvas (AIR_PUFF). */
+export const MACHINES = new Set(['siegeTank', 'bastion', 'scythe', 'monolith', 'shrike', 'lumen', 'umbra']);
+/** The dust's tint: earth, so a melee blow's puff or a fallen fighter reads as dust, not smoke. */
+export const DUST = 0xd8c49a;
+/** A fallen flyer that is no machine (the Balloon): no fireball and no dust off the ground, but a puff of pale canvas
+ *  where it flew, `lift` of its drawn height (render.js unitTop) above its ground point, sinking as it fades. The
+ *  rocket's pale round smoke (`trail`), not the gray `puff`, which under the canvas tint reads as a stone; about as
+ *  wide as the envelope. */
+export const AIR_PUFF = { anim: 'trail', lift: 0.7, tint: 0xe8dcc0, scale: 4.2, life: 1.0, vy: 20, fade: 0.85 };
+/** How a unit of kind `unit` falls (`air`: it flies): 'machine' (it explodes), 'air' (AIR_PUFF) or 'dust' (a
+ *  fighter's puff of earth); a building (`unit` null) explodes as a machine does. */
+export const deathOf = (unit, air) => (!unit || MACHINES.has(unit) ? 'machine' : air ? 'air' : 'dust');
+/** Slowed (an Archer's arrow, `u.slowed` s left): the unit's body (not its team paint) tinted a cold gray-blue, back
+ *  to white over the last `fade` s. */
+export const SLOW = { tint: 0xbcc8d4, fade: 1.5 };
+/** The body's tint for `slowed` s of slow left (0: none, white). */
+export function slowTint(slowed) {
+  if (!(slowed > 0)) return 0xffffff;
+  const k = Math.min(1, slowed / SLOW.fade), ch = (s) => Math.round(255 + (((SLOW.tint >> s) & 255) - 255) * k);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+/** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
+ *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
+ *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel
+ *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
+ *  rifle's cone (`muzzle`, pale, turned to the aim) on every shot. No flash for the Drone. */
+export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 42, up: 23, scale: 0.85 } };
+/** A melee blow landing (a `fire` event at a melee shooter): a glint of steel at its target (glint_f: small and pale, the fiery spark being the gunpowder's), and for the heavy hitters (the
+ *  Knight's lance, the Bruiser's hammer) a small puff of dust there too, of this size. */
+export const MELEE_PUFF = { knight: 0.75, bruiser: 0.65 };
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */
 export const SHOT_TRAIL = { rocket: 'trail' };
 /** The shots that carry a light of their own (a small warm glow under them): the tracers, the tower's shot, the rocket's flame. */
@@ -107,3 +144,35 @@ export const UNIT_FPS = { observer: 0 };
  *  frames rolling, half set, set up: the barrel raised, rolled back on its wheels (tools/render3d/kingdom-units.js `cannon`). The Guard (trooper) has no such pose: braced, it
  *  stands. */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };
+/** The melee units' strike poses (tools/render3d: `<kind>_<dir>_wind` and `<kind>_<dir>_strike`, 16 facings, not in
+ *  the walk animation): only the weapon arm moves, the feet planted, the body and the anchor where they stand. The
+ *  strike (the weapon thrust or chopped) shows for `HOLD` s after the blow, when the cooldown starts again; the
+ *  wind-up (the weapon drawn back or raised) whenever the unit stands with its target in reach otherwise: as the next
+ *  blow nears, and on guard between blows (two frames, so the wait is the wind-up held: a fighter never stands frozen
+ *  mid-stride). */
+export const STRIKE = { kinds: new Set(['trooper', 'rider', 'knight', 'prism', 'bruiser']), HOLD: 0.15 };
+/** The edge distance from (x, y) to `t` (a unit: its center less its radius; a building: the nearest point of its
+ *  footprint), in world px: the sim's `Geo::edge_dist`. */
+function edgeDist(x, y, t) {
+  if (t.kind !== 'bldg') return Math.hypot(t.x - x, t.y - y) - t.r;
+  const cx = Math.min(Math.max(x, t.tx * 32), (t.tx + t.w) * 32), cy = Math.min(Math.max(y, t.ty * 32), (t.ty + t.h) * 32);
+  return Math.hypot(cx - x, cy - y);
+}
+/** Whether melee unit `u` has its target in reach (the sim's: its range in tiles plus half its radius, from the
+ *  target's edge; a little slack for the frames between ticks). */
+export function inReach(u, t = u.task?.target) {
+  const w = u.d?.weapon;
+  return !!(w && t && !t.dead && edgeDist(u.x, u.y, t) <= w.range * 32 + u.r * 0.5 + 2);
+}
+/** The strike pose a unit shows now ('wind', 'strike' or null: its walk or toggle), from the client's mirror: its
+ *  cooldown `u.cd` (s; the sim sets it to the weapon's `cd` as the blow lands and counts it down, past zero while
+ *  nothing is fought) and its target (`u.task.target`). Not whether it moves: with its target in reach a fighter
+ *  stands (the sim's `approach` stops it there), and what moves it then is the crowd's shove, which must not flash
+ *  the walk's stride. */
+export function strikePose(u) {
+  if (!STRIKE.kinds.has(u.type) || u.inside) return null;
+  const cd = u.d?.weapon?.cd; if (!cd) return null;
+  if (u.cd > cd - STRIKE.HOLD) return 'strike'; // (the blow just landed)
+  if (!inReach(u)) return null;
+  return 'wind'; // (the blow coming, or on guard till then)
+}

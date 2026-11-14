@@ -383,3 +383,12 @@ pub fn make_room(w: &mut World, team: u8, room: i32) {
         w.recalc_supply(team);
     }
 }
+
+/// Step past every AI seat's first turn (each within two `AI_TURN`s of the start), where it draws its style
+/// (`World::ai_style`): its tuning is then the one it plays by (`World::tuning`).
+pub fn past_first_turns(w: &mut World) {
+    for _ in 0..32 {
+        w.step();
+        w.events.clear();
+    }
+}

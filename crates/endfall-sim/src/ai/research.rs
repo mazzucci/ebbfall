@@ -16,7 +16,7 @@ impl World {
             dry,
             ..
         } = brain.clone();
-        // Research: an economy tech (Rapid Construction) first, once its opening factories stand; its techs
+        // Research: an economy tech (faster construction, none offered since Nov 14) first, once its opening factories stand; its techs
         // (abilities, a faster flyer) as soon as their building stands, on levels whose units use abilities; weapons
         // and armor in turn from the difficulty's research_from (Easy never); none while saving for an expansion. Until it can afford the next one it saves up (no new units), but never while under
         // attack or short of anti-air against flyers, and for at most SAVE_MAX seconds at a time.
@@ -66,19 +66,24 @@ impl World {
                                 levels_due
                             })
                             && self.tech_of_use(e, &my_b, up)
+                            // (Trade once its natural stands: before, its price held the expansion back)
+                            && (up.def().effect != Effect::PumpRate
+                                || self.ai_count(&my_b, true, self.factions[e as usize].hq) >= 2)
                             && up.def().req.is_none_or(|r| self.has_bldg(e, r))
                             && self.upgrades[e as usize][up.index()] < up.levels()
                             && !busy(self, up)
                     })
                     .collect();
-                // The first it can afford; a tech it cannot is passed over (never saved for), a level is saved for.
+                // The first it can afford; a tech it cannot is passed over (never saved for), a level is saved for (but Trade).
                 for up in candidates {
                     let level = self.upgrades[e as usize][up.index()] + 1;
                     if self.can_afford(e, up.cost(level)) {
                         let _ = self.start_research(bid, up);
                         break;
                     }
-                    if up.levels() > 1 {
+                    // (Trade, the Market's: only with spare gold, never saved for; saved for, its 150 held the
+                    // Kingdom's expansion and its tech back)
+                    if up.levels() > 1 && up.def().effect != Effect::PumpRate {
                         saving = true;
                         break;
                     }

@@ -59,7 +59,7 @@ const BLDG_TEXT = {
   core: { hot: 'L', what: 'Trains Villagers, stores gold', desc: 'Trains Villagers and stores gold. +20 population.' },
   depot: { hot: 'W', what: 'Supplies +8 population', desc: '+8 population.' },
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
-  extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle.' },
+  extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle. Researches Trade, for more gold.' },
   barracks: { hot: 'C', what: 'Trains Guards and Archers', desc: 'Trains Guards and Archers.' },
   forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Shield Wall. Unlocks Knights, Cannons and Ballistas.' },
   factory: { hot: 'S', what: 'Builds siege and Balloon', desc: 'Builds Ballistas, Cannons and the Balloon.' },
@@ -78,7 +78,8 @@ const BLDG_TEXT = {
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, entrenching: { hot: 'S' },
-  drills: { hot: 'D', desc: `Bots mine more per trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` } };
+  drills: { hot: 'D', desc: `Bots mine more per trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` },
+  trade: { hot: 'T', desc: `Every Market pays more gold: ${Math.round((D.consts.trade_rate[1] - 1) * 100)}% more, then ${Math.round((D.consts.trade_rate[2] - 1) * 100)}% more.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
 /** Units and buildings, in the sim's kind order (the snapshot sends kind indices). */

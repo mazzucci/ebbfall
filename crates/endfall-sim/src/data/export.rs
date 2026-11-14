@@ -153,6 +153,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         ),
         Effect::BuildSpeed => ("build", String::new()),
         Effect::MineLoad => ("mine", String::new()),
+        Effect::PumpRate => ("trade", String::new()),
         Effect::GridUse => ("grid", String::new()),
     };
     Obj::new()
@@ -164,6 +165,14 @@ fn upgrade(d: &UpgradeDef) -> String {
         .raw("req", d.req.to_json())
         .raw("cost", array(d.cost.map(array)))
         .raw("time", array(d.time))
+        .raw(
+            "level_names",
+            array(
+                d.level_names
+                    .iter()
+                    .map(|(full, short)| format!("[{},{}]", quote(full), quote(short))),
+            ),
+        )
         .done()
 }
 
@@ -214,6 +223,7 @@ pub fn data_json() -> String {
         .num("pop_max", POP_MAX)
         .num("grid_max", GRID_MAX)
         .raw("drill_load", array(DRILL_LOAD))
+        .raw("trade_rate", array(TRADE_RATE))
         .done();
     Obj::new()
         .raw("consts", consts)

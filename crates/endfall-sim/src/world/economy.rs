@@ -103,8 +103,11 @@ impl World {
         } else {
             1.0
         };
+        // (Trade: the Kingdom's Market research, `TRADE_RATE` by level)
+        let trade = TRADE_RATE[self.effect_level(team, Effect::PumpRate).min(2) as usize];
         let b = self.bm(bid).unwrap();
-        b.pumped += rate * income * dt;
+        // (Trade raises the Market's pay only: the Expedition, which builds no Market, never researches it)
+        b.pumped += rate * income * trade * dt;
         // (sixty ticks of 1/60 sum to a hair under 1: the tolerance pays on the 60th, not the 61st)
         let whole = (b.pumped + 1e-9).floor();
         if whole >= 1.0 {

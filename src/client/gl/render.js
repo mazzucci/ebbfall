@@ -6,7 +6,7 @@ import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphic
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, AIR_PUFF, DEATH_DUST, HIT_DUST, AIR_HIT_LIFT, SLOW, slowK, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
@@ -344,9 +344,9 @@ class UnitObj {
     if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
     // (slowed by an arrow, look.js SLOW: its body, not its team paint, a cold gray-blue, and a cold blue added over it on
     // the hit flash's layer while no hit flash shows; both fading as it wears off)
-    const hit = u.flash > 0, cold = hit ? 0 : slowK(u.slowed);
-    this.flash.visible = hit || cold > 0; this.paintFlash.visible = hit;
-    this.flash.tint = hit ? 0xffffff : SLOW.glow; this.flash.alpha = hit ? 0.6 : SLOW.glowAlpha * cold; this.paintFlash.alpha = 0.6;
+    const fl = flashLayer(u.flash, u.slowed);
+    this.flash.visible = fl.visible; this.flash.tint = fl.tint; this.flash.alpha = fl.alpha;
+    this.paintFlash.visible = u.flash > 0; this.paintFlash.alpha = 0.6;
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
     paintAs(this.body, this.paint, this.seat, 0xffffff, 1); this.body.tint = slowTint(u.slowed);
     const s = sel.has(u);
@@ -539,11 +539,11 @@ export function meleeHit(u, t, puff) {
   if (t.kind === 'bldg') { x = Math.min(Math.max(u.x, t.tx * TILE + 4), (t.tx + t.w) * TILE - 4); y = Math.min(Math.max(u.y, t.ty * TILE + 4), (t.ty + t.h) * TILE - 4); }
   const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * 0.5, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
   addEffect('glint', x + dx / d * k, y + dy / d * k - lift, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 }); // (steel's glint: small and pale; fire is the gunpowder's)
-  if (puff) addEffect(HIT_DUST.anim, x + dx / d * k, y + 2, { vx: -dx / d * 12, vy: -6, life: HIT_DUST.life, scale: puff, fade: HIT_DUST.fade, tint: HIT_DUST.tint });
+  if (puff) addEffect(HIT_DUST.anim, x + dx / d * k, y + 2, { vx: -dx / d * puff.drift, vy: -6, life: puff.life, scale: puff.scale, fade: puff.fade, tint: HIT_DUST.tint });
 }
 /** Where a shot that lands at ground point (x, y) plays, its y: on a flyer (`air`, its kind: a `hit` event's) up on its
- *  body (look.js AIR_HIT_LIFT of its drawn height), anything else where it is. */
-export const hitY = (y, air) => (air ? y - unitTop(air) * AIR_HIT_LIFT : y);
+ *  body (look.js hitLift of its drawn height: by its kind), anything else where it is. */
+export const hitY = (y, air) => (air ? y - unitTop(air) * hitLift(air) : y);
 /** A shot lands at (x, y), its look by `how` (look.js impactOf): steel's glint (an arrow, a bolt, a dart), a spark
  *  (a tracer, the tower's shot), the cannonball's and the rocket's burst, or a repairer's welding spark. */
 export function impactFx(x, y, how) {

@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, AIR_HIT_LIFT } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3278,7 +3278,7 @@ test('an arrow that lands on a flyer glints up on its body, not on the ground un
     });
     assert.ok(seen, 'an arrow lands on the Drone');
     assert.equal(seen.hit.air, 'shrike', 'the hit names the flyer');
-    const up = seen.hit.y - seen.top * AIR_HIT_LIFT;
+    const up = seen.hit.y - seen.top * hitLift('shrike');
     assert.ok(seen.glints.some(e => Math.abs(e.y - up) < 1), `a glint up on its body at ${up} (${JSON.stringify(seen.glints)})`);
     assert.ok(!seen.glints.some(e => Math.abs(e.y - seen.hit.y) < 1), 'none on the ground under it');
     assert.deepEqual(d.errors, []);

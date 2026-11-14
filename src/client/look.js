@@ -106,11 +106,15 @@ export const MACHINES = new Set(['siegeTank', 'bastion', 'scythe', 'monolith', '
 export const DUST = 0xd8c49a;
 /** A fighter's fall: a puff of dust `dy` px above its ground point, rising a little as it fades. */
 export const DEATH_DUST = { anim: 'trail', tint: DUST, scale: 2.0, life: 0.7, vy: -10, fade: 0.8, dy: -4 };
-/** A heavy blow's dust (MELEE_PUFF: its size by the striker) at the target's feet. */
-export const HIT_DUST = { anim: 'trail', tint: DUST, life: 0.5, fade: 0.7 };
+/** A heavy blow's dust (MELEE_PUFF: how it looks by the striker) at the target's feet. */
+export const HIT_DUST = { anim: 'trail', tint: DUST };
 /** A shot that lands on a flyer (a `hit` event's `air`) plays this much of its drawn height (render.js unitTop) above
- *  its ground point: up on its body, where its hp bar's lift puts it. */
+ *  its ground point, up on its body: by the flyer's kind (the Balloon: on its basket and the envelope's dark lower
+ *  band, where a pale glint shows; higher it would vanish on the pale canvas), else AIR_HIT_LIFT. */
+export const HIT_LIFT = { observer: 0.3 };
 export const AIR_HIT_LIFT = 0.6;
+/** The lift of a shot landing on a flyer of kind `air` (HIT_LIFT). */
+export const hitLift = (air) => HIT_LIFT[air] ?? AIR_HIT_LIFT;
 /** A fallen flyer that is no machine (the Balloon): no fireball and no dust off the ground, but a puff of pale canvas
  *  where it flew, `lift` of its drawn height (render.js unitTop) above its ground point, sinking as it fades. The
  *  rocket's pale round smoke (`trail`), not the gray `puff`, which under the canvas tint reads as a stone; about as
@@ -125,6 +129,12 @@ export const deathOf = (unit, air) => (!unit || MACHINES.has(unit) ? 'machine' :
 export const SLOW = { tint: 0xa8bccc, glow: 0x3f7fc0, glowAlpha: 0.3, fade: 1.5 };
 /** How much of the slow's look shows with `slowed` s of slow left: 1 until its last `fade` s, then down to 0. */
 export const slowK = (slowed) => (slowed > 0 ? Math.min(1, slowed / SLOW.fade) : 0);
+/** A unit's additive flash layer (over its body) with `flash` s of hit flash and `slowed` s of slow left: shown while
+ *  either lasts; a hit's white at 0.6 over the slow's cold blue (SLOW.glow at SLOW.glowAlpha × slowK). */
+export function flashLayer(flash, slowed) {
+  const hit = flash > 0, k = slowK(slowed);
+  return { visible: hit || k > 0, tint: hit ? 0xffffff : SLOW.glow, alpha: hit ? 0.6 : SLOW.glowAlpha * k };
+}
 /** The body's tint for `slowed` s of slow left (0: none, white). */
 export function slowTint(slowed) {
   const k = slowK(slowed); if (!k) return 0xffffff;
@@ -138,8 +148,9 @@ export function slowTint(slowed) {
  *  rifle's cone (`muzzle`, pale, turned to the aim) on every shot. No flash for the Drone. */
 export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 42, up: 23, scale: 0.85 } };
 /** A melee blow landing (a `fire` event at a melee shooter): a glint of steel at its target (glint_f: small and pale, the fiery spark being the gunpowder's), and for the heavy hitters (the
- *  Knight's lance, the Bruiser's hammer) a small puff of dust there too (HIT_DUST), of this size. */
-export const MELEE_PUFF = { knight: 1.1, bruiser: 1.0 };
+ *  Knight's lance, the Bruiser's hammer) a small puff of dust there too (HIT_DUST): its size, opacity at the start, life (s) and drift (px/s at the start,
+ *  away from the striker). The Knight's lance kicks up more and flings it farther. */
+export const MELEE_PUFF = { knight: { scale: 1.5, fade: 0.85, life: 0.6, drift: 28 }, bruiser: { scale: 1.0, fade: 0.7, life: 0.5, drift: 12 } };
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */
 export const SHOT_TRAIL = { rocket: 'trail' };
 /** The shots that carry a light of their own (a small warm glow under them): the tracers, the tower's shot, the rocket's flame. */

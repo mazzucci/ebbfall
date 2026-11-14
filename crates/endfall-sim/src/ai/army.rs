@@ -699,9 +699,11 @@ impl World {
         let need =
             (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
         let held = self.waves_held(t); // (the guided first game: until the player is ready)
-        // (at the cap a wave is as big as it gets: it goes whatever its count; and so does a wave that crushes what the
-        // foe has shown of its army, `crushing`)
-        let short = army.len() < need && !self.at_cap(self.seat()) && !self.crushing(army, need, t);
+        // (at the cap a wave is as big as it gets: it goes whatever its count, at its places' cap or at its level's most
+        // fighters, `army_full`: an Easy army of eight, three of them guards, waited for ever for a wave of six; and so
+        // does a wave that crushes what the foe has shown of its army, `crushing`)
+        let full = self.at_cap(self.seat()) || self.army_full(self.seat());
+        let short = army.len() < need && !full && !self.crushing(army, need, t);
         let short =
             short || (massing && !self.at_cap(self.seat()) && !self.crushing(army, need, t));
         // (the guided first game: its first wave when the guide releases it, `GUIDED_FIRST`)
@@ -2098,6 +2100,26 @@ mod tests {
         w.ai_mut().known.push(foe);
         w.tend_scout(&harv);
         assert_eq!(w.ai().scout, None, "the foe's: done");
+    }
+
+    #[test]
+    fn at_its_most_fighters_a_wave_goes_whatever_its_count() {
+        // Easy's army cap is drawn as low as 8 (`Diff::army_max`): an army at its cap is as big as it gets, so its wave
+        // goes whatever its count (an army of eight, three of them guards, waited for ever for a wave of six). Ten
+        // Troopers, a wave of twelve wanted: with a cap of 20 it waits; with a cap of 10 it goes, its twelve or what it has.
+        let go = |most: usize| {
+            let plan = Diff {
+                army_max: most,
+                ..DIFF[0]
+            };
+            let (mut w, _, mut b) = ready_with(0, plan);
+            w.ai_mut().wave = 12;
+            b.t = 490.0;
+            w.ai_army(&mut b);
+            w.ai().attacking
+        };
+        assert!(!go(20), "short of its count, room to grow: it waits");
+        assert!(go(10), "at its most: it goes");
     }
 
     #[test]

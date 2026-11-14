@@ -225,13 +225,7 @@ mod tests {
     #[test]
     fn timing_is_its_level_s_own_plan_but_for_its_draws() {
         for (level, &base) in DIFF.iter().enumerate().take(3).skip(1) {
-            let d = styled(
-                base,
-                level,
-                Style::Timing,
-                HUMANS.ai.mix,
-                &draws(0.5),
-            );
+            let d = styled(base, level, Style::Timing, HUMANS.ai.mix, &draws(0.5));
             let plain = Diff {
                 stall_from: d.stall_from,
                 focus: d.focus,

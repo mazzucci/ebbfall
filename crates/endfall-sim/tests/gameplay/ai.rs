@@ -673,8 +673,9 @@ fn ai_beats_idle_player(diff: usize) {
             let seed = m * 104_729 + 3;
             let mut w = World::new(seed, diff);
             let mut t = 0;
-            // (Easy 30 minutes since Nov 13: its clumsy waves give up on contact and gold is scarcer)
-            let mins = if diff == 0 { 30 } else { 20 };
+            // (Easy 30 minutes since Nov 13: its clumsy waves give up on contact and gold is scarcer; Hard 22 since the
+            // styles, Nov 14: a Boom seat takes its natural first and waits for bigger waves, seed 2408770's won at 21:12)
+            let mins = [30, 20, 22][diff];
             while !w.over && t < 30 * 60 * mins {
                 w.step();
                 t += 1;
@@ -1025,6 +1026,8 @@ fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle()
     for seed in [3, 21] {
         for f in [&HUMANS] {
             let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&HUMANS, f]);
+            // (its level's own plan: a Boom seat holds its natural's price first, seed 3's Blacksmith at 10:14)
+            assert!(w.set_ai_styles(&[None, Some(Style::Timing)]));
             // (the idle player's base stands: since the arc the Blacksmith comes after Medium's first waves)
             for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
                 (b.hp, b.maxhp) = (1e9, 1e9);

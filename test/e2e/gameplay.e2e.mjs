@@ -1778,7 +1778,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     // says so in the Expedition's words.
     await d.page.keyboard.press('Escape');
     const turbine = await buildAndFinish(d, 's', 'spire', 3, V);
-    await d.clickEntity(turbine.id);
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); } // (its Bot waits beside it: again until the turbine is picked)
     await d.hudText('#selSub', /^Generating energy: 1 every 13\.9 s$/);
     assert.deepEqual(d.errors, []);
     assert.deepEqual(d.errors, []);
@@ -1801,10 +1801,10 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
       await d.pressCard('Back'); await d.pressCard('Back');
       return got;
     };
-    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Back 5'], 'the advanced page before the Lab: no Uplink');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Back 5'], 'the advanced page before the Lab: no Uplink');
     await buildAndFinish(d, 'g', 'loom', 1, V);
     // The Uplink: open now, appended; nothing else moved. Armed, its ghost follows the mouse with its circle.
-    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Uplink 2', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Uplink 3', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
     const hq = myBldg(await d.state(), 'conflux')[0];
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
@@ -2028,7 +2028,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
 const SPRITE_PX = 72; // (card.js SPRITE)
 const spriteOf = (d) => d.page.locator('#cmdInfo .pic img').evaluate(i => { const r = i.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), loaded: i.complete && i.naturalWidth > 0, png: i.src.startsWith('data:image/png') }; });
 const shot = async (d, name) => { if (process.env.ENDFALL_SHOTS) await d.page.screenshot({ path: `${process.env.ENDFALL_SHOTS}/${name}.png` }).catch(() => {}); };
-for (const [race, hq, worker, unit, bldg] of [['humans', 'core', 'harvester', 'Villager', 'Cottage'], ['vael', 'conflux', 'lumen', 'Bot', 'Turbine']]) {
+for (const [race, hq, worker, unit, bldg] of [['humans', 'core', 'harvester', 'Villager', 'Cottage'], ['vael', 'conflux', 'lumen', 'Bot', 'Substation']]) {
   test(`phone, ${race}: a long-press on a unit's or a building's button shows its sprite in the details`, { chromium: CDP_TOUCH }, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -3289,7 +3289,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(4000, 3000);
-    await buildAndFinish(d, 's', 'spire', 0, V);
+    await buildAndFinish(d, 'w', 'substation', 0, V);
     const post = await buildAndFinish(d, 'i', 'siphon', 1, V);
     await d.clickEntity(post.id);
     await d.readyCard('Sellsword');

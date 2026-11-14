@@ -316,7 +316,7 @@ src/client/           everything that touches the browser
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
-                      (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`), a fighter falling into dust and a machine exploding (`boom`); a melee unit's strike poses in a fight (look.js `strikePose`);
+                      (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`, look.js `HIT_LIFT`), a fighter falling into dust and a machine exploding (`boom`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's

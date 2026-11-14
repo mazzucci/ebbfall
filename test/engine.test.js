@@ -272,7 +272,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
 
 test('the grid reads as population: halved numbers, units only, Energy efficiency cuts what machines cost', () => {
   // (Stelian, Nov 14: every grid number halved, so the grid reads as the Kingdom's population; buildings draw none)
-  assert.deepEqual([C.GRID_MAX, C.BUILDINGS.conflux.supply, C.BUILDINGS.substation.supply], [150, 20, 10]);
+  assert.deepEqual([C.GRID_MAX, C.BUILDINGS.conflux.supply, C.BUILDINGS.substation.supply], [150, 22, 10]);
   assert.deepEqual(['lumen', 'scythe', 'shrike', 'prism', 'bruiser', 'umbra', 'monolith'].map(C.takes), [1, 1, 1, 1, 2, 5, 6]);
   for (const [k, d] of Object.entries(C.BUILDINGS)) assert.ok(!d.uses && !/draws? .*grid/i.test(d.desc), `${k} draws no grid`);
   // The sim's `World::unit_cost`: 10% less a level for a machine, rounded; a mercenary pays in full.

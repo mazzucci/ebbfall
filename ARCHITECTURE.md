@@ -121,7 +121,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   (a move arrives, an attack fires; the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most
   of a 64x64 map); the Expedition AI's push on 96x96: one forward Uplink whose coverage takes in the foe, then its
   machines, none of them leaving coverage), the Expedition's economy (`expedition`: energy and one grid, Nov 14: the
-  grid from the Data center (20) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
+  grid from the Data center (22) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
   units drawing it (buildings none, a building placed whatever the grid); machines and
   mercenaries alike refused on a full grid and trained once a Substation stands; a mercenary's grid freed by its death,
   a lost Substation leaving the use over the cap; "Not enough energy" and the grid's refusals; Wind turbines paying

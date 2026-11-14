@@ -369,8 +369,8 @@ fn the_rover_fires_a_heavy_salvo_slowly_and_costs_more_than_the_android() {
     let r = UnitKind::Monolith.def();
     let wp = r.weapon.unwrap();
     assert!(
-        (95.0..=105.0).contains(&wp.dmg),
-        "about 100 a salvo: {}",
+        (115.0..=125.0).contains(&wp.dmg),
+        "about 120 a salvo (100 before Nov 14's commit-at-tier check): {}",
         wp.dmg
     );
     assert!((3.3..=3.7).contains(&wp.cd), "about every 3.5 s: {}", wp.cd);

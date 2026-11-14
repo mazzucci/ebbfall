@@ -1209,7 +1209,9 @@ fn a_landing_shot_says_what_it_was_and_a_fallen_unit_what_it_was() {
         w.step();
         for e in w.events.drain(..) {
             match e {
-                Event::Hit { shot: Some(s), .. } if hit.is_none() => hit = Some(s),
+                Event::Hit {
+                    shot: Some(s), air, ..
+                } if hit.is_none() => hit = Some((s, air)),
                 Event::Burst { unit, .. } if fell.is_none() => fell = Some(unit),
                 _ => {}
             }
@@ -1220,8 +1222,47 @@ fn a_landing_shot_says_what_it_was_and_a_fallen_unit_what_it_was() {
     }
     assert_eq!(
         hit,
-        Some((ProjKind::Missile, UnitKind::Monolith.index(), PLAYER)),
-        "the Rover's rocket landed, named with its shooter and seat"
+        Some((
+            (ProjKind::Missile, UnitKind::Monolith.index(), PLAYER),
+            None
+        )),
+        "the Rover's rocket landed, named with its shooter and seat, on the ground"
     );
     assert_eq!(fell, Some(Some(UnitKind::Trooper)), "the Guard fell, named");
+
+    // A shot that lands on a flyer names it (the client draws the impact up on its body), the killing one too.
+    let mut w = arena(16);
+    let archer = w.make_unit(UnitKind::Lancer, PLAYER, 400.0, 900.0);
+    let drone = w.make_unit(UnitKind::Shrike, ENEMY, 400.0 + 4.0 * TILE, 900.0);
+    w.hold_unit(drone);
+    w.attack_ent(archer, drone);
+    let mut airs = Vec::new();
+    for _ in 0..30 * TPS {
+        w.step();
+        for e in w.events.drain(..) {
+            match e {
+                Event::Hit {
+                    shot: Some((_, by, _)),
+                    air,
+                    ..
+                } if by == UnitKind::Lancer.index() => airs.push(air),
+                Event::Hit {
+                    shot: Some(_), air, ..
+                } => assert_eq!(
+                    air, None,
+                    "the Drone's darts land on the Archer, on the ground"
+                ),
+                _ => {}
+            }
+        }
+        if w.unit(drone).is_none() {
+            break;
+        }
+    }
+    assert!(w.unit(drone).is_none(), "the Archer shot the Drone down");
+    assert!(!airs.is_empty(), "its arrows landed");
+    assert!(
+        airs.iter().all(|a| *a == Some(UnitKind::Shrike)),
+        "each on the Drone, named as a flyer: {airs:?}"
+    );
 }

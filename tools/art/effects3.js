@@ -200,13 +200,16 @@ function spark(f) {
 }
 
 /** A glint (`rt_glint_f`, 3 frames, 16 px): a melee blow's steel catching the light, a small four-point star, white at
- *  its heart and pale yellow along its arms, shrinking to a point (the fiery spark is the gunpowder's and the shot's). */
+ *  its heart and pale yellow along its arms, shrinking to a point (the fiery spark is the gunpowder's and the shot's).
+ *  Its heart a round 4 px (2 game px) on the first frame, so at a phone's zoom it reads as a star, not a thin "+"; each
+ *  arm 4 px wide at its root, 2 px out to its tip, paler outward. */
 function glint(f) {
   const L = 5.5 - f * 1.6;
   return image(16, 16, (x, y) => {
-    const dx = Math.abs(x + 0.5 - 8), dy = Math.abs(y + 0.5 - 8), arm = Math.min(dx, dy) < 0.8 && Math.max(dx, dy) <= L, core = dx + dy <= 1.6 - f * 0.4;
+    const dx = Math.abs(x + 0.5 - 8), dy = Math.abs(y + 0.5 - 8), d = Math.max(dx, dy);
+    const core = dx + dy <= 2 - f * 0.5, arm = d <= L && Math.min(dx, dy) < 2.3 - 0.3 * d;
     if (!arm && !core) return NONE;
-    return core ? [255, 252, 238, 255] : [255, 238, 176, 255];
+    return core ? [255, 252, 238, 255] : d < 2.5 ? [255, 244, 204, 255] : [255, 232, 160, 255];
   });
 }
 

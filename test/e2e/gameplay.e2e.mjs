@@ -33,7 +33,7 @@ async function buildAndFinish(d, hotkey, type, harvesterIndex = 0, { hq = 'core'
 /** Send every idle worker of ours to the home mine through the UI (a new worker, or a builder by what it built, waits
  *  for an order: Stelian, Nov 12): each selected by a tap or click, then the mine tapped (phone) or right-clicked. */
 async function sendIdleToMine(d) {
-  const s = await d.state(), core = coreOf(s);
+  const s = await d.state(), core = coreOf(s) || myBldg(s, 'conflux')[0]; // (either people's headquarters)
   const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
   for (let i = 0; i < 12; i++) {
     const id = await d.eval(() => endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker && u.task.t === 'idle')?.id);
@@ -1778,7 +1778,8 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     // says so in the Expedition's words.
     await d.page.keyboard.press('Escape');
     const turbine = await buildAndFinish(d, 's', 'spire', 3, V);
-    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); } // (its Bot waits beside it: again until the turbine is picked)
+    await sendIdleToMine(d); // (its Bot waits beside it: off to the mine first, so the tap picks the turbine)
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id && e.kind === 'bldg'); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); }
     await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Generating energy: 1 every 13.9 s', null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (it reads: ${await d.page.locator('#selSub').textContent()})`); });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

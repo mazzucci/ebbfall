@@ -1,9 +1,10 @@
-//! The Expedition rework (PRD: power, hired guns, the satellite; one dish and no satellite since Nov 13): no
-//! population. Its machines use Power (the Data center +20, a wind turbine +8), its Androids too; its hired guns (the
-//! Sellsword, the Bruiser, the Medic) take hired places, six a Recruiting post, one count for the side. Power and hired
-//! places each have a maximum (the balance pass: 45 and 15 on 64x64, the two together the Kingdom's population limit).
-//! The Lab unlocks the Uplink, which unlocks the Portal: one a side, using Power from the moment it is placed, where the Android, a slow and expensive elite, is made. The hired guns fight in melee. The
-//! range's speed bonus and the Drone's leash: radio.rs.
+//! The Expedition's economy (PRD: the Expedition runs on energy, Nov 14; the rework before it: power, hired guns, the
+//! satellite): no population. It spends energy (the sim's one cost slot, gold's number), from its Bots' thorium and its
+//! Wind turbines, and everything it runs draws on the grid while it exists: its machines and its mercenaries, and the
+//! buildings that draw (`uses`), from the Data center's 55 and its Substations' 20 each, up to `GRID_MAX`. Grid
+//! efficiency, at the Lab in place of Armor, cuts what its machines draw. The Lab unlocks the Uplink, which unlocks the
+//! Portal: one a side, drawing grid from the moment it is placed, where the Android, a slow and expensive elite, is
+//! made. The hired guns fight in melee. The range's speed bonus and the Drone's leash: radio.rs.
 
 use crate::common::*;
 
@@ -51,252 +52,366 @@ fn spawn(w: &mut World, kind: UnitKind, n: usize) -> Vec<Id> {
 }
 
 #[test]
-fn the_expedition_has_power_for_machines_and_no_population() {
+fn the_expedition_runs_on_a_grid_and_has_no_population() {
     let mut w = expedition();
     let bots = harvesters(&w, PLAYER).len() as i32;
     assert_eq!(
-        w.pool(PLAYER, Pool::Supply),
-        [2 * bots, 40],
-        "the Data center's 40 Power, the Bots' use (two each)"
+        w.sup(PLAYER),
+        [2 * bots, 55],
+        "the Data center's 55 grid, the Bots' draw (two each)"
     );
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [0, 0]);
-    // A wind turbine: +20 Power, for 100 gold.
-    assert_eq!(BldgKind::Spire.def().name, "Wind turbine");
-    assert_eq!(BldgKind::Spire.def().cost, [100, 0]);
+    // A Substation: +20 grid, for 100 energy (the Expedition's Cottage); the Wind turbine gives none.
+    let sub = BldgKind::Substation.def();
+    assert_eq!(
+        (sub.name, sub.cost, sub.supply),
+        ("Substation", [100, 0], 20)
+    );
+    assert_eq!(VAEL.supply, BldgKind::Substation);
+    assert_eq!(BldgKind::Spire.def().supply, 0, "a turbine gives no grid");
     let bot = harvesters(&w, PLAYER)[0];
-    build(&mut w, BldgKind::Spire, bot, 60);
-    assert_eq!(w.sup(PLAYER)[1], 60);
-    // Every machine uses Power, twice a Kingdom place of its tier (the economy's second round): a Bot or a swarm Drone
-    // two, a Buggy four, an Android ten, a Rover twelve (the top units, dear and few, Nov 13); the people take hired
-    // places, a Bruiser two.
+    build(&mut w, BldgKind::Substation, bot, 60);
+    assert_eq!(w.sup(PLAYER)[1], 75);
+    // Everything it trains draws on the one grid, twice a Kingdom place of its tier: a Bot or a swarm Drone two, a Buggy
+    // four, an Android ten, a Rover twelve; its mercenaries too, a Sellsword two, a Bruiser four (no hired places since
+    // Nov 14: their quarters and contract upkeep).
     for (k, p) in [
         (UnitKind::Lumen, 2),
         (UnitKind::Scythe, 4),
         (UnitKind::Monolith, 12),
         (UnitKind::Shrike, 2),
         (UnitKind::Umbra, 10),
+        (UnitKind::Prism, 2),
+        (UnitKind::Bruiser, 4),
+        (UnitKind::Halo, 2),
     ] {
-        assert_eq!((k.def().pool, k.def().supply), (Pool::Supply, p), "{k:?}");
+        assert_eq!(k.def().supply, p, "{k:?}");
     }
-    for (k, p) in [
-        (UnitKind::Prism, 1),
-        (UnitKind::Bruiser, 2),
-        (UnitKind::Halo, 1),
-    ] {
-        assert_eq!((k.def().pool, k.def().supply), (Pool::Hired, p), "{k:?}");
+    // The grid's cap: its maximum, 300 on every map.
+    for _ in 0..14 {
+        set_down(&mut w, BldgKind::Substation);
     }
-    // The Power cap: its own maximum (200 on 64x64).
-    for _ in 0..12 {
-        set_down(&mut w, BldgKind::Spire);
-    }
-    assert_eq!(w.sup(PLAYER)[1], 200, "Power at its maximum");
-    // The Kingdom keeps its population.
-    assert!(
-        HUMANS
-            .build_basic
-            .iter()
-            .chain(HUMANS.build_advanced)
-            .flat_map(|b| b.def().trains.iter())
-            .all(|k| k.def().pool == Pool::Supply)
-    );
+    assert_eq!(w.sup(PLAYER)[1], GRID_MAX, "the grid at its maximum");
+    assert_eq!(w.sup_max(PLAYER), 300);
 }
 
 #[test]
-fn a_bot_is_refused_at_the_power_cap_and_trained_once_a_turbine_stands() {
+fn a_full_grid_refuses_a_bot_and_a_sellsword_alike_until_a_substation_stands() {
     let mut w = expedition();
     let used = w.sup(PLAYER)[0];
-    spawn(&mut w, UnitKind::Lumen, ((40 - used) / 2) as usize);
-    assert_eq!(w.sup(PLAYER), [40, 40]);
-    let dc = hq(&w, PLAYER);
+    spawn(&mut w, UnitKind::Lumen, ((55 - used) / 2) as usize);
     assert_eq!(
-        w.queue_unit(dc, UnitKind::Lumen),
-        Err("Not enough Power: build a Wind turbine.".to_string())
+        w.sup(PLAYER),
+        [54, 55],
+        "one grid left: short of a Bot's two"
     );
-    // Hired places and Power are apart: a full Power pool does not stop a Sellsword.
+    let dc = hq(&w, PLAYER);
+    let full = Err("Not enough grid: build a Substation.".to_string());
+    assert_eq!(w.queue_unit(dc, UnitKind::Lumen), full);
+    // One grid for machines and mercenaries: a full grid stops a Sellsword too (the hired places were apart until Nov 14).
     let post = set_down(&mut w, BldgKind::Siphon);
-    assert_eq!(w.queue_unit(post, UnitKind::Prism), Ok(()));
+    assert_eq!(w.sup(PLAYER), [54, 55], "a Recruiting post gives no places");
+    assert_eq!(w.queue_unit(post, UnitKind::Prism), full);
     let bot = harvesters(&w, PLAYER)[0];
-    build(&mut w, BldgKind::Spire, bot, 60);
+    build(&mut w, BldgKind::Substation, bot, 60);
     assert_eq!(w.queue_unit(dc, UnitKind::Lumen), Ok(()));
-    assert_eq!(w.sup(PLAYER), [42, 60]);
+    assert_eq!(w.queue_unit(post, UnitKind::Prism), Ok(()));
+    assert_eq!(w.sup(PLAYER), [58, 75]);
     let before = count(&w, PLAYER, UnitKind::Lumen);
     run(&mut w, UnitKind::Lumen.def().build as u32 + 1);
     assert_eq!(count(&w, PLAYER, UnitKind::Lumen), before + 1, "trained");
 }
 
 #[test]
-fn hired_places_six_a_post_one_count_and_a_death_frees_one() {
+fn a_mercenary_draws_grid_while_it_lives_and_a_lost_substation_stops_more() {
     let mut w = expedition();
     let a = set_down(&mut w, BldgKind::Siphon);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [0, 6], "six places a post");
+    let sub = set_down(&mut w, BldgKind::Substation);
+    let [used, cap] = w.sup(PLAYER);
     let hired = spawn(&mut w, UnitKind::Prism, 3);
-    set_down(&mut w, BldgKind::Loom);
-    let power = w.sup(PLAYER); // (the Lab holds its Power)
-    spawn(&mut w, UnitKind::Bruiser, 1);
+    assert_eq!(w.sup(PLAYER), [used + 6, cap], "two grid a Sellsword");
     assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
-    assert_eq!(
-        w.pool(PLAYER, Pool::Hired),
-        [6, 6],
-        "one place a Sellsword, two a Bruiser, queued too"
-    );
-    assert_eq!(w.sup(PLAYER), power, "no Power for people");
-    assert_eq!(
-        w.queue_unit(a, UnitKind::Bruiser),
-        Err("No free places: build another Recruiting post.".to_string())
-    );
-    // A death frees a place, whichever post hired it.
+    assert_eq!(w.sup(PLAYER), [used + 8, cap], "queued too");
+    // A death frees its grid.
     w.damage(hired[0], 1e9, None);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [5, 6]);
-    assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
-    assert!(w.queue_unit(a, UnitKind::Prism).is_err(), "full again");
-    // A second post: six more for the one count, and either post hires.
-    let b = set_down(&mut w, BldgKind::Siphon);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [6, 12]);
-    assert_eq!(w.queue_unit(b, UnitKind::Prism), Ok(()));
-    assert_eq!(w.queue_unit(a, UnitKind::Prism), Ok(()));
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [8, 12]);
-    // A post lost: the count falls under its use; nothing more is hired until enough fall, nobody is taken away.
-    // (the Sellsword queued there goes with it)
-    w.damage(b, 1e9, None);
-    assert_eq!(w.pool(PLAYER, Pool::Hired), [7, 6]);
-    assert!(w.queue_unit(a, UnitKind::Prism).is_err());
-}
-
-#[test]
-fn power_and_hired_places_each_have_a_maximum_by_map_size_and_the_kingdom_keeps_its_one_limit() {
-    // Two maximums in place of one shared limit: Power and hired places each capped by their own buildings and their
-    // own maximum (Power 200, 240, 280, twice the Kingdom's population; hired places 25, 30, 35, gold only; Stelian,
-    // Nov 12). Each is enforced on its own: a full Power pool never stops a Sellsword, a full hired count never stops a
-    // Bot. The Kingdom's population keeps the map's one limit.
-    for (size, power, hired) in [(64, 200, 25), (96, 240, 30), (128, 280, 35)] {
-        let mut w = World::with_size(
-            7,
-            1,
-            MapKind::Standard,
-            MapSize::square(size),
-            0,
-            &[&VAEL, &HUMANS],
-        );
-        w.disable_ai();
-        w.res[PLAYER as usize] = [50_000, 0];
-        for e in &mut w.explored {
-            e.fill(1);
-        }
-        assert_eq!(
-            (
-                w.pool_max(PLAYER, Pool::Supply),
-                w.pool_max(PLAYER, Pool::Hired)
-            ),
-            (power, hired),
-            "{size}x{size}"
-        );
-        assert_eq!(power, 2 * w.supply_limit(), "{size}: twice the Kingdom's");
-        assert_eq!(
-            w.pool_max(ENEMY, Pool::Supply),
-            w.supply_limit(),
-            "{size}: the Kingdom's population limit"
-        );
-        // Buildings past either maximum add nothing.
-        for _ in 0..14 {
-            set_down(&mut w, BldgKind::Spire);
-        }
-        let posts: Vec<Id> = (0..7).map(|_| set_down(&mut w, BldgKind::Siphon)).collect();
-        assert_eq!(
-            w.sup(PLAYER)[1],
-            power,
-            "{size}: Power capped at its maximum"
-        );
-        assert_eq!(
-            w.pool(PLAYER, Pool::Hired)[1],
-            hired,
-            "{size}: hired places capped at theirs"
-        );
-        // Power full: no Bot, but a Sellsword still.
-        let used = w.sup(PLAYER)[0];
-        let bot = UnitKind::Lumen.def().supply;
-        assert_eq!((power - used) % bot, 0);
-        spawn(&mut w, UnitKind::Lumen, ((power - used) / bot) as usize);
-        assert_eq!(w.sup(PLAYER), [power, power]);
-        let dc = hq(&w, PLAYER);
-        assert_eq!(
-            w.queue_unit(dc, UnitKind::Lumen),
-            Err("Power at maximum.".to_string())
-        );
-        assert_eq!(w.queue_unit(posts[0], UnitKind::Prism), Ok(()), "{size}");
-        // Hired full: no Sellsword; and with a Bot gone, a Bot again.
-        let fill = hired - w.pool(PLAYER, Pool::Hired)[0];
-        spawn(&mut w, UnitKind::Prism, fill as usize);
-        assert_eq!(w.pool(PLAYER, Pool::Hired), [hired, hired]);
-        assert_eq!(
-            w.queue_unit(posts[1], UnitKind::Prism),
-            Err("Hired at maximum.".to_string())
-        );
-        let bot = harvesters(&w, PLAYER)[0];
-        w.damage(bot, 1e9, None);
-        assert_eq!(w.queue_unit(dc, UnitKind::Lumen), Ok(()), "{size}");
-        assert_eq!(w.army_used(PLAYER), power + hired);
-    }
-    // The Kingdom: one population limit, unchanged (100 on 64x64), and no hired places.
-    let mut w = rich(7);
-    for e in &mut w.explored {
-        e.fill(1);
-    }
-    assert_eq!(w.pool_max(PLAYER, Pool::Supply), 100);
-    assert_eq!(w.pool_max(PLAYER, Pool::Hired), 0);
-    for _ in 0..12 {
-        let (tx, ty) = spot(&w, BldgKind::Depot);
-        w.make_building(BldgKind::Depot, PLAYER, tx, ty, true);
-    }
-    w.recalc_supply(PLAYER);
+    assert_eq!(w.sup(PLAYER), [used + 6, cap]);
+    // A Substation lost: the cap falls under the use; nothing more is trained until enough fall, nothing is taken away.
+    spawn(&mut w, UnitKind::Prism, ((cap - used - 6) / 2) as usize);
+    w.damage(sub, 1e9, None);
+    let [u2, c2] = w.sup(PLAYER);
+    assert_eq!(c2, cap - 20);
+    assert!(u2 > c2, "over the cap by the loss: {u2}/{c2}");
     assert_eq!(
-        w.sup(PLAYER)[1],
-        100,
-        "population capped at the map's limit"
+        w.queue_unit(a, UnitKind::Prism),
+        Err("Not enough grid: build a Substation.".to_string())
+    );
+    assert_eq!(
+        count(&w, PLAYER, UnitKind::Prism),
+        hired.len() - 1 + ((cap - used - 6) / 2) as usize
     );
 }
 
 #[test]
-fn the_expedition_has_no_portal_pool() {
-    // Two pools only: population or Power, and hired places. The Portal adds no places; the Android takes Power.
-    assert_eq!(POOLS, 2);
-    assert_eq!(ALL_POOLS, [Pool::Supply, Pool::Hired]);
-    assert_eq!(Pool::parse("portal"), None);
+fn the_expedition_spends_energy_and_its_refusals_say_so() {
+    // One cost slot for both peoples, gold's numbers (PRD: energy trades 1:1 with gold); only the words differ.
+    assert_eq!((HUMANS.money, VAEL.money), ("gold", "energy"));
+    let mut w = expedition();
+    w.res[PLAYER as usize] = [10, 0];
+    let dc = hq(&w, PLAYER);
+    assert_eq!(
+        w.queue_unit(dc, UnitKind::Lumen),
+        Err("Not enough energy".to_string())
+    );
+    let (tx, ty) = spot(&w, BldgKind::Substation);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Substation, tx, ty, None),
+        Err("Not enough energy".to_string())
+    );
+    let mut k = rich(7);
+    k.res[PLAYER as usize] = [10, 0];
+    let core = k
+        .bldgs
+        .iter()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap()
+        .id;
+    assert_eq!(
+        k.queue_unit(core, UnitKind::Harvester),
+        Err("Not enough gold".to_string())
+    );
+}
+
+#[test]
+fn wind_turbines_pay_energy_five_a_data_center_as_one_market_at_full_trade() {
+    // Several weak turbines, the Expedition's Market (PRD, Nov 14): five a Data center pay what one Market pays at full
+    // Trade, each paying back its price in about four minutes; no research raises them.
+    let d = BldgKind::Spire.def();
+    assert_eq!(VAEL.market, Some(BldgKind::Spire));
+    assert_eq!(d.per_hq, 5);
+    assert_eq!(d.pays, TURBINE_RATE);
+    let market_at_full_trade = PUMP_RATE * TRADE_RATE[2];
+    assert!(
+        (5.0 * TURBINE_RATE - market_at_full_trade).abs() < 1e-9,
+        "five turbines {} a second, a Market at full Trade {market_at_full_trade}",
+        5.0 * TURBINE_RATE
+    );
+    let payback = d.cost[0] as f64 / TURBINE_RATE;
+    assert!(
+        (210.0..=270.0).contains(&payback),
+        "pays back in about four minutes: {payback:.0} s"
+    );
+    // Five a finished Data center, sites counted: a sixth refused (once a Recruiting post stands, as the Market waits
+    // for the Barracks).
+    let mut w = expedition();
+    assert_eq!(d.req, Some(BldgKind::Siphon));
+    set_down(&mut w, BldgKind::Siphon);
+    let mut turbines = vec![];
+    for _ in 0..5 {
+        let (tx, ty) = spot(&w, BldgKind::Spire);
+        turbines.push(w.make_building(BldgKind::Spire, PLAYER, tx, ty, true));
+    }
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Spire, tx, ty, None),
+        Err("At most 5 Wind turbines per Data center".to_string())
+    );
+    // They pay by themselves: 5 x 0.072 a second, 108 in five minutes (each banks whole ones from its own fraction: 21
+    // each, 0.6 left over).
+    for h in harvesters(&w, PLAYER) {
+        w.stop_unit(h);
+    }
+    w.res[PLAYER as usize] = [0, 0];
+    run(&mut w, 300);
+    let got = w.res[PLAYER as usize][0];
+    assert!(
+        (104..=108).contains(&got),
+        "five turbines in five minutes: {got}"
+    );
+}
+
+#[test]
+fn a_second_data_center_allows_five_more_turbines() {
+    // Five a finished Data center: a second one, finished, lets a sixth go up (`hq_room` counts headquarters); while it
+    // is still a site, not.
+    let mut w = expedition();
+    set_down(&mut w, BldgKind::Siphon);
+    for _ in 0..5 {
+        set_down(&mut w, BldgKind::Spire);
+    }
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    assert!(
+        w.place_building(PLAYER, BldgKind::Spire, tx, ty, None)
+            .is_err(),
+        "five: full"
+    );
+    let (cx, cy) = spot(&w, BldgKind::Conflux);
+    let dc = w.make_building(BldgKind::Conflux, PLAYER, cx, cy, false);
+    assert!(
+        !w.hq_room(PLAYER, BldgKind::Spire),
+        "a Data center still going up allows none"
+    );
+    w.bldgs.iter_mut().find(|b| b.id == dc).unwrap().done = true;
+    let (tx, ty) = spot(&w, BldgKind::Spire);
+    assert!(
+        w.place_building(PLAYER, BldgKind::Spire, tx, ty, None)
+            .is_ok(),
+        "a second Data center: a sixth"
+    );
+}
+
+#[test]
+fn an_expedition_with_no_grid_left_cannot_train_and_is_out_as_helpless() {
+    // Its Data center and Substations gone, a Recruiting post and a Wind turbine standing, energy in the bank: it can
+    // pay for a Sellsword but has no grid to field one, and its turbine pays for ever; with no worker nor fighter it is
+    // out, helpless (else two such sides would never end).
+    let mut w = expedition();
+    let post = set_down(&mut w, BldgKind::Siphon);
+    set_down(&mut w, BldgKind::Spire);
+    w.res[PLAYER as usize] = [5000, 0];
+    for id in harvesters(&w, PLAYER) {
+        w.stop_unit(id);
+        w.damage(id, 1e9, None);
+    }
+    assert_eq!(
+        w.queue_unit(post, UnitKind::Prism),
+        Ok(()),
+        "while its Data center stands"
+    );
+    w.cancel_queue(post, 0);
+    let dc = hq(&w, PLAYER);
+    w.damage(dc, 1e9, None);
+    assert_eq!(w.sup(PLAYER)[1], 0, "no grid left");
+    assert_eq!(
+        w.queue_unit(post, UnitKind::Prism),
+        Err("Not enough grid: build a Substation.".to_string())
+    );
+    run(&mut w, 1);
+    assert_eq!(w.out_why[PLAYER as usize], OutWhy::Helpless);
+}
+
+#[test]
+fn grid_efficiency_replaces_armor_at_the_lab_and_cuts_what_machines_draw() {
+    let lab = BldgKind::Loom.def();
+    assert_eq!(lab.researches, &[Upgrade::Weapons, Upgrade::GridEfficiency]);
+    assert!(
+        !lab.researches.contains(&Upgrade::Armor) && !lab.researches.contains(&Upgrade::Drills),
+        "no Armor and no Better drills for the Expedition"
+    );
+    let g = Upgrade::GridEfficiency;
+    assert_eq!((g.def().name, g.levels()), ("Grid efficiency", 2));
+    assert_eq!(GRID_USE, [1.0, 0.85, 0.7], "15% less a level");
+    // The Kingdom keeps its Weapons and Armor at the Blacksmith.
+    assert!(BldgKind::Forge.def().researches.contains(&Upgrade::Armor));
+    // Researched at a Lab: a Rover draws 12, then 10, then 8; a mercenary is no machine, a Sellsword draws 2 throughout.
+    let mut w = expedition();
+    let l = set_down(&mut w, BldgKind::Loom);
+    let rovers = spawn(&mut w, UnitKind::Monolith, 1);
+    spawn(&mut w, UnitKind::Prism, 1);
+    for (level, rover, bot) in [(0u8, 12, 2), (1, 10, 2), (2, 8, 1)] {
+        assert_eq!(w.takes(PLAYER, UnitKind::Monolith), rover, "level {level}");
+        assert_eq!(w.takes(PLAYER, UnitKind::Lumen), bot, "level {level}");
+        assert_eq!(w.takes(PLAYER, UnitKind::Prism), 2, "level {level}");
+        if level < 2 {
+            let used = w.sup(PLAYER)[0];
+            assert_eq!(w.start_research(l, g), Ok(()));
+            run(&mut w, g.time(level + 1) as u32 + 1);
+            assert_eq!(w.upgrades[PLAYER as usize][g.index()], level + 1);
+            assert!(
+                w.sup(PLAYER)[0] < used,
+                "drawn less at once: {:?}",
+                w.sup(PLAYER)
+            );
+        }
+    }
+    assert!(w.unit(rovers[0]).is_some());
+    // Not the Kingdom's: the Blacksmith offers no Grid efficiency.
+    assert!(!BldgKind::Forge.def().researches.contains(&g));
+}
+
+#[test]
+fn no_expedition_unit_has_armor_and_its_hp_carries_what_armor_did() {
+    // Deadly but fragile (Nov 14): no base armor; a unit that had armor a has hp x d / (d - a), averaged over the
+    // Kingdom's main damage values (the Guard, the Archer, the Rider, the Knight, the Cannon).
+    let main: Vec<f64> = [
+        UnitKind::Trooper,
+        UnitKind::Lancer,
+        UnitKind::Rider,
+        UnitKind::Knight,
+        UnitKind::SiegeTank,
+    ]
+    .iter()
+    .map(|k| k.def().weapon.unwrap().dmg)
+    .collect();
+    let topped =
+        |hp: f64, a: f64| hp * main.iter().map(|d| d / (d - a)).sum::<f64>() / main.len() as f64;
+    for (k, hp, armor) in [
+        (UnitKind::Scythe, 110.0, 1.0),
+        (UnitKind::Prism, 100.0, 1.0),
+        (UnitKind::Umbra, 440.0, 3.0),
+        (UnitKind::Monolith, 360.0, 1.0),
+        (UnitKind::Bruiser, 320.0, 3.0),
+    ] {
+        let want = topped(hp, armor);
+        assert!(
+            (k.def().hp - want).abs() <= 1.0,
+            "{k:?}: {} hp, the formula's {want:.1}",
+            k.def().hp
+        );
+    }
+    for b in VAEL.build_basic.iter().chain(VAEL.build_advanced) {
+        for k in b.def().trains {
+            assert_eq!(k.def().armor, 0.0, "{k:?} has no armor");
+        }
+    }
+}
+
+#[test]
+fn the_rover_fires_a_heavy_salvo_slowly_and_costs_more_than_the_android() {
+    let r = UnitKind::Monolith.def();
+    let wp = r.weapon.unwrap();
+    assert!(
+        (95.0..=105.0).contains(&wp.dmg),
+        "about 100 a salvo: {}",
+        wp.dmg
+    );
+    assert!((3.3..=3.7).contains(&wp.cd), "about every 3.5 s: {}", wp.cd);
+    assert!(
+        r.cost[0] > UnitKind::Umbra.def().cost[0],
+        "priced above the Android"
+    );
+}
+
+#[test]
+fn the_portal_gives_no_grid_and_draws_its_own() {
     let d = BldgKind::Eclipse.def();
     assert_eq!(d.supply, 0, "the Portal gives no places");
-    assert_eq!(UnitKind::Umbra.def().pool, Pool::Supply);
     let mut w = expedition();
     set_down(&mut w, BldgKind::Uplink);
-    let before = w.pools[PLAYER as usize];
+    let before = w.sup(PLAYER);
     set_down(&mut w, BldgKind::Eclipse);
-    let after = w.pools[PLAYER as usize];
-    assert_eq!(after[Pool::Hired.index()], before[Pool::Hired.index()]);
     assert_eq!(
-        after[Pool::Supply.index()],
-        [
-            before[Pool::Supply.index()][0] + d.uses,
-            before[Pool::Supply.index()][1]
-        ],
-        "it only uses Power"
+        w.sup(PLAYER),
+        [before[0] + d.uses, before[1]],
+        "it only draws grid"
     );
 }
 
 #[test]
-fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_cancel() {
+fn one_portal_a_side_its_grid_held_from_placement_and_released_on_its_loss_or_cancel() {
     let mut w = expedition();
     set_down(&mut w, BldgKind::Uplink);
-    set_down(&mut w, BldgKind::Spire);
+    set_down(&mut w, BldgKind::Substation);
     let uses = BldgKind::Eclipse.def().uses;
     assert!(uses > 0);
-    let power = w.sup(PLAYER);
-    // Placed: its Power is used at once, while it goes up.
+    let grid = w.sup(PLAYER);
+    // Placed: its grid is drawn at once, while it goes up.
     let (px, py) = spot(&w, BldgKind::Eclipse);
     let site = w
         .place_building(PLAYER, BldgKind::Eclipse, px, py, None)
         .unwrap();
     assert_eq!(
         w.sup(PLAYER),
-        [power[0] + uses, power[1]],
-        "used from placement"
+        [grid[0] + uses, grid[1]],
+        "drawn from placement"
     );
     // A second, while the first goes up: refused.
     let (qx, qy) = spot(&w, BldgKind::Eclipse);
@@ -306,19 +421,19 @@ fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_c
         only_one,
         "one going up"
     );
-    // Cancelled: its Power comes back, and another may be placed.
+    // Cancelled: its grid comes back, and another may be placed.
     assert!(w.cancel_construction(site));
-    assert_eq!(w.sup(PLAYER), power, "released on cancel");
+    assert_eq!(w.sup(PLAYER), grid, "released on cancel");
     let portal = w
         .place_building(PLAYER, BldgKind::Eclipse, qx, qy, None)
         .unwrap();
-    assert_eq!(w.sup(PLAYER)[0], power[0] + uses);
-    // Finished: still one only, still its Power.
+    assert_eq!(w.sup(PLAYER)[0], grid[0] + uses);
+    // Finished: still one only, still its grid.
     let bot = harvesters(&w, PLAYER)[0];
     w.start_build(bot, portal);
     run(&mut w, 70);
     assert!(w.bldg(portal).unwrap().done, "finished");
-    assert_eq!(w.sup(PLAYER)[0], power[0] + uses, "used while it stands");
+    assert_eq!(w.sup(PLAYER)[0], grid[0] + uses, "drawn while it stands");
     let (rx, ry) = spot(&w, BldgKind::Eclipse);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Eclipse, rx, ry, None),
@@ -327,32 +442,36 @@ fn one_portal_a_side_its_power_held_from_placement_and_released_on_its_loss_or_c
     );
     // Destroyed: released, and another may be placed.
     w.damage(portal, 1e9, None);
-    assert_eq!(w.sup(PLAYER)[0], power[0], "released on its loss");
+    assert_eq!(w.sup(PLAYER)[0], grid[0], "released on its loss");
     assert!(
         w.place_building(PLAYER, BldgKind::Eclipse, rx, ry, None)
             .is_ok()
     );
-    // Without the Power for it: refused in the Power's words.
+    // Without the grid for it: refused in the grid's words.
     let mut w = expedition();
     set_down(&mut w, BldgKind::Uplink);
     let [used, cap] = w.sup(PLAYER);
-    spawn(&mut w, UnitKind::Lumen, (cap - used - uses + 1) as usize);
+    spawn(
+        &mut w,
+        UnitKind::Lumen,
+        ((cap - used - uses) / 2 + 1) as usize,
+    );
     let (px, py) = spot(&w, BldgKind::Eclipse);
     assert_eq!(
         w.place_building(PLAYER, BldgKind::Eclipse, px, py, None),
-        Err("Not enough Power: build a Wind turbine.".to_string())
+        Err("Not enough grid: build a Substation.".to_string())
     );
 }
 
 #[test]
-fn a_building_that_uses_no_power_goes_up_whatever_the_pools() {
-    // Over its cap (its use above what its buildings give, as after a lost Cottage or turbine), a seat still places
-    // the building that gives more: only a building that uses Power (the Portal) asks for room.
+fn a_building_that_draws_no_grid_goes_up_whatever_the_places() {
+    // Over its cap (its use above what its buildings give, as after a lost Cottage or Substation), a seat still places
+    // the building that gives more: only a building that draws grid (`uses`) asks for room.
     let mut w = rich(7);
     for e in &mut w.explored {
         e.fill(1);
     }
-    w.pools[PLAYER as usize][Pool::Supply.index()] = [30, 20];
+    w.supply[PLAYER as usize] = [30, 20];
     let (tx, ty) = spot(&w, BldgKind::Depot);
     assert!(
         w.place_building(PLAYER, BldgKind::Depot, tx, ty, None)
@@ -360,25 +479,27 @@ fn a_building_that_uses_no_power_goes_up_whatever_the_pools() {
         "the Kingdom's Cottage"
     );
     let mut w = expedition();
+    set_down(&mut w, BldgKind::Siphon);
     let used = w.sup(PLAYER)[0];
-    w.pools[PLAYER as usize][Pool::Supply.index()] = [used + 10, used];
-    let (tx, ty) = spot(&w, BldgKind::Spire);
-    assert!(
-        w.place_building(PLAYER, BldgKind::Spire, tx, ty, None)
-            .is_ok(),
-        "the Expedition's turbine"
-    );
+    w.supply[PLAYER as usize] = [used + 10, used];
+    for k in [BldgKind::Substation, BldgKind::Spire] {
+        let (tx, ty) = spot(&w, k);
+        assert!(
+            w.place_building(PLAYER, k, tx, ty, None).is_ok(),
+            "the Expedition's {k:?}"
+        );
+    }
 }
 
 #[test]
-fn the_android_is_a_slow_expensive_elite_machine_using_power() {
+fn the_android_is_a_slow_expensive_elite_machine_drawing_grid() {
     let d = UnitKind::Umbra.def();
     let wp = d.weapon.unwrap();
-    // (an elite since Nov 13: about four Sellswords' hp and damage)
-    assert_eq!((d.hp, d.armor), (440.0, 3.0));
+    // (an elite since Nov 13: about four Sellswords' hp and damage; no armor since Nov 14, its hp carrying it)
+    assert_eq!((d.hp, d.armor), (575.0, 0.0));
     assert_eq!((wp.dmg, wp.range), (63.0, 8.0));
     assert!(wp.dmg_air > 0.0, "it hits the air");
-    assert_eq!((d.pool, d.supply), (Pool::Supply, 10), "ten Power");
+    assert_eq!(d.supply, 10, "ten grid");
     assert!(
         (30.0..=90.0).contains(&d.build),
         "under a minute and a half to make: {}",
@@ -390,14 +511,14 @@ fn the_android_is_a_slow_expensive_elite_machine_using_power() {
         endfall_sim::data::radio::needs_range(UnitKind::Umbra),
         "sped up in range like the other machines"
     );
-    // Trained at the Portal: ten Power queued, and refused without them.
+    // Trained at the Portal: ten grid queued, and refused without them.
     let mut w = expedition();
     set_down(&mut w, BldgKind::Uplink);
     let p = set_down(&mut w, BldgKind::Eclipse);
     let [used, cap] = w.sup(PLAYER);
     assert_eq!(w.queue_unit(p, UnitKind::Umbra), Ok(()));
     assert_eq!(w.sup(PLAYER), [used + 10, cap]);
-    // (Bots, two Power each, until eight are left: short of an Android's ten)
+    // (Bots, two grid each, until eight are left: short of an Android's ten)
     spawn(
         &mut w,
         UnitKind::Lumen,
@@ -405,7 +526,7 @@ fn the_android_is_a_slow_expensive_elite_machine_using_power() {
     );
     assert_eq!(
         w.queue_unit(p, UnitKind::Umbra),
-        Err("Not enough Power: build a Wind turbine.".to_string())
+        Err("Not enough grid: build a Substation.".to_string())
     );
     // It takes its whole training time.
     let before = count(&w, PLAYER, UnitKind::Umbra);
@@ -513,12 +634,13 @@ fn the_hired_guns_fight_in_melee_on_the_ground_only() {
 }
 
 #[test]
-fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_level() {
+fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_portal_at_every_level()
+ {
     // The Expedition's AI against a Kingdom that only stands, at every level (every starting building made to last, so
-    // the game runs its course): it raises Recruiting posts, wind turbines as its machines need Power (Easy fields few machines but
-    // its Bots: a turbine only if those fill its Data center's 20), raises an Uplink and a Portal, never more than one
-    // Portal standing or going up, trains Androids there, and never stands above its places but as a lost building
-    // leaves it.
+    // the game runs its course): it raises Recruiting posts, Substations as its grid fills (Easy fields few machines: a
+    // Substation only if its army fills its Data center's 55), Wind turbines as its Market (five a Data center at
+    // most), an Uplink and a Portal, never more than one Portal standing or going up, trains Androids there, and never
+    // stands above its places but as a lost building leaves it.
     // (seed 2: since the economy pass's scarcer gold the Kingdom's Medium beats the Expedition's line down in seed 11's
     // game before its Portal ever has the four Sellswords and the price an Android waits for; since new workers wait
     // for an order, Brutal's Expedition in seed 20's; since Easy's slow climb and its Kingdom's line on par (Nov 13),
@@ -532,10 +654,10 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
-        let mut seen = [false; 5]; // turbine, post, Uplink, Portal (finished), an Android
+        let mut seen = [false; 6]; // Substation, post, Uplink, Portal (finished), an Android, a turbine
         let mut uplink_at = None;
         let mut capped_at_portal = (false, false);
-        let mut power_full = false;
+        let mut grid_full = false;
         let mut portals = 0;
         let mut prev = Vec::new();
         while w.time < 25.0 * 60.0 && !seen.iter().all(|&s| s) {
@@ -543,13 +665,15 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
             w.events.clear();
             for b in w.bldgs.iter().filter(|b| b.team == ENEMY && b.done) {
                 let k = [
-                    BldgKind::Spire,
-                    BldgKind::Siphon,
-                    BldgKind::Uplink,
-                    BldgKind::Eclipse,
+                    (BldgKind::Substation, 0),
+                    (BldgKind::Siphon, 1),
+                    (BldgKind::Uplink, 2),
+                    (BldgKind::Eclipse, 3),
+                    (BldgKind::Spire, 5),
                 ]
                 .iter()
-                .position(|&k| k == b.kind);
+                .find(|&&(k, _)| k == b.kind)
+                .map(|&(_, i)| i);
                 if let Some(k) = k {
                     seen[k] = true;
                 }
@@ -561,11 +685,25 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
                 .filter(|b| b.team == ENEMY && b.kind == BldgKind::Eclipse)
                 .count();
             portals = portals.max(n);
+            let turbines = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == BldgKind::Spire)
+                .count();
+            let centers = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == BldgKind::Conflux && b.done)
+                .count();
+            assert!(
+                turbines <= 5 * centers,
+                "diff {diff}: {turbines} turbines, {centers} Data centers"
+            );
             if uplink_at.is_none() && seen[2] {
                 uplink_at = Some(w.time);
             }
             let [used, cap] = w.sup(ENEMY);
-            power_full |= used >= cap;
+            grid_full |= used >= cap;
             // (Easy at its army's cap when its Portal stands: it trains nothing more, an Android neither)
             if seen[3] && !capped_at_portal.0 {
                 capped_at_portal = (
@@ -589,15 +727,16 @@ fn the_expedition_ai_powers_hires_and_trains_androids_from_one_portal_at_every_l
         // Android first; Easy's climb brings its top tier from 13:00; but not Easy at its 14 fighters when its Portal
         // stands, as in seed 2's game since its Portal's Uplink stands at home: it trains nothing more)
         let want = [
-            diff > 0 || power_full,
+            diff > 0 || grid_full,
             true,
             true,
             true,
             !capped_at_portal.1,
+            true,
         ];
         assert!(
             seen.iter().zip(want).all(|(&s, w)| s || !w),
-            "diff {diff}: turbine, post, Uplink, Portal, Android: {seen:?} by {:.0} s (over {}, winner {})",
+            "diff {diff}: Substation, post, Uplink, Portal, Android, turbine: {seen:?} by {:.0} s (over {}, winner {})",
             w.time,
             w.over,
             w.winner

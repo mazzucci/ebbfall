@@ -1,9 +1,9 @@
 // The command card's buttons (what they hold: cards.js), their details (a long press on touch, hover with a mouse),
 // and what a button does (doCommand).
-import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, poolMax } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, supMax } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud } from './hud.js';
-import { cardItems, myFaction, leastBusy, researching, mostBusy } from './cards.js';
+import { cardItems, myFaction, money, moneyDot, leastBusy, researching, mostBusy } from './cards.js';
 import { onControls } from './controls.js';
 import { sfx, say } from './audio.js';
 import { icon, glyph } from './icons.js';
@@ -34,7 +34,7 @@ export function buildCard() {
     b.disabled = !!it.dis;
     b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon) : ''; // (a unit or a building: its symbol, `por` [what, kind])
-    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} gold"><i class="dot shard"></i>${it.cost[0]}` : '>'}</span></span>` : '');
+    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} ${money()}"><i class="${moneyDot()}"></i>${it.cost[0]}` : '>'}</span></span>` : '');
     b.addEventListener('pointerdown', ev => {
       ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
       if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
@@ -59,7 +59,7 @@ const SPRITE = 72; // (css px: the unit or building as it looks on the map, besi
 function showDetail(it, anchor = $('cmd')) {
   // (over the card, right-aligned; or over another anchor, left-aligned: the selection console's portrait)
   const box = $('cmdInfo'), r = anchor.getBoundingClientRect(), left = anchor !== $('cmd'); // (the card survives rebuilds; its buttons may not)
-  const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="dot shard"></i>${it.cost[0]}` : ''}</span>` : '';
+  const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="${moneyDot()}"></i>${it.cost[0]}` : ''}</span>` : '';
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
   if (left) { box.style.left = r.left + 'px'; box.style.right = ''; } else { box.style.right = (innerWidth - r.right) + 'px'; box.style.left = ''; }
@@ -94,17 +94,18 @@ for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () =>
   if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
 }, true);
 
-/** A refused button press. Short of gold, or an ability that is already on or not ready: the button
+/** A refused button press. Short of gold (or energy), or an ability that is already on or not ready: the button
  *  itself shakes (its cost flashes) with the error sound, no toast over the game (the long-press detail says what is
- *  short; a lit ability button says it is on). Anything else (no Power, no free hired places, a pool at its maximum,
+ *  short; a lit ability button says it is on). Anything else (no grid or population, either at its maximum,
  *  one Portal only, "Requires …": a decision to make, a building to raise) is
  *  a toast; so is a refusal for a button not on the card (a hotkey). The shake rides through card rebuilds
  *  (`shaking`): the rebuilt button carries it. */
 let shaking = { id: '', until: 0 };
 function refuse(id, err) {
-  if (!/^Not enough gold| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
+  if (!/^Not enough (gold|energy)$| is already on$| is not ready$/.test(err) || !document.querySelector(`#cmd [data-id="${id}"]`)) { toast(err, true); return; }
   sfx('error');
-  if (/^Not enough gold/.test(err)) say('gold'); // (the announcer says what is short)
+  const short = /^Not enough (gold|energy)$/.exec(err);
+  if (short) say(short[1]); // (the announcer says what is short)
   shaking = { id, until: performance.now() + 400 };
   cardKey = ''; buildCard(); // (now, whichever path pressed it: a fresh button starts the shake from the top)
 }
@@ -122,16 +123,17 @@ export function doCommand(id, times = 1) {
   if (id.startsWith('b_')) {
     const k = id.slice(2);
     if (!hasReq(G.me, k)) { toast('Requires ' + BUILDINGS[BUILDINGS[k].req].name, true); return; }
-    if (BUILDINGS[k].perHq) { // (one a finished Castle, sites counted: as the sim's `hq_room`, so no ghost for a placement it refuses)
-      const mine = G.bldgs.filter(b => b.team === G.me), hqs = mine.filter(b => b.d.hq && b.done).length;
-      if (mine.filter(b => b.type === k).length >= hqs) { refuse(id, `One ${BUILDINGS[k].name} per ${mine.find(b => b.d.hq)?.d.name ?? 'headquarters'}`); return; }
+    const per = BUILDINGS[k].perHq;
+    if (per) { // (one Market a finished Castle, five turbines a Data center, sites counted: as the sim's `hq_room`, so no ghost for a placement it refuses)
+      const mine = G.bldgs.filter(b => b.team === G.me), hqs = mine.filter(b => b.d.hq && b.done).length, hq = mine.find(b => b.d.hq)?.d.name ?? 'headquarters';
+      if (mine.filter(b => b.type === k).length >= per * hqs) { refuse(id, per === 1 ? `One ${BUILDINGS[k].name} per ${hq}` : `At most ${per} ${BUILDINGS[k].name}s per ${hq}`); return; }
     }
     // (one a side, standing or going up: as the sim's `single_room`)
     if (BUILDINGS[k].single && G.bldgs.some(b => b.team === G.me && b.type === k)) { refuse(id, `Only one ${BUILDINGS[k].name}.`); return; }
-    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, 'Not enough gold'); return; }
-    if (BUILDINGS[k].uses) { // (the Power it uses from placement: as the sim's `power_room`, in its words)
+    if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, `Not enough ${money()}`); return; }
+    if (BUILDINGS[k].uses) { // (the grid it draws from placement: as the sim's `grid_room`, in its words)
       const [used, cap] = G.sup[G.me];
-      if (cap - used < BUILDINGS[k].uses) { refuse(id, cap >= poolMax('supply') ? 'Power at maximum.' : `Not enough Power: build a ${BUILDINGS[myFaction().supply].name}.`); return; }
+      if (cap - used < BUILDINGS[k].uses) { refuse(id, cap >= supMax() ? 'Grid at maximum.' : `Not enough grid: build a ${BUILDINGS[myFaction().supply].name}.`); return; }
     }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }

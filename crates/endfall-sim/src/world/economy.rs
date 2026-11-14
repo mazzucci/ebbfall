@@ -7,83 +7,70 @@ use super::*;
 pub const MINE_LOW: i32 = 1500;
 
 impl World {
-    /// The most supply a seat can have on this map (`data::supply_limit`): the Kingdom's population limit, and the
-    /// Expedition's Power and hired places together (`pool_max`).
-    pub fn supply_limit(&self) -> i32 {
-        supply_limit(self.map.w)
-    }
-
-    /// A seat's population (the Kingdom) or Power (the Expedition): `[used, cap]` of `Pool::Supply`.
+    /// A seat's population (the Kingdom) or grid (the Expedition): `[used, cap]`.
     pub fn sup(&self, team: u8) -> [i32; 2] {
-        self.pool(team, Pool::Supply)
+        self.supply[team as usize]
     }
 
-    /// A seat's `[used, cap]` of one pool.
-    pub fn pool(&self, team: u8, pool: Pool) -> [i32; 2] {
-        self.pools[team as usize][pool.index()]
-    }
-
-    /// The most places a seat's `pool` can have on this map: the Kingdom's population the map's `supply_limit` (it has no
-    /// hired places); the Expedition's Power `power_limit` and its hired places `hired_limit`, the two together the
-    /// Kingdom's one limit.
-    pub fn pool_max(&self, team: u8, pool: Pool) -> i32 {
-        let w = self.map.w;
-        match (self.factions[team as usize].power, pool) {
-            (true, Pool::Supply) => power_limit(w),
-            (true, Pool::Hired) => hired_limit(w),
-            (false, Pool::Supply) => supply_limit(w),
-            (false, Pool::Hired) => 0,
+    /// The most places a seat can have, on every map: the Kingdom's population `POP_MAX`, the Expedition's grid
+    /// `GRID_MAX`.
+    pub fn sup_max(&self, team: u8) -> i32 {
+        if self.factions[team as usize].grid {
+            GRID_MAX
+        } else {
+            POP_MAX
         }
     }
 
-    /// Every pool's use of a seat together, the Portal's Power use included (read by the tests only; nothing caps the
-    /// sum: each pool has its own maximum, `pool_max`).
-    pub fn army_used(&self, team: u8) -> i32 {
-        self.pools[team as usize].iter().map(|p| p[0]).sum()
-    }
-
-    /// `n` places of `pool` for seat `e` in that pool's own units: the Expedition's Power counts `POWER_PER_PLACE` for a
-    /// Kingdom place (the AI's margins and slacks are written in places).
-    pub fn places(&self, e: u8, pool: Pool, n: i32) -> i32 {
-        if pool == Pool::Supply && self.factions[e as usize].power {
-            n * POWER_PER_PLACE
+    /// `n` places for seat `e` in its own units: the Expedition's grid counts `GRID_PER_PLACE` for a Kingdom place (the
+    /// AI's margins and slacks are written in places).
+    pub fn places(&self, e: u8, n: i32) -> i32 {
+        if self.factions[e as usize].grid {
+            n * GRID_PER_PLACE
         } else {
             n
         }
     }
 
-    /// The places a unit of `pool` could still take: its pool's free places (its cap is never above its maximum).
-    pub fn room(&self, team: u8, pool: Pool) -> i32 {
-        let [used, cap] = self.pool(team, pool);
+    /// The places a unit could still take: the free places (the cap is never above the maximum).
+    pub fn room(&self, team: u8) -> i32 {
+        let [used, cap] = self.sup(team);
         cap - used
     }
 
-    /// Count a seat's places again, every pool: its units and those queued use them, its finished buildings give them,
-    /// each pool capped at its maximum (`pool_max`); a building that uses Power (`BldgDef::uses`, the Portal) uses it
-    /// from the moment it is placed. A building lost can leave a pool's use above its cap: nothing more of it is
-    /// trained until enough fall (`queue_unit`), nothing is taken away.
+    /// The places a unit of `kind` takes for `team`: its `supply`, a machine's (every unit but the living ones) less by
+    /// the side's Grid efficiency (`GRID_USE`), rounded to whole grid.
+    pub fn takes(&self, team: u8, kind: UnitKind) -> i32 {
+        let d = kind.def();
+        let level = self.effect_level(team, Effect::GridUse).min(2) as usize;
+        if level == 0 || d.bio {
+            d.supply
+        } else {
+            jsmath::round(d.supply as f64 * GRID_USE[level]) as i32
+        }
+    }
+
+    /// Count a seat's places again: its units and those queued use them (`takes`), its finished buildings give them,
+    /// capped at its maximum (`sup_max`); a building that draws grid (`BldgDef::uses`) draws it from the moment it is
+    /// placed. A building lost can leave the use above the cap: nothing more is trained until enough fall
+    /// (`queue_unit`), nothing is taken away.
     pub fn recalc_supply(&mut self, team: u8) {
-        let mut p = [[0; 2]; POOLS];
+        let mut p = [0; 2];
         for u in self.units.iter().filter(|u| u.team == team) {
-            let d = u.kind.def();
-            p[d.pool.index()][0] += d.supply;
+            p[0] += self.takes(team, u.kind);
         }
         for b in self.bldgs.iter().filter(|b| b.team == team) {
             let d = b.kind.def();
             if b.done {
-                p[d.pool.index()][1] += d.supply;
+                p[1] += d.supply;
             }
-            p[Pool::Supply.index()][0] += d.uses;
-            for q in &b.queue {
-                p[q.def().pool.index()][0] += q.def().supply;
+            p[0] += d.uses;
+            for &q in &b.queue {
+                p[0] += self.takes(team, q);
             }
         }
-        for pool in ALL_POOLS {
-            let max = self.pool_max(team, pool);
-            let s = &mut p[pool.index()];
-            s[1] = s[1].min(max);
-        }
-        self.pools[team as usize] = p;
+        p[1] = p[1].min(self.sup_max(team));
+        self.supply[team as usize] = p;
     }
 
     /// The nearest gold mine with gold left within `max_d` px (an empty mine takes nobody in).
@@ -102,11 +89,15 @@ impl World {
         best
     }
 
-    /// A finished Market pays its owner gold with no workers (PRD: the conversion, rule 1): `PUMP_RATE` a
-    /// second, banked a whole gold at a time from its own fraction (`Bldg::pumped`, hashed). An AI's income
-    /// multiplier counts here as at a field (Brutal's x1.3: its edge is its whole economy's).
+    /// A finished building that pays (`BldgDef::pays`: the Kingdom's Market, the Expedition's Wind turbine) pays its
+    /// owner with no workers, its rate a second, banked a whole gold (or energy) at a time from its own fraction
+    /// (`Bldg::pumped`, hashed). An AI's income multiplier counts here as at a field (Brutal's x1.3: its edge is its
+    /// whole economy's).
     pub(crate) fn pump(&mut self, bid: Id, dt: f64) {
-        let team = self.bldg(bid).unwrap().team;
+        let (team, rate) = {
+            let b = self.bldg(bid).unwrap();
+            (b.team, b.kind.def().pays)
+        };
         let income = if self.is_ai(team) {
             self.tuning(team).income
         } else {
@@ -115,7 +106,8 @@ impl World {
         // (Trade: the Kingdom's Market research, `TRADE_RATE` by level)
         let trade = TRADE_RATE[self.effect_level(team, Effect::PumpRate).min(2) as usize];
         let b = self.bm(bid).unwrap();
-        b.pumped += PUMP_RATE * income * trade * dt;
+        // (Trade raises the Market's pay only: the Expedition, which builds no Market, never researches it)
+        b.pumped += rate * income * trade * dt;
         // (sixty ticks of 1/60 sum to a hair under 1: the tolerance pays on the 60th, not the 61st)
         let whole = (b.pumped + 1e-9).floor();
         if whole >= 1.0 {
@@ -266,7 +258,7 @@ impl World {
             Task::Gather {
                 node,
                 phase: Phase::Mine,
-                timer: MINE_TIME / income,
+                timer: self.u(uid).kind.mine_time() / income,
             }
         } else if phase == Phase::Go || timer <= 0.0 {
             // Full: try a less crowded mine close by (checked on arrival, then every half second while waiting).
@@ -317,7 +309,12 @@ impl World {
         let left = nm.amount;
         // A mine crossing into its last MINE_LOW gold: time to expand.
         if left < MINE_LOW && left + take >= MINE_LOW {
-            self.toast(team, "A gold mine is running low: time to expand", true);
+            let ore = self.factions[team as usize].ore;
+            self.toast(
+                team,
+                format!("A {ore} mine is running low: time to expand"),
+                true,
+            );
             self.ping(team, n.x, n.y);
         }
         let u = self.um(uid);
@@ -335,7 +332,8 @@ impl World {
             let miner = self.u(uid).team;
             for t in 0..self.seats() as u8 {
                 if self.vis[t as usize][i] != 0 && (t == miner || self.enemies(t, miner)) {
-                    self.toast(t, "A gold mine is mined out", false);
+                    let ore = self.factions[t as usize].ore;
+                    self.toast(t, format!("A {ore} mine is mined out"), false);
                 }
             }
         }

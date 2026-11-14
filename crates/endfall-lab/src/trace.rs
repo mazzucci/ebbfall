@@ -145,11 +145,13 @@ fn at(w: &World) -> String {
         let army: Vec<String> = kinds.iter().map(|(k, n)| format!("{k}{n}")).collect();
         let _ = writeln!(
             s,
-            "{:02}:{:02} s{seat} gold {:4} mined {:6} wk {:2} bl {:2} army {:5.0} [{}] | {} | {}",
+            "{:02}:{:02} s{seat} gold {:4} mined {:6} sup {:3}/{:3} wk {:2} bl {:2} army {:5.0} [{}] | {} | {}",
             t / 60,
             t % 60,
             w.res[seat as usize][0],
             w.ledger.get(seat as usize).map_or(0, |l| l.mined[0]),
+            w.sup(seat)[0],
+            w.sup(seat)[1],
             workers,
             bldgs,
             army_of(w, |x| x == seat as usize),

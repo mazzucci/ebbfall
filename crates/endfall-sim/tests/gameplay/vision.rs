@@ -336,7 +336,7 @@ fn a_person_may_build_where_only_an_ally_has_looked() {
     assert!(placed.is_ok(), "with an ally there: placed ({placed:?})");
 }
 
-/// The seats told "A gold mine is mined out" when seat 0's mine runs out, with an Observer of `watcher`
+/// The seats told "A gold mine is mined out" (the Expedition's: "A thorium mine ...") when seat 0's mine runs out, with an Observer of `watcher`
 /// beside it (teams [0, 0, 1, 1]).
 fn told_dry(watcher: Option<u8>) -> Vec<u8> {
     let mut w = four(&[0, 0, 1, 1]);
@@ -367,7 +367,7 @@ fn told_dry(watcher: Option<u8>) -> Vec<u8> {
         .events
         .iter()
         .filter_map(|e| match e {
-            Event::Toast { team, msg, .. } if msg == "A gold mine is mined out" => Some(*team),
+            Event::Toast { team, msg, .. } if msg.ends_with(" mine is mined out") => Some(*team),
             _ => None,
         })
         .collect();

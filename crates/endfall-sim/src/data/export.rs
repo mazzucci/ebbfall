@@ -109,11 +109,6 @@ impl ToJson for Move {
         })
     }
 }
-impl ToJson for Pool {
-    fn to_json(&self) -> String {
-        quote(self.key())
-    }
-}
 impl ToJson for Option<Upgrade> {
     fn to_json(&self) -> String {
         self.map_or("null".to_string(), |u| quote(u.def().key))
@@ -159,6 +154,7 @@ fn upgrade(d: &UpgradeDef) -> String {
         Effect::BuildSpeed => ("build", String::new()),
         Effect::MineLoad => ("mine", String::new()),
         Effect::PumpRate => ("trade", String::new()),
+        Effect::GridUse => ("grid", String::new()),
     };
     Obj::new()
         .str("name", d.name)
@@ -205,7 +201,9 @@ fn faction(f: &Faction) -> String {
             f.market.map_or("null".to_string(), |k| quote(k.def().key)),
         )
         .num("repairs", f.repairs)
-        .num("power", f.power)
+        .num("grid", f.grid)
+        .str("money", f.money)
+        .str("ore", f.ore)
         .done()
 }
 
@@ -221,6 +219,10 @@ pub fn data_json() -> String {
         .num("tech_speed", TECH_SPEED)
         .num("tech_build", TECH_BUILD)
         .num("pump_rate", PUMP_RATE)
+        .num("turbine_rate", TURBINE_RATE)
+        .raw("grid_use", array(GRID_USE))
+        .num("pop_max", POP_MAX)
+        .num("grid_max", GRID_MAX)
         .raw("drill_load", array(DRILL_LOAD))
         .raw("trade_rate", array(TRADE_RATE))
         .done();

@@ -2,7 +2,7 @@
 //! natively with a read-only record of what happened, and playing them all on threads in a fixed order.
 
 use endfall_sim::data::Move;
-use endfall_sim::data::{ALL_POOLS, BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
+use endfall_sim::data::{BLDG_KINDS, FACTIONS, Faction, UNIT_KINDS};
 use endfall_sim::map::{Foot, Ground, MapKind, MapSize, ShoreField};
 use endfall_sim::path::{PathScratch, astar};
 use endfall_sim::world::{Event, World};
@@ -232,9 +232,9 @@ pub struct SeatRec {
     pub south: bool,
     /// At each of `ECON_AT`'s minutes the game reached: its bank [shards, ether] and what it had mined so far.
     pub econ: Vec<Econ>,
-    /// The first tick each pool (`ALL_POOLS`: population or Power, hired places) came within `AT_MAX_SLACK` places
-    /// of its maximum (`World::pool_max`; None: never, or a pool the side does not have).
-    pub at_max: [Option<u32>; 2],
+    /// The first tick its places (population or grid) came within `AT_MAX_SLACK` of their maximum (`World::sup_max`;
+    /// None: never).
+    pub at_max: Option<u32>,
     /// The tick the mine nearest its headquarters ran dry (None: it never did).
     pub home_dry: Option<u32>,
     /// The tick it first had two finished headquarters (None: never).
@@ -254,7 +254,7 @@ pub struct Econ {
 
 /// The minutes the economy is sampled at (`SeatRec::econ`).
 pub const ECON_AT: [u32; 6] = [2, 3, 5, 8, 10, 15];
-/// A pool this many places short of its maximum is at it (a unit takes up to a few places).
+/// Places this many short of their maximum are at it (a unit takes up to a few places).
 pub const AT_MAX_SLACK: i32 = 2;
 
 /// The tick of the Pumps' count: 5:00.
@@ -403,7 +403,7 @@ impl Tracker {
             self.pumps_at_5 = Some([0, 1].map(|s| w.pumps(s) as u32));
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
-            rec.peak_supply = rec.peak_supply.max(w.pools[s][0][0]);
+            rec.peak_supply = rec.peak_supply.max(w.supply[s][0]);
         }
         self.economy(w, tick);
         self.waves(w);
@@ -471,11 +471,8 @@ impl Tracker {
             }
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
-            for (k, pool) in ALL_POOLS.into_iter().enumerate() {
-                let max = w.pool_max(s as u8, pool);
-                if rec.at_max[k].is_none() && max > 0 && w.pools[s][k][0] + AT_MAX_SLACK >= max {
-                    rec.at_max[k] = Some(tick);
-                }
+            if rec.at_max.is_none() && w.supply[s][0] + AT_MAX_SLACK >= w.sup_max(s as u8) {
+                rec.at_max = Some(tick);
             }
             if rec.second_base.is_none()
                 && w.bldgs

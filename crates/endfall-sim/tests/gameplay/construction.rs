@@ -299,9 +299,9 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
     // itself).
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
-    let (tx, ty) = spot(&w, BldgKind::Spire);
+    let (tx, ty) = spot(&w, BldgKind::Substation);
     let site = w
-        .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
+        .place_building(PLAYER, BldgKind::Substation, tx, ty, Some(l[0]))
         .unwrap();
     let mut rose = false;
     for _ in 0..30 * 60 {
@@ -320,7 +320,7 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
             );
         }
     }
-    assert!(rose && w.bldg(site).unwrap().done, "the Sunpetal stands");
+    assert!(rose && w.bldg(site).unwrap().done, "the Substation stands");
     assert!(
         !w.can_build(l[1], site),
         "nothing left to build on a finished one"
@@ -338,7 +338,7 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
 fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
     // The Kingdom's rule, now both peoples': no builder, no progress; another Bot sent to it finishes it.
     for (mut w, kind) in [
-        (rich_vael(4242), BldgKind::Spire),
+        (rich_vael(4242), BldgKind::Substation),
         (rich(4242), BldgKind::Depot),
     ] {
         let l = harvesters(&w, PLAYER);
@@ -400,7 +400,7 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_lets_it_w
         );
         assert_eq!(
             w.bldg(b).unwrap().pumped > 0.0,
-            ext.def().pays,
+            ext.def().pays > 0.0,
             "{ext:?}: the Market earns by itself, the Recruiting post nothing"
         );
     }
@@ -479,7 +479,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
 #[test]
 fn supply_blocked_names_the_right_building_for_each_race() {
     let mut w = rich_vael(4242);
-    w.pools[PLAYER as usize][0] = [10, 10];
+    w.supply[PLAYER as usize] = [10, 10];
     let hq = w
         .bldgs
         .iter()
@@ -488,7 +488,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Not enough Power: build a Wind turbine.".to_string())
+        Err("Not enough grid: build a Substation.".to_string())
     );
 }
 

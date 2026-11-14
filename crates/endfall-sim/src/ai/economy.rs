@@ -30,7 +30,7 @@ impl World {
     pub fn pumps(&self, e: u8) -> usize {
         self.bldgs
             .iter()
-            .filter(|b| b.team == e && b.done && b.kind.def().pays)
+            .filter(|b| b.team == e && b.done && b.kind.def().pays > 0.0)
             .count()
     }
 

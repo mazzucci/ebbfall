@@ -36,6 +36,7 @@ const P = {
   army: 'M9 5a3 3 0 1 0 .01 0M3 20v-1a6 6 0 0 1 12 0v1M16 6a2.5 2.5 0 1 0 .01 0M17 13.2a5 5 0 0 1 4 4.8v2', // (a group: two figures, one behind; crossed swords read as Deselect's X)
   entrench: 'M12 3 6.5 5.2V10c0 3.2 2.3 5.4 5.5 6.8 3.2-1.4 5.5-3.6 5.5-6.8V5.2zM3 21h18M6 21l2.5-4M18 21l-2.5-4', // (Brace: a shield planted in the ground)
   drills: 'M9 2h6v5H9zM7 7h10M9.5 7 12 22l2.5-15M10.2 10.5l3.6 2M10.9 14.5l2.4 1.4', // (a drill bit under its chuck)
+  gridEfficiency: 'M10 2 3.5 13H8l-1.5 9L13 11H8.5L10 2zM19 5v12M15.5 13.5 19 17l3.5-3.5', // (Grid efficiency: a bolt and an arrow down, less drawn)
   trade: 'M2.5 18a5 2 0 1 0 10 0a5 2 0 1 0-10 0M2.5 18v2.5a5 2 0 0 0 10 0V18M2.5 13.5a5 2 0 1 0 10 0a5 2 0 1 0-10 0M2.5 13.5V16M12.5 13.5V16M18 21V5M14 9l4-4 4 4', // (Trade: a stack of coins and an arrow up)
   help: 'M12 3a9 9 0 1 0 .01 0M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01',
   horseshoe: ['M4 3h4v8a4 4 0 0 0 8 0V3h4v8a8 8 0 0 1-16 0zM6 6.5h.01M18 6.5h.01M6.8 12h.01M17.2 12h.01', 'M4 3h4v8a4 4 0 0 0 8 0V3h4v8a8 8 0 0 1-16 0z'],
@@ -82,6 +83,7 @@ const U = {
   conflux: ['M5 3h14v18H5zM5 9h14M5 15h14M8 6h.01M8 12h.01M8 18h.01M11.5 6H16M11.5 12H16M11.5 18H16', 'M5 3h14v18H5z'], // Data center: a server rack
   siphon: ['M2 20 12 4l10 16zM9 20l3-6 3 6M12 4V1.5h3.5l-1 1.2 1 1.3H12', 'M2 20 12 4l10 16z'], // Recruiting post: a tent and its pennant
   spire: ['M12 10.5V22M9 22h6M12 7.5Q13.8 5 12 1Q11.4 5 12 7.5zM13.3 9.8Q14.6 12.6 18.9 13Q15.8 10.5 13.3 9.8zM10.7 9.8Q7.6 9.4 5.1 13Q8.8 11.5 10.7 9.8zM12 9h.01', 'M12 7.5Q13.8 5 12 1Q11.4 5 12 7.5zM13.3 9.8Q14.6 12.6 18.9 13Q15.8 10.5 13.3 9.8zM10.7 9.8Q7.6 9.4 5.1 13Q8.8 11.5 10.7 9.8z'], // Turbine: three blades on a mast
+  substation: ['M3.5 13h17v8.5h-17zM8 13V4.5M16 13V4.5M8 4.5h8M5.5 10.5h5M5.5 7.5h5M13.5 10.5h5M13.5 7.5h5M13 14.5l-2.5 3h3l-2.5 3', 'M3.5 13h17v8.5h-17z'], // Substation: a transformer box with a bolt on it and two insulators (stacked discs) joined by a busbar; no blades, no mast
   kiln: ['M2 21V11l5 3v-3l5 3v-3l5 3V4h4v17zM6 17.5h2M11 17.5h2', 'M2 21V11l5 3v-3l5 3v-3l5 3V4h4v17z'], // Factory: a sawtooth roof and a chimney
   loom: ['M9 3h6M10 3v6L4.5 19.2A1.3 1.3 0 0 0 5.6 21h12.8a1.3 1.3 0 0 0 1.1-1.8L14 9V3M7 15h10', 'M7 15h10l2.5 4.2a1.3 1.3 0 0 1-1.1 1.8H5.6a1.3 1.3 0 0 1-1.1-1.8z'], // Lab: a flask
   ward: ['M3 21h18M5 21v-5a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v5M11 12.5 20.2 3l2 2-9.2 9.5', 'M5 21v-5a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v5zM11 12.5 20.2 3l2 2-9.2 9.5z'], // Sentry gun: a squat drum on its plate with a long barrel up right, like the sprite (the glyph round: the mast read as an A)

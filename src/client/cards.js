@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, poolMax, liveGame } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, supMax, takes, liveGame } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -71,17 +71,17 @@ function abilityItems(units) {
   }).filter(Boolean).map((it, pos) => ({ ...it, pos }));
 }
 
-/** Why the sim would refuse unit `t` for want of places now (its words, crates/endfall-sim/src/world/orders.rs
- *  `pool_full`), or '' when there is room: the button's tooltip says it before the tap does. */
+/** Why the sim would refuse unit `t` for want of grid now (its words, crates/endfall-sim/src/world/orders.rs
+ *  `sup_full`), or '' when there is room: the button's tooltip says it before the tap does. */
 export function placesTip(t) {
-  const d = UNITS[t], f = myFaction();
-  const [used, cap] = (d.pool === 'hired' ? G.hired : G.sup)[G.me] || [0, 0];
-  if (used + (d.supply || 0) <= cap) return '';
-  const max = cap >= poolMax(d.pool); // (each pool's own maximum: the Expedition's Power and hired places apart)
-  if (d.pool === 'hired') return max ? 'Hired at maximum.' : 'No free places: build another Recruiting post.';
-  if (f.power) return max ? 'Power at maximum.' : `Not enough Power: build a ${BUILDINGS[f.supply].name}.`;
-  return '';
+  const f = myFaction();
+  const [used, cap] = G.sup[G.me] || [0, 0];
+  if (!f.grid || used + takes(G.upgrades[G.me], t) <= cap) return '';
+  return cap >= supMax() ? 'Grid at maximum.' : `Not enough grid: build a ${BUILDINGS[f.supply].name}.`;
 }
+/** What a side spends, in its words ('gold', 'energy'), and the icon class its prices wear (`dot shard`, `dot bolt`). */
+export const money = () => myFaction().money || 'gold';
+export const moneyDot = () => (money() === 'energy' ? 'dot bolt' : 'dot shard');
 
 /** A building's requirement depth: 0 with none, 1 when it needs a building with none, and so on. */
 const depth = (k) => {
@@ -130,7 +130,7 @@ export function cardItems() {
     const workers = units.some(u => u.d.worker), onlyWorkers = units.every(u => u.d.worker);
     const canShoot = units.some(u => u.d.weapon); // (no Attack for an Observer or Medics)
     const orders = [...(canShoot ? [{ id: 'attack', label: 'Attack', key: 'A', icon: 'attack' }] : []), { id: 'hold', label: 'Hold', key: 'H', icon: 'hold' }];
-    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Mine', key: 'G', icon: mineIcon(units), tip: 'Then tap a gold mine: they dig its gold and carry it home.' }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // (both peoples repair buildings now; kept for one that does not)
+    const work = [{ id: 'build', label: 'Build', key: 'B', icon: 'build' }, { id: 'gather', label: 'Mine', key: 'G', icon: mineIcon(units), tip: `Then tap a ${myFaction().ore} mine: they dig its ${myFaction().ore} and carry it home.` }, { id: 'repair', label: 'Repair', key: 'R', icon: 'repair', tip: 'Then tap a damaged building. Costs a share of its price as it heals.' }].filter(it => it.id !== 'repair' || myFaction().repairs); // (both peoples repair buildings now; kept for one that does not)
     const abilities = abilityItems(units);
     // Every button ability the selection has, hidden ones too: the room they take, so the card keeps its shape (Deselect
     // in its place) when a tech lands.
@@ -194,7 +194,7 @@ export function cardItems() {
   }
   for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // grayed out, but a tap says what is short
     it.poor = true;
-    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough gold (needs ${it.cost[0]}).`;
+    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough ${money()} (needs ${it.cost[0]}).`;
   }
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }

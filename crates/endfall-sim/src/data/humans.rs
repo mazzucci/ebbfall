@@ -22,9 +22,11 @@ pub const HUMANS: Faction = Faction {
     ],
     supply: BldgKind::Depot,
     market: Some(BldgKind::Extractor),
+    money: "gold",
+    ore: "gold",
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
-    power: false,
+    grid: false,
     start_workers: 4,
     ai: AiScript {
         rax: BldgKind::Barracks,
@@ -279,8 +281,8 @@ pub(super) const EXTRACTOR: BldgDef = BldgDef {
     cost: [75, 0],
     hp: 200.0,
     build: 25.0,
-    pays: true,
-    per_hq: true,
+    pays: PUMP_RATE,
+    per_hq: 1,
     // (its people's barracks first: workers on the crystals, then soldiers, then the Market)
     req: Some(BldgKind::Barracks),
     ..BLDG

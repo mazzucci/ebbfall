@@ -13,6 +13,11 @@ export const DUEL_MH = D.consts.mh;
 export const DT = D.consts.dt;
 /** Gold a second a finished Market pays (`PUMP_RATE`). */
 export const PUMP_RATE = D.consts.pump_rate;
+/** A Market's pay by Trade level (0, 1, 2), as a multiple of its rate. */
+export const TRADE_RATE = D.consts.trade_rate;
+/** The most population (the Kingdom) and grid (the Expedition) a seat can have, on every map. */
+export const POP_MAX = D.consts.pop_max;
+export const GRID_MAX = D.consts.grid_max;
 
 /** The seats a menu game deals: the player and the scripted opponent (tests and tools; the client itself plays G.me). */
 export const PLAYER = D.consts.player;
@@ -45,14 +50,14 @@ const UNIT_TEXT = {
   rider: { hot: 'E', what: 'Raids workers, fast', desc: 'Fast, raids workers. Faster after Horseshoes. Light armor: falls fast under ranged fire.' },
   knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Fast and tough in heavy armor, hits hard up close. Faster after Horseshoes. Can\'t hit flyers.' },
   // the Expedition (`vael`)
-  lumen: { hot: 'G', what: 'Mines gold, builds, repairs', desc: 'Mines gold. Builds, staying at each building until it stands, and repairs buildings. Goes anywhere.' },
+  lumen: { hot: 'G', what: 'Mines thorium, builds, repairs', desc: 'Mines thorium, which the Data center turns into energy. Builds, staying at each building until it stands, and repairs buildings. Goes anywhere.' },
   scythe: { hot: 'N', what: 'Fast, escorts and defends', desc: 'Fast, with a light gun: catches raiders and escorts. Can\'t hit flyers. Weak against infantry in numbers. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
-  prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Cheap and quick to field. Fights up close, ground only. Weak against armor. Takes a hired place. Fights anywhere.' },
+  prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Cheap and quick to field. Fights up close, ground only. Weak against armor. Fights anywhere.' },
   monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Long-range rockets that hit an area. Fires while moving; can\'t hit what is close or flying, and sees no farther than others: it needs spotters. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
   shrike: { hot: 'E', what: 'Swarms, fast and small', desc: `A small, fast attack drone: weak alone, dangerous in a swarm. Fragile. Hits ground and air. Needs signal: works only inside the Data center's or an Uplink's coverage.` },
   halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
-  umbra: { hot: 'U', what: 'Elite, strikes from range', desc: 'Tough and armored, with a long reach; hits ground and air. Costly. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
-  bruiser: { hot: 'B', what: 'Holds the front line', desc: 'The toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Takes two hired places. Fights anywhere.' },
+  umbra: { hot: 'U', what: 'Elite, strikes from range', desc: 'Tough, with a long reach; hits ground and air. Costly. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
+  bruiser: { hot: 'B', what: 'Holds the front line', desc: 'The toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Fights anywhere.' },
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
 const BLDG_TEXT = {
@@ -66,11 +71,13 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, stores gold', desc: `Trains Bots and stores gold. +${D.buildings.conflux.supply} Power. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there.` },
-  spire: { hot: 'S', what: `Makes +${D.buildings.spire.supply} Power`, desc: `+${D.buildings.spire.supply} Power.` },
-  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: `+${D.buildings.siphon.supply} hired places. Hires Sellswords, and Bruisers once a Lab stands. Build as many as you like.` },
+  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there.` },
+  // (the Wind turbine, the Expedition's Market: its verb and `doing`, as the Market's)
+  spire: { hot: 'S', what: 'Generates energy, no workers', verb: 'generates', doing: 'Generating', desc: `Generates energy over time, with no workers. Up to ${D.buildings.spire.perHq} per Data center.` },
+  substation: { hot: 'W', what: `Expands the grid: +${D.buildings.substation.supply}`, desc: `Expands the grid: more can run at once. +${D.buildings.substation.supply} grid.` },
+  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Prints gold coins from energy to hire locals: Sellswords, and Bruisers once a Lab stands. Build as many as you like.' },
   kiln: { hot: 'C', what: 'Builds Buggies and Drones', desc: 'Builds Buggies, and Drones once a Lab stands.' },
-  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Better drills. Unlocks Drones, Bruisers and the Uplink.' },
+  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons and Grid efficiency. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
   uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles, and move faster there. Unlocks the Portal.` },
   // (the Portal teleports what it makes: `training`, its word for Training in the panel)
@@ -79,6 +86,7 @@ const BLDG_TEXT = {
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, entrenching: { hot: 'S' },
   drills: { hot: 'D', desc: `Bots mine more per trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` },
+  gridEfficiency: { hot: 'G', desc: `Machines draw less grid: about ${Math.round((1 - D.consts.grid_use[1]) * 100)}% less per level, each rounded to whole grid.` },
   trade: { hot: 'T', desc: `Every Market pays more gold: ${Math.round((D.consts.trade_rate[1] - 1) * 100)}% more, then ${Math.round((D.consts.trade_rate[2] - 1) * 100)}% more.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
@@ -87,14 +95,17 @@ export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Needs a X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) { const n = D.buildings[d.req].name; d.desc += ` Needs ${/^[AEIOU]/.test(n) ? 'an' : 'a'} ${n}.`; }
-// (a building that holds Power while it stands says so, from the tables)
-for (const d of Object.values(BUILDINGS)) if (d.uses) d.desc += ` Uses ${d.uses} Power while it stands.`;
+// (a building that draws grid while it stands says so, from the tables)
+for (const d of Object.values(BUILDINGS)) if (d.uses) d.desc += ` Draws ${d.uses} grid while it stands.`;
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
 /** Team-wide upgrades; per level: cost [gold, 0], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
+/** The places a unit of type `t` takes for a team with upgrade levels `levels` (G.upgrades[team]): its supply, a
+ *  machine's (any unit but a living one) less by Grid efficiency, rounded (the sim's `World::takes`). */
+export const takes = (levels, t) => { const d = UNITS[t], l = Math.min(effectLevel(levels, 'grid'), 2); return l && !d.bio ? Math.round(d.supply * D.consts.grid_use[l]) : d.supply; };
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
 /** A side's own kinds (`f`: a FACTIONS entry): its buildings and the units they train. */

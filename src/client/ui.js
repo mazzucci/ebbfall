@@ -15,8 +15,8 @@ export function toast(msg, bad, silent) {
   const m = $('msg'); const d = document.createElement('div');
   for (const t of [...m.children]) if (t.textContent === msg) t.remove(); // the same message again replaces itself (no storm), fresh
   d.className = 'toast' + (bad ? ' bad' : '');
-  // Gold as money: its coins before the word (the text stays the message, the icon is drawn by CSS).
-  msg.split(/(\bgold\b)/i).forEach((part, i) => { if (i % 2) { const c = document.createElement('i'); c.className = 'dot shard'; d.append(c, part); } else if (part) d.append(part); });
+  // Money: gold's coins or energy's bolt before the word (the text stays the message, the icon is drawn by CSS).
+  msg.split(/(\bgold\b|\benergy\b)/i).forEach((part, i) => { if (i % 2) { const c = document.createElement('i'); c.className = /^energy$/i.test(part) ? 'dot bolt' : 'dot shard'; d.append(c, part); } else if (part) d.append(part); });
   m.appendChild(d);
   // Two at most (news, not a dashboard): the oldest goes first, an alert last.
   while (m.children.length > 2) (m.querySelector('.toast:not(.bad)') || m.firstChild).remove();
@@ -38,7 +38,7 @@ export const touchUi = typeof matchMedia === 'function' && matchMedia('(pointer:
 export const ARMED = {
   attack: { button: 'attack', minimap: true, hint: (c) => `Attack-move: ${c.toLowerCase()} a target or the ground` },
   move: { button: 'move', minimap: true, hint: (c) => `${c} where to move` },
-  gather: { button: 'gather', hint: (c) => `${c} a gold mine` },
+  gather: { button: 'gather', hint: (c) => `${c} a ${(FACTIONS[G.factions[G.me]] || FACTIONS.humans).ore} mine` },
   rally: { button: 'rally', hint: (c) => `${c} where new units should gather` },
   repair: { button: 'repair', hint: (c) => `${c} a damaged building to repair` },
 };

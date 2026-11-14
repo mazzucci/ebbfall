@@ -226,19 +226,24 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
     // The Expedition (the arc, Nov 13): the Recruiting post (Sellswords; Bruisers once a Lab stands) and the Sentry mast
-    // need nothing, the Factory (Buggies; Drones once a Lab stands) and the Lab need the post, the Portal (Androids and
-    // Rovers) an Uplink, which needs the Lab.
+    // need nothing, the Factory (Buggies; Drones once a Lab stands), the Lab and the Wind turbine need the post, the
+    // Portal (Androids and Rovers) an Uplink, which needs the Lab.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
-    for k in [BldgKind::Kiln, BldgKind::Loom] {
+    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Spire] {
         assert!(!w.has_req(PLAYER, k), "{k:?} waits for the Recruiting post");
     }
-    for k in [BldgKind::Siphon, BldgKind::Ward] {
+    for k in [BldgKind::Siphon, BldgKind::Ward, BldgKind::Substation] {
         assert!(w.has_req(PLAYER, k), "{k:?} needs nothing");
     }
     let post = build(&mut w, BldgKind::Siphon, l[0], 150);
-    build(&mut w, BldgKind::Spire, l[3], 90); // (room for them all)
-    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
+    build(&mut w, BldgKind::Substation, l[3], 90); // (room for them all)
+    for k in [
+        BldgKind::Kiln,
+        BldgKind::Loom,
+        BldgKind::Spire,
+        BldgKind::Ward,
+    ] {
         assert!(w.has_req(PLAYER, k), "{k:?} once it stands");
     }
     assert!(
@@ -280,6 +285,7 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     build(&mut w, BldgKind::Uplink, l[3], 150);
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
+    build(&mut w, BldgKind::Substation, l[3], 90); // (grid for the Portal's machines: the mercenaries draw on it too)
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
     assert!(w.queue_unit(portal, UnitKind::Monolith).is_ok());
     assert!(!UnitKind::Umbra.def().air, "the Android is a ground unit");

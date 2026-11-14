@@ -303,13 +303,7 @@ fn an_empty_mine_takes_nobody_in() {
 /// Gold a minute (delivered, from 1:00 to 4:00) that `n` workers of `f` bring in from the player's home mine on `seed`'s
 /// Standard map, the AI off.
 fn home_income_of(seed: u32, n: usize, f: &'static Faction) -> i64 {
-    home_income_drilled(seed, n, f, 0)
-}
-
-/// `home_income_of` with `drills` levels of Better drills researched.
-fn home_income_drilled(seed: u32, n: usize, f: &'static Faction, drills: u8) -> i64 {
     let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [f, f]);
-    w.upgrades[PLAYER as usize][Upgrade::Drills.index()] = drills;
     w.disable_ai();
     let at = {
         let u = w.unit(harvesters(&w, PLAYER)[0]).unwrap();
@@ -329,15 +323,22 @@ fn home_income_drilled(seed: u32, n: usize, f: &'static Faction, drills: u8) -> 
 }
 
 /// A mine fits eight Villagers or six Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
-/// few and efficient), each Bot carrying more: saturated, a mine pays the Kingdom about 450 gold a minute and the
-/// Expedition about 96% of that at first (the PM, Nov 13, with the income cut; it out-earns the Kingdom later, with its
-/// Better drills), with workers enough on it (the same harness: workers on the home mine, gold a minute from 1:00 to
-/// 4:00). More workers add nothing; a Villager brings in about 40 a minute alone, a Bot about 50. Whoever is inside counts towards the cap: a worker goes in while
-/// fewer than its own kind's number are inside.
+/// few and efficient), each Bot carrying more and a little quicker inside: saturated, a mine pays the Kingdom about 450
+/// gold a minute and the Expedition as much (Nov 14: parity from the start, Better drills gone; 96% before, the Bots as
+/// long inside as the Villagers), with workers enough on it (the same harness: workers on the home mine, gold a minute
+/// from 1:00 to 4:00). More workers add nothing; a Villager brings in about 40 a minute alone, a Bot about 50. Whoever
+/// is inside counts towards the cap: a worker goes in while fewer than its own kind's number are inside.
 #[test]
-fn a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_a_little_less() {
+fn a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_as_much() {
     let (v, b) = (UnitKind::Harvester.def(), UnitKind::Lumen.def());
     assert_eq!((v.mine_cap, b.mine_cap), (8, 6));
+    let rate = |k: UnitKind| k.def().mine_cap as f64 * k.def().mine_load as f64 / k.mine_time();
+    let inside = rate(UnitKind::Lumen) / rate(UnitKind::Harvester);
+    assert!(
+        (0.99..=1.01).contains(&inside),
+        "as much a second inside: {inside:.3}"
+    );
+    assert_eq!(UnitKind::Harvester.mine_time(), MINE_TIME);
     assert_eq!(
         MINE_CAP_MOST,
         UNIT_KINDS.iter().map(|k| k.def().mine_cap).max().unwrap()
@@ -356,9 +357,10 @@ fn a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_a_little_less() {
             (400..=480).contains(&vil),
             "seed {seed}: saturated, {vil} a minute with Villagers"
         );
+        // (within a load or so: three minutes hold whole rounds inside, 24 or 25 of the Bots' 7.2 s)
         let share = bot as f64 / vil as f64;
         assert!(
-            (0.90..=1.0).contains(&share),
+            (0.95..=1.05).contains(&share),
             "seed {seed}: a Bot mine pays {bot}, {:.0}% of a Villager mine's {vil}",
             share * 100.0
         );
@@ -751,28 +753,5 @@ fn a_main_mine_lasts_over_twenty_minutes_at_its_full_rate() {
                 "seed {seed}: an expansion's"
             );
         }
-    }
-}
-
-/// Better drills (the Expedition's mining research at the Lab, two levels; the arc, Nov 13): a saturated Bot mine pays
-/// about 96% of a Villager mine's at first (six Bots to a mine since the income cut), a little more with the first
-/// level, about 115–120% with the second.
-#[test]
-fn better_drills_bring_a_bot_mine_level_then_past_a_villager_mine() {
-    assert!(BldgKind::Loom.def().researches.contains(&Upgrade::Drills));
-    assert_eq!(Upgrade::Drills.levels(), 2);
-    for seed in [1u32, 2] {
-        let vil = home_income_of(seed, 16, &HUMANS) as f64;
-        let share = |d: u8| home_income_drilled(seed, 12, &VAEL, d) as f64 / vil;
-        let (s0, s1, s2) = (share(0), share(1), share(2));
-        assert!((0.90..=1.0).contains(&s0), "seed {seed}: at first {s0:.2}");
-        assert!(
-            (1.0..=1.10).contains(&s1),
-            "seed {seed}: the first level {s1:.2}"
-        );
-        assert!(
-            (1.10..=1.25).contains(&s2),
-            "seed {seed}: the second {s2:.2}"
-        );
     }
 }

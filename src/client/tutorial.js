@@ -35,7 +35,7 @@ const ARMY = 5;
  *  army is sized past the headquarters' population, `goal`), then spend the bank on more of the line up to an army of
  *  `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
 function steps() {
-  const f = myFaction(), hq = BUILDINGS[f.hq], worker = UNITS[f.worker], market = f.market && BUILDINGS[f.market], house = BUILDINGS[f.supply];
+  const f = myFaction(), money = f.money || 'gold', ore = f.ore || 'gold', places = f.grid ? 'grid' : 'population', hq = BUILDINGS[f.hq], worker = UNITS[f.worker], market = f.market && BUILDINGS[f.market], house = BUILDINGS[f.supply];
   const rax = f.buildBasic.find(k => (BUILDINGS[k].trains || []).some(t => !UNITS[t].worker));
   const [soldier, aa] = BUILDINGS[rax].trains, pop = (k) => UNITS[k].supply || 1, n = Math.max(3, Math.floor(6 / pop(soldier)));
   // (the last army: one more of the line than the headquarters' population holds with the guide's workers and army)
@@ -43,18 +43,18 @@ function steps() {
   const goal = n + 2 + Math.max(1, Math.floor(room / pop(soldier)) + 1), army = () => G.units.filter(u => u.team === G.me && !u.d.worker).length;
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
   return [
-    { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} gold again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Mine, then the gold mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
+    { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} ${money} again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
+    { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Mine, then the ${ore} mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
     market
-      ? { text: `Build ${aName(market.name)} in your base: it ${market.verb} gold by itself`, por: ['bldg', f.market], want: ['build', 'build2', 'b_' + f.market], done: () => built(f.market) }
+      ? { text: `Build ${aName(market.name)} in your base: it ${market.verb} ${money} by itself`, por: ['bldg', f.market], want: ['build', 'build2', 'b_' + f.market], done: () => built(f.market) }
       : { text: `Train 2 more ${plural(UNITS[soldier].name)}: more ${plural(BUILDINGS[rax].name)} train faster`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= n + 2 },
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
     // that never comes; never while one is still there)
     { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
-    { text: `The army of ${goal} needs more population: select a ${worker.name} and Build ${aName(house.name)}`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
-    { text: `Spend your gold on ${plural(UNITS[soldier].name)} (an army of ${goal}), then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
+    { text: `The army of ${goal} needs more ${places}: select a ${worker.name} and Build ${aName(house.name)}`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
+    { text: `Spend your ${money} on ${plural(UNITS[soldier].name)} (an army of ${goal}), then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
   ];
 }
 

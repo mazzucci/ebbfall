@@ -192,7 +192,7 @@ impl World {
                 continue;
             }
             let razing = matches!(u.task, Task::Attack { target, .. }
-                if self.bldg(target).is_some_and(|b| b.kind.def().pays));
+                if self.bldg(target).is_some_and(|b| b.kind.def().pays > 0.0));
             let prey = self
                 .units
                 .iter()
@@ -229,7 +229,7 @@ impl World {
             .iter()
             .filter_map(|k| self.bldg(k.0))
             .filter(|b| {
-                b.kind.def().pays
+                b.kind.def().pays > 0.0
                     && self.hostile(b.team)
                     && self.can_hit(r, b.id)
                     && !self.spared(self.ai_turn, b) // (the guided game's: never a target)
@@ -1256,14 +1256,10 @@ impl World {
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
     }
 
-    /// Whether `seat`'s army stands at its maximum, within `CAP_SLACK`: every pool it has (`pool_max` above 0: the
-    /// Kingdom's population; the Expedition's Power and its hired places, each against its own maximum). A wave then
-    /// goes with everything, the reserve too.
+    /// Whether `seat`'s army stands at its maximum (`sup_max`: the Kingdom's population, the Expedition's grid), within
+    /// `CAP_SLACK`. A wave then goes with everything, the reserve too.
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
-        ALL_POOLS.into_iter().all(|p| {
-            let max = self.pool_max(seat, p);
-            max == 0 || self.pool(seat, p)[0] + self.places(seat, p, CAP_SLACK) >= max
-        })
+        self.sup(seat)[0] + self.places(seat, CAP_SLACK) >= self.sup_max(seat)
     }
 
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
@@ -1703,7 +1699,7 @@ mod tests {
         // full supply: all in, whatever it saw
         let (mut w, army, mut b) = ready(1);
         w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
-        w.pools[1][0][0] = w.supply_limit();
+        w.supply[1][0] = w.sup_max(1);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "full supply: all in");
         assert_eq!(
@@ -1839,7 +1835,7 @@ mod tests {
         );
         // at full supply everything goes: the next wave takes the reserve too
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
-        w.pools[1][0][0] = w.supply_limit();
+        w.supply[1][0] = w.sup_max(1);
         w.ai_army(&mut b);
         assert!(w.ai().reserve.is_empty());
         assert_eq!(

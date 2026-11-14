@@ -2,7 +2,7 @@
 // Loaded by src/boot.js behind the menu (the renderer waits for its art, and the sim for its WASM, below); the menu and
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
-import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies } from './engine/index.js';
+import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS } from './engine/index.js';
 import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, muzzleFx, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -66,8 +66,8 @@ function begin(reset) {
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  // (the Expedition has no population: Power for its machines, a Recruiting post's places for its hired guns)
-  if (!menu.tutorial) toast(myFaction().power ? `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} for Power, and Recruiting posts for hired places.`
+  // (the Expedition has no population: a grid for everything it runs, from its Substations)
+  if (!menu.tutorial) toast(myFaction().grid ? `Mine thorium for energy. Build ${aName(BUILDINGS[myFaction().supply].name)} to expand the grid: energy builds things; the grid keeps them running.`
     : `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
@@ -126,16 +126,17 @@ function endLine(win) {
     const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
-  const myWhy = G.outWhy[G.me], helpless = 'nothing left to fight with, and no gold to train more,'; // (then ' after mm:ss.')
+  // (then ' after mm:ss.'; in the viewer's own money word, whoever ran out: the Kingdom only ever sees gold)
+  const myWhy = G.outWhy[G.me], helpless = () => `nothing left to fight with, and no ${FACTIONS[G.factions[G.me]]?.money || 'gold'} to train more,`;
   if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)
-    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless}` : 'Your last building fell') + after;
+    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless()}` : 'Your last building fell') + after;
   }
   // A duel: online, the other side has a name (a friend's, as typed in the lobby). "Conceded" is said only of an enemy.
   const them = online.playing ? online.names[foes()[0]] || '' : '';
   if (G.conceded === G.me) return (them ? `You conceded to ${them}` : 'You conceded') + after;
   if (G.conceded >= 0) return `${them || 'The enemy'} conceded` + after;
-  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
-  return (myWhy === 'helpless' ? `You had ${helpless}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
+  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless()}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
+  return (myWhy === 'helpless' ? `You had ${helpless()}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
 }
 
 function endGame() {

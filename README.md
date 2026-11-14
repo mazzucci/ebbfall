@@ -38,13 +38,14 @@ raids workers) and Knights (heavy cavalry). The Workshop builds Ballistas (the a
 where they stop and fire cannonballs far, with splash, but cannot hit anything close) and the Balloon, an unarmed scout that
 floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Cannons and Ballistas.
 Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at each building until it stands; the
-Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
-Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
-machines that run on Power from the Data center and wind turbines, and work only within reach of the Data center's
-small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the signal's range), faster there; the
-Portal the Uplink unlocks (one per player, using Power while it stands) trains Androids, elite machines, slow to make
-and costly. Power and hired places each have a maximum (45 and
-15 on the smallest maps), together the Kingdom's population limit. Sentry masts hit ground and air.
+Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), paid in gold coins it
+prints from energy; the Factory builds Buggies (fast raiders) and Drones (fast low flyers), machines that work only
+within reach of the Data center's small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the
+signal's range), faster there; the Portal the Uplink unlocks (one per player) brings Rovers (rocket artillery that
+fires on the move) and Androids, elite machines, slow to make and costly. The Expedition runs on energy: its Bots dig
+thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; everything it
+runs draws on the grid, from the Data center and its Substations (up to 300; the Kingdom's population, up to 120).
+Energy builds things; the grid keeps them running. Sentry masts hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 

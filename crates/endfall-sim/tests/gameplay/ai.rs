@@ -95,7 +95,7 @@ fn every_level_plays_the_new_rosters_to_the_end() {
             // its hired places, 25, are never full at its income, so its gold never turns to machines; the
             // Expedition's arc, machines behind Uplinks, comes with its own PR)
             // (and only in a game long enough for it: Medium's Kingdoms may trade bases by 9:00, Nov 13)
-            let vael_mirror = races[0].power && races[1].power;
+            let vael_mirror = races[0].grid && races[1].grid;
             if w.time > 12.0 * 60.0 && (diff >= 2 || (diff == 1 && !vael_mirror)) {
                 assert!(
                     tier.iter().any(|&t| t >= 1),
@@ -787,7 +787,7 @@ fn a_broke_ai_does_not_shuttle_its_repairer_back_and_forth() {
     let markets: Vec<Id> = w
         .bldgs
         .iter()
-        .filter(|b| b.team == ENEMY && b.kind.def().pays)
+        .filter(|b| b.team == ENEMY && b.kind.def().pays > 0.0)
         .map(|b| b.id)
         .collect();
     for p in markets {
@@ -941,22 +941,22 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
         for seed in [3u32, 4242] {
             let mut w = World::with_setup(seed, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
             let mut t = 0;
-            let mut power_full = false;
+            let mut grid_full = false;
             // (Easy within 30 minutes, as above)
             let mins = if diff == 0 { 30 } else { 15 };
             while !w.over && t < 30 * 60 * mins {
                 w.step();
                 t += 1;
                 let [used, cap] = w.sup(ENEMY);
-                power_full |= used >= cap;
+                grid_full |= used >= cap;
             }
             assert!(
                 w.over && w.winner == ENEMY as i32,
                 "diff {diff} seed {seed}: the Vael AI won"
             );
-            // (a wind turbine once its machines fill its Power: a quick win may never need one)
-            let kinds: &[BldgKind] = if power_full {
-                &[BldgKind::Spire, BldgKind::Siphon]
+            // (a Substation once its grid fills: a quick win may never need one)
+            let kinds: &[BldgKind] = if grid_full {
+                &[BldgKind::Substation, BldgKind::Siphon]
             } else {
                 &[BldgKind::Siphon]
             };
@@ -1109,7 +1109,7 @@ fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle()
 fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
     // (Medium seeds and maps where the AI once fell behind its factory schedule, a main pocket full. Where a pocket
     // fills up depends on the world's random draws, which both AIs share: with the two vents 38 stood in for 44, and
-    // with the Human AI's Factory 44 is back, 38's Vael pocket filling with Spires before 6:00, as 44's had)
+    // with the Human AI's Factory 44 is back, 38's Vael pocket filling with its Power buildings before 6:00, as 44's had)
     for (seed, kind, races) in [
         (3, MapKind::Standard, [&HUMANS, &VAEL]),
         (21, MapKind::Labyrinth, [&VAEL, &HUMANS]),
@@ -1157,7 +1157,16 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
             ][..],
         ),
     ] {
-        let mut w = World::with_setup(7, 2, MapKind::Standard, false, [&HUMANS, f]);
+        // (on 96x96, the menus' size, since the fixed caps of Nov 14: on the hidden 64x64 the Kingdom's population, 100
+        // until then, became 120, and seed 7's Hard Kingdom kept its Stables on Knights)
+        let mut w = World::with_size(
+            7,
+            2,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS, f],
+        );
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
@@ -1297,9 +1306,10 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     // has trained by then (Brutal: one at all, no later than Hard's, and at least as many; since the arc's tech prices,
     // Blacksmith and Workshop 300 each, the guns come later than the 5:30 they did). (Seed 4: with the chase leash, seed
     // 7's Brutal Kingdom loses its first gun early and trains one where Hard trains two; with the Expedition's one
-    // forward Uplink, Nov 13, seed 5's likewise, Brutal sooner in 8 of seeds 1 to 10.)
+    // forward Uplink, Nov 13, seed 5's likewise, Brutal sooner in 8 of seeds 1 to 10; since the Expedition's energy, Nov
+    // 14, seed 4's Brutal Kingdom is past its guns' time before it trains one: seed 1.)
     let guns = |level: usize| {
-        let mut w = World::with_setup(4, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(1, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         let (mut first, mut seen) = (f64::INFINITY, Vec::new());
         while w.time < 900.0 && !w.over {
@@ -1557,7 +1567,7 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
         let factories =
             |w: &World| count(w, f_ai.ai.rax) + f_ai.ai.heavy.map_or(0, |h| count(w, h));
         let mut hqs_at_9 = 0;
-        // (the Expedition's line at its maximum of hired places after its natural: no factory can grow it)
+        // (the Expedition's line at its own maximum after its natural, `line_max`: no factory can grow it)
         let mut line_full = false;
         // (to 18:00: 16:00 before Easy's tech climb, whose buildings from 9:00 come before its natural's crew)
         while w.time < 1080.0 {
@@ -1566,8 +1576,8 @@ fn easy_keeps_growing_after_the_player_holds_its_waves() {
             if (w.time - 535.0).abs() < 0.02 {
                 hqs_at_9 = count(&w, f_ai.hq);
             }
-            if w.time > 600.0 && f_ai.power {
-                line_full |= w.pool(ENEMY, Pool::Hired)[0] >= w.pool_max(ENEMY, Pool::Hired);
+            if w.time > 600.0 && f_ai.grid {
+                line_full |= w.line_used(ENEMY) >= w.line_max(ENEMY);
             }
         }
         let name = f[1].name;
@@ -1768,7 +1778,7 @@ fn on_a_barren_map_the_ai_takes_its_natural_before_its_home_field_runs_dry() {
 #[test]
 fn brutal_spends_its_income_when_its_main_fills_up() {
     // Brutal's x1.3 income needs more factories than a main pocket has room for: with none left near its center it
-    // builds farther out (and the Vael raise a Spire out there first, for a field to build in) instead of waiting for
+    // builds farther out (and the Vael raised a Power building out there first, for a field to build in) instead of waiting for
     // its natural. Its mean bank at 6 and 8 minutes over three seeds, against a player who holds: about 3,650 for
     // either race before, about 1,250 / 1,800 (Human / Vael AI) then. Under the cap of 40 (PRD: the conversion) a
     // seat at the cap cannot spend: only the samples short of it count, and it must reach the cap at all.
@@ -1785,8 +1795,8 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
                     w.step();
                     w.events.clear();
                 }
-                // (at the cap: its army at the one limit of all its pools together)
-                if w.army_used(ENEMY) + 2 < w.supply_limit() {
+                // (at the cap: its army at its population or grid maximum)
+                if w.sup(ENEMY)[0] + 2 < w.sup_max(ENEMY) {
                     banked.push(w.res[ENEMY as usize][0]);
                 } else {
                     capped += 1;
@@ -1888,8 +1898,7 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
                 let mut full = false;
                 while w.time < 900.0 && placed.is_none() {
                     w.res[ENEMY as usize] = [2000, 1000];
-                    let max = w.pool_max(ENEMY, Pool::Hired);
-                    full = max > 0 && w.pool(ENEMY, Pool::Hired)[0] + 2 >= max;
+                    full = w.line_capped(ENEMY);
                     w.step();
                     w.events.clear();
                     placed = w
@@ -2148,7 +2157,7 @@ fn each_people_s_ai_crew_is_sized_by_income_not_by_its_mine_cap() {
     // (a Bot carries 13 to a Villager's 10), as much income. Sized by the mine's cap (five Bots to eight Villagers), it
     // mined some 15% less, and Easy's Expedition lost every game.
     for level in 0..DIFF.len() {
-        let mut w = World::with_setup(4, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(1, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert!(w.set_ai_seats([true, true]));
         let load = |s: u8| w.factions[s as usize].worker.def().mine_load as usize;
         for cores in [1, 2] {
@@ -2182,7 +2191,7 @@ fn easy_and_medium_raise_one_sentry_mast_the_kingdom_its_watchtowers() {
                 .map_or(2, |m| m.1),
             masts
         );
-        let mut w = World::with_setup(4, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(1, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert!(w.set_ai_seats([true, true]));
         // (its buildings made to last: the count is the AI's choice, not what is left of it)
         let mut most = [0usize; 2];

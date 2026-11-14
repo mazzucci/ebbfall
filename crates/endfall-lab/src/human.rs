@@ -8,7 +8,7 @@
 
 use crate::json::Json;
 use crate::stats::mmss;
-use endfall_sim::data::{BldgKind, FACTIONS, Faction, Pool, UnitKind};
+use endfall_sim::data::{BldgKind, FACTIONS, Faction, UnitKind};
 use endfall_sim::map::{Id, MapKind, MapSize};
 use endfall_sim::world::{Task, World};
 
@@ -113,7 +113,7 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
             .filter(|u| u.team == me && u.kind == faction.worker)
             .count();
         let hq_queue = w.bldg(hq).map_or(0, |b| b.queue.len());
-        let [used, cap] = w.pool(me, Pool::Supply);
+        let [used, cap] = w.sup(me);
         let supply_rising = w
             .bldgs
             .iter()
@@ -128,7 +128,7 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
         if workers + hq_queue < crew && hq_queue == 0 {
             wants.push(Want::Unit(hq, faction.worker));
         }
-        if cap - used < 3 && cap < w.pool_max(me, Pool::Supply) && !supply_rising {
+        if cap - used < 3 && cap < w.sup_max(me) && !supply_rising {
             wants.push(Want::Bldg(faction.supply));
         }
         if w.time >= 60.0 && prods.is_empty() {
@@ -138,11 +138,7 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
             wants.push(Want::Bldg(rax));
         }
         for &b in &done {
-            let room = basic.def().pool != Pool::Hired || {
-                let [h, m] = w.pool(me, Pool::Hired);
-                h + basic.def().supply <= m
-            };
-            if w.bldg(b).is_some_and(|b| b.queue.is_empty()) && room {
+            if w.bldg(b).is_some_and(|b| b.queue.is_empty()) {
                 wants.push(Want::Unit(b, basic));
             }
         }

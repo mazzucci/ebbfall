@@ -19,8 +19,10 @@ pub enum Upgrade {
     // (Master Builders: no longer offered, Nov 14: it came too late to matter; kept so the indices the snapshot and the
     // wire send stay where they were)
     RapidConstruction,
+    // (Better drills: no longer offered, Nov 14: a Bot mine pays as a Villager mine from the start; kept for the indices)
     Drills,
     Trade,
+    GridEfficiency,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -43,6 +45,8 @@ pub enum Effect {
     MineLoad,
     /// Each level, its Markets pay more gold a second (`TRADE_RATE`).
     PumpRate,
+    /// Each level, its machines draw less grid (`GRID_USE`).
+    GridUse,
 }
 
 /// The speed a `Speed` tech gives its unit, as a multiple.
@@ -143,9 +147,8 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
-/// Better drills: the Expedition's mining research at the Lab, two levels (Stelian, Nov 12–13: its economic fork, as
-/// the Market is the Kingdom's). A saturated Bot mine pays about 83% of a Villager mine's at first; the first level
-/// brings it about level, the second to about 115–120%.
+/// Better drills: the Expedition's mining research at the Lab until Nov 14 (no building researches it since: the Bot mine
+/// pays as a Villager mine's from the start, and the Expedition grows by its Wind turbines).
 const DRILLS: UpgradeDef = UpgradeDef {
     key: "drills",
     name: "Better drills",
@@ -179,8 +182,22 @@ pub const TRADE_RATE: [f64; 3] = [1.0, 1.25, 1.5];
 /// from about 95% of a Villager mine to about 107%, then 118% (Stelian: level, then 115-120%).
 pub const DRILL_LOAD: [i32; 3] = [0, 1, 2];
 
+/// Grid efficiency: the Expedition's research at the Lab in place of Armor (PRD: the Expedition runs on energy, Nov 14),
+/// two levels, each cutting what its machines draw on the grid by 15% (`GRID_USE`): more machines under the same grid.
+const GRID_EFFICIENCY: UpgradeDef = UpgradeDef {
+    key: "gridEfficiency",
+    name: "Grid efficiency",
+    short: "Grid",
+    effect: Effect::GridUse,
+    cost: [[100, 0], [175, 0], [175, 0]],
+    time: [60.0, 75.0, 75.0],
+    levels: 2,
+    req: None,
+    level_names: &[],
+};
+
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 9] = [
+pub const UPGRADES: [Upgrade; 10] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -190,6 +207,7 @@ pub const UPGRADES: [Upgrade; 9] = [
     Upgrade::RapidConstruction,
     Upgrade::Drills,
     Upgrade::Trade,
+    Upgrade::GridEfficiency,
 ];
 
 impl Upgrade {
@@ -204,6 +222,7 @@ impl Upgrade {
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
             Upgrade::Drills => &DRILLS,
             Upgrade::Trade => &TRADE,
+            Upgrade::GridEfficiency => &GRID_EFFICIENCY,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

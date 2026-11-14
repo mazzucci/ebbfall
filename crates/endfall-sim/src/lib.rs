@@ -15,7 +15,7 @@ mod rng;
 pub mod snapshot;
 pub mod world;
 
-use data::{BldgKind, Pool, UnitKind};
+use data::{BldgKind, UnitKind};
 pub use rng::Mulberry32;
 use wasm_bindgen::prelude::*;
 use world::{Command, Event, World};
@@ -232,11 +232,11 @@ impl Game {
         self.me
     }
 
-    /// The most places this Game's seat can have in `pool` ("supply": population or Power; "hired") on this map
-    /// (`World::pool_max`: the client's refusal tips and the Recruiting post's panel); 0 for an unknown pool.
-    #[wasm_bindgen(js_name = poolMax)]
-    pub fn pool_max(&self, pool: &str) -> i32 {
-        Pool::parse(pool).map_or(0, |p| self.w.pool_max(self.me, p))
+    /// The most places this Game's seat can have: its population or its grid (`World::sup_max`: the client's refusal
+    /// tips).
+    #[wasm_bindgen(js_name = supMax)]
+    pub fn sup_max(&self) -> i32 {
+        self.w.sup_max(self.me)
     }
 
     /// Advance the world by one fixed tick (in a replay, after the orders logged for this tick; in lockstep, after the
@@ -537,6 +537,7 @@ impl Game {
             return false;
         }
         self.w.upgrades[t as usize][up.index()] = level;
+        self.w.recalc_supply(t);
         true
     }
 

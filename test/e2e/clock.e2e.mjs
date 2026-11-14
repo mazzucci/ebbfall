@@ -73,9 +73,9 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       // (one row: a building site's card, its Cancel alone; two: the Recruiting post's, its unit above, Rally and
       // Cancel below)
       const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
-      const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
-      await d.buildWithUI('s', 'spire', spot.tx, spot.ty, s.units.filter(u => u.team === 0 && u.type === 'lumen')[2].id);
-      const site = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'spire' && !b.done);
+      const spot = await d.findSpot('substation', { tx: hq.tx + 1, ty: hq.ty + 1 });
+      await d.buildWithUI('w', 'substation', spot.tx, spot.ty, s.units.filter(u => u.team === 0 && u.type === 'lumen')[2].id);
+      const site = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'substation' && !b.done);
       const one = await cardOf(d, site.id), two = await cardOf(d, post.id);
       assert.equal(two.rows, 2, 'the Recruiting post: two rows of buttons');
       assert.equal(one.rows, 1, 'a building site: one row of buttons');

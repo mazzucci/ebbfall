@@ -230,13 +230,13 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
   // The Build list: the basic page is all there from the start; no Advanced before the Recruiting post stands.
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'esc@5'], 'the Recruiting post first, the Sentry mast basic (the arc); no Advanced yet');
+  assert.deepEqual(slots(), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'esc@5'], 'the Recruiting post first, the Sentry mast basic (the arc); no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
   // A Recruiting post up: Advanced comes right after the three open buildings (slot 3, the second row's left), Back stays
   // in the bottom-right slot, on both pages; the advanced page packs from slot 0.
   raise('siphon');
   ui.sel = [E.G.units.find(u => u.id === lumen.id)]; ui.mode = 'build';
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'Advanced packed into slot 4, Back in the corner');
+  assert.deepEqual(slots(), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'Advanced packed into slot 4, Back in the corner');
   ui.mode = 'build2';
   const adv = slots();
   assert.equal(adv.at(-1), 'build1@5', `Back in the corner on the advanced page too: ${adv}`);
@@ -282,18 +282,18 @@ test('a building opened mid-game is appended to its Build page: the shown ones k
   const lumen = () => E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
   raise('siphon');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
+  assert.deepEqual(page('build'), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
   // The Uplink opens with the Lab (one dish, no satellite: Stelian, Nov 13), appended after the shown ones.
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'the advanced page before the Lab');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'build1@5'], 'the advanced page before the Lab (the Wind turbine with the Recruiting post)');
   raise('loom');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'build1@5'], 'the Uplink appended, the others where they were');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'b_uplink@3', 'build1@5'], 'the Uplink appended, the others where they were');
   raise('uplink');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_uplink@2', 'b_eclipse@3', 'build1@5'], 'then the Portal, appended');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'b_uplink@3', 'b_eclipse@4', 'build1@5'], 'then the Portal, appended');
+  assert.deepEqual(page('build'), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
   // A new game forgets them.
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   raise('siphon');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'build1@5'], 'a new game: its own slots');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'build1@5'], 'a new game: its own slots');
   ui.sel = []; ui.mode = null;
 });
 
@@ -341,7 +341,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
         kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_armor@1', 'r_drills@2'],
+        loom: ['r_weapons@0', 'r_gridEfficiency@1'],
         eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],

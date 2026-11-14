@@ -1160,7 +1160,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
 // capital unit's (the most figures): whole, on one line or two, inside the console.
 for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['w', 'depot'], ['c', 'barracks'], ['k', 'forge'], ['f', 'airfield']], unit: 'Rider', tech: 'Horseshoes', capital: 'knight' }],
-  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['i', 'siphon'], ['g', 'loom'], ['c', 'kiln']], unit: 'Drone', tech: null, capital: 'bruiser' }]]) {
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['w', 'substation'], ['i', 'siphon'], ['g', 'loom'], ['c', 'kiln']], unit: 'Drone', tech: null, capital: 'bruiser' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -1446,11 +1446,11 @@ test('the menu offers the Expedition: their base, workers and Build list', async
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
     assert.deepEqual(mine.b, ['conflux']); assert.deepEqual(mine.u, ['lumen']); assert.deepEqual(mine.f, ['vael', 'humans'], 'the AI plays the humans');
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
-    await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Turbine'), null, { timeout: 10000 }); // (the card redraws on the next frame)
+    await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.deepEqual(labels, ['Recruiting', 'Turbine', 'Data center', 'Sentry mast', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
+    assert.deepEqual(labels, ['Recruiting', 'Substation', 'Data center', 'Sentry mast', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
     await page.evaluate(() => { endfall.ui.mode = null; });
-    await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Turbine'), null, { timeout: 10000 });
+    await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 });
     assert.ok(!(await page.locator('#shBar').isVisible()), 'a Bot has no shields to show (none since the re-theme)');
     const card = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
     assert.ok(card.includes('Repair'), `a Bot repairs buildings: ${card}`);
@@ -1458,16 +1458,16 @@ test('the menu offers the Expedition: their base, workers and Build list', async
   } finally { await ctx.close(); }
 });
 
-test('phone: as the Expedition, a Bot stays at its wind turbine; pulled away, the site pauses and Resume sends one back', { chromium: CDP_TOUCH }, async () => {
+test('phone: as the Expedition, a Bot stays at its Substation; pulled away, the site pauses and Resume sends one back', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
   try {
     await d.grant(1000, 0);
     const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
     const lumen = s.units.find(u => u.team === 0 && u.type === 'lumen');
-    const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
-    await d.buildWithUI('s', 'spire', spot.tx, spot.ty, lumen.id);
-    const spire = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'spire'));
-    await until(d, async () => (await spire())?.progress > 0.2, { seconds: 30, what: 'the wind turbine to rise' });
+    const spot = await d.findSpot('substation', { tx: hq.tx + 1, ty: hq.ty + 1 });
+    await d.buildWithUI('w', 'substation', spot.tx, spot.ty, lumen.id);
+    const spire = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'substation'));
+    await until(d, async () => (await spire())?.progress > 0.2, { seconds: 30, what: 'the Substation to rise' });
     const task = async () => (await d.state()).units.find(u => u.id === lumen.id).task;
     assert.equal(await task(), 'build', 'the Bot stays on its site');
     // Pull the Bot off (tap until it, not the site it stands on, is the selection) and send it to the gold mine.
@@ -1475,7 +1475,7 @@ test('phone: as the Expedition, a Bot stays at its wind turbine; pulled away, th
     for (let i = 0; i < 8; i++) { await d.clickEntity(lumen.id); if ((await d.selection()).some(e => e.id === lumen.id)) break; await d.page.waitForTimeout(200); }
     assert.ok((await d.selection()).some(e => e.id === lumen.id), 'the Bot selected');
     await d.clickWorld(node.x, node.y);
-    await until(d, async () => (await d.toasts()).some(t => /Wind turbine paused: no builder \(select it and tap Resume\)/.test(t)), { seconds: 10, what: 'the paused-site toast' });
+    await until(d, async () => (await d.toasts()).some(t => /Substation paused: no builder \(select it and tap Resume\)/.test(t)), { seconds: 10, what: 'the paused-site toast' });
     const p = (await spire()).progress;
     await d.skip(4);
     assert.equal((await spire()).progress, p, 'no Bot, no progress');
@@ -1484,7 +1484,7 @@ test('phone: as the Expedition, a Bot stays at its wind turbine; pulled away, th
     const labels = (await d.card()).map(c => c.label);
     assert.ok(labels.includes('Resume') && !labels.includes('Plant'), `Resume on the card: ${labels}`);
     await d.pressCard('Resume');
-    await until(d, async () => (await spire())?.done, { seconds: 60, what: 'the resumed wind turbine to finish' });
+    await until(d, async () => (await spire())?.done, { seconds: 60, what: 'the resumed Substation to finish' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1713,17 +1713,18 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
 });
 
 
-test('as the Expedition: the top bar shows gold as coins and Power, whole, on a desktop, a small phone and upright phones; hired places are on the Recruiting post', async () => {
+test('as the Expedition: the top bar shows energy as a bolt and the grid, whole, on a desktop, a small phone and upright phones', async () => {
   const NARROW = { ...PHONE, viewport: { width: 360, height: 780 } };
   for (const dev of [DESKTOP, SMALL_PHONE, UPRIGHT, NARROW]) {
     const d = await newGame(dev, 0, 4242, { ai: false, race: 'vael' });
     try {
-      await d.page.waitForFunction(() => document.getElementById('lSupply').textContent === 'POWER', null, { timeout: 5000 });
+      await d.page.waitForFunction(() => document.getElementById('lSupply').textContent === 'GRID', null, { timeout: 5000 });
       const s = await d.state();
-      assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'Power: used over made');
-      assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Power');
-      assert.equal(await d.page.locator('#top .res:not(#resClock)').count(), 2, 'gold and Power only (and the clock): no hired places on top');
-      assert.ok(await d.eval(() => getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'gold shown with its coins');
+      assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'the grid: drawn over made');
+      assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Grid');
+      assert.equal(await d.page.locator('#resShard').getAttribute('title'), 'Energy');
+      assert.equal(await d.page.locator('#top .res:not(#resClock)').count(), 2, 'energy and the grid only (and the clock)');
+      assert.ok(await d.eval(() => document.querySelector('#resShard .dot').classList.contains('bolt') && getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'energy shown with its bolt');
       // Every figure and button whole and on the screen, with wide figures (set and measured in one go: the HUD
       // writes its own back on its next tick).
       const boxes = await d.eval(() => {
@@ -1743,40 +1744,63 @@ test('as the Expedition: the top bar shows gold as coins and Power, whole, on a 
   }
 });
 
-test('as the Expedition: a Bot refused at the Power cap says so, a Wind turbine built, the Bot trains; the Build card puts Advanced in slot 4', async () => {
+test('as the Expedition: a Bot refused on a full grid says so, a Substation built, the Bot trains; Advanced in slot 4', async () => {
   const d = await newGame(SMALL_PHONE, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(3000, 0);
     const hq = myBldg(await d.state(), 'conflux')[0];
-    // Set up: Bots until the Data center's Power is all used.
+    // Set up: Bots until the Data center's grid is all drawn.
     await d.eval(([x, y]) => { const need = endfall.engine.UNITS.lumen.supply; for (let i = 0; i < 40 && endfall.G.sup[0][0] + need <= endfall.G.sup[0][1]; i++) endfall.engine.debugSpawn(0, 'lumen', x + (i % 6) * 14, y); }, [hq.x - 40, hq.y + 110]);
     await d.page.waitForTimeout(300);
-    await d.hudText('#rSupply', /^(\d+)\/\1$/);
-    assert.ok(await d.page.locator('#resSup.low').isVisible(), 'Power at its cap: the figure warns');
+    await d.hudText('#rSupply', /^54\/55$/);
+    assert.ok(await d.page.locator('#resSup.low').isVisible(), 'the grid full (one left, short of a Bot\'s two): the figure warns');
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
-    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough Power: build a Wind turbine\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; Power ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough grid: build a Substation\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; grid ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, [], 'refused: nothing queued');
     // The refusal shows whole on this small phone.
-    const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /Power/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
+    const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /grid/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
     assert.ok(t.l >= 0 && t.r <= t.w && t.t >= 0 && t.b <= t.h && !t.cut, `the toast whole on screen: ${JSON.stringify(t)}`);
-    await buildAndFinish(d, 's', 'spire', 0, V);
-    await d.hudText('#rSupply', /\/60$/);
+    await buildAndFinish(d, 'w', 'substation', 0, V);
+    await d.hudText('#rSupply', /\/75$/);
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
-    assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a turbine up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);
+    assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a Substation up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);
     // The Build card: four open buildings, then Advanced in slot 4 once the Recruiting post stands; Back in the corner.
     await buildAndFinish(d, 'i', 'siphon', 1, V);
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
     await d.pressCard('Build');
     await d.readyCard('Advanced');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Recruiting 0', 'Turbine 1', 'Data center 2', 'Sentry mast 3', 'Advanced 4', 'Back 5'], 'Advanced packed into slot 4');
-    // The hired places, on the Recruiting post's panel (not the top bar).
-    const post = myBldg(await d.state(), 'siphon')[0];
-    await d.clickEntity(post.id);
-    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Hired 0 / 6', null, { timeout: 5000 });
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Recruiting 0', 'Substation 1', 'Data center 2', 'Sentry mast 3', 'Advanced 4', 'Back 5'], 'Advanced packed into slot 4');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('as the Expedition: a Wind turbine, once a Recruiting post stands, earns energy by itself and says so; five a Data center, a sixth refused', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(3000, 0);
+    await buildAndFinish(d, 'i', 'siphon', 0, V);
+    const turbine = await buildAndFinish(d, 's', 'spire', 1, V);
+    // (its Bot waits beside it: off to the mine first, so the click picks the turbine)
+    const hq = myBldg(await d.state(), 'conflux')[0], builder = mine(await d.state(), 'lumen')[1];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === builder.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(builder.id); }
+    const gold = (await d.state()).nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
+    await d.rightClickWorld(gold.x, gold.y);
+    await d.skip(3);
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id && e.kind === 'bldg'); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); }
+    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Generating energy: 1 every 13.9 s', null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (it reads: ${await d.page.locator('#selSub').textContent()}; selection ${JSON.stringify(await d.selection())})`); });
+    // Four more, then a sixth: refused in the sim's words (the card checks as the sim does), and nothing to place.
+    for (const i of [2, 3, 0, 2]) await buildAndFinish(d, 's', 'spire', i, V);
+    const w = mine(await d.state(), 'lumen')[3];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
+    await d.pressCard('Build'); await d.pressCard('Advanced'); await d.pressCard('Turbine');
+    await d.page.locator('#msg .toast', { hasText: /At most 5 Wind turbines per Data center/ }).waitFor({ timeout: 5000 });
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'no ghost for a sixth');
+    assert.equal((await d.state()).bldgs.filter(b => b.team === 0 && b.type === 'spire').length, 5);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1797,10 +1821,10 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
       await d.pressCard('Back'); await d.pressCard('Back');
       return got;
     };
-    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Back 5'], 'the advanced page before the Lab: no Uplink');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Back 5'], 'the advanced page before the Lab: no Uplink');
     await buildAndFinish(d, 'g', 'loom', 1, V);
     // The Uplink: open now, appended; nothing else moved. Armed, its ghost follows the mouse with its circle.
-    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Uplink 2', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Uplink 3', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
     const hq = myBldg(await d.state(), 'conflux')[0];
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
@@ -2024,7 +2048,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
 const SPRITE_PX = 72; // (card.js SPRITE)
 const spriteOf = (d) => d.page.locator('#cmdInfo .pic img').evaluate(i => { const r = i.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), loaded: i.complete && i.naturalWidth > 0, png: i.src.startsWith('data:image/png') }; });
 const shot = async (d, name) => { if (process.env.ENDFALL_SHOTS) await d.page.screenshot({ path: `${process.env.ENDFALL_SHOTS}/${name}.png` }).catch(() => {}); };
-for (const [race, hq, worker, unit, bldg] of [['humans', 'core', 'harvester', 'Villager', 'Cottage'], ['vael', 'conflux', 'lumen', 'Bot', 'Turbine']]) {
+for (const [race, hq, worker, unit, bldg] of [['humans', 'core', 'harvester', 'Villager', 'Cottage'], ['vael', 'conflux', 'lumen', 'Bot', 'Substation']]) {
   test(`phone, ${race}: a long-press on a unit's or a building's button shows its sprite in the details`, { chromium: CDP_TOUCH }, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -3285,7 +3309,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(4000, 3000);
-    await buildAndFinish(d, 's', 'spire', 0, V);
+    await buildAndFinish(d, 'w', 'substation', 0, V);
     const post = await buildAndFinish(d, 'i', 'siphon', 1, V);
     await d.clickEntity(post.id);
     await d.readyCard('Sellsword');

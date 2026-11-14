@@ -134,6 +134,7 @@ function sync() {
   const ev = game.drainEvents();
   if (ev !== '[]') for (const e of JSON.parse(ev)) {
     if (e.t === 'burst') e.unit = e.unit >= 0 ? UNIT_KEYS[e.unit] : null; // (what fell: a unit's kind, null for a building)
+    if (e.t === 'hit') e.air = e.air >= 0 ? UNIT_KEYS[e.air] : null; // (a flyer struck: its kind, for its impact up on its body)
     if (e.t === 'hit' && e.kind >= 0) { e.proj = PROJ_KINDS[e.kind]; e.by = UNIT_KEYS[e.by]; e.people = S.factions[e.team]; } // (a shot's impact: its projectile, the shooter's kind (undefined: a building's) and people, for its look)
     S.events.push(e);
   }

@@ -77,6 +77,7 @@ impl World {
                 y: uy + (by - uy) * k,
                 big: false,
                 shot: None,
+                air: None,
             });
         }
         if full {

@@ -569,8 +569,8 @@ impl World {
     }
 
     /// Whether the game has stalled for the seat taking its turn (`Diff::stall_from`): past that time, with no enemy
-    /// building razed by its side for `STALL_WINDOW` seconds, and the foe's army it expects (`Ai::army_seen`) at least
-    /// half its own. Keeps the count of what it razed up to date.
+    /// building razed by its side for `STALL_WINDOW` seconds, and some of the foe's army it last saw (`Ai::army_seen`)
+    /// still standing. Keeps the count of what it razed up to date.
     pub(crate) fn stalled(&mut self, t: f64) -> bool {
         let seat = self.seat();
         let razed = self.stats[seat as usize].razed;
@@ -583,7 +583,6 @@ impl World {
         t >= self.level().stall_from
             && t > self.stall_began()
             && foe_army > 0.0
-            && foe_army * 2.0 >= self.own_army_worth(seat)
     }
 
     /// When the current stall began for the seat taking its turn: `STALL_WINDOW` after its side last razed a building,

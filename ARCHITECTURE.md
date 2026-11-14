@@ -278,7 +278,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its wave's melee units and dive unit go for the nearest enemy siege gun it sees within 14 tiles
                       (`dive_at_siege`) and its Balloon flies over its wave, its sight past a Cannon's reach
                       (`escort_scout`), both on a level that adapts; a stalled game (`Diff::stall_from`, 15:00 for
-                      Medium and up: nothing razed by its side for 5 minutes, `STALL_WINDOW`) masses its next wave for
+                      Medium and up: nothing razed by its side for 5 minutes, `STALL_WINDOW`, with some of the foe's army
+                      it saw still standing) masses its next wave for
                       up to 3 minutes towards the cap (`STALL_HOLD`), never leaves while the foe is at its buildings,
                       and pushes without giving up (`Ai::push`); its Portal
                       holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with

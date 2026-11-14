@@ -24,6 +24,7 @@ mod random_play;
 mod seats;
 mod shore;
 mod siege;
+mod styles;
 mod tide;
 mod vision;
 mod water;

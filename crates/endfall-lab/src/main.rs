@@ -54,7 +54,7 @@ fn die(msg: &str) -> ! {
         "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- bets [--seeds N] [--size 64] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- tiers [--seeds N] [--size 96] [--greedy | --steady] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--cap MIN] [--threads N] [--out FILE]"
+       npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--attacker-style Boom] [--cap MIN] [--threads N] [--out FILE]"
     );
     std::process::exit(2)
 }
@@ -468,6 +468,12 @@ fn turtle(args: &[String]) {
             "--raids" => batch.raids = true,
             "--weak" => batch.weak = true,
             "--attacker-level" => batch.attacker_level = parse_level(&val()),
+            "--attacker-style" => {
+                batch.attacker_style = Some(
+                    endfall_sim::data::Style::from_name(&val())
+                        .unwrap_or_else(|| die("--attacker-style Pressure, Timing or Boom")),
+                )
+            }
             "--attacker-retreat" => {
                 batch.attacker_retreat = Some(
                     val()
@@ -539,7 +545,11 @@ fn turtle(args: &[String]) {
                 String::new()
             } else {
                 format!(", the attacker at {}", LEVELS[batch.attacker_level])
-            },
+            }
+            + &batch.attacker_style.map_or(String::new(), |st| format!(
+                ", the attacker's style {}",
+                st.name()
+            )),
         path.display()
     );
     print!("{}", r.markdown(&header));

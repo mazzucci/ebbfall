@@ -7,8 +7,9 @@ fn the_ai_finishes_games_on_every_difficulty() {
     for diff in 0..3 {
         for seed in [2u32, 99] {
             let mut w = World::new(seed, diff);
-            // (Easy within 30: its clumsy waves of four, growing by one, from an army of 14 at most, the PM, Nov 13)
-            let mins = if diff == 0 { 30 } else { 15 };
+            // (Easy within 30: its clumsy waves of four, growing by one, from an army of 14 at most, the PM, Nov 13; Medium
+            // within 17: its Boom style's one big push waits for a bigger wave, seed 99's game ends at 16:09)
+            let mins = [30, 17, 15][diff];
             for _ in 0..30 * 60 * mins {
                 if w.over {
                     break;
@@ -94,9 +95,10 @@ fn every_level_plays_the_new_rosters_to_the_end() {
             // (Medium's Expedition against itself fields its mercenary line alone since the economy's second round:
             // its hired places, 25, are never full at its income, so its gold never turns to machines; the
             // Expedition's arc, machines behind Uplinks, comes with its own PR)
-            // (and only in a game long enough for it: Medium's Kingdoms may trade bases by 9:00, Nov 13)
+            // (and only in a game long enough for it: Medium's Kingdoms may trade bases by 9:00, Nov 13; since the styles,
+            // Nov 14, seed 44's Timing Kingdom beats a Boom Kingdom at 12:14 with Guards and Archers)
             let vael_mirror = races[0].grid && races[1].grid;
-            if w.time > 12.0 * 60.0 && (diff >= 2 || (diff == 1 && !vael_mirror)) {
+            if w.time > 14.0 * 60.0 && (diff >= 2 || (diff == 1 && !vael_mirror)) {
                 assert!(
                     tier.iter().any(|&t| t >= 1),
                     "{what}: past its line units: {tier:?}"
@@ -1144,7 +1146,7 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
     // (a Knight it can't afford yet leaves a Rider, not an idle Stables, while the Barracks spend as money comes in),
     // the Expedition's Factory Buggies and Drones, its Portal Androids and Rovers (the mix entry furthest behind its
     // ratio, not always the first). Against an idle, unbreakable player, its army thinned now and then as in a game.
-    // (20 minutes: 15 before the economy pass, whose scarcer gold brings the Stables and the Portal later)
+    // (20 minutes: 15 before the economy pass, whose scarcer gold brings the Stables and the Portal later; 25 since Nov 14)
     for (f, wanted) in [
         (&HUMANS, &[UnitKind::Rider, UnitKind::Knight][..]),
         (
@@ -1170,8 +1172,13 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
+        // (its level's own plan: a Boom seat spends on its bases first, seed 7's taking four against the idle player
+        // before its Stables trained)
+        assert!(w.set_ai_styles(&[None, Some(Style::Timing)]));
         let mut kinds: Vec<UnitKind> = Vec::new();
-        while w.time < 1200.0 {
+        // (25 minutes since the styles' draws, Nov 14: seed 7's Kingdom raises its Stables at 14:50 and stands at its
+        // population's maximum from 18:00; on main its first Rider came at 19:00 in seed 1's game too, a near thing)
+        while w.time < 1500.0 {
             if w.tick.is_multiple_of(30 * TPS) {
                 make_room(&mut w, ENEMY, 6);
             }
@@ -1186,7 +1193,7 @@ fn hard_fields_every_factorys_units_on_its_own_income() {
         for &k in wanted {
             assert!(
                 kinds.contains(&k),
-                "Hard {}: fields {k:?} within 20 min: {kinds:?}",
+                "Hard {}: fields {k:?} within 25 min: {kinds:?}",
                 f.name
             );
         }
@@ -1249,11 +1256,12 @@ fn each_level_trains_only_its_own_mix() {
                 0,
                 "level {diff} {name}: no Shield Wall"
             );
-            let (tier1, tier2) = (DIFF[diff].tier_at.first(), DIFF[diff].tier_at.last());
+            // (the times its style drew: Easy's mid tier between 10:00 and 13:00, Medium's top tier by its style)
+            let rise = w.tuning(ENEMY).tier_at[0];
             if diff == 0 {
                 assert!(
-                    first[1].is_none_or(|t| t >= *tier1.unwrap()) && first[2].is_none(),
-                    "Easy {name}: tier 0 only until 9:00, no tier 2 in ten minutes: {first:?} {kinds:?}"
+                    first[1].is_none_or(|t| t >= rise) && first[2].is_none(),
+                    "Easy {name}: tier 0 only until its mid tier ({rise}), no tier 2 in ten minutes: {first:?} {kinds:?}"
                 );
             } else {
                 assert!(
@@ -1261,8 +1269,8 @@ fn each_level_trains_only_its_own_mix() {
                     "Medium {name}: tier-1 units too: {kinds:?}"
                 );
                 assert!(
-                    first[2].is_none_or(|t| t >= *tier2.unwrap()),
-                    "Medium {name}: tier 2 from 8:00: {first:?} {kinds:?}"
+                    first[2].is_none_or(|t| t >= rise),
+                    "Medium {name}: tier 2 from its style's time ({rise}): {first:?} {kinds:?}"
                 );
             }
         }
@@ -1279,7 +1287,7 @@ fn each_level_trains_only_its_own_mix() {
         assert_eq!(k.ai_tier(), 2, "{k:?}");
     }
     assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 1, 2]);
-    assert_eq!(DIFF[2].tier_at, &[360.0], "Hard's top tier from 6:00");
+    assert_eq!(DIFF[2].tier_at, [360.0, NEVER], "Hard's top tier from 6:00");
 }
 
 #[test]
@@ -2193,6 +2201,8 @@ fn easy_and_medium_raise_one_sentry_mast_the_kingdom_its_watchtowers() {
         );
         let mut w = World::with_setup(1, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert!(w.set_ai_seats([true, true]));
+        // (each its level's own plan: a Pressure seat may spend its towers' gold on its sooner wave)
+        assert!(w.set_ai_styles(&[Some(Style::Timing); 2]));
         // (its buildings made to last: the count is the AI's choice, not what is left of it)
         let mut most = [0usize; 2];
         while w.time < 600.0 && w.winner < 0 {
@@ -2307,10 +2317,12 @@ fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
 
 #[test]
 fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
-    // Easy's slow tech climb (Stelian, Nov 13; `Diff::tier_at`): the Expedition trains no Buggy or Drone before 9:00 and
-    // some by 14:00; they wait at home inside its Data center's coverage (they defend there) and none goes out with a
-    // wave before an Uplink of its own stands (the push: coverage first). None of its machines ever leaves coverage (a
-    // tile and a half: a crowd at the edge jostles; one stranded, its coverage gone under it, aside). The Kingdom trains no Rider or Cannon before 9:00 and no Knight before 13:00.
+    // Easy's slow tech climb (Stelian, Nov 13 and 14; `Diff::tier_at`): the Expedition trains no Buggy or Drone before
+    // the mid tier its style drew (10:00 to 13:00) and some within three minutes of it; they wait at home inside its Data
+    // center's coverage (they defend there) and none goes out with a wave before an Uplink of its own stands (the push:
+    // coverage first). None of its machines ever leaves coverage (a tile and a half: a crowd at the edge jostles; one
+    // stranded, its coverage gone under it, aside). The Kingdom trains no Rider or Cannon before its own mid tier, and no
+    // Knight but in Boom, from 15:00.
     use endfall_sim::data::radio::needs_range;
     let mut w = easy_game(4);
     for b in w.bldgs.iter_mut() {
@@ -2319,7 +2331,23 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
     let tier = |k: UnitKind| k.ai_tier();
     let (mut first, mut uplink, mut out) = (None::<f64>, None::<f64>, None::<f64>);
     let mut kingdom = [None::<f64>; 3];
-    while w.time < 840.0 {
+    past_first_turns(&mut w); // (each seat draws its style at its first turn)
+    let mid = w.tuning(ENEMY).tier_at[0];
+    let kingdom_tiers = w.tuning(PLAYER).tier_at;
+    assert!((600.0..=780.0).contains(&mid), "{mid}");
+    while w.time < mid + 180.0 {
+        // (its army kept under its cap, as losses keep it in a game: at its cap it trains nothing, a machine neither)
+        if w.tick.is_multiple_of(30 * TPS) {
+            let line: Vec<Id> = w
+                .units
+                .iter()
+                .filter(|u| u.team == ENEMY && u.kind == UnitKind::Prism)
+                .map(|u| u.id)
+                .collect();
+            for &id in line.iter().skip(4) {
+                w.damage(id, 1e9, None);
+            }
+        }
         w.step();
         w.events.clear();
         for u in w.units.iter().filter(|u| u.team == PLAYER) {
@@ -2366,8 +2394,11 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
             }
         }
     }
-    let first = first.expect("a machine by 14:00");
-    assert!(first >= 540.0, "no machine before 9:00: {first:.0} s");
+    let first = first.expect("a machine within three minutes of its mid tier");
+    assert!(
+        first >= mid,
+        "no machine before its mid tier ({mid}): {first:.0} s"
+    );
     if let Some(o) = out {
         assert!(
             uplink.is_some_and(|u| u <= o),
@@ -2375,15 +2406,17 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
         );
     }
     assert!(
-        kingdom[1].is_none_or(|t| t >= 540.0) && kingdom[2].is_none_or(|t| t >= 780.0),
-        "the Kingdom's tiers: {kingdom:?}"
+        kingdom[1].is_none_or(|t| t >= kingdom_tiers[0])
+            && kingdom[2].is_none_or(|t| t >= kingdom_tiers[1].min(900.0)),
+        "the Kingdom's tiers: {kingdom:?}, {kingdom_tiers:?}"
     );
 }
 
 #[test]
 fn easy_s_army_stops_growing_at_its_cap_and_its_gold_banks() {
-    // Easy holds 14 fighters at most, home and out (`Diff::army_max`, by units; the PM, Nov 13): rich and left alone, both
-    // peoples' armies stop there (a unit or two in training may finish over a lost one), and the gold banks.
+    // Easy holds its army cap at most, home and out (`Diff::army_max`, by units; the PM, Nov 13), drawn per game between 8
+    // and 14 (Stelian, Nov 14): rich and left alone, both peoples' armies stop there (a unit or two in training may finish
+    // over a lost one), and the gold banks.
     for f in [&HUMANS, &VAEL] {
         let mut w = World::with_setup(5, 0, MapKind::Standard, false, [&HUMANS, f]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
@@ -2402,8 +2435,8 @@ fn easy_s_army_stops_growing_at_its_cap_and_its_gold_banks() {
             w.events.clear();
             most = most.max(fighters(&w));
         }
-        let cap = DIFF[0].army_max;
-        assert_eq!(cap, 14);
+        let cap = w.tuning(ENEMY).army_max;
+        assert!((8..=14).contains(&cap), "{cap}");
         assert!(
             most <= cap,
             "{}: {most} fighters at most, {cap} wanted",

@@ -648,9 +648,11 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
     // level's Kingdom crushes the Expedition's army before its Portal pays for an Android, here none does; since the
     // Kingdom AI takes its natural later on Medium and Hard (Nov 13) no seed of 1 to 8 had an Android at every level,
     // one level's Kingdom crushing it first: the path tested is the Expedition's own, so the Kingdom only stands)
-    for (diff, level) in DIFF.iter().enumerate() {
+    for diff in 0..DIFF.len() {
         let mut w = World::with_setup(2, diff, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([false, true]);
+        past_first_turns(&mut w); // (its style drawn at its first turn: its tuning as it plays it)
+        let level = &w.tuning(ENEMY);
         for b in w.bldgs.iter_mut() {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
@@ -726,12 +728,15 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
         // (an Android at every level again by 25:00, Nov 13: its Portal holds the price of the elite it trains next, the
         // Android first; Easy's climb brings its top tier from 13:00; but not Easy at its 14 fighters when its Portal
         // stands, as in seed 2's game since its Portal's Uplink stands at home: it trains nothing more)
+        // (and only on a style that reaches the top tier: Easy's Boom alone, from 15:00, Nov 14)
+        let top =
+            level.mix_tier as usize + level.tier_at.iter().filter(|&&t| t < NEVER).count() >= 2;
         let want = [
             diff > 0 || grid_full,
             true,
             true,
             true,
-            !capped_at_portal.1,
+            !capped_at_portal.1 && top,
             true,
         ];
         assert!(

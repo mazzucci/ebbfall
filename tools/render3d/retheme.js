@@ -76,6 +76,7 @@ Object.assign(RT_BUILDINGS.ex, {
   warehouse: { build: EB.warehouse, n: 3, h: 50 }, // (the Factory as a warehouse with the cog flat on its roof)
   platform: { build: EB.platform, n: 2, h: 40 }, // (the Portal as an arrival platform: rejected, kept for the record)
   vortex: { build: EB.vortex, n: 2, h: 52 }, // (the Portal: a standing white ring with the cyan vortex as its head `vortexhead`; the flat black hole, h 24, until the art polish of 2026-11-13)
+  substation: { build: EB.substation, n: 2, h: 40 }, // (the Substation, the Expedition's Cottage (the sim key `substation`, the Energy work of 2026-11-14): transformers, insulators and lit busbars on a pad)
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
@@ -114,7 +115,7 @@ export const BLDG_YAW = {
   // turning; the round towers and the turbine, Sentry gun and Uplink (their heads turn on their own) stay square. The
   // arrival platform is square too, its plate turned 20 degrees in the model so its head (the transport) turns with it.
   kg: { castle: -20, cottage: -20, market: -20, barracks: -20, blacksmith: -20, workshop: -20, tower: 0, stables: -20, cottagehip: -20, cottageround: 0 },
-  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0 },
+  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0, substation: -20 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;
@@ -225,6 +226,7 @@ export const ATLAS_BUILDINGS = {
   factory: ['kg', 'workshop'], turret: ['kg', 'tower'], airfield: ['kg', 'stables'],
   conflux: ['ex', 'datahall'], spire: ['ex', 'turbine'], siphon: ['ex', 'posttavern'], kiln: ['ex', 'warehouse'], loom: ['ex', 'labdome'], ward: ['ex', 'radio'],
   eclipse: ['ex', 'vortex'], uplink: ['ex', 'uplink'],
+  substation: ['ex', 'substation'], // (the Expedition's Cottage, the sim key `substation`: drawn ahead of the sim kind, which the Energy branch adds)
 };
 /** Turning heads (look.js BLDG_LOOK `head`, `<name>_<dir>`) -> [people, model] (RT_HEADS): the Watchtower's archer and
  *  the Sentry gun (aimed), the turbine's rotor and the Portal's spiral (spun), the Uplink's dish (panned). */

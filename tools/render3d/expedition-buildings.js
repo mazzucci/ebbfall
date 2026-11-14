@@ -1133,3 +1133,70 @@ export function vortexSpin(M, phase = 0) {
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return g;
 }
+
+// ---- the Substation (the Expedition's Cottage: "expands the grid: more can run at once"; 2x2, the sim key
+// `substation`, the Wind turbine's footprint): a compact electrical substation. Stelian's rules for the people: white
+// and pale gray bodies with cyan accents, team on a flag and a trim band only, nothing dark, no tiny details (no
+// cables, no fence wire, no thin props); and it must never read as a generator or a turbine: no blades, no rotor, no
+// tall mast. The read: two pale transformer boxes with porcelain insulators standing on them (stacked discs, big
+// enough to show at 1x), a round conservator tank on the big one, a low gantry behind them carrying three more, and
+// glowing cyan busbars from the gantry down to the transformers (the one "wire" allowed: thick and lit, the accent
+// that says electricity), all on a pale concrete pad with a kerb.
+/** The substation's own materials, once per set. */
+function substationMats(M) {
+  if (M.concrete) return M;
+  M.concrete = std({ color: 0xc6c8c2, roughness: 0.92, metalness: 0.02 });                                              // the pad: pale matte concrete, a step below the bodies so they read on it (0xb0b2ac came out a dark slab under the finish)
+  M.subGray = std({ color: 0xaeb2b0, roughness: 0.7, metalness: 0.1 });                                                // the radiator ribs: a matte mid gray (metallic pale steel went near black in the shade)
+  M.porcelain = std({ color: 0xe8e6e0, roughness: 0.45, metalness: 0.05 });                                             // the insulators' discs: glazed porcelain, the palest thing here
+  if (M.polish) { Object.assign(M.porcelain, { envMapIntensity: 1.8 }); M.porcelain.needsUpdate = true; }
+  return M;
+}
+/** A post insulator standing at (x, y0, z): a pale steel core with `n` porcelain bells stacked up it (each tapered,
+ *  radius `r`), `h` tall, a dark cap and a cyan light on top. Returns the light's position. */
+function insulator(g, M, x, y0, z, r, n, h) {
+  add(g, cyl(r * 0.45, r * 0.5, h, 10), M.paleSteel, x, y0 + h / 2, z);
+  const step = h / n;
+  for (let k = 0; k < n; k++) add(g, cyl(r * 0.78, r, step * 0.62, 14), M.porcelain, x, y0 + step * (k + 0.5), z);
+  add(g, cyl(r * 0.55, r * 0.55, 1.6, 10), M.joint, x, y0 + h + 0.8, z);
+  cyanLed(g, M, r * 0.42, x, y0 + h + 2.0, z);
+  return [x, y0 + h + 2.0, z];
+}
+/** A transformer at (x, z): a pale body `W` x `H` x `D` on a dark ink base, a radiator of three broad ribs on its east
+ *  face, a round conservator tank along the back of its top, `n` insulators in a row across the front of its top
+ *  (radius `r`, `hi` tall) and, with `band`, the team trim band round the body between ink lines. Returns the
+ *  insulators' lights. */
+function transformer(g, M, x, z, W, H, D, n, r, hi, band) {
+  add(g, rbox(W, H, D, 1.6), M.paleArmor, x, H / 2, z);
+  add(g, rbox(W + 0.8, 1.0, D + 0.8, 0.2), M.inkLine, x, 0.5, z);                                                        // the base line
+  const RW = 3.0, RD = 2.6, gap = (D - 4) / 2;                                                                            // the radiator: three ribs out of the east face
+  for (let k = -1; k <= 1; k++) add(g, rbox(RW, H - 5, RD, 0.4), M.subGray, x + W / 2 + RW / 2 - 0.3, H / 2 - 1.0, z + k * gap);
+  add(g, cyl(2.8, 2.8, W - 5, 16), M.paleArmor, x, H + 2.4, z - D / 2 + 3.4, 0, 0, Math.PI / 2);                            // the conservator tank, along x at the back
+  for (const sx of [-1, 1]) add(g, sph(2.8, 12, 8), M.paleArmor, x + sx * (W - 5) / 2, H + 2.4, z - D / 2 + 3.4);           // its rounded ends
+  if (band) { add(g, rbox(W + 0.6, 2.2, D + 0.6, 0.3), M.paint, x, H - 3.4, z); for (const y of [H - 4.7, H - 2.1]) add(g, rbox(W + 0.8, 0.5, D + 0.8, 0.1), M.inkLine, x, y, z); } // the team trim band
+  const tops = [], pitch = (W - 2 * r - 2) / Math.max(1, n - 1);
+  for (let k = 0; k < n; k++) tops.push(insulator(g, M, x - (n - 1) / 2 * pitch + k * pitch, H, z + D / 2 - r - 1.6, r, 4, hi));
+  return tops;
+}
+const SUB_W = 50, SUB_D = 44, SUB_GANTRY_Z = -17, SUB_GANTRY_H = 21;
+/** The Substation (`substation`): a pale concrete pad (50 x 44) with a pale kerb, the big transformer (24 x 14 x 14)
+ *  at the north-west with three insulators and the team band, a smaller one (15 x 10 x 11) at the south-east with
+ *  two, a gantry of two pale steel posts and a crossbeam along the back carrying three insulators, cyan busbars from
+ *  them to the big transformer's, the team flag at the north-east corner. From the camera: two white boxes with
+ *  knobbly white pins and cyan tips, a white goal-post frame behind them with glowing cyan lines dropping to the
+ *  boxes, on a pale square. */
+export function substation(M) {
+  ebMats(M); sentryMats(M); substationMats(M); const g = grp(), hw = SUB_W / 2, hd = SUB_D / 2;
+  add(g, rbox(SUB_W, 1.4, SUB_D, 0.4), M.concrete, 0, 0.7, 0).userData.ground = true;                                   // the pad (read as ground by the polish: no contact shadow rings it)
+  for (const sx of [-1, 1]) { add(g, rbox(1.6, 2.4, SUB_D, 0.3), M.paleArmor, sx * (hw - 0.8), 1.2 + 0.7, 0); add(g, rbox(SUB_W, 2.4, 1.6, 0.3), M.paleArmor, 0, 1.2 + 0.7, sx * (hd - 0.8)); } // the kerb
+  const big = transformer(g, M, -8, -5, 24, 14, 14, 3, 3.0, 9, true);
+  transformer(g, M, 13, 9, 15, 10, 11, 2, 2.6, 7.5, true);
+  for (const sx of [-1, 1]) add(g, cyl(1.6, 1.8, SUB_GANTRY_H, 12), M.paleArmor, sx * 17, 1.4 + SUB_GANTRY_H / 2, SUB_GANTRY_Z); // the gantry's posts (matte pale: steel went black in the shade)
+  add(g, rbox(38, 2.6, 2.8, 0.6), M.paleArmor, 0, 1.4 + SUB_GANTRY_H + 0.6, SUB_GANTRY_Z);                               // its crossbeam
+  const beamTop = 1.4 + SUB_GANTRY_H + 1.9;
+  big.forEach(([bx, by, bz], k) => {
+    const gx = -8 + (k - 1) * 10, top = insulator(g, M, gx, beamTop, SUB_GANTRY_Z, 2.3, 3, 4.5);                       // an insulator on the beam over each of the big transformer's
+    neonRail(g, M, [top[0], top[1] + 0.4, top[2] + 0.8], [bx, by + 0.4, bz - 0.8], 0.9);                                 // the busbar down to it, lit cyan, thick enough for 1x
+  });
+  flag(g, M, hw + 2.5, 0, -hd + 5, 26, 18, 12);                                                                         // the team flag at the north-east corner, clear of everything (at the south-west it hid the big transformer's front)
+  return g;
+}

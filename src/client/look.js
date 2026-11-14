@@ -97,7 +97,7 @@ export const MUZZLE_SMOKE = { siegeTank: 1.4 };
  *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel
  *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big. */
 export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.45 }, scythe: { fwd: 6, up: 22, scale: 0.5 }, ward: { fwd: 42, up: 23, scale: 0.7 } };
-/** A melee blow landing (a `fire` event at a melee shooter): the spark at its target, and for the heavy hitters (the
+/** A melee blow landing (a `fire` event at a melee shooter): a glint of steel at its target (glint_f: small and pale, the fiery spark being the gunpowder's), and for the heavy hitters (the
  *  Knight's lance, the Bruiser's hammer) a small puff of dust there too, of this size. */
 export const MELEE_PUFF = { knight: 0.75, bruiser: 0.65 };
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */

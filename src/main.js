@@ -92,7 +92,7 @@ function quitToTitle() {
 
 /** A shot fired or a blow struck (the shooter stands at the event's spot, a building at its center): a kind with
  *  muzzle smoke (look.js MUZZLE_SMOKE, the Cannon) leaves its puff, one with a muzzle flash (MUZZLE_FLASH) flashes at
- *  its gun's mouth, and a melee blow sparks on its target (MELEE_PUFF: with a puff of dust). */
+ *  its gun's mouth, and a melee blow glints on its target (MELEE_PUFF: with a puff of dust). */
 function muzzle(e) {
   if (!nearView(e.x, e.y)) return;
   const at = (o) => Math.abs(o.x - e.x) < 1 && Math.abs(o.y - e.y) < 1;

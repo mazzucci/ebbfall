@@ -199,6 +199,17 @@ function spark(f) {
   return image(16, 16, (x, y) => { const dx = Math.abs(x + 0.5 - 8), dy = Math.abs(y + 0.5 - 8), r = 3.5 - f * 0.7; if (dx + dy > r) return NONE; return [...fire(0.2 + f * 0.2), 255]; });
 }
 
+/** A glint (`rt_glint_f`, 3 frames, 16 px): a melee blow's steel catching the light, a small four-point star, white at
+ *  its heart and pale yellow along its arms, shrinking to a point (the fiery spark is the gunpowder's and the shot's). */
+function glint(f) {
+  const L = 5.5 - f * 1.6;
+  return image(16, 16, (x, y) => {
+    const dx = Math.abs(x + 0.5 - 8), dy = Math.abs(y + 0.5 - 8), arm = Math.min(dx, dy) < 0.8 && Math.max(dx, dy) <= L, core = dx + dy <= 1.6 - f * 0.4;
+    if (!arm && !core) return NONE;
+    return core ? [255, 252, 238, 255] : [255, 238, 176, 255];
+  });
+}
+
 /** Worn dirt under a building (`rt_worn_n`, painted soft, no finish: a decal in the ground's layer, not a sprite in
  *  the finish): trodden earth over the footprint and a little beyond, its edge broken by grass, its alpha low so the
  *  grass shows through; no path leaves it. Proposed as the client's decal under each building of a base. */
@@ -230,6 +241,7 @@ export function effectSprites() {
   for (let f = 0; f < 8; f++) out.push({ name: `rt_boom_${f}`, img: finishFx(boom(128, 8, f, 3)), anchor: c });
   for (let f = 0; f < 6; f++) out.push({ name: `rt_boom_small_${f}`, img: finishFx(boom(56, 6, f, 7)), anchor: c });
   for (let f = 0; f < 4; f++) out.push({ name: `rt_spark_${f}`, img: finishFx(spark(f)), anchor: c });
+  for (let f = 0; f < 3; f++) out.push({ name: `rt_glint_${f}`, img: finishFx(glint(f), { ink: false }), anchor: c });
   for (const n of [2, 3, 4]) out.push({ name: `rt_worn_${n}`, img: wornDirt(n), anchor: c });
   void fx;
   return out;
@@ -239,7 +251,7 @@ export function effectSprites() {
  *  out: nothing draws one yet. */
 const ATLAS_NAMES = [[/^rt_arrow$/, 'arrow'], [/^rt_bolt$/, 'ballista_bolt'], [/^rt_cannonball$/, 'cannonball'], [/^rt_tracer$/, 'tracer'], [/^rt_dart$/, 'dart'],
   [/^rt_tower_shot$/, 'tower_shot'], [/^rt_rocket$/, 'rocket'], [/^rt_hit_/, 'flash_'], [/^rt_puff_/, 'puff_'], [/^rt_trail_/, 'trail_'],
-  [/^rt_boom_small_/, 'boom_small_'], [/^rt_boom_/, 'boom_big_'], [/^rt_spark_/, 'spark_'], [/^rt_worn_/, 'worn_']];
+  [/^rt_boom_small_/, 'boom_small_'], [/^rt_boom_/, 'boom_big_'], [/^rt_spark_/, 'spark_'], [/^rt_glint_/, 'glint_'], [/^rt_worn_/, 'worn_']];
 export function atlasEffects() {
   const out = [];
   for (const s of effectSprites()) { const hit = ATLAS_NAMES.find(([re]) => re.test(s.name)); if (hit) out.push({ ...s, name: s.name.replace(hit[0], hit[1]) }); }

@@ -336,12 +336,7 @@ pub(super) const LOOM: BldgDef = BldgDef {
     sight: 7.0,
     req: Some(BldgKind::Siphon),
     // (the Expedition's research: its weapons, armor and its Drones' speed, and its Bots' drills)
-    researches: &[
-        Upgrade::Weapons,
-        Upgrade::Armor,
-        Upgrade::Slipstream,
-        Upgrade::Drills,
-    ],
+    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Drills],
     ..BLDG
 };
 /// The Sentry mast: guns on a mast, the Expedition's early defense (the Watchtower's counterpart; no range since the

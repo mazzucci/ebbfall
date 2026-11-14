@@ -314,7 +314,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
         kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2', 'r_drills@3'],
+        loom: ['r_weapons@0', 'r_armor@1', 'r_drills@2'],
         eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],

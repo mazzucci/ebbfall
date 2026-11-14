@@ -159,11 +159,11 @@ impl World {
     /// a unit's speed both start from this, so a researched flyer is faster in a group too.
     pub(crate) fn base_speed(&self, uid: Id) -> f64 {
         let u = self.u(uid);
-        let tech = if self.effect_level(u.team, Effect::Speed(u.kind)) > 0 {
-            TECH_SPEED
-        } else {
-            1.0
-        };
+        let fast = UPGRADES.iter().any(|up| {
+            matches!(up.def().effect, Effect::Speed(kinds) if kinds.contains(&u.kind))
+                && self.upgrades[u.team as usize][up.index()] > 0
+        });
+        let tech = if fast { TECH_SPEED } else { 1.0 };
         u.kind.def().speed * tech
     }
 

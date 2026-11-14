@@ -146,20 +146,24 @@ impl ToJson for Option<Weapon> {
 }
 
 fn upgrade(d: &UpgradeDef) -> String {
-    let (effect, of) = match d.effect {
-        Effect::Weapons => ("weapons", ""),
-        Effect::Armor => ("armor", ""),
-        Effect::Shields => ("shields", ""),
-        Effect::Unlock(a) => ("unlock", a.def().key),
-        Effect::Speed(u) => ("speed", u.def().key),
-        Effect::BuildSpeed => ("build", ""),
-        Effect::MineLoad => ("mine", ""),
+    let (effect, of): (&str, String) = match d.effect {
+        Effect::Weapons => ("weapons", String::new()),
+        Effect::Armor => ("armor", String::new()),
+        Effect::Shields => ("shields", String::new()),
+        Effect::Unlock(a) => ("unlock", a.def().key.to_string()),
+        // (its units' keys, comma-separated)
+        Effect::Speed(us) => (
+            "speed",
+            us.iter().map(|u| u.def().key).collect::<Vec<_>>().join(","),
+        ),
+        Effect::BuildSpeed => ("build", String::new()),
+        Effect::MineLoad => ("mine", String::new()),
     };
     Obj::new()
         .str("name", d.name)
         .str("short", d.short)
         .str("effect", effect)
-        .str("of", of)
+        .str("of", &of)
         .num("levels", d.levels)
         .raw("req", d.req.to_json())
         .raw("cost", array(d.cost.map(array)))

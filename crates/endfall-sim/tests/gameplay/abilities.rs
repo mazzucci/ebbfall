@@ -256,38 +256,39 @@ fn what_the_retheme_retired_stays_retired() {
 }
 
 #[test]
-fn a_speed_tech_makes_its_raider_faster_alone_and_in_a_group() {
-    // Tailwind (`Upgrade::Afterburners`, at the Stables): the Rider moves 1.3 times as fast.
-    let travel = |tech: bool, n: usize| {
+fn horseshoes_make_riders_and_knights_faster_alone_and_in_a_group() {
+    // Horseshoes (`Upgrade::Afterburners`, at the Stables): the Rider and, since Nov 14 (Stelian), the Knight move 1.3
+    // times as fast. Overclock (the Drone's) is no longer offered.
+    let travel = |kind: UnitKind, tech: bool, n: usize| {
         let mut w = flat_arena(12);
         if tech {
             w.upgrades[PLAYER as usize][Upgrade::Afterburners.index()] = 1;
         }
         let us: Vec<Id> = (0..n)
-            .map(|i| {
-                w.make_unit(
-                    UnitKind::Rider,
-                    PLAYER,
-                    20.0 * TILE,
-                    (28.0 + 2.0 * i as f64) * TILE,
-                )
-            })
+            .map(|i| w.make_unit(kind, PLAYER, 20.0 * TILE, (28.0 + 2.0 * i as f64) * TILE))
             .collect();
         w.attack_move_group(&us, 50.0 * TILE, 30.0 * TILE);
         run(&mut w, 3);
         w.unit(us[0]).unwrap().x - 20.0 * TILE
     };
-    for n in [1, 2] {
-        let (slow, fast) = (travel(false, n), travel(true, n));
-        assert!(fast > slow * 1.25, "Tailwind, {n} Riders: {fast} vs {slow}");
+    for kind in [UnitKind::Rider, UnitKind::Knight] {
+        for n in [1, 2] {
+            let (slow, fast) = (travel(kind, false, n), travel(kind, true, n));
+            assert!(
+                fast > slow * 1.25,
+                "Horseshoes, {n} {kind:?}: {fast} vs {slow}"
+            );
+        }
     }
     assert_eq!(
         Upgrade::Afterburners.def().effect,
-        Effect::Speed(UnitKind::Rider)
+        Effect::Speed(&[UnitKind::Rider, UnitKind::Knight])
     );
-    assert_eq!(
-        Upgrade::Slipstream.def().effect,
-        Effect::Speed(UnitKind::Shrike)
+    assert!(
+        BLDG_KINDS
+            .iter()
+            .all(|b| !b.def().researches.contains(&Upgrade::Slipstream)),
+        "Overclock: no building researches it"
     );
 }
 

@@ -8,7 +8,7 @@ import { icon } from './icons.js';
 import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand, holdForDetail } from './card.js';
-import { myFaction, buildersOf, ROMAN } from './cards.js';
+import { myFaction, buildersOf, ROMAN, upName } from './cards.js';
 export { myFaction, buildersOf, ROMAN }; // (the card's own helpers: cards.js)
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)
 export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; // (the state lives in ui.js)
@@ -16,7 +16,7 @@ export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; //
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
   if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
-  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
+  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + upName(u, lv); }
   // (a building, training or not, that gives hired places: the side's count of them, used over made, and whether
   // that is the most it can have)
   if (b.team === G.me && b.done && b.d.pool === 'hired' && b.d.supply > 0) { const [u, c] = G.hired[G.me]; return `Hired ${u} / ${c}` + (c >= poolMax('hired') ? ' (maximum)' : ''); }
@@ -68,9 +68,9 @@ function fightStats(x) {
 
 /** The research a building is doing: the upgrade, its level (pips for I-III; a one-level tech has none) and a bar. */
 function researchModule(b) {
-  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, name = u.levels > 1 ? `${u.name} ${ROMAN[lv]}` : u.name;
+  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, name = upName(u, lv);
   const pips = u.levels > 1 ? `<span class="pips">${Array.from({ length: u.levels }, (_, j) => j + 1).map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span>` : '';
-  const shown = u.levels > 1 ? `${u.name} <b>${ROMAN[lv]}</b>` : u.name;
+  const shown = u.level_names?.[lv - 1] ? upName(u, lv) : u.levels > 1 ? `${u.name} <b>${ROMAN[lv]}</b>` : u.name;
   return `<div class="rs" title="Researching ${name}">${icon(k)}<div class="rb"><div class="rt">${shown}${pips}</div><div class="bar res"><i></i></div></div></div>`;
 }
 
@@ -253,7 +253,7 @@ function renderQueueResearch(box, b) {
   const r = b.research, key = r ? r.type + G.upgrades[b.team][r.type] : '';
   if (box.dataset.k !== key) {
     box.dataset.k = key; box.classList.toggle('idle', !r);
-    const u = r && UPGRADES[r.type], lv = r && G.upgrades[b.team][r.type] + 1, name = r ? u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : '') : '';
+    const u = r && UPGRADES[r.type], lv = r && G.upgrades[b.team][r.type] + 1, name = r ? upName(u, lv) : '';
     box.title = r ? 'Researching ' + name : ''; box.setAttribute('aria-label', box.title);
     box.innerHTML = (r ? icon(r.type) : '<span class="ico"></span>') + '<div class="bar res"><i></i></div>';
   }

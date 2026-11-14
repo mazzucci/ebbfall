@@ -9,6 +9,13 @@ export const myFaction = () => FACTIONS[G.factions[G.me]] || FACTIONS.humans;
 /** Harvesters currently working on building b. */
 export const buildersOf = (b) => G.units.filter(u => u.task.t === 'build' && u.task.b === b);
 export const ROMAN = ['', 'I', 'II', 'III'];
+/** A research's name at `lv` (1..3): its level's own name if it has one (the Kingdom's Trade), else its name and the
+ *  level's numeral; `short`: the button's. */
+export const upName = (u, lv, short = false) => {
+  const own = (u.level_names || [])[lv - 1];
+  if (own) return own[short ? 1 : 0];
+  return (short && u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : '');
+};
 
 /**
  * The command card: three buttons a row (big enough for a thumb), fixed slots (slot = row * 3 + column) so a command
@@ -172,7 +179,7 @@ export function cardItems() {
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
         if (busy?.research.type === k) { place(cancelr); return; }
         if (lv > u.levels) return;
-        place({ id: 'r_' + k, label: (u.short || u.name) + (u.levels > 1 ? ' ' + ROMAN[lv] : ''), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
+        place({ id: 'r_' + k, label: upName(u, lv, true), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: (u.level_names?.length ? upName(u, lv) + ': ' : '') + upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
     }
   }

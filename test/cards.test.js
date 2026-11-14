@@ -302,6 +302,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         factory: ['t_observer@0', 'rally@4', 'cancelq@5'],
         airfield: ['t_rider@0', 'r_afterburners@3', 'rally@4', 'cancelq@5'],
         forge: ['r_weapons@0', 'r_armor@1', 'r_entrenching@2'],
+        extractor: ['r_trade@0'],
       },
       raise: ['barracks', 'forge'],
       after: {

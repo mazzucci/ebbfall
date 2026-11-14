@@ -751,3 +751,41 @@ fn the_expedition_ai_builds_its_grid_and_turbines_and_trains_androids_from_one_p
         assert!(t > 150.0, "diff {diff}: an Uplink at {t:.0} s, not at once");
     }
 }
+
+#[test]
+fn a_rover_salvo_kills_the_guards_it_lands_among() {
+    // The Rover, the Expedition's top tier (550, its salvo 120 every 3.5 s since Nov 14's commit-at-tier check; 100
+    // before): its splash (0.6 of the salvo, 72) now kills the Guards beside the one it hits (60 hp, armor 1), where 100
+    // left them standing at one hp. Inside its Data center's coverage, three Guards clumped nine tiles off, idle.
+    let d = UnitKind::Monolith.def();
+    let wp = d.weapon.unwrap();
+    assert_eq!(
+        (d.cost, wp.dmg, wp.cd, wp.splash),
+        ([550, 0], 120.0, 3.5, 0.6)
+    );
+    let mut w = expedition();
+    w.disable_ai();
+    let (tx, ty) = core(&w, PLAYER);
+    let (x, y) = ((tx as f64 + 2.0) * TILE, (ty as f64 + 6.0) * TILE);
+    let rover = w.make_unit(UnitKind::Monolith, PLAYER, x, y);
+    let guards: Vec<Id> = (0..3)
+        .map(|i| {
+            w.make_unit(
+                UnitKind::Trooper,
+                ENEMY,
+                x + 9.0 * TILE,
+                y + i as f64 * 14.0,
+            )
+        })
+        .collect();
+    for &g in &guards {
+        w.hold_unit(g);
+    }
+    w.attack_ent(rover, guards[1]);
+    // (one salvo: up to its first shot's landing, well short of a second)
+    for _ in 0..(3.0 * TPS as f64) as u32 {
+        w.step();
+    }
+    let left = guards.iter().filter(|&&g| w.unit(g).is_some()).count();
+    assert_eq!(left, 0, "one salvo: the three Guards fall");
+}

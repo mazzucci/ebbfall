@@ -10,6 +10,7 @@ const P = {
   attack: 'M12 5a7 7 0 1 0 .01 0M12 2v6M12 16v6M2 12h6M16 12h6',
   hold: 'M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z',
   gather: ['M3.5 21.5 12 4.5M5 6Q12 .8 19.5 9.5M13.5 17.5 15.5 13 20.5 11.5 23 15.5 21 20.5 16 21z', 'M5 6Q12 .8 19.5 9.5Q12.5 3.6 5 6zM13.5 17.5 15.5 13 20.5 11.5 23 15.5 21 20.5 16 21z'], // Mine: a pickaxe striking a gold nugget (no bust: the Villager holds one)
+  gatherDrill: ['M12.2 1.6 16 6.4 12.1 9.4 10.5 7.4 5.8 9.7 6.5 10.6 4.8 11.9 1.7 7.9 3.3 6.6 4 7.5 8.8 5.2 8.3 4.6zM15.2 7 15.9 8.8 14.4 10 12.8 8.8zM15.2 9.4 17.5 12.3M16.4 9.4 15.5 11.3M17.2 10.4 16.3 12.3M13.5 17.5 15.5 13 20.5 11.5 23 15.5 21 20.5 16 21z', 'M12.2 1.6 16 6.4 12.1 9.4 10.5 7.4 5.8 9.7 6.5 10.6 4.8 11.9 1.7 7.9 3.3 6.6 4 7.5 8.8 5.2 8.3 4.6zM13.5 17.5 15.5 13 20.5 11.5 23 15.5 21 20.5 16 21z'], // Mine for the Expedition: a power drill, its bit striking the same gold nugget (the nugget marks the action; Better drills is a bare bit)
   build: 'M13 7l4 4M4 20l8.5-8.5M10 5l3-2 8 8-2 3z',
   advanced: 'M13 7l4 4M4 20l8.5-8.5M10 5l3-2 8 8-2 3zM18 15v6M15 18h6', // (Build's hammer, and a +: the advanced page)
   rally: 'M6 21V4M6 4h11l-3 4 3 4H6',

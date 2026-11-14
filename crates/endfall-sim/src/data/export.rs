@@ -203,6 +203,7 @@ fn faction(f: &Faction) -> String {
         .num("repairs", f.repairs)
         .num("grid", f.grid)
         .str("money", f.money)
+        .str("ore", f.ore)
         .done()
 }
 

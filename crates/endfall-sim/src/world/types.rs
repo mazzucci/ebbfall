@@ -410,8 +410,8 @@ impl Refusal {
             Refusal::Water => "Cannot build on water",
             Refusal::Rock => "Blocked by trees or rocks",
             Refusal::Building => "Blocked by a building",
-            Refusal::Mine => "Blocked by a gold mine",
-            Refusal::NearMine => "Too close to a gold mine",
+            Refusal::Mine => "Blocked by a mine",
+            Refusal::NearMine => "Too close to a mine",
         }
     }
 }

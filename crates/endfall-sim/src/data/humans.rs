@@ -23,6 +23,7 @@ pub const HUMANS: Faction = Faction {
     supply: BldgKind::Depot,
     market: Some(BldgKind::Extractor),
     money: "gold",
+    ore: "gold",
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
     grid: false,

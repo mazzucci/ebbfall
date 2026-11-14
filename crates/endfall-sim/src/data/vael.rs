@@ -42,6 +42,7 @@ pub const VAEL: Faction = Faction {
     supply: BldgKind::Substation,
     market: Some(BldgKind::Spire),
     money: "energy",
+    ore: "thorium",
     sounds: ["lance", "slam", "lance", "blade"],
     repairs: true, // (its Bots repair buildings, as Villagers do; machines are not repaired: the arc, Nov 13)
     grid: true,

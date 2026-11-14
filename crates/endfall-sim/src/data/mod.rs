@@ -352,6 +352,9 @@ pub struct Faction {
     /// What it spends, in its player's words: the Kingdom's gold, the Expedition's energy (the same number in the sim's
     /// one cost slot; refusals say "Not enough gold" or "Not enough energy", `Faction::not_enough`).
     pub money: &'static str,
+    /// What its workers dig from the mines, in its player's words: the Kingdom's gold, the Expedition's thorium (the
+    /// same mines and loads; the Kingdom only ever sees the gold).
+    pub ore: &'static str,
     /// The sound of its shots, by projectile: [bolt, shell, missile, melee] (recipe names in src/client/audio.js).
     pub sounds: [&'static str; 4],
     /// Its workers repair damaged buildings.

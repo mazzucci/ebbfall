@@ -1753,7 +1753,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     // Set up: Bots until the Data center's grid is all drawn.
     await d.eval(([x, y]) => { const need = endfall.engine.UNITS.lumen.supply; for (let i = 0; i < 40 && endfall.G.sup[0][0] + need <= endfall.G.sup[0][1]; i++) endfall.engine.debugSpawn(0, 'lumen', x + (i % 6) * 14, y); }, [hq.x - 40, hq.y + 110]);
     await d.page.waitForTimeout(300);
-    await d.hudText('#rSupply', /^28\/28$/);
+    await d.hudText('#rSupply', /^20\/20$/);
     assert.ok(await d.page.locator('#resSup.low').isVisible(), 'the grid full (none left for a Bot\'s one): the figure warns');
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
@@ -1763,7 +1763,7 @@ test('as the Expedition: a Bot refused on a full grid says so, a Substation buil
     const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /grid/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
     assert.ok(t.l >= 0 && t.r <= t.w && t.t >= 0 && t.b <= t.h && !t.cut, `the toast whole on screen: ${JSON.stringify(t)}`);
     await buildAndFinish(d, 'w', 'substation', 0, V);
-    await d.hudText('#rSupply', /\/38$/);
+    await d.hudText('#rSupply', /\/30$/);
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a Substation up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);

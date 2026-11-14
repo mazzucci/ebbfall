@@ -282,8 +282,9 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 28, // (grid: 55 from Nov 14, about the places its first two Recruiting posts gave its mercenaries before
-    // (60 had the Expedition ahead on 96x96, the lab); halved with every grid number the same day, 27.5 rounded up)
+    supply: 20, // (grid: 55 from Nov 14, about the places its first two Recruiting posts gave its mercenaries before
+    // (60 had the Expedition ahead on 96x96, the lab); halved with every grid number the same day (28), then 20 once
+    // buildings drew no grid: at 28 the Kingdom won 35% of Medium games on 96x96 over 60 seeds, at 20 41%, the lab)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],

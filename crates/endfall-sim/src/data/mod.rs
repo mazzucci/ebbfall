@@ -34,7 +34,7 @@ pub const POP_MAX: i32 = 120;
 /// The Expedition's most grid, the same on every map: what its machines, its mercenaries and its buildings draw while
 /// they exist (PRD: the Expedition runs on energy, Nov 14: "Energy builds things; the grid keeps them running"). Halved
 /// on Nov 14 with every grid number (300, the Data center 55, a Substation 20, a machine two a place), so the grid reads
-/// as the Kingdom's population does: the Data center gives 28 and a Substation 10, so thirteen Substations fill it.
+/// as the Kingdom's population does: the Data center gives 20 and a Substation 10, so thirteen Substations fill it.
 pub const GRID_MAX: i32 = 150;
 /// The least distance, in tiles center to center, between two headquarters of one seat (Stelian, Nov 14: a Castle or a
 /// Data center not too close to its own other base; anywhere else, no mine needed). Short of every expansion: on every

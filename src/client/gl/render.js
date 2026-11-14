@@ -515,6 +515,20 @@ export function muzzleFx(x, y, face, size = 1) {
   addEffect('puff', mx, my, { vx: Math.cos(face) * 30, vy: Math.sin(face) * 20 - 12, life: 0.9, scale: size, fade: 0.9 });
   addEffect('flash', mx, my, { life: 0.12, light: 0xffc070, lightScale: 0.5, scale: 0.6 });
 }
+/** A shot's flash at a gun's mouth (look.js MUZZLE_FLASH: `fwd` px ahead of the ground point (x, y) along `face`,
+ *  radians, the ground's depth as the camera sees it, and `up` px above it), brief, with a warm light. */
+export function muzzleFlash(x, y, face, { fwd, up, scale }) {
+  addEffect('flash', x + Math.cos(face) * fwd, y + Math.sin(face) * fwd - up, { life: 0.09, light: 0xffd080, lightScale: 0.35, scale });
+}
+/** A melee blow lands on `t`: the spark on it, at the point of it nearest the striker `u` (a unit's body half way up
+ *  its drawn height, a building's nearest wall), and with `puff` (look.js MELEE_PUFF) dust kicked up at its feet. */
+export function meleeHit(u, t, puff) {
+  let x = t.x, y = t.y;
+  if (t.kind === 'bldg') { x = Math.min(Math.max(u.x, t.tx * TILE + 4), (t.tx + t.w) * TILE - 4); y = Math.min(Math.max(u.y, t.ty * TILE + 4), (t.ty + t.h) * TILE - 4); }
+  const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * 0.5, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
+  addEffect('spark', x + dx / d * k, y + dy / d * k - lift, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 });
+  if (puff) addEffect('puff', x + dx / d * k, y + 2, { vx: -dx / d * 12, vy: -6, life: 0.55, scale: puff, fade: 0.75 });
+}
 export function sparkAt(x, y, big) { if (big) addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.7, life: 0.35, scale: 0.7 }); else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); }
 const decals = [];
 

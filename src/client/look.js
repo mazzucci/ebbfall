@@ -92,6 +92,14 @@ export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research))
 
 /** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
 export const MUZZLE_SMOKE = { siegeTank: 1.4 };
+/** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
+ *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
+ *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel
+ *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big. */
+export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.45 }, scythe: { fwd: 6, up: 22, scale: 0.5 }, ward: { fwd: 42, up: 23, scale: 0.7 } };
+/** A melee blow landing (a `fire` event at a melee shooter): the spark at its target, and for the heavy hitters (the
+ *  Knight's lance, the Bruiser's hammer) a small puff of dust there too, of this size. */
+export const MELEE_PUFF = { knight: 0.75, bruiser: 0.65 };
 /** A shot's trail (an animation the renderer drops behind it in flight): the rocket's smoke. */
 export const SHOT_TRAIL = { rocket: 'trail' };
 /** The shots that carry a light of their own (a small warm glow under them): the tracers, the tower's shot, the rocket's flame. */
@@ -107,3 +115,16 @@ export const UNIT_FPS = { observer: 0 };
  *  frames rolling, half set, set up: the barrel raised, rolled back on its wheels (tools/render3d/kingdom-units.js `cannon`). The Guard (trooper) has no such pose: braced, it
  *  stands. */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };
+/** The edge distance from (x, y) to `t` (a unit: its center less its radius; a building: the nearest point of its
+ *  footprint), in world px: the sim's `Geo::edge_dist`. */
+function edgeDist(x, y, t) {
+  if (t.kind !== 'bldg') return Math.hypot(t.x - x, t.y - y) - t.r;
+  const cx = Math.min(Math.max(x, t.tx * 32), (t.tx + t.w) * 32), cy = Math.min(Math.max(y, t.ty * 32), (t.ty + t.h) * 32);
+  return Math.hypot(cx - x, cy - y);
+}
+/** Whether melee unit `u` has its target in reach (the sim's: its range in tiles plus half its radius, from the
+ *  target's edge; a little slack for the frames between ticks). */
+export function inReach(u, t = u.task?.target) {
+  const w = u.d?.weapon;
+  return !!(w && t && !t.dead && edgeDist(u.x, u.y, t) <= w.range * 32 + u.r * 0.5 + 2);
+}

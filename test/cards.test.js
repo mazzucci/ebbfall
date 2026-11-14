@@ -181,6 +181,14 @@ test('a unit symbol shows who, an action icon a tool: no unit is drawn like an a
   for (const [n, a] of actions) assert.equal(a.solid, '', `the ${n} icon is a tool, no bust`);
 });
 
+test('the Portal teleports: its lines say so, and only its queue reads Teleporting', { skip }, () => {
+  const p = E.BUILDINGS.eclipse;
+  assert.equal(p.what, 'Teleports Rovers, Androids');
+  assert.match(p.desc, /^Teleports Rovers and Androids from the future/);
+  assert.equal(p.training, 'Teleporting');
+  for (const [k, d] of Object.entries(E.BUILDINGS)) if (k !== 'eclipse' && d.trains?.length) assert.equal(d.training, undefined, `${k} keeps Training`);
+});
+
 test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const hq = E.G.bldgs.find(b => b.team === E.G.me);

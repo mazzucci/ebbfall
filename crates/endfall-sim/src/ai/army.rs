@@ -580,9 +580,7 @@ impl World {
         // (and only against a foe that stands with an army: against one it has crushed, or an idle one, it hunts what is
         // left without waiting)
         let foe_army = self.ai().army_seen.0;
-        t >= self.level().stall_from
-            && t > self.stall_began()
-            && foe_army > 0.0
+        t >= self.level().stall_from && t > self.stall_began() && foe_army > 0.0
     }
 
     /// When the current stall began for the seat taking its turn: `STALL_WINDOW` after its side last razed a building,

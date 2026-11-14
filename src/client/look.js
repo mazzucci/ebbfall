@@ -137,11 +137,13 @@ export function inReach(u, t = u.task?.target) {
 }
 /** The strike pose a unit shows now ('wind', 'strike' or null: its walk or toggle), from the client's mirror: its
  *  cooldown `u.cd` (s; the sim sets it to the weapon's `cd` as the blow lands and counts it down, past zero while
- *  nothing is fought), its target (`u.task.target`) and whether it is on the move. */
-export function strikePose(u, moving) {
+ *  nothing is fought) and its target (`u.task.target`). Not whether it moves: with its target in reach a fighter
+ *  stands (the sim's `approach` stops it there), and what moves it then is the crowd's shove, which must not flash
+ *  the walk's stride. */
+export function strikePose(u) {
   if (!STRIKE.kinds.has(u.type) || u.inside) return null;
   const cd = u.d?.weapon?.cd; if (!cd) return null;
   if (u.cd > cd - STRIKE.HOLD) return 'strike'; // (the blow just landed)
-  if (moving || !inReach(u)) return null;
+  if (!inReach(u)) return null;
   return 'wind'; // (the blow coming, or on guard till then)
 }

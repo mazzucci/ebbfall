@@ -458,7 +458,7 @@ test/art.test.js      the atlas against the game: every unit, building and turre
                       gold mine's three stages, neutral; and look.js's presentation: a selected building's oval, the
                       heads' frames (aimed, spun, panned), the Portal brightening as a unit comes through
 test/strike.test.js   the melee units' strike poses (look.js `strikePose`): the strike just after a blow, the wind-up
-                      in reach between blows, the walk on the move; reach as the sim's; both frames in every facing with
+                      in reach between blows (shoved or not), the walk out of reach; reach as the sim's; both frames in every facing with
                       their masks, out of the walk animation
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped

@@ -334,7 +334,7 @@ class UnitObj {
     const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     // (a melee unit in a fight: its strike poses, look.js strikePose, over the walk)
-    const sp = strikePose(u, this.moving); this.pose = sp;
+    const sp = strikePose(u); this.pose = sp;
     const name = sp ? `${u.type}_${dir}_${sp}` : `${u.type}_${dir}_${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)

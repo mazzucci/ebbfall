@@ -1,5 +1,5 @@
 // The melee units' strike poses (src/client/look.js STRIKE, strikePose; tools/render3d/retheme.js STRIKE_POSES): which
-// pose a unit shows from its cooldown, target and movement, and the frames in the atlas for every facing, each with its
+// pose a unit shows from its cooldown and target, and the frames in the atlas for every facing, each with its
 // team mask lined up, kept out of the walk animation.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,17 +24,16 @@ test('the five melee fighters, and only they, have strike poses', () => {
 test('a fighter strikes for a moment after its blow, and stands in its wind-up between blows', () => {
   for (const k of STRIKE.kinds) {
     const cd = UNITS[k].weapon.cd;
-    assert.equal(strikePose(fighter(k, cd), false), 'strike', `${k}: the blow just landed`);
-    assert.equal(strikePose(fighter(k, cd - STRIKE.HOLD + 0.01), false), 'strike', `${k}: still striking`);
-    assert.equal(strikePose(fighter(k, cd - STRIKE.HOLD - 0.01), false), 'wind', `${k}: back on guard`);
-    assert.equal(strikePose(fighter(k, 0.1), false), 'wind', `${k}: the next blow coming`);
-    assert.equal(strikePose(fighter(k, -3), false), 'wind', `${k}: ready, the target in reach`);
-    assert.equal(strikePose(fighter(k, -3), true), null, `${k}: on the move it walks`);
-    assert.equal(strikePose(fighter(k, -3, 60), false), null, `${k}: the target out of reach`);
-    assert.equal(strikePose(fighter(k, -3, null), false), null, `${k}: nothing to fight`);
+    assert.equal(strikePose(fighter(k, cd)), 'strike', `${k}: the blow just landed`);
+    assert.equal(strikePose(fighter(k, cd - STRIKE.HOLD + 0.01)), 'strike', `${k}: still striking`);
+    assert.equal(strikePose(fighter(k, cd - STRIKE.HOLD - 0.01)), 'wind', `${k}: back on guard`);
+    assert.equal(strikePose(fighter(k, 0.1)), 'wind', `${k}: the next blow coming`);
+    assert.equal(strikePose(fighter(k, -3)), 'wind', `${k}: ready, the target in reach`);
+    assert.equal(strikePose(fighter(k, -3, 60)), null, `${k}: the target out of reach`);
+    assert.equal(strikePose(fighter(k, -3, null)), null, `${k}: nothing to fight`);
   }
   const archer = { ...fighter('trooper', 0), type: 'lancer', d: UNITS.lancer };
-  assert.equal(strikePose(archer, false), null, 'a ranged unit has none');
+  assert.equal(strikePose(archer), null, 'a ranged unit has none');
 });
 
 test('reach is the sim\'s: the weapon\'s range plus half the striker\'s radius, from the target\'s edge or a building\'s wall', () => {

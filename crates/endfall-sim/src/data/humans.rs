@@ -298,12 +298,7 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
 };
 pub(super) const FORGE: BldgDef = BldgDef {
     key: "forge",
-    researches: &[
-        Upgrade::Weapons,
-        Upgrade::Armor,
-        Upgrade::Entrenching,
-        Upgrade::RapidConstruction,
-    ],
+    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Entrenching],
     name: "Blacksmith",
     cost: [300, 0], // (150 before the arc: the tech path a bet, about two minutes of income)
     hp: 820.0,

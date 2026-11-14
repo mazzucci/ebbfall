@@ -1805,57 +1805,6 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
 }
 
 #[test]
-fn the_human_ai_researches_rapid_construction_early_on_hard_but_never_on_easy() {
-    // The economy tech comes first on a level that researches (once its opening factories stand); Easy never
-    // researches.
-    let researched_at = |diff: usize| {
-        let mut w = World::new(21, diff);
-        let c = w
-            .bldgs
-            .iter_mut()
-            .find(|b| b.team == PLAYER && b.kind.def().hq)
-            .unwrap();
-        c.hp = 1e9;
-        c.maxhp = 1e9;
-        let up = Upgrade::RapidConstruction;
-        for _ in 0..30 * 900 {
-            w.step();
-            w.events.clear();
-            let mine = |k: BldgKind, done: bool| {
-                w.bldgs
-                    .iter()
-                    .filter(|b| b.team == ENEMY && b.kind == k && (b.done || !done))
-                    .count()
-            };
-            if w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.research.is_some_and(|(u, _)| u == up))
-            {
-                assert!(
-                    mine(BldgKind::Barracks, true) >= DIFF[diff].rax,
-                    "not before its opening factories stand"
-                );
-            }
-            if w.upgrades[ENEMY as usize][up.index()] > 0 {
-                let others: u8 = UPGRADES
-                    .iter()
-                    .filter(|&&u| u != up)
-                    .map(|u| w.upgrades[ENEMY as usize][u.index()])
-                    .sum();
-                assert_eq!(others, 0, "the economy tech before any other");
-                return Some(w.time);
-            }
-        }
-        None
-    };
-    let hard = researched_at(2).expect("Hard researches Rapid Construction by 15:00");
-    // (by 12:00: its Blacksmith, a 300-gold bet since the arc, stands at about 10:00 under the economy pass's scarcer
-    // gold; by 5:30 before)
-    assert!(hard < 720.0, "early, before the army's techs: {hard:.0}s");
-    assert_eq!(researched_at(0), None, "Easy never researches");
-}
-
-#[test]
 fn brutal_trains_its_workers_before_its_buildings() {
     // Brutal's build order (three factories, supply two at a time) spent every coin while its crew was still short,
     // so its Core stood idle between workers; and a Human builder leaves the line while it builds, so the Human AI fell

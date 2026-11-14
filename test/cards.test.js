@@ -132,7 +132,9 @@ for (const race of ['humans', 'vael']) {
 test('every research and command the card can show has an icon, and every unit and building a symbol (a key with no drawing renders a blank button)', { skip }, async () => {
   const { hasIcon, hasGlyph } = await import('../src/client/icons.js');
   // Every research and every button ability of either people, shown or not yet: the button's icon is its key.
-  const keys = [...Object.keys(E.UPGRADES), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)];
+  // (a research no building offers, Master Builders since Nov 14, has no button)
+  const offered = new Set(Object.values(E.BUILDINGS).flatMap(b => b.researches || []));
+  const keys = [...Object.keys(E.UPGRADES).filter(k => offered.has(k)), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)];
   for (const k of keys) assert.ok(hasIcon(k), `${k} has an icon`);
   // Every unit and building of either people has a symbol (`glyph`), whether a card shows it yet or not.
   for (const f of Object.values(E.FACTIONS)) for (const k of E.kindsOf(f)) assert.ok(hasGlyph(k), `${k} has a symbol`);
@@ -299,7 +301,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         barracks: ['t_trooper@0', 't_lancer@1', 'rally@4', 'cancelq@5'],
         factory: ['t_observer@0', 'rally@4', 'cancelq@5'],
         airfield: ['t_rider@0', 'r_afterburners@3', 'rally@4', 'cancelq@5'],
-        forge: ['r_weapons@0', 'r_armor@1', 'r_entrenching@2', 'r_rapidConstruction@3'],
+        forge: ['r_weapons@0', 'r_armor@1', 'r_entrenching@2'],
       },
       raise: ['barracks', 'forge'],
       after: {

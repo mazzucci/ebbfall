@@ -97,7 +97,7 @@ export function setIconButton(el, name, label, alt = '') {
 }
 
 // A tech shows the icon of what it gives.
-Object.assign(P, { afterburners: P.horseshoe, slipstream: P.bolt, rapidConstruction: P.frames, entrenching: P.entrench });
+Object.assign(P, { afterburners: P.horseshoe, slipstream: P.bolt, entrenching: P.entrench });
 /** Whether `name` has a drawing (test/cards.test.js: every key the command card shows has one). */
 export const hasIcon = (name) => !!P[name];
 /** Whether unit or building kind `kind` has a symbol (test/cards.test.js: every one a card shows). */

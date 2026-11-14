@@ -61,7 +61,7 @@ const BLDG_TEXT = {
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
   extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle.' },
   barracks: { hot: 'C', what: 'Trains Guards and Archers', desc: 'Trains Guards and Archers.' },
-  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor, Shield Drill and Master Builders. Unlocks Knights, Cannons and Ballistas.' },
+  forge: { hot: 'K', what: 'Researches upgrades', desc: 'Researches Weapons, Armor and Shield Drill. Unlocks Knights, Cannons and Ballistas.' },
   factory: { hot: 'S', what: 'Builds siege and Balloon', desc: 'Builds Ballistas, Cannons and the Balloon.' },
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
@@ -76,7 +76,7 @@ const BLDG_TEXT = {
   eclipse: { hot: 'D', what: 'Trains Androids and Rovers', desc: 'Trains Androids and Rovers, while an Uplink stands. Only one.' },
 };
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
-  afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' }, rapidConstruction: { hot: 'A' },
+  afterburners: { hot: 'T' }, slipstream: { hot: 'F' }, entrenching: { hot: 'S' },
   drills: { hot: 'D', desc: `Bots carry more gold a trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));

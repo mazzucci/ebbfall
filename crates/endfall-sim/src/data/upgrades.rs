@@ -14,6 +14,8 @@ pub enum Upgrade {
     Entrenching, // (Shield Drill: unlocks the Guard's Brace)
     Afterburners,
     Slipstream,
+    // (Master Builders: no longer offered, Nov 14: it came too late to matter; kept so the indices the snapshot and the
+    // wire send stay where they were)
     RapidConstruction,
     Drills,
 }
@@ -121,6 +123,7 @@ const SLIPSTREAM: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
+/// (no building researches it since Nov 14: Stelian, it unlocked too late to matter)
 const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     key: "rapidConstruction",
     name: "Master Builders",

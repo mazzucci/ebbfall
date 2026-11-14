@@ -69,15 +69,15 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
     const d = await newGame(device, 1, 4242, { ai: false, race: 'vael' });
     try {
       await d.grant(4000, 0);
-      await buildAndFinish(d, 'i', 'siphon', 0);
-      const lab = await buildAndFinish(d, 'g', 'loom', 1);
-      // (one row: a building site's card, its Cancel alone; the Lab's five researches since the arc fill two rows)
+      const post = await buildAndFinish(d, 'i', 'siphon', 0);
+      // (one row: a building site's card, its Cancel alone; two: the Recruiting post's, its unit above, Rally and
+      // Cancel below)
       const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
       const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
       await d.buildWithUI('s', 'spire', spot.tx, spot.ty, s.units.filter(u => u.team === 0 && u.type === 'lumen')[2].id);
       const site = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'spire' && !b.done);
-      const one = await cardOf(d, site.id), two = await cardOf(d, lab.id);
-      assert.equal(two.rows, 2, 'the Lab: two rows of buttons');
+      const one = await cardOf(d, site.id), two = await cardOf(d, post.id);
+      assert.equal(two.rows, 2, 'the Recruiting post: two rows of buttons');
       assert.equal(one.rows, 1, 'a building site: one row of buttons');
       assert.equal(one.height, two.height, `the card as tall for one row as for two: ${JSON.stringify({ one, two })}`);
       assert.deepEqual(d.errors, []);

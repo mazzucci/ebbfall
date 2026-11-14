@@ -38,7 +38,6 @@ const P = {
   trade: 'M2.5 18a5 2 0 1 0 10 0a5 2 0 1 0-10 0M2.5 18v2.5a5 2 0 0 0 10 0V18M2.5 13.5a5 2 0 1 0 10 0a5 2 0 1 0-10 0M2.5 13.5V16M12.5 13.5V16M18 21V5M14 9l4-4 4 4', // (Trade: a stack of coins and an arrow up)
   help: 'M12 3a9 9 0 1 0 .01 0M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01',
   horseshoe: ['M4 3h4v8a4 4 0 0 0 8 0V3h4v8a8 8 0 0 1-16 0zM6 6.5h.01M18 6.5h.01M6.8 12h.01M17.2 12h.01', 'M4 3h4v8a4 4 0 0 0 8 0V3h4v8a8 8 0 0 1-16 0z'],
-  bolt: ['M13.5 2 4.5 13.5h7L10 22l9.5-12h-7z', 'M13.5 2 4.5 13.5h7L10 22l9.5-12h-7z'], // (Overclock: a lightning bolt)
 };
 
 // The command card's units and buildings, both peoples, by kind: a symbol each, none like another (test/cards.test.js
@@ -97,7 +96,7 @@ export function setIconButton(el, name, label, alt = '') {
 }
 
 // A tech shows the icon of what it gives.
-Object.assign(P, { afterburners: P.horseshoe, slipstream: P.bolt, entrenching: P.entrench });
+Object.assign(P, { afterburners: P.horseshoe, entrenching: P.entrench });
 /** Whether `name` has a drawing (test/cards.test.js: every key the command card shows has one). */
 export const hasIcon = (name) => !!P[name];
 /** Whether unit or building kind `kind` has a symbol (test/cards.test.js: every one a card shows). */

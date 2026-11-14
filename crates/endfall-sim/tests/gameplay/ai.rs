@@ -1226,7 +1226,7 @@ fn each_level_trains_only_its_own_mix() {
             }
             let name = f.name;
             // Easy raises no vehicle bay nor an air factory before 9:00 (its raiders are above it until then). And the
-            // AI never researches a brace it would not use (Shield Drill: it braces nothing).
+            // AI never researches a brace it would not use (Shield Wall: it braces nothing).
             let ai = &f.ai;
             if diff == 0 {
                 let early = |k: BldgKind| raised.iter().any(|&(r, t)| r == k && t < 540.0);
@@ -1238,7 +1238,7 @@ fn each_level_trains_only_its_own_mix() {
             assert_eq!(
                 w.upgrades[ENEMY as usize][Upgrade::Entrenching.index()],
                 0,
-                "level {diff} {name}: no Shield Drill"
+                "level {diff} {name}: no Shield Wall"
             );
             let (tier1, tier2) = (DIFF[diff].tier_at.first(), DIFF[diff].tier_at.last());
             if diff == 0 {

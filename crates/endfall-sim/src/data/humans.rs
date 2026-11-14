@@ -75,7 +75,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Drill is researched) it stands and
+/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Wall is researched) it stands and
 /// takes the charge: +4 armor, no moving.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",

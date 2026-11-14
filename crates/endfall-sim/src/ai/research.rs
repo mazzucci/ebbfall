@@ -115,7 +115,7 @@ impl World {
         let serves: &dyn Fn(UnitKind) -> bool = match up.def().effect {
             // (not a toggle: the AI never braces a unit, its siege guns anchor by their own rule)
             Effect::Unlock(_) => return false,
-            Effect::Speed(unit) => &move |k: UnitKind| k == unit,
+            Effect::Speed(units) => &move |k: UnitKind| units.contains(&k),
             _ => return true,
         };
         my_b.iter()

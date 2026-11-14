@@ -1346,7 +1346,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Barracks', 'Cottage', 'Castle', 'Back'], 'the basic page: the Barracks first; all it holds is there from the start; no Advanced (nor the Market) before a Barracks');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Castle', 'Barracks', 'Cottage', 'Back'], 'the basic page: the Castle first (a new base), then the Barracks; all it holds is there from the start; no Advanced (nor the Market) before a Barracks');
     await d.pressCard('Cottage');
     assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
     await d.pressCard('Cancel');
@@ -1448,7 +1448,7 @@ test('the menu offers the Expedition: their base, workers and Build list', async
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
     await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.deepEqual(labels, ['Recruiting', 'Substation', 'Data center', 'Sentry mast', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
+    assert.deepEqual(labels, ['Data center', 'Recruiting', 'Substation', 'Sentry mast', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
     await page.evaluate(() => { endfall.ui.mode = null; });
     await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 });
     assert.ok(!(await page.locator('#shBar').isVisible()), 'a Bot has no shields to show (none since the re-theme)');
@@ -3357,20 +3357,21 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     await d.key('e');
     assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue[0], 'harvester', 'E trains a Villager');
 
-    // The Build menu: E (Build), then the page's keys by slot; R builds a Cottage (the Barracks first, on E).
+    // The Build menu: E (Build), then the page's keys by slot; T builds a Cottage (the Castle first, on E, then the
+    // Barracks on R).
     const h = mine(await d.state(), 'harvester')[0], spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.key('e');
     await page.locator('#cmd [data-id="b_depot"]').waitFor({ timeout: 5000 }); // (drawn on the next HUD tick)
     const page1 = await cardKeys(d);
-    assert.deepEqual(page1.map(([, k, l]) => `${l} ${k}`).slice(0, 2), ['Barracks E', 'Cottage R'], 'the Build page\'s keys');
+    assert.deepEqual(page1.map(([, k, l]) => `${l} ${k}`).slice(0, 3), ['Castle E', 'Barracks R', 'Cottage T'], 'the Build page\'s keys');
     for (const [slot, k] of page1) assert.equal(k, GRID[slot]);
     await d.key('g'); // Advanced (slot 4: after the three open from the start and the Watchtower)
     await page.locator('#cmd [data-id="build1"]').waitFor({ timeout: 5000 });
     for (const [slot, k] of await cardKeys(d)) assert.equal(k, GRID[slot], 'the Advanced page\'s keys');
     await d.key('Escape'); await d.key('Escape');
-    await d.buildWithUI(['e', 'r'], 'depot', spot.tx, spot.ty, h.id);
-    assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then R placed a Cottage (toasts: ${(await d.toasts()).join(' | ')})`);
+    await d.buildWithUI(['e', 't'], 'depot', spot.tx, spot.ty, h.id);
+    assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then T placed a Cottage (toasts: ${(await d.toasts()).join(' | ')})`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -57,6 +57,45 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
 }
 
 #[test]
+fn trade_raises_every_market_s_pay_by_level_researched_at_the_market() {
+    // Trade (Stelian, Nov 14): the Kingdom's economic research at the Market, two levels with names of their own, the
+    // Better drills' shape (150 then 175 gold, 60 then 75 s): its Markets pay a quarter more, then half more.
+    assert!(
+        BldgKind::Extractor
+            .def()
+            .researches
+            .contains(&Upgrade::Trade)
+    );
+    assert_eq!(Upgrade::Trade.levels(), 2);
+    assert_eq!(
+        (Upgrade::Trade.cost(1), Upgrade::Trade.cost(2)),
+        ([150, 0], [175, 0])
+    );
+    assert_eq!(
+        (Upgrade::Trade.time(1), Upgrade::Trade.time(2)),
+        (60.0, 75.0)
+    );
+    assert_eq!(Upgrade::Trade.level_name(1), "Expand trade routes");
+    assert_eq!(Upgrade::Trade.level_name(2), "Raise commercial taxes");
+    let minute = |level: u8| {
+        let mut w = rich(9);
+        for h in harvesters(&w, PLAYER) {
+            w.stop_unit(h);
+        }
+        let (tx, ty) = spot(&w, BldgKind::Extractor);
+        w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
+        w.upgrades[PLAYER as usize][Upgrade::Trade.index()] = level;
+        w.res[PLAYER as usize] = [0, 0];
+        run(&mut w, 60);
+        w.res[PLAYER as usize][0]
+    };
+    let (none, routes, taxes) = (minute(0), minute(1), minute(2));
+    assert_eq!(none, 14, "14 gold a minute untraded");
+    assert_eq!(routes, 18, "a quarter more: 18");
+    assert_eq!(taxes, 21, "half more: 21");
+}
+
+#[test]
 fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
     // The Market needs the Barracks and stands in the base, no shaft: one a finished Castle, sites counted (a second is
     // refused; a Castle at an expansion allows another). The Expedition's Recruiting post needs nothing and goes up

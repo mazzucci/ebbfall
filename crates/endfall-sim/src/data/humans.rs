@@ -274,6 +274,7 @@ pub(super) const DEPOT: BldgDef = BldgDef {
 /// The Market: pays gold by itself, built in the base, one per Castle.
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
+    researches: &[Upgrade::Trade],
     name: "Market",
     cost: [75, 0],
     hp: 200.0,

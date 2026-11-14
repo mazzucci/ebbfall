@@ -147,15 +147,7 @@ impl World {
             if p >= 1.0 {
                 self.bm(bid).unwrap().research = None;
                 self.upgrades[team as usize][up.index()] = level;
-                self.toast(
-                    team,
-                    format!(
-                        "{} {} researched",
-                        up.def().name,
-                        ["I", "II", "III"][(level - 1) as usize]
-                    ),
-                    false,
-                );
+                self.toast(team, format!("{} researched", up.level_name(level)), false);
                 self.sfx(team, "researched");
                 let (bx, by) = (self.bldg(bid).unwrap().x, self.bldg(bid).unwrap().y);
                 self.ping(team, bx, by);

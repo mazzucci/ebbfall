@@ -35,6 +35,7 @@ export const ITEMS = {
   11: ['rt_kg_scaffold_2', 'rt_kg_scaffold_3', 'rt_ex_scaffold_2', 'rt_ex_scaffold_3'],
   12: ['rt_doodad_boulders_0', 'rt_doodad_boulders_1', 'rt_doodad_boulders_2'],
   13: ['ex_bot', 'ex_drone'], // (the follow-up round after #277: the Bot off the gold, the Drone's body and lighter shadow)
+  14: ['bldg_ex_turbine'], // (after #277: the Wind turbine's blades without the blur disc)
 };
 const HEADS = { bldg_ex_vortex: 'ex_vortexhead_0', bldg_ex_turbine: 'ex_turbinehead_0', bldg_ex_uplink: 'ex_uplinkhead_0', bldg_kg_tower: 'kg_towerhead_4' };
 const isUnit = (n) => /^(kg|ex)_/.test(n);

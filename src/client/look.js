@@ -99,10 +99,25 @@ export const IMPACT = { arrow: 'glint', ballista_bolt: 'glint', dart: 'glint', t
 /** The impact of a `hit` event (src/engine/core.js gives it the shot's `proj`, its shooter's kind `by` and `people`). */
 export const impactOf = (e) => (e.proj ? IMPACT[shotArt(e.by, e.proj, e.people)] ?? 'spark' : 'weld');
 /** The units that fall as machines (a small explosion and its light); every other unit falls as a fighter, into a
- *  puff of earth-colored dust (no fire, no scorch). */
+ *  puff of earth-colored dust (no fire, no scorch), or a flyer into a puff of canvas (AIR_PUFF). */
 export const MACHINES = new Set(['siegeTank', 'bastion', 'scythe', 'monolith', 'shrike', 'lumen', 'umbra']);
 /** The dust's tint: earth, so a melee blow's puff or a fallen fighter reads as dust, not smoke. */
 export const DUST = 0xd8c49a;
+/** A fallen flyer that is no machine (the Balloon): no fireball and no dust off the ground, but a puff of pale canvas
+ *  where it flew, `lift` of its drawn height (render.js unitTop) above its ground point, sinking as it fades. */
+export const AIR_PUFF = { lift: 0.7, tint: 0xe8dcc0, scale: 2.2, life: 1.0, vy: 20, fade: 0.85 };
+/** How a unit of kind `unit` falls (`air`: it flies): 'machine' (it explodes), 'air' (AIR_PUFF) or 'dust' (a
+ *  fighter's puff of earth); a building (`unit` null) explodes as a machine does. */
+export const deathOf = (unit, air) => (!unit || MACHINES.has(unit) ? 'machine' : air ? 'air' : 'dust');
+/** Slowed (an Archer's arrow, `u.slowed` s left): the unit's body (not its team paint) tinted a cold gray-blue, back
+ *  to white over the last `fade` s. */
+export const SLOW = { tint: 0xbcc8d4, fade: 1.5 };
+/** The body's tint for `slowed` s of slow left (0: none, white). */
+export function slowTint(slowed) {
+  if (!(slowed > 0)) return 0xffffff;
+  const k = Math.min(1, slowed / SLOW.fade), ch = (s) => Math.round(255 + (((SLOW.tint >> s) & 255) - 255) * k);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
 /** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
  *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
  *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel

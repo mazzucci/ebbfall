@@ -3211,6 +3211,41 @@ test('melee units in a fight show their strike poses, and each blow glints on it
   } finally { await d.close(); }
 });
 
+test('an arrow slows its target: its body tinted a cold gray-blue, its team paint untouched, white again as it wears off', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
+    const [, kn] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'lancer', x, y), endfall.engine.debugSpawn(1, 'knight', x + 110, y)], [x, y]);
+    await d.centerOn(x + 50, y);
+    const layer = (id) => d.eval((id) => endfall.teamLayers().find(l => l.id === id), id);
+    assert.ok(await d.skipUntil((id) => endfall.G.units.find(u => u.id === id)?.slowed > 2.5, kn, { seconds: 15, step: 1 / 30 }), 'an arrow lands on the Knight');
+    const slowed = await layer(kn);
+    assert.equal(slowed.bodyTint, 0xbcc8d4, 'its body cold gray-blue');
+    assert.equal(slowed.tint, slowed.seat, 'its team paint in its seat\'s color');
+    // (the Knight rides the Archer down; then the slow wears off)
+    assert.ok(await d.skipUntil((id) => !(endfall.G.units.find(u => u.id === id)?.slowed > 0), kn, { seconds: 20, step: 0.1 }), 'the slow wears off');
+    assert.equal((await layer(kn)).bodyTint, 0xffffff, 'white again');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball, no dust off the ground', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 120;
+    const ob = await d.eval(([x, y]) => { const ob = endfall.engine.debugSpawn(1, 'observer', x, y); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'lancer', x - 30 + i * 30, y + 70); endfall.engine.debugSetHp(ob, 1); return ob; }, [x, y]);
+    await d.centerOn(x, y);
+    const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.x, u.y, endfall.unitTop('observer')]; }, ob);
+    assert.ok(await d.skipUntil((id) => !endfall.G.units.some(u => u.id === id), ob, { seconds: 10, step: 1 / 30 }), 'the Balloon falls');
+    const fx = await d.eval(([x, y]) => endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120), at);
+    const up = at[1] - at[2] * 0.7, puffs = fx.filter(e => e.anim === 'puff');
+    assert.ok(puffs.some(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2), `a puff at its altitude (${JSON.stringify(fx)})`);
+    assert.ok(!puffs.some(e => e.y > at[1] - 10), 'no dust off the ground');
+    assert.ok(!fx.some(e => e.anim.startsWith('boom')), 'no fireball');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 // ---- Controls (src/client/controls.js, the OPTIONS card: options.js): CLASSIC or WASD, the middle button's pan ----
 
 /** Hold `key` for `ms`, and on until a frame has moved the camera (a software-rendered page draws few frames a second;

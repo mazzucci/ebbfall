@@ -5,8 +5,8 @@
 import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
-import { fx } from '../fx.js';
-import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, MACHINES, DUST, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { fx, partSize } from '../fx.js';
+import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, AIR_PUFF, slowTint, DUST, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
@@ -320,7 +320,7 @@ class UnitObj {
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own color)
     // (an own walker: its silhouette, shown while a building hides it)
     if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE); this.xr.visible = false; L.xray.addChild(this.xr); }
-    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the ring and the rope round the feet: as large as the art)
+    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the selection ring round the feet: as large as the art)
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0xeee6d2, 0.14, 0.5); // (the gold a worker carries: pale, faint)
     this.px = u.x; this.py = u.y; this.walk = 0;
@@ -344,12 +344,8 @@ class UnitObj {
     if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
-    paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
-    // Harpooned (slowed, no abilities): a rope's loop round its feet (round its shadow for a flyer), fading as it wears off.
-    if (u.slowed > 0) {
-      const a = Math.min(1, u.slowed / 1.5), rx = this.size * 0.85, ry = this.size * 0.45, y = u.y + (this.air ? 14 : 4) * UNIT_ART_SCALE;
-      bars.ellipse(u.x, y, rx, ry).stroke({ width: 2.5, color: 0x3b2a1a, alpha: 0.55 * a }).ellipse(u.x, y, rx, ry).stroke({ width: 1.2, color: 0xe2c992, alpha: 0.9 * a });
-    }
+    // (slowed by an arrow: its body, not its team paint, a cold gray-blue fading back to white as it wears off: look.js slowTint)
+    paintAs(this.body, this.paint, this.seat, 0xffffff, 1); this.body.tint = slowTint(u.slowed);
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
@@ -492,11 +488,17 @@ export function addEffect(anim, x, y, o = {}) {
 }
 /** The effects alive now, each with its animation and where it was spawned (world px): read-only, for the tests. */
 export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y }));
-/** A unit or building died (`unit`: the unit's kind, null for a building). A fighter falls into a puff of earth-colored
- *  dust (look.js MACHINES: every unit not a machine; no fire, no light, no scorch); a machine and a building explode,
- *  sized to them, with debris, a scorch mark, and a shake and rubble (its people's: `race`) for big ones. */
+/** Where a death at ground point (x, y) plays, its y: a flyer that is no machine (the Balloon) up where it flew
+ *  (look.js AIR_PUFF `lift` of its drawn height), anything else on the ground. */
+export const deathY = (y, unit) => (unit && deathOf(unit, UNITS[unit]?.air) === 'air' ? y - unitTop(unit) * AIR_PUFF.lift : y);
+/** A unit or building died (`unit`: the unit's kind, null for a building; look.js deathOf). A fighter falls into a puff
+ *  of earth-colored dust, a flyer that is no machine (the Balloon) into a puff of canvas up where it flew, sinking (no
+ *  fire, no light, no scorch for either); a machine and a building explode, sized to them, with debris, a scorch mark,
+ *  and a shake and rubble (its people's: `race`) for big ones. */
 export function boom(x, y, r, race, unit = null) {
-  if (unit && !MACHINES.has(unit)) { addEffect('puff', x, y - 4, { vy: -10, life: 0.8, scale: 1.3, tint: DUST, fade: 0.85 }); return; }
+  const how = deathOf(unit, unit && UNITS[unit]?.air);
+  if (how === 'air') { const { tint, scale, life, vy, fade } = AIR_PUFF; addEffect('puff', x, deathY(y, unit), { vy, life, scale, tint, fade }); return; }
+  if (how === 'dust') { addEffect('puff', x, y - 4, { vy: -10, life: 0.8, scale: 1.3, tint: DUST, fade: 0.85 }); return; }
   const big = r >= 20;
   addEffect(big ? 'boom_big' : 'boom_small', x, y, { light: 0xff9a3a, lightScale: big ? 2.4 : 0.7, life: big ? 0.7 : 0.4, scale: big ? Math.min(2, r / 28) : 1 });
   for (let i = 0; i < (big ? 10 : 4); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
@@ -748,7 +750,7 @@ export function render(selList, place) {
     const k = 1 - f.t / f.life;
     if (f.ring) { lines.ellipse(f.x, f.y, 8 + 18 * (1 - k), (8 + 18 * (1 - k)) * 0.6).stroke({ width: 2, color: hexn(f.color), alpha: k }); continue; }
     const s = pooled(partPool, ki++, () => { const s = new Sprite(Texture.WHITE); s.anchor.set(0.5); L.fx.addChild(s); return s; });
-    s.tint = hexn(f.color); s.alpha = k; s.position.set(Math.round(f.x), Math.round(f.y)); s.width = s.height = Math.max(1, Math.round(f.r * (0.5 + k)));
+    s.tint = hexn(f.color); s.alpha = k; s.position.set(Math.round(f.x), Math.round(f.y)); s.width = s.height = partSize(f, k);
   }
   for (let i = ki; i < partPool.length; i++) partPool[i].visible = false;
 
@@ -809,7 +811,7 @@ function dashed(x0, y0, x1, y1) {
 
 /** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, how opaque) and its
  *  seat's tint. */
-export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
+export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, bodyTint: o.body.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
 /** Tests: the field's draw order (`ents`, sorted as drawn): each unit and building with its place in the layer (higher:
  *  drawn later, over), and whether a unit shows its silhouette through a building. */

@@ -330,9 +330,16 @@ export function knight(M, f) {
   const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.z = LA; r.add(ln);
   add(ln, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
   add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
-  add(ln, cone(1.3, 3.6, 8), M.steel, 20.0, 0, 0, 0, 0, -Math.PI / 2);                        // the point
-  const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -LA + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
-  add(ln, rbox(0.4, 0.4, 5.4, 0.05), M.inkLine, 20.6, 0.4, 0.2);                             // its ink edge at the staff
+  // the head: a steel socket and a long spike (6 long, 4 wide at its base: 7 x 5 px at zoom 1), so the lance ends in
+  // steel in every facing; the team cloth is a small pennant on the shaft 5 below the head, hung off the shaft's
+  // back side and leaning back (per pose: back-up in the gallop, level back in the wind-up, streaming back in the strike),
+  // yawed 0.45 so a sliver of its face shows toward and away from the camera too. (Until 2026-11-14 a 9 x 5 pennon
+  // at the tip, yawed with the lance: facing the camera in the wind-up it read as a team square where the head should be.)
+  add(ln, cyl(1.7, 1.7, 1.6, 8), M.steel, 18.6, 0, 0, 0, 0, Math.PI / 2);                      // the socket
+  add(ln, cone(2.0, 6.0, 8), M.steel, 22.4, 0, 0, 0, 0, -Math.PI / 2);                        // the point, 19.4 to 25.4
+  const lean = [0.6, 0.35, 0.9][pose], px = -Math.sin(lean) * 5.2, pz = -Math.cos(lean) * 5.2, pw = 0.6; // the pennant's far end: 5.2 out of the shaft (the outline's z runs down the lance's -y)
+  const pn = add(ln, plate([[-1.6, 0.7], [1.6, 0.7], [px + Math.cos(lean) * pw, pz + Math.sin(lean) * pw], [px - Math.cos(lean) * pw, pz - Math.sin(lean) * pw]], 0.35, 0.08), M.cloth, 12.8, 0, 0, Math.PI / 2, 0, 0);
+  pn.rotation.z = 0.45; // (a yaw about the vertical of the lance's frame: the Euler's z turns before its x)
   limb(r, [0, 6, 3], [LX, LY, LZ], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, LX + 0.2, LY, LZ + 0.1);
   if (M.polish) { // secondary detail: the bridle and reins, a breast strap and girth, saddle pommel and cantle, stirrups, the helm's cross, bands on the lance
     add(h, torus(1.9, 0.28), M.leather, 13.9, 17.0, 0, 0, Math.PI / 2, -0.35);                   // the noseband

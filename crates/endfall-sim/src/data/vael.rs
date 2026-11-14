@@ -93,10 +93,11 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     r: 9.0,
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     supply: 2, // (grid; Power: 1 before the economy's second round, twice a Villager's place as every machine)
-    // (seven with 8 a trip since Nov 14: a Bot mine pays as a Villager mine from the start, 7 x 8 = 8 x 7; six with 9,
-    // 96%, before, and five, 80%, before Nov 13)
-    mine_cap: 7,
-    mine_load: 8, // (13 before Nov 13, cut in step with the Villager's, for gold that is scarce for a person too; 9 before Nov 14)
+    // (since Nov 14 a Bot mine pays as a Villager mine from the start: six with 9 a trip, a little quicker inside, 7.2 s
+    // to the Villager's 7.5, 54 in 7.2 s for 56 in 7.5; 96% before, and 80% with five before Nov 13)
+    mine_cap: 6,
+    mine_load: 9, // (13 before Nov 13: cut in step with the Villager's, for gold that is scarce for a person too)
+    mine_time: 7.2,
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,

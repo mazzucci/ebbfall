@@ -222,6 +222,11 @@ impl Weapon {
 }
 
 impl UnitKind {
+    /// The seconds a worker of this kind spends inside a mine for a load (`UnitDef::mine_time`, or `MINE_TIME`).
+    pub fn mine_time(self) -> f64 {
+        let t = self.def().mine_time;
+        if t > 0.0 { t } else { MINE_TIME }
+    }
     /// Its toggle (Deploy), if it has one: the first of its abilities that settles it in.
     pub fn toggle(self) -> Option<AbilityKind> {
         self.def()
@@ -258,6 +263,9 @@ def_struct! {
         /// its own kind's number are), and the gold it comes out with. 0 for every other unit.
         mine_cap: i32 = "mineCap",
         mine_load: i32 = "mineLoad",
+        /// The seconds it spends inside a mine for a load (0: `MINE_TIME`): the Bot a little less, so a saturated Bot
+        /// mine pays as a Villager mine (six with 9 in 7.2 s, eight with 7 in 7.5 s).
+        mine_time: f64 = "mineTime",
         /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
@@ -471,6 +479,7 @@ const UNIT: UnitDef = UnitDef {
     worker: false,
     mine_cap: 0,
     mine_load: 0,
+    mine_time: 0.0,
     shields: 0.0,
     weapon: None,
     light: None,
@@ -480,11 +489,11 @@ const UNIT: UnitDef = UnitDef {
 /// Units a building's production queue holds (the one in training first).
 pub const QUEUE_MAX: usize = 5;
 /// A gold mine (one per field, map.rs `lay_mines`): its footprint in tiles (the art's, 2x2), the workers inside it at
-/// once and the gold each comes out with are its kind's (`UnitDef::mine_cap`, `mine_load`: eight Villagers with 7, seven
-/// Bots with 8), and the seconds a worker spends inside. Calm trips (Stelian, Nov 12): a long stay inside and a big
-/// load. A saturated mine pays the Kingdom about 450 a minute and the Expedition as much (Nov 14:
-/// `a_mine_fits_eight_villagers_or_seven_bots_and_a_bot_mine_pays_as_much`; the Expedition's "thorium"), a Villager
-/// bringing in about 38 a minute, a Bot about 45. More income comes from more mines, the Kingdom's Market and Trade, and
+/// once and the gold each comes out with are its kind's (`UnitDef::mine_cap`, `mine_load`: eight Villagers with 7, six
+/// Bots with 9), and the seconds a worker spends inside (`MINE_TIME`, the Bot's own `mine_time` a little less). Calm
+/// trips (Stelian, Nov 12): a long stay inside and a big load. A saturated mine pays the Kingdom about 450 a minute and
+/// the Expedition as much (Nov 14: `a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_as_much`; the
+/// Expedition's "thorium"), a Villager bringing in about 38 a minute, a Bot about 50. More income comes from more mines, the Kingdom's Market and Trade, and
 /// the Expedition's Wind turbines. Gold is scarce for a person too (the PM, Nov 13; the lab's "A human's
 /// opening"): from 2:00 to 6:00 one production building kept busy or a second one built, not both. Before Nov 13 the
 /// loads were 10 and 13 (a human's bank piled up from 2:00, two Barracks busy and more) and five Bots fitted a mine (at
@@ -494,7 +503,7 @@ pub const MINE_SIZE: i32 = 2;
 pub const MINE_TIME: f64 = 7.5;
 /// The most workers inside a mine at once, of any kind (the largest `UnitDef::mine_cap`), and the largest load.
 pub const MINE_CAP_MOST: i32 = 8;
-pub const MINE_LOAD_MOST: i32 = 10; // (a Bot's 8 with two levels of Better drills, no longer offered: its mechanism kept)
+pub const MINE_LOAD_MOST: i32 = 11; // (a Bot's 9 with two levels of Better drills, no longer offered: its mechanism kept)
 /// The gold in one crystal of a field as the map is laid (a field's mine holds its crystals' gold, `map.rs`
 /// `lay_mines`: seven by a main, 14,000 gold): a main mine lasts a normal game, over 20 minutes at its full rate, so
 /// scarcity comes from the rate (the load, the mine's cap, the worker's price) and expanding is a choice for more of it,

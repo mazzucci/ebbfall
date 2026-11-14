@@ -258,7 +258,7 @@ impl World {
             Task::Gather {
                 node,
                 phase: Phase::Mine,
-                timer: MINE_TIME / income,
+                timer: self.u(uid).kind.mine_time() / income,
             }
         } else if phase == Phase::Go || timer <= 0.0 {
             // Full: try a less crowded mine close by (checked on arrival, then every half second while waiting).

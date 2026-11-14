@@ -1,7 +1,7 @@
 //! The AI's research, and saving up for it or for an expansion.
 
-use super::*;
 use super::army::CAP_SLACK;
+use super::*;
 
 impl World {
     /// Research, and saving up for it or for an expansion (never while threatened, never for long).

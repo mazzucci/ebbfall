@@ -322,21 +322,23 @@ fn home_income_of(seed: u32, n: usize, f: &'static Faction) -> i64 {
     (w.ledger[0].mined[0] - m0) / 3
 }
 
-/// A mine fits eight Villagers or seven Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
-/// fewer and efficient), each Bot carrying more: saturated, a mine pays the Kingdom about 450 gold a minute and the
-/// Expedition as much (Nov 14: parity from the start, Better drills gone; six Bots with 9 a trip paid 96% before), with
-/// workers enough on it (the same harness: workers on the home mine, gold a minute from 1:00 to 4:00). More workers add
-/// nothing; a Villager brings in about 40 a minute alone, a Bot about 45. Whoever is inside counts towards the cap: a
-/// worker goes in while fewer than its own kind's number are inside.
+/// A mine fits eight Villagers or six Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
+/// few and efficient), each Bot carrying more and a little quicker inside: saturated, a mine pays the Kingdom about 450
+/// gold a minute and the Expedition as much (Nov 14: parity from the start, Better drills gone; 96% before, the Bots as
+/// long inside as the Villagers), with workers enough on it (the same harness: workers on the home mine, gold a minute
+/// from 1:00 to 4:00). More workers add nothing; a Villager brings in about 40 a minute alone, a Bot about 50. Whoever
+/// is inside counts towards the cap: a worker goes in while fewer than its own kind's number are inside.
 #[test]
-fn a_mine_fits_eight_villagers_or_seven_bots_and_a_bot_mine_pays_as_much() {
+fn a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_as_much() {
     let (v, b) = (UnitKind::Harvester.def(), UnitKind::Lumen.def());
-    assert_eq!((v.mine_cap, b.mine_cap), (8, 7));
-    assert_eq!(
-        v.mine_cap * v.mine_load,
-        b.mine_cap * b.mine_load,
-        "as much a round inside"
+    assert_eq!((v.mine_cap, b.mine_cap), (8, 6));
+    let rate = |k: UnitKind| k.def().mine_cap as f64 * k.def().mine_load as f64 / k.mine_time();
+    let inside = rate(UnitKind::Lumen) / rate(UnitKind::Harvester);
+    assert!(
+        (0.99..=1.01).contains(&inside),
+        "as much a second inside: {inside:.3}"
     );
+    assert_eq!(UnitKind::Harvester.mine_time(), MINE_TIME);
     assert_eq!(
         MINE_CAP_MOST,
         UNIT_KINDS.iter().map(|k| k.def().mine_cap).max().unwrap()
@@ -355,9 +357,10 @@ fn a_mine_fits_eight_villagers_or_seven_bots_and_a_bot_mine_pays_as_much() {
             (400..=480).contains(&vil),
             "seed {seed}: saturated, {vil} a minute with Villagers"
         );
+        // (within a load or so: three minutes hold whole rounds inside, 24 or 25 of the Bots' 7.2 s)
         let share = bot as f64 / vil as f64;
         assert!(
-            (0.97..=1.03).contains(&share),
+            (0.95..=1.05).contains(&share),
             "seed {seed}: a Bot mine pays {bot}, {:.0}% of a Villager mine's {vil}",
             share * 100.0
         );

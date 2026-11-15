@@ -343,7 +343,7 @@ class UnitObj {
     // in front; units on one line apart by id)
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y + (u.id % 997) * 1e-5;
     if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
-    // (slowed by an arrow, look.js SLOW: its body, not its team paint, a cold gray-blue, and a cold blue added over it on
+    // (slowed by an arrow, look.js SLOW: its body, not its team paint, an icy steel blue, and a pale ice added over it on
     // the hit flash's layer while no hit flash shows; both fading as it wears off)
     const fl = flashLayer(u.flash, u.slowed);
     this.flash.visible = fl.visible; this.flash.tint = fl.tint; this.flash.alpha = fl.alpha;

@@ -3378,7 +3378,7 @@ test('melee units in a fight show their strike poses, and each blow glints on it
   } finally { await d.close(); }
 });
 
-test('an arrow slows its target: its body tinted a cold gray-blue under a cold blue glow, its team paint untouched, back to normal as it wears off', async () => {
+test('an arrow slows its target: its body tinted an icy steel blue under a pale ice glow, its team paint untouched, back to normal as it wears off', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
@@ -3387,7 +3387,7 @@ test('an arrow slows its target: its body tinted a cold gray-blue under a cold b
     const layer = (id) => d.eval((id) => endfall.teamLayers().find(l => l.id === id), id);
     assert.ok(await d.skipUntil((id) => endfall.G.units.find(u => u.id === id)?.slowed > 2.5, kn, { seconds: 15, step: 1 / 30 }), 'an arrow lands on the Knight');
     const slowed = await layer(kn);
-    assert.equal(slowed.bodyTint, SLOW.tint, 'its body cold gray-blue');
+    assert.equal(slowed.bodyTint, SLOW.tint, 'its body icy steel blue');
     assert.equal(slowed.tint, slowed.seat, 'its team paint in its seat\'s color');
     // (the glow shows between hit flashes: a frame with the slow fresh and no flash; another arrow may land meanwhile)
     let glow = null;
@@ -3396,7 +3396,7 @@ test('an arrow slows its target: its body tinted a cold gray-blue under a cold b
       glow = (await layer(kn)).glow;
     }
     assert.ok(glow, 'a glow over the slowed Knight');
-    assert.equal(glow.tint, SLOW.glow, 'a cold blue');
+    assert.equal(glow.tint, SLOW.glow, 'a pale ice');
     assert.ok(Math.abs(glow.alpha - SLOW.glowAlpha) < 0.02, `faint (${glow.alpha})`);
     // (the Knight rides the Archer down; then the slow wears off)
     assert.ok(await d.skipUntil((id) => !(endfall.G.units.find(u => u.id === id)?.slowed > 0), kn, { seconds: 20, step: 0.1 }), 'the slow wears off');

@@ -127,22 +127,22 @@ test('a shot on a flyer plays up on its body: on a Balloon\'s basket, on anythin
   for (const k of Object.keys(HIT_LIFT)) assert.ok(UNITS[k]?.air, `${k} flies`);
 });
 
-test('the flash layer: a hit\'s white, else while slowed a cold blue, fading over the last 1.5 s; hidden otherwise', () => {
+test('the flash layer: a hit\'s white, else while slowed a pale ice, fading over the last 1.5 s; hidden otherwise', () => {
   assert.deepEqual(flashLayer(0, 0), { visible: false, tint: SLOW.glow, alpha: 0 });
   assert.deepEqual(flashLayer(0.1, 0), { visible: true, tint: 0xffffff, alpha: 0.6 }, 'hit');
   assert.deepEqual(flashLayer(0.1, 3), { visible: true, tint: 0xffffff, alpha: 0.6 }, 'hit while slowed: the hit shows');
-  assert.deepEqual(flashLayer(0, 3), { visible: true, tint: 0x3f7fc0, alpha: SLOW.glowAlpha }, 'slowed');
-  assert.deepEqual(flashLayer(0, 0.75), { visible: true, tint: 0x3f7fc0, alpha: SLOW.glowAlpha * 0.5 }, 'wearing off');
+  assert.deepEqual(flashLayer(0, 3), { visible: true, tint: 0xc0e0ff, alpha: SLOW.glowAlpha }, 'slowed');
+  assert.deepEqual(flashLayer(0, 0.75), { visible: true, tint: 0xc0e0ff, alpha: SLOW.glowAlpha * 0.5 }, 'wearing off');
   assert.equal(flashLayer(0, 0.0001).visible, true, 'shown while any slow lasts');
 });
 
-test('slowed: the body tinted cold gray-blue under a cold blue glow, both gone over the last 1.5 s', () => {
+test('slowed: the body tinted an icy steel blue under a pale ice glow, both gone over the last 1.5 s', () => {
   assert.equal(slowTint(0), 0xffffff, 'not slowed');
   assert.equal(slowTint(-0.1), 0xffffff);
   assert.equal(slowTint(undefined), 0xffffff);
   assert.equal(slowTint(3), SLOW.tint, 'freshly hit');
-  assert.equal(slowTint(1.5), 0xa8bccc, 'still full at 1.5 s left');
-  assert.deepEqual([SLOW.glow, SLOW.glowAlpha], [0x3f7fc0, 0.45], 'the glow: a cold blue, added');
+  assert.equal(slowTint(1.5), 0x78b4cc, 'still full at 1.5 s left');
+  assert.deepEqual([SLOW.glow, SLOW.glowAlpha], [0xc0e0ff, 0.2], 'the glow: a pale ice, added');
   assert.deepEqual([slowK(0), slowK(undefined), slowK(3), slowK(1.5), slowK(0.75)], [0, 0, 1, 1, 0.5], 'how much shows');
   const ch = (c, s) => (c >> s) & 255, half = slowTint(0.75), end = slowTint(0.01);
   for (const s of [16, 8, 0]) {

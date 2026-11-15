@@ -1357,7 +1357,7 @@ for (const [race, V, steps, full, basic] of [
         if (d.touch) { const r = await d.page.locator('#cmd [data-id="build1"]').boundingBox(); await d.lateTap(r.x + r.width / 2, r.y + r.height / 2); } else await d.pressCard('Back');
         await d.readyCard(basic);
         assert.equal(await d.eval(() => endfall.ui.mode), 'build', 'Back: the basic page');
-        assert.ok(await d.page.locator('#cmdInfo').isHidden(), 'no details left over from the tap');
+        if (d.touch) assert.ok(await d.page.locator('#cmdInfo').isHidden(), 'no details left over from the tap'); // (a mouse left over the card shows its hover details, as it should)
         assert.deepEqual(d.errors, []);
       } finally { await d.close(); }
     });

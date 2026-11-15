@@ -1338,6 +1338,32 @@ test('the Build list packs its buttons in the order they open: a newly opened bu
   } finally { await d.close(); }
 });
 
+// Build, Advanced with every building open (the Expedition's five fill all but the corner), then Back: the basic page.
+// On the phone Back is a quick tap the page handles late (a busy frame outlasting the long press's timer): still a tap.
+for (const [race, V, steps, full, basic] of [
+  ['vael', { hq: 'conflux', worker: 'lumen' }, [['i', 'siphon'], ['g', 'loom'], ['u', 'uplink']], ['Factory', 'Lab', 'Turbine', 'Uplink', 'Portal'], 'Substation'],
+  ['humans', { hq: 'core', worker: 'harvester' }, [['c', 'barracks'], ['k', 'forge']], ['Blacksmith', 'Workshop', 'Market', 'Stables'], 'Cottage']]) {
+  for (const [where, layout] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+    test(`${where}, as ${race === 'vael' ? 'the Expedition' : 'the Kingdom'}: Build, Advanced with every building open, then Back lands on the basic page${where === 'phone' ? ' (a quick tap handled late)' : ''}`, where === 'phone' ? { chromium: CDP_TOUCH } : {}, async () => {
+      const d = await newGame(layout, 0, 4242, { ai: false, race });
+      try {
+        await d.grant(9000, 0);
+        for (const [i, [k, t]] of steps.entries()) await buildAndFinish(d, k, t, i, V);
+        const w = mine(await d.state(), V.worker)[3];
+        for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); } // (a worker moves: again until it is picked)
+        await d.pressCard('Build'); await d.readyCard('Advanced'); await d.pressCard('Advanced');
+        await d.readyCard(full.at(-1));
+        assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), [...full.map((l, i) => `${l} ${i}`), 'Back 5'], 'the advanced page full, Back in the corner');
+        if (d.touch) { const r = await d.page.locator('#cmd [data-id="build1"]').boundingBox(); await d.lateTap(r.x + r.width / 2, r.y + r.height / 2); } else await d.pressCard('Back');
+        await d.readyCard(basic);
+        assert.equal(await d.eval(() => endfall.ui.mode), 'build', 'Back: the basic page');
+        assert.ok(await d.page.locator('#cmdInfo').isHidden(), 'no details left over from the tap');
+        assert.deepEqual(d.errors, []);
+      } finally { await d.close(); }
+    });
+  }
+}
+
 test('phone: three buttons a row; the Build list has a basic and an advanced page; an armed order turns into Cancel', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {

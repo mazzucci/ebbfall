@@ -416,7 +416,7 @@ function stage(name, k, base = name, roof = false) {
 }
 /** The Kingdom's raw site look (construct.js RAW), one filter for every unfinished body; a body coming into color has
  *  a filter of its own for the half second. */
-const rawFilter = () => { const f = new ColorMatrixFilter({ resolution: 'inherit' }); return f; };
+const rawFilter = () => new ColorMatrixFilter({ resolution: 'inherit' }); // (at the screen's resolution: a filter's own default is 1)
 const RAW_LOOK = rawFilter(); RAW_LOOK.matrix = rawMatrix(0);
 /** Set a sprite's visibility only when it changes (each change rebuilds its layer's draw list). */
 const vis = (s, v) => { if (s && s.visible !== v) s.visible = v; };

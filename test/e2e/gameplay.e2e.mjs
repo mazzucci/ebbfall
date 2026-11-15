@@ -176,6 +176,10 @@ test('training shows progress, the queue and the time left in the panel', async 
     await d.skip(3);
     assert.match(await d.hudText('#selSub', /^Training$/), /Training/);
     assert.equal(await d.page.locator('#queue .qi').count(), 2);
+    // Each slot shows the symbol of the button that queued it (what was pressed), not the sprite.
+    assert.equal(await d.page.locator('#queue .qi svg.ico.gl').count(), 2, 'the Villager button\'s symbol in each slot');
+    assert.equal(await d.page.locator('#queue img').count(), 0, 'no sprite in the queue');
+    assert.equal(await d.page.locator('#queue .qi:first-of-type svg.ico.gl').innerHTML(), await d.page.locator('#cmd button', { hasText: 'Villager' }).first().locator('svg.ico.gl').innerHTML(), 'the same symbol as the train button');
     const w0 = await d.page.locator('#queue .prod i').evaluate(e => parseFloat(e.style.width));
     // The unit in training shows the seconds it still needs on its slot (a Villager: 18 s), and only that one.
     assert.equal(await d.page.locator('#queue .qi .left').count(), 1);
@@ -957,6 +961,7 @@ test('a queued unit is cancelled with a click or tap on it, for a full refund', 
       const shards = (await d.state()).res[0];
       const box = '#queue';
       assert.equal(await d.page.locator(`${box} .qi`).count(), 3, `${d.touch ? 'phone' : 'desktop'}: the queue shows`);
+      assert.equal(await d.page.locator(`${box} .qi svg.ico.gl`).count(), 3, 'each slot shows its train button\'s symbol');
       const second = d.page.locator(`${box} .qi[data-i="1"]`);
       await (d.touch ? second.tap() : second.click());
       const after = await d.state();

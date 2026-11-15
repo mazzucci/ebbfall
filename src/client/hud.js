@@ -9,13 +9,14 @@ import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand, holdForDetail } from './card.js';
 import { myFaction, moneyDot, buildersOf, ROMAN, upName } from './cards.js';
+import { builderLine, siteLine, pausedToast, PAUSED_GAP } from './construct.js';
 export { myFaction, buildersOf, ROMAN }; // (the card's own helpers: cards.js)
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)
 export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; // (the state lives in ui.js)
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
+  if (!b.done) return siteLine(b, buildersOf(b).length > 0); // ("Constructing, 61%" or "Paused at 61%: no builder")
   if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + upName(u, lv); }
   if (b.queue.length) return (b.d.training || 'Training') + ' ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
@@ -216,7 +217,7 @@ function taskName(u) {
   const T = u.task;
   if (u.mode === 'deploy') return u.swap > 0 ? 'Deploying' : 'Deployed'; // (firing or not: a deployed tank shells what it can)
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
-  if (T.t === 'build') return 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
+  if (T.t === 'build') return builderLine(T.b); // ("Constructing Barracks, 61%") if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (u.swap > 0) return 'Packing up';
   if (T.t === 'move') return 'Moving'; if (T.t === 'hold') return 'Holding position'; if (T.t === 'flee') return 'Running for cover'; return 'Idle';
 }
@@ -271,14 +272,15 @@ function queueClick(ev) {
 }
 { const el = $('mod'); if (el) { el.addEventListener('click', queueClick); el.addEventListener('pointerdown', ev => ev.stopPropagation()); } }
 
-/** A site of ours that loses its last builder says so (once): a thumb easily pulls a builder off without noticing. */
-const siteHadBuilder = new Map();
+/** A site of ours that loses its last builder says so ("Barracks paused at 90%"): a thumb easily pulls a builder off
+ *  without noticing. At most once a site a minute (game time), no confirm step. */
+const siteHadBuilder = new Map(), pausedSaid = new Map();
 function watchSites() {
   for (const b of G.bldgs) {
-    if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); continue; }
+    if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); pausedSaid.delete(b.id); continue; }
     const has = buildersOf(b).length > 0;
-    if (siteHadBuilder.get(b.id) && !has) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
+    if (siteHadBuilder.get(b.id) && !has && !(G.time - (pausedSaid.get(b.id) ?? -Infinity) < PAUSED_GAP)) { toast(pausedToast(b), true); pausedSaid.set(b.id, G.time); }
     siteHadBuilder.set(b.id, has);
   }
-  for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) siteHadBuilder.delete(id);
+  for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) { siteHadBuilder.delete(id); pausedSaid.delete(id); }
 }

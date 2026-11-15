@@ -1249,13 +1249,6 @@ impl World {
             held += army_worth(self.u(a).kind);
             reserve.push(a);
         }
-        // (never the reserve alone keeping a wave short of its count: two passive Kingdoms each kept a quarter home,
-        // each wave stayed short, and neither came for six minutes, each the other's passive foe)
-        let need =
-            (self.ai().wave as f64 * self.factions[seat as usize].ai.wave_scale).ceil() as usize;
-        if !self.ai().attacking && army.len() >= need && army.len() - reserve.len() < need {
-            reserve.clear();
-        }
         for &a in &reserve {
             let u = self.u(a);
             if u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
@@ -2756,30 +2749,6 @@ mod tests {
             w.ai().stall && !w.ai().reserve.is_empty(),
             "Medium's keeps its reserve"
         );
-    }
-
-    #[test]
-    fn the_reserve_alone_never_keeps_a_wave_short_of_its_count() {
-        // Two passive Kingdoms each kept a quarter of their army home, so each wave stayed short of its count and
-        // neither came for six minutes. With its army at its count but for the reserve, the reserve goes too.
-        let plan = Diff {
-            reserve: 0.25,
-            retreat_below: 0.0,
-            ..DIFF[1]
-        };
-        for (wave, kept) in [(7, true), (10, false), (11, true)] {
-            let (mut w, _, mut b) = ready_with(1, plan);
-            let ai = w.ai_mut();
-            ai.last_wave = 300.0;
-            ai.came_at = 0.0; // (a passive foe)
-            ai.wave = wave;
-            w.ai_army(&mut b);
-            assert_eq!(
-                !w.ai().reserve.is_empty(),
-                kept,
-                "ten at home and a wave of {wave}: reserve kept {kept}"
-            );
-        }
     }
 
     #[test]

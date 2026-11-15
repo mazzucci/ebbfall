@@ -301,7 +301,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       and pushes without giving up (`Ai::push`); Hard's push takes everything (`Diff::push_all`: its
                       reserve goes too, and past the hold it goes with half its count or more), and from its stall time
                       a Hard seat behind the foe's army it last saw builds nothing but supply until it has caught up
-                      (`Diff::army_first`); the home reserve alone never keeps a wave short of its count; its Portal
+                      (`Diff::army_first`); its Portal
                       holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with
                       each base past the first up to four (army.rs, produce.rs, economy.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)

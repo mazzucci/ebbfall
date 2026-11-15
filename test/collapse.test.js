@@ -22,11 +22,11 @@ const px = (name) => frames[name].sourceSize.w / 2;
 test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints and a flash, the Data center\'s reactor, the Portal', () => {
   assert.deepEqual(BLDG_DEATH.ghost, { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, dim: 0.5 });
   assert.deepEqual(BLDG_DEATH.shake, { base: 0.5, perTile: 0.5, life: 0.3 });
-  assert.deepEqual(GRAY_SMOKE, { tint: 0x9a9a9a, fade: 0.6 });
+  assert.deepEqual(GRAY_SMOKE, { tint: 0x8c8c8c, fade: 0.8 });
   assert.deepEqual(BLDG_DEATH.humans.dust, { anim: 'trail', tint: DUST, n: 4, stagger: 0.1, perR: 16, life: 1.2, vy: -8, fade: 0.85 }, 'the Kingdom\'s dust as it was');
   for (const s of [BLDG_DEATH.humans.smoke, BLDG_DEATH.vael.smoke, BLDG_DEATH.vael.dust, BLDG_DEATH.portal.puffs]) {
     assert.equal(s.anim, 'trail', 'gray smoke on the soft trail, never the chunky puff');
-    assert.deepEqual([s.tint, s.fade], [0x9a9a9a, 0.6]);
+    assert.deepEqual([s.tint, s.fade], [0x8c8c8c, 0.8]);
     assert.ok(s.vy < BLDG_DEATH.humans.dust.vy, 'rising faster than the Kingdom\'s settling dust');
   }
   assert.deepEqual(BLDG_DEATH.vael.glint, { n: 3, over: 0.4, tint: 0xa8f0ff, light: 0x7fd8ff, lightScale: 0.3, life: 0.3, scale: 1.5 });

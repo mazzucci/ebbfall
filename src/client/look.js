@@ -124,7 +124,7 @@ export const AIR_PUFF = { anim: 'trail', lift: 0.7, tint: 0xe8dcc0, scale: 4.2, 
  *  fighter's puff of earth); a building (`unit` null): 'collapse' (BLDG_DEATH). */
 export const deathOf = (unit, air) => (!unit ? 'collapse' : MACHINES.has(unit) ? 'machine' : air ? 'air' : 'dust');
 /** The gray of a fall's smoke: on the soft round `trail` (the chunky `puff` breaks up at 3x above scale 2), at `fade`. */
-export const GRAY_SMOKE = { tint: 0x9a9a9a, fade: 0.6 };
+export const GRAY_SMOKE = { tint: 0x8c8c8c, fade: 0.8 };
 /** A building's fall (Stelian, 2026-11-15, the designer's option C, and the designer's notes on it): it collapses, it
  *  does not explode. No fireball, no fire sparks, no orange light and no scorch; its rubble and its debris (fx.js burst)
  *  as before. Its sprite stays on as a ghost for `ghost.life` s after the sim drops it, sinking `sink` px (eased in) and

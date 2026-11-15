@@ -4,12 +4,12 @@ import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
-import { icon } from './icons.js';
+import { icon, glyph } from './icons.js';
 import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand, holdForDetail } from './card.js';
 import { myFaction, moneyDot, buildersOf, ROMAN, upName } from './cards.js';
-import { builderLine, siteLine, pausedToast, PAUSED_GAP, NO_BUILDER } from './construct.js';
+import { builderLine, siteLine, pausedToast, PAUSED_GAP, NO_BUILDER, pct } from './construct.js';
 export { myFaction, buildersOf, ROMAN }; // (the card's own helpers: cards.js)
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)
 export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; // (the state lives in ui.js)
@@ -122,8 +122,10 @@ function renderSelection() {
     sub.classList.toggle('keep', own && (x.kind === 'unit' ? x.task.t === 'build' : !x.done));
     life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp, '', x.sh, x.maxsh);
     if (x.kind === 'bldg' && own && !x.done) {
-      module('build' + x.id, '<div class="bar build"><i></i></div>');
+      // (the percentage beside the bar shows only where the words above are hidden: small phones)
+      module('build' + x.id, '<div class="bar build"><i></i></div><span class="pct" aria-hidden="true"></span>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
+      const p = pct(x.progress) + '%', el = mod.querySelector('.pct'); if (el.textContent !== p) el.textContent = p;
     } else if (x.kind === 'bldg' && own && x.d.trains?.length && !x.queue.length && !x.research) {
       module('', ''); // (idle: no empty slots; the room is its line's, under the health bar (Stelian, Nov 11))
     } else if (x.kind === 'bldg' && own && x.d.trains?.length) {
@@ -131,7 +133,7 @@ function renderSelection() {
       // research (empty room when there is none), so a research starting or ending moves nothing either.
       const rs = x.d.researches?.length ? '<div id="qres" class="rq"></div>' : '';
       module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>' + rs);
-      renderQueue($('queue'), x, 30);
+      renderQueue($('queue'), x);
       if (rs) renderQueueResearch($('qres'), x);
     } else if (x.kind === 'bldg' && own && x.research) {
       module('res' + x.id + x.research.type + G.upgrades[x.team][x.research.type], researchModule(x));
@@ -233,19 +235,20 @@ export function timeLeft(b) {
   return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
 }
 /**
- * A building's production queue in the selection console: one slot per unit it can hold, filled from the left (the
+ * A building's production queue in the selection console: one slot per unit it can hold, filled from the left with
+ * the symbol of the button that queued it (symbols for what is ordered, sprites for what exists) (the
  * one in training first, the time it still needs on it: a slow one, the Android's two minutes, never looks stuck),
  * the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.
  * A click or tap on a unit cancels it (full refund).
  */
-function renderQueue(box, b, size = 26) {
+function renderQueue(box, b) {
   if (!box) return;
   const q = b.queue, key = b.id + ':' + q.join();
   const now = b.d.training ? ` (${b.d.training.toLowerCase()})` : ' (in training)'; // (the Portal: teleporting)
   if (box.dataset.k !== key) {
     box.dataset.k = key; box.classList.toggle('idle', !q.length);
     box.innerHTML = '<div class="bar prod"><i></i></div>' + q.map((t, i) =>
-      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : now}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : now}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span>${i ? '' : '<span class="left" aria-hidden="true"></span>'}</button>`).join('') +
+      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : now}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : now}">${glyph(t)}<span class="x" aria-hidden="true"></span>${i ? '' : '<span class="left" aria-hidden="true"></span>'}</button>`).join('') +
       '<span class="qe" aria-hidden="true"></span>'.repeat(Math.max(0, QUEUE_MAX - q.length));
   }
   box.querySelector('.prod i').style.width = (q.length ? b.prog * 100 : 0) + '%';

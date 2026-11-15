@@ -64,7 +64,7 @@ function cards(race) {
   // Buildings: a stand-in for each of the race's kinds in each state the card draws (the card reads these fields).
   let id = 90000;
   const bldg = (k, o = {}) => ({ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0, ...o });
-  for (const lv of [0, 1, 99]) { // (no techs, the first level of each, all: finished techs leave their slots)
+  for (const lv of [0, 1, 99]) { // (no techs, the first level of each, all: a finished tech keeps its slot, grayed)
     E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
     if (lv) for (const [k, u] of Object.entries(E.UPGRADES)) E.debugResearch(E.G.me, k, Math.min(lv, u.levels));
     for (const k of kinds) {
@@ -271,6 +271,31 @@ test('a research started moves no button: its own turns into Cancel in its place
         const busy = card(bldg({ research: { type: r } }));
         assert.equal(slotOf(busy, 'cancelr'), slotOf(idle, 'r_' + r), `${k} researching ${r}: its Cancel in its place`);
         for (const it of idle) if (it.id !== 'r_' + r) assert.equal(slotOf(busy, it.id), it.slot, `${k} researching ${r}: ${it.label} stays in slot ${it.slot}`);
+      }
+    }
+  }
+  ui.sel = []; ui.mode = null;
+});
+
+test('a research finished moves no button: it keeps its slot, grayed out as done, on every building of both peoples, level by level', { skip }, () => {
+  for (const race of ['humans', 'vael']) {
+    const f = E.FACTIONS[race];
+    let id = 96000;
+    for (const k of [...f.buildBasic, ...f.buildAdvanced].filter(k => E.BUILDINGS[k].researches?.length)) {
+      const card = () => { ui.sel = [{ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0 }]; ui.mode = null; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
+      // Each research finished alone, level by level, then all of them in the table's order: every button where it was.
+      const orders = [...E.BUILDINGS[k].researches.map(r => [r]), E.BUILDINGS[k].researches];
+      for (const order of orders) {
+        E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+        const before = card(), done = [];
+        for (const r of order) for (let lv = 1; lv <= E.UPGRADES[r].levels; lv++) {
+          E.debugResearch(E.G.me, r, lv);
+          if (lv === E.UPGRADES[r].levels) done.push(r);
+          const after = card(), what = `${race} ${k}, ${r} at ${lv}`;
+          assert.deepEqual(after.map(i => `${i.id}@${i.slot}`), before.map(i => `${i.id}@${i.slot}`), `${what}: no button moved`);
+          for (const d of done) assert.ok(after.find(i => i.id === 'r_' + d)?.dis && after.find(i => i.id === 'r_' + d).done, `${what}: ${d} grayed out as done`);
+          for (const it of after.filter(i => i.id.startsWith('r_') && !done.includes(i.id.slice(2)))) assert.ok(!it.done, `${what}: ${it.id} still to research`);
+        }
       }
     }
   }

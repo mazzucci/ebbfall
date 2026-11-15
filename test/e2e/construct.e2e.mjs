@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { HOLO, RAW, BUILD_BAR } from '../../src/client/construct.js';
 import { test, start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
 
+const SMALL = { ...PHONE, viewport: { width: 667, height: 375 } }; // (iPhone SE class: the console hides its status line)
+
 before(start);
 after(stop);
 
@@ -165,6 +167,39 @@ for (const [name, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
       await d.clickEntity(id);
       await whole(/^Paused at \d+%$/, 'the paused site\'s card');
       assert.equal(await d.hudText('#selWhat', /No builder/), 'No builder');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+// Small phones (landscape up to 720 px) hide the console's status line, and with it the site's percentage: a small
+// label beside the build bar says it there instead (in the bar's orange), and only there.
+for (const [name, device, shown] of [['small phone', SMALL, true], ['phone', PHONE, false]]) {
+  test(`${name}: a site's card ${shown ? 'shows' : 'has no'} percentage beside its build bar`, async () => {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const { id } = await placeSite(d, 'c', 'barracks');
+      assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.4, id, { step: 1 / 30 }), 'under way');
+      await d.eval(() => { endfall.ui.sel = []; });
+      await d.clickEntity(id);
+      await d.page.locator('#mod > .bar.build').waitFor({ timeout: 5000 });
+      const look = () => d.page.evaluate(() => {
+        const p = document.querySelector('#mod > .pct'), bar = document.querySelector('#mod > .bar.build'), info = document.querySelector('#info'), sub = document.querySelector('#selSub');
+        const r = (e) => e.getBoundingClientRect(), pr = r(p), br = r(bar), ir = r(info);
+        return { text: p.textContent, shown: p.offsetWidth > 0, sub: sub.offsetWidth > 0, color: getComputedStyle(p).color, fill: getComputedStyle(bar.querySelector('i')).backgroundColor,
+          beside: pr.left >= br.right - 1 && Math.abs((pr.top + pr.bottom) / 2 - (br.top + br.bottom) / 2) < 8, inside: pr.left >= ir.left && pr.right <= ir.right + 1 && pr.top >= ir.top && pr.bottom <= ir.bottom + 1 };
+      });
+      if (shown) {
+        await d.page.waitForFunction(() => /^\d+%$/.test(document.querySelector('#mod > .pct')?.textContent), null, { timeout: 5000 });
+        const l = await look(), prog = (await d.state()).bldgs.find(b => b.id === id).progress;
+        assert.ok(l.shown && !l.sub, `the label shows, the status line does not: ${JSON.stringify(l)}`);
+        assert.ok(Math.abs(parseInt(l.text) - Math.floor(prog * 100)) <= 2, `how far along it is: ${l.text} at ${prog}`);
+        assert.equal(l.color, l.fill, 'in the build bar\'s orange');
+        assert.ok(l.beside && l.inside, `beside the bar, inside the console: ${JSON.stringify(l)}`);
+      } else {
+        const l = await look();
+        assert.ok(!l.shown && l.sub, `the status line says it, no label: ${JSON.stringify(l)}`);
+      }
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   });

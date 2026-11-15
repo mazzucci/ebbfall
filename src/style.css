@@ -47,6 +47,11 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 @media (max-width:1099px){.ib.icon .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}
+/* A soft light behind every sprite portrait (tooltip, console, group, miners, guided game), so dark sprites stand off
+   the panel. Neutral white on purpose (a warm pool reads as selection), and never much past .40 alpha (a gray disc). */
+:root{--backlight:radial-gradient(closest-side at 50% 48%,rgba(221,229,238,.40) 0%,rgba(221,229,238,.15) 45%,transparent 78%);
+  --backlight-tip:radial-gradient(closest-side at 50% 48%,rgba(221,229,238,.46) 0%,rgba(221,229,238,.17) 45%,transparent 78%)}
+.por{background:var(--backlight)} #cmdInfo .por{background:var(--backlight-tip)} /* (the details panel is lighter: a little more there) */
 @keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
@@ -84,7 +89,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .rs{display:flex;align-items:center;gap:10px;min-width:190px} .rs>.ico{width:30px;height:30px;color:var(--ether)}
 .rb{flex:1;display:flex;flex-direction:column;gap:6px} .rt{display:flex;align-items:center;gap:6px;font:600 14px var(--display);letter-spacing:.04em;white-space:nowrap} .rt b{color:var(--ally2)}
 .pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--ether);background:var(--ether)}
-.bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px}
+.bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px} #mod>.pct{display:none;font:12px var(--mono);font-variant-numeric:tabular-nums;color:var(--ally);white-space:nowrap}
 #mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
 #mod .q .bar.prod{order:2;flex:1 1 100%;height:8px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
 #mod .q.idle .bar.prod{visibility:hidden} /* (its room kept) */
@@ -99,9 +104,11 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
    drawn, the free ones as faint outlines: the queue fills from the left and keeps its width. */
 .qe{width:32px;height:32px;border:1px dashed var(--line2);border-radius:3px;opacity:.45}
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
-.qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
+.qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:-4px;top:-4px;width:8px;height:8px;border-radius:50%;pointer-events:none;background:var(--foe2) no-repeat center/6px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8} /* (the cancel dot: small, half out of the slot's corner, off the glyph's weapon; the whole slot is the tap target) */
+@media (pointer:coarse){.qi .x{right:-3px;top:-3px;width:6px;height:6px;background-size:5px}} /* (8px on desktop, a speck at 1x otherwise; 6px on phones) */
 /* The unit in training: the time it still needs, across the foot of its slot (a slow one never looks stuck). */
 .qi .left{position:absolute;left:0;right:0;bottom:0;font:700 10px/12px var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);background:rgba(8,11,16,.72);text-align:center;pointer-events:none}
+.qi .ico.gl{width:24px;height:24px;color:var(--ally2)} /* (the queue shows the button's symbol: what was pressed) */
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:700 17px/1 var(--mono);font-variant-numeric:tabular-nums;color:#f3c94a;display:flex;gap:5px;align-items:center} #cmdInfo .c .dot{width:16px;height:13px} /* (gold first: the eye's first stop, Stelian, Nov 13) */
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
@@ -152,6 +159,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 /* Unavailable or unaffordable: its glyph in gray, dimmed with the button. */
 .cb:disabled:not(.cancel) .ico,.cb.poor:not(.cancel) .ico{color:var(--muted)}
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
+.cb.done::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--ok) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.3 4.2l1.9 1.9 3.5-3.8' fill='none' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")} /* a finished research: its slot kept, grayed, a check (cards.js) */
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
 .cb .c .p{justify-self:end;color:var(--muted)} .cb .c .p .ico{order:0;width:9px;height:9px;stroke-width:2.5;color:inherit} /* (a unit's population or grid, small, in the right column: card.js) */
@@ -387,10 +395,10 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #info .sub{font-size:11px;flex:1 1 0} /* (the words take what the name leaves: the name never wraps for them) */
   #info h2{font-size:clamp(12px,3.4cqw,14px);letter-spacing:.03em;line-height:1.15;white-space:normal;flex:0 1 auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .life .bars{flex:0 1 96px;width:auto;min-width:28px} #hpNum{flex:none} .life .bar{height:6px} .life .bar.sh{height:4px} #hpNum{font-size:14px}
-  #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden} .st{font-size:15px} .st .ico{width:15px;height:15px}
+  #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden;overflow-x:clip;overflow-y:visible} /* (clipped sideways only: the queue's cancel dots stand half out of their slots' tops) */ .st{font-size:15px} .st .ico{width:15px;height:15px}
   .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
-  #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}
-  #mod .q .qi,#mod .q .qe{width:var(--s);height:var(--s);flex:none} #mod .q .qi .por{width:calc(var(--s) - 4px);height:calc(var(--s) - 4px)} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px} #mod .q .qi .left{font-size:8px;line-height:10px}
+  #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px;padding-right:3px} /* (room for the last slot's cancel dot) */
+  #mod .q .qi,#mod .q .qe{width:var(--s);height:var(--s);flex:none} #mod .q .qi .ico.gl{width:calc(var(--s) - 6px);height:calc(var(--s) - 6px)} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px} #mod .q .qi .left{font-size:8px;line-height:10px}
   #mod .rq{gap:4px} #mod .rq>.ico{width:var(--s);height:var(--s);padding:4px} #mod .rq .bar{height:5px}
   @container (max-width:419px){#hpNum .mx,#info .sub{display:none}} /* (a narrow console: the health without its maximum, no words) */
   #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none} #mod>.bar.build{width:110px}
@@ -406,6 +414,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #mod:has(#qres){flex-direction:column;align-items:stretch;gap:3px} #mod .rq{order:-1;flex-direction:row;align-items:center;gap:4px}
   #mod .rq>.ico{width:12px;height:12px;padding:0;border:0;background:none} #mod .rq .bar{flex:1;height:4px}
   #hpNum .mx{display:none}
+  #mod>.pct{display:block} #mod:has(>.pct){gap:6px} /* (construction's percentage: its line above is hidden here) */
 }
 /* Touch: keyboard letters on the buttons are noise. */
 @media (pointer:coarse){.cb .k{display:none}}

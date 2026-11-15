@@ -192,16 +192,16 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
 }
 
 #[test]
-fn the_caps_are_fixed_population_120_and_grid_300() {
+fn the_caps_are_fixed_population_120_and_grid_150() {
     // The same on every map since Nov 14 (PRD: the Expedition runs on energy; 100, 120 and 140 population by the map's
     // width before, and the Expedition's Power and hired places apart): the Kingdom's population `POP_MAX`, the
     // Expedition's grid `GRID_MAX`. Supply buildings past the cap add nothing, and a seat at the cap is supply blocked.
-    assert_eq!((POP_MAX, GRID_MAX), (120, 300));
+    assert_eq!((POP_MAX, GRID_MAX), (120, 150));
     for (n, cap, f) in [
         (64, 120, &HUMANS),
-        (96, 300, &VAEL),
+        (96, 150, &VAEL),
         (128, 120, &HUMANS),
-        (128, 300, &VAEL),
+        (128, 150, &VAEL),
     ] {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();

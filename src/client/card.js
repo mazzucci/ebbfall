@@ -1,6 +1,6 @@
 // The command card's buttons (what they hold: cards.js), their details (a long press on touch, hover with a mouse),
 // and what a button does (doCommand).
-import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, supMax } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, castAbility, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist } from '../engine/index.js';
 import { $, ui, toast, playerSel, ARMED, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { updateHud } from './hud.js';
 import { cardItems, myFaction, money, moneyDot, leastBusy, researching, mostBusy } from './cards.js';
@@ -20,7 +20,7 @@ export function buildCard() {
   const items = cardItems().filter(i => !i.hidden);
   if (press.held && press.held[0] !== '@' && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed; '@': held off the card)
   if (hover.id && !items.some(i => i.id === hover.id)) hideHover(); // the hovered one too
-  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key]));
+  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key, i.cost, i.places]));
   if (key === cardKey) return; cardKey = key;
   const c = $('cmd'); c.innerHTML = '';
   const slots = items.length ? items[items.length - 1].slot + 1 : 0;
@@ -34,10 +34,12 @@ export function buildCard() {
     b.disabled = !!it.dis;
     b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
     const pic = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon) : ''; // (a unit or a building: its symbol, `por` [what, kind])
-    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} ${money()}"><i class="${moneyDot()}"></i>${it.cost[0]}` : '>'}</span></span>` : '');
+    // (the price in the left column; a unit's population or grid, small, in the right: `places`)
+    const places = it.places ? `<span class="p" title="${placesText(it.places)}">${icon(it.places[1] === 'grid' ? 'grid' : 'pop')}${it.places[0]}</span>` : '';
+    b.innerHTML = (it.key ? `<span class="k">${it.key}</span>` : '') + `<span class="l">${it.label}</span>${pic}` + (it.cost ? `<span class="c"><span class="s"${it.cost[0] ? ` title="${it.cost[0]} ${money()}"><i class="${moneyDot()}"></i>${it.cost[0]}` : '>'}</span>${places}</span>` : '');
     b.addEventListener('pointerdown', ev => {
-      ev.stopPropagation(); clearTimeout(press.timer); press.held = '';
-      if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, 450);
+      ev.stopPropagation(); clearTimeout(press.timer); press.held = ''; press.at = ev.timeStamp;
+      if (ev.pointerType === 'touch') press.timer = setTimeout(() => { press.held = it.id; showDetail(it); }, HOLD);
     });
     b.addEventListener('pointerleave', () => { clearTimeout(press.timer); if (hover.id === it.id) hideHover(); }); // slid off before the details showed
     // A mouse: the same details while over the button, in place of its title (a rebuilt button has it again).
@@ -52,14 +54,22 @@ export function buildCard() {
   }
 }
 
+/** A unit's places in words: "1 population", "2 grid". */
+const placesText = ([n, word]) => `${n} ${word}`;
+
 // ---- the details of a command button: a long press (touch) or hover (mouse): its sprite, what it is, what it
 // costs, its stats (stats.js), what it needs ----
-const press = { timer: 0, held: '', hide: 0 }, hover = { id: '' };
+/** A long press: the finger down this long (ms). The timer shows the details once it has passed; whether the press was
+ *  long is decided when the finger lifts, by the events' own times (`at`: when it came down): on a busy page (a long
+ *  frame) the timer can fire late, after a quick tap, and that tap must still press its button. */
+const HOLD = 450;
+const press = { timer: 0, held: '', hide: 0, at: 0 }, hover = { id: '' };
 const SPRITE = 72; // (css px: the unit or building as it looks on the map, beside its name)
 function showDetail(it, anchor = $('cmd')) {
   // (over the card, right-aligned; or over another anchor, left-aligned: the selection console's portrait)
   const box = $('cmdInfo'), r = anchor.getBoundingClientRect(), left = anchor !== $('cmd'); // (the card survives rebuilds; its buttons may not)
-  const cost = it.cost ? `<span class="c">${it.cost[0] ? `<i class="${moneyDot()}"></i>${it.cost[0]}` : ''}</span>` : '';
+  const cost = (it.cost ? `<span class="c">${it.cost[0] ? `<i class="${moneyDot()}"></i>${it.cost[0]}` : ''}</span>` : '')
+    + (it.places ? `<span class="pl">${icon(it.places[1] === 'grid' ? 'grid' : 'pop')}${placesText(it.places)}</span>` : ''); // (beside the price: "1 population", "2 grid")
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
   if (left) { box.style.left = r.left + 'px'; box.style.right = ''; } else { box.style.right = (innerWidth - r.right) + 'px'; box.style.left = ''; }
@@ -78,8 +88,8 @@ function showDetail(it, anchor = $('cmd')) {
  *  (`item().id` starts with '@': it is not a button, so the card's rebuilds leave its panel be.) */
 export function holdForDetail(el, item, anchor) {
   el.addEventListener('pointerdown', ev => {
-    clearTimeout(press.timer); press.held = '';
-    if (ev.pointerType === 'touch') press.timer = setTimeout(() => { const it = item(); if (it) { press.held = it.id; showDetail(it, anchor); } }, 450);
+    clearTimeout(press.timer); press.held = ''; press.at = ev.timeStamp;
+    if (ev.pointerType === 'touch') press.timer = setTimeout(() => { const it = item(); if (it) { press.held = it.id; showDetail(it, anchor); } }, HOLD);
   });
   el.addEventListener('pointerleave', () => clearTimeout(press.timer));
   el.addEventListener('contextmenu', ev => ev.preventDefault());
@@ -89,8 +99,9 @@ function hideHover() { hover.id = ''; hideDetail(); }
 // The mouse left the card while it was rebuilt (the new button never saw it come in): the panel goes.
 window.addEventListener('pointermove', ev => { if (hover.id && ev.pointerType === 'mouse' && !ev.target.closest?.('#cmd .cb')) hideHover(); }, true);
 // Wherever the finger lifts (the button may have been rebuilt under it), the panel goes a moment later.
-for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => {
+for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, (ev) => {
   clearTimeout(press.timer);
+  if (press.held && t === 'pointerup' && ev.timeStamp - press.at < HOLD) { press.held = ''; hideDetail(); return; } // a quick tap the timer outran: a press after all
   if (press.held) { clearTimeout(press.hide); press.hide = setTimeout(hideDetail, 1200); setTimeout(() => { press.held = ''; }, 400); } // (after the click it swallows)
 }, true);
 
@@ -126,15 +137,11 @@ export function doCommand(id, times = 1) {
     const per = BUILDINGS[k].perHq;
     if (per) { // (one Market a finished Castle, five turbines a Data center, sites counted: as the sim's `hq_room`, so no ghost for a placement it refuses)
       const mine = G.bldgs.filter(b => b.team === G.me), hqs = mine.filter(b => b.d.hq && b.done).length, hq = mine.find(b => b.d.hq)?.d.name ?? 'headquarters';
-      if (mine.filter(b => b.type === k).length >= per * hqs) { refuse(id, per === 1 ? `One ${BUILDINGS[k].name} per ${hq}` : `At most ${per} ${BUILDINGS[k].name}s per ${hq}`); return; }
+      if (mine.filter(b => b.type === k).length >= per * hqs) { refuse(id, per === 1 ? `One ${BUILDINGS[k].name} per ${hq}` : `Maximum of ${per} ${(BUILDINGS[k].short || BUILDINGS[k].name).toLowerCase()}s per ${hq} reached.`); return; }
     }
     // (one a side, standing or going up: as the sim's `single_room`)
     if (BUILDINGS[k].single && G.bldgs.some(b => b.team === G.me && b.type === k)) { refuse(id, `Only one ${BUILDINGS[k].name}.`); return; }
     if (!canAfford(G.me, BUILDINGS[k].cost)) { refuse(id, `Not enough ${money()}`); return; }
-    if (BUILDINGS[k].uses) { // (the grid it draws from placement: as the sim's `grid_room`, in its words)
-      const [used, cap] = G.sup[G.me];
-      if (cap - used < BUILDINGS[k].uses) { refuse(id, cap >= supMax() ? 'Grid at maximum.' : `Not enough grid: build a ${BUILDINGS[myFaction().supply].name}.`); return; }
-    }
     ui.place = { type: k, tx: -99, ty: -99 }; ui.mode = 'place'; ui.box = false; setBox(); setHint(); return; // (no ghost until the pointer is over the map)
   }
   if (id.startsWith('a_')) { const k = id.slice(2), err = castAbility(units, k); if (err) refuse(id, err); return; } // (the cast event plays its sound; a toggle: the units its button names)

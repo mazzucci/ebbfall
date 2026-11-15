@@ -181,12 +181,6 @@ pub fn check_invariants(w: &World, ctx: &str) {
                 .filter(|b| b.team == seat)
                 .flat_map(|b| b.queue.iter())
                 .map(|&k| w.takes(seat, k))
-                .sum::<i32>()
-            // (the grid a building draws while it stands, from placement)
-            + w.bldgs
-                .iter()
-                .filter(|b| b.team == seat)
-                .map(|b| b.kind.def().uses)
                 .sum::<i32>();
         let p = w.supply[t];
         assert_eq!(p[0], used, "{ctx}: team {t} places used");

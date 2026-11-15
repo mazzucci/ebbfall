@@ -48,7 +48,7 @@ impl World {
                 let c = w.def().cost;
                 if w == tech { c.map(|g| g / 2) } else { c }
             });
-            let k = capital_due.map_or([0, 0], |k| k.def().cost);
+            let k = capital_due.map_or([0, 0], |k| self.unit_cost(e, k));
             [r[0] + k[0], r[1] + k[1]]
         };
         let need = |c: [i32; 2]| [0, 1].map(|i| c[i] + if c[i] > 0 { held[i] } else { 0 });
@@ -129,13 +129,15 @@ impl World {
             let siege_bay = s.heavy == Some(b.kind)
                 || (self.siege_answered()
                     && s.dive.is_some_and(|k| b.kind.def().trains.contains(&k)));
+            let energy = self.effect_level(e, Effect::EnergyCost);
             let need = |k: UnitKind| {
+                let cost = World::cost_at(k, energy);
                 if Some(k) == scout || siege_bay {
-                    k.def().cost
+                    cost
                 } else if at_gate {
-                    need(k.def().cost)
+                    need(cost)
                 } else {
-                    let c = need(k.def().cost);
+                    let c = need(cost);
                     [c[0] + gate_hold, c[1]]
                 }
             };
@@ -195,7 +197,7 @@ impl World {
                 if !rallied {
                     self.set_rally(bid, rally.x, rally.y, None);
                 }
-                if idle && !saving && self.can_afford(e, c.def().cost) {
+                if idle && !saving && self.can_afford(e, self.unit_cost(e, c)) {
                     let _ = self.queue_unit(bid, c);
                 }
                 continue;
@@ -416,7 +418,7 @@ impl World {
 
     /// The grid `e` keeps free for its elite (`AiScript::tech2`, the Expedition's Portal, and the mixed-in unit it
     /// trains, the Android), so its other factories' machines leave room for them: before the Portal is placed, while
-    /// it is wanted (`tech2_wanted`), the Portal's own use and one Android's; once it stands or goes up, one Android's
+    /// it is wanted (`tech2_wanted`), one Android's; once it stands or goes up, one Android's
     /// while the mix's ratio to the line calls for another. 0 for a side without one.
     pub(crate) fn elite_reserve(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
         let s = &self.factions[e as usize].ai;
@@ -445,7 +447,7 @@ impl World {
         };
         if self.ai_count(my_b, false, k2) == 0 {
             if self.tech2_wanted(e, my_b, t, k2) {
-                k2.def().uses + self.takes(e, k)
+                self.takes(e, k)
             } else {
                 0
             }

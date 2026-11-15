@@ -34,16 +34,21 @@ pub const MAX_SEATS: usize = 8;
 /// together with the grid's). 100, 120 and 140 by the map's width before.
 pub const POP_MAX: i32 = 120;
 /// The Expedition's most grid, the same on every map: what its machines, its mercenaries and its buildings draw while
-/// they exist (PRD: the Expedition runs on energy, Nov 14: "Energy builds things; the grid keeps them running"). The
-/// Power and the hired places it replaces were 240 and 30 on 96x96 (a hired place two grid: 300), 280 and 35 on
-/// 128x128; the Data center gives 55 and a Substation 20, so thirteen Substations fill it.
-pub const GRID_MAX: i32 = 300;
+/// they exist (PRD: the Expedition runs on energy, Nov 14: "Energy builds things; the grid keeps them running"). Halved
+/// on Nov 14 with every grid number (300, the Data center 55, a Substation 20, a machine two a place), so the grid reads
+/// as the Kingdom's population does: the Data center gives 22 and a Substation 10, so thirteen Substations fill it.
+pub const GRID_MAX: i32 = 150;
+/// The least distance, in tiles center to center, between two headquarters of one seat (Stelian, Nov 14: a Castle or a
+/// Data center not too close to its own other base; anywhere else, no mine needed). Short of every expansion: on every
+/// map kind and size each field beyond the main's stays placeable (`every_field_beyond_the_main_takes_a_headquarters`).
+pub const HQ_SPACING: f64 = 12.0;
 /// A machine takes about this many grid for a Kingdom unit's one place of its tier, a mercenary as much (the AI's
-/// margins in grid scale by it: `World::places`).
-pub const GRID_PER_PLACE: i32 = 2;
-/// The share of its grid a machine draws by Grid efficiency level (`Effect::GridUse`, the Expedition's research at the
-/// Lab in place of its Armor), each level 15% less: a unit's draw rounds to whole grid (`World::takes`).
-pub const GRID_USE: [f64; 3] = [1.0, 0.85, 0.7];
+/// margins in grid scale by it: `World::places`). 2 before the grid was halved (Nov 14).
+pub const GRID_PER_PLACE: i32 = 1;
+/// The share of its energy price a machine pays by Energy efficiency level (`Effect::EnergyCost`, the Expedition's
+/// research at the Lab in place of its Armor), each level 10% less: a price rounds to whole energy
+/// (`World::unit_cost`). (Grid efficiency before Nov 14: machines drew 15% less grid a level.)
+pub const ENERGY_COST: [f64; 3] = [1.0, 0.9, 0.8];
 
 /// The share of its speed a Walk unit keeps in the shallows (Amph units and flyers keep all of theirs).
 pub const WADE_SPEED: f64 = 0.7;
@@ -272,7 +277,7 @@ def_struct! {
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
         /// The places it takes: the Kingdom's population, or the Expedition's grid (its machines and its mercenaries
-        /// alike; a machine's draw falls with Grid efficiency, `World::takes`).
+        /// alike).
         supply: i32 = "supply",
         hp: f64 = "hp",
         armor: f64 = "armor",
@@ -323,9 +328,6 @@ def_struct! {
         armor: f64 = "armor",
         /// The places it adds once finished (population, or the Expedition's grid).
         supply: i32 = "supply",
-        /// The grid it uses while it stands, from the moment it is placed until it is destroyed or
-        /// cancelled (the Portal).
-        uses: i32 = "uses",
         /// At most one a seat, standing or going up (the Portal: `World::single_room`).
         single: bool = "single",
         build: f64 = "build",
@@ -542,7 +544,6 @@ const BLDG: BldgDef = BldgDef {
     hp: 1.0,
     armor: 1.0,
     supply: 0,
-    uses: 0,
     single: false,
     build: 20.0,
     sight: 5.0,

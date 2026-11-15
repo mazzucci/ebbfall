@@ -38,22 +38,35 @@ impl World {
         cap - used
     }
 
-    /// The places a unit of `kind` takes for `team`: its `supply`, a machine's (every unit but the living ones) less by
-    /// the side's Grid efficiency (`GRID_USE`), rounded to whole grid.
-    pub fn takes(&self, team: u8, kind: UnitKind) -> i32 {
+    /// The places a unit of `kind` takes for `team`: its `supply` (the same whatever the side has researched since
+    /// Nov 14, when Energy efficiency replaced Grid efficiency).
+    pub fn takes(&self, _team: u8, kind: UnitKind) -> i32 {
+        kind.def().supply
+    }
+
+    /// What a unit of `kind` costs `team`: its `cost`, a machine's (every unit of a grid side but the living ones) less
+    /// by the side's Energy efficiency (`ENERGY_COST`), rounded to whole energy. A unit is paid for and refunded at
+    /// this price (a cancel after a level lands refunds the new, lower price).
+    pub fn unit_cost(&self, team: u8, kind: UnitKind) -> [i32; 2] {
+        Self::cost_at(kind, self.effect_level(team, Effect::EnergyCost))
+    }
+
+    /// What a unit of `kind` costs at Energy efficiency `level` (`unit_cost`).
+    pub fn cost_at(kind: UnitKind, level: u8) -> [i32; 2] {
         let d = kind.def();
-        let level = self.effect_level(team, Effect::GridUse).min(2) as usize;
+        let level = level.min(2) as usize;
         if level == 0 || d.bio {
-            d.supply
+            d.cost
         } else {
-            jsmath::round(d.supply as f64 * GRID_USE[level]) as i32
+            d.cost
+                .map(|c| jsmath::round(c as f64 * ENERGY_COST[level]) as i32)
         }
     }
 
     /// Count a seat's places again: its units and those queued use them (`takes`), its finished buildings give them,
-    /// capped at its maximum (`sup_max`); a building that draws grid (`BldgDef::uses`) draws it from the moment it is
-    /// placed. A building lost can leave the use above the cap: nothing more is trained until enough fall
-    /// (`queue_unit`), nothing is taken away.
+    /// capped at its maximum (`sup_max`); only units take places, the Expedition's grid as the Kingdom's population
+    /// (its buildings drew grid too until Nov 14). A building lost can leave the use above the cap: nothing more is
+    /// trained until enough fall (`queue_unit`), nothing is taken away.
     pub fn recalc_supply(&mut self, team: u8) {
         let mut p = [0; 2];
         for u in self.units.iter().filter(|u| u.team == team) {
@@ -64,7 +77,6 @@ impl World {
             if b.done {
                 p[1] += d.supply;
             }
-            p[0] += d.uses;
             for &q in &b.queue {
                 p[0] += self.takes(team, q);
             }

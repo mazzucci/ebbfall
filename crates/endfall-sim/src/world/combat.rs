@@ -389,8 +389,8 @@ impl World {
             let b = self.bldgs.remove(i);
             team = b.team;
             self.clear_footprint(&b);
-            for q in &b.queue {
-                self.pay(team, q.def().cost, 1);
+            for &q in &b.queue {
+                self.pay(team, self.unit_cost(team, q), 1);
             }
             if let Some((up, _)) = b.research {
                 let level = self.upgrades[team as usize][up.index()] + 1;

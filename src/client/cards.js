@@ -1,6 +1,6 @@
 // What the command card holds for the selection: its buttons in fixed slots, each with its key (the controls scheme's:
 // controls.js). Pure state, no DOM (card.js draws the buttons; test/cards.test.js reads every card the game can show).
-import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, supMax, takes, liveGame } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, ABILITIES, FACTIONS, hasReq, canAfford, unlockOf, upgradeDesc, supMax, takes, unitCost, liveGame } from '../engine/index.js';
 import { ui, playerSel, armedButton } from './ui.js';
 import { keyed } from './controls.js';
 
@@ -76,9 +76,12 @@ function abilityItems(units) {
 export function placesTip(t) {
   const f = myFaction();
   const [used, cap] = G.sup[G.me] || [0, 0];
-  if (!f.grid || used + takes(G.upgrades[G.me], t) <= cap) return '';
+  if (!f.grid || used + takes(t) <= cap) return '';
   return cap >= supMax() ? 'Grid at maximum.' : `Not enough grid: build a ${BUILDINGS[f.supply].name}.`;
 }
+/** The places unit `t` takes, as `[n, word]`: population for the Kingdom, grid for the Expedition (the tooltip and
+ *  the button show it beside the price). */
+export const placesOf = (t) => [takes(t), myFaction().grid ? 'grid' : 'population'];
 /** What a side spends, in its words ('gold', 'energy'), and the icon class its prices wear (`dot shard`, `dot bolt`). */
 export const money = () => myFaction().money || 'gold';
 export const moneyDot = () => (money() === 'energy' ? 'dot bolt' : 'dot shard');
@@ -167,7 +170,7 @@ export function cardItems() {
     const unitDepth = (t) => (UNITS[t].req ? 1 + depth(UNITS[t].req) : 0);
     const shown = trains.map((t, i) => [t, i, unitDepth(t)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([t]) => t)
       .filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
-    shown.forEach(t => { const d = UNITS[t], why = placesTip(t); at(0, { id: 't_' + t, label: d.name, key: d.hot, cost: d.cost, por: ['unit', t], tip: d.desc + (why ? ' ' + why : '') }); }); // (the hover title and the long-press; a refusal for want of places said there too)
+    shown.forEach(t => { const d = UNITS[t], why = placesTip(t); at(0, { id: 't_' + t, label: d.name, key: d.hot, cost: unitCost(G.upgrades[G.me], t), places: placesOf(t), por: ['unit', t], tip: d.desc + (why ? ' ' + why : '') }); }); // (the hover title and the long-press; a refusal for want of places said there too)
     if (b.done && b.d.researches.length) {
       // The researches packed among themselves, finished ones left out: from the first slot, or the second row's left on
       // a building that trains (so a unit unlocked moves none of them). While one runs, its own button becomes the
@@ -188,7 +191,7 @@ export function cardItems() {
   // An armed order: its button becomes Cancel (Esc), lit, in the same place.
   const armedId = armedButton(), armedAt = items.find(i => i.id === armedId && !i.hidden);
   if (armedAt) {
-    Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, tip: 'Cancel the order' });
+    Object.assign(armedAt, { id: 'esc', label: 'Cancel', key: 'Esc', cancel: true, active: true, icon: 'back', por: null, cost: null, places: null, tip: 'Cancel the order' });
     // One live Cancel at a time (Deselect stays); the queue's keeps its slot, grayed out, so the card keeps its shape.
     for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }

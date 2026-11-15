@@ -1,6 +1,6 @@
 # Ebbfall
 
-A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
+A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. The only open gate leads six centuries back, into a kingdom not expecting company. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
 peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
 all or in teams of any shape, or friends over the Internet with AIs in the empty seats), eight maps of two sizes
@@ -43,8 +43,8 @@ prints from energy; the Factory builds Buggies (fast raiders) and Drones (fast l
 within reach of the Data center's small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the
 signal's range), faster there; the Portal the Uplink unlocks (one per player) brings Rovers (rocket artillery that
 fires on the move) and Androids, elite machines, slow to make and costly. The Expedition runs on energy: its Bots dig
-thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; everything it
-runs draws on the grid, from the Data center and its Substations (up to 300; the Kingdom's population, up to 120).
+thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; its units draw
+on the grid, from the Data center and its Substations (up to 150; the Kingdom's population, up to 120).
 Energy builds things; the grid keeps them running. Sentry masts hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.

@@ -251,7 +251,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'mine', 'trade', 'grid'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'mine', 'trade', 'energy'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
   // its own; each ability's tech is found. Shields (shields, data since the re-theme: no building researches it) keeps
   // only its place.
@@ -268,6 +268,25 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
   assert.ok(n >= 2);
+});
+
+test('the grid reads as population: halved numbers, units only, Energy efficiency cuts what machines cost', () => {
+  // (Stelian, Nov 14: every grid number halved, so the grid reads as the Kingdom's population; buildings draw none)
+  assert.deepEqual([C.GRID_MAX, C.BUILDINGS.conflux.supply, C.BUILDINGS.substation.supply], [150, 22, 10]);
+  assert.deepEqual(['lumen', 'scythe', 'shrike', 'prism', 'bruiser', 'umbra', 'monolith'].map(C.takes), [1, 1, 1, 1, 2, 5, 6]);
+  for (const [k, d] of Object.entries(C.BUILDINGS)) assert.ok(!d.uses && !/draws? .*grid/i.test(d.desc), `${k} draws no grid`);
+  // The sim's `World::unit_cost`: 10% less a level for a machine, rounded; a mercenary pays in full.
+  const lv = (n) => ({ energyEfficiency: n });
+  assert.deepEqual([0, 1, 2].map(n => C.unitCost(lv(n), 'shrike')[0]), [65, 59, 52]);
+  assert.deepEqual([0, 1, 2].map(n => C.unitCost(lv(n), 'monolith')[0]), [550, 495, 440]);
+  assert.deepEqual([0, 1, 2].map(n => C.unitCost(lv(n), 'prism')[0]), [100, 100, 100]);
+  assert.equal(C.UPGRADES.energyEfficiency.desc, 'Machines cost 10% less energy per level.');
+  assert.equal(C.BUILDINGS.siphon.desc, "Locals sign on here for the Expedition's pay. Hires Sellswords, and Bruisers once a Lab stands.");
+  assert.equal(C.BUILDINGS.spire.desc.split(' Needs')[0], "Generates energy over time, with no workers. Each Data center's computers run up to 5.");
+  // How to play's Market rate, from the data: about one gold every 1 / PUMP_RATE seconds.
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
+  assert.match(html, new RegExp(`Market</b> earns about a gold every ${words[Math.round(1 / C.PUMP_RATE)]} seconds`));
 });
 
 test('the client names no seat: it plays G.me, whichever team that is', () => {

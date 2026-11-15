@@ -22,7 +22,8 @@ pub enum Upgrade {
     // (Better drills: no longer offered, Nov 14: a Bot mine pays as a Villager mine from the start; kept for the indices)
     Drills,
     Trade,
-    GridEfficiency,
+    // (Grid efficiency until Nov 14, in the same slot: machines drew less grid)
+    EnergyEfficiency,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -45,8 +46,8 @@ pub enum Effect {
     MineLoad,
     /// Each level, its Markets pay more gold a second (`TRADE_RATE`).
     PumpRate,
-    /// Each level, its machines draw less grid (`GRID_USE`).
-    GridUse,
+    /// Each level, its machines cost less energy (`ENERGY_COST`).
+    EnergyCost,
 }
 
 /// The speed a `Speed` tech gives its unit, as a multiple.
@@ -182,13 +183,14 @@ pub const TRADE_RATE: [f64; 3] = [1.0, 1.25, 1.5];
 /// from about 95% of a Villager mine to about 107%, then 118% (Stelian: level, then 115-120%).
 pub const DRILL_LOAD: [i32; 3] = [0, 1, 2];
 
-/// Grid efficiency: the Expedition's research at the Lab in place of Armor (PRD: the Expedition runs on energy, Nov 14),
-/// two levels, each cutting what its machines draw on the grid by 15% (`GRID_USE`): more machines under the same grid.
-const GRID_EFFICIENCY: UpgradeDef = UpgradeDef {
-    key: "gridEfficiency",
-    name: "Grid efficiency",
-    short: "Grid",
-    effect: Effect::GridUse,
+/// Energy efficiency: the Expedition's research at the Lab in place of Armor (Stelian, Nov 14), two levels, each cutting
+/// what its machines cost by 10% of their energy (`ENERGY_COST`), never its buildings' or its mercenaries'. It replaced
+/// Grid efficiency (machines drew 15% less grid a level) in the same slot.
+const ENERGY_EFFICIENCY: UpgradeDef = UpgradeDef {
+    key: "energyEfficiency",
+    name: "Energy efficiency",
+    short: "Energy",
+    effect: Effect::EnergyCost,
     cost: [[100, 0], [175, 0], [175, 0]],
     time: [60.0, 75.0, 75.0],
     levels: 2,
@@ -207,7 +209,7 @@ pub const UPGRADES: [Upgrade; 10] = [
     Upgrade::RapidConstruction,
     Upgrade::Drills,
     Upgrade::Trade,
-    Upgrade::GridEfficiency,
+    Upgrade::EnergyEfficiency,
 ];
 
 impl Upgrade {
@@ -222,7 +224,7 @@ impl Upgrade {
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
             Upgrade::Drills => &DRILLS,
             Upgrade::Trade => &TRADE,
-            Upgrade::GridEfficiency => &GRID_EFFICIENCY,
+            Upgrade::EnergyEfficiency => &ENERGY_EFFICIENCY,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {

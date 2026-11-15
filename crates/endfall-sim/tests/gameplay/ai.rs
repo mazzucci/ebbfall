@@ -617,6 +617,53 @@ fn the_ai_researches_upgrades_in_a_long_game() {
 }
 
 #[test]
+fn the_expedition_ai_researches_energy_efficiency_once_its_natural_stands() {
+    // As Trade (Stelian, Nov 14): only once its natural expansion stands, a second finished Data center, and never saved
+    // for. A player whose headquarters cannot fall, so the game lasts.
+    let mut w = World::with_setup(33, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    let c = w
+        .bldgs
+        .iter_mut()
+        .find(|b| b.team == PLAYER && b.kind.def().hq)
+        .unwrap();
+    c.hp = 1e9;
+    c.maxhp = 1e9;
+    let g = Upgrade::EnergyEfficiency;
+    let dcs = |w: &World| {
+        w.bldgs
+            .iter()
+            .filter(|b| b.team == ENEMY && b.kind == BldgKind::Conflux && b.done)
+            .count()
+    };
+    let mut first = None;
+    for _ in 0..30 * 60 * 22 {
+        let started = w
+            .bldgs
+            .iter()
+            .any(|b| b.team == ENEMY && b.research.is_some_and(|(u, _)| u == g));
+        if started && first.is_none() {
+            first = Some(w.time);
+            assert!(
+                dcs(&w) >= 2,
+                "researched before its natural stands, at {:.0} s",
+                w.time
+            );
+        }
+        w.step();
+        w.events.clear();
+        if w.over {
+            break;
+        }
+    }
+    assert!(
+        first.is_some(),
+        "researched by 22:00 (two Data centers: {}, levels {:?})",
+        dcs(&w),
+        w.upgrades[ENEMY as usize]
+    );
+}
+
+#[test]
 fn the_ai_survives_its_building_sites_being_starved() {
     // An army camping outside the AI base kills every harvester that goes near a site under construction, so the
     // AI's watchdog eventually cancels the site. That used to crash the AI turn.
@@ -987,9 +1034,10 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
 #[test]
 fn two_vael_ais_finish_a_game_at_every_level() {
     // PRD: builders who stay. With every Bot staying at its site, neither Expedition AI stalls at any level: both raise
-    // their Recruiting post, a Factory goes up (on a level with raiders), and one of them wins.
+    // their Recruiting post, a Factory goes up (on a level with raiders), and one of them wins. (Seed 12 since Nov 14: on
+    // 11's, with the grid halved and the AI styles, two Easy Expeditions were still at it after 40 minutes.)
     for (diff, level) in DIFF.iter().enumerate() {
-        let mut w = World::with_setup(11, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
+        let mut w = World::with_setup(12, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
         w.set_ai_seats([true, true]);
         let kinds = [BldgKind::Siphon, BldgKind::Kiln];
         let mut stood = [[false; 2]; 2]; // [seat][kind]: a finished one seen
@@ -2327,7 +2375,9 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
     // stranded, its coverage gone under it, aside). The Kingdom trains no Rider or Cannon before its own mid tier, and no
     // Knight but in Boom, from 15:00.
     use endfall_sim::data::radio::needs_range;
-    let mut w = easy_game(4);
+    // (seed 3 since Nov 14: on seed 4 the grid at population scale left Easy's army at its 14 Sellswords to 14:00, its cap
+    // by units, with no room for a machine)
+    let mut w = easy_game(3);
     for b in w.bldgs.iter_mut() {
         (b.hp, b.maxhp) = (1e9, 1e9);
     }

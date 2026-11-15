@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3237,6 +3237,39 @@ test('an arrow slows its target: its body tinted a cold gray-blue under a cold b
     const after = await layer(kn);
     assert.equal(after.bodyTint, 0xffffff, 'white again');
     assert.equal(after.glow, null, 'no glow');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a building destroyed collapses: its ghost sinks and fades, dust rises, no fireball and no shake', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(500, 0);
+    const depot = await buildAndFinish(d, 'w', 'depot');
+    await d.centerOn(depot.x, depot.y);
+    // (what each frame draws, read in the page from the moment the Cottage falls: the ghosts and the effects)
+    await d.eval(() => {
+      window.__fall = [];
+      const look = () => { const g = endfall.dying(); if (g.length || window.__fall.length) window.__fall.push({ g, fx: endfall.effects(), shake: endfall.shake() }); if (window.__fall.length < 40) requestAnimationFrame(look); };
+      requestAnimationFrame(look);
+    });
+    // Set-up: the Cottage nearly down and foe Archers beside it, which take it on their own.
+    await d.eval(([id, x, y]) => { endfall.engine.debugSetHp(id, 1); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(1, 'lancer', x - 30 + i * 30, y + 80); }, [depot.id, depot.x, depot.y]);
+    assert.ok(await d.skipUntil((id) => !endfall.G.bldgs.some(b => b.id === id), depot.id, { seconds: 20, step: 1 / 30 }), 'the Cottage falls');
+    await until(d, () => d.eval(() => window.__fall.length >= 12 || (window.__fall.length > 0 && !window.__fall.at(-1).g.length)), { seconds: 10, step: 0.2, what: 'frames of the fall' });
+    const fall = await d.eval(() => window.__fall), ghosts = fall.map(f => f.g.find(g => g.type === 'depot')).filter(Boolean);
+    assert.ok(ghosts.length, 'its ghost drawn a moment after the sim dropped it');
+    assert.ok(ghosts.every(g => g.t <= BLDG_DEATH.ghost.life && !g.portal), 'for 0.45 s at most');
+    const last = ghosts.at(-1);
+    assert.ok(last.y >= last.y0 && last.y - last.y0 <= BLDG_DEATH.ghost.sink + 0.01, `sinking (${JSON.stringify(last)})`);
+    assert.ok(last.scaleY <= 1 && last.scaleY >= BLDG_DEATH.ghost.squash - 0.01, 'squashed, at most to 0.8');
+    if (ghosts.length > 1) assert.ok(last.y > ghosts[0].y || last.t === ghosts[0].t, 'down as the frames go');
+    const near = (e) => Math.abs(e.x - depot.x) < depot.w * 16 + 4 && Math.abs(e.y - depot.y) < depot.h * 16 + 80;
+    const fx = fall.flatMap(f => f.fx).filter(near);
+    assert.ok(fx.some(e => e.anim === 'trail' && e.tint === DUST), `dust over its footprint (${[...new Set(fx.map(e => e.anim))]})`);
+    assert.ok(fx.some(e => e.anim === 'puff'), 'gray smoke off its roof');
+    assert.ok(!fx.some(e => e.anim === 'boom_big' || e.anim === 'boom_small' || e.anim === 'spark'), 'no fireball, no fire sparks');
+    assert.ok(fall.every(f => f.shake < 0.3), 'no shake for a Cottage');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

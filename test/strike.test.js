@@ -93,7 +93,7 @@ test('a fallen Balloon puffs as canvas up where it flew; fighters turn to dust; 
   assert.equal(deathOf('shrike', true), 'machine', 'the Drone, a flying machine');
   assert.equal(deathOf('trooper', false), 'dust');
   assert.equal(deathOf('siegeTank', false), 'machine');
-  assert.equal(deathOf(null, false), 'machine', 'a building');
+  assert.equal(deathOf(null, false), 'collapse', 'a building (look.js BLDG_DEATH)');
   assert.ok(!MACHINES.has('observer'), 'the Balloon stays out of the machines');
   assert.equal(AIR_PUFF.tint, 0xe8dcc0, 'canvas, not dust');
   assert.notEqual(AIR_PUFF.tint, DUST);

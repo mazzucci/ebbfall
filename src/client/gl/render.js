@@ -6,7 +6,7 @@ import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphic
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
@@ -277,6 +277,7 @@ export function renderTerrain() {
   const wetCss = { shallow: '#467c80', deep: '#1d3658' }, rockCss = { forest: '#2a3f22', hill: '#77756c' }; // (the grass green, a forest darker, a hill gray, the sea teal and blue: as the ground looks)
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? rockCss[kinds.kindAt(x, y)] : wetCss[g] || `hsl(92,24%,${17 + map.shade[idx(x, y)] * 8}%)`; th.fillRect(x, y, 1, 1); }
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
+  for (const o of dying) o.destroy(); dying.length = 0; pending.length = 0; for (const k of blinks) k.l.destroy(); blinks.length = 0;
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
   L.worn.removeChildren().forEach(c => c.destroy()); // (the buildings' own, gone with them above)
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
@@ -389,7 +390,7 @@ class BldgObj {
     if (this.look.head) [this.head, this.headPaint] = teamSprite(L.ents);
     const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
-    this.smokeT = 0; this.type = b.type;
+    this.smokeT = 0; this.type = b.type; this.id = b.id; this.x = b.x; this.y = b.y; this.b = b; this.live = false;
     for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint]) s.position.set(b.x, b.y);
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
@@ -399,6 +400,7 @@ class BldgObj {
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming). */
   update(b, t, dt, live) {
+    this.b = b; this.live = live; // (what a fall reads: look.js bldgDeath)
     const name = this.name, grow = !b.done && this.bud;
     this.found.visible = !b.done && !grow; this.scaffold.visible = this.scaffoldPaint.visible = !b.done && (!grow || b.progress > 0); // (an Expedition site: its bud once its Bot has begun, no foundation)
     if (b.done) { setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; }
@@ -429,7 +431,7 @@ class BldgObj {
     if (this.glow) { const g = this.look.glow; this.glow.visible = b.done; this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]); this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); if (this.look.portal) this.glow.alpha = (this.openNow || 0) * g[2]; }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
-    if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < 0.5) addEffect('flash', x, y + 4, { life: 0.25, light: 0xff8a2a }); } }
+    if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < BURN_FLASH.chance) addEffect('flash', x, y + 4, { life: 0.25, light: BURN_FLASH.light, lightScale: BURN_FLASH.lightScale }); } } // (look.js BURN_FLASH: now and then, not a strobe)
     const sm = this.look.smoke; // chimneys: only while the building works (look.js chimneyActive)
     if (live && sm && chimneyActive(b) && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
   }
@@ -449,7 +451,33 @@ class BldgObj {
   /** Shown or not (update, after this, decides the parts of a shown one). Visibility is only ever set to what it should
    *  be, never on and off again in one frame: each change rebuilds the layer's draw list. */
   show(v) { this.body.visible = this.paint.visible = v; if (this.worn.visible !== v) this.worn.visible = v; if (!v) { this.found.visible = this.scaffold.visible = this.scaffoldPaint.visible = false; if (this.head) this.head.visible = this.headPaint.visible = false; if (this.glow) this.glow.visible = false; } }
-  destroy() { for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.head, this.headPaint, this.glow]) if (s) s.destroy(); }
+  destroy() { for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.head, this.headPaint, this.glow, this.fallFlash]) if (s) s.destroy(); }
+  /** It fell (look.js bldgDeath, `plan`): from now on a ghost, out of the pool, until `plan.life` s have passed. */
+  fall(plan) {
+    this.found.visible = false;
+    const parts = [this.body, this.paint, this.scaffold, this.scaffoldPaint, this.head, this.headPaint].filter(s => s?.visible);
+    this.dying = { t: 0, plan, parts, y0: parts.map(s => s.y) };
+    if (plan.portal && this.body.visible) { // (the Portal's cyan flash layer, added over its body)
+      const f = this.fallFlash = new Sprite(this.body.texture); f.anchor.copyFrom(this.body.anchor); f.position.copyFrom(this.body.position);
+      f.blendMode = 'add'; f.tint = BLDG_DEATH.portal.flash.tint; f.alpha = 0; f.zIndex = this.z + 0.0003; L.ents.addChild(f); parts.push(f); this.dying.y0.push(f.y);
+    }
+  }
+  /** One frame of its fall, `dt` s on: false once it is over. */
+  falling(dt) {
+    const d = this.dying; d.t += dt;
+    if (d.t >= d.plan.life) return false;
+    if (d.plan.portal) {
+      const g = portalGhost(d.t);
+      for (const s of d.parts) { s.scale.x = g.scaleX; s.alpha = g.alpha; }
+      if (this.fallFlash) this.fallFlash.alpha = g.flash;
+      if (this.glow && this.body.visible) { this.glow.visible = true; this.glow.scale.set(g.glow); this.glow.alpha = this.look.glow[2]; this.glow.tint = BLDG_DEATH.portal.glow.tint; }
+    } else {
+      const g = ghostAt(d.t);
+      d.parts.forEach((s, i) => { s.y = d.y0[i] + g.dy; s.scale.y = g.scaleY; s.alpha = g.alpha; });
+      if (this.glow) this.glow.visible = false;
+    }
+    return true;
+  }
 }
 
 // ---- gold mines: one per field (crates/endfall-sim/src/map.rs `lay_mines`), neutral, drawn by what is left ----
@@ -475,6 +503,9 @@ function syncPool(pool, list, make, upd) {
   for (const e of list) { seen.add(e.id); let o = pool.get(e.id); if (!o) pool.set(e.id, o = make(e)); upd(o, e); }
   for (const [id, o] of pool) if (!seen.has(id)) { o.destroy(); pool.delete(id); }
 }
+/** Fallen buildings still shown as ghosts, out of the pool (BldgObj.fall), effects waiting their time in a fall (look.js
+ *  bldgDeath: `t` counts up to 0) and a fall's lights alone (the Portal's blink). */
+const dying = [], pending = [], blinks = [];
 
 // ---- effects ----
 const effects = [];
@@ -498,19 +529,41 @@ export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e
 export const deathY = (y, unit) => (unit && deathOf(unit, UNITS[unit]?.air) === 'air' ? y - unitTop(unit) * AIR_PUFF.lift : y);
 /** A unit or building died (`unit`: the unit's kind, null for a building; look.js deathOf). A fighter falls into a puff
  *  of earth-colored dust, a flyer that is no machine (the Balloon) into a puff of canvas up where it flew, sinking (no
- *  fire, no light, no scorch for either); a machine and a building explode, sized to them, with debris, a scorch mark,
- *  and a shake and rubble (its people's: `race`) for big ones. */
+ *  fire, no light, no scorch for either); a machine explodes, sized to it, with sparks and a scorch mark; a building
+ *  collapses (`collapse`: no fire), into rubble of its people's (`race`). */
 export function boom(x, y, r, race, unit = null) {
   const how = deathOf(unit, unit && UNITS[unit]?.air);
   if (how === 'air') { const { anim, tint, scale, life, vy, fade } = AIR_PUFF; addEffect(anim, x, deathY(y, unit), { vy, life, scale, tint, fade }); return; }
   if (how === 'dust') { const { anim, tint, scale, life, vy, fade, dy } = DEATH_DUST; addEffect(anim, x, y + dy, { vy, life, scale, tint, fade }); return; }
-  const big = r >= 20;
-  addEffect(big ? 'boom_big' : 'boom_small', x, y, { light: 0xff9a3a, lightScale: big ? 2.4 : 0.7, life: big ? 0.7 : 0.4, scale: big ? Math.min(2, r / 28) : 1 });
-  for (let i = 0; i < (big ? 10 : 4); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
+  if (how === 'collapse') { collapse(x, y, r, race); return; }
+  addEffect('boom_small', x, y, { light: 0xff9a3a, lightScale: 0.7, life: 0.4, scale: 1 }); // (a machine: the only death with fire, with the shells')
+  for (let i = 0; i < 4; i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
   const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24); scorch.position.set(x, y + 2); L.decals.addChild(scorch);
   decals.push({ s: scorch, t: 0, life: 25 });
-  if (big) { if (nearView(x, y, 0)) shake = Math.min(10, shake + r / 6); const rub = new Sprite(); setTex(rub, tex(`${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`)); rub.position.set(x, y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
 }
+/** A building fell at (x, y) (radius r, its people `race`): it collapses (look.js bldgDeath), its sprite a ghost a moment
+ *  longer if it was drawn live (the pool's object at that spot), its rubble on the ground. */
+function collapse(x, y, r, race) {
+  let o = null;
+  for (const c of bldgObjs.values()) if (c.live && Math.abs(c.x - x) < 1 && Math.abs(c.y - y) < 1) { o = c; break; }
+  const n = Math.round(2 * r / TILE), b = o?.b ?? { x, y, r, tx: Math.round(x / TILE - n / 2), ty: Math.round(y / TILE - n / 2), w: n, h: n, type: '' };
+  const plan = bldgDeath(b, race, { hq: !!BUILDINGS[b.type]?.hq, roof: o?.body.visible ? rectOf(o.body)[1] + 8 : y - r, ring: o?.glow ? { x: o.glow.x, y: o.glow.y } : { x, y } });
+  if (plan.shake && nearView(x, y, 0)) shake = Math.max(shake, plan.shake);
+  const rubble = { rubble: `${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`, x, y };
+  for (const s of [...plan.steps, { at: plan.rubbleAt, ...rubble }]) if (s.at > 0) pending.push({ t: -s.at, s }); else fallStep(s);
+  if (o) { o.fall(plan); bldgObjs.delete(o.id); dying.push(o); } // (out of the pool at once, a ghost a moment longer)
+}
+/** One step of a fall (look.js bldgDeath): an effect, a light alone or its rubble. */
+function fallStep(s) {
+  if (s.rubble) { const rub = new Sprite(); setTex(rub, tex(s.rubble)); rub.position.set(s.x, s.y); L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 }); }
+  else if (s.blink) { if (nearView(s.x, s.y)) { const l = light(s.blink.tint, s.blink.scale, 0.9); l.position.set(s.x, s.y); blinks.push({ l, t: 0, ...s.blink }); } }
+  else addEffect(s.anim, s.x, s.y, s.o);
+}
+/** The ghosts of fallen buildings now (read-only, for the tests): each one's id, type, time since it fell, whether it
+ *  falls as the Portal does, and its body as drawn (y, scale, opacity) with the y it fell from. */
+export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
+/** The camera's shake now (the renderer's measure; read-only, for the tests). */
+export const shakeNow = () => shake;
 /** A Medic heals: a green sparkle on the patient and a faint light. */
 const CAST_TINT = { deploy: 0xf5c542 };
 /** An ability used: a flash on the caster in its color. */
@@ -555,6 +608,9 @@ export function impactFx(x, y, how) {
 const decals = [];
 
 function updateEffects(dt) {
+  for (let i = pending.length - 1; i >= 0; i--) { const p = pending[i]; p.t += dt; if (p.t >= 0) { pending.splice(i, 1); fallStep(p.s); } }
+  for (let i = dying.length - 1; i >= 0; i--) if (!dying[i].falling(dt)) { dying[i].destroy(); dying.splice(i, 1); }
+  for (let i = blinks.length - 1; i >= 0; i--) { const k = blinks[i]; k.t += dt; if (k.t >= k.life) { k.l.destroy(); blinks.splice(i, 1); } else k.l.scale.set(k.scale * (1 - k.t / k.life)); }
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i]; e.t += dt;
     if (e.t >= e.life) { e.s.destroy(); if (e.l) e.l.destroy(); effects.splice(i, 1); continue; }

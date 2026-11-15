@@ -377,8 +377,9 @@ const CLUMP_5: [[&str; 4]; 3] = [
     ["..X.", "..X.", "X...", "X..X"],
 ];
 /// How far (tiles) a main's outcrop lies from its Core's middle (the clump's middle), to one flank of the Core; an
-/// expansion's from its site's middle, on the far side from its main: far enough that a headquarters on the site's
-/// middle keeps `HQ_MINE_GAP` from the mine (its mine `mine_spot` lays by the crystals).
+/// expansion's from its site's middle, on the far side from its main where it can (`exp_outs`): far enough that a
+/// headquarters by the site's middle, on the near side, keeps `HQ_MINE_GAP` from the mine (`mine_spot` lays the mine
+/// by the crystals).
 const MAIN_CLUMP_R: f64 = 7.0;
 const EXP_CLUMP_R: f64 = 6.5;
 /// An expansion's crystals keep within this many tiles of its site's middle where they can (clear of a Shore reef).
@@ -454,8 +455,8 @@ fn exp_mine(p: (f64, f64), out: f64) -> (f64, f64) {
 }
 
 /// The directions an expansion's field may lie in from its site `p`, in the order tried: on the far side from its
-/// main's Core `c0`, then turned 45 and 90 degrees either way (where the far side would lay it too near another mine:
-/// with many starts, the far side reaches towards the neighbors').
+/// main's Core `c0`, then turned 45, 90 and 135 degrees either way (where the far side would lay it too near another
+/// mine: with many starts, the far side reaches towards the neighbors').
 fn exp_outs(p: (f64, f64), c0: (f64, f64)) -> [f64; 7] {
     let a = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
     let q = PI / 4.0;

@@ -865,3 +865,47 @@ fn basic_scaling_probe() {
         }
     }
 }
+
+#[test]
+#[ignore]
+fn rover_head_to_head_probe() {
+    // The Expedition's top tier entrenched against the Kingdom's (the PM, Nov 15): three Rovers behind a Sentry mast
+    // against Knights, Cannons and Ballistas at equal gold (the Rovers' own, and with the mast's price counted too), and
+    // as a second line against masses of the Kingdom's basics. + the Rovers held.
+    use UnitKind::*;
+    let mast = (BldgKind::Ward, 1);
+    let with_mast = (3.0 * unit_value(Monolith) + BldgKind::Ward.def().cost[0] as f64)
+        / (3.0 * unit_value(Monolith));
+    let scenes: [(&str, &[UnitKind]); 8] = [
+        ("Knights", &[Knight]),
+        ("Cannons", &[SiegeTank]),
+        ("Ballistas", &[Bastion]),
+        ("Knight+Cannon+Ballista", &[Knight, SiegeTank, Bastion]),
+        ("2 Knights+Cannon", &[Knight, Knight, SiegeTank]),
+        ("Knight+Cannon", &[Knight, SiegeTank]),
+        ("Guards", &[Trooper]),
+        ("2 Guards+Archer", &[Trooper, Trooper, Lancer]),
+    ];
+    for (name, att) in scenes {
+        let row: Vec<String> = [1.0, with_mast, 1.25, 1.5]
+            .iter()
+            .map(|&r| {
+                format!(
+                    "{r:.2}x {:+.2}",
+                    entrenched(ENEMY, (Monolith, 3), mast, att, r)
+                )
+            })
+            .collect();
+        // (and as a win rate: the Rovers' side ahead from twelve offsets, at equal gold with the mast counted)
+        let wins = (0..12)
+            .filter(|&i| {
+                let off = (i as f64 - 5.5) * 12.0;
+                entrenched_once(ENEMY, (Monolith, 3), mast, att, with_mast, off) > 0.0
+            })
+            .count();
+        println!(
+            "3 Rovers + mast v {name:>24}: {}  | ahead in {wins} of 12",
+            row.join("  ")
+        );
+    }
+}

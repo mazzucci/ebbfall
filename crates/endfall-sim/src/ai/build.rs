@@ -561,11 +561,18 @@ impl World {
                 .map_or(0, |k| self.takes(e, k))
             + self.elite_reserve(e, &my_b, t);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
+        // Its army first (`Diff::army_first`): with less army than the foe's it last saw, nothing but supply until it
+        // has caught up (Hard's Kingdom, its army beaten at home, spent its income on a fifth Barracks, a Workshop, the
+        // Stables and a tower, and stood six minutes with no army while Medium's waves came).
+        let behind =
+            d.army_first && t >= d.stall_from && self.own_army_worth(e) < self.ai().army_seen.0;
         let want = if cap - used <= supply_margin
             && cap < self.sup_max(e)
             && supply_rising < d.supply_at_once
         {
             Some(f.supply)
+        } else if behind {
+            None
         } else if let Some(m) = market {
             Some(m)
         } else if let Some(k) = self.posts_due(e, &my_b, &building) {
@@ -828,6 +835,78 @@ mod tests {
             .iter()
             .filter(|b| b.team == 1 && b.kind == BldgKind::Core)
             .count()
+    }
+
+    /// What seat 1's build order wants at 6:00 on a 64x64 duel at `level`, its Castle and Barracks standing, gold in
+    /// hand, with an army worth `mine` of Guards against a foe whose army it last saw worth `seen`.
+    fn wanted(level: usize, mine: usize, seen: f64) -> Option<BldgKind> {
+        use crate::ai::Brain;
+        let mut w = World::with_size(
+            5,
+            level,
+            MapKind::Standard,
+            MapSize::DUEL,
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        w.ai_turn = 1;
+        let (bx, by) = w.map.bases[1];
+        w.make_building(BldgKind::Barracks, 1, bx + 5, by, true);
+        for i in 0..mine {
+            w.make_unit(
+                UnitKind::Trooper,
+                1,
+                (bx as f64 - 2.0) * TILE,
+                (by as f64 + i as f64) * TILE,
+            );
+        }
+        w.recalc_supply(1);
+        w.res[1] = [5000, 0];
+        w.ai_mut().army_seen = (seen, 350.0, 0.0);
+        let my_b: Vec<_> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let harv: Vec<_> = w
+            .units
+            .iter()
+            .filter(|u| u.team == 1 && u.kind.def().worker)
+            .map(|u| u.id)
+            .collect();
+        let mut b = Brain {
+            e: 1,
+            t: 360.0,
+            my_b,
+            harv,
+            cx: bx as f64 + 2.0,
+            cy: by as f64 + 2.0,
+            ..Brain::default()
+        };
+        w.ai_build(&mut b);
+        b.want
+    }
+
+    #[test]
+    fn hard_behind_on_army_builds_nothing_but_supply_until_it_has_caught_up() {
+        // The PM, Nov 15 (Hard against Medium must end): Hard's Kingdom, its army beaten at home, spent its income on
+        // buildings and stood six minutes with no army. Behind the foe's army it last saw, Hard's build order wants
+        // nothing (but supply) and its units take the gold; Medium's goes on as ever.
+        let guard = UnitKind::Trooper.def().cost[0] as f64;
+        assert_eq!(
+            wanted(2, 2, 10.0 * guard),
+            None,
+            "Hard, behind: its army first"
+        );
+        assert!(
+            wanted(2, 12, 10.0 * guard).is_some(),
+            "Hard, caught up: its build order again"
+        );
+        assert!(
+            wanted(1, 2, 10.0 * guard).is_some(),
+            "Medium builds whatever its army"
+        );
     }
 
     #[test]

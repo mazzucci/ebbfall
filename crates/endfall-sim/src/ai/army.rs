@@ -48,9 +48,8 @@ const HELD_QUIET: f64 = 20.0;
 /// A wave out this long (s) whose every unit has been quiet (neither firing nor hit) as long is over, wherever it stands
 /// (a wave of two left standing short of the foe's base for eight minutes kept a winning army of 6,000 at home).
 const WAVE_QUIET: f64 = 90.0;
-/// A stalled game (`Diff::stall_from`): this long (s) without its side razing an enemy building, after which its next
-/// wave waits up to `STALL_HOLD` s to fill its army to the cap, then goes all in and fights to its last unit.
-pub(crate) const STALL_WINDOW: f64 = 300.0;
+/// A stalled game (`Diff::stall_from`): `Diff::stall_window` s without its side razing an enemy building, after which
+/// its next wave waits up to `STALL_HOLD` s to fill its army to the cap, then goes all in and fights to its last unit.
 pub(crate) const STALL_HOLD: f64 = 180.0;
 /// Its wave's melee units and its dive unit go for an enemy siege gun it sees within this many px (`dive_at_siege`).
 const DIVE_REACH: f64 = 14.0 * TILE;
@@ -435,11 +434,11 @@ impl World {
         let army = self.tend_scout_unit(army, rally);
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
         let army = self.tend_guards(army);
-        // The home reserve stays out of them as well.
-        let army = self.tend_reserve(army, rally, t);
-
         let stalled = self.stalled(t);
         self.ai_mut().stall = stalled;
+        // The home reserve stays out of them as well (but in a stalled game's push that takes everything,
+        // `Diff::push_all`).
+        let army = self.tend_reserve(army, rally, t);
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
         // Machines need signal (the arc): with the goal out of its side's coverage they stay home, defending, and the
@@ -569,7 +568,7 @@ impl World {
     }
 
     /// Whether the game has stalled for the seat taking its turn (`Diff::stall_from`): past that time, with no enemy
-    /// building razed by its side for `STALL_WINDOW` seconds, and some of the foe's army it last saw (`Ai::army_seen`)
+    /// building razed by its side for `Diff::stall_window` seconds, and some of the foe's army it last saw (`Ai::army_seen`)
     /// still standing. Keeps the count of what it razed up to date.
     pub(crate) fn stalled(&mut self, t: f64) -> bool {
         let seat = self.seat();
@@ -583,10 +582,10 @@ impl World {
         t >= self.level().stall_from && t > self.stall_began() && foe_army > 0.0
     }
 
-    /// When the current stall began for the seat taking its turn: `STALL_WINDOW` after its side last razed a building,
+    /// When the current stall began for the seat taking its turn: `Diff::stall_window` after its side last razed a building,
     /// and no sooner than `Diff::stall_from`.
     fn stall_began(&self) -> f64 {
-        (self.ai().razed.1 + STALL_WINDOW).max(self.level().stall_from)
+        (self.ai().razed.1 + self.level().stall_window).max(self.level().stall_from)
     }
 
     /// The side's scout units (`AiScript::scout`: the Balloon) are kept out of the army: one out looking stays on its
@@ -704,8 +703,11 @@ impl World {
         // does a wave that crushes what the foe has shown of its army, `crushing`)
         let full = self.at_cap(self.seat()) || self.army_full(self.seat());
         let short = army.len() < need && !full && !self.crushing(army, need, t);
-        let short =
-            short || (massing && !self.at_cap(self.seat()) && !self.crushing(army, need, t));
+        // (a push that takes everything, `Diff::push_all`: once its hold is up it goes with what it has, half its count
+        // at least; the Expedition's Hard sat thirteen minutes on a short wave, its raiders, guards and reserve kept out)
+        let pushes = d.push_all && self.ai().stall && !massing && army.len() * 2 >= need;
+        let short = (short && !pushes)
+            || (massing && !self.at_cap(self.seat()) && !self.crushing(army, need, t));
         // (the guided first game: its first wave when the guide releases it, `GUIDED_FIRST`)
         let first = if self.guided {
             d.first.min(GUIDED_FIRST)
@@ -1084,7 +1086,7 @@ impl World {
     }
 
     /// The worth of seat `e`'s army (armed units, workers left out).
-    fn own_army_worth(&self, e: u8) -> f64 {
+    pub(crate) fn own_army_worth(&self, e: u8) -> f64 {
         self.units
             .iter()
             .filter(|u| u.team == e && !u.kind.def().worker && u.kind.def().armed())
@@ -1210,7 +1212,8 @@ impl World {
     fn tend_reserve(&mut self, army: Vec<Id>, rally: Pt, t: f64) -> Vec<Id> {
         let seat = self.seat();
         let share = self.level().reserve;
-        if share <= 0.0 || self.at_cap(self.seat()) || !self.passive_foe(t) {
+        let pushing = self.ai().stall && self.level().push_all;
+        if share <= 0.0 || self.at_cap(self.seat()) || !self.passive_foe(t) || pushing {
             self.ai_mut().reserve.clear();
             return army;
         }
@@ -1245,6 +1248,13 @@ impl World {
             }
             held += army_worth(self.u(a).kind);
             reserve.push(a);
+        }
+        // (never the reserve alone keeping a wave short of its count: two passive Kingdoms each kept a quarter home,
+        // each wave stayed short, and neither came for six minutes, each the other's passive foe)
+        let need =
+            (self.ai().wave as f64 * self.factions[seat as usize].ai.wave_scale).ceil() as usize;
+        if !self.ai().attacking && army.len() >= need && army.len() - reserve.len() < need {
+            reserve.clear();
         }
         for &a in &reserve {
             let u = self.u(a);
@@ -2682,6 +2692,94 @@ mod tests {
             !w.ai().stall && w.ai().attacking,
             "no stall without a foe's army"
         );
+    }
+
+    #[test]
+    fn hard_s_stalled_push_takes_everything_and_goes_short_of_its_count() {
+        // The PM, Nov 15 (Hard against Medium must end): Hard's push goes once its hold is up with what it has, half its
+        // count at least (the Expedition's Hard sat thirteen minutes on a wave short of its count), and a stall comes
+        // after three minutes without razing, not five. Medium's waits for its count as ever.
+        for level in [1, 2] {
+            let (mut w, _, mut b) = ready(level);
+            let ai = w.ai_mut();
+            ai.last_wave = 800.0;
+            ai.wave = 16; // (ten at home: short of its count, more than half of it)
+            ai.razed = (0, 1000.0 - 200.0); // (its last building razed 3:20 ago)
+            ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+            w.time = 1000.0;
+            b.t = w.time;
+            w.ai_army(&mut b);
+            assert_eq!(
+                w.ai().stall,
+                level == 2,
+                "level {level}: stalled after three minutes on Hard"
+            );
+            w.time = 1000.0 + super::STALL_HOLD + 10.0;
+            b.t = w.time;
+            w.ai_army(&mut b);
+            assert_eq!(
+                w.ai().attacking,
+                level == 2,
+                "level {level}: Hard pushes short of its count, Medium waits"
+            );
+            if level == 2 {
+                assert!(w.ai().push, "and fights to its last unit");
+            }
+        }
+        // Its home reserve goes too: against a passive foe the reserve stays home, but not in Hard's push.
+        let plan = |level: usize| Diff {
+            reserve: 0.25,
+            retreat_below: 0.0,
+            ..DIFF[level]
+        };
+        let (mut w, _, mut b) = ready_with(2, plan(2));
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.came_at = 0.0; // (a passive foe)
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().stall && w.ai().reserve.is_empty(),
+            "Hard's push keeps no reserve"
+        );
+        let (mut w, _, mut b) = ready_with(1, plan(1));
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.came_at = 0.0;
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().stall && !w.ai().reserve.is_empty(),
+            "Medium's keeps its reserve"
+        );
+    }
+
+    #[test]
+    fn the_reserve_alone_never_keeps_a_wave_short_of_its_count() {
+        // Two passive Kingdoms each kept a quarter of their army home, so each wave stayed short of its count and
+        // neither came for six minutes. With its army at its count but for the reserve, the reserve goes too.
+        let plan = Diff {
+            reserve: 0.25,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        };
+        for (wave, kept) in [(7, true), (10, false), (11, true)] {
+            let (mut w, _, mut b) = ready_with(1, plan);
+            let ai = w.ai_mut();
+            ai.last_wave = 300.0;
+            ai.came_at = 0.0; // (a passive foe)
+            ai.wave = wave;
+            w.ai_army(&mut b);
+            assert_eq!(
+                !w.ai().reserve.is_empty(),
+                kept,
+                "ten at home and a wave of {wave}: reserve kept {kept}"
+            );
+        }
     }
 
     #[test]

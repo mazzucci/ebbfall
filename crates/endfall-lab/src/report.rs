@@ -863,8 +863,8 @@ pub const TOP_TIER: [TopTier; 2] = [
         bldgs: &[BldgKind::Forge, BldgKind::Airfield, BldgKind::Factory],
     },
     TopTier {
-        units: &[UnitKind::Umbra],
-        units_name: "Android",
+        units: &[UnitKind::Umbra, UnitKind::Monolith],
+        units_name: "Android or Rover",
         bldgs: &[BldgKind::Loom, BldgKind::Uplink, BldgKind::Eclipse],
     },
 ];

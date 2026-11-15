@@ -67,8 +67,8 @@ pub fn commit(race: usize, k: usize) -> Diff {
         },
         // The top layer, then the foe, a fair committer (the PM, Nov 13): Medium's two barracks, its tech building at
         // 1:00 and its side's techs at once, every unit allowed with the top tier queued steadily (an elite per line
-        // unit, siege per three), no expansion and no towers before its first wave at 10:00, going in without a
-        // margin.
+        // unit, siege per three; the Expedition's Androids and Rovers in turn), no expansion and no towers before its
+        // first wave at 10:00, going in without a margin.
         2 => Diff {
             tech_at: 60.0,
             tech_from: 120.0,
@@ -79,7 +79,10 @@ pub fn commit(race: usize, k: usize) -> Diff {
             mix_over: &[
                 (endfall_sim::data::UnitKind::Knight, 1, 0.0),
                 (endfall_sim::data::UnitKind::SiegeTank, 3, 0.0),
+                // (the Portal's Androids and Rovers in turn, one queue for both: an Android alone per line unit
+                // left its Rovers unbuilt, Nov 15)
                 (endfall_sim::data::UnitKind::Umbra, 1, 0.0),
+                (endfall_sim::data::UnitKind::Monolith, 1, 0.0),
             ],
             expand_at: NEVER,
             expand_at_of: &[],

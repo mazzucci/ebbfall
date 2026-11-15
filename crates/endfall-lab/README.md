@@ -122,7 +122,7 @@ pooled over the sizes, each with its 95% interval and its games. The design targ
 few games in a bin, read the interval).
 
 **The top tier:** per people, level and size (each level against itself), the median time of the seat's first
-top-tier unit (the Kingdom's first Knight or Cannon, the Expedition's first Android) and of its first of each
+top-tier unit (the Kingdom's first Knight or Cannon, the Expedition's first Android or Rover) and of its first of each
 tech building finished (the Blacksmith, the Stables and the Workshop; the Lab, the Uplink and the Portal), over the
 seats that got there, how many of all beside it. The target is the first top-tier unit at about 8–10 min. Each seat's
 record holds the tick of its first unit trained of each kind (`first_unit_tick`) and its first building finished of
@@ -310,8 +310,8 @@ Recruiting post and the Factory), **mid** (the Blacksmith and the Workshop's Can
 and **top** (the Stables and the Knight; the Portal, the Rover and the Android). A committer (tiers.rs `commit`, from
 Medium's tuning) stops teching at its layer and goes for the foe: basic its barracks alone, its first wave at 4:00; mid
 its tech building and what it opens, no Stables or Portal, its first wave at 7:00; top straight up on Medium's two
-barracks, an elite queued per line unit, no expansion or towers, its first wave at 10:00; **basic late** and **mid
-late** as basic and mid, their first wave at 10:30, past the opponent's top tier. Its opponent keeps teching: by
+barracks, an elite queued per line unit (the Expedition's Androids and Rovers in turn), no expansion or towers, its
+first wave at 10:00; **basic late** and **mid late** as basic and mid, their first wave at 10:30, past the opponent's top tier. Its opponent keeps teching: by
 default the bets' tech plan (one barracks, its first wave at 9:00: a weak benchmark), with `--greedy` the greedy human
 (the tech plan on Medium's barracks, two towers by 5:00, a reserve at home, its first move at 10:00), with `--steady`
 the steady teching player (Medium itself, its first move at 10:00: the realistic one). Every pairing of the peoples,

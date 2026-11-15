@@ -121,14 +121,14 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   (a move arrives, an attack fires; the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most
   of a 64x64 map); the Expedition AI's push on 96x96: one forward Uplink whose coverage takes in the foe, then its
   machines, none of them leaving coverage), the Expedition's economy (`expedition`: energy and one grid, Nov 14: the
-  grid from the Data center and Substations up to `GRID_MAX` 300, the Kingdom's population `POP_MAX` 120; machines and
+  grid from the Data center (22) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
+  units drawing it (buildings none, a building placed whatever the grid); machines and
   mercenaries alike refused on a full grid and trained once a Substation stands; a mercenary's grid freed by its death,
   a lost Substation leaving the use over the cap; "Not enough energy" and the grid's refusals; Wind turbines paying
-  `TURBINE_RATE`, five a Data center, as one Market at full Trade; Grid efficiency at the Lab, in place of Armor and
-  Better drills, cutting what machines draw; no armor on its units, their hp carrying it; the Rover's heavy slow salvo;
-  the Portal giving no grid and drawing its own; one Portal a seat, a second refused while one stands or goes up, its
-  grid drawn from placement and released when it is destroyed or cancelled, refused without the grid for it; the
-  Android's numbers, its grid and its training time; the Lab unlocking the Uplink (275 gold; no satellite since Nov
+  `TURBINE_RATE`, five a Data center, as one Market at full Trade; Energy efficiency at the Lab, in place of Armor and
+  Better drills, cutting what machines cost (paid and refunded at the price of the moment); no armor on its units,
+  their hp carrying it; the Rover's heavy slow salvo; one Portal a seat, a second refused while one stands or goes up,
+  drawing no grid; the Android's numbers, its grid and its training time; the Lab unlocking the Uplink (275 gold; no satellite since Nov
   13) whose standing unlocks the Portal, the Portal training (Androids and Rovers) only while an Uplink stands; Bots
   repairing buildings and no machine; melee Sellswords and Bruisers hitting only the ground up close,
   the Expedition AI at every level raising Substations, turbines (five a Data center at most) and posts, an Uplink, one Portal at most and training
@@ -190,7 +190,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/data/           the only source of game numbers: mod.rs (constants, kinds declared once by `kinds!`, the shape
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
-                      upgrades.rs (Grid efficiency, two levels at the Lab: machines draw `GRID_USE` of their grid; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
+                      upgrades.rs (Energy efficiency, two levels at the Lab: machines cost `ENERGY_COST` of their price, `World::unit_cost`; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
                       to its mid tier only, Medium's top tier from 8:00 and Hard's from 6:00; Easy never retreats; Easy's clumsy waves
                       growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
                       Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, read through `World::expand_time`),
@@ -205,8 +205,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
                       machines need signal, what gives it and how far, the bonus inside and the stranded speed), export.rs (the tables as
                       JSON, one small writer). Places: the Kingdom's population, the Expedition's grid (`Faction::grid`):
-                      a unit takes its `supply` (a machine less by Grid efficiency, `World::takes`), a building
-                      gives its `supply` once finished, and one that `uses` grid draws it from placement; capped by
+                      a unit takes its `supply` (`World::takes`), a building gives its `supply` once finished and
+                      takes none (only units take places, on both sides); capped by
                       the buildings and the maximum (`World::sup_max`: `POP_MAX`, `GRID_MAX`, the same on every
                       map; `room`). A building that `pays` earns its rate a second (the Market, the Wind turbine),
                       `per_hq` of them a finished headquarters. Each side's words: `Faction::money` (gold, energy)
@@ -269,7 +269,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       mercenary line is held to its own share of the grid (`line_grid`, `line_max`); at that share
                       (`line_capped`) it raises its Factory sooner and adds Factories, not posts, as money piles up;
                       it keeps grid free for its Portal and an Android (`elite_reserve`), raises one Portal
-                      (`tech2_due`, never a second, a Substation first if the grid is short), and trains the Android
+                      (`tech2_due`, never a second), and trains the Android
                       there first when the grid is tight; its Wind turbines are its Market (five a Data center). Its crew is sized by income (`crew_of`: as much gold a trip as the
                       Kingdom's Villagers, so fewer Bots). Easy is clumsy (`Diff::wave_only`): its waves are just
                       their size (its first three or four units at 8:00, the rest at home), growing by one, and since

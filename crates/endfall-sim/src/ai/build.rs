@@ -433,7 +433,7 @@ impl World {
     /// While its own requirement does not stand yet, that requirement instead when it can be built (the Portal's
     /// Uplink, once a Lab stands) and is not already going up.
     /// Never a second of a kind its side may have only one of (`BldgDef::single`, the Portal: counted with those going
-    /// up, as `World::single_room` counts them), nor one whose grid it lacks (`World::grid_room`): a Substation first.
+    /// up, as `World::single_room` counts them).
     pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
         let s = &self.factions[e as usize].ai;
         let k = s.tech2?;
@@ -448,16 +448,6 @@ impl World {
             });
         }
         let k = if self.has_req(e, k) {
-            if !self.grid_room(e, k) {
-                // (its grid first: a Substation, while the grid it has can grow and none is going up)
-                let f = self.factions[e as usize];
-                let rising = my_b
-                    .iter()
-                    .filter_map(|&id| self.bldg(id))
-                    .any(|b| b.kind == f.supply && !b.done);
-                let grows = self.sup(e)[1] < self.sup_max(e);
-                return (grows && !rising && self.tech2_wanted(e, my_b, t, k)).then_some(f.supply);
-            }
             k
         } else {
             let r = k.def().req.filter(|&r| {

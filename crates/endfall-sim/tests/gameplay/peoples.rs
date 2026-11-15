@@ -42,8 +42,10 @@ fn each_building_trains_its_peoples_list() {
     ] {
         assert_eq!(u.def().req, req, "{u:?}");
     }
-    // Each people builds its own, the Expedition's Recruiting post first (its barracks).
-    assert_eq!(VAEL.build_basic[0], Siphon);
+    // Each people builds its own: its headquarters first on the Build list (a new base), then the Recruiting post
+    // (its barracks).
+    assert_eq!(VAEL.build_basic[..2], [Conflux, Siphon]);
+    assert_eq!(HUMANS.build_basic[0], BldgKind::Core);
     assert!(Siphon.def().req.is_none());
     for b in [Kiln, Loom] {
         assert_eq!(b.def().req, Some(Siphon), "{b:?}");

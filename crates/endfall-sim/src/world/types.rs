@@ -407,6 +407,8 @@ pub enum Refusal {
     Mine,
     /// Right against a gold mine (the ring round a building keeps clear of mines).
     NearMine,
+    /// A headquarters within `HQ_SPACING` of another of the seat's own, standing or going up.
+    NearBase,
 }
 
 impl Refusal {
@@ -421,6 +423,7 @@ impl Refusal {
             Refusal::Building => "Blocked by a building",
             Refusal::Mine => "Blocked by a mine",
             Refusal::NearMine => "Too close to a mine",
+            Refusal::NearBase => "Too close to your other base.",
         }
     }
 }

@@ -61,7 +61,7 @@ const UNIT_TEXT = {
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
 const BLDG_TEXT = {
-  core: { hot: 'L', what: 'Trains Villagers, stores gold', desc: 'Trains Villagers and stores gold. +20 population.' },
+  core: { hot: 'L', what: 'Trains Villagers, stores gold', desc: 'Trains Villagers and stores gold. +20 population. A new base: build it by a gold mine.' },
   depot: { hot: 'W', what: 'Supplies +8 population', desc: '+8 population.' },
   // (the Market: its verb, `verb` and `doing`, for the panel and the guide)
   extractor: { hot: 'X', what: 'Earns gold, no workers', verb: 'earns', doing: 'Earning', desc: 'Earns gold by itself, with no workers. One per Castle. Researches Trade, for more gold.' },
@@ -71,13 +71,13 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there.` },
+  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there. A new base: build it by a gold mine.` },
   // (the Wind turbine, the Expedition's Market: its verb and `doing`, as the Market's)
-  spire: { hot: 'S', what: 'Generates energy, no workers', verb: 'generates', doing: 'Generating', desc: `Generates energy over time, with no workers. Up to ${D.buildings.spire.perHq} per Data center.` },
+  spire: { hot: 'S', what: 'Generates energy, no workers', verb: 'generates', doing: 'Generating', desc: `Generates energy over time, with no workers. Each Data center's computers run up to ${D.buildings.spire.perHq}.` },
   substation: { hot: 'W', what: `Expands the grid: +${D.buildings.substation.supply}`, desc: `Expands the grid: more can run at once. +${D.buildings.substation.supply} grid.` },
-  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Prints gold coins from energy to hire locals: Sellswords, and Bruisers once a Lab stands. Build as many as you like.' },
+  siphon: { hot: 'I', what: 'Hires Sellswords, Bruisers', desc: 'Locals sign on here for the Expedition\'s pay. Hires Sellswords, and Bruisers once a Lab stands.' },
   kiln: { hot: 'C', what: 'Builds Buggies and Drones', desc: 'Builds Buggies, and Drones once a Lab stands.' },
-  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons and Grid efficiency. Unlocks Drones, Bruisers and the Uplink.' },
+  loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons and Energy efficiency. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
   uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles, and move faster there. Unlocks the Portal.` },
   // (the Portal teleports what it makes: `training`, its word for Training in the panel)
@@ -86,7 +86,7 @@ const BLDG_TEXT = {
 const UPGRADE_TEXT = { weapons: { hot: 'W' }, armor: { hot: 'L', desc: '+1 armor per level for all units.' }, shields: { hot: 'H', desc: 'Shields soak 1 more damage of every hit per level.' },
   afterburners: { hot: 'T' }, entrenching: { hot: 'S' },
   drills: { hot: 'D', desc: `Bots mine more per trip: ${D.consts.drill_load[1]} more, ${D.consts.drill_load[2]} at level 2.` },
-  gridEfficiency: { hot: 'G', desc: `Machines draw less grid: about ${Math.round((1 - D.consts.grid_use[1]) * 100)}% less per level, each rounded to whole grid.` },
+  energyEfficiency: { hot: 'G', desc: `Machines cost ${Math.round((1 - D.consts.energy_cost[1]) * 100)}% less energy per level.` },
   trade: { hot: 'T', desc: `Every Market pays more gold: ${Math.round((D.consts.trade_rate[1] - 1) * 100)}% more, then ${Math.round((D.consts.trade_rate[2] - 1) * 100)}% more.` } };
 
 const merge = (data, text) => Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { ...v, ...text[k] }]));
@@ -95,17 +95,21 @@ export const UNITS = merge(D.units, UNIT_TEXT);
 export const BUILDINGS = merge(D.buildings, BLDG_TEXT);
 // "Needs a X." comes from the tables, so it can never name the wrong building.
 for (const d of [...Object.values(UNITS), ...Object.values(BUILDINGS)]) if (d.req) { const n = D.buildings[d.req].name; d.desc += ` Needs ${/^[AEIOU]/.test(n) ? 'an' : 'a'} ${n}.`; }
-// (a building that draws grid while it stands says so, from the tables)
-for (const d of Object.values(BUILDINGS)) if (d.uses) d.desc += ` Draws ${d.uses} grid while it stands.`;
 /** Extra damage per Weapons level, by unit or building type. */
 export const UP_DMG = Object.fromEntries([...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon?.upDmg).map(([k, d]) => [k, d.weapon.upDmg]));
 /** Team-wide upgrades; per level: cost [gold, 0], seconds. */
 export const UPGRADES = merge(D.upgrades, UPGRADE_TEXT);
 /** A team's levels of every upgrade with this effect ('weapons', 'armor'), added up (`levels`: G.upgrades[team]). */
 export const effectLevel = (levels, effect) => Object.entries(UPGRADES).reduce((n, [k, u]) => n + (u.effect === effect ? levels?.[k] || 0 : 0), 0);
-/** The places a unit of type `t` takes for a team with upgrade levels `levels` (G.upgrades[team]): its supply, a
- *  machine's (any unit but a living one) less by Grid efficiency, rounded (the sim's `World::takes`). */
-export const takes = (levels, t) => { const d = UNITS[t], l = Math.min(effectLevel(levels, 'grid'), 2); return l && !d.bio ? Math.round(d.supply * D.consts.grid_use[l]) : d.supply; };
+/** The places a unit of type `t` takes: its supply, population or grid (the sim's `World::takes`). */
+export const takes = (t) => UNITS[t].supply;
+/** What a unit of type `t` costs a team with upgrade levels `levels` (G.upgrades[team]): its cost, a machine's (any
+ *  unit but a living one) less by Energy efficiency, rounded to whole energy (the sim's `World::unit_cost`; Math.round
+ *  is jsmath's round). */
+export const unitCost = (levels, t) => {
+  const d = UNITS[t], l = Math.min(effectLevel(levels, 'energy'), 2);
+  return l && !d.bio ? d.cost.map(c => Math.round(c * D.consts.energy_cost[l])) : d.cost;
+};
 /** The playable sides: headquarters, worker and the Build list's basic and advanced pages. */
 export const FACTIONS = D.factions;
 /** A side's own kinds (`f`: a FACTIONS entry): its buildings and the units they train. */

@@ -48,7 +48,28 @@ impl World {
                 }
             }
         }
+        // A headquarters keeps `HQ_SPACING` from the seat's own others, standing or going up (Stelian, Nov 14: no stacked
+        // headquarters multiplying the per-headquarters caps; an ally's do not count, a destroyed one is gone).
+        if d.hq && self.near_own_hq(team, kind, tx, ty) {
+            return Some(Refusal::NearBase);
+        }
         None
+    }
+
+    /// Whether a headquarters of `kind` at (tx, ty) would stand within `HQ_SPACING` tiles (center to center) of one of
+    /// `team`'s own headquarters, standing or going up.
+    pub fn near_own_hq(&self, team: u8, kind: BldgKind, tx: i32, ty: i32) -> bool {
+        let d = kind.def();
+        let (cx, cy) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
+        self.bldgs.iter().any(|b| {
+            let bd = b.kind.def();
+            b.team == team
+                && bd.hq
+                && jsmath::hypot(
+                    b.tx as f64 + bd.w as f64 / 2.0 - cx,
+                    b.ty as f64 + bd.h as f64 / 2.0 - cy,
+                ) < HQ_SPACING
+        })
     }
 
     /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
@@ -138,14 +159,15 @@ impl World {
         if qlen >= crate::data::QUEUE_MAX {
             return Err("Queue is full".into());
         }
-        if !self.can_afford(team, d.cost) {
+        let cost = self.unit_cost(team, kind);
+        if !self.can_afford(team, cost) {
             return Err(self.factions[team as usize].not_enough());
         }
         let [used, cap] = self.sup(team);
         if used + self.takes(team, kind) > cap {
             return Err(self.sup_full(team));
         }
-        self.pay(team, d.cost, -1);
+        self.pay(team, cost, -1);
         self.bm(bid).unwrap().queue.push(kind);
         self.recalc_supply(team);
         Ok(())
@@ -175,7 +197,7 @@ impl World {
             b.prog = 0.0;
         }
         let team = b.team;
-        self.pay(team, t.def().cost, 1);
+        self.pay(team, self.unit_cost(team, t), 1);
         self.recalc_supply(team);
     }
 
@@ -434,13 +456,6 @@ impl World {
         !kind.def().single || !self.bldgs.iter().any(|b| b.team == team && b.kind == kind)
     }
 
-    /// Whether `team` has the grid `kind` draws while it stands (`BldgDef::uses`), counted from placement; always, for
-    /// a kind that draws none (a seat over its cap, a lost building's, still builds its Cottage or Substation).
-    pub fn grid_room(&self, team: u8, kind: BldgKind) -> bool {
-        let uses = kind.def().uses;
-        uses <= 0 || self.room(team) >= uses
-    }
-
     /// Cancel an unfinished building: it is removed and 75% of its cost comes back.
     pub fn cancel_construction(&mut self, bid: Id) -> bool {
         let Some(i) = self.bi(bid).filter(|&i| !self.bldgs[i].done) else {
@@ -486,7 +501,11 @@ impl World {
             let hq = self.factions[team as usize].hq.def().name;
             return Err(match d.per_hq {
                 1 => format!("One {} per {hq}", d.name),
-                n => format!("At most {n} {}s per {hq}", d.name),
+                // (the Wind turbine: what is reached, never a hint to build another Data center; Stelian, Nov 14)
+                n => format!(
+                    "Maximum of {n} {}s per {hq} reached.",
+                    d.label().to_lowercase()
+                ),
             });
         }
         if !self.single_room(team, kind) {
@@ -494,9 +513,6 @@ impl World {
         }
         if !self.can_afford(team, d.cost) {
             return Err(self.factions[team as usize].not_enough());
-        }
-        if !self.grid_room(team, kind) {
-            return Err(self.sup_full(team));
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);

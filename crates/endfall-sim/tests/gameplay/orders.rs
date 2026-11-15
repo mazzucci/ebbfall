@@ -36,7 +36,13 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
             break;
         };
         let k = todo.remove(at);
-        built.push(build(&mut w, k, workers[i % workers.len()], 150));
+        if k.def().hq {
+            // (explored round it: a second headquarters goes up `HQ_SPACING` out, past what the start has seen)
+            for e in &mut w.explored {
+                e.fill(1);
+            }
+        }
+        built.push(build_clear(&mut w, k, workers[i % workers.len()]));
     }
     let wants: Vec<(Id, UnitKind)> = UNIT_KINDS
         .into_iter()
@@ -66,6 +72,45 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
             f.key
         );
     }
+}
+
+/// Place `kind` for the player round its main with a free tile all round it (the sites of a whole Build list packed
+/// against each other can wall a builder out: the Expedition's Uplink, seed 1, once its second Data center went up
+/// farther out), and run until it stands.
+fn build_clear(w: &mut World, kind: BldgKind, builder: Id) -> Id {
+    let (cx, cy) = core(w, PLAYER);
+    let d = kind.def();
+    let clear = |w: &World, tx: i32, ty: i32| {
+        (ty - 1..=ty + d.h).all(|y| {
+            (tx - 1..=tx + d.w).all(|x| {
+                w.map.in_map(x, y)
+                    && w.map.rock[w.map.idx(x, y)] == 0
+                    && w.map.occ[w.map.idx(x, y)] == 0
+            })
+        })
+    };
+    let (tx, ty) = (3..30)
+        .flat_map(|r| {
+            (0..24).map(move |a| {
+                let a = a as f64 / 24.0 * std::f64::consts::TAU;
+                (
+                    (cx as f64 + 2.0 + a.cos() * r as f64 - 1.0).round() as i32,
+                    (cy as f64 + 2.0 + a.sin() * r as f64 - 1.0).round() as i32,
+                )
+            })
+        })
+        .find(|&(x, y)| w.can_place(kind, x, y, PLAYER) && clear(w, x, y))
+        .unwrap_or_else(|| panic!("no clear spot for {kind:?}"));
+    let b = w
+        .place_building(PLAYER, kind, tx, ty, Some(builder))
+        .unwrap_or_else(|e| panic!("{kind:?}: {e}"));
+    for _ in 0..150 * TPS {
+        w.step();
+        if w.bldg(b).is_some_and(|b| b.done) {
+            return b;
+        }
+    }
+    panic!("{kind:?} not finished after 150 s");
 }
 
 #[test]

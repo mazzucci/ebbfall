@@ -230,13 +230,13 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
   // The Build list: the basic page is all there from the start; no Advanced before the Recruiting post stands.
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'esc@5'], 'the Recruiting post first, the Sentry mast basic (the arc); no Advanced yet');
+  assert.deepEqual(slots(), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'esc@5'], 'the Data center first (a new base), the Sentry mast basic (the arc); no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
   // A Recruiting post up: Advanced comes right after the three open buildings (slot 3, the second row's left), Back stays
   // in the bottom-right slot, on both pages; the advanced page packs from slot 0.
   raise('siphon');
   ui.sel = [E.G.units.find(u => u.id === lumen.id)]; ui.mode = 'build';
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'Advanced packed into slot 4, Back in the corner');
+  assert.deepEqual(slots(), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'build2@4', 'esc@5'], 'Advanced packed into slot 4, Back in the corner');
   ui.mode = 'build2';
   const adv = slots();
   assert.equal(adv.at(-1), 'build1@5', `Back in the corner on the advanced page too: ${adv}`);
@@ -282,14 +282,14 @@ test('a building opened mid-game is appended to its Build page: the shown ones k
   const lumen = () => E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
   raise('siphon');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
+  assert.deepEqual(page('build'), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
   // The Uplink opens with the Lab (one dish, no satellite: Stelian, Nov 13), appended after the shown ones.
   assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'build1@5'], 'the advanced page before the Lab (the Wind turbine with the Recruiting post)');
   raise('loom');
   assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'b_uplink@3', 'build1@5'], 'the Uplink appended, the others where they were');
   raise('uplink');
   assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'b_uplink@3', 'b_eclipse@4', 'build1@5'], 'then the Portal, appended');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_substation@1', 'b_conflux@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  assert.deepEqual(page('build'), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
   // A new game forgets them.
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   raise('siphon');
@@ -301,13 +301,13 @@ test('the Kingdom\'s Build list: the Watchtower on the basic page, before Advanc
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const villager = () => E.G.units.find(u => u.team === E.G.me && u.type === 'harvester');
   const page = (mode) => { ui.sel = [villager()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
-  assert.deepEqual(page('build'), ['b_barracks@0', 'b_depot@1', 'b_core@2', 'esc@5'], 'from the start: no Watchtower nor Advanced before a Barracks');
+  assert.deepEqual(page('build'), ['b_core@0', 'b_barracks@1', 'b_depot@2', 'esc@5'], 'from the start: no Watchtower nor Advanced before a Barracks');
   raise('barracks');
-  assert.deepEqual(page('build'), ['b_barracks@0', 'b_depot@1', 'b_core@2', 'b_turret@3', 'build2@4', 'esc@5'], 'a Barracks up: the Watchtower, then Advanced, Back in the corner');
+  assert.deepEqual(page('build'), ['b_core@0', 'b_barracks@1', 'b_depot@2', 'b_turret@3', 'build2@4', 'esc@5'], 'a Barracks up: the Watchtower, then Advanced, Back in the corner');
   assert.deepEqual(page('build2'), ['b_forge@0', 'b_factory@1', 'b_extractor@2', 'build1@5'], 'the advanced page, no Watchtower');
   raise('forge');
   assert.deepEqual(page('build2'), ['b_forge@0', 'b_factory@1', 'b_extractor@2', 'b_airfield@3', 'build1@5'], 'the Stables appended');
-  assert.deepEqual(page('build'), ['b_barracks@0', 'b_depot@1', 'b_core@2', 'b_turret@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  assert.deepEqual(page('build'), ['b_core@0', 'b_barracks@1', 'b_depot@2', 'b_turret@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
   // Both peoples' pages: the defense on the basic one, and the basic page fits its two rows with Advanced and Back.
   for (const f of Object.values(E.FACTIONS)) {
     const { basic, advanced } = C.buildPages(f);
@@ -341,7 +341,7 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
         kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_gridEfficiency@1'],
+        loom: ['r_weapons@0', 'r_energyEfficiency@1'],
         eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],

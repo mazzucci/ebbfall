@@ -9,10 +9,11 @@ pub const HUMANS: Faction = Faction {
     name: "Kingdom",
     hq: BldgKind::Core,
     worker: UnitKind::Harvester,
-    // The basic page holds what can be built from the start (the Core too), the Crew Hall first; the advanced page
+    // The basic page holds what can be built from the start, the Castle first (a new base, Stelian, Nov 14), then the
+    // Barracks; the advanced page
     // what needs the Crew Hall (the Turret and the Excavator too), so it appears once the Crew Hall stands (owner,
     // 2026-11-03; the Excavator moved there with its requirement, the PM, 2026-11-06).
-    build_basic: &[BldgKind::Barracks, BldgKind::Depot, BldgKind::Core],
+    build_basic: &[BldgKind::Core, BldgKind::Barracks, BldgKind::Depot],
     build_advanced: &[
         BldgKind::Forge,
         BldgKind::Airfield,

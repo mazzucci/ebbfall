@@ -335,6 +335,11 @@ src/client/           everything that touches the browser
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
                       (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`, look.js `HIT_LIFT`), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
+                      construction you can read (construct.js): a Kingdom site raw (one shared color filter), its
+                      slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site a cyan
+                      hologram, its build bar in the hp bar's place, the half-second done moment (`BldgObj.update`,
+                      only for a site watched finish on screen), a builder's strikes (`UnitObj.work`); `sitesShown`
+                      for the tests;
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`), each rock region's
@@ -439,6 +444,11 @@ src/client/           everything that touches the browser
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance), `unionArcs` (the outline
                       of their union) and `nearestRim` (the outline's stretch nearest a point: the leash cue)
                       (test/range.test.js)
+  construct.js        construction you can read, pure: the Kingdom's raw look (`RAW`, `rawStage`, `rawMatrix`), the
+                      Expedition's hologram (`HOLO`, `holoAlpha`, `budAlpha`), the build bar, the done moment's curves
+                      (`DONE`, `doneAt`, `donePuffs`), a site's damage against its growing hp (`siteHurt`), a builder's
+                      strikes (`WORK`, `strikeCount`, `strikeAt`, `atSite`), the cards' and the paused toast's words
+                      (`builderLine`, `siteLine`, `pausedToast`, once a site a minute) (test/construct.test.js)
   look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on
                       the turned models; puffs only while the building trains or researches, `chimneyActive`) and
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
@@ -493,6 +503,9 @@ test/art.test.js      the atlas against the game: every unit, building and turre
 test/strike.test.js   the melee units' strike poses (look.js `strikePose`): the strike just after a blow, the wind-up
                       in reach between blows (shoved or not), the walk out of reach; reach as the sim's; both frames in every facing with
                       their masks, out of the walk animation
+test/construct.test.js construction you can read (construct.js): the designer's numbers, the 7-of-8 reveal, the raw
+                      matrix (saturation, brightness kept, warm), the hologram's cap and shimmer, the done moment's
+                      curves, a site's damage, a builder's strikes, the cards' and the toast's words, the knock
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
@@ -502,6 +515,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
+                      construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
+                      paused toast once a minute, the done moment),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a

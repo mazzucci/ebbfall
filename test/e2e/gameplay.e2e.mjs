@@ -1975,8 +1975,9 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     assert.ok(out, 'open, explored ground past coverage');
     const cx = (out.tx + 1) * T, cy = (out.ty + 1) * T;
     assert.ok(Math.hypot(cx - hq.x, cy - hq.y) > reach * T, 'that spot is out of coverage');
-    // Armed through the UI: coverage is drawn while placing.
-    await d.clickEntity(w.id);
+    // Armed through the UI: coverage is drawn while placing. (The Bot clicked until it is the selection: by its mine's
+    // side a click can take the mine.)
+    for (let i = 0; i < 10 && !(await d.selection()).some(e => e.id === w.id); i++) { await d.clickEntity(w.id); await d.skip(0.5); }
     await d.pressCard('Build'); await d.pressCard('Substation');
     await d.centerOn(cx, cy);
     const [x, y] = await d.screen(cx, cy);

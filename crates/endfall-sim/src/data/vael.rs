@@ -278,7 +278,9 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     key: "conflux",
     name: "Data center",
     short: "Data center",
-    cost: [400, 0],
+    // (400 before Nov 15, as the Castle: the counterweight to coverage placement and the Kingdom's reserve rule, Medium's
+    // Kingdom against the Expedition back in band on 96 and 128)
+    cost: [300, 0],
     w: 4,
     h: 4,
     hp: 1400.0,

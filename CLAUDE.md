@@ -1,7 +1,7 @@
 # Ebbfall: notes for coding agents
 
-A browser real-time strategy game, a classic base-building RTS (one resource, a population cap (the Expedition: Power
-and a maximum of hired places instead), two peoples), built as
+A browser real-time strategy game, a classic base-building RTS (one resource, gold, which the Expedition calls
+energy; a population cap, the Expedition's the grid instead; two peoples), built as
 a learning-and-fun project. The simulation is Rust compiled to WASM (`crates/endfall-sim`); the client is plain
 JavaScript ES modules, Vite and PixiJS 8 (WebGL) over code-generated sprite sheets (pre-rendered 3D units and
 buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer
@@ -111,7 +111,9 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
   whole starts only and the free starts go between teams, `map::team_starts`, so any split of consecutive seats starts
   side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`; in the
   balance lab only, a plan: a whole `Diff` per seat, `World::set_ai_plans`, never from JS or the network and not
-  hashed; every AI decision reads its numbers through `World::tuning`, the plan or else its level's),
+  hashed; every AI decision reads its numbers through `World::tuning`, the plan, else its level's as its drawn style plays it;
+  each AI seat draws its style, hidden, from the seeded RNG at its first turn; `World::set_ai_styles` forces one, lab and
+  tests only, never from JS or the network),
   and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
   an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
   decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one

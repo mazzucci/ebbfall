@@ -709,7 +709,7 @@ fn a_map_keeps_all_its_starts_with_fewer_seats() {
 }
 
 #[test]
-fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
+fn units_on_a_map_of_many_starts_face_its_centre_and_step_out_south() {
     // (two starts: seat 0 faces east and steps out south, the rest west and north, as always: the goldens pin it)
     let mut w = World::with_size(
         41,
@@ -730,7 +730,7 @@ fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
             (u.face - (cy - oy).atan2(cx - ox)).abs() < 1e-9,
             "seat {s}: a harvester faces the centre"
         );
-        // A Garrison by the Core: a Trooper trained there with no rally point steps out towards the center.
+        // A Garrison by the Core: a Trooper trained there with no rally point steps out on its south side.
         let at = (-12..=12)
             .flat_map(|dy| (-12..=12).map(move |dx| (bx + dx, by + dy)))
             .filter(|&(x, y)| w.can_place(BldgKind::Barracks, x, y, s))
@@ -749,12 +749,131 @@ fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
             .iter()
             .find(|u| u.team == s && u.kind == UnitKind::Trooper)
             .unwrap();
-        let (dx, dy) = (t.x - b.x, t.y - b.y);
         assert!(
-            dx * (cx - b.x) + dy * (cy - b.y) > 0.0,
-            "seat {s}: the Trooper stepped out on the centre's side"
+            t.y > ((b.ty + b.h) as f64) * TILE,
+            "seat {s}: the Trooper stepped out south of its Garrison (at {}, its bottom edge {})",
+            t.y,
+            (b.ty + b.h) as f64 * TILE
         );
     }
+}
+
+/// On a 96x96 map of four starts, both peoples' buildings put a new unit out on their front, the south side facing
+/// the camera, whether the base lies in the south half (where the centre is to the north) or the north half; with a
+/// rally point to the north it still steps out south, then walks there.
+#[test]
+fn a_new_unit_steps_out_on_its_buildings_south_side_on_a_map_of_four_starts() {
+    let mut w = World::with_size(
+        7,
+        1,
+        MapKind::Standard,
+        MapSize::square(96),
+        0,
+        &[&HUMANS, &VAEL, &HUMANS, &VAEL],
+    );
+    w.set_ai_seats([false; 4]);
+    // (the first workers stop where they stand, so the spots they hold stay put)
+    for u in w.units.iter().map(|u| u.id).collect::<Vec<_>>() {
+        w.stop_unit(u);
+    }
+    let (cx, cy) = (w.map.ww() / 2.0, w.map.wh() / 2.0);
+    let hq = |w: &World, s: u8| {
+        w.bldgs
+            .iter()
+            .find(|b| b.team == s && b.kind.def().hq)
+            .unwrap()
+            .id
+    };
+    let (mut south, mut north) = (0, 0);
+    for s in 0..4u8 {
+        let b = w.bldg(hq(&w, s)).unwrap().clone();
+        if b.y > cy {
+            south += 1;
+        } else {
+            north += 1;
+        }
+        w.res[s as usize] = [500, 0];
+        let worker = w.factions[s as usize].worker;
+        w.queue_unit(b.id, worker).unwrap();
+    }
+    assert!(
+        south > 0 && north > 0,
+        "starts in both halves ({south} south, {north} north)"
+    );
+    let before: Vec<Id> = w.units.iter().map(|u| u.id).collect();
+    run(&mut w, 30);
+    for s in 0..4u8 {
+        let b = w.bldg(hq(&w, s)).unwrap();
+        let fresh: Vec<&Unit> = w
+            .units
+            .iter()
+            .filter(|u| u.team == s && !before.contains(&u.id))
+            .collect();
+        assert_eq!(fresh.len(), 1, "seat {s}: one new worker");
+        let edge = (b.ty + b.h) as f64 * TILE;
+        assert!(
+            fresh[0].y > edge,
+            "seat {s} ({} half): the new worker stepped out south of its headquarters ({} > {edge})",
+            if b.y > cy { "south" } else { "north" },
+            fresh[0].y
+        );
+        // Of the open tiles just south of it where no other unit stands, the one nearest the centre (it has not
+        // moved: no orders).
+        let foot = w.foot(fresh[0].kind);
+        let best = (b.tx - 1..=b.tx + b.w)
+            .filter(|&x| w.map.passable(foot, x, b.ty + b.h))
+            .map(|x| (x as f64 * TILE + 16.0, (b.ty + b.h) as f64 * TILE + 16.0))
+            .filter(|p| {
+                !w.units
+                    .iter()
+                    .any(|u| u.id != fresh[0].id && (u.x - p.0).hypot(u.y - p.1) < 22.0)
+            })
+            .min_by(|p, q| {
+                let d = |p: &(f64, f64)| (p.0 - cx).hypot(p.1 - cy);
+                d(p).partial_cmp(&d(q)).unwrap()
+            })
+            .expect("an open tile south of the headquarters");
+        assert_eq!(
+            (fresh[0].x, fresh[0].y),
+            best,
+            "seat {s}: the new worker stepped out on the south tile nearest the centre"
+        );
+    }
+    // A rally point far to the north: the unit still steps out south, then walks to it.
+    let s = (0..4u8)
+        .find(|&s| w.bldg(hq(&w, s)).unwrap().y > cy)
+        .unwrap();
+    let b = w.bldg(hq(&w, s)).unwrap().clone();
+    let (rx, ry) = (b.x, b.y - 8.0 * TILE);
+    w.set_rally(b.id, rx, ry, None);
+    let worker = w.factions[s as usize].worker;
+    w.queue_unit(b.id, worker).unwrap();
+    let before: Vec<Id> = w.units.iter().map(|u| u.id).collect();
+    let mut seen = None;
+    for _ in 0..60 * TPS {
+        w.step();
+        if let Some(u) = w
+            .units
+            .iter()
+            .find(|u| u.team == s && !before.contains(&u.id))
+        {
+            seen = Some(u.id);
+            assert!(
+                u.y > (b.ty + b.h) as f64 * TILE,
+                "seat {s}: with a rally to the north the new worker still steps out south"
+            );
+            break;
+        }
+    }
+    let u = seen.expect("the worker was trained");
+    run(&mut w, 30);
+    let u = w.unit(u).unwrap();
+    assert!(
+        (u.x - rx).hypot(u.y - ry) < 2.0 * TILE,
+        "seat {s}: the worker walked to its rally point ({}, {})",
+        u.x,
+        u.y
+    );
 }
 
 #[test]

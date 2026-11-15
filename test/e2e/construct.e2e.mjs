@@ -114,6 +114,9 @@ test('an Expedition site is a cold cyan hologram in a bud; its Bot\'s card says 
     const b = (await d.state()).bldgs.find(x => x.id === id);
     await d.centerOn(b.x, b.y);
     await d.page.waitForTimeout(300);
+    // (frames drawn since it came into view: what an earlier frame drew of it, at less progress, is no reading)
+    await d.page.waitForFunction((id) => endfall.sites().bldgs.some(o => o.id === id), id, { timeout: 10000 });
+    await d.eval(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     const o = await drawn(d, id);
     assert.equal(o.look, 'holo');
     assert.equal(o.tint, HOLO.tint, 'cold cyan');

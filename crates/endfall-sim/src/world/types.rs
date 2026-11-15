@@ -341,12 +341,14 @@ pub enum Event {
     },
     /// Something struck at (x, y): `big` a shell; `shot` the projectile that landed (its kind, the shooter's kind as
     /// `Proj::by_slot` has it, usize::MAX for a building's, and its seat), for the client to draw each shot's impact
-    /// its own way; None for a repairer's welding sparks. Presentation only: no event enters the state hash.
+    /// its own way; None for a repairer's welding sparks. `air`: the struck unit's kind when it flies (the client
+    /// draws the impact up on its body, not at its ground point). Presentation only: no event enters the state hash.
     Hit {
         x: f64,
         y: f64,
         big: bool,
         shot: Option<(ProjKind, usize, u8)>,
+        air: Option<UnitKind>,
     },
     /// A shot: where, the weapon ("bolt", "shell", "missile", "melee") and which seats see it (bit `t` for seat `t`:
     /// their own shots, or the shooter in their sight).

@@ -765,9 +765,16 @@ fn event_json(e: &Event) -> String {
             .num("tx", tx)
             .num("ty", ty)
             .num("mend", mend),
-        Event::Hit { x, y, big, shot } => {
+        Event::Hit {
+            x,
+            y,
+            big,
+            shot,
+            air,
+        } => {
             // (the shot: its kind 0 bolt, 1 shell, 2 missile, -1 none; `by` the shooter's unit kind, its index in
-            // `unitKinds`, -1 for a building's or none; `team` its seat, -1 for none)
+            // `unitKinds`, -1 for a building's or none; `team` its seat, -1 for none; `air` the struck flyer's kind,
+            // its index in `unitKinds`, -1 when what was struck is on the ground)
             let (kind, by, team) = match shot {
                 Some((k, slot, t)) => (
                     match k {
@@ -791,6 +798,7 @@ fn event_json(e: &Event) -> String {
                 .num("kind", kind)
                 .num("by", by)
                 .num("team", team)
+                .num("air", air.map_or(-1.0, |k| k.index() as f64))
         }
         Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
         Event::Cast { x, y, ability, .. } => {

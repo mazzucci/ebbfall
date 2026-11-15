@@ -627,6 +627,7 @@ impl World {
                 } else {
                     Vec::new()
                 };
+                let air = self.unit(p.target).map(|u| u.kind).filter(|k| k.def().air); // (before the blow: it may kill)
                 self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
                 self.harpoon(p.target, p.slow); // (the target only: a harpoon has no splash)
@@ -641,6 +642,7 @@ impl World {
                     y: tp.1,
                     big: p.kind == ProjKind::Shell,
                     shot: Some((p.kind, p.by_slot, p.team)),
+                    air,
                 });
                 self.projs.remove(i);
             } else {

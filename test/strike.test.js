@@ -4,12 +4,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, SLOW, slowTint } from '../src/client/look.js';
+import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, DEATH_DUST, HIT_DUST, AIR_HIT_LIFT, HIT_LIFT, hitLift, SLOW, slowK, slowTint, flashLayer } from '../src/client/look.js';
 import { fx, burst, partSize, updateFx } from '../src/client/fx.js';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
+import { decodePNG } from '../tools/art/png.js';
 
-const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
-for (const p of index.pages) Object.assign(frames, JSON.parse(readFileSync(new URL(p, art))).frames);
+const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {}, pageOf = {};
+for (const p of index.pages) { const j = JSON.parse(readFileSync(new URL(p, art))); Object.assign(frames, j.frames); for (const n in j.frames) pageOf[n] = j.meta.image; }
+/** Whether frame `name`'s pixel (x, y) (in the frame, atlas px) is opaque. */
+function opaqueIn(name) {
+  const { x: fx0, y: fy0, w } = frames[name].frame, img = decodePNG(readFileSync(new URL(pageOf[name], art)));
+  return (x, y) => x >= 0 && y >= 0 && x < w && img.data[((fy0 + y) * img.w + fx0 + x) * 4 + 3] > 0;
+}
 
 /** A melee unit of `type` at (100, 100) with cooldown `cd` and a target (a unit `gap` px from its edge, or none). */
 function fighter(type, cd, gap = 0) {
@@ -94,12 +100,50 @@ test('a fallen Balloon puffs as canvas up where it flew; fighters turn to dust; 
   assert.ok(AIR_PUFF.vy > 0 && AIR_PUFF.lift > 0, 'up where it flew, sinking');
 });
 
-test('slowed: the body tinted cold gray-blue, back to white over the last 1.5 s', () => {
+test('dust is the pale round trail tinted earth, never the gray puff (its dark tone tinted reads as a stone)', () => {
+  for (const d of [DEATH_DUST, HIT_DUST]) { assert.equal(d.anim, 'trail'); assert.equal(d.tint, DUST); }
+  assert.deepEqual([DEATH_DUST.scale, DEATH_DUST.life, DEATH_DUST.vy, DEATH_DUST.fade, DEATH_DUST.dy], [2.0, 0.7, -10, 0.8, -4], 'a fighter\'s fall');
+  assert.deepEqual(MELEE_PUFF.knight, { scale: 1.5, fade: 0.85, life: 0.6, drift: 28 }, 'the Knight\'s lance: more, flung farther');
+  assert.deepEqual(MELEE_PUFF.bruiser, { scale: 1.0, fade: 0.7, life: 0.5, drift: 12 }, 'the Bruiser\'s hammer');
+  // (the gray puff stays for chimneys, burning and muzzle smoke, untinted)
+  const src = readFileSync(new URL('../src/client/gl/render.js', import.meta.url), 'utf8');
+  for (const line of src.split('\n').filter(l => /addEffect\('puff'/.test(l))) assert.ok(!/tint/.test(line.slice(line.indexOf("addEffect('puff'"))), `an untinted puff: ${line.trim()}`);
+});
+
+test('the glint\'s first frame: a heart 2 game px across (4 atlas px), its arms tapering from 4 px at the root to 2', () => {
+  const f = frames.glint_0.frame, o = opaqueIn('glint_0'), c = f.w / 2; // (center between pixels c - 1 and c)
+  for (let d = -2; d < 2; d++) assert.ok(o(c + d, c - 1) && o(c + d, c) && o(c - 1, c + d) && o(c, c + d), 'a heart 4 px across');
+  const width = (r) => [-3, -2, -1, 0, 1, 2].filter(d => o(c + d, c - 1 - r)).length; // (across the north arm, r px above the heart's edge)
+  assert.equal(width(2), 4, 'the arm\'s root 4 px wide');
+  assert.equal(width(4), 2, 'its tip 2 px wide');
+  assert.ok(width(5) <= 2);
+});
+
+test('a shot on a flyer plays up on its body: on a Balloon\'s basket, on anything else as high as its hp bar\'s lift', () => {
+  assert.equal(AIR_HIT_LIFT, 0.6);
+  assert.deepEqual(HIT_LIFT, { observer: 0.3 });
+  assert.equal(hitLift('observer'), 0.3, 'the Balloon: its basket and the envelope\'s dark lower band');
+  assert.equal(hitLift('shrike'), 0.6, 'the Drone');
+  for (const k of Object.keys(HIT_LIFT)) assert.ok(UNITS[k]?.air, `${k} flies`);
+});
+
+test('the flash layer: a hit\'s white, else while slowed a cold blue, fading over the last 1.5 s; hidden otherwise', () => {
+  assert.deepEqual(flashLayer(0, 0), { visible: false, tint: SLOW.glow, alpha: 0 });
+  assert.deepEqual(flashLayer(0.1, 0), { visible: true, tint: 0xffffff, alpha: 0.6 }, 'hit');
+  assert.deepEqual(flashLayer(0.1, 3), { visible: true, tint: 0xffffff, alpha: 0.6 }, 'hit while slowed: the hit shows');
+  assert.deepEqual(flashLayer(0, 3), { visible: true, tint: 0x3f7fc0, alpha: SLOW.glowAlpha }, 'slowed');
+  assert.deepEqual(flashLayer(0, 0.75), { visible: true, tint: 0x3f7fc0, alpha: SLOW.glowAlpha * 0.5 }, 'wearing off');
+  assert.equal(flashLayer(0, 0.0001).visible, true, 'shown while any slow lasts');
+});
+
+test('slowed: the body tinted cold gray-blue under a cold blue glow, both gone over the last 1.5 s', () => {
   assert.equal(slowTint(0), 0xffffff, 'not slowed');
   assert.equal(slowTint(-0.1), 0xffffff);
   assert.equal(slowTint(undefined), 0xffffff);
   assert.equal(slowTint(3), SLOW.tint, 'freshly hit');
-  assert.equal(slowTint(1.5), 0xbcc8d4, 'still full at 1.5 s left');
+  assert.equal(slowTint(1.5), 0xa8bccc, 'still full at 1.5 s left');
+  assert.deepEqual([SLOW.glow, SLOW.glowAlpha], [0x3f7fc0, 0.45], 'the glow: a cold blue, added');
+  assert.deepEqual([slowK(0), slowK(undefined), slowK(3), slowK(1.5), slowK(0.75)], [0, 0, 1, 1, 0.5], 'how much shows');
   const ch = (c, s) => (c >> s) & 255, half = slowTint(0.75), end = slowTint(0.01);
   for (const s of [16, 8, 0]) {
     assert.equal(ch(half, s), Math.round((ch(SLOW.tint, s) + 255) / 2), 'half way back at 0.75 s left');

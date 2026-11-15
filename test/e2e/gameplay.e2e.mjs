@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3267,13 +3267,14 @@ test('melee units in a fight show their strike poses, and each blow glints on it
         for (let t = 0; t < 150; t++) { const u = unit(kn); if (!u || u.cd > u.d.weapon.cd - 1 / 30 - 1e-6) break; endfall.skip(1 / 30); } // (to the tick of its next blow)
         return new Promise(r => requestAnimationFrame(() => {
           const b = unit(br);
-          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40 && Math.hypot(e.sx - e.x, e.sy - e.y) < 8).map(e => e.anim) }); // (each drawn where it was spawned, give or take its drift)
+          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40 && Math.hypot(e.sx - e.x, e.sy - e.y) < 8).map(e => e.anim + (e.tint === 0xffffff ? '' : ':' + e.tint)) }); // (each drawn where it was spawned, give or take its drift; with its tint)
         }));
       }, [kn, br, pose.toString()]);
     }
     assert.match(seen.pose, /^knight_\d+_strike$/, `the Knight's strike pose on the frame after its blow (${seen.pose})`);
     assert.ok(seen.near.includes('glint'), `a glint of steel on the Bruiser (${seen.near.join(' ')})`);
-    assert.ok(seen.near.includes('puff'), `dust at its feet (${seen.near.join(' ')})`);
+    assert.ok(seen.near.includes(`${HIT_DUST.anim}:${DUST}`), `dust at its feet (${seen.near.join(' ')})`);
+    assert.ok(!seen.near.some(a => a.startsWith('puff')), `the dust no gray puff (${seen.near.join(' ')})`);
     // Between blows, standing in the fight: the wind-up (on guard), never a walk frame frozen mid-stride.
     await d.skip(0.4);
     const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
@@ -3283,7 +3284,7 @@ test('melee units in a fight show their strike poses, and each blow glints on it
   } finally { await d.close(); }
 });
 
-test('an arrow slows its target: its body tinted a cold gray-blue, its team paint untouched, white again as it wears off', async () => {
+test('an arrow slows its target: its body tinted a cold gray-blue under a cold blue glow, its team paint untouched, back to normal as it wears off', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
@@ -3292,11 +3293,22 @@ test('an arrow slows its target: its body tinted a cold gray-blue, its team pain
     const layer = (id) => d.eval((id) => endfall.teamLayers().find(l => l.id === id), id);
     assert.ok(await d.skipUntil((id) => endfall.G.units.find(u => u.id === id)?.slowed > 2.5, kn, { seconds: 15, step: 1 / 30 }), 'an arrow lands on the Knight');
     const slowed = await layer(kn);
-    assert.equal(slowed.bodyTint, 0xbcc8d4, 'its body cold gray-blue');
+    assert.equal(slowed.bodyTint, SLOW.tint, 'its body cold gray-blue');
     assert.equal(slowed.tint, slowed.seat, 'its team paint in its seat\'s color');
+    // (the glow shows between hit flashes: a frame with the slow fresh and no flash; another arrow may land meanwhile)
+    let glow = null;
+    for (let k = 0; k < 6 && !glow; k++) {
+      await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return u?.slowed > 2 && !(u.flash > 0); }, kn, { seconds: 5, step: 1 / 30 });
+      glow = (await layer(kn)).glow;
+    }
+    assert.ok(glow, 'a glow over the slowed Knight');
+    assert.equal(glow.tint, SLOW.glow, 'a cold blue');
+    assert.ok(Math.abs(glow.alpha - SLOW.glowAlpha) < 0.02, `faint (${glow.alpha})`);
     // (the Knight rides the Archer down; then the slow wears off)
     assert.ok(await d.skipUntil((id) => !(endfall.G.units.find(u => u.id === id)?.slowed > 0), kn, { seconds: 20, step: 0.1 }), 'the slow wears off');
-    assert.equal((await layer(kn)).bodyTint, 0xffffff, 'white again');
+    const after = await layer(kn);
+    assert.equal(after.bodyTint, 0xffffff, 'white again');
+    assert.equal(after.glow, null, 'no glow');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -3319,6 +3331,28 @@ test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball
     assert.equal(puff.scale, AIR_PUFF.scale);
     assert.ok(!puffs.some(e => e.y > at[1] - 10), 'no dust off the ground');
     assert.ok(!fx.some(e => e.anim.startsWith('boom')), 'no fireball');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('an arrow that lands on a flyer glints up on its body, not on the ground under it', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 120;
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(1, 'shrike', x + 40, y); endfall.engine.debugSpawn(0, 'lancer', x - 70, y + 10); }, [x, y]);
+    await d.centerOn(x, y);
+    // (tick by tick to an Archer's arrow landing on the Drone, then the frame that draws it)
+    const seen = await d.eval(() => {
+      const hit = () => endfall.G.events.find(e => e.t === 'hit' && e.by === 'lancer');
+      for (let t = 0; t < 30 * 15 && !hit(); t++) endfall.skip(1 / 30);
+      const h = hit(); if (!h) return null;
+      return new Promise(r => requestAnimationFrame(() => r({ hit: { x: h.x, y: h.y, air: h.air }, top: endfall.unitTop('shrike'), glints: endfall.effects().filter(e => e.anim === 'glint' && Math.abs(e.x - h.x) < 1) })));
+    });
+    assert.ok(seen, 'an arrow lands on the Drone');
+    assert.equal(seen.hit.air, 'shrike', 'the hit names the flyer');
+    const up = seen.hit.y - seen.top * hitLift('shrike');
+    assert.ok(seen.glints.some(e => Math.abs(e.y - up) < 1), `a glint up on its body at ${up} (${JSON.stringify(seen.glints)})`);
+    assert.ok(!seen.glints.some(e => Math.abs(e.y - seen.hit.y) < 1), 'none on the ground under it');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

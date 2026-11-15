@@ -1506,7 +1506,7 @@ test('phone: as the Expedition, a Bot stays at its Substation; pulled away, the 
     await d.skip(4);
     assert.equal((await spire()).progress, p, 'no Bot, no progress');
     await d.clickEntity((await spire()).id);
-    assert.match(await d.hudText('#selSub', /Paused/), /^Paused at \d+%: no builder$/, 'the panel says so');
+    assert.match(await d.hudText('#selSub', /Paused/), /^Paused at \d+%$/, 'the panel says so');
     const labels = (await d.card()).map(c => c.label);
     assert.ok(labels.includes('Resume') && !labels.includes('Plant'), `Resume on the card: ${labels}`);
     await d.pressCard('Resume');

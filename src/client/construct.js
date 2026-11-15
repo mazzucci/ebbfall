@@ -9,14 +9,14 @@
  *  or crown is missing until the building stands. */
 export const RAW = { sat: 0.3, warm: [0.035, 0.015, -0.02], stages: 8, cap: 7 };
 /** The Expedition's site: a cold cyan hologram (`tint`), at most `alphaMax` opaque, shimmering at `hz` by ± `shimmer`;
- *  its bud never fainter than `budMin`; no seat paint. */
-export const HOLO = { tint: 0xa0ecff, alphaMax: 0.6, hz: 6, shimmer: 0.05, budMin: 0.5 };
+ *  its bud never fainter than `budMin`; no seat paint. (0xa0ecff at first: gray-teal over grass at 0.6, the review.) */
+export const HOLO = { tint: 0x86f0ff, alphaMax: 0.6, hz: 6, shimmer: 0.05, budMin: 0.5 };
 /** While a site is unfinished its construction bar takes the hp bar's place over it, taller; the hp bar shows only if
  *  the site has taken damage. */
 export const BUILD_BAR = { h: 7, color: 0xf5a524 };
 
 /** The done moment (Stelian: subtle and elegant, not flashy): `life` s in all, then nothing. The body comes into full
- *  color and paint over `color` s; scaffold, bud and foundation fade out over `strip` s; the Kingdom's roof slice over
+ *  color and paint over `color` s; scaffold, bud and foundation fade out over `strip` s, a step ahead of it; the Kingdom's roof slice over
  *  `roof`; the Expedition's working ring over `ring`, its heads over `heads`, its lights from 0 to `glowPeak` x between
  *  `glowUp` s, then back to 1 by `life`. The Kingdom's dust: one small puff per two tiles of width along the front edge
  *  at `puffAt` s. */
@@ -62,7 +62,7 @@ export function doneAt(t, vael = false) {
   const glow = !vael ? color : t < g0 ? 0 : t < g1 ? DONE.glowPeak * (t - g0) / (g1 - g0) : DONE.glowPeak - (DONE.glowPeak - 1) * easeOutCubic(unit((t - g1) / (DONE.life - g1)));
   return {
     color,
-    strip: 1 - easeInQuad(unit(t / DONE.strip)),
+    strip: 1 - easeOutCubic(unit(t / DONE.strip)), // (ahead of the paint: no half-faded plank over the new colors)
     roof: 1 - (1 - unit(t / DONE.roof)) ** 2, // (ease-out)
     ring: 1 - easeInQuad(unit(t / DONE.ring)),
     heads: unit(t / DONE.heads),
@@ -88,14 +88,21 @@ export const siteHurt = (b) => b.hp < siteHp(b) - 1 || (b.maxsh > 0 && b.sh < b.
 export const WORK = { every: 0.55, nudge: 1.5, nudgeFrames: 2, life: 0.2, reach: 14 };
 /** The count of strikes builder `id` has struck by `now` (s, the renderer's clock): a new strike when it goes up. */
 export const strikeCount = (id, now) => Math.floor(now / WORK.every + (id * 0.618) % 1);
-/** Where a builder's strike plays: half way from the builder to the nearest point of its site's walls (the footprint
- *  4 px in, as a melee blow on a building finds it, gl/render.js meleeHit), and which way the site is from it. */
+/** Where a builder's strike lands: the contact point on its site's nearest edge (the footprint 4 px in, as a melee
+ *  blow on a building finds it, gl/render.js meleeHit), and which way the site is from the builder. */
 export function strikeAt(u, b, tile = 32) {
-  const wx = Math.min(Math.max(u.x, b.tx * tile + 4), (b.tx + b.w) * tile - 4), wy = Math.min(Math.max(u.y, b.ty * tile + 4), (b.ty + b.h) * tile - 4);
-  let dx = wx - u.x, dy = wy - u.y, d = Math.hypot(dx, dy);
+  const x = Math.min(Math.max(u.x, b.tx * tile + 4), (b.tx + b.w) * tile - 4), y = Math.min(Math.max(u.y, b.ty * tile + 4), (b.ty + b.h) * tile - 4);
+  let dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy);
   if (d < 1) { dx = b.x - u.x; dy = b.y - u.y; d = Math.max(1, Math.hypot(dx, dy)); } // (standing on its edge: towards the middle)
-  return { x: (u.x + wx) / 2, y: (u.y + wy) / 2, dx: dx / d, dy: dy / d };
+  return { x, y, dx: dx / d, dy: dy / d };
 }
+/** A builder's strike effects: the Kingdom's pale glint and a puff of dust that reads at 1x, the Expedition's weld
+ *  spark a small bright white-blue core (about 4-5 css px at the phone's zoom) gone in a frame or two. */
+export const STRIKE_FX = {
+  glint: { scale: 0.7, tint: 0xfff6e0, life: 0.2, lift: 8 },
+  dust: { scale: 1.5, fade: 0.9, life: 0.45, drift: 10, vy: -8 },
+  weld: { scale: 0.32, tint: 0xe4f4ff, life: 0.05, light: 0xbfe6ff, lightScale: 0.12, lift: 6 },
+};
 /** Whether a builder stands in reach of its site: the gap from it to the footprint's nearest point within its radius
  *  and WORK.reach px (the sim's: within its radius and 8 px, settled; a little slack for the frames between ticks). */
 export function atSite(u, b, tile = 32) {
@@ -107,8 +114,10 @@ export function atSite(u, b, tile = 32) {
 export const pct = (progress) => Math.max(0, Math.min(99, Math.floor(progress * 100)));
 /** The builder's line: "Constructing Barracks, 61%". */
 export const builderLine = (b) => (b ? `Constructing ${b.d.name}, ${pct(b.progress)}%` : 'Constructing');
-/** The site's line: "Constructing, 61%", or "Paused at 61%: no builder" while nobody builds it. */
-export const siteLine = (b, building) => (building ? `Constructing, ${pct(b.progress)}%` : `Paused at ${pct(b.progress)}%: no builder`);
+/** The site's line: "Constructing, 61%", or "Paused at 61%" while nobody builds it (its kind's line below then says
+ *  `NO_BUILDER`). */
+export const siteLine = (b, building) => (building ? `Constructing, ${pct(b.progress)}%` : `Paused at ${pct(b.progress)}%`);
+export const NO_BUILDER = 'No builder';
 /** The toast when a site of ours is left with no builder: "Barracks paused at 90%". */
 export const pausedToast = (b) => `${b.d.name} paused at ${pct(b.progress)}%`;
 /** At most one paused toast a site in this many seconds (game time). */

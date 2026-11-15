@@ -7,7 +7,7 @@ import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, c
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
-import { RAW, HOLO, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, holoAlpha, budAlpha, mixColor, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite } from '../construct.js';
+import { RAW, HOLO, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, holoAlpha, budAlpha, mixColor, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs, nearestRim } from '../range.js';
@@ -373,10 +373,11 @@ class UnitObj {
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
       const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames;
-      if (G.factions[u.team] === 'vael') addEffect('spark', p.x, p.y - 6, { life: WORK.life, light: 0xfff4c2, lightScale: 0.25, scale: 0.8 }); // (the repairer's welding spark)
+      if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect('flash', p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
       else {
-        addEffect('glint', p.x, p.y - 8, { life: WORK.life, scale: 0.7, tint: 0xfff6e0, light: 0xfff6e0, lightScale: 0.1 });
-        addEffect(HIT_DUST.anim, p.x, p.y + 1, { vx: -p.dx * 8, vy: -6, life: WORK.life * 1.5, scale: 0.8, fade: 0.6, tint: HIT_DUST.tint });
+        const g = STRIKE_FX.glint, s = STRIKE_FX.dust;
+        addEffect('glint', p.x, p.y - g.lift, { life: g.life, scale: g.scale, tint: g.tint, light: g.tint, lightScale: 0.1 });
+        addEffect(HIT_DUST.anim, p.x, p.y + 1, { vx: -p.dx * s.drift, vy: s.vy, life: s.life, scale: s.scale, fade: s.fade, tint: HIT_DUST.tint });
       }
       if (nearView(p.x, p.y, 0)) sfx('knock', { x: p.x, y: p.y });
       this.strikesSeen = (this.strikesSeen || 0) + 1;
@@ -831,11 +832,11 @@ function progressBar(x, y, w, f, color, pips = 0, h = 5) {
   bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), h - 2).fill(color);
   for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, h).fill(color);
 }
-/** Two bars: construction is paused because nobody is building. */
+/** Two bars: construction is paused because nobody is building. Opaque over anything (an Expedition's faint hologram
+ *  too), the plate's dark breathing a little. */
 function pauseMark(x, y, t) {
-  const a = 0.55 + 0.45 * Math.sin(t * 5);
-  bars.roundRect(x - 9, y - 9, 18, 18, 4).fill({ color: 0x000000, alpha: 0.6 * a });
-  bars.rect(x - 4, y - 5, 3, 10).fill({ color: 0xffb545, alpha: a }); bars.rect(x + 1, y - 5, 3, 10).fill({ color: 0xffb545, alpha: a });
+  bars.roundRect(x - 10, y - 10, 20, 20, 4).fill({ color: 0x0b0f16, alpha: 0.78 + 0.12 * Math.sin(t * 5) }).stroke({ width: 1, color: BUILD_BAR.color, alpha: 0.9 });
+  bars.rect(x - 4.5, y - 5.5, 3, 11).fill({ color: BUILD_BAR.color, alpha: 1 }); bars.rect(x + 1.5, y - 5.5, 3, 11).fill({ color: BUILD_BAR.color, alpha: 1 });
 }
 
 /** A sprite's drawn rectangle in world px: [x0, y0, x1, y1]. */

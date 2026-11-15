@@ -3,14 +3,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RAW, HOLO, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, holoAlpha, budAlpha, mixColor, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, pct, builderLine, siteLine, pausedToast, PAUSED_GAP } from '../src/client/construct.js';
+import { RAW, HOLO, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, holoAlpha, budAlpha, mixColor, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP } from '../src/client/construct.js';
 
 const near = (a, b, msg, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 
 test('the designer\'s numbers', () => {
   assert.equal(RAW.sat, 0.3, 'saturation down about 70%');
   assert.deepEqual([RAW.cap, RAW.stages], [7, 8], 'the reveal capped at 7/8: the roof missing until done');
-  assert.equal(HOLO.tint, 0xa0ecff, 'a cold cyan hologram');
+  assert.equal(HOLO.tint, 0x86f0ff, 'a cold cyan hologram (more cyan than the PRD\'s 0xa0ecff: it read gray-teal over grass)');
+  assert.ok((HOLO.tint >> 16) < 0xa0 && (HOLO.tint & 255) === 0xff, 'less red, full blue');
   assert.deepEqual([HOLO.alphaMax, HOLO.hz, HOLO.shimmer, HOLO.budMin], [0.6, 6, 0.05, 0.5]);
   assert.equal(BUILD_BAR.h, 7, 'the construction bar, taller than the 4 px hp bar');
   assert.deepEqual([DONE.life, DONE.color, DONE.strip, DONE.roof, DONE.ring, DONE.heads], [0.5, 0.5, 0.4, 0.3, 0.3, 0.3], '0.5 s in all');
@@ -56,17 +57,19 @@ test('the Expedition\'s hologram: never more than 0.6 (+ the shimmer), its bud n
   assert.equal(mixColor(HOLO.tint, 0xffffff, 0), HOLO.tint); assert.equal(mixColor(HOLO.tint, 0xffffff, 1), 0xffffff);
 });
 
-test('the done moment: 0.5 s, ease-out color, ease-in strip, then over', () => {
+test('the done moment: 0.5 s, ease-out color, the scaffold a step ahead, then over', () => {
   assert.equal(easeOutCubic(0), 0); assert.equal(easeOutCubic(1), 1); near(easeOutCubic(0.5), 0.875, 'ease-out cubic');
   assert.equal(easeInQuad(0.5), 0.25);
   const s = doneAt(0);
   assert.deepEqual([s.color, s.strip, s.roof, s.ring, s.heads, s.over], [0, 1, 0, 1, 0, false], 't = 0: still the site\'s look');
   const q = doneAt(0.25);
-  near(q.color, 0.875, 'a quarter second: mostly in color'); near(q.strip, 1 - (0.25 / 0.4) ** 2, 'the scaffold going');
+  near(q.color, 0.875, 'a quarter second: mostly in color'); near(q.strip, (1 - 0.25 / 0.4) ** 3, 'the scaffold nearly gone');
   near(q.roof, 1 - (1 - 0.25 / 0.3) ** 2, 'the roof nearly in'); assert.equal(q.over, false);
   const e = doneAt(0.5);
   assert.deepEqual([e.color, e.strip, e.roof, e.ring, e.heads, e.over], [1, 0, 1, 0, 1, true], 't = 0.5: done with');
   assert.equal(doneAt(0.4).strip, 0, 'the scaffold gone by 0.4 s');
+  for (let t = 0; t <= 0.5; t += 0.01) assert.ok(doneAt(t).strip <= 1 - doneAt(t).color + 1e-12, `the scaffold ahead of the paint at ${t}`);
+  assert.ok(doneAt(0.26).strip < 0.06, 'next to nothing left of it at 0.26 s (no half-faded plank over the banner)');
   for (let t = 0; t < 0.5; t += 0.01) assert.ok(doneAt(t).color <= doneAt(t + 0.01).color + 1e-12, 'never back');
   // The Expedition's lights: dark until 0.15 s, up to 1.25x by 0.30 s, settling to 1x by 0.50 s.
   assert.equal(doneAt(0.1, true).glow, 0); near(doneAt(0.3, true).glow, 1.25, 'the peak'); near(doneAt(0.5, true).glow, 1, 'settled');
@@ -96,10 +99,10 @@ test('a builder strikes about twice a second, each from its own phase', () => {
   for (const id of [1, 2, 17, 300]) assert.equal(strikes(id), 20, `builder ${id}: 20 strikes in 11 s`);
   const first = (id) => { for (let t = 0; ; t += 0.001) if (strikeCount(id, t) !== strikeCount(id, 0)) return t; };
   assert.notEqual(Math.round(first(1) * 100), Math.round(first(2) * 100), 'two builders do not strike in step');
-  // Where: half way from the builder to the nearest point of the walls (the footprint 4 px in).
+  // Where: the contact point on the nearest edge (the footprint 4 px in).
   const b = { x: 208, y: 208, r: 48, tx: 5, ty: 5, w: 3, h: 3 }, u = { x: 200, y: 280, r: 8 };
   const p = strikeAt(u, b);
-  near(p.x, 200, 'in line with the builder'); near(p.y, (280 + 252) / 2, 'between it and the south wall'); near(p.dy, -1, 'towards the site');
+  near(p.x, 200, 'in line with the builder'); near(p.y, 252, 'on the south wall'); near(p.dy, -1, 'towards the site');
   assert.equal(atSite({ x: 200, y: 256 + 10, r: 8 }, b), true, 'at the south edge');
   assert.equal(atSite({ x: 200, y: 256 + 40, r: 8 }, b), false, 'too far to work');
 });
@@ -108,10 +111,19 @@ test('the cards and the toast say how far along, rounded down', () => {
   const rax = { d: { name: 'Barracks' }, progress: 0.614 };
   assert.equal(builderLine(rax), 'Constructing Barracks, 61%');
   assert.equal(siteLine(rax, true), 'Constructing, 61%');
-  assert.equal(siteLine(rax, false), 'Paused at 61%: no builder');
+  assert.equal(siteLine(rax, false), 'Paused at 61%', 'short: the kind\'s line under it says why');
+  assert.equal(NO_BUILDER, 'No builder');
   assert.equal(pausedToast({ ...rax, progress: 0.9 }), 'Barracks paused at 90%');
   assert.equal(pct(0.999), 99, 'never 100% before it stands'); assert.equal(pct(0), 0);
   assert.equal(builderLine(null), 'Constructing');
+});
+
+test('the strike effects read: the weld a small bright core gone in a frame or two, the dust bigger and fuller', () => {
+  assert.ok(STRIKE_FX.weld.life <= 0.06, 'one frame or two');
+  // (the flash frame is 16 world px; its core about half: 4-5 css px at the phone's zoom of 1.75)
+  const core = 16 * STRIKE_FX.weld.scale / 2 * 1.75;
+  assert.ok(core >= 4 && core <= 5.5, `core ${core} css px`);
+  assert.ok(STRIKE_FX.dust.scale >= 1.4 && STRIKE_FX.dust.fade >= 0.85, 'the dust reads at 1x');
 });
 
 test('the knock is a sound of its own, next to the hit, with a gap', () => {

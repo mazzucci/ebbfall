@@ -6,7 +6,7 @@
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { HOLO, RAW, BUILD_BAR } from '../../src/client/construct.js';
-import { test, start, stop, newGame, until, DESKTOP } from './harness.mjs';
+import { test, start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -80,7 +80,8 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
     const at = (await d.state()).bldgs.find(x => x.id === id).progress;
     assert.equal(pct, Math.floor(at * 100), 'the percentage it stopped at');
     await d.clickEntity(id);
-    assert.match(await d.hudText('#selSub', /Paused/), new RegExp(`^Paused at ${pct}%: no builder$`), 'the site\'s card');
+    assert.match(await d.hudText('#selSub', /Paused/), new RegExp(`^Paused at ${pct}%$`), 'the site\'s card');
+    assert.equal(await d.hudText('#selWhat', /No builder/), 'No builder', 'and why, in the kind\'s line');
     // Resumed and pulled off again within the minute: no second toast.
     await d.pressCard('Resume');
     await until(d, async () => (await d.state()).units.find(u => u.id === w)?.task === 'build' && (await d.state()).bldgs.find(x => x.id === id).progress > at + 0.01, { seconds: 20, step: 0.5, what: 'the builder back at work' });
@@ -132,3 +133,36 @@ test('an Expedition site is a cold cyan hologram in a bud; its Bot\'s card says 
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+/** The console's status line as shown: its text, whether it shows, and whether it shows whole (no ellipsis). */
+const statusLine = (d) => d.page.$eval('#selSub', (e) => ({ text: e.textContent, shown: e.offsetWidth > 0 && getComputedStyle(e).display !== 'none', whole: e.scrollWidth <= e.clientWidth + 1 }));
+for (const [name, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+  test(`${name}: the percentage shows whole on every card, for the longest building name (Recruiting post)`, async () => {
+    const d = await newGame(device, 1, 4242, { ai: false, race: 'vael' });
+    try {
+      const { id, w } = await placeSite(d, 'i', 'siphon');
+      assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.9, id, { step: 1 / 30 }), 'nearly built');
+      const whole = async (re, what) => {
+        await d.hudText('#selSub', re);
+        const l = await statusLine(d);
+        assert.ok(l.shown && l.whole && re.test(l.text), `${what}: ${JSON.stringify(l)}`);
+      };
+      await pick(d, w);
+      await whole(/^Constructing Recruiting post, \d+%$/, 'the Bot\'s card');
+      await d.eval(() => { endfall.ui.sel = []; }); // (a tap on the site with the Bot selected would order it there)
+      await d.clickEntity(id);
+      await whole(/^Constructing, \d+%$/, 'the site\'s card');
+      // Pulled off: "Paused at N%", and "No builder" in the kind's line.
+      await d.eval(() => { endfall.ui.sel = []; });
+      await pick(d, w);
+      const b = (await d.state()).bldgs.find(x => x.id === id);
+      if (d.touch) await d.clickWorld(b.x - 200, b.y + 120); else await d.rightClickWorld(b.x - 200, b.y + 120);
+      await until(d, async () => (await d.state()).units.find(u => u.id === w)?.task !== 'build', { seconds: 10, step: 0.2, what: 'the Bot pulled off' });
+      await d.eval(() => { endfall.ui.sel = []; });
+      await d.clickEntity(id);
+      await whole(/^Paused at \d+%$/, 'the paused site\'s card');
+      assert.equal(await d.hudText('#selWhat', /No builder/), 'No builder');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}

@@ -1,5 +1,5 @@
 // A building's fall (src/client/look.js BLDG_DEATH, bldgDeath, ghostAt, portalGhost, fallShake; render.js collapse): it
-// collapses into dust or gray smoke, no fire; its ghost sinks and fades, its team paint first; only a headquarters
+// collapses into dust or gray smoke, no fire; its ghost sinks, dims and fades, its team paint with it; only a headquarters
 // shakes the camera; the Data center's reactor goes off on its roof, then smokes; the Portal loses its power; a
 // burning building's orange flash comes now and then, dimmer.
 import { test } from 'node:test';
@@ -20,7 +20,7 @@ for (const f of readdirSync(art).filter(f => /^atlas-\d+\.json$/.test(f))) Objec
 const px = (name) => frames[name].sourceSize.w / 2;
 
 test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints and a flash, the Data center\'s reactor, the Portal', () => {
-  assert.deepEqual(BLDG_DEATH.ghost, { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, paintLead: 0.1 });
+  assert.deepEqual(BLDG_DEATH.ghost, { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, dim: 0.5 });
   assert.deepEqual(BLDG_DEATH.shake, { base: 0.5, perTile: 0.5, life: 0.3 });
   assert.deepEqual(GRAY_SMOKE, { tint: 0x9a9a9a, fade: 0.6 });
   assert.deepEqual(BLDG_DEATH.humans.dust, { anim: 'trail', tint: DUST, n: 4, stagger: 0.1, perR: 16, life: 1.2, vy: -8, fade: 0.85 }, 'the Kingdom\'s dust as it was');
@@ -104,19 +104,20 @@ test('the Data center: its reactor on its roof at 0.25 s, a white core two frame
   assert.ok(near(last, 0.6), `staggered over 0.6 s (${last})`);
 });
 
-test('the ghost: sinks 14 px eased in, squashed to 0.8, fading over its last 0.25 s; its team paint 0.1 s sooner', () => {
-  assert.deepEqual(ghostAt(0), { dy: 0, scaleY: 1, alpha: 1, paint: 1 });
+test('the ghost: sinks 14 px eased in, squashed to 0.8, dimmed to half, fading over its last 0.25 s', () => {
+  assert.deepEqual(ghostAt(0), { dy: 0, scaleY: 1, alpha: 1, tint: 0xffffff });
   const mid = ghostAt(0.225);
   assert.ok(near(mid.dy, 3.5), `eased in: a quarter of the sink half way (${mid.dy})`);
   assert.ok(near(mid.scaleY, 0.95));
+  assert.equal(mid.tint, 0xdfdfdf, 'dimmed a quarter of the way');
   assert.equal(ghostAt(0.2).alpha, 1, 'opaque till the last 0.25 s');
   assert.ok(near(ghostAt(0.325).alpha, 0.5));
-  assert.ok(near(ghostAt(0.225).paint, 0.5), 'the flag half gone while the walls still stand');
-  for (let t = 0; t <= 0.5; t += 0.01) assert.ok(ghostAt(t).paint <= ghostAt(t).alpha, `no flag outlives its walls (${t})`);
-  assert.equal(ghostAt(0.35).paint, 0);
   const end = ghostAt(0.45);
-  assert.ok(near(end.dy, 14) && near(end.scaleY, 0.8) && end.alpha === 0);
+  assert.ok(near(end.dy, 14) && near(end.scaleY, 0.8) && end.alpha === 0 && end.tint === 0x808080);
   assert.deepEqual(ghostAt(1), ghostAt(0.45), 'held past its end');
+  // (the team paint: the ghost's opacity and dimming, so its flag goes down with its walls; render.js ties them)
+  const src = readFileSync(new URL('../src/client/gl/render.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('s.alpha = g.alpha; s.tint = d.paints.has(s) ? mulTint(this.seat, g.tint) : g.tint;'), 'render.js: paint and body as one');
 });
 
 test('only a headquarters shakes the camera (the Castle, the Data center): ±2.5 px for 0.3 s; with the footprint', () => {
@@ -133,12 +134,12 @@ test('the Portal: power lost, not a blast (its timeline)', () => {
   const P = BLDG_DEATH.portal;
   assert.deepEqual([P.hold, P.end, P.squeezeX], [0.2, 0.5, 0.85]);
   // 0 to 0.2 s: holds, no sink; the cyan flash layer in to 0.6, the glow 1.1 to 2.2
-  assert.deepEqual(portalGhost(0), { scaleX: 1, alpha: 1, paint: 1, flash: 0, glow: 1.1 });
+  assert.deepEqual(portalGhost(0), { scaleX: 1, alpha: 1, flash: 0, glow: 1.1 });
   const a = portalGhost(0.1); assert.ok(a.scaleX === 1 && a.alpha === 1 && near(a.flash, 0.3) && near(a.glow, 1.65));
   const b = portalGhost(0.2); assert.ok(near(b.flash, 0.6) && near(b.glow, 2.2) && b.scaleX === 1 && b.alpha === 1);
-  // 0.2 to 0.5 s: the glow to 0, narrowed to 0.85, faded out (its paint first)
-  const c = portalGhost(0.35); assert.ok(near(c.glow, 1.1) && near(c.scaleX, 0.925) && near(c.alpha, 0.5) && near(c.paint, 0.25));
-  const d = portalGhost(0.5); assert.ok(near(d.glow, 0) && near(d.scaleX, 0.85) && near(d.alpha, 0) && d.paint === 0);
+  // 0.2 to 0.5 s: the glow to 0, narrowed to 0.85, faded out
+  const c = portalGhost(0.35); assert.ok(near(c.glow, 1.1) && near(c.scaleX, 0.925) && near(c.alpha, 0.5));
+  const d = portalGhost(0.5); assert.ok(near(d.glow, 0) && near(d.scaleX, 0.85) && near(d.alpha, 0));
   assert.deepEqual([P.flash.tint, P.glow.tint], [0x3fe0ff, 0x3fe0ff]);
   const B = at('eclipse'), core = { x: B.x, y: B.y - 31 }, p = bldgDeath(B, 'vael', { core, rand: () => 0.5 });
   assert.deepEqual([p.portal, p.life, p.shake, p.rubbleAt], [true, 0.5, null, 0.5], 'no shake; its rubble at 0.5 s');

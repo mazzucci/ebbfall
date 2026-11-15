@@ -456,7 +456,7 @@ class BldgObj {
   fall(plan) {
     this.found.visible = false;
     const parts = [this.body, this.paint, this.scaffold, this.scaffoldPaint, this.head, this.headPaint].filter(s => s?.visible);
-    this.dying = { t: 0, plan, parts, y0: parts.map(s => s.y), paints: new Set([this.paint, this.scaffoldPaint, this.headPaint]) }; // (the team paint fades first)
+    this.dying = { t: 0, plan, parts, y0: parts.map(s => s.y), paints: new Set([this.paint, this.scaffoldPaint, this.headPaint]) }; // (the team paint dims with it, in its seat's color)
     if (plan.portal && this.body.visible) { // (the Portal's cyan flash layer, added over its body)
       const f = this.fallFlash = new Sprite(this.body.texture); f.anchor.copyFrom(this.body.anchor); f.position.copyFrom(this.body.position);
       f.blendMode = 'add'; f.tint = BLDG_DEATH.portal.flash.tint; f.alpha = 0; f.zIndex = this.z + 0.0003; L.ents.addChild(f); parts.push(f); this.dying.y0.push(f.y);
@@ -468,12 +468,12 @@ class BldgObj {
     if (d.t >= d.plan.life) return false;
     if (d.plan.portal) {
       const g = portalGhost(d.t);
-      for (const s of d.parts) { s.scale.x = g.scaleX; s.alpha = d.paints.has(s) ? g.paint : g.alpha; }
+      for (const s of d.parts) { s.scale.x = g.scaleX; s.alpha = g.alpha; }
       if (this.fallFlash) this.fallFlash.alpha = g.flash;
       if (this.glow && this.body.visible) { this.glow.visible = true; this.glow.scale.set(g.glow); this.glow.alpha = this.look.glow[2]; this.glow.tint = BLDG_DEATH.portal.glow.tint; }
     } else {
       const g = ghostAt(d.t);
-      d.parts.forEach((s, i) => { s.y = d.y0[i] + g.dy; s.scale.y = g.scaleY; s.alpha = d.paints.has(s) ? g.paint : g.alpha; });
+      d.parts.forEach((s, i) => { s.y = d.y0[i] + g.dy; s.scale.y = g.scaleY; s.alpha = g.alpha; s.tint = d.paints.has(s) ? mulTint(this.seat, g.tint) : g.tint; });
       if (this.glow) this.glow.visible = false;
     }
     return true;
@@ -566,7 +566,7 @@ function fallStep(s) {
 }
 /** The ghosts of fallen buildings now (read-only, for the tests): each one's id, type, time since it fell, whether it
  *  falls as the Portal does, and its body as drawn (y, scale, opacity) with the y it fell from. */
-export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, paint: o.paint.alpha, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
+export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, paint: o.paint.alpha, tint: o.body.tint, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
 /** A fall's shake now: its reach (± px; look.js fallShake), dying away (read-only, for the tests). */
 export const shakeNow = () => (quake ? quake.px * Math.max(0, 1 - quake.t / quake.life) : 0);
 /** A Medic heals: a green sparkle on the patient and a faint light. */

@@ -128,8 +128,9 @@ export const GRAY_SMOKE = { tint: 0x9a9a9a, fade: 0.6 };
 /** A building's fall (Stelian, 2026-11-15, the designer's option C, and the designer's notes on it): it collapses, it
  *  does not explode. No fireball, no fire sparks, no orange light and no scorch; its rubble and its debris (fx.js burst)
  *  as before. Its sprite stays on as a ghost for `ghost.life` s after the sim drops it, sinking `sink` px (eased in) and
- *  squashed to `squash` of its height, fading out over the last `fadeLast` s, its team paint (a flag, a trim) `paintLead`
- *  s sooner, so no flag outlives its walls (`ghostAt`). Only a headquarters shakes the camera: ±(`base` + `perTile` × its
+ *  squashed to `squash` of its height, fading out over the last `fadeLast` s, and dimmed to `dim` as it goes (eased in)
+ *  with its team paint, whose opacity is the ghost's: a flag fading sooner left the art's white cloth under it, a pale
+ *  pane by the rubble; dimmed, the flag goes down into the dust with its walls (`ghostAt`). Only a headquarters shakes the camera: ±(`base` + `perTile` × its
  *  width in tiles) px, dying away over `life` s. By people (G.factions): the Kingdom's stone falls into dust (DUST on
  *  the pale `trail`, `n` puffs at random points of its footprint, `stagger` s apart, scale r/`perR`), settling; the
  *  Expedition's metal into gray smoke (GRAY_SMOKE, at most `max`: about 38 px, never above 1.2 tiles; a bigger
@@ -139,7 +140,7 @@ export const GRAY_SMOKE = { tint: 0x9a9a9a, fade: 0.6 };
  *  (`smokeAt`); the Portal loses its power instead (`portal`: BLDG_DEATH.portal, `portalGhost`), into cold steel rubble
  *  (`rubbleTint`, a cyan glow on `rubbleGlow` of its chunks). The random points are the client's, never the sim's. */
 export const BLDG_DEATH = {
-  ghost: { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, paintLead: 0.1 },
+  ghost: { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, dim: 0.5 },
   shake: { base: 0.5, perTile: 0.5, life: 0.3 },
   humans: {
     dust: { anim: 'trail', tint: DUST, n: 4, stagger: 0.1, perR: 16, life: 1.2, vy: -8, fade: 0.85 },
@@ -175,18 +176,19 @@ export const BLDG_DEATH = {
 };
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 /** A dying building's ghost `t` s after the sim dropped it: how far it has sunk (px), its height's scale, its opacity
- *  and its team paint's (gone `paintLead` s sooner). */
+ *  (its team paint's too) and how bright it is drawn (`tint`: a gray, multiplied into its body and its paint). */
 export function ghostAt(t) {
-  const { life, sink, squash, fadeLast, paintLead } = BLDG_DEATH.ghost, k = clamp01(t / life), e = k * k; // (eased in)
-  return { dy: sink * e, scaleY: 1 - (1 - squash) * e, alpha: clamp01((life - t) / fadeLast), paint: clamp01((life - paintLead - t) / fadeLast) };
+  const { life, sink, squash, fadeLast, dim } = BLDG_DEATH.ghost, k = clamp01(t / life), e = k * k; // (eased in)
+  const g = Math.round(255 * (1 - (1 - dim) * e));
+  return { dy: sink * e, scaleY: 1 - (1 - squash) * e, alpha: clamp01((life - t) / fadeLast), tint: (g << 16) | (g << 8) | g };
 }
-/** A dying Portal `t` s after the sim dropped it (BLDG_DEATH.portal): its ghost's width scale and opacity, its team
- *  paint's (gone first), its cyan flash layer's opacity and its glow light's scale. */
+/** A dying Portal `t` s after the sim dropped it (BLDG_DEATH.portal): its ghost's width scale and opacity, its cyan flash
+ *  layer's opacity and its glow light's scale. */
 export function portalGhost(t) {
   const { hold, end, squeezeX, flash, glow } = BLDG_DEATH.portal;
-  if (t < hold) { const k = Math.max(0, t / hold); return { scaleX: 1, alpha: 1, paint: 1, flash: flash.alpha * k, glow: glow.from + (glow.peak - glow.from) * k }; }
+  if (t < hold) { const k = Math.max(0, t / hold); return { scaleX: 1, alpha: 1, flash: flash.alpha * k, glow: glow.from + (glow.peak - glow.from) * k }; }
   const k = Math.min(1, (t - hold) / (end - hold));
-  return { scaleX: 1 - (1 - squeezeX) * k, alpha: 1 - k, paint: clamp01(1 - k * 1.5), flash: flash.alpha * (1 - k), glow: glow.peak * (1 - k) };
+  return { scaleX: 1 - (1 - squeezeX) * k, alpha: 1 - k, flash: flash.alpha * (1 - k), glow: glow.peak * (1 - k) };
 }
 /** The camera's shake for a fall of a `w`-tile-wide building (`hq`: a headquarters; none for anything else): its reach
  *  (± px) and how long it lasts (s). */

@@ -1,8 +1,8 @@
 # Ebbfall: architecture
 
-The map of the code for coding agents: what each file, module and test is for, CI and the deploy in full, and the
-water, tide and Shore rules in detail. CLAUDE.md holds the rules and the commands; read it first. Keep this file true
-when you add, move or remove a file.
+The map of the code for coding agents: how the game is built: what each file, module and test is for, and CI and the
+deploy in full. How the game plays (seats, teams, maps, spawning, water, the tide and the Shore) is in GAMEPLAY.md.
+CLAUDE.md holds the rules and the commands; read it first. Keep this file true when you add, move or remove a file.
 
 ## CI and the deploy
 
@@ -22,50 +22,6 @@ publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/n
 the site never outruns the relay. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
 iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
-
-## Water, the tide and the Shore map
-
-- Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`
-  everywhere on the kinds without water) and the world one water level (`World::water`: 0, not hashed, unless the
-  tide is on). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
-  its kind's class (`UnitDef::mv`, `Move`): Walk (every ground unit of both peoples since the re-theme: land and
-  shallows), Amph (anywhere: no kind has it since the re-theme; the class and its rules stay, as data), Fly (flyers,
-  exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
-  level: `World::foot(kind)`, `Map::passable`, `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay
-  class-free (map generation, buildings, flyers). The contact rules: a Walk unit in the shallows moves at `WADE_SPEED`
-  (0.7, in `live_speed`); nothing fires from deep water (`fire` refuses, an attacker in deep water closes in until it
-  stands on shallows or land, an idle or attack-moving one picks no fight there, and one there drops a flyer or a target itself in deep water;
-  a crowd's push never shoves a walker into it); buildings go by the builder's class (`builds_on`: a
-  Walk builder on land, an Amph builder on land and shallows, nobody in deep water), the AI's placement through the same
-  `can_place`. On a map without water all of it is inert (the goldens pin that).
-- The tide (PRD: the tide on the Shore map; `World::set_tide`, a world switch, off by default: the menus play without
-  it until the tide's clock and water are drawn; Rust callers, the lab and the tests turn it on): the water level
-  moves through a cycle (`world/tide.rs`, its numbers in `data/tide.rs`): high water, the ebb, low water, the flood
-  (3:00 by default, each cycle up to 15% longer or shorter, drawn from the world's RNG as it starts; a game starts at
-  high water), a step at a time between `WATER_LOW` and `WATER_HIGH`; `tide_phase`, `tide_level`. It runs first in
-  `step`. When the level moves, routes it cuts are dropped (`terrain_changed` and each walker's own) and, on the way
-  up, a walker on ground now deep is swept to the nearest ground it may stand on, losing 30% of its maximum health
-  and stunned 2 s (`Unit::stun`), or destroyed with `set_flood_kills` (the lab's comparison).
-  `TIDE_WARN_S` before the flood each seat with walkers on ground it will cover is warned (a toast, the alert sound, a
-  ping) and, its switch on (`SetRetreat`, a command; `World::no_retreat`, a bit per seat; on by default), its idle
-  walkers and its idle or mining workers there walk to ground that stays dry; units under any other order keep it.
-  Amphibians (none since the re-theme) are never swept. With the tide, building goes by the level that matters (`builds_on`: a Walk builder on
-  land at high water, an Amph builder on what is at most shallow at low water), and no building fires from deep water
-  either. The tide enters the hash only when on (level, cycle, switches; a stunned unit's stun), so every game
-  without it hashes as before; `golden_hashes_pin_the_shore_with_the_tide` pins one with it.
-- The Shore map (`MapKind::Shore`, appended; 64x64, two starts): each start's share holds a cove on land (a pocket in
-  a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
-  across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
-  shallows round it. Starts by people: a seat whose builders are Amph starts in its start's basin (`Map::basins`;
-  nobody since the re-theme), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
-  a cove or a basin (no shaft either, since the re-theme's economy). A Shore
-  with more than two starts falls back to Standard ground. It has maps of its own (Mirror Lake, Random Lake, appended
-  to `MAPS`, with their line), hidden from the menus with every 64x64 map since 2026-11-13 (`?map=12` opens it for the
-  tests); the other random maps never draw it (`RANDOM_KINDS`). The renderer
-  tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
-  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, to the headquarters' flank; `CHANNEL` and
-  `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
-  the network and not hashed, `Map::generate_with`).
 
 ## Tests that guard gameplay
 

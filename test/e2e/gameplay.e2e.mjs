@@ -1707,7 +1707,12 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     // it, the view between them.
     const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
     const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy), at = (k) => [hq.x + dx / len * k * T, hq.y + dy / len * k * T];
-    const [p1, p2] = [at(reach + 3), at(reach - 3)];
+    // (each on open ground, three tiles clear of rock and mines all round: a Rover spawned against rock stays stuck)
+    const clear = (k) => d.eval(([x, y]) => { const tx = Math.floor(x / 32), ty = Math.floor(y / 32), M = endfall.engine.MW;
+      return [-2, -1, 0, 1, 2].every(dy => [-2, -1, 0, 1, 2].every(dx => !endfall.map.rock[(ty + dy) * M + tx + dx] && !endfall.map.occ[(ty + dy) * M + tx + dx])); }, at(k));
+    const open = async (ks) => { for (const k of ks) if (await clear(k)) return k; return ks[0]; };
+    const [kOut, kIn] = [await open([3, 4, 5, 2].map(k => reach + k)), await open([3, 4, 5, 2].map(k => reach - k))];
+    const [p1, p2] = [at(kOut), at(kIn)];
     await d.centerOn((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
     const [out, inside] = await d.eval(([a, b]) => [endfall.engine.debugSpawn(0, 'monolith', ...a), endfall.engine.debugSpawn(0, 'monolith', ...b)], [p1, p2]);
     await d.page.waitForFunction((id) => endfall.rangeShown().marked.includes(id), out, { timeout: 15000 });
@@ -1727,7 +1732,8 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     await d.page.waitForFunction(() => !endfall.rangeShown().leash, null, { timeout: 5000 }); // (faded in 0.6 s)
     // Sent back towards the Data center through the UI (a right click): once inside, the stranded one's mark goes.
     await d.rightClickWorld(...at(reach - 6));
-    await d.page.waitForFunction((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) <= c.r; }, out, { timeout: 20000 }); // (back inside coverage)
+    // (back inside coverage, fast-forwarded: out of coverage it is slow, and the way back may wind round rock)
+    assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) <= c.r; }, out, { seconds: 60 }), 'back inside coverage');
     await d.centerOn(...at(reach - 3));
     await d.page.waitForFunction((id) => !endfall.rangeShown().marked.includes(id), out, { timeout: 5000 });
     // The Data center selected with a click: its circle, the reach in the sim's own numbers.
@@ -2460,7 +2466,8 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     await step(6);
     assert.match(await d.page.locator('#tut').textContent(), /hold your base.*6\/8/);
     // Three enemy Guards at the base (within 12 tiles of a building of ours) but beyond what they or we would pick a
-    // fight with: they stand there.
+    // fight with (nearer 12 tiles of a building's middle, past 8.2 of its footprint's edge: an idle Guard looks 7.65 out
+    // from its own spot to a building's edge): they stand there.
     const at = await d.eval(() => {
       const G = endfall.G, mineB = G.bldgs.filter(b => b.team === 0), core = mineB.find(b => b.d.hq);
       const near = (x, y, xs) => Math.min(...xs.map(e => Math.hypot(e.x - x, e.y - y))) / 32;
@@ -2469,8 +2476,11 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
       for (let r = 6; r <= 14; r += 0.5) for (let a = 0; a < 48; a++) {
         const x = core.x + Math.cos(a / 48 * 6.283) * r * 32, y = core.y + Math.sin(a / 48 * 6.283) * r * 32;
         const tx = Math.floor(x / 32), ty = Math.floor(y / 32), b = near(x, y, mineB), o = near(x, y, others);
-        const open = [-1, 0, 1].every(dy => [-1, 0, 1].every(dx => { const i = (ty + dy) * endfall.engine.MW + tx + dx; return !endfall.map.rock[i] && !endfall.map.occ[i]; }));
-        if (b < 9.5 || b > 11 || !open) continue;
+        const edge = Math.min(...mineB.map(e => Math.hypot(Math.max(e.tx * 32 - x, 0, x - (e.tx + e.w) * 32), Math.max(e.ty * 32 - y, 0, y - (e.ty + e.h) * 32)))) / 32;
+        // (on the map: off it, a spawn is clamped back onto it, nearer the base than chosen)
+        const inMap = tx >= 2 && ty >= 2 && tx < endfall.engine.MW - 2 && ty < endfall.engine.MH - 2;
+        const open = inMap && [-1, 0, 1].every(dy => [-1, 0, 1].every(dx => { const i = (ty + dy) * endfall.engine.MW + tx + dx; return !endfall.map.rock[i] && !endfall.map.occ[i]; }));
+        if (b > 11.5 || edge < 8.2 || !open) continue;
         if (!best || o > best.o) best = { x, y, o };
       }
       for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(1, 'trooper', best.x, best.y);

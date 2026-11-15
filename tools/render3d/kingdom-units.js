@@ -161,12 +161,13 @@ export function rider(M, f, dir) {
   // over the horse's neck, point ahead; the strike throws the arm out and down and drives the point down and ahead at
   // a man on foot, the head reaching the horse's muzzle. The horse, the rider's body and helm stay where they are.
   // Seen from behind (`dir` 11-13, models.js awayYaw) the thrust went down into depth behind the horse's neck: there
-  // the wind-up cocks the spear high, point up 0.9 rad over the helm, and the strike drives it out to the right of
+  // the wind-up cocks the spear high, point up 0.9 rad over the helm, and the strike drives it out to the side of
   // the horse's head, the hand out that way and the spear level (a downward thrust foreshortened to a stub from
-  // behind), a diagonal up the screen clear of the horse.
+  // behind), a diagonal up the screen clear of the horse. At 11 (turned left) it drives to the left across the
+  // neck (0.9 rad, a shade up): the small mirror swing kept it behind the rider.
   const yaw = awayYaw(dir), away = yaw !== 0;
-  const [PX, PY, PZ, PA] = [[1.6, 4.0, 3.2, -0.35], away ? [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.9)] : [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.35)], away ? [2.6, 4.6, 5.0, -Math.PI / 2] : [3.4, 5.2, 3.4, -(Math.PI / 2 + 0.6)]][pose]; // the hand and the spear's angle from upright (the shaft runs up local y)
-  const sp = grp(); sp.position.set(PX, PY, PZ); sp.rotation.set(0, pose === 2 ? yaw : 0, PA); r.add(sp);
+  const [PX, PY, PZ, PA] = [[1.6, 4.0, 3.2, -0.35], away ? [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.9)] : [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.35)], dir === 11 ? [2.6, 5.4, 4.0, -(Math.PI / 2 - 0.15)] : away ? [2.6, 4.6, 5.0, -Math.PI / 2] : [3.4, 5.2, 3.4, -(Math.PI / 2 + 0.6)]][pose]; // the hand and the spear's angle from upright (the shaft runs up local y)
+  const sp = grp(); sp.position.set(PX, PY, PZ); sp.rotation.set(0, pose === 2 ? (dir === 11 ? 0.9 : yaw) : 0, PA); r.add(sp);
   // (the shaft 1.4 thick, 3.9 px wide at zoom 1.0, and a broad bright head, 4.2 wide at its base: at 1.05 and a 2.8
   // head it vanished at 1x against the pale horse (the 2026-11-15 polish); still half the Knight's lance, and
   // a short wide point where the Guard's is a long narrow leaf on a longer shaft)

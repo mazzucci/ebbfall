@@ -257,7 +257,7 @@ export function guard(M, f, dir) {
   // strike drives the arm straight out and the spear with it, level, the head 27 ahead. Nothing but the arm and the
   // spear moves between the two. Seen from behind (`dir` 11-13, models.js awayYaw) both ran up the screen as one bar:
   // there the wind-up raises the spear steep (1.0 rad, gripped lower down the shaft so the butt clears the ground), a
-  // tall spike over the right shoulder, and the strike thrusts out to the right, the hand out that way too, a
+  // tall spike over the right shoulder, and the strike thrusts out to the side, the hand out that way too, a
   // diagonal across the screen.
   const pose = f >= 2 ? f - 1 : 0, yaw = awayYaw(dir), away = yaw !== 0;                       // 0 the walk, 1 the wind-up, 2 the strike
   const [SX, SY, SZ, SA, SG] = [[0.8, 10.0, 3.4, 0.7, 5.0], away ? [-0.8, 9.4, 4.3, 1.0, 5.0] : [-0.8, 9.4, 4.3, 0.42, 2.0], away ? [4.8, 10.6, 5.2, 0.15, 2.0] : [5.8, 10.4, 3.4, -0.06, 2.0]][pose]; // the hand, the spear's angle, the shaft's center along it (the grip)
@@ -331,7 +331,7 @@ export function knight(M, f, dir) {
   // ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay where they are. Seen from
   // behind (`dir` 11-13, models.js awayYaw) the couched lance ran up the screen over the horse's neck, a shorter bar
   // than the raised one: there the wind-up stands it steeper (1.2 rad, a tall pole with the pennant) and the strike
-  // drives it out to the right of the horse's head, the hand out that way, a diagonal clear of the horse.
+  // drives it out to the side of the horse's head, the hand out that way, a diagonal clear of the horse.
   const yaw = awayYaw(dir), away = yaw !== 0;
   const [LX, LY, LZ, LA] = [[2.0, 4.8, 3.6, 0.42], away ? [0.6, 3.6, 3.9, 1.2] : [0.6, 3.6, 3.9, 0.95], away ? [2.6, 4.6, 4.8, 0.08] : [3.0, 4.4, 3.5, -0.02]][pose]; // the hand and the lance's angle
   const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.set(0, pose === 2 ? yaw : 0, LA); r.add(ln);

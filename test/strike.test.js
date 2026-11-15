@@ -166,3 +166,12 @@ test('a death\'s team debris is thin: a third of the pieces, 1 to 2 px, gone in 
   for (let i = 0; i < 20; i++) updateFx(0.03);
   assert.equal(fx.list.length, 0, 'all gone within 0.6 s');
 });
+
+test('a strike seen from behind swings out to the side: left at facing 11, right at 12 and 13, nowhere else (render3d awayYaw)', async () => {
+  const { awayYaw } = await import('../tools/render3d/models.js');
+  assert.ok(awayYaw(11) > 0, 'facing 11 (turned left): to the unit\'s left');
+  assert.ok(awayYaw(12) < 0 && awayYaw(13) < 0, 'facings 12 and 13: to its right');
+  assert.equal(awayYaw(11), -awayYaw(13), '11 the mirror of 13');
+  assert.ok(Math.abs(awayYaw(12)) > Math.abs(awayYaw(13)), 'straight away: the larger swing');
+  for (const d of [undefined, 0, 4, 8, 10, 14, 15]) assert.equal(awayYaw(d), 0, `no swing at facing ${d}`);
+});

@@ -103,10 +103,11 @@ export function mercenary(M, f, dir) {
   // the turned shoulder (the blade up and back, 1.9 rad), then out ahead (the blade level, a shade down and across).
   // Seen from behind (`dir` 11-13, models.js awayYaw) the cut went into depth behind the vest: there the wind-up
   // raises the blade straight up over the shoulder, a bright spike above the cap, and the strike cuts out to the
-  // right (the yaw past the shoulder's own turn to the left), the blade a shade down (steeper, it foreshortened to a
-  // stub from behind), a diagonal up the screen beside the body.
+  // side (the yaw net of the shoulder's own turn to the left), the blade a shade down (steeper, it foreshortened to a
+  // stub from behind), a diagonal up the screen beside the body. At 11 (turned left) the cut goes to the left, the
+  // blade level and swept well across (1.1 rad): the small mirror swing kept it behind the vest.
   const ayaw = awayYaw(dir), away = ayaw !== 0;
-  const [HX, HY, HZ, SA, SY] = [[3.0, 9.4, 4.0, 0.65, 0], away ? [-1.4, 12.2, 4.8, 1.45, 0] : [-2.4, 10.6, 4.6, 1.9, 0], away ? [3.2, 9.2, 5.2, -0.3, ayaw - 0.35] : [4.4, 9.6, 2.8, -0.25, 0.1]][pose]; // the hand, the sword's angle and its turn across
+  const [HX, HY, HZ, SA, SY] = [[3.0, 9.4, 4.0, 0.65, 0], away ? [-1.4, 12.2, 4.8, 1.45, 0] : [-2.4, 10.6, 4.6, 1.9, 0], dir === 11 ? [3.6, 10.0, 3.0, 0.15, 1.1 - 0.35] : away ? [3.2, 9.2, 5.2, -0.3, ayaw - 0.35] : [4.4, 9.6, 2.8, -0.25, 0.1]][pose]; // the hand, the sword's angle and its turn across
   if (pose === 0) { limb(b, [0.6, 11.4, 3.6], [3.0, 9.4, 4.0], 1.1, M.canvasLocal); add(b, sph(0.9, 8, 6), M.skin, 3.3, 9.3, 4.1); sword(b, M, 3.4, 9.4, 4.1, 0.65, 10); } // the sword arm and hand
   else { limb(b, [0.6, 11.4, 3.6], [HX, HY, HZ], 1.1, M.canvasLocal); add(b, sph(0.9, 8, 6), M.skin, HX + 0.3, HY - 0.1, HZ + 0.1); sword(b, M, HX + 0.4, HY, HZ + 0.1, SA, 10).rotation.y = SY; }
   limb(b, [0.6, 11.4, -3.6], [1.4, 7.6, -4.2], 1.1, M.canvasLocal); add(b, sph(0.85, 8, 6), M.skin, 1.6, 7.0, -4.2); // the free arm
@@ -237,11 +238,13 @@ export function veteran(M, f, dir) {
   // 0.8 rad, the bright head over and behind the shoulder above the helmet; the strike swings it down in front, the arm
   // out level and the haft 60 degrees down, the head low ahead just off the ground. The shield and the body stay put.
   // Seen from behind (`dir` 11-13, models.js awayYaw) the low head hid behind the body: there the wind-up holds the
-  // haft more upright (the bright head higher over the helmet) and the strike swings it down and out to the right,
-  // the hand out and down that way, the head at the right hip on open ground.
+  // haft more upright (the bright head higher over the helmet) and the strike swings it down and out to the side,
+  // the hand out and down that way, the head at the right hip on open ground. At 11 (turned left) the blow goes
+  // ahead and a little left, the haft level above the shoulder: low on that side the head hid behind the body and the
+  // shield.
   const yaw = awayYaw(dir), away = yaw !== 0;
-  const [AX, AY, AZ, ARX, ARZ] = [[2.4, 9.8, 4.6, 0.1, 0.5], away ? [0.0, 15.2, 5.0, 0.1, 0.45] : [0.0, 15.2, 5.0, 0.1, 0.8], away ? [3.4, 9.4, 6.2, 0, -(Math.PI / 2 + 0.7)] : [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
-  const ax = grp(); ax.position.set(AX, AY, AZ); ax.rotation.set(ARX, pose === 2 && away ? yaw - 0.4 : 0, ARZ); b.add(ax);
+  const [AX, AY, AZ, ARX, ARZ] = [[2.4, 9.8, 4.6, 0.1, 0.5], away ? [0.0, 15.2, 5.0, 0.1, 0.45] : [0.0, 15.2, 5.0, 0.1, 0.8], dir === 11 ? [3.0, 13.0, 3.6, 0, -(Math.PI / 2 - 0.2)] : away ? [3.4, 9.4, 6.2, 0, -(Math.PI / 2 + 0.7)] : [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
+  const ax = grp(); ax.position.set(AX, AY, AZ); ax.rotation.set(ARX, pose === 2 && away ? (dir === 11 ? 0.3 : yaw - 0.4) : 0, ARZ); b.add(ax);
   add(ax, cyl(0.95, 1.05, 13, 8), M.oakPale, 0, 5.0, 0);                                        // the haft (2.7 px wide at zoom 1.0)
   band(ax, M, 1.15, 4.0, 0, pose ? 4.6 : 5.6, 0);                                                // a team wrap up the haft between ink rings, above the hand (at the grip the hand hid it, and facing east, the shield behind the body, fell under the share's floor); in the strike poses a step lower, so bare haft shows between it and the head
   add(ax, rbox(7.0, 4.2, 4.4, 0.6), M.brightSteel, 0.4, 11.0, 0);                                 // the head: one big bright steel block, a hammer's (the art polish; an axe's pale plate until then)

@@ -308,7 +308,7 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-const EXPECTED_TEAMS_AI: [u32; 3] = [79493456, 3458754595, 633668513];
+const EXPECTED_TEAMS_AI: [u32; 3] = [79493456, 791302117, 2607264388];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

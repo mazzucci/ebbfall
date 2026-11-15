@@ -172,9 +172,13 @@ impl World {
 
     /// The free tile around the building a new unit steps out onto: an uncrowded one if there is any (so a batch
     /// stands side by side instead of on one spot), nearest the building, towards the rally point (or the far side of
-    /// the map, or its center with more than two starts).
+    /// the map, or its center with more than two starts). With more than two starts it steps out on the building's
+    /// front, the south side facing the camera, so it is seen leaving (Stelian, Nov 15): a free tile south of the
+    /// building, if any in reach, before any other, then the rule above among them; it walks to its rally from there.
     fn exit_tile(&self, b: &Bldg, kind: UnitKind) -> (i32, i32) {
         let air = kind.def().air;
+        // (two starts keep their old side, seat 0 south and the rest north: the goldens pin it)
+        let front = self.map.bases.len() > 2;
         let rf = match b.rally {
             Some(rl) => (rl.x, rl.y),
             // (more than two starts: the map's center; two: seat 0 south, the rest north, as always)
@@ -184,11 +188,12 @@ impl World {
                 b.y + self.map.wh() * if b.team != 0 { -1.0 } else { 1.0 },
             ),
         };
-        // (crowded, ring, distance to the rally side, clockwise of the line from the building to it, along that line,
-        // y, x): compared in that order, smaller better but the side and the along (higher better). From tile centers, so a half turn of the map
-        // (the starts' symmetry) gives the turned choice (`Map::nearest_passable_to`'s rule).
+        // (crowded, off the front, ring, distance to the rally side, clockwise of the line from the building to it,
+        // along that line, y, x): compared in that order, smaller better but the side and the along (higher better).
+        // From tile centers, so a half turn of the map (the starts' symmetry) gives the turned choice
+        // (`Map::nearest_passable_to`'s rule).
         let (bx, by) = (b.x, b.y);
-        type Spot = (bool, i32, f64, f64, f64, i32, i32);
+        type Spot = (bool, bool, i32, f64, f64, f64, i32, i32);
         let mut best: Option<Spot> = None;
         for r in 0..4 {
             for y in (b.ty - r - 1)..=(b.ty + b.h + r) {
@@ -210,6 +215,7 @@ impl World {
                     let along = ux * (tcx - bx) + uy * (tcy - by);
                     let key = (
                         self.crowded(x, y, air),
+                        front && y < b.ty + b.h,
                         r,
                         dist(tcx, tcy, rf.0, rf.1),
                         side,
@@ -218,12 +224,12 @@ impl World {
                         x,
                     );
                     if best.is_none_or(|k| {
-                        (key.0, key.1)
-                            .cmp(&(k.0, k.1))
-                            .then(key.2.partial_cmp(&k.2).unwrap())
-                            .then(k.3.partial_cmp(&key.3).unwrap())
+                        (key.0, key.1, key.2)
+                            .cmp(&(k.0, k.1, k.2))
+                            .then(key.3.partial_cmp(&k.3).unwrap())
                             .then(k.4.partial_cmp(&key.4).unwrap())
-                            .then((key.5, key.6).cmp(&(k.5, k.6)))
+                            .then(k.5.partial_cmp(&key.5).unwrap())
+                            .then((key.6, key.7).cmp(&(k.6, k.7)))
                             .is_lt()
                     }) {
                         best = Some(key);
@@ -231,6 +237,6 @@ impl World {
                 }
             }
         }
-        best.map_or((b.tx, b.ty + b.h), |k| (k.6, k.5))
+        best.map_or((b.tx, b.ty + b.h), |k| (k.7, k.6))
     }
 }

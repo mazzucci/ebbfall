@@ -332,7 +332,7 @@ class UnitObj {
     this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the selection ring round the feet: as large as the art)
     this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0xeee6d2, 0.14, 0.5); // (the gold a worker carries: pale, faint)
-    this.px = u.x; this.py = u.y; this.walk = 0;
+    this.id = u.id; this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
@@ -468,7 +468,7 @@ class BldgObj {
     if (this.bud) { // the Expedition: a cold cyan hologram until done (construct.js HOLO)
       setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
       if (site) {
-        const a = holoAlpha(b.progress, now);
+        const a = holoAlpha(b.progress, live ? now : 0); // (a remembered ghost holds still)
         this.body.tint = b.flash > 0 ? 0xffffff : HOLO.tint; this.body.alpha = a + (b.flash > 0 ? 0.15 : 0); vis(this.paint, false);
         this.scaffold.alpha = this.scaffoldPaint.alpha = budAlpha(b.progress);
       } else if (fading) {

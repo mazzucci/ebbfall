@@ -372,8 +372,8 @@ src/client/           everything that touches the browser
                       test/cards.test.js). Three columns; buttons of a type (units, researches, orders, abilities) pack
                       among themselves, actions never shift: on a building, its units in the top row in the order they
                       unlock (three at most), Rally in the second row's middle (slot 4), the queue's Cancel in the
-                      corner (5), its researches from slot 3 (from 0 on one that trains nothing), a running one's
-                      Cancel in its own place; a Build page keeps each building in the slot it was first shown in for
+                      corner (5), its researches from slot 3 (from 0 on one that trains nothing), each in a fixed
+                      slot (a finished one stays there, grayed out with a check), a running one's Cancel in its place; a Build page keeps each building in the slot it was first shown in for
                       the game (per seat and page, forgotten when a new WASM game starts), so a newly opened one (the
                       Uplink too) takes the first free slot, and Back keeps the corner; `buildPages`: the sim's two
                       lists with every defense (the Watchtower, the Sentry mast) on the basic page, before Advanced

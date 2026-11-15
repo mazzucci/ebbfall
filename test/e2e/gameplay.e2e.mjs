@@ -409,7 +409,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.pressCard('Shield Wall');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 120, what: 'Shield Wall' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Shield Wall'), 'a finished tech leaves the card');
+    assert.ok((await d.card()).some(c => c.label === 'Shield Wall' && !c.enabled), 'a finished tech keeps its slot, grayed out as done');
     await d.clickEntity(id);
     assert.ok((await d.card()).some(c => c.label === 'Brace' && c.enabled), 'Brace once researched');
     assert.deepEqual(d.errors, []);
@@ -453,10 +453,51 @@ test('phone: Shield Wall researched at the Blacksmith: long-press says what it c
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
     await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 80, what: 'Shield Wall' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Shield Wall'), 'a finished tech leaves the card');
+    const done = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(done.slice(0, 3), ['Weapons I', 'Armor I', 'Shield Wall'], 'a finished tech keeps its slot');
+    assert.ok((await d.card()).some(c => c.label === 'Shield Wall' && !c.enabled), 'grayed out as done');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+// A research finished moves no button (Stelian, Nov 15: the Guard's upgrade moved left once Weapons was done): every
+// research building of both peoples, each research finished through its button (a multi-level one set up to its last
+// level first), every button and empty slot of the card where it was, the finished one grayed out as done.
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: DESKTOP, steps: [['c', 'barracks'], ['k', 'forge'], ['f', 'airfield'], ['x', 'extractor']] }],
+  ['vael', { hq: 'conflux', worker: 'lumen', device: PHONE, steps: [['i', 'siphon'], ['g', 'loom']] }]]) {
+  test(`a research finished moves no button on the card (${race}, ${R.device === PHONE ? 'phone' : 'desktop'})`, async () => {
+    const d = await newGame(R.device, 1, 4242, { ai: false, race });
+    try {
+      await d.grant(5000, 5000);
+      const built = [];
+      for (const [i, [hot, type]] of R.steps.entries()) built.push(await buildAndFinish(d, hot, type, i, R));
+      /** Every slot of the card: its button's id (an empty slot's 'gap'), whether done, and its box. */
+      const slots = () => d.page.$$eval('#cmd > *', els => els.map(e => { const b = e.getBoundingClientRect(); return { id: e.dataset.id || 'gap', done: e.classList.contains('done'), disabled: !!e.disabled, box: [b.x, b.y, b.width, b.height].map(Math.round) }; }));
+      let checked = 0;
+      for (const b of built) {
+        const researches = await d.eval((type) => endfall.engine.BUILDINGS[type].researches, b.type);
+        for (const r of researches) {
+          const levels = await d.eval((r) => endfall.engine.UPGRADES[r].levels, r);
+          if (levels > 1) await d.eval(([r, lv]) => endfall.engine.debugResearch(0, r, lv), [r, levels - 1]); // (set-up: up to its last level)
+          await d.grant(5000, 5000);
+          await d.clickEntity(b.id);
+          await d.page.locator(`#cmd button[data-id="r_${r}"]:not([disabled])`).waitFor({ timeout: 5000 });
+          const before = await slots();
+          await d.page.locator(`#cmd button[data-id="r_${r}"]`)[d.touch ? 'tap' : 'click']();
+          assert.ok(await d.skipUntil(([r, lv]) => endfall.G.upgrades[0][r] >= lv, [r, levels], { seconds: 120 }), `${b.type}: ${r} finished`);
+          await d.page.locator(`#cmd button[data-id="r_${r}"].done`).waitFor({ timeout: 5000 });
+          const after = await slots(), what = `${race} ${b.type}, ${r} finished`;
+          assert.deepEqual(after.map(s => [s.id, s.box]), before.map(s => [s.id, s.box]), `${what}: every button where it was`);
+          const own = after.find(s => s.id === 'r_' + r);
+          assert.ok(own.done && own.disabled, `${what}: its button grayed out as done`);
+          checked++;
+        }
+      }
+      assert.equal(checked, { humans: 5, vael: 2 }[race], 'every research of the people\'s buildings');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
 
 test('a game starts over the base: fully zoomed out with a mouse, at 1 on a phone', async () => {
   for (const device of [DESKTOP, PHONE]) {

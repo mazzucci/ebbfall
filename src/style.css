@@ -159,6 +159,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 /* Unavailable or unaffordable: its glyph in gray, dimmed with the button. */
 .cb:disabled:not(.cancel) .ico,.cb.poor:not(.cancel) .ico{color:var(--muted)}
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
+.cb.done::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--ok) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.3 4.2l1.9 1.9 3.5-3.8' fill='none' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")} /* a finished research: its slot kept, grayed, a check (cards.js) */
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
 .cb .c .p{justify-self:end;color:var(--muted)} .cb .c .p .ico{order:0;width:9px;height:9px;stroke-width:2.5;color:inherit} /* (a unit's population or grid, small, in the right column: card.js) */

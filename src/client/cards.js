@@ -172,18 +172,19 @@ export function cardItems() {
       .filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
     shown.forEach(t => { const d = UNITS[t], why = placesTip(t); at(0, { id: 't_' + t, label: d.name, key: d.hot, cost: unitCost(G.upgrades[G.me], t), places: placesOf(t), por: ['unit', t], tip: d.desc + (why ? ' ' + why : '') }); }); // (the hover title and the long-press; a refusal for want of places said there too)
     if (b.done && b.d.researches.length) {
-      // The researches packed among themselves, finished ones left out: from the first slot, or the second row's left on
-      // a building that trains (so a unit unlocked moves none of them). While one runs, its own button becomes the
-      // Cancel, in its place: nothing else moves between idle and busy, so a key or a second tap meant for another
-      // research never cancels this one.
+      // Each research in its own slot, in the table's order: from the first slot, or the second row's left on a
+      // building that trains (so a unit unlocked moves none of them). A finished one keeps its slot, grayed out as done
+      // (Stelian, Nov 15: the Guard's upgrade moved left once Weapons was done), so no button moves when a research
+      // lands. While one runs, its own button becomes the Cancel, in its place: nothing else moves between idle and
+      // busy, so a key or a second tap meant for another research never cancels this one.
       const busy = researching(bl);
-      const from = researchFrom(trains.length), place = (it) => at(from, it);
+      const from = researchFrom(trains.length);
       const cancelr = busy && { id: 'cancelr', label: 'Cancel', key: 'C', cancel: true, icon: busy.research.type, badge: true, tip: 'Cancel the research (full refund)' };
-      b.d.researches.forEach((k) => {
-        const u = UPGRADES[k];
+      b.d.researches.forEach((k, i) => {
+        const u = UPGRADES[k], place = (it) => at(from + i, it);
         const lv = G.upgrades[G.me][k] + 1, elsewhere = G.bldgs.some(o => o.team === G.me && o.research && o.research.type === k);
         if (busy?.research.type === k) { place(cancelr); return; }
-        if (lv > u.levels) return;
+        if (lv > u.levels) { place({ id: 'r_' + k, label: upName(u, u.levels, true), key: u.hot, dis: true, done: true, icon: k, tip: (u.level_names?.length ? upName(u, u.levels) + ': ' : '') + 'Researched.' }); return; } // (done: its slot kept, grayed)
         place({ id: 'r_' + k, label: upName(u, lv, true), key: u.hot, cost: u.cost[lv - 1], dis: bl.every(o => o.research) || elsewhere, icon: k, tip: (u.level_names?.length ? upName(u, lv) + ': ' : '') + upgradeDesc(k, myFaction()) + ` ${u.time[lv - 1]} s.` }); // (any idle one of the selection takes it)
       });
     }

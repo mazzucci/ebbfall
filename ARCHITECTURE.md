@@ -1,8 +1,8 @@
 # Ebbfall: architecture
 
-The map of the code for coding agents: what each file, module and test is for, CI and the deploy in full, and the
-water, tide and Shore rules and the seats, teams, maps and spawning in detail. CLAUDE.md holds the rules and the commands; read it first. Keep this file true
-when you add, move or remove a file.
+The map of the code for coding agents: how the game is built: what each file, module and test is for, and CI and the
+deploy in full. How the game plays (seats, teams, maps, spawning, water, the tide and the Shore) is in GAMEPLAY.md.
+CLAUDE.md holds the rules and the commands; read it first. Keep this file true when you add, move or remove a file.
 
 ## CI and the deploy
 
@@ -22,82 +22,6 @@ publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/n
 the site never outruns the relay. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
 iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
-
-## Seats, teams and maps
-
-- Seats: a World has N seats (`World::seats()`, 2 to `MAX_SEATS`, at most the map's starts: 2 on 64x64, 4 on 96x96, 8
-  on 128x128, `map::max_starts`, all of them generated whatever the seats). Seats sit round the map in order
-  (`map::seat_starts`): allies in consecutive seats are neighbours, which is how the menus' teams are made, and with
-  teams `Game::with_seats` turns the seats by whole starts only and the free starts go between teams
-  (`map::team_starts`), so any split of consecutive seats starts side by side.
-- Teams: each seat is on a team (`World::teams`, each its own by default). The game is over when the seats still in
-  (`out`) are all one team, and `winner` is that team; a concede knocks out its seat only. While the game goes on,
-  what an out seat leaves is inert (`World::inert`: stopped, then left out of the tick; it can still be destroyed).
-  Fog is shared with allies (`update_fog` ORs a team's layers); `Game::drain_events` passes on its own seat's events
-  (`seen` is a bit per seat).
-- AI seats: the scripted opponent plays whichever seats `World::ai_seats` marks, one brain per seat (`World::seat()`
-  inside its turn). It fights every enemy and plans against `foe()`, the nearest enemy start still in, ties to its
-  partner (seats 0 and 1, 2 and 3, ...). Each AI seat may have its own difficulty (`World::diff_of`,
-  `Game.withSeats`' optional `diffs`). `World::tuning` gives the plan (balance lab only: a whole `Diff` per seat,
-  `World::set_ai_plans`), else the level's numbers as the seat's drawn style plays them: each AI seat draws its style,
-  hidden, from the seeded RNG at its first turn (`World::set_ai_styles` forces one, lab and tests only). What being an
-  AI changes: AI income, building in unexplored ground, losing as soon as its buildings are gone.
-- Maps: the menus offer 96x96 with four starts and 128x128 with eight, each size with maps of its own, any of them for
-  as many players as its starts, a duel too. 64x64 (`MapSize::DUEL`, two starts) is hidden from the menus but still
-  generated and played: the goldens, `?seed=`, a challenge or room naming one (src/client/maps.js). A map is always
-  generated with all its starts, the free ones free ground.
-- Spawning (src/world/spawn.rs): on two-start maps seat 0 faces east and steps out south, the habits the goldens pin.
-  On maps of more starts (`map.bases.len() > 2`) units face the map's centre (`home_face`) and step out on their
-  building's south side (`exit_tile`), the free southern spot nearest the centre, or nearest the rally point when one
-  is set, so a new unit is seen leaving; with no southern spot open, the nearest free spot. The AI's rules for several
-  enemies (a wave called home to a raid by another) apply only with more than one enemy still in.
-- Builders and workers: a builder of either people stays at its site until the building stands, then waits idle
-  beside it; a new worker waits at its headquarters (or at its rally point, beside a mine) until it is ordered to
-  gather, and the AI orders its own workers.
-
-## Water, the tide and the Shore map
-
-- Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`
-  everywhere on the kinds without water) and the world one water level (`World::water`: 0, not hashed, unless the
-  tide is on). Against it a tile is land, shallows (within two below) or deep water (`Map::ground`). A unit gets about by
-  its kind's class (`UnitDef::mv`, `Move`): Walk (every ground unit of both peoples since the re-theme: land and
-  shallows), Amph (anywhere: no kind has it since the re-theme; the class and its rules stay, as data), Fly (flyers,
-  exactly the `air` ones). Every walkability check for a unit takes its `Foot` (class and water
-  level: `World::foot(kind)`, `Map::passable`, `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay
-  class-free (map generation, buildings, flyers). The contact rules: a Walk unit in the shallows moves at `WADE_SPEED`
-  (0.7, in `live_speed`); nothing fires from deep water (`fire` refuses, an attacker in deep water closes in until it
-  stands on shallows or land, an idle or attack-moving one picks no fight there, and one there drops a flyer or a target itself in deep water;
-  a crowd's push never shoves a walker into it); buildings go by the builder's class (`builds_on`: a
-  Walk builder on land, an Amph builder on land and shallows, nobody in deep water), the AI's placement through the same
-  `can_place`. On a map without water all of it is inert (the goldens pin that).
-- The tide (PRD: the tide on the Shore map; `World::set_tide`, a world switch, off by default: the menus play without
-  it until the tide's clock and water are drawn; Rust callers, the lab and the tests turn it on): the water level
-  moves through a cycle (`world/tide.rs`, its numbers in `data/tide.rs`): high water, the ebb, low water, the flood
-  (3:00 by default, each cycle up to 15% longer or shorter, drawn from the world's RNG as it starts; a game starts at
-  high water), a step at a time between `WATER_LOW` and `WATER_HIGH`; `tide_phase`, `tide_level`. It runs first in
-  `step`. When the level moves, routes it cuts are dropped (`terrain_changed` and each walker's own) and, on the way
-  up, a walker on ground now deep is swept to the nearest ground it may stand on, losing 30% of its maximum health
-  and stunned 2 s (`Unit::stun`), or destroyed with `set_flood_kills` (the lab's comparison).
-  `TIDE_WARN_S` before the flood each seat with walkers on ground it will cover is warned (a toast, the alert sound, a
-  ping) and, its switch on (`SetRetreat`, a command; `World::no_retreat`, a bit per seat; on by default), its idle
-  walkers and its idle or mining workers there walk to ground that stays dry; units under any other order keep it.
-  Amphibians (none since the re-theme) are never swept. With the tide, building goes by the level that matters (`builds_on`: a Walk builder on
-  land at high water, an Amph builder on what is at most shallow at low water), and no building fires from deep water
-  either. The tide enters the hash only when on (level, cycle, switches; a stunned unit's stun), so every game
-  without it hashes as before; `golden_hashes_pin_the_shore_with_the_tide` pins one with it.
-- The Shore map (`MapKind::Shore`, appended; 64x64, two starts): each start's share holds a cove on land (a pocket in
-  a corner, its ramp facing the sea) and a reef basin in the shallows (a reef ring with a land channel facing the cove
-  across the sea and a sea gate onto the deep band, which only amphibians pass), a deep band between the two reefs,
-  shallows round it. Starts by people: a seat whose builders are Amph starts in its start's basin (`Map::basins`;
-  nobody since the re-theme), the others in its cove; the start a seat does not use stays open ground with its field. No vent in
-  a cove or a basin (no shaft either, since the re-theme's economy). A Shore
-  with more than two starts falls back to Standard ground. It has maps of its own (Mirror Lake, Random Lake, appended
-  to `MAPS`, with their line), hidden from the menus with every 64x64 map since 2026-11-13 (`?map=12` opens it for the
-  tests); the other random maps never draw it (`RANDOM_KINDS`). The renderer
-  tints the shallows and deep water (the shade layer and the minimap; `core.js` `ground`). In the balance lab only,
-  a basin's main field can lie elsewhere (`ShoreField`: `BACK`, every game's, to the headquarters' flank; `CHANNEL` and
-  `CHANNEL_FAR`, the exposed-income variants, towards the cove it faces; `World::set_shore_field`, never from JS or
-  the network and not hashed, `Map::generate_with`).
 
 ## Tests that guard gameplay
 

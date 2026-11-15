@@ -7,9 +7,9 @@ JavaScript ES modules, Vite and PixiJS 8 (WebGL) over code-generated sprite shee
 buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer
 works without rewriting it.
 
-**ARCHITECTURE.md** is the map of the code: what every file, module and test is for, CI and the deploy in full, and
-the gameplay in detail (seats, teams, maps and spawning; water, the tide and the Shore). Open it when you need to find your way; this file keeps the rules and the
-commands.
+**ARCHITECTURE.md** is the map of the code, how the game is built: what every file, module and test is for, and CI and
+the deploy in full. **GAMEPLAY.md** is how the game plays: seats, teams, maps and spawning; water, the tide and the
+Shore. Open them when you need to find your way; this file keeps the rules and the commands.
 
 Two Notion pages hold what is not code: Ebbfall: planning (the roadmap, reviews, open questions) and Ebbfall:
 developer docs ("Multiplayer design": lockstep, the relay, hosting, deploy and rollback; "Ebbfall art": the art
@@ -106,8 +106,7 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
 ## Conventions
 
 The gameplay these rules protect (how seats sit round a map, teams, the AI seats and their styles, map sizes and
-starts, spawning, builders, water and the tide) is described in ARCHITECTURE.md, "Seats, teams and maps" and "Water,
-the tide and the Shore map". The rules:
+starts, spawning, builders, water and the tide) is described in GAMEPLAY.md. The rules:
 
 - Seats: a World has N seats (`World::seats()`), and every per-seat thing is a `Vec` indexed by seat (`factions`,
   `res`, `vis`, `stats`, `upgrades`, ...; `team` on an entity is its seat). Rules never single out a seat: fog,

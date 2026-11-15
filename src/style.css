@@ -54,7 +54,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #msg{position:absolute;left:8px;bottom:220px;pointer-events:none;display:flex;flex-direction:column;gap:4px;align-items:flex-start;width:max-content;max-width:60%} /* bottom-left, above SELECT: never over the middle of a fight */
 /* A phone has no room beside the ATTACK alert (top right): the toasts move down under it while it shows. */
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
-.toast.bad{border-color:var(--bad);color:#ffb3b3} .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
+.toast.bad{border-color:var(--bad);color:#ffb3b3} .toast.paused{border-color:var(--ally);color:var(--ally2)} /* (a site left with no builder: the build bar's and the pause mark's orange) */ .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
@@ -72,6 +72,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
 #info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:none;max-width:100%}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#info .sub.keep{flex:none} #info .nm:has(.sub.keep) h2{flex:0 1 auto} /* (construction's percentage stays whole: the name ellipsizes first) */
 /* What the selected kind is for (one line under the health bar): gone when empty, and gone where it would be cut or
    would grow the console (hud.js measures it), so nothing else moves. */
 #info .what{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}

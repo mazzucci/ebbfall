@@ -59,6 +59,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
 #hint.bad{color:var(--bad)} /* (placing: why the spot is refused) */
+#hint.placing{font-size:15px} /* (placing a building: what the ghost's spot says, read at a glance; the slot the other hints use) */
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 /* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */

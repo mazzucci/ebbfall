@@ -120,7 +120,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   stranded one walking back; two overlapping sources' waist crossed, and a way that clips its notch rerouted inside
   (a move arrives, an attack fires; the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most
   of a 64x64 map); the Expedition AI's push on 96x96: one forward Uplink whose coverage takes in the foe, then its
-  machines, none of them leaving coverage), the Expedition's economy (`expedition`: energy and one grid, Nov 14: the
+  machines, none of them leaving coverage; Expedition buildings placed only inside coverage, the Data center and the
+  Uplink anywhere, a post and a turbine standing and working after their Uplink falls; a group sent past the edge told
+  once, with the rim cue's spot), the Expedition's economy (`expedition`: energy and one grid, Nov 14: the
   grid from the Data center (22) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
   units drawing it (buildings none, a building placed whatever the grid); machines and
   mercenaries alike refused on a full grid and trained once a Substation stands; a mercenary's grid freed by its death,
@@ -233,7 +235,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       starts, who is out and why, `beaten`, `OutWhy`: an AI's seat once its last building falls, a
                       person's once no worker is left either, or anyone's with no finished headquarters, worker, fighter
                       or factory with a unit in training or the gold to train a fighter; the last team standing), orders (placing:
-                      `place_refusal`, the one placement check, a `Refusal` and its words, that `can_place`, the order,
+                      `place_refusal`, the one placement check, a `Refusal` and its words (an Expedition building but the Data center and
+                      the Uplink only with its center inside its side's coverage, `Refusal::Coverage`, data/radio.rs
+                      `needs_coverage`: placing only, nothing goes offline), that `can_place`, the order,
                       the AI and the client's ghost read), spawn (a new worker waits where it stepped out, or walks
                       to its rally point, beside the mine for a rally on one: mining starts only on an order; the AI
                       orders its own, `ai/economy.rs`, from any mine on its side once those by home run dry), economy (gold mines: a worker walks
@@ -259,7 +263,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       route keeps inside coverage (paths.rs `keep_covered`: a route that leaves it gives way to a
                       search over the covered tiles, path.rs `astar_within`, budgeted like any search). A move or
                       attack past the edge stops at it (fighting what it can reach from there; a player is told
-                      "Can't reach: no signal there.", once a tick for a group); one left outside
+                      "No signal there: an Uplink reaches further.", once a tick for a group, a group order judged by its first machine
+                      inside coverage, with a `Signal` event at the spot for the client's rim cue); one left outside
                       (stranded: its Uplink fell) moves only towards coverage, slower, and walks back when idle; the
                       AI's push (one forward Uplink that covers its goal, its machines kept out of a wave until
                       coverage nears the goal), its wave's own Uplink and staging, and a wave left with only machines held quiet at the edge
@@ -301,7 +306,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       and pushes without giving up (`Ai::push`); Hard's push takes everything (`Diff::push_all`: its
                       reserve goes too, and past the hold it goes with half its count or more), and from its stall time
                       a Hard seat behind the foe's army it last saw builds nothing but supply until it has caught up
-                      (`Diff::army_first`); its Portal
+                      (`Diff::army_first`); the home reserve alone never keeps a wave short of its count (two passive
+                      Kingdoms each kept a quarter home and neither came: Nov 15); its Portal
                       holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with
                       each base past the first up to four (army.rs, produce.rs, economy.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
@@ -312,11 +318,19 @@ src/client/           everything that touches the browser
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
-                      the range (the sim's circles round each Data center and Uplink, a soft tint faded as one layer
-                      and one outline round their union, range.js; shown while a machine, a Data center or an Uplink of
-                      this side is selected or an Uplink placed, drawn again only when the sources change; a double
-                      chevron over a machine of ours moving in range, by exact distance as the sim; `rangeShown` for
-                      the tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
+                      the range (the sim's circles round each Data center and Uplink, a soft tint at 7% faded as one
+                      layer and the signal rim round their union, range.js: a 3.5 px dark halo at 50% under a 1.5 px
+                      light line at 70%, and inside it a feathered band, 16 px of the rim's light from 18% to nothing,
+                      in screen px at every zoom (`rimZoom`, a step of the zoom in the redraw's key);
+                      above the fog, under the ghost, the bars and the selection box; shown while a machine, a Data
+                      center or an Uplink of this side is selected or any Expedition building placed, drawn again only
+                      when the sources or the zoom's step change; a machine sent past the edge (the sim's `signal`
+                      event) brightens the rim's stretch nearest the spot, range.js `nearestRim`, fading over 0.6 s;
+                      the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
+                      an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
+                      over the cached base, a 1.25 px line at 80% over a 2.5 px dark halo at 50% in CSS px (scaled by
+                      the minimap's box: its canvas keeps 168 px); `rangeShown` for the tests); the placing hint (ui.js
+                      `setHint`, `#hint.placing`) in 15 px type in its slot; a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
@@ -422,8 +436,9 @@ src/client/           everything that touches the browser
                       test/cards.test.js: every button has its drawing, no two buttons a card shows together share
                       one, nor any two units or buildings, no unit is drawn like an action, every person has the bust
                       and nothing else does
-  range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance) and `unionArcs` (the outline
-                      of their union) (test/range.test.js)
+  range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance), `unionArcs` (the outline
+                      of their union) and `nearestRim` (the outline's stretch nearest a point: the leash cue)
+                      (test/range.test.js)
   look.js             per-kind presentation the sim does not know: building lights, chimney smoke (points measured on
                       the turned models; puffs only while the building trains or researches, `chimneyActive`) and
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's

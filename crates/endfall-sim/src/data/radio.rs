@@ -25,6 +25,14 @@ pub fn range_of(kind: BldgKind) -> f64 {
     }
 }
 
+/// Whether a building of this kind goes up only inside its seat's coverage (Stelian, Nov 15): every building of a
+/// people whose headquarters gives coverage (the Expedition), but the sources themselves (the Data center, by its
+/// headquarters spacing only, and the Uplink, anywhere explored). Placing only: a building stands and works whatever
+/// happens to the coverage afterwards.
+pub fn needs_coverage(hq: BldgKind, kind: BldgKind) -> bool {
+    range_of(hq) > 0.0 && range_of(kind) == 0.0
+}
+
 /// Whether a unit of this kind is a machine that needs signal: the Expedition's combat machines (the Buggy, the Drone,
 /// the Rover, the Android). Its Bots are free (they walk out to build forward Uplinks and reach far mines, at their calm
 /// pace: no bonus), and its hired people and the Kingdom's units fight anywhere.

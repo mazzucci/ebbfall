@@ -210,10 +210,12 @@ impl World {
             } if bldg(self, b) && finite(x, y) => self.set_rally(b, x, y, node),
             Command::Formation { ref units, x, y } if finite(x, y) => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
+                self.tell_group_no_signal(seat, &mine, (x, y));
                 self.formation(&mine, x, y);
             }
             Command::GroupAttackMove { ref units, x, y } if finite(x, y) => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
+                self.tell_group_no_signal(seat, &mine, (x, y));
                 self.attack_move_group(&mine, x, y);
             }
             Command::Concede => self.concede(seat),

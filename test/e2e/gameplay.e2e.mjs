@@ -1720,10 +1720,16 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     // The mark goes by the sim's rule: whatever is marked is out of range (exact distance).
     const marked = await d.eval(() => endfall.rangeShown().marked.map(id => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return [id, Math.hypot(u.x - c.x, u.y - c.y) > c.r]; }));
     assert.ok(marked.length && marked.every(([, o]) => o), `only machines out of range are marked: ${JSON.stringify(marked)}`);
+    // Sent far past the edge (a right click): told there is no signal, and the rim nearest brightens for a moment.
+    await d.rightClickWorld(...at(reach + 12));
+    await d.page.waitForFunction(() => endfall.rangeShown().leash, null, { timeout: 5000 });
+    assert.match((await d.toasts()).join(' | '), /No signal there: an Uplink reaches further\./);
+    await d.page.waitForFunction(() => !endfall.rangeShown().leash, null, { timeout: 5000 }); // (faded in 0.6 s)
     // Sent back towards the Data center through the UI (a right click): once inside, the stranded one's mark goes.
     await d.rightClickWorld(...at(reach - 6));
-    await d.page.waitForFunction((id) => !endfall.rangeShown().marked.includes(id), out, { timeout: 20000 });
-    assert.ok(await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) <= c.r; }, out), 'back inside coverage');
+    await d.page.waitForFunction((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) <= c.r; }, out, { timeout: 20000 }); // (back inside coverage)
+    await d.centerOn(...at(reach - 3));
+    await d.page.waitForFunction((id) => !endfall.rangeShown().marked.includes(id), out, { timeout: 5000 });
     // The Data center selected with a click: its circle, the reach in the sim's own numbers.
     await d.clickEntity(hq.id);
     await d.page.waitForFunction(() => endfall.rangeShown().shown, null, { timeout: 15000 });
@@ -1936,6 +1942,68 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
     await d.key('Escape');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('as the Expedition: placing a Substation shows coverage, outside it the ghost is red and a click says "Build within coverage"; inside it goes up', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  try {
+    await d.grant(4000, 0);
+    const s = await d.state(), hq = myBldg(s, 'conflux')[0], w = mine(s, 'lumen')[0];
+    const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
+    const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
+    // Ground 4 tiles past the Data center's coverage towards the map's middle, explored (set-up: a Sellsword there),
+    // and a spot on it refused for coverage alone (the sim's other rules all pass there).
+    const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy);
+    const px = hq.x + dx / len * (reach + 4) * T, py = hq.y + dy / len * (reach + 4) * T;
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'prism', x, y), [px, py]);
+    await d.skip(1);
+    const out = await d.eval(([x, y, T]) => {
+      for (let r = 0; r < 6; r++) for (let a = 0; a < 24; a++) {
+        const tx = Math.round(x / T + Math.cos(a / 24 * 6.283) * r) - 1, ty = Math.round(y / T + Math.sin(a / 24 * 6.283) * r) - 1;
+        if (endfall.engine.placeRefusal('substation', tx, ty, 0) === 'Build within coverage') return { tx, ty };
+      }
+      return null;
+    }, [px, py, T]);
+    assert.ok(out, 'open, explored ground past coverage');
+    const cx = (out.tx + 1) * T, cy = (out.ty + 1) * T;
+    assert.ok(Math.hypot(cx - hq.x, cy - hq.y) > reach * T, 'that spot is out of coverage');
+    // Armed through the UI: coverage is drawn while placing.
+    await d.clickEntity(w.id);
+    await d.pressCard('Build'); await d.pressCard('Substation');
+    await d.centerOn(cx, cy);
+    const [x, y] = await d.screen(cx, cy);
+    await d.page.mouse.move(x, y); await d.page.waitForTimeout(200);
+    const shown = await d.eval(() => endfall.rangeShown());
+    assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing a Substation: the Data center's coverage (${JSON.stringify(shown.circles)})`);
+    assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
+    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
+    assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
+    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [16, 0.18, true], 'the feathered band inside the rim');
+    // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.
+    const lit = await d.eval(([cx, cy, r]) => {
+      const m = document.getElementById('minimap'), S = m.width / endfall.engine.WW, T = endfall.engine.TILE;
+      for (let a = 0; a < 6.283; a += 0.05) {
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, tx = Math.floor(x / T), ty = Math.floor(y / T);
+        if (tx < 0 || ty < 0 || tx >= endfall.engine.MW || ty >= endfall.engine.MH || endfall.G.explored[ty * endfall.engine.MW + tx]) continue;
+        const p = m.getContext('2d').getImageData(Math.floor(x * S), Math.floor(y * S), 1, 1).data;
+        return { a, p: [...p] };
+      }
+      return null;
+    }, [hq.x, hq.y, reach * T]);
+    assert.ok(lit && lit.p[2] > 120 && lit.p[1] > 100, `the rim lit over unexplored ground on the minimap: ${JSON.stringify(lit)}`);
+    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (15 px)');
+    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15px');
+    await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build within coverage$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
+    await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
+    assert.match((await d.toasts()).join(' | '), /Build within coverage/);
+    assert.ok(await d.eval(() => !!endfall.ui.place), 'still placing');
+    assert.ok(!(await d.state()).bldgs.some(b => b.team === 0 && b.type === 'substation'), 'nothing placed');
+    await d.key('Escape');
+    // Inside coverage, by the Data center: it goes up.
+    const b = await buildAndFinish(d, 'w', 'substation', 1, { hq: 'conflux', worker: 'lumen' });
+    assert.ok(Math.hypot(b.x - hq.x, b.y - hq.y) <= reach * T, 'inside coverage');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

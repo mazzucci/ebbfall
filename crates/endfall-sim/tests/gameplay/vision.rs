@@ -215,8 +215,9 @@ fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
     // first wave's goal is what this checks, not its timing: seed 33 left the list with the tower range, one Expedition
     // seat short of a wave within the 7 minutes, and came back with the leash; seed 3 left it then, its seat 3's first
     // wave going at 8:20, for its foe; seed 8 since the second round, one Kingdom seat building and expanding past
-    // 12:00 before any wave.)
-    for seed in [14, 33, 21, 9] {
+    // 12:00 before any wave; seed 14 since Nov 15, when the reserve no longer kept a wave short of its count: its seat
+    // 0 was overrun by two enemies' early waves before its own first wave.)
+    for seed in [15, 33, 21, 9] {
         let races = [&HUMANS, &VAEL, &HUMANS, &VAEL];
         let mut w = World::with_size(
             seed,

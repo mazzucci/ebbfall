@@ -58,6 +58,7 @@ export function setHint() {
     : ui.box ? 'Drag to select a group' : ARMED[ui.mode]?.hint(c) ?? '');
   if (h.textContent !== t) h.textContent = t;
   h.classList.toggle('bad', !!why);
+  h.classList.toggle('placing', !!p);
 }
 
 /** Disarm: no order waiting for a tap, nothing being placed. */

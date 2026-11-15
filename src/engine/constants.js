@@ -28,10 +28,13 @@ export const TECH_SPEED = D.consts.tech_speed;
 export const TECH_BUILD = D.consts.tech_build;
 /** The range (crates/endfall-sim/src/data/radio.rs): the unit kinds it speeds up (`machines`, a Set), what each
  *  source building gives (`sources`, tiles by kind, a circle round its center), a machine's speed inside it (`boost`,
- *  a multiple) and the Drone's leash past its edge (`leash`, tiles). */
-export const RADIO = { ...D.radio, machines: new Set(D.radio.machines) };
+ *  a multiple), the Drone's leash past its edge (`leash`, tiles) and the buildings placed only inside it (`within`, a
+ *  Set: the Expedition's but the sources). */
+export const RADIO = { ...D.radio, machines: new Set(D.radio.machines), within: new Set(D.radio.within) };
 /** The coverage a source of `type` gives, tiles (the same on every map). */
 export const coverageOf = (type) => RADIO.sources[type] || 0;
+/** Whether a building of `type` goes up only inside coverage (its center, by exact distance: the sim's rule). */
+export const needsCoverage = (type) => RADIO.within.has(type);
 
 /** Hotkeys, descriptions and `what` (a short line, a verb first and about 25 characters, under the health bar on the selection console;
  *  none for a kind players cannot get),
@@ -71,7 +74,7 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles, and move faster there. A new base: build it by a gold mine.` },
+  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles and move faster there, and buildings go up only inside it. A new base: build it by a gold mine.` },
   // (the Wind turbine, the Expedition's Market: its verb and `doing`, as the Market's)
   spire: { hot: 'S', what: 'Generates energy, no workers', verb: 'generates', doing: 'Generating', desc: `Generates energy over time, with no workers. Each Data center's computers run up to ${D.buildings.spire.perHq}.` },
   substation: { hot: 'W', what: `Expands the grid: +${D.buildings.substation.supply}`, desc: `Expands the grid: more can run at once. +${D.buildings.substation.supply} grid.` },
@@ -79,7 +82,7 @@ const BLDG_TEXT = {
   kiln: { hot: 'C', what: 'Builds Buggies and Drones', desc: 'Builds Buggies, and Drones once a Lab stands.' },
   loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons and Energy efficiency. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
-  uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles, and move faster there. Unlocks the Portal.` },
+  uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles and move faster there, and buildings go up only inside it. It is the machines' control signal, not the buildings' power: a building keeps working if its coverage is lost. Can go up anywhere explored. Unlocks the Portal.` },
   // (the Portal teleports what it makes: `training`, its word for Training in the panel)
   eclipse: { hot: 'D', what: 'Teleports Rovers, Androids', training: 'Teleporting', desc: 'Teleports Rovers and Androids from the future, while an Uplink stands. Only one.' },
 };

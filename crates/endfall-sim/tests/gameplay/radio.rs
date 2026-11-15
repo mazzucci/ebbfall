@@ -10,7 +10,7 @@
 
 use crate::common::*;
 use endfall_sim::data::radio::{
-    CONFLUX_RANGE, IN_RANGE_SPEED, STRANDED_SPEED, UPLINK_RANGE, needs_range,
+    CONFLUX_RANGE, IN_RANGE_SPEED, STRANDED_SPEED, UPLINK_RANGE, needs_coverage, needs_range,
 };
 use endfall_sim::jsmath;
 use endfall_sim::world::radio::NO_SIGNAL;
@@ -517,7 +517,7 @@ fn a_target_with_no_covered_way_to_it_stops_the_machine_at_the_edge_and_its_play
         .count();
     assert_eq!(told, 1, "told once: {:?}", w.events);
     run(&mut w, 40);
-    let d = w.bldg(depot).unwrap();
+    let d = w.bldg(depot).unwrap().clone();
     assert_eq!(d.hp, d.maxhp, "out of its reach: never fired");
     for &k in &ks {
         let u = w.unit(k).unwrap();
@@ -528,6 +528,38 @@ fn a_target_with_no_covered_way_to_it_stops_the_machine_at_the_edge_and_its_play
             "at its edge, as near as it gets: ({:.0}, {:.0})",
             u.x,
             u.y
+        );
+    }
+    // The same group sent past the edge as a group (a formation move, a group attack-move: a player's right click on
+    // ground): told once, with the spot it was sent to for the client's rim cue.
+    let far = (d.x, d.y);
+    for cmd in [
+        Command::Formation {
+            units: ks.clone(),
+            x: far.0,
+            y: far.1,
+        },
+        Command::GroupAttackMove {
+            units: ks.clone(),
+            x: far.0,
+            y: far.1,
+        },
+    ] {
+        w.events.clear();
+        w.step(); // (told at most once a tick)
+        w.events.clear();
+        assert_eq!(w.apply(ENEMY, &cmd), Ok(()));
+        let told = w
+            .events
+            .iter()
+            .filter(|e| matches!(e, Event::Toast { team, msg, bad: true } if *team == ENEMY && msg == NO_SIGNAL))
+            .count();
+        assert_eq!(told, 1, "{cmd:?}: told once");
+        assert!(
+            w.events.iter().any(
+                |e| matches!(e, Event::Signal { team, x, y } if *team == ENEMY && (*x, *y) == far)
+            ),
+            "{cmd:?}: the rim cue, where it was sent"
         );
     }
     // a way there through coverage: nothing said
@@ -669,4 +701,161 @@ fn the_expedition_ai_pushes_one_forward_uplink_that_covers_the_foe_then_its_mach
             );
         }
     }
+}
+
+/// A building's top-left tile.
+struct Tile {
+    tx: i32,
+    ty: i32,
+}
+
+#[test]
+fn expedition_buildings_go_up_only_inside_coverage_and_never_go_offline() {
+    // Stelian, Nov 15: every Expedition building but the Data center (its headquarters spacing only) and the Uplink
+    // (anywhere explored) is placed only with its center inside coverage; the Kingdom's anywhere. Placing only: a
+    // building whose coverage is lost afterwards stands and works.
+    for k in BLDG_KINDS {
+        let sourced = k == BldgKind::Conflux || k == BldgKind::Uplink;
+        assert_eq!(needs_coverage(VAEL.hq, k), !sourced, "{k:?}");
+        assert!(
+            !needs_coverage(HUMANS.hq, k),
+            "{k:?}: the Kingdom's go anywhere"
+        );
+    }
+    let mut w = lane();
+    w.res[ENEMY as usize] = [20_000, 0];
+    w.res[PLAYER as usize] = [20_000, 0];
+    // Outside: in the lane, 31 tiles and more from the Data center, every one of them refused, and the order says so.
+    let within = [
+        BldgKind::Siphon,
+        BldgKind::Substation,
+        BldgKind::Spire,
+        BldgKind::Kiln,
+        BldgKind::Loom,
+        BldgKind::Ward,
+        BldgKind::Eclipse,
+    ];
+    for k in within {
+        assert_eq!(
+            w.place_refusal(k, 30, 38, ENEMY),
+            Some(Refusal::Coverage),
+            "{k:?} out of coverage"
+        );
+    }
+    let bot = w.make_unit(UnitKind::Lumen, ENEMY, px(30.0), px(44.0));
+    assert_eq!(
+        w.place_building(ENEMY, BldgKind::Substation, 30, 38, Some(bot)),
+        Err("Build within coverage".to_string())
+    );
+    assert_eq!(Refusal::Coverage.message(), "Build within coverage");
+    // The Kingdom's there: no such rule.
+    assert_eq!(w.place_refusal(BldgKind::Depot, 30, 38, PLAYER), None);
+    // Inside: by the Data center.
+    let (tx, ty) = spot_for(&w, ENEMY, BldgKind::Substation);
+    assert_eq!(w.place_refusal(BldgKind::Substation, tx, ty, ENEMY), None);
+    // By its center, by exact distance: a 2x2 just inside the Data center's edge goes up, one a tile further out not.
+    let hq = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == ENEMY && b.kind == BldgKind::Conflux)
+        .map(|b| (b.tx, b.ty))
+        .map(|(tx, ty)| Tile { tx, ty })
+        .unwrap();
+    let edge = |w: &World, kind: BldgKind, tx: i32, ty: i32| {
+        let d = kind.def();
+        let (cx, cy) = (
+            (tx as f64 + d.w as f64 / 2.0) * 32.0,
+            (ty as f64 + d.h as f64 / 2.0) * 32.0,
+        );
+        w.in_radio(ENEMY, cx, cy)
+    };
+    let mut ty_in = hq.ty;
+    while edge(&w, BldgKind::Substation, hq.tx, ty_in + 1) {
+        ty_in += 1;
+    }
+    assert!(
+        edge(&w, BldgKind::Substation, hq.tx, ty_in)
+            && !edge(&w, BldgKind::Substation, hq.tx, ty_in + 1)
+    );
+    for (y, ok) in [(ty_in, true), (ty_in + 1, false)] {
+        let why = w.place_refusal(BldgKind::Substation, hq.tx, y, ENEMY);
+        if ok {
+            assert_ne!(why, Some(Refusal::Coverage), "just inside, at row {y}");
+        } else {
+            assert_eq!(why, Some(Refusal::Coverage), "just outside, at row {y}");
+        }
+    }
+    // The Data center outside coverage: allowed (its spacing is its only rule), and so is the Uplink.
+    assert_eq!(w.place_refusal(BldgKind::Conflux, 22, 38, ENEMY), None);
+    assert_eq!(w.place_refusal(BldgKind::Uplink, 20, 38, ENEMY), None);
+    // The Uplink going up gives nothing yet; finished, buildings go up in its range.
+    w.make_building(BldgKind::Loom, ENEMY, hq.tx - 4, hq.ty + 6, true);
+    let up = w
+        .place_building(ENEMY, BldgKind::Uplink, 20, 38, Some(bot))
+        .expect("the Uplink out of coverage");
+    assert_eq!(
+        w.place_refusal(BldgKind::Siphon, 30, 38, ENEMY),
+        Some(Refusal::Coverage),
+        "a site gives none"
+    );
+    for _ in 0..90 * TPS {
+        w.step();
+        if w.bldg(up).is_some_and(|b| b.done) {
+            break;
+        }
+    }
+    assert!(w.bldg(up).unwrap().done, "the Uplink stands");
+    w.step();
+    for k in within {
+        assert_eq!(
+            w.place_refusal(k, 30, 38, ENEMY),
+            None,
+            "{k:?} in the Uplink's range"
+        );
+    }
+    let post = w
+        .place_building(ENEMY, BldgKind::Siphon, 30, 38, Some(bot))
+        .expect("a Recruiting post in the Uplink's range");
+    w.make_building(BldgKind::Substation, ENEMY, 26, 44, true);
+    w.recalc_supply(ENEMY);
+    for _ in 0..90 * TPS {
+        w.step();
+        if w.bldg(post).is_some_and(|b| b.done) {
+            break;
+        }
+    }
+    assert!(w.bldg(post).unwrap().done, "the post stands");
+    let turbine = w
+        .place_building(ENEMY, BldgKind::Spire, 34, 44, None)
+        .expect("a Wind turbine in the Uplink's range");
+    // Its Uplink falls: the post and the turbine site stay, the post still hires, the turbine is still built and pays.
+    w.damage(up, 1e9, None);
+    w.step();
+    assert!(
+        !w.in_radio(ENEMY, px(31.0), px(39.0)),
+        "the post is out of coverage now"
+    );
+    assert_eq!(
+        w.place_refusal(BldgKind::Siphon, 26, 38, ENEMY),
+        Some(Refusal::Coverage)
+    );
+    let bot2 = w.make_unit(UnitKind::Lumen, ENEMY, px(34.0), px(42.0));
+    w.start_build(bot2, turbine);
+    let before = count(&w, ENEMY, UnitKind::Prism);
+    w.queue_unit(post, UnitKind::Prism)
+        .expect("the post hires out of coverage");
+    run(&mut w, 60);
+    assert!(w.bldg(post).is_some(), "the post stands");
+    assert_eq!(
+        count(&w, ENEMY, UnitKind::Prism),
+        before + 1,
+        "and hired its Sellsword"
+    );
+    assert!(
+        w.bldg(turbine).is_some_and(|b| b.done),
+        "the turbine site was finished out of coverage"
+    );
+    let e0 = w.res[ENEMY as usize][0];
+    run(&mut w, 60);
+    assert!(w.res[ENEMY as usize][0] > e0, "and it pays");
 }

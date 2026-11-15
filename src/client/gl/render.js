@@ -3,12 +3,12 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { drag } from '../input.js';
-import { inRange, unionArcs } from '../range.js';
+import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
 
@@ -657,32 +657,65 @@ function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
 }
 // ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
 const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
-// (over the fog: the range reaches ground not yet seen) The tint is drawn opaque and faded as one layer (AlphaFilter),
-// so where circles overlap it is no darker; the outline is the union's edge alone.
-const rangeTint = new Graphics(), rangeLine = new Graphics(), rangeG = new Container();
-rangeTint.filters = [new AlphaFilter({ alpha: 0.08 })]; rangeG.addChild(rangeTint, rangeLine); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
-let rangeKey = '', rangeCircles = [];
+const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line, so it reads on pale ground too)
+// (over the fog: the range reaches ground not yet seen; under the ghost, the bars and the selection box, over the
+// selection rings) The tint is drawn opaque and faded as one layer (AlphaFilter), so where circles overlap it is no
+// darker; the rim is the union's edge alone, a 3.5 px halo at 50% under a 1.5 px line at 70%, in screen px at every
+// zoom (the widths are divided by the zoom, in steps: `rimZoom`). Inside the rim a feathered band gives the area its
+// side (the 7% fill alone is lost on grass): `BAND_PX` screen px wide, the rim's light from `BAND_ALPHA` at the line to
+// nothing, as `BAND_STEPS` rings of the union's arcs drawn inward.
+const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeHi = new Graphics(), rangeG = new Container();
+rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
+let rangeKey = '', rangeCircles = [], rangeArcs = [];
+export const BAND_PX = 16, BAND_ALPHA = 0.18;
+const BAND_STEPS = 8, RIM_HALO_ALPHA = 0.5; // (the halo 35% at first: on the pale boulders of a hill the line got lost)
+/** The zoom the rim is drawn for: the camera's in steps of a tenth, so a pinch redraws it only now and then. */
+const rimZoom = () => Math.round(cam.zoom * 10) / 10;
+/** Stroke the arcs [x, y, r, from, to] onto `g` (no stroke call). */
+const arcsOnto = (g, arcs) => { for (const [x, y, r, a0, a1] of arcs) g.moveTo(x + Math.cos(a0) * r, y + Math.sin(a0) * r).arc(x, y, r, a0, a1); };
 /** Draw the circles again: the sim's sources (G.radio, this side's and its allies'), plus a range building being
- *  placed (`extra`); only when they changed, never per frame. */
+ *  placed (`extra`); only when they or the zoom's step changed, never per frame. */
 function drawRange(extra) {
-  const key = G.radioVer + (extra ? `:${extra.x},${extra.y},${extra.r}` : '');
+  const z = rimZoom(), key = `${G.radioVer}@${z}` + (extra ? `:${extra.x},${extra.y},${extra.r}` : '');
   if (key === rangeKey) return;
   rangeKey = key;
   rangeCircles = extra ? [...G.radio, extra] : G.radio.slice();
-  rangeTint.clear(); rangeLine.clear();
+  rangeArcs = unionArcs(rangeCircles);
+  rangeTint.clear(); rangeBand.clear(); rangeLine.clear();
   for (const c of rangeCircles) rangeTint.circle(c.x, c.y, c.r);
   if (rangeCircles.length) rangeTint.fill({ color: RANGE_COLOR, alpha: 1 });
-  for (const [x, y, r, a0, a1] of unionArcs(rangeCircles)) rangeLine.moveTo(x + Math.cos(a0) * r, y + Math.sin(a0) * r).arc(x, y, r, a0, a1);
-  rangeLine.stroke({ width: 1.5, color: RANGE_COLOR, alpha: 0.6 });
+  const step = BAND_PX / BAND_STEPS / z; // (world px a ring)
+  for (let i = 0; i < BAND_STEPS; i++) {
+    const inset = (i + 0.5) * step;
+    arcsOnto(rangeBand, rangeArcs.map(([x, y, r, a0, a1]) => [x, y, Math.max(0, r - inset), a0, a1]));
+    rangeBand.stroke({ width: step, color: RANGE_COLOR, alpha: BAND_ALPHA * (1 - (i + 0.5) / BAND_STEPS) });
+  }
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 3.5 / z, color: RIM_HALO, alpha: RIM_HALO_ALPHA });
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 1.5 / z, color: RANGE_COLOR, alpha: 0.7 });
 }
-/** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while a building that gives
- *  range is being placed (its own circle with the others). */
-function showRange(selList, place) {
+// The leash's cue: a machine sent past the edge (the sim's `signal` event, with the no-signal toast) brightens the stretch
+// of the rim nearest where it was sent to full, fading back over 0.6 s. No pulse, dashes or icons (the designer's spec).
+const LEASH_FADE = 0.6, LEASH_SPAN = 6 * TILE; // (s; world px of rim either side of the nearest point)
+let leash = null;
+/** The sim said a machine of ours was sent past coverage, towards (x, y): brighten the rim there. */
+export function leashAt(x, y) { leash = { x, y, t: performance.now() / 1000 }; }
+function drawLeash(now) {
+  rangeHi.clear();
+  const k = leash ? 1 - (now - leash.t) / LEASH_FADE : 0;
+  if (k <= 0 || k > 1) { leash = null; return; }
+  const seg = nearestRim(rangeArcs, leash.x, leash.y, LEASH_SPAN);
+  if (!seg) return;
+  arcsOnto(rangeHi, [seg]); rangeHi.stroke({ width: 1.5 / rimZoom(), color: RANGE_COLOR, alpha: k });
+}
+/** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while any building that gives
+ *  coverage or goes up only inside it is being placed (a source's own circle with the others). */
+function showRange(selList, place, now) {
   const reach = place ? coverageOf(place.type) : 0, d = place && BUILDINGS[place.type];
   const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
-  const on = !!extra || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
+  const on = !!extra || (place && needsCoverage(place.type)) || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
   if (on) drawRange(extra);
   rangeG.visible = on && rangeCircles.length > 0;
+  if (rangeG.visible) drawLeash(now); else leash = null;
 }
 /** A machine of ours out of coverage while its side has some (stranded: slowed, and only back towards it): a small
  *  "no signal" sign over it, an antenna's two arcs struck through, dark-edged and team-neutral so it reads on any
@@ -701,7 +734,7 @@ function noSignal(x, y) {
 }
 /** Tests: whether the range is drawn, its circles, and which units show the no-signal mark. */
 const markedIds = new Set();
-export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: unionArcs(rangeCircles).length, marked: [...markedIds] });
+export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], leash: !!leash, mmRim: mmRimArcs, mmRimWidth: mmRimCss, band: { px: BAND_PX, alpha: BAND_ALPHA, rings: rangeBand.visible && rangeArcs.length ? BAND_STEPS : 0 } });
 
 /** A progress bar with an optional count of queued items (small pips) after it. */
 function progressBar(x, y, w, f, color, pips = 0, h = 5) {
@@ -798,7 +831,7 @@ export function render(selList, place) {
       noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
     }
   });
-  showRange(selList, place);
+  showRange(selList, place, now);
   xray(onScreen);
 
   let pi = 0;
@@ -904,6 +937,7 @@ function renderMinimap() {
   if (mmBase.width !== mm.width || mmBase.height !== mm.height) { mmBase.width = mm.width; mmBase.height = mm.height; mmAt = -Infinity; }
   if (now - mmAt >= MM_EVERY || now < mmAt) { mmAt = now; minimapBase(mmBase.getContext('2d'), S, T); }
   c.clearRect(0, 0, mm.width, mm.height); c.drawImage(mmBase, 0, 0);
+  minimapRim(c, S, T); // (over the fog, unexplored black included: the whole union's outline, always)
   for (let i = pings.length - 1; i >= 0; i--) {
     const k = (now - pings[i].t) / 2500; if (k >= 1) { pings.splice(i, 1); continue; }
     c.strokeStyle = `rgba(255,90,90,${1 - k})`; c.lineWidth = 2;
@@ -932,4 +966,26 @@ function minimapBase(c, S, T) {
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
   for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
+}
+// The minimap's coverage: an Expedition seat's always (its people's headquarters gives coverage), the union's edge
+// alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored
+// ground hid most of it: with an Uplink's wide circle, all of it). In CSS px whatever the screen: the canvas keeps its
+// own pixel size (168) and is scaled to the minimap's box, so the widths are scaled back by the box's size.
+const MM_RIM = { line: 1.25, halo: 2.5, color: 'rgba(191,233,255,0.8)', haloColor: 'rgba(11,18,32,0.5)' };
+let mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
+function minimapRim(c, S, T) {
+  const key = `${G.radioVer}:${G.me}`;
+  if (key !== mmRimKey) { mmRimKey = key; mmArcs = coverageOf(FACTIONS[G.factions[G.me]]?.hq) > 0 ? unionArcs(G.radio) : []; }
+  const arcs = mmArcs;
+  mmRimArcs = arcs.length;
+  if (!arcs.length) return;
+  const k = mm.clientWidth > 0 ? mm.width / mm.clientWidth : 1; // (canvas px per CSS px)
+  mmRimCss = { line: MM_RIM.line, halo: MM_RIM.halo, canvasPerCss: k };
+  c.save();
+  c.beginPath();
+  for (const [x, y, r, a0, a1] of arcs) { c.moveTo((x + Math.cos(a0) * r) * S, (y + Math.sin(a0) * r) * T); c.ellipse(x * S, y * T, r * S, r * T, 0, a0, a1); }
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = MM_RIM.haloColor; c.lineWidth = MM_RIM.halo * k; c.stroke();
+  c.strokeStyle = MM_RIM.color; c.lineWidth = MM_RIM.line * k; c.stroke();
+  c.restore();
 }

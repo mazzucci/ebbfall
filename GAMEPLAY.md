@@ -26,6 +26,17 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
   as many players as its starts, a duel too. 64x64 (`MapSize::DUEL`, two starts) is hidden from the menus but still
   generated and played: the goldens, `?seed=`, a challenge or room naming one (src/client/maps.js). A map is always
   generated with all its starts, the free ones free ground.
+- Mines (Stelian, Nov 15; `map.rs`, `lay_mines`): every field is one 2x2 gold mine. Each start's own mine lies
+  exactly `HQ_MINE_GAP` (4) tiles of ground from its headquarters, square to one of its sides; an expansion's field lies
+  `EXP_CLUMP_R` out from its site, on the far side from its main where it can (turned 45, 90 or 135 degrees where that
+  would crowd another mine), with room for a headquarters on the near side. Any two mines lie `MINE_APART` (12) tiles
+  apart or more, center to center, on every kind, size and start count. A map with a center field (`middle`) has one
+  mine and its images on a ring round the middle, each midway between two neighboring starts: two mines 7 out with two
+  starts, four 10 out with four, four 12 out on the axes with eight.
+- Placing a headquarters (a Castle, a Data center): `HQ_MINE_GAP` tiles of ground from any gold mine, footprint to
+  footprint ("Too close to a mine for a headquarters"), and `HQ_SPACING` (12) from the seat's own other headquarters
+  ("Too close to your other base."); every other building, the Uplink included, only keeps a tile of ground from a mine
+  ("Too close to a mine"). The AI places through the same `can_place`.
 - Spawning (src/world/spawn.rs): on two-start maps seat 0 faces east and steps out south, the habits the goldens pin.
   On maps of more starts (`map.bases.len() > 2`) units face the map's centre (`home_face`) and step out on their
   building's south side (`exit_tile`), the free southern spot nearest the centre, or nearest the rally point when one

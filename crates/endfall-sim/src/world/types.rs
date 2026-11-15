@@ -414,6 +414,8 @@ pub enum Refusal {
     Mine,
     /// Right against a gold mine (the ring round a building keeps clear of mines).
     NearMine,
+    /// A headquarters (a Castle, a Data center) within `HQ_MINE_GAP` tiles of ground of a gold mine.
+    NearMineHq,
     /// A headquarters within `HQ_SPACING` of another of the seat's own, standing or going up.
     NearBase,
     /// An Expedition building (not a source) whose center lies outside its side's coverage.
@@ -432,6 +434,7 @@ impl Refusal {
             Refusal::Building => "Blocked by a building",
             Refusal::Mine => "Blocked by a mine",
             Refusal::NearMine => "Too close to a mine",
+            Refusal::NearMineHq => "Too close to a mine for a headquarters",
             Refusal::NearBase => "Too close to your other base.",
             Refusal::Coverage => "Build within coverage",
         }

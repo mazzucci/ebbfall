@@ -259,7 +259,9 @@ fn two_simultaneous_fights_alert_once_each() {
     for (x, y) in [(500.0, 900.0), (1600.0, 400.0)] {
         let mine = w.make_unit(UnitKind::Knight, PLAYER, x, y);
         w.hold_unit(mine);
-        let foe = w.make_unit(UnitKind::Lancer, ENEMY, x + 80.0, y);
+        // (within the held Knight's reach, so each side takes losses whatever the ground round it: 80 px out, one fight
+        // came to blows only where the map's rock made the Lancer close in)
+        let foe = w.make_unit(UnitKind::Lancer, ENEMY, x + 40.0, y);
         w.attack_ent(foe, mine);
     }
     let mut alerts = [0, 0];

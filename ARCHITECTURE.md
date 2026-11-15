@@ -40,14 +40,17 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   to train more is out, a Barracks keeping it in only with the gold for a fighter, an AI with a Barracks out when it
   falls or at once when broke, each with its `OutWhy`),
   placement (`construction`: every refusal named, unexplored ground before what lies under it, the order's error in
-  the same words, `can_place` exactly "no refusal" over the map, deep water), gold
-  mines (`mines`: workers at a mine that runs dry going on to the nearest mine with gold; one per field on every map kind and size, holding the field's gold; every map symmetric mine for
+  the same words, `can_place` exactly "no refusal" over the map, deep water, a headquarters `HQ_MINE_GAP` tiles of
+  ground from every mine in its own words while every other building keeps one), gold
+  mines (`mines`: workers at a mine that runs dry going on to the nearest mine with gold; one per field on every map kind and size, holding the field's gold; any two
+  mines `MINE_APART` apart and every start's own mine `HQ_MINE_GAP` off its headquarters on every kind, size and start
+  count, the Shore's basin fields too; every map symmetric mine for
   mine, each image holding the same gold and every start seeing the same mines at the same distances; a worker inside
   hidden, out of sight and reach, no healer tending it, coming out with its load; the cap and the rest waiting; a crowd of thirty never jamming; an empty
   mine taking nobody in; a mine fitting eight Villagers or five Bots and a saturated Bot mine paying about 83% of a Villager
   mine's (pinned), a main mine lasting over 20 minutes at its full rate for either people (mines last the game:
   scarcity from the rate, `CRYSTAL_GOLD`), a loaded worker walking slower (`economy`); each
-  people's AI at every level gathering from mines and taking an expansion's; an AI whose every base is dry taking
+  people's AI at every level gathering from mines and taking an expansion's, its headquarters `HQ_MINE_GAP` off every mine; an AI whose every base is dry taking
   another, a natural still going up counting as a base), the Market (one a
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
@@ -177,9 +180,13 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       end, `take_up_shafts`; then each field's crystals become one gold mine, `lay_mines`: 2x2
                       (`MINE_SIZE`), neutral, holding the field's gold, by orbit under the map's symmetry: the orbit's
                       first field finds a square where its crystals lay whose images all fit too (`mine_spot`: open
-                      ground on its sides facing the nearest start or expansion, its own image under any element that
-                      maps the field onto itself, every start and mine still in a walker's reach) and every image
-                      square gets a mine of the first's gold; the Kingdom's Market is built in its base, one a Castle),
+                      ground on its sides facing the nearest start or expansion, `HQ_MINE_GAP` off every start's
+                      headquarters and a start's own exactly that far square to a side, `MINE_APART` from every other
+                      mine and image, its own image under any element that maps the field onto itself, every start and
+                      mine still in a walker's reach) and every image square gets a mine of the first's gold; the
+                      expansions' sites keep their mines apart as they are drawn (`exp_mine_apart`, a field turned off
+                      the far side where it must, `exp_outs`), the center's mines lie on a ring between neighboring
+                      starts (`centre_ring`); the Kingdom's Market is built in its base, one a Castle),
                       occupancy grid, nearest_free;
                       heights and water (`height`, `ground`: land, shallows or deep at a water level; `Foot`, `passable`,
                       `nearest_passable`, `reach_from`: where a unit of a movement class may stand); the Shore map

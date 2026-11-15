@@ -8,7 +8,7 @@
 // the Castle (keep, towers, battlements, a banner). Same conventions as models.js: game units, units face +x, y up,
 // +z south.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
+import { grp, add, rbox, cyl, sph, plate, limb, boxUV, awayYaw } from './models.js';
 import { makeMats } from './materials.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
@@ -233,7 +233,7 @@ export function villager(M, f) {
  *  a long spear in the right hand angled up ahead, an oak shaft with a bright steel leaf head, reaching well past the
  *  body at both ends. From the camera: a pale disc, a team disc beside it, a long thin bar angled up. Frames 0-1 the
  *  march; 2-3 the strike poses (the spear drawn back level, then thrust: at the spear below). */
-export function guard(M, f) {
+export function guard(M, f, dir) {
   const g = figure(M, f, { tunic: M.tunic, skirt: 4.2 }), b = g.body;                          // (an undyed surcoat: the PM's rule, no torso slab; the team is sleeves, hem, shield)
   add(b, cyl(4.1, 4.4, 1.6, 12), M.cloth, 0, 6.2, 0); add(b, cyl(4.2, 4.2, 0.4, 12), M.inkLine, 0, 7.1, 0); add(b, cyl(4.45, 4.45, 0.45, 12), M.inkLine, 0, 5.4, 0); // a team hem band on the skirt
   add(b, rbox(5.3, 0.4, 6.9, 0.1), M.inkLine, 0, 13.1, 0);                                    // the collar's edge
@@ -255,17 +255,20 @@ export function guard(M, f) {
   // strike poses (f 2 the wind-up, 3 the strike; retheme.js STRIKE_POSES): the spear gripped nearer its middle and held
   // level; the wind-up draws the hand back under the shoulder, the elbow cocked back, the point raised a little; the
   // strike drives the arm straight out and the spear with it, level, the head 27 ahead. Nothing but the arm and the
-  // spear moves between the two.
-  const pose = f >= 2 ? f - 1 : 0;                                                            // 0 the walk, 1 the wind-up, 2 the strike
-  const [SX, SY, SZ, SA, SG] = [[0.8, 10.0, 3.4, 0.7, 5.0], [-0.8, 9.4, 4.3, 0.42, 2.0], [5.8, 10.4, 3.4, -0.06, 2.0]][pose]; // the hand, the spear's angle, the shaft's center along it (the grip)
-  const sp = grp(); sp.position.set(SX, SY, SZ); sp.rotation.z = SA; b.add(sp);
+  // spear moves between the two. Seen from behind (`dir` 11-13, models.js awayYaw) both ran up the screen as one bar:
+  // there the wind-up raises the spear steep (1.0 rad, gripped lower down the shaft so the butt clears the ground), a
+  // tall spike over the right shoulder, and the strike thrusts out to the side, the hand out that way too, a
+  // diagonal across the screen.
+  const pose = f >= 2 ? f - 1 : 0, yaw = awayYaw(dir), away = yaw !== 0;                       // 0 the walk, 1 the wind-up, 2 the strike
+  const [SX, SY, SZ, SA, SG] = [[0.8, 10.0, 3.4, 0.7, 5.0], away ? [-0.8, 9.4, 4.3, 1.0, 5.0] : [-0.8, 9.4, 4.3, 0.42, 2.0], away ? [4.8, 10.6, 5.2, 0.15, 2.0] : [5.8, 10.4, 3.4, -0.06, 2.0]][pose]; // the hand, the spear's angle, the shaft's center along it (the grip)
+  const sp = grp(); sp.position.set(SX, SY, SZ); sp.rotation.set(0, pose === 2 ? yaw : 0, SA); b.add(sp);
   add(sp, cyl(1.05, 1.05, 26, 8), M.haft, SG, 0, 0, 0, 0, Math.PI / 2);                       // (the shaft in warm haft brown, 3.2 px wide at zoom 1.0 (0.85, 2.6 px, in dark oak until the legibility pass): the PM's rule, nothing important under 2 CSS px)
   add(sp, cyl(1.2, 1.2, 1.6, 8), M.steel, SG + 13.2, 0, 0, 0, 0, Math.PI / 2);                // the socket
   add(sp, cone(1.6, 5.4, 8), M.steel, SG + 16.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5); // the leaf head
   add(sp, cyl(1.2, 1.1, 1.4, 8), M.steel, SG - 13.4, 0, 0, 0, 0, Math.PI / 2);                // the butt's ferrule
   if (pose === 0) { limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5); }
   else if (pose === 1) { limb(b, [0.6, 11, 3.6], [-2.2, 10.6, 4.9], 1.2, M.cloth); limb(b, [-2.2, 10.6, 4.9], [-1.0, 9.4, 4.4], 1.1, M.cloth); add(b, sph(0.9, 8, 6), M.skin, -0.8, 9.4, 4.3); } // the upper arm back, the forearm to the hand under the shoulder
-  else { limb(b, [0.6, 11, 3.6], [5.6, 10.4, 3.4], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 5.8, 10.4, 3.4); }        // the arm straight out
+  else { limb(b, [0.6, 11, 3.6], [SX - 0.2, SY, SZ], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, SX, SY, SZ); }       // the arm straight out
   if (M.polish) { // secondary detail: a buckle, a sword in a scabbard at the left hip, leather bindings on the spear (round 2 dropped the rim studs: not found at 4x)
     add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
     add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.6, 5.6, -3.4, 0.3, 0, 0.55); add(b, rbox(2.2, 0.45, 0.5, 0.1), M.steel, -0.3, 8.9, -3.5); add(b, sph(0.5, 8, 6), M.steel, 0.2, 9.4, -3.5);
@@ -281,7 +284,7 @@ export function guard(M, f) {
  *  with a team pennon flying near its point. From the camera: a long dark body under a team cloth, four legs, a
  *  bright helm up top, a long bar ahead with a flag on it: mounted, never a man on foot. Frames 0-1 the gallop; 2-3 the
  *  strike poses (the horse standing, the lance raised, then couched and driven: at the lance below). */
-export function knight(M, f) {
+export function knight(M, f, dir) {
   const g = grp(), st = f % 2 ? -1 : 1;
   // the horse: a barrel body, a rising neck, a head down ahead, four legs in stride, a tail
   const h = grp(); g.add(h);
@@ -325,9 +328,13 @@ export function knight(M, f) {
   // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon. The strike
   // poses (f 2, 3): the wind-up raises the lance steep (0.95 rad), its butt down by the stirrup and the hand on the
   // grip at the hip; the strike couches it level under the arm and drives it ahead, the hand forward, the point 27
-  // ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay where they are.
-  const [LX, LY, LZ, LA] = [[2.0, 4.8, 3.6, 0.42], [0.6, 3.6, 3.9, 0.95], [3.0, 4.4, 3.5, -0.02]][pose]; // the hand and the lance's angle
-  const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.z = LA; r.add(ln);
+  // ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay where they are. Seen from
+  // behind (`dir` 11-13, models.js awayYaw) the couched lance ran up the screen over the horse's neck, a shorter bar
+  // than the raised one: there the wind-up stands it steeper (1.2 rad, a tall pole with the pennant) and the strike
+  // drives it out to the side of the horse's head, the hand out that way, a diagonal clear of the horse.
+  const yaw = awayYaw(dir), away = yaw !== 0;
+  const [LX, LY, LZ, LA] = [[2.0, 4.8, 3.6, 0.42], away ? [0.6, 3.6, 3.9, 1.2] : [0.6, 3.6, 3.9, 0.95], away ? [2.6, 4.6, 4.8, 0.08] : [3.0, 4.4, 3.5, -0.02]][pose]; // the hand and the lance's angle
+  const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.set(0, pose === 2 ? yaw : 0, LA); r.add(ln);
   add(ln, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
   add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
   // the head: a steel socket and a long spike (6 long, 4 wide at its base: 7 x 5 px at zoom 1), so the lance ends in

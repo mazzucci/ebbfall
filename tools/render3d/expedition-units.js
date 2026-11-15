@@ -25,6 +25,7 @@ function fam(M) {
     armourMid: new THREE.MeshStandardMaterial({ color: 0x7c8086, roughness: 0.6, metalness: 0.2 }),                     // the Bruiser's armor lifted to a mid gray (the art polish; the charcoal `armour` went near black): under the sun from above the light gray plate came out as white as the Marine's helmet (round 2)
     visor: new THREE.MeshStandardMaterial({ color: 0x0c6a88, emissive: 0x28d0ff, emissiveIntensity: 1.0, metalness: 0, roughness: 0.7 }), // its cyan visor strip: the Marine's cyan, matte and dark under the glow, so the band's lit top stays cyan and not white (round 2)
     visorHalo: new THREE.MeshBasicMaterial({ color: 0x30d8ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }), // the strip's halo, cyan (the white LED halo washed the strip to white at 1x)
+    haftLeather: new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.75, metalness: 0.05 }),                // the Bruiser's hammer wrap: dark leather, a shade above `M.leather` (the boots and belt, near black) so it reads as a wrap on the pale haft and not as a gap under the head; no `team()` mark, so the mask leaves it alone
   };
   FAM.set(M, A); return A;
 }
@@ -183,7 +184,7 @@ export function android(M, f) {
  *  arms, steel greaves, a dark helmet with a white visor LED, a big riot shield on the left arm, the unit's biggest
  *  shape: a tall charcoal plate in a pale steel frame, held out ahead and leaned back so its face shows from the camera
  *  at every facing, two wide team bands across it between ink lines (a rectangle: the Guard's shield is a round team
- *  disc); and in the right hand a big axe shouldered: a gray timber haft with a team wrap, a broad pale steel head
+ *  disc); and in the right hand a big axe shouldered: a gray timber haft with a dark leather wrap, a broad pale steel head
  *  with a bright edge up over the shoulder; a team pack strip and knee pads. Wide and big on screen: clearly heavier
  *  than the Marine and the Sellsword. From the camera: a wide dark figure with a big pale-framed plate beside it and
  *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march; 2-3 the strike poses
@@ -231,7 +232,7 @@ export function veteran(M, f, dir) {
   for (const y of [1.0]) { add(sh, rbox(1.3, 3.4, SW - 1.2, 0.1), M.paint, 0.1, y, 0); add(sh, rbox(1.4, 0.35, SW - 1.0, 0.05), M.inkLine, 0.1, y + 1.8, 0); add(sh, rbox(1.4, 0.35, SW - 1.0, 0.05), M.inkLine, 0.1, y - 1.8, 0); } // one team band across the face, between ink lines (two wide ones until the art polish: team on the trim)
   add(sh, rbox(1.4, 3.0, 3.0, 0.3), M.joint, -0.8, 0.5, 0);                                      // the grip block behind
   limb(b, [0.6, 11.8, -4.4], [4.0, 9.2, -4.6], 1.35, M.canvasLocal);                             // the shield arm, out to the grip
-  // the axe in the right hand, shouldered: a gray timber haft leaned back over the shoulder with a team wrap, a broad
+  // the axe in the right hand, shouldered: a gray timber haft leaned back over the shoulder with a leather wrap, a broad
   // pale steel head up over it with a bright edge ahead and a spike behind (the Guard's spear is a long bar with a
   // small steel leaf; this is a short bar under a big pale block)
   // The strike poses (f 2, 3): the wind-up raises the hammer high, the hand up over the pauldron and the haft leaned back
@@ -246,7 +247,9 @@ export function veteran(M, f, dir) {
   const [AX, AY, AZ, ARX, ARZ] = [[2.4, 9.8, 4.6, 0.1, 0.5], away ? [0.0, 15.2, 5.0, 0.1, 0.45] : [0.0, 15.2, 5.0, 0.1, 0.8], dir === 11 ? [3.0, 13.0, 3.6, 0, -(Math.PI / 2 - 0.2)] : away ? [3.4, 9.4, 6.2, 0, -(Math.PI / 2 + 0.7)] : [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
   const ax = grp(); ax.position.set(AX, AY, AZ); ax.rotation.set(ARX, pose === 2 && away ? (dir === 11 ? 0.3 : yaw - 0.4) : 0, ARZ); b.add(ax);
   add(ax, cyl(0.95, 1.05, 13, 8), M.oakPale, 0, 5.0, 0);                                        // the haft (2.7 px wide at zoom 1.0)
-  band(ax, M, 1.15, 4.0, 0, pose ? 4.6 : 5.6, 0);                                                // a team wrap up the haft between ink rings, above the hand (at the grip the hand hid it, and facing east, the shield behind the body, fell under the share's floor); in the strike poses a step lower, so bare haft shows between it and the head
+  const wy = pose ? 4.6 : 5.6;                                                                    // the wrap up the haft, above the hand (at the grip the hand hid it); in the strike poses a step lower, so bare haft shows between it and the head
+  add(ax, cyl(1.15, 1.15, 4.0, 12), A.haftLeather, 0, wy, 0);                                    // dark leather between ink rings (`band`'s geometry; team color until the trim-only rule, 2026-11-15: team stays on the shield band, the pads and the pack)
+  for (const dy of [-2.0, 2.0]) add(ax, cyl(1.2, 1.2, 0.35, 12), M.inkLine, 0, wy + dy, 0);
   add(ax, rbox(7.0, 4.2, 4.4, 0.6), M.brightSteel, 0.4, 11.0, 0);                                 // the head: one big bright steel block, a hammer's (the art polish; an axe's pale plate until then)
   add(ax, rbox(7.2, 0.4, 4.6, 0.1), M.inkLine, 0.4, 8.85, 0);                                    // an ink line under it
   if (pose === 0) add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 8.3, 0);                            // the eye round the haft (dark steel, against the pauldron on the march)

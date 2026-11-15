@@ -388,7 +388,7 @@ const EXP_REACH: f64 = 9.0;
 const MAIN_KEEP: f64 = HQ_MINE_GAP as f64;
 /// An expansion's clearing round its site's middle (room for a headquarters), and round where its mine will lie.
 const EXP_CLEAR: f64 = 7.5;
-const EXP_MINE_CLEAR: f64 = 4.0;
+const EXP_MINE_CLEAR: f64 = 2.5;
 /// How far (tiles) a main's mine lies from its Core's middle, about (`HQ_MINE_GAP` from its edge, square to a side:
 /// `mine_spot`), for the expansions' plans; within `MAIN_MINE_R` it is a main's own.
 const MAIN_MINE_AT: f64 = 7.5;

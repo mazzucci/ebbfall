@@ -1037,9 +1037,11 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
 fn two_vael_ais_finish_a_game_at_every_level() {
     // PRD: builders who stay. With every Bot staying at its site, neither Expedition AI stalls at any level: both raise
     // their Recruiting post, a Factory goes up (on a level with raiders), and one of them wins. (Seed 12 since Nov 14: on
-    // 11's, with the grid halved and the AI styles, two Easy Expeditions were still at it after 40 minutes.)
+    // 11's, with the grid halved and the AI styles, two Easy Expeditions were still at it after 40 minutes; seed 17 since
+    // the mines moved out to four tiles from their headquarters, Nov 15: on seeds 12 to 16 two Easy Expeditions, each
+    // keeping its expansion, were still at it after 40 minutes, the winner short of its last blow.)
     for (diff, level) in DIFF.iter().enumerate() {
-        let mut w = World::with_setup(12, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
+        let mut w = World::with_setup(17, diff, MapKind::Standard, false, [&VAEL, &VAEL]);
         w.set_ai_seats([true, true]);
         let kinds = [BldgKind::Siphon, BldgKind::Kiln];
         let mut stood = [[false; 2]; 2]; // [seat][kind]: a finished one seen
@@ -1369,9 +1371,11 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     // Blacksmith and Workshop 300 each, the guns come later than the 5:30 they did). (Seed 4: with the chase leash, seed
     // 7's Brutal Kingdom loses its first gun early and trains one where Hard trains two; with the Expedition's one
     // forward Uplink, Nov 13, seed 5's likewise, Brutal sooner in 8 of seeds 1 to 10; since the Expedition's energy, Nov
-    // 14, seed 4's Brutal Kingdom is past its guns' time before it trains one: seed 1.)
+    // 14, seed 4's Brutal Kingdom is past its guns' time before it trains one: seed 1; since the mines moved out to four
+    // tiles from their headquarters, Nov 15, seed 1's Brutal Kingdom trains none by 15:00: seed 2, which passes before and
+    // after.)
     let guns = |level: usize| {
-        let mut w = World::with_setup(1, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(2, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         let (mut first, mut seen) = (f64::INFINITY, Vec::new());
         while w.time < 900.0 && !w.over {

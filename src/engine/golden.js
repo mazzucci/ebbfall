@@ -9,7 +9,7 @@ export const CHECKS = [300, 2700, 9000];
  *  the scripted opponent plays; teams and size, when not a duel's) and the hashes at CHECKS. */
 export const GOLDEN = [
   { name: 'ashen-easy', seed: 4242, diff: 0, map: 0, side: 0, factions: [0, 0], ai: [0, 1], want: [4112675731, 1298989851, 2132920889] },
-  { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [4217339268, 987736726, 247374422] },
+  { name: 'glass-medium-swapped', seed: 1998, diff: 1, map: 1, side: 1, factions: [0, 0], ai: [0, 1], want: [4217339268, 4157029985, 3304832639] },
   { name: 'cinder-hard', seed: 2077, diff: 2, map: 4, side: 0, factions: [0, 0], ai: [0, 1], want: [1393780712, 2041274309, 1802008999] },
   { name: 'storm-medium', seed: 77, diff: 1, map: 2, side: 0, factions: [0, 0], ai: [0, 1], want: [2097618426, 2050469521, 93113691] },
   { name: 'vael-player', seed: 4242, diff: 1, map: 0, side: 0, factions: [1, 0], ai: [0, 1], want: [1933140853, 764485793, 2641969632] },

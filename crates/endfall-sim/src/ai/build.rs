@@ -837,9 +837,9 @@ mod tests {
             .count()
     }
 
-    /// What seat 1's build order wants at 6:00 on a 64x64 duel at `level`, its Castle and Barracks standing, gold in
-    /// hand, with an army worth `mine` of Guards against a foe whose army it last saw worth `seen`.
-    fn wanted(level: usize, mine: usize, seen: f64) -> Option<BldgKind> {
+    /// What seat 1's build order wants at time `t` on a 64x64 duel at `level`, its Castle and Barracks standing, gold
+    /// in hand, with an army worth `mine` of Guards against a foe whose army it last saw worth `seen`.
+    fn wanted(level: usize, t: f64, mine: usize, seen: f64) -> Option<BldgKind> {
         use crate::ai::Brain;
         let mut w = World::with_size(
             5,
@@ -862,7 +862,8 @@ mod tests {
         }
         w.recalc_supply(1);
         w.res[1] = [5000, 0];
-        w.ai_mut().army_seen = (seen, 350.0, 0.0);
+        w.time = t;
+        w.ai_mut().army_seen = (seen, t - 10.0, 0.0);
         let my_b: Vec<_> = w
             .bldgs
             .iter()
@@ -877,7 +878,7 @@ mod tests {
             .collect();
         let mut b = Brain {
             e: 1,
-            t: 360.0,
+            t,
             my_b,
             harv,
             cx: bx as f64 + 2.0,
@@ -891,20 +892,26 @@ mod tests {
     #[test]
     fn hard_behind_on_army_builds_nothing_but_supply_until_it_has_caught_up() {
         // The PM, Nov 15 (Hard against Medium must end): Hard's Kingdom, its army beaten at home, spent its income on
-        // buildings and stood six minutes with no army. Behind the foe's army it last saw, Hard's build order wants
-        // nothing (but supply) and its units take the gold; Medium's goes on as ever.
+        // buildings and stood six minutes with no army. From its stalled game's time (`Diff::stall_from`; 15:00 here,
+        // undrawn), behind the foe's army it last saw, Hard's build order wants nothing (but supply) and its units take
+        // the gold; before then, and on Medium, its build order goes on as ever.
         let guard = UnitKind::Trooper.def().cost[0] as f64;
+        let late = DIFF[2].stall_from + 60.0;
         assert_eq!(
-            wanted(2, 2, 10.0 * guard),
+            wanted(2, late, 2, 10.0 * guard),
             None,
             "Hard, behind: its army first"
         );
         assert!(
-            wanted(2, 12, 10.0 * guard).is_some(),
+            wanted(2, late, 12, 10.0 * guard).is_some(),
             "Hard, caught up: its build order again"
         );
         assert!(
-            wanted(1, 2, 10.0 * guard).is_some(),
+            wanted(2, 360.0, 2, 10.0 * guard).is_some(),
+            "Hard, behind before its stall time: its build order"
+        );
+        assert!(
+            wanted(1, late, 2, 10.0 * guard).is_some(),
             "Medium builds whatever its army"
         );
     }

@@ -120,8 +120,9 @@ test('the cards and the toast say how far along, rounded down', () => {
 
 test('the strike effects read: the weld a small bright core gone in a frame or two, the dust bigger and fuller', () => {
   assert.ok(STRIKE_FX.weld.life <= 0.06, 'one frame or two');
-  // (the flash frame is 16 world px; its core about half: 4-5 css px at the phone's zoom of 1.75)
-  const core = 16 * STRIKE_FX.weld.scale / 2 * 1.75;
+  // (the glint's star is 6 world px across: 4-5 css px at the phone's zoom of 1.75; white-blue, not the Kingdom's warm)
+  const core = 6 * STRIKE_FX.weld.scale * 1.75;
+  assert.equal(STRIKE_FX.weld.anim, 'glint'); assert.ok((STRIKE_FX.weld.tint & 255) === 0xff && (STRIKE_FX.weld.tint >> 16) < 0xe0, 'white-blue');
   assert.ok(core >= 4 && core <= 5.5, `core ${core} css px`);
   assert.ok(STRIKE_FX.dust.scale >= 1.4 && STRIKE_FX.dust.fade >= 0.85, 'the dust reads at 1x');
 });

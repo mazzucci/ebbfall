@@ -373,7 +373,7 @@ class UnitObj {
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
       const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames;
-      if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect('flash', p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
+      if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect(f.anim, p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
       else {
         const g = STRIKE_FX.glint, s = STRIKE_FX.dust;
         addEffect('glint', p.x, p.y - g.lift, { life: g.life, scale: g.scale, tint: g.tint, light: g.tint, lightScale: 0.1 });
@@ -708,7 +708,11 @@ function updateEffects(dt) {
   for (let i = blinks.length - 1; i >= 0; i--) { const k = blinks[i]; k.t += dt; if (k.t >= k.life) { k.l.destroy(); blinks.splice(i, 1); } else k.l.scale.set(k.scale * (1 - k.t / k.life)); }
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i]; e.t += dt;
-    if (e.t >= e.life) { e.s.destroy(); if (e.l) e.l.destroy(); effects.splice(i, 1); continue; }
+    if (e.t >= e.life) {
+      if (e.drawn) { e.s.destroy(); if (e.l) e.l.destroy(); effects.splice(i, 1); continue; }
+      e.t = 0; // (shorter than this frame, a weld's spark: drawn once, whole, then gone)
+    }
+    e.drawn = true;
     const k = Math.min(e.frames.length - 1, Math.floor(e.t / e.life * e.frames.length));
     e.s.texture = e.frames[k]; e.s.x += e.vx * dt; e.s.y += e.vy * dt; e.vx *= 0.92; e.vy *= 0.97;
     if (e.fade) e.s.alpha = e.fade * (1 - e.t / e.life);

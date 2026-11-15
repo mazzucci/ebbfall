@@ -101,7 +101,7 @@ export function strikeAt(u, b, tile = 32) {
 export const STRIKE_FX = {
   glint: { scale: 0.7, tint: 0xfff6e0, life: 0.2, lift: 8 },
   dust: { scale: 1.5, fade: 0.9, life: 0.45, drift: 10, vy: -8 },
-  weld: { scale: 0.32, tint: 0xe4f4ff, life: 0.05, light: 0xbfe6ff, lightScale: 0.12, lift: 6 },
+  weld: { anim: 'glint', scale: 0.45, tint: 0xcfeaff, life: 0.05, light: 0xbfe6ff, lightScale: 0.14, lift: 6 }, // (the glint's star is 6 world px across)
 };
 /** Whether a builder stands in reach of its site: the gap from it to the footprint's nearest point within its radius
  *  and WORK.reach px (the sim's: within its radius and 8 px, settled; a little slack for the frames between ticks). */

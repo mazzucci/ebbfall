@@ -1978,6 +1978,23 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing a Substation: the Data center's coverage (${JSON.stringify(shown.circles)})`);
     assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
+    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
+    assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
+    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [16, 0.18, true], 'the feathered band inside the rim');
+    // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.
+    const lit = await d.eval(([cx, cy, r]) => {
+      const m = document.getElementById('minimap'), S = m.width / endfall.engine.WW, T = endfall.engine.TILE;
+      for (let a = 0; a < 6.283; a += 0.05) {
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, tx = Math.floor(x / T), ty = Math.floor(y / T);
+        if (tx < 0 || ty < 0 || tx >= endfall.engine.MW || ty >= endfall.engine.MH || endfall.G.explored[ty * endfall.engine.MW + tx]) continue;
+        const p = m.getContext('2d').getImageData(Math.floor(x * S), Math.floor(y * S), 1, 1).data;
+        return { a, p: [...p] };
+      }
+      return null;
+    }, [hq.x, hq.y, reach * T]);
+    assert.ok(lit && lit.p[2] > 120 && lit.p[1] > 100, `the rim lit over unexplored ground on the minimap: ${JSON.stringify(lit)}`);
+    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (15 px)');
+    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15px');
     await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build within coverage$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
     await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
     assert.match((await d.toasts()).join(' | '), /Build within coverage/);

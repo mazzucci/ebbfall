@@ -319,15 +319,18 @@ src/client/           everything that touches the browser
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
                       the range (the sim's circles round each Data center and Uplink, a soft tint at 7% faded as one
-                      layer and the signal rim round their union, range.js: a 3.5 px dark halo at 35% under a 1.5 px
-                      light line at 70%, in screen px at every zoom (`rimZoom`, a step of the zoom in the redraw's key);
+                      layer and the signal rim round their union, range.js: a 3.5 px dark halo at 50% under a 1.5 px
+                      light line at 70%, and inside it a feathered band, 16 px of the rim's light from 18% to nothing,
+                      in screen px at every zoom (`rimZoom`, a step of the zoom in the redraw's key);
                       above the fog, under the ghost, the bars and the selection box; shown while a machine, a Data
                       center or an Uplink of this side is selected or any Expedition building placed, drawn again only
                       when the sources or the zoom's step change; a machine sent past the edge (the sim's `signal`
                       event) brightens the rim's stretch nearest the spot, range.js `nearestRim`, fading over 0.6 s;
                       the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
-                      an Expedition seat's rim always, 1 px over a 2 px dark halo, under the fog; `rangeShown` for the
-                      tests); a selected building's flat oval under it (look.js `selOval`; the placement ghost
+                      an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
+                      over the cached base, a 1.25 px line at 80% over a 2.5 px dark halo at 50% in CSS px (scaled by
+                      the minimap's box: its canvas keeps 168 px); `rangeShown` for the tests); the placing hint (ui.js
+                      `setHint`, `#hint.placing`) in 15 px type in its slot; a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust

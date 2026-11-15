@@ -660,11 +660,15 @@ const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
 const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line, so it reads on pale ground too)
 // (over the fog: the range reaches ground not yet seen; under the ghost, the bars and the selection box, over the
 // selection rings) The tint is drawn opaque and faded as one layer (AlphaFilter), so where circles overlap it is no
-// darker; the rim is the union's edge alone, a 3.5 px halo at 35% under a 1.5 px line at 70%, in screen px at every
-// zoom (the widths are divided by the zoom, in steps: `rimZoom`).
-const rangeTint = new Graphics(), rangeLine = new Graphics(), rangeHi = new Graphics(), rangeG = new Container();
-rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
+// darker; the rim is the union's edge alone, a 3.5 px halo at 50% under a 1.5 px line at 70%, in screen px at every
+// zoom (the widths are divided by the zoom, in steps: `rimZoom`). Inside the rim a feathered band gives the area its
+// side (the 7% fill alone is lost on grass): `BAND_PX` screen px wide, the rim's light from `BAND_ALPHA` at the line to
+// nothing, as `BAND_STEPS` rings of the union's arcs drawn inward.
+const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeHi = new Graphics(), rangeG = new Container();
+rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
 let rangeKey = '', rangeCircles = [], rangeArcs = [];
+export const BAND_PX = 16, BAND_ALPHA = 0.18;
+const BAND_STEPS = 8, RIM_HALO_ALPHA = 0.5; // (the halo 35% at first: on the pale boulders of a hill the line got lost)
 /** The zoom the rim is drawn for: the camera's in steps of a tenth, so a pinch redraws it only now and then. */
 const rimZoom = () => Math.round(cam.zoom * 10) / 10;
 /** Stroke the arcs [x, y, r, from, to] onto `g` (no stroke call). */
@@ -677,10 +681,16 @@ function drawRange(extra) {
   rangeKey = key;
   rangeCircles = extra ? [...G.radio, extra] : G.radio.slice();
   rangeArcs = unionArcs(rangeCircles);
-  rangeTint.clear(); rangeLine.clear();
+  rangeTint.clear(); rangeBand.clear(); rangeLine.clear();
   for (const c of rangeCircles) rangeTint.circle(c.x, c.y, c.r);
   if (rangeCircles.length) rangeTint.fill({ color: RANGE_COLOR, alpha: 1 });
-  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 3.5 / z, color: RIM_HALO, alpha: 0.35 });
+  const step = BAND_PX / BAND_STEPS / z; // (world px a ring)
+  for (let i = 0; i < BAND_STEPS; i++) {
+    const inset = (i + 0.5) * step;
+    arcsOnto(rangeBand, rangeArcs.map(([x, y, r, a0, a1]) => [x, y, Math.max(0, r - inset), a0, a1]));
+    rangeBand.stroke({ width: step, color: RANGE_COLOR, alpha: BAND_ALPHA * (1 - (i + 0.5) / BAND_STEPS) });
+  }
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 3.5 / z, color: RIM_HALO, alpha: RIM_HALO_ALPHA });
   arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 1.5 / z, color: RANGE_COLOR, alpha: 0.7 });
 }
 // The leash's cue: a machine sent past the edge (the sim's `signal` event, with the no-signal toast) brightens the stretch
@@ -724,7 +734,7 @@ function noSignal(x, y) {
 }
 /** Tests: whether the range is drawn, its circles, and which units show the no-signal mark. */
 const markedIds = new Set();
-export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], leash: !!leash, mmRim: mmRimArcs });
+export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], leash: !!leash, mmRim: mmRimArcs, mmRimWidth: mmRimCss, band: { px: BAND_PX, alpha: BAND_ALPHA, rings: rangeBand.visible && rangeArcs.length ? BAND_STEPS : 0 } });
 
 /** A progress bar with an optional count of queued items (small pips) after it. */
 function progressBar(x, y, w, f, color, pips = 0, h = 5) {
@@ -927,6 +937,7 @@ function renderMinimap() {
   if (mmBase.width !== mm.width || mmBase.height !== mm.height) { mmBase.width = mm.width; mmBase.height = mm.height; mmAt = -Infinity; }
   if (now - mmAt >= MM_EVERY || now < mmAt) { mmAt = now; minimapBase(mmBase.getContext('2d'), S, T); }
   c.clearRect(0, 0, mm.width, mm.height); c.drawImage(mmBase, 0, 0);
+  minimapRim(c, S, T); // (over the fog, unexplored black included: the whole union's outline, always)
   for (let i = pings.length - 1; i >= 0; i--) {
     const k = (now - pings[i].t) / 2500; if (k >= 1) { pings.splice(i, 1); continue; }
     c.strokeStyle = `rgba(255,90,90,${1 - k})`; c.lineWidth = 2;
@@ -954,19 +965,27 @@ function minimapBase(c, S, T) {
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
   for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
-  minimapRim(c, S, T);
   c.drawImage(fogCv, 0, 0, mm.width, mm.height);
 }
 // The minimap's coverage: an Expedition seat's always (its people's headquarters gives coverage), the union's edge
-// alone, 1 px of the rim's light at 70% over a 2 px dark halo, under the fog image, no fill.
-let mmRimArcs = 0, mmRimKey = '', mmArcs = [];
+// alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored
+// ground hid most of it: with an Uplink's wide circle, all of it). In CSS px whatever the screen: the canvas keeps its
+// own pixel size (168) and is scaled to the minimap's box, so the widths are scaled back by the box's size.
+const MM_RIM = { line: 1.25, halo: 2.5, color: 'rgba(191,233,255,0.8)', haloColor: 'rgba(11,18,32,0.5)' };
+let mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
 function minimapRim(c, S, T) {
   const key = `${G.radioVer}:${G.me}`;
   if (key !== mmRimKey) { mmRimKey = key; mmArcs = coverageOf(FACTIONS[G.factions[G.me]]?.hq) > 0 ? unionArcs(G.radio) : []; }
   const arcs = mmArcs;
   mmRimArcs = arcs.length;
   if (!arcs.length) return;
-  const path = () => { c.beginPath(); for (const [x, y, r, a0, a1] of arcs) { c.moveTo((x + Math.cos(a0) * r) * S, (y + Math.sin(a0) * r) * T); c.ellipse(x * S, y * T, r * S, r * T, 0, a0, a1); } };
-  path(); c.strokeStyle = 'rgba(11,18,32,0.6)'; c.lineWidth = 2; c.stroke();
-  path(); c.strokeStyle = 'rgba(191,233,255,0.7)'; c.lineWidth = 1; c.stroke();
+  const k = mm.clientWidth > 0 ? mm.width / mm.clientWidth : 1; // (canvas px per CSS px)
+  mmRimCss = { line: MM_RIM.line, halo: MM_RIM.halo, canvasPerCss: k };
+  c.save();
+  c.beginPath();
+  for (const [x, y, r, a0, a1] of arcs) { c.moveTo((x + Math.cos(a0) * r) * S, (y + Math.sin(a0) * r) * T); c.ellipse(x * S, y * T, r * S, r * T, 0, a0, a1); }
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = MM_RIM.haloColor; c.lineWidth = MM_RIM.halo * k; c.stroke();
+  c.strokeStyle = MM_RIM.color; c.lineWidth = MM_RIM.line * k; c.stroke();
+  c.restore();
 }

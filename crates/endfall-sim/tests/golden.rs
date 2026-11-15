@@ -274,7 +274,7 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 
 const EXPECTED_RESULTS: [&str; 3] = [
     "56/56/36/0 lost_to 56 | 81/36/56/9 lost_to 36 | over false winner -1 conceded -1 at 36000",
-    "207/155/174/16 lost_to 155 | 174/174/155/0 lost_to 174 | over false winner -1 conceded -1 at 36000",
+    "201/134/134/4 lost_to 134 | 171/134/134/0 lost_to 134 | over false winner -1 conceded -1 at 36000",
     "1/5/0/0 lost_to 5 | 28/0/5/1 lost_to 0 | over true winner 1 conceded -1 at 10978",
 ];
 

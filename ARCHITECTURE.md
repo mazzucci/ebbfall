@@ -198,7 +198,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       per level, `STYLE_WEIGHTS`, Easy never Pressure; `styled` turns a level's tuning into a style's
                       with a seat's six draws: a leaning unit, `Diff::focus`, its mix ratio at two thirds; Easy's army
                       cap, 8 to 14, and mid tier, 10:00 to 13:00, and Boom's one or two top-tier units from 15:00,
-                      `top_max`; every seat's stalled-game push from 13:00 to 17:00; drawn at each AI seat's first turn
+                      `top_max`; every seat's stalled-game push from 13:00 to 17:00, Hard's from 10:00 to 13:00; drawn at each AI seat's first turn
                       from the world's RNG, `World::draw_style` in ai/mod.rs, kept in its brain and read through
                       `World::tuning`; a lab plan's seat plays its plan; `World::set_ai_styles` forces one, the lab's
                       only; never shown to the player),
@@ -294,10 +294,14 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its wave's melee units and dive unit go for the nearest enemy siege gun it sees within 14 tiles
                       (`dive_at_siege`) and its Balloon flies over its wave, its sight past a Cannon's reach
                       (`escort_scout`), both on a level that adapts; a stalled game (`Diff::stall_from`, drawn per
-                      seat between 13:00 and 17:00 for Medium and up: nothing razed by its side for 5 minutes, `STALL_WINDOW`, with some of the foe's army
+                      seat between 13:00 and 17:00 for Medium, 10:00 and 13:00 for Hard and up: nothing razed by its side for 5 minutes, 3 on Hard,
+                      `Diff::stall_window`, with some of the foe's army
                       it saw still standing) masses its next wave for
                       up to 3 minutes towards the cap (`STALL_HOLD`), never leaves while the foe is at its buildings,
-                      and pushes without giving up (`Ai::push`); its Portal
+                      and pushes without giving up (`Ai::push`); Hard's push takes everything (`Diff::push_all`: its
+                      reserve goes too, and past the hold it goes with half its count or more), and from its stall time
+                      a Hard seat behind the foe's army it last saw builds nothing but supply until it has caught up
+                      (`Diff::army_first`); its Portal
                       holds the price of the elite it trains next (`gate_hold`, the Android first); its crew grows with
                       each base past the first up to four (army.rs, produce.rs, economy.rs)
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)

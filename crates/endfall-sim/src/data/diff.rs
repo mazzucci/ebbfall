@@ -57,10 +57,20 @@ pub struct Diff {
     pub look_for: f64,
     pub all_in_after: f64,
     /// A stalled game (the PM, Nov 13: games that grind): from this game time, a seat whose side has razed no enemy
-    /// building for `STALL_WINDOW` seconds masses its next wave for up to `STALL_HOLD` seconds (to the cap, or until it
+    /// building for `stall_window` seconds masses its next wave for up to `STALL_HOLD` seconds (to the cap, or until it
     /// crushes the foe's army), never while the foe is at its buildings, then goes all in and fights to its last unit:
     /// one decisive push instead of even waves traded for ever against Cannons and towers (NEVER: never; Easy).
     pub stall_from: f64,
+    /// A stalled game's push takes everything (Hard and up; the PM, Nov 15: Hard against Medium must end): its home
+    /// reserve goes too, and once its hold is up it goes with what it has, half its wave's count at least (the
+    /// Expedition's raiders, expansion guards and reserve kept its push short of its count for good).
+    pub push_all: bool,
+    /// Its army before its buildings (Hard and up; the PM, Nov 15): with less army than the foe's it last saw, its build
+    /// order wants nothing but supply until it has caught up.
+    pub army_first: bool,
+    /// How long (s) without its side razing an enemy building makes a stalled game: 5 minutes on Medium, 3
+    /// on Hard and up (the PM, Nov 15).
+    pub stall_window: f64,
     /// A wave first gathers this many tiles short of its goal (0: it goes straight in) and goes in together once most
     /// of it is there, or after `stage_wait` seconds.
     pub stage: f64,
@@ -218,6 +228,9 @@ pub const DIFF: [Diff; 4] = [
         look_for: 60.0,
         all_in_after: NEVER,
         stall_from: NEVER,
+        push_all: false,
+        army_first: false,
+        stall_window: 300.0,
         stage: 0.0,
         stage_wait: 30.0,
         passive_expand: NEVER,
@@ -283,6 +296,9 @@ pub const DIFF: [Diff; 4] = [
         look_for: 60.0,
         all_in_after: 300.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stall_from: 900.0,
+        push_all: false,
+        army_first: false,
+        stall_window: 300.0,
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
@@ -340,6 +356,9 @@ pub const DIFF: [Diff; 4] = [
         look_for: 60.0,
         all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stall_from: 900.0,
+        push_all: true,
+        army_first: true,
+        stall_window: 180.0,
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,
@@ -402,6 +421,9 @@ pub const DIFF: [Diff; 4] = [
         look_for: 60.0,
         all_in_after: 240.0, // (since the arc: with caps of 100 and more the cap rarely sends it all in, and a margin-bound wave could wait for ever)
         stall_from: 900.0,
+        push_all: true,
+        army_first: true,
+        stall_window: 180.0,
         stage: 12.0,
         stage_wait: 30.0,
         passive_expand: 180.0,

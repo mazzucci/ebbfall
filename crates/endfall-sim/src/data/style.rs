@@ -55,6 +55,8 @@ pub const EASY_TOP: (usize, usize) = (1, 2);
 /// A stalled game's push (`Diff::stall_from`) starts at a time drawn per seat in this range (s): two mirrored AIs'
 /// all-ins no longer land together (the PM, Nov 14; 15:00 for every seat before).
 pub const STALL_FROM: (f64, f64) = (780.0, 1020.0);
+/// Hard's and up (`Diff::push_all`) sooner: 10:00 to 13:00 (the PM, Nov 15: Hard against Medium must end).
+pub const STALL_FROM_HARD: (f64, f64) = (600.0, 780.0);
 
 /// The draws one AI seat makes at its first turn, in this order (the order is part of the rules), each a float in
 /// [0, 1) from the world's RNG: the style, the leaning unit, Easy's army cap, Easy's mid tier, Easy's top-tier count, the
@@ -110,7 +112,12 @@ pub fn styled(
     let mut d = base;
     let [_, u_focus, u_army, u_mid, u_top, u_stall] = r.0;
     if d.stall_from < NEVER {
-        d.stall_from = pick_time(u_stall, STALL_FROM);
+        let range = if level >= 2 {
+            STALL_FROM_HARD
+        } else {
+            STALL_FROM
+        };
+        d.stall_from = pick_time(u_stall, range);
     }
     if level == 0 {
         // Easy: its army cap and its climb to the mid tier drawn; the top tier only in Boom, late, one or two units.
@@ -218,6 +225,10 @@ mod tests {
         let lo = styled(DIFF[1], 1, Style::Timing, HUMANS.ai.mix, &draws(0.0));
         let hi = styled(DIFF[1], 1, Style::Timing, HUMANS.ai.mix, &draws(0.999_999));
         assert_eq!((lo.stall_from, hi.stall_from), (780.0, 1020.0));
+        // (Hard's sooner, 10:00 to 13:00: the PM, Nov 15)
+        let lo = styled(DIFF[2], 2, Style::Timing, HUMANS.ai.mix, &draws(0.0));
+        let hi = styled(DIFF[2], 2, Style::Timing, HUMANS.ai.mix, &draws(0.999_999));
+        assert_eq!((lo.stall_from, hi.stall_from), (600.0, 780.0));
         let easy = styled(DIFF[0], 0, Style::Timing, HUMANS.ai.mix, &draws(0.5));
         assert_eq!(easy.stall_from, NEVER);
     }

@@ -33,6 +33,14 @@ export function plate(pts, depth, bevel = 1) {
     return g;
   });
 }
+/** The strike poses seen from behind (retheme.js STRIKE_POSES: the builders get the sprite's facing `dir` for them,
+ *  11-13 the unit walking away from the camera): a weapon thrust or chopped straight ahead moves in depth there,
+ *  behind the body, and the strike read like the wind-up. The yaw (a rotation.y for the weapon group, applied after
+ *  its tilt) that swings the strike out to the unit's right (local +z, screen-right from behind), so it crosses the
+ *  screen as a diagonal: 0 at every other facing, and for the walk, which passes no `dir`. Largest at 11 (the facings
+ *  run clockwise on screen: 11 faces north-north-west, whose turn to the left would keep the swing in depth) and
+ *  smallest at 13, already turned to the right: about 30 degrees right of straight up the screen at all three. */
+export const awayYaw = (dir) => (dir >= 11 && dir <= 13 ? -(13.5 - dir) * 0.35 : 0);
 /** The point `d` units from `a` towards `b` (arrays): a cuff a step up a forearm from a moved hand. */
 export const toward = (a, b, d) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1; return a.map((v, i) => v + (b[i] - v) / L * d); };
 /** A capsule from point a to point b (THREE.Vector3-like arrays). */

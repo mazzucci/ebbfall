@@ -98,7 +98,9 @@ function head(b, mats, dir) {
 /** The melee units' strike poses (look.js STRIKE): the builder's frame number for each, after the walk's 0 and 1, and
  *  the name it goes under (`<kind>_<dir>_wind`, `<kind>_<dir>_strike`): the weapon drawn back or raised, then thrust
  *  or chopped; only the weapon arm moves, the feet planted, the body and the anchor where they stand. Not in the walk
- *  animation (nor the drawn height, generate.mjs `unitTops`, which is the walk's). */
+ *  animation (nor the drawn height, generate.mjs `unitTops`, which is the walk's). The strike poses alone get the
+ *  facing as the builder's third argument: seen from behind (11-13) the weapon swings out to the side instead of into
+ *  depth (models.js `awayYaw`); the walk's frames are built without it, the same at every facing. */
 export const STRIKE_POSES = [[2, 'wind'], [3, 'strike']];
 /** A strike pose's cell: the walk's grown `STRIKE_ROOM` world units on every side (a thrust reaches past the walk's
  *  cell), its shadow cast at the walk cell's reach (scene.js `shadowR`) so the body's shadow is the walk's, and its
@@ -197,7 +199,7 @@ export function* rethemeSprites(want, opts = {}) {
       }
       if (m.strike) for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
         const name = `${side}_${kind}_${dir}_${pose}`; if (!want(name)) continue;
-        const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+        const obj = m.build(mats(), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
         const [sc, so] = strikeShot(m, lift, ou);
         yield [name, obj, sc, so, true, { trim: true }];
       }
@@ -295,7 +297,7 @@ export function* atlasSprites(want = () => true) {
     const [cell, so] = strikeShot(m, lift, m.shot ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou);
     for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
       const name = `${kind}_${dir}_${pose}`; if (!want(name)) continue;
-      const obj = m.build(mats(side), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+      const obj = m.build(mats(side), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
       yield [name, obj, cell, so, true, { trim: true }];
     }
   }

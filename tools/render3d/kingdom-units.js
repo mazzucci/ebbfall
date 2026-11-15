@@ -7,7 +7,7 @@
 // surcoat; thin props drawn two to three times their thickness. Same conventions as models.js: game units, units
 // face +x, y up, +z south.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate, limb, toward } from './models.js';
+import { grp, add, rbox, cyl, sph, plate, limb, toward, awayYaw } from './models.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
 import { tex, figure, pennant } from './kingdom.js';
@@ -118,7 +118,7 @@ export function archer(M, f) {
  *  with legs flying, a small pale cap, a short upright bar: quick and light, never the Knight's dark caparisoned
  *  mass under a flag. Frames 0-1 the gallop; 2-3 the strike poses (the horse standing, the spear cocked overarm, then
  *  thrust down: at the spear below). */
-export function rider(M, f) {
+export function rider(M, f, dir) {
   const A = fam(M), g = grp(), st = f % 2 ? -1 : 1;
   const h = grp(); g.add(h);
   add(h, rbox(13.5, 5.6, 4.6, 2.0), A.horseLight, -0.5, 11.2, 0);                               // the body, slim
@@ -160,10 +160,18 @@ export function rider(M, f) {
   // The strike poses (f 2, 3): the wind-up cocks it overarm, the hand raised beside the helm and the spear held level
   // over the horse's neck, point ahead; the strike throws the arm out and down and drives the point down and ahead at
   // a man on foot, the head reaching the horse's muzzle. The horse, the rider's body and helm stay where they are.
-  const [PX, PY, PZ, PA] = [[1.6, 4.0, 3.2, -0.35], [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.35)], [3.4, 5.2, 3.4, -(Math.PI / 2 + 0.6)]][pose]; // the hand and the spear's angle from upright (the shaft runs up local y)
-  const sp = grp(); sp.position.set(PX, PY, PZ); sp.rotation.z = PA; r.add(sp);
-  add(sp, cyl(1.05, 1.05, 14, 8), M.haft, 0, 3.0, 0);                                           // (2.9 px wide at zoom 1.0 in warm haft brown; 0.8 in dark oak until the legibility pass)
-  add(sp, cyl(1.2, 1.2, 1.2, 8), M.steel, 0, 10.2, 0); add(sp, cone(1.4, 4.0, 8), M.steel, 0, 12.8, 0); // the socket and head
+  // Seen from behind (`dir` 11-13, models.js awayYaw) the thrust went down into depth behind the horse's neck: there
+  // the wind-up cocks the spear high, point up 0.9 rad over the helm, and the strike drives it out to the right of
+  // the horse's head, the hand out that way and the spear level (a downward thrust foreshortened to a stub from
+  // behind), a diagonal up the screen clear of the horse.
+  const yaw = awayYaw(dir), away = yaw !== 0;
+  const [PX, PY, PZ, PA] = [[1.6, 4.0, 3.2, -0.35], away ? [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.9)] : [-1.2, 9.2, 4.0, -(Math.PI / 2 - 0.35)], away ? [2.6, 4.6, 5.0, -Math.PI / 2] : [3.4, 5.2, 3.4, -(Math.PI / 2 + 0.6)]][pose]; // the hand and the spear's angle from upright (the shaft runs up local y)
+  const sp = grp(); sp.position.set(PX, PY, PZ); sp.rotation.set(0, pose === 2 ? yaw : 0, PA); r.add(sp);
+  // (the shaft 1.4 thick, 3.9 px wide at zoom 1.0, and a broad bright head, 4.2 wide at its base: at 1.05 and a 2.8
+  // head it vanished at 1x against the pale horse (the 2026-11-15 polish); still half the Knight's lance, and
+  // a short wide point where the Guard's is a long narrow leaf on a longer shaft)
+  add(sp, cyl(1.4, 1.4, 14, 8), M.haft, 0, 3.0, 0);
+  add(sp, cyl(1.6, 1.6, 1.4, 8), M.steel, 0, 10.2, 0); add(sp, cone(2.1, 4.6, 8), M.steel, 0, 13.0, 0); // the socket and head (steel like the Guard's and the Knight's: in bright `shine` the judge read it as a white plume)
   if (pose === 0) { limb(r, [0, 6, 2.8], [1.6, 4.6, 3.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 1.6, 4.4, 3.3); } // the spear arm, a team sleeve
   else { limb(r, [0, 6, 2.8], [PX, PY, PZ], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, PX, PY, PZ + 0.1); }
   limb(r, [0, 6, -2.8], [3.0, 5.0, -1.2], 1.0, M.cloth); add(r, sph(0.85, 8, 6), M.skin, 3.2, 5.0, -1.0); // the rein hand
@@ -177,7 +185,7 @@ export function rider(M, f) {
     add(r, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.3, 1.8, 0);
     if (pose === 0) add(r, sph(1.1, 8, 6), M.inkLine, 1.36, 4.81, 3.14); else add(r, sph(1.1, 8, 6), M.inkLine, ...toward([PX, PY, PZ + 0.1], [0, 6, 2.8], 0.5)); // the spear hand's cuff follows the hand
     add(r, sph(1.1, 8, 6), M.inkLine, 2.55, 5.15, -1.44);
-    add(sp, cyl(1.2, 1.2, 2.0, 8), M.leather, 0, 8.4, 0); add(sp, cyl(1.2, 1.2, 2.4, 8), M.leather, 0, 1.8, 0);
+    add(sp, cyl(1.55, 1.55, 2.0, 8), M.leather, 0, 8.4, 0); add(sp, cyl(1.55, 1.55, 2.4, 8), M.leather, 0, 1.8, 0);
   }
   return g;
 }

@@ -3,25 +3,27 @@
 // drawn at the size the game draws it: `1x` a desktop at zoom 1 (0.6 of the atlas's pixels: the atlas is at scale 2,
 // units drawn 1.2x) and `phone` an 844x390 phone at 3x at zoom 1 (1.8 of them), then magnified `mag` times with no
 // smoothing so the pixels can be read. Renders the sprites itself (tools/render3d), so it shows the models as they stand.
-//   node tools/art/strike-sheet.mjs outdir [kinds,...] [seat]
+//   node tools/art/strike-sheet.mjs outdir [kinds,...] [seat] [facings,...]
+// (`facings`, e.g. 10,11,12,13,14: render those only, the other cells left empty: a quicker look while posing)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { encodePNG } from './png.js';
 import { render3d } from './render3d.mjs';
 import { STRIKE } from '../../src/client/look.js';
 
-const [outDir = 'target/art-review/strike', kindArg, seatArg = '0'] = process.argv.slice(2);
-const kinds = kindArg ? kindArg.split(',') : [...STRIKE.kinds], seat = +seatArg;
+const [outDir = 'target/art-review/strike', kindArg, seatArg = '0', facingArg] = process.argv.slice(2);
+const kinds = kindArg ? kindArg.split(',') : [...STRIKE.kinds], seat = +seatArg, dirs = facingArg ? facingArg.split(',').join('|') : '\\d+';
 const SIZES = [['1x', 0.6, 3], ['phone', 1.8, 1]]; // [label, device px per atlas px, magnification]
 const POSES = ['0', 'wind', 'strike'];
 const GRASS = [74, 92, 52];
 mkdirSync(outDir, { recursive: true });
-const all = await render3d(`^(${kinds.join('|')})_\\d+_(${POSES.join('|')})$`), tint = all.tints[seat];
+const all = await render3d(`^(${kinds.join('|')})_(${dirs})_(${POSES.join('|')})$`), tint = all.tints[seat];
 const tc = [tint >> 16, tint >> 8 & 255, tint & 255].map(v => v / 255), byName = new Map(all.map(s => [s.name, s]));
 
 /** The sprite `name` composed as the game draws it: the neutral render, then its mask multiplied by the seat's tint. */
 function composed(name) {
-  const s = byName.get(name), m = byName.get(`${name}_m`), { w, h } = s.img, out = new Float32Array(w * h * 4);
+  const s = byName.get(name), m = byName.get(`${name}_m`); if (!s) return { w: 1, h: 1, data: new Float32Array(4), ax: 0, ay: 0 }; // (a facing left out: an empty cell)
+  const { w, h } = s.img, out = new Float32Array(w * h * 4);
   for (let i = 0; i < w * h; i++) {
     const a = s.img.data[i * 4 + 3] / 255; let r = s.img.data[i * 4], g = s.img.data[i * 4 + 1], b = s.img.data[i * 4 + 2];
     const ma = m ? m.img.data[i * 4 + 3] / 255 : 0;

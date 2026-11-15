@@ -28,7 +28,7 @@ export function buildCard() {
     const it = items[k]?.slot === s ? items[k++] : null;
     if (!it) { const gap = document.createElement('div'); gap.className = 'cb gap'; c.appendChild(gap); continue; }
     const b = document.createElement('button');
-    b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.badge ? ' badge' : '');
+    b.className = 'cb' + (it.active ? ' active' : '') + (it.cancel ? ' cancel' : '') + (it.poor ? ' poor' : '') + (it.badge ? ' badge' : '') + (it.done ? ' done' : '');
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
     if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis;

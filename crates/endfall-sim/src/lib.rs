@@ -713,6 +713,7 @@ impl Game {
                 Event::Sfx { team, .. }
                 | Event::Toast { team, .. }
                 | Event::Ping { team, .. }
+                | Event::Signal { team, .. }
                 | Event::Attacked { team, .. }
                     if team != me =>
                 {
@@ -739,6 +740,7 @@ fn event_json(e: &Event) -> String {
         Event::Sfx { name, .. } => o("sfx").str("name", name),
         Event::Toast { msg, bad, .. } => o("toast").str("msg", msg).num("bad", bad),
         Event::Ping { x, y, .. } => o("ping").num("x", x).num("y", y),
+        Event::Signal { x, y, .. } => o("signal").num("x", x).num("y", y),
         Event::Burst {
             x,
             y,

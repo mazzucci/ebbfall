@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, dyingShown, shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, dyingShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -119,6 +119,7 @@ function drainEvents() {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
+    else if (e.t === 'signal') leashAt(e.x, e.y); // (a machine of ours sent past coverage: the rim brightens there)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, deathY(e.y, e.unit), e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
     else if (e.t === 'hit') { impactFx(e.x, hitY(e.y, e.air), impactOf(e)); if (seen(e)) sfx('hit', e); } // (on a flyer: up on its body)
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }

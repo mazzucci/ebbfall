@@ -17,7 +17,7 @@ use super::*;
 use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, STRANDED_SPEED, needs_range, range_of};
 
 /// What a player is told when a machine is sent where coverage does not take it.
-pub const NO_SIGNAL: &str = "Can't reach: no signal there.";
+pub const NO_SIGNAL: &str = "No signal there: an Uplink reaches further.";
 
 /// How far (tiles) inside the edge the Drone backs off to.
 const BACK_OFF: f64 = 2.0;
@@ -119,6 +119,23 @@ impl World {
         if !ok {
             self.plans.tell_signal(seat);
             self.toast(seat, NO_SIGNAL, true);
+            self.emit(Event::Signal {
+                team: seat,
+                x: to.0,
+                y: to.1,
+            });
+        }
+    }
+
+    /// A group sent to `to` (a formation move, a group attack-move): its player told as for one machine, judged by its
+    /// first machine inside coverage (one search for the group, as the order makes one route).
+    pub(crate) fn tell_group_no_signal(&mut self, seat: u8, units: &[Id], to: (f64, f64)) {
+        let first = units.iter().copied().find(|&u| {
+            let u = self.u(u);
+            needs_range(u.kind) && self.in_radio(seat, u.x, u.y)
+        });
+        if let Some(u) = first {
+            self.tell_no_signal(seat, u, to, TILE);
         }
     }
 

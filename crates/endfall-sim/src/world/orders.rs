@@ -1,6 +1,7 @@
 //! Orders (what the Game API and the AI ask for) and the rules that accept or refuse them: placing, paying, training, research, rally points.
 
 use super::*;
+use crate::data::radio::needs_coverage;
 use std::cmp::Ordering;
 
 impl World {
@@ -52,6 +53,18 @@ impl World {
         // headquarters multiplying the per-headquarters caps; an ally's do not count, a destroyed one is gone).
         if d.hq && self.near_own_hq(team, kind, tx, ty) {
             return Some(Refusal::NearBase);
+        }
+        // An Expedition building goes up only inside its side's coverage, its center by exact distance (`in_radio`,
+        // an ally's too); the Data center and the Uplink anywhere (Stelian, Nov 15). Placing only: nothing goes
+        // offline when the coverage is lost.
+        if needs_coverage(self.factions[team as usize].hq, kind)
+            && !self.in_radio(
+                team,
+                (tx as f64 + d.w as f64 / 2.0) * TILE,
+                (ty as f64 + d.h as f64 / 2.0) * TILE,
+            )
+        {
+            return Some(Refusal::Coverage);
         }
         None
     }

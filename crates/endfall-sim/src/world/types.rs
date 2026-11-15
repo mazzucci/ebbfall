@@ -329,6 +329,13 @@ pub enum Event {
         msg: String,
         bad: bool,
     },
+    /// A machine of this seat's sent past its coverage (the no-signal toast): (x, y) is where it was sent, so the
+    /// client brightens the stretch of coverage's edge nearest it. Presentation only.
+    Signal {
+        team: u8,
+        x: f64,
+        y: f64,
+    },
     /// Something destroyed at (x, y), `r` its size: a unit (`unit`: its kind, for the client to draw a fighter's fall
     /// apart from a machine's) or a building (None). Presentation only: no event enters the state hash.
     Burst {
@@ -409,6 +416,8 @@ pub enum Refusal {
     NearMine,
     /// A headquarters within `HQ_SPACING` of another of the seat's own, standing or going up.
     NearBase,
+    /// An Expedition building (not a source) whose center lies outside its side's coverage.
+    Coverage,
 }
 
 impl Refusal {
@@ -424,6 +433,7 @@ impl Refusal {
             Refusal::Mine => "Blocked by a mine",
             Refusal::NearMine => "Too close to a mine",
             Refusal::NearBase => "Too close to your other base.",
+            Refusal::Coverage => "Build within coverage",
         }
     }
 }

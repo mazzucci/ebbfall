@@ -227,8 +227,10 @@ fn nothing_fires_from_deep_water() {
 
 #[test]
 fn both_peoples_build_on_land_only() {
-    // Every builder walks since the re-theme: both peoples build on land, never in the shallows or deep water.
-    let w = waters();
+    // Every builder walks since the re-theme: both peoples build on land, never in the shallows or deep water. (An
+    // Uplink on land west of the water: the Expedition builds only inside coverage.)
+    let mut w = waters();
+    w.make_building(BldgKind::Uplink, ENEMY, 14, 40, true);
     let (land, shallows, deep) = ((24, 40), (20, 40), (31, 40));
     for (team, kind) in [(PLAYER, BldgKind::Depot), (ENEMY, BldgKind::Spire)] {
         let got = [land, shallows, deep].map(|(x, y)| w.builds_on(team, x, y));

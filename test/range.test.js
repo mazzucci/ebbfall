@@ -2,7 +2,7 @@
 // outline of their union as arcs, none inside another circle.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inRange, unionArcs } from '../src/client/range.js';
+import { inRange, unionArcs, nearestRim } from '../src/client/range.js';
 
 const TAU = Math.PI * 2;
 const length = (arcs) => arcs.reduce((n, [, , r, a, b]) => n + r * (b - a), 0);
@@ -37,4 +37,22 @@ test('the outline of overlapping circles is their union\'s edge: on the edge of 
   assert.ok(Math.abs(length(pair) - 2 * 60 * (TAU - TAU / 3)) < 1e-6, `the pair's outline: ${length(pair)}`);
   // An arc across angle 0 is one arc: the left circle of the pair keeps one arc, from 60 to 300 degrees.
   assert.equal(pair.filter(a => a[0] === 0).length, 1);
+});
+
+test('the leash cue: the stretch of the rim nearest a point, on the nearest arc, never past its ends', () => {
+  const at = ([x, y, r, a, b]) => [Math.cos((a + b) / 2) * r + x, Math.sin((a + b) / 2) * r + y];
+  // One circle (a whole turn): the stretch is centered on the point's direction, `span` px either side, across angle 0 too.
+  const one = unionArcs([{ x: 0, y: 0, r: 100 }]);
+  const east = nearestRim(one, 300, 0, 50);
+  assert.ok(Math.abs(east[3] + 0.5) < 1e-9 && Math.abs(east[4] - 0.5) < 1e-9, `east, across 0: ${east}`);
+  const [nx, ny] = at(nearestRim(one, 0, -300, 50));
+  assert.ok(Math.abs(nx) < 1e-9 && Math.abs(ny + 100) < 1e-9, 'north: on the circle above the center');
+  // Two overlapping circles: a point by the second's far side picks the second's arc, held within that arc's ends.
+  const two = unionArcs([{ x: 0, y: 0, r: 100 }, { x: 150, y: 0, r: 100 }]);
+  const far = nearestRim(two, 400, 0, 50);
+  assert.equal(far[0], 150, 'the second circle\'s arc');
+  const waist = nearestRim(two, 75, 0, 400);
+  const arc = two.find(a => a[0] === waist[0]);
+  assert.ok(waist[3] >= arc[3] - 1e-9 && waist[4] <= arc[4] + 1e-9, 'within its arc');
+  assert.equal(nearestRim([], 0, 0, 50), null);
 });

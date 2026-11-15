@@ -265,9 +265,10 @@ impl World {
             .filter(|n| {
                 let from = |(x, y): (f64, f64)| jsmath::hypot(n.tx as f64 - x, n.ty as f64 - y);
                 // (a mine with a headquarters by it, anyone's, is taken: a compact mine leaves room round it for a
-                // second Core, which a field's spread crystals did not)
+                // second Core, which a field's spread crystals did not; one `HQ_MINE_GAP` off it at its corner lies
+                // 11 tiles out)
                 let taken = self.bldgs.iter().any(|b| {
-                    b.kind.def().hq && from((b.tx as f64 + 2.0, b.ty as f64 + 2.0)) <= 10.0
+                    b.kind.def().hq && from((b.tx as f64 + 2.0, b.ty as f64 + 2.0)) <= 12.0
                 });
                 // (an expansion's mine lies on the far side of its site from the main, and a site laid 6 tiles nearer
                 // its own start can have its mine a tile nearer a neighbor's: the site decides)
@@ -276,7 +277,7 @@ impl World {
                     .expansions
                     .iter()
                     .copied()
-                    .filter(|&p| from(p) <= 8.0)
+                    .filter(|&p| from(p) <= 10.0)
                     .min_by(|a, b| from(*a).partial_cmp(&from(*b)).unwrap());
                 from((cx, cy)) > 12.0
                     && !taken
@@ -296,8 +297,9 @@ impl World {
                 .unwrap()
                 .then((a.1, a.2).cmp(&(b.1, b.2)))
         });
+        // (rings from 6 tiles out: a headquarters keeps `HQ_MINE_GAP` of ground from the mine, so nearer ones are refused)
         for &(_, nx, ny) in fields.iter().take(6) {
-            for r in 4..10 {
+            for r in 6..13 {
                 for k in 0..16 {
                     let a = k as f64 / 16.0 * PI * 2.0;
                     let tx = jsmath::round(nx as f64 + jsmath::cos(a) * r as f64 - 2.0) as i32;

@@ -1,6 +1,6 @@
 //! Terrain, resource nodes and the occupancy grid (port of src/sim/map.js).
 
-use crate::data::{CRYSTAL_GOLD, MINE_SIZE, Move, TILE};
+use crate::data::{CRYSTAL_GOLD, HQ_MINE_GAP, MINE_APART, MINE_SIZE, Move, TILE};
 use crate::jsmath::{self, PI};
 use crate::rng::Mulberry32;
 
@@ -150,7 +150,7 @@ pub enum MapKind {
     /// Ten times the gold in every field.
     DeepFields,
     /// Rich vents, each holding three times a shaft's share (the shafts taken up since the re-theme's economy, as on
-    /// every map), and one in the center where it keeps 10 tiles off every field's crystals (its expansions are chosen
+    /// every map), and one in the center where it keeps `SHAFT_SALT` tiles off every field's crystals (its expansions are chosen
     /// so it does; no sampled seed lacks it), where the other kinds may have a field.
     EtherStorm,
     /// Little rock: open ground, fast attacks.
@@ -346,7 +346,9 @@ const VENT_GAP: i32 = 4;
 /// nearer its own start than any other by `SHAFT_OWN`. Each at least `SHAFT_CLEAR` tiles from every main's Core and
 /// every expansion's site, `SHAFT_OFF_LINE` off the line from a main to its natural and off its ramp's, and
 /// `SHAFT_CENTRE` from the middle where a field or vent stands there, and `SHAFT_SALT` from every gold crystal of every
-/// field (a main's, an expansion's, the center's: no field has a shaft by it).
+/// field (a main's, an expansion's, the center's: no field has a shaft by it; 8 since the mines moved out to
+/// `HQ_MINE_GAP` and apart, Nov 15: at 10 the shafts, taken up again, found no room by the wider fields and cost maps
+/// their expansions).
 const SHAFT_NEAR: (f64, f64) = (16.0, 20.0);
 const SHAFT_NEAR_AT: f64 = 18.0;
 const SHAFT_FAR: (f64, f64) = (24.0, 36.0);
@@ -356,7 +358,7 @@ const SHAFT_OWN: f64 = 2.0;
 const SHAFT_CLEAR: f64 = 10.5;
 const SHAFT_OFF_LINE: f64 = 4.5;
 const SHAFT_CENTRE: f64 = 8.0;
-const SHAFT_SALT: f64 = 10.0;
+const SHAFT_SALT: f64 = 8.0;
 
 /// A gold outcrop: crystals in a rounded, uneven clump (not an arc, not in rows), as tile offsets in a box (`X` a
 /// crystal), one picked per map from its seed and turned by one of the grid's eight symmetries. The crystals stand in
@@ -375,14 +377,108 @@ const CLUMP_5: [[&str; 4]; 3] = [
     ["..X.", "..X.", "X...", "X..X"],
 ];
 /// How far (tiles) a main's outcrop lies from its Core's middle (the clump's middle), to one flank of the Core; an
-/// expansion's from its site's middle, on the far side from its main.
-const MAIN_CLUMP_R: f64 = 6.2;
-const EXP_CLUMP_R: f64 = 5.0;
+/// expansion's from its site's middle, on the far side from its main: far enough that a headquarters on the site's
+/// middle keeps `HQ_MINE_GAP` from the mine (its mine `mine_spot` lays by the crystals).
+const MAIN_CLUMP_R: f64 = 7.0;
+const EXP_CLUMP_R: f64 = 6.5;
 /// An expansion's crystals keep within this many tiles of its site's middle where they can (clear of a Shore reef).
-const EXP_REACH: f64 = 6.4;
+const EXP_REACH: f64 = 9.0;
 /// A main's crystals lie at least this far (tiles, in a straight line) out from its Core's edge, tile middle to tile
-/// middle: two tiles of ground between, and none at a corner of the Core.
-const MAIN_KEEP: f64 = 3.0;
+/// middle: `HQ_MINE_GAP` tiles of ground between, as its mine keeps (`mine_spot`).
+const MAIN_KEEP: f64 = HQ_MINE_GAP as f64;
+/// An expansion's clearing round its site's middle (room for a headquarters), and round where its mine will lie.
+const EXP_CLEAR: f64 = 7.5;
+const EXP_MINE_CLEAR: f64 = 4.0;
+/// How far (tiles) a main's mine lies from its Core's middle, about (`HQ_MINE_GAP` from its edge, square to a side:
+/// `mine_spot`), for the expansions' plans; within `MAIN_MINE_R` it is a main's own.
+const MAIN_MINE_AT: f64 = 7.5;
+const MAIN_MINE_R: f64 = 11.0;
+/// What the generator keeps between two mines it plans (an expansion's field from every other mine, center to center):
+/// `MINE_APART` and a margin for where the crystals fall (`mine_spot` holds every mine to `MINE_APART` itself).
+const MINE_PLAN: f64 = MINE_APART + 1.0;
+/// An expansion's field's middle keeps this far (tiles) from every main's Core: past its pocket's wall (`POCKET_R` and
+/// 2 thick) by a clump's reach and a tile.
+const EXP_OFF_MAIN: f64 = POCKET_R + 2.0 + 3.0 + 1.0;
+
+/// The tiles of ground between a headquarters (4x4, top-left `b`) and a mine (`MINE_SIZE` square, top-left `v`) across
+/// and down (negative where they overlap that way).
+fn gaps(b: (i32, i32), v: (i32, i32)) -> (i32, i32) {
+    let s = MINE_SIZE;
+    (
+        (v.0 - (b.0 + 4)).max(b.0 - (v.0 + s)),
+        (v.1 - (b.1 + 4)).max(b.1 - (v.1 + s)),
+    )
+}
+
+/// The tiles of ground between them (the ring round the headquarters that `place_refusal` keeps clear: `HQ_MINE_GAP`).
+fn hq_gap(b: (i32, i32), v: (i32, i32)) -> i32 {
+    let (gx, gy) = gaps(b, v);
+    gx.max(gy)
+}
+
+/// The map's middle (tile units).
+fn centre_of(sym: Sym) -> (f64, f64) {
+    ((sym.w - 1) as f64 / 2.0, (sym.h - 1) as f64 / 2.0)
+}
+
+/// The center's mines (a map with a center field: `middle`), one field and its images on a ring round the map's middle,
+/// each midway between two neighboring starts (contested: as near the one as the other), as `(direction, radius)` for
+/// the first, the radius `MINE_APART` and more between neighbors on the ring. Two starts: square to the line between
+/// them, 7 out (two mines); four: halfway round between neighbors, 10 out (four); eight: on the axes, between each
+/// side's two starts, 12 out (four: a point on an axis is its own mirror image).
+fn centre_ring(sym: Sym, c0: (f64, f64)) -> (f64, f64) {
+    let centre = centre_of(sym);
+    let home = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
+    match sym.k {
+        2 => (home + PI / 2.0, 7.0),
+        4 => (home + PI / 4.0, 10.0),
+        _ => (PI, 12.0),
+    }
+}
+
+/// Where the center's mines will lie (tile units), every image (repeats where an image is the same point).
+fn centre_mines(sym: Sym, c0: (f64, f64)) -> Vec<(f64, f64)> {
+    let centre = centre_of(sym);
+    let (a, r) = centre_ring(sym, c0);
+    let p = (centre.0 + jsmath::cos(a) * r, centre.1 + jsmath::sin(a) * r);
+    (0..sym.k).map(|g| sym.point(g, p)).collect()
+}
+
+/// Where an expansion's mine will lie (tile units) for its site `p`, its field `out` (a direction) from it:
+/// `EXP_CLUMP_R` out, as `place_salt` lays its crystals.
+fn exp_mine(p: (f64, f64), out: f64) -> (f64, f64) {
+    (
+        p.0 + jsmath::cos(out) * EXP_CLUMP_R,
+        p.1 + jsmath::sin(out) * EXP_CLUMP_R,
+    )
+}
+
+/// The directions an expansion's field may lie in from its site `p`, in the order tried: on the far side from its
+/// main's Core `c0`, then turned 45 and 90 degrees either way (where the far side would lay it too near another mine:
+/// with many starts, the far side reaches towards the neighbors').
+fn exp_outs(p: (f64, f64), c0: (f64, f64)) -> [f64; 7] {
+    let a = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
+    let q = PI / 4.0;
+    [
+        a,
+        a + q,
+        a - q,
+        a + 2.0 * q,
+        a - 2.0 * q,
+        a + 3.0 * q,
+        a - 3.0 * q,
+    ]
+}
+
+/// Whether an expansion's mine at `e` keeps `MINE_PLAN` from its own images and from `mines` (the others planned, every
+/// image: the mains', the center's, a Shore basin's, the expansions' chosen so far), and its field off every main's
+/// pocket (`EXP_OFF_MAIN` from each Core in `cores`: a field turned back towards its main stays outside the wall).
+fn exp_mine_apart(sym: Sym, e: (f64, f64), mines: &[(f64, f64)], cores: &[(f64, f64)]) -> bool {
+    let d = |a: (f64, f64), b: (f64, f64)| jsmath::hypot(a.0 - b.0, a.1 - b.1);
+    (1..sym.k).all(|g| d(e, sym.point(g, e)) >= MINE_PLAN)
+        && mines.iter().all(|&q| d(e, q) >= MINE_PLAN)
+        && cores.iter().all(|&c| d(e, c) >= EXP_OFF_MAIN)
+}
 
 /// The distance from point `p` to the segment from `a` to `b`.
 fn seg_dist(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
@@ -762,41 +858,69 @@ impl Map {
         // Expansions: two or three sites in the first base's share (two starts: one more per 32 tiles past 64,
         // reaching 16 tiles farther; four: past 96), each repeated for every other start.
         let more = (mw.min(mh) - [64, 96, 128][k / 4]).max(0);
+        let ring = centre_mines(sym, c0);
+        // (where the mines planned before the expansions lie: each main's to either flank, its ramp not chosen yet, and
+        // the center's)
+        let mut planned: Vec<(f64, f64)> = {
+            let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
+            let mut v: Vec<(f64, f64)> = [away - PI / 2.0, away + PI / 2.0]
+                .iter()
+                .flat_map(|&a| {
+                    let q = (
+                        c0.0 + jsmath::cos(a) * MAIN_MINE_AT,
+                        c0.1 + jsmath::sin(a) * MAIN_MINE_AT,
+                    );
+                    (0..k).map(move |g| sym.point(g, q))
+                })
+                .collect();
+            if kind != MapKind::EtherStorm {
+                v.extend(ring.iter().copied());
+            }
+            v
+        };
         let want = 2 + (f() < 0.4) as usize + (more / 32) as usize;
         let far = 32.0 + more as f64 / 2.0;
         let mut sites: Vec<(f64, f64)> = Vec::new();
-        for _ in 0..200 * k / 2 {
+        // (each site's field's direction from it, `exp_outs`; every image of its mine joins `planned`)
+        let mut outs = Vec::new();
+        for _ in 0..1000 * k {
             if sites.len() >= want {
                 break;
             }
             let p = (10.0 + f() * (mw - 20) as f64, 10.0 + f() * (mh - 20) as f64);
             // (more than two starts: the first, the natural, within the duel's 32 tiles)
             let far = if k > 2 && sites.is_empty() { 32.0 } else { far };
-            // (an `EtherStorm`'s: `SHAFT_CLEAR` from the center's vent, and its crystals, out beyond it from the main, clear
-            // of the vent by `SHAFT_SALT` and room for the clump)
-            let salt_mid = {
-                let r = d(p, c0).max(1e-9);
-                (
-                    p.0 + (p.0 - c0.0) / r * EXP_CLUMP_R,
-                    p.1 + (p.1 - c0.1) / r * EXP_CLUMP_R,
-                )
-            };
             let ok = (18.0..=far).contains(&d(p, c0)) // (an expansion, not part of the main base)
                 && cores[1..].iter().all(|&c| d(p, c) > d(p, c0) + 6.0)
                 && d(p, centre) > 7.0
-                && (kind != MapKind::EtherStorm
-                    || (d(p, centre) >= SHAFT_CLEAR && d(salt_mid, centre) >= SHAFT_SALT + 4.0))
+                && (kind != MapKind::EtherStorm || d(p, centre) >= SHAFT_CLEAR)
                 && (1..k).all(|g| d(p, sym.point(g, p)) > 12.0)
                 && sites
                     .iter()
-                    .all(|&q| (0..k).all(|g| d(sym.point(g, p), q) > 11.0));
-            if ok {
+                    .all(|&q| (0..k).all(|g| d(sym.point(g, p), q) > 11.0))
+                // (the HQ room on its near side off the center's mines, whether or not the map has them: they are
+                // drawn after the sites)
+                && (kind == MapKind::EtherStorm || ring.iter().all(|&q| d(p, q) >= EXP_CLEAR + 2.0));
+            // (its mine `MINE_APART` from every other planned; an `EtherStorm`'s out beyond the center's vent by
+            // `SHAFT_SALT` and room for the clump)
+            let out = exp_outs(p, c0).into_iter().find(|&a| {
+                let e = exp_mine(p, a);
+                exp_mine_apart(sym, e, &planned, &cores)
+                    && (kind != MapKind::EtherStorm || d(e, centre) >= SHAFT_SALT + 4.0)
+            });
+            if let (true, Some(out)) = (ok, out) {
                 sites.push(p);
+                outs.push(out);
+                let e = exp_mine(p, out);
+                planned.extend((0..k).map(|g| sym.point(g, e)));
             }
         }
         // The natural: the expansion nearest the main (sites in that order). Each main is a pocket walled by a ring
         // of rock with one ramp, facing its natural (an open plain keeps its open ground).
-        sites.sort_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap());
+        let mut order: Vec<usize> = (0..sites.len()).collect();
+        order.sort_by(|&i, &j| d(sites[i], c0).partial_cmp(&d(sites[j], c0)).unwrap());
+        let (mut sites, mut outs): (Vec<_>, Vec<_>) =
+            order.iter().map(|&i| (sites[i], outs[i])).unzip();
         let natural = sites.first().copied().unwrap_or(centre);
         let pocket = kind != MapKind::OpenPlains;
         let ramp_dir = jsmath::atan2(natural.1 - c0.1, natural.0 - c0.0);
@@ -824,10 +948,10 @@ impl Map {
             )
         };
         let land = |_: i32, _: i32| true;
-        let plan = |sites: &[(f64, f64)]| {
+        let plan = |sites: &[(f64, f64)], outs: &[f64]| {
             let salt_with = |vent: bool| {
                 Map::salt_of(size, |m, id| {
-                    m.place_salt(id, sym, c0, flank, shape, sites, (centre_field, vent))
+                    m.place_salt(id, sym, c0, flank, shape, sites, outs, (centre_field, vent))
                 })
             };
             let mut salt = salt_with(kind == MapKind::EtherStorm);
@@ -863,11 +987,19 @@ impl Map {
         // rules lets a shaft take `Limits::ROOMY`'s wider rings; where they find none either (the crystals of three
         // expansions round them), it loses its farthest expansion until they do, as the Shore's does.
         let (centre_vent, mut rules) = loop {
-            let (centre_vent, mut rules) = plan(&sites);
+            let (centre_vent, mut rules) = plan(&sites, &outs);
             let centre = (centre_field, centre_vent);
             let fit = |rules: &ShaftRules| {
                 Map::shafts_fit(size, 2 * k + centre_vent as usize, |m, id| {
-                    m.place_fields(id, rules, rules.ideals(), flank, shape, &sites, centre)
+                    m.place_fields(
+                        id,
+                        rules,
+                        rules.ideals(),
+                        flank,
+                        shape,
+                        (&sites, &outs),
+                        centre,
+                    )
                 })
             };
             if fit(&rules) {
@@ -878,19 +1010,25 @@ impl Map {
                 break (centre_vent, rules);
             }
             sites.pop();
+            outs.pop();
         };
         let mut open: Vec<(f64, f64, f64)> = cores.iter().map(|c| (c.0, c.1, 12.0)).collect();
         // An expansion's clearing: its field on the far side and room for a Core on the near side.
-        for &p in &sites {
+        for (&p, &out) in sites.iter().zip(&outs) {
+            let e = exp_mine(p, out);
             for g in 0..k {
-                let q = sym.point(g, p);
-                open.push((q.0, q.1, 7.5));
+                let (q, e) = (sym.point(g, p), sym.point(g, e));
+                open.push((q.0, q.1, EXP_CLEAR));
+                open.push((e.0, e.1, EXP_MINE_CLEAR));
             }
         }
         if centre_vent {
             open.push((centre.0, centre.1, 3.5));
         } else if centre_field {
             open.push((centre.0, centre.1, 6.5));
+            for &q in &ring {
+                open.push((q.0, q.1, EXP_MINE_CLEAR));
+            }
         }
         let ideals = rules.ideals();
         for q in ideals {
@@ -967,7 +1105,15 @@ impl Map {
             m.occ.fill(0);
             *next_id = id0;
             let centre = (centre_field, centre_vent);
-            m.place_fields(next_id, &rules, ideals, flank, shape, &sites, centre);
+            m.place_fields(
+                next_id,
+                &rules,
+                ideals,
+                flank,
+                shape,
+                (&sites, &outs),
+                centre,
+            );
             let reach = m.walkable_from(b0);
             let reached = |x: i32, y: i32| m.in_map(x, y) && reach[m.idx(x, y)];
             let fields_ok = m.nodes.iter().all(|n| {
@@ -1068,11 +1214,25 @@ impl Map {
         let sea = |x: f64, y: f64| {
             axis(x, y) < SHORE_DEEP + SHORE_SHALLOWS || pool(x, y) < SHORE_REEF + 1.5
         };
+        // The cove's gold to one flank of its Core (its ramp faces the center: either flank is as far from it).
+        let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
+        let flank = away + PI / 2.0;
+        let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
+        // Each reef's land channel faces the cove across the sea (the one it faces: a Human seat there walks in by it).
+        let channel: Vec<f64> = (0..2)
+            .map(|g| jsmath::atan2(cores[1 - g].1 - pools[g].1, cores[1 - g].0 - pools[g].0))
+            .collect();
+        // (where the coves' and the basins' mines will lie: the middles of their fields, laid before the expansions')
+        let mains = Map::field_middles(size, |m, id| {
+            m.place_basin_fields(id, sym, p0, channel[0], field, shape);
+            m.place_salt(id, sym, c0, flank, shape, &[], &[], (false, false));
+        });
         // Expansions: two or three sites on land in the first share (the same rules as the other kinds, and clear of
         // the sea and the basins), each repeated for the other start.
         let want = 2 + (f() < 0.4) as usize;
         let mut sites: Vec<(f64, f64)> = Vec::new();
-        for _ in 0..800 {
+        let (mut outs, mut planned) = (Vec::new(), mains);
+        for _ in 0..2000 {
             if sites.len() >= want {
                 break;
             }
@@ -1083,16 +1243,29 @@ impl Map {
                 && d(p, centre) > 7.0
                 && d(p, sym.point(1, p)) > 12.0
                 && axis(p.0, p.1) > SHORE_DEEP + SHORE_SHALLOWS + 3.0
-                // (clear of the reefs by more than an expansion's clearing: 7.5 tiles round its middle)
-                && pool(p.0, p.1) > SHORE_REEF + 1.5 + 7.5
+                // (clear of the reefs by more than an expansion's clearing, `EXP_CLEAR` round its middle, and its mine's)
+                && pool(p.0, p.1) > SHORE_REEF + 1.5 + EXP_CLEAR
                 && sites
                     .iter()
                     .all(|&q| (0..2).all(|g| d(sym.point(g, p), q) > 11.0));
-            if ok {
+            // (its mine on land, clear of the reefs and `MINE_APART` from every other planned)
+            let out = exp_outs(p, c0).into_iter().find(|&a| {
+                let e = exp_mine(p, a);
+                pool(e.0, e.1) > SHORE_REEF + 1.5 + EXP_MINE_CLEAR
+                    && axis(e.0, e.1) > SHORE_DEEP + SHORE_SHALLOWS + 2.0
+                    && exp_mine_apart(sym, e, &planned, &cores)
+            });
+            if let (true, Some(out)) = (ok, out) {
                 sites.push(p);
+                outs.push(out);
+                let e = exp_mine(p, out);
+                planned.extend((0..2).map(|g| sym.point(g, e)));
             }
         }
-        sites.sort_by(|p, q| d(*p, c0).partial_cmp(&d(*q, c0)).unwrap());
+        let mut order: Vec<usize> = (0..sites.len()).collect();
+        order.sort_by(|&i, &j| d(sites[i], c0).partial_cmp(&d(sites[j], c0)).unwrap());
+        let (mut sites, mut outs): (Vec<_>, Vec<_>) =
+            order.iter().map(|&i| (sites[i], outs[i])).unzip();
         let scale = 6.0 + f() * 4.5;
         // The walls: each cove's ring with its ramp towards the center (the sea), each reef's ring with its channel
         // towards the cove it faces and its sea gate.
@@ -1107,10 +1280,6 @@ impl Map {
         };
         let ramp: Vec<f64> = (0..2)
             .map(|g| jsmath::atan2(centre.1 - cores[g].1, centre.0 - cores[g].0))
-            .collect();
-        // Each reef's land channel faces the cove across the sea (the one it faces: a Human seat there walks in by it).
-        let channel: Vec<f64> = (0..2)
-            .map(|g| jsmath::atan2(cores[1 - g].1 - pools[g].1, cores[1 - g].0 - pools[g].0))
             .collect();
         // Each reef's sea gate, towards the center: it opens onto the deep band, so only amphibians pass it.
         let gate: Vec<f64> = (0..2)
@@ -1129,10 +1298,12 @@ impl Map {
         // Clearings: each Core's room, each site's, outside each ramp and each channel, and the sea (no rock in water
         // but the reefs).
         let mut open: Vec<(f64, f64, f64)> = cores.iter().map(|c| (c.0, c.1, POCKET_R)).collect();
-        for &p in &sites {
+        for (&p, &out) in sites.iter().zip(&outs) {
+            let e = exp_mine(p, out);
             for g in 0..2 {
-                let q = sym.point(g, p);
-                open.push((q.0, q.1, 7.5));
+                let (q, e) = (sym.point(g, p), sym.point(g, e));
+                open.push((q.0, q.1, EXP_CLEAR));
+                open.push((e.0, e.1, EXP_MINE_CLEAR));
             }
         }
         for g in 0..2 {
@@ -1167,13 +1338,9 @@ impl Map {
                 DRY
             }
         };
-        // The cove's gold to one flank of its Core (its ramp faces the center: either flank is as far from it).
-        let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
-        let flank = away + PI / 2.0;
-        let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
         // The open shafts: on land (a walker builds there at high water), off each cove's ramp and its natural's line.
         let land = |x: i32, y: i32| x >= 0 && y >= 0 && x < mw && y < mh && height(x, y) == DRY;
-        let shaft_rules = |sites: &[(f64, f64)]| {
+        let shaft_rules = |sites: &[(f64, f64)], outs: &[f64]| {
             let natural = sites.first().copied().unwrap_or(centre);
             ShaftRules {
                 sym,
@@ -1200,14 +1367,14 @@ impl Map {
                 centre_busy: false,
                 salt: Map::salt_of(size, |m, id| {
                     m.place_basin_fields(id, sym, p0, channel[0], field, shape);
-                    m.place_salt(id, sym, c0, flank, shape, sites, (false, false));
+                    m.place_salt(id, sym, c0, flank, shape, sites, outs, (false, false));
                 }),
                 land: &land,
                 limits: Limits::STRICT,
                 roomy: false,
             }
         };
-        let ideals = shaft_rules(&sites).ideals();
+        let ideals = shaft_rules(&sites, &outs).ideals();
         for q in ideals {
             for g in 0..2 {
                 let q = sym.point(g, q);
@@ -1242,10 +1409,18 @@ impl Map {
         // loses its farthest expansion and tries again.
         loop {
             // (as `generate`: `Limits::ROOMY`'s wider rings where the strict ones find no room even on open ground)
-            let mut rules = shaft_rules(&sites);
+            let mut rules = shaft_rules(&sites, &outs);
             rules.roomy = !Map::shafts_fit(size, 4, |m, id| {
                 m.place_basin_fields(id, sym, p0, channel[0], field, shape);
-                m.place_fields(id, &rules, ideals, flank, shape, &sites, (false, false));
+                m.place_fields(
+                    id,
+                    &rules,
+                    ideals,
+                    flank,
+                    shape,
+                    (&sites, &outs),
+                    (false, false),
+                );
             });
             let mut thr = SHORE_ROCK;
             let mut ok = false;
@@ -1264,7 +1439,7 @@ impl Map {
                     ideals,
                     flank,
                     shape,
-                    &sites,
+                    (&sites, &outs),
                     (false, false),
                 );
                 let reach = m.reach_from(b0, walk);
@@ -1291,6 +1466,7 @@ impl Map {
                 break;
             }
             sites.pop();
+            outs.pop();
         }
         m.expansions = sites
             .iter()
@@ -1298,7 +1474,7 @@ impl Map {
             .collect();
         // Two open shafts a start: where none gave them room, laid again under looser rules (as `generate`).
         let strict = m.nodes.iter().filter(|n| n.ether).count() == 4;
-        m.mend_shafts(next_id, &mut shaft_rules(&sites), ideals, 4);
+        m.mend_shafts(next_id, &mut shaft_rules(&sites, &outs), ideals, 4);
         debug_assert!(
             strict,
             "seed {seed}: every Shore start has its two open shafts without mending"
@@ -1375,17 +1551,18 @@ impl Map {
         ideals: [(f64, f64); 2],
         flank: f64,
         shape: u32,
-        sites: &[(f64, f64)],
+        (sites, outs): (&[(f64, f64)], &[f64]),
         centre: (bool, bool),
     ) {
         let (sym, c0) = (rules.sym, rules.cores[0]);
-        self.place_salt(next_id, sym, c0, flank, shape, sites, centre);
+        self.place_salt(next_id, sym, c0, flank, shape, sites, outs, centre);
         self.place_shafts(next_id, rules, ideals);
     }
 
     /// Each base's own gold outcrop to one flank of its Core (`flank`, a direction), the center's field or vent
-    /// (`centre`: whether it holds either; never both, a field would lie by the vent), the expansions (nearest the main
-    /// first), each with its outcrop on the far side from the main. Where a crystal falls depends only on the
+    /// (`centre`: whether it holds either; never both, a field would lie by the vent; the field an arc on the ring of
+    /// `centre_ring` and its images), the expansions (nearest the main first), each with its outcrop `outs` from its
+    /// site (`exp_outs`). Where a crystal falls depends only on the
     /// nodes laid before it, never on rock (`salt_of` lays them on an empty map to find where they will lie).
     #[allow(clippy::too_many_arguments)]
     fn place_salt(
@@ -1396,6 +1573,7 @@ impl Map {
         flank: f64,
         shape: u32,
         sites: &[(f64, f64)],
+        outs: &[f64],
         (centre_field, centre_vent): (bool, bool),
     ) {
         let (mw, mh) = (self.w, self.h);
@@ -1409,7 +1587,8 @@ impl Map {
             self.add_shards_at(next_id, &images(&home, g));
         }
         if centre_field {
-            let left = self.add_shards(next_id, centre.0 - 3.0, centre.1, PI, 3, 2.5);
+            let (a, r) = centre_ring(sym, c0);
+            let left = self.add_shards(next_id, centre.0, centre.1, a, 3, r);
             // (the turns first, then the mirror images; an image that falls on a field laid already is not laid: eight
             // starts' mirror images of the arc fall on the turned arcs, and their leftover crystals made fields that
             // were no field's image, so no mine of theirs could be either; two or four starts' images never meet)
@@ -1425,9 +1604,8 @@ impl Map {
         if centre_vent {
             self.add_vent(next_id, mw / 2 - 1, mh / 2 - 1); // a 2x2 vent on the center is its own image
         }
-        for (i, &p) in sites.iter().enumerate() {
-            // The crystals lie on the far side of the site from the main, clear of the main's ramp.
-            let out = jsmath::atan2(p.1 - c0.1, p.0 - c0.0);
+        for (i, (&p, &out)) in sites.iter().zip(outs).enumerate() {
+            // The crystals lie `out` from the site (`exp_outs`: on the far side from the main where they can).
             let turn = shape.rotate_left(5 * (i as u32 + 1));
             let at = (EXP_CLUMP_R, 0.0, EXP_REACH);
             let field = self.add_clump(next_id, p, out, at, 5, turn);
@@ -1443,6 +1621,27 @@ impl Map {
         let mut m = Map::empty(size);
         lay(&mut m, &mut 1);
         m.salt()
+    }
+
+    /// The middle of each field `lay` puts down on an empty map of `size` (tile units, by field id): where its mine
+    /// will lie, about.
+    fn field_middles(size: MapSize, lay: impl FnOnce(&mut Map, &mut Id)) -> Vec<(f64, f64)> {
+        let mut m = Map::empty(size);
+        lay(&mut m, &mut 1);
+        let mut fields: Vec<u32> = m.nodes.iter().map(|n| n.field).collect();
+        fields.sort_unstable();
+        fields.dedup();
+        fields
+            .iter()
+            .map(|&f| {
+                let t: Vec<&Node> = m.nodes.iter().filter(|n| n.field == f).collect();
+                let k = t.len() as f64;
+                (
+                    t.iter().map(|n| n.tx as f64).sum::<f64>() / k,
+                    t.iter().map(|n| n.ty as f64).sum::<f64>() / k,
+                )
+            })
+            .collect()
     }
 
     /// Whether `lay` (fields, then shafts) puts down `want` vents on an empty map of `size`: open ground, where rock
@@ -1647,10 +1846,12 @@ impl Map {
 
     /// Where the first field of an orbit puts its mine (top-left tile): of the squares within 8 tiles of the
     /// crystals' middle, the nearest that fits (fewest blocked tiles round it next, then row by row). A square fits on
-    /// open ground a tile in from the map's edge, two tiles off every start's headquarters square (and a Shore
-    /// basin's), with a walker's ground all along its sides facing the start or expansion nearest it (where its
-    /// workers come from); its images under the map's symmetry must fit as well (open ground, off the headquarters,
-    /// each the same square or apart from the others), it must be its own image under every element in `stab` (those
+    /// open ground a tile in from the map's edge, `HQ_MINE_GAP` tiles of ground off every start's headquarters square
+    /// (and a Shore basin's), with a walker's ground all along its sides facing the start or expansion nearest it
+    /// (where its workers come from); its images under the map's symmetry must fit as well (open ground, off the
+    /// headquarters, each the same square or `MINE_APART` from the others), every one `MINE_APART` from every mine laid
+    /// already, and a start's own (its field by the start's headquarters) exactly `HQ_MINE_GAP` off it and square to
+    /// one of its sides where any such square fits; it must be its own image under every element in `stab` (those
     /// that map the field onto itself), and with all of them laid every start, basin and mine is still within a
     /// walker's reach of the first start. Where no square is its own image under `stab`, that rule is dropped.
     fn mine_spot(&mut self, tiles: &[(i32, i32)], sym: Sym, stab: &[usize]) -> Option<(i32, i32)> {
@@ -1669,11 +1870,17 @@ impl Map {
         anchors.extend(self.expansions.iter().copied());
         let d2 =
             |a: (f64, f64), b: (f64, f64)| (a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1);
-        let anchor = anchors
+        let near = anchors
             .iter()
             .copied()
-            .min_by(|a, b| d2(*a, c).partial_cmp(&d2(*b, c)).unwrap())
-            .unwrap_or(c);
+            .enumerate()
+            .min_by(|a, b| d2(a.1, c).partial_cmp(&d2(b.1, c)).unwrap());
+        let anchor = near.map_or(c, |(_, a)| a);
+        // (a main's field, by its start's headquarters: its mine `HQ_MINE_GAP` from it, square to one of its sides)
+        // (a start's, not a Shore basin's: nobody starts there since the re-theme, and the lab moves its field about)
+        let main = near
+            .filter(|&(i, a)| i < self.bases.len() && d2(a, c) <= MAIN_MINE_R * MAIN_MINE_R)
+            .map(|(i, _)| hqs[i]);
         let walk = Foot {
             class: Move::Walk,
             water: 0,
@@ -1700,9 +1907,7 @@ impl Map {
         let room = |m: &Map, v: (i32, i32)| -> bool {
             let on = v.0 >= 1 && v.1 >= 1 && v.0 + s < m.w && v.1 + s < m.h; // (a tile in from every edge)
             let open = on && (v.1..v.1 + s).all(|y| (v.0..v.0 + s).all(|x| !m.blocked(x, y)));
-            let off_hq = hqs.iter().all(|b| {
-                v.0 + s + 2 <= b.0 || v.0 >= b.0 + 4 + 2 || v.1 + s + 2 <= b.1 || v.1 >= b.1 + 4 + 2
-            });
+            let off_hq = hqs.iter().all(|&b| hq_gap(b, v) >= HQ_MINE_GAP);
             open && off_hq
         };
         // (the square and its distinct images)
@@ -1712,7 +1917,11 @@ impl Map {
             o.dedup();
             o
         };
-        let apart = |a: (i32, i32), b: (i32, i32)| (a.0 - b.0).abs() >= s || (a.1 - b.1).abs() >= s;
+        // (`MINE_APART` between mines, center to center)
+        let apart = |a: (i32, i32), b: (i32, i32)| {
+            let (a, b) = (mid(a), mid(b));
+            jsmath::hypot(a.0 - b.0, a.1 - b.1) >= MINE_APART
+        };
         let fits = |m: &Map, v: (i32, i32)| -> bool {
             let (mx, my) = mid(v);
             let (ax, ay) = (anchor.0 - mx, anchor.1 - my);
@@ -1725,6 +1934,8 @@ impl Map {
                 && o.iter()
                     .enumerate()
                     .all(|(i, &a)| o[i + 1..].iter().all(|&b| apart(a, b)))
+                && o.iter()
+                    .all(|&a| m.nodes.iter().all(|n| apart(a, (n.tx, n.ty))))
         };
         let blocked_round = |m: &Map, v: (i32, i32)| {
             sides(v)
@@ -1733,7 +1944,15 @@ impl Map {
                 .count()
         };
         let own_image = |v: (i32, i32)| stab.iter().all(|&g| sym.block(g, v, s) == v);
-        let mut cands: Vec<(bool, f64, usize, i32, i32)> = Vec::new();
+        // (a main's mine: exactly `HQ_MINE_GAP` from its headquarters and square to one of its sides, so its workers walk
+        // straight across that gap, as at any base)
+        let snug = |v: (i32, i32)| {
+            main.is_none_or(|b| {
+                let (gx, gy) = gaps(b, v);
+                gx.max(gy) == HQ_MINE_GAP && gx.min(gy) < 0
+            })
+        };
+        let mut cands: Vec<(bool, bool, f64, usize, i32, i32)> = Vec::new();
         let (bx, by) = (
             jsmath::round(c.0 - (s - 1) as f64 / 2.0) as i32,
             jsmath::round(c.1 - (s - 1) as f64 / 2.0) as i32,
@@ -1742,13 +1961,20 @@ impl Map {
             for x in bx - 8..=bx + 8 {
                 if fits(self, (x, y)) {
                     let v = (x, y);
-                    cands.push((!own_image(v), d2(mid(v), c), blocked_round(self, v), y, x));
+                    cands.push((
+                        !own_image(v),
+                        !snug(v),
+                        d2(mid(v), c),
+                        blocked_round(self, v),
+                        y,
+                        x,
+                    ));
                 }
             }
         }
         cands.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let start = self.bases[0];
-        for (_, _, _, y, x) in cands {
+        for (_, _, _, _, y, x) in cands {
             let o = orbit((x, y));
             let put = |m: &mut Map, val: i32| {
                 for q in &o {

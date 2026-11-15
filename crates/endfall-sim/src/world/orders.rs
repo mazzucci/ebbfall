@@ -39,13 +39,20 @@ impl World {
                 _ => return Some(Refusal::Building),
             }
         }
-        // The ring round it: no building right against a gold mine (its workers need the room).
-        for y in -1..=d.h {
-            for x in -1..=d.w {
+        // The ring round it: no building right against a gold mine (its workers need the room), and a headquarters
+        // `HQ_MINE_GAP` tiles of ground from any (Stelian, Nov 15: no Data center in the middle of a ring of mines, and
+        // every base works its mine at the walk a start's own has: the generator keeps the same gap).
+        let r = if d.hq { HQ_MINE_GAP } else { 1 };
+        for y in -r..d.h + r {
+            for x in -r..d.w + r {
                 let (xx, yy) = (tx + x, ty + y);
                 let edge = x < 0 || y < 0 || x >= d.w || y >= d.h;
                 if edge && self.map.in_map(xx, yy) && self.map.occ[self.map.idx(xx, yy)] < 0 {
-                    return Some(Refusal::NearMine);
+                    return Some(if d.hq {
+                        Refusal::NearMineHq
+                    } else {
+                        Refusal::NearMine
+                    });
                 }
             }
         }

@@ -765,3 +765,97 @@ fn a_headquarters_keeps_its_distance_from_its_seats_own_others_but_not_from_an_a
             .is_ok()
     );
 }
+
+#[test]
+fn a_headquarters_keeps_four_tiles_of_ground_from_every_mine_and_nothing_else_does() {
+    // Stelian, Nov 15: no Castle or Data center within `HQ_MINE_GAP` (4) tiles of ground of any gold mine, footprint to
+    // footprint, in its own words; every other building, the Uplink included, keeps the one-tile ring. The same check
+    // the AI places by (`can_place`).
+    let mut w = World::with_size(5, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
+    w.disable_ai();
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    w.res = vec![[20_000, 0]; 2];
+    for (seat, hq) in [(0u8, BldgKind::Core), (1u8, BldgKind::Conflux)] {
+        let d = hq.def();
+        // A mine with free ground on one side for a headquarters `gap` tiles off it, square to that side: (left,
+        // right, above, below) of the mine, its top-left tile.
+        let at = |m: &endfall_sim::map::Node, side: usize, gap: i32| match side {
+            0 => (m.tx - d.w - gap, m.ty),
+            1 => (m.tx + m.s + gap, m.ty),
+            2 => (m.tx, m.ty - d.h - gap),
+            _ => (m.tx, m.ty + m.s + gap),
+        };
+        let (m, side) = w
+            .map
+            .nodes
+            .iter()
+            .flat_map(|m| (0..4).map(move |side| (m.clone(), side)))
+            .find(|(m, side)| {
+                let (x, y) = at(m, *side, HQ_MINE_GAP);
+                let (x3, y3) = at(m, *side, HQ_MINE_GAP - 1);
+                w.place_refusal(hq, x, y, seat).is_none()
+                    && w.place_refusal(hq, x3, y3, seat) == Some(Refusal::NearMineHq)
+            })
+            .expect("a mine with room for a headquarters beside it");
+        let ctx = format!("{} by the mine at {},{}", d.name, m.tx, m.ty);
+        for gap in 1..HQ_MINE_GAP {
+            let (x, y) = at(&m, side, gap);
+            if w.place_refusal(hq, x, y, seat) != Some(Refusal::NearMineHq) {
+                // (nearer the mine, some other rule may come first: rock or a building on those tiles)
+                let refusal = w.place_refusal(hq, x, y, seat);
+                assert!(
+                    matches!(
+                        refusal,
+                        Some(Refusal::Rock | Refusal::Building | Refusal::Mine)
+                    ),
+                    "{ctx}: {gap} tiles off: {refusal:?}"
+                );
+            }
+        }
+        let (x3, y3) = at(&m, side, HQ_MINE_GAP - 1);
+        assert_eq!(
+            w.place_building(seat, hq, x3, y3, None),
+            Err("Too close to a mine for a headquarters".to_string()),
+            "{ctx}: three tiles of ground"
+        );
+        // The same spot for any other building: the one-tile ring only (a Depot or a Barracks, the Uplink).
+        let other = if seat == 0 {
+            BldgKind::Depot
+        } else {
+            BldgKind::Uplink
+        };
+        let od = other.def();
+        let (ox, oy) = match side {
+            0 => (m.tx - od.w - 1, m.ty),
+            1 => (m.tx + m.s + 1, m.ty),
+            2 => (m.tx, m.ty - od.h - 1),
+            _ => (m.tx, m.ty + m.s + 1),
+        };
+        let near = w.place_refusal(other, ox, oy, seat);
+        assert!(
+            near.is_none() || near == Some(Refusal::Coverage),
+            "{ctx}: a {} a tile off the mine: {near:?}",
+            od.name
+        );
+        let (ax, ay) = match side {
+            0 => (m.tx - od.w, m.ty),
+            1 => (m.tx + m.s, m.ty),
+            2 => (m.tx, m.ty - od.h),
+            _ => (m.tx, m.ty + m.s),
+        };
+        assert_eq!(
+            w.place_refusal(other, ax, ay, seat),
+            Some(Refusal::NearMine),
+            "{ctx}: a {} right against the mine",
+            od.name
+        );
+        // Four tiles of ground: allowed, and it goes up.
+        let (x, y) = at(&m, side, HQ_MINE_GAP);
+        assert!(
+            w.place_building(seat, hq, x, y, None).is_ok(),
+            "{ctx}: four tiles of ground"
+        );
+    }
+}

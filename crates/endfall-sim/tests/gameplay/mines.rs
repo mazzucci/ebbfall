@@ -418,11 +418,32 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
                 .map(|b| (b.x, b.y))
                 .collect();
             assert!(cores.len() >= 2, "{ctx}: a second base by 17:00");
+            // (and every headquarters it placed, sites too, `HQ_MINE_GAP` tiles of ground from every mine: the AI places
+            // by the players' rule)
+            for b in w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind.def().hq)
+            {
+                for m in &w.map.nodes {
+                    let gx = (m.tx - (b.tx + b.w)).max(b.tx - (m.tx + m.s));
+                    let gy = (m.ty - (b.ty + b.h)).max(b.ty - (m.ty + m.s));
+                    assert!(
+                        gx.max(gy) >= HQ_MINE_GAP,
+                        "{ctx}: its headquarters at {},{} {} tiles from the mine at {},{}",
+                        b.tx,
+                        b.ty,
+                        gx.max(gy),
+                        m.tx,
+                        m.ty
+                    );
+                }
+            }
             let by_exp = |n: Id| {
                 let m = w.map.node(n).unwrap();
                 cores[1..]
                     .iter()
-                    .any(|c| ((m.x - c.0).powi(2) + (m.y - c.1).powi(2)).sqrt() < 300.0)
+                    .any(|c| ((m.x - c.0).powi(2) + (m.y - c.1).powi(2)).sqrt() < 12.0 * 32.0)
             };
             let working = w
                 .units
@@ -754,4 +775,88 @@ fn a_main_mine_lasts_over_twenty_minutes_at_its_full_rate() {
             );
         }
     }
+}
+
+/// Stelian, Nov 15: no clusters of mines, and every base works its mine at the same walk. On every map kind, size and
+/// start count (the Shore with each of its basin fields, the lab's too), over many seeds: any two mines `MINE_APART`
+/// tiles apart or more, center to center; every start's headquarters square (and a Shore basin's) `HQ_MINE_GAP` tiles of
+/// ground or more from every mine, and a start's own mine exactly that far, square to one of its sides.
+#[test]
+fn mines_keep_apart_and_every_start_keeps_its_gap() {
+    use endfall_sim::map::{Map, ShoreField, max_starts};
+    let seeds: u32 = if cfg!(debug_assertions) { 24 } else { 200 };
+    let gaps = |b: (i32, i32), m: &endfall_sim::map::Node| {
+        let gx = (m.tx - (b.0 + 4)).max(b.0 - (m.tx + m.s));
+        let gy = (m.ty - (b.1 + 4)).max(b.1 - (m.ty + m.s));
+        (gx, gy)
+    };
+    let mut cases: Vec<(i32, MapKind, ShoreField)> = Vec::new();
+    for n in [64, 96, 128] {
+        for kind in MapKind::ALL {
+            if kind != MapKind::Shore {
+                cases.push((n, kind, ShoreField::BACK));
+            } else if n == 64 {
+                for f in [
+                    ShoreField::BACK,
+                    ShoreField::CHANNEL,
+                    ShoreField::CHANNEL_FAR,
+                ] {
+                    cases.push((n, kind, f));
+                }
+            }
+        }
+    }
+    let mut closest = f64::MAX;
+    for (n, kind, field) in cases {
+        let size = MapSize::square(n);
+        for seed in (0..seeds).map(|s| s * 13 + 1) {
+            let m = Map::generate_with(seed, kind, size, max_starts(size), &mut 1, field);
+            let ctx = format!("{n}x{n} {kind:?} {field:?} seed {seed}");
+            assert!(
+                m.nodes.len() >= m.bases.len(),
+                "{ctx}: a mine per start at least"
+            );
+            for (i, a) in m.nodes.iter().enumerate() {
+                for b in &m.nodes[i + 1..] {
+                    let d = (a.x - b.x).hypot(a.y - b.y) / TILE;
+                    closest = closest.min(d);
+                    assert!(
+                        d >= MINE_APART,
+                        "{ctx}: the mines at {},{} and {},{} only {d:.1} tiles apart",
+                        a.tx,
+                        a.ty,
+                        b.tx,
+                        b.ty
+                    );
+                }
+            }
+            // (a basin, where nobody starts since the re-theme: off its mine, wherever the lab lays it)
+            let starts = m.bases.iter().map(|&b| (b, true));
+            let basins = m.basins.iter().map(|&b| (b, false));
+            for (b, own) in starts.chain(basins) {
+                let mut near: Vec<(i32, i32, i32)> = m
+                    .nodes
+                    .iter()
+                    .map(|q| {
+                        let (gx, gy) = gaps(b, q);
+                        (gx.max(gy), gx.min(gy), q.id as i32)
+                    })
+                    .collect();
+                near.sort_unstable();
+                let (gap, across, _) = near[0];
+                assert!(
+                    gap >= HQ_MINE_GAP,
+                    "{ctx}: the headquarters at {b:?} only {gap} tiles from a mine"
+                );
+                if own {
+                    assert!(
+                        gap == HQ_MINE_GAP && across < 0,
+                        "{ctx}: the start at {b:?} has its mine {gap} tiles off{}",
+                        if across < 0 { "" } else { ", at its corner" }
+                    );
+                }
+            }
+        }
+    }
+    eprintln!("closest mines: {closest:.2} tiles");
 }

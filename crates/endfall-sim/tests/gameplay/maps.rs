@@ -929,7 +929,7 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
 }
 
 /// For every seat on a generated map: each gold mine (any, whatever its gold) beyond its main's (more than 12 tiles from its headquarters, as the
-/// AI's expansions are) and the farthest ring spot round it (4 to 10 tiles out, the AI's rings) where a headquarters
+/// AI's expansions are) and the farthest ring spot round it (6 to 12 tiles out, the AI's rings) where a headquarters
 /// could go but for `HQ_SPACING`, as that spot's distance from the main's headquarters (center to center); the
 /// smallest of them over the map, with the mine. On every kind, size (the Shore 64x64 only) and people.
 fn closest_expansion(w: &World) -> (f64, String) {
@@ -949,7 +949,7 @@ fn closest_expansion(w: &World) -> (f64, String) {
                 continue; // (the main's own)
             }
             let mut best: Option<f64> = None;
-            for r in 4..10 {
+            for r in 6..13 {
                 for k in 0..16 {
                     let a = k as f64 / 16.0 * std::f64::consts::TAU;
                     let tx = (nx + a.cos() * r as f64 - 2.0).round() as i32;

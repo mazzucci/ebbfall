@@ -42,6 +42,13 @@ pub const GRID_MAX: i32 = 150;
 /// Data center not too close to its own other base; anywhere else, no mine needed). Short of every expansion: on every
 /// map kind and size each field beyond the main's stays placeable (`every_field_beyond_the_main_takes_a_headquarters`).
 pub const HQ_SPACING: f64 = 12.0;
+/// The tiles of ground a headquarters keeps from any gold mine, footprint to footprint (a ring this wide round it holds no
+/// mine tile; every other building keeps one), Stelian, Nov 15. The generator lays each start's main mine exactly this
+/// far from its headquarters, square to one of its sides, so every base works its mine at the same walk.
+pub const HQ_MINE_GAP: i32 = 4;
+/// The least distance, in tiles center to center, between two gold mines on a generated map, of every kind, size and
+/// start count (Stelian, Nov 15: no clusters of mines; the center's spread out in a ring, each its own contested spot).
+pub const MINE_APART: f64 = 12.0;
 /// A machine takes about this many grid for a Kingdom unit's one place of its tier, a mercenary as much (the AI's
 /// margins in grid scale by it: `World::places`). 2 before the grid was halved (Nov 14).
 pub const GRID_PER_PLACE: i32 = 1;

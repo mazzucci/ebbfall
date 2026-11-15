@@ -809,7 +809,7 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
     }
 }
 
-/// For every seat on a generated map: each gold mine beyond its main's (more than 12 tiles from its headquarters, as the
+/// For every seat on a generated map: each gold mine (any, whatever its gold) beyond its main's (more than 12 tiles from its headquarters, as the
 /// AI's expansions are) and the farthest ring spot round it (4 to 10 tiles out, the AI's rings) where a headquarters
 /// could go but for `HQ_SPACING`, as that spot's distance from the main's headquarters (center to center); the
 /// smallest of them over the map, with the mine. On every kind, size (the Shore 64x64 only) and people.
@@ -823,7 +823,8 @@ fn closest_expansion(w: &World) -> (f64, String) {
             .unwrap();
         let kind = hq.kind;
         let (hx, hy) = (hq.tx as f64 + 2.0, hq.ty as f64 + 2.0);
-        for n in w.map.nodes.iter().filter(|n| !n.ether && n.amount > 300) {
+        // (every gold mine, the smaller ones laid where the old open shafts were included: every one is a mine now)
+        for n in w.map.nodes.iter().filter(|n| !n.ether) {
             let (nx, ny) = (n.tx as f64, n.ty as f64);
             if (nx - hx).hypot(ny - hy) <= 12.0 {
                 continue; // (the main's own)

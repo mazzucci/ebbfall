@@ -123,85 +123,107 @@ export const AIR_PUFF = { anim: 'trail', lift: 0.7, tint: 0xe8dcc0, scale: 4.2, 
 /** How a unit of kind `unit` falls (`air`: it flies): 'machine' (it explodes), 'air' (AIR_PUFF) or 'dust' (a
  *  fighter's puff of earth); a building (`unit` null): 'collapse' (BLDG_DEATH). */
 export const deathOf = (unit, air) => (!unit ? 'collapse' : MACHINES.has(unit) ? 'machine' : air ? 'air' : 'dust');
-/** A building's fall (Stelian, 2026-11-15, the designer's option C): it collapses, it does not explode. No fireball, no
- *  fire sparks, no orange light and no scorch; its rubble and its debris (fx.js burst) as before. Its sprite stays on as
- *  a ghost for `ghost.life` s after the sim drops it, sinking `sink` px (eased in) and squashed to `squash` of its height,
- *  fading out over the last `fadeLast` s (`ghostAt`); the camera shakes `shake` (the renderer's shake) for a
- *  headquarters only. By people (G.factions): the Kingdom's stone falls into dust (DUST on the pale round `trail`, `n`
- *  puffs at random points of its footprint, `stagger` s apart, scale r/`perR`), the Expedition's metal into gray smoke
- *  (the `puff`, untinted) with cold glints and a brief pale flash; either way gray smoke off its roof line. By type, over
- *  the people's: the Data center's small reactor goes off as the ghost ends (`boom`), and the Portal loses its power
- *  instead (`portal`: BLDG_DEATH.portal, `portalGhost`). The random points are the client's, never the sim's RNG. */
+/** The gray of a fall's smoke: on the soft round `trail` (the chunky `puff` breaks up at 3x above scale 2), at `fade`. */
+export const GRAY_SMOKE = { tint: 0x9a9a9a, fade: 0.6 };
+/** A building's fall (Stelian, 2026-11-15, the designer's option C, and the designer's notes on it): it collapses, it
+ *  does not explode. No fireball, no fire sparks, no orange light and no scorch; its rubble and its debris (fx.js burst)
+ *  as before. Its sprite stays on as a ghost for `ghost.life` s after the sim drops it, sinking `sink` px (eased in) and
+ *  squashed to `squash` of its height, fading out over the last `fadeLast` s, its team paint (a flag, a trim) `paintLead`
+ *  s sooner, so no flag outlives its walls (`ghostAt`). Only a headquarters shakes the camera: ±(`base` + `perTile` × its
+ *  width in tiles) px, dying away over `life` s. By people (G.factions): the Kingdom's stone falls into dust (DUST on
+ *  the pale `trail`, `n` puffs at random points of its footprint, `stagger` s apart, scale r/`perR`), settling; the
+ *  Expedition's metal into gray smoke (GRAY_SMOKE, at most `max`: about 38 px, never above 1.2 tiles; a bigger
+ *  footprint gets more puffs, not bigger ones: `nBig` from `bigW` tiles wide), rising, with cold glints and a brief
+ *  pale flash; either way gray smoke off its roof line. By type, over the people's: the Data center's small reactor goes
+ *  off on its roof first (`boom`: a white core `coreLife` s, then the fire, about a tile across), its smoke after it
+ *  (`smokeAt`); the Portal loses its power instead (`portal`: BLDG_DEATH.portal, `portalGhost`), into cold steel rubble
+ *  (`rubbleTint`, a cyan glow on `rubbleGlow` of its chunks). The random points are the client's, never the sim's. */
 export const BLDG_DEATH = {
-  ghost: { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25 },
-  shake: 3,
+  ghost: { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, paintLead: 0.1 },
+  shake: { base: 0.5, perTile: 0.5, life: 0.3 },
   humans: {
     dust: { anim: 'trail', tint: DUST, n: 4, stagger: 0.1, perR: 16, life: 1.2, vy: -8, fade: 0.85 },
-    smoke: { anim: 'puff', n: 2, scale: 1.5, life: 1.5, vy: -10 },
+    smoke: { anim: 'trail', ...GRAY_SMOKE, n: 2, scale: 2.0, life: 1.5, vy: -12 },
   },
   vael: {
-    dust: { anim: 'puff', n: 4, stagger: 0.1, perR: 16, life: 1.2, vy: -8, fade: 0.85 },
-    smoke: { anim: 'puff', n: 2, scale: 1.5, life: 1.5, vy: -10 },
-    glint: { n: 3, over: 0.4, tint: 0xa8f0ff, light: 0x7fd8ff, lightScale: 0.3, life: 0.2 },
+    dust: { anim: 'trail', ...GRAY_SMOKE, n: 4, nBig: 7, bigW: 4, stagger: 0.1, perR: 12, max: 3.2, life: 1.2, vy: -12 },
+    smoke: { anim: 'trail', ...GRAY_SMOKE, n: 2, scale: 2.0, life: 1.5, vy: -12 },
+    glint: { n: 3, over: 0.4, tint: 0xa8f0ff, light: 0x7fd8ff, lightScale: 0.3, life: 0.3, scale: 1.5 },
     flash: { scale: 0.5, tint: 0xbfefff, life: 0.12 },
   },
   types: {
-    conflux: { boom: { anim: 'boom_small', scale: 1.0, light: 0xff9a3a, lightScale: 0.7, life: 0.4 } }, // (the Data center's small reactor, at its center as the ghost ends)
-    eclipse: { portal: true }, // (the Portal: its power lost)
+    conflux: { // (the Data center's small reactor, on its roof: cause, then its smoke)
+      boom: { at: 0.25, coreLife: 0.067, core: { anim: 'flash', tint: 0xffffff, scale: 2.25 }, fire: { anim: 'boom_small', scale: 1.3, light: 0xff9a3a, lightScale: 0.7, life: 0.4 } },
+      smokeAt: 0.35,
+    },
+    eclipse: { portal: true, rubbleTint: 0x8a96a4, rubbleGlow: 2 }, // (the Portal: its power lost)
   },
   /** The Portal (the coder lead's spec, 2026-11-15): no sink, no shake, no scorch, no boom. Till `hold` s the ghost
    *  holds while its additive flash layer fades in cyan to `flash.alpha` and its glow light swells from `glow.from` to
    *  `glow.peak`; then till `end` the glow shrinks to nothing and the ghost narrows to `squeezeX` of its width, fading
-   *  out, as `glints.n` glints fly in from `glints.out` px to its ring; at `end` a cyan blink (a light alone, `blink.scale`
-   *  down to 0 over `blink.life` s), then gray smoke from the ring and its rubble. Power lost, not a blast. */
+   *  out, as `glints.n` glints fly in from `glints.out` px to its ring; at `end` a cyan blink on the ring (a light alone,
+   *  `blink.scale` down to 0 over `blink.life` s), then gray smoke rising off its base (`puffs`, ±`spread` px) and its
+   *  rubble. Power lost, not a blast. */
   portal: {
     hold: 0.2, end: 0.5, squeezeX: 0.85,
     flash: { tint: 0x3fe0ff, alpha: 0.6 },
     glow: { tint: 0x3fe0ff, from: 1.1, peak: 2.2 },
     glints: { n: 4, out: 40, speed: 120, life: 0.3, tint: 0xa8f0ff, light: 0x7fd8ff, lightScale: 0.2 },
     blink: { tint: 0x3fe0ff, scale: 2.4, life: 0.15 },
-    puffs: { anim: 'puff', n: 3, scale: 1.6, life: 1.5, vy: -10 },
+    puffs: { anim: 'trail', ...GRAY_SMOKE, n: 3, spread: 12, scale: 2.1, life: 1.5, vy: -12 },
   },
 };
-/** A dying building's ghost `t` s after the sim dropped it: how far it has sunk (px), its height's scale, its opacity. */
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+/** A dying building's ghost `t` s after the sim dropped it: how far it has sunk (px), its height's scale, its opacity
+ *  and its team paint's (gone `paintLead` s sooner). */
 export function ghostAt(t) {
-  const { life, sink, squash, fadeLast } = BLDG_DEATH.ghost, k = Math.min(1, Math.max(0, t / life)), e = k * k; // (eased in)
-  return { dy: sink * e, scaleY: 1 - (1 - squash) * e, alpha: Math.min(1, Math.max(0, (life - t) / fadeLast)) };
+  const { life, sink, squash, fadeLast, paintLead } = BLDG_DEATH.ghost, k = clamp01(t / life), e = k * k; // (eased in)
+  return { dy: sink * e, scaleY: 1 - (1 - squash) * e, alpha: clamp01((life - t) / fadeLast), paint: clamp01((life - paintLead - t) / fadeLast) };
 }
-/** A dying Portal `t` s after the sim dropped it (BLDG_DEATH.portal): its ghost's width scale and opacity, its cyan flash
- *  layer's opacity and its glow light's scale. */
+/** A dying Portal `t` s after the sim dropped it (BLDG_DEATH.portal): its ghost's width scale and opacity, its team
+ *  paint's (gone first), its cyan flash layer's opacity and its glow light's scale. */
 export function portalGhost(t) {
   const { hold, end, squeezeX, flash, glow } = BLDG_DEATH.portal;
-  if (t < hold) { const k = Math.max(0, t / hold); return { scaleX: 1, alpha: 1, flash: flash.alpha * k, glow: glow.from + (glow.peak - glow.from) * k }; }
+  if (t < hold) { const k = Math.max(0, t / hold); return { scaleX: 1, alpha: 1, paint: 1, flash: flash.alpha * k, glow: glow.from + (glow.peak - glow.from) * k }; }
   const k = Math.min(1, (t - hold) / (end - hold));
-  return { scaleX: 1 - (1 - squeezeX) * k, alpha: 1 - k, flash: flash.alpha * (1 - k), glow: glow.peak * (1 - k) };
+  return { scaleX: 1 - (1 - squeezeX) * k, alpha: 1 - k, paint: clamp01(1 - k * 1.5), flash: flash.alpha * (1 - k), glow: glow.peak * (1 - k) };
 }
+/** The camera's shake for a fall of a `w`-tile-wide building (`hq`: a headquarters; none for anything else): its reach
+ *  (± px) and how long it lasts (s). */
+export const fallShake = (w, hq) => (hq ? { px: BLDG_DEATH.shake.base + BLDG_DEATH.shake.perTile * w, life: BLDG_DEATH.shake.life } : null);
 /** How building `b` falls (its footprint `tx, ty, w, h` in tiles, its center `x, y` and radius `r` in world px, its
- *  `type`), of people `people`: its ghost's life (s), the shake, when its rubble lies down (s) and every effect to
- *  spawn, `at` s after the fall: `{ at, anim, x, y, o }` (o: addEffect's options) or `{ at, blink, x, y }` (a light
- *  alone). `hq`: a headquarters; `roof`: the y of its art's top; `ring`: the Portal's ring center; `rand`: the client's
- *  RNG (Math.random), for the random points. */
-export function bldgDeath(b, people, { hq = false, roof = b.y - 40, ring = { x: b.x, y: b.y }, rand = Math.random } = {}) {
-  const T = BLDG_DEATH.types[b.type] || {}, steps = [];
+ *  `type`), of people `people`: its ghost's life (s), the shake (fallShake), when its rubble lies down (s), its rubble's
+ *  tint and glowing chunks (`rubble`: { tint, glow: [[x, y]...] }) and every effect to spawn, `at` s after the fall:
+ *  `{ at, anim, x, y, o }` (o: addEffect's options) or `{ at, blink, x, y }` (a light alone). `hq`: a headquarters;
+ *  `roof`: the y of its art's top; `core`: its light's point (the Portal's ring, the Data center's chip on its roof);
+ *  `rand`: the client's RNG (Math.random), for the random points. */
+export function bldgDeath(b, people, { hq = false, roof = b.y - 40, core = { x: b.x, y: b.y }, rand = Math.random } = {}) {
+  const T = BLDG_DEATH.types[b.type] || {}, steps = [], x0 = b.tx * 32, y0 = b.ty * 32, w = b.w * 32, h = b.h * 32;
+  const spot = () => [x0 + 8 + rand() * (w - 16), y0 + 8 + rand() * (h - 16)];
+  const smoke = ({ anim, tint, fade, scale, life, vy }) => ({ anim, o: { scale, life, vy, tint, fade } });
   if (T.portal) {
     const P = BLDG_DEATH.portal, g = P.glints, p = P.puffs;
     for (let i = 0; i < g.n; i++) { // (from all round the ring, each a little off a square's corners)
       const a = (i + rand() * 0.5) / g.n * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-      steps.push({ at: P.hold, anim: 'glint', x: ring.x + c * g.out, y: ring.y + s * g.out, o: { vx: -c * g.speed, vy: -s * g.speed, life: g.life, tint: g.tint, light: g.light, lightScale: g.lightScale } });
+      steps.push({ at: P.hold, anim: 'glint', x: core.x + c * g.out, y: core.y + s * g.out, o: { vx: -c * g.speed, vy: -s * g.speed, life: g.life, tint: g.tint, light: g.light, lightScale: g.lightScale } });
     }
-    steps.push({ at: P.end, blink: P.blink, x: ring.x, y: ring.y });
-    for (let i = 0; i < p.n; i++) steps.push({ at: P.end, anim: p.anim, x: ring.x + (i - (p.n - 1) / 2) * 8, y: ring.y, o: { scale: p.scale, life: p.life, vy: p.vy } });
-    return { portal: true, life: P.end, shake: 0, rubbleAt: P.end, steps };
+    steps.push({ at: P.end, blink: P.blink, x: core.x, y: core.y });
+    for (let i = 0; i < p.n; i++) steps.push({ at: P.end, x: b.x + (p.n > 1 ? (i / (p.n - 1) * 2 - 1) * p.spread : 0), y: b.y, ...smoke(p) }); // (off its base, not the ring)
+    const glow = Array.from({ length: T.rubbleGlow }, spot);
+    return { portal: true, life: P.end, shake: null, rubbleAt: P.end, rubble: { tint: T.rubbleTint, glow }, steps };
   }
-  const L = BLDG_DEATH[people === 'vael' ? 'vael' : 'humans'], x0 = b.tx * 32, y0 = b.ty * 32, w = b.w * 32, h = b.h * 32;
-  const spot = () => [x0 + 8 + rand() * (w - 16), y0 + 8 + rand() * (h - 16)];
-  const d = L.dust, sm = L.smoke;
-  for (let i = 0; i < d.n; i++) { const [x, y] = spot(); steps.push({ at: i * d.stagger, anim: d.anim, x, y, o: { scale: b.r / d.perR, life: d.life, vy: d.vy, fade: d.fade, ...(d.tint ? { tint: d.tint } : {}) } }); }
-  for (let i = 0; i < sm.n; i++) steps.push({ at: 0, anim: sm.anim, x: b.x + (i - (sm.n - 1) / 2) * w * 0.4, y: roof, o: { scale: sm.scale, life: sm.life, vy: sm.vy } });
-  if (L.glint) { const g = L.glint; for (let i = 0; i < g.n; i++) { const [x, y] = spot(); steps.push({ at: i * g.over / g.n, anim: 'glint', x, y: y - 10, o: { life: g.life, tint: g.tint, light: g.light, lightScale: g.lightScale } }); } }
+  const L = BLDG_DEATH[people === 'vael' ? 'vael' : 'humans'], d = L.dust, sm = L.smoke, from = T.smokeAt || 0;
+  const n = d.nBig && b.w >= d.bigW ? d.nBig : d.n, scale = Math.min(d.max ?? Infinity, b.r / d.perR);
+  for (let i = 0; i < n; i++) { const [x, y] = spot(); steps.push({ at: from + i * d.stagger, anim: d.anim, x, y, o: { scale, life: d.life, vy: d.vy, fade: d.fade, tint: d.tint } }); }
+  for (let i = 0; i < sm.n; i++) steps.push({ at: from, x: b.x + (i - (sm.n - 1) / 2) * w * 0.4, y: roof, ...smoke(sm) });
+  if (L.glint) { const g = L.glint; for (let i = 0; i < g.n; i++) { const [x, y] = spot(); steps.push({ at: i * g.over / g.n, anim: 'glint', x, y: y - 10, o: { life: g.life, scale: g.scale, tint: g.tint, light: g.light, lightScale: g.lightScale } }); } }
   if (L.flash) steps.push({ at: 0, anim: 'flash', x: b.x, y: b.y - 8, o: { scale: L.flash.scale, tint: L.flash.tint, life: L.flash.life } });
-  if (T.boom) { const { anim, ...o } = T.boom; steps.push({ at: BLDG_DEATH.ghost.life, anim, x: b.x, y: b.y, o }); }
-  return { portal: false, life: BLDG_DEATH.ghost.life, shake: hq ? BLDG_DEATH.shake : 0, rubbleAt: 0, steps };
+  if (T.boom) {
+    const B = T.boom, { anim: ca, ...co } = B.core, { anim: fa, ...fo } = B.fire;
+    steps.push({ at: B.at, anim: ca, x: core.x, y: core.y, o: { ...co, life: B.coreLife } });
+    steps.push({ at: B.at + B.coreLife, anim: fa, x: core.x, y: core.y, o: fo });
+  }
+  return { portal: false, life: BLDG_DEATH.ghost.life, shake: fallShake(b.w, hq), rubbleAt: 0, rubble: null, steps };
 }
 /** A building burning (below a quarter of its health): on each of its smoke's puffs, with this chance, a brief orange
  *  flash with a light of this scale (every other puff at full light strobed). */

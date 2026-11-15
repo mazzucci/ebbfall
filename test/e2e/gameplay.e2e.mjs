@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH, GRAY_SMOKE } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3241,7 +3241,7 @@ test('an arrow slows its target: its body tinted a cold gray-blue under a cold b
   } finally { await d.close(); }
 });
 
-test('a building destroyed collapses: its ghost sinks and fades, dust rises, no fireball and no shake', async () => {
+test('a building destroyed collapses: its ghost sinks and fades (its flag first), dust rises, no fireball and no shake', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(500, 0);
@@ -3264,10 +3264,11 @@ test('a building destroyed collapses: its ghost sinks and fades, dust rises, no 
     assert.ok(last.y >= last.y0 && last.y - last.y0 <= BLDG_DEATH.ghost.sink + 0.01, `sinking (${JSON.stringify(last)})`);
     assert.ok(last.scaleY <= 1 && last.scaleY >= BLDG_DEATH.ghost.squash - 0.01, 'squashed, at most to 0.8');
     if (ghosts.length > 1) assert.ok(last.y > ghosts[0].y || last.t === ghosts[0].t, 'down as the frames go');
+    assert.ok(ghosts.every(g => g.paint <= g.alpha + 1e-9), `its flag never outlives its walls (${JSON.stringify(ghosts.map(g => [g.paint, g.alpha]))})`);
     const near = (e) => Math.abs(e.x - depot.x) < depot.w * 16 + 4 && Math.abs(e.y - depot.y) < depot.h * 16 + 80;
     const fx = fall.flatMap(f => f.fx).filter(near);
     assert.ok(fx.some(e => e.anim === 'trail' && e.tint === DUST), `dust over its footprint (${[...new Set(fx.map(e => e.anim))]})`);
-    assert.ok(fx.some(e => e.anim === 'puff'), 'gray smoke off its roof');
+    assert.ok(fx.some(e => e.anim === 'trail' && e.tint === GRAY_SMOKE.tint), 'gray smoke off its roof');
     assert.ok(!fx.some(e => e.anim === 'boom_big' || e.anim === 'boom_small' || e.anim === 'spark'), 'no fireball, no fire sparks');
     assert.ok(fall.every(f => f.shake < 0.3), 'no shake for a Cottage');
     assert.deepEqual(d.errors, []);

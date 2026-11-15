@@ -215,6 +215,16 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForTimeout(60);
     },
+    /** A quick tap (100 ms by the touch's own times) that the page handles late, as on a busy phone: the finger comes
+     *  down, the page is kept busy for `busy` ms (a long frame), then the lift arrives, stamped 100 ms after the touch. */
+    async lateTap(x, y, busy = 700) {
+      gesture();
+      const t0 = Date.now() / 1000;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }], timestamp: t0 });
+      await ev((ms) => { const end = performance.now() + ms; while (performance.now() < end); }, busy);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + 0.1 });
+      await page.waitForTimeout(120);
+    },
     /** Two quick taps (sent together: the software-rendered phone handles each tap late, so taps sent one after the
      *  other land outside the double-tap window). */
     async doubleTapAt(x, y) {

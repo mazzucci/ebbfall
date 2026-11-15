@@ -150,6 +150,7 @@ const SFX = {
   slam: (b, t) => { tone(b, t, { f: 90, to: 55, dur: 0.35, type: 'sine', vol: 0.13 }); tone(b, t + 0.01, { f: 660, to: 520, dur: 0.3, type: 'triangle', vol: 0.025 }); noise(b, t, { dur: 0.12, vol: 0.04, filter: 'lowpass', f: 700 }); },
   blade: (b, t) => { noise(b, t, { dur: 0.07, vol: 0.035, filter: 'bandpass', f: 3200, to: 1400, q: 4 }); tone(b, t + 0.02, { f: 1500, to: 1100, dur: 0.06, type: 'sine', vol: 0.015 }); },
   // impacts and deaths
+  knock: (b, t) => { noise(b, t, { dur: 0.06, vol: 0.03, filter: 'lowpass', f: 420, to: 160, att: 0.002 }); tone(b, t, { f: 150, to: 95, dur: 0.05, type: 'sine', vol: 0.025 }); }, // (a builder at work: short, low, soft)
   hit: (b, t, o) => o.big ? noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 }) : noise(b, t, { dur: 0.04, vol: 0.03, filter: 'bandpass', f: 2200, q: 1.5 }),
   boom: (b, t, o) => {
     const big = (o.r || 20) > 30;
@@ -160,7 +161,7 @@ const SFX = {
 };
 
 /** Minimum gap between two of the same effect (ms): busy fights stay readable. */
-const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
+const GAP = { knock: 110, bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
 const lastGain = {};
 
 /** The announcer (`audio.announcer`: off, the device's voice or the synth) in this side's race's voice (`audio.voice`,

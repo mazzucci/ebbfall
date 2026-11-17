@@ -63,9 +63,14 @@ function chips(e, people) {
 const attrs = (e) => `id="${e.key}" data-kind="${e.key}" data-cost="${e.cost}" data-supply="${e.supply}"${e.needs ? ` data-needs="${esc(e.needs)}"` : ''}`;
 
 function roster(people) {
-  const unit = (u) => `<li class="unit" ${attrs(u)}>${plate(u, people)}<div class="head"><h4>${esc(u.name)}</h4><span class="role">${esc(u.what)}</span>${chips(u, people)}</div><p class="desc">${esc(u.desc)}</p></li>`;
-  const bld = (b) => `<li class="bld" ${attrs(b)}>${plate(b, people)}<div class="body"><div class="head"><h3>${esc(b.name)}</h3><span class="role">${esc(b.what)}</span>${chips(b, people)}</div><p class="desc">${esc(b.desc)}</p>${b.units.length ? `<ul class="units" aria-label="${esc(b.name)} trains">${b.units.map(unit).join('')}</ul>` : ''}</div></li>`;
-  return `<p class="side"><i></i>Your side plays in blue</p><ul class="roster">${people.buildings.map(bld).join('\n')}</ul>`;
+  const role = (e) => (e.role ? `<span class="role" data-of="${e.key}">${esc(e.role)}</span>` : '');
+  const desc = (e) => (e.desc ? `<p class="desc" data-of="${e.key}">${esc(e.desc)}</p>` : '');
+  const sig = (e) => (e.signal ? '<i class="sig" title="Needs signal" aria-label="needs signal"></i>' : '');
+  const unit = (u) => `<li class="unit" ${attrs(u)}>${plate(u, people)}<div class="head"><h4>${esc(u.name)}${sig(u)}</h4>${role(u)}${chips(u, people)}</div>${desc(u)}</li>`;
+  const note = (b) => (b.note ? `<p class="signal" data-of="${b.key}"><i class="sig" aria-hidden="true"></i>${esc(b.note)}</p>` : '');
+  const bld = (b) => `<li class="bld" ${attrs(b)}>${plate(b, people)}<div class="body"><div class="head"><h3>${esc(b.name)}</h3>${role(b)}${chips(b, people)}</div>${desc(b)}${note(b)}${b.units.length ? `<ul class="units" aria-label="${esc(b.name)} trains">${b.units.map(unit).join('')}</ul>` : ''}</div></li>`;
+  const legend = people.buildings.some(b => b.note) ? '<span><i class="sig" aria-hidden="true"></i>needs signal</span>' : '';
+  return `<p class="side"><span><i class="blue"></i>Your side plays in blue</span>${legend}</p><ul class="roster">${people.buildings.map(bld).join('\n')}</ul>`;
 }
 
 /** A screenshot as a figure (see the tokens above). `first`: the page's first image, loaded at once; others lazily. */
@@ -88,8 +93,8 @@ function figure(args, first) {
 function clip() {
   const t = shots().trailer;
   if (!t) return '';
-  return `<figure class="clip"><video src="/docs/media/${t.file}" poster="/docs/media/${t.poster}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls aria-label="${esc(t.alt)}"></video>
-<script>(function(){var v=document.currentScript.previousElementSibling;v.controls=false;if(!('IntersectionObserver' in window)){v.play().catch(function(){});return;}new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)v.play().catch(function(){});else v.pause();});}).observe(v);})();</script>
+  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="/docs/media/${t.poster}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls aria-label="${esc(t.alt)}"></video></div>
+<script>(function(){var v=document.currentScript.previousElementSibling.querySelector('video');v.controls=false;if(!('IntersectionObserver' in window)){v.play().catch(function(){});return;}new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)v.play().catch(function(){});else v.pause();});}).observe(v);})();</script>
 <figcaption>Real play, recorded from the game.</figcaption></figure>`;
 }
 

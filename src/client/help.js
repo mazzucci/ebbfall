@@ -12,10 +12,11 @@ export const goalLine = (grid) => (grid
 
 export const helpOpen = () => !$('helpSheet').hidden;
 
-/** Open the sheet (`grid`: the player's people's goal); the focus on its close button when asked (a key or a click,
- *  not a tap on the map). */
-export function openHelp(grid = false, focus = true) {
+/** Open the sheet (`grid`: the player's people's goal; `paused`: from the pause card, which says so); the focus on its
+ *  close button when asked. */
+export function openHelp(grid = false, focus = true, paused = false) {
   $('helpGoal').textContent = goalLine(grid);
+  $('helpRun').textContent = paused ? 'The game is paused.' : 'The game keeps running.';
   $('helpSheet').hidden = false;
   $('btnHelp').setAttribute('aria-expanded', 'true');
   if (focus) $('btnHelpClose').focus({ preventScroll: true });
@@ -33,5 +34,5 @@ export function closeHelp() {
 export function initHelp(grid) {
   $('btnHelp').addEventListener('click', () => (helpOpen() ? closeHelp() : openHelp(grid())));
   $('btnHelpClose').addEventListener('click', closeHelp);
-  $('btnPauseHelp').addEventListener('click', () => openHelp(grid()));
+  $('btnPauseHelp').addEventListener('click', () => openHelp(grid(), true, true));
 }

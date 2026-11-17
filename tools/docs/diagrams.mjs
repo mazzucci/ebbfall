@@ -23,7 +23,7 @@ ${step(`${mini('harvester', 56, 'A Villager')}<i class="coin" aria-hidden="true"
 ${step(mini('barracks', 56, 'A Barracks'), 'BUILD')}
 ${step(`<span class="pair">${mini('trooper', 48, 'A Guard')}${mini('knight', 48, 'A Knight')}</span>`, 'ARMY')}
 ${step(mini('conflux-foe', 56, "The enemy's Data center, in their color"), 'THEIR BASE')}
-</ol><p class="back"><span aria-hidden="true">↺ </span>More mines, more army</p></figure>`;
+</ol><p class="back"><span>more mines, more army</span></p></figure>`;
 }
 
 /** Where gold comes from, for both peoples: the mine and how many work it, the worker, the headquarters, and the
@@ -79,7 +79,8 @@ ${locals.map((u, i) => img(u.key, 470 + i * 70, 190, 52, `${aName(u.name)}: figh
 export function tree(people) {
   const needs = (n) => (n ? `<em>needs ${esc(n)}</em>` : '');
   const col = (b) => `<li class="tcol">${mini(b.key, 56, `The ${b.name}`)}<b>${esc(b.name)}</b>${needs(b.needs)}${b.units.length ? `<ul>${b.units.map(u => `<li>${mini(u.key, 40, `The ${u.name}`)}<span>${esc(u.name)}${RADIO.machines.has(u.key) ? '<i class="sig" title="Needs signal" aria-label="needs signal"></i>' : ''}</span>${needs(u.needs)}</li>`).join('')}</ul>` : ''}</li>`;
-  return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol>${people.buildings.map(col).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p></figure>`;
+  const legend = people.buildings.some(b => b.units.some(u => RADIO.machines.has(u.key))) ? '<p class="legend"><i class="sig" aria-hidden="true"></i>needs signal: works only inside coverage</p>' : '';
+  return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol>${people.buildings.map(col).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p>${legend}</figure>`;
 }
 
 /** The home's two tiles, each a link to a people's page: its headquarters, a unit in front, a line under its name. */

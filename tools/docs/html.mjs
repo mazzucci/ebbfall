@@ -11,6 +11,8 @@ export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 /** The top bar's tabs, in order: [path, label]. The docs home is the wordmark's link. */
 export const TABS = [['/docs/how-to-play/', 'How to play'], ['/docs/kingdom/', 'The Kingdom'], ['/docs/expedition/', 'The Expedition'], ['/docs/about/', 'About']];
+/** A tab's word on a phone, where the four must fit the bar's width. */
+const SHORT = { 'The Kingdom': 'Kingdom', 'The Expedition': 'Expedition' };
 
 /** The game's coin and bolt glyphs (src/style.css), for the chips. */
 function glyphs() {
@@ -47,7 +49,7 @@ export function layout({ path, title, description, body, crumb = null, ld = [] }
   const url = ORIGIN + path;
   const data = [...ld];
   if (crumb) data.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [['/docs/', 'Docs'], [path, crumb]].map(([p, n], i) => ({ '@type': 'ListItem', position: i + 1, name: n, item: ORIGIN + p })) });
-  const tabs = TABS.map(([p, n]) => `<a href="${p}"${p === path ? ' aria-current="page"' : ''}>${n}</a>`).join('');
+  const tabs = TABS.map(([p, n]) => `<a href="${p}"${p === path ? ' aria-current="page"' : ''}>${SHORT[n] ? `<span class="l">${n}</span><span class="s">${SHORT[n]}</span>` : n}</a>`).join('');
   return `<!doctype html>
 <html lang="en">
 <head>

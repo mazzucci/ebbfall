@@ -31,7 +31,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       }
       // Under the row of buttons, above the build stamp.
       const [row, links, stamp] = await Promise.all(['#btnOptions', '#menuLinks', '#buildStamp'].map(s => page.locator(s).boundingBox()));
-      assert.ok(links.y >= row.y + row.height - 1 && stamp.y >= links.y + links.height - 1, 'between the buttons and the stamp');
+      assert.ok(links.y >= row.y + row.height - 1 && (stamp.y >= links.y + links.height - 1 || (stamp.x >= links.x + links.width - 1 && Math.abs(stamp.y + stamp.height / 2 - links.y - links.height / 2) < 4)), 'under the buttons, the stamp after it (beside it on a short phone on its side)');
       assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version, on the stamp');
       const [popup] = await Promise.all([ctx.waitForEvent('page'), device.hasTouch ? page.locator('#linkHowTo').tap() : page.locator('#linkHowTo').click()]);
       await popup.waitForLoadState();
@@ -62,6 +62,8 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       const lines = await sheet.locator(d.touch ? '.lines.touch li' : '.lines.desk li').evaluateAll(ls => ls.filter(l => l.offsetParent).length);
       assert.equal(lines, 4, 'the controls in four lines, for this pointer');
       assert.match(await d.page.locator('#helpGoal').textContent(), /^Mine gold, raise Cottages for population/);
+      assert.equal(await d.page.locator('#helpRun').textContent(), 'The game keeps running.');
+      assert.equal(await sheet.evaluate(e => getComputedStyle(e).backgroundColor), 'rgb(18, 26, 37)', 'opaque');
       const guide = d.page.locator('#helpGuide');
       assert.equal(await guide.getAttribute('href'), './docs/how-to-play/');
       assert.equal(await guide.getAttribute('target'), '_blank');
@@ -82,6 +84,8 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       // From the pause card: the same sheet, over it; closed, the pause card again.
       await press('#btnPause'); await press('#btnPauseHelp');
       assert.ok(await sheet.isVisible() && await d.page.locator('#pause').isVisible(), 'over the pause card');
+      assert.equal(await d.page.locator('#helpRun').textContent(), 'The game is paused.', 'it says the game is paused');
+      assert.ok(+(await d.page.locator('#pause .card').evaluate(e => getComputedStyle(e).opacity)) < 0.5, 'the pause card dimmed under it');
       await press('#btnHelpClose');
       assert.ok(await sheet.isHidden() && await d.page.locator('#pause').isVisible(), 'back to the pause card');
       await press('#btnResume');
@@ -103,7 +107,10 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       assert.ok(await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('main .lede')).fontSize) >= 16 && [...document.querySelectorAll('main > p:not([class]), main > ul:not([class]) > li')].every(e => parseFloat(getComputedStyle(e).fontSize) >= 16)), `${path}: body text 16 px or more`);
       // The top bar: its tabs scroll inside it, never off the page; tabs, PLAY and the footer's links a finger's size.
       const bar = await page.locator('.top').boundingBox();
-      assert.ok(bar.width <= 360 && bar.height <= 49, `${path}: the bar fits: ${JSON.stringify(bar)}`);
+      assert.ok(bar.width <= 360 && bar.height <= 97, `${path}: the bar fits (an upright phone: the tabs on a row of their own): ${JSON.stringify(bar)}`);
+      // Every tab whole inside the bar: none cut off mid-word.
+      const cut = await page.locator('.tabs a').evaluateAll(as => { const n = as[0].parentElement.getBoundingClientRect(); return as.filter(a => { const r = a.getBoundingClientRect(); return r.left < n.left - 1 || r.right > n.right + 1 || a.scrollWidth > a.clientWidth + 1; }).map(a => a.innerText); });
+      assert.deepEqual(cut, [], `${path}: every tab whole`);
       for (const sel of ['.tabs a', '.top .play', 'footer a']) {
         const small = await page.locator(sel).evaluateAll(as => as.map(a => a.getBoundingClientRect()).filter(r => r.height < 40 || r.width < 44).length);
         assert.equal(small, 0, `${path}: ${sel} big enough to tap`);
@@ -126,11 +133,16 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       assert.deepEqual([...listed].sort(), [...r.buildings, ...r.units].sort(), `${r.slug}: every building and unit`);
       const imgs = await page.locator('.roster img').evaluateAll(is => is.map(i => i.alt));
       assert.equal(imgs.length, listed.length, `${r.slug}: a picture each`);
+      // On a 390 px phone a unit's description takes the row's width, not a narrow column beside its plate.
+      await page.setViewportSize({ width: 390, height: 844 });
+      const narrow = await page.locator('.unit .desc').evaluateAll(ds => ds.map(d => [d.dataset.of, Math.round(d.getBoundingClientRect().width)]).filter(([, w]) => w < 250));
+      assert.deepEqual(narrow, [], `${r.slug}: unit descriptions at least 250 px wide at 390`);
+      await page.setViewportSize(PORTRAIT.viewport);
     }
     // The links between the pages, and back to the game.
     await page.goto(baseUrl() + 'docs/', { waitUntil: 'load' });
     await page.locator('.tabs a', { hasText: 'The Kingdom' }).tap();
     await page.waitForURL(/\/docs\/kingdom\/$/);
-    assert.equal(await page.locator('.tabs a[aria-current="page"]').textContent(), 'The Kingdom', 'the tab says where you are');
+    assert.equal(await page.locator('.tabs a[aria-current="page"]').innerText(), 'KINGDOM', 'the tab says where you are (its short word on a phone)');
   } finally { await ctx.close(); await land.close(); }
 });

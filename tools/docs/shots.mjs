@@ -81,6 +81,22 @@ function battle() {
   return meet;
 }
 
+/** The Kingdom (ours) storms the Expedition's Data center: knights and guards at its walls, cannons and archers behind. */
+function siege() {
+  const { G, me, eng, spawn } = window.S, foe = G.factions.findIndex((_, t) => t !== me);
+  const hq = G.bldgs.find(b => b.team === foe && eng.BUILDINGS[b.type].hq);
+  const mid = { x: eng.MW * 16, y: eng.MH * 16 }, len = Math.hypot(mid.x - hq.x, mid.y - hq.y);
+  const d = { x: (mid.x - hq.x) / len, y: (mid.y - hq.y) / len }, s = { x: -d.y, y: d.x };
+  const at = (f, w) => ({ x: hq.x + d.x * f + s.x * w, y: hq.y + d.y * f + s.y * w });
+  ['knight', 'knight', 'knight', 'trooper', 'trooper', 'trooper', 'trooper'].forEach((k, i) => spawn(me, k, at(120 + (i % 2) * 30, (i - 3) * 34)));
+  ['lancer', 'lancer', 'lancer', 'bastion'].forEach((k, i) => spawn(me, k, at(250, (i - 1.5) * 40)));
+  spawn(me, 'siegeTank', at(360, -70)); spawn(me, 'siegeTank', at(370, 60));
+  ['prism', 'prism', 'bruiser'].forEach((k, i) => spawn(foe, k, at(60, (i - 1) * 50)));
+  for (const u of G.units) if (u.team === me && !eng.UNITS[u.type].worker && u.type !== 'siegeTank') eng.attackEnt(u, hq);
+  window.endfall.skip(4);
+  return at(170, 0);
+}
+
 /** A base at about 3:00: workers mining, a few buildings up, a guard at the gate. */
 function base(race) {
   const { S } = window, { at, place, mine, spawn, me, e, eng } = S;
@@ -128,12 +144,12 @@ async function game(device, race, css) {
   return { ctx, page };
 }
 /** The camera on `p` at the shots' zoom, kept inside the map (no ground past its edge in the frame). */
-const look = (page, p) => page.evaluate(([{ x, y }, z]) => {
+const look = (page, p, zoom = ZOOM) => page.evaluate(([{ x, y }, z]) => {
   const e = window.endfall, c = e.cam, W = e.engine.MW * 32, H = e.engine.MH * 32;
   c.zoom = matchMedia('(pointer: coarse)').matches ? e.startZoom : z; e.centerOn(x, y);
   const vw = e.view.w / c.zoom, vh = e.view.h / c.zoom;
   c.x = Math.min(Math.max(0, c.x), Math.max(0, W - vw)); c.y = Math.min(Math.max(0, c.y), Math.max(0, H - vh));
-}, [p, ZOOM]);
+}, [p, zoom]);
 const settle = (page) => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 400)))));
 
 /** Encode a PNG screenshot as WebP crops in a blank page: `crops` [{ name, x, y, w, h (of the PNG), W (output width) }]. */
@@ -192,15 +208,23 @@ function save(name, out, words, boxes) {
   console.log(`shots: ${name} (${Object.values(files).join(', ')})`);
 }
 
-/** The battle: the home's hero, then the same fight three seconds on (How to play's). */
+/** The battle: the home's hero. */
 async function battles() {
   const { ctx, page } = await game(DESKTOP, 'humans', BARE);
   try {
     const meet = await page.evaluate(battle);
     await look(page, meet); await settle(page);
     await hero('hero-home', page, { alt: 'Blue Kingdom soldiers, archers and knights meet the Expedition\'s sellswords, buggies and drones in open country', caption: 'Guards and Knights meet Sellswords and Buggies. Your side plays in blue.' });
-    await page.evaluate(() => window.endfall.skip(2.5)); await settle(page);
-    await hero('shot-battle', page, { alt: 'The two armies locked in battle: the Kingdom\'s cannon and archers firing, the Expedition\'s machines answering', caption: 'The lines engaged, a Cannon set up at the back. Your side plays in blue.' });
+  } finally { await ctx.close(); }
+}
+
+/** How to win: the enemy's headquarters under attack. */
+async function sieges() {
+  const { ctx, page } = await game(DESKTOP, 'humans', BARE);
+  try {
+    const p = await page.evaluate(siege);
+    await look(page, p); await settle(page);
+    await hero('shot-battle', page, { alt: 'Blue Kingdom knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base. Your side plays in blue.' });
   } finally { await ctx.close(); }
 }
 
@@ -256,7 +280,7 @@ async function controls() {
  * The clip: the battle, the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's frames
  * are stepped by hand (its requestAnimationFrame taken over, each frame 1/FPS s of game time later) and screenshot one
  * by one, as software WebGL cannot draw in real time; then played back at their pace into a MediaRecorder in a blank
- * page: MP4 (H.264) where the browser records it, else WebM. The poster is its first frame.
+ * page: MP4 (H.264) where the browser records it, else WebM. The poster is its middle frame.
  */
 const FPS = 24, CLIP_S = 6, CLIP_W = 960, CLIP_H = 540;
 async function clip() {
@@ -265,7 +289,7 @@ async function clip() {
   try {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     const meet = await page.evaluate(battle);
-    await look(page, meet); await settle(page);
+    await look(page, meet, 2); await settle(page); // (closer than the hero above it, the same fight seen another way)
     await page.evaluate(() => {
       const q = []; let t = performance.now();
       window.requestAnimationFrame = (f) => { q.push(f); return q.length; };
@@ -307,7 +331,7 @@ async function clip() {
     const ext = out.type.startsWith('video/mp4') ? 'mp4' : 'webm', bytes = Buffer.from(out.data, 'base64');
     for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer.')) rmSync(new URL(f, MEDIA));
     writeFileSync(new URL(`trailer.${ext}`, MEDIA), bytes);
-    const [p] = await encode(frames[0], [{ name: 'poster', x: 0, y: 0, w: CLIP_W, h: CLIP_H, W: CLIP_W }]);
+    const [p] = await encode(frames[Math.floor(frames.length / 2)], [{ name: 'poster', x: 0, y: 0, w: CLIP_W, h: CLIP_H, W: CLIP_W }]);
     writeFileSync(new URL('trailer-poster.webp', MEDIA), Buffer.from(p.data, 'base64'));
     manifest.trailer = { file: `trailer.${ext}`, type: out.type.split(';')[0], poster: 'trailer-poster.webp', w: CLIP_W, h: CLIP_H, alt: 'A short clip of a battle in the game: the Kingdom against the Expedition' };
     writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
@@ -315,7 +339,7 @@ async function clip() {
   } finally { await rec.close(); }
 }
 
-const JOBS = { battles, heroes, controls, clip };
+const JOBS = { battles, sieges, heroes, controls, clip };
 try {
   for (const [k, f] of Object.entries(JOBS)) if (!only.length || only.includes(k)) await f();
 } finally { await browser.close(); server.close(); }

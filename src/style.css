@@ -264,7 +264,8 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* The first page's footer line: How to play and About, the docs, in a new tab (one muted mono line, amber underlined on hover). */
 #menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}
 #menuLinks a{display:inline-flex;align-items:center;min-height:44px;min-width:48px;justify-content:center;padding:0 6px;color:var(--muted);text-decoration:none;letter-spacing:.04em} #menuLinks a:hover,#menuLinks a:focus-visible{color:var(--ally2);text-decoration:underline} #menuLinks .sep{color:var(--line2)}
-@media (max-height:420px){#menuLinks{margin-top:0} #menuLinks a{min-height:24px}} /* (a short phone on its side: the tide lines keep below) */
+#menuFoot{display:flex;flex-direction:column;align-items:center}
+@media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, so the tide lines keep below) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 #homeOfflineMsg:not(:empty)~.shore .tide.t1,#homeOfflineMsg:not(:empty)~.shore .tide.t2{display:none} /* (its line takes the room of the two upper tide lines; the shore comes after it in the page for this) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
@@ -419,9 +420,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* Touch: keyboard letters on the buttons are noise. */
 @media (pointer:coarse){.cb .k{display:none}}
 /* The help sheet (help.js): in the stage's top-right corner, over the pause card too (its z-index above the screens'); the game runs on under it. */
-#helpSheet{position:absolute;z-index:22;right:8px;top:8px;width:min(380px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;box-sizing:border-box;background:rgba(18,26,37,.96);border:1px solid var(--line2);border-radius:8px;padding:10px 14px 12px;font:13px/1.5 var(--display);color:#c9d4e0;touch-action:pan-y}
+#helpSheet{position:absolute;z-index:22;right:8px;top:8px;width:min(380px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.55);padding:10px 14px 12px;font:13px/1.5 var(--display);color:#c9d4e0;touch-action:pan-y}
 .overlay-open #helpSheet{position:fixed;top:calc(max(8px,env(safe-area-inset-top,0px)) + 52px);right:max(8px,env(safe-area-inset-right,0px));max-height:calc(100% - 68px)} /* (over the pause card: below the corner's pair) */
-#helpSheet[hidden]{display:none} #helpSheet .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 4px}
+#helpSheet[hidden]{display:none} body:has(#helpSheet:not([hidden])) #pause .card{opacity:.2} /* (over the pause card: the card dimmed under it) */ #helpSheet .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 4px}
 #helpSheet h2{margin:0;font:700 15px var(--display);letter-spacing:.08em;color:var(--fg)} #helpSheet .x{width:44px;height:44px;padding:0;font-size:20px;line-height:1;margin:-6px -8px -6px 0}
 #helpSheet .lines{margin:0 0 6px;padding:0;list-style:none} #helpSheet li{margin:0 0 4px} #helpSheet b{color:var(--fg)} #helpSheet .goal{margin:6px 0 8px;color:var(--fg)}
 #helpSheet kbd{font:12px var(--mono);background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:0 4px;color:var(--ally2)}

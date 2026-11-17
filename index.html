@@ -84,7 +84,7 @@
         <li>Drag with one finger to look around, pinch to zoom; hold a button to see what it does.</li>
       </ul>
       <p class="goal" id="helpGoal">Mine gold, raise Cottages for population, and bring down the enemy's base before their waves bring down yours.</p>
-      <div class="ft"><span>The game keeps running.</span><a id="helpGuide" href="./docs/how-to-play/" target="_blank" rel="noopener">Full guide and every unit →</a></div>
+      <div class="ft"><span id="helpRun">The game keeps running.</span><a id="helpGuide" href="./docs/how-to-play/" target="_blank" rel="noopener">Full guide and every unit →</a></div>
     </section>
 
     <button class="tb" id="btnBox" hidden title="Hold, or tap, then drag on the map to select a group" aria-label="Select a group" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" /></svg><span>SELECT</span></button>
@@ -115,8 +115,10 @@
         <div class="modes"><button class="ib big mode" id="btnSolo" title="A game against the computer">SINGLE PLAYER</button><button class="ib big mode" id="btnOnline" title="Play a friend over the Internet" hidden>MULTIPLAYER</button></div>
         <div class="row"><button class="ib" id="btnFirstHome" title="A guided game on Easy: a short checklist shows you the way" hidden>FIRST GAME</button><button class="ib" id="btnOptions">OPTIONS</button><button class="ib" id="btnInstall">INSTALL</button></div>
         <p class="offmsg" id="homeOfflineMsg" role="status"></p>
-        <p class="links" id="menuLinks"><a id="linkHowTo" href="./docs/how-to-play/" target="_blank" rel="noopener">How to play</a><span class="sep" aria-hidden="true">·</span><a id="linkAbout" href="./docs/about/" target="_blank" rel="noopener">About</a></p>
-        <div class="rec" id="buildStamp"></div>
+        <div class="foot" id="menuFoot">
+          <p class="links" id="menuLinks"><a id="linkHowTo" href="./docs/how-to-play/" target="_blank" rel="noopener">How to play</a><span class="sep" aria-hidden="true">·</span><a id="linkAbout" href="./docs/about/" target="_blank" rel="noopener">About</a></p>
+          <div class="rec" id="buildStamp"></div>
+        </div>
         <!-- The water's edge: the water at the bottom edge, three lines that drift and a few stones left on the bank. Each line is an <svg> of its own, so its drift is one transform on the compositor; the whole thing is hidden with this page. -->
         <div class="shore" aria-hidden="true">
           <svg class="tide t1" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 296c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/></svg>

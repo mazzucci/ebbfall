@@ -30,7 +30,7 @@ try {
   for (const c of want) {
     const [base, head] = framesOf(c.key, c.kind);
     for (const [file, px] of Object.values(c.files)) {
-      const url = await page.evaluate(cut, { base, head, n: px * 2, tint: c.tint, fill: c.fill, solid: RECIPE.solid });
+      const url = await page.evaluate(cut, { base, head, n: px * 2, tint: c.tint, fill: c.fill, solid: RECIPE.solid, fade: RECIPE.fade });
       writeFileSync(new URL(file, SPRITE_DIR), Buffer.from(url.split(',')[1], 'base64'));
     }
     out[c.name] = sourceHash(c);
@@ -42,9 +42,9 @@ try {
 /**
  * One crop, in the page: the solid art's bounds (alpha over `solid`, the head's too) centered and fit to `fill` of an
  * `n`-pixel square; the frame drawn, its team mask multiplied by `tint`; whatever runs past the round plate (the long
- * shadow) faded out from 78% of its radius. Returns a WebP data URL.
+ * shadow) faded out from `fade` of its size. Returns a WebP data URL.
  */
-function cut({ base, head, n, tint, fill, solid }) {
+function cut({ base, head, n, tint, fill, solid, fade }) {
   const rec = (nm) => FR[nm][1], img = (nm) => IMG[FR[nm][0]];
   const bounds = (nm) => {
     const f = rec(nm).frame, t = document.createElement('canvas'); t.width = f.w; t.height = f.h;
@@ -75,7 +75,7 @@ function cut({ base, head, n, tint, fill, solid }) {
   const ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
   paint(ctx, base, ox, oy, k);
   if (hoff) paint(ctx, head, ox + hoff.x * k, oy + hoff.y * k, k);
-  const g = ctx.createRadialGradient(n / 2, n / 2, n * 0.39, n / 2, n / 2, n * 0.5);
+  const g = ctx.createRadialGradient(n / 2, n / 2, n * fade, n / 2, n / 2, n * 0.5);
   g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = g; ctx.fillRect(0, 0, n, n);
   return c.toDataURL('image/webp', 0.86);

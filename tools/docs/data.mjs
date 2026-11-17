@@ -16,12 +16,45 @@ export function plainDesc(d) {
   return tail && d.desc.endsWith(tail) ? d.desc.slice(0, -tail.length) : d.desc;
 }
 
-/** One entry of a people's list: what its chips and lines show (`supply`: a unit's places, a building's +places). */
+/** The words of a line, for telling whether two lines say the same: lower case, without punctuation and small words. */
+const SMALL = new Set(['a', 'an', 'and', 'the', 'with', 'by', 'its', 'it', 'itself', 'no', 'of', 'to']);
+export const words = (s) => new Set(s.toLowerCase().match(/[a-z0-9]+/g)?.filter(w => !SMALL.has(w)) || []);
+const within = (a, b) => [...a].every(w => b.has(w));
+
+/** The sentence a machine's description ends with (constants.js): it works only inside coverage. The docs say it once,
+ *  on the building that makes machines, and mark each machine with the signal dot. */
+export const SIGNAL = / Needs signal: [^.]*\./;
+
+/**
+ * The lines an entry shows, from its role line (`what`) and its description: both, unless one says no more than the
+ * other (their words, without small ones, the same or one inside the other): then the one that says more, the role line
+ * when they are the same. A machine's "Needs signal" sentence is left to its building and the dot.
+ */
+export function lines(what, desc) {
+  desc = desc.replace(SIGNAL, '');
+  const w = words(what), d = words(desc);
+  if (!what) return { role: '', desc };
+  if (within(d, w)) return { role: what, desc: '' };
+  if (within(w, d)) return { role: '', desc };
+  return { role: what, desc };
+}
+
+/** One entry of a people's list: what its chips and lines show (`supply`: a unit's places, a building's +places;
+ *  `signal`: a machine, which works only inside coverage). */
 function entry(k, d, kind) {
   return {
     key: k, kind, name: d.name, what: d.what || '', cost: d.cost[0], supply: d.supply || 0,
-    needs: d.req ? BUILDINGS[d.req].name : null, desc: plainDesc(d),
+    needs: d.req ? BUILDINGS[d.req].name : null, desc: plainDesc(d), signal: kind === 'unit' && SIGNAL.test(d.desc),
+    ...lines(d.what || '', plainDesc(d)),
   };
+}
+
+/** The signal note a building that makes machines carries (once, for all of them), from the machines' own sentence. */
+export function signalNote(units) {
+  const u = units.find(x => x.signal);
+  if (!u) return '';
+  const m = UNITS[u.key].desc.match(SIGNAL)[0].trim(); // "Needs signal: works only inside ..."
+  return m.replace(/^Needs signal: works/, 'Its machines need signal: they work');
 }
 
 /** A people: its facts strip and its buildings (headquarters first, then the Build list's basic and advanced pages),
@@ -29,7 +62,10 @@ function entry(k, d, kind) {
 function people(race) {
   const f = FACTIONS[race], slug = PAGES[race];
   const keys = [...new Set([f.hq, ...f.buildBasic, ...f.buildAdvanced])];
-  const buildings = keys.map(k => ({ ...entry(k, BUILDINGS[k], 'building'), units: (BUILDINGS[k].trains || []).map(u => entry(u, UNITS[u], 'unit')) }));
+  const buildings = keys.map(k => {
+    const units = (BUILDINGS[k].trains || []).map(u => entry(u, UNITS[u], 'unit'));
+    return { ...entry(k, BUILDINGS[k], 'building'), units, note: signalNote(units) };
+  });
   return {
     race, slug, path: `/docs/${slug}/`, name: `The ${f.name}`, short: f.name,
     grid: !!f.grid, cap: f.grid ? 'GRID' : 'POP', money: f.money,

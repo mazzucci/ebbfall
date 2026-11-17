@@ -16,13 +16,13 @@ export const SPRITE_URL = '/docs/img/sprites/';
 /**
  * The recipe (the designer's, PRD "Docs microsite", with the docs visual plan's notes): a unit in facing 2, its first
  * pose; a building with its head (facing 2; the Uplink's dish facing 6, where its face shows) on the same ground point;
- * the solid art (alpha over 200) fit to 72% of a square (84% for the tall Balloon and the small Bot); the shadow faded at
- * the plate's edge; seat 0's blue. Sizes are CSS pixels, desktop and phone; files are 2x. Bump `version` when the recipe
+ * the solid art (alpha over 200) fit to 72% of a square for a building, 84% for a unit (90% for the tall Balloon), so
+ * the units read on a phone; the shadow faded from 86% of the plate's radius to its edge; seat 0's blue. Sizes are CSS pixels, desktop and phone; files are 2x. Bump `version` when the recipe
  * changes so every crop is cut again.
  */
 export const RECIPE = {
-  version: 2, tint: '#2a5ddf', foe: '#ee376a', fill: 0.72, solid: 200,
-  fills: { observer: 0.84, lumen: 0.84 },
+  version: 3, tint: '#2a5ddf', foe: '#ee376a', fill: 0.72, unitFill: 0.84, fade: 0.43, solid: 200,
+  fills: { observer: 0.9 },
   heads: { uplink: 6 },
   sizes: { unit: { desktop: 96, phone: 72 }, building: { desktop: 168, phone: 104 } },
 };
@@ -43,7 +43,7 @@ export function framesOf(key, kind) {
 export function crops() {
   const out = [];
   const add = (name, key, kind, tint, sizes) => out.push({
-    name, key, kind, tint, fill: RECIPE.fills[key] ?? RECIPE.fill,
+    name, key, kind, tint, fill: RECIPE.fills[key] ?? (kind === 'unit' ? RECIPE.unitFill : RECIPE.fill),
     files: Object.fromEntries(Object.entries(sizes).map(([w, px]) => [w, [`${name}-${px * 2}.webp`, px]])),
   });
   for (const p of PEOPLES) for (const b of p.buildings) {
@@ -76,7 +76,7 @@ const pageHash = new Map();
  *  fill and sizes, and the recipe's version. */
 export function sourceHash(c) {
   const frames = atlasFrames(), h = createHash('sha256');
-  h.update(JSON.stringify([RECIPE.version, RECIPE.solid, c.tint, c.fill, c.files]));
+  h.update(JSON.stringify([RECIPE.version, RECIPE.solid, RECIPE.fade, c.tint, c.fill, c.files]));
   for (const n of framesOf(c.key, c.kind).filter(Boolean).flatMap(n => [n, `${n}_m`])) {
     const f = frames[n];
     if (!f) { h.update(`${n}:none`); continue; }

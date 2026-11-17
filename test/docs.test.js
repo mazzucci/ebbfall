@@ -23,10 +23,15 @@ const page = (path) => readFileSync(join(out, path, 'index.html'), 'utf8');
 if (!skip) { out = mkdtempSync(join(tmpdir(), 'ebbfall-docs-')); pages = docs.buildDocs(out, 'Version abc (last game update def)'); }
 test.after(() => out && rmSync(out, { recursive: true, force: true }));
 
-/** Each entry of a people page: { kind, cost, supply, needs, name, role, text, desc, unit }, in the page's order. */
+/** Each entry of a people page: { unit, kind, cost, supply, needs, head (its name and chips), role, desc, signal }, in
+ *  the page's order. */
 function entries(html) {
-  return [...html.matchAll(/<li class="(bld|unit)" id="(\w+)" data-kind="\w+" data-cost="(\d+)" data-supply="(\d+)"(?: data-needs="([^"]+)")?>([\s\S]*?)<p class="desc">([^<]*)<\/p>/g)]
-    .map(([, cls, kind, cost, supply, needs, head, desc]) => ({ unit: cls === 'unit', kind, cost: +cost, supply: +supply, needs: needs || null, head, desc: desc.replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"') }));
+  const un = (t) => t.replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+  return [...html.matchAll(/<li class="(bld|unit)" id="(\w+)" data-kind="\w+" data-cost="(\d+)" data-supply="(\d+)"(?: data-needs="([^"]+)")?>/g)].map(m => {
+    const [, cls, kind, cost, supply, needs] = m, c = html.indexOf('<div class="chips">', m.index), head = html.slice(m.index, html.indexOf('</div>', c));
+    const role = html.match(new RegExp(`<span class="role" data-of="${kind}">([^<]*)</span>`)), desc = html.match(new RegExp(`<p class="desc" data-of="${kind}">([^<]*)</p>`));
+    return { unit: cls === 'unit', kind, cost: +cost, supply: +supply, needs: needs || null, head, role: role ? un(role[1]) : '', desc: desc ? un(desc[1]) : '', signal: head.includes('class="sig"') };
+  });
 }
 const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
@@ -46,13 +51,35 @@ test('every unit and building of each people is on its page, in its order, each 
       assert.match(e.head, new RegExp(`<b>${d.cost[0]}</b>`), `${e.kind}: the cost shown`);
       if (d.supply) assert.match(e.head, new RegExp(`<em>${f.grid ? 'GRID' : 'POP'}</em><b>${e.unit ? '' : '\\+'}${d.supply}</b>`), `${e.kind}: the places shown`);
       if (d.req) assert.match(e.head, new RegExp(`Needs an? ${C.BUILDINGS[d.req].name}<`), `${e.kind}: what it needs, shown`);
-      assert.match(e.head, new RegExp(`<h[34]>${d.name}</h[34]>`), `${e.kind}: its name`);
-      assert.ok(e.head.includes(`<span class="role">${d.what}</span>`), `${e.kind}: its role line`);
-      // The description is the game's, without the "Needs a X." the chip says.
-      assert.equal(e.desc + (d.req ? ` Needs ${/^[AEIOU]/.test(C.BUILDINGS[d.req].name) ? 'an' : 'a'} ${C.BUILDINGS[d.req].name}.` : ''), d.desc, `${e.kind}: description`);
-      assert.doesNotMatch(e.desc, /Needs an? /, `${e.kind}: the need said once`);
+      assert.match(e.head, new RegExp(`<h[34]>${d.name}(<i class="sig"|</h)`), `${e.kind}: its name`);
+      // Its lines are the game's: the role line and the description, without the "Needs a X." the chip says and the
+      // machines' "Needs signal" sentence (their building says it once, the dot marks them); one of the two when it
+      // says no more than the other.
+      const need = d.req ? ` Needs ${/^[AEIOU]/.test(C.BUILDINGS[d.req].name) ? 'an' : 'a'} ${C.BUILDINGS[d.req].name}.` : '';
+      const signal = d.desc.match(/ Needs signal: [^.]*\./)?.[0] || '';
+      const full = d.desc.slice(0, d.desc.length - need.length).replace(signal, '');
+      assert.ok(e.role || e.desc, `${e.kind}: a line`);
+      if (e.role) assert.equal(e.role, d.what, `${e.kind}: the role line`);
+      if (e.desc) assert.equal(e.desc, full, `${e.kind}: the description`);
+      assert.equal(e.signal, !!signal, `${e.kind}: the signal dot on a machine`);
+      const w = (t) => new Set(t.toLowerCase().match(/[a-z0-9]+/g).filter(x => !['a', 'an', 'and', 'the', 'with', 'by', 'its', 'it', 'itself', 'no', 'of', 'to'].includes(x)));
+      const inside = (a, b) => [...w(a)].every(x => w(b).has(x));
+      if (e.role && e.desc) assert.ok(!inside(e.role, e.desc) && !inside(e.desc, e.role), `${e.kind}: two lines that say different things`);
+      if (!e.desc) assert.ok(inside(full, d.what), `${e.kind}: the description left out says no more than the role line`);
+      if (!e.role) assert.ok(inside(d.what, full), `${e.kind}: the role line left out says no more than the description`);
+      assert.doesNotMatch(e.desc, /Needs an? |Needs signal/, `${e.kind}: the need said once`);
     }
   }
+});
+
+test('the machines\' signal said once, on the building that makes them, with a legend for the dot', { skip }, () => {
+  const html = page('/docs/expedition/');
+  const makers = Object.entries(C.BUILDINGS).filter(([, b]) => (b.trains || []).some(u => C.RADIO.machines.has(u))).map(([k]) => k);
+  assert.ok(makers.length >= 2, makers.join());
+  for (const k of makers) assert.match(html, new RegExp(`<p class="signal" data-of="${k}"><i class="sig" aria-hidden="true"></i>Its machines need signal: they work only inside`), k);
+  assert.equal((html.match(/need signal: they work only inside/g) || []).length, makers.length, 'once for each maker');
+  assert.match(html, /<i class="sig" aria-hidden="true"><\/i>needs signal</, 'the legend');
+  assert.doesNotMatch(page('/docs/kingdom/'), /class="signal"/, 'none for the Kingdom');
 });
 
 test('a kind trained nowhere (the healers) is on no page; nothing on a page is from the other people', { skip }, () => {

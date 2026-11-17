@@ -1,0 +1,109 @@
+// The docs' small pictures (tools/docs/pages.mjs tokens): diagrams that replace paragraphs, drawn from the game's data
+// and the sprite crops, in plain HTML (and one inline SVG) that reads whole without JavaScript. Every number in them is
+// the data's (data.mjs FIGURES); every plate is a crop (sprites.mjs).
+import { esc } from './html.mjs';
+import { PEOPLES, FIGURES, nameOf, aName } from './data.mjs';
+import { SPRITE_URL, cropOf } from './sprites.mjs';
+import { UNITS, BUILDINGS, UPGRADES, RADIO, upgradeDesc, FACTIONS } from '../../src/engine/constants.js';
+
+/** A small plate (`name`: a crop's), `px` CSS pixels, from its smallest file that is still 2x. */
+export function mini(name, px, alt = '') {
+  const c = cropOf(name);
+  if (!c) throw new Error(`docs: no crop ${name}`);
+  const [file] = Object.values(c.files).sort((a, b) => a[1] - b[1]).find(([, w]) => w >= px) || Object.values(c.files)[0];
+  return `<img class="pl" src="${SPRITE_URL}${file}" width="${px}" height="${px}" alt="${esc(alt)}" loading="lazy" decoding="async">`;
+}
+const step = (img, label) => `<li>${img}<span>${label}</span></li>`;
+
+/** The game in one line: the mine, the workers, a building, an army, their base; and back round. */
+export function loop() {
+  return `<figure class="dia loop"><ol class="chain" aria-label="How a game goes">
+${step(mini('mine', 56, 'A gold mine'), 'MINE')}
+${step(`${mini('harvester', 56, 'A Villager')}<i class="coin" aria-hidden="true"></i>`, 'WORKERS')}
+${step(mini('barracks', 56, 'A Barracks'), 'BUILD')}
+${step(`<span class="pair">${mini('trooper', 48, 'A Guard')}${mini('knight', 48, 'A Knight')}</span>`, 'ARMY')}
+${step(mini('conflux-foe', 56, "The enemy's Data center, in their color"), 'THEIR BASE')}
+</ol><p class="back"><span>more mines, more army</span></p></figure>`;
+}
+
+/** Where gold comes from, for both peoples: the mine and how many work it, the worker, the headquarters, and the
+ *  building that earns by itself. */
+export function economy() {
+  const row = (p) => {
+    const f = FACTIONS[p.race], w = UNITS[f.worker], hq = BUILDINGS[f.hq], m = BUILDINGS[f.market];
+    const by = p.grid ? `up to ${m.perHq} per ${hq.name}, by itself` : `about a gold every ${FIGURES.marketSeconds} seconds, by itself`;
+    return `<div class="erow"><p class="who">${esc(p.name)}</p><ol class="chain">
+${step(mini('mine', 48, 'A gold mine'), `${w.mineCap} ${esc(w.name)}s at once`)}
+${step(mini(f.worker, 48, aName(w.name)), p.grid ? 'thorium' : esc(w.name))}
+${step(mini(f.hq, 48, `The ${hq.name}`), p.grid ? 'energy' : esc(hq.name))}
+</ol><p class="branch">${mini(f.market, 48, aName(m.name))}<span><b>${esc(m.name)}</b> ${esc(by)}</span></p></div>`;
+  };
+  return `<figure class="dia econ">${PEOPLES.map(row).join('')}</figure>`;
+}
+
+/** The two caps as bars: the headquarters' places, then each house's or Substation's, up to the cap. */
+export function cap() {
+  const bar = (p) => {
+    const f = FACTIONS[p.race], hq = BUILDINGS[f.hq], s = BUILDINGS[f.supply], max = p.grid ? FIGURES.gridMax : FIGURES.popMax;
+    const pc = (n) => `${(n / max * 100).toFixed(2)}%`;
+    return `<div class="cap"><p class="who">${mini(f.hq, 40, `The ${hq.name}`)}${mini(f.supply, 40, aName(s.name))}<b>${p.grid ? 'GRID' : 'POPULATION'}</b> up to ${max}</p>
+<div class="bar" role="img" aria-label="${esc(`${hq.name} +${hq.supply}, then +${s.supply} for each ${s.name}, up to ${max}`)}"><span class="hq" style="width:${pc(hq.supply)}">${esc(hq.name)} +${hq.supply}</span>${[0, 1, 2].map(() => `<span style="width:${pc(s.supply)}">+${s.supply}</span>`).join('')}<span class="rest">… ${max}</span></div>
+<p class="note2">${esc(s.name)} +${s.supply} each</p></div>`;
+  };
+  return `<figure class="dia caps">${PEOPLES.map(bar).join('')}<p class="low"><span class="read">POP 36/36</span> the number turns red and pulses when not even a worker fits</p></figure>`;
+}
+
+/** The Expedition's signal: the Data center's coverage inside an Uplink's, its machines inside, its hired locals out. */
+export function expedition() {
+  const dc = RADIO.sources.conflux, up = RADIO.sources.uplink, R = 150, r = R * dc / up;
+  const img = (name, x, y, s, alt) => { const c = cropOf(name), [file] = c.files.phone || Object.values(c.files)[0]; return `<image href="${SPRITE_URL}${file}" x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}"><title>${esc(alt)}</title></image>`; };
+  const machines = [...RADIO.machines];
+  const locals = PEOPLES.find(p => p.grid).buildings.flatMap(b => b.units).filter(u => !machines.includes(u.key) && !UNITS[u.key].worker);
+  const svg = `<svg viewBox="0 0 640 380" role="img" aria-labelledby="dexT"><title id="dexT">${esc(`The Data center's coverage, ${dc} tiles, inside an Uplink's, ${up} tiles: machines work inside it; hired locals fight anywhere.`)}</title>
+<defs><pattern id="dexG" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#263548" stroke-width=".6" opacity=".6"/></pattern></defs>
+<rect width="640" height="380" fill="url(#dexG)"/>
+<circle cx="250" cy="190" r="${R}" fill="rgba(79,209,197,.06)" stroke="#4fd1c5" stroke-width="1.5" stroke-dasharray="6 5"/>
+<circle cx="200" cy="230" r="${r.toFixed(1)}" fill="rgba(79,209,197,.10)" stroke="#4fd1c5" stroke-width="1.5"/>
+${img('uplink', 290, 120, 64, 'An Uplink')}${img('conflux', 200, 230, 56, 'A Data center')}
+<text x="250" y="${190 - R - 8}" text-anchor="middle" class="t">Uplink: ${up} tiles</text>
+<text x="200" y="${230 + r + 16}" text-anchor="middle" class="t">Data center: ${dc} tiles</text>
+${machines.map((k, i) => img(k, 170 + (i % 2) * 120 + (i > 1 ? 40 : 0), 110 + Math.floor(i / 2) * 150 - (i === 2 ? 30 : 0), 44, `${aName(UNITS[k].name)}: needs signal`)).join('')}
+${locals.map((u, i) => img(u.key, 470 + i * 70, 190, 52, `${aName(u.name)}: fights anywhere`)).join('')}
+<text x="505" y="240" text-anchor="middle" class="t">hired locals fight anywhere</text>
+</svg>`;
+  const strip = `<ol class="chain small" aria-label="Energy">${step(mini('lumen', 40, 'A Bot'), 'thorium')}${step(mini('conflux', 40, 'A Data center'), 'energy')}${step('<i class="bolt" aria-hidden="true"></i>', 'builds and trains')}</ol>`;
+  return `<figure class="dia dex">${svg}${strip}<figcaption>Energy builds things; the grid keeps them running.</figcaption></figure>`;
+}
+
+/** A people at a glance: each building with the units it trains under it, what each needs first, the machines' signal. */
+export function tree(people) {
+  const needs = (n) => (n ? `<em>needs ${esc(n)}</em>` : '');
+  const col = (b) => `<li class="tcol">${mini(b.key, 56, `The ${b.name}`)}<b>${esc(b.name)}</b>${needs(b.needs)}${b.units.length ? `<ul>${b.units.map(u => `<li>${mini(u.key, 40, `The ${u.name}`)}<span>${esc(u.name)}${RADIO.machines.has(u.key) ? '<i class="sig" title="Needs signal" aria-label="needs signal"></i>' : ''}</span>${needs(u.needs)}</li>`).join('')}</ul>` : ''}</li>`;
+  const legend = people.buildings.some(b => b.units.some(u => RADIO.machines.has(u.key))) ? '<p class="legend"><i class="sig" aria-hidden="true"></i>needs signal: works only inside coverage</p>' : '';
+  return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol>${people.buildings.map(col).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p>${legend}</figure>`;
+}
+
+/** The home's two tiles, each a link to a people's page: its headquarters, a unit in front, a line under its name. */
+export function peoples(tags) {
+  const tile = (p, i) => {
+    const hq = p.buildings[0], unit = p.grid ? 'umbra' : 'knight';
+    return `<li><a class="ptile" href="${p.path}"><span class="art">${mini(hq.key, 168, '').replace('class="pl"', 'class="pl hq"')}${mini(unit, 96, '').replace('class="pl"', 'class="pl fr"')}</span><span class="txt"><b>${esc(p.name)}</b><span>${esc(tags[i] || '')}</span><small>Every building and unit →</small></span></a></li>`;
+  };
+  return `<ul class="peoples">${PEOPLES.map(tile).join('')}</ul>`;
+}
+
+/** About's strip: four sprites, large. */
+export function artStrip() {
+  return `<figure class="dia strip"><div class="row">${['trooper', 'knight', 'lumen', 'shrike'].map(k => mini(`${k}-large`, 128, `The ${nameOf(k)}, as rendered in the game`)).join('')}</div><figcaption>Four of the game's sprites, as rendered: a Guard, a Knight, a Bot, a Drone.</figcaption></figure>`;
+}
+
+/** A people's research, one line each: its name and levels, where, what it does. */
+export function research(people) {
+  const f = FACTIONS[people.race], seen = new Set(), items = [];
+  for (const b of people.buildings) for (const k of BUILDINGS[b.key].researches || []) {
+    if (seen.has(k)) continue; seen.add(k);
+    const u = UPGRADES[k], roman = ['', 'I', 'II', 'III'];
+    items.push(`<li><b>${esc(u.name)}${u.levels > 1 ? ` ${roman[1]} to ${roman[u.levels]}` : ''}</b> (${esc(b.name)}): ${esc(upgradeDesc(k, f))}</li>`);
+  }
+  return `<ul class="research">${items.join('')}</ul>`;
+}

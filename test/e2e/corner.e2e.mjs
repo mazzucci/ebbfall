@@ -93,14 +93,10 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
     try {
       // The menu's pages and the lobby.
       await cornerOn(o, 'home', '#menuHome');
-      await press('#btnAbout'); await cornerOn(o, 'about', '#menuAbout');
       // OPTIONS: on every device (NAME; CONTROLS too with a mouse and a keyboard).
-      await press('#btnAboutBack');
       assert.ok(await shown('#btnOptions'), 'OPTIONS on the first page');
       await press('#btnOptions'); await cornerOn(o, 'options (the menu\'s)', '#options', '#options .card'); await press('#btnOptionsClose');
-      await press('#btnAbout');
-      await press('#btnAboutBack'); await press('#btnHowTo'); await cornerOn(o, 'how to play (the menu\'s)', '#help', '#help .card');
-      await press('#btnHelpClose'); await press('#btnOnline'); await cornerOn(o, 'the lobby', '#online');
+      await press('#btnOnline'); await cornerOn(o, 'the lobby', '#online');
       // The join page says how it works, in two lines at most, and fits.
       const how = await page.locator('#onlineHow').evaluate(e => ({ shown: e.offsetParent !== null, lines: Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)), fits: e.closest('.card').scrollHeight <= e.closest('.card').clientHeight + 1 }));
       assert.deepEqual(how, { shown: true, lines: how.lines, fits: true }, 'how it works: shown, the page fits');
@@ -115,7 +111,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE], ['portrai
       await press('#btnPause'); await cornerOn(o, 'the pause card', '#pause', '#pause .card', { sound: false });
       const bar = await underCorner(page, '#top');
       assert.deepEqual(bar.got.filter(id => /^res/.test(id)), [], 'the top bar\'s figures clear of the corner');
-      await press('#btnPauseHelp'); await cornerOn(o, 'how to play (the pause card\'s)', '#help', '#help .card', { sound: false }); // (still paused)
+      await press('#btnPauseHelp'); await cornerOn(o, 'how to play (the pause card\'s)', '#helpSheet', '#helpSheet', { sound: false }); // (still paused)
       assert.ok(await shown('#btnPauseOptions'), 'OPTIONS on the pause card');
       await press('#btnHelpClose'); await press('#btnPauseOptions'); await cornerOn(o, 'options (the pause card\'s)', '#options', '#options .card', { sound: false }); await press('#btnOptionsClose'); await press('#btnPauseHelp'); // (still paused)
       await press('#btnHelpClose'); await press('#btnResume'); await topBarOn(o, 'back to the game');

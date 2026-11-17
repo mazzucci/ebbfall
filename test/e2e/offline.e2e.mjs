@@ -1,6 +1,6 @@
 // Install and offline on the built game (src/client/offline.js, tools/offline/sw.js): INSTALL where the browser offers
 // it (a `beforeinstallprompt`, simulated here; the prompt on a tap) or where the Home Screen is the way (the card), on
-// the first page, About and the pause card; PLAY OFFLINE otherwise and once installed, which hears from the service
+// the first page and the pause card; PLAY OFFLINE otherwise and once installed, which hears from the service
 // worker that the whole game is saved (saving it first if need be; or that offline play is not available, where
 // service workers are blocked); the manifest's app icons are served at the sizes they claim.
 import { before, after } from 'node:test';
@@ -77,23 +77,19 @@ test('iPhone and iPad (no install prompt): INSTALL opens the Add to Home Screen 
       assert.ok(await page.locator('#homeTip').isVisible(), 'the card');
       assert.match(await page.locator('#homeTip').textContent(), /Add Ebbfall to your Home Screen: tap Share\s*, then Add to Home Screen\. It opens as an app, full screen, and plays offline\./);
       await press('#btnHomeTipOk');
-      await press('#btnAbout');
-      assert.ok(await page.locator('#btnAboutInstall').isVisible() && await page.locator('#btnOffline').isVisible(), 'About: INSTALL and PLAY OFFLINE');
-      await press('#btnAboutInstall');
-      assert.ok(await page.locator('#homeTip').isVisible(), 'the same card from About');
+      assert.ok(await page.locator('#homeTip').isHidden(), 'OK closes it');
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   }
 });
 
-test('INSTALL on the About page and in the pause card too, one offer for all; none in the installed app', { timeout: 180000 }, async () => {
+test('INSTALL in the pause card too, one offer for all; none in the installed app', { timeout: 180000 }, async () => {
   const { ctx, page, errors, press } = await open(PHONE);
   try {
     assert.equal(await page.locator('.install:visible').count(), 0, 'no offer: no INSTALL anywhere');
     assert.equal(await offer(page), true);
-    await press('#btnAbout');
-    assert.ok(await page.locator('#btnAboutInstall').isVisible(), 'on the About page');
-    await press('#btnAboutBack'); await press('#btnSolo'); await press('#btnStart');
+    await reads(page, 'INSTALL');
+    await press('#btnSolo'); await press('#btnStart');
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
     await press('#btnPause');
     assert.ok(await page.locator('#btnPauseInstall').isVisible(), 'in the pause card');
@@ -115,24 +111,22 @@ test('INSTALL on the About page and in the pause card too, one offer for all; no
     await reads(p, 'PLAY OFFLINE');
     const seen = await playOffline(p, (sel) => p.locator(sel).tap(), '#btnInstall', 'homeOfflineMsg');
     assert.equal(seen.at(-1), 'Ready to play offline: everything is saved on this device ✓', `the installed app: ready (${seen.join(' | ')})`);
-    await p.locator('#btnAbout').tap();
     assert.equal(await p.locator('.install:visible').count(), 0, 'installed: no INSTALL');
   } finally { await app.close(); }
 });
 
-test('PLAY OFFLINE on the About page: saving, then everything saved; a file gone missing is saved again', { timeout: 180000, engines: true }, async () => {
+test('PLAY OFFLINE on the first page (nothing to install): saving, then everything saved; a file gone missing is saved again', { timeout: 180000, engines: true }, async () => {
   const { ctx, page, errors, press } = await open(PHONE);
   try {
-    await press('#btnAbout');
-    assert.equal(await page.locator('#btnOffline').textContent(), 'PLAY OFFLINE');
+    assert.equal(await page.locator('#btnInstall').textContent(), 'PLAY OFFLINE');
     const total = await page.evaluate(async () => { const s = await (await fetch('sw.js')).text(); return JSON.parse(s.match(/const FILES = (\[.*\]);/)[1]).length; });
-    let seen = await playOffline(page, press, '#btnOffline', 'offlineMsg'); // (the service worker installs from the test server: it asks until it is done)
+    let seen = await playOffline(page, press, '#btnInstall', 'homeOfflineMsg'); // (the service worker installs from the test server: it asks until it is done)
     assert.equal(seen.at(-1), 'Ready to play offline: everything is saved on this device ✓', seen.join(' | '));
     const fits = await page.evaluate(() => { const c = document.querySelector('#start .card.menu'); return c.scrollHeight <= c.clientHeight; });
-    assert.ok(fits, 'the About page fits without scrolling');
+    assert.ok(fits, 'the first page fits without scrolling');
     // A file goes missing from the store (as if the install had been cut short): saving, how far, then saved again.
     await page.evaluate(async () => { const c = await caches.open((await caches.keys()).find(k => k.startsWith('endfall-'))); await c.delete('index.html'); });
-    seen = await playOffline(page, press, '#btnOffline', 'offlineMsg');
+    seen = await playOffline(page, press, '#btnInstall', 'homeOfflineMsg');
     assert.ok(seen.includes(`Saving for offline… ${Math.floor((100 * (total - 1)) / total)}%`), `how far: ${seen.join(' | ')}`);
     assert.equal(seen.at(-1), 'Ready to play offline: everything is saved on this device ✓', seen.join(' | '));
     assert.deepEqual(errors, []);
@@ -142,10 +136,10 @@ test('PLAY OFFLINE on the About page: saving, then everything saved; a file gone
 test('PLAY OFFLINE where service workers are blocked: not available in this browser', { timeout: 120000 }, async () => {
   const { ctx, page, press } = await open(DESKTOP, { serviceWorkers: 'block' });
   try {
-    await press('#btnAbout');
-    await press('#btnOffline');
-    await page.waitForFunction(() => !document.getElementById('btnOffline').disabled, null, { timeout: 20000 });
-    assert.equal(await page.locator('#offlineMsg').textContent(), "Offline play isn't available in this browser.");
+    await reads(page, 'PLAY OFFLINE');
+    await press('#btnInstall');
+    await page.waitForFunction(() => !document.getElementById('btnInstall').disabled, null, { timeout: 20000 });
+    assert.equal(await page.locator('#homeOfflineMsg').textContent(), "Offline play isn't available in this browser.");
   } finally { await ctx.close(); }
 });
 

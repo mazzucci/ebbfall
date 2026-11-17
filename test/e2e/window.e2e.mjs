@@ -70,7 +70,7 @@ for (const [label, device, collapsed] of TABS) {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
       const tap = (sel) => page.locator(sel).tap();
-      for (const [open, scope, back] of [[null, '#menuHome'], ['#btnSolo', '#menuSolo', '#btnSoloBack'], ['#btnAbout', '#menuAbout', '#btnAboutBack'], ['#btnHowTo', '#help', '#btnHelpClose'], ['#btnOnline', '#online', '#btnOnlineBack']]) {
+      for (const [open, scope, back] of [[null, '#menuHome'], ['#btnSolo', '#menuSolo', '#btnSoloBack'], ['#btnOnline', '#online', '#btnOnlineBack']]) {
         if (open) await tap(open);
         assert.deepEqual(await outside(page, scope), [], `${label}, ${scope}: the buttons inside the screen`);
         assert.deepEqual(await pageStill(page), { x: 0, y: 0, over: 0, wide: 0 }, `${label}, ${scope}: the page does not scroll`);
@@ -103,7 +103,7 @@ for (const [label, device, collapsed] of TABS) {
       await d.page.locator('#btnPause').tap();
       assert.deepEqual(await outside(d.page, '#pause'), [], `${label}: the pause card's buttons`);
       await d.page.locator('#btnPauseHelp').tap();
-      assert.deepEqual(await outside(d.page, '#help'), [], `${label}: How to play's`);
+      assert.deepEqual(await outside(d.page, '#helpSheet'), [], `${label}: the help sheet's`);
       await d.page.locator('#btnHelpClose').tap(); await d.page.locator('#btnResume').tap();
       await d.eval(() => {
         const c = endfall.G.bldgs.find(b => b.team !== endfall.G.me && b.d.hq); endfall.engine.debugSetHp(c.id, 5);

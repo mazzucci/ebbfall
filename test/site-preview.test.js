@@ -3,10 +3,10 @@
 // card, and nothing of the query reaches the page but the code), a challenge's (SHARE after a victory) only for a code
 // the game makes, its words made from the code's values and its link made again from them, the card's fields land on tags index.html has, the
 // head's title, description, canonical, Open Graph and X tags and structured data, the preview image (public/og.png:
-// 1200x630, small), robots.txt and sitemap.xml, and that none of those is stored for offline play.
+// 1200x630, small), robots.txt, and that none of those (nor the docs, the sitemap, llms.txt) is stored for offline play.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ORIGIN, ROOM_ALPHABET, ROOM_LETTERS, roomCode, preview, edits, TAGS } from '../site/preview.js';
@@ -150,26 +150,26 @@ test('the preview image: a 1200x630 PNG as the head says, small enough for every
   assert.ok(png.length < 300 * 1024, `${Math.round(png.length / 1024)} KB`);
 });
 
-test('robots.txt lets everything be crawled and names the sitemap; the sitemap lists the game', () => {
+test('robots.txt lets everything be crawled and names the sitemap (the docs build writes it: test/docs.test.js)', () => {
   const robots = read('public/robots.txt');
   assert.match(robots, /^User-agent: \*$/m);
   assert.match(robots, /^Allow: \/$/m);
   assert.doesNotMatch(robots, /^Disallow: \S/m);
   assert.match(robots, new RegExp(`^Sitemap: ${ORIGIN}/sitemap\\.xml$`, 'm'));
-  const sitemap = read('public/sitemap.xml');
-  assert.match(sitemap, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
-  assert.deepEqual([...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]), [`${ORIGIN}/`]);
+  assert.match(robots, /docs/, 'its comment names the docs as pages to index');
 });
 
 test('the files for crawlers and previews are not stored for offline play (the build\'s service worker leaves them out)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'endfall-sw-'));
   try {
-    for (const f of ['index.html', 'og.png', 'robots.txt', 'sitemap.xml', 'icon.svg']) writeFileSync(join(dir, f), f);
+    for (const f of ['index.html', 'og.png', 'robots.txt', 'sitemap.xml', 'llms.txt', 'icon.svg', 'docsy.txt']) writeFileSync(join(dir, f), f);
+    mkdirSync(join(dir, 'docs', 'kingdom'), { recursive: true });
+    for (const f of ['docs/index.html', 'docs/kingdom/index.html']) writeFileSync(join(dir, f), f);
     const plugin = offline();
     plugin.configResolved({ build: { outDir: dir }, define: {} });
     plugin.closeBundle();
     const files = JSON.parse(readFileSync(join(dir, 'sw.js'), 'utf8').match(/^const FILES = (.*);$/m)[1]);
-    assert.deepEqual(files, ['./', 'icon.svg', 'index.html']);
-    assert.deepEqual([...WEB_ONLY].sort(), ['og.png', 'robots.txt', 'sitemap.xml']);
+    assert.deepEqual(files, ['./', 'docsy.txt', 'icon.svg', 'index.html'], 'the docs folder left out, not a file named like it');
+    assert.deepEqual([...WEB_ONLY].sort(), ['docs/', 'llms.txt', 'og.png', 'robots.txt', 'sitemap.xml']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

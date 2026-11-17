@@ -13,8 +13,8 @@ Shore. Open them when you need to find your way; this file keeps the rules and t
 
 Two Notion pages hold what is not code: Ebbfall: planning (the roadmap, reviews, open questions) and Ebbfall:
 developer docs ("Multiplayer design": lockstep, the relay, hosting, deploy and rollback; "Ebbfall art": the art
-pipeline, frame names, seat colours). The game's own About page and How to play (index.html) explain it to players:
-no plans and no developer notes there. Agendas, handoff notes for paused work, the owner's decisions and anything to
+pipeline, frame names, seat colours). The docs microsite at /docs/ (tools/docs: how to play, the two peoples, about) and the in-game help
+sheet explain it to players: no plans and no developer notes there. Agendas, handoff notes for paused work, the owner's decisions and anything to
 remember for later go to Notion too (subpages of Ebbfall: planning, one per work item, the branch named), never to
 local files: every session, on any machine, must be able to read them. See `README.md` for the player-facing
 description. The game was called Endfall until 2026-10-26: player-facing text says Ebbfall and the repo is
@@ -71,6 +71,10 @@ node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
                              # the 3D part needs a Chromium, see Notion: Ebbfall art)
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
+node tools/docs/crops.mjs    # regenerate the docs' sprite crops (public/docs/img/sprites/) after the art changes (a Chromium;
+                             # output is committed; test/docs.test.js fails while they are stale)
+node tools/docs/shots.mjs    # regenerate the docs' screenshots and gameplay clip from the built game (npm run build first; a
+                             # Chromium, slow: minutes; output is committed); names run some: battles heroes controls clip
 node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
                              # wording (a Chromium too; output is committed, kept under 300 KB)
 ```

@@ -159,7 +159,7 @@ export function drawPreview(cv, i, seed, kind) {
 
 export function initMenu({ onStart }) {
   // The first page's shore under the other menu pages too (owner, 2026-11-03), each copy with ids of its own.
-  for (const id of ['menuSolo', 'menuAbout', 'onlineJoin', 'onlineRoom']) {
+  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) {
     const shore = $('menuHome').querySelector('.shore').cloneNode(true);
     for (const el of shore.querySelectorAll('[id]')) {
       const was = el.id; el.id = `${was}-${id}`;
@@ -185,14 +185,10 @@ export function initMenu({ onStart }) {
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
-  $('btnAbout').addEventListener('click', () => { sfx('select'); page('menuAbout'); });
-  $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
+  // (How to play and About: the docs, from the first page's footer line, in a new tab: index.html #menuLinks)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
-  $('buildId').textContent = build; // (vite.config.js: the one online play compares)
-  showStamp();
+  showStamp(build);
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
-  $('btnHowTo').addEventListener('click', openHelp);
-  $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
 
@@ -226,7 +222,7 @@ export function setup() {
   return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, size: m.size, side: 0, race: 'humans', enemyRace: 'humans', players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 }
 
-/** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */
+/** Show one page of the menu: `menuHome` (the first) or `menuSolo`. */
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
@@ -251,22 +247,15 @@ function showFirstGame() {
 }
 
 /** The build stamp at the foot of the first page: the last game update (vite.config.js: the newest commit that changed
- *  what ships, not a docs or CI one) and its date, in the player's own locale and time zone ("Updated Nov 4, 2026 ·
- *  b8f7b2d"; "dev" without git): an old copy (a cache) tells itself from the latest deployment. About has it beside the
- *  Version (the sim's build, which online play compares). */
-function showStamp() {
+ *  what ships, not a CI one) and its date, in the player's own locale and time zone ("Updated Nov 4, 2026 · b8f7b2d";
+ *  "dev" without git): an old copy (a cache) tells itself from the latest deployment. Its title, and `data-build`, add
+ *  the Version (`build`: the sim's build, which online play compares). */
+function showStamp(build) {
   const commit = typeof __COMMIT__ === 'string' ? __COMMIT__ : 'dev', short = commit === 'dev' ? 'dev' : commit.slice(0, 7);
   const at = typeof __COMMIT_DATE__ === 'string' && __COMMIT_DATE__ ? new Date(__COMMIT_DATE__) : null;
   const date = at && !Number.isNaN(at.getTime()) ? at.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  $('buildStamp').textContent = short === 'dev' || !date ? 'dev' : `Updated ${date} · ${short}`;
-  $('buildStamp').title = short === 'dev' || !date ? '' : `The last game update: ${date}, commit ${short}`;
-  $('buildCommit').textContent = short;
-}
-
-/** How to play, from the menu or the pause card: at its top (focusing BACK, at the bottom of a scrolling card, used to
- *  open it scrolled to the end). */
-export function openHelp() {
-  $('help').hidden = false;
-  $('btnHelpClose').focus({ preventScroll: true });
-  $('help').querySelector('.card').scrollTop = 0;
+  const stamp = $('buildStamp');
+  stamp.textContent = short === 'dev' || !date ? 'dev' : `Updated ${date} · ${short}`;
+  stamp.title = short === 'dev' || !date ? `Version ${build}` : `The last game update: ${date}, commit ${short}. Version ${build}`;
+  stamp.dataset.build = build;
 }

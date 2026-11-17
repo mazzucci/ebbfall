@@ -656,7 +656,7 @@ function fallStep(s) {
 }
 /** The ghosts of fallen buildings now (read-only, for the tests): each one's id, type, time since it fell, whether it
  *  falls as the Portal does, and its body as drawn (y, scale, opacity) with the y it fell from. */
-export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, paint: o.paint.alpha, tint: o.body.tint, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
+export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, paint: o.paint.visible ? o.paint.alpha : null, tint: o.body.tint, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
 /** A fall's shake now: its reach (± px; look.js fallShake), dying away (read-only, for the tests). */
 export const shakeNow = () => (quake ? quake.px * Math.max(0, 1 - quake.t / quake.life) : 0);
 /** A Medic heals: a green sparkle on the patient and a faint light. */
@@ -731,6 +731,9 @@ const projPool = [], partPool = [];
 function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible = true; return pool[i]; }
 
 let fogTick = -1;
+/** The fog shown or not, on the map and the minimap (on, always, in a game; off only for the docs' staged screenshots,
+ *  tools/docs/shots.mjs: the whole map's ground then shows, on the minimap too). */
+export const showFog = (on) => { L.fog.visible = !!on; mmAt = -Infinity; };
 /** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. In sight
  *  clear; explored but out of sight a blue-gray veil (RGB 18, 22, 34 at 0.45), the ground and what stands on it still
  *  read; never explored near-black. */
@@ -1068,7 +1071,8 @@ function renderMinimap() {
 function minimapBase(c, S, T) {
   c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
   // Gold mines gold, their footprint: not any seat's color.
-  for (const n of map.nodes) if (G.explored[idx(n.tx, n.ty)]) { c.fillStyle = MM_GOLD; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
+  const revealed = !L.fog.visible; // (showFog: the docs' staged shots)
+  for (const n of map.nodes) if (revealed || G.explored[idx(n.tx, n.ty)]) { c.fillStyle = MM_GOLD; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
   // Every seat in its color, ours too, as on the field (with two seats as well: ours is no longer the amber of seat 0's
   // old gold); an ally's buildings framed in white (a team game: whose color is on our side, its base and army in our sight).
   const col = seatCss();
@@ -1082,7 +1086,7 @@ function minimapBase(c, S, T) {
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
   for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
-  c.drawImage(fogCv, 0, 0, mm.width, mm.height);
+  if (!revealed) c.drawImage(fogCv, 0, 0, mm.width, mm.height);
 }
 // The minimap's coverage: an Expedition seat's always (its people's headquarters gives coverage), the union's edge
 // alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored

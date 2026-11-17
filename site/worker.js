@@ -5,7 +5,8 @@
 // /selftest, which the service worker could not answer a page load with). It answers ebbfall.com and www.ebbfall.com
 // (wrangler.toml's routes, over the proxied records): www and plain http go to https://ebbfall.com/, the game's one
 // origin (its service worker, its saved settings). The game's page gets a shared link's own card (preview.js: a
-// room's) and, with a token, the analytics beacon (`page`).
+// room's) and, with a token, the analytics beacon (`page`). The docs (/docs/, tools/docs) are files too; their
+// addresses are folders (/docs/kingdom/), which the Worker answers with the folder's index.html (`folder`).
 
 import { cacheControl } from './cache.js';
 import { ORIGIN, preview, edits } from './preview.js';
@@ -87,6 +88,22 @@ function notFound(req, url) {
   return new Response('Not found\n', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
+/** Under the docs (/docs and below: tools/docs writes dist/docs/<page>/index.html). */
+const isDocs = (path) => path === '/docs' || path.startsWith('/docs/');
+
+/**
+ * A docs address that is not a file: a folder. With html_handling "none" the assets serve exact files only, so
+ * /docs/kingdom/ gets that folder's index.html here, and /docs/kingdom (or /docs) is sent to the address with the slash,
+ * the page's canonical. Anything else under /docs/ is not found, as elsewhere.
+ */
+async function folder(req, url, env) {
+  const path = url.pathname.endsWith('/') ? url.pathname : `${url.pathname}/`;
+  const res = await env.ASSETS.fetch(new Request(new URL(`${path}index.html`, url), { method: req.method, headers: req.headers }));
+  if (res.status === 404) return notFound(req, url);
+  if (path !== url.pathname) return new Response(null, { status: 301, headers: { Location: new URL(path + url.search, url).href } });
+  return withCache(res, `${path}index.html`);
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -95,6 +112,7 @@ export default {
     }
     if (url.pathname === '/' || url.pathname === '/index.html') return page(req, url, env);
     const res = await env.ASSETS.fetch(new Request(new URL(url.pathname, url), { method: req.method, headers: req.headers }));
+    if (res.status === 404 && isDocs(url.pathname)) return folder(req, url, env);
     return res.status === 404 ? notFound(req, url) : withCache(res, url.pathname);
   },
 };

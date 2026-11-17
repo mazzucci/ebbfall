@@ -111,8 +111,8 @@ selftest.html         the device check (a third entry): plays the golden games, 
                       minute measured through main.js's loop (`probe`), the report POSTed to the relay for a PERF-XXXXXX code
 index.html            page shell: top bar, canvas stage, HUD (minimap, selection panel, command card), overlays; its head is
                       what search engines and shared links show (title, description, canonical, og: and twitter: cards
-                      with public/og.png, JSON-LD), and the About page and How to play are the text crawlers read: keep
-                      them true to the game (test/site-preview.test.js)
+                      with public/og.png, JSON-LD; test/site-preview.test.js); the help sheet (the ? in the top bar,
+                      help.js); the text crawlers read is the docs' (tools/docs)
 src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
@@ -326,8 +326,13 @@ src/client/           everything that touches the browser
                       the lobby's name, store.js `playerName`, kept on change or blur, empty allowed) and CONTROLS (where
                       `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
+  help.js             the in-game help sheet: the ? in the top bar (between the clock and FULL SCREEN) or the pause card's
+                      HOW TO PLAY opens it in the stage's top-right corner (over the pause card, below the corner's
+                      pair): the controls in four lines (a mouse's or touch's, by the pointer), the goal in the
+                      player's people's words, the docs' full guide in a new tab; the game runs on under it; Esc, its
+                      close button or the ? again close it
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, How to play, About; FIRST GAME until a
+  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, OPTIONS, INSTALL; FIRST GAME until a
                       first game is over, by the record of games, which is kept but not shown; the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
                       vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
@@ -338,7 +343,8 @@ src/client/           everything that touches the browser
                       Dust Quarter (96x96, two players) by default, a saved hidden map opening the default; no FIRST
                       GAME there; `?seed=` plays the hidden 64x64 random slot, `?map=N` opens map N, hidden ones too:
                       the tests' ways to a 64x64 game),
-                      the About page (the source, the device check, the version); the map list and preview the lobby
+                      the footer line under the buttons, How to play · About (the docs, in a new tab), the stamp's
+                      tooltip and `data-build` the Version (the sim's build); the map list and preview the lobby
                       shares (a hidden map listed only while it is the one chosen: a challenge's or an old room's); a
                       challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
                       in the footer, the parameter dropped from the address, nothing saved until the player changes the
@@ -486,6 +492,10 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their
                       spots' colors, eight seats on phones; a code typed as shown or not, the share line, an
                       out-of-date link, the host's REMOVE, the limits' line),
+                      docs.e2e.mjs (the first page's footer line: How to play and About in a new tab, the old buttons
+                      gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
+                      pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
+                      listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
@@ -532,6 +542,13 @@ test/site-preview.test.js the link cards (site/preview.js): a room's code read a
                       a challenge's card and its link made again from the code (hostile and other
                       codes: the site's card), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
                       robots.txt and the sitemap, and that the build's service worker leaves those out
+test/docs.test.js     the docs (tools/docs) built into a temporary folder: every unit and building of each people on its
+                      page in the Build list's order, each figure the data's (cost, population or grid, what it needs,
+                      its description without the need), the healers on no page; How to play's figures and the
+                      diagrams' the data's; every token known; the crops cut from today's art; each page's head,
+                      structured data (VideoGame with its creator on the home, breadcrumbs inside) and links; images
+                      with alt, sizes, WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em
+                      dash, American spelling, About naming Stelian
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -578,6 +595,24 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
                       file of dist/ but source maps and WEB_ONLY
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
+tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vite plugin in build.mjs writes it into dist/
+                      with the game: dist/docs/<page>/index.html, dist/sitemap.xml with every page and its lastmod,
+                      dist/llms.txt): data.mjs (each people's buildings in the Build list's order with the units each
+                      trains, the facts strip, FIGURES: every number the copy names, from the data), copy/*.html (each
+                      page's words: a head comment with its title and description, then HTML with tokens, pages.mjs:
+                      {{roster}}, {{figure}}, {{diagram}}, {{n}} ...), pages.mjs (the tokens filled), diagrams.mjs
+                      (the loop, the economy, the caps, the Expedition's signal, a people's tree and research, the
+                      home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
+                      shell: head, cards, structured data, the slim top bar, the footer over the tide lines; docs.css
+                      inlined, the designer's "Field manual"), sprites.mjs and crops.mjs (the sprite crops: the
+                      recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
+                      desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
+                      fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
+                      in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
+                      committed in public/docs/img/shots/ and public/docs/media/ (trailer.*: the trailer takes the
+                      clip's name); shots.json their sizes, words and the boxes the annotated ones mark).
+                      public/docs/fonts/: IBM Plex Sans (OFL); the game's two fonts are copied from src/fonts/. The
+                      Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for

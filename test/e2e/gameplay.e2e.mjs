@@ -726,14 +726,13 @@ test('the menu: every map offered in one list (96x96 first, no 64x64 one), the o
       await page.waitForFunction(() => endfall.G.units.length > 0);
       assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [2940, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
-      // How to play is in the pause menu (no Help button in the top bar); the game waits; back to the pause menu.
-      assert.equal(await page.locator('#btnHelp').count(), 0, 'no Help button in the top bar');
+      // How to play from the pause menu: the help sheet over it; the game stays paused; back to the pause menu.
       await press('#btnPause'); await press('#btnPauseHelp');
-      assert.ok(await page.locator('#help').isVisible(), 'How to play opens');
+      assert.ok(await page.locator('#helpSheet').isVisible(), 'How to play opens');
       const t0 = await page.evaluate(() => endfall.G.time); await page.waitForTimeout(600);
-      assert.equal(await page.evaluate(() => endfall.G.time), t0, 'the game waits while help is open');
+      assert.equal(await page.evaluate(() => endfall.G.time), t0, 'the game stays paused under it');
       await press('#btnHelpClose');
-      assert.ok(await page.locator('#help').isHidden() && await page.locator('#pause').isVisible(), 'back to the pause menu');
+      assert.ok(await page.locator('#helpSheet').isHidden() && await page.locator('#pause').isVisible(), 'back to the pause menu');
       await press('#btnResume');
       // The choices are remembered.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
@@ -798,19 +797,12 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       const shown = (sel) => page.locator(sel).isVisible();
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
-      assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there; the game\'s choices are not');
+      assert.ok(await shown('#linkHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there (the docs); the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
-      // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
-      await press('#btnAbout');
-      assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#cornerSound'), 'About opens, the sound icon still there');
-      assert.equal(await page.locator('#menuAbout h2').textContent(), 'ABOUT');
-      const src = page.locator('#srcLink');
-      assert.deepEqual([await src.textContent(), await src.getAttribute('href'), await src.getAttribute('target'), await src.getAttribute('rel')], ['Source code on GitHub', 'https://github.com/mazzucci/ebbfall', '_blank', 'noopener']);
-      assert.equal(await page.locator('#checkLink').getAttribute('href'), './selftest.html');
-      assert.match(await page.locator('#buildId').textContent(), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
-      await press('#btnAboutBack');
-      assert.ok(await shown('#menuHome') && await page.locator('#menuAbout').isHidden(), 'BACK: the first page');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
+      // About: the docs, in a new tab (test/e2e/docs.e2e.mjs); the version on the build stamp.
+      assert.equal(await page.locator('#linkAbout').getAttribute('href'), './docs/about/');
+      assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
       // SINGLE PLAYER: its page, the sides board (YOU on your side, AI 1 the enemy), no SOUND row; BACK.
       await press('#btnSolo');
       assert.ok(await shown('#menuSolo') && await page.locator('#menuHome').isHidden(), 'single player opens its page');
@@ -955,10 +947,8 @@ test('a game that never finishes loading: START GAME waits, BACK calls it off, a
     assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…');
     await page.locator('#btnSoloBack').click();
     assert.ok(await page.locator('#menuHome').isVisible(), 'BACK works while the game loads');
-    await page.locator('#btnAbout').click(); await page.locator('#menuAbout').waitFor();
-    await page.locator('#btnOffline').click(); // (the service worker is registered once the game's load is over: not yet)
-    await page.waitForFunction(() => /^Saving for offline…/.test(document.getElementById('offlineMsg').textContent), null, { timeout: 10000 });
-    await page.locator('#btnAboutBack').click();
+    await page.locator('#btnInstall').click(); // (PLAY OFFLINE: nothing to install here; the service worker is registered once the game's load is over: not yet)
+    await page.waitForFunction(() => /^Saving for offline…/.test(document.getElementById('homeOfflineMsg').textContent), null, { timeout: 10000 });
     await page.locator('#btnSolo').click();
     assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the start was called off: the button is itself again');
     assert.ok(await page.locator('#btnStart').isEnabled());
@@ -2572,12 +2562,12 @@ test('the HUD tells the first enemy flyer seen, and an army wiped out', async ()
   } finally { await d.close(); }
 });
 
-test('the screen is lean: resources, supply, the game clock, full screen, sound and pause on top, no empty panel; the clock in the pause card too', async () => {
+test('the screen is lean: resources, supply, the game clock, the ?, full screen, sound and pause on top, no empty panel; the clock in the pause card too', async () => {
   for (const dev of [DESKTOP, PHONE]) {
     const d = await newGame(dev, 1, 4242, { ai: false });
     try {
       const shown = await d.eval(() => [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && getComputedStyle(e).display !== 'none' && !e.classList.contains('spacer')).map(e => e.id || e.className));
-      const want = ['resShard', 'resSup', 'resClock', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
+      const want = ['resShard', 'resSup', 'resClock', 'btnHelp', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
       assert.deepEqual(shown, want, 'the top bar at the start: ' + shown.join(' '));
       assert.ok(await d.page.locator('#info').isHidden(), 'nothing selected: no panel');
       await d.skip(30);
@@ -3294,11 +3284,8 @@ test('the menu fits a small phone on every page (the first with its stamp and PL
     };
     assert.ok(await page.locator('#btnFirstHome').isVisible(), 'with FIRST GAME (a newcomer)');
     await fits('#start .card.menu', '#menuHome h1', 'the first page');
-    await page.locator('#btnAbout').tap();
-    await fits('#start .card.menu', '#menuAbout h2', 'about');
-    const b = await page.locator('#btnAboutBack').boundingBox();
-    assert.ok(b.y + b.height <= 375, `About's BACK in view: ${JSON.stringify(b)}`);
-    await page.locator('#btnAboutBack').tap();
+    const b = await page.locator('#menuLinks').boundingBox();
+    assert.ok(b.y + b.height <= 375, `the footer line (How to play, About) in view: ${JSON.stringify(b)}`);
     await page.locator('#btnSolo').tap();
     await fits('#start .card.menu', '#menuSolo h2', 'single player');
     await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();
@@ -3331,9 +3318,9 @@ test('the first page: the name in title case over the shore, whose tide lines ke
       await page.evaluate(() => { for (const a of document.getAnimations()) a.play(); });
       assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
       assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
-      await page.locator('#btnAbout').tap();
-      assert.ok(await shore.isHidden() && await page.locator('#menuAbout').isVisible(), 'About: the first page\'s shore goes with it');
-      assert.ok(await page.locator('#menuAbout .shore').isVisible(), 'About: a shore of its own (as Single player and Multiplayer)');
+      await page.locator('#btnSolo').tap();
+      assert.ok(await shore.isHidden() && await page.locator('#menuSolo').isVisible(), 'Single player: the first page\'s shore goes with it');
+      assert.ok(await page.locator('#menuSolo .shore').isVisible(), 'Single player: a shore of its own (as Multiplayer)');
       assert.equal(await page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb' && a.effect.target.closest('#menuHome')).length), 0, 'the first page\'s lines stop with the page');
     } finally { await ctx.close(); }
   }
@@ -3487,7 +3474,7 @@ test('a building destroyed collapses: its ghost sinks and fades (its flag with i
     assert.ok(last.y >= last.y0 && last.y - last.y0 <= BLDG_DEATH.ghost.sink + 0.01, `sinking (${JSON.stringify(last)})`);
     assert.ok(last.scaleY <= 1 && last.scaleY >= BLDG_DEATH.ghost.squash - 0.01, 'squashed, at most to 0.8');
     if (ghosts.length > 1) assert.ok(last.y > ghosts[0].y || last.t === ghosts[0].t, 'down as the frames go');
-    assert.ok(ghosts.every(g => Math.abs(g.paint - g.alpha) < 1e-9), `its flag fades with its walls (${JSON.stringify(ghosts.map(g => [g.paint, g.alpha]))})`);
+    assert.ok(ghosts.every(g => g.paint === null || Math.abs(g.paint - g.alpha) < 1e-9), `its flag fades with its walls, when it is drawn (a building that fell before a frame showed it finished has no flag yet) (${JSON.stringify(ghosts.map(g => [g.paint, g.alpha]))})`);
     if (last.t > 0.1) assert.ok(last.tint < 0xffffff, 'dimmed as it goes down');
     const near = (e) => Math.abs(e.x - depot.x) < depot.w * 16 + 4 && Math.abs(e.y - depot.y) < depot.h * 16 + 80;
     const fx = fall.flatMap(f => f.fx).filter(near);
@@ -3893,12 +3880,11 @@ test('desktop: OPTIONS on the menu\'s first page; the choice is remembered acros
     assert.equal(await page.locator('#options [aria-checked="true"]').textContent(), 'WASD', 'remembered');
     await page.keyboard.press('Escape');
     assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
-    await page.locator('#btnHowTo').click();
-    const help = await page.locator('#help').textContent();
-    assert.match(help, /Classic:.*WASD:.*OPTIONS|OPTIONS.*Classic:.*WASD:/s);
+    // (How to play tells of both schemes: the help sheet's line, and the docs' table: test/docs.test.js, docs.e2e.mjs)
+    const help = await page.locator('#helpSheet .lines.desk').textContent();
+    assert.match(help, /Classic.*WASD/s);
     assert.match(help, /middle button/);
     // A small desktop window: the first page's row of buttons and the card still fit.
-    await page.locator('#btnHelpClose').click();
     await page.setViewportSize({ width: 844, height: 390 });
     const row = await page.$eval('#btnOptions', b => { const r = b.getBoundingClientRect(); return [r.right <= innerWidth, r.bottom <= innerHeight]; });
     assert.deepEqual(row, [true, true], 'OPTIONS in view at 844x390');
@@ -4010,7 +3996,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PLAY OFFLINE) fits at 667x375, 844x390, 412x915 and 568x320: one line on its side, upright two centred lines; no scrolling', async () => {
+test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centred line; no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
     try {
@@ -4018,20 +4004,21 @@ test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PL
       await page.waitForFunction(() => !!window.endfall);
       const got = await page.evaluate(() => {
         const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return { t: b.textContent, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom }; });
-        const c = document.querySelector('#start .card.menu');
-        return { bs, sc: [c.scrollHeight, c.clientHeight] };
+        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect();
+        return { bs, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom] };
       });
-      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h, `${w}x${h}: the footer line in view: ${got.links}`);
       assert.ok(got.bs.every(b => b.l >= 0 && b.r <= w && b.b <= h), `${w}x${h}: every button in view: ${JSON.stringify(got.bs)}`);
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
-      assert.equal(lines.length, w > h ? 1 : 2, `${w}x${h}: ${w > h ? 'one line' : 'two lines'}: ${lines}`);
+      assert.equal(lines.length, 1, `${w}x${h}: one line: ${lines}`);
       for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centred: ${l} | ${w - r}`); }
     } finally { await ctx.close(); }
   }
 });
 
-test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place, How to play from its top', async () => {
+test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place', async () => {
   for (const device of [PHONE, DESKTOP]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
@@ -4044,7 +4031,7 @@ test('the menu pages: every button a finger high, BACK the same size in the same
       }).map(b => { const r = b.getBoundingClientRect(); return { id: b.id, text: b.textContent.trim(), x: Math.round(r.x), w: Math.round(r.width), h: Math.round(r.height) }; }));
       const title = (sel) => page.evaluate((sel) => Math.round(document.querySelector(sel).getBoundingClientRect().y), sel);
       const pages = [];
-      for (const [open, close, h2] of [['#btnSolo', '#btnSoloBack', '#menuSolo h2'], ['#btnOnline', '#btnOnlineBack', '#onlineJoin h2'], ['#btnAbout', '#btnAboutBack', '#menuAbout h2']]) {
+      for (const [open, close, h2] of [['#btnSolo', '#btnSoloBack', '#menuSolo h2'], ['#btnOnline', '#btnOnlineBack', '#onlineJoin h2']]) {
         await click(open);
         await page.locator(close).waitFor();
         pages.push({ open, back: (await buttons()).find(b => b.id === close.slice(1)), title: await title(h2), all: await buttons() });
@@ -4057,17 +4044,11 @@ test('the menu pages: every button a finger high, BACK the same size in the same
       assert.ok(backs.every(b => b.w === backs[0].w && b.h === backs[0].h && b.x === backs[0].x), `BACK the same size, at the same place: ${JSON.stringify(backs)}`);
       assert.ok(pages.every(p => p.title === pages[0].title), `the titles at one height: ${pages.map(p => p.title)}`);
       assert.equal(await page.locator('#btnFirst').count(), 0, 'no FIRST GAME in single player');
-      // How to play opens at its top, its BACK as every other BACK.
-      await click('#btnHowTo');
-      await page.locator('#help').waitFor();
-      assert.equal(await page.evaluate(() => document.querySelector('#help .card').scrollTop), 0, 'How to play from its top');
-      const help = (await buttons()).find(b => b.id === 'btnHelpClose');
-      assert.ok(help.w === backs[0].w && help.h === backs[0].h, `its BACK the same size: ${JSON.stringify(help)}`);
     } finally { await ctx.close(); }
   }
 });
 
-test('the first page\'s build stamp: the last game update and its date, small at the foot, one line on a phone; About has it beside the Version', async () => {
+test('the first page\'s build stamp: the last game update and its date, small at the foot, one line on a phone; the Version in its tooltip', async () => {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 667, height: 375 }, { width: 412, height: 915 }]) {
     const ctx = await browserContext({ ...(viewport.width > 900 ? DESKTOP : PHONE), viewport }), page = await ctx.newPage();
     try {
@@ -4080,10 +4061,7 @@ test('the first page\'s build stamp: the last game update and its date, small at
       const [h, line] = await stamp.evaluate(e => [e.getBoundingClientRect().height, parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3]);
       assert.ok(h <= line * 1.5, `one line: ${h} px for a ${line} px line`);
       await fitsPage(page, `${viewport.width}x${viewport.height}: the first page with its stamp`);
-      const short = text === 'dev' ? 'dev' : text.split(' · ')[1];
-      assert.equal(await page.locator('#buildCommit').textContent(), short, 'About: the same commit beside the Version');
-      assert.match(await page.locator('#menuAbout .fine').textContent(), /Version \S+ \(last game update \S+\)/, 'Version, then the last game update');
-      if (text !== 'dev') assert.match(await stamp.getAttribute('title'), /^The last game update: .+, commit [0-9a-f]{7,}$/, 'its tooltip says what it is');
+      if (text !== 'dev') assert.match(await stamp.getAttribute('title'), /^The last game update: .+, commit [0-9a-f]{7,}\. Version [0-9a-f]{12}$/, 'its tooltip says what it is, and the Version');
     } finally { await ctx.close(); }
   }
 });

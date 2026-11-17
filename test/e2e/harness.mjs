@@ -63,7 +63,7 @@ export const notIn = (engines, why) => (engines.includes(ENGINE) ? `${ENGINE_NAM
 export const IPHONE = 'its phone profile is an iPhone: no full screen for a page (the full-screen button opens the Add to Home Screen card)';
 
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.txt': 'text/plain', '.xml': 'application/xml', '.mp4': 'video/mp4', '.webm': 'video/webm' };
 
 let server, browser, base;
 export async function start() {

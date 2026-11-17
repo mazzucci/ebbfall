@@ -212,7 +212,7 @@ function raidScene({ fmt }) {
   spawn(K, 'bastion', { x: c.x + 50, y: c.y + 70 });
   // (each Drone onto a Cottage: an attack-move would turn them on the Kingdom's army, north-east of its base)
   const targets = [...cs].sort((a, b) => a.x - b.x);
-  for (let i = 0; i < 8; i++) { const id = spawn(X, 'shrike', { x: c.x - 330 - (i % 2) * 30, y: c.y - 80 + i * 22 }); eng.attackEnt(byId(id), targets[i % targets.length]); }
+  for (let i = 0; i < 8; i++) { const id = spawn(X, 'shrike', { x: Math.max(48, c.x - 240 - (i % 2) * 28), y: c.y - 80 + i * 22 }); /* (inside the map's edge) */ eng.attackEnt(byId(id), targets[i % targets.length]); }
   e.skip(0.9);
   return { c, n: cottages.length, over: G.over };
 }
@@ -319,7 +319,8 @@ export const SEGMENTS = [
     parts: [{ name: 'hold', seconds: 1.8, cam: still('look', 2.0, 2.2), at: [{ t: 0.25, run: (page) => page.evaluate(holdScatter) }], overlay: beat('HOLD', (f) => (tall(f) ? 'top:21%' : 'left:0;right:auto;width:33%')) }],
   },
   { id: 'push', as: 'vael', scene: pushScene, parts: [{ name: 'push', seconds: 1.8, cam: still('look', 1.6, 1.8), overlay: beat('PUSH') }] },
-  { id: 'raid', as: 'vael', ai: true, scene: raidScene, parts: [{ name: 'raid', seconds: 1.6, cam: (t, a, f) => ({ x: a.c.x - (tall(f) ? 40 : 70) + 20 * t, y: a.c.y + (tall(f) ? 10 : 0), zoom: tall(f) ? 1.9 : 1.7 }) }] },
+  { id: 'raid', as: 'vael', ai: true, scene: raidScene, parts: [{ name: 'raid', seconds: 1.6, cam: (t, a, f) => { const z = tall(f) ? 1.9 : 1.7, half = (tall(f) ? 270 : 480) / z + 16; // (never past the map's west edge)
+      return { x: Math.max(half, a.c.x - (tall(f) ? 40 : 70)) + 20 * t, y: a.c.y + (tall(f) ? -50 : 0), zoom: z }; } }] },
   {
     id: 'phone', as: 'humans', phone: { box: phoneBox }, scene: phoneScene,
     parts: [{

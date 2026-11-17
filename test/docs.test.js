@@ -126,6 +126,33 @@ test('every figure token names a figure, every diagram and screenshot exists (an
   assert.ok(clip.length < 2 * 1024 * 1024, `the clip is small: ${Math.round(clip.length / 1024)} KB`);
 });
 
+test('the annotated shots: each note beside its target, inside the shot, on no annotated box and on no other note', { skip }, () => {
+  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
+  for (const name of ['shot-desktop-hud', 'shot-phone-land']) {
+    const s = shots[name], keys = Object.keys(s.boxes), [hw, hh] = P.noteHalf(s.w / s.h);
+    const at = P.placeNotes(s.boxes, keys, s.w / s.h);
+    at.forEach(([cx, cy], i) => {
+      assert.ok(cx - hw >= 0 && cx + hw <= 1 && cy - hh >= 0 && cy + hh <= 1, `${name}: note ${i + 1} inside the shot`);
+      for (const [k, [x, y, w, h]] of Object.entries(s.boxes)) assert.ok(!(cx + hw > x && cx - hw < x + w && cy + hh > y && cy - hh < y + h), `${name}: note ${i + 1} clear of ${k}`);
+      const [x, y, w, h] = s.boxes[keys[i]];
+      assert.ok(Math.max(x - (cx + hw), cx - hw - (x + w), y - (cy + hh), cy - hh - (y + h)) < 0.02, `${name}: note ${i + 1} beside ${keys[i]}`);
+      at.forEach(([px, py], j) => { if (j !== i) assert.ok(Math.abs(px - cx) >= 2 * hw || Math.abs(py - cy) >= 2 * hh, `${name}: notes ${i + 1} and ${j + 1} apart`); });
+    });
+  }
+});
+
+test('the home: one media block at the top, the clip with the hero still as its poster, still under reduced motion', { skip }, () => {
+  const html = page('/docs/'), main = html.slice(html.indexOf('<main'));
+  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
+  assert.equal((main.match(/<video\b/g) || []).length, 1, 'one clip');
+  assert.ok(main.indexOf('<video') < main.indexOf('<h2'), 'at the top, before the first section');
+  assert.match(main, new RegExp(`<video src="/docs/media/${shots.trailer.file}" poster="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'the hero still as its poster');
+  assert.ok(!main.includes(`src="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'not the still again beside it');
+  assert.match(main, /muted loop playsinline/);
+  assert.match(main, /prefers-reduced-motion: reduce\)'\)\.matches\)return/, 'reduced motion: the poster only');
+  assert.equal(shots.trailer.file, 'trailer.mp4', 'the file the trailer takes over');
+});
+
 test('the crops are cut from today\'s art: each one there, and from the frames it was cut from (else run tools/docs/crops.mjs)', { skip }, () => {
   const made = S.manifest();
   const crops = S.crops();

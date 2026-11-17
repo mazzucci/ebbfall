@@ -82,20 +82,50 @@ function figure(args, first) {
   const alt = opts.alt || s.alt, caption = opts.caption || s.caption;
   const notes = Object.entries(opts).filter(([k]) => k !== 'alt' && k !== 'caption');
   for (const [k] of notes) if (!s.boxes?.[k]) throw new Error(`docs: shot ${name} has no box "${k}" (it has ${Object.keys(s.boxes || {}).join(', ')})`);
-  const marks = notes.map(([k], i) => { const [x, y, w, h] = s.boxes[k]; return `<span class="note" style="left:${((x + w / 2) * 100).toFixed(1)}%;top:${((y + h / 2) * 100).toFixed(1)}%" aria-hidden="true">${i + 1}</span>`; }).join('');
+  const at = placeNotes(s.boxes, notes.map(([k]) => k), s.w / s.h);
+  const marks = at.map(([x, y], i) => `<span class="note" style="left:${(x * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%" aria-hidden="true">${i + 1}</span>`).join('');
   const load = first ? 'fetchpriority="high"' : 'loading="lazy"';
   const img = `<picture><source media="(max-width:640px)" srcset="${SHOTS_URL}${s.files.phone}" width="${s.phoneW}" height="${s.phoneH}"><img src="${SHOTS_URL}${s.files.desktop}" width="${s.w}" height="${s.h}" alt="${esc(alt)}" ${load} decoding="async"></picture>`;
   return `<figure><div class="shot">${img}${marks}</div>${notes.length ? `<ol class="notes">${notes.map(([, l]) => `<li>${esc(l)}</li>`).join('')}</ol>` : ''}<figcaption>${esc(caption)}</figcaption></figure>`;
 }
 
-/** The gameplay clip under the home's hero, where the trailer goes: muted, looped, its poster first; played once it is
- *  in view (a phone on a slow line downloads it only then), with the browser's controls where scripts do not run. */
+/**
+ * The home's hero: the gameplay clip, muted and looped, with the hero still (`hero-home`) as its poster: the poster
+ * first, the clip played only while in view (a phone on a slow line downloads it only then), never under reduced
+ * motion (the still alone), the browser's controls where scripts do not run. The trailer takes its place later by taking
+ * its file's name (public/docs/media/trailer.mp4).
+ */
 function clip() {
-  const t = shots().trailer;
-  if (!t) return '';
-  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="/docs/media/${t.poster}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls aria-label="${esc(t.alt)}"></video></div>
-<script>(function(){var v=document.currentScript.previousElementSibling.querySelector('video');v.controls=false;if(!('IntersectionObserver' in window)){v.play().catch(function(){});return;}new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)v.play().catch(function(){});else v.pause();});}).observe(v);})();</script>
-<figcaption>Real play, recorded from the game.</figcaption></figure>`;
+  const t = shots().trailer, poster = shots()[t?.poster];
+  if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
+  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls aria-label="${esc(t.alt)}"></video></div>
+<script>(function(){var v=document.currentScript.previousElementSibling.querySelector('video');v.controls=false;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(!('IntersectionObserver' in window)){v.play().catch(function(){});return;}new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)v.play().catch(function(){});else v.pause();});}).observe(v);})();</script>
+<figcaption>${esc(poster.caption)}</figcaption></figure>`;
+}
+
+/** A numbered note's half size in shares of a shot (its width and its height), where it is largest: on a phone, 20 px
+ *  of a 360 px image (style: .note), with a 2 px gap. */
+export const noteHalf = (aspect) => { const hw = 12 / 360; return [hw, hw * aspect]; };
+
+/**
+ * Where each note goes (its center, in shares of the shot), beside its target and never on one: the first place round
+ * the target's box (to its right, left, above, below, then its corners) that lies inside the shot and clear of every
+ * annotated box and every note placed before it. `boxes`: the shot's (key -> [x, y, w, h]), `keys` in note order.
+ */
+export function placeNotes(boxes, keys, aspect) {
+  const [hw, hh] = noteHalf(aspect), all = Object.values(boxes), placed = [];
+  const hit = (cx, cy, [x, y, w, h]) => cx + hw > x && cx - hw < x + w && cy + hh > y && cy - hh < y + h;
+  return keys.map((k) => {
+    const [x, y, w, h] = boxes[k];
+    const tries = [[x + w + hw, y + h / 2], [x - hw, y + h / 2], [x + w / 2, y - hh], [x + w / 2, y + h + hh],
+      [x + w + hw, y - hh], [x - hw, y - hh], [x + w + hw, y + h + hh], [x - hw, y + h + hh]];
+    const ok = ([cx, cy]) => cx - hw >= 0 && cx + hw <= 1 && cy - hh >= 0 && cy + hh <= 1 && !all.some(b => hit(cx, cy, b))
+      && !placed.some(([px, py]) => Math.abs(px - cx) < 2 * hw && Math.abs(py - cy) < 2 * hh);
+    const p = tries.find(ok);
+    if (!p) throw new Error(`docs: no room beside "${k}" for its note`);
+    placed.push(p);
+    return p;
+  });
 }
 
 const flow = (args) => `<ol class="flow" aria-label="${esc(args.replace(/\s*>\s*/g, ', then '))}">${args.split('>').map(s => `<li><span>${esc(s.trim())}</span></li>`).join('')}</ol>`;

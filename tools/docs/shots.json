@@ -142,9 +142,9 @@
  "trailer": {
   "file": "trailer.mp4",
   "type": "video/mp4",
-  "poster": "trailer-poster.webp",
-  "w": 960,
-  "h": 540,
-  "alt": "A short clip of a battle in the game: the Kingdom against the Expedition"
+  "poster": "hero-home",
+  "w": 1000,
+  "h": 500,
+  "alt": "Real play: blue Kingdom soldiers, archers and knights meet the Expedition's sellswords, buggies and drones"
  }
 }

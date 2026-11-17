@@ -280,16 +280,16 @@ async function controls() {
  * The clip: the battle, the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's frames
  * are stepped by hand (its requestAnimationFrame taken over, each frame 1/FPS s of game time later) and screenshot one
  * by one, as software WebGL cannot draw in real time; then played back at their pace into a MediaRecorder in a blank
- * page: MP4 (H.264) where the browser records it, else WebM. The poster is its middle frame.
+ * page: MP4 (H.264) where the browser records it, else WebM. Its poster is the home's hero still (`hero-home`, the same fight from the same place, taken by `battles`).
  */
-const FPS = 24, CLIP_S = 6, CLIP_W = 960, CLIP_H = 540;
+const FPS = 24, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500;
 async function clip() {
   const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: 1 }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`);
   const frames = [];
   try {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
     const meet = await page.evaluate(battle);
-    await look(page, meet, 2); await settle(page); // (closer than the hero above it, the same fight seen another way)
+    await look(page, meet); await settle(page); // (the home's hero shot's fight and framing: that still is its poster)
     await page.evaluate(() => {
       const q = []; let t = performance.now();
       window.requestAnimationFrame = (f) => { q.push(f); return q.length; };
@@ -331,9 +331,8 @@ async function clip() {
     const ext = out.type.startsWith('video/mp4') ? 'mp4' : 'webm', bytes = Buffer.from(out.data, 'base64');
     for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer.')) rmSync(new URL(f, MEDIA));
     writeFileSync(new URL(`trailer.${ext}`, MEDIA), bytes);
-    const [p] = await encode(frames[Math.floor(frames.length / 2)], [{ name: 'poster', x: 0, y: 0, w: CLIP_W, h: CLIP_H, W: CLIP_W }]);
-    writeFileSync(new URL('trailer-poster.webp', MEDIA), Buffer.from(p.data, 'base64'));
-    manifest.trailer = { file: `trailer.${ext}`, type: out.type.split(';')[0], poster: 'trailer-poster.webp', w: CLIP_W, h: CLIP_H, alt: 'A short clip of a battle in the game: the Kingdom against the Expedition' };
+    for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer-poster')) rmSync(new URL(f, MEDIA));
+    manifest.trailer = { file: `trailer.${ext}`, type: out.type.split(';')[0], poster: 'hero-home', w: CLIP_W, h: CLIP_H, alt: 'Real play: blue Kingdom soldiers, archers and knights meet the Expedition\'s sellswords, buggies and drones' };
     writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
     console.log(`shots: clip (trailer.${ext}, ${Math.round(bytes.length / 1024)} KB)`);
   } finally { await rec.close(); }

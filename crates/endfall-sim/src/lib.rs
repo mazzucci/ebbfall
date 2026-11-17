@@ -13,6 +13,7 @@ pub mod map;
 pub mod path;
 mod rng;
 pub mod snapshot;
+pub mod summary;
 pub mod world;
 
 use data::{BldgKind, ProjKind, UNIT_KINDS, UnitKind};
@@ -41,6 +42,8 @@ pub struct Game {
     untracked: bool,
     /// A networked game: orders go out to the relay and come back scheduled (lockstep.rs).
     lock: Option<lockstep::Lockstep>,
+    /// The game summary, observed after every tick (read-only on the world: `summary.rs`).
+    summary: summary::Summary,
 }
 
 struct Replay {
@@ -53,6 +56,7 @@ impl Game {
     fn wrap(mut w: World) -> Game {
         w.record(true); // every game can be watched again
         Game {
+            summary: summary::Summary::new(&w),
             w,
             me: data::PLAYER,
             replay: None,
@@ -255,6 +259,7 @@ impl Game {
             }
         }
         self.w.step();
+        self.summary.observe(&self.w);
     }
 
     /// Watch the game played so far again from its first tick: the same setup, the logged orders on their ticks
@@ -285,6 +290,7 @@ impl Game {
         w.set_teams(&old.teams);
         w.diffs = old.diffs.clone();
         w.set_ai_seats(&old.ai_seats);
+        self.summary = summary::Summary::new(&w);
         self.w = w;
         self.replay = Some(Replay { log, next: 0, end });
         true
@@ -305,6 +311,14 @@ impl Game {
     pub fn diff_of(&self, seat: u8) -> u32 {
         self.valid_team(seat)
             .map_or(0, |s| self.w.diff_of(s) as u32)
+    }
+
+    /// The game summary so far as compact JSON (summary.rs): each seat's economy, army, production, research, attacks,
+    /// losses and what it saw of its foes, the main fights and how the game ended. Read-only; still readable once the
+    /// game is over (it stops recording then). Nothing player-facing reads it.
+    #[wasm_bindgen(js_name = summaryJson)]
+    pub fn summary_json(&self) -> String {
+        self.summary.json(&self.w, false)
     }
 
     #[wasm_bindgen(js_name = stateHash)]
@@ -814,6 +828,10 @@ impl Game {
     /// The world behind the WASM surface, for Rust-side tests and tools.
     pub fn world(&self) -> &World {
         &self.w
+    }
+    /// The game summary behind `summaryJson` (Rust-side tests and tools).
+    pub fn summary(&self) -> &summary::Summary {
+        &self.summary
     }
     /// Turn the tide on or off and start the game again with it (Rust-side tests and the balance lab; the menus play
     /// the Shore without it until the tide's clock and water are drawn).

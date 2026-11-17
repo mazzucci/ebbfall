@@ -51,6 +51,7 @@ npm run lab -- plans    # games with random AI plans (workers, first wave, expan
                         # --first-max 12:00 draws first waves up to 12:00; each first wave's value and result by bin;
                         # --tide (report too): the same batch with the tide on
                         # (--maps Shore: the Shore map's section: each people from each half, waves, routes, its gate)
+npm run lab -- summary  # one AI-vs-AI game's summary JSON (crates/endfall-sim/src/summary/; trace's flags, --out FILE)
 npm run lab -- turtle   # a Medium seat that never attacks (no waves, no raids; --raids keeps its raids) against
                         # Medium (the tide's turtle row, its baseline)
 cargo test         # Rust sim unit + gameplay tests (crates/endfall-sim/tests/gameplay/) + golden hashes, native, no WASM needed

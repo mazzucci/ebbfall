@@ -27,7 +27,10 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
 
 - `crates/endfall-sim/tests/gameplay/` (one test binary: `common.rs` helpers, then `orders`, `construction`, `economy`,
   `combat`, `leash`, `ai`, `styles`, `maps`, `mines`, `seats`, `paths`, `water`, `shore`, `tide`, `peoples`, `radio`,
-  `expedition`, `random_play`, ...): the AI styles (`styles`: each AI seat's draw at its first turn, the same for the
+  `expedition`, `summary`, `random_play`, ...): the game summary (`summary`: the same seed and orders give the same
+  summary byte for byte, it moves no state hash, a seat's view of its foe holds only what its sight showed (an enemy
+  Factory and expansion out of sight left out until a Guard walks up), a person's units come near enemy buildings make
+  an attack, a fifteen-minute game under 8 KB with every trainable unit type counted), the AI styles (`styles`: each AI seat's draw at its first turn, the same for the
   same seed, every level's styles over many games and never Easy's Pressure, nothing emitted, a forced style keeping
   the other draws, a lab plan played as it is, mirrored seats' stalled-game pushes apart, Pressure's sooner wave and
   later natural and Boom's later wave, Easy's Boom at most two top-tier units from 15:00 and its Timing none), the leash (`leash`: an idle Guard chasing a passer-by only `CHASE_LEASH` from its
@@ -143,7 +146,7 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       human's opening: a plain scripted player alone, its bank, its waits for gold and its production's
                       busy share from 1:00 to 8:00; in report), trace.rs (one game of any seats and teams, each
                       seat's gold, workers, buildings, army and AI wave state at intervals: a stall from a grind; a
-                      seat may follow a lab plan, `--plans`), bets.rs (rush, defense, tech: the 3x3), tiers.rs
+                      seat may follow a lab plan, `--plans`), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3), tiers.rs
                       (attack now or invest further: a committer at each layer, basic, mid or top, against a teching
                       opponent, the bets' tech plan or the greedy human),
                       model.rs (logistic regression by IRLS, deterministic)
@@ -276,6 +279,11 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
+  src/summary/        the game summary (`Game::summaryJson`, core.js `summary()`, `npm run lab -- summary`): each seat's
+                      economy and army every 30 s, production, research, attacks (an AI's waves, a person's units come
+                      near enemy buildings: attacks.rs), losses, what it saw of its foes by its own sight (`World::seen`),
+                      the main fights and the end, as compact JSON (json.rs) for a reader between games (the future
+                      "play against Claude"); read-only, observed after each tick, no hash moves; no UI shows it
 src/client/           everything that touches the browser
   gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop zoomed out), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what

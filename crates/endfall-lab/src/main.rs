@@ -565,8 +565,37 @@ fn read(path: &str) -> Json {
 /// --levels Medium[,Easy] --seed 3 --cap 30`; `--races` names every seat (four for four seats), `--teams 0,0,1,1`,
 /// `--side N` the seats' turn on the map (default 0).
 fn trace(args: &[String]) {
+    let (s, cap, every) = setup(args, 64, true);
+    print!("{}", trace::trace(&s, cap, every));
+}
+
+/// `summary`: one AI-vs-AI game's summary (`endfall_sim::summary`), the JSON a reader gets between games, to its end
+/// or `--cap` minutes (default 15): the flags of `trace` (default 96x96), and `--out FILE` to write it there too.
+fn summary(args: &[String]) {
+    let mut rest = Vec::new();
+    let mut out = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--out" {
+            out = Some(it.next().unwrap_or_else(|| die("--out FILE")).clone());
+        } else {
+            rest.push(a.clone());
+        }
+    }
+    let (s, cap, _) = setup(&rest, 96, false);
+    let json = trace::summary(&s, cap);
+    if let Some(path) = out {
+        std::fs::write(&path, &json).unwrap_or_else(|e| die(&format!("cannot write {path}: {e}")));
+        eprintln!("{} bytes to {path}", json.len());
+    }
+    println!("{json}");
+}
+
+/// The flags `trace` and `summary` share (`summary`: no `--every`, a 15-minute cap): the game, its cap, the trace's
+/// interval.
+fn setup(args: &[String], size: i32, every_flag: bool) -> (trace::Setup, u32, u32) {
     let mut s = trace::Setup {
-        size: 64,
+        size,
         map: MapKind::Standard,
         races: vec![0, 1],
         levels: vec![1],
@@ -575,7 +604,7 @@ fn trace(args: &[String]) {
         side: 0,
         plans: Vec::new(),
     };
-    let (mut cap, mut every) = (30, 30);
+    let (mut cap, mut every) = (if every_flag { 30 } else { 15 }, 30);
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let v = it
@@ -621,11 +650,13 @@ fn trace(args: &[String]) {
             }
             "--side" => s.side = v.parse().unwrap_or_else(|_| die("--side N")),
             "--cap" => cap = v.parse().unwrap_or_else(|_| die("--cap MINUTES")),
-            "--every" => every = v.parse().unwrap_or_else(|_| die("--every SECONDS")),
+            "--every" if every_flag => {
+                every = v.parse().unwrap_or_else(|_| die("--every SECONDS"))
+            }
             _ => die(&format!("unknown flag {a}")),
         }
     }
-    print!("{}", trace::trace(&s, cap, every));
+    (s, cap, every)
 }
 
 fn main() {
@@ -637,6 +668,7 @@ fn main() {
         Some("bets") => bets(&args[1..]),
         Some("tiers") => tiers(&args[1..]),
         Some("trace") => trace(&args[1..]),
+        Some("summary") => summary(&args[1..]),
         Some("compare") => {
             let [a, b] = &args[1..] else {
                 die("compare A.json B.json")
@@ -677,6 +709,6 @@ fn main() {
                 .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
             print!("{md}\nCSV: {}\n", path.display());
         }
-        _ => die("a command: report, compare, sheet, plans or turtle"),
+        _ => die("a command: report, compare, sheet, plans, turtle, bets, tiers, trace or summary"),
     }
 }

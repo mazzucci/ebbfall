@@ -209,6 +209,10 @@ export const replayEnd = () => game.replayEnd();
 /** The difficulty seat `seat`'s AI plays at (single player's seat list gives each its own). */
 export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }
+/** The game summary so far (crates/endfall-sim/src/summary/): each seat's economy, army, production, attacks, losses and
+ *  what it saw of its foes, the main fights and how the game ended, for a reader between games. Still readable once
+ *  `G.over`. Read-only (no hash moves); nothing player-facing shows it. */
+export function summary() { return JSON.parse(game.summaryJson()); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
  *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 3 a mine shaft (none since the re-theme), 4 a start. */
 export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);

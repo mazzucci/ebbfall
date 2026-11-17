@@ -99,6 +99,13 @@ pub struct Diff {
     /// its games end (with its waves at three or four for good, Easy against Easy, and
     /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
     pub clumsy_until: f64,
+    /// Finishing late (Easy; its style draws it between 20:00 and 23:00, `style`): from this game time, once a wave of
+    /// its has reached the foe (`Ai::reached`: a newcomer's first hit stays three or four units), its army cap
+    /// (`army_max`) no longer holds, its clumsy waves (`wave_only`) take its whole army, and its idle fighters at home join
+    /// a wave out, three or more at a time (`World::reinforce_finishing`). Two capped Easy armies of ten
+    /// traded waves of four against a home army and a tower for ever, their banks past 3,000, and nearly every Easy
+    /// against Easy game ran to the 30-minute cap (NEVER: never; every level but Easy, which has no such cap).
+    pub finish_from: f64,
     /// The most fighters it holds, home and out (armed units, workers left out; queued ones counted), by units: 0 for no
     /// cap. Easy's 14 (the PM, Nov 13), its style's draw since Nov 14, 8 to 14 a game (`style`; Stelian: "an easy player
     /// might only make a handful of units"): its army stops growing there and its gold banks; ending an Easy game is
@@ -244,6 +251,7 @@ pub const DIFF: [Diff; 4] = [
         wave_only: true,
         retreat_any: false,
         give_up: 0,
+        finish_from: 1200.0, // (its style draws it, 20:00 to 23:00, `style`)
         clumsy_until: 720.0,
         army_max: 14, // (its style draws 8 to 14 a game, `style`)
         mix_tier: 0,
@@ -309,6 +317,7 @@ pub const DIFF: [Diff; 4] = [
         wave_only: false,
         retreat_any: false,
         give_up: 4,
+        finish_from: NEVER,
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 1,
@@ -371,6 +380,7 @@ pub const DIFF: [Diff; 4] = [
         wave_only: false,
         retreat_any: false,
         give_up: 4,
+        finish_from: NEVER,
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 1,
@@ -436,6 +446,7 @@ pub const DIFF: [Diff; 4] = [
         wave_only: false,
         retreat_any: false,
         give_up: 4,
+        finish_from: NEVER,
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 2,

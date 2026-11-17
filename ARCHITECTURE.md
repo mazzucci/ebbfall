@@ -161,7 +161,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       style.rs (AI play styles, PRD: AI styles and the level ladder: Pressure, Timing, Boom, weighted
                       per level, `STYLE_WEIGHTS`, Easy never Pressure; `styled` turns a level's tuning into a style's
                       with a seat's six draws: a leaning unit, `Diff::focus`, its mix ratio at two thirds; Easy's army
-                      cap, 8 to 14, and mid tier, 10:00 to 13:00, and Boom's one or two top-tier units from 15:00,
+                      cap, 8 to 14, its finishing time, 20:00 to 23:00, and mid tier, 10:00 to 13:00, and Boom's one or two top-tier units from 15:00,
                       `top_max`; every seat's stalled-game push from 13:00 to 17:00, Hard's from 10:00 to 13:00; drawn at each AI seat's first turn
                       from the world's RNG, `World::draw_style` in ai/mod.rs, kept in its brain and read through
                       `World::tuning`; a lab plan's seat plays its plan; `World::set_ai_styles` forces one, the lab's
@@ -248,7 +248,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       12:00 and a wave of its has reached the foe (`clumsy_until`, `Ai::reached`) a wave that fell does
                       not grow the next, then each grows by one; its first wave leaves at 8:00 (no hit before it on any
                       map) and its army stops at the cap its style drew, 8 to 14 fighters (`army_max`, by units: its
-                      gold banks). A Boom seat holds its natural's price from its other buildings while it is due
+                      gold banks) until it starts finishing (`finish_from`, 20:00 to 23:00, once a wave of its has reached the foe): then the cap lifts, its
+                      waves take its whole army and its idle fighters at home join a wave out once a wave's count
+                      (`reinforce_finishing`), so Easy against Easy ends. A Boom seat holds its natural's price from its other buildings while it is due
                       (`Diff::natural_first`). A level may cap a
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for

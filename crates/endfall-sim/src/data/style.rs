@@ -49,6 +49,9 @@ pub const STYLE_WEIGHTS: [[u32; 3]; 4] = [[0, 50, 50], [15, 50, 35], [20, 40, 40
 pub const EASY_ARMY: (usize, usize) = (8, 14);
 /// When Easy climbs to the mid tier (s), drawn per game in this range (Stelian, Nov 14: 10:00 to 13:00).
 pub const EASY_MID_AT: (f64, f64) = (600.0, 780.0);
+/// When Easy starts finishing (`Diff::finish_from`), drawn per game in this range: 20:00 to 23:00, two mirrored Easy
+/// seats not on the same tick (the stalled game's draw, which Easy does not otherwise use).
+pub const EASY_FINISH_FROM: (f64, f64) = (1200.0, 1380.0);
 /// Easy's Boom: its top tier from this time (s), one or two units of it at most (`EASY_TOP`).
 pub const EASY_TOP_AT: f64 = 900.0;
 pub const EASY_TOP: (usize, usize) = (1, 2);
@@ -122,6 +125,7 @@ pub fn styled(
     if level == 0 {
         // Easy: its army cap and its climb to the mid tier drawn; the top tier only in Boom, late, one or two units.
         d.army_max = pick(u_army, EASY_ARMY.0, EASY_ARMY.1);
+        d.finish_from = pick_time(u_stall, EASY_FINISH_FROM);
         let mid = pick_time(u_mid, EASY_MID_AT);
         d.tier_at = [mid, NEVER];
         // (its raiders' factory, its vehicle bay and its techs wait for that tier: nothing they train before it)

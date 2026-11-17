@@ -1,7 +1,7 @@
 // The trailer's cut: the recorded parts (record.mjs: target/trailer/<format>/<part>.mkv) laid on each version's
 // timeline (the storyboard's shot table, 30.0 s; opening B: the black card head; the YouTube version: the end card
-// held to 0:40), the game's sound under them (sound.mjs), encoded for upload: H.264 High at 30 fps, about 20 Mb/s and
-// more, AAC 192 kb/s, BT.709. Then a contact sheet per format, one still per shot.
+// held to 0:40), the game's sound under them (sound.mjs), encoded for upload: H.264 High at 30 fps, 22 Mb/s (16 at the least:
+// the platforms re-encode from a clean source), AAC 192 kb/s, BT.709. Then a contact sheet per format, one still per shot.
 //   node tools/trailer/cut.mjs [outDir]      (default target/trailer/cut/; FFMPEG as in record.mjs)
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -48,7 +48,7 @@ async function cut(stage, name, v) {
   const filter = `${chains.join(';')};${clips.map((_, i) => `[v${i}]`).join('')}concat=n=${clips.length}:v=1:a=0,format=yuv420p[v];[${clips.length}:a]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[a]`;
   const file = `${out}/${name}.mp4`;
   run([...inputs, '-i', wavFile, '-filter_complex', filter, '-map', '[v]', '-map', '[a]', '-r', '30',
-    '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-crf', '14', '-maxrate', '40M', '-bufsize', '60M',
+    '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-b:v', '22M', '-minrate', '16M', '-maxrate', '30M', '-bufsize', '44M',
     '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv',
     '-c:a', 'aac', '-b:a', '192k', '-t', total.toFixed(3), '-movflags', '+faststart', file]);
   console.log(`cut: ${name}.mp4 (${probe(file).toFixed(2)} s, ${(statSync(file).size / 1e6).toFixed(1)} MB)`);
@@ -64,7 +64,7 @@ const SHOTS = [['1 the field', 0.7], ['2 the flash', 1.48], ['3 the line', 3.6],
 async function sheet(stage, file, video, fmt, more = []) {
   const shots = [...SHOTS.map(([l, t]) => [l, video, t]), ...more];
   const imgs = shots.map(([label, src, t], i) => {
-    const png = `${out}/.still-${i}.png`;
+    const png = fileURLToPath(new URL(`target/trailer/still-${i}.png`, root));
     run(['-ss', String(t), '-i', src, '-frames:v', '1', '-vf', `scale=${fmt === '16x9' ? 640 : 300}:-1`, png]);
     return { label, data: readFileSync(png).toString('base64') };
   });

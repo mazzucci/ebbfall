@@ -287,7 +287,7 @@ export const SEGMENTS = [
     parts: [{ name: 'hold', seconds: 1.8, cam: still('mid', 2.15, 2.4, {}, { x: -50, y: 0 }), at: [{ t: 0, run: (page) => page.evaluate(holdArchers) }], overlay: beat('HOLD') }],
   },
   { id: 'push', as: 'vael', scene: pushScene, parts: [{ name: 'push', seconds: 1.8, cam: (t, a, f) => ({ ...mix(a.up, a.path, 0.5), zoom: tall(f) ? 1.9 : 1.6 }), overlay: beat('PUSH') }] },
-  { id: 'raid', as: 'vael', ai: true, scene: raidScene, parts: [{ name: 'raid', seconds: 1.6, cam: (t, a, f) => ({ x: a.c.x - a.u.x * 210 + a.u.x * 30 * t, y: a.c.y - a.u.y * 210 + a.u.y * 30 * t, zoom: tall(f) ? 1.9 : 1.65 }) }] },
+  { id: 'raid', as: 'vael', ai: true, scene: raidScene, parts: [{ name: 'raid', seconds: 1.6, cam: (t, a, f) => ({ x: a.c.x - a.u.x * (tall(f) ? 150 : 210) + a.u.x * 30 * t, y: a.c.y - a.u.y * (tall(f) ? 150 : 210) + a.u.y * 30 * t, zoom: tall(f) ? 1.8 : 1.65 }) }] },
   {
     id: 'phone', as: 'humans', phone: { box: phoneBox }, scene: phoneScene,
     parts: [{
@@ -299,7 +299,7 @@ export const SEGMENTS = [
   {
     id: 'fight', as: 'humans', scene: fightScene,
     parts: [
-      { name: 'wide', seconds: 2.6, cam: still('meet', 1.3, 1.7, { x: -90, y: 30 }, { x: -50, y: -70 }) },
+      { name: 'wide', seconds: 2.6, cam: still('meet', 1.3, 1.7, { x: -90, y: 30 }, { x: 40, y: -70 }) },
       // (the camera drifts with the Knights: their middle, eased toward each frame)
       { name: 'close', seconds: 2.2, follow: knightsAt, cam: (t, a, f, st) => {
         const p = st.follow || a.flank; st.c = st.c ? mix(st.c, p, 0.08) : { ...p };
@@ -355,9 +355,9 @@ async function tapArmy(page, st) {
   const x = b.x + b.width / 2, y = b.y + b.height / 2; st.taps.push({ x, y, t: 0.25 });
   await page.touchscreen.tap(x, y);
 }
-/** The tap on the ground: open grass in the upper middle of the phone's map, clear of the HUD. */
+/** The tap on the ground: open grass in the upper right of the phone's map, clear of the army and the HUD. */
 async function tapGround(page, st) {
-  const p = { x: 520, y: 120 };
+  const p = { x: 770, y: 95 };
   st.taps.push({ ...p, t: 0.95 });
   await page.touchscreen.tap(p.x, p.y);
 }

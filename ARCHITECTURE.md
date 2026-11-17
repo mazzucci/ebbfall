@@ -618,7 +618,8 @@ tools/trailer/        the trailer (the 30-second storyboard), recorded in the bu
                       people it plays, its scene through the debug handle, its parts with a camera per frame, ticks per
                       frame for a time-lapse, actions, overlays); stage.mjs: the page (the sim takes orders only for its
                       own seat, so a shot plays the people it orders: `endfall.paint` keeps the Kingdom blue and the
-                      Expedition red-pink, `engine.revealAll` draws the other seat and the mines wherever they are, `endfall.bars`
+                      Expedition red-pink, `engine.revealAll` draws the other seat and the mines wherever they are (it and `endfall.fog(false)` are refused
+                      in an online game: no console map hack), `endfall.bars`
                       hides the bars over the map) and the frame clock
                       (requestAnimationFrame and performance.now taken over: a frame is 1/30 s of game time);
                       overlay.mjs: captions, the flash, the grading and the end card in the game's fonts; record.mjs:

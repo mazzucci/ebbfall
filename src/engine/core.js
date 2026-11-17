@@ -145,7 +145,11 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
+/** Whether the game running is an online (lockstep) one: set by `resetGameForSeat`, cleared by every other start. */
+let lockstep = false;
+export const inLockstep = () => lockstep;
 function fresh(g) {
+  lockstep = false;
   if (game) { try { game.free(); } catch { /* already unusable */ } }
   game = g;
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
@@ -173,6 +177,7 @@ export function resetGameForSeat(seed, map, side, races, me, { teams = [], ai = 
     Uint8Array.from(races.map((_, s) => (ai[s] ? 1 : 0))), me, size, any && diffs.length === races.length ? Uint8Array.from(diffs) : undefined);
   g.startLockstep();
   fresh(g);
+  lockstep = true; revealed = false; // (an online game: no staged-shot knobs, `revealAll`)
 }
 /** The WASM game itself (the network layer talks to it directly). */
 export const liveGame = () => game;
@@ -275,9 +280,10 @@ export function canHit(shooter, target) {
 
 let revealed = false;
 /** Tools only (the trailer's staged shots, tools/trailer): every seat's units and buildings shown and heard as if in
- *  sight, whatever this side sees. Off in play. */
-export const revealAll = (on) => { revealed = !!on; };
-export const allRevealed = () => revealed;
+ *  sight, whatever this side sees. Off in play; refused in an online game (it would be a map hack from the console):
+ *  false then, true when set. */
+export const revealAll = (on) => { if (lockstep) { revealed = false; return false; } revealed = !!on; return true; };
+export const allRevealed = () => revealed && !lockstep;
 /** Whether this client's player (seat G.me) can see this unit or building right now. G.vis is the team's sight (allies
  *  share vision, crates/endfall-sim/src/world/fog.rs): our allies' are always seen, their enemies where any of us sees. */
 export function visibleEnt(e) {

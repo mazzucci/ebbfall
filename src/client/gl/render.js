@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, allRevealed, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
@@ -733,7 +733,9 @@ function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible
 let fogTick = -1;
 /** The fog shown or not, on the map and the minimap (on, always, in a game; off only for the docs' staged screenshots,
  *  tools/docs/shots.mjs: the whole map's ground then shows, on the minimap too). */
-export const showFog = (on) => { L.fog.visible = !!on; mmAt = -Infinity; };
+/** The fog layer shown or hidden (the docs' and the trailer's staged shots); never hidden in an online game (a map hack
+ *  from the console): false then, true when set. */
+export const showFog = (on) => { if (!on && inLockstep()) return false; L.fog.visible = !!on; mmAt = -Infinity; return true; };
 /** Tools only (the trailer's staged shots): the bars over the map (health, construction, training) shown or not. */
 export const showBars = (on) => { bars.visible = !!on; };
 /** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. In sight
@@ -904,6 +906,7 @@ let lastT = 0, frameNo = 0;
 /** sel: the client's current selection; place: pending building placement or null. */
 export function render(selList, place) {
   const t = G.time, now = performance.now() / 1000, dt = Math.min(0.1, lastT ? now - lastT : 0.016); lastT = now; frameNo++;
+  if (!L.fog.visible && inLockstep()) { L.fog.visible = true; mmAt = -Infinity; } // (hidden before an online game began: back)
   const sel = new Set(selList), VW = vw(), VH = vh();
   let sx = 0, sy = 0; // (a fall's shake: only a headquarters', look.js fallShake)
   if (quake) { quake.t += dt; const a = quake.px * (1 - quake.t / quake.life); if (a <= 0) quake = null; else { sx = (Math.random() * 2 - 1) * a; sy = (Math.random() * 2 - 1) * a; } }

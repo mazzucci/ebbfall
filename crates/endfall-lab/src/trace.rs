@@ -38,8 +38,8 @@ pub fn plan_named(name: &str, race: usize) -> Option<endfall_sim::data::Diff> {
     }
 }
 
-/// The trace of `setup`'s game, a line per seat every `every` s, to its end or `cap_min` minutes.
-pub fn trace(s: &Setup, cap_min: u32, every: u32) -> String {
+/// The world `s` sets up, its AI seats ready to play (`trace`, `summary`).
+pub fn world(s: &Setup) -> World {
     let factions: Vec<_> = s.races.iter().map(|&r| FACTIONS[r]).collect();
     let n = factions.len();
     let mut w = World::with_size(
@@ -50,10 +50,7 @@ pub fn trace(s: &Setup, cap_min: u32, every: u32) -> String {
         s.side,
         &factions,
     );
-    let levels: Vec<u8> = (0..n)
-        .map(|i| *s.levels.get(i).unwrap_or(&s.levels[0]) as u8)
-        .collect();
-    assert!(w.set_diffs(&levels), "per-seat levels");
+    assert!(w.set_diffs(&levels(s)), "per-seat levels");
     let plans: Vec<Option<endfall_sim::data::Diff>> = (0..n)
         .map(|i| {
             s.plans
@@ -70,6 +67,29 @@ pub fn trace(s: &Setup, cap_min: u32, every: u32) -> String {
     if let Some(t) = &s.teams {
         assert!(w.set_teams(t), "teams");
     }
+    w
+}
+
+/// Each seat's level (the first's for seats past the list).
+fn levels(s: &Setup) -> Vec<u8> {
+    (0..s.races.len())
+        .map(|i| *s.levels.get(i).unwrap_or(&s.levels[0]) as u8)
+        .collect()
+}
+
+/// The summary of `s`'s game (`endfall_sim::summary`) as JSON: played to its end or `cap_min` minutes (a timeout).
+pub fn summary(s: &Setup, cap_min: u32) -> String {
+    let mut w = world(s);
+    let sum = endfall_sim::summary::play(&mut w, cap_min * 60 * TPS);
+    sum.json(&w, w.winner < 0)
+}
+
+/// The trace of `setup`'s game, a line per seat every `every` s, to its end or `cap_min` minutes.
+pub fn trace(s: &Setup, cap_min: u32, every: u32) -> String {
+    let factions: Vec<_> = s.races.iter().map(|&r| FACTIONS[r]).collect();
+    let n = factions.len();
+    let levels = levels(s);
+    let mut w = world(s);
     let names: Vec<String> = (0..n)
         .map(|i| {
             let plan = s.plans.get(i).cloned().flatten();

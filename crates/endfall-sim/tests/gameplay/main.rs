@@ -25,6 +25,7 @@ mod seats;
 mod shore;
 mod siege;
 mod styles;
+mod summary;
 mod tide;
 mod vision;
 mod water;

@@ -151,6 +151,8 @@ test('orders report errors and a rally point shows up on the building', { skip }
 
 test('the AI ends the game against an idle player, and events reach the client', { skip }, () => {
   E.resetGame(31337, 2);
+  assert.equal(E.summary(), null, 'no summary unless recorded');
+  E.recordSummary(true);
   let booms = 0, shots = 0;
   for (let i = 0; i < 30 * 900 && !E.G.over; i++) {
     E.step();
@@ -163,6 +165,15 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(booms >= 1, 'buildings blew up');
   assert.ok(shots >= 10, 'shots reach the client with a position and a weapon, for the sound');
   assert.ok(E.G.units.every(u => !u.dead));
+  // the game summary, read once it is over: the winner and how, each seat's record; reading it moves no hash
+  const hash = E.stateHash(), sum = E.summary();
+  assert.equal(E.stateHash(), hash, 'reading the summary changes nothing');
+  assert.deepEqual(sum.result.winning_seats, [E.ENEMY]);
+  assert.ok(['destroyed', 'helpless'].includes(sum.result.how), sum.result.how);
+  assert.equal(sum.seats.length, 2);
+  assert.ok(sum.seats[E.ENEMY].attacks.length >= 1, 'the AI\'s waves');
+  assert.ok(Object.values(sum.seats[E.ENEMY].units_trained).some(n => n > 0));
+  assert.deepEqual(E.summary(), sum, 'the same summary read twice');
 });
 
 test('out-of-range teams are rejected without poisoning the game', { skip }, () => {

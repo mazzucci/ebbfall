@@ -656,7 +656,7 @@ function fallStep(s) {
 }
 /** The ghosts of fallen buildings now (read-only, for the tests): each one's id, type, time since it fell, whether it
  *  falls as the Portal does, and its body as drawn (y, scale, opacity) with the y it fell from. */
-export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, paint: o.paint.alpha, tint: o.body.tint, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
+export const dyingShown = () => dying.map(o => ({ id: o.id, type: o.type, t: o.dying.t, portal: o.dying.plan.portal, y: o.body.y, y0: o.dying.y0[0], scaleX: o.body.scale.x, scaleY: o.body.scale.y, alpha: o.body.alpha, paint: o.paint.visible ? o.paint.alpha : null, tint: o.body.tint, shown: o.body.visible, flash: o.fallFlash?.alpha ?? 0 }));
 /** A fall's shake now: its reach (± px; look.js fallShake), dying away (read-only, for the tests). */
 export const shakeNow = () => (quake ? quake.px * Math.max(0, 1 - quake.t / quake.life) : 0);
 /** A Medic heals: a green sparkle on the patient and a faint light. */

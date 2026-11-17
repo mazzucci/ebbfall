@@ -279,7 +279,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
   src/lib.rs          the wasm-bindgen surface: Game (orders, queries, flat snapshot arrays, events)
   src/lockstep.rs     a networked Game: orders out to the relay, everyone's back on their tick (Notion: Multiplayer design)
   src/snapshot.rs     the snapshot records, each declared once (writer + field names the client reads by name)
-  src/summary/        the game summary (`Game::summaryJson`, core.js `summary()`, `npm run lab -- summary`): each seat's
+  src/summary/        the game summary (opt-in, `Game::recordSummary`; `summaryJson`, core.js `summary()`, null while
+                      off; `npm run lab -- summary`): each seat's
                       economy and army every 30 s, production, research, attacks (an AI's waves, a person's units come
                       near enemy buildings: attacks.rs), losses, what it saw of its foes by its own sight (`World::seen`),
                       the main fights and the end, as compact JSON (json.rs) for a reader between games (the future

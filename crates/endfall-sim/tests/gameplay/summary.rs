@@ -48,6 +48,7 @@ fn the_same_seed_and_orders_give_the_same_summary() {
     // A person (random orders, including nonsense) against Medium, twice: the same summary, byte for byte.
     let play = || {
         let mut g = Game::with_seats(9, 1, 0, 0, &[0, 1], &[], &[0, 1], 0, Some(96)).unwrap();
+        g.record_summary(true);
         let mut r = Mulberry32::new(77);
         for t in 0..6 * 60 * TPS {
             if t % 10 == 0 {
@@ -55,7 +56,7 @@ fn the_same_seed_and_orders_give_the_same_summary() {
             }
             g.step();
         }
-        (g.summary_json(), g.state_hash())
+        (g.summary_json().expect("recorded"), g.state_hash())
     };
     let (a, ha) = play();
     let (b, hb) = play();
@@ -88,14 +89,24 @@ fn the_summary_moves_no_state_hash() {
         b.step();
         assert_eq!(a.state_hash(), b.state_hash(), "tick {}", a.tick);
     }
-    // and through the Game: reading the summary leaves the hash
-    let mut g = Game::with_seats(4, 1, 0, 0, &[0, 1], &[], &[1, 1], 0, Some(96)).unwrap();
-    for _ in 0..60 * TPS {
-        g.step();
+    // and through the Game: recording it on or off (the default), the same hash at every tick; reading it leaves it
+    let game = || Game::with_seats(4, 1, 0, 0, &[0, 1], &[], &[1, 1], 0, Some(96)).unwrap();
+    let (mut on, mut off) = (game(), game());
+    on.record_summary(true);
+    for _ in 0..2 * 60 * TPS {
+        on.step();
+        off.step();
+        assert_eq!(on.state_hash(), off.state_hash(), "tick {}", on.tick());
     }
-    let h = g.state_hash();
-    let _ = g.summary_json();
-    assert_eq!(g.state_hash(), h);
+    assert!(off.summary_json().is_none(), "off by default: no summary");
+    let h = on.state_hash();
+    assert!(
+        on.summary_json()
+            .is_some_and(|j| j.contains("\"main_fights\":"))
+    );
+    assert_eq!(on.state_hash(), h);
+    on.record_summary(false);
+    assert!(on.summary_json().is_none(), "switched off: dropped");
 }
 
 #[test]
@@ -239,4 +250,45 @@ fn a_fifteen_minute_game_summarizes_in_under_eight_kilobytes() {
             );
         }
     }
+}
+
+/// Not a test: what the summary costs a tick against the step itself, eight Medium seats on 128x128 from 10:00 to 11:00
+/// (`cargo test --release --test gameplay summary_cost_probe -- --ignored --nocapture`; the PR's figure).
+#[test]
+#[ignore]
+fn summary_cost_probe() {
+    use std::time::{Duration, Instant};
+    let races = [
+        &HUMANS, &VAEL, &HUMANS, &VAEL, &HUMANS, &VAEL, &HUMANS, &VAEL,
+    ];
+    let mut w = World::with_size(6, 1, MapKind::Standard, MapSize::square(128), 0, &races);
+    assert!(w.set_ai_seats(vec![true; 8]));
+    let mut s = Summary::new(&w);
+    let (mut step, mut observe) = (Duration::ZERO, Duration::ZERO);
+    let ticks = 11 * 60 * TPS;
+    for t in 0..ticks {
+        let a = Instant::now();
+        w.step();
+        let b = Instant::now();
+        s.observe(&w);
+        if t >= 10 * 60 * TPS {
+            step += b - a;
+            observe += b.elapsed();
+        }
+    }
+    let n = (ticks - 10 * 60 * TPS) as f64;
+    let (st, ob) = (
+        step.as_secs_f64() * 1e6 / n,
+        observe.as_secs_f64() * 1e6 / n,
+    );
+    let a = Instant::now();
+    let json = s.json(&w, false);
+    let read = a.elapsed().as_secs_f64() * 1e6;
+    println!(
+        "8 seats, 128x128, 10:00-11:00 ({} units, {} buildings): step {st:.1} us/tick, observe {ob:.1} us/tick ({:.1}%); json {read:.0} us, {} bytes",
+        w.units.len(),
+        w.bldgs.len(),
+        100.0 * ob / st,
+        json.len()
+    );
 }

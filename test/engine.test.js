@@ -151,6 +151,8 @@ test('orders report errors and a rally point shows up on the building', { skip }
 
 test('the AI ends the game against an idle player, and events reach the client', { skip }, () => {
   E.resetGame(31337, 2);
+  assert.equal(E.summary(), null, 'no summary unless recorded');
+  E.recordSummary(true);
   let booms = 0, shots = 0;
   for (let i = 0; i < 30 * 900 && !E.G.over; i++) {
     E.step();

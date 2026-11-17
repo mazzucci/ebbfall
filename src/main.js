@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -13,7 +13,8 @@ import { initTools, updateTools, onAttacked, resetTools } from './client/tools.j
 import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { updateClock } from './client/clock.js';
-import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
+import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge } from './client/menu.js';
+import { initHelp, closeHelp } from './client/help.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { levelOf } from './engine/util.js';
@@ -33,8 +34,9 @@ let started = false;
 // record, and times the loop's phases while `probe.on`.
 const BENCH = new URLSearchParams(location.search).has('bench');
 const probe = { on: false, lap() {} };
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('options').hidden || !$('end').hidden || !$('homeTip').hidden;
-// (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('options').hidden || !$('end').hidden || !$('homeTip').hidden;
+// (an online game runs on under the menu and the leave dialog: only the relay stops a shared game; every game runs on
+// under the help sheet, help.js)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
 
@@ -57,7 +59,7 @@ function newOnlineGame(setup, seat, races) {
 }
 
 function begin(reset) {
-  $('help').hidden = true; $('options').hidden = true; ended = false; outSaid = false;
+  closeHelp(); $('options').hidden = true; ended = false; outSaid = false;
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide();
@@ -87,7 +89,7 @@ function giveUp() {
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
   giveUp(); stopOnline(); // (a leaving Net closes itself once its leave is out)
-  started = false; closePause(); $('end').hidden = true; $('help').hidden = true; $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
+  started = false; closePause(); $('end').hidden = true; closeHelp(); $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
 /** A shot fired or a blow struck (the shooter stands at the event's spot, a building at its center): a kind with
@@ -209,7 +211,7 @@ setInterval(() => {
   for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
-$('btnPauseHelp').addEventListener('click', openHelp); // How to play, over the pause menu (at its top)
+initHelp(() => !!myFaction().grid); // the ? and the pause card's HOW TO PLAY (help.js)
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;
@@ -248,7 +250,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).

@@ -938,7 +938,7 @@ test('READY waits for the game to load; a seat that never loads holds the room u
     assert.equal(await b.locator('#btnOnlineReady').textContent(), 'LOADING…', 'READY waits for the game');
     assert.ok(await b.locator('#btnOnlineReady').isDisabled());
     // A third seat by the protocol alone: a tab that readies, then never loads its game (it died, or it is very slow).
-    const build = await a.p.locator('#buildId').textContent();
+    const build = await a.p.locator('#buildStamp').getAttribute('data-build');
     c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
     await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
     c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build }));
@@ -980,7 +980,7 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       // A third seat by the protocol alone, which gives the game up before it has loaded: a seat gone.
       c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
       await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
-      c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build: await a.p.locator('#buildId').textContent() }));
+      c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build: await a.p.locator('#buildStamp').getAttribute('data-build') }));
       await a.p.waitForFunction(() => /Cy/.test(document.getElementById('onlineBoard').textContent));
       c.send(JSON.stringify({ t: 'ready', ready: true })); await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       await a.p.waitForFunction(() => endfall.online.playing, null, { polling: 250 });

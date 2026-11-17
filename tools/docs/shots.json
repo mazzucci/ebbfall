@@ -1,0 +1,150 @@
+{
+ "hero-home": {
+  "alt": "Blue Kingdom soldiers, archers and knights meet the Expedition's sellswords, buggies and drones in open country",
+  "caption": "Guards and Knights meet Sellswords and Buggies. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "hero-home-2000.webp",
+   "phone": "hero-home-720.webp"
+  },
+  "boxes": {}
+ },
+ "shot-battle": {
+  "alt": "The two armies locked in battle: the Kingdom's cannon and archers firing, the Expedition's machines answering",
+  "caption": "The lines engaged, a Cannon set up at the back. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "shot-battle-2000.webp",
+   "phone": "shot-battle-720.webp"
+  },
+  "boxes": {}
+ },
+ "hero-kingdom": {
+  "alt": "A blue Kingdom base: the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate",
+  "caption": "A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "hero-kingdom-2000.webp",
+   "phone": "hero-kingdom-720.webp"
+  },
+  "boxes": {}
+ },
+ "hero-expedition": {
+  "alt": "A blue Expedition base: the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front",
+  "caption": "An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "hero-expedition-2000.webp",
+   "phone": "hero-expedition-720.webp"
+  },
+  "boxes": {}
+ },
+ "shot-desktop-hud": {
+  "alt": "The game on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card",
+  "caption": "A Kingdom base at 3:00, a group of Guards, Archers and Knights selected. Your side plays in blue.",
+  "w": 1000,
+  "h": 625,
+  "phoneW": 360,
+  "phoneH": 225,
+  "files": {
+   "desktop": "shot-desktop-hud-2000.webp",
+   "phone": "shot-desktop-hud-720.webp"
+  },
+  "boxes": {
+   "res": [
+    0.0164,
+    0.0238,
+    0.1414,
+    0.0225
+   ],
+   "bar": [
+    0.6391,
+    0.0175,
+    0.3445,
+    0.035
+   ],
+   "minimap": [
+    0.0125,
+    0.7925,
+    0.1172,
+    0.1875
+   ],
+   "info": [
+    0.2555,
+    0.8762,
+    0.4375,
+    0.1037
+   ],
+   "cmd": [
+    0.8187,
+    0.8325,
+    0.1688,
+    0.1475
+   ],
+   "groups": [
+    0.9591,
+    0.0813,
+    0.0276,
+    0.0325
+   ]
+  }
+ },
+ "shot-phone-land": {
+  "alt": "The game on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card",
+  "caption": "The same base on a phone held sideways, the army selected.",
+  "w": 844,
+  "h": 390,
+  "phoneW": 360,
+  "phoneH": 167,
+  "files": {
+   "desktop": "shot-phone-land-1688.webp",
+   "phone": "shot-phone-land-720.webp"
+  },
+  "boxes": {
+   "select": [
+    0.0118,
+    0.5128,
+    0.0474,
+    0.1128
+   ],
+   "homearmy": [
+    0.064,
+    0.5128,
+    0.0995,
+    0.1128
+   ],
+   "minimap": [
+    0.0118,
+    0.6462,
+    0.1517,
+    0.3282
+   ],
+   "cmd": [
+    0.7393,
+    0.6615,
+    0.2488,
+    0.3128
+   ]
+  }
+ },
+ "trailer": {
+  "file": "trailer.mp4",
+  "type": "video/mp4",
+  "poster": "trailer-poster.webp",
+  "w": 960,
+  "h": 540,
+  "alt": "A short clip of a battle in the game: the Kingdom against the Expedition"
+ }
+}

@@ -731,6 +731,8 @@ const projPool = [], partPool = [];
 function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible = true; return pool[i]; }
 
 let fogTick = -1;
+/** The fog layer shown or not (on, always, in a game; off only for the docs' staged screenshots, tools/docs/shots.mjs). */
+export const showFog = (on) => { L.fog.visible = !!on; };
 /** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. In sight
  *  clear; explored but out of sight a blue-gray veil (RGB 18, 22, 34 at 0.45), the ground and what stands on it still
  *  read; never explored near-black. */

@@ -284,10 +284,7 @@ test('the grid reads as population: halved numbers, units only, Energy efficienc
   assert.equal(C.UPGRADES.energyEfficiency.desc, 'Machines cost 10% less energy per level.');
   assert.equal(C.BUILDINGS.siphon.desc, "Locals sign on here for the Expedition's pay. Hires Sellswords, and Bruisers once a Lab stands.");
   assert.equal(C.BUILDINGS.spire.desc.split(' Needs')[0], "Generates energy over time, with no workers. Each Data center's computers run up to 5.");
-  // How to play's Market rate, from the data: about one gold every 1 / PUMP_RATE seconds.
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const words = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
-  assert.match(html, new RegExp(`Market</b> earns about a gold every ${words[Math.round(1 / C.PUMP_RATE)]} seconds`));
+  // (How to play's Market rate, from the data, is the docs' now: test/docs.test.js)
 });
 
 test('the client names no seat: it plays G.me, whichever team that is', () => {

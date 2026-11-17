@@ -2,7 +2,7 @@
 // the menu's first page and from the pause card (over it: the game stays paused, and the corner keeps the pause card's
 // rule, full screen only); BACK or Esc returns to whichever opened it. Its buttons show only where some setting applies
 // to this device: NAME applies everywhere, so always (CONTROLS, for a mouse and a keyboard, only where `(pointer: fine)`).
-// While it is up the page under it is inert (ui.js `modalCards`), as under How to play. Opening it never focuses a text
+// While it is up the page under it is inert (ui.js `modalCards`). Opening it never focuses a text
 // field (a phone's keyboard would pop up): the first lit chip takes the focus, or BACK; a field only on a tap.
 import { $, modalCards } from './ui.js';
 import { chipRow } from './seats.js';
@@ -66,7 +66,7 @@ function closeOptions() {
 
 /** Wire the card and its two buttons (the menu's and the pause card's). */
 export function initOptions() {
-  settle = modalCards(['help', 'options']); // (How to play too: Tab stays in the card)
+  settle = modalCards(['options']); // (Tab stays in the card)
   for (const id of ['btnOptions', 'btnPauseOptions']) { const b = $(id); b.hidden = !anyOptions(); b.addEventListener('click', openOptions); }
   $('btnOptionsClose').addEventListener('click', closeOptions);
   // Esc closes it, before anything under it (the pause card) sees the key.

@@ -1,0 +1,176 @@
+// The docs microsite (tools/docs): built into a temporary folder from the copy, the game's data and the committed crops
+// and screenshots. Every unit and building of both peoples on its page, in the Build list's order, each figure the
+// data's (a cost, a population or grid, what it needs, its description); How to play's figures (the Market's rate, the
+// caps, the mines, the coverage) the data's; the crops cut from today's art; every screenshot the copy names made;
+// each page's head (title, description, canonical, cards, structured data); images with alt, sizes and lazy loading;
+// the sitemap and llms.txt; American English without em dashes.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const pkg = new URL('../src/engine/pkg/data.js', import.meta.url);
+const skip = !existsSync(pkg) && 'no WASM built (npm run build:wasm)';
+const C = skip ? null : await import('../src/engine/constants.js');
+const docs = skip ? null : await import('../tools/docs/build.mjs');
+const D = skip ? null : await import('../tools/docs/data.mjs');
+const S = skip ? null : await import('../tools/docs/sprites.mjs');
+const P = skip ? null : await import('../tools/docs/pages.mjs');
+
+let out = null, pages = null;
+const page = (path) => readFileSync(join(out, path, 'index.html'), 'utf8');
+if (!skip) { out = mkdtempSync(join(tmpdir(), 'ebbfall-docs-')); pages = docs.buildDocs(out, 'Version abc (last game update def)'); }
+test.after(() => out && rmSync(out, { recursive: true, force: true }));
+
+/** Each entry of a people page: { kind, cost, supply, needs, name, role, text, desc, unit }, in the page's order. */
+function entries(html) {
+  return [...html.matchAll(/<li class="(bld|unit)" id="(\w+)" data-kind="\w+" data-cost="(\d+)" data-supply="(\d+)"(?: data-needs="([^"]+)")?>([\s\S]*?)<p class="desc">([^<]*)<\/p>/g)]
+    .map(([, cls, kind, cost, supply, needs, head, desc]) => ({ unit: cls === 'unit', kind, cost: +cost, supply: +supply, needs: needs || null, head, desc: desc.replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"') }));
+}
+const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+test('every unit and building of each people is on its page, in its order, each figure the data\'s', { skip }, () => {
+  for (const [race, path] of [['humans', '/docs/kingdom/'], ['vael', '/docs/expedition/']]) {
+    const f = C.FACTIONS[race], es = entries(page(path));
+    // What the game offers, from the sim's own lists (not through the docs' code): the Build list's buildings, each
+    // followed by what it trains.
+    const want = [...new Set([f.hq, ...f.buildBasic, ...f.buildAdvanced])].flatMap(b => [b, ...(C.BUILDINGS[b].trains || [])]);
+    assert.deepEqual(es.map(e => e.kind), want, `${path}: every kind, in order`);
+    for (const e of es) {
+      const d = e.unit ? C.UNITS[e.kind] : C.BUILDINGS[e.kind];
+      assert.equal(e.cost, d.cost[0], `${e.kind}: cost`);
+      assert.equal(e.supply, d.supply || 0, `${e.kind}: places`);
+      assert.equal(e.needs, d.req ? C.BUILDINGS[d.req].name : null, `${e.kind}: needs`);
+      // The chips say the same figures the attributes do.
+      assert.match(e.head, new RegExp(`<b>${d.cost[0]}</b>`), `${e.kind}: the cost shown`);
+      if (d.supply) assert.match(e.head, new RegExp(`<em>${f.grid ? 'GRID' : 'POP'}</em><b>${e.unit ? '' : '\\+'}${d.supply}</b>`), `${e.kind}: the places shown`);
+      if (d.req) assert.match(e.head, new RegExp(`Needs an? ${C.BUILDINGS[d.req].name}<`), `${e.kind}: what it needs, shown`);
+      assert.match(e.head, new RegExp(`<h[34]>${d.name}</h[34]>`), `${e.kind}: its name`);
+      assert.ok(e.head.includes(`<span class="role">${d.what}</span>`), `${e.kind}: its role line`);
+      // The description is the game's, without the "Needs a X." the chip says.
+      assert.equal(e.desc + (d.req ? ` Needs ${/^[AEIOU]/.test(C.BUILDINGS[d.req].name) ? 'an' : 'a'} ${C.BUILDINGS[d.req].name}.` : ''), d.desc, `${e.kind}: description`);
+      assert.doesNotMatch(e.desc, /Needs an? /, `${e.kind}: the need said once`);
+    }
+  }
+});
+
+test('a kind trained nowhere (the healers) is on no page; nothing on a page is from the other people', { skip }, () => {
+  const all = pages.map(p => page(p.path)).join('');
+  for (const k of ['medic', 'halo']) assert.ok(!new RegExp(`data-kind="${k}"`).test(all), k);
+  for (const [path, other] of [['/docs/kingdom/', 'vael'], ['/docs/expedition/', 'humans']]) {
+    const mine = entries(page(path)).map(e => e.kind), f = C.FACTIONS[other];
+    const theirs = [f.hq, ...f.buildBasic, ...f.buildAdvanced].flatMap(b => [b, ...(C.BUILDINGS[b].trains || [])]);
+    assert.deepEqual(mine.filter(k => theirs.includes(k)), [], path);
+  }
+});
+
+test('How to play: its figures are the data\'s (the Market\'s rate, the caps, the mines, the coverage)', { skip }, () => {
+  const html = page('/docs/how-to-play/');
+  const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  assert.match(html, new RegExp(`Market earns about a gold every ${words[Math.round(1 / C.PUMP_RATE)]} seconds`));
+  const K = C.FACTIONS.humans, X = C.FACTIONS.vael;
+  assert.ok(html.includes(`the Castle gives ${C.BUILDINGS[K.hq].supply}, each Cottage ${C.BUILDINGS[K.supply].supply}, up to ${C.POP_MAX}`));
+  assert.ok(html.includes(`the Data center gives ${C.BUILDINGS[X.hq].supply}, each Substation ${C.BUILDINGS[X.supply].supply}, up to ${C.GRID_MAX}`));
+  assert.ok(html.includes(`Up to ${words[C.UNITS[K.worker].mineCap]} Villagers, or ${words[C.UNITS[X.worker].mineCap]} Bots, work a mine at once`));
+  assert.ok(html.includes(`Data center (${C.RADIO.sources.conflux} tiles) or an Uplink (${C.RADIO.sources.uplink} tiles)`));
+  assert.ok(html.includes(`up to ${words[C.BUILDINGS[X.market].perHq]} per Data center`));
+  // The diagrams' figures too.
+  assert.ok(html.includes(`${C.UNITS[K.worker].mineCap} Villagers at once`) && html.includes(`${C.UNITS[X.worker].mineCap} Bots at once`), 'the economy diagram');
+  assert.ok(html.includes(`Uplink: ${C.RADIO.sources.uplink} tiles`), 'the signal diagram');
+});
+
+test('every figure token names a figure, every diagram and screenshot exists (an unknown one fails the build)', { skip }, () => {
+  assert.throws(() => P.fill('{{n nope}}', {}), /no figure/);
+  assert.throws(() => P.fill('{{nope}}', {}), /unknown token/);
+  assert.throws(() => P.fill('{{diagram nope}}', {}), /no diagram/);
+  assert.throws(() => P.fill('{{figure shot-desktop-hud | nope=x}}', {}), /no box "nope"/);
+  assert.deepEqual(P.copyFiles().sort(), P.PAGES.map(([n]) => n).sort(), 'each copy file is a page');
+  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
+  for (const p of P.PAGES) {
+    const { body } = P.readCopy(p[0]);
+    for (const [, name] of body.matchAll(/\{\{\s*figure\s+([\w-]+)/g)) {
+      assert.ok(shots[name], `${p[0]}: shot ${name} made (node tools/docs/shots.mjs)`);
+      for (const f of Object.values(shots[name].files)) assert.ok(existsSync(new URL(`../public/docs/img/shots/${f}`, import.meta.url)), f);
+    }
+  }
+  assert.ok(shots.trailer && existsSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url)), 'the clip');
+  const clip = readFileSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url));
+  assert.ok(clip.length < 2 * 1024 * 1024, `the clip is small: ${Math.round(clip.length / 1024)} KB`);
+});
+
+test('the crops are cut from today\'s art: each one there, and from the frames it was cut from (else run tools/docs/crops.mjs)', { skip }, () => {
+  const made = S.manifest();
+  const crops = S.crops();
+  for (const k of D.ROSTER.flatMap(r => [...r.buildings, ...r.units])) assert.ok(crops.some(c => c.name === k), `${k}: a crop`);
+  for (const c of crops) {
+    for (const [file] of Object.values(c.files)) assert.ok(existsSync(new URL(file, S.SPRITE_DIR)), file);
+    assert.equal(made[c.name], S.sourceHash(c), `${c.name}: cut from the art as it is now`);
+  }
+});
+
+test('each page\'s head: its own title and description, canonical, cards; structured data; one h1', { skip }, () => {
+  const titles = new Set(), descs = new Set();
+  for (const p of pages) {
+    const html = page(p.path), url = `https://ebbfall.com${p.path}`;
+    const title = unesc(html.match(/<title>([^<]+)<\/title>/)[1]), desc = unesc(html.match(/<meta name="description" content="([^"]+)">/)[1]);
+    assert.ok(!titles.has(title) && !descs.has(desc), `${p.path}: its own title and description`); titles.add(title); descs.add(desc);
+    assert.ok(desc.length >= 70, `${p.path}: a description`);
+    assert.ok(html.includes(`<link rel="canonical" href="${url}">`), `${p.path}: canonical`);
+    for (const tag of ['og:title', 'og:description', 'og:image', 'og:url']) assert.match(html, new RegExp(`<meta property="${tag}" content="[^"]+">`), `${p.path}: ${tag}`);
+    for (const tag of ['twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']) assert.match(html, new RegExp(`<meta name="${tag}" content="[^"]+">`), `${p.path}: ${tag}`);
+    assert.equal((html.match(/<h1[ >]/g) || []).length, 1, `${p.path}: one h1`);
+    const ld = [...html.matchAll(/<script type="application\/ld\+json">([^<]+)<\/script>/g)].map(m => JSON.parse(m[1]));
+    if (p.path === '/docs/') {
+      const g = ld.find(d => d['@type'] === 'VideoGame');
+      assert.ok(g, 'the home: VideoGame');
+      assert.equal(g.creator.name, 'Stelian Matei');
+      assert.equal(g.offers.price, '0'); assert.equal(g.isAccessibleForFree, true); assert.equal(g.gamePlatform, 'Web browser');
+    } else {
+      const b = ld.find(d => d['@type'] === 'BreadcrumbList');
+      assert.ok(b, `${p.path}: breadcrumbs`);
+      assert.deepEqual(b.itemListElement.map(i => i.item), ['https://ebbfall.com/docs/', url]);
+    }
+    // Every page links to every other, and to the game.
+    for (const q of pages) assert.ok(html.includes(`href="${q.path}"`), `${p.path} links to ${q.path}`);
+    assert.ok(html.includes('href="/"'), `${p.path}: PLAY`);
+  }
+});
+
+test('images: alt text, width and height, WebP, lazy below the first; a phone gets its own files', { skip }, () => {
+  for (const p of pages) {
+    const html = page(p.path), imgs = [...html.matchAll(/<img\b[^>]*>/g)].map(m => m[0]);
+    assert.ok(imgs.length > 0, p.path);
+    imgs.forEach((img, i) => {
+      assert.match(img, /\swidth="\d+"/, `${p.path}: width: ${img}`);
+      assert.match(img, /\sheight="\d+"/, `${p.path}: height: ${img}`);
+      assert.match(img, /\salt="[^"]*"/, `${p.path}: alt: ${img}`);
+      assert.match(img, /src="[^"]+\.webp"/, `${p.path}: WebP: ${img}`);
+      if (i > 0) assert.match(img, /loading="lazy"/, `${p.path}: lazy: ${img}`);
+    });
+    // Alt text says something (empty only for a plate beside its own name: the home's tiles).
+    for (const img of imgs) if (!img.includes('class="pl hq"') && !img.includes('class="pl fr"')) assert.match(img, /alt="[^"]{3,}"/, `${p.path}: ${img}`);
+    for (const pic of html.matchAll(/<picture[^>]*>([\s\S]*?)<\/picture>/g)) assert.match(pic[1], /<source media="\(max-width:640px\)" srcset="[^"]+\.webp"/, `${p.path}: a phone's file`);
+  }
+});
+
+test('the sitemap lists the game and every page with a date; llms.txt links every page; robots.txt names the sitemap', { skip }, () => {
+  const sm = readFileSync(join(out, 'sitemap.xml'), 'utf8');
+  assert.deepEqual([...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]), ['https://ebbfall.com/', ...pages.map(p => `https://ebbfall.com${p.path}`)]);
+  assert.equal((sm.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g) || []).length, pages.length + 1);
+  const llms = readFileSync(join(out, 'llms.txt'), 'utf8');
+  assert.match(llms, /^# Ebbfall\n\n> /);
+  for (const p of pages) assert.ok(llms.includes(`(https://ebbfall.com${p.path})`), `llms.txt: ${p.path}`);
+  for (const n of ['Castle', 'Data center', 'Villager', 'Bot']) assert.ok(llms.includes(n), `llms.txt names the ${n}`);
+});
+
+test('the copy: American English, no em dashes, the About page names Stelian, the game\'s version', { skip }, () => {
+  for (const p of pages) {
+    const html = page(p.path);
+    assert.doesNotMatch(html, /\u2014|&mdash;/, `${p.path}: no em dash`);
+    for (const w of ['colour', 'armour', 'centre', 'licence', 'favourite', 'grey']) assert.ok(!new RegExp(`\\b${w}`, 'i').test(html.replace(/<style>[\s\S]*?<\/style>/, '')), `${p.path}: ${w}`);
+  }
+  assert.match(page('/docs/about/'), /Stelian Matei/);
+  assert.match(page('/docs/about/'), /Version abc \(last game update def\)/);
+  assert.doesNotMatch(page('/docs/'), /Made by/, 'no "Made by" in the footer');
+});

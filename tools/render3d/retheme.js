@@ -18,7 +18,7 @@ import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone, android, launcher } from './expedition-units.js';
-import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
+import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES, GANTRY_H } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
 import { POLISH } from './polish.js';
@@ -223,12 +223,20 @@ export function* rethemeSprites(want, opts = {}) {
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = `rt_gold_${st}_${v}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; }
   for (const st of MINE_STAGES) { const name = `rt_mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine (mine.js; the game's mine_<stage>): 2x2, neutral
   for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `rt_doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
-  for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of ['foundation', 'scaffold', 'rubble']) {
+  for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of Object.keys(RT_SITES[side])) {
     const name = `rt_${side}_${kind}_${n}`; if (!want(name)) continue;
-    const h = kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8;
-    const so = kind === 'scaffold' ? { ...o, shadow: false, ...(o.polish ? { polish: { ...(typeof o.polish === 'object' ? o.polish : {}), contact: { ...POLISH.contact, alpha: 0 } } } : {}) } : o; // (a scaffold casts no shadow, and under the polish no contact ellipse either: the judge saw dots at the poles' feet over the rising building)
-    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), bldgCell(n, h, lift), so, true];
+    const frame = FRAMES.has(kind), so = frame ? { ...o, shadow: false, ...(o.polish ? { polish: { ...(typeof o.polish === 'object' ? o.polish : {}), contact: { ...POLISH.contact, alpha: 0 } } } : {}) } : o; // (a frame casts no shadow, and under the polish no contact ellipse either: the judge saw dots at the poles' feet over the rising building)
+    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), siteCell(kind, n, lift), so, TEAM_SITES.has(kind)];
   }
+}
+/** The frames that stand round a rising body: no shadow, no contact ellipse (the kingdom's scaffold, the Expedition's
+ *  gantry and its head); the gantry's head alone carries no team (the pennants are on the masts). */
+const FRAMES = new Set(['scaffold', 'gantry', 'gantrybar']), TEAM_SITES = new Set(['scaffold', 'gantry']);
+/** A site sprite's cell: the kingdom's scaffold's height by size, the gantry's masts and pennants (turned: corner room),
+ *  the head flat, rubble and foundations low. */
+function siteCell(kind, n, lift) {
+  const h = kind === 'scaffold' ? 10 + n * 6 + 8 : kind === 'gantry' ? GANTRY_H[n] + 8 : kind === 'gantrybar' ? 8 : kind === 'rubble' ? 14 : 8;
+  return bldgCell(n, h, lift, kind === 'gantry' || kind === 'gantrybar' ? TURN_ROOM : 0);
 }
 
 // ---- the atlas (PR 1 of the re-theme): the new models under today's sprite names, in the approved look ----
@@ -255,10 +263,9 @@ export const ATLAS_BUILDINGS = {
  *  the Sentry gun (aimed), the turbine's rotor and the Portal's spiral (spun), the Uplink's dish (panned). */
 export const ATLAS_HEADS = { turret_head: ['kg', 'towerhead'], ward_head: ['ex', 'radiohead'], spire_head: ['ex', 'turbinehead'], uplink_head: ['ex', 'uplinkhead'], eclipse_head: ['ex', 'vortexhead'] };
 /** Construction and rubble, by the names the client picks by people (gl/render.js): the kingdom's foundation, scaffold
- *  and rubble, the Expedition's scaffold (the client's `bud`) and rubble (`rubble_vael`). The scaffolds carry team on
- *  their cloth and flags; the foundations and rubble none. */
-const ATLAS_SITES = { foundation: ['kg', 'foundation'], scaffold: ['kg', 'scaffold'], rubble: ['kg', 'rubble'], bud: ['ex', 'scaffold'], rubble_vael: ['ex', 'rubble'] };
-const siteH = (side, kind, n) => (kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8);
+ *  and rubble, the Expedition's printer gantry (`gantry_n`) with its head (`gantrybar_n`) and its rubble
+ *  (`rubble_vael`). The scaffold's cloth and the gantry's pennants carry team; the head, the foundation and rubble none. */
+const ATLAS_SITES = { foundation: ['kg', 'foundation'], scaffold: ['kg', 'scaffold'], rubble: ['kg', 'rubble'], gantry: ['ex', 'gantry'], gantrybar: ['ex', 'gantrybar'], rubble_vael: ['ex', 'rubble'] };
 
 /** Yields [name, object, cell, shootOpts, isTeam, extra] for every atlas sprite the re-theme draws (`extra`: a unit
  *  frame's `anim` and `frame`). `want(name)` filters, as main.js's. */
@@ -285,8 +292,8 @@ export function* atlasSprites(want = () => true) {
   }
   for (const [prefix, [side, kind]] of Object.entries(ATLAS_SITES)) for (const n of [2, 3, 4]) {
     const name = `${prefix}_${n}`; if (!want(name)) continue;
-    const scaffold = kind === 'scaffold', so = scaffold ? { shadow: false, polish: { contact: { ...POLISH.contact, alpha: 0 } } } : o; // (a scaffold casts no shadow and has no contact ellipse: it stands round the rising building)
-    yield [name, RT_SITES[side][kind](n, mats(side)), bldgCell(n, siteH(side, kind, n), lift), so, scaffold];
+    const so = FRAMES.has(kind) ? { shadow: false, polish: { contact: { ...POLISH.contact, alpha: 0 } } } : o; // (a frame casts no shadow and has no contact ellipse: it stands round the rising building)
+    yield [name, RT_SITES[side][kind](n, mats(side)), siteCell(kind, n, lift), so, TEAM_SITES.has(kind)];
   }
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = v ? `shard_${st}_${v}` : `shard_${st}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; } // (variant 0 keeps the plain name: the portrait's)
   for (const st of MINE_STAGES) { const name = `mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine, one per field (mine.js): drawn by nothing yet; the rules change that puts one mine per field takes it up

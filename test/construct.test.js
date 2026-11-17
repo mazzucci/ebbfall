@@ -3,18 +3,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RAW, HOLO, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, holoAlpha, budAlpha, mixColor, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP } from '../src/client/construct.js';
+import { RAW, GHOST, GANTRY, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP } from '../src/client/construct.js';
 
 const near = (a, b, msg, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 
 test('the designer\'s numbers', () => {
   assert.equal(RAW.sat, 0.3, 'saturation down about 70%');
   assert.deepEqual([RAW.cap, RAW.stages], [7, 8], 'the reveal capped at 7/8: the roof missing until done');
-  assert.equal(HOLO.tint, 0x86f0ff, 'a cold cyan hologram (more cyan than the PRD\'s 0xa0ecff: it read gray-teal over grass)');
-  assert.ok((HOLO.tint >> 16) < 0xa0 && (HOLO.tint & 255) === 0xff, 'less red, full blue');
-  assert.deepEqual([HOLO.alphaMax, HOLO.hz, HOLO.shimmer, HOLO.budMin], [0.6, 6, 0.05, 0.5]);
+  assert.equal(GHOST.tint, 0x86f0ff, 'the ghost a cold cyan (more cyan than the PRD\'s 0xa0ecff: it read gray-teal over grass)');
+  assert.ok((GHOST.tint >> 16) < 0xa0 && (GHOST.tint & 255) === 0xff, 'less red, full blue');
+  assert.deepEqual([GHOST.alpha, GHOST.hz, GHOST.shimmer], [0.2, 6, 0.03], 'faint: the outline of what is coming, not the thing (the 0.6 hologram went with the gantry)');
+  assert.deepEqual([GANTRY.rows, GANTRY.cap, GANTRY.barDrop], [64, 0.9, 2], 'the Expedition\'s body in 64 rows, the top tenth waiting for the done moment');
   assert.equal(BUILD_BAR.h, 7, 'the construction bar, taller than the 4 px hp bar');
-  assert.deepEqual([DONE.life, DONE.color, DONE.strip, DONE.roof, DONE.ring, DONE.heads], [0.5, 0.5, 0.4, 0.3, 0.3, 0.3], '0.5 s in all');
+  assert.deepEqual([DONE.life, DONE.color, DONE.strip, DONE.roof, DONE.heads], [0.5, 0.5, 0.4, 0.3, 0.3], '0.5 s in all');
   assert.deepEqual([DONE.glowUp, DONE.glowPeak, DONE.puffAt], [[0.15, 0.3], 1.25, 0.05]);
   assert.deepEqual([DONE_PUFF.fade, DONE_PUFF.life, DONE_PUFF.vy], [0.35, 0.8, -14], 'the dust: faint, 0.8 s, up at 14 px/s');
   assert.deepEqual([WORK.every, WORK.nudge, WORK.nudgeFrames, WORK.life], [0.55, 1.5, 2, 0.2]);
@@ -44,29 +45,27 @@ test('the raw color matrix: 30% saturation, brightness kept, warm; full color at
   for (const [i, v] of rawMatrix(1).entries()) near(v, [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0][i], `identity ${i}`, 1e-12);
 });
 
-test('the Expedition\'s hologram: never more than 0.6 (+ the shimmer), its bud never below half', () => {
-  for (let p = 0; p <= 1; p += 0.05) for (let t = 0; t < 1; t += 0.013) {
-    const a = holoAlpha(p, t);
-    assert.ok(a <= HOLO.alphaMax + HOLO.shimmer + 1e-12 && a >= 0.1, `alpha ${a} at ${p}`);
-  }
-  near(holoAlpha(1, 0), 0.6, 'capped');
-  near(holoAlpha(0, 0), 0.15, 'a site not yet begun: fainter');
-  near(holoAlpha(1, 1 / 24) - holoAlpha(1, 0), 0.05, 'the shimmer: ±0.05 at 6 Hz (a quarter period in 1/24 s)');
-  near(holoAlpha(1, 1 / 6), holoAlpha(1, 0), 'a full period in 1/6 s');
-  assert.equal(budAlpha(0), 1); assert.equal(budAlpha(0.9), 0.5); assert.equal(budAlpha(1), 0.5);
-  assert.equal(mixColor(HOLO.tint, 0xffffff, 0), HOLO.tint); assert.equal(mixColor(HOLO.tint, 0xffffff, 1), 0xffffff);
+test('the Expedition\'s body rises in 64 rows and stops at 90% of them until done; its ghost stays faint', () => {
+  assert.equal(solidRows(0), 1, 'the first row from the start');
+  assert.equal(solidRows(0.5), 29, 'half way: 0.5 x 0.9 x 64');
+  assert.equal(solidRows(0.999), 58, 'the top tenth never before it stands');
+  assert.equal(solidRows(1), 58);
+  let last = 0; for (let p = 0; p <= 1; p += 0.001) { const k = solidRows(p); assert.ok(k >= last && k >= 1 && k <= 58, `rows ${k} at ${p}`); last = k; }
+  for (let t = 0; t < 1; t += 0.013) { const a = ghostAlpha(t); assert.ok(a <= GHOST.alpha + GHOST.shimmer + 1e-12 && a >= GHOST.alpha - GHOST.shimmer - 1e-12, `ghost ${a}`); }
+  near(ghostAlpha(1 / 24) - ghostAlpha(0), 0.03, 'the shimmer: ±0.03 at 6 Hz (a quarter period in 1/24 s)');
+  near(ghostAlpha(1 / 6), ghostAlpha(0), 'a full period in 1/6 s');
 });
 
 test('the done moment: 0.5 s, ease-out color, the scaffold a step ahead, then over', () => {
   assert.equal(easeOutCubic(0), 0); assert.equal(easeOutCubic(1), 1); near(easeOutCubic(0.5), 0.875, 'ease-out cubic');
   assert.equal(easeInQuad(0.5), 0.25);
   const s = doneAt(0);
-  assert.deepEqual([s.color, s.strip, s.roof, s.ring, s.heads, s.over], [0, 1, 0, 1, 0, false], 't = 0: still the site\'s look');
+  assert.deepEqual([s.color, s.strip, s.roof, s.heads, s.over], [0, 1, 0, 0, false], 't = 0: still the site\'s look');
   const q = doneAt(0.25);
   near(q.color, 0.875, 'a quarter second: mostly in color'); near(q.strip, (1 - 0.25 / 0.4) ** 3, 'the scaffold nearly gone');
   near(q.roof, 1 - (1 - 0.25 / 0.3) ** 2, 'the roof nearly in'); assert.equal(q.over, false);
   const e = doneAt(0.5);
-  assert.deepEqual([e.color, e.strip, e.roof, e.ring, e.heads, e.over], [1, 0, 1, 0, 1, true], 't = 0.5: done with');
+  assert.deepEqual([e.color, e.strip, e.roof, e.heads, e.over], [1, 0, 1, 1, true], 't = 0.5: done with');
   assert.equal(doneAt(0.4).strip, 0, 'the scaffold gone by 0.4 s');
   for (let t = 0; t <= 0.5; t += 0.01) assert.ok(doneAt(t).strip <= 1 - doneAt(t).color + 1e-12, `the scaffold ahead of the paint at ${t}`);
   assert.ok(doneAt(0.26).strip < 0.06, 'next to nothing left of it at 0.26 s (no half-faded plank over the banner)');

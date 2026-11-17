@@ -308,8 +308,10 @@ src/client/           everything that touches the browser
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
                       (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`, look.js `HIT_LIFT`), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       construction you can read (construct.js): a Kingdom site raw (one shared color filter), its
-                      slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site a cyan
-                      hologram, its build bar in the hp bar's place, the half-second done moment (`BldgObj.update`,
+                      slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site its body
+                      rising in full color (64 rows, capped at 90%) under a faint cyan ghost in a printer gantry whose
+                      head rides on the solid's top (`gantry_n`, `gantrybar_n`; nothing on the ground), its build bar in
+                      the hp bar's place, the half-second done moment (`BldgObj.update`,
                       only for a site watched finish on screen), a builder's strikes (`UnitObj.work`); `sitesShown`
                       for the tests;
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
@@ -423,7 +425,8 @@ src/client/           everything that touches the browser
                       of their union) and `nearestRim` (the outline's stretch nearest a point: the leash cue)
                       (test/range.test.js)
   construct.js        construction you can read, pure: the Kingdom's raw look (`RAW`, `rawStage`, `rawMatrix`), the
-                      Expedition's hologram (`HOLO`, `holoAlpha`, `budAlpha`), the build bar, the done moment's curves
+                      Expedition's rising body under its ghost in the gantry (`GHOST`, `GANTRY`, `solidRows`,
+                      `ghostAlpha`), the build bar, the done moment's curves
                       (`DONE`, `doneAt`, `donePuffs`), a site's damage against its growing hp (`siteHurt`), a builder's
                       strikes (`WORK`, `strikeCount`, `strikeAt`, `atSite`), the cards' and the paused toast's words
                       (`builderLine`, `siteLine`, `pausedToast`, once a site a minute) (test/construct.test.js)

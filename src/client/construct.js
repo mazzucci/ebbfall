@@ -8,19 +8,25 @@
  *  scaffold's cloth says whose it is). The reveal stops at `cap` of the art's height (7 of its 8 slices), so the roof
  *  or crown is missing until the building stands. */
 export const RAW = { sat: 0.3, warm: [0.035, 0.015, -0.02], stages: 8, cap: 7 };
-/** The Expedition's site: a cold cyan hologram (`tint`), at most `alphaMax` opaque, shimmering at `hz` by ± `shimmer`;
- *  its bud never fainter than `budMin`; no seat paint. (0xa0ecff at first: gray-teal over grass at 0.6, the review.) */
-export const HOLO = { tint: 0x86f0ff, alphaMax: 0.6, hz: 6, shimmer: 0.05, budMin: 0.5 };
+/** The Expedition's site (Stelian's pick of 2026-11-17 from the site design options; until then a 0.6 hologram of the
+ *  whole building from the first second, so 10% and 90% looked alike): the building itself rises out of the ground in
+ *  full color, `rows` slices of its art, the solid reaching `cap` of its height at the last tick (the top tenth stays
+ *  ghost until the done moment, so a site at 95% still reads unfinished), under a faint cyan ghost of the whole
+ *  (`GHOST`: `tint` at `alpha`, shimmering by ± `shimmer` at `hz`), in a printer gantry (`gantry_n`) whose head
+ *  (`gantrybar_n`) sits on the solid's top row, `barDrop` px down; no seat paint until done. Nothing on the ground: the
+ *  masts' feet are the footprint, and a Bot's weld sparks say it is working. */
+export const GHOST = { tint: 0x86f0ff, alpha: 0.2, hz: 6, shimmer: 0.03 };
+export const GANTRY = { rows: 64, cap: 0.9, barDrop: 2 };
 /** While a site is unfinished its construction bar takes the hp bar's place over it, taller; the hp bar shows only if
  *  the site has taken damage. */
 export const BUILD_BAR = { h: 7, color: 0xf5a524 };
 
 /** The done moment (Stelian: subtle and elegant, not flashy): `life` s in all, then nothing. The body comes into full
- *  color and paint over `color` s; scaffold, bud and foundation fade out over `strip` s, a step ahead of it; the Kingdom's roof slice over
- *  `roof`; the Expedition's working ring over `ring`, its heads over `heads`, its lights from 0 to `glowPeak` x between
- *  `glowUp` s, then back to 1 by `life`. The Kingdom's dust: one small puff per two tiles of width along the front edge
- *  at `puffAt` s. */
-export const DONE = { life: 0.5, color: 0.5, strip: 0.4, roof: 0.3, ring: 0.3, heads: 0.3, glowUp: [0.15, 0.3], glowPeak: 1.25, puffAt: 0.05 };
+ *  color and paint over `color` s; scaffold, gantry, ghost and foundation fade out over `strip` s, a step ahead of it; the
+ *  missing top (the Kingdom's roof slice, the Expedition's top tenth) over `roof`; the Expedition's heads over `heads`,
+ *  its lights from 0 to `glowPeak` x between `glowUp` s, then back to 1 by `life`. The Kingdom's dust: one small puff
+ *  per two tiles of width along the front edge at `puffAt` s. */
+export const DONE = { life: 0.5, color: 0.5, strip: 0.4, roof: 0.3, heads: 0.3, glowUp: [0.15, 0.3], glowPeak: 1.25, puffAt: 0.05 };
 /** The Kingdom's done puffs: the hit dust (look.js HIT_DUST) at the smaller melee puff's scale, faint, drifting up. */
 export const DONE_PUFF = { scale: 1.0, fade: 0.35, life: 0.8, vy: -14 };
 
@@ -39,23 +45,17 @@ export function rawMatrix(k) {
   return [...row(0, RAW.warm[0]), ...row(1, RAW.warm[1]), ...row(2, RAW.warm[2]), 0, 0, 0, 1, 0];
 }
 
-/** The Expedition's ghost: its opacity at `progress` (fainter until a Bot has begun, more solid as it grows, never over
- *  HOLO.alphaMax), shimmering at `now` (s, the renderer's clock). */
-export const holoAlpha = (progress, now) => Math.min(HOLO.alphaMax, progress > 0 ? 0.22 + 0.6 * progress : 0.15) + HOLO.shimmer * Math.sin(now * HOLO.hz * 2 * Math.PI);
-/** The Expedition's bud: it opens as the shell inside grows, never below HOLO.budMin. */
-export const budAlpha = (progress) => Math.max(HOLO.budMin, 1 - 0.75 * progress);
-
-/** Mix of two 0xRRGGBB colors, `k` of the way from `a` to `b`. */
-export function mixColor(a, b, k) {
-  const m = (s) => Math.round((a >> s & 255) + ((b >> s & 255) - (a >> s & 255)) * unit(k));
-  return m(16) << 16 | m(8) << 8 | m(0);
-}
+/** How many of the Expedition's GANTRY.rows slices a site at `progress` (0..1) shows as solid: at least 1, at most
+ *  `cap` of them (the top tenth waits for the done moment). */
+export const solidRows = (progress) => Math.max(1, Math.min(Math.round(GANTRY.rows * GANTRY.cap), Math.round(unit(progress) * GANTRY.cap * GANTRY.rows)));
+/** The ghost's opacity at `now` (s, the renderer's clock): faint, shimmering. */
+export const ghostAlpha = (now) => GHOST.alpha + GHOST.shimmer * Math.sin(now * GHOST.hz * 2 * Math.PI);
 
 /** The done moment `t` s after the building stood: each part's share (0..1). `color`: the body's way to full color and
- *  paint; `strip`: what is left of scaffold, bud and foundation; `roof`: the Kingdom's roof slice; `ring`: what is left
- *  of the Expedition's working ring; `heads`: its portal and dish heads; `glow`: a light's strength as a multiple of its
- *  normal (the Expedition's rises past it, `glowPeak`, and settles; the Kingdom's follows `color`). `over` once it is
- *  done with (t >= DONE.life). */
+ *  paint; `strip`: what is left of scaffold, gantry, ghost and foundation; `roof`: the missing top coming in (the
+ *  Kingdom's roof slice, the Expedition's top tenth); `heads`: the Expedition's portal and dish heads; `glow`: a light's
+ *  strength as a multiple of its normal (the Expedition's rises past it, `glowPeak`, and settles; the Kingdom's follows
+ *  `color`). `over` once it is done with (t >= DONE.life). */
 export function doneAt(t, vael = false) {
   const color = easeOutCubic(unit(t / DONE.color));
   const [g0, g1] = DONE.glowUp;
@@ -64,7 +64,6 @@ export function doneAt(t, vael = false) {
     color,
     strip: 1 - easeOutCubic(unit(t / DONE.strip)), // (ahead of the paint: no half-faded plank over the new colors)
     roof: 1 - (1 - unit(t / DONE.roof)) ** 2, // (ease-out)
-    ring: 1 - easeInQuad(unit(t / DONE.ring)),
     heads: unit(t / DONE.heads),
     glow,
     over: t >= DONE.life,

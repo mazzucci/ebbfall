@@ -17,6 +17,7 @@ import { compactRifle } from './expedition.js';
 const FAM = new WeakMap();
 function fam(M) {
   if (FAM.has(M)) return FAM.get(M);
+  const haftLeather = M.leather.clone(); haftLeather.color.setHex(0x3a2c22);
   const A = {
     reflect: new THREE.MeshStandardMaterial({ color: 0xe4e6e0, metalness: 0.55, roughness: 0.2, envMapIntensity: 2.0 }), // the Mercenary's reflective tape: pale and glossy, so it catches the key and reads as hi-vis (expedition.js's `hivis` is dull in daylight)
     plate: new THREE.MeshStandardMaterial({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }),                        // the Android's white shell plates (head, chest, thighs, upper arms)
@@ -25,7 +26,7 @@ function fam(M) {
     armourMid: new THREE.MeshStandardMaterial({ color: 0x7c8086, roughness: 0.6, metalness: 0.2 }),                     // the Bruiser's armor lifted to a mid gray (the art polish; the charcoal `armour` went near black): under the sun from above the light gray plate came out as white as the Marine's helmet (round 2)
     visor: new THREE.MeshStandardMaterial({ color: 0x0c6a88, emissive: 0x28d0ff, emissiveIntensity: 1.0, metalness: 0, roughness: 0.7 }), // its cyan visor strip: the Marine's cyan, matte and dark under the glow, so the band's lit top stays cyan and not white (round 2)
     visorHalo: new THREE.MeshBasicMaterial({ color: 0x30d8ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }), // the strip's halo, cyan (the white LED halo washed the strip to white at 1x)
-    haftLeather: new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.75, metalness: 0.05 }),                // the Bruiser's hammer wrap: dark leather, a shade above `M.leather` (the boots and belt, near black) so it reads as a wrap on the pale haft and not as a gap under the head; no `team()` mark, so the mask leaves it alone
+    haftLeather,                                                                                                      // the Bruiser's leather: the hammer's wrap and its straps, dark (0x3a2c22, one step above `M.leather`'s 0x2e2622, the boots and belt, with the polish's grain: the follow-up pass of 2026-11-17; 0x5a4636, a tan band on the haft, until then); no `team()` mark, so the mask leaves it alone
   };
   FAM.set(M, A); return A;
 }
@@ -185,10 +186,12 @@ export function android(M, f) {
  *  shape: a tall charcoal plate in a pale steel frame, held out ahead and leaned back so its face shows from the camera
  *  at every facing, two wide team bands across it between ink lines (a rectangle: the Guard's shield is a round team
  *  disc); and in the right hand a big axe shouldered: a gray timber haft with a dark leather wrap, a broad pale steel head
- *  with a bright edge up over the shoulder; a team pack strip and knee pads. Wide and big on screen: clearly heavier
- *  than the Marine and the Sellsword. From the camera: a wide dark figure with a big pale-framed plate beside it and
- *  a pale axe head up over the other shoulder; team stripes on the plate. Frames 0-1 the march; 2-3 the strike poses
- *  (the hammer raised high, then chopped down in front: at the axe below). */
+ *  with a bright edge up over the shoulder; team knee pads and a team band round the pack's top (its vertical team
+ *  strip, a panel from behind, went with the follow-up pass of 2026-11-17: team on the trim only). Wide and big on
+ *  screen: clearly heavier than the Marine and the Sellsword. From the camera: a wide dark figure with a big
+ *  pale-framed plate beside it and a pale axe head up over the other shoulder; a team band on the plate. Frames 0-1
+ *  the march (the hammer tipped out at facings 11-15: at the axe below); 2-3 the strike poses (the hammer raised high,
+ *  then chopped down in front). */
 export function veteran(M, f, dir) {
   const A = fam(M), g = grp(), st = [3.0, -3.0][f % 2], pose = f >= 2 ? f - 1 : 0;          // (pose: 0 the march, 1 the wind-up, 2 the strike; retheme.js STRIKE_POSES)
   for (const side of [-1, 1]) {                                                                  // a wide stance, heavy legs in dark trousers with steel greaves; in the strike poses planted, the left a step forward
@@ -208,8 +211,7 @@ export function veteran(M, f, dir) {
   add(b, rbox(2.4, 2.2, 2.0, 0.3), M.steel, 3.4, 10.6, 0);                                      // a steel breastplate piece, local plate
   add(b, rbox(6.4, 1.0, 8.4, 0.3), M.leather, 0, 7.4, 0);                                       // the belt
   add(b, rbox(3.0, 5.6, 6.0, 0.8), A.armourMid, -4.2, 10.6, 0);                                 // the pack, mid gray
-  add(b, rbox(1.2, 5.4, 3.6, 0.2), M.paint, -5.8, 10.6, 0); add(b, rbox(1.3, 0.3, 3.8, 0.05), M.inkLine, -5.8, 13.4, 0); add(b, rbox(1.3, 0.3, 3.8, 0.05), M.inkLine, -5.8, 7.8, 0); // a team strip down the pack
-  add(b, rbox(3.2, 1.4, 6.2, 0.2), M.paint, -4.2, 13.6, 0); add(b, rbox(3.4, 0.25, 6.4, 0.05), M.inkLine, -4.2, 12.85, 0); add(b, rbox(3.4, 0.25, 6.4, 0.05), M.inkLine, -4.2, 14.35, 0); // and a team band round the pack's top, seen from above
+  add(b, rbox(3.2, 1.4, 6.2, 0.2), M.paint, -4.2, 13.6, 0); add(b, rbox(3.4, 0.25, 6.4, 0.05), M.inkLine, -4.2, 12.85, 0); add(b, rbox(3.4, 0.25, 6.4, 0.05), M.inkLine, -4.2, 14.35, 0); // a team band round the pack's top, seen from above (the strip down its back, 1.2 x 5.4 x 3.6, went: a team panel from behind)
   for (const z of [-4.6, 4.6]) {                                                                 // steel pauldrons over team pads on the upper arms
     add(b, sph(2.6, 12, 10), A.armourMid, 0.3, 13.3, z * 0.92).scale.set(1, 0.7, 1);              // (mid gray, matte: pale pauldrons beside the helmet read as a kettle hat, and polished steel caught the sky; the hammer's head is the bright block)
     add(b, cyl(2.7, 2.7, 0.3, 14), M.inkLine, 0.3, 12.4, z * 0.92);
@@ -243,8 +245,13 @@ export function veteran(M, f, dir) {
   // the hand out and down that way, the head at the right hip on open ground. At 11 (turned left) the blow goes
   // ahead and a little left, the haft level above the shoulder: low on that side the head hid behind the body and the
   // shield.
-  const yaw = awayYaw(dir), away = yaw !== 0;
-  const [AX, AY, AZ, ARX, ARZ] = [[2.4, 9.8, 4.6, 0.1, 0.5], away ? [0.0, 15.2, 5.0, 0.1, 0.45] : [0.0, 15.2, 5.0, 0.1, 0.8], dir === 11 ? [3.0, 13.0, 3.6, 0, -(Math.PI / 2 - 0.2)] : away ? [3.4, 9.4, 6.2, 0, -(Math.PI / 2 + 0.7)] : [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
+  // In the walk, seen from behind (`dir` 11-15; the walk takes the facing too since the follow-up pass of 2026-11-17,
+  // retheme.js), the shouldered head dropped onto the helmet on screen (the camera is south, 40 degrees up: at 12 the
+  // bright block stood on the helmet, at 14-15 it covered it): there the haft is tipped 0.5 rad out to the right and
+  // leaned back less (0.3 for 0.5), the hand a step out, so the head stands beside the helmet with a gap at 12-13 and
+  // over the right pauldron, the helmet's dome whole above it, at 14-15. At 0-10 the carry is as it was.
+  const yaw = awayYaw(dir), away = yaw !== 0, behind = dir >= 11 && dir <= 15;
+  const [AX, AY, AZ, ARX, ARZ] = [behind ? [2.4, 9.8, 5.2, 0.5, 0.3] : [2.4, 9.8, 4.6, 0.1, 0.5], away ? [0.0, 15.2, 5.0, 0.1, 0.45] : [0.0, 15.2, 5.0, 0.1, 0.8], dir === 11 ? [3.0, 13.0, 3.6, 0, -(Math.PI / 2 - 0.2)] : away ? [3.4, 9.4, 6.2, 0, -(Math.PI / 2 + 0.7)] : [4.6, 10.6, 4.4, 0, -(Math.PI / 2 + 0.52)]][pose]; // the hand, the haft's lean out and back
   const ax = grp(); ax.position.set(AX, AY, AZ); ax.rotation.set(ARX, pose === 2 && away ? (dir === 11 ? 0.3 : yaw - 0.4) : 0, ARZ); b.add(ax);
   add(ax, cyl(0.95, 1.05, 13, 8), M.oakPale, 0, 5.0, 0);                                        // the haft (2.7 px wide at zoom 1.0)
   const wy = pose ? 4.6 : 5.6;                                                                    // the wrap up the haft, above the hand (at the grip the hand hid it); in the strike poses a step lower, so bare haft shows between it and the head
@@ -254,12 +261,11 @@ export function veteran(M, f, dir) {
   add(ax, rbox(7.2, 0.4, 4.6, 0.1), M.inkLine, 0.4, 8.85, 0);                                    // an ink line under it
   if (pose === 0) add(ax, cyl(1.2, 1.2, 2.6, 8), M.steel, 0, 8.3, 0);                            // the eye round the haft (dark steel, against the pauldron on the march)
   else add(ax, cyl(1.2, 1.2, 2.0, 8), M.paleSteel, 0, 8.4, 0);                                   // in the strike poses pale and shorter: over open ground the dark eye read as a gap between the wrap and the head, the head detached
-  if (pose === 0) { limb(b, [0.6, 11.8, 4.4], [2.2, 9.6, 4.6], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, 2.4, 9.4, 4.7); } // the axe arm and gloved hand
-  else { limb(b, [0.6, 11.8, 4.4], [AX - 0.2, AY - 0.2, AZ], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, AX, AY - 0.4, AZ + 0.1); }
+  limb(b, [0.6, 11.8, 4.4], [AX - 0.2, AY - 0.2, AZ], 1.35, M.canvasLocal); add(b, sph(1.0, 8, 6), M.armour, AX, AY - 0.4, AZ + 0.1); // the axe arm and gloved hand, to the hand of the pose
   if (M.polish) { // secondary detail (the polish pass): the pack's straps down the carrier's front, a belt buckle, leather straps from the pauldrons over the coat's shoulders, steel bolts at the shield frame's corners, rivets on the axe's eye (no ink cuffs: the heavy's arms are short, and cuffs landed on the upper-arm team bands)
-    for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), M.joint, 3.5, 10.9, z, 0, 0, -0.2);  // (joint, darker than the charcoal carrier, as the Marine's armor straps are darker than its camo)
+    for (const z of [-2.2, 2.2]) add(b, rbox(0.9, 3.4, 1.1, 0.3), A.haftLeather, 3.5, 10.9, z, 0, 0, -0.2);  // (the dark leather, darker than the carrier, as the Marine's armor straps are darker than its camo)
     add(b, rbox(1.4, 1.2, 0.6, 0.1), M.steel, 3.3, 7.4, 0);
-    for (const z of [-2.6, 2.6]) add(b, rbox(1.0, 0.6, 2.4, 0.1), M.leather, 0.6, 13.85, z);
+    for (const z of [-2.6, 2.6]) add(b, rbox(1.0, 0.6, 2.4, 0.1), A.haftLeather, 0.6, 13.85, z);
     for (const [y, z] of [[1.0 + SH / 2, -SW / 2 + 0.5], [1.0 + SH / 2, SW / 2 - 0.5], [1.0 - SH / 2, -SW / 2 + 0.5], [1.0 - SH / 2, SW / 2 - 0.5]]) add(sh, sph(0.55, 8, 6), M.steel, 0.65, y, z);
     for (const dy of [-1.2, 1.2]) add(ax, sph(0.45, 8, 6), M.joint, 0.4 + dy, 11.0, 2.3);
   }

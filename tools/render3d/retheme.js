@@ -100,8 +100,9 @@ function head(b, mats, dir) {
  *  or chopped; only the weapon arm moves, the feet planted, the body and the anchor where they stand. Not in the walk
  *  animation (nor the drawn height, generate.mjs `unitTops`, which is the walk's). The strike poses alone get the
  *  facing as the builder's third argument: seen from behind (11-13) the weapon swings out to the side instead of into
- *  depth (models.js `awayYaw`: to the left at 11, to the right at 12 and 13); the walk's frames are built without it,
- *  the same at every facing. */
+ *  depth (models.js `awayYaw`: to the left at 11, to the right at 12 and 13). The walk's frames get the facing too
+ *  (since 2026-11-17: the Bruiser tips its shouldered hammer out at 11-15, where it dropped onto the helmet); every
+ *  other builder ignores it in the walk, the same at every facing. */
 export const STRIKE_POSES = [[2, 'wind'], [3, 'strike']];
 /** A strike pose's cell: the walk's grown `STRIKE_ROOM` world units on every side (a thrust reaches past the walk's
  *  cell), its shadow cast at the walk cell's reach (scene.js `shadowR`) so the body's shadow is the walk's, and its
@@ -195,7 +196,7 @@ export function* rethemeSprites(want, opts = {}) {
       const cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
       for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
         const name = `${side}_${kind}_${dir}_${f}`; if (!want(name)) continue;
-        const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+        const obj = m.build(mats(), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
         yield [name, obj, cell, m.shot && ou.polish ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true];
       }
       if (m.strike) for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
@@ -277,7 +278,7 @@ export function* atlasSprites(want = () => true) {
     const m = RT_UNITS[side][model], cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
       const name = `${kind}_${dir}_${f}`; if (!want(name)) continue;
-      const obj = m.build(mats(side), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+      const obj = m.build(mats(side), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
       yield [name, obj, cell, m.shot ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true, { anim: `${kind}_${dir}`, frame: f }];
     }
   }

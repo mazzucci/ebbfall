@@ -701,32 +701,37 @@ mod tests {
     #[test]
     fn medium_s_and_hard_s_kingdom_take_their_natural_later_on_bigger_maps_the_expedition_as_ever()
     {
-        // `Diff::expand_at_of` (Nov 13): on Medium and Hard the Kingdom takes its natural at 8:00 on maps up to 96 wide
-        // and at 10:00 on bigger ones; the Expedition at its level's `expand_at`, as does every people on Easy.
-        for (size, kingdom) in [(96, 480.0), (128, 600.0)] {
-            for level in [1, 2] {
-                let mut w = World::with_size(
-                    1,
-                    level,
-                    crate::map::MapKind::Standard,
-                    crate::map::MapSize::square(size),
-                    0,
-                    &[&HUMANS, &VAEL],
-                );
-                assert!(w.set_diffs(&[level as u8, level as u8]));
-                w.ai_turn = PLAYER;
-                assert_eq!(
-                    w.expand_time(PLAYER),
-                    kingdom,
-                    "{size}, level {level}: the Kingdom"
-                );
-                w.ai_turn = ENEMY;
-                assert_eq!(
-                    w.expand_time(ENEMY),
-                    DIFF[level].expand_at,
-                    "the Expedition"
-                );
-            }
+        // `Diff::expand_at_of` (Nov 13): on Medium and Hard the Kingdom takes its natural later than the Expedition, on
+        // maps up to 96 wide and on bigger ones: Hard at 8:00 and 10:00, Medium at 8:15 and 11:00 since Nov 17 (with the
+        // mines spaced out, Medium's Kingdom won half its games at 8:00 and 10:00); the Expedition at its level's
+        // `expand_at`, as does every people on Easy.
+        for (size, level, kingdom) in [
+            (96, 1, 495.0),
+            (128, 1, 660.0),
+            (96, 2, 480.0),
+            (128, 2, 600.0),
+        ] {
+            let mut w = World::with_size(
+                1,
+                level,
+                crate::map::MapKind::Standard,
+                crate::map::MapSize::square(size),
+                0,
+                &[&HUMANS, &VAEL],
+            );
+            assert!(w.set_diffs(&[level as u8, level as u8]));
+            w.ai_turn = PLAYER;
+            assert_eq!(
+                w.expand_time(PLAYER),
+                kingdom,
+                "{size}, level {level}: the Kingdom"
+            );
+            w.ai_turn = ENEMY;
+            assert_eq!(
+                w.expand_time(ENEMY),
+                DIFF[level].expand_at,
+                "the Expedition"
+            );
         }
         let w = World::with_setup(1, 0, crate::map::MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert_eq!(w.expand_time(PLAYER), DIFF[0].expand_at, "Easy as ever");

@@ -275,7 +275,8 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 // (the first re-pinned Nov 17: Medium's Kingdom takes its natural at 8:15 on maps up to 96 wide, 8:00 before)
 const EXPECTED_RESULTS: [&str; 3] = [
     "41/45/26/0 lost_to 45 | 50/26/45/7 lost_to 26 | over true winner 1 conceded -1 at 20393",
-    "140/144/80/2 lost_to 144 | 146/80/144/19 lost_to 80 | over true winner 1 conceded -1 at 33021",
+    // (re-pinned Nov 17: late in the game no home reserve stays back against a beaten foe, `tend_reserve`)
+    "144/147/101/2 lost_to 147 | 155/101/147/16 lost_to 101 | over true winner 1 conceded -1 at 34021",
     "1/5/0/0 lost_to 5 | 25/0/5/1 lost_to 0 | over true winner 1 conceded -1 at 10314",
 ];
 

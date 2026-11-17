@@ -1099,14 +1099,11 @@ impl World {
     /// fourteen fighters for six minutes, its reserve and expansion guards keeping the wave short of thirteen, while
     /// its foe had one Sellsword).
     fn crushing(&self, army: &[Id], need: usize, t: f64) -> bool {
-        let (seen, when, mine_then) = self.ai().army_seen;
-        if army.len() * 2 < need || when <= 0.0 {
+        if army.len() * 2 < need {
             return false;
         }
-        let expected = if t - when <= self.level().sighting_age {
-            seen
-        } else {
-            seen + (self.own_army_worth(self.seat()) - mine_then).max(0.0)
+        let Some(expected) = self.foe_expected(t) else {
+            return false;
         };
         let mine: f64 = army
             .iter()
@@ -1115,6 +1112,30 @@ impl World {
             .map(|u| army_worth(u.kind))
             .sum();
         mine >= CRUSH * expected
+    }
+
+    /// The enemy army it expects (None: never seen): its last sighting, a stale one (older than `sighting_age`) plus
+    /// what its own army has grown since.
+    fn foe_expected(&self, t: f64) -> Option<f64> {
+        let (seen, when, mine_then) = self.ai().army_seen;
+        if when <= 0.0 {
+            return None;
+        }
+        Some(if t - when <= self.level().sighting_age {
+            seen
+        } else {
+            seen + (self.own_army_worth(self.seat()) - mine_then).max(0.0)
+        })
+    }
+
+    /// Whether, late in the game (from its stalled game's `Diff::stall_from`), its whole army crushes the enemy army it
+    /// expects (`CRUSH` times its worth, a sighting at all): a beaten foe, against which it keeps no home reserve
+    /// (`tend_reserve`).
+    fn foe_beaten(&self, t: f64) -> bool {
+        t >= self.level().stall_from
+            && self
+                .foe_expected(t)
+                .is_some_and(|e| self.own_army_worth(self.seat()) >= CRUSH * e.max(1.0))
     }
 
     /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defense): a wave ready by count and time waits until
@@ -1213,7 +1234,14 @@ impl World {
         let seat = self.seat();
         let share = self.level().reserve;
         let pushing = self.ai().stall && self.level().push_all;
-        if share <= 0.0 || self.at_cap(self.seat()) || !self.passive_foe(t) || pushing {
+        // (and none against a beaten foe: a foe with no army to come at it is passive too, and a quarter of a winning
+        // army kept home against it let the foe's rebuilt Castles stand past the 30-minute cap)
+        if share <= 0.0
+            || self.at_cap(self.seat())
+            || !self.passive_foe(t)
+            || pushing
+            || self.foe_beaten(t)
+        {
             self.ai_mut().reserve.clear();
             return army;
         }
@@ -2756,6 +2784,46 @@ mod tests {
             w.ai().stall && !w.ai().reserve.is_empty(),
             "Medium's keeps its reserve"
         );
+    }
+
+    #[test]
+    fn late_in_the_game_no_reserve_stays_home_against_a_beaten_foe() {
+        // Nov 17 (Medium's games past the 30-minute cap): a foe with no army to come at it is passive, so a quarter of a
+        // winning army stayed home while a few units hunted the foe's rebuilt Castles, and the game ran out the clock.
+        // From its stalled game's `Diff::stall_from` on (15:00 here), with its whole army `CRUSH` times what it expects
+        // of the foe's (none seen), the reserve goes too; before then it keeps its reserve as ever.
+        let plan = Diff {
+            reserve: 0.25,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        };
+        assert_eq!(plan.stall_from, 900.0);
+        for (t, kept) in [(800.0, true), (1000.0, false)] {
+            let (mut w, _, mut b) = ready_with(1, plan);
+            let ai = w.ai_mut();
+            ai.came_at = 0.0; // (a passive foe)
+            ai.wave = 7;
+            ai.army_seen = (0.0, t - 10.0, 0.0); // (its army just seen: nothing)
+            w.time = t;
+            b.t = t;
+            w.ai_army(&mut b);
+            assert_eq!(
+                !w.ai().reserve.is_empty(),
+                kept,
+                "at {t} s against a beaten foe: reserve kept {kept}"
+            );
+            assert!(w.ai().attacking, "at {t} s its wave goes for what is left");
+        }
+        // Late, against a foe that still has an army worth a third of its own or more, the reserve stays home.
+        let (mut w, _, mut b) = ready_with(1, plan);
+        let ai = w.ai_mut();
+        ai.came_at = 0.0;
+        ai.wave = 7;
+        ai.army_seen = (4.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(!w.ai().reserve.is_empty(), "not a beaten foe: reserve kept");
     }
 
     #[test]

@@ -361,16 +361,34 @@ export function foundationEx(n, E) {
   }
   return g;
 }
-/** The Expedition's scaffold (`rt_ex_scaffold_n`): timber poles lashed with rope, two ledgers, a plank walk, and a
- *  hoist at one corner: a tall mast with a jib, a steel pulley, a cable down to a crate on the hook; a team flag on
- *  the mast, a team cloth hung on the east side. No shadow. */
-export function scaffoldEx(n, E) {
-  const g = grp(), W = n * 32 - 8, H = 10 + n * 6, C = cm(E.polish); s = 181 + n;
-  const h = poles(g, n, W, H, C.postWhite, null, !!E.polish);                                                             // white steel posts and ledgers, no lashings (the art polish, 2026-11-13: the wooden scaffold with its hoist, cables and crate went; polish: a ladder on the south face)
-  add(g, rbox(W * 0.72, 0.6, 3.6, 0.1), E.deck, 0, H + 0.9, -h + 1.2);                                                   // the plank walk
-  add(g, rbox(W + 2, 0.7, 0.7, 0.2), C.strip, 0, H + 0.95, h + 0.9); add(g, rbox(W + 2.4, 1.8, 1.8, 0.4), C.stripHalo, 0, H + 0.95, h + 0.9); // the strip light along the south ledger, cyan
-  for (const x of [-h, h]) { add(g, rbox(0.7, 0.7, W * 0.6, 0.2), C.strip, x + (x < 0 ? -0.9 : 0.9), H + 0.95, 0); add(g, rbox(1.8, 1.8, W * 0.6, 0.4), C.stripHalo, x + (x < 0 ? -0.9 : 0.9), H + 0.95, 0); } // and along the east and west ledgers
-  pennant(g, E, -h, H + 2.1, -h); pennant(g, E, h - 8.2, H + 2.1, -h);                                                   // two team pennants on the north posts
+/** The Expedition's construction frame is a printer gantry (Stelian's pick, 2026-11-17, from the site design options;
+ *  the white-steel scaffold with a plank walk and a ladder went: medieval in shape): `rt_ex_gantry_n`, four square
+ *  white-steel masts at the footprint's corners on dark feet under dark caps, a rail along the east and west tops, two
+ *  team pennants on the north masts; the body rises inside it in full color (gl/render.js). Turned 20 degrees like the
+ *  Expedition's buildings (square-on, the four posts overlap into two lines) and fitted to the footprint. No shadow. */
+const GANTRY_YAW = -20 * Math.PI / 180, GANTRY_FIT = 0.86;
+/** The masts' height by footprint: over the tallest building of that size. */
+export const GANTRY_H = { 2: 44, 3: 56, 4: 72 };
+export function gantryEx(n, E) {
+  const g = grp(), W = n * 32 - 8, h = W / 2, H = GANTRY_H[n], C = cm(E.polish);
+  for (const [x, z] of [[-h, -h], [h, -h], [-h, h], [h, h]]) {
+    add(g, rbox(3.4, H, 3.4, 0.4), C.postWhite, x, H / 2, z);                                                            // the mast (about 3 px at 1x after the fit)
+    add(g, rbox(6, 1.4, 6, 0.3), E.panelDark, x, 0.7, z);                                                                // its foot
+    add(g, rbox(4.4, 2, 4.4, 0.5), E.panelDark, x, H + 1, z);                                                            // its cap
+  }
+  for (const x of [-h, h]) add(g, rbox(2.4, 2.4, W + 3.4, 0.4), C.postWhite, x, H - 1.2, 0);                             // the head's rails, east and west
+  pennant(g, E, -h, H + 2, -h); pennant(g, E, h - 8.2, H + 2, -h);
+  g.rotation.y = GANTRY_YAW; g.scale.setScalar(GANTRY_FIT);
+  return g;
+}
+/** The gantry's print head (`rt_ex_gantrybar_n`): a pale steel beam across the footprint on two dark carriages, a cyan
+ *  strip under it. Drawn at ground level: the client sets it on the top of the rising body. No shadow. */
+export function gantryBarEx(n, E) {
+  const g = grp(), W = n * 32 - 8, h = W / 2, C = cm(E.polish);
+  add(g, rbox(W + 4, 4, 4.6, 0.6), E.paleSteel, 0, 3.4, 0);                                                              // the beam, a solid bar at 1x
+  for (const x of [-h, h]) add(g, rbox(5.6, 5, 6.2, 0.6), E.panelDark, x, 3.2, 0);                                        // the carriages on the rails
+  add(g, rbox(W - 2, 1, 1.4, 0.3), C.strip, 0, 1.2, 0.4); add(g, rbox(W - 1, 2.6, 3.2, 0.6), C.stripHalo, 0, 1.2, 0.4);   // the strip under it, cyan, lit until the last tick
+  g.rotation.y = GANTRY_YAW; g.scale.setScalar(GANTRY_FIT);
   return g;
 }
 /** The Expedition's rubble (`rt_ex_rubble_n`): broken planks, a bent panel or two, loops of cable, a drum on its side,
@@ -394,5 +412,5 @@ export function rubbleEx(n, E) {
   for (let k = 0; k < n + 2; k++) add(g, rbox(5 + rnd() * 3, 2.4, 3.2, 0.3), E.stone, sp(), 1.2, sp(), 0, rnd() * 3, (rnd() - 0.5) * 0.4);
   return g;
 }
-export const RT_SITES = { kg: { foundation: foundationKg, scaffold: scaffoldKg, rubble: rubbleKg }, ex: { foundation: foundationEx, scaffold: scaffoldEx, rubble: rubbleEx } };
+export const RT_SITES = { kg: { foundation: foundationKg, scaffold: scaffoldKg, rubble: rubbleKg }, ex: { foundation: foundationEx, gantry: gantryEx, gantrybar: gantryBarEx, rubble: rubbleEx } };
 void cone;

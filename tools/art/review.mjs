@@ -127,13 +127,13 @@ FAMILIES.vbld = {
 // (`palette.png`, its grayscale `palette-grey.png`, and `palette@2x.png`, atlas px), beside the usual contact sheet, the
 // phone sheets and a battle of a whole Vael base and army against the Harbor.
 FAMILIES['vael-palette'] = {
-  filter: '^harvester_(0|1|2|14)_[01]$|^trooper_[01]_[0-3]$|^(lumen|prism|scythe|halo|monolith|umbra|shrike)_\\d+_\\d+$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|eclipse)$|^(bud|rubble_vael)_[234]$|^shard_\\d$',
+  filter: '^harvester_(0|1|2|14)_[01]$|^trooper_[01]_[0-3]$|^(lumen|prism|scythe|halo|monolith|umbra|shrike)_\\d+_\\d+$|^bldg_(core|conflux|spire|siphon|kiln|loom|ward|eclipse)$|^(gantry|rubble_vael)_[234]$|^shard_\\d$',
   units: { lumen: [0], prism: [0], scythe: [0], halo: [0], monolith: [0], umbra: [0, 1], shrike: [0] }, rows: VBLD.map(([k]) => `bldg_${k}`),
   shares: [...FAMILIES['vael-units'].shares, ...VBLD.map(([k]) => `bldg_${k}`)],
   phone: FAMILIES['vael-units'].phone, turned: FAMILIES['vael-units'].turned,
   blind: [],
   vael: (cx, cy) => [...FAMILIES.vbld.vael(cx, cy), ...FAMILIES['vael-units'].vael(cx, cy).filter(([n]) => !n.startsWith('bldg_')).map(([n, x, y, s]) => [n, x - 260, y + 120, s])],
-  paletteSheet: { units: VAEL.map(([k]) => k), poses: [], bldgs: VBLD.map(([k]) => `bldg_${k}`), extra: ['bud_2', 'bud_3', 'bud_4', 'rubble_vael_3'] },
+  paletteSheet: { units: VAEL.map(([k]) => k), poses: [], bldgs: VBLD.map(([k]) => `bldg_${k}`), extra: ['gantry_2', 'gantry_3', 'gantry_4', 'rubble_vael_3'] },
 };
 function sliceVael(cx, cy) {
   const list = [['bldg_conflux', cx + 540, cy - 80, 1]];

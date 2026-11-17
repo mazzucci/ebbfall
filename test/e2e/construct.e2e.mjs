@@ -1,11 +1,12 @@
 // Construction you can read (src/client/construct.js; Notion: "PRD: construction you can read"), through the real UI:
-// a site looks unfinished until done (the Kingdom's raw and roofless, the Expedition's a cyan hologram) under a build
+// a site looks unfinished until done (the Kingdom's raw and roofless, the Expedition's rising in its printer gantry under
+// a faint ghost, its top tenth missing) under a build
 // bar in the hp bar's place, both cards say how far along it is, a builder strikes while it works, a site left with no
 // builder toasts once, and a finished building comes into full color over half a second. Run: npm run build && npm
 // run test:e2e (or this file alone: node --test test/e2e/construct.e2e.mjs).
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { HOLO, RAW, BUILD_BAR } from '../../src/client/construct.js';
+import { GHOST, GANTRY, RAW, BUILD_BAR } from '../../src/client/construct.js';
 import { test, start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
 
 const SMALL = { ...PHONE, viewport: { width: 667, height: 375 } }; // (iPhone SE class: the console hides its status line)
@@ -35,7 +36,7 @@ const watchDone = (d, id, ms = 8000) => d.eval(([id, ms]) => new Promise(resolve
   const seen = [], t0 = performance.now();
   const tick = () => {
     const o = endfall.sites().bldgs.find(x => x.id === id);
-    if (o) seen.push({ look: o.look, fadeT: o.fadeT, paint: o.paint, sat: o.sat, tint: o.tint, alpha: o.alpha, roof: o.roof, height: o.height, fullHeight: o.fullHeight, scaffold: o.scaffold, bars: o.bars.map(b => b.bar) });
+    if (o) seen.push({ look: o.look, fadeT: o.fadeT, paint: o.paint, sat: o.sat, tint: o.tint, alpha: o.alpha, roof: o.roof, height: o.height, fullHeight: o.fullHeight, scaffold: o.scaffold, bar: o.bar, ghost: o.ghost, bars: o.bars.map(b => b.bar) });
     const fadedAndDone = seen.some(s => s.look === 'fade') && seen.at(-1)?.look === 'full';
     if (fadedAndDone || performance.now() - t0 > ms) resolve(seen); else requestAnimationFrame(tick);
   };
@@ -50,6 +51,7 @@ test('a Kingdom site reads unfinished: raw, roofless, its build bar on top; both
     const b = (await d.state()).bldgs.find(x => x.id === id);
     await d.centerOn(b.x, b.y);
     await d.page.waitForTimeout(300);
+    await d.page.waitForFunction((id) => endfall.sites().bldgs.some(o => o.id === id), id, { timeout: 10000 }); // (a frame drawn with it in view: the first page of a run can be slow to its first frame)
     const o = await drawn(d, id);
     assert.equal(o.look, 'raw', 'the Kingdom\'s raw site');
     assert.ok(Math.abs(o.sat - RAW.sat) < 1e-6, `desaturated: ${o.sat}`);
@@ -108,7 +110,26 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
   } finally { await d.close(); }
 });
 
-test('an Expedition site is a cold cyan hologram in a bud; its Bot\'s card says how far; it fades into full color', async () => {
+/** Pixels of the frame round a site's lower half that are today's old working ring's orange (0xffa070 / 0xff9a5c over
+ *  grass): a screenshot of the canvas clipped to the footprint's bottom half and a tile below it, the build bar left
+ *  out, counted by hue. The Bot's gold cargo and the build bar's 0xf5a524 are yellower; the grass, the masts and the
+ *  cyan are nowhere near. */
+async function orangeBelow(d, b) {
+  const box = await d.page.locator('#game').boundingBox(), c = await d.eval(() => ({ x: endfall.cam.x, y: endfall.cam.y, z: endfall.cam.zoom }));
+  const sx = (wx) => box.x + (wx - c.x) * c.z, sy = (wy) => box.y + (wy - c.y) * c.z, T = 32;
+  const clip = { x: sx(b.tx * T - T), y: sy(b.y), width: (b.w + 2) * T * c.z, height: ((b.h / 2) + 1.5) * T * c.z };
+  const png = await d.page.screenshot({ clip });
+  return d.eval((data) => new Promise((res) => {
+    const im = new Image(); im.onload = () => {
+      const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const g = cv.getContext('2d'); g.drawImage(im, 0, 0);
+      const p = g.getImageData(0, 0, cv.width, cv.height).data; let n = 0;
+      for (let i = 0; i < p.length; i += 4) if (p[i] > 220 && p[i + 1] > 130 && p[i + 1] < 190 && p[i + 2] > 70 && p[i + 2] < 150 && p[i] - p[i + 1] > 50) n++;
+      res({ orange: n, px: p.length / 4 });
+    }; im.src = 'data:image/png;base64,' + data;
+  }), png.toString('base64'));
+}
+
+test('an Expedition site rises in full color in its printer gantry under a faint ghost, no ring on the ground; its Bot\'s card says how far; its top tenth and its paint come on the done moment', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   try {
     const { id, w } = await placeSite(d, 'i', 'siphon');
@@ -120,21 +141,31 @@ test('an Expedition site is a cold cyan hologram in a bud; its Bot\'s card says 
     await d.page.waitForFunction((id) => endfall.sites().bldgs.some(o => o.id === id), id, { timeout: 10000 });
     await d.eval(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     const o = await drawn(d, id);
-    assert.equal(o.look, 'holo');
-    assert.equal(o.tint, HOLO.tint, 'cold cyan');
-    assert.ok(o.alpha <= HOLO.alphaMax + HOLO.shimmer + 1e-9, `never solid: ${o.alpha}`);
-    assert.equal(o.paint, 0, 'no seat paint');
-    assert.ok(o.scaffold >= HOLO.budMin, 'the bud at least half there');
+    assert.equal(o.look, 'gantry');
+    assert.deepEqual([o.tint, o.alpha, o.sat], [0xffffff, 1, 1], 'the solid in full color, no filter');
+    assert.equal(o.paint, 0, 'no seat paint until done (the gantry\'s pennants say whose it is)');
+    const p = (await d.state()).bldgs.find(x => x.id === id).progress;
+    assert.ok(o.height > o.fullHeight * 0.4 && o.height <= o.fullHeight * GANTRY.cap + 1, `the solid about ${Math.round(p * GANTRY.cap * 100)}% of the art's height (${o.height} of ${o.fullHeight})`);
+    assert.equal(o.scaffold, 1, 'the gantry stands round it');
+    assert.equal(o.bar, 1, 'its head on the solid\'s top'); assert.ok(Math.abs(o.barY - (b.y + (o.fullHeight * (1 - 0.6)) - o.height + GANTRY.barDrop)) < o.fullHeight, 'the head about at the cut');
+    assert.ok(o.ghost >= GHOST.alpha - GHOST.shimmer - 1e-9 && o.ghost <= GHOST.alpha + GHOST.shimmer + 1e-9, `a faint ghost over it: ${o.ghost}`);
     assert.deepEqual(o.bars.map(r => r.bar), ['build']);
+    const ring = await orangeBelow(d, b);
+    assert.ok(ring.orange < 12, `no orange ring on the ground under it: ${ring.orange} orange px of ${ring.px}`);
     await pick(d, w);
     assert.match(await d.hudText('#selSub', /Constructing/), /^Constructing Recruiting post, \d+%$/, 'the Bot\'s card');
     await d.eval(() => { endfall.ui.sel = []; });
     assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.97, id, { step: 1 / 30, seconds: 60 }), 'almost done');
+    const late = await drawn(d, id);
+    assert.ok(late.height <= late.fullHeight * GANTRY.cap + 1 && late.scaffold === 1 && late.bar === 1, `at 97% still unfinished: its top tenth missing, in its gantry (${late.height} of ${late.fullHeight})`);
     const seen = await watchDone(d, id);
     const fade = seen.filter(s => s.look === 'fade'), last = seen.at(-1);
-    assert.ok(fade.some(s => s.tint !== HOLO.tint && s.tint !== 0xffffff && s.alpha > HOLO.alphaMax && s.alpha < 1), `on its way from cyan to white: ${JSON.stringify(fade.slice(0, 3))}`);
+    // (frames come as they come in a software-rendered page: any frame of the half second shows the paint on its way, the
+    // top coming in and the frame going; on every one the head and the ghost go with the gantry)
+    assert.ok(fade.some(s => s.paint > 0 && s.paint < 1 && s.roof > 0 && s.scaffold < 1), `the top coming in, the paint arriving, the gantry fading: ${JSON.stringify(fade.slice(0, 3))}`);
+    assert.ok(fade.every(s => s.bar === s.scaffold && s.ghost <= (GHOST.alpha + GHOST.shimmer) * s.scaffold + 1e-9), `the head and the ghost fade with the gantry: ${JSON.stringify(fade.slice(0, 3))}`);
     assert.equal(last.look, 'full');
-    assert.deepEqual([last.tint, last.alpha, last.paint, last.scaffold], [0xffffff, 1, 1, 0], 'solid, painted, no bud');
+    assert.deepEqual([last.tint, last.alpha, last.paint, last.scaffold, last.bar, last.ghost, last.height], [0xffffff, 1, 1, 0, 0, 0, last.fullHeight], 'solid, painted, the whole building, no gantry, no ghost');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

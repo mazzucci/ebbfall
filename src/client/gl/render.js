@@ -7,7 +7,7 @@ import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, c
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
-import { RAW, HOLO, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, holoAlpha, budAlpha, mixColor, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
+import { RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs, nearestRim } from '../range.js';
@@ -393,14 +393,15 @@ const stageTex = {};
 /** Where a building's art begins and ends, in its full frame's rows (`base`: the building's name, its mask lined up by
  *  it): the reveal is measured on the art, not on the frame's empty room above the roof. */
 function artSpan(base) { const r = artRows(base), at = frames[base]?.at.y || 0; return { top: r.top + at, bot: r.bot + at + 1 }; }
-/** The bottom `k/RAW.stages` of a building texture `name` (the building's art or its mask, by the art of `base`), for the
+/** The bottom `k/stages` of a building texture `name` (the building's art or its mask, by the art of `base`), for the
  *  rising-from-the-ground construction reveal: the rows of it that fall in there, its bottom edge where the full
- *  sprite's is. With `roof`, the rest instead: the rows above (the full frame, its anchor kept). */
-function stage(name, k, base = name, roof = false) {
-  const key = name + k + (roof ? 'r' : ''); if (stageTex[key]) return stageTex[key];
+ *  sprite's is (the Kingdom's RAW.stages slices, the Expedition's GANTRY.rows). With `roof`, the rest instead: the rows
+ *  above (the full frame, its anchor kept). */
+function stage(name, k, base = name, roof = false, stages = RAW.stages) {
+  const key = `${name}@${k}/${stages}${roof ? 'r' : ''}`; if (stageTex[key]) return stageTex[key];
   const tx = tex(name), fr = tx.frame, o = tx.orig, tr = tx.trim || new Rectangle(0, 0, o.width, o.height);
   const res = tx.source.resolution || 1, span = artSpan(base); // (the art's rows in the page's px, the texture's in world px)
-  const top = Math.max(0, Math.min(o.height - 1, (span.bot - Math.round((span.bot - span.top) * k / RAW.stages)) / res));
+  const top = Math.max(0, Math.min(o.height - 1, (span.bot - Math.round((span.bot - span.top) * k / stages)) / res));
   const none = (orig) => new Texture({ source: tx.source, frame: new Rectangle(fr.x, fr.y, 1, 1), orig, trim: new Rectangle(0, 0, 0, 0) }); // (no rows: nothing to draw)
   let t;
   if (roof) { // rows [tr.y, top) of the full frame
@@ -430,14 +431,19 @@ class BldgObj {
     this.worn = new Sprite(); setTex(this.worn, tex(`worn_${n}`)); L.worn.addChild(this.worn);
     this.found = new Sprite(); setTex(this.found, tex(`foundation_${n}`)); L.found.addChild(this.found);
     [this.body, this.paint] = teamSprite(L.ents); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
-    // (a Vael site grows in a bud, `bud_n`: the Expedition's scaffold with its hoist, in place of the kingdom's; the
-    // foundation is the kingdom's; a scaffold's cloth and flags in the seat's color)
-    this.bud = G.factions[b.team] === 'vael';
-    [this.scaffold, this.scaffoldPaint] = teamSprite(L.ents); const sn = `${this.bud ? 'bud' : 'scaffold'}_${n}`;
+    // (the frame round a rising body: the Kingdom's timber scaffold, `scaffold_n`, its cloth and flags in the seat's
+    // color; the Expedition's printer gantry, `gantry_n`, its pennants in the seat's color, and the gantry's head,
+    // `gantrybar_n`, set on the solid's top; the foundation is the Kingdom's)
+    this.ex = G.factions[b.team] === 'vael';
+    [this.scaffold, this.scaffoldPaint] = teamSprite(L.ents); const sn = `${this.ex ? 'gantry' : 'scaffold'}_${n}`;
     setTex(this.scaffold, tex(sn)); setTex(this.scaffoldPaint, tex(sn + '_m')); paintAs(this.scaffold, this.scaffoldPaint, this.seat);
     this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
-    // (the Kingdom's roof slice: missing until done, then fading in on the done moment)
-    if (!this.bud) { this.roof = new Sprite(); this.roof.visible = false; L.ents.addChild(this.roof); }
+    // (the missing top, the Kingdom's roof slice or the Expedition's top tenth: fading in on the done moment)
+    this.roof = new Sprite(); this.roof.visible = false; L.ents.addChild(this.roof);
+    if (this.ex) { // the Expedition's ghost of the whole, under the solid (seen only above it), and the gantry's head
+      this.ghost = new Sprite(); this.ghost.visible = false; this.ghost.tint = GHOST.tint; L.ents.addChild(this.ghost);
+      this.bar = new Sprite(); setTex(this.bar, tex(`gantrybar_${n}`)); this.bar.visible = false; L.ents.addChild(this.bar);
+    }
     this.look = BLDG_LOOK[b.type] || {};
     if (this.look.head) [this.head, this.headPaint] = teamSprite(L.ents);
     const glow = this.look.glow;
@@ -446,12 +452,12 @@ class BldgObj {
     // The done moment (construct.js DONE): only for a site this side watched finish, live and on screen (`seenAt`: the
     // last frame it was drawn in, `frameNo`); a building already standing when first drawn never plays it.
     this.wasDone = b.done; this.seenAt = -Infinity; this.doneT = null;
-    for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof]) s?.position.set(b.x, b.y);
+    for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof, this.ghost, this.bar]) s?.position.set(b.x, b.y);
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
     const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z;
-    this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004; this.scaffoldPaint.zIndex = z + 0.0005;
-    if (this.roof) this.roof.zIndex = z + 0.0001;
+    this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004; this.scaffoldPaint.zIndex = z + 0.0005; this.roof.zIndex = z + 0.0001;
+    if (this.ex) { this.ghost.zIndex = z - 0.0001; this.bar.zIndex = z + 0.0006; } // (the ghost under the body: the solid covers its share of it)
     if (this.head) { this.head.zIndex = z + 0.0006; this.headPaint.zIndex = z + 0.0008; }
   }
   /** `live`: the player can see it right now (otherwise it is a remembered silhouette: no smoke, no aiming, no done
@@ -461,39 +467,37 @@ class BldgObj {
     if (b.done && !this.wasDone) this.doneT = live && this.seenAt === frameNo - 1 ? 0 : null; // (it stood while we watched: its done moment)
     this.wasDone = b.done; this.seenAt = frameNo;
     if (this.doneT !== null) { this.doneT += dt; if (this.doneT >= DONE.life) this.endFade(); }
-    const fading = this.doneT !== null, d = fading ? doneAt(this.doneT, this.bud) : null;
+    const fading = this.doneT !== null, d = fading ? doneAt(this.doneT, this.ex) : null;
     const name = this.name, site = !b.done;
     const flashA = b.flash > 0 ? 0.75 : 1; // (hit flash)
-    vis(this.found, (site && !this.bud) || (fading && !this.bud));
-    vis(this.scaffold, (site && (!this.bud || b.progress > 0)) || fading); vis(this.scaffoldPaint, this.scaffold.visible); // (an Expedition site: its bud once its Bot has begun, no foundation)
-    if (this.bud) { // the Expedition: a cold cyan hologram until done (construct.js HOLO)
-      setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y;
-      if (site) {
-        const a = holoAlpha(b.progress, live ? now : 0); // (a remembered ghost holds still)
-        this.body.tint = b.flash > 0 ? 0xffffff : HOLO.tint; this.body.alpha = a + (b.flash > 0 ? 0.15 : 0); vis(this.paint, false);
-        this.scaffold.alpha = this.scaffoldPaint.alpha = budAlpha(b.progress);
-      } else if (fading) {
-        this.body.tint = mixColor(HOLO.tint, 0xffffff, d.color); this.body.alpha = (HOLO.alphaMax + (1 - HOLO.alphaMax) * d.color) * flashA;
+    vis(this.found, (site || fading) && !this.ex);
+    vis(this.scaffold, site || fading); vis(this.scaffoldPaint, this.scaffold.visible);
+    if (site || fading) { // the body rising from the ground: the bottom k/stages of the art, its bottom edge where the full sprite's would be
+      // (the Kingdom's: at most 7 of 8 slices, raw and unpainted until done, construct.js RAW; the Expedition's: at
+      // most 90% of 64, in full color, under its ghost, the gantry's head on its top, construct.js GANTRY)
+      const stages = this.ex ? GANTRY.rows : RAW.stages, cap = this.ex ? Math.round(GANTRY.rows * GANTRY.cap) : RAW.cap;
+      const k = !site ? cap : this.ex ? solidRows(b.progress) : rawStage(b.progress);
+      setTex(this.body, stage(name, k, name, false, stages)); setTex(this.paint, this.fullPaint);
+      this.body.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height; this.paint.y = b.y;
+      this.body.tint = 0xffffff; this.body.alpha = flashA;
+      if (site) { vis(this.paint, false); vis(this.roof, false); }
+      else {
         vis(this.paint, true); this.paint.tint = this.seat; this.paint.alpha = d.color * flashA;
-        this.scaffold.alpha = this.scaffoldPaint.alpha = HOLO.budMin * d.strip;
-      } else { vis(this.paint, true); paintAs(this.body, this.paint, this.seat, 0xffffff, flashA); }
-      if (site || fading) this.workRing(b, t, live, fading ? d.ring : 1);
-    } else { // the Kingdom: raw, unpainted, its roof missing until done (construct.js RAW)
-      if (site || fading) { // the bottom k/8 of the art, its bottom edge where the full sprite's would be (k at most 7)
-        const k = site ? rawStage(b.progress) : RAW.cap; setTex(this.body, stage(name, k, name)); setTex(this.paint, this.fullPaint);
-        this.body.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height; this.paint.y = b.y;
-        this.body.tint = 0xffffff; this.body.alpha = flashA;
-        if (site) { if (this.body.filters?.[0] !== RAW_LOOK) this.body.filters = [RAW_LOOK]; vis(this.paint, false); vis(this.roof, false); }
-        else {
-          if (!this.fadeLook) { this.fadeLook = rawFilter(); this.body.filters = [this.fadeLook]; setTex(this.roof, stage(name, RAW.cap, name, true)); this.roof.filters = [this.fadeLook]; }
-          this.fadeLook.matrix = rawMatrix(d.color);
-          vis(this.paint, true); this.paint.tint = this.seat; this.paint.alpha = d.color * flashA;
-          vis(this.roof, this.body.visible); this.roof.alpha = d.roof * flashA;
-          if (!this.puffed && this.doneT >= DONE.puffAt) { this.puffed = true; for (const p of donePuffs(b, TILE)) addEffect(HIT_DUST.anim, p.x, p.y, { vy: DONE_PUFF.vy, life: DONE_PUFF.life, scale: DONE_PUFF.scale, fade: DONE_PUFF.fade, tint: HIT_DUST.tint }); }
-        }
-        this.scaffold.alpha = this.scaffoldPaint.alpha = fading ? d.strip : 1;
-      } else { if (this.body.filters) this.body.filters = null; setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; vis(this.paint, this.body.visible); paintAs(this.body, this.paint, this.seat, 0xffffff, flashA); }
-    }
+        if (!this.roofSet) { this.roofSet = true; setTex(this.roof, stage(name, cap, name, true, stages)); }
+        vis(this.roof, this.body.visible); this.roof.alpha = d.roof * flashA;
+      }
+      if (this.ex) {
+        if (this.body.filters) this.body.filters = null;
+        vis(this.ghost, this.body.visible); setTex(this.ghost, this.full); this.ghost.alpha = ghostAlpha(live ? now : 0) * (fading ? d.strip : 1); // (a remembered ghost holds still)
+        vis(this.bar, this.body.visible); this.bar.y = this.body.y - this.body.height + GANTRY.barDrop; this.bar.alpha = fading ? d.strip : 1;
+      } else if (site) { if (this.body.filters?.[0] !== RAW_LOOK) this.body.filters = [RAW_LOOK]; }
+      else {
+        if (!this.fadeLook) { this.fadeLook = rawFilter(); this.body.filters = [this.fadeLook]; this.roof.filters = [this.fadeLook]; }
+        this.fadeLook.matrix = rawMatrix(d.color);
+        if (!this.puffed && this.doneT >= DONE.puffAt) { this.puffed = true; for (const p of donePuffs(b, TILE)) addEffect(HIT_DUST.anim, p.x, p.y, { vy: DONE_PUFF.vy, life: DONE_PUFF.life, scale: DONE_PUFF.scale, fade: DONE_PUFF.fade, tint: HIT_DUST.tint }); }
+      }
+      this.scaffold.alpha = this.scaffoldPaint.alpha = fading ? d.strip : 1;
+    } else { if (this.body.filters) this.body.filters = null; setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; vis(this.paint, this.body.visible); paintAs(this.body, this.paint, this.seat, 0xffffff, flashA); }
     this.found.alpha = fading ? d.strip : 1;
     if (this.head) {
       // A turret's head only while seen live (it aims); a rotor or a dish stays on its remembered base, still. The
@@ -527,21 +531,12 @@ class BldgObj {
   endFade() {
     this.doneT = null;
     if (this.fadeLook) { this.body.filters = null; this.roof.filters = null; this.fadeLook.destroy(); this.fadeLook = null; }
-    vis(this.roof, false); vis(this.found, false); vis(this.scaffold, false); vis(this.scaffoldPaint, false);
-  }
-  /** An Expedition site's pulsing ring while a Bot works on it (`k`: its strength, fading out on the done moment). Seen
-   *  through fog, only the remembered ghost. */
-  workRing(b, t, live, k) {
-    if (!b.done) this.ringOn = live && G.units.some(u => u.task.t === 'build' && u.task.b === b); // (the ring only while a Bot works; on the done moment, if one was)
-    if (!this.ringOn || k <= 0) return;
-    const cy = b.y + b.h * TILE * 0.3, rx = b.w * TILE * 0.62, ry = b.h * TILE * 0.36, pulse = (0.55 + 0.35 * Math.sin(t * 4)) * k;
-    bars.ellipse(b.x, cy, rx, ry).fill({ color: 0xff9a5c, alpha: 0.1 * pulse }).stroke({ width: 2, color: 0xffa070, alpha: 0.8 * pulse });
-    bars.ellipse(b.x, cy, rx * 0.7, ry * 0.7).stroke({ width: 1, color: 0xffe6d0, alpha: 0.5 * pulse });
+    for (const s of [this.roof, this.found, this.scaffold, this.scaffoldPaint, this.ghost, this.bar]) vis(s, false);
   }
   /** Shown or not (update, after this, decides the parts of a shown one). Visibility is only ever set to what it should
    *  be, never on and off again in one frame: each change rebuilds the layer's draw list. */
-  show(v) { vis(this.body, v); vis(this.worn, v); if (!v) { for (const s of [this.paint, this.found, this.scaffold, this.scaffoldPaint, this.roof, this.head, this.headPaint, this.glow]) vis(s, false); } }
-  destroy() { this.fadeLook?.destroy(); for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof, this.head, this.headPaint, this.glow, this.fallFlash]) if (s) s.destroy(); }
+  show(v) { vis(this.body, v); vis(this.worn, v); if (!v) { for (const s of [this.paint, this.found, this.scaffold, this.scaffoldPaint, this.roof, this.ghost, this.bar, this.head, this.headPaint, this.glow]) vis(s, false); } }
+  destroy() { this.fadeLook?.destroy(); for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof, this.ghost, this.bar, this.head, this.headPaint, this.glow, this.fallFlash]) if (s) s.destroy(); }
   /** It fell (look.js bldgDeath, `plan`): from now on a ghost, out of the pool, until `plan.life` s have passed. */
   fall(plan) {
     this.found.visible = false;
@@ -843,7 +838,7 @@ function progressBar(x, y, w, f, color, pips = 0, h = 5) {
   bars.rect(x + 1, y + 1, (w - 2) * Math.max(0, Math.min(1, f)), h - 2).fill(color);
   for (let i = 0; i < pips; i++) bars.rect(x + w + 3 + i * 5, y, 3, h).fill(color);
 }
-/** Two bars: construction is paused because nobody is building. Opaque over anything (an Expedition's faint hologram
+/** Two bars: construction is paused because nobody is building. Opaque over anything (an Expedition's faint ghost
  *  too), the plate's dark breathing a little. */
 function pauseMark(x, y, t) {
   bars.roundRect(x - 10, y - 10, 20, 20, 4).fill({ color: 0x0b0f16, alpha: 0.78 + 0.12 * Math.sin(t * 5) }).stroke({ width: 1, color: BUILD_BAR.color, alpha: 0.9 });
@@ -889,15 +884,17 @@ function xray(bldgs) {
  *  height in world px. */
 const barsDrawn = [];
 /** How the buildings on screen are drawn now (read-only, for the tests): each one's look ('raw': the Kingdom's unpainted
- *  site, 'holo': the Expedition's hologram, 'fade': its done moment, 'full'), the done moment's time, its body (tint,
- *  opacity, drawn height in world px, its color filter's saturation), its paint, roof slice, scaffold or bud and
- *  foundation, and its bars; and our builders' strikes so far (`strikes`, by unit id). */
+ *  site, 'gantry': the Expedition's rising body in its gantry, 'fade': its done moment, 'full'), the done moment's time,
+ *  its body (tint, opacity, drawn height in world px, its color filter's saturation), its paint, roof slice, scaffold or
+ *  gantry, the gantry's head (`bar`: its opacity, `barY`: its top in world px) and ghost, foundation, and its bars; and
+ *  our builders' strikes so far (`strikes`, by unit id). */
 export const sitesShown = () => ({
   bldgs: [...bldgObjs.values()].filter(o => o.body.visible).map(o => {
     const f = o.body.filters?.[0], m = f?.matrix;
-    return { id: o.id, type: o.type, done: o.b.done, look: o.doneT !== null ? 'fade' : o.b.done ? 'full' : o.bud ? 'holo' : 'raw', fadeT: o.doneT,
+    return { id: o.id, type: o.type, done: o.b.done, look: o.doneT !== null ? 'fade' : o.b.done ? 'full' : o.ex ? 'gantry' : 'raw', fadeT: o.doneT,
       tint: o.body.tint, alpha: o.body.alpha, height: o.body.texture.height, fullHeight: o.full.height, sat: m ? (m[0] - 0.2126) / (1 - 0.2126) : 1,
-      paint: o.paint.visible ? o.paint.alpha : 0, roof: o.roof?.visible ? o.roof.alpha : 0, scaffold: o.scaffold.visible ? o.scaffold.alpha : 0, found: o.found.visible ? o.found.alpha : 0,
+      paint: o.paint.visible ? o.paint.alpha : 0, roof: o.roof.visible ? o.roof.alpha : 0, scaffold: o.scaffold.visible ? o.scaffold.alpha : 0, found: o.found.visible ? o.found.alpha : 0,
+      bar: o.bar?.visible ? o.bar.alpha : 0, barY: o.bar?.visible ? o.bar.y : null, ghost: o.ghost?.visible ? o.ghost.alpha : 0,
       bars: barsDrawn.filter(r => r.id === o.id).map(r => ({ ...r })) };
   }),
   strikes: Object.fromEntries([...unitObjs.values()].filter(o => o.strikesSeen).map(o => [o.id, o.strikesSeen])),

@@ -2,7 +2,8 @@
 // headless Chromium (tools/chromium.mjs), like tools/og.mjs: a fixed map and seed, the AI off, units set out through the
 // debug handle, the fog layer hidden, at the start zoom, 2x. Written as WebP at desktop and phone size into
 // public/docs/img/shots/, and tools/docs/shots.json with each shot's size, words and the boxes the annotated ones mark
-// (the top bar, the minimap, the command card, ...: tools/docs/pages.mjs puts the numbered notes on them). The clip
+// (the top bar, the minimap, the command card, ...: tools/docs/pages.mjs puts the numbered notes beside them) and what
+// the notes must not cover (`avoid`: the top bar, the sprites on the map). The clip
 // (public/docs/media/trailer.*, with its poster) is a few seconds of a battle, stepped frame by frame in the game: the
 // trailer replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
 //   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; `clip` names the clip)
@@ -193,17 +194,31 @@ async function annotated(name, page, words, marks, W) {
     const x0 = Math.min(...bs.map(b => b.x)), y0 = Math.min(...bs.map(b => b.y)), x1 = Math.max(...bs.map(b => b.x + b.width)), y1 = Math.max(...bs.map(b => b.y + b.height));
     boxes[k] = [x0 / vp.width, y0 / vp.height, (x1 - x0) / vp.width, (y1 - y0) / vp.height].map(v => +v.toFixed(4));
   }
+  // What the notes must not cover besides their targets: the top bar, and every sprite on the map in view (buildings,
+  // units, gold mines: their drawn extent, roughly, from their footprint and height on screen).
+  const avoid = await page.evaluate(() => {
+    const e = window.endfall, { G, cam } = e, z = cam.zoom, cv = document.getElementById('game').getBoundingClientRect();
+    const sx = (x) => cv.left + (x - cam.x) * z, sy = (y) => cv.top + (y - cam.y) * z, out = [];
+    const top = document.getElementById('top').getBoundingClientRect(); out.push([top.left, top.top, top.width, top.height]);
+    for (const b of G.bldgs) { const w = b.w * 32 * z, h = b.h * 32 * z; out.push([sx(b.x) - w * 0.6, sy(b.y) - h * 1.3, w * 1.2, h * 1.9]); }
+    for (const n of e.map.nodes) { const w = n.w * 32 * z; out.push([sx(n.x) - w * 0.6, sy(n.y) - w * 0.9, w * 1.2, w * 1.5]); }
+    for (const u of G.units) { const h = (e.unitTop(u.type) + 6) * z, w = Math.max(28 * z, h * 0.6); out.push([sx(u.x) - w / 2, sy(u.y) - h, w, h + 6 * z]); }
+    return out.filter(([x, y, w, h]) => x + w > cv.left && x < cv.right && y + h > cv.top && y < cv.bottom || y < cv.top);
+  });
+  const shot = [0, 0, vp.width, vp.height];
+  const clipTo = ([x, y, w, h]) => { const x0 = Math.max(x, shot[0]), y0 = Math.max(y, shot[1]), x1 = Math.min(x + w, shot[2]), y1 = Math.min(y + h, shot[3]); return x1 > x0 && y1 > y0 ? [x0, y0, x1 - x0, y1 - y0] : null; };
+  const avoidF = avoid.map(clipTo).filter(Boolean).map(([x, y, w, h]) => [x / vp.width, y / vp.height, w / vp.width, h / vp.height].map(v => +v.toFixed(4)));
   const png = await page.screenshot({ animations: 'disabled', timeout: 240000 });
   const out = await encode(png, [{ name: 'desktop', x: 0, y: 0, w: vp.width * 2, h: vp.height * 2, W }, { name: 'phone', x: 0, y: 0, w: vp.width * 2, h: vp.height * 2, W: 720 }]);
-  save(name, out, words, boxes);
+  save(name, out, words, boxes, avoidF);
 }
 
-function save(name, out, words, boxes) {
+function save(name, out, words, boxes, avoid = []) {
   for (const f of readdirSync(OUT)) if (f.startsWith(`${name}-`)) rmSync(new URL(f, OUT));
   const files = {};
   for (const o of out) { files[o.name] = `${name}-${o.w}.webp`; writeFileSync(new URL(files[o.name], OUT), Buffer.from(o.data, 'base64')); }
   const d = out.find(o => o.name === 'desktop'), p = out.find(o => o.name === 'phone');
-  manifest[name] = { ...words, w: Math.round(d.w / 2), h: Math.round(d.h / 2), phoneW: Math.round(p.w / 2), phoneH: Math.round(p.h / 2), files, boxes };
+  manifest[name] = { ...words, w: Math.round(d.w / 2), h: Math.round(d.h / 2), phoneW: Math.round(p.w / 2), phoneH: Math.round(p.h / 2), files, boxes, avoid };
   writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
   console.log(`shots: ${name} (${Object.values(files).join(', ')})`);
 }

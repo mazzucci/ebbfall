@@ -42,8 +42,9 @@ figure{margin:0 0 24px} .shot{position:relative}
 .shot img,.shot picture{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line)}
 figcaption{font:13px/1.5 var(--mono);color:var(--muted);margin:8px 2px 0}
 @media (max-width:640px){figcaption,footer .in,footer a{color:#aebbcb}}
-.note{position:absolute;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:var(--amber);color:#0b0f16;font:700 13px/22px var(--display);text-align:center;box-shadow:0 0 0 2px rgba(11,15,22,.8)}
-@media (max-width:640px){.note{width:18px;height:18px;font-size:11px;line-height:18px}}
+.shot{--n:22px} @media (max-width:640px){.shot{--n:18px}} /* (the notes' size: pages.mjs NOTE_SIZES) */
+.note{position:absolute;transform:translate(-50%,-50%);width:var(--n);height:var(--n);border-radius:50%;background:var(--amber);color:#0b0f16;font:700 13px/var(--n) var(--display);text-align:center;box-shadow:0 0 0 2px rgba(11,15,22,.8)}
+@media (max-width:640px){.note{font-size:11px}}
 .notes{margin:10px 0 0;padding-left:0;list-style:none;counter-reset:n;font-size:15px}
 .notes li{counter-increment:n;display:flex;gap:10px;align-items:baseline}
 .notes li::before{content:counter(n);flex:none;width:22px;height:22px;border-radius:50%;background:var(--amber);color:#0b0f16;font:700 12px/22px var(--display);text-align:center}

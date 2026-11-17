@@ -82,8 +82,9 @@ function figure(args, first) {
   const alt = opts.alt || s.alt, caption = opts.caption || s.caption;
   const notes = Object.entries(opts).filter(([k]) => k !== 'alt' && k !== 'caption');
   for (const [k] of notes) if (!s.boxes?.[k]) throw new Error(`docs: shot ${name} has no box "${k}" (it has ${Object.keys(s.boxes || {}).join(', ')})`);
-  const at = placeNotes(s.boxes, notes.map(([k]) => k), s.w / s.h);
-  const marks = at.map(([x, y], i) => `<span class="note" style="left:${(x * 100).toFixed(2)}%;top:${(y * 100).toFixed(2)}%" aria-hidden="true">${i + 1}</span>`).join('');
+  const at = placeNotes(s, notes.map(([k]) => k));
+  const pos = (a, d, gap) => (d ? `calc(${(a * 100).toFixed(2)}% ${d > 0 ? '+' : '-'} (var(--n) / 2 + ${gap}px))` : `${(a * 100).toFixed(2)}%`);
+  const marks = at.map((p, i) => `<span class="note" style="left:${pos(p.ax, p.dx, p.gap)};top:${pos(p.ay, p.dy, p.gap)}" aria-hidden="true">${i + 1}</span>`).join('');
   const load = first ? 'fetchpriority="high"' : 'loading="lazy"';
   const img = `<picture><source media="(max-width:640px)" srcset="${SHOTS_URL}${s.files.phone}" width="${s.phoneW}" height="${s.phoneH}"><img src="${SHOTS_URL}${s.files.desktop}" width="${s.w}" height="${s.h}" alt="${esc(alt)}" ${load} decoding="async"></picture>`;
   return `<figure><div class="shot">${img}${marks}</div>${notes.length ? `<ol class="notes">${notes.map(([, l]) => `<li>${esc(l)}</li>`).join('')}</ol>` : ''}<figcaption>${esc(caption)}</figcaption></figure>`;
@@ -103,28 +104,52 @@ function clip() {
 <figcaption>${esc(poster.caption)}</figcaption></figure>`;
 }
 
-/** A numbered note's half size in shares of a shot (its width and its height), where it is largest: on a phone, 20 px
- *  of a 360 px image (style: .note), with a 2 px gap. */
-export const noteHalf = (aspect) => { const hw = 12 / 360; return [hw, hw * aspect]; };
+/**
+ * The numbered notes' sizes, CSS px, and the widths their shot is shown at (style: .shot --n): on a desktop, 22 px on a
+ * 1000 px image; on a phone, 18 px on a 358 px one. A note is placed so that it fits both.
+ */
+export const NOTE_SIZES = [{ n: 22, width: 1000 }, { n: 18, width: 358 }];
+/** The farthest a note stands off its target's box, px. */
+export const NOTE_GAP_MAX = 12;
+
+/** A note's box, in shares of the shot, for a placement `p` ({ ax, ay, dx, dy, gap }) at size `z` of NOTE_SIZES. */
+export function noteRect(p, z, aspect) {
+  const W = z.width, H = z.width / aspect, r = z.n / 2 + p.gap;
+  const cx = p.ax + (p.dx * r) / W, cy = p.ay + (p.dy * r) / H, hw = z.n / 2 / W, hh = z.n / 2 / H;
+  return [cx - hw, cy - hh, 2 * hw, 2 * hh];
+}
+export const overlaps = ([x, y, w, h], [X, Y, W, H]) => x < X + W && x + w > X && y < Y + H && y + h > Y;
 
 /**
- * Where each note goes (its center, in shares of the shot), beside its target and never on one: the first place round
- * the target's box (to its right, left, above, below, then its corners) that lies inside the shot and clear of every
- * annotated box and every note placed before it. `boxes`: the shot's (key -> [x, y, w, h]), `keys` in note order.
+ * Where each note goes: touching its target's box (a point on one of its edges, the note just outside it, `gap` px
+ * off), at the nearest spot that lies inside the shot and covers nothing: no annotated box, nothing the shot records to
+ * avoid (`s.avoid`: the top bar, the sprites on the map, but those under the HUD's panels), no note placed before it; at both sizes. Returns one placement
+ * per key ({ ax, ay, dx, dy, gap }: the edge point, in shares of the shot, the way out of the box, the gap in px).
  */
-export function placeNotes(boxes, keys, aspect) {
-  const [hw, hh] = noteHalf(aspect), all = Object.values(boxes), placed = [];
-  const hit = (cx, cy, [x, y, w, h]) => cx + hw > x && cx - hw < x + w && cy + hh > y && cy - hh < y + h;
+export function placeNotes(s, keys) {
+  const aspect = s.w / s.h, boxes = s.boxes, placed = [];
+  // (a sprite under a panel of the HUD is not seen there: what overlaps an annotated box without holding it is dropped;
+  // the top bar, which holds the figures it shows, stays)
+  const holds = ([X, Y, W, H], [x, y, w, h]) => X <= x && Y <= y && X + W >= x + w && Y + H >= y + h;
+  const avoid = (s.avoid || []).filter(a => !Object.values(boxes).some(b => overlaps(a, b) && !holds(a, b)));
   return keys.map((k) => {
-    const [x, y, w, h] = boxes[k];
-    const tries = [[x + w + hw, y + h / 2], [x - hw, y + h / 2], [x + w / 2, y - hh], [x + w / 2, y + h + hh],
-      [x + w + hw, y - hh], [x - hw, y - hh], [x + w + hw, y + h + hh], [x - hw, y + h + hh]];
-    const ok = ([cx, cy]) => cx - hw >= 0 && cx + hw <= 1 && cy - hh >= 0 && cy + hh <= 1 && !all.some(b => hit(cx, cy, b))
-      && !placed.some(([px, py]) => Math.abs(px - cx) < 2 * hw && Math.abs(py - cy) < 2 * hh);
-    const p = tries.find(ok);
-    if (!p) throw new Error(`docs: no room beside "${k}" for its note`);
-    placed.push(p);
-    return p;
+    const [x, y, w, h] = boxes[k], c = [];
+    for (const f of [0.5, 0.25, 0.75, 0.1, 0.9]) {
+      c.push({ ax: x + w * f, ay: y + h, dx: 0, dy: 1 }, { ax: x, ay: y + h * f, dx: -1, dy: 0 }, { ax: x + w, ay: y + h * f, dx: 1, dy: 0 }, { ax: x + w * f, ay: y, dx: 0, dy: -1 });
+    }
+    for (let gap = 2; gap <= NOTE_GAP_MAX; gap += 1) {
+      for (const cand of c) {
+        const p = { ...cand, gap };
+        const clear = NOTE_SIZES.every(z => {
+          const r = noteRect(p, z, aspect);
+          return r[0] >= 0 && r[1] >= 0 && r[0] + r[2] <= 1 && r[1] + r[3] <= 1
+            && !Object.values(boxes).some(b => overlaps(r, b)) && !avoid.some(b => overlaps(r, b))
+            && !placed.some(q => overlaps(r, noteRect(q, z, aspect)));
+        });
+        if (clear) { placed.push(p); return p; }
+      }
+    }
+    throw new Error(`docs: no free spot touching "${k}" for its note`);
   });
 }
 

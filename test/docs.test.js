@@ -126,18 +126,26 @@ test('every figure token names a figure, every diagram and screenshot exists (an
   assert.ok(clip.length < 2 * 1024 * 1024, `the clip is small: ${Math.round(clip.length / 1024)} KB`);
 });
 
-test('the annotated shots: each note beside its target, inside the shot, on no annotated box and on no other note', { skip }, () => {
+test('the annotated shots: each note touching its target, inside the shot, on nothing else, at both sizes', { skip }, () => {
   const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
   for (const name of ['shot-desktop-hud', 'shot-phone-land']) {
-    const s = shots[name], keys = Object.keys(s.boxes), [hw, hh] = P.noteHalf(s.w / s.h);
-    const at = P.placeNotes(s.boxes, keys, s.w / s.h);
-    at.forEach(([cx, cy], i) => {
-      assert.ok(cx - hw >= 0 && cx + hw <= 1 && cy - hh >= 0 && cy + hh <= 1, `${name}: note ${i + 1} inside the shot`);
-      for (const [k, [x, y, w, h]] of Object.entries(s.boxes)) assert.ok(!(cx + hw > x && cx - hw < x + w && cy + hh > y && cy - hh < y + h), `${name}: note ${i + 1} clear of ${k}`);
-      const [x, y, w, h] = s.boxes[keys[i]];
-      assert.ok(Math.max(x - (cx + hw), cx - hw - (x + w), y - (cy + hh), cy - hh - (y + h)) < 0.02, `${name}: note ${i + 1} beside ${keys[i]}`);
-      at.forEach(([px, py], j) => { if (j !== i) assert.ok(Math.abs(px - cx) >= 2 * hw || Math.abs(py - cy) >= 2 * hh, `${name}: notes ${i + 1} and ${j + 1} apart`); });
-    });
+    const s = shots[name], keys = Object.keys(s.boxes), aspect = s.w / s.h, at = P.placeNotes(s, keys);
+    assert.ok(Array.isArray(s.avoid) && s.avoid.length > 1, `${name}: the shot records what to avoid`);
+    for (const z of P.NOTE_SIZES) {
+      const W = z.width, H = z.width / aspect;
+      at.forEach((p, i) => {
+        const [x, y, w, h] = P.noteRect(p, z, aspect), what = `${name} at ${z.width} px: note ${i + 1}`;
+        assert.ok(x >= 0 && y >= 0 && x + w <= 1 && y + h <= 1, `${what} inside the shot`);
+        const hit = (b) => x < b[0] + b[2] && x + w > b[0] && y < b[1] + b[3] && y + h > b[1];
+        for (const [k, b] of Object.entries(s.boxes)) assert.ok(!hit(b), `${what} clear of ${k}`);
+        const holds = (A, B) => A[0] <= B[0] && A[1] <= B[1] && A[0] + A[2] >= B[0] + B[2] && A[1] + A[3] >= B[1] + B[3];
+        s.avoid.filter(a => !Object.values(s.boxes).some(b => P.overlaps(a, b) && !holds(a, b))).forEach((b, j) => assert.ok(!hit(b), `${what} clear of obstacle ${j}`));
+        const [bx, by, bw, bh] = s.boxes[keys[i]];
+        const gapX = Math.max(bx - (x + w), x - (bx + bw), 0) * W, gapY = Math.max(by - (y + h), y - (by + bh), 0) * H;
+        assert.ok(Math.hypot(gapX, gapY) <= P.NOTE_GAP_MAX + 0.5, `${what} within ${P.NOTE_GAP_MAX} px of ${keys[i]} (${gapX.toFixed(1)}, ${gapY.toFixed(1)})`);
+        at.forEach((q, j) => { if (j !== i) assert.ok(!hit(P.noteRect(q, z, aspect)), `${what} apart from note ${j + 1}`); });
+      });
+    }
   }
 });
 

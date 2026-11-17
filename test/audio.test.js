@@ -358,3 +358,28 @@ test('a page the user has already acted on (a reload by script, an online rejoin
     assert.ok(ramps.length > 0, 'and the sound played');
   } finally { delete globalThis.navigator.userActivation; }
 });
+
+test('the trailer\'s recorder: `audio.record` takes each effect, placed and thinned, instead of playing it, with no context; `renderSfx` plays a log into another context and leaves the live one alone', async () => {
+  const fresh = await import('../src/client/audio.js?record'); // (a new module: no context yet)
+  let now = 1e9; fresh.audio.now = () => now;
+  fresh.audio.view = () => ({ x: 0, y: 0, w: 1000, h: 500 });
+  const log = []; fresh.audio.record = (e) => log.push(e);
+  const made = Ctx.made;
+  try {
+    ramps.length = 0;
+    fresh.sfx('bolt', { x: 500, y: 250 }); fresh.sfx('bolt', { x: 500, y: 250 }); // (the second inside the gap: thinned)
+    now += 1000; fresh.sfx('boom', { x: 1300, y: 250, r: 40 }); // (off screen: quieter, to the right)
+    fresh.sfx('select');
+    assert.deepEqual([Ctx.made - made, ramps.length], [0, 0], 'nothing played, no context made');
+    assert.deepEqual(log.map(e => e.name), ['bolt', 'boom', 'select']);
+    assert.ok(log[0].gain > log[1].gain && log[0].pan === 0, 'on screen, in the middle: louder, centered');
+    assert.ok(log[1].gain > 0 && log[1].gain < 1 && log[1].pan > 0, 'off screen to the right: quieter, panned right');
+    assert.equal(log[1].r, 40, 'the explosion\'s size kept');
+    const off = new Ctx();
+    fresh.renderSfx(off, log.map((e, i) => ({ ...e, t: i * 0.5 })), { from: 0, to: 3 });
+    assert.ok(ramps.length > 5, 'the recipes ran into the offline context');
+    assert.deepEqual(errors, []);
+    ramps.length = 0; fresh.audio.record = null; fresh.sfx('select');
+    assert.equal(ramps.length, 0, 'recording off, no gesture yet: silent as before');
+  } finally { fresh.audio.record = null; }
+});

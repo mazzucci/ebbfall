@@ -299,8 +299,24 @@ test('the client reads its seat, and each seat\'s stats, from the game', { skip 
   assert.equal(E.G.me, 0);
   assert.equal(E.G.stats.length, 2);
   assert.ok(E.visibleEnt(E.G.bldgs.find(b => b.team === E.G.me)), 'its own buildings are always visible');
+  const far = E.G.bldgs.find(b => b.team !== E.G.me);
+  assert.equal(E.visibleEnt(far), false, 'the enemy\'s headquarters, across the map: not seen');
+  E.revealAll(true); // (the trailer's staged shots: every seat drawn)
+  try { assert.deepEqual([E.visibleEnt(far), E.allRevealed()], [true, true]); } finally { E.revealAll(false); }
+  assert.equal(E.visibleEnt(far), false, 'off again (as in play): not seen');
   // Each seat its own team: the enemies are the other seat; the winner is a team.
   assert.deepEqual([E.G.teams, E.G.out, E.foes(), E.enemies(0, 1), E.enemies(1, 1)], [[0, 1], [false, false], [1], true, false]);
+});
+
+test('an online game refuses the staged-shot knobs: `revealAll` reveals nothing (a console map hack otherwise), and works again offline', { skip }, () => {
+  E.resetGameForSeat(4242, 0, 0, ['humans', 'vael'], 0);
+  assert.equal(E.inLockstep(), true);
+  const far = E.G.bldgs.find(b => b.team !== E.G.me);
+  assert.equal(E.revealAll(true), false, 'refused');
+  assert.deepEqual([E.allRevealed(), E.visibleEnt(far)], [false, false], 'the enemy\'s headquarters, across the map: still not seen');
+  E.resetGame(4, 0);
+  assert.equal(E.inLockstep(), false);
+  try { assert.equal(E.revealAll(true), true, 'single player: taken'); assert.equal(E.allRevealed(), true); } finally { E.revealAll(false); }
 });
 
 test('a room\'s RANDOM seat is drawn from its seed and seat: the same on every client, either race', { skip }, () => {

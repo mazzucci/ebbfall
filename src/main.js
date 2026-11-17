@@ -3,11 +3,11 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio, audioState } from './client/audio.js';
+import { sfx, audio, audioState, renderSfx } from './client/audio.js';
 import { fx, burst, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { resetMemory } from './client/memory.js';
@@ -27,7 +27,7 @@ await engine.ready; // (the WASM: loading since src/boot.js imported the engine,
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
-const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
+const seen = (e) => engine.allRevealed() || G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0; // (allRevealed: a staged shot)
 
 let started = false;
 // The device test (?bench: src/client/bench.js, loaded only then) plays a game of its own through `begin`, on nobody's
@@ -250,7 +250,10 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
+  // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
+  // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
+  paint: (spots) => { setSpots(spots); renderTerrain(); }, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).

@@ -18,6 +18,10 @@ export const audio = {
   view: () => null,
   /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
   now: () => performance.now(),
+  /** The trailer's recorder only (tools/trailer): a function that takes each effect the game asks for, placed and
+   *  thinned as it would play ({ name, at: audio.now(), gain, pan, unit, r, big }), instead of playing it; `renderSfx`
+   *  plays the log offline. Null in play. */
+  record: null,
 };
 /** The audio context's state for the debug handle: 'none' until a gesture first opened it, then 'suspended' (not yet
  *  allowed, or the pause card's `holdSound`), 'running', 'interrupted' (iOS: a call, another app), ... */
@@ -203,7 +207,7 @@ function deviceSay(key, after) {
  */
 export function sfx(name, o = {}) {
   if (audio.muted) return;
-  const recipe = SFX[name]; if (!recipe || !live()) return;
+  const recipe = SFX[name]; if (!recipe || (!audio.record && !live())) return;
   const now = audio.now();
   try {
     const [g, pan] = place(o.x === undefined ? null : o);
@@ -211,6 +215,7 @@ export function sfx(name, o = {}) {
     // One of a kind per short gap, unless this one is louder (an on-screen shot beats a distant one).
     if (last[name] && now - last[name] < (GAP[name] ?? 60) && g <= lastGain[name]) return;
     last[name] = now; lastGain[name] = g;
+    if (audio.record) { audio.record({ name, at: now, gain: g, pan, unit: o.unit, r: o.r, big: o.big }); return; }
     const bus = actx.createGain(); bus.gain.value = g;
     if (pan && actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pan; bus.connect(p).connect(master); } else bus.connect(master);
     recipe(bus, actx.currentTime, o);
@@ -233,4 +238,36 @@ export function soundToggled() {
   if (!audio.muted) wake(); else stopSpeech();
   if (audio.muted && voiceBus) { try { voiceBus.gain.setTargetAtTime(0, actx.currentTime, 0.03); busyUntil = 0; } catch { /* no audio */ } } // (a phrase stops mid-word)
   if (audio.muted && wind) { try { wind.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); wind.n.stop(actx.currentTime + 1); wind.lfo.stop(actx.currentTime + 1); } catch { /* already stopped */ } wind = null; }
+}
+
+/**
+ * The trailer's sound (tools/trailer/sound.mjs): effects logged by `audio.record` ({ name, t: seconds, gain, pan, unit,
+ * r, big }) played into `ctx` (an OfflineAudioContext) through the game's own recipes and master chain, with the wind
+ * bed from `wind.from` to `wind.to` (seconds). Returns once scheduled; the caller renders. The live context, if any, is
+ * left as it was.
+ */
+export function renderSfx(ctx, list, wind = null) {
+  const keep = [actx, master, noiseBuf];
+  try {
+    actx = ctx;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.15;
+    master = ctx.createGain(); master.gain.value = 0.9; master.connect(comp).connect(ctx.destination);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    for (const e of list) {
+      const bus = ctx.createGain(); bus.gain.value = e.gain;
+      const p = ctx.createStereoPanner(); p.pan.value = e.pan; bus.connect(p).connect(master);
+      SFX[e.name]?.(bus, e.t, e);
+    }
+    if (wind) {
+      const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
+      n.buffer = noiseBuf; n.loop = true; f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 0.7;
+      lfo.frequency.value = 0.07; depth.gain.value = 180; lfo.connect(depth).connect(f.frequency);
+      const up = Math.min(3, (wind.to - wind.from) / 2), down = Math.max(wind.from + up, wind.to - 0.3); // (in over 3 s, out over 0.3 s)
+      g.gain.setValueAtTime(0.0001, wind.from); g.gain.exponentialRampToValueAtTime(0.03, wind.from + up);
+      g.gain.setValueAtTime(0.03, down); g.gain.exponentialRampToValueAtTime(0.0001, Math.max(down + 0.01, wind.to));
+      n.connect(f).connect(g).connect(master); n.start(wind.from); n.stop(wind.to + 0.05); lfo.start(wind.from); lfo.stop(wind.to + 0.05);
+    }
+  } finally { [actx, master, noiseBuf] = keep; }
 }

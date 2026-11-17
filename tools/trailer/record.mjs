@@ -70,7 +70,7 @@ export async function recordSegment(stage, seg, fmt, { preview = false, out }) {
   try {
     const a = await page.evaluate(seg.scene, { fmt });
     if (!seg.phone) await install(page, fmt);
-    const first = seg.parts[0].cam?.(0, a, fmt);
+    const first = seg.parts[0].cam?.(0, a, fmt, {});
     await frame(page, first, 0, 1);
     await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 600)))));
     await freeze(page);
@@ -79,7 +79,7 @@ export async function recordSegment(stage, seg, fmt, { preview = false, out }) {
     for (const part of seg.parts) {
       const file = `${out}/${part.name}.mkv`, enc = encoder(file, fps), n = Math.round(part.seconds * fps), t0 = await page.evaluate(() => performance.now());
       const actions = [...(part.at || [])].sort((x, y) => x.t - y.t);
-      const t1 = Date.now();
+      const t1 = Date.now(); let last = null, stale = 0;
       for (let i = 0; i < n; i++) {
         const t = i / fps;
         while (actions.length && actions[0].t <= t + 1e-6) await actions.shift().run(page, state, t);
@@ -97,14 +97,24 @@ export async function recordSegment(stage, seg, fmt, { preview = false, out }) {
           await enc.write(await capture(comp.cdp, VIEW[fmt], dpr));
         } else {
           await apply(page, ov, fmt);
-          await enc.write(await capture(cdp, VIEW[fmt], dpr));
+          // (the drawn frame presented first: two real frames; and a capture identical to the last one while the game
+          // runs is a stale surface (software WebGL under load): taken again)
+          let png;
+          for (let k = 0; k < 6; k++) {
+            await page.evaluate(() => new Promise(r => window.__raf(() => window.__raf(r))));
+            png = await capture(cdp, VIEW[fmt], dpr);
+            if (part.freeze || !last || !png.equals(last)) break;
+          }
+          if (!part.freeze && last && png.equals(last)) stale++;
+          last = png;
+          await enc.write(png);
         }
         if (i % 30 === 29) process.stdout.write(`\r  ${fmt} ${part.name}: ${i + 1}/${n} frames (${((Date.now() - t1) / (i + 1) / 1000).toFixed(2)} s each)   `);
       }
       await enc.end();
       const sfx = await page.evaluate((t0) => { const s = window.__sfx.splice(0), base = (t0 - window.__t0) / 1000; return s.map(e => ({ ...e, t: +(e.at - base).toFixed(4) })); }, t0);
       writeFileSync(`${out}/${part.name}.sfx.json`, JSON.stringify(sfx));
-      console.log(`\r  ${fmt} ${part.name}: ${n} frames, ${sfx.length} sounds, ${((Date.now() - t1) / 1000).toFixed(0)} s                `);
+      console.log(`\r  ${fmt} ${part.name}: ${n} frames, ${sfx.length} sounds, ${((Date.now() - t1) / 1000).toFixed(0)} s${stale ? `, ${stale} frames still the same as the one before` : ''}                `);
     }
   } finally { await ctx.close(); if (comp) await comp.page.close(); }
 }

@@ -734,6 +734,8 @@ let fogTick = -1;
 /** The fog shown or not, on the map and the minimap (on, always, in a game; off only for the docs' staged screenshots,
  *  tools/docs/shots.mjs: the whole map's ground then shows, on the minimap too). */
 export const showFog = (on) => { L.fog.visible = !!on; mmAt = -Infinity; };
+/** Tools only (the trailer's staged shots): the bars over the map (health, construction, training) shown or not. */
+export const showBars = (on) => { bars.visible = !!on; };
 /** The fog layer (and the minimap's) from this side's sight: only when a tick has changed it, not every frame. In sight
  *  clear; explored but out of sight a blue-gray veil (RGB 18, 22, 34 at 0.45), the ground and what stands on it still
  *  read; never explored near-black. */
@@ -917,7 +919,7 @@ export function render(selList, place) {
   drawTargets(selList, now);
   for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
 
-  syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 90) && explored[idx(n.tx, n.ty)]; o.show(!!v); if (v) o.update(n, t); });
+  syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 90) && (explored[idx(n.tx, n.ty)] || allRevealed()); o.show(!!v); if (v) o.update(n, t); });
   const onScreen = [];
   syncPool(bldgObjs, shownB, b => new BldgObj(b), (o, b) => {
     const seen = !b.ghost && (b.team === G.me || visibleEnt(b)); // (a remembered one: drawn as last seen)

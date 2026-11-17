@@ -105,9 +105,14 @@ function helpers({ as, ai }) {
  * recorder's time, and `__frame(ms, ticks)` runs one frame `ms` later with `ticks` sim ticks in it (1: real time; 4: a
  * time-lapse). The effects the game asks for from then on are logged in `__sfx` at that clock (audio.js `record`).
  */
-export const freeze = (page) => page.evaluate(() => {
-  const q = [], real = performance.now.bind(performance); let t = real();
+export const freeze = (page) => page.evaluate(async () => {
+  const q = [], real = performance.now.bind(performance);
+  window.__raf = window.requestAnimationFrame.bind(window); // (the real one: the recorder waits on it for a presented frame)
   window.requestAnimationFrame = (f) => { q.push(f); return q.length; };
+  // The loop's last real frame, already asked for, lands first (late, under load): it asks for the next one here.
+  // The clock starts after it, or the loop would see time go backwards and run no ticks until it caught up.
+  await new Promise(r => { const check = () => (q.length ? r() : setTimeout(check, 5)); check(); });
+  let t = real();
   performance.now = () => t;
   const e = window.endfall, t0 = t;
   e.G.events.length = 0; // (the staging's events: not heard)

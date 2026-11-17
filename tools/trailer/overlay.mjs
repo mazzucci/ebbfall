@@ -25,12 +25,12 @@ const CSS = `
 /** Per format: where things go and how big (CSS px). */
 const LAYOUT = {
   '16x9': {
-    word: 'bottom:44px;font-size:48px', logo: { top: 0.19, icon: 76, word: 92 },
+    word: 'bottom:44px;font-size:48px', logo: { top: 0.155, icon: 76, word: 92 },
     lines: 'top:40%;left:0;right:0', sizes: [40, 31, 31, 24], gaps: [12, 8, 12, 0], url: 'top:80%;left:0;right:0;font-size:60px',
-    linesYt: 'top:39%;left:0;width:54%;transform-origin:0 0;zoom:.92', urlYt: 'top:80%;left:0;width:50%;font-size:52px', logoYt: 0.19,
+    linesYt: 'top:39%;left:0;width:54%;transform-origin:0 0;zoom:.92', urlYt: 'top:80%;left:0;width:50%;font-size:52px', logoYt: 0.17,
   },
   '9x16': {
-    word: 'top:72%;font-size:52px', logo: { top: 0.20, icon: 60, word: 72 },
+    word: 'top:72%;font-size:52px', logo: { top: 0.18, icon: 60, word: 72 },
     lines: 'top:33%;left:45px;width:410px', sizes: [32, 26, 26, 20], gaps: [16, 12, 16, 0], url: 'top:65%;left:45px;width:410px;font-size:48px',
   },
 };
@@ -74,7 +74,8 @@ export function apply(page, s, fmt) {
     if (s.black) $('trBlack').firstChild.innerHTML = s.black.text;
     const cap = $('trCap'); cap.style.opacity = s.cap ? s.cap.alpha : 0;
     if (s.cap && cap.dataset.text !== s.cap.text + s.cap.style) { cap.dataset.text = s.cap.text + s.cap.style; cap.innerHTML = s.cap.text; cap.setAttribute('style', s.cap.style); cap.style.opacity = s.cap.alpha; }
-    const w = $('trWord'); w.style.opacity = s.word ? s.word.alpha : 0; if (s.word) w.textContent = s.word.text;
+    const w = $('trWord'); w.style.opacity = s.word ? s.word.alpha : 0;
+    if (s.word) { w.textContent = s.word.text; if (w.dataset.extra !== (s.word.style || '')) { w.dataset.extra = s.word.style || ''; w.setAttribute('style', `${L.word};${s.word.style || ''};opacity:${s.word.alpha}`); } }
     const g = s.grade || 0, v = s.veil || 0;
     const stage = document.getElementById('game');
     stage.style.filter = g > 0 ? `saturate(${1 - 0.5 * g}) brightness(${1 - 0.4 * g})` : '';

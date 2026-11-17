@@ -248,7 +248,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       12:00 and a wave of its has reached the foe (`clumsy_until`, `Ai::reached`) a wave that fell does
                       not grow the next, then each grows by one; its first wave leaves at 8:00 (no hit before it on any
                       map) and its army stops at the cap its style drew, 8 to 14 fighters (`army_max`, by units: its
-                      gold banks) until it starts finishing (`finish_from`, 20:00 to 23:00): then the cap lifts, its
+                      gold banks) until it starts finishing (`finish_from`, 20:00 to 23:00, once a wave of its has reached the foe): then the cap lifts, its
                       waves take its whole army and its idle fighters at home join a wave out once a wave's count
                       (`reinforce_finishing`), so Easy against Easy ends. A Boom seat holds its natural's price from its other buildings while it is due
                       (`Diff::natural_first`). A level may cap a

@@ -2510,8 +2510,9 @@ fn easy_s_army_stops_growing_at_its_cap_and_its_gold_banks() {
 fn easy_finishes_late_its_cap_lifted_and_its_whole_army_out() {
     // Finishing (`Diff::finish_from`, drawn between 20:00 and 23:00): two capped Easy armies traded waves of four for ever
     // and nearly every Easy against Easy game ran to the cap. Rich and left alone, Easy holds its cap and sends waves of
-    // its wave's size until then; from then on its army grows past the cap and its idle fighters at home join the wave
-    // out, so the wave is at least twice any wave Easy sends before (the Expedition's machines wait for coverage).
+    // its wave's size until then; from then on (its waves have reached the player) its army grows past the cap and its
+    // idle fighters at home join the wave out, so the wave is at least twice any wave Easy sends before (the
+    // Expedition's machines wait for coverage).
     for f in [&HUMANS, &VAEL] {
         let mut w = World::with_setup(5, 0, MapKind::Standard, false, [&HUMANS, f]);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {

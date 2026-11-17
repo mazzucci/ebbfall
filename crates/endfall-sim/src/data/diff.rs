@@ -99,7 +99,8 @@ pub struct Diff {
     /// its games end (with its waves at three or four for good, Easy against Easy, and
     /// Easy against the Expedition on 96x96, ran past 30 minutes with both armies idle at home).
     pub clumsy_until: f64,
-    /// Finishing late (Easy; its style draws it between 20:00 and 23:00, `style`): from this game time its army cap
+    /// Finishing late (Easy; its style draws it between 20:00 and 23:00, `style`): from this game time, once a wave of
+    /// its has reached the foe (`Ai::reached`: a newcomer's first hit stays three or four units), its army cap
     /// (`army_max`) no longer holds, its clumsy waves (`wave_only`) take its whole army, and its idle fighters at home join
     /// a wave out, three or more at a time (`World::reinforce_finishing`). Two capped Easy armies of ten
     /// traded waves of four against a home army and a tower for ever, their banks past 3,000, and nearly every Easy

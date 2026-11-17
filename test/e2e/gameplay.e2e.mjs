@@ -2562,12 +2562,12 @@ test('the HUD tells the first enemy flyer seen, and an army wiped out', async ()
   } finally { await d.close(); }
 });
 
-test('the screen is lean: resources, supply, the game clock, full screen, sound and pause on top, no empty panel; the clock in the pause card too', async () => {
+test('the screen is lean: resources, supply, the game clock, the ?, full screen, sound and pause on top, no empty panel; the clock in the pause card too', async () => {
   for (const dev of [DESKTOP, PHONE]) {
     const d = await newGame(dev, 1, 4242, { ai: false });
     try {
       const shown = await d.eval(() => [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && getComputedStyle(e).display !== 'none' && !e.classList.contains('spacer')).map(e => e.id || e.className));
-      const want = ['resShard', 'resSup', 'resClock', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
+      const want = ['resShard', 'resSup', 'resClock', 'btnHelp', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
       assert.deepEqual(shown, want, 'the top bar at the start: ' + shown.join(' '));
       assert.ok(await d.page.locator('#info').isHidden(), 'nothing selected: no panel');
       await d.skip(30);

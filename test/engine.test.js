@@ -299,6 +299,11 @@ test('the client reads its seat, and each seat\'s stats, from the game', { skip 
   assert.equal(E.G.me, 0);
   assert.equal(E.G.stats.length, 2);
   assert.ok(E.visibleEnt(E.G.bldgs.find(b => b.team === E.G.me)), 'its own buildings are always visible');
+  const far = E.G.bldgs.find(b => b.team !== E.G.me);
+  assert.equal(E.visibleEnt(far), false, 'the enemy\'s headquarters, across the map: not seen');
+  E.revealAll(true); // (the trailer's staged shots: every seat drawn)
+  try { assert.deepEqual([E.visibleEnt(far), E.allRevealed()], [true, true]); } finally { E.revealAll(false); }
+  assert.equal(E.visibleEnt(far), false, 'off again (as in play): not seen');
   // Each seat its own team: the enemies are the other seat; the winner is a team.
   assert.deepEqual([E.G.teams, E.G.out, E.foes(), E.enemies(0, 1), E.enemies(1, 1)], [[0, 1], [false, false], [1], true, false]);
 });

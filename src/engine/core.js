@@ -273,11 +273,17 @@ export function canHit(shooter, target) {
   return !!w && (air ? w.dmgAir : w.dmg) > 0;
 }
 
+let revealed = false;
+/** Tools only (the trailer's staged shots, tools/trailer): every seat's units and buildings shown and heard as if in
+ *  sight, whatever this side sees. Off in play. */
+export const revealAll = (on) => { revealed = !!on; };
+export const allRevealed = () => revealed;
 /** Whether this client's player (seat G.me) can see this unit or building right now. G.vis is the team's sight (allies
  *  share vision, crates/endfall-sim/src/world/fog.rs): our allies' are always seen, their enemies where any of us sees. */
 export function visibleEnt(e) {
   if (e.team === S.me || !enemies(S.me, e.team)) return true;
   if (e.inside) return false; // (an enemy inside a mine: out of sight)
+  if (revealed) return true; // (`revealAll`: a staged shot)
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];

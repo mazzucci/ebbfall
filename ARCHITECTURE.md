@@ -613,6 +613,18 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       clip's name); shots.json their sizes, words and the boxes the annotated ones mark).
                       public/docs/fonts/: IBM Plex Sans (OFL); the game's two fonts are copied from src/fonts/. The
                       Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play
+tools/trailer/        the trailer (the 30-second storyboard), recorded in the built game in Chromium; videos are not
+                      committed (target/trailer/). shots.mjs: the shot list as data (each segment a staged page: the
+                      people it plays, its scene through the debug handle, its parts with a camera per frame, ticks per
+                      frame for a time-lapse, actions, overlays); stage.mjs: the page (the sim takes orders only for its
+                      own seat, so a shot plays the people it orders: `endfall.paint` keeps the Kingdom blue and the
+                      Expedition red-pink, `engine.revealAll` draws the other seat wherever it is) and the frame clock
+                      (requestAnimationFrame and performance.now taken over: a frame is 1/30 s of game time);
+                      overlay.mjs: captions, the flash, the grading and the end card in the game's fonts; record.mjs:
+                      the frames at DPR 2 piped into ffmpeg per part, with the effects the game asked for (audio.js
+                      `audio.record`); sound.mjs: those effects rendered offline through audio.js's recipes
+                      (`renderSfx`); cut.mjs: the versions (openings A and B, 9:16, the YouTube hold) and contact
+                      sheets. ffmpeg: FFMPEG, .tools/ffmpeg/ffmpeg (a static build with libx264) or the PATH's
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for

@@ -3996,7 +3996,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PLAY OFFLINE) fits at 667x375, 844x390, 412x915 and 568x320: one line on its side, upright two centred lines; no scrolling', async () => {
+test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centred line; no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
     try {
@@ -4004,20 +4004,21 @@ test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PL
       await page.waitForFunction(() => !!window.endfall);
       const got = await page.evaluate(() => {
         const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return { t: b.textContent, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom }; });
-        const c = document.querySelector('#start .card.menu');
-        return { bs, sc: [c.scrollHeight, c.clientHeight] };
+        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect();
+        return { bs, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom] };
       });
-      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h, `${w}x${h}: the footer line in view: ${got.links}`);
       assert.ok(got.bs.every(b => b.l >= 0 && b.r <= w && b.b <= h), `${w}x${h}: every button in view: ${JSON.stringify(got.bs)}`);
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
-      assert.equal(lines.length, w > h ? 1 : 2, `${w}x${h}: ${w > h ? 'one line' : 'two lines'}: ${lines}`);
+      assert.equal(lines.length, 1, `${w}x${h}: one line: ${lines}`);
       for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centred: ${l} | ${w - r}`); }
     } finally { await ctx.close(); }
   }
 });
 
-test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place, How to play from its top', async () => {
+test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place', async () => {
   for (const device of [PHONE, DESKTOP]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {

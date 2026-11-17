@@ -264,7 +264,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* The first page's footer line: How to play and About, the docs, in a new tab (one muted mono line, amber underlined on hover). */
 #menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}
 #menuLinks a{display:inline-flex;align-items:center;min-height:44px;min-width:48px;justify-content:center;padding:0 6px;color:var(--muted);text-decoration:none;letter-spacing:.04em} #menuLinks a:hover,#menuLinks a:focus-visible{color:var(--ally2);text-decoration:underline} #menuLinks .sep{color:var(--line2)}
-@media (max-height:420px){#menuLinks{margin-top:2px} #menuLinks a{min-height:32px}}
+@media (max-height:420px){#menuLinks{margin-top:0} #menuLinks a{min-height:24px}} /* (a short phone on its side: the tide lines keep below) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 #homeOfflineMsg:not(:empty)~.shore .tide.t1,#homeOfflineMsg:not(:empty)~.shore .tide.t2{display:none} /* (its line takes the room of the two upper tide lines; the shore comes after it in the page for this) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}

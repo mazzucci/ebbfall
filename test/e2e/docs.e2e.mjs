@@ -6,7 +6,6 @@
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { test, start, stop, newGame, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
-import { ROSTER } from '../../tools/docs/data.mjs';
 
 before(start);
 after(stop);
@@ -112,6 +111,15 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       await lp.goto(baseUrl() + path, { waitUntil: 'load' });
       assert.ok((await lp.locator('.top').boundingBox()).height <= 49, `${path}: the bar at most 48 px in landscape`);
     }
+    // What each page must list, from the game's own tables (the built game, as the browser tests have no sim of their own).
+    const game = await browserContext(DESKTOP), gp = await game.newPage();
+    await gp.goto(baseUrl(), { waitUntil: 'networkidle' }); await gp.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    const ROSTER = await gp.evaluate(() => [['humans', 'kingdom'], ['vael', 'expedition']].map(([race, slug]) => {
+      const { FACTIONS, BUILDINGS } = endfall.engine, f = FACTIONS[race], buildings = [...new Set([f.hq, ...f.buildBasic, ...f.buildAdvanced])];
+      return { slug, buildings, units: buildings.flatMap(b => BUILDINGS[b].trains || []) };
+    }));
+    await game.close();
+    assert.equal(ROSTER.length, 2);
     for (const r of ROSTER) {
       await page.goto(`${baseUrl()}docs/${r.slug}/`, { waitUntil: 'load' });
       const listed = await page.locator('[data-kind]').evaluateAll(es => es.map(e => e.dataset.kind));

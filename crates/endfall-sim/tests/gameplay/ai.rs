@@ -2507,6 +2507,50 @@ fn easy_s_army_stops_growing_at_its_cap_and_its_gold_banks() {
 }
 
 #[test]
+fn easy_finishes_late_its_cap_lifted_and_its_whole_army_out() {
+    // Finishing (`Diff::finish_from`, drawn between 20:00 and 23:00): two capped Easy armies traded waves of four for ever
+    // and nearly every Easy against Easy game ran to the cap. Rich and left alone, Easy holds its cap and sends waves of
+    // its wave's size until then; from then on its army grows past the cap and its idle fighters at home join the wave
+    // out, so the wave is at least twice any wave Easy sends before (the Expedition's machines wait for coverage).
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(5, 0, MapKind::Standard, false, [&HUMANS, f]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let fighters = |w: &World| {
+            w.units
+                .iter()
+                .filter(|u| u.team == ENEMY && !u.kind.def().worker && u.kind.def().armed())
+                .count()
+        };
+        let (mut most, mut wave) = ([0; 2], [0; 2]);
+        let mut finish = NEVER;
+        while w.time < finish.min(1380.0) + 300.0 {
+            w.res[ENEMY as usize][0] = w.res[ENEMY as usize][0].max(600);
+            w.step();
+            w.events.clear();
+            finish = w.tuning(ENEMY).finish_from;
+            let late = (w.time >= finish) as usize;
+            most[late] = most[late].max(fighters(&w));
+            wave[late] = wave[late].max(w.ai_wave_of(ENEMY).map_or(0, <[Id]>::len));
+        }
+        let cap = w.tuning(ENEMY).army_max;
+        assert!((1200.0..=1380.0).contains(&finish), "{finish}");
+        assert!(most[0] <= cap, "{}: {most:?} fighters, cap {cap}", f.name);
+        assert!(
+            most[1] > cap + 2,
+            "{}: past its cap late: {most:?}, cap {cap}",
+            f.name
+        );
+        assert!(
+            wave[1] >= 2 * wave[0],
+            "{}: its whole army out late: waves of {wave:?}, cap {cap}",
+            f.name
+        );
+    }
+}
+
+#[test]
 fn easy_never_hits_a_newcomer_before_8_00_on_any_map() {
     // The newcomer check (the PM, Nov 13): Easy's first wave leaves at 8:00, so whatever the map's size its first hit
     // (a unit of a wave within 8 tiles of a building of the idle player's) comes no sooner, and is four units at most.

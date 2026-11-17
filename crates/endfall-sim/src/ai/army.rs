@@ -60,6 +60,8 @@ const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
 /// Supply short of the cap that counts as at the cap: a seat 1 or 2 short trains little more than one more unit.
 pub(crate) const CAP_SLACK: i32 = 2;
+/// Finishing (`Diff::finish_from`): this many idle fighters at home join a wave out together (`reinforce_finishing`).
+const REINFORCE: usize = 3;
 
 /// A unit's worth in an army: its cost in gold.
 fn army_worth(k: UnitKind) -> f64 {
@@ -97,10 +99,17 @@ impl World {
         self.fighters_of(e) >= cap
     }
 
-    /// Whether seat `e` holds its level's most fighters (`Diff::army_max`, Easy's 14): it trains no more.
+    /// Whether seat `e` holds its level's most fighters (`Diff::army_max`, Easy's 14): it trains no more. From its
+    /// `Diff::finish_from` (Easy: 20:00 to 23:00) the cap no longer holds.
     pub(crate) fn army_full(&self, e: u8) -> bool {
-        let most = self.tuning(e).army_max;
-        most > 0 && self.fighters_of(e) >= most
+        let d = self.tuning(e);
+        d.army_max > 0 && !self.finishing(e) && self.fighters_of(e) >= d.army_max
+    }
+
+    /// Whether seat `e` is finishing (`Diff::finish_from`): past that time its army cap no longer holds and its clumsy
+    /// waves take its whole army.
+    pub(crate) fn finishing(&self, e: u8) -> bool {
+        self.time >= self.tuning(e).finish_from
     }
 
     /// Seat `e`'s fighters (armed, not workers), queued ones counted.
@@ -464,6 +473,9 @@ impl World {
         if !(stalled && intruder.is_some()) {
             self.ai_launch_wave(&army, t, goal);
         }
+        if intruder.is_none() {
+            self.reinforce_finishing(&army, goal);
+        }
         if self.level().answers {
             self.escort_scout(goal);
         }
@@ -723,8 +735,8 @@ impl World {
         if !self.strong_enough(army, t) {
             return;
         }
-        // (a clumsy level sends only its wave's size, its oldest units; the rest stay home)
-        let army = if d.wave_only {
+        // (a clumsy level sends only its wave's size, its oldest units; the rest stay home; finishing, everything goes)
+        let army = if d.wave_only && !self.finishing(self.seat()) {
             &army[..need.min(army.len())]
         } else {
             army
@@ -794,6 +806,37 @@ impl World {
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
         ai.prong = order[..split].to_vec();
+    }
+
+    /// Finishing (`Diff::finish_from`), with a wave out and no foe at its buildings: its idle fighters at home, once
+    /// `REINFORCE` or more, join the wave (a winning Easy army of 2,000 waited at home for a wave of one to end, its foe
+    /// with no army left, until the cap).
+    fn reinforce_finishing(&mut self, army: &[Id], (gx, gy): (f64, f64)) {
+        let ai = self.ai();
+        if !ai.attacking || !self.finishing(self.seat()) {
+            return;
+        }
+        let Some(mut attackers) = ai.attackers.clone() else {
+            return;
+        };
+        let home: Vec<Id> = army
+            .iter()
+            .copied()
+            .filter(|a| !attackers.contains(a) && self.u(*a).task == Task::Idle)
+            .collect();
+        if home.len() < REINFORCE {
+            return;
+        }
+        for &a in &home {
+            let ox = (self.rnd() - 0.5) * 80.0;
+            let oy = (self.rnd() - 0.5) * 80.0;
+            let (px, py) = self.wave_point(a, gx + ox, gy + oy);
+            self.attack_move(a, px, py);
+        }
+        attackers.extend(&home);
+        let ai = self.ai_mut();
+        ai.wave_size += home.len();
+        ai.attackers = Some(attackers);
     }
 
     /// A clumsy level's wave that gave up or fell (`Diff::wave_only`) does not grow the next until 12:00 and a wave of its

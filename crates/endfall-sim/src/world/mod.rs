@@ -69,6 +69,9 @@ pub struct World {
     /// A seat's AI style in place of the one it draws (`set_ai_styles`): the balance lab's per-style rows, set only from
     /// Rust, never by the menus, JS or the network, so not hashed. Empty outside the lab: every AI draws its own.
     pub ai_styles: Vec<Option<Style>>,
+    /// Spike (play against Claude): unit kinds a planned seat's AI never trains (`set_ai_bans`: a bit per
+    /// `UnitKind::index`), the plan's dare. Only a seat with a plan (`ai_plans`) heeds it; lab only, not hashed.
+    pub ai_bans: Vec<u64>,
     /// Where a Shore reef basin's main field lies (`set_shore_field`): the balance lab's exposed-income variants, set
     /// only from Rust, never by the menus, JS or the network, so not hashed (the map it makes is). `BACK` outside the lab.
     pub shore_field: ShoreField,
@@ -218,6 +221,7 @@ impl World {
             diffs: Vec::new(),
             ai_plans: Vec::new(),
             ai_styles: Vec::new(),
+            ai_bans: Vec::new(),
             shore_field: ShoreField::BACK,
             map_kind,
             map_size,
@@ -421,6 +425,27 @@ impl World {
         self.ai_plans = plans.to_vec();
         self.init_ai();
         true
+    }
+    /// Spike: the unit kinds each seat's AI never trains (a bit per `UnitKind::index`; empty: none), heeded only by a
+    /// seat with a plan (`set_ai_plans`). The lab's only. False (nothing changes) for a list of another length.
+    pub fn set_ai_bans(&mut self, bans: &[u64]) -> bool {
+        if !bans.is_empty() && bans.len() != self.seats() {
+            return false;
+        }
+        self.ai_bans = bans.to_vec();
+        true
+    }
+    /// Spike: whether seat `team`'s AI is barred from training `k` (its plan's dare; never for an unplanned seat).
+    pub fn ai_banned(&self, team: u8, k: crate::data::UnitKind) -> bool {
+        let planned = self
+            .ai_plans
+            .get(team as usize)
+            .is_some_and(|p| p.is_some());
+        planned
+            && self
+                .ai_bans
+                .get(team as usize)
+                .is_some_and(|b| b >> k.index() & 1 == 1)
     }
     /// Give each seat's AI a difficulty of its own before play (a person's seat ignores its entry; empty: every AI
     /// plays the game's `diff`), with fresh brains. False (nothing changes) for a list of another length.

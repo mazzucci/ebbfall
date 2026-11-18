@@ -1,0 +1,14 @@
+{
+  "notes": "Round 1: a greedy economy, two towers early, Knights late; no Archers (the dare).",
+  "workers": 14,
+  "first_wave": "6:00",
+  "first_wave_size": 10,
+  "expand": "5:00",
+  "barracks": 2,
+  "tech_building": "2:00",
+  "top_tier": "6:00",
+  "towers": ["2:00", "4:30"],
+  "raids": true,
+  "favor": "Knight",
+  "wont_build": ["archer"]
+}

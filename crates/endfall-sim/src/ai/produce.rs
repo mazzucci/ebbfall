@@ -111,6 +111,17 @@ impl World {
             }
             order
         };
+        // (spike: with its line unit dared away, the mix counts its barracks' substitute as its line, and a raider
+        // dared away counts as its raiders all out)
+        let (line, raiders_out) = {
+            let s = &self.factions[e as usize].ai;
+            let line = if self.ai_banned(e, s.basic) {
+                self.ai_substitute(s.rax).unwrap_or(s.basic)
+            } else {
+                s.basic
+            };
+            (line, self.ai_banned(e, s.raider))
+        };
         for &bid in &order {
             let Some(b) = self.bldg(bid) else { continue };
             if !b.done || b.kind.def().hq || b.kind.def().trains.is_empty() {
@@ -174,8 +185,8 @@ impl World {
                         && (at_gate
                             || (s.heavy == Some(b.kind)
                                 && k.def().weapon.is_some_and(|w| w.siege)
-                                && mine(self, k) * per <= mine(self, s.basic))
-                            || (mine(self, k) + 1) * per <= mine(self, s.basic))
+                                && mine(self, k) * per <= mine(self, line))
+                            || (mine(self, k) + 1) * per <= mine(self, line))
                 })
                 .min_by_key(|&(k, per, _)| (mine(self, k) + 1) * self.answer_ratio(k, per));
             // The air factory's capital unit (a late giant): one after CAPITAL_AT[0] s, a second after [1]; it saves
@@ -226,12 +237,20 @@ impl World {
                     // (and while it can't afford the mixed-in unit, a raider instead of nothing: the barracks spend
                     // as the money comes in, so waiting for a Knight's price would leave the air factory idle)
                     || (b.kind == s.air
-                        && (mine(self, k) <= mine(self, s.raider) || mine(self, s.raider) >= 6)
-                        && (mine(self, s.raider) >= 6 || self.can_afford(e, need(k)))))
+                        && (mine(self, k) <= mine(self, s.raider)
+                            || raiders_out
+                            || mine(self, s.raider) >= 6)
+                        && (raiders_out || mine(self, s.raider) >= 6 || self.can_afford(e, need(k)))))
             {
                 k
-            } else if (b.kind == s.air && mine(self, s.raider) >= 6) || heavy {
+            } else if (b.kind == s.air && (raiders_out || mine(self, s.raider) >= 6)) || heavy {
                 continue; // (the vehicle bay trains only its anti-air and what the mix calls for)
+            } else if self.ai_banned(e, b.kind.def().trains[0]) {
+                // (spike: its first unit dared away, the next it may train, or nothing)
+                match self.ai_substitute(b.kind) {
+                    Some(k) => k,
+                    None => continue,
+                }
             } else {
                 b.kind.def().trains[0]
             };
@@ -240,6 +259,11 @@ impl World {
                 u
             } else if heavy || b.kind == s.air {
                 continue;
+            } else if self.ai_banned(e, b.kind.def().trains[0]) {
+                match self.ai_substitute(b.kind) {
+                    Some(k) => k,
+                    None => continue,
+                }
             } else {
                 b.kind.def().trains[0]
             };
@@ -451,16 +475,37 @@ impl World {
             } else {
                 0
             }
-        } else if (mine(k) + 1) * per <= mine(s.basic) {
+        } else if (mine(k) + 1) * per
+            <= mine(if self.ai_banned(e, s.basic) {
+                self.ai_substitute(s.rax).unwrap_or(s.basic)
+            } else {
+                s.basic
+            })
+        {
             self.takes(e, k)
         } else {
             0
         }
     }
 
+    /// Spike: what a factory of the AI taking its turn trains in place of a unit its plan's dare bars: the first of
+    /// its units, workers left out, that its level fields and the dare allows (None: none).
+    pub(crate) fn ai_substitute(&self, factory: BldgKind) -> Option<UnitKind> {
+        factory
+            .def()
+            .trains
+            .iter()
+            .copied()
+            .find(|&k| !k.def().worker && self.level_allows(k))
+    }
+
     /// Whether the seat taking its turn trains `k` at its level now (`Diff::mix_tier`, risen by `tier_at`), and for a
     /// top-tier unit, whether it holds fewer than its most (`Diff::top_max`, queued ones counted).
     pub(crate) fn level_allows(&self, k: UnitKind) -> bool {
+        // (spike: its plan's dare, the kinds it never trains)
+        if self.ai_banned(self.seat(), k) {
+            return false;
+        }
         let d = self.level();
         let risen = d.tier_at.iter().filter(|&&at| self.time >= at).count() as u8;
         if k.ai_tier() > d.mix_tier + risen {

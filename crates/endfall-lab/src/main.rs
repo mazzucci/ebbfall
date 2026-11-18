@@ -591,6 +591,75 @@ fn summary(args: &[String]) {
     println!("{json}");
 }
 
+/// `duel` (spike: play against Claude): one game, seat 0 Hard's AI steered by `--plan FILE` (spike/PLAN_VOCAB.md),
+/// seat 1 plain Hard; `--seed N --map Standard --size 96 --race Kingdom --vs-race Expedition --cap 30 --out FILE`.
+/// Prints what the plan had clamped, then one line: how the game went. The summary goes to `--out` (else stdout).
+fn duel(args: &[String]) {
+    use endfall_lab::duel;
+    let mut g = duel::Duel {
+        map: MapKind::Standard,
+        size: 96,
+        races: [0, 1],
+        seed: 1,
+        cap_min: 30,
+    };
+    let (mut plan, mut out) = (None, None);
+    let people = |n: &str| {
+        FACTIONS
+            .iter()
+            .position(|f| f.name.eq_ignore_ascii_case(n) || f.key.eq_ignore_ascii_case(n))
+            .unwrap_or_else(|| die(&format!("no people '{n}' (Kingdom or Expedition)")))
+    };
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let v = it
+            .next()
+            .unwrap_or_else(|| die(&format!("{a} needs a value")));
+        match a.as_str() {
+            "--plan" => plan = Some(v.clone()),
+            "--seed" => g.seed = v.parse().unwrap_or_else(|_| die("--seed N")),
+            "--map" => g.map = parse_map(v),
+            "--size" => {
+                g.size = v
+                    .parse()
+                    .ok()
+                    .filter(|s| [64, 72, 80, 96, 128].contains(s))
+                    .unwrap_or_else(|| die("--size 64|72|80|96|128"))
+            }
+            "--race" => g.races[0] = people(v),
+            "--vs-race" => g.races[1] = people(v),
+            "--cap" => g.cap_min = v.parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--out" => out = Some(v.clone()),
+            _ => die(&format!("duel: unknown flag {a}")),
+        }
+    }
+    let path = plan.unwrap_or_else(|| die("duel --plan plan.json"));
+    let text =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| die(&format!("cannot read {path}: {e}")));
+    let p = duel::read_plan(&text, g.races[0], g.size).unwrap_or_else(|e| die(&e));
+    for n in &p.notes {
+        eprintln!("plan adjusted: {n}");
+    }
+    let start = Instant::now();
+    let r = duel::play(&g, &p);
+    let secs = start.elapsed().as_secs_f64();
+    match out {
+        Some(o) => {
+            std::fs::write(&o, &r.summary)
+                .unwrap_or_else(|e| die(&format!("cannot write {o}: {e}")));
+            println!(
+                "{} | summary {} bytes to {o} | {secs:.1} s",
+                r.line,
+                r.summary.len()
+            );
+        }
+        None => {
+            println!("{}", r.summary);
+            eprintln!("{} | {secs:.1} s", r.line);
+        }
+    }
+}
+
 /// The flags `trace` and `summary` share (`summary`: no `--every`, a 15-minute cap): the game, its cap, the trace's
 /// interval.
 fn setup(args: &[String], size: i32, every_flag: bool) -> (trace::Setup, u32, u32) {
@@ -669,6 +738,7 @@ fn main() {
         Some("tiers") => tiers(&args[1..]),
         Some("trace") => trace(&args[1..]),
         Some("summary") => summary(&args[1..]),
+        Some("duel") => duel(&args[1..]),
         Some("compare") => {
             let [a, b] = &args[1..] else {
                 die("compare A.json B.json")

@@ -625,7 +625,10 @@ impl World {
             // (or sooner, with its line at its maximum, its tech or not: what it trains is all that can still grow)
             && (t > d.air_at - s.air_lead || self.line_capped(e))
             // (its raiders must be in its level's mix: it would otherwise stand there training nothing)
-            && self.level_allows(s.raider)
+            && (self.level_allows(s.raider)
+                // (spike: a dare that bars its raider still raises the factory for its other units)
+                || (self.ai_banned(e, s.raider)
+                    && s.air.def().trains.iter().any(|&u| self.level_allows(u))))
             // (and its requirement standing: the Kingdom's Stables need its Market)
             && self.has_req(e, s.air)
         {

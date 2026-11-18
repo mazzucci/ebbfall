@@ -282,10 +282,12 @@ impl World {
         self.pay(team, up.cost(level), 1);
     }
 
-    /// A building's rally point; on a gold mine, its new workers mine there (a mine shaft, none since the re-theme, is
-    /// never mined: a rally on one is a plain point).
+    /// A building's rally point, kept on the map (an order may carry any finite number: a point far off it would make
+    /// NaN of the new units' way out, `exit_tile`); on a gold mine, its new workers mine there (a mine shaft, none since
+    /// the re-theme, is never mined: a rally on one is a plain point).
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
         let node = node.filter(|&n| self.map.node(n).is_some_and(|n| !n.ether));
+        let (x, y) = (self.map.clamp_x(x), self.map.clamp_y(y));
         if let Some(b) = self.bm(bid)
             && !b.kind.def().trains.is_empty()
         {
@@ -559,7 +561,7 @@ impl World {
         }
         let cols = (n as f64).sqrt().ceil();
         let sp = 28.0;
-        us.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
+        us.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
         for (i, &(_, id)) in us.iter().enumerate() {
             let i = i as f64;
             let ox = (i % cols - (cols - 1.0) / 2.0) * sp;

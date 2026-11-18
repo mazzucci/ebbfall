@@ -226,9 +226,9 @@ impl World {
                     if best.is_none_or(|k| {
                         (key.0, key.1, key.2)
                             .cmp(&(k.0, k.1, k.2))
-                            .then(key.3.partial_cmp(&k.3).unwrap())
-                            .then(k.4.partial_cmp(&key.4).unwrap())
-                            .then(k.5.partial_cmp(&key.5).unwrap())
+                            .then(fcmp(key.3, k.3))
+                            .then(fcmp(k.4, key.4))
+                            .then(fcmp(k.5, key.5))
                             .then((key.6, key.7).cmp(&(k.6, k.7)))
                             .is_lt()
                     }) {
@@ -239,4 +239,10 @@ impl World {
         }
         best.map_or((b.tx, b.ty + b.h), |k| (k.7, k.6))
     }
+}
+
+/// Two keys of `exit_tile` compared: a NaN (never, now a rally point is kept on the map: `set_rally`) ties instead of
+/// panicking, and -0 ties with 0 as it always did (`total_cmp` would part them, and move the goldens).
+fn fcmp(a: f64, b: f64) -> std::cmp::Ordering {
+    a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Equal)
 }

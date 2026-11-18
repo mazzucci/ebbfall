@@ -251,11 +251,7 @@ impl World {
                 ring.push((dist(cx, cy, ux, uy), x, y));
             }
         }
-        ring.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .unwrap()
-                .then((a.1, a.2).cmp(&(b.1, b.2)))
-        });
+        ring.sort_by(|a, b| a.0.total_cmp(&b.0).then((a.1, a.2).cmp(&(b.1, b.2))));
         let mut tries = 0;
         for &(_, x, y) in ring.iter().take(4) {
             if (x, y) == start {

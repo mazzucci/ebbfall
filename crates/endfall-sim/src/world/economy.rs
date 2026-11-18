@@ -188,12 +188,7 @@ impl World {
                 let m = self.map.node(c).unwrap();
                 (k, dist(m.x, m.y, ux, uy), c)
             })
-            .min_by(|a, b| {
-                (a.0, a.1)
-                    .partial_cmp(&(b.0, b.1))
-                    .unwrap()
-                    .then(a.2.cmp(&b.2))
-            })
+            .min_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.cmp(&b.2)))
             .map(|(_, _, c)| c)
     }
 
@@ -203,7 +198,7 @@ impl World {
             .iter()
             .filter(|b| b.team == team && b.done && b.kind.def().dropoff)
             .map(|b| b.geo())
-            .min_by(|a, b| a.edge_dist(x, y).partial_cmp(&b.edge_dist(x, y)).unwrap())
+            .min_by(|a, b| a.edge_dist(x, y).total_cmp(&b.edge_dist(x, y)))
     }
 
     /// A worker's gather task, phase by phase: walk to the mine (or wait at its side while it is full), go inside

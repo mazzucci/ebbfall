@@ -18,7 +18,7 @@ import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
 import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
 import { DEFAULT_MAP } from '../src/client/maps.js';
 import { readFileSync } from 'node:fs';
-import { rateLimit, OpenBudget, Limits, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR } from '../relay/limits.js';
+import { rateLimit, OpenBudget, Limits, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR, MSG_BURST, MSG_CLOSE } from '../relay/limits.js';
 import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
 import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
@@ -31,7 +31,7 @@ function pair() {
     emit(t, e) { for (const f of this.listeners[t] || []) f(e); },
     accept() {},
     send(data) { if (this.closed) throw new Error('closed'); this.other.emit('message', { data }); },
-    close() { if (this.closed) return; this.closed = this.other.closed = true; this.other.emit('close', {}); },
+    close(code) { if (this.closed) return; this.closed = this.other.closed = true; this.other.code = code; this.other.emit('close', { code }); },
   });
   const a = end(), b = end(); a.other = b; b.other = a;
   a.addEventListener('message', (m) => a.got.push(JSON.parse(m.data))); // (the client's end keeps what it is sent)
@@ -211,8 +211,8 @@ test('the record is written when it changes, at most once a second (the last cha
   await wait(0);
   const first = store.puts;
   assert.equal(first, 1, 'the new room: one write');
-  for (let i = 0; i < 1000; i++) say(a, { t: 'ready', ready: i % 2 === 0 }); // (no change to the record)
-  for (let i = 0; i < 1000; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
+  for (let i = 0; i < 80; i++) say(a, { t: 'ready', ready: i % 2 === 0 }); // (no change to the record; within the messages a connection may send at once, relay/limits.js)
+  for (let i = 0; i < 80; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
   await wait(0);
   assert.equal(store.puts, first, 'within the second: nothing more yet');
   await wait(1100);
@@ -226,6 +226,28 @@ test('the record is written when it changes, at most once a second (the last cha
   assert.equal(store.puts, first + 2, 'the last socket gone: written at once');
   assert.ok(!(await store.get('room')).lobby.seats[0].here, 'its seat held, away');
   assert.ok(store.alarm > Date.now(), 'an alarm set to forget the room once idle');
+});
+
+test('a connection that floods the room is closed (MSG_CLOSE), the others are not, and its token takes the seat back', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  let b2 = null;
+  try {
+    say(b, hello('Bo'));
+    const token = got(b, 'seat')[0].token;
+    for (let i = 0; i < MSG_BURST - 1; i++) say(b, { t: 'race', race: i % 2 ? 'vael' : 'humans' }); // (the hello and these: the burst)
+    assert.ok(!b.closed, 'up to the burst: open');
+    const before = got(a, 'lobby').length;
+    say(b, { t: 'race', race: 'vael' });
+    assert.ok(b.closed, 'one past it: closed');
+    assert.equal(b.code, MSG_CLOSE, 'with the code that says why');
+    assert.ok(got(a, 'lobby').length <= before + 1, 'the one past it not passed on (only the seat held, away)');
+    assert.ok(!a.closed, 'the other seat stays');
+    b2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+    say(b2, { ...hello('Bo'), token });
+    assert.equal(got(b2, 'seat')[0]?.seat, 1, 'back on its seat by its token');
+  } finally { for (const c of [a, b, b2]) c?.close(); await wait(0); }
 });
 
 /** Room `code`'s object and record as if last used `ago` ms ago (the alarm reads the time; the tests do not wait). */

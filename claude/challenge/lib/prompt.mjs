@@ -47,14 +47,19 @@ opponent did, what worked, what failed.
 
 ${VOCAB}`;
 
-/** A game is about to start: Claude sets the start plan. */
-export function preGame({ game, series, mode, peoples, map, last }) {
+/** The most a game's notes keep (characters): Claude's own carry-over between games, each game a fresh session. */
+export const NOTES_MAX = 1500;
+
+/** A game is about to start: Claude sets the start plan. Each game is a fresh session: `notes` (Claude's own, from the
+ *  games before) and `record` (the results so far) are all it carries over. */
+export function preGame({ game, series, mode, peoples, map, record, notes }) {
   const vs = mode === 'watch' ? 'the built-in Hard AI' : 'a person';
   return [
     `Game ${game}${series ? ` of ${series}` : ''} is about to start: you (seat 0) vs ${vs}, ${peoples}, on ${map}.`,
-    last ? `Last game: ${last}` : 'This is the first game.',
+    record ? `Results so far: ${record}.` : 'This is the first game.',
+    notes ? `Your notes from the earlier games (written by you after the last one):\n${notes}` : '',
     'Set your start plan now with set_plan (plan: a code), with a say line for the start. The game starts as soon as it is set.',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 /** A digest, compact: its JSON with the noise left out. */
@@ -68,13 +73,14 @@ export function moment(kind, msg) {
 /** The digest names seats; Claude is seat 0 in watch mode: "your" reads better (the engine's wording is a request). */
 export const yours = (s) => s.replace(/\bseat 0's\b/g, 'your').replace(/\bseat 0\b/g, 'you').replace(/\bseat 1's\b/g, "the enemy's").replace(/\bseat 1\b/g, 'the enemy');
 
-/** The game is over. */
+/** The game is over: a line for the player, then the notes for the next game as the final answer. */
 export function postGame({ result, summary, game, series, at }) {
   const short = summarize(summary);
   return [
     `Game ${game}${series ? ` of ${series}` : ''} is over at ${at || '?'}: you ${result === 'won' ? 'WON' : result === 'lost' ? 'LOST' : 'ran out the clock (timeout)'}.`,
     short ? `Summary: ${short}` : '',
-    'Say one line to the player with say (rival and coach), then in two short sentences, not tool calls, note what you would change next game.',
+    'First say one line to the player with say (rival and coach).',
+    `Then your final answer is your notes for the next game, which starts in a fresh conversation with only these notes: at most ${NOTES_MAX} characters, plain text, no tool calls. Merge what still matters from your earlier notes: what worked and what failed (with plan codes), what the opponent did and when, what to try next.`,
   ].filter(Boolean).join('\n');
 }
 

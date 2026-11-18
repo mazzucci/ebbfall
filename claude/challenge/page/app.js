@@ -13,6 +13,8 @@ const api = (name, body) => fetch(`/claude/api/${name}`, {
 let cfg = null;
 let ready = false;
 let helloTimer = 0;
+/** The game's seed for this load (`&seed=`, a rematch's), or null: the map's own. */
+let seed = null;
 
 function send(m) {
   frame.contentWindow?.postMessage({ v: 1, ...m }, location.origin);
@@ -23,6 +25,7 @@ function gameUrl() {
   if (cfg.plan) q.set('plan', cfg.plan);
   if (cfg.mode === 'watch') q.set('watch', '1');
   if (cfg.vs) q.set('vs', cfg.vs);
+  if (seed !== null) q.set('seed', String(seed));
   return `/?${q}`;
 }
 
@@ -79,7 +82,7 @@ function listen() {
     if (m.line) addLine(m.line.text, '', m.line.at || '');
     if (m.status) { $('status').textContent = m.status; $('status').classList.toggle('busy', m.status !== 'idle'); }
     if (m.note) $('note').textContent = m.note;
-    if (m.reload) { addLine('Rematch', 'game'); load(); }
+    if (m.reload) { seed = Number.isInteger(m.seed) ? m.seed : null; addLine('Rematch', 'game'); load(); }
   };
 }
 

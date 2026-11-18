@@ -3,11 +3,12 @@
 // built-in Hard), no person needed. It starts the challenge server (server.mjs) on the local build, opens the page in
 // headless Chromium (Playwright), and at each start, check-in, event and end sends the moment to
 // `claude -p --resume <session> --output-format json` with only the challenge's MCP server attached and only its three
-// tools allowed. Claude answers through the tools; the page applies them while the game keeps running. One session
-// for the whole series: rematches carry over what Claude learned.
+// tools allowed. Claude answers through the tools; the page applies them while the game keeps running. A fresh session
+// for each game: what carries over to a rematch is Claude's own notes (at most NOTES_MAX characters), written at the
+// end of each game and given in the next game's first message (notes.md in the log).
 //
 //   node claude/challenge/drive.mjs [--games 5] [--name s1] [--ceiling 150000] [--speed 1] [--vs CODE]
-//                                   [--cap 35] [--model M] [--session UUID] [--mock] [--headed] [--check]
+//                                   [--cap 30] [--model M] [--seeds 11,22,..] [--mock] [--headed] [--check]
 //
 // --check runs only the tool-limits check (one tiny call, nothing saved) and prints what Claude could use.
 // Logs: target/challenge/logs/<name>-<time>/ (driver.jsonl: every digest, Claude call, tool call, line, result and
@@ -21,7 +22,7 @@ import { mkdirSync, writeFileSync, appendFileSync, existsSync, statSync } from '
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
-import { SYSTEM, preGame, moment, postGame } from './lib/prompt.mjs';
+import { SYSTEM, NOTES_MAX, preGame, moment, postGame } from './lib/prompt.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
@@ -30,7 +31,7 @@ const KINGDOM_MIRROR_96 = '1.4.0.1o.h00h12';
 export const TOOLS = ['mcp__ebbfall__set_plan', 'mcp__ebbfall__say', 'mcp__ebbfall__read_state'];
 
 function args(argv) {
-  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 30, model: '', session: '', mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
+  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 30, model: '', seeds: [], mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => argv[++i];
     if (a === '--games') o.games = Number(v());
@@ -40,7 +41,7 @@ function args(argv) {
     else if (a === '--vs') o.vs = v();
     else if (a === '--cap') o.cap = Number(v());
     else if (a === '--model') o.model = v();
-    else if (a === '--session') o.session = v();
+    else if (a === '--seeds') o.seeds = v().split(',').map(Number).filter(Number.isInteger);
     else if (a === '--mock') o.mock = true;
     else if (a === '--headed') o.headed = true;
     else if (a === '--stub') o.stub = true;
@@ -107,14 +108,14 @@ async function checkLimits() {
   return { ok: okay, tools, servers, model: init.model, permissionMode: init.permissionMode, why: okay ? '' : `tools beyond ours: ${JSON.stringify(extra)}; servers: ${JSON.stringify(servers)}` };
 }
 
-const series = { name: opt.name, session: opt.session || randomUUID(), started: false, games: [], tokens: { input: 0, cache_write: 0, cache_read: 0, output: 0, cost_usd: 0 }, stopped: '' };
+const series = { name: opt.name, games: [], notes: '', tokens: { input: 0, cache_write: 0, cache_read: 0, output: 0, cost_usd: 0 }, stopped: '' };
 const billed = (t) => t.input + t.cache_write + t.output;
 
 let busy = null;
 /** One moment to Claude; resolves with its result. One at a time (the caller queues). */
 async function ask(text, game) {
-  const argv = ['-p', text, '--output-format', 'json', ...(series.started ? ['--resume', series.session] : ['--session-id', series.session]), '--system-prompt', SYSTEM, ...CLAUDE_FLAGS, ...(opt.model ? ['--model', opt.model] : [])];
-  series.started = true;
+  const argv = ['-p', text, '--output-format', 'json', ...(game.started ? ['--resume', game.session] : ['--session-id', game.session]), '--system-prompt', SYSTEM, ...CLAUDE_FLAGS, ...(opt.model ? ['--model', opt.model] : [])];
+  game.started = true;
   const t0 = Date.now();
   log('ask', { game: game?.n, text });
   md(`\n**To Claude** (game ${game?.n ?? '-'}):\n\n\`\`\`\n${text.length > 1800 ? text.slice(0, 1800) + '...' : text}\n\`\`\``);
@@ -134,14 +135,16 @@ async function ask(text, game) {
 }
 
 /** --stub: scripted replies through the same tools (no Claude, no tokens), to check the plumbing on the real game. */
-let stubN = 0;
+let stubN = 0, stubNotes = 0;
 async function stubReply(text) {
   const tool = (b) => api('tool', b);
   let did;
-  if (/about to start/.test(text)) did = await tool({ tool: 'set_plan', plan: '1.w14.f5m.s10', say: 'Stub: a greedy start.' });
+  if (/about to start/.test(text) && !/notes from the earlier/.test(text)) did = await tool({ tool: 'set_plan', plan: '1.w14.f5m.s10', say: 'Stub: a greedy start.' });
   else if (/is over/.test(text)) did = await tool({ tool: 'say', text: 'Stub: good game.' });
+  else if (/notes from the earlier/.test(text)) did = await tool({ tool: 'set_plan', plan: '1.w12.parcher', say: 'Stub: my notes say Archers.' });
   else if (++stubN % 2 === 1) did = await tool({ tool: 'set_plan', delta: stubN === 3 ? '1.m14' : '', intents: stubN === 3 ? ['mass'] : ['attack'], say: `Stub moment ${stubN}.` });
-  return { code: 0, err: '', out: JSON.stringify({ result: `stub: ${JSON.stringify(did ?? 'nothing')}`, usage: {}, total_cost_usd: 0, num_turns: 1 }) };
+  const result = /is over/.test(text) ? `Stub notes after a game: the start plan 1.w14.f5m.s10 ${/notes from the earlier/.test(text) ? '(seen my earlier notes)' : `(notes ${++stubNotes})`}; the opponent attacked; next try more Archers.` : `stub: ${JSON.stringify(did ?? 'nothing')}`;
+  return { code: 0, err: '', out: JSON.stringify({ result, usage: {}, total_cost_usd: 0, num_turns: 1 }) };
 }
 
 // ---------------------------------------------------------------- the server and the page
@@ -181,11 +184,13 @@ async function gameFrame() {
 }
 
 /** Waits for a game message of `type` (after now); others go to `onOther`. */
-async function waitFor(type, timeoutS, onOther = () => {}) {
+async function waitFor(type, timeoutS, onOther = () => {}, afterRematch = false) {
   const end = Date.now() + timeoutS * 1000;
+  let rematched = !afterRematch;
   while (Date.now() < end) {
     for (const e of await events(5)) {
-      if (e.kind === 'game' && e.data.type === `ebbfall:${type}`) return e.data;
+      if (e.kind === 'control' && e.data.action === 'rematch') rematched = true;
+      if (rematched && e.kind === 'game' && e.data.type === `ebbfall:${type}`) return e.data;
       onOther(e);
     }
   }
@@ -207,24 +212,26 @@ function trace(e, game) {
   if (e.kind === 'game' && e.data.type === 'ebbfall:applied') { log('applied', { game: game?.n, ...e.data }); md(`\n- applied: ok=${e.data.ok} plan=\`${e.data.plan}\`${e.data.adjusted?.length ? ` adjusted ${JSON.stringify(e.data.adjusted)}` : ''}${e.data.error ? ` error ${e.data.error}` : ''}`); game?.deltas.push({ tick: e.data.tick, ok: e.data.ok, plan: e.data.plan, error: e.data.error, adjusted: e.data.adjusted }); }
 }
 
-async function playGame(n, last) {
-  const game = { n, result: null, at: null, startPlan: null, lines: [], deltas: [], digests: 0, calls: 0, tokens: { input: 0, cache_write: 0, cache_read: 0, output: 0, cost_usd: 0 }, wall_s: 0 };
+async function playGame(n, record) {
+  const game = { n, session: randomUUID(), started: false, seed: opt.seeds.length ? opt.seeds[(n - 1) % opt.seeds.length] : null, notes: '', result: null, at: null, startPlan: null, lines: [], deltas: [], digests: 0, calls: 0, tokens: { input: 0, cache_write: 0, cache_read: 0, output: 0, cost_usd: 0 }, wall_s: 0 };
   const t0 = Date.now();
   md(`\n## Game ${n}\n`);
-  if (n > 1 || !(await api('state')).state.page_open) {
-    if (n > 1) await control({ action: 'rematch' });
-  }
-  const ready = await waitFor('ready', 120, e => trace(e, game));
+  const rematch = n > 1 || game.seed !== null;
+  if (rematch) await control({ action: 'rematch', ...(game.seed !== null ? { seed: game.seed } : {}) });
+  log('game', { game: n, session: game.session, seed: game.seed });
+  md(`session ${game.session}${game.seed !== null ? `, seed ${game.seed}` : ''}`);
+  // (after a rematch, only the reloaded game's ready: the first load's may still be on its way)
+  const ready = await waitFor('ready', 120, e => trace(e, game), rematch);
   if (!ready) throw new Error('the game did not answer hello');
   log('ready', ready);
-  await ask(preGame({ game: n, series: opt.games, mode: 'watch', peoples: 'Kingdom vs Kingdom', map: 'Dust Quarter (Standard, 96x96)', last }), game);
+  await ask(preGame({ game: n, series: opt.games, mode: 'watch', peoples: 'Kingdom vs Kingdom', map: 'Dust Quarter (Standard, 96x96)', record, notes: series.notes }), game);
   game.calls++;
   for (const e of await events(1)) trace(e, game);
   await pressStart();
   const start = await waitFor('start', 60, e => trace(e, game));
   if (!start) throw new Error('the game did not start');
   game.startPlan = start.plan;
-  log('start', start);
+  log('start', { ...start, frame: (await gameFrame()).url() });
   md(`\nStarted: plan \`${start.plan}\`${start.adjusted?.length ? `, adjusted ${JSON.stringify(start.adjusted)}` : ''}`);
   say(`game ${n}: started with ${start.plan}`);
 
@@ -278,7 +285,14 @@ async function playGame(n, last) {
   say(`game ${n}: ${end.result} at ${game.at}`);
   if (!series.stopped) {
     game.calls++;
-    await ask(postGame({ result: end.result, summary: end.summary, game: n, series: opt.games, at: game.at }), game);
+    const j = await ask(postGame({ result: end.result, summary: end.summary, game: n, series: opt.games, at: game.at }), game);
+    const notes = String(j?.result ?? '').trim();
+    if (notes) {
+      game.notes = notes.length > NOTES_MAX ? notes.slice(0, NOTES_MAX) + '...' : notes;
+      series.notes = game.notes;
+      log('notes', { game: n, chars: notes.length, notes: game.notes });
+      appendFileSync(join(LOG, 'notes.md'), `## After game ${n} (${end.result}, ${notes.length} characters)\n\n${game.notes}\n\n`);
+    }
     for (const e of await events(1)) trace(e, game);
     overCeiling();
   }
@@ -314,12 +328,12 @@ async function main() {
   page = await (await browser.newContext({ viewport: { width: 1400, height: 820 } })).newPage();
   page.on('pageerror', (e) => log('pageerror', { message: String(e.message || e) }));
   await page.goto(ready.url);
-  md(`# Series ${opt.name}\n\nsession ${series.session}, ${opt.games} games, ceiling ${opt.ceiling} new tokens, speed ${opt.speed}x, vs ${opt.vs}${opt.mock ? ' (MOCK GAME)' : ''}\n\nClaude flags: \`${CLAUDE_FLAGS.join(' ')}\``);
-  let last = '';
+  md(`# Series ${opt.name}\n\na fresh session per game (notes carried), ${opt.games} games, ceiling ${opt.ceiling} new tokens, speed ${opt.speed}x, vs ${opt.vs}${opt.mock ? ' (MOCK GAME)' : ''}\n\nClaude flags: \`${CLAUDE_FLAGS.join(' ')}\``);
+  const results = [];
   for (let n = 1; n <= opt.games && !series.stopped; n++) {
-    const g = await playGame(n, last);
+    const g = await playGame(n, results.map((r, i) => `game ${i + 1} ${r}`).join(', '));
     series.games.push(g);
-    last = `${g.result} at ${g.at}, start plan ${g.startPlan}${g.deltas.length ? `, last plan ${g.deltas.at(-1).plan}` : ''}.`;
+    results.push(`${g.result} at ${g.at}`);
     writeFileSync(join(LOG, 'series.json'), JSON.stringify({ ...series, billed: billed(series.tokens) }, null, 2));
   }
   writeFileSync(join(LOG, 'series.json'), JSON.stringify({ ...series, billed: billed(series.tokens) }, null, 2));

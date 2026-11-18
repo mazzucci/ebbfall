@@ -275,8 +275,9 @@ async function api(req, res, name, url) {
   if (name === 'control') {
     if (body.action === 'rematch') {
       S.status = 'menu'; S.start = null; S.digest = null;
-      record('control', { action: 'rematch' });
-      return json(res, 200, { ok: true, pages: toPage({ reload: true }) });
+      const seed = Number.isInteger(body.seed) && body.seed >= 0 && body.seed <= 0xffffffff ? body.seed : null;
+      record('control', { action: 'rematch', seed });
+      return json(res, 200, { ok: true, pages: toPage({ reload: true, seed }) });
     }
     if (body.action === 'status' && typeof body.status === 'string') {
       toPage({ status: body.status.slice(0, 60) });

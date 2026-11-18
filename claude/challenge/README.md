@@ -39,11 +39,15 @@ node claude/challenge/drive.mjs --games 5 --name s1   # a series: Kingdom mirror
 
 Options: `--ceiling 150000` (new tokens per series: input + cache writes + output; cache reads are logged apart),
 `--speed N` (game time at N times real time, default 1: headless Chromium draws too slowly to hold 30 Hz, so the driver keeps the pace with `endfall.skip`), `--cap 30` (game minutes before it
-calls a timeout), `--session UUID` (carry a session over), `--model`, `--mock` (the stand-in game), `--headed`.
+calls a timeout), `--seeds 11,22,..` (a seed per game, `&seed=`, cycled), `--model`, `--mock` (the stand-in game), `--headed`.
 Logs in `target/challenge/logs/<name>-<time>/`: `transcript.md` (readable), `driver.jsonl`, `server.jsonl`,
-`series.json` (results and tokens per game).
+`series.json` (results and tokens per game), `notes.md` (Claude's notes after each game).
 
-Each moment goes to `claude -p <moment> --output-format json --session-id|--resume <one session per series>
+Each game is a fresh Claude session. At a game's end Claude says a line, then writes its notes for the next game as
+its final answer (at most 1,500 characters: what worked, what the opponent did, what to try next, merged with its
+earlier notes); the next game's first message carries them and the results so far, nothing else.
+
+Each moment goes to `claude -p <moment> --output-format json --session-id|--resume <one session per game>
 --system-prompt <lib/prompt.mjs SYSTEM>` with these limits, and nothing else:
 
 ```

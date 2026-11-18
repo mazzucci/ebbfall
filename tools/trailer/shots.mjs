@@ -303,7 +303,7 @@ export const SEGMENTS = [
       // Opening B's head: the black card (the game's own line), the field held behind it.
       { name: 'black', seconds: 1.3, freeze: true, cam: (t, a, f) => arrivalCam(0, a, f),
         overlay: (t) => ({ black: { alpha: 1, text: `<span style="opacity:${fadeIn(t, 0.1, 0.3)}">In 2047, time travel<br>was first attempted.</span>` } }) },
-      // Shots 1-3 (opening A from 0; B cuts in at 0.8): the field, the flash at 1.4, the Data center, the line.
+      // Shots 1-3 (opening A from 0; B cuts in at 0.8): the field, the flash at 1.4, the Data center, the premise.
       { name: 'arrival', seconds: 5.0, cam: arrivalCam,
         at: [{ t: 1.4, run: (page) => page.evaluate(arrive) }],
         overlay: (t, f) => ({ flash: flashAt(t, 1.4), cap: t >= 2.0 ? { alpha: fadeIn(t, 2.0, 0.15), ...arrivalLine(f) } : null }) },
@@ -363,10 +363,11 @@ function arrivalCam(t, a, fmt) {
   const k = ease((t - 1.7) / 2.9);
   return { x: lerp(held.x, c1.x, k), y: lerp(held.y, c1.y, k), zoom: lerp(z0, z1, k), ...nudge(t, 1.4, lerp(z0, z1, k)) };
 }
-/** The line: two lines high in the 16:9 frame, four in the 9:16 band under the platforms' header. */
+/** The premise (shot 3's caption): two lines at the bottom right in 16:9, four at the right in 9:16, clear of the
+ *  Villagers and the Data center. */
 const arrivalLine = (fmt) => tall(fmt)
-  ? { text: 'Naturally,<br>the first thing<br>we built was<br>a data center.', style: 'right:95px;top:57%;font-size:34px;text-align:right' }
-  : { text: 'Naturally, the first thing<br>we built was a data center.', style: 'right:30px;bottom:7%;font-size:32px;text-align:right' };
+  ? { text: 'In 2047,<br>an expedition<br>jumped six<br>centuries back.', style: 'right:95px;top:61%;font-size:31px;text-align:right' }
+  : { text: 'In 2047, an expedition<br>jumped six centuries back.', style: 'right:30px;bottom:7%;font-size:32px;text-align:right' };
 
 /** The end card at `t` (from 25.0): the logo up, the veil, the lines on the beats (0.7 s apart), the URL last. */
 function card(t, yt) {

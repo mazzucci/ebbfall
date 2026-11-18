@@ -317,7 +317,10 @@ impl Game {
         w.set_teams(&old.teams);
         w.diffs = old.diffs.clone();
         w.set_ai_seats(&old.ai_seats);
-        // (the plans it started with, and its deltas on their ticks: a planned game replays exactly)
+        // (its game seed, the plans it started with, and its deltas on their ticks: a planned game replays exactly)
+        if let Some(seed) = old.game_seed {
+            let _ = w.set_game_seed(seed);
+        }
         for (seat, code) in &self.plans {
             let _ = w.set_plan(*seat, code);
         }
@@ -401,6 +404,20 @@ impl Game {
             }
             Err(e) => e,
         }
+    }
+
+    /// Draw this game's randomness (the AI's style among it) from `seed` as well as the map's, before play: a planned or
+    /// watched game's own seed, so one map plays a fresh game each time (claude/PROTOCOL.md, `&seed=`). Single player
+    /// only: refused in lockstep; recorded with the game, so a replay plays it. "" when set, else why not.
+    #[wasm_bindgen(js_name = setGameSeed)]
+    pub fn set_game_seed(&mut self, seed: u32) -> String {
+        if self.lock.is_some() {
+            return "No game seed in an online game".into();
+        }
+        if self.replay.is_some() {
+            return "Watching a replay".into();
+        }
+        res(self.w.set_game_seed(seed))
     }
 
     /// What the last `setPlan` or `planDelta` clamped or dropped, one line each (JSON array of strings).

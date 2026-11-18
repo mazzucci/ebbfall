@@ -83,6 +83,7 @@ impl Game {
             self.w.seat_plans.clear();
             self.w.init_ai();
         }
+        self.w.clear_game_seed(); // (nor a game seed)
         self.plans.clear();
         self.deltas.clear();
         self.watching = false;

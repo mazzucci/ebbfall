@@ -25,7 +25,7 @@ import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
 import { MAPS, DEFAULT_MAP, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, offered, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
-import { PARAM as PLAN, WATCH, fromSearch, line as planLine } from './plan.js';
+import { PARAM as PLAN, WATCH, SEED, fromSearch, line as planLine } from './plan.js';
 import { initClaude, currentPlan } from './claude.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, removeAt, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
@@ -40,7 +40,7 @@ export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[DEFA
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
 /** ?seed=N in the URL plays a random-slot map of that seed, standard character: the first random slot, the hidden
  *  64x64 one, unless ?map= names another (tests use both). */
-const urlSeed = new URLSearchParams(location.search).get('seed');
+const urlSeed = ((q) => (q.has('plan') ? null : q.get('seed')))(new URLSearchParams(location.search)); // (with a plan, the game's own seed: plan.js)
 /** ?map=N in the URL opens on map N, a hidden one too (tests use it: the 64x64 maps and the Lake are in no list). */
 const urlMap = ((q) => (/^\d{1,3}$/.test(q ?? '') && MAPS[+q] ? +q : null))(new URLSearchParams(location.search).get('map'));
 
@@ -219,7 +219,7 @@ function takePlan() {
   const q = new URLSearchParams(location.search);
   if (!q.has(PLAN)) return null;
   const p = fromSearch(location.search);
-  q.delete(PLAN); q.delete(WATCH); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
+  q.delete(PLAN); q.delete(WATCH); q.delete(SEED); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
   if (p) page('menuSolo');
   return p;
 }
@@ -232,7 +232,7 @@ export function pendingChallenge() {
   if (!menu.challenge && !plan) return '';
   const q = new URLSearchParams(location.search); // (the address's other parameters kept: ?seed=, ?relay=)
   if (menu.challenge) q.set(PARAM, encode(menu.challenge));
-  if (plan) { q.set(PLAN, plan.code); if (plan.watch) q.set(WATCH, '1'); }
+  if (plan) { q.set(PLAN, plan.code); if (plan.watch) q.set(WATCH, '1'); if (plan.seed !== null && plan.seed !== undefined) q.set(SEED, String(plan.seed)); }
   return `${location.origin}${location.pathname}?${q}${location.hash}`;
 }
 

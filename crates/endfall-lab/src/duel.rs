@@ -28,6 +28,8 @@ pub struct Duel {
     pub vs_level: usize,
     pub seed: u32,
     pub cap_min: u32,
+    /// The game's draw seed (`World::set_game_seed`, a link's `&seed=`): fresh draws on the same map. None: the map's.
+    pub game_seed: Option<u32>,
 }
 
 /// One answer to a check-in: its number, the delta code (None: no change).
@@ -80,6 +82,9 @@ pub fn world(g: &Duel, plan: &str) -> Result<(World, Vec<String>), String> {
     );
     assert!(w.set_ai_seats([true, true]), "two AI seats");
     assert!(w.set_diffs(&[HARD as u8, g.vs_level as u8]), "levels");
+    if let Some(gs) = g.game_seed {
+        w.set_game_seed(gs)?;
+    }
     let notes = w.set_plan(0, plan)?;
     Ok((w, notes))
 }
@@ -263,6 +268,7 @@ mod tests {
             vs_level: HARD,
             seed: 3,
             cap_min: 3,
+            game_seed: None,
         };
         let p = play(&g, "1.w12", Some(&[]), 15).unwrap();
         let (n, digest) = p.waiting.expect("a check-in at 2:00");

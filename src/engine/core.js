@@ -256,6 +256,9 @@ export const disableAi = () => game.disableAi();
 /** A plan for AI seat `seat` before the first step (play against Claude: claude/PLAN_VOCAB.md): null when set, else why
  *  not (refused in an online game). What it clamped: `planNotes`. */
 export const setPlan = (seat, code) => err(game.setPlan(seat, code));
+/** The game's own seed before the first step (a planned or watched game: fresh draws on the same map): null when set,
+ *  else why not. */
+export const setGameSeed = (seed) => err(game.setGameSeed(seed >>> 0));
 /** A plan delta (fields and intents) for planned seat `seat` during the game, from this tick: null, or why not. */
 export const planDelta = (seat, code) => err(game.planDelta(seat, code));
 /** What the last setPlan or planDelta clamped or dropped (a list of short strings). */

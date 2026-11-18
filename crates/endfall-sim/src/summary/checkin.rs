@@ -1,6 +1,6 @@
 //! Check-ins for a planned seat while it plays (play against Claude, claude/PROTOCOL.md): every `EVERY` ticks, and on
-//! key events (its wave arrives or is wiped out, its base is attacked, an expansion of its falls, the enemy's first
-//! top-tier unit is seen), a short digest of what that seat has and what its own sight (and its allies') has shown of
+//! key events (its wave arrives or is wiped out, its base is attacked, a building of its falls, its army is wiped out at
+//! home, an expansion of its falls, the enemy's first top-tier unit is seen), a short digest of what that seat has and what its own sight (and its allies') has shown of
 //! its enemies (`World::seen`), and what changed since the last one. A reader (Claude) answers with a plan delta.
 //! Read-only like the rest of the summary: no hash moves, no randomness drawn.
 
@@ -14,7 +14,8 @@ use std::collections::VecDeque;
 
 /// A check-in every 2 game-minutes.
 pub const EVERY: u32 = 120 * TICK_RATE;
-/// Events no closer than this to the last digest (they wait, gathered); a check-in this close to an event is left out.
+/// Events no closer than this to the last digest (they wait, gathered); a check-in this close to an event waits as long
+/// (never dropped: a base under attack must not go dark).
 pub const EVENT_GAP: u32 = 20 * TICK_RATE;
 
 /// The check-ins of one seat.
@@ -37,6 +38,31 @@ pub(super) struct CheckIns {
     killed: u32,
     razed: u32,
     attacks: usize,
+    /// A check-in that came due too close to the last digest, waiting `EVENT_GAP`.
+    postponed: bool,
+    /// The most fighters it had at home (out of any wave) at once since it last had none: an army wiped out at home.
+    home_army: usize,
+}
+
+/// Place words as seat `me` reads them: "your main base", "the enemy's expansion" (with one enemy seat; else "seat 2's").
+fn as_seen(words: &str, me: u8, w: &World) -> String {
+    let mut out = words.replace(&format!("seat {me}'s "), "your ");
+    let foes: Vec<usize> = (0..w.seats()).filter(|&e| w.enemies(me, e as u8)).collect();
+    if let [foe] = foes[..] {
+        out = out.replace(&format!("seat {foe}'s "), "the enemy's ");
+    }
+    out
+}
+
+/// The armed fighters of seat `me` not out with its AI's wave.
+fn at_home(w: &World, me: u8) -> usize {
+    let wave = w.ai_wave_of(me).unwrap_or(&[]);
+    w.units
+        .iter()
+        .filter(|u| {
+            u.team == me && !u.kind.def().worker && u.kind.def().armed() && !wave.contains(&u.id)
+        })
+        .count()
 }
 
 impl CheckIns {
@@ -53,6 +79,8 @@ impl CheckIns {
             killed: 0,
             razed: 0,
             attacks: 0,
+            postponed: false,
+            home_army: 0,
         }
     }
 
@@ -74,6 +102,7 @@ impl CheckIns {
             return;
         }
         let b = bases(s, w);
+        let place = |b: &[Base], t: u32, x: f64, y: f64| as_seen(&place(b, t, x, y), me, w);
         for &(seat, to, x, y) in &news.arrived {
             if seat == me {
                 self.reasons.push(format!(
@@ -92,18 +121,34 @@ impl CheckIns {
                 self.reasons.push("your wave was wiped out".into());
             }
         }
-        let hq = w.factions[me as usize].hq;
-        for d in deaths
-            .iter()
-            .filter(|d| d.team == me && d.thing == Thing::Bldg(hq))
-        {
+        for d in deaths.iter().filter(|d| d.team == me) {
+            let Thing::Bldg(k) = d.thing else { continue };
             if s.seats[me as usize].expansions.iter().any(|e| e.id == d.id) {
                 self.reasons.push(format!(
                     "your expansion at {} fell",
                     unq(&place(&b, w.tick, d.x, d.y))
                 ));
+            } else {
+                self.reasons.push(format!(
+                    "your {} fell at {}",
+                    k.def().name,
+                    unq(&place(&b, w.tick, d.x, d.y))
+                ));
             }
         }
+        // (its fighters at home all gone, three or more at once since it last had none: the last of them fell this tick)
+        let home = at_home(w, me);
+        let lost_one = deaths
+            .iter()
+            .any(|d| d.team == me && matches!(d.thing, Thing::Unit(k) if !k.def().worker));
+        if self.home_army >= 3 && home == 0 && lost_one {
+            self.reasons.push("your army was wiped out at home".into());
+        }
+        self.home_army = if home == 0 {
+            0
+        } else {
+            self.home_army.max(home)
+        };
         for &(viewer, k) in first_top {
             if viewer == me as usize {
                 self.reasons
@@ -112,16 +157,19 @@ impl CheckIns {
         }
         let t = w.tick;
         let spaced = self.last.is_none_or(|l| t >= l + EVENT_GAP);
-        if !self.reasons.is_empty() && spaced {
-            let why = std::mem::take(&mut self.reasons);
-            self.digest(s, w, deaths, "event", why);
-        } else if t >= self.next {
-            if spaced {
-                self.digest(s, w, deaths, "checkin", vec!["every 2 minutes".into()]);
-            }
+        if t >= self.next {
+            self.postponed = true;
             while self.next <= t {
                 self.next += EVERY;
             }
+        }
+        if !self.reasons.is_empty() && spaced {
+            let why = gather(std::mem::take(&mut self.reasons));
+            self.postponed = false; // (the check-in due goes out with the event)
+            self.digest(s, w, deaths, "event", why);
+        } else if self.postponed && spaced {
+            self.postponed = false;
+            self.digest(s, w, deaths, "checkin", vec!["every 2 minutes".into()]);
         }
     }
 
@@ -181,7 +229,7 @@ impl CheckIns {
                     o = o.num("went_with", units);
                 }
                 if !left.is_empty() {
-                    o = o.raw("where", place(&b, w.tick, cx, cy));
+                    o = o.str("where", &unq(&as_seen(&place(&b, w.tick, cx, cy), me, w)));
                 }
                 o.done()
             }
@@ -201,7 +249,7 @@ impl CheckIns {
         };
         let income = r.income_per_min.last().copied().unwrap_or(0);
         let you = Obj::new()
-            .str("money", f.money)
+            .str("money_name", f.money)
             .num("bank", w.res[seat][0] + w.res[seat][1])
             .num("income_per_min", income)
             .num("workers", workers)
@@ -258,11 +306,15 @@ impl CheckIns {
                     .raw(
                         "expansions",
                         array(v.expansions.iter().map(|x| {
-                            quote(&place_words(
-                                &mains,
-                                x.1,
-                                x.2 as f64 + d.w as f64 / 2.0,
-                                x.3 as f64 + d.h as f64 / 2.0,
+                            quote(&as_seen(
+                                &place_words(
+                                    &mains,
+                                    x.1,
+                                    x.2 as f64 + d.w as f64 / 2.0,
+                                    x.3 as f64 + d.h as f64 / 2.0,
+                                ),
+                                me,
+                                w,
                             ))
                         })),
                     )
@@ -367,6 +419,20 @@ impl CheckIns {
         self.razed = st.razed;
         self.attacks = done_attacks.len();
     }
+}
+
+/// The reasons as told: each once, with how many times it happened ("your Cottage fell at your main base (x3)").
+fn gather(reasons: Vec<String>) -> Vec<String> {
+    let mut out: Vec<(String, usize)> = Vec::new();
+    for r in reasons {
+        match out.iter_mut().find(|o| o.0 == r) {
+            Some(o) => o.1 += 1,
+            None => out.push((r, 1)),
+        }
+    }
+    out.into_iter()
+        .map(|(r, n)| if n > 1 { format!("{r} (x{n})") } else { r })
+        .collect()
 }
 
 /// A quoted place's words, without the quotes.

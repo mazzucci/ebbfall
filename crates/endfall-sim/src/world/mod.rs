@@ -73,6 +73,12 @@ pub struct World {
     /// set. Single player only (the `Game` refuses it in lockstep); recorded with the game and hashed once any is set.
     /// Empty: no seat has one.
     pub seat_plans: Vec<Option<crate::data::Plan>>,
+    /// The game's draw seed (`set_game_seed`, a planned or watched single-player game's): the world's RNG drawn from it
+    /// as well as the map's seed, so one map plays fresh games (the AI's style draws among them). None: the map's seed
+    /// alone, as every other game. Its effect is in the hash (the RNG's state).
+    pub game_seed: Option<u32>,
+    /// The RNG as it stood before a game seed replaced it (`clear_game_seed` puts it back: an online game has none).
+    rng_unseeded: Option<Mulberry32>,
     /// Where a Shore reef basin's main field lies (`set_shore_field`): the balance lab's exposed-income variants, set
     /// only from Rust, never by the menus, JS or the network, so not hashed (the map it makes is). `BACK` outside the lab.
     pub shore_field: ShoreField,
@@ -223,6 +229,8 @@ impl World {
             ai_plans: Vec::new(),
             ai_styles: Vec::new(),
             seat_plans: Vec::new(),
+            game_seed: None,
+            rng_unseeded: None,
             shore_field: ShoreField::BACK,
             map_kind,
             map_size,
@@ -447,6 +455,30 @@ impl World {
         self.seat_plans[s] = Some(p.plan);
         self.set_diffs(&diffs);
         Ok(p.notes)
+    }
+    /// Draw this game's randomness from `seed` too (the map stays the map seed's): before play only. Err: a game already
+    /// started.
+    pub fn set_game_seed(&mut self, seed: u32) -> Result<(), String> {
+        if self.tick > 0 {
+            return Err("A game seed is set before the game starts".into());
+        }
+        if self.game_seed.is_none() {
+            self.rng_unseeded = Some(self.rng.clone());
+        }
+        self.game_seed = Some(seed);
+        // (a mix of both seeds, never the map's alone: `Mulberry32` from the map seed is every other game's)
+        let mixed = (self.seed ^ 0x9e37_79b9)
+            ^ seed.wrapping_mul(0x85eb_ca6b).rotate_left(13)
+            ^ 0xc2b2_ae35;
+        self.rng = Mulberry32::new(mixed);
+        Ok(())
+    }
+    /// Drop a game seed set before play: the RNG as the map's seed alone made it (an online game has none).
+    pub fn clear_game_seed(&mut self) {
+        if let Some(r) = self.rng_unseeded.take() {
+            self.rng = r;
+        }
+        self.game_seed = None;
     }
     /// A delta for planned seat `seat` during play (`code`, data/plan.rs): its fields over the plan from now on, its
     /// intents carried out at the seat's next turn. Err (nothing changes): no plan on that seat, the seat or the game

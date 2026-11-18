@@ -54,6 +54,11 @@ EVERYONE stops it for both of you (three a game, five minutes at most, and only 
 card gives the result and the time, and the map's story; after a victory against the AI, SHARE sends a friend the same
 game as a challenge.
 
+**Play against Claude (preview):** a link with `?plan=` gives the computer opponent a plan Claude wrote (the game's
+Hard AI follows it: when to attack, expand and tech, units it won't build); `&watch=1` lets you watch that plan play
+the built-in Hard instead. A bare link sets the plan for the whole game; only a page that embeds the game can let
+Claude change it while you play ([claude/PLAN_VOCAB.md](claude/PLAN_VOCAB.md), [claude/PROTOCOL.md](claude/PROTOCOL.md)).
+
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
 **Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold mine to mine it.

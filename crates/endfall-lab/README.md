@@ -20,6 +20,9 @@ npm run lab -- tiers --steady    # the same against Medium itself teching (--gre
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
 npm run lab -- trace --size 96 --races Kingdom,Expedition --levels Medium --seed 3   # one game, traced
 npm run lab -- summary --races Kingdom,Expedition --levels Medium --seed 3   # one game's summary JSON (96x96, 15 min)
+npm run lab -- duel --plan 1.w14.f9m.m24 --seed 7 --out s.json   # play against Claude: a plan code on Hard vs Hard
+npm run lab -- duel --plan-file p --answers a --digest d.json --delay 15   # with check-ins answered from a file
+npm run lab -- plan-gate --seeds 30   # plain Hard against Hard with an empty plan, seed for seed (8 cells, ~18 min)
 ```
 
 ### `report`

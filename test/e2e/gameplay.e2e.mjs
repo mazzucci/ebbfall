@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH, GRAY_SMOKE } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3499,6 +3499,32 @@ test('melee units in a fight show their strike poses, and each blow glints on it
     const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
     assert.match(between[0], /^knight_\d+_wind$/, `the Knight on guard between blows (${between[0]})`);
     assert.match(between[1], /^bruiser_\d+_(wind|strike)$/, `the Bruiser in its strike poses too (${between[1]})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a hit\'s look follows how hard it hits: a Cannon\'s cannonball (siege) lands as a big blast with a flash, and the camera stays still', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 120, y = core.y + 150;
+    // (three Cannons, and a row of foe workers standing idle in their reach; the camera between them)
+    await d.eval(([x, y]) => { for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'siegeTank', x, y - 40 + i * 40); for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(1, 'harvester', x + 220, y - 75 + i * 30); }, [x, y]);
+    await d.centerOn(x + 110, y);
+    await d.eval(() => { window.__peak = 0; const look = () => { window.__peak = Math.max(window.__peak, endfall.shake()); requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    // (tick by tick to a cannonball landing, then the frame that draws it)
+    const seen = await d.eval(() => {
+      const hit = () => endfall.G.events.find(e => e.t === 'hit' && e.by === 'siegeTank');
+      for (let t = 0; t < 30 * 15 && !hit(); t++) endfall.skip(1 / 30);
+      const h = hit(); if (!h) return null;
+      return new Promise(r => requestAnimationFrame(() => r(endfall.effects().filter(e => Math.hypot(e.x - h.x, e.y - h.y) < 8))));
+    });
+    assert.ok(seen, 'a cannonball lands');
+    const boom = seen.find(e => e.anim === 'boom_small');
+    assert.ok(boom, `a blast where it lands (${JSON.stringify(seen.map(e => e.anim))})`);
+    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
+    assert.ok(seen.some(e => e.anim === 'flash'), 'with a flash');
+    await d.skip(1);
+    assert.equal(await d.eval(() => window.__peak), 0, 'no shake on any frame');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

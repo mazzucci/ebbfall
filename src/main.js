@@ -2,8 +2,8 @@
 // Loaded by src/boot.js behind the menu (the renderer waits for its art, and the sim for its WASM, below); the menu and
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
-import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, impactFx, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
+import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -18,7 +18,7 @@ import { initHelp, closeHelp } from './client/help.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { levelOf } from './engine/util.js';
-import { setSpots, MUZZLE_SMOKE, MUZZLE_FLASH, MELEE_PUFF, inReach, impactOf } from './client/look.js';
+import { setSpots, MUZZLE_SMOKE, MUZZLE_FLASH, MELEE_PUFF, inReach, impactOf, hitTier, HIT_LOOK, towerOf } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { groupHintGame } from './client/grouphint.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
@@ -114,7 +114,15 @@ function muzzle(e) {
   if (!u) { const b = G.bldgs.find(b => b.done && MUZZLE_FLASH[b.type] && at(b)); if (b) muzzleFlash(e.x, e.y, b.aim, MUZZLE_FLASH[b.type]); return; }
   if (MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
   if (MUZZLE_FLASH[u.type]) muzzleFlash(e.x, e.y, u.face, MUZZLE_FLASH[u.type]);
-  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) meleeHit(u, t, MELEE_PUFF[u.type]); }
+  const tier = hitTier(u.d.weapon); // (how hard it hits: a heavy or siege gun's big flash, a blow's heavier look)
+  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) { const p = meleeHit(u, t, MELEE_PUFF[u.type]); if (tier !== 'light') tierHit(p.x, p.y, tier, null, true, p.feet); } }
+  else tierMuzzle(e.x, e.y, u.face, tier, MUZZLE_FLASH[u.type]);
+}
+/** How hard a shot that landed hits (look.js hitTier): by its shooter's weapon, a unit's or its people's tower's
+ *  (a building's shot carries no shooter kind); a repairer's welding (no shot) 'light'. Read from the data each time. */
+function shotTier(e) {
+  if (!e.proj) return 'light';
+  return hitTier(e.by ? UNITS[e.by]?.weapon : BUILDINGS[towerOf(e.people, FACTIONS, BUILDINGS)]?.weapon);
 }
 /** What a melee blow struck: the unit's target, else (held in place, the sim's Hold: no target in its task) the
  *  nearest enemy in its reach. */
@@ -135,7 +143,7 @@ function drainEvents() {
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'signal') leashAt(e.x, e.y); // (a machine of ours sent past coverage: the rim brightens there)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, deathY(e.y, e.unit), e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
-    else if (e.t === 'hit') { impactFx(e.x, hitY(e.y, e.air), impactOf(e)); if (seen(e)) sfx('hit', e); } // (on a flyer: up on its body)
+    else if (e.t === 'hit') { const tier = shotTier(e); tierHit(e.x, hitY(e.y, e.air), tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer: up on its body; its look and sound by how hard it hits)
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);

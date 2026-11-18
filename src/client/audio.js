@@ -155,7 +155,12 @@ const SFX = {
   blade: (b, t) => { noise(b, t, { dur: 0.07, vol: 0.035, filter: 'bandpass', f: 3200, to: 1400, q: 4 }); tone(b, t + 0.02, { f: 1500, to: 1100, dur: 0.06, type: 'sine', vol: 0.015 }); },
   // impacts and deaths
   knock: (b, t) => { noise(b, t, { dur: 0.06, vol: 0.03, filter: 'lowpass', f: 420, to: 160, att: 0.002 }); tone(b, t, { f: 150, to: 95, dur: 0.05, type: 'sine', vol: 0.025 }); }, // (a builder at work: short, low, soft)
-  hit: (b, t, o) => o.big ? noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 }) : noise(b, t, { dur: 0.04, vol: 0.03, filter: 'bandpass', f: 2200, q: 1.5 }),
+  hit: (b, t, o) => { // (its weight by how hard it hits, look.js HIT_LOOK: 0 a light tick, 1 a firmer one, 2 a dull knock, 3 a shell's thud; none given: the sim's `big`, a shell's)
+    const w = o.weight ?? (o.big ? 3 : 0);
+    if (w >= 3) noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 });
+    else if (w === 2) noise(b, t, { dur: 0.09, vol: 0.06, filter: 'lowpass', f: 1200, to: 300 });
+    else noise(b, t, { dur: 0.04, vol: w ? 0.04 : 0.03, filter: 'bandpass', f: w ? 1800 : 2200, q: 1.5 });
+  },
   boom: (b, t, o) => {
     const big = (o.r || 20) > 30;
     noise(b, t, { dur: big ? 0.9 : 0.45, vol: big ? 0.22 : 0.13, filter: 'lowpass', f: big ? 1400 : 1800, to: 120, att: 0.006 });
@@ -215,7 +220,7 @@ export function sfx(name, o = {}) {
     // One of a kind per short gap, unless this one is louder (an on-screen shot beats a distant one).
     if (last[name] && now - last[name] < (GAP[name] ?? 60) && g <= lastGain[name]) return;
     last[name] = now; lastGain[name] = g;
-    if (audio.record) { audio.record({ name, at: now, gain: g, pan, unit: o.unit, r: o.r, big: o.big }); return; }
+    if (audio.record) { audio.record({ name, at: now, gain: g, pan, unit: o.unit, r: o.r, big: o.big, weight: o.weight }); return; }
     const bus = actx.createGain(); bus.gain.value = g;
     if (pan && actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pan; bus.connect(p).connect(master); } else bus.connect(master);
     recipe(bus, actx.currentTime, o);

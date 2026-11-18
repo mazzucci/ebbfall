@@ -120,19 +120,14 @@
           <p class="links" id="menuLinks"><a id="linkHowTo" href="./docs/how-to-play/" target="_blank" rel="noopener">How to play</a><span class="sep" aria-hidden="true">·</span><a id="linkAbout" href="./docs/about/" target="_blank" rel="noopener">About</a></p>
           <div class="rec" id="buildStamp"></div>
         </div>
-        <!-- The water's edge: the water at the bottom edge, three lines that drift and a few stones left on the bank. Each line is an <svg> of its own, so its drift is one transform on the compositor; the whole thing is hidden with this page. -->
-        <div class="shore" aria-hidden="true">
-          <!-- The field under the first page (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. -->
+        <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. -->
+        <div class="backdrop" aria-hidden="true">
           <picture class="scene">
             <source media="(orientation: portrait)" srcset="menu/menu-portrait.webp">
             <source media="(max-height: 420px)" srcset="menu/menu-landscape.webp">
             <source media="(min-aspect-ratio: 2/1)" srcset="menu/menu-wide.webp">
             <img src="menu/menu-desktop.webp" alt="" decoding="async" fetchpriority="low" width="1920" height="480">
           </picture>
-          <svg class="tide t1" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 296c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/></svg>
-          <svg class="tide t2" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 318c60-8 120 8 180 0s120-8 180 0 120 8 180 0 120-8 180 0 120 8 180 0 60-4 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".16"/></svg>
-          <svg class="tide t3" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="shoreSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fd1c5" stop-opacity="0"/><stop offset="1" stop-color="#4fd1c5" stop-opacity=".14"/></linearGradient></defs><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0V460H-40Z" fill="url(#shoreSea)"/><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="2" stroke-opacity=".32"/></svg>
-          <svg viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><g fill="#e6e0d3" fill-opacity=".28"><path d="M88.5 316 87.8 307.4 91 304l3.8 3.4.7 8.6z"/><path d="M101.5 316l.7-5 2.8-2 2.2 2-.7 5z"/><path d="M686.5 350l-.7-9.4L689 337l3.8 3.6.7 9.4z"/><path d="M703.5 350l.7-5 2.8-2 2.2 2-.7 5z"/><path d="M407 350l.4-7.2 3.1-2.8 2.9 2.8-.4 7.2z"/><path d="M777.5 306l-.4-5 2.4-2 2.6 2 .4 5z"/><path d="M247.5 334l.4-5 2.6-2 2.4 2-.4 5z"/></g></svg>
         </div>
       </div>
       <div class="page" id="menuSolo" hidden>

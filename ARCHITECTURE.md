@@ -561,8 +561,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ with the site's h
                       listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the
                       Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page),
                       field.e2e.mjs (the field under the first page: the right image per size class, under the premise
-                      line, the buttons unmoved, the floor when the image does not come, the drift stopped under reduced
-                      motion, no band on a screen too short),
+                      line, the buttons unmoved, the plain floor when the image does not come, no tide line and no
+                      drift, the band under the other menu pages too, no band on a screen too short),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
@@ -703,7 +703,7 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       portrait phone the "Ledger": tiers by what each building needs first) and research, the
                       home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
                       shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
-                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer over the tide lines; nothing
+                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
                       designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
                       and one script, docs.js (the tabs scrolled to the current one, the clip played in view)), sprites.mjs and crops.mjs (the sprite crops: the

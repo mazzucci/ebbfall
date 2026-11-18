@@ -1,7 +1,7 @@
-// The field under the menu's first page (index.html's <picture class="scene"> in the shore, public/menu/,
+// The field under the menu's first page (index.html's <picture class="scene"> in the backdrop, public/menu/,
 // tools/menu-art.mjs): the right image per size class, under the premise line, the buttons where they are without it,
-// the page's floor when the image never comes, the two upper tide lines and the stones gone and the lowest line kept,
-// the drift stopped under reduced motion, and no band at all on a screen too short for one.
+// the plain dark floor when the image never comes, no tide line and no drift anywhere on the menu, the band under the
+// other menu pages too, and no band at all on a screen too short for one.
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,12 +29,15 @@ async function open(device, { block = false, reduced = false } = {}) {
   return { ctx, page, errors };
 }
 const rect = (page, sel) => page.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); }, sel);
-/** The field as the page shows it: its image, whether it came and is shown, its box, its drift, the shore's lines left. */
-const field = (page) => page.evaluate(() => {
-  const p = document.querySelector('#menuHome .scene'), i = p.querySelector('img'), cs = getComputedStyle(p), r = p.getBoundingClientRect();
-  const lines = [...document.querySelectorAll('#menuHome .shore svg')].filter((s) => getComputedStyle(s).display !== 'none').map((s) => s.getAttribute('class') || 'stones');
-  return { src: i.currentSrc.split('/').pop(), loaded: i.complete && i.naturalWidth > 0, shown: cs.display !== 'none', top: r.top, animation: cs.animationName, lines, floor: getComputedStyle(document.querySelector('#menuHome .shore')).backgroundImage.startsWith('radial-gradient') };
-});
+/** The plain dark floor under the menu (style.css's --panel): no gradient, no glow. */
+const FLOOR = 'rgb(18, 26, 37)';
+/** The field as the page shows it: its image, whether it came and is shown, its box, its animation, what else the
+ *  backdrop draws (an svg: a tide line or the stones of old), and its floor (a plain color, no image). */
+const field = (page, at = '#menuHome') => page.evaluate((at) => {
+  const p = document.querySelector(`${at} .scene`), i = p.querySelector('img'), cs = getComputedStyle(p), r = p.getBoundingClientRect(), bd = getComputedStyle(document.querySelector(`${at} .backdrop`));
+  return { src: i.currentSrc.split('/').pop(), loaded: i.complete && i.naturalWidth > 0, shown: cs.display !== 'none', top: r.top, bottom: r.bottom, left: r.left, animation: cs.animationName,
+    svgs: document.querySelectorAll(`${at} .backdrop svg`).length, floor: [bd.backgroundColor, bd.backgroundImage], anims: document.getAnimations().length };
+}, at);
 
 for (const [label, device, file] of SIZES) {
   test(`the field on a ${label}: ${file}, under the premise line, the buttons unmoved, the floor without it`, async () => {
@@ -43,34 +46,45 @@ for (const [label, device, file] of SIZES) {
     assert.equal(f.src, file);
     assert.ok(f.loaded && f.shown, 'the image came and is shown');
     assert.ok(f.top >= tag[1] + tag[3], `the band's top (${f.top}) under the premise line (${tag[1] + tag[3]})`);
-    assert.deepEqual(f.lines, ['tide t3'], 'only the lowest tide line stays over the field');
-    assert.equal(f.animation, 'ebb', 'the band drifts');
-    // Without the band (a thing of the shore, under the page): the buttons do not move, the floor shows.
+    assert.equal(f.svgs, 0, 'no tide line, no stones');
+    assert.equal(f.animation, 'none', 'the band stands still');
+    assert.equal(f.anims, 0, 'nothing on the first page animates');
+    assert.deepEqual(f.floor, [FLOOR, 'none'], 'a plain dark floor');
+    // Without the band (a thing of the backdrop, under the page): the buttons do not move, the floor shows.
     const bare = await a.page.evaluate(() => { document.querySelector('#menuHome .scene').remove(); const r = document.getElementById('btnSolo').getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); });
     assert.deepEqual(bare, play, 'PLAY where it is without the band');
     const b = await open(device, { block: true });
     const g = await field(b.page);
     assert.ok(!g.loaded, 'the image did not come');
-    assert.ok(g.floor, "the shore's floor shows");
+    assert.deepEqual(g.floor, [FLOOR, 'none'], 'the plain dark floor shows');
     assert.deepEqual(await rect(b.page, '#btnSolo'), play, 'PLAY where it is with the image blocked');
     assert.deepEqual([a.errors, b.errors], [[], []]);
     await a.ctx.close(); await b.ctx.close();
   });
 }
 
-test('reduced motion stops the field\'s drift', async () => {
-  const { ctx, page } = await open({ viewport: { width: 1440, height: 900 } }, { reduced: true });
-  const f = await field(page);
-  assert.ok(f.loaded && f.shown);
-  assert.equal(f.animation, 'none');
+test('the band under the other menu pages too: Single player and Multiplayer, at the foot of the screen, no tide line', async () => {
+  const { ctx, page, errors } = await open({ viewport: { width: 1440, height: 900 } });
+  await page.locator('#btnSolo').click();
+  for (const at of ['#menuSolo', '#onlineJoin']) {
+    if (at === '#onlineJoin') { await page.locator('#btnSoloBack').click(); await page.locator('#btnOnline').click(); }
+    await page.locator(at).waitFor();
+    const f = await field(page, at);
+    assert.ok(f.shown && f.loaded, `${at}: the band is shown`);
+    assert.deepEqual([Math.round(f.left), Math.round(f.bottom)], [-20, 908], `${at}: the band at the foot of the screen`);
+    assert.equal(f.svgs, 0, `${at}: no tide line, no stones`);
+    assert.deepEqual(f.floor, [FLOOR, 'none'], `${at}: the plain dark floor`);
+  }
+  assert.deepEqual(errors, []);
   await ctx.close();
 });
 
-test('a screen too short for the band shows none: the shore as it was', async () => {
+test('a screen too short for the band shows none: the plain floor', async () => {
   const { ctx, page, errors } = await open({ ...PHONE, viewport: { width: 568, height: 320 } });
   const f = await field(page);
   assert.ok(!f.shown, 'no band');
-  assert.deepEqual(f.lines, ['tide t1', 'tide t2', 'tide t3', 'stones'], 'the three tide lines and the stones');
+  assert.equal(f.svgs, 0, 'no tide line, no stones');
+  assert.deepEqual(f.floor, [FLOOR, 'none'], 'the plain dark floor');
   assert.deepEqual(errors, []);
   await ctx.close();
 });

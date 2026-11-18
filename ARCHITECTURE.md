@@ -509,7 +509,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       docs.e2e.mjs (the first page's footer line: How to play and About in a new tab, the old buttons
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
-                      listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape),
+                      listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the
+                      Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page),
                       field.e2e.mjs (the field under the first page: the right image per size class, under the premise
                       line, the buttons unmoved, the floor when the image does not come, the drift stopped under reduced
                       motion, no band on a screen too short),
@@ -580,7 +581,9 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
                       the clip's words and size; images with alt (empty only when decorative, aria-hidden), sizes,
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
-                      spelling, About's one quiet line naming Stelian
+                      spelling, About's one quiet line naming Stelian; the glance's tiers (one per requirement in
+                      Build-list order, each building in its tier, its units in order, a "needs" tag only where the
+                      building's chain does not imply it)
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -638,7 +641,8 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       trains, the facts strip, FIGURES: every number the copy names, from the data), copy/*.html (each
                       page's words: a head comment with its title and description, then HTML with tokens, pages.mjs:
                       {{roster}}, {{figure}}, {{diagram}}, {{n}} ...), pages.mjs (the tokens filled), diagrams.mjs
-                      (the loop, the economy, the caps, the Expedition's signal, a people's tree and research, the
+                      (the loop, the economy, the caps, the Expedition's signal, a people's tree (a row of columns; on a
+                      portrait phone the "Ledger": tiers by what each building needs first) and research, the
                       home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
                       shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
                       `videoGame`, and the clip's VideoObject), the slim top bar, the footer over the tide lines; docs.css

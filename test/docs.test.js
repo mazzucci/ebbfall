@@ -364,3 +364,49 @@ test('every page\'s head, the game\'s and the docs\': its own title and descript
     assert.equal(meta('twitter:image'), meta('og:image')); assert.equal(meta('twitter:image:alt'), meta('og:image:alt'));
   }
 });
+
+test('At a glance: a tier per requirement in Build-list order, every building in the tier of what it needs, its units in order, a tag only for a need its chain does not imply', { skip }, () => {
+  const tiersOf = {
+    '/docs/kingdom/': ['Start', 'After a Barracks', 'After a Blacksmith'],
+    '/docs/expedition/': ['Start', 'After a Recruiting post', 'After a Lab', 'After an Uplink'],
+  };
+  for (const [race, path] of [['humans', '/docs/kingdom/'], ['vael', '/docs/expedition/']]) {
+    const f = C.FACTIONS[race], html = page(path), at = html.indexOf('<figure class="dia tree');
+    assert.ok(at >= 0, `${path}: the tree`);
+    const tree = html.slice(at, html.indexOf('</figure>', at));
+    // The tiers as the page shows them, each with its buildings, each with its units: [after, label, [[key, [[unit, tag]]]]]
+    const tiers = tree.split('<li class="tier" ').slice(1).map(t => {
+      const [, after, label] = t.match(/^data-after="([^"]*)"><p class="tl"><span>([^<]*)<\/span>/);
+      const cols = t.split('<li class="tcol" ').slice(1).map(c => [c.match(/^data-g="(\w+)"/)[1],
+        [...c.matchAll(/<li data-g="(\w+)">.*?<\/span>(?:<em class="need(?: (imp))?">needs ([^<]+)<\/em>)?<\/li>/g)].map(m => [m[1], m[2] ? 'implied' : m[3] || null])]);
+      return [after, label, cols];
+    });
+    const want = [...new Set([f.hq, ...f.buildBasic, ...f.buildAdvanced])];
+    assert.deepEqual(tiers.map(t => t[1]), tiersOf[path], `${path}: the tiers, in order`);
+    // One tier per distinct requirement, in the order the Build list first meets them.
+    assert.deepEqual(tiers.map(t => t[0]), [...new Set(want.map(k => (C.BUILDINGS[k].req ? C.BUILDINGS[C.BUILDINGS[k].req].name : '')))], `${path}: a tier per requirement, in Build-list order`);
+    assert.deepEqual(tiers.flatMap(t => t[2].map(c => c[0])).sort(), [...want].sort(), `${path}: every building, once`);
+    const standing = [''];
+    for (const [after, label, cols] of tiers) {
+      assert.ok(standing.includes(after), `${path}: the tier "${after}" comes after the one its requirement stands in`);
+      assert.equal(label, after ? `After ${/^[AEIOU]/.test(after) ? 'an' : 'a'} ${after}` : 'Start', `${path}: the tier's label`);
+      for (const [k, units] of cols) {
+        const d = C.BUILDINGS[k];
+        assert.equal(after, d.req ? C.BUILDINGS[d.req].name : '', `${k}: in the tier of what it needs`);
+        standing.push(d.name);
+        assert.deepEqual(units.map(u => u[0]), d.trains || [], `${k}: its units, in order`);
+        if (!(d.trains || []).length) { const c = tree.slice(tree.indexOf(`<li class="tcol" data-g="${k}"`)); assert.ok(c.slice(0, c.indexOf('</li>')).endsWith(`<span class="what">${d.what}</span>`), `${k}: trains nothing, so its role line`); }
+        const chain = new Set(); for (let r = d.req; r; r = C.BUILDINGS[r].req) chain.add(C.BUILDINGS[r].name); // what stands before it
+        for (const [u, tag] of units) {
+          const need = C.UNITS[u].req ? C.BUILDINGS[C.UNITS[u].req].name : null;
+          assert.equal(tag, !need ? null : chain.has(need) ? 'implied' : need, `${u}: its tag`);
+        }
+      }
+    }
+  }
+  // The tag rule on today's data: the Workshop's (factory) siege engines need the Blacksmith its chain does not imply; the
+  // Stables already need it, so the Knight's is implied.
+  const k = page('/docs/kingdom/');
+  assert.match(k, /<li data-g="knight">(?:(?!<li).)*?<em class="need imp">needs Blacksmith<\/em><\/li>/);
+  assert.match(k, /<li class="tcol" data-g="factory"(?:(?!class="tcol").)*?<em class="need">needs Blacksmith<\/em><\/li>/);
+});

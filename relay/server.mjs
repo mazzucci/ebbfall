@@ -3,8 +3,8 @@
 // [port] (default 8788). A client connects to ws://host:port/?room=CODE (or ?new=1 to open a room) and says hello.
 // Over plain HTTP on the same port, the device test's reports (relay/bench.js, kept in memory here) and GET /version
 // (relay/version.js; the build is RELAY_BUILD from the environment, or none). The rooms' limits are the Worker's
-// (relay/limits.js, counted here in memory: `RoomLimits`), for every address but this machine's own (the developer, the
-// tests); a LAN or Tailscale friend counts as any address.
+// (relay/limits.js, counted here in memory: `RoomLimits`; a room in everyone's once its first hello seats someone), for
+// every address but this machine's own (the developer, the tests); a LAN or Tailscale friend counts as any address.
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import { WebSocketServer } from 'ws';
@@ -73,7 +73,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null,
     if (q.get('new')) {
       const no = limited ? limits.open(from) : '';
       if (no) { refuse('limit', no); return; }
-      const c = code(); room = new Room({ code: c, send, kick, seed: seed++ }); room.lastUsed = Date.now(); rooms.set(c, room);
+      const c = code(); room = new Room({ code: c, send, kick, seed: seed++ }); room.lastUsed = Date.now(); room.counted = !limited; rooms.set(c, room);
     } else {
       const typed = q.get('room') || '';
       if (oldCode(typed)) { refuse('update', 'Ebbfall has an update. Tap UPDATE to get it'); return; } // (a client from before PROTO 7)
@@ -91,6 +91,7 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null,
         if (rooms.get(room.code) !== room) { send(ws, { t: 'error', code: 'noroom', msg: 'No room with that code' }); kick(ws); return; } // (closed meanwhile)
         seated = room.connect(ws, msg, from) >= 0;
         if (!seated) kick(ws);
+        else if (room.counted === false) { room.counted = true; limits.seated(); } // (everyone's rooms: one somebody sat in)
         return;
       }
       room.receive(ws, msg);

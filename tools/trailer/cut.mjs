@@ -2,7 +2,7 @@
 // timeline (the storyboard's shot table, 30.0 s; opening B: the black card head; the YouTube version: the end card
 // held to 0:40), the game's sound under them (sound.mjs), encoded for upload: H.264 High at 30 fps, 22 Mb/s (16 at the least:
 // the platforms re-encode from a clean source), AAC 192 kb/s, BT.709. Then a contact sheet per format, one still per shot.
-//   node tools/trailer/cut.mjs [outDir]      (default target/trailer/cut/; FFMPEG as in record.mjs)
+//   node tools/trailer/cut.mjs [outDir] [--skip trailer-16x9-B,...]   (default target/trailer/cut/; FFMPEG as in record.mjs)
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -11,12 +11,14 @@ import { openStage } from './stage.mjs';
 import { timeline, render } from './sound.mjs';
 
 const root = new URL('../../', import.meta.url);
-const out = process.argv[2] || fileURLToPath(new URL('target/trailer/cut', root));
+const argv = process.argv.slice(2), si = argv.indexOf('--skip');
+const skip = si >= 0 ? argv[si + 1].split(',') : [];
+const out = argv.find((x, i) => !x.startsWith('--') && argv[i - 1] !== '--skip') || fileURLToPath(new URL('target/trailer/cut', root));
 const dirOf = (fmt) => fileURLToPath(new URL(`target/trailer/${fmt}`, root));
 
 /** Opening A and the body after it: [part, in, out] (seconds of the part). */
 const A_HEAD = [['arrival', 0, 4.6]];
-const B_HEAD = [['black', 0, 1.3], ['arrival', 0.8, 4.9]]; // (the field 0.6 s, the flash at 1.9, the line at 2.5)
+const B_HEAD = [['black', 0, 1.3], ['arrival', 0.8, 4.9]]; // (the field 0.6 s, the flash at 1.9, the premise at 2.5)
 const body = (closeTo = 2.7) => [['mine', 0, 1.6], ['build', 0, 1.6], ['hold', 0, 1.8], ['push', 0, 1.8], ['raid', 0, 1.6],
   ['phone', 0, 1.8], ['wide', 0, 2.6], ['close', 0, closeTo], ['siege', 0, 2.9], ['freeze', 0, 2.0]];
 export const VERSIONS = {
@@ -56,7 +58,7 @@ async function cut(stage, name, v) {
 }
 
 /** The storyboard's shots and where each one's still is taken on the A timeline (seconds). */
-const SHOTS = [['1 the field', 0.7], ['2 the flash', 1.48], ['3 the line', 3.6], ['4 MINE', 5.4], ['5 BUILD', 7.3], ['6 HOLD', 8.7],
+const SHOTS = [['1 the field', 0.7], ['2 the flash', 1.48], ['3 the premise', 3.6], ['4 MINE', 5.4], ['5 BUILD', 7.3], ['6 HOLD', 8.7],
   ['7 PUSH', 10.5], ['8 the raid', 12.2], ['9 the phone', 14.3], ['10 the armies meet', 16.1], ['11 close', 18.6],
   ['12 the siege', 21.6], ['13 the freeze', 24.6], ['14 the end card', 29.7]];
 
@@ -99,8 +101,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const stage = await openStage();
   try {
     const done = {};
-    for (const [name, v] of Object.entries(VERSIONS)) done[name] = await cut(stage, name, v);
-    await sheet(stage, `${out}/contact-16x9.png`, done['trailer-16x9-A'].file, '16x9', [['B: the black card', done['trailer-16x9-B'].file, 0.6], ['B: the flash', done['trailer-16x9-B'].file, 1.95], ['YouTube: the hold', done['trailer-youtube-hold'].file, 39.0]]);
+    for (const [name, v] of Object.entries(VERSIONS)) if (!skip.includes(name)) done[name] = await cut(stage, name, v);
+    const B = done['trailer-16x9-B'], yt = done['trailer-youtube-hold'];
+    await sheet(stage, `${out}/contact-16x9.png`, done['trailer-16x9-A'].file, '16x9', [
+      ...(B ? [['B: the black card', B.file, 0.6], ['B: the flash', B.file, 1.95]] : []), ...(yt ? [['YouTube: the hold', yt.file, 39.0]] : [])]);
     await sheet(stage, `${out}/contact-9x16.png`, done['trailer-9x16'].file, '9x16');
     for (const [name, { file }] of Object.entries(done)) web(name, file);
     frames(done['trailer-16x9-A'].file, `${out}/frames-A`);

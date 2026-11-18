@@ -277,23 +277,33 @@ function duelScene() {
 /** Shot 11's subject: the lead Knight, while it lives (else null). */
 function leadKnight() { const u = window.S.byId(window.S.duel.kn[0]); return u ? { x: u.x, y: u.y } : null; }
 
-/** Shot 12: the Kingdom storms the Expedition's Data center: Knights and Guards at its walls, a Cannon set up in frame
- *  and firing on it, its hp lowered so it falls two thirds into the shot (the client's quake as it does). */
+/** Shot 12: the Kingdom storms the Expedition's Data center: Knights and Guards at its walls, a Cannon in frame firing on
+ *  it, its hp lowered to the last at 1.6 s (`siegeFall`: the next blow lands about 0.5 s later) so it falls two thirds into the shot (the client's quake as it does). Played as the Expedition, with
+ *  no AI, so nothing of its base but the Data center is in frame: its Bots walk away, and a Substation well out of frame
+ *  keeps it in the game after the fall (its last building gone, the game would end and every unit freeze). The
+ *  Kingdom's pieces need no orders: with nothing else in reach they take the Data center. */
 function siegeScene({ fmt }) {
-  const { e, eng, K, X, spawn, byId, hqOf } = window.S;
-  e.skip(90); eng.disableAi(); // (its AI's first buildings: the Data center is not its last, so the game goes on after it)
+  const { e, G, eng, K, X, spawn, byId, hqOf, spot, until } = window.S;
   const hq = hqOf(X), mid = { x: eng.MW * 16, y: eng.MH * 16 }, len = Math.hypot(mid.x - hq.x, mid.y - hq.y);
   const d = { x: (mid.x - hq.x) / len, y: (mid.y - hq.y) / len }, s = { x: -d.y, y: d.x };
   const at = (f, w) => ({ x: hq.x + d.x * f + s.x * w, y: hq.y + d.y * f + s.y * w });
-  const ids = [];
-  ['knight', 'trooper', 'knight', 'trooper', 'knight', 'trooper'].forEach((k, i) => ids.push(spawn(K, k, at(88 + (i % 2) * 22, (i - 2.5) * 30))));
-  const cannon = spawn(K, 'siegeTank', { x: hq.x + 230, y: hq.y - 20 });
-  eng.castAbility([byId(cannon)], 'deploy');
-  for (const id of [...ids, cannon]) if (byId(id)) eng.attackEnt(byId(id), hq);
-  e.skip(3.2);
-  eng.debugSetHp(hq, Math.max(1, window.S.siegeHp ?? 400));
+  e.setResources(X, 2000, 0);
+  const far = at(420, 230); // (out of the frame in both formats, inside the Data center's coverage)
+  const builder = byId(spawn(X, 'lumen', far)); e.skip(0.3); // (it sees the ground first: placing needs it explored)
+  const sub = spot(X, 'substation', far);
+  if (!sub || eng.placeBuilding(X, 'substation', sub[0], sub[1], builder)) throw new Error('siege: no Substation');
+  for (const u of G.units.filter(u => u.team === X && u !== builder)) eng.moveTo(u, far.x + 80, far.y + 60);
+  until(G.bldgs.find(b => b.type === 'substation'));
+  e.skip(8);
+  ['knight', 'trooper', 'knight', 'trooper', 'knight', 'trooper'].forEach((k, i) => spawn(K, k, at(88 + (i % 2) * 22, (i - 2.5) * 30)));
+  spawn(K, 'siegeTank', fmt === '9x16' ? { x: hq.x - 70, y: hq.y + 190 } : { x: hq.x - 215, y: hq.y + 35 }); // (in frame, on it)
+  e.skip(4);
+  eng.debugSetHp(hq, 700); // (it stands until `siegeFall`: when a Cannon shell crosses a threshold is too chancy to time)
   return { hq: { x: hq.x, y: hq.y }, id: hq.id };
 }
+
+/** The Data center's last hit point: the next blow brings it down. */
+function siegeFall() { const { X, hqOf, eng } = window.S, hq = hqOf(X); if (hq) eng.debugSetHp(hq, 1); }
 
 // ---- the segments ----
 export const SEGMENTS = [
@@ -303,7 +313,7 @@ export const SEGMENTS = [
       // Opening B's head: the black card (the game's own line), the field held behind it.
       { name: 'black', seconds: 1.3, freeze: true, cam: (t, a, f) => arrivalCam(0, a, f),
         overlay: (t) => ({ black: { alpha: 1, text: `<span style="opacity:${fadeIn(t, 0.1, 0.3)}">In 2047, time travel<br>was first attempted.</span>` } }) },
-      // Shots 1-3 (opening A from 0; B cuts in at 0.8): the field, the flash at 1.4, the Data center, the line.
+      // Shots 1-3 (opening A from 0; B cuts in at 0.8): the field, the flash at 1.4, the Data center, the premise.
       { name: 'arrival', seconds: 5.0, cam: arrivalCam,
         at: [{ t: 1.4, run: (page) => page.evaluate(arrive) }],
         overlay: (t, f) => ({ flash: flashAt(t, 1.4), cap: t >= 2.0 ? { alpha: fadeIn(t, 2.0, 0.15), ...arrivalLine(f) } : null }) },
@@ -339,9 +349,9 @@ export const SEGMENTS = [
     } }],
   },
   {
-    id: 'siege', as: 'humans', ai: true, scene: siegeScene,
+    id: 'siege', as: 'vael', scene: siegeScene,
     parts: [
-      { name: 'siege', seconds: 2.9, cam: still('hq', 2.0, 2.1, { x: 70, y: -55 }, { x: 40, y: -115 }) },
+      { name: 'siege', seconds: 2.9, cam: still('hq', 1.9, 2.1, { x: -40, y: 10 }, { x: -20, y: 62 }), at: [{ t: 1.6, run: (page) => page.evaluate(siegeFall) }] },
       // Shot 13: the freeze, graded down, the name in.
       { name: 'freeze', seconds: 2.0, freeze: true, overlay: (t) => ({ grade: ease(t / 0.4), logo: { alpha: fadeIn(t, 0.25, 0.4), scale: lerp(1.06, 1, ease((t - 0.25) / 0.6)) } }) },
       // Shot 14: the end card (the lines on the beats), and the YouTube layout (the column in the left half).
@@ -363,10 +373,11 @@ function arrivalCam(t, a, fmt) {
   const k = ease((t - 1.7) / 2.9);
   return { x: lerp(held.x, c1.x, k), y: lerp(held.y, c1.y, k), zoom: lerp(z0, z1, k), ...nudge(t, 1.4, lerp(z0, z1, k)) };
 }
-/** The line: two lines high in the 16:9 frame, four in the 9:16 band under the platforms' header. */
+/** The premise (shot 3's caption): two lines at the bottom right in 16:9, four at the right in 9:16, clear of the
+ *  Villagers and the Data center. */
 const arrivalLine = (fmt) => tall(fmt)
-  ? { text: 'Naturally,<br>the first thing<br>we built was<br>a data center.', style: 'right:95px;top:57%;font-size:34px;text-align:right' }
-  : { text: 'Naturally, the first thing<br>we built was a data center.', style: 'right:30px;bottom:7%;font-size:32px;text-align:right' };
+  ? { text: 'In 2047,<br>an expedition<br>jumped six<br>centuries back.', style: 'right:95px;top:61%;font-size:31px;text-align:right' }
+  : { text: 'In 2047, an expedition<br>jumped six centuries back.', style: 'right:30px;bottom:7%;font-size:32px;text-align:right' };
 
 /** The end card at `t` (from 25.0): the logo up, the veil, the lines on the beats (0.7 s apart), the URL last. */
 function card(t, yt) {

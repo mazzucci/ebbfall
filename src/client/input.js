@@ -1,7 +1,7 @@
 // Mouse, touch, keyboard and minimap input. Translates gestures into selection changes and sim commands.
-// Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, SELECT + drag
-// draws a box; the minimap grows under the finger and moves the view by the finger's travel. A mouse: the middle
-// button held and dragged pans. The keyboard's camera and command keys follow the controls scheme (controls.js).
+// Touch: tap selects or commands, one finger pans (a flick glides), two fingers pan and pinch-zoom, a finger held still
+// on the map (HOLD_MS) then dragged draws a box, as does SELECT + drag; the minimap grows under the finger and moves
+// the view by the finger's travel. A mouse: the middle button held and dragged pans. The keyboard's camera and command keys follow the controls scheme (controls.js).
 import { shownBldgs } from './memory.js';
 import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, enemies, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
@@ -37,7 +37,7 @@ const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h
 /** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */
 const fromBody = (u, p) => { const c = body(u); return dist(c, p) - c.r; };
 
-export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse' };
+export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse', held: false, at: 0 }; // held: the box was armed by a finger held on the map; at: the touch-down's time
 /** Camera glide after a one-finger flick, in world px per second; a touch stops it. */
 const fling = { vx: 0, vy: 0, samples: [], caught: false };
 const FLING_MIN = 40;
@@ -45,6 +45,49 @@ const FLING_MIN = 40;
 export function stopGlide() { fling.vx = fling.vy = 0; fling.samples = []; }
 /** Show the SELECT button's state and the hint. */
 function boxButton() { setBox(); setHint(); }
+
+/** How long (ms) a finger rests on the map, within the pan's 10 px, before it arms a box where it rests. */
+export const HOLD_MS = 350;
+/** The hold's timer and the ring that fills under the finger while it waits (a DOM ring in #stage). */
+const hold = { timer: 0, ring: null };
+function holdRing() {
+  if (!hold.ring) {
+    hold.ring = document.createElement('div'); hold.ring.id = 'holdRing'; hold.ring.setAttribute('aria-hidden', 'true');
+    hold.ring.innerHTML = '<svg viewBox="0 0 40 40"><circle class="bg" cx="20" cy="20" r="16"/><circle class="fg" cx="20" cy="20" r="16" pathLength="100"/></svg>';
+    $('stage').appendChild(hold.ring);
+  }
+  return hold.ring;
+}
+/** A touch came down on the map: start the hold, unless something else owns the finger (placing a building, an armed
+ *  order, SELECT already armed, a second finger). */
+function startHold(ev) {
+  cancelHold();
+  if (ui.place || ui.mode || ui.box || pointers.size !== 1) return;
+  const r = holdRing(); r.style.left = ev.clientX + 'px'; r.style.top = ev.clientY + 'px';
+  r.className = ''; void r.offsetWidth; r.className = 'run'; // (restart the fill)
+  hold.timer = setTimeout(armHold, HOLD_MS);
+}
+/** The finger moved, lifted, or a second came: no box from this touch (a box already armed stays). */
+function cancelHold() {
+  clearTimeout(hold.timer); hold.timer = 0;
+  if (hold.ring && hold.ring.className === 'run') hold.ring.className = '';
+}
+/** The finger rested long enough: a box anchored where it rests, the tick, SELECT lit and the hint. */
+function armHold() {
+  hold.timer = 0;
+  if (!drag.down || drag.pan || drag.box || pointers.size !== 1 || ui.place || ui.mode || ui.box || !input.enabled()) { cancelHold(); return; } // (ui.box: SELECT was pressed meanwhile, its box is drawn as ever)
+  drag.box = true; drag.held = true; drag.sx = drag.cx; drag.sy = drag.cy;
+  ui.box = 'map'; boxButton();
+  sfx('tick'); try { navigator.vibrate?.(10); } catch { /* not allowed here */ }
+  if (hold.ring) hold.ring.className = 'done';
+}
+/** A box armed by a hold is over (drawn, or the finger lifted or was joined by a second): SELECT goes dark again. */
+function endHoldBox() { drag.held = false; if (ui.box === 'map') { ui.box = false; boxButton(); } }
+/** Whether a touch event came sooner after the touch-down than the hold, by the finger's own times: a busy page may run
+ *  the timer before it handles a quick lift or move, which still is a tap or a pan. */
+const beforeHold = (ev) => ev.timeStamp - drag.at < HOLD_MS;
+/** The hold's box was armed late (a busy page): undo it, the gesture is what the finger's times say. */
+function unarmHold() { drag.box = false; endHoldBox(); if (hold.ring) hold.ring.className = ''; }
 const pointers = new Map(); let pan = null; const edge = { x: 0, y: 0 };
 /** The keys held down, by where they are on the keyboard (`ev.code`: KeyW, ArrowUp...): a modifier that changes the
  *  letter (Option+D on a Mac is '∂') cannot strand one, and W A S D are the same keys on any layout. Let go of all of
@@ -103,14 +146,15 @@ function select(list, add) {
   updateHud(); // the command card must match the selection right away, not on the next HUD tick
 }
 
-function boxSelect(x0, y0, x1, y1, add) {
+/** `keep`: a box that takes nothing keeps the selection (touch: a hesitant pan that became a box costs nothing). */
+function boxSelect(x0, y0, x1, y1, add, keep = false) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
   const us = G.units.filter(u => { const s = body(u); return u.team === G.me && !u.inside && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
   // An army box near the base takes the army, not the workers mining beside it (a box of workers only takes them).
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === G.me && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
-  if (bs.length) select([bs[0]], false); else if (!add) setSelection([]);
+  if (bs.length) select([bs[0]], false); else if (!add && !keep) { setSelection([]); updateHud(); }
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
@@ -252,7 +296,7 @@ function bindCanvas() {
   cv.addEventListener('pointerdown', ev => {
     if (!input.enabled()) return;
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
-    if (ev.pointerType === 'touch') { if (pointers.size === 2) { if (ui.place) ui.place.tx = ui.place.ty = -99; drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
+    if (ev.pointerType === 'touch') { if (pointers.size === 2) { cancelHold(); if (drag.held) endHoldBox(); if (ui.place) ui.place.tx = ui.place.ty = -99; drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 1 && ev.pointerType === 'mouse') { mid = p; edge.x = edge.y = 0; return; } // (a drag of the map: no selection, no order)
     if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
@@ -260,9 +304,11 @@ function bindCanvas() {
     drag.quiet = ev.pointerType === 'touch' && fling.caught;
     // The touch-down point is the first glide sample: a quick flick may arrive as a single (coalesced) move.
     fling.samples = [{ t: ev.timeStamp, x: p.x, y: p.y }];
-    drag.down = true; drag.box = false; drag.pan = false; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
+    drag.down = true; drag.box = false; drag.pan = false; drag.held = false; drag.at = ev.timeStamp; drag.sx = drag.cx = p.x; drag.sy = drag.cy = p.y; drag.shift = ev.shiftKey;
     // Placing on touch: the ghost appears under the finger (green or red) and follows it; it is placed where it lifts.
     if (ui.place && ev.pointerType === 'touch' && !drag.quiet) ghostAt(ev);
+    // Touch: a finger that rests here arms a box (a ring fills under it); one that moves at once pans, as ever.
+    if (ev.pointerType === 'touch') startHold(ev);
   });
   cv.addEventListener('pointermove', ev => {
     const p = canvasPos(ev); if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
@@ -279,7 +325,9 @@ function bindCanvas() {
     else if (ui.place) { const w = toWorld(p.x, p.y); Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y)); }
     if (drag.down) {
       const px = drag.cx, py = drag.cy; drag.cx = p.x; drag.cy = p.y;
+      if (drag.held && beforeHold(ev) && Math.hypot(p.x - drag.sx, p.y - drag.sy) > 10) unarmHold(); // (it moved in time: a pan)
       if (!drag.box && !drag.pan && Math.hypot(p.x - drag.sx, p.y - drag.sy) > (ev.pointerType === 'touch' ? 10 : 5)) {
+        cancelHold(); // (it moved before the hold: a pan)
         // Touch: one finger pans the map unless SELECT is armed (then it draws a box); a mouse always draws a box.
         if (ev.pointerType === 'touch' && !ui.box && !ui.place) drag.pan = true; else drag.box = !ui.place && (!ui.mode || ui.box);
       }
@@ -292,9 +340,10 @@ function bindCanvas() {
   });
   const endPointer = ev => {
     const p = canvasPos(ev); pointers.delete(ev.pointerId); if (pointers.size < 2) pan = null;
+    cancelHold();
     if (mid && !(ev.buttons & 4)) { mid = null; if (ev.button === 1) return; } // (the middle button let go)
     if (!drag.down) return; drag.down = false;
-    if (!input.enabled()) { drag.box = false; drag.pan = false; return; }
+    if (!input.enabled()) { if (drag.held) endHoldBox(); drag.box = false; drag.pan = false; return; }
     if (drag.pan) { // let go mid-swipe: the camera glides on
       drag.pan = false;
       const a = fling.samples[0], b = fling.samples[fling.samples.length - 1], dt = b && a ? (b.t - a.t) / 1000 : 0;
@@ -302,8 +351,13 @@ function bindCanvas() {
       if (dt > 0.01 && ev.timeStamp - b.t < 120) { fling.vx = -(b.x - a.x) / dt / cam.zoom; fling.vy = -(b.y - a.y) / dt / cam.zoom; }
       fling.samples = []; return;
     }
+    if (drag.held && beforeHold(ev)) unarmHold(); // (lifted in time: a tap)
     if (drag.box) {
-      drag.box = false; boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift);
+      drag.box = false;
+      // (a hold lifted where it rested: nothing selected, nothing ordered; the hint said drag)
+      const lifted = drag.held && Math.hypot(p.x - drag.sx, p.y - drag.sy) < 10;
+      if (!lifted) boxSelect(drag.sx, drag.sy, p.x, p.y, drag.shift, ev.pointerType === 'touch');
+      if (drag.held) { endHoldBox(); return; }
       if (ui.box === 'held') boxDone = true; // a quick hold-and-box must not leave SELECT armed on release
       if (ui.box === 'once') { ui.box = false; boxButton(); }
       return;
@@ -315,7 +369,7 @@ function bindCanvas() {
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);
-  cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; mid = null; drag.down = false; drag.box = false; drag.pan = false; });
+  cv.addEventListener('pointercancel', ev => { pointers.delete(ev.pointerId); pan = null; mid = null; cancelHold(); if (drag.held) endHoldBox(); drag.down = false; drag.box = false; drag.pan = false; });
   cv.addEventListener('pointerleave', () => { edge.x = 0; edge.y = 0; });
   // Wheel pans; Ctrl+wheel (and trackpad pinch, which arrives as Ctrl+wheel) zooms around the cursor.
   cv.addEventListener('wheel', ev => {

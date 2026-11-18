@@ -48,8 +48,12 @@ export const ARMED = {
 /** The card button the armed order (or placement) belongs to, if any. */
 export const armedButton = () => (ui.place ? 'build' : ARMED[ui.mode]?.button);
 
-/** Reflect ui.box on the SELECT button (input.js arms it; Esc and placement clear it). */
-export function setBox() { const b = $('btnBox'); if (b) { b.classList.toggle('on', !!ui.box); b.setAttribute('aria-pressed', String(!!ui.box)); } }
+/** Reflect ui.box on the SELECT button and the map's edge (input.js arms it: SELECT tapped ('once') or held ('held'),
+ *  or a finger held on the map ('map'); Esc and placement clear it). */
+export function setBox() {
+  const b = $('btnBox'); if (b) { b.classList.toggle('on', !!ui.box); b.setAttribute('aria-pressed', String(!!ui.box)); }
+  $('stage')?.classList.toggle('boxing', !!ui.box); // (the map's edge glows while a box is armed)
+}
 
 /** The line above the card that says what a tap will do now. While placing over a spot that is refused (the ghost
  *  red), why, in the sim's words (`placeRefusal`: the same check as the order's), in red. */
@@ -57,10 +61,11 @@ export function setHint() {
   const h = $('hint'), c = touchUi ? 'Tap' : 'Click', p = ui.place;
   const why = p && p.tx > -99 ? placeRefusal(p.type, p.tx, p.ty, G.me) : ''; // (-99: no ghost yet, or the finger over the HUD)
   const t = why || (p ? (touchUi ? `Pick a location for the ${BUILDINGS[p.type].name}: green builds, red cannot` : `Click to place the ${BUILDINGS[p.type].name} (Esc cancels)`)
-    : ui.box ? 'Drag to select a group' : ARMED[ui.mode]?.hint(c) ?? '');
+    : ui.box ? 'Drag a box around your units' : ARMED[ui.mode]?.hint(c) ?? '');
   if (h.textContent !== t) h.textContent = t;
   h.classList.toggle('bad', !!why);
   h.classList.toggle('placing', !!p);
+  h.classList.toggle('boxing', !p && !!ui.box); // (as big as the placing hint: the one thing to do now)
 }
 
 /** Disarm: no order waiting for a tap, nothing being placed. */

@@ -424,8 +424,8 @@ src/client/           everything that touches the browser
   share.js            the end card's SHARE after a victory against the AI (not online, not the guided game): the
                       challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
                       cancelled sheet says nothing
-  grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: SELECT and a box, a
-                      double-tap, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint);
+  grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: a finger held on the
+                      ground then a box, SELECT, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint);
                       never in the guided first game (its checklist's step teaches it)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
@@ -482,7 +482,12 @@ src/client/           everything that touches the browser
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
                       on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
                       footprint and the rock just over it; a worker inside a mine is not picked or boxed; workers sent
-                      to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold)
+                      to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold);
+                      touch: a finger held still on the map for HOLD_MS (350 ms, within the pan's 10 px; a ring fills
+                      under it) arms a box there (a tick, SELECT lit amber, the map's edge aglow, the hint), dragged it
+                      draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
+                      hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
+                      selection on touch (a mouse's empty box still clears it); SELECT: tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
@@ -540,7 +545,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
                       construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
-                      touch.e2e.mjs (phone gestures: one-finger pan and glide, SELECT box, minimap nudge),
+                      touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
                       guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their

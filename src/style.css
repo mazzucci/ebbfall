@@ -66,7 +66,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
 #hint.bad{color:var(--bad)} /* (placing: why the spot is refused) */
-#hint.placing{font-size:15px} /* (placing a building: what the ghost's spot says, read at a glance; the slot the other hints use) */
+#hint.placing,#hint.boxing{font-size:15px} #hint.boxing{color:var(--ally2)} /* (placing a building: what the ghost's spot says, read at a glance; the slot the other hints use) */
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 /* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */
@@ -327,7 +327,18 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 :is(#btnBox,#btnHome,#btnArmy) .ico{width:20px;height:20px} :is(#btnBox,#btnHome,#btnArmy) span{font-size:9px;letter-spacing:.04em;line-height:1}
 #btnBox{left:var(--bx);touch-action:none;user-select:none;-webkit-user-select:none} #btnHome{left:calc(var(--bx) + var(--bw) + 4px)}
 #btnArmy{left:calc(var(--bx) + 2 * (var(--bw) + 4px))}
-#btnBox.on{border-color:var(--ally);color:var(--ally2);background:#2a2415}
+#btnBox .fig{stroke-width:1.6} /* (the figures inside the dashed box: a box of units, not full screen's brackets) */
+#btnBox.on{border-color:var(--ally2);color:#1a1205;background:var(--ally);box-shadow:0 0 10px rgba(245,165,36,.55)} /* armed: lit amber (tapped, held, or a finger held on the map) */
+/* While a box is armed the map's edge glows amber. */
+#stage.boxing::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;border-radius:inherit;box-shadow:inset 0 0 0 2px var(--ally),inset 0 0 22px rgba(245,165,36,.45)}
+/* The ring under a finger resting on the map (input.js, HOLD_MS): shows after a moment (a tap never flashes it), fills,
+   then a pop when the box is armed. */
+#holdRing{position:fixed;width:68px;height:68px;margin:-34px 0 0 -34px;pointer-events:none;z-index:6;opacity:0;display:none}
+#holdRing svg{width:100%;height:100%;transform:rotate(-90deg)} #holdRing circle{fill:none;stroke-width:4}
+#holdRing .bg{stroke:rgba(11,15,22,.55)} #holdRing .fg{stroke:var(--ally);stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100}
+#holdRing.run{display:block;animation:ringIn .12s linear .1s forwards} #holdRing.run .fg{animation:ringFill .25s linear .1s forwards}
+#holdRing.done{display:block;opacity:1;animation:ringPop .3s ease-out forwards} #holdRing.done .fg{stroke-dashoffset:0}
+@keyframes ringIn{to{opacity:1}} @keyframes ringFill{to{stroke-dashoffset:0}} @keyframes ringPop{from{transform:scale(1);opacity:1}to{transform:scale(1.35);opacity:0}}
 /* A narrow window (the panels in a band below, the corner free): the three in the map's corner, over the minimap
    and as wide as it (156 px; the stage clips its 1 px border, so the row starts inside it, 1 px short). */
 @media (max-width:620px){:is(#btnBox,#btnHome,#btnArmy){--bx:0px;--bw:calc((155px - 8px) / 3);bottom:8px}} /* (inside the stage's border, which clips) */

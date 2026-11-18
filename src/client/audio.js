@@ -134,6 +134,7 @@ const SFX = {
   done: (b, t) => [523, 659, 784].forEach((f, k) => tone(b, t, { f, dur: 0.22, type: 'triangle', vol: 0.07, delay: k * 0.09 })),
   researched: (b, t) => { SFX.done(b, t); say('research', 0.35); }, // (after the chime)
   ready: (b, t) => { tone(b, t, { f: 440, dur: 0.08, type: 'triangle', vol: 0.05 }); tone(b, t, { f: 660, dur: 0.12, type: 'triangle', vol: 0.05, delay: 0.08 }); },
+  tick: (b, t) => tone(b, t, { f: 1250, dur: 0.035, type: 'triangle', vol: 0.05 }), // (a finger held on the map: the box is armed)
   coin: (b, t) => tone(b, t, { f: 1500, to: 1900, dur: 0.035, type: 'sine', vol: 0.018 }),
   // a unit of ours lost (heard wherever it falls), an enemy killed
   lost: (b, t) => { tone(b, t, { f: 330, to: 165, dur: 0.24, type: 'triangle', vol: 0.06 }); tone(b, t, { f: 247, to: 124, dur: 0.24, type: 'triangle', vol: 0.04, delay: 0.05 }); },

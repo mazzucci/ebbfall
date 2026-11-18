@@ -1,5 +1,5 @@
-// Touch navigation on a landscape phone: one-finger pan and glide, SELECT + drag for a box, the minimap nudge; the group
-// hint for a player who taps fighters one by one (grouphint.js).
+// Touch navigation on a landscape phone: one-finger pan and glide, a finger held on the map then dragged for a box, SELECT
+// + drag for a box, the minimap nudge; the group hint for a player who taps fighters one by one (grouphint.js).
 // Gestures go through CDP touch events, like a finger on the glass.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,9 +82,19 @@ test('phone: SELECT then drag draws a box (tap to arm once, or hold it with the 
     const z = await d.eval(() => endfall.cam.zoom), w = (Math.max(...xs) - Math.min(...xs) + 2 * m) * z, h = (Math.max(...ys) - Math.min(...ys) + 2 * m) * z;
     const sel = d.page.locator('#btnBox');
     assert.ok(await sel.isVisible(), 'SELECT shows on touch screens');
+    assert.equal(await sel.innerText(), 'SELECT', 'its word');
+    assert.equal(await d.page.locator('#btnBox svg .fig').count(), 1, 'its icon: figures in a dashed box (not full screen\'s corners)');
     // Tap: armed for one box.
     await sel.tap();
-    assert.match(await d.page.locator('#hint').textContent(), /Drag to select/);
+    assert.match(await d.page.locator('#hint').textContent(), /Drag a box around your units/);
+    // Lit: amber, the map's edge glowing; a second tap disarms it (a toggle), a third arms it again.
+    assert.match(await sel.getAttribute('class'), /\bon\b/);
+    assert.equal(await sel.evaluate(b => getComputedStyle(b).backgroundColor), 'rgb(245, 165, 36)', 'SELECT lit amber');
+    assert.ok(await d.eval(() => document.getElementById('stage').classList.contains('boxing')), 'the map edge glows');
+    await sel.tap();
+    assert.ok(!(await sel.getAttribute('class')).includes('on') && !(await d.eval(() => document.getElementById('stage').classList.contains('boxing'))), 'tapped again: off');
+    await sel.tap();
+    assert.match(await sel.getAttribute('class'), /\bon\b/, 'and on again');
     const camBefore = await cam(d);
     await swipe(d, [x0, y0], [x0 + w, y0 + h], { steps: 6, ms: 16 });
     assert.equal((await d.selection()).filter(u => u.type === 'harvester').length, hs.length, 'the box selects the harvesters');
@@ -103,6 +113,78 @@ test('phone: SELECT then drag draws a box (tap to arm once, or hold it with the 
     // Esc disarms it.
     await sel.tap(); await d.key('Escape');
     assert.ok(!(await sel.getAttribute('class')).includes('on'), 'Esc disarms SELECT');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+/** One finger by CDP with its own timestamps: down at `from`, held still (2 px of tremor) for `restMs` of real time (the
+ *  hold's timer runs on the page's clock), then moved to `to` in a few steps and lifted. `waitArmed`: wait (up to 10 s)
+ *  until the page has armed the box before moving on (a slow test machine). */
+async function holdDrag(d, from, to, { restMs = 500, waitArmed = true, lift = true } = {}) {
+  const cdp = await d.page.context().newCDPSession(d.page);
+  let open = false;
+  try {
+    let t = Date.now() / 1000;
+    const send = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts, timestamp: t });
+    await send('touchStart', [{ x: from[0], y: from[1], id: 1 }]);
+    await d.page.waitForTimeout(restMs); t += restMs / 1000;
+    await send('touchMove', [{ x: from[0] + 2, y: from[1] + 1, id: 1 }]);
+    if (waitArmed) await d.page.waitForFunction(() => endfall.ui.box === 'map', null, { timeout: 10000 });
+    if (to) for (let i = 1; i <= 6; i++) { t += 0.03; await send('touchMove', [{ x: from[0] + (to[0] - from[0]) * i / 6, y: from[1] + (to[1] - from[1]) * i / 6, id: 1 }]); await d.page.waitForTimeout(16); }
+    t += 0.02;
+    const end = async () => { t = Math.max(t, Date.now() / 1000); await send('touchEnd', [{ x: (to || from)[0], y: (to || from)[1], id: 1 }]); await d.page.waitForTimeout(60); await cdp.detach(); };
+    if (lift) { await end(); return null; }
+    open = true; return end; // (`lift: false`: the caller lifts the finger)
+  } finally { if (!open) await cdp.detach().catch(() => {}); }
+}
+const lit = (d) => d.eval(() => ({ on: document.getElementById('btnBox').classList.contains('on'), edge: document.getElementById('stage').classList.contains('boxing'), hint: document.getElementById('hint').textContent, ring: document.getElementById('holdRing')?.className ?? null }));
+
+test('phone: a finger held still on the map, then dragged, draws a box (ring, SELECT lit, the hint); one that moves at once pans; an empty box keeps the selection', { chromium: CDP_TOUCH }, async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    await d.stopByUI((await d.state()).units.filter(u => u.team === 0 && u.type === 'harvester').map(u => u.id));
+    await d.key('Escape');
+    const hs = (await d.state()).units.filter(u => u.team === 0 && u.type === 'harvester');
+    const xs = hs.map(u => u.x), ys = hs.map(u => u.y), m = 90;
+    const [x0, y0] = await d.screen(Math.min(...xs) - m, Math.min(...ys) - m);
+    const z = await d.eval(() => endfall.cam.zoom), w = (Math.max(...xs) - Math.min(...xs) + 2 * m) * z, h = (Math.max(...ys) - Math.min(...ys) + 2 * m) * z;
+    const camBefore = await cam(d);
+    // Held still: the box is armed where the finger rests (no lift yet: look at it).
+    const liftIt = await holdDrag(d, [x0, y0], null, { lift: false });
+    const armed = await lit(d);
+    assert.deepEqual([armed.on, armed.edge, armed.hint, armed.ring], [true, true, 'Drag a box around your units', 'done'], `armed: ${JSON.stringify(armed)}`);
+    assert.equal((await d.selection()).length, 0, 'nothing selected yet');
+    // Lifted where it rested: nothing. Then the whole gesture: held, dragged over the harvesters, lifted.
+    await liftIt();
+    assert.equal((await d.selection()).length, 0, 'a hold lifted where it rested selects nothing');
+    assert.equal((await lit(d)).on, false, 'and SELECT goes dark');
+    assert.ok(await d.eval(() => endfall.G.units.filter(u => u.team === 0).every(u => u.task.t === 'idle')), 'nor orders anything');
+    await holdDrag(d, [x0, y0], [x0 + w, y0 + h]);
+    assert.equal((await d.selection()).filter(u => u.type === 'harvester').length, hs.length, 'the box selects the harvesters');
+    assert.deepEqual(await cam(d), camBefore, 'holding and drawing do not pan');
+    const after = await lit(d);
+    assert.deepEqual([after.on, after.edge, after.hint], [false, false, ''], 'drawn: SELECT dark, the edge and the hint gone');
+    // An empty box (held on bare ground, dragged over nothing) keeps the selection.
+    const [gx, gy] = await d.screen(Math.max(...xs) + 400, Math.min(...ys) - 300);
+    await holdDrag(d, [gx, gy], [gx + 60, gy + 50]);
+    assert.equal((await d.selection()).filter(u => u.type === 'harvester').length, hs.length, 'an empty box keeps the selection');
+    // A finger that moves at once pans, with no box and no change to the selection (from the harvesters, clear of the
+    // map's edge).
+    await d.centerOn((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2);
+    const c0 = await cam(d), box = await d.page.locator('#game').boundingBox(), y = box.y + box.height * 0.45;
+    await swipe(d, [box.x + box.width * 0.6, y], [box.x + box.width * 0.4, y], { steps: 10, ms: 30, settle: 0.25 });
+    await d.page.waitForTimeout(500); // (past the hold: nothing armed late)
+    assert.ok(Math.abs((await cam(d)).x - c0.x) > 20, 'it pans');
+    assert.equal((await lit(d)).on, false, 'no box armed');
+    assert.equal((await d.selection()).filter(u => u.type === 'harvester').length, hs.length, 'the selection stays');
+    // A second finger within the hold cancels it (a pinch).
+    const cdp2 = await d.page.context().newCDPSession(d.page);
+    const t = Date.now() / 1000, mid = [box.x + box.width / 2, y];
+    await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: mid[0], y: mid[1], id: 1 }], timestamp: t });
+    await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: mid[0], y: mid[1], id: 1 }, { x: mid[0] + 80, y: mid[1], id: 2 }], timestamp: t + 0.1 });
+    await d.page.waitForTimeout(600);
+    assert.equal((await lit(d)).on, false, 'two fingers: no box');
+    await cdp2.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t + 0.8 }); await cdp2.detach();
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -169,7 +251,7 @@ async function tapEach(d, ids) {
     else { await d.page.mouse.click(canvas.x + p.x, canvas.y + p.y); await d.page.waitForTimeout(450); } // (apart: no double-click)
   }
 }
-const HINT = /^Many units\? Hold SELECT and drag a box · double-tap a unit for all of its type · ARMY selects every fighter$/;
+const HINT = /^Many units\? Hold a finger on the ground, then drag a box · or tap SELECT · ARMY selects every fighter$/;
 const hinted = async (d) => (await d.toasts()).some(t => HINT.test(t));
 const overlap = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 

@@ -2520,7 +2520,7 @@ test('phone: the first game guides step by step, pulsing the button it wants (th
     await d.eval(() => { const c = 32 * 32; for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', c, c); });
     // Step 5 (a touch screen's): the army selected as one, SELECT and ARMY pulsing; ARMY ends it.
     await d.hudText('#tut', /5\/9/);
-    assert.match(await d.page.locator('#tut').textContent(), /Select your army at once: hold SELECT and drag a box over it, or tap ARMY for every fighter/, 'then the army as one');
+    assert.match(await d.page.locator('#tut').textContent(), /Select your army at once: hold a finger on the ground, then drag a box over it, or tap ARMY/, 'then the army as one');
     await d.page.waitForTimeout(300);
     for (const id of ['#btnBox', '#btnArmy']) assert.match(await d.page.locator(id).getAttribute('class'), /\bpulse\b/, `${id} pulses`);
     await d.page.locator('#btnArmy').tap();

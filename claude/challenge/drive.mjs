@@ -8,7 +8,7 @@
 // end of each game and given in the next game's first message (notes.md in the log).
 //
 //   node claude/challenge/drive.mjs [--games 5] [--name s1] [--ceiling 150000] [--speed 1] [--vs CODE]
-//                                   [--cap 30] [--model M] [--seeds 11,22,..] [--mock] [--headed] [--check]
+//                                   [--cap M] [--model M] [--seeds 11,22,..] [--mock] [--headed] [--check]
 //
 // --check runs only the tool-limits check (one tiny call, nothing saved) and prints what Claude could use.
 // Logs: target/challenge/logs/<name>-<time>/ (driver.jsonl: every digest, Claude call, tool call, line, result and
@@ -31,7 +31,7 @@ const KINGDOM_MIRROR_96 = '1.4.0.1o.h00h12';
 export const TOOLS = ['mcp__ebbfall__set_plan', 'mcp__ebbfall__say', 'mcp__ebbfall__read_state'];
 
 function args(argv) {
-  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 30, model: '', seeds: [], mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
+  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 0, model: '', seeds: [], mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => argv[++i];
     if (a === '--games') o.games = Number(v());
@@ -131,6 +131,12 @@ async function ask(text, game) {
   log('answer', { game: game?.n, ms, code: r.code, result: j?.result, is_error: j?.is_error, num_turns: j?.num_turns, usage: t, denials: j?.permission_denials, model: Object.keys(j?.modelUsage || {}), err: j ? undefined : (r.err || r.out).slice(-800) });
   md(`\n*Claude (${(ms / 1000).toFixed(1)} s, ${billed(t)} new + ${t.cache_read} cached tokens):* ${j?.result ?? `(failed: ${(r.err || r.out).slice(-300)})`}`);
   if (j?.permission_denials?.length) md(`\n*Denied:* ${JSON.stringify(j.permission_denials)}`);
+  // A usage or rate limit: stop at once, no retry around it.
+  const said = `${j?.result ?? ''} ${j?.is_error ? 'is_error' : ''} ${j ? '' : r.err + r.out}`;
+  if (!opt.stub && (j?.is_error || !j || /usage limit|rate.?limit|429|overloaded|quota/i.test(said))) {
+    series.stopped = `Claude call failed (${j?.is_error ? 'is_error' : `exit ${r.code}`}): ${said.trim().slice(0, 300)}`;
+    say(series.stopped);
+  }
   return j;
 }
 
@@ -232,7 +238,8 @@ async function playGame(n, record) {
   if (!start) throw new Error('the game did not start');
   game.startPlan = start.plan;
   log('start', { ...start, frame: (await gameFrame()).url() });
-  md(`\nStarted: plan \`${start.plan}\`${start.adjusted?.length ? `, adjusted ${JSON.stringify(start.adjusted)}` : ''}`);
+  game.gameSeed = start.seed ?? null;
+  md(`\nStarted: seed ${start.seed}, plan \`${start.plan}\`${start.adjusted?.length ? `, adjusted ${JSON.stringify(start.adjusted)}` : ''}`);
   say(`game ${n}: started with ${start.plan}`);
 
   const f = await gameFrame();
@@ -270,7 +277,7 @@ async function playGame(n, record) {
         // While Claude thinks, only the newest moment waits (its events named).
         pending = moment(m.type.slice(8), m);
         flush();
-        if (atLeast(m.digest?.at, opt.cap)) { end = { result: 'timeout', summary: null, capped: true }; break; }
+        if (opt.cap && atLeast(m.digest?.at, opt.cap)) { end = { result: 'timeout', summary: null, capped: true }; break; }
       }
       if (m.type === 'ebbfall:end') { end = m; break; }
     }
@@ -279,6 +286,7 @@ async function playGame(n, record) {
   clearInterval(skipper);
   if (inflight) await inflight;
   game.result = end.result;
+  game.styles = end.summary?.seats?.map(x => x.style ?? null) ?? null; // (each seat's AI style, as the summary tells it)
   if (end.summary?.length) game.at = end.summary.length; // (the last digest may be minutes before the end)
   log('end', { game: n, result: end.result, capped: !!end.capped, summary: end.summary });
   md(`\n**Result: ${end.result}** at ${game.at}`);

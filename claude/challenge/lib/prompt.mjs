@@ -65,13 +65,10 @@ export function preGame({ game, series, mode, peoples, map, record, notes }) {
 /** A digest, compact: its JSON with the noise left out. */
 export function moment(kind, msg) {
   const d = msg.digest ?? msg;
-  const why = (Array.isArray(d.why) ? d.why : [d.why]).map(w => yours(String(w))).join('; ');
+  const why = (Array.isArray(d.why) ? d.why : [d.why]).join('; ');
   const head = kind === 'event' ? `Event at ${d.at}: ${why}.` : `Check-in at ${d.at}.`;
   return `${head} Digest:\n${JSON.stringify(d)}\nSteer with set_plan (a delta and/or intents) if something should change, else do nothing.`;
 }
-
-/** The digest names seats; Claude is seat 0 in watch mode: "your" reads better (the engine's wording is a request). */
-export const yours = (s) => s.replace(/\bseat 0's\b/g, 'your').replace(/\bseat 0\b/g, 'you').replace(/\bseat 1's\b/g, "the enemy's").replace(/\bseat 1\b/g, 'the enemy');
 
 /** The game is over: a line for the player, then the notes for the next game as the final answer. */
 export function postGame({ result, summary, game, series, at }) {

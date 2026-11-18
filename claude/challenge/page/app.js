@@ -60,7 +60,10 @@ addEventListener('message', (e) => {
   if (e.source !== frame.contentWindow || e.origin !== location.origin) return;
   const m = e.data;
   if (!m || typeof m.type !== 'string' || !m.type.startsWith('ebbfall:')) return;
-  if (m.type === 'ebbfall:ready') { ready = true; clearInterval(helloTimer); }
+  if (m.type === 'ebbfall:ready') {
+    if (ready) return; // (one answer per hello sent before the first arrived: only the first counts)
+    ready = true; clearInterval(helloTimer);
+  }
   if (m.type === 'ebbfall:start') { addLine(`Game on: ${(m.peoples || []).join(' vs ')}, ${m.map?.name ?? ''} ${m.map?.size ?? ''}`, 'game'); $('result').textContent = ''; if (m.plan) $('plan').textContent = m.plan; }
   if (m.type === 'ebbfall:checkin' || m.type === 'ebbfall:event') facts(m.digest);
   if (m.type === 'ebbfall:applied' && m.plan) $('plan').textContent = m.plan;

@@ -199,7 +199,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     },
     grant: (gold, other) => ev(([a, b]) => endfall.setResources(0, a, b), [gold, other]),
     centerOn: (x, y) => ev(([x, y]) => endfall.centerOn(x, y), [x, y]),
-    /** World point → page pixel (after centring the camera there, so it is on screen). */
+    /** World point → page pixel (after centering the camera there, so it is on screen). */
     async screen(wx, wy, center = true) {
       // Fresh layout every time (full screen and rotation resize the canvas), and park the mouse mid-canvas so
       // edge scrolling cannot move the camera between measuring and clicking.

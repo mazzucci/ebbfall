@@ -564,7 +564,7 @@ fn a_side_builds_only_its_own_race() {
     let (cx, cy) = core(&w, PLAYER);
     for k in [BldgKind::Barracks, BldgKind::Depot, BldgKind::Turret] {
         let any = (-12..12).any(|dy| (-12..12).any(|dx| w.can_place(k, cx + dx, cy + dy, PLAYER)));
-        assert!(!any, "the Vael cannot place a {k:?}");
+        assert!(!any, "the Expedition cannot place a {k:?}");
     }
 }
 
@@ -658,8 +658,8 @@ fn a_group_keeps_its_pace_after_a_skirmish_on_the_way() {
         "the fight is over and the march goes on: {}",
         x(&w, v)
     );
-    // (within the 2.5 tiles between where each stopped to fight, the Picket at its 4.5 tiles of reach and the
-    // Breakwater at its 2: a Picket at its own speed again would be 200 px and more ahead by now)
+    // (within the 2.5 tiles between where each stopped to fight: a Guard at its own speed again would be 200 px and
+    // more ahead of the Cannon by now)
     assert!(
         (x(&w, t) - x(&w, v)).abs() < 2.5 * TILE + 8.0,
         "still together: {} vs {}",

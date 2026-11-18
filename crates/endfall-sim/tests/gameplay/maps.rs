@@ -12,13 +12,7 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
     for seed in [1, 2, 3, 6, 18, 21, 77, 1998, 2077, 4242, 99999] {
         rock[0] += rock_share(&World::new(seed, 1));
         let std = World::new(seed, 1);
-        let std_gold: i32 = std
-            .map
-            .nodes
-            .iter()
-            .filter(|n| !n.ether)
-            .map(|n| n.amount)
-            .sum();
+        let std_gold: i32 = std.map.nodes.iter().map(|n| n.amount).sum();
         for kind in MapKind::ALL {
             let w = World::with_map(seed, 1, kind);
             assert!(
@@ -60,16 +54,10 @@ fn every_map_kind_generates_a_sound_map_with_its_character() {
                     n.tx, n.ty
                 );
             }
-            let gold: i32 = w
-                .map
-                .nodes
-                .iter()
-                .filter(|n| !n.ether)
-                .map(|n| n.amount)
-                .sum();
+            let gold: i32 = w.map.nodes.iter().map(|n| n.amount).sum();
             // (no vent anywhere since the re-theme's economy: the Market is built in the base)
             assert!(
-                w.map.nodes.iter().all(|n| !n.ether),
+                w.map.nodes.iter().all(|n| !n.vent),
                 "seed {seed} {kind:?}: no vent"
             );
             match kind {
@@ -120,7 +108,7 @@ fn assert_walkable_and_mirrored(w: &World, ctx: &str) {
             w.map
                 .nodes
                 .iter()
-                .any(|o| o.ether == n.ether && (o.tx, o.ty) == m && o.amount == n.amount),
+                .any(|o| o.vent == n.vent && (o.tx, o.ty) == m && o.amount == n.amount),
             "{ctx}: the field at {},{} has its mirror twin",
             n.tx,
             n.ty
@@ -273,7 +261,7 @@ fn the_menu_preview_shows_the_map_as_it_will_be_played() {
                 let i = w.map.idx(x, y);
                 let want = match w.map.occ[i] {
                     o if o < 0 => {
-                        if w.map.node(-o as Id).unwrap().ether {
+                        if w.map.node(-o as Id).unwrap().vent {
                             3
                         } else {
                             2
@@ -309,13 +297,13 @@ fn larger_maps_are_walkable_mirrored_and_fair() {
                 check_invariants(&w, &ctx);
                 assert_walkable_and_mirrored(&w, &ctx);
                 for seat in [PLAYER, ENEMY] {
-                    // Its start, and its home field right by the Core (no vent: the shafts lie out in the open).
+                    // Its start, and its home field right by the Castle (no vent: no map keeps a mine shaft).
                     let (cx, cy) = core(&w, seat);
-                    let near = |ether: bool, r: i32| {
+                    let near = |vent: bool, r: i32| {
                         w.map
                             .nodes
                             .iter()
-                            .filter(|f| f.ether == ether)
+                            .filter(|f| f.vent == vent)
                             .filter(|f| (f.tx - cx - 1).abs().max((f.ty - cy - 1).abs()) <= r)
                             .count()
                     };
@@ -473,7 +461,7 @@ fn start_share(w: &World, b: (i32, i32)) -> Share {
         .map
         .nodes
         .iter()
-        .filter(|n| !n.ether && at(n) <= 45.0)
+        .filter(|n| at(n) <= 45.0)
         .map(|n| ((at(n) * 10.0).round() as i64, n.total))
         .collect();
     mines.sort_unstable();
@@ -481,7 +469,7 @@ fn start_share(w: &World, b: (i32, i32)) -> Share {
         .map
         .nodes
         .iter()
-        .filter(|n| n.ether && at(n) <= 38.0)
+        .filter(|n| n.vent && at(n) <= 38.0)
         .count();
     (neighbour, rock, mines, vents)
 }
@@ -554,7 +542,7 @@ fn maps_for_more_seats_have_a_fair_start_for_each() {
                     assert_eq!(start_share(&w, b), first, "{ctx}: the start at {b:?}");
                 }
                 let (neighbour, _, mines, vents) = &first;
-                assert!(*neighbour >= 40 * 40, "{ctx}: neighbours {neighbour}");
+                assert!(*neighbour >= 40 * 40, "{ctx}: neighbors {neighbour}");
                 let home = mines.iter().filter(|m| m.0 <= 100).count();
                 let out = mines.iter().filter(|m| (140..=380).contains(&m.0)).count();
                 assert!(home == 1 && *vents == 0, "{ctx}: a home mine, no vent");
@@ -698,7 +686,7 @@ fn a_map_keeps_all_its_starts_with_fewer_seats() {
         assert_eq!(
             (at(1) + 8 - at(0)) % 8,
             1,
-            "side {side}: the allies on neighbouring starts"
+            "side {side}: the allies on neighboring starts"
         );
         let (gap_a, gap_b) = ((at(2) + 8 - at(1)) % 8, (at(0) + 8 - at(2)) % 8);
         assert!(
@@ -728,7 +716,7 @@ fn units_on_a_map_of_many_starts_face_its_centre_and_step_out_south() {
         let u = w.unit(harvesters(&w, s)[0]).unwrap();
         assert!(
             (u.face - (cy - oy).atan2(cx - ox)).abs() < 1e-9,
-            "seat {s}: a harvester faces the centre"
+            "seat {s}: a harvester faces the center"
         );
         // A Garrison by the Core: a Trooper trained there with no rally point steps out on its south side.
         let at = (-12..=12)
@@ -759,7 +747,7 @@ fn units_on_a_map_of_many_starts_face_its_centre_and_step_out_south() {
 }
 
 /// On a 96x96 map of four starts, both peoples' buildings put a new unit out on their front, the south side facing
-/// the camera, whether the base lies in the south half (where the centre is to the north) or the north half; with a
+/// the camera, whether the base lies in the south half (where the center is to the north) or the north half; with a
 /// rally point to the north it still steps out south, then walks there.
 #[test]
 fn a_new_unit_steps_out_on_its_buildings_south_side_on_a_map_of_four_starts() {
@@ -817,7 +805,7 @@ fn a_new_unit_steps_out_on_its_buildings_south_side_on_a_map_of_four_starts() {
             if b.y > cy { "south" } else { "north" },
             fresh[0].y
         );
-        // Of the open tiles just south of it where no other unit stands, the one nearest the centre (it has not
+        // Of the open tiles just south of it where no other unit stands, the one nearest the center (it has not
         // moved: no orders).
         let foot = w.foot(fresh[0].kind);
         let best = (b.tx - 1..=b.tx + b.w)
@@ -836,7 +824,7 @@ fn a_new_unit_steps_out_on_its_buildings_south_side_on_a_map_of_four_starts() {
         assert_eq!(
             (fresh[0].x, fresh[0].y),
             best,
-            "seat {s}: the new worker stepped out on the south tile nearest the centre"
+            "seat {s}: the new worker stepped out on the south tile nearest the center"
         );
     }
     // A rally point far to the north: the unit still steps out south, then walks to it.
@@ -943,7 +931,7 @@ fn closest_expansion(w: &World) -> (f64, String) {
         let kind = hq.kind;
         let (hx, hy) = (hq.tx as f64 + 2.0, hq.ty as f64 + 2.0);
         // (every gold mine, the smaller ones laid where the old open shafts were included: every one is a mine now)
-        for n in w.map.nodes.iter().filter(|n| !n.ether) {
+        for n in w.map.nodes.iter().filter(|n| !n.vent) {
             let (nx, ny) = (n.tx as f64, n.ty as f64);
             if (nx - hx).hypot(ny - hy) <= 12.0 {
                 continue; // (the main's own)

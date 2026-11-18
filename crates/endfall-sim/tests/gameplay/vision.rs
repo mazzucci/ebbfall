@@ -89,7 +89,7 @@ fn a_free_for_all_sees_alone() {
         let (ex, ey) = (w.unit(enemy).unwrap().x, w.unit(enemy).unwrap().y);
         assert!(
             sees(&w, 1, ex, ey) && w.seen_by(1, enemy),
-            "seat 1 sees its neighbour"
+            "seat 1 sees its neighbor"
         );
         for s in [0, 3] {
             assert!(

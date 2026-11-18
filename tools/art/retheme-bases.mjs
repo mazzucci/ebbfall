@@ -1,7 +1,7 @@
 // The buildings' angles and shadows (2026-11-11, after the yaw review's retheme-yaw-bases.mjs): every building turned
 // its fixed angle (retheme.js BLDG_YAW) and fitted to its footprint, the cast shadow at the units' alpha, the Cottage
 // without its woodpile and smoke. Pictures for Stelian, at 2x with a -1x copy in CSS px, on the game's grass tiles with
-// the seats' colours. `today` is main's committed atlas (public/art on origin/main), read with `git show`, so the
+// the seats' colors. `today` is main's committed atlas (public/art on origin/main), read with `git show`, so the
 // comparison is against what the game draws now, not a re-render.
 //   node tools/art/retheme-bases.mjs [outdir]          (target/buildings by default)
 //     angles-contact-sheet.png: every building square (today's atlas) beside its chosen angle, both seats, named, the
@@ -61,7 +61,7 @@ function grass(c, seed) {
 }
 const paste = (dst, src, x, y) => { for (let j = 0; j < src.h; j++) { if (y + j >= dst.h) break; dst.data.set(src.data.subarray(j * src.w * 4, (j + 1) * src.w * 4), ((y + j) * dst.w + x) * 4); } };
 const save = (name, c) => { writeFileSync(join(outDir, `${name}.png`), encodePNG(c)); writeFileSync(join(outDir, `${name}-1x.png`), encodePNG(half(c))); };
-/** Nearest-neighbour upscale by k (the 4x crops). */
+/** Nearest-neighbor upscale by k (the 4x crops). */
 function up(c, k) { const o = canvas(c.w * k, c.h * k); for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) o.data.set(c.data.subarray(((y / k | 0) * c.w + (x / k | 0)) * 4, ((y / k | 0) * c.w + (x / k | 0)) * 4 + 4), (y * o.w + x) * 4); return o; }
 
 /** The ground spill of a drawn body past its n-tile footprint, world px, west / east / south (solid pixels, the shadow excluded). */

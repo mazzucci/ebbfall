@@ -121,7 +121,7 @@ test('the manifest has PNG icons of 192 and 512 pixels and a maskable one, and t
   }
 });
 
-test('the maskable icon keeps to the safe zone: outside the circle of radius 40%, only its background colour', () => {
+test('the maskable icon keeps to the safe zone: outside the circle of radius 40%, only its background color', () => {
   const pub = new URL('../public/', import.meta.url);
   const bg = readFileSync(new URL('icon.svg', pub), 'utf8').match(/<rect[^>]*fill="#([0-9a-f]{6})"/i)[1], want = [0, 2, 4].map(i => parseInt(bg.slice(i, i + 2), 16));
   const { w, h, data } = decodePNG(readFileSync(new URL('icon-maskable-512.png', pub)));

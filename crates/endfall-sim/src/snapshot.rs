@@ -74,7 +74,7 @@ record! {
 
 record! {
     /// Per projectile; aim = the point it flies at; by = the shooter's unit kind (its index in `unitKinds`, fixed when
-    /// fired), -1 for a building's: the client draws some kinds' shots their own way (the Harpooner's harpoon).
+    /// fired), -1 for a building's: the client draws some kinds' shots their own way (look.js `shotArt`).
     PROJ_FIELDS, push_proj, |p: &Proj, w| {
         x = p.x, y = p.y,
         kind = match p.kind { ProjKind::Bolt => 0, ProjKind::Shell => 1, ProjKind::Missile => 2 },
@@ -87,9 +87,9 @@ record! {
 
 record! {
     /// Per resource node (a gold mine: `s` tiles square from tx, ty; `total` what it held at the start, `miners` the
-    /// workers inside; `ether`: a mine shaft's vent, none since the re-theme's economy).
+    /// workers inside).
     NODE_FIELDS, push_node, |n: &Node, w| {
-        id = n.id, ether = n.ether as u8, tx = n.tx, ty = n.ty, s = n.s, x = n.x, y = n.y, amount = n.amount,
+        id = n.id, tx = n.tx, ty = n.ty, s = n.s, x = n.x, y = n.y, amount = n.amount,
         total = n.total, miners = n.miners, r = n.r,
     }
 }

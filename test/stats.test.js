@@ -18,10 +18,10 @@ test('every unit gets the same two rows: toughness, then attack', () => {
     const rows = statRows(k);
     assert.equal(rows.length, 2, `${k}: two rows`);
     const [tough, attack] = rows;
-    assert.deepEqual(tough.map(c => c.k), shielded(k) ? ['hp', 'shields', 'armor'] : ['hp', 'armor'], `${k}: Health, Shields for a shielded people only, Armour`);
+    assert.deepEqual(tough.map(c => c.k), shielded(k) ? ['hp', 'shields', 'armor'] : ['hp', 'armor'], `${k}: Health, Shields for a shielded people only, Armor`);
     assert.equal(tough[0].text, String(d.hp), `${k}: its health`);
-    assert.equal(tough.at(-1).text, String(d.armor), `${k}: its armour`);
-    assert.equal(tough.at(-1).dim, !d.armor, `${k}: no armour is dimmed, not gone`);
+    assert.equal(tough.at(-1).text, String(d.armor), `${k}: its armor`);
+    assert.equal(tough.at(-1).dim, !d.armor, `${k}: no armor is dimmed, not gone`);
     if (shielded(k)) assert.equal(tough[1].text, String(d.shields), `${k}: its shields`);
     assert.equal(attack[0].k, 'dmg', `${k}: damage first`);
     const rest = attack.slice(armed(d) ? 2 : 1);
@@ -86,7 +86,7 @@ test('the markup: two rows, a label on every chip, an icon on every slot but the
   for (const k of [...Object.keys(UNITS), ...Object.keys(BUILDINGS)]) {
     const h = statsHtml(k), rows = statRows(k), chips = rows.flat();
     assert.equal((h.match(/class="sr"/g) || []).length, rows.length, k);
-    assert.equal((h.match(/aria-label="/g) || []).length, chips.length, `${k}: every chip labelled`);
+    assert.equal((h.match(/aria-label="/g) || []).length, chips.length, `${k}: every chip labeled`);
     assert.equal((h.match(/<svg/g) || []).length, chips.reduce((n, c) => n + (c.k === 'tag' ? 0 : c.ico === 'both' ? 2 : 1), 0), `${k}: icons`);
   }
   assert.match(statsHtml('trooper'), new RegExp(`aria-label="Health ${UNITS.trooper.hp}"`));

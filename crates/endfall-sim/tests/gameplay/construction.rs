@@ -399,7 +399,7 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_lets_it_w
             "{ext:?}: its builder waits beside it"
         );
         assert_eq!(
-            w.bldg(b).unwrap().pumped > 0.0,
+            w.bldg(b).unwrap().earned > 0.0,
             ext.def().pays > 0.0,
             "{ext:?}: the Market earns by itself, the Recruiting post nothing"
         );
@@ -407,15 +407,15 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_lets_it_w
 }
 
 #[test]
-fn vael_production_needs_no_sunpetal_near_it() {
-    // Roster v2 retired the power field (and its code went with plant-and-leave construction): a Cradle (the Kiln)
-    // goes up on any free ground far from every Sunpetal and the Tidewell, and with every Sunpetal and the Tidewell
-    // gone it trains, an Anemone (Ward) fires and a Glasshouse (Loom) researches on.
+fn expedition_production_needs_no_wind_turbine_near_it() {
+    // Roster v2 retired the power field (and its code went with plant-and-leave construction): a Factory goes up on
+    // any free ground far from every Wind turbine and the Data center, and with every turbine and the Data center gone
+    // it trains, a Sentry mast fires and a Lab researches on.
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
     let (cx, cy) = core(&w, PLAYER);
     build(&mut w, BldgKind::Siphon, l[0], 150); // (the Factory's requirement, the Recruiting post)
-    // The first free 3x3 at least 9 tiles from the Tidewell: no field anywhere near it.
+    // The first free 3x3 at least 9 tiles from the Data center: no field anywhere near it.
     let (tx, ty) = (9..14)
         .flat_map(|r| (0..24).map(move |a| (r, a)))
         .map(|(r, a)| {
@@ -426,7 +426,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
             )
         })
         .find(|&(tx, ty)| w.can_place(BldgKind::Kiln, tx, ty, PLAYER))
-        .expect("a free spot far from the Tidewell");
+        .expect("a free spot far from the Data center");
     let kiln = w
         .place_building(PLAYER, BldgKind::Kiln, tx, ty, Some(l[1]))
         .unwrap();
@@ -434,9 +434,9 @@ fn vael_production_needs_no_sunpetal_near_it() {
     assert!(w.bldg(kiln).unwrap().done);
     let loom = build(&mut w, BldgKind::Loom, l[2], 90);
     let ward = build(&mut w, BldgKind::Ward, l[3], 90);
-    // (queued while the Tidewell still gives supply)
+    // (queued while the Data center still gives supply)
     w.queue_unit(kiln, UnitKind::Scythe).unwrap();
-    // Nothing that ever cast a field is left: the Tidewell falls (with its workers kept: the game goes on).
+    // Nothing that ever cast a field is left: the Data center falls (with its workers kept: the game goes on).
     let hq = w
         .bldgs
         .iter()
@@ -462,11 +462,11 @@ fn vael_production_needs_no_sunpetal_near_it() {
     run(&mut w, 5);
     assert!(
         w.unit(foe).is_none_or(|u| u.hp < hp),
-        "the Anemone fires with no Sunpetal anywhere"
+        "the Sentry mast fires with no Wind turbine anywhere"
     );
     assert!(
         w.bldg(loom).unwrap().research.map(|r| r.1) > r.map(|r| r.1),
-        "the Glasshouse researches on"
+        "the Lab researches on"
     );
     run(&mut w, 30);
     assert_eq!(
@@ -492,9 +492,10 @@ fn supply_blocked_names_the_right_building_for_each_race() {
     );
 }
 
-// ---------------- no Vael warp-in ----------------
+// ---------------- no Expedition warp-in ----------------
 
-/// A Vael Kiln at (20,30) with a Spire beside it, and a forward Spire at (40,30), on open ground.
+/// An Expedition Factory (`Kiln`) at (20,30) with a Wind turbine (`Spire`) beside it, and a forward one at (40,30), on
+/// open ground.
 fn kiln_and_forward_spire() -> (World, Id, (f64, f64)) {
     let mut w = rich_vael(5);
     flatten(&mut w, 12..52, 12..52);
@@ -522,9 +523,9 @@ fn trained(w: &mut World, kind: UnitKind) -> Id {
 }
 
 #[test]
-fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
+fn an_expedition_unit_steps_out_at_its_factory_even_with_a_rally_by_a_wind_turbine() {
     // Before Roster v2 a unit warped in at a rally point inside a power field; there are no fields now: it comes out
-    // beside its Cradle, at once able to act, and walks to the rally.
+    // beside its Factory, at once able to act, and walks to the rally.
     let (mut w, kiln, at) = kiln_and_forward_spire();
     w.set_rally(kiln, at.0, at.1, None);
     w.queue_unit(kiln, UnitKind::Scythe).unwrap();
@@ -533,7 +534,7 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
     let (k, u) = (w.bldg(kiln).unwrap(), w.unit(s).unwrap());
     assert!(
         ((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0,
-        "beside the Cradle, not at the forward Sunpetal: ({}, {})",
+        "beside the Factory, not at the forward Wind turbine: ({}, {})",
         u.x,
         u.y
     );
@@ -579,7 +580,7 @@ fn units_step_out_beside_the_factory_otherwise() {
     let l = trained(&mut w, UnitKind::Lumen);
     let (k, u) = (w.bldg(core).unwrap(), w.unit(l).unwrap());
     assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
-    // Nor do the Humans' units.
+    // Nor do the Kingdom's units.
     let mut h = rich(5);
     flatten(&mut h, 12..52, 12..52);
     let rax = h.make_building(BldgKind::Barracks, PLAYER, 20, 30, true);
@@ -615,7 +616,7 @@ fn a_refused_spot_says_why_and_the_order_says_the_same() {
         "the AI builds on unexplored ground: its own Castle is what stands there"
     );
     // A mine: on it, and right against it.
-    let m = w.map.nodes.iter().find(|n| !n.ether).unwrap().clone();
+    let m = w.map.nodes.iter().find(|n| !n.vent).unwrap().clone();
     w.explored[PLAYER as usize].fill(1);
     assert_eq!(why(&w, m.tx, m.ty), Some(Refusal::Mine));
     let d = BldgKind::Depot.def();

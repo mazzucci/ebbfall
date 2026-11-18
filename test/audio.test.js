@@ -283,7 +283,7 @@ test('the device\'s voice falls back to the synth: no speechSynthesis, no Englis
   } finally { audio.announcer = null; Ctx.now += 10; }
 });
 
-test('the device\'s voice picker: the Humans a known name or a US voice, the Expedition another; one voice: both, apart by pitch; a pick by hand wins', async () => {
+test('the device\'s voice picker: the Kingdom a known name or a US voice, the Expedition another; one voice: both, apart by pitch; a pick by hand wins', async () => {
   const { voiceFor, picked, canSpeak, speakLine } = await import('../src/client/speech.js');
   const pick = (voices) => { const sp = speechStub(voices); try { return [voiceFor('humans')?.name, voiceFor('vael')?.name]; } finally { sp.remove(); } };
   assert.deepEqual(pick([VOICES.samantha, VOICES.daniel, VOICES.google]), ['Daniel', 'Samantha'], 'Apple');
@@ -312,7 +312,7 @@ test('the Expedition styles are friendly by construction: unison copies only (no
   }
   assert.ok(STYLES.vaelClear.pitch > STYLES.humansRadio.pitch && STYLES.vaelWarm.pitch < STYLES.vaelClear.pitch, 'A above the operator, B below A');
   assert.equal(STYLES.vael, STYLES.vaelClear, 'the Expedition\'s synth voice is A');
-  assert.equal(STYLES.humans, STYLES.humansRadio, 'the Humans\' is A');
+  assert.equal(STYLES.humans, STYLES.humansRadio, 'the Kingdom\'s is A');
   assert.equal(STYLES.humansRadio.radio.drive, 0, 'the clean radio does not clip');
 });
 

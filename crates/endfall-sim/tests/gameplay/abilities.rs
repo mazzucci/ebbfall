@@ -91,7 +91,7 @@ fn the_ai_uses_abilities_in_its_fights() {
 
 #[test]
 fn an_attack_order_packs_a_deployed_unit_up_and_a_lost_target_or_stop_leaves_it_holding() {
-    // (the toggle's rules, on the one unit that has one: the Siege Tank's Deploy)
+    // (the toggle's rules, on the one unit that has one: the Cannon's Set Up)
     let mut w = tech_arena(8);
     let v = w.make_unit(UnitKind::SiegeTank, PLAYER, 20.0 * TILE, 30.0 * TILE);
     w.cast(v, AbilityKind::Deploy).unwrap();
@@ -168,7 +168,7 @@ fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
     set_hp(&mut w, g, 1e6);
     w.hold_unit(g);
     let blow = UnitKind::Knight.def().weapon.unwrap().dmg + w.weapon_bonus(ENEMY, 3.0);
-    let armour = UnitKind::Trooper.def().armor;
+    let armor = UnitKind::Trooper.def().armor;
     let hit = |w: &mut World| {
         let before = w.unit(g).unwrap().hp;
         let k = w.make_unit(UnitKind::Knight, ENEMY, 31.0 * TILE, 30.0 * TILE);
@@ -182,12 +182,12 @@ fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
         w.units.retain(|u| u.id != k);
         before - w.unit(g).unwrap().hp
     };
-    assert_eq!(hit(&mut w), blow - armour, "on its feet");
+    assert_eq!(hit(&mut w), blow - armor, "on its feet");
     w.cast(g, AbilityKind::Entrench).unwrap();
     assert_eq!(w.unit(g).unwrap().task, Task::Hold, "braced, it holds");
     run(&mut w, 1);
     assert_eq!(w.unit(g).unwrap().swap, 0.0, "set in a second");
-    assert_eq!(hit(&mut w), blow - armour - 4.0, "braced: 4 more armour");
+    assert_eq!(hit(&mut w), blow - armor - 4.0, "braced: 4 more armor");
     // It strikes what comes into its reach.
     let foe = w.make_unit(UnitKind::Trooper, ENEMY, 30.0 * TILE + 22.0, 30.0 * TILE);
     w.hold_unit(foe);
@@ -214,7 +214,7 @@ fn brace_gives_a_guard_four_armour_and_holds_it_until_it_lifts() {
     w.cast(g, AbilityKind::Entrench).unwrap();
     assert!(w.unit(g).unwrap().mode.is_none(), "off again");
     run(&mut w, 2);
-    assert_eq!(hit(&mut w), blow - armour, "back on its feet");
+    assert_eq!(hit(&mut w), blow - armor, "back on its feet");
 }
 
 #[test]

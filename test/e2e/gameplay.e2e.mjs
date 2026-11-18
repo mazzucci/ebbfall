@@ -618,12 +618,12 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
         await d.clickWorld(gx, gy); // open ground
         assert.equal((await d.state()).units.find(u => u.id === h.id).task, 'repair', 'phone: a later tap does not redirect it');
       } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
-      const shards = (await d.state()).res[0];
+      const gold = (await d.state()).res[0];
       await d.skip(4);
       await d.clickEntity(depot.id);
       assert.match(await d.hudText('#selSub', /Repairing/), /Repairing/, 'the building shows it is being repaired');
       await until(d, async () => (await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).hp, depot.id)) >= max, { seconds: 60, what: 'the repair' });
-      assert.ok((await d.state()).res[0] < shards, 'repairs cost gold');
+      assert.ok((await d.state()).res[0] < gold, 'repairs cost gold');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -644,7 +644,6 @@ test('a gold mine can be selected to see what is left (desktop click, phone tap)
       assert.match(await d.hudText('#selSub', /left/), new RegExp(`^${left} gold left`), 'shows what is left');
       assert.equal((await d.card()).length, 0, 'nothing to command on a mine');
       assert.match(await d.hudText('#selName', /Gold mine/), /Gold mine/);
-      assert.equal(s.nodes.filter(n => n.type === 'ether').length, 0, 'no mine shaft on the map');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -859,7 +858,7 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
       await press('#btnSolo');
       assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (RND, Random|RANDOM),/, 'RANDOM still chosen');
-      assert.equal(await startAs(0.1), 'humans', 'and the next game the Humans');
+      assert.equal(await startAs(0.1), 'humans', 'and the next game the Kingdom');
       await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
       assert.deepEqual(await storedRecord(page), { 'vael:0': [0, 1], 'humans:0': [0, 1] }, 'RANDOM\'s games on the record of the race each drew');
       assert.ok(await page.locator('#btnFirstHome').isHidden(), 'games on the record: FIRST GAME off the first page');
@@ -989,7 +988,7 @@ test('a queued unit is cancelled with a click or tap on it, for a full refund', 
       await d.clickEntity(core.id);
       await d.pressCard('Villager'); await d.pressCard('Villager'); await d.pressCard('Villager');
       assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue.length, 3);
-      const shards = (await d.state()).res[0];
+      const gold = (await d.state()).res[0];
       const box = '#queue';
       assert.equal(await d.page.locator(`${box} .qi`).count(), 3, `${d.touch ? 'phone' : 'desktop'}: the queue shows`);
       assert.equal(await d.page.locator(`${box} .qi svg.ico.gl`).count(), 3, 'each slot shows its train button\'s symbol');
@@ -997,7 +996,7 @@ test('a queued unit is cancelled with a click or tap on it, for a full refund', 
       await (d.touch ? second.tap() : second.click());
       const after = await d.state();
       assert.equal(after.bldgs.find(b => b.id === core.id).queue.length, 2, 'one unit cancelled');
-      assert.ok(after.res[0] >= shards + 50, 'refunded');
+      assert.ok(after.res[0] >= gold + 50, 'refunded');
       assert.equal(await d.page.locator(`${box} .qi`).count(), 2, 'the queue updates');
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
@@ -1025,7 +1024,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     await d.page.waitForTimeout(150);
     assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-press did not start placing a Blacksmith');
     await info.waitFor({ state: 'hidden', timeout: 5000 }); // the details go a moment after the finger lifts
-    // Hold a greyed-out button while the money arrives (the card is rebuilt under the finger): no error, no press.
+    // Hold a grayed-out button while the money arrives (the card is rebuilt under the finger): no error, no press.
     await d.grant(0, 0);
     await d.pressCard('Back'); // to the basic page
     const depot = await d.page.locator('#cmd button', { hasText: 'Cottage' }).boundingBox();
@@ -1620,14 +1619,14 @@ test('placing over a refused spot says why on the hint line (the sim\'s words), 
   } finally { await d.close(); }
 });
 
-test('phone: a building that trains keeps its Cancel in one place, greyed out with nothing queued', async () => {
+test('phone: a building that trains keeps its Cancel in one place, grayed out with nothing queued', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
     await d.clickEntity(coreOf(await d.state()).id);
     let card = await d.card();
     assert.deepEqual(card.map(c => c.label), ['Villager', 'Rally', 'Cancel'], 'Cancel is there before anything is queued');
-    assert.equal(card[2].enabled, false, 'greyed out');
+    assert.equal(card[2].enabled, false, 'grayed out');
     const slot = () => d.eval(() => endfall.cardItems().find(i => i.id === 'cancelq')?.slot);
     const before = await slot();
     await d.pressCard('Villager');
@@ -1635,7 +1634,7 @@ test('phone: a building that trains keeps its Cancel in one place, greyed out wi
     assert.equal(card.find(c => c.label === 'Cancel').enabled, true, 'it lights up with a unit queued');
     assert.equal(await slot(), before, 'in the same place');
     await d.pressCard('Rally');
-    assert.equal(await slot(), before, 'and while Rally is armed (greyed out, the card keeps its shape)');
+    assert.equal(await slot(), before, 'and while Rally is armed (grayed out, the card keeps its shape)');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1776,7 +1775,7 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     await d.clickEntity(hq.id);
     await d.page.waitForFunction(() => endfall.rangeShown().shown, null, { timeout: 15000 });
     const { circles, arcs } = await range();
-    assert.deepEqual(circles, [{ x: hq.x, y: hq.y, r: reach * T }], 'one circle round the Data center\'s centre, its reach');
+    assert.deepEqual(circles, [{ x: hq.x, y: hq.y, r: reach * T }], 'one circle round the Data center\'s center, its reach');
     assert.equal(arcs, 1, 'its outline: one whole circle');
     // Something else selected (a Sellsword, not a machine): no range drawn.
     const sw = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'prism', x, y), [hq.x + 130, hq.y + 110]);
@@ -2232,7 +2231,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     assert.doesNotMatch(trooper.text, /Best with|Beaten by/, 'and never another unit by name');
     assert.equal(await info.locator('img').count(), 1, 'its own sprite, no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Guard' }).getAttribute('title'), /Best with|Beaten by|Health|Damage/i, 'nor another unit or stats in the tooltip');
-    // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
+    // Its base stats, from the sim's tables: toughness (no Shields slot), then attack.
     assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armor ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
     assert.ok(trooper.rows.every(r => r.one), 'each row on one line');
     assert.ok(trooper.box[0] >= 0 && trooper.box[1] >= 0 && trooper.box[2] <= trooper.vw && trooper.box[3] <= trooper.vh, `the card fits the screen: ${trooper.box}`);
@@ -2336,7 +2335,7 @@ test('phone: SELECT, HOME and ARMY one row of three alike above the minimap; Hom
     await d.centerOn(core.x > 1000 ? 300 : 1700, core.y > 1000 ? 300 : 1700);
     await d.page.locator('#btnHome').tap();
     const v = await view();
-    assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centres on the Core: ${JSON.stringify(v)}`);
+    assert.ok(Math.hypot(v.x - core.x, v.y - core.y) < 64, `Home centers on the Core: ${JSON.stringify(v)}`);
     // Army: every combat unit, wherever it is (not the harvesters); a second tap looks at them.
     const far = { x: core.x > 1000 ? 700 : 1350, y: core.y > 1000 ? 700 : 1350 }; // (clear of the map's edge: the view can center there)
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [far.x, far.y]);
@@ -2725,7 +2724,7 @@ test('single player: eight fixed spots; + SEAT fills the lowest empty one on a s
     await seats.side(2, 0); await seats.side(3, 1);
     assert.deepEqual(await seats.sides(), [['YOU', 'COMPUTER 2'], ['COMPUTER 1', 'COMPUTER 3']]);
     assert.deepEqual(await page.$$eval('#soloBoard .tok .stag', ts => ts.map(t => t.innerText)), ['S1', 'S2', 'S1', 'S2'], 'a side tag on each (short on a narrow token)');
-    assert.deepEqual(await seats.bands(), bands, 'every player keeps its colour');
+    assert.deepEqual(await seats.bands(), bands, 'every player keeps its color');
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', 'COMPUTER 3', '+', '', '', '']);
     // Everyone on one side: START GAME waits, and says why.
     await seats.side(1, 0); await seats.side(3, 0);
@@ -2828,7 +2827,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', ''], 'no gap');
     assert.deepEqual(await tags(), ['SIDE 1', 'SIDE 1', 'SIDE 2'], 'no side number past the sides there are');
     assert.equal(await page.locator('#soloBoard [data-k="tok2"]').getAttribute('aria-label'), 'COMPUTER 2 EXPEDITION, Hard, Side 2: edit', 'the Hard Expedition AI, a spot up');
-    assert.deepEqual(await seats.bands(), bands.slice(0, 3), 'each spot its own colour');
+    assert.deepEqual(await seats.bands(), bands.slice(0, 3), 'each spot its own color');
     assert.deepEqual(await seats.sides(), [['YOU', 'COMPUTER 1'], ['COMPUTER 2']]);
     await seats.open(2);
     assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => [b.textContent, b.classList.contains('on')])), [['SIDE 1', false], ['SIDE 2', true], ['SIDE 3', false]], 'its sheet: as many sides as players, its own lit');
@@ -2838,11 +2837,11 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.factions, [1, 2].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW]);
     assert.deepEqual(game, [[0, 0, 1], ['humans', 'humans', 'vael'], [0, 2], 2, 96], 'the seats and teams the board shows');
-    assert.deepEqual(await page.evaluate(() => [0, 1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [true, true, true], 'each seat in its spot\'s colour');
+    assert.deepEqual(await page.evaluate(() => [0, 1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [true, true, true], 'each seat in its spot\'s color');
   } finally { await ctx.close(); }
 });
 
-test('single player: each player plays in its spot\'s colour whatever its side; two against two and one against three start with the allies side by side', async () => {
+test('single player: each player plays in its spot\'s color whatever its side; two against two and one against three start with the allies side by side', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
     // Two against two across the spots: you and AI 2 against AI 1 and AI 3 (the game seats you and AI 2 first).
@@ -2857,10 +2856,10 @@ test('single player: each player plays in its spot\'s colour whatever its side; 
     const spots = [0, 2, 1, 3]; // (seat by seat, the spot each came from)
     assert.deepEqual(await page.evaluate((sp) => endfall.G.teams.map((_, s) => endfall.seatTint(s) === endfall.spotTint(sp[s])), spots), [true, true, true, true], 'each seat in its spot\'s paint');
     assert.deepEqual(await page.evaluate(() => [1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [false, false], 'not its seat number\'s');
-    assert.equal(new Set(bands).size, 4, 'four colours on the board');
+    assert.equal(new Set(bands).size, 4, 'four colors on the board');
     let c = await cores(page);
     const diag = Math.max(...[1, 2, 3].map(s => apart(c[0], c[s])));
-    assert.ok(apart(c[0], c[1]) < diag - 10 && apart(c[2], c[3]) < diag - 10, `allies on neighbouring starts: ${JSON.stringify(c)}`);
+    assert.ok(apart(c[0], c[1]) < diag - 10 && apart(c[2], c[3]) < diag - 10, `allies on neighboring starts: ${JSON.stringify(c)}`);
     // One against three on an eight-start map: the three side by side.
     await page.evaluate(() => { document.getElementById('btnPause').click(); document.getElementById('btnQuit').click(); });
     await page.locator('#menuSolo').waitFor({ state: 'visible' });
@@ -3127,7 +3126,7 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
     assert.ok(seen.hqVis && seen.hqSeen, 'the ally\'s base is in our fog-free area');
     assert.ok(seen.army > 0 && seen.allSeen, `the ally's units (${seen.army} fighters) are all in our sight`);
     const near = (p, q) => p.every((v, i) => Math.abs(v - q[i]) <= 24);
-    assert.ok(near(seen.hqPixel, [16, 8, 0].map(b => SEAT_COLORS[2] >> b & 255)), `the ally's Core on the minimap in its spot's colour (COMPUTER 2's teal, though it plays seat 1), clear of fog: ${seen.hqPixel}`);
+    assert.ok(near(seen.hqPixel, [16, 8, 0].map(b => SEAT_COLORS[2] >> b & 255)), `the ally's Core on the minimap in its spot's color (COMPUTER 2's teal, though it plays seat 1), clear of fog: ${seen.hqPixel}`);
     assert.ok(seen.frame.some(p => p.every(v => v >= 200)), `framed in white, an ally's: ${seen.frame.join(' ')}`);
     assert.deepEqual(seen.enemyHq, [0, 0], 'the enemies\' bases still in the fog');
   } finally { await ctx.close(); }
@@ -3403,7 +3402,7 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
     for (const [n, b] of [['minimap', mm], ['console', info], ['card', cmd]]) assert.ok(b.y >= stage.y && b.y + b.height <= stage.y + stage.height, `the ${n} sits over the map`);
     assert.ok(mm.x < info.x && info.x + info.width < cmd.x, 'minimap left, console in the middle, card right');
     const mid = (mm.x + mm.width + cmd.x) / 2;
-    assert.ok(Math.abs(info.x + info.width / 2 - mid) < 4, 'the console is centred between the minimap and the card');
+    assert.ok(Math.abs(info.x + info.width / 2 - mid) < 4, 'the console is centered between the minimap and the card');
     // The hint and the toasts stay clear of the minimap.
     await d.grant(500, 0);
     await d.pressCard('Build'); await d.pressCard('Cottage');
@@ -3445,7 +3444,7 @@ test('a 3x screen: the minimap drawn at three backing pixels per CSS px, and a c
   } finally { await d.close(); }
 });
 
-test('every unit and building is drawn twice: its art, then its team mask in its seat\'s colour', async () => {
+test('every unit and building is drawn twice: its art, then its team mask in its seat\'s color', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const core = coreOf(await d.state());
@@ -3460,7 +3459,7 @@ test('every unit and building is drawn twice: its art, then its team mask in its
     for (const l of layers) {
       assert.equal(l.mask, `${l.base}_m`, `${l.base}: its mask`);
       assert.ok(l.maskOver, `${l.base}: the mask above the art`);
-      assert.equal(l.seat, tints[teams[l.id]], `${l.base}: its seat's colour`);
+      assert.equal(l.seat, tints[teams[l.id]], `${l.base}: its seat's color`);
       assert.equal(l.tint, l.seat, `${l.base}: the mask tinted with it (no effect on)`);
     }
     assert.deepEqual(d.errors, []);
@@ -4074,7 +4073,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centred line; no scrolling', async () => {
+test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centered line; no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
     try {
@@ -4091,7 +4090,7 @@ test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its 
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
       assert.equal(lines.length, 1, `${w}x${h}: one line: ${lines}`);
-      for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centred: ${l} | ${w - r}`); }
+      for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centered: ${l} | ${w - r}`); }
     } finally { await ctx.close(); }
   }
 });

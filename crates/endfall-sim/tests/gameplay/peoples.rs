@@ -78,8 +78,9 @@ fn each_building_trains_its_peoples_list() {
 
 #[test]
 fn nothing_is_ever_hidden() {
-    // No cloak and no detection since the re-theme: the Android (the Undertow's place, which lurked) is seen and shot
-    // wherever its enemy has sight, after standing still as long as it likes; the snapshot sends nothing about cloaks.
+    // No cloak and no detection since the re-theme: the Android (Roster v2's Undertow's place, which lurked) is seen
+    // and shot wherever its enemy has sight, after standing still as long as it likes; the snapshot sends nothing about
+    // cloaks.
     let mut w = flat_arena(5);
     w.factions = vec![&HUMANS, &VAEL];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
@@ -121,8 +122,8 @@ fn every_ground_unit_walks() {
 
 #[test]
 fn the_healers_are_trained_nowhere_and_still_heal() {
-    // The Mender and the Tender stay in the tables (the heal rules and their tests), but no building of either people
-    // trains them and the AI never builds one; spawned in a test, a Mender still heals.
+    // The Healer and the Medic stay in the tables (the heal rules and their tests), but no building of either people
+    // trains them and the AI never builds one; spawned in a test, a Healer still heals.
     for k in [UnitKind::Medic, UnitKind::Halo] {
         assert!(k.def().heal > 0.0, "{k:?} heals");
         assert!(!k.trainable(), "{k:?} is trained nowhere");
@@ -143,5 +144,5 @@ fn the_healers_are_trained_nowhere_and_still_heal() {
     w.units.iter_mut().find(|u| u.id == guard).unwrap().hp = 10.0;
     run(&mut w, 12);
     let u = w.unit(guard).unwrap();
-    assert_eq!(u.hp, u.maxhp, "a spawned Mender heals a Guard to full");
+    assert_eq!(u.hp, u.maxhp, "a spawned Healer heals a Guard to full");
 }

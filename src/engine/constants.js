@@ -119,7 +119,7 @@ export const FACTIONS = D.factions;
 export const kindsOf = (f) => { const b = [f.hq, ...f.buildBasic, ...f.buildAdvanced]; return new Set([...b, ...b.flatMap(k => BUILDINGS[k].trains || [])]); };
 /** Upgrade `k`'s words for side `f`. Weapons, which both races research, names that side's own weapons only. */
 export const upgradeDesc = (k, f) => k !== 'weapons' ? UPGRADES[k].desc : 'More damage per level: ' + Object.entries(UP_DMG).filter(([t]) => kindsOf(f).has(t))
-  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}${UNITS[t]?.light?.upDmg ? ` (light gun +${UNITS[t].light.upDmg})` : ''}`).join(', ') + '.';
+  .map(([t, n]) => `${(UNITS[t] || BUILDINGS[t]).name} +${n}`).join(', ') + '.';
 const ABILITY_TEXT = {
   entrench: { hot: 'D', desc: 'Brace: 4 more armor, but no moving, until you lift it (1 s each way).' },
   deploy: { desc: 'Sets up whenever it stops (3 s, no moving or firing meanwhile), and packs up when it has to move: it fires only set up.' },

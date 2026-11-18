@@ -55,7 +55,7 @@ test('chimney smoke: the Castle, Barracks and Blacksmith have smoke points, the 
 test('a selected building\'s mark is a flat oval under it, sized to its footprint', () => {
   for (const [w, h] of [[2, 2], [3, 3], [4, 4]]) {
     const b = { x: 500, y: 300, w, h }, o = selOval(b);
-    assert.ok(Math.abs(o.x - b.x) < 1 && Math.abs(o.y - b.y) <= h * 32 * 0.1, `${w}x${h}: centred on the footprint`);
+    assert.ok(Math.abs(o.x - b.x) < 1 && Math.abs(o.y - b.y) <= h * 32 * 0.1, `${w}x${h}: centered on the footprint`);
     assert.ok(o.rx > w * 16 && o.rx < w * 32 * 0.75, `${w}x${h}: a little wider than the footprint (${o.rx})`);
     assert.ok(o.ry < o.rx && o.ry >= h * 16 * 0.9, `${w}x${h}: flat, lying on the ground (${o.ry} under ${o.rx})`);
   }
@@ -96,7 +96,7 @@ test('every unit kind has its drawn height (atlas.json unitTops: the hit test an
 test('one frame per kind, not one per seat, and a mask tint for every seat', () => {
   const perSeat = Object.keys(frames).filter(n => /^(bldg_[a-z]+|turret_head)_\d+$/.test(n) && !frames[`${n}_m`] || /^[a-z]+_\d+_\d+_\d+$/.test(n));
   assert.deepEqual(perSeat, [], 'no frames named by seat');
-  assert.equal(index.tints?.length, SEAT_COLORS.length, 'atlas.json tints: one per seat colour');
+  assert.equal(index.tints?.length, SEAT_COLORS.length, 'atlas.json tints: one per seat color');
   for (const t of index.tints) assert.ok(Number.isInteger(t) && t >= 0 && t <= 0xffffff);
 });
 

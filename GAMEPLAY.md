@@ -58,7 +58,7 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
 ## Units and weapons
 
 - Who hits flyers (Stelian, Nov 18): melee weapons and artillery hit the ground only; every direct-fire ranged weapon
-  hits flyers too. Read from a weapon's data (`Weapon`, a unit's `weapon` and `light`, a tower's `weapon`): melee is
+  hits flyers too. Read from a weapon's data (`Weapon`, a unit's `weapon`, a tower's `weapon`): melee is
   `melee`; artillery is a siege gun (`siege`) or a shot with splash (`splash > 0`: the Cannon, the Rover); direct-fire
   ranged is any other weapon. Melee and artillery have `dmg_air` 0, direct fire has `dmg_air` above 0. A test over the
   tables keeps it (`every_weapon_follows_the_air_rule`, tests/gameplay/combat.rs), so no new unit or tower is an

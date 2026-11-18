@@ -249,9 +249,9 @@ fn jitter_probe() {
     }
 }
 
-/// Two-second windows of four games on generated maps, a Hard Vael AI against an idle Human player (whose four
-/// starting workers mine; each game ends when the Vael raze it, in four to five minutes), in which a unit turned and
-/// stepped back 8 times or more in all: (turns, reversals, its kind, whether it is a worker, a line on it).
+/// Two-second windows of four games on generated maps, a Hard Expedition AI against an idle Kingdom player (whose four
+/// starting workers mine; each game ends when the Expedition raze it, in four to five minutes), in which a unit turned
+/// and stepped back 8 times or more in all: (turns, reversals, its kind, whether it is a worker, a line on it).
 fn trembling_in_real_games() -> Vec<(usize, usize, bool, String)> {
     let mut worst = Vec::new();
     for (seed, kind) in [
@@ -319,14 +319,14 @@ fn trembling_in_real_games() -> Vec<(usize, usize, bool, String)> {
 
 #[test]
 fn workers_in_real_games_do_not_tremble() {
-    // Four games of a Vael AI against an idle Human player: two-second windows in which a worker turned and stepped
-    // back 8 times or more. Before gathering workers passed through each other and settled at their work: 288 (275 of
-    // them Lumens queueing, mining or setting off at a field); after: a handful. (With both seats played by the AI,
-    // a slower measure: 2869 before, 364 after.) 12 on the maps whose shafts lay by fields, 17 since they keep 10 tiles
-    // off every crystal: the games play otherwise once the shafts are in use, and their Lumens queue at their main's
-    // field a few times more. That is queueing, not a stutter (measured for #245): the worst unit is the same before and
-    // after, 10 changes in its worst window (8 turns, 2 reversals), and no unit shows in more than 2 windows; the new
-    // windows are Lumens walking round their clump to a free crystal.
+    // Four games of an Expedition AI against an idle Kingdom player: two-second windows in which a worker turned and
+    // stepped back 8 times or more. Before gathering workers passed through each other and settled at their work: 288
+    // (275 of them Bots queueing, mining or setting off at a field); after: a handful. (With both seats played by the
+    // AI, a slower measure: 2869 before, 364 after.) 12 on the maps whose shafts lay by fields, 17 since they keep 10
+    // tiles off every crystal: the games play otherwise once the shafts are in use, and their Bots queue at their
+    // main's field a few times more. That is queueing, not a stutter (measured for #245): the worst unit is the same
+    // before and after, 10 changes in its worst window (8 turns, 2 reversals), and no unit shows in more than 2
+    // windows; the new windows are Bots walking round their clump to a free crystal.
     let workers: Vec<_> = trembling_in_real_games()
         .into_iter()
         .filter(|w| w.2)
@@ -383,7 +383,7 @@ fn workers_at_a_crowded_field_do_not_tremble() {
     // times a second and stepped back about once a second, pushed in and out of reach by the miner beside it; now
     // 0 and 0.5, the steps back being its trips home.)
     for seed in [3, 17, 29] {
-        for (race, w) in [("Harbour", rich(seed)), ("Vael", rich_vael(seed))] {
+        for (race, w) in [("Kingdom", rich(seed)), ("Expedition", rich_vael(seed))] {
             let (mut w, ids) = crowded_field(w, 12);
             run(&mut w, 10);
             let (flick, rev) = tremble(&mut w, &ids, 20.0);
@@ -395,8 +395,8 @@ fn workers_at_a_crowded_field_do_not_tremble() {
     }
 }
 
-/// What gathering without jostling does to the economy and to balance: Humans against Vael, AI on both sides
-/// (Medium and Hard, ten seeds, both starts): each race's income by 5:00 and 10:00 and the games won by 25:00.
+/// What gathering without jostling does to the economy and to balance: the Kingdom against the Expedition, AI on both
+/// sides (Medium and Hard, ten seeds, both starts): each race's income by 5:00 and 10:00 and the games won by 25:00.
 #[test]
 #[ignore]
 fn gathering_balance_probe() {
@@ -444,7 +444,7 @@ fn gathering_balance_probe() {
         }
         let g = games as i64;
         println!(
-            "level {diff}: income by 5:00 Humans {} Vael {}; by 10:00 Humans {} Vael {}; wins Humans {} Vael {} of {games}",
+            "level {diff}: income by 5:00 Kingdom {} Expedition {}; by 10:00 Kingdom {} Expedition {}; wins Kingdom {} Expedition {} of {games}",
             inc5[0] / g,
             inc5[1] / g,
             inc10[0] / g,

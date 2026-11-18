@@ -3,7 +3,7 @@
 use super::army::CAP_SLACK;
 use super::*;
 
-/// Unspent shards the AI counts as piling up (it then adds a factory).
+/// Unspent gold the AI counts as piling up (it then adds a factory).
 const SHARD_FLOAT: i32 = 400;
 
 /// After placing a base, how long (s) before it takes another for a passive foe (`Diff::passive_expand`).
@@ -140,7 +140,7 @@ impl World {
             .map
             .nodes
             .iter()
-            .filter(|n| !n.ether && (n.tx as f64 - cx).abs().max((n.ty as f64 - cy).abs()) <= 12.0)
+            .filter(|n| (n.tx as f64 - cx).abs().max((n.ty as f64 - cy).abs()) <= 12.0)
             .map(|n| n.amount)
             .sum();
         self.level().expands_when_dry && home < HOME_LOW
@@ -261,7 +261,7 @@ impl World {
             .map
             .nodes
             .iter()
-            .filter(|n| !n.ether && n.amount > 300)
+            .filter(|n| n.amount > 300)
             .filter(|n| {
                 let from = |(x, y): (f64, f64)| jsmath::hypot(n.tx as f64 - x, n.ty as f64 - y);
                 // (a mine with a headquarters by it, anyone's, is taken: a compact mine leaves room round it for a
@@ -375,7 +375,7 @@ impl World {
             && self.line_used(e) + self.places(e, CAP_SLACK) >= self.line_max(e)
     }
 
-    /// The factory to add when shards pile up for want of one: a bank of `SHARD_FLOAT` with every one of a kind busy
+    /// The factory to add when gold piles up for want of one: a bank of `SHARD_FLOAT` with every one of a kind busy
     /// (its main factories; with its line at its maximum, `line_capped`, its air factories instead, which train what
     /// can still grow), while
     /// not supply-blocked (busy queues that cannot finish are not a factory problem) and not saving up (for an
@@ -519,7 +519,7 @@ impl World {
             cx,
             cy,
             building,
-            pumps,
+            payers,
             cores,
             ..
         } = brain.clone();
@@ -529,7 +529,7 @@ impl World {
         let s = &f.ai;
         // Its Market (the Kingdom's, one a finished Castle; the Expedition's Wind turbines, five a Data center:
         // `World::hq_room`), one site at a time: its main's once it has seven workers, the next (at an expansion) from
-        // the level's `vents_from`; a lost one is
+        // the level's `markets_from`; a lost one is
         // built again on the same terms. (Not in the guided first game: its opponent's income stays as the guide was
         // tuned with. Only once its requirement stands, the barracks: wanted before then it would hold the rest of the
         // build order, the barracks too, behind a building it cannot place.)
@@ -543,16 +543,16 @@ impl World {
         let several = market_ok.is_some_and(|m| m.def().per_hq > 1);
         // (the Expedition's Wind turbines, five a Data center, not before its first wave's time, whose army they would
         // thin (each pays back in about four minutes): the first in the Market's place, the others after its
-        // factories, tech and towers; at an expansion from `vents_from`)
+        // factories, tech and towers; at an expansion from `markets_from`)
         let first_wave = self.tuning(e).first;
         let market = market_ok.filter(|_| {
-            (pumps == 0 && (!several || t > first_wave)) || (!several && t > d.vents_from)
+            (payers == 0 && (!several || t > first_wave)) || (!several && t > d.markets_from)
         });
         let more_turbines = market_ok.filter(|&m| {
             several
-                && pumps > 0
+                && payers > 0
                 && t > first_wave
-                && (pumps < m.def().per_hq as usize || t > d.vents_from)
+                && (payers < m.def().per_hq as usize || t > d.markets_from)
         });
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
@@ -585,7 +585,7 @@ impl World {
         let tower_due = self.ai_count(&my_b, false, s.tower) < towers_wanted;
         // (its tech building waits for a finished barracks, and the Kingdom's for its Market)
         let tech_ready = self.ai_count(&my_b, true, s.rax) >= 1
-            && (pumps > 0 || f.market.is_none_or(|m| m.def().per_hq > 1));
+            && (payers > 0 || f.market.is_none_or(|m| m.def().per_hq > 1));
         let want = if cap - used <= supply_margin
             && cap < self.sup_max(e)
             && supply_rising < d.supply_at_once
@@ -646,7 +646,7 @@ impl World {
         let expansion_due = (t > self.expand_time(e) || self.home_dry(cx, cy))
             && self.ai_count(&my_b, false, f.hq) < 2;
         // Workers first (`Diff::workers_first`): while its crew is short, a worker's price stays in the bank, so a
-        // building waits a moment rather than leave the Core idle for want of shards.
+        // building waits a moment rather than leave the Castle idle for want of gold.
         // Only while a worker can be trained now (a Core, room in supply): the reserve must never hold back the Depot
         // a supply-capped side needs to train the very worker it saves for.
         let can_train = !cores.is_empty() && self.room(e) >= self.takes(e, f.worker);
@@ -1066,7 +1066,7 @@ mod tests {
         assert_eq!(
             w.extra_rax(ENEMY, &my_b, 1),
             Some(BldgKind::Barracks),
-            "busy, and shards in the bank"
+            "busy, and gold in the bank"
         );
         my_b.push(site);
         assert!(

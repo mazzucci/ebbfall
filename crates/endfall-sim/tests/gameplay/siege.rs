@@ -1,4 +1,4 @@
-//! The Siege Tank (the Anchor Gun since Roster v2): it fires only deployed (its toggle, `Deploy`, named Drop Anchor),
+//! The Cannon (`SiegeTank`; the Anchor Gun in Roster v2): it fires only deployed (its toggle, `Deploy`, named Set Up),
 //! from past its own sight on what its side sees, never at what is inside its blind ring; it deploys by itself on
 //! reaching a target and packs up to move. On its tracks it has no gun at all (its light gun went with Roster v2).
 
@@ -251,7 +251,7 @@ fn a_deployed_tank_stands_firm_and_takes_the_next_target_in_reach() {
 }
 
 #[test]
-fn the_ai_builds_a_workshop_and_fields_trebuchets_later_on() {
+fn the_ai_builds_a_workshop_and_fields_cannons_later_on() {
     // Its Workshop once the Forge stands; a Ballista per eight Guards from it, and from 5:30 a Cannon per six.
     let mut w = World::new(9, 2);
     let b = w.map.bases[ENEMY as usize];
@@ -259,7 +259,7 @@ fn the_ai_builds_a_workshop_and_fields_trebuchets_later_on() {
     w.make_building(BldgKind::Barracks, ENEMY, b.0 - 4, b.1 + 6, true);
     let home = w.bldgs.iter_mut().find(|b| b.team == PLAYER).unwrap();
     (home.hp, home.maxhp) = (1e9, 1e9); // (the player's base stands: the game goes on)
-    let (mut factory_at, mut vanguards, mut tanks) = (None, false, false);
+    let (mut factory_at, mut ballistas, mut tanks) = (None, false, false);
     while w.time < 450.0 {
         w.res[ENEMY as usize] = [3000, 1000];
         if w.tick.is_multiple_of(30 * TPS) {
@@ -267,7 +267,7 @@ fn the_ai_builds_a_workshop_and_fields_trebuchets_later_on() {
         }
         w.step();
         w.events.clear();
-        vanguards |= count(&w, ENEMY, UnitKind::Bastion) > 0;
+        ballistas |= count(&w, ENEMY, UnitKind::Bastion) > 0;
         tanks |= count(&w, ENEMY, UnitKind::SiegeTank) > 0;
         if factory_at.is_none()
             && w.bldgs
@@ -278,9 +278,8 @@ fn the_ai_builds_a_workshop_and_fields_trebuchets_later_on() {
         }
     }
     let at = factory_at.expect("a Factory");
-    // (after its two Pumps, which come first)
     assert!(at < 180.0, "soon after its tech stands: {at:.0} s");
-    assert!(vanguards, "Ballistas");
+    assert!(ballistas, "Ballistas");
     assert!(tanks, "Cannons");
 }
 
@@ -307,9 +306,9 @@ fn sent_at_a_target_inside_its_blind_ring_a_deployed_tank_holds() {
 
 #[test]
 fn on_its_tracks_it_has_no_gun_and_deployed_only_the_siege_gun() {
-    // Roster v2 took the light gun: on its tracks it fires nothing, even at an enemy beside it (inside its blind ring,
-    // where it will not set up). An enemy 5 tiles off, past its 2.5-tile ring: deployed, the siege gun.
-    assert!(UnitKind::SiegeTank.def().light.is_none(), "no light gun");
+    // Roster v2 took the light gun (and the cleanup its slot): on its tracks it fires nothing, even at an enemy beside
+    // it (inside its blind ring, where it will not set up). An enemy 5 tiles off, past its 2.5-tile ring: deployed,
+    // the siege gun.
     let (mut w, tank, foe) = tank_scene(1.5);
     set_hp(&mut w, tank, 1e6); // (the Knight reaches it)
     w.move_to(tank, 31.0 * TILE, 31.0 * TILE); // (a move: on its tracks, beside the enemy)

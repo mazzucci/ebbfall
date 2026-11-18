@@ -19,7 +19,7 @@ def_struct! {
         /// On/off (Deploy) rather than a one-off cast.
         toggle: bool = "toggle",
         /// Used by the unit itself, never by an order: no button on the card, and a player's order to use it is
-        /// refused (the Siege Tank deploys and packs up by itself).
+        /// refused (the Cannon deploys and packs up by itself).
         auto: bool = "auto",
         /// Seconds before it can be used again.
         cooldown: f64 = "cooldown",
@@ -44,8 +44,8 @@ const ENTRENCH: AbilityDef = AbilityDef {
         armor: 4.0,
     },
 };
-/// The Siege Tank's: its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up. The
-/// tank does it by itself (on reaching its target, an idle tank for what comes into its reach; packing up when
+/// The Cannon's (Set Up): its gun fires only deployed (its weapon is `siege`), so no extra reach; slow to set up. The
+/// Cannon does it by itself (on reaching its target, an idle one for what comes into its reach; packing up when
 /// nothing is left in reach or it is sent to move), never on an order.
 const DEPLOY: AbilityDef = AbilityDef {
     key: "deploy",

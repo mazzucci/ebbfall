@@ -89,7 +89,7 @@ impl World {
     pub fn nearest_node(&self, x: f64, y: f64, max_d: f64) -> Option<Id> {
         let (mut best, mut bd) = (None, max_d);
         for n in &self.map.nodes {
-            if n.ether || n.amount <= 0 {
+            if n.amount <= 0 {
                 continue;
             }
             let d = dist(n.x, n.y, x, y);
@@ -103,9 +103,9 @@ impl World {
 
     /// A finished building that pays (`BldgDef::pays`: the Kingdom's Market, the Expedition's Wind turbine) pays its
     /// owner with no workers, its rate a second, banked a whole gold (or energy) at a time from its own fraction
-    /// (`Bldg::pumped`, hashed). An AI's income multiplier counts here as at a field (Brutal's x1.3: its edge is its
+    /// (`Bldg::earned`, hashed). An AI's income multiplier counts here as at a field (Brutal's x1.3: its edge is its
     /// whole economy's).
-    pub(crate) fn pump(&mut self, bid: Id, dt: f64) {
+    pub(crate) fn pay_out(&mut self, bid: Id, dt: f64) {
         let (team, rate) = {
             let b = self.bldg(bid).unwrap();
             (b.team, b.kind.def().pays)
@@ -119,11 +119,11 @@ impl World {
         let trade = TRADE_RATE[self.effect_level(team, Effect::PumpRate).min(2) as usize];
         let b = self.bm(bid).unwrap();
         // (Trade raises the Market's pay only: the Expedition, which builds no Market, never researches it)
-        b.pumped += rate * income * trade * dt;
+        b.earned += rate * income * trade * dt;
         // (sixty ticks of 1/60 sum to a hair under 1: the tolerance pays on the 60th, not the 61st)
-        let whole = (b.pumped + 1e-9).floor();
+        let whole = (b.earned + 1e-9).floor();
         if whole >= 1.0 {
-            b.pumped = (b.pumped - whole).max(0.0);
+            b.earned = (b.earned - whole).max(0.0);
             self.res[team as usize][0] += whole as i32;
             self.ledger[team as usize].mined[0] += whole as i64;
         }
@@ -135,7 +135,7 @@ impl World {
             let (x, y) = (u.x, u.y);
             let last = u
                 .last_node
-                .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0 && !n.ether));
+                .filter(|&n| self.map.node(n).is_some_and(|n| n.amount > 0));
             if let Some(nd) = last.or_else(|| self.nearest_node(x, y, 500.0))
                 && self.start_gather(uid, nd)
             {
@@ -157,8 +157,7 @@ impl World {
             .nodes
             .iter()
             .filter(|m| {
-                !m.ether
-                    && m.id != n.id
+                m.id != n.id
                     && m.amount > 0
                     && dist(m.x, m.y, n.x, n.y) <= SPREAD_RANGE * TILE
                     && drop.edge_dist(m.x, m.y) <= reach
@@ -206,7 +205,7 @@ impl World {
     pub(crate) fn update_gather(&mut self, uid: Id, node: Id, phase: Phase, timer: f64, dt: f64) {
         let team = self.u(uid).team;
         let n = self.map.node(node).cloned();
-        let usable = n.as_ref().is_some_and(|n| n.amount > 0 && !n.ether);
+        let usable = n.as_ref().is_some_and(|n| n.amount > 0);
         let Some(n) = n.filter(|_| usable) else {
             return self.gather_elsewhere(uid, node, phase, timer);
         };

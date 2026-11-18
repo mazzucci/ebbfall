@@ -99,7 +99,7 @@ impl World {
             aim: 0.0,
             research: None,
             repair_debt: [0.0, 0.0],
-            pumped: 0.0,
+            earned: 0.0,
         };
         for y in 0..d.h {
             for x in 0..d.w {

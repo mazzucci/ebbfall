@@ -16,11 +16,11 @@ fn random_play_never_breaks_the_world_hard() {
     random_play(2);
 }
 #[test]
-fn random_play_never_breaks_the_world_with_the_vael() {
-    // The Vael on either side (random orders name every kind of both races).
+fn random_play_never_breaks_the_world_with_the_expedition() {
+    // The Expedition on either side (random orders name every kind of both races).
     let seeds: u32 = if cfg!(debug_assertions) { 3 } else { 12 };
     for seed in 0..seeds {
-        // Vael player v human AI, human player v Vael AI, and Vael v Vael, in turn.
+        // Expedition player v Kingdom AI, Kingdom player v Expedition AI, and Expedition v Expedition, in turn.
         let (me, foe) = [(1, 0), (0, 1), (1, 1)][(seed % 3) as usize];
         let mut g = Game::with_setup(seed * 7919 + 5, 1, 0, seed % 2, me, foe);
         let mut r = Mulberry32::new(seed ^ 0xbeef);
@@ -161,7 +161,7 @@ fn a_finished_game_can_be_watched_again() {
     // Every Game logs its orders: Watch rebuilds the same setup and replays them on their ticks, tick for tick the
     // same world (the AI replays itself), with no orders taken meanwhile; and again from the start if asked twice.
     for seed in [5u32, 4242] {
-        let mut g = Game::with_setup(seed, 1, 0, 1, 0, 1); // (a Vael opponent, the other base)
+        let mut g = Game::with_setup(seed, 1, 0, 1, 0, 1); // (an Expedition opponent, the other base)
         let mut r = Mulberry32::new(seed ^ 0xbeef);
         let mut hashes = Vec::new();
         for tick in 0..30 * 90 {

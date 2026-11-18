@@ -8,7 +8,7 @@
   --bg:#0b0f16; --panel:#121a25; --panel2:#182333; --line:#263548; --line2:#34475f;
   --fg:#dde5ee; --muted:#8294aa; --dim:#54657a;
   --ally:#f5a524; --ally2:#ffd27a; --foe:#e2457a; --foe2:#ff8bb0;
-  --shard:#e6e0d3; --ether:#a78bfa; --ok:#5ad67d; --warn:#ffb545; --bad:#ff5a5a;
+  --gold:#e6e0d3; --violet:#a78bfa; --ok:#5ad67d; --warn:#ffb545; --bad:#ff5a5a;
   --display:"Chakra Petch",system-ui,sans-serif; --mono:"Share Tech Mono",ui-monospace,Menlo,monospace;
   color-scheme:dark;
 }
@@ -88,17 +88,17 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #mod{display:flex;align-items:center;gap:16px;min-width:0;padding-left:16px;border-left:1px solid var(--line)} #mod:empty{display:none}
 .st{display:flex;align-items:center;gap:4px;font:17px var(--mono);color:var(--fg);white-space:nowrap} .st b{font-weight:400}
 .st .ico{width:18px;height:18px;color:var(--muted)}  .st em{font-style:normal;color:var(--ally2)} .st .por{width:22px;height:22px}
-.rs{display:flex;align-items:center;gap:10px;min-width:190px} .rs>.ico{width:30px;height:30px;color:var(--ether)}
+.rs{display:flex;align-items:center;gap:10px;min-width:190px} .rs>.ico{width:30px;height:30px;color:var(--violet)}
 .rb{flex:1;display:flex;flex-direction:column;gap:6px} .rt{display:flex;align-items:center;gap:6px;font:600 14px var(--display);letter-spacing:.04em;white-space:nowrap} .rt b{color:var(--ally2)}
-.pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--ether);background:var(--ether)}
-.bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px} #mod>.pct{display:none;font:12px var(--mono);font-variant-numeric:tabular-nums;color:var(--ally);white-space:nowrap}
+.pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--violet);background:var(--violet)}
+.bar.res i{background:var(--violet)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px} #mod>.pct{display:none;font:12px var(--mono);font-variant-numeric:tabular-nums;color:var(--ally);white-space:nowrap}
 #mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
 #mod .q .bar.prod{order:2;flex:1 1 100%;height:8px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
 #mod .q.idle .bar.prod{visibility:hidden} /* (its room kept) */
 /* A factory's research, beside its queue (over it on small phones): the tech's icon over a bar of its own, as tall as
    the queue; its room kept while there is none, so nothing moves when one starts or ends. */
 #mod .rq{display:flex;flex-direction:column;gap:5px;flex:none} #mod .rq.idle{visibility:hidden} #mod .rq .bar{height:6px}
-#mod .rq>.ico{width:32px;height:32px;box-sizing:border-box;padding:5px;border:1px solid var(--ether);border-radius:3px;background:var(--panel2);color:var(--ether)}
+#mod .rq>.ico{width:32px;height:32px;box-sizing:border-box;padding:5px;border:1px solid var(--violet);border-radius:3px;background:var(--panel2);color:var(--violet)}
 .bar{height:8px;background:#0a0e14;border:1px solid var(--line);border-radius:2px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;background:var(--ok);transition:width .15s linear}
 .bar.prod i{background:var(--ally)}
@@ -142,7 +142,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
    third row, when a card has one, is added below. */
 #cmd{display:grid;grid-template-columns:repeat(3,66px);grid-template-rows:repeat(2,52px);grid-auto-rows:52px;gap:4px;align-content:start}
 /* The HUD floats over the map on every screen (no band across the bottom: the map keeps its height): the minimap
-   bottom-left, the selection console bottom-centre at one width, the command card bottom-right (phones: below). */
+   bottom-left, the selection console bottom-center at one width, the command card bottom-right (phones: below). */
 #hud{position:fixed;z-index:5;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;
   align-items:flex-end;gap:10px;pointer-events:none}
 #hud>*{pointer-events:auto}
@@ -162,7 +162,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .cb:disabled{opacity:.38;cursor:default}
 .cb .k{position:absolute;top:2px;right:3px;font:9px var(--mono);color:var(--ally2)}
 .cb .c{font:10px var(--mono);color:var(--muted)}
-.cb .c .s{color:var(--shard)}
+.cb .c .s{color:var(--gold)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
 /* Unavailable or unaffordable: its glyph in gray, dimmed with the button. */
 .cb:disabled:not(.cancel) .ico,.cb.poor:not(.cancel) .ico{color:var(--muted)}

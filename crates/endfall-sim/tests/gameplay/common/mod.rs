@@ -80,7 +80,7 @@ pub fn build(w: &mut World, kind: BldgKind, builder: Id, limit: u32) -> Id {
 }
 
 /// A world with plenty of resources and no opponent, for testing what the player can do.
-/// A rich world, no opponent, the player on the Vael (the AI side stays human).
+/// A rich world, no opponent, the player on the Expedition (the AI side stays the Kingdom).
 pub fn rich_vael(seed: u32) -> World {
     let mut w = World::with_setup(seed, 1, MapKind::Standard, false, [&VAEL, &HUMANS]);
     w.disable_ai();
@@ -317,7 +317,6 @@ pub fn home_fields(w: &World) -> Vec<Id> {
         .map
         .nodes
         .iter()
-        .filter(|n| !n.ether)
         .map(|n| ((n.tx - cx - 2).pow(2) + (n.ty - cy - 2).pow(2), n.id))
         .collect();
     f.sort();

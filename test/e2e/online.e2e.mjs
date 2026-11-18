@@ -289,7 +289,7 @@ test('a name first (NEW ROOM and JOIN dimmed without one, Enter asks for it, a l
   } finally { await a.ctx.close(); }
 });
 
-test('the board: the host adds AIs, sets their levels, races and sides and puts the friend on its side, nothing on the board moving; the friend sees it read-only but its own race, READY lights; two people against two AIs play the same game, each in its spot\'s colour', { engines: true }, async () => {
+test('the board: the host adds AIs, sets their levels, races and sides and puts the friend on its side, nothing on the board moving; the friend sees it read-only but its own race, READY lights; two people against two AIs play the same game, each in its spot\'s color', { engines: true }, async () => {
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   const a = await page(PHONE, relayQ);
   try {
@@ -365,7 +365,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       assert.deepEqual(setup, [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 2], 2, ['humans', 'vael', 'random', 'vael'], [0, 1, 2, 3], 96, ['Ann', 'Bo', 'the computer', 'the computer']], 'two people against two AIs on 96x96, each AI at its own level');
       assert.deepEqual(await Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.me))), [0, 1]);
       assert.equal(new Set(bands).size, 4);
-      for (const x of [a, b]) assert.deepEqual(await x.p.evaluate(() => [0, 1, 2, 3].map(s => endfall.seatTint(s) === endfall.spotTint(endfall.online.setup.spots[s]))), [true, true, true, true], 'each seat in its spot\'s colour');
+      for (const x of [a, b]) assert.deepEqual(await x.p.evaluate(() => [0, 1, 2, 3].map(s => endfall.seatTint(s) === endfall.spotTint(endfall.online.setup.spots[s]))), [true, true, true, true], 'each seat in its spot\'s color');
       await sameWorld(a, b, 60, 'both ran the same stretch');
       await a.p.waitForFunction(() => [2, 3].every(t => endfall.G.units.filter(u => u.team === t).length > 4 || endfall.G.bldgs.some(b => b.team === t && b.queue.length > 0)), null, { timeout: RUN_MS, polling: 250 })
         .catch(() => assert.fail('the AIs play'));
@@ -574,7 +574,7 @@ test('eight seats fit a small phone (667x375), a landscape phone (844x390) and a
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: START_MS });
       const setup = await b.p.evaluate(() => [endfall.online.setup.ai, endfall.online.setup.teams, endfall.online.setup.spots, endfall.engine.MW, endfall.G.factions.length, endfall.G.me]);
       assert.deepEqual(setup, [[0, 1, 1, 0, 1, 1], [0, 0, 0, 1, 1, 1], [0, 2, 4, 1, 3, 5], 128, 6, 3], 'six seats on 128x128, three against three, four AIs; the sides seated together, each from its spot');
-      for (const x of [a, b]) assert.deepEqual(await x.p.evaluate(() => [0, 1, 2, 3, 4, 5].map(s => endfall.seatTint(s) === endfall.spotTint(endfall.online.setup.spots[s]))), Array(6).fill(true), 'each player in its spot\'s colour');
+      for (const x of [a, b]) assert.deepEqual(await x.p.evaluate(() => [0, 1, 2, 3, 4, 5].map(s => endfall.seatTint(s) === endfall.spotTint(endfall.online.setup.spots[s]))), Array(6).fill(true), 'each player in its spot\'s color');
       await sameWorld(a, b, 40, 'both ran the same stretch');
       assert.ok(await a.p.evaluate(() => [1, 2, 4, 5].every(t => endfall.G.stats[t].built > 0 || endfall.G.bldgs.some(b => b.team === t && b.queue.length > 0))), 'the AIs play');
       assert.deepEqual(a.errors, []); assert.deepEqual(b.errors, []);
@@ -711,7 +711,7 @@ test('the pause card online: a menu over a game that goes on; a pause for everyo
       c = await card(b);
       assert.equal(c.h, 'Paused');
       assert.match(c.line, /^Paused by Ann · [45]:\d\d left$/);
-      assert.deepEqual(c.buttons, ["(ANN'S PAUSE)", 'HOW TO PLAY', 'OPTIONS', 'LEAVE GAME'], 'the others: whose pause it is, greyed; no RESUME');
+      assert.deepEqual(c.buttons, ["(ANN'S PAUSE)", 'HOW TO PLAY', 'OPTIONS', 'LEAVE GAME'], 'the others: whose pause it is, grayed; no RESUME');
       const sc = await b.p.locator('#pause .card').evaluate(e => [e.scrollHeight, e.clientHeight]);
       assert.ok(sc[0] <= sc[1] + 1, `fits a small phone: ${sc}`);
       await stands('both games stand still');

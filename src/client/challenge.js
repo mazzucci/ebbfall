@@ -107,7 +107,7 @@ function ais(foes, counted = false) {
   const l = levels(foes), n = foes.length;
   return n === 1 ? `${counted ? 1 : 'a'} ${l} AI` : l.startsWith('up to') ? `${n} AIs ${l}` : `${n} ${l} AIs`;
 }
-/** The races of some players, each once: "Vael", "Humans and Vael". */
+/** The races of some players, each once: "Expedition", "Kingdom and Expedition". */
 const raceList = (rs) => [...new Set(rs.map(r => r.race))].map(k => RACE_TITLE[k]).join(' and ');
 
 /** The link's card in a chat: `{ title, description }`. */

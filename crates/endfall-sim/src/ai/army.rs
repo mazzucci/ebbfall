@@ -73,7 +73,7 @@ impl World {
     /// wave while on (until `HOLD_WAVES_MAX` s at most), and meanwhile the opponent's army stops growing at
     /// `GUIDED_ARMY`; released, the first wave goes (from `GUIDED_FIRST`, whatever its level's first wave), and its
     /// army grows to `GUIDED_ARMY_AFTER` at most for the rest of
-    /// the game (`guided_army_full`). It raises no towers by the clock either (`ai_build`): a Lookout under repair
+    /// the game (`guided_army_full`). It raises no towers by the clock either (`ai_build`): a Watchtower under repair
     /// stopped every attack a newcomer's army could make. Its workers and other buildings are as on its level.
     pub fn guided_hold(&mut self, on: bool) {
         self.hold_waves = on;
@@ -2160,7 +2160,7 @@ mod tests {
     fn a_wave_comes_home_when_another_enemy_raids_its_base() {
         assert!(
             raided(4, 3),
-            "four seats: a neighbour raids while the wave is out at the foe"
+            "four seats: a neighbor raids while the wave is out at the foe"
         );
         assert!(raided(4, 1 + 1), "any enemy");
         // Two seats: a duel's waves meet on the way, and the rules stay as they were.
@@ -2280,7 +2280,7 @@ mod tests {
     #[test]
     fn easy_does_not_retreat_its_wave_fights_to_the_last_unit() {
         // Easy is clumsy (Stelian, Nov 13): its wave is its four, the rest stay home. It does not retreat (Stelian, Nov
-        // 14: retreat is a strong level's skill): meeting a defence twice its worth it fights on, and with three of its
+        // 14: retreat is a strong level's skill): meeting a defense twice its worth it fights on, and with three of its
         // four fallen the last one fights on too (`Diff::give_up` 0, no `retreat_below`).
         let scene = |enemies: usize| {
             let (mut w, army, mut b) = ready_with(0, DIFF[0]);

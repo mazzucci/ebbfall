@@ -612,8 +612,8 @@ fn a_walker_beside_a_rock_corner_does_not_step_into_it() {
 
 #[test]
 fn no_worker_stands_at_a_rock_corner_on_its_round() {
-    // A real game where it happened: seed 4's Labyrinth, two Hard Vael AIs; from 1:34 a Lumen stood at tile (48, 13)
-    // beside a rock, stepping into it and back on its way to a field. Every worker on its round (gathering, with a
+    // A real game where it happened: seed 4's Labyrinth, two Hard Expedition AIs; from 1:34 a Bot stood at tile (48,
+    // 13) beside a rock, stepping into it and back on its way to a field. Every worker on its round (gathering, with a
     // route) leaves its tile within 8 seconds.
     let mut w = World::with_size(4, 3, MapKind::Labyrinth, MapSize::DUEL, 0, &[&VAEL, &VAEL]);
     assert!(w.set_ai_seats([true, true]));

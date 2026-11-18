@@ -1,20 +1,20 @@
 //! The guided first game (the menu's FIRST GAME, src/client/tutorial.js): Easy, Ashen Basin (seed 4242, the Standard
-//! map), Humans against Humans. A newcomer who follows the checklist, at a newcomer's pace, holds the first wave with
-//! the army the guide asks for, then wins with the army its last step asks for.
+//! map), the Kingdom against the Kingdom. A newcomer who follows the checklist, at a newcomer's pace, holds the first
+//! wave with the army the guide asks for, then wins with the army its last step asks for.
 
 use crate::common::*;
 use endfall_sim::world::Command;
 
-/// The guide's army: six Pickets (a 1-population line unit: six fit under the first cap) and two Harpooners.
+/// The guide's army: six Guards (a 1-population line unit: six fit under the first cap) and two Archers.
 const SOLDIERS: usize = 6;
 const ANTI_AIR: usize = 2;
-/// The army the guide's last step asks for before the attack (tutorial.js `goal`): one Picket more than the
-/// Lighthouse's population holds with the guide's six workers and its army, so the Cottage step comes first.
+/// The army the guide's last step asks for before the attack (tutorial.js `goal`): one Guard more than the
+/// Castle's population holds with the guide's six workers and its army, so the Cottage step comes first.
 fn army_goal() -> usize {
     let room = BldgKind::Core.def().supply as usize - 6 - SOLDIERS - ANTI_AIR;
     SOLDIERS + ANTI_AIR + room + 1
 }
-/// An enemy this close to the player's Lighthouse (px) is at the base.
+/// An enemy this close to the player's Castle (px) is at the base.
 const AT_BASE: f64 = 14.0 * 32.0;
 
 /// What one guided game came to.
@@ -43,7 +43,7 @@ fn nearest_field(w: &World, id: Id) -> Option<Id> {
     w.map
         .nodes
         .iter()
-        .filter(|n| !n.ether && n.amount > 0)
+        .filter(|n| n.amount > 0)
         .min_by(|a, b| {
             let da = (a.tx as f64 * 32.0 - u.x).hypot(a.ty as f64 * 32.0 - u.y);
             let db = (b.tx as f64 * 32.0 - u.x).hypot(b.ty as f64 * 32.0 - u.y);
@@ -126,7 +126,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
         if tick % 15 != 0 {
             continue;
         }
-        // (a newcomer's workers go back to mining: the Lighthouse's own, and a builder whose building stands)
+        // (a newcomer's workers go back to mining: the Castle's own, and a builder whose building stands)
         for h in idle_workers(&w) {
             if let Some(n) = nearest_field(&w, h) {
                 let _ = w.apply(PLAYER, &Command::Gather { unit: h, node: n });
@@ -183,7 +183,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                     }
                 }
             }
-            // The army: six Pickets and two Harpooners.
+            // The army: six Guards and two Archers.
             2 => {
                 let rax = done(&w, BldgKind::Barracks).unwrap();
                 let (n, aa) = (
@@ -239,7 +239,7 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
                 },
             );
         }
-        // Over: the wave came and no enemy army is at the base for 20 s (or the Lighthouse fell).
+        // Over: the wave came and no enemy army is at the base for 20 s (or the Castle fell).
         if arrived.is_some() && near.is_empty() {
             if t - *over_since.get_or_insert(t) > 20.0 {
                 break;
@@ -265,8 +265,8 @@ fn play_guided(seed: u32, pace: f64, react: f64) -> (Guided, World) {
 }
 
 /// The guide's last two steps, after the wave: a Cottage (the population the last army needs), then train with the
-/// bank until the army is `army_goal()` strong (after `pace` s of reading each), then attack-move it at the enemy Lighthouse, and at the nearest enemy building whenever it stands idle
-/// (what a newcomer does once the Lighthouse is down). The game time it is won at, if within 8 minutes.
+/// bank until the army is `army_goal()` strong (after `pace` s of reading each), then attack-move it at the enemy Castle, and at the nearest enemy building whenever it stands idle
+/// (what a newcomer does once the Castle is down). The game time it is won at, if within 8 minutes.
 fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
     w.guided_hold(false); // (released already, unless the hold ran out first)
     let from = w.time;
@@ -280,7 +280,8 @@ fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
         if tick % 15 != 0 {
             continue;
         }
-        // The guided opponent after the release: at most 3 fighters trained (a wave's survivors may add one), no Lookout.
+        // The guided opponent after the release: at most 3 fighters trained (a wave's survivors may add one), no
+        // Watchtower.
         let foes = w
             .units
             .iter()
@@ -294,7 +295,7 @@ fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
             !w.bldgs
                 .iter()
                 .any(|b| b.team == ENEMY && b.kind == BldgKind::Turret),
-            "the guided opponent raises no Lookout"
+            "the guided opponent raises no Watchtower"
         );
         if w.time - from < pace {
             continue;
@@ -359,7 +360,7 @@ fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
                 continue;
             }
         }
-        // (the enemy Lighthouse first, then whatever stands nearest the army)
+        // (the enemy Castle first, then whatever stands nearest the army)
         let (cx, cy) = {
             let n = a.len().max(1) as f64;
             let (sx, sy) = a
@@ -395,14 +396,14 @@ fn win_guided(w: &mut World, pace: f64) -> Option<f64> {
 
 #[test]
 fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide() {
-    // The guide's map at three paces (a quick reader; a slow one; one so slow that the hold runs out at 6:00 before
-    // the army is trained), and other Standard seeds; the army, standing where it was trained, is sent at the wave
-    // 20 s after it reaches the base. Held, the opponent's army stops at four (the sim's GUIDED_ARMY), so its first
-    // wave is half the guide's eight (it was 10 to 15 before: the eight fell, and the Lighthouse with them). Then the
-    // last steps: a Cottage (the Lighthouse's 20 population hold the guide's six workers and eight soldiers, not the
-    // last army), fifteen strong with the bank, and the attack. Released, the opponent's army stays at three at most (the
-    // sim's GUIDED_ARMY_AFTER) and it raises no towers: the guide's way wins (it never did with them: a Lookout under
-    // repair and a refilled army stopped even twenty Pickets).
+    // The guide's map at three paces (a quick reader; a slow one; one so slow that the hold runs out at 6:00 before the
+    // army is trained), and other Standard seeds; the army, standing where it was trained, is sent at the wave 20 s
+    // after it reaches the base. Held, the opponent's army stops at four (the sim's GUIDED_ARMY), so its first wave is
+    // half the guide's eight (it was 10 to 15 before: the eight fell, and the Castle with them). Then the last steps: a
+    // Cottage (the Castle's 20 population hold the guide's six workers and eight soldiers, not the last army), fifteen
+    // strong with the bank, and the attack. Released, the opponent's army stays at three at most (the sim's
+    // GUIDED_ARMY_AFTER) and it raises no towers: the guide's way wins (it never did with them: a Watchtower under
+    // repair and a refilled army stopped even twenty Guards).
     for (seed, pace) in [
         (4242, 5.0),
         (4242, 20.0),
@@ -424,9 +425,10 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
             g.kills + 1 >= g.wave || g.army_left >= g.wave,
             "{ctx}: the wave is destroyed or driven off"
         );
-        assert!(g.core, "{ctx}: the Lighthouse stands");
+        assert!(g.core, "{ctx}: the Castle stands");
         assert!(g.extractor, "{ctx}: the Market survives the first wave");
-        // (more than half: the Guards fight up close since the re-theme, and lose a little more than the Pickets did)
+        // (more than half: the Guards fight up close since the re-theme, and lose a little more than Roster v2's
+        // Pickets did)
         assert!(
             g.army_left > (SOLDIERS + ANTI_AIR) / 2,
             "{ctx}: most of the guide's army lives"

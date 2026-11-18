@@ -5,7 +5,7 @@
 pub const NEVER: f64 = f64::MAX;
 
 /// AI tuning per difficulty. `first`/`gap`: seconds before the first wave and between waves. `extra_rax`: main
-/// factories it may add beyond its schedule (`rax`, one more after 5 and 9 minutes) to spend shards piling up.
+/// factories it may add beyond its schedule (`rax`, one more after 5 and 9 minutes) to spend gold piling up.
 /// `research_from`/`expand_at`/`air_at`/`heavy_at`: seconds before it researches, takes a second base, raises an air
 /// factory, raises its vehicle bay (NEVER: it does not). `raids`: flyers hunt the player's workers. `prong`: a big wave sends a third at an
 /// expansion. `answers`: it adapts its mix to what it has seen. `abilities`: its units use theirs.
@@ -40,12 +40,12 @@ pub struct Diff {
     /// schedule: the gentle level may starve on a barren map).
     pub expands_when_dry: bool,
     /// While its crew is short of its target, it holds a worker's price back from its buildings, so building never
-    /// leaves its Castle idle for want of gold (Brutal's build order spent every coin, and its Human AI, whose
+    /// leaves its Castle idle for want of gold (Brutal's build order spent every coin, and its Kingdom AI, whose
     /// builders leave the line, fell behind the Expedition's in the opening).
     pub workers_first: bool,
     /// Seconds before it raises more than one Market (one a Castle): its main's goes up once it has seven workers, the
     /// expansion's not before this.
-    pub vents_from: f64,
+    pub markets_from: f64,
     /// A wave ready by count and time also waits until its value is this many times the foe's army it last saw (PRD:
     /// the AI breaks a defense; 0: no such wait, today's rules). The margin fades to 1 over `margin_fade` seconds of
     /// waiting (NEVER: it does not fade). A sighting older than `sighting_age` is stale: it first sends a unit to
@@ -233,7 +233,7 @@ pub const DIFF: [Diff; 4] = [
         expands_when_dry: false,
         extras_after_expanding: true,
         workers_first: false,
-        vents_from: 540.0,
+        markets_from: 540.0,
         wave_margin: 0.0,
         margin_fade: NEVER,
         sighting_age: 120.0,
@@ -303,7 +303,7 @@ pub const DIFF: [Diff; 4] = [
         expands_when_dry: true,
         extras_after_expanding: false,
         workers_first: false,
-        vents_from: 0.0,
+        markets_from: 0.0,
         wave_margin: 1.3,
         margin_fade: NEVER,
         sighting_age: 120.0,
@@ -367,7 +367,7 @@ pub const DIFF: [Diff; 4] = [
         expands_when_dry: true,
         extras_after_expanding: false,
         workers_first: false,
-        vents_from: 0.0,
+        markets_from: 0.0,
         wave_margin: 1.3,
         margin_fade: NEVER,
         sighting_age: 120.0,
@@ -415,9 +415,9 @@ pub const DIFF: [Diff; 4] = [
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
-    // factories to start, like Hard: with four, the Human AI's builders spent so long off the line (a Human builder
-    // stays until its building stands) that it gathered far less than the Vael AI. It trains its workers before its
-    // buildings: its build order left its Core idle for want of shards while its crew was still short.
+    // factories to start, like Hard: with four, the Kingdom AI's builders spent so long off the line (a Kingdom builder
+    // stays until its building stands) that it gathered far less than the Expedition AI. It trains its workers before
+    // its buildings: its build order left its Castle idle for want of gold while its crew was still short.
     Diff {
         income: 1.3,
         wave: 7,
@@ -441,7 +441,7 @@ pub const DIFF: [Diff; 4] = [
         expands_when_dry: true,
         extras_after_expanding: false,
         workers_first: true,
-        vents_from: 0.0,
+        markets_from: 0.0,
         wave_margin: 1.3,
         margin_fade: NEVER,
         sighting_age: 120.0,
@@ -464,8 +464,9 @@ pub const DIFF: [Diff; 4] = [
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 2,
-        // (the balance follow-ups: an Anchor Gun per four Pickets from 4:00, not per six from 5:30; Humans against Vael
-        // at 64x64 from 20% to 40%, seed for seed; at other levels it cost the Human turtle row and the 96 mirror)
+        // (the balance follow-ups, in Roster v2's names: an Anchor Gun (the Cannon) per four Pickets (Guards) from
+        // 4:00, not per six from 5:30; the Kingdom against the Expedition at 64x64 from 20% to 40%, seed for seed; at
+        // other levels it cost the Kingdom's turtle row and the 96 mirror)
         tier_at: [NEVER, NEVER],
         top_max: 0,
         focus: None,

@@ -252,13 +252,14 @@ fn every_seat_has_its_own_record_in_the_snapshot() {
     assert_eq!(
         (seat(0, "faction"), seat(1, "faction")),
         (1.0, 0.0),
-        "Vael, then Humans"
+        "Expedition, then Kingdom"
     );
     assert_eq!((seat(0, "team"), seat(1, "team")), (0.0, 1.0));
     assert_eq!(seat(1, "shards"), 50.0);
 }
 
-/// A game of AIs only, one per seat (Humans and Vael by turns), on a map of `n` x `n` tiles with a start for each.
+/// A game of AIs only, one per seat (the Kingdom and the Expedition by turns), on a map of `n` x `n` tiles with a start
+/// for each.
 fn ais(seed: u32, n: i32, seats: usize, teams: Option<&[u8]>) -> World {
     let races: Vec<&'static Faction> = (0..seats)
         .map(|s| if s % 2 == 0 { &HUMANS } else { &VAEL })
@@ -809,7 +810,7 @@ fn allies_in_consecutive_seats_start_side_by_side_whatever_the_draw() {
                     let apart = d(w.map.bases[s - 1], w.map.bases[s]);
                     assert!(
                         apart <= near * 1.05,
-                        "{n} seats {teams:?} side {}: seats {} and {s} are neighbours ({apart:.0} tiles apart)",
+                        "{n} seats {teams:?} side {}: seats {} and {s} are neighbors ({apart:.0} tiles apart)",
                         side * 7 + 1,
                         s - 1
                     );

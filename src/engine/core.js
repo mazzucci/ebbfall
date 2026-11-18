@@ -2,7 +2,7 @@
 // objects with stable identity (selections hold them), and order functions that take those objects.
 // State is mirrored from flat snapshot arrays after every step and order, so entity objects in hand are
 // always current; the game loop's `advance` leaves the mirror for the next read of `G` (once a frame, however many
-// ticks ran). Entity objects and their parts are updated in place: nothing is allocated per entity per tick. Requires the WASM module to be initialised first (index.js does it in the browser,
+// ticks ran). Entity objects and their parts are updated in place: nothing is allocated per entity per tick. Requires the WASM module to be initialized first (index.js does it in the browser,
 // tests call initSync).
 import { Game, mapPreview as simMapPreview } from './pkg/endfall_sim.js';
 import { TILE, DUEL_MW, DUEL_MH, UNITS, BUILDINGS, SCHEMA, FACTIONS } from './constants.js';
@@ -80,11 +80,10 @@ function sync() {
 
   const N = game.nodes(); M.nodes = [];
   for (let o = 0; o < N.length; o += NS) {
-    const id = N[o + fn.id], ether = !!N[o + fn.ether];
+    const id = N[o + fn.id];
     let n = nodes.get(id);
-    // (every node in a game is a gold mine, `s` tiles square: crates/endfall-sim/src/map.rs `lay_mines`; the snapshot's
-    // `ether` flag, a mine shaft's, is never set since the re-theme's economy, and is read only so the tests can say so)
-    if (!n) nodes.set(id, n = { id, kind: 'node', type: ether ? 'ether' : 'mine', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: N[o + fn.s], h: N[o + fn.s], max: N[o + fn.total], dead: false, gen, amount: 0, miners: 0 });
+    // (every node in a game is a gold mine, `s` tiles square: crates/endfall-sim/src/map.rs `lay_mines`)
+    if (!n) nodes.set(id, n = { id, kind: 'node', type: 'mine', tx: N[o + fn.tx], ty: N[o + fn.ty], x: N[o + fn.x], y: N[o + fn.y], r: N[o + fn.r], w: N[o + fn.s], h: N[o + fn.s], max: N[o + fn.total], dead: false, gen, amount: 0, miners: 0 });
     n.gen = gen; n.amount = N[o + fn.amount]; n.miners = N[o + fn.miners];
     M.nodes.push(n);
   }
@@ -222,7 +221,7 @@ export const recordSummary = (on) => game.recordSummary(!!on);
  *  (`recordSummary`). Still readable once `G.over`. Nothing player-facing shows it. */
 export function summary() { const j = game.summaryJson(); return j == null ? null : JSON.parse(j); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
- *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 3 a mine shaft (none since the re-theme), 4 a start. */
+ *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 4 a start (3, a mine shaft once, unused). */
 export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
 
 // ---- orders (the future network command set) ----
@@ -283,7 +282,7 @@ export const debugSetHp = (b, hp) => touch(game.debugSetHp(b.id ?? b, hp));
 /** Tests and tools only: set the gold left in a mine (a scene with an empty one). */
 export const debugSetGold = (n, amount) => touch(game.debugSetGold(n.id ?? n, amount));
 /** Tests and tools only. */
-export const setResources = (team, shards, ether) => touch(game.setResources(team, shards, ether));
+export const setResources = (team, gold, other) => touch(game.setResources(team, gold, other));
 
 // ---- rule queries ----
 export const canPlace = (type, tx, ty, team) => game.canPlace(type, tx, ty, team);

@@ -11,7 +11,8 @@ pub type Id = u32;
 #[derive(Clone, Debug)]
 pub struct Node {
     pub id: Id,
-    pub ether: bool,
+    /// A mine shaft's 2x2 vent, laid only while the map is generated (`take_up_shafts` takes every one up).
+    pub vent: bool,
     /// Top-left tile; the node covers `s` x `s` tiles from there.
     pub tx: i32,
     pub ty: i32,
@@ -24,8 +25,6 @@ pub struct Node {
     /// Workers inside a mine (at most `MINE_CAP_MOST`, the largest kind's `mine_cap`).
     pub miners: i32,
     pub r: f64,
-    /// Building id of the extractor standing on a mine shaft's vent (none since the re-theme's economy).
-    pub extractor: Option<Id>,
     /// Which field (a clump of crystals, laid down together) it belongs to; 0 for a vent.
     pub field: u32,
 }
@@ -137,7 +136,8 @@ pub struct Map {
     /// the side away from its main, room for its Core on the near side. Empty on a test arena.
     pub expansions: Vec<(f64, f64)>,
     /// The Shore map's reef basins, one per start in the order of `bases` (top-left tile of a 4x4 headquarters in the
-    /// middle of each): where a Vael seat starts instead of its cove. Empty on every other kind.
+    /// middle of each): where an amphibious seat (none since the re-theme) starts instead of its cove. Empty on every
+    /// other kind.
     pub basins: Vec<(i32, i32)>,
 }
 
@@ -160,7 +160,7 @@ pub enum MapKind {
     /// Fields picked nearly clean: 40% of the gold (and 60% of a shaft's share).
     Barren,
     /// A shore and a reef (two starts): each start a cove on land and a reef basin in the shallows, a deep band down
-    /// the middle between the reefs. A Human seat starts in its cove, a Vael seat in its basin (`basins`).
+    /// the middle between the reefs. A walking seat starts in its cove, an amphibious one in its basin (`basins`).
     Shore,
 }
 
@@ -269,7 +269,7 @@ impl Sym {
         let (a, b) = (self.tile(g, (x, y)), self.tile(g, (x + s - 1, y + s - 1)));
         (a.0.min(b.0), a.1.min(b.1))
     }
-    /// Element `g` on a direction (radians; not normalised: half a turn adds PI).
+    /// Element `g` on a direction (radians; not normalized: half a turn adds PI).
     fn angle(&self, g: usize, a: f64) -> f64 {
         let (r, flip) = self.elem(g);
         (if flip { -a } else { a }) + r as f64 * (PI / 2.0)
@@ -309,7 +309,7 @@ impl ShoreField {
         turn: PI / 2.0,
         r: 6.5,
     };
-    /// On the channel's side, facing the Humans' cove, 40 degrees off the channel (it reaches across the channel's
+    /// On the channel's side, facing the cove, 40 degrees off the channel (it reaches across the channel's
     /// line, inside the reef; the walkers' way in stays as long: a gameplay test measures it).
     pub const CHANNEL: ShoreField = ShoreField {
         turn: 40.0 * PI / 180.0,
@@ -1123,7 +1123,7 @@ impl Map {
             });
             // (and both shafts found room: more open ground next time if not)
             let shafts_ok =
-                m.nodes.iter().filter(|n| n.ether).count() == 2 * k + centre_vent as usize;
+                m.nodes.iter().filter(|n| n.vent).count() == 2 * k + centre_vent as usize;
             if orbit[1..].iter().all(|b| reached(b.0, b.1)) && fields_ok && shafts_ok {
                 break;
             }
@@ -1139,14 +1139,14 @@ impl Map {
         // rules (a start never goes without; no map so far needs it, and a change to the generator that makes one
         // need it fails its tests loudly here).
         let want = 2 * k + centre_vent as usize;
-        let strict = m.nodes.iter().filter(|n| n.ether).count() == want;
+        let strict = m.nodes.iter().filter(|n| n.vent).count() == want;
         m.mend_shafts(next_id, &mut rules, ideals, want);
         debug_assert!(
             strict,
             "seed {seed} {kind:?} {mw}x{mh}: every start has its two open shafts without mending"
         );
         debug_assert_eq!(
-            m.nodes.iter().filter(|n| n.ether).count(),
+            m.nodes.iter().filter(|n| n.vent).count(),
             want,
             "seed {seed} {kind:?} {mw}x{mh}: every start has its two open shafts"
         );
@@ -1156,7 +1156,7 @@ impl Map {
             .flat_map(|&p| (0..k).map(move |g| sym.point(g, p)))
             .collect();
         for n in &mut m.nodes {
-            n.amount = jsmath::round(n.amount as f64 * if n.ether { ether } else { shard }) as i32;
+            n.amount = jsmath::round(n.amount as f64 * if n.vent { ether } else { shard }) as i32;
         }
         m.lay_mines(sym, next_id);
         m
@@ -1165,10 +1165,10 @@ impl Map {
     /// The Shore map (two starts, point-symmetric about the center): each start's share holds a **cove** on land (a
     /// pocket as on the other kinds, in a corner, its ramp facing the sea) and a **reef basin** in the shallows (a ring
     /// of reef rock, `SHORE_BASIN` tiles from the center, south or north, with a channel facing the cove across the sea
-    /// and a sea gate onto the deep band: the Vael's road to the other share, which walkers cannot take). A deep band
-    /// runs down the middle between the two reefs, shallows `SHORE_SHALLOWS` wide all round it; the land east and west
-    /// of it meets beyond each reef. Cove and basin each hold a field (either can be a start: a Human
-    /// seat takes its cove, a Vael seat its basin); the expansions and each start's two open shafts lie on land. Rock is
+    /// and a sea gate onto the deep band: the amphibians' road to the other share, which walkers cannot take). A deep
+    /// band runs down the middle between the two reefs, shallows `SHORE_SHALLOWS` wide all round it; the land east and
+    /// west of it meets beyond each reef. Cove and basin each hold a field (either can be a start: a walking seat takes
+    /// its cove, an amphibious one its basin); the expansions and each start's two open shafts lie on land. Rock is
     /// raised until a walker (Walk) gets from the first cove to the other cove, to both basins and to every field.
     fn generate_shore(seed: u32, size: MapSize, next_id: &mut Id, field: ShoreField) -> Self {
         let (mw, mh) = (size.w, size.h);
@@ -1219,7 +1219,8 @@ impl Map {
         let away = jsmath::atan2(c0.1 - centre.1, c0.0 - centre.0);
         let flank = away + PI / 2.0;
         let shape = Mulberry32::new(seed ^ 0x5a17_c1a7).next_u32();
-        // Each reef's land channel faces the cove across the sea (the one it faces: a Human seat there walks in by it).
+        // Each reef's land channel faces the cove across the sea (the one it faces: a walking seat there walks in by
+        // it).
         let channel: Vec<f64> = (0..2)
             .map(|g| jsmath::atan2(cores[1 - g].1 - pools[g].1, cores[1 - g].0 - pools[g].0))
             .collect();
@@ -1451,7 +1452,7 @@ impl Map {
                 });
                 let starts_ok = coves.iter().chain(&basins).all(|b| reached(b.0, b.1));
                 // (and both shafts found room: more open ground next time if not)
-                let vents_ok = m.nodes.iter().filter(|n| n.ether).count() == 4;
+                let vents_ok = m.nodes.iter().filter(|n| n.vent).count() == 4;
                 if starts_ok && fields_ok && vents_ok {
                     ok = true;
                     break;
@@ -1474,14 +1475,14 @@ impl Map {
             .flat_map(|&p| (0..2).map(move |g| sym.point(g, p)))
             .collect();
         // Two open shafts a start: where none gave them room, laid again under looser rules (as `generate`).
-        let strict = m.nodes.iter().filter(|n| n.ether).count() == 4;
+        let strict = m.nodes.iter().filter(|n| n.vent).count() == 4;
         m.mend_shafts(next_id, &mut shaft_rules(&sites, &outs), ideals, 4);
         debug_assert!(
             strict,
             "seed {seed}: every Shore start has its two open shafts without mending"
         );
         debug_assert_eq!(
-            m.nodes.iter().filter(|n| n.ether).count(),
+            m.nodes.iter().filter(|n| n.vent).count(),
             4,
             "seed {seed}: every Shore start has its two open shafts"
         );
@@ -1492,7 +1493,7 @@ impl Map {
 
     /// A reef basin's field and its image in the other share: a main's gold outcrop (seven crystals, `MAIN_CLUMP_R`
     /// from the basin's middle, as a cove's), to the flank of its Core square to the channel (`ShoreField::BACK`), not
-    /// an expansion's: the smaller, nearer one mined faster and ran low, so a Vael start expanded two minutes early
+    /// an expansion's: the smaller, nearer one mined faster and ran low, so a basin start expanded two minutes early
     /// (the first Shore report). No vent: the shafts lie out in the open.
     /// `at` (lab only) puts the field elsewhere: `ShoreField::BACK` is every game's.
     fn place_basin_fields(
@@ -1650,14 +1651,14 @@ impl Map {
     fn shafts_fit(size: MapSize, want: usize, lay: impl FnOnce(&mut Map, &mut Id)) -> bool {
         let mut m = Map::empty(size);
         lay(&mut m, &mut 1);
-        m.nodes.iter().filter(|n| n.ether).count() == want
+        m.nodes.iter().filter(|n| n.vent).count() == want
     }
 
     /// Every crystal's tile middle (tile units).
     fn salt(&self) -> Vec<(f64, f64)> {
         self.nodes
             .iter()
-            .filter(|n| !n.ether)
+            .filter(|n| !n.vent)
             .map(|n| (n.tx as f64, n.ty as f64))
             .collect()
     }
@@ -1735,7 +1736,7 @@ impl Map {
         let crystals: Vec<Node> = std::mem::take(&mut self.nodes);
         for n in &crystals {
             debug_assert!(
-                !n.ether && n.s == 1,
+                !n.vent && n.s == 1,
                 "only crystals are left when the mines are laid"
             );
             let i = self.idx(n.tx, n.ty);
@@ -1824,7 +1825,7 @@ impl Map {
         let half = MINE_SIZE as f64 * TILE / 2.0;
         self.nodes.push(Node {
             id,
-            ether: false,
+            vent: false,
             tx,
             ty,
             s: MINE_SIZE,
@@ -1834,7 +1835,6 @@ impl Map {
             total,
             miners: 0,
             r: half,
-            extractor: None,
             field,
         });
         for y in ty..ty + MINE_SIZE {
@@ -2007,10 +2007,10 @@ impl Map {
         let gone: Vec<i32> = self
             .nodes
             .iter()
-            .filter(|n| n.ether)
+            .filter(|n| n.vent)
             .map(|n| -(n.id as i32))
             .collect();
-        self.nodes.retain(|n| !n.ether);
+        self.nodes.retain(|n| !n.vent);
         for o in self.occ.iter_mut().filter(|o| gone.contains(o)) {
             *o = 0;
         }
@@ -2027,7 +2027,7 @@ impl Map {
         ideals: [(f64, f64); 2],
         want: usize,
     ) {
-        let vents = |m: &Map| m.nodes.iter().filter(|n| n.ether).count();
+        let vents = |m: &Map| m.nodes.iter().filter(|n| n.vent).count();
         for limits in [Limits::RELAXED, Limits::LAST] {
             if vents(self) == want {
                 return;
@@ -2037,7 +2037,7 @@ impl Map {
             while let Some(n) = self
                 .nodes
                 .last()
-                .filter(|n| n.ether && (n.tx, n.ty) != (cx, cy))
+                .filter(|n| n.vent && (n.tx, n.ty) != (cx, cy))
             {
                 let (tx, ty) = (n.tx, n.ty);
                 for y in ty..ty + 2 {
@@ -2071,7 +2071,7 @@ impl Map {
             && self
                 .nodes
                 .iter()
-                .filter(|n| n.ether)
+                .filter(|n| n.vent)
                 .all(|n| apart(v, (n.tx, n.ty)))
             && v.0 >= 1
             && v.1 >= 1
@@ -2237,7 +2237,7 @@ impl Map {
         *next_id += 1;
         self.nodes.push(Node {
             id,
-            ether: false,
+            vent: false,
             tx,
             ty,
             s: 1,
@@ -2247,7 +2247,6 @@ impl Map {
             total: CRYSTAL_GOLD,
             miners: 0,
             r: 14.0,
-            extractor: None,
             field,
         });
         self.occ[i] = -(id as i32);
@@ -2282,7 +2281,7 @@ impl Map {
         *next_id += 1;
         self.nodes.push(Node {
             id,
-            ether: true,
+            vent: true,
             tx,
             ty,
             s: 2,
@@ -2292,7 +2291,6 @@ impl Map {
             total: 5000,
             miners: 0,
             r: 24.0,
-            extractor: None,
             field: 0,
         });
         for y in 0..2 {

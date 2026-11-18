@@ -89,7 +89,6 @@ impl World {
             .map
             .nodes
             .iter()
-            .filter(|n| !n.ether)
             .map(|n| (jsmath::hypot(n.x / TILE - cx, n.y / TILE - cy), n.id))
             .min_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
         let mut near: Vec<(f64, Id, i32, i32)> = Vec::new();

@@ -1,6 +1,8 @@
 // The docs' page shell (tools/docs/build.mjs): the head (title, description, canonical, Open Graph and X tags, the
 // structured data), the slim top bar (the wordmark and DOCS, four tabs, PLAY), the footer over the tide lines. Plain HTML
-// that reads whole without JavaScript; the style inlined (docs.css, a few KB: one request a page, no render-blocking CSS).
+// that reads whole without JavaScript. Nothing inline but the structured data: the site's CSP (site/cache.js) allows no
+// <style>, style="" or inline script, so the style is one stylesheet, /docs/docs.css (docs.css, the fonts and each
+// page's positions and sizes as classes: `styled`), and the script one file, /docs/docs.js (written by build.mjs).
 import { readFileSync } from 'node:fs';
 
 export const ORIGIN = 'https://ebbfall.com';
@@ -32,6 +34,17 @@ export const FONTS = [
   ['Share Tech Mono', 400, 'share-tech-mono-400.woff2'],
 ];
 const fontFaces = FONTS.map(([f, w, file]) => `@font-face{font-family:'${f}';font-style:normal;font-weight:${w};font-display:swap;src:url('/docs/fonts/${file}') format('woff2')}`).join('');
+
+/**
+ * An inline style as a class: `class="${styled('width:25%')}"` in place of `style="width:25%"`, which the CSP forbids.
+ * Each distinct declaration gets one class (`s0`, `s1`, ... in the order first asked for), its rule in docsCss().
+ */
+const STYLES = new Map();
+export const styled = (decl) => { if (!STYLES.has(decl)) STYLES.set(decl, `s${STYLES.size}`); return STYLES.get(decl); };
+/** Forget the classes (build.mjs, before a build's pages). */
+export const resetStyles = () => STYLES.clear();
+/** The docs' stylesheet, /docs/docs.css: the fonts, docs.css, then every `styled` class the pages asked for. */
+export const docsCss = () => fontFaces + CSS + [...STYLES].map(([d, c]) => `.${c}{${d}}`).join('');
 
 const TIDE = `<svg class="tide" viewBox="0 0 844 60" preserveAspectRatio="none" aria-hidden="true">
 <path d="M-40 10c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/>
@@ -77,7 +90,7 @@ export function layout({ path, title, description, body, crumb = null, ld = [] }
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" href="/docs/fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 ${data.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
-<style>${fontFaces}${CSS}</style>
+<link rel="stylesheet" href="/docs/docs.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -86,7 +99,7 @@ ${data.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(
 ${body}
 </main>
 <footer>${TIDE}<div class="in"><span>Ebbfall is free and open source</span><a href="${REPO}">Source on GitHub</a><a href="${REPO}/blob/main/LICENSE">MIT license</a><a class="play" href="/">Play</a></div></footer>
-<script>(function(){var t=document.querySelector('.tabs'),a=t&&t.querySelector('[aria-current]');if(a&&a.offsetLeft+a.offsetWidth>t.clientWidth)t.scrollLeft=a.offsetLeft-(t.clientWidth-a.offsetWidth)/2;})();</script>
+<script src="/docs/docs.js"></script>
 </body>
 </html>
 `;

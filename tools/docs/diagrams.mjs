@@ -1,7 +1,7 @@
 // The docs' small pictures (tools/docs/pages.mjs tokens): diagrams that replace paragraphs, drawn from the game's data
 // and the sprite crops, in plain HTML (and one inline SVG) that reads whole without JavaScript. Every number in them is
 // the data's (data.mjs FIGURES); every plate is a crop (sprites.mjs).
-import { esc } from './html.mjs';
+import { esc, styled } from './html.mjs';
 import { PEOPLES, FIGURES, nameOf, aName } from './data.mjs';
 import { SPRITE_URL, cropOf } from './sprites.mjs';
 import { UNITS, BUILDINGS, UPGRADES, RADIO, upgradeDesc, FACTIONS } from '../../src/engine/constants.js';
@@ -48,7 +48,7 @@ export function cap() {
     const f = FACTIONS[p.race], hq = BUILDINGS[f.hq], s = BUILDINGS[f.supply], max = p.grid ? FIGURES.gridMax : FIGURES.popMax;
     const pc = (n) => `${(n / max * 100).toFixed(2)}%`;
     return `<div class="cap"><p class="who">${mini(f.hq, 40, `The ${hq.name}`)}${mini(f.supply, 40, aName(s.name))}<b>${p.grid ? 'GRID' : 'POPULATION'}</b> up to ${max}</p>
-<div class="bar" role="img" aria-label="${esc(`${hq.name} +${hq.supply}, then +${s.supply} for each ${s.name}, up to ${max}`)}"><span class="hq" style="width:${pc(hq.supply)}">${esc(hq.name)} +${hq.supply}</span>${[0, 1, 2].map(() => `<span style="width:${pc(s.supply)}">+${s.supply}</span>`).join('')}<span class="rest">… ${max}</span></div>
+<div class="bar" role="img" aria-label="${esc(`${hq.name} +${hq.supply}, then +${s.supply} for each ${s.name}, up to ${max}`)}"><span class="hq ${styled(`width:${pc(hq.supply)}`)}">${esc(hq.name)} +${hq.supply}</span>${[0, 1, 2].map(() => `<span class="${styled(`width:${pc(s.supply)}`)}">+${s.supply}</span>`).join('')}<span class="rest">… ${max}</span></div>
 <p class="note2">${esc(s.name)} +${s.supply} each</p></div>`;
   };
   return `<figure class="dia caps">${PEOPLES.map(bar).join('')}<p class="low"><span class="read">POP 36/36</span> the number turns red and pulses when not even a worker fits</p></figure>`;
@@ -91,7 +91,7 @@ export function tree(people) {
   const need = (n, implied) => (n ? `<em class="need${implied ? ' imp' : ''}">needs ${esc(n)}</em>` : '');
   const sig = (u) => (RADIO.machines.has(u.key) ? '<i class="sig" title="Needs signal" aria-label="needs signal"></i>' : '');
   const unit = (b) => (u) => `<li data-g="${u.key}">${mini(u.key, 40)}<span>${esc(u.name)}${sig(u)}</span>${need(u.needs, before(b).has(u.needs))}</li>`;
-  const col = (b) => `<li class="tcol" data-g="${b.key}" style="--i:${people.buildings.indexOf(b)}">${mini(b.key, 56)}<b>${esc(b.name)}</b>${need(b.needs)}${b.units.length ? `<ul>${b.units.map(unit(b)).join('')}</ul>` : `<span class="what">${esc(b.what)}</span>`}</li>`;
+  const col = (b) => `<li class="tcol ${styled(`--i:${people.buildings.indexOf(b)}`)}" data-g="${b.key}">${mini(b.key, 56)}<b>${esc(b.name)}</b>${need(b.needs)}${b.units.length ? `<ul>${b.units.map(unit(b)).join('')}</ul>` : `<span class="what">${esc(b.what)}</span>`}</li>`;
   const tier = ([k, bs]) => `<li class="tier" data-after="${esc(k)}"><p class="tl"><span>${k ? `After ${esc(aName(k))}` : 'Start'}</span></p><ol class="blds">${bs.map(col).join('')}</ol></li>`;
   const legend = people.buildings.some(b => b.units.some(u => RADIO.machines.has(u.key))) ? '<p class="legend"><i class="sig" aria-hidden="true"></i>needs signal: works only inside coverage</p>' : '';
   return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol class="tiers">${[...by].map(tier).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p>${legend}</figure>`;

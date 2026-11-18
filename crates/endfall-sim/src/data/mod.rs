@@ -9,6 +9,7 @@
 mod diff;
 mod export;
 mod humans;
+mod plan;
 pub mod radio;
 mod style;
 mod tide;
@@ -19,6 +20,7 @@ pub use diff::*;
 pub use export::data_json;
 pub(crate) use export::{Obj, ToJson, array, quote};
 pub use humans::HUMANS;
+pub use plan::*;
 pub use style::*;
 pub use tide::*;
 pub use upgrades::*;

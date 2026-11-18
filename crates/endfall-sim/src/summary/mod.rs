@@ -9,16 +9,42 @@
 //! `sees_bldg`: its vision and its allies'). Deterministic: the same game gives the same summary, byte for byte.
 
 mod attacks;
+mod checkin;
 mod json;
+mod plan;
 
 use crate::TICK_RATE;
 use crate::data::*;
 use crate::map::Id;
-use crate::world::World;
+use crate::world::{Slip, World};
 use attacks::Attacks;
+use checkin::CheckIns;
 
-/// Ticks between two samples of each seat's economy and army: 30 s of game time.
-pub const SAMPLE_EVERY: u32 = 30 * TICK_RATE;
+/// Ticks between two samples of each seat's economy and army: a minute of game time (the per-minute digests).
+pub const SAMPLE_EVERY: u32 = 60 * TICK_RATE;
+/// Ticks between two looks at an AI seat's notes on its plan (`World::ai_notes`): 1 s.
+const NOTES_EVERY: u32 = TICK_RATE;
+/// What money went to (`SeatRec::spent`), in this order.
+pub(crate) const SPENT_ON: [&str; 6] = [
+    "workers",
+    "army",
+    "buildings",
+    "expansions",
+    "towers",
+    "tech",
+];
+/// Spending is also told by blocks of this many ticks: 5 minutes.
+pub(crate) const SPENT_BLOCK: u32 = 300 * TICK_RATE;
+
+/// A step of a plan whose waits are tallied (`SeatRec::slips`): the tech building, the n-th tower, the natural, the
+/// n-th wave.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Step {
+    Tech,
+    Tower(usize),
+    Expand,
+    Wave(usize),
+}
 /// Ticks between two counts of the enemy army in a seat's sight (its largest is kept): 1 s.
 const SIGHT_EVERY: u32 = TICK_RATE;
 const NU: usize = UNIT_KINDS.len();
@@ -109,6 +135,18 @@ struct SeatRec {
     out_at: Option<u32>,
     /// By enemy seat (an ally's, and its own, stay empty).
     saw: Vec<Saw>,
+    /// Buildings placed (sites, and any made finished), by kind and tick.
+    placed: Vec<(BldgKind, u32)>,
+    /// Money spent on each of `SPENT_ON`, by `SPENT_BLOCK` (refunds left out).
+    spent: Vec<[i64; 6]>,
+    /// By its unit kind: the value of its units of that kind lost, and of enemy units they killed (`lost_to`); and what
+    /// its towers killed.
+    trades: [(i64, f64); NU],
+    tower_kills: f64,
+    /// An AI seat's waits on the steps of its plan: seconds of each reason (`World::ai_notes`).
+    slips: Vec<(Step, Slip, u32)>,
+    /// The most workers it had, and when it first had them.
+    peak_workers: (u32, u32),
 }
 
 /// The summary of one game so far. Build it on the world at its start (`new`), call `observe` after every tick, and
@@ -127,6 +165,10 @@ pub struct Summary {
     attacks: Attacks,
     /// The tick the game was over (a winner), if it is.
     over_at: Option<u32>,
+    /// Each seat's units lost by what killed them at the tick before (`World::lost_to`): its trades.
+    lost_to: Vec<Vec<u32>>,
+    /// Check-ins for a planned seat (`check_in_for`), if asked for.
+    check_ins: Option<CheckIns>,
     // (scratch, kept to spare an allocation a tick)
     units_now: Vec<Was>,
     bldgs_now: Vec<Was>,
@@ -175,6 +217,12 @@ impl Summary {
                     expansions: Vec::new(),
                     out_at: None,
                     saw: vec![Saw::default(); n],
+                    placed: Vec::new(),
+                    spent: Vec::new(),
+                    trades: [(0, 0.0); NU],
+                    tower_kills: 0.0,
+                    slips: Vec::new(),
+                    peak_workers: (0, 0),
                 })
                 .collect(),
             samples: Vec::new(),
@@ -185,6 +233,8 @@ impl Summary {
             deaths: Vec::new(),
             attacks: Attacks::new(n),
             over_at: None,
+            lost_to: w.lost_to.clone(),
+            check_ins: None,
             units_now: Vec::new(),
             bldgs_now: Vec::new(),
         }
@@ -194,7 +244,9 @@ impl Summary {
     /// tick (a restart, a summary built late) starts the summary again from it.
     pub fn observe(&mut self, w: &World) {
         if w.tick != self.tick + 1 || w.seats() != self.seats.len() {
+            let seat = self.check_in_seat();
             *self = Summary::new(w);
+            self.check_in_for(seat);
             return;
         }
         self.tick = w.tick;
@@ -203,9 +255,17 @@ impl Summary {
         }
         let deaths = self.diff_entities(w);
         self.research(w);
-        self.attacks.observe(w, &deaths);
+        self.trades(w, &deaths);
+        let news = self.attacks.observe(w, &deaths);
+        if w.tick.is_multiple_of(NOTES_EVERY) {
+            self.notes(w);
+        }
+        let first_top = self.sightings(w);
+        if let Some(mut c) = self.check_ins.take() {
+            c.observe(self, w, &deaths, &news, &first_top);
+            self.check_ins = Some(c);
+        }
         self.deaths.extend(deaths);
-        self.sightings(w);
         for s in 0..w.seats() {
             if w.out[s] && self.seats[s].out_at.is_none() {
                 self.seats[s].out_at = Some(w.tick);
@@ -246,6 +306,8 @@ impl Summary {
                         let r = &mut self.seats[b.team as usize];
                         r.trained[k.index()] += 1;
                         r.first_trained[k.index()].get_or_insert(tick);
+                        let on = if k.def().worker { 0 } else { 1 };
+                        spend(r, tick, on, b.thing.value());
                     }
                     j += 1;
                 }
@@ -284,6 +346,21 @@ impl Summary {
                     i += 1;
                 }
                 (_, Some(b)) => {
+                    if let Thing::Bldg(k) = b.thing {
+                        let f = w.factions[b.team as usize];
+                        let on = if k.def().hq {
+                            3
+                        } else if k == f.ai.tower {
+                            4
+                        } else if k == f.ai.tech || Some(k) == f.ai.tech2 || Some(k) == f.ai.relay {
+                            5
+                        } else {
+                            2
+                        };
+                        let r = &mut self.seats[b.team as usize];
+                        r.placed.push((k, tick));
+                        spend(r, tick, on, b.thing.value());
+                    }
                     if b.done {
                         self.finished(w, &b); // (made finished: a test's or a debug spawn)
                     }
@@ -325,7 +402,10 @@ impl Summary {
             };
             for (i, &up) in UPGRADES.iter().enumerate() {
                 for level in was[i] + 1..=now[i] {
-                    self.seats[s].researched.push((up, level, w.tick));
+                    let r = &mut self.seats[s];
+                    r.researched.push((up, level, w.tick));
+                    let c = up.cost(level);
+                    spend(r, w.tick, 5, c[0] + c[1]);
                 }
             }
             *was = *now;
@@ -334,7 +414,8 @@ impl Summary {
 
     /// What each seat in the game sees of each enemy for the first time: a kind of unit or building, an expansion; and
     /// every `SIGHT_EVERY` ticks, the enemy's fighting units in its sight. Its own sight and its allies' only.
-    fn sightings(&mut self, w: &World) {
+    fn sightings(&mut self, w: &World) -> Vec<(usize, UnitKind)> {
+        let mut first_top = Vec::new();
         let n = w.seats();
         let count = w.tick.is_multiple_of(SIGHT_EVERY);
         for s in 0..n {
@@ -351,6 +432,9 @@ impl Summary {
                 if (new || (count && fighter)) && w.sees_unit(me, u) {
                     if new {
                         e.units.push((u.kind, w.tick));
+                        if u.kind.ai_tier() >= 2 {
+                            first_top.push((s, u.kind));
+                        }
                     }
                     if count && fighter {
                         let a = &mut army[u.team as usize];
@@ -380,6 +464,103 @@ impl Summary {
                 }
             }
         }
+        first_top
+    }
+
+    /// Each seat's trades by unit kind: its units lost this tick (their value), and the value of what its units killed,
+    /// from the world's `lost_to` (each loss's killer by kind): a tick's losses of one seat are shared evenly among the
+    /// kills it counted, credited to the one enemy seat that fields the killer's kind (none when several could).
+    fn trades(&mut self, w: &World, deaths: &[Death]) {
+        let n = w.seats();
+        for s in 0..n {
+            let (Some(now), Some(was)) = (w.lost_to.get(s), self.lost_to.get_mut(s)) else {
+                continue;
+            };
+            let lost: Vec<&Death> = deaths
+                .iter()
+                .filter(|d| d.team as usize == s && matches!(d.thing, Thing::Unit(_)))
+                .collect();
+            for d in &lost {
+                if let Thing::Unit(k) = d.thing {
+                    self.seats[s].trades[k.index()].0 += d.thing.value() as i64;
+                }
+            }
+            was.resize(now.len(), 0);
+            let kills: u32 = now.iter().zip(was.iter()).map(|(a, b)| a - b).sum();
+            if kills > 0 {
+                let each = lost.iter().map(|d| d.thing.value() as f64).sum::<f64>() / kills as f64;
+                for (slot, (a, b)) in now.iter().zip(was.iter()).enumerate() {
+                    if a == b {
+                        continue;
+                    }
+                    let credit = each * (a - b) as f64;
+                    let can = |e: usize| {
+                        w.enemies(s as u8, e as u8)
+                            && match UNIT_KINDS.get(slot) {
+                                Some(k) => json::trainable(w.factions[e]).contains(k),
+                                None => BLDG_KINDS
+                                    .get(slot - NU)
+                                    .is_some_and(|b| w.factions[e].ai.tower == *b),
+                            }
+                    };
+                    let mut who = (0..n).filter(|&e| can(e));
+                    if let (Some(e), None) = (who.next(), who.next()) {
+                        match UNIT_KINDS.get(slot) {
+                            Some(k) => self.seats[e].trades[k.index()].1 += credit,
+                            None => self.seats[e].tower_kills += credit,
+                        }
+                    }
+                }
+            }
+            was.copy_from_slice(now);
+        }
+    }
+
+    /// An AI seat's notes on its plan (`World::ai_notes`), each second: the seconds each step waited, and why.
+    fn notes(&mut self, w: &World) {
+        for s in 0..w.seats() {
+            let Some(n) = w.ai_notes(s as u8).filter(|_| !w.out[s]) else {
+                continue;
+            };
+            let r = &self.seats[s];
+            let f = w.factions[s];
+            let towers = r.placed.iter().filter(|p| p.0 == f.ai.tower).count();
+            let waves = self.attacks.count_of(s as u8);
+            let steps = [
+                (Step::Tech, n.tech),
+                (Step::Tower(towers), n.tower),
+                (Step::Expand, n.expand),
+                (Step::Wave(waves), n.wave),
+            ];
+            let r = &mut self.seats[s];
+            for (step, why) in steps {
+                let Some(why) = why else { continue };
+                match r.slips.iter_mut().find(|x| x.0 == step && x.1 == why) {
+                    Some(x) => x.2 += 1,
+                    None => r.slips.push((step, why, 1)),
+                }
+            }
+        }
+    }
+
+    /// Check-ins for seat `seat` from now on (None: none), claude/PROTOCOL.md: every 2 game-minutes and on key events.
+    pub fn check_in_for(&mut self, seat: Option<u8>) {
+        self.check_ins = seat.map(|s| CheckIns::new(s, self.tick));
+    }
+
+    /// The seat check-ins are for, if any.
+    pub fn check_in_seat(&self) -> Option<u8> {
+        self.check_ins.as_ref().map(|c| c.seat)
+    }
+
+    /// The next check-in due, oldest first: `{kind, tick, digest}` as JSON.
+    pub fn take_check_in(&mut self) -> Option<String> {
+        self.check_ins.as_mut()?.take()
+    }
+
+    /// The check-ins made so far (sizes for the lab: how many, how long).
+    pub fn check_ins_made(&self) -> usize {
+        self.check_ins.as_ref().map_or(0, |c| c.made)
     }
 
     /// Each seat's economy and army now.
@@ -397,6 +578,9 @@ impl Summary {
                 }
             }
             let mined = w.ledger.get(s).map_or(0, |l| l.mined[0] + l.mined[1]);
+            if workers > r.peak_workers.0 {
+                r.peak_workers = (workers, w.tick);
+            }
             r.workers.push(workers);
             r.gold_banked.push(w.res[s][0] + w.res[s][1]);
             r.income_per_min
@@ -412,6 +596,15 @@ impl Summary {
     pub fn json(&self, w: &World, timed_out: bool) -> String {
         json::write(self, w, timed_out)
     }
+}
+
+/// Money spent at `tick` on `SPENT_ON[on]`.
+fn spend(r: &mut SeatRec, tick: u32, on: usize, value: i32) {
+    let block = (tick / SPENT_BLOCK) as usize;
+    if r.spent.len() <= block {
+        r.spent.resize(block + 1, [0; 6]);
+    }
+    r.spent[block][on] += value as i64;
 }
 
 fn death(tick: u32, a: &Was) -> Death {

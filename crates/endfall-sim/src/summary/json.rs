@@ -1,24 +1,28 @@
 //! The summary as JSON, for a reader between games. Compact (no spaces) and self-describing: times are game time as
-//! "m:ss", values are gold (what things cost), places are named after the seats' bases. The top level:
+//! "m:ss", values are what things cost in each seat's money (gold for the Kingdom, energy for the Expedition), places
+//! are named after the seats' bases ("seat 1's main base", "open ground 20 tiles north-east of seat 0's main base").
+//! The top level:
 //!
 //! - `about`: what this is, in a sentence, and the conventions.
 //! - `map`: its kind, size and seed; `length`: the game time summarized.
 //! - `result`: the winning seats and how the game ended (`destroyed`, `conceded`, `helpless`, `timeout`,
 //!   `unfinished`).
-//! - `over_time_lists_sampled`: when the per-seat `..._over_time` lists (and `army_over_time`) were sampled (every
-//!   30 s).
-//! - `seats`: one per seat: who played it, its outcome, what its `attacks` are (an AI's waves, or a person's units
-//!   come near enemy buildings), its `economy`, its `army_over_time`, `units_trained` (every unit type its people can
-//!   train, zeros too) and `first_trained`, `buildings_completed`, `research_completed`, `attacks`, `losses`, and
+//! - `per_minute`: when the per-seat per-minute lists were sampled (every minute).
+//! - `seats`: one per seat: who played it, its money's word, an AI's drawn `style` and leaning unit, a planned seat's
+//!   `plan` ("plan vs what happened": plan.rs), its outcome, its `economy` (per minute), `spent` (on workers, army,
+//!   buildings, expansions, towers and tech, in all and by 5 minutes), its `army` (value per minute, units every 5
+//!   minutes), `units_trained` (every unit type its people can train, zeros too) and `first_trained`,
+//!   `buildings_completed`, `research_completed`, `attacks` (each with why it went and why it ended, its strength
+//!   against what it met at contact), `trades` (by its unit type: value lost and value killed), `losses`, and
 //!   `saw_of_enemies`: what it saw of each enemy seat with its own (and its allies') sight only.
 //! - `main_fights`: the biggest clusters of deaths in place and time, each seat's losses in them.
 
 use super::attacks::{Attack, REACH};
-use super::{Death, NU, SAMPLE_EVERY, Summary, Thing};
+use super::{Death, NU, SPENT_ON, Step, Summary, Thing};
 use crate::TICK_RATE;
 use crate::data::*;
 use crate::data::{Obj, array, quote};
-use crate::world::{OutWhy, World};
+use crate::world::{OutWhy, WaveEnd, WaveWhy, World};
 
 /// A fight: deaths no more than `FIGHT_GAP` ticks after its last, within `FIGHT_RADIUS` tiles of its first.
 const FIGHT_GAP: u32 = 15 * TICK_RATE;
@@ -30,14 +34,17 @@ const BASE_RADIUS: f64 = 16.0;
 /// The difficulties' names, by level.
 const LEVELS: [&str; 4] = ["Easy", "Medium", "Hard", "Hard3"];
 
+/// The army's units are listed every this many samples (5 minutes).
+const ARMY_EVERY: usize = 5;
+
 /// Game time as "m:ss".
-fn time(tick: u32) -> String {
+pub(super) fn time(tick: u32) -> String {
     let s = tick / TICK_RATE;
     format!("\"{}:{:02}\"", s / 60, s % 60)
 }
 
 /// An object of name: value, in the order given, the zeros left out unless `zeros`.
-fn counts<'a>(items: impl IntoIterator<Item = (&'a str, u32)>, zeros: bool) -> String {
+pub(super) fn counts<'a>(items: impl IntoIterator<Item = (&'a str, u32)>, zeros: bool) -> String {
     items
         .into_iter()
         .filter(|&(_, n)| zeros || n > 0)
@@ -45,7 +52,7 @@ fn counts<'a>(items: impl IntoIterator<Item = (&'a str, u32)>, zeros: bool) -> S
         .done()
 }
 
-fn unit_counts(kinds: &[u16; NU]) -> String {
+pub(super) fn unit_counts(kinds: &[u16; NU]) -> String {
     counts(
         UNIT_KINDS
             .iter()
@@ -55,7 +62,7 @@ fn unit_counts(kinds: &[u16; NU]) -> String {
 }
 
 /// The unit kinds a people trains, in index order.
-fn trainable(f: &Faction) -> Vec<UnitKind> {
+pub(super) fn trainable(f: &Faction) -> Vec<UnitKind> {
     let mut bldgs = vec![f.hq];
     bldgs.extend(f.build_basic.iter().chain(f.build_advanced));
     UNIT_KINDS
@@ -65,10 +72,10 @@ fn trainable(f: &Faction) -> Vec<UnitKind> {
 }
 
 /// A base a place may be named after: its center (tiles), its seat, what it is, and the ticks it stood from and to.
-type Base = (f64, f64, u8, &'static str, u32, u32);
+pub(super) type Base = (f64, f64, u8, &'static str, u32, u32);
 
 /// The bases a place may be named after: each seat's start ("main base") and its expansions while they stood.
-fn bases(s: &Summary, w: &World) -> Vec<Base> {
+pub(super) fn bases(s: &Summary, w: &World) -> Vec<Base> {
     let mut v = Vec::new();
     for seat in 0..w.seats() {
         let d = w.factions[seat].hq.def();
@@ -92,21 +99,47 @@ fn bases(s: &Summary, w: &World) -> Vec<Base> {
     v
 }
 
-/// A place (world px) at `tick`, named after the nearest base standing then within `BASE_RADIUS` tiles, else as open
-/// ground; with its tile.
-fn place(bases: &[Base], tick: u32, x: f64, y: f64) -> String {
-    let (tx, ty) = (x / TILE, y / TILE);
+/// A compass direction from (x0, y0) towards (x, y), tiles (y grows south).
+fn direction(x0: f64, y0: f64, x: f64, y: f64) -> &'static str {
+    const NAMES: [&str; 8] = [
+        "east",
+        "south-east",
+        "south",
+        "south-west",
+        "west",
+        "north-west",
+        "north",
+        "north-east",
+    ];
+    let a = crate::jsmath::atan2(y - y0, x - x0);
+    let i = crate::jsmath::round(a / (crate::jsmath::PI / 4.0)).rem_euclid(8.0) as usize;
+    NAMES[i]
+}
+
+/// A place (world px) at `tick`, named after the nearest base standing then: "seat 1's main base" within
+/// `BASE_RADIUS` tiles of it, else so many tiles in a direction from it (no bare tiles).
+pub(super) fn place(bases: &[Base], tick: u32, x: f64, y: f64) -> String {
+    quote(&place_words(bases, tick, x / TILE, y / TILE))
+}
+
+/// `place`'s words, for a point in tiles.
+pub(super) fn place_words(bases: &[Base], tick: u32, tx: f64, ty: f64) -> String {
     let near = bases
         .iter()
         .filter(|b| b.4 <= tick && tick <= b.5)
         .map(|b| (b, (b.0 - tx) * (b.0 - tx) + (b.1 - ty) * (b.1 - ty)))
-        .filter(|(_, d2)| *d2 <= BASE_RADIUS * BASE_RADIUS)
         .min_by(|a, b| a.1.total_cmp(&b.1));
-    let tile = format!("tile {},{}", tx.floor(), ty.floor());
-    quote(&match near {
-        Some((b, _)) => format!("seat {}'s {} ({tile})", b.2, b.3),
-        None => format!("open ground ({tile})"),
-    })
+    match near {
+        Some((b, d2)) if d2 <= BASE_RADIUS * BASE_RADIUS => format!("seat {}'s {}", b.2, b.3),
+        Some((b, d2)) => format!(
+            "open ground {} tiles {} of seat {}'s {}",
+            crate::jsmath::round(d2.sqrt()),
+            direction(b.0, b.1, tx, ty),
+            b.2,
+            b.3
+        ),
+        None => "open ground".into(),
+    }
 }
 
 /// A fight: its deaths' span, center and losses.
@@ -150,12 +183,68 @@ fn fights(deaths: &[Death]) -> Vec<Fight> {
     all
 }
 
-fn attack_json(a: &Attack, bases: &[Base]) -> String {
+/// Why a wave went, in words.
+fn left_words(why: WaveWhy, units: usize, need: usize) -> String {
+    match why {
+        WaveWhy::Count => format!("count {units}/{need}"),
+        WaveWhy::AtCap => format!("at its cap {units}/{need}"),
+        WaveWhy::Crushing => {
+            format!("short {units}/{need} but crushing what it expected")
+        }
+        WaveWhy::StallPush => {
+            format!("stalled-game push {units}/{need}")
+        }
+        WaveWhy::Ordered => format!("ordered (attack now) {units}"),
+    }
+}
+
+/// Why a wave ended, in words.
+pub(super) fn end_words(e: WaveEnd) -> &'static str {
+    match e {
+        WaveEnd::AllFell => "all fell",
+        WaveEnd::GaveUp => "under 40% left: came home",
+        WaveEnd::Outmatched => "outmatched: pulled back",
+        WaveEnd::Quiet => "nothing to fight: came home",
+        WaveEnd::CalledHome => "called home by a raid",
+        WaveEnd::PulledBack => "pulled back (ordered)",
+    }
+}
+
+/// The reasons a step waited (seconds each), the biggest first: "not enough money 70%, ..." (None: it never waited).
+pub(super) fn slip_words(s: &Summary, seat: usize, step: Step) -> Option<String> {
+    let mut v: Vec<(String, u32)> = s.seats[seat]
+        .slips
+        .iter()
+        .filter(|x| x.0 == step)
+        .map(|x| (x.1.words(), x.2))
+        .collect();
+    let total: u32 = v.iter().map(|x| x.1).sum();
+    if total == 0 {
+        return None;
+    }
+    v.sort_by_key(|x| std::cmp::Reverse(x.1));
+    Some(
+        v.iter()
+            .take(2)
+            .filter(|(_, n)| n * 10 >= total)
+            .map(|(w, n)| format!("{w} {}%", n * 100 / total))
+            .collect::<Vec<_>>()
+            .join(", "),
+    )
+}
+
+fn attack_json(a: &Attack, bases: &[Base], held: Option<String>) -> String {
     let mut o = Obj::new()
-        .raw("started", time(a.started))
+        .raw("left", time(a.started))
         .num("units", a.kinds.iter().map(|&n| n as u32).sum::<u32>())
         .raw("composition", unit_counts(&a.kinds))
         .num("value", a.value);
+    if let Some((why, units, need)) = a.left {
+        o = o.str("went", &left_words(why, units, need));
+    }
+    if let Some(h) = held {
+        o = o.str("held_by", &h);
+    }
     o = match a.arrived {
         Some((t, seat, x, y)) => o
             .raw("arrived", time(t))
@@ -163,6 +252,12 @@ fn attack_json(a: &Attack, bases: &[Base]) -> String {
             .raw("where", place(bases, t, x, y)),
         None => o.raw("arrived", "null"),
     };
+    if let Some((ours, theirs)) = a.contact {
+        o = o.raw(
+            "contact",
+            Obj::new().num("ours", ours).num("met", theirs).done(),
+        );
+    }
     let bldgs = counts(
         BLDG_KINDS
             .iter()
@@ -190,15 +285,19 @@ fn attack_json(a: &Attack, bases: &[Base]) -> String {
     };
     o = o
         .raw("ended", a.ended.map_or("null".into(), time))
-        .num("enemy_value_destroyed", d)
-        .num("enemy_units_killed", a.killed_units);
+        .num("killed_value", d)
+        .num("killed_units", a.killed_units);
     if bldgs != "{}" {
-        o = o.raw("enemy_buildings_destroyed", bldgs);
+        o = o.raw("razed", bldgs);
     }
-    o.num("value_lost", l)
-        .num("units_lost", a.lost_units)
-        .str("result", result)
-        .done()
+    o = o
+        .num("lost_value", l)
+        .num("lost_units", a.lost_units)
+        .str("result", result);
+    if let Some(e) = a.end_why {
+        o = o.str("why_ended", end_words(e));
+    }
+    o.done()
 }
 
 /// The words for how a seat that is out went out.
@@ -214,7 +313,10 @@ fn why(o: OutWhy) -> &'static str {
 fn seat_json(s: &Summary, w: &World, seat: usize, bases: &[Base]) -> String {
     let r = &s.seats[seat];
     let me = seat as u8;
-    let player = if w.is_ai(me) {
+    let f = w.factions[seat];
+    let player = if w.plan_of(me).is_some() {
+        "AI (Hard) playing a written plan".to_string()
+    } else if w.is_ai(me) {
         format!("AI ({})", LEVELS.get(w.diff_of(me)).unwrap_or(&"?"))
     } else {
         "person".into()
@@ -231,34 +333,63 @@ fn seat_json(s: &Summary, w: &World, seat: usize, bases: &[Base]) -> String {
         "still in".into()
     };
     let ledger = w.ledger.get(seat).copied().unwrap_or_default();
+    let mains: Vec<Base> = bases
+        .iter()
+        .filter(|b| b.3 == "main base")
+        .copied()
+        .collect();
     let expansions = array(r.expansions.iter().map(|e| {
+        let d = f.hq.def();
+        let (x, y) = (
+            e.tx as f64 + d.w as f64 / 2.0,
+            e.ty as f64 + d.h as f64 / 2.0,
+        );
         Obj::new()
             .raw("completed", time(e.done))
-            .str("tile", &format!("{},{}", e.tx, e.ty))
+            .str("where", &place_words(&mains, e.done, x, y))
             .raw("lost", e.lost.map_or("null".into(), time))
             .done()
     }));
     let economy = Obj::new()
-        .raw("workers_over_time", array(&r.workers))
-        .raw("income_per_min_over_time", array(&r.income_per_min))
-        .raw("gold_banked_over_time", array(&r.gold_banked))
-        .num("gold_mined_total", ledger.mined[0] + ledger.mined[1])
-        .num("gold_spent_total", ledger.spent[0] + ledger.spent[1])
+        .raw("workers", array(&r.workers))
+        .raw("income_per_min", array(&r.income_per_min))
+        .raw("bank", array(&r.gold_banked))
+        .num("mined_total", ledger.mined[0] + ledger.mined[1])
+        .num("spent_total", ledger.spent[0] + ledger.spent[1])
         .raw("expansions", expansions)
+        .done();
+    let total = r.spent.iter().fold([0i64; 6], |mut a, b| {
+        a.iter_mut().zip(b).for_each(|(x, y)| *x += y);
+        a
+    });
+    let spent = Obj::new()
+        .raw(
+            "in_all",
+            SPENT_ON
+                .iter()
+                .zip(total)
+                .fold(Obj::new(), |o, (k, v)| o.num(k, v))
+                .done(),
+        )
+        .str("by_5_min_columns", &SPENT_ON.join(","))
+        .raw("by_5_min", array(r.spent.iter().map(array)))
         .done();
     let army_units = UNIT_KINDS
         .iter()
         .filter(|k| r.army.iter().any(|a| a[k.index()] > 0))
         .fold(Obj::new(), |o, k| {
-            o.raw(k.def().name, array(r.army.iter().map(|a| a[k.index()])))
+            o.raw(
+                k.def().name,
+                array(r.army.iter().step_by(ARMY_EVERY).map(|a| a[k.index()])),
+            )
         })
         .done();
     let army = Obj::new()
         .raw("value", array(&r.army_value))
-        .raw("units", army_units)
+        .raw("units_every_5_min", army_units)
         .done();
     // every unit type its people trains (zeros too), and any other it came to have
-    let mut kinds = trainable(w.factions[seat]);
+    let mut kinds = trainable(f);
     let others: Vec<UnitKind> = UNIT_KINDS
         .into_iter()
         .filter(|k| r.trained[k.index()] > 0 && !kinds.contains(k))
@@ -290,14 +421,46 @@ fn seat_json(s: &Summary, w: &World, seat: usize, bases: &[Base]) -> String {
             o.raw(&up.level_name(*level), time(*t))
         })
         .done();
-    let attacks = array(
-        s.attacks
-            .done
-            .iter()
-            .chain(s.attacks.still_out())
-            .filter(|a| a.seat == me)
-            .map(|a| attack_json(a, bases)),
-    );
+    let mine: Vec<&Attack> = s
+        .attacks
+        .done
+        .iter()
+        .chain(s.attacks.still_out())
+        .filter(|a| a.seat == me)
+        .collect();
+    let attacks = array(mine.iter().enumerate().map(|(i, a)| {
+        let held = if a.wave {
+            slip_words(s, seat, Step::Wave(i))
+        } else {
+            None
+        };
+        attack_json(a, bases, held)
+    }));
+    let trades = UNIT_KINDS
+        .iter()
+        .filter(|k| r.trades[k.index()].0 > 0 || r.trades[k.index()].1 >= 0.5)
+        .fold(Obj::new(), |o, k| {
+            let (lost, killed) = r.trades[k.index()];
+            o.raw(
+                k.def().name,
+                Obj::new()
+                    .num("lost", lost)
+                    .num("killed", crate::jsmath::round(killed) as i64)
+                    .done(),
+            )
+        });
+    let trades = if r.tower_kills >= 0.5 {
+        trades.raw(
+            &format!("{}s", f.ai.tower.def().name),
+            Obj::new()
+                .num("lost", 0)
+                .num("killed", crate::jsmath::round(r.tower_kills) as i64)
+                .done(),
+        )
+    } else {
+        trades
+    }
+    .done();
     // losses: by kind, and what killed its units
     let (mut lu, mut lb, mut lv) = ([0u32; NU], [0u32; super::NB], 0);
     for d in s.deaths.iter().filter(|d| d.team == me) {
@@ -337,14 +500,24 @@ fn seat_json(s: &Summary, w: &World, seat: usize, bases: &[Base]) -> String {
     let saw = array(
         (0..w.seats())
             .filter(|&e| w.enemies(me, e as u8))
-            .map(|e| saw_json(s, seat, e)),
+            .map(|e| saw_json(s, w, seat, e, bases)),
     );
-    Obj::new()
+    let mut o = Obj::new()
         .num("seat", seat)
         .num("team", w.teams[seat])
-        .str("people", w.factions[seat].name)
-        .str("player", &player)
-        .str("outcome", &outcome)
+        .str("people", f.name)
+        .str("money", f.money)
+        .str("player", &player);
+    if let Some(st) = w.ai_style(me) {
+        o = o.str("style", st.name());
+        if let Some(k) = w.tuning(me).focus {
+            o = o.str("leaning_unit", k.def().name);
+        }
+    }
+    if w.plan_of(me).is_some() {
+        o = o.raw("plan", super::plan::plan_json(s, w, seat, bases));
+    }
+    o.str("outcome", &outcome)
         .str(
             "attacks_are",
             if w.is_ai(me) {
@@ -354,18 +527,20 @@ fn seat_json(s: &Summary, w: &World, seat: usize, bases: &[Base]) -> String {
             },
         )
         .raw("economy", economy)
-        .raw("army_over_time", army)
+        .raw("spent", spent)
+        .raw("army", army)
         .raw("units_trained", trained)
         .raw("first_trained", first_trained)
         .raw("buildings_completed", built)
         .raw("research_completed", research)
         .raw("attacks", attacks)
+        .raw("trades", trades)
         .raw("losses", losses)
         .raw("saw_of_enemies", saw)
         .done()
 }
 
-fn saw_json(s: &Summary, seat: usize, e: usize) -> String {
+fn saw_json(s: &Summary, w: &World, seat: usize, e: usize, bases: &[Base]) -> String {
     let v = &s.seats[seat].saw[e];
     let units = v
         .units
@@ -377,10 +552,24 @@ fn saw_json(s: &Summary, seat: usize, e: usize) -> String {
         .iter()
         .fold(Obj::new(), |o, (k, t)| o.raw(k.def().name, time(*t)))
         .done();
+    let d = w.factions[e].hq.def();
+    let mains: Vec<Base> = bases
+        .iter()
+        .filter(|b| b.3 == "main base")
+        .copied()
+        .collect();
     let expansions = array(v.expansions.iter().map(|&(_, t, tx, ty, done)| {
         Obj::new()
             .raw("first_seen", time(t))
-            .str("tile", &format!("{tx},{ty}"))
+            .str(
+                "where",
+                &place_words(
+                    &mains,
+                    t,
+                    tx as f64 + d.w as f64 / 2.0,
+                    ty as f64 + d.h as f64 / 2.0,
+                ),
+            )
             .num("finished_then", done)
             .done()
     }));
@@ -461,13 +650,13 @@ pub(super) fn write(s: &Summary, w: &World, timed_out: bool) -> String {
             .done()
     }));
     let about = format!(
-        "Ebbfall game summary. Times: game time m:ss. Values: gold cost. saw_of_enemies: only what that seat's (and its \
-         allies') sight showed. An attack arrives within {REACH} tiles of an enemy building."
+        "Ebbfall game summary. Times: game time m:ss. Values: cost in each seat's money (gold for the Kingdom, energy \
+         for the Expedition). saw_of_enemies: only what that seat's (and its allies') sight showed. An attack arrives \
+         within {REACH} tiles of an enemy building."
     );
-    let every = SAMPLE_EVERY / TICK_RATE;
     let sampled = match (s.samples.first(), s.samples.last()) {
         (Some(&a), Some(&b)) => format!(
-            "every {every} s, from {} to {}",
+            "economy and army values every minute, from {} to {}; army units every 5 minutes; spending by 5 minutes",
             time(a).replace('"', ""),
             time(b).replace('"', "")
         ),
@@ -485,7 +674,7 @@ pub(super) fn write(s: &Summary, w: &World, timed_out: bool) -> String {
         )
         .raw("length", time(end))
         .raw("result", result)
-        .str("over_time_lists_sampled", &sampled)
+        .str("per_minute", &sampled)
         .raw("seats", array((0..n).map(|t| seat_json(s, w, t, &bases))))
         .raw("main_fights", main_fights)
         .done()

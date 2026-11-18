@@ -6,6 +6,7 @@
 pub mod batch;
 pub mod bets;
 pub mod compare;
+pub mod duel;
 pub mod first_wave;
 pub mod human;
 pub mod json;

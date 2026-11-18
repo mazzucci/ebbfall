@@ -568,6 +568,24 @@ impl World {
         // Stables and a tower, and stood six minutes with no army while Medium's waves came).
         let behind =
             d.army_first && t >= d.stall_from && self.own_army_worth(e) < self.ai().army_seen.0;
+        // Its towers by the clock (its plan's times, else `Diff::towers`), sites counted.
+        let tower_times = self.tower_times(e);
+        let towers_wanted = (tower_times.iter().filter(|&&a| t > a).count()
+            + if tower_times.is_empty() {
+                0
+            } else {
+                s.towers_more.iter().filter(|&&a| t > a).count()
+            })
+        .min(
+            d.tower_max
+                .iter()
+                .find(|m| m.0 == s.tower)
+                .map_or(usize::MAX, |m| m.1),
+        );
+        let tower_due = self.ai_count(&my_b, false, s.tower) < towers_wanted;
+        // (its tech building waits for a finished barracks, and the Kingdom's for its Market)
+        let tech_ready = self.ai_count(&my_b, true, s.rax) >= 1
+            && (pumps > 0 || f.market.is_none_or(|m| m.def().per_hq > 1));
         let want = if cap - used <= supply_margin
             && cap < self.sup_max(e)
             && supply_rising < d.supply_at_once
@@ -583,9 +601,8 @@ impl World {
             Some(s.rax)
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
             Some(k)
-        } else if self.ai_count(&my_b, true, s.rax) >= 1
+        } else if tech_ready
             // (the Kingdom's after its Market; the Expedition's turbines, cheap and several, hold nothing back)
-            && (pumps > 0 || f.market.is_none_or(|m| m.def().per_hq > 1))
             && self.ai_count(&my_b, false, s.tech) == 0
             && t > d.tech_at
         {
@@ -600,21 +617,7 @@ impl World {
         // Its towers by the clock (`Diff::towers`; two on every level, sites counted): a bank it cannot spend must not go
         // into towers (under the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games
         // stalled).
-        } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && self.ai_count(&my_b, false, s.tower)
-                < (d.towers.iter().filter(|&&a| t > a).count()
-                    + if d.towers.is_empty() {
-                        0
-                    } else {
-                        s.towers_more.iter().filter(|&&a| t > a).count()
-                    })
-                .min(
-                    d.tower_max
-                        .iter()
-                        .find(|m| m.0 == s.tower)
-                        .map_or(usize::MAX, |m| m.1),
-                )
-            && !self.guided
+        } else if self.ai_count(&my_b, true, s.rax) >= 1 && tower_due && !self.guided
         // (the guided first game: none; `guided_hold`)
         {
             Some(s.tower)
@@ -625,7 +628,10 @@ impl World {
             // (or sooner, with its line at its maximum, its tech or not: what it trains is all that can still grow)
             && (t > d.air_at - s.air_lead || self.line_capped(e))
             // (its raiders must be in its level's mix: it would otherwise stand there training nothing)
-            && self.level_allows(s.raider)
+            && (self.level_allows(s.raider)
+                // (a plan's dare that bars its raider still raises the factory for its other units)
+                || (self.ai_banned(e, s.raider)
+                    && s.air.def().trains.iter().any(|&u| self.level_allows(u))))
             // (and its requirement standing: the Kingdom's Stables need its Market)
             && self.has_req(e, s.air)
         {
@@ -706,6 +712,57 @@ impl World {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
+        // (the summary's notes: what holds its tech building and its next tower, once due)
+        let slip = |w: &World, k: BldgKind, missing: Option<BldgKind>| {
+            use crate::world::Slip;
+            if let Some(m) = missing {
+                Some(Slip::Needs(m))
+            } else if behind {
+                Some(Slip::ArmyFirst)
+            } else if want == Some(k) {
+                if let Some(r) = k.def().req.filter(|_| !w.has_req(e, k)) {
+                    Some(Slip::Needs(r))
+                } else if building.len() > d.supply_at_once {
+                    Some(Slip::Sites)
+                } else if placeable.is_none() {
+                    Some(Slip::NoGold)
+                } else if spot.is_none() {
+                    Some(Slip::NoSpot)
+                } else {
+                    None
+                }
+            } else {
+                want.map(Slip::Busy)
+            }
+        };
+        let tech_due = self.ai_count(&my_b, false, s.tech) == 0 && t > d.tech_at;
+        let tech = tech_due
+            .then(|| {
+                slip(
+                    self,
+                    s.tech,
+                    (!tech_ready).then(|| {
+                        if self.ai_count(&my_b, true, s.rax) < 1 {
+                            s.rax
+                        } else {
+                            f.market.unwrap_or(s.rax)
+                        }
+                    }),
+                )
+            })
+            .flatten();
+        let tower = (tower_due && !self.guided)
+            .then(|| {
+                slip(
+                    self,
+                    s.tower,
+                    (self.ai_count(&my_b, true, s.rax) < 1).then_some(s.rax),
+                )
+            })
+            .flatten();
+        let notes = &mut self.ai_mut().notes;
+        notes.tech = tech;
+        notes.tower = tower;
         // (Held back from unit production only if it can be built at all: its requirement stands.)
         brain.want = want.filter(|&w| self.has_req(e, w));
     }
@@ -748,6 +805,22 @@ impl World {
             None
         };
         let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
+        // (the summary's note: what holds its natural, once due)
+        let natural_due = (t > self.expand_time(e) || dry) && hqs < 2;
+        self.ai_mut().notes.expand = natural_due
+            .then(|| {
+                use crate::world::Slip;
+                if harv.len() + 2 < self.crew_of(e, d.harv) {
+                    Some(Slip::Workers)
+                } else if exp_spot.is_none() {
+                    Some(Slip::NoSpot)
+                } else if !self.can_afford(e, self.factions[e as usize].hq.def().cost) {
+                    Some(Slip::NoGold)
+                } else {
+                    None
+                }
+            })
+            .flatten();
         if let Some(spot) = exp_spot
             && self.can_afford(e, self.factions[e as usize].hq.def().cost)
         {

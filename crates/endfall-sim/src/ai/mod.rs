@@ -124,6 +124,37 @@ pub(crate) struct Ai {
     /// level's tuning). Never shown to the player.
     pub style: Option<Style>,
     pub tuned: Option<Diff>,
+    /// Its level's tuning as its style plays it, before a plan's fields (`World::plan_delta` applies a changed plan
+    /// over it). None until its first turn.
+    pub styled: Option<Diff>,
+    /// A plan's intents (`data::Intent`): its next wave goes now; no wave before this time; its wave out comes home.
+    pub force: bool,
+    pub hold_until: f64,
+    pub pull: bool,
+    /// What it notes about its plan as it plays (the summary's; read by no rule).
+    pub notes: crate::world::AiNotes,
+}
+
+impl Ai {
+    /// Take a plan's intent at game time `t` (carried out at its next turn).
+    pub(crate) fn intend(&mut self, i: Intent, t: f64) {
+        match i {
+            Intent::Attack => {
+                self.force = true;
+                self.hold_until = 0.0;
+            }
+            Intent::Hold => {
+                self.hold_until = t + HOLD_FOR;
+                self.force = false;
+            }
+            Intent::PullBack => self.pull = true,
+            Intent::Mass => {
+                self.wave = (self.wave * 3 / 2)
+                    .max(self.wave + 4)
+                    .min(LATER_MIN.1 as usize)
+            }
+        }
+    }
 }
 
 impl World {
@@ -168,6 +199,22 @@ impl World {
     #[doc(hidden)]
     pub fn ai_relay_site(&self, seat: u8) -> Option<Id> {
         self.ai.get(seat as usize)?.as_ref()?.relay_site
+    }
+
+    /// What seat `seat`'s AI notes about its plan as it plays (`AiNotes`: the summary's; read by no rule).
+    pub fn ai_notes(&self, seat: u8) -> Option<crate::world::AiNotes> {
+        Some(self.ai.get(seat as usize)?.as_ref()?.notes)
+    }
+
+    /// The count seat `seat`'s AI's next wave waits for (units before its people's `wave_scale`), if it is an AI.
+    pub fn ai_next_wave(&self, seat: u8) -> Option<usize> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        let d = self.tuning(seat);
+        Some(if a.last_wave >= 0.0 {
+            a.wave.max(d.later_min)
+        } else {
+            a.wave
+        })
     }
 
     /// Seat `seat`'s AI's check as its last wave went (the balance lab: `LaunchCheck`), if it has sent one.
@@ -270,6 +317,11 @@ impl World {
             tuned: None,
             sweep: 0,
             sweep_since: 0.0,
+            styled: None,
+            force: false,
+            hold_until: 0.0,
+            pull: false,
+            notes: crate::world::AiNotes::default(),
         }
     }
 
@@ -292,10 +344,13 @@ impl World {
             .flatten()
             .unwrap_or_else(|| style_of(level, r[0]));
         let mix = self.factions[e as usize].ai.mix;
-        let tuned = styled(DIFF[level], level, st, mix, &StyleDraws(r));
+        let base = styled(DIFF[level], level, st, mix, &StyleDraws(r));
+        // (a plan's fields over its style: what the plan leaves out is Hard as its style plays it)
+        let tuned = self.plan_of(e).map_or(base, |p| p.apply(base));
         let planned = self.ai_plans.get(e as usize).copied().flatten().is_some();
         let a = self.ai_mut();
         a.style = Some(st);
+        a.styled = Some(base);
         a.tuned = Some(tuned);
         if !planned {
             a.wave = tuned.wave; // (its first wave's size as its style plays it: no wave has gone yet)

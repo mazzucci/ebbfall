@@ -162,7 +162,9 @@ fn a_seat_sees_of_its_foe_only_what_its_sight_showed() {
         "{saw}"
     );
     assert!(
-        saw.contains(&format!("\"tile\":\"{hx},{hy}\"")),
+        saw.contains("\"expansions_seen\":[{\"first_seen\":\"0:1")
+            && saw.contains("\"where\":\"open ground ")
+            && saw.contains(" of seat 1's main base\""),
         "the expansion seen: {saw}"
     );
 }
@@ -194,9 +196,7 @@ fn a_persons_attack_is_its_units_come_to_the_enemys_buildings() {
     let json = s.json(&w, false);
     let seat0 = &json[..json.find("{\"seat\":1,").unwrap()];
     assert!(
-        seat0.contains(
-            "\"attacks\":[{\"started\":\"0:00\",\"units\":4,\"composition\":{\"Guard\":4}"
-        ),
+        seat0.contains("\"attacks\":[{\"left\":\"0:00\",\"units\":4,\"composition\":{\"Guard\":4}"),
         "{seat0}"
     );
     assert!(
@@ -207,7 +207,7 @@ fn a_persons_attack_is_its_units_come_to_the_enemys_buildings() {
 }
 
 #[test]
-fn a_fifteen_minute_game_summarizes_in_under_eight_kilobytes() {
+fn a_fifteen_minute_game_summarizes_in_under_ten_kilobytes() {
     // Medium against Medium on 96x96, the Kingdom against the Expedition, fifteen minutes (or its end).
     let mut w = World::with_size(
         3,
@@ -220,12 +220,19 @@ fn a_fifteen_minute_game_summarizes_in_under_eight_kilobytes() {
     assert!(w.set_ai_seats(vec![true; 2]));
     let s = summary::play(&mut w, 15 * 60 * TPS);
     let json = s.json(&w, w.winner < 0);
-    assert!(json.len() < 8 * 1024, "{} bytes", json.len());
+    // (10 KB since the play-against-Claude summary: why each wave went and ended, its strength at contact, spending and
+    // trades; 8 KB with the 30 s lists before)
+    assert!(json.len() < 10 * 1024, "{} bytes", json.len());
     for key in [
         "\"result\":",
         "\"economy\":",
-        "\"workers_over_time\":",
-        "\"income_per_min_over_time\":",
+        "\"workers\":[",
+        "\"income_per_min\":[",
+        "\"spent\":{\"in_all\":{\"workers\":",
+        "\"trades\":{",
+        "\"style\":",
+        "\"went\":\"",
+        "\"why_ended\":\"",
         "\"units_trained\":",
         "\"buildings_completed\":",
         "\"attacks\":[{",

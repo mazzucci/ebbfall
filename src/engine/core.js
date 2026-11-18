@@ -253,6 +253,24 @@ export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
 export const disableAi = () => game.disableAi();
+/** A plan for AI seat `seat` before the first step (play against Claude: claude/PLAN_VOCAB.md): null when set, else why
+ *  not (refused in an online game). What it clamped: `planNotes`. */
+export const setPlan = (seat, code) => err(game.setPlan(seat, code));
+/** The game's own seed before the first step (a planned or watched game: fresh draws on the same map): null when set,
+ *  else why not. */
+export const setGameSeed = (seed) => err(game.setGameSeed(seed >>> 0));
+/** A plan delta (fields and intents) for planned seat `seat` during the game, from this tick: null, or why not. */
+export const planDelta = (seat, code) => err(game.planDelta(seat, code));
+/** What the last setPlan or planDelta clamped or dropped (a list of short strings). */
+export const planNotes = () => JSON.parse(game.planNotes());
+/** Seat `seat`'s plan as its canonical code ('' without one). */
+export const planCode = (seat) => game.planCode(seat);
+/** Watch the game (an AI-only game: no orders taken, every seat's sight). */
+export const watch = () => game.watch();
+/** Check-ins for planned seat `seat` (every 2 game-minutes and on key events; the summary recorded too). */
+export const recordCheckIns = (seat) => game.recordCheckIns(seat);
+/** The next check-in due (`{ kind, tick, digest }`), or null. */
+export function takeCheckIn() { const j = game.takeCheckIn(); return j == null ? null : JSON.parse(j); }
 /** The guided first game: hold the opponent's waves back (5:00 at most), or let them come. */
 export const holdWaves = (on) => game.holdWaves(on);
 /** Give up the game (the end screen then shows a defeat). */

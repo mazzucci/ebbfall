@@ -118,8 +118,11 @@ starts, spawning, builders, water and the tide) is described in GAMEPLAY.md. The
   difference a seat's player makes. `PLAYER = 0`, `ENEMY = 1` are only the menu's defaults.
 - Teams: `enemies(a, b)` / `allies` decide who fights, never "the other seat" (`1 - team`). A seat that is out gives
   no orders (`World::apply` refuses them). Teams enter the state hash only when not each seat its own.
-- AI numbers: every AI decision reads its numbers through `World::tuning`. Lab-only inputs (`World::set_ai_plans`,
-  `World::set_ai_styles`) never come from JS or the network and are not hashed.
+- AI numbers: every AI decision reads its numbers through `World::tuning`. An AI seat's plan may come from the game
+  link, and deltas and intents to it from an embedding page over postMessage (claude/PROTOCOL.md: allowed origins
+  only, every message validated), in single-player games only (`Game::setPlan`, `Game::planDelta`): validated and
+  clamped in Rust, refused in lockstep, never sent over the network, and recorded in replays with their ticks.
+  `World::set_ai_styles` and the lab's own plan inputs (`World::set_ai_plans`) stay lab-only and are not hashed.
 - Two-start habits the goldens pin stay on two-start maps only; anything new for maps of more starts is gated on
   `map.bases.len() > 2`, and AI rules for several enemies on more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.

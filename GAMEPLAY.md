@@ -22,6 +22,15 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
   `World::set_ai_plans`), else the level's numbers as the seat's drawn style plays them: each AI seat draws its style,
   hidden, from the seeded RNG at its first turn (`World::set_ai_styles` forces one, lab and tests only). What being an
   AI changes: AI income, building in unexplored ground, losing as soon as its buildings are gone.
+- A plan for an AI seat (play against Claude; claude/PLAN_VOCAB.md, `World::set_plan`, `Game::setPlan`): in single
+  player only (refused in lockstep, never on the network), from a game link (`?plan=`) or an embedding page, set before
+  play. The seat plays Hard and its drawn style, with the plan's fields over them (a field it leaves out keeps Hard's;
+  a field wins over the style): its crew, its first wave's time and size, its natural, barracks, tech building, top
+  tier, towers, raids, a leaning unit, units it won't build (never the line unit; `World::ai_banned`), its later waves'
+  least count (`Diff::later_min`: no crushing shortcut or stalled push sends fewer) and the gap between waves. During
+  an embedded game a delta (`World::plan_delta`, `Game::planDelta`) replaces fields from its tick and carries intents
+  out at the seat's next turn (attack now, hold two minutes, pull back, mass the next wave). The start plan and each
+  delta with its tick are recorded with the game (a replay plays them) and the plans are hashed once any is set.
 - Maps: the menus offer 96x96 with four starts and 128x128 with eight, each size with maps of its own, any of them for
   as many players as its starts, a duel too. 64x64 (`MapSize::DUEL`, two starts) is hidden from the menus but still
   generated and played: the goldens, `?seed=`, a challenge or room naming one (src/client/maps.js). A map is always

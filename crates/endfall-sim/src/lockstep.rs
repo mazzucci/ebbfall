@@ -78,6 +78,15 @@ impl Game {
     /// Play in lockstep from now on (a networked game): orders go out, not in, until the relay sends them back.
     #[wasm_bindgen(js_name = startLockstep)]
     pub fn start_lockstep(&mut self) {
+        // (no plans in an online game: one set before is dropped, every client's world the same)
+        if self.w.seat_plans.iter().any(|p| p.is_some()) {
+            self.w.seat_plans.clear();
+            self.w.init_ai();
+        }
+        self.w.clear_game_seed(); // (nor a game seed)
+        self.plans.clear();
+        self.deltas.clear();
+        self.watching = false;
         self.lock = Some(Lockstep::default());
     }
 

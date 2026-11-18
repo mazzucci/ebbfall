@@ -1343,7 +1343,11 @@ fn each_level_trains_only_its_own_mix() {
         assert_eq!(k.ai_tier(), 2, "{k:?}");
     }
     assert_eq!(DIFF.map(|d| d.mix_tier), [0, 1, 1, 2]);
-    assert_eq!(DIFF[2].tier_at, [360.0, NEVER], "Hard's top tier from 6:00");
+    assert_eq!(
+        DIFF[2].tier_at,
+        [480.0, NEVER],
+        "Hard's top tier from 8:00, as Medium's"
+    );
 }
 
 #[test]
@@ -2615,4 +2619,70 @@ fn hard_beats_easy_on_a_two_player_96_map_within_sixteen_minutes() {
             w.time
         );
     }
+}
+
+/// The Expedition AI's first order at its Portal (a Lab, an Uplink and a Portal set down for it, its bank full,
+/// Brutal before 5:00: the Portal's mix then offers its Rover alone, the Android only as the answer to flyers), with two
+/// enemy Drones held in view of its base and `buggies` Buggies of its own at home.
+fn first_at_the_portal(buggies: usize) -> Option<UnitKind> {
+    let mut w = World::with_setup(5, 3, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    w.set_ai_seats([false, true]);
+    past_first_turns(&mut w);
+    let (cx, cy) = core(&w, ENEMY);
+    for k in 0..2 {
+        let id = w.make_unit(
+            UnitKind::Shrike,
+            PLAYER,
+            (cx as f64 + 1.0 + k as f64) * TILE,
+            (cy as f64 + 5.0) * TILE,
+        );
+        w.hold_unit(id);
+        let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
+        (u.hp, u.maxhp) = (1e9, 1e9); // (they stay to be seen and answered)
+    }
+    for k in 0..buggies {
+        w.make_unit(
+            UnitKind::Scythe,
+            ENEMY,
+            (cx as f64 + 6.0 + k as f64) * TILE,
+            (cy as f64 - 3.0) * TILE,
+        );
+    }
+    // (seen first: the Drones in view for a few seconds before its Portal stands)
+    run(&mut w, 3);
+    let mut portal = None;
+    for kind in [BldgKind::Loom, BldgKind::Uplink, BldgKind::Eclipse] {
+        let (tx, ty) = spot_for(&w, ENEMY, kind);
+        portal = Some(w.make_building(kind, ENEMY, tx, ty, true));
+    }
+    w.recalc_supply(ENEMY);
+    w.res[ENEMY as usize] = [20_000, 0];
+    let portal = portal.unwrap();
+    for _ in 0..30 * TPS {
+        w.step();
+        w.events.clear();
+        let b = w.bldg(portal).expect("the Portal stands");
+        if let Some(&k) = b.queue.first() {
+            return Some(k);
+        }
+    }
+    None
+}
+
+#[test]
+fn the_expedition_ai_counts_its_buggies_as_its_answer_to_flyers() {
+    // Since Nov 18 the Buggy hits flyers: its Buggies count in its answer (two per flyer seen) as Androids do. Short of
+    // it, the Portal's first order is an Android for the Drones; with four Buggies at home, its answer is met, and the
+    // Portal trains what its mix calls for, a Rover.
+    assert_eq!(VAEL.ai.answer_weight(UnitKind::Scythe), 1);
+    assert_eq!(
+        first_at_the_portal(0),
+        Some(UnitKind::Umbra),
+        "no Buggies: an Android answers the Drones"
+    );
+    assert_eq!(
+        first_at_the_portal(4),
+        Some(UnitKind::Monolith),
+        "four Buggies: the answer is met, its mix's Rover"
+    );
 }

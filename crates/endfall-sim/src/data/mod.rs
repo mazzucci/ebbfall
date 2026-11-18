@@ -410,6 +410,9 @@ pub struct AiScript {
     /// one, the bay fills the answer and the main factory brings only half of it (cheap early anti-air, then the
     /// tougher mid-game answer in place of some of it).
     pub heavy_anti_air: Option<UnitKind>,
+    /// Other units of its that hit flyers, counted in its answer to them like `anti_air` (one each) but never trained
+    /// for it: the Expedition's Buggy (it hits the air since Nov 18), raised by its Factory anyway.
+    pub also_anti_air: &'static [UnitKind],
     /// Mixed in: one of `.0` per `.1` basic units, in order (each only once its requirement stands, and not before
     /// `.2` seconds of game time: a late specialist).
     pub mix: &'static [(UnitKind, usize, f64)],
@@ -437,11 +440,12 @@ pub struct AiScript {
 }
 
 impl AiScript {
-    /// What an answer to enemy flyers is worth, in `anti_air` units: two for the heavier one, one for the cheap one.
+    /// What an answer to enemy flyers is worth, in `anti_air` units: two for the heavier one, one for the cheap one
+    /// and for each of `also_anti_air`.
     pub fn answer_weight(&self, k: UnitKind) -> usize {
         if Some(k) == self.heavy_anti_air {
             2
-        } else if k == self.anti_air {
+        } else if k == self.anti_air || self.also_anti_air.contains(&k) {
             1
         } else {
             0

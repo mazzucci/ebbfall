@@ -117,7 +117,7 @@ pub struct Diff {
     /// The game times (s) from which its tier rises by one each, above `mix_tier` (NEVER: it does not; Stelian, Nov 13:
     /// a slow tech climb, "our whole story about the Expedition is to get to the machines"): Easy to the mid tier only,
     /// its raiders, siege and Drones at a time its style draws between 10:00 and 13:00 (`style`); Medium its top tier
-    /// from 8:00, Hard from 6:00. The sim's level 3: none.
+    /// from 8:00, Hard too (6:00 until Nov 18). The sim's level 3: none.
     pub tier_at: [f64; 2],
     /// The most top-tier units (`UnitKind::ai_tier` 2) it holds, queued ones counted: 0 for no cap. Easy's Boom draws
     /// one or two, from 15:00 (Stelian, Nov 14: a few at most, late, as part of the draw).
@@ -157,7 +157,7 @@ pub struct Diff {
     /// 13): its tech, its towers and an early Castle at once left its army thin, and Medium's Kingdom won a third of its
     /// games against the Expedition on 96, a fifth on 128 (the lab, 30 seeds: at 8:00 on both it won 54% on 96 and 29%
     /// on 128, at 10:00 85% and 57%). Medium's at 8:15 and 11:00 since Nov 17 (the mines spaced out), Hard's at 8:00
-    /// and 10:00.
+    /// and 10:00, and Hard's Expedition at 7:00 on both (Nov 18).
     pub expand_at_of: &'static [(super::BldgKind, f64, f64)],
     /// Its side's tech time (`AiScript::tech_from`: its techs, its second tech building) at
     /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
@@ -354,7 +354,7 @@ pub const DIFF: [Diff; 4] = [
         first: 240.0, // (no sooner than Medium's: the PM, Nov 13; 2:30 before)
         gap: 50.0,
         research_from: 300.0,
-        expand_at: 330.0, // (the Kingdom's later: `expand_at_of`)
+        expand_at: 330.0, // (each people's later: `expand_at_of`)
         air_at: 300.0,
         heavy_at: 0.0,
         raids: true,
@@ -390,8 +390,10 @@ pub const DIFF: [Diff; 4] = [
         clumsy_until: 0.0,
         army_max: 0,
         mix_tier: 1,
-        tier_at: [360.0, NEVER], // (its top tier from 6:00, Medium's from 8:00: from the start its Expedition saved for its
-        // Portal and had no army until 12:00; the PM, Nov 13)
+        // (its top tier from 8:00, as Medium's: from 6:00 (the PM, Nov 13) its Expedition put its gold into its Uplink and
+        // its Portal by 8:00 and 9:30, its army stood still from 5:00 and the Kingdom's second wave razed it; the Kingdom
+        // won 89% on 96 and 67% on 128, the lab, 60 seeds; with its natural at 7:00 too, 61% and 53%, Nov 18)
+        tier_at: [480.0, NEVER],
         top_max: 0,
         focus: None,
         expand_shift: 0.0,
@@ -401,7 +403,12 @@ pub const DIFF: [Diff; 4] = [
         tech_at: 150.0,
         towers: &[150.0, 480.0],
         tower_max: &[],
-        expand_at_of: &[(super::BldgKind::Core, 480.0, 600.0)],
+        // (the Expedition's natural at 7:00 on both sizes, as Medium's (5:30 before Nov 18, 4:30 in Boom): with its
+        // Data center at 5:00 its army stood still while the Kingdom's grew)
+        expand_at_of: &[
+            (super::BldgKind::Core, 480.0, 600.0),
+            (super::BldgKind::Conflux, 420.0, 420.0),
+        ],
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,

@@ -2334,7 +2334,7 @@ mod tests {
     fn the_tier_rises_with_the_clock_on_easy_and_medium() {
         // A level's tier (`Diff::tier_at`): Easy its line units from the start, its raiders, siege and Drones from the
         // time its style draws (10:00 here, its level's own), never its top tier (the Knight, the Android, the Rover) but
-        // in Boom (`top_max`, below); Medium its top tier from 8:00; Hard everything.
+        // in Boom (`top_max`, below); Medium and Hard their top tier from 8:00; the sim's level 3 everything.
         use UnitKind::*;
         let at = |level: usize, t: f64, k: UnitKind| {
             let (mut w, _, _) = ready_with(level, DIFF[level]);
@@ -2350,8 +2350,9 @@ mod tests {
                 && at(1, 480.0, Umbra)
                 && at(1, 480.0, Knight)
         );
-        // (Hard, the menus' since Nov 13: its top tier from 6:00; the sim's level 3 from the start)
-        assert!(at(2, 0.0, Scythe) && !at(2, 350.0, Knight) && at(2, 360.0, Knight));
+        // (Hard, the menus' since Nov 13: its top tier from 8:00 as Medium's since Nov 18, 6:00 before; the sim's level 3
+        // from the start)
+        assert!(at(2, 0.0, Scythe) && !at(2, 470.0, Umbra) && at(2, 480.0, Knight));
         assert!(at(3, 0.0, Knight));
         // Easy's Boom: its top tier from 15:00, two units of it at most, queued ones counted (`Diff::top_max`).
         let boom = Diff {

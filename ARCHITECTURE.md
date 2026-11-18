@@ -167,9 +167,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       of definitions and factions), humans.rs and vael.rs (each race's units, buildings and faction: the
                       Kingdom and the Expedition since the re-theme, their sim keys `humans` and `vael`), abilities.rs,
                       upgrades.rs (Energy efficiency, two levels at the Lab: machines cost `ENERGY_COST` of their price, `World::unit_cost`; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
-                      to its mid tier only, Medium's top tier from 8:00 and Hard's from 6:00; Easy never retreats; Easy's clumsy waves
+                      to its mid tier only, Medium's and Hard's top tier from 8:00; Easy never retreats; Easy's clumsy waves
                       growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
-                      Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, read through `World::expand_time`),
+                      Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`),
                       plan.rs (a plan for an AI seat, play against Claude: the code's grammar, strict, each value
                       clamped and noted, `Plan::apply` over Hard as its drawn style plays it, deltas, intents;
                       claude/PLAN_VOCAB.md), style.rs (AI play styles, PRD: AI styles and the level ladder: Pressure, Timing, Boom, weighted

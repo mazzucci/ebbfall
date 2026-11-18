@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -2474,11 +2474,11 @@ test('phone: six types fit whole in the console (the words line gives its room t
   } finally { await d.close(); }
 });
 
-test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', { chromium: CDP_TOUCH }, async () => {
+test('phone: the first game guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
-    await d.hudText('#tut', /1\/8/);
+    await d.hudText('#tut', /1\/9/);
     assert.match(await d.page.locator('#tut').textContent(), /train a Villager, and another once you have 50 gold again/);
     // Step 1: the Core, then Villager twice (the button pulses).
     await d.grant(1000, 0);
@@ -2488,7 +2488,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Villager button pulses');
     await d.pressCard('Villager'); await d.pressCard('Villager');
     await d.skip(40); // (two Villagers, 18 s each)
-    await d.hudText('#tut', /2\/8/);
+    await d.hudText('#tut', /2\/9/);
     // Step 2: the new Villagers wait by the Castle: one selected, Mine pulses; both sent to the mine end the step.
     assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Mine, then the gold mine/);
     const idle = await d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'idle').id);
@@ -2497,7 +2497,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 'gather', 'the Mine button pulses');
     await d.key('Escape');
     await sendIdleToMine(d);
-    await d.hudText('#tut', /3\/8/);
+    await d.hudText('#tut', /3\/9/);
     // Step 3: a Villager, Build: the Build button pulses; a Barracks, then its builder back on the mine, end the step.
     // A Villager (one on the move can slip from under the tap: tried again; one inside the mine is waited for).
     for (let i = 0; i < 8 && !(await d.selection()).some(e => e.type === 'harvester'); i++) {
@@ -2512,13 +2512,20 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.buildWithUI('c', 'barracks', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'barracks' && b.done), { seconds: 90, what: 'the Barracks' });
     await d.page.waitForTimeout(1000);
-    assert.match(await d.page.locator('#tut').textContent(), /3\/8/, 'its builder waits by it: the step goes on');
+    assert.match(await d.page.locator('#tut').textContent(), /3\/9/, 'its builder waits by it: the step goes on');
     await sendIdleToMine(d);
-    await d.hudText('#tut', /4\/8/);
+    await d.hudText('#tut', /4\/9/);
     assert.match(await d.page.locator('#tut').textContent(), /Train 6 Guards and 2 Archers at the Barracks/, 'then the army');
     // Step 4: the army (spawned: the training is another test's), out of the way mid-map.
     await d.eval(() => { const c = 32 * 32; for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', c, c); });
-    await d.hudText('#tut', /5\/8/);
+    // Step 5 (a touch screen's): the army selected as one, SELECT and ARMY pulsing; ARMY ends it.
+    await d.hudText('#tut', /5\/9/);
+    assert.match(await d.page.locator('#tut').textContent(), /Select your army at once: hold SELECT and drag a box over it, or tap ARMY for every fighter/, 'then the army as one');
+    await d.page.waitForTimeout(300);
+    for (const id of ['#btnBox', '#btnArmy']) assert.match(await d.page.locator(id).getAttribute('class'), /\bpulse\b/, `${id} pulses`);
+    await d.page.locator('#btnArmy').tap();
+    assert.equal((await d.selection()).length, 8, 'ARMY selects the eight');
+    await d.hudText('#tut', /6\/9/);
     assert.match(await d.page.locator('#tut').textContent(), /Build a Market in your base: it earns gold by itself/, 'then a Market (it needs the Barracks)');
     // The opponent waits: by 5:30, with the Market not built, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));
@@ -3492,6 +3499,32 @@ test('melee units in a fight show their strike poses, and each blow glints on it
     const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
     assert.match(between[0], /^knight_\d+_wind$/, `the Knight on guard between blows (${between[0]})`);
     assert.match(between[1], /^bruiser_\d+_(wind|strike)$/, `the Bruiser in its strike poses too (${between[1]})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a hit\'s look follows how hard it hits: a Cannon\'s cannonball (siege) lands as a big blast with a flash, and the camera stays still', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 120, y = core.y + 150;
+    // (three Cannons, and a row of foe workers standing idle in their reach; the camera between them)
+    await d.eval(([x, y]) => { for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'siegeTank', x, y - 40 + i * 40); for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(1, 'harvester', x + 220, y - 75 + i * 30); }, [x, y]);
+    await d.centerOn(x + 110, y);
+    await d.eval(() => { window.__peak = 0; const look = () => { window.__peak = Math.max(window.__peak, endfall.shake()); requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    // (tick by tick to a cannonball landing, then the frame that draws it)
+    const seen = await d.eval(() => {
+      const hit = () => endfall.G.events.find(e => e.t === 'hit' && e.by === 'siegeTank');
+      for (let t = 0; t < 30 * 15 && !hit(); t++) endfall.skip(1 / 30);
+      const h = hit(); if (!h) return null;
+      return new Promise(r => requestAnimationFrame(() => r(endfall.effects().filter(e => Math.hypot(e.x - h.x, e.y - h.y) < 8))));
+    });
+    assert.ok(seen, 'a cannonball lands');
+    const boom = seen.find(e => e.anim === 'boom_small');
+    assert.ok(boom, `a blast where it lands (${JSON.stringify(seen.map(e => e.anim))})`);
+    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
+    assert.ok(seen.some(e => e.anim === 'flash'), 'with a flash');
+    await d.skip(1);
+    assert.equal(await d.eval(() => window.__peak), 0, 'no shake on any frame');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

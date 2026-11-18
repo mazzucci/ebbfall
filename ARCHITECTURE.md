@@ -333,7 +333,7 @@ src/client/           everything that touches the browser
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
-                      (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`, look.js `HIT_LIFT`), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
+                      (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`, look.js `HIT_LIFT`), a hit's weight by how hard it hits (`tierHit`, `tierMuzzle`: look.js `hitTier`; main.js picks the tier from the shooter's weapon in the data, a tower's by its people), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       construction you can read (construct.js): a Kingdom site raw (one shared color filter), its
                       slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site its body
                       rising in full color (64 rows, capped at 90%) under a faint cyan ghost in a printer gantry whose
@@ -424,6 +424,9 @@ src/client/           everything that touches the browser
   share.js            the end card's SHARE after a victory against the AI (not online, not the guided game): the
                       challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
                       cancelled sheet says nothing
+  grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: SELECT and a box, a
+                      double-tap, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint);
+                      never in the guided first game (its checklist's step teaches it)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
   hud.js              top bar (the Kingdom's gold as coins and population, the Expedition's energy as a bolt and grid)
@@ -472,7 +475,7 @@ src/client/           everything that touches the browser
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
                       swirl brightening each time a unit comes through, then settling, `portalOpen`),
                       a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`) and flash (`MUZZLE_FLASH`), a melee
-                      blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), each shot's impact (`IMPACT`, `impactOf`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
+                      blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), each shot's impact (`IMPACT`, `impactOf`), how hard a hit lands, one scale for every unit and tower by its weapon's damage per hit (`hitTier`, `HIT_TIERS`: light, medium, heavy, siege; `HIT_LOOK`: light as before, medium a flash, heavy a bright blow, siege a blast, each with its muzzle flash and the impact sound's `weight`, audio.js `hit`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
@@ -524,6 +527,8 @@ test/strike.test.js   the melee units' strike poses (look.js `strikePose`): the 
 test/construct.test.js construction you can read (construct.js): the designer's numbers, the 7-of-8 reveal, the raw
                       matrix (saturation, brightness kept, warm), the hologram's cap and shimmer, the done moment's
                       curves, a site's damage, a builder's strikes, the cards' and the toast's words, the knock
+test/tiers.test.js    how hard a hit lands (look.js `hitTier`): every armed unit and tower pinned to its tier from the live
+                      data, the lines, the looks and sound weights, a tower told by its people; no camera shake from hits
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the

@@ -10,17 +10,19 @@ export const LOAD_FAILED = 'The game could not load. Check your connection, then
 /** Client-only UI state: what the local player has selected and which command is armed. */
 export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
 
-/** Show a message; `bad` styles it red (and plays the error sound unless `silent`); `look`, a class that restyles it. */
-export function toast(msg, bad, silent, look = '') {
+/** Show a message; `bad` styles it red (and plays the error sound unless `silent`); `look`, a class that restyles it;
+ *  `ms`, how long it stays (a `tip` look keeps its place when others come). */
+export function toast(msg, bad, silent, look = '', ms = 3300) {
   const m = $('msg'); const d = document.createElement('div');
   for (const t of [...m.children]) if (t.textContent === msg) t.remove(); // the same message again replaces itself (no storm), fresh
   d.className = 'toast' + (bad ? ' bad' : '') + (look ? ' ' + look : ''); // (`look`: a class of its own, `paused`: the build bar's orange)
   // Money: gold's coins or energy's bolt before the word (the text stays the message, the icon is drawn by CSS).
   msg.split(/(\bgold\b|\benergy\b)/i).forEach((part, i) => { if (i % 2) { const c = document.createElement('i'); c.className = /^energy$/i.test(part) ? 'dot bolt' : 'dot shard'; d.append(c, part); } else if (part) d.append(part); });
+  if (ms !== 3300) d.style.animationDuration = `${ms - 100}ms`;
   m.appendChild(d);
-  // Two at most (news, not a dashboard): the oldest goes first, an alert last.
-  while (m.children.length > 2) (m.querySelector('.toast:not(.bad)') || m.firstChild).remove();
-  setTimeout(() => d.remove(), 3300);
+  // Two at most (news, not a dashboard): the oldest goes first, a tip and an alert last.
+  while (m.children.length > 2) (m.querySelector('.toast:not(.bad):not(.tip)') || m.querySelector('.toast:not(.bad)') || m.firstChild).remove();
+  setTimeout(() => d.remove(), ms);
   if (bad && !silent) sfx('error');
 }
 

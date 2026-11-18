@@ -2424,6 +2424,56 @@ test('a click on a unit tile selects that unit alone, Shift+click drops it', asy
   } finally { await d.close(); }
 });
 
+test('the group grid: tiles in kind order, the hotkey pill off the sprite, the bar colored by health', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), at = [core.x + 180, core.y + 120];
+    // Spawned Archer, Guard, Archer, Guard, Guard, Guard, Knight, Knight: the tiles come in runs of a kind, in the
+    // roster's order (Guards before Archers), each run by id.
+    const kinds = ['lancer', 'trooper', 'lancer', 'trooper', 'trooper', 'trooper', 'knight', 'knight'];
+    const ids = await d.eval(([x, y, kinds]) => kinds.map((t, i) => endfall.engine.debugSpawn(0, t, x + (i % 4) * 24, y + Math.floor(i / 4) * 24)), [...at, kinds]);
+    await d.skip(0.2);
+    await d.key('q');
+    assert.deepEqual((await d.selection()).map(e => e.id).sort((a, b) => a - b), ids.slice().sort((a, b) => a - b), 'the eight selected');
+    const tiles = await d.page.$$eval('#group .gi', els => els.map(e => ({ id: +e.dataset.id, b: e.querySelector('b').getBoundingClientRect().toJSON(), img: e.querySelector('img').getBoundingClientRect().toJSON() })));
+    const order = tiles.map(t => kinds[ids.indexOf(t.id)]);
+    assert.deepEqual(order.slice(0, 4), ['trooper', 'trooper', 'trooper', 'trooper'], `Guards first: ${order}`);
+    assert.deepEqual(order.filter((k, i) => k !== order[i - 1]).length, 3, `each kind in one run: ${order}`);
+    for (const k of new Set(kinds)) { const run = tiles.filter(t => kinds[ids.indexOf(t.id)] === k).map(t => t.id); assert.deepEqual(run, run.slice().sort((a, b) => a - b), `${k} by id`); }
+    for (const t of tiles) assert.ok(t.b.top >= t.img.top + t.img.height * 0.55 && t.b.left >= t.img.left + t.img.width * 0.5, `the hotkey pill in the tile's bottom-right, off the sprite's head: ${JSON.stringify([t.b, t.img])}`);
+    // Wounds from a real fight (no debug hook sets a unit's health): an enemy Knight charges the group and dies to its
+    // Knights; what it hit stays hit (no Healer here). Then every tile's color is its unit's health: green, amber under
+    // 60%, red under 30%.
+    let pairs = [];
+    for (let round = 0; round < 3 && !pairs.some(([, h]) => h); round++) {
+      await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'knight', x + 36, y + 60), at);
+      assert.ok(await d.skipUntil(() => !endfall.G.units.some(u => u.team === 1 && u.type === 'knight'), null, { seconds: 60 }), 'the Knight died');
+      await d.key('q'); await d.skip(0.3); // (the selection again: some fell; the HUD has ticked since the last hit)
+      pairs = await d.eval(() => [...document.querySelectorAll('#group .gi')].map(e => { const u = endfall.G.units.find(u => u.id === +e.dataset.id); return [u.hp / u.maxhp, e.dataset.h || '']; }));
+    }
+    assert.ok(pairs.length >= 2, 'some of the group survived');
+    assert.ok(pairs.some(([, h]) => h), `a wounded survivor: ${JSON.stringify(pairs)}`);
+    for (const [f, h] of pairs) assert.equal(h, f > 0.6 ? '' : f > 0.3 ? 'mid' : 'low', `the bar's color follows the health ${f}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: six types fit whole in the console (the words line gives its room to the tiles)', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    await d.eval(([x, y]) => ['trooper', 'lancer', 'rider', 'knight', 'siegeTank', 'bastion'].forEach((t, i) => endfall.engine.debugSpawn(0, t, x + (i % 3) * 30, y + Math.floor(i / 3) * 30)), [core.x + 160, core.y + 100]);
+    await d.skip(0.2);
+    await d.boxSelect(core.x + 130, core.y + 70, core.x + 250, core.y + 170);
+    assert.equal(new Set((await d.selection()).map(e => e.type)).size, 6, 'six types selected');
+    await d.page.waitForTimeout(400);
+    assert.equal(await d.page.locator('#group .gt').count(), 6, 'a tile per type');
+    await insideConsole(d, '#group .gt'); // (none cut by the console's edge)
+    assert.equal(await d.page.locator('#selSub').isVisible(), false, 'the words line is hidden: the tiles say the types and counts');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {

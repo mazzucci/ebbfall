@@ -82,22 +82,51 @@ function artRows(name) {
   return r;
 }
 const artTop = (name) => artRows(name).top;
+const artBoxes = new Map();
+/** The box of frame `name` with solid paint in it (frame px, inclusive: `l`, `t`, `r`, `b`): alpha past 110, so a
+ *  unit's soft shadow is left out and the figure itself is measured (`artRows` counts any paint). Read once from the
+ *  decoded page, cached. */
+function artBox(name) {
+  if (artBoxes.has(name)) return artBoxes.get(name);
+  const fr = frames[name]; if (!fr) return null;
+  const { img, f } = fr, c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  const a = ctx.getImageData(0, 0, f.w, f.h).data;
+  let l = f.w, t = f.h, r = -1, b = -1;
+  for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (a[(y * f.w + x) * 4 + 3] > 110) { if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y; }
+  const box = r < 0 ? { l: 0, t: 0, r: f.w - 1, b: f.h - 1 } : { l, t, r, b };
+  artBoxes.set(name, box);
+  return box;
+}
 /**
  * A small portrait of a sprite for the HTML HUD, as a data URL: the frame scaled so its larger side is `zoom` x
  * `size` css px, centered a little above its ground point, cut to a size x size square; with `fit`, lowered when its
  * art would start above the square's top (the Drone's rotors), so its top is never cut. With `tint`, its team mask
  * (`name_m`) in that color over it, as the renderer draws it. With `head`, that frame (a building's turret, dish or
- * rotor, BLDG_LOOK) over it on the same ground point and at the same scale, painted the same way. Cached.
+ * rotor, BLDG_LOOK) over it on the same ground point and at the same scale, painted the same way. With `box`, the
+ * sprite's solid box (`artBox`, united with its head's at rest) is what fills `zoom` of the square, centered: the
+ * figure, not its frame (the group grid's tiles; drawn at up to 3 device px per css px, since a 3x phone shows them
+ * at 28 px). Cached.
  */
-export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, head = null) {
-  const key = `${name}|${size}|${zoom}|${tint}|${fit}|${head}`;
+export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, head = null, box = false) {
+  const key = `${name}|${size}|${zoom}|${tint}|${fit}|${head}|${box}`;
   if (iconCache.has(key)) return iconCache.get(key);
   const fr = frames[name]; let url = '';
   if (fr) {
-    const dpr = Math.min(2, window.devicePixelRatio || 1), n = Math.round(size * dpr), { x, y, w, h } = fr.f;
+    const dpr = Math.min(box ? 3 : 2, window.devicePixelRatio || 1), n = Math.round(size * dpr), { x, y, w, h } = fr.f;
     const c = document.createElement('canvas'); c.width = c.height = n;
-    const ctx = c.getContext('2d', { willReadFrequently: true }), k = n * zoom / Math.max(w, h); // a CPU canvas: no GPU upload of the page
-    const ox = n / 2 - w * fr.a.x * k, oy = Math.max(n / 2 - (h * fr.a.y - h * 0.08) * k, fit ? n * 0.04 - artTop(name) * k : -Infinity);
+    const ctx = c.getContext('2d', { willReadFrequently: true }); // a CPU canvas: no GPU upload of the page
+    let k = n * zoom / Math.max(w, h), ox = n / 2 - w * fr.a.x * k, oy = Math.max(n / 2 - (h * fr.a.y - h * 0.08) * k, fit ? n * 0.04 - artTop(name) * k : -Infinity);
+    const hf = head && frames[head];
+    if (box) {
+      let bx = artBox(name);
+      if (hf) { // (the head's box, placed on the ground point as it is painted below)
+        const hb = artBox(head), hx = w * fr.a.x - hf.f.w * hf.a.x, hy = h * fr.a.y - hf.f.h * hf.a.y;
+        bx = { l: Math.min(bx.l, hx + hb.l), t: Math.min(bx.t, hy + hb.t), r: Math.max(bx.r, hx + hb.r), b: Math.max(bx.b, hy + hb.b) };
+      }
+      const bw = bx.r - bx.l + 1, bh = bx.b - bx.t + 1;
+      k = n * zoom / Math.max(bw, bh); ox = n / 2 - (bx.l + bw / 2) * k; oy = n / 2 - (bx.t + bh / 2) * k;
+    }
     ctx.imageSmoothingQuality = 'high';
     const paint = (nm, fx, ox, oy) => { // a frame and its team mask, its top left at ox, oy
       ctx.drawImage(fx.img, fx.f.x, fx.f.y, fx.f.w, fx.f.h, ox, oy, fx.f.w * k, fx.f.h * k);
@@ -111,7 +140,6 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, hea
       ctx.drawImage(t, 0, 0);
     };
     paint(name, fr, ox, oy);
-    const hf = head && frames[head];
     if (hf) { const gx = ox + w * fr.a.x * k, gy = oy + h * fr.a.y * k; paint(head, hf, gx - hf.f.w * hf.a.x * k, gy - hf.f.h * hf.a.y * k); } // (head frames are untrimmed, as the base)
     url = c.toDataURL();
   }
@@ -119,11 +147,14 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, hea
   return url;
 }
 /** An <img> portrait of a unit type, building type or gold mine ('node'), or ''. In `team`'s
- * colors: this client's own seat unless told otherwise. A building with a head (BLDG_LOOK) has it on, at rest. */
-export function portrait(kind, type, size = 26, team = G.me) {
-  const head = BLDG_LOOK[type]?.head;
-  const url = kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
-    : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, head ? head + '_0' : null);
+ * colors: this client's own seat unless told otherwise. A building with a head (BLDG_LOOK) has it on, at rest. With
+ * `box`, the sprite's own box fills 86% of the square (the group grid's small tiles, where a frame-cut figure was a
+ * smudge); without, the frame-based cut every other portrait uses. */
+export function portrait(kind, type, size = 26, team = G.me, box = false) {
+  const head = BLDG_LOOK[type]?.head, headFrame = head ? head + '_0' : null;
+  const url = box ? artIcon(kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
+    : kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
+      : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, headFrame);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;

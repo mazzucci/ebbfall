@@ -147,23 +147,31 @@ function renderSelection() {
     named(sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units')); $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     $('life').hidden = true;
+    // The tiles in kind order (the roster's: Guards before Archers, units before buildings), then by id: a mixed group
+    // reads as runs of a type, and a tile keeps its place while the selection stands. Each tile's sprite is cut to its
+    // own box (`portrait` with `box`), and its bar takes the world's health colors (`data-h`: mid under 60%, low under 30%).
+    const sorted = sel.slice().sort(byKind);
+    const bar = (tile, f) => { tile.lastChild.style.width = (f * 100) + '%'; const h = f > 0.6 ? '' : f > 0.3 ? 'mid' : 'low'; if (tile.dataset.h !== h) tile.dataset.h = h; };
     if (compactMq.matches) { // small screens: one tile per type, with its count and the group's health
-      const types = [...new Set(sel.map(x => x.type))], gk = 't' + types.join() + sel.length;
+      const types = [...new Set(sorted.map(x => x.type))], gk = 't' + types.join() + sel.length;
       if (grp.dataset.k !== gk) {
         grp.dataset.k = gk;
-        grp.innerHTML = types.map(t => { const g = sel.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 26)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
+        grp.innerHTML = types.map(t => { const g = sorted.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 28, G.me, true)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
       }
-      types.forEach((t, i) => { const g = sel.filter(x => x.type === t), f = g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0); grp.children[i].lastChild.style.width = (f * 100) + '%'; });
+      types.forEach((t, i) => { const g = sorted.filter(x => x.type === t); bar(grp.children[i], g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0)); });
       return;
     }
-    const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
+    const shown = sorted.slice(0, 24), gk = shown.map(x => x.id).join();
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
-      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, 26, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
+      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, 28, x.team, true)}<b>${x.d.hot}</b><i></i></div>`).join('');
     }
-    shown.forEach((x, i) => { grp.children[i].lastChild.style.width = (x.hp / x.maxhp * 100) + '%'; });
+    shown.forEach((x, i) => bar(grp.children[i], x.hp / x.maxhp));
   }
 }
+/** The roster's order of kinds (units, then buildings, as the sim numbers them), for the group grid's tiles. */
+const KIND_ORDER = new Map([...Object.keys(UNITS), ...Object.keys(BUILDINGS)].map((k, i) => [k, i]));
+const byKind = (a, b) => (KIND_ORDER.get(a.type) ?? 1e9) - (KIND_ORDER.get(b.type) ?? 1e9) || a.id - b.id;
 
 // ---- the tile strip: narrowing a selection without the box ----
 // A type tile (phones): a tap keeps only that type, a long-press drops it. A unit tile (wider screens): a click keeps

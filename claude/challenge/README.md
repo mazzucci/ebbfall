@@ -21,7 +21,7 @@ in a side panel. The game side of it is the embed contract in claude/PROTOCOL.md
 | File | What it is |
 | --- | --- |
 | `server.mjs` | The local server (Node's standard library, 127.0.0.1, a random token): serves `dist/` (the game) at `/` and the page at `/claude/`, relays between the page and the tools, logs everything. Its address goes to a state file (`lib/common.mjs`). |
-| `page/` | The page: the game in an iframe (`?embed=1&plan=..&watch=1&vs=..`), the side panel, the relay of the game's postMessages. |
+| `page/` | The page: the game in a same-origin iframe (same 127.0.0.1 port as the page, so full screen and sound work: no ebbfall.com Permissions-Policy in the way) (`?embed=1&plan=..&watch=1&vs=..`), the side panel, the relay of the game's postMessages. |
 | `mcp.mjs` | The MCP server (stdio): `set_plan` (a start plan, or a delta plus intents: attack, hold, pull, mass; with a line), `say` (one line, 140 characters at most), `read_state` (the latest digest). |
 | `plugin/` | The mod (the Whiteboard pattern): `/ebbfall [watch\|play\|stop]` starts the server, opens the page and feeds each game moment into the session with `$.prompt.submit`. Its tools come from `mcp.mjs` through `plugin/.mcp.json`. |
 | `drive.mjs` | The headless driver: real Claude vs Hard in the real page (Playwright), no person needed. See below. |

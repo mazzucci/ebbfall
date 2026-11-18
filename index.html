@@ -121,6 +121,13 @@
         </div>
         <!-- The water's edge: the water at the bottom edge, three lines that drift and a few stones left on the bank. Each line is an <svg> of its own, so its drift is one transform on the compositor; the whole thing is hidden with this page. -->
         <div class="shore" aria-hidden="true">
+          <!-- The field under the first page (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. -->
+          <picture class="scene">
+            <source media="(orientation: portrait)" srcset="menu/menu-portrait.webp">
+            <source media="(max-height: 420px)" srcset="menu/menu-landscape.webp">
+            <source media="(min-aspect-ratio: 2/1)" srcset="menu/menu-wide.webp">
+            <img src="menu/menu-desktop.webp" alt="" decoding="async" fetchpriority="low" width="1920" height="480">
+          </picture>
           <svg class="tide t1" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 296c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/></svg>
           <svg class="tide t2" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 318c60-8 120 8 180 0s120-8 180 0 120 8 180 0 120-8 180 0 120 8 180 0 60-4 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".16"/></svg>
           <svg class="tide t3" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="shoreSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fd1c5" stop-opacity="0"/><stop offset="1" stop-color="#4fd1c5" stop-opacity=".14"/></linearGradient></defs><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0V460H-40Z" fill="url(#shoreSea)"/><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="2" stroke-opacity=".32"/></svg>

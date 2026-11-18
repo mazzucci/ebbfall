@@ -77,14 +77,17 @@ function fitTints() {
 }
 
 window.render = async function (filter = '', opts = {}) {
-  const out = [];
+  const out = [], ZOOM = opts.zoom || 1; // (`zoom`: every sprite that many times the atlas's scale)
   const want = (name) => !filter || new RegExp(filter).test(name);
   const anchor = (cell) => ({ x: cell.ax / cell.w, y: cell.ay / cell.h });
   const sprite = (name, img, cell, extra) => out.push({ name, w: img.width, h: img.height, data: enc(img), anchor: anchor(cell), ...extra });
-  const push = (name, obj, cell, opts = {}) => { if (want(name)) sprite(name, shoot(obj, { ...cell, ...opts }), cell); };
+  /** A sprite drawn `z` times larger than the atlas's (the model and its cell scaled together; tools/menu-art.mjs's hero band). */
+  const zoomed = (obj, cell, z) => { if (!z || z === 1) return cell; obj.scale.multiplyScalar(z); return { w: Math.ceil(cell.w * z), h: Math.ceil(cell.h * z), ax: Math.round(cell.ax * z), ay: Math.round(cell.ay * z) }; };
+  const push = (name, obj, cell, opts = {}) => { if (!want(name)) return; cell = zoomed(obj, cell, ZOOM); sprite(name, shoot(obj, { ...cell, ...opts }), cell); };
   /** A team-colored sprite: the neutral render `name` and its team mask `name_m` (trimmed by the packer). */
   const pushTeam = (name, obj, cell, opts = {}, extra = {}) => {
     if (!want(name)) return;
+    cell = zoomed(obj, cell, ZOOM);
     const { img, mask } = shoot(obj, { ...cell, ...opts, mask: true });
     sprite(name, img, cell, extra); sprite(`${name}_m`, mask, cell, { trim: true });
   };

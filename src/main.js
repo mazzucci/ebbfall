@@ -113,7 +113,7 @@ function muzzle(e) {
   if (MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
   if (MUZZLE_FLASH[u.type]) muzzleFlash(e.x, e.y, u.face, MUZZLE_FLASH[u.type]);
   const tier = hitTier(u.d.weapon); // (how hard it hits: a heavy or siege gun's big flash, a blow's heavier look)
-  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) { const p = meleeHit(u, t, MELEE_PUFF[u.type]); if (tier !== 'light') tierHit(p.x, p.y, tier, null, true); } }
+  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) { const p = meleeHit(u, t, MELEE_PUFF[u.type]); if (tier !== 'light') tierHit(p.x, p.y, tier, null, true, p.feet); } }
   else tierMuzzle(e.x, e.y, u.face, tier, MUZZLE_FLASH[u.type]);
 }
 /** How hard a shot that landed hits (look.js hitTier): by its shooter's weapon, a unit's or its people's tower's

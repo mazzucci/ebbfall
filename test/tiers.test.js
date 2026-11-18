@@ -3,7 +3,7 @@
 // rebalance that moves a unit across a line updates it on purpose.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { hitTier, HIT_TIERS, HIT_LOOK, towerOf } from '../src/client/look.js';
 import { UNITS, BUILDINGS, FACTIONS } from '../src/engine/constants.js';
 
@@ -35,6 +35,27 @@ test('the light tier keeps today\'s hits; the rest step up, and their sound with
   assert.ok(!HIT_LOOK.medium.hit && HIT_LOOK.medium.flash > 0, 'medium: the shot\'s own impact with a modest flash');
   assert.equal(HIT_LOOK.heavy.hit, 'blow'); assert.equal(HIT_LOOK.siege.hit, 'blast');
   assert.deepEqual(['light', 'medium', 'heavy', 'siege'].map(t => HIT_LOOK[t].weight), [0, 1, 2, 3]);
+});
+
+// (an effect frame's size in world px: the atlas is drawn at 2x)
+const art = new URL('../public/art/', import.meta.url), frames = {};
+for (const f of readdirSync(art).filter(f => /^atlas-\d+\.json$/.test(f))) Object.assign(frames, JSON.parse(readFileSync(new URL(f, art))).frames);
+const px = (name) => frames[name].sourceSize.w / 2;
+/** The largest thing a tier's hit draws (world px across), as render.js tierHit draws it. */
+function footprint(tier) {
+  const L = HIT_LOOK[tier];
+  if (!L.hit) return px('flash_0') * L.flash;
+  const k = L.size, sizes = [px('flash_0') * 0.9 * k * L.flashK, px('spark_0') * L.chip.scale];
+  if (L.hit === 'blast') sizes.push(px('boom_small_0') * 1.1 * k);
+  return Math.max(...sizes);
+}
+
+test('at a glance: a heavy hit clearly bigger than a medium one, clearly smaller than a siege one', () => {
+  const [m, h, s] = ['medium', 'heavy', 'siege'].map(footprint);
+  assert.ok(h >= 1.6 * m, `heavy ${h.toFixed(1)} px against medium ${m.toFixed(1)}`);
+  assert.ok(s >= 1.3 * h, `siege ${s.toFixed(1)} px against heavy ${h.toFixed(1)}`);
+  assert.ok(HIT_LOOK.heavy.chip.scale > HIT_LOOK.siege.chip.scale && HIT_LOOK.heavy.chip.life > 1, 'heavy chips larger and longer-lived');
+  assert.ok(HIT_LOOK.heavy.scuff?.n > 0, 'a heavy melee blow scuffs the ground');
 });
 
 test('a tower\'s shot (no shooter kind) is told by its people\'s tower', () => {

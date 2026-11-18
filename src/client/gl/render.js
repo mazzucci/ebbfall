@@ -708,14 +708,14 @@ export function muzzleFlash(x, y, face, { fwd, up, scale }) {
 }
 /** A melee blow lands on `t`: a glint of steel on it, at the point of it nearest the striker `u` (a unit's body half way up
  *  its drawn height, a building's nearest wall), and with `puff` (look.js MELEE_PUFF) dust kicked up at its feet.
- *  Returns the glint's point. */
+ *  Returns the glint's point and `feet`, the dust's. */
 export function meleeHit(u, t, puff) {
   let x = t.x, y = t.y;
   if (t.kind === 'bldg') { x = Math.min(Math.max(u.x, t.tx * TILE + 4), (t.tx + t.w) * TILE - 4); y = Math.min(Math.max(u.y, t.ty * TILE + 4), (t.ty + t.h) * TILE - 4); }
   const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * 0.5, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
   addEffect('glint', x + dx / d * k, y + dy / d * k - lift, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 }); // (steel's glint: small and pale; fire is the gunpowder's)
   if (puff) addEffect(HIT_DUST.anim, x + dx / d * k, y + 2, { vx: -dx / d * puff.drift, vy: -6, life: puff.life, scale: puff.scale, fade: puff.fade, tint: HIT_DUST.tint });
-  return { x: x + dx / d * k, y: y + dy / d * k - lift };
+  return { x: x + dx / d * k, y: y + dy / d * k - lift, feet: { x: x + dx / d * k, y: y + 2 } };
 }
 /** Where a shot that lands at ground point (x, y) plays, its y: on a flyer (`air`, its kind: a `hit` event's) up on its
  *  body (look.js hitLift of its drawn height: by its kind), anything else where it is. */
@@ -730,16 +730,22 @@ export function impactFx(x, y, how) {
 }
 /** A hit of tier `tier` lands at (x, y) (look.js hitTier, HIT_LOOK), over or in place of its own look `how` (look.js
  *  impactOf; null: a melee blow, whose glint and dust meleeHit drew): 'light' as ever, 'medium' with a round flash,
- *  'heavy' a bright blow, 'siege' a blast. `melee`: chips of steel, not fire. */
-export function tierHit(x, y, tier, how, melee = false) {
+ *  'heavy' a bright blow, 'siege' a blast. `melee`: chips of steel, not fire, and the heavy blow's scuff of dust round
+ *  the target's feet (`feet`: its ground point). */
+export function tierHit(x, y, tier, how, melee = false, feet = null) {
   const look = HIT_LOOK[tier];
   if (!look?.hit) { if (how) impactFx(x, y, how); if (look?.flash) addEffect('flash', x, y - 2, { life: 0.16, scale: look.flash, tint: look.light, light: look.light, lightScale: look.lightScale }); return; }
   if (!nearView(x, y)) return;
   const k = look.size;
   if (look.hit === 'blast') addEffect('boom_small', x, y, { light: look.light, lightScale: 1.3 * k, life: 0.45, scale: 1.1 * k });
-  addEffect('flash', x, y - 4, { life: 0.16, light: look.light, lightScale: 0.6 * k, scale: 0.9 * k, tint: look.light });
-  const chip = melee ? 'glint' : 'spark';
-  for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, v = 50 + Math.random() * 70; addEffect(chip, x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.25 + Math.random() * 0.2 }); }
+  addEffect('flash', x, y - 4, { life: 0.16, light: look.light, lightScale: 0.6 * k * look.flashK, scale: 0.9 * k * look.flashK, tint: look.light });
+  const chip = melee ? 'glint' : 'spark', c = look.chip;
+  for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, v = 50 + Math.random() * 70; addEffect(chip, x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: (0.25 + Math.random() * 0.2) * c.life, scale: c.scale }); }
+  const sc = look.scuff;
+  if (melee && sc && feet) for (let i = 0; i < sc.n; i++) { // (a ring of dust kicked out round its feet, flat as the ground)
+    const a = (i + Math.random() * 0.5) / sc.n * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a) * 0.5;
+    addEffect(HIT_DUST.anim, feet.x + cx * sc.r, feet.y + cy * sc.r, { vx: cx * sc.speed, vy: cy * sc.speed, life: sc.life, scale: sc.scale, fade: 0.8, tint: HIT_DUST.tint });
+  }
 }
 /** A ranged weapon of tier `tier` fires from ground point (x, y) aiming along `face` (radians): for a heavy or siege
  *  one, a big round flash at its gun's mouth (`at`: look.js MUZZLE_FLASH's spot, else MUZZLE_AT), with a light. */

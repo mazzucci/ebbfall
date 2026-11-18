@@ -277,14 +277,16 @@ export function hitTier(weapon) {
 /** Each tier's look over the shot's or the blow's own (IMPACT, meleeHit), none for 'light'. `flash`: a round flash where
  *  it lands, at that scale, tinted and lit `light` (`lightScale`); `hit`: in place of the shot's own impact, 'blow' (a
  *  bright flash and three flung chips: glints of steel for a melee blow, no fire on a lance or a hammer; sparks for a
- *  shot) or 'blast' (an explosion, a flash and sparks), at `size`; `muzzle`: a ranged one's big round flash where it
+ *  shot) or 'blast' (an explosion, a flash and sparks), at `size`, its flash `flashK` times and its chips `chip.scale`
+ *  times their own size, living `chip.life` times as long; `scuff`, a melee blow's ring of dust kicked out round the
+ *  target's feet (`n` puffs on a ring `r` px out, flying out at `speed` px/s, at `scale`, for `life` s); `muzzle`: a ranged one's big round flash where it
  *  fires (at the gun's mouth: MUZZLE_FLASH's spot when it has one, else `fwd`/`up`), at that scale; `weight`: the impact
  *  sound's (audio.js `hit`: 0 today's tick, 3 the shell's thud). */
 export const HIT_LOOK = {
   light: { weight: 0 },
   medium: { flash: 0.7, light: 0xfff4d8, lightScale: 0.3, weight: 1 },
-  heavy: { hit: 'blow', size: 0.9, light: 0xfff0d0, muzzle: 0.7, weight: 2 },
-  siege: { hit: 'blast', size: 1.0, light: 0xff9a3a, muzzle: 0.9, weight: 3 },
+  heavy: { hit: 'blow', size: 0.9, flashK: 1.7, chip: { scale: 1.5, life: 1.3 }, scuff: { n: 6, r: 10, speed: 45, scale: 0.8, life: 0.4 }, light: 0xfff0d0, muzzle: 0.7, weight: 2 },
+  siege: { hit: 'blast', size: 1.0, flashK: 1, chip: { scale: 1, life: 1 }, light: 0xff9a3a, muzzle: 0.9, weight: 3 },
 };
 /** Where a gun's round flash goes without a MUZZLE_FLASH spot of its own (the Cannon's barrel, the Rover's launcher). */
 export const MUZZLE_AT = { fwd: 14, up: 10 };

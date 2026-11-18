@@ -2,36 +2,43 @@
 // The headless driver: real Claude plays its seat in the real game page, watch mode (Claude's plan seat vs the
 // built-in Hard), no person needed. It starts the challenge server (server.mjs) on the local build, opens the page in
 // headless Chromium (Playwright), and at each start, check-in, event and end sends the moment to
-// `claude -p --resume <session> --output-format json` with only the challenge's MCP server attached and only its three
+// `claude -p --resume <session> --output-format json` with only the challenge's MCP server attached and only its four
 // tools allowed. Claude answers through the tools; the page applies them while the game keeps running. A fresh session
-// for each game: what carries over to a rematch is Claude's own notes (at most NOTES_MAX characters), written at the
-// end of each game and given in the next game's first message (notes.md in the log).
+// for each game: what carries over to a rematch is Claude's own notes (at most NOTES_MAX characters), saved with the
+// save_notes tool at the end of each game, exactly as in /ebbfall: the server keeps them per player
+// (lib/notes.mjs: ~/.ebbfall-challenge/notes/<player>.md) and the next game's ready carries them into its first message
+// (a copy in notes.md in the log).
 //
 //   node claude/challenge/drive.mjs [--games 5] [--name s1] [--ceiling 150000] [--speed 1] [--vs CODE]
-//                                   [--cap M] [--model M] [--seeds 11,22,..] [--mock] [--headed] [--check]
+//                                   [--cap M] [--model M] [--seeds 11,22,..] [--player NAME] [--fresh]
+//                                   [--mock] [--stub] [--headed] [--check]
+//
+// --player: whose notes (default hard, the mod's watch default, so both paths share them; --stub: stub).
+// --fresh: the first game starts without the saved notes (its own notes then replace them).
 //
 // --check runs only the tool-limits check (one tiny call, nothing saved) and prints what Claude could use.
 // Logs: target/challenge/logs/<name>-<time>/ (driver.jsonl: every digest, Claude call, tool call, line, result and
 // the tokens; transcript.md: the same, readable; series.json: the results and tokens per game).
 //
 // Never a permission bypass: the limits are the flags in CLAUDE_FLAGS, and the check below refuses to play when Claude
-// could reach any tool but the three.
+// could reach any tool but the four.
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, appendFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
-import { SYSTEM, NOTES_MAX, preGame, moment, postGame } from './lib/prompt.mjs';
+import { SYSTEM, preGame, moment, postGame } from './lib/prompt.mjs';
+import { NOTES_MAX, playerError } from './lib/notes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 /** Kingdom mirror on Dust Quarter (the Standard map kind, 96x96), the plan seat vs Hard (src/client/challenge.js). */
 const KINGDOM_MIRROR_96 = '1.4.0.1o.h00h12';
-export const TOOLS = ['mcp__ebbfall__set_plan', 'mcp__ebbfall__say', 'mcp__ebbfall__read_state'];
+export const TOOLS = ['mcp__ebbfall__set_plan', 'mcp__ebbfall__say', 'mcp__ebbfall__read_state', 'mcp__ebbfall__save_notes'];
 
 function args(argv) {
-  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 0, model: '', seeds: [], mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
+  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 0, model: '', seeds: [], mock: false, stub: false, headed: false, check: false, callTimeout: 150, player: '', fresh: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => argv[++i];
     if (a === '--games') o.games = Number(v());
@@ -46,8 +53,12 @@ function args(argv) {
     else if (a === '--headed') o.headed = true;
     else if (a === '--stub') o.stub = true;
     else if (a === '--check') o.check = true;
+    else if (a === '--player') o.player = v();
+    else if (a === '--fresh') o.fresh = true;
     else throw new Error(`unknown argument ${a}`);
   }
+  o.player ||= o.stub ? 'stub' : 'hard';
+  if (playerError(o.player)) throw new Error(`--player: ${playerError(o.player)}`);
   return o;
 }
 
@@ -63,7 +74,7 @@ writeFileSync(MCP_CONFIG, JSON.stringify({
   mcpServers: { ebbfall: { type: 'stdio', command: process.execPath, args: [join(HERE, 'mcp.mjs')], env: { EBBFALL_CHALLENGE_STATE: STATE } } },
 }, null, 2));
 
-/** The limits, verbatim: only our MCP server, no built-in tool, only our three tools, anything else denied unasked. */
+/** The limits, verbatim: only our MCP server, no built-in tool, only our four tools, anything else denied unasked. */
 export const CLAUDE_FLAGS = [
   '--mcp-config', MCP_CONFIG,
   '--strict-mcp-config',
@@ -94,7 +105,7 @@ function runClaude(argv, timeoutS) {
 }
 
 /** The check: one call with the same limits, stream-json so its first message lists every tool and MCP server Claude
- *  has. Anything but our three tools, or our server not connected: refuse. */
+ *  has. Anything but our four tools, or our server not connected: refuse. */
 async function checkLimits() {
   const argv = ['-p', 'Reply with the single word OK.', '--output-format', 'stream-json', '--verbose', '--no-session-persistence', '--system-prompt', 'You are a test.', ...CLAUDE_FLAGS, ...(opt.model ? ['--model', opt.model] : [])];
   const r = await runClaude(argv, 90);
@@ -146,10 +157,16 @@ async function stubReply(text) {
   const tool = (b) => api('tool', b);
   let did;
   if (/about to start/.test(text) && !/notes from the earlier/.test(text)) did = await tool({ tool: 'set_plan', plan: '1.w14.f5m.s10', say: 'Stub: a greedy start.' });
-  else if (/is over/.test(text)) did = await tool({ tool: 'say', text: 'Stub: good game.' });
+  else if (/is over/.test(text)) {
+    did = await tool({ tool: 'say', text: 'Stub: good game.' });
+    // Notes the way Claude writes them: one over the cap first (refused, nothing saved), then a short one.
+    const long = await tool({ tool: 'save_notes', text: 'x'.repeat(NOTES_MAX + 1) });
+    if (long.ok) throw new Error('stub: save_notes took notes over the cap');
+    did = await tool({ tool: 'save_notes', text: `Stub notes ${++stubNotes}: next try 1.w12.parcher (more Archers); the opponent attacked.` });
+  }
   else if (/notes from the earlier/.test(text)) did = await tool({ tool: 'set_plan', plan: '1.w12.parcher', say: 'Stub: my notes say Archers.' });
   else if (++stubN % 2 === 1) did = await tool({ tool: 'set_plan', delta: stubN === 3 ? '1.m14' : '', intents: stubN === 3 ? ['mass'] : ['attack'], say: `Stub moment ${stubN}.` });
-  const result = /is over/.test(text) ? `Stub notes after a game: the start plan 1.w14.f5m.s10 ${/notes from the earlier/.test(text) ? '(seen my earlier notes)' : `(notes ${++stubNotes})`}; the opponent attacked; next try more Archers.` : `stub: ${JSON.stringify(did ?? 'nothing')}`;
+  const result = `stub: ${JSON.stringify(did ?? 'nothing')}`;
   return { code: 0, err: '', out: JSON.stringify({ result, usage: {}, total_cost_usd: 0, num_turns: 1 }) };
 }
 
@@ -164,7 +181,7 @@ const control = (b) => api('control', b).catch(() => null);
 
 function startServer() {
   return new Promise((ok, no) => {
-    const argv = [join(HERE, 'server.mjs'), '--mode', 'watch', '--log', LOG, ...(opt.vs ? ['--vs', opt.vs] : []), ...(opt.mock ? ['--mock'] : [])];
+    const argv = [join(HERE, 'server.mjs'), '--mode', 'watch', '--player', opt.player, '--log', LOG, ...(opt.vs ? ['--vs', opt.vs] : []), ...(opt.mock ? ['--mock'] : [])];
     server = spawn(process.execPath, argv, { stdio: ['pipe', 'pipe', 'inherit'], env: { ...process.env, EBBFALL_CHALLENGE_STATE: STATE } });
     const rl = createInterface({ input: server.stdout });
     rl.on('line', (l) => { try { const m = JSON.parse(l); if (m.ready) ok(m); } catch { /* not ours */ } });
@@ -213,6 +230,7 @@ async function pressStart() {
 // ---------------------------------------------------------------- one game
 
 function trace(e, game) {
+  if (e.kind === 'notes' && game) { game.notes = e.data.text; log('notes', { game: game.n, player: e.data.player, chars: e.data.chars, path: e.data.path }); }
   if (e.kind === 'tool') { log('tool', { game: game?.n, ...e.data }); md(`\n- tool \`${e.data.tool}\` ${e.data.kind}: \`${e.data.msg.code}\`${e.data.msg.say ? ` say "${e.data.msg.say}"` : ''}`); }
   if (e.kind === 'line') { log('line', { game: game?.n, ...e.data }); md(`\n> **Claude says** (${e.data.at ?? 'menu'}): ${e.data.text}`); game?.lines.push({ at: e.data.at, text: e.data.text }); }
   if (e.kind === 'game' && e.data.type === 'ebbfall:applied') { log('applied', { game: game?.n, ...e.data }); md(`\n- applied: ok=${e.data.ok} plan=\`${e.data.plan}\`${e.data.adjusted?.length ? ` adjusted ${JSON.stringify(e.data.adjusted)}` : ''}${e.data.error ? ` error ${e.data.error}` : ''}`); game?.deltas.push({ tick: e.data.tick, ok: e.data.ok, plan: e.data.plan, error: e.data.error, adjusted: e.data.adjusted }); }
@@ -230,7 +248,9 @@ async function playGame(n, record) {
   const ready = await waitFor('ready', 120, e => trace(e, game), rematch);
   if (!ready) throw new Error('the game did not answer hello');
   log('ready', ready);
-  await ask(preGame({ game: n, series: opt.games, mode: 'watch', peoples: 'Kingdom vs Kingdom', map: 'Dust Quarter (Standard, 96x96)', record, notes: series.notes }), game);
+  // The notes come from the server, as in /ebbfall (--fresh: not for the first game).
+  const notes = n === 1 && opt.fresh ? '' : String(ready.challenge?.notes ?? '');
+  await ask(preGame({ game: n, series: opt.games, mode: 'watch', peoples: 'Kingdom vs Kingdom', map: 'Dust Quarter (Standard, 96x96)', record, notes }), game);
   game.calls++;
   for (const e of await events(1)) trace(e, game);
   await pressStart();
@@ -293,15 +313,16 @@ async function playGame(n, record) {
   say(`game ${n}: ${end.result} at ${game.at}`);
   if (!series.stopped) {
     game.calls++;
-    const j = await ask(postGame({ result: end.result, summary: end.summary, game: n, series: opt.games, at: game.at }), game);
-    const notes = String(j?.result ?? '').trim();
-    if (notes) {
-      game.notes = notes.length > NOTES_MAX ? notes.slice(0, NOTES_MAX) + '...' : notes;
-      series.notes = game.notes;
-      log('notes', { game: n, chars: notes.length, notes: game.notes });
-      appendFileSync(join(LOG, 'notes.md'), `## After game ${n} (${end.result}, ${notes.length} characters)\n\n${game.notes}\n\n`);
-    }
+    game.notes = '';
+    await ask(postGame({ result: end.result, summary: end.summary, game: n, series: opt.games, at: game.at }), game);
     for (const e of await events(1)) trace(e, game);
+    if (game.notes) {
+      series.notes = game.notes;
+      appendFileSync(join(LOG, 'notes.md'), `## After game ${n} (${end.result}, ${game.notes.length} characters, player ${opt.player})\n\n${game.notes}\n\n`);
+    } else {
+      log('notes', { game: n, saved: false });
+      md('\n*No notes saved after this game: the next one starts with the notes saved before.*');
+    }
     overCeiling();
   }
   game.wall_s = Math.round((Date.now() - t0) / 1000);
@@ -336,7 +357,7 @@ async function main() {
   page = await (await browser.newContext({ viewport: { width: 1400, height: 820 } })).newPage();
   page.on('pageerror', (e) => log('pageerror', { message: String(e.message || e) }));
   await page.goto(ready.url);
-  md(`# Series ${opt.name}\n\na fresh session per game (notes carried), ${opt.games} games, ceiling ${opt.ceiling} new tokens, speed ${opt.speed}x, vs ${opt.vs}${opt.mock ? ' (MOCK GAME)' : ''}\n\nClaude flags: \`${CLAUDE_FLAGS.join(' ')}\``);
+  md(`# Series ${opt.name}\n\na fresh session per game (notes carried, player ${opt.player}${opt.fresh ? ', fresh' : ''}), ${opt.games} games, ceiling ${opt.ceiling} new tokens, speed ${opt.speed}x, vs ${opt.vs}${opt.mock ? ' (MOCK GAME)' : ''}\n\nClaude flags: \`${CLAUDE_FLAGS.join(' ')}\``);
   const results = [];
   for (let n = 1; n <= opt.games && !series.stopped; n++) {
     const g = await playGame(n, results.map((r, i) => `game ${i + 1} ${r}`).join(', '));

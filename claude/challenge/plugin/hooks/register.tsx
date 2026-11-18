@@ -4,9 +4,16 @@ import type { EngineInterface, Register } from 'claude-code'
 // (../../server.mjs: the local build of the game and a page that embeds it, 127.0.0.1 only), opens the page, and
 // feeds every game moment (the start, a check-in every 2 game-minutes, a key event, the end) into this session with
 // $.prompt.submit. Claude answers with the tools of the challenge's MCP server (../.mcp.json -> ../../mcp.mjs):
-// set_plan, say, read_state. The game never waits for Claude: while a turn runs, only the newest moment waits here.
+// set_plan, say, read_state, save_notes. The game never waits for Claude: while a turn runs, only the newest moment
+// waits here.
+//
+// Cheap rematches: after each game Claude saves its notes on the player with save_notes (the server keeps them in
+// ~/.ebbfall-challenge/notes/<player>.md), and each game's menu moment carries them. So the person can /clear (or start a
+// new session) between games and keep the rival's memory without paying for the whole match again. After a /clear the
+// next moment also carries how to play, since the context /ebbfall gave went with the conversation.
 
-type Server = { url: string; port: number; token: string; mode: string }
+type Server = { url: string; port: number; token: string; mode: string; player: string; notes_path: string; notes_chars: number }
+type Notes = { player?: string; path?: string; chars?: number; max?: number; notes?: string }
 type GameMsg = { type: string; [k: string]: unknown }
 
 let server: Promise<Server> | null = null
@@ -15,11 +22,22 @@ let mode = 'watch'
 let pending: string | null = null
 let delivering: Promise<void> | null = null
 let game = 0
+/** How to play (lib/prompt.mjs's system text), and whether this conversation has it: a /clear drops it. */
+let howToPlay = ''
+let briefed = true
+
+const NOTES_MAX = 1200 // (lib/notes.mjs)
 
 const CONTEXT_HEAD =
   'The Ebbfall challenge is open (the ebbfall plugin): a game page in the browser, where you play a seat. Messages ' +
   'starting "(Ebbfall)" are game moments from it, not the person typing: answer each with at most one ebbfall ' +
   'set_plan call (with its say line) or one say call, or nothing, then a few words here. What follows is how to play.\n\n'
+
+function notesLine(n: Notes | undefined): string {
+  const who = n?.player ? `"${n.player}"` : 'this player'
+  if (!n?.notes) return `You have no notes on ${who} yet: this is your first game against them.`
+  return `Your notes on ${who} from the earlier games (written by you after the last one):\n${n.notes}`
+}
 
 async function node($: EngineInterface): Promise<string> {
   for (const dir of [...((await $.env.get('PATH')) ?? '').split(':').filter(Boolean), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin']) {
@@ -30,11 +48,11 @@ async function node($: EngineInterface): Promise<string> {
 
 const root = ($: EngineInterface) => `${$.plugin.root}/..`
 
-function startServer($: EngineInterface, m: string): Promise<Server> {
+function startServer($: EngineInterface, m: string, player: string): Promise<Server> {
   const self: Promise<Server> = new Promise<Server>((resolve, reject) => {
     void (async () => {
       try {
-        const argv = [await node($), `${root($)}/server.mjs`, '--mode', m]
+        const argv = [await node($), `${root($)}/server.mjs`, '--mode', m, ...(player ? ['--player', player] : [])]
         let buffer = ''
         let err = ''
         for await (const piece of $.process.spawn({ argv })) {
@@ -73,7 +91,8 @@ function onGame($: EngineInterface, m: GameMsg) {
   if (m.type === 'ebbfall:ready') {
     game++
     text =
-      `(Ebbfall) Game ${game} is on the menu (${mode === 'watch' ? 'watch: your seat vs the built-in Hard AI' : 'play: the person vs your seat'}). ` +
+      `(Ebbfall) Game ${game} is on the menu (${mode === 'watch' ? 'watch: your seat vs the built-in Hard AI' : 'play: the person vs your seat'}).\n` +
+      `${notesLine(m.challenge as Notes | undefined)}\n` +
       'Set your start plan now with set_plan (plan: a code) and a say line; the person presses START GAME.'
   } else if (m.type === 'ebbfall:start') {
     text = `(Ebbfall) The game started: ${JSON.stringify({ peoples: m.peoples, map: m.map, plan: m.plan, adjusted: m.adjusted, seat: m.seat, me: m.me })}. Nothing to do unless the plan was adjusted badly.`
@@ -86,7 +105,10 @@ function onGame($: EngineInterface, m: GameMsg) {
     const s = JSON.stringify(m.summary ?? null)
     text =
       `(Ebbfall) The game is over: your seat ${m.result}. Summary: ${s.length > 3500 ? s.slice(0, 3500) + '...' : s}\n` +
-      'Say one line to the player with say (rival and coach), then note in two short sentences what you would change next game.'
+      'Say one line to the player with say (rival and coach). Then save your notes for the next game with save_notes: ' +
+      `at most ${NOTES_MAX.toLocaleString('en-US')} characters (longer ones are refused: rewrite them shorter), plain text. The next game may start in a ` +
+      'fresh conversation with only these notes. Put what to try next (with the plan code) FIRST, then merge what still ' +
+      'matters from your earlier notes: what worked and what failed, what the opponent did and when. Then a few words here.'
   }
   if (!text) return
   // The end and the menu always reach Claude; a newer check-in replaces one still waiting.
@@ -99,11 +121,14 @@ function deliver($: EngineInterface): Promise<void> {
     try {
       while (pending) {
         const text = pending
+        // After a /clear the conversation no longer knows the game: the first moment brings how to play again.
+        const fresh = !briefed && howToPlay
         try {
-          await $.prompt.submit({ text })
+          await $.prompt.submit({ text: fresh ? `${CONTEXT_HEAD}${howToPlay}\n\n---\n\n${text}` : text })
         } catch {
           return // (busy: turn.complete tries again)
         }
+        if (fresh) briefed = true
         if (pending === text) pending = null
       }
     } finally {
@@ -144,6 +169,12 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // A /clear ends the conversation but not the process: the page and the server go on, the context /ebbfall gave does not.
+  on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear') briefed = false
+    return next(e)
+  })
+
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     if (pending) void deliver($)
@@ -151,7 +182,8 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'ebbfall' }, async ($, e) => {
-    const arg = e.args.trim().toLowerCase() || 'watch'
+    const [first, name, ...rest] = e.args.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    const arg = first || 'watch'
     if (arg === 'stop') {
       const s = server
       server = null
@@ -164,18 +196,29 @@ export const register: Register = on => {
       }).catch(() => null)
       return { text: 'The Ebbfall challenge is closed.' }
     }
-    if (arg !== 'watch' && arg !== 'play') return { text: 'Usage: /ebbfall watch | /ebbfall play | /ebbfall stop' }
+    const usage =
+      'Usage: /ebbfall watch [name] | /ebbfall play [name] | /ebbfall stop. The name (letters, digits, - or _) keys ' +
+      "Claude's notes on its rival: default hard in watch, your login name in play."
+    if (arg !== 'watch' && arg !== 'play') return { text: usage }
+    if (rest.length || (name && !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(name))) return { text: usage }
     if (server) return { text: `An Ebbfall challenge is already open (${mode}): ${(await server).url} (/ebbfall stop closes it).` }
     mode = arg
     game = 0
     try {
-      server = startServer($, arg)
+      server = startServer($, arg, name ?? '')
       const open = await server
       const opened = await openInBrowser($, open.url)
-      const sys = await systemText($)
+      howToPlay = await systemText($)
+      briefed = true
+      const notes = open.notes_chars
+        ? `Claude's notes on "${open.player}" (${open.notes_chars} characters) are in ${open.notes_path}`
+        : `Claude will keep its notes on "${open.player}" in ${open.notes_path}`
       return {
-        text: `Ebbfall ${arg === 'watch' ? 'watch: Claude vs the built-in Hard' : 'play: you vs Claude'}, ${opened ? 'opened in your browser' : 'open it in your browser'}: ${open.url}`,
-        context: [CONTEXT_HEAD + sys],
+        text:
+          `Ebbfall ${arg === 'watch' ? 'watch: Claude vs the built-in Hard' : 'play: you vs Claude'}, ${opened ? 'opened in your browser' : 'open it in your browser'}: ${open.url}\n` +
+          `${notes}; delete that file to reset them. To keep each game cheap, /clear between games (after the end, before ` +
+          'you reload the page): the notes carry the memory.',
+        context: [CONTEXT_HEAD + howToPlay],
       }
     } catch (error) {
       server = null

@@ -4,7 +4,7 @@
 // Node's standard library only, 127.0.0.1 only, a random token on every API call.
 //
 //   node claude/challenge/server.mjs [--mode watch|play] [--dist DIR] [--port N] [--vs CODE] [--plan CODE]
-//                                    [--log DIR] [--mock]
+//                                    [--player NAME] [--log DIR] [--mock]
 //
 // The page relays every message the game posts (claude/PROTOCOL.md) to POST /claude/api/game; the server keeps the
 // latest digest and the game's state, logs everything, and prints each one as a JSON line on stdout (the mod reads
@@ -12,18 +12,21 @@
 // its event stream, and answers with the game's `ebbfall:applied`. Drivers (drive.mjs, the mod) read
 // GET /claude/api/events (a long poll) and post to /claude/api/control (a rematch, Claude's status).
 // The address is written to the state file (lib/common.mjs statePath) for the MCP server to find.
+// Claude's notes on the player (--player, lib/notes.mjs: ~/.ebbfall-challenge/notes/<player>.md) are saved by the
+// save_notes tool and ride on each game's `ready` event (`challenge.notes`), so the next game's first message carries them.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
 import { join, extname, normalize, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { statePath, codeError, deltaCode, lineCheck } from './lib/common.mjs';
+import { NOTES_MAX, defaultPlayer, playerError, notesPath, notesCheck, readNotes, writeNotes } from './lib/notes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 
 function args(argv) {
-  const o = { mode: 'watch', dist: join(REPO, 'dist'), port: 0, vs: '', plan: '1', log: '', mock: false };
+  const o = { mode: 'watch', dist: join(REPO, 'dist'), port: 0, vs: '', plan: '1', log: '', mock: false, player: '' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => argv[++i];
     if (a === '--mode') o.mode = v();
@@ -33,11 +36,14 @@ function args(argv) {
     else if (a === '--plan') o.plan = v();
     else if (a === '--log') o.log = resolve(v());
     else if (a === '--mock') o.mock = true;
+    else if (a === '--player') o.player = v();
     else throw new Error(`unknown argument ${a}`);
   }
   if (!['watch', 'play'].includes(o.mode)) throw new Error('--mode is watch or play');
   if (o.vs && !/^[0-9a-z.]{1,60}$/.test(o.vs)) throw new Error('--vs is a challenge code (letters, digits, dots)');
   if (codeError(o.plan)) throw new Error(`--plan: ${codeError(o.plan)}`);
+  o.player ||= defaultPlayer(o.mode);
+  if (playerError(o.player)) throw new Error(`--player: ${playerError(o.player)}`);
   return o;
 }
 
@@ -94,7 +100,12 @@ function toPage(m) {
 function fromGame(m) {
   if (!m || typeof m.type !== 'string' || !m.type.startsWith('ebbfall:')) return;
   const type = m.type.slice('ebbfall:'.length);
-  if (type === 'ready') S.ready = m;
+  if (type === 'ready') {
+    // The game's hello, with the player's notes for the moment that sets the start plan (read now: a file deleted
+    // between games is a reset).
+    m = { ...m, challenge: notesView(true) };
+    S.ready = m;
+  }
   else if (type === 'start') {
     S.start = m; S.digest = null; S.end = null; S.status = 'playing'; S.game++;
     if (typeof m.plan === 'string') S.plan = m.plan;
@@ -132,9 +143,27 @@ function showLine(text, via) {
   record('line', l);
 }
 
+/** The player's notes: who, where, how long, and the text when asked. */
+function notesView(withText) {
+  const text = readNotes(opt.player);
+  return { player: opt.player, path: notesPath(opt.player), chars: text.length, max: NOTES_MAX, ...(withText ? { notes: text } : {}) };
+}
+
+function saveNotes(text) {
+  const n = notesCheck(text);
+  if (n.error) {
+    record('control', { notes: 'refused', player: opt.player, chars: typeof text === 'string' ? text.length : null });
+    return { ok: false, error: n.error };
+  }
+  const path = writeNotes(opt.player, n.text);
+  record('notes', { player: opt.player, chars: n.text.length, path, text: n.text });
+  return { ok: true, player: opt.player, chars: n.text.length, path, note: 'Saved. The next game against this player starts with these notes, also after /clear or in a new session.' };
+}
+
 async function tool(body) {
   const name = body?.tool;
   if (name === 'read_state') return { ok: true, state: stateView(body.summary === true) };
+  if (name === 'save_notes') return saveNotes(body.text);
   if (name === 'say') {
     const l = lineCheck(body.text);
     if (l.error) return { ok: false, error: l.error };
@@ -191,6 +220,8 @@ function stateView(withSummary) {
     digest: S.digest?.digest ?? null,
     end: S.end ? { result: S.end.result, ...(withSummary ? { summary: S.end.summary } : {}) } : null,
     page_open: S.pages.size > 0,
+    // (the text only between games: during one it is already in the conversation, and check-ins stay small)
+    notes: notesView(S.status !== 'playing'),
   };
 }
 
@@ -244,7 +275,7 @@ const server = createServer(async (req, res) => {
 
 async function api(req, res, name, url) {
   if (name === 'config' && req.method === 'GET') {
-    return json(res, 200, { mode: opt.mode, vs: opt.vs, plan: S.plan, mock: opt.mock, lines: S.lines.filter(l => l.game === S.game), status: S.status });
+    return json(res, 200, { mode: opt.mode, vs: opt.vs, plan: S.plan, mock: opt.mock, player: opt.player, lines: S.lines.filter(l => l.game === S.game), status: S.status });
   }
   if (name === 'stream' && req.method === 'GET') {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
@@ -318,6 +349,7 @@ server.listen(opt.port, '127.0.0.1', () => {
   const url = `http://127.0.0.1:${port}/claude/#t=${token}`;
   mkdirSync(dirname(state), { recursive: true, mode: 0o700 });
   writeFileSync(state, JSON.stringify({ port, token, pid: process.pid, mode: opt.mode, url }), { mode: 0o600 });
-  process.stdout.write(JSON.stringify({ ready: true, port, token, url, mode: opt.mode, state }) + '\n');
+  const notes = notesView(false);
+  process.stdout.write(JSON.stringify({ ready: true, port, token, url, mode: opt.mode, state, player: opt.player, notes_path: notes.path, notes_chars: notes.chars }) + '\n');
 });
 

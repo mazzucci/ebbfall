@@ -1,6 +1,7 @@
 // What Claude is told: the voice, the plan vocabulary (a copy for Claude, kept short: the full one is
 // claude/PLAN_VOCAB.md), and how each digest, start and end is put to it. Shared by the headless driver (drive.mjs)
 // and the mod (plugin/hooks/register.tsx reads the same text through `node prompt.mjs`, or its own copy).
+import { NOTES_MAX } from './notes.mjs';
 
 export const VOCAB = `## Ebbfall in brief
 A classic base-building RTS. One resource, gold, mined by workers (the Kingdom's Villagers). Your seat is the game's
@@ -37,18 +38,18 @@ built-in Hard AI, or a person. You are both a rival and a coach: you want to win
 are generous about what the other side did well and what beat you. Lines are short, warm, specific to the game in front
 of you, never generic, never more than one sentence.
 
-You act only through three tools: set_plan (the start plan before a game; deltas and intents during one, with an
-optional line), say (one line to the player) and read_state. Each message you get is a game moment (a start, a check-in
+You act only through four tools: set_plan (the start plan before a game; deltas and intents during one, with an
+optional line), say (one line to the player), read_state, and save_notes (after a game, your notes for the next one). Each message you get is a game moment (a start, a check-in
 every 2 game-minutes, an event, an end) with a digest of what your seat knows. Answer each with at most one set_plan
 call (and its \`say\`), or one say, or nothing when nothing should change; then end your turn with one short sentence
 at most (nobody reads it during the game). Change the
-plan only for a reason you can see in the digest. Over a series of games, carry over what you learned: what the
-opponent did, what worked, what failed.
+plan only for a reason you can see in the digest. Over a series of games, carry over what you learned (what the
+opponent did, what worked, what failed) in your notes: each game may start in a fresh conversation with only them.
 
 ${VOCAB}`;
 
-/** The most a game's notes keep (characters): Claude's own carry-over between games, each game a fresh session. */
-export const NOTES_MAX = 1500;
+/** The most a player's notes hold (characters): Claude's own carry-over between games (lib/notes.mjs). */
+export { NOTES_MAX };
 
 /** A game is about to start: Claude sets the start plan. Each game is a fresh session: `notes` (Claude's own, from the
  *  games before) and `record` (the results so far) are all it carries over. */
@@ -70,15 +71,21 @@ export function moment(kind, msg) {
   return `${head} Digest:\n${JSON.stringify(d)}\nSteer with set_plan (a delta and/or intents) if something should change, else do nothing.`;
 }
 
-/** The game is over: a line for the player, then the notes for the next game as the final answer. */
+/** The game is over: a line for the player, then the notes for the next game through save_notes. */
 export function postGame({ result, summary, game, series, at }) {
   const short = summarize(summary);
   return [
     `Game ${game}${series ? ` of ${series}` : ''} is over at ${at || '?'}: you ${result === 'won' ? 'WON' : result === 'lost' ? 'LOST' : 'ran out the clock (timeout)'}.`,
     short ? `Summary: ${short}` : '',
     'First say one line to the player with say (rival and coach).',
-    `Then your final answer is your notes for the next game, which starts in a fresh conversation with only these notes: aim for 1,200 characters; anything past ${NOTES_MAX} is cut off. Plain text, no tool calls. Put what to try next (with the plan code) FIRST, then merge what still matters from your earlier notes: what worked and what failed, what the opponent did and when.`,
+    notesAsk(),
+    'Then end your turn with one short sentence at most.',
   ].filter(Boolean).join('\n');
+}
+
+/** How Claude is asked for its notes at the end of a game (the driver and the mod say the same). */
+export function notesAsk() {
+  return `Then save your notes for the next game with save_notes: at most ${NOTES_MAX.toLocaleString('en-US')} characters (longer ones are refused: rewrite them shorter), plain text. The next game may start in a fresh conversation with only these notes. Put what to try next (with the plan code) FIRST, then merge what still matters from your earlier notes: what worked and what failed, what the opponent did and when.`;
 }
 
 /** The game summary, cut to what helps: its JSON with long arrays trimmed. */

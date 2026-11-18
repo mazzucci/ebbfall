@@ -96,8 +96,8 @@ Unit words are the names in lower case: `guard archer cannon ballista balloon ri
 bruiser buggy drone android rover` (Expedition). A unit of the other people is dropped.
 
 **The dare (`n`):** a building whose usual unit is barred trains its next one (Barracks without Archers: Guards). With
-Archers barred, the Kingdom's only answer to flyers is the Ballista; with Drones barred, the Expedition's is the
-Android. A barred raider means no raids with it; its building still goes up for its other unit. The summary's
+Archers barred, the Kingdom's only answer to flyers is the Ballista; with Drones barred, the Expedition's are the
+Buggy and the Android. A barred raider means no raids with it; its building still goes up for its other unit. The summary's
 `plan.wont_build` shows how many it trained (0: it kept its word).
 
 ## Deltas and intents (an embedded game only)

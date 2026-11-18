@@ -472,7 +472,7 @@ src/client/           everything that touches the browser
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
                       swirl brightening each time a unit comes through, then settling, `portalOpen`),
                       a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`) and flash (`MUZZLE_FLASH`), a melee
-                      blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), a slowed unit's cold look (`SLOW`, `slowTint`), each shot's impact (`IMPACT`, `impactOf`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
+                      blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), each shot's impact (`IMPACT`, `impactOf`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
                       sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)

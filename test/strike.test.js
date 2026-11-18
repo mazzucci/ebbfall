@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, DEATH_DUST, HIT_DUST, AIR_HIT_LIFT, HIT_LIFT, hitLift, SLOW, slowK, slowTint, flashLayer } from '../src/client/look.js';
+import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, DEATH_DUST, HIT_DUST, AIR_HIT_LIFT, HIT_LIFT, hitLift } from '../src/client/look.js';
 import { fx, burst, partSize, updateFx } from '../src/client/fx.js';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
 import { decodePNG } from '../tools/art/png.js';
@@ -125,31 +125,6 @@ test('a shot on a flyer plays up on its body: on a Balloon\'s basket, on anythin
   assert.equal(hitLift('observer'), 0.3, 'the Balloon: its basket and the envelope\'s dark lower band');
   assert.equal(hitLift('shrike'), 0.6, 'the Drone');
   for (const k of Object.keys(HIT_LIFT)) assert.ok(UNITS[k]?.air, `${k} flies`);
-});
-
-test('the flash layer: a hit\'s white, else while slowed a pale ice, fading over the last 1.5 s; hidden otherwise', () => {
-  assert.deepEqual(flashLayer(0, 0), { visible: false, tint: SLOW.glow, alpha: 0 });
-  assert.deepEqual(flashLayer(0.1, 0), { visible: true, tint: 0xffffff, alpha: 0.6 }, 'hit');
-  assert.deepEqual(flashLayer(0.1, 3), { visible: true, tint: 0xffffff, alpha: 0.6 }, 'hit while slowed: the hit shows');
-  assert.deepEqual(flashLayer(0, 3), { visible: true, tint: 0xc0e0ff, alpha: SLOW.glowAlpha }, 'slowed');
-  assert.deepEqual(flashLayer(0, 0.75), { visible: true, tint: 0xc0e0ff, alpha: SLOW.glowAlpha * 0.5 }, 'wearing off');
-  assert.equal(flashLayer(0, 0.0001).visible, true, 'shown while any slow lasts');
-});
-
-test('slowed: the body tinted an icy steel blue under a pale ice glow, both gone over the last 1.5 s', () => {
-  assert.equal(slowTint(0), 0xffffff, 'not slowed');
-  assert.equal(slowTint(-0.1), 0xffffff);
-  assert.equal(slowTint(undefined), 0xffffff);
-  assert.equal(slowTint(3), SLOW.tint, 'freshly hit');
-  assert.equal(slowTint(1.5), 0x78b4cc, 'still full at 1.5 s left');
-  assert.deepEqual([SLOW.glow, SLOW.glowAlpha], [0xc0e0ff, 0.2], 'the glow: a pale ice, added');
-  assert.deepEqual([slowK(0), slowK(undefined), slowK(3), slowK(1.5), slowK(0.75)], [0, 0, 1, 1, 0.5], 'how much shows');
-  const ch = (c, s) => (c >> s) & 255, half = slowTint(0.75), end = slowTint(0.01);
-  for (const s of [16, 8, 0]) {
-    assert.equal(ch(half, s), Math.round((ch(SLOW.tint, s) + 255) / 2), 'half way back at 0.75 s left');
-    assert.ok(ch(end, s) >= 254, 'nearly white as it wears off');
-  }
-  assert.ok(ch(SLOW.tint, 0) > ch(SLOW.tint, 16), 'cold: bluer than red');
 });
 
 test('a death\'s team debris is thin: a third of the pieces, 1 to 2 px, gone in 0.3 to 0.5 s', () => {

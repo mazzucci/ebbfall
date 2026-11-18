@@ -6,7 +6,7 @@ import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphic
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, flashLayer, slowTint, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT } from '../look.js';
 import { RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
@@ -383,13 +383,9 @@ class UnitObj {
     this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y + (u.id % 997) * 1e-5;
     this.work(u, t);
     if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
-    // (slowed by an arrow, look.js SLOW: its body, not its team paint, an icy steel blue, and a pale ice added over it on
-    // the hit flash's layer while no hit flash shows; both fading as it wears off)
-    const fl = flashLayer(u.flash, u.slowed);
-    this.flash.visible = fl.visible; this.flash.tint = fl.tint; this.flash.alpha = fl.alpha;
-    this.paintFlash.visible = u.flash > 0; this.paintFlash.alpha = 0.6;
+    this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
-    paintAs(this.body, this.paint, this.seat, 0xffffff, 1); this.body.tint = slowTint(u.slowed);
+    paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
     const s = sel.has(u);
     this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
     this.cargo.visible = !!u.carry;
@@ -1065,8 +1061,8 @@ function dashed(x0, y0, x1, y1) {
 }
 
 /** Tests: every unit's and building's layers (art and team mask frame names, the mask's tint, the body's tint, how
- *  opaque, a unit's slow glow: the flash layer's tint and alpha while it shows without a hit flash) and its seat's tint. */
-export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, bodyTint: o.body.tint, glow: o.flash?.visible && !o.paintFlash.visible ? { tint: o.flash.tint, alpha: o.flash.alpha } : null, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
+ *  opaque) and its seat's tint. */
+export const teamLayers = () => [...unitObjs, ...bldgObjs].map(([id, o]) => ({ id, base: o.body.texture.label, mask: o.paint.texture.label, tint: o.paint.tint, bodyTint: o.body.tint, seat: o.seat, maskOver: o.paint.parent === o.body.parent && o.body.parent.getChildIndex(o.paint) > o.body.parent.getChildIndex(o.body), shown: o.body.visible && (o.node || o.body).visible, alpha: o.body.alpha }));
 
 /** Tests: the field's draw order (`ents`, sorted as drawn): each unit and building with its place in the layer (higher:
  *  drawn later, over), and whether a unit shows its silhouette through a building. */

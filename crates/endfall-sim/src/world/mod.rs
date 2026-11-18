@@ -641,9 +641,6 @@ impl World {
         if u.kind.def().mv == Move::Walk && self.ground_at(u.x, u.y) == Ground::Shallow {
             own *= WADE_SPEED; // (a walker wades through the shallows)
         }
-        if u.slowed > 0.0 {
-            own *= SLOW_SPEED; // (harpooned)
-        }
         if u.carry > 0 && u.kind.def().worker {
             own *= LOADED_SPEED; // (a worker carrying gold)
         }
@@ -659,11 +656,6 @@ impl World {
         let u = self.um(uid);
         u.cd -= dt;
         u.flash -= dt;
-        if u.slowed > 0.0 {
-            // (a whole number of seconds counted down by DT leaves a rounding crumb: none of it is a tick)
-            let left = u.slowed - dt;
-            u.slowed = if left > 1e-9 { left } else { 0.0 };
-        }
         if u.stun > 0.0 {
             u.stun = (u.stun - dt).max(0.0);
             return;
@@ -790,9 +782,6 @@ impl World {
             }
             if u.stun > 0.0 {
                 mix(jsmath::to_i32(u.stun * 16.0) + 1); // (swept by the flood: only with the tide)
-            }
-            if u.slowed > 0.0 {
-                mix(jsmath::to_i32(u.slowed * 16.0) + 2); // (harpooned)
             }
             if let Some(p) = u.pace {
                 mix(jsmath::to_i32(p * 16.0));

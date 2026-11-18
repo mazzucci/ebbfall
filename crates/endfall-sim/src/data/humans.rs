@@ -100,8 +100,8 @@ pub(super) const TROOPER: UnitDef = UnitDef {
     abilities: &[AbilityKind::Entrench],
     ..UNIT
 };
-/// The Archer: ranged infantry behind the Guards, slow to draw, ground and air (its numbers the Harpooner's, whose
-/// shot still slows what it hits: `Weapon::slow`).
+/// The Archer: ranged infantry behind the Guards, slow to draw, ground and air (its numbers the Harpooner's; its shot
+/// no longer slows what it hits: no unit has a special effect, Stelian, Nov 18).
 pub(super) const LANCER: UnitDef = UnitDef {
     key: "lancer",
     name: "Archer",
@@ -118,7 +118,6 @@ pub(super) const LANCER: UnitDef = UnitDef {
         cd: 2.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 2.0,
-        slow: 3.0, // (half speed and no abilities for 3 s, past its 2.5 s reload)
         ..W
     }),
     ..UNIT
@@ -154,7 +153,8 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Ballista: a bolt thrower on wheels, the Kingdom's answer to flyers (the Netter's place), whose bolts hurt the
-/// ground less.
+/// ground less. Slow and heavy (Stelian, Nov 18: a giant crossbow's bolt outweighs an arrow): 24 and 56 every 2.4 s, the
+/// old 12 and 28 every 1.2 s at the same rate, and a Weapons level adds 4, the old 2 a 1.2 s shot.
 pub(super) const BASTION: UnitDef = UnitDef {
     key: "bastion",
     name: "Ballista",
@@ -169,11 +169,11 @@ pub(super) const BASTION: UnitDef = UnitDef {
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 7.0,
-        dmg: 12.0,
-        dmg_air: 28.0,
-        cd: 1.2,
+        dmg: 24.0,     // (12 until Nov 18)
+        dmg_air: 56.0, // (28 until Nov 18)
+        cd: 2.4,       // (1.2 until Nov 18)
         proj: Some(ProjKind::Missile),
-        up_dmg: 2.0,
+        up_dmg: 4.0, // (2 until Nov 18)
         ..W
     }),
     ..UNIT

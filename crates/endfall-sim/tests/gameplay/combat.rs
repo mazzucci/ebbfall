@@ -55,16 +55,78 @@ fn flyers_cross_cliffs_in_a_straight_line() {
     );
 }
 
+/// Every weapon in the tables, named: each unit's `weapon` and `light`, each building's `weapon`.
+fn every_weapon() -> Vec<(String, Weapon)> {
+    let units = UNIT_KINDS.into_iter().flat_map(|k| {
+        let d = k.def();
+        [("", d.weapon), (" (light gun)", d.light)]
+            .into_iter()
+            .filter_map(move |(tail, w)| w.map(|w| (format!("{}{tail}", d.name), w)))
+    });
+    let towers = BLDG_KINDS
+        .into_iter()
+        .filter_map(|k| k.def().weapon.map(|w| (k.def().name.to_string(), w)));
+    units.chain(towers).collect()
+}
+
+#[test]
+fn every_weapon_follows_the_air_rule() {
+    // Stelian, Nov 18 (GAMEPLAY.md, "Units and weapons"): melee weapons and artillery hit the ground only; every
+    // direct-fire ranged weapon hits flyers too. Melee: `melee`. Artillery: a siege gun (`siege`) or a shot with
+    // splash (`splash > 0`). Direct-fire ranged: any other weapon. A new unit or tower cannot be an exception unnoticed.
+    let all = every_weapon();
+    assert!(all.len() >= 10, "{} weapons", all.len());
+    let (mut melee, mut artillery, mut direct) = (0, 0, 0);
+    for (name, w) in all {
+        if w.melee {
+            melee += 1;
+            assert_eq!(w.dmg_air, 0.0, "{name}: melee, ground only");
+        } else if w.siege || w.splash > 0.0 {
+            artillery += 1;
+            assert_eq!(w.dmg_air, 0.0, "{name}: artillery, ground only");
+        } else {
+            direct += 1;
+            assert!(w.proj.is_some(), "{name}: a ranged weapon fires something");
+            assert!(w.dmg_air > 0.0, "{name}: direct fire, it hits flyers too");
+        }
+    }
+    assert!(
+        melee > 0 && artillery > 0 && direct > 0,
+        "{melee} melee, {artillery} artillery, {direct} direct-fire"
+    );
+}
+
+#[test]
+fn a_buggy_shoots_down_a_drone() {
+    // The Buggy's light gun is direct fire, so it hits flyers (Nov 18), 10 a shot as on the ground.
+    assert_eq!(
+        (
+            UnitKind::Scythe.def().weapon.unwrap().dmg,
+            UnitKind::Scythe.def().weapon.unwrap().dmg_air
+        ),
+        (10.0, 10.0)
+    );
+    let mut w = arena(7);
+    w.factions = vec![&VAEL, &VAEL];
+    let buggy = w.make_unit(UnitKind::Scythe, PLAYER, 600.0, 900.0);
+    set_hp(&mut w, buggy, 1e6);
+    let drone = w.make_unit(UnitKind::Shrike, ENEMY, 680.0, 900.0);
+    w.hold_unit(drone);
+    assert!(w.can_hit(buggy, drone), "a Buggy can hit a Drone");
+    w.attack_ent(buggy, drone);
+    run(&mut w, 10);
+    assert!(w.unit(drone).is_none(), "the Drone shot down");
+}
+
 #[test]
 fn ground_only_weapons_cannot_touch_flyers() {
-    // The spears and lances (the Guard, the Rider, the Knight), the Buggy's light gun, the Bruiser's heavy gun and the
-    // Rover's rockets: the Archer and the Ballista are the Kingdom's anti-air, the Sellsword, the Android and the Drone
-    // the Expedition's.
+    // The spears and lances (the Guard, the Rider, the Knight), the Bruiser's axe and the Rover's rockets: melee and
+    // artillery (GAMEPLAY.md, "Units and weapons"). The Archer and the Ballista are the Kingdom's anti-air, the Buggy,
+    // the Android and the Drone the Expedition's.
     for kind in [
         UnitKind::Trooper,
         UnitKind::Rider,
         UnitKind::Knight,
-        UnitKind::Scythe,
         UnitKind::Bruiser,
         UnitKind::Monolith,
     ] {
@@ -1267,4 +1329,75 @@ fn a_landing_shot_says_what_it_was_and_a_fallen_unit_what_it_was() {
         airs.iter().all(|a| *a == Some(UnitKind::Shrike)),
         "each on the Drone, named as a flyer: {airs:?}"
     );
+}
+
+/// The hull losses `target` takes over `secs` seconds, each with its tick, while `shooter` attacks it (both held
+/// still: the target on hold with hp it cannot run out of).
+fn blows(w: &mut World, shooter: Id, target: Id, secs: u32) -> Vec<(u32, f64)> {
+    set_hp(w, target, 1e6);
+    w.hold_unit(target);
+    w.attack_ent(shooter, target);
+    let mut out = Vec::new();
+    let mut hp = w.unit(target).unwrap().hp;
+    for t in 0..secs * TPS {
+        w.step();
+        let now = w.unit(target).unwrap().hp;
+        if now < hp {
+            out.push((t, hp - now));
+        }
+        hp = now;
+    }
+    out
+}
+
+#[test]
+fn a_ballista_fires_heavy_bolts_slowly_and_one_downs_a_drone() {
+    // Stelian, Nov 18: the Ballista's bolt is a giant crossbow's, 24 on the ground and 56 on flyers every 2.4 s (12 and
+    // 28 every 1.2 s before: the same rate). A Drone's 40 hp falls to one bolt.
+    let mut w = arena(7);
+    w.factions = vec![&HUMANS, &VAEL];
+    let b = w.make_unit(UnitKind::Bastion, PLAYER, 600.0, 900.0);
+    let foe = w.make_unit(UnitKind::Prism, ENEMY, 750.0, 900.0);
+    let hits = blows(&mut w, b, foe, 12);
+    assert!(hits.len() >= 4, "{hits:?}");
+    assert!(hits.iter().all(|&(_, d)| d == 24.0), "24 a bolt: {hits:?}");
+    for p in hits.windows(2) {
+        assert_eq!(p[1].0 - p[0].0, 72, "a bolt every 2.4 s: {hits:?}");
+    }
+    w.units.clear();
+    let b = w.make_unit(UnitKind::Bastion, PLAYER, 600.0, 900.0);
+    let drone = w.make_unit(UnitKind::Shrike, ENEMY, 750.0, 900.0);
+    w.hold_unit(drone);
+    w.attack_ent(b, drone);
+    let full = w.unit(drone).unwrap().maxhp;
+    for _ in 0..6 * TPS {
+        w.step();
+        match w.unit(drone) {
+            Some(u) => assert_eq!(u.hp, full, "untouched until the bolt lands"),
+            None => break,
+        }
+    }
+    assert!(w.unit(drone).is_none(), "the Drone shot down by one bolt");
+}
+
+#[test]
+fn a_drone_hits_for_four_twice_a_second() {
+    // Stelian, Nov 18: the Drone hits for 4 (6 before: 12 a second for 65 gold, the most damage per gold in the game),
+    // the ground and the air alike, every 0.5 s: 8 a second.
+    let w0 = UnitKind::Shrike.def().weapon.unwrap();
+    assert_eq!((w0.dmg, w0.dmg_air, w0.cd), (4.0, 4.0, 0.5));
+    let mut w = arena(7);
+    w.factions = vec![&VAEL, &HUMANS];
+    let d = w.make_unit(UnitKind::Shrike, PLAYER, 600.0, 900.0);
+    let foe = w.make_unit(UnitKind::Rider, ENEMY, 650.0, 900.0);
+    let hits = blows(&mut w, d, foe, 6);
+    assert!(hits.len() >= 8, "{hits:?}");
+    assert!(hits.iter().all(|&(_, h)| h == 4.0), "4 a shot: {hits:?}");
+    for p in hits.windows(2) {
+        assert_eq!(
+            p[1].0 - p[0].0,
+            16,
+            "every 0.5 s (16 ticks: a cooldown runs out on the tick after): {hits:?}"
+        );
+    }
 }

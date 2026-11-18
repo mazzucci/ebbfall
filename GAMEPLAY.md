@@ -55,6 +55,17 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
   beside it; a new worker waits at its headquarters (or at its rally point, beside a mine) until it is ordered to
   gather, and the AI orders its own workers.
 
+## Units and weapons
+
+- Who hits flyers (Stelian, Nov 18): melee weapons and artillery hit the ground only; every direct-fire ranged weapon
+  hits flyers too. Read from a weapon's data (`Weapon`, a unit's `weapon` and `light`, a tower's `weapon`): melee is
+  `melee`; artillery is a siege gun (`siege`) or a shot with splash (`splash > 0`: the Cannon, the Rover); direct-fire
+  ranged is any other weapon. Melee and artillery have `dmg_air` 0, direct fire has `dmg_air` above 0. A test over the
+  tables keeps it (`every_weapon_follows_the_air_rule`, tests/gameplay/combat.rs), so no new unit or tower is an
+  exception unnoticed.
+- No special effects: a hit takes health and nothing else (no slow, no stun from a weapon; the Archer's slow went on
+  Nov 18). A unit's edge comes from its numbers: health, armor, damage, reload, range, speed, cost.
+
 ## Water, the tide and the Shore map
 
 - Water (the Shore map's model): each tile has a height (`Map::height`, `i8`, from the map's kind and seed; `DRY`

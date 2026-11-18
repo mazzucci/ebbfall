@@ -34,9 +34,6 @@ impl World {
                 "Busy packing up".into()
             });
         }
-        if u.slowed > 0.0 {
-            return Err("Slowed: no abilities until it wears off".into());
-        }
         Ok(())
     }
 
@@ -80,7 +77,7 @@ impl World {
 
     /// A siege gun sets up by itself on reaching its target (an attack, an attack-move or an idle unit's own pick):
     /// its toggle goes on as if cast, the task stays (it fires once settled). Whether it set up: not when it may not
-    /// (harpooned, `can_cast`), and the caller fights on without it.
+    /// (its toggle on cooldown or still swapping, `can_cast`), and the caller fights on without it.
     pub(crate) fn deploy(&mut self, uid: Id) -> bool {
         let Some(k) = self.u(uid).kind.toggle() else {
             return false;

@@ -33,7 +33,7 @@ asks before leaving a game.
 
 **Units:** the Kingdom's Villagers mine gold, build and repair; its Market earns gold by itself, with no workers. The
 Barracks trains Guards (spearmen, ground only; they Brace for more armor once Shield Wall is researched) and Archers
-(ground and air, strongest against flyers, and they slow what they hit). The Stables trains Riders (fast cavalry that
+(ground and air, strongest against flyers). The Stables trains Riders (fast cavalry that
 raids workers) and Knights (heavy cavalry). The Workshop builds Ballistas (the answer to flyers), Cannons (they set up
 where they stop and fire cannonballs far, with splash, but cannot hit anything close) and the Balloon, an unarmed scout that
 floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Cannons and Ballistas.

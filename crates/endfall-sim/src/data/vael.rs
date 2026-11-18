@@ -123,6 +123,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     weapon: Some(Weapon {
         range: 4.0,
         dmg: 10.0,
+        dmg_air: 10.0, // (none until Nov 18: every direct-fire ranged weapon hits flyers, GAMEPLAY.md)
         cd: 0.8,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,
@@ -239,8 +240,8 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     req: Some(BldgKind::Loom),
     weapon: Some(Weapon {
         range: 3.0,
-        dmg: 6.0,
-        dmg_air: 6.0,
+        dmg: 4.0, // (6 until Nov 18, Stelian: 12 a second for 65 was the most damage per gold in the game; now 8)
+        dmg_air: 4.0,
         cd: 0.5,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,

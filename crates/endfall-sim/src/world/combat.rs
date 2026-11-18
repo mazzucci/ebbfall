@@ -481,7 +481,6 @@ impl World {
                     team,
                     splash: splash.0,
                     splash_r: splash.1,
-                    slow: w.slow,
                 });
                 let sounds = self.factions[team as usize].sounds;
                 let weapon = match kind {
@@ -495,7 +494,6 @@ impl World {
                 let melee = self.factions[team as usize].sounds[3];
                 self.fired(shooter, team, x, y, melee);
                 self.damage(target, dmg, Some(shooter));
-                self.harpoon(target, w.slow);
             }
         }
     }
@@ -583,18 +581,6 @@ impl World {
         }
     }
 
-    /// A harpoon's hit (`Weapon::slow`, s): the unit hit, if it still stands, is slowed for that long (not longer:
-    /// a second harpoon renews it, it does not add up).
-    fn harpoon(&mut self, target: Id, slow: f64) {
-        if slow <= 0.0 {
-            return;
-        }
-        if let Some(i) = self.ui(target) {
-            let u = &mut self.units[i];
-            u.slowed = u.slowed.max(slow);
-        }
-    }
-
     pub(crate) fn update_projs(&mut self, dt: f64) {
         let mut i = self.projs.len();
         while i > 0 {
@@ -630,7 +616,6 @@ impl World {
                 let air = self.unit(p.target).map(|u| u.kind).filter(|k| k.def().air); // (before the blow: it may kill)
                 self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
-                self.harpoon(p.target, p.slow); // (the target only: a harpoon has no splash)
                 for s in splash {
                     if self.unit(s).is_some() {
                         self.damage(s, p.dmg * p.splash, Some(p.by));
@@ -941,8 +926,8 @@ impl World {
             if in_band && self.deploy(uid) {
                 return;
             }
-            // In its band but it may not set up (harpooned): with a light gun it fights on its tracks, closing to that
-            // gun's reach; without one it waits where it is.
+            // In its band but it may not set up (its toggle not ready: `can_cast`): with a light gun it fights on its
+            // tracks, closing to that gun's reach; without one it waits where it is.
             let held_off = in_band;
             if held_off && c.range <= 0.0 {
                 return;

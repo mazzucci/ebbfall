@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import worker from '../site/worker.js';
-import { CACHE, SECURITY, CSP_HEADER, cacheControl, headersFile } from '../site/cache.js';
+import { CACHE, SECURITY, CSP_HEADER, CSP_REPORT, cacheControl, headersFile } from '../site/cache.js';
 
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', wasm: 'application/wasm', png: 'image/png', webmanifest: 'application/manifest+json', json: 'application/json', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
 /** A fake ASSETS binding over `files` (path -> body): Cloudflare's default headers, 404 for anything else. */
@@ -273,6 +273,20 @@ test('security headers: nosniff, the referrer policy, the device powers and the 
   for (const [k, v] of Object.entries(SECURITY)) assert.ok(all.includes(`\n  ${k}: ${v}\n`), k);
   assert.equal(text.match(/Content-Security-Policy/g).length, 1, 'the CSP once, for every path');
   assert.ok(!/X-Frame-Options/.test(text), 'framing: the CSP\'s frame-ancestors only');
+});
+
+test('a CSP report: logged (2 KB at most) and answered 204, never stored or served; anything but a POST is not found', async () => {
+  const logged = [], log = console.log;
+  console.log = (...a) => logged.push(a.join(' '));
+  try {
+    const body = JSON.stringify({ 'csp-report': { 'violated-directive': 'script-src', 'blocked-uri': 'eval', pad: 'x'.repeat(5000) } });
+    const res = await worker.fetch(new Request(ORIGIN + CSP_REPORT, { method: 'POST', headers: { 'Content-Type': 'application/csp-report' }, body }), { ASSETS: assets(FILES) });
+    assert.equal(res.status, 204);
+    assert.equal(res.headers.get(CSP_HEADER), SECURITY[CSP_HEADER], 'the security headers too');
+    assert.equal(logged.length, 1);
+    assert.ok(logged[0].startsWith('csp-report {"csp-report":{"violated-directive":"script-src"') && logged[0].length <= 'csp-report '.length + 2048, logged[0].slice(0, 80));
+  } finally { console.log = log; }
+  assert.equal((await get(CSP_REPORT)).status, 404, 'a GET');
 });
 
 test("the Worker's module exports its handler only (the Workers runtime refuses anything else)", async () => {

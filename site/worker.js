@@ -8,7 +8,7 @@
 // room's) and, with a token, the analytics beacon (`page`). The docs (/docs/, tools/docs) are files too; their
 // addresses are folders (/docs/kingdom/), which the Worker answers with the folder's index.html (`folder`).
 
-import { cacheControl, SECURITY } from './cache.js';
+import { cacheControl, SECURITY, CSP_REPORT } from './cache.js';
 import { ORIGIN, preview, edits } from './preview.js';
 
 /** The game's address: www.ebbfall.com, and http, are sent here (as GitHub Pages did). */
@@ -104,6 +104,17 @@ async function folder(req, url, env) {
   return withCache(res, `${path}index.html`);
 }
 
+/**
+ * A browser's report of what the CSP refused (cache.js CSP_REPORT; report-uri's JSON or the Reporting API's): logged, at
+ * most 2 KB of it, for the Worker's logs (wrangler tail), and answered 204. Nothing is kept.
+ */
+async function cspReport(req) {
+  if (req.method !== 'POST') return new Response('Not found\n', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+  const body = await req.text().catch(() => '');
+  console.log(`csp-report ${body.slice(0, 2048)}`);
+  return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+}
+
 /** `res` with the SECURITY headers (a copy: the assets' responses cannot be changed). */
 function secure(res) {
   const out = new Response(res.body, res);
@@ -121,6 +132,7 @@ async function answer(req, env) {
   if (url.hostname === 'www.' + CANONICAL || (url.hostname === CANONICAL && url.protocol === 'http:')) {
     return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL}${url.pathname}${url.search}` } });
   }
+  if (url.pathname === CSP_REPORT) return cspReport(req);
   if (url.pathname === '/' || url.pathname === '/index.html') return page(req, url, env);
   const res = await env.ASSETS.fetch(new Request(new URL(url.pathname, url), { method: req.method, headers: req.headers }));
   if (res.status === 404 && isDocs(url.pathname)) return folder(req, url, env);

@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CSP, CSP_HEADER, RELAY_HOST, SECURITY, cspValue } from '../site/cache.js';
+import { CSP, CSP_HEADER, CSP_REPORT, RELAY_HOST, SECURITY, cspValue } from '../site/cache.js';
 
 const root = new URL('../', import.meta.url);
 const read = (f) => readFileSync(new URL(f, root), 'utf8');
@@ -35,6 +35,7 @@ function check(name, html, { modules = false } = {}) {
 
 test('the policy: every directive, nothing unsafe but WebAssembly, framing by the site and loopback only', () => {
   for (const d of ['default-src', 'script-src', 'connect-src', 'img-src', 'media-src', 'style-src', 'font-src', 'worker-src', 'manifest-src', 'frame-ancestors', 'base-uri', 'form-action', 'object-src']) assert.ok(CSP[d]?.length, d);
+  assert.deepEqual([CSP['report-uri'], CSP['report-to'], SECURITY['Reporting-Endpoints']], [[CSP_REPORT], ['csp'], `csp="${CSP_REPORT}"`], 'reports to the Worker');
   const all = Object.values(CSP).flat();
   for (const bad of ["'unsafe-inline'", "'unsafe-eval'", "'unsafe-hashes'", '*', 'http:', 'https:']) assert.ok(!all.includes(bad), bad);
   assert.ok(CSP['script-src'].includes("'wasm-unsafe-eval'"), 'the sim is WebAssembly');

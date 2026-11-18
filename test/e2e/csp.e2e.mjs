@@ -30,7 +30,7 @@ async function watched(device = DESKTOP) {
 
 const report = (seen) => seen.map(v => JSON.stringify(v)).join('\n');
 
-test('the CSP: no violation across the menu, the service worker, a game, the help sheet, a room, the bench, the plan link, the docs and the clip', { timeout: 600000 }, async () => {
+test('the CSP: no violation across the menu, the service worker, a game, the help sheet, a room, the bench, the plan link, the docs and the clip', { engines: true, timeout: 600000 }, async () => {
   const { ctx, seen } = await watched(), embed = await watched();
   const relayQ = `relay=${encodeURIComponent(`ws://localhost:${relay.port}/`)}`;
   try {

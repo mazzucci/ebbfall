@@ -9,7 +9,7 @@ import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
 import { loadTimes, assigner } from './shards.mjs';
-import { SECURITY, CSP, CSP_HEADER, cspValue } from '../../site/cache.js';
+import { SECURITY, CSP, CSP_HEADER, CSP_REPORT, cspValue } from '../../site/cache.js';
 
 export const ENGINE = engineName();
 /** The engine's name as people write it: Chromium, WebKit, Firefox. */
@@ -68,10 +68,17 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 /**
  * The site's headers on every file, as Cloudflare serves them (site/cache.js SECURITY), so every scenario runs under the
- * site's CSP. One source more than the site's: the tests' own relay (relay/server.mjs on a port of this machine, its
- * websocket and the bench's report), where the site has its published relay.
+ * site's CSP, its reports answered as the Worker answers them (204). One source more than the site's: the tests' own
+ * relay (relay/server.mjs on a port of this machine, its websocket and the bench's report), where the site has its
+ * published relay. In WebKit, inline styles too: WebKit reports its own <select>'s built-in stylesheet against
+ * style-src (an engine fault: the select is drawn the same when the policy is enforced), so there Chromium and Firefox
+ * are the ones that check styles.
  */
-export const TEST_CSP = cspValue({ ...CSP, 'connect-src': [...CSP['connect-src'], 'ws://localhost:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'http://127.0.0.1:*'] });
+export const TEST_CSP = cspValue({
+  ...CSP,
+  'connect-src': [...CSP['connect-src'], 'ws://localhost:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'http://127.0.0.1:*'],
+  ...(ENGINE === 'webkit' ? { 'style-src': [...CSP['style-src'], "'unsafe-inline'"] } : {}),
+});
 const HEADERS = { ...SECURITY, [CSP_HEADER]: TEST_CSP };
 
 let server, browser, base;
@@ -79,6 +86,7 @@ export async function start() {
   if (LIST) return;
   if (!existsSync(join(dist, 'index.html'))) throw new Error('dist/ is missing: run npm run build first');
   server = createServer((req, res) => {
+    if (req.url === CSP_REPORT && req.method === 'POST') { res.writeHead(204, HEADERS); req.resume(); return res.end(); } // (the site's Worker: cspReport)
     let p = normalize(join(dist, decodeURIComponent(new URL(req.url, 'http://x').pathname)));
     if (!p.startsWith(dist)) { res.writeHead(403); return res.end(); }
     if (existsSync(p) && statSync(p).isDirectory()) p = join(p, 'index.html');

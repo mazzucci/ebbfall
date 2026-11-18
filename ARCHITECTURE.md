@@ -677,7 +677,7 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       first only for / and /index.html); worker.js (the game's page, rewritten with HTMLRewriter only for
                       a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
                       bytes sent; www and http to https://ebbfall.com/; a page load that is not a file goes to /, a
-                      missing file is a 404), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
+                      missing file is a 404; the CSP's reports, POST /csp-report, logged short and answered 204), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
                       with CODE read as the relay's (src/net/roomcode.js); a challenge's, `?vs=CODE`, through
                       src/client/challenge.js, its words from the code's values alone),
                       cache.js (assets/ immutable; the pages, sw.js and the manifest

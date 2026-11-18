@@ -278,7 +278,7 @@ function duelScene() {
 function leadKnight() { const u = window.S.byId(window.S.duel.kn[0]); return u ? { x: u.x, y: u.y } : null; }
 
 /** Shot 12: the Kingdom storms the Expedition's Data center: Knights and Guards at its walls, a Cannon in frame firing on
- *  it, its hp lowered so it falls two thirds into the shot (the client's quake as it does). Played as the Expedition, with
+ *  it, its hp lowered to the last at 1.6 s (`siegeFall`: the next blow lands about 0.5 s later) so it falls two thirds into the shot (the client's quake as it does). Played as the Expedition, with
  *  no AI, so nothing of its base but the Data center is in frame: its Bots walk away, and a Substation well out of frame
  *  keeps it in the game after the fall (its last building gone, the game would end and every unit freeze). The
  *  Kingdom's pieces need no orders: with nothing else in reach they take the Data center. */
@@ -298,9 +298,12 @@ function siegeScene({ fmt }) {
   ['knight', 'trooper', 'knight', 'trooper', 'knight', 'trooper'].forEach((k, i) => spawn(K, k, at(88 + (i % 2) * 22, (i - 2.5) * 30)));
   spawn(K, 'siegeTank', fmt === '9x16' ? { x: hq.x - 70, y: hq.y + 190 } : { x: hq.x - 215, y: hq.y + 35 }); // (in frame, on it)
   e.skip(4);
-  eng.debugSetHp(hq, Math.max(1, window.S.siegeHp ?? (fmt === '9x16' ? 370 : 250))); // (its fall about 2.1 s in: the Cannon's shots land differently per frame)
+  eng.debugSetHp(hq, 700); // (it stands until `siegeFall`: when a Cannon shell crosses a threshold is too chancy to time)
   return { hq: { x: hq.x, y: hq.y }, id: hq.id };
 }
+
+/** The Data center's last hit point: the next blow brings it down. */
+function siegeFall() { const { X, hqOf, eng } = window.S, hq = hqOf(X); if (hq) eng.debugSetHp(hq, 1); }
 
 // ---- the segments ----
 export const SEGMENTS = [
@@ -348,7 +351,7 @@ export const SEGMENTS = [
   {
     id: 'siege', as: 'vael', scene: siegeScene,
     parts: [
-      { name: 'siege', seconds: 2.9, cam: still('hq', 1.9, 2.1, { x: -40, y: 10 }, { x: -20, y: 62 }) },
+      { name: 'siege', seconds: 2.9, cam: still('hq', 1.9, 2.1, { x: -40, y: 10 }, { x: -20, y: 62 }), at: [{ t: 1.6, run: (page) => page.evaluate(siegeFall) }] },
       // Shot 13: the freeze, graded down, the name in.
       { name: 'freeze', seconds: 2.0, freeze: true, overlay: (t) => ({ grade: ease(t / 0.4), logo: { alpha: fadeIn(t, 0.25, 0.4), scale: lerp(1.06, 1, ease((t - 0.25) / 0.6)) } }) },
       // Shot 14: the end card (the lines on the beats), and the YouTube layout (the column in the left half).

@@ -12,19 +12,22 @@ export const AGAIN = 3;
 const SHOW_MS = 8000;
 export const GROUP_HINT = 'Many units? Hold SELECT and drag a box · double-tap a unit for all of its type · ARMY selects every fighter';
 
-/** Recent single picks this game: [{ id, at }]. */
-let picks = [];
+/** Recent single picks this game: [{ id, at }]; `off` in the guided first game (its own step teaches the same). */
+let picks = [], off = false;
 const num = (k) => { const s = store.get(k), v = Number(s); return s !== null && s !== '' && Number.isFinite(v) ? v : null; }; // (none stored: null, not Number(null)'s 0)
 
-/** A game starts: one more on this device's count (endfall.games), and no picks carried over. */
-export function groupHintGame() {
-  picks = [];
+/** A game starts: one more on this device's count (endfall.games), and no picks carried over. `guided`: the guided
+ *  first game, where the hint stays quiet (its checklist has a step for SELECT and ARMY; the hint's one showing is
+ *  kept for a later game). */
+export function groupHintGame(guided = false) {
+  picks = []; off = guided;
   store.set('games', String((num('games') ?? 0) + 1));
 }
 
 /** After a tap on the map changed the selection to `sel` (the event's time `at`): count a lone fighter of ours, forget
  *  the count on a group (the player knows the way), and show the hint when due. */
 export function notePick(sel, at) {
+  if (off) return;
   if (sel.length > 1) { picks = []; return; }
   const u = sel[0];
   if (!u || u.kind !== 'unit' || u.d.worker) return;

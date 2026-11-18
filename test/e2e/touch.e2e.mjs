@@ -211,6 +211,19 @@ test('phone: fighters tapped one by one bring the group hint once, clear of SELE
   } finally { await d.close(); }
 });
 
+test('phone: in the guided first game, fighters tapped one by one bring no hint (its own step teaches SELECT and ARMY)', async () => {
+  const d = await newGame(PHONE, 0, 4242, { first: true });
+  try {
+    assert.match(await d.page.locator('#tut').textContent(), /1\/9/, 'the guided game');
+    const ids = await threeGuards(d);
+    await tapEach(d, ids); await tapEach(d, ids);
+    await d.page.waitForTimeout(300);
+    assert.ok(!(await hinted(d)), 'no group hint in the guided game');
+    assert.equal(await d.eval(() => localStorage.getItem('endfall.groupHint')), null, 'its one showing is not spent');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('a desktop: units clicked one by one bring no hint', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

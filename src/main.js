@@ -77,7 +77,7 @@ function begin(reset) {
   // Start over the base: a phone at 1 (the units read), a desktop all the way out; the wheel or a pinch zooms.
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
-  groupHintGame(); // (one more game on this device's count: the group hint comes back after a few)
+  groupHintGame(menu.tutorial); // (one more game on this device's count: the group hint comes back after a few)
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
   // (the Expedition has no population: a grid for everything it runs, from its Substations)
   if (!menu.tutorial && !watching()) toast(myFaction().grid ? `Mine thorium for energy. Build ${aName(BUILDINGS[myFaction().supply].name)} to expand the grid: energy builds things; the grid keeps them running.`

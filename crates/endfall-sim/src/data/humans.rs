@@ -40,6 +40,7 @@ pub const HUMANS: Faction = Faction {
         basic: UnitKind::Trooper,
         anti_air: UnitKind::Lancer,
         heavy_anti_air: Some(UnitKind::Bastion),
+        also_anti_air: &[],
         // (an Archer per Guard behind the spears; a Cannon per six Guards from 5:30 and a Ballista per eight from
         // the Workshop; a Knight per four from the Stables)
         mix: &[

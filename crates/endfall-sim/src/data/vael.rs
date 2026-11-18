@@ -61,6 +61,8 @@ pub const VAEL: Faction = Faction {
         // (the Android, from the Portal: its hired guns are melee since the rework; its Drones, mixed in, hit the air too)
         anti_air: UnitKind::Umbra,
         heavy_anti_air: None,
+        // (its Buggies hit the air too since Nov 18: counted in its answer to flyers, not trained for it)
+        also_anti_air: &[UnitKind::Scythe],
         // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Drone per four from the
         // Factory, between its Buggies, the anti-air the melee line lacks; from the Portal an Android per three from 5:00
         // and a Rover per four, the Android first (Nov 13: with the Rover first, Rovers lost one by one were made again

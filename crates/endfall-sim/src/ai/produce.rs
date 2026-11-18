@@ -86,6 +86,7 @@ impl World {
             mine(w, s.anti_air)
                 + s.heavy_anti_air
                     .map_or(0, |k| s.answer_weight(k) * mine(w, k))
+                + s.also_anti_air.iter().map(|&k| mine(w, k)).sum::<usize>()
         };
         let cheap_cap = if heavy_aa.is_some() {
             enemy_air
@@ -744,17 +745,18 @@ mod tests {
     }
 
     #[test]
-    fn medium_s_and_hard_s_kingdom_take_their_natural_later_on_bigger_maps_the_expedition_as_ever()
-    {
+    fn medium_s_and_hard_s_kingdom_take_their_natural_later_on_bigger_maps_hard_s_expedition_at_7_00()
+     {
         // `Diff::expand_at_of` (Nov 13): on Medium and Hard the Kingdom takes its natural later than the Expedition, on
         // maps up to 96 wide and on bigger ones: Hard at 8:00 and 10:00, Medium at 8:15 and 11:00 since Nov 17 (with the
-        // mines spaced out, Medium's Kingdom won half its games at 8:00 and 10:00); the Expedition at its level's
-        // `expand_at`, as does every people on Easy.
-        for (size, level, kingdom) in [
-            (96, 1, 495.0),
-            (128, 1, 660.0),
-            (96, 2, 480.0),
-            (128, 2, 600.0),
+        // mines spaced out, Medium's Kingdom won half its games at 8:00 and 10:00); the Expedition at Medium's
+        // `expand_at`, and on Hard at 7:00 on both sizes since Nov 18 (at Hard's 5:30 its army stood still while its
+        // Data center went up, and the Kingdom won 89% of its games on 96); every people on Easy at Easy's.
+        for (size, level, kingdom, expedition) in [
+            (96, 1, 495.0, DIFF[1].expand_at),
+            (128, 1, 660.0, DIFF[1].expand_at),
+            (96, 2, 480.0, 420.0),
+            (128, 2, 600.0, 420.0),
         ] {
             let mut w = World::with_size(
                 1,
@@ -774,8 +776,8 @@ mod tests {
             w.ai_turn = ENEMY;
             assert_eq!(
                 w.expand_time(ENEMY),
-                DIFF[level].expand_at,
-                "the Expedition"
+                expedition,
+                "{size}, level {level}: the Expedition"
             );
         }
         let w = World::with_setup(1, 0, crate::map::MapKind::Standard, false, [&HUMANS, &VAEL]);

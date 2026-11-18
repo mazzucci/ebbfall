@@ -37,7 +37,7 @@ export function goHome() {
   if (c) centerOn(c.x, c.y); else toast('No base left');
 }
 /** Forget alerts and pings from a previous game. */
-export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
+export function resetTools() { ui.box = false; $('btnBox')?.classList.remove('on'); $('stage')?.classList.remove('boxing'); alerts.last = null; alerts.list = []; alerts.at = 0; clearPings(); capitals.clear(); news.flyer = false; news.army = 0; news.idleSince.clear(); prodIndex = 0; groupsKey = ''; closePause(); updateTools(); }
 
 function choose(list) { setSelection(list); updateHud(); if (list.length) sfx('select', { unit: list.find(e => e.kind === 'unit')?.type }); }
 const centre = (list) => { const c = list.reduce((a, e) => ({ x: a.x + e.x / list.length, y: a.y + e.y / list.length }), { x: 0, y: 0 }); centerOn(c.x, c.y); };

@@ -34,7 +34,7 @@ const fightersPicked = () => playerSel().filter(e => e.kind === 'unit' && !e.d.w
 /** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment; '#id' an
  *  element's), done?].
  *  Workers trained and sent to the mine (a new one waits for an order), the barracks (its builder sent back), a line and its anti-air (six of a 1-population kind, three of a 2-population
- *  one), on a touch screen the army selected as one (SELECT and a box, or ARMY: a mouse drags a box by habit, and a
+ *  one), on a touch screen the army selected as one (a finger held on the ground then a box, or ARMY: a mouse drags a box by habit, and a
  *  player on a phone tapped 15 units one by one, Nov 18), the Market (it needs the barracks; a people without one is told its barracks pays nothing and trains on), hold, then population (where it runs out: the last
  *  army is sized past the headquarters' population, `goal`), then spend the bank on more of the line up to an army of
  *  `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
@@ -51,7 +51,7 @@ function steps() {
     { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Mine, then the ${ore} mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
-    ...(tut.touch ? [{ text: 'Select your army at once: hold SELECT and drag a box over it, or tap ARMY for every fighter', por: ['unit', soldier], want: ['#btnBox', '#btnArmy'], done: () => fightersPicked() >= 4 }] : []),
+    ...(tut.touch ? [{ text: 'Select your army at once: hold a finger on the ground, then drag a box over it, or tap ARMY', por: ['unit', soldier], want: ['#btnBox', '#btnArmy'], done: () => fightersPicked() >= 4 }] : []),
     market
       ? { text: `Build ${aName(market.name)} in your base: it ${market.verb} ${money} by itself`, por: ['bldg', f.market], want: ['build', 'build2', 'b_' + f.market], done: () => built(f.market) }
       : { text: `Train 2 more ${plural(UNITS[soldier].name)}: more ${plural(BUILDINGS[rax].name)} train faster`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= n + 2 },

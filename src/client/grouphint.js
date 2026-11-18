@@ -1,5 +1,5 @@
 // The group-selection hint on touch: a player tapping fighters one by one (PICKS of them within WINDOW ms) is told,
-// once, how to take many at a time (SELECT and a box, a double-tap, ARMY), and the buttons it names pulse while it
+// once, how to take many at a time (a finger held on the ground, then a box; SELECT; ARMY), and the buttons it names pulse while it
 // shows. Seen once, it waits AGAIN games before it may come back. A client nudge: nothing of the sim changes.
 import { $, toast } from './ui.js';
 import { store } from './store.js';
@@ -10,7 +10,7 @@ export const PICKS = 3, WINDOW = 8000; // (8 s: a tap to select and a tap to ord
 export const AGAIN = 3;
 /** How long it stays up (ms): longer than a toast, it has three things to say. */
 const SHOW_MS = 8000;
-export const GROUP_HINT = 'Many units? Hold SELECT and drag a box · double-tap a unit for all of its type · ARMY selects every fighter';
+export const GROUP_HINT = 'Many units? Hold a finger on the ground, then drag a box · or tap SELECT · ARMY selects every fighter';
 
 /** Recent single picks this game: [{ id, at }]; `off` in the guided first game (its own step teaches the same). */
 let picks = [], off = false;

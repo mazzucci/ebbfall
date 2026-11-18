@@ -243,7 +243,7 @@ function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
-  sizeGrids(); fogTick = -1; mmAt = -Infinity; // (a new map, or a replay from its first tick: fog and minimap at once)
+  sizeGrids(); fogTick = -1; mmAt = -Infinity; mmGroundOk = false; // (a new map, or a replay from its first tick: fog and minimap at once)
   xrayColor(SEAT_COLORS[colorOf(G.me) % SEAT_COLORS.length]); // (this side's own color, for its silhouettes)
   const rnd = mulberry(G.seed * 7 + 3);
   const rock = (x, y) => x < 0 || y < 0 || x >= MW || y >= MH || map.rock[idx(x, y)] ? 1 : 0;
@@ -1051,14 +1051,34 @@ let seatCssList;
 const seatCss = () => seatCssList ||= SEAT_COLORS.map(hex6);
 // The minimap's map (ground, resources, buildings, units, fog) is drawn at most ten times a second, onto a canvas of
 // its own; every frame puts that up with the pings and the view box over it, which follow the camera.
-const mmBase = document.createElement('canvas'), MM_EVERY = 100;
-let mmAt = -Infinity;
+// Drawn in MM_UNITS across whatever its box (168, the canvas's old fixed size: every width and dot below is in these
+// units, so it looks as it did at 1x), onto a backing of its CSS size times the screen's pixels per CSS px, enlarged
+// under a finger (#minimap.big) times its scale too, at most MM_DPR_MAX backing px per CSS px of its box either way (a
+// 3x phone's enlarged minimap would be 756 px across: four times the pixels to fill ten times a second, for a moment's
+// drag). The ground, which changes only with the map, is scaled to the backing once (mmGround), not at each redraw.
+const MM_UNITS = 168, MM_DPR_MAX = 3;
+const mmBase = document.createElement('canvas'), mmGround = document.createElement('canvas'), MM_EVERY = 100;
+let mmAt = -Infinity, mmGroundOk = false, mmCssW = 0, mmCssH = 0, mmBig = false, mmBigScale = 1;
+/** The minimap's backing at its box's size times the pixels per CSS px (read each frame: a window moved to another
+ *  screen or the browser's zoom changes it); a new size redraws the base at once. */
+function sizeMinimap() {
+  mmCssW = mm.clientWidth; mmCssH = mm.clientHeight; // (its layout box: an enlarging transform leaves it be)
+  if (!(mmCssW > 0 && mmCssH > 0)) return;
+  const big = mm.classList.contains('big');
+  if (big !== mmBig) { mmBig = big; mmBigScale = big && mm.offsetWidth > 0 ? Math.max(1, mm.getBoundingClientRect().width / mm.offsetWidth) : 1; } // (#minimap.big has no transition: its box is final at once)
+  const k = Math.min((window.devicePixelRatio || 1) * mmBigScale, MM_DPR_MAX);
+  const w = Math.max(1, Math.round(mmCssW * k)), h = Math.max(1, Math.round(mmCssH * k));
+  if (mm.width !== w || mm.height !== h) { mm.width = w; mm.height = h; }
+  if (mmBase.width !== w || mmBase.height !== h) { mmBase.width = w; mmBase.height = h; mmAt = -Infinity; mmGroundOk = false; }
+}
 function renderMinimap() {
-  const S = mm.width / WW, T = mm.height / WH, c = mctx; // (x and y scales: one, on a square map)
+  sizeMinimap();
+  const S = MM_UNITS / WW, T = MM_UNITS / WH, c = mctx; // (x and y scales in units: one, on a square map)
+  const kx = mm.width / MM_UNITS, ky = mm.height / MM_UNITS; // (backing px per unit)
   const now = performance.now();
-  if (mmBase.width !== mm.width || mmBase.height !== mm.height) { mmBase.width = mm.width; mmBase.height = mm.height; mmAt = -Infinity; }
-  if (now - mmAt >= MM_EVERY || now < mmAt) { mmAt = now; minimapBase(mmBase.getContext('2d'), S, T); }
-  c.clearRect(0, 0, mm.width, mm.height); c.drawImage(mmBase, 0, 0);
+  if (now - mmAt >= MM_EVERY || now < mmAt) { mmAt = now; const b = mmBase.getContext('2d'); b.setTransform(kx, 0, 0, ky, 0, 0); minimapBase(b, S, T); }
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, mm.width, mm.height); c.drawImage(mmBase, 0, 0);
+  c.setTransform(kx, 0, 0, ky, 0, 0);
   minimapRim(c, S, T); // (over the fog, unexplored black included: the whole union's outline, always)
   for (let i = pings.length - 1; i >= 0; i--) {
     const k = (now - pings[i].t) / 2500; if (k >= 1) { pings.splice(i, 1); continue; }
@@ -1071,7 +1091,12 @@ function renderMinimap() {
   c.strokeStyle = '#ffe9b0'; c.lineWidth = 2; c.strokeRect(vx, vy, vW, vH);
 }
 function minimapBase(c, S, T) {
-  c.imageSmoothingEnabled = false; c.clearRect(0, 0, mm.width, mm.height); c.drawImage(thumb, 0, 0, mm.width, mm.height);
+  c.imageSmoothingEnabled = false;
+  if (!mmGroundOk) {
+    mmGroundOk = true; mmGround.width = mmBase.width; mmGround.height = mmBase.height;
+    const g = mmGround.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(thumb, 0, 0, mmGround.width, mmGround.height);
+  }
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, mmBase.width, mmBase.height); c.drawImage(mmGround, 0, 0); c.restore();
   // Gold mines gold, their footprint: not any seat's color.
   const revealed = !L.fog.visible; // (showFog: the docs' staged shots)
   for (const n of map.nodes) if (revealed || G.explored[idx(n.tx, n.ty)]) { c.fillStyle = MM_GOLD; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
@@ -1083,17 +1108,16 @@ function minimapBase(c, S, T) {
     const x = b.tx * TILE * S, y = b.ty * TILE * T, w = Math.max(2, b.w * TILE * S), h = Math.max(2, b.h * TILE * T);
     c.fillStyle = col[colorOf(b.team)]; c.fillRect(x, y, w, h);
     if (b.team === G.me || enemies(G.me, b.team)) continue;
-    const x0 = Math.floor(x), y0 = Math.floor(y); // (the frame on whole pixels: crisp)
-    c.rect(x0 - 0.5, y0 - 0.5, Math.ceil(x + w) - x0 + 1, Math.ceil(y + h) - y0 + 1);
+    c.rect(x - 0.5, y - 0.5, w + 1, h + 1);
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
   for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
-  if (!revealed) c.drawImage(fogCv, 0, 0, mm.width, mm.height);
+  if (!revealed) c.drawImage(fogCv, 0, 0, MM_UNITS, MM_UNITS);
 }
 // The minimap's coverage: an Expedition seat's always (its people's headquarters gives coverage), the union's edge
 // alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored
-// ground hid most of it: with an Uplink's wide circle, all of it). In CSS px whatever the screen: the canvas keeps its
-// own pixel size (168) and is scaled to the minimap's box, so the widths are scaled back by the box's size.
+// ground hid most of it: with an Uplink's wide circle, all of it). In CSS px whatever the screen: drawn in the minimap's
+// units (MM_UNITS across its box), so the widths are scaled back by the box's size.
 const MM_RIM = { line: 1.25, halo: 2.5, color: 'rgba(191,233,255,0.8)', haloColor: 'rgba(11,18,32,0.5)' };
 let mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
 function minimapRim(c, S, T) {
@@ -1102,13 +1126,13 @@ function minimapRim(c, S, T) {
   const arcs = mmArcs;
   mmRimArcs = arcs.length;
   if (!arcs.length) return;
-  const k = mm.clientWidth > 0 ? mm.width / mm.clientWidth : 1; // (canvas px per CSS px)
-  mmRimCss = { line: MM_RIM.line, halo: MM_RIM.halo, canvasPerCss: k };
+  const u = mmCssW > 0 ? MM_UNITS / mmCssW : 1; // (units per CSS px)
+  mmRimCss = { line: MM_RIM.line, halo: MM_RIM.halo, canvasPerCss: mmCssW > 0 ? mm.width / mmCssW : 1 }; // (backing px per CSS px, for the tests)
   c.save();
   c.beginPath();
   for (const [x, y, r, a0, a1] of arcs) { c.moveTo((x + Math.cos(a0) * r) * S, (y + Math.sin(a0) * r) * T); c.ellipse(x * S, y * T, r * S, r * T, 0, a0, a1); }
   c.lineCap = 'round'; c.lineJoin = 'round';
-  c.strokeStyle = MM_RIM.haloColor; c.lineWidth = MM_RIM.halo * k; c.stroke();
-  c.strokeStyle = MM_RIM.color; c.lineWidth = MM_RIM.line * k; c.stroke();
+  c.strokeStyle = MM_RIM.haloColor; c.lineWidth = MM_RIM.halo * u; c.stroke();
+  c.strokeStyle = MM_RIM.color; c.lineWidth = MM_RIM.line * u; c.stroke();
   c.restore();
 }

@@ -137,8 +137,11 @@ test('phone: the minimap, enlarged under the finger, is drawn in front of the se
     await d.page.waitForTimeout(250);
     // A point over the console, inside the enlarged minimap (it doubles from its bottom-left corner).
     const top = await d.page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [info.x + 10, info.y + info.height / 2]);
+    // Drawn at its enlarged size: the backing twice the screen's pixels across its box while held (at most 3 per CSS px).
+    const held = await d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => { const m = document.getElementById('minimap'); r(m.width / m.clientWidth / Math.min(2 * devicePixelRatio, 3)); })));
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.equal(top, 'minimap', 'the enlarged minimap covers the console, not the other way round');
+    assert.ok(Math.abs(held - 1) < 0.02, `the enlarged minimap's backing: ${held.toFixed(3)} of its enlarged size`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

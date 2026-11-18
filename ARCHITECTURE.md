@@ -324,7 +324,11 @@ src/client/           everything that touches the browser
                       the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
                       an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
                       over the cached base, a 1.25 px line at 80% over a 2.5 px dark halo at 50% in CSS px (scaled by
-                      the minimap's box: its canvas keeps 168 px); `rangeShown` for the tests); the placing hint (ui.js
+                      the minimap's box); `rangeShown` for the tests); the minimap drawn in 168 units across its box
+                      (its old fixed canvas: the same widths and dots as then) onto a backing of its CSS size times
+                      the screen's pixels per CSS px (read each frame: another screen or the browser's zoom), times
+                      its scale while enlarged under a finger (`#minimap.big`), at most 3 per CSS px of its box; the
+                      ground scaled to that backing once a map and size; the placing hint (ui.js
                       `setHint`, `#hint.placing`) in 15 px type in its slot; a selected building's flat oval under it (look.js `selOval`; the placement ghost
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the

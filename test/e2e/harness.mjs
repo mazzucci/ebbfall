@@ -9,6 +9,7 @@ import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
 import { loadTimes, assigner } from './shards.mjs';
+import { SECURITY, CSP, CSP_HEADER, cspValue } from '../../site/cache.js';
 
 export const ENGINE = engineName();
 /** The engine's name as people write it: Chromium, WebKit, Firefox. */
@@ -65,6 +66,14 @@ export const IPHONE = 'its phone profile is an iPhone: no full screen for a page
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.txt': 'text/plain', '.xml': 'application/xml', '.mp4': 'video/mp4', '.webm': 'video/webm' };
 
+/**
+ * The site's headers on every file, as Cloudflare serves them (site/cache.js SECURITY), so every scenario runs under the
+ * site's CSP. One source more than the site's: the tests' own relay (relay/server.mjs on a port of this machine, its
+ * websocket and the bench's report), where the site has its published relay.
+ */
+export const TEST_CSP = cspValue({ ...CSP, 'connect-src': [...CSP['connect-src'], 'ws://localhost:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'http://127.0.0.1:*'] });
+const HEADERS = { ...SECURITY, [CSP_HEADER]: TEST_CSP };
+
 let server, browser, base;
 export async function start() {
   if (LIST) return;
@@ -74,7 +83,7 @@ export async function start() {
     if (!p.startsWith(dist)) { res.writeHead(403); return res.end(); }
     if (existsSync(p) && statSync(p).isDirectory()) p = join(p, 'index.html');
     if (!existsSync(p)) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream' }); res.end(readFileSync(p));
+    res.writeHead(200, { ...HEADERS, 'content-type': TYPES[extname(p)] || 'application/octet-stream' }); res.end(readFileSync(p));
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;
@@ -189,11 +198,11 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
      *  call into the page, then let two frames run as `skip` does. Returns whether it held. `cond` runs in the page:
      *  it may read only `endfall` and its argument. Faster than `until` for a plain wait (no round trip a step). */
     skipUntil: async (cond, arg, { seconds = 120, step = 0.5 } = {}) => {
-      const ok = await ev(([src, arg, seconds, step]) => {
-        const f = (0, eval)(`(${src})`);
+      // (the condition spliced into the evaluated source, not eval'd in the page: the site's CSP allows no eval)
+      const ok = await page.evaluate(`((f, arg, seconds, step) => {
         for (let t = 0; t < seconds; t += step) { if (f(arg)) return true; endfall.skip(step); }
         return !!f(arg);
-      }, [cond.toString(), arg, seconds, step]);
+      })((${cond.toString()}), ${JSON.stringify(arg) ?? 'undefined'}, ${seconds}, ${step})`);
       await d.skip(0);
       return ok;
     },

@@ -68,7 +68,7 @@ jobs:
       - run: npm run build
         env:
           VITE_RELAY_URL: ${{ vars.RELAY_URL }} # (the relay's wss:// address once it is deployed; unset: no PLAY A FRIEND)
-      - run: node --test test/site-worker.test.js # (again, with dist/ built: its checks of the built page and service worker)
+      - run: node --test test/site-worker.test.js test/site-csp.test.js # (again, with dist/ built: their checks of the built pages and service worker)
       - name: The build, for the browser tests
         uses: actions/upload-artifact@v7
         with:

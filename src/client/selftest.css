@@ -1,0 +1,6 @@
+/* the device check (selftest.html): a file, not a <style> block, for the site's CSP (site/cache.js). */
+body{background:#0d1117;color:#c9d1d9;font:15px/1.5 system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px}
+h1{font-size:20px;color:#f5c26b;letter-spacing:.1em} p{color:#8b949e}
+ol{padding-left:22px} li{margin:4px 0} .ok{color:#56d364} .bad{color:#f85149} .run{color:#e6edf3}
+#verdict{font-size:18px;font-weight:600;margin:18px 0 8px;color:#e6edf3} #ua{font-size:12px;word-break:break-word}
+button{touch-action:manipulation;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:12px 14px;font-size:15px;min-height:44px}

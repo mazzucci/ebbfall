@@ -245,7 +245,8 @@ async function send(report) {
     if (!res.ok || !body.code) throw new Error(body.error || `HTTP ${res.status}`);
     if (id !== sending) return;
     window.endfallBench.code = body.code;
-    out.innerHTML = `Your code: <b style="font-size:20px;color:var(--ally2);user-select:all">${body.code}</b> (pass it on: it is kept a week)`;
+    out.innerHTML = `Your code: <b>${body.code}</b> (pass it on: it is kept a week)`;
+    Object.assign(out.querySelector('b').style, { fontSize: '20px', color: 'var(--ally2)', userSelect: 'all' }); // (through the CSSOM: the site's CSP allows no style="" in markup)
     settled('sent');
   } catch (e) {
     if (id !== sending) return;

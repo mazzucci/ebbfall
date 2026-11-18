@@ -539,7 +539,8 @@ test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no 
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
-test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/keys/touch, stops workers through the UI for a
+test/e2e/             browser tests: harness.mjs (serves dist/ with the site's headers and CSP (site/cache.js; its relay
+                      allowed too: `TEST_CSP`), drives mouse/keys/touch, stops workers through the UI for a
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
@@ -551,6 +552,9 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their
                       spots' colors, eight seats on phones; a code typed as shown or not, the share line, an
                       out-of-date link, the host's REMOVE, the limits' line),
+                      csp.e2e.mjs (no CSP violation, in any frame or worker, across the menu, the service worker and a
+                      reload under it, a game, the help sheet, a room on the relay, the bench's report, the
+                      challenge's embedded plan link, the device check, the voice lab, the docs and the clip),
                       docs.e2e.mjs (the first page's footer line: How to play and About in a new tab, the old buttons
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
@@ -613,6 +617,9 @@ test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS bin
                       headers (cache and security), what is not a file, www and http, the beacon only with a token,
                       _headers, wrangler.toml;
                       with dist/ built, every file the service worker stores, robots.txt, the sitemap and og.png
+test/site-csp.test.js the CSP (site/cache.js): no unsafe-inline or unsafe-eval, every directive, the relay and the beacon
+                      the code uses; no <style>, style="" or inline handler in the pages, every inline script hashed
+                      (with dist/ built, every page of the build, the docs too; CI runs it after the build)
 test/site-preview.test.js the link cards (site/preview.js): a room's code read as the relay's (src/net/roomcode.js: hostile,
                       overlong, four letters, lower case, a hyphen),
                       a challenge's card and its link made again from the code (hostile and other
@@ -674,7 +681,8 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       with CODE read as the relay's (src/net/roomcode.js); a challenge's, `?vs=CODE`, through
                       src/client/challenge.js, its words from the code's values alone),
                       cache.js (assets/ immutable; the pages, sw.js and the manifest
-                      no-cache; the security headers every response carries, the Worker's and _headers'), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
+                      no-cache; the security headers every response carries, the Worker's and _headers', the CSP among them
+                      (report-only for now), its sources directive by directive), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see
                       the traffic, DNS-only again for a rollback); CI's deploy job
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests
@@ -695,8 +703,10 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       portrait phone the "Ledger": tiers by what each building needs first) and research, the
                       home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
                       shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
-                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer over the tide lines; docs.css
-                      inlined, the designer's "Field manual"), sprites.mjs and crops.mjs (the sprite crops: the
+                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer over the tide lines; nothing
+                      inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
+                      designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
+                      and one script, docs.js (the tabs scrolled to the current one, the clip played in view)), sprites.mjs and crops.mjs (the sprite crops: the
                       recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game

@@ -1,13 +1,14 @@
 // The docs microsite at /docs/ (PRD "Docs microsite"), built with the game (`npm run build`, the Vite plugin `docs()`)
-// into dist/: dist/docs/**/index.html (pages.mjs, from tools/docs/copy/ and the game's data), the fonts beside them
-// (dist/docs/fonts/: IBM Plex Sans from public/docs/fonts/, the game's two from src/fonts/), /sitemap.xml and /llms.txt.
+// into dist/: dist/docs/**/index.html (pages.mjs, from tools/docs/copy/ and the game's data), their stylesheet and script
+// (dist/docs/docs.css: html.mjs docsCss; docs.js), the fonts beside them (dist/docs/fonts/: IBM Plex Sans from
+// public/docs/fonts/, the game's two from src/fonts/), /sitemap.xml and /llms.txt.
 // The crops and screenshots in public/docs/img/ are copied by Vite as they are. None of it is stored for offline play
 // (tools/offline/plugin.mjs WEB_ONLY). `node tools/docs/build.mjs [outDir]` builds the pages alone (default dist/).
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { layout, ORIGIN, REPO, FONTS } from './html.mjs';
+import { layout, ORIGIN, REPO, FONTS, resetStyles, docsCss } from './html.mjs';
 import { pages, clipLd } from './pages.mjs';
 import { PEOPLES } from './data.mjs';
 
@@ -70,12 +71,15 @@ ${PEOPLES.map(people).join('\n')}
 
 /** Build the docs into `outDir` (a built game's dist/). Returns the pages written. */
 export function buildDocs(outDir, version = '') {
+  resetStyles();
   const list = pages(version);
   for (const p of list) {
     const dir = join(outDir, p.path);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'index.html'), layout({ path: p.path, title: p.title, description: p.description, body: p.body, crumb: p.path === '/docs/' ? null : p.crumb, ld: p.path === '/docs/' ? [videoGame(), clipLd(ORIGIN)] : [] }));
   }
+  writeFileSync(join(outDir, 'docs', 'docs.css'), docsCss()); // (after the pages: their `styled` classes)
+  copyFileSync(new URL('docs.js', import.meta.url), join(outDir, 'docs', 'docs.js'));
   const fonts = join(outDir, 'docs', 'fonts');
   mkdirSync(fonts, { recursive: true });
   for (const [, , file] of FONTS) if (!file.startsWith('ibm-')) copyFileSync(new URL(`src/fonts/${file}`, root), join(fonts, file));

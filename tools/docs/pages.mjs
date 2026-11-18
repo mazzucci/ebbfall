@@ -23,7 +23,7 @@
 //   {{pages}}            links to the other pages, with their descriptions
 //   {{play}}             the PLAY button
 import { readFileSync, readdirSync } from 'node:fs';
-import { esc, TABS } from './html.mjs';
+import { esc, styled, TABS } from './html.mjs';
 import { PEOPLES, FIGURES, nameOf, aName, inWords } from './data.mjs';
 import { loop, economy, cap, expedition, tree, peoples, artStrip, research } from './diagrams.mjs';
 import { SPRITE_URL, cropOf } from './sprites.mjs';
@@ -91,7 +91,7 @@ function figure(args, first) {
   for (const [k] of notes) if (!s.boxes?.[k]) throw new Error(`docs: shot ${name} has no box "${k}" (it has ${Object.keys(s.boxes || {}).join(', ')})`);
   const at = placeNotes(s, notes.map(([k]) => k));
   const pos = (a, d, gap) => (d ? `calc(${(a * 100).toFixed(2)}% ${d > 0 ? '+' : '-'} (var(--n) / 2 + ${gap}px))` : `${(a * 100).toFixed(2)}%`);
-  const marks = at.map((p, i) => `<span class="note" style="left:${pos(p.ax, p.dx, p.gap)};top:${pos(p.ay, p.dy, p.gap)}" aria-hidden="true">${i + 1}</span>`).join('');
+  const marks = at.map((p, i) => `<span class="note ${styled(`left:${pos(p.ax, p.dx, p.gap)};top:${pos(p.ay, p.dy, p.gap)}`)}" aria-hidden="true">${i + 1}</span>`).join('');
   const load = first ? 'fetchpriority="high"' : 'loading="lazy"';
   const img = `<picture><source media="(max-width:640px)" srcset="${SHOTS_URL}${s.files.phone}" width="${s.phoneW}" height="${s.phoneH}"><img src="${SHOTS_URL}${s.files.desktop}" width="${s.w}" height="${s.h}" alt="${esc(alt)}" ${load} decoding="async"></picture>`;
   return `<figure><div class="shot">${img}${marks}</div>${notes.length ? `<ol class="notes">${notes.map(([, l]) => `<li>${esc(l)}</li>`).join('')}</ol>` : ''}<figcaption>${esc(caption)}</figcaption></figure>`;
@@ -100,14 +100,13 @@ function figure(args, first) {
 /**
  * The home's hero: the gameplay clip, muted and looped, with its middle frame (`hero-home`) as its poster: the poster
  * first, the clip played only while in view (a phone on a slow line downloads it only then), never under reduced
- * motion (the still alone), the browser's controls where scripts do not run. The trailer takes its place later by taking
+ * motion (the still alone), the browser's controls where scripts do not run (docs.js plays it). The trailer takes its place later by taking
  * its file's name (public/docs/media/trailer.mp4).
  */
 function clip() {
   const t = shots().trailer, poster = shots()[t?.poster];
   if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
   return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
-<script>(function(){var v=document.currentScript.previousElementSibling.querySelector('video');v.controls=false;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(!('IntersectionObserver' in window)){v.play().catch(function(){});return;}new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)v.play().catch(function(){});else v.pause();});}).observe(v);})();</script>
 <figcaption>${esc(poster.caption)}</figcaption></figure>`;
 }
 

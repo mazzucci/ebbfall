@@ -1,19 +1,20 @@
 {
  "hero-home": {
-  "alt": "Blue Kingdom soldiers, archers and knights meet the Expedition's sellswords, buggies and drones in open country",
-  "caption": "Guards and Knights meet Sellswords and Buggies. Your side plays in blue.",
+  "alt": "Ebbfall gameplay: the blue Kingdom's archers and guards hold their ground as the Expedition's attack drones fly in",
+  "caption": "Archers against Drones. Your side plays in blue.",
   "w": 1000,
   "h": 500,
   "phoneW": 360,
-  "phoneH": 203,
+  "phoneH": 180,
   "files": {
    "desktop": "hero-home-2000.webp",
    "phone": "hero-home-720.webp"
   },
-  "boxes": {}
+  "boxes": {},
+  "avoid": []
  },
  "shot-battle": {
-  "alt": "Blue Kingdom knights and guards storm the Expedition's Data center while cannons and archers fire from behind",
+  "alt": "Ebbfall gameplay: the blue Kingdom's knights and guards storm the Expedition's Data center while cannons and archers fire from behind",
   "caption": "Knights and Guards at the Data center's walls, Cannons firing from behind: bring down the base. Your side plays in blue.",
   "w": 1000,
   "h": 500,
@@ -26,7 +27,7 @@
   "boxes": {}
  },
  "hero-kingdom": {
-  "alt": "A blue Kingdom base: the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate",
+  "alt": "Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate",
   "caption": "A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate. Your side plays in blue.",
   "w": 1000,
   "h": 500,
@@ -39,7 +40,7 @@
   "boxes": {}
  },
  "hero-expedition": {
-  "alt": "A blue Expedition base: the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front",
+  "alt": "Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front",
   "caption": "An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge. Your side plays in blue.",
   "w": 1000,
   "h": 500,
@@ -52,7 +53,7 @@
   "boxes": {}
  },
  "shot-desktop-hud": {
-  "alt": "The game on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card",
+  "alt": "Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card",
   "caption": "A Kingdom base at 3:00, a group of Guards, Archers and Knights selected. Your side plays in blue.",
   "w": 1000,
   "h": 625,
@@ -254,7 +255,7 @@
   ]
  },
  "shot-phone-land": {
-  "alt": "The game on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card",
+  "alt": "Ebbfall on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card",
   "caption": "The same base on a phone held sideways, the army selected.",
   "w": 844,
   "h": 390,
@@ -443,6 +444,9 @@
   "poster": "hero-home",
   "w": 1000,
   "h": 500,
-  "alt": "Real play: blue Kingdom soldiers, archers and knights meet the Expedition's sellswords, buggies and drones"
+  "seconds": 6,
+  "uploaded": "2026-11-18",
+  "alt": "Ebbfall gameplay: the blue Kingdom's archers and guards hold their ground as the Expedition's attack drones fly in",
+  "title": "Ebbfall gameplay: Archers against Drones"
  }
 }

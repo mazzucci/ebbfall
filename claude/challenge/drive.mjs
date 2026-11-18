@@ -272,6 +272,7 @@ async function playGame(n, last) {
   clearInterval(skipper);
   if (inflight) await inflight;
   game.result = end.result;
+  if (end.summary?.length) game.at = end.summary.length; // (the last digest may be minutes before the end)
   log('end', { game: n, result: end.result, capped: !!end.capped, summary: end.summary });
   md(`\n**Result: ${end.result}** at ${game.at}`);
   say(`game ${n}: ${end.result} at ${game.at}`);

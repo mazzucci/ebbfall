@@ -30,7 +30,7 @@ const KINGDOM_MIRROR_96 = '1.4.0.1o.h00h12';
 export const TOOLS = ['mcp__ebbfall__set_plan', 'mcp__ebbfall__say', 'mcp__ebbfall__read_state'];
 
 function args(argv) {
-  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 35, model: '', session: '', mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
+  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 30, model: '', session: '', mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => argv[++i];
     if (a === '--games') o.games = Number(v());

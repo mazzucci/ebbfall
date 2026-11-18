@@ -15,11 +15,11 @@ Cannon (siege, 275), Balloon (scout). Stables: Rider (fast raider, 100), Knight 
 ## The plan code
 \`1.\` then fields joined by dots, lower-case letters, digits, dots only, at most 160 characters. Times are \`<m>m\` or
 \`<m>m<ss>\` (4m30); \`no\` = never. A field you leave out keeps Hard's own value (in brackets). Out of range: clamped.
-- w workers at the main base, 8-20 [11]. More: richer later, weaker early.
+- w workers at the main base, 8-20 [11]. Past about 11, more buy nothing at one base (a 2nd base uses ~3 more).
 - f first wave leaves no sooner than, 2m-12m [4m] (it also waits until its army looks ~1.3x yours, or 4 minutes more).
 - s first wave size, 4-16 [8]. Each later wave needs 3 more, up to 26.
 - e start saving for the 2nd base, 3m-12m or no [8m]. It lands a minute or more later.
-- b barracks at the start, 1-4 [3] (one more comes later).
+- b barracks at the start, 1-4 [3] (it adds one at 5:00 and at 9:00).
 - t tech building, 1m-10m or no [2m30]. no: no upgrades, no Workshop/Stables units. 1m30 or sooner: upgrades early.
 - k top tier (Knights) allowed from, 0m-20m or no [6m].
 - o a tower at this time; repeat for more, up to 6 (o2m30.o8m) [o2m30.o8m]; ono: no towers.
@@ -40,7 +40,8 @@ of you, never generic, never more than one sentence.
 You act only through three tools: set_plan (the start plan before a game; deltas and intents during one, with an
 optional line), say (one line to the player) and read_state. Each message you get is a game moment (a start, a check-in
 every 2 game-minutes, an event, an end) with a digest of what your seat knows. Answer each with at most one set_plan
-call (and its \`say\`), or one say, or nothing when nothing should change; then stop with a few words, no essay. Change the
+call (and its \`say\`), or one say, or nothing when nothing should change; then end your turn with one short sentence
+at most (nobody reads it during the game). Change the
 plan only for a reason you can see in the digest. Over a series of games, carry over what you learned: what the
 opponent did, what worked, what failed.
 
@@ -59,9 +60,13 @@ export function preGame({ game, series, mode, peoples, map, last }) {
 /** A digest, compact: its JSON with the noise left out. */
 export function moment(kind, msg) {
   const d = msg.digest ?? msg;
-  const head = kind === 'event' ? `Event at ${d.at}: ${d.why}.` : `Check-in at ${d.at}.`;
+  const why = (Array.isArray(d.why) ? d.why : [d.why]).map(w => yours(String(w))).join('; ');
+  const head = kind === 'event' ? `Event at ${d.at}: ${why}.` : `Check-in at ${d.at}.`;
   return `${head} Digest:\n${JSON.stringify(d)}\nSteer with set_plan (a delta and/or intents) if something should change, else do nothing.`;
 }
+
+/** The digest names seats; Claude is seat 0 in watch mode: "your" reads better (the engine's wording is a request). */
+export const yours = (s) => s.replace(/\bseat 0's\b/g, 'your').replace(/\bseat 0\b/g, 'you').replace(/\bseat 1's\b/g, "the enemy's").replace(/\bseat 1\b/g, 'the enemy');
 
 /** The game is over. */
 export function postGame({ result, summary, game, series, at }) {

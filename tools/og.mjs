@@ -1,7 +1,8 @@
 // The link preview image, public/og.png (1200x630: Open Graph's og:image and X's summary_large_image, index.html): the
-// game's look (its dark ground #0b0f16, the icon, the wordmark in the menu's font) over a small battle drawn with the
-// game's own sprites (public/art: the Kingdom in seat 0's color from the left, the Expedition in seat 1's from the
-// right, their team masks tinted as the client tints them), composed as a page in headless Chromium
+// game's look (its dark ground #0b0f16, the icon, the wordmark in the menu's font) over the battle of tools/scene.mjs (the
+// same scene the menu's first page shows under it, tools/menu-art.mjs) drawn with the game's own sprites (public/art:
+// the Kingdom in seat 0's color from the left, the Expedition in seat 1's from the right, their team masks tinted as
+// the client tints them), composed as a page in headless Chromium
 // (tools/chromium.mjs) and written as a PNG. Kept small for the apps that fetch it (WhatsApp skips large images):
 // the screenshot's colors are reduced to a palette (an indexed PNG) when that is what fits. Run after changing the
 // icon, the art or the wording:
@@ -11,6 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { launchChromium } from './chromium.mjs';
 import { chunk } from './art/png.js';
+import { BAND, groundTile } from './scene.mjs';
 
 const root = new URL('../', import.meta.url);
 const out = process.argv[2] || new URL('public/og.png', root).pathname;
@@ -21,28 +23,13 @@ const TAG = 'A free browser RTS: a kingdom against time travelers';
 const SUB = 'KINGDOM VS EXPEDITION · AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
 
 /**
- * The battle, in the art's pixels (scale 2: 64 a tile), drawn at `ZOOM` on a band of ground at the bottom of the card:
- * [frame, x, y, seat] with x, y the frame's anchor (a unit's ground point) in card pixels. Units face +x at dir 0,
- * clockwise (16 dirs): the Kingdom comes from the left facing east (0, 15, 1), the Expedition from the right facing west (8).
+ * The battle (tools/scene.mjs BAND, 4:1: the menu's desktop band too), drawn at the art's scale (`ZOOM` 1: 64 px a tile) in
+ * the card's bottom BAND_H px: [frame, x, y, seat, scale] with x, y the frame's anchor (a unit's ground point) in card
+ * pixels, `scale` a figure drawn larger than the rest (the Drones). The card's veil (#veil) fades the band's top under
+ * the title, as the menu's image fades its own.
  */
-const ZOOM = 1;
-const SCENE = [
-  // the ground's features first (under everything)
-  ['shard_0', 560, 430], ['shard_1', 200, 625], ['shard_2', 690, 425], ['shard_0', 1010, 625],
-  ['doodad_crater_0', 600, 575], ['doodad_debris_1', 530, 615], ['doodad_debris_0', 690, 500],
-  // the Kingdom (seat 0), from the left
-  ['bldg_core', 95, 575, 0],
-  ['knight_1_0', 345, 575, 0], ['trooper_0_1', 440, 520, 0], ['trooper_15_1', 465, 600, 0], ['trooper_0_0', 380, 485, 0],
-  ['lancer_1_0', 285, 615, 0], ['rider_0_1', 270, 520, 0],
-  // the Expedition (seat 1), from the right
-  ['bldg_conflux', 1110, 575, 1],
-  ['monolith_8_0', 870, 575, 1], ['scythe_8_1', 775, 520, 1], ['scythe_9_0', 760, 610, 1], ['prism_8_0', 900, 495, 1],
-  ['bruiser_8_1', 950, 620, 1],
-  // the clash: fire across the middle, a blast
-  ['boom_big_3', 610, 550], ['flash_1', 490, 515], ['flash_0', 735, 520], ['spark_1', 570, 600],
-  // in the air
-  ['observer_1_0', 330, 440, 0], ['shrike_8_0', 860, 440, 1],
-];
+const ZOOM = 1, BAND_H = W / 4, BAND_TOP = H - BAND_H;
+const SCENE = BAND.map(([n, x, y, seat, scale = 1]) => [n, x * W, BAND_TOP + y * BAND_H, seat, scale]);
 
 const pages = JSON.parse(readFileSync(new URL('public/art/atlas.json', root))).pages;
 const atlas = { tints: JSON.parse(readFileSync(new URL('public/art/atlas.json', root))).tints, pages: pages.map(p => JSON.parse(readFileSync(new URL(`public/art/${p}`, root)))) };
@@ -81,18 +68,18 @@ window.ready = (async () => {
     const { img, f } = find(n), r = f.frame, o = f.spriteSourceSize, a = f.anchor || { x: 0, y: 0 };
     ctx.drawImage(img, r.x, r.y, r.w, r.h, x - a.x * f.sourceSize.w * s + o.x * s, y - a.y * f.sourceSize.h * s + o.y * s, r.w * s, r.h * s);
   };
-  // The ground: the terrain's plain cells, a patchwork as the game lays them (a hash per cell picks the variant).
-  const T = 64 * ZOOM;
-  for (let ty = 0; ty * T < H; ty++) for (let tx = 0; tx * T < W; tx++) draw(g, 'ground_' + ((tx * 7 + ty * 13 + tx * ty) % 6), tx * T, ty * T, ZOOM);
+  // The ground: the terrain's plain cells, a patchwork as the game lays them (scene.mjs groundTile picks the variant).
+  const T = 64 * ZOOM, groundTile = ${groundTile.toString()};
+  for (let ty = 0; ty * T < H; ty++) for (let tx = 0; tx * T < W; tx++) draw(g, groundTile(tx, ty), tx * T, ty * T, ZOOM);
   // A unit or building: the base, then its team mask tinted with the seat's tint (a multiply), as the client draws it.
   const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H; const t = tmp.getContext('2d');
-  for (const [n, x, y, seat] of SCENE) {
-    draw(g, n, x, y, ZOOM);
-    if (seat === undefined) continue;
+  for (const [n, x, y, seat, scale] of SCENE) {
+    draw(g, n, x, y, ZOOM * scale);
+    if (seat === null) continue;
     const col = '#' + ATLAS.tints[seat].toString(16).padStart(6, '0');
-    t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, W, H); draw(t, n + '_m', x, y, ZOOM);
+    t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, W, H); draw(t, n + '_m', x, y, ZOOM * scale);
     t.globalCompositeOperation = 'multiply'; t.fillStyle = col; t.fillRect(0, 0, W, H);
-    t.globalCompositeOperation = 'destination-in'; draw(t, n + '_m', x, y, ZOOM);
+    t.globalCompositeOperation = 'destination-in'; draw(t, n + '_m', x, y, ZOOM * scale);
     g.drawImage(tmp, 0, 0);
   }
   await document.fonts.ready;

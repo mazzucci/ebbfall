@@ -3317,7 +3317,8 @@ test('the first page: the name in title case over the shore, whose tide lines ke
       }
       await page.evaluate(() => { for (const a of document.getAnimations()) a.play(); });
       assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
-      assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
+      // (the field's band drifts too, and leaves only the lowest line, field.e2e.mjs; under 360 px of height there is no band: the three lines, or the one PLAY OFFLINE's answer leaves)
+      assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : h >= 360 ? 2 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
       await page.locator('#btnSolo').tap();
       assert.ok(await shore.isHidden() && await page.locator('#menuSolo').isVisible(), 'Single player: the first page\'s shore goes with it');
       assert.ok(await page.locator('#menuSolo .shore').isVisible(), 'Single player: a shore of its own (as Multiplayer)');

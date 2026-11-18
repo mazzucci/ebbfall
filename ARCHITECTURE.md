@@ -510,6 +510,9 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
                       listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape),
+                      field.e2e.mjs (the field under the first page: the right image per size class, under the premise
+                      line, the buttons unmoved, the floor when the image does not come, the drift stopped under reduced
+                      motion, no band on a screen too short),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
@@ -651,7 +654,12 @@ tools/trailer/        the trailer (the 30-second storyboard), recorded in the bu
                       sheets, 720p web copies and 2 fps frames. ffmpeg: FFMPEG, .tools/ffmpeg/ffmpeg (a static build with libx264) or the PATH's
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
-public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for
+tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
+                      battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
+                      through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
+                      from public/art, one image per size class with the night veil and the top fade baked in, composed
+                      and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
+public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

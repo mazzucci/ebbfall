@@ -3365,6 +3365,29 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
   } finally { await d.close(); }
 });
 
+test('a 3x screen: the minimap drawn at three backing pixels per CSS px, and a click on it still jumps to its spot', async () => {
+  const d = await newGame({ ...DESKTOP, deviceScaleFactor: 3 }, 1, 4242, { ai: false });
+  try {
+    const frame = () => d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    await frame();
+    const size = await d.eval(() => { const m = document.getElementById('minimap'); return { w: m.width, h: m.height, cw: m.clientWidth, ch: m.clientHeight, dpr: devicePixelRatio }; });
+    assert.equal(size.dpr, 3);
+    assert.ok(Math.abs(size.w - size.cw * 3) <= 1 && Math.abs(size.h - size.ch * 3) <= 1, `the backing 3x its box: ${JSON.stringify(size)}`);
+    // A click jumps the view's center to the world point under it (away from the map's edges, where the view stops).
+    const mm = await d.page.locator('#minimap').boundingBox(), [WW, WH] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
+    const fx = 0.55, fy = 0.45;
+    await d.page.mouse.click(mm.x + mm.width * fx, mm.y + mm.height * fy);
+    await frame();
+    const c = await d.eval(() => ({ x: endfall.cam.x + endfall.view.w / endfall.cam.zoom / 2, y: endfall.cam.y + endfall.view.h / endfall.cam.zoom / 2, top: endfall.cam.y, vw: endfall.view.w / endfall.cam.zoom }));
+    const tol = 2 * WW / mm.width; // (two CSS px of the minimap)
+    assert.ok(Math.abs(c.x - WW * fx) < tol && Math.abs(c.y - WH * fy) < tol, `the view centered on the clicked spot: ${c.x.toFixed(0)},${c.y.toFixed(0)} for ${(WW * fx).toFixed(0)},${(WH * fy).toFixed(0)}`);
+    // The view box drawn where the camera now is, in backing pixels: its bright top edge over the view's center.
+    const px = await d.eval(([x, y]) => { const m = document.getElementById('minimap'), k = m.width / endfall.engine.WW; return [...m.getContext('2d').getImageData(Math.floor(x * k), Math.floor(y * k), 1, 1).data]; }, [c.x, c.top]);
+    assert.ok(px[0] > 200 && px[1] > 190 && px[2] > 130, `the view box's line at the camera's top edge: ${px}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('every unit and building is drawn twice: its art, then its team mask in its seat\'s colour', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

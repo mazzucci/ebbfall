@@ -53,7 +53,7 @@ impl World {
         let owed = [0, 1].map(|k| debt[k] + cost[k] as f64 * REPAIR_COST * heal / maxhp);
         let charge = owed.map(|o| o.floor() as i32);
         if !self.can_afford(team, charge) {
-            let msg = format!("{NOT_ENOUGH} to repair");
+            let msg = format!("{} to repair", self.factions[team as usize].not_enough());
             self.toast(team, msg, true);
             let time = self.time;
             self.um(uid).no_build_until = time + 30.0; // the AI does not send it straight back
@@ -76,6 +76,8 @@ impl World {
                 x: ux + (bx - ux) * k,
                 y: uy + (by - uy) * k,
                 big: false,
+                shot: None,
+                air: None,
             });
         }
         if full {
@@ -99,7 +101,7 @@ impl World {
             return; // (it rises only while a builder works on it: `update_build`)
         }
         let d = b.kind.def();
-        if d.pays {
+        if d.pays > 0.0 {
             self.pump(bid, dt);
         }
         let b = self.bm(bid).unwrap();
@@ -122,8 +124,16 @@ impl World {
                 self.fire(bid, t);
             }
         }
+        // (a building that trains only with another standing, the Portal with an Uplink: its training waits meanwhile)
+        let (team, with) = (
+            self.bldg(bid).unwrap().team,
+            self.bldg(bid).unwrap().kind.def().trains_with,
+        );
+        let gate_open = with.is_none_or(|r| self.has_bldg(team, r));
         let b = self.bm(bid).unwrap();
-        if let Some(&q) = b.queue.first() {
+        if let Some(&q) = b.queue.first()
+            && gate_open
+        {
             b.prog += dt / q.def().build;
             if b.prog >= 1.0 {
                 b.prog = 0.0;
@@ -139,19 +149,7 @@ impl World {
             if p >= 1.0 {
                 self.bm(bid).unwrap().research = None;
                 self.upgrades[team as usize][up.index()] = level;
-                if up.def().effect == Effect::Launch {
-                    self.launched(bid);
-                    return;
-                }
-                self.toast(
-                    team,
-                    format!(
-                        "{} {} researched",
-                        up.def().name,
-                        ["I", "II", "III"][(level - 1) as usize]
-                    ),
-                    false,
-                );
+                self.toast(team, format!("{} researched", up.level_name(level)), false);
                 self.sfx(team, "researched");
                 let (bx, by) = (self.bldg(bid).unwrap().x, self.bldg(bid).unwrap().y);
                 self.ping(team, bx, by);
@@ -159,17 +157,6 @@ impl World {
                 self.bm(bid).unwrap().research = Some((up, p));
             }
         }
-    }
-    /// A side's satellite is up (`Effect::Launch`): its research-done notice in its own words, for its seat alone (no
-    /// other seat is told: Stelian, the balance pass), its chime and ping; and the launch at the building it went up
-    /// from (`Event::Launch`, for every seat: the client draws the rocket for its own seat or where it sees the spot).
-    fn launched(&mut self, bid: Id) {
-        let b = self.bldg(bid).unwrap();
-        let (team, x, y) = (b.team, b.x, b.y);
-        self.toast(team, LAUNCH_OURS, false);
-        self.emit(Event::Launch { x, y, team });
-        self.sfx(team, "researched");
-        self.ping(team, x, y);
     }
 
     /// A harvester building a site: walk to it, then raise it; when it is done, the crew waits beside it (a site lost or

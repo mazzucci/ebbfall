@@ -31,34 +31,18 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
         .map(|b| b.id)
         .collect();
     for i in 0.. {
-        let has = |w: &World, k: BldgKind| {
-            w.bldgs
-                .iter()
-                .any(|b| b.team == PLAYER && b.kind == k && b.done)
-        };
-        // (a building that waits for a research, the Uplink for the satellite: researched once nothing else can go up)
-        if !todo.iter().any(|&k| w.has_req(PLAYER, k))
-            && let Some(up) = todo.iter().find_map(|&k| {
-                k.def()
-                    .req_up
-                    .filter(|u| u.def().req.is_none_or(|r| has(&w, r)))
-            })
-        {
-            let at = w
-                .bldgs
-                .iter()
-                .find(|b| b.team == PLAYER && b.done && b.kind.def().researches.contains(&up))
-                .unwrap()
-                .id;
-            w.start_research(at, up).unwrap();
-            run(&mut w, (up.time(1) + 1.0) as u32);
-        }
         let Some(at) = todo.iter().position(|&k| w.has_req(PLAYER, k)) else {
             assert!(todo.is_empty(), "{}: {todo:?} can never be built", f.key);
             break;
         };
         let k = todo.remove(at);
-        built.push(build(&mut w, k, workers[i % workers.len()], 150));
+        if k.def().hq {
+            // (explored round it: a second headquarters goes up `HQ_SPACING` out, past what the start has seen)
+            for e in &mut w.explored {
+                e.fill(1);
+            }
+        }
+        built.push(build_clear(&mut w, k, workers[i % workers.len()]));
     }
     let wants: Vec<(Id, UnitKind)> = UNIT_KINDS
         .into_iter()
@@ -88,6 +72,45 @@ fn every_building_and_unit_of(f: &'static Faction, seed: u32) {
             f.key
         );
     }
+}
+
+/// Place `kind` for the player round its main with a free tile all round it (the sites of a whole Build list packed
+/// against each other can wall a builder out: the Expedition's Uplink, seed 1, once its second Data center went up
+/// farther out), and run until it stands.
+fn build_clear(w: &mut World, kind: BldgKind, builder: Id) -> Id {
+    let (cx, cy) = core(w, PLAYER);
+    let d = kind.def();
+    let clear = |w: &World, tx: i32, ty: i32| {
+        (ty - 1..=ty + d.h).all(|y| {
+            (tx - 1..=tx + d.w).all(|x| {
+                w.map.in_map(x, y)
+                    && w.map.rock[w.map.idx(x, y)] == 0
+                    && w.map.occ[w.map.idx(x, y)] == 0
+            })
+        })
+    };
+    let (tx, ty) = (3..30)
+        .flat_map(|r| {
+            (0..24).map(move |a| {
+                let a = a as f64 / 24.0 * std::f64::consts::TAU;
+                (
+                    (cx as f64 + 2.0 + a.cos() * r as f64 - 1.0).round() as i32,
+                    (cy as f64 + 2.0 + a.sin() * r as f64 - 1.0).round() as i32,
+                )
+            })
+        })
+        .find(|&(x, y)| w.can_place(kind, x, y, PLAYER) && clear(w, x, y))
+        .unwrap_or_else(|| panic!("no clear spot for {kind:?}"));
+    let b = w
+        .place_building(PLAYER, kind, tx, ty, Some(builder))
+        .unwrap_or_else(|e| panic!("{kind:?}: {e}"));
+    for _ in 0..150 * TPS {
+        w.step();
+        if w.bldg(b).is_some_and(|b| b.done) {
+            return b;
+        }
+    }
+    panic!("{kind:?} not finished after 150 s");
 }
 
 #[test]
@@ -187,9 +210,9 @@ fn the_game_api_ignores_orders_for_the_other_side() {
 
 #[test]
 fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge() {
-    // The Kingdom: the Barracks (Guards, Archers), then the Stables (they need a Market; Riders; Knights once the Forge
-    // stands) and the Workshop (the Balloon; Ballistas and Cannons once the Forge stands). No building trains a
-    // healer.
+    // The Kingdom: the Barracks (Guards, Archers), then the Workshop (the Balloon; Ballistas and Cannons once the Forge
+    // stands) and, after the Forge (serial since the arc, Nov 13: the top tier's way), the Stables (Riders, Knights). No
+    // building trains a healer.
     let mut w = rich(13);
     let h = harvesters(&w, PLAYER);
     for k in [BldgKind::Airfield, BldgKind::Factory] {
@@ -197,7 +220,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         assert_eq!(
             w.place_building(PLAYER, k, tx, ty, Some(h[1])),
             Err(format!("Requires {}", k.def().req.unwrap().def().name)),
-            "cavalry (off the Market) and machines (off the Barracks): {k:?}"
+            "cavalry (off the Blacksmith) and machines (off the Barracks): {k:?}"
         );
     }
     let rax = build(&mut w, BldgKind::Barracks, h[0], 120);
@@ -207,13 +230,7 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         "no healer in the build"
     );
     let fac = build(&mut w, BldgKind::Factory, h[3], 120);
-    build(&mut w, BldgKind::Extractor, h[2], 120); // (the Stables need a Market)
-    let stables = build(&mut w, BldgKind::Airfield, h[1], 120);
-    for (at, k) in [
-        (fac, UnitKind::Bastion),
-        (fac, UnitKind::SiegeTank),
-        (stables, UnitKind::Knight),
-    ] {
+    for (at, k) in [(fac, UnitKind::Bastion), (fac, UnitKind::SiegeTank)] {
         assert_eq!(
             w.queue_unit(at, k),
             Err("Requires Blacksmith".into()),
@@ -230,11 +247,18 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
         w.queue_unit(fac, UnitKind::Observer).is_ok(),
         "no Forge for a Balloon"
     );
-    assert!(
-        w.queue_unit(stables, UnitKind::Rider).is_ok(),
-        "nor for a Rider"
+    let (tx, ty) = spot(&w, BldgKind::Airfield);
+    assert_eq!(
+        w.place_building(PLAYER, BldgKind::Airfield, tx, ty, Some(h[1])),
+        Err("Requires Blacksmith".into()),
+        "the Stables after the Blacksmith"
     );
     build(&mut w, BldgKind::Forge, h[2], 120);
+    let stables = build(&mut w, BldgKind::Airfield, h[1], 120);
+    assert!(
+        w.queue_unit(stables, UnitKind::Rider).is_ok(),
+        "a Rider at once"
+    );
     for (at, k) in [
         (fac, UnitKind::Bastion),
         (fac, UnitKind::SiegeTank),
@@ -246,21 +270,25 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
-    // The Expedition: the Recruiting post (Sellswords; Bruisers once a Lab stands) needs nothing, the Factory (Buggies,
-    // Drones; Rovers once a Lab stands), the Lab and the Sentry mast need it, the Portal (Androids) an Uplink, which needs
-    // the satellite, launched at the Data center once the Lab stands.
+    // The Expedition (the arc, Nov 13): the Recruiting post (Sellswords; Bruisers once a Lab stands) and the Sentry mast
+    // need nothing, the Factory (Buggies; Drones once a Lab stands), the Lab and the Wind turbine need the post, the
+    // Portal (Androids and Rovers) an Uplink, which needs the Lab.
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
-    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
+    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Spire] {
         assert!(!w.has_req(PLAYER, k), "{k:?} waits for the Recruiting post");
     }
-    assert!(
-        w.has_req(PLAYER, BldgKind::Siphon),
-        "the Recruiting post needs nothing"
-    );
+    for k in [BldgKind::Siphon, BldgKind::Ward, BldgKind::Substation] {
+        assert!(w.has_req(PLAYER, k), "{k:?} needs nothing");
+    }
     let post = build(&mut w, BldgKind::Siphon, l[0], 150);
-    build(&mut w, BldgKind::Spire, l[3], 90); // (room for them all)
-    for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Ward] {
+    build(&mut w, BldgKind::Substation, l[3], 90); // (room for them all)
+    for k in [
+        BldgKind::Kiln,
+        BldgKind::Loom,
+        BldgKind::Spire,
+        BldgKind::Ward,
+    ] {
         assert!(w.has_req(PLAYER, k), "{k:?} once it stands");
     }
     assert!(
@@ -277,12 +305,15 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         "a Sellsword at once"
     );
     let kiln = build(&mut w, BldgKind::Kiln, l[1], 150);
-    for k in [UnitKind::Scythe, UnitKind::Shrike] {
-        assert!(w.queue_unit(kiln, k).is_ok(), "{k:?}");
-    }
+    assert!(w.queue_unit(kiln, UnitKind::Scythe).is_ok(), "a Buggy");
+    assert_eq!(
+        w.queue_unit(kiln, UnitKind::Shrike),
+        Err("Requires Lab".into())
+    );
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Monolith),
-        Err("Requires Lab".into())
+        Err("Factory cannot train that".into()),
+        "the Rover comes through the Portal"
     );
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Halo),
@@ -294,19 +325,14 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         w.queue_unit(post, UnitKind::Bruiser).is_ok(),
         "once the Lab stands"
     );
+    assert!(w.queue_unit(kiln, UnitKind::Shrike).is_ok(), "a Drone too");
     assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "not the Lab alone");
-    let dc = w
-        .bldgs
-        .iter()
-        .find(|b| b.team == PLAYER && b.kind == BldgKind::Conflux)
-        .unwrap()
-        .id;
-    assert!(w.start_research(dc, Upgrade::Satellite).is_ok());
-    run(&mut w, 61);
     build(&mut w, BldgKind::Uplink, l[3], 150);
     assert!(w.has_req(PLAYER, BldgKind::Eclipse));
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
+    build(&mut w, BldgKind::Substation, l[3], 90); // (grid for the Portal's machines: the mercenaries draw on it too)
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());
+    assert!(w.queue_unit(portal, UnitKind::Monolith).is_ok());
     assert!(!UnitKind::Umbra.def().air, "the Android is a ground unit");
 }
 
@@ -748,6 +774,46 @@ fn a_group_sent_to_a_walled_off_spot_stops_where_it_can() {
                     )
                 })
                 .collect::<Vec<_>>()
+        );
+    }
+}
+
+/// A rally point no click makes (a huge number from the network: `set_rally` checks only that it is finite) is kept on
+/// the map, and the next unit steps out towards it: no peer's sim breaks on it (it once made NaN keys in `exit_tile`).
+#[test]
+fn a_rally_point_far_off_the_map_stays_on_it() {
+    for (x, y) in [
+        (1e308, 1e308),
+        (-f64::MAX, f64::MAX),
+        (f64::MAX, -1e308),
+        (1e15, -1e15),
+    ] {
+        let mut g = Game::new(1, 1);
+        let w = g.world();
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && !b.kind.def().trains.is_empty())
+            .expect("a building that trains");
+        let (hq, kind) = (hq.id, hq.kind.def().trains[0]);
+        let before = count(g.world(), PLAYER, kind);
+        g.set_rally(hq, x, y, 0);
+        let rl = g.world().bldg(hq).unwrap().rally.expect("a rally point");
+        let (ww, wh) = (g.world().map.ww(), g.world().map.wh());
+        assert!(
+            (0.0..=ww).contains(&rl.x) && (0.0..=wh).contains(&rl.y),
+            "({x}, {y}) kept on the map: ({}, {})",
+            rl.x,
+            rl.y
+        );
+        assert_eq!(g.queue_unit(hq, kind.def().key), "");
+        for _ in 0..60 * 30 {
+            g.step();
+        }
+        assert_eq!(
+            count(g.world(), PLAYER, kind),
+            before + 1,
+            "({x}, {y}): trained and out"
         );
     }
 }

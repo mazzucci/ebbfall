@@ -309,7 +309,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       assert.equal(await b.p.locator('#onlineBoard .add').count(), 0, 'no + SEAT for the friend');
       assert.deepEqual(await board(a.p, 'online').spots(), ['YOU', 'Bo', '+', '', '', '', '', ''], 'the host: + SEAT in the next spot');
       assert.ok(await b.p.locator('#onlineMaps').isHidden() && await b.p.locator('#onlineMapLine').isVisible(), 'no map list: one line');
-      assert.equal(await b.p.locator('#onlineMapLine').textContent(), "ASHEN BASINAnn's pick");
+      assert.equal(await b.p.locator('#onlineMapLine').textContent(), "DUST QUARTERAnn's pick", 'a new room: the default map, 96x96');
       // Its own token: a sheet with RACE only (no level, no side, and no READY).
       await sheet(b, 1, [], false);
       await eventually(() => b.p.$$eval('#onlineSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE'], 'its own sheet: RACE only');
@@ -340,7 +340,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       await sidesAre(b, [['YOU', 'COMPUTER 3'], ['Ann', 'COMPUTER 2']]);
       assert.equal(await b.p.evaluate(() => endfall.online.seat), 1, 'the friend still in its seat');
       assert.deepEqual({ a: await board(a.p, 'online').boxes(), b: await board(b.p, 'online').boxes() }, boxes, 'every spot where it was, on both boards');
-      await sheet(a, 3, ['diff:3', 'race:vael']); // (AI 3: Hard, Expedition)
+      await sheet(a, 3, ['diff:2', 'race:vael']); // (AI 3: Hard, Expedition)
       await sheet(a, 2, ['diff:0']); // (AI 2: Easy)
       await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard [data-k="tok3"] .lvl i.on').length === 3 && document.querySelectorAll('#onlineBoard [data-k="tok2"] .lvl i.on').length === 1);
       await b.p.waitForFunction(() => /^COMPUTER 3 (EXPEDITION|EXP, Expedition), Hard/.test(document.querySelector('#onlineBoard [data-k="tok3"]').getAttribute('aria-label')), null, { timeout: RUN_MS });
@@ -362,7 +362,7 @@ test('the board: the host adds AIs, sets their levels, races and sides and puts 
       await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       for (const x of [a, b]) await x.p.waitForFunction(() => endfall.online.playing && endfall.G.tick > 240, null, { timeout: START_MS });
       const setup = await a.p.evaluate(() => { const s = endfall.online.setup; return [s.ai, s.teams, s.diffs, s.diff, s.races, s.spots, endfall.engine.MW, endfall.online.names]; });
-      assert.deepEqual(setup, [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 3], 3, ['humans', 'vael', 'random', 'vael'], [0, 1, 2, 3], 96, ['Ann', 'Bo', 'the computer', 'the computer']], 'two people against two AIs on 96x96, each AI at its own level');
+      assert.deepEqual(setup, [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 2], 2, ['humans', 'vael', 'random', 'vael'], [0, 1, 2, 3], 96, ['Ann', 'Bo', 'the computer', 'the computer']], 'two people against two AIs on 96x96, each AI at its own level');
       assert.deepEqual(await Promise.all([a, b].map(x => x.p.evaluate(() => endfall.G.me))), [0, 1]);
       assert.equal(new Set(bands).size, 4);
       for (const x of [a, b]) assert.deepEqual(await x.p.evaluate(() => [0, 1, 2, 3].map(s => endfall.seatTint(s) === endfall.spotTint(endfall.online.setup.spots[s]))), [true, true, true, true], 'each seat in its spot\'s colour');
@@ -452,8 +452,8 @@ test('an open seat: SHARE LINK the big button in the title, SHARE in the seat\'s
     await a.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok.open').length === 2);
     await sheet(a, 1, ['side:0']);
     await sidesAre(a, [['YOU', 'OPEN'], ['OPEN']]);
-    assert.equal(await a.p.locator('#onlineStatus').textContent(), 'Map: Dust Quarter (up to 4)', 'a seat past the map\'s starts: the smallest map that seats them, said a moment');
-    await a.p.waitForFunction(() => document.getElementById('onlineStatus').textContent === '2 seats are open: share the link, or give them to the computer', null, { timeout: 8000 });
+    assert.equal(await a.p.locator('#onlineMapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'three seats: the default map seats them, no change');
+    await eventually(() => a.p.locator('#onlineStatus').textContent(), '2 seats are open: share the link, or give them to the computer', 'nothing said about the map');
     const b = await joinByLink(PHONE, `${relayQ}&room=${code}`, 'Bo');
     try {
       await b.p.waitForFunction(() => document.querySelectorAll('#onlineBoard .tok').length === 3);
@@ -938,7 +938,7 @@ test('READY waits for the game to load; a seat that never loads holds the room u
     assert.equal(await b.locator('#btnOnlineReady').textContent(), 'LOADING…', 'READY waits for the game');
     assert.ok(await b.locator('#btnOnlineReady').isDisabled());
     // A third seat by the protocol alone: a tab that readies, then never loads its game (it died, or it is very slow).
-    const build = await a.p.locator('#buildId').textContent();
+    const build = await a.p.locator('#buildStamp').getAttribute('data-build');
     c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
     await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
     c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build }));
@@ -980,7 +980,7 @@ test('a rejoin whose game cannot load keeps its seat; one while it loads finds t
       // A third seat by the protocol alone, which gives the game up before it has loaded: a seat gone.
       c = new WebSocket(`ws://localhost:${relay.port}/?room=${code}`);
       await new Promise((r, j) => { c.once('open', r); c.once('error', j); });
-      c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build: await a.p.locator('#buildId').textContent() }));
+      c.send(JSON.stringify({ proto: PROTO, name: 'Cy', build: await a.p.locator('#buildStamp').getAttribute('data-build') }));
       await a.p.waitForFunction(() => /Cy/.test(document.getElementById('onlineBoard').textContent));
       c.send(JSON.stringify({ t: 'ready', ready: true })); await a.tap('#btnOnlineReady'); await b.tap('#btnOnlineReady');
       await a.p.waitForFunction(() => endfall.online.playing, null, { polling: 250 });

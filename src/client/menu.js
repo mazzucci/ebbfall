@@ -6,12 +6,16 @@
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
 // The menu always opens on its first page (a join link opens the lobby instead; a challenge link, the single-player
 // page).
-// The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map, the
-// others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
+// The maps (maps.js): fixed ones with made-up names and hidden characters (the default is the standard map at 96x96,
+// the others are surprises to discover in play), and a random map generated each time; the end screen tells the story.
+// The 64x64 maps are hidden: never listed, never a fallback (a saved one opens the default); a challenge link naming
+// one plays it, listed while it is the map chosen.
 // The board (races, sides, levels) and the map are remembered on this device. A challenge link (`?vs=`, SHARE after a
 // victory: challenge.js) opens the single-player page on its setup, its seed and starts too, with a line that says so;
 // it is not remembered: the player's own saved setup is back on the next visit, and the first change to the board or
-// the map makes the setup theirs (saved, as every change is) and the challenge an ordinary game.
+// the map makes the setup theirs (saved, as every change is) and the challenge an ordinary game. A plan link (`?plan=`,
+// play against Claude: plan.js, claude.js) sets the AI's plan for the games of this visit (its first enemy AI seat
+// plays it, on Hard; `&watch=1`: the person watches it play the built-in Hard), with a line that says so; not saved.
 import { mapPreview, ready } from '../engine/index.js';
 import { $ } from './ui.js';
 import { sfx } from './audio.js';
@@ -19,8 +23,10 @@ import { enterFullscreen } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
-import { MAPS, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, mapLabel, seatsOf, teamList } from './maps.js';
+import { MAPS, DEFAULT_MAP, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, offered, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
+import { PARAM as PLAN, WATCH, SEED, fromSearch, line as planLine } from './plan.js';
+import { initClaude, currentPlan } from './claude.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, removeAt, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
@@ -29,11 +35,14 @@ import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName,
  *  side first, you first): `races` (a RANDOM one drawn), `ai`, `teams` (an id per seat, empty: free for all), `diffs`
  *  (each AI's; empty: all at `diff`), `diff`, the hardest AI's (the record's), and `spots`, each seat's spot (its
  *  color); `race`, `enemyRace`: seat 0's and seat 1's (a duel's two). */
-export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[0].seed, kind: 0, map: 0, name: MAPS[0].name, size: MAPS[0].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
+export const menu = { challenge: null, tutorial: false, diff: 0, seed: MAPS[DEFAULT_MAP].seed, kind: MAPS[DEFAULT_MAP].kind, map: DEFAULT_MAP, name: MAPS[DEFAULT_MAP].name, size: MAPS[DEFAULT_MAP].size, side: 0, race: 'humans', enemyRace: 'humans', board: [], players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 /** A race for this game: the one chosen, or either at random. */
 const draw = (k) => (k === 'random' ? RACES[Math.random() < 0.5 ? 0 : 1] : k);
-/** ?seed=N in the URL plays a random-slot map of that seed, standard character (tests use it). */
-const urlSeed = new URLSearchParams(location.search).get('seed');
+/** ?seed=N in the URL plays a random-slot map of that seed, standard character: the first random slot, the hidden
+ *  64x64 one, unless ?map= names another (tests use both). */
+const urlSeed = ((q) => (q.has('plan') ? null : q.get('seed')))(new URLSearchParams(location.search)); // (with a plan, the game's own seed: plan.js)
+/** ?map=N in the URL opens on map N, a hidden one too (tests use it: the 64x64 maps and the Lake are in no list). */
+const urlMap = ((q) => (/^\d{1,3}$/.test(q ?? '') && MAPS[+q] ? +q : null))(new URLSearchParams(location.search).get('map'));
 
 /** Pick map `i` (remembered); the random one draws a new seed and a hidden character each time it is chosen or played.
  *  (A challenge's map, seed and starts are its own: picking one makes the setup the player's.) */
@@ -48,13 +57,17 @@ function choose(i) {
   else { const seed = (Math.random() * 1e9) >>> 0; Object.assign(menu, { seed, kind: m.kind ?? Math.floor(Math.random() * RANDOM_KINDS), name: mapName(seed) }); }
 }
 
-/** The map list into `sel` (a <select>): every map, its name and the players it seats ("Iron Compass · up to 8"), those
- *  with fewer starts than `players` there but not to be chosen; `on` chosen; `pick(i)` when another is. The options are
- *  made again only when the players change (a lobby arriving while the list is open leaves it open). */
+/** The map list into `sel` (a <select>): every map offered (no hidden one: maps.js `offered`), its name and the players
+ *  it seats ("Iron Compass · up to 8"), those with fewer starts than `players` there but not to be chosen; `on` chosen
+ *  (a hidden map, a challenge's or an old room's, listed too while it is); `pick(i)` when another is. The options are
+ *  made again only when the players or the hidden map listed change (a lobby arriving while the list is open leaves it
+ *  open). */
 export function mapSelect(sel, players, on, pick) {
-  if (sel.dataset.players !== String(players) || sel.options.length !== MAPS.length) {
-    sel.replaceChildren(...MAPS.map((m, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
-    sel.dataset.players = String(players);
+  const key = `${players}:${offered(on) ? '' : on}`;
+  if (sel.dataset.key !== key) {
+    const shown = MAPS.flatMap((_, i) => (offered(i) || i === on ? [i] : []));
+    sel.replaceChildren(...shown.map((i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = mapLabel(i); o.disabled = !fits(i, players); return o; }));
+    sel.dataset.key = key;
   }
   if (sel.value !== String(on)) sel.value = String(on);
   sel.onchange = () => { sfx('select'); pick(+sel.value); };
@@ -88,7 +101,10 @@ function setBoard(board) {
   renderSeats(); showFirstGame(); sfx('select');
 }
 /** The footer's note: the map just picked's line (the Shore's), why START GAME waits, or the challenge it plays. */
-function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : menu.challenge ? line(menu.challenge) : ''); }
+function renderNote() {
+  const plan = currentPlan(), lines = [menu.challenge && line(menu.challenge), plan && planLine(plan.watch)].filter(Boolean);
+  $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : lines.join(' · '));
+}
 /** A spot's player as the board shows it (seats.js `tokenEl`'s view). */
 const viewOf = (board, i) => ({ name: seatName(i), race: board[i].race, diff: i ? board[i].diff : null, side: board[i].team, sideColor: sideColor(board, board[i].team), me: !i });
 function renderSeats() {
@@ -150,7 +166,7 @@ export function drawPreview(cv, i, seed, kind) {
 
 export function initMenu({ onStart }) {
   // The first page's shore under the other menu pages too (owner, 2026-11-03), each copy with ids of its own.
-  for (const id of ['menuSolo', 'menuAbout', 'onlineJoin', 'onlineRoom']) {
+  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) {
     const shore = $('menuHome').querySelector('.shore').cloneNode(true);
     for (const el of shore.querySelectorAll('[id]')) {
       const was = el.id; el.id = `${was}-${id}`;
@@ -159,11 +175,12 @@ export function initMenu({ onStart }) {
     $(id).appendChild(shore);
   }
   // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
-  // chosen, if it seats them; else the smallest that does; ?seed=: a random one).
+  // chosen, if it seats them; else the smallest offered that does; a hidden one, or none yet: the default; ?map=: that
+  // one; ?seed=: a random one).
   let saved = null; try { saved = JSON.parse(store.get('seats')); } catch { /* none, or not ours */ }
   menu.board = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = filled(menu.board).length;
   const last = store.get('map') === null ? -1 : +store.get('map');
-  choose(fitMap(urlSeed !== null ? MAPS.findIndex(m => m.random) : last, menu.players));
+  choose(fitMap(urlMap ?? (urlSeed !== null ? MAPS.findIndex(m => m.random) : offered(last) ? last : DEFAULT_MAP), menu.players));
   takeChallenge(); renderMaps(); renderSeats(); showFirstGame();
   $('btnFirstHome').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
@@ -175,14 +192,12 @@ export function initMenu({ onStart }) {
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
-  $('btnAbout').addEventListener('click', () => { sfx('select'); page('menuAbout'); });
-  $('btnAboutBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
+  // (How to play and About: the docs, from the first page's footer line, in a new tab: index.html #menuLinks)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
-  $('buildId').textContent = build; // (vite.config.js: the one online play compares)
-  showStamp();
+  showStamp(build);
+  initClaude({ plan: takePlan(), build }); // (a plan link, and an embedding page's channel: claude.js)
+  renderNote();
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
-  $('btnHowTo').addEventListener('click', openHelp);
-  $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
 
@@ -198,24 +213,38 @@ function takeChallenge() {
   Object.assign(menu, { challenge: c, board: c.spots.map(r => r && { ...r }), players: filled(c.spots).length, map: c.map, size: m.size, seed: m.seed, kind: m.kind, name: m.name, side: c.side });
   page('menuSolo');
 }
+/** A plan link (`?plan=CODE`, `&watch=1`): the plan for this visit's games (null: none), the single-player page opened;
+ *  the parameters leave the address once read (good or not). */
+function takePlan() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has(PLAN)) return null;
+  const p = fromSearch(location.search);
+  q.delete(PLAN); q.delete(WATCH); q.delete(SEED); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
+  if (p) page('menuSolo');
+  return p;
+}
 /** The challenge of the game just won in `secs` (the menu's setup, as START GAME seated it), or null (the guided game). */
 export const wonChallenge = (secs) => (menu.tutorial ? null : fromSetup(menu, secs));
 /** Where a reload should land while a challenge is set (the player has not changed it): its link (an update of the game
  *  reloads the menu: src/boot.js), else ''. */
 export function pendingChallenge() {
-  if (!menu.challenge) return '';
-  const q = new URLSearchParams(location.search); q.set(PARAM, encode(menu.challenge)); // (the address's other parameters kept: ?seed=, ?relay=)
+  const plan = currentPlan();
+  if (!menu.challenge && !plan) return '';
+  const q = new URLSearchParams(location.search); // (the address's other parameters kept: ?seed=, ?relay=)
+  if (menu.challenge) q.set(PARAM, encode(menu.challenge));
+  if (plan) { q.set(PLAN, plan.code); if (plan.watch) q.set(WATCH, '1'); if (plan.seed !== null && plan.seed !== undefined) q.set(SEED, String(plan.seed)); }
   return `${location.origin}${location.pathname}?${q}${location.hash}`;
 }
 
-/** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Humans against Humans). */
+/** The game to start: the menu's choices, or the guided first game's own (Easy, the first map, Ashen Basin: a hidden
+ *  64x64 map, the guided game's own; Humans against Humans). */
 export function setup() {
   if (!menu.tutorial) return { ...menu };
   const m = MAPS[0];
   return { ...menu, diff: 0, seed: m.seed, kind: m.kind, name: m.name, size: m.size, side: 0, race: 'humans', enemyRace: 'humans', players: 2, races: ['humans', 'humans'], ai: [false, true], teams: [], diffs: [], spots: [] };
 }
 
-/** Show one page of the menu: `menuHome` (the first), `menuSolo` or `menuAbout`. */
+/** Show one page of the menu: `menuHome` (the first) or `menuSolo`. */
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
@@ -240,22 +269,15 @@ function showFirstGame() {
 }
 
 /** The build stamp at the foot of the first page: the last game update (vite.config.js: the newest commit that changed
- *  what ships, not a docs or CI one) and its date, in the player's own locale and time zone ("Updated Nov 4, 2026 ·
- *  b8f7b2d"; "dev" without git): an old copy (a cache) tells itself from the latest deployment. About has it beside the
- *  Version (the sim's build, which online play compares). */
-function showStamp() {
+ *  what ships, not a CI one) and its date, in the player's own locale and time zone ("Updated Nov 4, 2026 · b8f7b2d";
+ *  "dev" without git): an old copy (a cache) tells itself from the latest deployment. Its title, and `data-build`, add
+ *  the Version (`build`: the sim's build, which online play compares). */
+function showStamp(build) {
   const commit = typeof __COMMIT__ === 'string' ? __COMMIT__ : 'dev', short = commit === 'dev' ? 'dev' : commit.slice(0, 7);
   const at = typeof __COMMIT_DATE__ === 'string' && __COMMIT_DATE__ ? new Date(__COMMIT_DATE__) : null;
   const date = at && !Number.isNaN(at.getTime()) ? at.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  $('buildStamp').textContent = short === 'dev' || !date ? 'dev' : `Updated ${date} · ${short}`;
-  $('buildStamp').title = short === 'dev' || !date ? '' : `The last game update: ${date}, commit ${short}`;
-  $('buildCommit').textContent = short;
-}
-
-/** How to play, from the menu or the pause card: at its top (focusing BACK, at the bottom of a scrolling card, used to
- *  open it scrolled to the end). */
-export function openHelp() {
-  $('help').hidden = false;
-  $('btnHelpClose').focus({ preventScroll: true });
-  $('help').querySelector('.card').scrollTop = 0;
+  const stamp = $('buildStamp');
+  stamp.textContent = short === 'dev' || !date ? 'dev' : `Updated ${date} · ${short}`;
+  stamp.title = short === 'dev' || !date ? `Version ${build}` : `The last game update: ${date}, commit ${short}. Version ${build}`;
+  stamp.dataset.build = build;
 }

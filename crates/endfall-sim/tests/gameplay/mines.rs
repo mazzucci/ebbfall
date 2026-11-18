@@ -322,23 +322,31 @@ fn home_income_of(seed: u32, n: usize, f: &'static Faction) -> i64 {
     (w.ledger[0].mined[0] - m0) / 3
 }
 
-/// A mine fits eight Villagers or five Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
-/// few and efficient), each Bot carrying more: saturated, a mine pays the Kingdom about 575 gold a minute and the
-/// Expedition about 83% of that at first (it out-earns the Kingdom later, with its research), with workers enough on it
-/// (the same harness: workers on the home mine, gold a minute from 1:00 to 4:00). More workers add nothing; a Villager
-/// brings in about 55 a minute alone, a Bot about 75. Whoever is inside counts towards the cap: a worker goes in while
-/// fewer than its own kind's number are inside.
+/// A mine fits eight Villagers or six Bots inside at once (Stelian, Nov 12: the Kingdom many and cheap, the Expedition
+/// few and efficient), each Bot carrying more and a little quicker inside: saturated, a mine pays the Kingdom about 450
+/// gold a minute and the Expedition as much (Nov 14: parity from the start, Better drills gone; 96% before, the Bots as
+/// long inside as the Villagers), with workers enough on it (the same harness: workers on the home mine, gold a minute
+/// from 1:00 to 4:00). More workers add nothing; a Villager brings in about 40 a minute alone, a Bot about 50. Whoever
+/// is inside counts towards the cap: a worker goes in while fewer than its own kind's number are inside.
 #[test]
-fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() {
+fn a_mine_fits_eight_villagers_or_six_bots_and_a_bot_mine_pays_as_much() {
     let (v, b) = (UnitKind::Harvester.def(), UnitKind::Lumen.def());
-    assert_eq!((v.mine_cap, b.mine_cap), (8, 5));
+    assert_eq!((v.mine_cap, b.mine_cap), (8, 6));
+    let rate = |k: UnitKind| k.def().mine_cap as f64 * k.def().mine_load as f64 / k.mine_time();
+    let inside = rate(UnitKind::Lumen) / rate(UnitKind::Harvester);
+    assert!(
+        (0.99..=1.01).contains(&inside),
+        "as much a second inside: {inside:.3}"
+    );
+    assert_eq!(UnitKind::Harvester.mine_time(), MINE_TIME);
     assert_eq!(
         MINE_CAP_MOST,
         UNIT_KINDS.iter().map(|k| k.def().mine_cap).max().unwrap()
     );
     assert_eq!(
         MINE_LOAD_MOST,
-        UNIT_KINDS.iter().map(|k| k.def().mine_load).max().unwrap()
+        UNIT_KINDS.iter().map(|k| k.def().mine_load).max().unwrap() + DRILL_LOAD[2],
+        "with two levels of Better drills"
     );
     for seed in [1u32, 2, 4] {
         let (vil, bot) = (
@@ -346,12 +354,13 @@ fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() 
             home_income_of(seed, 12, &VAEL),
         );
         assert!(
-            (540..=620).contains(&vil),
+            (400..=480).contains(&vil),
             "seed {seed}: saturated, {vil} a minute with Villagers"
         );
+        // (within a load or so: three minutes hold whole rounds inside, 24 or 25 of the Bots' 7.2 s)
         let share = bot as f64 / vil as f64;
         assert!(
-            (0.78..=0.88).contains(&share),
+            (0.95..=1.05).contains(&share),
             "seed {seed}: a Bot mine pays {bot}, {:.0}% of a Villager mine's {vil}",
             share * 100.0
         );
@@ -367,7 +376,7 @@ fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() 
             home_income_of(seed, 1, &VAEL),
         );
         assert!(
-            (45..=65).contains(&v1) && (60..=85).contains(&b1),
+            (32..=48).contains(&v1) && (42..=62).contains(&b1),
             "seed {seed}: one alone {v1} and {b1}"
         );
     }
@@ -376,7 +385,8 @@ fn a_mine_fits_eight_villagers_or_five_bots_and_a_bot_mine_pays_a_little_less() 
 #[test]
 fn every_ai_gathers_from_mines_and_expands_to_them() {
     // Each people's AI at every level against a seat that does nothing (its Castle unbreakable): its workers go into
-    // its mines, and by 11:00 it has a second base whose mine its workers work.
+    // its mines, and by 17:00 it has a second base whose mine its workers work (11:00 before the economy's second round,
+    // 13:00 before Easy's tech climb, whose buildings from 9:00 come before its Kingdom's natural, at about 16:00).
     for diff in 0..4 {
         for race in [&HUMANS, &VAEL] {
             let mut w = World::with_setup(
@@ -394,7 +404,7 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
             (c.hp, c.maxhp) = (1e9, 1e9);
             let ctx = format!("level {diff} {}", race.name);
             let mut inside = false;
-            for t in 0..780 * TPS {
+            for t in 0..1020 * TPS {
                 w.step();
                 if t % TPS == 0 {
                     inside |= w.units.iter().any(|u| u.team == ENEMY && u.inside());
@@ -407,15 +417,33 @@ fn every_ai_gathers_from_mines_and_expands_to_them() {
                 .filter(|b| b.team == ENEMY && b.kind.def().hq && b.done)
                 .map(|b| (b.x, b.y))
                 .collect();
-            assert!(
-                cores.len() >= 2,
-                "{ctx}: a second base by 13:00 (11:00 before the second round's slower income)"
-            );
+            assert!(cores.len() >= 2, "{ctx}: a second base by 17:00");
+            // (and every headquarters it placed, sites too, `HQ_MINE_GAP` tiles of ground from every mine: the AI places
+            // by the players' rule)
+            for b in w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind.def().hq)
+            {
+                for m in &w.map.nodes {
+                    let gx = (m.tx - (b.tx + b.w)).max(b.tx - (m.tx + m.s));
+                    let gy = (m.ty - (b.ty + b.h)).max(b.ty - (m.ty + m.s));
+                    assert!(
+                        gx.max(gy) >= HQ_MINE_GAP,
+                        "{ctx}: its headquarters at {},{} {} tiles from the mine at {},{}",
+                        b.tx,
+                        b.ty,
+                        gx.max(gy),
+                        m.tx,
+                        m.ty
+                    );
+                }
+            }
             let by_exp = |n: Id| {
                 let m = w.map.node(n).unwrap();
                 cores[1..]
                     .iter()
-                    .any(|c| ((m.x - c.0).powi(2) + (m.y - c.1).powi(2)).sqrt() < 300.0)
+                    .any(|c| ((m.x - c.0).powi(2) + (m.y - c.1).powi(2)).sqrt() < 12.0 * 32.0)
             };
             let working = w
                 .units
@@ -747,4 +775,88 @@ fn a_main_mine_lasts_over_twenty_minutes_at_its_full_rate() {
             );
         }
     }
+}
+
+/// Stelian, Nov 15: no clusters of mines, and every base works its mine at the same walk. On every map kind, size and
+/// start count (the Shore with each of its basin fields, the lab's too), over many seeds: any two mines `MINE_APART`
+/// tiles apart or more, center to center; every start's headquarters square (and a Shore basin's) `HQ_MINE_GAP` tiles of
+/// ground or more from every mine, and a start's own mine exactly that far, square to one of its sides.
+#[test]
+fn mines_keep_apart_and_every_start_keeps_its_gap() {
+    use endfall_sim::map::{Map, ShoreField, max_starts};
+    let seeds: u32 = if cfg!(debug_assertions) { 24 } else { 200 };
+    let gaps = |b: (i32, i32), m: &endfall_sim::map::Node| {
+        let gx = (m.tx - (b.0 + 4)).max(b.0 - (m.tx + m.s));
+        let gy = (m.ty - (b.1 + 4)).max(b.1 - (m.ty + m.s));
+        (gx, gy)
+    };
+    let mut cases: Vec<(i32, MapKind, ShoreField)> = Vec::new();
+    for n in [64, 96, 128] {
+        for kind in MapKind::ALL {
+            if kind != MapKind::Shore {
+                cases.push((n, kind, ShoreField::BACK));
+            } else if n == 64 {
+                for f in [
+                    ShoreField::BACK,
+                    ShoreField::CHANNEL,
+                    ShoreField::CHANNEL_FAR,
+                ] {
+                    cases.push((n, kind, f));
+                }
+            }
+        }
+    }
+    let mut closest = f64::MAX;
+    for (n, kind, field) in cases {
+        let size = MapSize::square(n);
+        for seed in (0..seeds).map(|s| s * 13 + 1) {
+            let m = Map::generate_with(seed, kind, size, max_starts(size), &mut 1, field);
+            let ctx = format!("{n}x{n} {kind:?} {field:?} seed {seed}");
+            assert!(
+                m.nodes.len() >= m.bases.len(),
+                "{ctx}: a mine per start at least"
+            );
+            for (i, a) in m.nodes.iter().enumerate() {
+                for b in &m.nodes[i + 1..] {
+                    let d = (a.x - b.x).hypot(a.y - b.y) / TILE;
+                    closest = closest.min(d);
+                    assert!(
+                        d >= MINE_APART,
+                        "{ctx}: the mines at {},{} and {},{} only {d:.1} tiles apart",
+                        a.tx,
+                        a.ty,
+                        b.tx,
+                        b.ty
+                    );
+                }
+            }
+            // (a basin, where nobody starts since the re-theme: off its mine, wherever the lab lays it)
+            let starts = m.bases.iter().map(|&b| (b, true));
+            let basins = m.basins.iter().map(|&b| (b, false));
+            for (b, own) in starts.chain(basins) {
+                let mut near: Vec<(i32, i32, i32)> = m
+                    .nodes
+                    .iter()
+                    .map(|q| {
+                        let (gx, gy) = gaps(b, q);
+                        (gx.max(gy), gx.min(gy), q.id as i32)
+                    })
+                    .collect();
+                near.sort_unstable();
+                let (gap, across, _) = near[0];
+                assert!(
+                    gap >= HQ_MINE_GAP,
+                    "{ctx}: the headquarters at {b:?} only {gap} tiles from a mine"
+                );
+                if own {
+                    assert!(
+                        gap == HQ_MINE_GAP && across < 0,
+                        "{ctx}: the start at {b:?} has its mine {gap} tiles off{}",
+                        if across < 0 { "" } else { ", at its corner" }
+                    );
+                }
+            }
+        }
+    }
+    eprintln!("closest mines: {closest:.2} tiles");
 }

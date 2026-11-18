@@ -109,11 +109,6 @@ impl ToJson for Move {
         })
     }
 }
-impl ToJson for Pool {
-    fn to_json(&self) -> String {
-        quote(self.key())
-    }
-}
 impl ToJson for Option<Upgrade> {
     fn to_json(&self) -> String {
         self.map_or("null".to_string(), |u| quote(u.def().key))
@@ -146,24 +141,38 @@ impl ToJson for Option<Weapon> {
 }
 
 fn upgrade(d: &UpgradeDef) -> String {
-    let (effect, of) = match d.effect {
-        Effect::Weapons => ("weapons", ""),
-        Effect::Armor => ("armor", ""),
-        Effect::Shields => ("shields", ""),
-        Effect::Unlock(a) => ("unlock", a.def().key),
-        Effect::Speed(u) => ("speed", u.def().key),
-        Effect::BuildSpeed => ("build", ""),
-        Effect::Launch => ("launch", ""),
+    let (effect, of): (&str, String) = match d.effect {
+        Effect::Weapons => ("weapons", String::new()),
+        Effect::Armor => ("armor", String::new()),
+        Effect::Shields => ("shields", String::new()),
+        Effect::Unlock(a) => ("unlock", a.def().key.to_string()),
+        // (its units' keys, comma-separated)
+        Effect::Speed(us) => (
+            "speed",
+            us.iter().map(|u| u.def().key).collect::<Vec<_>>().join(","),
+        ),
+        Effect::BuildSpeed => ("build", String::new()),
+        Effect::MineLoad => ("mine", String::new()),
+        Effect::PumpRate => ("trade", String::new()),
+        Effect::EnergyCost => ("energy", String::new()),
     };
     Obj::new()
         .str("name", d.name)
         .str("short", d.short)
         .str("effect", effect)
-        .str("of", of)
+        .str("of", &of)
         .num("levels", d.levels)
         .raw("req", d.req.to_json())
         .raw("cost", array(d.cost.map(array)))
         .raw("time", array(d.time))
+        .raw(
+            "level_names",
+            array(
+                d.level_names
+                    .iter()
+                    .map(|(full, short)| format!("[{},{}]", quote(full), quote(short))),
+            ),
+        )
         .done()
 }
 
@@ -192,7 +201,9 @@ fn faction(f: &Faction) -> String {
             f.market.map_or("null".to_string(), |k| quote(k.def().key)),
         )
         .num("repairs", f.repairs)
-        .num("power", f.power)
+        .num("grid", f.grid)
+        .str("money", f.money)
+        .str("ore", f.ore)
         .done()
 }
 
@@ -208,6 +219,12 @@ pub fn data_json() -> String {
         .num("tech_speed", TECH_SPEED)
         .num("tech_build", TECH_BUILD)
         .num("pump_rate", PUMP_RATE)
+        .num("turbine_rate", TURBINE_RATE)
+        .raw("energy_cost", array(ENERGY_COST))
+        .num("pop_max", POP_MAX)
+        .num("grid_max", GRID_MAX)
+        .raw("drill_load", array(DRILL_LOAD))
+        .raw("trade_rate", array(TRADE_RATE))
         .done();
     Obj::new()
         .raw("consts", consts)
@@ -234,7 +251,7 @@ pub fn data_json() -> String {
 }
 
 /// The range (data/radio.rs): the machines it speeds up, what each source gives (tiles), their speed inside it
-/// (a multiple) and the Drone's leash.
+/// (a multiple), the Drone's leash, and the buildings placed only inside coverage (`within`).
 fn radio_json() -> String {
     let machines = UNIT_KINDS
         .iter()
@@ -244,9 +261,19 @@ fn radio_json() -> String {
         .iter()
         .filter(|&&k| radio::range_of(k) > 0.0)
         .map(|k| (k.def().key, radio::range_of(*k).to_string()));
+    let within = BLDG_KINDS
+        .iter()
+        .filter(|&&k| {
+            FACTIONS
+                .iter()
+                .any(|f| f.builds(k) && radio::needs_coverage(f.hq, k))
+        })
+        .map(|k| quote(k.def().key));
     Obj::new()
         .raw("machines", array(machines))
         .raw("sources", map(sources))
+        .raw("within", array(within))
+        .num("stranded", radio::STRANDED_SPEED)
         .num("boost", radio::IN_RANGE_SPEED)
         .num("leash", radio::LEASH_MARGIN)
         .done()

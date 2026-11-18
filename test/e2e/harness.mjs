@@ -63,7 +63,7 @@ export const notIn = (engines, why) => (engines.includes(ENGINE) ? `${ENGINE_NAM
 export const IPHONE = 'its phone profile is an iPhone: no full screen for a page (the full-screen button opens the Add to Home Screen card)';
 
 const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fileURLToPath(new URL('../../dist/', import.meta.url)); // ENDFALL_DIST: test another build
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.txt': 'text/plain', '.xml': 'application/xml', '.mp4': 'video/mp4', '.webm': 'video/webm' };
 
 let server, browser, base;
 export async function start() {
@@ -215,6 +215,16 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await page.waitForTimeout(60);
     },
+    /** A quick tap (100 ms by the touch's own times) that the page handles late, as on a busy phone: the finger comes
+     *  down, the page is kept busy for `busy` ms (a long frame), then the lift arrives, stamped 100 ms after the touch. */
+    async lateTap(x, y, busy = 700) {
+      gesture();
+      const t0 = Date.now() / 1000;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }], timestamp: t0 });
+      await ev((ms) => { const end = performance.now() + ms; while (performance.now() < end); }, busy);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + 0.1 });
+      await page.waitForTimeout(120);
+    },
     /** Two quick taps (sent together: the software-rendered phone handles each tap late, so taps sent one after the
      *  other land outside the double-tap window). */
     async doubleTapAt(x, y) {
@@ -325,7 +335,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
         // The button as the card shows it, on the page of the Build menu its race lists it on.
         const { advanced, label } = await ev((t) => {
           const d = endfall.engine.BUILDINGS[t];
-          return { advanced: Object.values(endfall.engine.FACTIONS).some(f => f.buildAdvanced.includes(t)), label: d.short || d.name.split(' ').pop() };
+          const defense = d.weapon && !d.trains?.length; // (a defense is on the basic page: src/client/cards.js `buildPages`)
+          return { advanced: !defense && Object.values(endfall.engine.FACTIONS).some(f => f.buildAdvanced.includes(t)), label: d.short || d.name.split(' ').pop() };
         }, type);
         await d.pressCard('Build'); if (advanced) await d.pressCard('Advanced'); await d.pressCard(label);
       }

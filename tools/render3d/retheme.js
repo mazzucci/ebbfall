@@ -18,7 +18,7 @@ import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone, android, launcher } from './expedition-units.js';
-import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES } from './country.js';
+import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES, GANTRY_H } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
 import { POLISH } from './polish.js';
@@ -31,19 +31,20 @@ export const UNIT_SCALE = UNIT_ART_SCALE; // (look.js: the game draws its units 
 /** The sun's height for the units (scene.js SUN_UP 420 for everything else): a shade higher, so a unit's cast shadow is
  *  0.31 of its height long instead of 0.36 and sits closer under it (the legibility pass, 2026-11-11). */
 export const UNIT_SUN = 480;
-/** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render) and its
- *  frames (2 by default: the walk). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
+/** The units: kind -> builder, the cell's radius and height at sim scale (scaled by UNIT_SCALE for the render), its
+ *  frames (2 by default: the walk), `strike` (the melee units: two strike poses besides, STRIKE_POSES) and `shot`,
+ *  polish.js settings of its own merged over the units' (a flyer's softer shadow). Flyers' cells hold the flyer and its shadow (0.4 of the height east, 0.3 south). */
 export const RT_UNITS = {
   kg: {
-    villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26 }, knight: { build: knight, r: 27, h: 32 },
-    archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32 },
+    villager: { build: villager, r: 13, h: 24 }, guard: { build: guard, r: 22, h: 26, strike: true }, knight: { build: knight, r: 27, h: 32, strike: true },
+    archer: { build: archer, r: 18, h: 26 }, rider: { build: rider, r: 24, h: 32, strike: true },
     ballista: { build: ballista, r: 18, h: 22 }, trebuchet: { build: trebuchet, r: 27, h: 44, frames: 4 }, balloon: { build: balloon, r: 22, h: 42, frames: 1 },
     cannon: { build: cannon, r: 22, h: 24, frames: 4 }, // (the Cannon takes the siegeTank slot in R2; the Trebuchet stays for the record)
   },
   ex: {
     bot: { build: utilityBot, r: 15, h: 13 }, buggy: { build: buggy, r: 16, h: 24 }, marine: { build: marine, r: 15, h: 20 },
-    mercenary: { build: mercenary, r: 15, h: 19 }, veteran: { build: veteran, r: 18, h: 24 },
-    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24 }, // (the Rover 1.4x since the last art round: its cell too)
+    mercenary: { build: mercenary, r: 15, h: 19, strike: true }, veteran: { build: veteran, r: 18, h: 24, strike: true },
+    rover: { build: rover, r: 28, h: 28 }, drone: { build: drone, r: 16, h: 24, shot: { unitShadow: { alpha: 70, soft: 3 } } }, // (the Rover 1.4x since the last art round: its cell too; the Drone's shadow softer and lighter than the walkers': the art polish, 2026-11-13, `shot` merged into its polish settings)
     android: { build: android, r: 15, h: 20 }, // (the Marine's cell; the `umbra` slot's model since the balance pass, Stelian's pick of 2026-11-11)
     launcher: { build: launcher, r: 28, h: 28 }, // (the Rover since 2026-11-12, a tracked rocket launcher: the rocket cart's cell and frames)
   },
@@ -74,7 +75,8 @@ Object.assign(RT_BUILDINGS.ex, {
   hangar: { build: EB.hangar, n: 3, h: 74 }, // (the Factory as a metal hangar with a cog: rejected, kept for the record)
   warehouse: { build: EB.warehouse, n: 3, h: 50 }, // (the Factory as a warehouse with the cog flat on its roof)
   platform: { build: EB.platform, n: 2, h: 40 }, // (the Portal as an arrival platform: rejected, kept for the record)
-  vortex: { build: EB.vortex, n: 2, h: 24 }, // (the Portal as a black-hole vortex; its spiral the head `vortexhead`)
+  vortex: { build: EB.vortex, n: 2, h: 52 }, // (the Portal: a standing white ring with the cyan vortex as its head `vortexhead`; the flat black hole, h 24, until the art polish of 2026-11-13)
+  substation: { build: EB.substation, n: 2, h: 40 }, // (the Substation, the Expedition's Cottage (the sim key `substation`, the Energy work of 2026-11-14): transformers, insulators and lit busbars on a pad)
 });
 /** The turning heads (16 facings, no shadow, drawn over their base as the game draws the turret's): the Watchtower's
  *  archer and the Radio tower's turret; the cell is the base's footprint with the head's height. A head marked `spin`
@@ -86,12 +88,30 @@ export const RT_HEADS = {
   kg: { towerhead: { build: KB.watchtowerArcher, n: 2, h: 82 } },
   ex: { radiohead: { build: EB.sentryGunHead, n: 2, h: 45 }, turbinehead: { build: EB.turbineRotor, n: 2, h: 84, spin: true }, windfarmhead: { build: EB.windFarmRotor, n: 2, h: 50, spin: true },
     uplinkhead: { build: EB.uplinkDish, n: 3, h: 72, shadow: true }, gatehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, gatetubehead: { build: EB.gateLight, n: 2, h: 60, spin: 1 }, ringhead: { build: EB.ringSwirl, n: 2, h: 20, spin: 1 },
-    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true }, vortexhead: { build: EB.vortexSpin, n: 2, h: 24, spin: 1 } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
+    padhead: { build: EB.dropship, n: 2, h: 60, spin: 1, shadow: true }, platformhead: { build: EB.transport, n: 2, h: 60, spin: 1, shadow: true }, vortexhead: { build: EB.vortexSpin, n: 2, h: 52, spin: 1 } }, // (the dropship and the transport: 16 lift heights, frame 0 landed, with their shadow) // (the dish pans about the column, with its shadow, a bowl that big; the gate's light shimmers)
 };
 /** A head's object for frame `dir`: a rotor at its phase, any other turned about the vertical. */
 function head(b, mats, dir) {
   if (b.spin) return b.build(mats, dir / FACINGS * Math.PI * 2 / b.spin);
   const obj = b.build(mats); obj.rotation.y = -dir / FACINGS * Math.PI * 2; return obj;
+}
+/** The melee units' strike poses (look.js STRIKE): the builder's frame number for each, after the walk's 0 and 1, and
+ *  the name it goes under (`<kind>_<dir>_wind`, `<kind>_<dir>_strike`): the weapon drawn back or raised, then thrust
+ *  or chopped; only the weapon arm moves, the feet planted, the body and the anchor where they stand. Not in the walk
+ *  animation (nor the drawn height, generate.mjs `unitTops`, which is the walk's). The strike poses alone get the
+ *  facing as the builder's third argument: seen from behind (11-13) the weapon swings out to the side instead of into
+ *  depth (models.js `awayYaw`: to the left at 11, to the right at 12 and 13). The walk's frames get the facing too
+ *  (since 2026-11-17: the Bruiser tips its shouldered hammer out at 11-15, where it dropped onto the helmet); every
+ *  other builder ignores it in the walk, the same at every facing. */
+export const STRIKE_POSES = [[2, 'wind'], [3, 'strike']];
+/** A strike pose's cell: the walk's grown `STRIKE_ROOM` world units on every side (a thrust reaches past the walk's
+ *  cell), its shadow cast at the walk cell's reach (scene.js `shadowR`) so the body's shadow is the walk's, and its
+ *  frame trimmed to its content in the atlas (`trim`), so the room costs nothing there. */
+const STRIKE_ROOM = 14;
+function strikeShot(m, lift, o) {
+  const r = m.r * UNIT_SCALE, h = m.h * UNIT_SCALE, walk = unitCell(r, h, lift), cell = unitCell(r + STRIKE_ROOM, h, lift);
+  // (unitCell grows left, right, up and down by the room through r; the anchor moves with it, the ground point)
+  return [cell, { ...o, shadowR: Math.max(walk.w, walk.h) / S }];
 }
 const MATS = { kg: (tc, polish) => makeKingdomMats(tc, 'B', polish), ex: (tc, polish) => makeExpeditionMats(tc, polish) };
 const FACINGS = 16;
@@ -113,7 +133,7 @@ export const BLDG_YAW = {
   // turning; the round towers and the turbine, Sentry gun and Uplink (their heads turn on their own) stay square. The
   // arrival platform is square too, its plate turned 20 degrees in the model so its head (the transport) turns with it.
   kg: { castle: -20, cottage: -20, market: -20, barracks: -20, blacksmith: -20, workshop: -20, tower: 0, stables: -20, cottagehip: -20, cottageround: 0 },
-  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0 },
+  ex: { hall: -20, datahall: -20, bunkhouse: -20, post: -20, factory: -20, lab: -20, radio: 0, portal: -20, turbine: 0, windfarm: 0, uplink: 0, labdome: -20, gate: 0, gatetube: 0, ring: 0, pad: 0, posttent: -20, posttavern: -20, posthouse: -20, hangar: -20, warehouse: -20, platform: 0, vortex: 0, substation: -20 },
 };
 /** The ground outline: a model's vertices up to this many units high (the earth plate and the walls' feet). */
 const GROUND_Y = 4;
@@ -176,8 +196,14 @@ export function* rethemeSprites(want, opts = {}) {
       const cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
       for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
         const name = `${side}_${kind}_${dir}_${f}`; if (!want(name)) continue;
-        const obj = m.build(mats(), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
-        yield [name, obj, cell, ou, true];
+        const obj = m.build(mats(), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+        yield [name, obj, cell, m.shot && ou.polish ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true];
+      }
+      if (m.strike) for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
+        const name = `${side}_${kind}_${dir}_${pose}`; if (!want(name)) continue;
+        const obj = m.build(mats(), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+        const [sc, so] = strikeShot(m, lift, ou);
+        yield [name, obj, sc, so, true, { trim: true }];
       }
     }
     for (const kind of Object.keys(RT_BUILDINGS[side])) {
@@ -198,12 +224,20 @@ export function* rethemeSprites(want, opts = {}) {
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = `rt_gold_${st}_${v}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; }
   for (const st of MINE_STAGES) { const name = `rt_mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine (mine.js; the game's mine_<stage>): 2x2, neutral
   for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `rt_doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
-  for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of ['foundation', 'scaffold', 'rubble']) {
+  for (const side of ['kg', 'ex']) for (const n of [2, 3, 4]) for (const kind of Object.keys(RT_SITES[side])) {
     const name = `rt_${side}_${kind}_${n}`; if (!want(name)) continue;
-    const h = kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8;
-    const so = kind === 'scaffold' ? { ...o, shadow: false, ...(o.polish ? { polish: { ...(typeof o.polish === 'object' ? o.polish : {}), contact: { ...POLISH.contact, alpha: 0 } } } : {}) } : o; // (a scaffold casts no shadow, and under the polish no contact ellipse either: the judge saw dots at the poles' feet over the rising building)
-    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), bldgCell(n, h, lift), so, true];
+    const frame = FRAMES.has(kind), so = frame ? { ...o, shadow: false, ...(o.polish ? { polish: { ...(typeof o.polish === 'object' ? o.polish : {}), contact: { ...POLISH.contact, alpha: 0 } } } : {}) } : o; // (a frame casts no shadow, and under the polish no contact ellipse either: the judge saw dots at the poles' feet over the rising building)
+    yield [name, RT_SITES[side][kind](n, MATS[side](NEUTRAL, !!opts.polish)), siteCell(kind, n, lift), so, TEAM_SITES.has(kind)];
   }
+}
+/** The frames that stand round a rising body: no shadow, no contact ellipse (the kingdom's scaffold, the Expedition's
+ *  gantry and its head); the gantry's head alone carries no team (the pennants are on the masts). */
+const FRAMES = new Set(['scaffold', 'gantry', 'gantrybar']), TEAM_SITES = new Set(['scaffold', 'gantry']);
+/** A site sprite's cell: the kingdom's scaffold's height by size, the gantry's masts and pennants (turned: corner room),
+ *  the head flat, rubble and foundations low. */
+function siteCell(kind, n, lift) {
+  const h = kind === 'scaffold' ? 10 + n * 6 + 8 : kind === 'gantry' ? GANTRY_H[n] + 8 : kind === 'gantrybar' ? 8 : kind === 'rubble' ? 14 : 8;
+  return bldgCell(n, h, lift, kind === 'gantry' || kind === 'gantrybar' ? TURN_ROOM : 0);
 }
 
 // ---- the atlas (PR 1 of the re-theme): the new models under today's sprite names, in the approved look ----
@@ -224,15 +258,15 @@ export const ATLAS_BUILDINGS = {
   factory: ['kg', 'workshop'], turret: ['kg', 'tower'], airfield: ['kg', 'stables'],
   conflux: ['ex', 'datahall'], spire: ['ex', 'turbine'], siphon: ['ex', 'posttavern'], kiln: ['ex', 'warehouse'], loom: ['ex', 'labdome'], ward: ['ex', 'radio'],
   eclipse: ['ex', 'vortex'], uplink: ['ex', 'uplink'],
+  substation: ['ex', 'substation'], // (the Expedition's Cottage, the sim key `substation`: drawn ahead of the sim kind, which the Energy branch adds)
 };
 /** Turning heads (look.js BLDG_LOOK `head`, `<name>_<dir>`) -> [people, model] (RT_HEADS): the Watchtower's archer and
  *  the Sentry gun (aimed), the turbine's rotor and the Portal's spiral (spun), the Uplink's dish (panned). */
 export const ATLAS_HEADS = { turret_head: ['kg', 'towerhead'], ward_head: ['ex', 'radiohead'], spire_head: ['ex', 'turbinehead'], uplink_head: ['ex', 'uplinkhead'], eclipse_head: ['ex', 'vortexhead'] };
 /** Construction and rubble, by the names the client picks by people (gl/render.js): the kingdom's foundation, scaffold
- *  and rubble, the Expedition's scaffold (the client's `bud`) and rubble (`rubble_vael`). The scaffolds carry team on
- *  their cloth and flags; the foundations and rubble none. */
-const ATLAS_SITES = { foundation: ['kg', 'foundation'], scaffold: ['kg', 'scaffold'], rubble: ['kg', 'rubble'], bud: ['ex', 'scaffold'], rubble_vael: ['ex', 'rubble'] };
-const siteH = (side, kind, n) => (kind === 'scaffold' ? 10 + n * 6 + (side === 'ex' ? 20 : 8) : kind === 'rubble' ? 14 : 8);
+ *  and rubble, the Expedition's printer gantry (`gantry_n`) with its head (`gantrybar_n`) and its rubble
+ *  (`rubble_vael`). The scaffold's cloth and the gantry's pennants carry team; the head, the foundation and rubble none. */
+const ATLAS_SITES = { foundation: ['kg', 'foundation'], scaffold: ['kg', 'scaffold'], rubble: ['kg', 'rubble'], gantry: ['ex', 'gantry'], gantrybar: ['ex', 'gantrybar'], rubble_vael: ['ex', 'rubble'] };
 
 /** Yields [name, object, cell, shootOpts, isTeam, extra] for every atlas sprite the re-theme draws (`extra`: a unit
  *  frame's `anim` and `frame`). `want(name)` filters, as main.js's. */
@@ -244,8 +278,8 @@ export function* atlasSprites(want = () => true) {
     const m = RT_UNITS[side][model], cell = unitCell(m.r * UNIT_SCALE, m.h * UNIT_SCALE, lift);
     for (let dir = 0; dir < FACINGS; dir++) for (let f = 0; f < (m.frames ?? 2); f++) {
       const name = `${kind}_${dir}_${f}`; if (!want(name)) continue;
-      const obj = m.build(mats(side), f); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
-      yield [name, obj, cell, ou, true, { anim: `${kind}_${dir}`, frame: f }];
+      const obj = m.build(mats(side), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+      yield [name, obj, cell, m.shot ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou, true, { anim: `${kind}_${dir}`, frame: f }];
     }
   }
   for (const [type, [side, model]] of Object.entries(ATLAS_BUILDINGS)) {
@@ -259,10 +293,21 @@ export function* atlasSprites(want = () => true) {
   }
   for (const [prefix, [side, kind]] of Object.entries(ATLAS_SITES)) for (const n of [2, 3, 4]) {
     const name = `${prefix}_${n}`; if (!want(name)) continue;
-    const scaffold = kind === 'scaffold', so = scaffold ? { shadow: false, polish: { contact: { ...POLISH.contact, alpha: 0 } } } : o; // (a scaffold casts no shadow and has no contact ellipse: it stands round the rising building)
-    yield [name, RT_SITES[side][kind](n, mats(side)), bldgCell(n, siteH(side, kind, n), lift), so, scaffold];
+    const so = FRAMES.has(kind) ? { shadow: false, polish: { contact: { ...POLISH.contact, alpha: 0 } } } : o; // (a frame casts no shadow and has no contact ellipse: it stands round the rising building)
+    yield [name, RT_SITES[side][kind](n, mats(side)), siteCell(kind, n, lift), so, TEAM_SITES.has(kind)];
   }
   for (let st = 0; st < 4; st++) for (let v = 0; v < GOLD_VARIANT_COUNT; v++) { const name = v ? `shard_${st}_${v}` : `shard_${st}`; if (want(name)) yield [name, goldField(st, v), unitCell(28, 26, lift), o, false]; } // (variant 0 keeps the plain name: the portrait's)
   for (const st of MINE_STAGES) { const name = `mine_${st}`; if (want(name)) yield [name, goldMine(st), bldgCell(MINE_N, MINE_H, lift), o, false]; } // the gold mine, one per field (mine.js): drawn by nothing yet; the rules change that puts one mine per field takes it up
   for (const list of Object.values(RT_SCENERY)) for (const [nm, build, r, h] of list) { const name = `doodad_${nm}`; if (want(name)) yield [name, build(), unitCell(r, h, lift), o, false]; }
+  // The melee units' strike poses, last (after every sprite drawn before them, so nothing they build first can touch
+  // the rest), in a larger cell than the walk's (strikeShot).
+  for (const [kind, [side, model]] of Object.entries(ATLAS_UNITS)) {
+    const m = RT_UNITS[side][model]; if (!m.strike) continue;
+    const [cell, so] = strikeShot(m, lift, m.shot ? { ...ou, polish: { ...ou.polish, ...m.shot } } : ou);
+    for (let dir = 0; dir < FACINGS; dir++) for (const [f, pose] of STRIKE_POSES) {
+      const name = `${kind}_${dir}_${pose}`; if (!want(name)) continue;
+      const obj = m.build(mats(side), f, dir); obj.rotation.y = -dir / FACINGS * Math.PI * 2; obj.scale.multiplyScalar(UNIT_SCALE);
+      yield [name, obj, cell, so, true, { trim: true }];
+    }
+  }
 }

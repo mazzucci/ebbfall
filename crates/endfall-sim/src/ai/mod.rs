@@ -20,6 +20,21 @@ use crate::world::{Phase, Task, World};
 pub(crate) const AI_TURN: u32 = 16;
 /// Free supply below which the specialists' factories train first (produce.rs).
 pub(crate) const SUPPLY_TIGHT: i32 = 8;
+/// The grid of its line a grid side keeps a barracks for (`World::posts_due`): six mercenaries a Recruiting post, the
+/// hired places one gave until Nov 14 (12 before the grid was halved, Nov 14).
+pub(crate) const LINE_PER_POST: i32 = 6;
+/// The grid a grid side's line (the Expedition's mercenaries) takes at most, the AI's own share of its `GRID_MAX`, by
+/// the map's width: the hired places' maximum before Nov 14 (25, 30 and 35) at one grid a place (two before the grid
+/// was halved), so its line and its machines keep the shares they had. Past it its money goes to its machines.
+pub(crate) fn line_grid(map_w: i32) -> i32 {
+    if map_w <= 64 {
+        25
+    } else if map_w <= 96 {
+        30
+    } else {
+        35
+    }
+}
 
 /// How many ticks after the first brain's turns the k-th of m brains takes its own: spread evenly over `AI_TURN`, so up
 /// to `AI_TURN` brains each have a tick of their own.
@@ -62,6 +77,8 @@ pub(crate) struct Ai {
     /// Its mix answers: splash against massed infantry, fewer heavies of its own against heavies.
     pub infantry_seen: (usize, f64),
     pub heavy_seen: (usize, f64),
+    /// The most enemy siege units (the Cannon, the Rover) seen at once lately, and when: its answer (`AiScript::dive`).
+    pub siege_seen: (usize, f64),
     /// Units kept home at its own expansion (out of the waves).
     pub guards: Vec<Id>,
     /// Its home reserve (`Diff::reserve`): fighters kept out of the waves.
@@ -72,6 +89,9 @@ pub(crate) struct Ai {
     /// its own army's value then (a stale sighting grows by what its own army has grown since): what a wave must
     /// beat (`Diff::wave_margin`).
     pub army_seen: (f64, f64, f64),
+    /// The enemy units of that sighting: as they fall (to its army or towers, mostly), what it expects falls with them
+    /// (a wave it wiped out at home no longer holds its counterattack back).
+    pub army_seen_ids: Vec<Id>,
     /// The unit it sent to look at the foe's army (a stale sighting), and since when.
     pub looking: Option<(Id, f64)>,
     /// When an armed enemy last came at its buildings, and when it last placed a base (`Diff::passive_expand`).
@@ -88,8 +108,53 @@ pub(crate) struct Ai {
     pub relay_site: Option<Id>,
     pub relay_hp: f64,
     pub relay_off: bool,
+    /// Whether a wave of its has reached the foe (a unit within `REACHED` of a building of the foe it knows): a clumsy
+    /// level's waves do not grow until then, whatever the clock (`Diff::clumsy_until`), so a newcomer's first hit is
+    /// three or four units.
+    pub reached: bool,
     /// Its check as its last wave went (`World::ai_launch_check`; the lab's, read by no rule).
     pub check: Option<crate::world::LaunchCheck>,
+    /// The enemy buildings its side had razed when it last saw the count grow, and when (`Diff::stall_from`).
+    pub razed: (u32, f64),
+    /// Whether its game has stalled (`World::stalled`), as of its last turn, and whether the wave out is a stalled
+    /// game's push (it fights to its last unit).
+    pub stall: bool,
+    pub push: bool,
+    /// Its style for the game and its tuning played in it (`data::style`), drawn at its first turn (None until then: its
+    /// level's tuning). Never shown to the player.
+    pub style: Option<Style>,
+    pub tuned: Option<Diff>,
+    /// Its level's tuning as its style plays it, before a plan's fields (`World::plan_delta` applies a changed plan
+    /// over it). None until its first turn.
+    pub styled: Option<Diff>,
+    /// A plan's intents (`data::Intent`): its next wave goes now; no wave before this time; its wave out comes home.
+    pub force: bool,
+    pub hold_until: f64,
+    pub pull: bool,
+    /// What it notes about its plan as it plays (the summary's; read by no rule).
+    pub notes: crate::world::AiNotes,
+}
+
+impl Ai {
+    /// Take a plan's intent at game time `t` (carried out at its next turn).
+    pub(crate) fn intend(&mut self, i: Intent, t: f64) {
+        match i {
+            Intent::Attack => {
+                self.force = true;
+                self.hold_until = 0.0;
+            }
+            Intent::Hold => {
+                self.hold_until = t + HOLD_FOR;
+                self.force = false;
+            }
+            Intent::PullBack => self.pull = true,
+            Intent::Mass => {
+                self.wave = (self.wave * 3 / 2)
+                    .max(self.wave + 4)
+                    .min(LATER_MIN.1 as usize)
+            }
+        }
+    }
 }
 
 impl World {
@@ -136,9 +201,50 @@ impl World {
         self.ai.get(seat as usize)?.as_ref()?.relay_site
     }
 
+    /// What seat `seat`'s AI notes about its plan as it plays (`AiNotes`: the summary's; read by no rule).
+    pub fn ai_notes(&self, seat: u8) -> Option<crate::world::AiNotes> {
+        Some(self.ai.get(seat as usize)?.as_ref()?.notes)
+    }
+
+    /// The count seat `seat`'s AI's next wave waits for (units before its people's `wave_scale`), if it is an AI.
+    pub fn ai_next_wave(&self, seat: u8) -> Option<usize> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        let d = self.tuning(seat);
+        Some(if a.last_wave >= 0.0 {
+            a.wave.max(d.later_min)
+        } else {
+            a.wave
+        })
+    }
+
     /// Seat `seat`'s AI's check as its last wave went (the balance lab: `LaunchCheck`), if it has sent one.
     pub fn ai_launch_check(&self, seat: u8) -> Option<crate::world::LaunchCheck> {
         self.ai.get(seat as usize)?.as_ref()?.check
+    }
+
+    /// Seat `seat`'s AI's state in one line (the balance lab's `trace`: why a game stalls; read by no rule): its wave
+    /// count, whether one is out and how many of it stand, its last wave's time, since when the next is ready, the
+    /// enemy army it expects (`army_seen`: worth, when), its reserve, guards and raiders.
+    #[doc(hidden)]
+    pub fn ai_trace(&self, seat: u8) -> Option<String> {
+        let a = self.ai.get(seat as usize)?.as_ref()?;
+        let left = a.attackers.as_ref().map_or(0, |v| {
+            v.iter().filter(|&&id| self.unit(id).is_some()).count()
+        });
+        Some(format!(
+            "wave {} out {} ({left}/{}) last {:.0} ready {} seen {:.0}@{:.0} res {} grd {} raid {} siege {}",
+            a.wave,
+            a.attacking,
+            a.wave_size,
+            a.last_wave,
+            a.ready_since.map_or("-".into(), |r| format!("{r:.0}")),
+            a.army_seen.0,
+            a.army_seen.1,
+            a.reserve.len(),
+            a.guards.len(),
+            a.raiders.len(),
+            a.siege_seen.0,
+        ))
     }
 
     /// The turns each seat's AI has taken (0 for a person's seat; tests and tools).
@@ -187,10 +293,12 @@ impl World {
             wave_size: 0,
             infantry_seen: (0, 0.0),
             heavy_seen: (0, 0.0),
+            siege_seen: (0, 0.0),
             guards: Vec::new(),
             reserve: Vec::new(),
             prong: Vec::new(),
             army_seen: (0.0, 0.0, 0.0),
+            army_seen_ids: Vec::new(),
             looking: None,
             attacked_at: 0.0,
             came_at: 0.0,
@@ -201,8 +309,51 @@ impl World {
             relay_hp: 0.0,
             relay_off: false,
             check: None,
+            razed: (0, 0.0),
+            stall: false,
+            push: false,
+            reached: false,
+            style: None,
+            tuned: None,
             sweep: 0,
             sweep_since: 0.0,
+            styled: None,
+            force: false,
+            hold_until: 0.0,
+            pull: false,
+            notes: crate::world::AiNotes::default(),
+        }
+    }
+
+    /// The style of the seat taking its turn (PRD: AI styles and the level ladder), drawn at its first turn from the
+    /// world's RNG (`data::style::StyleDraws`: six draws, always, in their order; the order is part of the rules), and
+    /// its tuning played in it. A seat the balance lab gave a plan (`set_ai_plans`) plays that plan as it is; a style the
+    /// lab forced (`set_ai_styles`) replaces the drawn one, its other draws kept. Nothing is emitted: the player never
+    /// learns the style.
+    fn draw_style(&mut self) {
+        let e = self.seat();
+        let mut r = [0.0; 6];
+        for v in r.iter_mut() {
+            *v = self.rnd();
+        }
+        let level = self.diff_of(e);
+        let st = self
+            .ai_styles
+            .get(e as usize)
+            .copied()
+            .flatten()
+            .unwrap_or_else(|| style_of(level, r[0]));
+        let mix = self.factions[e as usize].ai.mix;
+        let base = styled(DIFF[level], level, st, mix, &StyleDraws(r));
+        // (a plan's fields over its style: what the plan leaves out is Hard as its style plays it)
+        let tuned = self.plan_of(e).map_or(base, |p| p.apply(base));
+        let planned = self.ai_plans.get(e as usize).copied().flatten().is_some();
+        let a = self.ai_mut();
+        a.style = Some(st);
+        a.styled = Some(base);
+        a.tuned = Some(tuned);
+        if !planned {
+            a.wave = tuned.wave; // (its first wave's size as its style plays it: no wave has gone yet)
         }
     }
 
@@ -287,6 +438,9 @@ impl World {
         }
         a.wait = AI_TURN;
         a.turns += 1;
+        if a.turns == 1 {
+            self.draw_style();
+        }
         self.update_knowledge();
         let (e, t) = (self.seat(), self.time);
         let my_b: Vec<Id> = self

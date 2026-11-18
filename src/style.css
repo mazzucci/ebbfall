@@ -30,11 +30,14 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .res .lbl{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--muted)}
 /* Fixed slots for the figures, so the bar does not shift as they grow (up to 999999 gold, 40/40 supply). */
 #rShard{display:inline-block;min-width:6ch} #rSupply{display:inline-block;min-width:7ch}
+/* The game clock (clock.js): quiet, beside the buttons, a fixed slot up to 99:59. */
+#resClock{font-size:14px;color:var(--muted)} #rClock{display:inline-block;min-width:5ch;text-align:right;font-weight:400}
 /* Gold as money (a cost, the top bar's figure, a toast that names gold): two small stacks of gold coins, lit faces
    over darker rims, a brown outline (the field on the map stays raw gold). Drawn in a 12x10 box, so it keeps its
    shape at any size. */
 .dot{display:inline-block;width:12px;height:10px}
 .dot.shard{background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M0.6000000000000001 8.1v1.5a3.3 1.15 0 0 0 6.6 0V8.1z' fill='%23a8721c' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='3.9' cy='8.1' rx='3.3' ry='1.15' fill='%23f3c94a' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cpath d='M0.6000000000000001 6.4v1.5a3.3 1.15 0 0 0 6.6 0V6.4z' fill='%23a8721c' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='3.9' cy='6.4' rx='3.3' ry='1.15' fill='%23f3c94a' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cpath d='M0.6000000000000001 4.7v1.5a3.3 1.15 0 0 0 6.6 0V4.7z' fill='%23a8721c' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='3.9' cy='4.7' rx='3.3' ry='1.15' fill='%23f3c94a' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cpath d='M0.6000000000000001 3.0v1.5a3.3 1.15 0 0 0 6.6 0V3.0z' fill='%23a8721c' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='3.9' cy='3.0' rx='3.3' ry='1.15' fill='%23f3c94a' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cpath d='M5.1000000000000005 8.1v1.5a3.3 1.15 0 0 0 6.6 0V8.1z' fill='%23a8721c' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='8.4' cy='8.1' rx='3.3' ry='1.15' fill='%23f3c94a' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cpath d='M5.1000000000000005 6.4v1.5a3.3 1.15 0 0 0 6.6 0V6.4z' fill='%23a8721c' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='8.4' cy='6.4' rx='3.3' ry='1.15' fill='%23f3c94a' stroke='%235a3a0a' stroke-width='.35'/%3E%3Cellipse cx='3.2' cy='2.75' rx='1.2' ry='.35' fill='%23fff2b8'/%3E%3C/svg%3E")}
+.dot.bolt{background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 12'%3E%3Cpath d='M6.2 0.4L1.2 6.9h3.3L3.5 11.6l5.3-6.9H5.4z' fill='%2366e3ff' stroke='%23084a5c' stroke-width='.6' stroke-linejoin='round'/%3E%3Cpath d='M5.6 1.6L2.6 5.9' stroke='%23e6fbff' stroke-width='.5' stroke-linecap='round'/%3E%3C/svg%3E")}
 .res.low b{color:var(--bad)} .res.low:not(#resShard){animation:pulse-warn 1s infinite alternate;border-radius:4px}
 .spacer{flex:1}
 .ib{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);border-radius:4px;font:600 11px var(--display);letter-spacing:.08em;padding:5px 9px;cursor:pointer}
@@ -44,6 +47,11 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 @media (max-width:1099px){.ib.icon .t{display:none}}
 .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .por{display:block;flex:none;pointer-events:none}
+/* A soft light behind every sprite portrait (tooltip, console, group, miners, guided game), so dark sprites stand off
+   the panel. Neutral white on purpose (a warm pool reads as selection), and never much past .40 alpha (a gray disc). */
+:root{--backlight:radial-gradient(closest-side at 50% 48%,rgba(221,229,238,.40) 0%,rgba(221,229,238,.15) 45%,transparent 78%);
+  --backlight-tip:radial-gradient(closest-side at 50% 48%,rgba(221,229,238,.46) 0%,rgba(221,229,238,.17) 45%,transparent 78%)}
+.por{background:var(--backlight)} #cmdInfo .por{background:var(--backlight-tip)} /* (the details panel is lighter: a little more there) */
 @keyframes pulse-warn{from{box-shadow:0 0 0 rgba(245,165,36,0)}to{box-shadow:0 0 8px rgba(245,165,36,.55)}}
 #stage{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#07090d}
 #game{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
@@ -51,11 +59,13 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #msg{position:absolute;left:8px;bottom:220px;pointer-events:none;display:flex;flex-direction:column;gap:4px;align-items:flex-start;width:max-content;max-width:60%} /* bottom-left, above SELECT: never over the middle of a fight */
 /* A phone has no room beside the ATTACK alert (top right): the toasts move down under it while it shows. */
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
-.toast.bad{border-color:var(--bad);color:#ffb3b3} .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
+.toast.bad{border-color:var(--bad);color:#ffb3b3} .toast.paused{border-color:var(--ally);color:var(--ally2)} /* (a site left with no builder: the build bar's and the pause mark's orange) */ .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
+.toast.claude{font-style:italic} /* (a line from Claude, the plan's writer: claude.js, shown as text only) */
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}
 #hint.bad{color:var(--bad)} /* (placing: why the spot is refused) */
+#hint.placing{font-size:15px} /* (placing a building: what the ghost's spot says, read at a glance; the slot the other hints use) */
 #hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;flex:none;height:168px;min-width:0}
 #minimap{width:168px;height:168px;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:block;touch-action:none;cursor:pointer}
 /* The selection console: who (portrait, name, a few words, health) | one module (fight figures, research, queue). */
@@ -68,6 +78,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #info .nm{display:flex;align-items:baseline;gap:10px;min-width:0;overflow:hidden}
 #info h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:none;max-width:100%}
 #info .sub{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#info .sub.keep{flex:none} #info .nm:has(.sub.keep) h2{flex:0 1 auto} /* (construction's percentage stays whole: the name ellipsizes first) */
 /* What the selected kind is for (one line under the health bar): gone when empty, and gone where it would be cut or
    would grow the console (hud.js measures it), so nothing else moves. */
 #info .what{font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -79,7 +90,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .rs{display:flex;align-items:center;gap:10px;min-width:190px} .rs>.ico{width:30px;height:30px;color:var(--ether)}
 .rb{flex:1;display:flex;flex-direction:column;gap:6px} .rt{display:flex;align-items:center;gap:6px;font:600 14px var(--display);letter-spacing:.04em;white-space:nowrap} .rt b{color:var(--ally2)}
 .pips{display:flex;gap:5px;margin-left:auto;padding-left:8px} .pips i{width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--line2)} .pips i.done{background:var(--ally2);border-color:var(--ally2)} .pips i.now{border-color:var(--ether);background:var(--ether)}
-.bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px}
+.bar.res i{background:var(--ether)} .bar.build i{background:var(--ally)} #mod>.bar.build{width:200px} #mod>.pct{display:none;font:12px var(--mono);font-variant-numeric:tabular-nums;color:var(--ally);white-space:nowrap}
 #mod .q{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:320px}
 #mod .q .bar.prod{order:2;flex:1 1 100%;height:8px} #mod .q .qi:first-of-type{border-color:var(--ally)} /* the one in training */
 #mod .q.idle .bar.prod{visibility:hidden} /* (its room kept) */
@@ -94,12 +105,17 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
    drawn, the free ones as faint outlines: the queue fills from the left and keeps its width. */
 .qe{width:32px;height:32px;border:1px dashed var(--line2);border-radius:3px;opacity:.45}
 .qi{position:relative;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;cursor:pointer}
-.qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8}
+.qi:hover{border-color:var(--foe2)} .qi .x{position:absolute;right:-4px;top:-4px;width:8px;height:8px;border-radius:50%;pointer-events:none;background:var(--foe2) no-repeat center/6px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E");opacity:.8} /* (the cancel dot: small, half out of the slot's corner, off the glyph's weapon; the whole slot is the tap target) */
+@media (pointer:coarse){.qi .x{right:-3px;top:-3px;width:6px;height:6px;background-size:5px}} /* (8px on desktop, a speck at 1x otherwise; 6px on phones) */
 /* The unit in training: the time it still needs, across the foot of its slot (a slow one never looks stuck). */
 .qi .left{position:absolute;left:0;right:0;bottom:0;font:700 10px/12px var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);background:rgba(8,11,16,.72);text-align:center;pointer-events:none}
+.qi .ico.gl{width:24px;height:24px;color:var(--ally2)} /* (the queue shows the button's symbol: what was pressed) */
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:11px var(--mono);display:flex;gap:6px;align-items:center} #cmdInfo .c .dot{width:9px;height:7.5px}
+#cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:700 17px/1 var(--mono);font-variant-numeric:tabular-nums;color:#f3c94a;display:flex;gap:5px;align-items:center} #cmdInfo .c .dot{width:16px;height:13px} /* (gold first: the eye's first stop, Stelian, Nov 13) */
 #cmdInfo .d{flex:1 1 100%;color:var(--muted)}
+#cmdInfo .pl{display:flex;gap:4px;align-items:center;font:13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap} #cmdInfo .pl .ico{width:14px;height:14px;color:var(--ally2)} /* (beside the price: "1 population", "2 grid") */
+#cmdInfo .pic{flex:none;display:flex;align-self:flex-start} #cmdInfo .pic img{width:72px;height:72px;display:block} /* (the sprite, beside its name, gold and stats: card.js SPRITE) */
+#cmdInfo .hd{flex:1 1 0;min-width:0;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;align-content:center;align-self:stretch}
 /* Its stat chips (stats.js): two rows, toughness then attack, each slot in the same place for every unit; the figures
    in the HUD's mono font, the icons the console's; a slot with nothing in it (no armor, no weapon) dimmed, not gone. */
 #cmdInfo .stats{flex:1 1 100%;display:flex;flex-direction:column;gap:3px;padding:1px 0}
@@ -108,13 +124,22 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #cmdInfo .sc .ico{width:14px;height:14px;color:var(--ally2)} #cmdInfo .sc.hp .ico{color:var(--ok)} #cmdInfo .sc.shields .ico{color:#cfe6ff} /* (the shield bar's pale blue) */
 #cmdInfo .sc.hp,#cmdInfo .sc.dmg{min-width:7ch} /* (the second slot of both rows lines up when the first is short) */
 #cmdInfo .sc.targets{gap:1px} #cmdInfo .sc.dim{opacity:.4}
+#cmdInfo .stats.small .sr{min-height:14px} #cmdInfo .stats.small .sc{font-size:11px;color:var(--muted)} #cmdInfo .stats.small .sc .ico{width:12px;height:12px} #cmdInfo .stats.small .sc.hp{min-width:0} /* (a building's Health and Armor: under its gold) */
 #cmdInfo .tg{font:11px/1 var(--mono);color:var(--muted);border:1px solid var(--line2);border-radius:3px;padding:2px 4px;letter-spacing:.04em;white-space:nowrap}
 #group{display:flex;gap:4px;flex-wrap:wrap;overflow:hidden;align-content:flex-start;flex:1 1 100%}
 #group .gi{cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.gi{width:30px;height:30px;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:center;font:600 10px var(--display);position:relative}
-.gi i{position:absolute;left:2px;right:2px;bottom:2px;height:2px;background:var(--ok)}
-.gi b{position:absolute;right:2px;top:1px;font:600 8px var(--display);color:var(--ally2);text-shadow:0 0 2px #000} /* tells look-alike infantry apart */
-#cmd{display:grid;grid-template-columns:repeat(3,66px);grid-auto-rows:52px;gap:4px;align-content:start}
+/* A tile: the unit's sprite cut to its own box (28 px, a step left of center), its health as a 3 px bar on a dark
+   track in the world's colors (green, amber under 60%, red under 30%), and its hotkey letter in a small pill in the
+   bottom-right corner, off the figure's head (it tells look-alike infantry apart). */
+.gi{width:34px;height:38px;box-sizing:border-box;border:1px solid var(--line2);border-radius:3px;background:var(--panel2);display:grid;place-items:start center;padding-top:1px;font:600 10px var(--display);position:relative}
+.gi .por{justify-self:start;margin-left:1px}
+.gi::before{content:'';position:absolute;left:2px;right:2px;bottom:2px;height:3px;border-radius:1px;background:#0a0e14} /* (the bar's track) */
+.gi i{position:absolute;left:2px;right:2px;bottom:2px;height:3px;border-radius:1px;background:var(--ok);z-index:1}
+.gi[data-h=mid] i{background:var(--warn)} .gi[data-h=low] i{background:var(--bad)}
+.gi b{position:absolute;right:1px;bottom:6px;font:600 9px/10px var(--display);color:var(--ally2);padding:0 2px;border-radius:2px;background:rgba(8,11,16,.72)}
+/* The command card: two rows at least (blank slots stay blank), so its height does not change with the selection; a
+   third row, when a card has one, is added below. */
+#cmd{display:grid;grid-template-columns:repeat(3,66px);grid-template-rows:repeat(2,52px);grid-auto-rows:52px;gap:4px;align-content:start}
 /* The HUD floats over the map on every screen (no band across the bottom: the map keeps its height): the minimap
    bottom-left, the selection console bottom-centre at one width, the command card bottom-right (phones: below). */
 #hud{position:fixed;z-index:5;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));height:auto;display:flex;justify-content:space-between;
@@ -126,19 +151,25 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 #cmd{background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
 #cmd:empty{visibility:hidden} /* (its room kept: the console does not move) */
 .cb{position:relative;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--fg);cursor:pointer;padding:0 2px;font:600 10px/1.1 var(--display);letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;overflow:hidden}
-.cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico,.cb .por{order:1} .cb .c{order:3}
-.cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)}
+.cb .l{order:2;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis} .cb .ico{order:1} .cb .c{order:3}
+.cb .ico{color:var(--ally2)} .cb.cancel .ico{color:var(--foe2)} .cb .ico.gl{width:26px;height:26px} /* (a unit or a building: its symbol, as big as the old portraits) */
+.ico .f{fill:currentColor;fill-opacity:.3;stroke:none} /* (a two-tone symbol's faint fill: icons.js) */
+.ico .b{fill:currentColor;stroke:none} .ico .k{fill:none;stroke:var(--cbg,var(--panel2));stroke-width:4.5} /* (a symbol's solid part, a person's bust, and the gap of the button's color round the tool held in front of it) */
 .cb.gap{visibility:hidden}
 .cb:hover{border-color:var(--ally)} .cb:focus-visible{outline:2px solid var(--ally)}
-.cb.active{border-color:var(--ally);background:#2a2415}
+.cb.active{border-color:var(--ally);background:#2a2415;--cbg:#2a2415}
 .cb:disabled{opacity:.38;cursor:default}
 .cb .k{position:absolute;top:2px;right:3px;font:9px var(--mono);color:var(--ally2)}
 .cb .c{font:10px var(--mono);color:var(--muted)}
 .cb .c .s{color:var(--shard)}
 .cb.poor{opacity:.55} /* can't afford it yet: looks inactive, a tap says what is short */
+/* Unavailable or unaffordable: its glyph in gray, dimmed with the button. */
+.cb:disabled:not(.cancel) .ico,.cb.poor:not(.cancel) .ico{color:var(--muted)}
 .cb.badge::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--foe2) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.5 1.5l5 5M6.5 1.5l-5 5' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")}
+.cb.done::after{content:'';position:absolute;left:50%;top:5px;margin-left:4px;width:9px;height:9px;border-radius:50%;background:var(--ok) no-repeat center/7px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1.3 4.2l1.9 1.9 3.5-3.8' fill='none' stroke='%23111' stroke-width='1.6'/%3E%3C/svg%3E")} /* a finished research: its slot kept, grayed, a check (cards.js) */
 .cb .c{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;padding:0 4px;justify-items:start} /* gold in the left column */
 .cb .c>span{display:flex;align-items:center;gap:3px} .cb .c .dot{width:8px;height:6.5px;flex:none}
+.cb .c .p{justify-self:end;color:var(--muted)} .cb .c .p .ico{order:0;width:9px;height:9px;stroke-width:2.5;color:inherit} /* (a unit's population or grid, small, in the right column: card.js) */
 .cb.cancel{color:var(--foe2)}
 .screen{position:fixed;inset:0;background:rgba(7,9,13,.86);display:grid;place-items:center;z-index:20;box-sizing:border-box;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -236,13 +267,23 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #start .tide,#online .tide{animation:ebb 18s ease-in-out infinite alternate} :is(#start,#online) .tide.t2{animation-duration:23s;animation-delay:-7s} :is(#start,#online) .tide.t3{animation-duration:29s;animation-delay:-13s}
 @keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
 @media (prefers-reduced-motion:reduce){:is(#start,#online) .tide{animation:none}}
+/* The field under the first page (the .scene in the .shore: public/menu/menu-<class>.webp, tools/menu-art.mjs): og.png's battle as a band across the bottom 40% of the screen (36% on a short phone, 26% upright), one image per size class, its top faded into the floor, so the premise line and the buttons sit on the plain floor as before (the image is under the page, a thing of the shore's: it can push nothing). It drifts with the tide, a shade slower (one transform on the <picture>, composited); none under prefers-reduced-motion. Over it only the lowest tide line stays, moved to the band's foot (the field meets the water, clear of the front ranks); the two upper lines and the bank's stones go. Under 360 px of height there is no band (it would sit under the buttons): the shore is as it was. The floor shows while the image loads, and when it never does. */
+#start .scene{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%;display:block;animation:ebb 37s ease-in-out infinite alternate;animation-delay:-20s}
+#start .scene img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 100%}
+@media (min-height:360px){#start .shore:has(.scene) :is(.tide.t1,.tide.t2,svg:not(.tide)){display:none} #start .shore:has(.scene) .tide.t3{bottom:-26px}}
+@media (min-height:360px) and (min-aspect-ratio:2/1){#start .shore:has(.scene) .tide.t3{bottom:-60px}} /* (21:9: the line's SVG is scaled wider, so it sits higher; down with it) */
+@media (max-height:420px){#start .scene{height:36%} #start .shore:has(.scene) .tide.t3{bottom:-38px}} /* (a short phone: the band's foot is the screen's edge, the line where the shore already puts it) */
+@media (orientation:portrait){#start .scene{height:26%} #start .shore:has(.scene) .tide.t3{bottom:-8px}} /* (upright: the band is low and its SVG small, the line already at its foot) */
+@media (max-height:359px){#start .scene{display:none}}
+@media (prefers-reduced-motion:reduce){#start .scene{animation:none}}
 #menuHome .rec{margin-top:4px;min-height:1em;font-size:11px} #menuHome .rec:empty{display:none} /* (the build stamp: small and muted at the foot, clear of the tide lines) */
-/* About: a few lines, two links, the fine print. */
-#menuAbout{max-width:640px} #menuAbout p{margin:6px 0} #menuAbout a{color:var(--ally2)} #menuAbout .fine{font:11px var(--mono);color:var(--muted)}
+/* The first page's footer line: How to play and About, the docs, in a new tab (one muted mono line, amber underlined on hover). */
+#menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}
+#menuLinks a{display:inline-flex;align-items:center;min-height:44px;min-width:48px;justify-content:center;padding:0 6px;color:var(--muted);text-decoration:none;letter-spacing:.04em} #menuLinks a:hover,#menuLinks a:focus-visible{color:var(--ally2);text-decoration:underline} #menuLinks .sep{color:var(--line2)}
+#menuFoot{display:flex;flex-direction:column;align-items:center}
+@media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, so the tide lines keep below) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 #homeOfflineMsg:not(:empty)~.shore .tide.t1,#homeOfflineMsg:not(:empty)~.shore .tide.t2{display:none} /* (its line takes the room of the two upper tide lines; the shore comes after it in the page for this) */
-#menuAbout .offmsg{flex:1 1 220px;font-size:12.5px;line-height:1.35;color:var(--ally2)} /* (PLAY OFFLINE's answer, beside it) */
-@media (max-height:420px){#menuAbout p{font-size:12px;line-height:1.35;margin:4px 0} #menuAbout .fine{font-size:10px}}
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
 @media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}
 /* Sound and full screen (corner.js): the screen's corner over every menu page and card, above them all; in a game with
@@ -270,7 +311,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #info{width:auto;max-height:none;margin:0} #cmd{background:none;border:0;box-shadow:none;padding:0}
   #minimap{width:156px;height:156px;grid-row:2}
   #info{grid-column:1/-1;grid-row:1;height:64px;padding:6px 10px;flex-wrap:nowrap;gap:12px}
-  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
+  #cmd{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,58px);grid-auto-rows:58px;grid-column:2;grid-row:2} /* room for portrait, name and cost */
 }
 #tools{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;z-index:3}
 #groups{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:220px}
@@ -306,9 +347,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #hud>*{pointer-events:auto}
   #info{display:none}
   #minimap{width:128px;height:128px;box-shadow:0 2px 10px rgba(0,0,0,.5)} /* (as wide as SELECT, HOME and ARMY above it) */
-  #cmd{grid-template-columns:repeat(3,64px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #cmd{grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,54px);grid-auto-rows:54px;background:rgba(18,26,37,.86);padding:4px;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #cmd:empty{display:none}
-  .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:6px;height:5px} .cb .ico{width:18px;height:18px}
+  .cb{font-size:9px} .cb .l{letter-spacing:0} .cb .c{font-size:8px;letter-spacing:0;padding:0 2px;gap:1px} .cb .c>span{gap:2px} .cb .c .dot{width:6px;height:5px} .cb .ico{width:18px;height:18px} .cb .c .p .ico{width:7px;height:7px}
   /* The selection console sits between the minimap and the command card, at the bottom (no height taken from the map's top). */
   /* Always there, one width (the room between the minimap and a full command card): nothing pops in or resizes. */
   #info{display:flex;flex:none;width:min(480px,calc(100% - 364px));flex-wrap:nowrap;align-self:flex-end;min-width:0;height:64px;margin:0 auto 0 8px;padding:6px 10px;gap:12px;
@@ -371,14 +412,18 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #info .sub{font-size:11px;flex:1 1 0} /* (the words take what the name leaves: the name never wraps for them) */
   #info h2{font-size:clamp(12px,3.4cqw,14px);letter-spacing:.03em;line-height:1.15;white-space:normal;flex:0 1 auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .life .bars{flex:0 1 96px;width:auto;min-width:28px} #hpNum{flex:none} .life .bar{height:6px} .life .bar.sh{height:4px} #hpNum{font-size:14px}
-  #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden} .st{font-size:15px} .st .ico{width:15px;height:15px}
+  #mod{gap:12px;padding-left:12px;flex:none;overflow:hidden;overflow-x:clip;overflow-y:visible} /* (clipped sideways only: the queue's cancel dots stand half out of their slots' tops) */ .st{font-size:15px} .st .ico{width:15px;height:15px}
   .rs{min-width:150px;gap:8px} .rs>.ico{width:24px;height:24px} .rt{font-size:13px}
-  #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px}
-  #mod .q .qi,#mod .q .qe{width:var(--s);height:var(--s);flex:none} #mod .q .qi .por{width:calc(var(--s) - 4px);height:calc(var(--s) - 4px)} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px} #mod .q .qi .left{font-size:8px;line-height:10px}
+  #mod .q{gap:4px;max-width:none;flex-wrap:nowrap;position:relative;padding-bottom:9px;padding-right:3px} /* (room for the last slot's cancel dot) */
+  #mod .q .qi,#mod .q .qe{width:var(--s);height:var(--s);flex:none} #mod .q .qi .ico.gl{width:calc(var(--s) - 6px);height:calc(var(--s) - 6px)} #mod .q .bar.prod{position:absolute;left:0;right:0;bottom:0;height:5px} #mod .q .qi .left{font-size:8px;line-height:10px}
   #mod .rq{gap:4px} #mod .rq>.ico{width:var(--s);height:var(--s);padding:4px} #mod .rq .bar{height:5px}
   @container (max-width:419px){#hpNum .mx,#info .sub{display:none}} /* (a narrow console: the health without its maximum, no words) */
-  #group{flex:1 1 auto;flex-wrap:nowrap} .gi{width:28px;height:28px;flex:none} #mod>.bar.build{width:110px}
-  .gi.gt{width:44px;height:36px} .gi.gt b{font:600 12px var(--mono);color:var(--fg);right:3px;top:auto;bottom:4px}
+  #group{flex:1 1 auto;flex-wrap:nowrap} .gi{flex:none} #mod>.bar.build{width:110px}
+  /* A type tile: the sprite on the left, the count in mono on the right, the type's health under both. The words line
+     goes while a group shows: the tiles say the types and the counts, and the row needs its room (six types fit). */
+  .gi.gt{width:50px;height:38px;place-items:start start;padding:1px 0 0 3px} .gi.gt .por{margin-left:0}
+  .gi.gt b{font:600 13px var(--mono);color:var(--fg);right:4px;bottom:6px;padding:0;background:none}
+  #info:has(#group:not([hidden])) .sub{display:none}
 }
 /* Small phones (iPhone SE class): fewer words, smaller bars, so the figures stay whole. */
 @media (max-width:720px) and (max-height:500px) and (orientation:landscape) and (pointer:coarse), (max-width:420px){
@@ -390,10 +435,22 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #mod:has(#qres){flex-direction:column;align-items:stretch;gap:3px} #mod .rq{order:-1;flex-direction:row;align-items:center;gap:4px}
   #mod .rq>.ico{width:12px;height:12px;padding:0;border:0;background:none} #mod .rq .bar{flex:1;height:4px}
   #hpNum .mx{display:none}
+  #mod>.pct{display:block} #mod:has(>.pct){gap:6px} /* (construction's percentage: its line above is hidden here) */
 }
 /* Touch: keyboard letters on the buttons are noise. */
 @media (pointer:coarse){.cb .k{display:none}}
-#help{z-index:21} /* How to play opens over the pause menu */
+/* The help sheet (help.js): in the stage's top-right corner, over the pause card too (its z-index above the screens'); the game runs on under it. */
+#helpSheet{position:absolute;z-index:22;right:8px;top:8px;width:min(380px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.55);padding:10px 14px 12px;font:13px/1.5 var(--display);color:#c9d4e0;touch-action:pan-y}
+.overlay-open #helpSheet{position:fixed;top:calc(max(8px,env(safe-area-inset-top,0px)) + 52px);right:max(8px,env(safe-area-inset-right,0px));max-height:calc(100% - 68px)} /* (over the pause card: below the corner's pair) */
+#helpSheet[hidden]{display:none} body:has(#helpSheet:not([hidden])) #pause .card{opacity:.2} /* (over the pause card: the card dimmed under it) */ #helpSheet .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 4px}
+#helpSheet h2{margin:0;font:700 15px var(--display);letter-spacing:.08em;color:var(--fg)} #helpSheet .x{width:44px;height:44px;padding:0;font-size:20px;line-height:1;margin:-6px -8px -6px 0}
+#helpSheet .lines{margin:0 0 6px;padding:0;list-style:none} #helpSheet li{margin:0 0 4px} #helpSheet b{color:var(--fg)} #helpSheet .goal{margin:6px 0 8px;color:var(--fg)}
+#helpSheet kbd{font:12px var(--mono);background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:0 4px;color:var(--ally2)}
+#helpSheet .ft{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;font:12px var(--mono);color:var(--muted)} #helpSheet .ft a{color:var(--ally2);display:inline-flex;align-items:center;min-height:44px}
+#helpSheet .touch{display:none} @media (pointer:coarse){#helpSheet .touch{display:block} #helpSheet .desk{display:none}}
+@media (max-height:500px) and (orientation:landscape){#helpSheet{font-size:12px;line-height:1.4;padding:6px 12px 8px} #helpSheet .x{width:40px;height:40px} #helpSheet .ft a{min-height:36px}}
+.ib.help{width:32px;height:28px;padding:0;display:grid;place-items:center;font:700 15px var(--display);color:var(--ally2)} .ib.help[aria-expanded="true"]{border-color:var(--ally);background:#2a2415}
+@media (pointer:coarse){.ib.help{position:relative} .ib.help::after{content:"";position:absolute;inset:-10px -4px}} /* (a finger's target past the 32 px button, into the bar's gaps) */
 
 /* A refused button (not enough to pay, supply blocked) shakes, and its cost flashes: the button is the message. */
 @keyframes refuse{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
@@ -424,16 +481,16 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* Menu pass (owner, 2026-11-03): every button on a menu page or card is a finger high (44 px) with one type size, the
    secondary ones one width, BACK the same everywhere (bottom left, under the page's content); the first page's
    secondary row in equal widths; the pages under the first top-aligned, their titles in one place (as Single player's). */
-:is(#start,#online,#help,#options) :is(.row,.joincode)>.ib{min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 16px}
-:is(#start,#online,#help,#options) .row>.ib.big{font-size:14px}
-:is(#start,#online,#help,#options) :is(.row,.joincode)>.ib:not(.big){min-width:120px}
+:is(#start,#online,#options) :is(.row,.joincode)>.ib{min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 16px}
+:is(#start,#online,#options) .row>.ib.big{font-size:14px}
+:is(#start,#online,#options) :is(.row,.joincode)>.ib:not(.big){min-width:120px}
 #online .joincode{display:flex;gap:8px;align-items:center} /* (the code and its JOIN keep together: one line beside NEW ROOM, or the next on a narrow phone) */
 #menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
 @media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centered) */
-#start .card.menu:has(#menuAbout:not([hidden])),#online .card.menu{justify-content:flex-start}
-#menuAbout h2,#onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
+#online .card.menu{justify-content:flex-start}
+#onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
 /* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's shore behind them,
    dimmer (their content is taller and reaches down over it). */
 .page .brand,#online .brand{font:700 22px/1.1 var(--display);letter-spacing:.04em;color:var(--ally2);margin:0 0 2px}
 #online .card.menu{background:transparent}
-:is(#menuSolo,#menuAbout,#onlineJoin,#onlineRoom) .shore svg{opacity:.45}
+:is(#menuSolo,#onlineJoin,#onlineRoom) .shore svg{opacity:.45}

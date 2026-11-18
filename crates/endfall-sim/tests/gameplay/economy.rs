@@ -18,15 +18,18 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
     w.damage(site, 1e6, None);
     let market = w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
     let mined = w.ledger[PLAYER as usize].mined[0];
-    run(&mut w, 2);
-    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first 2 s");
+    run(&mut w, 4);
+    assert_eq!(w.res[PLAYER as usize][0], 0, "nothing in the first 4 s");
     run(&mut w, 1);
-    assert_eq!(w.res[PLAYER as usize][0], 1, "one gold after 3 s");
-    run(&mut w, 57);
-    assert_eq!(w.res[PLAYER as usize], [21, 0], "21 gold a minute");
+    assert_eq!(
+        w.res[PLAYER as usize][0], 1,
+        "one gold after 5 s (0.24 a second since Nov 13)"
+    );
+    run(&mut w, 55);
+    assert_eq!(w.res[PLAYER as usize], [14, 0], "14 gold a minute");
     assert_eq!(
         w.ledger[PLAYER as usize].mined[0] - mined,
-        21,
+        14,
         "counted as mined"
     );
     assert!(
@@ -50,7 +53,46 @@ fn a_finished_market_pays_gold_with_no_workers_and_a_recruiting_post_nothing() {
         w.res[PLAYER as usize][0], 0,
         "a Recruiting post pays nothing"
     );
-    assert!(!BldgKind::Siphon.def().pays && BldgKind::Extractor.def().pays);
+    assert!(BldgKind::Siphon.def().pays == 0.0 && BldgKind::Extractor.def().pays > 0.0);
+}
+
+#[test]
+fn trade_raises_every_market_s_pay_by_level_researched_at_the_market() {
+    // Trade (Stelian, Nov 14): the Kingdom's economic research at the Market, two levels with names of their own, the
+    // Better drills' shape (150 then 175 gold, 60 then 75 s): its Markets pay a quarter more, then half more.
+    assert!(
+        BldgKind::Extractor
+            .def()
+            .researches
+            .contains(&Upgrade::Trade)
+    );
+    assert_eq!(Upgrade::Trade.levels(), 2);
+    assert_eq!(
+        (Upgrade::Trade.cost(1), Upgrade::Trade.cost(2)),
+        ([150, 0], [175, 0])
+    );
+    assert_eq!(
+        (Upgrade::Trade.time(1), Upgrade::Trade.time(2)),
+        (60.0, 75.0)
+    );
+    assert_eq!(Upgrade::Trade.level_name(1), "Expand trade routes");
+    assert_eq!(Upgrade::Trade.level_name(2), "Raise commercial taxes");
+    let minute = |level: u8| {
+        let mut w = rich(9);
+        for h in harvesters(&w, PLAYER) {
+            w.stop_unit(h);
+        }
+        let (tx, ty) = spot(&w, BldgKind::Extractor);
+        w.make_building(BldgKind::Extractor, PLAYER, tx, ty, true);
+        w.upgrades[PLAYER as usize][Upgrade::Trade.index()] = level;
+        w.res[PLAYER as usize] = [0, 0];
+        run(&mut w, 60);
+        w.res[PLAYER as usize][0]
+    };
+    let (none, routes, taxes) = (minute(0), minute(1), minute(2));
+    assert_eq!(none, 14, "14 gold a minute untraded");
+    assert_eq!(routes, 18, "a quarter more: 18");
+    assert_eq!(taxes, 21, "half more: 21");
 }
 
 #[test]
@@ -106,7 +148,7 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
 
 #[test]
 fn an_ai_market_pays_at_its_levels_income() {
-    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (27 gold a minute, not 21: 27.3, banked a
+    // Brutal gathers 1.3 times as fast; its Markets pay 1.3 times as much too (18 gold a minute, not 14: 18.7, banked a
     // whole gold at a time).
     let mut w = World::with_setup(9, 3, MapKind::Standard, false, [&HUMANS, &HUMANS]);
     assert!(w.set_ai_seats([false, true]));
@@ -120,7 +162,7 @@ fn an_ai_market_pays_at_its_levels_income() {
     w.make_building(BldgKind::Extractor, ENEMY, vx, vy, true);
     w.res[ENEMY as usize] = [0, 0];
     run(&mut w, 60);
-    assert_eq!(w.res[ENEMY as usize][0], 27);
+    assert_eq!(w.res[ENEMY as usize][0], 18);
 }
 
 #[test]
@@ -150,19 +192,20 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
 }
 
 #[test]
-fn the_supply_cap_grows_with_the_map() {
-    // 100 on 64x64, 120 on 96x96, 140 on 128x128 since the economy's second round (60, 70, 80 before;
-    // `World::supply_limit`): the Kingdom's population limit; the Expedition's Power is twice it (240 on 96x96,
-    // `power_limit`). Supply buildings past the cap add nothing, and a seat at the cap is supply blocked.
-    for (n, limit, cap, f) in [
-        (64, 100, 100, &HUMANS),
-        (96, 120, 240, &VAEL),
-        (128, 140, 140, &HUMANS),
+fn the_caps_are_fixed_population_120_and_grid_150() {
+    // The same on every map since Nov 14 (PRD: the Expedition runs on energy; 100, 120 and 140 population by the map's
+    // width before, and the Expedition's Power and hired places apart): the Kingdom's population `POP_MAX`, the
+    // Expedition's grid `GRID_MAX`. Supply buildings past the cap add nothing, and a seat at the cap is supply blocked.
+    assert_eq!((POP_MAX, GRID_MAX), (120, 150));
+    for (n, cap, f) in [
+        (64, 120, &HUMANS),
+        (96, 150, &VAEL),
+        (128, 120, &HUMANS),
+        (128, 150, &VAEL),
     ] {
         let mut w = World::with_size(7, 1, MapKind::Standard, MapSize::square(n), 0, &[f, f]);
         w.disable_ai();
-        assert_eq!(w.supply_limit(), limit, "{n}x{n}");
-        assert_eq!(w.pool_max(PLAYER, Pool::Supply), cap, "{n}x{n}");
+        assert_eq!(w.sup_max(PLAYER), cap, "{n}x{n}");
         // Supply buildings round the headquarters (Cottages or Sunpetals), one past what reaches the cap.
         let each = f.supply.def().supply;
         let hq = f.hq.def().supply;
@@ -174,26 +217,21 @@ fn the_supply_cap_grows_with_the_map() {
         w.recalc_supply(PLAYER);
         assert_eq!(w.sup(PLAYER)[1], cap, "{n}x{n}: capped at {cap}");
         // Filled to the cap: blocked, and told the limit (another population building would not help).
-        w.pools[PLAYER as usize][0][0] = cap;
+        w.supply[PLAYER as usize][0] = cap;
         let hq_id = w
             .bldgs
             .iter()
             .find(|b| b.team == PLAYER && b.kind.def().hq)
             .unwrap()
             .id;
-        // (the Expedition's Power)
-        let told = if f.power {
-            "Power at maximum.".to_string()
+        // (the Expedition's grid)
+        let told = if f.grid {
+            "Grid at maximum.".to_string()
         } else {
             format!("Population at its limit ({cap}): no more until some fall")
         };
         assert_eq!(w.queue_unit(hq_id, f.worker), Err(told), "{n}x{n}");
     }
-    assert_eq!(
-        [64, 96, 128].map(supply_limit),
-        [100, 120, 140],
-        "the table by map width"
-    );
 }
 
 #[test]
@@ -663,8 +701,8 @@ fn either_half_mines_its_field_alike() {
             run(&mut w, 180);
             let mined = |t: usize| w.ledger[t].mined[0];
             let (m0, m1) = (mined(0), mined(1));
-            // (over 1000 by 3:00 with a load of 16; half that since the economy pass's 8)
-            assert!(m0 > 500, "seed {seed} {kind:?}: the harvesters mine ({m0})");
+            // (over 1000 by 3:00 with a load of 16; half that since the economy pass's 8; less since Nov 13's cut)
+            assert!(m0 > 350, "seed {seed} {kind:?}: the harvesters mine ({m0})");
             // (a delivery or two apart at most: mirrored positions round differently in the last bits)
             assert!(
                 (m0 - m1).abs() <= 20,

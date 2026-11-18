@@ -58,30 +58,48 @@ impl World {
 
     /// Whether `team` can see this unit or building (its own always; its allies' are in its sight: theirs too).
     pub fn seen_by(&self, team: u8, id: Id) -> bool {
-        let vis = &self.vis[team as usize];
         if let Some(u) = self.unit(id) {
-            if u.team == team {
-                return true;
-            }
-            if u.inside() {
-                return false; // (in a mine: out of everyone's sight but its side's)
-            }
-            let (tx, ty) = self.map.tile_of(u.x, u.y);
-            return vis[self.map.idx(tx, ty)] != 0;
+            return self.sees_unit(team, u);
         }
-        if let Some(b) = self.bldg(id) {
-            if b.team == team {
-                return true;
-            }
-            for y in 0..b.h {
-                for x in 0..b.w {
-                    if vis[self.map.idx(b.tx + x, b.ty + y)] != 0 {
-                        return true;
-                    }
-                }
-            }
+        self.bldg(id).is_some_and(|b| self.sees_bldg(team, b))
+    }
+
+    /// Whether `team` can see unit `u`: its own always; another's on a tile in its sight, unless inside a mine.
+    pub fn sees_unit(&self, team: u8, u: &Unit) -> bool {
+        if u.team == team {
+            return true;
         }
-        false
+        if u.inside() {
+            return false; // (in a mine: out of everyone's sight but its side's)
+        }
+        let (tx, ty) = self.map.tile_of(u.x, u.y);
+        self.vis[team as usize][self.map.idx(tx, ty)] != 0
+    }
+
+    /// Whether `team` can see building `b`: its own always; another's with a tile of its footprint in its sight.
+    pub fn sees_bldg(&self, team: u8, b: &Bldg) -> bool {
+        if b.team == team {
+            return true;
+        }
+        let vis = &self.vis[team as usize];
+        (0..b.h).any(|y| (0..b.w).any(|x| vis[self.map.idx(b.tx + x, b.ty + y)] != 0))
+    }
+
+    /// What `team` sees of its enemies right now (its own sight and its allies'): the ids of their units, then of their
+    /// buildings, in sight. Read-only, read by no rule: a fog-honest view of the foe for a reader outside the game
+    /// (the game summary's "what this seat saw").
+    pub fn seen(&self, team: u8) -> Vec<Id> {
+        let units = self
+            .units
+            .iter()
+            .filter(|u| self.enemies(team, u.team) && self.sees_unit(team, u))
+            .map(|u| u.id);
+        let bldgs = self
+            .bldgs
+            .iter()
+            .filter(|b| self.enemies(team, b.team) && self.sees_bldg(team, b))
+            .map(|b| b.id);
+        units.chain(bldgs).collect()
     }
 }
 

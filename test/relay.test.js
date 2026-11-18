@@ -4,9 +4,10 @@
 // connection went; and the Node server over real sockets.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS, LOBBY_HOLD_MS } from '../relay/room.js';
+import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS, LOBBY_HOLD_MS, MAX_GAME_WORDS, QUIET_MS, QUIET_SAY, QUIET_CLOSE, OVER_GRACE_MS } from '../relay/room.js';
+import { messageBucket, MSG_RATE, MSG_BURST } from '../relay/limits.js';
 import { PAUSES as NET_PAUSES } from '../src/net/net.js';
-import { fits } from '../src/client/maps.js';
+import { DEFAULT_MAP, fits } from '../src/client/maps.js';
 
 /** A room with fake connections that record what they are sent (and whether they were kicked). */
 function room(seats = 2) {
@@ -73,7 +74,7 @@ test('the lobby seats players, and the game starts when everyone is ready', () =
   assert.deepEqual(l.teams, [0, 1, ...Array(MAX_SEATS - 2).fill(null)], 'and a team per spot');
   assert.equal(l.map, 2);
   r.receive(a, { t: 'map', map: 99 }); r.receive(a, { t: 'map', map: -1 }); r.receive(a, { t: 'map', map: '4' });
-  assert.equal(r.map, 2, 'no such map: refused');
+  assert.equal(r.map, 2, 'no such map: refused (a hidden one, 64x64, is a map: a client from before they were hidden may pick it)');
   r.receive(a, { t: 'ready', ready: true });
   assert.equal(r.phase, 'lobby');
   r.receive(b, { t: 'ready', ready: true });
@@ -182,6 +183,75 @@ test('orders are capped per seat per turn', () => {
   r.tick(TURN_MS);
   const o = got(a, 'turn').flatMap(t => t.o);
   assert.equal(o.length, 10, 'ten messages a turn at most');
+});
+
+test('an order is refused whole for a number past 2^32 (either sign), and a turn takes 2048 numbers a seat at most', () => {
+  const { r, a, got, clear } = started(); clear();
+  for (const w of [[0, 5, 2 ** 32 + 1, 10], [0, 5, -(2 ** 33), 10], [0, 5, 1e308, 10], [0, 5, 10, Number.MAX_VALUE]]) r.receive(a, { t: 'orders', w });
+  r.receive(a, { t: 'orders', w: [0, 5, 2 ** 32, -(2 ** 32)] }); // (the edge itself: in)
+  r.tick(TURN_MS);
+  assert.deepEqual(got(a, 'turn').flatMap(t => t.o), [[0, [0, 5, 2 ** 32, -(2 ** 32)]]], 'only the order within the bound');
+  clear();
+  r.receive(a, { t: 'orders', w: new Array(2049).fill(1) }); // (one message past a turn's numbers: refused)
+  r.receive(a, { t: 'orders', w: new Array(1500).fill(2) });
+  r.receive(a, { t: 'orders', w: new Array(600).fill(3) }); // (past the turn's 2048 with the one before: refused)
+  r.receive(a, { t: 'orders', w: new Array(548).fill(4) }); // (exactly up to 2048)
+  r.tick(2 * TURN_MS);
+  assert.deepEqual(got(a, 'turn').flatMap(t => t.o).map(([, w]) => [w[0], w.length]), [[2, 1500], [4, 548]]);
+});
+
+test('a seat that sends more numbers in a game than MAX_GAME_WORDS has left: its concede in the log, nothing more from it', () => {
+  const { r, a, b, got, clear } = started();
+  const w = new Array(2000).fill(3);
+  let t = 0;
+  for (let sent = 0; sent + w.length <= MAX_GAME_WORDS; sent += w.length) { r.receive(a, { t: 'orders', w }); t += TURN_MS; play(r, [a, b], t, t); }
+  assert.ok(!r.seats[0].left, 'up to the cap: still in');
+  clear();
+  r.receive(a, { t: 'orders', w });
+  assert.ok(r.seats[0].left, 'one message past it: gone');
+  assert.deepEqual(got(b, 'left').map(m => m.seat), [0], 'the other told');
+  r.tick(t + TURN_MS);
+  assert.deepEqual(got(b, 'turn').flatMap(x => x.o), [[0, [18]]], 'its concede, and not the order that broke the cap');
+  r.receive(a, { t: 'orders', w: [3, 1] }); r.tick(t + 2 * TURN_MS);
+  assert.deepEqual(got(b, 'turn').flatMap(x => x.o), [[0, [18]]], 'nothing more from it');
+});
+
+test('checkpoint hashes stay few: an ack flood naming every checkpoint ahead keeps none of them, nor one already compared, and a mismatch is still caught', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 10000); // (the clock at turn 100)
+  for (let k = 1; k <= 100000; k++) r.receive(a, { t: 'ack', turn: r.turn, check: { turn: r.turn + k * CHECK_EVERY, hash: k } });
+  assert.ok(r.seats[0].hashes.size <= 2, `turns ahead of the clock not kept (${r.seats[0].hashes.size})`);
+  for (let k = 1; k <= 10; k++) r.receive(a, { t: 'ack', turn: r.turn, check: { turn: k * CHECK_EVERY, hash: k } }); // (checkpoints past, none compared yet)
+  assert.ok(r.seats[0].hashes.size <= 16, `at most 16 waiting (${r.seats[0].hashes.size})`);
+  const cp = 9 * CHECK_EVERY;
+  r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp, hash: 9 } });
+  assert.equal(got(a, 'desync').length, 0, 'the same hash at 90');
+  for (const s of r.seats) assert.ok([...s.hashes.keys()].every(t => t > cp), 'compared and older checkpoints gone');
+  r.receive(a, { t: 'ack', turn: r.turn, check: { turn: cp - CHECK_EVERY, hash: 1 } });
+  r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp - CHECK_EVERY, hash: 2 } });
+  assert.equal(got(a, 'desync').length, 0, 'a checkpoint older than the last compared: not kept, not compared');
+  r.receive(a, { t: 'ack', turn: r.turn, check: { turn: cp + CHECK_EVERY, hash: 5 } });
+  r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp + CHECK_EVERY, hash: 6 } });
+  assert.equal(got(a, 'desync')[0]?.turn, cp + CHECK_EVERY, 'a real mismatch is caught');
+});
+
+test('the message bucket: MSG_BURST at once, then MSG_RATE a second; idle time refills it up to the burst only', () => {
+  let now = 0; const take = messageBucket(() => now);
+  let n = 0; while (take()) n++;
+  assert.equal(n, MSG_BURST, 'the burst');
+  now += 1000; n = 0; while (take()) n++;
+  assert.equal(n, MSG_RATE, 'a second refills the rate');
+  now += 3600000; n = 0; while (take()) n++;
+  assert.equal(n, MSG_BURST, 'an hour idle: the burst, no more');
+  // Play's own pace for ten minutes (an ack each 300 ms, an orders message each frame of a 60 Hz screen for 20 s of
+  // furious clicking, 30 a second from a held key): never past it.
+  now = 0; const play = messageBucket(() => now);
+  for (let ms = 0; ms < 600000; ms += 1000 / 60) {
+    now = ms;
+    if (Math.floor(ms / 300) !== Math.floor((ms - 1000 / 60) / 300)) assert.ok(play(), `an ack at ${ms}`);
+    if (ms < 20000) assert.ok(play(), `an order a frame at ${ms}`);
+    else if (Math.floor(ms / (1000 / 30)) !== Math.floor((ms - 1000 / 60) / (1000 / 30))) assert.ok(play(), `a held key at ${ms}`);
+  }
 });
 
 test('acks every few turns over a jittery link never send anyone away', () => {
@@ -488,7 +558,7 @@ test('a two-seat room is as it was: the same draws for the setup, each seat its 
   r.receive(a, { t: 'ready', ready: true }); r.receive(b, { t: 'ready', ready: true });
   const s = got(a, 'start')[0].setup;
   // (the seed and side the relay drew before seat counts, with the room's seed 7)
-  assert.deepEqual({ seed: s.seed, map: s.map, side: s.side, races: s.races, names: s.names }, { seed: 271533, map: 0, side: 0, races: ['humans', 'humans'], names: ['Ann', 'Bo'] });
+  assert.deepEqual({ seed: s.seed, map: s.map, side: s.side, races: s.races, names: s.names }, { seed: 271533, map: DEFAULT_MAP, side: 0, races: ['humans', 'humans'], names: ['Ann', 'Bo'] }, '(a new room on the default map, 96x96, since the 64x64 maps were hidden)');
   assert.deepEqual([s.teams, s.ai, s.diffs, s.diff, s.spots], [[0, 1], [0, 0], [0, 0], 1, [0, 1]]);
   assert.deepEqual([filled(got(a, 'lobby').at(-1)).length, teamsOf(got(a, 'lobby').at(-1))], [2, [0, 1]], 'two seats, each its own side');
 });
@@ -929,6 +999,88 @@ test('the host gone longer than the hold: its seat is open, and a friend may tak
   assert.equal(got(b, 'seat').at(-1).seat, 0, 'the friend is the host now');
 });
 
+test('a quiet room: activity is a hello or a message but a ping or an ack; `due` names the next hold, grace or quiet time; a game is never quiet', () => {
+  const { r, conn } = room();
+  const a = conn('a'), b = conn('b');
+  r.tick(1000); r.connect(a, hello());
+  assert.equal(r.active, 1000, 'a hello');
+  assert.equal(r.due(), 1000 + QUIET_MS);
+  assert.ok(!r.idle(1000 + QUIET_MS - 1) && r.idle(1000 + QUIET_MS), 'quiet once QUIET_MS has passed');
+  r.tick(2000); r.connect(b, hello({ name: 'Bo' }));
+  r.tick(5000); r.close(b);
+  assert.equal(r.due(), 5000 + LOBBY_HOLD_MS + 1, 'a held seat: its hold\'s end first');
+  r.tick(9000); r.receive(a, { t: 'ping', id: 1 });
+  assert.equal(r.active, 2000, 'a ping: no activity');
+  r.receive(a, { t: 'map', map: 99 });
+  assert.equal(r.active, 9000, 'any other message, even one refused');
+  r.tick(5000 + LOBBY_HOLD_MS + 1);
+  assert.ok(!r.seats[1].token, 'the hold over');
+  assert.equal(r.due(), 9000 + QUIET_MS);
+  const b2 = conn('b2'); r.connect(b2, hello({ name: 'Bo' }));
+  r.receive(a, { t: 'ready', ready: true }); r.receive(b2, { t: 'ready', ready: true });
+  assert.equal(r.phase, 'game');
+  assert.equal(r.due(), Infinity); assert.ok(!r.idle(r.now + 10 * QUIET_MS), 'a game: never quiet');
+  r.receive(a, { t: 'loaded' }); r.receive(b2, { t: 'loaded' });
+  play(r, [a, b2], 100000, 101000);
+  r.receive(a, { t: 'over' }); r.receive(b2, { t: 'over' });
+  assert.deepEqual([r.phase, r.active], ['over', r.now], 'over: active from then');
+  const at = r.now;
+  r.tick(at + 60000); r.receive(a, { t: 'ack', turn: r.turn });
+  assert.equal(r.active, at, 'the end card\'s acks: no activity');
+  r.close(b2);
+  assert.equal(r.due(), at + 60000 + OVER_GRACE_MS + 1, 'a seat gone after the game: its grace');
+});
+
+test('a game that is over kept and restored (an adapter that lost its memory): seats in game order, who wants a rematch, who left; sockets rebound; a seat back needing the lost turns told the room is gone', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 1000);
+  r.receive(a, { t: 'over' }); r.receive(b, { t: 'over' });
+  r.receive(b, { t: 'rematch', want: true });
+  r.tick(2000); r.close(a);
+  const ends = r.log.length, tokens = r.seats.map(s => s.token);
+  const k = JSON.parse(JSON.stringify(r.keepOver()));
+  assert.ok(JSON.stringify(k).length < 4000, 'small');
+  const sent = new Map(), x = new Room({ code: 'ABCD', send: (c, m) => sent.get(c).push(m), seed: 3, now: 5000 });
+  const conn = () => { const c = {}; sent.set(c, []); return c; };
+  assert.ok(x.restoreOver(k, 5000));
+  assert.deepEqual([x.phase, x.turn, x.log.length, x.lost], ['over', r.turn, 0, true]);
+  assert.deepEqual(x.seats.map(s => [s.name, s.token, s.rematch, s.over, s.goneSince]), [['Ann', tokens[0], false, true, 2000], ['Bo', tokens[1], true, true, 5000]], 'Ann gone since 2000; Bo was here (since now)');
+  const b1 = conn();
+  assert.equal(x.rebind(b1, tokens[1], { build: '' }), 1, 'Bo\'s socket back on his seat');
+  assert.equal(x.rebind(conn(), tokens[1]), -1, 'not twice'); assert.equal(x.rebind(conn(), 'nope'), -1);
+  assert.equal(x.seats[1].goneSince, 0);
+  const reload = conn();
+  assert.equal(x.connect(reload, { proto: PROTO, token: tokens[0], next: 0 }), -1, 'a reload: its turns are gone');
+  assert.deepEqual(sent.get(reload).map(m => [m.t, m.code]), [['error', 'noroom']]);
+  const back = conn();
+  assert.equal(x.connect(back, { proto: PROTO, token: tokens[0], next: ends }), 0, 'every turn run: in');
+  assert.deepEqual(sent.get(back).filter(m => m.t === 'turn'), []);
+  x.receive(back, { t: 'rematch', want: true });
+  assert.equal(x.phase, 'lobby', 'Bo\'s wish kept: a rematch');
+  assert.equal(x.lost, false);
+  for (const bad of [null, {}, { ...k, v: 2 }, { ...k, seats: k.seats.slice(0, 1) }, { ...k, setup: null }, { ...k, turn: -1 }, { ...k, seats: [{ ...k.seats[0], spot: 9 }, k.seats[1]] }]) {
+    assert.equal(new Room({ code: 'ABCD', send: () => {} }).restoreOver(bad, 0), false, JSON.stringify(bad)?.slice(0, 60));
+  }
+  assert.ok(got(a, 'start').length);
+});
+
+test('a lobby\'s socket rebound after the memory was lost: its seat here again, ready as it was', () => {
+  const { r, conn } = room();
+  const a = conn('a'), b = conn('b');
+  r.connect(a, hello({ build: 'x1' })); r.connect(b, hello({ name: 'Bo', build: 'x1' }));
+  r.receive(a, { t: 'ready', ready: true });
+  const k = JSON.parse(JSON.stringify(r.keep())), tokens = r.seats.map(s => s.token);
+  assert.ok(tokens.every(Boolean));
+  const x = new Room({ code: 'ABCD', send: () => {}, now: 50 });
+  assert.ok(x.restore(k, 50));
+  assert.ok(x.seats.every(s => !s.conn && s.goneSince === 50), 'restored: away');
+  const a1 = {}, b1 = {};
+  assert.equal(x.rebind(a1, tokens[0], { ready: true, build: 'x1' }), 0);
+  assert.equal(x.rebind(b1, tokens[1], { ready: false, build: 'x1' }), 1);
+  assert.deepEqual(x.seats.map(s => [s.conn !== null, s.ready, s.goneSince, s.build]), [[true, true, 0, 'x1'], [true, false, 0, 'x1']]);
+  const c = {}; assert.equal(x.connect(c, hello({ name: 'Cy', build: 'x2' })), -1, 'the builds back: another one still turned away');
+});
+
 test('a lobby kept and restored (an adapter that lost its memory): the seats held, on their spots and sides, the AIs at their levels; their tokens take them back', () => {
   const { r, conn, got } = room(); const a = conn('a'), b = conn('b');
   r.tick(5000);
@@ -1151,6 +1303,25 @@ test('the Node relay: open a room, join it by code, play turns over real sockets
     assert.equal((await f.until(m => m.t === 'seat' || m.t === 'error')).seat, 1, 'another local tab: in');
     assert.equal(relay.rooms.get(room).barred.size, 0, 'no address barred');
     for (const x of [h, f]) x.ws.close();
+  } finally { await relay.close(); }
+});
+
+test('the Node relay closes a quiet room as the Worker does: everyone told why, sockets closed with QUIET_CLOSE, the room gone', async () => {
+  const { startRelay } = await import('../relay/server.mjs');
+  const relay = startRelay({ port: 0 }); await relay.ready;
+  try {
+    const open = (q) => new Promise((res, rej) => { const ws = new WebSocket(`ws://localhost:${relay.port}/?${q}`), got = []; ws.onmessage = (e) => got.push(JSON.parse(e.data)); ws.closed = new Promise(c => { ws.onclose = (e) => c(e.code); }); ws.onopen = () => res({ ws, got }); ws.onerror = rej; });
+    const until = async (f) => { for (let i = 0; i < 300 && !f(); i++) await new Promise(r => setTimeout(r, 10)); assert.ok(f()); };
+    const a = await open('new=1'); a.ws.send(JSON.stringify({ proto: PROTO, name: 'Ann' }));
+    await until(() => a.got.some(m => m.t === 'seat'));
+    const code = a.got.find(m => m.t === 'seat').room;
+    const b = await open(`room=${code}`); // (no hello yet: closed too)
+    await new Promise(r => setTimeout(r, 100));
+    assert.ok(relay.rooms.has(code), 'not quiet yet');
+    relay.rooms.get(code).active -= QUIET_MS;
+    assert.equal(await a.ws.closed, QUIET_CLOSE); assert.equal(await b.ws.closed, QUIET_CLOSE);
+    assert.deepEqual(a.got.at(-1), { t: 'error', code: 'noroom', msg: QUIET_SAY });
+    assert.ok(!relay.rooms.has(code), 'the room gone');
   } finally { await relay.close(); }
 });
 

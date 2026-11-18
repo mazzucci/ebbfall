@@ -13,9 +13,10 @@ pub mod map;
 pub mod path;
 mod rng;
 pub mod snapshot;
+pub mod summary;
 pub mod world;
 
-use data::{BldgKind, Pool, UnitKind};
+use data::{BldgKind, ProjKind, UNIT_KINDS, UnitKind};
 pub use rng::Mulberry32;
 use wasm_bindgen::prelude::*;
 use world::{Command, Event, World};
@@ -41,18 +42,37 @@ pub struct Game {
     untracked: bool,
     /// A networked game: orders go out to the relay and come back scheduled (lockstep.rs).
     lock: Option<lockstep::Lockstep>,
+    /// The game summary, observed after every tick while recorded (`recordSummary`; off by default: read-only on the
+    /// world, src/summary/).
+    summary: Option<summary::Summary>,
+    /// The plans set before play (`setPlan`: seat, canonical code) and each delta during it (`planDelta`: tick, seat,
+    /// code as sent): the game's record of them, so a replay plays them on the same ticks.
+    plans: Vec<(u8, String)>,
+    deltas: Vec<(u32, u8, String)>,
+    /// Watching an AI-only game (`watch`): no orders taken, every seat's sight (claude/PROTOCOL.md, watch mode).
+    watching: bool,
+    /// What the last `setPlan` or `planDelta` adjusted.
+    notes: Vec<String>,
 }
 
 struct Replay {
     log: Vec<world::Logged>,
     next: usize,
     end: u32,
+    /// The plan deltas to play again, and the next one.
+    deltas: Vec<(u32, u8, String)>,
+    next_delta: usize,
 }
 
 impl Game {
     fn wrap(mut w: World) -> Game {
         w.record(true); // every game can be watched again
         Game {
+            summary: None,
+            plans: Vec::new(),
+            deltas: Vec::new(),
+            watching: false,
+            notes: Vec::new(),
             w,
             me: data::PLAYER,
             replay: None,
@@ -66,6 +86,9 @@ impl Game {
     fn apply(&mut self, cmd: &Command) -> Result<(), String> {
         if self.replay.is_some() {
             return Err("Watching a replay".into());
+        }
+        if self.watching {
+            return Err("Watching".into());
         }
         if let Some(sent) = self.send(cmd) {
             return sent; // (it runs when the relay sends it back)
@@ -232,11 +255,11 @@ impl Game {
         self.me
     }
 
-    /// The most places this Game's seat can have in `pool` ("supply": population or Power; "hired") on this map
-    /// (`World::pool_max`: the client's refusal tips and the Recruiting post's panel); 0 for an unknown pool.
-    #[wasm_bindgen(js_name = poolMax)]
-    pub fn pool_max(&self, pool: &str) -> i32 {
-        Pool::parse(pool).map_or(0, |p| self.w.pool_max(self.me, p))
+    /// The most places this Game's seat can have: its population or its grid (`World::sup_max`: the client's refusal
+    /// tips).
+    #[wasm_bindgen(js_name = supMax)]
+    pub fn sup_max(&self) -> i32 {
+        self.w.sup_max(self.me)
     }
 
     /// Advance the world by one fixed tick (in a replay, after the orders logged for this tick; in lockstep, after the
@@ -253,8 +276,17 @@ impl Game {
                 let _ = self.w.apply(*seat, cmd);
                 r.next += 1;
             }
+            while let Some((tick, seat, code)) = r.deltas.get(r.next_delta)
+                && *tick == self.w.tick
+            {
+                let _ = self.w.plan_delta(*seat, code);
+                r.next_delta += 1;
+            }
         }
         self.w.step();
+        if let Some(s) = &mut self.summary {
+            s.observe(&self.w);
+        }
     }
 
     /// Watch the game played so far again from its first tick: the same setup, the logged orders on their ticks
@@ -285,8 +317,30 @@ impl Game {
         w.set_teams(&old.teams);
         w.diffs = old.diffs.clone();
         w.set_ai_seats(&old.ai_seats);
+        // (its game seed, the plans it started with, and its deltas on their ticks: a planned game replays exactly)
+        if let Some(seed) = old.game_seed {
+            let _ = w.set_game_seed(seed);
+        }
+        for (seat, code) in &self.plans {
+            let _ = w.set_plan(*seat, code);
+        }
+        let deltas = match &self.replay {
+            Some(r) => r.deltas.clone(),
+            None => self.deltas.clone(),
+        };
+        if let Some(s) = &self.summary {
+            let mut fresh = summary::Summary::new(&w);
+            fresh.check_in_for(s.check_in_seat());
+            self.summary = Some(fresh);
+        }
         self.w = w;
-        self.replay = Some(Replay { log, next: 0, end });
+        self.replay = Some(Replay {
+            log,
+            next: 0,
+            end,
+            deltas,
+            next_delta: 0,
+        });
         true
     }
 
@@ -305,6 +359,122 @@ impl Game {
     pub fn diff_of(&self, seat: u8) -> u32 {
         self.valid_team(seat)
             .map_or(0, |s| self.w.diff_of(s) as u32)
+    }
+
+    /// Give AI seat `seat` a plan before play (play against Claude: claude/PLAN_VOCAB.md): Hard's AI with the code's
+    /// fields over its own. Single player only: refused in lockstep, never sent over the network; recorded with the
+    /// game, so a replay plays it. "" when it is set (values out of range clamped: `planNotes`), else why not (no such
+    /// AI seat, the game already started, a replay, or not a plan code).
+    #[wasm_bindgen(js_name = setPlan)]
+    pub fn set_plan(&mut self, seat: u8, code: &str) -> String {
+        if self.lock.is_some() {
+            return "No plans in an online game".into();
+        }
+        if self.replay.is_some() {
+            return "Watching a replay".into();
+        }
+        match self.w.set_plan(seat, code) {
+            Ok(notes) => {
+                let canon = self.w.plan_of(seat).map(|p| p.code()).unwrap_or_default();
+                self.plans.retain(|p| p.0 != seat);
+                self.plans.push((seat, canon));
+                self.notes = notes;
+                String::new()
+            }
+            Err(e) => e,
+        }
+    }
+
+    /// A delta for planned seat `seat` during play (the same vocabulary, plus intents): its fields over the plan and its
+    /// intents carried out, from this tick. Single player only: refused in lockstep; recorded with its tick, so a replay
+    /// plays it on the same one. "" when applied (adjustments: `planNotes`), else why not.
+    #[wasm_bindgen(js_name = planDelta)]
+    pub fn plan_delta(&mut self, seat: u8, code: &str) -> String {
+        if self.lock.is_some() {
+            return "No plans in an online game".into();
+        }
+        if self.replay.is_some() {
+            return "Watching a replay".into();
+        }
+        match self.w.plan_delta(seat, code) {
+            Ok(notes) => {
+                self.deltas.push((self.w.tick, seat, code.to_string()));
+                self.notes = notes;
+                String::new()
+            }
+            Err(e) => e,
+        }
+    }
+
+    /// Draw this game's randomness (the AI's style among it) from `seed` as well as the map's, before play: a planned or
+    /// watched game's own seed, so one map plays a fresh game each time (claude/PROTOCOL.md, `&seed=`). Single player
+    /// only: refused in lockstep; recorded with the game, so a replay plays it. "" when set, else why not.
+    #[wasm_bindgen(js_name = setGameSeed)]
+    pub fn set_game_seed(&mut self, seed: u32) -> String {
+        if self.lock.is_some() {
+            return "No game seed in an online game".into();
+        }
+        if self.replay.is_some() {
+            return "Watching a replay".into();
+        }
+        res(self.w.set_game_seed(seed))
+    }
+
+    /// What the last `setPlan` or `planDelta` clamped or dropped, one line each (JSON array of strings).
+    #[wasm_bindgen(js_name = planNotes)]
+    pub fn plan_notes(&self) -> String {
+        data::array(self.notes.iter().map(|n| data::quote(n)))
+    }
+
+    /// Seat `seat`'s plan as its canonical code ("" for a seat without one).
+    #[wasm_bindgen(js_name = planCode)]
+    pub fn plan_code(&self, seat: u8) -> String {
+        self.w.plan_of(seat).map(|p| p.code()).unwrap_or_default()
+    }
+
+    /// Watch this game from now on (an AI-only game, claude/PROTOCOL.md's watch mode): no orders taken, every seat's
+    /// sight. Not in lockstep.
+    pub fn watch(&mut self) {
+        if self.lock.is_none() {
+            self.watching = true;
+        }
+    }
+
+    /// Check-ins for planned seat `seat` from now on (claude/PROTOCOL.md): every 2 game-minutes and on key events, a
+    /// short digest of what that seat has and has seen (its own sight only). Records the summary too (`recordSummary`).
+    /// Read-only on the world: no hash moves. A seat out of range turns them off.
+    #[wasm_bindgen(js_name = recordCheckIns)]
+    pub fn record_check_ins(&mut self, seat: u8) {
+        let seat = self.valid_team(seat);
+        self.summary
+            .get_or_insert_with(|| summary::Summary::new(&self.w))
+            .check_in_for(seat);
+    }
+
+    /// The next check-in due, oldest first, as JSON (`{kind: "checkin"|"event", tick, digest}`), or None (null).
+    #[wasm_bindgen(js_name = takeCheckIn)]
+    pub fn take_check_in(&mut self) -> Option<String> {
+        self.summary.as_mut()?.take_check_in()
+    }
+
+    /// Record the game summary from now on (`on`; from the game's start when called before its first step), or stop
+    /// and drop it. Off by default: only a reader between games needs it. Read-only on the world: no hash moves.
+    #[wasm_bindgen(js_name = recordSummary)]
+    pub fn record_summary(&mut self, on: bool) {
+        match (on, &self.summary) {
+            (true, None) => self.summary = Some(summary::Summary::new(&self.w)),
+            (false, _) => self.summary = None,
+            _ => {}
+        }
+    }
+
+    /// The game summary so far as compact JSON (src/summary/): each seat's economy, army, production, research, attacks,
+    /// losses and what it saw of its foes, the main fights and how the game ended; None (null) unless recorded
+    /// (`recordSummary`). Read-only; still readable once the game is over (it stops recording then). Nothing
+    /// player-facing reads it.
+    #[wasm_bindgen(js_name = summaryJson)]
+    pub fn summary_json(&self) -> Option<String> {
+        self.summary.as_ref().map(|s| s.json(&self.w, false))
     }
 
     #[wasm_bindgen(js_name = stateHash)]
@@ -537,6 +707,7 @@ impl Game {
             return false;
         }
         self.w.upgrades[t as usize][up.index()] = level;
+        self.w.recalc_supply(t);
         true
     }
 
@@ -688,7 +859,7 @@ impl Game {
     }
 
     fn sight(&self, layers: &[Vec<u8>], team: u8) -> Vec<u8> {
-        if self.replay.is_some() {
+        if self.replay.is_some() || self.watching {
             let mut all = layers[0].clone();
             for l in &layers[1..] {
                 all.iter_mut().zip(l).for_each(|(a, b)| *a |= b);
@@ -712,13 +883,14 @@ impl Game {
                 Event::Sfx { team, .. }
                 | Event::Toast { team, .. }
                 | Event::Ping { team, .. }
+                | Event::Signal { team, .. }
                 | Event::Attacked { team, .. }
                     if team != me =>
                 {
                     None
                 }
                 Event::Fire { seen, .. } | Event::Cast { seen, .. } | Event::Heal { seen, .. }
-                    if (seen >> me) & 1 == 0 && self.replay.is_none() =>
+                    if (seen >> me) & 1 == 0 && self.replay.is_none() && !self.watching =>
                 {
                     None
                 }
@@ -738,12 +910,21 @@ fn event_json(e: &Event) -> String {
         Event::Sfx { name, .. } => o("sfx").str("name", name),
         Event::Toast { msg, bad, .. } => o("toast").str("msg", msg).num("bad", bad),
         Event::Ping { x, y, .. } => o("ping").num("x", x).num("y", y),
-        Event::Burst { x, y, r, team, n } => o("burst")
+        Event::Signal { x, y, .. } => o("signal").num("x", x).num("y", y),
+        Event::Burst {
+            x,
+            y,
+            r,
+            team,
+            n,
+            unit,
+        } => o("burst")
             .num("x", x)
             .num("y", y)
             .num("r", r)
             .num("team", team)
-            .num("n", n),
+            .num("n", n)
+            .num("unit", unit.map_or(-1.0, |k| k.index() as f64)), // (its index in `unitKinds`, -1 for a building)
         Event::Attacked { x, y, building, .. } => o("attacked")
             .num("x", x)
             .num("y", y)
@@ -756,9 +937,42 @@ fn event_json(e: &Event) -> String {
             .num("tx", tx)
             .num("ty", ty)
             .num("mend", mend),
-        Event::Hit { x, y, big } => o("hit").num("x", x).num("y", y).num("big", big),
+        Event::Hit {
+            x,
+            y,
+            big,
+            shot,
+            air,
+        } => {
+            // (the shot: its kind 0 bolt, 1 shell, 2 missile, -1 none; `by` the shooter's unit kind, its index in
+            // `unitKinds`, -1 for a building's or none; `team` its seat, -1 for none; `air` the struck flyer's kind,
+            // its index in `unitKinds`, -1 when what was struck is on the ground)
+            let (kind, by, team) = match shot {
+                Some((k, slot, t)) => (
+                    match k {
+                        ProjKind::Bolt => 0.0,
+                        ProjKind::Shell => 1.0,
+                        ProjKind::Missile => 2.0,
+                    },
+                    if *slot < UNIT_KINDS.len() {
+                        *slot as f64
+                    } else {
+                        -1.0
+                    },
+                    *t as f64,
+                ),
+                None => (-1.0, -1.0, -1.0),
+            };
+            o("hit")
+                .num("x", x)
+                .num("y", y)
+                .num("big", big)
+                .num("kind", kind)
+                .num("by", by)
+                .num("team", team)
+                .num("air", air.map_or(-1.0, |k| k.index() as f64))
+        }
         Event::Fire { x, y, weapon, .. } => o("fire").num("x", x).num("y", y).str("w", weapon),
-        Event::Launch { x, y, team } => o("launch").num("x", x).num("y", y).num("team", team),
         Event::Cast { x, y, ability, .. } => {
             o("cast").num("x", x).num("y", y).str("ability", ability)
         }
@@ -770,6 +984,10 @@ impl Game {
     /// The world behind the WASM surface, for Rust-side tests and tools.
     pub fn world(&self) -> &World {
         &self.w
+    }
+    /// The game summary behind `summaryJson` (Rust-side tests and tools).
+    pub fn summary(&self) -> Option<&summary::Summary> {
+        self.summary.as_ref()
     }
     /// Turn the tide on or off and start the game again with it (Rust-side tests and the balance lab; the menus play
     /// the Shore without it until the tide's clock and water are drawn).

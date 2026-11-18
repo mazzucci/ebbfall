@@ -8,7 +8,7 @@
 // the Castle (keep, towers, battlements, a banner). Same conventions as models.js: game units, units face +x, y up,
 // +z south.
 import * as THREE from 'three';
-import { grp, add, rbox, cyl, sph, plate, limb, boxUV } from './models.js';
+import { grp, add, rbox, cyl, sph, plate, limb, boxUV, awayYaw } from './models.js';
 import { makeMats } from './materials.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
@@ -40,7 +40,7 @@ export const ashlarBump = tex(256, (g, n) => {
   for (let y = 0; y < n; y += 32) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(n, y + 0.5); g.stroke(); const o = (y / 32) % 2 ? 24 : 0; for (let x = o; x < n + 48; x += 48) { g.beginPath(); g.moveTo(x + 0.5, y); g.lineTo(x + 0.5, y + 32); g.stroke(); } }
 }, { srgb: false, repeat: 2 });
 /** Clay tiles: rows of short tiles, each with a dark lower edge and a lit crown. */
-const tileTex = tex(128, (g, n) => {
+export const tileTex = tex(128, (g, n) => {
   g.fillStyle = '#d8c8b8'; g.fillRect(0, 0, n, n); seed = 29;
   for (let y = 0; y < n; y += 12) { const o = (y / 12) % 2 ? 6 : 0; for (let x = -12; x < n; x += 12) { const v = 190 + rnd() * 50; g.fillStyle = `rgb(${v},${v - 20},${v - 40})`; g.fillRect(x + o, y, 12, 12); g.fillStyle = 'rgba(50,30,20,0.7)'; g.fillRect(x + o, y + 10, 12, 2); g.fillStyle = 'rgba(255,240,220,0.25)'; g.fillRect(x + o + 1, y + 1, 10, 2); g.fillStyle = 'rgba(50,30,20,0.4)'; g.fillRect(x + o, y, 1, 12); } }
 }, { repeat: 3 });
@@ -79,7 +79,7 @@ export const earthTex = tex(256, (g, n) => {
  *  wool, dark oak; the units' heads pale (linen, steel) so the side reads by its heads. (A, sandstone and clay, and
  *  C, timber and thatch, were the comparison's other options; dropped.) */
 export const KINGDOM_PALETTES = {
-  B: { name: 'slate grey and slate', wall: 0x80828a, wallTex: 'ashlar', roof: 0x4e545c, roofTex: 'slate', timber: 0x50402c, steel: 0x9aa0a8, steelMetal: 0.85, steelRough: 0.4, mail: 0x565a60, tunic: 0x8c887e, wicker: 0xa89060, hose: 0x34302e, leather: 0x2e2622, plinth: 0x62646a, horse: 0x42342c, earth: 0x5c5a54 },
+  B: { name: 'sandstone and slate', wall: 0xa29484, wallTex: 'ashlar', roof: 0x4e545c, roofTex: 'slate', timber: 0x50402c, steel: 0x9aa0a8, steelMetal: 0.85, steelRough: 0.4, mail: 0x565a60, tunic: 0x8c887e, wicker: 0xa89060, hose: 0x34302e, leather: 0x2e2622, plinth: 0x807262, horse: 0x42342c, earth: 0x5c5a54 }, // (the art polish, 2026-11-13: the ashlar warmed from slate gray 0x80828a to sandstone, the plinth with it, so the kingdom's stone parts from the gray cliff tiles; the roofs stay slate)
 };
 const ROOF_TEX = { tile: tileTex, slate: slateTex, thatch: thatchTex };
 /** The kingdom's materials for a palette `v`, over the Harbor's set (its team canvas, ink, rope, brass and timber
@@ -100,6 +100,8 @@ export function makeKingdomMats(tc, v = 'B', polish = false) {
   M.leather = std({ color: P.leather, roughness: 0.6, metalness: 0.1 });
   M.skin = std({ color: 0xc89a74, roughness: 0.8 });
   M.linen = std({ color: 0xd8d0bc, map: M.canvas.map, roughness: 0.92 });                                          // pale linen: the Villager's coif (the kingdom's heads are pale)
+  M.strawHat = std({ color: 0xcaa860, map: M.canvas.map, roughness: 0.95 });                                       // the Villager's straw hat (the art polish): warm straw, a notch under the coins' gold
+  M.shine = std({ color: 0xdce0e4, metalness: 0.7, roughness: 0.28 });                                             // bright steel: the Guard's shield rim, the Ballista's bow arm (the art polish: one big bright block per unit)
   M.gold = std({ color: 0xf0c850, metalness: 0.6, roughness: 0.35 });                                               // coins: a light yellow (seat 0 is blue now; gold is the coins' alone)
   M.glint = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6 });                                    // a white glint on a heap
   M.horse = std({ color: P.horse, roughness: 0.75 });
@@ -109,7 +111,7 @@ export function makeKingdomMats(tc, v = 'B', polish = false) {
   M.yard = std({ color: 0x6a6c70, map: M.flagstone.map, bumpMap: M.flagstone.bumpMap, bumpScale: 1, roughness: 0.9 }); // the yard: gray flagstones
   M.cloth = M.paintCanvas;                                                                                       // the team cloth, between `inkLine` hems
   M.clothPale = std({ color: 0xd8d0ba, map: M.canvas.map, roughness: 0.9 });                                       // the pavilion's pale stripes
-  M.quoin = std({ color: 0x9c9ea6, roughness: 0.9 });                                                             // dressed corner stones, a step lighter than the ashlar (the polish's quoins)
+  M.quoin = std({ color: 0xbcae9a, roughness: 0.9 });                                                             // dressed corner stones, a step lighter than the ashlar (the polish's quoins)
   return polish ? polishMats(M, 'kg') : M;                                                                        // (polish.js: texture on the flat materials and `M.polish` for the models' secondary detail)
 }
 
@@ -156,12 +158,14 @@ export function banner(g, M, x, y, z, h, w, d) {
   add(g, rbox(0.4, 0.4, d + 0.2, 0.05), M.inkLine, x + 0.4, y + h - 0.8, z + d / 2);
 }
 
-/** A figure in a tunic and hose: legs by frame (two strides), the body group `body` to hang gear on; the head at
- *  y 13.5. The tunic's skirt flares to `skirt`. Shared with the Expedition's Mercenary (a local). */
+/** A figure in a tunic and hose: legs by frame (two strides; from f 2 on, the strike poses' fighting stance: the feet
+ *  planted a little wider, the left a step forward and the right back, the same in both poses), the body group `body`
+ *  to hang gear on; the head at y 13.5. The tunic's skirt flares to `skirt`. Shared with the Expedition's Mercenary (a
+ *  local). Frames 0 and 1 are exactly the walk they were. */
 export function figure(M, f, { tunic = M.tunic, hose = M.hose, skirt = 4.0 } = {}) {
-  const g = grp(), st = [3.2, -3.2][f % 2];
+  const g = grp(), st = [3.2, -3.2][f % 2], stance = f >= 2;
   for (const side of [-1, 1]) {
-    const z = side * 2.1, s = st * side;
+    const z = side * (stance ? 2.7 : 2.1), s = stance ? (side < 0 ? 2.6 : -2.2) : st * side;
     add(g, rbox(3.4, 1.5, 2.2, 0.6), M.leather, s + 0.5, 0.75, z);                           // a boot
     limb(g, [0, 6.4, z], [s * 0.55, 3.4, z * 1.05], 1.2, hose);
     limb(g, [s * 0.55, 3.4, z * 1.05], [s, 1.3, z], 1.05, hose);
@@ -183,8 +187,9 @@ export function figure(M, f, { tunic = M.tunic, hose = M.hose, skirt = 4.0 } = {
  *  steel disc and no long bar. Frames 0-1 the walk. */
 export function villager(M, f) {
   const g = figure(M, f, { hose: M.cloth }), b = g.body; b.rotation.z = -0.16;
-  add(b, sph(2.3, 14, 10), M.linen, 0.2, 13.7, 0).scale.set(1, 0.95, 1);                          // the head in a pale linen coif: a snug cap, no brim (the Guard's is the wide steel disc)
-  add(b, cyl(2.3, 2.3, 0.3, 14), M.inkLine, 0.2, 12.6, 0);                                       // its edge
+  add(b, sph(2.1, 14, 10), M.linen, 0.2, 13.6, 0).scale.set(1, 0.9, 1);                           // a linen coif under the hat
+  add(b, cyl(4.6, 4.8, 0.6, 16), M.strawHat, 0.2, 14.9, 0); add(b, cyl(4.9, 4.9, 0.3, 16), M.inkLine, 0.2, 14.55, 0); // the straw hat (the art polish, 2026-11-13): a wide warm brim with a dark line under it
+  add(b, cone(2.7, 2.6, 12), M.strawHat, 0.2, 16.4, 0); add(b, cyl(2.75, 2.75, 0.3, 12), M.inkLine, 0.2, 15.25, 0);  // and its crown over a dark band: the worker's one big block, nothing like the Guard's steel disc
   add(b, sph(1.5, 12, 10), M.skin, 1.7, 13.2, 0).scale.set(0.8, 0.9, 0.9);                       // the face
   add(b, cyl(2.5, 3.6, 2.0, 14), M.cloth, 0.1, 12.0, 0);                                        // the cape at the shoulders, team
   add(b, cyl(3.7, 3.8, 0.4, 14), M.inkLine, 0.1, 11.0, 0); add(b, cyl(2.6, 2.6, 0.35, 14), M.inkLine, 0.1, 13.0, 0); // its hems
@@ -227,8 +232,8 @@ export function villager(M, f) {
  *  shield with an ink rim and a steel boss on the left arm, its face turned up and to the camera, and the signature:
  *  a long spear in the right hand angled up ahead, an oak shaft with a bright steel leaf head, reaching well past the
  *  body at both ends. From the camera: a pale disc, a team disc beside it, a long thin bar angled up. Frames 0-1 the
- *  march. */
-export function guard(M, f) {
+ *  march; 2-3 the strike poses (the spear drawn back level, then thrust: at the spear below). */
+export function guard(M, f, dir) {
   const g = figure(M, f, { tunic: M.tunic, skirt: 4.2 }), b = g.body;                          // (an undyed surcoat: the PM's rule, no torso slab; the team is sleeves, hem, shield)
   add(b, cyl(4.1, 4.4, 1.6, 12), M.cloth, 0, 6.2, 0); add(b, cyl(4.2, 4.2, 0.4, 12), M.inkLine, 0, 7.1, 0); add(b, cyl(4.45, 4.45, 0.45, 12), M.inkLine, 0, 5.4, 0); // a team hem band on the skirt
   add(b, rbox(5.3, 0.4, 6.9, 0.1), M.inkLine, 0, 13.1, 0);                                    // the collar's edge
@@ -242,17 +247,28 @@ export function guard(M, f) {
   const sh = grp(); sh.position.set(1.0, 10.2, -4.4); sh.rotation.set(-Math.PI / 2 + 0.9, 0.3, 0.1); b.add(sh);
   add(sh, cyl(4.6, 4.6, 0.7, 24), M.oak, 0, 0, 0);                                            // the board, big
   add(sh, cyl(4.1, 4.1, 0.5, 24), M.cloth, 0, 0.3, 0);                                        // the team face
-  add(sh, torus(4.35, 0.4, 24), M.inkLine, 0, 0.35, 0, Math.PI / 2, 0, 0);                    // the ink rim
+  add(sh, torus(4.35, 0.6, 24), M.shine, 0, 0.4, 0, Math.PI / 2, 0, 0);                       // the rim: bright steel, thick (the art polish: the Guard's one big bright block; ink until then)
   add(b, rbox(2.8, 5.0, 4.6, 0.6), M.cloth, -3.9, 10.4, 0); add(b, rbox(3.0, 0.4, 4.8, 0.1), M.inkLine, -3.9, 13.0, 0); add(b, rbox(3.0, 0.4, 4.8, 0.1), M.inkLine, -3.9, 7.8, 0); // a team pack on the back
-  add(sh, sph(1.0, 10, 8), M.steel, 0, 0.5, 0);                                               // the boss
+  add(sh, sph(1.2, 10, 8), M.shine, 0, 0.5, 0);                                               // the boss, bright
   limb(b, [0.6, 11, -3.6], [1.2, 9.8, -4.0], 1.2, M.cloth);                                    // team sleeves (the family trait; the Guard keeps more team than the Villager)
-  // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule
-  const sp = grp(); sp.position.set(0.8, 10.0, 3.4); sp.rotation.z = 0.7; b.add(sp);
-  add(sp, cyl(1.05, 1.05, 26, 8), M.haft, 5.0, 0, 0, 0, 0, Math.PI / 2);                      // (the shaft in warm haft brown, 3.2 px wide at zoom 1.0 (0.85, 2.6 px, in dark oak until the legibility pass): the PM's rule, nothing important under 2 CSS px)
-  add(sp, cyl(1.2, 1.2, 1.6, 8), M.steel, 18.2, 0, 0, 0, 0, Math.PI / 2);                     // the socket
-  add(sp, cone(1.6, 5.4, 8), M.steel, 21.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5);   // the leaf head
-  add(sp, cyl(1.2, 1.1, 1.4, 8), M.steel, -8.4, 0, 0, 0, 0, Math.PI / 2);                     // the butt's ferrule
-  limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5);
+  // the spear in the right hand, angled up ahead: an oak shaft 26 long, a steel socket and leaf head, a ferrule. The
+  // strike poses (f 2 the wind-up, 3 the strike; retheme.js STRIKE_POSES): the spear gripped nearer its middle and held
+  // level; the wind-up draws the hand back under the shoulder, the elbow cocked back, the point raised a little; the
+  // strike drives the arm straight out and the spear with it, level, the head 27 ahead. Nothing but the arm and the
+  // spear moves between the two. Seen from behind (`dir` 11-13, models.js awayYaw) both ran up the screen as one bar:
+  // there the wind-up raises the spear steep (1.0 rad, gripped lower down the shaft so the butt clears the ground), a
+  // tall spike over the right shoulder, and the strike thrusts out to the side, the hand out that way too, a
+  // diagonal across the screen.
+  const pose = f >= 2 ? f - 1 : 0, yaw = awayYaw(dir), away = yaw !== 0;                       // 0 the walk, 1 the wind-up, 2 the strike
+  const [SX, SY, SZ, SA, SG] = [[0.8, 10.0, 3.4, 0.7, 5.0], away ? [-0.8, 9.4, 4.3, 1.0, 5.0] : [-0.8, 9.4, 4.3, 0.42, 2.0], away ? [4.8, 10.6, 5.2, 0.15, 2.0] : [5.8, 10.4, 3.4, -0.06, 2.0]][pose]; // the hand, the spear's angle, the shaft's center along it (the grip)
+  const sp = grp(); sp.position.set(SX, SY, SZ); sp.rotation.set(0, pose === 2 ? yaw : 0, SA); b.add(sp);
+  add(sp, cyl(1.05, 1.05, 26, 8), M.haft, SG, 0, 0, 0, 0, Math.PI / 2);                       // (the shaft in warm haft brown, 3.2 px wide at zoom 1.0 (0.85, 2.6 px, in dark oak until the legibility pass): the PM's rule, nothing important under 2 CSS px)
+  add(sp, cyl(1.2, 1.2, 1.6, 8), M.steel, SG + 13.2, 0, 0, 0, 0, Math.PI / 2);                // the socket
+  add(sp, cone(1.6, 5.4, 8), M.steel, SG + 16.5, 0, 0, 0, 0, -Math.PI / 2).scale.set(1, 1, 0.5); // the leaf head
+  add(sp, cyl(1.2, 1.1, 1.4, 8), M.steel, SG - 13.4, 0, 0, 0, 0, Math.PI / 2);                // the butt's ferrule
+  if (pose === 0) { limb(b, [0.6, 11, 3.6], [2.6, 10.6, 3.6], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, 2.9, 10.5, 3.5); }
+  else if (pose === 1) { limb(b, [0.6, 11, 3.6], [-2.2, 10.6, 4.9], 1.2, M.cloth); limb(b, [-2.2, 10.6, 4.9], [-1.0, 9.4, 4.4], 1.1, M.cloth); add(b, sph(0.9, 8, 6), M.skin, -0.8, 9.4, 4.3); } // the upper arm back, the forearm to the hand under the shoulder
+  else { limb(b, [0.6, 11, 3.6], [SX - 0.2, SY, SZ], 1.2, M.cloth); add(b, sph(0.9, 8, 6), M.skin, SX, SY, SZ); }       // the arm straight out
   if (M.polish) { // secondary detail: a buckle, a sword in a scabbard at the left hip, leather bindings on the spear (round 2 dropped the rim studs: not found at 4x)
     add(b, rbox(1.3, 1.1, 0.5, 0.1), M.steel, 2.75, 8.3, 0);
     add(b, cyl(0.5, 0.4, 7, 6), M.leather, -1.6, 5.6, -3.4, 0.3, 0, 0.55); add(b, rbox(2.2, 0.45, 0.5, 0.1), M.steel, -0.3, 8.9, -3.5); add(b, sph(0.5, 8, 6), M.steel, 0.2, 9.4, -3.5);
@@ -266,8 +282,9 @@ export function guard(M, f) {
  *  (the cloth over the horse's body down to its knees, an ink hem at its foot), a great helm of steel with a team
  *  plume, a team surcoat, a round team shield on the left side, and a long lance in the right hand angled up ahead
  *  with a team pennon flying near its point. From the camera: a long dark body under a team cloth, four legs, a
- *  bright helm up top, a long bar ahead with a flag on it: mounted, never a man on foot. Frames 0-1 the gallop. */
-export function knight(M, f) {
+ *  bright helm up top, a long bar ahead with a flag on it: mounted, never a man on foot. Frames 0-1 the gallop; 2-3 the
+ *  strike poses (the horse standing, the lance raised, then couched and driven: at the lance below). */
+export function knight(M, f, dir) {
   const g = grp(), st = f % 2 ? -1 : 1;
   // the horse: a barrel body, a rising neck, a head down ahead, four legs in stride, a tail
   const h = grp(); g.add(h);
@@ -279,44 +296,61 @@ export function knight(M, f) {
   for (const z of [-1.1, 1.1]) add(h, cone(0.6, 1.8, 6), M.horseDark, 11.4, 19.8, z);          // ears
   for (let k = 0; k < 5; k++) add(h, rbox(1.6, 1.4, 2.0, 0.6), M.horseDark, 6.2 + k * 1.1, 14.6 + k * 1.1, 0); // the mane along the neck
   limb(h, [-10.5, 11.5, 0], [-13.5, 4.5, 0.6], 0.9, M.horseDark);                              // the tail
-  for (const [x, side, fore] of [[5, -1, 1], [5, 1, 1], [-7, -1, 0], [-7, 1, 0]]) {            // the legs: fore and hind pairs in opposite swing
-    const z = side * 2.4, s = (fore ? 1 : -1) * st * side * 2.4;
+  const pose = f >= 2 ? f - 1 : 0;                                                            // 0 the gallop, 1 the wind-up, 2 the strike (retheme.js STRIKE_POSES)
+  for (const [x, side, fore] of [[5, -1, 1], [5, 1, 1], [-7, -1, 0], [-7, 1, 0]]) {            // the legs: fore and hind pairs in opposite swing; in the strike poses the horse stands square, all four planted
+    const z = side * 2.4, s = pose ? (fore ? 0.5 : -0.5) : (fore ? 1 : -1) * st * side * 2.4;
     limb(h, [x, 8.5, z], [x + s * 0.6, 4.4, z], 1.3, M.horse);
     limb(h, [x + s * 0.6, 4.4, z], [x + s * 1.3, 0.9, z], 1.0, M.horse);
     add(h, rbox(1.8, 1.2, 1.9, 0.4), M.horseDark, x + s * 1.3, 0.6, z);                        // a hoof
   }
   // the caparison: team cloth over the body down the flanks, an ink hem at its foot, a leather saddle over it
-  add(h, rbox(16.6, 6.4, 7.4, 1.4), M.tunic, -1, 9.2, 0);                                      // the caparison, undyed wool (no body slab)
-  add(h, rbox(16.8, 2.0, 7.6, 0.3), M.cloth, -1, 7.1, 0);                                      // its team border band
-  add(h, rbox(16.9, 0.5, 7.7, 0.1), M.inkLine, -1, 8.2, 0); add(h, rbox(16.9, 0.5, 7.7, 0.1), M.inkLine, -1, 6.0, 0);
+  add(h, rbox(17.4, 9.6, 8.2, 1.6), M.clothPale, -1, 8.4, 0);                                  // the caparison: cream cloth barding the whole body down to the knees (the art polish: a bulky pale horse, the Rider's is bare and tan)
+  add(h, rbox(17.6, 1.6, 8.4, 0.3), M.cloth, -1, 4.4, 0);                                      // its team hem band, thin
+  add(h, rbox(17.7, 0.5, 8.5, 0.1), M.inkLine, -1, 5.3, 0); add(h, rbox(17.7, 0.5, 8.5, 0.1), M.inkLine, -1, 3.5, 0);
+  add(h, rbox(5.0, 3.0, 3.4, 1.0), M.clothPale, 11.8, 18.6, 0, 0, 0, -0.35); add(h, rbox(3.6, 1.4, 2.0, 0.5), M.steel, 14.0, 18.2, 0, 0, 0, -0.35); // a cream hood over the head and a steel chamfron plate down its face
   add(h, rbox(7.5, 1.8, 7.8, 0.6), M.leather, 0.5, 14.1, 0);                                  // the saddle
   add(h, rbox(7.8, 0.4, 8.0, 0.1), M.inkLine, 0.5, 13.3, 0);                                  // its ink edge over the cloth
   // the rider: legs down the flanks, a team surcoat over mail, a steel great helm with a team plume
   const r = grp(); r.position.set(0.5, 14.8, 0); g.add(r);
   for (const side of [-1, 1]) { limb(r, [0.5, 2, side * 3.2], [1.8, -3.6, side * 4.6], 1.1, M.mail); add(r, rbox(2.6, 1.2, 1.6, 0.4), M.leather, 2.8, -4.0, side * 4.7); }
-  add(r, rbox(4.8, 6.0, 6.0, 1.4), M.tunic, 0, 4.4, 0);                                       // the surcoat, undyed
+  add(r, rbox(5.0, 6.0, 6.2, 1.4), M.clothPale, 0, 4.4, 0);                                   // the surcoat, cream as the barding
   for (const z of [-2.4, 2.4]) { add(r, rbox(5.0, 1.6, 1.4, 0.3), M.cloth, 0, 7.4, z); add(r, rbox(5.2, 0.3, 1.6, 0.1), M.inkLine, 0, 8.3, z); add(r, rbox(5.2, 0.3, 1.6, 0.1), M.inkLine, 0, 6.5, z); } // team shoulder pads
   add(r, cyl(2.8, 2.8, 4.2, 14), M.steel, 0.2, 9.6, 0);                                       // the great helm, big and pale: the rider's head reads
   add(r, cyl(2.4, 2.4, 0.4, 14), M.inkLine, 0.2, 8.5, 0);                                     // its dark seam at the chin
   add(r, rbox(2.2, 0.5, 2.0, 0.1), M.inkLine, 1.6, 9.6, 0);                                   // the eye slit
   add(r, sph(1.6, 10, 8), M.steel, 0.2, 11.9, 0);                                              // the helm's crown
-  add(r, cone(1.0, 4.0, 8), M.cloth, -2.0, 12.0, 0, 0, 0, 1.1);                                // the team plume, flying back
+  add(r, cone(1.4, 6.0, 8), M.cloth, -2.6, 12.6, 0, 0, 0, 1.1);                                // the team plume, big, flying back
   // the shield on the left side, its face out and a little up
   const sh = grp(); sh.position.set(0.8, 4.0, -4.3); sh.rotation.set(-Math.PI / 2 + 1.25, 0, 0); r.add(sh);
-  add(sh, cyl(3.6, 3.6, 0.6, 20), M.oak, 0, 0, 0); add(sh, cyl(3.1, 3.1, 0.4, 20), M.cloth, 0, 0.3, 0);
-  add(sh, torus(3.35, 0.35, 20), M.inkLine, 0, 0.35, 0, Math.PI / 2, 0, 0); add(sh, sph(0.9, 8, 6), M.steel, 0, 0.5, 0);
+  add(sh, cyl(3.6, 3.6, 0.6, 20), M.oak, 0, 0, 0); add(sh, cyl(3.1, 3.1, 0.4, 20), M.clothPale, 0, 0.3, 0);          // the shield's face cream (the art polish: team on the trim)
+  add(sh, torus(3.3, 0.5, 20), M.cloth, 0, 0.4, 0, Math.PI / 2, 0, 0); add(sh, torus(2.8, 0.2, 20), M.inkLine, 0, 0.5, 0, Math.PI / 2, 0, 0); add(sh, sph(0.9, 8, 6), M.steel, 0, 0.5, 0); // a team rim round it
   limb(r, [0, 6, -3], [1.2, 4.4, -4.0], 1.1, M.mail);
-  // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon
-  const ln = grp(); ln.position.set(2.0, 4.8, 3.6); ln.rotation.z = 0.42; r.add(ln);
+  // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon. The strike
+  // poses (f 2, 3): the wind-up raises the lance steep (0.95 rad), its butt down by the stirrup and the hand on the
+  // grip at the hip; the strike couches it level under the arm and drives it ahead, the hand forward, the point 27
+  // ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay where they are. Seen from
+  // behind (`dir` 11-13, models.js awayYaw) the couched lance ran up the screen over the horse's neck, a shorter bar
+  // than the raised one: there the wind-up stands it steeper (1.2 rad, a tall pole with the pennant) and the strike
+  // drives it out to the side of the horse's head, the hand out that way, a diagonal clear of the horse.
+  const yaw = awayYaw(dir), away = yaw !== 0;
+  const [LX, LY, LZ, LA] = [[2.0, 4.8, 3.6, 0.42], away ? [0.6, 3.6, 3.9, 1.2] : [0.6, 3.6, 3.9, 0.95], away ? [2.6, 4.6, 4.8, 0.08] : [3.0, 4.4, 3.5, -0.02]][pose]; // the hand and the lance's angle
+  const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.set(0, pose === 2 ? yaw : 0, LA); r.add(ln);
   add(ln, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
   add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
-  add(ln, cone(1.3, 3.6, 8), M.steel, 20.0, 0, 0, 0, 0, -Math.PI / 2);                        // the point
-  const pn = add(ln, plate([[0, -2.6], [9, -0.8], [9, 0.8], [0, 2.6]], 0.35, 0.08), M.cloth, 20.6, 0.3, 0.2, Math.PI / 2, 0, 0); pn.rotation.z = -0.42 + 0.1; // the pennon at the lance's tip, hung level so it faces the camera
-  add(ln, rbox(0.4, 0.4, 5.4, 0.05), M.inkLine, 20.6, 0.4, 0.2);                             // its ink edge at the staff
-  limb(r, [0, 6, 3], [2.0, 4.8, 3.6], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, 2.2, 4.8, 3.7);
+  // the head: a steel socket and a long spike (6 long, 4 wide at its base: 7 x 5 px at zoom 1), so the lance ends in
+  // steel in every facing; the team cloth is a small pennant on the shaft 5 below the head, hung off the shaft's
+  // back side and leaning back (per pose: back-up in the gallop, level back in the wind-up, streaming back in the strike),
+  // yawed 0.45 so a sliver of its face shows toward and away from the camera too. (Until 2026-11-14 a 9 x 5 pennon
+  // at the tip, yawed with the lance: facing the camera in the wind-up it read as a team square where the head should be.)
+  add(ln, cyl(1.7, 1.7, 1.6, 8), M.steel, 18.6, 0, 0, 0, 0, Math.PI / 2);                      // the socket
+  add(ln, cone(2.0, 6.0, 8), M.steel, 22.4, 0, 0, 0, 0, -Math.PI / 2);                        // the point, 19.4 to 25.4
+  const lean = [0.6, 0.35, 0.9][pose], px = -Math.sin(lean) * 5.2, pz = -Math.cos(lean) * 5.2, pw = 0.6; // the pennant's far end: 5.2 out of the shaft (the outline's z runs down the lance's -y)
+  const pn = add(ln, plate([[-1.6, 0.7], [1.6, 0.7], [px + Math.cos(lean) * pw, pz + Math.sin(lean) * pw], [px - Math.cos(lean) * pw, pz - Math.sin(lean) * pw]], 0.35, 0.08), M.cloth, 12.8, 0, 0, Math.PI / 2, 0, 0);
+  pn.rotation.z = 0.45; // (a yaw about the vertical of the lance's frame: the Euler's z turns before its x)
+  limb(r, [0, 6, 3], [LX, LY, LZ], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, LX + 0.2, LY, LZ + 0.1);
   if (M.polish) { // secondary detail: the bridle and reins, a breast strap and girth, saddle pommel and cantle, stirrups, the helm's cross, bands on the lance
     add(h, torus(1.9, 0.28), M.leather, 13.9, 17.0, 0, 0, Math.PI / 2, -0.35);                   // the noseband
-    for (const z of [-1.4, 1.4]) { limb(h, [12.2, 18.8, z], [13.5, 16.5, z * 1.1], 0.26, M.leather); limb(h, [14.4, 16.7, z], [2.2, 19.0, z * 2.6], 0.3, M.leather); } // the headstall, the reins back to the hands
+    for (const z of [-1.4, 1.4]) { limb(h, [12.2, 18.8, z], [13.5, 16.5, z * 1.1], 0.26, M.leather); limb(h, [14.4, 16.7, z], pose && z > 0 ? [0.5 + LX + 0.2, 14.8 + LY, LZ + 0.1] : [2.2, 19.0, z * 2.6], 0.3, M.leather); } // the headstall, the reins back to the hands (the right rein follows the lance hand in the strike poses)
     for (const z of [-3.9, 3.9]) limb(h, [3.5, 13.4, z], [7.7, 10.8, 0], 0.4, M.leather);        // the breast strap
     add(h, rbox(2.0, 7.2, 8.0, 0.2), M.leather, 0.5, 9.4, 0);                                     // the girth
     add(h, rbox(1.2, 2.2, 5.0, 0.4), M.leather, -2.9, 15.3, 0); add(h, rbox(1.0, 1.4, 3.0, 0.3), M.leather, 3.9, 15.2, 0); // cantle and pommel
@@ -366,7 +400,7 @@ export function castle(M) {
   add(g, rbox(KW + 1.5, 1.5, KW + 1.5, 0.3), M.plinth, KX, KH + 3.5, KZ);
   for (const [x0, z0, x1, z1] of [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]]) crenels(g, M.wall, KX + x0 * (KW / 2 - 1), KZ + z0 * (KW / 2 - 1), KX + x1 * (KW / 2 - 1), KZ + z1 * (KW / 2 - 1), KH + 4.2, 4.6, 2.2, 2);
   for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1]]) { const x = KX + dx * KW / 2, z = KZ + dz * KW / 2; add(g, cyl(3.2, 3.6, KH + 7, 12), M.wallDark, x, KH / 2 + 4.5, z); roundCrenels(g, M.wall, x, z, 3.1, KH + 8.2, 6); } // three small bartizans
-  for (const x of [-9, -3, 3, 9]) hanging(g, M, KX + x, KH - 2, KZ + KW / 2 + 0.5, 5.0, 40, -Math.PI / 2); // four narrow banners down the south face
+  for (const x of [-7, 7]) hanging(g, M, KX + x, KH - 2, KZ + KW / 2 + 0.5, 4.0, 26, -Math.PI / 2); // two narrow strips down the south face (the art polish: team on flags and thin strips; four 40-tall hangings were a team wall)
   for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1]]) pennant(g, M, KX + dx * KW / 2, KH + 8.4, KZ + dz * KW / 2, 9, 8); // pennants on the bartizans
   for (const [x, y] of [[-10, 46], [10, 46], [0, 30]]) add(g, rbox(1.6, 5, 0.8, 0.2), M.inkLine, KX + x, y, KZ + KW / 2 + 0.3); // arrow slits
   add(g, rbox(6, 9, 1.2, 0.4), M.oak, KX, 7.5, KZ + KW / 2 + 0.6); for (const y of [5, 9.5]) add(g, rbox(6.4, 0.5, 0.4, 0.1), M.ironDark, KX, y, KZ + KW / 2 + 1.3); // the door
@@ -376,7 +410,7 @@ export function castle(M) {
   add(g, cyl(9.4, 9.4, 1.4, 20), M.plinth, TX, TH + 3.6, TZ);
   add(g, cone(10, 15, 20), M.roof, TX, TH + 11.5, TZ); add(g, torus(9.8, 0.4, 20), M.inkLine, TX, TH + 4.3, TZ, Math.PI / 2, 0, 0); // the one big cone: slate (the buildings family: a team cone read as a team slab)
   add(g, cyl(8.1, 9.6, 2.4, 20), M.cloth, TX, TH + 5.6, TZ); add(g, torus(8.15, 0.3, 20), M.inkLine, TX, TH + 6.8, TZ, Math.PI / 2, 0, 0); // with a team band at its foot between ink rings
-  banner(g, M, TX, TH + 19, TZ, 16, 22, 14);                                                    // the great banner, over everything (bigger: the flags carry the team now)
+  banner(g, M, TX, TH + 19, TZ, 16, 32, 20);                                                    // the great banner, over everything, a tile wide (the art polish: the flags carry the team)
   for (const [a, y] of [[0.3, 36], [-0.4, 58], [0.9, 50]]) add(g, rbox(1.4, 5, 0.8, 0.2), M.inkLine, TX + Math.cos(a + Math.PI / 2) * 9.0, y, TZ + Math.sin(a + Math.PI / 2) * 9.0, 0, -a - Math.PI / 2, 0); // slits on the south side
   // the great hall along the east wall: slate walls under a slate gable along z, a chimney; windows and a door south
   const HX = 36, HZ = -4, HW = 22, HL = 56, HH = 14;
@@ -387,7 +421,6 @@ export function castle(M) {
   add(g, rbox(4, 10, 4, 0.4), M.wallDark, HX + 6, HH + 14, HZ - 16); add(g, rbox(4.6, 1, 4.6, 0.2), M.plinth, HX + 6, HH + 19.4, HZ - 16);
   for (const x of [-7, 7]) add(g, rbox(3, 5, 0.8, 0.3), M.inkLine, HX + x, 9, HZ + HL / 2 + 0.3);
   add(g, rbox(6, 9, 1.0, 0.4), M.oak, HX, 6.5, HZ + HL / 2 + 0.6);
-  hanging(g, M, HX, HH + 12, HZ + HL / 2 + 0.6, 10, 14, -Math.PI / 2);                            // a banner on the gable
   banner(g, M, HX, HH + 15.8, HZ - 20, 10, 9, 6);                                                 // a flag on the hall's ridge
   // the gatehouse, off-center on the south wall: two round towers under team-cloth cones, the gate between, a team
   // banner over the arch, shields on the towers
@@ -405,8 +438,8 @@ export function castle(M) {
   add(g, rbox(9.0, 0.5, 0.7, 0.05), M.inkLine, GX, 22.6, GZ + T / 2 + 1.3); add(g, rbox(9.0, 0.5, 0.7, 0.05), M.inkLine, GX, 12.2, GZ + T / 2 + 1.3);
   pennant(g, M, -R + 1, 16.2, R - 1, 10, 8); pennant(g, M, R - 1, 16.2, R - 1, 10, 8);             // pennants at the wall's south corners
   // the yard: banners on the north wall's inner face, a cart, crates, a well, barrels, a spear rack
-  for (const x of [-6, 8, 22, 36]) hanging(g, M, x, 15.0, -R + T + 0.6, 12, 14, Math.PI / 2);
-  for (const x of [-40, -24, 34, 46]) banner(g, M, x, 16.2, R - 3, 10, 14, 10);                     // flags on the south wall's walk, facing the camera
+  for (const x of [2, 30]) hanging(g, M, x, 15.0, -R + T + 0.6, 10, 12, Math.PI / 2);                 // two cloths on the north wall's inner face (four until the art polish)
+  for (const x of [-38, 40]) banner(g, M, x, 16.2, R - 3, 12, 18, 12);                              // two flags on the south wall's walk, facing the camera (four small ones until the art polish)
   const ct = grp(); ct.position.set(-30, 3, 26); ct.rotation.y = 0.5; g.add(ct);
   add(ct, rbox(13, 3.2, 8, 0.4), M.oak, 0, 4.4, 0);
   for (const z of [-4.5, 4.5]) { add(ct, cyl(3.4, 3.4, 0.9, 16), M.oak, 0, 3.4, z, Math.PI / 2, 0, 0); add(ct, torus(3.4, 0.35, 16), M.ironDark, 0, 3.4, z); }

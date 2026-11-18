@@ -308,7 +308,9 @@ fn ai_seats_play_alike_in_every_clients_game() {
         let w = gs[0].world();
         let ai_seat = ai.iter().position(|&a| a == 1).unwrap() as u8;
         assert!(
-            w.bldgs.iter().filter(|b| b.team == ai_seat).count() >= 4,
+            // (4 before Nov 13's scarcer gold, 3 before the mines moved out to four tiles from their headquarters, Nov 15:
+            // its third building comes a little after these two minutes)
+            w.bldgs.iter().filter(|b| b.team == ai_seat).count() >= 2,
             "{} seats: the AI seat {ai_seat} built up",
             factions.len()
         );

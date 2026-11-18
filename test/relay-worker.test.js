@@ -6,29 +6,39 @@
 // device test's reports (relay/bench.js): stored and read back by code, only from the game's pages, size, JSON, a known
 // kind, limits per address and in all (by the minute, by the day), expiry and the sweep of a backlog. And the rooms'
 // codes and limits (src/net/roomcode.js, relay/limits.js, relay/edge.js): six letters, read as typed or shown, a code of
-// the first format told to update; opening rooms per address (a minute's, an hour's) and in all, joins per address (a
-// miss costs more: a guesser is stopped, and learns nothing once stopped), on a fake clock; the bindings as wrangler.toml
-// declares them; a limit that cannot be asked lets the request go on.
-import { test } from 'node:test';
+// the first format told to update; opening rooms per address and per IPv6 /48 (a minute's, an hour's) and in all
+// (counted once a hello seats someone), joins per address and per /48 (a miss costs more: a guesser is stopped, and
+// learns nothing once stopped), everyone's misses (reported in batches; a scan from rotating networks trips them, and
+// invite links still work), on a fake clock; the bindings as wrangler.toml declares them; a limit that cannot be asked
+// lets the request go on. And hibernation (the WebSocket Hibernation API, on a fake runtime that keeps the sockets and
+// their attachments and hibernates an object only with no timer pending): lobbies, games across a hibernation, holds
+// and graces by the alarm, quiet rooms closed, many sockets, the limits after a wake.
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import entry, { RoomObject } from '../relay/worker.js';
 import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
-import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
+import { PROTO, LOBBY_HOLD_MS, OVER_GRACE_MS, QUIET_MS, QUIET_SAY, QUIET_CLOSE } from '../relay/room.js';
+import { DEFAULT_MAP } from '../src/client/maps.js';
 import { readFileSync } from 'node:fs';
-import { rateLimit, OpenBudget, Limiter, addressKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, MISS_COST, MINUTE, HOUR } from '../relay/limits.js';
+import { rateLimit, OpenBudget, Limits, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR, MSG_BURST, MSG_CLOSE } from '../relay/limits.js';
 import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
 import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
 
+// (the clock: Date.now, ahead by `skew` within a test that skips time: `skip`)
+let skew = 0;
+const realNow = Date.now; Date.now = () => realNow() + skew;
+afterEach(() => { skew = 0; });
+
 /** A connected pair of fake sockets: what one sends, the other's listeners get. */
 function pair() {
   const end = () => ({
-    listeners: {}, got: [], closed: false,
+    listeners: {}, got: [], closed: false, get readyState() { return this.closed ? 3 : 1; },
     addEventListener(t, f) { (this.listeners[t] ||= []).push(f); },
     emit(t, e) { for (const f of this.listeners[t] || []) f(e); },
     accept() {},
     send(data) { if (this.closed) throw new Error('closed'); this.other.emit('message', { data }); },
-    close() { if (this.closed) return; this.closed = this.other.closed = true; this.other.emit('close', {}); },
+    close(code) { if (this.closed) return; this.closed = this.other.closed = true; this.other.code = code; this.other.emit('close', { code }); },
   });
   const a = end(), b = end(); a.other = b; b.other = a;
   a.addEventListener('message', (m) => a.got.push(JSON.parse(m.data))); // (the client's end keeps what it is sent)
@@ -39,17 +49,52 @@ const worker = relay(platform); // (relay/worker.js's default export is relay() 
 /** A fake object's storage (a Durable Object's API over a Map), counting its writes and keeping its alarm. */
 const storage = () => {
   const m = memoryStorage(), s = Object.assign(m, { puts: 0, alarm: 0 }), put = m.put;
-  return Object.assign(s, { async put(k, v) { s.puts++; return put(k, v); }, async setAlarm(t) { s.alarm = t; }, async deleteAll() { m.map.clear(); } });
+  return Object.assign(s, { async put(k, v) { s.puts++; return put(k, v); }, async setAlarm(t) { s.alarm = t; }, async getAlarm() { return s.alarm || null; }, async deleteAlarm() { s.alarm = 0; }, async deleteAll() { m.map.clear(); } });
 };
-/** A fake namespace: one RoomObject per name, made on first use, its storage kept when it is evicted. */
+/** A fake object's state (the WebSocket Hibernation API): its storage, and the sockets it accepted, kept beyond the
+ *  object (with their attachments, at most 2 KB, as the runtime keeps them): each event goes to the object `live()`
+ *  returns then (a new one after a hibernation: `webSocketMessage`, `webSocketClose`). `drop()`: a reset or a deploy,
+ *  the sockets gone with the object, no event to anyone. */
+function fakeState(st, live) {
+  const sockets = new Set(), dead = new WeakSet();
+  return {
+    storage: st,
+    acceptWebSocket(ws) {
+      sockets.add(ws);
+      Object.assign(ws, {
+        serializeAttachment(v) { const j = JSON.stringify(v); assert.ok(j.length <= 2048, `an attachment of ${j.length} bytes`); this.att = j; },
+        deserializeAttachment() { return this.att ? JSON.parse(this.att) : null; },
+      });
+      ws.addEventListener('message', (e) => { if (!dead.has(ws)) live().webSocketMessage(ws, e.data); });
+      ws.addEventListener('close', (e) => { if (dead.has(ws)) return; sockets.delete(ws); live().webSocketClose(ws, e.code, '', true); });
+    },
+    getWebSockets: () => [...sockets],
+    drop() { for (const ws of sockets) dead.add(ws); sockets.clear(); },
+  };
+}
+/** A RoomObject on its own (no namespace) with a fake state; `o.hibernate()` gives the next event a new object. */
+function lone(st = storage()) {
+  let o; const state = fakeState(st, () => o);
+  o = new RoomObject(state, null, platform);
+  return { get o() { return o; }, st, hibernate() { assert.ok(o.hibernatable, 'no timer pending'); o = new RoomObject(state, null, platform); } };
+}
+/** A fake namespace: one RoomObject per name, made on first use, its storage and sockets kept when it is out of memory:
+ *  `evict` (a reset or a deploy: its sockets gone too, unheard) or `hibernate` (the runtime's: its sockets kept; only
+ *  when no timer is pending, as the runtime does). */
 function env(extra = {}) {
-  const objects = new Map(), stores = new Map();
+  const objects = new Map(), stores = new Map(), states = new Map();
   const get = (n) => {
     if (!stores.has(n)) stores.set(n, storage());
-    if (!objects.has(n)) objects.set(n, new RoomObject({ storage: stores.get(n) }, null, platform));
+    if (!states.has(n)) states.set(n, fakeState(stores.get(n), () => get(n)));
+    if (!objects.has(n)) objects.set(n, new RoomObject(states.get(n), e, platform)); // (an object's env: the namespace, to tell the limits object of a seat)
     return objects.get(n);
   };
-  return { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
+  const e = {
+    objects, stores, states, ...extra, ROOMS: { idFromName: (n) => n, get },
+    evict: (n) => { objects.delete(n); states.get(n)?.drop(); },
+    hibernate: (n) => { assert.ok(objects.get(n).hibernatable, 'no timer pending: the runtime may hibernate it'); objects.delete(n); },
+  };
+  return e;
 }
 const upgrade = (query, origin = 'https://ebbfall.com', ip = '') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) } });
 const say = (ws, msg) => ws.send(JSON.stringify(msg));
@@ -103,7 +148,7 @@ test('no such room: told so, and closed; a code of the first format (four letter
 });
 
 test('a code in use is not given again; an idle one is', async () => {
-  const o = new RoomObject({ storage: storage() }, null, platform);
+  const { o } = lone();
   const first = await o.fetch(new Request('https://room/?code=BCDF&new=1'));
   assert.equal(first.status, 101);
   assert.equal((await o.fetch(new Request('https://room/?code=BCDF&new=1'))).status, 409, 'someone is in it');
@@ -111,7 +156,7 @@ test('a code in use is not given again; an idle one is', async () => {
   assert.equal((await o.fetch(new Request('https://room/?code=BCDF&new=1'))).status, 409, 'just left: kept a while for a rejoin');
   o.lastUsed = Date.now() - 11 * 60 * 1000;
   assert.equal((await o.fetch(new Request('https://room/?code=BCDF&new=1'))).status, 101, 'idle: a new room');
-  for (const c of o.conns) c.other.close(); // (the players hang up)
+  for (const c of o.conns) c.ws.other.close(); // (the players hang up)
   assert.equal(o.timer, null);
 });
 
@@ -207,8 +252,8 @@ test('the record is written when it changes, at most once a second (the last cha
   await wait(0);
   const first = store.puts;
   assert.equal(first, 1, 'the new room: one write');
-  for (let i = 0; i < 1000; i++) say(a, { t: 'ready', ready: i % 2 === 0 }); // (no change to the record)
-  for (let i = 0; i < 1000; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
+  for (let i = 0; i < 80; i++) say(a, { t: 'ready', ready: i % 2 === 0 }); // (no change to the record; within the messages a connection may send at once, relay/limits.js)
+  for (let i = 0; i < 80; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
   await wait(0);
   assert.equal(store.puts, first, 'within the second: nothing more yet');
   await wait(1100);
@@ -222,6 +267,32 @@ test('the record is written when it changes, at most once a second (the last cha
   assert.equal(store.puts, first + 2, 'the last socket gone: written at once');
   assert.ok(!(await store.get('room')).lobby.seats[0].here, 'its seat held, away');
   assert.ok(store.alarm > Date.now(), 'an alarm set to forget the room once idle');
+});
+
+test('a connection that floods the room is closed (MSG_CLOSE), the others are not, and its token takes the seat back', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  let b2 = null;
+  try {
+    const now = Date.now, at = now(); Date.now = () => at; // (the burst at one instant: no token back meanwhile, however slow the machine)
+    let before;
+    try {
+      say(b, hello('Bo'));
+      for (let i = 0; i < MSG_BURST - 1; i++) say(b, { t: 'race', race: i % 2 ? 'vael' : 'humans' }); // (the hello and these: the burst)
+      assert.ok(!b.closed, 'up to the burst: open');
+      before = got(a, 'lobby').length;
+      say(b, { t: 'race', race: 'vael' });
+    } finally { Date.now = now; }
+    const token = got(b, 'seat')[0].token;
+    assert.ok(b.closed, 'one past it: closed');
+    assert.equal(b.code, MSG_CLOSE, 'with the code that says why');
+    assert.ok(got(a, 'lobby').length <= before + 1, 'the one past it not passed on (only the seat held, away)');
+    assert.ok(!a.closed, 'the other seat stays');
+    b2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+    say(b2, { ...hello('Bo'), token });
+    assert.equal(got(b2, 'seat')[0]?.seat, 1, 'back on its seat by its token');
+  } finally { for (const c of [a, b, b2]) c?.close(); await wait(0); }
 });
 
 /** Room `code`'s object and record as if last used `ago` ms ago (the alarm reads the time; the tests do not wait). */
@@ -244,7 +315,7 @@ test('an idle room\'s alarm deletes its record: the code is free, the room gone'
   assert.equal(got(c, 'error')[0]?.code, 'noroom');
   e.evict(code);
   assert.equal((await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`))).status, 101, 'free for a new room');
-  for (const x of e.objects.get(code).conns) x.other.close();
+  for (const x of e.objects.get(code).conns) x.ws.other.close();
 });
 
 test('no record outlives its room: every write sets the alarm; one firing with people in sets itself again; after a reset with people in (no close), it deletes the record', async () => {
@@ -268,6 +339,247 @@ test('no record outlives its room: every write sets the alarm; one firing with p
   a.close();
 });
 
+// ---- hibernation (the WebSocket Hibernation API: relay/worker.js) ----
+/** The clock `ms` ahead for the rest of the test (Date.now: the alarm's, the room's, the record's time; the tests do not
+ *  wait half an hour). */
+const skip = (ms) => { skew += ms; };
+/** A room with Ann (the host) and Bo seated through the Worker. */
+async function pairUp(e) {
+  const { a, code } = await opened(e);
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(b, hello('Bo'));
+  return { a, b, code, tokens: [got(a, 'seat')[0].token, got(b, 'seat')[0].token] };
+}
+/** Let the room settle (its record's write) and the runtime hibernate it: the next event makes a new object. */
+async function hibernate(e, code) {
+  await wait(1100);
+  const o = e.objects.get(code);
+  e.hibernate(code);
+  return o;
+}
+
+test('a lobby runs no clock and hibernates; woken, everyone is seated and ready as before, the game starts, plays and ends; over, it hibernates again and a rematch follows', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  try {
+    const first = e.objects.get(code);
+    assert.equal(first.timer, null, 'a lobby: no clock');
+    say(a, { t: 'race', race: 'vael' }); say(a, { t: 'ready', ready: true });
+    assert.equal(await hibernate(e, code), first);
+    say(b, { t: 'ready', ready: true }); // (the event that wakes it: a new object)
+    await wait(0);
+    const woken = e.objects.get(code);
+    assert.notEqual(woken, first, 'a new object');
+    assert.equal(got(a, 'start').length, 1, 'Ann\'s ready survived the hibernation: the start');
+    assert.deepEqual(got(b, 'start')[0].setup.races, ['vael', 'humans'], 'with the race chosen before it');
+    assert.ok(!woken.hibernatable, 'a game: its clock runs (no hibernation)');
+    for (const c of [a, b]) say(c, { t: 'loaded' });
+    await wait(450);
+    assert.ok(got(a, 'turn').length >= 5, `the clock runs (${got(a, 'turn').length} turns)`);
+    for (const c of [a, b]) say(c, { t: 'over' });
+    assert.equal(woken.room.phase, 'over'); assert.equal(woken.timer, null, 'over: the clock stops');
+    const turns = got(a, 'turn').length;
+    await hibernate(e, code);
+    const rec = await e.stores.get(code).get('room');
+    assert.equal(rec.over.seats.length, 2, 'a game that is over: kept');
+    say(a, { t: 'ack', turn: turns - 1 }); await wait(0); // (the end card's heartbeat: wakes it, changes nothing)
+    assert.equal(e.objects.get(code).room.phase, 'over');
+    for (const c of [a, b]) say(c, { t: 'rematch', want: true });
+    assert.deepEqual(got(a, 'rematch').at(-1).seats, [true, true]);
+    assert.equal(e.objects.get(code).room.phase, 'lobby', 'a rematch after a hibernation: the lobby again');
+    for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+    assert.equal(got(b, 'start').length, 2, 'and a second game');
+  } finally { a.close(); b.close(); await wait(0); }
+});
+
+test('after a hibernation a token takes its seat back; a socket that closes while the room hibernates leaves its seat held; one kept goes on; one replaced stays out', async () => {
+  const e = env();
+  const { a: a0, b, code, tokens } = await pairUp(e);
+  const a = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket; // (Ann on another screen: the first one replaced)
+  say(a, { t: 'hello', proto: PROTO, token: tokens[0] }); await wait(0);
+  assert.equal(got(a0, 'error')[0]?.code, 'replaced');
+  assert.equal(e.states.get(code).getWebSockets().length, 3, 'the replaced socket still in the runtime\'s list (its close unheard)');
+  say(a, { t: 'map', map: 4 });
+  b.close(); await wait(0); // (Bo switched apps: held)
+  await hibernate(e, code);
+  const b2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(b2, { t: 'hello', proto: PROTO, token: tokens[1] });
+  assert.equal(got(b2, 'seat')[0]?.seat, 1, 'Bo\'s token: his seat');
+  assert.deepEqual(got(a, 'lobby').at(-1).seats.slice(0, 2).map(s => [s.name, s.here]), [['Ann', true], ['Bo', true]], 'Ann, kept through the hibernation, sees him back');
+  assert.equal(got(a, 'lobby').at(-1).map, 4);
+  await hibernate(e, code);
+  b2.close(); await wait(0); // (the close wakes the room)
+  assert.deepEqual(got(a, 'lobby').at(-1).seats.slice(0, 2).map(s => [s.name, s.here]), [['Ann', true], ['Bo', false]], 'Bo held, away: Ann is told');
+  await wait(1100);
+  assert.ok((await e.stores.get(code).get('room')).lobby.seats[1].goneSince > 0, 'the record says since when');
+  say(a, { t: 'race', race: 'vael' });
+  assert.equal(got(a, 'lobby').at(-1).seats[0].race, 'vael', 'Ann\'s socket still her seat');
+  a.close(); await wait(0);
+});
+
+test('a held seat\'s hold runs out by the alarm (no clock): everyone is told, the record follows; an over game\'s grace too', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  b.close(); await wait(0);
+  const st = e.stores.get(code);
+  assert.ok(Math.abs(st.alarm - (Date.now() + LOBBY_HOLD_MS)) < 2000, 'the alarm at the hold\'s end');
+  await hibernate(e, code);
+  skip(LOBBY_HOLD_MS + 1000); await e.ROOMS.get(code).alarm();
+  assert.deepEqual(got(a, 'lobby').at(-1).seats.slice(0, 2).map(s => s.name), ['Ann', ''], 'the seat open again');
+  await wait(1100);
+  assert.equal((await st.get('room')).lobby.seats[1].token, null);
+  // An over game: a seat gone past the grace has left.
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(c, hello('Cy'));
+  for (const x of [a, c]) say(x, { t: 'ready', ready: true });
+  for (const x of [a, c]) say(x, { t: 'loaded' });
+  await wait(150);
+  for (const x of [a, c]) say(x, { t: 'over' });
+  c.close(); await wait(1100);
+  assert.ok(Math.abs(st.alarm - (Date.now() + OVER_GRACE_MS)) < 2000, 'the alarm at the grace\'s end');
+  await hibernate(e, code);
+  skip(OVER_GRACE_MS + 1000); await e.ROOMS.get(code).alarm();
+  assert.deepEqual(got(a, 'left').map(m => m.seat), [1], 'Cy has left: Ann is told');
+  a.close(); await wait(0);
+});
+
+test('a lobby quiet for half an hour closes: everyone told (QUIET_SAY), sockets closed with QUIET_CLOSE, the record and the alarm gone; anything said but a ping keeps it', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  const st = e.stores.get(code);
+  await wait(1100);
+  assert.ok(Math.abs(st.alarm - (Date.now() + QUIET_MS)) < 2000, 'the alarm at the quiet time');
+  skip(QUIET_MS - 60000); say(b, { t: 'ready', ready: true }); // (Bo, at 29 minutes: a ready, which writes no record)
+  await hibernate(e, code);
+  skip(62000); await e.ROOMS.get(code).alarm();
+  assert.ok(!a.closed && !b.closed, 'Bo did something a minute ago: open (his time kept through the hibernation, in the sockets\' attachments)');
+  assert.ok(Math.abs(st.alarm - (Date.now() + QUIET_MS - 63000)) < 3000, 'the alarm set again, half an hour after Bo');
+  skip(20 * 60000); say(a, { t: 'ping', id: 1 }); // (a ping is no activity)
+  await hibernate(e, code);
+  skip(10 * 60000); await e.ROOMS.get(code).alarm();
+  for (const c of [a, b]) {
+    assert.deepEqual(got(c, 'error').at(-1), { t: 'error', code: 'noroom', msg: QUIET_SAY }, 'told why');
+    assert.ok(c.closed); assert.equal(c.code, QUIET_CLOSE);
+  }
+  assert.equal(st.map.size, 0, 'the record deleted'); assert.equal(st.alarm, 0, 'no alarm left');
+  assert.equal(e.objects.get(code).conns.size, 0);
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  assert.equal(got(c, 'error')[0]?.code, 'noroom', 'the code finds no room');
+});
+
+test('a room whose game is over closes once quiet too (the end card\'s acks are heartbeats, no activity); a game in progress never does', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+  for (const c of [a, b]) say(c, { t: 'loaded' });
+  await wait(150);
+  e.objects.get(code).room.active -= 2 * QUIET_MS; await e.ROOMS.get(code).alarm(); // (nothing but orders and acks for an hour)
+  assert.ok(!a.closed && !b.closed, 'a game: never closed for quiet');
+  for (const c of [a, b]) say(c, { t: 'over' });
+  await hibernate(e, code);
+  skip(QUIET_MS - 1000); for (const c of [a, b]) say(c, { t: 'ack', turn: 1 }); await wait(0);
+  await hibernate(e, code);
+  skip(2000); await e.ROOMS.get(code).alarm();
+  assert.ok(a.closed && b.closed, 'over and quiet: closed');
+  assert.equal(got(a, 'error').at(-1).msg, QUIET_SAY);
+});
+
+test('a game that is over, brought back without its turns: a seat back with every turn run is let in; a reload needing them is told the room is gone', async () => {
+  const e = env();
+  const { a, b, code, tokens } = await pairUp(e);
+  for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+  for (const c of [a, b]) say(c, { t: 'loaded' });
+  await wait(250);
+  for (const c of [a, b]) say(c, { t: 'over' });
+  const ends = e.objects.get(code).room.log.length;
+  assert.equal(got(a, 'turn').length, ends);
+  b.close(); await wait(0);
+  await hibernate(e, code);
+  const reload = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(reload, { t: 'hello', proto: PROTO, token: tokens[1], next: 0 });
+  assert.deepEqual(got(reload, 'error').map(m => m.code), ['noroom'], 'a reload: its turns are gone');
+  const back = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(back, { t: 'hello', proto: PROTO, token: tokens[1], next: ends });
+  assert.equal(got(back, 'start')[0]?.seat, 1, 'every turn run: back on its seat');
+  assert.equal(got(back, 'turn').length, 0);
+  for (const c of [a, back]) say(c, { t: 'rematch', want: true });
+  assert.equal(e.objects.get(code).room.phase, 'lobby', 'a rematch');
+  for (const c of [a, back]) c.close(); await wait(0);
+});
+
+test('eight sockets through a hibernation: each still its own seat, its attachment small; a reset (its sockets gone) still brings the lobby back from its record', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  for (let i = 0; i < 6; i++) say(a, { t: 'add', team: i + 2, ai: false });
+  const all = [a];
+  for (let i = 1; i < 8; i++) { const c = (await worker.fetch(upgrade(`room=${code}`, undefined, `2001:db8:${i}::1`), e)).webSocket; say(c, hello(`P${i}`)); all.push(c); }
+  assert.deepEqual(all.map(c => got(c, 'seat')[0]?.seat), [0, 1, 2, 3, 4, 5, 6, 7]);
+  const leaver = all.pop(); say(leaver, { t: 'leave' }); // (a lobby leave: its socket open a moment more, seated no more)
+  await hibernate(e, code);
+  for (const ws of e.states.get(code).getWebSockets()) assert.ok(ws.att.length < 400, `an attachment of ${ws.att.length} bytes`);
+  all.forEach((c, i) => say(c, { t: 'race', race: i % 2 ? 'vael' : 'humans' }));
+  await wait(0);
+  assert.equal(e.objects.get(code).conns.size, 8, 'every socket adopted');
+  const l = got(a, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => s && [s.name, s.race, s.here]), [['Ann', 'humans', true], ...[1, 2, 3, 4, 5, 6].map(i => [`P${i}`, i % 2 ? 'vael' : 'humans', true]), ['', 'humans', false]], 'each socket its seat');
+  say(leaver, { t: 'ping', id: 7 }); await wait(0);
+  assert.equal(got(leaver, 'pong')[0]?.id, 7, 'the leaver still answered (its leave confirmed)');
+  await wait(1100);
+  e.evict(code); // (a deploy: sockets and object gone)
+  const n = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(n, hello('Nu'));
+  assert.equal(got(n, 'seat')[0]?.seat, 7, 'the lobby back from its record, every seat held');
+  assert.deepEqual(got(n, 'lobby').at(-1).seats.map(s => s && s.here), [false, false, false, false, false, false, false, true]);
+  n.close(); await wait(0);
+});
+
+test('after a hibernation the message bucket still closes a flood (MSG_CLOSE), and the room is not counted again in everyone\'s', async () => {
+  const { e, l, asked } = limited();
+  const all = () => l.budget.all.keys.get('')?.length || 0;
+  const a = (await e.worker.fetch(upgrade('new=1', undefined, '192.0.2.1'), e)).webSocket;
+  say(a, hello('Ann'));
+  const code = got(a, 'seat')[0].room;
+  assert.equal(all(), 1);
+  await hibernate(e, code);
+  const b = (await e.worker.fetch(upgrade(`room=${code}`, undefined, '192.0.2.2'), e)).webSocket;
+  say(b, hello('Bo'));
+  assert.equal(got(b, 'seat')[0]?.seat, 1);
+  assert.equal(all(), 1, 'a friend after a wake: not counted again');
+  assert.equal(asked.filter(p => p === '/seated').length, 1);
+  await hibernate(e, code);
+  const now = Date.now, at = now(); Date.now = () => at;
+  try {
+    say(a, { t: 'race', race: 'vael' }); await wait(0); // (the waking message)
+    for (let i = 0; i < MSG_BURST - 1; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
+    assert.ok(!a.closed, 'up to the burst: open');
+    say(a, { t: 'race', race: 'vael' });
+  } finally { Date.now = now; }
+  assert.ok(a.closed); assert.equal(a.code, MSG_CLOSE, 'one past it: closed');
+  assert.ok(!b.closed);
+  await wait(0);
+  assert.ok(e.states.get(code).getWebSockets().length === 2, 'Ann\'s socket still in the runtime\'s list (its close unheard)');
+  await hibernate(e, code);
+  say(b, { t: 'race', race: 'vael' }); await wait(0);
+  assert.deepEqual(got(b, 'lobby').at(-1).seats.slice(0, 2).map(s => [s.name, s.here]), [['Ann', false], ['Bo', true]], 'woken: the closed socket is not taken for Ann (held, away)');
+  b.close(); await wait(0);
+});
+
+test('a room nobody sits in writes nothing and sets no alarm; once seated, a lobby needs no timer a second after its last change', async () => {
+  const e = env();
+  const ws = (await worker.fetch(upgrade('new=1'), e)).webSocket;
+  const code = [...e.objects.keys()].find(k => k !== 'limits');
+  ws.close(); await wait(0);
+  assert.deepEqual([e.stores.get(code).puts, e.stores.get(code).alarm], [0, 0], 'nobody sat: no record, no alarm');
+  const { a, code: c2 } = await opened(e);
+  const o = e.objects.get(c2);
+  assert.ok(o.hibernatable, 'seated (its first record written at once): nothing pending, the runtime may hibernate it');
+  say(a, { t: 'race', race: 'vael' }); say(a, { t: 'race', race: 'humans' });
+  assert.ok(!o.hibernatable, 'a write waits a second');
+  await wait(1100);
+  assert.ok(o.hibernatable, 'then nothing');
+  a.close(); await wait(0);
+});
+
 test('a stored record of a bad shape comes back as an empty lobby, never a broken room', async () => {
   const bad = [
     { seats: [{ name: 'Solo', token: 't1' }] }, // (one seat: one player could start alone)
@@ -278,13 +590,13 @@ test('a stored record of a bad shape comes back as an empty lobby, never a broke
   ];
   for (const lobby of bad) {
     const st = storage(); await st.put('room', { code: 'BCDF', used: Date.now(), started: false, lobby });
-    const o = new RoomObject({ storage: st }, null, platform);
+    const { o } = lone(st);
     const c = (await o.fetch(new Request('https://room/?code=BCDF'))).webSocket;
     say(c, hello('Cy'));
     const seats = o.room.seats;
     assert.ok(seats.length >= 2 && seats.length <= 8, `${JSON.stringify(lobby)}: ${seats.length} seats`);
     assert.ok(got(c, 'seat').length === 1, `${JSON.stringify(lobby)}: a seat`);
-    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, seats.map(s => s.team)], [['Ann', 'Cy'], 1, 0, [0, 0]], 'the good parts kept (Ann held, the one side), the bad dropped (Bo, no token: open; the map)');
+    if (lobby?.map === 'x') assert.deepEqual([seats.map(s => s.name), got(c, 'seat')[0].seat, o.room.map, seats.map(s => s.team)], [['Ann', 'Cy'], 1, DEFAULT_MAP, [0, 0]], 'the good parts kept (Ann held, the one side), the bad dropped (Bo, no token: open; the map: a new room\'s)');
     else assert.equal(got(c, 'seat')[0].seat, 0, `${JSON.stringify(lobby)}: an empty lobby`);
     c.close();
   }
@@ -464,28 +776,44 @@ test('reports are gone after a week, and a backlog is swept 40 at a time', async
 /** An environment with the rate limiting bindings and the limits object on one fake clock (`at.now`). */
 function limited(now = Date.UTC(2026, 9, 31, 12)) {
   const at = { now }, clock = () => at.now;
-  const e = env({ CREATE_LIMIT: rateLimit(OPEN_PER_MIN, 60, clock), JOIN_LIMIT: rateLimit(JOIN_POINTS, 60, clock) });
-  e.ROOMS.get('limits').limits = new OpenBudget(clock);
-  return { at, e };
+  const e = env({
+    CREATE_LIMIT: rateLimit(OPEN_PER_MIN, 60, clock), JOIN_LIMIT: rateLimit(JOIN_POINTS, 60, clock),
+    CREATE_WIDE_LIMIT: rateLimit(WIDE_OPEN_PER_MIN, 60, clock), JOIN_WIDE_LIMIT: rateLimit(WIDE_JOIN_POINTS, 60, clock),
+  });
+  const l = e.ROOMS.get('limits'); l.limits = new Limits(clock);
+  const asked = []; const fetch = l.fetch.bind(l); l.fetch = (r) => { asked.push(new URL(r.url).pathname); return fetch(r); }; // (what the limits object is asked)
+  e.worker = relay(platform, clock); // (an isolate of its own: its misses' tally on this clock)
+  return { at, e, l: l.limits, asked };
 }
 const errorOf = (ws) => got(ws, 'error')[0];
-/** Open a room from `ip`: its code, or the error it was refused with. */
-async function openFrom(e, ip) {
-  const ws = (await worker.fetch(upgrade('new=1', undefined, ip), e)).webSocket;
+/** Open a room from `ip`: its code, or the error it was refused with; `sit` false: no hello (the socket left open, and
+ *  returned instead). */
+async function openFrom(e, ip, sit = true) {
+  const ws = (await (e.worker || worker).fetch(upgrade('new=1', undefined, ip), e)).webSocket;
   if (ws.closed) return errorOf(ws);
+  if (!sit) return ws;
   say(ws, hello('Ann'));
   const seat = got(ws, 'seat')[0]; ws.close();
   return seat ? seat.room : errorOf(ws);
+}
+/** Join `code` from `ip` through the environment's Worker: 'live' (a socket to the room), or the error's code. */
+async function joinFrom(e, code, ip) {
+  const ws = (await (e.worker || worker).fetch(upgrade(`room=${code}`, undefined, ip), e)).webSocket;
+  const err = errorOf(ws); ws.close(); return err?.code || 'live';
 }
 
 test('the bindings are wrangler.toml\'s, with relay/limits.js\'s numbers', () => {
   const toml = readFileSync(new URL('../relay/wrangler.toml', import.meta.url), 'utf8');
   const binding = (name) => toml.match(new RegExp(`name = "${name}"[^\\n]*\\nnamespace_id = "(\\d+)"\\nsimple = \\{ limit = (\\d+), period = (\\d+) \\}`));
-  const create = binding('CREATE_LIMIT'), join = binding('JOIN_LIMIT');
-  assert.ok(create && join, 'both declared');
-  assert.deepEqual([Number(create[2]), Number(create[3])], [OPEN_PER_MIN, 60]);
-  assert.deepEqual([Number(join[2]), Number(join[3])], [JOIN_POINTS, 60]);
-  assert.notEqual(create[1], join[1], 'a namespace each');
+  const want = { CREATE_LIMIT: OPEN_PER_MIN, JOIN_LIMIT: JOIN_POINTS, CREATE_WIDE_LIMIT: WIDE_OPEN_PER_MIN, JOIN_WIDE_LIMIT: WIDE_JOIN_POINTS };
+  const ids = new Set();
+  for (const [name, limit] of Object.entries(want)) {
+    const b = binding(name);
+    assert.ok(b, `${name} declared`);
+    assert.deepEqual([Number(b[2]), Number(b[3])], [limit, 60], name);
+    ids.add(b[1]);
+  }
+  assert.equal(ids.size, 4, 'a namespace each');
 });
 
 test('opening rooms: five a minute from an address (an IPv6 /64), whatever its Origin says; others may; a minute later again', async () => {
@@ -502,7 +830,7 @@ test('opening rooms: five a minute from an address (an IPv6 /64), whatever its O
   assert.match(await openFrom(e, '198.51.100.1'), /^[A-Z]{6}$/, 'a minute later');
 });
 
-test('opening rooms: thirty an hour from an address, and everyone\'s thirty a minute and 600 an hour (the limits object)', async () => {
+test('opening rooms: thirty an hour from an address, and everyone\'s thirty a minute and 600 an hour, counted at a room\'s first seat (the limits object)', async () => {
   const at = { now: 0 }, b = new OpenBudget(() => at.now);
   for (let i = 0; i < OPEN_PER_HOUR; i++) { assert.equal(b.open('a'), '', `room ${i + 1}`); at.now += 61000; }
   assert.equal(b.open('a'), SAY.hour, 'the 31st in the hour');
@@ -510,29 +838,29 @@ test('opening rooms: thirty an hour from an address, and everyone\'s thirty a mi
   at.now = HOUR + 1; // (the first room an hour old)
   assert.equal(b.open('a'), '', 'an hour after its first');
   const all = new OpenBudget(() => at.now); at.now = 10 * HOUR;
-  for (let i = 0; i < ROOMS_PER_MIN; i++) assert.equal(all.open(`x${i}`), '');
+  for (let i = 0; i < 3 * ROOMS_PER_MIN; i++) assert.equal(all.open(`u${i}`), '', 'rooms nobody sat in: everyone\'s budget untouched');
+  for (let i = 0; i < ROOMS_PER_MIN; i++) { assert.equal(all.open(`x${i}`), ''); all.seated(); }
   assert.equal(all.open('fresh'), SAY.busy, 'everyone\'s minute is full: a new address too');
   assert.equal(all.ips.check('fresh'), null, 'nothing counted for the refused');
   at.now += MINUTE;
   let n = ROOMS_PER_MIN;
-  while (n < ROOMS_PER_HOUR) { for (let i = 0; i < ROOMS_PER_MIN && n < ROOMS_PER_HOUR; i++, n++) assert.equal(all.open(`y${n}`), '', `room ${n + 1}`); at.now += MINUTE; }
+  while (n < ROOMS_PER_HOUR) { for (let i = 0; i < ROOMS_PER_MIN && n < ROOMS_PER_HOUR; i++, n++) { assert.equal(all.open(`y${n}`), '', `room ${n + 1}`); all.seated(); } at.now += MINUTE; }
   assert.equal(all.open('late'), SAY.busy, 'everyone\'s hour is full');
   at.now = 11 * HOUR;
   assert.equal(all.open('late'), '', 'an hour later');
   // Through the Worker: the limits object's word, told over the socket.
-  const { at: t, e } = limited();
-  const l = e.ROOMS.get('limits').limits;
+  const { at: t, e, l } = limited();
   for (let i = 0; i < ROOMS_PER_MIN; i++) assert.match(await openFrom(e, `192.0.2.${i}`), /^[A-Z]{6}$/);
   assert.deepEqual(await openFrom(e, '192.0.2.200'), { t: 'error', code: 'limit', msg: SAY.busy });
   t.now += MINUTE;
   assert.match(await openFrom(e, '192.0.2.200'), /^[A-Z]{6}$/);
-  assert.equal(l.all.keys.get('').length, ROOMS_PER_MIN + 1, 'one object counts everyone');
+  assert.equal(l.budget.all.keys.get('').length, ROOMS_PER_MIN + 1, 'one object counts everyone');
 });
 
 test('joining: a join costs a point, one that finds no room four: ten misses a minute, then nothing more is learned (a live room refused too)', async () => {
   const { at, e } = limited();
   const code = await openFrom(e, '198.51.100.7');
-  const join = async (c, ip) => { const ws = (await worker.fetch(upgrade(`room=${c}`, undefined, ip), e)).webSocket; const err = errorOf(ws); ws.close(); return err?.code || 'live'; };
+  const join = (c, ip) => joinFrom(e, c, ip);
   const guesser = '203.0.113.66', misses = JOIN_POINTS / MISS_COST;
   assert.equal(misses, 10);
   for (let i = 0; i < misses; i++) assert.equal(await join(newCode(() => i * 7 + 3), guesser), 'noroom', `guess ${i + 1}`);
@@ -545,6 +873,142 @@ test('joining: a join costs a point, one that finds no room four: ten misses a m
   at.now += 60000;
   assert.equal(await join(code, guesser), 'live', 'a minute later');
   assert.equal(await join('BCDF', guesser), 'update', 'a code of the first format: told to update, never counted');
+});
+
+test('everyone\'s rooms count a room once its first hello seats someone: rooms opened and left, or a hello refused, cost nothing', async () => {
+  const { at, e, l, asked } = limited();
+  const all = () => l.budget.all.keys.get('')?.length || 0;
+  for (let i = 0; i < 3 * ROOMS_PER_MIN; i++) {
+    const ws = await openFrom(e, `192.0.2.${i}`, false);
+    assert.ok(!ws.closed && !errorOf(ws), `room ${i + 1} opened`);
+    ws.close();
+  }
+  assert.equal(all(), 0, 'ninety rooms nobody sat in: everyone\'s minute untouched');
+  const nameless = await openFrom(e, '192.0.2.200', false);
+  say(nameless, { t: 'hello', proto: PROTO, name: '' });
+  assert.equal(errorOf(nameless)?.code, 'name'); assert.equal(all(), 0, 'a hello refused: not counted');
+  const code = await openFrom(e, '192.0.2.201');
+  assert.equal(all(), 1, 'a seat: counted');
+  assert.equal(await joinFrom(e, code, '192.0.2.202'), 'live');
+  const b = (await e.worker.fetch(upgrade(`room=${code}`, undefined, '192.0.2.203'), e)).webSocket;
+  say(b, hello('Bo')); assert.equal(got(b, 'seat')[0]?.seat, 1); b.close();
+  assert.equal(all(), 1, 'a friend joining: no second count');
+  assert.equal(asked.filter(p => p === '/seated').length, 1, 'one word to the limits object a room');
+  e.evict(code); // (an evicted lobby back: counted when it was new, not again)
+  assert.equal(await joinFrom(e, code, '192.0.2.204'), 'live');
+  assert.equal(e.objects.get(code).counted, true, 'a kept lobby back: counted when it was new, not again');
+  for (let i = 1; i < ROOMS_PER_MIN; i++) assert.match(await openFrom(e, `198.18.0.${i}`), /^[A-Z]{6}$/);
+  assert.deepEqual(await openFrom(e, '198.18.1.1'), { t: 'error', code: 'limit', msg: SAY.busy }, 'thirty seated rooms: the minute is full');
+  at.now += MINUTE;
+  assert.match(await openFrom(e, '198.18.1.1'), /^[A-Z]{6}$/);
+});
+
+test('an IPv6 /48 counts too: twenty rooms a minute and 120 an hour, forty misses a minute, from however many /64s; IPv4 has no /48', async () => {
+  assert.equal(wideKey(addressKey('2001:db8:7:1::5')), '2001:db8:7/48');
+  assert.equal(wideKey(addressKey('2001:0DB8:0007:ffff:1:2:3:4')), '2001:db8:7/48');
+  assert.equal(wideKey(addressKey('203.0.113.5')), ''); assert.equal(netKey('203.0.113.5'), '203.0.113.5');
+  assert.equal(netKey(addressKey('2001:db8:7:1::5')), '2001:db8:7/48');
+  const { at, e, l } = limited();
+  // Rooms: four /64s at their five each fill the /48's minute; another /64 of it is refused, another /48 is not.
+  for (let i = 0; i < WIDE_OPEN_PER_MIN; i++) assert.match(await openFrom(e, `2001:db8:7:${Math.floor(i / OPEN_PER_MIN)}::${i + 1}`), /^[A-Z]{6}$/, `room ${i + 1}`);
+  assert.deepEqual(await openFrom(e, '2001:db8:7:99::1'), { t: 'error', code: 'limit', msg: SAY.minute }, 'a fresh /64 of the same /48');
+  assert.match(await openFrom(e, '2001:db8:8:99::1'), /^[A-Z]{6}$/, 'another /48');
+  for (let i = 0; i <= OPEN_PER_MIN; i++) assert.match(await openFrom(e, `198.51.100.${i < OPEN_PER_MIN ? 40 : 41}`), /^[A-Z]{6}$/, 'IPv4: an address apart, no wider tier');
+  // The hour (the limits object): 120 from the /48, then none from any of its /64s.
+  const b = new OpenBudget(() => at.now); at.now += HOUR;
+  for (let i = 0; i < WIDE_OPEN_PER_HOUR; i++) assert.equal(b.open(addressKey(`2001:db8:9:${Math.floor(i / OPEN_PER_HOUR)}::1`)), '', `room ${i + 1} in the hour`);
+  assert.equal(b.open(addressKey('2001:db8:9:ff::1')), SAY.hour, 'the /48\'s hour is full: a fresh /64 too');
+  assert.equal(b.open(addressKey('2001:db8:a:ff::1')), '', 'another /48');
+  assert.equal(l.budget.wide.keys.get('2001:db8:7/48').length, WIDE_OPEN_PER_MIN, 'the limits object counts the /48');
+  // Misses: ten a /64, forty a /48; then a fresh /64 of it is refused, even with a live code.
+  at.now += HOUR;
+  const code = await openFrom(e, '198.51.100.50'), w = WIDE_JOIN_POINTS / MISS_COST;
+  assert.equal(w, 40);
+  for (let i = 0; i < w; i++) assert.equal(await joinFrom(e, newCode(() => i * 13 + 5), `2001:db8:b:${Math.floor(i / 10)}::1`), 'noroom', `miss ${i + 1}`);
+  assert.equal(await joinFrom(e, code, '2001:db8:b:77::1'), 'limit', 'a fresh /64 of the /48: refused, the live room too');
+  assert.equal(await joinFrom(e, code, '2001:db8:c:77::1'), 'live', 'another /48');
+  at.now += MINUTE;
+  assert.equal(await joinFrom(e, code, '2001:db8:b:77::1'), 'live', 'a minute later');
+});
+
+test('everyone\'s misses: an isolate reports them in batches; a scan from rotating networks trips the counter, then each network misses three times a minute, and links (after a typo or two too) still work', async () => {
+  const { at, e, l, asked } = limited();
+  const code = await openFrom(e, '198.51.100.60');
+  const reports = () => asked.filter(p => p === '/miss').length, looks = () => asked.filter(p => p === '/look').length;
+  // A typo now and then: no round trip of its own (the first miss waits for company).
+  assert.equal(await joinFrom(e, 'QQQQQQ', '198.51.100.61'), 'noroom');
+  assert.equal(reports(), 0, 'one miss: tallied, not yet reported');
+  at.now += MISS_FLUSH_MS;
+  assert.equal(await joinFrom(e, 'QQQQQR', '198.51.100.62'), 'noroom');
+  assert.equal(reports(), 1, 'the next, five seconds on: both in one report');
+  assert.equal(l.misses.count, 2);
+  assert.equal(await joinFrom(e, code, '198.51.100.61'), 'live', 'and the code right: in');
+  assert.equal(looks(), 0, 'no scan: lookups ask nothing');
+  // A scan: every guess from a fresh /48 (each well within its own limits), ten a second.
+  let n = 2, guesses = 0;
+  while (!l.misses.scanning) {
+    assert.equal(await joinFrom(e, newCode(() => guesses * 7919 + 11), `2001:db8:${1000 + guesses}::1`), 'noroom', `guess ${guesses + 1}`);
+    guesses++; at.now += 100;
+    assert.ok(guesses < SCAN_MISSES + 100, 'the counter trips');
+  }
+  n += guesses;
+  assert.ok(guesses >= SCAN_MISSES - 2, `it took ~SCAN_MISSES misses (${guesses})`);
+  assert.ok(reports() < 6, `${guesses} misses in ${reports()} reports: no round trip a miss`);
+  assert.ok(l.misses.count <= n);
+  // While it lasts: a network may miss twice a minute; its next lookup is refused (a live room too: nothing learned).
+  const scanner = '2001:db8:4242:1::1';
+  for (let i = 0; i < SCAN_NET_MISSES; i++) assert.equal(await joinFrom(e, newCode(() => i + 99), scanner), 'noroom', `a scanner's miss ${i + 1}`);
+  assert.equal(await joinFrom(e, 'QQQQQQ', '2001:db8:4242:2::1'), 'limit', 'one more, from another /64 of its /48: refused');
+  const objects = e.objects.size;
+  assert.equal(await joinFrom(e, code, scanner), 'limit', 'the live room too');
+  assert.equal(e.objects.size, objects, 'no room\'s object woken');
+  for (let i = 0; i < SCAN_NET_MISSES; i++) assert.equal(await joinFrom(e, `QQQQ${ALPHABET[i]}Q`, '192.0.2.77'), 'noroom');
+  assert.equal(await joinFrom(e, 'QQQQQQ', '192.0.2.77'), 'limit', 'an IPv4 address: the same');
+  assert.equal(await joinFrom(e, code, '192.0.2.78'), 'live', 'IPv4 next door: in');
+  // Players: an invite link from anywhere finds its room; a typo or two, then the right code, too.
+  assert.equal(await joinFrom(e, code, '2001:db8:5555:1::1'), 'live', 'an invite link');
+  assert.equal(await joinFrom(e, 'BCDFGH', '2001:db8:5556:1::1'), 'noroom', 'a typo');
+  assert.equal(await joinFrom(e, 'BCDFGJ', '2001:db8:5556:1::1'), 'noroom', 'another');
+  assert.equal(await joinFrom(e, code, '2001:db8:5556:1::1'), 'live', 'then the right code');
+  at.now += MINUTE;
+  assert.equal(await joinFrom(e, code, scanner), 'live', 'the scanner\'s network a minute later');
+  // The scan ends SCAN_HOLD_MS after the counter was last that high: lookups ask nothing again.
+  at.now += SCAN_HOLD_MS;
+  assert.equal(await joinFrom(e, code, scanner), 'live');
+  const asks = looks();
+  assert.equal(await joinFrom(e, code, scanner), 'live');
+  assert.equal(looks(), asks, 'the isolate heard the scan is over');
+});
+
+test('the miss counter alone: SCAN_MISSES in SCAN_WINDOW_MS trips it, it holds SCAN_HOLD_MS after, a network\'s misses count only during a scan', () => {
+  const at = { now: 0 }, m = new MissWatch(() => at.now);
+  assert.equal(m.miss(SCAN_MISSES - 1, 'a'), false); assert.ok(m.look('a'), 'below: anyone looks');
+  at.now += SCAN_WINDOW_MS; // (those fall out of the window)
+  assert.equal(m.miss(1), false, 'spread out: never a scan');
+  assert.equal(m.miss(SCAN_MISSES - 1), true, 'SCAN_MISSES in the window: a scan');
+  assert.ok(m.look('a'), 'a network that missed before the scan: its misses not counted');
+  for (let i = 0; i < SCAN_NET_MISSES; i++) { assert.ok(m.look('a'), `may look after ${i} misses`); m.miss(1, 'a'); }
+  assert.ok(!m.look('a'), 'SCAN_NET_MISSES in a minute: refused'); assert.ok(m.look('b'), 'another network may');
+  at.now += SCAN_HOLD_MS - 1; assert.ok(m.scanning);
+  at.now += 1; assert.ok(!m.scanning, 'the hold is over'); assert.ok(m.look('a'));
+  const big = new MissWatch(() => at.now); big.miss(1e9);
+  assert.equal(big.count, MISS_BATCH, 'a report counts at most MISS_BATCH');
+});
+
+test('the Node relay\'s limits (RoomLimits): the /48 tier, the scan, and everyone\'s rooms counted at the first seat', async () => {
+  const { RoomLimits } = await import('../relay/limits.js');
+  const at = { now: 0 }, r = new RoomLimits(() => at.now);
+  for (let i = 0; i < WIDE_OPEN_PER_MIN; i++) assert.equal(r.open(addressKey(`2001:db8:1:${Math.floor(i / OPEN_PER_MIN)}::1`)), '');
+  assert.equal(r.open(addressKey('2001:db8:1:99::1')), SAY.minute, 'the /48\'s minute');
+  assert.equal(r.budget.all.keys.get('')?.length || 0, 0, 'nobody seated: everyone\'s untouched');
+  r.seated(); assert.equal(r.budget.all.keys.get('').length, 1);
+  let i = 0;
+  while (!r.misses.scanning) { const k = addressKey(`2001:db8:${100 + i++}::1`); assert.ok(r.join(k)); r.miss(k); }
+  assert.equal(i, SCAN_MISSES, 'a scan from rotating /48s trips it at SCAN_MISSES');
+  const k = addressKey('2001:db8:7777:1::1');
+  for (let j = 0; j < SCAN_NET_MISSES; j++) { assert.ok(r.join(k)); r.miss(k); }
+  assert.ok(!r.join(addressKey('2001:db8:7777:2::1')), 'its /48 is done for the minute');
+  assert.ok(r.join(addressKey('2001:db8:7778:1::1')), 'another network may look');
 });
 
 test('a limit that cannot be asked (a binding or the limits object failing) lets the request go on', async () => {

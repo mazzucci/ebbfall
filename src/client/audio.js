@@ -18,6 +18,10 @@ export const audio = {
   view: () => null,
   /** The clock the repeat gaps are measured on (ms); tests step it instead of waiting. */
   now: () => performance.now(),
+  /** The trailer's recorder only (tools/trailer): a function that takes each effect the game asks for, placed and
+   *  thinned as it would play ({ name, at: audio.now(), gain, pan, unit, r, big }), instead of playing it; `renderSfx`
+   *  plays the log offline. Null in play. */
+  record: null,
 };
 /** The audio context's state for the debug handle: 'none' until a gesture first opened it, then 'suspended' (not yet
  *  allowed, or the pause card's `holdSound`), 'running', 'interrupted' (iOS: a call, another app), ... */
@@ -149,14 +153,14 @@ const SFX = {
   lance: (b, t) => { tone(b, t, { f: 2400, to: 1300, dur: 0.12, type: 'sine', vol: 0.035 }); tone(b, t, { f: 3600, to: 1950, dur: 0.09, type: 'triangle', vol: 0.015 }); },
   slam: (b, t) => { tone(b, t, { f: 90, to: 55, dur: 0.35, type: 'sine', vol: 0.13 }); tone(b, t + 0.01, { f: 660, to: 520, dur: 0.3, type: 'triangle', vol: 0.025 }); noise(b, t, { dur: 0.12, vol: 0.04, filter: 'lowpass', f: 700 }); },
   blade: (b, t) => { noise(b, t, { dur: 0.07, vol: 0.035, filter: 'bandpass', f: 3200, to: 1400, q: 4 }); tone(b, t + 0.02, { f: 1500, to: 1100, dur: 0.06, type: 'sine', vol: 0.015 }); },
-  // A satellite launch: a deep ignition thump, then a roar that rises and thins as the rocket climbs away (3 s).
-  launch: (b, t) => {
-    tone(b, t, { f: 60, to: 32, dur: 0.7, type: 'sine', vol: 0.16 });
-    noise(b, t, { dur: 3.2, vol: 0.12, filter: 'lowpass', f: 380, to: 2400, q: 0.9, att: 0.25 });
-    noise(b, t, { dur: 2.6, vol: 0.04, filter: 'bandpass', f: 1600, to: 4200, q: 1.2, att: 0.5, delay: 0.3 });
-  },
   // impacts and deaths
-  hit: (b, t, o) => o.big ? noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 }) : noise(b, t, { dur: 0.04, vol: 0.03, filter: 'bandpass', f: 2200, q: 1.5 }),
+  knock: (b, t) => { noise(b, t, { dur: 0.06, vol: 0.03, filter: 'lowpass', f: 420, to: 160, att: 0.002 }); tone(b, t, { f: 150, to: 95, dur: 0.05, type: 'sine', vol: 0.025 }); }, // (a builder at work: short, low, soft)
+  hit: (b, t, o) => { // (its weight by how hard it hits, look.js HIT_LOOK: 0 a light tick, 1 a firmer one, 2 a dull knock, 3 a shell's thud; none given: the sim's `big`, a shell's)
+    const w = o.weight ?? (o.big ? 3 : 0);
+    if (w >= 3) noise(b, t, { dur: 0.16, vol: 0.09, filter: 'lowpass', f: 700, to: 150 });
+    else if (w === 2) noise(b, t, { dur: 0.09, vol: 0.06, filter: 'lowpass', f: 1200, to: 300 });
+    else noise(b, t, { dur: 0.04, vol: w ? 0.04 : 0.03, filter: 'bandpass', f: w ? 1800 : 2200, q: 1.5 });
+  },
   boom: (b, t, o) => {
     const big = (o.r || 20) > 30;
     noise(b, t, { dur: big ? 0.9 : 0.45, vol: big ? 0.22 : 0.13, filter: 'lowpass', f: big ? 1400 : 1800, to: 120, att: 0.006 });
@@ -166,12 +170,12 @@ const SFX = {
 };
 
 /** Minimum gap between two of the same effect (ms): busy fights stay readable. */
-const GAP = { bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
+const GAP = { knock: 110, bolt: 45, melee: 70, hit: 40, coin: 120, missile: 90, shell: 70, lost: 250, kill: 120, lance: 45, slam: 80, blade: 70 };
 const lastGain = {};
 
 /** The announcer (`audio.announcer`: off, the device's voice or the synth) in this side's race's voice (`audio.voice`,
  *  a faction key): a phrase, at most once per its gap (an attack every 20 s), muted and held with the rest. */
-const SAY_GAP = { attack: 20000, research: 3000, gold: 2500 }, said = {};
+const SAY_GAP = { attack: 20000, research: 3000, gold: 2500, energy: 2500 }, said = {};
 let voiceBus = null, busyUntil = 0;
 /** `after`: seconds to wait first (to follow the chime or siren it goes with instead of talking over it). One phrase
  *  at a time: a new one while another plays is dropped. Not while the audio is suspended (an iOS interruption), or
@@ -208,7 +212,7 @@ function deviceSay(key, after) {
  */
 export function sfx(name, o = {}) {
   if (audio.muted) return;
-  const recipe = SFX[name]; if (!recipe || !live()) return;
+  const recipe = SFX[name]; if (!recipe || (!audio.record && !live())) return;
   const now = audio.now();
   try {
     const [g, pan] = place(o.x === undefined ? null : o);
@@ -216,6 +220,7 @@ export function sfx(name, o = {}) {
     // One of a kind per short gap, unless this one is louder (an on-screen shot beats a distant one).
     if (last[name] && now - last[name] < (GAP[name] ?? 60) && g <= lastGain[name]) return;
     last[name] = now; lastGain[name] = g;
+    if (audio.record) { audio.record({ name, at: now, gain: g, pan, unit: o.unit, r: o.r, big: o.big, weight: o.weight }); return; }
     const bus = actx.createGain(); bus.gain.value = g;
     if (pan && actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.value = pan; bus.connect(p).connect(master); } else bus.connect(master);
     recipe(bus, actx.currentTime, o);
@@ -238,4 +243,36 @@ export function soundToggled() {
   if (!audio.muted) wake(); else stopSpeech();
   if (audio.muted && voiceBus) { try { voiceBus.gain.setTargetAtTime(0, actx.currentTime, 0.03); busyUntil = 0; } catch { /* no audio */ } } // (a phrase stops mid-word)
   if (audio.muted && wind) { try { wind.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); wind.n.stop(actx.currentTime + 1); wind.lfo.stop(actx.currentTime + 1); } catch { /* already stopped */ } wind = null; }
+}
+
+/**
+ * The trailer's sound (tools/trailer/sound.mjs): effects logged by `audio.record` ({ name, t: seconds, gain, pan, unit,
+ * r, big }) played into `ctx` (an OfflineAudioContext) through the game's own recipes and master chain, with the wind
+ * bed from `wind.from` to `wind.to` (seconds). Returns once scheduled; the caller renders. The live context, if any, is
+ * left as it was.
+ */
+export function renderSfx(ctx, list, wind = null) {
+  const keep = [actx, master, noiseBuf];
+  try {
+    actx = ctx;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.15;
+    master = ctx.createGain(); master.gain.value = 0.9; master.connect(comp).connect(ctx.destination);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    for (const e of list) {
+      const bus = ctx.createGain(); bus.gain.value = e.gain;
+      const p = ctx.createStereoPanner(); p.pan.value = e.pan; bus.connect(p).connect(master);
+      SFX[e.name]?.(bus, e.t, e);
+    }
+    if (wind) {
+      const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
+      n.buffer = noiseBuf; n.loop = true; f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 0.7;
+      lfo.frequency.value = 0.07; depth.gain.value = 180; lfo.connect(depth).connect(f.frequency);
+      const up = Math.min(3, (wind.to - wind.from) / 2), down = Math.max(wind.from + up, wind.to - 0.3); // (in over 3 s, out over 0.3 s)
+      g.gain.setValueAtTime(0.0001, wind.from); g.gain.exponentialRampToValueAtTime(0.03, wind.from + up);
+      g.gain.setValueAtTime(0.03, down); g.gain.exponentialRampToValueAtTime(0.0001, Math.max(down + 0.01, wind.to));
+      n.connect(f).connect(g).connect(master); n.start(wind.from); n.stop(wind.to + 0.05); lfo.start(wind.from); lfo.stop(wind.to + 0.05);
+    }
+  } finally { [actx, master, noiseBuf] = keep; }
 }

@@ -16,6 +16,7 @@ const ACK_EVERY = 3; // turns
 const CHECK_EVERY = 10; // turns between hash checkpoints (relay/room.js)
 const RETRY_MS = [250, 500, 1000, 2000, 4000]; // between reconnect attempts (the last repeats)
 const PONG_MS = 2000; // a socket that does not answer a ping in this long is taken for dead
+const KEEP_WORDS = 1024; // orders kept while away merge into messages of this many numbers at most
 const BEAT_MS = 1000; // an ack at least this often, even with no new turn run (a stalled game is not an away seat)
 const LOBBY_TRIES = 4; // failed connections before a lobby that never got a seat says the relay cannot be reached
 const LOBBY_HOLD_MS = 5 * 60000; // (relay/room.js) a lobby seat away this long is no longer kept: a Net that holds one gives up then
@@ -61,7 +62,14 @@ export class Net {
   }
   say(m) { if (this.ws?.readyState === 1) { this.ws.send(JSON.stringify(m)); return true; } return false; }
   /** Say it now, or as soon as the socket is back and seated (orders, a leave: they must not be lost). */
-  sayOrKeep(m) { if (this.closed) return; if (this.seat < 0 || this.queue.length || !this.say(m)) this.queue.push(m); }
+  sayOrKeep(m) {
+    if (this.closed) return;
+    if (!(this.seat < 0 || this.queue.length || !this.say(m))) return;
+    // (orders kept while away go out as few messages, not one per frame: the relay limits messages per connection)
+    const last = this.queue.at(-1);
+    if (m.t === 'orders' && last?.t === 'orders' && last.w.length + m.w.length <= KEEP_WORDS) last.w = last.w.concat(m.w);
+    else this.queue.push(m);
+  }
   dropped() {
     this.ws = null; this.seat = this.setup ? this.seat : -1; clearTimeout(this.pongTimer);
     if (this.closed) return;

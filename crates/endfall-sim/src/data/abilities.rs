@@ -31,7 +31,7 @@ def_struct! {
 pub const ABILITY_SLOTS: usize = 2;
 
 /// Brace, the Guard's (the re-theme's; Dig In before it, which gave reach): the spears set, +4 armor and no moving, a
-/// button on and off, researched with Shield Drill (`Upgrade::Entrenching`). Quick to set and to lift.
+/// button on and off, researched with Shield Wall (`Upgrade::Entrenching`). Quick to set and to lift.
 const ENTRENCH: AbilityDef = AbilityDef {
     key: "entrench",
     name: "Brace",

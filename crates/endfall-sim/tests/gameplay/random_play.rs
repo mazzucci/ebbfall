@@ -52,11 +52,20 @@ fn random_play(diff: u32) {
             let mut g = Game::new(seed * 7919 + 1, diff);
             let mut r = Mulberry32::new(seed ^ 0xabcdef);
             let mut pools = Vec::new();
+            // (every other seed, the AI seat plays a random plan, with random deltas through the game; garbage refused)
+            let planned = seed % 2 == 1 && {
+                let code = random_plan_code(&mut r, false);
+                g.set_plan(1, &code).is_empty()
+            };
             for tick in 0..30 * 60 * 6 {
                 if tick % 7 == 0 {
                     for _ in 0..1 + r.below(3) {
                         random_order(&mut g, &mut r);
                     }
+                }
+                if planned && tick % 450 == 0 {
+                    let code = random_plan_code(&mut r, true);
+                    let _ = g.plan_delta(1, &code);
                 }
                 g.step();
                 check_invariants(g.world(), &format!("seed {seed} diff {diff} tick {tick}"));

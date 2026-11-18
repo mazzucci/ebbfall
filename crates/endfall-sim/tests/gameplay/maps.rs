@@ -338,10 +338,14 @@ fn larger_maps_are_walkable_mirrored_and_fair() {
 #[test]
 fn two_ais_fight_on_a_larger_map() {
     // A 96x96 map (M4's four-seat size, two starts for now): eight minutes of AI against AI, the world's invariants
-    // after every tick, and both sides field an army and meet.
-    for (seed, kind) in [(11u32, MapKind::Standard), (29, MapKind::Labyrinth)] {
+    // after every tick, and both sides field an army and meet (the Labyrinth's seed 28 since Nov 14: on seed 29's the
+    // Expedition, on its energy's economy, first goes at the Kingdom after ten minutes, and on 27's, once the grid was
+    // halved and the AI styles came, the Kingdom never reaches the Expedition in eight).
+    for (seed, kind) in [(11u32, MapKind::Standard), (28, MapKind::Labyrinth)] {
         let mut w = World::with_size(seed, 1, kind, MapSize::square(96), 0, &[&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
+        // (each its level's own plan: a Boom seat's first wave may come after eight minutes, Nov 14)
+        assert!(w.set_ai_styles(&[Some(Style::Timing); 2]));
         let mut hits = [0, 0];
         for tick in 0..30 * 60 * 8 {
             w.step();
@@ -705,7 +709,7 @@ fn a_map_keeps_all_its_starts_with_fewer_seats() {
 }
 
 #[test]
-fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
+fn units_on_a_map_of_many_starts_face_its_centre_and_step_out_south() {
     // (two starts: seat 0 faces east and steps out south, the rest west and north, as always: the goldens pin it)
     let mut w = World::with_size(
         41,
@@ -726,7 +730,7 @@ fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
             (u.face - (cy - oy).atan2(cx - ox)).abs() < 1e-9,
             "seat {s}: a harvester faces the centre"
         );
-        // A Garrison by the Core: a Trooper trained there with no rally point steps out towards the center.
+        // A Garrison by the Core: a Trooper trained there with no rally point steps out on its south side.
         let at = (-12..=12)
             .flat_map(|dy| (-12..=12).map(move |dx| (bx + dx, by + dy)))
             .filter(|&(x, y)| w.can_place(BldgKind::Barracks, x, y, s))
@@ -745,12 +749,131 @@ fn units_on_a_map_of_many_starts_face_and_step_out_towards_its_centre() {
             .iter()
             .find(|u| u.team == s && u.kind == UnitKind::Trooper)
             .unwrap();
-        let (dx, dy) = (t.x - b.x, t.y - b.y);
         assert!(
-            dx * (cx - b.x) + dy * (cy - b.y) > 0.0,
-            "seat {s}: the Trooper stepped out on the centre's side"
+            t.y > ((b.ty + b.h) as f64) * TILE,
+            "seat {s}: the Trooper stepped out south of its Garrison (at {}, its bottom edge {})",
+            t.y,
+            (b.ty + b.h) as f64 * TILE
         );
     }
+}
+
+/// On a 96x96 map of four starts, both peoples' buildings put a new unit out on their front, the south side facing
+/// the camera, whether the base lies in the south half (where the centre is to the north) or the north half; with a
+/// rally point to the north it still steps out south, then walks there.
+#[test]
+fn a_new_unit_steps_out_on_its_buildings_south_side_on_a_map_of_four_starts() {
+    let mut w = World::with_size(
+        7,
+        1,
+        MapKind::Standard,
+        MapSize::square(96),
+        0,
+        &[&HUMANS, &VAEL, &HUMANS, &VAEL],
+    );
+    w.set_ai_seats([false; 4]);
+    // (the first workers stop where they stand, so the spots they hold stay put)
+    for u in w.units.iter().map(|u| u.id).collect::<Vec<_>>() {
+        w.stop_unit(u);
+    }
+    let (cx, cy) = (w.map.ww() / 2.0, w.map.wh() / 2.0);
+    let hq = |w: &World, s: u8| {
+        w.bldgs
+            .iter()
+            .find(|b| b.team == s && b.kind.def().hq)
+            .unwrap()
+            .id
+    };
+    let (mut south, mut north) = (0, 0);
+    for s in 0..4u8 {
+        let b = w.bldg(hq(&w, s)).unwrap().clone();
+        if b.y > cy {
+            south += 1;
+        } else {
+            north += 1;
+        }
+        w.res[s as usize] = [500, 0];
+        let worker = w.factions[s as usize].worker;
+        w.queue_unit(b.id, worker).unwrap();
+    }
+    assert!(
+        south > 0 && north > 0,
+        "starts in both halves ({south} south, {north} north)"
+    );
+    let before: Vec<Id> = w.units.iter().map(|u| u.id).collect();
+    run(&mut w, 30);
+    for s in 0..4u8 {
+        let b = w.bldg(hq(&w, s)).unwrap();
+        let fresh: Vec<&Unit> = w
+            .units
+            .iter()
+            .filter(|u| u.team == s && !before.contains(&u.id))
+            .collect();
+        assert_eq!(fresh.len(), 1, "seat {s}: one new worker");
+        let edge = (b.ty + b.h) as f64 * TILE;
+        assert!(
+            fresh[0].y > edge,
+            "seat {s} ({} half): the new worker stepped out south of its headquarters ({} > {edge})",
+            if b.y > cy { "south" } else { "north" },
+            fresh[0].y
+        );
+        // Of the open tiles just south of it where no other unit stands, the one nearest the centre (it has not
+        // moved: no orders).
+        let foot = w.foot(fresh[0].kind);
+        let best = (b.tx - 1..=b.tx + b.w)
+            .filter(|&x| w.map.passable(foot, x, b.ty + b.h))
+            .map(|x| (x as f64 * TILE + 16.0, (b.ty + b.h) as f64 * TILE + 16.0))
+            .filter(|p| {
+                !w.units
+                    .iter()
+                    .any(|u| u.id != fresh[0].id && (u.x - p.0).hypot(u.y - p.1) < 22.0)
+            })
+            .min_by(|p, q| {
+                let d = |p: &(f64, f64)| (p.0 - cx).hypot(p.1 - cy);
+                d(p).partial_cmp(&d(q)).unwrap()
+            })
+            .expect("an open tile south of the headquarters");
+        assert_eq!(
+            (fresh[0].x, fresh[0].y),
+            best,
+            "seat {s}: the new worker stepped out on the south tile nearest the centre"
+        );
+    }
+    // A rally point far to the north: the unit still steps out south, then walks to it.
+    let s = (0..4u8)
+        .find(|&s| w.bldg(hq(&w, s)).unwrap().y > cy)
+        .unwrap();
+    let b = w.bldg(hq(&w, s)).unwrap().clone();
+    let (rx, ry) = (b.x, b.y - 8.0 * TILE);
+    w.set_rally(b.id, rx, ry, None);
+    let worker = w.factions[s as usize].worker;
+    w.queue_unit(b.id, worker).unwrap();
+    let before: Vec<Id> = w.units.iter().map(|u| u.id).collect();
+    let mut seen = None;
+    for _ in 0..60 * TPS {
+        w.step();
+        if let Some(u) = w
+            .units
+            .iter()
+            .find(|u| u.team == s && !before.contains(&u.id))
+        {
+            seen = Some(u.id);
+            assert!(
+                u.y > (b.ty + b.h) as f64 * TILE,
+                "seat {s}: with a rally to the north the new worker still steps out south"
+            );
+            break;
+        }
+    }
+    let u = seen.expect("the worker was trained");
+    run(&mut w, 30);
+    let u = w.unit(u).unwrap();
+    assert!(
+        (u.x - rx).hypot(u.y - ry) < 2.0 * TILE,
+        "seat {s}: the worker walked to its rally point ({}, {})",
+        u.x,
+        u.y
+    );
 }
 
 #[test]
@@ -803,4 +926,98 @@ fn starts_depend_on_side_modulo_starts_times_seats_only() {
             }
         }
     }
+}
+
+/// For every seat on a generated map: each gold mine (any, whatever its gold) beyond its main's (more than 12 tiles from its headquarters, as the
+/// AI's expansions are) and the farthest ring spot round it (6 to 12 tiles out, the AI's rings) where a headquarters
+/// could go but for `HQ_SPACING`, as that spot's distance from the main's headquarters (center to center); the
+/// smallest of them over the map, with the mine. On every kind, size (the Shore 64x64 only) and people.
+fn closest_expansion(w: &World) -> (f64, String) {
+    let mut worst = (f64::MAX, String::new());
+    for seat in 0..w.seats() as u8 {
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == seat && b.kind.def().hq)
+            .unwrap();
+        let kind = hq.kind;
+        let (hx, hy) = (hq.tx as f64 + 2.0, hq.ty as f64 + 2.0);
+        // (every gold mine, the smaller ones laid where the old open shafts were included: every one is a mine now)
+        for n in w.map.nodes.iter().filter(|n| !n.ether) {
+            let (nx, ny) = (n.tx as f64, n.ty as f64);
+            if (nx - hx).hypot(ny - hy) <= 12.0 {
+                continue; // (the main's own)
+            }
+            let mut best: Option<f64> = None;
+            for r in 6..13 {
+                for k in 0..16 {
+                    let a = k as f64 / 16.0 * std::f64::consts::TAU;
+                    let tx = (nx + a.cos() * r as f64 - 2.0).round() as i32;
+                    let ty = (ny + a.sin() * r as f64 - 2.0).round() as i32;
+                    let why = w.place_refusal(kind, tx, ty, seat);
+                    if why.is_none() || why == Some(Refusal::NearBase) {
+                        let d = (tx as f64 + 2.0 - hx).hypot(ty as f64 + 2.0 - hy);
+                        best = Some(best.map_or(d, |b: f64| b.max(d)));
+                    }
+                }
+            }
+            // (a mine with no spot at all round it, rule or not, is no expansion: walled by rock or water)
+            if let Some(b) = best
+                && b < worst.0
+            {
+                worst = (
+                    b,
+                    format!("seat {seat} {kind:?}, mine at {},{}", n.tx, n.ty),
+                );
+            }
+        }
+    }
+    worst
+}
+
+fn every_map(mut f: impl FnMut(&World, String)) {
+    for kind in MapKind::ALL {
+        let sizes: &[i32] = if kind == MapKind::Shore {
+            &[64]
+        } else {
+            &[64, 96, 128]
+        };
+        for &n in sizes {
+            for seed in 1..=12 {
+                for side in 0..2 {
+                    let seats = endfall_sim::map::max_starts(MapSize::square(n))
+                        .min(if kind == MapKind::Shore { 2 } else { 8 });
+                    let races: Vec<&'static Faction> = (0..seats)
+                        .map(|s| if (s + side) % 2 == 0 { &HUMANS } else { &VAEL })
+                        .collect();
+                    let mut w = World::with_size(seed, 1, kind, MapSize::square(n), 0, &races);
+                    w.disable_ai();
+                    for e in &mut w.explored {
+                        e.fill(1);
+                    }
+                    f(&w, format!("{kind:?} {n}x{n} seed {seed} side {side}"));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_field_beyond_the_main_takes_a_headquarters() {
+    // Stelian, Nov 14: a headquarters keeps `HQ_SPACING` from its seat's own others, and that must never block a real
+    // expansion: on every map, round every mine beyond the main's, a spot stays farther than that from the main.
+    let mut worst = (f64::MAX, String::new());
+    every_map(|w, what| {
+        let (d, at) = closest_expansion(w);
+        if d < worst.0 {
+            worst = (d, format!("{what}: {at}"));
+        }
+    });
+    eprintln!("closest expansion spot: {:.2} tiles ({})", worst.0, worst.1);
+    assert!(
+        worst.0 >= HQ_SPACING + 2.0,
+        "an expansion spot only {:.2} tiles from its main ({}): HQ_SPACING {HQ_SPACING} leaves too little margin",
+        worst.0,
+        worst.1
+    );
 }

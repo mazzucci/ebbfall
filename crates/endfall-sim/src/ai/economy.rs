@@ -2,8 +2,11 @@
 
 use super::*;
 
-/// Workers the AI adds for its second base.
+/// Workers the AI adds for each base past its first, up to `CREW_BASES` of them (one before Nov 13: under the cap of
+/// 40 a third base brought only a Market and fresh fields; under caps of 100 and more a crew of two bases left every
+/// later base idle, and long games flat).
 const EXP_CREW: usize = 3;
+const CREW_BASES: usize = 3;
 /// The workers inside a mine at once the levels' crews (`Diff::harv`) are written for (seven before the economy's
 /// second round, the cap of every worker then).
 const CREW_CAP: usize = 7;
@@ -16,8 +19,7 @@ impl World {
             .filter(|b| b.team == self.seat() && b.kind.def().hq && b.done)
             .min_by(|a, b| {
                 dist(a.x, a.y, x, y)
-                    .partial_cmp(&dist(b.x, b.y, x, y))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, x, y))
                     .then(a.id.cmp(&b.id))
             })
             .map_or((x, y), |b| (b.x, b.y))
@@ -27,7 +29,7 @@ impl World {
     pub fn pumps(&self, e: u8) -> usize {
         self.bldgs
             .iter()
-            .filter(|b| b.team == e && b.done && b.kind.def().pays)
+            .filter(|b| b.team == e && b.done && b.kind.def().pays > 0.0)
             .count()
     }
 
@@ -85,18 +87,28 @@ impl World {
     }
 
     /// The crew AI seat `e` trains workers for, with `cores` finished Cores: its difficulty's, and `EXP_CREW` more
-    /// with a second base (no more for a third or fourth: under a cap of 40 a base past the second brings a Market and
-    /// fresh fields for the crew it has, not more workers); in its worker's crew size for a mine (`crew_of`).
+    /// for each base past the first, up to `CREW_BASES`; in its worker's crew size for a mine (`crew_of`).
     pub fn harv_target_of(&self, e: u8, cores: usize) -> usize {
-        self.crew_of(e, self.tuning(e).harv + EXP_CREW * (cores >= 2) as usize)
+        let more = cores.saturating_sub(1).min(CREW_BASES);
+        self.crew_of(e, self.tuning(e).harv + EXP_CREW * more)
     }
 
-    /// A crew of `n` in seat `e`'s workers: the levels' crews are written for a mine of `CREW_CAP` inside at once, and
-    /// a people whose worker fits more (eight Villagers) or fewer (five Bots) keeps as many more or fewer
-    /// (Stelian, Nov 12: the Kingdom many and cheap, the Expedition few and efficient).
+    /// A crew of `n` in seat `e`'s workers, sized by income: the levels' crews are written for a mine of `CREW_CAP`
+    /// inside at once, so the worker a mine fits most of (`MINE_CAP_MOST`: eight Villagers) keeps as many more, and
+    /// any other people's crew brings in at least as much gold a trip as that one (five Bots fit a mine, but each
+    /// carries more: fewer of them, as much income). Sized by the mine's cap instead, the Expedition's crew mined
+    /// some 15% less than the Kingdom's on every level, and Easy's, with no machines, lost every game (the PM, Nov
+    /// 13; Stelian, Nov 12: the Kingdom many and cheap, the Expedition few and efficient).
     pub(crate) fn crew_of(&self, e: u8, n: usize) -> usize {
-        let cap = self.factions[e as usize].worker.def().mine_cap as usize;
-        (n * cap + CREW_CAP / 2) / CREW_CAP
+        let most = FACTIONS
+            .iter()
+            .map(|f| f.worker.def())
+            .max_by_key(|w| w.mine_cap)
+            .unwrap();
+        let reference = (n * MINE_CAP_MOST as usize + CREW_CAP / 2) / CREW_CAP;
+        let gold = reference * most.mine_load as usize;
+        let load = self.factions[e as usize].worker.def().mine_load.max(1) as usize;
+        gold.div_ceil(load)
     }
 
     /// More harvesters while short of the target; an expansion gets five from the main base.
@@ -180,5 +192,24 @@ impl World {
             }
         }
         brain.cores = cores;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::*;
+    use crate::world::World;
+
+    #[test]
+    fn the_crew_grows_with_each_base_up_to_four() {
+        // Workers for each base past the first (`EXP_CREW`), up to four bases: under caps of 100 and more a crew of two
+        // bases left every later base idle, and long games flat.
+        let w = World::new(17, 1);
+        let crew: Vec<usize> = (1..=5).map(|c| w.harv_target_of(ENEMY, c)).collect();
+        assert!(
+            crew[0] < crew[1] && crew[1] < crew[2] && crew[2] < crew[3],
+            "{crew:?}"
+        );
+        assert_eq!(crew[3], crew[4], "no more past four: {crew:?}");
     }
 }

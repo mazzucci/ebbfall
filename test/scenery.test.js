@@ -24,7 +24,8 @@ const scatter = (seed, clear) => {
   const env = { MW: E.MW, MH: E.MH, TILE, mulberry }; // (the game's map size)
   return { list: scatterDoodads(E.G.seed, E.map, clear || cores, env), cores, map: E.map };
 };
-const SEEDS = [1, 2, 3, 4242, 99999];
+// (2, 4 and 6 for 1 and 3 since the mines moved out and apart, Nov 15: those maps hold fewer plateaus for solid props)
+const SEEDS = [2, 4, 6, 4242, 99999];
 const art = new URL('../public/art/', import.meta.url);
 const frames = {};
 for (const p of JSON.parse(readFileSync(new URL('atlas.json', art))).pages) Object.assign(frames, JSON.parse(readFileSync(new URL(p, art))).frames);

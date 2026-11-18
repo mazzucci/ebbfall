@@ -1,11 +1,11 @@
 # Ebbfall
 
-A classic real-time strategy game, free in the browser. In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
+A classic real-time strategy game, free in the browser. In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company. Now a modern expedition and a medieval kingdom fight over the gold: mine it, build, grow your
 population, raise an army, and bring down the enemy's Castle or Data center before their waves bring down yours. Two
 peoples (the Kingdom and the Expedition), up to eight players (you and one to seven AIs, each at its own level: Easy, Medium or Hard; free for
-all or in teams of any shape, or friends over the Internet with AIs in the empty seats), fourteen maps of three sizes
-(for up to two, four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each
-size, and a lake map with a random one of its own). Pre-alpha.
+all or in teams of any shape, or friends over the Internet with AIs in the empty seats), eight maps of two sizes
+(for up to four or eight players, any of them for fewer: a duel on an eight-player map too; a random one of each
+size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
@@ -22,7 +22,7 @@ npm run dev      # http://localhost:5173
 npm test         # headless simulation tests
 ```
 
-**Mouse and keyboard:** left-click or drag to select, right-click to move / attack / gather / set a rally point; hold
+**Mouse and keyboard:** left-click or drag to select, right-click to move / attack / mine / set a rally point; hold
 the middle button and drag to move the map. Two keyboard schemes, chosen in OPTIONS (the menu's first page or the pause
 card, with a mouse): **Classic** moves the map with the arrow keys or the screen's edge, and each command has its own
 letter (`A` attack-move, `S` stop, `H` hold, `B` build with workers selected); **WASD** moves the map with `W` `A`
@@ -32,18 +32,20 @@ letter (`A` attack-move, `S` stop, `H` hold, `B` build with workers selected); *
 asks before leaving a game.
 
 **Units:** the Kingdom's Villagers mine gold, build and repair; its Market earns gold by itself, with no workers. The
-Barracks trains Guards (spearmen, ground only; they Brace for more armor once Shield Drill is researched) and Archers
+Barracks trains Guards (spearmen, ground only; they Brace for more armor once Shield Wall is researched) and Archers
 (ground and air, strongest against flyers, and they slow what they hit). The Stables trains Riders (fast cavalry that
 raids workers) and Knights (heavy cavalry). The Workshop builds Ballistas (the answer to flyers), Cannons (they set up
 where they stop and fire cannonballs far, with splash, but cannot hit anything close) and the Balloon, an unarmed scout that
 floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Cannons and Ballistas.
 Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at each building until it stands; the
-Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), six to a post; the
-Factory builds Buggies (fast raiders), Rovers (rocket artillery that fires on the move) and Drones (fast low flyers),
-machines that run on Power from the Data center and wind turbines, and faster near the Data center or an Uplink; the
-Data center launches a satellite, the Uplink talks to it, and the Portal it unlocks (one per player, using Power while
-it stands) trains Androids, elite machines, slow to make and costly. Power and hired places each have a maximum (45 and
-15 on the smallest maps), together the Kingdom's population limit. Sentry masts hit ground and air.
+Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), paid in gold coins it
+prints from energy; the Factory builds Buggies (fast raiders) and Drones (fast low flyers), machines that work only
+within reach of the Data center's small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the
+signal's range), faster there; the Portal the Uplink unlocks (one per player) brings Rovers (rocket artillery that
+fires on the move) and Androids, elite machines, slow to make and costly. The Expedition runs on energy: its Bots dig
+thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; its units draw
+on the grid, from the Data center and its Substations (up to 150; the Kingdom's population, up to 120).
+Energy builds things; the grid keeps them running. Sentry masts hit ground and air.
 
 **Zoom:** pinch on touch screens, Ctrl+wheel or trackpad pinch with a mouse.
 
@@ -52,9 +54,14 @@ EVERYONE stops it for both of you (three a game, five minutes at most, and only 
 card gives the result and the time, and the map's story; after a victory against the AI, SHARE sends a friend the same
 game as a challenge.
 
+**Play against Claude (preview):** a link with `?plan=` gives the computer opponent a plan Claude wrote (the game's
+Hard AI follows it: when to attack, expand and tech, units it won't build); `&watch=1` lets you watch that plan play
+the built-in Hard instead. A bare link sets the plan for the whole game; only a page that embeds the game can let
+Claude change it while you play ([claude/PLAN_VOCAB.md](claude/PLAN_VOCAB.md), [claude/PROTOCOL.md](claude/PROTOCOL.md)).
+
 **Phones:** the game goes full screen in landscape when you start. On iPhone, use Share → Add to Home Screen.
 
-**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold mine to gather.
+**Touch:** tap or drag a box to select; tap the ground to move, tap an enemy to attack, tap a gold mine to mine it.
 Two fingers pan. Drag on the minimap to scroll.
 
 The simulation (Rust, `crates/endfall-sim/`, compiled to WebAssembly) is deterministic and runs without a browser; multiplayer is lockstep on top of

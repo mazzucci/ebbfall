@@ -24,7 +24,7 @@ let game = null, dirty = true, occStale = false, gen = 0, radioSeen = -1, radioM
 export let MW = DUEL_MW, MH = DUEL_MH, WW = MW * TILE, WH = MH * TILE;
 const units = new Map(), bldgs = new Map(), nodes = new Map();
 const S = {
-  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], outWhy: ['', ''], time: 0, tick: 0, units: [], bldgs: [], projs: [], projsBefore: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]], hired: [[0, 0], [0, 0]],
+  me: 0, seed: 0, diff: 1, mapKind: 0, factions: ['humans', 'humans'], teams: [0, 1], out: [false, false], outWhy: ['', ''], time: 0, tick: 0, units: [], bldgs: [], projs: [], res: [[0, 0], [0, 0]], sup: [[0, 0], [0, 0]],
   vis: new Uint8Array(MW * MH), explored: new Uint8Array(MW * MH), radio: [], radioVer: 0, over: false, winner: -1, conceded: -1,
   stats: [0, 1].map(() => ({ built: 0, lost: 0, killed: 0, razed: 0 })), events: [], upgrades: [0, 1].map(() => Object.fromEntries(UPGRADE_KEYS.map(k => [k, 0]))),
 };
@@ -59,13 +59,12 @@ function sync() {
   Object.assign(S, { time: I[fi.time], tick: I[fi.tick], over: !!I[fi.over], winner: I[fi.winner], conceded: I[fi.conceded], seed: I[fi.seed], diff: I[fi.diff], mapKind: I[fi.map_kind] });
   // A record per seat follows the info record, then each seat's upgrade levels.
   const n = I[fi.seats], lv = SCHEMA.info.length + n * SS;
-  for (const k of ['factions', 'teams', 'out', 'outWhy', 'res', 'sup', 'hired', 'stats', 'upgrades']) S[k].length = n;
+  for (const k of ['factions', 'teams', 'out', 'outWhy', 'res', 'sup', 'stats', 'upgrades']) S[k].length = n;
   for (let t = 0; t < n; t++) {
     const o = SCHEMA.info.length + t * SS, at = (f) => I[o + fs[f]];
     S.factions[t] = FACTION_KEYS[at('faction')]; S.teams[t] = at('team'); S.out[t] = !!at('out');
     S.outWhy[t] = OUT_WHYS[at('out_why')]; // ('' in; 'conceded', 'buildings': its last building fell, 'helpless': nothing left to fight with, and no gold to train more)
     S.res[t] = [at('shards'), at('ether')]; S.sup[t] = [at('sup_used'), at('sup_cap')];
-    S.hired[t] = [at('hired_used'), at('hired_cap')]; // (the Expedition's hired places; sup is its Power)
     S.stats[t] = Object.assign(S.stats[t] || {}, { built: at('built'), lost: at('lost'), killed: at('killed'), razed: at('razed') });
     const ups = S.upgrades[t] ||= {}; UPGRADE_KEYS.forEach((k, i) => { ups[k] = I[lv + t * UPGRADE_KEYS.length + i]; });
   }
@@ -129,11 +128,16 @@ function sync() {
   retire(units);
   for (let i = 0; i < attacks.length; i += 2) attacks[i].task.target = units.get(attacks[i + 1]) || bldgs.get(attacks[i + 1]) || null;
 
-  const P = game.projectiles(); S.projsBefore = S.projs; S.projs = []; // (the last mirror's: who fired what lands now)
+  const P = game.projectiles(); S.projs = [];
   for (let o = 0; o < P.length; o += PS) S.projs.push({ x: P[o + fp.x], y: P[o + fp.y], type: PROJ_KINDS[P[o + fp.kind]], by: UNIT_KEYS[P[o + fp.by]], team: P[o + fp.team], ax: P[o + fp.aim_x], ay: P[o + fp.aim_y] });
 
   const ev = game.drainEvents();
-  if (ev !== '[]') for (const e of JSON.parse(ev)) S.events.push(e);
+  if (ev !== '[]') for (const e of JSON.parse(ev)) {
+    if (e.t === 'burst') e.unit = e.unit >= 0 ? UNIT_KEYS[e.unit] : null; // (what fell: a unit's kind, null for a building)
+    if (e.t === 'hit') e.air = e.air >= 0 ? UNIT_KEYS[e.air] : null; // (a flyer struck: its kind, for its impact up on its body)
+    if (e.t === 'hit' && e.kind >= 0) { e.proj = PROJ_KINDS[e.kind]; e.by = UNIT_KEYS[e.by]; e.people = S.factions[e.team]; } // (a shot's impact: its projectile, the shooter's kind (undefined: a building's) and people, for its look)
+    S.events.push(e);
+  }
 }
 const attacks = []; // (units attacking, and their target's id: resolved once every unit is in)
 
@@ -141,7 +145,11 @@ const touch = (r) => { dirty = true; sync(); return r; };
 const err = (s) => s || null;
 
 /** Start a new game on a fresh WASM world (so nothing from a previous game, even a failed call, carries over). */
+/** Whether the game running is an online (lockstep) one: set by `resetGameForSeat`, cleared by every other start. */
+let lockstep = false;
+export const inLockstep = () => lockstep;
 function fresh(g) {
+  lockstep = false;
   if (game) { try { game.free(); } catch { /* already unusable */ } }
   game = g;
   units.forEach(u => { u.dead = true; }); bldgs.forEach(b => { b.dead = true; }); nodes.forEach(n => { n.dead = true; });
@@ -169,6 +177,7 @@ export function resetGameForSeat(seed, map, side, races, me, { teams = [], ai = 
     Uint8Array.from(races.map((_, s) => (ai[s] ? 1 : 0))), me, size, any && diffs.length === races.length ? Uint8Array.from(diffs) : undefined);
   g.startLockstep();
   fresh(g);
+  lockstep = true; revealed = false; // (an online game: no staged-shot knobs, `revealAll`)
 }
 /** The WASM game itself (the network layer talks to it directly). */
 export const liveGame = () => game;
@@ -205,6 +214,13 @@ export const replayEnd = () => game.replayEnd();
 /** The difficulty seat `seat`'s AI plays at (single player's seat list gives each its own). */
 export const diffOf = (seat) => game.diffOf(seat);
 export function stateHash() { return game.stateHash(); }
+/** Record the game summary from now on (`on`; call it before the first step for the whole game), or stop. Off by
+ *  default: only a reader between games needs it. Read-only on the world (no hash moves). */
+export const recordSummary = (on) => game.recordSummary(!!on);
+/** The game summary so far (crates/endfall-sim/src/summary/): each seat's economy, army, production, attacks, losses and
+ *  what it saw of its foes, the main fights and how the game ended, for a reader between games; null unless recorded
+ *  (`recordSummary`). Still readable once `G.over`. Nothing player-facing shows it. */
+export function summary() { const j = game.summaryJson(); return j == null ? null : JSON.parse(j); }
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
  *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 3 a mine shaft (none since the re-theme), 4 a start. */
 export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
@@ -237,6 +253,24 @@ export const cancelConstruction = (b) => touch(game.cancelConstruction(b.id));
 export const setRally = (b, x, y, node) => touch(game.setRally(b.id, x, y, node ? node.id : 0));
 /** Tests and tools only. */
 export const disableAi = () => game.disableAi();
+/** A plan for AI seat `seat` before the first step (play against Claude: claude/PLAN_VOCAB.md): null when set, else why
+ *  not (refused in an online game). What it clamped: `planNotes`. */
+export const setPlan = (seat, code) => err(game.setPlan(seat, code));
+/** The game's own seed before the first step (a planned or watched game: fresh draws on the same map): null when set,
+ *  else why not. */
+export const setGameSeed = (seed) => err(game.setGameSeed(seed >>> 0));
+/** A plan delta (fields and intents) for planned seat `seat` during the game, from this tick: null, or why not. */
+export const planDelta = (seat, code) => err(game.planDelta(seat, code));
+/** What the last setPlan or planDelta clamped or dropped (a list of short strings). */
+export const planNotes = () => JSON.parse(game.planNotes());
+/** Seat `seat`'s plan as its canonical code ('' without one). */
+export const planCode = (seat) => game.planCode(seat);
+/** Watch the game (an AI-only game: no orders taken, every seat's sight). */
+export const watch = () => game.watch();
+/** Check-ins for planned seat `seat` (every 2 game-minutes and on key events; the summary recorded too). */
+export const recordCheckIns = (seat) => game.recordCheckIns(seat);
+/** The next check-in due (`{ kind, tick, digest }`), or null. */
+export function takeCheckIn() { const j = game.takeCheckIn(); return j == null ? null : JSON.parse(j); }
 /** The guided first game: hold the opponent's waves back (5:00 at most), or let them come. */
 export const holdWaves = (on) => game.holdWaves(on);
 /** Give up the game (the end screen then shows a defeat). */
@@ -258,8 +292,8 @@ export const canPlace = (type, tx, ty, team) => game.canPlace(type, tx, ty, team
 export const placeRefusal = (type, tx, ty, team) => game.placeRefusal(type, tx, ty, team);
 export const hasReq = (team, type) => game.hasReq(team, type);
 export const canAfford = (team, cost) => game.canAfford(team, cost[0], cost[1]);
-/** The most places our seat can have in a pool ('supply': population or Power; 'hired') on this map. */
-export const poolMax = (pool) => game.poolMax(pool);
+/** The most places our seat can have: its population or its grid (the same on every map). */
+export const supMax = () => game.supMax();
 
 /** Whether `shooter` (a unit or building object) has a weapon that can hit `target`. */
 export function canHit(shooter, target) {
@@ -269,11 +303,18 @@ export function canHit(shooter, target) {
   return !!w && (air ? w.dmgAir : w.dmg) > 0;
 }
 
+let revealed = false;
+/** Tools only (the trailer's staged shots, tools/trailer): every seat's units and buildings shown and heard as if in
+ *  sight, whatever this side sees. Off in play; refused in an online game (it would be a map hack from the console):
+ *  false then, true when set. */
+export const revealAll = (on) => { if (lockstep) { revealed = false; return false; } revealed = !!on; return true; };
+export const allRevealed = () => revealed && !lockstep;
 /** Whether this client's player (seat G.me) can see this unit or building right now. G.vis is the team's sight (allies
  *  share vision, crates/endfall-sim/src/world/fog.rs): our allies' are always seen, their enemies where any of us sees. */
 export function visibleEnt(e) {
   if (e.team === S.me || !enemies(S.me, e.team)) return true;
   if (e.inside) return false; // (an enemy inside a mine: out of sight)
+  if (revealed) return true; // (`revealAll`: a staged shot)
   const vis = G.vis;
   if (e.kind === 'bldg') { for (let y = 0; y < e.h; y++) for (let x = 0; x < e.w; x++) if (vis[idx(e.tx + x, e.ty + y)]) return true; return false; }
   return !!vis[idx(clamp((e.x / TILE) | 0, 0, MW - 1), clamp((e.y / TILE) | 0, 0, MH - 1))];

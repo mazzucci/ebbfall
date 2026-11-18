@@ -567,8 +567,20 @@ export function serverHall(M) {
   for (const sx of [-1, 1]) neonRail(g, M, [sx * W / 2, Y0 + 0.5, D / 2], [sx * W / 2, TOP + 0.3, D / 2]);              // the front corners
   add(g, rbox(W + 1.0, 2.4, D + 1.0, 0.1), M.paint, 0, TOP + 1.6, 0); for (const y of [TOP + 0.3, TOP + 2.9]) add(g, rbox(W + 1.2, 0.5, D + 1.2, 0.05), M.inkLine, 0, y, 0); // the parapet, the team trim band
   microchip(g, M, 0, TOP + 3.0, -3, 44);
+  smallDish(g, M, W / 2 - 14, TOP + 3.0, -D / 2 + 12, 9);                                                              // its own receiver on the roof's north-east: a small cousin of the Uplink's dish (the art polish, 2026-11-13)
   flag(g, M, -W / 2 - 2.6, Y0, -D / 2 - 2.6, 56, 28, 18); flag(g, M, W / 2 + 2.6, Y0, -D / 2 - 2.6, 50, 24, 16);
   return g;
+}
+/** A small dish on a short mast at (x, y, z), its bowl `R` wide aimed up and to the right as the Uplink's, a cyan light
+ *  at its feed: the Data center's receiver. */
+function smallDish(g, M, x, y, z, R) {
+  turbineMats(M);
+  add(g, cyl(1.6, 1.9, 7, 10), M.steel, x, y + 3.5, z); add(g, sph(2.2, 10, 8), M.joint, x, y + 7, z);               // the mast and its elbow
+  const d = grp(); d.position.set(x + Math.sin(DISH_TILT) * 2.4, y + 7 + Math.cos(DISH_TILT) * 2.4, z); d.rotation.z = -DISH_TILT; g.add(d);
+  add(d, dishGeo(R, R * 0.3, 0.8, 32), M.blade, 0, 0, 0).userData.noReceive = true;
+  add(d, torus(R + 0.3, 0.8, 32), M.dishBack, 0, R * 0.3, 0, Math.PI / 2, 0, 0);
+  const F = R / 1.2; limb(d, [R * 0.85, R * 0.24, 0], [1.0, F - 1, 0], 0.6, M.steel); add(d, rbox(2.2, 2.4, 2.2, 0.4), M.panelDark, 0, F, 0); cyanLed(d, M, 0.7, 0, F - 1.6, 0);
+  d.traverse(m => { if (m.isMesh && m.material !== M.blade) m.userData.noShadow = true; });
 }
 
 // ---- A1 (2026-11-11): the Wind turbine (the Power source, 2x2, replacing the Cabin) and the Uplink (3x3, unarmed) ----
@@ -593,7 +605,7 @@ function turbineMats(M) {
  *  top yawed `yaw` (its rotor faces local +z, the camera's side), a cyan light on its tail. The hub (the rotor's seat)
  *  is at (x, 3 + H, z) plus the nacelle's nose. Returns the hub's world position. */
 function turbineMast(g, M, x, z, H, r, yaw, polish) {
-  const TOP = 3 + H, k = r / 2.2;
+  const TOP = 3 + H, k = Math.min(1.45, r / 2.2);                                                                      // (the nacelle grows with the pole up to a cap: the art polish's thick pole would have made it a shed)
   add(g, cyl(r + 0.6, r + 1.2, 3.2, 12), M.pole, x, 1.6, z);                                                             // the flared foot
   add(g, cyl(r * 0.55, r, H, 12), M.pole, x, 3 + H / 2, z);
   const n = grp(); n.position.set(x, TOP, z); n.rotation.y = yaw; g.add(n);
@@ -610,22 +622,23 @@ function rotor(g, M, hub, L, yaw, phase) {
   add(r, cyl(1.7 * w, 1.9 * w, 2.0 * w, 12), M.joint, 0, 0, 0.6 * w, Math.PI / 2, 0, 0);
   add(r, cone(1.5 * w, 3.2 * w, 12), M.paleSteel, 0, 0, 3.0 * w, Math.PI / 2, 0, 0);
   const s = grp(); s.position.set(0, 0, 1.4 * w); s.rotation.z = phase; r.add(s);
-  const blade = plate([[0, -1.2 * w], [L * 0.22, -2.1 * w], [L, -0.7 * w], [L, 0.6 * w], [L * 0.22, 2.1 * w], [0, 1.2 * w]], 0.8 * w, 0.15 * w); // (wide: at 1x a thin blade is a thread, the first check)
-  for (let k = 0; k < 3; k++) { const b = grp(); b.rotation.z = k * Math.PI * 2 / 3 + Math.PI / 2; s.add(b); add(b, blade, M.blade, 0, 0, 0, Math.PI / 2, 0, 0); }
+  const blade = plate([[0, -1.4 * w], [L * 0.22, -2.6 * w], [L, -0.9 * w], [L, 0.8 * w], [L * 0.22, 2.6 * w], [0, 1.4 * w]], 0.8 * w, 0.15 * w); // (wide: at 1x a thin blade is a thread, the first check; wider still with the art polish)
+  for (let k = 0; k < 3; k++) { const b = grp(); b.rotation.z = k * Math.PI * 2 / 3 + Math.PI / 2; s.add(b); add(b, blade, M.blade, 0, 0, 0, Math.PI / 2, 0, 0); } // (three solid blades, nothing between them: the art polish's faint disc behind them read as motion blur, a fan at full speed; Stelian, 2026-11-14: "it is not a ventilator")
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
   return r;
 }
-const TURBINE_H = 56, TURBINE_R = 2.6, TURBINE_YAW = -0.5, TURBINE_L = 20;
+const TURBINE_H = 38, TURBINE_R = 4.2, TURBINE_YAW = -0.72, TURBINE_L = 27; // (the art polish, 2026-11-13: 56, 2.6, -0.5, 20 until then: a shorter, thicker mast, the rotor oversized and turned three-quarter so its three blades read at 1x)
 /** The Wind turbine (the Power source; 2x2, replacing the Cabin: the sim key `spire`): one tall turbine. A pale
  *  tapered pole 56 tall in one smooth tone going straight into the grass (rounds 2 to 4, Stelian: no footing, earth
  *  plate, guy ropes, battery box, cable, rings, rungs or band; a detail too small to understand reads as clutter); the
- *  nacelle at the top turned a little west of the camera so the rotor disc shows, a cyan tail light; the team flag on
+ *  nacelle at the top turned a little west of the camera so the rotor's three blades show, a cyan tail light; the team flag on
  *  a short mast (the only team). The rotor is `turbineRotor` (the turning head). From the camera: a tall thin pale
  *  pole with a three-blade star on top and a flag. */
 export function windTurbine(M) {
-  ebMats(M); turbineMats(M); const g = grp();
+  ebMats(M); turbineMats(M); sentryMats(M); const g = grp();
+  add(g, cyl(9, 10, 4.6, 20), M.paleArmor, 0, 2.3, 0); add(g, cyl(10.2, 10.2, 0.6, 20), M.inkLine, 0, 0.3, 0);          // the squat base: a pale drum (the art polish)
   turbineMast(g, M, 0, 0, TURBINE_H, TURBINE_R, TURBINE_YAW, M.polish);
-  flag(g, M, -13, 0, -11, 24, 16, 11);
+  flag(g, M, -15, 0, -12, 26, 20, 12);                                                                                   // the team flag (a tile-wide one took the thin turbine's share to a third)
   return g;
 }
 /** The Wind turbine's rotor at `phase` (0 to 2 pi / 3: three blades repeat every third of a turn), the turning head
@@ -662,8 +675,8 @@ function dishGeo(R, d, t, seg = 64) {
   for (let i = n; i >= 0; i--) { const r = R * i / n; pts.push(new THREE.Vector2(r + (i ? t * 0.6 : 0), d * (r / R) ** 2 - t)); }
   return new THREE.LatheGeometry(pts.reverse(), seg); // (reversed: the lathe's normals follow the profile's direction, and the bowl's face must light from inside)
 }
-const DISH_R = 36, DISH_D = 10.5, DISH_TILT = 0.82, DISH_TURN = -0.35, DISH_ELBOW = 27;
-/** The Uplink (3x3, unarmed; the sim key `uplink`: "Talks to the satellite we brought along."): a satellite dish on
+const DISH_R = 24, DISH_D = 7, DISH_TILT = 0.95, DISH_TURN = -0.35, DISH_ELBOW = 24; // (the art polish, 2026-11-13: the bowl a third smaller (36, 10.5 until then), tilted a little more so its rim shows as an ellipse, the elbow lower)
+/** The Uplink (3x3, unarmed; the sim key `uplink`: "A large dish that extends the signal's range."): a big dish on
  *  its stand, nothing else (Stelian's corrections: the face-on dish showed a gray blob in the middle; the hut, struts
  *  and props were clutter; round 3: bigger, filling the 3x3, and the dish a separate part). The base (`uplink`): a
  *  round steel base plate, a column up the footprint's center, the elbow at its top, a small cyan light, one standing
@@ -682,7 +695,7 @@ export function uplink(M) {
   add(g, cyl(3.4, 4.2, DISH_ELBOW - 2 - 2.6, 14), M.steel, 0, 2.6 + (DISH_ELBOW - 2 - 2.6) / 2, 0);                        // the column
   add(g, sph(4.6, 14, 10), M.joint, 0, DISH_ELBOW, 0);                                                                   // the elbow
   cyanLed(g, M, 0.7, 6.5, 2.2, 8.4);                                                                                     // a small light on the base plate's rim
-  flag(g, M, 26, 0, 34, 28, 18, 12);                                                                                       // the one team flag, front-right, its cloth inside the footprint
+  flag(g, M, 7.5, 2.6, 6.5, 22, 18, 11);                                                                                   // the one team flag, on the dish's mount (the art polish: on the base plate by the column, a tile wide; out on the ground until then)
   if (M.polish) add(g, torus(4.4, 0.35, 14), M.paleSteel, 0, 3.6, 0, Math.PI / 2, 0, 0);                      // a collar on the column
   return g;
 }
@@ -1088,32 +1101,105 @@ export function transport(M, phase = 0) {
 // after the platform): a flat dark disc lying on the ground, 2x2 and round (no turn), a thin bright cyan edge, and in
 // it a cyan spiral turning inward (the head, `spin: 1`: 16 frames of one turn; the spin says portal, not pit); no
 // pylons, no props; team on a small flag only.
-const VORTEX_R = 27;
-/** The black hole (the last art round): the whole disc solid black, no lines, no bright edge; at most a faint cyan
- *  glow round it to find it on the grass. */
+const VORTEX_R = 19, VORTEX_Y = 26;                                                                                    // the ring's radius and the height of its center
+/** The Portal (the art polish, 2026-11-13; the flat black hole until then): a raised white ring standing on edge to
+ *  face the camera, thick, with a cyan neon line round its inner edge, on a pale pedestal with two short legs up to its
+ *  lower sides; a dark sheet fills it behind the vortex (the head `vortexSpin`); the team flag beside it, a tile wide. */
 export function vortex(M) {
   ebMats(M); sentryMats(M); const g = grp();
-  if (!M.hole) { M.hole = std({ color: 0x050507, roughness: 1, metalness: 0 }); M.dust = new THREE.MeshBasicMaterial({ color: 0x40d8ff, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false }); M.dustFaint = new THREE.MeshBasicMaterial({ color: 0x30c0f0, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false }); }
-  add(g, cyl(VORTEX_R, VORTEX_R + 0.6, 1.0, 64), M.hole, 0, 0.5, 0);
-  add(g, torus(VORTEX_R + 0.6, 2.2, 64), M.dustFaint, 0, 1.0, 0, Math.PI / 2, 0, 0);                                    // the faint glow round the rim
-  flag(g, M, -VORTEX_R - 1, 0, -VORTEX_R + 6, 22, 12, 8);
+  if (!M.hole) { M.hole = std({ color: 0x0a0c12, roughness: 1, metalness: 0 }); M.ringWhite = std({ color: 0xdcdedb, metalness: 0.3, roughness: 0.5 }); M.vortexSheet = std({ color: 0x043a52, emissive: 0x0a90c8, emissiveIntensity: 0.55, roughness: 0.8 }); M.vortexHalo = new THREE.MeshBasicMaterial({ color: 0x20b8f0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false }); M.vortexWhite = std({ color: 0x80d8ff, emissive: 0x70dcff, emissiveIntensity: 1.0 }); } // (rounds 1 and 2 came out a white disc under the finish's S-curve: a deep cyan sheet at half the glow, cyan arms, a faint halo) // (the first round came out a white disc under the finish: a deeper cyan sheet, pale cyan arms, a fainter halo)
+  add(g, cyl(15, 16, 3.0, 24), M.steel, 0, 1.5, 0); add(g, cyl(16.2, 16.2, 0.5, 24), M.inkLine, 0, 0.3, 0);               // the pedestal: a steel drum
+  add(g, rbox(20, 4.0, 12, 1.0), M.paleArmor, 0, 5.0, 0);                                                                // a pale block over it
+  for (const sx of [-1, 1]) limb(g, [sx * 7, 6.5, 0], [sx * VORTEX_R * 0.72, VORTEX_Y - VORTEX_R * 0.7, 0], 2.2, M.paleArmor); // two legs up to the ring's lower sides
+  add(g, torus(VORTEX_R, 3.2, 48), M.ringWhite, 0, VORTEX_Y, 0);                                                        // the ring, standing to face the camera, thick
+  add(g, torus(VORTEX_R - 2.6, 0.6, 48), M.neon, 0, VORTEX_Y, 1.4); add(g, torus(VORTEX_R - 2.6, 1.4, 48), M.neonHalo, 0, VORTEX_Y, 1.4); // the cyan neon round its inner edge
+  add(g, cyl(VORTEX_R - 2.2, VORTEX_R - 2.2, 0.6, 48), M.hole, 0, VORTEX_Y, -1.2, Math.PI / 2, 0, 0);                    // the dark sheet behind the vortex
+  flag(g, M, -VORTEX_R - 4, 0, 8, 24, 20, 12);
   return g;
 }
-/** The vortex's dust (the head at `phase`): soft cyan particles drifting in a slow inward spiral over the black, as a
- *  space render of a black hole: three arms of ninety small additive discs each, bigger and brighter out at the
- *  rim, smaller and fainter towards the dark center, scattered a little off their arm, the whole turning with the
- *  phase; a faint glow over the middle. No solid lines. */
+/** The vortex (the head at `phase`): a bright cyan disc standing in the ring, three arms of white-cyan light spiraling
+ *  into a white core, a cyan halo, the whole turning about the ring's axis with the phase. No shadow. */
 export function vortexSpin(M, phase = 0) {
   ebMats(M); sentryMats(M); vortex(M); const g = grp();
-  const v = grp(); v.position.set(0, 1.3, 0); v.rotation.y = -phase; g.add(v);
-  const rnd = (i) => { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); };                        // a fixed scatter per particle
-  for (let arm = 0; arm < 3; arm++) for (let k = 0; k < 90; k++) {                                                        // (the second pass: more and smaller motes, so the arms read as dust, not dots)
-    const i = arm * 90 + k, t = k / 89, th = arm * Math.PI * 2 / 3 + t * 4.8 + (rnd(i) - 0.5) * 0.7, rho = VORTEX_R * (0.94 - 0.8 * t) + (rnd(i + 200) - 0.5) * 5;
-    const r = 0.3 + 0.7 * (1 - t) * (0.5 + rnd(i + 400));
-    add(v, cyl(r, r, 0.3, 8), t < 0.6 && rnd(i + 600) < 0.45 ? M.dust : M.dustFaint, Math.cos(th) * rho, 0, Math.sin(th) * rho);
-    if (rnd(i + 800) < 0.08 && t < 0.7) add(v, sph(0.3, 6, 4), M.neon, Math.cos(th) * rho, 0.3, Math.sin(th) * rho);     // a few brighter motes
+  const v = grp(); v.position.set(0, VORTEX_Y, 0.2); v.rotation.z = -phase; g.add(v);
+  const R = VORTEX_R - 2.8;
+  add(v, cyl(R, R, 0.5, 48), M.vortexSheet, 0, 0, 0, Math.PI / 2, 0, 0);                                                 // the cyan disc
+  for (let arm = 0; arm < 3; arm++) for (let k = 0; k < 7; k++) {
+    const t = k / 6, th = arm * Math.PI * 2 / 3 + t * 3.2, rho = R * (0.18 + 0.72 * t), w = 2.4 - 1.2 * t;
+    add(v, rbox(rho * 0.5 + 1.5, w, 0.6, 0.3), k < 3 ? M.vortexWhite : M.neon, Math.cos(th) * rho, Math.sin(th) * rho, 0.5, 0, 0, th + Math.PI / 2 + 0.35);
   }
-  add(v, cyl(VORTEX_R * 0.45, VORTEX_R * 0.45, 0.4, 32), M.dustFaint, 0, 0.1, 0);                                         // the faint glow over the middle
+  add(v, sph(R * 0.16, 16, 12), M.vortexWhite, 0, 0, 0.5).scale.set(1, 1, 0.4);                                           // the pale core
+  add(v, cyl(R * 1.08, R * 1.08, 0.6, 48), M.vortexHalo, 0, 0, 0.3, Math.PI / 2, 0, 0);                                   // the halo
   g.traverse(o => { if (o.isMesh) o.userData.noShadow = true; });
+  return g;
+}
+
+// ---- the Substation (the Expedition's Cottage: "expands the grid: more can run at once"; 2x2, the sim key
+// `substation`, the Wind turbine's footprint): a compact electrical substation. Stelian's rules for the people: white
+// and pale gray bodies with cyan accents, team on a flag and a trim band only, nothing dark, no tiny details (no
+// cables, no fence wire, no thin props); and it must never read as a generator or a turbine: no blades, no rotor, no
+// tall mast. The read: two pale transformer boxes with porcelain insulators standing on them (stacked discs, big
+// enough to show at 1x), a round conservator tank on the big one, a low gantry behind them carrying three more, and
+// glowing cyan busbars from the gantry down to the transformers (the one "wire" allowed: thick and lit, the accent
+// that says electricity), all on a pale concrete pad with a kerb.
+/** The substation's own materials, once per set. */
+function substationMats(M) {
+  if (M.concrete) return M;
+  M.concrete = std({ color: 0xc6c8c2, roughness: 0.92, metalness: 0.02 });                                              // the pad: pale matte concrete, a step below the bodies so they read on it (0xb0b2ac came out a dark slab under the finish)
+  M.subGray = std({ color: 0xaeb2b0, roughness: 0.7, metalness: 0.1 });                                                // the radiator ribs: a matte mid gray (metallic pale steel went near black in the shade)
+  M.porcelain = std({ color: 0xe8e6e0, roughness: 0.45, metalness: 0.05 });                                             // the insulators' discs: glazed porcelain, the palest thing here
+  if (M.polish) { Object.assign(M.porcelain, { envMapIntensity: 1.8 }); M.porcelain.needsUpdate = true; }
+  return M;
+}
+/** A post insulator standing at (x, y0, z): a pale steel core with `n` porcelain bells stacked up it (each tapered,
+ *  radius `r`), `h` tall, a dark cap and a cyan light on top. Returns the light's position. */
+function insulator(g, M, x, y0, z, r, n, h) {
+  add(g, cyl(r * 0.45, r * 0.5, h, 10), M.paleSteel, x, y0 + h / 2, z);
+  const step = h / n;
+  for (let k = 0; k < n; k++) add(g, cyl(r * 0.78, r, step * 0.62, 14), M.porcelain, x, y0 + step * (k + 0.5), z);
+  add(g, cyl(r * 0.55, r * 0.55, 1.6, 10), M.joint, x, y0 + h + 0.8, z);
+  cyanLed(g, M, r * 0.42, x, y0 + h + 2.0, z);
+  return [x, y0 + h + 2.0, z];
+}
+/** A transformer at (x, z): a pale body `W` x `H` x `D` on a dark ink base, a radiator of three broad ribs on its east
+ *  face, a round conservator tank along the back of its top, `n` insulators in a row across the front of its top
+ *  (radius `r`, `hi` tall) and, with `band`, the team trim band round the body between ink lines. Returns the
+ *  insulators' lights. */
+function transformer(g, M, x, z, W, H, D, n, r, hi, band) {
+  add(g, rbox(W, H, D, 1.6), M.paleArmor, x, H / 2, z);
+  add(g, rbox(W + 0.8, 1.0, D + 0.8, 0.2), M.inkLine, x, 0.5, z);                                                        // the base line
+  const RW = 3.0, RD = 2.6, gap = (D - 4) / 2;                                                                            // the radiator: three ribs out of the east face
+  for (let k = -1; k <= 1; k++) add(g, rbox(RW, H - 5, RD, 0.4), M.subGray, x + W / 2 + RW / 2 - 0.3, H / 2 - 1.0, z + k * gap);
+  add(g, cyl(2.8, 2.8, W - 5, 16), M.paleArmor, x, H + 2.4, z - D / 2 + 3.4, 0, 0, Math.PI / 2);                            // the conservator tank, along x at the back
+  for (const sx of [-1, 1]) add(g, sph(2.8, 12, 8), M.paleArmor, x + sx * (W - 5) / 2, H + 2.4, z - D / 2 + 3.4);           // its rounded ends
+  if (band) { const bh = SUB_BAND_H, y = H - 3.4; add(g, rbox(W + 0.6, bh, D + 0.6, 0.3), M.paint, x, y, z); for (const yl of [y - bh / 2 - 0.2, y + bh / 2 + 0.2]) add(g, rbox(W + 0.8, 0.5, D + 0.8, 0.1), M.inkLine, x, yl, z); } // the team trim band (`SUB_BAND_H` tall, between ink lines)
+  const tops = [], pitch = (W - 2 * r - 2) / Math.max(1, n - 1);
+  for (let k = 0; k < n; k++) tops.push(insulator(g, M, x - (n - 1) / 2 * pitch + k * pitch, H, z + D / 2 - r - 1.6, r, 4, hi));
+  return tops;
+}
+const SUB_W = 50, SUB_D = 44, SUB_GANTRY_Z = -17, SUB_GANTRY_H = 21;
+/** The team trim band's height round each transformer: 3.2 since Nov 14, a small team-color boost (the PM: the
+ *  Substation read too pale beside the other buildings' team color); 2.2 before. */
+const SUB_BAND_H = 3.2;
+/** The Substation (`substation`): a pale concrete pad (50 x 44) with a pale kerb, the big transformer (24 x 14 x 14)
+ *  at the north-west with three insulators and the team band, a smaller one (15 x 10 x 11) at the south-east with
+ *  two, a gantry of two pale steel posts and a crossbeam along the back carrying three insulators, cyan busbars from
+ *  them to the big transformer's, the team flag at the north-east corner. From the camera: two white boxes with
+ *  knobbly white pins and cyan tips, a white goal-post frame behind them with glowing cyan lines dropping to the
+ *  boxes, on a pale square. */
+export function substation(M) {
+  ebMats(M); sentryMats(M); substationMats(M); const g = grp(), hw = SUB_W / 2, hd = SUB_D / 2;
+  add(g, rbox(SUB_W, 1.4, SUB_D, 0.4), M.concrete, 0, 0.7, 0).userData.ground = true;                                   // the pad (read as ground by the polish: no contact shadow rings it)
+  for (const sx of [-1, 1]) { add(g, rbox(1.6, 2.4, SUB_D, 0.3), M.paleArmor, sx * (hw - 0.8), 1.2 + 0.7, 0); add(g, rbox(SUB_W, 2.4, 1.6, 0.3), M.paleArmor, 0, 1.2 + 0.7, sx * (hd - 0.8)); } // the kerb
+  const big = transformer(g, M, -8, -5, 24, 14, 14, 3, 3.0, 9, true);
+  transformer(g, M, 13, 9, 15, 10, 11, 2, 2.6, 7.5, true);
+  for (const sx of [-1, 1]) add(g, cyl(1.6, 1.8, SUB_GANTRY_H, 12), M.paleArmor, sx * 17, 1.4 + SUB_GANTRY_H / 2, SUB_GANTRY_Z); // the gantry's posts (matte pale: steel went black in the shade)
+  add(g, rbox(38, 2.6, 2.8, 0.6), M.paleArmor, 0, 1.4 + SUB_GANTRY_H + 0.6, SUB_GANTRY_Z);                               // its crossbeam
+  const beamTop = 1.4 + SUB_GANTRY_H + 1.9;
+  big.forEach(([bx, by, bz], k) => {
+    const gx = -8 + (k - 1) * 10, top = insulator(g, M, gx, beamTop, SUB_GANTRY_Z, 2.3, 3, 4.5);                       // an insulator on the beam over each of the big transformer's
+    neonRail(g, M, [top[0], top[1] + 0.4, top[2] + 0.8], [bx, by + 0.4, bz - 0.8], 0.9);                                 // the busbar down to it, lit cyan, thick enough for 1x
+  });
+  flag(g, M, hw + 2.5, 0, -hd + 5, 26, 18, 12);                                                                         // the team flag at the north-east corner, clear of everything (at the south-west it hid the big transformer's front)
   return g;
 }

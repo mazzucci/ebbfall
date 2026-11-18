@@ -1,8 +1,8 @@
 // Install and offline. The first page has one button for both: INSTALL until the game is installed, then PLAY OFFLINE.
 // INSTALL opens the browser's own prompt where it offers one (Chrome and Edge, on Android and desktop:
 // `beforeinstallprompt`), or the Add to Home Screen card where that is the way (iPad and iPhone: corner.js); it shows
-// on the About page and in the pause card (alone or online) too, every `.install` button, one handler. PLAY OFFLINE
-// (the first page once installed, or where nothing can install; always on the About page) asks the service worker
+// in the pause card (alone or online) too, every `.install` button, one handler. PLAY OFFLINE (the first page once
+// installed, or where nothing can install) asks the service worker
 // (tools/offline/sw.js) how much of the game it has stored, which also fetches what is missing, and says so until it
 // is all there. Never a prompt or a card the player did not tap for.
 import { $ } from './ui.js';
@@ -82,7 +82,7 @@ async function playOffline(btn, msg, build) {
   } finally { btn.disabled = false; }
 }
 
-/** Wire INSTALL and PLAY OFFLINE (`build`: the version the About page shows). */
+/** Wire INSTALL and PLAY OFFLINE (`build`: the game's version, the build stamp's). */
 export function initOffline(build) {
   showInstall();
   const install = async () => {
@@ -93,7 +93,6 @@ export function initOffline(build) {
     showInstall();
   };
   for (const b of document.querySelectorAll('.install')) b.addEventListener('click', install);
-  const home = $('btnInstall'), about = $('btnOffline');
+  const home = $('btnInstall');
   home.addEventListener('click', () => (installWay() ? install() : playOffline(home, $('homeOfflineMsg'), build)));
-  about.addEventListener('click', () => playOffline(about, $('offlineMsg'), build));
 }

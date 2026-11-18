@@ -4,13 +4,13 @@
 // time), what is not a file (a page load goes to the game, a missing script is a 404), www and http sent to
 // https://ebbfall.com/, a room's link and a challenge's (SHARE after a victory) with their own cards (with or without the beacon) and an ETag that never keeps a stale
 // card, Cloudflare's analytics beacon only with a token, the _headers file the deploy writes, and the config it runs
-// with. With dist/ built: every file the service worker stores is served, as is, and so are robots.txt, the sitemap and
-// the preview image.
+// with; the docs' folder addresses (/docs/kingdom/). With dist/ built: every file the service worker stores is served, as
+// is, and so are robots.txt, the sitemap, the preview image and the docs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import worker from '../site/worker.js';
-import { CACHE, cacheControl, headersFile } from '../site/cache.js';
+import { CACHE, SECURITY, cacheControl, headersFile } from '../site/cache.js';
 
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', wasm: 'application/wasm', png: 'image/png', webmanifest: 'application/manifest+json', json: 'application/json', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
 /** A fake ASSETS binding over `files` (path -> body): Cloudflare's default headers, 404 for anything else. */
@@ -167,7 +167,7 @@ test("a room's link: its own card in the og: and twitter: tags, with or without 
 });
 
 test("a challenge's link: its own card, the setup in words and its link made again from the code; the rest as it is", async () => {
-  const VS = '1.8.5.ky.h00v13v23v33'; // (test/challenge.test.js)
+  const VS = '1.8.5.ky.h00v12v22v32'; // (test/challenge.test.js)
   for (const env of [{}, { CF_ANALYTICS_TOKEN: 'abc' }]) {
     for (const q of [`?vs=${VS}`, `?vs=${VS}&relay=wss://x.example/`, `?seed=7&vs=${VS}`]) {
       const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
@@ -236,6 +236,43 @@ test('robots.txt, the sitemap and the preview image are files: served as they ar
   }
 });
 
+test('the docs: a folder address is its index.html, without the slash it is sent to it, anything else not found', async () => {
+  const files = { ...FILES, '/docs/index.html': 'docs home', '/docs/kingdom/index.html': 'kingdom', '/docs/img/sprites/core-336.webp': 'webp', '/llms.txt': '# Ebbfall' };
+  for (const [path, body] of [['/docs/', 'docs home'], ['/docs/kingdom/', 'kingdom'], ['/docs/kingdom/index.html', 'kingdom'], ['/docs/img/sprites/core-336.webp', 'webp'], ['/llms.txt', '# Ebbfall']]) {
+    const res = await get(path, NAVIGATE, 'GET', {}, files);
+    assert.equal(res.status, 200, path);
+    assert.equal(await res.text(), body, path);
+  }
+  for (const [path, to] of [['/docs', '/docs/'], ['/docs/kingdom', '/docs/kingdom/'], ['/docs/kingdom?x=1', '/docs/kingdom/?x=1']]) {
+    const res = await get(path, NAVIGATE, 'GET', {}, files);
+    assert.equal(res.status, 301, path);
+    assert.equal(res.headers.get('Location'), ORIGIN + to, path);
+  }
+  const head = await get('/docs/kingdom/', NAVIGATE, 'HEAD', {}, files);
+  assert.equal(head.status, 200, 'HEAD too');
+  assert.equal((await get('/docs/nope/', NAVIGATE, 'GET', {}, files)).status, 302, 'a mistyped docs page: the game, as any page load');
+  assert.equal((await get('/docs/img/nope.webp', { Accept: 'image/webp' }, 'GET', {}, files)).status, 404, 'a missing image: a 404');
+});
+
+test('security headers: nosniff, the referrer policy and the device powers, on the pages, a room\'s card, the docs and a 404, and in _headers for every file', async () => {
+  const files = { ...FILES, '/docs/kingdom/index.html': 'kingdom' };
+  const policy = SECURITY['Permissions-Policy'];
+  for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'web-share=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
+  const cases = [['/', {}], ['/?room=BCDFGH', {}], ['/', { CF_ANALYTICS_TOKEN: 'abc' }], ['/docs/kingdom/', {}], ['/docs/kingdom', {}], ['/art/atlas-0.png', {}], ['/nope.js', {}]];
+  for (const [path, env] of cases) {
+    const res = await get(path, NAVIGATE, 'GET', env, files);
+    assert.equal(res.headers.get('X-Content-Type-Options'), 'nosniff', path);
+    assert.equal(res.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin', path);
+    assert.equal(res.headers.get('Permissions-Policy'), policy, path);
+  }
+  const page = await get('/', NAVIGATE, 'GET', {}, files);
+  assert.equal(page.headers.get('Cache-Control'), 'no-cache', 'the cache header kept');
+  const text = headersFile(), all = text.slice(0, text.indexOf('\n/', 1) + 1);
+  assert.ok(all.startsWith('/*\n'), 'a rule for every path, first');
+  for (const [k, v] of Object.entries(SECURITY)) assert.ok(all.includes(`\n  ${k}: ${v}\n`), k);
+  assert.ok(!/Content-Security-Policy|X-Frame-Options|frame-ancestors/.test(text), 'no CSP or framing rule yet');
+});
+
 test("the Worker's module exports its handler only (the Workers runtime refuses anything else)", async () => {
   assert.deepEqual(Object.keys(await import('../site/worker.js')), ['default']);
 });
@@ -276,10 +313,11 @@ test('with dist/ built: every file the service worker stores is served as it is,
     assert.ok(Buffer.from(await res.arrayBuffer()).equals(want), f);
   }
   // The files for crawlers and link previews are built too, and left out of the offline store.
-  for (const f of ['robots.txt', 'sitemap.xml', 'og.png']) {
+  for (const f of ['robots.txt', 'sitemap.xml', 'og.png', 'llms.txt', 'docs/index.html', 'docs/kingdom/index.html']) {
     assert.ok(existsSync(new URL(f, dist)), f);
     assert.ok(!files.includes(f), `${f}: not stored for offline play`);
   }
+  assert.ok(!files.some(f => f.startsWith('docs/')), 'nothing of the docs stored for offline play');
   // The head as built: the cards' tags and their absolute URLs as written (Vite leaves them alone).
   const built = readFileSync(new URL('index.html', dist), 'utf8');
   for (const tag of ['<meta property="og:image" content="https://ebbfall.com/og.png">', '<meta property="og:url" content="https://ebbfall.com/">', '<link rel="canonical" href="https://ebbfall.com/">', '<script type="application/ld+json">']) {

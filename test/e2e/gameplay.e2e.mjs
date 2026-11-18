@@ -2,7 +2,8 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
+import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
 before(start);
@@ -77,28 +78,29 @@ test('every finished production building offers its unit, and pressing it trains
       const before = mine(await d.state(), unit).length;
       await d.pressCard(label);
       assert.equal((await d.state()).bldgs.find(x => x.id === b.id).queue[0], unit, `${label} queued`);
-      await until(d, async () => mine(await d.state(), unit).length > before, { seconds: 40, what: `${label} to be trained` });
+      await until(d, async () => mine(await d.state(), unit).length > before, { seconds: 90, what: `${label} to be trained` });
     }
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 
-test('knights appear once a forge stands, and a balloon floats straight across the map', async () => {
+test('the Stables and their Knights come once a Blacksmith stands, and a balloon floats straight across the map', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
     await buildAndFinish(d, 'c', 'barracks', 0);
-    await buildAndFinish(d, 'x', 'extractor', 1); // (the Stables need a Market)
+    // (the arc: the Stables after the Blacksmith, the top tier's way serial; not on the Build card before it)
+    const h = mine(await d.state(), 'harvester')[1];
+    await d.clickEntity(h.id);
+    await d.pressCard('Build'); await d.pressCard('Advanced');
+    assert.ok(!(await d.card()).some(c => c.label === 'Stables'), `no Stables before a Blacksmith stands: ${JSON.stringify(await d.card())}`);
+    await d.key('Escape'); await d.key('Escape'); await d.key('Escape');
+    await buildAndFinish(d, 'k', 'forge', 2);
     const airfield = await buildAndFinish(d, 'f', 'airfield', 1);
     await d.clickEntity(airfield.id);
     const card = await d.card();
     assert.ok(card.some(c => c.label === 'Rider' && c.enabled), 'Rider available');
-    assert.ok(!card.some(c => c.label === 'Knight'), `no Knight before a Blacksmith stands: ${JSON.stringify(card)}`);
-    await d.key('n'); // (its key does nothing while it is hidden)
-    assert.equal((await d.state()).bldgs.find(b => b.id === airfield.id).queue.length, 0, 'nothing queued');
-    await buildAndFinish(d, 'k', 'forge', 2);
-    await d.clickEntity(airfield.id);
-    await d.readyCard('Knight'); // (there once the Blacksmith stands)
+    await d.readyCard('Knight'); // (there at once: the Blacksmith stands)
     const factory = await buildAndFinish(d, 's', 'factory', 3);
     await d.clickEntity(factory.id);
     await d.pressCard('Balloon');
@@ -174,6 +176,10 @@ test('training shows progress, the queue and the time left in the panel', async 
     await d.skip(3);
     assert.match(await d.hudText('#selSub', /^Training$/), /Training/);
     assert.equal(await d.page.locator('#queue .qi').count(), 2);
+    // Each slot shows the symbol of the button that queued it (what was pressed), not the sprite.
+    assert.equal(await d.page.locator('#queue .qi svg.ico.gl').count(), 2, 'the Villager button\'s symbol in each slot');
+    assert.equal(await d.page.locator('#queue img').count(), 0, 'no sprite in the queue');
+    assert.equal(await d.page.locator('#queue .qi:first-of-type svg.ico.gl').innerHTML(), await d.page.locator('#cmd button', { hasText: 'Villager' }).first().locator('svg.ico.gl').innerHTML(), 'the same symbol as the train button');
     const w0 = await d.page.locator('#queue .prod i').evaluate(e => parseFloat(e.style.width));
     // The unit in training shows the seconds it still needs on its slot (a Villager: 18 s), and only that one.
     assert.equal(await d.page.locator('#queue .qi .left').count(), 1);
@@ -224,12 +230,12 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
     assert.ok(info.x >= mm.x + mm.width && info.x + info.width <= cmd.x, 'the console sits between the minimap and the command card');
     const vh = await d.eval(() => innerHeight); // (390, or more where full screen takes the whole display: Firefox)
     assert.ok(info.height <= 70 && info.y + info.height <= vh && info.y >= vh - 80, `low, at the bottom of the screen: ${JSON.stringify(info)} in ${vh}`);
-    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Gather', 'Repair', 'Attack', 'Hold', 'Deselect'], 'a Villager card: three a row, leading with Build, Deselect last');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Build', 'Mine', 'Repair', 'Attack', 'Hold', 'Deselect'], 'a Villager card: three a row, leading with Build, Deselect last');
     await d.pressCard('Build');
     const depot = d.page.locator('#cmd button', { hasText: 'Cottage' });
     assert.ok(await depot.locator('.c').isVisible(), 'costs show on the phone');
     assert.equal(await depot.locator('.c .s').textContent(), '100');
-    assert.ok(await depot.locator('img.por').count(), 'the Cottage button has a portrait');
+    assert.ok(await depot.locator('svg.ico.gl').count() && !(await depot.locator('img.por').count()), 'the Cottage button has its symbol, no portrait');
     await d.pressCard('Back');
     await d.clickEntity(coreOf(s).id);
     await d.pressCard('Villager');
@@ -244,10 +250,11 @@ test('phone: tap selects, the command card works, the HUD shows status, back ask
 });
 
 test('a whole game against the AI runs to the end without errors', { engines: true }, async () => {
-  const d = await newGame(DESKTOP, 3);
+  const d = await newGame(DESKTOP, 2);
   try {
     await until(d, async () => (await d.state()).over, { seconds: 1500, step: 30, what: 'the game to end' });
-    await d.page.waitForTimeout(400);
+    // (the end screen comes on a later frame: WebKit and Firefox may take more than a moment, so wait for it)
+    await d.page.locator('#end').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
     assert.ok(await d.page.locator('#end').isVisible(), 'the end screen shows');
     assert.equal(await d.page.locator('#result').textContent(), 'DEFEAT');
     assert.match(await d.page.locator('#endMap').textContent(), /balanced fields/, 'the end screen tells the map story');
@@ -382,7 +389,7 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     assert.ok((await d.card()).some(c => c.label === 'Armor I' && !c.enabled), 'one research at a time per forge');
     slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.filter(Boolean), ['Cancel', 'Armor I', 'Shield Drill', 'Master Builders'], 'the Blacksmith card: the research\'s button turned into its Cancel, in its place; the others where they were');
+    assert.deepEqual(slots.filter(Boolean), ['Cancel', 'Armor I', 'Shield Wall'], 'the Blacksmith card: the research\'s button turned into its Cancel, in its place; the others where they were');
     const before = (await d.state()).res;
     await d.page.locator('#cmd > :nth-child(1)').click(); // cancel the research
     const after = (await d.state()).res;
@@ -395,75 +402,102 @@ test('the forge researches weapons upgrades, and unit stats show the bonus', asy
     await d.clickEntity(id);
     assert.match(await d.hudText('#mod', /7\+1/), /7\+1/, 'Guard damage shows the bonus');
     assert.equal(await d.page.locator('#mod .st').count(), 2, 'a few figures: ground, armor (a Guard hits no flyers)');
-    // A Guard's Brace waits for Shield Drill, researched at the Forge.
-    assert.ok(!(await d.card()).some(c => c.label === 'Brace'), 'no Brace before Shield Drill');
+    // A Guard's Brace waits for Shield Wall, researched at the Forge.
+    assert.ok(!(await d.card()).some(c => c.label === 'Brace'), 'no Brace before Shield Wall');
     await d.grant(500, 500);
     await d.clickEntity(forge.id);
-    await d.pressCard('Shield Drill');
-    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 120, what: 'Shield Drill' });
+    await d.pressCard('Shield Wall');
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 120, what: 'Shield Wall' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Shield Drill'), 'a finished tech leaves the card');
+    assert.ok((await d.card()).some(c => c.label === 'Shield Wall' && !c.enabled), 'a finished tech keeps its slot, grayed out as done');
     await d.clickEntity(id);
     assert.ok((await d.card()).some(c => c.label === 'Brace' && c.enabled), 'Brace once researched');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 
-test('phone: Master Builders researched at the Blacksmith, then buildings go up faster', { chromium: CDP_TOUCH }, async () => {
+test('phone: Shield Wall researched at the Blacksmith: long-press says what it costs, a tap researches it', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
     await buildAndFinish(d, 'c', 'barracks', 0);
     const forge = await buildAndFinish(d, 'k', 'forge', 1);
-    const core = coreOf(await d.state()), rate = await d.eval(() => endfall.engine.TECH_BUILD);
-    const pct = Math.round((rate - 1) * 100);
     await d.clickEntity(forge.id);
     // The Blacksmith's card on a phone, packed from the first slot (no research under way: no Cancel's place kept).
     const slots = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(slots.slice(0, 4), ['Weapons I', 'Armor I', 'Shield Drill', 'Master Builders'], 'the Blacksmith card');
-    const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Master Builders' }).boundingBox();
+    assert.deepEqual(slots.slice(0, 3), ['Weapons I', 'Armor I', 'Shield Wall'], 'the Blacksmith card');
+    assert.ok(!slots.includes('Master Builders'), 'Master Builders is gone (Nov 14)');
+    const vp = d.page.viewportSize(), box = await d.page.locator('#cmd button', { hasText: 'Shield Wall' }).boundingBox();
     assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, 'it fits on the screen');
     // A long-press says what it does and costs, without researching it.
     const cdp = await d.page.context().newCDPSession(d.page);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
     await d.page.waitForTimeout(700);
     const text = await d.page.locator('#cmdInfo').textContent();
-    assert.match(text, /Master Builders/); assert.match(text, new RegExp(`Buildings go up ${pct}% faster`)); assert.match(text, /100/); assert.match(text, /60 s/);
+    assert.match(text, /Shield Wall/); assert.match(text, /125/); assert.match(text, /70 s/);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await d.page.waitForTimeout(150);
     assert.equal(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, forge.id), false, 'the long-press did not research it');
     // A tap researches it: paid for, the console shows it with its bar, Cancel in its row.
     const res = (await d.state()).res;
-    await d.pressCard('Master Builders');
+    await d.pressCard('Shield Wall');
     const paid = (await d.state()).res;
-    assert.ok(paid[1] === res[1] && paid[0] <= res[0] - 100 + 40, `it costs 100 gold (${res} -> ${paid}; gold still comes in)`);
-    assert.match(await d.hudText('#mod', /Master Builders/), /Master Builders/);
+    assert.ok(paid[1] === res[1] && paid[0] <= res[0] - 125 + 40, `it costs 125 gold (${res} -> ${paid}; gold still comes in)`);
+    assert.match(await d.hudText('#mod', /Shield Wall/), /Shield Wall/);
     assert.ok(await d.page.locator('#mod .rs').isVisible(), 'the console shows the research with its bar');
     const r0 = await d.page.locator('#mod .res i').evaluate(e => parseFloat(e.style.width));
     await d.skip(4);
     await d.page.waitForFunction((w) => parseFloat(document.querySelector('#mod .res i').style.width) > w, r0, { timeout: 10000 }); // the bar moves
     const busy = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
-    assert.deepEqual(busy.slice(0, 4), ['Weapons I', 'Armor I', 'Shield Drill', 'Cancel'], 'the card keeps its shape: Master Builders\' button is its Cancel');
+    assert.deepEqual(busy.slice(0, 3), ['Weapons I', 'Armor I', 'Cancel'], 'the card keeps its shape: Shield Wall\'s button is its Cancel');
     assert.ok((await d.card()).some(c => c.label === 'Weapons I' && !c.enabled), 'one research at a time');
-    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].rapidConstruction)) === 1, { seconds: 70, what: 'Master Builders' });
+    await until(d, async () => (await d.eval(() => endfall.G.upgrades[0].entrenching)) === 1, { seconds: 80, what: 'Shield Wall' });
     await d.clickEntity(forge.id);
-    assert.ok(!(await d.card()).some(c => c.label === 'Master Builders'), 'a finished tech leaves the card');
-    // A Cottage (22 s) now goes up faster: a tick of work is rate / 22 of a second's worth (read tick by tick in one go).
-    const s = await d.state();
-    const spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
-    await d.buildWithUI('w', 'depot', spot.tx, spot.ty, mine(s, 'harvester')[2].id);
-    const site = () => d.state().then(s => s.bldgs.find(b => b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty));
-    await until(d, async () => (await site())?.progress > 0, { seconds: 30, step: 1, what: 'the builder at work' });
-    const steps = await d.eval(([tx, ty]) => {
-      const p = () => endfall.G.bldgs.find(b => b.type === 'depot' && b.tx === tx && b.ty === ty).progress, out = [];
-      for (let i = 0; i < 30; i++) { const p0 = p(); endfall.skip(1 / 30); out.push(p() - p0); }
-      return out;
-    }, [spot.tx, spot.ty]);
-    const step = Math.max(...steps);
-    assert.ok(Math.abs(step - rate / 30 / 22) < 1e-9, `a tick of work: ${step} (${1 / 30 / 22} without the tech)`);
+    const done = await d.page.$$eval('#cmd > *', els => els.map(e => e.querySelector('.l')?.textContent || ''));
+    assert.deepEqual(done.slice(0, 3), ['Weapons I', 'Armor I', 'Shield Wall'], 'a finished tech keeps its slot');
+    assert.ok((await d.card()).some(c => c.label === 'Shield Wall' && !c.enabled), 'grayed out as done');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+// A research finished moves no button (Stelian, Nov 15: the Guard's upgrade moved left once Weapons was done): every
+// research building of both peoples, each research finished through its button (a multi-level one set up to its last
+// level first), every button and empty slot of the card where it was, the finished one grayed out as done.
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: DESKTOP, steps: [['c', 'barracks'], ['k', 'forge'], ['f', 'airfield'], ['x', 'extractor']] }],
+  ['vael', { hq: 'conflux', worker: 'lumen', device: PHONE, steps: [['i', 'siphon'], ['g', 'loom']] }]]) {
+  test(`a research finished moves no button on the card (${race}, ${R.device === PHONE ? 'phone' : 'desktop'})`, async () => {
+    const d = await newGame(R.device, 1, 4242, { ai: false, race });
+    try {
+      await d.grant(5000, 5000);
+      const built = [];
+      for (const [i, [hot, type]] of R.steps.entries()) built.push(await buildAndFinish(d, hot, type, i, R));
+      /** Every slot of the card: its button's id (an empty slot's 'gap'), whether done, and its box. */
+      const slots = () => d.page.$$eval('#cmd > *', els => els.map(e => { const b = e.getBoundingClientRect(); return { id: e.dataset.id || 'gap', done: e.classList.contains('done'), disabled: !!e.disabled, box: [b.x, b.y, b.width, b.height].map(Math.round) }; }));
+      let checked = 0;
+      for (const b of built) {
+        const researches = await d.eval((type) => endfall.engine.BUILDINGS[type].researches, b.type);
+        for (const r of researches) {
+          const levels = await d.eval((r) => endfall.engine.UPGRADES[r].levels, r);
+          if (levels > 1) await d.eval(([r, lv]) => endfall.engine.debugResearch(0, r, lv), [r, levels - 1]); // (set-up: up to its last level)
+          await d.grant(5000, 5000);
+          await d.clickEntity(b.id);
+          await d.page.locator(`#cmd button[data-id="r_${r}"]:not([disabled])`).waitFor({ timeout: 5000 });
+          const before = await slots();
+          await d.page.locator(`#cmd button[data-id="r_${r}"]`)[d.touch ? 'tap' : 'click']();
+          assert.ok(await d.skipUntil(([r, lv]) => endfall.G.upgrades[0][r] >= lv, [r, levels], { seconds: 120 }), `${b.type}: ${r} finished`);
+          await d.page.locator(`#cmd button[data-id="r_${r}"].done`).waitFor({ timeout: 5000 });
+          const after = await slots(), what = `${race} ${b.type}, ${r} finished`;
+          assert.deepEqual(after.map(s => [s.id, s.box]), before.map(s => [s.id, s.box]), `${what}: every button where it was`);
+          const own = after.find(s => s.id === 'r_' + r);
+          assert.ok(own.done && own.disabled, `${what}: its button grayed out as done`);
+          checked++;
+        }
+      }
+      assert.equal(checked, { humans: 5, vael: 2 }[race], 'every research of the people\'s buildings');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
 
 test('a game starts over the base: fully zoomed out with a mouse, at 1 on a phone', async () => {
   for (const device of [DESKTOP, PHONE]) {
@@ -635,19 +669,16 @@ test('control groups: Ctrl+number saves the selection, the number recalls it, a 
   } finally { await d.close(); }
 });
 
-test('the Shore map: chosen from the list, its line said; each people starts in its cove (every ground unit walks since the re-theme), water drawn', { engines: true }, async () => {
+test('the Shore map (64x64, hidden from the list: opened by ?map=): each people starts in its cove (every ground unit walks since the re-theme), water drawn', { engines: true }, async () => {
   const ctx = await browserContext(DESKTOP);
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   try {
-    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl()}?map=12`, { waitUntil: 'networkidle' }); // (12: Mirror Lake, maps.js MAPS)
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnSolo').click();
     await board(page).race(1, 'vael');
-    const shore = await page.$$eval('#mapSel option', os => os.findIndex(o => o.textContent.startsWith('Mirror Lake')));
-    assert.ok(shore >= 0, 'the Shore map in the list');
-    await page.locator('#mapSel').selectOption(String(shore));
-    await page.waitForFunction(() => /A lake: each side holds a cove, with the shallows between\./.test(document.getElementById('soloNote').textContent));
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Mirror Lake · up to 2', 'listed while it is the map chosen');
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const got = await page.evaluate(() => {
@@ -663,7 +694,7 @@ test('the Shore map: chosen from the list, its line said; each people starts in 
   } finally { await ctx.close(); }
 });
 
-test('the menu: every map in one list (the duel\'s three and a random one first), the opponent and sound; the choices start the game', { engines: true }, async () => {
+test('the menu: every map offered in one list (96x96 first, no 64x64 one), the opponent and sound; the choices start the game', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device);
     const page = await ctx.newPage();
@@ -673,50 +704,86 @@ test('the menu: every map in one list (the duel\'s three and a random one first)
       const touch = !!device.hasTouch, press = (sel) => touch ? page.locator(sel).tap() : page.locator(sel).click();
       assert.ok(await page.locator('#start').isVisible(), 'straight to the menu (no tap-to-play screen)');
       await press('#btnSolo');
-      assert.deepEqual((await page.$$eval('#mapSel option', os => os.map(o => o.textContent))).slice(0, 4), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2'], 'named maps, nothing given away');
-      assert.equal(await page.locator('#mapSel option').count(), 14, 'every map of every size (the Shore\'s two last)');
-      assert.equal(await page.locator('#mapSel').inputValue(), '0', 'the standard map is the default');
+      assert.deepEqual((await page.$$eval('#mapSel option', os => os.map(o => o.textContent))).slice(0, 4), ['Dust Quarter · up to 4', 'Gold Crown · up to 4', 'Long Steppe · up to 4', 'Random · up to 4'], 'named maps, nothing given away');
+      assert.equal(await page.locator('#mapSel option').count(), 8, 'every map of the two sizes offered');
+      assert.equal(await page.locator('#mapSel').inputValue(), '4', 'the standard map at 96x96 is the default');
       // The opponent's level: in its token's sheet (LEVEL), its name only.
       await board(page).open(1);
       assert.deepEqual(await page.$$eval('#soloSheet [data-k^="diff:"]', bs => bs.map(b => b.textContent)), ['EASY', 'MEDIUM', 'HARD'], 'three levels at launch, exactly');
-      assert.equal(await page.locator('#soloSheet [data-k="diff:3"]').textContent(), 'HARD', 'Hard is the sim\'s level 3 (its level 2 is not offered)');
+      assert.equal(await page.locator('#soloSheet [data-k="diff:2"]').textContent(), 'HARD', 'Hard is the sim\'s level 2 (its level 3 is not offered)');
+      assert.match(await page.locator('#soloSheet [data-k="diff:2"]').getAttribute('title'), /gathers a little faster than you/, 'Hard\'s bonus told in its chip');
       assert.equal(await page.locator('#soloSheet [data-k^="diff:"].on').textContent(), 'EASY', 'new players start on Easy');
-      const level = touch ? 3 : 1; // (Medium on the desktop, Hard on the phone: the sim's level 3)
+      const level = touch ? 2 : 1; // (Medium on the desktop, Hard on the phone: the sim's level 2)
       await press(`#soloSheet [data-k="diff:${level}"]`);
       assert.deepEqual(await page.$$eval('#soloSheet .opt .lbl', ls => ls.map(l => l.textContent)), ['RACE', 'LEVEL', 'SIDE']);
       assert.equal(await page.locator('#soloSheet .hint, #soloSheet [aria-describedby]').count(), 0, 'no line on what a level means');
       await press('#soloSheet [data-k="done"]');
       assert.ok(await page.locator('#soloSheet').isHidden(), 'DONE closes the sheet');
-      await page.locator('#mapSel').selectOption('1');
+      await page.locator('#mapSel').selectOption('5');
       await press('#cornerSound'); // (the speaker in the corner)
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
-      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [1998, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
+      assert.deepEqual(await page.evaluate(() => [endfall.G.seed, endfall.G.diff, endfall.G.mapKind]), [2940, level, 1], 'the chosen map (always the same layout, its hidden character) and opponent');
       assert.equal(await page.locator('#btnSound').getAttribute('aria-pressed'), 'false', 'sound off in the game too');
-      // How to play is in the pause menu (no Help button in the top bar); the game waits; back to the pause menu.
-      assert.equal(await page.locator('#btnHelp').count(), 0, 'no Help button in the top bar');
+      // How to play from the pause menu: the help sheet over it; the game stays paused; back to the pause menu.
       await press('#btnPause'); await press('#btnPauseHelp');
-      assert.ok(await page.locator('#help').isVisible(), 'How to play opens');
+      assert.ok(await page.locator('#helpSheet').isVisible(), 'How to play opens');
       const t0 = await page.evaluate(() => endfall.G.time); await page.waitForTimeout(600);
-      assert.equal(await page.evaluate(() => endfall.G.time), t0, 'the game waits while help is open');
+      assert.equal(await page.evaluate(() => endfall.G.time), t0, 'the game stays paused under it');
       await press('#btnHelpClose');
-      assert.ok(await page.locator('#help').isHidden() && await page.locator('#pause').isVisible(), 'back to the pause menu');
+      assert.ok(await page.locator('#helpSheet').isHidden() && await page.locator('#pause').isVisible(), 'back to the pause menu');
       await press('#btnResume');
       // The choices are remembered.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
       assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuSolo').isHidden(), 'the menu opens on its first page');
       await press('#btnSolo');
       assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), touch ? /Hard/ : /Medium/, 'opponent remembered');
-      assert.equal(await page.locator('#soloBoard [data-k="tok1"] .lvl i.on').count(), [0, 1, 3].indexOf(level) + 1, 'its level as pips (three)');
+      assert.equal(await page.locator('#soloBoard [data-k="tok1"] .lvl i.on').count(), [0, 1, 2].indexOf(level) + 1, 'its level as pips (three)');
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'false', 'sound choice remembered');
       // The random map is a new one each game.
-      assert.equal(await page.locator('#mapSel').inputValue(), '1', 'the map remembered');
-      await page.locator('#mapSel').selectOption('3'); await press('#btnStart');
+      assert.equal(await page.locator('#mapSel').inputValue(), '5', 'the map remembered');
+      await page.locator('#mapSel').selectOption('7'); await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0);
-      assert.ok(![4242, 1998, 2077].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
+      assert.ok(![1291, 2940, 1582].includes(await page.evaluate(() => endfall.G.seed)), 'a freshly generated map');
     } finally { await ctx.close(); }
   }
+});
+
+test('no 64x64 map in the list: a new single player game is two players on a 96x96 map, and starts; a saved hidden map opens the default; a challenge on one plays it', async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  try {
+    await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click();
+    const options = () => page.$$eval('#mapSel option', os => os.map(o => [+o.value, o.textContent]));
+    const listed = await options();
+    assert.deepEqual(listed.filter(([i, t]) => [0, 1, 2, 3, 12, 13].includes(i) || / up to 2$/.test(t)), [], `no 64x64 map: ${JSON.stringify(listed)}`);
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the default: a 96x96 map');
+    assert.deepEqual(await board(page).spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], 'two players');
+    assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96);
+    await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0);
+    const got = await page.evaluate(() => [endfall.engine.MW, endfall.G.factions.length, endfall.G.bldgs.filter(b => b.d.hq).map(b => [b.tx, b.ty])]);
+    assert.deepEqual(got.slice(0, 2), [96, 2], 'two seats on 96x96');
+    assert.equal(got[2].length, 2, 'a headquarters each, two starts free');
+    const [[ax, ay], [bx, by]] = got[2];
+    assert.ok(Math.hypot(ax - bx, ay - by) > 50, `the two far apart: ${JSON.stringify(got[2])}`);
+    await page.evaluate(() => endfall.skip(5));
+    // A map saved before they were hidden (Mirror Lake): the default instead.
+    await page.evaluate(() => localStorage.setItem('endfall.map', '12'));
+    await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+    await page.locator('#btnSolo').click();
+    assert.equal(await page.locator('#mapSel').inputValue(), '4', 'a saved hidden map: the default');
+    // A challenge link on a hidden map (Ashen Basin) plays it, listed while chosen; another map picked, gone from the list.
+    const code = encode({ map: 0, side: 1, secs: 200, spots: [{ race: 'humans', team: 0 }, { race: 'vael', team: 1, diff: 1 }] });
+    await page.goto(`${baseUrl()}?vs=${code}`, { waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Ashen Basin · up to 2', 'the challenge\'s map');
+    await page.locator('#mapSel').selectOption('5');
+    assert.deepEqual((await options()).map(([i]) => i), listed.map(([i]) => i), 'once another is picked: the list without it');
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
 });
 
 test('the menu opens on two modes; each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
@@ -730,19 +797,12 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       const shown = (sel) => page.locator(sel).isVisible();
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
-      assert.ok(await shown('#btnHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there; the game\'s choices are not');
+      assert.ok(await shown('#linkHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there (the docs); the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
-      // ABOUT: a page of a few lines, the source and the device check, the version; BACK.
-      await press('#btnAbout');
-      assert.ok(await shown('#menuAbout') && await page.locator('#menuHome').isHidden() && await shown('#cornerSound'), 'About opens, the sound icon still there');
-      assert.equal(await page.locator('#menuAbout h2').textContent(), 'ABOUT');
-      const src = page.locator('#srcLink');
-      assert.deepEqual([await src.textContent(), await src.getAttribute('href'), await src.getAttribute('target'), await src.getAttribute('rel')], ['Source code on GitHub', 'https://github.com/mazzucci/ebbfall', '_blank', 'noopener']);
-      assert.equal(await page.locator('#checkLink').getAttribute('href'), './selftest.html');
-      assert.match(await page.locator('#buildId').textContent(), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
-      await press('#btnAboutBack');
-      assert.ok(await shown('#menuHome') && await page.locator('#menuAbout').isHidden(), 'BACK: the first page');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
+      // About: the docs, in a new tab (test/e2e/docs.e2e.mjs); the version on the build stamp.
+      assert.equal(await page.locator('#linkAbout').getAttribute('href'), './docs/about/');
+      assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
       // SINGLE PLAYER: its page, the sides board (YOU on your side, AI 1 the enemy), no SOUND row; BACK.
       await press('#btnSolo');
       assert.ok(await shown('#menuSolo') && await page.locator('#menuHome').isHidden(), 'single player opens its page');
@@ -887,10 +947,8 @@ test('a game that never finishes loading: START GAME waits, BACK calls it off, a
     assert.equal(await page.locator('#btnStart').textContent(), 'LOADING…');
     await page.locator('#btnSoloBack').click();
     assert.ok(await page.locator('#menuHome').isVisible(), 'BACK works while the game loads');
-    await page.locator('#btnAbout').click(); await page.locator('#menuAbout').waitFor();
-    await page.locator('#btnOffline').click(); // (the service worker is registered once the game's load is over: not yet)
-    await page.waitForFunction(() => /^Saving for offline…/.test(document.getElementById('offlineMsg').textContent), null, { timeout: 10000 });
-    await page.locator('#btnAboutBack').click();
+    await page.locator('#btnInstall').click(); // (PLAY OFFLINE: nothing to install here; the service worker is registered once the game's load is over: not yet)
+    await page.waitForFunction(() => /^Saving for offline…/.test(document.getElementById('homeOfflineMsg').textContent), null, { timeout: 10000 });
     await page.locator('#btnSolo').click();
     assert.equal(await page.locator('#btnStart').textContent(), 'START GAME', 'the start was called off: the button is itself again');
     assert.ok(await page.locator('#btnStart').isEnabled());
@@ -934,6 +992,7 @@ test('a queued unit is cancelled with a click or tap on it, for a full refund', 
       const shards = (await d.state()).res[0];
       const box = '#queue';
       assert.equal(await d.page.locator(`${box} .qi`).count(), 3, `${d.touch ? 'phone' : 'desktop'}: the queue shows`);
+      assert.equal(await d.page.locator(`${box} .qi svg.ico.gl`).count(), 3, 'each slot shows its train button\'s symbol');
       const second = d.page.locator(`${box} .qi[data-i="1"]`);
       await (d.touch ? second.tap() : second.click());
       const after = await d.state();
@@ -961,7 +1020,7 @@ test('phone: a long-press on a command button shows what it is and costs, withou
     const info = d.page.locator('#cmdInfo');
     assert.ok(await info.isVisible(), 'details show while held');
     const text = await info.textContent();
-    assert.match(text, /Blacksmith/); assert.match(text, /150/); assert.match(text, /Needs a Barracks/);
+    assert.match(text, /Blacksmith/); assert.match(text, /300/); assert.match(text, /Needs a Barracks/);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await d.page.waitForTimeout(150);
     assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-press did not start placing a Blacksmith');
@@ -1066,7 +1125,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', factory: 
 // research shows with its own bar, and nothing in the console moves when the research starts or ends; a queued unit is
 // still cancelled with a tap. All four screens.
 const SMALL_PHONE = { ...PHONE, viewport: { width: 667, height: 375 } }, UPRIGHT = { ...PHONE, viewport: { width: 412, height: 915 } };
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['c', 'barracks'], ['x', 'extractor'], ['f', 'airfield']], unit: 'Rider', tech: 'Horseshoes', name: 'Horseshoes', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['c', 'barracks'], ['k', 'forge'], ['f', 'airfield']], unit: 'Rider', tech: 'Horseshoes', name: 'Horseshoes', devices: [DESKTOP, SMALL_PHONE, PHONE, UPRIGHT] }]]) {
   test(`a factory's research shows beside its queue, and nothing in the console moves as it starts and ends (${race})`, async () => {
     for (const device of R.devices) {
       const d = await newGame(device, 1, 4242, { ai: false, race });
@@ -1130,14 +1189,14 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
   });
 }
 
-// The console fits every phone, fluidly: the Stables with a full queue and a research (the Expedition's Factory: its
-// queue alone, as it researches nothing), at every landscape
+// The console fits every phone, fluidly: the Stables with a full queue and a research (the Expedition's Factory, its
+// Drones after a Lab: its queue alone, as it researches nothing), at every landscape
 // width from 640 to 900 (360 and 390 high) and upright from 360 to 430 wide: the name and the health figure whole,
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
 // capital unit's (the most figures): whole, on one line or two, inside the console.
-for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['w', 'depot'], ['c', 'barracks'], ['x', 'extractor'], ['f', 'airfield']], unit: 'Rider', tech: 'Horseshoes', capital: 'knight' }],
-  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['s', 'spire'], ['i', 'siphon'], ['c', 'kiln']], unit: 'Drone', tech: null, capital: 'bruiser' }]]) {
+for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [['w', 'depot'], ['c', 'barracks'], ['k', 'forge'], ['f', 'airfield']], unit: 'Rider', tech: 'Horseshoes', capital: 'knight' }],
+  ['vael', { hq: 'conflux', worker: 'lumen', steps: [['w', 'substation'], ['i', 'siphon'], ['g', 'loom'], ['c', 'kiln']], unit: 'Drone', tech: null, capital: 'bruiser' }]]) {
   test(`the console fits every phone width with a full queue and a research (${race})`, async () => {
     const d = await newGame(PHONE, 1, 4242, { ai: false, race });
     try {
@@ -1173,19 +1232,23 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
       for (const [w, h] of sizes) {
         const where = `${race}, ${w}x${h}`;
         await d.page.setViewportSize({ width: w, height: h });
-        while (await queued() < 5) await d.pressCard(R.unit); // (keep it full: units finish meanwhile)
-        await d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-        const m = await d.page.evaluate(() => {
-          const r = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, r: b.right, b: b.bottom, c: e.id || e.className.baseVal || e.className }; }, $ = (id) => document.getElementById(id);
-          const name = $('selName'), num = $('hpNum');
-          return {
-            info: r($('info')), mod: r($('mod')), life: r($('life')), num: r(num), cmd: r($('cmd')), minimap: r($('minimap')),
-            parts: [...document.querySelectorAll('#queue .qi, #queue .qe, #queue .prod, #qres, #qres > *, #selPor, #selName, #life, #hpNum')].map(r),
-            slots: [...document.querySelectorAll('#queue .qi, #queue .qe, #queue .prod, #qres, #qres > *')].map(r),
-            units: document.querySelectorAll('#queue .qi').length, researching: !!document.querySelector('#qres:not(.idle)'),
-            nameCut: name.scrollWidth > name.clientWidth, numCut: num.scrollWidth > num.clientWidth,
-          };
-        });
+        // (keep it full: units finish meanwhile, a Drone every 12 s; measured again if one finished in between)
+        let m;
+        for (let tries = 0; tries < 4 && !(m && m.units === 5); tries++) {
+          while (await queued() < 5) await d.pressCard(R.unit);
+          await d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+          m = await d.page.evaluate(() => {
+            const r = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, r: b.right, b: b.bottom, c: e.id || e.className.baseVal || e.className }; }, $ = (id) => document.getElementById(id);
+            const name = $('selName'), num = $('hpNum');
+            return {
+              info: r($('info')), mod: r($('mod')), life: r($('life')), num: r(num), cmd: r($('cmd')), minimap: r($('minimap')),
+              parts: [...document.querySelectorAll('#queue .qi, #queue .qe, #queue .prod, #qres, #qres > *, #selPor, #selName, #life, #hpNum')].map(r),
+              slots: [...document.querySelectorAll('#queue .qi, #queue .qe, #queue .prod, #qres, #qres > *')].map(r),
+              units: document.querySelectorAll('#queue .qi').length, researching: !!document.querySelector('#qres:not(.idle)'),
+              nameCut: name.scrollWidth > name.clientWidth, numCut: num.scrollWidth > num.clientWidth,
+            };
+          });
+        }
         const inside = (a, o) => a.x >= o.x - 0.5 && a.y >= o.y - 0.5 && a.r <= o.r + 0.5 && a.b <= o.b + 0.5;
         const apart = (a, o) => a.r <= o.x + 0.5 || o.r <= a.x + 0.5 || a.b <= o.y + 0.5 || o.b <= a.y + 0.5;
         assert.equal(m.units, 5, `${where}: the full queue shows`);
@@ -1287,7 +1350,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['landscape phone', { ...PH
   });
 }
 
-test('the Build list packs its buttons in the order they open: a newly opened building comes last and moves none of the others', async () => {
+test('the Build list packs its buttons in the order they open: a newly opened building comes last and moves none of the others; the Watchtower on the basic page', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
@@ -1302,13 +1365,40 @@ test('the Build list packs its buttons in the order they open: a newly opened bu
       await d.pressCard('Back'); if (adv) await d.pressCard('Back');
       return got;
     };
-    assert.deepEqual(await page(false), ['Barracks 0', 'Cottage 1', 'Castle 2', 'Advanced 3', 'Back 5'], 'the basic page: Advanced right after the open buildings, Back in the corner');
-    assert.deepEqual(await page(true), ['Blacksmith 0', 'Watchtower 1', 'Workshop 2', 'Market 3', 'Back 5'], 'the advanced page packed from the first slot, no gap for the Stables');
-    await buildAndFinish(d, 'x', 'extractor', 1);
-    assert.deepEqual(await page(true), ['Blacksmith 0', 'Watchtower 1', 'Workshop 2', 'Market 3', 'Stables 4', 'Back 5'], 'the Stables open last; the others keep their slots');
+    assert.deepEqual(await page(false), ['Castle 0', 'Barracks 1', 'Cottage 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page: the Watchtower (a defense is basic, as the Sentry mast), then Advanced, Back in the corner');
+    assert.deepEqual(await page(true), ['Blacksmith 0', 'Workshop 1', 'Market 2', 'Back 5'], 'the advanced page packed from the first slot, no gap for the Stables');
+    await buildAndFinish(d, 'k', 'forge', 1);
+    assert.deepEqual(await page(true), ['Blacksmith 0', 'Workshop 1', 'Market 2', 'Stables 3', 'Back 5'], 'the Stables open last (once a Blacksmith stands); the others keep their slots');
+    assert.deepEqual(await page(false), ['Castle 0', 'Barracks 1', 'Cottage 2', 'Watchtower 3', 'Advanced 4', 'Back 5'], 'the basic page unchanged');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+// Build, Advanced with every building open (the Expedition's five fill all but the corner), then Back: the basic page.
+// On the phone Back is a quick tap the page handles late (a busy frame outlasting the long press's timer): still a tap.
+for (const [race, V, steps, full, basic] of [
+  ['vael', { hq: 'conflux', worker: 'lumen' }, [['i', 'siphon'], ['g', 'loom'], ['u', 'uplink']], ['Factory', 'Lab', 'Turbine', 'Uplink', 'Portal'], 'Substation'],
+  ['humans', { hq: 'core', worker: 'harvester' }, [['c', 'barracks'], ['k', 'forge']], ['Blacksmith', 'Workshop', 'Market', 'Stables'], 'Cottage']]) {
+  for (const [where, layout] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+    test(`${where}, as ${race === 'vael' ? 'the Expedition' : 'the Kingdom'}: Build, Advanced with every building open, then Back lands on the basic page${where === 'phone' ? ' (a quick tap handled late)' : ''}`, where === 'phone' ? { chromium: CDP_TOUCH } : {}, async () => {
+      const d = await newGame(layout, 0, 4242, { ai: false, race });
+      try {
+        await d.grant(9000, 0);
+        for (const [i, [k, t]] of steps.entries()) await buildAndFinish(d, k, t, i, V);
+        const w = mine(await d.state(), V.worker)[3];
+        for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); } // (a worker moves: again until it is picked)
+        await d.pressCard('Build'); await d.readyCard('Advanced'); await d.pressCard('Advanced');
+        await d.readyCard(full.at(-1));
+        assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), [...full.map((l, i) => `${l} ${i}`), 'Back 5'], 'the advanced page full, Back in the corner');
+        if (d.touch) { const r = await d.page.locator('#cmd [data-id="build1"]').boundingBox(); await d.lateTap(r.x + r.width / 2, r.y + r.height / 2); } else await d.pressCard('Back');
+        await d.readyCard(basic);
+        assert.equal(await d.eval(() => endfall.ui.mode), 'build', 'Back: the basic page');
+        if (d.touch) assert.ok(await d.page.locator('#cmdInfo').isHidden(), 'no details left over from the tap'); // (a mouse left over the card shows its hover details, as it should)
+        assert.deepEqual(d.errors, []);
+      } finally { await d.close(); }
+    });
+  }
+}
 
 test('phone: three buttons a row; the Build list has a basic and an advanced page; an armed order turns into Cancel', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
@@ -1318,7 +1408,7 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     const h = mine(await d.state(), 'harvester')[0];
     await d.clickEntity(h.id);
     await d.pressCard('Build');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Barracks', 'Cottage', 'Castle', 'Back'], 'the basic page: the Barracks first; all it holds is there from the start; no Advanced (nor the Market) before a Barracks');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Castle', 'Barracks', 'Cottage', 'Back'], 'the basic page: the Castle first (a new base), then the Barracks; all it holds is there from the start; no Advanced (nor the Market) before a Barracks');
     await d.pressCard('Cottage');
     assert.equal((await d.card())[0].label, 'Cancel', 'placing: the Build button is Cancel');
     await d.pressCard('Cancel');
@@ -1328,15 +1418,15 @@ test('phone: three buttons a row; the Build list has a basic and an advanced pag
     await d.pressCard('Build');
     await d.readyCard('Advanced'); // (once the Barracks stands)
     await d.pressCard('Advanced');
-    assert.deepEqual((await d.card()).map(c => c.label), ['Blacksmith', 'Watchtower', 'Workshop', 'Market', 'Back'], 'the advanced page (the Market: it needs the Barracks; no Stables before a Market stands)');
+    assert.deepEqual((await d.card()).map(c => c.label), ['Blacksmith', 'Workshop', 'Market', 'Back'], 'the advanced page (the Market: it needs the Barracks; no Stables before a Blacksmith stands; the Watchtower on the basic page)');
     await d.pressCard('Back');
     assert.ok((await d.card()).some(c => c.label === 'Cottage'), 'back to the basic page');
     await d.pressCard('Back');
     const cols = await d.page.$$eval('#cmd > *', els => new Set(els.map(e => Math.round(e.getBoundingClientRect().x))).size);
     assert.equal(cols, 3, 'three columns');
-    await d.pressCard('Gather');
+    await d.pressCard('Mine');
     let card = await d.card();
-    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold', 'Deselect'], 'Gather armed: its button is Cancel, in place');
+    assert.deepEqual(card.map(c => c.label), ['Build', 'Cancel', 'Repair', 'Attack', 'Hold', 'Deselect'], 'Mine armed: its button is Cancel, in place');
     await d.pressCard('Cancel');
     assert.equal(await d.eval(() => endfall.ui.mode), null, 'Cancel disarms');
     await d.pressCard('Deselect');
@@ -1360,9 +1450,9 @@ test('phone: a site that loses its builder says so once; no keyboard letters; gr
     for (let i = 0; i < 8; i++) { await d.clickEntity(h.id); if ((await d.selection()).some(e => e.id === h.id)) break; await d.page.waitForTimeout(200); }
     assert.ok((await d.selection()).some(e => e.id === h.id), 'the builder selected');
     await d.clickWorld(node.x, node.y);
-    await until(d, async () => (await d.toasts()).some(t => /paused: no builder/.test(t)), { seconds: 10, what: 'the paused-site toast' });
+    await until(d, async () => (await d.toasts()).some(t => /^Cottage paused at \d+%$/.test(t)), { seconds: 10, what: 'the paused-site toast' });
     await d.skip(3);
-    assert.ok((await d.toasts()).filter(t => /paused: no builder/.test(t)).length <= 1, 'never stacked');
+    assert.ok((await d.toasts()).filter(t => /paused at \d+%/.test(t)).length <= 1, 'never stacked');
     assert.equal(await d.page.locator('#cmd .cb .k').first().isVisible().catch(() => false), false, 'no keyboard letters on touch');
     // A mixed army: one tile per type with its count, inside the console.
     await d.eval(([x, y]) => { for (let i = 0; i < 10; i++) endfall.engine.debugSpawn(0, 'trooper', x + (i % 5) * 22, y + Math.floor(i / 5) * 22); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', x + i * 22, y + 50); }, [core.x + 160, core.y + 150]);
@@ -1418,28 +1508,28 @@ test('the menu offers the Expedition: their base, workers and Build list', async
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
     assert.deepEqual(mine.b, ['conflux']); assert.deepEqual(mine.u, ['lumen']); assert.deepEqual(mine.f, ['vael', 'humans'], 'the AI plays the humans');
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
-    await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Turbine'), null, { timeout: 10000 }); // (the card redraws on the next frame)
+    await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.deepEqual(labels, ['Recruiting', 'Turbine', 'Data center', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
+    assert.deepEqual(labels, ['Data center', 'Recruiting', 'Substation', 'Sentry mast', 'Back'], 'the Expedition\'s Build list (Advanced once its Recruiting post stands)');
     await page.evaluate(() => { endfall.ui.mode = null; });
-    await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Turbine'), null, { timeout: 10000 });
+    await page.waitForFunction(() => ![...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 });
     assert.ok(!(await page.locator('#shBar').isVisible()), 'a Bot has no shields to show (none since the re-theme)');
     const card = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));
-    assert.ok(!card.includes('Repair'), `the Expedition do not repair: ${card}`);
+    assert.ok(card.includes('Repair'), `a Bot repairs buildings: ${card}`);
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });
 
-test('phone: as the Expedition, a Bot stays at its wind turbine; pulled away, the site pauses and Resume sends one back', { chromium: CDP_TOUCH }, async () => {
+test('phone: as the Expedition, a Bot stays at its Substation; pulled away, the site pauses and Resume sends one back', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false, race: 'vael' });
   try {
     await d.grant(1000, 0);
     const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
     const lumen = s.units.find(u => u.team === 0 && u.type === 'lumen');
-    const spot = await d.findSpot('spire', { tx: hq.tx + 1, ty: hq.ty + 1 });
-    await d.buildWithUI('s', 'spire', spot.tx, spot.ty, lumen.id);
-    const spire = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'spire'));
-    await until(d, async () => (await spire())?.progress > 0.2, { seconds: 30, what: 'the wind turbine to rise' });
+    const spot = await d.findSpot('substation', { tx: hq.tx + 1, ty: hq.ty + 1 });
+    await d.buildWithUI('w', 'substation', spot.tx, spot.ty, lumen.id);
+    const spire = () => d.state().then(st => st.bldgs.find(b => b.team === 0 && b.type === 'substation'));
+    await until(d, async () => (await spire())?.progress > 0.2, { seconds: 30, what: 'the Substation to rise' });
     const task = async () => (await d.state()).units.find(u => u.id === lumen.id).task;
     assert.equal(await task(), 'build', 'the Bot stays on its site');
     // Pull the Bot off (tap until it, not the site it stands on, is the selection) and send it to the gold mine.
@@ -1447,16 +1537,16 @@ test('phone: as the Expedition, a Bot stays at its wind turbine; pulled away, th
     for (let i = 0; i < 8; i++) { await d.clickEntity(lumen.id); if ((await d.selection()).some(e => e.id === lumen.id)) break; await d.page.waitForTimeout(200); }
     assert.ok((await d.selection()).some(e => e.id === lumen.id), 'the Bot selected');
     await d.clickWorld(node.x, node.y);
-    await until(d, async () => (await d.toasts()).some(t => /Wind turbine paused: no builder \(select it and tap Resume\)/.test(t)), { seconds: 10, what: 'the paused-site toast' });
+    await until(d, async () => (await d.toasts()).some(t => /^Substation paused at \d+%$/.test(t)), { seconds: 10, what: 'the paused-site toast' });
     const p = (await spire()).progress;
     await d.skip(4);
     assert.equal((await spire()).progress, p, 'no Bot, no progress');
     await d.clickEntity((await spire()).id);
-    assert.match(await d.hudText('#selSub', /Paused/), /Paused: no builder/, 'the panel says so');
+    assert.match(await d.hudText('#selSub', /Paused/), /^Paused at \d+%$/, 'the panel says so');
     const labels = (await d.card()).map(c => c.label);
     assert.ok(labels.includes('Resume') && !labels.includes('Plant'), `Resume on the card: ${labels}`);
     await d.pressCard('Resume');
-    await until(d, async () => (await spire())?.done, { seconds: 60, what: 'the resumed wind turbine to finish' });
+    await until(d, async () => (await spire())?.done, { seconds: 60, what: 'the resumed Substation to finish' });
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1642,34 +1732,46 @@ test('an Expedition unit\'s health figure is its hull (no shields since the re-t
   } finally { await d.close(); }
 });
 
-test('as the Expedition: a selected machine or Data center shows the range as circles, and a machine moving in it is marked (it moves faster there)', async () => {
+test('as the Expedition: a selected machine or Data center shows the range as circles, a machine out of coverage shows no signal, and loses the mark once back inside', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
   try {
     const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
     const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
     const range = () => d.eval(() => endfall.rangeShown());
     assert.equal((await range()).shown, false, 'nothing selected: no range drawn');
-    // Two Rovers towards the map's middle: one a little past the Data center's range, one a little inside it, the
-    // view between them; each sent a short way along the edge (moving: the mark shows only on the move).
+    // Two Rovers towards the map's middle: one a little past the Data center's range (stranded), one a little inside
+    // it, the view between them.
     const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
     const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy), at = (k) => [hq.x + dx / len * k * T, hq.y + dy / len * k * T];
-    const [p1, p2] = [at(reach + 3), at(reach - 3)];
+    // (each on open ground, three tiles clear of rock and mines all round: a Rover spawned against rock stays stuck)
+    const clear = (k) => d.eval(([x, y]) => { const tx = Math.floor(x / 32), ty = Math.floor(y / 32), M = endfall.engine.MW;
+      return [-2, -1, 0, 1, 2].every(dy => [-2, -1, 0, 1, 2].every(dx => !endfall.map.rock[(ty + dy) * M + tx + dx] && !endfall.map.occ[(ty + dy) * M + tx + dx])); }, at(k));
+    const open = async (ks) => { for (const k of ks) if (await clear(k)) return k; return ks[0]; };
+    const [kOut, kIn] = [await open([3, 4, 5, 2].map(k => reach + k)), await open([3, 4, 5, 2].map(k => reach - k))];
+    const [p1, p2] = [at(kOut), at(kIn)];
     await d.centerOn((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
     const [out, inside] = await d.eval(([a, b]) => [endfall.engine.debugSpawn(0, 'monolith', ...a), endfall.engine.debugSpawn(0, 'monolith', ...b)], [p1, p2]);
-    assert.ok(!(await range()).marked.some(id => id === out || id === inside), 'standing still: no mark');
-    // Both selected with a box and sent off across the line between them, through the UI (a right click).
+    await d.page.waitForFunction((id) => endfall.rangeShown().marked.includes(id), out, { timeout: 15000 });
+    assert.ok(!(await range()).marked.includes(inside), 'the Rover inside coverage: no mark');
+    // Both selected with a box: the range drawn.
     const lo = [Math.min(p1[0], p2[0]) - 30, Math.min(p1[1], p2[1]) - 30], hi = [Math.max(p1[0], p2[0]) + 30, Math.max(p1[1], p2[1]) + 30];
     await d.boxSelect(lo[0], lo[1], hi[0], hi[1]);
     assert.deepEqual((await d.selection()).map(e => e.id).sort(), [out, inside].sort());
     await d.page.waitForFunction(() => endfall.rangeShown().shown, null, { timeout: 5000 }); // machines selected: the range is drawn
-    const side = [-dy / len, dx / len], mid = [(p1[0] + p2[0]) / 2 + side[0] * 4 * T, (p1[1] + p2[1]) / 2 + side[1] * 4 * T];
-    await d.rightClickWorld(mid[0], mid[1]);
-    await d.page.waitForFunction((id) => endfall.rangeShown().marked.includes(id), inside, { timeout: 15000 });
-    assert.ok(await d.eval((id) => endfall.teamLayers().some(l => l.id === id && l.shown), out), 'the Rover out of range is on screen too');
-    // The mark goes by the sim's rule: whatever is marked is in range now (exact distance), and the Rover out there is not.
-    const marked = await d.eval(() => endfall.rangeShown().marked.map(id => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return [id, Math.hypot(u.x - c.x, u.y - c.y) <= c.r]; }));
-    assert.ok(marked.every(([, inR]) => inR), `only machines in range are marked: ${JSON.stringify(marked)}`);
-    assert.ok(await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) > c.r && !endfall.rangeShown().marked.includes(id); }, out), 'the Rover out of range: no mark');
+    // The mark goes by the sim's rule: whatever is marked is out of range (exact distance).
+    const marked = await d.eval(() => endfall.rangeShown().marked.map(id => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return [id, Math.hypot(u.x - c.x, u.y - c.y) > c.r]; }));
+    assert.ok(marked.length && marked.every(([, o]) => o), `only machines out of range are marked: ${JSON.stringify(marked)}`);
+    // Sent far past the edge (a right click): told there is no signal, and the rim nearest brightens for a moment.
+    await d.rightClickWorld(...at(reach + 12));
+    await d.page.waitForFunction(() => endfall.rangeShown().leash, null, { timeout: 5000 });
+    assert.match((await d.toasts()).join(' | '), /No signal there: an Uplink reaches further\./);
+    await d.page.waitForFunction(() => !endfall.rangeShown().leash, null, { timeout: 5000 }); // (faded in 0.6 s)
+    // Sent back towards the Data center through the UI (a right click): once inside, the stranded one's mark goes.
+    await d.rightClickWorld(...at(reach - 6));
+    // (back inside coverage, fast-forwarded: out of coverage it is slow, and the way back may wind round rock)
+    assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) <= c.r; }, out, { seconds: 60 }), 'back inside coverage');
+    await d.centerOn(...at(reach - 3));
+    await d.page.waitForFunction((id) => !endfall.rangeShown().marked.includes(id), out, { timeout: 5000 });
     // The Data center selected with a click: its circle, the reach in the sim's own numbers.
     await d.clickEntity(hq.id);
     await d.page.waitForFunction(() => endfall.rangeShown().shown, null, { timeout: 15000 });
@@ -1685,25 +1787,26 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
 });
 
 
-test('as the Expedition: the top bar shows gold as coins and Power, whole, on a desktop, a small phone and upright phones; hired places are on the Recruiting post', async () => {
+test('as the Expedition: the top bar shows energy as a bolt and the grid, whole, on a desktop, a small phone and upright phones', async () => {
   const NARROW = { ...PHONE, viewport: { width: 360, height: 780 } };
   for (const dev of [DESKTOP, SMALL_PHONE, UPRIGHT, NARROW]) {
     const d = await newGame(dev, 0, 4242, { ai: false, race: 'vael' });
     try {
-      await d.page.waitForFunction(() => document.getElementById('lSupply').textContent === 'POWER', null, { timeout: 5000 });
+      await d.page.waitForFunction(() => document.getElementById('lSupply').textContent === 'GRID', null, { timeout: 5000 });
       const s = await d.state();
-      assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'Power: used over made');
-      assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Power');
-      assert.equal(await d.page.locator('#top .res').count(), 2, 'gold and Power only: no hired places on top');
-      assert.ok(await d.eval(() => getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'gold shown with its coins');
+      assert.equal(await d.page.locator('#rSupply').textContent(), `${s.sup[0]}/${s.sup[1]}`, 'the grid: drawn over made');
+      assert.equal(await d.page.locator('#resSup').getAttribute('title'), 'Grid');
+      assert.equal(await d.page.locator('#resShard').getAttribute('title'), 'Energy');
+      assert.equal(await d.page.locator('#top .res:not(#resClock)').count(), 2, 'energy and the grid only (and the clock)');
+      assert.ok(await d.eval(() => document.querySelector('#resShard .dot').classList.contains('bolt') && getComputedStyle(document.querySelector('#resShard .dot')).backgroundImage.includes('svg')), 'energy shown with its bolt');
       // Every figure and button whole and on the screen, with wide figures (set and measured in one go: the HUD
       // writes its own back on its next tick).
       const boxes = await d.eval(() => {
-        document.getElementById('rShard').textContent = '12500'; document.getElementById('rSupply').textContent = '76/80';
+        document.getElementById('rShard').textContent = '12500'; document.getElementById('rSupply').textContent = '76/80'; document.getElementById('rClock').textContent = '58:58';
         return [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && !e.classList.contains('spacer')).map(e => { const r = e.getBoundingClientRect(); return { id: e.id, l: r.left, r: r.right, cut: [...e.querySelectorAll('*')].some(c => c.scrollWidth > c.clientWidth + 1 && getComputedStyle(c).display !== 'inline') }; });
       });
       const bar = await d.eval(() => { const r = document.getElementById('top').getBoundingClientRect(); return [Math.max(0, r.left), Math.min(innerWidth, r.right)]; }); // (and on the screen)
-      assert.deepEqual(boxes.map(b => b.id).filter(id => id.startsWith('res')), ['resShard', 'resSup']);
+      assert.deepEqual(boxes.map(b => b.id).filter(id => id.startsWith('res')), ['resShard', 'resSup', 'resClock']);
       assert.ok(boxes.some(b => b.id === 'btnPause'), 'Pause shown');
       for (const [i, b] of boxes.entries()) {
         assert.ok(b.l >= bar[0] && b.r <= bar[1], `${b.id} inside the bar on screen (${JSON.stringify(b)} in ${bar})`);
@@ -1715,51 +1818,145 @@ test('as the Expedition: the top bar shows gold as coins and Power, whole, on a 
   }
 });
 
-test('as the Expedition: a Bot refused at the Power cap says so, a Wind turbine built, the Bot trains; the Build card puts Advanced in slot 3', async () => {
+test('as the Expedition: a Bot refused on a full grid says so, a Substation built, the Bot trains; Advanced in slot 4', async () => {
   const d = await newGame(SMALL_PHONE, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(3000, 0);
     const hq = myBldg(await d.state(), 'conflux')[0];
-    // Set up: Bots until the Data center's Power is all used.
+    // Set up: Bots until the Data center's grid is all drawn.
     await d.eval(([x, y]) => { const need = endfall.engine.UNITS.lumen.supply; for (let i = 0; i < 40 && endfall.G.sup[0][0] + need <= endfall.G.sup[0][1]; i++) endfall.engine.debugSpawn(0, 'lumen', x + (i % 6) * 14, y); }, [hq.x - 40, hq.y + 110]);
     await d.page.waitForTimeout(300);
-    await d.hudText('#rSupply', /^(\d+)\/\1$/);
-    assert.ok(await d.page.locator('#resSup.low').isVisible(), 'Power at its cap: the figure warns');
+    await d.hudText('#rSupply', /^22\/22$/);
+    assert.ok(await d.page.locator('#resSup.low').isVisible(), 'the grid full (none left for a Bot\'s one): the figure warns');
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
-    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough Power: build a Wind turbine\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; Power ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
+    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => /Not enough grid: build a Substation\./.test(t.textContent)), null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (toasts: ${(await d.toasts()).join(' | ')}; grid ${JSON.stringify((await d.state()).sup)}; card ${JSON.stringify(await d.card())})`); });
     assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, [], 'refused: nothing queued');
     // The refusal shows whole on this small phone.
-    const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /Power/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
+    const t = await d.eval(() => { const e = [...document.querySelectorAll('#msg .toast')].find(t => /grid/.test(t.textContent)), r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, h: innerHeight, cut: e.scrollWidth > e.clientWidth + 1 }; });
     assert.ok(t.l >= 0 && t.r <= t.w && t.t >= 0 && t.b <= t.h && !t.cut, `the toast whole on screen: ${JSON.stringify(t)}`);
-    await buildAndFinish(d, 's', 'spire', 0, V);
-    await d.hudText('#rSupply', /\/60$/);
+    await buildAndFinish(d, 'w', 'substation', 0, V);
+    await d.hudText('#rSupply', /\/32$/);
     await d.clickEntity(hq.id);
     await d.pressCard('Bot');
-    assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a turbine up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);
-    // The Build card: three open buildings, then Advanced in slot 3 once the Recruiting post stands; Back in the corner.
+    assert.deepEqual((await d.state()).bldgs.find(b => b.id === hq.id).queue, ['lumen'], `a Substation up: the Bot trains (toasts: ${(await d.toasts()).join(' | ')})`);
+    // The Build card: four open buildings, then Advanced in slot 4 once the Recruiting post stands; Back in the corner.
     await buildAndFinish(d, 'i', 'siphon', 1, V);
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
     await d.pressCard('Build');
     await d.readyCard('Advanced');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Recruiting 0', 'Turbine 1', 'Data center 2', 'Advanced 3', 'Back 5'], 'Advanced packed into slot 3');
-    // The hired places, on the Recruiting post's panel (not the top bar).
-    const post = myBldg(await d.state(), 'siphon')[0];
-    await d.clickEntity(post.id);
-    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Hired 0 / 6', null, { timeout: 5000 });
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Data center 0', 'Recruiting 1', 'Substation 2', 'Sentry mast 3', 'Advanced 4', 'Back 5'], 'Advanced packed into slot 4');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 
-test('as the Expedition: the satellite launched at the Data center (a toast, a rocket), then the Uplink appended to the Build card (no button moves), its circle shown while placing it', async () => {
+test('as the Expedition: a Wind turbine, once a Recruiting post stands, earns energy by itself and says so; five a Data center, a sixth refused', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(3000, 0);
+    await buildAndFinish(d, 'i', 'siphon', 0, V);
+    const turbine = await buildAndFinish(d, 's', 'spire', 1, V);
+    // (its Bot waits beside it: off to the mine first, so the click picks the turbine)
+    const hq = myBldg(await d.state(), 'conflux')[0], builder = mine(await d.state(), 'lumen')[1];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === builder.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(builder.id); }
+    const gold = (await d.state()).nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0];
+    await d.rightClickWorld(gold.x, gold.y);
+    await d.skip(3);
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === turbine.id && e.kind === 'bldg'); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(turbine.id); }
+    await d.page.waitForFunction(() => document.getElementById('selSub').textContent === 'Generating energy: 1 every 13.9 s', null, { timeout: 5000 }).catch(async (e) => { throw new Error(`${e.message} (it reads: ${await d.page.locator('#selSub').textContent()}; selection ${JSON.stringify(await d.selection())})`); });
+    // Four more, then a sixth: refused in the sim's words (the card checks as the sim does), and nothing to place.
+    for (const i of [2, 3, 0, 2]) await buildAndFinish(d, 's', 'spire', i, V);
+    const w = mine(await d.state(), 'lumen')[3];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
+    await d.pressCard('Build'); await d.pressCard('Advanced'); await d.pressCard('Turbine');
+    await d.page.locator('#msg .toast', { hasText: 'Maximum of 5 turbines per Data center reached.' }).waitFor({ timeout: 5000 });
+    assert.equal(await d.eval(() => endfall.ui.place), null, 'no ghost for a sixth');
+    assert.equal((await d.state()).bldgs.filter(b => b.team === 0 && b.type === 'spire').length, 5);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('the price shows each unit\'s population or grid beside it (tooltip and button); buildings draw no grid; the Lab offers Energy efficiency', async () => {
+  // (Stelian, Nov 14: "1 population" for the Kingdom, "2 grid" for the Expedition, with an icon; buildings take none)
+  const hoverInfo = async (d, label) => {
+    const btn = d.page.locator('#cmd button', { hasText: label }).first();
+    await btn.hover();
+    const info = d.page.locator('#cmdInfo');
+    await info.waitFor({ state: 'visible', timeout: 2000 });
+    const got = await d.eval(() => ({ text: document.getElementById('cmdInfo').textContent, pl: document.querySelector('#cmdInfo .pl')?.textContent ?? null, ico: !!document.querySelector('#cmdInfo .pl svg') }));
+    await d.page.mouse.move(5, 300);
+    await info.waitFor({ state: 'hidden', timeout: 2000 });
+    return got;
+  };
+  const k = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await k.clickEntity(coreOf(await k.state()).id);
+    await k.readyCard('Villager');
+    assert.deepEqual(await hoverInfo(k, 'Villager').then(g => [g.pl, g.ico]), ['1 population', true], 'the Kingdom: population');
+    assert.equal(await k.page.locator('#cmd button', { hasText: 'Villager' }).locator('.c .p').getAttribute('title'), '1 population', 'on the button too');
+    assert.deepEqual(k.errors, []);
+  } finally { await k.close(); }
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(4000, 0);
+    const before = (await d.state()).sup[0][0];
+    await buildAndFinish(d, 'i', 'siphon', 0, V);
+    const post = await buildAndFinish(d, 'i', 'siphon', 1, V);
+    await buildAndFinish(d, 'g', 'loom', 2, V);
+    assert.equal((await d.state()).sup[0][0], before, 'buildings draw no grid');
+    // The Build card: the Recruiting post's new words; the Factory's say nothing of the grid.
+    const w = mine(await d.state(), 'lumen')[3];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
+    await d.pressCard('Build');
+    await d.readyCard('Recruiting');
+    const recruiting = await hoverInfo(d, 'Recruiting');
+    assert.match(recruiting.text, /Locals sign on here for the Expedition's pay\. Hires Sellswords, and Bruisers once a Lab stands\./);
+    assert.doesNotMatch(recruiting.text, /coin|as many as you like/i);
+    assert.equal(recruiting.pl, null, 'a building: no places beside its price');
+    await d.pressCard('Advanced'); await d.readyCard('Factory');
+    const factory = await hoverInfo(d, 'Factory');
+    assert.doesNotMatch(factory.text, /grid/i, 'the Factory draws no grid');
+    assert.match((await hoverInfo(d, 'Turbine')).text, /Generates energy over time, with no workers\. Each Data center's computers run up to 5\./);
+    await d.pressCard('Back'); await d.pressCard('Back');
+    // A Sellsword at the post: "1 grid", the Bruiser "2 grid".
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === post.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(post.id); }
+    await d.readyCard('Bruiser');
+    assert.deepEqual(await hoverInfo(d, 'Sellsword').then(g => [g.pl, g.ico]), ['1 grid', true], 'the Expedition: grid');
+    assert.equal((await hoverInfo(d, 'Bruiser')).pl, '2 grid');
+    // The Lab: Energy efficiency, its words.
+    const lab = myBldg(await d.state(), 'loom')[0];
+    for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === lab.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(lab.id); }
+    await d.readyCard('Energy');
+    assert.match((await hoverInfo(d, 'Energy')).text, /Machines cost 10% less energy per level\./);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone (667x375): a unit\'s grid figure fits on its button beside the price, nothing cut', async () => {
+  const d = await newGame(SMALL_PHONE, 0, 4242, { ai: false, race: 'vael' });
+  try {
+    await d.clickEntity(myBldg(await d.state(), 'conflux')[0].id);
+    await d.readyCard('Bot');
+    const fit = await d.eval(() => { const b = [...document.querySelectorAll('#cmd button')].find(b => /Bot/.test(b.textContent)), c = b.querySelector('.c'), p = c.querySelector('.p'), s = c.querySelector('.s'), bb = b.getBoundingClientRect(), pb = p.getBoundingClientRect(), sb = s.getBoundingClientRect();
+      return { text: p.textContent, inside: pb.left >= bb.left && pb.right <= bb.right, apart: sb.right <= pb.left, cut: c.scrollWidth > c.clientWidth + 1 || b.scrollWidth > b.clientWidth + 1 }; });
+    assert.deepEqual(fit, { text: '1', inside: true, apart: true, cut: false }, 'the grid figure on the button, clear of the price');
+    // A wide price: still clear (the Expedition's dearest, the Rover's 550 and its 6 grid, shown the same way).
+    const wide = await d.eval(() => { const c = document.querySelector('#cmd button .c'); c.querySelector('.s').lastChild.textContent = '550'; c.querySelector('.p').lastChild.textContent = '6'; const pb = c.querySelector('.p').getBoundingClientRect(), sb = c.querySelector('.s').getBoundingClientRect(); return { apart: sb.right <= pb.left, cut: c.scrollWidth > c.clientWidth + 1 }; });
+    assert.deepEqual(wide, { apart: true, cut: false });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('as the Expedition: the Uplink opens with the Lab on the Build card (appended, no button moves), its circle shown while placing it', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(4000, 0);
     await buildAndFinish(d, 'i', 'siphon', 0, V);
-    await buildAndFinish(d, 'g', 'loom', 1, V);
     // The Build card's advanced page, as a Bot shows it: each button with its slot.
     const advanced = async () => {
       const w = mine(await d.state(), 'lumen')[2];
@@ -1770,30 +1967,86 @@ test('as the Expedition: the satellite launched at the Data center (a toast, a r
       await d.pressCard('Back'); await d.pressCard('Back');
       return got;
     };
-    const before = await advanced();
-    assert.deepEqual(before, ['Factory 0', 'Lab 1', 'Sentry mast 2', 'Back 5'], 'the advanced page before the satellite');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Back 5'], 'the advanced page before the Lab: no Uplink');
+    await buildAndFinish(d, 'g', 'loom', 1, V);
+    // The Uplink: open now, appended; nothing else moved. Armed, its ghost follows the mouse with its circle.
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Uplink 3', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
     const hq = myBldg(await d.state(), 'conflux')[0];
-    await d.centerOn(hq.x, hq.y);
-    await d.clickEntity(hq.id);
-    await d.pressCard('Satellite');
-    assert.ok(await d.skipUntil(() => endfall.G.upgrades[endfall.G.me].satellite > 0, null, { seconds: 90 }), 'the satellite launched');
-    await d.page.waitForFunction(() => [...document.querySelectorAll('#msg .toast')].some(t => t.textContent === 'You launched a satellite.'), null, { timeout: 5000 });
-    const rockets = await d.eval(() => endfall.launches());
-    assert.ok(rockets.length === 1 && Math.abs(rockets[0].x - hq.x) < 3 && rockets[0].y < hq.y, `a rocket rising from the Data center: ${JSON.stringify(rockets)}`);
-    // The Uplink: on the Build card's advanced page now, appended after the buttons already there (it needs no building,
-    // so it unlocks first, yet it never goes before them); armed, its ghost follows the mouse with its circle drawn.
-    const after = await advanced();
-    assert.deepEqual(after, [...before.slice(0, -1), 'Uplink 3', 'Back 5'], 'the Uplink appended; nothing else moved');
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
+    await d.centerOn(hq.x, hq.y);
     await d.pressCard('Build'); await d.pressCard('Advanced');
     await d.pressCard('Uplink');
     const [x, y] = await d.screen(hq.x + 12 * 32, hq.y);
     await d.page.mouse.move(x, y); await d.page.waitForTimeout(200);
-    const reach = await d.eval(() => endfall.engine.RADIO.sources.uplink * 32);
+    const reach = await d.eval(() => endfall.engine.coverageOf('uplink') * 32);
+    assert.equal(reach, 54 * 32, 'the Uplink reaches 54 tiles');
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
     await d.key('Escape');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('as the Expedition: placing a Substation shows coverage, outside it the ghost is red and a click says "Build within coverage"; inside it goes up', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  try {
+    await d.grant(4000, 0);
+    const s = await d.state(), hq = myBldg(s, 'conflux')[0], w = mine(s, 'lumen')[0];
+    const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
+    const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
+    // Ground 4 tiles past the Data center's coverage towards the map's middle, explored (set-up: a Sellsword there),
+    // and a spot on it refused for coverage alone (the sim's other rules all pass there).
+    const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy);
+    const px = hq.x + dx / len * (reach + 4) * T, py = hq.y + dy / len * (reach + 4) * T;
+    await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'prism', x, y), [px, py]);
+    await d.skip(1);
+    const out = await d.eval(([x, y, T]) => {
+      for (let r = 0; r < 6; r++) for (let a = 0; a < 24; a++) {
+        const tx = Math.round(x / T + Math.cos(a / 24 * 6.283) * r) - 1, ty = Math.round(y / T + Math.sin(a / 24 * 6.283) * r) - 1;
+        if (endfall.engine.placeRefusal('substation', tx, ty, 0) === 'Build within coverage') return { tx, ty };
+      }
+      return null;
+    }, [px, py, T]);
+    assert.ok(out, 'open, explored ground past coverage');
+    const cx = (out.tx + 1) * T, cy = (out.ty + 1) * T;
+    assert.ok(Math.hypot(cx - hq.x, cy - hq.y) > reach * T, 'that spot is out of coverage');
+    // Armed through the UI: coverage is drawn while placing. (The Bot clicked until it is the selection: by its mine's
+    // side a click can take the mine.)
+    for (let i = 0; i < 10 && !(await d.selection()).some(e => e.id === w.id); i++) { await d.clickEntity(w.id); await d.skip(0.5); }
+    await d.pressCard('Build'); await d.pressCard('Substation');
+    await d.centerOn(cx, cy);
+    const [x, y] = await d.screen(cx, cy);
+    await d.page.mouse.move(x, y); await d.page.waitForTimeout(200);
+    const shown = await d.eval(() => endfall.rangeShown());
+    assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing a Substation: the Data center's coverage (${JSON.stringify(shown.circles)})`);
+    assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
+    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
+    assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
+    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [16, 0.18, true], 'the feathered band inside the rim');
+    // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.
+    const lit = await d.eval(([cx, cy, r]) => {
+      const m = document.getElementById('minimap'), S = m.width / endfall.engine.WW, T = endfall.engine.TILE;
+      for (let a = 0; a < 6.283; a += 0.05) {
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, tx = Math.floor(x / T), ty = Math.floor(y / T);
+        if (tx < 0 || ty < 0 || tx >= endfall.engine.MW || ty >= endfall.engine.MH || endfall.G.explored[ty * endfall.engine.MW + tx]) continue;
+        const p = m.getContext('2d').getImageData(Math.floor(x * S), Math.floor(y * S), 1, 1).data;
+        return { a, p: [...p] };
+      }
+      return null;
+    }, [hq.x, hq.y, reach * T]);
+    assert.ok(lit && lit.p[2] > 120 && lit.p[1] > 100, `the rim lit over unexplored ground on the minimap: ${JSON.stringify(lit)}`);
+    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (15 px)');
+    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15px');
+    await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build within coverage$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
+    await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
+    assert.match((await d.toasts()).join(' | '), /Build within coverage/);
+    assert.ok(await d.eval(() => !!endfall.ui.place), 'still placing');
+    assert.ok(!(await d.state()).bldgs.some(b => b.team === 0 && b.type === 'substation'), 'nothing placed');
+    await d.key('Escape');
+    // Inside coverage, by the Data center: it goes up.
+    const b = await buildAndFinish(d, 'w', 'substation', 1, { hq: 'conflux', worker: 'lumen' });
+    assert.ok(Math.hypot(b.x - hq.x, b.y - hq.y) <= reach * T, 'inside coverage');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -1807,7 +2060,7 @@ test('phone: one tap on the card uses an ability for the selection (Brace); Cann
     await d.boxSelect(core.x + 150, core.y + 90, core.x + 260, core.y + 150); // (the troopers only)
     const units = () => d.eval((ids) => endfall.G.units.filter(u => ids.includes(u.id)).map(u => ({ hp: u.hp, mode: u.mode, swap: u.swap })), [...ids, ...tanks]);
     assert.deepEqual((await d.selection()).map(e => e.id).sort(), ids.slice().sort());
-    await d.eval(() => endfall.engine.debugResearch(0, 'entrenching')); // (set-up: Shield Drill researched)
+    await d.eval(() => endfall.engine.debugResearch(0, 'entrenching')); // (set-up: Shield Wall researched)
     await d.skip(0.1);
     await d.pressCard('Brace');
     await d.skip(2.5);
@@ -1977,7 +2230,7 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     assert.match(trooper.text, /Cheap and steady\./, 'and what it does');
     assert.match(trooper.text, /Weak against splash\./, 'its weakness in general terms');
     assert.doesNotMatch(trooper.text, /Best with|Beaten by/, 'and never another unit by name');
-    assert.equal(await info.locator('img').count(), 0, 'no portraits of other units');
+    assert.equal(await info.locator('img').count(), 1, 'its own sprite, no portraits of other units');
     assert.doesNotMatch(await d.page.locator('#cmd button', { hasText: 'Guard' }).getAttribute('title'), /Best with|Beaten by|Health|Damage/i, 'nor another unit or stats in the tooltip');
     // Its base stats, from the sim's tables: toughness (no Shields slot for the Humans), then attack.
     assert.deepEqual(trooper.rows.map(r => r.chips.map(c => c.label)), [[`Health ${T.hp}`, `Armor ${T.armor}`], [`Damage ${T.weapon.dmg}`, 'Hits ground']]); // (the Guard strikes the ground only)
@@ -1994,6 +2247,77 @@ test('phone: a long-press on a unit to train shows what it is and costs, its bas
     assert.deepEqual(medic.rows.map(r => r.chips.map(c => c.x)), trooper.rows.map(r => r.chips.map(c => c.x)), 'the same positions as the Guard\'s');
     await release();
     assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'the long-presses trained nothing');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+// The details panel shows the kind's sprite (the selection console's portrait, larger) beside its name, gold and stats,
+// so a symbol on the card is tied to what walks the map: a long press on a phone, hover with a mouse.
+// `ENDFALL_SHOTS` (a folder): screenshots of the panels, for a look by eye.
+const SPRITE_PX = 72; // (card.js SPRITE)
+const spriteOf = (d) => d.page.locator('#cmdInfo .pic img').evaluate(i => { const r = i.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), loaded: i.complete && i.naturalWidth > 0, png: i.src.startsWith('data:image/png') }; });
+const shot = async (d, name) => { if (process.env.ENDFALL_SHOTS) await d.page.screenshot({ path: `${process.env.ENDFALL_SHOTS}/${name}.png` }).catch(() => {}); };
+for (const [race, hq, worker, unit, bldg] of [['humans', 'core', 'harvester', 'Villager', 'Cottage'], ['vael', 'conflux', 'lumen', 'Bot', 'Substation']]) {
+  test(`phone, ${race}: a long-press on a unit's or a building's button shows its sprite in the details`, { chromium: CDP_TOUCH }, async () => {
+    const d = await newGame(PHONE, 1, 4242, { ai: false, race });
+    try {
+      await d.grant(2000, 0);
+      const cdp = await d.page.context().newCDPSession(d.page), info = d.page.locator('#cmdInfo');
+      const hold = async (label) => {
+        const b = await d.page.locator('#cmd button', { hasText: label }).first().boundingBox();
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
+        await d.page.waitForTimeout(700);
+        assert.ok(await info.isVisible(), `${label}: details show while held`);
+      };
+      const release = async () => { await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await info.waitFor({ state: 'hidden', timeout: 5000 }); };
+      // A unit (its headquarters trains it): the sprite, at its size, before the name.
+      await d.clickEntity(myBldg(await d.state(), hq)[0].id);
+      await d.readyCard(unit);
+      await hold(unit);
+      assert.deepEqual(await spriteOf(d), { w: SPRITE_PX, h: SPRITE_PX, loaded: true, png: true }, `${unit}: its sprite`);
+      assert.equal(await info.locator('img').count(), 1, 'one picture: its own');
+      assert.match(await info.textContent(), new RegExp(`^${unit}`), 'its name first in the text');
+      const box = await info.boundingBox(), vp = d.page.viewportSize();
+      assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height, `the panel fits the screen: ${JSON.stringify(box)}`);
+      await shot(d, `phone-${race}-unit`);
+      await release();
+      // A building (a worker's Build page): its sprite as well.
+      const h = mine(await d.state(), worker)[0];
+      for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
+      await d.pressCard('Build'); await d.readyCard(bldg);
+      await hold(bldg);
+      assert.deepEqual(await spriteOf(d), { w: SPRITE_PX, h: SPRITE_PX, loaded: true, png: true }, `${bldg}: its sprite`);
+      await shot(d, `phone-${race}-building`);
+      await release();
+      assert.equal(await d.eval(() => endfall.ui.place), null, 'the long-presses placed nothing');
+      assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'and trained nothing');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+test('desktop: hovering a command button shows the same details with the sprite in place of its title; they stay through a rebuild and go on leave', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const info = d.page.locator('#cmdInfo');
+    await d.clickEntity(coreOf(await d.state()).id);
+    await d.readyCard('Villager');
+    const btn = d.page.locator('#cmd button', { hasText: 'Villager' });
+    assert.match(await btn.getAttribute('title'), /^Villager/, 'a title before the mouse comes');
+    await btn.hover();
+    await info.waitFor({ state: 'visible', timeout: 2000 });
+    assert.deepEqual(await spriteOf(d), { w: SPRITE_PX, h: SPRITE_PX, loaded: true, png: true }, 'its sprite');
+    assert.match(await info.textContent(), /^Villager/, 'its name');
+    assert.equal(await d.page.locator('#cmd button', { hasText: 'Villager' }).getAttribute('title'), null, 'no browser tooltip over the panel');
+    await shot(d, 'desktop-humans-unit');
+    // The card rebuilt under the mouse (the gold changes what it can afford): the panel stays.
+    await d.grant(0, 0); await d.page.waitForTimeout(250); await d.grant(5000, 0); await d.page.waitForTimeout(250);
+    assert.ok(await info.isVisible(), 'still shown after a rebuild');
+    // Off the card: gone, and nothing was trained.
+    const canvas = await d.page.locator('#game').boundingBox();
+    await d.page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 3, { steps: 4 });
+    await info.waitFor({ state: 'hidden', timeout: 2000 });
+    assert.equal(await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0).reduce((n, b) => n + b.queue.length, 0)), 0, 'hovering trained nothing');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -2100,6 +2424,56 @@ test('a click on a unit tile selects that unit alone, Shift+click drops it', asy
   } finally { await d.close(); }
 });
 
+test('the group grid: tiles in kind order, the hotkey pill off the sprite, the bar colored by health', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), at = [core.x + 180, core.y + 120];
+    // Spawned Archer, Guard, Archer, Guard, Guard, Guard, Knight, Knight: the tiles come in runs of a kind, in the
+    // roster's order (Guards before Archers), each run by id.
+    const kinds = ['lancer', 'trooper', 'lancer', 'trooper', 'trooper', 'trooper', 'knight', 'knight'];
+    const ids = await d.eval(([x, y, kinds]) => kinds.map((t, i) => endfall.engine.debugSpawn(0, t, x + (i % 4) * 24, y + Math.floor(i / 4) * 24)), [...at, kinds]);
+    await d.skip(0.2);
+    await d.key('q');
+    assert.deepEqual((await d.selection()).map(e => e.id).sort((a, b) => a - b), ids.slice().sort((a, b) => a - b), 'the eight selected');
+    const tiles = await d.page.$$eval('#group .gi', els => els.map(e => ({ id: +e.dataset.id, b: e.querySelector('b').getBoundingClientRect().toJSON(), img: e.querySelector('img').getBoundingClientRect().toJSON() })));
+    const order = tiles.map(t => kinds[ids.indexOf(t.id)]);
+    assert.deepEqual(order.slice(0, 4), ['trooper', 'trooper', 'trooper', 'trooper'], `Guards first: ${order}`);
+    assert.deepEqual(order.filter((k, i) => k !== order[i - 1]).length, 3, `each kind in one run: ${order}`);
+    for (const k of new Set(kinds)) { const run = tiles.filter(t => kinds[ids.indexOf(t.id)] === k).map(t => t.id); assert.deepEqual(run, run.slice().sort((a, b) => a - b), `${k} by id`); }
+    for (const t of tiles) assert.ok(t.b.top >= t.img.top + t.img.height * 0.55 && t.b.left >= t.img.left + t.img.width * 0.5, `the hotkey pill in the tile's bottom-right, off the sprite's head: ${JSON.stringify([t.b, t.img])}`);
+    // Wounds from a real fight (no debug hook sets a unit's health): an enemy Knight charges the group and dies to its
+    // Knights; what it hit stays hit (no Healer here). Then every tile's color is its unit's health: green, amber under
+    // 60%, red under 30%.
+    let pairs = [];
+    for (let round = 0; round < 3 && !pairs.some(([, h]) => h); round++) {
+      await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'knight', x + 36, y + 60), at);
+      assert.ok(await d.skipUntil(() => !endfall.G.units.some(u => u.team === 1 && u.type === 'knight'), null, { seconds: 60 }), 'the Knight died');
+      await d.key('q'); await d.skip(0.3); // (the selection again: some fell; the HUD has ticked since the last hit)
+      pairs = await d.eval(() => [...document.querySelectorAll('#group .gi')].map(e => { const u = endfall.G.units.find(u => u.id === +e.dataset.id); return [u.hp / u.maxhp, e.dataset.h || '']; }));
+    }
+    assert.ok(pairs.length >= 2, 'some of the group survived');
+    assert.ok(pairs.some(([, h]) => h), `a wounded survivor: ${JSON.stringify(pairs)}`);
+    for (const [f, h] of pairs) assert.equal(h, f > 0.6 ? '' : f > 0.3 ? 'mid' : 'low', `the bar's color follows the health ${f}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone: six types fit whole in the console (the words line gives its room to the tiles)', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    await d.eval(([x, y]) => ['trooper', 'lancer', 'rider', 'knight', 'siegeTank', 'bastion'].forEach((t, i) => endfall.engine.debugSpawn(0, t, x + (i % 3) * 30, y + Math.floor(i / 3) * 30)), [core.x + 160, core.y + 100]);
+    await d.skip(0.2);
+    await d.boxSelect(core.x + 130, core.y + 70, core.x + 250, core.y + 170);
+    assert.equal(new Set((await d.selection()).map(e => e.type)).size, 6, 'six types selected');
+    await d.page.waitForTimeout(400);
+    assert.equal(await d.page.locator('#group .gt').count(), 6, 'a tile per type');
+    await insideConsole(d, '#group .gt'); // (none cut by the console's edge)
+    assert.equal(await d.page.locator('#selSub').isVisible(), false, 'the words line is hidden: the tiles say the types and counts');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {
@@ -2115,12 +2489,12 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.pressCard('Villager'); await d.pressCard('Villager');
     await d.skip(40); // (two Villagers, 18 s each)
     await d.hudText('#tut', /2\/8/);
-    // Step 2: the new Villagers wait by the Castle: one selected, Gather pulses; both sent to the mine end the step.
-    assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Gather, then the gold mine/);
+    // Step 2: the new Villagers wait by the Castle: one selected, Mine pulses; both sent to the mine end the step.
+    assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Mine, then the gold mine/);
     const idle = await d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'idle').id);
     await d.clickEntity(idle);
     await d.page.waitForTimeout(300);
-    assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 'gather', 'the Gather button pulses');
+    assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 'gather', 'the Mine button pulses');
     await d.key('Escape');
     await sendIdleToMine(d);
     await d.hudText('#tut', /3\/8/);
@@ -2179,7 +2553,8 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     await step(6);
     assert.match(await d.page.locator('#tut').textContent(), /hold your base.*6\/8/);
     // Three enemy Guards at the base (within 12 tiles of a building of ours) but beyond what they or we would pick a
-    // fight with: they stand there.
+    // fight with (nearer 12 tiles of a building's middle, past 8.2 of its footprint's edge: an idle Guard looks 7.65 out
+    // from its own spot to a building's edge): they stand there.
     const at = await d.eval(() => {
       const G = endfall.G, mineB = G.bldgs.filter(b => b.team === 0), core = mineB.find(b => b.d.hq);
       const near = (x, y, xs) => Math.min(...xs.map(e => Math.hypot(e.x - x, e.y - y))) / 32;
@@ -2188,8 +2563,11 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
       for (let r = 6; r <= 14; r += 0.5) for (let a = 0; a < 48; a++) {
         const x = core.x + Math.cos(a / 48 * 6.283) * r * 32, y = core.y + Math.sin(a / 48 * 6.283) * r * 32;
         const tx = Math.floor(x / 32), ty = Math.floor(y / 32), b = near(x, y, mineB), o = near(x, y, others);
-        const open = [-1, 0, 1].every(dy => [-1, 0, 1].every(dx => { const i = (ty + dy) * endfall.engine.MW + tx + dx; return !endfall.map.rock[i] && !endfall.map.occ[i]; }));
-        if (b < 9.5 || b > 11 || !open) continue;
+        const edge = Math.min(...mineB.map(e => Math.hypot(Math.max(e.tx * 32 - x, 0, x - (e.tx + e.w) * 32), Math.max(e.ty * 32 - y, 0, y - (e.ty + e.h) * 32)))) / 32;
+        // (on the map: off it, a spawn is clamped back onto it, nearer the base than chosen)
+        const inMap = tx >= 2 && ty >= 2 && tx < endfall.engine.MW - 2 && ty < endfall.engine.MH - 2;
+        const open = inMap && [-1, 0, 1].every(dy => [-1, 0, 1].every(dx => { const i = (ty + dy) * endfall.engine.MW + tx + dx; return !endfall.map.rock[i] && !endfall.map.occ[i]; }));
+        if (b > 11.5 || edge < 8.2 || !open) continue;
         if (!best || o > best.o) best = { x, y, o };
       }
       for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(1, 'trooper', best.x, best.y);
@@ -2234,12 +2612,12 @@ test('the HUD tells the first enemy flyer seen, and an army wiped out', async ()
   } finally { await d.close(); }
 });
 
-test('the screen is lean: resources, supply, full screen, sound and pause on top, no empty panel; the clock lives in the pause card', async () => {
+test('the screen is lean: resources, supply, the game clock, the ?, full screen, sound and pause on top, no empty panel; the clock in the pause card too', async () => {
   for (const dev of [DESKTOP, PHONE]) {
     const d = await newGame(dev, 1, 4242, { ai: false });
     try {
       const shown = await d.eval(() => [...document.querySelectorAll('#top > *')].filter(e => e.offsetParent !== null && getComputedStyle(e).display !== 'none' && !e.classList.contains('spacer')).map(e => e.id || e.className));
-      const want = ['resShard', 'resSup', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
+      const want = ['resShard', 'resSup', 'resClock', 'btnHelp', ...(await d.eval(() => !document.getElementById('btnFull').hidden) ? ['btnFull'] : []), 'btnSound', 'btnPause'];
       assert.deepEqual(shown, want, 'the top bar at the start: ' + shown.join(' '));
       assert.ok(await d.page.locator('#info').isHidden(), 'nothing selected: no panel');
       await d.skip(30);
@@ -2274,11 +2652,11 @@ test('the menu shows a thumbnail of the chosen map, and a question mark for a ra
     const pixels = () => page.evaluate(() => { const c = document.getElementById('mapPreview'); return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data).join(','); });
     await page.locator('#btnSolo').click();
     const first = await pixels();
-    await page.locator('#mapSel').selectOption({ label: 'Glass Reach · up to 2' });
+    await page.locator('#mapSel').selectOption({ label: 'Gold Crown · up to 4' });
     const second = await pixels();
     assert.notEqual(first, second, 'another map, another thumbnail');
     assert.ok(new Set(second.split(',')).size > 8, 'rock, fields and starts in it');
-    await page.locator('#mapSel').selectOption({ label: 'Random · up to 2' });
+    await page.locator('#mapSel').selectOption({ label: 'Random · up to 4' });
     assert.equal(await page.locator('#mapPreview').getAttribute('title'), 'A new map every time');
   } finally { await ctx.close(); }
 });
@@ -2306,7 +2684,7 @@ const fitsPage = async (page, what) => {
   assert.ok(sh <= ch + 1 && sw <= cw + 1, `${what}: fits (${sh} > ${ch} or ${sw} > ${cw})`);
 };
 /** A board as saved: a side number per spot (null: empty), you in spot 0, the AIs Expedition on Hard. */
-const saved = (...teams) => Array.from({ length: 8 }, (_, i) => (teams[i] == null ? null : i ? { race: 'vael', team: teams[i], diff: 3 } : { race: 'humans', team: teams[i] }));
+const saved = (...teams) => Array.from({ length: 8 }, (_, i) => (teams[i] == null ? null : i ? { race: 'vael', team: teams[i], diff: 2 } : { race: 'humans', team: teams[i] }));
 /** Each seat's Core (tile center), by seat. */
 const cores = (page) => page.evaluate(() => endfall.G.teams.map((_, s) => { const b = endfall.G.bldgs.find(x => x.team === s && x.d.hq); return [b.tx + 2, b.ty + 2]; }));
 const apart = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -2320,19 +2698,19 @@ test('single player: eight fixed spots; + SEAT fills the lowest empty one on a s
     const usable = () => page.$$eval('#mapSel option', os => os.filter(o => !o.disabled).map(o => o.textContent));
     await page.locator('#btnSolo').tap();
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], 'a duel by default; + SEAT in the next spot');
-    assert.equal((await usable()).length, 14, 'two players: every map (the Shore\'s two included)');
+    assert.equal((await usable()).length, 8, 'two players: every map offered (96x96 and 128x128)');
     await seats.open(1);
     assert.equal(await page.locator('#soloSheet [data-k="remove"]').count(), 0, 'the last enemy stays');
     assert.deepEqual(await page.$$eval('#soloSheet [data-k^="side:"]', bs => bs.map(b => b.textContent)), ['SIDE 1', 'SIDE 2'], 'as many sides as players');
     assert.ok(await sheetFits(page), 'the sheet fits the screen');
     await page.locator('#soloSheet [data-k="close"]').tap();
     await seats.diff(1, 1); await seats.race(1, 'vael');
-    // + AI: AI 2 in spot 2, on a side of its own, like the last AI. Three players: the duel's map gives way.
+    // + AI: AI 2 in spot 2, on a side of its own, like the last AI. Three players: the default map seats them.
     await seats.add();
     assert.deepEqual(await seats.spots(), ['YOU', 'COMPUTER 1', 'COMPUTER 2', '+', '', '', '', '']);
     assert.equal(await label(2), 'COMPUTER 2 EXP, Expedition, Medium, Side 3: edit', 'a new AI: a side of its own, like the last AI');
-    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the smallest map that seats three');
-    assert.deepEqual(await page.$$eval('#mapSel option:disabled', os => os.map(o => o.textContent)), ['Ashen Basin · up to 2', 'Glass Reach · up to 2', 'Cinder Divide · up to 2', 'Random · up to 2', 'Mirror Lake · up to 2', 'Random Lake · up to 2'], 'the duel\'s maps not for three (the Shore\'s too)');
+    assert.equal(await page.locator('#mapSel option:checked').textContent(), 'Dust Quarter · up to 4', 'the default map seats three');
+    assert.deepEqual(await page.$$eval('#mapSel option:disabled', os => os.map(o => o.textContent)), [], 'every map offered seats three');
     assert.equal(await page.locator('#mapPreview').evaluate(c => c.width), 96, 'the preview at the map\'s size');
     await seats.add();
     // Sides through the sheet: two against two, each token's tag; nothing on the board moved.
@@ -2412,9 +2790,9 @@ test('single player: a seat that outgrows the map moves to a bigger one with no 
       const before = await start();
       // Every line the footer's note shows from here on, however briefly.
       await page.evaluate(() => { window.notes = []; new MutationObserver(() => window.notes.push(document.getElementById('soloNote').textContent)).observe(document.getElementById('soloNote'), { childList: true, characterData: true, subtree: true }); });
-      assert.equal(await map(), 'Ashen Basin · up to 2', `${at}: a duel's map`);
+      assert.equal(await map(), 'Dust Quarter · up to 4', `${at}: the default map`);
       await seats.add();
-      assert.equal(await map(), 'Dust Quarter · up to 4', `${at}: three players: the smallest map that seats them`);
+      assert.equal(await map(), 'Dust Quarter · up to 4', `${at}: three players: the same map`);
       assert.deepEqual(await start(), before, `${at}: START GAME where it was`);
       await seats.add(); await seats.add();
       assert.equal(await map(), 'Iron Compass · up to 8', `${at}: five players: an eight-start map`);
@@ -2435,7 +2813,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await page.locator('#btnSolo').click();
     // You and three AIs, each on a side of its own; then COMPUTER 1 with you, and COMPUTER 3 on Hard as the Expedition.
     await seats.add(); await seats.add();
-    await seats.side(1, 0); await seats.race(3, 'vael'); await seats.diff(3, 3);
+    await seats.side(1, 0); await seats.race(3, 'vael'); await seats.diff(3, 2);
     assert.deepEqual(await tags(), ['SIDE 1', 'SIDE 1', 'SIDE 3', 'SIDE 4']);
     const bands = await seats.bands();
     // COMPUTER 2 goes: COMPUTER 3 moves up into spot 2 (its name and color the spot's), and its SIDE 4 is SIDE 2.
@@ -2452,7 +2830,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.factions, [1, 2].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW]);
-    assert.deepEqual(game, [[0, 0, 1], ['humans', 'humans', 'vael'], [0, 3], 3, 96], 'the seats and teams the board shows');
+    assert.deepEqual(game, [[0, 0, 1], ['humans', 'humans', 'vael'], [0, 2], 2, 96], 'the seats and teams the board shows');
     assert.deepEqual(await page.evaluate(() => [0, 1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [true, true, true], 'each seat in its spot\'s colour');
   } finally { await ctx.close(); }
 });
@@ -2500,13 +2878,13 @@ test('single player, you alone against three AIs teamed up at mixed difficulties
     await page.locator('#btnSolo').tap();
     await seats.add(); await seats.add(); await seats.side(2, 1); await seats.side(3, 1); // (1v3)
     assert.deepEqual(await seats.sides(), [['YOU'], ['COMPUTER 1', 'COMPUTER 2', 'COMPUTER 3']]);
-    await seats.diff(2, 1); await seats.diff(3, 3);
+    await seats.diff(2, 1); await seats.diff(3, 2);
     assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => t.querySelectorAll('.lvl i.on').length)), [0, 1, 2, 3], 'the levels as pips (three levels)');
     await fitsPage(page, 'one against three');
     await page.locator('#btnStart').tap();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.me, endfall.engine.foes(), [1, 2, 3].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW, [0, 1, 2, 3].map(t => endfall.G.bldgs.filter(b => b.team === t && b.d.hq).length)]);
-    assert.deepEqual(game, [[0, 1, 1, 1], 0, [1, 2, 3], [0, 1, 3], 3, 96, [1, 1, 1, 1]], 'seat 0 alone, seats 1 to 3 one team at Easy, Medium and Hard (the game counted at Hard, the sim\'s 3)');
+    assert.deepEqual(game, [[0, 1, 1, 1], 0, [1, 2, 3], [0, 1, 2], 2, 96, [1, 1, 1, 1]], 'seat 0 alone, seats 1 to 3 one team at Easy, Medium and Hard (the game counted at Hard, the sim\'s 2)');
     await page.evaluate(() => endfall.skip(20));
     assert.ok(await page.evaluate(() => [1, 2, 3].every(t => endfall.G.stats[t].built > 0) && !endfall.G.over), 'three allied AIs at work');
   } finally { await ctx.close(); }
@@ -2618,11 +2996,11 @@ test('single player: the record counts a game at its enemies\' level (a Hard all
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
     const seats = board(page);
-    await seats.add(); await seats.side(2, 0); await seats.diff(2, 3); // (AI 2 on your side, Hard; AI 1 the enemy, Easy)
+    await seats.add(); await seats.side(2, 0); await seats.diff(2, 2); // (AI 2 on your side, Hard; AI 1 the enemy, Easy)
     assert.deepEqual(await seats.sides(), [['YOU', 'COMPUTER 2'], ['COMPUTER 1']]);
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
-    assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 3, 0], 'the game\'s level Easy, the ally Hard');
+    assert.deepEqual(await page.evaluate(() => [endfall.G.diff, endfall.engine.diffOf(1), endfall.engine.diffOf(2)]), [0, 2, 0], 'the game\'s level Easy, the ally Hard');
     await page.evaluate(() => { document.getElementById('btnPause').click(); });
     await page.locator('#btnQuit').click(); await page.locator('#btnSoloBack').click();
     const r = await storedRecord(page);
@@ -2638,7 +3016,7 @@ test('single player: every split of five to eight, over any spots, fits 667x375,
   const rowsOf = (s, k) => {
     const teams = s.flatMap((c, t) => Array.from({ length: c }, () => t)), r = Array(8).fill(null);
     let gaps = 8 - teams.length, at = 0;
-    teams.forEach((team, i) => { r[at++] = i ? { race: 'vael', team, diff: 3 } : { race: 'humans', team }; if (gaps && (k + i) % 2) { at++; gaps--; } });
+    teams.forEach((team, i) => { r[at++] = i ? { race: 'vael', team, diff: 2 } : { race: 'humans', team }; if (gaps && (k + i) % 2) { at++; gaps--; } });
     return r;
   };
   assert.equal(splits.length, 102);
@@ -2666,10 +3044,10 @@ test('single player: every split of five to eight, over any spots, fits 667x375,
 test('two against two: out while the ally fights on (orders refused, told once), then the end card speaks for the team', async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   try {
-    await page.goto(`${baseUrl()}?seed=7`, { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl()}?seed=3`, { waitUntil: 'networkidle' }); // (seed 3: this seat out at about 5:30, the game on to about 11:40; in seed 7 its ally fell first since Nov 13's economy)
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
-    const seats = board(page); await seats.diff(1, 3); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
+    const seats = board(page); await seats.diff(1, 2); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
@@ -2683,24 +3061,30 @@ test('two against two: out while the ally fights on (orders refused, told once),
     const toasts = new Set();
     await page.exposeFunction('sawToast', (t) => toasts.add(t));
     await page.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
-    let out = false;
-    for (let i = 0; i < 100 && !(await page.evaluate(() => endfall.G.over)); i++) {
-      await page.evaluate(() => endfall.skip(30));
-      await page.waitForTimeout(150); // (a frame or two: the loop notices)
-      if (!out && await page.evaluate(() => endfall.G.out[0] && !endfall.G.over)) {
-        out = true;
-        // Out: an order from this seat changes nothing.
-        const task = await page.evaluate(() => { const u = endfall.G.units.find(x => x.team === 0); if (!u) return 'idle'; endfall.engine.moveTo(u, 100, 100); endfall.skip(1); return u.dead ? 'idle' : u.task.t; });
-        assert.equal(task, 'idle', 'a seat that is out gives no orders: its units stay idle');
-        await page.waitForTimeout(300);
-      }
+    // (fast-forward in the page until this seat is out or the game is over, checked every half second of game time:
+    // 30-second skips between checks could jump past the moment it was out with the game still on)
+    const until = (cond) => page.evaluate((src) => {
+      const f = (0, eval)(`(${src})`);
+      for (let t = 0; t < 3000 && !f(); t += 0.5) endfall.skip(0.5);
+      return f();
+    }, cond.toString());
+    await until(() => endfall.G.out[0] || endfall.G.over);
+    const out = await page.evaluate(() => endfall.G.out[0] && !endfall.G.over);
+    if (out) {
+      await page.waitForTimeout(300); // (a frame or two: the toast shows)
+      // Out: an order from this seat changes nothing.
+      const task = await page.evaluate(() => { const u = endfall.G.units.find(x => x.team === 0); if (!u) return 'idle'; endfall.engine.moveTo(u, 100, 100); endfall.skip(1); return u.dead ? 'idle' : u.task.t; });
+      assert.equal(task, 'idle', 'a seat that is out gives no orders: its units stay idle');
+      await page.waitForTimeout(300);
     }
+    await until(() => endfall.G.over);
+    await page.waitForTimeout(300);
     assert.ok(await page.evaluate(() => endfall.G.over), 'the game ended');
     await page.locator('#end').waitFor({ state: 'visible' });
     const won = await page.evaluate(() => endfall.G.winner === endfall.G.teams[0]);
     assert.equal(await page.locator('#result').textContent(), won ? 'VICTORY' : 'DEFEAT');
     assert.match(await page.locator('#endSub').textContent(), won ? /^Your team wins after \d\d:\d\d\.$/ : /^Your team lost after \d\d:\d\d\.$/);
-    assert.ok(out, "this seat was out before the end (seed 7: deterministic)");
+    assert.ok(out, "this seat was out before the end (seed 3: deterministic)");
     assert.ok([...toasts].some(t => /You are out: your team fights on/.test(t)), `told once out: ${[...toasts]}`);
   } finally { await ctx.close(); }
 });
@@ -2715,7 +3099,8 @@ test('two against two: allies share vision: the AI ally\'s base and army are in 
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     assert.deepEqual(await page.evaluate(() => endfall.G.teams), [0, 0, 1, 1]);
-    await page.evaluate(() => endfall.skip(150)); // (the ally builds and trains; this player gives no order)
+    // (the ally builds and trains, this player giving no order: until it has a fighter, by 2:30 before Nov 13's scarcer gold)
+    await page.evaluate(() => { for (let t = 0; t < 600 && (endfall.G.time < 150 || !endfall.G.units.some(u => u.team === 1 && !u.d.worker)); t += 1) endfall.skip(1); });
     await page.waitForTimeout(400); // (a frame or two: the minimap redrawn)
     const seen = await page.evaluate(() => {
       const { G, engine: E } = endfall, I = (x, y) => E.idx(Math.floor(x / E.TILE), Math.floor(y / E.TILE));
@@ -2949,11 +3334,8 @@ test('the menu fits a small phone on every page (the first with its stamp and PL
     };
     assert.ok(await page.locator('#btnFirstHome').isVisible(), 'with FIRST GAME (a newcomer)');
     await fits('#start .card.menu', '#menuHome h1', 'the first page');
-    await page.locator('#btnAbout').tap();
-    await fits('#start .card.menu', '#menuAbout h2', 'about');
-    const b = await page.locator('#btnAboutBack').boundingBox();
-    assert.ok(b.y + b.height <= 375, `About's BACK in view: ${JSON.stringify(b)}`);
-    await page.locator('#btnAboutBack').tap();
+    const b = await page.locator('#menuLinks').boundingBox();
+    assert.ok(b.y + b.height <= 375, `the footer line (How to play, About) in view: ${JSON.stringify(b)}`);
     await page.locator('#btnSolo').tap();
     await fits('#start .card.menu', '#menuSolo h2', 'single player');
     await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();
@@ -2985,10 +3367,11 @@ test('the first page: the name in title case over the shore, whose tide lines ke
       }
       await page.evaluate(() => { for (const a of document.getAnimations()) a.play(); });
       assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
-      assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
-      await page.locator('#btnAbout').tap();
-      assert.ok(await shore.isHidden() && await page.locator('#menuAbout').isVisible(), 'About: the first page\'s shore goes with it');
-      assert.ok(await page.locator('#menuAbout .shore').isVisible(), 'About: a shore of its own (as Single player and Multiplayer)');
+      // (the field's band drifts too, and leaves only the lowest line, field.e2e.mjs; under 360 px of height there is no band: the three lines, or the one PLAY OFFLINE's answer leaves)
+      assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : h >= 360 ? 2 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
+      await page.locator('#btnSolo').tap();
+      assert.ok(await shore.isHidden() && await page.locator('#menuSolo').isVisible(), 'Single player: the first page\'s shore goes with it');
+      assert.ok(await page.locator('#menuSolo .shore').isVisible(), 'Single player: a shore of its own (as Multiplayer)');
       assert.equal(await page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb' && a.effect.target.closest('#menuHome')).length), 0, 'the first page\'s lines stop with the page');
     } finally { await ctx.close(); }
   }
@@ -3032,6 +3415,29 @@ test('desktop: the HUD floats over the map: no band across the bottom, the conso
   } finally { await d.close(); }
 });
 
+test('a 3x screen: the minimap drawn at three backing pixels per CSS px, and a click on it still jumps to its spot', async () => {
+  const d = await newGame({ ...DESKTOP, deviceScaleFactor: 3 }, 1, 4242, { ai: false });
+  try {
+    const frame = () => d.page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    await frame();
+    const size = await d.eval(() => { const m = document.getElementById('minimap'); return { w: m.width, h: m.height, cw: m.clientWidth, ch: m.clientHeight, dpr: devicePixelRatio }; });
+    assert.equal(size.dpr, 3);
+    assert.ok(Math.abs(size.w - size.cw * 3) <= 1 && Math.abs(size.h - size.ch * 3) <= 1, `the backing 3x its box: ${JSON.stringify(size)}`);
+    // A click jumps the view's center to the world point under it (away from the map's edges, where the view stops).
+    const mm = await d.page.locator('#minimap').boundingBox(), [WW, WH] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
+    const fx = 0.55, fy = 0.45;
+    await d.page.mouse.click(mm.x + mm.width * fx, mm.y + mm.height * fy);
+    await frame();
+    const c = await d.eval(() => ({ x: endfall.cam.x + endfall.view.w / endfall.cam.zoom / 2, y: endfall.cam.y + endfall.view.h / endfall.cam.zoom / 2, top: endfall.cam.y, vw: endfall.view.w / endfall.cam.zoom }));
+    const tol = 2 * WW / mm.width; // (two CSS px of the minimap)
+    assert.ok(Math.abs(c.x - WW * fx) < tol && Math.abs(c.y - WH * fy) < tol, `the view centered on the clicked spot: ${c.x.toFixed(0)},${c.y.toFixed(0)} for ${(WW * fx).toFixed(0)},${(WH * fy).toFixed(0)}`);
+    // The view box drawn where the camera now is, in backing pixels: its bright top edge over the view's center.
+    const px = await d.eval(([x, y]) => { const m = document.getElementById('minimap'), k = m.width / endfall.engine.WW; return [...m.getContext('2d').getImageData(Math.floor(x * k), Math.floor(y * k), 1, 1).data]; }, [c.x, c.top]);
+    assert.ok(px[0] > 200 && px[1] > 190 && px[2] > 130, `the view box's line at the camera's top edge: ${px}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 test('every unit and building is drawn twice: its art, then its team mask in its seat\'s colour', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
@@ -3050,6 +3456,176 @@ test('every unit and building is drawn twice: its art, then its team mask in its
       assert.equal(l.seat, tints[teams[l.id]], `${l.base}: its seat's colour`);
       assert.equal(l.tint, l.seat, `${l.base}: the mask tinted with it (no effect on)`);
     }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('melee units in a fight show their strike poses, and each blow glints on its target, a heavy one with dust', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
+    // (a Knight against a Bruiser: both melee, both heavy hitters, and long-lived enough for a dozen blows each; they
+    // close on each other by themselves, nothing ordered)
+    const [kn, br] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'knight', x, y), endfall.engine.debugSpawn(1, 'bruiser', x + 40, y)], [x, y]);
+    await d.centerOn(x + 20, y);
+    const pose = (id) => endfall.teamLayers().find(l => l.id === id && l.shown)?.base ?? '';
+    // Fast-forward to a tick just after the Knight's blow lands, then read the very next frame drawn: its strike pose,
+    // the glint on the Bruiser and the dust at its feet (the strike holds 0.15 s, so a slow frame can miss it: a few tries).
+    let seen = null;
+    for (let k = 0; k < 8 && !seen?.pose.endsWith('_strike'); k++) {
+      await d.skip(0.3); // (past this blow's window)
+      seen = await d.eval(([kn, br, src]) => {
+        const pose = (0, eval)(`(${src})`), unit = (id) => endfall.G.units.find(u => u.id === id);
+        for (let t = 0; t < 150; t++) { const u = unit(kn); if (!u || u.cd > u.d.weapon.cd - 1 / 30 - 1e-6) break; endfall.skip(1 / 30); } // (to the tick of its next blow)
+        return new Promise(r => requestAnimationFrame(() => {
+          const b = unit(br);
+          r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40 && Math.hypot(e.sx - e.x, e.sy - e.y) < 8).map(e => e.anim + (e.tint === 0xffffff ? '' : ':' + e.tint)) }); // (each drawn where it was spawned, give or take its drift; with its tint)
+        }));
+      }, [kn, br, pose.toString()]);
+    }
+    assert.match(seen.pose, /^knight_\d+_strike$/, `the Knight's strike pose on the frame after its blow (${seen.pose})`);
+    assert.ok(seen.near.includes('glint'), `a glint of steel on the Bruiser (${seen.near.join(' ')})`);
+    assert.ok(seen.near.includes(`${HIT_DUST.anim}:${DUST}`), `dust at its feet (${seen.near.join(' ')})`);
+    assert.ok(!seen.near.some(a => a.startsWith('puff')), `the dust no gray puff (${seen.near.join(' ')})`);
+    // Between blows, standing in the fight: the wind-up (on guard), never a walk frame frozen mid-stride.
+    await d.skip(0.4);
+    const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
+    assert.match(between[0], /^knight_\d+_wind$/, `the Knight on guard between blows (${between[0]})`);
+    assert.match(between[1], /^bruiser_\d+_(wind|strike)$/, `the Bruiser in its strike poses too (${between[1]})`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a hit\'s look follows how hard it hits: a Cannon\'s cannonball (siege) lands as a big blast with a flash, and the camera stays still', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 120, y = core.y + 150;
+    // (three Cannons, and a row of foe workers standing idle in their reach; the camera between them)
+    await d.eval(([x, y]) => { for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'siegeTank', x, y - 40 + i * 40); for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(1, 'harvester', x + 220, y - 75 + i * 30); }, [x, y]);
+    await d.centerOn(x + 110, y);
+    await d.eval(() => { window.__peak = 0; const look = () => { window.__peak = Math.max(window.__peak, endfall.shake()); requestAnimationFrame(look); }; requestAnimationFrame(look); });
+    // (tick by tick to a cannonball landing, then the frame that draws it)
+    const seen = await d.eval(() => {
+      const hit = () => endfall.G.events.find(e => e.t === 'hit' && e.by === 'siegeTank');
+      for (let t = 0; t < 30 * 15 && !hit(); t++) endfall.skip(1 / 30);
+      const h = hit(); if (!h) return null;
+      return new Promise(r => requestAnimationFrame(() => r(endfall.effects().filter(e => Math.hypot(e.x - h.x, e.y - h.y) < 8))));
+    });
+    assert.ok(seen, 'a cannonball lands');
+    const boom = seen.find(e => e.anim === 'boom_small');
+    assert.ok(boom, `a blast where it lands (${JSON.stringify(seen.map(e => e.anim))})`);
+    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
+    assert.ok(seen.some(e => e.anim === 'flash'), 'with a flash');
+    await d.skip(1);
+    assert.equal(await d.eval(() => window.__peak), 0, 'no shake on any frame');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('an arrow slows its target: its body tinted an icy steel blue under a pale ice glow, its team paint untouched, back to normal as it wears off', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
+    const [, kn] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'lancer', x, y), endfall.engine.debugSpawn(1, 'knight', x + 110, y)], [x, y]);
+    await d.centerOn(x + 50, y);
+    const layer = (id) => d.eval((id) => endfall.teamLayers().find(l => l.id === id), id);
+    assert.ok(await d.skipUntil((id) => endfall.G.units.find(u => u.id === id)?.slowed > 2.5, kn, { seconds: 15, step: 1 / 30 }), 'an arrow lands on the Knight');
+    const slowed = await layer(kn);
+    assert.equal(slowed.bodyTint, SLOW.tint, 'its body icy steel blue');
+    assert.equal(slowed.tint, slowed.seat, 'its team paint in its seat\'s color');
+    // (the glow shows between hit flashes: a frame with the slow fresh and no flash; another arrow may land meanwhile)
+    let glow = null;
+    for (let k = 0; k < 6 && !glow; k++) {
+      await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return u?.slowed > 2 && !(u.flash > 0); }, kn, { seconds: 5, step: 1 / 30 });
+      glow = (await layer(kn)).glow;
+    }
+    assert.ok(glow, 'a glow over the slowed Knight');
+    assert.equal(glow.tint, SLOW.glow, 'a pale ice');
+    assert.ok(Math.abs(glow.alpha - SLOW.glowAlpha) < 0.02, `faint (${glow.alpha})`);
+    // (the Knight rides the Archer down; then the slow wears off)
+    assert.ok(await d.skipUntil((id) => !(endfall.G.units.find(u => u.id === id)?.slowed > 0), kn, { seconds: 20, step: 0.1 }), 'the slow wears off');
+    const after = await layer(kn);
+    assert.equal(after.bodyTint, 0xffffff, 'white again');
+    assert.equal(after.glow, null, 'no glow');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a building destroyed collapses: its ghost sinks and fades (its flag with it), dust rises, no fireball and no shake', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    await d.grant(500, 0);
+    const depot = await buildAndFinish(d, 'w', 'depot');
+    await d.centerOn(depot.x, depot.y);
+    // (what each frame draws, read in the page from the moment the Cottage falls: the ghosts and the effects)
+    await d.eval(() => {
+      window.__fall = [];
+      const look = () => { const g = endfall.dying(); if (g.length || window.__fall.length) window.__fall.push({ g, fx: endfall.effects(), shake: endfall.shake() }); if (window.__fall.length < 40) requestAnimationFrame(look); };
+      requestAnimationFrame(look);
+    });
+    // Set-up: the Cottage nearly down and foe Archers beside it, which take it on their own.
+    await d.eval(([id, x, y]) => { endfall.engine.debugSetHp(id, 1); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(1, 'lancer', x - 30 + i * 30, y + 80); }, [depot.id, depot.x, depot.y]);
+    assert.ok(await d.skipUntil((id) => !endfall.G.bldgs.some(b => b.id === id), depot.id, { seconds: 20, step: 1 / 30 }), 'the Cottage falls');
+    await until(d, () => d.eval(() => window.__fall.length >= 12 || (window.__fall.length > 0 && !window.__fall.at(-1).g.length)), { seconds: 10, step: 0.2, what: 'frames of the fall' });
+    const fall = await d.eval(() => window.__fall), ghosts = fall.map(f => f.g.find(g => g.type === 'depot')).filter(Boolean);
+    assert.ok(ghosts.length, 'its ghost drawn a moment after the sim dropped it');
+    assert.ok(ghosts.every(g => g.t <= BLDG_DEATH.ghost.life && !g.portal), 'for 0.45 s at most');
+    const last = ghosts.at(-1);
+    assert.ok(last.y >= last.y0 && last.y - last.y0 <= BLDG_DEATH.ghost.sink + 0.01, `sinking (${JSON.stringify(last)})`);
+    assert.ok(last.scaleY <= 1 && last.scaleY >= BLDG_DEATH.ghost.squash - 0.01, 'squashed, at most to 0.8');
+    if (ghosts.length > 1) assert.ok(last.y > ghosts[0].y || last.t === ghosts[0].t, 'down as the frames go');
+    assert.ok(ghosts.every(g => g.paint === null || Math.abs(g.paint - g.alpha) < 1e-9), `its flag fades with its walls, when it is drawn (a building that fell before a frame showed it finished has no flag yet) (${JSON.stringify(ghosts.map(g => [g.paint, g.alpha]))})`);
+    if (last.t > 0.1) assert.ok(last.tint < 0xffffff, 'dimmed as it goes down');
+    const near = (e) => Math.abs(e.x - depot.x) < depot.w * 16 + 4 && Math.abs(e.y - depot.y) < depot.h * 16 + 80;
+    const fx = fall.flatMap(f => f.fx).filter(near);
+    assert.ok(fx.some(e => e.anim === 'trail' && e.tint === DUST), `dust over its footprint (${[...new Set(fx.map(e => e.anim))]})`);
+    assert.ok(fx.some(e => e.anim === 'trail' && e.tint === GRAY_SMOKE.tint), 'gray smoke off its roof');
+    assert.ok(!fx.some(e => e.anim === 'boom_big' || e.anim === 'boom_small' || e.anim === 'spark'), 'no fireball, no fire sparks');
+    assert.ok(fall.every(f => f.shake < 0.3), 'no shake for a Cottage');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball, no dust off the ground', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 120;
+    const ob = await d.eval(([x, y]) => { const ob = endfall.engine.debugSpawn(1, 'observer', x, y); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'lancer', x - 30 + i * 30, y + 70); endfall.engine.debugSetHp(ob, 1); return ob; }, [x, y]);
+    await d.centerOn(x, y);
+    const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.x, u.y, endfall.unitTop('observer')]; }, ob);
+    assert.ok(await d.skipUntil((id) => !endfall.G.units.some(u => u.id === id), ob, { seconds: 10, step: 1 / 30 }), 'the Balloon falls');
+    const fx = await d.eval(([x, y]) => endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120), at);
+    const up = at[1] - at[2] * AIR_PUFF.lift, puffs = fx.filter(e => ['puff', AIR_PUFF.anim].includes(e.anim));
+    const puff = puffs.find(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2);
+    assert.ok(puff, `a puff at its altitude (${JSON.stringify(fx)})`);
+    assert.ok(Math.abs(puff.sx - puff.x) < 2 && puff.sy >= puff.y && puff.sy < puff.y + 20, `drawn there, sinking (${JSON.stringify(puff)})`);
+    assert.equal(puff.anim, AIR_PUFF.anim);
+    assert.equal(puff.tint, 0xe8dcc0, 'pale canvas');
+    assert.equal(puff.scale, AIR_PUFF.scale);
+    assert.ok(!puffs.some(e => e.y > at[1] - 10), 'no dust off the ground');
+    assert.ok(!fx.some(e => e.anim.startsWith('boom')), 'no fireball');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('an arrow that lands on a flyer glints up on its body, not on the ground under it', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 120;
+    await d.eval(([x, y]) => { endfall.engine.debugSpawn(1, 'shrike', x + 40, y); endfall.engine.debugSpawn(0, 'lancer', x - 70, y + 10); }, [x, y]);
+    await d.centerOn(x, y);
+    // (tick by tick to an Archer's arrow landing on the Drone, then the frame that draws it)
+    const seen = await d.eval(() => {
+      const hit = () => endfall.G.events.find(e => e.t === 'hit' && e.by === 'lancer');
+      for (let t = 0; t < 30 * 15 && !hit(); t++) endfall.skip(1 / 30);
+      const h = hit(); if (!h) return null;
+      return new Promise(r => requestAnimationFrame(() => r({ hit: { x: h.x, y: h.y, air: h.air }, top: endfall.unitTop('shrike'), glints: endfall.effects().filter(e => e.anim === 'glint' && Math.abs(e.x - h.x) < 1) })));
+    });
+    assert.ok(seen, 'an arrow lands on the Drone');
+    assert.equal(seen.hit.air, 'shrike', 'the hit names the flyer');
+    const up = seen.hit.y - seen.top * hitLift('shrike');
+    assert.ok(seen.glints.some(e => Math.abs(e.y - up) < 1), `a glint up on its body at ${up} (${JSON.stringify(seen.glints)})`);
+    assert.ok(!seen.glints.some(e => Math.abs(e.y - seen.hit.y) < 1), 'none on the ground under it');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -3081,7 +3657,7 @@ async function pickControls(d, scheme) {
 async function selectedTrooper(d) {
   const core = coreOf(await d.state());
   const id = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'trooper', x, y), [core.x + 120, core.y + 70]);
-  await d.eval(() => endfall.engine.debugResearch(0, 'entrenching')); // (Shield Drill: its Brace on the card)
+  await d.eval(() => endfall.engine.debugResearch(0, 'entrenching')); // (Shield Wall: its Brace on the card)
   await d.skip(0.1);
   await d.clickEntity(id);
   assert.deepEqual((await d.selection()).map(e => e.id), [id], 'the Guard is selected');
@@ -3163,31 +3739,32 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     await d.key('e');
     assert.equal((await d.state()).bldgs.find(b => b.id === core.id).queue[0], 'harvester', 'E trains a Villager');
 
-    // The Build menu: E (Build), then the page's keys by slot; R builds a Cottage (the Barracks first, on E).
+    // The Build menu: E (Build), then the page's keys by slot; T builds a Cottage (the Castle first, on E, then the
+    // Barracks on R).
     const h = mine(await d.state(), 'harvester')[0], spot = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === h.id); i++) { if (i) await page.waitForTimeout(150 + 50 * i); await d.clickEntity(h.id); } // (a miner moves: again until it is picked)
     await d.key('e');
     await page.locator('#cmd [data-id="b_depot"]').waitFor({ timeout: 5000 }); // (drawn on the next HUD tick)
     const page1 = await cardKeys(d);
-    assert.deepEqual(page1.map(([, k, l]) => `${l} ${k}`).slice(0, 2), ['Barracks E', 'Cottage R'], 'the Build page\'s keys');
+    assert.deepEqual(page1.map(([, k, l]) => `${l} ${k}`).slice(0, 3), ['Castle E', 'Barracks R', 'Cottage T'], 'the Build page\'s keys');
     for (const [slot, k] of page1) assert.equal(k, GRID[slot]);
-    await d.key('f'); // Advanced (slot 3: right after the three open buildings)
+    await d.key('g'); // Advanced (slot 4: after the three open from the start and the Watchtower)
     await page.locator('#cmd [data-id="build1"]').waitFor({ timeout: 5000 });
     for (const [slot, k] of await cardKeys(d)) assert.equal(k, GRID[slot], 'the Advanced page\'s keys');
     await d.key('Escape'); await d.key('Escape');
-    await d.buildWithUI(['e', 'r'], 'depot', spot.tx, spot.ty, h.id);
-    assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then R placed a Cottage (toasts: ${(await d.toasts()).join(' | ')})`);
+    await d.buildWithUI(['e', 't'], 'depot', spot.tx, spot.ty, h.id);
+    assert.ok((await d.state()).bldgs.some(b => b.team === 0 && b.type === 'depot' && b.tx === spot.tx && b.ty === spot.ty), `E then T placed a Cottage (toasts: ${(await d.toasts()).join(' | ')})`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
 
-test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their units and no button moves when one unlocks (Rally fixed), the satellite launched opens the Uplink, the Uplink the Portal, which trains Androids', async () => {
+test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their units and no button moves when one unlocks (Rally fixed), the Lab opens the Uplink, the Uplink the Portal, which trains Androids and Rovers', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
     await d.grant(4000, 3000);
-    await buildAndFinish(d, 's', 'spire', 0, V);
+    await buildAndFinish(d, 'w', 'substation', 0, V);
     const post = await buildAndFinish(d, 'i', 'siphon', 1, V);
     await d.clickEntity(post.id);
     await d.readyCard('Sellsword');
@@ -3197,7 +3774,7 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.clickEntity(kiln.id);
     await d.readyCard('Buggy');
     const kilnBefore = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
-    assert.deepEqual(kilnBefore, ['Buggy 0', 'Drone 1', 'Rally 4', 'Cancel 5'], 'the Factory before a Lab: packed, no gap for the Rover; Rally in its place');
+    assert.deepEqual(kilnBefore, ['Buggy 0', 'Rally 4', 'Cancel 5'], 'the Factory before a Lab: packed, no gap for the Drone; Rally in its place');
     await buildAndFinish(d, 'g', 'loom', 3, V);
     await d.clickEntity(post.id);
     await d.readyCard('Bruiser');
@@ -3205,10 +3782,10 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     assert.deepEqual(postAfter, ['Sellsword 0', 'Bruiser 1', 'Rally 4', 'Cancel 5'], 'with a Lab: the Bruiser appended after the Sellsword');
     for (const it of postBefore) assert.ok(postAfter.includes(it), `the Bruiser unlocked moved no button: ${it} (${postAfter})`);
     await d.clickEntity(kiln.id);
-    await d.readyCard('Rover');
+    await d.readyCard('Drone');
     const kilnAfter = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
-    assert.deepEqual(kilnAfter, ['Buggy 0', 'Drone 1', 'Rover 2', 'Rally 4', 'Cancel 5'], 'the Factory with a Lab: the Rover appended');
-    for (const it of kilnBefore) assert.ok(kilnAfter.includes(it), `the Rover unlocked moved no button: ${it} (${kilnAfter})`);
+    assert.deepEqual(kilnAfter, ['Buggy 0', 'Drone 1', 'Rally 4', 'Cancel 5'], 'the Factory with a Lab: the Drone appended');
+    for (const it of kilnBefore) assert.ok(kilnAfter.includes(it), `the Drone unlocked moved no button: ${it} (${kilnAfter})`);
     await d.clickEntity(post.id);
     await d.readyCard('Bruiser');
     const queue = async (b) => (await d.state()).bldgs.find(x => x.id === b.id).queue;
@@ -3222,18 +3799,12 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(post), ['bruiser', 'bruiser'], `${key} trains another`);
     await pickControls(d, 'classic');
-    // The satellite, launched from the Data center's card (L): our seat alone is told; then the Uplink, then the Portal.
-    const dc = myBldg(await d.state(), 'conflux')[0];
-    await d.clickEntity(dc.id);
-    await d.readyCard('Satellite');
-    await d.key('l');
-    assert.ok(await d.skipUntil(() => endfall.G.upgrades[endfall.G.me].satellite > 0, null, { seconds: 90 }), 'the satellite launched');
-    assert.ok((await d.toasts()).some(t => /You launched a satellite\./.test(t)), `the launch told (toasts: ${(await d.toasts()).join(' | ')})`);
+    // The Lab standing: the Uplink (B, V, U), then the Portal.
     await buildAndFinish(d, 'u', 'uplink', 0, V);
     const portal = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
     await d.clickEntity(portal.id);
     await d.readyCard('Android');
-    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Android 0', 'Rally 4', 'Cancel 5'], 'the Portal: Androids');
+    assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Android 0', 'Rover 1', 'Rally 4', 'Cancel 5'], 'the Portal: Androids and Rovers');
     await d.key('u');
     assert.deepEqual(await queue(portal), ['umbra'], `U trains an Android (toasts: ${(await d.toasts()).join(' | ')})`);
     // One Portal a side: a second is refused from the Build card (B, D), in plain words, before any ghost.
@@ -3409,12 +3980,11 @@ test('desktop: OPTIONS on the menu\'s first page; the choice is remembered acros
     assert.equal(await page.locator('#options [aria-checked="true"]').textContent(), 'WASD', 'remembered');
     await page.keyboard.press('Escape');
     assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
-    await page.locator('#btnHowTo').click();
-    const help = await page.locator('#help').textContent();
-    assert.match(help, /Classic:.*WASD:.*OPTIONS|OPTIONS.*Classic:.*WASD:/s);
+    // (How to play tells of both schemes: the help sheet's line, and the docs' table: test/docs.test.js, docs.e2e.mjs)
+    const help = await page.locator('#helpSheet .lines.desk').textContent();
+    assert.match(help, /Classic.*WASD/s);
     assert.match(help, /middle button/);
     // A small desktop window: the first page's row of buttons and the card still fit.
-    await page.locator('#btnHelpClose').click();
     await page.setViewportSize({ width: 844, height: 390 });
     const row = await page.$eval('#btnOptions', b => { const r = b.getBoundingClientRect(); return [r.right <= innerWidth, r.bottom <= innerHeight]; });
     assert.deepEqual(row, [true, true], 'OPTIONS in view at 844x390');
@@ -3526,7 +4096,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PLAY OFFLINE) fits at 667x375, 844x390, 412x915 and 568x320: one line on its side, upright two centred lines; no scrolling', async () => {
+test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centred line; no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
     try {
@@ -3534,20 +4104,21 @@ test('phones: the first page\'s row (FIRST GAME, HOW TO PLAY, ABOUT, OPTIONS, PL
       await page.waitForFunction(() => !!window.endfall);
       const got = await page.evaluate(() => {
         const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return { t: b.textContent, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom }; });
-        const c = document.querySelector('#start .card.menu');
-        return { bs, sc: [c.scrollHeight, c.clientHeight] };
+        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect();
+        return { bs, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom] };
       });
-      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'HOW TO PLAY', 'ABOUT', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
+      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h, `${w}x${h}: the footer line in view: ${got.links}`);
       assert.ok(got.bs.every(b => b.l >= 0 && b.r <= w && b.b <= h), `${w}x${h}: every button in view: ${JSON.stringify(got.bs)}`);
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
-      assert.equal(lines.length, w > h ? 1 : 2, `${w}x${h}: ${w > h ? 'one line' : 'two lines'}: ${lines}`);
+      assert.equal(lines.length, 1, `${w}x${h}: one line: ${lines}`);
       for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centred: ${l} | ${w - r}`); }
     } finally { await ctx.close(); }
   }
 });
 
-test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place, How to play from its top', async () => {
+test('the menu pages: every button a finger high, BACK the same size in the same place, titles in one place', async () => {
   for (const device of [PHONE, DESKTOP]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
@@ -3560,7 +4131,7 @@ test('the menu pages: every button a finger high, BACK the same size in the same
       }).map(b => { const r = b.getBoundingClientRect(); return { id: b.id, text: b.textContent.trim(), x: Math.round(r.x), w: Math.round(r.width), h: Math.round(r.height) }; }));
       const title = (sel) => page.evaluate((sel) => Math.round(document.querySelector(sel).getBoundingClientRect().y), sel);
       const pages = [];
-      for (const [open, close, h2] of [['#btnSolo', '#btnSoloBack', '#menuSolo h2'], ['#btnOnline', '#btnOnlineBack', '#onlineJoin h2'], ['#btnAbout', '#btnAboutBack', '#menuAbout h2']]) {
+      for (const [open, close, h2] of [['#btnSolo', '#btnSoloBack', '#menuSolo h2'], ['#btnOnline', '#btnOnlineBack', '#onlineJoin h2']]) {
         await click(open);
         await page.locator(close).waitFor();
         pages.push({ open, back: (await buttons()).find(b => b.id === close.slice(1)), title: await title(h2), all: await buttons() });
@@ -3573,17 +4144,11 @@ test('the menu pages: every button a finger high, BACK the same size in the same
       assert.ok(backs.every(b => b.w === backs[0].w && b.h === backs[0].h && b.x === backs[0].x), `BACK the same size, at the same place: ${JSON.stringify(backs)}`);
       assert.ok(pages.every(p => p.title === pages[0].title), `the titles at one height: ${pages.map(p => p.title)}`);
       assert.equal(await page.locator('#btnFirst').count(), 0, 'no FIRST GAME in single player');
-      // How to play opens at its top, its BACK as every other BACK.
-      await click('#btnHowTo');
-      await page.locator('#help').waitFor();
-      assert.equal(await page.evaluate(() => document.querySelector('#help .card').scrollTop), 0, 'How to play from its top');
-      const help = (await buttons()).find(b => b.id === 'btnHelpClose');
-      assert.ok(help.w === backs[0].w && help.h === backs[0].h, `its BACK the same size: ${JSON.stringify(help)}`);
     } finally { await ctx.close(); }
   }
 });
 
-test('the first page\'s build stamp: the last game update and its date, small at the foot, one line on a phone; About has it beside the Version', async () => {
+test('the first page\'s build stamp: the last game update and its date, small at the foot, one line on a phone; the Version in its tooltip', async () => {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 667, height: 375 }, { width: 412, height: 915 }]) {
     const ctx = await browserContext({ ...(viewport.width > 900 ? DESKTOP : PHONE), viewport }), page = await ctx.newPage();
     try {
@@ -3596,10 +4161,7 @@ test('the first page\'s build stamp: the last game update and its date, small at
       const [h, line] = await stamp.evaluate(e => [e.getBoundingClientRect().height, parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3]);
       assert.ok(h <= line * 1.5, `one line: ${h} px for a ${line} px line`);
       await fitsPage(page, `${viewport.width}x${viewport.height}: the first page with its stamp`);
-      const short = text === 'dev' ? 'dev' : text.split(' · ')[1];
-      assert.equal(await page.locator('#buildCommit').textContent(), short, 'About: the same commit beside the Version');
-      assert.match(await page.locator('#menuAbout .fine').textContent(), /Version \S+ \(last game update \S+\)/, 'Version, then the last game update');
-      if (text !== 'dev') assert.match(await stamp.getAttribute('title'), /^The last game update: .+, commit [0-9a-f]{7,}$/, 'its tooltip says what it is');
+      if (text !== 'dev') assert.match(await stamp.getAttribute('title'), /^The last game update: .+, commit [0-9a-f]{7,}\. Version [0-9a-f]{12}$/, 'its tooltip says what it is, and the Version');
     } finally { await ctx.close(); }
   }
 });

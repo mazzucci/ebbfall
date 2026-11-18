@@ -49,7 +49,7 @@ impl World {
         self.out.clear();
         self.out_why.clear();
         self.res.clear();
-        self.pools.clear();
+        self.supply.clear();
         self.explored.clear();
         self.vis.clear();
         self.stats.clear();
@@ -67,7 +67,7 @@ impl World {
         self.out.push(false);
         self.out_why.push(OutWhy::In);
         self.res.push([50, 0]);
-        self.pools.push([[0, 0]; POOLS]);
+        self.supply.push([0, 0]);
         self.explored.push(vec![0; tiles]);
         self.vis.push(vec![0; tiles]);
         self.stats.push(Stats::default());
@@ -236,7 +236,10 @@ impl World {
                             && k.def()
                                 .req
                                 .is_none_or(|r| mine().any(|o| o.kind == r && o.done))
-                            && self.can_afford(t, k.def().cost)
+                            && self.can_afford(t, self.unit_cost(t, *k))
+                            // (and, on a grid side, room for it: an Expedition with no Data center nor Substation
+                            // left has no grid, its turbines paying for ever; the Kingdom's rule stays the gold's)
+                            && (!self.factions[t as usize].grid || self.room(t) >= self.takes(t, *k))
                     }))
         });
         (!(hq || worker || fighter || factory)).then_some(OutWhy::Helpless)

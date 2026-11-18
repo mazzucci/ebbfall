@@ -111,7 +111,7 @@
   "the menu: every map in one list (the duel's three and a random one first), the opponent and sound; the choices start the game": 24.2,
   "the production queue fills from the left and nothing in the console moves (humans)": 47.4,
   "the production queue fills from the left and nothing in the console moves (vael)": 72.4,
-  "the screen is lean: resources, supply, full screen, sound and pause on top, no empty panel; the clock lives in the pause card": 12,
+  "the screen is lean: resources, supply, the game clock, full screen, sound and pause on top, no empty panel; the clock in the pause card too": 12,
   "the top bar keeps still when SOUND ON turns to SOUND OFF (a wide screen shows the words)": 8,
   "training shows progress and the queue in the panel": 5.9,
   "two against two: allies share vision: the AI ally's base and army are in our sight, on the field and on the minimap (framed)": 8.8,

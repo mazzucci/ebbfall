@@ -14,35 +14,47 @@ npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<comm
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
+npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
+npm run lab -- tiers             # attack now or invest further: a committer per layer against a teching opponent
+npm run lab -- tiers --steady    # the same against Medium itself teching (--greedy: the greedy human)
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
+npm run lab -- trace --size 96 --races Kingdom,Expedition --levels Medium --seed 3   # one game, traced
+npm run lab -- summary --races Kingdom,Expedition --levels Medium --seed 3   # one game's summary JSON (96x96, 15 min)
+npm run lab -- duel --plan 1.w14.f9m.m24 --seed 7 --out s.json   # play against Claude: a plan code on Hard vs Hard
+npm run lab -- duel --plan-file p --answers a --digest d.json --delay 15   # with check-ins answered from a file
+npm run lab -- plan-gate --seeds 30   # plain Hard against Hard with an empty plan, seed for seed (8 cells, ~18 min)
 ```
 
 ### `report`
 
-The default batch, on 64x64 and 96x96 Standard maps:
+The default batch (Stelian, Nov 13: the main rows), on two-player 96x96 and 128x128 Standard maps (64x64 is gone from the
+menus):
 
-- every AI level against itself, in four matchups: Humans vs Vael, Vael vs Humans, and the two mirrors;
-- the ladder: each level against the one below it, each race a mirror, the higher level in either seat.
+- Easy and Medium each against itself, in four matchups: Kingdom vs Expedition, Expedition vs Kingdom, and the two
+  mirrors;
+- each level against each higher one on 96x96, the menus' Hard included (`Kind::Cross`: Medium against Easy, Hard
+  against Easy and against Medium: the ladder's steps), every pairing of the peoples, the higher level in either seat.
+  Hard is the menus' Hard, the sim's level 2 since Nov 13; the sim's level 3 is "Hard3" ("Brutal" reads as it).
 
-That is 56 cells, 5 seeds each (seeds 1 to 5), with a 30 game-minute cap. A game still running at the cap is a
-timeout: it is reported, not counted as a win. The default batch is 280 games: 432 s on 4 cores (about 3 s a
-64x64 game, 8 s a 96x96 one), less with more cores.
+That is 40 cells, 10 seeds each (seeds 1 to 10), with a 30 game-minute cap: 400 games, about 25 minutes on 3 threads.
+A game still running at the cap is a timeout: it is reported, not counted as a win.
 
-**Baselines and before/after pairs use `--seeds 30`** (1,680 games, about 45 minutes on 4 cores); the default's 5
-seeds are for a quick look.
+**Baselines and before/after pairs use `--seeds 30`**; 10-seed screens are compared seed for seed with the baseline
+(each game is seeded by its cell and seed, so the same cell and seed is the same game).
 
 | Flag | What it does |
 | --- | --- |
-| `--quick` | the small batch above |
+| `--quick` | a small batch (64x64, Medium and Hard and the ladder between them, 3 seeds) |
 | `--seeds N` | seeds 1 to N in every cell |
 | `--cap MIN` | the timeout, in game minutes |
-| `--sizes 64,96` | map sizes (64, 96 or 128) |
+| `--sizes 96,128` | map sizes (64, 72, 80, 96 or 128) |
 | `--maps OpenPlains,Labyrinth` | other map kinds, added to Standard |
-| `--levels Easy,Medium,Hard,Brutal` | the levels played (the ladder pairs neighbours among them) |
-| `--no-ladder` | only each level against itself |
-| `--no-mirrors` | each level's Kingdom against the Expedition alone, without the two mirrors: half the games, and the same games in those cells (each game is seeded by its cell and seed) |
+| `--levels Easy,Medium,Hard,Hard3` | the levels played ("Brutal" reads as Hard3) |
+| `--ladder` | each level against the one below it too, each race a mirror, the higher level in either seat |
+| `--no-cross` | without the cross cells between the levels |
+| `--no-mirrors` | each level's Kingdom against the Expedition alone, without the two mirrors: half the games, and the same games in those cells |
 | `--threads N` | parallel games (default: every core); the JSON is the same whatever N |
-| `--length-band 10-20` | the wanted median length on 64x64, in minutes |
+| `--length-band 10-15` | Medium's aimed median length, in minutes (reported, not gated) |
 | `--out FILE` | where the JSON goes |
 
 The same commit and flags give a byte-identical JSON file: games are seeded, results are sorted by cell and seed
@@ -56,18 +68,25 @@ higher level's on the ladder.
 
 The target checks print PASS or WARN. They are signals for a person, not gates (the command always exits 0):
 
-- **Humans vs Vael** at a level (both seat orders and both maps pooled) WARNs when the Humans' rate is outside
-  45–55% *and* its interval leaves out 50%: a real lean, not noise.
+- **Kingdom vs Expedition** at each level above Easy and each size (both seat orders pooled) PASSes within 35–65% (the
+  guardrail; 40–60% aimed). Easy is reported in the tables, not gated.
+- **Hard beats Easy decisively on 96**: Hard wins 90% or more of all its games against Easy, and the median length
+  (timeouts counted at the cap) is 15:00 or less. **Hard against Medium ends on 96**: 5% timeouts or less. **Medium to Hard, a step not a wall**: Hard wins about
+  75–90% of its games against Medium (the PM, Nov 13).
+- **The Kingdom ahead in short games, the Expedition in long ones** (below), at each level above Easy.
 - **A mirror** WARNs when its interval leaves out 50%: the seat or start position matters.
-- **The ladder** WARNs when a level beats the one below it less than 70% of the time (races, seats, maps pooled).
-- **Game length on 64x64** WARNs when the median of the finished 64x64 games of each level against itself is
-  outside the band (10–20 min). Timeouts are left out (the check says how many), so many timeouts pull it short.
-- **Timeouts** WARN when more than 5% of any cell's games hit the cap.
+- **The ladder** (with `--ladder`) WARNs when a level beats the one below it less than 70% of the time.
+- **Timeouts** WARN when more than 5% of any cell's games hit the cap; Easy against Easy is counted apart, reported
+  and not gated.
 
-With 5 seeds a cell, a single cell's interval is about ±35 points: per-cell figures rarely mean much alone. The
-pooled checks (about 20 games per level for Humans vs Vael, 40 per ladder step) carry the signal. And with many
-checks, some WARN by chance: a 95% interval misses the truth one time in twenty, so among the default batch's 16
-mirror checks one stray WARN is expected. A WARN that repeats with `--seeds 30` is worth a look.
+**Game length** (a table after the checks): each level against itself per size, the median of the finished games and
+the timeouts beside it. Reported, not gated. **Between the levels**: each cross pair's higher-level wins and median
+length, pooled and by the peoples (the ladder's steps: a step near 100% while the one below is gentle is a cliff).
+
+With 10 seeds a cell, a single cell's interval is about ±30 points: per-cell figures rarely mean much alone. The
+pooled checks (about 20 games per level and size for Kingdom vs Expedition, 80 per Hard cross check) carry the signal.
+And with many checks, some WARN by chance: a 95% interval misses the truth one time in twenty, so among the default
+batch's 8 mirror checks a stray WARN can come. A WARN that repeats with `--seeds 30` is worth a look.
 
 The key figures block is the Balance reports database's fields (Notion), one per line, ready to copy. The
 observed exchange rate is the median over games of shards mined over ether mined, and the same for what was spent:
@@ -76,6 +95,26 @@ how many shards a point of ether is worth in practice, the evidence for the shee
 What a game records: units trained (not the starting workers) and lost, and buildings finished (not the starting
 headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
 sim's own stats; the first attack and the first ether vent that ran dry.
+
+### The AI styles
+
+Each AI seat draws a style at its first turn (PRD: AI styles and the level ladder; `endfall_sim::data::style`):
+Pressure, Timing or Boom, weighted per level (Easy never Pressure), with a leaning unit and, on Easy, its army cap and
+the time it climbs to the mid tier. Each seat's style and leaning unit are in its record (`style`, `focus`). "The AI
+styles" gives, per level, opponent level and style, the seats' wins of the decided games pooled, by size and by people,
+with their games and timeouts. **Style parity** (a target check per level and opponent) PASSes when every style with 10
+decided games or more holds 50% in its interval against its own level, and the pooled rate of that level's seats across
+the levels (not where that rate is under 3% or over 97%). A seat with a lab plan (`plans`, `bets`, `tiers`, the turtle)
+plays its plan, no style.
+
+### A human's opening
+
+The AIs spend every coin at once, so the gold checks never show what a person feels. `report` also plays a plain
+scripted player alone (no AI, no foe moving), three map seeds a people and size: workers to its crew, supply when
+short, a production building from 1:00, a second once the first stands, then units from each, one at a time, saving
+for the first thing it cannot pay for (human.rs). Over 2:00-6:00 it gives the bank (median, most), the share of the
+time it waits for gold and the share of its production buildings' time busy, then its bank each minute to 8:00. The
+target (the PM, Nov 13): one production building kept busy or a second one built, not both, and no bank piling up.
 
 ### The Kingdom by game length, and the top tier
 
@@ -87,11 +126,11 @@ pooled over the sizes, each with its 95% interval and its games. The design targ
 few games in a bin, read the interval).
 
 **The top tier:** per people, level and size (each level against itself), the median time of the seat's first
-top-tier unit (the Kingdom's first Knight or Cannon, the Expedition's first Android) and of its first of each
-tech building finished (the Blacksmith, the Stables and the Workshop; the Lab, the Uplink and the Portal) and the
-satellite's launch, over the seats that got there, how many of all beside it. The target is the first top-tier unit
-at about 8–10 min. Each seat's record holds the tick of its first unit trained of each kind (`first_unit_tick`), its
-first building finished of each kind (`first_bldg_tick`) and its launch (`satellite_tick`).
+top-tier unit (the Kingdom's first Knight or Cannon, the Expedition's first Android or Rover) and of its first of each
+tech building finished (the Blacksmith, the Stables and the Workshop; the Lab, the Uplink and the Portal), over the
+seats that got there, how many of all beside it. The target is the first top-tier unit at about 8–10 min. Each seat's
+record holds the tick of its first unit trained of each kind (`first_unit_tick`) and its first building finished of
+each kind (`first_bldg_tick`).
 
 ### The Shore map (`--maps Shore`)
 
@@ -248,6 +287,45 @@ level (each against itself) and attacking people in "The waves"; `turtle` sums t
 the turtle by map and people. "Arrived (to no defence)" counts arrivals with nothing armed within 8 tiles: the defence
 was elsewhere; the ratio's quartiles are over the defended ones. Each game's JSON lists its waves.
 
+### `bets`
+
+The game's core decision (Stelian, Nov 12): a player bets on an army and defenses for a short game, or on the tech
+path for strong late units, and a wrong bet should lose. Three plans a side, each Medium's tuning with a few settings
+moved (`bets.rs`, set per seat through `World::set_ai_plans`, lab only):
+
+- **rush** (army first): three barracks and its first wave at 2:30, no tech building (so no top tier, no siege, no Lab
+  units), no towers, no research, its expansion at 10:00;
+- **defense** (towers first, then an army): six towers by 5:30 (`Diff::towers`), its first wave at 8:00;
+- **tech** (straight to the top tier): its tech building at 1:00 (`Diff::tech_at`), its side's techs
+  at once (`Diff::tech_from`), its vehicle bay and air factory early, the top tier mixed in early and thick (a Knight per
+  two Guards, a Cannon per three, an Android per Sellsword), one barracks to start, its first wave at 9:00.
+
+Every ordered pair of two different plans in each people's mirror (six) and every pair across the peoples in either
+seating (eighteen), map seeds 1 to `--seeds` (20) on `--size` (64) Standard maps, a `--cap` (30 min) after which a game
+is a timeout. The report gives, per people's mirror and across the peoples, the 3x3 of the row plan's wins against the
+column plan (both seatings pooled, timeouts apart, with 95% intervals), the same in games over 15 minutes, the median
+lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
+over 15 minutes, each at 55–70%.
+
+### `tiers`
+
+Attack now or invest further (Stelian, Nov 13). Each people's tech has three layers: **basic** (the Barracks; the
+Recruiting post and the Factory), **mid** (the Blacksmith and the Workshop's Cannon; the Lab, the Uplink and the Drone)
+and **top** (the Stables and the Knight; the Portal, the Rover and the Android). A committer (tiers.rs `commit`, from
+Medium's tuning) stops teching at its layer and goes for the foe: basic its barracks alone, its first wave at 4:00; mid
+its tech building and what it opens, no Stables or Portal, its first wave at 7:00; top straight up on Medium's two
+barracks, an elite queued per line unit (the Expedition's Androids and Rovers in turn), no expansion or towers, its
+first wave at 10:00; **basic late** and **mid late** as basic and mid, their first wave at 10:30, past the opponent's top tier. Its opponent keeps teching: by
+default the bets' tech plan (one barracks, its first wave at 9:00: a weak benchmark), with `--greedy` the greedy human
+(the tech plan on Medium's barracks, two towers by 5:00, a reserve at home, its first move at 10:00), with `--steady`
+the steady teching player (Medium itself, its first move at 10:00: the realistic one). Every pairing of the peoples,
+the committer in either seat, map seeds 1 to `--seeds` (10) on `--size` (96). The report gives the committer's wins of
+the decided games by layer and pairing, timeouts, lengths and first waves, and two checks per people on the three
+layers: no dominant layer (over 65%) and no dead one (under 20%).
+
+`trace --plans top,greedy` plays one such game traced (a plan per seat: `rush`, `defense`, `tech`, `basic`, `mid`,
+`top`, `greedy`, or `-` for the level's own).
+
 ### `turtle`
 
 A Medium AI seat that never attacks (Medium's tuning with `first` = never, so no wave launches, and no raids, since
@@ -258,7 +336,19 @@ map. A timeout counts as not lost. The report gives the turtle's loss rate with 
 per pairing, per map and in all, with its wins, the timeouts and the median length of a game it lost. Flags:
 `--seeds N` (25), `--maps` (Shore), `--size 64|96|128` (the maps' size; the Shore is 64x64 only), `--raids` (the
 turtle keeps Medium's raids: `first` = never alone, the PRD's letter), `--weak` (the weak turtle: Easy's economy on one
-base, the newcomer), `--attacker-level` (the attacker's whole tuning; Medium by default), `--cap MIN` (30),
+base, the newcomer), `--attacker-level` (the attacker's level, played in the style it draws; Medium by default),
+`--attacker-style Timing` (the attacker made to play that style: the newcomer check per Easy style), `--cap MIN` (30),
 `--threads N`, `--out FILE`. A turtle that does not lose before the tide is Medium's weakness, not the tide's. "The
-first hit" gives, of each game, when the attacker's first wave arrived, and how many games were hit before 8:00: with
-`--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when a passive newcomer first meets Easy.
+first hit" gives, of each game, when the attacker's first wave arrived, how many games were hit before 8:00, and that
+wave's units (median, most): with `--weak --attacker-level Easy --maps Standard` (and `--size 96`) it is when, and with
+how many, a passive newcomer first meets Easy (since Nov 13: no sooner than 7:45, and four units at most).
+
+### `trace`
+
+One game, a line per seat every `--every` seconds (30): its gold, gold mined, workers, finished buildings, army worth
+and units by kind, its AI's wave state (`World::ai_trace`: the wave's count, whether one is out and how much of it
+stands, its last wave, since when the next is ready, the enemy army it expects and when it saw it, its reserve, guards
+and raiders, the enemy siege it saw) and its buildings by kind, then how it ended and each seat's style and leaning unit. For telling a stall (armies idle at
+home, a wave stuck, an AI that stops building or attacking) from a grind (waves trading, both rebuilding). Flags:
+`--size` (64), `--map` (Standard), `--races` (one per seat, by name or key: four for four seats), `--levels` (one, or
+one per seat), `--teams 0,0,1,1`, `--seed`, `--side` (the seats' turn on the map, 0), `--cap` (30 min), `--every`.

@@ -12,13 +12,14 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser</title>
 <!-- What a search engine and a shared link show (site/preview.js gives a room's link its own og/twitter title, description
-     and url, through site/worker.js; the card's image is tools/og.mjs's). -->
-<meta name="description" content="In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans.">
+     and url, through site/worker.js; the card's image is tools/og.mjs's). The structured data below is the game's one
+     VideoGame: the docs home repeats it as it is (tools/docs/build.mjs videoGame). -->
+<meta name="description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
 <link rel="canonical" href="https://ebbfall.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Ebbfall">
 <meta property="og:title" content="Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser">
-<meta property="og:description" content="In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans.">
+<meta property="og:description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
 <meta property="og:url" content="https://ebbfall.com/">
 <meta property="og:image" content="https://ebbfall.com/og.png">
 <meta property="og:image:type" content="image/png">
@@ -27,12 +28,12 @@
 <meta property="og:image:alt" content="Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser">
-<meta name="twitter:description" content="In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans.">
+<meta name="twitter:description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
 <meta name="twitter:image" content="https://ebbfall.com/og.png">
 <meta name="twitter:image:alt" content="Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones">
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": ["VideoGame", "WebApplication"], "name": "Ebbfall", "url": "https://ebbfall.com/",
- "description": "In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans.",
+{"@context": "https://schema.org", "@type": ["VideoGame", "WebApplication"], "@id": "https://ebbfall.com/#game", "name": "Ebbfall", "url": "https://ebbfall.com/",
+ "description": "In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.",
  "image": "https://ebbfall.com/og.png", "genre": "Real-time strategy", "gamePlatform": "Web browser",
  "applicationCategory": "GameApplication", "operatingSystem": "Any", "browserRequirements": "Requires WebGL and WebAssembly",
  "playMode": ["https://schema.org/SinglePlayer", "https://schema.org/MultiPlayer"],
@@ -50,6 +51,8 @@
     <div class="res" id="resShard" title="Gold"><span class="dot shard"></span><b id="rShard">50</b></div>
     <div class="res" id="resSup" title="Population"><span class="lbl" id="lSupply">POP</span><b id="rSupply">4/10</b></div>
     <div class="spacer"></div>
+    <div class="res" id="resClock" title="Game time"><b id="rClock">0:00</b></div>
+    <button class="ib help" id="btnHelp" aria-label="How to play" aria-expanded="false" aria-controls="helpSheet" title="How to play">?</button>
     <button class="ib icon" id="btnFull" aria-label="Toggle full screen" title="Full screen"></button>
     <button class="ib icon" id="btnSound" aria-label="Sound" aria-pressed="true" title="Sound (on)"></button>
     <button class="ib icon" id="btnPause" aria-label="Pause" title="Pause (P)"></button>
@@ -65,6 +68,26 @@
       <div id="groups"></div>
     </div>
     <div id="tut" hidden role="status" aria-live="polite"></div>
+    <!-- The in-game help (the ? in the top bar, or the pause card's HOW TO PLAY): the controls in four lines, the goal in one,
+         and the docs' full guide; the game keeps running under it (help.js). -->
+    <section id="helpSheet" hidden aria-labelledby="helpTitle">
+      <div class="hd"><h2 id="helpTitle">HOW TO PLAY</h2><button class="ib x" id="btnHelpClose" aria-label="Close" title="Close (Esc)">×</button></div>
+      <ul class="lines desk">
+        <li><b>Select</b> with a click or a drag; <b>right-click</b> to move, attack, mine or set a rally point.</li>
+        <li>Each button shows its key: <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold in Classic; in WASD, a key by its place on the card.</li>
+        <li><kbd>Q</kbd> your whole army, <kbd>Space</kbd> jump to the attack, <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> save a group, <kbd>P</kbd> pause.</li>
+        <li>The arrow keys, the screen's edge or the middle button move the map; <kbd>Ctrl</kbd>+wheel zooms.</li>
+      </ul>
+      <ul class="lines touch">
+        <li><b>Tap</b> to select; tap the ground to move, an enemy to attack, a mine to mine.</li>
+        <li>Hold <b>SELECT</b> and drag for a group; double-tap a unit for all of its type.</li>
+        <li><b>ARMY</b> selects your whole army, <b>HOME</b> brings you home.</li>
+        <li>Drag with one finger to look around, pinch to zoom; hold a button to see what it does.</li>
+      </ul>
+      <p class="goal" id="helpGoal">Mine gold, raise Cottages for population, and bring down the enemy's base before their waves bring down yours.</p>
+      <div class="ft"><span id="helpRun">The game keeps running.</span><a id="helpGuide" href="./docs/how-to-play/" target="_blank" rel="noopener">Full guide and every unit →</a></div>
+    </section>
+
     <button class="tb" id="btnBox" hidden title="Hold, or tap, then drag on the map to select a group" aria-label="Select a group" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" /></svg><span>SELECT</span></button>
     <button class="tb" id="btnHome" hidden title="Back to base (Home)" aria-label="Home: back to base"></button>
     <button class="tb" id="btnArmy" hidden title="Select your whole army (Q); tap again to look at it" aria-label="Select your whole army"></button>
@@ -89,27 +112,28 @@
     <div class="card menu">
       <div class="page" id="menuHome">
         <h1>Ebbfall</h1>
-        <div class="tag" id="menuTag">In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans. Mine the gold, build, raise an army, and bring down the enemy's Castle or Data center.</div>
+        <div class="tag" id="menuTag">In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.</div>
         <div class="modes"><button class="ib big mode" id="btnSolo" title="A game against the computer">SINGLE PLAYER</button><button class="ib big mode" id="btnOnline" title="Play a friend over the Internet" hidden>MULTIPLAYER</button></div>
-        <div class="row"><button class="ib" id="btnFirstHome" title="A guided game on Easy: a short checklist shows you the way" hidden>FIRST GAME</button><button class="ib" id="btnHowTo">HOW TO PLAY</button><button class="ib" id="btnAbout">ABOUT</button><button class="ib" id="btnOptions">OPTIONS</button><button class="ib" id="btnInstall">INSTALL</button></div>
+        <div class="row"><button class="ib" id="btnFirstHome" title="A guided game on Easy: a short checklist shows you the way" hidden>FIRST GAME</button><button class="ib" id="btnOptions">OPTIONS</button><button class="ib" id="btnInstall">INSTALL</button></div>
         <p class="offmsg" id="homeOfflineMsg" role="status"></p>
-        <div class="rec" id="buildStamp"></div>
+        <div class="foot" id="menuFoot">
+          <p class="links" id="menuLinks"><a id="linkHowTo" href="./docs/how-to-play/" target="_blank" rel="noopener">How to play</a><span class="sep" aria-hidden="true">·</span><a id="linkAbout" href="./docs/about/" target="_blank" rel="noopener">About</a></p>
+          <div class="rec" id="buildStamp"></div>
+        </div>
         <!-- The water's edge: the water at the bottom edge, three lines that drift and a few stones left on the bank. Each line is an <svg> of its own, so its drift is one transform on the compositor; the whole thing is hidden with this page. -->
         <div class="shore" aria-hidden="true">
+          <!-- The field under the first page (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. -->
+          <picture class="scene">
+            <source media="(orientation: portrait)" srcset="menu/menu-portrait.webp">
+            <source media="(max-height: 420px)" srcset="menu/menu-landscape.webp">
+            <source media="(min-aspect-ratio: 2/1)" srcset="menu/menu-wide.webp">
+            <img src="menu/menu-desktop.webp" alt="" decoding="async" fetchpriority="low" width="1920" height="480">
+          </picture>
           <svg class="tide t1" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 296c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/></svg>
           <svg class="tide t2" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><path d="M-40 318c60-8 120 8 180 0s120-8 180 0 120 8 180 0 120-8 180 0 120 8 180 0 60-4 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".16"/></svg>
           <svg class="tide t3" viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="shoreSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fd1c5" stop-opacity="0"/><stop offset="1" stop-color="#4fd1c5" stop-opacity=".14"/></linearGradient></defs><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0V460H-40Z" fill="url(#shoreSea)"/><path d="M-40 352c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="2" stroke-opacity=".32"/></svg>
           <svg viewBox="0 0 844 390" preserveAspectRatio="xMidYMax slice"><g fill="#e6e0d3" fill-opacity=".28"><path d="M88.5 316 87.8 307.4 91 304l3.8 3.4.7 8.6z"/><path d="M101.5 316l.7-5 2.8-2 2.2 2-.7 5z"/><path d="M686.5 350l-.7-9.4L689 337l3.8 3.6.7 9.4z"/><path d="M703.5 350l.7-5 2.8-2 2.2 2-.7 5z"/><path d="M407 350l.4-7.2 3.1-2.8 2.9 2.8-.4 7.2z"/><path d="M777.5 306l-.4-5 2.4-2 2.6 2 .4 5z"/><path d="M247.5 334l.4-5 2.6-2 2.4 2-.4 5z"/></g></svg>
         </div>
-      </div>
-      <div class="page" id="menuAbout" hidden>
-        <div class="brand" aria-hidden="true">Ebbfall</div>
-        <h2>ABOUT</h2>
-        <p>Ebbfall is a free real-time strategy game for the browser, on a phone or a desktop, made for fun. In 2047, time travel was discovered. The only open gate led six centuries back. Naturally, we used it to build data centers. The local king had other plans. The Expedition brought bots, buggies, drones and a satellite, hired the locals, and dug in. The Kingdom has castles, archers, knights and a very long memory. Play against one to seven computer players at three levels, or with friends online: open a room and send its link, with no account and nothing to install. Once opened it plays offline too, and installs as an app.</p>
-        <p>Made by Stelian Matei. Everything is generated by code: the 3D-rendered sprites, the painted terrain, the synthesized sounds and voices. The game is a deterministic simulation in Rust, compiled to WebAssembly.</p>
-        <p class="links"><a id="srcLink" href="https://github.com/mazzucci/ebbfall" target="_blank" rel="noopener">Source code on GitHub</a> (MIT license) · <a id="checkLink" href="./selftest.html">Check this device for online play</a></p>
-        <p class="fine">Fonts: Chakra Petch and Share Tech Mono (SIL Open Font License). Version <span id="buildId"></span> (last game update <span id="buildCommit"></span>)</p>
-        <div class="row"><button class="ib back" id="btnAboutBack">BACK</button><button class="ib" id="btnOffline" title="Is the whole game saved on this device, to play with no connection?">PLAY OFFLINE</button><button class="ib install" id="btnAboutInstall" title="Install Ebbfall as an app: its own icon, full screen, plays offline" hidden>INSTALL</button><span class="offmsg" id="offlineMsg" role="status"></span></div>
       </div>
       <div class="page" id="menuSolo" hidden>
         <div class="brand" aria-hidden="true">Ebbfall</div>
@@ -140,21 +164,6 @@
       <div class="row foot"><button class="ib back" id="btnOnlineBack">BACK</button><span class="spacer"></span><span class="note" id="onlineStatus" role="status" aria-live="polite"></span><button class="ib big" id="btnOnlineReload" hidden>UPDATE</button><button class="ib big" id="btnOnlineReady" hidden aria-pressed="false">READY</button></div>
     </div>
   </div>
-  </div>
-  <div class="screen" id="help" hidden>
-    <div class="card" role="dialog" aria-modal="true" aria-label="How to play">
-      <h2>How to play</h2>
-      <p>Mine <b style="color:var(--shard)">gold</b>, raise Cottages for <b>population</b> (the Expedition: wind turbines for <b>Power</b>, and Recruiting posts for hired places), which every unit needs (up to 90, 100 or 120 by the map's size; the Expedition's Power and hired places each have their own share of it, 68 and 22 on the smallest maps), raise an army, and bring down the enemy's base before their waves bring down yours: a side is out when its last building falls, or when it has nothing left to fight with and no gold to train more. The enemy base is on the far side of the map.</p>
-      <ul>
-        <li><b>Mouse:</b> left-click or drag to select, right-click to move, attack, gather or set a rally point; hold the middle button and drag to move the map. In the panel, click a unit for it alone, Shift+click to drop it. Double-click selects all of that unit type on screen (on a factory: all of them, and they train as one).</li>
-        <li><b>Keyboard</b>, in one of two schemes (change them in OPTIONS, on the menu's first page or the pause menu). <b>Classic:</b> the arrow keys or the screen's edge move the map (<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> too while nothing is selected), and each button's letter is its key: <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold. <b>WASD:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> always move the map, and a button's key is its place on the card: <kbd>E</kbd><kbd>R</kbd><kbd>T</kbd> the top row, <kbd>F</kbd><kbd>G</kbd><kbd>H</kbd> the middle one, <kbd>C</kbd><kbd>V</kbd><kbd>B</kbd> the bottom one (each button shows its key). In both: Shift with a unit's key trains five, <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> saves a control group, <kbd>,</kbd> idle factory, <kbd>Q</kbd> whole army (twice: look at it), <kbd>Space</kbd> jump to the last attack (again: the ones before), <kbd>Home</kbd> back to base, <kbd>Esc</kbd> cancel or let go, <kbd>P</kbd> pause.</li>
-        <li><b>Touch:</b> tap to select; tap the ground to move, tap an enemy to attack, tap a gold mine to gather. Drag the map with one finger to look around (flick to glide), pinch to zoom. Hold <b>SELECT</b> (or tap it) and drag to select a group; double-tap a unit for all of its type, or a factory for all of them (they train as one, the shortest queue first). Drag on the minimap to nudge the view, tap it to jump; <b>HOME</b> beside SELECT brings you home, and <b>ARMY</b> after it selects your whole army (tap it again to look at them). With a building selected, a tap on the ground lets go of it; its rally point is set with <b>Rally</b>. workers given a job (gather, build, repair) are let go, so your next tap does not pull them off it; after placing a building the Build list reopens for the next one. Tap a gold mine (with nothing selected) to see how much gold is left; a worker left idle for a while pings the minimap. With a group selected, tap a type in the panel at the bottom to keep only those, hold it to drop them. Tap a queued unit (in the panel) to cancel it; hold any command button to see what it does and costs.</li>
-        <li>Select a worker (a Villager or a Bot) and tap <b>Build</b> to place buildings. What needs another building first is under <b>Advanced</b>, which opens once your Barracks (the Expedition: Recruiting post) stands; each building shows up as it opens, after the ones already there. The Kingdom's <b>Market</b> earns about a gold every three seconds by itself, with no workers, for as long as it stands (one per Castle). Workers mine only when you send them: a new one waits by your Castle (the Expedition: Data center), or walks to a mine its rally point is set on and waits there, and a worker who finishes a building waits beside it; select them and tap the mine (or right-click it). Up to eight Villagers (or five Bots, who carry more) mine a gold mine at once, each going in and coming out with a load of gold; more wait their turn at its side, and a worker at a crowded mine moves to a quieter one nearby. Villagers also <b>repair</b> damaged buildings (the Repair button, or right-click the building); repairs cost a quarter of the price for a full fix. A Bot stays at each building until it stands, and the Expedition does not repair.</li>
-        <li><b>The Kingdom:</b> the Barracks trains Guards and Archers, the Stables Riders and Knights (once a Market stands), the Workshop Ballistas, Cannons and the Balloon; the Blacksmith unlocks Knights, Cannons and Ballistas. Guards are cheap spearmen; once Shield Drill is researched they can <b>Brace</b>: more armor, but no moving. An Archer's arrow <b>slows</b> what it hits, flyers too: half speed and no ability for 3 s. A <b>Cannon</b> sets up by itself whenever it stops, and packs up when it has to move (3 s each way). Set up, it outranges everything on the ground and its cannonballs splash, but it cannot hit flyers nor anything close to it, and it fires only at what your side can see: keep an escort with it, and a spotter out front. The <b>Ballista</b> is the answer to flyers.</li>
-        <li><b>The Expedition:</b> the Recruiting post hires Sellswords, and Bruisers once a Lab stands (build as many posts as you like: each gives hired places, up to the map's maximum); the Factory builds Buggies, Rovers (once a Lab stands) and Drones; the Portal trains Androids. Sellswords (light swords) are the line, Bruisers (big shields) the toughest on foot; Rovers fire rockets on the move; Drones fly fast and raid workers; Androids are its elite, slow to make and costly, tough and long-ranged, and shoot ground and air. Its machines (Bots, Buggies, Rovers, Drones and Androids) run on Power, and faster near a Data center or an Uplink. The Data center launches a satellite once a Lab stands; then the Uplink, then the Portal: one per player, and it uses Power while it stands.</li>
-      </ul>
-      <div class="row"><button class="ib back" id="btnHelpClose">BACK</button></div>
-    </div>
   </div>
   <div class="screen" id="pause" hidden>
     <div class="card small" role="dialog" aria-modal="true" aria-label="Paused">

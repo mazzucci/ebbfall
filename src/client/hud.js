@@ -1,28 +1,27 @@
 // Top bar and selection panel (the UI state is in ui.js, the command card in card.js).
-import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, PUMP_RATE, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies, poolMax } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, UPGRADES, UP_DMG, QUEUE_MAX, effectLevel, hasReq, canAfford, queueUnit, cancelQueue, stopUnit, holdUnit, startBuild, cancelConstruction, research, cancelResearch, dist, visibleEnt, enemies, FACTIONS, TRADE_RATE } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 /** Harvesters repairing building `b`. */
 const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b === b);
 import { sfx } from './audio.js';
-import { icon } from './icons.js';
+import { icon, glyph } from './icons.js';
 import { portrait } from './gl/render.js';
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand, holdForDetail } from './card.js';
-import { myFaction, buildersOf, ROMAN } from './cards.js';
+import { myFaction, moneyDot, buildersOf, ROMAN, upName } from './cards.js';
+import { builderLine, siteLine, pausedToast, PAUSED_GAP, NO_BUILDER, pct } from './construct.js';
 export { myFaction, buildersOf, ROMAN }; // (the card's own helpers: cards.js)
 export { invalidateCard, cardItems, doCommand }; // (the card lives in card.js)
 export { $, ui, toast, playerSel, setBox, setHint, clearMode, setSelection }; // (the state lives in ui.js)
 
 /** A few words on a building's state (the panel's bars show how far along it is): construction, research, training. */
 export function bldgStatus(b) {
-  if (!b.done) return buildersOf(b).length ? 'Constructing' : 'Paused: no builder';
-  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : ''); }
-  // (a building, training or not, that gives hired places: the side's count of them, used over made, and whether
-  // that is the most it can have)
-  if (b.team === G.me && b.done && b.d.pool === 'hired' && b.d.supply > 0) { const [u, c] = G.hired[G.me]; return `Hired ${u} / ${c}` + (c >= poolMax('hired') ? ' (maximum)' : ''); }
-  if (b.queue.length) return 'Training ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
+  if (!b.done) return siteLine(b, buildersOf(b).length > 0); // ("Constructing, 61%" or "Paused at 61%: no builder")
+  if (b.research) { const u = UPGRADES[b.research.type], lv = G.upgrades[G.me][b.research.type] + 1; return 'Researching ' + upName(u, lv); }
+  if (b.queue.length) return (b.d.training || 'Training') + ' ' + UNITS[b.queue[0]].name + (b.queue.length > 1 ? ' +' + (b.queue.length - 1) : '');
   if (b.team === G.me && repairersOf(b).length) return 'Repairing';
-  if (b.d.pays && b.done) return `${BUILDINGS[b.type].doing} gold: 1 every ${Math.round(10 / PUMP_RATE) / 10} s`;
+  // (a Market, raised by its side's Trade, or a Wind turbine: what it pays, in its side's money)
+  if (b.d.pays && b.done) { const rate = b.d.pays * TRADE_RATE[Math.min(effectLevel(G.upgrades[b.team], 'trade'), 2)]; return `${BUILDINGS[b.type].doing} ${FACTIONS[G.factions[b.team]]?.money || 'gold'}: 1 every ${Math.round(10 / rate) / 10} s`; }
   return '';
 }
 
@@ -39,14 +38,15 @@ export function updateHud() {
   buildCard();
 }
 
-/** The top bar's figures: gold, then the Kingdom's population or the Expedition's Power (its hired places are on the
- *  Recruiting post's panel: `bldgStatus`). A figure at its cap pulses. */
+/** The top bar's figures: the Kingdom's gold and population, or the Expedition's energy (a bolt) and grid. A figure at
+ *  its cap pulses. */
 function topBar() {
-  const [s] = G.res[G.me], [su, sc] = G.sup[G.me], ex = !!myFaction().power;
+  const [s] = G.res[G.me], [su, sc] = G.sup[G.me], ex = !!myFaction().grid;
   const put = (id, v) => { const e = $(id); if (e.textContent !== v) e.textContent = v; };
-  put('rShard', String(s)); put('rSupply', su + '/' + sc); put('lSupply', ex ? 'POWER' : 'POP');
-  const title = ex ? 'Power' : 'Population'; if ($('resSup').title !== title) $('resSup').title = title;
-  $('resSup').classList.toggle('low', su >= sc);
+  put('rShard', String(s)); put('rSupply', su + '/' + sc); put('lSupply', ex ? 'GRID' : 'POP');
+  const title = ex ? 'Grid' : 'Population'; if ($('resSup').title !== title) $('resSup').title = title;
+  const money = ex ? 'Energy' : 'Gold'; if ($('resShard').title !== money) { $('resShard').title = money; $('resShard').querySelector('.dot').className = moneyDot(); }
+  $('resSup').classList.toggle('low', su + (UNITS[myFaction().worker]?.supply || 1) > sc); // (full: not even a worker fits, the smallest a side trains)
 }
 
 /** A figure in the panel: an icon, the base value and, in gold, what upgrades add. */
@@ -68,9 +68,9 @@ function fightStats(x) {
 
 /** The research a building is doing: the upgrade, its level (pips for I-III; a one-level tech has none) and a bar. */
 function researchModule(b) {
-  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, name = u.levels > 1 ? `${u.name} ${ROMAN[lv]}` : u.name;
+  const k = b.research.type, u = UPGRADES[k], lv = G.upgrades[b.team][k] + 1, name = upName(u, lv);
   const pips = u.levels > 1 ? `<span class="pips">${Array.from({ length: u.levels }, (_, j) => j + 1).map(i => `<i class="${i < lv ? 'done' : i === lv ? 'now' : ''}"></i>`).join('')}</span>` : '';
-  const shown = u.levels > 1 ? `${u.name} <b>${ROMAN[lv]}</b>` : u.name;
+  const shown = u.level_names?.[lv - 1] ? upName(u, lv) : u.levels > 1 ? `${u.name} <b>${ROMAN[lv]}</b>` : u.name;
   return `<div class="rs" title="Researching ${name}">${icon(k)}<div class="rb"><div class="rt">${shown}${pips}</div><div class="bar res"><i></i></div></div></div>`;
 }
 
@@ -104,22 +104,28 @@ function renderSelection() {
   } else if (sel.length === 1 && sel[0].kind === 'node') {
     // A gold mine: what is left and who works it.
     const n = sel[0];
-    named('Gold mine');
+    const ore = myFaction().ore || 'gold';
+    named(ore[0].toUpperCase() + ore.slice(1) + ' mine');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
-    sub.textContent = n.amount > 0 ? `${n.amount} gold left` : 'Empty: no gold left';
+    sub.textContent = n.amount > 0 ? `${n.amount} ${ore} left` : `Empty: no ${ore} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
-    const working = G.units.filter(u => u.team === G.me && u.task.t === 'gather' && u.task.node === n).length; // inside, waiting, and coming and going
-    module('node' + working, `<span class="st" title="${plural(UNITS[myFaction().worker].name)} working it" aria-label="${plural(UNITS[myFaction().worker].name)} working it: ${working}">${portrait('unit', myFaction().worker, 22)}<b>${working}</b></span>`);
+    // (our own miners inside it now, of the most our workers fit: "Miners 5 / 8"; the arc's UPDATE 6)
+    const inside = G.units.filter(u => u.team === G.me && u.inside && u.task.node === n).length, cap = UNITS[myFaction().worker].mineCap;
+    module('node' + inside, `<span class="st" title="Miners inside it now, of the most it fits" aria-label="Miners ${inside} of ${cap}">${portrait('unit', myFaction().worker, 22)}<b>Miners ${inside} / ${cap}</b></span>`);
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === G.me;
     named(x.d.name);
     if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
     // (research and training: the module below names what and shows how far)
-    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length && x.d.pool !== 'hired' ? 'Training' : bldgStatus(x);
+    sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length ? x.d.training || 'Training' : bldgStatus(x);
+    // (construction's words carry a percentage: they keep their room, the name gives way first)
+    sub.classList.toggle('keep', own && (x.kind === 'unit' ? x.task.t === 'build' : !x.done));
     life(x.hp / x.maxhp, Math.ceil(x.hp), x.maxhp, '', x.sh, x.maxsh);
     if (x.kind === 'bldg' && own && !x.done) {
-      module('build' + x.id, '<div class="bar build"><i></i></div>');
+      // (the percentage beside the bar shows only where the words above are hidden: small phones)
+      module('build' + x.id, '<div class="bar build"><i></i></div><span class="pct" aria-hidden="true"></span>');
       mod.querySelector('i').style.width = (x.progress * 100) + '%';
+      const p = pct(x.progress) + '%', el = mod.querySelector('.pct'); if (el.textContent !== p) el.textContent = p;
     } else if (x.kind === 'bldg' && own && x.d.trains?.length && !x.queue.length && !x.research) {
       module('', ''); // (idle: no empty slots; the room is its line's, under the health bar (Stelian, Nov 11))
     } else if (x.kind === 'bldg' && own && x.d.trains?.length) {
@@ -127,7 +133,7 @@ function renderSelection() {
       // research (empty room when there is none), so a research starting or ending moves nothing either.
       const rs = x.d.researches?.length ? '<div id="qres" class="rq"></div>' : '';
       module('q' + x.id, '<div id="queue" class="q" role="group" aria-label="Production queue (tap a unit to cancel it)"></div>' + rs);
-      renderQueue($('queue'), x, 30);
+      renderQueue($('queue'), x);
       if (rs) renderQueueResearch($('qres'), x);
     } else if (x.kind === 'bldg' && own && x.research) {
       module('res' + x.id + x.research.type + G.upgrades[x.team][x.research.type], researchModule(x));
@@ -141,23 +147,31 @@ function renderSelection() {
     named(sel.length + (sel.every(x => x.kind === 'bldg') ? ' buildings' : ' units')); $('selPor').innerHTML = ''; selKey = ''; module('', '');
     sub.textContent = Object.entries(counts).map(([k, v]) => v + ' ' + k).join(', ');
     $('life').hidden = true;
+    // The tiles in kind order (the roster's: Guards before Archers, units before buildings), then by id: a mixed group
+    // reads as runs of a type, and a tile keeps its place while the selection stands. Each tile's sprite is cut to its
+    // own box (`portrait` with `box`), and its bar takes the world's health colors (`data-h`: mid under 60%, low under 30%).
+    const sorted = sel.slice().sort(byKind);
+    const bar = (tile, f) => { tile.lastChild.style.width = (f * 100) + '%'; const h = f > 0.6 ? '' : f > 0.3 ? 'mid' : 'low'; if (tile.dataset.h !== h) tile.dataset.h = h; };
     if (compactMq.matches) { // small screens: one tile per type, with its count and the group's health
-      const types = [...new Set(sel.map(x => x.type))], gk = 't' + types.join() + sel.length;
+      const types = [...new Set(sorted.map(x => x.type))], gk = 't' + types.join() + sel.length;
       if (grp.dataset.k !== gk) {
         grp.dataset.k = gk;
-        grp.innerHTML = types.map(t => { const g = sel.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 26)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
+        grp.innerHTML = types.map(t => { const g = sorted.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 28, G.me, true)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
       }
-      types.forEach((t, i) => { const g = sel.filter(x => x.type === t), f = g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0); grp.children[i].lastChild.style.width = (f * 100) + '%'; });
+      types.forEach((t, i) => { const g = sorted.filter(x => x.type === t); bar(grp.children[i], g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0)); });
       return;
     }
-    const shown = sel.slice(0, 24), gk = shown.map(x => x.id).join();
+    const shown = sorted.slice(0, 24), gk = shown.map(x => x.id).join();
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
-      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, 26, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
+      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, 28, x.team, true)}<b>${x.d.hot}</b><i></i></div>`).join('');
     }
-    shown.forEach((x, i) => { grp.children[i].lastChild.style.width = (x.hp / x.maxhp * 100) + '%'; });
+    shown.forEach((x, i) => bar(grp.children[i], x.hp / x.maxhp));
   }
 }
+/** The roster's order of kinds (units, then buildings, as the sim numbers them), for the group grid's tiles. */
+const KIND_ORDER = new Map([...Object.keys(UNITS), ...Object.keys(BUILDINGS)].map((k, i) => [k, i]));
+const byKind = (a, b) => (KIND_ORDER.get(a.type) ?? 1e9) - (KIND_ORDER.get(b.type) ?? 1e9) || a.id - b.id;
 
 // ---- the tile strip: narrowing a selection without the box ----
 // A type tile (phones): a tap keeps only that type, a long-press drops it. A unit tile (wider screens): a click keeps
@@ -189,7 +203,9 @@ let whatFit = '';
 /** The kind's line for `one` (null: none), measured again only when what it holds or the room changes (the selection,
  *  its module, the window). */
 function whatLine(info, one) {
-  const what = $('selWhat'), text = one?.d.what || '', key = (one ? one.id : '') + '|' + modKey + '|' + innerWidth + 'x' + innerHeight;
+  // (an own site nobody builds: "No builder" in its kind's place, under "Paused at 61%")
+  const paused = one?.kind === 'bldg' && one.team === G.me && !one.done && !buildersOf(one).length;
+  const what = $('selWhat'), text = paused ? NO_BUILDER : one?.d.what || '', key = (one ? one.id : '') + '|' + text + '|' + modKey + '|' + innerWidth + 'x' + innerHeight;
   if (what.textContent !== text) what.textContent = text;
   if (key !== whatFit) { whatFit = key; fitWhat(info, what); }
   portraitTip(one);
@@ -215,7 +231,7 @@ function taskName(u) {
   const T = u.task;
   if (u.mode === 'deploy') return u.swap > 0 ? 'Deploying' : 'Deployed'; // (firing or not: a deployed tank shells what it can)
   if (T.t === 'gather') return T.phase === 'return' ? 'Returning cargo' : T.phase === 'mine' ? 'Mining' : T.phase === 'wait' ? 'Waiting to mine' : 'Moving to mine';
-  if (T.t === 'build') return 'Constructing'; if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
+  if (T.t === 'build') return builderLine(T.b); // ("Constructing Barracks, 61%") if (T.t === 'repair') return 'Repairing'; if (T.t === 'attack') return 'Attacking'; if (T.t === 'amove') return 'Attack-moving';
   if (u.swap > 0) return 'Packing up';
   if (T.t === 'move') return 'Moving'; if (T.t === 'hold') return 'Holding position'; if (T.t === 'flee') return 'Running for cover'; return 'Idle';
 }
@@ -227,18 +243,20 @@ export function timeLeft(b) {
   return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
 }
 /**
- * A building's production queue in the selection console: one slot per unit it can hold, filled from the left (the
+ * A building's production queue in the selection console: one slot per unit it can hold, filled from the left with
+ * the symbol of the button that queued it (symbols for what is ordered, sprites for what exists) (the
  * one in training first, the time it still needs on it: a slow one, the Android's two minutes, never looks stuck),
  * the free ones as empty outlines, so the queue keeps its width; a progress bar underneath.
  * A click or tap on a unit cancels it (full refund).
  */
-function renderQueue(box, b, size = 26) {
+function renderQueue(box, b) {
   if (!box) return;
   const q = b.queue, key = b.id + ':' + q.join();
+  const now = b.d.training ? ` (${b.d.training.toLowerCase()})` : ' (in training)'; // (the Portal: teleporting)
   if (box.dataset.k !== key) {
     box.dataset.k = key; box.classList.toggle('idle', !q.length);
     box.innerHTML = '<div class="bar prod"><i></i></div>' + q.map((t, i) =>
-      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : ' (in training)'}">${portrait('unit', t, size)}<span class="x" aria-hidden="true"></span>${i ? '' : '<span class="left" aria-hidden="true"></span>'}</button>`).join('') +
+      `<button class="qi" data-i="${i}" data-t="${t}" title="Cancel ${UNITS[t].name}${i ? '' : now}: full refund" aria-label="Cancel ${UNITS[t].name}${i ? '' : now}">${glyph(t)}<span class="x" aria-hidden="true"></span>${i ? '' : '<span class="left" aria-hidden="true"></span>'}</button>`).join('') +
       '<span class="qe" aria-hidden="true"></span>'.repeat(Math.max(0, QUEUE_MAX - q.length));
   }
   box.querySelector('.prod i').style.width = (q.length ? b.prog * 100 : 0) + '%';
@@ -252,7 +270,7 @@ function renderQueueResearch(box, b) {
   const r = b.research, key = r ? r.type + G.upgrades[b.team][r.type] : '';
   if (box.dataset.k !== key) {
     box.dataset.k = key; box.classList.toggle('idle', !r);
-    const u = r && UPGRADES[r.type], lv = r && G.upgrades[b.team][r.type] + 1, name = r ? u.name + (u.levels > 1 ? ' ' + ROMAN[lv] : '') : '';
+    const u = r && UPGRADES[r.type], lv = r && G.upgrades[b.team][r.type] + 1, name = r ? upName(u, lv) : '';
     box.title = r ? 'Researching ' + name : ''; box.setAttribute('aria-label', box.title);
     box.innerHTML = (r ? icon(r.type) : '<span class="ico"></span>') + '<div class="bar res"><i></i></div>';
   }
@@ -269,14 +287,15 @@ function queueClick(ev) {
 }
 { const el = $('mod'); if (el) { el.addEventListener('click', queueClick); el.addEventListener('pointerdown', ev => ev.stopPropagation()); } }
 
-/** A site of ours that loses its last builder says so (once): a thumb easily pulls a builder off without noticing. */
-const siteHadBuilder = new Map();
+/** A site of ours that loses its last builder says so ("Barracks paused at 90%"): a thumb easily pulls a builder off
+ *  without noticing. At most once a site a minute (game time), no confirm step. */
+const siteHadBuilder = new Map(), pausedSaid = new Map();
 function watchSites() {
   for (const b of G.bldgs) {
-    if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); continue; }
+    if (b.team !== G.me || b.done) { siteHadBuilder.delete(b.id); pausedSaid.delete(b.id); continue; }
     const has = buildersOf(b).length > 0;
-    if (siteHadBuilder.get(b.id) && !has) toast(`${b.d.name} paused: no builder (select it and tap Resume)`, true);
+    if (siteHadBuilder.get(b.id) && !has && !(G.time - (pausedSaid.get(b.id) ?? -Infinity) < PAUSED_GAP)) { toast(pausedToast(b), true, false, 'paused'); pausedSaid.set(b.id, G.time); }
     siteHadBuilder.set(b.id, has);
   }
-  for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) siteHadBuilder.delete(id);
+  for (const id of siteHadBuilder.keys()) if (!G.bldgs.some(b => b.id === id)) { siteHadBuilder.delete(id); pausedSaid.delete(id); }
 }

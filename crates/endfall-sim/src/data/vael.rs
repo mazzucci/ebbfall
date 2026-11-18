@@ -2,12 +2,19 @@
 //! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Androids from the Portal. No shields
 //! (the mechanism stays, as data) and every ground unit walks. Keys never change; the names are display strings only.
 //!
-//! No population (PRD: the Expedition rework): its machines (Bot, Buggy, Rover, Drone) use Power (`Pool::Supply`), from
-//! the Data center and wind turbines; its hired guns (Sellsword, Bruiser, Medic) take hired places (`Pool::Hired`), six
-//! a Recruiting post. Power and hired places each have a maximum (`power_limit`, `hired_limit`). The satellite
-//! (researched at the Data center once a Lab stands) unlocks the Uplink, which unlocks the Portal: one a side, using
-//! Power while it stands, where the Android, a slow and expensive elite machine, is made. Machines move faster inside
-//! the range of the Data center or an Uplink (data/radio.rs).
+//! Energy and the grid (PRD: the Expedition runs on energy, Nov 14), the Kingdom's economy in the Expedition's colors:
+//! it spends energy where the Kingdom spends gold (the same number in the one cost slot: its Bots dig thorium, which
+//! the Data center's small reactor turns into energy; its Wind turbines pay energy by themselves, five a Data center, as
+//! the Market pays gold), and its machines and its mercenaries draw on the grid while they exist, as the Kingdom's units
+//! take population (its buildings drew grid too until Nov 14): the Data center and its Substations give grid, up to
+//! `GRID_MAX`. "Energy builds things; the grid keeps them running." The Lab unlocks the Uplink, which unlocks the
+//! Portal: one a side, where the Android, a slow and expensive elite machine, is made. Machines work and move faster
+//! inside the coverage of the Data center or an Uplink (data/radio.rs).
+//!
+//! No armor on its units (Nov 14: deadly but fragile) and no armor research: Energy efficiency instead. A unit that had
+//! base armor `a` has its hp raised to about hp x d / (d - a), averaged over the Kingdom's main damage values d (the
+//! Guard's 7, the Archer's 16, the Rider's 10, the Knight's 38, the Cannon's 85): x1.077 for armor 1, x1.306 for 3
+//! (`no_expedition_unit_has_armor_and_its_hp_carries_what_armor_did`).
 
 use super::*;
 
@@ -16,22 +23,32 @@ pub const VAEL: Faction = Faction {
     name: "Expedition",
     hq: BldgKind::Conflux,
     worker: UnitKind::Lumen,
-    // The basic page holds what can be built from the start (the Conflux too), the Recruiting post first (the
-    // Expedition's barracks); the advanced page what needs it, so it appears once the Recruiting post stands.
-    build_basic: &[BldgKind::Siphon, BldgKind::Spire, BldgKind::Conflux],
+    // The basic page holds what can be built from the start, the Data center first (a new base, Stelian, Nov 14), then
+    // the Recruiting post (the Expedition's barracks); the advanced page what needs it, so it appears once the
+    // Recruiting post stands.
+    // (the Sentry mast basic since the arc, Nov 13: the early Expedition is mercenaries and masts)
+    build_basic: &[
+        BldgKind::Conflux,
+        BldgKind::Siphon,
+        BldgKind::Substation,
+        BldgKind::Ward,
+    ],
+    // (the Wind turbines once a Recruiting post stands, as the Kingdom's Market once its Barracks does)
     build_advanced: &[
         BldgKind::Kiln,
         BldgKind::Loom,
-        BldgKind::Ward,
+        BldgKind::Spire,
         BldgKind::Uplink,
         BldgKind::Eclipse,
     ],
-    supply: BldgKind::Spire,
-    market: None,
+    supply: BldgKind::Substation,
+    market: Some(BldgKind::Spire),
+    money: "energy",
+    ore: "thorium",
     sounds: ["lance", "slam", "lance", "blade"],
-    repairs: false,
-    power: true,
-    start_workers: 4, // (two from the balancing phase: Stelian, Nov 13)
+    repairs: true, // (its Bots repair buildings, as Villagers do; machines are not repaired: the arc, Nov 13)
+    grid: true,
+    start_workers: 4, // (TUNING)
     ai: AiScript {
         rax: BldgKind::Siphon,
         tech: BldgKind::Loom,
@@ -44,21 +61,25 @@ pub const VAEL: Faction = Faction {
         // (the Android, from the Portal: its hired guns are melee since the rework; its Drones, mixed in, hit the air too)
         anti_air: UnitKind::Umbra,
         heavy_anti_air: None,
-        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Rover per three and a Drone
-        // per four from the Factory, between its Buggies, the reach and the anti-air the melee line lacks; an Android per
-        // four from the Portal from 5:00)
+        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Drone per four from the
+        // Factory, between its Buggies, the anti-air the melee line lacks; from the Portal an Android per three from 5:00
+        // and a Rover per four, the Android first (Nov 13: with the Rover first, Rovers lost one by one were made again
+        // and again, and the Android never came))
         mix: &[
             (UnitKind::Bruiser, 4, 0.0),
-            (UnitKind::Monolith, 3, 0.0),
+            (UnitKind::Monolith, 4, 0.0),
             (UnitKind::Shrike, 4, 0.0),
-            (UnitKind::Umbra, 4, 300.0),
+            (UnitKind::Umbra, 3, 300.0),
         ],
+        dive: Some(UnitKind::Shrike),
         raider: UnitKind::Scythe,
         scout: None,
         wave_scale: 0.6,
         tech_from: 300.0,
         // (its Factory half a minute sooner: its Rovers and Drones come from there)
         air_lead: 30.0,
+        // (three more Sentry masts by 6:30: its defense while it goes for the Portal)
+        towers_more: &[],
     },
 };
 
@@ -72,9 +93,12 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     sight: 7.0,
     r: 9.0,
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
-    supply: 2, // (Power: 1 before the economy's second round, twice a Villager's place as every machine)
-    mine_cap: 5,
-    mine_load: 12,
+    supply: 1, // (grid: 2 before the grid was halved, Nov 14; a Villager's place, as every machine's draw per place)
+    // (since Nov 14 a Bot mine pays as a Villager mine from the start: six with 9 a trip, a little quicker inside, 7.2 s
+    // to the Villager's 7.5, 54 in 7.2 s for 56 in 7.5; 96% before, and 80% with five before Nov 13)
+    mine_cap: 6,
+    mine_load: 9, // (13 before Nov 13: cut in step with the Villager's, for gold that is scarce for a person too)
+    mine_time: 7.2,
     worker: true,
     weapon: Some(Weapon {
         range: 0.6,
@@ -84,39 +108,37 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Buggy: a fast raider vehicle with a light gun (the Expedition's raider, as the Rider is the Kingdom's).
+/// The Buggy: a fast vehicle with a light gun, the early machine from the Factory (the coverage's cavalry: the
+/// Expedition's unit that catches raiders at its Bots; the arc, Nov 13).
 pub(super) const SCYTHE: UnitDef = UnitDef {
     key: "scythe",
     name: "Buggy",
-    cost: [100, 0],
-    supply: 4, // (Power: 2 before the economy's second round)
-    hp: 100.0,
-    armor: 1.0,
+    cost: [80, 0],
+    supply: 1, // (grid: 4 before the grid was halved, Nov 14, then 1 by Stelian's list, not 2: a light machine)
+    hp: 118.0, // (110 and armor 1 before Nov 14: no armor, its hp carries it: the module's note on armor)
     speed: 135.0,
     sight: 9.0,
     r: 12.0,
     build: 24.0,
     weapon: Some(Weapon {
-        range: 3.0,
-        dmg: 8.0,
-        cd: 0.7,
+        range: 4.0,
+        dmg: 10.0,
+        cd: 0.8,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,
         ..W
     }),
     ..UNIT
 };
-/// The Sellsword: a hired local with a light sword, the Expedition's melee line (ground only). One hired place. Against
-/// the Guard (the formula sheet): about twice the Guard for twice its price, a little less for the money (Lanchester
-/// 0.15 to the Guard's 0.16, which also braces) and much more for its place: places are what the Expedition runs short of.
+/// The Sellsword: a hired local with a light sword, the Expedition's melee line (ground only). One grid (a hired place
+/// before Nov 14: its quarters and contract upkeep). Against the Guard (the formula sheet): about twice the Guard for
+/// twice its price, a little less for the money (Lanchester 0.15 to the Guard's 0.16, which also braces).
 pub(super) const PRISM: UnitDef = UnitDef {
     key: "prism",
     name: "Sellsword",
     cost: [100, 0],
-    supply: 1,
-    pool: Pool::Hired,
-    hp: 110.0,
-    armor: 1.0,
+    supply: 1, // (grid: a hired place before Nov 14; 2 before the grid was halved)
+    hp: 108.0, // (110 before Nov 13: the Kingdom's Guards and Archers on par at equal gold; 100 and armor 1 before Nov 14)
     speed: 92.0,
     sight: 8.0,
     r: 11.0,
@@ -144,28 +166,27 @@ pub(super) const HALO: UnitDef = UnitDef {
     heal: 6.0,
     mend: true,
     req: Some(BldgKind::Loom),
-    pool: Pool::Hired, // (a hired local: one place)
+    supply: 1, // (a hired local: one grid)
+    bio: true, // (a person, no machine: Energy efficiency leaves its price)
     ..UNIT
 };
-/// The Android: the Expedition's elite, from its one Portal (the balance pass): a machine (three Power), slow and
-/// expensive to make (two minutes, 300 gold: three Sellswords' price for three Power; the formula sheet's least
-/// efficient unit for its gold, by design), tough, armored and long-ranged, hitting the ground and the air at its old
+/// The Android: the Expedition's elite, from its one Portal (the balance pass): a machine, slow and expensive to make
+/// (the formula sheet's least efficient unit for its price, by design), tough and long-ranged, hitting the ground and the air at its old
 /// fire rate (a shot a second instead made no difference the lab could see); never hidden.
 pub(super) const UMBRA: UnitDef = UnitDef {
     key: "umbra",
     name: "Android",
-    cost: [300, 0],
-    supply: 6, // (Power: 3 before the economy's second round)
-    hp: 200.0,
-    armor: 2.0,
+    cost: [525, 0], // (250 before Nov 13: an elite, about four Sellswords' hp and damage; armies of them stay small)
+    supply: 5,      // (grid: 10 before the grid was halved, Nov 14)
+    hp: 575.0, // (220 before Nov 13; 440 and armor 3 before Nov 14: the module's note on armor)
     speed: 90.0,
     sight: 9.0,
     r: 10.0,
-    build: 120.0,
+    build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
-        range: 7.0,
-        dmg: 25.0,
-        dmg_air: 20.0,
+        range: 8.0,
+        dmg: 63.0, // (30 before Nov 13)
+        dmg_air: 50.0,
         cd: 1.2,
         proj: Some(ProjKind::Bolt),
         up_dmg: 3.0,
@@ -173,50 +194,54 @@ pub(super) const UMBRA: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Rover: rocket artillery (the Conch's place, its shields counted into its hull); it fires on the move,
-/// splashes, and outranges the towers.
+/// The Rover: a rocket launcher, the Expedition's artillery, through the Portal beside the Android (the arc, Nov 13):
+/// it fires on the move, splashes, and outranges the towers, but sees no farther than any unit: it needs spotters. A
+/// heavy salvo, slow to reload (PRD: the Expedition runs on energy, Nov 14: about 100 every 3.5 s; 120 since the
+/// commit-at-tier check), priced above the Android.
 pub(super) const MONOLITH: UnitDef = UnitDef {
     key: "monolith",
     name: "Rover",
-    cost: [250, 0],
-    supply: 6, // (Power: 4 before the economy's second round)
-    hp: 200.0,
-    armor: 1.0,
+    cost: [550, 0], // (240 before Nov 13: siege that crushes a mass, dear and few; 380 before Nov 14, under the Android)
+    supply: 6,      // (grid: 12 before the grid was halved, Nov 14)
+    hp: 388.0, // (220 before Nov 13; 360 and armor 1 before Nov 14: the module's note on armor)
     speed: 58.0,
     sight: 9.0,
     r: 15.0,
-    build: 40.0,
-    req: Some(BldgKind::Loom),
+    build: 52.0, // (40.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
-        range: 8.0,
-        dmg: 40.0,
-        cd: 2.6,
+        range: 12.0, // (11 for a day, Nov 13; 12 again since: it out-ranges the Cannon, its answer to entrenched siege)
+        min_range: 3.0,
+        dmg: 120.0, // (45 before Nov 13, 70 every 2.5 s before Nov 14, 100 until the commit-at-tier check of Nov 14 found
+        // the Expedition's top tier its weakest layer, against the steady player and the greedy one)
+        cd: 3.5,
         proj: Some(ProjKind::Missile),
         up_dmg: 4.0,
-        splash: 0.5,
-        splash_r: 44.0,
+        splash: 0.6,
+        splash_r: 54.0,
         ..W
     }),
     ..UNIT
 };
-/// The Drone: a fast low flyer that hits the ground and the air (the Petrel's numbers, its shields in its hull).
+/// The Drone: a small, fast attack drone for swarms (the arc, Nov 13): fragile and weak alone, the fastest unit in the
+/// game, a short camera's sight (it spots for the Rovers by flying ahead of them), the ground and the air. Lab-gated.
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
     name: "Drone",
-    cost: [175, 0],
-    supply: 4, // (Power: 2 before the economy's second round)
-    hp: 120.0,
-    speed: 165.0,
-    sight: 9.0,
-    r: 11.0,
-    build: 28.0,
+    cost: [65, 0],
+    supply: 1, // (grid: the smallest a machine takes; 2 before the grid was halved, Nov 14)
+    hp: 40.0,
+    speed: 192.0, // (6 tiles a second, 7.8 in coverage)
+    sight: 7.0,
+    r: 9.0,
+    build: 12.0,
     air: true,
     mv: Move::Fly,
+    req: Some(BldgKind::Loom),
     weapon: Some(Weapon {
-        range: 3.5,
-        dmg: 12.0,
-        dmg_air: 10.0,
-        cd: 0.7,
+        range: 3.0,
+        dmg: 6.0,
+        dmg_air: 6.0,
+        cd: 0.5,
         proj: Some(ProjKind::Bolt),
         up_dmg: 1.0,
         ..W
@@ -224,19 +249,14 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Bruiser: a hired local with a big shield and an axe, the Expedition's tough melee front line (the Recruiting
-/// post's, once a Lab stands; ground only). One hired place (the balance pass weighed two: the formula sheet makes it the
-/// strongest unit for its place by far, 18 DPS and 320 hull a place to the Sellsword's 13 and 110, but the lab's Hard
-/// Kingdom went from 59% to 76% against the Expedition with it at two: under the hired maximum the Expedition needs
-/// it). Against the Knight (the formula sheet): the same price, more hull and armor, less damage and far slower: it
-/// holds the line rather than runs it down (Lanchester 0.12 to the Knight's 0.12).
+/// post's, once a Lab stands; ground only). Two grid (two hired places before Nov 14). Against the Knight (the formula
+/// sheet): the same price, more hull, less damage and far slower: it holds the line rather than runs it down.
 pub(super) const BRUISER: UnitDef = UnitDef {
     key: "bruiser",
     name: "Bruiser",
     cost: [225, 0],
-    supply: 2, // (hired places: 1 before the economy's second round)
-    pool: Pool::Hired,
-    hp: 320.0,
-    armor: 3.0,
+    supply: 2, // (grid: 4 before the grid was halved, Nov 14)
+    hp: 418.0, // (320 and armor 3 before Nov 14: the module's note on armor)
     speed: 78.0,
     sight: 8.0,
     r: 13.0,
@@ -258,71 +278,90 @@ pub(super) const CONFLUX: BldgDef = BldgDef {
     key: "conflux",
     name: "Data center",
     short: "Data center",
-    cost: [400, 0],
+    // (400 before Nov 15, as the Castle: the counterweight to coverage placement and the Kingdom's reserve rule, Medium's
+    // Kingdom against the Expedition back in band on 96 and 128)
+    cost: [350, 0],
     w: 4,
     h: 4,
     hp: 1400.0,
     armor: 2.0,
-    supply: 40, // (Power: 20 before the economy's second round)
+    supply: 22, // (grid: 55 from Nov 14, about the places its first two Recruiting posts gave its mercenaries before
+    // (60 had the Expedition ahead on 96x96, the lab); halved with every grid number the same day (28), then 22 once
+    // buildings drew no grid. Medium Kingdom vs Expedition over 60 seeds, 96x96 / 128x128, with the AI styles: 20
+    // gave 44% / 66%, 22 37% / 58%, 24 38% / 58%; 28 had given 35% on 96x96 before the styles)
     build: 80.0,
     sight: 10.0,
     trains: &[UnitKind::Lumen],
-    researches: &[Upgrade::Satellite],
     dropoff: true,
     hq: true,
     ..BLDG
 };
-/// The wind turbine: +8 Power (the Cabin's place and key).
+/// The Wind turbine: energy by itself, `TURBINE_RATE` a second, five a Data center (`per_hq`); the Expedition's Market
+/// in several weak turbines (PRD: the Expedition runs on energy, Nov 14). Its price pays back in about four minutes. It
+/// gives no grid (the Power source before Nov 14: +20 for 100; the Substation took that role).
 pub(super) const SPIRE: BldgDef = BldgDef {
     key: "spire",
     name: "Wind turbine",
     short: "Turbine",
+    cost: [18, 0],
+    hp: 200.0,
+    build: 20.0,
+    sight: 6.0,
+    pays: TURBINE_RATE,
+    per_hq: 5,
+    req: Some(BldgKind::Siphon),
+    ..BLDG
+};
+/// The Substation: +10 grid, the Expedition's Cottage (the Wind turbine's role and numbers before Nov 14).
+pub(super) const SUBSTATION: BldgDef = BldgDef {
+    key: "substation",
+    name: "Substation",
     cost: [100, 0],
     hp: 400.0,
-    supply: 20, // (Power: 8 before the economy's second round)
+    supply: 10,
     build: 25.0,
     sight: 6.0,
     ..BLDG
 };
 /// The Recruiting post: Sellswords, and Bruisers once a Lab stands; the Expedition's barracks, built anywhere and as
-/// many as it likes. It pays nothing. Each adds six hired places to its side's one count (any post hires while the
-/// count has room).
+/// many as it likes. Locals sign on there for the Expedition's pay (in the sim they cost energy like everything else,
+/// and draw on the grid; the hired places it gave before Nov 14 are gone).
 pub(super) const SIPHON: BldgDef = BldgDef {
     key: "siphon",
     name: "Recruiting post",
     short: "Recruiting",
     cost: [150, 0],
-    supply: 6,
-    pool: Pool::Hired,
     hp: 600.0,
     build: 40.0,
     sight: 7.0,
     trains: &[UnitKind::Prism, UnitKind::Bruiser],
     ..BLDG
 };
-/// The Factory: Buggies, Rovers (once a Lab stands) and Drones.
+/// The Factory: Buggies, and Drones once a Lab stands.
 pub(super) const KILN: BldgDef = BldgDef {
     key: "kiln",
     name: "Factory",
-    cost: [150, 0],
+    cost: [120, 0],
     w: 3,
     h: 3,
     hp: 800.0,
     build: 45.0,
     sight: 7.0,
-    trains: &[UnitKind::Scythe, UnitKind::Monolith, UnitKind::Shrike],
+    trains: &[UnitKind::Scythe, UnitKind::Shrike],
     req: Some(BldgKind::Siphon),
     ..BLDG
 };
 pub(super) const LOOM: BldgDef = BldgDef {
     key: "loom",
     name: "Lab",
-    cost: [150, 0],
+    cost: [200, 0], // (120 before the economy pass, Nov 13: a bet between units and construction)
     hp: 800.0,
     build: 45.0,
     sight: 7.0,
     req: Some(BldgKind::Siphon),
-    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Slipstream],
+    // (the Expedition's research: its weapons, and its machines' price (Energy efficiency, in place of Armor and
+    // Better drills since Nov 14))
+    researches: &[Upgrade::Weapons, Upgrade::EnergyEfficiency],
     ..BLDG
 };
 /// The Sentry mast: guns on a mast, the Expedition's early defense (the Watchtower's counterpart; no range since the
@@ -331,13 +370,13 @@ pub(super) const WARD: BldgDef = BldgDef {
     key: "ward",
     name: "Sentry mast",
     short: "Sentry mast",
-    cost: [65, 0],
-    hp: 320.0,
+    cost: [125, 0], // (65 before the economy pass, Nov 13: a bet between units and construction)
+    hp: 220.0,
+    armor: 0.0,
     build: 13.0,
     sight: 9.0,
-    req: Some(BldgKind::Siphon),
     weapon: Some(Weapon {
-        range: 7.0,
+        range: 8.0,
         dmg: 20.0,
         dmg_air: 28.0,
         cd: 1.2,
@@ -347,35 +386,37 @@ pub(super) const WARD: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Portal (once an Uplink stands): Androids. One a side (`single`), and it uses 4 Power while it stands, from the
-/// moment it is placed (`uses`: a Rover's worth, so the Portal and three Androids hold 13 of the 45 Power on 64x64:
-/// the elite is a trade against the other machines, not a free extra).
+/// The Portal (once an Uplink stands): Androids and Rovers. One a side (`single`). (It drew grid while it stood until Nov 14:
+/// only units draw grid since.)
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
-    cost: [150, 0],
-    hp: 800.0,
-    uses: 8, // (Power: 4 before the economy's second round)
+    cost: [350, 0], // (150 before the economy pass, Nov 13: one a player, the big bet)
+    hp: 1000.0,
+    armor: 2.0,
     single: true,
-    build: 45.0,
+    build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     sight: 7.0,
     req: Some(BldgKind::Uplink),
-    trains: &[UnitKind::Umbra],
+    trains_with: Some(BldgKind::Uplink),
+    // (the gate's machines: the Android and the Rover, one queue; it trains only while an Uplink stands: `World::gate_open`)
+    trains: &[UnitKind::Umbra, UnitKind::Monolith],
     ..BLDG
 };
-/// The Uplink: a big satellite dish, unarmed, once the satellite is up; it gives machines range (data/radio.rs) and
-/// unlocks the Portal. 3x3 (a wide, squat dish). 150 gold, a tech building's price: with the satellite's 200 the way to
-/// the Portal costs about what the Lab-to-Portal way did plus the launch, and a forward Uplink (the AI's leapfrog) is
-/// a real investment, not the old 65-gold tower.
+/// The Uplink: a large dish that extends the signal's range (the Data center's small receiver sits on an existing
+/// link), unarmed, once a Lab stands; it gives machines coverage (data/radio.rs) and unlocks the Portal. 3x3 (a wide,
+/// squat dish). 275 gold: what the Uplink and the satellite it once needed cost together (Stelian, Nov 13: one dish,
+/// no satellite), so a forward Uplink is a real investment.
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",
-    cost: [150, 0],
+    cost: [275, 0], // (125 before the economy pass, then 150 with a 100-gold satellite before it, Nov 13)
     w: 3,
     h: 3,
-    hp: 600.0,
+    hp: 750.0,
+    armor: 2.0,
     build: 40.0,
     sight: 8.0,
-    req_up: Some(Upgrade::Satellite),
+    req: Some(BldgKind::Loom),
     ..BLDG
 };

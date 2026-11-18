@@ -1,6 +1,7 @@
 //! Orders (what the Game API and the AI ask for) and the rules that accept or refuse them: placing, paying, training, research, rally points.
 
 use super::*;
+use crate::data::radio::needs_coverage;
 use std::cmp::Ordering;
 
 impl World {
@@ -38,17 +39,57 @@ impl World {
                 _ => return Some(Refusal::Building),
             }
         }
-        // The ring round it: no building right against a gold mine (its workers need the room).
-        for y in -1..=d.h {
-            for x in -1..=d.w {
+        // The ring round it: no building right against a gold mine (its workers need the room), and a headquarters
+        // `HQ_MINE_GAP` tiles of ground from any (Stelian, Nov 15: no Data center in the middle of a ring of mines, and
+        // every base works its mine at the walk a start's own has: the generator keeps the same gap).
+        let r = if d.hq { HQ_MINE_GAP } else { 1 };
+        for y in -r..d.h + r {
+            for x in -r..d.w + r {
                 let (xx, yy) = (tx + x, ty + y);
                 let edge = x < 0 || y < 0 || x >= d.w || y >= d.h;
                 if edge && self.map.in_map(xx, yy) && self.map.occ[self.map.idx(xx, yy)] < 0 {
-                    return Some(Refusal::NearMine);
+                    return Some(if d.hq {
+                        Refusal::NearMineHq
+                    } else {
+                        Refusal::NearMine
+                    });
                 }
             }
         }
+        // A headquarters keeps `HQ_SPACING` from the seat's own others, standing or going up (Stelian, Nov 14: no stacked
+        // headquarters multiplying the per-headquarters caps; an ally's do not count, a destroyed one is gone).
+        if d.hq && self.near_own_hq(team, kind, tx, ty) {
+            return Some(Refusal::NearBase);
+        }
+        // An Expedition building goes up only inside its side's coverage, its center by exact distance (`in_radio`,
+        // an ally's too); the Data center and the Uplink anywhere (Stelian, Nov 15). Placing only: nothing goes
+        // offline when the coverage is lost.
+        if needs_coverage(self.factions[team as usize].hq, kind)
+            && !self.in_radio(
+                team,
+                (tx as f64 + d.w as f64 / 2.0) * TILE,
+                (ty as f64 + d.h as f64 / 2.0) * TILE,
+            )
+        {
+            return Some(Refusal::Coverage);
+        }
         None
+    }
+
+    /// Whether a headquarters of `kind` at (tx, ty) would stand within `HQ_SPACING` tiles (center to center) of one of
+    /// `team`'s own headquarters, standing or going up.
+    pub fn near_own_hq(&self, team: u8, kind: BldgKind, tx: i32, ty: i32) -> bool {
+        let d = kind.def();
+        let (cx, cy) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
+        self.bldgs.iter().any(|b| {
+            let bd = b.kind.def();
+            b.team == team
+                && bd.hq
+                && jsmath::hypot(
+                    b.tx as f64 + bd.w as f64 / 2.0 - cx,
+                    b.ty as f64 + bd.h as f64 / 2.0 - cy,
+                ) < HQ_SPACING
+        })
     }
 
     /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
@@ -69,25 +110,18 @@ impl World {
         }
     }
 
-    /// Whether `team` has what `kind` needs: its building (`req`) finished and its research (`req_up`) done.
+    /// Whether `team` has what `kind` needs: its building (`req`) finished.
     pub fn has_req(&self, team: u8, kind: BldgKind) -> bool {
-        let d = kind.def();
-        d.req.is_none_or(|r| {
+        kind.def().req.is_none_or(|r| {
             self.bldgs
                 .iter()
                 .any(|b| b.team == team && b.kind == r && b.done)
-        }) && d
-            .req_up
-            .is_none_or(|u| self.upgrades[team as usize][u.index()] > 0)
+        })
     }
 
     /// What a refusal for want of `kind`'s requirement says.
-    pub fn req_message(&self, team: u8, kind: BldgKind) -> String {
-        let d = kind.def();
-        match d.req {
-            Some(r) if !self.has_bldg(team, r) => format!("Requires {}", r.def().name),
-            _ => format!("Requires {}", d.req_up.map_or("", |u| u.def().name)),
-        }
+    pub fn req_message(kind: BldgKind) -> String {
+        format!("Requires {}", kind.def().req.map_or("", |r| r.def().name))
     }
 
     /// Whether `team` has a finished building of `kind`.
@@ -96,16 +130,17 @@ impl World {
             .iter()
             .any(|b| b.team == team && b.kind == kind && b.done)
     }
-    /// Whether `team` has room for another `kind` under its one-per-headquarters rule (`BldgDef::per_hq`: one Market a
-    /// finished Castle, sites counted), or the kind has no such rule.
+    /// Whether `team` has room for another `kind` under its per-headquarters rule (`BldgDef::per_hq`: one Market a
+    /// finished Castle, five Wind turbines a finished Data center, sites counted), or the kind has no such rule.
     pub fn hq_room(&self, team: u8, kind: BldgKind) -> bool {
-        if !kind.def().per_hq {
+        let per = kind.def().per_hq;
+        if per <= 0 {
             return true;
         }
         let count = |f: &dyn Fn(&Bldg) -> bool| {
-            self.bldgs.iter().filter(|b| b.team == team && f(b)).count()
+            self.bldgs.iter().filter(|b| b.team == team && f(b)).count() as i32
         };
-        count(&|b| b.kind == kind) < count(&|b| b.kind.def().hq && b.done)
+        count(&|b| b.kind == kind) < per * count(&|b| b.kind.def().hq && b.done)
     }
     pub fn can_afford(&self, team: u8, cost: [i32; 2]) -> bool {
         self.res[team as usize][0] >= cost[0] && self.res[team as usize][1] >= cost[1]
@@ -136,45 +171,39 @@ impl World {
         {
             return Err(format!("Requires {}", r.def().name));
         }
+        if let Some(r) = b.kind.def().trains_with
+            && !self.has_bldg(team, r)
+        {
+            return Err(format!("Needs a standing {}.", r.def().name));
+        }
         if qlen >= crate::data::QUEUE_MAX {
             return Err("Queue is full".into());
         }
-        if !self.can_afford(team, d.cost) {
-            return Err(NOT_ENOUGH.into());
+        let cost = self.unit_cost(team, kind);
+        if !self.can_afford(team, cost) {
+            return Err(self.factions[team as usize].not_enough());
         }
-        let s = self.pool(team, d.pool);
-        if s[0] + d.supply > s[1] {
-            return Err(self.pool_full(team, d.pool, s[1]));
+        let [used, cap] = self.sup(team);
+        if used + self.takes(team, kind) > cap {
+            return Err(self.sup_full(team));
         }
-        self.pay(team, d.cost, -1);
+        self.pay(team, cost, -1);
         self.bm(bid).unwrap().queue.push(kind);
         self.recalc_supply(team);
         Ok(())
     }
 
-    /// What a refusal for want of places in `pool` says (its cap now `cap`). At the pool's maximum (`pool_max`) another
-    /// building adds nothing: it says so rather than send the player to build one.
-    fn pool_full(&self, team: u8, pool: Pool, cap: i32) -> String {
-        let max = self.pool_max(team, pool);
+    /// What a refusal for want of places says. At the maximum (`sup_max`) another building adds nothing: it says so
+    /// rather than send the player to build one.
+    fn sup_full(&self, team: u8) -> String {
+        let (cap, max) = (self.sup(team)[1], self.sup_max(team));
         let f = self.factions[team as usize];
-        match pool {
-            // (the Expedition's Power: it has no population)
-            Pool::Supply if f.power => {
-                if cap >= max {
-                    "Power at maximum.".into()
-                } else {
-                    format!("Not enough Power: build a {}.", f.supply.def().name)
-                }
-            }
-            Pool::Supply => {
-                if cap >= max {
-                    format!("Population at its limit ({max}): no more until some fall")
-                } else {
-                    format!("Population full. Build a {}.", f.supply.def().label())
-                }
-            }
-            Pool::Hired if cap >= max => "Hired at maximum.".into(),
-            Pool::Hired => "No free places: build another Recruiting post.".into(),
+        match (f.grid, cap >= max) {
+            // (the Expedition's grid: it has no population)
+            (true, true) => "Grid at maximum.".into(),
+            (true, false) => format!("Not enough grid: build a {}.", f.supply.def().name),
+            (false, true) => format!("Population at its limit ({max}): no more until some fall"),
+            (false, false) => format!("Population full. Build a {}.", f.supply.def().label()),
         }
     }
 
@@ -188,7 +217,7 @@ impl World {
             b.prog = 0.0;
         }
         let team = b.team;
-        self.pay(team, t.def().cost, 1);
+        self.pay(team, self.unit_cost(team, t), 1);
         self.recalc_supply(team);
     }
 
@@ -235,7 +264,7 @@ impl World {
         }
         let cost = up.cost(level);
         if !self.can_afford(team, cost) {
-            return Err(NOT_ENOUGH.into());
+            return Err(self.factions[team as usize].not_enough());
         }
         self.pay(team, cost, -1);
         self.bm(bid).unwrap().research = Some((up, 0.0));
@@ -253,10 +282,12 @@ impl World {
         self.pay(team, up.cost(level), 1);
     }
 
-    /// A building's rally point; on a gold mine, its new workers mine there (a mine shaft, none since the re-theme, is
-    /// never mined: a rally on one is a plain point).
+    /// A building's rally point, kept on the map (an order may carry any finite number: a point far off it would make
+    /// NaN of the new units' way out, `exit_tile`); on a gold mine, its new workers mine there (a mine shaft, none since
+    /// the re-theme, is never mined: a rally on one is a plain point).
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
         let node = node.filter(|&n| self.map.node(n).is_some_and(|n| !n.ether));
+        let (x, y) = (self.map.clamp_x(x), self.map.clamp_y(y));
         if let Some(b) = self.bm(bid)
             && !b.kind.def().trains.is_empty()
         {
@@ -447,13 +478,6 @@ impl World {
         !kind.def().single || !self.bldgs.iter().any(|b| b.team == team && b.kind == kind)
     }
 
-    /// Whether `team` has the Power `kind` uses while it stands (`BldgDef::uses`, the Portal), counted from placement;
-    /// always, for a kind that uses none (a seat over its cap, a lost building's, still builds its Cottage or turbine).
-    pub fn power_room(&self, team: u8, kind: BldgKind) -> bool {
-        let uses = kind.def().uses;
-        uses <= 0 || self.room(team, Pool::Supply) >= uses
-    }
-
     /// Cancel an unfinished building: it is removed and 75% of its cost comes back.
     pub fn cancel_construction(&mut self, bid: Id) -> bool {
         let Some(i) = self.bi(bid).filter(|&i| !self.bldgs[i].done) else {
@@ -493,20 +517,24 @@ impl World {
             return Err(why.message().into());
         }
         if !self.has_req(team, kind) {
-            return Err(self.req_message(team, kind));
+            return Err(Self::req_message(kind));
         }
         if !self.hq_room(team, kind) {
             let hq = self.factions[team as usize].hq.def().name;
-            return Err(format!("One {} per {hq}", d.name));
+            return Err(match d.per_hq {
+                1 => format!("One {} per {hq}", d.name),
+                // (the Wind turbine: what is reached, never a hint to build another Data center; Stelian, Nov 14)
+                n => format!(
+                    "Maximum of {n} {}s per {hq} reached.",
+                    d.label().to_lowercase()
+                ),
+            });
         }
         if !self.single_room(team, kind) {
             return Err(format!("Only one {}.", d.name));
         }
         if !self.can_afford(team, d.cost) {
-            return Err(NOT_ENOUGH.into());
-        }
-        if !self.power_room(team, kind) {
-            return Err(self.pool_full(team, Pool::Supply, self.sup(team)[1]));
+            return Err(self.factions[team as usize].not_enough());
         }
         self.pay(team, d.cost, -1);
         let b = self.make_building(kind, team, tx, ty, false);
@@ -533,7 +561,7 @@ impl World {
         }
         let cols = (n as f64).sqrt().ceil();
         let sp = 28.0;
-        us.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap().then(p.1.cmp(&q.1)));
+        us.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
         for (i, &(_, id)) in us.iter().enumerate() {
             let i = i as f64;
             let ox = (i % cols - (cols - 1.0) / 2.0) * sp;

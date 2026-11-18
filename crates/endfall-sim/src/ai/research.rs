@@ -2,10 +2,6 @@
 
 use super::*;
 
-/// How long (s) before its side's `tech_from` the AI may launch its satellite (`Effect::Launch`), on every level: the
-/// launch (60 s), the Uplink and the Portal then stand about when its Androids are due.
-const LAUNCH_LEAD: f64 = 120.0;
-
 impl World {
     /// Research, and saving up for it or for an expansion (never while threatened, never for long).
     pub(crate) fn ai_research(&mut self, brain: &mut Brain) {
@@ -20,7 +16,7 @@ impl World {
             dry,
             ..
         } = brain.clone();
-        // Research: an economy tech (Rapid Construction) first, once its opening factories stand; its techs
+        // Research: an economy tech (faster construction, none offered since Nov 14) first, once its opening factories stand; its techs
         // (abilities, a faster flyer) as soon as their building stands, on levels whose units use abilities; weapons
         // and armor in turn from the difficulty's research_from (Easy never); none while saving for an expansion. Until it can afford the next one it saves up (no new units), but never while under
         // attack or short of anti-air against flyers, and for at most SAVE_MAX seconds at a time.
@@ -29,19 +25,17 @@ impl World {
         // (techs from its side's tech_from at the latest, and never while its factories are behind the build order:
         // army first)
         let script = &self.factions[e as usize].ai;
-        let (rax, tech_from) = (script.rax, script.tech_from);
+        let (rax, tech_from) = (script.rax, self.tech_time(e));
         let on_schedule = self.ai_count(&my_b, false, rax) >= self.rax_schedule(t);
         let techs = d.abilities && t > d.research_from.min(tech_from) && on_schedule;
         // An economy tech (faster construction) as soon as the opening's factories stand, on levels that research
-        // at all: it pays back over the whole game.
-        let economy =
-            d.research_from < NEVER && on_schedule && self.ai_count(&my_b, true, rax) >= d.rax;
+        // at all: it pays back over the whole game. (Behind its schedule's factories or not: under the economy pass's
+        // scarcer gold Hard's later factories ran behind for good, and it researched its weapons, never this.)
+        let economy = d.research_from < NEVER && self.ai_count(&my_b, true, rax) >= d.rax;
         let levels_due = t > d.research_from;
-        // (the satellite: on every level, from `LAUNCH_LEAD` before the side's tech time, once its Lab stands)
-        let launch = t > tech_from - LAUNCH_LEAD && on_schedule;
         let threatened = intruder.is_some() || (enemy_air > 0 && anti_air < enemy_air * 2);
         let mut saving = false;
-        if (techs || levels_due || economy || launch) && !expand {
+        if (techs || levels_due || economy) && !expand {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
                 if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
@@ -66,27 +60,31 @@ impl World {
                         here.contains(&up)
                             && (if is_economy(up) {
                                 economy
-                            } else if up.def().effect == Effect::Launch {
-                                launch
                             } else if up.levels() == 1 {
                                 techs
                             } else {
                                 levels_due
                             })
                             && self.tech_of_use(e, &my_b, up)
+                            // (Trade and Energy efficiency once its natural stands: before, their price held the
+                            // expansion back)
+                            && (!spare_only(up)
+                                || self.ai_count(&my_b, true, self.factions[e as usize].hq) >= 2)
                             && up.def().req.is_none_or(|r| self.has_bldg(e, r))
                             && self.upgrades[e as usize][up.index()] < up.levels()
                             && !busy(self, up)
                     })
                     .collect();
-                // The first it can afford; a tech it cannot is passed over (never saved for), a level is saved for.
+                // The first it can afford; a tech it cannot is passed over (never saved for), a level is saved for (but Trade).
                 for up in candidates {
                     let level = self.upgrades[e as usize][up.index()] + 1;
                     if self.can_afford(e, up.cost(level)) {
                         let _ = self.start_research(bid, up);
                         break;
                     }
-                    if up.levels() > 1 {
+                    // (Trade, the Market's, and Energy efficiency, the Lab's: only with spare gold, never saved for;
+                    // saved for, Trade's 150 held the Kingdom's expansion and its tech back)
+                    if up.levels() > 1 && !spare_only(up) {
                         saving = true;
                         break;
                     }
@@ -123,7 +121,7 @@ impl World {
         let serves: &dyn Fn(UnitKind) -> bool = match up.def().effect {
             // (not a toggle: the AI never braces a unit, its siege guns anchor by their own rule)
             Effect::Unlock(_) => return false,
-            Effect::Speed(unit) => &move |k: UnitKind| k == unit,
+            Effect::Speed(units) => &move |k: UnitKind| units.contains(&k),
             _ => return true,
         };
         my_b.iter()
@@ -135,4 +133,10 @@ impl World {
 /// A tech for the economy rather than the army (researched early, on every level that researches).
 fn is_economy(up: Upgrade) -> bool {
     up.def().effect == Effect::BuildSpeed
+}
+
+/// An economy level the AI buys only with spare gold, never saving for it, and only once its natural expansion stands:
+/// Trade (#290) and Energy efficiency (Stelian, Nov 14: the AI researches it as it does Trade).
+fn spare_only(up: Upgrade) -> bool {
+    matches!(up.def().effect, Effect::PumpRate | Effect::EnergyCost)
 }

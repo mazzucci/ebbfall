@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { offline } from './tools/offline/plugin.mjs';
+import { docs } from './tools/docs/build.mjs';
 
 // The game's build, as online play sees it: a hash of the .wasm (build:wasm runs first) and of the JS that sets a game
 // up (the maps, an online room's setup, the client's view of the sim). Online, every seat must have the same
@@ -16,7 +17,7 @@ const SIM_BUILD = hash.digest('hex').slice(0, 12);
 // are not, so a commit touching only those leaves dist/ the same bytes and installed copies keep their offline cache
 // (every file of dist/ is in it: a new commit hash in the page would make every device fetch everything again).
 // test/build-inputs.test.js checks that every file the build reads lies under one of these.
-export const SHIPPED = ['index.html', 'voice-lab.html', 'selftest.html', 'src', 'public', 'vite.config.js', 'tools/offline', 'scripts/build-wasm.mjs', 'crates/endfall-sim', 'Cargo.lock', 'rust-toolchain.toml', 'package.json', 'package-lock.json', '.nvmrc'];
+export const SHIPPED = ['index.html', 'voice-lab.html', 'selftest.html', 'src', 'public', 'vite.config.js', 'tools/offline', 'tools/docs', 'scripts/build-wasm.mjs', 'crates/endfall-sim', 'Cargo.lock', 'rust-toolchain.toml', 'package.json', 'package-lock.json', '.nvmrc'];
 // The last game update: the newest commit that changed anything under SHIPPED, and its date (the commit's, not the
 // build's clock). The first page's stamp ("Updated Nov 4, 2026 · b8f7b2d"), About's beside the Version, and
 // <meta name="build"> (the full hash: CI's deploy checks the live page carries the deployed build's). "dev" without
@@ -46,5 +47,5 @@ export default defineConfig(({ mode }) => ({
   // voice-lab.html: a page apart from the game, for judging the synthesized voice (not linked from the game);
   // selftest.html: the device check (the golden games: does this device compute the same game?).
   build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { index: 'index.html', 'voice-lab': 'voice-lab.html', selftest: 'selftest.html' } } },
-  plugins: [bakedRelay(loadEnv(mode, process.cwd(), 'VITE_').VITE_RELAY_URL), buildMeta, offline()], // dist/sw.js: the game keeps working offline once opened
+  plugins: [bakedRelay(loadEnv(mode, process.cwd(), 'VITE_').VITE_RELAY_URL), buildMeta, docs(), offline()], // dist/docs/: the docs microsite (tools/docs); dist/sw.js: the game keeps working offline once opened
 }));

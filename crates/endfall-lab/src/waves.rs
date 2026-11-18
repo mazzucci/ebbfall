@@ -26,7 +26,8 @@ pub const REACH: f64 = 8.0;
 pub struct Wave {
     pub seat: u8,
     pub launched: u32,
-    /// Its value as it launched.
+    /// Its units and their value as it launched.
+    pub units: usize,
     pub value: f64,
     /// The AI's own check as it went (`World::ai_launch_check`): why, and the foe's army it expected.
     pub check: Option<LaunchCheck>,
@@ -181,6 +182,7 @@ fn launch(w: &World, s: usize, ids: &[u32]) -> Out {
         rec: Wave {
             seat: s as u8,
             launched: w.tick,
+            units: mine.len(),
             value: mine.iter().map(|m| m.1).sum(),
             check: w.ai_launch_check(s as u8),
             foe_army: army_of(w, |t| t != s),
@@ -434,6 +436,7 @@ impl Wave {
         crate::json::Json::obj()
             .with("seat", self.seat as u32)
             .with("launched", self.launched)
+            .with("units", self.units)
             .with("value", self.value)
             .with(
                 "check",

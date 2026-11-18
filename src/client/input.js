@@ -5,6 +5,7 @@
 import { shownBldgs } from './memory.js';
 import { G, map, idx, TILE, WW, WH, BUILDINGS, dist, visibleEnt, enemies, moveTo, attackMove, attackMoveGroup, attackEnt, startGather, startBuild, repair, placeBuilding, formation, setRally, canHit } from '../engine/index.js';
 import { doCommand, cardItems, invalidateCard, updateHud, myFaction } from './hud.js';
+import { helpOpen, closeHelp } from './help.js';
 import { $, ui, ARMED, playerSel, toast, setHint, setBox, clearMode, setSelection } from './ui.js';
 import { sfx } from './audio.js';
 import { marker } from './fx.js';
@@ -112,7 +113,7 @@ function boxSelect(x0, y0, x1, y1, add) {
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
-const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (the Vael do not repair)
+const damaged = (e) => e && e.kind === 'bldg' && e.team === G.me && e.done && e.maxhp - e.hp >= 1 && myFaction().repairs; // (a people that does not repair: none now)
 
 /** A gold mine. */
 const field = (e) => e && e.kind === 'node' ? e : null;
@@ -385,7 +386,7 @@ function bindKeys() {
     if (ev.target.tagName === 'INPUT') return;
     const k = ev.key;
     if (!ev.metaKey) held.add(ev.code); // (with Cmd down a Mac sends no keyup for the letter)
-    if (!$('help').hidden) { if (k === 'Escape') { $('help').hidden = true; ev.preventDefault(); } return; } // Help on top: Esc closes it
+    if (k === 'Escape' && helpOpen()) { closeHelp(); ev.preventDefault(); return; } // the help sheet: Esc closes it first (the game's keys work under it)
     if (!$('options').hidden) return; // OPTIONS on top (options.js: Esc closes it)
     if (paused() && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); ev.preventDefault(); return; }
     if (!input.enabled()) return;

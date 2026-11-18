@@ -1,15 +1,16 @@
-// The maps the menus offer (src/client/maps.js): every map whatever the players, each size its own maps, a map seating
-// the players if it has a start each (else the smallest that does), a label with the players it seats, and an online
-// setup that always plays a map that seats it, at the map's own size.
+// The maps the menus offer (src/client/maps.js): every map offered whatever the players (the 64x64 ones hidden, kept under
+// their indices), each size its own maps, a map seating the players if it has a start each (else the smallest offered
+// that does), a label with the players it seats, and an online setup that always plays a map that seats it, at the
+// map's own size.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAPS, MAP_KINDS, RANDOM_KINDS, SIZES, MAX_PLAYERS, sizeFor, seatsOf, fits, fitMap, mapLabel, mapName, mapNoteOf, onlineMap, teamsFor, teamList } from '../src/client/maps.js';
+import { MAPS, MAP_KINDS, RANDOM_KINDS, SIZES, MAX_PLAYERS, DEFAULT_MAP, offered, sizeFor, seatsOf, fits, fitMap, mapLabel, mapName, mapNoteOf, onlineMap, teamsFor, teamList } from '../src/client/maps.js';
 
 const named = (name) => MAPS.findIndex(m => m.name === name);
 
 test('every map seats as many players as it has starts: two on 64x64, four on 96x96, eight on 128x128; each size its own maps', () => {
   assert.equal(MAX_PLAYERS, 8);
-  assert.deepEqual([2, 3, 4, 5, 6, 7, 8].map(sizeFor), [64, 96, 96, 128, 128, 128, 128]);
+  assert.deepEqual([2, 3, 4, 5, 6, 7, 8].map(sizeFor), [96, 96, 96, 128, 128, 128, 128], 'the smallest offered size (64x64 is hidden)');
   assert.deepEqual(MAPS.map((_, i) => seatsOf(i)), [2, 2, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8, 2, 2], '(the Shore map last: appended)');
   assert.ok(fits(named('Iron Compass'), 2), 'a duel on an eight-start map');
   assert.ok(fits(named('Dust Quarter'), 4) && !fits(named('Dust Quarter'), 5));
@@ -23,15 +24,26 @@ test('every map seats as many players as it has starts: two on 64x64, four on 96
   assert.deepEqual(SIZES.map(s => s.size), [...new Set(MAPS.map(m => m.size))]);
 });
 
-test('a map that does not seat the players gives way to the smallest that does (a random one to a random one); one that does stays', () => {
-  assert.equal(fitMap(1, 2), 1);
+test('the 64x64 maps are hidden, under their indices; the default is Dust Quarter, two players on a 96x96 map', () => {
+  assert.deepEqual(MAPS.flatMap((m, i) => (offered(i) ? [] : [m.name])), ['Ashen Basin', 'Glass Reach', 'Cinder Divide', 'Random', 'Mirror Lake', 'Random Lake']);
+  assert.ok(MAPS.every((m, i) => offered(i) === (m.size !== 64)), 'hidden: every 64x64 map, nothing else');
+  assert.deepEqual([named('Ashen Basin'), named('Mirror Lake'), named('Random Lake')], [0, 12, 13], 'the indices a room or a link names: unchanged');
+  assert.ok(!offered(-1) && !offered(99) && !offered(1.5), 'no such map');
+  assert.equal(DEFAULT_MAP, named('Dust Quarter'));
+  assert.deepEqual([MAPS[DEFAULT_MAP].size, seatsOf(DEFAULT_MAP), MAPS[DEFAULT_MAP].kind], [96, 4, 0], 'the standard character, at 96x96');
+  assert.ok(fits(0, 2) && fits(12, 2), 'a hidden map still seats its two (an old room or link plays it)');
+});
+
+test('a map that does not seat the players gives way to the smallest offered that does (a random one to a random one); one that does stays', () => {
+  assert.equal(fitMap(1, 2), 1, 'a hidden map that seats them: kept (a room or a challenge named it)');
   assert.equal(fitMap(named('Iron Compass'), 2), named('Iron Compass'), 'fewer players than starts: kept');
   assert.equal(fitMap(1, 4), named('Dust Quarter'), 'the first 96x96 map');
   assert.equal(fitMap(1, 5), named('Iron Compass'));
   assert.equal(fitMap(5, 3), 5);
   assert.equal(fitMap(3, 3), 7, 'Random (64) with three: Random (96)');
   assert.equal(fitMap(7, 6), 11, 'Random (96) with six: Random (128)');
-  assert.equal(fitMap(99, 2), 0, 'no such map: the first');
+  assert.equal(fitMap(99, 2), DEFAULT_MAP, 'no such map: the first offered one that seats them');
+  assert.equal(fitMap(13, 3), 7, 'Random Lake with three: Random (96)');
   assert.equal(fitMap(-1, 6), named('Iron Compass'));
 });
 

@@ -64,7 +64,7 @@ function cards(race) {
   // Buildings: a stand-in for each of the race's kinds in each state the card draws (the card reads these fields).
   let id = 90000;
   const bldg = (k, o = {}) => ({ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0, ...o });
-  for (const lv of [0, 1, 99]) { // (no techs, the first level of each, all: finished techs leave their slots)
+  for (const lv of [0, 1, 99]) { // (no techs, the first level of each, all: a finished tech keeps its slot, grayed)
     E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
     if (lv) for (const [k, u] of Object.entries(E.UPGRADES)) E.debugResearch(E.G.me, k, Math.min(lv, u.levels));
     for (const k of kinds) {
@@ -117,7 +117,7 @@ for (const race of ['humans', 'vael']) {
         const letters = items.map(i => i.key).filter(k => k && k !== 'Esc');
         assert.equal(new Set(letters).size, letters.length, `${what}: no CLASSIC key twice (${items.map(i => i.label + ' ' + i.key).join(', ')})`);
       }
-      // A selection with workers can always build, on touch and in WASD too (Gather and Repair give way first).
+      // A selection with workers can always build, on touch and in WASD too (Mine and Repair give way first).
       if (/\b(harvester|lumen)\b/.test(what) && / armed$/.test(what)) assert.ok(shown.some(i => i.id === 'build'), `${what}: Build stays on a card with workers`);
       // No automatic ability (the Cannon's Set Up) has a button.
       assert.ok(!items.some(i => i.id.startsWith('a_') && E.ABILITIES[i.id.slice(2)].auto), `${what}: no button for an automatic ability`);
@@ -128,6 +128,86 @@ for (const race of ['humans', 'vael']) {
     assert.ok(most >= 5 && most < GRID.length, `the cards fill slots 0 to ${most}: within the grid`);
   });
 }
+
+test('every research and command the card can show has an icon, and every unit and building a symbol (a key with no drawing renders a blank button)', { skip }, async () => {
+  const { hasIcon, hasGlyph } = await import('../src/client/icons.js');
+  // Every research and every button ability of either people, shown or not yet: the button's icon is its key.
+  // (a research no building offers, Master Builders since Nov 14, has no button)
+  const offered = new Set(Object.values(E.BUILDINGS).flatMap(b => b.researches || []));
+  const keys = [...Object.keys(E.UPGRADES).filter(k => offered.has(k)), ...Object.keys(E.ABILITIES).filter(k => !E.ABILITIES[k].auto)];
+  for (const k of keys) assert.ok(hasIcon(k), `${k} has an icon`);
+  // Every unit and building of either people has a symbol (`glyph`), whether a card shows it yet or not.
+  for (const f of Object.values(E.FACTIONS)) for (const k of E.kindsOf(f)) assert.ok(hasGlyph(k), `${k} has a symbol`);
+  // And every button on every card the game draws: a unit or a building (`por`: [what, kind]) its symbol, anything else
+  // its icon.
+  let pictures = 0;
+  for (const race of ['humans', 'vael']) for (const [what, items] of cards(race)) {
+    for (const it of items.filter(i => !i.hidden)) {
+      if (it.por) { pictures++; assert.ok(hasGlyph(it.por[1]), `${what}: ${it.label} (${it.por[1]}) has a symbol`); } else assert.ok(it.icon && hasIcon(it.icon), `${what}: ${it.label} (${it.icon}) has an icon`);
+    }
+  }
+  assert.ok(pictures > 0, 'units and buildings were drawn');
+});
+
+test('no two buttons a card shows together share a drawing', { skip }, async () => {
+  const { icon, glyph } = await import('../src/client/icons.js');
+  // (a Cancel with a badge shows what it cancels, the unit queued or the research, in red: that one is meant)
+  for (const race of ['humans', 'vael']) for (const [what, items] of cards(race)) {
+    const shown = items.filter(i => !i.hidden && !i.badge), seen = new Map();
+    for (const it of shown) {
+      const d = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon).replace('class="ico"', 'class="ico gl"') : '';
+      if (!d) continue;
+      assert.ok(!seen.has(d), `${what}: ${it.label} looks like ${seen.get(d)}`);
+      seen.set(d, it.label);
+    }
+  }
+  // Nor any two units or buildings, of either people.
+  const kinds = [...new Set(Object.values(E.FACTIONS).flatMap(f => [...E.kindsOf(f)]))];
+  assert.equal(new Set(kinds.map(glyph)).size, kinds.length, 'one symbol a kind');
+});
+
+test('a unit symbol shows who, an action icon a tool: no unit is drawn like an action, and every person shares the bust', { skip }, async () => {
+  const { glyphPaths, iconPaths, iconNames, BUST } = await import('../src/client/icons.js');
+  const actions = iconNames().map(n => [n, iconPaths(n)]);
+  for (const k of Object.keys(E.UNITS)) {
+    const g = glyphPaths(k);
+    assert.ok(g.line, `${k} has a symbol`);
+    for (const [n, a] of actions) assert.ok(g.line !== a.line && !(g.fill && g.fill === a.fill), `${k} is drawn like the ${n} icon`);
+  }
+  // The people (a worker, foot soldiers, hired hands, healers) are one bust holding their tool: no tool alone.
+  const people = ['harvester', 'trooper', 'lancer', 'medic', 'prism', 'bruiser', 'halo'];
+  for (const k of people) assert.equal(glyphPaths(k).solid, BUST, `${k}: a person, the bust`);
+  // And nothing else wears it: no machine, mount, building or action.
+  const kinds = [...new Set(Object.values(E.FACTIONS).flatMap(f => [...E.kindsOf(f)]))];
+  for (const k of kinds.filter(k => !people.includes(k))) assert.notEqual(glyphPaths(k).solid, BUST, `${k} is no person`);
+  for (const [n, a] of actions) assert.equal(a.solid, '', `the ${n} icon is a tool, no bust`);
+});
+
+test('Mine shows each people\'s tool on gold: the Kingdom\'s pickaxe, the Expedition\'s drill, neither like Better drills or a unit', { skip }, async () => {
+  const { iconPaths, glyphPaths } = await import('../src/client/icons.js');
+  for (const [race, want] of [['humans', 'gather'], ['vael', 'gatherDrill']]) {
+    E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+    const worker = E.G.units.find(u => u.team === E.G.me && u.type === E.FACTIONS[race].worker);
+    ui.sel = [worker]; ui.mode = null; ui.place = null;
+    assert.equal(C.cardItems().find(i => i.id === 'gather')?.icon, want, `${race}: the worker's Mine button`);
+  }
+  ui.sel = [];
+  const drill = iconPaths('gatherDrill'), pick = iconPaths('gather'), bit = iconPaths('drills');
+  assert.ok(drill.line && drill.line !== pick.line && drill.fill !== pick.fill, 'the drill on gold is not the pickaxe');
+  assert.ok(drill.line !== bit.line && drill.fill !== bit.fill, 'the drill on gold is not Better drills\' bare bit');
+  for (const k of Object.keys(E.UNITS)) {
+    const g = glyphPaths(k);
+    assert.ok(g.line !== drill.line && g.fill !== drill.fill, `${k} is not drawn like the drill on gold`);
+  }
+});
+
+test('the Portal teleports: its lines say so, and only its queue reads Teleporting', { skip }, () => {
+  const p = E.BUILDINGS.eclipse;
+  assert.equal(p.what, 'Teleports Rovers, Androids');
+  assert.match(p.desc, /^Teleports Rovers and Androids from the future/);
+  assert.equal(p.training, 'Teleporting');
+  for (const [k, d] of Object.entries(E.BUILDINGS)) if (k !== 'eclipse' && d.trains?.length) assert.equal(d.training, undefined, `${k} keeps Training`);
+});
 
 test('the Cannon deploys by itself: no Deploy on its card, an order to deploy is refused, and it sets up when it stops', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
@@ -150,19 +230,19 @@ test('what is not open yet is hidden and its key does nothing: the Build list pa
   const slots = () => C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`);
   // The Build list: the basic page is all there from the start; no Advanced before the Recruiting post stands.
   ui.sel = [lumen]; ui.mode = 'build'; ui.place = null;
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'esc@5'], 'the Recruiting post first; no Advanced yet');
+  assert.deepEqual(slots(), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'esc@5'], 'the Data center first (a new base), the Sentry mast basic (the arc); no Advanced yet');
   assert.ok(!C.cardItems().some(i => i.id === 'b_loom' || i.id === 'b_kiln'), 'nor the advanced page\'s keys');
   // A Recruiting post up: Advanced comes right after the three open buildings (slot 3, the second row's left), Back stays
   // in the bottom-right slot, on both pages; the advanced page packs from slot 0.
   raise('siphon');
   ui.sel = [E.G.units.find(u => u.id === lumen.id)]; ui.mode = 'build';
-  assert.deepEqual(slots(), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'Advanced packed into slot 3, Back in the corner');
+  assert.deepEqual(slots(), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'build2@4', 'esc@5'], 'Advanced packed into slot 4, Back in the corner');
   ui.mode = 'build2';
   const adv = slots();
   assert.equal(adv.at(-1), 'build1@5', `Back in the corner on the advanced page too: ${adv}`);
   assert.deepEqual(adv.slice(0, -1).map(s => +s.split('@')[1]), adv.slice(0, -1).map((_, i) => i), `the advanced page packed from slot 0: ${adv}`);
   // A unit's ability waiting for its tech is left out, and its card keeps its shape (Deselect stays put): the Guard's
-  // Brace waits for Shield Drill.
+  // Brace waits for Shield Wall.
   E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
   const core = E.G.bldgs.find(b => b.team === E.G.me);
   const guard = E.debugSpawn(E.G.me, 'trooper', core.x + 120, core.y + 90);
@@ -197,24 +277,69 @@ test('a research started moves no button: its own turns into Cancel in its place
   ui.sel = []; ui.mode = null;
 });
 
+test('a research finished moves no button: it keeps its slot, grayed out as done, on every building of both peoples, level by level', { skip }, () => {
+  for (const race of ['humans', 'vael']) {
+    const f = E.FACTIONS[race];
+    let id = 96000;
+    for (const k of [...f.buildBasic, ...f.buildAdvanced].filter(k => E.BUILDINGS[k].researches?.length)) {
+      const card = () => { ui.sel = [{ kind: 'bldg', id: id++, team: E.G.me, type: k, d: E.BUILDINGS[k], done: true, queue: [], research: null, prog: 0 }]; ui.mode = null; ui.place = null; return C.cardItems().filter(i => !i.hidden); };
+      // Each research finished alone, level by level, then all of them in the table's order: every button where it was.
+      const orders = [...E.BUILDINGS[k].researches.map(r => [r]), E.BUILDINGS[k].researches];
+      for (const order of orders) {
+        E.resetGame(4242, 1, 0, 0, race, race); E.disableAi();
+        const before = card(), done = [];
+        for (const r of order) for (let lv = 1; lv <= E.UPGRADES[r].levels; lv++) {
+          E.debugResearch(E.G.me, r, lv);
+          if (lv === E.UPGRADES[r].levels) done.push(r);
+          const after = card(), what = `${race} ${k}, ${r} at ${lv}`;
+          assert.deepEqual(after.map(i => `${i.id}@${i.slot}`), before.map(i => `${i.id}@${i.slot}`), `${what}: no button moved`);
+          for (const d of done) assert.ok(after.find(i => i.id === 'r_' + d)?.dis && after.find(i => i.id === 'r_' + d).done, `${what}: ${d} grayed out as done`);
+          for (const it of after.filter(i => i.id.startsWith('r_') && !done.includes(i.id.slice(2)))) assert.ok(!it.done, `${what}: ${it.id} still to research`);
+        }
+      }
+    }
+  }
+  ui.sel = []; ui.mode = null;
+});
+
 test('a building opened mid-game is appended to its Build page: the shown ones keep their slots for the game, Back its corner; a new game starts afresh', { skip }, () => {
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
   const lumen = () => E.G.units.find(u => u.team === E.G.me && u.type === 'lumen');
   const page = (mode) => { ui.sel = [lumen()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
   raise('siphon');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'the basic page');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'build1@5'], 'the advanced page before the satellite');
-  // The satellite opens the Uplink (no building required: it would come first in the order things unlock): appended.
-  E.debugResearch(E.G.me, 'satellite', 1);
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'b_uplink@3', 'build1@5'], 'the Uplink appended, the others where they were');
+  assert.deepEqual(page('build'), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page');
+  // The Uplink opens with the Lab (one dish, no satellite: Stelian, Nov 13), appended after the shown ones.
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'build1@5'], 'the advanced page before the Lab (the Wind turbine with the Recruiting post)');
+  raise('loom');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'b_uplink@3', 'build1@5'], 'the Uplink appended, the others where they were');
   raise('uplink');
-  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_ward@2', 'b_uplink@3', 'b_eclipse@4', 'build1@5'], 'then the Portal, in the last free slot before Back');
-  assert.deepEqual(page('build'), ['b_siphon@0', 'b_spire@1', 'b_conflux@2', 'build2@3', 'esc@5'], 'the basic page unchanged');
-  // A new game forgets them: several opening at once take the first free slots in the order they unlock.
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'b_uplink@3', 'b_eclipse@4', 'build1@5'], 'then the Portal, appended');
+  assert.deepEqual(page('build'), ['b_conflux@0', 'b_siphon@1', 'b_substation@2', 'b_ward@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  // A new game forgets them.
   E.resetGame(4242, 1, 0, 0, 'vael', 'vael'); E.disableAi();
-  E.debugResearch(E.G.me, 'satellite', 1);
   raise('siphon');
-  assert.deepEqual(page('build2'), ['b_uplink@0', 'b_kiln@1', 'b_loom@2', 'b_ward@3', 'build1@5'], 'a new game: its own slots');
+  assert.deepEqual(page('build2'), ['b_kiln@0', 'b_loom@1', 'b_spire@2', 'build1@5'], 'a new game: its own slots');
+  ui.sel = []; ui.mode = null;
+});
+
+test('the Kingdom\'s Build list: the Watchtower on the basic page, before Advanced (as the Sentry mast); the advanced page packed without it', { skip }, () => {
+  E.resetGame(4242, 1, 0, 0, 'humans', 'humans'); E.disableAi();
+  const villager = () => E.G.units.find(u => u.team === E.G.me && u.type === 'harvester');
+  const page = (mode) => { ui.sel = [villager()]; ui.mode = mode; ui.place = null; return C.cardItems().filter(i => !i.hidden).map(i => `${i.id}@${i.slot}`); };
+  assert.deepEqual(page('build'), ['b_core@0', 'b_barracks@1', 'b_depot@2', 'esc@5'], 'from the start: no Watchtower nor Advanced before a Barracks');
+  raise('barracks');
+  assert.deepEqual(page('build'), ['b_core@0', 'b_barracks@1', 'b_depot@2', 'b_turret@3', 'build2@4', 'esc@5'], 'a Barracks up: the Watchtower, then Advanced, Back in the corner');
+  assert.deepEqual(page('build2'), ['b_forge@0', 'b_factory@1', 'b_extractor@2', 'build1@5'], 'the advanced page, no Watchtower');
+  raise('forge');
+  assert.deepEqual(page('build2'), ['b_forge@0', 'b_factory@1', 'b_extractor@2', 'b_airfield@3', 'build1@5'], 'the Stables appended');
+  assert.deepEqual(page('build'), ['b_core@0', 'b_barracks@1', 'b_depot@2', 'b_turret@3', 'build2@4', 'esc@5'], 'the basic page unchanged');
+  // Both peoples' pages: the defense on the basic one, and the basic page fits its two rows with Advanced and Back.
+  for (const f of Object.values(E.FACTIONS)) {
+    const { basic, advanced } = C.buildPages(f);
+    assert.ok(basic.some(k => E.BUILDINGS[k].weapon) && !advanced.some(k => E.BUILDINGS[k].weapon && !E.BUILDINGS[k].trains?.length), `${f.name}: the defense on the basic page`);
+    assert.ok(basic.length + 2 <= 6, `${f.name}: the basic page, Advanced and Back in two rows`);
+    assert.deepEqual([...basic, ...advanced].sort(), [...f.buildBasic, ...f.buildAdvanced].sort(), `${f.name}: every building on one page`);
+  }
   ui.sel = []; ui.mode = null;
 });
 
@@ -227,7 +352,8 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
         barracks: ['t_trooper@0', 't_lancer@1', 'rally@4', 'cancelq@5'],
         factory: ['t_observer@0', 'rally@4', 'cancelq@5'],
         airfield: ['t_rider@0', 'r_afterburners@3', 'rally@4', 'cancelq@5'],
-        forge: ['r_weapons@0', 'r_armor@1', 'r_entrenching@2', 'r_rapidConstruction@3'],
+        forge: ['r_weapons@0', 'r_armor@1', 'r_entrenching@2'],
+        extractor: ['r_trade@0'],
       },
       raise: ['barracks', 'forge'],
       after: {
@@ -237,16 +363,16 @@ test('a building\'s card: its units in the top row, Rally in the middle of the s
     },
     vael: {
       before: {
-        conflux: ['t_lumen@0', 'r_satellite@3', 'rally@4', 'cancelq@5'],
+        conflux: ['t_lumen@0', 'rally@4', 'cancelq@5'],
         siphon: ['t_prism@0', 'rally@4', 'cancelq@5'],
-        kiln: ['t_scythe@0', 't_shrike@1', 'rally@4', 'cancelq@5'],
-        loom: ['r_weapons@0', 'r_armor@1', 'r_slipstream@2'],
-        eclipse: ['t_umbra@0', 'rally@4', 'cancelq@5'],
+        kiln: ['t_scythe@0', 'rally@4', 'cancelq@5'],
+        loom: ['r_weapons@0', 'r_energyEfficiency@1'],
+        eclipse: ['t_umbra@0', 't_monolith@1', 'rally@4', 'cancelq@5'],
       },
       raise: ['siphon', 'loom'],
       after: {
         siphon: ['t_prism@0', 't_bruiser@1', 'rally@4', 'cancelq@5'],
-        kiln: ['t_scythe@0', 't_shrike@1', 't_monolith@2', 'rally@4', 'cancelq@5'],
+        kiln: ['t_scythe@0', 't_shrike@1', 'rally@4', 'cancelq@5'],
       },
     },
   };

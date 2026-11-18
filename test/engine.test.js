@@ -151,6 +151,8 @@ test('orders report errors and a rally point shows up on the building', { skip }
 
 test('the AI ends the game against an idle player, and events reach the client', { skip }, () => {
   E.resetGame(31337, 2);
+  assert.equal(E.summary(), null, 'no summary unless recorded');
+  E.recordSummary(true);
   let booms = 0, shots = 0;
   for (let i = 0; i < 30 * 900 && !E.G.over; i++) {
     E.step();
@@ -163,6 +165,15 @@ test('the AI ends the game against an idle player, and events reach the client',
   assert.ok(booms >= 1, 'buildings blew up');
   assert.ok(shots >= 10, 'shots reach the client with a position and a weapon, for the sound');
   assert.ok(E.G.units.every(u => !u.dead));
+  // the game summary, read once it is over: the winner and how, each seat's record; reading it moves no hash
+  const hash = E.stateHash(), sum = E.summary();
+  assert.equal(E.stateHash(), hash, 'reading the summary changes nothing');
+  assert.deepEqual(sum.result.winning_seats, [E.ENEMY]);
+  assert.ok(['destroyed', 'helpless'].includes(sum.result.how), sum.result.how);
+  assert.equal(sum.seats.length, 2);
+  assert.ok(sum.seats[E.ENEMY].attacks.length >= 1, 'the AI\'s waves');
+  assert.ok(Object.values(sum.seats[E.ENEMY].units_trained).some(n => n > 0));
+  assert.deepEqual(E.summary(), sum, 'the same summary read twice');
 });
 
 test('out-of-range teams are rejected without poisoning the game', { skip }, () => {
@@ -221,7 +232,8 @@ test('a Market, built in the base once the Barracks stands, earns gold by itself
   for (const h of hs) E.stopUnit(h);
   E.setResources(E.PLAYER, 0, 0);
   runSeconds(20);
-  assert.equal(E.G.res[E.PLAYER][0], 7, 'seven gold in 20 s (0.35 a second), nobody mining');
+  // (4.8: four or five, by where the Market's fraction of a gold stood when the bank was emptied)
+  assert.ok([4, 5].includes(E.G.res[E.PLAYER][0]), `four or five gold in 20 s (0.24 a second), nobody mining: ${E.G.res[E.PLAYER][0]}`);
 });
 
 test('the WASM sim agrees with the native one: every golden game, to 5 min (src/engine/golden.js)', { skip }, async () => {
@@ -251,7 +263,7 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   E.resetGame(3, 1);
   const n = C.SCHEMA.upgrades.length;
   assert.deepEqual(Object.keys(C.UPGRADES), C.SCHEMA.upgrades);
-  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'launch'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
+  for (const k of C.SCHEMA.upgrades) assert.ok(['weapons', 'armor', 'shields', 'unlock', 'speed', 'build', 'mine', 'trade', 'energy'].includes(C.UPGRADES[k].effect), k + ' has an effect the client knows');
   // A tech names what it unlocks or speeds up (a construction tech, its side's building), has one level and words of
   // its own; each ability's tech is found. Shields (shields, data since the re-theme: no building researches it) keeps
   // only its place.
@@ -259,16 +271,31 @@ test('the upgrade levels follow the seat records, every seat\'s, in the schema\'
   assert.ok(researched('entrenching') && !researched('shields'));
   for (const [k, u] of Object.entries(C.UPGRADES).filter(([k, u]) => u.levels === 1 && researched(k))) {
     if (u.effect === 'build') assert.ok(C.TECH_BUILD > 1 && /faster/.test(u.desc), `${k} says how much faster`);
-    else if (u.effect === 'launch') assert.ok(Object.values(C.BUILDINGS).some(b => b.reqUp === k) && /Uplink/.test(u.desc), `${k} unlocks a building and says which`);
-    else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : C.UNITS[u.of], `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
+    else assert.ok(u.effect === 'unlock' ? C.ABILITIES[u.of] : u.of.split(',').every(k => C.UNITS[k]), `${k} names a real ${u.effect === 'unlock' ? 'ability' : 'unit'}`);
     assert.ok(u.desc && u.hot, `${k} has words and a key`);
   }
-  // The Guard's Brace waits for Shield Drill; the Cannon's Deploy is how it fires at all: no tech. (The re-theme removed
+  // The Guard's Brace waits for Shield Wall; the Cannon's Deploy is how it fires at all: no tech. (The re-theme removed
   // the others: the boosts, the hop, the cloaks.)
   assert.deepEqual(Object.keys(C.ABILITIES).map(a => [a, C.unlockOf(a)]), [['entrench', 'entrenching'], ['deploy', null]]);
   assert.deepEqual(E.G.upgrades, [0, 1].map(() => Object.fromEntries(C.SCHEMA.upgrades.map(k => [k, 0]))));
   assert.equal(C.effectLevel({ weapons: 2, armor: 1 }, 'weapons'), 2);
   assert.ok(n >= 2);
+});
+
+test('the grid reads as population: halved numbers, units only, Energy efficiency cuts what machines cost', () => {
+  // (Stelian, Nov 14: every grid number halved, so the grid reads as the Kingdom's population; buildings draw none)
+  assert.deepEqual([C.GRID_MAX, C.BUILDINGS.conflux.supply, C.BUILDINGS.substation.supply], [150, 22, 10]);
+  assert.deepEqual(['lumen', 'scythe', 'shrike', 'prism', 'bruiser', 'umbra', 'monolith'].map(C.takes), [1, 1, 1, 1, 2, 5, 6]);
+  for (const [k, d] of Object.entries(C.BUILDINGS)) assert.ok(!d.uses && !/draws? .*grid/i.test(d.desc), `${k} draws no grid`);
+  // The sim's `World::unit_cost`: 10% less a level for a machine, rounded; a mercenary pays in full.
+  const lv = (n) => ({ energyEfficiency: n });
+  assert.deepEqual([0, 1, 2].map(n => C.unitCost(lv(n), 'shrike')[0]), [65, 59, 52]);
+  assert.deepEqual([0, 1, 2].map(n => C.unitCost(lv(n), 'monolith')[0]), [550, 495, 440]);
+  assert.deepEqual([0, 1, 2].map(n => C.unitCost(lv(n), 'prism')[0]), [100, 100, 100]);
+  assert.equal(C.UPGRADES.energyEfficiency.desc, 'Machines cost 10% less energy per level.');
+  assert.equal(C.BUILDINGS.siphon.desc, "Locals sign on here for the Expedition's pay. Hires Sellswords, and Bruisers once a Lab stands.");
+  assert.equal(C.BUILDINGS.spire.desc.split(' Needs')[0], "Generates energy over time, with no workers. Each Data center's computers run up to 5.");
+  // (How to play's Market rate, from the data, is the docs' now: test/docs.test.js)
 });
 
 test('the client names no seat: it plays G.me, whichever team that is', () => {
@@ -283,8 +310,24 @@ test('the client reads its seat, and each seat\'s stats, from the game', { skip 
   assert.equal(E.G.me, 0);
   assert.equal(E.G.stats.length, 2);
   assert.ok(E.visibleEnt(E.G.bldgs.find(b => b.team === E.G.me)), 'its own buildings are always visible');
+  const far = E.G.bldgs.find(b => b.team !== E.G.me);
+  assert.equal(E.visibleEnt(far), false, 'the enemy\'s headquarters, across the map: not seen');
+  E.revealAll(true); // (the trailer's staged shots: every seat drawn)
+  try { assert.deepEqual([E.visibleEnt(far), E.allRevealed()], [true, true]); } finally { E.revealAll(false); }
+  assert.equal(E.visibleEnt(far), false, 'off again (as in play): not seen');
   // Each seat its own team: the enemies are the other seat; the winner is a team.
   assert.deepEqual([E.G.teams, E.G.out, E.foes(), E.enemies(0, 1), E.enemies(1, 1)], [[0, 1], [false, false], [1], true, false]);
+});
+
+test('an online game refuses the staged-shot knobs: `revealAll` reveals nothing (a console map hack otherwise), and works again offline', { skip }, () => {
+  E.resetGameForSeat(4242, 0, 0, ['humans', 'vael'], 0);
+  assert.equal(E.inLockstep(), true);
+  const far = E.G.bldgs.find(b => b.team !== E.G.me);
+  assert.equal(E.revealAll(true), false, 'refused');
+  assert.deepEqual([E.allRevealed(), E.visibleEnt(far)], [false, false], 'the enemy\'s headquarters, across the map: still not seen');
+  E.resetGame(4, 0);
+  assert.equal(E.inLockstep(), false);
+  try { assert.equal(E.revealAll(true), true, 'single player: taken'); assert.equal(E.allRevealed(), true); } finally { E.revealAll(false); }
 });
 
 test('a room\'s RANDOM seat is drawn from its seed and seat: the same on every client, either race', { skip }, () => {
@@ -353,7 +396,7 @@ function view() {
 
 test('advance() then one read of G is the same as step() after step(): the same world, every tick\'s events, the dead let go', { skip }, () => {
   const setup = () => E.resetGameSeats(77, 2, 0, 0, ['humans', 'vael', 'vael', 'humans'], [], [true, true, true, true], 0, 96);
-  const runs = [], TICKS = 30 * 240, chunk = (k) => 1 + (k * 5) % 7; // (1 to 7 ticks between reads)
+  const runs = [], TICKS = 30 * 360, chunk = (k) => 1 + (k * 5) % 7; // (1 to 7 ticks between reads)
   // Eagerly mirrored: a step, its events; the world and the events since the last read at each read of the other run.
   setup();
   let events = [];

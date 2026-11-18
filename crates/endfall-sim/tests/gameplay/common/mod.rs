@@ -36,13 +36,20 @@ pub fn core(w: &World, team: u8) -> (i32, i32) {
 
 /// A free spot for `kind` in rings around the player's core.
 pub fn spot(w: &World, kind: BldgKind) -> (i32, i32) {
-    let (cx, cy) = core(w, PLAYER);
-    for r in 3..14 {
+    spot_for(w, PLAYER, kind)
+}
+
+/// A free spot for `kind` in rings around `team`'s core.
+pub fn spot_for(w: &World, team: u8, kind: BldgKind) -> (i32, i32) {
+    let (cx, cy) = core(w, team);
+    // (a headquarters farther out: `HQ_SPACING` from the seat's own)
+    let most = if kind.def().hq { 30 } else { 14 };
+    for r in 3..most {
         for a in 0..24 {
             let ang = a as f64 / 24.0 * std::f64::consts::TAU;
             let tx = (cx as f64 + 2.0 + ang.cos() * r as f64 - 1.0).round() as i32;
             let ty = (cy as f64 + 2.0 + ang.sin() * r as f64 - 1.0).round() as i32;
-            if w.can_place(kind, tx, ty, PLAYER) {
+            if w.can_place(kind, tx, ty, team) {
                 return (tx, ty);
             }
         }
@@ -368,11 +375,20 @@ pub fn make_room(w: &mut World, team: u8, room: i32) {
     fighters.sort();
     let fighters: Vec<Id> = fighters.into_iter().map(|(_, id)| id).collect();
     for id in fighters {
-        // (room in population or Power)
-        if w.room(team, Pool::Supply) >= room {
+        // (room in population or grid)
+        if w.room(team) >= room {
             break;
         }
         w.damage(id, 1e9, None);
         w.recalc_supply(team);
+    }
+}
+
+/// Step past every AI seat's first turn (each within two `AI_TURN`s of the start), where it draws its style
+/// (`World::ai_style`): its tuning is then the one it plays by (`World::tuning`).
+pub fn past_first_turns(w: &mut World) {
+    for _ in 0..32 {
+        w.step();
+        w.events.clear();
     }
 }

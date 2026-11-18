@@ -1,0 +1,452 @@
+{
+ "hero-home": {
+  "alt": "Ebbfall gameplay: the blue Kingdom's archers and guards hold their ground as the Expedition's attack drones fly in",
+  "caption": "Archers against Drones. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 180,
+  "files": {
+   "desktop": "hero-home-2000.webp",
+   "phone": "hero-home-720.webp"
+  },
+  "boxes": {},
+  "avoid": []
+ },
+ "shot-battle": {
+  "alt": "Ebbfall gameplay: the blue Kingdom's knights and guards storm the Expedition's Data center while cannons and archers fire from behind",
+  "caption": "Knights and Guards at the Data center's walls, Cannons firing from behind: bring down the base. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "shot-battle-2000.webp",
+   "phone": "shot-battle-720.webp"
+  },
+  "boxes": {}
+ },
+ "hero-kingdom": {
+  "alt": "Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate",
+  "caption": "A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "hero-kingdom-2000.webp",
+   "phone": "hero-kingdom-720.webp"
+  },
+  "boxes": {}
+ },
+ "hero-expedition": {
+  "alt": "Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front",
+  "caption": "An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge. Your side plays in blue.",
+  "w": 1000,
+  "h": 500,
+  "phoneW": 360,
+  "phoneH": 203,
+  "files": {
+   "desktop": "hero-expedition-2000.webp",
+   "phone": "hero-expedition-720.webp"
+  },
+  "boxes": {}
+ },
+ "shot-desktop-hud": {
+  "alt": "Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card",
+  "caption": "A Kingdom base at 3:00, a group of Guards, Archers and Knights selected. Your side plays in blue.",
+  "w": 1000,
+  "h": 625,
+  "phoneW": 360,
+  "phoneH": 225,
+  "files": {
+   "desktop": "shot-desktop-hud-2000.webp",
+   "phone": "shot-desktop-hud-720.webp"
+  },
+  "boxes": {
+   "res": [
+    0.0164,
+    0.0238,
+    0.1414,
+    0.0225
+   ],
+   "bar": [
+    0.6391,
+    0.0175,
+    0.3445,
+    0.035
+   ],
+   "minimap": [
+    0.0125,
+    0.7925,
+    0.1172,
+    0.1875
+   ],
+   "info": [
+    0.2555,
+    0.8762,
+    0.4375,
+    0.1037
+   ],
+   "cmd": [
+    0.8187,
+    0.8325,
+    0.1688,
+    0.1475
+   ],
+   "groups": [
+    0.9591,
+    0.0813,
+    0.0276,
+    0.0325
+   ]
+  },
+  "avoid": [
+   [
+    0.0063,
+    0.01,
+    0.9875,
+    0.05
+   ],
+   [
+    0.5599,
+    0.277,
+    0.18,
+    0.456
+   ],
+   [
+    0.6049,
+    0.853,
+    0.09,
+    0.147
+   ],
+   [
+    0.8299,
+    0.493,
+    0.09,
+    0.228
+   ],
+   [
+    0.3012,
+    0.385,
+    0.135,
+    0.342
+   ],
+   [
+    0.8299,
+    0.133,
+    0.09,
+    0.228
+   ],
+   [
+    0.8674,
+    0.361,
+    0.09,
+    0.18
+   ],
+   [
+    0.8431,
+    0.4236,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.8467,
+    0.4725,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.8467,
+    0.4725,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.8467,
+    0.4725,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.7982,
+    0.3679,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.7246,
+    0.4836,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.8467,
+    0.4725,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.741,
+    0.4836,
+    0.0328,
+    0.0866
+   ],
+   [
+    0.3843,
+    0.2062,
+    0.0342,
+    0.1024
+   ],
+   [
+    0.3561,
+    0.1611,
+    0.0342,
+    0.1024
+   ],
+   [
+    0.3279,
+    0.1161,
+    0.0342,
+    0.1024
+   ],
+   [
+    0.4174,
+    0.1532,
+    0.0342,
+    0.1024
+   ],
+   [
+    0.3899,
+    0.1171,
+    0.0328,
+    0.0934
+   ],
+   [
+    0.3617,
+    0.072,
+    0.0328,
+    0.0934
+   ],
+   [
+    0.4512,
+    0.1091,
+    0.0328,
+    0.0934
+   ],
+   [
+    0.4173,
+    0.0281,
+    0.0443,
+    0.1294
+   ],
+   [
+    0.3891,
+    0,
+    0.0443,
+    0.1124
+   ],
+   [
+    0.5284,
+    0.4668,
+    0.0607,
+    0.1733
+   ]
+  ]
+ },
+ "shot-phone-land": {
+  "alt": "Ebbfall on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card",
+  "caption": "The same base on a phone held sideways, the army selected.",
+  "w": 844,
+  "h": 390,
+  "phoneW": 360,
+  "phoneH": 167,
+  "files": {
+   "desktop": "shot-phone-land-1688.webp",
+   "phone": "shot-phone-land-720.webp"
+  },
+  "boxes": {
+   "select": [
+    0.0118,
+    0.5128,
+    0.0474,
+    0.1128
+   ],
+   "homearmy": [
+    0.064,
+    0.5128,
+    0.0995,
+    0.1128
+   ],
+   "minimap": [
+    0.0118,
+    0.6462,
+    0.1517,
+    0.3282
+   ],
+   "cmd": [
+    0.7393,
+    0.6615,
+    0.2488,
+    0.3128
+   ]
+  },
+  "avoid": [
+   [
+    0.0095,
+    0.0103,
+    0.981,
+    0.0769
+   ],
+   [
+    0.6029,
+    0.5365,
+    0.182,
+    0.4635
+   ],
+   [
+    0.8759,
+    0.8319,
+    0.091,
+    0.1681
+   ],
+   [
+    0.3413,
+    0.6842,
+    0.1365,
+    0.3158
+   ],
+   [
+    0.8759,
+    0.3396,
+    0.091,
+    0.3118
+   ],
+   [
+    0.9138,
+    0.6514,
+    0.0862,
+    0.2462
+   ],
+   [
+    0.8891,
+    0.737,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.8929,
+    0.8038,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.8929,
+    0.8038,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.8929,
+    0.8038,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.7762,
+    0.655,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.8516,
+    0.809,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.8929,
+    0.8038,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.8351,
+    0.8111,
+    0.0332,
+    0.1185
+   ],
+   [
+    0.4253,
+    0.4397,
+    0.0345,
+    0.14
+   ],
+   [
+    0.3968,
+    0.378,
+    0.0345,
+    0.14
+   ],
+   [
+    0.3683,
+    0.3164,
+    0.0345,
+    0.14
+   ],
+   [
+    0.4588,
+    0.3671,
+    0.0345,
+    0.14
+   ],
+   [
+    0.431,
+    0.3178,
+    0.0332,
+    0.1277
+   ],
+   [
+    0.4025,
+    0.2562,
+    0.0332,
+    0.1277
+   ],
+   [
+    0.493,
+    0.3069,
+    0.0332,
+    0.1277
+   ],
+   [
+    0.4587,
+    0.1961,
+    0.0448,
+    0.1769
+   ],
+   [
+    0.4302,
+    0.1344,
+    0.0448,
+    0.1769
+   ],
+   [
+    0.571,
+    0.796,
+    0.0614,
+    0.204
+   ]
+  ]
+ },
+ "trailer": {
+  "file": "trailer.mp4",
+  "type": "video/mp4",
+  "poster": "hero-home",
+  "w": 1000,
+  "h": 500,
+  "seconds": 6,
+  "uploaded": "2026-11-18",
+  "alt": "Ebbfall gameplay: the blue Kingdom's archers and guards hold their ground as the Expedition's attack drones fly in",
+  "title": "Ebbfall gameplay: Archers against Drones"
+ }
+}

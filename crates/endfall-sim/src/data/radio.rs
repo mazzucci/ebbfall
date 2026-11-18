@@ -1,18 +1,22 @@
-//! The range (the Expedition rework's speed bonus): the Expedition's machines move faster inside the range of a
-//! finished Data center or Uplink of their side. The numbers here; the rules in world/radio.rs.
+//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"): the Expedition's combat machines work only
+//! inside the coverage of a finished Data center or Uplink of their side, and move faster there. The numbers here;
+//! the rules in world/radio.rs.
 
 use super::{BldgKind, UnitKind};
 
 /// The main building's (`conflux`, the Data center) range, in tiles.
 pub const CONFLUX_RANGE: f64 = 18.0;
-/// The Uplink's range, in tiles (a starting number).
-pub const UPLINK_RANGE: f64 = 12.0;
-/// A machine's speed inside range, as a multiple (normal speed everywhere else).
+/// The Uplink's coverage, in tiles, the same on every map (Stelian, Nov 13: 54, so one forward Uplink covers a push
+/// across a medium or a large map; 20, and 24 on the bigger maps, before).
+pub const UPLINK_RANGE: f64 = 54.0;
+/// A machine's speed inside coverage, as a multiple of its own.
 pub const IN_RANGE_SPEED: f64 = 1.3;
-/// How far (tiles) past the edge of its side's range the flying machine (`shrike`, the Drone) may go.
-pub const LEASH_MARGIN: f64 = 5.0;
+/// A machine outside coverage (stranded: its Uplink fell) moves at this share of its own speed, and only towards it.
+pub const STRANDED_SPEED: f64 = 0.6;
+/// How far (tiles) past the edge of coverage a machine may go: none since the arc (the Drone had 5).
+pub const LEASH_MARGIN: f64 = 0.0;
 
-/// The range a finished building of this kind gives (tiles), or 0.
+/// The coverage a finished building of this kind gives (tiles), or 0.
 pub fn range_of(kind: BldgKind) -> f64 {
     match kind {
         BldgKind::Conflux => CONFLUX_RANGE,
@@ -21,15 +25,20 @@ pub fn range_of(kind: BldgKind) -> f64 {
     }
 }
 
-/// Whether a unit of this kind is a machine the range speeds up (the Expedition's Bot, Buggy, Rover, Drone and, since
-/// the balance pass made it a machine using Power, the Android; its hired people and the Kingdom's units are not).
+/// Whether a building of this kind goes up only inside its seat's coverage (Stelian, Nov 15): every building of a
+/// people whose headquarters gives coverage (the Expedition), but the sources themselves (the Data center, by its
+/// headquarters spacing only, and the Uplink, anywhere explored). Placing only: a building stands and works whatever
+/// happens to the coverage afterwards.
+pub fn needs_coverage(hq: BldgKind, kind: BldgKind) -> bool {
+    range_of(hq) > 0.0 && range_of(kind) == 0.0
+}
+
+/// Whether a unit of this kind is a machine that needs signal: the Expedition's combat machines (the Buggy, the Drone,
+/// the Rover, the Android). Its Bots are free (they walk out to build forward Uplinks and reach far mines, at their calm
+/// pace: no bonus), and its hired people and the Kingdom's units fight anywhere.
 pub fn needs_range(kind: UnitKind) -> bool {
     matches!(
         kind,
-        UnitKind::Lumen
-            | UnitKind::Scythe
-            | UnitKind::Monolith
-            | UnitKind::Shrike
-            | UnitKind::Umbra
+        UnitKind::Scythe | UnitKind::Monolith | UnitKind::Shrike | UnitKind::Umbra
     )
 }

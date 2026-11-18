@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mock Ebbfall (embed contract)</title>
+<style>body{background:#111;color:#ddd;font:14px system-ui;padding:20px}#toast{color:#4fd1c5}</style>
+</head>
+<body>
+<!-- A stand-in for the game that speaks claude/PROTOCOL.md, for the challenge's own tests (server.mjs --mock): a menu
+     with START GAME, a clock, a fake digest every 2 game-minutes, deltas answered with `applied`, an end at 14:00. -->
+<h1>Mock Ebbfall</h1>
+<div id="menuSolo"><button id="btnSolo">SINGLE PLAYER</button> <button id="btnStart">START GAME</button></div>
+<p>Time <span id="clock">0:00</span> · plan <code id="plan"></code></p>
+<p id="toast"></p>
+<script>
+const q = new URLSearchParams(location.search);
+const embed = q.get('embed') === '1' && window.parent !== window;
+const mode = q.get('watch') === '1' ? 'watch' : 'play';
+let plan = q.get('plan') || '1', parent = null, t = 0, running = false, over = false, n = 0;
+const END_AT = Number(q.get('mockEnd') || 14 * 60);
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const post = (m) => parent && window.parent.postMessage(m, parent);
+const merge = (base, delta) => {
+  const f = new Map(base.split('.').slice(1).map(p => [p[0], p]));
+  const intents = [];
+  for (const p of delta.split('.').slice(1)) if (p[0] === 'x') intents.push(p.slice(1)); else f.set(p[0], p);
+  return { code: ['1', ...f.values()].join('.'), intents };
+};
+const good = (c) => typeof c === 'string' && c.length <= 160 && /^1(\.[a-z][a-z0-9]*)*$/.test(c);
+function digest(why) {
+  n++;
+  return { n, at: mmss(t), why, plan, you: { money: 'gold', bank: 200 + n * 40, income_per_min: 500 + n * 30, workers: 12, places: '30/40', army: { value: 600 + n * 150, units: { Guard: 4 + n, Archer: 2 } }, buildings: { Castle: 1, Barracks: 2 }, sites: [], research: [], wave: { at_home: { waits_for: 8, has: 5 } } }, enemy: { in_sight: { units: {}, buildings: {} }, seen_so_far: { units: ['Guard'], buildings: ['Castle'], largest_army: 400, expansions: 0 } }, since_last: { trained: { Guard: 2 }, lost: {}, killed: {}, attacks: [] } };
+}
+addEventListener('message', (e) => {
+  if (!embed || e.source !== window.parent) return;
+  const m = e.data;
+  if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(e.origin) || !m || m.v !== 1) return;
+  if (m.type === 'ebbfall:hello') { parent = e.origin; post({ type: 'ebbfall:ready', build: 'mock', mode, plan }); }
+  else if (m.type === 'ebbfall:plan') {
+    if (running) return post({ type: 'ebbfall:applied', tick: t * 30, ok: false, error: 'a game is running', adjusted: [], plan });
+    if (!good(m.code) || m.code.includes('.x')) return post({ type: 'ebbfall:applied', tick: 0, ok: false, error: 'not a plan code', adjusted: [], plan });
+    plan = m.code; document.getElementById('plan').textContent = plan;
+    post({ type: 'ebbfall:applied', tick: 0, ok: true, adjusted: [], plan });
+  } else if (m.type === 'ebbfall:delta') {
+    if (!running || !good(m.code)) return post({ type: 'ebbfall:applied', tick: t * 30, ok: false, error: running ? 'not a delta code' : 'no game', adjusted: [], plan });
+    plan = merge(plan, m.code).code; document.getElementById('plan').textContent = plan;
+    if (m.say) document.getElementById('toast').textContent = m.say;
+    post({ type: 'ebbfall:applied', tick: t * 30, ok: true, adjusted: [], plan });
+  } else if (m.type === 'ebbfall:say') document.getElementById('toast').textContent = m.text;
+});
+function tickTo(s) {
+  while (running && t < s) {
+    t++;
+    document.getElementById('clock').textContent = mmss(t);
+    if (t % 120 === 0) post({ type: 'ebbfall:checkin', tick: t * 30, digest: digest('every 2 minutes') });
+    if (t === 330) post({ type: 'ebbfall:event', tick: t * 30, digest: digest('your wave arrived') });
+    if (t >= END_AT) {
+      running = false; over = true;
+      post({ type: 'ebbfall:end', result: plan.includes('w20') ? 'lost' : 'won', summary: { result: 'mock', at: mmss(t), plan } });
+    }
+  }
+}
+document.getElementById('btnStart').onclick = () => {
+  if (running || over) return;
+  running = true; document.getElementById('menuSolo').hidden = true;
+  post({ type: 'ebbfall:start', seat: 0, me: mode === 'watch' ? null : 0, peoples: ['Kingdom', 'Kingdom'], map: { name: 'Dust Quarter', size: 96 }, plan, adjusted: [] });
+  const speed = Number(q.get('mockSpeed') || 1);
+  setInterval(() => tickTo(t + 1), 1000 / speed);
+};
+document.getElementById('plan').textContent = plan;
+window.endfall = { skip: (s) => tickTo(t + s), G: { get over() { return over; }, get time() { return t; }, get tick() { return t * 30; } } };
+</script>
+</body>
+</html>

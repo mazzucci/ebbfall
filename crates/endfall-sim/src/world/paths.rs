@@ -10,6 +10,7 @@
 //! since every client gives the same orders in the same order.
 
 use super::*;
+use crate::data::radio;
 use crate::path::{astar_capped, at_goal, los};
 
 /// A search from a start this many tiles (or more) from its goal, on either axis, is long: shared and budgeted.
@@ -53,6 +54,8 @@ pub(crate) struct Plans {
     shared: Vec<Shared>,
     long: Vec<u8>,
     work: PathWork,
+    /// The seats told this tick that a machine cannot get where it was sent (`World::tell_no_signal`): once a group.
+    told: Vec<u8>,
 }
 
 /// Path work since the game began, for tests and benches (`World::path_work`; not world state, not hashed).
@@ -75,6 +78,14 @@ impl Plans {
     pub(crate) fn clear(&mut self) {
         self.shared.clear();
         self.long.clear();
+        self.told.clear();
+    }
+    /// Whether `seat` was told this tick that a machine cannot get there, and telling it.
+    pub(crate) fn signal_told(&self, seat: u8) -> bool {
+        self.told.contains(&seat)
+    }
+    pub(crate) fn tell_signal(&mut self, seat: u8) {
+        self.told.push(seat);
     }
     /// One more long search for `team`, if its budget allows. A unit that has a route already (refreshing it) may
     /// take only the first: the last is kept for units with none, so a new order waits a tick or two at most however
@@ -360,4 +371,165 @@ fn centre_clear(map: &Map, foot: Foot, a: Pt, b: Pt) -> bool {
         i += 1.0;
     }
     true
+}
+
+/// Coverage on a route: a tile is covered when its center lies this many px inside a source's reach (so a step
+/// between two covered tiles stays inside), and a straight leg when its points, every `LEG_STEP` px, lie `LEG_INSET`
+/// px inside.
+const TILE_INSET: f64 = 6.0;
+const LEG_INSET: f64 = 2.0;
+const LEG_STEP: f64 = 8.0;
+/// A route short of its goal goes on straight towards it in steps of this many px while they keep inside coverage.
+const EDGE_STEP: f64 = 4.0;
+
+/// Whether (x, y) lies at least `inset` px inside one of `srcs` (x, y, reach).
+fn covered(srcs: &[(f64, f64, f64)], x: f64, y: f64, inset: f64) -> bool {
+    srcs.iter()
+        .any(|&(sx, sy, r)| jsmath::dist(sx, sy, x, y) <= r - inset)
+}
+
+/// Whether the straight way a→b keeps inside `srcs` (`LEG_INSET`).
+fn leg_covered(srcs: &[(f64, f64, f64)], a: Pt, b: Pt) -> bool {
+    let steps = jsmath::to_i32((jsmath::dist(a.x, a.y, b.x, b.y) / LEG_STEP).ceil()).max(1);
+    (0..=steps).all(|k| {
+        let f = k as f64 / steps as f64;
+        covered(
+            srcs,
+            a.x + (b.x - a.x) * f,
+            a.y + (b.y - a.y) * f,
+            LEG_INSET,
+        )
+    })
+}
+
+impl World {
+    /// Coverage (the arc): a machine inside its side's coverage keeps to it. Its `path` towards tile `goal`, if any
+    /// leg of it leaves coverage, gives way to a search through covered tiles to the same goal, or to the nearest
+    /// covered point to it if none gets there (where it stops: the edge stop); with no search left in the seat's
+    /// budget this tick it waits for the next (`Plan::Wait`). Any other unit's route, a flyer's, a stranded machine's
+    /// (it goes back by the old rule) or one with coverage everywhere on it, stands as it is.
+    pub(crate) fn keep_covered(
+        &mut self,
+        uid: Id,
+        path: Option<Vec<Pt>>,
+        goal: (i32, i32),
+    ) -> Plan {
+        let u = self.u(uid);
+        let (team, ux, uy, kind) = (u.team, u.x, u.y, u.kind);
+        if !radio::needs_range(kind) || kind.def().air || !self.in_radio(team, ux, uy) {
+            return Plan::Route(path);
+        }
+        let Some(p) = path.as_deref() else {
+            return Plan::Route(path); // (no way there at all)
+        };
+        let srcs = self.radio_reach_list(team);
+        let pos = Pt { x: ux, y: uy };
+        let whole = std::iter::once(pos)
+            .chain(p.iter().copied())
+            .zip(p.iter().copied())
+            .all(|(a, b)| leg_covered(&srcs, a, b));
+        if whole {
+            return Plan::Route(path);
+        }
+        let a = self.map.tile_of(ux, uy);
+        if !self.may_search(team, a, goal, false) {
+            return Plan::Wait;
+        }
+        let foot = self.foot(kind);
+        let cap = crate::path::SEARCH_CAP * self.map.rock.len() / 4096;
+        let found = crate::path::astar_within(
+            &self.map,
+            foot,
+            &mut self.scratch,
+            a,
+            goal,
+            cap,
+            |x, y| {
+                covered(
+                    &srcs,
+                    x as f64 * TILE + 16.0,
+                    y as f64 * TILE + 16.0,
+                    TILE_INSET,
+                )
+            },
+            |p, q| leg_covered(&srcs, p, q),
+        );
+        let (mut route, reached) = found.unwrap_or_default();
+        if !reached {
+            // (short of the goal: on from the route's end straight towards it, as far as coverage goes: the edge)
+            let end = route.last().copied().unwrap_or(pos);
+            let g = centre(goal);
+            let d = jsmath::dist(end.x, end.y, g.x, g.y);
+            let steps = jsmath::to_i32((d / EDGE_STEP).floor());
+            let mut last = None;
+            for k in 1..=steps {
+                let f = k as f64 * EDGE_STEP / d;
+                let q = Pt {
+                    x: end.x + (g.x - end.x) * f,
+                    y: end.y + (g.y - end.y) * f,
+                };
+                if !covered(&srcs, q.x, q.y, LEG_INSET) || !los(&self.map, foot, end, q) {
+                    break;
+                }
+                last = Some(q);
+            }
+            route.extend(last);
+        }
+        // (the first leg from where it stands, if that stays covered; else from its tile's center)
+        let mut route = self
+            .first_leg_from(foot, (ux, uy), a, Some(route))
+            .unwrap_or_default();
+        if let Some(&first) = route.first()
+            && !leg_covered(&srcs, pos, first)
+            && first != centre(a)
+        {
+            route.insert(0, centre(a));
+        }
+        Plan::Route(Some(route))
+    }
+
+    /// Whether a machine of `team` at (x, y) can get to tile `goal` through its side's coverage (a player's order
+    /// past it is told so: `World::apply`). True for anything not inside coverage.
+    pub(crate) fn covered_way(
+        &mut self,
+        team: u8,
+        kind: UnitKind,
+        (x, y): (f64, f64),
+        goal: (i32, i32),
+        reach: f64,
+    ) -> bool {
+        if !self.in_radio(team, x, y) {
+            return true;
+        }
+        let srcs = self.radio_reach_list(team);
+        let foot = self.foot(kind);
+        let cap = crate::path::SEARCH_CAP * self.map.rock.len() / 4096;
+        let a = self.map.tile_of(x, y);
+        let found = crate::path::astar_within(
+            &self.map,
+            foot,
+            &mut self.scratch,
+            a,
+            goal,
+            cap,
+            |x, y| {
+                covered(
+                    &srcs,
+                    x as f64 * TILE + 16.0,
+                    y as f64 * TILE + 16.0,
+                    TILE_INSET,
+                )
+            },
+            |p, q| leg_covered(&srcs, p, q),
+        );
+        match found {
+            Some((_, true)) => true,
+            Some((p, false)) => {
+                let end = p.last().copied().unwrap_or(Pt { x, y });
+                let g = centre(goal);
+                jsmath::dist(end.x, end.y, g.x, g.y) <= reach
+            }
+            None => false,
+        }
+    }
 }

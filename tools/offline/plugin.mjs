@@ -21,8 +21,11 @@ export function swSource(version, build, list) {
 }
 
 /** Files of public/ for search engines and link previews, not the game's: not stored for offline play (og.png, the
- *  link preview's image, is a fifth of the download the game needs). */
-export const WEB_ONLY = ['og.png', 'robots.txt', 'sitemap.xml'];
+ *  link preview's image, is a fifth of the download the game needs). The docs microsite (docs/, tools/docs) and the
+ *  agents' guide (llms.txt) are web pages, not the game's either: `webOnly`. */
+export const WEB_ONLY = ['og.png', 'robots.txt', 'sitemap.xml', 'llms.txt', 'docs/'];
+/** Whether a file of dist/ is WEB_ONLY (an entry ending in / is a folder: everything under it). */
+export const webOnly = (f) => WEB_ONLY.some(w => (w.endsWith('/') ? f.startsWith(w) : f === w));
 
 export function offline() {
   let outDir = 'dist', build = 'dev';
@@ -34,7 +37,7 @@ export function offline() {
       try { build = JSON.parse(c.define?.__SIM_BUILD__ ?? '"dev"'); } catch { /* keep 'dev' */ } // (vite.config.js)
     },
     closeBundle() {
-      const list = files(outDir).filter(f => !f.endsWith('.map') && f !== 'sw.js' && !WEB_ONLY.includes(f)).sort();
+      const list = files(outDir).filter(f => !f.endsWith('.map') && f !== 'sw.js' && !webOnly(f)).sort();
       const h = createHash('sha256');
       for (const f of list) { h.update(f); h.update(readFileSync(join(outDir, f))); }
       writeFileSync(join(outDir, 'sw.js'), swSource(h.digest('hex').slice(0, 12), build, ['./', ...list]));

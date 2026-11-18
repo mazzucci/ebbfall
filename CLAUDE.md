@@ -1,20 +1,20 @@
 # Ebbfall: notes for coding agents
 
-A browser real-time strategy game, a classic base-building RTS (one resource, a population cap (the Expedition: Power
-and a maximum of hired places instead), two peoples), built as
+A browser real-time strategy game, a classic base-building RTS (one resource, gold, which the Expedition calls
+energy; a population cap, the Expedition's the grid instead; two peoples), built as
 a learning-and-fun project. The simulation is Rust compiled to WASM (`crates/endfall-sim`); the client is plain
 JavaScript ES modules, Vite and PixiJS 8 (WebGL) over code-generated sprite sheets (pre-rendered 3D units and
 buildings, painted terrain); no framework, no engine. The simulation is deterministic so that lockstep multiplayer
 works without rewriting it.
 
-**ARCHITECTURE.md** is the map of the code: what every file, module and test is for, CI and the deploy in full, and
-the water, tide and Shore rules in detail. Open it when you need to find your way; this file keeps the rules and the
-commands.
+**ARCHITECTURE.md** is the map of the code, how the game is built: what every file, module and test is for, and CI and
+the deploy in full. **GAMEPLAY.md** is how the game plays: seats, teams, maps and spawning; water, the tide and the
+Shore. Open them when you need to find your way; this file keeps the rules and the commands.
 
 Two Notion pages hold what is not code: Ebbfall: planning (the roadmap, reviews, open questions) and Ebbfall:
 developer docs ("Multiplayer design": lockstep, the relay, hosting, deploy and rollback; "Ebbfall art": the art
-pipeline, frame names, seat colours). The game's own About page and How to play (index.html) explain it to players:
-no plans and no developer notes there. Agendas, handoff notes for paused work, the owner's decisions and anything to
+pipeline, frame names, seat colours). The docs microsite at /docs/ (tools/docs: how to play, the two peoples, about) and the in-game help
+sheet explain it to players: no plans and no developer notes there. Agendas, handoff notes for paused work, the owner's decisions and anything to
 remember for later go to Notion too (subpages of Ebbfall: planning, one per work item, the branch named), never to
 local files: every session, on any machine, must be able to read them. See `README.md` for the player-facing
 description. The game was called Endfall until 2026-10-26: player-facing text says Ebbfall and the repo is
@@ -71,6 +71,10 @@ node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local
 node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
                              # the 3D part needs a Chromium, see Notion: Ebbfall art)
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
+node tools/docs/crops.mjs    # regenerate the docs' sprite crops (public/docs/img/sprites/) after the art changes (a Chromium;
+                             # output is committed; test/docs.test.js fails while they are stale)
+node tools/docs/shots.mjs    # regenerate the docs' screenshots and gameplay clip from the built game (npm run build first; a
+                             # Chromium, slow: minutes; output is committed); names run some: battles heroes controls clip
 node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
                              # wording (a Chromium too; output is committed, kept under 300 KB)
 ```
@@ -105,45 +109,29 @@ and commands produce the same `stateHash()`), and every rule change needs a scen
 
 ## Conventions
 
-- Seats and teams: a World has N seats (`World::seats()`, 2 to `MAX_SEATS`, at most the map's starts: 2 on 64x64, 4 on
-  96x96, 8 on 128x128, `map::max_starts`, all of them generated whatever the seats; seats sit round the map in order, `map::seat_starts`: allies in consecutive
-  seats are neighbours, which is how the menus' teams are made, and with teams `Game::with_seats` turns the seats by
-  whole starts only and the free starts go between teams, `map::team_starts`, so any split of consecutive seats starts
-  side by side; each AI seat may have its own difficulty, `World::diff_of`, `Game.withSeats`' optional `diffs`; in the
-  balance lab only, a plan: a whole `Diff` per seat, `World::set_ai_plans`, never from JS or the network and not
-  hashed; every AI decision reads its numbers through `World::tuning`, the plan or else its level's),
-  and every per-seat thing is a `Vec` indexed by seat (`factions`, `res`, `vis`, `stats`, `upgrades`, ...; `team` on
-  an entity is its seat). Each seat is on a team (`World::teams`, each its own by default): `enemies(a, b)` / `allies`
-  decide who fights, never "the other seat" (`1 - team`). The game is over when the seats still in (`out`) are all one
-  team, and `winner` is that team; a concede knocks out its seat only. A seat that is out gives no orders
-  (`World::apply` refuses them) and, while the game goes on, what it leaves is inert (`World::inert`: stopped, then left
-  out of the tick; it can still be destroyed). Teams enter the state hash only when not each seat its own. `PLAYER = 0`, `ENEMY = 1` are only the
-  menu's defaults. Rules never single out a seat: fog, alerts, toasts, sounds and stats are per seat (fog is
-  shared with allies: `update_fog` ORs a team's layers), events carry the seat they are for (`Game::drain_events` passes on its own seat's; `seen` is a bit per seat),
-  the scripted opponent plays whichever seats `World::ai_seats` marks (one brain per seat, `World::seat()` inside its
-  turn; it fights every enemy and plans against `foe()`, the nearest enemy start still in, ties to its partner: seats
-  0 and 1, 2 and 3, ...), and `is_ai(team)` is the
-  only difference a seat's player makes (AI income, building in
-  unexplored ground, losing as soon as its buildings are gone). A builder of either people stays at its site until the building stands,
-  then waits idle beside it; a new worker waits at its headquarters (or at its rally point, beside a mine) until it is
-  ordered to gather, and the AI orders its own workers.
-- Two-seat habits the goldens pin stay on two-start maps only: seat 0 facing east and stepping out south (with
-  `map.bases.len() > 2` units face and step out towards the map's centre), and the AI's rules for several enemies (a
-  wave called home to a raid by another) apply only with more than one enemy still in.
+The gameplay these rules protect (how seats sit round a map, teams, the AI seats and their styles, map sizes and
+starts, spawning, builders, water and the tide) is described in GAMEPLAY.md. The rules:
+
+- Seats: a World has N seats (`World::seats()`), and every per-seat thing is a `Vec` indexed by seat (`factions`,
+  `res`, `vis`, `stats`, `upgrades`, ...; `team` on an entity is its seat). Rules never single out a seat: fog,
+  alerts, toasts, sounds and stats are per seat, events carry the seat they are for, and `is_ai(team)` is the only
+  difference a seat's player makes. `PLAYER = 0`, `ENEMY = 1` are only the menu's defaults.
+- Teams: `enemies(a, b)` / `allies` decide who fights, never "the other seat" (`1 - team`). A seat that is out gives
+  no orders (`World::apply` refuses them). Teams enter the state hash only when not each seat its own.
+- AI numbers: every AI decision reads its numbers through `World::tuning`. An AI seat's plan may come from the game
+  link, and deltas and intents to it from an embedding page over postMessage (claude/PROTOCOL.md: allowed origins
+  only, every message validated), in single-player games only (`Game::setPlan`, `Game::planDelta`): validated and
+  clamped in Rust, refused in lockstep, never sent over the network, and recorded in replays with their ticks.
+  `World::set_ai_styles` and the lab's own plan inputs (`World::set_ai_plans`) stay lab-only and are not hashed.
+- Two-start habits the goldens pin stay on two-start maps only; anything new for maps of more starts is gated on
+  `map.bases.len() > 2`, and AI rules for several enemies on more than one enemy still in.
 - Positions are in world pixels (`TILE = 32`); `tx, ty` are tile coordinates; ranges and sight are in tiles.
-- Water, the tide and the Shore map (details in ARCHITECTURE.md): each tile has a height and the world one water level,
-  so a tile is land, shallows or deep (`Map::ground`); a unit moves by its class (`UnitDef::mv`: Walk, Amph, Fly) and
-  every walkability check for a unit takes its `Foot` (`World::foot(kind)`, `Map::passable`, `nearest_passable`,
-  `astar`, `los`), while `blocked` and `nearest_free` stay class-free (map generation, buildings, flyers). Nothing
-  fires from deep water; buildings go by the builder's class (`builds_on`, the AI through the same `can_place`). The
-  tide (`World::set_tide`) is a world switch, off by default, and enters the hash only when on. The Shore map is its
-  own generator (`generate_shore`), so the other kinds' maps never change. On a map without water all of it is inert
-  (the goldens pin that).
-- The map's size is the map's (`Map::w`, `h`, in tiles; the menus offer 64x64, `MapSize::DUEL`, with two starts, 96x96
-  with four and 128x128 with eight, each size with maps of its own, any of them for as many players as its starts
-  (src/client/maps.js); a map is always generated with all its starts, the free ones free ground): index
-  grids with `map.idx(x, y)` and `map.in_map`, never a constant width. The
-  client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's, set when it starts: read them where they
+- Walkability: every walkability check for a unit takes its `Foot` (`World::foot(kind)`, `Map::passable`,
+  `nearest_passable`, `astar`, `los`); `blocked` and `nearest_free` stay class-free. Placement for the player and the
+  AI goes through the same `can_place`. The tide enters the hash only when on, and on a map without water all of it
+  is inert (the goldens pin that).
+- Map size: the map's size is the map's (`Map::w`, `h`): index grids with `map.idx(x, y)` and `map.in_map`, never a
+  constant width. The client's `MW`/`MH`/`WW`/`WH` (src/engine/core.js) are the current game's: read them where they
   are used, and size anything per-tile when a game starts (`renderTerrain`), never at module load.
 - Costs are `[gold, 0]`: one resource; the second slot, once a second resource, is always 0.
 - Keep files small and single-purpose; dense one-liners are acceptable in hot loops but not in rules code.

@@ -112,7 +112,7 @@ impl World {
     /// its Market still ends).
     pub(crate) fn spared(&self, team: u8, b: &Bldg) -> bool {
         self.guided
-            && b.kind.def().pays
+            && b.kind.def().pays > 0.0
             && self.is_ai(team)
             && !self.is_ai(b.team)
             && self
@@ -373,6 +373,7 @@ impl World {
                 r: u.r,
                 team,
                 n: 10,
+                unit: Some(u.kind),
             });
             self.stats[team as usize].lost += 1;
             let by = by.filter(|&k| self.enemies(k, team));
@@ -388,8 +389,8 @@ impl World {
             let b = self.bldgs.remove(i);
             team = b.team;
             self.clear_footprint(&b);
-            for q in &b.queue {
-                self.pay(team, q.def().cost, 1);
+            for &q in &b.queue {
+                self.pay(team, self.unit_cost(team, q), 1);
             }
             if let Some((up, _)) = b.research {
                 let level = self.upgrades[team as usize][up.index()] + 1;
@@ -410,6 +411,7 @@ impl World {
                 r: b.r,
                 team,
                 n: 24,
+                unit: None,
             });
             if let Some(k) = by.filter(|&k| self.enemies(k, team)) {
                 self.stats[k as usize].razed += 1;
@@ -625,6 +627,7 @@ impl World {
                 } else {
                     Vec::new()
                 };
+                let air = self.unit(p.target).map(|u| u.kind).filter(|k| k.def().air); // (before the blow: it may kill)
                 self.hit_by = Some((p.by_slot, p.team)); // (a kill still counts if the shooter died meanwhile)
                 self.damage(p.target, p.dmg, Some(p.by));
                 self.harpoon(p.target, p.slow); // (the target only: a harpoon has no splash)
@@ -638,6 +641,8 @@ impl World {
                     x: tp.0,
                     y: tp.1,
                     big: p.kind == ProjKind::Shell,
+                    shot: Some((p.kind, p.by_slot, p.team)),
+                    air,
                 });
                 self.projs.remove(i);
             } else {

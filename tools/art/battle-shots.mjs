@@ -14,14 +14,21 @@
 //   kingdom    a Kingdom mirror (seats 0 and 1)
 //   expedition an Expedition mirror
 //   base-kingdom, base-expedition   a base with every building of its people
+//   home-kingdom, home-expedition   the same base with an army of every kind drawn up south of it, at zoom 1
+//   mine-swarm the Expedition's Bots and Drones crowded round your base's gold mine, at zoom 1
+//   turbines   the Expedition base with three more Wind turbines by the Core, the camera on them, at zoom 1
 //   air        the flyers (the Balloon; the Drones) with Archers and Mercenaries, held on a frame with an arrow and a
 //              tracer in flight where one comes
+//   gunners    Androids and Buggies against a Cannon, Guards and Archers at zoom 1.5 (the rifles' flashes, the impacts)
+//   brawl, brawl-close   the five melee kinds (Guards, Riders, Knights against Sellswords, Bruisers) hand to hand, at
+//              zoom 1 and at 2 (their strike poses); the phone at 3x
 //   shore      the mixed fight on the Shore map (Mirror Lake, chosen in the menu's map list), zoomed out to 0.75
 // It prints, per shot, what was in flight (the projectiles by shooter) and the units on screen.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { start, stop, browserContext, baseUrl, board, DESKTOP, PHONE } from '../../test/e2e/harness.mjs';
+import { MAPS } from '../../src/client/maps.js';
 
 const [outArg, ...only] = process.argv.slice(2);
 const outDir = outArg ?? fileURLToPath(new URL('../../target/art-review/step2/battle/', import.meta.url));
@@ -37,7 +44,16 @@ const SCENES = {
   expedition: { races: ['vael', 'vael'], armies: [V_ARMY, { scythe: 3, prism: 4, bruiser: 3, monolith: 2, umbra: 1 }] },
   'base-kingdom': { races: ['humans', 'vael'], base: true },
   'base-expedition': { races: ['vael', 'humans'], base: true },
+  'home-kingdom': { races: ['humans', 'vael'], base: true, army: H_ARMY, zoom: 1 },                                      // (the art polish's in-game shots: a base with its buildings and an army standing before it, at zoom 1)
+  'home-expedition': { races: ['vael', 'humans'], base: true, army: V_ARMY, zoom: 1 },      // (the Uplink needs the Lab, and the Portal the Uplink: the base's rounds raise them in turn)
+  'mine-swarm': { races: ['vael', 'humans'], swarm: { lumen: 7, shrike: 6 }, zoom: 1 },                                  // (the follow-up to the art polish: a Bot group and a Drone swarm by a mine, the gold beside them)
+  turbines: { races: ['vael', 'humans'], base: true, extra: ['spire', 'spire', 'spire'], focus: 'spire', zoom: 1 },        // (the Wind turbine's blades without the blur disc: the base with four turbines by the Core, the camera on them)
   air: { races: ['humans', 'vael'], armies: [{ observer: 2, bastion: 1, lancer: 4 }, { shrike: 4, prism: 4 }], shots: ['lancer', 'prism'], skip: 1.2 },
+  // (the strike poses' review: the five melee kinds fighting hand to hand, at zoom 1 and up close; the phone at 3x)
+  brawl: { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 1, phoneDpr: 3 },
+  // (the gunners' shots and impacts: Androids and Buggies against a Cannon with Guards and Archers)
+  gunners: { races: ['humans', 'vael'], armies: [{ siegeTank: 1, trooper: 3, lancer: 3 }, { umbra: 3, scythe: 3 }], fx: ['muzzle'], skip: 1.5, zoom: 1.5, phoneDpr: 3 },
+  'brawl-close': { races: ['humans', 'vael'], armies: [{ trooper: 4, rider: 3, knight: 3 }, { prism: 5, bruiser: 4 }], skip: 3, zoom: 2, phoneDpr: 3 },
 };
 
 /** A single-player game through the menu: your race and the AI's on the board, START; the AI then switched off. */
@@ -45,14 +61,14 @@ async function newGame(device, races, mapName) {
   const ctx = await browserContext(device), page = await ctx.newPage(), touch = !!device.hasTouch, errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install(); // (runs with real time until held: `freeze`)
-  await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
+  const map = mapName ? `&map=${MAPS.findIndex(m => m.name === mapName)}` : ''; // (by ?map=: the Lake is in no list since the 64x64 maps were hidden)
+  await page.goto(`${baseUrl()}?seed=4242${map}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
   const press = (sel) => (touch ? page.locator(sel).tap() : page.locator(sel).click());
   await press('#btnSolo');
   const b = board(page);
   if (races[0] !== 'humans') await b.race(0, races[0]);
   await b.race(1, races[1]);
-  if (mapName) { const i = await page.$$eval('#mapSel option', (os, n) => os.findIndex(o => o.textContent.startsWith(n)), mapName); await page.locator('#mapSel').selectOption(String(i)); }
   await press('#btnStart');
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   await page.evaluate(() => endfall.engine.disableAi());
@@ -82,17 +98,20 @@ const fight = (page, armies) => page.evaluate((armies) => {
 }, armies);
 
 /** Every building of your people raised round your Core through the engine's build orders, a tier at a time, with
- *  resources granted and time skipped; each footprint kept a tile clear of the others. Returns the base's middle. */
-const raiseBase = (page) => page.evaluate(() => {
+ *  resources granted and time skipped; each footprint kept a tile clear of the others. `extra` kinds go up first, so they
+ *  get the spots nearest the Core (several of one kind: the turbines scene). Returns the base's middle, or, with `focus`,
+ *  the middle of that kind's buildings. */
+const raiseBase = (page, extra = [], focus) => page.evaluate(([extra, focus]) => {
   const { G, map, engine } = endfall, me = G.me, T = engine.TILE, f = engine.FACTIONS[G.factions[me]];
-  const core = G.bldgs.find(b => b.team === me), todo = [...f.buildBasic, ...f.buildAdvanced].filter((k, i, a) => k !== f.hq && a.indexOf(k) === i);
+  const core = G.bldgs.find(b => b.team === me), todo = [...extra, ...[...f.buildBasic, ...f.buildAdvanced].filter((k, i, a) => k !== f.hq && a.indexOf(k) === i)];
   const rects = G.bldgs.filter(b => b.team === me).map(b => [b.tx, b.ty, b.w, b.h]);
   const clear = (tx, ty, w, h) => rects.every(([x, y, rw, rh]) => tx + w + 1 <= x || x + rw + 1 <= tx || ty + h + 1 <= y || y + rh + 1 <= ty);
   const why = {}, placed = [], spots = []; for (let r = 0; r <= 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) spots.push([core.tx + dx, core.ty + dy]);
-  for (let round = 0; round < 6 && todo.length; round++) {
+  for (let round = 0; round < 9 && todo.length; round++) {                                                           // (nine rounds: the Expedition's Portal needs the Uplink, which needs the Lab)
     engine.setResources(me, 99999, 99999);
-    const workers = G.units.filter(u => u.team === me && engine.UNITS[u.type].worker);
+    const workers = G.units.filter(u => u.team === me && engine.UNITS[u.type].worker), from = placed.length;
     for (const k of todo.slice()) {
+      if (placed.length - from >= workers.length) break;                                                            // (one site a worker a round: a second order pulls the builder off its first site, which then stands paused)
       if (!engine.hasReq(me, k)) continue;
       const d = engine.BUILDINGS[k], at = spots.find(([tx, ty]) => clear(tx, ty, d.w, d.h) && engine.canPlace(k, tx, ty, me));
       const err = at ? engine.placeBuilding(me, k, at[0], at[1], workers[placed.length % workers.length]) : 'no room';
@@ -101,12 +120,39 @@ const raiseBase = (page) => page.evaluate(() => {
     }
     for (let s = 0; s < 150; s++) { // (a builder walks to its site before the building appears)
       endfall.skip(1);
-      if (placed.every(k => G.bldgs.some(b => b.team === me && b.type === k && b.done))) break;
+      if (placed.every(k => G.bldgs.filter(b => b.team === me && b.type === k && b.done).length >= placed.filter(p => p === k).length)) break;
     }
   }
-  const mine = G.bldgs.filter(b => b.team === me), xs = mine.map(b => b.x), ys = mine.map(b => b.y);
+  const mine = G.bldgs.filter(b => b.team === me), seen = focus ? mine.filter(b => b.type === focus) : mine, xs = seen.map(b => b.x), ys = seen.map(b => b.y);
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, left: todo.map(k => `${k} (${why[k]})`), built: mine.map(b => b.type) };
-});
+}, [extra, focus]);
+
+/** An army of every kind drawn up in rows south of the base's middle (the art polish's in-game shots). */
+const muster = (page, army, at) => page.evaluate(([army, at]) => {
+  const { G, map, engine } = endfall, T = engine.TILE, me = G.me, kinds = Object.entries(army).flatMap(([k, n]) => Array(n).fill(k));
+  const free = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor(y / T); return engine.inMap(tx, ty) && !map.rock[engine.idx(tx, ty)] && !map.occ[engine.idx(tx, ty)]; };
+  const south = Math.max(...G.bldgs.filter(b => b.team === me).map(b => b.y + b.h * T / 2)) + 1.5 * T;
+  let k = 0; for (let row = 0; k < kinds.length && row < 4; row++) for (let col = -5; col <= 5 && k < kinds.length; col++) {
+    const x = at.x + col * 1.3 * T, y = south + row * 1.3 * T;
+    if (!engine.UNITS[kinds[k]].air && !free(x, y)) continue;
+    engine.debugSpawn(me, kinds[k++], x, y);
+  }
+  return { x: at.x, y: (at.y + south + 2 * T) / 2 };
+}, [army, at]);
+
+/** Bots and Drones round your base's nearest gold field (the art polish's follow-up: a worker group against the gold). */
+const swarm = (page, army) => page.evaluate((army) => {
+  const { G, map, engine } = endfall, T = engine.TILE, me = G.me, core = G.bldgs.find(b => b.team === me);
+  const field = map.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+  const free = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor(y / T); return engine.inMap(tx, ty) && !map.rock[engine.idx(tx, ty)] && !map.occ[engine.idx(tx, ty)]; };
+  let k = 0; const kinds = Object.entries(army).flatMap(([kind, n]) => Array(n).fill(kind));
+  for (let r = 1.6; k < kinds.length && r < 6; r += 1.1) for (let a = 0; a < Math.PI * 2 && k < kinds.length; a += Math.PI / 5) {
+    const x = field.x + Math.cos(a) * r * T, y = field.y + Math.sin(a) * r * T * 0.8;
+    if (!engine.UNITS[kinds[k]].air && !free(x, y)) continue;
+    engine.debugSpawn(me, kinds[k++], x, y);
+  }
+  return { x: field.x, y: field.y };
+}, army);
 
 /** Hold the page's clock (no frame, no tick until `frame`; far enough ahead that a loaded machine reaches it before the hold), and draw `ms` of frames. */
 const freeze = async (page) => page.clock.pauseAt(await page.evaluate(() => Date.now()) + 15000);
@@ -116,7 +162,9 @@ async function shoot(name, scene, device, label) {
   const g = await newGame(device, scene.races, scene.map), { page } = g, file = join(outDir, `${name}-${label}.png`);
   try {
     let at, note = '';
-    if (scene.base) { const b = await raiseBase(page); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; }
+    if (scene.research) await page.evaluate((keys) => { for (const k of keys) endfall.engine.debugResearch(endfall.G.me, k); }, scene.research); // (a research granted before the base goes up, so every building can)
+    if (scene.swarm) { at = await swarm(page, scene.swarm); note = 'the swarm by the mine; '; }
+    else if (scene.base) { const b = await raiseBase(page, scene.extra, scene.focus); at = b; note = `built ${b.built.join(' ')}${b.left.length ? `; NOT BUILT ${b.left.join(' ')}` : ''}`; if (scene.army) at = await muster(page, scene.army, b); }
     else { at = await fight(page, scene.armies); note = `spawned ${at.spawned.join(' and ')}; `; }
     await page.evaluate(([x, y, z]) => { endfall.cam.zoom = z; endfall.centerOn(x, y); }, [at.x, at.y, scene.zoom ?? (scene.base ? 0.75 : 1)]);
     await frame(page, 100);
@@ -127,17 +175,17 @@ async function shoot(name, scene, device, label) {
       else { await page.mouse.move(sx(x0) - 20, sy(y0) - 20); await page.mouse.down(); await page.mouse.move(sx(x1) + 20, sy(y1) + 20, { steps: 6 }); await page.mouse.up(); await page.mouse.move(canvas.x + canvas.width * 0.8, canvas.y + canvas.height * 0.2); }
       await frame(page, 100);
     }
-    if (!scene.base) await page.evaluate((s) => endfall.skip(s), scene.skip ?? 2.5);
+    if (!scene.base && !scene.swarm) await page.evaluate((s) => { endfall.skip(s); endfall.G.events.length = 0; }, scene.skip ?? 2.5); // (the skipped seconds' events dropped: each shot shows one instant, not 2.5 s of deaths at once)
     await freeze(page);
     await page.evaluate(([x, y]) => endfall.centerOn(x, y), [at.x, at.y]);
-    // Frame by frame (a tick or so each) until the scene's shots are in flight on the frame drawn: all of them if they
+    // Frame by frame (a tick or so each) until the scene's shots are in flight (and its `fx` effects shown) on the frame drawn: all of them if they
     // come within 150 frames, else the last frame with any
     let k = 0;
     do await frame(page, 34);
-    while (scene.shots && k++ < 150 && !(await page.evaluate((want) => want.every(w => endfall.G.projs.some(p => p.by === w)), scene.shots)));
-    const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0 }));
+    while ((scene.shots || scene.fx) && k++ < 150 && !(await page.evaluate(([want, fx]) => (want ?? []).every(w => endfall.G.projs.some(p => p.by === w)) && (fx ?? []).every(a => endfall.effects().some(e => e.anim === a)), [scene.shots, scene.fx])));
+    const seen = await page.evaluate(() => ({ projs: endfall.G.projs.map(p => p.by ?? p.type), units: endfall.G.units.length, sel: endfall.ui.sel?.length ?? 0, fx: Object.entries(endfall.effects().reduce((n, e) => (n[e.anim] = (n[e.anim] || 0) + 1, n), {})).map(([k, v]) => `${k} ${v}`).join(', ') }));
     await page.screenshot({ path: file });
-    console.log(`${file}: ${scene.base ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
+    console.log(`${file}: ${scene.base || scene.swarm ? note : `${note}in flight (by shooter): ${seen.projs.join(' ') || 'none'}; ${seen.units} units, ${seen.sel} selected; effects shown: ${seen.fx || 'none'}`}${g.errors.length ? `; page errors: ${g.errors.join(' | ')}` : ''}`);
   } finally { await g.ctx.close(); }
 }
 
@@ -146,6 +194,6 @@ try {
   for (const [name, scene] of Object.entries(SCENES)) {
     if (only.length && !only.includes(name)) continue;
     await shoot(name, scene, DESKTOP, 'desktop');
-    await shoot(name, scene, PHONE, 'phone');
+    await shoot(name, scene, scene.phoneDpr ? { ...PHONE, deviceScaleFactor: scene.phoneDpr } : PHONE, 'phone');
   }
 } finally { await stop(); }

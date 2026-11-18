@@ -11,12 +11,13 @@
 // While the card is up the game's sound is paused (audio.js `holdSound`: effects, the wind, the voice), and the corner
 // has no sound button (corner.js); closing it brings the sound back. The sound setting itself is not touched. Online too,
 // though the game goes on under the card: the card covers it, so it is not heard either.
-import { G, fmt } from '../engine/index.js';
+import { G } from '../engine/index.js';
 import { $, toast } from './ui.js';
 import { sfx, holdSound } from './audio.js';
 import { online, who, Who, ifYouLeave } from './online.js';
 import { isFull, enterFullscreen, exitFullscreen } from './screen.js';
 import { anyOptions } from './options.js';
+import { clock } from './clock.js';
 
 /** mine: the player opened the card (not a room pause); wasFull: full screen was on when they did. */
 const card = { mine: false, wasFull: false, timer: 0 };
@@ -73,8 +74,6 @@ export function roomResumed(seat) {
 }
 
 const left = () => online.left[online.seat] ?? 0;
-/** A clock as said on the card: 4:12 (fmt's 04:12 without the leading zero). */
-const clock = (sec) => fmt(sec).replace(/^0(?=\d:)/, '');
 const remains = (ms) => clock(Math.ceil(Math.max(0, ms) / 1000));
 
 /** Fill the card for the state the game is in. */

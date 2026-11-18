@@ -2,38 +2,42 @@
 // Loaded by src/boot.js behind the menu (the renderer waits for its art, and the sim for its WASM, below); the menu and
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
-import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, sparkAt, healFx, castFx, muzzleFx, launchFx, launchesShown, heavyHit, heavyMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, teamLayers, drawOrder, effectsShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint } from './client/gl/render.js';
+import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio, audioState } from './client/audio.js';
-import { fx, burst, hit, updateFx } from './client/fx.js';
+import { sfx, audio, audioState, renderSfx } from './client/audio.js';
+import { fx, burst, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
-import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge, openHelp } from './client/menu.js';
+import { updateClock } from './client/clock.js';
+import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge } from './client/menu.js';
+import { initHelp, closeHelp } from './client/help.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
 import { levelOf } from './engine/util.js';
-import { setSpots, MUZZLE_SMOKE, HEAVY } from './client/look.js';
+import { setSpots, MUZZLE_SMOKE, MUZZLE_FLASH, MELEE_PUFF, inReach, impactOf, hitTier, HIT_LOOK, towerOf } from './client/look.js';
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
+import { currentPlan, startPlan, pumpClaude, endClaude, watching, watchCapped } from './client/claude.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
 audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
-const seen = (e) => G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0;
+const seen = (e) => engine.allRevealed() || G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0; // (allRevealed: a staged shot)
 
 let started = false;
 // The device test (?bench: src/client/bench.js, loaded only then) plays a game of its own through `begin`, on nobody's
 // record, and times the loop's phases while `probe.on`.
 const BENCH = new URLSearchParams(location.search).has('bench');
 const probe = { on: false, lap() {} };
-const overlay = () => !$('start').hidden || !$('leave').hidden || !$('help').hidden || !$('options').hidden || !$('end').hidden || !$('homeTip').hidden;
-// (an online game runs on under the menu, the help and the leave dialog: only the relay stops a shared game)
+const overlay = () => !$('start').hidden || !$('leave').hidden || !$('options').hidden || !$('end').hidden || !$('homeTip').hidden;
+// (an online game runs on under the menu and the leave dialog: only the relay stops a shared game; every game runs on
+// under the help sheet, help.js)
 const running = () => started && !G.over && (online.playing || (!overlay() && !paused()));
 input.enabled = () => started && !overlay() && !paused();
 
@@ -41,10 +45,18 @@ input.enabled = () => started && !overlay() && !paused();
  *  each for itself or in teams (the seats in team order, this player seat 0), each AI at its own difficulty. */
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
-  stopOnline();
+  stopOnline(); endClaude();
   setSpots(g.spots); // (each player in its spot's color)
-  if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs));
-  else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size));
+  // A plan (play against Claude, claude.js): on the first AI seat against ours; watching, a duel of two AIs, the plan on
+  // seat 0 (our people) against Hard (the first AI's people), nobody's orders taken.
+  const plan = menu.tutorial ? null : currentPlan();
+  const races = plan?.watch ? g.races.slice(0, 2) : g.races;
+  const foe = g.players > 2 ? g.ai.findIndex((a, s) => s > 0 && a && (!g.teams.length || g.teams[s] !== g.teams[0])) : 1;
+  const info = { map: { name: g.name, size: g.size }, peoples: races.map(r => FACTIONS[r]?.name ?? r) };
+  const planned = () => startPlan(plan ? (plan.watch ? 0 : foe) : null, info, !!plan);
+  if (plan?.watch) begin(() => { resetGameSeats(g.seed, 2, g.kind, g.side, races, [], [true, true], 0, g.size, [2, 2]); planned(); });
+  else if (g.players > 2) begin(() => { resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs); planned(); });
+  else begin(() => { resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size); planned(); });
 }
 
 /** An online game: the room's setup, from this side's seat (online.js); its AI seats run in every client's game. */
@@ -52,11 +64,11 @@ function newOnlineGame(setup, seat, races) {
   const m = onlineMap(setup);
   menu.tutorial = false; setSpots(setup.spots); // (each player in its spot's color: the room's setup says, alike on every client)
   // (races: a RANDOM seat already drawn, online.js)
-  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (an old Hard, 2: today's, 3; alike on every client)
+  begin(() => resetGameForSeat(m.seed, m.kind, setup.side, races, seat, { teams: setup.teams || [], ai: setup.ai || [], diff: levelOf(setup.diff ?? 1), diffs: (setup.diffs || []).map(levelOf), size: m.size })); // (a Hard of Nov 11 to 13, 3: today's, 2; alike on every client)
 }
 
 function begin(reset) {
-  $('help').hidden = true; $('options').hidden = true; ended = false; outSaid = false;
+  closeHelp(); $('options').hidden = true; ended = false; outSaid = false;
   reset();
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide();
@@ -65,8 +77,8 @@ function begin(reset) {
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
-  // (the Expedition has no population: Power for its machines, a Recruiting post's places for its hired guns)
-  if (!menu.tutorial) toast(myFaction().power ? `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} for Power, and Recruiting posts for hired places.`
+  // (the Expedition has no population: a grid for everything it runs, from its Substations)
+  if (!menu.tutorial && !watching()) toast(myFaction().grid ? `Mine thorium for energy. Build ${aName(BUILDINGS[myFaction().supply].name)} to expand the grid: energy builds things; the grid keeps them running.`
     : `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
@@ -81,39 +93,45 @@ function leaveLine() {
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
 function giveUp() {
   if (online.playing) { if (started && !G.over) online.net?.leave(); return; } // (an online game: the relay concedes for us at once; not on the vs-AI record)
-  if (started && !G.over && !menu.tutorial && !BENCH) recordResult(false, G.factions[G.me], G.diff);
+  if (started && !G.over && !menu.tutorial && !BENCH && !watching()) recordResult(false, G.factions[G.me], G.diff);
+  endClaude(); // (a planned game left: its summary to the page)
 }
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
   giveUp(); stopOnline(); // (a leaving Net closes itself once its leave is out)
-  started = false; closePause(); $('end').hidden = true; $('help').hidden = true; $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
+  started = false; closePause(); $('end').hidden = true; closeHelp(); $('options').hidden = true; showMenu(solo ? 'menuSolo' : 'menuHome');
 }
 
-/** A shot fired (the shooter stands at the event's spot): a kind with muzzle smoke (look.js MUZZLE_SMOKE, the Cannon)
- *  leaves its puff. */
+/** A shot fired or a blow struck (the shooter stands at the event's spot, a building at its center): a kind with
+ *  muzzle smoke (look.js MUZZLE_SMOKE, the Cannon) leaves its puff, one with a muzzle flash (MUZZLE_FLASH) flashes at
+ *  its gun's mouth, and a melee blow glints on its target (MELEE_PUFF: with a puff of dust). */
 function muzzle(e) {
   if (!nearView(e.x, e.y)) return;
-  const u = G.units.find(u => Math.abs(u.x - e.x) < 1 && Math.abs(u.y - e.y) < 1);
-  if (!u) return;
+  const at = (o) => Math.abs(o.x - e.x) < 1 && Math.abs(o.y - e.y) < 1;
+  const u = G.units.find(at);
+  if (!u) { const b = G.bldgs.find(b => b.done && MUZZLE_FLASH[b.type] && at(b)); if (b) muzzleFlash(e.x, e.y, b.aim, MUZZLE_FLASH[b.type]); return; }
   if (MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
-  const heavy = HEAVY[u.type];
-  if (!heavy) return;
-  heavyMuzzle(e.x, e.y, u.face, heavy);
-  const t = u.task.target; // (a top melee unit, no flash: its blow lands at once, on its target)
-  if (!heavy.flash && t && !t.dead) heavyHit(t.x, t.y - 6, heavy);
+  if (MUZZLE_FLASH[u.type]) muzzleFlash(e.x, e.y, u.face, MUZZLE_FLASH[u.type]);
+  const tier = hitTier(u.d.weapon); // (how hard it hits: a heavy or siege gun's big flash, a blow's heavier look)
+  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) { const p = meleeHit(u, t, MELEE_PUFF[u.type]); if (tier !== 'light') tierHit(p.x, p.y, tier, null, true); } }
+  else tierMuzzle(e.x, e.y, u.face, tier, MUZZLE_FLASH[u.type]);
 }
-/** A shot landed (a `hit` event at its target): the top unit that fired it, if one did (look.js HEAVY), told by the
- *  shot of the last mirror nearest the spot, aimed within 16 px of it; else none. */
-function heavyOf(e) {
-  let best = null, bd = 16 * 16;
-  for (const p of G.projsBefore) { const dx = p.ax - e.x, dy = p.ay - e.y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = p; } }
-  return best && HEAVY[best.by];
+/** How hard a shot that landed hits (look.js hitTier): by its shooter's weapon, a unit's or its people's tower's
+ *  (a building's shot carries no shooter kind); a repairer's welding (no shot) 'light'. Read from the data each time. */
+function shotTier(e) {
+  if (!e.proj) return 'light';
+  return hitTier(e.by ? UNITS[e.by]?.weapon : BUILDINGS[towerOf(e.people, FACTIONS, BUILDINGS)]?.weapon);
 }
-/** A satellite launched (every seat gets the event; only the launching seat gets a toast): the rocket and its sound,
- *  but only from our side's Data center or one in sight now, so a hidden base is never shown. */
-function launched(e) {
-  if (enemies(G.me, e.team) && !seen(e)) return;
-  launchFx(e.x, e.y); sfx('launch', e);
+/** What a melee blow struck: the unit's target, else (held in place, the sim's Hold: no target in its task) the
+ *  nearest enemy in its reach. */
+function meleeTarget(u) {
+  if (inReach(u)) return u.task.target;
+  let best = null, bd = Infinity;
+  for (const o of [...G.units, ...G.bldgs]) {
+    if (!enemies(u.team, o.team) || o.inside || !inReach(u, o)) continue;
+    const d = Math.hypot(o.x - u.x, o.y - u.y); if (d < bd) { bd = d; best = o; }
+  }
+  return best;
 }
 /** Turn sim events into client effects. */
 function drainEvents() {
@@ -121,10 +139,10 @@ function drainEvents() {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
-    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, e.y, e.r, e.team === G.me ? ALLY : FOE, Math.ceil(e.n / 2)); boom(e.x, e.y, e.r, G.factions[e.team]); if (seen(e)) sfx('boom', e); } // (particles on screen only)
-    else if (e.t === 'hit') { const h = nearView(e.x, e.y) && heavyOf(e); if (h) heavyHit(e.x, e.y, h); else { if (nearView(e.x, e.y)) hit(e.x, e.y, e.big); sparkAt(e.x, e.y, e.big); } if (seen(e)) sfx('hit', e); }
+    else if (e.t === 'signal') leashAt(e.x, e.y); // (a machine of ours sent past coverage: the rim brightens there)
+    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, deathY(e.y, e.unit), e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
+    else if (e.t === 'hit') { const tier = shotTier(e); tierHit(e.x, hitY(e.y, e.air), tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer: up on its body; its look and sound by how hard it hits)
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
-    else if (e.t === 'launch') launched(e);
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
     else if (e.t === 'attacked') onAttacked(e);
@@ -145,32 +163,34 @@ function endLine(win) {
     const names = online.playing ? mine.map(s => online.names[s]).filter(n => n && n !== 'the AI') : [];
     return `Your team ${win ? 'wins' : 'lost'}${names.length ? ` with ${names.join(' and ')}` : ''}` + after;
   }
-  const myWhy = G.outWhy[G.me], helpless = 'nothing left to fight with, and no gold to train more,'; // (then ' after mm:ss.')
+  // (then ' after mm:ss.'; in the viewer's own money word, whoever ran out: the Kingdom only ever sees gold)
+  const myWhy = G.outWhy[G.me], helpless = () => `nothing left to fight with, and no ${FACTIONS[G.factions[G.me]]?.money || 'gold'} to train more,`;
   if (G.teams.length > 2) { // (free for all, or alone against a team or several: nobody in particular beat this side, nor lost to it)
-    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless}` : 'Your last building fell') + after;
+    return (win ? 'The last one standing' : myWhy === 'conceded' ? 'You conceded' : myWhy === 'helpless' ? `You had ${helpless()}` : 'Your last building fell') + after;
   }
   // A duel: online, the other side has a name (a friend's, as typed in the lobby). "Conceded" is said only of an enemy.
   const them = online.playing ? online.names[foes()[0]] || '' : '';
   if (G.conceded === G.me) return (them ? `You conceded to ${them}` : 'You conceded') + after;
   if (G.conceded >= 0) return `${them || 'The enemy'} conceded` + after;
-  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
-  return (myWhy === 'helpless' ? `You had ${helpless}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
+  if (win) return (G.outWhy[foes()[0]] === 'helpless' ? `${them || 'The enemy'} had ${helpless()}` : `${them ? them + "'s" : 'Their'} last building fell`) + after;
+  return (myWhy === 'helpless' ? `You had ${helpless()}` : `Your last building fell${them ? ' to ' + them : ''}`) + after;
 }
 
 function endGame() {
+  const watched = watching(); endClaude(); // (a planned game's summary to the page)
   closePause(); setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.over && G.winner === G.teams[G.me]; // (the winner is a team; out of a game that goes on: lost)
-  $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
+  $('result').textContent = watched && !G.over ? 'TIME' : win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose'; // (a watched game at its cap: nobody won)
   $('endSub').textContent = endLine(win);
   const map = online.playing ? onlineMap(online.setup) : setup();
   $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
   $('btnAgain').textContent = online.playing ? 'LEAVE ROOM' : 'NEW GAME'; // (online: this room, and its rematch, are left)
   $('btnAgain').title = online.playing ? 'Back to the menu: out of this room' : 'Back to the menu, for another map or opponent';
-  showShare(win && !online.playing && !BENCH ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
+  showShare(win && !online.playing && !BENCH && !watched ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
-  if (!online.playing && !menu.tutorial && !BENCH) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
+  if (!online.playing && !menu.tutorial && !BENCH && !watched) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
   if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
@@ -210,7 +230,7 @@ setInterval(() => {
   for (let i = 0; i < waiting && advance(); i++) online.net.ticked(); // (mirrored once, below)
   drainEvents();
 }, 250);
-$('btnPauseHelp').addEventListener('click', openHelp); // How to play, over the pause menu (at its top)
+initHelp(() => !!myFaction().grid); // the ? and the pause card's HOW TO PLAY (help.js)
 
 // ---- loop ----
 let last = performance.now(), acc = 0, hudTimer = 0, ended = false, outSaid = false, drawn = -Infinity;
@@ -231,9 +251,10 @@ function loop(now) {
     if (probe.on) probe.lap('steps');
     drainEvents();
   }
+  pumpClaude(); // (a planned game's check-ins to an embedding page: claude.js)
   // Checked every frame, not only while running: the game can end between frames too.
   if (online.playing && G.over) online.net?.pump(); // (the game is over, the room is not: still here, for a rematch)
-  if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
+  if (started && !ended && (myGameOver() || watchCapped())) { ended = true; drainEvents(); endGame(); } // (a watched game ends at its cap too) // (once a game: `ended` resets in newGame)
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
   if (probe.on) probe.lap('events');
@@ -242,14 +263,17 @@ function loop(now) {
   const draw = started && now - drawn >= (running() ? 12 : 50);
   if (draw) { drawn = now; render(ui.sel, ui.place); }
   if (probe.on) probe.lap('render', draw);
-  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateTools(); updateTutorial(); } }
+  hudTimer += el; if (hudTimer > 0.12) { hudTimer = 0; if (started) { updateHud(); updateClock(); updateTools(); updateTutorial(); } }
   if (probe.on) probe.lap('end');
   requestAnimationFrame(loop);
 }
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, launches: launchesShown, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
+  // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
+  // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
+  paint: (spots) => { setSpots(spots); renderTerrain(); }, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).

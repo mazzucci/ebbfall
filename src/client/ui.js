@@ -10,13 +10,13 @@ export const LOAD_FAILED = 'The game could not load. Check your connection, then
 /** Client-only UI state: what the local player has selected and which command is armed. */
 export const ui = { sel: [], mode: null, place: null, groups: {}, lastGroup: null, lastGroupT: 0, box: false }; // box: SELECT armed ('held' / 'once')
 
-/** Show a message; `bad` styles it red (and plays the error sound unless `silent`). */
-export function toast(msg, bad, silent) {
+/** Show a message; `bad` styles it red (and plays the error sound unless `silent`); `look`, a class that restyles it. */
+export function toast(msg, bad, silent, look = '') {
   const m = $('msg'); const d = document.createElement('div');
   for (const t of [...m.children]) if (t.textContent === msg) t.remove(); // the same message again replaces itself (no storm), fresh
-  d.className = 'toast' + (bad ? ' bad' : '');
-  // Gold as money: its coins before the word (the text stays the message, the icon is drawn by CSS).
-  msg.split(/(\bgold\b)/i).forEach((part, i) => { if (i % 2) { const c = document.createElement('i'); c.className = 'dot shard'; d.append(c, part); } else if (part) d.append(part); });
+  d.className = 'toast' + (bad ? ' bad' : '') + (look ? ' ' + look : ''); // (`look`: a class of its own, `paused`: the build bar's orange)
+  // Money: gold's coins or energy's bolt before the word (the text stays the message, the icon is drawn by CSS).
+  msg.split(/(\bgold\b|\benergy\b)/i).forEach((part, i) => { if (i % 2) { const c = document.createElement('i'); c.className = /^energy$/i.test(part) ? 'dot bolt' : 'dot shard'; d.append(c, part); } else if (part) d.append(part); });
   m.appendChild(d);
   // Two at most (news, not a dashboard): the oldest goes first, an alert last.
   while (m.children.length > 2) (m.querySelector('.toast:not(.bad)') || m.firstChild).remove();
@@ -38,7 +38,7 @@ export const touchUi = typeof matchMedia === 'function' && matchMedia('(pointer:
 export const ARMED = {
   attack: { button: 'attack', minimap: true, hint: (c) => `Attack-move: ${c.toLowerCase()} a target or the ground` },
   move: { button: 'move', minimap: true, hint: (c) => `${c} where to move` },
-  gather: { button: 'gather', hint: (c) => `${c} a gold mine` },
+  gather: { button: 'gather', hint: (c) => `${c} a ${(FACTIONS[G.factions[G.me]] || FACTIONS.humans).ore} mine` },
   rally: { button: 'rally', hint: (c) => `${c} where new units should gather` },
   repair: { button: 'repair', hint: (c) => `${c} a damaged building to repair` },
 };
@@ -58,6 +58,7 @@ export function setHint() {
     : ui.box ? 'Drag to select a group' : ARMED[ui.mode]?.hint(c) ?? '');
   if (h.textContent !== t) h.textContent = t;
   h.classList.toggle('bad', !!why);
+  h.classList.toggle('placing', !!p);
 }
 
 /** Disarm: no order waiting for a tap, nothing being placed. */
@@ -66,7 +67,7 @@ export function clearMode() { ui.mode = null; ui.place = null; setHint(); }
 /** Select `list` (and disarm). The caller redraws the HUD (updateHud) when it needs to at once. */
 export function setSelection(list) { ui.sel = list; clearMode(); }
 
-/** Cards that sit over everything (How to play, OPTIONS: `ids`): while one is up, the rest of the page is `inert` (Tab
+/** Cards that sit over everything (OPTIONS: `ids`): while one is up, the rest of the page is `inert` (Tab
  *  and clicks stay in the card), all but `keep` (the corner, and the cards that may open over it). Returns `settle()`,
  *  which applies it at once (before moving the focus back under a card just closed). */
 export function modalCards(ids, keep = ['corner', 'homeTip', 'leave']) {

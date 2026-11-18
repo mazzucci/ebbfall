@@ -1,5 +1,6 @@
-# Ebbfall (https://ebbfall.com/): everything may be crawled. The game's page is the one page to index: its links
-# (?room=, ...) name it as their canonical.
+# Ebbfall (https://ebbfall.com/): everything may be crawled. The pages to index are the game's (its links, ?room=, ...,
+# name it as their canonical) and the docs at /docs/ (tools/docs: how to play, the two peoples, about); the sitemap
+# lists them all, and /llms.txt is a short guide for agents.
 User-agent: *
 Allow: /
 

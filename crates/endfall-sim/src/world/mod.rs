@@ -66,6 +66,19 @@ pub struct World {
     /// Rust, never by the menus, JS or the network, so not hashed. Empty (always, outside the lab): every AI plays its
     /// level. Read through `tuning`.
     pub ai_plans: Vec<Option<Diff>>,
+    /// A seat's AI style in place of the one it draws (`set_ai_styles`): the balance lab's per-style rows, set only from
+    /// Rust, never by the menus, JS or the network, so not hashed. Empty outside the lab: every AI draws its own.
+    pub ai_styles: Vec<Option<Style>>,
+    /// Each seat's plan (play against Claude; `set_plan`, `plan_delta`, data/plan.rs): Hard's AI with the fields a writer
+    /// set. Single player only (the `Game` refuses it in lockstep); recorded with the game and hashed once any is set.
+    /// Empty: no seat has one.
+    pub seat_plans: Vec<Option<crate::data::Plan>>,
+    /// The game's draw seed (`set_game_seed`, a planned or watched single-player game's): the world's RNG drawn from it
+    /// as well as the map's seed, so one map plays fresh games (the AI's style draws among them). None: the map's seed
+    /// alone, as every other game. Its effect is in the hash (the RNG's state).
+    pub game_seed: Option<u32>,
+    /// The RNG as it stood before a game seed replaced it (`clear_game_seed` puts it back: an online game has none).
+    rng_unseeded: Option<Mulberry32>,
     /// Where a Shore reef basin's main field lies (`set_shore_field`): the balance lab's exposed-income variants, set
     /// only from Rust, never by the menus, JS or the network, so not hashed (the map it makes is). `BACK` outside the lab.
     pub shore_field: ShoreField,
@@ -75,8 +88,8 @@ pub struct World {
     pub bldgs: Vec<Bldg>,
     pub projs: Vec<Proj>,
     pub res: Vec<[i32; 2]>,
-    /// Each seat's places, `[used, cap]` per `Pool` (population or Power, hired places; `recalc_supply`).
-    pub pools: Vec<[[i32; 2]; POOLS]>,
+    /// Each seat's places, `[used, cap]`: the Kingdom's population, the Expedition's grid (`recalc_supply`).
+    pub supply: Vec<[i32; 2]>,
     /// Tiles each seat has ever seen, and sees now (from `update_fog`: its own sight and its allies'). Not hashed: a
     /// difference shows in what the AI does, which is.
     pub explored: Vec<Vec<u8>>,
@@ -214,6 +227,10 @@ impl World {
             diff,
             diffs: Vec::new(),
             ai_plans: Vec::new(),
+            ai_styles: Vec::new(),
+            seat_plans: Vec::new(),
+            game_seed: None,
+            rng_unseeded: None,
             shore_field: ShoreField::BACK,
             map_kind,
             map_size,
@@ -229,7 +246,7 @@ impl World {
             bldgs: Vec::new(),
             projs: Vec::new(),
             res: Vec::new(),
-            pools: Vec::new(),
+            supply: Vec::new(),
             explored: Vec::new(),
             vis: Vec::new(),
             over: false,
@@ -375,14 +392,30 @@ impl World {
     pub fn diff_of(&self, team: u8) -> usize {
         self.diffs.get(team as usize).copied().unwrap_or(self.diff)
     }
-    /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`). Every AI
-    /// decision reads its numbers here.
+    /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`) as its style
+    /// plays it (`data::style`, drawn at its first turn; before that, its level's own). Every AI decision reads its
+    /// numbers here.
     pub fn tuning(&self, team: u8) -> Diff {
         self.ai_plans
             .get(team as usize)
             .copied()
             .flatten()
+            .or_else(|| self.ai.get(team as usize)?.as_ref()?.tuned)
             .unwrap_or(DIFF[self.diff_of(team)])
+    }
+    /// The style seat `team`'s AI drew (None: not an AI seat, or before its first turn). The balance lab's and the
+    /// tests'; never shown to the player.
+    pub fn ai_style(&self, team: u8) -> Option<Style> {
+        self.ai.get(team as usize)?.as_ref()?.style
+    }
+    /// Force each seat's AI style (None: its own draw; empty: none forced) before play: the balance lab's per-style
+    /// rows. Never from the menus, JS or the network. False (nothing changes) for a list of another length.
+    pub fn set_ai_styles(&mut self, styles: &[Option<Style>]) -> bool {
+        if !styles.is_empty() && styles.len() != self.seats() {
+            return false;
+        }
+        self.ai_styles = styles.to_vec();
+        true
     }
     /// Move a Shore reef basin's main field (the balance lab's exposed-income variants) and start the game again on the
     /// map that makes: call it first, before the seats' levels, plans and AI seats. Nothing else changes; on a map
@@ -401,6 +434,91 @@ impl World {
         self.ai_plans = plans.to_vec();
         self.init_ai();
         true
+    }
+    /// Give AI seat `seat` a plan before play (`code`, data/plan.rs): it plays Hard, its drawn style, with the plan's
+    /// fields over them. Err (nothing changes): no such AI seat, a game already started, or not a plan code. Ok: what
+    /// was clamped or dropped.
+    pub fn set_plan(&mut self, seat: u8, code: &str) -> Result<Vec<String>, String> {
+        let s = seat as usize;
+        if s >= self.seats() || !self.is_ai(seat) {
+            return Err("A plan is for an AI seat".into());
+        }
+        if self.tick > 0 {
+            return Err("A plan is set before the game starts".into());
+        }
+        let p = crate::data::Plan::parse(code, self.factions[s], crate::data::PlanAt::Start)?;
+        let mut diffs: Vec<u8> = (0..self.seats() as u8)
+            .map(|t| self.diff_of(t) as u8)
+            .collect();
+        diffs[s] = crate::data::PLAN_LEVEL as u8;
+        self.seat_plans.resize(self.seats(), None);
+        self.seat_plans[s] = Some(p.plan);
+        self.set_diffs(&diffs);
+        Ok(p.notes)
+    }
+    /// Draw this game's randomness from `seed` too (the map stays the map seed's): before play only. Err: a game already
+    /// started.
+    pub fn set_game_seed(&mut self, seed: u32) -> Result<(), String> {
+        if self.tick > 0 {
+            return Err("A game seed is set before the game starts".into());
+        }
+        if self.game_seed.is_none() {
+            self.rng_unseeded = Some(self.rng.clone());
+        }
+        self.game_seed = Some(seed);
+        // (a mix of both seeds, never the map's alone: `Mulberry32` from the map seed is every other game's)
+        let mixed = (self.seed ^ 0x9e37_79b9)
+            ^ seed.wrapping_mul(0x85eb_ca6b).rotate_left(13)
+            ^ 0xc2b2_ae35;
+        self.rng = Mulberry32::new(mixed);
+        Ok(())
+    }
+    /// Drop a game seed set before play: the RNG as the map's seed alone made it (an online game has none).
+    pub fn clear_game_seed(&mut self) {
+        if let Some(r) = self.rng_unseeded.take() {
+            self.rng = r;
+        }
+        self.game_seed = None;
+    }
+    /// A delta for planned seat `seat` during play (`code`, data/plan.rs): its fields over the plan from now on, its
+    /// intents carried out at the seat's next turn. Err (nothing changes): no plan on that seat, the seat or the game
+    /// over, or not a delta code. Ok: what was clamped or dropped.
+    pub fn plan_delta(&mut self, seat: u8, code: &str) -> Result<Vec<String>, String> {
+        let s = seat as usize;
+        let Some(Some(plan)) = self.seat_plans.get(s) else {
+            return Err("No plan on that seat".into());
+        };
+        if self.over || self.out[s] {
+            return Err("That seat's game is over".into());
+        }
+        let p = crate::data::Plan::parse(code, self.factions[s], crate::data::PlanAt::Delta)?;
+        let mut plan = plan.clone();
+        plan.merge(&p.plan);
+        if let Some(a) = self.ai.get_mut(s).and_then(|a| a.as_mut()) {
+            if let Some(base) = a.styled {
+                a.tuned = Some(plan.apply(base));
+            }
+            for i in &p.intents {
+                a.intend(*i, self.time);
+            }
+        }
+        self.seat_plans[s] = Some(plan);
+        Ok(p.notes)
+    }
+    /// Seat `seat`'s plan, if it has one.
+    pub fn plan_of(&self, seat: u8) -> Option<&crate::data::Plan> {
+        self.seat_plans.get(seat as usize)?.as_ref()
+    }
+    /// Whether planned seat `team`'s AI never trains `k` (its plan's `wont_build`; never for a seat without a plan).
+    pub fn ai_banned(&self, team: u8, k: crate::data::UnitKind) -> bool {
+        self.plan_of(team).is_some_and(|p| p.bans(k))
+    }
+    /// The times (s) from which seat `e`'s AI wants each of its towers: its plan's when it sets them, else its tuning's.
+    pub(crate) fn tower_times(&self, e: u8) -> Vec<f64> {
+        match self.plan_of(e).and_then(|p| p.towers.clone()) {
+            Some(ts) => ts,
+            None => self.tuning(e).towers.to_vec(),
+        }
     }
     /// Give each seat's AI a difficulty of its own before play (a person's seat ignores its entry; empty: every AI
     /// plays the game's `diff`), with fresh brains. False (nothing changes) for a list of another length.
@@ -644,11 +762,9 @@ impl World {
         // Hidden state too, so a divergence shows on the tick it happens, not when a position drifts later.
         mix(self.rng.state() as i32);
         mix(self.next_id as i32);
-        for p in &self.pools {
-            for s in p {
-                mix(s[0]);
-                mix(s[1]);
-            }
+        for s in &self.supply {
+            mix(s[0]);
+            mix(s[1]);
         }
         for n in &self.map.nodes {
             mix(n.id as i32);
@@ -708,6 +824,16 @@ impl World {
         if self.teams.iter().enumerate().any(|(s, &t)| t as usize != s) {
             for &t in &self.teams {
                 mix(t as i32 + 1);
+            }
+        }
+        // The seats' plans, once any is set (a game without one hashes as before): every replay must play the same plans.
+        if self.seat_plans.iter().any(|p| p.is_some()) {
+            for p in &self.seat_plans {
+                let code = p.as_ref().map_or(String::new(), |p| p.code());
+                mix(code.len() as i32 + 1);
+                for b in code.bytes() {
+                    mix(b as i32);
+                }
             }
         }
         // The tide, when it is on (a game without it hashes as before): the level, the cycle, the seats' switches.

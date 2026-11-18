@@ -66,13 +66,14 @@ fn cancelling_construction_refunds_three_quarters() {
     let forge = w
         .place_building(PLAYER, BldgKind::Forge, tx, ty, Some(h[1]))
         .unwrap();
+    let price = BldgKind::Forge.def().cost[0];
     assert_eq!(
         w.res[PLAYER as usize],
-        [850, 1000],
+        [1000 - price, 1000],
         "nothing paid in the second slot"
     );
     assert!(w.cancel_construction(forge));
-    assert_eq!(w.res[PLAYER as usize], [850 + 112, 1000]);
+    assert_eq!(w.res[PLAYER as usize], [1000 - price + price * 3 / 4, 1000]);
     assert!(
         w.bldg(forge).is_none() && w.can_place(BldgKind::Forge, tx, ty, PLAYER),
         "the site is free again"
@@ -298,9 +299,9 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
     // itself).
     let mut w = rich_vael(4242);
     let l = harvesters(&w, PLAYER);
-    let (tx, ty) = spot(&w, BldgKind::Spire);
+    let (tx, ty) = spot(&w, BldgKind::Substation);
     let site = w
-        .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
+        .place_building(PLAYER, BldgKind::Substation, tx, ty, Some(l[0]))
         .unwrap();
     let mut rose = false;
     for _ in 0..30 * 60 {
@@ -319,7 +320,7 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
             );
         }
     }
-    assert!(rose && w.bldg(site).unwrap().done, "the Sunpetal stands");
+    assert!(rose && w.bldg(site).unwrap().done, "the Substation stands");
     assert!(
         !w.can_build(l[1], site),
         "nothing left to build on a finished one"
@@ -337,7 +338,7 @@ fn a_lumen_stays_at_its_vael_site_until_it_stands() {
 fn a_vael_site_stalls_without_its_lumen_and_resumes_when_one_returns() {
     // The Kingdom's rule, now both peoples': no builder, no progress; another Bot sent to it finishes it.
     for (mut w, kind) in [
-        (rich_vael(4242), BldgKind::Spire),
+        (rich_vael(4242), BldgKind::Substation),
         (rich(4242), BldgKind::Depot),
     ] {
         let l = harvesters(&w, PLAYER);
@@ -399,7 +400,7 @@ fn a_persons_new_market_or_post_keeps_its_builder_until_it_stands_then_lets_it_w
         );
         assert_eq!(
             w.bldg(b).unwrap().pumped > 0.0,
-            ext.def().pays,
+            ext.def().pays > 0.0,
             "{ext:?}: the Market earns by itself, the Recruiting post nothing"
         );
     }
@@ -478,7 +479,7 @@ fn vael_production_needs_no_sunpetal_near_it() {
 #[test]
 fn supply_blocked_names_the_right_building_for_each_race() {
     let mut w = rich_vael(4242);
-    w.pools[PLAYER as usize][0] = [10, 10];
+    w.supply[PLAYER as usize] = [10, 10];
     let hq = w
         .bldgs
         .iter()
@@ -487,7 +488,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
         .id;
     assert_eq!(
         w.queue_unit(hq, UnitKind::Lumen),
-        Err("Not enough Power: build a Wind turbine.".to_string())
+        Err("Not enough grid: build a Substation.".to_string())
     );
 }
 
@@ -536,11 +537,14 @@ fn a_vael_unit_steps_out_at_its_factory_even_with_a_rally_by_a_sunpetal() {
         u.x,
         u.y
     );
+    let d0 = ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt();
     run(&mut w, 15);
     let u = w.unit(s).unwrap();
+    // (a machine needs signal since the arc: it walks to its rally, or to its coverage's edge on the way)
+    let d = ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt();
     assert!(
-        ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt() < 3.0 * 32.0,
-        "it walked to its rally: ({}, {})",
+        (d < 3.0 * 32.0 || d < d0 - 3.0 * 32.0) && w.in_radio(u.team, u.x, u.y),
+        "it walked towards its rally: ({}, {})",
         u.x,
         u.y
     );
@@ -586,143 +590,6 @@ fn units_step_out_beside_the_factory_otherwise() {
     let t = trained(&mut h, UnitKind::Trooper);
     let (k, u) = (h.bldg(rax).unwrap(), h.unit(t).unwrap());
     assert!(((u.x - k.x).powi(2) + (u.y - k.y).powi(2)).sqrt() < 4.0 * 32.0);
-}
-
-/// Ticks a lone builder at work takes to raise a `kind` for the player (from its first progress to done).
-fn ticks_to_build(w: &mut World, kind: BldgKind) -> u32 {
-    let h = harvesters(w, PLAYER)[0];
-    let (tx, ty) = spot(w, kind);
-    let b = w.place_building(PLAYER, kind, tx, ty, Some(h)).unwrap();
-    let mut ticks = 0;
-    for _ in 0..30 * 120 {
-        w.step();
-        let bd = w.bldg(b).unwrap();
-        if bd.progress > 0.0 {
-            ticks += 1;
-        }
-        if bd.done {
-            return ticks;
-        }
-    }
-    panic!("{kind:?} not built");
-}
-
-#[test]
-fn rapid_construction_raises_human_buildings_a_quarter_faster() {
-    // A Garrison takes its 40 s without the tech, 40 / 1.25 = 32 s with it.
-    let plain = ticks_to_build(&mut rich(5), BldgKind::Barracks);
-    let mut w = rich(5);
-    w.upgrades[PLAYER as usize][Upgrade::RapidConstruction.index()] = 1;
-    let fast = ticks_to_build(&mut w, BldgKind::Barracks);
-    let build = BldgKind::Barracks.def().build;
-    assert!(
-        (plain as f64 - build * TPS as f64).abs() <= 1.0,
-        "{plain} ticks without"
-    );
-    assert!(
-        (fast as f64 - build / TECH_BUILD * TPS as f64).abs() <= 1.0,
-        "{fast} ticks with Rapid Construction ({plain} without)"
-    );
-    assert_eq!(
-        w.bldgs.iter().filter(|b| b.done && b.hp < b.maxhp).count(),
-        0,
-        "and it stands at full health"
-    );
-}
-
-#[test]
-fn rapid_construction_costs_what_the_table_says_and_speed_up_sites_already_rising() {
-    let up = Upgrade::RapidConstruction;
-    assert_eq!(up.levels(), 1, "a one-level tech");
-    let mut w = rich(5);
-    let h = harvesters(&w, PLAYER);
-    let (rx, ry) = spot(&w, BldgKind::Barracks);
-    let rax = w.make_building(BldgKind::Barracks, PLAYER, rx, ry, true);
-    assert!(
-        w.start_research(rax, up).is_err(),
-        "researched at the Foundry only"
-    );
-    let (fx, fy) = spot(&w, BldgKind::Forge);
-    let forge = w.make_building(BldgKind::Forge, PLAYER, fx, fy, true);
-    // A second Core going up (75 s) while the Foundry researches.
-    let (tx, ty) = spot(&w, BldgKind::Core);
-    let site = w
-        .place_building(PLAYER, BldgKind::Core, tx, ty, Some(h[0]))
-        .unwrap();
-    run(&mut w, 10);
-    let step = |w: &mut World| {
-        let p = w.bldg(site).unwrap().progress;
-        w.step();
-        w.bldg(site).unwrap().progress - p
-    };
-    let before = step(&mut w);
-    assert!(before > 0.0, "the builder is at work");
-    let res = w.res[PLAYER as usize];
-    w.start_research(forge, up).unwrap();
-    let cost = up.cost(1);
-    assert_eq!(
-        w.res[PLAYER as usize],
-        [res[0] - cost[0], res[1] - cost[1]],
-        "it costs {cost:?}"
-    );
-    run(&mut w, up.time(1) as u32 - 1);
-    assert_eq!(w.upgrades[PLAYER as usize][up.index()], 0, "not yet");
-    assert!(
-        (step(&mut w) - before).abs() < 1e-12,
-        "same pace until then"
-    );
-    run(&mut w, 2);
-    assert_eq!(
-        w.upgrades[PLAYER as usize][up.index()],
-        1,
-        "researched in {} s",
-        up.time(1)
-    );
-    assert!(!w.bldg(site).unwrap().done, "the Core is still going up");
-    let after = step(&mut w);
-    assert!(
-        (after / before - TECH_BUILD).abs() < 1e-9,
-        "the site already rising goes up {TECH_BUILD} times as fast: {before} -> {after}"
-    );
-    assert!(
-        w.start_research(forge, up).is_err(),
-        "and it is done for good"
-    );
-}
-
-#[test]
-fn rapid_construction_is_human_only_and_per_side() {
-    // No Vael building researches it.
-    assert!(
-        BLDG_KINDS.iter().all(
-            |k| !k.def().researches.contains(&Upgrade::RapidConstruction) || HUMANS.builds(*k)
-        ),
-        "researched by the Humans only"
-    );
-    // The Vael player's Spire grows in its own time while the Human side has the tech.
-    let mut w = rich_vael(4242);
-    w.upgrades[ENEMY as usize][Upgrade::RapidConstruction.index()] = 1;
-    let l = harvesters(&w, PLAYER);
-    let (tx, ty) = spot(&w, BldgKind::Spire);
-    let site = w
-        .place_building(PLAYER, BldgKind::Spire, tx, ty, Some(l[0]))
-        .unwrap();
-    let mut grown = 0;
-    for _ in 0..30 * 60 {
-        w.step();
-        let b = w.bldg(site).unwrap();
-        if b.progress > 0.0 {
-            grown += 1;
-        }
-        if b.done {
-            break;
-        }
-    }
-    let build = BldgKind::Spire.def().build * TPS as f64;
-    assert!(
-        (grown as f64 - build).abs() <= 1.0,
-        "{grown} ticks, its build time {build}"
-    );
 }
 
 #[test]
@@ -804,4 +671,191 @@ fn deep_water_is_refused_as_water() {
         w.place_refusal(BldgKind::Depot, deep.0, deep.1, PLAYER),
         Some(Refusal::Water)
     );
+}
+
+#[test]
+fn a_headquarters_keeps_its_distance_from_its_seats_own_others_but_not_from_an_allys() {
+    // Stelian, Nov 14: a Castle or a Data center not within `HQ_SPACING` of its seat's own headquarters, standing or going
+    // up (so stacked headquarters never multiply the one-Market-a-Castle and five-turbines-a-Data-center caps);
+    // anywhere else it may go, no mine needed. An ally's do not count; a destroyed one blocks nothing.
+    let mut w = World::with_size(
+        5,
+        1,
+        MapKind::Standard,
+        MapSize::square(96),
+        0,
+        &[&HUMANS, &VAEL, &HUMANS, &VAEL],
+    );
+    assert!(w.set_teams(&[0, 0, 1, 1]));
+    w.disable_ai();
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    w.res[0] = [20_000, 0];
+    let main = w
+        .bldgs
+        .iter()
+        .find(|b| b.team == 0 && b.kind == BldgKind::Core)
+        .unwrap()
+        .id;
+    let (mx, my) = core(&w, 0);
+    // Round its main: free ground refused in the rule's words, and nothing else wrong with it.
+    let ring = |r0: i32, r1: i32| {
+        (r0..r1).flat_map(move |r| {
+            (0..32).map(move |a| {
+                let a = a as f64 / 32.0 * std::f64::consts::TAU;
+                (
+                    mx + (a.cos() * r as f64).round() as i32,
+                    my + (a.sin() * r as f64).round() as i32,
+                )
+            })
+        })
+    };
+    let near = ring(5, 11)
+        .find(|&(x, y)| w.place_refusal(BldgKind::Core, x, y, 0) == Some(Refusal::NearBase))
+        .expect("free ground near the main");
+    assert_eq!(
+        w.place_building(0, BldgKind::Core, near.0, near.1, None),
+        Err("Too close to your other base.".to_string())
+    );
+    // Any other building goes there.
+    assert!(w.can_place(BldgKind::Depot, near.0, near.1, 0));
+    // Farther out, anywhere (no mine needed): allowed, and a site going up counts like a standing one.
+    // (and far from `near` too, so the site leaves that spot to the last check)
+    let far = ring(13, 30)
+        .find(|&(x, y)| {
+            ((x - near.0) as f64).hypot((y - near.1) as f64) > HQ_SPACING + 1.0
+                && w.can_place(BldgKind::Core, x, y, 0)
+        })
+        .expect("room farther out");
+    let site = w
+        .place_building(0, BldgKind::Core, far.0, far.1, None)
+        .unwrap();
+    assert!(!w.bldg(site).unwrap().done);
+    let by_site = ring(13, 30)
+        .find(|&(x, y)| {
+            let d = ((x - far.0) as f64).hypot((y - far.1) as f64);
+            d < HQ_SPACING - 1.0
+                && w.place_refusal(BldgKind::Core, x, y, 0) == Some(Refusal::NearBase)
+        })
+        .expect("ground by the site");
+    assert!(
+        !w.can_place(BldgKind::Core, by_site.0, by_site.1, 0),
+        "a site counts"
+    );
+    // An ally's headquarters is no reason: seat 1 (the same team) may build its own by seat 0's main.
+    assert!(w.allies(0, 1));
+    let ally = ring(5, 11)
+        .find(|&(x, y)| w.can_place(BldgKind::Conflux, x, y, 1))
+        .expect("an ally may build by seat 0's main");
+    assert_ne!(
+        w.place_refusal(BldgKind::Conflux, ally.0, ally.1, 1),
+        Some(Refusal::NearBase)
+    );
+    // Its main destroyed: the old spot's neighbor is free again.
+    w.damage(main, 1e9, None);
+    assert!(w.bldg(main).is_none());
+    assert_eq!(
+        w.place_refusal(BldgKind::Core, near.0, near.1, 0),
+        None,
+        "a destroyed headquarters blocks nothing"
+    );
+    assert!(
+        w.place_building(0, BldgKind::Core, near.0, near.1, None)
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_headquarters_keeps_four_tiles_of_ground_from_every_mine_and_nothing_else_does() {
+    // Stelian, Nov 15: no Castle or Data center within `HQ_MINE_GAP` (4) tiles of ground of any gold mine, footprint to
+    // footprint, in its own words; every other building, the Uplink included, keeps the one-tile ring. The same check
+    // the AI places by (`can_place`).
+    let mut w = World::with_size(5, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
+    w.disable_ai();
+    for e in &mut w.explored {
+        e.fill(1);
+    }
+    w.res = vec![[20_000, 0]; 2];
+    for (seat, hq) in [(0u8, BldgKind::Core), (1u8, BldgKind::Conflux)] {
+        let d = hq.def();
+        // A mine with free ground on one side for a headquarters `gap` tiles off it, square to that side: (left,
+        // right, above, below) of the mine, its top-left tile.
+        let at = |m: &endfall_sim::map::Node, side: usize, gap: i32| match side {
+            0 => (m.tx - d.w - gap, m.ty),
+            1 => (m.tx + m.s + gap, m.ty),
+            2 => (m.tx, m.ty - d.h - gap),
+            _ => (m.tx, m.ty + m.s + gap),
+        };
+        let (m, side) = w
+            .map
+            .nodes
+            .iter()
+            .flat_map(|m| (0..4).map(move |side| (m.clone(), side)))
+            .find(|(m, side)| {
+                let (x, y) = at(m, *side, HQ_MINE_GAP);
+                let (x3, y3) = at(m, *side, HQ_MINE_GAP - 1);
+                w.place_refusal(hq, x, y, seat).is_none()
+                    && w.place_refusal(hq, x3, y3, seat) == Some(Refusal::NearMineHq)
+            })
+            .expect("a mine with room for a headquarters beside it");
+        let ctx = format!("{} by the mine at {},{}", d.name, m.tx, m.ty);
+        for gap in 1..HQ_MINE_GAP {
+            let (x, y) = at(&m, side, gap);
+            if w.place_refusal(hq, x, y, seat) != Some(Refusal::NearMineHq) {
+                // (nearer the mine, some other rule may come first: rock or a building on those tiles)
+                let refusal = w.place_refusal(hq, x, y, seat);
+                assert!(
+                    matches!(
+                        refusal,
+                        Some(Refusal::Rock | Refusal::Building | Refusal::Mine)
+                    ),
+                    "{ctx}: {gap} tiles off: {refusal:?}"
+                );
+            }
+        }
+        let (x3, y3) = at(&m, side, HQ_MINE_GAP - 1);
+        assert_eq!(
+            w.place_building(seat, hq, x3, y3, None),
+            Err("Too close to a mine for a headquarters".to_string()),
+            "{ctx}: three tiles of ground"
+        );
+        // The same spot for any other building: the one-tile ring only (a Depot or a Barracks, the Uplink).
+        let other = if seat == 0 {
+            BldgKind::Depot
+        } else {
+            BldgKind::Uplink
+        };
+        let od = other.def();
+        let (ox, oy) = match side {
+            0 => (m.tx - od.w - 1, m.ty),
+            1 => (m.tx + m.s + 1, m.ty),
+            2 => (m.tx, m.ty - od.h - 1),
+            _ => (m.tx, m.ty + m.s + 1),
+        };
+        let near = w.place_refusal(other, ox, oy, seat);
+        assert!(
+            near.is_none() || near == Some(Refusal::Coverage),
+            "{ctx}: a {} a tile off the mine: {near:?}",
+            od.name
+        );
+        let (ax, ay) = match side {
+            0 => (m.tx - od.w, m.ty),
+            1 => (m.tx + m.s, m.ty),
+            2 => (m.tx, m.ty - od.h),
+            _ => (m.tx, m.ty + m.s),
+        };
+        assert_eq!(
+            w.place_refusal(other, ax, ay, seat),
+            Some(Refusal::NearMine),
+            "{ctx}: a {} right against the mine",
+            od.name
+        );
+        // Four tiles of ground: allowed, and it goes up.
+        let (x, y) = at(&m, side, HQ_MINE_GAP);
+        assert!(
+            w.place_building(seat, hq, x, y, None).is_ok(),
+            "{ctx}: four tiles of ground"
+        );
+    }
 }

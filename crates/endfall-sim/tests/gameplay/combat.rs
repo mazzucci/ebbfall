@@ -259,7 +259,9 @@ fn two_simultaneous_fights_alert_once_each() {
     for (x, y) in [(500.0, 900.0), (1600.0, 400.0)] {
         let mine = w.make_unit(UnitKind::Knight, PLAYER, x, y);
         w.hold_unit(mine);
-        let foe = w.make_unit(UnitKind::Lancer, ENEMY, x + 80.0, y);
+        // (within the held Knight's reach, so each side takes losses whatever the ground round it: 80 px out, one fight
+        // came to blows only where the map's rock made the Lancer close in)
+        let foe = w.make_unit(UnitKind::Lancer, ENEMY, x + 40.0, y);
         w.attack_ent(foe, mine);
     }
     let mut alerts = [0, 0];
@@ -290,7 +292,7 @@ fn weapons_upgrades_add_each_units_bonus() {
     );
     assert_eq!(
         first_hit(&mut w, UnitKind::Knight, PLAYER, UnitKind::Knight),
-        26.0 + 3.0 - 3.0,
+        38.0 + 3.0 - 3.0,
         "Knight +3"
     );
 }
@@ -298,10 +300,17 @@ fn weapons_upgrades_add_each_units_bonus() {
 #[test]
 fn every_upgrade_is_researched_somewhere_and_reaches_the_snapshot() {
     for u in UPGRADES {
-        // (but Hardshell: shields are data since the re-theme, and nothing researches it)
+        // (but Hardshell: shields are data since the re-theme, and nothing researches it; nor Master Builders,
+        // Overclock and Better drills since Nov 14, their slots kept)
         assert_eq!(
             BLDG_KINDS.iter().any(|b| b.def().researches.contains(&u)),
-            u != Upgrade::Shields,
+            ![
+                Upgrade::Shields,
+                Upgrade::RapidConstruction,
+                Upgrade::Slipstream,
+                Upgrade::Drills
+            ]
+            .contains(&u),
             "{u:?} is researched at some building"
         );
         assert_eq!(Upgrade::parse(u.def().key), Some(u));
@@ -409,6 +418,7 @@ fn a_shell_splashes_walking_neighbours_only() {
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     set_hp(&mut w, target, 500.0); // (it outlives the first rocket: the whole hit shows)
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 925.0); // 25 px from the target
+    set_hp(&mut w, near, 500.0); // (the splash share whole, too: 60 of the Rover's 100 since Nov 14)
     let far = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 960.0); // 60 px: out of the splash
     let friend = w.make_unit(UnitKind::Medic, PLAYER, 760.0, 880.0);
     for u in [target, near, far, friend] {
@@ -672,6 +682,9 @@ fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
     let mate = w.make_unit(UnitKind::Lancer, PLAYER, 31.0 * TILE, 32.0 * TILE);
     let raider = w.make_unit(UnitKind::Shrike, ENEMY, 30.0 * TILE, 38.0 * TILE);
     w.hold_unit(raider);
+    // (made to last: the swarm Drone is fragile, and the Archers' first volley must not end the scene)
+    let o = w.units.iter_mut().find(|u| u.id == raider).unwrap();
+    (o.hp, o.maxhp) = (1e6, 1e6);
     run(&mut w, 1);
     w.damage(me, 1.0, Some(raider));
     assert_eq!(target_of(&w, me), Some(raider));
@@ -907,9 +920,9 @@ fn shields_take_hits_first_and_come_back_out_of_combat() {
 }
 
 #[test]
-fn nothing_has_shields_and_bots_do_not_repair() {
-    // No shields since the re-theme (the mechanism stays, as data): no unit or building has any, and a Bot still
-    // cannot repair, so a damaged Expedition building stays damaged.
+fn nothing_has_shields_and_bots_repair_buildings_only() {
+    // No shields since the re-theme (the mechanism stays, as data): no unit or building has any. A Bot repairs a
+    // damaged building as a Villager does (the arc, Nov 13: an Uplink, say), and no machine: those are not repaired.
     for k in BLDG_KINDS {
         assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
     }
@@ -917,22 +930,28 @@ fn nothing_has_shields_and_bots_do_not_repair() {
         assert_eq!(k.def().shields, 0.0, "{k:?} has no shields");
     }
     let mut w = rich_vael(4242);
+    let (lx, ly) = spot(&w, BldgKind::Loom);
+    w.make_building(BldgKind::Loom, PLAYER, lx, ly, true); // (the Uplink's requirement)
     let l = harvesters(&w, PLAYER);
-    let spire = build(&mut w, BldgKind::Spire, l[0], 90);
-    w.damage(spire, 50.0, None);
-    let b = w.bldg(spire).unwrap();
+    let uplink = build(&mut w, BldgKind::Uplink, l[0], 120);
+    w.damage(uplink, 300.0, None);
+    let b = w.bldg(uplink).unwrap();
     assert_eq!((b.sh, b.maxsh), (0.0, 0.0));
-    assert!(b.hp < b.maxhp, "the hull took it");
-    let hull = b.hp;
-    assert!(!w.can_repair(l[1], spire), "a Lumen cannot repair");
-    assert!(!w.start_repair(l[1], spire));
-    run(&mut w, 20);
-    assert_eq!(
-        w.bldg(spire).unwrap().hp,
-        hull,
-        "the hull never heals by itself"
-    );
-    // The humans still repair.
+    let (hull, max) = (b.hp, b.maxhp);
+    assert!(hull < max, "the hull took it");
+    assert!(w.can_repair(l[1], uplink), "a Bot repairs an Uplink");
+    let spent = w.ledger[PLAYER as usize].spent[0];
+    assert!(w.start_repair(l[1], uplink));
+    run(&mut w, 60);
+    assert_eq!(w.bldg(uplink).unwrap().hp, max, "repaired in full");
+    assert!(w.ledger[PLAYER as usize].spent[0] > spent, "at a price");
+    // A machine is not repaired.
+    let (x, y) = (w.unit(l[1]).unwrap().x, w.unit(l[1]).unwrap().y);
+    let buggy = w.make_unit(UnitKind::Scythe, PLAYER, x + 40.0, y);
+    w.damage(buggy, 30.0, None);
+    assert!(!w.can_repair(l[1], buggy), "a Bot cannot repair a Buggy");
+    assert!(!w.start_repair(l[1], buggy));
+    // The Kingdom still repairs.
     let mut w = rich(4242);
     let h = harvesters(&w, PLAYER);
     let depot = build(&mut w, BldgKind::Depot, h[0], 90);
@@ -946,10 +965,11 @@ fn a_monolith_splashes_with_its_own_numbers() {
     w.factions = vec![&VAEL, &HUMANS];
     let d = UnitKind::Monolith.def();
     let wp = d.weapon.unwrap();
-    assert_eq!((wp.splash, wp.splash_r), (0.5, 44.0));
+    assert_eq!((wp.splash, wp.splash_r), (0.6, 54.0));
     let m = w.make_unit(UnitKind::Monolith, PLAYER, 560.0, 900.0);
     let target = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 900.0);
     let near = w.make_unit(UnitKind::Medic, ENEMY, 750.0, 930.0); // 30 px: in its splash
+    set_hp(&mut w, near, 500.0);
     for u in [target, near] {
         w.hold_unit(u);
     }
@@ -967,7 +987,11 @@ fn a_monolith_splashes_with_its_own_numbers() {
         wp.dmg.min(start[0]),
         "the target takes the shot"
     );
-    assert_eq!(start[1] - lost[1], wp.dmg * 0.5, "its neighbour takes half");
+    assert_eq!(
+        start[1] - lost[1],
+        wp.dmg * wp.splash,
+        "its neighbour takes its splash share"
+    );
 }
 
 #[test]
@@ -1033,7 +1057,7 @@ fn the_army_log_samples_both_sides_every_ten_seconds() {
     assert_eq!(w.army_log[1], vec![0, 0]);
     w.make_unit(UnitKind::Knight, ENEMY, 1600.0, 300.0);
     run(&mut w, 10);
-    assert_eq!(w.army_log[1].last(), Some(&225), "a Knight: 225 gold");
+    assert_eq!(w.army_log[1].last(), Some(&325), "a Knight: 325 gold");
 }
 
 #[test]
@@ -1168,5 +1192,79 @@ fn a_kill_by_a_shell_whose_shooter_died_still_counts() {
         w.lost_to[PLAYER as usize][UnitKind::Monolith.index()],
         1,
         "counted under the Rover"
+    );
+}
+
+#[test]
+fn a_landing_shot_says_what_it_was_and_a_fallen_unit_what_it_was() {
+    use endfall_sim::world::Event;
+    // (presentation only: the client draws a rocket's impact as a burst and an arrow's as a glint, a fighter's fall
+    // as dust and a machine's as fire; none of it is in the state hash)
+    let mut w = arena(16);
+    w.factions = vec![&VAEL, &HUMANS];
+    let me = w.make_unit(UnitKind::Monolith, PLAYER, 400.0, 900.0);
+    let foe = w.make_unit(UnitKind::Trooper, ENEMY, 400.0 + 8.0 * TILE, 900.0);
+    w.hold_unit(foe);
+    w.attack_ent(me, foe);
+    let (mut hit, mut fell) = (None, None);
+    for _ in 0..30 * TPS {
+        w.step();
+        for e in w.events.drain(..) {
+            match e {
+                Event::Hit {
+                    shot: Some(s), air, ..
+                } if hit.is_none() => hit = Some((s, air)),
+                Event::Burst { unit, .. } if fell.is_none() => fell = Some(unit),
+                _ => {}
+            }
+        }
+        if hit.is_some() && fell.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        hit,
+        Some((
+            (ProjKind::Missile, UnitKind::Monolith.index(), PLAYER),
+            None
+        )),
+        "the Rover's rocket landed, named with its shooter and seat, on the ground"
+    );
+    assert_eq!(fell, Some(Some(UnitKind::Trooper)), "the Guard fell, named");
+
+    // A shot that lands on a flyer names it (the client draws the impact up on its body), the killing one too.
+    let mut w = arena(16);
+    let archer = w.make_unit(UnitKind::Lancer, PLAYER, 400.0, 900.0);
+    let drone = w.make_unit(UnitKind::Shrike, ENEMY, 400.0 + 4.0 * TILE, 900.0);
+    w.hold_unit(drone);
+    w.attack_ent(archer, drone);
+    let mut airs = Vec::new();
+    for _ in 0..30 * TPS {
+        w.step();
+        for e in w.events.drain(..) {
+            match e {
+                Event::Hit {
+                    shot: Some((_, by, _)),
+                    air,
+                    ..
+                } if by == UnitKind::Lancer.index() => airs.push(air),
+                Event::Hit {
+                    shot: Some(_), air, ..
+                } => assert_eq!(
+                    air, None,
+                    "the Drone's darts land on the Archer, on the ground"
+                ),
+                _ => {}
+            }
+        }
+        if w.unit(drone).is_none() {
+            break;
+        }
+    }
+    assert!(w.unit(drone).is_none(), "the Archer shot the Drone down");
+    assert!(!airs.is_empty(), "its arrows landed");
+    assert!(
+        airs.iter().all(|a| *a == Some(UnitKind::Shrike)),
+        "each on the Drone, named as a flyer: {airs:?}"
     );
 }

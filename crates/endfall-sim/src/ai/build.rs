@@ -26,7 +26,7 @@ impl World {
     }
 
     /// A spot for `kind` in rings from `from` to `room` tiles around (cx, cy), where `ok` also allows it.
-    fn find_spot_within(
+    pub(crate) fn find_spot_within(
         &mut self,
         kind: BldgKind,
         cx: f64,
@@ -63,6 +63,19 @@ impl World {
             r += 1.0;
         }
         None
+    }
+
+    /// When seat `e` takes its natural (s): its tuning's `expand_at`, or its people's own (`Diff::expand_at_of`, by its
+    /// headquarters' kind and the map's width), moved by its style (`Diff::expand_shift`; NEVER stays NEVER).
+    pub(crate) fn expand_time(&self, e: u8) -> f64 {
+        let d = self.tuning(e);
+        let hq = self.factions[e as usize].hq;
+        let at = d
+            .expand_at_of
+            .iter()
+            .find(|o| o.0 == hq)
+            .map_or(d.expand_at, |o| if self.map.w <= 96 { o.1 } else { o.2 });
+        if at < NEVER { at + d.expand_shift } else { at }
     }
 
     /// Room out past the main (rings `from` to `ROOM_FAR`): only where a worker can walk from the main (rings that far
@@ -252,9 +265,10 @@ impl World {
             .filter(|n| {
                 let from = |(x, y): (f64, f64)| jsmath::hypot(n.tx as f64 - x, n.ty as f64 - y);
                 // (a mine with a headquarters by it, anyone's, is taken: a compact mine leaves room round it for a
-                // second Core, which a field's spread crystals did not)
+                // second Core, which a field's spread crystals did not; one `HQ_MINE_GAP` off it at its corner lies
+                // 11 tiles out)
                 let taken = self.bldgs.iter().any(|b| {
-                    b.kind.def().hq && from((b.tx as f64 + 2.0, b.ty as f64 + 2.0)) <= 10.0
+                    b.kind.def().hq && from((b.tx as f64 + 2.0, b.ty as f64 + 2.0)) <= 12.0
                 });
                 // (an expansion's mine lies on the far side of its site from the main, and a site laid 6 tiles nearer
                 // its own start can have its mine a tile nearer a neighbor's: the site decides)
@@ -263,7 +277,7 @@ impl World {
                     .expansions
                     .iter()
                     .copied()
-                    .filter(|&p| from(p) <= 8.0)
+                    .filter(|&p| from(p) <= 10.0)
                     .min_by(|a, b| from(*a).partial_cmp(&from(*b)).unwrap());
                 from((cx, cy)) > 12.0
                     && !taken
@@ -283,8 +297,9 @@ impl World {
                 .unwrap()
                 .then((a.1, a.2).cmp(&(b.1, b.2)))
         });
+        // (rings from 6 tiles out: a headquarters keeps `HQ_MINE_GAP` of ground from the mine, so nearer ones are refused)
         for &(_, nx, ny) in fields.iter().take(6) {
-            for r in 4..10 {
+            for r in 6..13 {
                 for k in 0..16 {
                     let a = k as f64 / 16.0 * PI * 2.0;
                     let tx = jsmath::round(nx as f64 + jsmath::cos(a) * r as f64 - 2.0) as i32;
@@ -319,27 +334,45 @@ impl World {
         self.ai_count(my_b, false, s.rax) + s.heavy.map_or(0, |h| self.ai_count(my_b, false, h))
     }
 
-    /// The most places `e`'s line (its `basic` unit's pool) takes: that pool's maximum, or its level's `line_max` below
-    /// it where the pool is not the whole army.
-    pub(crate) fn line_max(&self, e: u8) -> i32 {
-        let pool = self.factions[e as usize].ai.basic.def().pool;
-        let max = self.pool_max(e, pool);
+    /// The grid `e`'s line takes, queued ones counted: the units its barracks (`AiScript::rax`) trains, the
+    /// Expedition's mercenaries.
+    pub fn line_used(&self, e: u8) -> i32 {
+        let line = self.factions[e as usize].ai.rax.def().trains;
+        let units = self
+            .units
+            .iter()
+            .filter(|u| u.team == e && line.contains(&u.kind))
+            .map(|u| u.kind);
+        let queued = self
+            .bldgs
+            .iter()
+            .filter(|b| b.team == e)
+            .flat_map(|b| b.queue.iter().copied())
+            .filter(|k| line.contains(k));
+        units.chain(queued).map(|k| self.takes(e, k)).sum()
+    }
+
+    /// The most places `e`'s line takes: on a grid side (the Expedition, whose line is only part of its army) the AI's
+    /// own share for its mercenaries, `line_grid`, or its level's `line_max` below it (written for 64x64: as many more
+    /// on a bigger map as that share has); elsewhere the whole maximum.
+    pub fn line_max(&self, e: u8) -> i32 {
+        if !self.factions[e as usize].grid {
+            return self.sup_max(e);
+        }
+        let most = line_grid(self.map.w);
         let d = self.tuning(e);
-        if d.line_max > 0 && max < self.supply_limit() {
-            // (written for 64x64: as many more on a bigger map as its maximum has)
-            max.min(d.line_max * max / hired_limit(64))
+        if d.line_max > 0 {
+            most.min(d.line_max * most / line_grid(64))
         } else {
-            max
+            most
         }
     }
 
-    /// Whether `e`'s line (its `basic` unit's pool) stands at its own maximum, within `CAP_SLACK`, while that pool is
-    /// only part of its army (the Expedition's hired places: 25, its Power 200 on 64x64): its money then goes to its
-    /// other pool's units (machines, from its air factory and its Portal), not to more of the line.
-    pub(crate) fn line_capped(&self, e: u8) -> bool {
-        let pool = self.factions[e as usize].ai.basic.def().pool;
-        let max = self.line_max(e);
-        max < self.supply_limit() && self.pool(e, pool)[0] + self.places(e, pool, CAP_SLACK) >= max
+    /// Whether `e`'s line stands at its own maximum (`line_max`), within `CAP_SLACK`, on a grid side: its money then
+    /// goes to its machines (from its air factory and its Portal), not to more of the line.
+    pub fn line_capped(&self, e: u8) -> bool {
+        self.factions[e as usize].grid
+            && self.line_used(e) + self.places(e, CAP_SLACK) >= self.line_max(e)
     }
 
     /// The factory to add when shards pile up for want of one: a bank of `SHARD_FLOAT` with every one of a kind busy
@@ -362,25 +395,22 @@ impl World {
         };
         let d = self.tuning(e);
         if self.line_capped(e) {
-            // (room for the air factory's units: Power to grow into, up to its maximum)
-            let room = self.pool_max(e, Pool::Supply) - self.sup(e)[0];
+            // (room for the air factory's units: grid to grow into, up to its maximum)
+            let room = self.sup_max(e) - self.sup(e)[0];
             return (busy_all(s.air)
                 && self.res[e as usize][0] >= SHARD_FLOAT
                 && self.ai_count(my_b, false, s.air) < 1 + d.extra_rax / 2
-                && room >= self.places(e, Pool::Supply, 4)
+                && room >= self.places(e, 4)
                 && self.ai().saving_since.is_none())
             .then_some(s.air);
         }
         // (a main factory: a vehicle bay works only when the mix calls for its units)
         let kind = busy_all(s.rax).then_some(s.rax)?;
-        // (room for its main factory's line: the Kingdom's population; the Expedition's main factory, the Recruiting
-        // post, adds the places its line takes, so only that pool's maximum can block it)
-        let s = &self.factions[e as usize].ai;
-        let pool = s.basic.def().pool;
-        let room = if s.rax.def().pool == pool && s.rax.def().supply > 0 {
-            self.pool_max(e, pool) - self.pool(e, pool)[0]
+        // (room for its main factory's line: its free places, and on a grid side its line's own share)
+        let room = if self.factions[e as usize].grid {
+            self.room(e).min(self.line_max(e) - self.line_used(e))
         } else {
-            self.room(e, pool)
+            self.room(e)
         };
         let hq = self.factions[e as usize].hq;
         let expanded = || {
@@ -392,7 +422,7 @@ impl World {
         };
         (self.res[e as usize][0] >= SHARD_FLOAT
             && self.factories(e, my_b) < schedule + d.extra_rax
-            && room >= self.places(e, pool, 4)
+            && room >= self.places(e, 4)
             && self.ai().saving_since.is_none()
             && (!d.extras_after_expanding || expanded()))
         .then_some(kind)
@@ -403,26 +433,23 @@ impl World {
     /// another factory of its own, already placed, trains) due by the time it stands, on a level that fields it, or
     /// one of its techs of use and not yet researched, from the side's tech time on a level that uses them.
     /// While its own requirement does not stand yet, that requirement instead when it can be built (the Portal's
-    /// Uplink, once the satellite is up) and is not already going up.
+    /// Uplink, once a Lab stands) and is not already going up.
     /// Never a second of a kind its side may have only one of (`BldgDef::single`, the Portal: counted with those going
-    /// up, as `World::single_room` counts them), nor one whose Power it lacks (`World::power_room`): a turbine first.
+    /// up, as `World::single_room` counts them).
     pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
         let s = &self.factions[e as usize].ai;
         let k = s.tech2?;
         if self.ai_count(my_b, false, k) > 0 || !self.single_room(e, k) {
-            return None;
+            // (its gate's lifeline lost, the Uplink it trains with: another; with none, the Portal it paid for stood idle
+            // for the rest of the game)
+            return k.def().trains_with.filter(|&r| {
+                self.ai_count(my_b, false, k) > 0
+                    && self.ai_count(my_b, false, r) == 0
+                    && self.has_req(e, r)
+                    && self.factions[e as usize].builds(r)
+            });
         }
         let k = if self.has_req(e, k) {
-            if !self.power_room(e, k) {
-                // (its Power first: a turbine, while the Power it has can grow and none is going up)
-                let f = self.factions[e as usize];
-                let rising = my_b
-                    .iter()
-                    .filter_map(|&id| self.bldg(id))
-                    .any(|b| b.kind == f.supply && !b.done);
-                let grows = self.sup(e)[1] < self.pool_max(e, Pool::Supply);
-                return (grows && !rising && self.tech2_wanted(e, my_b, t, k)).then_some(f.supply);
-            }
             k
         } else {
             let r = k.def().req.filter(|&r| {
@@ -456,34 +483,30 @@ impl World {
             });
         let d = self.level();
         let techs = d.abilities
-            && t > d.research_from.min(s.tech_from)
+            && t > d.research_from.min(self.tech_time(e))
             && k.def().researches.iter().any(|&up| {
                 self.upgrades[e as usize][up.index()] < up.levels() && self.tech_of_use(e, my_b, up)
             });
         unlocks || techs
     }
 
-    /// The building that adds hired places (`Pool::Hired`: the Expedition's Recruiting post), when the side's free
-    /// places have run down to its margin (half its level's `supply_ahead`: a place is one person) and are not at
-    /// their maximum (`pool_max`), with fewer than `supply_at_once` of them going up. None for a side without hired
-    /// places.
-    fn places_due(&self, e: u8, building: &[BldgKind]) -> Option<BldgKind> {
+    /// Another of its barracks for its line on a grid side (the Expedition's Recruiting post), kept as the hired places
+    /// kept it until Nov 14: a post a `LINE_PER_POST` of its line's grid (six mercenaries), one more when its line has
+    /// run up to its posts' share less its margin (half its level's `supply_ahead`), under its line's maximum
+    /// (`line_max`), with fewer than `supply_at_once` going up. None elsewhere.
+    fn posts_due(&self, e: u8, my_b: &[Id], building: &[BldgKind]) -> Option<BldgKind> {
         let f = self.factions[e as usize];
-        let k = f
-            .build_basic
-            .iter()
-            .chain(f.build_advanced)
-            .copied()
-            .find(|k| k.def().pool == Pool::Hired && k.def().supply > 0)?;
+        if !f.grid {
+            return None;
+        }
+        let k = f.ai.rax;
         let d = self.level();
-        let [used, cap] = self.pool(e, Pool::Hired);
+        let share = LINE_PER_POST * self.ai_count(my_b, false, k) as i32;
         let rising = building.iter().filter(|&&b| b == k).count();
-        let most = if self.factions[e as usize].ai.basic.def().pool == Pool::Hired {
-            self.line_max(e)
-        } else {
-            self.pool_max(e, Pool::Hired)
-        };
-        (cap - used <= d.supply_ahead / 2 && cap < most && rising < d.supply_at_once).then_some(k)
+        (share - self.line_used(e) <= self.places(e, d.supply_ahead / 2)
+            && share < self.line_max(e)
+            && rising < d.supply_at_once)
+            .then_some(k)
     }
 
     /// The build order: one wanted building at a time, placed by a free harvester.
@@ -504,43 +527,84 @@ impl World {
         let [used, cap] = self.sup(e);
         let f = self.factions[e as usize];
         let s = &f.ai;
-        // Its Market (a side with one, the Kingdom), one a finished Castle (`World::hq_room`), one site at a time: the
-        // first once it has seven workers, the next (at an expansion) from the level's `vents_from`; a lost one is
+        // Its Market (the Kingdom's, one a finished Castle; the Expedition's Wind turbines, five a Data center:
+        // `World::hq_room`), one site at a time: its main's once it has seven workers, the next (at an expansion) from
+        // the level's `vents_from`; a lost one is
         // built again on the same terms. (Not in the guided first game: its opponent's income stays as the guide was
         // tuned with. Only once its requirement stands, the barracks: wanted before then it would hold the rest of the
         // build order, the barracks too, behind a building it cannot place.)
-        let market = f.market.filter(|&m| {
+        let market_ok = f.market.filter(|&m| {
             !building.contains(&m)
                 && harv.len() >= 7
-                && (pumps == 0 || t > d.vents_from)
                 && !self.guided
                 && self.has_req(e, m)
                 && self.hq_room(e, m)
         });
+        let several = market_ok.is_some_and(|m| m.def().per_hq > 1);
+        // (the Expedition's Wind turbines, five a Data center, not before its first wave's time, whose army they would
+        // thin (each pays back in about four minutes): the first in the Market's place, the others after its
+        // factories, tech and towers; at an expansion from `vents_from`)
+        let first_wave = self.tuning(e).first;
+        let market = market_ok.filter(|_| {
+            (pumps == 0 && (!several || t > first_wave)) || (!several && t > d.vents_from)
+        });
+        let more_turbines = market_ok.filter(|&m| {
+            several
+                && pumps > 0
+                && t > first_wave
+                && (pumps < m.def().per_hq as usize || t > d.vents_from)
+        });
         let rax_schedule = self.rax_schedule(t);
         // Free supply that calls for more: the difficulty's margin, plus room for a capital unit while one is due.
-        // (and the Power kept for its elite: the Portal and an Android, `elite_reserve`)
-        let supply_margin = self.places(e, Pool::Supply, d.supply_ahead)
-            + self.capital_due(e, &my_b, t).map_or(0, |k| k.def().supply)
+        // (and the grid kept for its elite: the Portal and an Android, `elite_reserve`)
+        let supply_margin = self.places(e, d.supply_ahead)
+            + self
+                .capital_due(e, &my_b, t)
+                .map_or(0, |k| self.takes(e, k))
             + self.elite_reserve(e, &my_b, t);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
+        // Its army first (`Diff::army_first`): with less army than the foe's it last saw, nothing but supply until it
+        // has caught up (Hard's Kingdom, its army beaten at home, spent its income on a fifth Barracks, a Workshop, the
+        // Stables and a tower, and stood six minutes with no army while Medium's waves came).
+        let behind =
+            d.army_first && t >= d.stall_from && self.own_army_worth(e) < self.ai().army_seen.0;
+        // Its towers by the clock (its plan's times, else `Diff::towers`), sites counted.
+        let tower_times = self.tower_times(e);
+        let towers_wanted = (tower_times.iter().filter(|&&a| t > a).count()
+            + if tower_times.is_empty() {
+                0
+            } else {
+                s.towers_more.iter().filter(|&&a| t > a).count()
+            })
+        .min(
+            d.tower_max
+                .iter()
+                .find(|m| m.0 == s.tower)
+                .map_or(usize::MAX, |m| m.1),
+        );
+        let tower_due = self.ai_count(&my_b, false, s.tower) < towers_wanted;
+        // (its tech building waits for a finished barracks, and the Kingdom's for its Market)
+        let tech_ready = self.ai_count(&my_b, true, s.rax) >= 1
+            && (pumps > 0 || f.market.is_none_or(|m| m.def().per_hq > 1));
         let want = if cap - used <= supply_margin
-            && cap < self.pool_max(e, Pool::Supply)
+            && cap < self.sup_max(e)
             && supply_rising < d.supply_at_once
         {
             Some(f.supply)
+        } else if behind {
+            None
         } else if let Some(m) = market {
             Some(m)
-        } else if let Some(k) = self.places_due(e, &building) {
-            Some(k) // (hired places: another Recruiting post)
+        } else if let Some(k) = self.posts_due(e, &my_b, &building) {
+            Some(k) // (its line's share: another Recruiting post)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
         } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
             Some(k)
-        } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && (pumps > 0 || f.market.is_none())
+        } else if tech_ready
+            // (the Kingdom's after its Market; the Expedition's turbines, cheap and several, hold nothing back)
             && self.ai_count(&my_b, false, s.tech) == 0
-            && t > 150.0
+            && t > d.tech_at
         {
             Some(s.tech)
         } else if let Some(heavy) = s.heavy
@@ -550,11 +614,10 @@ impl World {
             && t > d.heavy_at
         {
             Some(heavy) // (once its vehicles' tech stands)
-        // Its towers by the clock, two at most (sites counted): a bank it cannot spend must not go into towers (under
-        // the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games stalled).
-        } else if self.ai_count(&my_b, true, s.rax) >= 1
-            && self.ai_count(&my_b, false, s.tower) < (t > 150.0) as usize + (t > 480.0) as usize
-            && !self.guided
+        // Its towers by the clock (`Diff::towers`; two on every level, sites counted): a bank it cannot spend must not go
+        // into towers (under the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games
+        // stalled).
+        } else if self.ai_count(&my_b, true, s.rax) >= 1 && tower_due && !self.guided
         // (the guided first game: none; `guided_hold`)
         {
             Some(s.tower)
@@ -565,37 +628,55 @@ impl World {
             // (or sooner, with its line at its maximum, its tech or not: what it trains is all that can still grow)
             && (t > d.air_at - s.air_lead || self.line_capped(e))
             // (its raiders must be in its level's mix: it would otherwise stand there training nothing)
-            && self.level_allows(s.raider)
+            && (self.level_allows(s.raider)
+                // (a plan's dare that bars its raider still raises the factory for its other units)
+                || (self.ai_banned(e, s.raider)
+                    && s.air.def().trains.iter().any(|&u| self.level_allows(u))))
             // (and its requirement standing: the Kingdom's Stables need its Market)
             && self.has_req(e, s.air)
         {
             Some(s.air)
+        } else if let Some(m) = more_turbines {
+            Some(m)
         } else {
             self.tech2_due(e, &my_b, t) // (its second tech: the Portal)
         };
         // The natural is due (its Core is being saved for): building far out must not spend that bank.
         let hq_cost = f.hq.def().cost;
-        let expansion_due =
-            (t > d.expand_at || self.home_dry(cx, cy)) && self.ai_count(&my_b, false, f.hq) < 2;
+        let expansion_due = (t > self.expand_time(e) || self.home_dry(cx, cy))
+            && self.ai_count(&my_b, false, f.hq) < 2;
         // Workers first (`Diff::workers_first`): while its crew is short, a worker's price stays in the bank, so a
         // building waits a moment rather than leave the Core idle for want of shards.
         // Only while a worker can be trained now (a Core, room in supply): the reserve must never hold back the Depot
         // a supply-capped side needs to train the very worker it saves for.
-        let [used, cap] = self.sup(e);
-        let can_train = !cores.is_empty()
-            && used + f.worker.def().supply <= cap
-            && self.room(e, Pool::Supply) >= f.worker.def().supply;
+        let can_train = !cores.is_empty() && self.room(e) >= self.takes(e, f.worker);
         let hold = if d.workers_first && can_train && harv.len() < self.harv_target(cores.len()) {
             f.worker.def().cost
         } else {
             [0, 0]
+        };
+        // (its natural first, `Diff::natural_first`: the Core's price held from every building but supply)
+        let hold = if d.natural_first && expansion_due && want != Some(f.supply) {
+            [0, 1].map(|i| hold[i] + hq_cost[i])
+        } else {
+            hold
         };
         let placeable = want.filter(|&w| {
             building.len() < d.supply_at_once + 1 // (two at once; three where supply goes up in pairs)
                 && self.has_req(e, w)
                 && self.can_afford(e, [0, 1].map(|i| w.def().cost[i] + hold[i]))
         });
+        // Its Portal's Uplink (`AiScript::relay`) at home, on the way towards the foe inside its coverage
+        // (`relay_home_point`): the gate's lifeline is held there, and the push raises its own forward one.
+        let home = placeable
+            .filter(|&w| Some(w) == f.ai.relay)
+            .and_then(|_| self.relay_home_point(self.attack_target()));
         let spot = match placeable {
+            Some(w) if home.is_some() => {
+                let (hx, hy) = home.unwrap_or_default();
+                self.find_spot(w, hx / TILE, hy / TILE)
+                    .or_else(|| self.find_spot(w, cx, cy))
+            }
             Some(w) => {
                 let (fx, fy) = (cx, cy);
                 // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.
@@ -631,6 +712,57 @@ impl World {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
+        // (the summary's notes: what holds its tech building and its next tower, once due)
+        let slip = |w: &World, k: BldgKind, missing: Option<BldgKind>| {
+            use crate::world::Slip;
+            if let Some(m) = missing {
+                Some(Slip::Needs(m))
+            } else if behind {
+                Some(Slip::ArmyFirst)
+            } else if want == Some(k) {
+                if let Some(r) = k.def().req.filter(|_| !w.has_req(e, k)) {
+                    Some(Slip::Needs(r))
+                } else if building.len() > d.supply_at_once {
+                    Some(Slip::Sites)
+                } else if placeable.is_none() {
+                    Some(Slip::NoGold)
+                } else if spot.is_none() {
+                    Some(Slip::NoSpot)
+                } else {
+                    None
+                }
+            } else {
+                want.map(Slip::Busy)
+            }
+        };
+        let tech_due = self.ai_count(&my_b, false, s.tech) == 0 && t > d.tech_at;
+        let tech = tech_due
+            .then(|| {
+                slip(
+                    self,
+                    s.tech,
+                    (!tech_ready).then(|| {
+                        if self.ai_count(&my_b, true, s.rax) < 1 {
+                            s.rax
+                        } else {
+                            f.market.unwrap_or(s.rax)
+                        }
+                    }),
+                )
+            })
+            .flatten();
+        let tower = (tower_due && !self.guided)
+            .then(|| {
+                slip(
+                    self,
+                    s.tower,
+                    (self.ai_count(&my_b, true, s.rax) < 1).then_some(s.rax),
+                )
+            })
+            .flatten();
+        let notes = &mut self.ai_mut().notes;
+        notes.tech = tech;
+        notes.tower = tower;
         // (Held back from unit production only if it can be built at all: its requirement stands.)
         brain.want = want.filter(|&w| self.has_req(e, w));
     }
@@ -665,7 +797,7 @@ impl World {
             && hqs < d.max_bases
             && t - ai.last_base_at > PASSIVE_BASE_GAP
             && self.bases_dry(&my_b);
-        let exp_spot = if ((t > d.expand_at || dry) && hqs < 2 || passive || all_dry)
+        let exp_spot = if ((t > self.expand_time(e) || dry) && hqs < 2 || passive || all_dry)
             && harv.len() + 2 >= self.crew_of(e, d.harv)
         {
             self.expansion_spot(cx, cy)
@@ -673,6 +805,22 @@ impl World {
             None
         };
         let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
+        // (the summary's note: what holds its natural, once due)
+        let natural_due = (t > self.expand_time(e) || dry) && hqs < 2;
+        self.ai_mut().notes.expand = natural_due
+            .then(|| {
+                use crate::world::Slip;
+                if harv.len() + 2 < self.crew_of(e, d.harv) {
+                    Some(Slip::Workers)
+                } else if exp_spot.is_none() {
+                    Some(Slip::NoSpot)
+                } else if !self.can_afford(e, self.factions[e as usize].hq.def().cost) {
+                    Some(Slip::NoGold)
+                } else {
+                    None
+                }
+            })
+            .flatten();
         if let Some(spot) = exp_spot
             && self.can_afford(e, self.factions[e as usize].hq.def().cost)
         {
@@ -764,6 +912,85 @@ mod tests {
             .count()
     }
 
+    /// What seat 1's build order wants at time `t` on a 64x64 duel at `level`, its Castle and Barracks standing, gold
+    /// in hand, with an army worth `mine` of Guards against a foe whose army it last saw worth `seen`.
+    fn wanted(level: usize, t: f64, mine: usize, seen: f64) -> Option<BldgKind> {
+        use crate::ai::Brain;
+        let mut w = World::with_size(
+            5,
+            level,
+            MapKind::Standard,
+            MapSize::DUEL,
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        w.ai_turn = 1;
+        let (bx, by) = w.map.bases[1];
+        w.make_building(BldgKind::Barracks, 1, bx + 5, by, true);
+        for i in 0..mine {
+            w.make_unit(
+                UnitKind::Trooper,
+                1,
+                (bx as f64 - 2.0) * TILE,
+                (by as f64 + i as f64) * TILE,
+            );
+        }
+        w.recalc_supply(1);
+        w.res[1] = [5000, 0];
+        w.time = t;
+        w.ai_mut().army_seen = (seen, t - 10.0, 0.0);
+        let my_b: Vec<_> = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let harv: Vec<_> = w
+            .units
+            .iter()
+            .filter(|u| u.team == 1 && u.kind.def().worker)
+            .map(|u| u.id)
+            .collect();
+        let mut b = Brain {
+            e: 1,
+            t,
+            my_b,
+            harv,
+            cx: bx as f64 + 2.0,
+            cy: by as f64 + 2.0,
+            ..Brain::default()
+        };
+        w.ai_build(&mut b);
+        b.want
+    }
+
+    #[test]
+    fn hard_behind_on_army_builds_nothing_but_supply_until_it_has_caught_up() {
+        // The PM, Nov 15 (Hard against Medium must end): Hard's Kingdom, its army beaten at home, spent its income on
+        // buildings and stood six minutes with no army. From its stalled game's time (`Diff::stall_from`; 15:00 here,
+        // undrawn), behind the foe's army it last saw, Hard's build order wants nothing (but supply) and its units take
+        // the gold; before then, and on Medium, its build order goes on as ever.
+        let guard = UnitKind::Trooper.def().cost[0] as f64;
+        let late = DIFF[2].stall_from + 60.0;
+        assert_eq!(
+            wanted(2, late, 2, 10.0 * guard),
+            None,
+            "Hard, behind: its army first"
+        );
+        assert!(
+            wanted(2, late, 12, 10.0 * guard).is_some(),
+            "Hard, caught up: its build order again"
+        );
+        assert!(
+            wanted(2, 360.0, 2, 10.0 * guard).is_some(),
+            "Hard, behind before its stall time: its build order"
+        );
+        assert!(
+            wanted(1, late, 2, 10.0 * guard).is_some(),
+            "Medium builds whatever its army"
+        );
+    }
+
     #[test]
     fn a_foe_that_never_comes_is_out_expanded() {
         assert_eq!(
@@ -850,7 +1077,7 @@ mod tests {
         w.res[ENEMY as usize] = [300, 0];
         assert!(w.extra_rax(ENEMY, &my_b, 1).is_none(), "not piling up");
         w.res[ENEMY as usize] = [500, 0];
-        w.pools[ENEMY as usize][0] = [10, 12];
+        w.supply[ENEMY as usize] = [10, 12];
         assert!(
             w.extra_rax(ENEMY, &my_b, 1).is_none(),
             "supply-blocked: a factory would not help"

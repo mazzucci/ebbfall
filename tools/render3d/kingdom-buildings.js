@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { torus } from './harbour.js';
 import { cone } from './vael.js';
-import { gable, oct, tex, thatchTex, crenels, roundCrenels, hanging, pennant, banner, figure, quoins } from './kingdom.js';
+import { gable, oct, tex, thatchTex, tileTex, plankTex, plankBump, crenels, roundCrenels, hanging, pennant, banner, figure, quoins } from './kingdom.js';
 import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
@@ -34,16 +34,26 @@ export function kbMats(M) {
   M.tan = std({ color: 0x9a7650, map: M.canvas.map, roughness: 0.92 });                        // the Market awnings' tan stripes: a warm brown (hue 30, dull), apart from seat 7's red-orange and seat 1's red
   M.thatch = std({ color: 0x6e6448, map: thatchTex, roughness: 0.95 });                       // thatch, a dull gray-brown straw (the Cottage's roof only; never orange beside the coins' gold)
   M.straw = std({ color: 0x9c8658, roughness: 0.95 });                                       // hay and straw: tan, never the coins' yellow
-  M.hearth = std({ color: 0x2a0804, emissive: 0xe8300c, emissiveIntensity: 1.3 });           // the Blacksmith's ember: red-orange, small (round 3: a yellow glow read as the Market's gold)
+  M.hearth = std({ color: 0x5a1a08, emissive: 0xff6a1c, emissiveIntensity: 2.6 });           // the Blacksmith's forge bed: a bright red-orange glow that reads at 1x (the art polish; the first was a small dim ember)
   M.coals = std({ color: 0x1c1816, roughness: 1 });                                            // dark coals round it
   M.water = std({ color: 0x1a2228, metalness: 0.6, roughness: 0.15 });                       // a trough's water
   M.iron = M.ironDark;
   M.anvil = std({ color: 0xb4b8bc, metalness: 0.35, roughness: 0.5 });                       // the Blacksmith's anvil: pale, not mirror steel (round 2: it did not read)
-  M.horsePale = std({ color: 0x66503a, roughness: 0.75 });                                   // the stable's horses, a lighter bay so their heads read out of the dark stalls
+  M.horsePale = std({ color: 0x8a6e4e, roughness: 0.75 });                                   // the stable's horse, a light bay (the art polish: lighter, in the open yard)
+  // the art polish (2026-11-13): the Stables' straw roof, the white rails of its yard, pale plank walls for the Workshop's timber mass, a terracotta roof for the Blacksmith, mid-brown posts
+  M.strawRoof = std({ color: 0xb8945c, map: thatchTex, roughness: 0.95 });                   // the Stables' roof: warm straw (the one warm roof of the kingdom; the Cottage's thatch stays the dull gray straw)
+  M.rail = std({ color: 0xe8e4da, roughness: 0.85 });                                        // the yard's solid white rails
+  M.boards = std({ color: 0xb09672, map: plankTex, bumpMap: plankBump, bumpScale: 1.2, roughness: 0.88 }); // pale plank walls: the Workshop's one timber mass
+  M.post = std({ color: 0x7a5a38, map: M.timber.map, roughness: 0.85 });                      // mid-brown posts and beams (the hip-roof Cottage's `beam`)
+  M.tile = std({ color: 0x86563e, map: tileTex, roughness: 0.92 });                           // terracotta tiles: the Blacksmith's roof (a muted brick: 0xc27a56 and 0xa8664a both came out bright orange under the key and the S-curve)
+  M.fireHalo = new THREE.MeshBasicMaterial({ color: 0xff9a40, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }); // the forge's glow in the air over the hearth
+  M.doorPale ??= std({ color: 0xa88a60, map: M.timber.map, roughness: 0.8 });                 // a door in pale timber (the Cottage's)
   if (M.polish) {
     const X = polishTextures();
     M.thatch.map = hiThatchTex(); M.thatch.color.setHex(0x5e5a48); M.thatch.needsUpdate = true;   // the courses drawn for 1x; the color a step cooler than the plain 0x6e6448 (the judge: 0x665e48 was the one warm hue on the kingdom base), a dull gray straw under the polish's key, never orange beside the coins' gold
     M.straw.bumpMap = X.fold; M.straw.bumpScale = 0.5; M.straw.needsUpdate = true;
+    M.strawRoof.map = hiThatchTex(); M.strawRoof.color.setHex(0xa6865a); M.strawRoof.needsUpdate = true;                             // the courses drawn for 1x, the straw kept warm
+    M.boards.bumpScale = 1.8; M.boards.needsUpdate = true;
     M.horsePale.map = X.hide; M.horsePale.needsUpdate = true;
     M.anvil.roughness = 0.3; M.anvil.envMapIntensity = 2.0; M.anvil.bumpMap = X.scuff; M.anvil.bumpScale = 0.3; M.anvil.needsUpdate = true; // one glint on the anvil's face under the key
     M.water.envMapIntensity = 2.5; M.water.needsUpdate = true;                                                                           // the trough's water as the slice's glass
@@ -167,11 +177,14 @@ export function barracks(M) {
   chimney(g, M, X - W / 2 + 6, 2, Z - 6, H + 16, 4.2);
   add(g, rbox(W + 1, 1.6, 0.5, 0.1), M.cloth, X, H + 1.2, Z + D / 2 + 1.4); for (const y of [H + 2.2, H + 0.2]) add(g, rbox(W + 1.4, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 1.4); // a thin team valance along the eave between ink lines (the pass: no hung banners, shields or spear racks)
   door(g, M, X + 2, 2.2, Z - 4 + (D - 8) / 2 + 0.6, 6, 9);
-  // the drill yard south: packed earth in a timber kerb, three straw dummies and a pell
-  const YX = 2, YZ = 22, YW = 54, YD = 28;
-  add(g, plate([[YX - YW / 2, YZ - YD / 2], [YX + YW / 2, YZ - YD / 2], [YX + YW / 2, YZ + YD / 2], [YX - YW / 2, YZ + YD / 2]], 1.2, 0.3), M.path, 0, 1.6, 0).userData.ground = true; // (`ground`: the polish's contact shadow must not ring the yard)
-  for (const [a, b] of [[[YX - YW / 2, YZ - YD / 2], [YX + YW / 2, YZ - YD / 2]], [[YX - YW / 2, YZ + YD / 2], [YX + YW / 2, YZ + YD / 2]], [[YX - YW / 2, YZ - YD / 2], [YX - YW / 2, YZ + YD / 2]], [[YX + YW / 2, YZ - YD / 2], [YX + YW / 2, YZ + YD / 2]]]) limb(g, [a[0], 3.0, a[1]], [b[0], 3.0, b[1]], 0.9, M.oak);
-  banner(g, M, YX + YW / 2 - 2, 2.4, YZ - YD / 2 + 2, 42, 20, 14);                                                 // the flagstaff at the yard's corner (the pass: no dummies, pell or crates: the yard is bare)
+  // the training ring south (the art polish, 2026-11-13: the Stables had the same sand yard): a round of gray
+  // flagstones inside a ring of posts and one rail, a straw pell in the middle; the tall flagstaff beside it
+  const YX = 4, YZ = 22, YR = 19;
+  add(g, cyl(YR, YR + 0.6, 1.2, 28), M.yard, YX, 1.6, YZ).userData.ground = true;                                   // (`ground`: the polish's contact shadow must not ring the ring)
+  for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; add(g, cyl(0.9, 1.0, 7, 6), M.post, YX + Math.cos(a) * (YR + 0.4), 4.5, YZ + Math.sin(a) * (YR + 0.4) * 0.9); }
+  add(g, torus(YR + 0.4, 0.6, 28), M.post, YX, 6.4, YZ, Math.PI / 2, 0, 0).scale.set(1, 0.9, 1);                      // the rail
+  add(g, cyl(1.2, 1.4, 9, 8), M.post, YX, 6.5, YZ); add(g, rbox(5, 6, 3.6, 1.2), M.straw, YX, 10.5, YZ); add(g, sph(2.4, 10, 8), M.straw, YX, 15.2, YZ); // the pell: a straw dummy on a post
+  banner(g, M, YX + YR + 6, 2.4, YZ - YR + 2, 42, 30, 18);                                                        // the flagstaff at the ring's corner (the art polish: a tile-wide flag)
   if (M.polish) { // secondary detail: knee braces from the loggia's posts to the plate (the timber-frame read), steel finials on the ridge, an iron band on the pell, a string course on the stack
     for (let k = 0; k <= 6; k++) { const px = X - W / 2 + 1.5 + k * (W - 3) / 6; if (k > 0) brace(g, M, px, H - 1.6, Z + D / 2 - 1, -5, 3.6); if (k < 6) brace(g, M, px, H - 1.6, Z + D / 2 - 1, 5, 3.6); }
     for (const sx of [-1, 1]) finial(g, M, X + sx * ((W + 5.4) / 2 + 0.3), H + 14.6, Z);
@@ -195,16 +208,16 @@ export function blacksmith(M) {
   for (const x of [-W / 2 + 1, -W / 6, W / 6, W / 2 - 1]) add(g, rbox(1.8, H + 5, 1.8, 0.3), M.oak, X + x, H / 2 + 4.5, Z + D / 2 - 1); // front posts, taller than the back wall
   add(g, rbox(W + 1, 1.6, 1.8, 0.3), M.oak, X, H + 6.6, Z + D / 2 - 1);
   // the roof: one slate slope, high at the front over the posts, down to the back wall; an ink eave line
-  { const r = add(g, rbox(W + 6, 1.2, D + 7, 0.2), M.roof, X, H + 4.9, Z - 0.5); r.rotation.x = -0.2; }
+  { const r = add(g, rbox(W + 6, 1.2, D + 7, 0.2), M.tile, X, H + 4.9, Z - 0.5); r.rotation.x = -0.2; }                 // (the art polish: terracotta, the kingdom's one tiled roof, so the smithy is not a dark slate block)
   add(g, rbox(W + 6.4, 0.7, 0.9, 0.1), M.inkLine, X, H + 7.6, Z + D / 2 + 2.9);
   chimney(g, M, X - W / 2 + 4, 2, Z - D / 2 + 5, H + 16, 5.4);
   // the forge: a hearth of dark stone, the glow, the hood; the anvil on its block in front
   const FZ = Z + D / 2 + 7;                                                                                           // the forge out in the yard before the posts (round 2: under the roof the glow is hidden from a 40-degree camera, as anything deeper than its height / 0.84)
-  add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 8, 5, FZ); add(g, rbox(8.4, 1.4, 5.6, 0.3), M.coals, X + 8, 8.6, FZ); add(g, sph(2.6, 10, 8), M.coals, X + 8, 9.4, FZ).scale.set(1.3, 0.6, 1); add(g, sph(1.5, 10, 8), M.hearth, X + 8.4, 10.3, FZ + 0.4); // the hearth: dark coals heaped, a small red-orange ember on top, open to the sky
+  add(g, rbox(10, 6, 7, 0.4), M.wallDark, X + 8, 5, FZ); add(g, rbox(8.4, 1.4, 5.6, 0.3), M.coals, X + 8, 8.6, FZ); add(g, sph(2.6, 10, 8), M.coals, X + 8, 9.4, FZ).scale.set(1.3, 0.6, 1); add(g, rbox(7.4, 1.4, 4.8, 0.5), M.hearth, X + 8, 10.0, FZ + 0.2); add(g, sph(4.6, 10, 8), M.fireHalo, X + 8, 11.2, FZ + 0.2).scale.set(1.2, 0.5, 1); // the hearth: dark coals heaped, a bright red-orange bed of fire on top with its glow in the air (the art polish: visible at 1x; the first was a small ember)
   add(g, cyl(1.6, 1.8, 12, 8), M.ironDark, X + 8, 11, FZ - 4.2); add(g, cyl(2.0, 2.0, 1.0, 8), M.ironDark, X + 8, 17.2, FZ - 4.2); // an iron flue behind it (its smoke the client's, while the smith works)
   add(g, cyl(2.8, 3.2, 4.5, 10), M.oak, X - 6, 4.2, Z + D / 2 + 6);                                                   // the anvil out in the yard before the posts, on its block
   add(g, rbox(8.0, 2.8, 3.2, 0.6), M.anvil, X - 6, 7.8, Z + D / 2 + 6); add(g, cone(1.3, 3.2, 8), M.anvil, X - 0.6, 7.8, Z + D / 2 + 6, 0, 0, -Math.PI / 2); // pale
-  banner(g, M, X + W / 2 + 2, H + 7, Z - 2, 14, 16, 11);                                                              // the team flag on the gable (the pass: no hammer, trough, horseshoes, bar stock, stack cloth or eave banner)
+  banner(g, M, X + W / 2 + 2, H + 7, Z - 2, 14, 28, 16);                                                              // the team flag on the gable, a tile wide (the pass: no hammer, trough, horseshoes, bar stock, stack cloth or eave banner)
   add(g, rbox(W + 6, 1.4, 0.5, 0.1), M.cloth, X, H + 6.4, Z + D / 2 + 3.3); for (const y of [H + 7.2, H + 5.6]) add(g, rbox(W + 6.4, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 3.3); // a thin team strip along the eave
   if (M.polish) { // secondary detail: quoins up the side walls' and back wall's corners, knee braces from the front posts to the plate, a hammer and tongs hung on the west post, a string course on the stack
     for (const [sx, z] of [[-1, Z - D / 2], [1, Z - D / 2], [-1, Z + 1.3], [1, Z + 1.3]]) quoins(g, M, X + sx * W / 2, z, 3, H + 1, 2.8, 2.4, 1.4);
@@ -214,47 +227,35 @@ export function blacksmith(M) {
   return g;
 }
 
-/** Workshop (Ballista, Cannon, Balloon; 3x3): an open yard of trodden earth and timber where engines are built:
- *  a half-built trebuchet frame (two oak A-frames, a cross axle, the beam not yet hung) on the yard's east, a sawhorse
- *  and timber stacks, a folded balloon (pale canvas heaped with a team band) and its wicker basket with team cloth on
- *  its rim on the west, a lifting pole (a gin) with a rope; a small slate-roofed shed at the back for tools; a flag on
- *  the gin, a team cloth on the shed. From the camera: bare timber triangles beside a pale heap and a basket, a small
- *  gray roof behind. */
+/** Workshop (Ballista, Cannon, Balloon; 3x3; the art polish, 2026-11-13: one timber mass with a big door and one iconic
+ *  prop, in place of the yard of A-frames, gin, ropes, dome and barrel that read as clutter): a big hall of pale planks
+ *  on a stone footing with mid-brown corner posts and studs, under a slate gable along x; a wide, tall double door in
+ *  the south face, one leaf swung open on the dark inside; a great cart wheel leaning on the wall beside it; a
+ *  tile-wide team flag at the ridge's west end and a thin team strip along the eave. From the camera: a pale timber
+ *  box under a gray roof, a big dark doorway, a big wheel. */
 export function workshop(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-47, -40], [40, -46], [47, -10], [44, 40], [-20, 46], [-46, 30]]);
-  // the tool shed at the north-west: a small stone shed under a slate gable along x
-  const SX = -26, SZ = -30, SW = 32, SD = 20, SH = 12;
-  add(g, rbox(SW + 2, 2.4, SD + 2, 0.4), M.plinth, SX, 1.8, SZ); add(g, rbox(SW, SH, SD, 0.5), M.wall, SX, SH / 2 + 2, SZ);
-  add(g, gable(SD + 5, 9, SW + 4), M.roof, SX, SH + 2, SZ, 0, Math.PI / 2, 0); add(g, rbox(SW + 4.4, 1.4, 1.4, 0.3), M.oak, SX, SH + 11.2, SZ);
-  add(g, rbox(SW + 4.4, 0.6, SD + 5.4, 0.1), M.inkLine, SX, SH + 1.9, SZ);
-  door(g, M, SX + 4, 2.2, SZ + SD / 2 + 0.6, 7, 9);
-  // the trebuchet frame, half built: two A-frames of oak along z with a cross axle, pegs, a ladder leaning on one
-  const TX = 22, TZ = 4;
-  for (const dz of [-9, 9]) { for (const sx of [-1, 1]) limb(g, [TX + sx * 11, 2, TZ + dz], [TX, 32, TZ + dz], 1.4, M.oak); limb(g, [TX - 7, 14, TZ + dz], [TX + 7, 14, TZ + dz], 1.0, M.oak); }
-  limb(g, [TX, 31, TZ - 10.5], [TX, 31, TZ + 10.5], 1.3, M.oak);                                                   // the axle
-  for (const dz of [-9, 9]) add(g, sph(1.6, 8, 6), M.ironDark, TX, 31.5, TZ + dz);
-  for (const sx of [-1, 1]) add(g, rbox(6, 2.4, 22, 0.4), M.oak, TX + sx * 10, 2.8, TZ);                            // the sills
-  add(g, rbox(22, 2.6, 2.6, 0.5), M.oak, TX - 4, 3.5, TZ + 22, 0, 0.3, 0);                                           // the beam waiting on the ground
-  // the gin: a lifting pole with a rope and a team flag
-  add(g, cyl(1.0, 1.3, 44, 8), M.oak, -2, 24, -2, 0.12, 0, 0.08); limb(g, [-2, 44, -2], [TX, 33, TZ], 0.4, M.rope); limb(g, [-2, 44, -2], [-26, 2, 30], 0.4, M.rope);
-  banner(g, M, 1.4, 44, -5.4, 10, 18, 12);
-  // the folded balloon and its basket, west: pale canvas heaped in folds with a team band between ink hems, a wicker
-  // basket with team cloth round its rim, two sandbags, coiled rope
-  const BX = -24, BZ = 16;
-  add(g, sph(11, 16, 10), M.canvas, BX, 3.6, BZ).scale.set(1.3, 0.42, 1); add(g, sph(8, 14, 8), M.canvas, BX - 3, 6.2, BZ - 2).scale.set(1.2, 0.5, 1);
-  add(g, sph(5.5, 12, 8), M.canvasDark, BX + 7, 5.2, BZ + 4).scale.set(1.2, 0.5, 1);
-  add(g, torus(9.4, 1.1, 24), M.cloth, BX, 6.0, BZ, Math.PI / 2, 0, 0).scale.set(1.3, 1, 1);                      // a thin team band round the heap (the pass: thin trim, no sandbags, rope, ladder, stacks, tarp, sawhorse or log)
-  for (const r of [8.2, 10.6]) add(g, torus(r, 0.35, 24), M.inkLine, BX, 6.0 + (r > 9 ? -0.4 : 0.3), BZ, Math.PI / 2, 0, 0).scale.set(1.3, 1, 1);
-  add(g, cyl(5.2, 4.4, 7, 12), M.wicker, BX + 20, 5.5, BZ + 12); add(g, cyl(5.6, 5.6, 1.4, 12), M.cloth, BX + 20, 9.6, BZ + 12);
-  for (const y of [8.8, 10.4]) add(g, torus(5.65, 0.3, 24), M.inkLine, BX + 20, y, BZ + 12, Math.PI / 2, 0, 0);
-  if (M.polish) { // secondary detail: quoins on the shed, finials on its ridge, rope lashings at the A-frames' apexes and iron caps on the axle's ends, a steel pulley on the gin
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) quoins(g, M, SX + sx * SW / 2, SZ + sz * SD / 2, 3, SH + 1, 2.8, 2.4, 1.4);
-    for (const sx of [-1, 1]) finial(g, M, SX + sx * ((SW + 4.4) / 2 + 0.3), SH + 11.6, SZ);
-    for (const dz of [-9, 9]) add(g, torus(1.8, 0.5, 12), M.rope, TX, 31, TZ + dz);
-    for (const dz of [-11.0, 11.0]) add(g, cyl(1.7, 1.7, 1.0, 10), M.ironDark, TX, 31, TZ + dz, Math.PI / 2, 0, 0);
-    add(g, cyl(1.3, 1.3, 0.9, 12), M.steel, -1.2, 44.6, -1.8, Math.PI / 2, 0, 0.3);
-  }
+  const X = -2, Z = -6, W = 66, D = 44, H = 22, G = 14;
+  add(g, rbox(W + 3, 2.6, D + 3, 0.4), M.plinth, X, 1.8, Z);
+  add(g, rbox(W, H, D, 0.5), M.boards, X, H / 2 + 2, Z);                                                            // the one timber mass
+  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, 1], [1, -1]]) add(g, rbox(2.4, H + 0.4, 2.4, 0.3), M.post, X + sx * (W / 2 - 0.6), H / 2 + 2, Z + sz * (D / 2 - 0.6)); // corner posts
+  for (const x of [-W / 4, W / 4 + 6]) add(g, rbox(2.0, H - 0.4, 1.2, 0.2), M.post, X + x, H / 2 + 2, Z + D / 2 + 0.2);  // two studs on the south face
+  add(g, rbox(W + 0.8, 1.4, 1.2, 0.2), M.post, X, H + 1.6, Z + D / 2 + 0.2);                                          // the wall plate
+  add(g, gable(D + 6, G, W + 5), M.roof, X, H + 2, Z, 0, Math.PI / 2, 0); add(g, rbox(W + 5.4, 1.6, 1.6, 0.4), M.oak, X, H + 2 + G + 0.2, Z);
+  add(g, rbox(W + 5.4, 0.6, D + 6.4, 0.1), M.inkLine, X, H + 1.9, Z);                                                 // the eave line
+  // the big door: a tall wide dark opening, one pale leaf shut and one swung open
+  const DX = X - 4, DW = 22, DH = 17, DZ = Z + D / 2 + 0.6;
+  add(g, rbox(DW + 1.6, DH + 1, 1.0, 0.2), M.inkLine, DX, DH / 2 + 2, DZ);
+  add(g, rbox(DW / 2 - 0.6, DH - 0.6, 1.2, 0.3), M.doorPale, DX + DW / 4, DH / 2 + 2, DZ + 0.6); for (const y of [6, 15]) add(g, rbox(DW / 2 - 0.2, 0.7, 0.5, 0.1), M.ironDark, DX + DW / 4, y, DZ + 1.3); // the shut leaf, two iron bands
+  { const o = grp(); o.position.set(DX - DW / 2, DH / 2 + 2, DZ + 0.4); o.rotation.y = -1.15; g.add(o); add(o, rbox(DW / 2 - 0.6, DH - 0.6, 1.2, 0.3), M.doorPale, DW / 4, 0, 0); for (const y of [-DH / 2 + 4.5, DH / 2 - 4.5]) add(o, rbox(DW / 2 - 0.2, 0.7, 0.5, 0.1), M.ironDark, DW / 4, y, 0.7); } // the open leaf, swung out
+  // the prop: a great cart wheel leaning on the wall east of the door, its face to the camera
+  { const w = grp(); w.position.set(X + W / 2 - 13, 10.2, Z + D / 2 + 3.2); w.rotation.set(-0.22, 0, 0); g.add(w);
+    add(w, cyl(9.6, 9.6, 1.8, 24), M.doorPale, 0, 0, 0, Math.PI / 2, 0, 0); add(w, torus(9.6, 0.9, 28), M.ironDark, 0, 0, 0);
+    add(w, cyl(1.8, 1.8, 2.6, 12), M.steel, 0, 0, 0, Math.PI / 2, 0, 0); for (let k = 0; k < 4; k++) add(w, rbox(1.4, 17.6, 1.0, 0.2), M.post, 0, 0, 1.1, 0, 0, k * Math.PI / 4); }
+  banner(g, M, X - W / 2 - 1, H + 2 + G + 1, Z, 14, 30, 18);                                                          // the team flag at the ridge's west end, a tile wide
+  add(g, rbox(W + 5.4, 1.4, 0.5, 0.1), M.cloth, X, H + 0.9, Z + D / 2 + 3.4); for (const y of [H + 1.7, H + 0.1]) add(g, rbox(W + 5.8, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 3.4); // a thin team strip along the south eave
+  if (M.polish) for (const sx of [-1, 1]) finial(g, M, X + sx * ((W + 5.4) / 2 + 0.3), H + 2 + G + 0.6, Z);        // secondary detail: finials on the ridge
   return g;
 }
 
@@ -310,38 +311,33 @@ export function watchtowerArcher(M) {
   return g;
 }
 
-/** Stables (Rider, Knight; needs a Market; 3x3): a long timber stable along x on a stone footing, its slate roof low,
- *  the south side a row of stalls with oak half-doors, three horses' heads out over them, hay in a rack and bales by
- *  the door; a paddock of post-and-rail fence to the east with a horse's trough and a mounting block; a team caparison
- *  and saddle cloths hung on the rail to air, a team banner on the gable, pennants at the paddock's corners. From the
- *  camera: a low long gray roof over a row of dark doors with horse heads, a fence beside, team cloths on it. */
+/** Stables (Rider, Knight; needs a Market; 3x3; the art polish, 2026-11-13: today's long slate stable was the Barracks'
+ *  twin): a low, wide, open-sided shed: mid-brown posts on a stone footing round a pale plank back wall, under a big
+ *  warm straw gable along x (the kingdom's one warm roof; the Cottage's thatch is dull gray); in front a fenced yard
+ *  with two solid white rails on posts, a light bay horse standing in it; a tile-wide team flag at the ridge's west
+ *  end and a thin team strip along the eave. From the camera: a warm straw roof floating on posts over a dark open
+ *  side, two white lines boxing a horse before it. */
 export function stables(M) {
   kbMats(M); const g = grp();
   earth(g, M, [[-47, -36], [46, -44], [47, 20], [40, 46], [-30, 44], [-47, 10]]);
-  const X = -10, Z = -14, W = 70, D = 24, H = 11;
-  add(g, rbox(W + 3, 2.4, D + 3, 0.4), M.plinth, X, 1.6, Z);
-  add(g, rbox(W, H, D, 0.5), M.wall, X, H / 2 + 2, Z - 1);
-  for (let k = 0; k <= 5; k++) add(g, rbox(1.8, H + 0.4, 1.4, 0.3), M.oak, X - W / 2 + k * W / 5, H / 2 + 2, Z + D / 2 - 0.4); // the stall posts
-  add(g, rbox(W + 0.6, 1.4, 1.4, 0.3), M.oak, X, H + 2.3, Z + D / 2 - 0.4);
-  for (let k = 0; k < 5; k++) {                                                                                      // the stalls: half-doors, a horse's head out of three
-    const x = X - W / 2 + (k + 0.5) * W / 5;
-    add(g, rbox(W / 5 - 3, 6, 1.0, 0.3), M.oak, x, 5, Z + D / 2 + 0.2); add(g, rbox(W / 5 - 2.6, 0.5, 0.4, 0.1), M.ironDark, x, 7.6, Z + D / 2 + 0.8);
-    add(g, rbox(W / 5 - 3, H - 6.5, 0.6, 0.1), M.inkLine, x, H - 1.5, Z + D / 2 - 0.2);                                  // the dark opening over the door
-    if (k === 0 || k === 2 || k === 4) horseHead(g, M, x + (k === 2 ? -1 : 1), 5.5, Z + D / 2 - 1.6, (k - 2) * 0.15);
-  }
-  add(g, gable(D + 6, 9, W + 5), M.roof, X, H + 2.4, Z - 1, 0, Math.PI / 2, 0); add(g, rbox(W + 5.4, 1.4, 1.4, 0.3), M.oak, X, H + 11.6, Z - 1);
-  add(g, rbox(W + 5.4, 0.6, D + 6.4, 0.1), M.inkLine, X, H + 2.3, Z - 1);
-  banner(g, M, X - W / 2 + 2, H + 11.8, Z - 1, 14, 16, 11);                                                           // the team flag on the gable (the pass: no hung banners, bales or hay rack)
-  add(g, rbox(W + 5.4, 1.4, 0.5, 0.1), M.cloth, X, H + 1.6, Z - 1 + D / 2 + 3.4); for (const y of [H + 2.4, H + 0.8]) add(g, rbox(W + 5.8, 0.4, 0.6, 0.05), M.inkLine, X, y, Z - 1 + D / 2 + 3.4); // a thin team strip along the eave
-  // the paddock east: post-and-rail, team cloths over the south rail, a trough, a mounting block
-  const PX = 34, PZ = 18, PW = 24, PD = 34;
-  const posts = [[PX - PW / 2, PZ - PD / 2], [PX + PW / 2, PZ - PD / 2], [PX + PW / 2, PZ + PD / 2], [PX - PW / 2, PZ + PD / 2]];
-  posts.forEach((p, k) => { const q = posts[(k + 1) % 4]; add(g, cyl(0.9, 1.0, 8, 6), M.oak, p[0], 5, p[1]); for (const t of [0.5]) { const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; add(g, cyl(0.8, 0.9, 8, 6), M.oak, m[0], 5, m[1]); void t; } for (const y of [4.4, 7.6]) limb(g, [p[0], y, p[1]], [q[0], y, q[1]], 0.5, M.oak); });
-  horse(g, M, PX + 1, PZ + 1, -0.5);                                                                                  // a horse standing in the paddock (round 2: the Stables and the Barracks read alike)
-  if (M.polish) { // secondary detail: knee braces from the stall posts to the plate, finials on the ridge, an iron-hooped bucket by the trough, iron hinge straps on the half-doors
-    for (let k = 0; k <= 5; k++) { const px = X - W / 2 + k * W / 5; if (k > 0) brace(g, M, px, H - 1.4, Z + D / 2 - 0.4, -4.2, 3.4); if (k < 5) brace(g, M, px, H - 1.4, Z + D / 2 - 0.4, 4.2, 3.4); }
-    for (const sx of [-1, 1]) finial(g, M, X + sx * ((W + 5.4) / 2 + 0.3), H + 12.0, Z - 1);
-    for (let k = 0; k < 5; k++) { const x = X - W / 2 + (k + 0.5) * W / 5; add(g, rbox(W / 5 - 2.6, 0.5, 0.4, 0.1), M.ironDark, x, 3.4, Z + D / 2 + 0.8); }
+  const X = -4, Z = -20, W = 78, D = 26, H = 11, G = 12;
+  add(g, rbox(W + 3, 2.0, D + 3, 0.4), M.plinth, X, 1.4, Z);
+  add(g, rbox(W - 3, H - 1, 1.8, 0.3), M.boards, X, (H - 1) / 2 + 2, Z - D / 2 + 1.2);                                 // the plank back wall, low
+  for (let k = 0; k <= 6; k++) for (const z of [Z - D / 2 + 1.0, Z + D / 2 - 1.0]) add(g, rbox(2.2, H + 0.6, 2.2, 0.3), M.post, X - W / 2 + 1.5 + k * (W - 3) / 6, H / 2 + 2.3, z); // the posts, front and back
+  for (const z of [Z - D / 2 + 1.0, Z + D / 2 - 1.0]) add(g, rbox(W + 0.6, 1.4, 1.6, 0.3), M.post, X, H + 2.4, z);    // the plates
+  add(g, gable(D + 10, G, W + 6), M.strawRoof, X, H + 2.6, Z, 0, Math.PI / 2, 0);                                     // the straw roof: big, overhanging
+  add(g, cyl(1.8, 1.8, W + 6.4, 10), M.strawRoof, X, H + 2.6 + G, Z, 0, 0, Math.PI / 2);                              // the rounded ridge
+  add(g, rbox(W + 6.6, 0.6, D + 10.4, 0.1), M.inkLine, X, H + 2.5, Z);                                                 // the dark eave line
+  banner(g, M, X - W / 2 - 1, H + 2.6 + G + 1, Z, 14, 30, 18);                                                        // the team flag at the ridge's west end, a tile wide
+  add(g, rbox(W + 6.6, 1.4, 0.5, 0.1), M.cloth, X, H + 1.5, Z + D / 2 + 5.4); for (const y of [H + 2.3, H + 0.7]) add(g, rbox(W + 7, 0.4, 0.6, 0.05), M.inkLine, X, y, Z + D / 2 + 5.4); // a thin team strip along the south eave
+  // the yard in front: posts at the corners and the rails' middles, two solid white rails along three sides
+  const YX = X, YZ = 20, YW = 70, YD = 36, x0 = YX - YW / 2, x1 = YX + YW / 2, z0 = YZ - YD / 2, z1 = YZ + YD / 2;
+  for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [YX, z1], [x0, YZ], [x1, YZ]]) add(g, cyl(1.1, 1.2, 10, 8), M.post, x, 5, z);
+  for (const y of [4.2, 8.0]) { add(g, rbox(YW, 1.6, 1.4, 0.3), M.rail, YX, y, z1); for (const x of [x0, x1]) add(g, rbox(1.4, 1.6, YD, 0.3), M.rail, x, y, YZ); } // the two white rails
+  horse(g, M, YX + 4, YZ - 2, -0.35);                                                                                   // the horse in the yard
+  if (M.polish) { // secondary detail: knee braces from the front posts to the plate, finials on the ridge
+    for (let k = 0; k <= 6; k++) { const px = X - W / 2 + 1.5 + k * (W - 3) / 6; if (k > 0) brace(g, M, px, H - 1.4, Z + D / 2 - 1.0, -4.5, 3.4); if (k < 6) brace(g, M, px, H - 1.4, Z + D / 2 - 1.0, 4.5, 3.4); }
+    for (const sx of [-1, 1]) finial(g, M, X + sx * ((W + 6.4) / 2 + 0.3), H + 2.6 + G + 0.4, Z);
   }
   return g;
 }

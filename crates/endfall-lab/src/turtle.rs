@@ -6,16 +6,21 @@
 
 use crate::json::Json;
 use crate::minutes::{self, Sample};
-use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_watched};
+use crate::plans::{BASE, PAIRINGS, Played, Seats, play_jobs, play_levels};
 use crate::stats::{median, mmss, wilson};
 use crate::waves::{self, TABLE_HEAD, Wave};
-use endfall_sim::data::{DIFF, Diff, NEVER};
+use endfall_sim::data::{DIFF, Diff, NEVER, Style};
 use endfall_sim::map::MapKind;
 
 const TPS: f64 = 30.0;
 const PEOPLE: [&str; 2] = ["Humans", "Vael"];
+/// A game's first hit: the tick its attacker's first wave arrived and that wave's units (None: none arrived).
+type FirstHit = Option<(u32, usize)>;
+
 /// A first hit before this (s) is early for a newcomer (the weak turtle against Easy).
 const EARLY_HIT: f64 = 480.0;
+/// The most units of a newcomer's first hit (the newcomer check).
+const NEWCOMER_UNITS: usize = 4;
 
 /// What the batch plays.
 #[derive(Clone, Debug)]
@@ -33,8 +38,11 @@ pub struct TurtleBatch {
     pub attacker_income: Option<f64>,
     /// The attacker's `Diff::retreat_below` (None: its level's).
     pub attacker_retreat: Option<f64>,
-    /// The attacker's level (`DIFF`'s index; `BASE`, Medium, by default): its whole tuning, as a plan.
+    /// The attacker's level (`DIFF`'s index; `BASE`, Medium, by default): its whole tuning, played in the style it
+    /// draws (as a plan, without a style, with `attacker_income` or `attacker_retreat`).
     pub attacker_level: usize,
+    /// The attacker's style (`World::set_ai_styles`; None: its own draw): the newcomer check per style.
+    pub attacker_style: Option<Style>,
     /// The weak turtle (`weak_turtle`; the gate's newcomers row): Easy's economy, no expansion.
     pub weak: bool,
 }
@@ -50,6 +58,7 @@ impl TurtleBatch {
             attacker_income: None,
             attacker_retreat: None,
             attacker_level: BASE,
+            attacker_style: None,
             weak: false,
         }
     }
@@ -76,6 +85,7 @@ pub fn weak_turtle() -> Diff {
         extra_rax: easy.extra_rax,
         vents_from: easy.vents_from,
         expand_at: NEVER,
+        expand_at_of: &[],
         expands_when_dry: false,
         passive_expand: NEVER,
         max_bases: 1,
@@ -98,21 +108,33 @@ impl Cell {
         let p = PAIRINGS[self.pairing];
         (p[self.turtle], p[1 - self.turtle])
     }
-    /// Each seat's plan: the turtle's on its seat, plain Medium (no plan) on the other, or Medium with
-    /// `attacker_income` for its income.
+    /// Each seat's plan: the turtle's on its seat; on the other the attacker's level (no plan: it plays its level in
+    /// the style it draws), or its level with `attacker_income` for its income and `attacker_retreat` for its retreat.
     fn plans(&self, b: &TurtleBatch) -> [Option<Diff>; 2] {
         let (raids, attacker_income) = (b.raids, b.attacker_income);
         let mut plans = [None, None];
         plans[self.turtle] = Some(if b.weak { weak_turtle() } else { turtle(raids) });
         let level = DIFF[b.attacker_level];
-        let changed =
-            attacker_income.is_some() || b.attacker_retreat.is_some() || b.attacker_level != BASE;
+        let changed = attacker_income.is_some() || b.attacker_retreat.is_some();
         plans[1 - self.turtle] = changed.then(|| Diff {
             income: attacker_income.unwrap_or(level.income),
             retreat_below: b.attacker_retreat.unwrap_or(level.retreat_below),
             ..level
         });
         plans
+    }
+    /// Each seat's level, plan and style (`plans::Seats`): the turtle on Medium's level under its plan, the attacker
+    /// on its level, in `attacker_style` if set.
+    fn seats(&self, b: &TurtleBatch) -> Seats {
+        let mut levels = [BASE; 2];
+        levels[1 - self.turtle] = b.attacker_level;
+        let mut styles = [None; 2];
+        styles[1 - self.turtle] = b.attacker_style;
+        Seats {
+            levels,
+            plans: self.plans(b),
+            styles,
+        }
     }
 }
 
@@ -159,12 +181,12 @@ pub fn run(
     let played = play_jobs(
         &cells,
         |c| {
-            play_watched(
+            play_levels(
                 c.map,
                 batch.size,
                 c.pairing,
                 c.map_seed,
-                c.plans(&batch),
+                c.seats(&batch),
                 cap,
                 false,
             )
@@ -306,8 +328,8 @@ impl TurtleRun {
     }
 
     /// The first hit, by map and the attacker's people, then in all: of each game's attacker, the tick its first
-    /// wave arrived (None: no wave of it ever arrived).
-    fn first_hits(&self) -> Vec<(String, Vec<Option<u32>>)> {
+    /// wave arrived and that wave's units as it went (None: no wave of it ever arrived).
+    fn first_hits(&self) -> Vec<(String, Vec<FirstHit>)> {
         let hits = |keep: &dyn Fn(&Cell) -> bool| {
             let mut v = vec![];
             for (c, ws) in self.cells.iter().zip(&self.waves) {
@@ -315,7 +337,7 @@ impl TurtleRun {
                     v.push(
                         ws.iter()
                             .filter(|w| w.seat as usize != c.turtle)
-                            .filter_map(|w| w.arrived.map(|a| a.tick))
+                            .filter_map(|w| w.arrived.map(|a| (a.tick, w.units)))
                             .min(),
                     );
                 }
@@ -465,6 +487,10 @@ impl TurtleRun {
                         "attacker_level",
                         crate::batch::LEVELS[self.batch.attacker_level],
                     )
+                    .with(
+                        "attacker_style",
+                        self.batch.attacker_style.map(|s| s.name()),
+                    )
                     .with("weak", self.batch.weak),
             )
             .with("rows", rows)
@@ -514,20 +540,36 @@ impl TurtleRun {
             s += &w.row(&label);
         }
         s += &format!(
-            "\n## The first hit\n\nOf each game, when the attacker's first wave arrived (a unit within {} tiles of a turtle's building): the earliest, the quartiles and how many games were hit before {}.\n\n| Attacker | Games | Hit | Earliest | 25% | Median | 75% | Hit before {} |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n",
+            "\n## The first hit\n\nOf each game, when the attacker's first wave arrived (a unit within {} tiles of a turtle's building): the earliest, the quartiles and how many games were hit before {}; and that wave's units as it went (median, most).\n\n| Attacker | Games | Hit | Earliest | 25% | Median | 75% | Hit before {} | Units (median, most) |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n",
             waves::REACH,
             mmss(EARLY_HIT),
             mmss(EARLY_HIT)
         );
+        let (mut early, mut most) = (0, 0);
         for (label, hits) in self.first_hits() {
-            let mut at: Vec<f64> = hits.iter().flatten().map(|&t| t as f64 / TPS).collect();
+            most = most.max(hits.iter().flatten().map(|&(_, n)| n).max().unwrap_or(0));
+            early += hits
+                .iter()
+                .flatten()
+                .filter(|&&(t, _)| (t as f64 / TPS) < EARLY_HIT)
+                .count();
+            let mut at: Vec<f64> = hits
+                .iter()
+                .flatten()
+                .map(|&(t, _)| t as f64 / TPS)
+                .collect();
+            let mut units: Vec<usize> = hits.iter().flatten().map(|&(_, n)| n).collect();
+            units.sort_unstable();
+            let units = units
+                .get(units.len() / 2)
+                .map_or("—".into(), |m| format!("{m}, {}", units[units.len() - 1]));
             at.sort_by(f64::total_cmp);
             let q = |f: f64| {
                 at.get(((at.len() as f64 - 1.0) * f).round() as usize)
                     .map_or("—".into(), |&t| mmss(t))
             };
             s += &format!(
-                "| {label} | {} | {} | {} | {} | {} | {} | {} |\n",
+                "| {label} | {} | {} | {} | {} | {} | {} | {} | {units} |\n",
                 hits.len(),
                 at.len(),
                 q(0.0),
@@ -537,6 +579,15 @@ impl TurtleRun {
                 at.iter().filter(|&&t| t < EARLY_HIT).count()
             );
         }
+        // (the newcomer check, the PM's: with `--weak --attacker-level Easy`, no hit before 8:00 on any map, and three or
+        // four units at most; a FAIL, not a signal)
+        let ok = |b: bool| if b { "PASS" } else { "FAIL" };
+        s += &format!(
+            "\nThe newcomer check (with `--weak --attacker-level Easy`):\n\n- **{}** no hit before {}: {early} games hit sooner\n- **{}** the first hit four units at most: {most} at most\n",
+            ok(early == 0),
+            mmss(EARLY_HIT),
+            ok(most <= NEWCOMER_UNITS),
+        );
         s += &format!(
             "\n## Why the waves went\n\nThe attacker's own check as each wave went (`LaunchWhy`), the foe army it expected over the turtle's true army then (armed units, workers left out; the waves that went against an expectation), the wave's worth over that true army, and the share of the wave's value within {} tiles of its first unit to arrive.\n\n{}",
             waves::REACH,
@@ -631,7 +682,14 @@ mod tests {
                 attacker_level: 2,
                 ..b.clone()
             };
-            assert_eq!(c.plans(&hard)[1 - c.turtle], Some(DIFF[2]), "against Hard");
+            assert_eq!(c.plans(&hard)[1 - c.turtle], None, "Hard plays its level");
+            assert_eq!(c.seats(&hard).levels[1 - c.turtle], 2);
+            let boom = TurtleBatch {
+                attacker_style: Some(Style::Boom),
+                ..hard
+            };
+            assert_eq!(c.seats(&boom).styles[1 - c.turtle], Some(Style::Boom));
+            assert_eq!(c.seats(&boom).styles[c.turtle], None);
         }
     }
 
@@ -694,6 +752,10 @@ mod tests {
         assert!(hits.iter().all(|(_, v)| v.iter().all(Option::is_none)));
         assert_eq!(hits.last().map(|(_, v)| v.len()), Some(24));
         assert!(r.markdown("test").contains("| **All** | 24 | 0 | — |"));
+        assert!(
+            r.markdown("test").contains("| 0 | — |\n"),
+            "no wave: no units"
+        );
     }
 
     #[test]
@@ -707,6 +769,7 @@ mod tests {
             attacker_income: None,
             attacker_retreat: None,
             attacker_level: BASE,
+            attacker_style: None,
             weak: false,
         };
         let c = cells(&b);

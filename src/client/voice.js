@@ -36,6 +36,8 @@ export const PHRASES = {
   attack: { text: 'Base under attack', ph: [['B'], ['EY', 1.3, 1], ['S'], ['_', 0.5], ['AH', 1, 0.3], ['N'], ['D', 0.8], ['ER', 0.8], ['AX'], ['T'], ['AE', 1.2, 1], ['K']] },
   research: { text: 'Research complete', ph: [['R'], ['IY', 1.1, 1], ['S', 0.8], ['ER', 1.0, 0.4], ['T', 0.6], ['SH', 0.9], ['_', 0.4], ['K'], ['AX'], ['M'], ['P'], ['L'], ['IY', 1.4, 1], ['T']] },
   gold: { text: 'Not enough gold', ph: [['N'], ['AA', 1.1, 1], ['T', 0.7], ['_', 0.3], ['IH', 0.8], ['N'], ['AH', 1, 0.6], ['F'], ['_', 0.3], ['G'], ['OW', 1.3, 1], ['L', 1.1], ['D', 0.8]] },
+  // (the Expedition's: no JH in this synthesizer, a D into a Z for "-gy")
+  energy: { text: 'Not enough energy', ph: [['N'], ['AA', 1.1, 1], ['T', 0.7], ['_', 0.3], ['IH', 0.8], ['N'], ['AH', 1, 0.6], ['F'], ['_', 0.3], ['AE', 1.2, 1], ['N'], ['ER', 0.9], ['D', 0.5], ['Z', 0.6], ['IY', 1.3]] },
 };
 
 /**

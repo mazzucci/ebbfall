@@ -8,6 +8,8 @@ use crate::data::radio;
 /// expansion.
 const SECOND_PRONG_GAP: f64 = 15.0 * TILE;
 const GUARDS: usize = 3;
+/// A wave short of its count goes anyway with this many times the worth of the enemy army it expects (`crushing`).
+const CRUSH: f64 = 3.0;
 /// A wave sizes up what it meets within this many px of its units (`Diff::retreat_below`).
 const CONTACT_NEAR: f64 = 8.0 * TILE;
 /// For this long (s) after its wave ends, the foe's units at its buildings are chasers, not the foe coming
@@ -26,17 +28,40 @@ pub const GUIDED_ARMY: usize = 4;
 /// The most it has once they are released, for the rest of the game: fewer than its first wave, so it sends no other
 /// (Easy's next wave is six) and the guide's last step, an attack with ten, wins (with six it rarely did).
 pub const GUIDED_ARMY_AFTER: usize = 3;
-/// The range: a wave's forward Uplink goes this many tiles past the edge of its side's range along its way, never
-/// nearer its goal than `RELAY_GOAL_ROOM` tiles, once the wave's front is within `RELAY_FRONT` tiles of that spot (or
-/// past it).
-const RELAY_AHEAD: f64 = 7.0;
+/// The range: the forward Uplink goes at the first point of the walkers' way from its rally point to the goal whose
+/// coverage takes in the goal with `RELAY_COVER_ROOM` tiles to spare (one Uplink covers the push: Stelian, Nov 13), never
+/// nearer its goal than `RELAY_GOAL_ROOM` tiles; a wave's own, once the wave's front is within `RELAY_FRONT` tiles of
+/// that spot (or past it).
+const RELAY_COVER_ROOM: f64 = 8.0;
+/// The Portal's Uplink goes no farther than this many tiles inside the edge of its side's coverage (`relay_home_point`).
+const RELAY_HOME_INSIDE: f64 = 4.0;
 const RELAY_GOAL_ROOM: f64 = 10.0;
 const RELAY_FRONT: f64 = 4.0;
+/// The push: machines kept home (their goal out of coverage) before the next Uplink goes up towards it.
+const PUSH_MACHINES: usize = 4;
+/// The push: how far (tiles) past its coverage's edge a goal may lie for its machines to go with the wave.
+const PUSH_REACH: f64 = 8.0;
+/// A machine of a wave held at its coverage's edge: within `EDGE_NEAR` tiles of it (or past it), quiet (neither firing
+/// nor hit) for `HELD_QUIET` s.
+const EDGE_NEAR: f64 = 1.5;
+const HELD_QUIET: f64 = 20.0;
+/// A wave out this long (s) whose every unit has been quiet (neither firing nor hit) as long is over, wherever it stands
+/// (a wave of two left standing short of the foe's base for eight minutes kept a winning army of 6,000 at home).
+const WAVE_QUIET: f64 = 90.0;
+/// A stalled game (`Diff::stall_from`): `Diff::stall_window` s without its side razing an enemy building, after which
+/// its next wave waits up to `STALL_HOLD` s to fill its army to the cap, then goes all in and fights to its last unit.
+pub(crate) const STALL_HOLD: f64 = 180.0;
+/// Its wave's melee units and its dive unit go for an enemy siege gun it sees within this many px (`dive_at_siege`).
+const DIVE_REACH: f64 = 14.0 * TILE;
+/// A wave has reached the foe once one of its units comes this near (px) a building of the foe it knows (`Ai::reached`).
+const REACHED: f64 = 8.0 * TILE;
 /// A gathering wave goes in once this share of its main body stands within `STAGE_NEAR` px of its staging point.
 const STAGE_SHARE: f64 = 0.75;
 const STAGE_NEAR: f64 = 4.0 * TILE;
 /// Supply short of the cap that counts as at the cap: a seat 1 or 2 short trains little more than one more unit.
 pub(crate) const CAP_SLACK: i32 = 2;
+/// Finishing (`Diff::finish_from`): this many idle fighters at home join a wave out together (`reinforce_finishing`).
+const REINFORCE: usize = 3;
 
 /// A unit's worth in an army: its cost in gold.
 fn army_worth(k: UnitKind) -> f64 {
@@ -71,9 +96,32 @@ impl World {
         } else {
             GUIDED_ARMY_AFTER
         };
+        self.fighters_of(e) >= cap
+    }
+
+    /// Whether seat `e` holds its level's most fighters (`Diff::army_max`, Easy's 14): it trains no more. From its
+    /// `Diff::finish_from` (Easy: 20:00 to 23:00, once a wave of its has reached the foe) the cap no longer holds.
+    pub(crate) fn army_full(&self, e: u8) -> bool {
+        let d = self.tuning(e);
+        d.army_max > 0 && !self.finishing(e) && self.fighters_of(e) >= d.army_max
+    }
+
+    /// Whether seat `e` is finishing (`Diff::finish_from`): past that time, and once a wave of its has reached the foe
+    /// (`Ai::reached`: a newcomer's first hit stays a clumsy wave's three or four units however late it comes), its army
+    /// cap no longer holds and its clumsy waves take its whole army.
+    pub(crate) fn finishing(&self, e: u8) -> bool {
+        self.time >= self.tuning(e).finish_from
+            && self
+                .ai
+                .get(e as usize)
+                .and_then(Option::as_ref)
+                .is_some_and(|a| a.reached)
+    }
+
+    /// Seat `e`'s fighters (armed, not workers), queued ones counted.
+    pub(crate) fn fighters_of(&self, e: u8) -> usize {
         let fighter = |k: UnitKind| !k.def().worker && k.def().armed();
-        let have = self
-            .units
+        self.units
             .iter()
             .filter(|u| u.team == e && fighter(u.kind))
             .count()
@@ -83,8 +131,7 @@ impl World {
                 .filter(|b| b.team == e)
                 .flat_map(|b| b.queue.iter())
                 .filter(|&&k| fighter(k))
-                .count();
-        have >= cap
+                .count()
     }
 
     /// Where a wave goes: the enemy headquarters it knows of, else a production building, else any building it
@@ -159,16 +206,12 @@ impl World {
                 continue;
             }
             let razing = matches!(u.task, Task::Attack { target, .. }
-                if self.bldg(target).is_some_and(|b| b.kind.def().pays));
+                if self.bldg(target).is_some_and(|b| b.kind.def().pays > 0.0));
             let prey = self
                 .units
                 .iter()
                 .filter(|o| self.hostile(o.team) && o.kind.def().worker && self.ai_sees_unit(o))
-                .min_by(|a, b| {
-                    dist(a.x, a.y, ux, uy)
-                        .partial_cmp(&dist(b.x, b.y, ux, uy))
-                        .unwrap()
-                })
+                .min_by(|a, b| dist(a.x, a.y, ux, uy).total_cmp(&dist(b.x, b.y, ux, uy)))
                 .map(|o| o.id);
             // Harvesters come first: a raider drops whatever it auto-targeted on the way once it sees one.
             match prey.or_else(|| self.remote_extractor(r, ux, uy)) {
@@ -196,7 +239,7 @@ impl World {
             .iter()
             .filter_map(|k| self.bldg(k.0))
             .filter(|b| {
-                b.kind.def().pays
+                b.kind.def().pays > 0.0
                     && self.hostile(b.team)
                     && self.can_hit(r, b.id)
                     && !self.spared(self.ai_turn, b) // (the guided game's: never a target)
@@ -208,8 +251,7 @@ impl World {
             })
             .min_by(|a, b| {
                 dist(a.x, a.y, ux, uy)
-                    .partial_cmp(&dist(b.x, b.y, ux, uy))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, ux, uy))
                     .then(a.id.cmp(&b.id))
             })
             .map(|b| b.id)
@@ -233,18 +275,29 @@ impl World {
         let mut intruder = None;
         // The enemy army it sees now (armed units, workers left out), by value: the most lately seen is what its next
         // wave must beat (a sighting smaller than the last one recent enough does not lower it).
-        let seen: f64 = self
+        let sighted: Vec<Id> = self
             .units
             .iter()
             .filter(|u| self.hostile(u.team) && !u.kind.def().worker && u.kind.def().armed())
             .filter(|u| self.ai_sees_unit(u))
-            .map(|u| army_worth(u.kind))
-            .sum();
+            .map(|u| u.id)
+            .collect();
+        let worth = |w: &World, ids: &[Id]| -> f64 {
+            ids.iter()
+                .filter_map(|&id| w.unit(id))
+                .map(|u| army_worth(u.kind))
+                .sum()
+        };
+        let seen = worth(self, &sighted);
+        // (what it saw, less what of it has fallen since: a wave it wiped out no longer counts)
+        let left = worth(self, &self.ai().army_seen_ids);
         let mine = self.own_army_worth(e);
         let age = self.level().sighting_age;
         let ai = self.ai_mut();
+        ai.army_seen.0 = ai.army_seen.0.min(left);
         if seen > 0.0 && (seen >= ai.army_seen.0 || t - ai.army_seen.1 > age) {
             ai.army_seen = (seen, t, mine);
+            ai.army_seen_ids = sighted;
         }
         'scan: for u in &self.units {
             if !self.hostile(u.team) || !self.ai_sees_unit(u) {
@@ -316,8 +369,7 @@ impl World {
                 })
                 .min_by(|p, q| {
                     (p.hp / p.maxhp)
-                        .partial_cmp(&(q.hp / q.maxhp))
-                        .unwrap()
+                        .total_cmp(&(q.hp / q.maxhp))
                         .then(p.id.cmp(&q.id))
                 })
                 .map(|b| (b.id, b.x, b.y));
@@ -369,13 +421,19 @@ impl World {
         if let Some(intr) = intruder {
             self.ai_defend(&army, intr, rally);
         }
+        self.leash_home_army(&army, &brain.my_b, rally);
         self.recall_wave(&army, raid, intruder, t);
+        self.pull_back(&army, rally, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
         let candidates: Vec<Id> = army
             .iter()
             .copied()
-            .filter(|&a| self.unit(a).is_some_and(|u| u.kind == raider))
+            // (no machine raids since the arc: it would stop at its coverage's edge)
+            .filter(|&a| {
+                self.unit(a)
+                    .is_some_and(|u| u.kind == raider && !radio::needs_range(u.kind))
+            })
             .collect();
         if self.level().raids {
             self.tend_raiders(&candidates, rally);
@@ -386,12 +444,42 @@ impl World {
         let army = self.tend_scout_unit(army, rally);
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
         let army = self.tend_guards(army);
-        // The home reserve stays out of them as well.
+        let stalled = self.stalled(t);
+        self.ai_mut().stall = stalled;
+        // The home reserve stays out of them as well (but in a stalled game's push that takes everything,
+        // `Diff::push_all`).
         let army = self.tend_reserve(army, rally, t);
-
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
-        self.ai_launch_wave(&army, t, goal);
+        // Machines need signal (the arc): with the goal out of its side's coverage they stay home, defending, and the
+        // wave goes without them (else they stopped at the edge and the wave went in split); they go once coverage
+        // reaches the goal (a forward Uplink).
+        let seat = self.seat();
+        // (near enough: the goal within `PUSH_REACH` tiles past its coverage's edge, where its machines strike it from
+        // inside: the Rover's rockets reach 12)
+        let covered = self.in_radio_by(seat, goal.0, goal.1, PUSH_REACH);
+        let army: Vec<Id> = if covered {
+            army
+        } else {
+            // (the push: an Uplink, then the machines. Its machines wait at its forward-most Uplink on the way, and
+            // with enough of them it raises the next one past its coverage's edge towards the goal)
+            let (machines, rest): (Vec<Id>, Vec<Id>) = army
+                .into_iter()
+                .partition(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
+            self.tend_push(&machines, &rest, goal);
+            rest
+        };
+        // (a stalled game's push does not leave while the foe is at its buildings: its army meets that at home, its
+        // towers and siege beside it, and goes after)
+        if !(stalled && intruder.is_some()) {
+            self.ai_launch_wave(&army, t, goal);
+        }
+        if intruder.is_none() {
+            self.reinforce_finishing(&army, goal);
+        }
+        if self.level().answers {
+            self.escort_scout(goal);
+        }
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
             self.ai_steer_wave(&army, &attackers, t, rally, goal);
@@ -409,6 +497,108 @@ impl World {
                 }
             }
         }
+    }
+
+    /// The answer to siege on contact (a level that adapts, `Diff::answers`): its wave's melee units and its dive unit
+    /// (`AiScript::dive`: the Knight, the Drone) go for the nearest enemy siege gun it sees within `DIVE_REACH` (inside
+    /// its blind ring the gun cannot answer them; the AI's waves otherwise fought what shot at them, and the Cannons
+    /// that shelled them from past their sight killed most of them: Easy's two Cannons held Medium off for 30 minutes).
+    fn dive_at_siege(&mut self, alive: &[Id]) {
+        let dive = self.factions[self.seat() as usize].ai.dive;
+        let guns: Vec<(Id, f64, f64)> = self
+            .units
+            .iter()
+            .filter(|u| self.hostile(u.team) && u.kind.siege() && self.ai_sees_unit(u))
+            .map(|u| (u.id, u.x, u.y))
+            .collect();
+        if guns.is_empty() {
+            return;
+        }
+        for &a in alive {
+            let u = self.u(a);
+            let melee = u.kind.def().weapon.is_some_and(|w| w.melee) && !u.kind.def().worker;
+            if Some(u.kind) != dive && !melee {
+                continue;
+            }
+            if let Task::Attack { target, .. } = u.task
+                && self.unit(target).is_some_and(|t| t.kind.siege())
+            {
+                continue;
+            }
+            let (ux, uy) = (u.x, u.y);
+            let best = guns
+                .iter()
+                .filter(|g| dist(ux, uy, g.1, g.2) < DIVE_REACH)
+                .min_by(|p, q| {
+                    dist(ux, uy, p.1, p.2)
+                        .total_cmp(&dist(ux, uy, q.1, q.2))
+                        .then(p.0.cmp(&q.0))
+                });
+            if let Some(&(g, _, _)) = best {
+                self.attack_ent(a, g);
+            }
+        }
+    }
+
+    /// Its scout (`AiScript::scout`, the Balloon) flies over its wave out, above the unit nearest the goal (a level that
+    /// adapts): its sight (12 tiles) shows the wave the siege guns that shell it from past their own (a Cannon's 11).
+    fn escort_scout(&mut self, (gx, gy): (f64, f64)) {
+        let Some(kind) = self.factions[self.seat() as usize].ai.scout else {
+            return;
+        };
+        let ai = self.ai();
+        if !ai.attacking
+            || ai
+                .looking
+                .is_some_and(|l| self.unit(l.0).is_some_and(|u| u.kind == kind))
+        {
+            return;
+        }
+        let Some(attackers) = ai.attackers.clone() else {
+            return;
+        };
+        let lead = attackers
+            .iter()
+            .filter_map(|&a| self.unit(a))
+            .min_by(|p, q| {
+                dist(p.x, p.y, gx, gy)
+                    .total_cmp(&dist(q.x, q.y, gx, gy))
+                    .then(p.id.cmp(&q.id))
+            })
+            .map(|u| (u.x, u.y));
+        let seat = self.seat();
+        let scout = self
+            .units
+            .iter()
+            .find(|u| u.team == seat && u.kind == kind)
+            .map(|u| u.id);
+        if let (Some((lx, ly)), Some(sc)) = (lead, scout) {
+            let u = self.u(sc);
+            if dist(u.x, u.y, lx, ly) > 64.0 {
+                self.move_to(sc, lx, ly);
+            }
+        }
+    }
+
+    /// Whether the game has stalled for the seat taking its turn (`Diff::stall_from`): past that time, with no enemy
+    /// building razed by its side for `Diff::stall_window` seconds, and some of the foe's army it last saw (`Ai::army_seen`)
+    /// still standing. Keeps the count of what it razed up to date.
+    pub(crate) fn stalled(&mut self, t: f64) -> bool {
+        let seat = self.seat();
+        let razed = self.stats[seat as usize].razed;
+        if razed > self.ai().razed.0 {
+            self.ai_mut().razed = (razed, t);
+        }
+        // (and only against a foe that stands with an army: against one it has crushed, or an idle one, it hunts what is
+        // left without waiting)
+        let foe_army = self.ai().army_seen.0;
+        t >= self.level().stall_from && t > self.stall_began() && foe_army > 0.0
+    }
+
+    /// When the current stall began for the seat taking its turn: `Diff::stall_window` after its side last razed a building,
+    /// and no sooner than `Diff::stall_from`.
+    fn stall_began(&self) -> f64 {
+        (self.ai().razed.1 + self.level().stall_window).max(self.level().stall_from)
     }
 
     /// The side's scout units (`AiScript::scout`: the Balloon) are kept out of the army: one out looking stays on its
@@ -448,6 +638,42 @@ impl World {
         }
     }
 
+    /// The home army's chases on a leash: a unit at home (not out with the wave, nor raiding) after an enemy unit more
+    /// than `CHASE_LEASH` tiles past where it counts as at our buildings (`ai_watch`'s reach) gives up and walks back to
+    /// the rally. (Found on main: a player's worker that came near and ran home was chased across the map, and the
+    /// chasers, idle at its base, took on its headquarters minutes before the first wave.)
+    fn leash_home_army(&mut self, army: &[Id], my_b: &[Id], rally: Pt) {
+        let ai = self.ai();
+        let out: Vec<Id> = ai
+            .attackers
+            .iter()
+            .flatten()
+            .chain(ai.raiders.iter())
+            .copied()
+            .collect();
+        for &a in army {
+            if out.contains(&a) {
+                continue;
+            }
+            let Task::Attack { target, .. } = self.u(a).task else {
+                continue;
+            };
+            let Some(t) = self.unit(target) else {
+                continue;
+            };
+            let (tx, ty) = (t.x, t.y);
+            let home = my_b
+                .iter()
+                .filter_map(|&b| self.bldg(b))
+                .any(|b| dist(tx, ty, b.x, b.y) < 420.0 + b.r + CHASE_LEASH * TILE);
+            if !home {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
+            }
+        }
+    }
+
     /// Home, wave: with `raid` armed enemies at our buildings (any enemy's: a third player's, or the foe's own wave
     /// that passed ours on the way), three or more and more than the army at home, the wave out comes back to fight
     /// them (as when most of it fell, the next one waits its gap).
@@ -473,33 +699,120 @@ impl World {
         ai.attacking = false;
         ai.attackers = None;
         ai.last_wave = t;
+        ai.notes.ended = Some(crate::world::WaveEnd::CalledHome);
+    }
+
+    /// A plan's intent to pull back (`Ai::pull`): the wave out comes home to its rally.
+    fn pull_back(&mut self, army: &[Id], rally: Pt, t: f64) {
+        if !std::mem::take(&mut self.ai_mut().pull) || !self.ai().attacking {
+            return;
+        }
+        let attackers = self.ai().attackers.clone().unwrap_or_default();
+        for &a in army.iter().filter(|a| attackers.contains(a)) {
+            let ox = (self.rnd() - 0.5) * 120.0;
+            let oy = (self.rnd() - 0.5) * 120.0;
+            self.move_to(a, rally.x + ox, rally.y + oy);
+        }
+        let ai = self.ai_mut();
+        ai.attacking = false;
+        ai.attackers = None;
+        ai.staging = None;
+        ai.last_wave = t;
+        ai.notes.ended = Some(crate::world::WaveEnd::PulledBack);
     }
 
     /// Send the whole army out once it is big enough (fewer, stronger units for a race with a smaller wave scale)
     /// and the difficulty's first-wave time and gap have passed.
     fn ai_launch_wave(&mut self, army: &[Id], t: f64, (gx, gy): (f64, f64)) {
+        use crate::world::{Slip, WaveWhy};
+        // (a stalled game: it masses for up to `STALL_HOLD` s, to the cap, then goes all in)
+        let massing = self.ai().stall && t - self.stall_began() < STALL_HOLD;
         let d = self.level();
         let ai = self.ai();
-        let need =
-            (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
-        let held = self.waves_held(t); // (the guided first game: until the player is ready)
-        // (at the cap a wave is as big as it gets: it goes whatever its count)
-        let short = army.len() < need && !self.at_cap(self.seat());
+        let scale = self.factions[self.seat() as usize].ai.wave_scale;
+        // (a plan's later waves gather, `Diff::later_min`: after its first, a wave's count is that at least, and neither
+        // the crushing shortcut nor a stalled game's push goes with fewer, unless it is at its cap)
+        let later = ai.last_wave >= 0.0;
+        let floor = if later { d.later_min } else { 0 };
+        let need = (ai.wave.max(floor) as f64 * scale).ceil() as usize;
+        let floor = (floor as f64 * scale).ceil() as usize;
+        let held = self.waves_held(t) || t < ai.hold_until; // (the guided first game: until the player is ready; a plan's hold)
+        // (a plan's intent: its next wave goes now, with what it has)
+        let ordered = ai.force && !ai.attacking && !army.is_empty();
+        // (at the cap a wave is as big as it gets: it goes whatever its count, at its places' cap or at its level's most
+        // fighters, `army_full`: an Easy army of eight, three of them guards, waited for ever for a wave of six; and so
+        // does a wave that crushes what the foe has shown of its army, `crushing`)
+        let full = self.at_cap(self.seat()) || self.army_full(self.seat());
+        let crushes = army.len() >= floor && self.crushing(army, need, t);
+        let short = army.len() < need && !full && !crushes;
+        // (a push that takes everything, `Diff::push_all`: once its hold is up it goes with what it has, half its count
+        // at least; the Expedition's Hard sat thirteen minutes on a short wave, its raiders, guards and reserve kept out)
+        let pushes = d.push_all
+            && self.ai().stall
+            && !massing
+            && army.len() * 2 >= need
+            && army.len() >= floor;
+        let short = (short && !pushes)
+            || (massing && !self.at_cap(self.seat()) && !self.crushing(army, need, t));
         // (the guided first game: its first wave when the guide releases it, `GUIDED_FIRST`)
         let first = if self.guided {
             d.first.min(GUIDED_FIRST)
         } else {
             d.first
         };
-        if held || ai.attacking || short || t - ai.last_wave <= d.gap || t <= first {
-            if !ai.attacking && short {
+        let gap = t - ai.last_wave <= d.gap;
+        if !ordered && (held || ai.attacking || short || gap || t <= first) {
+            let (attacking, under) = (ai.attacking, t - ai.attacked_at < 5.0);
+            if !attacking && short {
                 self.ai_mut().ready_since = None;
             }
+            // (the summary's note: what holds its next wave, once it is due)
+            let why = if held {
+                Slip::Held
+            } else if under {
+                Slip::UnderAttack
+            } else if short {
+                Slip::WaveSize
+            } else {
+                Slip::Gap
+            };
+            let why = (!attacking && t > first).then_some(why);
+            self.ai_mut().notes.wave = why;
             return;
         }
-        if !self.strong_enough(army, t) {
+        if !ordered && !self.strong_enough(army, t) {
+            let looking = self.ai().looking.is_some();
+            self.ai_mut().notes.wave = Some(if looking {
+                Slip::Looking
+            } else {
+                Slip::Strength
+            });
             return;
         }
+        let why = if ordered {
+            WaveWhy::Ordered
+        } else if pushes && army.len() < need {
+            WaveWhy::StallPush
+        } else if army.len() >= need {
+            WaveWhy::Count
+        } else if full {
+            WaveWhy::AtCap
+        } else {
+            WaveWhy::Crushing
+        };
+        {
+            let ai = self.ai_mut();
+            ai.force = false;
+            ai.notes.wave = None;
+            ai.notes.left = Some((why, army.len(), need));
+            ai.notes.ended = None;
+        }
+        // (a clumsy level sends only its wave's size, its oldest units; the rest stay home; finishing, everything goes)
+        let army = if d.wave_only && !self.finishing(self.seat()) {
+            &army[..need.min(army.len())]
+        } else {
+            army
+        };
         let stage = if d.stage > 0.0 {
             self.stage_point((gx, gy), d.stage)
         } else {
@@ -523,6 +836,7 @@ impl World {
         ai.wave = (ai.wave + d.wave_grow).min(d.wave_max);
         ai.attacking = true;
         ai.wave_size = army.len();
+        ai.push = ai.stall;
         // A second prong: with a big enough wave and another base of the foe known well away from the goal (an
         // expansion), its fastest third goes there while the rest hits the goal.
         let foe = self.foe();
@@ -542,7 +856,7 @@ impl World {
         let mut order: Vec<Id> = army.to_vec();
         order.sort_by(|&p, &q| {
             let (sp, sq) = (self.u(p).kind.def().speed, self.u(q).kind.def().speed);
-            sq.partial_cmp(&sp).unwrap().then(p.cmp(&q))
+            sq.total_cmp(&sp).then(p.cmp(&q))
         });
         let split = if second.is_some() && army.len() >= 6 {
             army.len() / 3
@@ -566,11 +880,54 @@ impl World {
         ai.prong = order[..split].to_vec();
     }
 
-    /// The tower range: where wave unit `a` is sent for (x, y): that point, or for a Drone the last point of the way
-    /// there within its leash (it gathers where it can stand).
+    /// Finishing (`Diff::finish_from`), with a wave out and no foe at its buildings: its idle fighters at home, once
+    /// `REINFORCE` or more, join the wave (a winning Easy army of 2,000 waited at home for a wave of one to end, its foe
+    /// with no army left, until the cap).
+    fn reinforce_finishing(&mut self, army: &[Id], (gx, gy): (f64, f64)) {
+        let ai = self.ai();
+        if !ai.attacking || !self.finishing(self.seat()) {
+            return;
+        }
+        let Some(mut attackers) = ai.attackers.clone() else {
+            return;
+        };
+        let home: Vec<Id> = army
+            .iter()
+            .copied()
+            .filter(|a| !attackers.contains(a) && self.u(*a).task == Task::Idle)
+            .collect();
+        if home.len() < REINFORCE {
+            return;
+        }
+        for &a in &home {
+            let ox = (self.rnd() - 0.5) * 80.0;
+            let oy = (self.rnd() - 0.5) * 80.0;
+            let (px, py) = self.wave_point(a, gx + ox, gy + oy);
+            self.attack_move(a, px, py);
+        }
+        attackers.extend(&home);
+        let ai = self.ai_mut();
+        ai.wave_size += home.len();
+        ai.attackers = Some(attackers);
+    }
+
+    /// A clumsy level's wave that gave up or fell (`Diff::wave_only`) does not grow the next until 12:00 and a wave of its
+    /// has reached the foe (`Diff::clumsy_until`): its first hit stays its first wave's size (three or four units) however
+    /// often it turns back; after that its waves grow by one each, still clumsy.
+    fn no_growth_after_giving_up(&mut self) {
+        let d = self.level();
+        // (until 12:00 and a wave has reached the foe: then each grows by one whatever, `Diff::clumsy_until`)
+        if d.wave_only && (self.time < d.clumsy_until || !self.ai().reached) {
+            let ai = self.ai_mut();
+            ai.wave = ai.wave.saturating_sub(d.wave_grow).max(d.wave);
+        }
+    }
+
+    /// Coverage: where wave unit `a` is sent for (x, y): that point, or for a machine the last point of the way there
+    /// inside its side's coverage (it gathers where it can stand: the machines push behind the Uplinks).
     fn wave_point(&self, a: Id, x: f64, y: f64) -> (f64, f64) {
         let u = self.u(a);
-        if radio::needs_range(u.kind) && u.kind.def().air {
+        if radio::needs_range(u.kind) {
             self.radio_leash_point(u.team, u.x, u.y, x, y)
         } else {
             (x, y)
@@ -599,17 +956,16 @@ impl World {
             .filter(|b| b.team == seat && b.kind == tower && b.done)
             .min_by(|a, b| {
                 dist(a.x, a.y, gx, gy)
-                    .partial_cmp(&dist(b.x, b.y, gx, gy))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, gx, gy))
                     .then(a.id.cmp(&b.id))
             })?;
         (dist(b.x, b.y, gx, gy) < from_rally - 4.0 * TILE).then_some((b.x, b.y))
     }
 
-    /// The range: the leapfrog relay (`AiScript::relay`, the Uplink, once its satellite is up: later in the game).
-    /// While a wave with machines is out, the AI keeps one relay site at a time going `RELAY_AHEAD` tiles past the edge
-    /// of its range along the way from its rally point to the goal, once the wave's front has come that far; never
-    /// holding the wave for it. A site under fire is abandoned (its cost partly back) and the wave places no other.
+    /// The range: the forward Uplink (`AiScript::relay`, once its Lab stands) for a wave with machines out: while one
+    /// is out, the AI keeps one site at a time going at its point for the goal (`relay_point`) once the wave's front has
+    /// come that far, never holding the wave for it. A site under fire is abandoned (its cost partly back) and the wave
+    /// places no other.
     fn tend_relay(&mut self, attackers: &[Id], (gx, gy): (f64, f64)) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
@@ -621,6 +977,62 @@ impl World {
         if !machines || self.ai().relay_off || !self.has_req(seat, tower) {
             return;
         }
+        self.raise_relay(attackers, (gx, gy), true);
+    }
+
+    /// The push (the arc: "an Uplink, then the machines"): while its goal lies out of its coverage, its machines (kept
+    /// out of the waves) wait at its forward-most Uplink on the way, and once it has `PUSH_MACHINES` of them it raises
+    /// an Uplink at its point for the goal (`relay_point`: one that covers it), its idle army guarding the site.
+    fn tend_push(&mut self, machines: &[Id], rest: &[Id], goal: (f64, f64)) {
+        let seat = self.seat();
+        let Some(tower) = self.factions[seat as usize].ai.relay else {
+            return;
+        };
+        let at = self
+            .turret_stage(goal)
+            .unwrap_or_else(|| self.rally_or_home());
+        for &m in machines {
+            let u = self.u(m);
+            if matches!(u.task, Task::Idle) && dist(u.x, u.y, at.0, at.1) > 4.0 * TILE {
+                let (x, y) = self.radio_leash_point(seat, u.x, u.y, at.0, at.1);
+                self.move_to(m, x, y);
+            }
+        }
+        if machines.len() < PUSH_MACHINES || !self.has_req(seat, tower) {
+            return;
+        }
+        // (a site abandoned under fire lets the next go after the gap between waves)
+        if self.ai().relay_off && self.ai().attacking {
+            return;
+        }
+        self.ai_mut().relay_off = false;
+        self.raise_relay(machines, goal, false);
+        // (its site guarded: the army at home, idle, goes to stand by it while it rises)
+        if let Some((sx, sy)) = self
+            .ai()
+            .relay_site
+            .and_then(|id| self.bldg(id))
+            .filter(|b| !b.done)
+            .map(|b| (b.x, b.y))
+            && !self.ai().attacking
+        {
+            for &a in rest {
+                let u = self.u(a);
+                if matches!(u.task, Task::Idle) && dist(u.x, u.y, sx, sy) > 5.0 * TILE {
+                    self.attack_move(a, sx, sy);
+                }
+            }
+        }
+    }
+
+    /// The forward Uplink (`AiScript::relay`) at its point for the goal (`relay_point`); with `front`, only once the
+    /// escort's unit nearest the goal has come about that far.
+    fn raise_relay(&mut self, escort: &[Id], (gx, gy): (f64, f64), front_needed: bool) {
+        let seat = self.seat();
+        let Some(tower) = self.factions[seat as usize].ai.relay else {
+            return;
+        };
+        let attackers = escort;
         // (a tower finished this tick: its range counts before the edge is looked for again)
         self.refresh_radio(false);
         // The site under way: abandoned under fire, let go once it stands (or is gone).
@@ -647,35 +1059,21 @@ impl World {
                 }
             }
         }
-        // The edge of its range on the way, and the spot past it.
-        let (rx, ry) = self.rally_or_home();
-        let len = dist(rx, ry, gx, gy);
-        if len < TILE {
+        let Some((at, len, (px, py))) = self.relay_point((gx, gy)) else {
             return;
-        }
-        let (ux, uy) = ((gx - rx) / len, (gy - ry) / len);
-        let steps = (len / TILE) as i32;
-        let Some(edge) = (0..=steps)
-            .map(|k| k as f64 * TILE)
-            .find(|&s| !self.in_radio(seat, rx + ux * s, ry + uy * s))
-        else {
-            return; // (covered all the way)
         };
-        let at = edge + RELAY_AHEAD * TILE;
-        if at > len - RELAY_GOAL_ROOM * TILE {
-            return;
-        }
-        let (px, py) = (rx + ux * at, ry + uy * at);
-        // The wave's front (its unit nearest the goal) must be about there already.
+        // The wave's front (its unit nearest the goal) must be about there already (for a wave's leapfrog).
         let front = attackers
             .iter()
             .filter_map(|&a| self.unit(a))
             .map(|u| dist(u.x, u.y, gx, gy))
             .fold(f64::INFINITY, f64::min);
-        if front > len - at + RELAY_FRONT * TILE || !self.can_afford(seat, tower.def().cost) {
+        if (front_needed && front > len - at + RELAY_FRONT * TILE)
+            || !self.can_afford(seat, tower.def().cost)
+        {
             return;
         }
-        let Some(spot) = self.find_spot(tower, px / TILE, py / TILE) else {
+        let Some(spot) = self.relay_spot((px, py), (gx, gy)) else {
             return;
         };
         let workers: Vec<Id> = self
@@ -695,13 +1093,163 @@ impl World {
         }
     }
 
+    /// Where the seat taking its turn raises its forward Uplink (`AiScript::relay`) for `goal` (px): how far along the
+    /// walkers' way from its rally point (px), the way's length (px) and the point there. The first point of the way whose coverage takes in
+    /// the goal with `RELAY_COVER_ROOM` tiles to spare (so one Uplink covers the push, and stands as far back as that
+    /// allows, where its army can hold it; before Nov 13 a chain of them leapfrogged a few tiles past the edge), never
+    /// nearer the goal than `RELAY_GOAL_ROOM` tiles. None when its coverage already takes in the goal so, when the way
+    /// is too short, or when the site would add nothing (its coverage no farther along the way than today's edge).
+    pub(crate) fn relay_point(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64, (f64, f64))> {
+        let seat = self.seat();
+        let tower = self.factions[seat as usize].ai.relay?;
+        let reach = radio::range_of(tower) * TILE;
+        let spare = RELAY_COVER_ROOM * TILE;
+        if self.in_radio_by(seat, gx, gy, -RELAY_COVER_ROOM) {
+            return None;
+        }
+        let way = self.relay_way(self.rally_or_home(), (gx, gy));
+        if way.len() < 2 {
+            return None;
+        }
+        let len = way.len() as f64 * TILE;
+        let edge = way
+            .iter()
+            .position(|&(x, y)| !self.in_radio(seat, x, y))
+            .map_or(len, |i| i as f64 * TILE);
+        let cover = way
+            .iter()
+            .position(|&(x, y)| dist(x, y, gx, gy) <= reach - spare)
+            .map_or(len, |i| i as f64 * TILE);
+        let at = cover.min(len - RELAY_GOAL_ROOM * TILE);
+        if at < TILE || at + reach < edge {
+            return None;
+        }
+        Some((at, len, way[((at / TILE) as usize).min(way.len() - 1)]))
+    }
+
+    /// Where the seat taking its turn raises the Uplink its Portal trains with: on the walkers' way to `goal` (px), at
+    /// its forward point (`relay_point`) if that lies inside its coverage, else `RELAY_HOME_INSIDE` tiles inside the
+    /// edge of its coverage on the way (in its base, where its army and towers hold it: a lone forward Uplink at
+    /// midfield fell to the first wave, and the Portal with it). None where the way is too short.
+    pub(crate) fn relay_home_point(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64)> {
+        let seat = self.seat();
+        let tower = self.factions[seat as usize].ai.relay?;
+        let reach = radio::range_of(tower) * TILE;
+        let way = self.relay_way(self.rally_or_home(), (gx, gy));
+        if way.len() < 2 {
+            return None;
+        }
+        let len = way.len() as f64 * TILE;
+        let edge = way
+            .iter()
+            .position(|&(x, y)| !self.in_radio(seat, x, y))
+            .map_or(len, |i| i as f64 * TILE);
+        let cover = way
+            .iter()
+            .position(|&(x, y)| dist(x, y, gx, gy) <= reach - RELAY_COVER_ROOM * TILE)
+            .map_or(len, |i| i as f64 * TILE);
+        let at = cover.min(edge - RELAY_HOME_INSIDE * TILE).max(0.0);
+        Some(way[((at / TILE) as usize).min(way.len() - 1)])
+    }
+
+    /// A spot for the forward Uplink near `point` (px, its `relay_point`) whose coverage takes in `goal` (px) with
+    /// `RELAY_COVER_ROOM` tiles to spare, as the point's does (a site in rings round the point at any angle fell short
+    /// of the goal, and another went up beside it, and another).
+    pub(crate) fn relay_spot(&mut self, point: (f64, f64), goal: (f64, f64)) -> Option<(i32, i32)> {
+        let tower = self.factions[self.seat() as usize].ai.relay?;
+        let d = tower.def();
+        let most = radio::range_of(tower) - RELAY_COVER_ROOM;
+        let ok = move |_: &World, tx: i32, ty: i32| {
+            let (cx, cy) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
+            jsmath::hypot(cx - goal.0 / TILE, cy - goal.1 / TILE) <= most
+        };
+        self.find_spot_within(tower, point.0 / TILE, point.1 / TILE, 0.0, 15.0, &ok)
+    }
+
+    /// The walkers' way from `from` to `to` (px), a point every tile along it from `from` (the relay's sites are looked
+    /// for along it): a search over the walkable tiles, or the straight line where there is none.
+    fn relay_way(&self, from: (f64, f64), to: (f64, f64)) -> Vec<(f64, f64)> {
+        let foot = crate::map::Foot {
+            class: Move::Walk,
+            water: self.water,
+        };
+        let (a, b) = (
+            self.map.tile_of(from.0, from.1),
+            self.map.tile_of(to.0, to.1),
+        );
+        let mut scratch = crate::path::PathScratch::new((self.map.w * self.map.h) as usize);
+        let corners: Vec<(f64, f64)> =
+            crate::path::astar(&self.map, foot, &mut scratch, a.0, a.1, b.0, b.1)
+                .map(|p| p.iter().map(|q| (q.x, q.y)).collect())
+                .unwrap_or_else(|| vec![to]);
+        let mut way = vec![from];
+        let mut at = from;
+        for c in corners {
+            let d = dist(at.0, at.1, c.0, c.1);
+            let n = (d / TILE).floor() as usize;
+            for k in 1..=n {
+                let f = k as f64 * TILE / d;
+                way.push((at.0 + (c.0 - at.0) * f, at.1 + (c.1 - at.1) * f));
+            }
+            at = way.last().copied().unwrap_or(at);
+            if n == 0 {
+                at = c;
+            }
+        }
+        way
+    }
+
     /// The worth of seat `e`'s army (armed units, workers left out).
-    fn own_army_worth(&self, e: u8) -> f64 {
+    pub(crate) fn own_army_worth(&self, e: u8) -> f64 {
         self.units
             .iter()
             .filter(|u| u.team == e && !u.kind.def().worker && u.kind.def().armed())
             .map(|u| army_worth(u.kind))
             .sum()
+    }
+
+    /// Whether `army` (short of the wave's count `need`) crushes the enemy army it expects: at least half the count,
+    /// a sighting at all, and `CRUSH` times its worth, a stale one counted as in `strong_enough` (Medium sat on
+    /// fourteen fighters for six minutes, its reserve and expansion guards keeping the wave short of thirteen, while
+    /// its foe had one Sellsword).
+    fn crushing(&self, army: &[Id], need: usize, t: f64) -> bool {
+        if army.len() * 2 < need {
+            return false;
+        }
+        let Some(expected) = self.foe_expected(t) else {
+            return false;
+        };
+        let mine: f64 = army
+            .iter()
+            .filter_map(|&a| self.unit(a))
+            .filter(|u| u.kind.def().armed())
+            .map(|u| army_worth(u.kind))
+            .sum();
+        mine >= CRUSH * expected
+    }
+
+    /// The enemy army it expects (None: never seen): its last sighting, a stale one (older than `sighting_age`) plus
+    /// what its own army has grown since.
+    fn foe_expected(&self, t: f64) -> Option<f64> {
+        let (seen, when, mine_then) = self.ai().army_seen;
+        if when <= 0.0 {
+            return None;
+        }
+        Some(if t - when <= self.level().sighting_age {
+            seen
+        } else {
+            seen + (self.own_army_worth(self.seat()) - mine_then).max(0.0)
+        })
+    }
+
+    /// Whether, late in the game (from its stalled game's `Diff::stall_from`), its whole army crushes the enemy army it
+    /// expects (`CRUSH` times its worth, a sighting at all): a beaten foe, against which it keeps no home reserve
+    /// (`tend_reserve`).
+    fn foe_beaten(&self, t: f64) -> bool {
+        t >= self.level().stall_from
+            && self
+                .foe_expected(t)
+                .is_some_and(|e| self.own_army_worth(self.seat()) >= CRUSH * e.max(1.0))
     }
 
     /// By strength (`Diff::wave_margin`; PRD: the AI breaks a defense): a wave ready by count and time waits until
@@ -799,7 +1347,15 @@ impl World {
     fn tend_reserve(&mut self, army: Vec<Id>, rally: Pt, t: f64) -> Vec<Id> {
         let seat = self.seat();
         let share = self.level().reserve;
-        if share <= 0.0 || self.at_cap(self.seat()) || !self.passive_foe(t) {
+        let pushing = self.ai().stall && self.level().push_all;
+        // (and none against a beaten foe: a foe with no army to come at it is passive too, and a quarter of a winning
+        // army kept home against it let the foe's rebuilt Castles stand past the 30-minute cap)
+        if share <= 0.0
+            || self.at_cap(self.seat())
+            || !self.passive_foe(t)
+            || pushing
+            || self.foe_beaten(t)
+        {
             self.ai_mut().reserve.clear();
             return army;
         }
@@ -835,6 +1391,13 @@ impl World {
             held += army_worth(self.u(a).kind);
             reserve.push(a);
         }
+        // (never the reserve alone keeping a wave short of its count: two passive Kingdoms each kept a quarter home,
+        // each wave stayed short, and neither came for six minutes, each the other's passive foe)
+        let need =
+            (self.ai().wave as f64 * self.factions[seat as usize].ai.wave_scale).ceil() as usize;
+        if !self.ai().attacking && army.len() >= need && army.len() - reserve.len() < need {
+            reserve.clear();
+        }
         for &a in &reserve {
             let u = self.u(a);
             if u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
@@ -847,14 +1410,10 @@ impl World {
         army.into_iter().filter(|a| !reserve.contains(a)).collect()
     }
 
-    /// Whether `seat`'s army stands at its maximum, within `CAP_SLACK`: every pool it has (`pool_max` above 0: the
-    /// Kingdom's population; the Expedition's Power and its hired places, each against its own maximum). A wave then
-    /// goes with everything, the reserve too.
+    /// Whether `seat`'s army stands at its maximum (`sup_max`: the Kingdom's population, the Expedition's grid), within
+    /// `CAP_SLACK`. A wave then goes with everything, the reserve too.
     pub(crate) fn at_cap(&self, seat: u8) -> bool {
-        ALL_POOLS.into_iter().all(|p| {
-            let max = self.pool_max(seat, p);
-            max == 0 || self.pool(seat, p)[0] + self.places(seat, p, CAP_SLACK) >= max
-        })
+        self.sup(seat)[0] + self.places(seat, CAP_SLACK) >= self.sup_max(seat)
     }
 
     /// A passive foe (`Diff::passive_expand`): none of its armed units at our buildings for that long, those that
@@ -979,8 +1538,7 @@ impl World {
         free.sort_by(|&p, &q| {
             let (up, uq) = (self.u(p), self.u(q));
             dist(up.x, up.y, ex, ey)
-                .partial_cmp(&dist(uq.x, uq.y, ex, ey))
-                .unwrap()
+                .total_cmp(&dist(uq.x, uq.y, ex, ey))
                 .then(p.cmp(&q))
         });
         guards.extend(free.into_iter().take(GUARDS.saturating_sub(guards.len())));
@@ -1007,6 +1565,9 @@ impl World {
     ) {
         let ai = self.ai();
         let wave_size = ai.wave_size;
+        // (a stalled game's push fights to its last unit: a wave that walked home at 40% met a defense as full as
+        // ever next time)
+        let push = ai.push;
         let lost = ai.known.is_empty() && t - ai.last_wave > 240.0;
         let alive: Vec<Id> = army
             .iter()
@@ -1020,26 +1581,72 @@ impl World {
             k.def().armed() && !Self::hits_of(k).0
         };
         let left = alive.iter().filter(|&&a| !air_only(self, a)).count();
+        // (a machine with no way to its target through coverage stops at the edge and holds its order there. A wave
+        // left with only such machines is over; else it never ended, and no other went)
+        let held = |w: &World, a: Id| {
+            let u = w.u(a);
+            radio::needs_range(u.kind)
+                && u.cd < -HELD_QUIET
+                && t - u.struck > HELD_QUIET
+                && !w.in_radio_by(u.team, u.x, u.y, -EDGE_NEAR)
+        };
+        let quiet = |w: &World, a: Id| {
+            let u = w.u(a);
+            u.cd < -WAVE_QUIET && t - u.struck > WAVE_QUIET
+        };
+        let stalled = alive.iter().all(|&a| held(self, a))
+            || (t - ai.last_wave > WAVE_QUIET && alive.iter().all(|&a| quiet(self, a)));
+        if !ai.reached {
+            let reached = alive.iter().any(|&a| {
+                let u = self.u(a);
+                self.ai()
+                    .known
+                    .iter()
+                    .any(|k| dist(u.x, u.y, k.1, k.2) < REACHED)
+            });
+            self.ai_mut().reached = reached;
+        }
+        if self.level().answers {
+            self.dive_at_siege(&alive);
+        }
         if alive.is_empty() {
+            self.no_growth_after_giving_up(); // (all of it fell: it met more than it could take)
             self.ai_mut().attacking = false;
-        } else if lost || left == 0 || (wave_size >= 4 && left * 10 < wave_size * 4) {
+            self.ai_mut().notes.ended = Some(crate::world::WaveEnd::AllFell);
+        } else if lost
+            || left == 0
+            || stalled
+            || (!push && wave_size >= 4 && left * 10 < wave_size * self.level().give_up)
+        {
             // Pull the survivors back instead of feeding them in one by one.
+            let why = if lost || left == 0 || stalled {
+                crate::world::WaveEnd::Quiet
+            } else {
+                crate::world::WaveEnd::GaveUp
+            };
+            self.ai_mut().notes.ended = Some(why);
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
                 self.move_to(a, rally.x + ox, rally.y + oy);
             }
+            self.no_growth_after_giving_up();
             let ai = self.ai_mut();
             ai.attacking = false;
             ai.attackers = None;
             ai.last_wave = t;
-        } else if self.passive_foe(t) && self.outmatched(&alive) {
+        } else if !push
+            && (self.level().retreat_any || self.passive_foe(t))
+            && self.outmatched(&alive)
+        {
             // Outmatched on contact with a passive foe: back to its rally, where its reserve and towers meet whoever chases it.
+            self.ai_mut().notes.ended = Some(crate::world::WaveEnd::Outmatched);
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
                 self.move_to(a, rally.x + ox, rally.y + oy);
             }
+            self.no_growth_after_giving_up();
             let ai = self.ai_mut();
             ai.attacking = false;
             ai.attackers = None;
@@ -1092,11 +1699,7 @@ impl World {
                 let best = known
                     .iter()
                     .filter(|k| self.bldg(k.0).is_some())
-                    .min_by(|p, q| {
-                        dist(ux, uy, p.1, p.2)
-                            .partial_cmp(&dist(ux, uy, q.1, q.2))
-                            .unwrap()
-                    });
+                    .min_by(|p, q| dist(ux, uy, p.1, p.2).total_cmp(&dist(ux, uy, q.1, q.2)));
                 match best {
                     Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
                     Some(&(_, bx, by)) => {
@@ -1177,9 +1780,11 @@ mod tests {
     /// last wave at 300): the world, its army and its brain. Its tuning is its level's without a home reserve or a
     /// retreat on contact (the scenes of those set their own: `ready_with`).
     fn ready(level: usize) -> (World, Vec<Id>, Brain) {
+        // (a margin of at most 1.3, the levels' before Nov 13: the scenes are about the mechanism; Easy's none)
         let plan = Diff {
             reserve: 0.0,
             retreat_below: 0.0,
+            wave_margin: DIFF[level].wave_margin.min(1.3),
             ..DIFF[level]
         };
         ready_with(level, plan)
@@ -1251,7 +1856,7 @@ mod tests {
         // full supply: all in, whatever it saw
         let (mut w, army, mut b) = ready(1);
         w.ai_mut().army_seen = (30.0 * trooper(), 399.0, 0.0);
-        w.pools[1][0][0] = w.supply_limit();
+        w.supply[1][0] = w.sup_max(1);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "full supply: all in");
         assert_eq!(
@@ -1304,6 +1909,7 @@ mod tests {
             all_in_after: all_in,
             reserve: 0.0,
             retreat_below: 0.0,
+            wave_margin: 1.3,
             ..DIFF[1]
         };
         let (mut w, _, mut b) = ready(1);
@@ -1332,7 +1938,7 @@ mod tests {
     fn easy_keeps_todays_waves() {
         let (mut w, _, mut b) = ready(0);
         w.ai_mut().wave = 4;
-        b.t = 500.0; // (past Easy's first wave, 7:45)
+        b.t = 500.0; // (past Easy's first wave, 8:00)
         w.ai_mut().army_seen = (30.0 * trooper(), 499.0, 0.0);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "Easy does not wait for strength");
@@ -1342,15 +1948,15 @@ mod tests {
     #[test]
     fn against_a_passive_foe_a_home_reserve_of_its_cheapest_fighters_stays_at_the_rally() {
         // Medium's reserve, a quarter of its army's worth, against a foe that has not come at it: of ten Troopers
-        // (and a Knight, pricier), three Troopers stay home as the wave goes; the Knight goes with the wave.
+        // (and a Rider, pricier), three Troopers stay home as the wave goes; the Rider goes with the wave.
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
         let (hx, hy) = (b.rally.x, b.rally.y);
-        let tank = w.make_unit(UnitKind::Knight, 1, hx + 60.0, hy + 140.0);
+        let tank = w.make_unit(UnitKind::Rider, 1, hx + 60.0, hy + 140.0);
         b.army.push(tank);
         w.ai_army(&mut b);
         assert!(w.ai().attacking, "the wave goes");
         let reserve = w.ai().reserve.clone();
-        let total = 10.0 * trooper() + super::army_worth(UnitKind::Knight);
+        let total = 10.0 * trooper() + super::army_worth(UnitKind::Rider);
         let held: f64 = reserve
             .iter()
             .map(|&a| super::army_worth(w.u(a).kind))
@@ -1364,7 +1970,7 @@ mod tests {
             "Troopers, the cheapest"
         );
         let wave = w.ai().attackers.clone().unwrap();
-        assert!(wave.contains(&tank), "the Knight goes");
+        assert!(wave.contains(&tank), "the Rider goes");
         assert!(
             reserve.iter().all(|a| !wave.contains(a)),
             "the reserve stays out of it"
@@ -1386,7 +1992,7 @@ mod tests {
         );
         // at full supply everything goes: the next wave takes the reserve too
         let (mut w, army, mut b) = ready_with(1, DIFF[1]);
-        w.pools[1][0][0] = w.supply_limit();
+        w.supply[1][0] = w.sup_max(1);
         w.ai_army(&mut b);
         assert!(w.ai().reserve.is_empty());
         assert_eq!(
@@ -1465,8 +2071,8 @@ mod tests {
         // the same against a foe that has just come at its buildings: it fights on, as today
         let (w, _, _) = scene(14, true);
         assert!(w.ai().attacking, "not a passive foe: it fights on");
-        // Easy never retreats
-        assert_eq!(DIFF[0].retreat_below, 0.0);
+        // Easy never retreats (Stelian, Nov 14: `easy_does_not_retreat_its_wave_fights_to_the_last_unit`)
+        assert!(!DIFF[0].retreat_any && DIFF[0].retreat_below == 0.0);
     }
 
     #[test]
@@ -1652,6 +2258,189 @@ mod tests {
     }
 
     #[test]
+    fn at_its_most_fighters_a_wave_goes_whatever_its_count() {
+        // Easy's army cap is drawn as low as 8 (`Diff::army_max`): an army at its cap is as big as it gets, so its wave
+        // goes whatever its count (an army of eight, three of them guards, waited for ever for a wave of six). Ten
+        // Troopers, a wave of twelve wanted: with a cap of 20 it waits; with a cap of 10 it goes, its twelve or what it has.
+        let go = |most: usize| {
+            let plan = Diff {
+                army_max: most,
+                ..DIFF[0]
+            };
+            let (mut w, _, mut b) = ready_with(0, plan);
+            w.ai_mut().wave = 12;
+            b.t = 490.0;
+            w.ai_army(&mut b);
+            w.ai().attacking
+        };
+        assert!(!go(20), "short of its count, room to grow: it waits");
+        assert!(go(10), "at its most: it goes");
+    }
+
+    #[test]
+    fn easy_does_not_retreat_its_wave_fights_to_the_last_unit() {
+        // Easy is clumsy (Stelian, Nov 13): its wave is its four, the rest stay home. It does not retreat (Stelian, Nov
+        // 14: retreat is a strong level's skill): meeting a defence twice its worth it fights on, and with three of its
+        // four fallen the last one fights on too (`Diff::give_up` 0, no `retreat_below`).
+        let scene = |enemies: usize| {
+            let (mut w, army, mut b) = ready_with(0, DIFF[0]);
+            b.t = 490.0; // (past its first wave's 8:00)
+            w.ai_army(&mut b);
+            assert!(w.ai().attacking, "its first wave goes");
+            let wave = w.ai().attackers.clone().unwrap();
+            assert_eq!(wave.len(), 4, "four go");
+            assert!(
+                army.iter().filter(|a| !wave.contains(a)).count() == 6,
+                "six stay home"
+            );
+            let (gx, gy) = w.attack_target();
+            let (mx, my) = ((b.rally.x + gx) / 2.0, (b.rally.y + gy) / 2.0);
+            for (i, &a) in wave.iter().enumerate() {
+                let u = w.um(a);
+                (u.x, u.y) = (mx + i as f64 * 20.0, my);
+                u.task = Task::Idle;
+            }
+            for i in 0..enemies {
+                w.make_unit(
+                    UnitKind::Trooper,
+                    0,
+                    mx + 120.0 + (i % 5) as f64 * 20.0,
+                    my + (i / 5) as f64 * 20.0,
+                );
+            }
+            w.update_fog();
+            b.t = 490.0;
+            w.ai_army(&mut b);
+            (w, wave, b)
+        };
+        let (w, _, _) = scene(2);
+        assert!(w.ai().attacking, "four against two: it fights on");
+        let (mut w, wave, mut b) = scene(8);
+        assert!(w.ai().attacking, "four against eight: it fights on");
+        w.units.retain(|u| !wave[..3].contains(&u.id));
+        b.army.retain(|a| !wave[..3].contains(a));
+        b.t = 495.0;
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "one of four left: it fights on");
+        assert!(
+            !matches!(w.u(wave[3]).task, Task::Move { x, y } if crate::jsmath::dist(x, y, b.rally.x, b.rally.y) < 100.0),
+            "not sent home"
+        );
+        // Medium does pull back from a passive foe that outmatches it (`retreat_below`), and below four tenths of a wave
+        assert!(DIFF[1].retreat_below > 0.0 && DIFF[1].give_up == 4);
+    }
+
+    #[test]
+    fn the_tier_rises_with_the_clock_on_easy_and_medium() {
+        // A level's tier (`Diff::tier_at`): Easy its line units from the start, its raiders, siege and Drones from the
+        // time its style draws (10:00 here, its level's own), never its top tier (the Knight, the Android, the Rover) but
+        // in Boom (`top_max`, below); Medium its top tier from 8:00; Hard everything.
+        use UnitKind::*;
+        let at = |level: usize, t: f64, k: UnitKind| {
+            let (mut w, _, _) = ready_with(level, DIFF[level]);
+            w.time = t;
+            w.level_allows(k)
+        };
+        assert!(at(0, 0.0, Trooper) && at(0, 0.0, Prism) && !at(0, 0.0, Umbra));
+        assert!(!at(0, 590.0, Scythe) && at(0, 600.0, Scythe) && at(0, 600.0, SiegeTank));
+        assert!(!at(0, 1800.0, Knight) && !at(0, 1800.0, Monolith));
+        assert!(
+            at(1, 0.0, Scythe)
+                && !at(1, 470.0, Umbra)
+                && at(1, 480.0, Umbra)
+                && at(1, 480.0, Knight)
+        );
+        // (Hard, the menus' since Nov 13: its top tier from 6:00; the sim's level 3 from the start)
+        assert!(at(2, 0.0, Scythe) && !at(2, 350.0, Knight) && at(2, 360.0, Knight));
+        assert!(at(3, 0.0, Knight));
+        // Easy's Boom: its top tier from 15:00, two units of it at most, queued ones counted (`Diff::top_max`).
+        let boom = Diff {
+            tier_at: [600.0, 900.0],
+            top_max: 2,
+            ..DIFF[0]
+        };
+        let (mut w, _, _) = ready_with(0, boom);
+        w.time = 890.0;
+        assert!(!w.level_allows(Knight));
+        w.time = 900.0;
+        assert!(w.level_allows(Knight) && w.level_allows(Rider));
+        w.make_unit(Knight, ENEMY, 800.0, 800.0);
+        let hq = w.bldgs.iter().position(|b| b.team == ENEMY).unwrap();
+        w.bldgs[hq].queue.push(Knight); // (queued: counted, whatever trains it)
+        assert!(
+            !w.level_allows(Knight) && !w.level_allows(Monolith),
+            "two at most"
+        );
+        assert!(w.level_allows(Rider), "its mid tier still");
+    }
+
+    #[test]
+    fn a_wave_left_with_only_machines_held_quiet_at_the_coverage_edge_is_over() {
+        // The Expedition's wave out: six machines at its Data center's coverage edge, told to attack the foe's
+        // headquarters, which no way through coverage reaches: they hold there.
+        // Quiet for 20 s (not firing, not hit), the wave is over and they go back to the rally, so the next can go;
+        // one of them firing lately, it goes on. (Before, such a wave never ended: a three-seat game ran 45 minutes.)
+        let scene = |fired_ago: f64| {
+            let mut w =
+                World::with_size(5, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
+            w.refresh_radio(true);
+            w.ai_turn = 1;
+            let (bx, by) = w.map.bases[1];
+            let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+            let reach = crate::data::radio::range_of(BldgKind::Conflux) * TILE;
+            let (fx, fy) = w.map.bases[0];
+            let core = w.bldgs.iter().find(|b| b.team == 0).unwrap().id;
+            let (dx, dy) = ((fx - bx) as f64, (fy - by) as f64);
+            let len = crate::jsmath::hypot(dx, dy);
+            let army: Vec<Id> = (0..6)
+                .map(|i| {
+                    let k = if i < 3 {
+                        UnitKind::Monolith
+                    } else {
+                        UnitKind::Scythe
+                    };
+                    let (x, y) = (
+                        hx + dx / len * reach + i as f64 * 6.0,
+                        hy + dy / len * reach,
+                    );
+                    let a = w.make_unit(k, 1, x, y);
+                    let u = w.um(a);
+                    u.task = Task::Attack {
+                        target: core,
+                        back: None,
+                    };
+                    u.cd = -fired_ago;
+                    a
+                })
+                .collect();
+            let rally = Pt { x: hx, y: hy };
+            let ai = w.ai_mut();
+            ai.rally = Some(rally);
+            ai.attacking = true;
+            ai.attackers = Some(army.clone());
+            ai.wave_size = 6;
+            ai.last_wave = 300.0;
+            let goal = (fx as f64 * TILE, fy as f64 * TILE);
+            w.ai_steer_wave(&army, &army, 400.0, rally, goal);
+            (w, army, rally)
+        };
+        let (w, army, rally) = scene(30.0);
+        assert!(
+            !w.ai().attacking,
+            "held quiet at the edge: the wave is over"
+        );
+        assert_eq!(w.ai().last_wave, 400.0);
+        for &a in &army {
+            assert!(
+                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, rally.x, rally.y) < 100.0),
+                "back to its rally"
+            );
+        }
+        let (w, _, _) = scene(5.0);
+        assert!(w.ai().attacking, "firing lately: it goes on");
+    }
+
+    #[test]
     fn a_wave_prefers_production_to_a_lone_forward_depot() {
         // The AI knows a forward Depot first and a Garrison second, not the headquarters: the Garrison is the goal.
         let mut w = World::new(17, 1);
@@ -1803,5 +2592,426 @@ mod tests {
         // Kept, not re-picked, on the next turn.
         let again = w.tend_guards(army.clone());
         assert_eq!(again, rest);
+    }
+
+    #[test]
+    fn what_it_expects_of_the_foe_falls_with_the_units_it_saw() {
+        // (found in the 2v2's 90-minute games: a defender that wiped a wave out at home still expected that wave, and
+        // waited for a margin over it that it never reached) Six enemy Guards in sight at its base: it expects them; they
+        // fall, and on its next look it expects nothing of them.
+        let (mut w, _, mut b) = ready(1);
+        let (hx, hy) = (b.rally.x, b.rally.y);
+        let foes: Vec<Id> = (0..6)
+            .map(|i| w.make_unit(UnitKind::Trooper, 0, hx + 120.0 + i as f64 * 20.0, hy))
+            .collect();
+        w.update_fog();
+        w.ai_watch(&mut b);
+        assert_eq!(w.ai().army_seen.0, 6.0 * trooper(), "it saw six Guards");
+        for &f in &foes[..4] {
+            w.units.retain(|u| u.id != f);
+        }
+        w.update_fog();
+        w.ai_watch(&mut b);
+        assert_eq!(w.ai().army_seen.0, 2.0 * trooper(), "two of them left");
+    }
+
+    #[test]
+    fn a_wave_short_of_its_count_goes_when_it_crushes_what_the_foe_has() {
+        // (found in the lab: Medium sat on fourteen fighters for six minutes, its reserve and guards keeping the wave
+        // short of its count, while its foe had one Sellsword) Ten Troopers where the wave wants twenty: they wait
+        // against a foe seen with five, and go against one seen with one (three times its worth and more).
+        let plan = Diff {
+            wave: 20,
+            reserve: 0.0,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        };
+        for (seen, goes) in [(5.0, false), (1.0, true)] {
+            let (mut w, _, mut b) = ready_with(1, plan);
+            w.ai_mut().wave = 20;
+            w.ai_mut().army_seen = (seen * trooper(), 395.0, 10.0 * trooper());
+            w.ai_army(&mut b);
+            assert_eq!(w.ai().attacking, goes, "against {seen} seen");
+        }
+    }
+
+    #[test]
+    fn a_wave_quiet_for_a_minute_and_a_half_is_over() {
+        // (found in the lab: a wave of two left standing short of the foe's base for eight minutes kept a winning army
+        // at home) A wave out two minutes whose units have neither fired nor been hit for 90 s comes home.
+        let (mut w, army, mut b) = ready(1);
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "the wave goes");
+        w.time = 400.0 + 120.0;
+        b.t = w.time;
+        for &a in &army {
+            let u = w.um(a);
+            u.cd = -100.0;
+            u.struck = -1000.0;
+        }
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking, "over");
+    }
+
+    #[test]
+    fn easy_finishes_only_late_and_once_a_wave_has_reached_the_foe() {
+        // Finishing (`Diff::finish_from`) lifts Easy's army cap: not before its time, and not before a wave of its has
+        // reached the foe (a newcomer first hit at 25:00 met three units on main, and thirteen once it finished).
+        let plan = Diff {
+            army_max: 2,
+            finish_from: 1200.0,
+            ..DIFF[0]
+        };
+        let (mut w, _, _) = ready_with(0, plan);
+        for (t, reached, finishing) in [
+            (1199.0, true, false),
+            (1300.0, false, false),
+            (1300.0, true, true),
+        ] {
+            w.time = t;
+            w.ai_mut().reached = reached;
+            assert_eq!(w.finishing(1), finishing, "at {t}, reached {reached}");
+            assert_eq!(
+                w.army_full(1),
+                !finishing,
+                "its cap, at {t}, reached {reached}"
+            );
+        }
+        assert_eq!(DIFF[1].finish_from, NEVER, "Easy's alone");
+    }
+
+    #[test]
+    fn easy_s_waves_grow_by_one_after_12_00_and_a_hit_still_clumsy() {
+        // Stelian, Nov 13: after 12:00 Easy's waves grow slowly from three or four, still clumsy (just their size) and
+        // quick to give up, never its whole army. A wave that gives up does not grow the next before 12:00, nor after it
+        // until a wave has reached the foe; then it does, by one.
+        let (mut w, _, _) = ready_with(0, DIFF[0]);
+        for (t, reached, grows) in [
+            (700.0, true, false),
+            (800.0, false, false),
+            (800.0, true, true),
+        ] {
+            w.time = t;
+            w.ai_mut().reached = reached;
+            w.ai_mut().wave = 5; // (its launch grew it from 4)
+            w.no_growth_after_giving_up();
+            assert_eq!(
+                w.ai().wave,
+                if grows { 5 } else { 4 },
+                "at {t}, reached {reached}"
+            );
+        }
+        let d = w.level();
+        assert!(
+            d.wave_only && !d.retreat_any && d.give_up == 0,
+            "still clumsy past 12:00, and never retreating"
+        );
+    }
+
+    /// Seat 1's AI at `level` on a 96x96 map with a wave out by the map's center: two Guards, a Knight and an Archer,
+    /// its Balloon at home, and seat 0's Cannon six tiles past the wave, in sight. The army phases' turn at 20:00; the
+    /// world, the wave (Guards, Knight, Archer), the Balloon and the Cannon.
+    fn wave_near_a_cannon(level: usize) -> (World, Vec<Id>, Id, Id) {
+        let mut w = World::with_size(
+            9,
+            level,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS, &HUMANS],
+        );
+        w.ai_turn = 1;
+        let (bx, by) = w.map.bases[1];
+        let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+        let (cx, cy) = (48.0 * TILE, 48.0 * TILE);
+        let wave: Vec<Id> = [
+            UnitKind::Trooper,
+            UnitKind::Trooper,
+            UnitKind::Knight,
+            UnitKind::Lancer,
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, &k)| w.make_unit(k, 1, cx + i as f64 * 20.0, cy))
+        .collect();
+        let balloon = w.make_unit(UnitKind::Observer, 1, hx + 60.0, hy + 60.0);
+        let cannon = w.make_unit(UnitKind::SiegeTank, 0, cx + 30.0, cy - 6.0 * TILE);
+        w.update_fog();
+        w.time = 1200.0;
+        let ai = w.ai_mut();
+        ai.attacking = true;
+        ai.attackers = Some(wave.clone());
+        ai.wave_size = wave.len();
+        ai.last_wave = 1190.0;
+        ai.razed = (0, 1190.0); // (not a stalled game: it razed a building just now)
+        ai.rally = Some(Pt { x: hx, y: hy });
+        (w, wave, balloon, cannon)
+    }
+
+    fn army_turn(w: &mut World, army: &[Id]) {
+        let (bx, by) = w.map.bases[1];
+        let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
+        let my_b = w
+            .bldgs
+            .iter()
+            .filter(|b| b.team == 1)
+            .map(|b| b.id)
+            .collect();
+        let mut b = Brain {
+            e: 1,
+            t: w.time,
+            my_b,
+            army: army.to_vec(),
+            rally: Pt { x: hx, y: hy },
+            ..Brain::default()
+        };
+        w.ai_army(&mut b);
+    }
+
+    #[test]
+    fn a_wave_s_melee_and_its_knight_go_for_a_cannon_they_see_on_a_level_that_adapts() {
+        // The PM, Nov 13 (games that grind): the Cannons that shelled its waves from past their sight killed most of
+        // them, and nothing went for the guns. On a level that adapts, its melee units and its dive unit go for the
+        // nearest siege gun it sees within 14 tiles (inside its blind ring it cannot answer them); its Archer does not.
+        let (mut w, wave, balloon, cannon) = wave_near_a_cannon(1);
+        let army: Vec<Id> = wave.iter().copied().chain([balloon]).collect();
+        army_turn(&mut w, &army);
+        let on_gun = |w: &World, a: Id| matches!(w.u(a).task, Task::Attack { target, .. } if target == cannon);
+        for &a in &wave[..3] {
+            assert!(on_gun(&w, a), "{:?} goes for the Cannon", w.u(a).kind);
+        }
+        assert!(!on_gun(&w, wave[3]), "its Archer keeps to the wave");
+        // Easy does not adapt: its wave goes on as before.
+        let (mut w, wave, balloon, cannon) = wave_near_a_cannon(0);
+        let army: Vec<Id> = wave.iter().copied().chain([balloon]).collect();
+        army_turn(&mut w, &army);
+        assert!(
+            wave.iter()
+                .all(|&a| !matches!(w.u(a).task, Task::Attack { target, .. } if target == cannon)),
+            "Easy's wave does not dive"
+        );
+    }
+
+    #[test]
+    fn its_balloon_flies_over_its_wave_on_a_level_that_adapts() {
+        // Its scout (the Balloon, 12 tiles of sight) flies over its wave out, to the unit nearest the goal: the wave sees
+        // the guns that shell it from past their own sight (a Cannon's 11 tiles). Easy's stays home.
+        let (mut w, wave, balloon, _) = wave_near_a_cannon(1);
+        let army: Vec<Id> = wave.iter().copied().chain([balloon]).collect();
+        army_turn(&mut w, &army);
+        let near_wave = |w: &World| match w.u(balloon).task {
+            Task::Move { x, y, .. } => wave
+                .iter()
+                .any(|&a| (w.u(a).x - x).abs() + (w.u(a).y - y).abs() < 2.0 * TILE),
+            _ => false,
+        };
+        assert!(
+            near_wave(&w),
+            "the Balloon flies to its wave: {:?}",
+            w.u(balloon).task
+        );
+        let (mut w, wave, balloon, _) = wave_near_a_cannon(0);
+        let army: Vec<Id> = wave.iter().copied().chain([balloon]).collect();
+        army_turn(&mut w, &army);
+        assert!(!near_wave(&w), "Easy's Balloon stays home");
+    }
+
+    #[test]
+    fn a_stalled_game_masses_for_three_minutes_then_pushes_and_fights_to_the_last_unit() {
+        // The PM, Nov 13 (games that grind): past 15:00, with nothing razed by its side for five minutes, its next
+        // wave waits up to three minutes to fill its army to the cap (it is far from it here), then goes all in and
+        // does not give up at 40%.
+        let (mut w, army, mut b) = ready(1);
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.razed = (0, 600.0); // (its last building razed at 10:00: stalled since 15:00)
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0); // (a foe that stands with an army)
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(w.ai().stall, "stalled");
+        assert!(!w.ai().attacking, "it masses first");
+        w.time = 900.0 + super::STALL_HOLD + 10.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking && w.ai().push, "then it pushes");
+        // Seven of its ten fall: a wave pulls back below 40%; the push fights on.
+        for &a in &army[..7] {
+            w.kill(a, Some(0));
+        }
+        b.army = army[7..].to_vec();
+        w.time += 20.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "the push fights to its last unit");
+        // Easy never stalls: its wave goes at once.
+        let (mut w, _, mut b) = ready(0);
+        w.ai_mut().last_wave = 800.0;
+        w.ai_mut().army_seen = (6.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(!w.ai().stall && w.ai().attacking, "Easy goes as ever");
+        // Nor against a foe with no army in sight (an idle one, one it crushed): it hunts what is left at once.
+        let (mut w, _, mut b) = ready(1);
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.razed = (0, 600.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(
+            !w.ai().stall && w.ai().attacking,
+            "no stall without a foe's army"
+        );
+    }
+
+    #[test]
+    fn hard_s_stalled_push_takes_everything_and_goes_short_of_its_count() {
+        // The PM, Nov 15 (Hard against Medium must end): Hard's push goes once its hold is up with what it has, half its
+        // count at least (the Expedition's Hard sat thirteen minutes on a wave short of its count), and a stall comes
+        // after three minutes without razing, not five. Medium's waits for its count as ever.
+        for level in [1, 2] {
+            let (mut w, _, mut b) = ready(level);
+            let ai = w.ai_mut();
+            ai.last_wave = 800.0;
+            ai.wave = 16; // (ten at home: short of its count, more than half of it)
+            ai.razed = (0, 1000.0 - 200.0); // (its last building razed 3:20 ago)
+            ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+            w.time = 1000.0;
+            b.t = w.time;
+            w.ai_army(&mut b);
+            assert_eq!(
+                w.ai().stall,
+                level == 2,
+                "level {level}: stalled after three minutes on Hard"
+            );
+            w.time = 1000.0 + super::STALL_HOLD + 10.0;
+            b.t = w.time;
+            w.ai_army(&mut b);
+            assert_eq!(
+                w.ai().attacking,
+                level == 2,
+                "level {level}: Hard pushes short of its count, Medium waits"
+            );
+            if level == 2 {
+                assert!(w.ai().push, "and fights to its last unit");
+            }
+        }
+        // Its home reserve goes too: against a passive foe the reserve stays home, but not in Hard's push.
+        let plan = |level: usize| Diff {
+            reserve: 0.25,
+            retreat_below: 0.0,
+            ..DIFF[level]
+        };
+        let (mut w, _, mut b) = ready_with(2, plan(2));
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.came_at = 0.0; // (a passive foe)
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().stall && w.ai().reserve.is_empty(),
+            "Hard's push keeps no reserve"
+        );
+        let (mut w, _, mut b) = ready_with(1, plan(1));
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.came_at = 0.0;
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(
+            w.ai().stall && !w.ai().reserve.is_empty(),
+            "Medium's keeps its reserve"
+        );
+    }
+
+    #[test]
+    fn late_in_the_game_no_reserve_stays_home_against_a_beaten_foe() {
+        // Nov 17 (Medium's games past the 30-minute cap): a foe with no army to come at it is passive, so a quarter of a
+        // winning army stayed home while a few units hunted the foe's rebuilt Castles, and the game ran out the clock.
+        // From its stalled game's `Diff::stall_from` on (15:00 here), with its whole army `CRUSH` times what it expects
+        // of the foe's (none seen), the reserve goes too; before then it keeps its reserve as ever.
+        let plan = Diff {
+            reserve: 0.25,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        };
+        assert_eq!(plan.stall_from, 900.0);
+        for (t, kept) in [(800.0, true), (1000.0, false)] {
+            let (mut w, _, mut b) = ready_with(1, plan);
+            let ai = w.ai_mut();
+            ai.came_at = 0.0; // (a passive foe)
+            ai.wave = 7;
+            ai.army_seen = (0.0, t - 10.0, 0.0); // (its army just seen: nothing)
+            w.time = t;
+            b.t = t;
+            w.ai_army(&mut b);
+            assert_eq!(
+                !w.ai().reserve.is_empty(),
+                kept,
+                "at {t} s against a beaten foe: reserve kept {kept}"
+            );
+            assert!(w.ai().attacking, "at {t} s its wave goes for what is left");
+        }
+        // Late, against a foe that still has an army worth a third of its own or more, the reserve stays home.
+        let (mut w, _, mut b) = ready_with(1, plan);
+        let ai = w.ai_mut();
+        ai.came_at = 0.0;
+        ai.wave = 7;
+        ai.army_seen = (4.0 * trooper(), 990.0, 0.0);
+        w.time = 1000.0;
+        b.t = w.time;
+        w.ai_army(&mut b);
+        assert!(!w.ai().reserve.is_empty(), "not a beaten foe: reserve kept");
+    }
+
+    #[test]
+    fn the_reserve_alone_never_keeps_a_wave_short_of_its_count() {
+        // Two passive Kingdoms each kept a quarter of their army home, so each wave stayed short of its count and
+        // neither came for six minutes. With its army at its count but for the reserve, the reserve goes too.
+        let plan = Diff {
+            reserve: 0.25,
+            retreat_below: 0.0,
+            ..DIFF[1]
+        };
+        for (wave, kept) in [(7, true), (10, false), (11, true)] {
+            let (mut w, _, mut b) = ready_with(1, plan);
+            let ai = w.ai_mut();
+            ai.last_wave = 300.0;
+            ai.came_at = 0.0; // (a passive foe)
+            ai.wave = wave;
+            w.ai_army(&mut b);
+            assert_eq!(
+                !w.ai().reserve.is_empty(),
+                kept,
+                "ten at home and a wave of {wave}: reserve kept {kept}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_stalled_game_s_push_does_not_leave_while_the_foe_is_at_its_buildings() {
+        // Its army meets an enemy at its buildings at home (its towers and siege beside it), and pushes after.
+        let (mut w, _, mut b) = ready(1);
+        let ai = w.ai_mut();
+        ai.last_wave = 800.0;
+        ai.razed = (0, 600.0);
+        ai.army_seen = (6.0 * trooper(), 990.0, 0.0);
+        w.time = 900.0 + super::STALL_HOLD + 10.0;
+        b.t = w.time;
+        let intruder = w.make_unit(UnitKind::Trooper, 0, b.rally.x + 40.0, b.rally.y + 40.0);
+        b.intruder = Some(intruder);
+        w.ai_army(&mut b);
+        assert!(!w.ai().attacking, "it defends first");
+        w.kill(intruder, Some(1));
+        b.intruder = None;
+        b.army.retain(|&a| w.unit(a).is_some());
+        w.ai_army(&mut b);
+        assert!(w.ai().attacking, "then it pushes");
     }
 }

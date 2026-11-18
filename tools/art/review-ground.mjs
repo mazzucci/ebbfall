@@ -32,7 +32,7 @@ import { groundTile, rockTile, shadeLayers } from '../../src/client/gl/ground.js
 const outDir = process.argv.slice(2).find(a => !a.startsWith('--')) ?? '/tmp/review-ground', BASE_ONLY = process.argv.includes('--base-only');
 mkdirSync(outDir, { recursive: true });
 const FILTER = BASE_ONLY ? '^(harvester|trooper|lancer)_(0|4|8|12)_0$|^bldg_(core|extractor)$|^shard_\\d$|^doodad_'
-  : '^(harvester|trooper|lancer|lumen|prism|scythe)_(0|4|8|12)_0$|^bldg_(core|conflux|extractor)$|^shard_\\d$|^doodad_|^foundation_\\d$|^scaffold_\\d$|^rubble_\\d$|^bud_\\d$|^rubble_vael_\\d$';
+  : '^(harvester|trooper|lancer|lumen|prism|scythe)_(0|4|8|12)_0$|^bldg_(core|conflux|extractor)$|^shard_\\d$|^doodad_|^foundation_\\d$|^scaffold_\\d$|^rubble_\\d$|^gantry_\\d$|^rubble_vael_\\d$';
 const all = process.env.NO3D ? Object.assign([], { tints: [] }) : await render3d(FILTER), TINTS = all.tints;
 for (const e of effectSprites()) all.push(e);
 const byName = new Map(all.map(s => [s.name, s]));
@@ -171,11 +171,11 @@ if (!BASE_ONLY) {
   for (const [k, st] of [[1, 3], [2, 6]]) { draw(c, get('foundation_4'), X(k), Y); draw(c, core, X(k), Y, 0, { fromRow: stageRow(core, st) }); draw(c, get('scaffold_4'), X(k), Y); }
   draw(c, core, X(3), Y, 0); draw(c, get('rubble_4'), X(4), Y);
   const Y2 = 470;
-  draw(c, get('bud_4'), X(0), Y2);
-  for (const [k, a] of [[1, 0.35], [2, 0.7]]) { draw(c, conflux, X(k), Y2, 1, { alpha: a, tint: [0.8, 0.71, 1] }); draw(c, get('bud_4'), X(k), Y2); }
+  draw(c, get('gantry_4'), X(0), Y2);
+  for (const [k, a] of [[1, 0.35], [2, 0.7]]) { draw(c, conflux, X(k), Y2, 1, { alpha: a, tint: [0.8, 0.71, 1] }); draw(c, get('gantry_4'), X(k), Y2); }
   draw(c, conflux, X(3), Y2, 1); draw(c, get('rubble_vael_4'), X(4), Y2);
   const Y3 = 690; let x = 60;
-  for (const n of [2, 3]) for (const kind of ['foundation', 'scaffold', 'rubble', 'bud', 'rubble_vael']) { draw(c, get(`${kind}_${n}`), x, Y3); x += n * 32 * 2 + 30; }
+  for (const n of [2, 3]) for (const kind of ['foundation', 'scaffold', 'rubble', 'gantry', 'rubble_vael']) { draw(c, get(`${kind}_${n}`), x, Y3); x += n * 32 * 2 + 30; }
   save('construction.png', c);
 }
 
@@ -246,7 +246,7 @@ if (!BASE_ONLY) {
 
 // ---- the maker's checks: values of the ground family against the units' pale tops ----
 if (!process.env.NO3D && !BASE_ONLY) console.log('luminance of the solid pixels (mean / p95, 1 = white; peak in sRGB 0-255):');
-if (!process.env.NO3D && !BASE_ONLY) for (const n of ['shard_0', 'shard_1', 'shard_2', 'shard_3', 'rubble_3', 'rubble_vael_3', 'doodad_boulders_0', 'doodad_spire_0', 'doodad_wreck_0', 'doodad_crater_1', 'scaffold_3', 'bud_3', 'rubble_vael_3', 'trooper_0_0', 'lumen_0_0', 'bldg_core']) { const l = lum(n); console.log(`  ${n.padEnd(20)} ${l.mean} / ${l.p95}  peak ${l.peak}`); }
+if (!process.env.NO3D && !BASE_ONLY) for (const n of ['shard_0', 'shard_1', 'shard_2', 'shard_3', 'rubble_3', 'rubble_vael_3', 'doodad_boulders_0', 'doodad_spire_0', 'doodad_wreck_0', 'doodad_crater_1', 'scaffold_3', 'gantry_3', 'rubble_vael_3', 'trooper_0_0', 'lumen_0_0', 'bldg_core']) { const l = lum(n); console.log(`  ${n.padEnd(20)} ${l.mean} / ${l.p95}  peak ${l.peak}`); }
 // ---- the gray check: medians in the units sheet in gray (sRGB 0-255) of the bare ground, the kelp, each resource's
 // and prop's solid pixels and the units', so the order (units, then the shaft and the full salt, kelp never) is measured ----
 if (!process.env.NO3D && !BASE_ONLY) {

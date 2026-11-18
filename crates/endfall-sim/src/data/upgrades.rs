@@ -11,11 +11,19 @@ pub enum Upgrade {
     Weapons,
     Armor,
     Shields,
-    Entrenching, // (Shield Drill: unlocks the Guard's Brace)
+    Entrenching, // (Shield Wall: unlocks the Guard's Brace)
     Afterburners,
+    // (Overclock, the Drone's speed: no longer offered, Nov 14: too late, no real value; its slot kept for the wire's
+    // indices)
     Slipstream,
+    // (Master Builders: no longer offered, Nov 14: it came too late to matter; kept so the indices the snapshot and the
+    // wire send stay where they were)
     RapidConstruction,
-    Satellite,
+    // (Better drills: no longer offered, Nov 14: a Bot mine pays as a Villager mine from the start; kept for the indices)
+    Drills,
+    Trade,
+    // (Grid efficiency until Nov 14, in the same slot: machines drew less grid)
+    EnergyEfficiency,
 }
 
 /// What an upgrade's levels do. Several upgrades may share one effect (a race's own version of it).
@@ -29,14 +37,17 @@ pub enum Effect {
     Shields,
     /// Researched, the ability can be used (until then its button is locked).
     Unlock(AbilityKind),
-    /// Researched, this unit kind moves `TECH_SPEED` times as fast.
-    Speed(UnitKind),
+    /// Researched, these unit kinds move `TECH_SPEED` times as fast.
+    Speed(&'static [UnitKind]),
     /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
     /// tech: a Human builder mines nothing while it builds.
     BuildSpeed,
-    /// Researched, the side has launched its satellite (its own seat is told, no other), and it unlocks what needs it
-    /// (the Expedition's Uplink, `BldgDef::req_up`).
-    Launch,
+    /// Each level, its workers carry more gold a trip (`DRILL_LOAD`).
+    MineLoad,
+    /// Each level, its Markets pay more gold a second (`TRADE_RATE`).
+    PumpRate,
+    /// Each level, its machines cost less energy (`ENERGY_COST`).
+    EnergyCost,
 }
 
 /// The speed a `Speed` tech gives its unit, as a multiple.
@@ -56,8 +67,11 @@ pub struct UpgradeDef {
     pub time: [f64; 3],
     /// How many levels it has: 3, or 1 for a tech (only the first cost and time count).
     pub levels: u8,
-    /// A finished building of this kind its side needs to start it (the satellite: a Lab).
+    /// A finished building of this kind its side needs to start it.
     pub req: Option<BldgKind>,
+    /// A name of its own for each level, (full, on a button), in place of the name and a level number (none: the name
+    /// and the number; the Kingdom's Trade).
+    pub level_names: &'static [(&'static str, &'static str)],
 }
 
 /// The most levels an upgrade has.
@@ -72,6 +86,7 @@ const WEAPONS: UpgradeDef = UpgradeDef {
     time: [60.0, 75.0, 90.0],
     levels: 3,
     req: None,
+    level_names: &[],
 };
 const ARMOR: UpgradeDef = UpgradeDef {
     key: "armor",
@@ -97,11 +112,12 @@ const TECH: UpgradeDef = UpgradeDef {
     time: [60.0; 3],
     levels: 1,
     req: None,
+    level_names: &[],
 };
-/// Shield Drill: unlocks the Guard's Brace (Dig In's tech before the re-theme).
+/// Shield Wall: unlocks the Guard's Brace (Dig In's tech before the re-theme).
 const ENTRENCHING: UpgradeDef = UpgradeDef {
     key: "entrenching",
-    name: "Shield Drill",
+    name: "Shield Wall",
     short: "",
     effect: Effect::Unlock(AbilityKind::Entrench),
     cost: [[125, 0]; 3],
@@ -112,16 +128,18 @@ const AFTERBURNERS: UpgradeDef = UpgradeDef {
     key: "afterburners",
     name: "Horseshoes",
     short: "",
-    effect: Effect::Speed(UnitKind::Rider),
+    effect: Effect::Speed(&[UnitKind::Rider, UnitKind::Knight]), // (the Knight too since Nov 14: Stelian)
     ..TECH
 };
+/// (no building researches it since Nov 14)
 const SLIPSTREAM: UpgradeDef = UpgradeDef {
     key: "slipstream",
     name: "Overclock",
-    effect: Effect::Speed(UnitKind::Shrike),
+    effect: Effect::Speed(&[UnitKind::Shrike]),
     ..TECH
 };
 
+/// (no building researches it since Nov 14: Stelian, it unlocked too late to matter)
 const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     key: "rapidConstruction",
     name: "Master Builders",
@@ -130,23 +148,58 @@ const RAPID_CONSTRUCTION: UpgradeDef = UpgradeDef {
     ..TECH
 };
 
-/// Launch satellite, at the Expedition's Data center once a Lab stands: expensive and slow, and the
-/// Uplink's requirement (PRD: the Expedition rework, rule 5).
-const SATELLITE: UpgradeDef = UpgradeDef {
-    key: "satellite",
-    name: "Launch satellite",
-    short: "Satellite",
-    effect: Effect::Launch,
-    cost: [[200, 0]; 3],
-    time: [60.0; 3],
-    req: Some(BldgKind::Loom),
-    ..TECH
+/// Better drills: the Expedition's mining research at the Lab until Nov 14 (no building researches it since: the Bot mine
+/// pays as a Villager mine's from the start, and the Expedition grows by its Wind turbines).
+const DRILLS: UpgradeDef = UpgradeDef {
+    key: "drills",
+    name: "Better drills",
+    short: "Drills",
+    effect: Effect::MineLoad,
+    cost: [[150, 0], [175, 0], [175, 0]],
+    time: [60.0, 75.0, 75.0],
+    levels: 2,
+    req: None,
+    level_names: &[],
 };
-/// What a side is told when its satellite is up (its research-done notice; no other seat is told).
-pub const LAUNCH_OURS: &str = "You launched a satellite.";
+/// Trade: the Kingdom's economic research at the Market, two levels, the Expedition's Better drills' shape (Stelian, Nov
+/// 14): each level raises every Market's pay (`TRADE_RATE`). A name for each level, so it feels unlike the drills.
+const TRADE: UpgradeDef = UpgradeDef {
+    key: "trade",
+    name: "Trade",
+    short: "",
+    effect: Effect::PumpRate,
+    cost: [[150, 0], [175, 0], [175, 0]],
+    time: [60.0, 75.0, 75.0],
+    levels: 2,
+    req: None,
+    level_names: &[
+        ("Expand trade routes", "Trade routes"),
+        ("Raise commercial taxes", "Taxes"),
+    ],
+};
+/// A Market's pay by `Effect::PumpRate` level (0, 1, 2), as a multiple of `PUMP_RATE`.
+pub const TRADE_RATE: [f64; 3] = [1.0, 1.25, 1.5];
+/// The gold a worker's load gains by `Effect::MineLoad` level (0, 1, 2): a Bot's 9 a trip goes to 10, then 11, its mine
+/// from about 95% of a Villager mine to about 107%, then 118% (Stelian: level, then 115-120%).
+pub const DRILL_LOAD: [i32; 3] = [0, 1, 2];
+
+/// Energy efficiency: the Expedition's research at the Lab in place of Armor (Stelian, Nov 14), two levels, each cutting
+/// what its machines cost by 10% of their energy (`ENERGY_COST`), never its buildings' or its mercenaries'. It replaced
+/// Grid efficiency (machines drew 15% less grid a level) in the same slot.
+const ENERGY_EFFICIENCY: UpgradeDef = UpgradeDef {
+    key: "energyEfficiency",
+    name: "Energy efficiency",
+    short: "Energy",
+    effect: Effect::EnergyCost,
+    cost: [[100, 0], [175, 0], [175, 0]],
+    time: [60.0, 75.0, 75.0],
+    levels: 2,
+    req: None,
+    level_names: &[],
+};
 
 /// Every upgrade, in index order.
-pub const UPGRADES: [Upgrade; 8] = [
+pub const UPGRADES: [Upgrade; 10] = [
     Upgrade::Weapons,
     Upgrade::Armor,
     Upgrade::Shields,
@@ -154,7 +207,9 @@ pub const UPGRADES: [Upgrade; 8] = [
     Upgrade::Afterburners,
     Upgrade::Slipstream,
     Upgrade::RapidConstruction,
-    Upgrade::Satellite,
+    Upgrade::Drills,
+    Upgrade::Trade,
+    Upgrade::EnergyEfficiency,
 ];
 
 impl Upgrade {
@@ -167,7 +222,9 @@ impl Upgrade {
             Upgrade::Afterburners => &AFTERBURNERS,
             Upgrade::Slipstream => &SLIPSTREAM,
             Upgrade::RapidConstruction => &RAPID_CONSTRUCTION,
-            Upgrade::Satellite => &SATELLITE,
+            Upgrade::Drills => &DRILLS,
+            Upgrade::Trade => &TRADE,
+            Upgrade::EnergyEfficiency => &ENERGY_EFFICIENCY,
         }
     }
     pub fn parse(s: &str) -> Option<Upgrade> {
@@ -185,6 +242,15 @@ impl Upgrade {
         UPGRADES
             .into_iter()
             .find(|u| u.def().effect == Effect::Unlock(ability))
+    }
+    /// Its name at `level` (1..=3): the level's own (`UpgradeDef::level_names`), else its name and the level's numeral.
+    pub fn level_name(self, level: u8) -> String {
+        let d = self.def();
+        let i = (level.clamp(1, 3) - 1) as usize;
+        match d.level_names.get(i) {
+            Some((full, _)) => full.to_string(),
+            None => format!("{} {}", d.name, ["I", "II", "III"][i]),
+        }
     }
     /// Cost of researching `level` (1..=3).
     pub fn cost(self, level: u8) -> [i32; 2] {

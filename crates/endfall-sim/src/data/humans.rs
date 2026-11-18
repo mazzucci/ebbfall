@@ -9,10 +9,11 @@ pub const HUMANS: Faction = Faction {
     name: "Kingdom",
     hq: BldgKind::Core,
     worker: UnitKind::Harvester,
-    // The basic page holds what can be built from the start (the Core too), the Crew Hall first; the advanced page
+    // The basic page holds what can be built from the start, the Castle first (a new base, Stelian, Nov 14), then the
+    // Barracks; the advanced page
     // what needs the Crew Hall (the Turret and the Excavator too), so it appears once the Crew Hall stands (owner,
     // 2026-11-03; the Excavator moved there with its requirement, the PM, 2026-11-06).
-    build_basic: &[BldgKind::Barracks, BldgKind::Depot, BldgKind::Core],
+    build_basic: &[BldgKind::Core, BldgKind::Barracks, BldgKind::Depot],
     build_advanced: &[
         BldgKind::Forge,
         BldgKind::Airfield,
@@ -22,9 +23,11 @@ pub const HUMANS: Faction = Faction {
     ],
     supply: BldgKind::Depot,
     market: Some(BldgKind::Extractor),
+    money: "gold",
+    ore: "gold",
     sounds: ["bolt", "shell", "missile", "melee"],
     repairs: true,
-    power: false,
+    grid: false,
     start_workers: 4,
     ai: AiScript {
         rax: BldgKind::Barracks,
@@ -45,11 +48,13 @@ pub const HUMANS: Faction = Faction {
             (UnitKind::Bastion, 8, 0.0),
             (UnitKind::Knight, 4, 0.0),
         ],
+        dive: Some(UnitKind::Knight),
         raider: UnitKind::Rider,
         scout: Some(UnitKind::Observer),
         wave_scale: 1.0,
         tech_from: 210.0, // (the Forge sooner: the Workshop's Cannons and the Knights earlier)
         air_lead: 0.0,
+        towers_more: &[],
     },
 };
 
@@ -63,7 +68,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     sight: 7.0,
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     mine_cap: 8,
-    mine_load: 9,
+    mine_load: 7, // (10 before Nov 13: gold scarce for a person too, the PM)
     weapon: Some(Weapon {
         range: 0.6,
         dmg: 4.0,
@@ -73,7 +78,7 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Drill is researched) it stands and
+/// The Guard: spear infantry, the Kingdom's cheap line. Braced (`Brace`, once Shield Wall is researched) it stands and
 /// takes the charge: +4 armor, no moving.
 pub(super) const TROOPER: UnitDef = UnitDef {
     key: "trooper",
@@ -124,20 +129,20 @@ pub(super) const LANCER: UnitDef = UnitDef {
 pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     key: "siegeTank",
     name: "Cannon",
-    cost: [175, 0],
-    supply: 2, // (3 before the economy's second round: by tier, gold-dense at the top)
-    hp: 140.0,
+    cost: [275, 0], // (175 before Nov 13: siege that crushes a mass, dear and few)
+    supply: 3,      // (2 before Nov 13; 3 before the economy's second round)
+    hp: 240.0,      // (140 before Nov 13)
     armor: 1.0,
     speed: 62.0,
     sight: 10.0,
     r: 14.0,
-    build: 32.0,
+    build: 42.0, // (32.0 s before the economy pass: a bet in time as well as gold)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 11.0,
         min_range: 2.5,
         siege: true,
-        dmg: 55.0,
+        dmg: 85.0, // (55 before Nov 13)
         cd: 3.0,
         proj: Some(ProjKind::Shell),
         up_dmg: 5.0,
@@ -225,18 +230,18 @@ pub(super) const RIDER: UnitDef = UnitDef {
 pub(super) const KNIGHT: UnitDef = UnitDef {
     key: "knight",
     name: "Knight",
-    cost: [225, 0],
-    supply: 2, // (4 before the economy's second round: by tier, gold-dense at the top)
-    hp: 280.0,
+    cost: [325, 0], // (225 before Nov 13: an elite, a big gap to a Guard; armies of them stay small)
+    supply: 3,      // (2 before Nov 13; 4 before the economy's second round)
+    hp: 420.0,      // (280 before Nov 13)
     armor: 3.0,
     speed: 105.0,
     sight: 9.0,
     r: 14.0,
-    build: 40.0,
+    build: 75.0, // (60.0 s before the economy pass: a bet in time as well as gold)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
         range: 0.9,
-        dmg: 26.0,
+        dmg: 38.0, // (26 before Nov 13)
         cd: 1.2,
         melee: true,
         up_dmg: 3.0,
@@ -272,12 +277,13 @@ pub(super) const DEPOT: BldgDef = BldgDef {
 /// The Market: pays gold by itself, built in the base, one per Castle.
 pub(super) const EXTRACTOR: BldgDef = BldgDef {
     key: "extractor",
+    researches: &[Upgrade::Trade],
     name: "Market",
     cost: [75, 0],
     hp: 200.0,
     build: 25.0,
-    pays: true,
-    per_hq: true,
+    pays: PUMP_RATE,
+    per_hq: 1,
     // (its people's barracks first: workers on the crystals, then soldiers, then the Market)
     req: Some(BldgKind::Barracks),
     ..BLDG
@@ -296,16 +302,11 @@ pub(super) const BARRACKS: BldgDef = BldgDef {
 };
 pub(super) const FORGE: BldgDef = BldgDef {
     key: "forge",
-    researches: &[
-        Upgrade::Weapons,
-        Upgrade::Armor,
-        Upgrade::Entrenching,
-        Upgrade::RapidConstruction,
-    ],
+    researches: &[Upgrade::Weapons, Upgrade::Armor, Upgrade::Entrenching],
     name: "Blacksmith",
-    cost: [150, 0],
+    cost: [300, 0], // (150 before the arc: the tech path a bet, about two minutes of income)
     hp: 820.0,
-    build: 45.0,
+    build: 60.0,
     sight: 7.0,
     trains: &[],
     req: Some(BldgKind::Barracks),
@@ -315,11 +316,11 @@ pub(super) const FORGE: BldgDef = BldgDef {
 pub(super) const FACTORY: BldgDef = BldgDef {
     key: "factory",
     name: "Workshop",
-    cost: [125, 0],
+    cost: [300, 0], // (125 before the arc)
     w: 3,
     h: 3,
     hp: 800.0,
-    build: 35.0,
+    build: 80.0, // (60.0 s before the economy pass: a bet in time as well as gold)
     sight: 7.0,
     trains: &[UnitKind::Bastion, UnitKind::SiegeTank, UnitKind::Observer],
     req: Some(BldgKind::Barracks),
@@ -328,8 +329,9 @@ pub(super) const FACTORY: BldgDef = BldgDef {
 pub(super) const TURRET: BldgDef = BldgDef {
     key: "turret",
     name: "Watchtower",
-    cost: [100, 0],
-    hp: 320.0,
+    cost: [150, 0], // (100 before the economy pass, Nov 13: a bet between units and construction)
+    hp: 380.0, // (320 and armor 1 before the arc; 450 and armor 2 in it, Nov 13: bases held past 10-15 min)
+    armor: 1.0,
     build: 20.0,
     sight: 9.0,
     req: Some(BldgKind::Barracks),
@@ -344,18 +346,19 @@ pub(super) const TURRET: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Stables: Riders, and Knights once the Forge stands.
+/// The Stables: Riders and Knights, once the Blacksmith stands (after it, not beside it, since the arc: the top tier's
+/// way is serial).
 pub(super) const AIRFIELD: BldgDef = BldgDef {
     key: "airfield",
     name: "Stables",
-    cost: [150, 0],
+    cost: [350, 0], // (150 before the arc)
     w: 3,
     h: 3,
     hp: 760.0,
-    build: 50.0,
+    build: 95.0, // (75.0 s before the economy pass: a bet in time as well as gold)
     sight: 8.0,
     trains: &[UnitKind::Rider, UnitKind::Knight],
-    req: Some(BldgKind::Extractor), // (the cavalry needs a Market: a branch of its own, beside the Forge)
+    req: Some(BldgKind::Forge),
     researches: &[Upgrade::Afterburners],
     ..BLDG
 };

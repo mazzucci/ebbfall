@@ -8,7 +8,7 @@ import { UNITS, BUILDINGS, FACTIONS, kindsOf } from '../src/engine/constants.js'
 import { statRows, statsHtml } from '../src/client/stats.js';
 
 const vael = kindsOf(FACTIONS.vael), humans = kindsOf(FACTIONS.humans);
-const TAGS = ['Splash', 'Slows', 'Heals', 'Flying'];
+const TAGS = ['Splash', 'Heals', 'Flying'];
 /** Kinds whose people has shields on any of its kinds (none since the re-theme). */
 const shielded = (k) => [vael, humans].some(ks => ks.has(k) && [...ks].some(j => (UNITS[j] || BUILDINGS[j]).shields > 0));
 const armed = (d) => !d.worker && !!(d.weapon?.dmg || d.weapon?.dmgAir || d.light?.dmg || d.light?.dmgAir);
@@ -30,7 +30,6 @@ test('every unit gets the same two rows: toughness, then attack', () => {
     const tags = rest.map(c => c.text);
     assert.deepEqual(tags, TAGS.filter(t => tags.includes(t)), `${k}: tags in one order`);
     assert.equal(tags.includes('Flying'), !!d.air, `${k}: Flying when it flies`);
-    assert.equal(tags.includes('Slows'), [d.weapon, d.light].some(w => w?.slow > 0), `${k}: Slows when its shot slows`);
     assert.equal(tags.includes('Heals'), d.heal > 0, `${k}: Heals when it heals or mends`);
     for (const c of [...tough, ...attack]) {
       assert.ok(c.label && !/undefined|NaN|null/.test(c.label + c.text), `${k}: ${c.k} is well formed (${c.label}, ${c.text})`);

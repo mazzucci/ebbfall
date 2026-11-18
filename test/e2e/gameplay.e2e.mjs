@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, SLOW, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -3525,35 +3525,6 @@ test('a hit\'s look follows how hard it hits: a Cannon\'s cannonball (siege) lan
     assert.ok(seen.some(e => e.anim === 'flash'), 'with a flash');
     await d.skip(1);
     assert.equal(await d.eval(() => window.__peak), 0, 'no shake on any frame');
-    assert.deepEqual(d.errors, []);
-  } finally { await d.close(); }
-});
-
-test('an arrow slows its target: its body tinted an icy steel blue under a pale ice glow, its team paint untouched, back to normal as it wears off', async () => {
-  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
-  try {
-    const core = coreOf(await d.state()), x = core.x - 60, y = core.y + 110;
-    const [, kn] = await d.eval(([x, y]) => [endfall.engine.debugSpawn(0, 'lancer', x, y), endfall.engine.debugSpawn(1, 'knight', x + 110, y)], [x, y]);
-    await d.centerOn(x + 50, y);
-    const layer = (id) => d.eval((id) => endfall.teamLayers().find(l => l.id === id), id);
-    assert.ok(await d.skipUntil((id) => endfall.G.units.find(u => u.id === id)?.slowed > 2.5, kn, { seconds: 15, step: 1 / 30 }), 'an arrow lands on the Knight');
-    const slowed = await layer(kn);
-    assert.equal(slowed.bodyTint, SLOW.tint, 'its body icy steel blue');
-    assert.equal(slowed.tint, slowed.seat, 'its team paint in its seat\'s color');
-    // (the glow shows between hit flashes: a frame with the slow fresh and no flash; another arrow may land meanwhile)
-    let glow = null;
-    for (let k = 0; k < 6 && !glow; k++) {
-      await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id); return u?.slowed > 2 && !(u.flash > 0); }, kn, { seconds: 5, step: 1 / 30 });
-      glow = (await layer(kn)).glow;
-    }
-    assert.ok(glow, 'a glow over the slowed Knight');
-    assert.equal(glow.tint, SLOW.glow, 'a pale ice');
-    assert.ok(Math.abs(glow.alpha - SLOW.glowAlpha) < 0.02, `faint (${glow.alpha})`);
-    // (the Knight rides the Archer down; then the slow wears off)
-    assert.ok(await d.skipUntil((id) => !(endfall.G.units.find(u => u.id === id)?.slowed > 0), kn, { seconds: 20, step: 0.1 }), 'the slow wears off');
-    const after = await layer(kn);
-    assert.equal(after.bodyTint, 0xffffff, 'white again');
-    assert.equal(after.glow, null, 'no glow');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

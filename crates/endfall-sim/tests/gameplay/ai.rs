@@ -1373,9 +1373,10 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     // forward Uplink, Nov 13, seed 5's likewise, Brutal sooner in 8 of seeds 1 to 10; since the Expedition's energy, Nov
     // 14, seed 4's Brutal Kingdom is past its guns' time before it trains one: seed 1; since the mines moved out to four
     // tiles from their headquarters, Nov 15, seed 1's Brutal Kingdom trains none by 15:00: seed 2, which passes before and
-    // after.)
+    // after; since Nov 18, the Archer's slow gone, the Drone lighter, the Ballista heavier and the Buggy shooting
+    // flyers, seed 2's Kingdom trains none at either level by 15:00: seed 3.)
     let guns = |level: usize| {
-        let mut w = World::with_setup(2, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
+        let mut w = World::with_setup(3, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
         let (mut first, mut seen) = (f64::INFINITY, Vec::new());
         while w.time < 900.0 && !w.over {

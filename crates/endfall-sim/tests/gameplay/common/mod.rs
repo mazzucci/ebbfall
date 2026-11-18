@@ -135,6 +135,7 @@ pub fn research_level(w: &mut World, forge: Id, up: Upgrade) {
 pub fn first_hit(w: &mut World, shooter: UnitKind, shooter_team: u8, target: UnitKind) -> f64 {
     w.units.clear(); // a clean duel each time
     let t = w.make_unit(target, 1 - shooter_team, 900.0, 1200.0);
+    set_hp(w, t, 1e6); // (a first blow that would kill is still measured whole: the Ballista's bolt on a Drone)
     w.hold_unit(t);
     let s = w.make_unit(shooter, shooter_team, 900.0 - 100.0, 1200.0);
     w.attack_ent(s, t);

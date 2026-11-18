@@ -116,7 +116,7 @@ function sync() {
     // Abilities: seconds of cooldown left per slot (the kind's `abilities` order) and the toggle that is on.
     // (no ability is 0: never read a key at index -1, which is a slow property lookup)
     u.abCd[0] = U[o + fu.ab_cd0]; u.abCd[1] = U[o + fu.ab_cd1]; const mode = U[o + fu.mode];
-    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap]; u.slowed = U[o + fu.slowed];
+    u.mode = mode > 0 ? ABILITY_KEYS[mode - 1] || null : null; u.swap = U[o + fu.swap];
     const t = TASKS[U[o + fu.task]], target = U[o + fu.target], task = u.task;
     task.t = t; task.phase = task.node = task.b = task.target = null;
     if (t === 'gather') { task.phase = PHASES[U[o + fu.phase]]; task.node = nodes.get(target) || null; }

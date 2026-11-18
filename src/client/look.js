@@ -230,28 +230,6 @@ export function bldgDeath(b, people, { hq = false, roof = b.y - 40, core = { x: 
 /** A building burning (below a quarter of its health): on each of its smoke's puffs, with this chance, a brief orange
  *  flash with a light of this scale (every other puff at full light strobed). */
 export const BURN_FLASH = { chance: 0.25, light: 0xff8a2a, lightScale: 0.4 };
-/** Slowed (an Archer's arrow, `u.slowed` s left): the unit's body (not its team paint) tinted an icy steel blue, and a
- *  pale ice added over it (`glow`, at `glowAlpha`: the unit's additive hit-flash layer, while no hit flash shows); both
- *  back to nothing over the last `fade` s. Together they scale a body pixel by about (0.62, 0.88, 1.0): warm parts go
- *  cold and whites go a dull steel cyan-blue, a hue between the blue and the cyan seats (CIELAB about 238, the blue
- *  seat 291, the cyan 186) and far grayer than either, so it never reads as a team; it changes the dark units more
- *  than the old cold blue did (a blind judge read that one as the blue team's, Nov 15). The Archer's slow is a rule
- *  the player must see. */
-export const SLOW = { tint: 0x78b4cc, glow: 0xc0e0ff, glowAlpha: 0.2, fade: 1.5 };
-/** How much of the slow's look shows with `slowed` s of slow left: 1 until its last `fade` s, then down to 0. */
-export const slowK = (slowed) => (slowed > 0 ? Math.min(1, slowed / SLOW.fade) : 0);
-/** A unit's additive flash layer (over its body) with `flash` s of hit flash and `slowed` s of slow left: shown while
- *  either lasts; a hit's white at 0.6 over the slow's pale ice (SLOW.glow at SLOW.glowAlpha × slowK). */
-export function flashLayer(flash, slowed) {
-  const hit = flash > 0, k = slowK(slowed);
-  return { visible: hit || k > 0, tint: hit ? 0xffffff : SLOW.glow, alpha: hit ? 0.6 : SLOW.glowAlpha * k };
-}
-/** The body's tint for `slowed` s of slow left (0: none, white). */
-export function slowTint(slowed) {
-  const k = slowK(slowed); if (!k) return 0xffffff;
-  const ch = (s) => Math.round(255 + (((SLOW.tint >> s) & 255) - 255) * k);
-  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-}
 /** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
  *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
  *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel

@@ -347,25 +347,6 @@ fn an_idle_tank_deploys_where_it_stands_and_is_free_again_once_its_target_is_gon
 }
 
 #[test]
-fn a_harpooned_trebuchet_waits_where_it_is() {
-    // A Cannon harpooned in its band (no ability: Drop Anchor included) neither walks in nor anchors; the slow worn
-    // off, it anchors and shells.
-    let (mut w, gun, target) = tank_scene(8.0);
-    w.units.iter_mut().find(|u| u.id == gun).unwrap().slowed = 3.0;
-    w.attack_ent(gun, target);
-    let x0 = w.unit(gun).unwrap().x;
-    run(&mut w, 2);
-    let u = w.unit(gun).unwrap();
-    assert!(u.mode.is_none() && (u.x - x0).abs() < 1.0, "waits it out");
-    run(&mut w, 5);
-    assert_eq!(
-        w.unit(gun).unwrap().mode,
-        Some(AbilityKind::Deploy),
-        "then anchors"
-    );
-}
-
-#[test]
 fn a_trebuchet_on_its_tracks_does_not_answer_a_shooter_inside_its_blind_ring() {
     // Shot at from inside its ring (a Knight beside it), a Cannon on its way (attack-moving, packed up) does not take
     // an attack it could never carry out: it goes on. A Knight that strikes it from past its ring is answered.

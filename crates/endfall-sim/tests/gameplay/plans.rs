@@ -400,8 +400,9 @@ fn a_game_seed_plays_a_fresh_game_on_the_same_map_and_replays_it() {
 #[test]
 fn check_ins_tell_a_base_under_attack_and_never_go_dark() {
     // Seat 0's base and its six Guards fall to twenty Knights of seat 1's from 3:30: events say what fell, in its own words ("your main
-    // base"), and the check-ins keep coming at least every 2:20 while it happens (an event never swallows them).
-    let mut w = duel(4, 64, [&HUMANS, &HUMANS], Some("1.w12"));
+    // base"), and the check-ins keep coming at least every 2:20 while it happens (an event never swallows them). (Seed 2
+    // since Nov 18: in seed 4's game, since that day's unit changes, the Castle falls first and the seat is out at once.)
+    let mut w = duel(2, 64, [&HUMANS, &HUMANS], Some("1.w12"));
     let mut s = Summary::new(&w);
     s.check_in_for(Some(0));
     let mut digests: Vec<(u32, String)> = Vec::new();

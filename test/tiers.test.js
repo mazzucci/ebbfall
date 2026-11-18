@@ -8,8 +8,8 @@ import { hitTier, HIT_TIERS, HIT_LOOK, towerOf } from '../src/client/look.js';
 import { UNITS, BUILDINGS, FACTIONS } from '../src/engine/constants.js';
 
 const TIERS = {
-  light: ['harvester', 'lumen', 'shrike', 'trooper', 'rider', 'scythe', 'bastion', 'prism'], // (Villager, Bot, Drone, Guard, Rider, Buggy, Ballista, Sellsword)
-  medium: ['lancer', 'turret', 'ward', 'bruiser'], // (Archer, Watchtower, Sentry mast, Bruiser)
+  light: ['harvester', 'lumen', 'shrike', 'trooper', 'rider', 'scythe', 'prism'], // (Villager, Bot, Drone, Guard, Rider, Buggy, Sellsword)
+  medium: ['lancer', 'bastion', 'turret', 'ward', 'bruiser'], // (Archer, Ballista: 24 a bolt since Nov 18, Watchtower, Sentry mast, Bruiser)
   heavy: ['knight', 'umbra'], // (Knight, Android)
   siege: ['siegeTank', 'monolith'], // (Cannon, Rover)
 };

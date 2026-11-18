@@ -176,8 +176,6 @@ pub struct Unit {
     pub swap: f64,
     /// Seconds left stunned (a walker swept by the flood): it cannot move, fire or heal, but can be hit.
     pub stun: f64,
-    /// Seconds left harpooned (`Weapon::slow`): it moves at `SLOW_SPEED` and casts nothing.
-    pub slowed: f64,
     /// A group's marching pace (px/s): set by a group order to its slowest member's speed, so the group arrives
     /// together; it only caps a unit on the move (not in a fight), and any new order clears it.
     pub pace: Option<f64>,
@@ -288,8 +286,6 @@ pub struct Proj {
     /// The shooter's splash (share of the damage, radius in px), fixed when it was fired.
     pub splash: f64,
     pub splash_r: f64,
-    /// The shooter's harpoon (`Weapon::slow`, s), fixed when it was fired.
-    pub slow: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]

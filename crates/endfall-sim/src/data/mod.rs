@@ -64,8 +64,6 @@ pub const WADE_SPEED: f64 = 0.7;
 /// A worker carrying gold walks at this share of its speed (the load slows it; Stelian, Nov 12: calm trips, not a
 /// frantic shuttle): with the workers' own speed cut to about 87%, about 72% of what it was.
 pub const LOADED_SPEED: f64 = 0.83;
-/// The share of its speed a harpooned unit keeps while slowed (`Weapon::slow`; flyers too).
-pub const SLOW_SPEED: f64 = 0.5;
 
 /// How a unit gets about: on foot over land and shallows (Walk), anywhere water or land (Amph), or in the air (Fly).
 /// Rock and buildings block Walk and Amph alike (src/map.rs `passable`). No kind is Amph since the re-theme (every
@@ -205,8 +203,6 @@ def_struct! {
         splash_r: f64 = "splashR",
         /// Extra damage per Weapons upgrade level (added to whichever of dmg / dmg_air is non-zero).
         up_dmg: f64 = "upDmg",
-        /// The Harpoon: a unit it hits is slowed for this many seconds (`SLOW_SPEED`, and no abilities); 0 = none.
-        slow: f64 = "slow",
     }
 }
 
@@ -223,7 +219,6 @@ pub(crate) const W: Weapon = Weapon {
     splash: 0.0,
     splash_r: 0.0,
     up_dmg: 0.0,
-    slow: 0.0,
 };
 
 impl Weapon {

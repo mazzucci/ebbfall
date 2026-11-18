@@ -375,8 +375,9 @@ fn top_units_beat_lines_siege_holds_and_only_tech_answers_it() {
     // ... and falls to the other side's tech at no more than that.
     let broken: [(&str, f64); 4] = [
         (
-            "Drones dive the Cannons and towers at their gold",
-            cannons(&[Shrike], 1.0),
+            // (at their gold until Nov 18; the Drone at 4 a shot, 6 before, breaks them from 1.2 times)
+            "Drones dive the Cannons and towers at 1.25 times their gold",
+            cannons(&[Shrike], 1.25),
         ),
         (
             "Rovers with Drones out-spot them at twice it",

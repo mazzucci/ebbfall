@@ -1,6 +1,6 @@
 //! Unit abilities since the re-theme: the Guard's Brace and the Cannon's Drop Anchor (toggles); casting for a
 //! selection, refusals, the AI using them, what the re-theme retired (the boosts, the hop, the cloaks), the speed techs
-//! and the Archer's harpoon.
+//! and an Archer's hit, which changes nothing but the target's health.
 
 use super::common::*;
 use endfall_sim::world::{Command, Event};
@@ -302,9 +302,9 @@ fn walked(w: &mut World, uid: Id, x: f64, y: f64) -> f64 {
 }
 
 #[test]
-fn a_harpoon_slows_what_it_hits_for_three_seconds_flyers_too_and_no_ability_meanwhile() {
-    // The Harpoon (the Archer's shot, as the Harpooner's was): a unit it hits moves at half speed and casts nothing for 3 s; a
-    // second harpoon renews the 3 s, it does not add to them. Flyers too.
+fn an_archer_hit_leaves_its_target_speed_and_abilities_alone() {
+    // No unit has a special effect (Stelian, Nov 18: the Archer's slow is gone): a unit an Archer's arrow hits walks
+    // at its full speed, flyers too, and a Guard it hits may still Brace.
     let mut w = flat_arena(21);
     w.factions = vec![&HUMANS, &VAEL];
     let (x, y) = (30.0 * TILE, 30.0 * TILE);
@@ -314,59 +314,46 @@ fn a_harpoon_slows_what_it_hits_for_three_seconds_flyers_too_and_no_ability_mean
         w.hold_unit(foe);
         let free = walked(&mut w, foe, x + 5.0 * TILE, y + 20.0 * TILE);
         w.hold_unit(foe);
+        let hp = w.unit(foe).unwrap().hp;
         let h = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
         w.attack_ent(h, foe);
         let mut hit = false;
         for _ in 0..3 * TPS {
             w.step();
-            if w.unit(foe).unwrap().slowed > 0.0 {
+            if w.unit(foe).unwrap().hp < hp {
                 hit = true;
                 break;
             }
         }
-        assert!(hit, "{kind:?}: harpooned");
-        let s = w.unit(foe).unwrap().slowed;
-        assert!(s > 2.9 && s <= 3.0, "{kind:?}: for 3 s ({s})");
-        w.units.retain(|u| u.id != h); // (no second harpoon while it is measured)
-        let slow = walked(&mut w, foe, x + 5.0 * TILE, y - 20.0 * TILE);
+        assert!(hit, "{kind:?}: hit");
+        w.units.retain(|u| u.id != h); // (no second arrow while it is measured)
+        let after = walked(&mut w, foe, x + 5.0 * TILE, y - 20.0 * TILE);
         assert!(
-            (slow / free - SLOW_SPEED).abs() < 0.05,
-            "{kind:?}: half speed ({slow:.1} px against {free:.1})"
-        );
-        run(&mut w, 3);
-        assert_eq!(w.unit(foe).unwrap().slowed, 0.0, "{kind:?}: worn off");
-        let again = walked(&mut w, foe, x + 5.0 * TILE, y + 20.0 * TILE);
-        assert!(
-            (again / free - 1.0).abs() < 0.05,
-            "{kind:?}: full speed again"
+            (after / free - 1.0).abs() < 0.05,
+            "{kind:?}: full speed ({after:.1} px against {free:.1})"
         );
     }
-    // Two harpoons a second apart: the second renews the slow, to 3 s, never more.
-    w.units.clear();
-    let foe = w.make_unit(UnitKind::Scythe, ENEMY, x + 5.0 * TILE, y);
-    w.hold_unit(foe);
-    for k in 0..2 {
-        let h = w.make_unit(UnitKind::Lancer, PLAYER, x, y + k as f64 * 30.0);
-        w.attack_ent(h, foe);
-    }
-    let mut most: f64 = 0.0;
-    for _ in 0..6 * TPS {
-        w.step();
-        most = most.max(w.unit(foe).map_or(0.0, |u| u.slowed));
-    }
-    assert!(most > 2.9 && most <= 3.0, "renewed, never stacked: {most}");
-    // A harpooned Guard cannot Brace (nor use any other ability) until it wears off.
+    // A Guard just hit may Brace at once.
     w.units.clear();
     w.upgrades[ENEMY as usize][Upgrade::Entrenching.index()] = 1;
-    let guard = w.make_unit(UnitKind::Trooper, ENEMY, x, y);
-    w.units.iter_mut().find(|u| u.id == guard).unwrap().slowed = 3.0;
-    let why = w.can_cast(guard, AbilityKind::Entrench).unwrap_err();
-    assert!(why.contains("Slowed"), "{why}");
-    assert!(w.cast(guard, AbilityKind::Entrench).is_err());
-    run(&mut w, 3);
+    let guard = w.make_unit(UnitKind::Trooper, ENEMY, x + 5.0 * TILE, y);
+    w.hold_unit(guard);
+    let hp = w.unit(guard).unwrap().hp;
+    let h = w.make_unit(UnitKind::Lancer, PLAYER, x, y);
+    w.attack_ent(h, guard);
+    let mut hit = false;
+    for _ in 0..3 * TPS {
+        w.step();
+        if w.unit(guard).unwrap().hp < hp {
+            hit = true;
+            break;
+        }
+    }
+    assert!(hit, "the Guard hit");
     assert_eq!(
         w.can_cast(guard, AbilityKind::Entrench),
         Ok(()),
-        "free again"
+        "it may Brace"
     );
+    assert!(w.cast(guard, AbilityKind::Entrench).is_ok());
 }

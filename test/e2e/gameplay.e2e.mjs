@@ -3349,7 +3349,7 @@ test('the menu fits a small phone on every page (the first with its stamp and PL
   } finally { await ctx.close(); }
 });
 
-test('the first page: the name in title case over the shore, whose tide lines keep below the content (the stamp and PLAY OFFLINE\'s answer too), go with the page and stand still under reduced motion', async () => {
+test('the first page: the name in title case over a plain backdrop (no tide line, nothing drifting) that takes no pointer and goes with the page', async () => {
   for (const [w, h, reducedMotion, tip] of [[844, 390, 'no-preference', false], [667, 375, 'no-preference', false], [412, 915, 'reduce', false], [932, 430, 'no-preference', true], [568, 320, 'no-preference', true]]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h }, reducedMotion }), page = await ctx.newPage();
     try {
@@ -3357,35 +3357,19 @@ test('the first page: the name in title case over the shore, whose tide lines ke
       await page.waitForFunction(() => !!window.endfall);
       if (tip) await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
       assert.equal(await page.locator('#menuHome h1').textContent(), 'Ebbfall', 'the title');
-      const ebbs = () => page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb').length);
-      const shore = page.locator('#menuHome .shore');
-      assert.ok(await shore.isVisible(), `${w}x${h}: the shore under the first page`);
-      // At both extremes of the drift (the animations paused and seeked, their negative delays dropped), every tide line shown keeps under the page's lowest content with room, and no drifting svg shows an edge inside the screen.
-      for (const at of [0, 1]) {
-        const got = await page.evaluate((at) => {
-          for (const a of document.getAnimations()) if (a.animationName === 'ebb') { a.effect.updateTiming({ delay: 0 }); a.pause(); a.currentTime = at * a.effect.getTiming().duration; }
-          const r = (e) => e.getBoundingClientRect(), shown = (e) => r(e).height > 0;
-          return { content: Math.max(...[...document.querySelectorAll('#menuHome > :not(.shore)')].filter(e => !e.hidden).map(e => r(e).bottom)),
-            lines: [...document.querySelectorAll('#menuHome .shore .tide path')].filter(shown).map(e => r(e).top), boxes: [...document.querySelectorAll('#menuHome .shore .tide')].filter(shown).map(e => { const b = r(e); return [b.left, b.right, b.bottom]; }) };
-        }, at);
-        assert.ok(got.lines.length > 0 && got.lines.every(top => top >= got.content + 12), `${w}x${h} at ${at}: the tide lines clear the content: ${got.lines.map(Math.round)} vs ${Math.round(got.content)}`);
-        assert.ok(got.boxes.every(([l, r, b]) => l <= 0 && r >= w && b >= h), `${w}x${h} at ${at}: no edge of a drifting line in view: ${JSON.stringify(got.boxes)}`);
-      }
-      await page.evaluate(() => { for (const a of document.getAnimations()) a.play(); });
-      assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.shore')), null, 'the shore takes no pointer');
-      // (the field's band drifts too, and leaves only the lowest line, field.e2e.mjs; under 360 px of height there is no band: the three lines, or the one PLAY OFFLINE's answer leaves)
-      assert.equal(await ebbs(), reducedMotion === 'reduce' ? 0 : h >= 360 ? 2 : tip ? 1 : 3, `${w}x${h}: the lines shown drift (none under reduced motion)`);
+      const backdrop = page.locator('#menuHome .backdrop');
+      assert.ok(await backdrop.isVisible(), `${w}x${h}: the backdrop under the first page`);
+      assert.deepEqual(await page.evaluate(() => [document.querySelectorAll('#start .backdrop svg, #online .backdrop svg').length, document.getAnimations().filter(a => a.animationName === 'ebb').length]), [0, 0], `${w}x${h}: no tide line, nothing drifting`);
+      assert.equal(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 4).closest('.backdrop')), null, 'the backdrop takes no pointer');
       await page.locator('#btnSolo').tap();
-      assert.ok(await shore.isHidden() && await page.locator('#menuSolo').isVisible(), 'Single player: the first page\'s shore goes with it');
-      assert.ok(await page.locator('#menuSolo .shore').isVisible(), 'Single player: a shore of its own (as Multiplayer)');
-      assert.equal(await page.evaluate(() => document.getAnimations().filter(a => a.animationName === 'ebb' && a.effect.target.closest('#menuHome')).length), 0, 'the first page\'s lines stop with the page');
+      assert.ok(await backdrop.isHidden() && await page.locator('#menuSolo').isVisible(), 'Single player: the first page\'s backdrop goes with it');
+      assert.ok(await page.locator('#menuSolo .backdrop').isVisible(), 'Single player: a backdrop of its own (as Multiplayer)');
     } finally { await ctx.close(); }
   }
-  // In a game (the menu hidden), nothing of it runs either.
+  // In a game (the menu hidden), none of it shows.
   const d = await newGame(PHONE, 0, 4242, { ai: false });
   try {
-    assert.ok(await d.page.locator('#start').isHidden() && await d.page.locator('#menuHome .shore').isHidden());
-    assert.equal(await d.eval(() => document.getAnimations().filter(a => a.animationName === 'ebb').length), 0, 'no drift in a game');
+    assert.ok(await d.page.locator('#start').isHidden() && await d.page.locator('#menuHome .backdrop').isHidden());
   } finally { await d.close(); }
 });
 

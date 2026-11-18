@@ -16,7 +16,7 @@
 // 0-2 (east to east-south-east: the bow in profile, the arm up); the Kingdom faces east (0, 15, 1), the Expedition west
 // (7, 8, 9). A flyer's anchor is the ground under it; its body hangs about a third of its cell above. Order is the
 // painter's: the ground's marks first, then by y, the flyers last. Every ground point is above 0.86: the foot of the
-// band is dark and the lowest tide line crosses it there. The band's top 0.45 fades (the menu) or sits under the card's
+// band is dark. The band's top 0.45 fades (the menu) or sits under the card's
 // veil (og), and the menu's footer line sits in the middle of that top on short screens: nothing bright stands in the
 // top 0.4, and the Drones' bodies hang just under it.
 export const KINGDOM = 0, EXPEDITION = 1;

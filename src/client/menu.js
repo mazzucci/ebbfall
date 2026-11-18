@@ -165,15 +165,8 @@ export function drawPreview(cv, i, seed, kind) {
 }
 
 export function initMenu({ onStart }) {
-  // The first page's shore under the other menu pages too (owner, 2026-11-03), each copy with ids of its own.
-  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) {
-    const shore = $('menuHome').querySelector('.shore').cloneNode(true);
-    for (const el of shore.querySelectorAll('[id]')) {
-      const was = el.id; el.id = `${was}-${id}`;
-      for (const r of shore.querySelectorAll(`[fill="url(#${was})"],[stroke="url(#${was})"]`)) for (const a of ['fill', 'stroke']) if (r.getAttribute(a) === `url(#${was})`) r.setAttribute(a, `url(#${el.id})`);
-    }
-    $(id).appendChild(shore);
-  }
+  // The first page's backdrop (the plain floor and the field) under the other menu pages too (owner, 2026-11-03).
+  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) $(id).appendChild($('menuHome').querySelector('.backdrop').cloneNode(true));
   // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
   // chosen, if it seats them; else the smallest offered that does; a hidden one, or none yet: the default; ?map=: that
   // one; ?seed=: a random one).

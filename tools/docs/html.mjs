@@ -1,5 +1,5 @@
 // The docs' page shell (tools/docs/build.mjs): the head (title, description, canonical, Open Graph and X tags, the
-// structured data), the slim top bar (the wordmark and DOCS, four tabs, PLAY), the footer over the tide lines. Plain HTML
+// structured data), the slim top bar (the wordmark and DOCS, four tabs, PLAY), the footer. Plain HTML
 // that reads whole without JavaScript; the style inlined (docs.css, a few KB: one request a page, no render-blocking CSS).
 import { readFileSync } from 'node:fs';
 
@@ -32,11 +32,6 @@ export const FONTS = [
   ['Share Tech Mono', 400, 'share-tech-mono-400.woff2'],
 ];
 const fontFaces = FONTS.map(([f, w, file]) => `@font-face{font-family:'${f}';font-style:normal;font-weight:${w};font-display:swap;src:url('/docs/fonts/${file}') format('woff2')}`).join('');
-
-const TIDE = `<svg class="tide" viewBox="0 0 844 60" preserveAspectRatio="none" aria-hidden="true">
-<path d="M-40 10c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".10"/>
-<path d="M-40 28c60-8 120 8 180 0s120-8 180 0 120 8 180 0 120-8 180 0 120 8 180 0 60-4 100 0" fill="none" stroke="#4fd1c5" stroke-width="1.5" stroke-opacity=".16"/>
-<path d="M-40 48c60-10 120 10 180 0s120-10 180 0 120 10 180 0 120-10 180 0 120 10 180 0 60-5 100 0" fill="none" stroke="#4fd1c5" stroke-width="2" stroke-opacity=".32"/></svg>`;
 
 /** The share card (og:image) every page uses unless it names its own. */
 const OG = { src: '/og.png', w: 1200, h: 630, alt: "Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones" };
@@ -85,7 +80,7 @@ ${data.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(
 <main id="main">
 ${body}
 </main>
-<footer>${TIDE}<div class="in"><span>Ebbfall is free and open source</span><a href="${REPO}">Source on GitHub</a><a href="${REPO}/blob/main/LICENSE">MIT license</a><a class="play" href="/">Play</a></div></footer>
+<footer><div class="in"><span>Ebbfall is free and open source</span><a href="${REPO}">Source on GitHub</a><a href="${REPO}/blob/main/LICENSE">MIT license</a><a class="play" href="/">Play</a></div></footer>
 <script>(function(){var t=document.querySelector('.tabs'),a=t&&t.querySelector('[aria-current]');if(a&&a.offsetLeft+a.offsetWidth>t.clientWidth)t.scrollLeft=a.offsetLeft-(t.clientWidth-a.offsetWidth)/2;})();</script>
 </body>
 </html>

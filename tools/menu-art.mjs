@@ -24,9 +24,10 @@ const BG = [11, 15, 22]; // --bg
 
 /**
  * The size classes: image px, `k` the scale of the zoom-2 sprites (k = 0.5 is the atlas's own scale, og.png's), `fade`
- * how much of the top fades to nothing. The band is 40 px wider than the screen (the drift) and 8 px lower; its height
- * is style.css's: 40% of the screen (desktop and wide: 1440x900 and 2560x1080 as references), 36% on a short phone
- * (844x390), 26% upright (390x844). The landscape image is shown at 2x on a phone (a 3x screen upsamples it 1.5x).
+ * how much of the top fades to nothing. The band is 40 px wider than the screen and 8 px lower (once room for a
+ * drift, now gone); its height is style.css's: 40% of the screen (desktop and wide: 1440x900 and 2560x1080 as
+ * references), 36% on a short phone (844x390), 26% upright (390x844). The landscape image is shown at 2x on a phone
+ * (a 3x screen upsamples it 1.5x).
  */
 const CLASSES = {
   wide: { W: 2560, H: 480, k: 0.6, fade: 0.62, clear: [.16, .48] },
@@ -40,7 +41,7 @@ const CLASSES = {
 /** Each class's scene (tools/scene.mjs: [frame, x, y, seat, scale], shared with og.mjs; the desktop's is og.png's band). */
 const SCENES = { wide: SCENE.WIDE, desktop: SCENE.BAND, landscape: SCENE.LANDSCAPE, portrait: SCENE.PORTRAIT };
 /** The night over the field: --bg over the art by height (dark at the faded top, lightest where the armies stand, a
- *  dark foot under the water's edge), then the top faded to nothing. */
+ *  dark foot), then the top faded to nothing. */
 const VEIL = [[0, .6], [.5, .2], [.80, .24], [.86, .32], [.93, .74], [1, .88]];
 
 // ---- step 1: the sprites, rendered (or read back from MENU_ART_SPRITES) ----

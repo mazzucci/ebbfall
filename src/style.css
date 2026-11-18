@@ -260,31 +260,22 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 @media (max-height:420px){#mapPreview,#onlinePreview{width:48px;height:48px}}
 /* The first page, a title screen (centered): two big choices (single player, multiplayer), side by side; each opens its own page. */
 #menuHome{text-align:center} #menuHome .row{justify-content:center;gap:16px} #start #menuHome h1{font:700 clamp(30px,9vh,58px)/1.15 var(--display);letter-spacing:.04em} /* (the name in title case: tighter than the caps of the buttons, a size up to keep its weight) */ #menuHome .tag{max-width:560px;margin-left:auto;margin-right:auto} #menuHome .tip{text-align:left}
-/* The first page's floor (the .shore in #menuHome): a dark shore under the whole screen, the water drawn back to the bottom edge, a faint glow behind the title. Under the page's content (z-index -1 in #start's stacking context; the card's own background goes, the screen's is the same color), no pointer events; the tide lines keep to the bottom 40% of the screen, below the tagline on every phone, and the buttons over them are opaque. Each line drifts a few pixels over 18-29 s, a transform on its own <svg> (composited), none under prefers-reduced-motion; display:none with the page ends the animations, so a game pays nothing for them. */
+/* The menu's backdrop (the .backdrop in #menuHome, and a copy under the other menu pages, menu.js): a plain dark floor under the whole screen, the field on it. Under the page's content (z-index -1 in the screen's stacking context; the card's own background goes, the floor is the same color), no pointer events. */
 #start .card.menu{background:transparent}
-#start .shore,#online .shore{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:radial-gradient(120% 90% at 50% 30%,#16202d 0%,var(--panel) 55%,#0e141d 100%)}
-#start .shore svg,#online .shore svg{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%} /* (wider than the screen by more than the drift, 14 px, and lower by more than its 5 px: no edge shows at the extremes of the drift) */
-@media (max-height:420px){:is(#start,#online) .shore svg{bottom:-38px}} /* (a short phone: the band a little lower, clear of the row of buttons) */
-#start .tide,#online .tide{animation:ebb 18s ease-in-out infinite alternate} :is(#start,#online) .tide.t2{animation-duration:23s;animation-delay:-7s} :is(#start,#online) .tide.t3{animation-duration:29s;animation-delay:-13s}
-@keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
-@media (prefers-reduced-motion:reduce){:is(#start,#online) .tide{animation:none}}
-/* The field under the first page (the .scene in the .shore: public/menu/menu-<class>.webp, tools/menu-art.mjs): og.png's battle as a band across the bottom 40% of the screen (36% on a short phone, 26% upright), one image per size class, its top faded into the floor, so the premise line and the buttons sit on the plain floor as before (the image is under the page, a thing of the shore's: it can push nothing). It drifts with the tide, a shade slower (one transform on the <picture>, composited); none under prefers-reduced-motion. Over it only the lowest tide line stays, moved to the band's foot (the field meets the water, clear of the front ranks); the two upper lines and the bank's stones go. Under 360 px of height there is no band (it would sit under the buttons): the shore is as it was. The floor shows while the image loads, and when it never does. */
-#start .scene{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%;display:block;animation:ebb 37s ease-in-out infinite alternate;animation-delay:-20s}
-#start .scene img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 100%}
-@media (min-height:360px){#start .shore:has(.scene) :is(.tide.t1,.tide.t2,svg:not(.tide)){display:none} #start .shore:has(.scene) .tide.t3{bottom:-26px}}
-@media (min-height:360px) and (min-aspect-ratio:2/1){#start .shore:has(.scene) .tide.t3{bottom:-60px}} /* (21:9: the line's SVG is scaled wider, so it sits higher; down with it) */
-@media (max-height:420px){#start .scene{height:36%} #start .shore:has(.scene) .tide.t3{bottom:-38px}} /* (a short phone: the band's foot is the screen's edge, the line where the shore already puts it) */
-@media (orientation:portrait){#start .scene{height:26%} #start .shore:has(.scene) .tide.t3{bottom:-8px}} /* (upright: the band is low and its SVG small, the line already at its foot) */
-@media (max-height:359px){#start .scene{display:none}}
-@media (prefers-reduced-motion:reduce){#start .scene{animation:none}}
-#menuHome .rec{margin-top:4px;min-height:1em;font-size:11px} #menuHome .rec:empty{display:none} /* (the build stamp: small and muted at the foot, clear of the tide lines) */
+:is(#start,#online) .backdrop{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:var(--panel)}
+/* The field (the .scene in the backdrop: public/menu/menu-<class>.webp, tools/menu-art.mjs): og.png's battle as a band across the bottom 40% of the screen (36% on a short phone, 26% upright), one image per size class, its top faded into the floor, so the premise line and the buttons sit on the plain floor (the image is under the page: it can push nothing). The band is 40 px wider than the screen and 8 px lower, as the images are composed. Under 360 px of height there is no band (it would sit under the buttons): the plain floor. The floor shows while the image loads, and when it never does. */
+:is(#start,#online) .scene{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%;display:block}
+:is(#start,#online) .scene img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 100%}
+@media (max-height:420px){:is(#start,#online) .scene{height:36%}}
+@media (orientation:portrait){:is(#start,#online) .scene{height:26%}}
+@media (max-height:359px){:is(#start,#online) .scene{display:none}}
+#menuHome .rec{margin-top:4px;min-height:1em;font-size:11px} #menuHome .rec:empty{display:none} /* (the build stamp: small and muted at the foot) */
 /* The first page's footer line: How to play and About, the docs, in a new tab (one muted mono line, amber underlined on hover). */
 #menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}
 #menuLinks a{display:inline-flex;align-items:center;min-height:44px;min-width:48px;justify-content:center;padding:0 6px;color:var(--muted);text-decoration:none;letter-spacing:.04em} #menuLinks a:hover,#menuLinks a:focus-visible{color:var(--ally2);text-decoration:underline} #menuLinks .sep{color:var(--line2)}
 #menuFoot{display:flex;flex-direction:column;align-items:center}
-@media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, so the tide lines keep below) */
+@media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, clear of the field) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
-#homeOfflineMsg:not(:empty)~.shore .tide.t1,#homeOfflineMsg:not(:empty)~.shore .tide.t2{display:none} /* (its line takes the room of the two upper tide lines; the shore comes after it in the page for this) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
 @media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}
 /* Sound and full screen (corner.js): the screen's corner over every menu page and card, above them all; in a game with
@@ -501,8 +492,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 @media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centered) */
 #online .card.menu{justify-content:flex-start}
 #onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
-/* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's shore behind them,
-   dimmer (their content is taller and reaches down over it). */
+/* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's backdrop behind
+   them (menu.js copies it). */
 .page .brand,#online .brand{font:700 22px/1.1 var(--display);letter-spacing:.04em;color:var(--ally2);margin:0 0 2px}
 #online .card.menu{background:transparent}
-:is(#menuSolo,#onlineJoin,#onlineRoom) .shore svg{opacity:.45}

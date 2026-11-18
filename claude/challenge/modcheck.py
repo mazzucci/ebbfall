@@ -8,7 +8,7 @@ the screen. The person's browser is test/open-headless.mjs (BROWSER), which pres
 --real plays the local build (dist/); without it, the protocol's stand-in game (test/mock-game, 14 game-minutes).
 Passes when Claude set a start plan through the plugin's MCP tools, answered at least one moment fed in by
 $.prompt.submit with a tool call, and the game ended. Logs: target/challenge/logs/modcheck/ (screen.txt, events.jsonl).
-Never a permission bypass: --tools "", --allowedTools (our three), --permission-mode dontAsk, no claude.ai connectors.
+Never a permission bypass: --tools "", --allowedTools (our four), --permission-mode dontAsk, no claude.ai connectors.
 """
 import json, os, pty, re, select, signal, struct, fcntl, termios, time, sys, urllib.request
 
@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
 LOG = os.path.join(REPO, 'target', 'challenge', 'logs', 'modcheck')
 CWD = os.path.join(REPO, 'target', 'challenge', 'cwd-mod')
-TOOLS = ['mcp__plugin_ebbfall_ebbfall__set_plan', 'mcp__plugin_ebbfall_ebbfall__say', 'mcp__plugin_ebbfall_ebbfall__read_state']
+TOOLS = ['mcp__plugin_ebbfall_ebbfall__set_plan', 'mcp__plugin_ebbfall_ebbfall__say', 'mcp__plugin_ebbfall_ebbfall__read_state', 'mcp__plugin_ebbfall_ebbfall__save_notes']
 FLAGS = [
     '--plugin-dir', os.path.join(HERE, 'plugin'),
     '--tools', '',
@@ -37,6 +37,7 @@ def main():
         if os.path.exists(os.path.join(LOG, f)):
             os.remove(os.path.join(LOG, f))
     env = dict(os.environ)
+    env['EBBFALL_CHALLENGE_HOME'] = os.path.join(LOG, 'home')  # (Claude's notes: not the person's own)
     env['BROWSER'] = f'node {os.path.join(HERE, "test", "open-headless.mjs")}'
     env['ENABLE_CLAUDEAI_MCP_SERVERS'] = 'false'
     env['TERM'] = 'xterm-256color'

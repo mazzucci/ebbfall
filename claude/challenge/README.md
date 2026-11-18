@@ -21,8 +21,11 @@ Requirements:
    `claude --plugin-dir claude/challenge/plugin`
 2. Type `/ebbfall watch` (Claude's seat against Hard, and you watch) or `/ebbfall play` (you against Claude). A page opens
    in your browser, with the game on the left and Claude's lines on the right. Claude sets its start plan in a few
-   seconds and its first line appears; then press START GAME.
-3. Play or watch to the end; reload the page for a rematch. `/ebbfall stop` closes it.
+   seconds and its first line appears; then press START GAME. Add a name to keep Claude's notes on you apart from
+   anyone else's: `/ebbfall play sam` (letters, digits, `-` or `_`; the default is your login name in play, `hard` in
+   watch).
+3. Play or watch to the end. Claude says a line and saves its notes; then type `/clear` and reload the page for a
+   rematch. `/ebbfall stop` closes it.
 
 What to notice:
 - whether Claude's lines fit what is on screen, and how late they come;
@@ -30,9 +33,22 @@ What to notice:
 - what it says after a loss, and whether the next start plan answers it;
 - anything that reads as a cheat or as nonsense.
 
-**Cost:** about $1.50 to $3 a game with the current model (Opus). That is the headless driver's figure from series 2,
-where each game is a fresh session that carries Claude's notes. In `/ebbfall`, one session keeps the whole match, so
-each later game costs more: in series 1, a single session across 5 games, the cost grew from about $1 to $7.
+**Cost:** about $1.50 to $3 a game with the current model (Opus), the headless driver's figure from series 2, where each
+game is a fresh session that carries only Claude's notes.
+
+### Keep it cheap: `/clear` between games
+
+A session that keeps the whole match pays for all of it again on every turn: in series 1, a single session across 5
+games, the cost grew from about $1 to $7 a game. So after each game, once Claude has said its line and saved its notes:
+type `/clear` (or quit and start a new session), then reload the page. The page and the server stay open across a
+`/clear`, and the next game's first message brings Claude how to play and its notes, so the rival keeps its memory and
+each game costs about the same.
+
+**Claude's notes** are at most 1,200 characters, what to try next first, written by Claude with `save_notes` after each
+game; longer notes are refused and Claude rewrites them. They live outside the repo, one file per player name:
+`~/.ebbfall-challenge/notes/<player>.md` (`/ebbfall` shows the path when it starts). Read them to see what Claude thinks
+of you. To reset Claude's memory of a player, delete the file: `rm ~/.ebbfall-challenge/notes/<player>.md` (or the
+whole `~/.ebbfall-challenge` folder for everyone). `EBBFALL_CHALLENGE_HOME` names another folder.
 
 Or ask Claude: _"Start the Ebbfall Claude challenge from this repo, following the Instructions for Claude in
 claude/challenge/README.md."_
@@ -53,11 +69,14 @@ stop to tell them if one fails.
      installed;
    - `/ebbfall` then runs a small local server (127.0.0.1 only, with a random token) that serves the local build and
      opens a page in their browser;
-   - Claude gets three tools (`set_plan`, `say`, `read_state`);
-   - each game costs about $1.50 to $3 at the current model, more for later games in the same session.
+   - Claude gets four tools (`set_plan`, `say`, `read_state`, `save_notes`);
+   - Claude's notes on its rival (at most 1,200 characters) are kept in `~/.ebbfall-challenge/notes/<player>.md`;
+     deleting the file resets them;
+   - each game costs about $1.50 to $3 at the current model if they `/clear` between games (the notes carry the
+     memory), more for later games in the same conversation.
 4. **Give them the command to run themselves**, since a plugin loads when a session starts:
-   `claude --plugin-dir claude/challenge/plugin`. Then they type `/ebbfall watch` or `/ebbfall play`, and
-   `/ebbfall stop` to close it.
+   `claude --plugin-dir claude/challenge/plugin`. Then they type `/ebbfall watch` or `/ebbfall play` (optionally with
+   a player name: `/ebbfall play sam`), `/clear` between games, and `/ebbfall stop` to close it.
 
 Do not install the plugin into their settings, and do not change their Claude Code settings, permissions or other
 plugins. Do not start the session with a permission bypass.
@@ -74,41 +93,47 @@ plugins. Do not start the session with a permission bypass.
   - The server sends Claude's plans, deltas and lines back to the game.
   - Every API call needs the token; a request whose Host is not this machine's loopback address is refused; no service
     worker is served.
-- **The tools.** `mcp.mjs` is an MCP server (stdio) with three tools:
+- **The tools.** `mcp.mjs` is an MCP server (stdio) with four tools:
   - `set_plan`: the start plan before a game; during a game, a delta and/or intents (attack, hold, pull, mass), with an
     optional line;
   - `say`: one line, at most 140 characters;
-  - `read_state`: the latest digest.
+  - `read_state`: the latest digest (and, between games, the saved notes);
+  - `save_notes`: Claude's notes for the next game against this player, at most 1,200 characters, refused (not cut)
+    when longer.
 
   The game validates and clamps every field, and answers each plan or delta with what it applied.
 - **Check-ins.** The game posts a digest of what Claude's seat knows every 2 game-minutes, and on key events: a wave
   arrives or is wiped out, its base is attacked, a building falls, its army is wiped out at home. The game never pauses
   for Claude: while Claude thinks, its seat keeps its current plan, and a delta takes effect on the tick it arrives.
 - **The mod** (`plugin/`, in the pattern of [Whiteboard](https://github.com/mazzucci/whiteboard)):
-  - `/ebbfall [watch|play|stop]` starts the server, opens the page and feeds each moment (the menu, the start, a
-    check-in, an event, the end) into the session with `$.prompt.submit`;
+  - `/ebbfall [watch|play] [player]` starts the server, opens the page and feeds each moment (the menu, the start, a
+    check-in, an event, the end) into the session with `$.prompt.submit`; `/ebbfall stop` closes it;
   - while a turn runs, only the newest check-in waits;
+  - the menu moment carries Claude's saved notes on the player; after a `/clear` (`session.end` with reason `clear`)
+    the next moment also carries how to play, since the context `/ebbfall` gave went with the conversation;
   - its tools come from `mcp.mjs` through `plugin/.mcp.json`.
-- **Post-game notes** (the headless driver). Each game is a fresh Claude session. At the end Claude says a line, then
-  writes its notes for the next game as its final answer (aiming for 1,200 characters, cut at 1,500): what to try next,
-  what worked and failed, what the opponent did. The next game's first message carries the notes and the results so
-  far, and nothing else. In `/ebbfall`, the session itself carries over between games.
+- **Post-game notes** (both paths). At the end Claude says a line, then saves its notes for the next game with
+  `save_notes` (at most 1,200 characters; longer ones are refused with their length, and Claude rewrites them): what to
+  try next first, then what worked and failed, what the opponent did. The server keeps them per player
+  (`lib/notes.mjs`, `~/.ebbfall-challenge/notes/<player>.md`) and puts them on each game's `ready` event, so the next
+  game's first message carries them. The headless driver starts each game in a fresh session with the notes and the
+  results so far, and nothing else; in `/ebbfall`, `/clear` between games does the same.
 - **The tool limits** in the headless driver, verbatim. Each moment goes to `claude -p <moment> --output-format json
   --session-id|--resume <one session per game> --system-prompt <lib/prompt.mjs SYSTEM>` with:
 
   ```
-  --mcp-config <log>/mcp.json --strict-mcp-config --tools "" --allowedTools mcp__ebbfall__set_plan,mcp__ebbfall__say,mcp__ebbfall__read_state
+  --mcp-config <log>/mcp.json --strict-mcp-config --tools "" --allowedTools mcp__ebbfall__set_plan,mcp__ebbfall__say,mcp__ebbfall__read_state,mcp__ebbfall__save_notes
   --permission-mode dontAsk --permission-prompts none --setting-sources project --disable-slash-commands --no-chrome
   ```
 
   Before playing, the driver makes one call with the same flags in `stream-json` and refuses to start unless the init
-  message lists exactly those three tools and one connected MCP server. No permission bypass is used anywhere.
+  message lists exactly those four tools and one connected MCP server. No permission bypass is used anywhere.
 
   In `/ebbfall`, the session is the person's own, with their tools and permissions. The mod check (`modcheck.py`) ran
-  it with the same limits:
+  it with the same limits (that check ran with the first three tools; `save_notes` came after):
 
   ```
-  claude --plugin-dir claude/challenge/plugin --tools "" --allowedTools mcp__plugin_ebbfall_ebbfall__set_plan,mcp__plugin_ebbfall_ebbfall__say,mcp__plugin_ebbfall_ebbfall__read_state --disallowedTools mcp__claude_ai_Notion,mcp__claude_ai_Claude_Docs,mcp__claude_ai_Resend --permission-mode dontAsk --setting-sources project --no-chrome
+  claude --plugin-dir claude/challenge/plugin --tools "" --allowedTools mcp__plugin_ebbfall_ebbfall__set_plan,mcp__plugin_ebbfall_ebbfall__say,mcp__plugin_ebbfall_ebbfall__read_state,mcp__plugin_ebbfall_ebbfall__save_notes --disallowedTools mcp__claude_ai_Notion,mcp__claude_ai_Claude_Docs,mcp__claude_ai_Resend --permission-mode dontAsk --setting-sources project --no-chrome
   ```
 
   with `ENABLE_CLAUDEAI_MCP_SERVERS=false` in its environment. `--strict-mcp-config` would also drop the plugin's own
@@ -120,11 +145,12 @@ plugins. Do not start the session with a permission bypass.
 | --- | --- |
 | `server.mjs` | The local server (Node's standard library): the build, the page, the relay, the logs, the state file (`lib/common.mjs`). |
 | `page/` | The page: the game in a same-origin iframe, the side panel, the relay of the game's postMessages. |
-| `mcp.mjs` | The MCP server with the three tools. |
+| `mcp.mjs` | The MCP server with the four tools. |
 | `plugin/` | The mod: `/ebbfall`, `$.prompt.submit`, `.mcp.json`. |
 | `drive.mjs` | The headless driver: real Claude against Hard in the real page (Playwright), no person needed. |
 | `modcheck.py` | The one-time check of the mod path: an interactive `claude --plugin-dir` in a pty (Python's), typing `/ebbfall watch`. |
 | `lib/prompt.mjs` | What Claude is told: the voice, the vocabulary copy, each moment's wording, the notes. |
+| `lib/notes.mjs` | Claude's notes per player: the cap, the player names, the file under `~/.ebbfall-challenge/notes/`. |
 | `test/` | `plumbing.test.mjs` (`node --test claude/challenge/test/*.test.mjs`), a stand-in game that speaks the protocol (`mock-game/`, `server.mjs --mock`), and a stand-in browser for the mod check. |
 
 ## The headless driver
@@ -141,7 +167,10 @@ The default match is the Kingdom mirror on Dust Quarter (the Standard map, 96x96
   driver keeps the pace with `endfall.skip`.
 - `--seeds 11,22,..`: a game seed per game (`&seed=`), cycled.
 - `--cap M`: a safety cutoff in game minutes, off by default; watch mode ends itself at 30:00 with a timeout.
-- `--stub`: scripted replies, no Claude.
+- `--player NAME`: whose notes the series reads and saves (default `hard`, the same file as `/ebbfall watch`; with
+  `--stub`, `stub`). The notes persist across series: `--fresh` starts the first game without them (its own notes
+  then replace them), or delete the file.
+- `--stub`: scripted replies, no Claude (they include an over-long `save_notes`, which must be refused).
 - `--mock`: the stand-in game.
 - `--model`, `--headed`.
 
@@ -151,4 +180,4 @@ A series stops at once on a Claude call that errors or returns no JSON, and at t
 - `driver.jsonl`: every digest, call, tool call, line and result;
 - `server.jsonl`;
 - `series.json`: results and tokens per game;
-- `notes.md`: Claude's notes after each game.
+- `notes.md`: a copy of Claude's notes after each game (the live ones are in `~/.ebbfall-challenge/notes/`).

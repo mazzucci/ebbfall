@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// The challenge's MCP server (stdio, newline-delimited JSON-RPC): Claude's three tools for steering its Ebbfall seat.
+// The challenge's MCP server (stdio, newline-delimited JSON-RPC): Claude's four tools for steering its Ebbfall seat.
 // It holds no game state: each call goes to the local challenge server (server.mjs), found through the state file
 // (lib/common.mjs statePath; EBBFALL_CHALLENGE_STATE names another). Node's standard library only.
 //
 //   set_plan    the start plan before a game, or during one a delta (fields to change) and intents, and a line
 //   say         one line to the player (140 characters at most)
 //   read_state  the latest check-in digest and the game's state
+//   save_notes  Claude's notes for its next game against this player (lib/notes.mjs: NOTES_MAX characters at most)
 import { createInterface } from 'node:readline';
 import { readState, INTENTS, LINE_MAX, CODE_MAX } from './lib/common.mjs';
+import { NOTES_MAX } from './lib/notes.mjs';
 
 const TOOLS = [
   {
@@ -49,6 +51,20 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'save_notes',
+    description:
+      `Save your notes for your next game against this player, after a game ends: at most ${NOTES_MAX} characters of plain ` +
+      'text, replacing the notes saved before. Put what to try next (with the plan code) FIRST, then merge what still ' +
+      'matters from your earlier notes: what worked and failed, what the opponent did and when. The next game may start ' +
+      'in a fresh conversation that has only these notes. Over-long notes are refused, not cut: rewrite them shorter.',
+    inputSchema: {
+      type: 'object',
+      properties: { text: { type: 'string', description: `Your notes, at most ${NOTES_MAX} characters, the next try first.` } },
+      required: ['text'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 async function call(body) {
@@ -78,7 +94,7 @@ async function handle(m) {
       protocolVersion: params?.protocolVersion || '2025-06-18',
       capabilities: { tools: {} },
       serverInfo: { name: 'ebbfall', version: '0.1.0' },
-      instructions: 'Tools for playing an Ebbfall seat: set_plan steers it, say talks to the player, read_state reads the latest digest.',
+      instructions: 'Tools for playing an Ebbfall seat: set_plan steers it, say talks to the player, read_state reads the latest digest, save_notes keeps your notes for the next game.',
     });
   }
   if (method === 'ping') return reply(id, {});

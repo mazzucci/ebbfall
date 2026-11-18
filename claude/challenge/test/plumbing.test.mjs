@@ -4,16 +4,20 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { deltaCode, codeError, lineCheck } from '../lib/common.mjs';
+import { NOTES_MAX, notesCheck, defaultPlayer, playerError } from '../lib/notes.mjs';
+import { preGame } from '../lib/prompt.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const STATE = join(mkdtempSync(join(tmpdir(), 'ebbfall-challenge-test-')), 'server.json');
-const env = { ...process.env, EBBFALL_CHALLENGE_STATE: STATE };
+const TMP = mkdtempSync(join(tmpdir(), 'ebbfall-challenge-test-'));
+const STATE = join(TMP, 'server.json');
+const HOME = join(TMP, 'home'); // (the notes: never the person's own ~/.ebbfall-challenge)
+const env = { ...process.env, EBBFALL_CHALLENGE_STATE: STATE, EBBFALL_CHALLENGE_HOME: HOME };
 let server, base, token, mcp, stream;
 const rpc = { id: 0, waiting: new Map() };
 
@@ -72,9 +76,9 @@ test('codes, deltas and lines are checked before they go to the game', () => {
   assert.equal(lineCheck('  Hello.  ').text, 'Hello.');
 });
 
-test('the MCP server lists exactly three tools', async () => {
+test('the MCP server lists exactly four tools', async () => {
   const r = await call('tools/list', {});
-  assert.deepEqual(r.result.tools.map(t => t.name), ['set_plan', 'say', 'read_state']);
+  assert.deepEqual(r.result.tools.map(t => t.name), ['set_plan', 'say', 'read_state', 'save_notes']);
 });
 
 test('a start plan reaches the game before it starts; intents wait for the game', async () => {
@@ -101,4 +105,81 @@ test('say is capped, and the API refuses a wrong token', async () => {
   assert.equal((await tool('say', { text: 'Nice wall.' })).ok, true);
   const r = await fetch(`${base}/claude/api/state`, { headers: { 'x-challenge-token': 'nope' } });
   assert.equal(r.status, 403);
+});
+
+// ---------------------------------------------------------------- the notes
+
+/** Another server on its own state file (the MCP server keeps talking to the first): `{ proc, api, ready }`. */
+async function extraServer(args, i) {
+  const e = { ...env, EBBFALL_CHALLENGE_STATE: join(TMP, `server-${i}.json`) };
+  const proc = spawn(process.execPath, [join(HERE, '../server.mjs'), '--mock', ...args], { env: e, stdio: ['pipe', 'pipe', 'inherit'] });
+  const ready = await new Promise(ok => createInterface({ input: proc.stdout }).on('line', l => { const m = JSON.parse(l); if (m.ready) ok(m); }));
+  const b = `http://127.0.0.1:${ready.port}`;
+  const api = (name, body) => fetch(`${b}/claude/api/${name}`, { method: body ? 'POST' : 'GET', headers: { 'x-challenge-token': ready.token, 'content-type': 'application/json' }, body: body && JSON.stringify(body) }).then(r => r.json());
+  return { proc, api, ready };
+}
+const stopped = (proc) => new Promise(ok => { proc.on('exit', ok); proc.kill('SIGTERM'); });
+
+test('notes over the cap are refused with how long they are, and nothing is saved', async () => {
+  const before = (await tool('read_state', {})).state.notes;
+  assert.equal(before.player, 'hard'); // (watch mode's default)
+  assert.equal(before.path, join(HOME, 'notes', 'hard.md'));
+  const long = await tool('save_notes', { text: 'n'.repeat(NOTES_MAX + 1) });
+  assert.equal(long.ok, false);
+  assert.match(long.error, new RegExp(`${NOTES_MAX + 1} characters; the most is ${NOTES_MAX}.*rewrite them shorter`));
+  assert.equal(existsSync(before.path), false);
+  assert.equal((await tool('save_notes', { text: '   ' })).ok, false);
+  const exact = 'Next try: 1.w12.parcher. ' + 'm'.repeat(NOTES_MAX - 25);
+  const ok = await tool('save_notes', { text: exact });
+  assert.equal(ok.ok, true); assert.equal(ok.chars, NOTES_MAX);
+  assert.equal(readFileSync(before.path, 'utf8').trim(), exact);
+  assert.ok(notesCheck('a\nb\tc').text);
+  assert.ok(notesCheck('bell\u0007').error);
+});
+
+test('the next game\'s ready carries the notes, and read_state shows them between games', async () => {
+  await tool('save_notes', { text: 'Next try: 1.w12.parcher. Hard pushed at 6:00.' });
+  await api('control', { action: 'rematch' });
+  const last = (await api('events?after=0')).seq;
+  await api('game', { msg: { type: 'ebbfall:ready', v: 1 } });
+  const ev = await api(`events?after=${last}`);
+  const ready = ev.events.find(e => e.kind === 'game' && e.data.type === 'ebbfall:ready');
+  assert.equal(ready.data.challenge.player, 'hard');
+  assert.equal(ready.data.challenge.notes, 'Next try: 1.w12.parcher. Hard pushed at 6:00.');
+  assert.equal((await tool('read_state', {})).state.notes.notes, 'Next try: 1.w12.parcher. Hard pushed at 6:00.');
+  // (the driver's first message, from the same notes)
+  assert.match(preGame({ game: 2, mode: 'watch', peoples: 'Kingdom vs Kingdom', map: 'Dust Quarter', record: 'game 1 lost', notes: ready.data.challenge.notes }), /Your notes from the earlier games[^\n]*\nNext try: 1\.w12\.parcher/);
+});
+
+test('notes persist per player across a server restart, and two players stay separate', async () => {
+  const a1 = await extraServer(['--mode', 'play', '--player', 'alice'], 1);
+  assert.equal(a1.ready.player, 'alice'); assert.equal(a1.ready.notes_chars, 0);
+  assert.equal((await a1.api('tool', { tool: 'save_notes', text: 'Alice walls early; try 1.f3m.s6.' })).ok, true);
+  await stopped(a1.proc);
+
+  const b = await extraServer(['--mode', 'play', '--player', 'bob'], 2);
+  assert.equal((await b.api('state')).state.notes.notes, '');
+  assert.equal((await b.api('tool', { tool: 'save_notes', text: 'Bob rushes Riders.' })).ok, true);
+  await stopped(b.proc);
+
+  const a2 = await extraServer(['--mode', 'play', '--player', 'alice'], 3);
+  assert.equal(a2.ready.notes_chars, 'Alice walls early; try 1.f3m.s6.'.length);
+  assert.equal((await a2.api('state')).state.notes.notes, 'Alice walls early; try 1.f3m.s6.');
+  await a2.api('game', { msg: { type: 'ebbfall:ready', v: 1 } });
+  const ready = (await a2.api('events?after=0')).events.find(e => e.kind === 'game' && e.data.type === 'ebbfall:ready');
+  assert.equal(ready.data.challenge.notes, 'Alice walls early; try 1.f3m.s6.');
+  await stopped(a2.proc);
+
+  assert.equal(readFileSync(join(HOME, 'notes', 'bob.md'), 'utf8').trim(), 'Bob rushes Riders.');
+  assert.equal(readFileSync(join(HOME, 'notes', 'alice.md'), 'utf8').trim(), 'Alice walls early; try 1.f3m.s6.');
+});
+
+test('player names are checked, with a default per mode', async () => {
+  assert.equal(defaultPlayer('watch'), 'hard');
+  assert.equal(defaultPlayer('play', { USER: 'Sam.Smith' }), 'samsmith');
+  assert.equal(defaultPlayer('play', { USER: '...' }), 'player');
+  assert.equal(playerError('sam_2'), null);
+  for (const bad of ['../x', 'Sam', '', 'a'.repeat(33), '-x']) assert.ok(playerError(bad), bad);
+  const proc = spawn(process.execPath, [join(HERE, '../server.mjs'), '--mock', '--player', '../etc'], { env: { ...env, EBBFALL_CHALLENGE_STATE: join(TMP, 'server-bad.json') }, stdio: 'ignore' });
+  assert.notEqual(await new Promise(ok => proc.on('exit', ok)), 0);
 });

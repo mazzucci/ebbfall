@@ -10,12 +10,14 @@
 // (counted once a hello seats someone), joins per address and per /48 (a miss costs more: a guesser is stopped, and
 // learns nothing once stopped), everyone's misses (reported in batches; a scan from rotating networks trips them, and
 // invite links still work), on a fake clock; the bindings as wrangler.toml declares them; a limit that cannot be asked
-// lets the request go on.
-import { test } from 'node:test';
+// lets the request go on. And hibernation (the WebSocket Hibernation API, on a fake runtime that keeps the sockets and
+// their attachments and hibernates an object only with no timer pending): lobbies, games across a hibernation, holds
+// and graces by the alarm, quiet rooms closed, many sockets, the limits after a wake.
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import entry, { RoomObject } from '../relay/worker.js';
 import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
-import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
+import { PROTO, LOBBY_HOLD_MS, OVER_GRACE_MS, QUIET_MS, QUIET_SAY, QUIET_CLOSE } from '../relay/room.js';
 import { DEFAULT_MAP } from '../src/client/maps.js';
 import { readFileSync } from 'node:fs';
 import { rateLimit, OpenBudget, Limits, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR, MSG_BURST, MSG_CLOSE } from '../relay/limits.js';
@@ -23,10 +25,15 @@ import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
 import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
 
+// (the clock: Date.now, ahead by `skew` within a test that skips time: `skip`)
+let skew = 0;
+const realNow = Date.now; Date.now = () => realNow() + skew;
+afterEach(() => { skew = 0; });
+
 /** A connected pair of fake sockets: what one sends, the other's listeners get. */
 function pair() {
   const end = () => ({
-    listeners: {}, got: [], closed: false,
+    listeners: {}, got: [], closed: false, get readyState() { return this.closed ? 3 : 1; },
     addEventListener(t, f) { (this.listeners[t] ||= []).push(f); },
     emit(t, e) { for (const f of this.listeners[t] || []) f(e); },
     accept() {},
@@ -42,17 +49,51 @@ const worker = relay(platform); // (relay/worker.js's default export is relay() 
 /** A fake object's storage (a Durable Object's API over a Map), counting its writes and keeping its alarm. */
 const storage = () => {
   const m = memoryStorage(), s = Object.assign(m, { puts: 0, alarm: 0 }), put = m.put;
-  return Object.assign(s, { async put(k, v) { s.puts++; return put(k, v); }, async setAlarm(t) { s.alarm = t; }, async deleteAll() { m.map.clear(); } });
+  return Object.assign(s, { async put(k, v) { s.puts++; return put(k, v); }, async setAlarm(t) { s.alarm = t; }, async getAlarm() { return s.alarm || null; }, async deleteAlarm() { s.alarm = 0; }, async deleteAll() { m.map.clear(); } });
 };
-/** A fake namespace: one RoomObject per name, made on first use, its storage kept when it is evicted. */
+/** A fake object's state (the WebSocket Hibernation API): its storage, and the sockets it accepted, kept beyond the
+ *  object (with their attachments, at most 2 KB, as the runtime keeps them): each event goes to the object `live()`
+ *  returns then (a new one after a hibernation: `webSocketMessage`, `webSocketClose`). `drop()`: a reset or a deploy,
+ *  the sockets gone with the object, no event to anyone. */
+function fakeState(st, live) {
+  const sockets = new Set(), dead = new WeakSet();
+  return {
+    storage: st,
+    acceptWebSocket(ws) {
+      sockets.add(ws);
+      Object.assign(ws, {
+        serializeAttachment(v) { const j = JSON.stringify(v); assert.ok(j.length <= 2048, `an attachment of ${j.length} bytes`); this.att = j; },
+        deserializeAttachment() { return this.att ? JSON.parse(this.att) : null; },
+      });
+      ws.addEventListener('message', (e) => { if (!dead.has(ws)) live().webSocketMessage(ws, e.data); });
+      ws.addEventListener('close', (e) => { if (dead.has(ws)) return; sockets.delete(ws); live().webSocketClose(ws, e.code, '', true); });
+    },
+    getWebSockets: () => [...sockets],
+    drop() { for (const ws of sockets) dead.add(ws); sockets.clear(); },
+  };
+}
+/** A RoomObject on its own (no namespace) with a fake state; `o.hibernate()` gives the next event a new object. */
+function lone(st = storage()) {
+  let o; const state = fakeState(st, () => o);
+  o = new RoomObject(state, null, platform);
+  return { get o() { return o; }, st, hibernate() { assert.ok(o.hibernatable, 'no timer pending'); o = new RoomObject(state, null, platform); } };
+}
+/** A fake namespace: one RoomObject per name, made on first use, its storage and sockets kept when it is out of memory:
+ *  `evict` (a reset or a deploy: its sockets gone too, unheard) or `hibernate` (the runtime's: its sockets kept; only
+ *  when no timer is pending, as the runtime does). */
 function env(extra = {}) {
-  const objects = new Map(), stores = new Map();
+  const objects = new Map(), stores = new Map(), states = new Map();
   const get = (n) => {
     if (!stores.has(n)) stores.set(n, storage());
-    if (!objects.has(n)) objects.set(n, new RoomObject({ storage: stores.get(n) }, e, platform)); // (an object's env: the namespace, to tell the limits object of a seat)
+    if (!states.has(n)) states.set(n, fakeState(stores.get(n), () => get(n)));
+    if (!objects.has(n)) objects.set(n, new RoomObject(states.get(n), e, platform)); // (an object's env: the namespace, to tell the limits object of a seat)
     return objects.get(n);
   };
-  const e = { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
+  const e = {
+    objects, stores, states, ...extra, ROOMS: { idFromName: (n) => n, get },
+    evict: (n) => { objects.delete(n); states.get(n)?.drop(); },
+    hibernate: (n) => { assert.ok(objects.get(n).hibernatable, 'no timer pending: the runtime may hibernate it'); objects.delete(n); },
+  };
   return e;
 }
 const upgrade = (query, origin = 'https://ebbfall.com', ip = '') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) } });
@@ -107,7 +148,7 @@ test('no such room: told so, and closed; a code of the first format (four letter
 });
 
 test('a code in use is not given again; an idle one is', async () => {
-  const o = new RoomObject({ storage: storage() }, null, platform);
+  const { o } = lone();
   const first = await o.fetch(new Request('https://room/?code=BCDF&new=1'));
   assert.equal(first.status, 101);
   assert.equal((await o.fetch(new Request('https://room/?code=BCDF&new=1'))).status, 409, 'someone is in it');
@@ -115,7 +156,7 @@ test('a code in use is not given again; an idle one is', async () => {
   assert.equal((await o.fetch(new Request('https://room/?code=BCDF&new=1'))).status, 409, 'just left: kept a while for a rejoin');
   o.lastUsed = Date.now() - 11 * 60 * 1000;
   assert.equal((await o.fetch(new Request('https://room/?code=BCDF&new=1'))).status, 101, 'idle: a new room');
-  for (const c of o.conns) c.other.close(); // (the players hang up)
+  for (const c of o.conns) c.ws.other.close(); // (the players hang up)
   assert.equal(o.timer, null);
 });
 
@@ -234,12 +275,16 @@ test('a connection that floods the room is closed (MSG_CLOSE), the others are no
   const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
   let b2 = null;
   try {
-    say(b, hello('Bo'));
+    const now = Date.now, at = now(); Date.now = () => at; // (the burst at one instant: no token back meanwhile, however slow the machine)
+    let before;
+    try {
+      say(b, hello('Bo'));
+      for (let i = 0; i < MSG_BURST - 1; i++) say(b, { t: 'race', race: i % 2 ? 'vael' : 'humans' }); // (the hello and these: the burst)
+      assert.ok(!b.closed, 'up to the burst: open');
+      before = got(a, 'lobby').length;
+      say(b, { t: 'race', race: 'vael' });
+    } finally { Date.now = now; }
     const token = got(b, 'seat')[0].token;
-    for (let i = 0; i < MSG_BURST - 1; i++) say(b, { t: 'race', race: i % 2 ? 'vael' : 'humans' }); // (the hello and these: the burst)
-    assert.ok(!b.closed, 'up to the burst: open');
-    const before = got(a, 'lobby').length;
-    say(b, { t: 'race', race: 'vael' });
     assert.ok(b.closed, 'one past it: closed');
     assert.equal(b.code, MSG_CLOSE, 'with the code that says why');
     assert.ok(got(a, 'lobby').length <= before + 1, 'the one past it not passed on (only the seat held, away)');
@@ -270,7 +315,7 @@ test('an idle room\'s alarm deletes its record: the code is free, the room gone'
   assert.equal(got(c, 'error')[0]?.code, 'noroom');
   e.evict(code);
   assert.equal((await e.ROOMS.get(code).fetch(new Request(`https://room/?code=${code}&new=1`))).status, 101, 'free for a new room');
-  for (const x of e.objects.get(code).conns) x.other.close();
+  for (const x of e.objects.get(code).conns) x.ws.other.close();
 });
 
 test('no record outlives its room: every write sets the alarm; one firing with people in sets itself again; after a reset with people in (no close), it deletes the record', async () => {
@@ -294,6 +339,247 @@ test('no record outlives its room: every write sets the alarm; one firing with p
   a.close();
 });
 
+// ---- hibernation (the WebSocket Hibernation API: relay/worker.js) ----
+/** The clock `ms` ahead for the rest of the test (Date.now: the alarm's, the room's, the record's time; the tests do not
+ *  wait half an hour). */
+const skip = (ms) => { skew += ms; };
+/** A room with Ann (the host) and Bo seated through the Worker. */
+async function pairUp(e) {
+  const { a, code } = await opened(e);
+  const b = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(b, hello('Bo'));
+  return { a, b, code, tokens: [got(a, 'seat')[0].token, got(b, 'seat')[0].token] };
+}
+/** Let the room settle (its record's write) and the runtime hibernate it: the next event makes a new object. */
+async function hibernate(e, code) {
+  await wait(1100);
+  const o = e.objects.get(code);
+  e.hibernate(code);
+  return o;
+}
+
+test('a lobby runs no clock and hibernates; woken, everyone is seated and ready as before, the game starts, plays and ends; over, it hibernates again and a rematch follows', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  try {
+    const first = e.objects.get(code);
+    assert.equal(first.timer, null, 'a lobby: no clock');
+    say(a, { t: 'race', race: 'vael' }); say(a, { t: 'ready', ready: true });
+    assert.equal(await hibernate(e, code), first);
+    say(b, { t: 'ready', ready: true }); // (the event that wakes it: a new object)
+    await wait(0);
+    const woken = e.objects.get(code);
+    assert.notEqual(woken, first, 'a new object');
+    assert.equal(got(a, 'start').length, 1, 'Ann\'s ready survived the hibernation: the start');
+    assert.deepEqual(got(b, 'start')[0].setup.races, ['vael', 'humans'], 'with the race chosen before it');
+    assert.ok(!woken.hibernatable, 'a game: its clock runs (no hibernation)');
+    for (const c of [a, b]) say(c, { t: 'loaded' });
+    await wait(450);
+    assert.ok(got(a, 'turn').length >= 5, `the clock runs (${got(a, 'turn').length} turns)`);
+    for (const c of [a, b]) say(c, { t: 'over' });
+    assert.equal(woken.room.phase, 'over'); assert.equal(woken.timer, null, 'over: the clock stops');
+    const turns = got(a, 'turn').length;
+    await hibernate(e, code);
+    const rec = await e.stores.get(code).get('room');
+    assert.equal(rec.over.seats.length, 2, 'a game that is over: kept');
+    say(a, { t: 'ack', turn: turns - 1 }); await wait(0); // (the end card's heartbeat: wakes it, changes nothing)
+    assert.equal(e.objects.get(code).room.phase, 'over');
+    for (const c of [a, b]) say(c, { t: 'rematch', want: true });
+    assert.deepEqual(got(a, 'rematch').at(-1).seats, [true, true]);
+    assert.equal(e.objects.get(code).room.phase, 'lobby', 'a rematch after a hibernation: the lobby again');
+    for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+    assert.equal(got(b, 'start').length, 2, 'and a second game');
+  } finally { a.close(); b.close(); await wait(0); }
+});
+
+test('after a hibernation a token takes its seat back; a socket that closes while the room hibernates leaves its seat held; one kept goes on; one replaced stays out', async () => {
+  const e = env();
+  const { a: a0, b, code, tokens } = await pairUp(e);
+  const a = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket; // (Ann on another screen: the first one replaced)
+  say(a, { t: 'hello', proto: PROTO, token: tokens[0] }); await wait(0);
+  assert.equal(got(a0, 'error')[0]?.code, 'replaced');
+  assert.equal(e.states.get(code).getWebSockets().length, 3, 'the replaced socket still in the runtime\'s list (its close unheard)');
+  say(a, { t: 'map', map: 4 });
+  b.close(); await wait(0); // (Bo switched apps: held)
+  await hibernate(e, code);
+  const b2 = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(b2, { t: 'hello', proto: PROTO, token: tokens[1] });
+  assert.equal(got(b2, 'seat')[0]?.seat, 1, 'Bo\'s token: his seat');
+  assert.deepEqual(got(a, 'lobby').at(-1).seats.slice(0, 2).map(s => [s.name, s.here]), [['Ann', true], ['Bo', true]], 'Ann, kept through the hibernation, sees him back');
+  assert.equal(got(a, 'lobby').at(-1).map, 4);
+  await hibernate(e, code);
+  b2.close(); await wait(0); // (the close wakes the room)
+  assert.deepEqual(got(a, 'lobby').at(-1).seats.slice(0, 2).map(s => [s.name, s.here]), [['Ann', true], ['Bo', false]], 'Bo held, away: Ann is told');
+  await wait(1100);
+  assert.ok((await e.stores.get(code).get('room')).lobby.seats[1].goneSince > 0, 'the record says since when');
+  say(a, { t: 'race', race: 'vael' });
+  assert.equal(got(a, 'lobby').at(-1).seats[0].race, 'vael', 'Ann\'s socket still her seat');
+  a.close(); await wait(0);
+});
+
+test('a held seat\'s hold runs out by the alarm (no clock): everyone is told, the record follows; an over game\'s grace too', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  b.close(); await wait(0);
+  const st = e.stores.get(code);
+  assert.ok(Math.abs(st.alarm - (Date.now() + LOBBY_HOLD_MS)) < 2000, 'the alarm at the hold\'s end');
+  await hibernate(e, code);
+  skip(LOBBY_HOLD_MS + 1000); await e.ROOMS.get(code).alarm();
+  assert.deepEqual(got(a, 'lobby').at(-1).seats.slice(0, 2).map(s => s.name), ['Ann', ''], 'the seat open again');
+  await wait(1100);
+  assert.equal((await st.get('room')).lobby.seats[1].token, null);
+  // An over game: a seat gone past the grace has left.
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(c, hello('Cy'));
+  for (const x of [a, c]) say(x, { t: 'ready', ready: true });
+  for (const x of [a, c]) say(x, { t: 'loaded' });
+  await wait(150);
+  for (const x of [a, c]) say(x, { t: 'over' });
+  c.close(); await wait(1100);
+  assert.ok(Math.abs(st.alarm - (Date.now() + OVER_GRACE_MS)) < 2000, 'the alarm at the grace\'s end');
+  await hibernate(e, code);
+  skip(OVER_GRACE_MS + 1000); await e.ROOMS.get(code).alarm();
+  assert.deepEqual(got(a, 'left').map(m => m.seat), [1], 'Cy has left: Ann is told');
+  a.close(); await wait(0);
+});
+
+test('a lobby quiet for half an hour closes: everyone told (QUIET_SAY), sockets closed with QUIET_CLOSE, the record and the alarm gone; anything said but a ping keeps it', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  const st = e.stores.get(code);
+  await wait(1100);
+  assert.ok(Math.abs(st.alarm - (Date.now() + QUIET_MS)) < 2000, 'the alarm at the quiet time');
+  skip(QUIET_MS - 60000); say(b, { t: 'ready', ready: true }); // (Bo, at 29 minutes: a ready, which writes no record)
+  await hibernate(e, code);
+  skip(62000); await e.ROOMS.get(code).alarm();
+  assert.ok(!a.closed && !b.closed, 'Bo did something a minute ago: open (his time kept through the hibernation, in the sockets\' attachments)');
+  assert.ok(Math.abs(st.alarm - (Date.now() + QUIET_MS - 63000)) < 3000, 'the alarm set again, half an hour after Bo');
+  skip(20 * 60000); say(a, { t: 'ping', id: 1 }); // (a ping is no activity)
+  await hibernate(e, code);
+  skip(10 * 60000); await e.ROOMS.get(code).alarm();
+  for (const c of [a, b]) {
+    assert.deepEqual(got(c, 'error').at(-1), { t: 'error', code: 'noroom', msg: QUIET_SAY }, 'told why');
+    assert.ok(c.closed); assert.equal(c.code, QUIET_CLOSE);
+  }
+  assert.equal(st.map.size, 0, 'the record deleted'); assert.equal(st.alarm, 0, 'no alarm left');
+  assert.equal(e.objects.get(code).conns.size, 0);
+  const c = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  assert.equal(got(c, 'error')[0]?.code, 'noroom', 'the code finds no room');
+});
+
+test('a room whose game is over closes once quiet too (the end card\'s acks are heartbeats, no activity); a game in progress never does', async () => {
+  const e = env();
+  const { a, b, code } = await pairUp(e);
+  for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+  for (const c of [a, b]) say(c, { t: 'loaded' });
+  await wait(150);
+  e.objects.get(code).room.active -= 2 * QUIET_MS; await e.ROOMS.get(code).alarm(); // (nothing but orders and acks for an hour)
+  assert.ok(!a.closed && !b.closed, 'a game: never closed for quiet');
+  for (const c of [a, b]) say(c, { t: 'over' });
+  await hibernate(e, code);
+  skip(QUIET_MS - 1000); for (const c of [a, b]) say(c, { t: 'ack', turn: 1 }); await wait(0);
+  await hibernate(e, code);
+  skip(2000); await e.ROOMS.get(code).alarm();
+  assert.ok(a.closed && b.closed, 'over and quiet: closed');
+  assert.equal(got(a, 'error').at(-1).msg, QUIET_SAY);
+});
+
+test('a game that is over, brought back without its turns: a seat back with every turn run is let in; a reload needing them is told the room is gone', async () => {
+  const e = env();
+  const { a, b, code, tokens } = await pairUp(e);
+  for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+  for (const c of [a, b]) say(c, { t: 'loaded' });
+  await wait(250);
+  for (const c of [a, b]) say(c, { t: 'over' });
+  const ends = e.objects.get(code).room.log.length;
+  assert.equal(got(a, 'turn').length, ends);
+  b.close(); await wait(0);
+  await hibernate(e, code);
+  const reload = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(reload, { t: 'hello', proto: PROTO, token: tokens[1], next: 0 });
+  assert.deepEqual(got(reload, 'error').map(m => m.code), ['noroom'], 'a reload: its turns are gone');
+  const back = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(back, { t: 'hello', proto: PROTO, token: tokens[1], next: ends });
+  assert.equal(got(back, 'start')[0]?.seat, 1, 'every turn run: back on its seat');
+  assert.equal(got(back, 'turn').length, 0);
+  for (const c of [a, back]) say(c, { t: 'rematch', want: true });
+  assert.equal(e.objects.get(code).room.phase, 'lobby', 'a rematch');
+  for (const c of [a, back]) c.close(); await wait(0);
+});
+
+test('eight sockets through a hibernation: each still its own seat, its attachment small; a reset (its sockets gone) still brings the lobby back from its record', async () => {
+  const e = env();
+  const { a, code } = await opened(e);
+  for (let i = 0; i < 6; i++) say(a, { t: 'add', team: i + 2, ai: false });
+  const all = [a];
+  for (let i = 1; i < 8; i++) { const c = (await worker.fetch(upgrade(`room=${code}`, undefined, `2001:db8:${i}::1`), e)).webSocket; say(c, hello(`P${i}`)); all.push(c); }
+  assert.deepEqual(all.map(c => got(c, 'seat')[0]?.seat), [0, 1, 2, 3, 4, 5, 6, 7]);
+  const leaver = all.pop(); say(leaver, { t: 'leave' }); // (a lobby leave: its socket open a moment more, seated no more)
+  await hibernate(e, code);
+  for (const ws of e.states.get(code).getWebSockets()) assert.ok(ws.att.length < 400, `an attachment of ${ws.att.length} bytes`);
+  all.forEach((c, i) => say(c, { t: 'race', race: i % 2 ? 'vael' : 'humans' }));
+  await wait(0);
+  assert.equal(e.objects.get(code).conns.size, 8, 'every socket adopted');
+  const l = got(a, 'lobby').at(-1);
+  assert.deepEqual(l.seats.map(s => s && [s.name, s.race, s.here]), [['Ann', 'humans', true], ...[1, 2, 3, 4, 5, 6].map(i => [`P${i}`, i % 2 ? 'vael' : 'humans', true]), ['', 'humans', false]], 'each socket its seat');
+  say(leaver, { t: 'ping', id: 7 }); await wait(0);
+  assert.equal(got(leaver, 'pong')[0]?.id, 7, 'the leaver still answered (its leave confirmed)');
+  await wait(1100);
+  e.evict(code); // (a deploy: sockets and object gone)
+  const n = (await worker.fetch(upgrade(`room=${code}`), e)).webSocket;
+  say(n, hello('Nu'));
+  assert.equal(got(n, 'seat')[0]?.seat, 7, 'the lobby back from its record, every seat held');
+  assert.deepEqual(got(n, 'lobby').at(-1).seats.map(s => s && s.here), [false, false, false, false, false, false, false, true]);
+  n.close(); await wait(0);
+});
+
+test('after a hibernation the message bucket still closes a flood (MSG_CLOSE), and the room is not counted again in everyone\'s', async () => {
+  const { e, l, asked } = limited();
+  const all = () => l.budget.all.keys.get('')?.length || 0;
+  const a = (await e.worker.fetch(upgrade('new=1', undefined, '192.0.2.1'), e)).webSocket;
+  say(a, hello('Ann'));
+  const code = got(a, 'seat')[0].room;
+  assert.equal(all(), 1);
+  await hibernate(e, code);
+  const b = (await e.worker.fetch(upgrade(`room=${code}`, undefined, '192.0.2.2'), e)).webSocket;
+  say(b, hello('Bo'));
+  assert.equal(got(b, 'seat')[0]?.seat, 1);
+  assert.equal(all(), 1, 'a friend after a wake: not counted again');
+  assert.equal(asked.filter(p => p === '/seated').length, 1);
+  await hibernate(e, code);
+  const now = Date.now, at = now(); Date.now = () => at;
+  try {
+    say(a, { t: 'race', race: 'vael' }); await wait(0); // (the waking message)
+    for (let i = 0; i < MSG_BURST - 1; i++) say(a, { t: 'race', race: i % 2 ? 'vael' : 'humans' });
+    assert.ok(!a.closed, 'up to the burst: open');
+    say(a, { t: 'race', race: 'vael' });
+  } finally { Date.now = now; }
+  assert.ok(a.closed); assert.equal(a.code, MSG_CLOSE, 'one past it: closed');
+  assert.ok(!b.closed);
+  await wait(0);
+  assert.ok(e.states.get(code).getWebSockets().length === 2, 'Ann\'s socket still in the runtime\'s list (its close unheard)');
+  await hibernate(e, code);
+  say(b, { t: 'race', race: 'vael' }); await wait(0);
+  assert.deepEqual(got(b, 'lobby').at(-1).seats.slice(0, 2).map(s => [s.name, s.here]), [['Ann', false], ['Bo', true]], 'woken: the closed socket is not taken for Ann (held, away)');
+  b.close(); await wait(0);
+});
+
+test('a room nobody sits in writes nothing and sets no alarm; once seated, a lobby needs no timer a second after its last change', async () => {
+  const e = env();
+  const ws = (await worker.fetch(upgrade('new=1'), e)).webSocket;
+  const code = [...e.objects.keys()].find(k => k !== 'limits');
+  ws.close(); await wait(0);
+  assert.deepEqual([e.stores.get(code).puts, e.stores.get(code).alarm], [0, 0], 'nobody sat: no record, no alarm');
+  const { a, code: c2 } = await opened(e);
+  const o = e.objects.get(c2);
+  assert.ok(o.hibernatable, 'seated (its first record written at once): nothing pending, the runtime may hibernate it');
+  say(a, { t: 'race', race: 'vael' }); say(a, { t: 'race', race: 'humans' });
+  assert.ok(!o.hibernatable, 'a write waits a second');
+  await wait(1100);
+  assert.ok(o.hibernatable, 'then nothing');
+  a.close(); await wait(0);
+});
+
 test('a stored record of a bad shape comes back as an empty lobby, never a broken room', async () => {
   const bad = [
     { seats: [{ name: 'Solo', token: 't1' }] }, // (one seat: one player could start alone)
@@ -304,7 +590,7 @@ test('a stored record of a bad shape comes back as an empty lobby, never a broke
   ];
   for (const lobby of bad) {
     const st = storage(); await st.put('room', { code: 'BCDF', used: Date.now(), started: false, lobby });
-    const o = new RoomObject({ storage: st }, null, platform);
+    const { o } = lone(st);
     const c = (await o.fetch(new Request('https://room/?code=BCDF'))).webSocket;
     say(c, hello('Cy'));
     const seats = o.room.seats;

@@ -146,3 +146,23 @@ test('every docs page with JavaScript off: whole, every unit and building of the
     assert.equal(await page.locator('.tabs a[aria-current="page"]').innerText(), 'KINGDOM', 'the tab says where you are (its short word on a phone)');
   } finally { await ctx.close(); await land.close(); }
 });
+
+test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledger, at most 700 px); the top bar opaque on every page, upright and on its side', { engines: true }, async () => {
+  const ctx = await browserContext({ ...PORTRAIT, viewport: { width: 390, height: 844 } }), page = await ctx.newPage();
+  try {
+    await page.goto(`${baseUrl()}docs/kingdom/`, { waitUntil: 'load' });
+    const h = (await page.locator('figure.tree').boundingBox()).height;
+    assert.ok(h <= 700, `the Kingdom's glance ${Math.round(h)} px tall at 390x844`);
+    assert.equal(await page.locator('figure.tree .tier').count(), 3, 'three tiers: the start, after a Barracks, after a Blacksmith');
+    for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+      await page.setViewportSize(size);
+      for (const path of PAGES) {
+        await page.goto(baseUrl() + path, { waitUntil: 'load' });
+        const bg = await page.locator('.top').evaluate(e => getComputedStyle(e).backgroundColor);
+        const m = bg.match(/^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/);
+        assert.ok(m && (m[4] === undefined || +m[4] === 1), `${path} at ${size.width}x${size.height}: the bar opaque (${bg})`);
+        assert.equal(bg, await page.evaluate(() => getComputedStyle(document.body).backgroundColor), `${path}: the bar in the page's own color`);
+      }
+    }
+  } finally { await ctx.close(); }
+});

@@ -538,7 +538,11 @@ test/e2e/             browser tests: harness.mjs (serves dist/, drives mouse/key
                       docs.e2e.mjs (the first page's footer line: How to play and About in a new tab, the old buttons
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
-                      listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape),
+                      listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the
+                      Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page),
+                      field.e2e.mjs (the field under the first page: the right image per size class, under the premise
+                      line, the buttons unmoved, the floor when the image does not come, the drift stopped under reduced
+                      motion, no band on a screen too short),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
@@ -563,7 +567,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
                       seat 2 (the start arranges the sides); a flooding client (an ack flood keeps few hashes, a huge
                       or oversized order refused, a message flood closes its socket and it comes back by its token);
-                      invite links through a relay that counts the limits (a typo or two, rooms nobody sat in, a scan)
+                      invite links through a relay that counts the limits (a typo or two, rooms nobody sat in, a scan);
+                      a quiet room closed by the relay: the lobby Net shows why and does not reconnect
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -580,7 +585,12 @@ test/relay-bench.test.js the Node relay's HTTP side for the device test's report
                       counted at a room's first seat, joins with a miss costing more, everyone's misses reported in
                       batches and a scan from rotating networks tripping them, on a fake clock; wrangler.toml's
                       bindings equal relay/limits.js's numbers), the first format's codes told to update, the host's
-                      REMOVE barring an address, PROTO, a flooding connection closed (MSG_CLOSE)
+                      REMOVE barring an address, PROTO, a flooding connection closed (MSG_CLOSE); hibernation on a fake
+                      runtime that keeps the sockets and their attachments and hibernates only with no timer pending
+                      (a lobby with no clock; ready, race and seats through a hibernation, a game started, played and
+                      over, then a rematch; a token back; a close while hibernated; holds and an over game's grace by
+                      the alarm; a quiet lobby or over room closed, a game never; an over game's lost turns; eight
+                      sockets; the message bucket and everyone's count after a wake)
 test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
                       every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
@@ -595,10 +605,16 @@ test/site-preview.test.js the link cards (site/preview.js): a room's code read a
 test/docs.test.js     the docs (tools/docs) built into a temporary folder: every unit and building of each people on its
                       page in the Build list's order, each figure the data's (cost, population or grid, what it needs,
                       its description without the need), the healers on no page; How to play's figures and the
-                      diagrams' the data's; every token known; the crops cut from today's art; each page's head,
-                      structured data (VideoGame with its creator on the home, breadcrumbs inside) and links; images
-                      with alt, sizes, WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em
-                      dash, American spelling, About naming Stelian
+                      diagrams' the data's; every token known; the crops cut from today's art (each plate's alt
+                      from the data: "Ebbfall's Guard, a Kingdom unit: ..."); each page's head and index.html's (own
+                      title and description of search-result length, canonical, Open Graph and X cards that agree);
+                      every JSON-LD block checked against schema.org's properties by a small built-in table
+                      (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
+                      the clip's words and size; images with alt (empty only when decorative, aria-hidden), sizes,
+                      WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
+                      spelling, About's one quiet line naming Stelian; the glance's tiers (one per requirement in
+                      Build-list order, each building in its tier, its units in order, a "needs" tag only where the
+                      building's chain does not imply it)
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -622,8 +638,10 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
                       desync checks, the host's remove: the address barred while the room lasts, in its record; the
                       caps: numbers per order and per turn, a seat's numbers per game, checkpoint hashes kept);
                       server.mjs, a Node WebSocket server for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
-                      Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
-                      this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
+                      Worker and one Durable Object per room on the WebSocket Hibernation API: a turn clock only while
+                      a game runs, an alarm for the rest, the room back from its record and the sockets' attachments
+                      after a hibernation; a lobby or an over game quiet 30 minutes closed, room.js QUIET_MS;
+                      wrangler.toml; CI deploys it when the live one is not this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
                       limits.js, the limits per address (and IPv6 /48) and in all (Notion: Multiplayer design, Security:
                       Workers Rate Limiting bindings for an address's minute, an object named `limits` for its hour,
                       everyone's rooms (counted once someone sits in one) and everyone's misses (a scan's brake), all
@@ -657,16 +675,20 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       trains, the facts strip, FIGURES: every number the copy names, from the data), copy/*.html (each
                       page's words: a head comment with its title and description, then HTML with tokens, pages.mjs:
                       {{roster}}, {{figure}}, {{diagram}}, {{n}} ...), pages.mjs (the tokens filled), diagrams.mjs
-                      (the loop, the economy, the caps, the Expedition's signal, a people's tree and research, the
+                      (the loop, the economy, the caps, the Expedition's signal, a people's tree (a row of columns; on a
+                      portrait phone the "Ledger": tiers by what each building needs first) and research, the
                       home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
-                      shell: head, cards, structured data, the slim top bar, the footer over the tide lines; docs.css
+                      shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
+                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer over the tide lines; docs.css
                       inlined, the designer's "Field manual"), sprites.mjs and crops.mjs (the sprite crops: the
                       recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
                       committed in public/docs/img/shots/ and public/docs/media/ (trailer.*: the trailer takes the
-                      clip's name); shots.json their sizes, words and the boxes the annotated ones mark).
+                      clip's name; the clip is Archers against Drones, 6 s at 30 fps, one tick a frame, from DPR 2
+                      frames, its poster its middle frame); shots.json their sizes, words and the boxes the annotated
+                      ones mark).
                       public/docs/fonts/: IBM Plex Sans (OFL); the game's two fonts are copied from src/fonts/. The
                       Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play
 tools/trailer/        the trailer (the 30-second storyboard), recorded in the built game in Chromium; videos are not
@@ -685,7 +707,12 @@ tools/trailer/        the trailer (the 30-second storyboard), recorded in the bu
                       sheets, 720p web copies and 2 fps frames. ffmpeg: FFMPEG, .tools/ffmpeg/ffmpeg (a static build with libx264) or the PATH's
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
-public/               copied as is into dist/: the icons, the manifest, art/; og.png, robots.txt and sitemap.xml are for
+tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
+                      battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
+                      through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
+                      from public/art, one image per size class with the night veil and the top fade baked in, composed
+                      and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
+public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

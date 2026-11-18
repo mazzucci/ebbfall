@@ -261,6 +261,15 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #start .tide,#online .tide{animation:ebb 18s ease-in-out infinite alternate} :is(#start,#online) .tide.t2{animation-duration:23s;animation-delay:-7s} :is(#start,#online) .tide.t3{animation-duration:29s;animation-delay:-13s}
 @keyframes ebb{from{transform:translate(0,0)}to{transform:translate(-14px,5px)}}
 @media (prefers-reduced-motion:reduce){:is(#start,#online) .tide{animation:none}}
+/* The field under the first page (the .scene in the .shore: public/menu/menu-<class>.webp, tools/menu-art.mjs): og.png's battle as a band across the bottom 40% of the screen (36% on a short phone, 26% upright), one image per size class, its top faded into the floor, so the premise line and the buttons sit on the plain floor as before (the image is under the page, a thing of the shore's: it can push nothing). It drifts with the tide, a shade slower (one transform on the <picture>, composited); none under prefers-reduced-motion. Over it only the lowest tide line stays, moved to the band's foot (the field meets the water, clear of the front ranks); the two upper lines and the bank's stones go. Under 360 px of height there is no band (it would sit under the buttons): the shore is as it was. The floor shows while the image loads, and when it never does. */
+#start .scene{position:absolute;left:-20px;bottom:-8px;width:calc(100% + 40px);height:40%;display:block;animation:ebb 37s ease-in-out infinite alternate;animation-delay:-20s}
+#start .scene img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 100%}
+@media (min-height:360px){#start .shore:has(.scene) :is(.tide.t1,.tide.t2,svg:not(.tide)){display:none} #start .shore:has(.scene) .tide.t3{bottom:-26px}}
+@media (min-height:360px) and (min-aspect-ratio:2/1){#start .shore:has(.scene) .tide.t3{bottom:-60px}} /* (21:9: the line's SVG is scaled wider, so it sits higher; down with it) */
+@media (max-height:420px){#start .scene{height:36%} #start .shore:has(.scene) .tide.t3{bottom:-38px}} /* (a short phone: the band's foot is the screen's edge, the line where the shore already puts it) */
+@media (orientation:portrait){#start .scene{height:26%} #start .shore:has(.scene) .tide.t3{bottom:-8px}} /* (upright: the band is low and its SVG small, the line already at its foot) */
+@media (max-height:359px){#start .scene{display:none}}
+@media (prefers-reduced-motion:reduce){#start .scene{animation:none}}
 #menuHome .rec{margin-top:4px;min-height:1em;font-size:11px} #menuHome .rec:empty{display:none} /* (the build stamp: small and muted at the foot, clear of the tide lines) */
 /* The first page's footer line: How to play and About, the docs, in a new tab (one muted mono line, amber underlined on hover). */
 #menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}

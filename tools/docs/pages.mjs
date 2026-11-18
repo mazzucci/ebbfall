@@ -46,10 +46,17 @@ export function readCopy(name) {
   return { meta, body: src.slice(m[0].length) };
 }
 
+/** A roster plate's alt text, from the data: the game's name, the kind's, its people and kind, and its role line
+ *  ("Ebbfall's Guard, a Kingdom unit: holds the line, cheaply"; test/docs.test.js rebuilds it from the sim's tables). */
+export function plateAlt(e, people) {
+  const role = e.what ? `: ${e.what[0].toLowerCase()}${e.what.slice(1)}` : '';
+  return `Ebbfall's ${e.name}, ${/^[AEIOU]/.test(people.short) ? 'an' : 'a'} ${people.short} ${e.kind}${role}`;
+}
+
 /** A crop on its plate: the phone's file on a phone, the desktop's elsewhere (a phone never loads the 2x desktop crop). */
 function plate(e, people) {
   const c = cropOf(e.key), [desk, dw] = c.files.desktop, [phone, pw] = c.files.phone;
-  const alt = `The ${e.name}, ${people.short === 'Kingdom' ? 'a Kingdom' : 'an Expedition'} ${e.kind}, in blue`;
+  const alt = plateAlt(e, people);
   return `<picture class="plate"><source media="(max-width:640px)" srcset="${SPRITE_URL}${phone}" width="${pw}" height="${pw}"><img src="${SPRITE_URL}${desk}" width="${dw}" height="${dw}" alt="${esc(alt)}" loading="lazy" decoding="async"></picture>`;
 }
 
@@ -91,7 +98,7 @@ function figure(args, first) {
 }
 
 /**
- * The home's hero: the gameplay clip, muted and looped, with the hero still (`hero-home`) as its poster: the poster
+ * The home's hero: the gameplay clip, muted and looped, with its middle frame (`hero-home`) as its poster: the poster
  * first, the clip played only while in view (a phone on a slow line downloads it only then), never under reduced
  * motion (the still alone), the browser's controls where scripts do not run. The trailer takes its place later by taking
  * its file's name (public/docs/media/trailer.mp4).
@@ -99,9 +106,22 @@ function figure(args, first) {
 function clip() {
   const t = shots().trailer, poster = shots()[t?.poster];
   if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
-  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls aria-label="${esc(t.alt)}"></video></div>
+  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
 <script>(function(){var v=document.currentScript.previousElementSibling.querySelector('video');v.controls=false;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(!('IntersectionObserver' in window)){v.play().catch(function(){});return;}new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)v.play().catch(function(){});else v.pause();});}).observe(v);})();</script>
 <figcaption>${esc(poster.caption)}</figcaption></figure>`;
+}
+
+/**
+ * The clip's structured data (schema.org VideoObject) for the docs home: its title and words, its poster, its file, the
+ * day it was recorded and its length, from tools/docs/shots.json (tools/docs/shots.mjs writes them with the clip).
+ */
+export function clipLd(origin) {
+  const t = shots().trailer, poster = shots()[t.poster];
+  return {
+    '@context': 'https://schema.org', '@type': 'VideoObject', name: t.title, description: t.alt,
+    thumbnailUrl: `${origin}${SHOTS_URL}${poster.files.desktop}`, contentUrl: `${origin}/docs/media/${t.file}`,
+    uploadDate: t.uploaded, duration: `PT${t.seconds}S`, width: t.w, height: t.h, isFamilyFriendly: true,
+  };
 }
 
 /**

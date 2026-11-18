@@ -80,6 +80,16 @@ state, and of the enemy only what its sight (and its allies') has shown. Fields:
   seen, the largest army seen, expansions seen);
 - `since_last`: what it trained, lost and killed since the previous digest (by type and value), its attacks' results.
 
+## Framing notes
+
+- The site sends `Permissions-Policy` with `fullscreen=(self)` and `autoplay=(self)` (site/cache.js): framed by another
+  origin, the game cannot go full screen, and its sound starts only after a tap inside the frame. The page should
+  leave room for the game rather than rely on full screen.
+- There is no framing rule yet (no `frame-ancestors`, no `X-Frame-Options`). When one comes, it must keep loopback
+  parents allowed, or embedding stops working.
+- A test browser may block a loopback page from framing another loopback port (Chromium's local network access
+  checks); the e2e test serves its host page from the game's own origin for that reason.
+
 ## A minimal page
 
 ```js

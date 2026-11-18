@@ -1,15 +1,18 @@
 // The relay Worker's front door (relay/worker.js is its entry module, Notion: Multiplayer design, Security): GET /version, the
 // device test's reports, and every WebSocket to its room's Durable Object (?room=CODE, or ?new=1 to open a room), past
-// the Origin check and the limits, per address (CF-Connecting-IP, an IPv6 /64), checked before any room's object is
-// woken: opening a room, the CREATE_LIMIT binding (a minute's), then the limits object (an hour's, and everyone's);
-// joining by code, the JOIN_LIMIT binding (a point a join, MISS_COST in all for one that finds no room). The numbers
+// the Origin check and the limits, per address (CF-Connecting-IP, an IPv6 /64, and its /48), checked before any room's
+// object is woken: opening a room, the CREATE_LIMIT and CREATE_WIDE_LIMIT bindings (a minute's), then the limits
+// object (an hour's, and everyone's: a room counts there once its first hello seats someone, relay/worker.js); joining
+// by code, the JOIN_LIMIT and JOIN_WIDE_LIMIT bindings (a point a join, MISS_COST in all for one that finds no room),
+// then, only while the limits object says the relay is being scanned, its word on the network (relay/limits.js
+// MissWatch). Misses are tallied here, per isolate, and reported to the limits object in batches (`Misses`). The numbers
 // are relay/limits.js's (wrangler.toml's bindings: a test keeps them equal). A refusal is a socket that says `error
 // {code: 'limit'}` and closes: a page cannot read the HTTP status a WebSocket was refused with (it sees only a failed
 // connection, and would retry), and the player must be told to wait. A binding or the limits object failing: the
 // request goes on (the limits must never be what takes multiplayer down).
 import { benchRequest } from './bench.js';
 import { versionRequest } from './version.js';
-import { addressKey, KEY_HEADER, MISS_COST, SAY } from './limits.js';
+import { addressKey, wideKey, netKey, KEY_HEADER, MISSES_HEADER, SCAN_HEADER, MISS_COST, MISS_FLUSH_MS, MISS_BATCH, MINUTE, SAY } from './limits.js';
 import { newCode as makeCode, parseCode, oldCode } from '../src/net/roomcode.js';
 
 export const ROOM_IDLE_MS = 10 * 60 * 1000; // a room nobody has been in this long is free for a new one with its code
@@ -31,8 +34,55 @@ async function within(binding, key, points = 1) {
   try { return (await Promise.all(Array.from({ length: points }, () => binding.limit({ key })))).every(r => r.success); } catch { return true; }
 }
 
-/** The Worker, on a platform (Cloudflare's; the tests' fakes). */
-export function relay(platform = CLOUDFLARE) {
+/** An address's verdict from a binding and its wide one (`wide` '': none): false if either says no (the wide one not
+ *  asked once the first has). */
+const bothWithin = async (binding, key, wideBinding, wide, points = 1) =>
+  (await within(binding, key, points)) && (!wide || await within(wideBinding, wide, points));
+
+/** A request to the limits object (`path`, headers); null when it cannot be asked. */
+async function limitsObject(env, path, headers) {
+  try { return await env.ROOMS.get(env.ROOMS.idFromName('limits')).fetch(new Request(`https://limits${path}`, { method: 'POST', headers })); } catch { return null; }
+}
+
+/** An isolate's misses: tallied, and sent to the limits object at the first miss MISS_FLUSH_MS after the last report (a
+ *  typo now and then costs no round trip of its own; a scan, one report an isolate a few seconds); what it answers, the
+ *  relay being scanned or not, kept. During a scan, every lookup asks the limits object first (a network it refused is
+ *  refused here for the rest of the minute, without asking again), and every miss is reported at once with its
+ *  network. `now` the clock. */
+export class Misses {
+  constructor(now = () => Date.now()) { this.now = now; this.scanning = false; this.pending = 0; this.since = 0; this.barred = new Map(); }
+  heard(res) {
+    if (res?.headers.has(SCAN_HEADER)) this.scanning = res.headers.get(SCAN_HEADER) === '1';
+    if (!this.scanning) this.barred.clear();
+    return res;
+  }
+  /** May network `net` look a code up (yes when not scanning, or when the limits object cannot be asked)? */
+  async look(env, net) {
+    if (!this.scanning) return true;
+    if ((this.barred.get(net) ?? -Infinity) > this.now()) return false;
+    const res = this.heard(await limitsObject(env, '/look', { [KEY_HEADER]: net }));
+    if (res?.status !== 429) return true;
+    if (this.barred.size >= 5000) this.barred.clear(); // (a brake, not a ledger: the limits object still knows)
+    this.barred.set(net, this.now() + MINUTE);
+    return false;
+  }
+  /** A code from network `net` found no room. Returns the report to wait for, if one is sent. */
+  miss(env, net) {
+    if (this.scanning) return this.report(env, 1, net);
+    if (!this.pending) this.since = this.now();
+    this.pending++;
+    if (this.now() - this.since < MISS_FLUSH_MS && this.pending < MISS_BATCH) return null;
+    const n = this.pending; this.pending = 0;
+    return this.report(env, n, '');
+  }
+  async report(env, n, net) {
+    this.heard(await limitsObject(env, '/miss', { [MISSES_HEADER]: String(n), ...(net ? { [KEY_HEADER]: net } : {}) }));
+  }
+}
+
+/** The Worker, on a platform (Cloudflare's; the tests' fakes); `now` the misses' clock. */
+export function relay(platform = CLOUDFLARE, now) {
+  const misses = new Misses(now);
   /** A socket that says one error and closes (no room's object woken). */
   const refuse = (code, msg) => {
     const [client, ws] = platform.pair();
@@ -40,7 +90,7 @@ export function relay(platform = CLOUDFLARE) {
     return platform.respond(client);
   };
   return {
-    async fetch(req, env) {
+    async fetch(req, env, ctx) {
       const version = versionRequest(req, env.RELAY_BUILD);
       if (version) return version;
       const ip = req.headers.get('CF-Connecting-IP') || '';
@@ -48,11 +98,11 @@ export function relay(platform = CLOUDFLARE) {
       if (bench) return bench;
       if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Ebbfall relay: WebSocket only', { status: 426 });
       if (!allowed(req, env)) return new Response('Not from here', { status: 403 });
-      const q = new URL(req.url).searchParams, key = addressKey(ip);
+      const q = new URL(req.url).searchParams, key = addressKey(ip), wide = wideKey(key);
       const room = (code, isNew) => env.ROOMS.get(env.ROOMS.idFromName(code))
         .fetch(new Request(`https://room/?code=${code}${isNew ? '&new=1' : ''}`, { headers: req.headers }));
       if (q.get('new')) {
-        if (!(await within(env.CREATE_LIMIT, key))) return refuse('limit', SAY.minute);
+        if (!(await bothWithin(env.CREATE_LIMIT, key, env.CREATE_WIDE_LIMIT, wide))) return refuse('limit', SAY.minute);
         const no = await budget(env, key);
         if (no) return refuse('limit', no);
         for (let i = 0; i < TRIES; i++) {
@@ -65,10 +115,16 @@ export function relay(platform = CLOUDFLARE) {
       // (a code of the first format comes from a client from before PROTO 7, whose hello the room would refuse anyway:
       // told to update now, rather than "no room")
       if (oldCode(typed)) return refuse('update', 'Ebbfall has an update. Tap UPDATE to get it');
-      if (!(await within(env.JOIN_LIMIT, key))) return refuse('limit', SAY.minute);
+      if (!(await bothWithin(env.JOIN_LIMIT, key, env.JOIN_WIDE_LIMIT, wide))) return refuse('limit', SAY.minute);
+      if (!(await misses.look(env, netKey(key)))) { // (a scan: this network has missed its share; priced as a guess)
+        await Promise.all([within(env.JOIN_LIMIT, key, MISS_COST - 1), wide && within(env.JOIN_WIDE_LIMIT, wide, MISS_COST - 1)]);
+        return refuse('limit', SAY.minute);
+      }
       const code = parseCode(typed), res = code ? await room(code, false) : null;
       if (res && res.status !== 404) return res;
-      await within(env.JOIN_LIMIT, key, MISS_COST - 1); // (no such room: a guess's price)
+      await Promise.all([within(env.JOIN_LIMIT, key, MISS_COST - 1), wide && within(env.JOIN_WIDE_LIMIT, wide, MISS_COST - 1)]); // (no such room: a guess's price)
+      const report = misses.miss(env, netKey(key));
+      if (report) { if (ctx?.waitUntil) ctx.waitUntil(report); else await report; } // (the player is told now; the report after)
       return refuse('noroom', 'No room with that code');
     },
   };
@@ -77,8 +133,8 @@ export function relay(platform = CLOUDFLARE) {
 /** The limits object's word on a room from `key`: '' (go on; also when it cannot be asked), or what to say. */
 async function budget(env, key) {
   try {
-    const res = await env.ROOMS.get(env.ROOMS.idFromName('limits')).fetch(new Request('https://limits/', { method: 'POST', headers: { [KEY_HEADER]: key } }));
-    return res.status === 429 ? await res.text() : '';
+    const res = await limitsObject(env, '/open', { [KEY_HEADER]: key });
+    return res?.status === 429 ? await res.text() : '';
   } catch { return ''; }
 }
 

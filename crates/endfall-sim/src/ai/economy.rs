@@ -19,8 +19,7 @@ impl World {
             .filter(|b| b.team == self.seat() && b.kind.def().hq && b.done)
             .min_by(|a, b| {
                 dist(a.x, a.y, x, y)
-                    .partial_cmp(&dist(b.x, b.y, x, y))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, x, y))
                     .then(a.id.cmp(&b.id))
             })
             .map_or((x, y), |b| (b.x, b.y))

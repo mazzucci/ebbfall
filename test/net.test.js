@@ -5,6 +5,7 @@
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
 // of three, four and eight with AI seats (M4): every client runs the AI alike; and one whose sides the start arranges
 // (a person's game seat not its lobby spot). And a limit refusal: a lobby stops, a game or a held lobby seat keeps reconnecting.
+// And invite links through a relay that counts the limits (relay/limits.js): typos, rooms nobody sat in, a scan.
 import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -170,6 +171,37 @@ liveTest('orders given while the socket is down are sent when it is back, not lo
     await m.run(3000);
     const common = m.same(), last = Math.max(...common);
     assert.notEqual(m.a.hashes.get(last), m.idle(last), 'the orders reached both games');
+  } finally { await m.done(); }
+});
+
+liveTest('a client that floods the relay: an ack flood keeps few hashes, a huge or oversized order is refused, a message flood closes its socket (back by its token) while the other plays on', { skip, timeout: 60000 }, async () => {
+  const m = await match();
+  const { a, b, relay } = m;
+  try {
+    await m.run(1500);
+    const room = [...relay.rooms.values()][0], raw = (msg) => a.net.ws.send(JSON.stringify(msg));
+    for (let k = 1; k <= 100; k++) raw({ t: 'ack', turn: 0, check: { turn: 10 * (1000 + k), hash: k } }); // (checkpoints of turns that cannot have run)
+    const id = own(a)[0];
+    raw({ t: 'orders', w: [0, id, 2 ** 33, 100] }); // (a move to a point past any map, past 2^32: refused)
+    raw({ t: 'orders', w: [0, id, 100, -1e308] });
+    raw({ t: 'orders', w: Array.from({ length: 700 }, () => [3, id]).flat() }); // (1400 numbers: one turn's, in)
+    raw({ t: 'orders', w: Array.from({ length: 1100 }, () => [3, id]).flat() }); // (2200: more than a turn takes, refused)
+    await m.run(1000);
+    assert.ok(room.seats.every(s => s.hashes.size <= 16), `hashes kept: ${room.seats.map(s => s.hashes.size)}`);
+    const words = room.log.flatMap(t => t.o).filter(([seat]) => seat === a.seat).map(([, w]) => w);
+    assert.ok(words.every(w => w.every(x => Math.abs(x) <= 2 ** 32)), 'no huge number in any turn');
+    assert.deepEqual(words.map(w => w.length), [1400], 'the order within a turn\'s numbers only');
+    // A message flood: past the bucket the socket is closed, and the Net comes back by itself.
+    const ws = a.net.ws, bWs = b.net.ws, at = a.g.tick();
+    let code = 0; ws.addEventListener('close', (e) => { code = e.code; });
+    for (let i = 0; i < 400; i++) raw({ t: 'ping', id: -1 });
+    await m.run(4000);
+    assert.equal(code, 4008, 'closed for the flood');
+    assert.ok(a.net.ws && a.net.ws !== ws && a.net.ws.readyState === 1, 'back on a new socket');
+    assert.equal(b.net.ws, bWs, 'the other side, playing normally, kept its socket');
+    assert.ok(a.g.tick() > at + 45, `the game went on (${at} -> ${a.g.tick()})`);
+    assert.deepEqual(m.events.filter(e => /desync|error/.test(e)), [], 'no desync, no error');
+    m.same();
   } finally { await m.done(); }
 });
 
@@ -341,6 +373,45 @@ test('a limit refusal (too many tries from this address): a lobby Net without a 
   assert.ok(!held.closed && held.held, 'a lobby seat held: reconnects too, its seat kept in the room\'s view');
   assert.deepEqual(told, ['limit', 'removed']);
   game.close(); held.close();
+});
+
+test('invite links through a relay that counts limits: a typo or two then the right code, rooms nobody sat in cost everyone nothing, and during a scan', async () => {
+  const { SCAN_MISSES, SCAN_NET_MISSES, MINUTE } = await import('../relay/limits.js');
+  const at = { now: Date.UTC(2026, 10, 18, 12) };
+  const relay = startRelay({ port: 0, free: () => false, now: () => at.now }); await relay.ready; // (this machine counted, as any address)
+  const url = `ws://localhost:${relay.port}/`, nets = [];
+  /** A Net into `room` (none: a new room): its seat message, or the error it was told. */
+  const join = (room, name = 'Bo') => new Promise(res => {
+    const net = new Net({ url, room, name, game: () => null, on: { seat: (m) => res({ seat: m.seat, room: m.room }), error: (m) => res({ error: m.code }) } });
+    nets.push(net);
+  });
+  const all = () => relay.limits.budget.all.keys.get('')?.length || 0;
+  try {
+    // Rooms opened and left before a hello: not in everyone's budget.
+    for (let i = 0; i < 3; i++) await new Promise(res => { const ws = new WebSocket(`${url}?new=1`); ws.onopen = () => { ws.close(); res(); }; });
+    assert.equal(relay.rooms.size, 3); assert.equal(all(), 0, 'three rooms nobody sat in');
+    const host = await join(undefined, 'Ann');
+    assert.equal(host.seat, 0); assert.equal(all(), 1, 'the host seated: counted');
+    // A friend: a typo, another, then the link's code.
+    const typo = host.room.replace(/^./, c => c === 'B' ? 'C' : 'B');
+    assert.deepEqual(await join(typo), { error: 'noroom' });
+    assert.deepEqual(await join(typo.toLowerCase()), { error: 'noroom' });
+    assert.deepEqual(await join(host.room), { seat: 1, room: host.room }, 'the invite link: in');
+    assert.equal(all(), 1, 'a friend: no second count');
+    nets[0].add(1, false); nets[0].add(0, false); // (the host: two open seats more, for two more friends)
+    await new Promise(r => setTimeout(r, 100));
+    // A scan (everyone's misses past SCAN_MISSES): the link still works after two typos; a third miss, and that
+    // address waits a minute.
+    at.now += MINUTE;
+    relay.limits.misses.miss(SCAN_MISSES - 1);
+    assert.deepEqual(await join(typo), { error: 'noroom' }); assert.ok(relay.limits.misses.scanning, 'a scan');
+    assert.deepEqual(await join(typo), { error: 'noroom' });
+    assert.deepEqual(await join(host.room, 'Cy'), { seat: 2, room: host.room }, 'two typos in a scan: the link still works');
+    for (let i = 2; i < SCAN_NET_MISSES; i++) assert.deepEqual(await join(typo), { error: 'noroom' });
+    assert.deepEqual(await join(host.room, 'Di'), { error: 'limit' }, 'past its share: this address waits');
+    at.now += MINUTE;
+    assert.deepEqual(await join(host.room, 'Di'), { seat: 3, room: host.room }, 'a minute later');
+  } finally { for (const n of nets) n.close(); await relay.close(); }
 });
 
 describe('matches through a relay', { concurrency: true }, () => {

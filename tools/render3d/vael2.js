@@ -1,7 +1,7 @@
-// An older Expedition look (STYLE.md): pale shells on an ink core, "deeplight" (the lantern light, vael-palette.js) in a
-// few small lights. Two remain, fitTints references (main.js): `glint` (lumen) and `tidewell` (conflux). Same
-// conventions as vael.js: game units, units face +x, y up, +z south; everything hovers. Team glaze sits between thin
-// ink seams, so a white seat still parts from the pearl.
+// An older Expedition look (STYLE.md): pale shells on an ink core, "deeplight" (the lantern light, vael-palette.js) in
+// a few small lights. Two remain, fitTints references (main.js): `glint` (lumen: the Bot) and `tidewell` (conflux: the
+// Data center). Same conventions as vael.js: game units, units face +x, y up, +z south; everything hovers. Team glaze
+// sits between thin ink seams, so a white seat still parts from the pearl.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { ring, cone } from './vael.js';

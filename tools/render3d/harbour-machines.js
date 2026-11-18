@@ -1,5 +1,5 @@
 // An older machine look (STYLE.md, "Harbour machines"): a dark tarred hull under pale canvas, timber and rope in small
-// amounts. One remains: the Breakwater (vanguard, a walking hull with its beached state), a fitTints reference
+// amounts. One remains: the Breakwater (vanguard, a retired kind; a walking hull with its beached state), a fitTints reference
 // (main.js). Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';

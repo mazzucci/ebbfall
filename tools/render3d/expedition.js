@@ -14,8 +14,7 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { makeMats, team } from './materials.js';
 import { torus } from './harbour.js';
-import { cone } from './vael.js';
-import { tex, ashlarTex, ashlarBump, plankTex, plankBump, earthTex, gable, oct } from './kingdom.js';
+import { tex, ashlarTex, ashlarBump, earthTex } from './kingdom.js';
 import { polishMats } from './polish.js';
 
 let seed = 71; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -81,7 +80,6 @@ const rackTex = tex(64, (g, n) => {
  *  mark instead (a helmet LED, headlights, pale wheels, a pale weapon); team on each unit's largest panel. The hall
  *  of the cool gray stone of slate country in a dark oak frame under dark planks. */
 export const EXPEDITION_LOOK = { name: 'charcoal kit', panel: 0x62665f, panelDark: 0x44484a, edge: 0x2a2c2e, metal: 0.3, rough: 0.6, canvas: 0x8a8068, wall: 0x80828a, frame: 0x3e3226, uniform: 0x6e7268, armour: 0x383a3e };
-export const EXPEDITION_PALETTES = { A: EXPEDITION_LOOK };
 /** The Expedition's materials, over the Harbor's set (its timber, rope, ink and canvas weave are reused). `paint` is
  *  the team: paint on a panel, matte, between `inkLine` trim. */
 export function makeExpeditionMats(tc, polish = false) {
@@ -193,39 +191,6 @@ export function utilityBot(M, f) {
     limb(b, [5.0, 4.3, -2.2], [2.6, 4.1, -5.2], 0.3, M.cable);
     for (const x of [-4.5, 4.5]) add(tr, rbox(0.6, 0.6, 2.6, 0.2), M.joint, x, 1.4, 0);
     add(b, sph(0.8, 8, 6), M.joint, 6.6, 4.5, -4.2);
-  }
-  return g;
-}
-
-/** Robot dog (line infantry, sim r 10-11): four legs, low and quick, as the list says: a rounded shell 12 long on four
- *  short splayed legs of two segments each (dark joints, pale shins), the knees out past the shell so four legs show
- *  from the camera in every facing, a rounded sensor head of its own at the bow (a dome with a glinting visor band
- *  and two small antennas: round 2's judge read the block head as Boston Dynamics' Spot), a team saddle panel on the
- *  back inside black trim, team sleeves on the thighs. From the camera: a low pale oval with a team middle and legs
- *  out either side: a quadruped, never a figure. Frames 0-1 the trot (diagonal pairs). */
-export function robotDog(M, f) {
-  const g = grp(), st = f % 2 ? -1 : 1;
-  const b = grp(); b.position.y = 5.8; g.add(b);
-  add(b, rbox(12, 3.4, 5.0, 1.6), M.panel, 0, 0, 0);                                           // the shell
-  add(b, rbox(12.4, 1.0, 5.4, 0.4), M.trim, 0, -1.6, 0);                                       // its belly plate, the finish's edging
-  teamPlate(b, M, 7.2, 0.6, 3.6, -0.8, 1.95, 0);                                               // the saddle panel
-  add(b, rbox(2.0, 1.6, 2.2, 0.4), M.panelDark, -4.8, 1.6, 0);                                 // a module on the rump
-  add(b, cyl(0.4, 0.4, 3.6, 6), M.joint, -5.4, 3.6, 0.8);                                      // an antenna
-  // the head: a dome on a short neck, a visor band round its front, two small antennas, a LED under the chin
-  add(b, cyl(1.2, 1.4, 1.6, 10), M.joint, 6.2, 0.6, 0, 0, 0, -0.5);                            // the neck
-  add(b, sph(2.3, 14, 10), M.panel, 7.6, 1.4, 0).scale.set(1.1, 0.85, 1);                       // the dome
-  add(b, cyl(2.45, 2.45, 0.9, 16), M.visor, 7.6, 1.3, 0).scale.set(1.1, 1, 1);                 // the visor band, a glint
-  add(b, cyl(2.5, 2.5, 0.25, 16), M.inkLine, 7.6, 1.85, 0).scale.set(1.1, 1, 1); add(b, cyl(2.5, 2.5, 0.25, 16), M.inkLine, 7.6, 0.75, 0).scale.set(1.1, 1, 1);
-  for (const z of [-1.2, 1.2]) add(b, cyl(0.25, 0.25, 2.4, 6), M.joint, 6.8, 3.6, z, 0.3 * Math.sign(z), 0, 0.3); // antennas
-  led(b, M, 0.5, 9.2, 0.2, 0);
-  // the legs: hips at the shell's corners, short thighs out and down, knees past the shell, shins down to round feet
-  for (const [x, side, fore] of [[4.2, -1, 1], [4.2, 1, 1], [-4.2, -1, 0], [-4.2, 1, 0]]) {
-    const z = side * 2.4, sw = (fore ? 1 : -1) * st * 1.4, kx = x + sw, kz = side * 4.4;
-    add(b, cyl(0.9, 0.9, 1.4, 10), M.joint, x, -0.8, z, Math.PI / 2, 0, 0);                     // the hip joint
-    limb(b, [x, -0.8, z], [kx, -3.0, kz], 0.95, M.paint);                                        // the thigh, team
-    add(b, sph(1.0, 8, 6), M.inkLine, kx, -3.0, kz);                                             // the knee, ink: the thigh's hem
-    limb(b, [kx, -3.0, kz], [x - sw * 0.4, -5.2, side * 3.4], 0.75, M.panel);                    // the shin, pale
-    add(b, sph(0.85, 8, 6), M.rubber, x - sw * 0.4, -5.3, side * 3.4);                           // the foot
   }
   return g;
 }

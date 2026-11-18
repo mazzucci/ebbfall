@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate, limb } from './models.js';
 import { torus } from './harbour.js';
 import { cone } from './vael.js';
-import { gable, oct, tex, thatchTex, tileTex, plankTex, plankBump, crenels, roundCrenels, hanging, pennant, banner, figure, quoins } from './kingdom.js';
+import { gable, oct, tex, thatchTex, tileTex, plankTex, plankBump, roundCrenels, pennant, banner, figure, quoins } from './kingdom.js';
 import { polishTextures } from './polish.js';
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
@@ -84,15 +84,6 @@ function window_(g, M, x, y, z, w = 3, h = 4, ry = 0) {
   const d = grp(); d.position.set(x, y, z); d.rotation.y = ry; g.add(d);
   add(d, rbox(w + 1, h + 1, 0.5, 0.1), M.oak, 0, 0, 0); add(d, rbox(w, h, 0.6, 0.1), M.inkLine, 0, 0, 0.2);
 }
-/** A horse's head and neck over a stall's half-door, looking +z. */
-function horseHead(g, M, x, y, z, ry = 0) {
-  const h = grp(); h.position.set(x, y, z); h.rotation.y = ry; g.add(h);
-  limb(h, [0, 0, -4], [0, 7, 1], 2.4, M.horsePale);                                          // the neck, rising forward
-  add(h, rbox(3.2, 3.6, 6.0, 1.0), M.horsePale, 0, 7.2, 4.0, 0.35, 0, 0);                      // the head, down a little
-  add(h, rbox(2.6, 1.6, 1.8, 0.5), M.horseDark, 0, 6.0, 6.6);                                 // the muzzle
-  for (const sx of [-1.2, 1.2]) add(h, cone(0.7, 2.0, 6), M.horseDark, sx, 9.6, 2.6);         // ears
-  for (let k = 0; k < 4; k++) add(h, rbox(2.0, 1.4, 1.6, 0.6), M.horseDark, 0, 3.2 + k * 1.3, -2.6 + k * 1.1); // the mane
-}
 /** A horse standing (the knight's, without rider or caparison, in the lighter bay), facing +x. */
 function horse(g, M, x, z, ry = 0) {
   const h = grp(); h.position.set(x, 0, z); h.rotation.y = ry; g.add(h);
@@ -105,13 +96,6 @@ function horse(g, M, x, z, ry = 0) {
 }
 /** A hay bale. */
 const bale = (g, M, x, y, z, ry = 0) => { add(g, rbox(6, 4, 4.4, 0.8), M.straw, x, y + 2, z, 0, ry, 0); for (const d of [-1.6, 1.6]) add(g, rbox(6.2, 0.4, 0.5, 0.1), M.rope, x, y + 2, z + d, 0, ry, 0); };
-/** A rack of spears leaning in a timber frame. */
-function spearRack(g, M, x, z, n = 6, ry = 0) {
-  const r = grp(); r.position.set(x, 0, z); r.rotation.y = ry; g.add(r);
-  for (const dx of [-n * 1.05, n * 1.05]) add(r, cyl(0.7, 0.7, 12, 6), M.oak, dx, 8, 0);
-  add(r, rbox(n * 2.1 + 2, 0.9, 1.0, 0.2), M.oak, 0, 13, 0);
-  for (let k = 0; k < n; k++) { const dx = (k - (n - 1) / 2) * 2.1; add(r, cyl(0.55, 0.55, 18, 6), M.oak, dx, 11, 0.6 + (k % 2) * 0.6, 0.08, 0, (k % 2 ? 1 : -1) * 0.06); add(r, cone(0.9, 2.8, 6), M.steel, dx, 21, 0.6 + (k % 2) * 0.6); }
-}
 /** A round team shield hung on a face looking +z. */
 function shield(g, M, x, y, z, r = 3.0, ry = 0) {
   const s = grp(); s.position.set(x, y, z); s.rotation.y = ry; g.add(s);

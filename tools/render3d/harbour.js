@@ -1,6 +1,6 @@
-// The Harbor (the Humans' new look, STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope and brass
-// only on small tips. Step 0's slice: the Lighthouse (core); the Rigger and the Picket moved to harbour-infantry.js with
-// the rest of the infantry. Same conventions as models.js: game units, units face +x, y up, +z south.
+// An older look, the Harbor's (STYLE.md): dark hulls of tar and iron under pale canvas; timber, rope and brass only on
+// small tips. One model remains: the Lighthouse (core: the Castle's kind), a fitTints reference (main.js); `lathe` and
+// `torus` are shared shapes. Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, plate } from './models.js';
 

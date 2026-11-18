@@ -746,8 +746,8 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
                       units alike, no baked chimney smoke) at the game's 40-degree camera and 420 sun. The older models
                       (models.js, buildings.js, harbour*.js, vael*.js, trimmed to what main.js still draws) stay only
-                      for the two healers the sim keeps but trains nowhere (medic, halo) and fitTints' reference sprites,
-                      which set the atlas's seat tints; the retired kinds are not drawn (main.js `RETIRED`)
+                      for the two healers the sim keeps but trains nowhere (main.js `HEALERS`: medic, halo) and fitTints'
+                      reference sprites, which set the atlas's seat tints
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
                       light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures

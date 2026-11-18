@@ -162,7 +162,9 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.match(main, new RegExp(`<video src="/docs/media/${shots.trailer.file}" poster="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'its middle frame as its poster');
   assert.ok(!main.includes(`src="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'not the still again beside it');
   assert.match(main, /muted loop playsinline/);
-  assert.match(main, /prefers-reduced-motion: reduce\)'\)\.matches\)return/, 'reduced motion: the poster only');
+  const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8'); // (the docs' script: html.mjs)
+  assert.match(js, /\.clip video/, 'the script finds the clip');
+  assert.match(js, /prefers-reduced-motion: reduce\)'\)\.matches\) return;/, 'reduced motion: the poster only');
   assert.equal(shots.trailer.file, 'trailer.mp4', 'the file the trailer takes over');
   // Its words: a title, a label that says what plays (the game named), the caption under it.
   assert.equal(shots.trailer.title, 'Ebbfall gameplay: Archers against Drones');
@@ -248,7 +250,7 @@ test('the copy: American English, no em dashes, the About page names Stelian, th
   for (const p of pages) {
     const html = page(p.path);
     assert.doesNotMatch(html, /\u2014|&mdash;/, `${p.path}: no em dash`);
-    for (const w of ['colour', 'armour', 'centre', 'licence', 'favourite', 'grey']) assert.ok(!new RegExp(`\\b${w}`, 'i').test(html.replace(/<style>[\s\S]*?<\/style>/, '')), `${p.path}: ${w}`);
+    for (const w of ['colour', 'armour', 'centre', 'licence', 'favourite', 'grey']) assert.ok(!new RegExp(`\\b${w}`, 'i').test(html), `${p.path}: ${w}`);
   }
   assert.match(page('/docs/about/'), /<p class="fine">Made by Stelian Matei · <a href="https:\/\/github\.com\/mazzucci\/ebbfall">source on GitHub<\/a><\/p>/, 'About: one quiet line, the author and the source');
   assert.equal((page('/docs/about/').match(/Stelian Matei/g) || []).length, 1, 'About: named once, in that line (structured data aside)');
@@ -377,7 +379,7 @@ test('At a glance: a tier per requirement in Build-list order, every building in
     // The tiers as the page shows them, each with its buildings, each with its units: [after, label, [[key, [[unit, tag]]]]]
     const tiers = tree.split('<li class="tier" ').slice(1).map(t => {
       const [, after, label] = t.match(/^data-after="([^"]*)"><p class="tl"><span>([^<]*)<\/span>/);
-      const cols = t.split('<li class="tcol" ').slice(1).map(c => [c.match(/^data-g="(\w+)"/)[1],
+      const cols = t.split(/<li class="tcol s\d+" /).slice(1).map(c => [c.match(/^data-g="(\w+)"/)[1],
         [...c.matchAll(/<li data-g="(\w+)">.*?<\/span>(?:<em class="need(?: (imp))?">needs ([^<]+)<\/em>)?<\/li>/g)].map(m => [m[1], m[2] ? 'implied' : m[3] || null])]);
       return [after, label, cols];
     });
@@ -395,7 +397,7 @@ test('At a glance: a tier per requirement in Build-list order, every building in
         assert.equal(after, d.req ? C.BUILDINGS[d.req].name : '', `${k}: in the tier of what it needs`);
         standing.push(d.name);
         assert.deepEqual(units.map(u => u[0]), d.trains || [], `${k}: its units, in order`);
-        if (!(d.trains || []).length) { const c = tree.slice(tree.indexOf(`<li class="tcol" data-g="${k}"`)); assert.ok(c.slice(0, c.indexOf('</li>')).endsWith(`<span class="what">${d.what}</span>`), `${k}: trains nothing, so its role line`); }
+        if (!(d.trains || []).length) { const c = tree.slice(tree.search(new RegExp(`<li class="tcol s\\d+" data-g="${k}"`))); assert.ok(c.slice(0, c.indexOf('</li>')).endsWith(`<span class="what">${d.what}</span>`), `${k}: trains nothing, so its role line`); }
         const chain = new Set(); for (let r = d.req; r; r = C.BUILDINGS[r].req) chain.add(C.BUILDINGS[r].name); // what stands before it
         for (const [u, tag] of units) {
           const need = C.UNITS[u].req ? C.BUILDINGS[C.UNITS[u].req].name : null;
@@ -408,5 +410,5 @@ test('At a glance: a tier per requirement in Build-list order, every building in
   // Stables already need it, so the Knight's is implied.
   const k = page('/docs/kingdom/');
   assert.match(k, /<li data-g="knight">(?:(?!<li).)*?<em class="need imp">needs Blacksmith<\/em><\/li>/);
-  assert.match(k, /<li class="tcol" data-g="factory"(?:(?!class="tcol").)*?<em class="need">needs Blacksmith<\/em><\/li>/);
+  assert.match(k, /<li class="tcol s\d+" data-g="factory"(?:(?!class="tcol).)*?<em class="need">needs Blacksmith<\/em><\/li>/);
 });

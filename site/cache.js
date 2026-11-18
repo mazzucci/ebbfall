@@ -18,17 +18,63 @@ export const CACHE = [
   ['/manifest.webmanifest', 'no-cache'],
 ];
 
+/** Where browsers send the policy's violation reports (worker.js answers them and logs each, short). */
+export const CSP_REPORT = '/csp-report';
+
+/** The published relay's host (relay/wrangler.toml's custom domain; CI's RELAY_URL, baked into the build). */
+export const RELAY_HOST = 'relay.ebbfall.com';
+
+/**
+ * The Content-Security-Policy, directive by directive: what the site's pages may load and run, each source the one
+ * thing that needs it. Scripts: the site's own files, WebAssembly (the sim), the one inline script of index.html (the
+ * page's error log, by its hash: test/site-csp.test.js checks every inline script of the built pages has one here) and
+ * Cloudflare Web Analytics' beacon (worker.js `beacon`, or the zone's own injection), never eval (PixiJS runs on its
+ * eval-free polyfills: gl/render.js imports pixi.js/unsafe-eval) nor any other inline script. Connections: the site,
+ * the relay (its websocket, and https for the bench's report, bench.js), the beacon's reports and data: (PixiJS's
+ * worker probes createImageBitmap on a data: PNG). Images: the site's
+ * files, data: (the page's icon) and blob: (textures); media: the docs' clip. Styles and fonts: the site's own files
+ * only, no <style> block or style="" attribute in any page (the docs' are classes in their stylesheet: tools/docs);
+ * scripts still set an element's style through the CSSOM, which a policy does not govern. Workers: the service worker,
+ * and PixiJS's image decoders (blob: workers). Framing: the site itself and a loopback page (the Claude challenge's
+ * page, claude/challenge/, embeds the game). Reports: to CSP_REPORT, by both the old directive and the Reporting API
+ * (Reporting-Endpoints below); WebKit warns about a report-only policy without one.
+ */
+export const CSP = {
+  'default-src': ["'self'"],
+  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-L7tP3IQG4uAOrWbLJ0fJ8qGdXfMgFQ8Ya7VsjdY+12Q='", 'https://static.cloudflareinsights.com'],
+  'connect-src': ["'self'", 'data:', `wss://${RELAY_HOST}`, `https://${RELAY_HOST}`, 'https://cloudflareinsights.com'],
+  'img-src': ["'self'", 'data:', 'blob:'],
+  'media-src': ["'self'", 'blob:'],
+  'style-src': ["'self'"],
+  'font-src': ["'self'"],
+  'worker-src': ["'self'", 'blob:'],
+  'manifest-src': ["'self'"],
+  'frame-ancestors': ["'self'", 'http://127.0.0.1:*', 'http://localhost:*'],
+  'base-uri': ["'self'"],
+  'form-action': ["'self'"],
+  'object-src': ["'none'"],
+  'report-uri': [CSP_REPORT],
+  'report-to': ['csp'],
+};
+
+/** The policy as a header's value (`csp`: CSP, or a copy with more sources, as the e2e tests' server adds its relay). */
+export const cspValue = (csp = CSP) => Object.entries(csp).map(([k, v]) => [k, ...v].join(' ')).join('; ');
+
+/** Report-only for now: a browser reports what the policy would block (in its console), and blocks nothing. */
+export const CSP_HEADER = 'Content-Security-Policy-Report-Only';
+
 /**
  * Headers every response carries, the Worker's and the files': no type sniffing, a referrer that is only the origin to
- * another site, and none of the device's powers the game does not use. It uses full screen (screen.js), sound that
- * starts on a tap (audio.js: autoplay), the share sheet and the clipboard (share.js, online.js: a room's link); never
- * a camera, a microphone, the location, the motion sensors, payment, USB or screen capture. No CSP and no framing rule
- * yet (a later change).
+ * another site, none of the device's powers the game does not use, and the CSP. It uses full screen (screen.js), sound
+ * that starts on a tap (audio.js: autoplay), the share sheet and the clipboard (share.js, online.js: a room's link);
+ * never a camera, a microphone, the location, the motion sensors, payment, USB or screen capture.
  */
 export const SECURITY = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'accelerometer=(), autoplay=(self), camera=(), clipboard-write=(self), display-capture=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), web-share=(self)',
+  [CSP_HEADER]: cspValue(),
+  'Reporting-Endpoints': `csp="${CSP_REPORT}"`,
 };
 
 /** The Cache-Control CACHE gives `path`, or null (the asset's own). */

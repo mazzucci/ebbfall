@@ -2474,11 +2474,11 @@ test('phone: six types fit whole in the console (the words line gives its room t
   } finally { await d.close(); }
 });
 
-test('phone: the first game guides step by step, pulsing the button it wants, and holds the first wave', { chromium: CDP_TOUCH }, async () => {
+test('phone: the first game guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 0, 4242, { first: true });
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
-    await d.hudText('#tut', /1\/8/);
+    await d.hudText('#tut', /1\/9/);
     assert.match(await d.page.locator('#tut').textContent(), /train a Villager, and another once you have 50 gold again/);
     // Step 1: the Core, then Villager twice (the button pulses).
     await d.grant(1000, 0);
@@ -2488,7 +2488,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 't_harvester', 'the Villager button pulses');
     await d.pressCard('Villager'); await d.pressCard('Villager');
     await d.skip(40); // (two Villagers, 18 s each)
-    await d.hudText('#tut', /2\/8/);
+    await d.hudText('#tut', /2\/9/);
     // Step 2: the new Villagers wait by the Castle: one selected, Mine pulses; both sent to the mine end the step.
     assert.match(await d.page.locator('#tut').textContent(), /New Villagers wait by the Castle: select them, tap Mine, then the gold mine/);
     const idle = await d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'idle').id);
@@ -2497,7 +2497,7 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     assert.equal(await d.page.locator('#cmd button.pulse').getAttribute('data-id'), 'gather', 'the Mine button pulses');
     await d.key('Escape');
     await sendIdleToMine(d);
-    await d.hudText('#tut', /3\/8/);
+    await d.hudText('#tut', /3\/9/);
     // Step 3: a Villager, Build: the Build button pulses; a Barracks, then its builder back on the mine, end the step.
     // A Villager (one on the move can slip from under the tap: tried again; one inside the mine is waited for).
     for (let i = 0; i < 8 && !(await d.selection()).some(e => e.type === 'harvester'); i++) {
@@ -2512,13 +2512,20 @@ test('phone: the first game guides step by step, pulsing the button it wants, an
     await d.buildWithUI('c', 'barracks', spot.tx, spot.ty, h.id);
     await until(d, async () => (await d.state()).bldgs.some(b => b.team === 0 && b.type === 'barracks' && b.done), { seconds: 90, what: 'the Barracks' });
     await d.page.waitForTimeout(1000);
-    assert.match(await d.page.locator('#tut').textContent(), /3\/8/, 'its builder waits by it: the step goes on');
+    assert.match(await d.page.locator('#tut').textContent(), /3\/9/, 'its builder waits by it: the step goes on');
     await sendIdleToMine(d);
-    await d.hudText('#tut', /4\/8/);
+    await d.hudText('#tut', /4\/9/);
     assert.match(await d.page.locator('#tut').textContent(), /Train 6 Guards and 2 Archers at the Barracks/, 'then the army');
     // Step 4: the army (spawned: the training is another test's), out of the way mid-map.
     await d.eval(() => { const c = 32 * 32; for (let i = 0; i < 6; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); for (let i = 0; i < 2; i++) endfall.engine.debugSpawn(0, 'lancer', c, c); });
-    await d.hudText('#tut', /5\/8/);
+    // Step 5 (a touch screen's): the army selected as one, SELECT and ARMY pulsing; ARMY ends it.
+    await d.hudText('#tut', /5\/9/);
+    assert.match(await d.page.locator('#tut').textContent(), /Select your army at once: hold SELECT and drag a box over it, or tap ARMY for every fighter/, 'then the army as one');
+    await d.page.waitForTimeout(300);
+    for (const id of ['#btnBox', '#btnArmy']) assert.match(await d.page.locator(id).getAttribute('class'), /\bpulse\b/, `${id} pulses`);
+    await d.page.locator('#btnArmy').tap();
+    assert.equal((await d.selection()).length, 8, 'ARMY selects the eight');
+    await d.hudText('#tut', /6\/9/);
     assert.match(await d.page.locator('#tut').textContent(), /Build a Market in your base: it earns gold by itself/, 'then a Market (it needs the Barracks)');
     // The opponent waits: by 5:30, with the Market not built, none of its fighters has crossed to our half.
     await d.skip(Math.max(0, 330 - await d.eval(() => endfall.G.time)));

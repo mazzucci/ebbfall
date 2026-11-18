@@ -60,6 +60,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 /* A phone has no room beside the ATTACK alert (top right): the toasts move down under it while it shows. */
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
 .toast.bad{border-color:var(--bad);color:#ffb3b3} .toast.paused{border-color:var(--ally);color:var(--ally2)} /* (a site left with no builder: the build bar's and the pause mark's orange) */ .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
+.toast.tip{border-color:var(--ally);line-height:1.35} /* (the group hint on touch, grouphint.js: stays longer) */
 .toast.claude{font-style:italic} /* (a line from Claude, the plan's writer: claude.js, shown as text only) */
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
@@ -394,8 +395,8 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #tut{position:absolute;left:8px;top:8px;z-index:4;display:flex;align-items:center;gap:8px;max-width:min(460px,70%);padding:5px 10px 5px 6px;
   background:rgba(18,26,37,.92);border:1px solid var(--ally);border-radius:6px;font:13px var(--display);color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none}
 #tut .pic{width:26px;height:26px;flex:none} #tut .pic img{width:100%;height:100%} #tut b{font:12px var(--mono);color:var(--ally2)}
-.pulse{animation:pulse-warn .8s infinite alternate;border-color:var(--warn)!important}
-@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+.pulse,.nudge{animation:pulse-warn .8s infinite alternate;border-color:var(--warn)!important} /* (.nudge: the group hint's, grouphint.js; the checklist clears only .pulse) */
+@media (prefers-reduced-motion:reduce){.pulse,.nudge{animation:none}}
 #info.empty{display:none} /* nothing selected: no console (like no command card), on any screen */
 .rec{font:12px var(--mono);color:var(--muted);text-align:center;align-self:center}
 

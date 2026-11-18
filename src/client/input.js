@@ -13,6 +13,7 @@ import { askLeave } from './screen.js';
 import { goHome, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup } from './tools.js';
 import { togglePause, paused } from './pause.js';
 import { wasd } from './controls.js';
+import { notePick } from './grouphint.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
@@ -226,7 +227,7 @@ function touchTap(wx, wy, at) {
     if (bl.length && !units.length && hit.kind === 'bldg' && !hit.done) { select([hit]); return; }
     // (A damaged building is still selected by a tap: on touch, repairs go through the Repair button.)
     if (units.some(u => u.d.worker) && hit.kind === 'bldg' && !hit.done) { commandAt(wx, wy); return; }
-    selectOrDouble(hit, false, at); return;
+    selectOrDouble(hit, false, at); notePick(ui.sel, at); return; // (fighters tapped one by one: the group hint)
   }
   if (units.length) { commandAt(wx, wy); return; }
   // A building selected and a tap elsewhere: let go of it (rally points are set with the Rally button on touch).

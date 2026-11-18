@@ -173,6 +173,37 @@ liveTest('orders given while the socket is down are sent when it is back, not lo
   } finally { await m.done(); }
 });
 
+liveTest('a client that floods the relay: an ack flood keeps few hashes, a huge or oversized order is refused, a message flood closes its socket (back by its token) while the other plays on', { skip, timeout: 60000 }, async () => {
+  const m = await match();
+  const { a, b, relay } = m;
+  try {
+    await m.run(1500);
+    const room = [...relay.rooms.values()][0], raw = (msg) => a.net.ws.send(JSON.stringify(msg));
+    for (let k = 1; k <= 100; k++) raw({ t: 'ack', turn: 0, check: { turn: 10 * (1000 + k), hash: k } }); // (checkpoints of turns that cannot have run)
+    const id = own(a)[0];
+    raw({ t: 'orders', w: [0, id, 2 ** 33, 100] }); // (a move to a point past any map, past 2^32: refused)
+    raw({ t: 'orders', w: [0, id, 100, -1e308] });
+    raw({ t: 'orders', w: Array.from({ length: 700 }, () => [3, id]).flat() }); // (1400 numbers: one turn's, in)
+    raw({ t: 'orders', w: Array.from({ length: 1100 }, () => [3, id]).flat() }); // (2200: more than a turn takes, refused)
+    await m.run(1000);
+    assert.ok(room.seats.every(s => s.hashes.size <= 16), `hashes kept: ${room.seats.map(s => s.hashes.size)}`);
+    const words = room.log.flatMap(t => t.o).filter(([seat]) => seat === a.seat).map(([, w]) => w);
+    assert.ok(words.every(w => w.every(x => Math.abs(x) <= 2 ** 32)), 'no huge number in any turn');
+    assert.deepEqual(words.map(w => w.length), [1400], 'the order within a turn\'s numbers only');
+    // A message flood: past the bucket the socket is closed, and the Net comes back by itself.
+    const ws = a.net.ws, bWs = b.net.ws, at = a.g.tick();
+    let code = 0; ws.addEventListener('close', (e) => { code = e.code; });
+    for (let i = 0; i < 400; i++) raw({ t: 'ping', id: -1 });
+    await m.run(4000);
+    assert.equal(code, 4008, 'closed for the flood');
+    assert.ok(a.net.ws && a.net.ws !== ws && a.net.ws.readyState === 1, 'back on a new socket');
+    assert.equal(b.net.ws, bWs, 'the other side, playing normally, kept its socket');
+    assert.ok(a.g.tick() > at + 45, `the game went on (${at} -> ${a.g.tick()})`);
+    assert.deepEqual(m.events.filter(e => /desync|error/.test(e)), [], 'no desync, no error');
+    m.same();
+  } finally { await m.done(); }
+});
+
 // The lobby on a fake socket and clock: a Net that holds a seat keeps reconnecting (the relay holds the seat for its
 // token) until the relay would no longer hold it, one that never got a seat gives up, and a lobby leave is confirmed
 // (said again after a half-open socket lost it).

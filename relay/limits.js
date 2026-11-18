@@ -65,6 +65,23 @@ export class Limiter {
   take(key, n = 1) { if (this.check(key, n)) return false; this.count(key, n); return true; }
 }
 
+/** Messages per connection (a token bucket): MSG_RATE a second, MSG_BURST at once. Play sends far fewer: an ack every
+ *  3 turns (3 a second, one a frame while catching up after a reconnect: some 60 then), and at most one orders message
+ *  a frame, only on frames with a new order (a held hotkey's repeat, the fastest hands: 30 a second); a reconnect also
+ *  sends at once what it kept while away. A connection past its bucket is closed (MSG_CLOSE): the client comes back by
+ *  itself (its token), so a false alarm costs a reconnect, and a flood a join (limited per address). */
+export const MSG_RATE = 60, MSG_BURST = 180, MSG_CLOSE = 4008;
+/** A connection's bucket: call it once per message; false once the message is one too many. `now()`: ms. */
+export function messageBucket(now = () => Date.now()) {
+  let tokens = MSG_BURST, at = now();
+  return () => {
+    const t = now();
+    tokens = Math.min(MSG_BURST, tokens + Math.max(0, t - at) * MSG_RATE / 1000); at = t;
+    if (tokens < 1) return false;
+    tokens--; return true;
+  };
+}
+
 /** A Rate Limiting binding's `limit({key})` over a Limiter: `limit` a `period` (s). The Node relay's stand-in, and the
  *  tests'. */
 export function rateLimit(limit, period, now) {

@@ -777,3 +777,43 @@ fn a_group_sent_to_a_walled_off_spot_stops_where_it_can() {
         );
     }
 }
+
+/// A rally point no click makes (a huge number from the network: `set_rally` checks only that it is finite) is kept on
+/// the map, and the next unit steps out towards it: no peer's sim breaks on it (it once made NaN keys in `exit_tile`).
+#[test]
+fn a_rally_point_far_off_the_map_stays_on_it() {
+    for (x, y) in [
+        (1e308, 1e308),
+        (-f64::MAX, f64::MAX),
+        (f64::MAX, -1e308),
+        (1e15, -1e15),
+    ] {
+        let mut g = Game::new(1, 1);
+        let w = g.world();
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && !b.kind.def().trains.is_empty())
+            .expect("a building that trains");
+        let (hq, kind) = (hq.id, hq.kind.def().trains[0]);
+        let before = count(g.world(), PLAYER, kind);
+        g.set_rally(hq, x, y, 0);
+        let rl = g.world().bldg(hq).unwrap().rally.expect("a rally point");
+        let (ww, wh) = (g.world().map.ww(), g.world().map.wh());
+        assert!(
+            (0.0..=ww).contains(&rl.x) && (0.0..=wh).contains(&rl.y),
+            "({x}, {y}) kept on the map: ({}, {})",
+            rl.x,
+            rl.y
+        );
+        assert_eq!(g.queue_unit(hq, kind.def().key), "");
+        for _ in 0..60 * 30 {
+            g.step();
+        }
+        assert_eq!(
+            count(g.world(), PLAYER, kind),
+            before + 1,
+            "({x}, {y}): trained and out"
+        );
+    }
+}

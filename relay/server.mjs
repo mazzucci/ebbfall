@@ -11,7 +11,7 @@ import { WebSocketServer } from 'ws';
 import { Room, TURN_MS } from './room.js';
 import { benchRequest, BenchStore, memoryStorage } from './bench.js';
 import { versionRequest } from './version.js';
-import { RoomLimits, addressKey, SAY } from './limits.js';
+import { RoomLimits, addressKey, SAY, messageBucket, MSG_CLOSE } from './limits.js';
 import { newCode, parseCode, oldCode } from '../src/net/roomcode.js';
 
 const MAX_MSG = 64 * 1024;
@@ -82,8 +82,9 @@ export function startRelay({ port = 8788, latency = 0, jitter = 0, build = null,
       if (!room) { if (limited) limits.miss(from); refuse('noroom', 'No room with that code'); return; }
     }
     let seated = false;
-    const silent = setTimeout(() => { if (!seated) ws.terminate(); }, HELLO_MS);
+    const silent = setTimeout(() => { if (!seated) ws.terminate(); }, HELLO_MS), take = messageBucket();
     ws.on('message', (data) => {
+      if (!take()) { ws.close(MSG_CLOSE, 'Too many messages'); return; } // (a flood: the client reconnects by itself, relay/limits.js)
       let msg; try { msg = JSON.parse(data); } catch { return; }
       room.lastUsed = Date.now();
       if (!seated) {

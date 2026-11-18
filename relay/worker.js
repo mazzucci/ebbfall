@@ -10,7 +10,7 @@
 // entry module, which may export only handlers and classes.
 import { Room, TURN_MS, MAX_SEATS } from './room.js';
 import { BenchStore } from './bench.js';
-import { OpenBudget, addressKey } from './limits.js';
+import { OpenBudget, addressKey, messageBucket, MSG_CLOSE } from './limits.js';
 import { relay, CLOUDFLARE, send, ROOM_IDLE_MS } from './edge.js';
 
 export default relay();
@@ -106,9 +106,10 @@ export class RoomObject {
     this.conns.add(ws); this.lastUsed = Date.now();
     if (!this.timer) { room.tick(Date.now()); this.timer = setInterval(() => room.tick(Date.now()), TURN_MS / 4); } // (at once: a hold that ran out while nobody was here is over before anyone is seated)
     let seated = false;
-    const silent = setTimeout(() => { if (!seated) kick(ws); }, HELLO_MS);
+    const silent = setTimeout(() => { if (!seated) kick(ws); }, HELLO_MS), take = messageBucket();
     ws.addEventListener('message', (e) => {
       if (typeof e.data !== 'string' || e.data.length > MAX_MSG) { kick(ws); return; }
+      if (!take()) { kick(ws, MSG_CLOSE); return; } // (a flood: the client reconnects by itself, relay/limits.js)
       let msg; try { msg = JSON.parse(e.data); } catch { return; }
       this.lastUsed = Date.now();
       if (!seated) { seated = room.connect(ws, msg, from) >= 0; if (!seated) kick(ws); return; }
@@ -131,4 +132,4 @@ export class RoomObject {
 }
 
 // (the clean-up after the room's own call has finished: Room.connect kicks a replaced socket mid-way)
-function kick(ws) { try { ws.close(1000); } catch { /* closed already */ } queueMicrotask(() => ws.gone?.()); }
+function kick(ws, code = 1000) { try { if (code === MSG_CLOSE) ws.close(code, 'Too many messages'); else ws.close(code); } catch { /* closed already */ } queueMicrotask(() => ws.gone?.()); }

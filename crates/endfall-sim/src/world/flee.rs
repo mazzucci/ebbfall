@@ -46,8 +46,7 @@ impl World {
             })
             .min_by(|a, b| {
                 dist(a.x, a.y, x, y)
-                    .partial_cmp(&dist(b.x, b.y, x, y))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, x, y))
                     .then(a.id.cmp(&b.id))
             })
             .map(|o| (o.x, o.y, o.kind.def().air))
@@ -108,8 +107,7 @@ impl World {
             .filter(|b| b.team == team && b.done && b.kind.def().hq)
             .min_by(|a, b| {
                 dist(a.x, a.y, ux, uy)
-                    .partial_cmp(&dist(b.x, b.y, ux, uy))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, ux, uy))
                     .then(a.id.cmp(&b.id))
             });
         let Some(b) = hq else {

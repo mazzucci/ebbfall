@@ -205,7 +205,7 @@ impl World {
                 let d = dist(s.x, s.y, ux, uy);
                 (d - s.reach, d, s.x, s.y, s.reach, s.id)
             })
-            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.5.cmp(&b.5)));
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.5.cmp(&b.5)));
         let Some((_, d, sx, sy, reach, _)) = near else {
             return false;
         };

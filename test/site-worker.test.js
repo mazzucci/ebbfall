@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import worker from '../site/worker.js';
-import { CACHE, cacheControl, headersFile } from '../site/cache.js';
+import { CACHE, SECURITY, cacheControl, headersFile } from '../site/cache.js';
 
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', wasm: 'application/wasm', png: 'image/png', webmanifest: 'application/manifest+json', json: 'application/json', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
 /** A fake ASSETS binding over `files` (path -> body): Cloudflare's default headers, 404 for anything else. */
@@ -252,6 +252,25 @@ test('the docs: a folder address is its index.html, without the slash it is sent
   assert.equal(head.status, 200, 'HEAD too');
   assert.equal((await get('/docs/nope/', NAVIGATE, 'GET', {}, files)).status, 302, 'a mistyped docs page: the game, as any page load');
   assert.equal((await get('/docs/img/nope.webp', { Accept: 'image/webp' }, 'GET', {}, files)).status, 404, 'a missing image: a 404');
+});
+
+test('security headers: nosniff, the referrer policy and the device powers, on the pages, a room\'s card, the docs and a 404, and in _headers for every file', async () => {
+  const files = { ...FILES, '/docs/kingdom/index.html': 'kingdom' };
+  const policy = SECURITY['Permissions-Policy'];
+  for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'web-share=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
+  const cases = [['/', {}], ['/?room=BCDFGH', {}], ['/', { CF_ANALYTICS_TOKEN: 'abc' }], ['/docs/kingdom/', {}], ['/docs/kingdom', {}], ['/art/atlas-0.png', {}], ['/nope.js', {}]];
+  for (const [path, env] of cases) {
+    const res = await get(path, NAVIGATE, 'GET', env, files);
+    assert.equal(res.headers.get('X-Content-Type-Options'), 'nosniff', path);
+    assert.equal(res.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin', path);
+    assert.equal(res.headers.get('Permissions-Policy'), policy, path);
+  }
+  const page = await get('/', NAVIGATE, 'GET', {}, files);
+  assert.equal(page.headers.get('Cache-Control'), 'no-cache', 'the cache header kept');
+  const text = headersFile(), all = text.slice(0, text.indexOf('\n/', 1) + 1);
+  assert.ok(all.startsWith('/*\n'), 'a rule for every path, first');
+  for (const [k, v] of Object.entries(SECURITY)) assert.ok(all.includes(`\n  ${k}: ${v}\n`), k);
+  assert.ok(!/Content-Security-Policy|X-Frame-Options|frame-ancestors/.test(text), 'no CSP or framing rule yet');
 });
 
 test("the Worker's module exports its handler only (the Workers runtime refuses anything else)", async () => {

@@ -14,6 +14,27 @@ fn any_unit_key(r: &mut Mulberry32) -> &'static str {
     UNIT_KINDS.get(i).map_or("nonsense", |k| k.def().key)
 }
 
+/// A number at the edges of what an order may carry: huge, tiny, negative, the i32 limits.
+fn extreme(r: &mut Mulberry32) -> f64 {
+    const EDGES: [f64; 14] = [
+        1e308,
+        -1e308,
+        f64::MAX,
+        -f64::MAX,
+        i32::MAX as f64,
+        i32::MIN as f64,
+        u32::MAX as f64,
+        f64::MIN_POSITIVE,
+        5e-324,
+        -0.0,
+        -1.0,
+        -1e-9,
+        1e15,
+        -1e15,
+    ];
+    EDGES[r.below(EDGES.len() as u32) as usize]
+}
+
 /// One random order through the same Game API the browser uses, with ids that may be stale or garbage.
 pub fn random_order(g: &mut Game, r: &mut Mulberry32) {
     random_order_with(g, r, true);
@@ -32,6 +53,12 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
     ids.extend([0, 1, 99_999, w.units.last().map_or(5, |u| u.id + 1)]);
     let pick = |r: &mut Mulberry32| ids[r.below(ids.len() as u32) as usize];
     let (x, y) = (r.below(2200) as f64 - 60.0, r.below(2200) as f64 - 60.0);
+    // (now and then a point no click makes: from the network anything finite may come)
+    let (x, y) = if r.below(8) == 0 {
+        (extreme(r), extreme(r))
+    } else {
+        (x, y)
+    };
     let (a, b) = (pick(r), pick(r));
     match r.below(20) {
         0 => g.move_to(a, x, y),

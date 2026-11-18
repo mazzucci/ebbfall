@@ -211,11 +211,7 @@ impl World {
                 .units
                 .iter()
                 .filter(|o| self.hostile(o.team) && o.kind.def().worker && self.ai_sees_unit(o))
-                .min_by(|a, b| {
-                    dist(a.x, a.y, ux, uy)
-                        .partial_cmp(&dist(b.x, b.y, ux, uy))
-                        .unwrap()
-                })
+                .min_by(|a, b| dist(a.x, a.y, ux, uy).total_cmp(&dist(b.x, b.y, ux, uy)))
                 .map(|o| o.id);
             // Harvesters come first: a raider drops whatever it auto-targeted on the way once it sees one.
             match prey.or_else(|| self.remote_extractor(r, ux, uy)) {
@@ -255,8 +251,7 @@ impl World {
             })
             .min_by(|a, b| {
                 dist(a.x, a.y, ux, uy)
-                    .partial_cmp(&dist(b.x, b.y, ux, uy))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, ux, uy))
                     .then(a.id.cmp(&b.id))
             })
             .map(|b| b.id)
@@ -374,8 +369,7 @@ impl World {
                 })
                 .min_by(|p, q| {
                     (p.hp / p.maxhp)
-                        .partial_cmp(&(q.hp / q.maxhp))
-                        .unwrap()
+                        .total_cmp(&(q.hp / q.maxhp))
                         .then(p.id.cmp(&q.id))
                 })
                 .map(|b| (b.id, b.x, b.y));
@@ -790,7 +784,7 @@ impl World {
         let mut order: Vec<Id> = army.to_vec();
         order.sort_by(|&p, &q| {
             let (sp, sq) = (self.u(p).kind.def().speed, self.u(q).kind.def().speed);
-            sq.partial_cmp(&sp).unwrap().then(p.cmp(&q))
+            sq.total_cmp(&sp).then(p.cmp(&q))
         });
         let split = if second.is_some() && army.len() >= 6 {
             army.len() / 3
@@ -890,8 +884,7 @@ impl World {
             .filter(|b| b.team == seat && b.kind == tower && b.done)
             .min_by(|a, b| {
                 dist(a.x, a.y, gx, gy)
-                    .partial_cmp(&dist(b.x, b.y, gx, gy))
-                    .unwrap()
+                    .total_cmp(&dist(b.x, b.y, gx, gy))
                     .then(a.id.cmp(&b.id))
             })?;
         (dist(b.x, b.y, gx, gy) < from_rally - 4.0 * TILE).then_some((b.x, b.y))
@@ -1473,8 +1466,7 @@ impl World {
         free.sort_by(|&p, &q| {
             let (up, uq) = (self.u(p), self.u(q));
             dist(up.x, up.y, ex, ey)
-                .partial_cmp(&dist(uq.x, uq.y, ex, ey))
-                .unwrap()
+                .total_cmp(&dist(uq.x, uq.y, ex, ey))
                 .then(p.cmp(&q))
         });
         guards.extend(free.into_iter().take(GUARDS.saturating_sub(guards.len())));
@@ -1627,11 +1619,7 @@ impl World {
                 let best = known
                     .iter()
                     .filter(|k| self.bldg(k.0).is_some())
-                    .min_by(|p, q| {
-                        dist(ux, uy, p.1, p.2)
-                            .partial_cmp(&dist(ux, uy, q.1, q.2))
-                            .unwrap()
-                    });
+                    .min_by(|p, q| dist(ux, uy, p.1, p.2).total_cmp(&dist(ux, uy, q.1, q.2)));
                 match best {
                     Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
                     Some(&(_, bx, by)) => {

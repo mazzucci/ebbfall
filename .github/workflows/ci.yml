@@ -131,11 +131,19 @@ jobs:
 
   # The browser tests' cross-engine subset (the scenarios marked `engines: true`: the menu, sound and full screen, a short
   # game through the UI, taps on a phone, joining a room through a local relay, offline, the golden games) in WebKit
-  # (Safari's engine) and Firefox, beside the build job. Firefox has WebGL only with a display: a virtual one (xvfb).
-  # Like `arm`, neither a merge nor a deploy waits for it (2026-11-07): its result is read by hand.
+  # (Safari's engine) and Firefox, on the build job's dist/. It runs in Playwright's own image, which ships both browsers
+  # and every library they need (WebKit's GTK 4 and graphene, which the runner's apt step kept failing to install), so
+  # nothing is installed with apt. The image is pinned to playwright-core's exact version (package-lock.json): bump the
+  # tag, its digest and the check below with it. Firefox has WebGL only with a display: a virtual one (xvfb, in the
+  # image). Like `arm`, neither a merge nor a deploy waits for it (2026-11-07): its result is read by hand.
   engines:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      # v1.64.1-noble, by digest (docker-content-digest of the tag's manifest list on mcr.microsoft.com).
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -146,29 +154,21 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: actions/cache/restore@v6 # (the build job's WASM cache, read only)
-        with:
-          path: |
-            ~/.cargo/registry
-            target
-            .tools
-          key: wasm-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
-          restore-keys: |
-            wasm-${{ runner.os }}-
-            rust-${{ runner.os }}-
-      - run: rustup toolchain install
       - run: npm ci
-      - run: npm run build
-        env:
-          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
-      - run: |
-          npx playwright-core install ${{ matrix.engine }}
-          timeout 120 npx playwright-core install-deps ${{ matrix.engine }} || echo "::warning::install-deps failed; using the image's libraries"
+      - name: playwright-core matches the image's browsers
+        run: |
+          v=$(node -p "require('playwright-core/package.json').version")
+          test "$v" = 1.64.1 || { echo "::error::playwright-core is $v but the engines image is v1.64.1: bump the image"; exit 1; }
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
       - name: The cross-engine subset in ${{ matrix.engine }}
         run: |
           if [ "$ENDFALL_ENGINE" = firefox ]; then xvfb-run -a -s '-screen 0 1920x1080x24' npm run test:e2e; else npm run test:e2e; fi
         env:
           ENDFALL_ENGINE: ${{ matrix.engine }}
+          HOME: /root # (Firefox refuses to start as root with a HOME it does not own: the runner sets /github/home)
 
   # Determinism on another CPU: the golden games natively, in WASM in Node's V8, and in WebKit (JavaScriptCore on
   # arm64, as on an iPhone) on an ARM Mac. It runs on every pull request and on main, but neither a merge nor a deploy

@@ -8,7 +8,9 @@ CLAUDE.md holds the rules and the commands; read it first. Keep this file true w
 
 CI (`.github/workflows/ci.yml`) runs rustfmt, clippy and `cargo test` (the `rust` job), beside the WASM build, `npm test`
 and `npm run build` (the `build` job, whose dist/ the browser tests use), then the browser tests (all in Chromium, split
-over ten `e2e` jobs by measured time, summed up by `e2e: all`, red unless the build and every shard passed; the cross-engine subset in WebKit and Firefox, `engines`, and the golden games on an ARM Mac, `arm`,
+over ten `e2e` jobs by measured time, summed up by `e2e: all`, red unless the build and every shard passed; the cross-engine subset in WebKit and Firefox, `engines`, on the same dist/ inside Playwright's container image (pinned
+to playwright-core's exact version and digest: the browsers and their libraries come with it, no apt step; Firefox under
+the image's xvfb), and the golden games on an ARM Mac, `arm`,
 which hold neither a merge nor a deploy (`arm` since 2026-11-04, `engines` since 2026-11-07) and are read by hand: the
 ruleset requires build, rust and `e2e: all`, and `relay` and `deploy` wait on the same) on every pull request, and publishes
 `main` to https://ebbfall.com/, a Cloudflare Worker with static assets (site/; GitHub Pages until 2026-10-30;

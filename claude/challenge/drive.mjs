@@ -133,7 +133,7 @@ async function ask(text, game) {
   if (j?.permission_denials?.length) md(`\n*Denied:* ${JSON.stringify(j.permission_denials)}`);
   // A usage or rate limit: stop at once, no retry around it.
   const said = `${j?.result ?? ''} ${j?.is_error ? 'is_error' : ''} ${j ? '' : r.err + r.out}`;
-  if (!opt.stub && (j?.is_error || !j || /usage limit|rate.?limit|429|overloaded|quota/i.test(said))) {
+  if (!opt.stub && (j?.is_error || !j)) { // (a limit comes back as is_error, or as no JSON at all)
     series.stopped = `Claude call failed (${j?.is_error ? 'is_error' : `exit ${r.code}`}): ${said.trim().slice(0, 300)}`;
     say(series.stopped);
   }

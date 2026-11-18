@@ -209,7 +209,7 @@ export function pages(version = '') {
   const list = PAGES.map(([name, path]) => {
     const { meta, body } = readCopy(name);
     const tab = TABS.find(([p]) => p === path);
-    return { name, path, title: meta.title, description: meta.description, crumb: meta.crumb || (tab ? tab[1] : null), people: PEOPLES.find(p => p.slug === meta.people) || null, raw: body };
+    return { name, path, title: meta.title, description: meta.description, crumb: meta.crumb || (tab && path !== '/docs/' ? tab[1] : null), people: PEOPLES.find(p => p.slug === meta.people) || null, raw: body };
   });
   for (const p of list) p.body = fill(p.raw, { people: p.people, pages: list, version });
   return list;

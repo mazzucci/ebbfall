@@ -381,7 +381,7 @@ src/client/           everything that touches the browser
                       Dust Quarter (96x96, two players) by default, a saved hidden map opening the default; no FIRST
                       GAME there; `?seed=` plays the hidden 64x64 random slot, `?map=N` opens map N, hidden ones too:
                       the tests' ways to a 64x64 game),
-                      the footer line under the buttons, How to play · About (the docs, in a new tab), the stamp's
+                      the footer line under the buttons, Learn more (the docs home, in a new tab), the stamp's
                       tooltip and `data-build` the Version (the sim's build); the map list and preview the lobby
                       shares (a hidden map listed only while it is the one chosen: a challenge's or an old room's); a
                       challenge link (`?vs=`, challenge.js) opens the single-player page on its setup, its line
@@ -555,7 +555,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/ with the site's h
                       csp.e2e.mjs (no CSP violation, in any frame or worker, across the menu, the service worker and a
                       reload under it, a game, the help sheet, a room on the relay, the bench's report, the
                       challenge's embedded plan link, the device check, the voice lab, the docs and the clip),
-                      docs.e2e.mjs (the first page's footer line: How to play and About in a new tab, the old buttons
+                      docs.e2e.mjs (the first page's footer line: Learn more, the docs home in a new tab, the old buttons
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
                       listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the

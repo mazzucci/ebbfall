@@ -30,7 +30,7 @@ const KINGDOM_MIRROR_96 = '1.4.0.1o.h00h12';
 export const TOOLS = ['mcp__ebbfall__set_plan', 'mcp__ebbfall__say', 'mcp__ebbfall__read_state'];
 
 function args(argv) {
-  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 35, model: '', session: '', mock: false, headed: false, check: false, callTimeout: 150 };
+  const o = { games: 5, name: 's', ceiling: 150_000, speed: 1, vs: KINGDOM_MIRROR_96, cap: 35, model: '', session: '', mock: false, stub: false, headed: false, check: false, callTimeout: 150 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = () => argv[++i];
     if (a === '--games') o.games = Number(v());
@@ -43,6 +43,7 @@ function args(argv) {
     else if (a === '--session') o.session = v();
     else if (a === '--mock') o.mock = true;
     else if (a === '--headed') o.headed = true;
+    else if (a === '--stub') o.stub = true;
     else if (a === '--check') o.check = true;
     else throw new Error(`unknown argument ${a}`);
   }
@@ -118,7 +119,7 @@ async function ask(text, game) {
   log('ask', { game: game?.n, text });
   md(`\n**To Claude** (game ${game?.n ?? '-'}):\n\n\`\`\`\n${text.length > 1800 ? text.slice(0, 1800) + '...' : text}\n\`\`\``);
   await control({ action: 'status', status: 'Claude is thinking' });
-  const r = await runClaude(argv, opt.callTimeout);
+  const r = opt.stub ? await stubReply(text) : await runClaude(argv, opt.callTimeout);
   await control({ action: 'status', status: 'idle' });
   let j = null;
   try { j = JSON.parse(r.out); } catch { /* below */ }
@@ -130,6 +131,17 @@ async function ask(text, game) {
   md(`\n*Claude (${(ms / 1000).toFixed(1)} s, ${billed(t)} new + ${t.cache_read} cached tokens):* ${j?.result ?? `(failed: ${(r.err || r.out).slice(-300)})`}`);
   if (j?.permission_denials?.length) md(`\n*Denied:* ${JSON.stringify(j.permission_denials)}`);
   return j;
+}
+
+/** --stub: scripted replies through the same tools (no Claude, no tokens), to check the plumbing on the real game. */
+let stubN = 0;
+async function stubReply(text) {
+  const tool = (b) => api('tool', b);
+  let did;
+  if (/about to start/.test(text)) did = await tool({ tool: 'set_plan', plan: '1.w14.f5m.s10', say: 'Stub: a greedy start.' });
+  else if (/is over/.test(text)) did = await tool({ tool: 'say', text: 'Stub: good game.' });
+  else if (++stubN % 2 === 1) did = await tool({ tool: 'set_plan', delta: stubN === 3 ? '1.m14' : '', intents: stubN === 3 ? ['mass'] : ['attack'], say: `Stub moment ${stubN}.` });
+  return { code: 0, err: '', out: JSON.stringify({ result: `stub: ${JSON.stringify(did ?? 'nothing')}`, usage: {}, total_cost_usd: 0, num_turns: 1 }) };
 }
 
 // ---------------------------------------------------------------- the server and the page
@@ -273,9 +285,9 @@ function overCeiling() {
 // ---------------------------------------------------------------- main
 
 async function main() {
-  const lim = await checkLimits();
+  const lim = opt.stub ? { ok: true, tools: TOOLS, servers: [], model: 'stub', permissionMode: '-' } : await checkLimits();
   log('limits', lim);
-  say(`limits: ${lim.ok ? 'enforced' : 'NOT ENFORCED'}; tools ${JSON.stringify(lim.tools)}; servers ${JSON.stringify(lim.servers)}; model ${lim.model}; mode ${lim.permissionMode}`);
+  say(`limits: ${opt.stub ? 'stub (no Claude)' : lim.ok ? 'enforced' : 'NOT ENFORCED'}; tools ${JSON.stringify(lim.tools)}; servers ${JSON.stringify(lim.servers)}; model ${lim.model}; mode ${lim.permissionMode}`);
   if (!lim.ok) { say(`refusing to play: ${lim.why}`); process.exit(2); }
   if (opt.check) return;
   if (!opt.mock) {

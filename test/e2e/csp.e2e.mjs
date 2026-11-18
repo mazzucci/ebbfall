@@ -3,8 +3,8 @@
 // single-player game for a few minutes of game time with the help sheet, a room opened on the relay, the bench's report
 // to it, the challenge's embedded plan link, the device check and the voice lab, and every docs page with the home's
 // clip playing. Every violation the browser reports (a securitypolicyviolation event in any frame, or the console's
-// CSP message) is collected, and there must be none: while the header is report-only nothing is blocked, so this is
-// what says the policy can be enforced.
+// CSP message) is collected, and there must be none: the policy is enforced, so a violation is something of the site
+// the browser refused (the rest of the suite runs under it too: a refused file or script also breaks its scenario).
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';

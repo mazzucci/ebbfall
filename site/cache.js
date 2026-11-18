@@ -37,11 +37,11 @@ export const RELAY_HOST = 'relay.ebbfall.com';
  * scripts still set an element's style through the CSSOM, which a policy does not govern. Workers: the service worker,
  * and PixiJS's image decoders (blob: workers). Framing: the site itself and a loopback page (the Claude challenge's
  * page, claude/challenge/, embeds the game). Reports: to CSP_REPORT, by both the old directive and the Reporting API
- * (Reporting-Endpoints below); WebKit warns about a report-only policy without one.
+ * (Reporting-Endpoints below), so a refusal on a player's device reaches the Worker's logs.
  */
 export const CSP = {
   'default-src': ["'self'"],
-  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-L7tP3IQG4uAOrWbLJ0fJ8qGdXfMgFQ8Ya7VsjdY+12Q='", 'https://static.cloudflareinsights.com'],
+  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-mHvnG6Ljo3//FV8xAqu3Y2N0YvSK5kSgSoqLoB4g9YA='", 'https://static.cloudflareinsights.com'],
   'connect-src': ["'self'", 'data:', `wss://${RELAY_HOST}`, `https://${RELAY_HOST}`, 'https://cloudflareinsights.com'],
   'img-src': ["'self'", 'data:', 'blob:'],
   'media-src': ["'self'", 'blob:'],
@@ -60,8 +60,9 @@ export const CSP = {
 /** The policy as a header's value (`csp`: CSP, or a copy with more sources, as the e2e tests' server adds its relay). */
 export const cspValue = (csp = CSP) => Object.entries(csp).map(([k, v]) => [k, ...v].join(' ')).join('; ');
 
-/** Report-only for now: a browser reports what the policy would block (in its console), and blocks nothing. */
-export const CSP_HEADER = 'Content-Security-Policy-Report-Only';
+/** Enforced: a browser refuses what the policy does not allow (and reports it). It was report-only first (#338), with
+ *  no violation found on the live site in Chromium, Firefox or WebKit. */
+export const CSP_HEADER = 'Content-Security-Policy';
 
 /**
  * Headers every response carries, the Worker's and the files': no type sniffing, a referrer that is only the origin to

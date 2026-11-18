@@ -115,7 +115,8 @@ const EXPECTED: [[u32; 3]; 7] = [
     [2097618426, 2050469521, 93113691],
     [2033702793, 3986897377, 3050608044],
     [2250680363, 3955459073, 2101138499],
-    [2894425229, 2082511305, 3197559879],
+    // (re-pinned Nov 18: the Archer's reload 2.2 s, 2.5 before; its slow gone)
+    [2894425229, 2082511305, 1665032583],
 ];
 
 #[test]
@@ -166,8 +167,9 @@ fn golden_hashes_pin_a_vael_game() {
 }
 
 /// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
-// (re-pinned Nov 18: no Archer slow, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy shoots flyers)
-const EXPECTED_VAEL_AI: [u32; 3] = [1191897366, 2350238437, 891160657];
+// (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
+// shoots flyers)
+const EXPECTED_VAEL_AI: [u32; 3] = [1191897366, 2350238437, 985803694];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -196,8 +198,9 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
 
 /// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
 /// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
-// (re-pinned Nov 18: no Archer slow, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy shoots flyers)
-const EXPECTED_SHORE_AI: [u32; 3] = [807831211, 3398161016, 2895993688];
+// (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
+// shoots flyers)
+const EXPECTED_SHORE_AI: [u32; 3] = [807831211, 3398161016, 3941715800];
 
 #[test]
 fn golden_hashes_pin_the_shore() {
@@ -223,8 +226,9 @@ fn golden_hashes_pin_the_shore() {
 
 /// The same game with the tide on (PRD: the tide on the Shore map): the water level's cycle, the warning, the
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
-// (re-pinned Nov 18: no Archer slow, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy shoots flyers)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [750168850, 2083146783, 785223571];
+// (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
+// shoots flyers)
+const EXPECTED_SHORE_TIDE: [u32; 3] = [750168850, 2083146783, 2815023000];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {
@@ -275,12 +279,12 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
     (7, 2, MapKind::OpenPlains, true),
 ];
 
-// (all three re-pinned Nov 18: the Archer's slow gone, the Drone at 4 a shot, the Ballista 24/56 every 2.4 s, the
-// Buggy shoots flyers; the second, Brutal on the Labyrinth, now runs to the 20-minute cap)
+// (all three re-pinned Nov 18: the Archer's slow gone and its reload 2.2 s, the Drone at 4 a shot, the Ballista 24/56
+// every 2.4 s, the Buggy shoots flyers)
 const EXPECTED_RESULTS: [&str; 3] = [
-    "45/49/27/0 lost_to 49 | 49/27/49/4 lost_to 27 | over true winner 1 conceded -1 at 19768",
-    "190/167/160/0 lost_to 167 | 192/160/167/0 lost_to 160 | over false winner -1 conceded -1 at 36000",
-    "1/5/0/0 lost_to 5 | 25/0/5/1 lost_to 0 | over true winner 1 conceded -1 at 10341",
+    "39/43/16/0 lost_to 43 | 45/16/43/4 lost_to 16 | over true winner 1 conceded -1 at 17438",
+    "77/80/49/0 lost_to 80 | 108/49/80/21 lost_to 49 | over true winner 1 conceded -1 at 26514",
+    "1/5/0/0 lost_to 5 | 25/0/5/1 lost_to 0 | over true winner 1 conceded -1 at 10263",
 ];
 
 #[test]
@@ -313,8 +317,9 @@ fn golden_results_pin_stats_and_victory() {
 
 /// Two against two, every seat an AI, on 96x96 (built as the menus build it, `Game::with_seats`): pins teams, shared
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
-// (re-pinned Nov 18: no Archer slow, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy shoots flyers)
-const EXPECTED_TEAMS_AI: [u32; 3] = [1387331421, 616344481, 2711341514];
+// (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
+// shoots flyers)
+const EXPECTED_TEAMS_AI: [u32; 3] = [1387331421, 616344481, 1971812206];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

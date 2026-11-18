@@ -8,7 +8,7 @@
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, anyHere, board, DESKTOP } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, anyHere, board, DESKTOP, ENGINE } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
 
 let relay;
@@ -28,6 +28,9 @@ async function watched(device = DESKTOP) {
   return { ctx, seen };
 }
 
+/** Where the journey is, on stderr (a timeout in a slow engine then says which step). */
+const step = (what) => process.stderr.write(`csp e2e (${ENGINE}): ${what}\n`);
+
 const report = (seen) => seen.map(v => JSON.stringify(v)).join('\n');
 
 test('the CSP: no violation across the menu, the service worker, a game, the help sheet, a room, the bench, the plan link, the docs and the clip', { engines: true, timeout: 600000 }, async () => {
@@ -38,14 +41,19 @@ test('the CSP: no violation across the menu, the service worker, a game, the hel
     const errors = [];
     p.on('pageerror', e => errors.push(e.message));
 
+    step('menu and service worker');
     // The menu, and the service worker installed; then a reload, the page now served through it.
     await p.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
     await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    await p.evaluate(() => navigator.serviceWorker?.ready);
-    await p.reload({ waitUntil: 'networkidle' });
-    await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    assert.ok(await p.evaluate(() => !!navigator.serviceWorker?.controller), 'the page under the service worker');
+    // (WebKit in CI's container may not get a service worker at all: then the rest of the journey without it)
+    const sw = await p.evaluate(() => Promise.race([navigator.serviceWorker ? navigator.serviceWorker.ready.then(() => true) : false, new Promise(r => setTimeout(() => r(false), 60000))]));
+    if (sw || ENGINE === 'chromium') {
+      await p.reload({ waitUntil: 'networkidle' });
+      await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+      assert.ok(await p.evaluate(() => !!navigator.serviceWorker?.controller), 'the page under the service worker');
+    }
 
+    step('single-player game');
     // A single-player game: a few minutes of it, drawn, and the help sheet opened and closed.
     await p.locator('#btnSolo').click();
     await board(p).diff(1, 1);
@@ -58,6 +66,7 @@ test('the CSP: no violation across the menu, the service worker, a game, the hel
     await p.keyboard.press('Escape');
     assert.ok(await p.evaluate(() => endfall.G.tick) >= 180 * 30, 'three minutes played');
 
+    step('room on the relay');
     // A room on the relay: MULTIPLAYER, a name, NEW ROOM, its code shown.
     await p.goto(`${baseUrl()}?${relayQ}`, { waitUntil: 'networkidle' });
     await p.locator('#btnOnline').click();
@@ -65,6 +74,7 @@ test('the CSP: no violation across the menu, the service worker, a game, the hel
     await p.locator('#btnNewRoom').click();
     await p.waitForFunction(() => /^[A-Z]{3}-[A-Z]{3}$/.test(document.getElementById('roomShow').textContent), null, { timeout: 30000 });
 
+    step('bench');
     // The bench: a short run, its report posted to the relay.
     await p.goto(`${baseUrl()}?bench&secs=3&at=0&${relayQ}`, { waitUntil: 'networkidle' });
     await p.waitForFunction(() => document.body.dataset.bench === 'ready', null, { timeout: 60000 });
@@ -72,6 +82,7 @@ test('the CSP: no violation across the menu, the service worker, a game, the hel
     await p.waitForFunction(() => ['sent', 'failed', 'unsent'].includes(document.body.dataset.bench), null, { timeout: 200000 });
     assert.equal(await p.evaluate(() => document.body.dataset.bench), 'sent', 'the report reached the relay');
 
+    step('challenge embed');
     // The challenge's link, embedded as its page embeds it (a same-origin frame: claude/challenge/page; its own context,
     // where no service worker answers for the host page the route serves; the host says hello until the game is ready).
     const host = `${baseUrl()}csp-host.html`, game = `${baseUrl()}?embed=1&plan=1.w14&watch=1&seed=4242`;
@@ -91,12 +102,14 @@ test('the CSP: no violation across the menu, the service worker, a game, the hel
     await e.waitForFunction(() => got.some(m => m.type === 'ebbfall:checkin'), null, { timeout: 20000 });
     await e.waitForTimeout(500);
 
+    step('device check and voice lab');
     // The device check and the voice lab: pages of the site too.
     await p.goto(`${baseUrl()}selftest.html`, { waitUntil: 'networkidle' });
     await p.waitForFunction(() => ['ok', 'bad'].includes(document.getElementById('verdict').className), null, { timeout: 120000 });
     assert.equal(await p.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(13, 17, 23)', 'the device check: its stylesheet');
     await p.goto(`${baseUrl()}voice-lab.html`, { waitUntil: 'networkidle' });
 
+    step('docs');
     // Every docs page; on the home, the clip scrolled into view and playing.
     for (const path of PAGES) {
       await p.goto(baseUrl() + path, { waitUntil: 'networkidle' });

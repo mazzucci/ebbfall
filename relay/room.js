@@ -17,7 +17,8 @@
 // stranger who guessed the code); sit {seat, team?} (a person other than the
 // host moves to an open seat, taking its spot and side; team: the side it saw the seat on, refused if it is on another);
 // loaded {} (the game is set up: the clock may start), orders
-// {w: numbers}, pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
+// {w: numbers} (each within 2^32 either way, else refused whole; MAX_ORDER_WORDS a turn; past MAX_GAME_WORDS in a game the
+// seat has left), pause {} (stops the clock for everyone: PAUSES a game per seat, PAUSE_MS each at most), resume {} (the
 // seat that paused ends its pause), leave {} (gives the game up now; in the lobby: gives the seat up now), over {} (its game has ended), rematch {want} (after a game: another,
 // in this room), ack {turn, check?: {turn, hash}} (every few turns: the last turn run, and the state hash at the last
 // checkpoint turn, a multiple of CHECK_EVERY), ping {id} (answered even after a lobby leave: the leaver's
@@ -66,7 +67,13 @@ const BACK_LAG = 10; // an away seat is back once its acks are this close to the
 const AWAY_BUDGET_MS = 60000; // per seat, per game: how long the others wait for it in all
 export const LOBBY_HOLD_MS = 5 * 60000; // a lobby seat whose connection is gone stays its player's this long
 const CATCH_UP = 5; // turns the clock closes at once after a stall at most (it does not blame anyone for it)
-const MAX_ORDER_WORDS = 4096; // numbers a seat may send in one turn
+const MAX_ORDER_WORDS = 2048; // numbers a seat may send in one turn (a click on a foe with a full army: an order per
+// unit, 150 units at 4 numbers each, 600 numbers; three of those in one turn fit)
+const MAX_WORD = 2 ** 32; // an order's number at most, either sign (ids are u32, points and tiles far smaller)
+export const MAX_GAME_WORDS = 1000000; // numbers a seat may send in a game: past them it has left (the log, kept for a
+// rejoin, stays bounded: 8 MB a seat at most; a busy hour of play is a few hundred thousand)
+const MAX_HASHES = 16; // checkpoint hashes a seat may have waiting for the others' (the newest kept)
+const HASH_AHEAD = CHECK_EVERY; // turns past the last that exists a checkpoint may name (a margin)
 const MAX_ORDER_MSGS = 10; // orders messages a seat may send in one turn
 const MAX_NAME = 16;
 const OVER_GRACE_MS = 30000; // once a game is over, a seat whose connection is gone this long has left the room
@@ -82,7 +89,7 @@ export class Room {
     this.onLobby = onLobby; // (told after every change to the lobby: an adapter may keep it, `keep()`)
     this.seats = Array.from({ length: seats }, (_, i) => this.empty(i, i)); // (spots 0 to seats-1, each its own team)
     this.phase = 'lobby'; // lobby, game, over
-    this.map = fitMap(DEFAULT_MAP, seats); this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
+    this.map = fitMap(DEFAULT_MAP, seats); this.checked = -1; this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
     this.running = false; this.loadFrom = 0; // (the clock: once every seat has loaded, from loadFrom on)
     this.hold = null; // a pause a seat called: { seat, until }
     this.barred = new Set(); // addresses the host removed someone from (their key, relay/limits.js addressKey): not let in again
@@ -182,16 +189,17 @@ export class Room {
     if (msg.t === 'resume') { if (this.hold?.seat === seat) this.unhold(seat); return; } // (only who paused: when they are ready)
     if (msg.t === 'loaded') { s.loaded = true; s.lastAck = this.now; if (s.awaySince && !this.running) this.back(seat); return; } // (waited for while it loaded: here now)
     if (msg.t === 'orders') {
-      if (!Array.isArray(msg.w) || !msg.w.every(Number.isFinite)) return;
+      if (!Array.isArray(msg.w) || !msg.w.every(w => Number.isFinite(w) && Math.abs(w) <= MAX_WORD)) return;
       if (s.turnMsgs >= MAX_ORDER_MSGS || s.turnWords + msg.w.length > MAX_ORDER_WORDS) return; // (too much this turn)
-      s.turnMsgs++; s.turnWords += msg.w.length;
+      s.turnMsgs++; s.turnWords += msg.w.length; s.words += msg.w.length;
+      if (s.words > MAX_GAME_WORDS) { this.leave(seat); return; } // (far past any game's: as good as gone)
       this.inbox.push([seat, msg.w]);
     } else if (msg.t === 'ack' && Number.isInteger(msg.turn)) {
       s.acked = Math.max(s.acked, Math.min(msg.turn, this.turn + DELAY)); // (no further than turns that exist)
       s.lastAck = this.now; s.loaded = true;
       if (s.awaySince && (!this.running || this.turn - s.acked <= BACK_LAG)) this.back(seat);
       const c = msg.check;
-      if (c && Number.isInteger(c.turn) && c.turn % CHECK_EVERY === 0 && Number.isInteger(c.hash)) { s.hashes.set(c.turn, c.hash); this.compare(c.turn); }
+      if (c && Number.isInteger(c.turn) && c.turn % CHECK_EVERY === 0 && Number.isInteger(c.hash) && c.turn > this.checked && c.turn <= this.turn + DELAY + HASH_AHEAD) { this.noteHash(s, c.turn, c.hash); this.compare(c.turn); } // (a checkpoint compared already, or of a turn that cannot have run: not kept)
     }
   }
 
@@ -241,7 +249,7 @@ export class Room {
   /** An open seat at spot `spot`, on team `team` (the lobby's number for its side, as the host set it). */
   empty(team, spot) {
     // away: ms of its budget used up; awaySince: when it went away (0: here); diff: an AI seat's level (0 Easy to 3 Brutal)
-    return { spot, team, diff: 1, ai: false, conn: null, from: '', token: null, build: '', rematch: false, over: false, goneSince: 0, pauses: 0, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0 };
+    return { spot, team, diff: 1, ai: false, conn: null, from: '', token: null, build: '', rematch: false, over: false, goneSince: 0, pauses: 0, name: '', race: 'humans', ready: false, loaded: false, acked: -1, lastAck: 0, hashes: new Map(), away: 0, awaySince: 0, left: false, turnMsgs: 0, turnWords: 0, words: 0 };
   }
   rand() { let t = (this.rng += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return (t ^ (t >>> 14)) >>> 0; } // (Mulberry32: the setup's seed and side)
   each(msg) { for (const s of this.seats) if (s.conn) this.send(s.conn, msg); }
@@ -392,7 +400,7 @@ export class Room {
       teams, ai: this.seats.map(s => (s.ai ? 1 : 0)), diffs, diff: ais.length ? Math.max(...ais.map(s => s.diff)) : 1, spots: this.seats.map(s => s.spot) };
     this.seats.forEach((s, seat) => { if (s.conn) this.send(s.conn, { t: 'start', seat, setup: this.setup, delay: DELAY, from: 0, left: this.pausesLeft() }); });
     for (let n = 0; n < DELAY; n++) this.bundle(n, []); // (the first turns can have no orders)
-    this.turn = 0;
+    this.turn = 0; this.checked = -1;
   }
   /** A pause: who called it, how long it has left, and every seat's pauses left. */
   pauseMsg() { return { t: 'pause', seat: this.hold.seat, ms: Math.max(0, this.hold.until - this.now), left: this.pausesLeft() }; }
@@ -407,8 +415,8 @@ export class Room {
   rematchState() {
     this.each({ t: 'rematch', seats: this.seats.map(s => !!s.rematch) });
     if (!this.seats.every(s => s.ai || (s.conn && !s.left && s.rematch))) return;
-    Object.assign(this, { phase: 'lobby', turn: 0, log: [], inbox: [], next: 0, paused: false, running: false, setup: null, hold: null });
-    for (const s of this.seats) Object.assign(s, { ready: false, loaded: false, acked: -1, lastAck: this.now, hashes: new Map(), away: 0, awaySince: 0, rematch: false, over: false, goneSince: 0, pauses: 0, turnMsgs: 0, turnWords: 0 });
+    Object.assign(this, { phase: 'lobby', turn: 0, log: [], inbox: [], next: 0, paused: false, running: false, setup: null, hold: null, checked: -1 });
+    for (const s of this.seats) Object.assign(s, { ready: false, loaded: false, acked: -1, lastAck: this.now, hashes: new Map(), away: 0, awaySince: 0, rematch: false, over: false, goneSince: 0, pauses: 0, turnMsgs: 0, turnWords: 0, words: 0 });
     const was = new Map(this.seats.map((s, i) => [s, i]));
     this.sortBySpot();
     for (const s of this.seats) if (s.conn && was.get(s) !== s.spot) this.tell(s);
@@ -432,11 +440,19 @@ export class Room {
     this.each({ t: 'left', seat });
     if (this.hold && (this.hold.seat === seat || this.seats.filter(x => !x.left && !x.ai).length < 2)) this.unhold(seat); // (its pause goes with it; one seat left: nothing to wait for)
   }
+  /** Seat `s`'s hash at checkpoint `turn`: those compared already go, and past MAX_HASHES the oldest (a seat that
+   *  floods acks holds a few numbers, not the game's). */
+  noteHash(s, turn, hash) {
+    for (const t of s.hashes.keys()) if (t <= this.checked) s.hashes.delete(t);
+    s.hashes.set(turn, hash);
+    while (s.hashes.size > MAX_HASHES) s.hashes.delete(Math.min(...s.hashes.keys()));
+  }
   compare(turn) {
     const here = this.seats.filter(s => !s.left && !s.ai);
     const hs = here.map(s => s.hashes.get(turn));
     if (hs.some(h => h === undefined)) return;
     if (hs.some(h => h !== hs[0])) { this.phase = 'over'; this.hold = null; this.each({ t: 'desync', turn }); }
+    this.checked = turn;
     // (checkpoints every seat has passed are done with)
     for (const s of this.seats) for (const t of s.hashes.keys()) if (t <= turn) s.hashes.delete(t);
   }

@@ -4,7 +4,8 @@
 // connection went; and the Node server over real sockets.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS, LOBBY_HOLD_MS } from '../relay/room.js';
+import { Room, PROTO, TURN_MS, DELAY, CHECK_EVERY, PAUSE_MS, PAUSES, MAX_SEATS, LOBBY_HOLD_MS, MAX_GAME_WORDS } from '../relay/room.js';
+import { messageBucket, MSG_RATE, MSG_BURST } from '../relay/limits.js';
 import { PAUSES as NET_PAUSES } from '../src/net/net.js';
 import { DEFAULT_MAP, fits } from '../src/client/maps.js';
 
@@ -182,6 +183,75 @@ test('orders are capped per seat per turn', () => {
   r.tick(TURN_MS);
   const o = got(a, 'turn').flatMap(t => t.o);
   assert.equal(o.length, 10, 'ten messages a turn at most');
+});
+
+test('an order is refused whole for a number past 2^32 (either sign), and a turn takes 2048 numbers a seat at most', () => {
+  const { r, a, got, clear } = started(); clear();
+  for (const w of [[0, 5, 2 ** 32 + 1, 10], [0, 5, -(2 ** 33), 10], [0, 5, 1e308, 10], [0, 5, 10, Number.MAX_VALUE]]) r.receive(a, { t: 'orders', w });
+  r.receive(a, { t: 'orders', w: [0, 5, 2 ** 32, -(2 ** 32)] }); // (the edge itself: in)
+  r.tick(TURN_MS);
+  assert.deepEqual(got(a, 'turn').flatMap(t => t.o), [[0, [0, 5, 2 ** 32, -(2 ** 32)]]], 'only the order within the bound');
+  clear();
+  r.receive(a, { t: 'orders', w: new Array(2049).fill(1) }); // (one message past a turn's numbers: refused)
+  r.receive(a, { t: 'orders', w: new Array(1500).fill(2) });
+  r.receive(a, { t: 'orders', w: new Array(600).fill(3) }); // (past the turn's 2048 with the one before: refused)
+  r.receive(a, { t: 'orders', w: new Array(548).fill(4) }); // (exactly up to 2048)
+  r.tick(2 * TURN_MS);
+  assert.deepEqual(got(a, 'turn').flatMap(t => t.o).map(([, w]) => [w[0], w.length]), [[2, 1500], [4, 548]]);
+});
+
+test('a seat that sends more numbers in a game than MAX_GAME_WORDS has left: its concede in the log, nothing more from it', () => {
+  const { r, a, b, got, clear } = started();
+  const w = new Array(2000).fill(3);
+  let t = 0;
+  for (let sent = 0; sent + w.length <= MAX_GAME_WORDS; sent += w.length) { r.receive(a, { t: 'orders', w }); t += TURN_MS; play(r, [a, b], t, t); }
+  assert.ok(!r.seats[0].left, 'up to the cap: still in');
+  clear();
+  r.receive(a, { t: 'orders', w });
+  assert.ok(r.seats[0].left, 'one message past it: gone');
+  assert.deepEqual(got(b, 'left').map(m => m.seat), [0], 'the other told');
+  r.tick(t + TURN_MS);
+  assert.deepEqual(got(b, 'turn').flatMap(x => x.o), [[0, [18]]], 'its concede, and not the order that broke the cap');
+  r.receive(a, { t: 'orders', w: [3, 1] }); r.tick(t + 2 * TURN_MS);
+  assert.deepEqual(got(b, 'turn').flatMap(x => x.o), [[0, [18]]], 'nothing more from it');
+});
+
+test('checkpoint hashes stay few: an ack flood naming every checkpoint ahead keeps none of them, nor one already compared, and a mismatch is still caught', () => {
+  const { r, a, b, got } = started();
+  play(r, [a, b], 0, 10000); // (the clock at turn 100)
+  for (let k = 1; k <= 100000; k++) r.receive(a, { t: 'ack', turn: r.turn, check: { turn: r.turn + k * CHECK_EVERY, hash: k } });
+  assert.ok(r.seats[0].hashes.size <= 2, `turns ahead of the clock not kept (${r.seats[0].hashes.size})`);
+  for (let k = 1; k <= 10; k++) r.receive(a, { t: 'ack', turn: r.turn, check: { turn: k * CHECK_EVERY, hash: k } }); // (checkpoints past, none compared yet)
+  assert.ok(r.seats[0].hashes.size <= 16, `at most 16 waiting (${r.seats[0].hashes.size})`);
+  const cp = 9 * CHECK_EVERY;
+  r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp, hash: 9 } });
+  assert.equal(got(a, 'desync').length, 0, 'the same hash at 90');
+  for (const s of r.seats) assert.ok([...s.hashes.keys()].every(t => t > cp), 'compared and older checkpoints gone');
+  r.receive(a, { t: 'ack', turn: r.turn, check: { turn: cp - CHECK_EVERY, hash: 1 } });
+  r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp - CHECK_EVERY, hash: 2 } });
+  assert.equal(got(a, 'desync').length, 0, 'a checkpoint older than the last compared: not kept, not compared');
+  r.receive(a, { t: 'ack', turn: r.turn, check: { turn: cp + CHECK_EVERY, hash: 5 } });
+  r.receive(b, { t: 'ack', turn: r.turn, check: { turn: cp + CHECK_EVERY, hash: 6 } });
+  assert.equal(got(a, 'desync')[0]?.turn, cp + CHECK_EVERY, 'a real mismatch is caught');
+});
+
+test('the message bucket: MSG_BURST at once, then MSG_RATE a second; idle time refills it up to the burst only', () => {
+  let now = 0; const take = messageBucket(() => now);
+  let n = 0; while (take()) n++;
+  assert.equal(n, MSG_BURST, 'the burst');
+  now += 1000; n = 0; while (take()) n++;
+  assert.equal(n, MSG_RATE, 'a second refills the rate');
+  now += 3600000; n = 0; while (take()) n++;
+  assert.equal(n, MSG_BURST, 'an hour idle: the burst, no more');
+  // Play's own pace for ten minutes (an ack each 300 ms, an orders message each frame of a 60 Hz screen for 20 s of
+  // furious clicking, 30 a second from a held key): never past it.
+  now = 0; const play = messageBucket(() => now);
+  for (let ms = 0; ms < 600000; ms += 1000 / 60) {
+    now = ms;
+    if (Math.floor(ms / 300) !== Math.floor((ms - 1000 / 60) / 300)) assert.ok(play(), `an ack at ${ms}`);
+    if (ms < 20000) assert.ok(play(), `an order a frame at ${ms}`);
+    else if (Math.floor(ms / (1000 / 30)) !== Math.floor((ms - 1000 / 60) / (1000 / 30))) assert.ok(play(), `a held key at ${ms}`);
+  }
 });
 
 test('acks every few turns over a jittery link never send anyone away', () => {

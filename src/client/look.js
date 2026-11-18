@@ -282,7 +282,7 @@ export function hitTier(weapon) {
  *  sound's (audio.js `hit`: 0 today's tick, 3 the shell's thud). */
 export const HIT_LOOK = {
   light: { weight: 0 },
-  medium: { flash: 0.5, light: 0xfff4d8, lightScale: 0.25, weight: 1 },
+  medium: { flash: 0.7, light: 0xfff4d8, lightScale: 0.3, weight: 1 },
   heavy: { hit: 'blow', size: 0.9, light: 0xfff0d0, muzzle: 0.7, weight: 2 },
   siege: { hit: 'blast', size: 1.0, light: 0xff9a3a, muzzle: 0.9, weight: 3 },
 };

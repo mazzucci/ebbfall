@@ -733,7 +733,7 @@ export function impactFx(x, y, how) {
  *  'heavy' a bright blow, 'siege' a blast. `melee`: chips of steel, not fire. */
 export function tierHit(x, y, tier, how, melee = false) {
   const look = HIT_LOOK[tier];
-  if (!look?.hit) { if (how) impactFx(x, y, how); if (look?.flash) addEffect('flash', x, y - 2, { life: 0.12, scale: look.flash, tint: look.light, light: look.light, lightScale: look.lightScale }); return; }
+  if (!look?.hit) { if (how) impactFx(x, y, how); if (look?.flash) addEffect('flash', x, y - 2, { life: 0.16, scale: look.flash, tint: look.light, light: look.light, lightScale: look.lightScale }); return; }
   if (!nearView(x, y)) return;
   const k = look.size;
   if (look.hit === 'blast') addEffect('boom_small', x, y, { light: look.light, lightScale: 1.3 * k, life: 0.45, scale: 1.1 * k });

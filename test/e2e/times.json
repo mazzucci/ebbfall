@@ -76,7 +76,7 @@
   "phone: placing a building lets the worker go; a tap on a blocked spot says why and keeps placing": 22.2,
   "phone: tap selects, the command card works, the HUD shows status, back asks before leaving": 18.5,
   "phone: the console fits a full queue, a turret's figures and long names": 18.9,
-  "phone: the first game guides step by step, pulsing the button it wants, and holds the first wave": 38.6,
+  "phone: the first game guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave": 38.6,
   "phone: the name typed in OPTIONS (from the menu) is the lobby's, and the lobby's is OPTIONS': one name": 6.5,
   "phone: the pause card has five buttons (BACK TO GAME across, four equal below) and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat": 6.4,
   "phone: three buttons a row; the Build list has a basic and an advanced page; an armed order turns into Cancel": 34.8,

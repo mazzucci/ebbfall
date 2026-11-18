@@ -5,13 +5,13 @@ import { plural } from '../engine/util.js';
 
 /** The longest the opponent waits for the guided player (s): the sim's HOLD_WAVES_MAX. */
 const HOLD_WAVES = 360;
-import { $, ui, toast } from './ui.js';
+import { $, ui, toast, playerSel } from './ui.js';
 import { myFaction, aName } from './hud.js';
 import { portrait } from './gl/render.js';
 import { sfx } from './audio.js';
 import { alerts } from './tools.js';
 
-const tut = { on: false, step: 0, start: 0, since: 0 };
+const tut = { on: false, step: 0, start: 0, since: 0, touch: false };
 const mine = (type) => G.units.filter(u => u.team === G.me && u.type === type).length;
 const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && b.done);
 /** Our workers standing idle (a new one waits for an order, a builder beside what it built: Stelian, Nov 12). */
@@ -25,13 +25,17 @@ const enemyAtBase = () => {
   return G.units.some(u => enemies(G.me, u.team) && !u.d.worker && mineB.some(b => Math.hypot(u.x - b.x, u.y - b.y) < AT_BASE));
 };
 
-/** The step after which the opponent may come (the army is trained, and the Market up for a people with one): its
- *  index in `steps()`. */
-const ARMY = 5;
+/** The step after which the opponent may come (the army is trained, and the Market up for a people with one): the
+ *  index of the step that holds the base. */
+const armyStep = () => steps().findIndex(s => s.hold);
+/** Fighters of ours in the selection. */
+const fightersPicked = () => playerSel().filter(e => e.kind === 'unit' && !e.d.worker).length;
 
-/** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment), done?].
+/** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment; '#id' an
+ *  element's), done?].
  *  Workers trained and sent to the mine (a new one waits for an order), the barracks (its builder sent back), a line and its anti-air (six of a 1-population kind, three of a 2-population
- *  one), the Market (it needs the barracks; a people without one is told its barracks pays nothing and trains on), hold, then population (where it runs out: the last
+ *  one), on a touch screen the army selected as one (SELECT and a box, or ARMY: a mouse drags a box by habit, and a
+ *  player on a phone tapped 15 units one by one, Nov 18), the Market (it needs the barracks; a people without one is told its barracks pays nothing and trains on), hold, then population (where it runs out: the last
  *  army is sized past the headquarters' population, `goal`), then spend the bank on more of the line up to an army of
  *  `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
 function steps() {
@@ -47,12 +51,13 @@ function steps() {
     { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Mine, then the ${ore} mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
+    ...(tut.touch ? [{ text: 'Select your army at once: hold SELECT and drag a box over it, or tap ARMY for every fighter', por: ['unit', soldier], want: ['#btnBox', '#btnArmy'], done: () => fightersPicked() >= 4 }] : []),
     market
       ? { text: `Build ${aName(market.name)} in your base: it ${market.verb} ${money} by itself`, por: ['bldg', f.market], want: ['build', 'build2', 'b_' + f.market], done: () => built(f.market) }
       : { text: `Train 2 more ${plural(UNITS[soldier].name)}: more ${plural(BUILDINGS[rax].name)} train faster`, por: ['unit', soldier], want: ['t_' + soldier], done: () => mine(soldier) >= n + 2 },
     // (over once no enemy fighter is at the base: after the attack has quietened down, or after 150 s for an enemy
     // that never comes; never while one is still there)
-    { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
+    { text: 'The enemy is coming: hold your base', por: ['unit', soldier], want: [], hold: true, done: () => !enemyAtBase() && (calm() || G.time - tut.stepAt > 150) },
     { text: `The army of ${goal} needs more ${places}: select a ${worker.name} and Build ${aName(house.name)}`, por: ['bldg', f.supply], want: ['build', 'b_' + f.supply], done: () => built(f.supply) },
     { text: `Spend your ${money} on ${plural(UNITS[soldier].name)} (an army of ${goal}), then select it (ARMY or Q) and Attack their base`, por: ['unit', soldier], want: () => (army() < goal ? ['t_' + soldier] : ['attack']), done: () => G.over && G.winner === G.teams[G.me] },
   ];
@@ -60,7 +65,8 @@ function steps() {
 
 /** Start the checklist for a new game (or turn it off). Holds the opponent's first wave until the army is ready. */
 export function startTutorial(on) {
-  Object.assign(tut, { on, step: 0, start: 0, since: 0, stepAt: 0, warned: false });
+  // (touch: a screen with SELECT and ARMY, decided once for the game so the steps never change under the player)
+  Object.assign(tut, { on, step: 0, start: 0, since: 0, stepAt: 0, warned: false, touch: typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches });
   $('tut').hidden = !on; clearPulse();
   if (!on) return;
   holdWaves(true);
@@ -80,18 +86,18 @@ export function updateTutorial() {
   if (!tut.on) return;
   if (G.over) { tut.on = false; $('tut').hidden = true; clearPulse(); return; } // (won or lost before the last step)
   // The opponent's patience runs out at HOLD_WAVES s whatever the step: a word, once, so it is no surprise.
-  if (!tut.warned && tut.step < ARMY && G.time > HOLD_WAVES - 20) { tut.warned = true; toast('The enemy is gathering to attack: get some soldiers ready!', true); }
+  if (!tut.warned && tut.step < armyStep() && G.time > HOLD_WAVES - 20) { tut.warned = true; toast('The enemy is gathering to attack: get some soldiers ready!', true); }
   const all = steps();
   while (tut.step < all.length && all[tut.step].done()) {
     tut.step++; tut.stepAt = G.time; sfx('done');
-    if (tut.step === ARMY) { holdWaves(false); tut.since = performance.now(); } // the army is ready: let them come
+    if (tut.step === armyStep()) { holdWaves(false); tut.since = performance.now(); } // the army is ready: let them come
     if (tut.step === all.length) { tut.on = false; $('tut').hidden = true; clearPulse(); return; }
     show();
   }
   clearPulse();
   const want = all[tut.step].want;
   for (const w of typeof want === 'function' ? want() : want) {
-    const el = document.querySelector(`#cmd button[data-id="${w}"]`);
+    const el = w[0] === '#' ? document.querySelector(w) : document.querySelector(`#cmd button[data-id="${w}"]`);
     if (el && !(w === 'build' && ui.mode)) el.classList.add('pulse');
   }
 }

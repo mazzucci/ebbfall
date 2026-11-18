@@ -1,8 +1,9 @@
-// Touch navigation on a landscape phone: one-finger pan and glide, SELECT + drag for a box, the minimap nudge.
+// Touch navigation on a landscape phone: one-finger pan and glide, SELECT + drag for a box, the minimap nudge; the group
+// hint for a player who taps fighters one by one (grouphint.js).
 // Gestures go through CDP touch events, like a finger on the glass.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, newGame, PHONE, CDP_TOUCH } from './harness.mjs';
+import { test, start, stop, newGame, PHONE, DESKTOP, CDP_TOUCH } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -142,6 +143,82 @@ test('phone: the minimap, enlarged under the finger, is drawn in front of the se
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.equal(top, 'minimap', 'the enlarged minimap covers the console, not the other way round');
     assert.ok(Math.abs(held - 1) < 0.02, `the enlarged minimap's backing: ${held.toFixed(3)} of its enlarged size`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+/** Three Guards by the Castle (set up), their ids. */
+const threeGuards = (d) => d.eval(() => {
+  const c = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq);
+  for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'trooper', c.x - 120 + i * 80, c.y + 140);
+  return endfall.G.units.filter(u => u.team === 0 && u.type === 'trooper').map(u => u.id);
+});
+/** Tap each unit on its own, quickly, as a player who does not know the group gestures (the view centered on them
+ *  once, then each tapped on its body's middle: a slow software-rendered frame must not stretch three taps past the
+ *  hint's window). */
+async function tapEach(d, ids) {
+  const canvas = await d.page.locator('#game').boundingBox();
+  if (!d.touch) await d.page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  const pts = await d.eval((ids) => {
+    const us = ids.map(id => endfall.G.units.find(u => u.id === id));
+    endfall.centerOn(us.reduce((a, u) => a + u.x, 0) / us.length, us.reduce((a, u) => a + u.y, 0) / us.length);
+    const c = endfall.cam; return us.map(u => ({ x: (u.x - c.x) * c.zoom, y: (u.y - endfall.unitTop(u.type) / 2 - c.y) * c.zoom }));
+  }, ids);
+  for (const p of pts) {
+    if (d.touch) await d.tapAt(canvas.x + p.x, canvas.y + p.y);
+    else { await d.page.mouse.click(canvas.x + p.x, canvas.y + p.y); await d.page.waitForTimeout(450); } // (apart: no double-click)
+  }
+}
+const HINT = /^Many units\? Hold SELECT and drag a box · double-tap a unit for all of its type · ARMY selects every fighter$/;
+const hinted = async (d) => (await d.toasts()).some(t => HINT.test(t));
+const overlap = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+test('phone: fighters tapped one by one bring the group hint once, clear of SELECT and ARMY (which pulse); not again until three more games', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  const press = (sel) => d.page.locator(sel).tap();
+  try {
+    let ids = await threeGuards(d);
+    assert.equal(ids.length, 3);
+    await tapEach(d, ids.slice(0, 2));
+    assert.ok(!(await hinted(d)), 'two single taps: no hint yet');
+    await tapEach(d, ids.slice(2));
+    assert.equal((await d.selection()).length, 1, 'one Guard at a time');
+    assert.ok(await hinted(d), `the third single tap shows the hint: ${JSON.stringify(await d.toasts())}`);
+    const tip = await d.page.locator('#msg .toast.tip').boundingBox(), vp = d.page.viewportSize();
+    for (const id of ['#btnBox', '#btnArmy', '#btnHome']) {
+      const b = await d.page.locator(id).boundingBox();
+      assert.ok(!overlap(tip, b), `the hint is clear of ${id}: ${JSON.stringify({ tip, b })}`);
+    }
+    assert.ok(tip.x >= 0 && tip.y >= 0 && tip.x + tip.width <= vp.width, 'on screen');
+    for (const id of ['#btnBox', '#btnArmy']) assert.match(await d.page.locator(id).getAttribute('class'), /\bnudge\b/, `${id} pulses while it shows`);
+    // Gone, then another burst of single taps: once is enough.
+    await d.page.locator('#msg .toast.tip').waitFor({ state: 'detached', timeout: 15000 });
+    await tapEach(d, ids);
+    await d.page.waitForTimeout(300);
+    assert.ok(!(await hinted(d)), 'not twice in a game');
+    assert.deepEqual(await d.eval(() => [localStorage.getItem('endfall.games'), localStorage.getItem('endfall.groupHint')]), ['1', '1'], 'shown in the first game');
+    // Two more games (RESTART): still not; the third: again.
+    for (let game = 2; game <= 4; game++) {
+      await press('#btnPause'); await press('#btnRestart');
+      await d.page.waitForFunction(() => endfall.G.time < 1 && document.getElementById('pause').hidden, null, { timeout: 5000 });
+      await d.eval(() => endfall.engine.disableAi());
+      ids = await threeGuards(d);
+      await tapEach(d, ids);
+      await d.page.waitForTimeout(300);
+      assert.equal(await hinted(d), game === 4, `game ${game}: ${game === 4 ? 'the hint again' : 'no hint'}`);
+    }
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('a desktop: units clicked one by one bring no hint', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const ids = await threeGuards(d);
+    await tapEach(d, ids); await tapEach(d, ids);
+    await d.page.waitForTimeout(300);
+    assert.ok(!(await hinted(d)), 'no group hint with a mouse');
+    assert.equal(await d.eval(() => localStorage.getItem('endfall.groupHint')), null);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

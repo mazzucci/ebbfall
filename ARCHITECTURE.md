@@ -424,6 +424,8 @@ src/client/           everything that touches the browser
   share.js            the end card's SHARE after a victory against the AI (not online, not the guided game): the
                       challenge link through the share sheet, else copied (LINK COPIED in the button a moment); a
                       cancelled sheet says nothing
+  grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: SELECT and a box, a
+                      double-tap, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint)
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
   hud.js              top bar (the Kingdom's gold as coins and population, the Expedition's energy as a bolt and grid)

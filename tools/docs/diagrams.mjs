@@ -6,12 +6,13 @@ import { PEOPLES, FIGURES, nameOf, aName } from './data.mjs';
 import { SPRITE_URL, cropOf } from './sprites.mjs';
 import { UNITS, BUILDINGS, UPGRADES, RADIO, upgradeDesc, FACTIONS } from '../../src/engine/constants.js';
 
-/** A small plate (`name`: a crop's), `px` CSS pixels, from its smallest file that is still 2x. */
+/** A small plate (`name`: a crop's), `px` CSS pixels, from its smallest file that is still 2x. No `alt`: decorative,
+ *  beside a label that names it (`alt=""`, hidden from screen readers). */
 export function mini(name, px, alt = '') {
   const c = cropOf(name);
   if (!c) throw new Error(`docs: no crop ${name}`);
   const [file] = Object.values(c.files).sort((a, b) => a[1] - b[1]).find(([, w]) => w >= px) || Object.values(c.files)[0];
-  return `<img class="pl" src="${SPRITE_URL}${file}" width="${px}" height="${px}" alt="${esc(alt)}" loading="lazy" decoding="async">`;
+  return `<img class="pl" src="${SPRITE_URL}${file}" width="${px}" height="${px}" alt="${esc(alt)}"${alt ? '' : ' aria-hidden="true"'} loading="lazy" decoding="async">`;
 }
 const step = (img, label) => `<li>${img}<span>${label}</span></li>`;
 
@@ -34,9 +35,9 @@ export function economy() {
     const by = p.grid ? `up to ${m.perHq} per ${hq.name}, by itself` : `about a gold every ${FIGURES.marketSeconds} seconds, by itself`;
     return `<div class="erow"><p class="who">${esc(p.name)}</p><ol class="chain">
 ${step(mini('mine', 48, 'A gold mine'), `${w.mineCap} ${esc(w.name)}s at once`)}
-${step(mini(f.worker, 48, aName(w.name)), p.grid ? 'thorium' : esc(w.name))}
-${step(mini(f.hq, 48, `The ${hq.name}`), p.grid ? 'energy' : esc(hq.name))}
-</ol><p class="branch">${mini(f.market, 48, aName(m.name))}<span><b>${esc(m.name)}</b> ${esc(by)}</span></p></div>`;
+${step(mini(f.worker, 48, p.grid ? aName(w.name) : ''), p.grid ? 'thorium' : esc(w.name))}
+${step(mini(f.hq, 48, p.grid ? `The ${hq.name}` : ''), p.grid ? 'energy' : esc(hq.name))}
+</ol><p class="branch">${mini(f.market, 48)}<span><b>${esc(m.name)}</b> ${esc(by)}</span></p></div>`;
   };
   return `<figure class="dia econ">${PEOPLES.map(row).join('')}</figure>`;
 }
@@ -78,7 +79,7 @@ ${locals.map((u, i) => img(u.key, 470 + i * 70, 190, 52, `${aName(u.name)}: figh
 /** A people at a glance: each building with the units it trains under it, what each needs first, the machines' signal. */
 export function tree(people) {
   const needs = (n) => (n ? `<em>needs ${esc(n)}</em>` : '');
-  const col = (b) => `<li class="tcol">${mini(b.key, 56, `The ${b.name}`)}<b>${esc(b.name)}</b>${needs(b.needs)}${b.units.length ? `<ul>${b.units.map(u => `<li>${mini(u.key, 40, `The ${u.name}`)}<span>${esc(u.name)}${RADIO.machines.has(u.key) ? '<i class="sig" title="Needs signal" aria-label="needs signal"></i>' : ''}</span>${needs(u.needs)}</li>`).join('')}</ul>` : ''}</li>`;
+  const col = (b) => `<li class="tcol">${mini(b.key, 56)}<b>${esc(b.name)}</b>${needs(b.needs)}${b.units.length ? `<ul>${b.units.map(u => `<li>${mini(u.key, 40)}<span>${esc(u.name)}${RADIO.machines.has(u.key) ? '<i class="sig" title="Needs signal" aria-label="needs signal"></i>' : ''}</span>${needs(u.needs)}</li>`).join('')}</ul>` : ''}</li>`;
   const legend = people.buildings.some(b => b.units.some(u => RADIO.machines.has(u.key))) ? '<p class="legend"><i class="sig" aria-hidden="true"></i>needs signal: works only inside coverage</p>' : '';
   return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol>${people.buildings.map(col).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p>${legend}</figure>`;
 }
@@ -94,7 +95,7 @@ export function peoples(tags) {
 
 /** About's strip: four sprites, large. */
 export function artStrip() {
-  return `<figure class="dia strip"><div class="row">${['trooper', 'knight', 'lumen', 'shrike'].map(k => mini(`${k}-large`, 128, `The ${nameOf(k)}, as rendered in the game`)).join('')}</div><figcaption>Four of the game's sprites, as rendered: a Guard, a Knight, a Bot, a Drone.</figcaption></figure>`;
+  return `<figure class="dia strip"><div class="row">${['trooper', 'knight', 'lumen', 'shrike'].map(k => mini(`${k}-large`, 128, `Ebbfall's ${nameOf(k)}, as rendered in the game`)).join('')}</div><figcaption>Four of the game's sprites, as rendered: a Guard, a Knight, a Bot, a Drone.</figcaption></figure>`;
 }
 
 /** A people's research, one line each: its name and levels, where, what it does. */

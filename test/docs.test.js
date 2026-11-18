@@ -23,17 +23,19 @@ const page = (path) => readFileSync(join(out, path, 'index.html'), 'utf8');
 if (!skip) { out = mkdtempSync(join(tmpdir(), 'ebbfall-docs-')); pages = docs.buildDocs(out, 'Version abc (last game update def)'); }
 test.after(() => out && rmSync(out, { recursive: true, force: true }));
 
+const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
 /** Each entry of a people page: { unit, kind, cost, supply, needs, head (its name and chips), role, desc, signal }, in
  *  the page's order. */
 function entries(html) {
   const un = (t) => t.replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
   return [...html.matchAll(/<li class="(bld|unit)" id="(\w+)" data-kind="\w+" data-cost="(\d+)" data-supply="(\d+)"(?: data-needs="([^"]+)")?>/g)].map(m => {
     const [, cls, kind, cost, supply, needs] = m, c = html.indexOf('<div class="chips">', m.index), head = html.slice(m.index, html.indexOf('</div>', c));
+    const alt = un(unesc(head.match(/<img [^>]*alt="([^"]*)"/)[1]));
     const role = html.match(new RegExp(`<span class="role" data-of="${kind}">([^<]*)</span>`)), desc = html.match(new RegExp(`<p class="desc" data-of="${kind}">([^<]*)</p>`));
-    return { unit: cls === 'unit', kind, cost: +cost, supply: +supply, needs: needs || null, head, role: role ? un(role[1]) : '', desc: desc ? un(desc[1]) : '', signal: head.includes('class="sig"') };
+    return { unit: cls === 'unit', kind, cost: +cost, supply: +supply, needs: needs || null, head, alt, role: role ? un(role[1]) : '', desc: desc ? un(desc[1]) : '', signal: head.includes('class="sig"') };
   });
 }
-const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
 test('every unit and building of each people is on its page, in its order, each figure the data\'s', { skip }, () => {
   for (const [race, path] of [['humans', '/docs/kingdom/'], ['vael', '/docs/expedition/']]) {
@@ -52,6 +54,9 @@ test('every unit and building of each people is on its page, in its order, each 
       if (d.supply) assert.match(e.head, new RegExp(`<em>${f.grid ? 'GRID' : 'POP'}</em><b>${e.unit ? '' : '\\+'}${d.supply}</b>`), `${e.kind}: the places shown`);
       if (d.req) assert.match(e.head, new RegExp(`Needs an? ${C.BUILDINGS[d.req].name}<`), `${e.kind}: what it needs, shown`);
       assert.match(e.head, new RegExp(`<h[34]>${d.name}(<i class="sig"|</h)`), `${e.kind}: its name`);
+      // Its picture's alt text: the game, the kind's name, its people and kind, its role line (all the sim's words).
+      const role = d.what ? `: ${d.what[0].toLowerCase()}${d.what.slice(1)}` : '';
+      assert.equal(e.alt, `Ebbfall's ${d.name}, ${/^[AEIOU]/.test(f.name) ? 'an' : 'a'} ${f.name} ${e.unit ? 'unit' : 'building'}${role}`, `${e.kind}: the picture's alt text`);
       // Its lines are the game's: the role line and the description, without the "Needs a X." the chip says and the
       // machines' "Needs signal" sentence (their building says it once, the dot marks them); one of the two when it
       // says no more than the other.
@@ -149,16 +154,26 @@ test('the annotated shots: each note touching its target, inside the shot, on no
   }
 });
 
-test('the home: one media block at the top, the clip with the hero still as its poster, still under reduced motion', { skip }, () => {
+test('the home: one media block at the top, the clip with its middle frame as its poster, still under reduced motion', { skip }, () => {
   const html = page('/docs/'), main = html.slice(html.indexOf('<main'));
   const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
   assert.equal((main.match(/<video\b/g) || []).length, 1, 'one clip');
   assert.ok(main.indexOf('<video') < main.indexOf('<h2'), 'at the top, before the first section');
-  assert.match(main, new RegExp(`<video src="/docs/media/${shots.trailer.file}" poster="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'the hero still as its poster');
+  assert.match(main, new RegExp(`<video src="/docs/media/${shots.trailer.file}" poster="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'its middle frame as its poster');
   assert.ok(!main.includes(`src="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'not the still again beside it');
   assert.match(main, /muted loop playsinline/);
   assert.match(main, /prefers-reduced-motion: reduce\)'\)\.matches\)return/, 'reduced motion: the poster only');
   assert.equal(shots.trailer.file, 'trailer.mp4', 'the file the trailer takes over');
+  // Its words: a title, a label that says what plays (the game named), the caption under it.
+  assert.equal(shots.trailer.title, 'Ebbfall gameplay: Archers against Drones');
+  assert.ok(main.includes(`title="${shots.trailer.title}"`), 'the title');
+  assert.match(shots.trailer.alt, /^Ebbfall gameplay: .*archers.*drones/i);
+  assert.ok(main.includes(`aria-label="${shots.trailer.alt.replace(/"/g, '&quot;')}"`), 'the label');
+  assert.ok(main.includes('<figcaption>Archers against Drones. Your side plays in blue.</figcaption>'), 'the caption');
+  // Small, and short: about six seconds, within the docs' budget for the home.
+  const clip = readFileSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url));
+  assert.ok(clip.length < 300 * 1024, `the clip under 300 KB: ${Math.round(clip.length / 1024)} KB`);
+  assert.ok(shots.trailer.seconds >= 4 && shots.trailer.seconds <= 8, `about six seconds: ${shots.trailer.seconds}`);
 });
 
 test('the crops are cut from today\'s art: each one there, and from the frames it was cut from (else run tools/docs/crops.mjs)', { skip }, () => {
@@ -184,9 +199,9 @@ test('each page\'s head: its own title and description, canonical, cards; struct
     assert.equal((html.match(/<h1[ >]/g) || []).length, 1, `${p.path}: one h1`);
     const ld = [...html.matchAll(/<script type="application\/ld\+json">([^<]+)<\/script>/g)].map(m => JSON.parse(m[1]));
     if (p.path === '/docs/') {
-      const g = ld.find(d => d['@type'] === 'VideoGame');
+      const g = ld.find(d => [d['@type']].flat().includes('VideoGame'));
       assert.ok(g, 'the home: VideoGame');
-      assert.equal(g.creator.name, 'Stelian Matei');
+      assert.equal(g.author.name, 'Stelian Matei');
       assert.equal(g.offers.price, '0'); assert.equal(g.isAccessibleForFree, true); assert.equal(g.gamePlatform, 'Web browser');
     } else {
       const b = ld.find(d => d['@type'] === 'BreadcrumbList');
@@ -210,8 +225,11 @@ test('images: alt text, width and height, WebP, lazy below the first; a phone ge
       assert.match(img, /src="[^"]+\.webp"/, `${p.path}: WebP: ${img}`);
       if (i > 0) assert.match(img, /loading="lazy"/, `${p.path}: lazy: ${img}`);
     });
-    // Alt text says something (empty only for a plate beside its own name: the home's tiles).
-    for (const img of imgs) if (!img.includes('class="pl hq"') && !img.includes('class="pl fr"')) assert.match(img, /alt="[^"]{3,}"/, `${p.path}: ${img}`);
+    // Alt text says something; empty only for a decorative plate beside a label that names it (the home's tiles, a
+    // people's tree), and then hidden from screen readers.
+    for (const img of imgs) if (img.includes('alt=""')) assert.match(img, /aria-hidden="true"/, `${p.path}: empty alt, decorative: ${img}`); else assert.match(img, /alt="[^"]{3,}"/, `${p.path}: ${img}`);
+    // Screenshots name the game.
+    for (const img of imgs) if (img.includes('/docs/img/shots/')) assert.match(img, /alt="Ebbfall (gameplay|on a)/, `${p.path}: a screenshot's alt names the game: ${img}`);
     for (const pic of html.matchAll(/<picture[^>]*>([\s\S]*?)<\/picture>/g)) assert.match(pic[1], /<source media="\(max-width:640px\)" srcset="[^"]+\.webp"/, `${p.path}: a phone's file`);
   }
 });
@@ -232,7 +250,117 @@ test('the copy: American English, no em dashes, the About page names Stelian, th
     assert.doesNotMatch(html, /\u2014|&mdash;/, `${p.path}: no em dash`);
     for (const w of ['colour', 'armour', 'centre', 'licence', 'favourite', 'grey']) assert.ok(!new RegExp(`\\b${w}`, 'i').test(html.replace(/<style>[\s\S]*?<\/style>/, '')), `${p.path}: ${w}`);
   }
-  assert.match(page('/docs/about/'), /Stelian Matei/);
+  assert.match(page('/docs/about/'), /<p class="fine">Made by Stelian Matei · <a href="https:\/\/github\.com\/mazzucci\/ebbfall">source on GitHub<\/a><\/p>/, 'About: one quiet line, the author and the source');
+  assert.equal((page('/docs/about/').match(/Stelian Matei/g) || []).length, 1, 'About: named once, in that line (structured data aside)');
+  assert.doesNotMatch(page('/docs/about/'), /for fun/, 'About: no "made for fun" segment');
   assert.match(page('/docs/about/'), /Version abc \(last game update def\)/);
   assert.doesNotMatch(page('/docs/'), /Made by/, 'no "Made by" in the footer');
+});
+
+// ---- the heads and the structured data, the game's page (index.html) with the docs' ----
+
+/** schema.org, as much of it as the pages use: each type's properties (its own and those it inherits: a VideoGame is a
+ *  Thing, a CreativeWork, a SoftwareApplication and a Game; a WebApplication adds browserRequirements), each with a
+ *  check of its value. A property a type does not have, or a value of the wrong kind, fails. */
+const isText = (v) => typeof v === 'string' && v.trim().length > 0;
+const isUrl = (v) => typeof v === 'string' && /^https:\/\/[^\s]+$/.test(v);
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+const isBool = (v) => typeof v === 'boolean';
+const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+const node = (...types) => (v) => v && typeof v === 'object' && !Array.isArray(v) && [v['@type']].flat().some(t => types.includes(t));
+const oneOrMany = (f) => (v) => (Array.isArray(v) ? v.length > 0 && v.every(f) : f(v));
+const THING = { '@id': isUrl, name: isText, description: isText, url: isUrl, image: oneOrMany(isUrl) };
+const CREATIVE_WORK = { ...THING, author: oneOrMany(node('Person', 'Organization')), creator: oneOrMany(node('Person', 'Organization')), genre: oneOrMany(isText), inLanguage: isText, isAccessibleForFree: isBool, isFamilyFriendly: isBool, license: isUrl, offers: oneOrMany(node('Offer')), thumbnailUrl: isUrl, uploadDate: isDate };
+const SCHEMA = {
+  VideoGame: { ...CREATIVE_WORK, applicationCategory: isText, operatingSystem: isText, numberOfPlayers: node('QuantitativeValue'), gamePlatform: oneOrMany(isText),
+    playMode: oneOrMany((v) => ['https://schema.org/SinglePlayer', 'https://schema.org/MultiPlayer', 'https://schema.org/CoOp'].includes(v)) },
+  WebApplication: { ...CREATIVE_WORK, applicationCategory: isText, operatingSystem: isText, browserRequirements: isText },
+  VideoObject: { ...CREATIVE_WORK, contentUrl: isUrl, duration: (v) => /^PT(\d+M)?\d+S$/.test(v), width: isNum, height: isNum },
+  Offer: { price: (v) => isNum(v) || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v)), priceCurrency: (v) => /^[A-Z]{3}$/.test(v), url: isUrl },
+  Person: { name: isText, url: isUrl },
+  Organization: { name: isText, url: isUrl },
+  QuantitativeValue: { minValue: isNum, maxValue: isNum },
+  BreadcrumbList: { itemListElement: (v) => Array.isArray(v) && v.length > 0 && v.every(node('ListItem')) },
+  ListItem: { position: (v) => Number.isInteger(v) && v > 0, name: isText, item: isUrl },
+};
+/** What each type must say (Google's and the brief's: the game's page and the docs home say the same). */
+const REQUIRED = {
+  VideoGame: ['name', 'description', 'genre', 'gamePlatform', 'playMode', 'offers', 'url', 'image', 'author'],
+  VideoObject: ['name', 'description', 'thumbnailUrl', 'contentUrl', 'uploadDate', 'duration'],
+  Offer: ['price', 'priceCurrency'], Person: ['name'], QuantitativeValue: [], BreadcrumbList: ['itemListElement'], ListItem: ['position', 'name', 'item'], WebApplication: [], Organization: ['name'],
+};
+/** The problems with one node of structured data (and those inside it), as strings; [] when it is good. */
+function schemaProblems(d, where) {
+  const types = [d['@type']].flat(), out = [];
+  if (!types.length || !types.every(t => SCHEMA[t])) return [`${where}: unknown @type ${JSON.stringify(d['@type'])}`];
+  for (const t of types) for (const k of REQUIRED[t]) if (!(k in d)) out.push(`${where}: ${t} without ${k}`);
+  for (const [k, v] of Object.entries(d)) {
+    if (k === '@context' || k === '@type') continue;
+    const checks = types.map(t => SCHEMA[t][k]).filter(Boolean);
+    if (!checks.length) { out.push(`${where}: ${types.join('/')} has no property ${k}`); continue; }
+    if (!checks.some(f => f(v))) out.push(`${where}: ${k} of the wrong kind: ${JSON.stringify(v)}`);
+    for (const x of [v].flat()) if (x && typeof x === 'object' && x['@type']) out.push(...schemaProblems(x, `${where}.${k}`));
+  }
+  return out;
+}
+const ldOf = (html) => [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
+const gameHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+test('the schema check itself: it finds a missing field, an unknown property, a wrong kind of value, a bad Offer', () => {
+  const good = { '@context': 'https://schema.org', '@type': 'VideoGame', name: 'X', description: 'Y', genre: 'Real-time strategy', gamePlatform: 'Web browser', playMode: ['https://schema.org/SinglePlayer'], offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }, url: 'https://x.example/', image: 'https://x.example/i.png', author: { '@type': 'Person', name: 'Z' } };
+  assert.deepEqual(schemaProblems(good, 'g'), []);
+  const { genre, ...noGenre } = good;
+  assert.match(schemaProblems(noGenre, 'g').join(), /without genre/);
+  assert.match(schemaProblems({ ...good, gamePlatfrom: 'Web' }, 'g').join(), /no property gamePlatfrom/);
+  assert.match(schemaProblems({ ...good, playMode: 'single' }, 'g').join(), /playMode of the wrong kind/);
+  assert.match(schemaProblems({ ...good, offers: { '@type': 'Offer', price: 'free', priceCurrency: 'usd' } }, 'g').join(), /price of the wrong kind.*priceCurrency of the wrong kind/);
+  assert.match(schemaProblems({ ...good, codeRepository: 'https://x.example/' }, 'g').join(), /no property codeRepository/, 'a SoftwareSourceCode property is not a game\'s');
+});
+
+test('structured data: every block on the game\'s page and the docs is schema.org\'s, the game\'s VideoGame the same on both', { skip }, () => {
+  const blocks = [['/', ldOf(gameHtml)], ...pages.map(p => [p.path, ldOf(page(p.path))])];
+  for (const [path, ld] of blocks) {
+    assert.ok(ld.length > 0, `${path}: structured data`);
+    for (const d of ld) {
+      assert.equal(d['@context'], 'https://schema.org', `${path}: @context`);
+      assert.deepEqual(schemaProblems(d, `${path} ${[d['@type']].flat().join('/')}`), []);
+    }
+  }
+  const game = ldOf(gameHtml).find(d => [d['@type']].flat().includes('VideoGame'));
+  const docsGame = ldOf(page('/docs/')).find(d => [d['@type']].flat().includes('VideoGame'));
+  assert.deepEqual(docsGame, game, 'the docs home repeats the game\'s VideoGame as it is (one source: index.html)');
+  assert.match(game.description, /^In 2047, time travel was first attempted\./, 'the premise');
+  assert.equal(game.genre, 'Real-time strategy'); assert.equal(game.gamePlatform, 'Web browser');
+  assert.deepEqual(game.playMode, ['https://schema.org/SinglePlayer', 'https://schema.org/MultiPlayer']);
+  assert.equal(game.offers.price, '0'); assert.equal(game.url, 'https://ebbfall.com/'); assert.equal(game.image, 'https://ebbfall.com/og.png');
+  assert.deepEqual(game.author, { '@type': 'Person', name: 'Stelian Matei' });
+  // The clip, on the docs home: its file and poster as served, its length the clip's.
+  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
+  const v = ldOf(page('/docs/')).find(d => d['@type'] === 'VideoObject');
+  assert.ok(v, 'the docs home: VideoObject');
+  assert.equal(v.contentUrl, `https://ebbfall.com/docs/media/${shots.trailer.file}`);
+  assert.equal(v.thumbnailUrl, `https://ebbfall.com/docs/img/shots/${shots['hero-home'].files.desktop}`);
+  assert.equal(v.duration, `PT${shots.trailer.seconds}S`);
+  for (const f of [shots.trailer.file]) assert.ok(existsSync(new URL(`../public/docs/media/${f}`, import.meta.url)), f);
+});
+
+test('every page\'s head, the game\'s and the docs\': its own title and description of search-result length, canonical, Open Graph and X cards that agree with them', { skip }, () => {
+  const heads = [['/', gameHtml], ...pages.map(p => [p.path, page(p.path)])], titles = new Set(), descs = new Set();
+  for (const [path, html] of heads) {
+    const head = html.slice(0, html.indexOf('</head>')), url = `https://ebbfall.com${path}`;
+    const meta = (k) => { const m = [...head.matchAll(new RegExp(`<meta (?:property|name)="${k}" content="([^"]*)">`, 'g'))]; assert.equal(m.length, 1, `${path}: one ${k}`); return unesc(m[0][1]); };
+    const title = unesc(head.match(/<title>([^<]+)<\/title>/)[1]), desc = meta('description');
+    assert.ok(!titles.has(title) && !descs.has(desc), `${path}: its own title and description`); titles.add(title); descs.add(desc);
+    assert.ok(title.length >= 20 && title.length <= 80, `${path}: a title of search-result length (${title.length}): ${title}`);
+    assert.ok(/Ebbfall/.test(title), `${path}: the title names the game`);
+    assert.ok(desc.length >= 70 && desc.length <= 160, `${path}: a description of search-result length (${desc.length})`);
+    assert.equal((head.match(/<link rel="canonical" href="([^"]+)">/g) || []).length, 1, `${path}: one canonical`);
+    assert.ok(head.includes(`<link rel="canonical" href="${url}">`), `${path}: canonical ${url}`);
+    assert.equal(meta('og:type'), 'website'); assert.equal(meta('og:site_name'), 'Ebbfall');
+    assert.equal(meta('og:title'), title, `${path}: og:title`); assert.equal(meta('og:description'), desc, `${path}: og:description`);
+    assert.equal(meta('og:url'), url, `${path}: og:url`); assert.equal(meta('og:image'), 'https://ebbfall.com/og.png', `${path}: og:image`);
+    assert.ok(meta('og:image:alt').startsWith('Ebbfall'), `${path}: og:image:alt`);
+    assert.equal(meta('twitter:card'), 'summary_large_image'); assert.equal(meta('twitter:title'), title); assert.equal(meta('twitter:description'), desc);
+    assert.equal(meta('twitter:image'), meta('og:image')); assert.equal(meta('twitter:image:alt'), meta('og:image:alt'));
+  }
 });

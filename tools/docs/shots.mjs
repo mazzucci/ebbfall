@@ -4,8 +4,8 @@
 // public/docs/img/shots/, and tools/docs/shots.json with each shot's size, words and the boxes the annotated ones mark
 // (the top bar, the minimap, the command card, ...: tools/docs/pages.mjs puts the numbered notes beside them) and what
 // the notes must not cover (`avoid`: the top bar, the sprites on the map). The clip
-// (public/docs/media/trailer.*, with its poster) is a few seconds of a battle, stepped frame by frame in the game: the
-// trailer replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
+// (public/docs/media/trailer.*, with its poster, its middle frame) is a few seconds of Archers against Drones, stepped
+// frame by frame in the game: the trailer replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
 //   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; `clip` names the clip)
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
@@ -67,19 +67,29 @@ function helpers() {
   eng.disableAi(); e.fog(false);
 }
 
-/** Two armies meet beyond the base: the Kingdom (ours, blue) from the base, the Expedition (seat 1's color) facing it. */
-function battle() {
-  const { at, spawn, me, G, eng } = window.S, foe = G.factions.findIndex((_, t) => t !== me);
-  const K = ['trooper', 'trooper', 'trooper', 'trooper', 'lancer', 'lancer', 'lancer', 'knight', 'knight'];
-  K.forEach((k, i) => spawn(me, k, at(420 + (i < 4 ? 40 : i < 7 ? 0 : 60), (i % 4 - 1.5) * 36 + (i >= 7 ? 90 : 0))));
-  spawn(me, 'siegeTank', at(330, -20)); spawn(me, 'observer', at(380, 60));
-  const X = ['prism', 'prism', 'prism', 'prism', 'bruiser', 'bruiser', 'scythe', 'scythe', 'umbra'];
-  X.forEach((k, i) => spawn(foe, k, at(620 + (i >= 4 ? 50 : 0) + (i === 8 ? 40 : 0), (i % 4 - 1.5) * 38 + (i === 6 ? -120 : i === 7 ? 120 : 0))));
-  spawn(foe, 'shrike', at(590, -60)); spawn(foe, 'shrike', at(600, 50));
-  const meet = at(520, 0);
-  for (const u of G.units) if (!eng.UNITS[u.type].worker) eng.attackMove(u, meet.x, meet.y);
-  window.endfall.skip(1.2);
-  return meet;
+/**
+ * The clip's fight (the home's): Kingdom Archers (ours, blue) against the Expedition's Drones, bows against flying
+ * machines, in front of the Expedition's Data center (inside its coverage, where the Drones work): the Archers and a few
+ * Guards hold their ground and the Drones, a Buggy beside them, fly in from across the field. Staged so the fight lasts
+ * the clip (most of the Drones fall, a few Archers too). Returns the camera's point, the middle of the two sides.
+ */
+function archersDrones() {
+  const { G, me, eng, spawn } = window.S, foe = G.factions.findIndex((_, t) => t !== me);
+  const hq = G.bldgs.find(b => b.team === foe && eng.BUILDINGS[b.type].hq);
+  const mid = { x: eng.MW * 16, y: eng.MH * 16 }, len = Math.hypot(mid.x - hq.x, mid.y - hq.y);
+  const d = { x: (mid.x - hq.x) / len, y: (mid.y - hq.y) / len }, s = { x: -d.y, y: d.x };
+  /** `f` px from the Data center toward the map's middle, `w` px across. */
+  const at = (f, w) => ({ x: hq.x + d.x * f + s.x * w, y: hq.y + d.y * f + s.y * w });
+  eng.revealAll(true); window.endfall.bars(false); // (the other seat drawn wherever it is; no health bars over the fight)
+  for (let i = 0; i < 8; i++) spawn(me, 'lancer', at(470 + (i % 2) * 26, (Math.floor(i / 2) - 1.5) * 34 + (i % 2) * 12));
+  for (let i = 0; i < 3; i++) spawn(me, 'trooper', at(430, (i - 1) * 40));
+  for (let i = 0; i < 10; i++) spawn(foe, 'shrike', at(250 + (i % 2) * 30, (Math.floor(i / 2) - 2) * 46));
+  spawn(foe, 'scythe', at(230, 130));
+  for (const u of G.units) if (u.team === me && !eng.UNITS[u.type].worker) eng.holdUnit(u);
+  window.endfall.skip(0.2);
+  // (the camera on the middle of the two sides: the Archers and Guards, the Drones)
+  const us = G.units.filter(u => (u.team === me && !eng.UNITS[u.type].worker) || u.type === 'shrike');
+  return { x: us.reduce((a, u) => a + u.x, 0) / us.length, y: us.reduce((a, u) => a + u.y, 0) / us.length };
 }
 
 /** The Kingdom (ours) storms the Expedition's Data center: knights and guards at its walls, cannons and archers behind. */
@@ -127,8 +137,9 @@ const browser = await launchChromium();
 const manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
 mkdirSync(OUT, { recursive: true }); mkdirSync(MEDIA, { recursive: true });
 
-/** A game page at its start, `race` playing seat 0 against the other people (the menu's board, as remembered). */
-async function game(device, race, css) {
+/** A game page at its start, `race` playing seat 0 against the other people (the menu's board, as remembered); `query`:
+ *  the page's URL query (`?map=0&seed=N` keeps the map and the starts fixed, src/client/menu.js). */
+async function game(device, race, css, query = '') {
   const ctx = await browser.newContext(device);
   await ctx.addInitScript(([race]) => {
     localStorage.setItem('endfall.seats', JSON.stringify([{ race, team: 0 }, { race: race === 'humans' ? 'vael' : 'humans', team: 1, diff: 1 }]));
@@ -136,7 +147,7 @@ async function game(device, race, css) {
   }, [race]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));
-  await page.goto(origin, { waitUntil: 'networkidle' });
+  await page.goto(origin + query, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 90000 });
   await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { timeout: 60000 });
@@ -223,23 +234,13 @@ function save(name, out, words, boxes, avoid = []) {
   console.log(`shots: ${name} (${Object.values(files).join(', ')})`);
 }
 
-/** The battle: the home's hero. */
-async function battles() {
-  const { ctx, page } = await game(DESKTOP, 'humans', BARE);
-  try {
-    const meet = await page.evaluate(battle);
-    await look(page, meet); await settle(page);
-    await hero('hero-home', page, { alt: 'Blue Kingdom soldiers, archers and knights meet the Expedition\'s sellswords, buggies and drones in open country', caption: 'Guards and Knights meet Sellswords and Buggies. Your side plays in blue.' });
-  } finally { await ctx.close(); }
-}
-
 /** How to win: the enemy's headquarters under attack. */
 async function sieges() {
   const { ctx, page } = await game(DESKTOP, 'humans', BARE);
   try {
     const p = await page.evaluate(siege);
     await look(page, p); await settle(page);
-    await hero('shot-battle', page, { alt: 'Blue Kingdom knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base. Your side plays in blue.' });
+    await hero('shot-battle', page, { alt: 'Ebbfall gameplay: the blue Kingdom\'s knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base. Your side plays in blue.' });
   } finally { await ctx.close(); }
 }
 
@@ -250,8 +251,8 @@ async function heroes() {
       const p = await page.evaluate(base, race);
       await look(page, p); await settle(page);
       await hero(race === 'humans' ? 'hero-kingdom' : 'hero-expedition', page, race === 'humans'
-        ? { alt: 'A blue Kingdom base: the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate', caption: 'A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate. Your side plays in blue.' }
-        : { alt: 'A blue Expedition base: the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge. Your side plays in blue.' });
+        ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate', caption: 'A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate. Your side plays in blue.' }
+        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge. Your side plays in blue.' });
     } finally { await ctx.close(); }
   }
 }
@@ -273,7 +274,7 @@ async function controls() {
       await page.mouse.move(r.x0, r.y0); await page.mouse.down(); await page.mouse.move(r.x1, r.y1, { steps: 8 }); await page.mouse.up();
       await page.keyboard.press('Control+1');
       await page.mouse.move(640, 790); await settle(page);
-      await annotated('shot-desktop-hud', page, { alt: 'The game on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected. Your side plays in blue.' }, {
+      await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected. Your side plays in blue.' }, {
         res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'],
       }, 2000);
     } finally { await ctx.close(); }
@@ -284,7 +285,7 @@ async function controls() {
       await page.evaluate(base, 'humans');
       await look(page, await page.evaluate(() => window.S.at(230, 0))); await settle(page);
       await page.locator('#btnArmy').tap(); await settle(page);
-      await annotated('shot-phone-land', page, { alt: 'The game on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card', caption: 'The same base on a phone held sideways, the army selected.' }, {
+      await annotated('shot-phone-land', page, { alt: 'Ebbfall on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card', caption: 'The same base on a phone held sideways, the army selected.' }, {
         select: ['#btnBox'], homearmy: ['#btnHome', '#btnArmy'], minimap: ['#minimap'], cmd: ['#cmd'],
       }, 1688);
     } finally { await ctx.close(); }
@@ -292,44 +293,61 @@ async function controls() {
 }
 
 /**
- * The clip: the battle, the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's frames
- * are stepped by hand (its requestAnimationFrame taken over, each frame 1/FPS s of game time later) and screenshot one
- * by one, as software WebGL cannot draw in real time; then played back at their pace into a MediaRecorder in a blank
- * page: MP4 (H.264) where the browser records it, else WebM. Its poster is the home's hero still (`hero-home`, the same fight from the same place, taken by `battles`).
+ * The clip: Archers against Drones (`archersDrones`), the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped
+ * by the page. The game's frames are stepped by hand (its requestAnimationFrame and performance.now taken over, each
+ * frame exactly one 30 Hz tick of game time later, as the trailer's recorder does: at another rate the ticks per frame
+ * would be uneven, 1, 1, 1, 2 at 24 fps, and everything that moves would hitch) and screenshot one by one at DPR 2, as
+ * software WebGL cannot draw in real time; then played back at their pace, scaled to the clip's size, into a
+ * MediaRecorder in a blank page: MP4 (H.264) where the browser records it, else WebM. Its poster is its middle frame
+ * (`hero-home`, the home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_FRAMES=<dir>` also writes a few
+ * frames there as PNG (for a review).
  */
-const FPS = 24, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500;
+const FPS = 30, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.6, CLIP_BPS = 260_000;
+const CLIP_WORDS = {
+  alt: 'Ebbfall gameplay: the blue Kingdom\'s archers and guards hold their ground as the Expedition\'s attack drones fly in',
+  caption: 'Archers against Drones. Your side plays in blue.',
+};
 async function clip() {
-  const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: 1 }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`);
-  const frames = [];
+  const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: 2 }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`, `?map=0&seed=${SEED}`);
+  const frames = [], review = process.env.CLIP_FRAMES;
   try {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-    const meet = await page.evaluate(battle);
-    await look(page, meet); await settle(page); // (the home's hero shot's fight and framing: that still is its poster)
-    await page.evaluate(() => {
-      const q = []; let t = performance.now();
+    const p = await page.evaluate(archersDrones);
+    await look(page, p, CLIP_ZOOM); await settle(page);
+    await page.evaluate(async () => {
+      const q = [];
       window.requestAnimationFrame = (f) => { q.push(f); return q.length; };
-      window.stepFrame = (ms) => { t += ms; const fs = q.splice(0); for (const f of fs) f(t); return fs.length; };
+      await new Promise(r => { const check = () => (q.length ? r() : setTimeout(check, 5)); check(); }); // (the last real frame's callback)
+      let t = performance.now(), tl = t;
+      performance.now = () => t;
+      window.stepFrame = (ms) => { t += ms; tl += 1000 / 30 + 0.0005; const fs = q.splice(0); for (const f of fs) f(tl); return fs.length; };
     });
-    await page.waitForTimeout(200); // (the last real frame's callback lands in the queue)
     for (let i = 0; i < FPS * CLIP_S; i++) {
       await page.evaluate((ms) => window.stepFrame(ms), 1000 / FPS);
       frames.push(await page.screenshot({ timeout: 240000 }));
     }
   } finally { await ctx.close(); }
+  const middle = frames[Math.floor(frames.length / 2)];
+  const pw = await encode(middle, [{ name: 'desktop', x: 0, y: 0, w: CLIP_W * 2, h: CLIP_H * 2, W: CLIP_W * 2 }, { name: 'phone', x: 0, y: 0, w: CLIP_W * 2, h: CLIP_H * 2, W: 720 }]);
+  save('hero-home', pw, CLIP_WORDS, {});
+  if (review) {
+    mkdirSync(review, { recursive: true });
+    for (const i of [0, 45, 90, 135, frames.length - 1]) writeFileSync(join(review, `clip-frame-${String(i).padStart(3, '0')}.png`), frames[i]);
+  }
   const rec = await browser.newPage();
   try {
     await rec.setContent('<canvas></canvas>');
-    await rec.evaluate(([w, h]) => {
+    await rec.evaluate(([w, h, bps]) => {
       const c = document.querySelector('canvas'); c.width = w; c.height = h;
       const types = ['video/mp4;codecs=avc1.42E01E', 'video/webm;codecs=vp9', 'video/webm'];
       const type = types.find(t => MediaRecorder.isTypeSupported(t)), stream = c.captureStream(0), track = stream.getVideoTracks()[0], parts = [];
-      const r = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 1_200_000 });
+      const r = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: bps });
       r.ondataavailable = (e) => parts.push(e.data);
-      window.rec = { c, g: c.getContext('2d'), track, r, parts, type, done: new Promise(ok => { r.onstop = ok; }) };
-    }, [CLIP_W, CLIP_H]);
-    // Each frame decoded ahead, then drawn on its beat.
-    await rec.evaluate(() => { window.rec.bitmaps = []; });
-    for (const f of frames) await rec.evaluate(async (b64) => { const blob = await (await fetch('data:image/png;base64,' + b64)).blob(); window.rec.bitmaps.push(await createImageBitmap(blob)); }, f.toString('base64'));
+      window.rec = { c, g: c.getContext('2d'), track, r, parts, type, bitmaps: [], done: new Promise(ok => { r.onstop = ok; }) };
+    }, [CLIP_W, CLIP_H, CLIP_BPS]);
+    // Each frame decoded ahead at the clip's size (from DPR 2: sharper than drawn at 1), then drawn on its beat.
+    for (const f of frames) await rec.evaluate(async ([b64, w, h]) => { const blob = await (await fetch('data:image/png;base64,' + b64)).blob(); window.rec.bitmaps.push(await createImageBitmap(blob, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' })); }, [f.toString('base64'), CLIP_W, CLIP_H]);
+    frames.length = 0;
     const out = await rec.evaluate(async (fps) => {
       const { g, track, r, parts, type, bitmaps } = window.rec;
       g.drawImage(bitmaps[0], 0, 0); r.start();
@@ -346,14 +364,13 @@ async function clip() {
     const ext = out.type.startsWith('video/mp4') ? 'mp4' : 'webm', bytes = Buffer.from(out.data, 'base64');
     for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer.')) rmSync(new URL(f, MEDIA));
     writeFileSync(new URL(`trailer.${ext}`, MEDIA), bytes);
-    for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer-poster')) rmSync(new URL(f, MEDIA));
-    manifest.trailer = { file: `trailer.${ext}`, type: out.type.split(';')[0], poster: 'hero-home', w: CLIP_W, h: CLIP_H, alt: 'Real play: blue Kingdom soldiers, archers and knights meet the Expedition\'s sellswords, buggies and drones' };
+    manifest.trailer = { file: `trailer.${ext}`, type: out.type.split(';')[0], poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: 'Ebbfall gameplay: Archers against Drones' };
     writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
     console.log(`shots: clip (trailer.${ext}, ${Math.round(bytes.length / 1024)} KB)`);
   } finally { await rec.close(); }
 }
 
-const JOBS = { battles, sieges, heroes, controls, clip };
+const JOBS = { sieges, heroes, controls, clip };
 try {
   for (const [k, f] of Object.entries(JOBS)) if (!only.length || only.includes(k)) await f();
 } finally { await browser.close(); server.close(); }

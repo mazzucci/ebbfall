@@ -573,10 +573,14 @@ test/site-preview.test.js the link cards (site/preview.js): a room's code read a
 test/docs.test.js     the docs (tools/docs) built into a temporary folder: every unit and building of each people on its
                       page in the Build list's order, each figure the data's (cost, population or grid, what it needs,
                       its description without the need), the healers on no page; How to play's figures and the
-                      diagrams' the data's; every token known; the crops cut from today's art; each page's head,
-                      structured data (VideoGame with its creator on the home, breadcrumbs inside) and links; images
-                      with alt, sizes, WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em
-                      dash, American spelling, About naming Stelian
+                      diagrams' the data's; every token known; the crops cut from today's art (each plate's alt
+                      from the data: "Ebbfall's Guard, a Kingdom unit: ..."); each page's head and index.html's (own
+                      title and description of search-result length, canonical, Open Graph and X cards that agree);
+                      every JSON-LD block checked against schema.org's properties by a small built-in table
+                      (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
+                      the clip's words and size; images with alt (empty only when decorative, aria-hidden), sizes,
+                      WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
+                      spelling, About's one quiet line naming Stelian
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -636,14 +640,17 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       {{roster}}, {{figure}}, {{diagram}}, {{n}} ...), pages.mjs (the tokens filled), diagrams.mjs
                       (the loop, the economy, the caps, the Expedition's signal, a people's tree and research, the
                       home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
-                      shell: head, cards, structured data, the slim top bar, the footer over the tide lines; docs.css
+                      shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
+                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer over the tide lines; docs.css
                       inlined, the designer's "Field manual"), sprites.mjs and crops.mjs (the sprite crops: the
                       recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
                       committed in public/docs/img/shots/ and public/docs/media/ (trailer.*: the trailer takes the
-                      clip's name); shots.json their sizes, words and the boxes the annotated ones mark).
+                      clip's name; the clip is Archers against Drones, 6 s at 30 fps, one tick a frame, from DPR 2
+                      frames, its poster its middle frame); shots.json their sizes, words and the boxes the annotated
+                      ones mark).
                       public/docs/fonts/: IBM Plex Sans (OFL); the game's two fonts are copied from src/fonts/. The
                       Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play
 tools/trailer/        the trailer (the 30-second storyboard), recorded in the built game in Chromium; videos are not

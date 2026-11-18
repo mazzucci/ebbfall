@@ -3,26 +3,28 @@
 // (dist/docs/fonts/: IBM Plex Sans from public/docs/fonts/, the game's two from src/fonts/), /sitemap.xml and /llms.txt.
 // The crops and screenshots in public/docs/img/ are copied by Vite as they are. None of it is stored for offline play
 // (tools/offline/plugin.mjs WEB_ONLY). `node tools/docs/build.mjs [outDir]` builds the pages alone (default dist/).
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { layout, ORIGIN, REPO, FONTS } from './html.mjs';
-import { pages } from './pages.mjs';
+import { pages, clipLd } from './pages.mjs';
 import { PEOPLES } from './data.mjs';
 
 const root = new URL('../../', import.meta.url);
 
-/** The structured data of the docs home: the game (VideoGame), its creator, free, in the browser. */
-export const VIDEO_GAME = {
-  '@context': 'https://schema.org', '@type': 'VideoGame', name: 'Ebbfall', url: `${ORIGIN}/`, image: `${ORIGIN}/og.png`,
-  description: 'A free real-time strategy game for the browser: a medieval kingdom against an expedition from 2047.',
-  genre: 'Real-time strategy', gamePlatform: 'Web browser', operatingSystem: 'Any', applicationCategory: 'GameApplication',
-  playMode: ['https://schema.org/SinglePlayer', 'https://schema.org/MultiPlayer'],
-  creator: { '@type': 'Person', name: 'Stelian Matei' }, author: { '@type': 'Person', name: 'Stelian Matei' },
-  isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }, license: 'https://opensource.org/licenses/MIT',
-  codeRepository: REPO, inLanguage: 'en',
-};
+/**
+ * The game's structured data (schema.org VideoGame): written once, in index.html's head (the game's own page, where a
+ * crawler meets it first), and read from there for the docs home, so the two say the same: the name, the premise as its
+ * description, the genre, the browser, single player and multiplayer, free, its author. test/docs.test.js checks both
+ * pages' blocks against schema.org's properties.
+ */
+export function videoGame() {
+  const html = readFileSync(new URL('index.html', root), 'utf8');
+  const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  if (!m) throw new Error('docs: index.html has no <script type="application/ld+json"> (the VideoGame the docs home repeats)');
+  return JSON.parse(m[1]);
+}
 
 /** The date the docs last changed: the newest commit under their inputs (the copy, the data, the art), else today. */
 export function lastmod() {
@@ -72,7 +74,7 @@ export function buildDocs(outDir, version = '') {
   for (const p of list) {
     const dir = join(outDir, p.path);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'index.html'), layout({ path: p.path, title: p.title, description: p.description, body: p.body, crumb: p.path === '/docs/' ? null : p.crumb, ld: p.path === '/docs/' ? [VIDEO_GAME] : [] }));
+    writeFileSync(join(dir, 'index.html'), layout({ path: p.path, title: p.title, description: p.description, body: p.body, crumb: p.path === '/docs/' ? null : p.crumb, ld: p.path === '/docs/' ? [videoGame(), clipLd(ORIGIN)] : [] }));
   }
   const fonts = join(outDir, 'docs', 'fonts');
   mkdirSync(fonts, { recursive: true });

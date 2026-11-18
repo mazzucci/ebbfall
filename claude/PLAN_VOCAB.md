@@ -133,4 +133,10 @@ that game.
   base and bigger waves) and its `leaning_unit` are shown after the game.
 - Places are named after bases ("seat 1's main base", "open ground 20 tiles north-east of seat 0's main base"); values
   are each seat's money. `saw_of_enemies` and the check-ins' `enemy` hold only what that seat's own sight showed.
-- The same plan and seed play exactly the same game. The seed changes the map and the other seat's style draw.
+- The same plan and seeds play exactly the same game. A fixed map has its own seed; a link's `&seed=` is the game's
+  seed on top of it (the same map, fresh draws: the other seat's style among them). A link without one draws a fresh
+  seed each game, told in the start message, so a rematch is a new game; quote it to replay one.
+- Check-ins come every 2 game-minutes, and as events when your wave arrives or is wiped out, an enemy attack reaches
+  you, a building of yours falls, your army is wiped out at home, an expansion of yours falls, or the first enemy
+  top-tier unit is seen; never more than one every 20 game-seconds, and none dropped while your base is under attack.
+  In them places read "your main base", "the enemy's expansion"; `money_name` is the money's word, `bank` the amount.

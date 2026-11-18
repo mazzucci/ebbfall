@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { decode, encode, canonical, fromSearch, MAX_LEN } from '../src/client/plan.js';
+import { decode, encode, canonical, fromSearch, gameSeed, MAX_LEN } from '../src/client/plan.js';
 
 const GOOD = [
   '1', '1.w14', '1.w14.f6m.s12.e7m30.b2.t2m.k8m.o2m30.o5m.r0.parcher.ncannon.nknight.m20.g1m30', '1.eno.tno.kno.ono',
@@ -31,8 +31,13 @@ test('a plan code round-trips in the vocabulary\'s order, and anything else is n
 });
 
 test('the address gives the plan and watch, and nothing for a bad code', () => {
-  assert.deepEqual(fromSearch('?plan=1.m20.w14&watch=1'), { code: '1.w14.m20', watch: true });
-  assert.deepEqual(fromSearch('?plan=1.w14'), { code: '1.w14', watch: false });
+  assert.deepEqual(fromSearch('?plan=1.m20.w14&watch=1'), { code: '1.w14.m20', watch: true, seed: null });
+  assert.deepEqual(fromSearch('?plan=1.w14'), { code: '1.w14', watch: false, seed: null });
+  assert.deepEqual(fromSearch('?plan=1.w14&seed=4242'), { code: '1.w14', watch: false, seed: 4242 }, 'a game seed');
+  assert.equal(fromSearch('?plan=1.w14&seed=01').seed, null, 'a seed that is not one: a fresh one each game');
+  for (const bad of ['-1', '4294967296', '1e3', '0x10', ' 5', '']) assert.equal(gameSeed(bad), null, bad);
+  assert.equal(gameSeed('4294967295'), 4294967295);
+  assert.equal(gameSeed(7), 7);
   assert.equal(fromSearch('?plan=1.w14.w14'), null);
   assert.equal(fromSearch('?vs=1.0.0.5.h00v02'), null);
 });
@@ -67,12 +72,19 @@ test('the channel takes only the messages the protocol names, from allowed origi
   const { readMessage, allowedOrigin, sayLine, SAY_MAX } = await import('../src/client/embed.js');
   assert.deepEqual(readMessage({ type: 'ebbfall:hello', v: 1 }), { type: 'hello' });
   assert.deepEqual(readMessage({ type: 'ebbfall:delta', v: 1, code: '1.m20.xmass', say: ' Massing. ' }), { type: 'delta', code: '1.m20.xmass', say: 'Massing.' });
-  assert.deepEqual(readMessage({ type: 'ebbfall:plan', v: 1, code: '1.w14' }), { type: 'plan', code: '1.w14' });
+  assert.deepEqual(readMessage({ type: 'ebbfall:plan', v: 1, code: '1.w14' }), { type: 'plan', code: '1.w14', seed: null });
+  assert.deepEqual(readMessage({ type: 'ebbfall:plan', v: 1, code: '1.w14', seed: 9 }), { type: 'plan', code: '1.w14', seed: 9 });
+  // well formed, but the code or the line does not pass: answered ok:false with the reason (claude.js)
+  for (const m of [{ type: 'ebbfall:plan', v: 1, code: '1.xattack' }, { type: 'ebbfall:plan', v: 1, code: '1.w14', seed: -1 },
+    { type: 'ebbfall:delta', v: 1, code: '1.w14.w14' }, { type: 'ebbfall:delta', v: 1, code: 5 },
+    { type: 'ebbfall:delta', v: 1, code: '1.w14', say: 'x'.repeat(SAY_MAX + 1) }, { type: 'ebbfall:delta', v: 1, code: '1.w14', say: 'a\nb' }]) {
+    const r = readMessage(m);
+    assert.ok(r && typeof r.bad === 'string' && r.type === m.type.slice(8), JSON.stringify(m));
+  }
   assert.deepEqual(readMessage({ type: 'ebbfall:say', v: 1, text: 'gg' }), { type: 'say', say: 'gg' });
   for (const m of [
     null, 'ebbfall:hello', [], { type: 'ebbfall:hello' }, { type: 'ebbfall:hello', v: 2 }, { type: 'ebbfall:hello', v: 1, extra: 1 },
-    { type: 'ebbfall:plan', v: 1, code: '1.xattack' }, { type: 'ebbfall:delta', v: 1, code: '1.w14.w14' },
-    { type: 'ebbfall:delta', v: 1, code: '1.w14', say: 'x'.repeat(SAY_MAX + 1) }, { type: 'ebbfall:delta', v: 1, code: '1.w14', say: 'a\nb' },
+    { type: 'ebbfall:delta', v: 1, code: '1.w14', extra: 1 }, { type: 'ebbfall:plan', v: 2, code: '1.w14' },
     { type: 'ebbfall:say', v: 1, text: '' }, { type: 'ebbfall:say', v: 1, text: 5 }, { type: 'ebbfall:eval', v: 1, code: '1' },
   ]) assert.equal(readMessage(m), null, JSON.stringify(m));
   assert.equal(sayLine('<b>hi</b>'), '<b>hi</b>', 'shown as text, never as HTML: not altered, not refused');

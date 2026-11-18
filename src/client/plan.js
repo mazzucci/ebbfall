@@ -12,6 +12,9 @@
 /** The link's parameters. */
 export const PARAM = 'plan';
 export const WATCH = 'watch';
+/** With a plan, `seed=` is the game's own seed (the sim's `setGameSeed`: fresh draws, the AI's style among them, on the
+ *  same map), not a random map's as it is without one. */
+export const SEED = 'seed';
 /** The longest code taken (the sim's PLAN_MAX_LEN). */
 export const MAX_LEN = 160;
 /** The fields, in the vocabulary's order: each letter and the shape of its value. */
@@ -79,9 +82,15 @@ export const canonical = (code, opts) => { const p = decode(code, opts); return 
 /** The single-player page's line while a plan is set. */
 export const line = (watch) => (watch ? "WATCH · Claude's plan vs Hard" : "CLAUDE'S PLAN · the AI plays it");
 
-/** The plan a page's address names: `{ code, watch }`, or null. */
+/** A game seed as a link or a message gives it: a whole number 0 to 2^32 - 1 (decimal, no leading zeros), else null. */
+export function gameSeed(v) {
+  if (typeof v === 'number') return Number.isInteger(v) && v >= 0 && v <= 0xffffffff ? v : null;
+  return typeof v === 'string' && /^(0|[1-9]\d{0,9})$/.test(v) && +v <= 0xffffffff ? +v : null;
+}
+
+/** The plan a page's address names: `{ code, watch, seed }` (seed null: a fresh one each game), or null. */
 export function fromSearch(search) {
   const q = new URLSearchParams(search);
   const code = q.has(PARAM) ? canonical(q.get(PARAM)) : null;
-  return code ? { code, watch: q.get(WATCH) === '1' } : null;
+  return code ? { code, watch: q.get(WATCH) === '1', seed: gameSeed(q.get(SEED)) } : null;
 }

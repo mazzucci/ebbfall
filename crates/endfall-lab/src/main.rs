@@ -593,7 +593,8 @@ fn summary(args: &[String]) {
 
 /// `duel` (play against Claude, claude/PLAN_VOCAB.md): one game, seat 0 Hard's AI with a plan (`--plan CODE`, or
 /// `--plan-file FILE`: its first line not starting with #), seat 1 an AI (`--vs-level 0|1|2`, Hard by default);
-/// `--seed N --map Standard --size 96 --race Kingdom --vs-race Kingdom --cap 30 --out FILE`. With `--answers FILE`
+/// `--seed N --map Standard --size 96 --race Kingdom --vs-race Kingdom --cap 30 --out FILE`; `--game-seed N` draws the
+/// game's randomness (the AI's style among it) from N too, the map kept (a link's `&seed=`). With `--answers FILE`
 /// it makes check-ins for seat 0: at the first one the file does not answer it writes the digest (`--digest FILE`,
 /// else stdout) and stops; each answer lands `--delay` game-seconds (15) after its check-in. Prints what the plan had
 /// adjusted, the result line and the check-ins' sizes; the summary goes to `--out` (else stdout).
@@ -606,6 +607,7 @@ fn duel(args: &[String]) {
         vs_level: duel::HARD,
         seed: 1,
         cap_min: 30,
+        game_seed: None,
     };
     let (mut plan, mut out, mut answers, mut digest, mut delay) = (None, None, None, None, 15u32);
     let people = |n: &str| {
@@ -657,6 +659,7 @@ fn duel(args: &[String]) {
             "--answers" => answers = Some(duel::read_answers(&read(v)).unwrap_or_else(|e| die(&e))),
             "--digest" => digest = Some(v.clone()),
             "--delay" => delay = v.parse().unwrap_or_else(|_| die("--delay SECONDS")),
+            "--game-seed" => g.game_seed = Some(v.parse().unwrap_or_else(|_| die("--game-seed N"))),
             _ => die(&format!("duel: unknown flag {a}")),
         }
     }
@@ -734,6 +737,7 @@ fn plan_gate(args: &[String]) {
                     vs_level,
                     seed: 0,
                     cap_min: cap,
+                    game_seed: None,
                 });
             }
         }

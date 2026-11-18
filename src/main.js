@@ -22,7 +22,7 @@ import { setSpots, MUZZLE_SMOKE, MUZZLE_FLASH, MELEE_PUFF, inReach, impactOf } f
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
-import { currentPlan, startPlan, pumpClaude, endClaude, watching } from './client/claude.js';
+import { currentPlan, startPlan, pumpClaude, endClaude, watching, watchCapped } from './client/claude.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
@@ -172,7 +172,7 @@ function endGame() {
   const watched = watching(); endClaude(); // (a planned game's summary to the page)
   closePause(); setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.over && G.winner === G.teams[G.me]; // (the winner is a team; out of a game that goes on: lost)
-  $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
+  $('result').textContent = watched && !G.over ? 'TIME' : win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose'; // (a watched game at its cap: nobody won)
   $('endSub').textContent = endLine(win);
   const map = online.playing ? onlineMap(online.setup) : setup();
   $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
@@ -246,7 +246,7 @@ function loop(now) {
   pumpClaude(); // (a planned game's check-ins to an embedding page: claude.js)
   // Checked every frame, not only while running: the game can end between frames too.
   if (online.playing && G.over) online.net?.pump(); // (the game is over, the room is not: still here, for a rematch)
-  if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)
+  if (started && !ended && (myGameOver() || watchCapped())) { ended = true; drainEvents(); endGame(); } // (a watched game ends at its cap too) // (once a game: `ended` resets in newGame)
   else if (started && !ended && G.out[G.me] && !outSaid) { outSaid = true; toast('You are out: your team fights on', true, true); } // (an ally still in: watch it)
   updateFx(el);
   if (probe.on) probe.lap('events');

@@ -342,3 +342,124 @@ fn check_ins_move_no_hash_and_show_only_what_the_seat_saw() {
     assert_eq!(s.check_ins_made(), digests.len());
     let _ = summary::play; // (the native helper stays the lab's)
 }
+
+#[test]
+fn a_game_seed_plays_a_fresh_game_on_the_same_map_and_replays_it() {
+    // The same map (Standard 64x64, seed 7) and plan, game seeds 1 to 6: the map's ground is the same each time, Hard's
+    // style draw is not always; the same game seed gives the same game, its replay included.
+    let mut styles = Vec::new();
+    let mut rock = None;
+    for gs in 1..=6u32 {
+        let mut w = duel(7, 64, [&HUMANS, &HUMANS], Some("1.w14"));
+        w.set_game_seed(gs).unwrap();
+        run(&mut w, 1);
+        styles.push(w.ai_style(1));
+        assert!(
+            rock.get_or_insert_with(|| w.map.rock.clone()) == &w.map.rock,
+            "the same map"
+        );
+    }
+    styles.dedup();
+    assert!(styles.len() > 1, "fresh style draws: {styles:?}");
+    let play = |gs: u32| {
+        let mut g = game(7, 0);
+        assert_eq!(g.set_game_seed(gs), "");
+        assert_eq!(g.set_plan(1, "1.w14"), "");
+        (0..30 * 90)
+            .map(|_| {
+                g.step();
+                g.state_hash()
+            })
+            .collect::<Vec<u32>>()
+    };
+    assert_eq!(play(3), play(3));
+    assert_ne!(play(3), play(4));
+    let mut g = game(7, 0);
+    assert_eq!(g.set_game_seed(5), "");
+    let hs: Vec<u32> = (0..30 * 60)
+        .map(|_| {
+            g.step();
+            g.state_hash()
+        })
+        .collect();
+    assert!(!g.set_game_seed(6).is_empty(), "before play only");
+    assert!(g.start_replay());
+    for want in hs {
+        g.step();
+        assert_eq!(g.state_hash(), want, "the replay keeps its game seed");
+    }
+    // Online: refused, and one set before is dropped (every client's world the same)
+    let mut online = game(7, 0);
+    assert_eq!(online.set_game_seed(9), "");
+    online.start_lockstep();
+    assert!(!online.set_game_seed(9).is_empty());
+    assert_eq!(online.world().game_seed, None);
+    assert_eq!(online.world().state_hash(), game(7, 0).world().state_hash());
+}
+
+#[test]
+fn check_ins_tell_a_base_under_attack_and_never_go_dark() {
+    // Seat 0's base and its six Guards fall to twenty Knights of seat 1's from 3:30: events say what fell, in its own words ("your main
+    // base"), and the check-ins keep coming at least every 2:20 while it happens (an event never swallows them).
+    let mut w = duel(4, 64, [&HUMANS, &HUMANS], Some("1.w12"));
+    let mut s = Summary::new(&w);
+    s.check_in_for(Some(0));
+    let mut digests: Vec<(u32, String)> = Vec::new();
+    let step = |w: &mut World, s: &mut Summary, digests: &mut Vec<(u32, String)>| {
+        w.step();
+        w.events.clear();
+        s.observe(w);
+        while let Some(d) = s.take_check_in() {
+            digests.push((w.tick, d));
+        }
+    };
+    for _ in 0..30 * 210 {
+        step(&mut w, &mut s, &mut digests);
+    }
+    let (cx, cy) = core(&w, 0);
+    // (its home army: six Guards by its Castle)
+    for i in 0..6 {
+        w.make_unit(
+            UnitKind::Trooper,
+            0,
+            (cx as f64 + 5.0) * TILE,
+            (cy as f64 + i as f64) * TILE,
+        );
+    }
+    w.recalc_supply(0);
+    for i in 0..20 {
+        let k = w.make_unit(
+            UnitKind::Knight,
+            1,
+            (cx as f64 + 12.0) * TILE,
+            (cy as f64 + i as f64 * 0.5) * TILE,
+        );
+        w.attack_move(k, (cx as f64 + 2.0) * TILE, (cy as f64 + 2.0) * TILE);
+    }
+    for _ in 0..30 * 300 {
+        step(&mut w, &mut s, &mut digests);
+        if w.out[0] {
+            break;
+        }
+    }
+    let all: String = digests.iter().map(|d| d.1.as_str()).collect();
+    assert!(
+        all.contains(" fell at your main base"),
+        "a building of its fell: {all}"
+    );
+    assert!(all.contains("your army was wiped out at home"), "{all}");
+    assert!(!all.contains("seat 0's"), "its own words");
+    for pair in digests.windows(2) {
+        assert!(
+            pair[1].0 - pair[0].0 <= (120 + 20) * TPS,
+            "dark from {} to {}",
+            pair[0].0 / TPS,
+            pair[1].0 / TPS
+        );
+    }
+    assert!(
+        digests
+            .iter()
+            .all(|d| d.1.contains("\"money_name\":\"gold\""))
+    );
+}

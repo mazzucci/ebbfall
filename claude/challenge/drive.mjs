@@ -229,8 +229,19 @@ async function playGame(n, last) {
   say(`game ${n}: started with ${start.plan}`);
 
   const f = await gameFrame();
-  let skipper = null;
-  if (opt.speed > 1) skipper = setInterval(() => f.evaluate((s) => window.endfall?.skip?.(s), opt.speed - 1).catch(() => {}), 1000);
+  // The pace: headless Chromium draws too slowly to keep the game's 30 Hz by itself (about a sixth of it, measured), so
+  // the driver keeps game time at `speed` x real time, stepping the sim with endfall.skip where it falls behind.
+  const p0 = Date.now(), tick0 = await f.evaluate(() => window.endfall?.G?.tick ?? 0).catch(() => 0);
+  let pacing = false;
+  const skipper = setInterval(async () => {
+    if (pacing) return;
+    pacing = true;
+    try {
+      const target = tick0 + ((Date.now() - p0) / 1000) * 30 * opt.speed;
+      await f.evaluate((target) => { const G = window.endfall?.G; if (G && !G.over && G.tick < target) window.endfall.skip((target - G.tick) / 30); }, target);
+    } catch { /* the frame is reloading */ }
+    pacing = false;
+  }, 250);
 
   let pending = null, inflight = null, end = null;
   const flush = () => {

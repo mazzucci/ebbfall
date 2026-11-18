@@ -68,7 +68,7 @@ document.getElementById('btnStart').onclick = () => {
   setInterval(() => tickTo(t + 1), 1000 / speed);
 };
 document.getElementById('plan').textContent = plan;
-window.endfall = { skip: (s) => tickTo(t + s), G: { get over() { return over; }, get time() { return t; } } };
+window.endfall = { skip: (s) => tickTo(t + s), G: { get over() { return over; }, get time() { return t; }, get tick() { return t * 30; } } };
 </script>
 </body>
 </html>

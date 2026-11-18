@@ -38,7 +38,7 @@ node claude/challenge/drive.mjs --games 5 --name s1   # a series: Kingdom mirror
 ```
 
 Options: `--ceiling 150000` (new tokens per series: input + cache writes + output; cache reads are logged apart),
-`--speed N` (fast-forwards the game N times real time through `endfall.skip`), `--cap 35` (game minutes before it
+`--speed N` (game time at N times real time, default 1: headless Chromium draws too slowly to hold 30 Hz, so the driver keeps the pace with `endfall.skip`), `--cap 35` (game minutes before it
 calls a timeout), `--session UUID` (carry a session over), `--model`, `--mock` (the stand-in game), `--headed`.
 Logs in `target/challenge/logs/<name>-<time>/`: `transcript.md` (readable), `driver.jsonl`, `server.jsonl`,
 `series.json` (results and tokens per game).

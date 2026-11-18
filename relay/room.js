@@ -48,7 +48,16 @@
 // token takes it back, a newcomer takes only a truly open seat, and the room cannot start while it is away. After the
 // hold the seat is open again (on its spot and side), or at once when the host frees it (free) or its player gives it up (leave).
 // `keep()` / `restore()`: the lobby as a record (seats with their spots, teams, tokens, races, AI levels; the map; the
-// addresses the host's REMOVE barred; no connections), for an adapter that may lose its memory (relay/worker.js).
+// addresses the host's REMOVE barred; no connections), for an adapter that may lose its memory (relay/worker.js);
+// `keepOver()` / `restoreOver()` the same for a room whose game is over (its seats and setup, not its turns: a seat
+// back after that needs none, `lost`), and `rebind` puts a connection the adapter kept back on its seat (a socket that
+// outlived the memory: Cloudflare's hibernation). `due()`: when `tick` next has something to do outside a game (a hold
+// or an over game's grace running out, the room going quiet), for an adapter that keeps no clock then.
+//
+// A quiet room closes (QUIET_MS): a lobby, or a room whose game is over, where nobody has done anything for half an hour
+// (`active`: a hello, or a message but a ping or an ack; the end card's heartbeats are acks) is closed by the adapter,
+// everyone told `error {code: 'noroom', msg: QUIET_SAY}` (a client of PROTO 7 shows the words and stays closed) and
+// their sockets closed with QUIET_CLOSE. A game in progress never is: its clock and its away budget are its own.
 //
 // AI seats (M4): a seat the host gives to the AI has no connection. Every client runs that seat's AI in its own game
 // (the sim's `ai_seats`: deterministic, from the setup's `ai` list), so the relay never waits for it (no load, no acks,
@@ -76,23 +85,30 @@ const MAX_HASHES = 16; // checkpoint hashes a seat may have waiting for the othe
 const HASH_AHEAD = CHECK_EVERY; // turns past the last that exists a checkpoint may name (a margin)
 const MAX_ORDER_MSGS = 10; // orders messages a seat may send in one turn
 const MAX_NAME = 16;
-const OVER_GRACE_MS = 30000; // once a game is over, a seat whose connection is gone this long has left the room
+export const OVER_GRACE_MS = 30000; // once a game is over, a seat whose connection is gone this long has left the room
 export const PAUSES = 3; // pauses a seat may call in a game
 export const PAUSE_MS = 5 * 60000; // a pause's length at most (the seat that called it may end it sooner)
 export const MAX_SEATS = 8; // seats a room may have (the most a map seats: 128x128, eight starts)
 const DIFFS = 4; // the AI's difficulties (0 Easy to 3 Brutal)
+/** A lobby, or a room after its game, where nobody has done anything this long is closed (`idle`): long enough to wait
+ *  for a friend to find the link, or to talk a rematch over; a forgotten tab holds nothing for longer. */
+export const QUIET_MS = 30 * 60000;
+export const QUIET_SAY = 'This room closed after 30 minutes with nothing going on';
+export const QUIET_CLOSE = 4009; // a quiet room's sockets close with this code (relay/limits.js MSG_CLOSE is 4008)
+const GONE_SAY = 'The room is gone: this game is over';
 
 /** A room of `seats` players. `send(conn, msg)` delivers a message to one connection; `kick(conn)` closes one. */
 export class Room {
-  constructor({ code, seats = 2, send, kick = () => {}, seed = 1, onLobby = () => {} }) {
+  constructor({ code, seats = 2, send, kick = () => {}, seed = 1, now = 0 }) {
     this.code = code; this.send = send; this.kick = kick; this.rng = seed >>> 0 || 1;
-    this.onLobby = onLobby; // (told after every change to the lobby: an adapter may keep it, `keep()`)
     this.seats = Array.from({ length: seats }, (_, i) => this.empty(i, i)); // (spots 0 to seats-1, each its own team)
     this.phase = 'lobby'; // lobby, game, over
     this.map = fitMap(DEFAULT_MAP, seats); this.checked = -1; this.turn = 0; this.log = []; this.inbox = []; this.next = 0; this.paused = false; this.now = 0;
     this.running = false; this.loadFrom = 0; // (the clock: once every seat has loaded, from loadFrom on)
     this.hold = null; // a pause a seat called: { seat, until }
     this.barred = new Set(); // addresses the host removed someone from (their key, relay/limits.js addressKey): not let in again
+    this.now = now; this.active = now; // (when someone last did something: QUIET_MS)
+    this.lost = false; // (an over game brought back without its turns, restoreOver: a seat that needs them is told the room is gone)
   }
 
   /** A connection says hello, from address `addr` (its key; '' unknown). Returns its seat (in the lobby its spot), or
@@ -105,6 +121,9 @@ export class Room {
     const build = typeof hello.build === 'string' ? hello.build.slice(0, 64) : '';
     // (in the lobby, a held seat that is away is checked when it comes back: a newcomer is not turned away for it)
     const mine = typeof hello.token === 'string' ? this.seats.find(s => s.token && s.token === hello.token) : null;
+    // (an over game brought back without its turns: a seat back with all of them run is let in, for a rematch; one that
+    // would need them replayed, a reload, cannot have them)
+    if (mine && this.lost && !(Number.isInteger(hello.next) && hello.next >= this.turn + DELAY)) { this.send(conn, { t: 'error', code: 'noroom', msg: GONE_SAY }); return -1; }
     // A name to show the others: trimmed, MAX_NAME at most. A newcomer without one is turned away (the client asks for
     // one first); a seat back with its token and none keeps the name it had.
     const name = typeof hello.name === 'string' ? hello.name.trim().slice(0, MAX_NAME).trim() : '';
@@ -132,7 +151,7 @@ export class Room {
     const s = this.seats[seat];
     s.build = build; s.from = addr;
     if (s.conn) { this.send(s.conn, { t: 'error', code: 'replaced', msg: 'This room is open on another screen' }); this.kick(s.conn); }
-    s.conn = conn; s.lastAck = this.now;
+    s.conn = conn; s.lastAck = this.now; this.active = this.now;
     if (this.phase === 'lobby') { s.goneSince = 0; s.name = name || s.name; } // (a held seat: back)
     this.tell(s);
     if (this.phase === 'lobby') { if (newcomer) this.unready(); else this.lobby(); return s.spot; } // (someone new: the others ready again for the new line-up)
@@ -155,6 +174,7 @@ export class Room {
     const seat = this.seats.findIndex(s => s.conn === conn);
     if (seat < 0) return;
     const s = this.seats[seat];
+    if (msg.t !== 'ack') this.active = this.now; // (someone did something; acks are heartbeats, also on the end card)
     if (this.phase === 'lobby') {
       const host = s.spot === 0; // (the seats a lobby message names are spots)
       if (msg.t === 'race' && RACES.includes(msg.race)) { s.race = msg.race; s.ready = false; this.lobby(); }
@@ -176,7 +196,7 @@ export class Room {
     // away any more, only here or gone (a rematch waits for the seats still here).
     if (msg.t === 'over' && this.phase === 'game' && !s.left && this.running) { // (no game can be over before the clock: a client that says so is not heard)
       s.over = true; if (s.awaySince) this.back(seat); // (out and watching: nobody waits for it)
-      if (this.seats.every(x => x.ai || x.left || x.over)) { this.phase = 'over'; this.hold = null; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
+      if (this.seats.every(x => x.ai || x.left || x.over)) { this.phase = 'over'; this.hold = null; this.active = this.now; for (const x of this.seats) if (x.awaySince) this.back(this.seats.indexOf(x)); }
       return;
     }
     if (this.phase !== 'game' || s.left) return; // (a seat that left is not heard)
@@ -245,6 +265,56 @@ export class Room {
     while (now >= this.next && this.phase === 'game') { this.closeTurn(); this.next += TURN_MS; }
   }
 
+  /** When `tick` next has something to do outside a game (ms): a lobby hold or an over game's grace running out, or the
+   *  room going quiet (`idle`). Infinity in a game: its adapter ticks it. */
+  due() {
+    if (this.phase === 'game') return Infinity;
+    let t = this.active + QUIET_MS;
+    for (const s of this.seats) {
+      if (s.conn || !s.goneSince || !s.token) continue;
+      if (this.phase === 'lobby') t = Math.min(t, s.goneSince + LOBBY_HOLD_MS + 1);
+      else if (!s.left && !s.ai) t = Math.min(t, s.goneSince + OVER_GRACE_MS + 1);
+    }
+    return t;
+  }
+  /** Nobody has done anything here for QUIET_MS (a lobby, or a game that is over): the adapter closes the room. */
+  idle(now) { return this.phase !== 'game' && now - this.active >= QUIET_MS; }
+  /** A connection the adapter kept while this room was out of its memory (a socket that outlived it), back on the seat
+   *  its token holds, as it was (`ready` in the lobby, its `build`): its seat, or -1 (no such seat, or one with a
+   *  connection). Nothing is sent: everyone already sees it as here. */
+  rebind(conn, token, { ready = false, build = '' } = {}) {
+    const s = typeof token === 'string' && token ? this.seats.find(x => x.token === token) : null;
+    if (!s || s.conn) return -1;
+    s.conn = conn; s.goneSince = 0; s.lastAck = this.now; s.build = String(build || '').slice(0, 64);
+    if (this.phase === 'lobby') s.ready = !!ready;
+    return this.num(s);
+  }
+  /** A room whose game is over as a record: its seats in game order (spots, teams, names, races, tokens, addresses,
+   *  builds, levels; who left, whose game is over, who wants a rematch, pauses used, since when a seat is gone), the
+   *  setup, the turns the game had (not their orders: `restoreOver`), the map, the addresses the host barred. */
+  keepOver() {
+    return { v: 1, map: this.map, turn: this.turn, setup: this.setup, barred: [...this.barred],
+      seats: this.seats.map(s => ({ spot: s.spot, team: s.team, name: s.name, race: s.race, token: s.token, ai: s.ai, diff: s.diff, from: s.from, build: s.build, left: s.left, over: s.over, rematch: s.rematch, pauses: s.pauses, goneSince: s.goneSince })) };
+  }
+  /** An over game kept by `keepOver` back (the room was lost from memory, at `now`): its seats away from when they went
+   *  (now, for one that was here: an adapter `rebind`s the connections it kept), the game's turns gone (`lost`: a seat
+   *  back needing them is told the room is gone). A record not of that shape does not come back: false. */
+  restoreOver(k, now) {
+    if (!k || k.v !== 1 || !Array.isArray(k.seats) || k.seats.length < 2 || k.seats.length > MAX_SEATS || !k.seats.every(x => x && typeof x === 'object')) return false;
+    if (!k.setup || typeof k.setup !== 'object' || !Number.isInteger(k.turn) || k.turn < 0 || !k.seats.every(x => validSpot(x.spot) && validSpot(x.team))) return false;
+    const str = (a, n) => (typeof a === 'string' ? a.slice(0, n) : '');
+    Object.assign(this, { now, phase: 'over', setup: k.setup, turn: k.turn, log: [], inbox: [], running: true, hold: null, paused: false, lost: true });
+    this.seats = k.seats.map(x => {
+      const s = Object.assign(this.empty(x.team, x.spot), { name: str(x.name, MAX_NAME), race: RACES.includes(x.race) ? x.race : 'humans', ai: !!x.ai, diff: validDiff(x.diff) ? x.diff : 1,
+        token: str(x.token, 64) || null, from: str(x.from, 64), build: str(x.build, 64), left: !!x.left, over: !!x.over, rematch: !!x.rematch, pauses: Math.min(PAUSES, Math.max(0, Number(x.pauses) | 0)), loaded: true });
+      if (s.token && !s.ai && !s.left) s.goneSince = Math.min(Number(x.goneSince) || now, now);
+      return s;
+    });
+    if (validMap(k.map)) this.map = k.map;
+    if (Array.isArray(k.barred)) this.barred = new Set(k.barred.filter(a => typeof a === 'string' && a.length <= 64).slice(0, MAX_BARRED));
+    return true;
+  }
+
   // ---- inside ----
   /** An open seat at spot `spot`, on team `team` (the lobby's number for its side, as the host set it). */
   empty(team, spot) {
@@ -270,7 +340,6 @@ export class Room {
   lobby() {
     const at = (f) => Array.from({ length: MAX_SEATS }, (_, k) => { const s = this.bySpot(k); return s ? f(s) : null; });
     this.each({ t: 'lobby', map: this.map, teams: at(s => s.team), seats: at(s => ({ name: s.name, race: s.race, ready: s.ready, here: !!s.conn, ai: s.ai, diff: s.diff })) });
-    this.onLobby();
   }
   /** The lobby's held seats whose hold has run out are open again. */
   release(now) {
@@ -415,7 +484,7 @@ export class Room {
   rematchState() {
     this.each({ t: 'rematch', seats: this.seats.map(s => !!s.rematch) });
     if (!this.seats.every(s => s.ai || (s.conn && !s.left && s.rematch))) return;
-    Object.assign(this, { phase: 'lobby', turn: 0, log: [], inbox: [], next: 0, paused: false, running: false, setup: null, hold: null, checked: -1 });
+    Object.assign(this, { phase: 'lobby', turn: 0, log: [], inbox: [], next: 0, paused: false, running: false, setup: null, hold: null, checked: -1, lost: false, active: this.now });
     for (const s of this.seats) Object.assign(s, { ready: false, loaded: false, acked: -1, lastAck: this.now, hashes: new Map(), away: 0, awaySince: 0, rematch: false, over: false, goneSince: 0, pauses: 0, turnMsgs: 0, turnWords: 0, words: 0 });
     const was = new Map(this.seats.map((s, i) => [s, i]));
     this.sortBySpot();
@@ -451,7 +520,7 @@ export class Room {
     const here = this.seats.filter(s => !s.left && !s.ai);
     const hs = here.map(s => s.hashes.get(turn));
     if (hs.some(h => h === undefined)) return;
-    if (hs.some(h => h !== hs[0])) { this.phase = 'over'; this.hold = null; this.each({ t: 'desync', turn }); }
+    if (hs.some(h => h !== hs[0])) { this.phase = 'over'; this.hold = null; this.active = this.now; this.each({ t: 'desync', turn }); }
     this.checked = turn;
     // (checkpoints every seat has passed are done with)
     for (const s of this.seats) for (const t of s.hashes.keys()) if (t <= turn) s.hashes.delete(t);

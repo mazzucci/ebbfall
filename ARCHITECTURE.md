@@ -532,7 +532,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
                       seat 2 (the start arranges the sides); a flooding client (an ack flood keeps few hashes, a huge
                       or oversized order refused, a message flood closes its socket and it comes back by its token);
-                      invite links through a relay that counts the limits (a typo or two, rooms nobody sat in, a scan)
+                      invite links through a relay that counts the limits (a typo or two, rooms nobody sat in, a scan);
+                      a quiet room closed by the relay: the lobby Net shows why and does not reconnect
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -549,7 +550,12 @@ test/relay-bench.test.js the Node relay's HTTP side for the device test's report
                       counted at a room's first seat, joins with a miss costing more, everyone's misses reported in
                       batches and a scan from rotating networks tripping them, on a fake clock; wrangler.toml's
                       bindings equal relay/limits.js's numbers), the first format's codes told to update, the host's
-                      REMOVE barring an address, PROTO, a flooding connection closed (MSG_CLOSE)
+                      REMOVE barring an address, PROTO, a flooding connection closed (MSG_CLOSE); hibernation on a fake
+                      runtime that keeps the sockets and their attachments and hibernates only with no timer pending
+                      (a lobby with no clock; ready, race and seats through a hibernation, a game started, played and
+                      over, then a rematch; a token back; a close while hibernated; holds and an over game's grace by
+                      the alarm; a quiet lobby or over room closed, a game never; an over game's lost turns; eight
+                      sockets; the message bucket and everyone's count after a wake)
 test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
                       every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
@@ -588,8 +594,10 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
                       desync checks, the host's remove: the address barred while the room lasts, in its record; the
                       caps: numbers per order and per turn, a seat's numbers per game, checkpoint hashes kept);
                       server.mjs, a Node WebSocket server for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
-                      Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
-                      this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
+                      Worker and one Durable Object per room on the WebSocket Hibernation API: a turn clock only while
+                      a game runs, an alarm for the rest, the room back from its record and the sockets' attachments
+                      after a hibernation; a lobby or an over game quiet 30 minutes closed, room.js QUIET_MS;
+                      wrangler.toml; CI deploys it when the live one is not this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
                       limits.js, the limits per address (and IPv6 /48) and in all (Notion: Multiplayer design, Security:
                       Workers Rate Limiting bindings for an address's minute, an object named `limits` for its hour,
                       everyone's rooms (counted once someone sits in one) and everyone's misses (a scan's brake), all

@@ -10,6 +10,7 @@ import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { startRelay } from '../relay/server.mjs';
+import { QUIET_MS, QUIET_SAY } from '../relay/room.js';
 import { Net } from '../src/net/net.js';
 import { seatRaces } from '../src/engine/util.js';
 import { onlineMap } from '../src/client/maps.js';
@@ -350,6 +351,21 @@ liveTest('eight seats, two people and six AIs (M4 2e): four pairs on 128x128, ev
     for (let s = 2; s < 8; s++) assert.ok(busy(b, s), `the AI of seat ${s} plays`);
     assert.deepEqual(m.events.filter(e => /desync|away/.test(e)), [], 'no desync, nobody away');
   } finally { await m.done(); }
+});
+
+test('a quiet room closed by the relay (relay/room.js QUIET_MS): a lobby Net is told why, once, and does not reconnect', async () => {
+  const relay = startRelay({ port: 0 }); await relay.ready;
+  try {
+    const errors = [], statuses = []; let seat = null;
+    const n = new Net({ url: `ws://localhost:${relay.port}/`, name: 'Ann', game: () => null, on: { seat: (m) => { seat = m; }, error: (m) => errors.push(m), status: (s) => statuses.push(s) } });
+    for (let i = 0; i < 300 && !seat; i++) await wait(10);
+    relay.rooms.get(seat.room).active -= QUIET_MS;
+    for (let i = 0; i < 300 && !errors.length; i++) await wait(10);
+    assert.deepEqual(errors, [{ t: 'error', code: 'noroom', msg: QUIET_SAY }], 'the words to show');
+    await wait(700); // (past a reconnect's first wait)
+    assert.ok(n.closed, 'closed for good'); assert.equal(errors.length, 1);
+    assert.ok(!statuses.includes('reconnecting'), 'no reconnect');
+  } finally { await relay.close(); }
 });
 
 test('a limit refusal (too many tries from this address): a lobby Net without a seat stops and says it; a game\'s, or one holding a lobby seat, keeps reconnecting', () => {

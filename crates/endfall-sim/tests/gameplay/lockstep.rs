@@ -22,7 +22,8 @@ struct Client {
     hashes: Vec<(u32, u32)>,
 }
 
-/// The same game on every client: Humans against the Vael, both with money and a small army each, in mid-map.
+/// The same game on every client: the Kingdom against the Expedition, both with money and a small army each, in
+/// mid-map.
 fn client(seed: u32, me: u8) -> Game {
     let mut g = Game::with_seats(seed, 1, 0, 0, &[0, 1], &[], &[], me, None).unwrap();
     for t in 0..2u8 {

@@ -1,9 +1,9 @@
-//! Each seat's economy and forces minute by minute (PRD: the AI breaks a defence: does out-expanding a passive foe
-//! pay?): at every whole minute of game time, for each of a two-seat game's seats, what it has mined so far (shards
-//! plus ether at `waves::ETHER_WEIGHT`), its workers, its finished headquarters, its army's worth (armed units, workers
-//! left out) and its supply used. Read between ticks only.
+//! Each seat's economy and forces minute by minute (PRD: the AI breaks a defense: does out-expanding a passive foe
+//! pay?): at every whole minute of game time, for each of a two-seat game's seats, what it has mined so far (gold), its
+//! workers, its finished headquarters, its army's worth (armed units, workers left out) and its supply used. Read
+//! between ticks only.
 
-use crate::waves::{army_of, worth};
+use crate::waves::army_of;
 use endfall_sim::world::World;
 
 /// Ticks in a minute of game time (30 Hz).
@@ -35,9 +35,8 @@ impl Minutes {
 }
 
 fn sample(w: &World, s: usize) -> Sample {
-    let m = w.ledger.get(s).map_or([0, 0], |l| l.mined);
     Sample {
-        mined: worth([m[0] as i32, m[1] as i32]),
+        mined: w.ledger.get(s).map_or(0, |l| l.mined[0]) as f64,
         workers: w
             .units
             .iter()

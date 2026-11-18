@@ -111,13 +111,7 @@ impl World {
     /// the start, round and round.
     pub(crate) fn sweep_point(&self) -> (f64, f64) {
         let start = (self.foe_base().0 * TILE, self.foe_base().1 * TILE);
-        let mut pts: Vec<(f64, f64)> = self
-            .map
-            .nodes
-            .iter()
-            .filter(|n| !n.ether)
-            .map(|n| (n.x, n.y))
-            .collect();
+        let mut pts: Vec<(f64, f64)> = self.map.nodes.iter().map(|n| (n.x, n.y)).collect();
         // A grid from 5 tiles in to 5 tiles from the far edge, a stop about every 10 tiles (6x6 on a 64x64 map):
         // every tile lies within sight of a stop.
         let grid = |n: i32| {

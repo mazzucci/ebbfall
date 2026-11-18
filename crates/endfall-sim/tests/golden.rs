@@ -140,11 +140,12 @@ fn golden_hashes_pin_behaviour_during_refactors() {
     println!("const EXPECTED: [[u32; 3]; 7] = {got:?};");
     assert_eq!(
         got, EXPECTED,
-        "behaviour changed: update EXPECTED only for an intended rule change"
+        "behavior changed: update EXPECTED only for an intended rule change"
     );
 }
 
-/// A Vael player (the AI on the humans): pinned like the others; a Vael rule change updates it on purpose.
+/// An Expedition player (the AI on the Kingdom): pinned like the others; an Expedition rule change updates it on
+/// purpose.
 const EXPECTED_VAEL: [u32; 3] = [1933140853, 764485793, 2641969632];
 
 #[test]
@@ -162,11 +163,12 @@ fn golden_hashes_pin_a_vael_game() {
     println!("const EXPECTED_VAEL: [u32; 3] = {got:?};");
     assert_eq!(
         got, EXPECTED_VAEL,
-        "a Vael game changed: update EXPECTED_VAEL only for an intended rule change"
+        "an Expedition game changed: update EXPECTED_VAEL only for an intended rule change"
     );
 }
 
-/// The two AIs, Vael against Humans: pins the Vael units, their AI and the matchup's balance in play.
+/// The two AIs, the Expedition against the Kingdom: pins the Expedition's units, their AI and the matchup's balance in
+/// play.
 // (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
 // shoots flyers)
 const EXPECTED_VAEL_AI: [u32; 3] = [1191897366, 2350238437, 985803694];
@@ -188,16 +190,17 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
     println!("const EXPECTED_VAEL_AI: [u32; 3] = {got:?};");
     assert!(
         w.units.iter().any(|u| u.team == 0 && !u.kind.def().worker),
-        "the Vael AI fielded an army"
+        "the Expedition AI fielded an army"
     );
     assert_eq!(
         got, EXPECTED_VAEL_AI,
-        "the Vael AI game changed: update EXPECTED_VAEL_AI only for an intended rule change"
+        "the Expedition AI game changed: update EXPECTED_VAEL_AI only for an intended rule change"
     );
 }
 
-/// The two AIs on the Shore map, the Vael against the Humans: pins water (heights, the movement classes, wading,
-/// nothing firing from deep water, buildings by ground) and starts by people (the Vael in their reef basin).
+/// The two AIs on the Shore map, the Expedition against the Kingdom: pins water (heights, the movement classes, wading,
+/// nothing firing from deep water, buildings by ground) and starts by people (an amphibious people in its reef basin:
+/// none since the re-theme).
 // (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
 // shoots flyers)
 const EXPECTED_SHORE_AI: [u32; 3] = [807831211, 3398161016, 3941715800];

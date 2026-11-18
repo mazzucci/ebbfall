@@ -1,5 +1,5 @@
 // An older Expedition building look (STYLE.md, "Vael buildings"): pale pearl shells on an ink core, a few small lantern
-// deeplights (vael-palette.js), team glaze between ink seams. One remains: `cradle` (kiln, a half-open shell), a
+// deeplights (vael-palette.js), team glaze between ink seams. One remains: `cradle` (kiln: the Factory; a half-open shell), a
 // fitTints reference (main.js); `tidewell` (conflux) is in vael2.js. Same conventions: game units (1 tile = 32), y up,
 // +z south (towards the camera); a building's anchor is its footprint's center.
 // The camera looks down at 55 degrees from the south: a face shows when its normal points up or south; a plate

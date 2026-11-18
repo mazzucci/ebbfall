@@ -1,7 +1,7 @@
 // The device's own voice for the announcer: the Web Speech API (speechSynthesis), built into Android (Google's voices),
 // iPhone and iPad (Siri's) and desktop browsers; no asset files. Each race gets a voice of its own where the device has
-// two, chosen the same way every time from the English voices on the device itself (they work offline): the Humans a
-// natural, male-sounding voice at its own pitch, the Vael another, higher and a little slower (voice.js STYLES:
+// two, chosen the same way every time from the English voices on the device itself (they work offline): the Kingdom a
+// natural, male-sounding voice at its own pitch, the Expedition another, higher and a little slower (voice.js STYLES:
 // `humansDevice`, `vaelDevice`). Where there is no speechSynthesis or no English voice on the device, `speakLine`
 // says so (false) and the caller speaks in the synth style instead. audio.js `say` drives it when the announcer is on;
 // voice-lab.html lets the owner hear it and try the device's other voices.
@@ -37,7 +37,7 @@ const better = (race) => (a, b) => { const [x, y] = [rank(a, race), rank(b, race
 export const picked = {};
 
 /** The voice a race speaks in: the pick by hand if the device still has it, else the best of the device's own English
- *  voices, the Vael another than the Humans' where there are two; null if the device has none. */
+ *  voices, the Expedition another than the Kingdom's where there are two; null if the device has none. */
 export function voiceFor(race) {
   const all = englishVoices();
   const mine = picked[race] && all.find(v => v.voiceURI === picked[race]);

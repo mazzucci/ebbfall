@@ -97,9 +97,9 @@ fn trade_raises_every_market_s_pay_by_level_researched_at_the_market() {
 
 #[test]
 fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
-    // The Market needs the Barracks and stands in the base, no shaft: one a finished Castle, sites counted (a second is
-    // refused; a Castle at an expansion allows another). The Expedition's Recruiting post needs nothing and goes up
-    // anywhere, as many as it likes. No map has a shaft.
+    // The Market needs the Barracks and stands in the base: one a finished Castle, sites counted (a second is refused;
+    // a Castle at an expansion allows another). The Expedition's Recruiting post needs nothing and goes up anywhere, as
+    // many as it likes. No map has a mine shaft (the generator takes up every vent it laid).
     let mut w = rich(9);
     let h = harvesters(&w, PLAYER);
     let (tx, ty) = spot(&w, BldgKind::Extractor);
@@ -139,8 +139,8 @@ fn one_market_a_castle_and_recruiting_posts_without_number_anywhere() {
         for kind in [MapKind::Standard, MapKind::EtherStorm, MapKind::Shore] {
             let w = World::with_setup(seed, 1, kind, false, [&HUMANS, &VAEL]);
             assert!(
-                w.map.nodes.iter().all(|n| !n.ether),
-                "seed {seed} {kind:?}: no shaft"
+                w.map.nodes.iter().all(|n| !n.vent),
+                "seed {seed} {kind:?}: no mine shaft"
             );
         }
     }
@@ -180,7 +180,7 @@ fn supply_blocks_training_and_depots_raise_the_cap() {
     }
     assert_eq!(queued, 5, "queue holds five");
     let [used, cap] = w.sup(PLAYER);
-    assert_eq!((used, cap), (9, 20), "the Lighthouse's 20 population");
+    assert_eq!((used, cap), (9, 20), "the Castle's 20 population");
     w.cancel_queue(core_id, 4);
     w.cancel_queue(core_id, 3);
     let res_before = w.res[PLAYER as usize][0];
@@ -243,7 +243,7 @@ fn a_full_core_reports_supply_blocked() {
         .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
         .unwrap()
         .id;
-    // (19 of the Lighthouse's 20 population used: four workers and fifteen more)
+    // (19 of the Castle's 20 population used: four workers and fifteen more)
     let (x, y) = (
         w.bldg(core_id).unwrap().x,
         w.bldg(core_id).unwrap().y + 80.0,
@@ -418,14 +418,7 @@ fn busy_workers_only_hop_to_mines_no_farther_from_the_drop_off() {
     for far in [true, false] {
         let mut w = flat_arena(16);
         let core_id = w.make_building(BldgKind::Core, PLAYER, 20, 30, true);
-        let fields: Vec<Id> = w
-            .map
-            .nodes
-            .iter()
-            .filter(|n| !n.ether)
-            .map(|n| n.id)
-            .take(2)
-            .collect();
+        let fields: Vec<Id> = w.map.nodes.iter().map(|n| n.id).take(2).collect();
         let gone: Vec<Id> = w
             .map
             .nodes
@@ -652,9 +645,10 @@ fn an_idle_worker_away_from_its_field_stays_where_it_was_put() {
 
 #[test]
 fn the_ledger_accounts_for_every_coin() {
-    // The balance lab's ledger (`World::ledger`, read by no rule): in a game with no resources granted, what a seat
-    // has is always what it started with, plus what it mined, less what it spent (refunds taken back off), every tick.
-    // Two Hard AIs, Humans against Vael, ten minutes: they mine, build, train, research and cancel stalled sites.
+    // The balance lab's ledger (`World::ledger`, read by no rule): in a game with no resources granted, what a seat has
+    // is always what it started with, plus what it mined, less what it spent (refunds taken back off), every tick. Two
+    // Hard AIs, the Kingdom against the Expedition, ten minutes: they mine, build, train, research and cancel stalled
+    // sites.
     let mut w = World::with_size(5, 2, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
     assert!(w.set_ai_seats([true, true]));
     let start: Vec<[i32; 2]> = w.res.clone();

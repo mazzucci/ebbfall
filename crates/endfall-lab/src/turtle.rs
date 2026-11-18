@@ -13,7 +13,9 @@ use endfall_sim::data::{DIFF, Diff, NEVER, Style};
 use endfall_sim::map::MapKind;
 
 const TPS: f64 = 30.0;
-const PEOPLE: [&str; 2] = ["Humans", "Vael"];
+/// Each people's name (`FACTIONS` order), and with its article for a row's label ("an Expedition turtle").
+const PEOPLE: [&str; 2] = ["Kingdom", "Expedition"];
+const A_PEOPLE: [&str; 2] = ["a Kingdom", "an Expedition"];
 /// A game's first hit: the tick its attacker's first wave arrived and that wave's units (None: none arrived).
 type FirstHit = Option<(u32, usize)>;
 
@@ -74,7 +76,7 @@ pub fn turtle(raids: bool) -> Diff {
     }
 }
 
-/// The weak turtle (PRD: the AI breaks a defence, the gate's newcomers row): the turtle on Easy's economy (its
+/// The weak turtle (PRD: the AI breaks a defense, the gate's newcomers row): the turtle on Easy's economy (its
 /// workers, factories and income) that never takes a second base; it still builds its towers and defends.
 pub fn weak_turtle() -> Diff {
     let easy = DIFF[0];
@@ -83,7 +85,7 @@ pub fn weak_turtle() -> Diff {
         harv: easy.harv,
         rax: easy.rax,
         extra_rax: easy.extra_rax,
-        vents_from: easy.vents_from,
+        markets_from: easy.markets_from,
         expand_at: NEVER,
         expand_at_of: &[],
         expands_when_dry: false,
@@ -280,9 +282,9 @@ impl TurtleRun {
             t
         };
         for &map in &self.batch.maps {
-            for (tp, turtle) in PEOPLE.iter().enumerate() {
+            for (tp, turtle) in A_PEOPLE.iter().enumerate() {
                 for (op, against) in PEOPLE.iter().enumerate() {
-                    let who = format!("{map:?}: a {turtle} turtle against {against} Medium");
+                    let who = format!("{map:?}: {turtle} turtle against {against} Medium");
                     for seat in 0..2 {
                         rows.push((
                             format!("{who}, the turtle in seat {}", seat + 1),
@@ -420,10 +422,10 @@ impl TurtleRun {
             lines
         };
         for &map in &self.batch.maps {
-            for (tp, turtle) in PEOPLE.iter().enumerate() {
+            for (tp, turtle) in A_PEOPLE.iter().enumerate() {
                 for (ap, against) in PEOPLE.iter().enumerate() {
                     out.push((
-                        format!("{map:?}: {against} Medium against a {turtle} turtle"),
+                        format!("{map:?}: {against} Medium against {turtle} turtle"),
                         group(&|c| c.map == map && c.peoples() == (tp, ap)),
                     ));
                 }
@@ -532,7 +534,7 @@ impl TurtleRun {
             s += &t.row(&label);
         }
         s += &format!(
-            "\n## The attacker's waves\n\nEach wave of the plain Medium seat against the turtle: when it arrived (a unit within {} tiles of a turtle's building), its value near that unit (within the same tiles) over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (the value of what fell near its units over what it lost while out), and where it lost its units.\n\n{TABLE_HEAD}",
+            "\n## The attacker's waves\n\nEach wave of the plain Medium seat against the turtle: when it arrived (a unit within {} tiles of a turtle's building), its value near that unit (within the same tiles) over the defense's there (armed units and armed buildings within {} tiles of that unit; in gold), its result (the value of what fell near its units over what it lost while out), and where it lost its units.\n\n{TABLE_HEAD}",
             waves::REACH,
             waves::REACH
         );
@@ -596,7 +598,7 @@ impl TurtleRun {
         for (label, c) in self.check_rows() {
             s += &c.row(&label);
         }
-        s += "\n## Minute by minute\n\nOf the games still on at each minute, the medians, attacker / turtle: income a minute (shards plus ether at 1.5, mined over the five minutes before), workers, finished bases, army worth (armed units) and supply used.\n";
+        s += "\n## Minute by minute\n\nOf the games still on at each minute, the medians, attacker / turtle: income a minute (gold mined over the five minutes before), workers, finished bases, army worth (armed units) and supply used.\n";
         for (label, lines) in self.minute_rows() {
             s += &format!(
                 "\n**{label}**\n\n| Minute | Games on | Income a minute | Workers | Bases | Army | Supply |\n| --- | --- | --- | --- | --- | --- | --- |\n"
@@ -733,10 +735,10 @@ mod tests {
         let rows = r.rows();
         let row = |l: &str| &rows.iter().find(|(k, _)| k == l).expect(l).1;
         // the turtle in seat 1 won seed 1 and lost seed 2; in seat 2 the other way round
-        let first = row("Shore: a Humans turtle against Vael Medium, the turtle in seat 1");
+        let first = row("Shore: a Kingdom turtle against Expedition Medium, the turtle in seat 1");
         assert_eq!((first.won, first.lost, first.timeouts), (1, 1, 1));
         assert_eq!(first.lost_at, vec![1200.0], "lost at 20:00");
-        let second = row("Shore: a Humans turtle against Vael Medium, the turtle in seat 2");
+        let second = row("Shore: a Kingdom turtle against Expedition Medium, the turtle in seat 2");
         assert_eq!((second.won, second.lost, second.timeouts), (1, 1, 1));
         assert_eq!(second.lost_at, vec![600.0], "lost at 10:00");
         let all = row("**Shore, all**");
@@ -786,7 +788,7 @@ mod tests {
         let three = run(b.clone(), "test", 3, &quiet).json().write();
         assert_eq!(one, three, "the same bytes on one thread or three");
         let md = run(b, "test", 2, &quiet).markdown("test");
-        assert!(md.contains("a Vael turtle against Humans Medium, the turtle in seat 2"));
+        assert!(md.contains("an Expedition turtle against Kingdom Medium, the turtle in seat 2"));
         assert!(md.contains("no raids: it never attacks"));
     }
 }

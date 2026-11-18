@@ -134,7 +134,7 @@ impl Game {
     }
 }
 
-/// A race by index into FACTIONS (unknown = Humans).
+/// A race by index into FACTIONS (unknown = the Kingdom).
 fn faction(i: u32) -> &'static data::Faction {
     data::FACTIONS.get(i as usize).unwrap_or(&data::FACTIONS[0])
 }
@@ -146,7 +146,7 @@ impl Game {
         Game::wrap(World::new(seed, diff as usize))
     }
 
-    /// A new game with the races chosen (index into FACTIONS for the player and for the AI; unknown = Humans).
+    /// A new game with the races chosen (index into FACTIONS for the player and for the AI; unknown = the Kingdom).
     #[wasm_bindgen(js_name = withSetup)]
     pub fn with_setup(seed: u32, diff: u32, map: u32, side: u32, player: u32, ai: u32) -> Game {
         let f = [faction(player), faction(ai)]; // (the player is seat 0)
@@ -649,9 +649,9 @@ impl Game {
             .is_some_and(|t| BldgKind::parse(kind).is_some_and(|k| self.w.has_req(t, k)))
     }
     #[wasm_bindgen(js_name = canAfford)]
-    pub fn can_afford(&self, team: u8, shards: i32, ether: i32) -> bool {
+    pub fn can_afford(&self, team: u8, gold: i32, other: i32) -> bool {
         self.valid_team(team)
-            .is_some_and(|t| self.w.can_afford(t, [shards, ether]))
+            .is_some_and(|t| self.w.can_afford(t, [gold, other]))
     }
 
     /// Set a building's hp, within 1..max (tests and tools only).
@@ -734,12 +734,12 @@ impl Game {
 
     /// Set a team's resources (tests and tools only).
     #[wasm_bindgen(js_name = setResources)]
-    pub fn set_resources(&mut self, team: u8, shards: i32, ether: i32) {
+    pub fn set_resources(&mut self, team: u8, gold: i32, other: i32) {
         if !self.knob() {
             return;
         }
         if let Some(t) = self.valid_team(team) {
-            self.w.res[t as usize] = [shards, ether];
+            self.w.res[t as usize] = [gold, other];
         }
     }
 
@@ -1023,8 +1023,8 @@ pub fn data_json() -> String {
 
 /// A map's layout for the menu's thumbnail, generated alone (no game): one byte per tile, row by row, on a map of
 /// `size` x `size` tiles (64, the default: a duel's two starts; 96: four starts, for three or four seats; 128: eight;
-/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 a gold mine, 3 a mine shaft (none since the re-theme), 4 a starting
-/// base (all starts alike: which is whose is drawn each game).
+/// any other size: 64) with every start the size has: 0 open ground, 1 rock, 2 a gold mine, 4 a starting base (3, a
+/// mine shaft once, unused; all starts alike: which is whose is drawn each game).
 #[wasm_bindgen(js_name = mapPreview)]
 pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
     let mut next_id = 1;
@@ -1040,7 +1040,7 @@ pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
         starts,
         &mut next_id,
     );
-    // (0 ground, 1 rock, 5 shallows, 6 deep water; then 2 mines, 3 vents, 4 the starts)
+    // (0 ground, 1 rock, 5 shallows, 6 deep water; then 2 mines, 4 the starts)
     let mut g: Vec<u8> = (0..m.rock.len())
         .map(|i| {
             let (x, y) = (i as i32 % m.w, i as i32 / m.w);
@@ -1057,7 +1057,7 @@ pub fn map_preview(seed: u32, kind: u32, size: Option<u32>) -> Vec<u8> {
         }
     };
     for n in &m.nodes {
-        let (size, v) = (n.s, if n.ether { 3 } else { 2 });
+        let (size, v) = (n.s, 2);
         for dy in 0..size {
             for dx in 0..size {
                 mark(n.tx + dx, n.ty + dy, v);

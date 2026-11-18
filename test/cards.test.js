@@ -2,7 +2,7 @@
 // `cardItems`) on the WASM sim: every selection of each race's units (with and without their techs, each order armed,
 // the Build pages, a building being placed) and every building of each race (finished, rising, training, researching,
 // dark, several of a kind). In WASD every button has its slot's grid key: none of W A S D, no key twice on a card;
-// a selection with workers keeps Build. The Siege Tank deploys by itself: no button, and an order to is refused.
+// a selection with workers keeps Build. The Cannon deploys by itself: no button, and an order to is refused.
 // Skipped when src/engine/pkg/ has not been built (run `npm run build:wasm`); CI sets ENDFALL_REQUIRE_WASM=1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

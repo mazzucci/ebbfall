@@ -136,7 +136,7 @@ kinds! {
 }
 
 kinds! {
-    /// Building kinds (the Kingdom's, then the Expedition's). Same rule (the Gyre, the Vael's hangar, removed).
+    /// Building kinds (the Kingdom's, then the Expedition's). Same rule (the Gyre, the old Expedition hangar, removed).
     BldgKind: BldgDef, BLDG_KINDS {
         Core => humans::CORE,
         Depot => humans::DEPOT,
@@ -188,7 +188,7 @@ def_struct! {
         range: f64 = "range",
         /// Nothing nearer than this many tiles (edge to edge) can be hit: a siege gun's blind ring (0 = none).
         min_range: f64 = "minRange",
-        /// Fires only while its unit's toggle is on (a Siege Tank deployed); on the move it cannot fire at all.
+        /// Fires only while its unit's toggle is on (a Cannon deployed); on the move it cannot fire at all.
         siege: bool = "siege",
         /// Damage per shot against ground targets (units and buildings); 0 = cannot attack the ground.
         dmg: f64 = "dmg",
@@ -246,7 +246,7 @@ impl UnitKind {
             .copied()
             .find(|a| matches!(a.def().effect, AbilityEffect::Settle { .. }))
     }
-    /// Its weapon fires only while its toggle is on (a Siege Tank).
+    /// Its weapon fires only while its toggle is on (the Cannon).
     pub fn siege(self) -> bool {
         self.def().weapon.is_some_and(|w| w.siege) && self.toggle().is_some()
     }
@@ -277,7 +277,7 @@ def_struct! {
         /// The seconds it spends inside a mine for a load (0: `MINE_TIME`): the Bot a little less, so a saturated Bot
         /// mine pays as a Villager mine (six with 9 in 7.2 s, eight with 7 in 7.5 s).
         mine_time: f64 = "mineTime",
-        /// Shield points over the hull (the Vael): they take damage first and regenerate out of combat.
+        /// Shield points over the hull (none since the re-theme): they take damage first and regenerate out of combat.
         shields: f64 = "shields",
         cost: [i32; 2] = "cost",
         /// The places it takes: the Kingdom's population, or the Expedition's grid (its machines and its mercenaries
@@ -293,18 +293,16 @@ def_struct! {
         air: bool = "air",
         /// How it gets about (`Move`): Walk for every ground unit, Fly for flyers (exactly the `air` ones).
         mv: Move = "move",
-        /// Living infantry (Medics heal these).
+        /// Living infantry (Healers heal these).
         bio: bool = "bio",
-        /// Hit points per second healed into nearby damaged infantry (the Mender), or with `mend` into any nearby ally.
+        /// Hit points per second healed into nearby damaged infantry (the Healer), or with `mend` into any nearby ally.
         heal: f64 = "heal",
-        /// The heal goes to any ally, nacre (shields) first, then hull: the Tender mends in combat too.
+        /// The heal goes to any ally, shields first, then hull: the Medic mends in combat too.
         mend: bool = "mend",
         /// A finished building of this kind is needed to train the unit.
         req: Option<BldgKind> = "req",
         /// What it shoots with; None = unarmed. A siege gun's (`Weapon::siege`) only while its toggle is on.
         weapon: Option<Weapon> = "weapon",
-        /// A siege gun's light gun, what it shoots with while its toggle is off (on its tracks); None = nothing then.
-        light: Option<Weapon> = "light",
         /// Its abilities (at most ABILITY_SLOTS), in card order.
         abilities: &'static [AbilityKind] = "abilities",
         /// A capital unit: one of a side's late, expensive giants (announced when the other side first sees one; none
@@ -321,7 +319,7 @@ def_struct! {
         short: &'static str = "short",
         /// The faction's headquarters: what a side starts with.
         hq: bool = "hq",
-        /// Shield points over the hull (the Vael).
+        /// Shield points over the hull (none since the re-theme).
         shields: f64 = "shields",
         /// Upgrades researched here.
         researches: &'static [Upgrade] = "researches",
@@ -494,7 +492,6 @@ const UNIT: UnitDef = UnitDef {
     mine_time: 0.0,
     shields: 0.0,
     weapon: None,
-    light: None,
     abilities: &[],
     capital: false,
 };

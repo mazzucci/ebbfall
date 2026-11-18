@@ -1,8 +1,8 @@
 // An older infantry look (STYLE.md, "Harbour infantry"): sailors in tar oilskin coats, team canvas on the sleeves. Two
-// remain: the Picket (trooper, with its dug-in state; a fitTints reference, main.js) and the Mender (medic, a healer the
-// sim keeps but trains nowhere). The Picket a pale round hat and a thin rifle angled up, dug in inside a ring of pale
-// sandbags; the Mender an ash coat and a big cream satchel with a dark cross, a lamp held low and no gun at all. Same
-// conventions as models.js: game units, units face +x, y up, +z south.
+// remain: the Picket (trooper, the Guard's kind, with its dug-in state; a fitTints reference, main.js) and the Mender
+// (medic: the Healer, which the sim keeps but trains nowhere). The Picket a pale round hat and a thin rifle angled up,
+// dug in inside a ring of pale sandbags; the Mender an ash coat and a big cream satchel with a dark cross, a lamp held
+// low and no gun at all. Same conventions as models.js: game units, units face +x, y up, +z south.
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { lathe, torus } from './harbour.js';

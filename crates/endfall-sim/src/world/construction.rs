@@ -102,7 +102,7 @@ impl World {
         }
         let d = b.kind.def();
         if d.pays > 0.0 {
-            self.pump(bid, dt);
+            self.pay_out(bid, dt);
         }
         let b = self.bm(bid).unwrap();
         if let Some(w) = d.weapon

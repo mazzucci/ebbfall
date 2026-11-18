@@ -41,7 +41,7 @@ impl Cell {
     pub fn faction(&self, seat: usize) -> &'static Faction {
         FACTIONS[self.races[seat]]
     }
-    /// A stable name, the key `compare` matches cells by: "64 Standard: Humans Hard vs Vael Hard".
+    /// A stable name, the key `compare` matches cells by: "64 Standard: Kingdom Hard vs Expedition Hard".
     pub fn id(&self) -> String {
         format!(
             "{} {:?}: {} {} vs {} {}",
@@ -116,8 +116,9 @@ impl Batch {
         }
     }
 
-    /// Every cell, in a fixed order: size, map, then each level against itself (Humans vs Vael, Vael vs Humans,
-    /// Humans vs Humans, Vael vs Vael), then the ladder (the higher level first and second, each race a mirror).
+    /// Every cell, in a fixed order: size, map, then each level against itself (Kingdom vs Expedition, Expedition vs
+    /// Kingdom, Kingdom vs Kingdom, Expedition vs Expedition), then the ladder (the higher level first and second, each
+    /// race a mirror).
     /// The Shore basins' field, when it is moved and the batch plays the Shore at all (else every game is as ever).
     pub fn moved_shore_field(&self) -> Option<ShoreField> {
         (self.shore_field != ShoreField::BACK && self.maps.contains(&MapKind::Shore))
@@ -214,7 +215,7 @@ pub struct SeatRec {
     pub bldgs_lost: Vec<u32>,
     /// Construction sites cancelled (the AI gives up on one that stalls), by building kind: not counted as lost.
     pub bldgs_cancelled: Vec<u32>,
-    /// [shards, ether].
+    /// Gold mined and spent (`[gold, 0]`, the sim's ledger).
     pub mined: [i64; 2],
     pub spent: [i64; 2],
     pub peak_supply: i32,
@@ -225,12 +226,12 @@ pub struct SeatRec {
     pub waves: [u32; 2],
     /// The army's ground unit-samples (every `SAMPLE` ticks; workers left out) in all, and in deep water.
     pub ground_samples: [u32; 2],
-    /// Units lost within `FIELD_NEAR` tiles of a crystal or vent (where they stood the tick before), workers and the
-    /// rest: [workers, others].
+    /// Units lost within `FIELD_NEAR` tiles of a gold mine (where they stood the tick before), workers and the rest:
+    /// [workers, others].
     pub lost_near_field: [u32; 2],
     /// Which half of the map the seat started in: its headquarters south of the middle row.
     pub south: bool,
-    /// At each of `ECON_AT`'s minutes the game reached: its bank [shards, ether] and what it had mined so far.
+    /// At each of `ECON_AT`'s minutes the game reached: its bank and what it had mined so far (`[gold, 0]`).
     pub econ: Vec<Econ>,
     /// The first tick its places (population or grid) came within `AT_MAX_SLACK` of their maximum (`World::sup_max`;
     /// None: never).
@@ -260,15 +261,15 @@ pub const ECON_AT: [u32; 6] = [2, 3, 5, 8, 10, 15];
 /// Places this many short of their maximum are at it (a unit takes up to a few places).
 pub const AT_MAX_SLACK: i32 = 2;
 
-/// The tick of the Pumps' count: 5:00.
-pub const PUMPS_AT: u32 = 5 * 60 * TPS;
+/// The tick of the paying buildings' count (`World::payers`): 5:00.
+pub const PAYERS_AT: u32 = 5 * 60 * TPS;
 
 /// A unit within this many tiles of an enemy building: its wave reached the other side.
 pub const WAVE_REACH: f64 = 8.0;
 /// Ticks between the samples of where units stand (deep water).
 pub const SAMPLE: u32 = 15;
-/// A unit lost within this many tiles of a crystal's or a vent's middle was lost at a field (a worker's reach and a
-/// little more: at 8 tiles it was most of the Shore's open ground).
+/// A unit lost within this many tiles of a gold mine's middle was lost at a field (a worker's reach and a little more:
+/// at 8 tiles it was most of the Shore's open ground).
 pub const FIELD_NEAR: f64 = 4.0;
 
 /// What stands, by id: (id, seat, kind index, a building, finished, x, y).
@@ -283,8 +284,9 @@ pub struct GameRec {
     pub end_tick: u32,
     /// The first tick something of one seat was hit by the other.
     pub first_attack: Option<u32>,
-    /// The finished Pumps each seat held at 5:00 (None: the game ended before; PRD: the conversion, the snowball check).
-    pub pumps_at_5: Option<[u32; 2]>,
+    /// The finished buildings that pay by themselves (Markets, Wind turbines: `World::payers`) each seat held at 5:00
+    /// (None: the game ended before; PRD: the conversion, the snowball check).
+    pub payers_at_5: Option<[u32; 2]>,
     pub seats: [SeatRec; 2],
     /// The mines on the map, and the ticks those that ran dry did, in order.
     pub mines: usize,
@@ -323,12 +325,12 @@ fn route(w: &World, foot: Foot, a: (i32, i32), b: (i32, i32)) -> Option<f64> {
     (p.last().map(|q| m.tile_of(q.x, q.y)) == Some(to)).then_some(len / 32.0)
 }
 
-/// What a game's record watches between ticks, read-only: what stands (by id), and the Pumps at 5:00.
+/// What a game's record watches between ticks, read-only: what stands (by id), and the paying buildings at 5:00.
 pub struct Tracker {
     /// What there was after the last tick, by id: (id, seat, kind index, a building, finished).
     known: Vec<Seen>,
     pub first_attack: Option<u32>,
-    pub pumps_at_5: Option<[u32; 2]>,
+    pub payers_at_5: Option<[u32; 2]>,
     pub seats: [SeatRec; 2],
     /// Each seat's wave out (and whether it has reached yet).
     wave_out: [Option<bool>; 2],
@@ -375,7 +377,6 @@ impl Tracker {
             w.map
                 .nodes
                 .iter()
-                .filter(|n| !n.ether)
                 .min_by(|a, b| {
                     (a.x - x)
                         .hypot(a.y - y)
@@ -387,7 +388,7 @@ impl Tracker {
         Tracker {
             known: standing(w),
             first_attack: None,
-            pumps_at_5: None,
+            payers_at_5: None,
             seats,
             wave_out: [None; 2],
             mines_dry: vec![],
@@ -402,8 +403,8 @@ impl Tracker {
         {
             self.first_attack = Some(tick);
         }
-        if tick == PUMPS_AT {
-            self.pumps_at_5 = Some([0, 1].map(|s| w.pumps(s) as u32));
+        if tick == PAYERS_AT {
+            self.payers_at_5 = Some([0, 1].map(|s| w.payers(s) as u32));
         }
         for (s, rec) in self.seats.iter_mut().enumerate() {
             rec.peak_supply = rec.peak_supply.max(w.supply[s][0]);
@@ -488,7 +489,7 @@ impl Tracker {
             }
         }
         if tick.is_multiple_of(SAMPLE) {
-            for n in w.map.nodes.iter().filter(|n| !n.ether && n.amount <= 0) {
+            for n in w.map.nodes.iter().filter(|n| n.amount <= 0) {
                 if !self.mines_dry.iter().any(|d| d.0 == n.id) {
                     self.mines_dry.push((n.id, tick));
                     for (s, rec) in self.seats.iter_mut().enumerate() {
@@ -610,15 +611,15 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
         watch.observe(&w);
         w.events.clear();
     }
-    let (first_attack, pumps_at_5) = (track.first_attack, track.pumps_at_5);
-    let mines = w.map.nodes.iter().filter(|n| !n.ether).count();
+    let (first_attack, payers_at_5) = (track.first_attack, track.payers_at_5);
+    let mines = w.map.nodes.len();
     let mines_dry = track.mines_dry.iter().map(|d| d.1).collect();
     GameRec {
         seed,
         winner: (w.winner >= 0).then_some(w.winner as usize),
         end_tick: tick,
         first_attack,
-        pumps_at_5,
+        payers_at_5,
         seats: track.finish(&w),
         mines,
         mines_dry,
@@ -669,7 +670,7 @@ mod tests {
     use endfall_sim::data::{BldgKind, UnitKind};
 
     #[test]
-    fn a_unit_lost_beside_a_crystal_or_a_vent_counts_at_a_field_and_one_lost_far_off_does_not() {
+    fn a_unit_lost_beside_a_gold_mine_counts_at_a_field_and_one_lost_far_off_does_not() {
         let mut w = World::new(1, 1);
         w.disable_ai();
         let n = &w.map.nodes[0];
@@ -701,7 +702,7 @@ mod tests {
         assert_eq!(
             seats[0].lost_near_field,
             [1, 1],
-            "a worker and a trooper, each within 4 tiles"
+            "a worker and a Guard, each within 4 tiles"
         );
         assert_eq!(
             seats[1].lost_near_field,
@@ -745,9 +746,9 @@ mod tests {
         assert_eq!(
             (s.units_built[h], s.units_lost[h]),
             (1, 1),
-            "a trooper trained and lost"
+            "a Guard trained and lost"
         );
-        assert_eq!(s.bldgs_built[d], 1, "one depot finished");
+        assert_eq!(s.bldgs_built[d], 1, "one Cottage finished");
         assert_eq!(
             s.bldgs_lost[d], 1,
             "one destroyed (the cancelled site is not lost)"

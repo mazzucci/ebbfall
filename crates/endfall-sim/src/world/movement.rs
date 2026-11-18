@@ -211,7 +211,7 @@ impl World {
             let mv = self.live_speed(uid) * dt;
             let u = self.u(uid);
             let (nx, ny) = (u.x + (p.0 - u.x) / d * mv, u.y + (p.1 - u.y) / d * mv);
-            // (a machine keeps to its coverage here too: no route there is no licence to leave it)
+            // (a machine keeps to its coverage here too: no route there is no license to leave it)
             if self.map.passable(
                 self.foot(u.kind),
                 jsmath::to_i32(nx / TILE),

@@ -554,7 +554,7 @@ pub(crate) struct Brain {
     rally: Pt,
     building: Vec<BldgKind>,
     /// Its finished Markets.
-    pumps: usize,
+    payers: usize,
     cores: Vec<Id>,
     want: Option<BldgKind>,
     expand: bool,

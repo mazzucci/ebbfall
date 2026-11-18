@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn a_report_is_the_same_bytes_whatever_the_threads() {
-        // A tiny batch: one cell (Humans vs Vael, Easy, 64x64), two seeds, a three-minute cap.
+        // A tiny batch: one cell (Kingdom vs Expedition, Easy, 64x64), two seeds, a three-minute cap.
         let batch = Batch {
             sizes: vec![64],
             maps: vec![MapKind::Standard],

@@ -57,7 +57,7 @@ fn every_map_has_one_mine_per_field_holding_the_fields_gold() {
                 assert_eq!(fields.len(), w.map.nodes.len(), "{ctx}: one mine per field");
                 for m in &w.map.nodes {
                     assert!(
-                        !m.ether && m.s == MINE_SIZE,
+                        m.s == MINE_SIZE,
                         "{ctx}: mine {} is a {}x{} mine",
                         m.id,
                         m.s,
@@ -725,7 +725,7 @@ fn workers_at_a_mine_that_runs_dry_go_on_to_the_nearest_mine_with_gold() {
         .map
         .nodes
         .iter()
-        .filter(|n| n.id != mine && !n.ether && n.amount > 0)
+        .filter(|n| n.id != mine && n.amount > 0)
         .map(|n| ((n.x - mx).hypot(n.y - my), n.id))
         .min_by(|a, b| a.partial_cmp(b).unwrap())
         .filter(|&(d, _)| d < 900.0)

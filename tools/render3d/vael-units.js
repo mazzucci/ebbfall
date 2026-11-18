@@ -1,10 +1,10 @@
 // An older Expedition unit look (STYLE.md, "Vael units"): pale pearl on an ink core, one small deeplight each. Two
-// remain: `needle` (a sickle; a fitTints reference, main.js) and `tender` (a round cup of petals: the Halo, a healer
-// the sim keeps but trains nowhere). `glint` stays in vael2.js. Same conventions: game units, units face +x, y up, +z
-// south; everything hovers, the shadow beneath says how high.
+// remain: `needle` (a sickle; a fitTints reference, main.js) and `tender` (a round cup of petals: the Medic, `halo`, a
+// healer the sim keeps but trains nowhere). `glint` stays in vael2.js. Same conventions: game units, units face +x, y
+// up, +z south; everything hovers, the shadow beneath says how high.
 import * as THREE from 'three';
 import { grp, add, cyl, sph, plate, limb } from './models.js';
-import { lathe, coil } from './vael.js';
+import { lathe } from './vael.js';
 import { deeplight } from './vael2.js';
 import { VP } from './vael-palette.js';
 

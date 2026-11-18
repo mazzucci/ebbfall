@@ -6,7 +6,7 @@
 // tools/art/retheme-ground.mjs; the build step gives these the game's names (shard_k_v, doodad_*, foundation_n, ...).
 import * as THREE from 'three';
 import { grp, add, rbox, cyl, sph, limb } from './models.js';
-import { torus, cone } from './vael.js';
+import { torus } from './vael.js';
 import { ashlarTex, ashlarBump, earthTex } from './kingdom.js';
 import { polishTextures } from './polish.js';
 
@@ -286,13 +286,6 @@ function ladder(g, x, z0, z1, y1, timber) {
   for (const dx of [-1.3, 1.3]) limb(g, [x + dx, 0.2, z0], [x + dx, y1, z1], 0.4, timber);
   const n = Math.floor(y1 / 3); for (let k = 1; k <= n; k++) { const t = k / (n + 0.5); add(g, rbox(3.0, 0.5, 0.5, 0.15), timber, x, y1 * t, z0 + (z1 - z0) * t); }
 }
-/** A team cloth hung from the top ledger on the north side, facing the camera (round 1's on the east side was
- *  edge-on from the south and gave no share), `len` long along x, `h` tall, between two ink hems. */
-function hungCloth(g, M, x, y, z, len, h) {
-  add(g, rbox(len, h, 0.5, 0.15), M.cloth === M.paintCanvas ? M.cloth : M.paintCloth, x, y, z);   // (the kingdom's team cloth, or the Expedition's team canvas: makeMats' plain `cloth` is the Harbour's dark one)
-  add(g, rbox(len + 0.2, 0.6, 0.6, 0.1), M.inkLine, x, y + h / 2 + 0.2, z);
-  add(g, rbox(len + 0.2, 0.6, 0.6, 0.1), M.inkLine, x, y - h / 2 - 0.2, z);
-}
 /** A team pennant on a pole's top (the art polish: 8 x 4.6, a flag; the hung banner went). */
 function pennant(g, M, x, y, z) {
   add(g, rbox(8, 4.6, 0.5, 0.1), M.cloth === M.paintCanvas ? M.cloth : M.paintCloth, x + 4.1, y + 2.4, z);
@@ -413,4 +406,3 @@ export function rubbleEx(n, E) {
   return g;
 }
 export const RT_SITES = { kg: { foundation: foundationKg, scaffold: scaffoldKg, rubble: rubbleKg }, ex: { foundation: foundationEx, gantry: gantryEx, gantrybar: gantryBarEx, rubble: rubbleEx } };
-void cone;

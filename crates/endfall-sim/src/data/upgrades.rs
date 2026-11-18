@@ -33,14 +33,15 @@ pub enum Effect {
     Weapons,
     /// Each level adds 1 armor to every unit.
     Armor,
-    /// Each level soaks 1 damage of every hit that lands on shields (at least 1 still lands): the Vael's armor.
+    /// Each level soaks 1 damage of every hit that lands on shields (at least 1 still lands): a shielded people's
+    /// armor.
     Shields,
     /// Researched, the ability can be used (until then its button is locked).
     Unlock(AbilityKind),
     /// Researched, these unit kinds move `TECH_SPEED` times as fast.
     Speed(&'static [UnitKind]),
     /// Researched, this side's buildings go up `TECH_BUILD` times as fast (sites already rising too). An economy
-    /// tech: a Human builder mines nothing while it builds.
+    /// tech: a Kingdom builder mines nothing while it builds.
     BuildSpeed,
     /// Each level, its workers carry more gold a trip (`DRILL_LOAD`).
     MineLoad,

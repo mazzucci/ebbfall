@@ -200,7 +200,7 @@ mod tests {
         let mut u = || r.next_u32() as f64 / 4_294_967_296.0;
         let (mut x, mut y) = (Vec::new(), Vec::new());
         for _ in 0..4000 {
-            // (a roughly normal feature: the sum of four uniforms, centred and scaled)
+            // (a roughly normal feature: the sum of four uniforms, centered and scaled)
             let mut n = || ((0..4).map(|_| u()).sum::<f64>() - 2.0) * 1.7;
             let row = vec![1.0, n(), n(), n()];
             let p = predict(&truth, &row);

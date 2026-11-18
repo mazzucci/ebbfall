@@ -8,9 +8,9 @@ pub fn wilson(k: usize, n: usize) -> (f64, f64) {
     let z = 1.959_963_984_540_054;
     let (n, p) = (n as f64, k as f64 / n as f64);
     let z2 = z * z;
-    let centre = (p + z2 / (2.0 * n)) / (1.0 + z2 / n);
+    let center = (p + z2 / (2.0 * n)) / (1.0 + z2 / n);
     let half = z * (p * (1.0 - p) / n + z2 / (4.0 * n * n)).sqrt() / (1.0 + z2 / n);
-    ((centre - half).max(0.0), (centre + half).min(1.0))
+    ((center - half).max(0.0), (center + half).min(1.0))
 }
 
 /// The `q` quantile (0 to 1) of `xs` by linear interpolation between order statistics (the common "type 7"

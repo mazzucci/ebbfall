@@ -8,7 +8,7 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
-# Tests keep debug assertions and overflow checks but run optimised: the AI and duel scenarios simulate whole
+# Tests keep debug assertions and overflow checks but run optimized: the AI and duel scenarios simulate whole
 # games, which take minutes unoptimised. (Floats are IEEE either way, so the golden hashes do not move.)
 [profile.test]
 opt-level = 2

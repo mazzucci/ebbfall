@@ -92,10 +92,10 @@ impl World {
         })
     }
 
-    /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (the Humans')
-    /// on land only, an Amph builder (the Vael's) on land and shallows; nobody in deep water. With the tide, against
-    /// the level that matters: a Walk builder on what is land at high water (it stays dry), an Amph builder on what
-    /// is at most shallow at low water (every Vael building can be reached on foot at some low tide).
+    /// Whether `team` may build on tile (x, y)'s ground: its builders' class decides. A Walk builder (both peoples') on
+    /// land only, an Amph builder (none since the re-theme) on land and shallows; nobody in deep water. With the tide,
+    /// against the level that matters: a Walk builder on what is land at high water (it stays dry), an Amph builder on
+    /// what is at most shallow at low water (every such building can be reached on foot at some low tide).
     pub fn builds_on(&self, team: u8, x: i32, y: i32) -> bool {
         let amph = self.factions[team as usize].worker.def().mv == Move::Amph;
         let water = match (&self.tide, amph) {
@@ -283,10 +283,9 @@ impl World {
     }
 
     /// A building's rally point, kept on the map (an order may carry any finite number: a point far off it would make
-    /// NaN of the new units' way out, `exit_tile`); on a gold mine, its new workers mine there (a mine shaft, none since
-    /// the re-theme, is never mined: a rally on one is a plain point).
+    /// NaN of the new units' way out, `exit_tile`); on a gold mine, its new workers mine there.
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
-        let node = node.filter(|&n| self.map.node(n).is_some_and(|n| !n.ether));
+        let node = node.filter(|&n| self.map.node(n).is_some());
         let (x, y) = (self.map.clamp_x(x), self.map.clamp_y(y));
         if let Some(b) = self.bm(bid)
             && !b.kind.def().trains.is_empty()
@@ -406,11 +405,7 @@ impl World {
         if !u.kind.def().worker {
             return false;
         }
-        // A node that is gone was a depleted field; the gather update retargets from there. (No map has a shaft since
-        // the re-theme's economy: nothing there to mine.)
-        if self.map.node(node).is_some_and(|n| n.ether) {
-            return false;
-        }
+        // A node that is gone was a depleted field; the gather update retargets from there.
         self.release_mine(uid);
         let u = self.um(uid);
         u.last_node = Some(node);

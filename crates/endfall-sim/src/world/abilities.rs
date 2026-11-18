@@ -169,10 +169,10 @@ impl World {
         Upgrade::unlocking(ability).is_none_or(|up| self.upgrades[team as usize][up.index()] > 0)
     }
     /// Extra reach in tiles (its toggle's, while on), or None while settling in or packing up (no firing then), and for a siege
-    /// gun on its tracks with no light gun.
+    /// gun on its tracks (no gun there).
     pub(crate) fn reach_add(&self, uid: Id) -> Option<f64> {
         let u = self.u(uid);
-        if u.swap > 0.0 || (u.mode.is_none() && u.kind.siege() && u.kind.def().light.is_none()) {
+        if u.swap > 0.0 || (u.mode.is_none() && u.kind.siege()) {
             return None;
         }
         Some(match u.mode.map(|k| k.def().effect) {

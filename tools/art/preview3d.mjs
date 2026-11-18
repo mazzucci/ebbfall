@@ -1,5 +1,5 @@
-// Contact sheet of 3D-rendered sprites on a ground-coloured background: node tools/art/preview3d.mjs out.png [regex] [scale] [seats]
-// Team-coloured sprites are shown once per seat in `seats` (comma-separated, default 0,1: their mask tinted with the seat's
+// Contact sheet of 3D-rendered sprites on a ground-colored background: node tools/art/preview3d.mjs out.png [regex] [scale] [seats]
+// Team-colored sprites are shown once per seat in `seats` (comma-separated, default 0,1: their mask tinted with the seat's
 // fitted tint over the neutral render, as the game draws them); `m` in the list shows the bare mask.
 import { writeFileSync } from 'node:fs';
 import { encodePNG } from './png.js';

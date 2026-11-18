@@ -25,8 +25,8 @@ impl World {
             .map_or((x, y), |b| (b.x, b.y))
     }
 
-    /// Our finished Markets (they pay by themselves).
-    pub fn pumps(&self, e: u8) -> usize {
+    /// Our finished buildings that pay by themselves (Markets, Wind turbines).
+    pub fn payers(&self, e: u8) -> usize {
         self.bldgs
             .iter()
             .filter(|b| b.team == e && b.done && b.kind.def().pays > 0.0)
@@ -49,7 +49,7 @@ impl World {
                 }
             }
         }
-        brain.pumps = self.pumps(self.seat());
+        brain.payers = self.payers(self.seat());
     }
 
     /// Every mine near home dry (its idle workers would stand there for good): the nearest mine with gold to (x, y)
@@ -72,7 +72,7 @@ impl World {
         self.map
             .nodes
             .iter()
-            .filter(|n| !n.ether && n.amount > 0 && near(n, true) < near(n, false))
+            .filter(|n| n.amount > 0 && near(n, true) < near(n, false))
             .min_by(|a, b| {
                 dist(a.x, a.y, x, y)
                     .total_cmp(&dist(b.x, b.y, x, y))

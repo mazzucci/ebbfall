@@ -441,7 +441,7 @@ fn brutal_worker_loss_probe() {
             total[k] += n;
         }
         println!(
-            "seed {seed}: winner {:?} at {:.0} s; Riggers gone by 4:00 {}, 7:00 {}, end {}",
+            "seed {seed}: winner {:?} at {:.0} s; Villagers gone by 4:00 {}, 7:00 {}, end {}",
             w.winner, w.time, gone[0], gone[1], gone[2]
         );
     }
@@ -459,13 +459,13 @@ fn brutal_worker_loss_probe() {
         })
         .collect();
     top.sort_by_key(|t| std::cmp::Reverse(t.0));
-    println!("the Humans' losses by killer: {top:?}");
+    println!("the Kingdom's losses by killer: {top:?}");
 }
 
 #[test]
 #[ignore]
 fn human_mirror_grind_probe() {
-    // The Human Medium mirror on 96x96 (the lab's timeouts): each minute, each seat's army supply, workers, Cores,
+    // The Kingdom's Medium mirror on 96x96 (the lab's timeouts): each minute, each seat's army supply, workers, Cores,
     // towers, units lost and killed, and banked gold.
     use endfall_sim::map::MapSize;
     let seeds: Vec<u32> = std::env::var("PROBE_SEEDS")

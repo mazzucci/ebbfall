@@ -274,7 +274,7 @@ fn at_the_warning_a_mining_worker_goes_ashore_and_an_attack_move_keeps_its_order
         p == 2 && left <= warn + 3
     });
     assert!(!w.tide.as_ref().unwrap().warned);
-    let node = w.map.nodes.iter().find(|n| !n.ether).unwrap().id;
+    let node = w.map.nodes.iter().find(|n| !n.vent).unwrap().id;
     let miner = w.make_unit(HUMANS.worker, 0, px(31.0), px(20.0));
     let _ = w.apply(0, &Command::Gather { unit: miner, node });
     let raider = w.make_unit(UnitKind::Trooper, 0, px(32.0), px(24.0));

@@ -98,7 +98,7 @@ test('a fresh game has two cores, eight harvesters and resource nodes', { skip }
   assert.ok(E.G.units.every(u => u.task.t === 'gather' && u.task.node && u.task.node.kind === 'node'));
 });
 
-test('harvesters bring shards home and entity objects keep their identity', { skip }, () => {
+test('harvesters bring gold home and entity objects keep their identity', { skip }, () => {
   E.resetGame(777, 1);
   const first = E.G.units[0];
   runSeconds(60);
@@ -120,7 +120,7 @@ test('the same seed and orders produce the same state hash', { skip }, () => {
   assert.equal(play(), play());
 });
 
-test('placing a depot costs 100 shards and a harvester builds it', { skip }, () => {
+test('placing a depot costs 100 gold and a harvester builds it', { skip }, () => {
   E.resetGame(99, 0);
   E.setResources(E.PLAYER, 500, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER);
@@ -210,7 +210,6 @@ test('a Market, built in the base once the Barracks stands, earns gold by itself
   E.setResources(E.PLAYER, 1000, 0);
   const core = E.G.bldgs.find(b => b.team === E.PLAYER && b.type === 'core');
   const hs = E.G.units.filter(u => u.team === E.PLAYER);
-  assert.equal(E.map.nodes.filter(n => n.type === 'ether').length, 0, 'no mine shaft on the map');
   const spot = (type) => {
     for (let r = 4; r < 12; r++) for (let a = 0; a < 16; a++) {
       const tx = Math.round(core.tx + 1 + Math.cos(a / 16 * 6.28) * r), ty = Math.round(core.ty + 1 + Math.sin(a / 16 * 6.28) * r);
@@ -340,12 +339,12 @@ test('a room\'s RANDOM seat is drawn from its seed and seat: the same on every c
   assert.deepEqual(seen.map(s => s.size), [keys.length, keys.length], 'each seat draws every race over many rooms');
   assert.ok([...Array(50).keys()].some(seed => { const [x, y] = E.seatRaces(['random', 'random'], seed + 1, keys); return x !== y; }), 'the seats draw apart');
   assert.deepEqual(E.seatRaces(['vael', 'humans'], 7, keys), ['vael', 'humans'], 'a chosen race stays');
-  // Both seats' games: the same factions, the drawn ones (never a silent Humans).
+  // Both seats' games: the same factions, the drawn ones (never a silent Kingdom).
   const vael = [...Array(100).keys()].map(i => i + 1).find(seed => E.seatRaces(['humans', 'random'], seed, keys)[1] === 'vael');
   const factions = [0, 1].map(me => { E.resetGameForSeat(4242, 0, 0, E.seatRaces(['humans', 'random'], vael, keys), me); return E.G.factions.slice(); });
   assert.deepEqual(factions, [['humans', 'vael'], ['humans', 'vael']]);
-  assert.throws(() => E.resetGameForSeat(4242, 0, 0, ['humans', 'random'], 0), /drawn first/, 'an undrawn RANDOM is not taken for the Humans');
-  assert.throws(() => E.resetGame(4, 0, 0, 0, 'random'), /no race random/, 'a single player\'s RANDOM is drawn by the menu, not taken for the Humans');
+  assert.throws(() => E.resetGameForSeat(4242, 0, 0, ['humans', 'random'], 0), /drawn first/, 'an undrawn RANDOM is not taken for the Kingdom');
+  assert.throws(() => E.resetGame(4, 0, 0, 0, 'random'), /no race random/, 'a single player\'s RANDOM is drawn by the menu, not taken for the Kingdom');
 });
 
 test('a game for any number of seats takes a setup it can play and refuses the rest', { skip }, () => {

@@ -51,7 +51,7 @@ export const PHRASES = {
  *   apart, a few ms late); none: one voice;
  * - `radio`: a field radio ({ lo, hi } its band in Hz, `drive` its clipping (0: none), `squelch` [key down, key up]
  *   levels, `bed` its hiss); otherwise `hp` (Hz: no rumble under the voice), `shimmer` ({ f, level }: a quiet
- *   high-passed copy, the crystal in a Vael voice) and `room` ([[delay s, level]]: a few short reflections, no
+ *   high-passed copy, the crystal in an Expedition voice) and `room` ([[delay s, level]]: a few short reflections, no
  *   feedback, so no long tail);
  * - `gain`: the level out, set so every style is about as loud as the others (test/e2e/voice.e2e.mjs measures it).
  */
@@ -72,7 +72,7 @@ const VAEL = {
   warm: { pitch: 118, rate: 0.95, vib: 0.4, tone: 2600, fa: [1.2, 1, 0.65], hp: 200, room: [[0.021, 0.05]], gain: 1.18 },
   // C, airy: a unison double (6 cents apart, 5 ms late, the breath on the first only), a light shimmer, short and dry.
   airy: { pitch: 124, rate: 1.0, vib: 0.4, tone: 4800, hp: 220, voices: [{ vol: 0.7 }, { mul: 2 ** (6 / 1200), vol: 0.6, delay: 0.005, breath: 0 }], shimmer: { f: 3200, level: 0.25 }, room: [[0.023, 0.05]], gain: 1.4 },
-  // D, the device's own voice: another voice than the Humans' where there is one, higher and a little slower.
+  // D, the device's own voice: another voice than the Kingdom's where there is one, higher and a little slower.
   device: { device: { race: 'vael', pitch: 1.2, rate: 0.95 }, fallback: 'vael' },
 };
 export const STYLES = {

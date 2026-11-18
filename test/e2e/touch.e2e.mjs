@@ -203,7 +203,7 @@ test('phone: dragging the minimap nudges the view from where the finger lands; a
     // A tap jumps the view there.
     await d.tapAt(mm.x + mm.width * 0.8, mm.y + mm.height * 0.2);
     const v = await d.eval(() => { const c = endfall.cam, r = document.getElementById('game').getBoundingClientRect(); return { cx: c.x + r.width / 2 / c.zoom, cy: c.y + r.height / 2 / c.zoom }; });
-    assert.ok(Math.abs(v.cx - 0.8 * WW) < 200, `tap centres the view: ${v.cx.toFixed(0)} vs ${(0.8 * WW).toFixed(0)}`);
+    assert.ok(Math.abs(v.cx - 0.8 * WW) < 200, `tap centers the view: ${v.cx.toFixed(0)} vs ${(0.8 * WW).toFixed(0)}`);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

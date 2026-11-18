@@ -243,7 +243,7 @@ pub fn check_invariants(w: &World, ctx: &str) {
             unreachable!()
         };
         assert!(
-            u.kind.def().worker && w.map.node(node).is_some_and(|n| !n.ether && n.amount >= 0),
+            u.kind.def().worker && w.map.node(node).is_some_and(|n| n.amount >= 0),
             "{ctx}: unit {} inside node {node}",
             u.id
         );

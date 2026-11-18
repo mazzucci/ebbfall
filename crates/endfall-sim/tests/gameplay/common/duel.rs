@@ -212,7 +212,7 @@ pub fn duel_with(a: &[UnitKind], b: &[UnitKind], budget: f64, micro: Micro) -> f
 }
 
 /// `raiders` raid a mineral line of 8 mining harvesters (hunting harvesters like the AI's raiders), guarded by
-/// `turrets` and `lancers` (the Crew Hall's anti-air since Roster v2: the Picket cannot shoot up); returns (harvesters
+/// `turrets` and `lancers` (Archers, the Barracks' anti-air); returns (harvesters
 /// lost, raiders lost) after 40 s.
 pub fn raid(raiders: usize, turrets: usize, lancers: usize) -> (usize, usize) {
     raid_on(7, raiders, turrets, lancers)
@@ -227,7 +227,6 @@ pub fn raid_on(seed: u32, raiders: usize, turrets: usize, lancers: usize) -> (us
         .map
         .nodes
         .iter()
-        .filter(|n| !n.ether)
         .min_by_key(|n| (n.tx - cx).pow(2) + (n.ty - cy).pow(2))
         .unwrap();
     let (nx, ny, nid) = (node.x, node.y, node.id);

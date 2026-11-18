@@ -54,8 +54,8 @@ impl Rate {
     }
 }
 
-/// The seat whose wins a cell's rate counts: Humans in Humans vs Vael, the higher level on the ladder and in Hard's
-/// cross cells, the first seat in a mirror.
+/// The seat whose wins a cell's rate counts: the Kingdom in the Kingdom vs the Expedition, the higher level on the
+/// ladder and in Hard's cross cells, the first seat in a mirror.
 fn rate_seat(c: &Cell, seat: usize) -> bool {
     match c.kind {
         Kind::Ladder | Kind::Cross => c.levels[seat] > c.levels[1 - seat],
@@ -67,7 +67,7 @@ fn rate_of(c: &Cell) -> String {
     match c.kind {
         Kind::Ladder | Kind::Cross => format!("{} wins", LEVELS[c.levels[0].max(c.levels[1])]),
         Kind::Level if c.mirror() => "first seat wins".into(),
-        Kind::Level => "Humans win".into(),
+        Kind::Level => "Kingdom wins".into(),
     }
 }
 pub fn cell_rate(c: &Cell, games: &[GameRec]) -> Rate {
@@ -122,16 +122,6 @@ pub struct GateRow {
     pub pass: bool,
 }
 
-/// The ratio of shards to ether in `pairs`, the median over games (a seat-game with no ether left out).
-fn ratio_median(pairs: &[[i64; 2]]) -> Option<f64> {
-    let r: Vec<f64> = pairs
-        .iter()
-        .filter(|p| p[1] > 0)
-        .map(|p| p[0] as f64 / p[1] as f64)
-        .collect();
-    median(&r)
-}
-
 pub struct Report {
     pub commit: String,
     pub batch: Batch,
@@ -155,10 +145,10 @@ impl Report {
             .zip(&self.games)
             .filter(move |(c, _)| f(c))
     }
-    /// Humans vs Vael at `level`, both seat orders and every map pooled (None: every level).
-    fn humans_vs_vael(&self, level: Option<usize>) -> Rate {
+    /// The Kingdom vs the Expedition at `level`, both seat orders and every map pooled (None: every level).
+    fn kingdom_vs_expedition(&self, level: Option<usize>) -> Rate {
         let mut r = Rate {
-            of: "Humans win".into(),
+            of: "Kingdom wins".into(),
             k: 0,
             n: 0,
         };
@@ -174,10 +164,10 @@ impl Report {
         }
         r
     }
-    /// Humans vs Vael at `level` on `size`, both seat orders and every classic map pooled.
-    fn humans_vs_vael_at(&self, level: usize, size: i32) -> Rate {
+    /// The Kingdom vs the Expedition at `level` on `size`, both seat orders and every classic map pooled.
+    fn kingdom_vs_expedition_at(&self, level: usize, size: i32) -> Rate {
         let mut r = Rate {
-            of: "Humans win".into(),
+            of: "Kingdom wins".into(),
             k: 0,
             n: 0,
         };
@@ -281,32 +271,14 @@ impl Report {
         l.dedup();
         l
     }
-    /// (seat-games' mined, spent) for `race` on (size, map), or everywhere.
-    fn ledgers(
-        &self,
-        race: Option<usize>,
-        at: Option<(i32, endfall_sim::map::MapKind)>,
-    ) -> (Vec<[i64; 2]>, Vec<[i64; 2]>) {
-        let (mut mined, mut spent) = (Vec::new(), Vec::new());
-        for (c, games) in self.level_cells(|c| at.is_none_or(|(s, m)| c.size == s && c.map == m)) {
-            for g in games {
-                for s in 0..2 {
-                    if race.is_none_or(|r| c.races[s] == r) {
-                        mined.push(g.seats[s].mined);
-                        spent.push(g.seats[s].spent);
-                    }
-                }
-            }
-        }
-        (mined, spent)
-    }
-    /// Of the decided games (level cells, classic maps) whose seats held different numbers of Pumps at 5:00, those
-    /// the seat with more won (PRD: the conversion, the snowball check: +10% income won about 75% of such games).
-    pub fn pumps_rate(&self) -> Rate {
+    /// Of the decided games (every map but the Shore) whose seats held different numbers of paying buildings
+    /// (Markets, Wind turbines: `World::payers`) at 5:00, those the seat with more won (PRD: the conversion, the
+    /// snowball check: +10% income won about 75% of such games).
+    pub fn payers_rate(&self) -> Rate {
         let (mut k, mut n) = (0, 0);
         for (_, games) in self.level_cells(classic) {
             for g in games {
-                if let (Some(w), Some(p)) = (g.winner, g.pumps_at_5)
+                if let (Some(w), Some(p)) = (g.winner, g.payers_at_5)
                     && p[0] != p[1]
                 {
                     n += 1;
@@ -315,17 +287,10 @@ impl Report {
             }
         }
         Rate {
-            of: "more Pumps at 5:00".into(),
+            of: "more Markets/turbines at 5:00".into(),
             k,
             n,
         }
-    }
-    pub fn shards_per_ether(&self) -> Option<f64> {
-        let mined: Vec<[i64; 2]> = self
-            .level_cells(classic)
-            .flat_map(|(_, games)| games.iter().flat_map(|g| g.seats.iter().map(|s| s.mined)))
-            .collect();
-        ratio_median(&mined)
     }
     fn timeouts(&self) -> (usize, usize) {
         let all: Vec<&GameRec> = self
@@ -373,7 +338,7 @@ impl Report {
         // aimed (Stelian, Nov 13). Easy is reported in the tables, not gated (a PRD is coming).
         for &l in self.batch.levels.iter().filter(|&&l| l > 0) {
             for &size in &self.batch.sizes {
-                let r = self.humans_vs_vael_at(l, size);
+                let r = self.kingdom_vs_expedition_at(l, size);
                 if r.n == 0 {
                     continue;
                 }
@@ -508,7 +473,7 @@ impl Report {
 
     /// The Balance reports database's fields, in its order.
     pub fn key_figures(&self, checks: &[Check]) -> Vec<(&'static str, String)> {
-        let hv = self.humans_vs_vael(None);
+        let hv = self.kingdom_vs_expedition(None);
         let dev = self
             .level_cells(|c| classic(c) && c.kind == Kind::Level && c.mirror())
             .map(|(c, g)| cell_rate(c, g))
@@ -527,7 +492,7 @@ impl Report {
         };
         vec![
             (
-                "Humans win % vs Vael",
+                "Kingdom win % vs Expedition",
                 num((hv.n > 0).then(|| hv.p() * 100.0), 1),
             ),
             ("Mirror max deviation %", num(Some(dev), 1)),
@@ -546,8 +511,10 @@ impl Report {
                 "Median length Medium (min)",
                 num(self.level_length(1, None).0.map(|s| s / 60.0), 1),
             ),
-            ("Observed shards per ether", num(self.shards_per_ether(), 2)),
-            ("More Pumps at 5:00 won", self.pumps_rate().show()),
+            (
+                "More Markets/turbines at 5:00 won",
+                self.payers_rate().show(),
+            ),
             (
                 "Timeouts %",
                 num((n > 0).then(|| t as f64 * 100.0 / n as f64), 1),
@@ -606,23 +573,6 @@ impl Report {
             .zip(&self.games)
             .map(|(c, g)| cell_json(c, g))
             .collect();
-        let mut exchange = Vec::new();
-        for &size in &b.sizes {
-            for &map in &b.maps {
-                for (r, f) in FACTIONS.iter().enumerate() {
-                    let (mined, spent) = self.ledgers(Some(r), Some((size, map)));
-                    exchange.push(
-                        Json::obj()
-                            .with("race", f.name)
-                            .with("size", size)
-                            .with("map", format!("{map:?}"))
-                            .with("games", mined.len())
-                            .with("mined_shards_per_ether", ratio_median(&mined))
-                            .with("spent_shards_per_ether", ratio_median(&spent)),
-                    );
-                }
-            }
-        }
         let checks = self.checks();
         let key = self
             .key_figures(&checks)
@@ -635,9 +585,8 @@ impl Report {
             .with("length_band_min", vec![self.band.0, self.band.1])
             .with("key", key)
             .with("checks", checks.iter().map(Check::json).collect::<Vec<_>>())
-            .with("exchange", exchange)
             .with("shore_income", self.shore_income_json())
-            .with("pumps_at_5", self.pumps_rate().json())
+            .with("payers_at_5", self.payers_rate().json())
             .with("length_bins", self.length_bins_json())
             .with("top_tier", self.top_tier_json())
             .with("styles", self.style_json())
@@ -714,7 +663,7 @@ impl Report {
                 let _ = writeln!(s, "\n## {size}x{size} {map:?}\n");
                 let _ = writeln!(
                     s,
-                    "| Cell | Games | Win rate (95%) | Timeouts | Length, median (IQR) | First attack | Pumps at 5:00, mean (seat 1 / 2) |"
+                    "| Cell | Games | Win rate (95%) | Timeouts | Length, median (IQR) | First attack | Markets/turbines at 5:00, mean (seat 1 / 2) |"
                 );
                 let _ = writeln!(s, "| --- | --- | --- | --- | --- | --- | --- |");
                 for (c, g) in self.level_cells(|c| c.size == size && c.map == map) {
@@ -735,25 +684,8 @@ impl Report {
                         mmss(q1.unwrap_or(f64::NAN)),
                         mmss(q3.unwrap_or(f64::NAN)),
                         mmss(median(&fa).unwrap_or(f64::NAN)),
-                        pumps_mean(g)
+                        payers_mean(g)
                             .map_or("—".into(), |m| format!("{:.1} / {:.1}", m[0], m[1])),
-                    );
-                }
-                let _ = writeln!(
-                    s,
-                    "\n| Race | Mined shards per ether | Spent shards per ether | Seat-games |"
-                );
-                let _ = writeln!(s, "| --- | --- | --- | --- |");
-                for (r, f) in FACTIONS.iter().enumerate() {
-                    let (mined, spent) = self.ledgers(Some(r), Some((size, map)));
-                    let n2 = |v: Option<f64>| v.map_or("—".into(), |v| format!("{v:.2}"));
-                    let _ = writeln!(
-                        s,
-                        "| {} | {} | {} | {} |",
-                        f.name,
-                        n2(ratio_median(&mined)),
-                        n2(ratio_median(&spent)),
-                        mined.len()
                     );
                 }
                 let _ = writeln!(
@@ -1034,9 +966,9 @@ fn mix<'a>(
         .collect()
 }
 
-/// The mean finished Pumps each seat held at 5:00, over the games that reached it.
-fn pumps_mean(games: &[GameRec]) -> Option<[f64; 2]> {
-    let at: Vec<[u32; 2]> = games.iter().filter_map(|g| g.pumps_at_5).collect();
+/// The mean finished paying buildings (Markets, Wind turbines) each seat held at 5:00, over the games that reached it.
+fn payers_mean(games: &[GameRec]) -> Option<[f64; 2]> {
+    let at: Vec<[u32; 2]> = games.iter().filter_map(|g| g.payers_at_5).collect();
     (!at.is_empty())
         .then(|| [0, 1].map(|s| at.iter().map(|p| p[s] as f64).sum::<f64>() / at.len() as f64))
 }
@@ -1093,8 +1025,8 @@ fn cell_json(c: &Cell, games: &[GameRec]) -> Json {
         )
         .with("first_attack_s", median(&fa))
         .with(
-            "pumps_at_5_mean",
-            pumps_mean(games).map(|m| vec![m[0], m[1]]),
+            "payers_at_5_mean",
+            payers_mean(games).map(|m| vec![m[0], m[1]]),
         )
         .with(
             "mix",
@@ -1142,8 +1074,8 @@ fn game_json(g: &GameRec) -> Json {
                 "bldgs_cancelled",
                 kinds_json(&s.bldgs_cancelled, |i| BLDG_KINDS[i].def().key),
             )
-            .with("mined", vec![s.mined[0], s.mined[1]])
-            .with("spent", vec![s.spent[0], s.spent[1]])
+            .with("gold_mined", s.mined[0])
+            .with("gold_spent", s.spent[0])
             .with("peak_supply", s.peak_supply)
             .with(
                 "stats",
@@ -1171,8 +1103,8 @@ fn game_json(g: &GameRec) -> Json {
                     .map(|(e, m)| {
                         Json::obj()
                             .with("min", m)
-                            .with("bank", vec![e.bank[0] as i64, e.bank[1] as i64])
-                            .with("mined", vec![e.mined[0], e.mined[1]])
+                            .with("gold_bank", e.bank[0] as i64)
+                            .with("gold_mined", e.mined[0])
                     })
                     .collect::<Vec<_>>(),
             )
@@ -1199,7 +1131,7 @@ fn game_json(g: &GameRec) -> Json {
         .with("winner", g.winner)
         .with("end_tick", g.end_tick)
         .with("first_attack_tick", g.first_attack)
-        .with("pumps_at_5", g.pumps_at_5.map(|p| vec![p[0], p[1]]))
+        .with("payers_at_5", g.payers_at_5.map(|p| vec![p[0], p[1]]))
         .with("seats", vec![seat(&g.seats[0]), seat(&g.seats[1])])
         .with("mines", g.mines)
         .with("mines_dry_ticks", g.mines_dry.clone())
@@ -1217,18 +1149,18 @@ fn game_json(g: &GameRec) -> Json {
 }
 
 /// The Shore map's part of the report (the gate of the PRD "Stage 1a, the Shore map"): each people's win rate from
-/// each half of the map, the AI's waves (launched, and reaching the other side), the Vael's ground units' time in deep
-/// water, the routes between the starts, and the gate's rows.
+/// each half of the map, the AI's waves (launched, and reaching the other side), the Expedition's ground units' time in
+/// deep water, the routes between the starts, and the gate's rows.
 impl Report {
     fn shore_cells(&self) -> impl Iterator<Item = (&Cell, &Vec<GameRec>)> {
         self.level_cells(|c| c.map == endfall_sim::map::MapKind::Shore)
     }
 
-    /// Each people's income and losses at fields in the Humans-vs-Vael Shore games at `level` (None: every level),
-    /// per minute of play (timeouts too): [shards a minute, ether a minute, workers lost a minute, workers lost at a
-    /// field a game, other units lost at a field a game], and the games. Indexed by race.
-    fn shore_income(&self, level: Option<usize>) -> [([f64; 5], usize); 2] {
-        let mut sum = [[0f64; 5]; 2];
+    /// Each people's income and losses at fields in the Kingdom-vs-Expedition Shore games at `level` (None: every
+    /// level), per minute of play (timeouts too): [gold a minute, workers lost a minute, workers lost at a field a
+    /// game, other units lost at a field a game], and the games. Indexed by race.
+    fn shore_income(&self, level: Option<usize>) -> [([f64; 4], usize); 2] {
+        let mut sum = [[0f64; 4]; 2];
         let (mut minutes, mut games) = (0.0, 0usize);
         for (c, gs) in self.shore_cells().filter(|(c, _)| {
             c.kind == Kind::Level && !c.mirror() && level.is_none_or(|l| c.levels[0] == l)
@@ -1246,17 +1178,16 @@ impl Report {
                         .map(|(_, n)| n)
                         .sum();
                     sum[r][0] += s.mined[0] as f64;
-                    sum[r][1] += s.mined[1] as f64;
-                    sum[r][2] += workers as f64;
-                    sum[r][3] += s.lost_near_field[0] as f64;
-                    sum[r][4] += s.lost_near_field[1] as f64;
+                    sum[r][1] += workers as f64;
+                    sum[r][2] += s.lost_near_field[0] as f64;
+                    sum[r][3] += s.lost_near_field[1] as f64;
                 }
             }
         }
-        let per = |v: [f64; 5]| {
+        let per = |v: [f64; 4]| {
             let m = minutes.max(f64::MIN_POSITIVE);
             let n = games.max(1) as f64;
-            [v[0] / m, v[1] / m, v[2] / m, v[3] / n, v[4] / n]
+            [v[0] / m, v[1] / m, v[2] / n, v[3] / n]
         };
         [(per(sum[0]), games), (per(sum[1]), games)]
     }
@@ -1281,18 +1212,17 @@ impl Report {
                             .with("level", l.map_or("all", |l| LEVELS[l]))
                             .with("race", FACTIONS[r].name)
                             .with("games", n)
-                            .with("shards_per_min", v[0])
-                            .with("ether_per_min", v[1])
-                            .with("workers_lost_per_min", v[2])
-                            .with("workers_lost_at_fields_per_game", v[3])
-                            .with("others_lost_at_fields_per_game", v[4])
+                            .with("gold_per_min", v[0])
+                            .with("workers_lost_per_min", v[1])
+                            .with("workers_lost_at_fields_per_game", v[2])
+                            .with("others_lost_at_fields_per_game", v[3])
                     })
             })
             .collect();
         Some(Json::from(rows))
     }
 
-    /// Humans-vs-Vael Shore games at `level` (None: every level): (race, south) -> wins of decided.
+    /// The Kingdom-vs-Expedition Shore games at `level` (None: every level): (race, south) -> wins of decided.
     fn shore_halves(&self, level: Option<usize>) -> Vec<(usize, bool, Rate)> {
         let mut out = Vec::new();
         for (race, faction) in FACTIONS.iter().enumerate() {
@@ -1334,11 +1264,11 @@ impl Report {
         // Each people from each half, at each level and pooled.
         let _ = writeln!(
             s,
-            "Each people's win rate from each half of the map (Humans against Vael, both seat orders):\n"
+            "Each people's win rate from each half of the map (the Kingdom against the Expedition, both seat orders):\n"
         );
         let _ = writeln!(
             s,
-            "| Level | Humans from the south | Humans from the north | Vael from the south | Vael from the north |"
+            "| Level | Kingdom from the south | Kingdom from the north | Expedition from the south | Expedition from the north |"
         );
         let _ = writeln!(s, "| --- | --- | --- | --- | --- |");
         let levels: Vec<Option<usize>> = self
@@ -1363,26 +1293,25 @@ impl Report {
         // Income and losses at fields.
         let _ = writeln!(
             s,
-            "\nEach people's income and its losses at fields (Humans against Vael, both seat orders; per minute of play, timeouts too; at a field: within {} tiles of a crystal or a vent):\n",
+            "\nEach people's income and its losses at fields (the Kingdom against the Expedition, both seat orders; per minute of play, timeouts too; at a field: within {} tiles of a gold mine):\n",
             crate::batch::FIELD_NEAR
         );
         let _ = writeln!(
             s,
-            "| Level | People | Shards a minute | Ether a minute | Workers lost a minute | Workers lost at a field, a game | Others lost at a field, a game |"
+            "| Level | People | Gold a minute | Workers lost a minute | Workers lost at a field, a game | Others lost at a field, a game |"
         );
-        let _ = writeln!(s, "| --- | --- | --- | --- | --- | --- | --- |");
+        let _ = writeln!(s, "| --- | --- | --- | --- | --- | --- |");
         for l in self.batch.levels.iter().map(|&l| Some(l)).chain([None]) {
             for (r, (v, _)) in self.shore_income(l).into_iter().enumerate() {
                 let _ = writeln!(
                     s,
-                    "| {} | {} | {:.0} | {:.1} | {:.2} | {:.1} | {:.1} |",
+                    "| {} | {} | {:.0} | {:.2} | {:.1} | {:.1} |",
                     l.map_or("all", |l| LEVELS[l]),
                     FACTIONS[r].name,
                     v[0],
                     v[1],
                     v[2],
-                    v[3],
-                    v[4]
+                    v[3]
                 );
             }
         }
@@ -1393,7 +1322,7 @@ impl Report {
         );
         let _ = writeln!(
             s,
-            "| Level | Humans' waves | reached | Vael waves | reached |"
+            "| Level | Kingdom waves | reached | Expedition waves | reached |"
         );
         let _ = writeln!(s, "| --- | --- | --- | --- | --- |");
         let pct = |a: u32, b: u32| {
@@ -1418,17 +1347,17 @@ impl Report {
         if let Some(d) = self.shore_deep() {
             let _ = writeln!(
                 s,
-                "\nThe Vael army (workers left out) spent {:.1}% of its time in deep water.",
+                "\nThe Expedition army (workers left out) spent {:.1}% of its time in deep water.",
                 d * 100.0
             );
         }
-        // Routes per seed (Humans against Vael: a Human cove and a Vael basin; the map is point-symmetric, so the
-        // other seat order's routes are the same).
+        // Routes per seed (the Kingdom against the Expedition, between the two starts' headquarters; the map is
+        // point-symmetric, so the other seat order's routes are the same).
         let _ = writeln!(
             s,
-            "\nRoutes between the Human cove and the Vael basin, per seed (tiles; walkers cannot cross deep water):\n"
+            "\nRoutes between the two starts, per seed (tiles; walkers cannot cross deep water):\n"
         );
-        let _ = writeln!(s, "| Seed | Humans (Walk) | Vael (Amph) |");
+        let _ = writeln!(s, "| Seed | Walk | Amph |");
         let _ = writeln!(s, "| --- | --- | --- |");
         if let Some((_, games)) = self.shore_level_cells().find(|(c, _)| c.races == [0, 1]) {
             for g in games {
@@ -1480,7 +1409,7 @@ impl Report {
         w
     }
 
-    /// The Vael army's share of its ground samples in deep water.
+    /// The Expedition army's share of its ground samples in deep water.
     fn shore_deep(&self) -> Option<f64> {
         let mut deep = [0u64; 2];
         for (c, games) in self.shore_level_cells() {
@@ -1564,12 +1493,12 @@ impl Report {
                 .iter()
                 .filter(|(_, _, r)| r.n > 0)
                 .min_by(|a, b| a.2.p().total_cmp(&b.2.p()));
-            let pooled = self.humans_vs_vael_on(Some(1), endfall_sim::map::MapKind::Shore);
+            let pooled = self.kingdom_vs_expedition_on(Some(1), endfall_sim::map::MapKind::Shore);
             out.push(GateRow {
                 name: "Each people from either half, Medium",
-                target: "at least 40%; Humans pooled 45–55%".into(),
+                target: "at least 40%; Kingdom pooled 45–55%".into(),
                 measured: format!(
-                    "the lowest: {}; Humans pooled {}",
+                    "the lowest: {}; Kingdom pooled {}",
                     low.map_or("—".into(), |(_, _, r)| format!("{} {}", r.of, r.show())),
                     pooled.show()
                 ),
@@ -1629,10 +1558,14 @@ impl Report {
         out
     }
 
-    /// Humans vs Vael on one map kind at `level` (None: every level), both seat orders pooled.
-    fn humans_vs_vael_on(&self, level: Option<usize>, map: endfall_sim::map::MapKind) -> Rate {
+    /// The Kingdom vs the Expedition on one map kind at `level` (None: every level), both seat orders pooled.
+    fn kingdom_vs_expedition_on(
+        &self,
+        level: Option<usize>,
+        map: endfall_sim::map::MapKind,
+    ) -> Rate {
         let mut r = Rate {
-            of: "Humans win".into(),
+            of: "Kingdom wins".into(),
             k: 0,
             n: 0,
         };
@@ -1681,7 +1614,7 @@ impl Report {
             return String::new();
         }
         let mut s = format!(
-            "\n## The waves\n\nEach level against itself, every size, by map and the attacking people: when a wave arrived (a unit within {} tiles of an enemy building), its value near that unit (within the same tiles) over the defence's there (armed units and armed buildings within {} tiles of that unit; shards plus ether at 1.5), its result (the value of what fell near its units over what it lost while out), and where it lost its units.\n\n{}",
+            "\n## The waves\n\nEach level against itself, every size, by map and the attacking people: when a wave arrived (a unit within {} tiles of an enemy building), its value near that unit (within the same tiles) over the defense's there (armed units and armed buildings within {} tiles of that unit; in gold), its result (the value of what fell near its units over what it lost while out), and where it lost its units.\n\n{}",
             crate::waves::REACH,
             crate::waves::REACH,
             crate::waves::TABLE_HEAD

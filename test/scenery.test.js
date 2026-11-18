@@ -80,6 +80,6 @@ test('a ground prop stays inside its clear 3x3 cell', () => {
   for (const name of DOODADS.ground) {
     const f = frames[`doodad_${name}`], w = f.frame.w / 2, h = f.frame.h / 2; // the atlas is drawn at 2x
     const reach = Math.max(w * f.anchor.x, w * (1 - f.anchor.x), h * f.anchor.y, h * (1 - f.anchor.y)) + JITTER.ground;
-    assert.ok(reach <= TILE * 1.5, `${name} reaches ${reach} px from its tile centre`);
+    assert.ok(reach <= TILE * 1.5, `${name} reaches ${reach} px from its tile center`);
   }
 });

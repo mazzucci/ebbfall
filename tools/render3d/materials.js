@@ -98,7 +98,7 @@ const burlapTex = canvasTex(64, (g, n) => { g.fillStyle = '#cfc8b4'; g.fillRect(
  *  tints with the seat's color (Notion: Ebbfall art); scaffolds and rubble keep the gold that was seat 0's (GOLD; seat 0
  *  is blue since the re-theme, and the new ground art replaces these). */
 export const NEUTRAL = { paint: 0xffffff, light: 0xffffff }, GOLD = { paint: 0xd98a1f, light: 0xffc65a };
-/** Mark a material as team-coloured: its share of the team mask (1 paint; lamps less, so they read as a pale tint). */
+/** Mark a material as team-colored: its share of the team mask (1 paint; lamps less, so they read as a pale tint). */
 export const team = (m, w = 1) => { m.userData.team = w; return m; };
 export const LAMP_MASK = 0.4;
 

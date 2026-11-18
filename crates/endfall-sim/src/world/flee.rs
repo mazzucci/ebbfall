@@ -163,8 +163,7 @@ impl World {
                 });
             let calm = if threatened { 0.0 } else { calm + 8.0 * dt };
             if calm >= CALM {
-                // Back to work, as after any interrupted order: its field, or the nearest (a lost refinery's vent sends
-                // it to shards).
+                // Back to work, as after any interrupted order: its mine, or the nearest.
                 if let Some(n) = node {
                     self.um(uid).last_node = Some(n);
                 }

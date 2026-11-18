@@ -92,7 +92,7 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
             assert!(
                 m.nodes
                     .iter()
-                    .any(|o| o.ether == n.ether && (o.tx, o.ty) == image((n.tx, n.ty), s)),
+                    .any(|o| o.vent == n.vent && (o.tx, o.ty) == image((n.tx, n.ty), s)),
                 "seed {seed}: a field's image"
             );
             // Mines on land or shallows, never in deep water.
@@ -139,14 +139,14 @@ fn the_shore_map_has_coves_reefs_and_a_sea_alike_for_both_starts() {
                 );
             }
         }
-        // Each cove and each basin holds a field within reach of its headquarters and no vent (the shafts lie out in
-        // the open, on land: maps.rs).
+        // Each cove and each basin holds a field within reach of its headquarters and no vent (no map keeps a mine
+        // shaft: maps.rs).
         for b in m.bases.iter().chain(&m.basins) {
-            let near = |ether: bool, r: f64| {
+            let near = |vent: bool, r: f64| {
                 m.nodes
                     .iter()
                     .filter(|n| {
-                        n.ether == ether
+                        n.vent == vent
                             && ((n.tx as f64 - mid(*b).0).powi(2)
                                 + (n.ty as f64 - mid(*b).1).powi(2))
                             .sqrt()
@@ -299,10 +299,10 @@ fn a_walker_sent_out_to_sea_stops_on_the_nearest_shore() {
 
 #[test]
 fn both_ais_finish_games_on_the_shore_from_either_half_at_every_level() {
-    // Humans against the Vael at each level, each people from each start: every game ends within 40 minutes (as the
-    // re-theme's roster test: two full armies at the population cap can trade for a while on Brutal). (Easy left out:
-    // its waves grow by one at a time after 12:00, clumsy for good (Stelian, Nov 13), and on the Shore an Easy game may
-    // run on for hours.)
+    // the Kingdom against the Expedition at each level, each people from each start: every game ends within 40 minutes
+    // (as the re-theme's roster test: two full armies at the population cap can trade for a while on Brutal). (Easy
+    // left out: its waves grow by one at a time after 12:00, clumsy for good (Stelian, Nov 13), and on the Shore an
+    // Easy game may run on for hours.)
     for diff in 1..4 {
         for (races, seed) in [
             ([&HUMANS, &VAEL], 1 + diff as u32),
@@ -454,7 +454,7 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
             .map
             .nodes
             .iter()
-            .filter(|n| n.ether)
+            .filter(|n| n.vent)
             .filter(|n| ((n.tx as f64 - c.0).powi(2) + (n.ty as f64 - c.1).powi(2)).sqrt() < 10.5)
             .map(|n| (n.tx, n.ty))
             .collect();
@@ -468,7 +468,7 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
             w.map
                 .nodes
                 .iter()
-                .filter(|n| !n.ether && n.field == f)
+                .filter(|n| n.field == f)
                 .map(|n| (n.tx, n.ty))
                 .collect()
         };
@@ -546,7 +546,7 @@ fn a_basins_field_moves_only_where_the_lab_asks() {
                 .map
                 .nodes
                 .iter()
-                .map(|n| (n.tx, n.ty, n.ether, n.s))
+                .map(|n| (n.tx, n.ty, n.vent, n.s))
                 .collect();
             let (mw, mh) = (w.map.w, w.map.h);
             for &(x, y, e, s) in &all {

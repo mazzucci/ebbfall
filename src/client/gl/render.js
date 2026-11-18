@@ -162,7 +162,7 @@ const sheet = { animations: Object.fromEntries(Object.entries(index.animations).
 const FACINGS = index.facings || 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
 const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFrom(t.defaultAnchor || { x: 0.5, y: 0.5 }); } };
-/** A team-coloured sprite is two: the neutral art and its team mask (`name_m`) over it in the seat's color. Effects
+/** A team-colored sprite is two: the neutral art and its team mask (`name_m`) over it in the seat's color. Effects
  *  (tint, alpha) go to both, the mask's tint multiplied into the seat's. (Below 1 alpha the paint reads a little more
  *  solid than the rest: two layers.) */
 const teamSprite = (parent) => { const body = new Sprite(), paint = new Sprite(); parent.addChild(body, paint); return [body, paint]; };
@@ -798,7 +798,7 @@ function updateFogImage() {
   fogCtx.putImageData(fogImg, 0, 0); fogTex.source.update();
 }
 
-/** A health bar (green to red); `sh/maxsh`: a pale shield bar just above it (the Vael). */
+/** A health bar (green to red); `sh/maxsh`: a pale shield bar just above it (none since the re-theme). */
 function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
   if (maxsh > 0) { bars.rect(x, y - 4, w, 4).fill({ color: 0x000000, alpha: 0.65 }); bars.rect(x + 1, y - 3, (w - 2) * Math.max(0, sh / maxsh), 2).fill(0xcfe6ff); } // (2 px: readable on a phone)
   const f = Math.max(0, hp / max);
@@ -1056,7 +1056,7 @@ function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
 const MINE_MARK = 0xe6e0d3;
-/** Color of a target: a gold mine pale (style.css --shard), a building to work on amber. */
+/** Color of a target: a gold mine pale (style.css --gold), a building to work on amber. */
 const targetColor = (e) => e.kind === 'node' ? MINE_MARK : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }

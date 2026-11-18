@@ -55,13 +55,10 @@ const stat = (ico, v, bonus, title) => `<span class="st" title="${title}" aria-l
 function fightStats(x) {
   const up = G.upgrades[x.team], bonus = (UP_DMG[x.type] || 0) * effectLevel(up, 'weapons');
   let h = '';
-  const wp = x.d.weapon, light = x.d.light;
-  if (light) { // a siege gun: both guns, the one it fires now first (Deployed, or the light gun on its tracks)
-    const guns = [[wp, bonus, 'Settled: splash gun damage against ground'], [light, (light.upDmg || 0) * effectLevel(up, 'weapons'), 'On the move: light gun damage against ground']];
-    for (const [g, b, t] of x.mode ? guns : guns.reverse()) h += stat('dmg', g.dmg, b, t);
-  } else if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
+  const wp = x.d.weapon;
+  if (wp?.dmg && !x.d.worker) h += stat('dmg', wp.dmg, bonus, 'Damage against ground');
   if (wp?.dmgAir) h += stat('air', wp.dmgAir, bonus, 'Damage against flyers');
-  if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends nacre, then hull (per second)' : 'Heals infantry (per second)');
+  if (x.d.heal) h += stat('heal', x.d.heal, 0, x.d.mend ? 'Mends shields, then hull (per second)' : 'Heals infantry (per second)');
   h += stat('armor', x.d.armor || 0, x.kind === 'unit' ? effectLevel(up, 'armor') : 0, 'Armor');
   return h;
 }
@@ -84,8 +81,8 @@ function renderSelection() {
   const sel = ui.sel, info = $('info'), name = $('selName'), sub = $('selSub'), mod = $('mod'), grp = $('group');
   const life = (f, cur, max, color = '', sh = 0, maxsh = 0) => { // (small phones drop the "/max")
     $('life').hidden = false; $('hpFill').style.width = (f * 100) + '%'; $('hpFill').style.background = color;
-    $('shBar').hidden = !maxsh; if (maxsh) $('shFill').style.width = (sh / maxsh * 100) + '%'; // the Vael's shields, over the hull
-    // The Vael: one figure, hull and shields together (the two bars still show which is which).
+    $('shBar').hidden = !maxsh; if (maxsh) $('shFill').style.width = (sh / maxsh * 100) + '%'; // shields, over the hull (none since the re-theme)
+    // A shielded unit: one figure, hull and shields together (the two bars still show which is which).
     const [c, m] = maxsh ? [cur + Math.round(sh), max + maxsh] : [cur, max];
     const t = m ? `${c}<span class="mx">/${m}</span>` : String(c); if ($('hpNum').innerHTML !== t) $('hpNum').innerHTML = t;
   };
@@ -108,7 +105,7 @@ function renderSelection() {
     named(ore[0].toUpperCase() + ore.slice(1) + ' mine');
     if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
     sub.textContent = n.amount > 0 ? `${n.amount} ${ore} left` : `Empty: no ${ore} left`;
-    life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--shard)');
+    life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--gold)');
     // (our own miners inside it now, of the most our workers fit: "Miners 5 / 8"; the arc's UPDATE 6)
     const inside = G.units.filter(u => u.team === G.me && u.inside && u.task.node === n).length, cap = UNITS[myFaction().worker].mineCap;
     module('node' + inside, `<span class="st" title="Miners inside it now, of the most it fits" aria-label="Miners ${inside} of ${cap}">${portrait('unit', myFaction().worker, 22)}<b>Miners ${inside} / ${cap}</b></span>`);

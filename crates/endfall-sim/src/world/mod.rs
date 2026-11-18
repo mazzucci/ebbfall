@@ -328,8 +328,9 @@ impl World {
         let ring = std::mem::take(&mut self.map.bases);
         let order = crate::map::team_starts(starts, &self.teams, self.side);
         self.map.bases = order.iter().map(|&i| ring[i]).collect();
-        // Starts by people (the Shore map): a seat whose builders are amphibious (the Vael) starts in its start's reef
-        // basin, the others in its cove; the start a seat does not use stays open ground with its field.
+        // Starts by people (the Shore map): a seat whose builders are amphibious (none since the re-theme) starts in
+        // its start's reef basin, the others in its cove; the start a seat does not use stays open ground with its
+        // field.
         let basins = std::mem::take(&mut self.map.basins);
         if !basins.is_empty() {
             self.map.basins = order.iter().map(|&i| basins[i]).collect();
@@ -795,8 +796,8 @@ impl World {
             }
             mix(jsmath::to_i32(b.progress * 1024.0));
             mix(b.queue.len() as i32);
-            if b.pumped > 0.0 {
-                mix(jsmath::to_i32(b.pumped * 1024.0) + 1);
+            if b.earned > 0.0 {
+                mix(jsmath::to_i32(b.earned * 1024.0) + 1);
             }
             if let Some((up, p)) = b.research {
                 mix(up.index() as i32 + 1);

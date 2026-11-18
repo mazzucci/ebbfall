@@ -150,7 +150,7 @@ const SFX = {
     noise(b, t, { dur: 0.16, vol: 0.06, filter: 'lowpass', f: 600, to: 200 }); tone(b, t + 0.05, { f: 140, to: 90, dur: 0.18, type: 'square', vol: 0.03 });
     tone(b, t + 0.15, { f: 75, to: 45, dur: 0.35, type: 'sine', vol: 0.08 });
   },
-  // The Vael: glass and ceramic instead of powder and steel.
+  // The Expedition: glass and ceramic instead of powder and steel.
   lance: (b, t) => { tone(b, t, { f: 2400, to: 1300, dur: 0.12, type: 'sine', vol: 0.035 }); tone(b, t, { f: 3600, to: 1950, dur: 0.09, type: 'triangle', vol: 0.015 }); },
   slam: (b, t) => { tone(b, t, { f: 90, to: 55, dur: 0.35, type: 'sine', vol: 0.13 }); tone(b, t + 0.01, { f: 660, to: 520, dur: 0.3, type: 'triangle', vol: 0.025 }); noise(b, t, { dur: 0.12, vol: 0.04, filter: 'lowpass', f: 700 }); },
   blade: (b, t) => { noise(b, t, { dur: 0.07, vol: 0.035, filter: 'bandpass', f: 3200, to: 1400, q: 4 }); tone(b, t + 0.02, { f: 1500, to: 1100, dur: 0.06, type: 'sine', vol: 0.015 }); },

@@ -154,14 +154,13 @@ impl World {
         kind.def().weapon.map_or((false, false), |w| w.hits())
     }
 
-    /// The weapon unit `uid` fires now: a siege gun's light gun while its toggle is off, else its weapon.
+    /// The weapon unit `uid` fires now: its weapon, none for a siege gun while its toggle is off (on its tracks).
     pub(crate) fn active_weapon(&self, uid: Id) -> Option<Weapon> {
         let u = self.unit(uid)?;
-        let d = u.kind.def();
         if u.mode.is_none() && u.kind.siege() {
-            d.light
+            None
         } else {
-            d.weapon
+            u.kind.def().weapon
         }
     }
 
@@ -498,10 +497,10 @@ impl World {
         }
     }
 
-    /// A Medic heals the most hurt friendly infantry within 2.5 tiles that no other healer tended this tick (so two
-    /// Medics tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
-    /// allies it can see. A Tender (`mend`) does the same for any ally, within 3 tiles: its nacre (shields) first,
-    /// then its hull (nobody has nacre since the re-theme: shields are data).
+    /// A Healer heals the most hurt friendly infantry within 2.5 tiles that no other healer tended this tick (so two
+    /// Healers tend two patients rather than doubling up on one); when idle with nobody in range it walks toward hurt
+    /// allies it can see. A Medic (`mend`) does the same for any ally, within 3 tiles: its shields first, then its
+    /// hull (nobody has shields since the re-theme: shields are data).
     pub(crate) fn medic(&mut self, uid: Id, dt: f64) {
         let (mx, my, team, heal, mend, sight, idle) = {
             let u = self.u(uid);
@@ -638,9 +637,8 @@ impl World {
         }
     }
     /// Idle: wait, and go for an enemy that comes into sight. Hold: shoot what comes into range, never move. A siege gun
-    /// with nothing to fight on its tracks (the Cannon: no light gun) deploys where it stops (no order does it): it
-    /// packs up again only when it has to move. One with a light gun (none since the re-theme) settles only where it
-    /// fights, or where it is told to hold.
+    /// (the Cannon, no gun on its tracks) deploys where it stops (no order does it): it packs up again only when it
+    /// has to move.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
         if !hold && self.radio_idle_check(uid, dt) {
             return; // (the Drone idle beyond its leash backs off inside its range)
@@ -899,10 +897,9 @@ impl World {
     }
 
     /// A siege gun's attack: on the move it closes to its deployed `reach` of the target (px, its radius counted) and
-    /// deploys there, its light gun (if it has one) firing at the target once in that gun's reach; deployed, it never
-    /// walks: it fires at the target while it is between its blind ring and its reach and seen, else takes the best
-    /// other one there, else goes back to what it was doing (packing up for it) or, sent at this target, holds. On its
-    /// tracks, a target inside its blind ring is fought with the light gun (given up without one).
+    /// deploys there (no gun on its tracks); deployed, it never walks: it fires at the target while it is between its
+    /// blind ring and its reach and seen, else takes the best other one there, else goes back to what it was doing
+    /// (packing up for it) or, sent at this target, holds. On its tracks, a target inside its blind ring is given up.
     #[allow(clippy::too_many_arguments)]
     fn siege_attack(
         &mut self,
@@ -926,37 +923,26 @@ impl World {
             if in_band && self.deploy(uid) {
                 return;
             }
-            // In its band but it may not set up (its toggle not ready: `can_cast`): with a light gun it fights on its
-            // tracks, closing to that gun's reach; without one it waits where it is.
-            let held_off = in_band;
-            if held_off && c.range <= 0.0 {
+            // In its band but it may not set up (its toggle not ready: `can_cast`): it waits where it is (no gun on its
+            // tracks).
+            if in_band {
                 return;
             }
-            if d < c.min && c.range <= 0.0 {
-                // (too close to set up for, and no light gun: given up)
+            if d < c.min {
+                // (too close to set up for: given up)
                 match back {
                     Some(b) => self.resume_back(uid, b),
                     None => self.set_idle(uid),
                 }
                 return;
             }
-            // On its tracks it closes in (in reach but out of its side's sight: on until its own eyes see it), and its
-            // light gun fires at the target once in its reach: on the way, or at one too close to set up for.
-            let light = c.range + c.r * 0.5;
-            let close = if d < c.min || held_off {
-                light
-            } else if d < reach {
+            // On its tracks it closes in (in reach but out of its side's sight: on until its own eyes see it).
+            let close = if d < reach {
                 c.sight * TILE * 0.8
             } else {
                 reach - TILE * 0.5
             };
             self.approach(uid, t, close, dt);
-            if c.range > 0.0 && d <= light && self.u(uid).cd <= 0.0 {
-                let (cx, cy) = t.center();
-                let u = self.um(uid);
-                u.face = jsmath::atan2(cy - u.y, cx - u.x);
-                self.fire(uid, target);
-            }
             return;
         }
         if in_band {

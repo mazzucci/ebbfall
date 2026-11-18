@@ -52,7 +52,8 @@ export const MAPS = [
   { name: 'Sunken Court', seed: 9, kind: 3, size: 128 },
   { name: 'Gray Warrens', seed: 2, kind: 4, size: 128 },
   { name: 'Random', random: true, size: 128 },
-  // (the Shore map: two starts, 64x64; a Human seat starts in its cove, a Vael seat in its reef basin; a random Shore
+  // (the Shore map: two starts, 64x64; a seat starts in its cove (an amphibious one, none since the re-theme, in its
+  // reef basin); a random Shore
   // keeps its character and draws only its seed)
   { name: 'Mirror Lake', seed: 1, kind: 6, size: 64, line: SHORE_LINE },
   { name: 'Random Lake', random: true, kind: 6, size: 64, line: SHORE_LINE },

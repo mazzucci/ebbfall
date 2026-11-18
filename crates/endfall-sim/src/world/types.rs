@@ -58,7 +58,7 @@ pub(crate) struct Live {
     /// A siege gun's reach once deployed (px, plus its radius), deployed or not: where it sets up. None otherwise.
     pub siege: Option<f64>,
     /// A deployed siege gun's blind ring (px; it also fires only on what its side sees): `find_target`'s for the gun
-    /// it fires now. None for every other shooter, a siege gun on its tracks (its light gun) included.
+    /// it fires now. None for every other shooter, a siege gun on its tracks included.
     pub ring: Option<f64>,
     pub combat: bool,
     pub team: u8,
@@ -250,10 +250,10 @@ pub struct Bldg {
     pub aim: f64,
     /// Upgrade being researched here and its progress (0..1).
     pub research: Option<(Upgrade, f64)>,
-    /// Fractions of shards and ether owed for repairs, charged a whole unit at a time.
+    /// Fractions of gold owed for repairs, charged a whole unit at a time (the second slot, a second resource once, 0).
     pub repair_debt: [f64; 2],
-    /// A Pump's salt earned and not yet banked (below 1: `World::pump` banks whole salt).
-    pub pumped: f64,
+    /// A paying building's gold earned and not yet banked (below 1: `World::pay_out` banks whole gold).
+    pub earned: f64,
 }
 
 impl Bldg {
@@ -381,9 +381,9 @@ pub struct Stats {
     pub razed: u32,
 }
 
-/// A seat's resources since the game began, `[shards, ether]`: mined (delivered to a drop-off) and spent (paid out,
-/// less refunds); and its construction sites cancelled, by building kind (`BLDG_KINDS`). For the balance lab
-/// (crates/endfall-lab); not world state (derived, not hashed, read by no rule).
+/// A seat's gold since the game began (`[gold, 0]`: the second slot, a second resource once, stays 0): mined (delivered
+/// to a drop-off) and spent (paid out, less refunds); and its construction sites cancelled, by building kind
+/// (`BLDG_KINDS`). For the balance lab (crates/endfall-lab); not world state (derived, not hashed, read by no rule).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Ledger {
     pub mined: [i64; 2],

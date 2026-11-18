@@ -281,7 +281,7 @@ fn trained_over(w: &mut World, e: u8, secs: u32) -> (usize, usize) {
 }
 
 /// The Archers `e` has and has queued (the anti-air answer adds them; the mix trains one per Guard anyway).
-fn harpooners(w: &World, e: u8) -> usize {
+fn archers(w: &World, e: u8) -> usize {
     count(w, e, UnitKind::Lancer)
         + w.bldgs
             .iter()
@@ -307,11 +307,11 @@ fn the_ai_only_reacts_to_flyers_it_has_seen() {
     for &r in &raiders {
         w.hold_unit(r);
         let u = w.units.iter_mut().find(|u| u.id == r).unwrap();
-        (u.hp, u.maxhp) = (1e9, 1e9); // (they stay to be answered: the mix's Harpooners would shoot them down)
+        (u.hp, u.maxhp) = (1e9, 1e9); // (they stay to be answered: the mix's Archers would shoot them down)
     }
     run(&mut control, 40);
     run(&mut w, 40);
-    let (had, base) = (harpooners(&w, ENEMY), harpooners(&control, ENEMY));
+    let (had, base) = (archers(&w, ENEMY), archers(&control, ENEMY));
     assert!(
         had <= base + 1,
         "none for a flyer it cannot see: {had} against {base} without it"
@@ -1004,7 +1004,7 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
             }
             assert!(
                 w.over && w.winner == ENEMY as i32,
-                "diff {diff} seed {seed}: the Vael AI won"
+                "diff {diff} seed {seed}: the Expedition AI won"
             );
             // (a Substation once its grid fills: a quick win may never need one)
             let kinds: &[BldgKind] = if grid_full {
@@ -1027,7 +1027,7 @@ fn the_vael_ai_builds_its_base_and_beats_an_idle_player() {
                 !w.bldgs
                     .iter()
                     .any(|b| b.team == ENEMY && HUMANS.builds(b.kind)),
-                "only Vael buildings"
+                "only Expedition buildings"
             );
         }
     }
@@ -1167,7 +1167,8 @@ fn the_kingdom_ai_raises_its_market_early_then_the_stables_one_market_a_castle()
 fn the_ai_finds_room_for_its_factories_in_a_walled_main() {
     // (Medium seeds and maps where the AI once fell behind its factory schedule, a main pocket full. Where a pocket
     // fills up depends on the world's random draws, which both AIs share: with the two vents 38 stood in for 44, and
-    // with the Human AI's Factory 44 is back, 38's Vael pocket filling with its Power buildings before 6:00, as 44's had)
+    // with the Kingdom AI's Factory 44 is back, 38's Expedition pocket filling with its Power buildings before 6:00, as
+    // 44's had)
     for (seed, kind, races) in [
         (3, MapKind::Standard, [&HUMANS, &VAEL]),
         (21, MapKind::Labyrinth, [&VAEL, &HUMANS]),
@@ -1351,9 +1352,9 @@ fn each_level_trains_only_its_own_mix() {
 }
 
 #[test]
-fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
-    // The balance follow-ups (`Diff::mix_over`): at Brutal an Anchor Gun per four Pickets from 4:00, at every other level
-    // the race's own entry (per six from 5:30); the Vael's mix is the same at every level.
+fn brutal_brings_the_kingdoms_cannons_sooner_and_more_of_them() {
+    // The balance follow-ups (`Diff::mix_over`): at Brutal a Cannon per four Guards from 4:00, at every other level the
+    // race's own entry (per six from 5:30); the Expedition's mix is the same at every level.
     use UnitKind::*;
     let gun = HUMANS
         .ai
@@ -1370,7 +1371,7 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     for &m in VAEL.ai.mix {
         assert!(DIFF.iter().all(|d| d.mix_entry(m) == m), "{m:?}");
     }
-    // In play: the same game at Hard and at Brutal for fifteen minutes, the Human AI's first Anchor Gun and how many it
+    // In play: the same game at Hard and at Brutal for fifteen minutes, the Kingdom AI's first Cannon and how many it
     // has trained by then (Brutal: one at all, no later than Hard's, and at least as many; since the arc's tech prices,
     // Blacksmith and Workshop 300 each, the guns come later than the 5:30 they did). (Seed 4: with the chase leash, seed
     // 7's Brutal Kingdom loses its first gun early and trains one where Hard trains two; with the Expedition's one
@@ -1402,7 +1403,7 @@ fn brutal_brings_the_humans_anchor_guns_sooner_and_more_of_them() {
     let ((hard_first, hard_n), (brutal_first, brutal_n)) = (guns(2), guns(3));
     assert!(
         brutal_first < 900.0 && brutal_first <= hard_first,
-        "Brutal's first Anchor Gun at {brutal_first:.0} s, Hard's at {hard_first:.0} s"
+        "Brutal's first Cannon at {brutal_first:.0} s, Hard's at {hard_first:.0} s"
     );
     // (at least as many, within one: since the balance pass this game's Kingdom loses fewer and both levels can stand at
     // their population limit with what their mix allows by 10:00; since the Cannon's 275 gold, Nov 13, two or three
@@ -1717,7 +1718,7 @@ fn the_ai_replaces_a_worker_that_is_away_building() {
         }
         let (cid, cx, cy) = core(&w);
         let before = harvesters(&w, ENEMY).len();
-        // One of them goes off to build a Cottage or a Sunpetal (and stays there).
+        // One of them goes off to build a Cottage or a Wind turbine (and stays there).
         let builder = harvesters(&w, ENEMY)[0];
         let (tx, ty) = (4..18)
             .flat_map(|r| (0..24).map(move |a| (r, a)))
@@ -1849,10 +1850,10 @@ fn on_a_barren_map_the_ai_takes_its_natural_before_its_home_field_runs_dry() {
 #[test]
 fn brutal_spends_its_income_when_its_main_fills_up() {
     // Brutal's x1.3 income needs more factories than a main pocket has room for: with none left near its center it
-    // builds farther out (and the Vael raised a Power building out there first, for a field to build in) instead of waiting for
-    // its natural. Its mean bank at 6 and 8 minutes over three seeds, against a player who holds: about 3,650 for
-    // either race before, about 1,250 / 1,800 (Human / Vael AI) then. Under the cap of 40 (PRD: the conversion) a
-    // seat at the cap cannot spend: only the samples short of it count, and it must reach the cap at all.
+    // builds farther out (and the Expedition raised a Power building out there first, for a field to build in) instead
+    // of waiting for its natural. Its mean bank at 6 and 8 minutes over three seeds, against a player who holds: about
+    // 3,650 for either race before, about 1,250 / 1,800 (Kingdom / Expedition AI) then. Under the cap of 40 (PRD: the
+    // conversion) a seat at the cap cannot spend: only the samples short of it count, and it must reach the cap at all.
     for f in [[&HUMANS, &HUMANS], [&HUMANS, &VAEL]] {
         let (mut banked, mut capped) = (Vec::new(), 0);
         for seed in [3u32, 17, 44] {
@@ -1887,11 +1888,13 @@ fn brutal_spends_its_income_when_its_main_fills_up() {
 
 #[test]
 fn brutal_trains_its_workers_before_its_buildings() {
-    // Brutal's build order (three factories, supply two at a time) spent every coin while its crew was still short,
-    // so its Core stood idle between workers; and a Human builder leaves the line while it builds, so the Human AI fell
-    // behind the Vael AI in the opening. Now a worker's price stays in the bank while the crew is short: by 3:00 (its
-    // build-up done; the first waves can meet about then, so the mining margin allows for a fleeing worker or two) the Human AI's Core
-    // has stood idle for under 10 s, its crew is full and it has within two as many at work (mining or building) as the Vael AI. (Without it: 18-23 s idle, a crew of 17 and two to three fewer mining.)
+    // Brutal's build order (three factories, supply two at a time) spent every coin while its crew was still short, so
+    // its Core stood idle between workers; and a Kingdom builder leaves the line while it builds, so the Kingdom AI
+    // fell behind the Expedition AI in the opening. Now a worker's price stays in the bank while the crew is short: by
+    // 3:00 (its build-up done; the first waves can meet about then, so the mining margin allows for a fleeing worker or
+    // two) the Kingdom AI's Core has stood idle for under 10 s, its crew is full and it has within two as many at work
+    // (mining or building) as the Expedition AI. (Without it: 18-23 s idle, a crew of 17 and two to three fewer
+    // mining.)
     let d = &DIFF[3];
     assert!(d.workers_first);
     for seed in [3, 5, 17] {
@@ -1910,7 +1913,7 @@ fn brutal_trains_its_workers_before_its_buildings() {
                 idle += 1.0 / 30.0;
             }
         }
-        // At work: mining, or (a Human builder, who leaves the line) putting up a building.
+        // At work: mining, or (a Kingdom builder, who leaves the line) putting up a building.
         let mining = |s: u8| {
             harvesters(&w, s)
                 .iter()
@@ -1936,7 +1939,7 @@ fn brutal_trains_its_workers_before_its_buildings() {
         );
         assert!(
             mining(PLAYER) + 2 >= mining(ENEMY),
-            "seed {seed}: at work {} to the Vael AI's {}",
+            "seed {seed}: at work {} to the Expedition AI's {}",
             mining(PLAYER),
             mining(ENEMY)
         );
@@ -2011,8 +2014,8 @@ fn the_vael_ai_raises_its_air_factory_sooner_than_the_humans() {
 #[test]
 fn the_ai_raises_its_first_tower_at_two_and_a_half_minutes() {
     // Its first defense tower (a Turret, a Ward) once its first factory stands and from 2:30 (it was 4:00): an early
-    // wave found nothing at home but a few units (on the Shore map, where the routes are shorter, the Humans lost about
-    // three harvesters by 5:00 and won 14 of 40 at Medium; with the tower at 2:30, 1.6 and 17). Money to spare,
+    // wave found nothing at home but a few units (on the Shore map, where the routes are shorter, the Kingdom lost
+    // about three harvesters by 5:00 and won 14 of 40 at Medium; with the tower at 2:30, 1.6 and 17). Money to spare,
     // against an idle player, on Medium.
     for f in [&HUMANS, &VAEL] {
         let mut w = World::with_setup(5, 1, MapKind::Standard, false, [&HUMANS, f]);

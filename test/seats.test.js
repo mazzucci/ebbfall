@@ -37,7 +37,7 @@ test('one side, the lowest empty spot, a new AI on a side of its own', () => {
   assert.equal(firstEmpty(board(0, 1, null, 2)), 2); assert.equal(firstEmpty(board(0, 1, 2, 3, 4, 5, 6, 7)), -1);
   const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 2 }, null, { race: 'random', team: 1, diff: 1 }, ...Array(4).fill(null)];
   assert.deepEqual(newAi(b), { race: 'random', team: 2, diff: 1 }, 'like the last AI, a side of its own');
-  assert.deepEqual(newAi(board(0)), { race: 'humans', team: 1, diff: 0 }, 'no AI yet: Humans on Easy');
+  assert.deepEqual(newAi(board(0)), { race: 'humans', team: 1, diff: 0 }, 'no AI yet: the Kingdom on Easy');
   assert.deepEqual([0, 1, 3].map(seatName), ['YOU', 'COMPUTER 1', 'COMPUTER 3'], 'an AI is named by its spot');
 });
 
@@ -53,7 +53,7 @@ test('a saved board: a good one as it is, one saved before the spots in the firs
 test('START GAME: the seats in side order, each seat\'s spot, each AI\'s difficulty (none when all alike), the hardest the game\'s', () => {
   const b = [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 0 }, null, { race: 'random', team: 0, diff: 2 }, { race: 'humans', team: 1, diff: 2 }, null, null, null];
   assert.deepEqual(startSetup(b, (k) => (k === 'random' ? 'vael' : k)), { races: ['vael', 'vael', 'humans', 'humans'], ai: [false, true, true, true], teams: [0, 0, 1, 1], diffs: [0, 2, 0, 2], diff: 2, spots: [0, 3, 1, 4] },
-    'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own colour), its RANDOM drawn; the record counts the enemies\' hardest (not the stronger ally)');
+    'you and COMPUTER 3 against COMPUTER 1 and COMPUTER 4: COMPUTER 3 sits beside you (in its own color), its RANDOM drawn; the record counts the enemies\' hardest (not the stronger ally)');
   assert.equal(startSetup(board(0, 0, 1)).diff, 0);
   const alike = [{ race: 'humans', team: 0 }, { race: 'humans', team: 1, diff: 2 }, { race: 'humans', team: 2, diff: 2 }, ...Array(5).fill(null)];
   assert.deepEqual(startSetup(alike), { races: ['humans', 'humans', 'humans'], ai: [false, true, true], teams: [], diffs: [], diff: 2, spots: [0, 1, 2] }, 'every AI alike: the game\'s diff, as before');
@@ -87,12 +87,12 @@ test('REMOVE on single player\'s board: the players after it a spot up each, no 
   assert.notEqual(after[1], b[2], 'a new board, the old one untouched'); assert.equal(b[1].team, 1);
 });
 
-test('the sides a sheet offers: as many as the players (any higher one in use too), each its first player\'s colour', () => {
+test('the sides a sheet offers: as many as the players (any higher one in use too), each its first player\'s color', () => {
   assert.deepEqual(sideChoices(board(0, 1)).map(s => s.chip), ['SIDE 1', 'SIDE 2']);
   assert.deepEqual(sideChoices(board(0, 0, 0, 0)).map(s => s.team), [0, 1, 2, 3], 'four players: up to four sides');
   assert.deepEqual(sideChoices(board(0, 5, null, 1)).map(s => s.team), [0, 1, 2, 3, 4, 5], 'a side numbered past them: offered too');
   const b = board(1, 0, 1, null, 0);
-  assert.deepEqual([sideColor(b, 1), sideColor(b, 0), sideColor(b, 2)], [seatColor(0), seatColor(1), '#5b6b80'], 'by first spot; nobody: grey');
+  assert.deepEqual([sideColor(b, 1), sideColor(b, 0), sideColor(b, 2)], [seatColor(0), seatColor(1), '#5b6b80'], 'by first spot; nobody: gray');
 });
 
 test('the record\'s level: the enemies\' hardest; with nobody to fight, the hardest AI', () => {

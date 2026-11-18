@@ -51,7 +51,7 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet [--ether-weight W | --ether-weight-from report.json]\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- bets [--seeds N] [--size 64] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- tiers [--seeds N] [--size 96] [--greedy | --steady] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--attacker-style Boom] [--cap MIN] [--threads N] [--out FILE]"
@@ -561,9 +561,9 @@ fn read(path: &str) -> Json {
     Json::parse(&text).unwrap_or_else(|e| die(&format!("{path}: {e}")))
 }
 
-/// `trace`: one game, a line per seat every `--every` s (default 30): `--size 96 --map Standard --races Humans,Vael
-/// --levels Medium[,Easy] --seed 3 --cap 30`; `--races` names every seat (four for four seats), `--teams 0,0,1,1`,
-/// `--side N` the seats' turn on the map (default 0).
+/// `trace`: one game, a line per seat every `--every` s (default 30): `--size 96 --map Standard
+/// --races Kingdom,Expedition --levels Medium[,Easy] --seed 3 --cap 30`; `--races` names every seat (four for four
+/// seats), `--teams 0,0,1,1`, `--side N` the seats' turn on the map (default 0).
 fn trace(args: &[String]) {
     let (s, cap, every) = setup(args, 64, true);
     print!("{}", trace::trace(&s, cap, every));
@@ -844,33 +844,10 @@ fn main() {
             print!("{}", compare::compare(&read(a), &read(b), a, b).0);
         }
         Some("sheet") => {
-            let (mut w, mut source, mut observed) = (1.5, "assumed".to_string(), None);
-            let mut it = args[1..].iter();
-            while let Some(a) = it.next() {
-                let v = it
-                    .next()
-                    .unwrap_or_else(|| die(&format!("{a} needs a value")));
-                match a.as_str() {
-                    "--ether-weight" => {
-                        w = v.parse().unwrap_or_else(|_| die("--ether-weight W"));
-                        source = "set by --ether-weight".into();
-                    }
-                    "--ether-weight-from" => {
-                        let r = read(v);
-                        let o = r
-                            .get("key")
-                            .and_then(|k| k.get("Observed shards per ether"))
-                            .and_then(Json::str)
-                            .and_then(|s| s.parse::<f64>().ok())
-                            .unwrap_or_else(|| {
-                                die(&format!("{v} has no observed shards per ether"))
-                            });
-                        (w, observed, source) = (o, Some(o), format!("observed in {v}"));
-                    }
-                    _ => die(&format!("unknown flag {a}")),
-                }
+            if let Some(a) = args.get(1) {
+                die(&format!("unknown flag {a}"));
             }
-            let (md, csv) = sheet::sheet(w, observed, &source);
+            let (md, csv) = sheet::sheet();
             let path = out_dir().join(format!("sheet-{}.csv", commit()));
             let _ = std::fs::create_dir_all(out_dir());
             std::fs::write(&path, csv)

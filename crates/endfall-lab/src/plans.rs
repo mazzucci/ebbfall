@@ -27,13 +27,14 @@ pub const FIRST_MAX: f64 = 420.0;
 /// The first wave's bins are this wide (s).
 const FIRST_BIN: f64 = 75.0;
 
-/// The four seatings each map is played in: Humans against Vael either way, and both mirrors (factions' indices).
+/// The four seatings each map is played in: the Kingdom against the Expedition either way, and both mirrors (factions'
+/// indices).
 pub const PAIRINGS: [[usize; 2]; 4] = [[0, 1], [1, 0], [0, 0], [1, 1]];
 const PAIRING_NAMES: [&str; 4] = [
-    "Humans v Vael",
-    "Vael v Humans",
-    "Humans mirror",
-    "Vael mirror",
+    "Kingdom v Expedition",
+    "Expedition v Kingdom",
+    "Kingdom mirror",
+    "Expedition mirror",
 ];
 
 /// What the batch plays.
@@ -405,8 +406,8 @@ fn first_bins(first_max: f64) -> usize {
     (((first_max - FIRST_MIN) / FIRST_BIN).ceil() as usize).max(1)
 }
 
-/// The model's columns: the intercept, each setting's difference between the seats (the continuous ones standardised
-/// by the spread of a seat's draws), the seating (against Humans v Vael) and the map (against the first).
+/// The model's columns: the intercept, each setting's difference between the seats (the continuous ones standardized
+/// by the spread of a seat's draws), the seating (against Kingdom v Expedition) and the map (against the first).
 struct Design {
     names: Vec<String>,
     /// Which setting each column belongs to (None: intercept, seating, map).
@@ -691,7 +692,7 @@ impl PlanRun {
     }
 
     fn first_wave_markdown(&self) -> String {
-        let mut s = "\n## The first wave\n\nEach seat's first wave by its plan's bin: how many seats launched one, when (median), its army value as it launched (median; shards plus ether at 1.5), and its result while out (the value it destroyed over the value it lost, pooled).\n\n| Bin | Launched | Median launch | Median value | Destroyed / lost |\n| --- | --- | --- | --- | --- |\n".to_string();
+        let mut s = "\n## The first wave\n\nEach seat's first wave by its plan's bin: how many seats launched one, when (median), its army value as it launched (median; in gold), and its result while out (the value it destroyed over the value it lost, pooled).\n\n| Bin | Launched | Median launch | Median value | Destroyed / lost |\n| --- | --- | --- | --- | --- |\n".to_string();
         for (label, seats, n, at, value, d, l) in self.first_wave_rows() {
             let ratio = if l > 0.0 {
                 format!("{:.2} ({d:.0} / {l:.0})", d / l)

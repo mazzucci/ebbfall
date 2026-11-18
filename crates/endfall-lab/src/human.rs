@@ -95,7 +95,7 @@ pub fn play(faction: &'static Faction, seed: u32, size: i32) -> Opening {
                 .map
                 .nodes
                 .iter()
-                .filter(|n| !n.ether && n.amount > 0)
+                .filter(|n| n.amount > 0)
                 .min_by(|a, b| {
                     endfall_sim::jsmath::hypot(a.x - hx, a.y - hy)
                         .total_cmp(&endfall_sim::jsmath::hypot(b.x - hx, b.y - hy))

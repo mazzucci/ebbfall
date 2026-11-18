@@ -5,11 +5,10 @@
 //! A wave is out from the tick the seat's AI sends one (`World::ai_wave_of`) to the tick it has none. Its loss is
 //! the value of its own units gone by then; what it destroyed, the value of the enemy's units and buildings standing
 //! at its launch and gone by then (the enemy's losses elsewhere in that time count too: early in a game there are
-//! few). Value: shards plus ether at `ETHER_WEIGHT`, the formula sheet's default.
+//! few). Value: gold (`waves::worth`).
 
 use endfall_sim::world::World;
 
-pub use crate::waves::ETHER_WEIGHT;
 use crate::waves::worth;
 
 /// A seat's first wave: the tick it launched, its value then, and what it destroyed and lost while out.

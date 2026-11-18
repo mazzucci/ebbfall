@@ -164,7 +164,7 @@ mod tests {
             .with(
                 "rate",
                 Json::obj()
-                    .with("of", "Humans win")
+                    .with("of", "Kingdom wins")
                     .with("k", k)
                     .with("n", n)
                     .with("p", k as f64 / n as f64)

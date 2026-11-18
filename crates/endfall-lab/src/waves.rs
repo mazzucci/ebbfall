@@ -1,6 +1,6 @@
-//! Every AI attack wave of a two-seat game (PRD: the AI breaks a defence, R1): its value as it launched, what it met
+//! Every AI attack wave of a two-seat game (PRD: the AI breaks a defense, R1): its value as it launched, what it met
 //! when it arrived (the first tick one of its units came within `REACH` tiles of an enemy building: the wave's value
-//! then, in all and within `REACH` tiles of that unit, against the defence there, the enemy's armed units and armed,
+//! then, in all and within `REACH` tiles of that unit, against the defense there, the enemy's armed units and armed,
 //! working buildings within `REACH` tiles of that unit), its result (the value it destroyed against the value it lost
 //! while out) and where its units fell (on the way, to towers, to units). Read between ticks only.
 //!
@@ -9,15 +9,12 @@
 //! that fell within `REACH` tiles of one of its living units (where both stood the tick before), whenever they were
 //! made. A unit of the wave that fell after the arrival fell to a tower when the seat's losses to buildings
 //! (`World::lost_to`) grew that tick, else to a unit (or to anything without a killer: the tide's sweep). With a split
-//! wave (Hard and up: a prong at an expansion) the arrival is whichever prong arrives first. Value: shards plus ether
-//! at `ETHER_WEIGHT`, the formula sheet's default.
+//! wave (Hard and up: a prong at an expansion) the arrival is whichever prong arrives first. Value: gold (`worth`).
 
 use endfall_sim::data::UNIT_KINDS;
 use endfall_sim::world::{LaunchCheck, LaunchWhy, World};
 
-/// Shards per ether in a wave's value (the formula sheet's default weight).
-pub const ETHER_WEIGHT: f64 = 1.5;
-/// A wave arrived when one of its units came this many tiles from an enemy building's edge; the defence it met is
+/// A wave arrived when one of its units came this many tiles from an enemy building's edge; the defense it met is
 /// what of the enemy's was armed within this many tiles of that unit; what fell this near one of its units, it destroyed.
 pub const REACH: f64 = 8.0;
 
@@ -35,7 +32,7 @@ pub struct Wave {
     pub foe_army: f64,
     pub foe_towers: f64,
     /// When it arrived: the tick, its value then (in all, and within `REACH` tiles of the unit that arrived), and the
-    /// defence's there (None: it never arrived).
+    /// defense's there (None: it never arrived).
     pub arrived: Option<Arrival>,
     pub destroyed: f64,
     pub lost: f64,
@@ -51,12 +48,12 @@ pub struct Arrival {
     pub tick: u32,
     pub value: f64,
     pub near: f64,
-    pub defence: f64,
+    pub defense: f64,
 }
 
-/// A cost's value: shards plus ether at `ETHER_WEIGHT`.
+/// A cost's value: its gold (costs are `[gold, 0]`).
 pub fn worth(c: [i32; 2]) -> f64 {
-    c[0] as f64 + ETHER_WEIGHT * c[1] as f64
+    c[0] as f64
 }
 
 /// Something standing, as last seen: (id, value, x, y).
@@ -214,7 +211,7 @@ fn working_tower(b: &endfall_sim::world::Bldg) -> bool {
 }
 
 /// Whether one of the wave's units stands within `REACH` tiles of an enemy building: the tick, the wave's value (in
-/// all and within `REACH` tiles of that unit) and the defence's within `REACH` tiles of it (armed units, workers left
+/// all and within `REACH` tiles of that unit) and the defense's within `REACH` tiles of it (armed units, workers left
 /// out, and armed buildings that work: finished ones).
 fn arrival(w: &World, s: usize, mine: &[Seen]) -> Option<Arrival> {
     let reach = REACH * 32.0;
@@ -251,19 +248,19 @@ fn arrival(w: &World, s: usize, mine: &[Seen]) -> Option<Arrival> {
             .filter(|m| (m.2 - x).hypot(m.3 - y) < reach)
             .map(|m| m.1)
             .sum(),
-        defence: units + towers,
+        defense: units + towers,
     })
 }
 
-/// A group of waves summed up: how many launched and arrived (and arrived to no defence at all), the quartiles of
-/// their value near the arriving unit over the defence's there (the defended ones), what they destroyed and lost, and
+/// A group of waves summed up: how many launched and arrived (and arrived to no defense at all), the quartiles of
+/// their value near the arriving unit over the defense's there (the defended ones), what they destroyed and lost, and
 /// where they lost it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Summary {
     pub launched: usize,
     pub arrived: usize,
     pub undefended: usize,
-    /// (25%, median, 75%) of value / defence at arrival; None without a defended arrival.
+    /// (25%, median, 75%) of value / defense at arrival; None without a defended arrival.
     pub ratio: Option<(f64, f64, f64)>,
     pub destroyed: f64,
     pub lost: f64,
@@ -279,8 +276,8 @@ pub fn summary<'a>(waves: impl IntoIterator<Item = &'a Wave>) -> Summary {
         s.launched += 1;
         if let Some(a) = w.arrived {
             s.arrived += 1;
-            if a.defence > 0.0 {
-                ratios.push(a.near / a.defence);
+            if a.defense > 0.0 {
+                ratios.push(a.near / a.defense);
             } else {
                 s.undefended += 1;
             }
@@ -303,7 +300,7 @@ pub fn summary<'a>(waves: impl IntoIterator<Item = &'a Wave>) -> Summary {
 }
 
 /// The Markdown table's head for `row`.
-pub const TABLE_HEAD: &str = "| Waves | Launched | Arrived (to no defence) | Value near / defence at arrival (25%, median, 75%) | Destroyed near it / lost | Lost on the way / to towers / to units |\n| --- | --- | --- | --- | --- | --- |\n";
+pub const TABLE_HEAD: &str = "| Waves | Launched | Arrived (to no defense) | Value near / defense at arrival (25%, median, 75%) | Destroyed near it / lost | Lost on the way / to towers / to units |\n| --- | --- | --- | --- | --- | --- |\n";
 
 impl Summary {
     pub fn row(&self, label: &str) -> String {
@@ -351,7 +348,7 @@ impl Summary {
     }
 }
 
-/// Why waves went and how the AI's expectation met the truth (PRD: the AI breaks a defence): how many went for each
+/// Why waves went and how the AI's expectation met the truth (PRD: the AI breaks a defense): how many went for each
 /// reason (`LaunchWhy`), the quartiles of the foe army it expected over the foe's true army as it went (the waves that
 /// went against an expectation, against a foe with an army), of the wave's worth over that true army, and of the share
 /// of its value at the front on arrival (within `REACH` tiles of the unit that arrived).
@@ -456,7 +453,7 @@ impl Wave {
                         .with("tick", a.tick)
                         .with("value", a.value)
                         .with("near", a.near)
-                        .with("defence", a.defence)
+                        .with("defense", a.defense)
                 }),
             )
             .with("destroyed", self.destroyed)
@@ -494,7 +491,7 @@ mod tests {
             // (each thing counted once, when it falls: no wave destroys more than a whole base's worth and an army)
             assert!(w.destroyed < 20_000.0, "destroyed counted once: {w:?}");
             if let Some(a) = w.arrived {
-                assert!(a.tick >= w.launched && a.value <= w.value + 1e-9 && a.defence >= 0.0);
+                assert!(a.tick >= w.launched && a.value <= w.value + 1e-9 && a.defense >= 0.0);
                 assert!(
                     a.near <= a.value + 1e-9 && a.near > 0.0,
                     "the arriving unit itself is near"

@@ -63,8 +63,8 @@ before anything is written, and the wall-clock time appears only in the stdout h
 ### Reading a report
 
 Every win rate comes with its 95% Wilson interval: 55% (33–75%) from 20 games means the truth could be anywhere in
-that range, 50% included. A cell's rate is the Humans' in Humans vs Vael, the first seat's in a mirror, and the
-higher level's on the ladder.
+that range, 50% included. A cell's rate is the Kingdom's in Kingdom vs Expedition, the first seat's in a mirror, and
+the higher level's on the ladder.
 
 The target checks print PASS or WARN. They are signals for a person, not gates (the command always exits 0):
 
@@ -88,13 +88,15 @@ pooled checks (about 20 games per level and size for Kingdom vs Expedition, 80 p
 And with many checks, some WARN by chance: a 95% interval misses the truth one time in twenty, so among the default
 batch's 8 mirror checks a stray WARN can come. A WARN that repeats with `--seeds 30` is worth a look.
 
-The key figures block is the Balance reports database's fields (Notion), one per line, ready to copy. The
-observed exchange rate is the median over games of shards mined over ether mined, and the same for what was spent:
-how many shards a point of ether is worth in practice, the evidence for the sheet's ether weight.
+The key figures block is the Balance reports database's fields (Notion), one per line, ready to copy. "More
+Markets/turbines at 5:00 won" is the snowball check: of the decided games (every map but the Shore) whose seats held
+different numbers of finished buildings that pay by themselves at 5:00 (the Kingdom's Markets, the Expedition's Wind
+turbines: `World::payers`), the share the seat with more won. Each cell's table gives their mean per seat at 5:00 too.
 
 What a game records: units trained (not the starting workers) and lost, and buildings finished (not the starting
-headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); shards and ether mined and spent (the sim's `ledger`); peak supply; the
-sim's own stats; the first attack and the first ether vent that ran dry.
+headquarters) and destroyed, both by kind (a construction site the AI cancels is counted apart, not as lost); gold
+mined and spent (the sim's `ledger`), and the bank and gold mined at 2, 3, 5, 8, 10 and 15 minutes; peak supply; the
+sim's own stats; the paying buildings each seat held at 5:00; the first attack and the mines that ran dry.
 
 ### The AI styles
 
@@ -137,31 +139,30 @@ each kind (`first_bldg_tick`).
 The Shore map is a two-start 64x64 map with water, so the lab plays it at 64x64 only. With `--maps Shore` the
 report adds a section of its own:
 
-- **Each people's win rate from each half of the map** (south or north start), Humans against Vael, at each level and
-  pooled, with 95% intervals.
+- **Each people's win rate from each half of the map** (south or north start), the Kingdom against the Expedition, at
+  each level and pooled, with 95% intervals.
 - **The AI's attack waves**, per people and level: how many it launched and the share that reached the other side.
   A wave is counted when a seat's AI sends one out, and it reached when one of its units came within 8 tiles of an
   enemy building (`World::ai_wave_of`, read every 15 ticks).
-- **The Vael's time in deep water:** the share of their ground units' samples there. A rise with timeouts would name
-  a stall at sea.
-- **Routes per seed:** the walk and swim lengths between the Human cove and the Vael basin.
-- **Income and losses at fields**, per people and level (Humans against Vael, both seat orders): shards and ether
+- **The Expedition's time in deep water:** the share of its ground units' samples there. A rise with timeouts would
+  name a stall at sea.
+- **Routes per seed:** the lengths of a walker's and an amphibian's way between the two starts' headquarters.
+- **Income and losses at fields**, per people and level (the Kingdom against the Expedition, both seat orders): gold
   mined a minute of play (timeouts too), workers lost a minute, and workers and other units lost at a field a game
-  (within 4 tiles of a crystal's or a vent's middle, where the unit stood the tick before it was gone; a crystal
-  mined out no longer counts, a dry vent still does).
+  (within 4 tiles of a gold mine's middle, where the unit stood the tick before it was gone; a mine run dry still
+  counts).
 - **The gate** of the Shore map's PRD, one row per check: first fight, results and timeouts, game length, each people
   from either half at Medium, waves that reached, mirrors.
 
 `npm run lab -- report --sizes 64 --maps Shore --seeds 30` is the Shore report kept for the gate, with the Standard
 64x64 cells beside it as the control.
 
-**Exposed income** (`--shore-field back|channel|channel-far`; PRD: the tide on the Shore map, R8): where the Vael
-basins' main field lies. `back` is every game's map, behind the Core; `channel` turns it to the channel's side,
-facing the Humans' cove (40 degrees off the channel, the same 6.5 tiles out, its vents following); `channel-far`
-carries that field 7 tiles further out, past the reef ring, the vents left where `channel` has them. That is not
-distance alone: in about a third of seeds the far field lies within 6 tiles of the facing cove's farthest expansion
-(whose vents then move), and in a few seeds the generator's rock settles differently. Read `channel` against `back`
-first. A report with the
+**Exposed income** (`--shore-field back|channel|channel-far`; PRD: the tide on the Shore map, R8): where the reef
+basins' main field lies. `back` is every game's map, to the basin's headquarters' flank; `channel` turns it to the
+channel's side, facing the cove (40 degrees off the channel, the same 6.5 tiles out); `channel-far` carries that field
+7 tiles further out, past the reef ring. That is not distance alone: in about a third of seeds the far field lies
+within 6 tiles of the facing cove's farthest expansion, and in a few seeds the generator's rock settles differently.
+Read `channel` against `back` first. A report with the
 field moved names it in its batch (`shore_field`), so `compare` against the plain Shore report says the batches
 differ; the Standard cells are the same games in both.
 
@@ -177,38 +178,33 @@ For every cell in both reports: the win rate in A and B, the change, and **bigge
 intervals do not overlap. Then median length and timeouts in each, and B's target checks. Cells in only one report
 are listed, not compared, and different batches (seeds, cap, maps) are called out at the top.
 
-A worked example (an illustration of the shape, not a real run). A change makes the Vael's Scythe cheaper:
+A worked example (an illustration of the shape, not a real run). A change makes the Expedition's Buggy cheaper:
 
 ```
-| 64 Standard: Humans Hard vs Vael Hard (Humans win) | 60% of 5 | 20% of 5 | -40 pts | within noise | ...
+| 64 Standard: Kingdom Hard vs Expedition Hard (Kingdom wins) | 60% of 5 | 20% of 5 | -40 pts | within noise | ...
 ...
 0 cell(s) moved more than the noise.
 ```
 
 The Hard cell fell 40 points, but on 5 games each that is within the noise. Run both sides with `--seeds 30`
 (and `--levels Hard --sizes 64` to keep it short), then compare again: a move that survives as **bigger than
-noise** there is real. Then look at what changed: the unit mix in each report's tables (did the Vael build more
-Scythes, and lose fewer per built?) says why.
+noise** there is real. Then look at what changed: the unit mix in each report's tables (did the Expedition build more
+Buggies, and lose fewer per built?) says why.
 
 ### `sheet`
 
-One row per unit of both races (the Siege Tank twice: deployed, and mobile on its light gun), base stats with no
-upgrades: cost, supply, build time, hull, shields, armour, speed, range, cooldown, damage against ground and air,
-splash, and the derived figures:
+One row per unit of both races, base stats with no upgrades: cost (gold), supply, build time, hull, shields, armor,
+speed, range, cooldown, damage against ground and air, splash, and the derived figures:
 
 - **DPS**: damage over the time between shots *as the sim fires them*. A cooldown counts down by whole 30 Hz ticks,
   so 0.8 s fires every 25 ticks (0.833 s).
-- **Effective HP**: hull plus shields. Armour then comes off each hit on the hull, at least 1 still landing.
-- **Weighted cost**: shards plus ether x `w`. `--ether-weight-from report.json` takes `w` from a report's observed
-  rate (recommended); `--ether-weight W` sets it; without either, `w = 1.5`, an assumption the header says so.
-- **Lanchester efficiency**: DPS x effective HP over the weighted cost squared. For the same money, an army's
-  strength in a straight fight grows with the square of its numbers.
-
-The sensitivity section ranks the armed units by Lanchester efficiency at `w` = 1, 1.5, 2 and the observed rate.
-It flags any unit whose rank moves more than three places: a conclusion that hangs on the weight.
+- **Effective HP**: hull plus shields. Armor then comes off each hit on the hull, at least 1 still landing.
+- **DPS / cost** and **DPS / supply**: the better of its two DPS for the money and for the supply.
+- **Lanchester efficiency**: DPS x effective HP over the cost squared. For the same money, an army's strength in a
+  straight fight grows with the square of its numbers.
 
 The time-to-kill matrix runs shots one on one through the sim's own `absorb` and `hull_loss` (shields first, then
-armour off each hit, at least 1). A test checks it against real fights in the sim.
+armor off each hit, at least 1). A test checks it against real fights in the sim.
 
 The sheet is a heuristic. Range, speed, splash, healing, overkill and pathing change real fights, which is what
 the duel matrix (`crates/endfall-sim/tests/gameplay/balance.rs`) and the report measure.
@@ -222,8 +218,9 @@ three settings drawn uniformly: the workers it aims for (`harv`, 8 to 20), its f
 The plans come from the lab's own seeded RNG (`--seed`), never the world's, and reach the AI through
 `World::set_ai_plans` (the sim reads every AI number through `World::tuning`). The menus' AI is untouched.
 
-The batch plays 64x64 Standard and Shore (`--maps`), each in four seatings: Humans against Vael both ways, and both
-mirrors. Game *i* takes the map *i* mod the maps, then the seating, then a map seed, and two fresh plans. Flags:
+The batch plays 64x64 Standard and Shore (`--maps`), each in four seatings: the Kingdom against the Expedition both
+ways, and both mirrors. Game *i* takes the map *i* mod the maps, then the seating, then a map seed, and two fresh
+plans. Flags:
 `--games N` (2,000; 1,000 with `--plant`), `--maps`, `--seed S` (1), `--plant`, `--check N` (200: the direct check's
 setups), `--first-max M:SS` (7:00: the latest first wave drawn; the bins stay 1:15 wide, so 12:00 makes eight, and
 the other settings draw the same values as with the default), `--cap MIN` (30), `--threads N`, `--out FILE`. The JSON is the same bytes for the same commit and flags, on
@@ -256,7 +253,7 @@ expansion time, so "never expands" carries that difference alone. Reading it:
 
 **The first wave** (a table after the bins; `first_wave` per seat in each game's JSON): each seat's first attack
 wave by its plan's first-wave bin: how many seats launched one, when (median), its army value as it launched
-(median; shards plus ether at 1.5, the formula sheet's default), and its result while out, the value it destroyed
+(median, in gold), and its result while out, the value it destroyed
 over the value it lost, pooled. A wave is out from the tick its AI sends it (`World::ai_wave_of`) to the tick it has
 none; what it destroyed is the enemy's units and buildings standing at its launch and gone by then (the enemy's
 losses elsewhere in that time count too: early in a game there are few). It answers why later first waves win:
@@ -274,17 +271,17 @@ A miss is a finding. Several big misses mean the framework needs checking before
 
 ### The waves (in `report` and `turtle`)
 
-Every AI attack wave is recorded (`waves.rs`; PRD: the AI breaks a defence, R1): its value as it launched; when it
+Every AI attack wave is recorded (`waves.rs`; PRD: the AI breaks a defense, R1): its value as it launched; when it
 arrived (the first tick one of its units came within 8 tiles of an enemy building's edge), its value then, in all and
-within 8 tiles of that unit, against the defence there (the enemy's armed units, workers left out, and armed buildings
+within 8 tiles of that unit, against the defense there (the enemy's armed units, workers left out, and armed buildings
 that work, finished and powered, within 8 tiles of that unit; the table's ratio is the near value over it); its result
 while out (the value of the enemy's units and buildings that fell within 8 tiles of one of its units, whenever made,
 against the value of its own units lost; losses after it, survivors caught going home, are not its); and where its
 units fell: on the way (before it arrived), to towers (the seat's losses to buildings grew that tick,
 `World::lost_to`) or to units (or to anything without a killer, the tide's sweep). With a split wave (Hard and up) the
-arrival is the first prong's. Value: shards plus ether at 1.5. `report` sums them per map,
+arrival is the first prong's. Value: gold. `report` sums them per map,
 level (each against itself) and attacking people in "The waves"; `turtle` sums the plain Medium seat's waves against
-the turtle by map and people. "Arrived (to no defence)" counts arrivals with nothing armed within 8 tiles: the defence
+the turtle by map and people. "Arrived (to no defense)" counts arrivals with nothing armed within 8 tiles: the defense
 was elsewhere; the ratio's quartiles are over the defended ones. Each game's JSON lists its waves.
 
 ### `bets`

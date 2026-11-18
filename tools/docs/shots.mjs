@@ -302,7 +302,7 @@ async function controls() {
  * (`hero-home`, the home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_FRAMES=<dir>` also writes a few
  * frames there as PNG (for a review).
  */
-const FPS = 30, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.6, CLIP_BPS = 260_000;
+const FPS = 30, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.6, CLIP_BPS = 380_000;
 const CLIP_WORDS = {
   alt: 'Ebbfall gameplay: the blue Kingdom\'s archers and guards hold their ground as the Expedition\'s attack drones fly in',
   caption: 'Archers against Drones. Your side plays in blue.',

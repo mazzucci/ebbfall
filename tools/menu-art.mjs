@@ -29,9 +29,9 @@ const BG = [11, 15, 22]; // --bg
  * (844x390), 26% upright (390x844). The landscape image is shown at 2x on a phone (a 3x screen upsamples it 1.5x).
  */
 const CLASSES = {
-  wide: { W: 2560, H: 480, k: 0.6, fade: 0.55, clear: [.16, .42] },
-  desktop: { W: 1920, H: 480, k: 0.6, fade: 0.55, clear: [.2, .48] },
-  landscape: { W: 1688, H: 268, k: 0.40, fade: 0.62, clear: [.3, .52] },
+  wide: { W: 2560, H: 480, k: 0.6, fade: 0.62, clear: [.16, .48] },
+  desktop: { W: 1920, H: 480, k: 0.6, fade: 0.66, clear: [.2, .56] },
+  landscape: { W: 1688, H: 268, k: 0.40, fade: 0.66, clear: [.3, .56] },
   portrait: { W: 780, H: 398, k: 0.45, fade: 0.50 },
 };
 // `clear`: a clearing at the top middle of the band (an ellipse from the band's top edge, its radii as fractions of

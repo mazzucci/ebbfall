@@ -11,7 +11,7 @@ use super::{Death, NB, NU, Thing};
 use crate::TICK_RATE;
 use crate::data::TILE;
 use crate::map::Id;
-use crate::world::{Bldg, World};
+use crate::world::{Bldg, WaveEnd, WaveWhy, World};
 
 /// Within this many tiles of an enemy building's edge an attack has arrived; what fell this near one of its units, it
 /// destroyed (the lab's `REACH`).
@@ -22,6 +22,9 @@ const MIN_UNITS: usize = 3;
 const CALM: u32 = 20 * TICK_RATE;
 /// How often a person's units are checked for nearness (the checks are the costly part).
 const CHECK_EVERY: u32 = TICK_RATE / 2;
+/// At contact (an attack's arrival), the enemy's armed units and towers within this many tiles of where it arrived
+/// are what it met.
+pub const CONTACT: f64 = 12.0;
 
 /// One attack.
 #[derive(Clone, Debug)]
@@ -41,6 +44,19 @@ pub(super) struct Attack {
     pub killed_units: u32,
     pub lost_value: i32,
     pub lost_units: u32,
+    /// At its arrival: the value of its units standing, and of the enemy's armed units and towers it met (`CONTACT`).
+    pub contact: Option<(i32, i32)>,
+    /// An AI wave's: why it went (its units, the count it needed), and why it ended (`World::ai_notes`).
+    pub left: Option<(WaveWhy, usize, usize)>,
+    pub end_why: Option<WaveEnd>,
+}
+
+/// What happened to the attacks this tick (the check-ins' events): arrivals (the attack's seat, where it arrived and
+/// the seat it reached), and attacks that ended.
+#[derive(Default)]
+pub(super) struct News {
+    pub arrived: Vec<(u8, u8, f64, f64)>,
+    pub ended: Vec<Attack>,
 }
 
 /// An attack out: its record and its units standing, where they stood the tick before.
@@ -86,8 +102,15 @@ impl Attacks {
         self.out.iter().flatten().map(|o| &o.rec)
     }
 
-    /// After a tick, with its deaths.
-    pub fn observe(&mut self, w: &World, deaths: &[Death]) {
+    /// How many attacks seat `seat` has made so far (those out counted).
+    pub fn count_of(&self, seat: u8) -> usize {
+        self.done.iter().filter(|a| a.seat == seat).count()
+            + self.out.get(seat as usize).is_some_and(|o| o.is_some()) as usize
+    }
+
+    /// After a tick, with its deaths: what happened to the attacks.
+    pub fn observe(&mut self, w: &World, deaths: &[Death]) -> News {
+        let mut news = News::default();
         for s in 0..self.out.len() {
             let seat = s as u8;
             let wave = if w.is_ai(seat) {
@@ -98,11 +121,17 @@ impl Attacks {
             // (an AI seat's wave sent, or a person's units come near)
             if self.out[s].is_none() {
                 if let Some(ids) = wave {
-                    self.out[s] = Some(start(w, seat, true, ids));
+                    let mut o = start(w, seat, true, ids);
+                    o.rec.left = w.ai_notes(seat).and_then(|n| n.left);
+                    self.out[s] = Some(o);
                 } else if !w.is_ai(seat) && !w.out[s] && w.tick.is_multiple_of(CHECK_EVERY) {
                     let near = near_units(w, seat);
                     if near.len() >= MIN_UNITS {
-                        self.out[s] = Some(start(w, seat, false, &near));
+                        let o = start(w, seat, false, &near);
+                        if let Some((_, to, x, y)) = o.rec.arrived {
+                            news.arrived.push((seat, to, x, y));
+                        }
+                        self.out[s] = Some(o);
                     }
                 }
                 continue;
@@ -160,6 +189,10 @@ impl Attacks {
                 o.rec.arrived = o.members.iter().find_map(|m| {
                     near_enemy(w, seat, m.1, m.2).map(|b| (w.tick, b.team, m.1, m.2))
                 });
+                if let Some((_, to, x, y)) = o.rec.arrived {
+                    o.rec.contact = Some(contact(w, seat, &o.members, x, y));
+                    news.arrived.push((seat, to, x, y));
+                }
             }
             let over = if o.rec.wave {
                 wave.is_none()
@@ -169,9 +202,14 @@ impl Attacks {
             if over || w.winner >= 0 {
                 let mut rec = self.out[s].take().unwrap().rec;
                 rec.ended = Some(w.tick);
+                if rec.wave {
+                    rec.end_why = w.ai_notes(seat).and_then(|n| n.ended);
+                }
+                news.ended.push(rec.clone());
                 self.done.push(rec);
             }
         }
+        news
     }
 }
 
@@ -199,6 +237,9 @@ fn start(w: &World, seat: u8, wave: bool, ids: &[Id]) -> Out {
         killed_units: 0,
         lost_value: 0,
         lost_units: 0,
+        contact: None,
+        left: None,
+        end_why: None,
     };
     let mut members = Vec::new();
     for &id in ids {
@@ -212,10 +253,43 @@ fn start(w: &World, seat: u8, wave: bool, ids: &[Id]) -> Out {
         rec.arrived = members
             .iter()
             .find_map(|m| near_enemy(w, seat, m.1, m.2).map(|b| (w.tick, b.team, m.1, m.2)));
+        if let Some((_, _, x, y)) = rec.arrived {
+            rec.contact = Some(contact(w, seat, &members, x, y));
+        }
     }
     Out {
         rec,
         members,
         last_near: w.tick,
     }
+}
+
+/// At contact: the value of an attack's units standing, and of `seat`'s enemies' armed units and towers within
+/// `CONTACT` tiles of (x, y).
+fn contact(w: &World, seat: u8, members: &[(Id, f64, f64)], x: f64, y: f64) -> (i32, i32) {
+    let r2 = (CONTACT * TILE) * (CONTACT * TILE);
+    let near = |px: f64, py: f64| (px - x) * (px - x) + (py - y) * (py - y) <= r2;
+    let mine = members
+        .iter()
+        .filter_map(|m| w.unit(m.0))
+        .map(|u| Thing::Unit(u.kind).value())
+        .sum();
+    let units: i32 = w
+        .units
+        .iter()
+        .filter(|u| w.enemies(seat, u.team) && u.kind.def().threat() && near(u.x, u.y))
+        .map(|u| Thing::Unit(u.kind).value())
+        .sum();
+    let towers: i32 = w
+        .bldgs
+        .iter()
+        .filter(|b| {
+            w.enemies(seat, b.team)
+                && b.done
+                && b.kind == w.factions[b.team as usize].ai.tower
+                && near(b.x, b.y)
+        })
+        .map(|b| Thing::Bldg(b.kind).value())
+        .sum();
+    (mine, units + towers)
 }

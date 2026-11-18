@@ -60,6 +60,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 /* A phone has no room beside the ATTACK alert (top right): the toasts move down under it while it shows. */
 .toast{background:rgba(11,15,22,.82);border:1px solid var(--line2);border-radius:4px;padding:4px 10px;font-size:12px;letter-spacing:.04em;color:var(--fg);animation:fade 3.2s forwards}
 .toast.bad{border-color:var(--bad);color:#ffb3b3} .toast.paused{border-color:var(--ally);color:var(--ally2)} /* (a site left with no builder: the build bar's and the pause mark's orange) */ .toast .dot{width:11px;height:9px;margin:0 3px -1px 0;vertical-align:baseline}
+.toast.claude{font-style:italic} /* (a line from Claude, the plan's writer: claude.js, shown as text only) */
 @keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 #hint:empty{display:none} /* (no gray pill when there is nothing to say) */
 #hint{position:absolute;left:10px;bottom:166px;font:12px var(--mono);color:var(--muted);pointer-events:none;background:rgba(11,15,22,.6);padding:2px 6px;border-radius:3px}

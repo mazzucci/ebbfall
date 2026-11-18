@@ -13,7 +13,9 @@
 // The board (races, sides, levels) and the map are remembered on this device. A challenge link (`?vs=`, SHARE after a
 // victory: challenge.js) opens the single-player page on its setup, its seed and starts too, with a line that says so;
 // it is not remembered: the player's own saved setup is back on the next visit, and the first change to the board or
-// the map makes the setup theirs (saved, as every change is) and the challenge an ordinary game.
+// the map makes the setup theirs (saved, as every change is) and the challenge an ordinary game. A plan link (`?plan=`,
+// play against Claude: plan.js, claude.js) sets the AI's plan for the games of this visit (its first enemy AI seat
+// plays it, on Hard; `&watch=1`: the person watches it play the built-in Hard), with a line that says so; not saved.
 import { mapPreview, ready } from '../engine/index.js';
 import { $ } from './ui.js';
 import { sfx } from './audio.js';
@@ -23,6 +25,8 @@ import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
 import { MAPS, DEFAULT_MAP, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, offered, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
+import { PARAM as PLAN, WATCH, fromSearch, line as planLine } from './plan.js';
+import { initClaude, currentPlan } from './claude.js';
 import { RACES, startSetup, legacyRows, oneTeam, validRows, seatColor, seatName, newAi, canRemove, removeAt, sideChoices, sideColor, filled, firstEmpty, tokenEl, emptySpot, seatSheet, sheetDialog, narrow } from './seats.js';
 
 
@@ -97,7 +101,10 @@ function setBoard(board) {
   renderSeats(); showFirstGame(); sfx('select');
 }
 /** The footer's note: the map just picked's line (the Shore's), why START GAME waits, or the challenge it plays. */
-function renderNote() { $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : menu.challenge ? line(menu.challenge) : ''); }
+function renderNote() {
+  const plan = currentPlan(), lines = [menu.challenge && line(menu.challenge), plan && planLine(plan.watch)].filter(Boolean);
+  $('soloNote').textContent = mapNote || (oneTeam(menu.board) ? 'Everyone is on one side' : lines.join(' · '));
+}
 /** A spot's player as the board shows it (seats.js `tokenEl`'s view). */
 const viewOf = (board, i) => ({ name: seatName(i), race: board[i].race, diff: i ? board[i].diff : null, side: board[i].team, sideColor: sideColor(board, board[i].team), me: !i });
 function renderSeats() {
@@ -188,6 +195,8 @@ export function initMenu({ onStart }) {
   // (How to play and About: the docs, from the first page's footer line, in a new tab: index.html #menuLinks)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   showStamp(build);
+  initClaude({ plan: takePlan(), build }); // (a plan link, and an embedding page's channel: claude.js)
+  renderNote();
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
@@ -204,13 +213,26 @@ function takeChallenge() {
   Object.assign(menu, { challenge: c, board: c.spots.map(r => r && { ...r }), players: filled(c.spots).length, map: c.map, size: m.size, seed: m.seed, kind: m.kind, name: m.name, side: c.side });
   page('menuSolo');
 }
+/** A plan link (`?plan=CODE`, `&watch=1`): the plan for this visit's games (null: none), the single-player page opened;
+ *  the parameters leave the address once read (good or not). */
+function takePlan() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has(PLAN)) return null;
+  const p = fromSearch(location.search);
+  q.delete(PLAN); q.delete(WATCH); history.replaceState(history.state, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
+  if (p) page('menuSolo');
+  return p;
+}
 /** The challenge of the game just won in `secs` (the menu's setup, as START GAME seated it), or null (the guided game). */
 export const wonChallenge = (secs) => (menu.tutorial ? null : fromSetup(menu, secs));
 /** Where a reload should land while a challenge is set (the player has not changed it): its link (an update of the game
  *  reloads the menu: src/boot.js), else ''. */
 export function pendingChallenge() {
-  if (!menu.challenge) return '';
-  const q = new URLSearchParams(location.search); q.set(PARAM, encode(menu.challenge)); // (the address's other parameters kept: ?seed=, ?relay=)
+  const plan = currentPlan();
+  if (!menu.challenge && !plan) return '';
+  const q = new URLSearchParams(location.search); // (the address's other parameters kept: ?seed=, ?relay=)
+  if (menu.challenge) q.set(PARAM, encode(menu.challenge));
+  if (plan) { q.set(PLAN, plan.code); if (plan.watch) q.set(WATCH, '1'); }
   return `${location.origin}${location.pathname}?${q}${location.hash}`;
 }
 

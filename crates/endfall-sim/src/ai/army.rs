@@ -429,6 +429,7 @@ impl World {
         }
         self.leash_home_army(&army, &brain.my_b, rally);
         self.recall_wave(&army, raid, intruder, t);
+        self.pull_back(&army, rally, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
         let raider = self.factions[self.seat() as usize].ai.raider;
         let candidates: Vec<Id> = army
@@ -704,26 +705,59 @@ impl World {
         ai.attacking = false;
         ai.attackers = None;
         ai.last_wave = t;
+        ai.notes.ended = Some(crate::world::WaveEnd::CalledHome);
+    }
+
+    /// A plan's intent to pull back (`Ai::pull`): the wave out comes home to its rally.
+    fn pull_back(&mut self, army: &[Id], rally: Pt, t: f64) {
+        if !std::mem::take(&mut self.ai_mut().pull) || !self.ai().attacking {
+            return;
+        }
+        let attackers = self.ai().attackers.clone().unwrap_or_default();
+        for &a in army.iter().filter(|a| attackers.contains(a)) {
+            let ox = (self.rnd() - 0.5) * 120.0;
+            let oy = (self.rnd() - 0.5) * 120.0;
+            self.move_to(a, rally.x + ox, rally.y + oy);
+        }
+        let ai = self.ai_mut();
+        ai.attacking = false;
+        ai.attackers = None;
+        ai.staging = None;
+        ai.last_wave = t;
+        ai.notes.ended = Some(crate::world::WaveEnd::PulledBack);
     }
 
     /// Send the whole army out once it is big enough (fewer, stronger units for a race with a smaller wave scale)
     /// and the difficulty's first-wave time and gap have passed.
     fn ai_launch_wave(&mut self, army: &[Id], t: f64, (gx, gy): (f64, f64)) {
+        use crate::world::{Slip, WaveWhy};
         // (a stalled game: it masses for up to `STALL_HOLD` s, to the cap, then goes all in)
         let massing = self.ai().stall && t - self.stall_began() < STALL_HOLD;
         let d = self.level();
         let ai = self.ai();
-        let need =
-            (ai.wave as f64 * self.factions[self.seat() as usize].ai.wave_scale).ceil() as usize;
-        let held = self.waves_held(t); // (the guided first game: until the player is ready)
+        let scale = self.factions[self.seat() as usize].ai.wave_scale;
+        // (a plan's later waves gather, `Diff::later_min`: after its first, a wave's count is that at least, and neither
+        // the crushing shortcut nor a stalled game's push goes with fewer, unless it is at its cap)
+        let later = ai.last_wave >= 0.0;
+        let floor = if later { d.later_min } else { 0 };
+        let need = (ai.wave.max(floor) as f64 * scale).ceil() as usize;
+        let floor = (floor as f64 * scale).ceil() as usize;
+        let held = self.waves_held(t) || t < ai.hold_until; // (the guided first game: until the player is ready; a plan's hold)
+        // (a plan's intent: its next wave goes now, with what it has)
+        let ordered = ai.force && !ai.attacking && !army.is_empty();
         // (at the cap a wave is as big as it gets: it goes whatever its count, at its places' cap or at its level's most
         // fighters, `army_full`: an Easy army of eight, three of them guards, waited for ever for a wave of six; and so
         // does a wave that crushes what the foe has shown of its army, `crushing`)
         let full = self.at_cap(self.seat()) || self.army_full(self.seat());
-        let short = army.len() < need && !full && !self.crushing(army, need, t);
+        let crushes = army.len() >= floor && self.crushing(army, need, t);
+        let short = army.len() < need && !full && !crushes;
         // (a push that takes everything, `Diff::push_all`: once its hold is up it goes with what it has, half its count
         // at least; the Expedition's Hard sat thirteen minutes on a short wave, its raiders, guards and reserve kept out)
-        let pushes = d.push_all && self.ai().stall && !massing && army.len() * 2 >= need;
+        let pushes = d.push_all
+            && self.ai().stall
+            && !massing
+            && army.len() * 2 >= need
+            && army.len() >= floor;
         let short = (short && !pushes)
             || (massing && !self.at_cap(self.seat()) && !self.crushing(army, need, t));
         // (the guided first game: its first wave when the guide releases it, `GUIDED_FIRST`)
@@ -732,14 +766,52 @@ impl World {
         } else {
             d.first
         };
-        if held || ai.attacking || short || t - ai.last_wave <= d.gap || t <= first {
-            if !ai.attacking && short {
+        let gap = t - ai.last_wave <= d.gap;
+        if !ordered && (held || ai.attacking || short || gap || t <= first) {
+            let (attacking, under) = (ai.attacking, t - ai.attacked_at < 5.0);
+            if !attacking && short {
                 self.ai_mut().ready_since = None;
             }
+            // (the summary's note: what holds its next wave, once it is due)
+            let why = if held {
+                Slip::Held
+            } else if under {
+                Slip::UnderAttack
+            } else if short {
+                Slip::WaveSize
+            } else {
+                Slip::Gap
+            };
+            let why = (!attacking && t > first).then_some(why);
+            self.ai_mut().notes.wave = why;
             return;
         }
-        if !self.strong_enough(army, t) {
+        if !ordered && !self.strong_enough(army, t) {
+            let looking = self.ai().looking.is_some();
+            self.ai_mut().notes.wave = Some(if looking {
+                Slip::Looking
+            } else {
+                Slip::Strength
+            });
             return;
+        }
+        let why = if ordered {
+            WaveWhy::Ordered
+        } else if pushes && army.len() < need {
+            WaveWhy::StallPush
+        } else if army.len() >= need {
+            WaveWhy::Count
+        } else if full {
+            WaveWhy::AtCap
+        } else {
+            WaveWhy::Crushing
+        };
+        {
+            let ai = self.ai_mut();
+            ai.force = false;
+            ai.notes.wave = None;
+            ai.notes.left = Some((why, army.len(), need));
+            ai.notes.ended = None;
         }
         // (a clumsy level sends only its wave's size, its oldest units; the rest stay home; finishing, everything goes)
         let army = if d.wave_only && !self.finishing(self.seat()) {
@@ -1548,12 +1620,19 @@ impl World {
         if alive.is_empty() {
             self.no_growth_after_giving_up(); // (all of it fell: it met more than it could take)
             self.ai_mut().attacking = false;
+            self.ai_mut().notes.ended = Some(crate::world::WaveEnd::AllFell);
         } else if lost
             || left == 0
             || stalled
             || (!push && wave_size >= 4 && left * 10 < wave_size * self.level().give_up)
         {
             // Pull the survivors back instead of feeding them in one by one.
+            let why = if lost || left == 0 || stalled {
+                crate::world::WaveEnd::Quiet
+            } else {
+                crate::world::WaveEnd::GaveUp
+            };
+            self.ai_mut().notes.ended = Some(why);
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
@@ -1569,6 +1648,7 @@ impl World {
             && self.outmatched(&alive)
         {
             // Outmatched on contact with a passive foe: back to its rally, where its reserve and towers meet whoever chases it.
+            self.ai_mut().notes.ended = Some(crate::world::WaveEnd::Outmatched);
             for a in alive {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;

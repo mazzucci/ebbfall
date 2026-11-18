@@ -76,3 +76,70 @@ pub fn random_order_with(g: &mut Game, r: &mut Mulberry32, cheats: bool) {
         _ => {}
     }
 }
+
+/// A random plan code (claude/PLAN_VOCAB.md): random fields with values in and out of range, unit words of either
+/// people, intents in a delta, and now and then garbage the sim must refuse.
+pub fn random_plan_code(r: &mut Mulberry32, delta: bool) -> String {
+    if r.below(8) == 0 {
+        return [
+            "",
+            "1.",
+            "2.w14",
+            "1.w14.w14",
+            "1.zz9",
+            "1.f6",
+            "1.pfoo",
+            "1.<x>",
+        ][r.below(8) as usize]
+            .into();
+    }
+    let time = |r: &mut Mulberry32| {
+        if r.below(6) == 0 {
+            "no".to_string()
+        } else {
+            format!("{}m{:02}", r.below(25), r.below(60))
+        }
+    };
+    let units = [
+        "guard",
+        "archer",
+        "cannon",
+        "ballista",
+        "balloon",
+        "rider",
+        "knight",
+        "sellsword",
+        "buggy",
+        "drone",
+        "android",
+        "rover",
+        "bruiser",
+        "medic",
+    ];
+    let mut code = String::from("1");
+    for _ in 0..r.below(7) {
+        let f = match r.below(14) {
+            0 => format!("w{}", r.below(30)),
+            1 => format!("f{}", time(r).replace("no", "4m")),
+            2 => format!("s{}", r.below(25)),
+            3 => format!("e{}", time(r)),
+            4 => format!("b{}", r.below(6)),
+            5 => format!("t{}", time(r)),
+            6 => format!("k{}", time(r)),
+            7 => format!("o{}", time(r).replace("no", "3m")),
+            8 => format!("r{}", r.below(2)),
+            9 => format!("p{}", units[r.below(units.len() as u32) as usize]),
+            10 => format!("n{}", units[r.below(units.len() as u32) as usize]),
+            11 => format!("m{}", r.below(50)),
+            12 => format!("g{}m{:02}", r.below(6), r.below(60)),
+            _ if delta => format!(
+                "x{}",
+                ["attack", "hold", "pull", "mass"][r.below(4) as usize]
+            ),
+            _ => "w12".into(),
+        };
+        code.push('.');
+        code.push_str(&f);
+    }
+    code
+}

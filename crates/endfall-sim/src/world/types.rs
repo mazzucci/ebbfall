@@ -477,6 +477,104 @@ pub enum LaunchWhy {
     Stale,
 }
 
+/// Why a step of an AI's plan waits, as of its last turn (the game summary's "plan vs what happened" and the check-in
+/// digest; read by no rule, not hashed).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Slip {
+    /// Not enough money for it.
+    NoGold,
+    /// A building it needs first is not standing.
+    Needs(crate::data::BldgKind),
+    /// Its build order wants another building first (one at a time).
+    Busy(crate::data::BldgKind),
+    /// As many of its buildings going up at once as it raises.
+    Sites,
+    /// Behind the foe's army it last saw, it builds nothing but supply (`Diff::army_first`).
+    ArmyFirst,
+    /// Too few workers yet for a second base.
+    Workers,
+    /// No place it can put it.
+    NoSpot,
+    /// Its next wave waits for its count.
+    WaveSize,
+    /// Its next wave waits to be strong enough against the army it expects (`Diff::wave_margin`).
+    Strength,
+    /// It sent a unit to look at the foe's army first.
+    Looking,
+    /// The foe is at its buildings.
+    UnderAttack,
+    /// Held: a plan's hold, or the guided first game's.
+    Held,
+    /// The least gap after its last wave (`Diff::gap`).
+    Gap,
+}
+
+impl Slip {
+    /// In a few words for a reader.
+    pub fn words(self) -> String {
+        match self {
+            Slip::NoGold => "no money".into(),
+            Slip::Needs(k) => format!("needs a {}", k.def().name),
+            Slip::Busy(k) => format!("a {} first", k.def().name),
+            Slip::Sites => "other buildings going up".into(),
+            Slip::ArmyFirst => "army first (behind)".into(),
+            Slip::Workers => "too few workers".into(),
+            Slip::NoSpot => "no spot".into(),
+            Slip::WaveSize => "wave count".into(),
+            Slip::Strength => "strength".into(),
+            Slip::Looking => "scouting".into(),
+            Slip::UnderAttack => "under attack".into(),
+            Slip::Held => "held".into(),
+            Slip::Gap => "gap".into(),
+        }
+    }
+}
+
+/// Why an AI's wave went.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WaveWhy {
+    /// Its count reached.
+    Count,
+    /// At its places' cap or its most fighters: as big as it gets.
+    AtCap,
+    /// Short of its count, but crushing the army it expected.
+    Crushing,
+    /// A stalled game's push.
+    StallPush,
+    /// A plan's intent (attack now).
+    Ordered,
+}
+
+/// Why an AI's wave ended (came home or fell).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WaveEnd {
+    /// Every unit of it fell.
+    AllFell,
+    /// Fewer than `Diff::give_up` tenths of it left: the survivors came home.
+    GaveUp,
+    /// Outmatched on contact (`Diff::retreat_below`): back to its rally.
+    Outmatched,
+    /// Nothing to fight for a while, or nothing of the foe it knew of: home.
+    Quiet,
+    /// Called home to meet a raid at its base.
+    CalledHome,
+    /// A plan's intent (pull back).
+    PulledBack,
+}
+
+/// What an AI notes about its plan as it plays (`World::ai_notes`): why each step waits, why its last wave went and
+/// why its last ended. Read by no rule, not hashed.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct AiNotes {
+    pub tech: Option<Slip>,
+    pub tower: Option<Slip>,
+    pub expand: Option<Slip>,
+    pub wave: Option<Slip>,
+    /// Its last wave: why it went, its units and the count it needed.
+    pub left: Option<(WaveWhy, usize, usize)>,
+    pub ended: Option<WaveEnd>,
+}
+
 /// An AI's check as its last wave went: why, its wave's armed worth and the foe's army it expected (0 when it expected
 /// none). Lab only, like `Ledger`.
 #[derive(Clone, Copy, Debug, PartialEq)]

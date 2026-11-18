@@ -19,6 +19,7 @@ mod mines;
 mod orders;
 mod paths;
 mod peoples;
+mod plans;
 mod radio;
 mod random_play;
 mod seats;

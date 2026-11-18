@@ -22,6 +22,7 @@ import { setSpots, MUZZLE_SMOKE, MUZZLE_FLASH, MELEE_PUFF, inReach, impactOf } f
 import { startTutorial, updateTutorial } from './client/tutorial.js';
 import { initLeaveDialog, armLeaveGuard, disarmLeaveGuard, enterFullscreen, isFull, pageFullscreenWorks } from './client/screen.js';
 import { online, stopOnline, wantRematch, theyWant, wantLine, ifYouLeave } from './client/online.js';
+import { currentPlan, startPlan, pumpClaude, endClaude, watching } from './client/claude.js';
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
@@ -44,10 +45,18 @@ input.enabled = () => started && !overlay() && !paused();
  *  each for itself or in teams (the seats in team order, this player seat 0), each AI at its own difficulty. */
 function newGame() {
   const g = setup(); // (the menu's choices, or the guided first game's)
-  stopOnline();
+  stopOnline(); endClaude();
   setSpots(g.spots); // (each player in its spot's color)
-  if (g.players > 2) begin(() => resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs));
-  else begin(() => resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size));
+  // A plan (play against Claude, claude.js): on the first AI seat against ours; watching, a duel of two AIs, the plan on
+  // seat 0 (our people) against Hard (the first AI's people), nobody's orders taken.
+  const plan = menu.tutorial ? null : currentPlan();
+  const races = plan?.watch ? g.races.slice(0, 2) : g.races;
+  const foe = g.players > 2 ? g.ai.findIndex((a, s) => s > 0 && a && (!g.teams.length || g.teams[s] !== g.teams[0])) : 1;
+  const info = { map: { name: g.name, size: g.size }, peoples: races.map(r => FACTIONS[r]?.name ?? r) };
+  const planned = () => startPlan(plan ? (plan.watch ? 0 : foe) : null, info, !!plan);
+  if (plan?.watch) begin(() => { resetGameSeats(g.seed, 2, g.kind, g.side, races, [], [true, true], 0, g.size, [2, 2]); planned(); });
+  else if (g.players > 2) begin(() => { resetGameSeats(g.seed, g.diff, g.kind, g.side, g.races, g.teams, g.ai, 0, g.size, g.diffs); planned(); });
+  else begin(() => { resetGame(g.seed, g.diff, g.kind, g.side, g.race, g.enemyRace, g.size); planned(); });
 }
 
 /** An online game: the room's setup, from this side's seat (online.js); its AI seats run in every client's game. */
@@ -69,7 +78,7 @@ function begin(reset) {
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
   // (the Expedition has no population: a grid for everything it runs, from its Substations)
-  if (!menu.tutorial) toast(myFaction().grid ? `Mine thorium for energy. Build ${aName(BUILDINGS[myFaction().supply].name)} to expand the grid: energy builds things; the grid keeps them running.`
+  if (!menu.tutorial && !watching()) toast(myFaction().grid ? `Mine thorium for energy. Build ${aName(BUILDINGS[myFaction().supply].name)} to expand the grid: energy builds things; the grid keeps them running.`
     : `Mine gold. Build ${aName(BUILDINGS[myFaction().supply].name)} before your population is full.`);
   armLeaveGuard({ onAsk: leaveLine, onResume: () => { last = performance.now(); }, onLeave: quitToTitle });
 }
@@ -84,7 +93,8 @@ function leaveLine() {
 /** Leaving (or restarting) a game in progress gives it up: a defeat on this device's record (the pause card says so). */
 function giveUp() {
   if (online.playing) { if (started && !G.over) online.net?.leave(); return; } // (an online game: the relay concedes for us at once; not on the vs-AI record)
-  if (started && !G.over && !menu.tutorial && !BENCH) recordResult(false, G.factions[G.me], G.diff);
+  if (started && !G.over && !menu.tutorial && !BENCH && !watching()) recordResult(false, G.factions[G.me], G.diff);
+  endClaude(); // (a planned game left: its summary to the page)
 }
 function quitToTitle() {
   const solo = !online.playing && !menu.tutorial;
@@ -159,6 +169,7 @@ function endLine(win) {
 }
 
 function endGame() {
+  const watched = watching(); endClaude(); // (a planned game's summary to the page)
   closePause(); setSelection([]); updateHud(); // (a console frozen mid-"Training" would sit under the result)
   const win = G.over && G.winner === G.teams[G.me]; // (the winner is a team; out of a game that goes on: lost)
   $('result').textContent = win ? 'VICTORY' : 'DEFEAT'; $('result').className = win ? 'win' : 'lose';
@@ -167,11 +178,11 @@ function endGame() {
   $('endMap').innerHTML = `<b>${map.name}</b>: ${MAP_KINDS[map.kind].story}`; // the map's secret, told at the end
   $('btnAgain').textContent = online.playing ? 'LEAVE ROOM' : 'NEW GAME'; // (online: this room, and its rematch, are left)
   $('btnAgain').title = online.playing ? 'Back to the menu: out of this room' : 'Back to the menu, for another map or opponent';
-  showShare(win && !online.playing && !BENCH ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
+  showShare(win && !online.playing && !BENCH && !watched ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
-  if (!online.playing && !menu.tutorial && !BENCH) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
+  if (!online.playing && !menu.tutorial && !BENCH && !watched) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
   if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
@@ -232,6 +243,7 @@ function loop(now) {
     if (probe.on) probe.lap('steps');
     drainEvents();
   }
+  pumpClaude(); // (a planned game's check-ins to an embedding page: claude.js)
   // Checked every frame, not only while running: the game can end between frames too.
   if (online.playing && G.over) online.net?.pump(); // (the game is over, the room is not: still here, for a rematch)
   if (started && !ended && myGameOver()) { ended = true; drainEvents(); endGame(); } // (once a game: `ended` resets in newGame)

@@ -5,6 +5,7 @@
 // reconnect is pending (one socket, nothing closed), and orders given while the socket is down (not lost). And rooms
 // of three, four and eight with AI seats (M4): every client runs the AI alike; and one whose sides the start arranges
 // (a person's game seat not its lobby spot). And a limit refusal: a lobby stops, a game or a held lobby seat keeps reconnecting.
+// And invite links through a relay that counts the limits (relay/limits.js): typos, rooms nobody sat in, a scan.
 import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -341,6 +342,45 @@ test('a limit refusal (too many tries from this address): a lobby Net without a 
   assert.ok(!held.closed && held.held, 'a lobby seat held: reconnects too, its seat kept in the room\'s view');
   assert.deepEqual(told, ['limit', 'removed']);
   game.close(); held.close();
+});
+
+test('invite links through a relay that counts limits: a typo or two then the right code, rooms nobody sat in cost everyone nothing, and during a scan', async () => {
+  const { SCAN_MISSES, SCAN_NET_MISSES, MINUTE } = await import('../relay/limits.js');
+  const at = { now: Date.UTC(2026, 10, 18, 12) };
+  const relay = startRelay({ port: 0, free: () => false, now: () => at.now }); await relay.ready; // (this machine counted, as any address)
+  const url = `ws://localhost:${relay.port}/`, nets = [];
+  /** A Net into `room` (none: a new room): its seat message, or the error it was told. */
+  const join = (room, name = 'Bo') => new Promise(res => {
+    const net = new Net({ url, room, name, game: () => null, on: { seat: (m) => res({ seat: m.seat, room: m.room }), error: (m) => res({ error: m.code }) } });
+    nets.push(net);
+  });
+  const all = () => relay.limits.budget.all.keys.get('')?.length || 0;
+  try {
+    // Rooms opened and left before a hello: not in everyone's budget.
+    for (let i = 0; i < 3; i++) await new Promise(res => { const ws = new WebSocket(`${url}?new=1`); ws.onopen = () => { ws.close(); res(); }; });
+    assert.equal(relay.rooms.size, 3); assert.equal(all(), 0, 'three rooms nobody sat in');
+    const host = await join(undefined, 'Ann');
+    assert.equal(host.seat, 0); assert.equal(all(), 1, 'the host seated: counted');
+    // A friend: a typo, another, then the link's code.
+    const typo = host.room.replace(/^./, c => c === 'B' ? 'C' : 'B');
+    assert.deepEqual(await join(typo), { error: 'noroom' });
+    assert.deepEqual(await join(typo.toLowerCase()), { error: 'noroom' });
+    assert.deepEqual(await join(host.room), { seat: 1, room: host.room }, 'the invite link: in');
+    assert.equal(all(), 1, 'a friend: no second count');
+    nets[0].add(1, false); nets[0].add(0, false); // (the host: two open seats more, for two more friends)
+    await new Promise(r => setTimeout(r, 100));
+    // A scan (everyone's misses past SCAN_MISSES): the link still works after two typos; a third miss, and that
+    // address waits a minute.
+    at.now += MINUTE;
+    relay.limits.misses.miss(SCAN_MISSES - 1);
+    assert.deepEqual(await join(typo), { error: 'noroom' }); assert.ok(relay.limits.misses.scanning, 'a scan');
+    assert.deepEqual(await join(typo), { error: 'noroom' });
+    assert.deepEqual(await join(host.room, 'Cy'), { seat: 2, room: host.room }, 'two typos in a scan: the link still works');
+    for (let i = 2; i < SCAN_NET_MISSES; i++) assert.deepEqual(await join(typo), { error: 'noroom' });
+    assert.deepEqual(await join(host.room, 'Di'), { error: 'limit' }, 'past its share: this address waits');
+    at.now += MINUTE;
+    assert.deepEqual(await join(host.room, 'Di'), { seat: 3, room: host.room }, 'a minute later');
+  } finally { for (const n of nets) n.close(); await relay.close(); }
 });
 
 describe('matches through a relay', { concurrency: true }, () => {

@@ -10,7 +10,7 @@
 // entry module, which may export only handlers and classes.
 import { Room, TURN_MS, MAX_SEATS } from './room.js';
 import { BenchStore } from './bench.js';
-import { OpenBudget, addressKey } from './limits.js';
+import { Limits, addressKey } from './limits.js';
 import { relay, CLOUDFLARE, send, ROOM_IDLE_MS } from './edge.js';
 
 export default relay();
@@ -31,9 +31,12 @@ const random = () => crypto.getRandomValues(new Uint32Array(1))[0];
  *  again while the room is in use). A game is not kept: an evicted or redeployed one is over (its players are told the
  *  room is gone). A join to a code with no room is answered 404, with no socket: the Worker tells the player and counts
  *  the miss (relay/edge.js). The objects named 'bench' and 'limits' are no rooms: one keeps the device test's reports
- *  (relay/bench.js BenchStore), the other counts rooms opened (relay/limits.js OpenBudget, in memory). */
+ *  (relay/bench.js BenchStore), the other counts rooms opened and codes missed (relay/limits.js Limits, in memory). A
+ *  room tells it once, when its first hello seats someone (`counted`; a kept lobby was counted when it was new): a
+ *  room nobody sits in costs everyone's budget nothing. */
 export class RoomObject {
   constructor(state, env, platform = CLOUDFLARE) {
+    this.env = env; this.counted = true;
     this.platform = platform; this.storage = state?.storage; this.room = null; this.conns = new Set(); this.timer = null;
     this.lastUsed = 0; this.started = false;
     this.saved = ''; this.savedAt = 0; this.saveTimer = null; // (the record last written, when; a write waiting)
@@ -42,7 +45,7 @@ export class RoomObject {
   async fetch(req) {
     const host = new URL(req.url).hostname;
     if (host === 'bench') return (this.bench ||= new BenchStore(this.storage)).fetch(req); // (the reports' object)
-    if (host === 'limits') return (this.limits ||= new OpenBudget()).fetch(req); // (the rooms' limits' object: in memory)
+    if (host === 'limits') return (this.limits ||= new Limits()).fetch(req); // (the rooms' limits' object: in memory)
     const q = new URL(req.url).searchParams, code = q.get('code');
     const saved = this.room ? null : await this.storage?.get('room');
     const recent = saved && Date.now() - saved.used < ROOM_IDLE_MS;
@@ -67,7 +70,15 @@ export class RoomObject {
     if (seats.length >= 2 && seats.length <= MAX_SEATS) {
       try { const r = room(seats.length); if (r.restore({ ...kept, seats }, Date.now())) this.room = r; } catch { /* a bad record: an empty lobby */ }
     }
-    this.started = false; this.saved = '';
+    this.started = false; this.saved = ''; this.counted = !!kept;
+  }
+  /** Someone sat in the room: the first time since it was opened new, the limits object counts it in everyone's (not
+   *  waited for; a failure counts nothing). */
+  seated() {
+    if (this.counted) return;
+    this.counted = true;
+    const ns = this.env?.ROOMS;
+    try { ns?.get(ns.idFromName('limits')).fetch(new Request('https://limits/seated', { method: 'POST' })).catch(() => {}); } catch { /* not counted */ }
   }
   /** Keep the room's record: only if it changed, at most once a SAVE_MS (a trailing write for the last change). */
   save() {
@@ -111,7 +122,7 @@ export class RoomObject {
       if (typeof e.data !== 'string' || e.data.length > MAX_MSG) { kick(ws); return; }
       let msg; try { msg = JSON.parse(e.data); } catch { return; }
       this.lastUsed = Date.now();
-      if (!seated) { seated = room.connect(ws, msg, from) >= 0; if (!seated) kick(ws); return; }
+      if (!seated) { seated = room.connect(ws, msg, from) >= 0; if (seated) this.seated(); else kick(ws); return; }
       room.receive(ws, msg);
       if (this.started !== (room.phase !== 'lobby')) { this.started = room.phase !== 'lobby'; this.save(); } // (a game: no lobby to bring back; a rematch's lobby: one again)
     });

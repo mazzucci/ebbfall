@@ -530,7 +530,8 @@ test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache S
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
-                      seat 2 (the start arranges the sides)
+                      seat 2 (the start arranges the sides); invite links through a relay that counts the limits (a
+                      typo or two, rooms nobody sat in, a scan)
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -543,8 +544,10 @@ test/seats.test.js    the board's rules: spots to seats, team ids and each seat'
                       sides a sheet offers, a saved board checked (and one from before the spots)
 test/relay-bench.test.js the Node relay's HTTP side for the device test's reports (POST/GET, chunked oversize, limits);
                       the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js,
-                      with the rooms' limits (opening per address a minute and an hour, everyone's, joins with a miss
-                      costing more, on a fake clock; wrangler.toml's bindings equal relay/limits.js's numbers), the
+                      with the rooms' limits (opening per address and per IPv6 /48 a minute and an hour, everyone's
+                      counted at a room's first seat, joins with a miss costing more, everyone's misses reported in
+                      batches and a scan from rotating networks tripping them, on a fake clock; wrangler.toml's
+                      bindings equal relay/limits.js's numbers), the
                       first format's codes told to update, the host's REMOVE barring an address, PROTO
 test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
@@ -584,9 +587,10 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
                       server.mjs, a Node WebSocket server for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
                       this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
-                      limits.js, the limits per address and in all (Notion: Multiplayer design, Security: Workers Rate
-                      Limiting bindings for an address's minute, an object named `limits` for its hour and everyone's
-                      rooms, all in memory in the Node relay but for this machine) and the counter bench.js shares;
+                      limits.js, the limits per address (and IPv6 /48) and in all (Notion: Multiplayer design, Security:
+                      Workers Rate Limiting bindings for an address's minute, an object named `limits` for its hour,
+                      everyone's rooms (counted once someone sits in one) and everyone's misses (a scan's brake), all
+                      in memory in the Node relay but for this machine) and the counter bench.js shares;
                       bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design, Hosting): dist/ as a Worker's static assets

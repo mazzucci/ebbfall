@@ -6,9 +6,11 @@
 // device test's reports (relay/bench.js): stored and read back by code, only from the game's pages, size, JSON, a known
 // kind, limits per address and in all (by the minute, by the day), expiry and the sweep of a backlog. And the rooms'
 // codes and limits (src/net/roomcode.js, relay/limits.js, relay/edge.js): six letters, read as typed or shown, a code of
-// the first format told to update; opening rooms per address (a minute's, an hour's) and in all, joins per address (a
-// miss costs more: a guesser is stopped, and learns nothing once stopped), on a fake clock; the bindings as wrangler.toml
-// declares them; a limit that cannot be asked lets the request go on.
+// the first format told to update; opening rooms per address and per IPv6 /48 (a minute's, an hour's) and in all
+// (counted once a hello seats someone), joins per address and per /48 (a miss costs more: a guesser is stopped, and
+// learns nothing once stopped), everyone's misses (reported in batches; a scan from rotating networks trips them, and
+// invite links still work), on a fake clock; the bindings as wrangler.toml declares them; a limit that cannot be asked
+// lets the request go on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import entry, { RoomObject } from '../relay/worker.js';
@@ -16,7 +18,7 @@ import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
 import { PROTO, LOBBY_HOLD_MS } from '../relay/room.js';
 import { DEFAULT_MAP } from '../src/client/maps.js';
 import { readFileSync } from 'node:fs';
-import { rateLimit, OpenBudget, Limiter, addressKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, MISS_COST, MINUTE, HOUR } from '../relay/limits.js';
+import { rateLimit, OpenBudget, Limits, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR } from '../relay/limits.js';
 import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
 import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
@@ -47,10 +49,11 @@ function env(extra = {}) {
   const objects = new Map(), stores = new Map();
   const get = (n) => {
     if (!stores.has(n)) stores.set(n, storage());
-    if (!objects.has(n)) objects.set(n, new RoomObject({ storage: stores.get(n) }, null, platform));
+    if (!objects.has(n)) objects.set(n, new RoomObject({ storage: stores.get(n) }, e, platform)); // (an object's env: the namespace, to tell the limits object of a seat)
     return objects.get(n);
   };
-  return { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
+  const e = { objects, stores, evict: (n) => objects.delete(n), ...extra, ROOMS: { idFromName: (n) => n, get } };
+  return e;
 }
 const upgrade = (query, origin = 'https://ebbfall.com', ip = '') => new Request(`https://relay.ebbfall.com/?${query}`, { headers: { Upgrade: 'websocket', Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) } });
 const say = (ws, msg) => ws.send(JSON.stringify(msg));
@@ -465,28 +468,44 @@ test('reports are gone after a week, and a backlog is swept 40 at a time', async
 /** An environment with the rate limiting bindings and the limits object on one fake clock (`at.now`). */
 function limited(now = Date.UTC(2026, 9, 31, 12)) {
   const at = { now }, clock = () => at.now;
-  const e = env({ CREATE_LIMIT: rateLimit(OPEN_PER_MIN, 60, clock), JOIN_LIMIT: rateLimit(JOIN_POINTS, 60, clock) });
-  e.ROOMS.get('limits').limits = new OpenBudget(clock);
-  return { at, e };
+  const e = env({
+    CREATE_LIMIT: rateLimit(OPEN_PER_MIN, 60, clock), JOIN_LIMIT: rateLimit(JOIN_POINTS, 60, clock),
+    CREATE_WIDE_LIMIT: rateLimit(WIDE_OPEN_PER_MIN, 60, clock), JOIN_WIDE_LIMIT: rateLimit(WIDE_JOIN_POINTS, 60, clock),
+  });
+  const l = e.ROOMS.get('limits'); l.limits = new Limits(clock);
+  const asked = []; const fetch = l.fetch.bind(l); l.fetch = (r) => { asked.push(new URL(r.url).pathname); return fetch(r); }; // (what the limits object is asked)
+  e.worker = relay(platform, clock); // (an isolate of its own: its misses' tally on this clock)
+  return { at, e, l: l.limits, asked };
 }
 const errorOf = (ws) => got(ws, 'error')[0];
-/** Open a room from `ip`: its code, or the error it was refused with. */
-async function openFrom(e, ip) {
-  const ws = (await worker.fetch(upgrade('new=1', undefined, ip), e)).webSocket;
+/** Open a room from `ip`: its code, or the error it was refused with; `sit` false: no hello (the socket left open, and
+ *  returned instead). */
+async function openFrom(e, ip, sit = true) {
+  const ws = (await (e.worker || worker).fetch(upgrade('new=1', undefined, ip), e)).webSocket;
   if (ws.closed) return errorOf(ws);
+  if (!sit) return ws;
   say(ws, hello('Ann'));
   const seat = got(ws, 'seat')[0]; ws.close();
   return seat ? seat.room : errorOf(ws);
+}
+/** Join `code` from `ip` through the environment's Worker: 'live' (a socket to the room), or the error's code. */
+async function joinFrom(e, code, ip) {
+  const ws = (await (e.worker || worker).fetch(upgrade(`room=${code}`, undefined, ip), e)).webSocket;
+  const err = errorOf(ws); ws.close(); return err?.code || 'live';
 }
 
 test('the bindings are wrangler.toml\'s, with relay/limits.js\'s numbers', () => {
   const toml = readFileSync(new URL('../relay/wrangler.toml', import.meta.url), 'utf8');
   const binding = (name) => toml.match(new RegExp(`name = "${name}"[^\\n]*\\nnamespace_id = "(\\d+)"\\nsimple = \\{ limit = (\\d+), period = (\\d+) \\}`));
-  const create = binding('CREATE_LIMIT'), join = binding('JOIN_LIMIT');
-  assert.ok(create && join, 'both declared');
-  assert.deepEqual([Number(create[2]), Number(create[3])], [OPEN_PER_MIN, 60]);
-  assert.deepEqual([Number(join[2]), Number(join[3])], [JOIN_POINTS, 60]);
-  assert.notEqual(create[1], join[1], 'a namespace each');
+  const want = { CREATE_LIMIT: OPEN_PER_MIN, JOIN_LIMIT: JOIN_POINTS, CREATE_WIDE_LIMIT: WIDE_OPEN_PER_MIN, JOIN_WIDE_LIMIT: WIDE_JOIN_POINTS };
+  const ids = new Set();
+  for (const [name, limit] of Object.entries(want)) {
+    const b = binding(name);
+    assert.ok(b, `${name} declared`);
+    assert.deepEqual([Number(b[2]), Number(b[3])], [limit, 60], name);
+    ids.add(b[1]);
+  }
+  assert.equal(ids.size, 4, 'a namespace each');
 });
 
 test('opening rooms: five a minute from an address (an IPv6 /64), whatever its Origin says; others may; a minute later again', async () => {
@@ -503,7 +522,7 @@ test('opening rooms: five a minute from an address (an IPv6 /64), whatever its O
   assert.match(await openFrom(e, '198.51.100.1'), /^[A-Z]{6}$/, 'a minute later');
 });
 
-test('opening rooms: thirty an hour from an address, and everyone\'s thirty a minute and 600 an hour (the limits object)', async () => {
+test('opening rooms: thirty an hour from an address, and everyone\'s thirty a minute and 600 an hour, counted at a room\'s first seat (the limits object)', async () => {
   const at = { now: 0 }, b = new OpenBudget(() => at.now);
   for (let i = 0; i < OPEN_PER_HOUR; i++) { assert.equal(b.open('a'), '', `room ${i + 1}`); at.now += 61000; }
   assert.equal(b.open('a'), SAY.hour, 'the 31st in the hour');
@@ -511,29 +530,29 @@ test('opening rooms: thirty an hour from an address, and everyone\'s thirty a mi
   at.now = HOUR + 1; // (the first room an hour old)
   assert.equal(b.open('a'), '', 'an hour after its first');
   const all = new OpenBudget(() => at.now); at.now = 10 * HOUR;
-  for (let i = 0; i < ROOMS_PER_MIN; i++) assert.equal(all.open(`x${i}`), '');
+  for (let i = 0; i < 3 * ROOMS_PER_MIN; i++) assert.equal(all.open(`u${i}`), '', 'rooms nobody sat in: everyone\'s budget untouched');
+  for (let i = 0; i < ROOMS_PER_MIN; i++) { assert.equal(all.open(`x${i}`), ''); all.seated(); }
   assert.equal(all.open('fresh'), SAY.busy, 'everyone\'s minute is full: a new address too');
   assert.equal(all.ips.check('fresh'), null, 'nothing counted for the refused');
   at.now += MINUTE;
   let n = ROOMS_PER_MIN;
-  while (n < ROOMS_PER_HOUR) { for (let i = 0; i < ROOMS_PER_MIN && n < ROOMS_PER_HOUR; i++, n++) assert.equal(all.open(`y${n}`), '', `room ${n + 1}`); at.now += MINUTE; }
+  while (n < ROOMS_PER_HOUR) { for (let i = 0; i < ROOMS_PER_MIN && n < ROOMS_PER_HOUR; i++, n++) { assert.equal(all.open(`y${n}`), '', `room ${n + 1}`); all.seated(); } at.now += MINUTE; }
   assert.equal(all.open('late'), SAY.busy, 'everyone\'s hour is full');
   at.now = 11 * HOUR;
   assert.equal(all.open('late'), '', 'an hour later');
   // Through the Worker: the limits object's word, told over the socket.
-  const { at: t, e } = limited();
-  const l = e.ROOMS.get('limits').limits;
+  const { at: t, e, l } = limited();
   for (let i = 0; i < ROOMS_PER_MIN; i++) assert.match(await openFrom(e, `192.0.2.${i}`), /^[A-Z]{6}$/);
   assert.deepEqual(await openFrom(e, '192.0.2.200'), { t: 'error', code: 'limit', msg: SAY.busy });
   t.now += MINUTE;
   assert.match(await openFrom(e, '192.0.2.200'), /^[A-Z]{6}$/);
-  assert.equal(l.all.keys.get('').length, ROOMS_PER_MIN + 1, 'one object counts everyone');
+  assert.equal(l.budget.all.keys.get('').length, ROOMS_PER_MIN + 1, 'one object counts everyone');
 });
 
 test('joining: a join costs a point, one that finds no room four: ten misses a minute, then nothing more is learned (a live room refused too)', async () => {
   const { at, e } = limited();
   const code = await openFrom(e, '198.51.100.7');
-  const join = async (c, ip) => { const ws = (await worker.fetch(upgrade(`room=${c}`, undefined, ip), e)).webSocket; const err = errorOf(ws); ws.close(); return err?.code || 'live'; };
+  const join = (c, ip) => joinFrom(e, c, ip);
   const guesser = '203.0.113.66', misses = JOIN_POINTS / MISS_COST;
   assert.equal(misses, 10);
   for (let i = 0; i < misses; i++) assert.equal(await join(newCode(() => i * 7 + 3), guesser), 'noroom', `guess ${i + 1}`);
@@ -546,6 +565,142 @@ test('joining: a join costs a point, one that finds no room four: ten misses a m
   at.now += 60000;
   assert.equal(await join(code, guesser), 'live', 'a minute later');
   assert.equal(await join('BCDF', guesser), 'update', 'a code of the first format: told to update, never counted');
+});
+
+test('everyone\'s rooms count a room once its first hello seats someone: rooms opened and left, or a hello refused, cost nothing', async () => {
+  const { at, e, l, asked } = limited();
+  const all = () => l.budget.all.keys.get('')?.length || 0;
+  for (let i = 0; i < 3 * ROOMS_PER_MIN; i++) {
+    const ws = await openFrom(e, `192.0.2.${i}`, false);
+    assert.ok(!ws.closed && !errorOf(ws), `room ${i + 1} opened`);
+    ws.close();
+  }
+  assert.equal(all(), 0, 'ninety rooms nobody sat in: everyone\'s minute untouched');
+  const nameless = await openFrom(e, '192.0.2.200', false);
+  say(nameless, { t: 'hello', proto: PROTO, name: '' });
+  assert.equal(errorOf(nameless)?.code, 'name'); assert.equal(all(), 0, 'a hello refused: not counted');
+  const code = await openFrom(e, '192.0.2.201');
+  assert.equal(all(), 1, 'a seat: counted');
+  assert.equal(await joinFrom(e, code, '192.0.2.202'), 'live');
+  const b = (await e.worker.fetch(upgrade(`room=${code}`, undefined, '192.0.2.203'), e)).webSocket;
+  say(b, hello('Bo')); assert.equal(got(b, 'seat')[0]?.seat, 1); b.close();
+  assert.equal(all(), 1, 'a friend joining: no second count');
+  assert.equal(asked.filter(p => p === '/seated').length, 1, 'one word to the limits object a room');
+  e.evict(code); // (an evicted lobby back: counted when it was new, not again)
+  assert.equal(await joinFrom(e, code, '192.0.2.204'), 'live');
+  assert.equal(e.objects.get(code).counted, true, 'a kept lobby back: counted when it was new, not again');
+  for (let i = 1; i < ROOMS_PER_MIN; i++) assert.match(await openFrom(e, `198.18.0.${i}`), /^[A-Z]{6}$/);
+  assert.deepEqual(await openFrom(e, '198.18.1.1'), { t: 'error', code: 'limit', msg: SAY.busy }, 'thirty seated rooms: the minute is full');
+  at.now += MINUTE;
+  assert.match(await openFrom(e, '198.18.1.1'), /^[A-Z]{6}$/);
+});
+
+test('an IPv6 /48 counts too: twenty rooms a minute and 120 an hour, forty misses a minute, from however many /64s; IPv4 has no /48', async () => {
+  assert.equal(wideKey(addressKey('2001:db8:7:1::5')), '2001:db8:7/48');
+  assert.equal(wideKey(addressKey('2001:0DB8:0007:ffff:1:2:3:4')), '2001:db8:7/48');
+  assert.equal(wideKey(addressKey('203.0.113.5')), ''); assert.equal(netKey('203.0.113.5'), '203.0.113.5');
+  assert.equal(netKey(addressKey('2001:db8:7:1::5')), '2001:db8:7/48');
+  const { at, e, l } = limited();
+  // Rooms: four /64s at their five each fill the /48's minute; another /64 of it is refused, another /48 is not.
+  for (let i = 0; i < WIDE_OPEN_PER_MIN; i++) assert.match(await openFrom(e, `2001:db8:7:${Math.floor(i / OPEN_PER_MIN)}::${i + 1}`), /^[A-Z]{6}$/, `room ${i + 1}`);
+  assert.deepEqual(await openFrom(e, '2001:db8:7:99::1'), { t: 'error', code: 'limit', msg: SAY.minute }, 'a fresh /64 of the same /48');
+  assert.match(await openFrom(e, '2001:db8:8:99::1'), /^[A-Z]{6}$/, 'another /48');
+  for (let i = 0; i <= OPEN_PER_MIN; i++) assert.match(await openFrom(e, `198.51.100.${i < OPEN_PER_MIN ? 40 : 41}`), /^[A-Z]{6}$/, 'IPv4: an address apart, no wider tier');
+  // The hour (the limits object): 120 from the /48, then none from any of its /64s.
+  const b = new OpenBudget(() => at.now); at.now += HOUR;
+  for (let i = 0; i < WIDE_OPEN_PER_HOUR; i++) assert.equal(b.open(addressKey(`2001:db8:9:${Math.floor(i / OPEN_PER_HOUR)}::1`)), '', `room ${i + 1} in the hour`);
+  assert.equal(b.open(addressKey('2001:db8:9:ff::1')), SAY.hour, 'the /48\'s hour is full: a fresh /64 too');
+  assert.equal(b.open(addressKey('2001:db8:a:ff::1')), '', 'another /48');
+  assert.equal(l.budget.wide.keys.get('2001:db8:7/48').length, WIDE_OPEN_PER_MIN, 'the limits object counts the /48');
+  // Misses: ten a /64, forty a /48; then a fresh /64 of it is refused, even with a live code.
+  at.now += HOUR;
+  const code = await openFrom(e, '198.51.100.50'), w = WIDE_JOIN_POINTS / MISS_COST;
+  assert.equal(w, 40);
+  for (let i = 0; i < w; i++) assert.equal(await joinFrom(e, newCode(() => i * 13 + 5), `2001:db8:b:${Math.floor(i / 10)}::1`), 'noroom', `miss ${i + 1}`);
+  assert.equal(await joinFrom(e, code, '2001:db8:b:77::1'), 'limit', 'a fresh /64 of the /48: refused, the live room too');
+  assert.equal(await joinFrom(e, code, '2001:db8:c:77::1'), 'live', 'another /48');
+  at.now += MINUTE;
+  assert.equal(await joinFrom(e, code, '2001:db8:b:77::1'), 'live', 'a minute later');
+});
+
+test('everyone\'s misses: an isolate reports them in batches; a scan from rotating networks trips the counter, then each network misses three times a minute, and links (after a typo or two too) still work', async () => {
+  const { at, e, l, asked } = limited();
+  const code = await openFrom(e, '198.51.100.60');
+  const reports = () => asked.filter(p => p === '/miss').length, looks = () => asked.filter(p => p === '/look').length;
+  // A typo now and then: no round trip of its own (the first miss waits for company).
+  assert.equal(await joinFrom(e, 'QQQQQQ', '198.51.100.61'), 'noroom');
+  assert.equal(reports(), 0, 'one miss: tallied, not yet reported');
+  at.now += MISS_FLUSH_MS;
+  assert.equal(await joinFrom(e, 'QQQQQR', '198.51.100.62'), 'noroom');
+  assert.equal(reports(), 1, 'the next, five seconds on: both in one report');
+  assert.equal(l.misses.count, 2);
+  assert.equal(await joinFrom(e, code, '198.51.100.61'), 'live', 'and the code right: in');
+  assert.equal(looks(), 0, 'no scan: lookups ask nothing');
+  // A scan: every guess from a fresh /48 (each well within its own limits), ten a second.
+  let n = 2, guesses = 0;
+  while (!l.misses.scanning) {
+    assert.equal(await joinFrom(e, newCode(() => guesses * 7919 + 11), `2001:db8:${1000 + guesses}::1`), 'noroom', `guess ${guesses + 1}`);
+    guesses++; at.now += 100;
+    assert.ok(guesses < SCAN_MISSES + 100, 'the counter trips');
+  }
+  n += guesses;
+  assert.ok(guesses >= SCAN_MISSES - 2, `it took ~SCAN_MISSES misses (${guesses})`);
+  assert.ok(reports() < 6, `${guesses} misses in ${reports()} reports: no round trip a miss`);
+  assert.ok(l.misses.count <= n);
+  // While it lasts: a network may miss twice a minute; its next lookup is refused (a live room too: nothing learned).
+  const scanner = '2001:db8:4242:1::1';
+  for (let i = 0; i < SCAN_NET_MISSES; i++) assert.equal(await joinFrom(e, newCode(() => i + 99), scanner), 'noroom', `a scanner's miss ${i + 1}`);
+  assert.equal(await joinFrom(e, 'QQQQQQ', '2001:db8:4242:2::1'), 'limit', 'one more, from another /64 of its /48: refused');
+  const objects = e.objects.size;
+  assert.equal(await joinFrom(e, code, scanner), 'limit', 'the live room too');
+  assert.equal(e.objects.size, objects, 'no room\'s object woken');
+  for (let i = 0; i < SCAN_NET_MISSES; i++) assert.equal(await joinFrom(e, `QQQQ${ALPHABET[i]}Q`, '192.0.2.77'), 'noroom');
+  assert.equal(await joinFrom(e, 'QQQQQQ', '192.0.2.77'), 'limit', 'an IPv4 address: the same');
+  assert.equal(await joinFrom(e, code, '192.0.2.78'), 'live', 'IPv4 next door: in');
+  // Players: an invite link from anywhere finds its room; a typo or two, then the right code, too.
+  assert.equal(await joinFrom(e, code, '2001:db8:5555:1::1'), 'live', 'an invite link');
+  assert.equal(await joinFrom(e, 'BCDFGH', '2001:db8:5556:1::1'), 'noroom', 'a typo');
+  assert.equal(await joinFrom(e, 'BCDFGJ', '2001:db8:5556:1::1'), 'noroom', 'another');
+  assert.equal(await joinFrom(e, code, '2001:db8:5556:1::1'), 'live', 'then the right code');
+  at.now += MINUTE;
+  assert.equal(await joinFrom(e, code, scanner), 'live', 'the scanner\'s network a minute later');
+  // The scan ends SCAN_HOLD_MS after the counter was last that high: lookups ask nothing again.
+  at.now += SCAN_HOLD_MS;
+  assert.equal(await joinFrom(e, code, scanner), 'live');
+  const asks = looks();
+  assert.equal(await joinFrom(e, code, scanner), 'live');
+  assert.equal(looks(), asks, 'the isolate heard the scan is over');
+});
+
+test('the miss counter alone: SCAN_MISSES in SCAN_WINDOW_MS trips it, it holds SCAN_HOLD_MS after, a network\'s misses count only during a scan', () => {
+  const at = { now: 0 }, m = new MissWatch(() => at.now);
+  assert.equal(m.miss(SCAN_MISSES - 1, 'a'), false); assert.ok(m.look('a'), 'below: anyone looks');
+  at.now += SCAN_WINDOW_MS; // (those fall out of the window)
+  assert.equal(m.miss(1), false, 'spread out: never a scan');
+  assert.equal(m.miss(SCAN_MISSES - 1), true, 'SCAN_MISSES in the window: a scan');
+  assert.ok(m.look('a'), 'a network that missed before the scan: its misses not counted');
+  for (let i = 0; i < SCAN_NET_MISSES; i++) { assert.ok(m.look('a'), `may look after ${i} misses`); m.miss(1, 'a'); }
+  assert.ok(!m.look('a'), 'SCAN_NET_MISSES in a minute: refused'); assert.ok(m.look('b'), 'another network may');
+  at.now += SCAN_HOLD_MS - 1; assert.ok(m.scanning);
+  at.now += 1; assert.ok(!m.scanning, 'the hold is over'); assert.ok(m.look('a'));
+  const big = new MissWatch(() => at.now); big.miss(1e9);
+  assert.equal(big.count, MISS_BATCH, 'a report counts at most MISS_BATCH');
+});
+
+test('the Node relay\'s limits (RoomLimits): the /48 tier, the scan, and everyone\'s rooms counted at the first seat', async () => {
+  const { RoomLimits } = await import('../relay/limits.js');
+  const at = { now: 0 }, r = new RoomLimits(() => at.now);
+  for (let i = 0; i < WIDE_OPEN_PER_MIN; i++) assert.equal(r.open(addressKey(`2001:db8:1:${Math.floor(i / OPEN_PER_MIN)}::1`)), '');
+  assert.equal(r.open(addressKey('2001:db8:1:99::1')), SAY.minute, 'the /48\'s minute');
+  assert.equal(r.budget.all.keys.get('')?.length || 0, 0, 'nobody seated: everyone\'s untouched');
+  r.seated(); assert.equal(r.budget.all.keys.get('').length, 1);
+  let i = 0;
+  while (!r.misses.scanning) { const k = addressKey(`2001:db8:${100 + i++}::1`); assert.ok(r.join(k)); r.miss(k); }
+  assert.equal(i, SCAN_MISSES, 'a scan from rotating /48s trips it at SCAN_MISSES');
+  const k = addressKey('2001:db8:7777:1::1');
+  for (let j = 0; j < SCAN_NET_MISSES; j++) { assert.ok(r.join(k)); r.miss(k); }
+  assert.ok(!r.join(addressKey('2001:db8:7777:2::1')), 'its /48 is done for the minute');
+  assert.ok(r.join(addressKey('2001:db8:7778:1::1')), 'another network may look');
 });
 
 test('a limit that cannot be asked (a binding or the limits object failing) lets the request go on', async () => {

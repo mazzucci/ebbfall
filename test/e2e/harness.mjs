@@ -211,8 +211,11 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
     },
     async tapAt(x, y) {
       if (!cdp) { await page.touchscreen.tap(x, y); await page.waitForTimeout(60); return; }
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      // (stamped as a finger's quick tap, 50 ms down: a busy page that handles the lift late must not take it for a
+      // finger held on the map, which arms a box)
+      const t = Date.now() / 1000;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }], timestamp: t });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t + 0.05 });
       await page.waitForTimeout(60);
     },
     /** A quick tap (100 ms by the touch's own times) that the page handles late, as on a busy phone: the finger comes

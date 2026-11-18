@@ -530,7 +530,8 @@ test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache S
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
-                      seat 2 (the start arranges the sides)
+                      seat 2 (the start arranges the sides); a flooding client (an ack flood keeps few hashes, a huge
+                      or oversized order refused, a message flood closes its socket and it comes back by its token)
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -545,11 +546,13 @@ test/relay-bench.test.js the Node relay's HTTP side for the device test's report
                       the Worker's (codes, ORIGINS, limits per address and in all, expiry) are in relay-worker.test.js,
                       with the rooms' limits (opening per address a minute and an hour, everyone's, joins with a miss
                       costing more, on a fake clock; wrangler.toml's bindings equal relay/limits.js's numbers), the
-                      first format's codes told to update, the host's REMOVE barring an address, PROTO
+                      first format's codes told to update, the host's REMOVE barring an address, PROTO, a flooding
+                      connection closed (MSG_CLOSE)
 test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
                       every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
-                      headers, what is not a file, www and http, the beacon only with a token, _headers, wrangler.toml;
+                      headers (cache and security), what is not a file, www and http, the beacon only with a token,
+                      _headers, wrangler.toml;
                       with dist/ built, every file the service worker stores, robots.txt, the sitemap and og.png
 test/site-preview.test.js the link cards (site/preview.js): a room's code read as the relay's (src/net/roomcode.js: hostile,
                       overlong, four letters, lower case, a hyphen),
@@ -580,13 +583,15 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
                       the board's fixed spots (a seat keeps its spot in the lobby), AI seats and their levels, the
                       game's seats arranged by side only at the start (`setup.spots`), the room's map checked against
                       its seats (it imports src/client/maps.js; a new room on `DEFAULT_MAP`), lobby, the turn clock, the log, away and back,
-                      desync checks, the host's remove: the address barred while the room lasts, in its record);
+                      desync checks, the host's remove: the address barred while the room lasts, in its record; the
+                      caps: numbers per order and per turn, a seat's numbers per game, checkpoint hashes kept);
                       server.mjs, a Node WebSocket server for local play and the tests (`node relay/server.mjs`); worker.js, the same rules on Cloudflare (a
                       Worker and one Durable Object per room; wrangler.toml; CI deploys it when the live one is not
                       this commit's build), its front door edge.js (codes, the Origin check, the limits, which object);
                       limits.js, the limits per address and in all (Notion: Multiplayer design, Security: Workers Rate
                       Limiting bindings for an address's minute, an object named `limits` for its hour and everyone's
-                      rooms, all in memory in the Node relay but for this machine) and the counter bench.js shares;
+                      rooms, all in memory in the Node relay but for this machine), the messages per connection (a
+                      token bucket, both adapters) and the counter bench.js shares;
                       bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design, Hosting): dist/ as a Worker's static assets
@@ -598,7 +603,7 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       with CODE read as the relay's (src/net/roomcode.js); a challenge's, `?vs=CODE`, through
                       src/client/challenge.js, its words from the code's values alone),
                       cache.js (assets/ immutable; the pages, sw.js and the manifest
-                      no-cache), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
+                      no-cache; the security headers every response carries, the Worker's and _headers'), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see
                       the traffic, DNS-only again for a rollback); CI's deploy job
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests

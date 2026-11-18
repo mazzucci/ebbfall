@@ -77,7 +77,7 @@ export function postGame({ result, summary, game, series, at }) {
     `Game ${game}${series ? ` of ${series}` : ''} is over at ${at || '?'}: you ${result === 'won' ? 'WON' : result === 'lost' ? 'LOST' : 'ran out the clock (timeout)'}.`,
     short ? `Summary: ${short}` : '',
     'First say one line to the player with say (rival and coach).',
-    `Then your final answer is your notes for the next game, which starts in a fresh conversation with only these notes: at most ${NOTES_MAX} characters, plain text, no tool calls. Merge what still matters from your earlier notes: what worked and what failed (with plan codes), what the opponent did and when, what to try next.`,
+    `Then your final answer is your notes for the next game, which starts in a fresh conversation with only these notes: aim for 1,200 characters; anything past ${NOTES_MAX} is cut off. Plain text, no tool calls. Put what to try next (with the plan code) FIRST, then merge what still matters from your earlier notes: what worked and what failed, what the opponent did and when.`,
   ].filter(Boolean).join('\n');
 }
 

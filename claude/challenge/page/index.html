@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ebbfall: Claude challenge</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main>
+    <iframe id="game" title="Ebbfall" allow="autoplay; fullscreen"></iframe>
+    <aside id="panel" aria-label="Claude">
+      <header>
+        <h1>Claude</h1>
+        <span id="mode" class="tag"></span>
+        <span id="status" class="tag quiet" role="status"></span>
+      </header>
+      <p id="note" class="note"></p>
+      <ol id="lines" aria-live="polite"></ol>
+      <section id="facts">
+        <div><span class="k">Plan</span> <code id="plan">-</code></div>
+        <div><span class="k">At</span> <span id="at">-</span> <span class="k">Money</span> <span id="money">-</span> <span class="k">Army</span> <span id="army">-</span></div>
+        <div id="result"></div>
+      </section>
+    </aside>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

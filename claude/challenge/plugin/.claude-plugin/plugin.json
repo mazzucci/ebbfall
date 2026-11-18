@@ -1,0 +1,9 @@
+{
+  "name": "ebbfall",
+  "version": "0.1.0",
+  "description": "Play Ebbfall against Claude: /ebbfall [watch|play] opens the game beside the session; Claude steers its seat with plans and talks to you. Needs a local build (npm run build) and Node.js 18+.",
+  "author": {
+    "name": "Stelian Matei",
+    "url": "https://github.com/mazzucci"
+  }
+}

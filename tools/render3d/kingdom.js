@@ -326,28 +326,35 @@ export function knight(M, f, dir) {
   add(sh, torus(3.3, 0.5, 20), M.cloth, 0, 0.4, 0, Math.PI / 2, 0, 0); add(sh, torus(2.8, 0.2, 20), M.inkLine, 0, 0.5, 0, Math.PI / 2, 0, 0); add(sh, sph(0.9, 8, 6), M.steel, 0, 0.5, 0); // a team rim round it
   limb(r, [0, 6, -3], [1.2, 4.4, -4.0], 1.1, M.mail);
   // the lance: couched in the right hand, angled up ahead, an oak shaft with a steel point and a team pennon. The strike
-  // poses (f 2, 3): the wind-up raises the lance steep (0.95 rad), its butt down by the stirrup and the hand on the
-  // grip at the hip; the strike couches it level under the arm and drives it ahead, the hand forward, the point 27
-  // ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay where they are. Seen from
-  // behind (`dir` 11-13, models.js awayYaw) the couched lance ran up the screen over the horse's neck, a shorter bar
-  // than the raised one: there the wind-up stands it steeper (1.2 rad, a tall pole with the pennant) and the strike
-  // drives it out to the side of the horse's head, the hand out that way, a diagonal clear of the horse.
-  const yaw = awayYaw(dir), away = yaw !== 0;
-  const [LX, LY, LZ, LA] = [[2.0, 4.8, 3.6, 0.42], away ? [0.6, 3.6, 3.9, 1.2] : [0.6, 3.6, 3.9, 0.95], away ? [2.6, 4.6, 4.8, 0.08] : [3.0, 4.4, 3.5, -0.02]][pose]; // the hand and the lance's angle
-  const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.set(0, pose === 2 ? yaw : 0, LA); r.add(ln);
-  add(ln, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
-  add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate
+  // poses (f 2, 3): the wind-up draws the lance back and up, as the Guard's spear is drawn back: the hand up behind the
+  // shoulder with the elbow cocked back, the shaft slid 4 back through the hand so its butt sticks out behind the rider
+  // over the rump and its point stands over the helm, raised to 1.0 rad (the gallop's 0.42) and canted a little out to
+  // the right so it clears the helm and the plume; the strike couches it level under the arm and drives it ahead, the
+  // hand forward, the point 27 ahead of the horse's chest. The horse, the rider's body, the helm and the shield stay
+  // where they are. (Until 2026-11-18 the wind-up only raised the lance to 0.95 rad from the hip, which read as the
+  // gallop in most facings: #304's designer.) Seen from behind (`dir` 11-13, models.js awayYaw) a raised lance runs up
+  // the screen as the gallop's does: there the wind-up stands steeper and cants out further (a diagonal clear of the
+  // rider), and the strike drives it out to the side of the horse's head, the hand out that way, a diagonal clear of
+  // the horse. Seen from the front (3-5) the raised lance points at the camera: the same wider cant lays it out to the side.
+  const yaw = awayYaw(dir), away = yaw !== 0, toward = dir >= 3 && dir <= 5;
+  const [LX, LY, LZ, LA, LS, LR] = [[2.0, 4.8, 3.6, 0.42, 0, 0], away ? [-1.6, 7.4, 4.6, 1.1, -4.0, 0.5] : [-1.6, 7.4, 4.6, 1.0, -4.0, toward ? 0.5 : 0.25], away ? [2.6, 4.6, 4.8, 0.08, 0, 0] : [3.0, 4.4, 3.5, -0.02, 0, 0]][pose]; // the hand, the lance's angle, the shaft's slide through the hand, its cant out to the side
+  const ln = grp(); ln.position.set(LX, LY, LZ); ln.rotation.set(LR, pose === 2 ? yaw : 0, LA); r.add(ln);
+  const lb = grp(); lb.position.x = LS; ln.add(lb);                                             // the shaft and all on it, slid `LS` along the hand
+  add(lb, cyl(1.2, 1.5, 24, 8), M.haft, 6.6, 0, 0, 0, 0, Math.PI / 2);                         // (24 long; 3.4 to 4.2 px wide at zoom 1.0 in warm haft brown; 0.95 to 1.2 in dark oak until the legibility pass)
+  add(ln, cyl(1.9, 1.3, 2.4, 10), M.leather, -2.4, 0, 0, 0, 0, Math.PI / 2);                   // the grip's vamplate, at the hand
   // the head: a steel socket and a long spike (6 long, 4 wide at its base: 7 x 5 px at zoom 1), so the lance ends in
   // steel in every facing; the team cloth is a small pennant on the shaft 5 below the head, hung off the shaft's
   // back side and leaning back (per pose: back-up in the gallop, level back in the wind-up, streaming back in the strike),
   // yawed 0.45 so a sliver of its face shows toward and away from the camera too. (Until 2026-11-14 a 9 x 5 pennon
   // at the tip, yawed with the lance: facing the camera in the wind-up it read as a team square where the head should be.)
-  add(ln, cyl(1.7, 1.7, 1.6, 8), M.steel, 18.6, 0, 0, 0, 0, Math.PI / 2);                      // the socket
-  add(ln, cone(2.0, 6.0, 8), M.steel, 22.4, 0, 0, 0, 0, -Math.PI / 2);                        // the point, 19.4 to 25.4
+  add(lb, cyl(1.7, 1.7, 1.6, 8), M.steel, 18.6, 0, 0, 0, 0, Math.PI / 2);                      // the socket
+  add(lb, cone(2.0, 6.0, 8), M.steel, 22.4, 0, 0, 0, 0, -Math.PI / 2);                        // the point, 19.4 to 25.4
   const lean = [0.6, 0.35, 0.9][pose], px = -Math.sin(lean) * 5.2, pz = -Math.cos(lean) * 5.2, pw = 0.6; // the pennant's far end: 5.2 out of the shaft (the outline's z runs down the lance's -y)
-  const pn = add(ln, plate([[-1.6, 0.7], [1.6, 0.7], [px + Math.cos(lean) * pw, pz + Math.sin(lean) * pw], [px - Math.cos(lean) * pw, pz - Math.sin(lean) * pw]], 0.35, 0.08), M.cloth, 12.8, 0, 0, Math.PI / 2, 0, 0);
+  const pn = add(lb, plate([[-1.6, 0.7], [1.6, 0.7], [px + Math.cos(lean) * pw, pz + Math.sin(lean) * pw], [px - Math.cos(lean) * pw, pz - Math.sin(lean) * pw]], 0.35, 0.08), M.cloth, 12.8, 0, 0, Math.PI / 2, 0, 0);
   pn.rotation.z = 0.45; // (a yaw about the vertical of the lance's frame: the Euler's z turns before its x)
-  limb(r, [0, 6, 3], [LX, LY, LZ], 1.1, M.mail); add(r, sph(0.9, 8, 6), M.mail, LX + 0.2, LY, LZ + 0.1);
+  if (pose === 1) { limb(r, [0, 6, 3], [-3.0, 4.8, 5.0], 1.1, M.mail); limb(r, [-3.0, 4.8, 5.0], [LX, LY, LZ], 1.0, M.mail); } // the wind-up: the upper arm back and down to a cocked elbow, the forearm up to the hand
+  else limb(r, [0, 6, 3], [LX, LY, LZ], 1.1, M.mail);
+  add(r, sph(0.9, 8, 6), M.mail, LX + 0.2, LY, LZ + 0.1);
   if (M.polish) { // secondary detail: the bridle and reins, a breast strap and girth, saddle pommel and cantle, stirrups, the helm's cross, bands on the lance
     add(h, torus(1.9, 0.28), M.leather, 13.9, 17.0, 0, 0, Math.PI / 2, -0.35);                   // the noseband
     for (const z of [-1.4, 1.4]) { limb(h, [12.2, 18.8, z], [13.5, 16.5, z * 1.1], 0.26, M.leather); limb(h, [14.4, 16.7, z], pose && z > 0 ? [0.5 + LX + 0.2, 14.8 + LY, LZ + 0.1] : [2.2, 19.0, z * 2.6], 0.3, M.leather); } // the headstall, the reins back to the hands (the right rein follows the lance hand in the strike poses)
@@ -356,7 +363,7 @@ export function knight(M, f, dir) {
     add(h, rbox(1.2, 2.2, 5.0, 0.4), M.leather, -2.9, 15.3, 0); add(h, rbox(1.0, 1.4, 3.0, 0.3), M.leather, 3.9, 15.2, 0); // cantle and pommel
     for (const side of [-1, 1]) add(r, torus(0.95, 0.22), M.steel, 2.8, -4.0, side * 4.9);       // stirrups
     add(r, rbox(1.0, 2.6, 0.5, 0.1), M.inkLine, 2.8, 9.9, 0); add(r, rbox(1.0, 0.45, 2.4, 0.1), M.inkLine, 2.8, 9.7, 0); // the helm's cross
-    for (const x of [-0.8, 4.2]) add(ln, cyl(1.6, 1.6, 0.8, 8), M.ironDark, x, 0, 0, 0, 0, Math.PI / 2);
+    for (const x of [-0.8, 4.2]) add(lb, cyl(1.6, 1.6, 0.8, 8), M.ironDark, x, 0, 0, 0, 0, Math.PI / 2);
   }
   return g;
 }

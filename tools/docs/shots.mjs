@@ -73,20 +73,23 @@ function helpers() {
 }
 
 /**
- * The clip's fight (the home's), in two beats. One (`strike`, on the first frame): the Expedition's Drones fly in from
- * the left on a Kingdom Watchtower (ours, blue) standing at a ridge's foot before a Castle, and start to bring it down,
- * the tower shooting back alone, its health dropping. Two (`defend`, a moment later): Archers and a Ballista, ordered in
- * from off frame, walk in under the Castle to the tower's foot and shoot the Drones down. The sim takes orders for our
- * seat alone, and the Expedition's machines work only inside its coverage, so the Drones must come by themselves: the
- * scene stands inside the Data center's coverage, in the open field east of the ridge by the north-west start of Ashen
- * Basin (`SEED`), where a second Castle of ours goes up (the Data center and its mine past the frame's top-left corner,
- * the Kingdom's own start far away), the tower some fifteen tiles from the Data center; the Drones appear past the
- * frame's left edge within their sight of the tower (an armed tower comes before a Castle or a Villager to an idle
- * unit looking for a fight) and hover at their range, inside the coverage. Health bars stay on: the tower's is the
- * point. Returns the frame's center, the Drones' spawn points and seat for `strike`, the defenders' ids and post for
- * `defend` (world px).
+ * The clip's fight (the home's), in two beats. One: the Expedition's Drones come at a Kingdom Watchtower (ours, blue)
+ * standing before a Castle on open steppe, from three sides in turn (`strike`: a few already on it, the rest flying in
+ * from the left, then from above, then from below), and bring its health down while it shoots back alone; it smokes
+ * below half and burns below a quarter (render.js). Two (`defend`, at once): Archers and a Ballista, ordered in from
+ * past the bottom-right corner, cross the foreground to the tower's foot and shoot the Drones down. The sim takes
+ * orders for our seat alone, and the Expedition's machines work only inside its coverage, so the Drones must come by
+ * themselves: the scene stands inside the Data center's coverage on Sunken Court (`?map=9&seed=1`: the one map with
+ * open ground enough for the frame by the Expedition's start, which lies south of it, well out of the frame with its
+ * mine and Bots; the Kingdom's own start is far away), a second Castle of ours built there with the tower some twelve
+ * tiles from the Data center; a Drone that appears within its sight of the tower takes it on as any idle unit does
+ * (an armed tower comes before a Castle or a Villager), flies in and hovers at its range, four tiles out, and one
+ * that appears within its range fires from where it is, over the tower. The tower starts hurt (`debugSetHp`) so its
+ * fall in health reads and it still stands when the Drones are down. Health bars stay on. Returns the frame's center,
+ * the Drones' waves (spawn points, seat and their frame) for `strike`, the defenders' ids and post for `defend`
+ * (world px). `towerHp`: the tower's health as they come (`TOWER_HP`).
  */
-function towerRaid() {
+function towerRaid(towerHp) {
   const { e, G, me, eng, spawn, workers } = window.S, foe = G.factions.findIndex((_, t) => t !== me);
   const T = 32, dc = G.bldgs.find(b => b.team === foe && eng.BUILDINGS[b.type].hq);
   const byId = (id) => G.units.find(u => u.id === id);
@@ -105,27 +108,33 @@ function towerRaid() {
   eng.revealAll(true); // (the other seat drawn wherever it is: the Drones from their first frame at the edge)
   // The tower needs a Barracks: one at home first.
   done(put('barracks', window.S.at(-140, 170), workers()[0]));
-  // The tower's spot two tiles east of the ridge, the Castle's six tiles to its right: a Villager of ours between them
-  // sees the ground first, builds both, and walks home, far out of the frame, before anyone else comes.
-  const want = { x: dc.x + 14 * T, y: dc.y + 2 * T };
-  const mason = spawn(me, 'harvester', { x: want.x + 3 * T, y: want.y + T }); e.skip(0.3);
-  const castle = done(put('core', { x: want.x + 6 * T, y: want.y - 0.2 * T }, byId(mason)));
+  // The tower's spot east of the Data center and a little north, the Castle's eight tiles to its right: a Villager of
+  // ours between them sees the ground first, builds both, and walks home, far out of the frame, before anyone comes.
+  const want = { x: dc.x + 12 * T, y: dc.y - 5 * T };
+  const mason = spawn(me, 'harvester', { x: want.x + 4 * T, y: want.y }); e.skip(0.3);
+  const castle = done(put('core', { x: want.x + 8 * T, y: want.y + 0.3 * T }, byId(mason)));
   const tower = done(put('turret', want, byId(mason)));
   eng.moveTo(byId(mason), window.S.hq.x, window.S.hq.y); e.skip(5);
-  const f = { x: tower.x + 2.5 * T, y: tower.y - T };
-  // The defenders wait past the frame's right edge, below the Castle; their post is below the tower, toward the Castle.
-  // The Drones (`strike`, on the first frame: spawned any earlier, they would be at the tower before it) appear past the
-  // left edge, level with the tower, two loose rows, every one within sight of the tower's edge (under six tiles).
-  const gate = { x: f.x + 9.7 * T, y: tower.y + 2.4 * T }, post = { x: tower.x + 2.2 * T, y: tower.y + 1.6 * T };
+  eng.debugSetHp(tower, towerHp);
+  const f = { x: tower.x + 3.5 * T, y: tower.y - 0.3 * T };
+  // The defenders wait past the frame's bottom-right corner; their post is at the tower's foot, toward the Castle.
+  const gate = { x: f.x + 11.6 * T, y: f.y + 4.3 * T }, post = { x: tower.x + 2.6 * T, y: tower.y + 2.2 * T };
   const guard = [spawn(me, 'bastion', { x: gate.x - 0.4 * T, y: gate.y - 0.3 * T })];
   for (let i = 0; i < 4; i++) guard.push(spawn(me, 'lancer', { x: gate.x + (0.9 + Math.floor(i / 2) * 0.9) * T, y: gate.y + ((i % 2) - 0.5) * 0.9 * T }));
-  const swarm = [];
-  for (let i = 0; i < 7; i++) swarm.push({ x: tower.x + (-6.9 + (i % 2) * 0.45) * T, y: tower.y + (i - 3) * 0.4 * T });
-  return { f, post, guard, swarm, foe };
+  // The Drones, in waves (tiles from the tower's center): on the first frame three over the tower, in its range, and
+  // two past the frame's left edge; then two past its top edge; then one past its bottom edge: every one that flies
+  // in within sight of the tower's edge (under six tiles), all inside the coverage.
+  const at = (ps) => ps.map(([dx, dy]) => ({ x: tower.x + dx * T, y: tower.y + dy * T }));
+  const waves = [
+    { frame: 0, points: at([[-1.6, -1.0], [1.7, -1.9], [0.5, 1.9], [-6.9, -0.6], [-6.6, 0.7]]) },
+    { frame: 12, points: at([[-0.5, -6.9], [0.7, -6.6]]) },
+    { frame: 24, points: at([[0.3, 6.9]]) },
+  ];
+  return { f, post, guard, waves, foe };
 }
-/** Beat one: the Drones appear past the frame's left edge and, idle, take on the tower in their sight. */
-function strike({ swarm, foe }) {
-  for (const p of swarm) window.S.spawn(foe, 'shrike', p);
+/** Beat one: a wave of Drones appears and, idle, takes on the tower in its sight (or fires from where it is, in range). */
+function strike([{ waves, foe }, wave]) {
+  for (const p of waves[wave].points) window.S.spawn(foe, 'shrike', p);
 }
 /** Beat two: the defenders walk in to their post (a move: they turn on the Drones only once there), the Ballista on
  *  the Castle's side, the Archers two by two toward the tower. */
@@ -136,6 +145,12 @@ function defend({ post, guard }) {
     if (!i) eng.moveTo(u, post.x + 0.9 * T, post.y - 0.3 * T);
     else eng.moveTo(u, post.x - (0.4 + Math.floor((i - 1) / 2) * 0.9) * T, post.y + ((i % 2) - 0.5) * 0.9 * T);
   });
+}
+/** How near (px) the Ballista's first bolt is to landing, with a Drone still under it: the slow-motion beat's cue. */
+function boltNear() {
+  const { G } = window.S, p = G.projs.find(p => p.by === 'bastion');
+  if (!p || !G.units.some(u => u.type === 'shrike' && Math.hypot(u.x - p.ax, u.y - p.ay) < 16)) return Infinity;
+  return Math.hypot(p.ax - p.x, p.ay - p.y);
 }
 
 /** The Kingdom (ours) storms the Expedition's Data center: knights and guards at its walls, cannons and archers behind. */
@@ -339,42 +354,50 @@ async function controls() {
 }
 
 /**
- * The clip: Drones against a Watchtower (`towerRaid`; `strike` on the first frame, `defend` at `DEFEND_AT` seconds),
- * the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's frames are stepped by
- * hand (tools/trailer/stage.mjs `freeze`: its requestAnimationFrame and performance.now taken over, each frame exactly
- * one 30 Hz tick of game time later; at another rate the ticks per frame would be uneven, 1, 1, 1, 2 at 24 fps, and
- * everything that moves would hitch) and captured one by one at DPR 2 (software WebGL cannot draw in real time) into
- * target/docs-clip/ as PNG (kept there for a review), then encoded by ffmpeg (tools/trailer/record.mjs `FFMPEG`) into
- * H.264 at the clip's size, at the first quality under the home's budget (`CLIP_KB`, test/docs.test.js). It loops
- * without a cut: `LOOP_S` more seconds are recorded, and the end dissolves into those first seconds, which the clip
- * then starts after (the last Drone down fades back into the first ones coming). Its poster is its middle frame
- * (`hero-home`, the home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_PREVIEW=1` captures one frame
- * a second at DPR 1 and encodes nothing (a look at the staging).
+ * The clip: Drones against a Watchtower (`towerRaid`; the Drones' waves by `strike` at their frames, `defend` at
+ * `DEFEND_AT` seconds), the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's
+ * frames are stepped by hand (tools/trailer/stage.mjs `freeze`: its requestAnimationFrame and performance.now taken
+ * over, each frame exactly one 30 Hz tick of game time later; at another rate the ticks per frame would be uneven,
+ * 1, 1, 1, 2 at 24 fps, and everything that moves would hitch) and captured one by one at DPR 2 (software WebGL
+ * cannot draw in real time) into target/docs-clip/ as PNG (kept there for a review), then encoded by ffmpeg
+ * (tools/trailer/record.mjs `FFMPEG`) into H.264 at the clip's size, at the first quality under the home's budget
+ * (`CLIP_KB`, test/docs.test.js). One slow-motion beat (`SLOW`: about a third speed, eased in and out, `boltNear` its
+ * cue): the Ballista's first bolt landing on a Drone, the sim and the effects slowed together. It loops without a
+ * cut: `LOOP_S` more seconds are recorded, and the end dissolves into those first seconds, which the clip then starts
+ * after (the last Drone down fades back into the first ones coming). Its poster is its middle frame (`hero-home`, the
+ * home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_PREVIEW=1` captures one frame a second at DPR 1
+ * and encodes nothing (a look at the staging).
  */
-const FPS = 30, CLIP_S = 12, DEFEND_AT = 1.5, LOOP_S = 0.5, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.7, CLIP_KB = 290;
+const FPS = 30, CLIP_S = 12, DEFEND_AT = 0.5, LOOP_S = 0.5, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.4, CLIP_KB = 290;
+/** The tower's health as the Drones come (of 380): its fall reads, and it still stands at the end. */
+const TOWER_HP = 340;
+/** The slow-motion beat's speed frame by frame: eased down to a third over six frames, held, eased back. */
+const SLOW = (() => { const lo = 0.37, ease = (k) => k * k * (3 - 2 * k), v = []; for (let i = 1; i <= 6; i++) v.push(1 - (1 - lo) * ease(i / 6)); for (let i = 0; i < 15; i++) v.push(lo); for (let i = 5; i >= 0; i--) v.push(1 - (1 - lo) * ease(i / 6)); return v; })();
 const CLIP_WORDS = {
-  alt: 'Ebbfall gameplay: the Expedition\'s drones strike a blue Kingdom watchtower by its castle until archers and a ballista arrive and shoot them down',
+  alt: 'Ebbfall gameplay: the Expedition\'s drones swarm a blue Kingdom watchtower by its castle until archers and a ballista arrive and shoot them down',
   caption: 'Drones strike a Watchtower by the Castle; Archers and a Ballista shoot them down.',
   title: 'Ebbfall gameplay: Drones against a Watchtower',
 };
 const CLIP_DIR = fileURLToPath(new URL('target/docs-clip/', root));
 async function clip() {
   const preview = !!process.env.CLIP_PREVIEW, dpr = preview ? 1 : 2;
-  const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: dpr }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`, `?map=0&seed=${SEED}`);
+  const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: dpr }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`, '?map=9&seed=1');
   rmSync(CLIP_DIR, { recursive: true, force: true }); mkdirSync(CLIP_DIR, { recursive: true });
   const n = Math.round(FPS * (CLIP_S + LOOP_S)), loop = Math.round(FPS * LOOP_S), file = (i) => join(CLIP_DIR, `f${String(i).padStart(4, '0')}.png`);
   try {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-    const scene = await page.evaluate(towerRaid);
+    const scene = await page.evaluate(towerRaid, TOWER_HP);
     await look(page, scene.f, CLIP_ZOOM); await settle(page);
     await freeze(page);
     const cdp = await ctx.newCDPSession(page);
-    let last = null;
+    let last = null, slow = null;
     const t1 = Date.now();
     for (let i = 0; i < n; i++) {
-      if (i === 0) await page.evaluate(strike, scene);
+      for (const [w, wave] of scene.waves.entries()) if (i === wave.frame) await page.evaluate(strike, [scene, w]);
       if (i === Math.round(FPS * (LOOP_S + DEFEND_AT))) await page.evaluate(defend, scene);
-      await page.evaluate((ms) => window.__frame(ms), 1000 / FPS + 0.0005);
+      if (!slow && i > FPS * (LOOP_S + DEFEND_AT + 3) && await page.evaluate(boltNear) < 80) { slow = SLOW.slice(); console.log(`\r  clip: slow motion from frame ${i}                 `); }
+      const speed = slow?.length ? slow.shift() : 1;
+      await page.evaluate(([ms, ticks]) => window.__frame(ms, ticks), [(1000 / FPS) * speed + 0.0005, speed]);
       if (preview && i % FPS) continue;
       // (the drawn frame presented first: two real frames; a capture identical to the last one is a stale surface
       // (software WebGL under load): taken again)

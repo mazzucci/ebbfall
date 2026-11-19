@@ -28,6 +28,14 @@ pub struct Setup {
 /// A lab plan by name for a seat of people `race`: `rush`, `defense`, `tech` (`bets`), `basic`, `mid`, `top` (a
 /// `tiers` committer) or `greedy` (`tiers::greedy`).
 pub fn plan_named(name: &str, race: usize) -> Option<endfall_sim::data::Diff> {
+    // (`rush@Hard`: a bet's plan from that level's tuning, `bets --level`)
+    if let Some((bet, level)) = name.split_once('@') {
+        let b = crate::bets::PLANS.iter().position(|p| *p == bet)?;
+        let l = crate::batch::LEVELS
+            .iter()
+            .position(|l| l.eq_ignore_ascii_case(level))?;
+        return Some(crate::bets::plan_on(b, l));
+    }
     let tier = crate::tiers::TIERS.iter().position(|t| *t == name);
     let bet = crate::bets::PLANS.iter().position(|p| *p == name);
     match (tier, bet) {

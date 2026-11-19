@@ -1281,6 +1281,11 @@ impl World {
         }
         let since = *self.ai_mut().ready_since.get_or_insert(t);
         let seat = self.seat();
+        // (a towers-first plan, `Diff::towers_first`: home until its supply cap or a stalled game's push; its first wave
+        // at 8:00, all in by `all_in_after` from the game's start, met a rush's army it had only half seen)
+        if d.towers_first && !self.at_cap(seat) && !self.ai().stall {
+            return false;
+        }
         if self.at_cap(seat) || t - self.ai().last_wave > d.all_in_after {
             let expected = self.ai().army_seen.0;
             return go(self, LaunchWhy::AllIn, expected);

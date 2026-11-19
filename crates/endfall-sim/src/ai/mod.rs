@@ -517,6 +517,7 @@ impl World {
             cy,
             rally,
             building,
+            raided: self.raided(e, t),
             ..Brain::default()
         };
         self.ai_workers(&mut b);
@@ -524,6 +525,8 @@ impl World {
         self.ai_build(&mut b);
         self.ai_expand(&mut b);
         self.ai_watch(&mut b);
+        // (again once it has looked: a raid it has just seen holds its research and its units' holds this turn)
+        b.raided = self.raided(e, t);
         self.ai_research(&mut b);
         self.ai_produce(&mut b);
         self.ai_army(&mut b);
@@ -567,6 +570,8 @@ pub(crate) struct Brain {
     /// Its answer to enemy flyers so far (`AiScript::answer_weight`: Archers, Ballistas worth two).
     anti_air: usize,
     saving: bool,
+    /// Raided while behind (`World::raided`): nothing held back, only supply built, no research.
+    raided: bool,
 }
 
 #[cfg(test)]

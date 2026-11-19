@@ -8,6 +8,9 @@ const CAPITAL_AT: [f64; 2] = [450.0, 660.0];
 /// Enemy siege units seen at once from which a level that adapts answers them (`World::siege_answered`).
 pub(crate) const SIEGE_SEEN: usize = 2;
 
+/// How recent an armed enemy at its buildings counts as a raid, in seconds (`World::raided`).
+pub(crate) const RAIDED_S: f64 = 5.0;
+
 impl World {
     /// Production: the right unit from each building, rally points, nothing while saving.
     pub(crate) fn ai_produce(&mut self, brain: &mut Brain) {
@@ -19,6 +22,7 @@ impl World {
             rally,
             saving,
             want,
+            raided,
             ..
         } = brain.clone();
         // Production. The main factory answers enemy flyers (as far as the AI knows) with its anti-air (Archers,
@@ -41,13 +45,12 @@ impl World {
         // counts against a unit for the resources that unit spends.
         let capital_due = self.capital_due(e, &my_b, t);
         // (its tech building, a 300-gold bet since the arc: half its price held, so its line keeps training while it
-        // saves for it; UPDATE 7)
-        let tech = self.factions[e as usize].ai.tech;
-        let held = {
-            let r = want.map_or([0, 0], |w| {
-                let c = w.def().cost;
-                if w == tech { c.map(|g| g / 2) } else { c }
-            });
+        // saves for it; UPDATE 7, `want_hold`; raided while behind, `raided`: nothing held back, its factories train
+        // what they can)
+        let held = if raided {
+            [0, 0]
+        } else {
+            let r = self.want_hold(e, want);
             let k = capital_due.map_or([0, 0], |k| self.unit_cost(e, k));
             [r[0] + k[0], r[1] + k[1]]
         };
@@ -55,10 +58,15 @@ impl World {
         // The gate's elite (the arc: the Expedition's Portal, its Android or Rover): while its Portal stands idle with an
         // Uplink open, the other factories hold an elite's price back, or the posts spend every coin first each turn and
         // the Portal never trains (`gate_hold`).
-        let gate_hold = self.gate_hold(e, &my_b)
-            + self.siege_hold(e, &my_b, t)
-            + self.dive_hold(e, &my_b, t)
-            + self.relay_hold(e);
+        let elite_hold = if raided { 0 } else { self.gate_hold(e, &my_b) };
+        let gate_hold = if raided {
+            0
+        } else {
+            self.gate_hold(e, &my_b)
+                + self.siege_hold(e, &my_b, t)
+                + self.dive_hold(e, &my_b, t)
+                + self.relay_hold(e)
+        };
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
         // cheaper machines fill the grid every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
@@ -144,8 +152,12 @@ impl World {
             let energy = self.effect_level(e, Effect::EnergyCost);
             let need = |k: UnitKind| {
                 let cost = World::cost_at(k, energy);
-                if Some(k) == scout || siege_bay {
+                if Some(k) == scout {
                     cost
+                } else if siege_bay {
+                    // (but not past the gate's elite, another factory's: the Expedition's Factory, its vehicle bay,
+                    // spent every coin on Buggies with its Portal idle, and the Android never came; Nov 19)
+                    [cost[0] + elite_hold, cost[1]]
                 } else if at_gate {
                     need(cost)
                 } else {
@@ -369,6 +381,45 @@ impl World {
         } else {
             0
         }
+    }
+
+    /// What the building its build order wants next holds back from spending that is not that building (`want`): its
+    /// price, half for its tech building (a 300-gold bet since the arc: its line keeps training while it saves for it).
+    pub(crate) fn want_hold(&self, e: u8, want: Option<BldgKind>) -> [i32; 2] {
+        let tech = self.factions[e as usize].ai.tech;
+        want.map_or([0, 0], |w| {
+            let c = w.def().cost;
+            if w == tech { c.map(|g| g / 2) } else { c }
+        })
+    }
+
+    /// The gold `e` holds back for units it saves for: its gate's elite (`gate_hold`), its siege (`siege_hold`), its
+    /// answer to siege (`dive_hold`), its wave's relay (`relay_hold`) and a capital unit due (`capital_due`). Its
+    /// optional spending (research, towers, extra factories, more turbines) waits on these as its units do (Nov 19: the
+    /// Expedition's tech plan held an Android's 525 back from its Sellswords while its research and its Sentry masts
+    /// spent the bank, and the Android never came); none while raided (`raided`).
+    pub(crate) fn unit_holds(&self, e: u8, my_b: &[Id], t: f64) -> i32 {
+        if self.raided(e, t) {
+            return 0;
+        }
+        self.gate_hold(e, my_b)
+            + self.siege_hold(e, my_b, t)
+            + self.dive_hold(e, my_b, t)
+            + self.relay_hold(e)
+            + self
+                .capital_due(e, my_b, t)
+                .map_or(0, |k| self.unit_cost(e, k)[0])
+    }
+
+    /// Raided while behind: an armed enemy at its buildings within `RAIDED_S` seconds (`Ai::attacked_at`) and its army
+    /// worth less than the foe's army it last saw (`Ai::army_seen`). Then it holds nothing back for buildings, research
+    /// or dear units: its factories train what they can, its build order wants only supply (Nov 19: the Expedition's
+    /// tech plan, two Sellswords at home and its gold held for its Portal, lost its workers to four Sellswords at 4:00).
+    pub(crate) fn raided(&self, e: u8, t: f64) -> bool {
+        let ai = self.ai();
+        ai.attacked_at > 0.0
+            && t - ai.attacked_at < RAIDED_S
+            && self.own_army_worth(e) < ai.army_seen.0
     }
 
     /// The gold `e`'s factories hold back for its wave's leapfrog relay (`AiScript::relay`, the Uplink): its price, while

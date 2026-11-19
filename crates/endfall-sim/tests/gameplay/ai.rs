@@ -2689,3 +2689,119 @@ fn the_expedition_ai_counts_its_buggies_as_its_answer_to_flyers() {
         "four Buggies: the answer is met, its mix's Rover"
     );
 }
+
+/// The Expedition AI on the sim's level 3 (its whole mix, from the start) at 6:40, its Lab, Factory, Recruiting post,
+/// Uplink and Portal set down for it, the Portal idle, `bank` gold, and `raiders` enemy Guards held (unkillable) by
+/// its Data center. Its orders over the next eight seconds: (a Sellsword queued, a Buggy queued, research started).
+fn holds_scene(bank: i32, raiders: usize) -> (bool, bool, bool) {
+    let mut w = World::with_setup(5, 3, MapKind::Standard, false, [&HUMANS, &VAEL]);
+    w.set_ai_seats([false, true]);
+    past_first_turns(&mut w);
+    let (cx, cy) = core(&w, ENEMY);
+    let at = |w: &mut World, kind: BldgKind| {
+        let (tx, ty) = spot_for(w, ENEMY, kind);
+        w.make_building(kind, ENEMY, tx, ty, true)
+    };
+    let post = at(&mut w, BldgKind::Siphon);
+    let factory = at(&mut w, BldgKind::Kiln);
+    let lab = at(&mut w, BldgKind::Loom);
+    at(&mut w, BldgKind::Uplink);
+    at(&mut w, BldgKind::Eclipse);
+    for k in 0..raiders {
+        let id = w.make_unit(
+            UnitKind::Trooper,
+            PLAYER,
+            (cx as f64 + 1.0 + k as f64) * TILE,
+            (cy as f64 + 4.0) * TILE,
+        );
+        w.hold_unit(id);
+        let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
+        (u.hp, u.maxhp) = (1e9, 1e9);
+    }
+    w.recalc_supply(ENEMY);
+    w.time = 400.0; // (past its level's research time, Androids in its mix)
+    let (mut sellsword, mut buggy, mut research) = (false, false, false);
+    for _ in 0..8 * TPS {
+        w.res[ENEMY as usize] = [bank, 0];
+        w.step();
+        w.events.clear();
+        sellsword |= w
+            .bldg(post)
+            .is_some_and(|b| b.queue.contains(&UnitKind::Prism));
+        buggy |= w
+            .bldg(factory)
+            .is_some_and(|b| b.queue.contains(&UnitKind::Scythe));
+        research |= w.bldg(lab).is_some_and(|b| b.research.is_some());
+    }
+    (sellsword, buggy, research)
+}
+
+#[test]
+fn what_the_ai_holds_back_for_its_elite_holds_back_its_research_and_its_vehicle_bay_too() {
+    // Its Portal idle, every other factory holds an elite's price back (`gate_hold`, about 525). Since Nov 19 its
+    // research and its vehicle bay do too: its Factory's Buggies and its Weapons spent the bank, and the Expedition's
+    // tech plan never trained an Android. With 400 gold nothing is bought; with plenty, all of it.
+    assert_eq!(
+        holds_scene(400, 0),
+        (false, false, false),
+        "the bank is spoken for"
+    );
+    let (sellsword, buggy, research) = holds_scene(5_000, 0);
+    assert!(
+        sellsword && buggy && research,
+        "a full bank buys everything"
+    );
+}
+
+#[test]
+fn an_ai_raided_with_no_army_trains_with_nothing_held_back_and_researches_nothing() {
+    // Raided while behind (`World::raided`: an armed enemy at its buildings, its army worth less than the foe's it sees):
+    // since Nov 19 it holds nothing back. With 400 gold its Recruiting post trains a Sellsword at once, and its
+    // research waits (the Expedition's tech plan, two Sellswords at home, lost its workers to four at 4:00).
+    let (sellsword, _, research) = holds_scene(400, 3);
+    assert!(sellsword, "a Sellsword for the raid");
+    assert!(!research, "no research while raided");
+}
+
+#[test]
+fn a_towers_first_plan_raises_its_towers_before_its_extras_and_keeps_its_army_home() {
+    // `Diff::towers_first` (the balance lab's defense bet, Nov 19): its towers ahead of its extra Barracks and its
+    // Blacksmith, so its six (by 5:30) stand by 7:00, not from 7:51; and no wave until its supply cap or a stalled
+    // game's push, where its 8:00 wave marched into a rush it had half seen. The same plan without the flag: fewer
+    // towers by 7:00, and a wave out by 9:00.
+    let defense = Diff {
+        towers: &[90.0, 120.0, 180.0, 240.0, 270.0, 330.0],
+        tower_max: &[],
+        first: 480.0,
+        ..DIFF[2]
+    };
+    let run = |plan: Diff| {
+        let mut w = World::with_setup(4, 2, MapKind::Standard, false, [&HUMANS, &HUMANS]);
+        assert!(w.set_ai_seats([true, false]));
+        assert!(w.set_ai_plans(&[Some(plan), None]));
+        let (mut towers_at_7, mut waved) = (0, false);
+        while w.time < 540.0 && w.winner < 0 {
+            w.step();
+            w.events.clear();
+            if (w.time - 420.0).abs() < 0.02 {
+                towers_at_7 = w
+                    .bldgs
+                    .iter()
+                    .filter(|b| b.team == PLAYER && b.kind == BldgKind::Turret && b.done)
+                    .count();
+            }
+            waved |= w.ai_trace(PLAYER).is_some_and(|t| t.contains(" out true "));
+        }
+        (towers_at_7, waved)
+    };
+    let (plain_towers, plain_waved) = run(defense);
+    let (towers, waved) = run(Diff {
+        towers_first: true,
+        ..defense
+    });
+    assert!(
+        towers >= 5 && towers > plain_towers,
+        "towers first: {towers} by 7:00, {plain_towers} without"
+    );
+    assert!(plain_waved && !waved, "home until its cap");
+}

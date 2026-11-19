@@ -54,6 +54,7 @@ pub fn plan_on(p: usize, level: usize) -> Diff {
             towers: &[90.0, 120.0, 180.0, 240.0, 270.0, 330.0],
             tower_max: &[], // (all six, whatever Medium's cap on a race's towers)
             first: 480.0,
+            towers_first: true, // (its towers before its extra barracks and tech; home until its cap or a push)
             ..medium
         },
         // Straight to the top tier: its tech building at 1:00, its side's techs at once, the vehicle

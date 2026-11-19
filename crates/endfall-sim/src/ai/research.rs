@@ -14,6 +14,8 @@ impl World {
             anti_air,
             expand,
             dry,
+            want,
+            raided,
             ..
         } = brain.clone();
         // Research: an economy tech (faster construction, none offered since Nov 14) first, once its opening factories stand; its techs
@@ -35,7 +37,14 @@ impl World {
         let levels_due = t > d.research_from;
         let threatened = intruder.is_some() || (enemy_air > 0 && anti_air < enemy_air * 2);
         let mut saving = false;
-        if (techs || levels_due || economy) && !expand {
+        // (what it holds back, for the building it wants next and for the units it saves for, holds research back too:
+        // the Expedition's tech plan researched its weapons with an Android's price held from its army; none while
+        // raided behind, when it researches nothing, `raided`)
+        let held = {
+            let w = self.want_hold(e, want);
+            [w[0] + self.unit_holds(e, &my_b, t), w[1]]
+        };
+        if (techs || levels_due || economy) && !expand && !raided {
             for &bid in &my_b {
                 let Some(b) = self.bldg(bid) else { continue };
                 if b.kind.def().researches.is_empty() || !b.done || b.research.is_some() {
@@ -78,8 +87,13 @@ impl World {
                 // The first it can afford; a tech it cannot is passed over (never saved for), a level is saved for (but Trade).
                 for up in candidates {
                     let level = self.upgrades[e as usize][up.index()] + 1;
-                    if self.can_afford(e, up.cost(level)) {
+                    let cost = up.cost(level);
+                    if self.can_afford(e, [0, 1].map(|i| cost[i] + held[i])) {
                         let _ = self.start_research(bid, up);
+                        break;
+                    }
+                    // (affordable but for what it holds back: the bank is spoken for, neither bought nor saved for)
+                    if self.can_afford(e, cost) {
                         break;
                     }
                     // (Trade, the Market's, and Energy efficiency, the Lab's: only with spare gold, never saved for;

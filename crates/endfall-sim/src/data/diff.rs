@@ -169,6 +169,11 @@ pub struct Diff {
     /// `later_min`, claude/PLAN_VOCAB.md): its later waves gather instead of trickling out, and neither its crushing
     /// shortcut nor a stalled game's push sends fewer, unless it is at its cap.
     pub later_min: usize,
+    /// A towers-first plan (the balance lab's defense bet; false on every level): its towers come before its extra
+    /// barracks and its tech in the build order, and it keeps its army home until its supply cap or a stalled game's
+    /// push (its first wave at 8:00 marched into a rush's bigger army it had only half seen, and lost the base with it;
+    /// Nov 19).
+    pub towers_first: bool,
 }
 
 impl Diff {
@@ -275,6 +280,7 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 540.0,
         later_min: 0,
+        towers_first: false,
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 8:00;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -342,6 +348,7 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,
+        towers_first: false,
     },
     // Hard (the menus' Hard since Nov 13): a bigger first wave (8), more factories behind it, and it splits its waves.
     Diff {
@@ -415,6 +422,7 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,
+        towers_first: false,
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -484,5 +492,6 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,
+        towers_first: false,
     },
 ];

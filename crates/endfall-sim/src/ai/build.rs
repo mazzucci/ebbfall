@@ -521,6 +521,7 @@ impl World {
             building,
             payers,
             cores,
+            raided,
             ..
         } = brain.clone();
         let d = self.level();
@@ -566,8 +567,11 @@ impl World {
         // Its army first (`Diff::army_first`): with less army than the foe's it last saw, nothing but supply until it
         // has caught up (Hard's Kingdom, its army beaten at home, spent its income on a fifth Barracks, a Workshop, the
         // Stables and a tower, and stood six minutes with no army while Medium's waves came).
-        let behind =
-            d.army_first && t >= d.stall_from && self.own_army_worth(e) < self.ai().army_seen.0;
+        // (and on every level while raided behind, `raided`: its factories train, nothing but supply is built)
+        let behind = raided
+            || (d.army_first
+                && t >= d.stall_from
+                && self.own_army_worth(e) < self.ai().army_seen.0);
         // Its towers by the clock (its plan's times, else `Diff::towers`), sites counted.
         let tower_times = self.tower_times(e);
         let towers_wanted = (tower_times.iter().filter(|&&a| t > a).count()
@@ -583,6 +587,12 @@ impl World {
                 .map_or(usize::MAX, |m| m.1),
         );
         let tower_due = self.ai_count(&my_b, false, s.tower) < towers_wanted;
+        // (a tower it can raise now: its barracks stands; none in the guided first game, `guided_hold`)
+        let tower_now = self.ai_count(&my_b, true, s.rax) >= 1 && tower_due && !self.guided;
+        // (an extra factory to spend gold piling up, once its schedule's stand)
+        let extra = (self.factories(e, &my_b) >= rax_schedule)
+            .then(|| self.extra_rax(e, &my_b, rax_schedule))
+            .flatten();
         // (its tech building waits for a finished barracks, and the Kingdom's for its Market)
         let tech_ready = self.ai_count(&my_b, true, s.rax) >= 1
             && (payers > 0 || f.market.is_none_or(|m| m.def().per_hq > 1));
@@ -599,7 +609,11 @@ impl World {
             Some(k) // (its line's share: another Recruiting post)
         } else if self.factories(e, &my_b) < rax_schedule {
             Some(s.rax)
-        } else if let Some(k) = self.extra_rax(e, &my_b, rax_schedule) {
+        } else if d.towers_first && tower_now {
+            // (a towers-first plan, `Diff::towers_first`: its towers before its extra factories and its tech; they came
+            // at 7:51 behind a fourth Barracks and the Blacksmith, the plan's six wanted by 5:30)
+            Some(s.tower)
+        } else if let Some(k) = extra {
             Some(k)
         } else if tech_ready
             // (the Kingdom's after its Market; the Expedition's turbines, cheap and several, hold nothing back)
@@ -617,9 +631,7 @@ impl World {
         // Its towers by the clock (`Diff::towers`; two on every level, sites counted): a bank it cannot spend must not go
         // into towers (under the cap of 40, a detector by every unseen hit came to 13 a seat, and multi-seat games
         // stalled).
-        } else if self.ai_count(&my_b, true, s.rax) >= 1 && tower_due && !self.guided
-        // (the guided first game: none; `guided_hold`)
-        {
+        } else if tower_now {
             Some(s.tower)
         // (the rules let air follow the first factory; this AI chooses ground tech first)
         } else if (self.ai_count(&my_b, true, s.tech) >= 1 || self.line_capped(e))
@@ -658,6 +670,14 @@ impl World {
         // (its natural first, `Diff::natural_first`: the Core's price held from every building but supply)
         let hold = if d.natural_first && expansion_due && want != Some(f.supply) {
             [0, 1].map(|i| hold[i] + hq_cost[i])
+        } else {
+            hold
+        };
+        // (its optional buildings, a tower or an extra factory, wait on what it holds back for units as its units do,
+        // `unit_holds`)
+        let optional = want.is_some() && (want == Some(s.tower) || want == extra);
+        let hold = if optional {
+            [hold[0] + self.unit_holds(e, &my_b, t), hold[1]]
         } else {
             hold
         };

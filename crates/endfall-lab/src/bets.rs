@@ -28,7 +28,12 @@ pub const LONG: f64 = 900.0;
 
 /// Plan `p`'s tuning (`PLANS`' order), from Medium's.
 pub fn plan(p: usize) -> Diff {
-    let medium = DIFF[BASE];
+    plan_on(p, BASE)
+}
+
+/// Plan `p`'s tuning from level `level`'s (`--level`: Medium's by default, Hard's for the top level's bets).
+pub fn plan_on(p: usize, level: usize) -> Diff {
+    let medium = DIFF[level];
     match p {
         // Army first: three barracks and its first wave at 2:30; its raiders' factory as Medium, but no tech building
         // (so no top tier, no siege, no Lab units), no towers, no research.
@@ -82,6 +87,8 @@ pub struct BetBatch {
     pub seeds: u32,
     pub cap_min: u32,
     pub threads: usize,
+    /// The level whose tuning the plans start from (`DIFF`'s index: Medium's by default).
+    pub level: usize,
 }
 
 /// A cell: the peoples' pairing (`PAIRINGS`' index) and each seat's plan.
@@ -126,7 +133,7 @@ pub fn run(b: BetBatch, commit: &str, progress: &(dyn Fn(usize, usize) + Sync)) 
     let played = play_jobs(
         &jobs,
         |&(c, seed)| {
-            let plans = c.plans.map(|p| Some(plan(p)));
+            let plans = c.plans.map(|p| Some(plan_on(p, b.level)));
             play_watched(
                 MapKind::Standard,
                 b.size,
@@ -342,7 +349,8 @@ impl BetRun {
                 Json::obj()
                     .with("size", self.batch.size)
                     .with("seeds", self.batch.seeds)
-                    .with("cap_min", self.batch.cap_min),
+                    .with("cap_min", self.batch.cap_min)
+                    .with("level", self.batch.level),
             )
             .with(
                 "checks",
@@ -392,6 +400,7 @@ mod tests {
             seeds: 1,
             cap_min: 4,
             threads: 2,
+            level: BASE,
         };
         let r = run(b, "test", &|_, _| {});
         assert_eq!(r.games.len(), c.len());

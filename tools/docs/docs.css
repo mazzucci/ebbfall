@@ -241,3 +241,22 @@ details{margin:0 0 18px;max-width:70ch} summary{cursor:pointer;min-height:44px;d
  .tree .tcol ul li .pl{width:24px;height:24px}
  .tree .what{display:block;font:12px/1.3 var(--mono);color:var(--muted);margin-top:2px}
 }
+
+/* About's network diagram (diagrams.mjs network): a plate like the others; the SVG (328 units wide) at 1:1 on a 360 px
+   phone and capped at 560 px on a desktop, in a plate no wider than the text column, so its 11-12 px mono labels never
+   shrink. (Not ".bar": the caps bar above owns that class.) */
+.net{max-width:640px;margin:4px 0 22px;padding:14px}
+.net svg{display:block;width:100%;max-width:560px;height:auto;margin:0 auto}
+.net figcaption{text-align:center;margin-top:10px}
+.net .t{font:12px var(--mono);letter-spacing:.06em;fill:var(--muted)}
+.net .tl{font:600 12px var(--display);letter-spacing:.12em;fill:var(--fg)}
+.net .sm{font-size:11px}
+.net .ta{fill:var(--amber2)} .net .tt{fill:var(--teal)}
+.net .dev{fill:var(--panel2);stroke:var(--line2);stroke-width:1.5}
+.net .scr{fill:var(--bg);stroke:var(--line);stroke-width:1}
+.net .hbar{fill:var(--line2)}
+.net .hub{fill:var(--panel);stroke:var(--amber);stroke-width:1.5}
+.net .ord{stroke:var(--amber);stroke-width:1.5;fill:none}
+.net .trn{stroke:var(--teal);stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+.net .dot{fill:var(--teal)} .net .dot2{fill:var(--amber2)}
+.net .mA{fill:var(--amber)} .net .mT{fill:var(--teal)}

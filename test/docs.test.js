@@ -252,7 +252,7 @@ test('the copy: American English, no em dashes, the About page names Stelian, th
     assert.doesNotMatch(html, /\u2014|&mdash;/, `${p.path}: no em dash`);
     for (const w of ['colour', 'armour', 'centre', 'licence', 'favourite', 'grey']) assert.ok(!new RegExp(`\\b${w}`, 'i').test(html), `${p.path}: ${w}`);
   }
-  assert.match(page('/docs/about/'), /<p class="fine">Made by Stelian Matei · <a href="https:\/\/github\.com\/mazzucci\/ebbfall">source on GitHub<\/a><\/p>/, 'About: one quiet line, the author and the source');
+  assert.match(page('/docs/about/'), /<p class="fine">Made by Stelian Matei · <a href="https:\/\/github\.com\/mazzucci\/ebbfall">Source on GitHub<\/a> \(<a href="https:\/\/github\.com\/mazzucci\/ebbfall\/blob\/main\/LICENSE">MIT<\/a>\)<\/p>/, 'About: one quiet line, the author, the source and the license');
   assert.equal((page('/docs/about/').match(/Stelian Matei/g) || []).length, 1, 'About: named once, in that line (structured data aside)');
   assert.doesNotMatch(page('/docs/about/'), /for fun/, 'About: no "made for fun" segment');
   assert.match(page('/docs/about/'), /Version abc \(last game update def\)/);

@@ -106,6 +106,28 @@ export function peoples(tags) {
   return `<ul class="peoples">${PEOPLES.map(tile).join('')}</ul>`;
 }
 
+/**
+ * About's network diagram: a phone and a laptop, the same game on both (the same dots, the same tick), the relay
+ * between them, orders in (amber) and turns out (teal, dashed). One inline SVG, 328 units wide: 1:1 on a 360 px phone,
+ * capped at 560 px on a desktop (docs.css .net), so its 11-12 px labels never shrink. Classes only (the CSP).
+ */
+export function network() {
+  const dots = (ox, oy) => [[8, 12, 'dot'], [16, 22, 'dot'], [9, 32, 'dot'], [38, 14, 'dot2'], [31, 27, 'dot2'], [40, 36, 'dot2']].map(([x, y, c]) => `<circle cx="${ox + x}" cy="${oy + y}" r="3" class="${c}"/>`).join('');
+  const arrows = (x0, x1, lx) => `<path d="M${x0} 78H${x1}" class="ord" marker-end="url(#netA)"/><text x="${lx}" y="70" text-anchor="middle" class="t sm ta">orders</text>
+<path d="M${x1} 96H${x0}" class="trn" marker-end="url(#netB)"/><text x="${lx}" y="112" text-anchor="middle" class="t sm tt">turns</text>`;
+  const tick = 'tick 2 310';
+  return `<figure class="dia net"><svg viewBox="0 0 328 192" role="img" aria-labelledby="netT"><title id="netT">A phone and a laptop each run the same game, at the same tick. Orders go to a small relay; the relay sends each turn back to both.</title>
+<defs><marker id="netA" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L8 4L0 8z" class="mA"/></marker><marker id="netB" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L8 4L0 8z" class="mT"/></marker></defs>
+<rect x="20" y="26" width="58" height="120" rx="9" class="dev"/><rect x="26" y="36" width="46" height="92" rx="3" class="scr"/><g>${dots(25, 60)}</g><rect x="41" y="136" width="16" height="2" rx="1" class="hbar"/>
+<text x="49" y="166" text-anchor="middle" class="tl">PHONE</text><text x="49" y="181" text-anchor="middle" class="t">${tick}</text>
+<rect x="232" y="54" width="80" height="64" rx="4" class="dev"/><rect x="237" y="59" width="70" height="52" class="scr"/><g>${dots(248, 61)}</g><path d="M224 118h96l6 8H218z" class="dev"/>
+<text x="272" y="166" text-anchor="middle" class="tl">LAPTOP</text><text x="272" y="181" text-anchor="middle" class="t">${tick}</text>
+<rect x="138" y="72" width="44" height="28" rx="14" class="hub"/><text x="160" y="90" text-anchor="middle" class="tl sm ta">RELAY</text>
+${arrows(84, 134, 109)}
+${arrows(226, 186, 204)}
+</svg><figcaption>Every device runs the same game. Only your orders travel: the relay bundles them into turns and sends each turn to everyone.</figcaption></figure>`;
+}
+
 /** About's strip: four sprites, large. */
 export function artStrip() {
   return `<figure class="dia strip"><div class="row">${['trooper', 'knight', 'lumen', 'shrike'].map(k => mini(`${k}-large`, 128, `Ebbfall's ${nameOf(k)}, as rendered in the game`)).join('')}</div><figcaption>Four of the game's sprites, as rendered: a Guard, a Knight, a Bot, a Drone.</figcaption></figure>`;

@@ -3517,10 +3517,11 @@ test('a building destroyed collapses: its ghost sinks and fades (its flag with i
     await d.grant(500, 0);
     const depot = await buildAndFinish(d, 'w', 'depot');
     await d.centerOn(depot.x, depot.y);
-    // A ghost is only for a building the player saw standing (render.js `collapse`: the pool's object, drawn live), so
-    // a frame must draw the Cottage finished, on screen, before it falls: the fast-forwards above run no frames, and on a
-    // slow machine none may have come since it was placed.
-    await d.page.waitForFunction((id) => endfall.sites().bldgs.some(b => b.id === id && b.look === 'full'), depot.id, { timeout: 15000, polling: 'raf' });
+    // A ghost is only for a building the player saw (render.js `collapse`: the pool's object, drawn live), and its flag
+    // only for one drawn finished, so a frame must draw the Cottage finished (its whole art, flag on: not a site's stage,
+    // nor the done moment's) on screen before it falls: the fast-forward to its finish ran no frames, and on a slow
+    // machine none may have come since it was placed. (The drawn texture, not `sites().look`, which reads the sim's state.)
+    await d.page.waitForFunction((id) => endfall.teamLayers().some(l => l.id === id && l.shown && l.base === 'bldg_depot'), depot.id, { timeout: 15000, polling: 'raf' });
     // (what each frame draws, read in the page from the moment the Cottage falls: the ghosts and the effects)
     await d.eval(() => {
       window.__fall = [];

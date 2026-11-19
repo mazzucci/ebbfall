@@ -707,7 +707,7 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
                       designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
-                      and one script, docs.js (the tabs scrolled to the current one, the clip played in view)), sprites.mjs and crops.mjs (the sprite crops: the
+                      and one deferred script, docs.js (the tabs scrolled to the current one, the clip fetched once the page has loaded and played in view); two fonts preloaded, the first screenshot fetched first, every other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
                       recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game

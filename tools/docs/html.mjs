@@ -1,8 +1,9 @@
 // The docs' page shell (tools/docs/build.mjs): the head (title, description, canonical, Open Graph and X tags, the
-// structured data), the slim top bar (the wordmark and FIELD MANUAL, five tabs, Home first, PLAY), the footer. Plain HTML
-// that reads whole without JavaScript. Nothing inline but the structured data: the site's CSP (site/cache.js) allows no
-// <style>, style="" or inline script, so the style is one stylesheet, /docs/docs.css (docs.css, the fonts and each
-// page's positions and sizes as classes: `styled`), and the script one file, /docs/docs.js (written by build.mjs).
+// structured data, the two fonts fetched first), the slim top bar (the wordmark and FIELD MANUAL, five tabs, Home
+// first, PLAY), the footer (the source and its license, PLAY). Plain HTML that reads whole without JavaScript. Nothing
+// inline but the structured data: the site's CSP (site/cache.js) allows no <style>, style="" or inline script, so the
+// style is one stylesheet, /docs/docs.css (docs.css, the fonts and each page's positions and sizes as classes:
+// `styled`), and the script one deferred file, /docs/docs.js (written by build.mjs).
 import { readFileSync } from 'node:fs';
 
 export const ORIGIN = 'https://ebbfall.com';
@@ -27,12 +28,16 @@ export const CSS = readFileSync(new URL('./docs.css', import.meta.url), 'utf8')
   .replace('/*COIN*/', g.coin).replace('/*BOLT*/', g.bolt)
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s*\n\s*/g, '');
 
-/** The self-hosted fonts (dist/docs/fonts/, build.mjs): family, weight, file. */
+/** The self-hosted fonts (dist/docs/fonts/, build.mjs): family, weight, file. All `font-display: swap`: the text shows at
+ *  once in a fallback. */
 export const FONTS = [
   ['IBM Plex Sans', 400, 'ibm-plex-sans-400.woff2'], ['IBM Plex Sans', 600, 'ibm-plex-sans-600.woff2'],
   ['Chakra Petch', 600, 'chakra-petch-600.woff2'], ['Chakra Petch', 700, 'chakra-petch-700.woff2'],
   ['Share Tech Mono', 400, 'share-tech-mono-400.woff2'],
 ];
+/** The fonts every page shows above the fold, preloaded so they arrive with the stylesheet: the body text's and the
+ *  wordmark's and heading's. The rest (the mono tag, the 600 weights) load when the stylesheet asks for them. */
+export const PRELOAD_FONTS = ['ibm-plex-sans-400.woff2', 'chakra-petch-700.woff2'];
 const fontFaces = FONTS.map(([f, w, file]) => `@font-face{font-family:'${f}';font-style:normal;font-weight:${w};font-display:swap;src:url('/docs/fonts/${file}') format('woff2')}`).join('');
 
 /**
@@ -83,9 +88,10 @@ export function layout({ path, title, description, body, crumb = null, ld = [] }
 <meta name="twitter:image:alt" content="${esc(OG.alt)}">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" href="/docs/fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+${PRELOAD_FONTS.map(f => `<link rel="preload" href="/docs/fonts/${f}" as="font" type="font/woff2" crossorigin>`).join('\n')}
 ${data.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
 <link rel="stylesheet" href="/docs/docs.css">
+<script src="/docs/docs.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -93,8 +99,7 @@ ${data.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(
 <main id="main">
 ${body}
 </main>
-<footer><div class="in"><span>Ebbfall is free and open source</span><a href="${REPO}">Source on GitHub</a><a href="${REPO}/blob/main/LICENSE">MIT license</a><a class="play" href="/">Play</a></div></footer>
-<script src="/docs/docs.js"></script>
+<footer><div class="in"><a href="${REPO}">Source on GitHub</a><span class="lic">(<a href="${REPO}/blob/main/LICENSE">MIT</a>)</span><a class="play" href="/">Play</a></div></footer>
 </body>
 </html>
 `;

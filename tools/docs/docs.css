@@ -89,7 +89,7 @@ figcaption{font:13px/1.5 var(--mono);color:var(--muted);margin:8px 2px 0}
 
 footer{border-top:1px solid var(--line);position:relative;overflow:hidden;background:linear-gradient(#0b0f16,#0e141d)}
 footer .in{max-width:1080px;margin:0 auto;padding:20px 16px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 8px;font:14px var(--mono);color:var(--muted)}
-footer .in>span{flex-basis:100%}
+footer .lic{margin-left:-4px} footer .lic a{min-width:44px;justify-content:center;margin:0 -10px;padding:0}
 footer a{display:inline-flex;align-items:center;min-height:48px;padding:0 4px;color:var(--muted)} footer a:hover{color:var(--amber2)}
 footer .play{color:#0b0f16;margin-left:auto}
 
@@ -103,7 +103,6 @@ footer .play{color:#0b0f16;margin-left:auto}
  .bld h3{font-size:24px}
  .unit{grid-template-columns:96px 1fr;gap:0 18px;align-items:center} .unit .desc{grid-column:2;margin-top:2px}
  .cards{grid-template-columns:repeat(2,1fr)}
- footer .in>span{flex-basis:auto}
 }
 @media (max-width:640px){
  /* a phone: the building's text beside its plate, its description and its units under both */

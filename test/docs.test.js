@@ -161,7 +161,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(main.indexOf('<video') < main.indexOf('<h2'), 'at the top, before the first section');
   assert.match(main, new RegExp(`<video src="/docs/media/${shots.trailer.file}" poster="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'its middle frame as its poster');
   assert.ok(!main.includes(`src="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'not the still again beside it');
-  assert.match(main, /muted loop playsinline/);
+  assert.match(main, /muted loop playsinline preload="none"/, 'the clip fetched only when played (docs.js: once the page has loaded)');
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8'); // (the docs' script: html.mjs)
   assert.match(js, /\.clip video/, 'the script finds the clip');
   assert.match(js, /prefers-reduced-motion: reduce\)'\)\.matches\) return;/, 'reduced motion: the poster only');
@@ -216,16 +216,18 @@ test('each page\'s head: its own title and description, canonical, cards; struct
   }
 });
 
-test('images: alt text, width and height, WebP, lazy below the first; a phone gets its own files', { skip }, () => {
+test('images: alt text, width and height, WebP, lazy but the first screenshot (fetched first); a phone gets its own files', { skip }, () => {
   for (const p of pages) {
     const html = page(p.path), imgs = [...html.matchAll(/<img\b[^>]*>/g)].map(m => m[0]);
     assert.ok(imgs.length > 0, p.path);
+    const first = html.includes('<video') ? -1 : imgs.findIndex(img => img.includes('/docs/img/shots/')); // (the home: its clip)
     imgs.forEach((img, i) => {
       assert.match(img, /\swidth="\d+"/, `${p.path}: width: ${img}`);
       assert.match(img, /\sheight="\d+"/, `${p.path}: height: ${img}`);
       assert.match(img, /\salt="[^"]*"/, `${p.path}: alt: ${img}`);
       assert.match(img, /src="[^"]+\.webp"/, `${p.path}: WebP: ${img}`);
-      if (i > 0) assert.match(img, /loading="lazy"/, `${p.path}: lazy: ${img}`);
+      if (i === first) { assert.match(img, /fetchpriority="high"/, `${p.path}: the first screenshot first: ${img}`); assert.doesNotMatch(img, /loading=/, `${p.path}: not lazy: ${img}`); }
+      else assert.match(img, /loading="lazy"/, `${p.path}: lazy: ${img}`);
     });
     // Alt text says something; empty only for a decorative plate beside a label that names it (the home's tiles, a
     // people's tree), and then hidden from screen readers.
@@ -233,6 +235,20 @@ test('images: alt text, width and height, WebP, lazy below the first; a phone ge
     // Screenshots name the game.
     for (const img of imgs) if (img.includes('/docs/img/shots/')) assert.match(img, /alt="Ebbfall (gameplay|on a)/, `${p.path}: a screenshot's alt names the game: ${img}`);
     for (const pic of html.matchAll(/<picture[^>]*>([\s\S]*?)<\/picture>/g)) assert.match(pic[1], /<source media="\(max-width:640px\)" srcset="[^"]+\.webp"/, `${p.path}: a phone's file`);
+  }
+});
+
+test('the first view: two fonts preloaded and every face swaps, the one script deferred in the head', { skip }, () => {
+  const css = readFileSync(join(out, 'docs', 'docs.css'), 'utf8');
+  const faces = css.match(/@font-face\{[^}]*\}/g) || [];
+  assert.ok(faces.length >= 4 && faces.every(f => f.includes('font-display:swap')), 'every face swaps');
+  for (const p of pages) {
+    const html = page(p.path), head = html.slice(0, html.indexOf('</head>'));
+    const fonts = [...head.matchAll(/<link rel="preload" href="\/docs\/fonts\/([^"]+)" as="font" type="font\/woff2" crossorigin>/g)].map(m => m[1]);
+    assert.deepEqual(fonts, ['ibm-plex-sans-400.woff2', 'chakra-petch-700.woff2'], `${p.path}: the body's and the headings' fonts preloaded`);
+    for (const f of fonts) assert.ok(existsSync(join(out, 'docs', 'fonts', f)) && css.includes(`/docs/fonts/${f}`), `${p.path}: ${f} built and used`);
+    assert.ok(head.includes('<script src="/docs/docs.js" defer></script>'), `${p.path}: the script deferred in the head`);
+    assert.equal((html.match(/<script src=/g) || []).length, 1, `${p.path}: one script`);
   }
 });
 
@@ -257,6 +273,10 @@ test('the copy: American English, no em dashes, the About page names Stelian, th
   assert.doesNotMatch(page('/docs/about/'), /for fun/, 'About: no "made for fun" segment');
   assert.match(page('/docs/about/'), /Version abc \(last game update def\)/);
   assert.doesNotMatch(page('/docs/'), /Made by/, 'no "Made by" in the footer');
+  for (const p of pages) {
+    const footer = page(p.path).match(/<footer>[\s\S]*<\/footer>/)[0];
+    assert.equal(footer, '<footer><div class="in"><a href="https://github.com/mazzucci/ebbfall">Source on GitHub</a><span class="lic">(<a href="https://github.com/mazzucci/ebbfall/blob/main/LICENSE">MIT</a>)</span><a class="play" href="/">Play</a></div></footer>', `${p.path}: the footer, one quiet line as About's, and PLAY`);
+  }
 });
 
 // ---- the heads and the structured data, the game's page (index.html) with the docs' ----

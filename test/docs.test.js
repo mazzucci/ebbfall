@@ -178,7 +178,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(shots.trailer.seconds >= 4 && shots.trailer.seconds <= 8, `about six seconds: ${shots.trailer.seconds}`);
 });
 
-test('the controls videos: How to play\'s phone section opens with the loop, six touch rows have theirs, About has the loop; each fetched only when played, its poster a lazy image, labeled for the game; the files small', { skip }, () => {
+test('the controls videos: How to play\'s phone section opens with the loop, seven touch rows have theirs, About has the loop; each fetched only when played, its poster a lazy image, labeled for the game; the files small', { skip }, () => {
   const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
   const how = page('/docs/how-to-play/'), about = page('/docs/about/');
   // The loop at the start of the phone section: after its heading and before the phone screenshot and the touch table.
@@ -190,7 +190,7 @@ test('the controls videos: How to play\'s phone section opens with the loop, six
   const table = how.slice(how.indexOf('<table class="touch">'), how.indexOf('</table>', how.indexOf('<table class="touch">')));
   assert.match(table, /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><th scope="col" class="see">See<\/th><\/tr><\/thead>/);
   const rows = table.slice(table.indexOf('<tbody>')).split('<tr>').slice(1).map(r => [r.match(/^<td>([^<]+)<\/td>/)[1], r.match(/touch-(\w+)\.mp4/)?.[1] || null]);
-  assert.deepEqual(rows.filter(r => r[1]), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army']], 'the six rows, their loops');
+  assert.deepEqual(rows.filter(r => r[1]), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven rows, their loops');
   assert.equal(rows.length, 13, 'every row still there');
   for (const html of [how, about]) {
     for (const v of html.matchAll(/<video\b[^>]*>/g)) {
@@ -214,7 +214,7 @@ test('the controls videos: How to play\'s phone section opens with the loop, six
     }
     assert.ok(html.match(/<video\b[^>]*>/g).every(t => t.includes('/docs/media/controls/')), 'every video a controls video');
   }
-  assert.equal((how.match(/<video\b/g) || []).length, 7, 'How to play: the loop and six gestures'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
+  assert.equal((how.match(/<video\b/g) || []).length, 8, 'How to play: the loop and seven gestures'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
   assert.ok(manifest['controls-loop'].seconds >= 15 && manifest['controls-loop'].seconds <= 20, 'the loop 15 to 20 s');
   // Its structured data on How to play; none wired for the gestures (rows, not a page's video).
   const v = ldOf(how).find(d => d['@type'] === 'VideoObject');

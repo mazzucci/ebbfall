@@ -23,7 +23,7 @@
   "w": 844,
   "h": 390,
   "seconds": 17.8,
-  "bytes": 384607,
+  "bytes": 383171,
   "uploaded": "2026-11-19"
  },
  "touch-select": {
@@ -32,7 +32,7 @@
   "w": 844,
   "h": 390,
   "seconds": 3,
-  "bytes": 121523,
+  "bytes": 123486,
   "uploaded": "2026-11-19"
  },
  "touch-group": {
@@ -41,7 +41,7 @@
   "w": 844,
   "h": 390,
   "seconds": 3,
-  "bytes": 120002,
+  "bytes": 120440,
   "uploaded": "2026-11-19"
  },
  "touch-type": {
@@ -50,7 +50,7 @@
   "w": 844,
   "h": 390,
   "seconds": 2.2,
-  "bytes": 109109,
+  "bytes": 107497,
   "uploaded": "2026-11-19"
  },
  "touch-army": {
@@ -59,7 +59,7 @@
   "w": 844,
   "h": 390,
   "seconds": 3.2,
-  "bytes": 135026,
+  "bytes": 133736,
   "uploaded": "2026-11-19"
  },
  "touch-look": {
@@ -68,7 +68,7 @@
   "w": 844,
   "h": 390,
   "seconds": 3.27,
-  "bytes": 142129,
+  "bytes": 141973,
   "uploaded": "2026-11-19"
  },
  "touch-letgo": {
@@ -76,8 +76,17 @@
   "poster": "touch-letgo.webp",
   "w": 844,
   "h": 390,
-  "seconds": 4.4,
-  "bytes": 145628,
+  "seconds": 1.9,
+  "bytes": 106813,
+  "uploaded": "2026-11-19"
+ },
+ "touch-details": {
+  "file": "touch-details.mp4",
+  "poster": "touch-details.webp",
+  "w": 844,
+  "h": 390,
+  "seconds": 2.7,
+  "bytes": 138737,
   "uploaded": "2026-11-19"
  }
 }

@@ -5,7 +5,9 @@
 //   controls-phone.mp4        the whole, landscape 1688x780 (~42 s), captioned
 //   controls-phone-9x16.mp4   the same framed 1080x1920, the captions under the phone
 //   controls-loop.mp4         the essentials (select, hold then box, double-tap, ARMY and HOME), 844x390, under 400 KB
-//   touch-<gesture>.mp4       one gesture each, 2-4 s, 844x390, no captions, under 150 KB
+//   touch-<gesture>.mp4       one gesture each, 2-3 s, 844x390, no captions, under 150 KB (letgo: the Deselect tap;
+//                             details: the button held and its panel open)
+// Each poster is a frame after the gesture's answer (a phone shows it before playing, reduced motion shows it alone).
 // The size-bound ones are encoded in two passes at the bitrate their budget allows. A clip may punch in (`punch`:
 // an eased zoom toward a point, held to the clip's end): the held button's details panel, readable at phone size.
 // tools/docs/controls.json (committed) lists each file for the docs' tokens (tools/docs/pages.mjs `clip`, `loop`): its
@@ -38,13 +40,14 @@ const whole = meta.beats.map(b => [b.id, 0, b.id === 'letgo' ? 8.4 : b.seconds, 
 export const VERSIONS = {
   'controls-phone': { kind: 'land', caps: true, w: 1688, crf: 22, clips: whole, poster: 7.7 },
   'controls-phone-9x16': { kind: 'tall', caps: true, crf: 22, clips: whole, poster: 7.7 },
-  'controls-loop': { kind: 'land', caps: true, w: 844, budget: 400 * KB, clips: [['select', 0.4, 5.6], ['group', 0.4, 4.3], ['type', 0.5, 3.2], ['army', 0.4, 6.4]], poster: 6.5 },
-  'touch-select': { kind: 'land', w: 844, budget: 150 * KB, clips: [['select', 0.7, 1.9], ['select', 3.2, 5.0]], poster: 1.6 },
-  'touch-group': { kind: 'land', w: 844, budget: 150 * KB, clips: [['group', 0.7, 3.7]], poster: 1.0 },
-  'touch-type': { kind: 'land', w: 844, budget: 150 * KB, clips: [['type', 0.7, 2.9]], poster: 1.2 },
-  'touch-army': { kind: 'land', w: 844, budget: 150 * KB, clips: [['army', 0.7, 2.5], ['army', 4.5, 5.9]], poster: 1.5 },
-  'touch-look': { kind: 'land', w: 844, budget: 150 * KB, clips: [['look', 0.75, 2.4], ['look', 3.85, 5.5]], poster: 2.6 },
-  'touch-letgo': { kind: 'land', w: 844, budget: 150 * KB, clips: [['letgo', 0.8, 1.8], ['letgo', 2.9, 3.5], ['letgo', 4.0, 6.8, DETAILS]], poster: 3.4 },
+  'controls-loop': { kind: 'land', caps: true, w: 844, budget: 400 * KB, clips: [['select', 0.4, 5.6], ['group', 0.4, 4.3], ['type', 0.5, 3.2], ['army', 0.4, 6.4]], poster: 8.4 }, // (the boxed group selected)
+  'touch-select': { kind: 'land', w: 844, budget: 150 * KB, clips: [['select', 0.7, 1.9], ['select', 3.2, 5.0]], poster: 0.7 }, // (the unit selected)
+  'touch-group': { kind: 'land', w: 844, budget: 150 * KB, clips: [['group', 0.7, 3.7]], poster: 2.75 }, // (the eight boxed, selected)
+  'touch-type': { kind: 'land', w: 844, budget: 150 * KB, clips: [['type', 0.7, 2.9]], poster: 1.6 }, // (the three of one type selected)
+  'touch-army': { kind: 'land', w: 844, budget: 150 * KB, clips: [['army', 0.7, 2.5], ['army', 4.5, 5.9]], poster: 0.8 }, // (the nine selected)
+  'touch-look': { kind: 'land', w: 844, budget: 150 * KB, clips: [['look', 0.75, 2.4], ['look', 3.85, 5.5]], poster: 0.75 }, // (mid-pan, the trail behind the finger)
+  'touch-letgo': { kind: 'land', w: 844, budget: 150 * KB, clips: [['letgo', 0.7, 2.6]], poster: 0.6 }, // (the finger on Deselect, the nine still selected; then they clear)
+  'touch-details': { kind: 'land', w: 844, budget: 150 * KB, clips: [['letgo', 3.9, 6.6, DETAILS]], poster: 2.2 }, // (the button held, its panel open and punched in)
 };
 /** The review sheet's extra stills besides one near the end of each caption: the moments themselves (seconds of the beat). */
 const MOMENTS = [['group', 1.3, 'the ring fills'], ['letgo', 1.2, 'Deselect tapped']];

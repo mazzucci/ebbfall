@@ -59,7 +59,7 @@ figcaption{font:13px/1.5 var(--mono);color:var(--muted);margin:8px 2px 0}
 
 /* the people pages: a list of buildings, each with the units it trains under it */
 .side{display:flex;flex-wrap:wrap;gap:4px 18px;font:13px var(--mono);color:var(--muted);margin:0 0 8px}
-.side i.blue{display:inline-block;width:10px;height:10px;border-radius:50%;background:#2a5ddf;margin-right:6px;vertical-align:-1px} .side .sig,.signal .sig{margin:0 6px 0 0}
+.side .sig,.signal .sig{margin:0 6px 0 0}
 .signal{grid-column:1/-1;margin:0 0 8px;font-size:15px;color:#c9d4e0}
 .roster{list-style:none;margin:0;padding:0;max-width:none}
 .bld{display:grid;grid-template-columns:104px 1fr;gap:4px 14px;align-items:start;padding:18px 0 8px;margin:0}
@@ -133,16 +133,24 @@ details{margin:0 0 18px;max-width:70ch} summary{cursor:pointer;min-height:44px;d
 .clip video{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);background:#07090d}
 .clip .vid{position:relative} .clip .tag{position:absolute;z-index:1;left:10px;top:10px;padding:3px 9px;border-radius:4px;background:rgba(11,15,22,.82);border:1px solid var(--line2);font:12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber2)}
 .clip .poster{position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:1px solid var(--line)} .clip .poster[hidden]{display:none}
-/* the touch table (How to play): a third column, See, with a small loop beside the row's words on a wide screen; on a
-   phone the row is a grid, the loop under its words at the row's full width */
-table.touch td.see{width:280px;padding:8px 0 8px 10px} table.touch .loop{margin:0}
+/* the touch table (How to play): a gesture's loop on demand (pages.mjs gestureLoop): a ? at the right of the row's
+   words, 32 px drawn in a 44 px tap target, shown only once docs.js runs (`.js`: it does the opening); its loop in the
+   box under the words, at most 480 px wide on a wide screen; on a phone the row is a grid (every row the same two
+   columns, so they line up down the table: 104 px for the first, as the table gave it) and the open box takes the row's
+   full width, pulled back under the first column (104 px and the second cell's 10 px of padding) and out to the ?'s edge */
+.see{display:none}
+.js .see{display:flex;float:right;align-items:center;justify-content:center;width:44px;height:44px;margin:-6px 0 -6px 8px;padding:0;background:none;border:0;cursor:pointer;color:var(--amber2)}
+/* (at the top right of the cell, on the words' first line, the words given its room; where :has is unknown it floats
+   after them instead) */
+table.touch td:has(> .see){position:relative;padding-right:48px} table.touch td:has(> .see) .see{position:absolute;top:-2px;right:2px;float:none;margin:0}
+.see span{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;border:1px solid var(--line2);background:var(--panel2);font:600 17px/1 var(--display)}
+.see:hover span{border-color:var(--amber)} .see[aria-expanded=true] span{background:var(--amber);border-color:var(--amber);color:#0b0f16}
+.gesture{clear:both;max-width:480px;margin:10px 0 2px} .gesture[hidden]{display:none}
 @media (max-width:640px){
- table.touch .see{padding:0}
- table.touch th.see{display:none}
- /* (every row the same two columns, so they line up down the table: 104 px for the first, as the table gave it) */
  table.touch tr{display:grid;grid-template-columns:104px 1fr;border-bottom:1px solid var(--line)}
  table.touch td,table.touch th{border:0} table.touch td:first-child,table.touch th:first-child{padding-left:0} table.touch td:nth-child(2),table.touch th:nth-child(2){padding-right:0}
- table.touch td.see{grid-column:1/-1;width:auto;padding:0 0 10px}
+ .gesture{max-width:none;width:calc(100% + 114px);margin-left:-114px}
+ table.touch td:has(> .see){padding-right:44px} table.touch td:has(> .see) .see{right:0} table.touch td:has(> .see) .gesture{width:auto;margin-right:-44px}
 }
 
 /* diagrams: plates with mono labels */

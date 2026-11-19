@@ -20,10 +20,14 @@
 //   {{clip}}             the gameplay clip (public/docs/media/trailer.*: the trailer replaces it by taking its name)
 //   {{clip name | title=... | label=... | caption=...}}
 //                        a controls video (tools/docs/controls.json, cut by tools/controls/cut.mjs into
-//                        public/docs/media/controls/): its poster as a lazy image under it, the video fetched only when
-//                        played (docs.js: once the page has loaded, while in view, never under reduced motion)
-//   {{loop name | label=...}}
-//                        a per-gesture loop of the controls video, small, in a touch table's row (no caption)
+//                        public/docs/media/controls/): its poster as an image over it (lazy, unless it is the page's
+//                        first media), the video fetched only when played (docs.js: once the page has loaded, while in
+//                        view, never under reduced motion)
+//   {{loop name | label=... | do=...}}
+//                        a per-gesture loop of the controls video, on demand, in a touch table's row: a ? button
+//                        ("Show how: <do>", the row's first words) and an empty box under the row's words; docs.js makes
+//                        the video and its poster there on a tap, so nothing of the loop is fetched before (the button
+//                        carries the loop's name, size and label; hidden where scripts do not run)
 //   {{version}}          the game's version and last update, as the build stamp says them
 //   {{flow A > B > C}}   steps in a row with arrows
 //   {{pages}}            links to the other pages, with their descriptions
@@ -88,7 +92,7 @@ function roster(people) {
   const note = (b) => (b.note ? `<p class="signal" data-of="${b.key}"><i class="sig" aria-hidden="true"></i>${esc(b.note)}</p>` : '');
   const bld = (b) => `<li class="bld" ${attrs(b)}>${plate(b, people)}<div class="body"><div class="head"><h3>${esc(b.name)}</h3>${role(b)}${chips(b, people)}</div>${desc(b)}${note(b)}${b.units.length ? `<ul class="units" aria-label="${esc(b.name)} trains">${b.units.map(unit).join('')}</ul>` : ''}</div></li>`;
   const legend = people.buildings.some(b => b.note) ? '<span><i class="sig" aria-hidden="true"></i>needs signal</span>' : '';
-  return `<p class="side"><span><i class="blue"></i>Your side plays in blue</span>${legend}</p><ul class="roster">${people.buildings.map(bld).join('\n')}</ul>`;
+  return `${legend ? `<p class="side">${legend}</p>` : ''}<ul class="roster">${people.buildings.map(bld).join('\n')}</ul>`;
 }
 
 /** A screenshot as a figure (see the tokens above). `first`: the page's first screenshot, near the top: fetched at once
@@ -114,12 +118,13 @@ function figure(args, first) {
  * first, the clip fetched only once the page has loaded (so a slow first visit's load ends without it) and only while
  * in view (preload="none"; docs.js plays it), never under reduced motion (the still alone), the browser's controls
  * where scripts do not run. The trailer takes its place later by taking its file's name (public/docs/media/trailer.mp4).
- * With a name (`{{clip controls-loop | title= | label= | caption=}}`): a controls video (`controlsVideo`) as a figure.
+ * With a name (`{{clip controls-loop | title= | label= | caption=}}`): a controls video (`controlsVideo`) as a figure;
+ * `first`: it is the page's first media, so its poster is fetched at once and first, as a first screenshot is.
  */
-function clip(args) {
+function clip(args, first) {
   if (args) {
     const [name, ...rest] = args.split('|').map(s => s.trim()), o = opts(rest);
-    return `<figure class="clip">${controlsVideo(name, o)}${o.caption ? `<figcaption>${esc(o.caption)}</figcaption>` : ''}</figure>`;
+    return `<figure class="clip">${controlsVideo(name, o, first)}${o.caption ? `<figcaption>${esc(o.caption)}</figcaption>` : ''}</figure>`;
   }
   const t = shots().trailer, poster = shots()[t?.poster];
   if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
@@ -130,22 +135,39 @@ function clip(args) {
 /**
  * A controls video (tools/docs/controls.json): the video, fetched only when played (preload="none"; docs.js: once the
  * page has loaded, while in view, never under reduced motion), with its poster as an image over it that loads lazily
- * (they are all below the fold; a <video poster> would be fetched at once) and goes once the video plays (docs.js).
- * So the poster is what shows until then: under reduced motion, where scripts do not run (a browser then paints an
- * empty video as a dark box with controls), and before the page has loaded. `label`: what plays, naming the game (its
- * aria-label); `title`: its title (the label when none).
+ * (a <video poster> would be fetched at once) unless it is the page's first media (`first`: fetched at once and first),
+ * and goes once the video plays (docs.js). So the poster is what shows until then: under reduced motion, where scripts
+ * do not run (a browser then paints an empty video as a dark box with controls), and before the page has loaded.
+ * `label`: what plays, naming the game (its aria-label); `title`: its title (the label when none).
  */
-function controlsVideo(name, { label, title }) {
+function controlsVideo(name, { label, title }, first = false) {
+  const c = controlsOf(name, label);
+  const load = first ? 'fetchpriority="high"' : 'loading="lazy"';
+  return `<div class="vid"><video src="${CONTROLS_URL}${c.file}" width="${c.w}" height="${c.h}" muted loop playsinline preload="none" title="${esc(title || label)}" aria-label="${esc(label)}"></video><img class="poster" src="${CONTROLS_URL}${c.poster}" width="${c.w}" height="${c.h}" alt="" aria-hidden="true" ${load} decoding="async"></div>`;
+}
+/** A controls video's entry in the manifest, its label checked: it names the game (it is the video's aria-label). */
+function controlsOf(name, label) {
   const c = controls()[name];
   if (!c) throw new Error(`docs: no controls video "${name}" in tools/docs/controls.json (node tools/controls/cut.mjs)`);
   if (!label || !/Ebbfall/.test(label)) throw new Error(`docs: the controls video ${name} needs a label= that names Ebbfall`);
-  return `<div class="vid"><video src="${CONTROLS_URL}${c.file}" width="${c.w}" height="${c.h}" muted loop playsinline preload="none" title="${esc(title || label)}" aria-label="${esc(label)}"></video><img class="poster" src="${CONTROLS_URL}${c.poster}" width="${c.w}" height="${c.h}" alt="" aria-hidden="true" loading="lazy" decoding="async"></div>`;
+  return c;
 }
 
-/** A per-gesture loop in a touch table's row: the video alone, small (docs.css table.touch). */
+/**
+ * A per-gesture loop in a touch table's row, on demand (Stelian: too many videos playing at once overwhelm the page):
+ * a small ? button (32 px drawn, a 44 px tap target; docs.css .see) at the right of the row's words, labeled "Show how:
+ * <do>" (`do`: the row's first words), and the empty box it controls, under the words (the row's full width on a phone).
+ * docs.js makes the video and its poster in the box on a tap (from the button's data: the loop's name, its size, its
+ * label, the video's aria-label and title) and plays it; a tap again closes it; one open at a time; under reduced motion
+ * the poster with the video's controls instead. Nothing of the loop is in the page before the tap, so nothing of it is
+ * fetched; the button is shown only once docs.js runs (the table reads whole without it).
+ */
 function gestureLoop(args) {
   const [name, ...rest] = args.split('|').map(s => s.trim()), o = opts(rest);
-  return `<div class="clip loop">${controlsVideo(name, o)}</div>`;
+  const c = controlsOf(name, o.label);
+  if (!o.do) throw new Error(`docs: the loop ${name} needs a do= (the row's first words, for its button's label)`);
+  const id = `see-${name}`;
+  return `<button class="see" type="button" aria-expanded="false" aria-controls="${id}" aria-label="${esc(`Show how: ${o.do}`)}" data-loop="${name}" data-w="${c.w}" data-h="${c.h}" data-label="${esc(o.label)}"><span aria-hidden="true">?</span></button><div class="clip gesture" id="${id}" hidden></div>`;
 }
 
 /** The structured data (schema.org VideoObject) of a controls video on a page. */
@@ -226,10 +248,12 @@ const flow = (args) => `<ol class="flow" aria-label="${esc(args.replace(/\s*>\s*
 
 /** Fill a page's tokens. `ctx`: { people, pages, version } */
 export function fill(body, ctx) {
-  let media = 0; // (the page's first screenshot or clip loads at once, every later one lazily)
+  // (the page's first media, a screenshot or a clip, loads at once, every later one lazily; About's strip of sprites is
+  // its first picture, so its clip under it stays lazy; a gesture's loop is nothing until tapped)
+  let media = 0;
   return body.replace(/\{\{\s*(\w+)\s*([^}]*?)\s*\}\}/g, (all, tok, args) => {
     const out = token(all, tok, args);
-    if (tok === 'figure' || tok === 'clip' || tok === 'loop') media++;
+    if (tok === 'figure' || tok === 'clip' || tok === 'artstrip') media++;
     return out;
   });
   function token(all, tok, args) {
@@ -240,7 +264,7 @@ export function fill(body, ctx) {
       case 'research': return research(ctx.people);
       case 'peoples': return peoples(args.split('|').map(t => t.trim()));
       case 'artstrip': return artStrip();
-      case 'clip': return clip(args);
+      case 'clip': return clip(args, media === 0);
       case 'loop': return gestureLoop(args);
       case 'version': return esc(ctx.version || 'Version dev');
       case 'name': { const n = nameOf(args); if (!n) throw new Error(`docs: no kind "${args}"`); return esc(n); }

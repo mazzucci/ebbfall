@@ -701,7 +701,8 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       {{roster}}, {{figure}}, {{diagram}}, {{n}} ...), pages.mjs (the tokens filled), diagrams.mjs
                       (the loop, the economy, the caps, the Expedition's signal, a people's tree (a row of columns; on a
                       portrait phone the "Ledger": tiers by what each building needs first) and research, the
-                      home's tiles, About's strip: HTML and one SVG from the data and the crops), html.mjs (the
+                      home's tiles, About's network (a phone and a laptop on the same game, orders through the relay)
+                      and strip: HTML and two SVGs from the data and the crops), html.mjs (the
                       shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
                       `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the

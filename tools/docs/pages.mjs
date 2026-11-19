@@ -25,7 +25,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { esc, styled, TABS } from './html.mjs';
 import { PEOPLES, FIGURES, nameOf, aName, inWords } from './data.mjs';
-import { loop, economy, cap, expedition, tree, peoples, artStrip, research } from './diagrams.mjs';
+import { loop, economy, cap, expedition, network, tree, peoples, artStrip, research } from './diagrams.mjs';
 import { SPRITE_URL, cropOf } from './sprites.mjs';
 
 const COPY = new URL('./copy/', import.meta.url);
@@ -185,7 +185,7 @@ export function fill(body, ctx) {
   function token(all, tok, args) {
     switch (tok) {
       case 'n': case 'w': if (!(args in FIGURES)) throw new Error(`docs: no figure "${args}"`); return tok === 'n' ? String(FIGURES[args]) : inWords(FIGURES[args]);
-      case 'diagram': { const d = { loop, economy, cap, expedition }[args]; if (!d) throw new Error(`docs: no diagram "${args}"`); return d(); }
+      case 'diagram': { const d = { loop, economy, cap, expedition, network }[args]; if (!d) throw new Error(`docs: no diagram "${args}"`); return d(); }
       case 'tree': return tree(ctx.people);
       case 'research': return research(ctx.people);
       case 'peoples': return peoples(args.split('|').map(t => t.trim()));

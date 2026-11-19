@@ -18,6 +18,12 @@
 //   {{peoples tag | tag}} the home's two tiles, a link to each people (the Kingdom's line, the Expedition's)
 //   {{artstrip}}         About's four large sprites
 //   {{clip}}             the gameplay clip (public/docs/media/trailer.*: the trailer replaces it by taking its name)
+//   {{clip name | title=... | label=... | caption=...}}
+//                        a controls video (tools/docs/controls.json, cut by tools/controls/cut.mjs into
+//                        public/docs/media/controls/): its poster as a lazy image under it, the video fetched only when
+//                        played (docs.js: once the page has loaded, while in view, never under reduced motion)
+//   {{loop name | label=...}}
+//                        a per-gesture loop of the controls video, small, in a touch table's row (no caption)
 //   {{version}}          the game's version and last update, as the build stamp says them
 //   {{flow A > B > C}}   steps in a row with arrows
 //   {{pages}}            links to the other pages, with their descriptions
@@ -32,6 +38,11 @@ const COPY = new URL('./copy/', import.meta.url);
 export const SHOTS_URL = '/docs/img/shots/';
 export const SHOTS = new URL('./shots.json', import.meta.url);
 const shots = () => JSON.parse(readFileSync(SHOTS, 'utf8'));
+export const CONTROLS_URL = '/docs/media/controls/';
+export const CONTROLS = new URL('./controls.json', import.meta.url);
+const controls = () => JSON.parse(readFileSync(CONTROLS, 'utf8'));
+/** A token's `key=value | key=value` options. */
+const opts = (rest) => Object.fromEntries(rest.map(p => { const i = p.indexOf('='); return [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }));
 
 /** The pages, in the sitemap's order: [copy file, path]. */
 export const PAGES = [['home', '/docs/'], ['how-to-play', '/docs/how-to-play/'], ['kingdom', '/docs/kingdom/'], ['expedition', '/docs/expedition/'], ['about', '/docs/about/']];
@@ -85,10 +96,10 @@ function roster(people) {
 function figure(args, first) {
   const [name, ...rest] = args.split('|').map(s => s.trim());
   const s = shots()[name];
-  const opts = Object.fromEntries(rest.map(p => { const i = p.indexOf('='); return [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }));
+  const o = opts(rest);
   if (!s) throw new Error(`docs: no screenshot "${name}" in tools/docs/shots.json (node tools/docs/shots.mjs)`);
-  const alt = opts.alt || s.alt, caption = opts.caption || s.caption;
-  const notes = Object.entries(opts).filter(([k]) => k !== 'alt' && k !== 'caption');
+  const alt = o.alt || s.alt, caption = o.caption || s.caption;
+  const notes = Object.entries(o).filter(([k]) => k !== 'alt' && k !== 'caption');
   for (const [k] of notes) if (!s.boxes?.[k]) throw new Error(`docs: shot ${name} has no box "${k}" (it has ${Object.keys(s.boxes || {}).join(', ')})`);
   const at = placeNotes(s, notes.map(([k]) => k));
   const pos = (a, d, gap) => (d ? `calc(${(a * 100).toFixed(2)}% ${d > 0 ? '+' : '-'} (var(--n) / 2 + ${gap}px))` : `${(a * 100).toFixed(2)}%`);
@@ -103,13 +114,51 @@ function figure(args, first) {
  * first, the clip fetched only once the page has loaded (so a slow first visit's load ends without it) and only while
  * in view (preload="none"; docs.js plays it), never under reduced motion (the still alone), the browser's controls
  * where scripts do not run. The trailer takes its place later by taking its file's name (public/docs/media/trailer.mp4).
+ * With a name (`{{clip controls-loop | title= | label= | caption=}}`): a controls video (`controlsVideo`) as a figure.
  */
-function clip() {
+function clip(args) {
+  if (args) {
+    const [name, ...rest] = args.split('|').map(s => s.trim()), o = opts(rest);
+    return `<figure class="clip">${controlsVideo(name, o)}${o.caption ? `<figcaption>${esc(o.caption)}</figcaption>` : ''}</figure>`;
+  }
   const t = shots().trailer, poster = shots()[t?.poster];
   if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
   return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
 <figcaption>${esc(poster.caption)}</figcaption></figure>`;
 }
+
+/**
+ * A controls video (tools/docs/controls.json): the video, fetched only when played (preload="none"; docs.js: once the
+ * page has loaded, while in view, never under reduced motion), with its poster as an image over it that loads lazily
+ * (they are all below the fold; a <video poster> would be fetched at once) and goes once the video plays (docs.js).
+ * So the poster is what shows until then: under reduced motion, where scripts do not run (a browser then paints an
+ * empty video as a dark box with controls), and before the page has loaded. `label`: what plays, naming the game (its
+ * aria-label); `title`: its title (the label when none).
+ */
+function controlsVideo(name, { label, title }) {
+  const c = controls()[name];
+  if (!c) throw new Error(`docs: no controls video "${name}" in tools/docs/controls.json (node tools/controls/cut.mjs)`);
+  if (!label || !/Ebbfall/.test(label)) throw new Error(`docs: the controls video ${name} needs a label= that names Ebbfall`);
+  return `<div class="vid"><video src="${CONTROLS_URL}${c.file}" width="${c.w}" height="${c.h}" muted loop playsinline preload="none" title="${esc(title || label)}" aria-label="${esc(label)}"></video><img class="poster" src="${CONTROLS_URL}${c.poster}" width="${c.w}" height="${c.h}" alt="" aria-hidden="true" loading="lazy" decoding="async"></div>`;
+}
+
+/** A per-gesture loop in a touch table's row: the video alone, small (docs.css table.touch). */
+function gestureLoop(args) {
+  const [name, ...rest] = args.split('|').map(s => s.trim()), o = opts(rest);
+  return `<div class="clip loop">${controlsVideo(name, o)}</div>`;
+}
+
+/** The structured data (schema.org VideoObject) of a controls video on a page. */
+export function controlsLd(origin, name, { title, label }) {
+  const c = controls()[name];
+  return {
+    '@context': 'https://schema.org', '@type': 'VideoObject', name: title, description: label,
+    thumbnailUrl: `${origin}${CONTROLS_URL}${c.poster}`, contentUrl: `${origin}${CONTROLS_URL}${c.file}`,
+    uploadDate: c.uploaded, duration: `PT${Math.round(c.seconds)}S`, width: c.w, height: c.h, isFamilyFriendly: true,
+  };
+}
+/** How to play's controls video, for its structured data (build.mjs): the same words the copy gives the token. */
+export const CONTROLS_LOOP = { title: 'Ebbfall on a phone: the touch controls', label: 'Ebbfall on a phone: tap a unit, then the ground to move it; press and hold, then drag a box for a group; double-tap for all of one type; ARMY selects the army and HOME looks at your base' };
 
 /**
  * The clip's structured data (schema.org VideoObject) for the docs home: its title and words, its poster, its file, the
@@ -180,7 +229,7 @@ export function fill(body, ctx) {
   let media = 0; // (the page's first screenshot or clip loads at once, every later one lazily)
   return body.replace(/\{\{\s*(\w+)\s*([^}]*?)\s*\}\}/g, (all, tok, args) => {
     const out = token(all, tok, args);
-    if (tok === 'figure' || tok === 'clip') media++;
+    if (tok === 'figure' || tok === 'clip' || tok === 'loop') media++;
     return out;
   });
   function token(all, tok, args) {
@@ -191,7 +240,8 @@ export function fill(body, ctx) {
       case 'research': return research(ctx.people);
       case 'peoples': return peoples(args.split('|').map(t => t.trim()));
       case 'artstrip': return artStrip();
-      case 'clip': return clip();
+      case 'clip': return clip(args);
+      case 'loop': return gestureLoop(args);
       case 'version': return esc(ctx.version || 'Version dev');
       case 'name': { const n = nameOf(args); if (!n) throw new Error(`docs: no kind "${args}"`); return esc(n); }
       case 'facts': return `<ul class="facts">${ctx.people.facts.map(([k, v]) => `<li>${k} <b>${esc(v)}</b></li>`).join('')}</ul>`;

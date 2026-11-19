@@ -748,7 +748,10 @@ tools/controls/       the phone controls video (the docs' touch table, as a film
                       public/docs/media/controls/ (controls-phone.mp4 1688x780 captioned, controls-phone-9x16.mp4,
                       controls-loop.mp4 the essentials under 400 KB, touch-<gesture>.mp4 one each under 150 KB, a WebP
                       poster each, a punch-in on the held button's details; --review copies them with a contact sheet,
-                      a still near the end of each caption). Not wired into the docs yet.
+                      a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
+                      How to play shows the loop at the start of its phone section and a gesture's loop in each of six
+                      touch rows, About the loop (pages.mjs {{clip name}}, {{loop name}}: the poster a lazy image over
+                      the video until it plays, the video fetched only when played, as the home's clip).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's

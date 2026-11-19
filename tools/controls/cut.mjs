@@ -8,9 +8,11 @@
 //   touch-<gesture>.mp4       one gesture each, 2-4 s, 844x390, no captions, under 150 KB
 // The size-bound ones are encoded in two passes at the bitrate their budget allows. A clip may punch in (`punch`:
 // an eased zoom toward a point, held to the clip's end): the held button's details panel, readable at phone size.
-//   node tools/controls/cut.mjs [--review DIR] [name ...]   (--review: copies and a contact sheet there too)
+// tools/docs/controls.json (committed) lists each file for the docs' tokens (tools/docs/pages.mjs `clip`, `loop`): its
+// poster, size, length and the day it was cut; `--manifest` rewrites it alone from the files there.
+//   node tools/controls/cut.mjs [--review DIR] [--manifest] [name ...]   (--review: copies and a contact sheet there too)
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { FFMPEG } from '../trailer/record.mjs';
 import { openStage } from '../trailer/stage.mjs';
@@ -19,6 +21,7 @@ import { CAP_TOP, TALL_PHONE } from './overlay.mjs';
 
 const root = new URL('../../', import.meta.url);
 const SRC = fileURLToPath(new URL('target/controls', root)), DST = fileURLToPath(new URL('public/docs/media/controls', root));
+const MANIFEST = fileURLToPath(new URL('tools/docs/controls.json', root));
 const argv = process.argv.slice(2), ri = argv.indexOf('--review');
 const review = ri >= 0 ? argv[ri + 1] : null;
 const names = argv.filter((x, i) => !x.startsWith('--') && argv[i - 1] !== '--review');
@@ -48,6 +51,20 @@ const MOMENTS = [['group', 1.3, 'the ring fills'], ['letgo', 1.2, 'Deselect tapp
 
 const run = (args) => { const r = spawnSync(FFMPEG, ['-y', '-loglevel', 'error', ...args], { stdio: 'inherit' }); if (r.status !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}`); };
 const probe = (file) => +spawnSync(FFMPEG.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).stdout.toString().trim();
+const dims = (file) => spawnSync(FFMPEG.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', file]).stdout.toString().trim().split(',').map(Number);
+
+/** tools/docs/controls.json: every version whose file is there: { file, poster, w, h, seconds, bytes, uploaded } (the
+ *  day kept from the last manifest unless the file changed size). */
+function writeManifest() {
+  const old = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {}, out = {}, today = new Date().toISOString().slice(0, 10);
+  for (const name of Object.keys(VERSIONS)) {
+    const file = `${DST}/${name}.mp4`; if (!existsSync(file)) continue;
+    const [w, h] = dims(file), bytes = statSync(file).size;
+    out[name] = { file: `${name}.mp4`, poster: `${name}.webp`, w, h, seconds: +probe(file).toFixed(2), bytes, uploaded: old[name]?.bytes === bytes ? old[name].uploaded : today };
+  }
+  writeFileSync(MANIFEST, JSON.stringify(out, null, 1) + '\n');
+  console.log(`cut: ${MANIFEST} (${Object.keys(out).length} files)`);
+}
 
 /** The clips on the version's timeline, and the captions that show during them: [{ file, at, until, fade, out }]
  *  (`fade`: it comes in here; `out`: it goes before the clip's end). */
@@ -121,7 +138,8 @@ function cut(name, v) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   mkdirSync(DST, { recursive: true });
   const done = {};
-  for (const [name, v] of Object.entries(VERSIONS)) if (!names.length || names.includes(name)) done[name] = cut(name, v);
+  if (!argv.includes('--manifest')) for (const [name, v] of Object.entries(VERSIONS)) if (!names.length || names.includes(name)) done[name] = cut(name, v);
+  writeManifest();
   if (review) {
     mkdirSync(review, { recursive: true });
     for (const d of Object.values(done)) for (const f of [d.file, d.poster]) copyFileSync(f, `${review}/${f.split('/').pop()}`);

@@ -164,7 +164,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.match(main, /muted loop playsinline preload="none"/, 'the clip fetched only when played (docs.js: once the page has loaded)');
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8'); // (the docs' script: html.mjs)
   assert.match(js, /\.clip video/, 'the script finds the clip');
-  assert.match(js, /prefers-reduced-motion: reduce\)'\)\.matches\) return;/, 'reduced motion: the poster only');
+  assert.match(js, /if \(clips\.length && !reduce\) \{ if \(document\.readyState === 'complete'\) start\(\); else addEventListener\('load', start\); \}/, 'reduced motion: the poster only');
   assert.equal(shots.trailer.file, 'trailer.mp4', 'the file the trailer takes over');
   // Its words: a title, a label that says what plays (the game named), the caption under it.
   assert.equal(shots.trailer.title, 'Ebbfall gameplay: Archers against Drones');
@@ -178,20 +178,18 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(shots.trailer.seconds >= 4 && shots.trailer.seconds <= 8, `about six seconds: ${shots.trailer.seconds}`);
 });
 
-test('the controls videos: How to play\'s phone section opens with the loop, seven touch rows have theirs, About has the loop; each fetched only when played, its poster a lazy image, labeled for the game; the files small', { skip }, () => {
+test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), About has the loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
   const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
   const how = page('/docs/how-to-play/'), about = page('/docs/about/');
-  // The loop at the start of the phone section: after its heading and before the phone screenshot and the touch table.
-  const phone = how.indexOf('<h2 id="phone">'), loopAt = how.indexOf('<video src="/docs/media/controls/controls-loop.mp4"', phone);
-  assert.ok(phone > 0 && loopAt > phone && loopAt < how.indexOf('shot-phone-land', phone) && loopAt < how.indexOf('<table class="touch">'), 'How to play: the loop opens the phone section');
-  assert.ok(how.indexOf('shot-desktop-hud') < phone, 'the desktop controls, with their screenshot, come first');
+  // The phone section before the desktop's (most players are on a phone), the page's contents line in the same order;
+  // the loop at the start of the phone section: after its heading and before the phone screenshot and the touch table.
+  const phone = how.indexOf('<h2 id="phone">'), desktop = how.indexOf('<h2 id="desktop">'), loopAt = how.indexOf('<video src="/docs/media/controls/controls-loop.mp4"', phone);
+  assert.ok(phone > how.indexOf('<h2 id="goal">') && phone < desktop && desktop < how.indexOf('<h2 id="gold">'), 'How to play: the goal, the phone, the desktop, then gold');
+  assert.ok(loopAt > phone && loopAt < how.indexOf('shot-phone-land', phone) && loopAt < how.indexOf('<table class="touch">'), 'How to play: the loop opens the phone section');
+  assert.ok(how.indexOf('shot-desktop-hud') > desktop, 'the desktop controls, with their screenshot, after it');
+  const tocAt = how.indexOf('<nav class="toc"'), toc = how.slice(tocAt, how.indexOf('</nav>', tocAt));
+  assert.deepEqual([...toc.matchAll(/href="#(\w+)"/g)].map(m => m[1]), [...how.matchAll(/<h2 id="(\w+)">/g)].map(m => m[1]), 'the contents line in the sections\' order');
   assert.ok(about.indexOf('controls-loop.mp4') > about.indexOf('<figure class="dia strip') && about.indexOf('controls-loop.mp4') < about.indexOf('<h2 id="privacy">'), 'About: the loop closes How it\'s built, after the art strip (below the fold: its poster loads lazily)');
-  // The touch table: a See column; the six rows with a loop, each row's own gesture; the other rows as they were.
-  const table = how.slice(how.indexOf('<table class="touch">'), how.indexOf('</table>', how.indexOf('<table class="touch">')));
-  assert.match(table, /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><th scope="col" class="see">See<\/th><\/tr><\/thead>/);
-  const rows = table.slice(table.indexOf('<tbody>')).split('<tr>').slice(1).map(r => [r.match(/^<td>([^<]+)<\/td>/)[1], r.match(/touch-(\w+)\.mp4/)?.[1] || null]);
-  assert.deepEqual(rows.filter(r => r[1]), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven rows, their loops');
-  assert.equal(rows.length, 13, 'every row still there');
   for (const html of [how, about]) {
     for (const v of html.matchAll(/<video\b[^>]*>/g)) {
       const tag = v[0], name = tag.match(/\/docs\/media\/controls\/([\w-]+)\.mp4/)[1], c = manifest[name];
@@ -202,27 +200,71 @@ test('the controls videos: How to play\'s phone section opens with the loop, sev
       assert.match(tag, /aria-label="Ebbfall on a phone: [^"]{20,}"/, `${name}: labeled for the game: ${tag}`);
       assert.match(tag, /title="Ebbfall on a phone: [^"]+"/, `${name}: a title`);
       assert.match(tag, new RegExp(`width="${c.w}" height="${c.h}"`), `${name}: its size`);
-      // Its poster: the lazy image right after it (over it until it plays, docs.js), the same size, decorative (the video
-      // carries the words), the two in one box.
+      // Its poster: the image right after it (over it until it plays, docs.js), the same size, decorative (the video
+      // carries the words), the two in one box; lazy, but on How to play, where the loop is the page's first media and
+      // its poster is fetched at once and first, as a first screenshot is.
       const after = html.slice(v.index + tag.length), img = after.slice(after.indexOf('<img'), after.indexOf('>', after.indexOf('<img')) + 1);
-      assert.equal(img, `<img class="poster" src="/docs/media/controls/${name}.webp" width="${c.w}" height="${c.h}" alt="" aria-hidden="true" loading="lazy" decoding="async">`, `${name}: its poster, lazy, over it`);
+      const load = html === how ? 'fetchpriority="high"' : 'loading="lazy"';
+      assert.equal(img, `<img class="poster" src="/docs/media/controls/${name}.webp" width="${c.w}" height="${c.h}" alt="" aria-hidden="true" ${load} decoding="async">`, `${name}: its poster over it`);
       assert.ok(after.startsWith('</video>' + img + '</div>'), `${name}: the poster and the video in one box`);
       assert.ok(html.slice(0, v.index).endsWith('<div class="vid">'), `${name}: the box`);
       for (const f of [c.file, c.poster]) assert.ok(existsSync(new URL(`../public/docs/media/controls/${f}`, import.meta.url)), `${name}: ${f} committed`);
       assert.ok(c.bytes === statSync(new URL(`../public/docs/media/controls/${c.file}`, import.meta.url)).size, `${name}: the manifest is the file's (node tools/controls/cut.mjs --manifest)`);
-      assert.ok(c.bytes <= (name === 'controls-loop' ? 400 : 150) * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
+      assert.ok(c.bytes <= 400 * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
     }
     assert.ok(html.match(/<video\b[^>]*>/g).every(t => t.includes('/docs/media/controls/')), 'every video a controls video');
   }
-  assert.equal((how.match(/<video\b/g) || []).length, 8, 'How to play: the loop and seven gestures'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
+  // The loop is the only video that plays by itself (Stelian: too many playing at once overwhelm the page).
+  assert.equal((how.match(/<video\b/g) || []).length, 1, 'How to play: the loop alone'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
   assert.ok(manifest['controls-loop'].seconds >= 15 && manifest['controls-loop'].seconds <= 20, 'the loop 15 to 20 s');
   // Its structured data on How to play; none wired for the gestures (rows, not a page's video).
   const v = ldOf(how).find(d => d['@type'] === 'VideoObject');
   assert.ok(v && v.contentUrl === 'https://ebbfall.com/docs/media/controls/controls-loop.mp4' && v.duration === 'PT18S', 'How to play: the loop\'s VideoObject');
   assert.ok(!how.includes('youtube.com') && !about.includes('youtube.com'), 'no YouTube link yet');
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');
-  assert.match(js, /\.clip video/, 'docs.js plays them as it does the home\'s clip: after load, in view, not under reduced motion');
+  assert.match(js, /\.clip video/, 'docs.js plays it as it does the home\'s clip: after load, in view, not under reduced motion');
+  assert.match(js, /var reduce = matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches;/, 'reduced motion read once');
+  assert.match(js, /if \(clips\.length && !reduce\) \{ if \(document\.readyState === 'complete'\) start\(\); else addEventListener\('load', start\); \}/, 'played after load, not under reduced motion');
   assert.match(js, /addEventListener\('playing', function \(\) \{ var p = v\.nextElementSibling; if \(p && p\.className === 'poster'\) p\.hidden = true; \}\)/, 'the poster goes once it plays');
+});
+
+test('the touch table\'s gestures, on demand: seven rows with a ? button (expanded false, controlling an empty box under the row\'s words, labeled Show how: the row\'s first words, the loop\'s name, size and label as data), nothing of a loop in the page before the tap, the button hidden where scripts do not run', { skip }, () => {
+  const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
+  const how = page('/docs/how-to-play/');
+  const table = how.slice(how.indexOf('<table class="touch">'), how.indexOf('</table>', how.indexOf('<table class="touch">')));
+  assert.match(table, /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns: no See column');
+  const rows = table.slice(table.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<td>([^<]+)<\/td>/)[1], row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
+  assert.equal(rows.length, 13, 'every row still there');
+  const withLoop = rows.filter(r => r.button);
+  assert.deepEqual(withLoop.map(r => [r.do, r.button.match(/data-loop="touch-(\w+)"/)[1]]), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven rows, their loops');
+  for (const r of withLoop) {
+    const b = r.button, name = b.match(/data-loop="([\w-]+)"/)[1], c = manifest[name], id = `see-${name}`;
+    assert.ok(c, `${name}: in tools/docs/controls.json`);
+    assert.equal(b, `<button class="see" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Show how: ${r.do}" data-loop="${name}" data-w="${c.w}" data-h="${c.h}" data-label="${b.match(/data-label="([^"]*)"/)[1]}">`, `${r.do}: its button`);
+    assert.match(b, /data-label="Ebbfall on a phone: [^"]{20,}"/, `${name}: the video's label names the game`);
+    // In the How cell, after its words, then its box: empty and hidden (the row's cells end there).
+    assert.ok(r.row.includes(`${b}<span aria-hidden="true">?</span></button><div class="clip gesture" id="${id}" hidden></div></td></tr>`), `${r.do}: the ? and its box end the How cell: ${r.row}`);
+    assert.equal((how.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1, `${id}: one box`);
+    // Nothing of the loop before the tap: no video, no src, no poster, not even its file's name.
+    for (const f of [c.file, c.poster]) assert.ok(!how.includes(f), `${name}: ${f} not in the page before the tap`);
+    assert.ok(c.bytes <= 150 * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
+  }
+  assert.equal((how.match(/<button class="see"/g) || []).length, 7, 'seven buttons, all in the table');
+  assert.ok(!how.includes('touch-select') || how.indexOf('touch-select') > how.indexOf('<table class="touch">'), 'the gestures named in the table only');
+  // docs.js makes the video on the tap from the button's data, at the controls' path (pages.mjs CONTROLS_URL), muted,
+  // looping, inline, labeled; under reduced motion with the browser's controls and no autoplay; one open at a time.
+  const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');
+  assert.match(js, new RegExp(`var MEDIA = '${P.CONTROLS_URL}'`), 'the controls\' path');
+  assert.match(js, /v\.poster = MEDIA \+ d\.loop \+ '\.webp'; v\.src = MEDIA \+ d\.loop \+ '\.mp4';/, 'the poster and the video from the loop\'s name');
+  assert.match(js, /v\.muted = true; v\.loop = true; v\.playsInline = true; v\.controls = reduce; v\.preload = reduce \? 'none' : 'auto';/, 'muted, looping, inline; controls under reduced motion');
+  assert.match(js, /v\.title = d\.label; v\.setAttribute\('aria-label', d\.label\);/, 'the video labeled as the button says');
+  assert.match(js, /if \(!reduce\) v\.play\(\)/, 'played, but under reduced motion');
+  assert.match(js, /if \(open === b\) close\(b\); else \{ if \(open\) close\(open\); show\(b\); \}/, 'a tap again closes it; opening another closes the one open');
+  // Where scripts do not run the button stays hidden: shown by the class docs.js adds, under the stylesheet's rule.
+  assert.match(js, /document\.documentElement\.classList\.add\('js'\);/);
+  const css = readFileSync(join(out, 'docs', 'docs.css'), 'utf8');
+  assert.match(css, /\.see\{display:none\}\.js \.see\{display:flex;/, 'the ? shown only once docs.js runs');
+  assert.match(css, /\.js \.see\{[^}]*width:44px;height:44px;/, 'a 44 px tap target'); assert.match(css, /\.see span\{[^}]*width:32px;height:32px;border-radius:50%/, '32 px drawn');
 });
 
 test('the crops are cut from today\'s art: each one there, and from the frames it was cut from (else run tools/docs/crops.mjs)', { skip }, () => {
@@ -267,8 +309,13 @@ test('images: alt text, width and height, WebP, lazy but the first screenshot (f
   for (const p of pages) {
     const html = page(p.path), imgs = [...html.matchAll(/<img\b[^>]*>/g)].map(m => m[0]);
     assert.ok(imgs.length > 0, p.path);
-    // (the first screenshot, unless a video comes before it: the home's clip; the controls videos' posters are plain images)
-    const vAt = html.indexOf('<video'), first = imgs.findIndex(img => img.includes('/docs/img/shots/') && (vAt < 0 || html.indexOf(img) < vAt));
+    // (the first screenshot or controls poster, unless the home's clip (its own poster) or About's strip of sprites comes
+    // before it: then nothing is, every image lazy)
+    const at = (needle) => { const i = html.indexOf(needle); return i < 0 ? Infinity : i; };
+    const lead = Math.min(at('<video src="/docs/media/trailer'), at('<figure class="dia strip'));
+    const first = imgs.findIndex(img => (img.includes('/docs/img/shots/') || img.includes('class="poster"')) && html.indexOf(img) < lead);
+    assert.equal(first >= 0, p.path !== '/docs/' && p.path !== '/docs/about/', `${p.path}: one image fetched first, but on the home (its clip's poster) and About (its strip)`);
+    if (p.path === '/docs/how-to-play/') assert.match(imgs[first], /controls-loop\.webp/, 'How to play: the loop\'s poster, at the top of the controls');
     imgs.forEach((img, i) => {
       assert.match(img, /\swidth="\d+"/, `${p.path}: width: ${img}`);
       assert.match(img, /\sheight="\d+"/, `${p.path}: height: ${img}`);

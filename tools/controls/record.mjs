@@ -1,6 +1,6 @@
 // The phone controls video's recorder: the real built game (dist/: run `npm run build` first) on a landscape phone
-// (844x390, DPR 2, touch) in headless Chromium, on the trailer's stage (tools/trailer/stage.mjs: the fixed map and
-// seed, the AI off, the fog layer hidden, the frame clock), the scene staged through the debug handle (beats.mjs
+// (844x390, DPR 2, touch) in headless Chromium, on the trailer's stage (tools/trailer/stage.mjs: Gold Crown, its first
+// start well inside the map, a fixed seed, the AI off, the fog layer hidden, the frame clock), the scene staged through the debug handle (beats.mjs
 // `scene`), then each beat's fingers played into the game through CDP touch events (touch.mjs) frame by frame at
 // 30 fps, the game's own responses recorded (the hold ring, SELECT lit, the selection, the card's details), the drawn
 // touch indicator over them (overlay.mjs). The frames go into ffmpeg (tools/trailer/record.mjs `encoder`), one
@@ -42,7 +42,7 @@ export async function record({ fps = 30, stills = false, captions = false, only 
   mkdirSync(OUT, { recursive: true }); mkdirSync(`${OUT}/captions`, { recursive: true });
   const stage = await openStage();
   try {
-    const { ctx, page } = await game(stage, PHONE, { as: 'humans', hud: true, css: QUIET });
+    const { ctx, page } = await game(stage, PHONE, { map: 'crown', as: 'humans', hud: true, css: QUIET });
     try {
       const sheets = await page.evaluate(() => [...document.styleSheets].map(s => s.href).filter(Boolean));
       if (captions) { await writeCaptions(stage, sheets, fps); return; }

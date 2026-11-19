@@ -14,8 +14,9 @@ const root = new URL('../../', import.meta.url);
 const dist = fileURLToPath(new URL('dist/', root));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.txt': 'text/plain' };
 
-/** The game's maps the trailer plays on (src/client/maps.js indices; `?seed=` keeps the sides fixed: seat 0 at start 0). */
-export const MAPS = { basin: 0, quarter: 4 };
+/** The game's maps the trailer plays on (src/client/maps.js indices; `?seed=` keeps the sides fixed: seat 0 at start 0);
+ *  `crown` (Gold Crown) is the controls video's: its first start is well inside the map, in an open pocket. */
+export const MAPS = { basin: 0, quarter: 4, crown: 5 };
 /** What never shows in a trailer frame: toasts, tips, the stage's buttons; `bare` also the top bar and the HUD. */
 const QUIET = '#msg,#hint,#tut,#cmdInfo,.toast,#netWait,#homeTip,#end{display:none!important}';
 const BARE = `${QUIET} #tools,#btnBox,#btnHome,#btnArmy,#btnAlert,#hud,#top,.ib{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`;

@@ -156,8 +156,8 @@ pub struct Diff {
     /// people at `expand_at`): on maps up to 96 tiles wide, and on bigger ones. Medium's and Hard's Kingdom later (Nov
     /// 13): its tech, its towers and an early Castle at once left its army thin, and Medium's Kingdom won a third of its
     /// games against the Expedition on 96, a fifth on 128 (the lab, 30 seeds: at 8:00 on both it won 54% on 96 and 29%
-    /// on 128, at 10:00 85% and 57%). Medium's at 8:15 and 11:00 since Nov 17 (the mines spaced out), Hard's at 8:00
-    /// and 10:00, and Hard's Expedition at 7:00 on both (Nov 18).
+    /// on 128, at 10:00 85% and 57%). Medium's at 8:15 and 11:00 since Nov 17 (the mines spaced out), Hard's at 7:00
+    /// and 10:00 (8:00 on 96 until Nov 19), and Hard's Expedition at 7:00 on both (Nov 18).
     pub expand_at_of: &'static [(super::BldgKind, f64, f64)],
     /// Its side's tech time (`AiScript::tech_from`: its techs, its second tech building) at
     /// the latest this: NEVER on every level (the side's own; the balance lab's tech-first plan brings it forward).
@@ -404,9 +404,12 @@ pub const DIFF: [Diff; 4] = [
         towers: &[150.0, 480.0],
         tower_max: &[],
         // (the Expedition's natural at 7:00 on both sizes, as Medium's (5:30 before Nov 18, 4:30 in Boom): with its
-        // Data center at 5:00 its army stood still while the Kingdom's grew)
+        // Data center at 5:00 its army stood still while the Kingdom's grew. The Kingdom's at 7:00 on 96 too since Nov
+        // 19 (8:00 before): its line army beat Medium 94% of its games there, Hard's 92% step over Medium past the
+        // 75-90% wanted; at 7:00, 86% and 89%, the Kingdom 55% against Hard's Expedition (61% before), the lab, 60
+        // seeds. 10:00 on 128 stays: at 9:00 the Kingdom fell to 46% there)
         expand_at_of: &[
-            (super::BldgKind::Core, 480.0, 600.0),
+            (super::BldgKind::Core, 420.0, 600.0),
             (super::BldgKind::Conflux, 420.0, 420.0),
         ],
         tech_from: NEVER,

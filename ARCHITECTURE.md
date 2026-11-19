@@ -158,7 +158,7 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       seat's gold, workers, buildings, army and AI wave state at intervals: a stall from a grind; a
                       seat may follow a lab plan, `--plans`), duel.rs (play against Claude: `duel`, a written plan code
                       on Hard against an AI, with check-ins answered from a file, each answer landing `--delay`
-                      game-seconds later; `plan-gate`, plain Hard against Hard with an empty plan, seed for seed), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3), tiers.rs
+                      game-seconds later; `plan-gate`, plain Hard against Hard with an empty plan, seed for seed), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3, from Medium's tuning or `--level Hard`), tiers.rs
                       (attack now or invest further: a committer at each layer, basic, mid or top, against a teching
                       opponent, the bets' tech plan or the greedy human),
                       model.rs (logistic regression by IRLS, deterministic)
@@ -169,7 +169,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       upgrades.rs (Energy efficiency, two levels at the Lab: machines cost `ENERGY_COST` of their price, `World::unit_cost`; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
                       to its mid tier only, Medium's and Hard's top tier from 8:00; Easy never retreats; Easy's clumsy waves
                       growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
-                      Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`),
+                      Hard's Kingdom at 7:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`),
                       plan.rs (a plan for an AI seat, play against Claude: the code's grammar, strict, each value
                       clamped and noted, `Plan::apply` over Hard as its drawn style plays it, deltas, intents;
                       claude/PLAN_VOCAB.md), style.rs (AI play styles, PRD: AI styles and the level ladder: Pressure, Timing, Boom, weighted

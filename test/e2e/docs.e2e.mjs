@@ -1,7 +1,8 @@
-// The docs microsite (tools/docs) and the game's ways into it: the first page's footer line (How to play · About, in a
-// new tab; the old buttons gone), the in-game ? and its help sheet (the game keeps running; Esc and the close button;
-// the pause card's HOW TO PLAY), and every docs page with JavaScript off, listing every unit and building from the
-// data, at phone width without a sideways scroll, its tabs and buttons a finger's size, its bar slim in landscape.
+// The docs microsite (tools/docs) and the game's ways into it: the first page's footer line (Learn more: the docs home,
+// in a new tab; the old buttons gone), the in-game ? and its help sheet (the game keeps running; Esc and the close
+// button; the pause card's HOW TO PLAY), and every docs page with JavaScript off, listing every unit and building from
+// the data, at phone width without a sideways scroll, its tabs (Home first) and buttons a finger's size, its bar slim
+// in landscape.
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,29 +15,30 @@ const PORTRAIT = { viewport: { width: 360, height: 780 }, deviceScaleFactor: 2, 
 const PAGES = ['docs/', 'docs/how-to-play/', 'docs/kingdom/', 'docs/expedition/', 'docs/about/'];
 
 for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', PORTRAIT]]) {
-  test(`the first page on ${name}: How to play and About in its footer line, opening the docs in a new tab; no ABOUT or HOW TO PLAY button`, { engines: true }, async () => {
+  test(`the first page on ${name}: Learn more in its footer line, opening the docs home in a new tab, its Home tab current; no ABOUT or HOW TO PLAY button or link`, { engines: true }, async () => {
     const ctx = await browserContext(device), page = await ctx.newPage();
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
-      assert.equal(await page.locator('#btnHowTo, #btnAbout, #menuAbout, #help').count(), 0, 'the old buttons and pages are gone');
-      for (const [id, href, text] of [['#linkHowTo', './docs/how-to-play/', 'How to play'], ['#linkAbout', './docs/about/', 'About']]) {
-        const a = page.locator(id);
-        assert.ok(await a.isVisible(), `${text} shown`);
-        assert.equal(await a.textContent(), text);
-        assert.equal(await a.getAttribute('href'), href);
-        assert.equal(await a.getAttribute('target'), '_blank', 'a new tab: an installed app keeps the game');
-        assert.match(await a.getAttribute('rel'), /noopener/);
-        const b = await a.boundingBox();
-        assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `${text} on screen: ${JSON.stringify(b)}`);
-      }
+      assert.equal(await page.locator('#btnHowTo, #btnAbout, #menuAbout, #help, #linkHowTo, #linkAbout, #menuLinks .sep').count(), 0, 'the old buttons, pages and links are gone');
+      const a = page.locator('#linkDocs');
+      assert.ok(await a.isVisible(), 'Learn more shown');
+      assert.equal(await a.textContent(), 'Learn more');
+      assert.equal(await a.getAttribute('href'), './docs/', 'the docs home, not an inner page: its clip and Start here cards');
+      assert.equal(await a.getAttribute('target'), '_blank', 'a new tab: an installed app keeps the game');
+      assert.match(await a.getAttribute('rel'), /noopener/);
+      const b = await a.boundingBox();
+      assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `Learn more on screen: ${JSON.stringify(b)}`);
+      assert.equal(await page.locator('#menuLinks a').count(), 1, 'the one link');
       // Under the row of buttons, above the build stamp.
       const [row, links, stamp] = await Promise.all(['#btnOptions', '#menuLinks', '#buildStamp'].map(s => page.locator(s).boundingBox()));
       assert.ok(links.y >= row.y + row.height - 1 && (stamp.y >= links.y + links.height - 1 || (stamp.x >= links.x + links.width - 1 && Math.abs(stamp.y + stamp.height / 2 - links.y - links.height / 2) < 4)), 'under the buttons, the stamp after it (beside it on a short phone on its side)');
       assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version, on the stamp');
-      const [popup] = await Promise.all([ctx.waitForEvent('page'), device.hasTouch ? page.locator('#linkHowTo').tap() : page.locator('#linkHowTo').click()]);
+      const [popup] = await Promise.all([ctx.waitForEvent('page'), device.hasTouch ? a.tap() : a.click()]);
       await popup.waitForLoadState();
-      assert.match(popup.url(), /\/docs\/how-to-play\/$/);
-      assert.equal(await popup.locator('h1').textContent(), 'How to play');
+      assert.match(popup.url(), /\/docs\/$/);
+      assert.equal(await popup.locator('h1').textContent(), 'Ebbfall');
+      assert.equal(await popup.locator('.tabs a[aria-current="page"]').innerText(), 'HOME', 'the Home tab says where you are');
+      assert.equal(await popup.locator('.brand').innerText().then(t => t.replace(/\s+/g, ' ')), 'Ebbfall FIELD MANUAL', 'the wordmark and its tag');
       assert.ok(await page.locator('#menuHome').isVisible(), 'the game stays where it was');
     } finally { await ctx.close(); }
   });
@@ -108,12 +110,16 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       // The top bar: its tabs scroll inside it, never off the page; tabs, PLAY and the footer's links a finger's size.
       const bar = await page.locator('.top').boundingBox();
       assert.ok(bar.width <= 360 && bar.height <= 97, `${path}: the bar fits (an upright phone: the tabs on a row of their own): ${JSON.stringify(bar)}`);
+      // Five tabs, Home first (so a phone sees the docs have a home), the page's own marked; the wordmark says what this is.
+      assert.deepEqual(await page.locator('.tabs a').evaluateAll(as => as.map(a => a.innerText)), ['HOME', 'HOW TO PLAY', 'KINGDOM', 'EXPEDITION', 'ABOUT'], `${path}: the tabs`);
+      assert.equal(await page.locator('.tabs a[aria-current="page"]').getAttribute('href'), '/' + path, `${path}: its tab current`);
+      assert.equal(await page.locator('.brand').innerText().then(t => t.replace(/\s+/g, ' ')), 'Ebbfall FIELD MANUAL', `${path}: the wordmark and its tag`);
       // Every tab whole inside the bar: none cut off mid-word.
       const cut = await page.locator('.tabs a').evaluateAll(as => { const n = as[0].parentElement.getBoundingClientRect(); return as.filter(a => { const r = a.getBoundingClientRect(); return r.left < n.left - 1 || r.right > n.right + 1 || a.scrollWidth > a.clientWidth + 1; }).map(a => a.innerText); });
       assert.deepEqual(cut, [], `${path}: every tab whole`);
-      for (const sel of ['.tabs a', '.top .play', 'footer a']) {
-        const small = await page.locator(sel).evaluateAll(as => as.map(a => a.getBoundingClientRect()).filter(r => r.height < 40 || r.width < 44).length);
-        assert.equal(small, 0, `${path}: ${sel} big enough to tap`);
+      for (const [sel, w, h] of [['.tabs a', 48, 48], ['.top .play', 44, 40], ['footer a', 44, 40]]) {
+        const small = await page.locator(sel).evaluateAll((as, [w, h]) => as.map(a => a.getBoundingClientRect()).filter(r => r.height < h || r.width < w).length, [w, h]);
+        assert.equal(small, 0, `${path}: ${sel} big enough to tap (${w}x${h})`);
       }
       await lp.goto(baseUrl() + path, { waitUntil: 'load' });
       assert.ok((await lp.locator('.top').boundingBox()).height <= 49, `${path}: the bar at most 48 px in landscape`);
@@ -147,14 +153,14 @@ test('every docs page with JavaScript off: whole, every unit and building of the
   } finally { await ctx.close(); await land.close(); }
 });
 
-test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledger, at most 700 px); the top bar opaque on every page, upright and on its side', { engines: true }, async () => {
+test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledger, at most 700 px); the top bar opaque on every page, upright and on its side, its five tabs 48 px at 360x800, 390x844 and 844x390', { engines: true }, async () => {
   const ctx = await browserContext({ ...PORTRAIT, viewport: { width: 390, height: 844 } }), page = await ctx.newPage();
   try {
     await page.goto(`${baseUrl()}docs/kingdom/`, { waitUntil: 'load' });
     const h = (await page.locator('figure.tree').boundingBox()).height;
     assert.ok(h <= 700, `the Kingdom's glance ${Math.round(h)} px tall at 390x844`);
     assert.equal(await page.locator('figure.tree .tier').count(), 3, 'three tiers: the start, after a Barracks, after a Blacksmith');
-    for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    for (const size of [{ width: 390, height: 844 }, { width: 360, height: 800 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
       await page.setViewportSize(size);
       for (const path of PAGES) {
         await page.goto(baseUrl() + path, { waitUntil: 'load' });
@@ -162,6 +168,14 @@ test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledge
         const m = bg.match(/^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/);
         assert.ok(m && (m[4] === undefined || +m[4] === 1), `${path} at ${size.width}x${size.height}: the bar opaque (${bg})`);
         assert.equal(bg, await page.evaluate(() => getComputedStyle(document.body).backgroundColor), `${path}: the bar in the page's own color`);
+        // Every tab a finger's size and whole; on screen, but on a 320 px phone, where the row scrolls sideways instead
+        // of squeezing them; the bar two rows upright (96 px), one on its side (48 px).
+        const tabs = await page.locator('.tabs a').evaluateAll(as => as.map(a => { const r = a.getBoundingClientRect(); return [a.innerText, Math.round(r.width), Math.round(r.height), Math.round(r.left), Math.round(r.right), a.scrollWidth <= a.clientWidth + 1]; }));
+        assert.equal(tabs.length, 5, `${path}: five tabs`);
+        const scrolls = await page.locator('.tabs').evaluate(e => e.scrollWidth > e.clientWidth + 1);
+        assert.equal(scrolls, size.width < 350, `${path} at ${size.width}x${size.height}: the row scrolls only under 350 px`);
+        assert.deepEqual(tabs.filter(([, w, h, l, r, whole]) => w < 48 || h < 48 || !whole || (!scrolls && (l < 0 || r > size.width))), [], `${path} at ${size.width}x${size.height}: every tab at least 48x48, whole and on screen: ${JSON.stringify(tabs)}`);
+        assert.ok((await page.locator('.top').boundingBox()).height <= (size.width > size.height ? 49 : 97), `${path} at ${size.width}x${size.height}: the bar no taller than before`);
       }
     }
   } finally { await ctx.close(); }

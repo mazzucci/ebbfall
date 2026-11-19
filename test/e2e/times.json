@@ -35,13 +35,13 @@
   "under a strict autoplay policy, nothing opens the sound before the first click, and the clicks get it running (no script touches the page first: an evaluate would count as the user's activation)": 4.4
  },
  "docs.e2e.mjs": {
-  "a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledger, at most 700 px); the top bar opaque on every page, upright and on its side": 1.9,
+  "a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledger, at most 700 px); the top bar opaque on every page, upright and on its side, its five tabs 48 px at 360x800, 390x844 and 844x390": 1.9,
   "every docs page with JavaScript off: whole, every unit and building of the data listed, at 360 px with no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape": 3.7,
   "the ? in the top bar on a desktop: the help sheet in the stage's corner, the game running on; closed by Esc, its button or the ?; the pause card's HOW TO PLAY opens it": 7.4,
   "the ? in the top bar on a landscape phone: the help sheet in the stage's corner, the game running on; closed by Esc, its button or the ?; the pause card's HOW TO PLAY opens it": 11.6,
-  "the first page on a desktop: How to play and About in its footer line, opening the docs in a new tab; no ABOUT or HOW TO PLAY button": 1.4,
-  "the first page on a landscape phone: How to play and About in its footer line, opening the docs in a new tab; no ABOUT or HOW TO PLAY button": 1.6,
-  "the first page on a portrait phone: How to play and About in its footer line, opening the docs in a new tab; no ABOUT or HOW TO PLAY button": 1.5
+  "the first page on a desktop: Learn more in its footer line, opening the docs home in a new tab, its Home tab current; no ABOUT or HOW TO PLAY button or link": 1.4,
+  "the first page on a landscape phone: Learn more in its footer line, opening the docs home in a new tab, its Home tab current; no ABOUT or HOW TO PLAY button or link": 1.6,
+  "the first page on a portrait phone: Learn more in its footer line, opening the docs home in a new tab, its Home tab current; no ABOUT or HOW TO PLAY button or link": 1.5
  },
  "field.e2e.mjs": {
   "a screen too short for the band shows none: the shore as it was": 1.4,

@@ -45,7 +45,7 @@ export function sitemapXml(list, date) {
 /** /llms.txt (llmstxt.org): a short plain-text guide for agents, linking to the pages. */
 export function llmsTxt(list) {
   const page = (path) => list.find(p => p.path === path);
-  const link = (p) => `- [${p.crumb || 'Docs'}](${ORIGIN}${p.path}): ${p.description}`;
+  const link = (p) => `- [${p.crumb || 'Field manual'}](${ORIGIN}${p.path}): ${p.description}`;
   const people = (p) => `- ${p.name}: ${p.facts.map(([k, v]) => `${k.toLowerCase()} ${v}`).join('; ')}. Buildings: ${p.buildings.map(b => b.units.length ? `${b.name} (trains ${b.units.map(u => u.name).join(', ')})` : b.name).join(', ')}.`;
   return `# Ebbfall
 

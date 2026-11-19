@@ -185,7 +185,7 @@ export function initMenu({ onStart }) {
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
-  // (How to play and About: the docs, from the first page's footer line, in a new tab: index.html #menuLinks)
+  // (Learn more: the docs home, from the first page's footer line, in a new tab: index.html #menuLinks)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   showStamp(build);
   initClaude({ plan: takePlan(), build }); // (a plan link, and an embedding page's channel: claude.js)

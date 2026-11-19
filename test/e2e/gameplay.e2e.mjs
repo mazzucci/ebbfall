@@ -796,11 +796,11 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       const shown = (sel) => page.locator(sel).isVisible();
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
       assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
-      assert.ok(await shown('#linkHowTo') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'How to play there (the docs); the game\'s choices are not');
+      assert.ok(await shown('#linkDocs') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'Learn more there (the docs home); the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
       assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
-      // About: the docs, in a new tab (test/e2e/docs.e2e.mjs); the version on the build stamp.
-      assert.equal(await page.locator('#linkAbout').getAttribute('href'), './docs/about/');
+      // Learn more: the docs home, in a new tab (test/e2e/docs.e2e.mjs); the version on the build stamp.
+      assert.equal(await page.locator('#linkDocs').getAttribute('href'), './docs/');
       assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
       // SINGLE PLAYER: its page, the sides board (YOU on your side, AI 1 the enemy), no SOUND row; BACK.
       await press('#btnSolo');
@@ -3341,7 +3341,7 @@ test('the menu fits a small phone on every page (the first with its stamp and PL
     assert.ok(await page.locator('#btnFirstHome').isVisible(), 'with FIRST GAME (a newcomer)');
     await fits('#start .card.menu', '#menuHome h1', 'the first page');
     const b = await page.locator('#menuLinks').boundingBox();
-    assert.ok(b.y + b.height <= 375, `the footer line (How to play, About) in view: ${JSON.stringify(b)}`);
+    assert.ok(b.y + b.height <= 375, `the footer line (Learn more) in view: ${JSON.stringify(b)}`);
     await page.locator('#btnSolo').tap();
     await fits('#start .card.menu', '#menuSolo h2', 'single player');
     await page.locator('#btnSoloBack').tap(); await page.locator('#btnOnline').tap();

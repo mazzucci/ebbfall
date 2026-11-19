@@ -1,5 +1,5 @@
 // The docs' page shell (tools/docs/build.mjs): the head (title, description, canonical, Open Graph and X tags, the
-// structured data), the slim top bar (the wordmark and DOCS, four tabs, PLAY), the footer. Plain HTML
+// structured data), the slim top bar (the wordmark and FIELD MANUAL, five tabs, Home first, PLAY), the footer. Plain HTML
 // that reads whole without JavaScript. Nothing inline but the structured data: the site's CSP (site/cache.js) allows no
 // <style>, style="" or inline script, so the style is one stylesheet, /docs/docs.css (docs.css, the fonts and each
 // page's positions and sizes as classes: `styled`), and the script one file, /docs/docs.js (written by build.mjs).
@@ -11,9 +11,9 @@ export const REPO = 'https://github.com/mazzucci/ebbfall';
 /** Text for HTML (text and attribute values). */
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** The top bar's tabs, in order: [path, label]. The docs home is the wordmark's link. */
-export const TABS = [['/docs/how-to-play/', 'How to play'], ['/docs/kingdom/', 'The Kingdom'], ['/docs/expedition/', 'The Expedition'], ['/docs/about/', 'About']];
-/** A tab's word on a phone, where the four must fit the bar's width. */
+/** The top bar's tabs, in order: [path, label]: the docs home first, so a phone sees there is one (the wordmark links to it too). */
+export const TABS = [['/docs/', 'Home'], ['/docs/how-to-play/', 'How to play'], ['/docs/kingdom/', 'The Kingdom'], ['/docs/expedition/', 'The Expedition'], ['/docs/about/', 'About']];
+/** A tab's word on a phone, where the five must fit the bar's width. */
 const SHORT = { 'The Kingdom': 'Kingdom', 'The Expedition': 'Expedition' };
 
 /** The game's coin and bolt glyphs (src/style.css), for the chips. */
@@ -56,7 +56,7 @@ const OG = { src: '/og.png', w: 1200, h: 630, alt: "Ebbfall: a medieval kingdom'
 export function layout({ path, title, description, body, crumb = null, ld = [] }) {
   const url = ORIGIN + path;
   const data = [...ld];
-  if (crumb) data.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [['/docs/', 'Docs'], [path, crumb]].map(([p, n], i) => ({ '@type': 'ListItem', position: i + 1, name: n, item: ORIGIN + p })) });
+  if (crumb) data.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [['/docs/', 'Field manual'], [path, crumb]].map(([p, n], i) => ({ '@type': 'ListItem', position: i + 1, name: n, item: ORIGIN + p })) });
   const tabs = TABS.map(([p, n]) => `<a href="${p}"${p === path ? ' aria-current="page"' : ''}>${SHORT[n] ? `<span class="l">${n}</span><span class="s">${SHORT[n]}</span>` : n}</a>`).join('');
   return `<!doctype html>
 <html lang="en">
@@ -89,7 +89,7 @@ ${data.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
-<header class="top"><div class="in"><a class="brand" href="/docs/"${path === '/docs/' ? ' aria-current="page"' : ''}>Ebbfall<small>DOCS</small></a><nav class="tabs" aria-label="Docs">${tabs}</nav><a class="play" href="/">Play</a></div></header>
+<header class="top"><div class="in"><a class="brand" href="/docs/">Ebbfall<small>Field manual</small></a><nav class="tabs" aria-label="Field manual">${tabs}</nav><a class="play" href="/">Play</a></div></header>
 <main id="main">
 ${body}
 </main>

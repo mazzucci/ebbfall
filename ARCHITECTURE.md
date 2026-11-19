@@ -682,7 +682,7 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       src/client/challenge.js, its words from the code's values alone),
                       cache.js (assets/ immutable; the pages, sw.js and the manifest
                       no-cache; the security headers every response carries, the Worker's and _headers', the CSP among them
-                      (report-only for now), its sources directive by directive), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
+                      (enforced), its sources directive by directive), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see
                       the traffic, DNS-only again for a rollback); CI's deploy job
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests

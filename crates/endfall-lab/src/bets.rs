@@ -254,8 +254,9 @@ impl BetRun {
     }
 
     pub fn markdown(&self, header: &str) -> String {
+        let level = crate::batch::LEVELS[self.batch.level];
         let mut s = format!(
-            "# The bets: rush, defense, tech\n\n{header}\n\nEach plan is Medium's tuning with a few settings moved (crates/endfall-lab/src/bets.rs): **rush** an early first wave from three barracks, no tech building, no towers; **defense** six towers by 5:30, its first wave at 8:00; **tech** its tech building at 1:00, its techs at once, its top tier early, one barracks, its first wave at 9:00. A cell is the row plan's wins against the column plan, both seatings pooled, timeouts left out (counted apart), with the 95% interval. The target: rush beats tech, defense beats rush, tech beats defense in long games, each about 55–70%.\n\n## Target checks\n\n"
+            "# The bets: rush, defense, tech\n\n{header}\n\nEach plan is {level}'s tuning with a few settings moved (crates/endfall-lab/src/bets.rs): **rush** an early first wave from three barracks, no tech building, no towers; **defense** six towers by 5:30, its first wave at 8:00; **tech** its tech building at 1:00, its techs at once, its top tier early, one barracks, its first wave at 9:00. A cell is the row plan's wins against the column plan, both seatings pooled, timeouts left out (counted apart), with the 95% interval. The target: rush beats tech, defense beats rush, tech beats defense in long games, each about 55–70%.\n\n## Target checks\n\n"
         );
         for (name, pass, detail) in self.checks() {
             let _ = writeln!(

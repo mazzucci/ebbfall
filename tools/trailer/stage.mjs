@@ -14,8 +14,9 @@ const root = new URL('../../', import.meta.url);
 const dist = fileURLToPath(new URL('dist/', root));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.txt': 'text/plain' };
 
-/** The game's maps the trailer plays on (src/client/maps.js indices; `?seed=` keeps the sides fixed: seat 0 at start 0). */
-export const MAPS = { basin: 0, quarter: 4 };
+/** The game's maps the trailer plays on (src/client/maps.js indices; `?seed=` keeps the sides fixed: seat 0 at start 0);
+ *  `crown` (Gold Crown) is the controls video's: its first start is well inside the map, in an open pocket. */
+export const MAPS = { basin: 0, quarter: 4, crown: 5 };
 /** What never shows in a trailer frame: toasts, tips, the stage's buttons; `bare` also the top bar and the HUD. */
 const QUIET = '#msg,#hint,#tut,#cmdInfo,.toast,#netWait,#homeTip,#end{display:none!important}';
 const BARE = `${QUIET} #tools,#btnBox,#btnHome,#btnArmy,#btnAlert,#hud,#top,.ib{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`;
@@ -39,10 +40,11 @@ export async function openStage() {
  * A game page at its start on `map` (a MAPS key): the Kingdom against the Expedition, the stage alone (`hud`: the real
  * HUD too, the phone shot's). The sim takes orders and placements only for this side's seat (seat 0), so a shot plays
  * the people it orders (`as`); playing the Expedition, the seats' colors are swapped (`endfall.paint`), so the Kingdom
- * is always in blue and the Expedition in red-pink. `ai`: the other seat's AI left on (else off). The scene helpers are on
+ * is always in blue and the Expedition in red-pink. `ai`: the other seat's AI left on (else off). `css`: what the page
+ * hides (QUIET with the HUD, else BARE; the controls video keeps the card's details). The scene helpers are on
  * window.S (`helpers`).
  */
-export async function game(stage, device, { map = 'quarter', as = 'humans', hud = false, ai = false } = {}) {
+export async function game(stage, device, { map = 'quarter', as = 'humans', hud = false, ai = false, css = hud ? QUIET : BARE } = {}) {
   const ctx = await stage.browser.newContext(device);
   await ctx.addInitScript((as) => {
     localStorage.setItem('endfall.seats', JSON.stringify([{ race: as, team: 0 }, { race: as === 'humans' ? 'vael' : 'humans', team: 1, diff: 1 }]));
@@ -54,7 +56,7 @@ export async function game(stage, device, { map = 'quarter', as = 'humans', hud 
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 90000 });
   await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { timeout: 60000 });
-  await page.addStyleTag({ content: hud ? QUIET : BARE });
+  await page.addStyleTag({ content: css });
   await page.evaluate(() => window.dispatchEvent(new Event('resize')));
   await page.evaluate(helpers, { as, ai });
   return { ctx, page };
@@ -120,9 +122,11 @@ export const freeze = (page) => page.evaluate(async () => {
   // The loop's own clock (requestAnimationFrame's argument) moves one tick and a hair a frame, so the loop runs
   // exactly one tick; the rest of a time-lapse's ticks run here first. performance.now moves the frame's real length.
   let tl = t;
+  // `__tick(t)`, if set, runs once the clock has moved and before the frame (tools/controls/touch.mjs: the page's timers
+  // and CSS animations on this clock).
   window.__frame = (ms, ticks = 1) => {
     if (ticks > 1) e.skip((ticks - 1.5) / 30); // (ticks - 1 steps)
-    t += ms; tl += 1000 / 30 + 0.0005; const fs = q.splice(0); for (const f of fs) f(tl);
+    t += ms; window.__tick?.(t); tl += 1000 / 30 + 0.0005; const fs = q.splice(0); for (const f of fs) f(tl);
   };
   window.__t0 = t0;
 });

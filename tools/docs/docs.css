@@ -128,9 +128,22 @@ details{margin:0 0 18px;max-width:70ch} summary{cursor:pointer;min-height:44px;d
 .fine{font:13px var(--mono);color:var(--muted)}
 .research{padding-left:20px}
 
-/* the clip under the home's hero (the trailer's place) */
+/* the clip under the home's hero (the trailer's place), and the controls videos (pages.mjs controlsVideo): their poster
+   an image over the video until it plays (docs.js hides it then; no poster of its own: that would load at once) */
 .clip video{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);background:#07090d}
 .clip .vid{position:relative} .clip .tag{position:absolute;z-index:1;left:10px;top:10px;padding:3px 9px;border-radius:4px;background:rgba(11,15,22,.82);border:1px solid var(--line2);font:12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber2)}
+.clip .poster{position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:1px solid var(--line)} .clip .poster[hidden]{display:none}
+/* the touch table (How to play): a third column, See, with a small loop beside the row's words on a wide screen; on a
+   phone the row is a grid, the loop under its words at the row's full width */
+table.touch td.see{width:280px;padding:8px 0 8px 10px} table.touch .loop{margin:0}
+@media (max-width:640px){
+ table.touch .see{padding:0}
+ table.touch th.see{display:none}
+ /* (every row the same two columns, so they line up down the table: 104 px for the first, as the table gave it) */
+ table.touch tr{display:grid;grid-template-columns:104px 1fr;border-bottom:1px solid var(--line)}
+ table.touch td,table.touch th{border:0} table.touch td:first-child,table.touch th:first-child{padding-left:0} table.touch td:nth-child(2),table.touch th:nth-child(2){padding-right:0}
+ table.touch td.see{grid-column:1/-1;width:auto;padding:0 0 10px}
+}
 
 /* diagrams: plates with mono labels */
 .dia{margin:4px 0 22px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}

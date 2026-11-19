@@ -62,15 +62,14 @@ const SHOTS = [['1 the field', 0.7], ['2 the flash', 1.48], ['3 the premise', 3.
   ['7 PUSH', 10.5], ['8 the raid', 12.2], ['9 the phone', 14.3], ['10 the armies meet', 16.1], ['11 close', 18.6],
   ['12 the siege', 21.6], ['13 the freeze', 24.6], ['14 the end card', 29.7]];
 
-/** A contact sheet: one still per shot (and `more`: [label, file, time]), labeled, in a grid. */
-async function sheet(stage, file, video, fmt, more = []) {
-  const shots = [...SHOTS.map(([l, t]) => [l, video, t]), ...more];
+/** A contact sheet: one still per shot ([label, file, time]), labeled, in a grid of `cols` columns `w` px wide (the
+ *  controls video's review sheet uses it too, tools/controls/cut.mjs). */
+export async function sheet(stage, file, shots, { cols = 4, w = 640 } = {}) {
   const imgs = shots.map(([label, src, t], i) => {
     const png = fileURLToPath(new URL(`target/trailer/still-${i}.png`, root));
-    run(['-ss', String(t), '-i', src, '-frames:v', '1', '-vf', `scale=${fmt === '16x9' ? 640 : 300}:-1`, png]);
+    run(['-ss', String(t), '-i', src, '-frames:v', '1', '-vf', `scale=${w}:-1`, png]);
     return { label, data: readFileSync(png).toString('base64') };
   });
-  const cols = fmt === '16x9' ? 4 : 8, w = fmt === '16x9' ? 640 : 300;
   const page = await stage.browser.newPage({ viewport: { width: cols * (w + 12) + 12, height: 400 } });
   try {
     await page.setContent(`<!doctype html><body style="margin:0;padding:12px;background:#0b0f16;font:600 15px system-ui,sans-serif;color:#dde5ee;display:grid;grid-template-columns:repeat(${cols},${w}px);gap:12px">
@@ -103,9 +102,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const done = {};
     for (const [name, v] of Object.entries(VERSIONS)) if (!skip.includes(name)) done[name] = await cut(stage, name, v);
     const B = done['trailer-16x9-B'], yt = done['trailer-youtube-hold'];
-    await sheet(stage, `${out}/contact-16x9.png`, done['trailer-16x9-A'].file, '16x9', [
+    const A = done['trailer-16x9-A'].file, T = done['trailer-9x16'].file;
+    await sheet(stage, `${out}/contact-16x9.png`, [...SHOTS.map(([l, t]) => [l, A, t]),
       ...(B ? [['B: the black card', B.file, 0.6], ['B: the flash', B.file, 1.95]] : []), ...(yt ? [['YouTube: the hold', yt.file, 39.0]] : [])]);
-    await sheet(stage, `${out}/contact-9x16.png`, done['trailer-9x16'].file, '9x16');
+    await sheet(stage, `${out}/contact-9x16.png`, SHOTS.map(([l, t]) => [l, T, t]), { cols: 8, w: 300 });
     for (const [name, { file }] of Object.entries(done)) web(name, file);
     frames(done['trailer-16x9-A'].file, `${out}/frames-A`);
     frames(done['trailer-9x16'].file, `${out}/frames-9x16`);

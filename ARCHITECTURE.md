@@ -734,6 +734,24 @@ tools/trailer/        the trailer (the 30-second storyboard), recorded in the bu
                       `audio.record`); sound.mjs: those effects rendered offline through audio.js's recipes
                       (`renderSfx`); cut.mjs: the versions (openings A and B, 9:16, the YouTube hold) and contact
                       sheets, 720p web copies and 2 fps frames. ffmpeg: FFMPEG, .tools/ffmpeg/ffmpeg (a static build with libx264) or the PATH's
+tools/controls/       the phone controls video (the docs' touch table, as a film): the real built game on a landscape phone
+                      (844x390, DPR 2, touch) on the trailer's stage, one scene (beats.mjs `scene`: a small Kingdom base
+                      on Gold Crown's first start, well inside the map so HOME and a pan never show past its edge; a
+                      group of soldiers, a Knight apart) and six beats in the docs' order (select and move, a hold then a
+                      box, a double-tap, ARMY and HOME, a drag and a pinch, Deselect and a button held). The fingers go
+                      through the real touch input (touch.mjs: CDP Input.dispatchTouchEvent, stamped on the recorded
+                      clock; the page's timers and CSS animations on that clock too (stage.mjs `freeze`'s `__tick`), so
+                      the game's hold ring, SELECT lighting up, the selection and the card's details are its own) and
+                      draw the indicator (overlay.mjs: a finger dot, a ring that fills as the game's does, a trail, a
+                      ripple a tap, two dots for a pinch). record.mjs: the frames per beat into ffmpeg (target/controls/,
+                      not committed), the captions rendered once as PNGs; cut.mjs: the deliverables, committed in
+                      public/docs/media/controls/ (controls-phone.mp4 1688x780 captioned, controls-phone-9x16.mp4,
+                      controls-loop.mp4 the essentials under 400 KB, touch-<gesture>.mp4 one each under 150 KB, a WebP
+                      poster each, a punch-in on the held button's details; --review copies them with a contact sheet,
+                      a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
+                      How to play shows the loop at the start of its phone section and a gesture's loop in each of six
+                      touch rows, About the loop (pages.mjs {{clip name}}, {{loop name}}: the poster a lazy image over
+                      the video until it plays, the video fetched only when played, as the home's clip).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's

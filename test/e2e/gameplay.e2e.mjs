@@ -2587,7 +2587,7 @@ test('the first game\'s "hold your base" lasts while an enemy army is at the bas
     assert.match(await d.page.locator('#tut').textContent(), /6\/8/, 'the step goes on past its 150 s while they are there');
     // Gone (a strike force spawned on them), the step ends.
     await d.eval(([x, y]) => { for (let i = 0; i < 10; i++) endfall.engine.debugSpawn(0, 'trooper', x, y); }, [at.x, at.y]);
-    assert.ok(await d.skipUntil((src) => (0, eval)(`(${src})`)() === 0, foesAtBase.toString(), { seconds: 60 }), 'the enemy at the base destroyed');
+    assert.ok(await d.skipUntil(() => endfall.G.units.filter(u => u.team === 1 && !u.d.worker && endfall.G.bldgs.some(b => b.team === 0 && Math.hypot(u.x - b.x, u.y - b.y) < 12 * 32)).length === 0, null, { seconds: 60 }), 'the enemy at the base destroyed'); // (foesAtBase, inline: no eval in the page under the site's CSP)
     await d.skip(1);
     // Then population, where it runs out: the Castle's 20 hold the guide's six workers and eight soldiers, not the
     // army of 15 the last step asks for.
@@ -3069,11 +3069,10 @@ test('two against two: out while the ally fights on (orders refused, told once),
     await page.evaluate(() => new MutationObserver(() => { for (const t of document.querySelectorAll('#msg .toast')) window.sawToast(t.textContent); }).observe(document.getElementById('msg'), { childList: true }));
     // (fast-forward in the page until this seat is out or the game is over, checked every half second of game time:
     // 30-second skips between checks could jump past the moment it was out with the game still on)
-    const until = (cond) => page.evaluate((src) => {
-      const f = (0, eval)(`(${src})`);
+    const until = (cond) => page.evaluate(`((f) => { // (the condition spliced into the source, not eval'd in the page: the site's CSP)
       for (let t = 0; t < 3000 && !f(); t += 0.5) endfall.skip(0.5);
       return f();
-    }, cond.toString());
+    })(${cond.toString()})`);
     await until(() => endfall.G.out[0] || endfall.G.over);
     const out = await page.evaluate(() => endfall.G.out[0] && !endfall.G.over);
     if (out) {
@@ -3464,14 +3463,14 @@ test('melee units in a fight show their strike poses, and each blow glints on it
     let seen = null;
     for (let k = 0; k < 8 && !seen?.pose.endsWith('_strike'); k++) {
       await d.skip(0.3); // (past this blow's window)
-      seen = await d.eval(([kn, br, src]) => {
-        const pose = (0, eval)(`(${src})`), unit = (id) => endfall.G.units.find(u => u.id === id);
+      seen = await d.page.evaluate(`(${(([kn, br, pose]) => {
+        const unit = (id) => endfall.G.units.find(u => u.id === id);
         for (let t = 0; t < 150; t++) { const u = unit(kn); if (!u || u.cd > u.d.weapon.cd - 1 / 30 - 1e-6) break; endfall.skip(1 / 30); } // (to the tick of its next blow)
         return new Promise(r => requestAnimationFrame(() => {
           const b = unit(br);
           r({ pose: pose(kn), near: endfall.effects().filter(e => b && Math.hypot(e.x - b.x, e.y - b.y) < 40 && Math.hypot(e.sx - e.x, e.sy - e.y) < 8).map(e => e.anim + (e.tint === 0xffffff ? '' : ':' + e.tint)) }); // (each drawn where it was spawned, give or take its drift; with its tint)
         }));
-      }, [kn, br, pose.toString()]);
+      })})([${kn}, ${br}, ${pose}])`); // (the pose reader spliced into the source, not eval'd in the page: the site's CSP)
     }
     assert.match(seen.pose, /^knight_\d+_strike$/, `the Knight's strike pose on the frame after its blow (${seen.pose})`);
     assert.ok(seen.near.includes('glint'), `a glint of steel on the Bruiser (${seen.near.join(' ')})`);
@@ -3479,7 +3478,7 @@ test('melee units in a fight show their strike poses, and each blow glints on it
     assert.ok(!seen.near.some(a => a.startsWith('puff')), `the dust no gray puff (${seen.near.join(' ')})`);
     // Between blows, standing in the fight: the wind-up (on guard), never a walk frame frozen mid-stride.
     await d.skip(0.4);
-    const between = await d.eval(([ids, src]) => new Promise(r => requestAnimationFrame(() => { const pose = (0, eval)(`(${src})`); r(ids.map(pose)); })), [[kn, br], pose.toString()]);
+    const between = await d.page.evaluate(`new Promise(r => requestAnimationFrame(() => r([${kn}, ${br}].map(${pose}))))`);
     assert.match(between[0], /^knight_\d+_wind$/, `the Knight on guard between blows (${between[0]})`);
     assert.match(between[1], /^bruiser_\d+_(wind|strike)$/, `the Bruiser in its strike poses too (${between[1]})`);
     assert.deepEqual(d.errors, []);

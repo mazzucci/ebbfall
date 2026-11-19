@@ -240,7 +240,7 @@ async function sieges() {
   try {
     const p = await page.evaluate(siege);
     await look(page, p); await settle(page);
-    await hero('shot-battle', page, { alt: 'Ebbfall gameplay: the blue Kingdom\'s knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base. Your side plays in blue.' });
+    await hero('shot-battle', page, { alt: 'Ebbfall gameplay: the blue Kingdom\'s knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base.' });
   } finally { await ctx.close(); }
 }
 
@@ -251,8 +251,8 @@ async function heroes() {
       const p = await page.evaluate(base, race);
       await look(page, p); await settle(page);
       await hero(race === 'humans' ? 'hero-kingdom' : 'hero-expedition', page, race === 'humans'
-        ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate', caption: 'A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate. Your side plays in blue.' }
-        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge. Your side plays in blue.' });
+        ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate', caption: 'A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate.' }
+        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge.' });
     } finally { await ctx.close(); }
   }
 }
@@ -274,7 +274,7 @@ async function controls() {
       await page.mouse.move(r.x0, r.y0); await page.mouse.down(); await page.mouse.move(r.x1, r.y1, { steps: 8 }); await page.mouse.up();
       await page.keyboard.press('Control+1');
       await page.mouse.move(640, 790); await settle(page);
-      await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected. Your side plays in blue.' }, {
+      await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected.' }, {
         res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'],
       }, 2000);
     } finally { await ctx.close(); }
@@ -305,7 +305,7 @@ async function controls() {
 const FPS = 30, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.6, CLIP_BPS = 380_000;
 const CLIP_WORDS = {
   alt: 'Ebbfall gameplay: the blue Kingdom\'s archers and guards hold their ground as the Expedition\'s attack drones fly in',
-  caption: 'Archers against Drones. Your side plays in blue.',
+  caption: 'Archers against Drones.',
 };
 async function clip() {
   const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: 2 }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`, `?map=0&seed=${SEED}`);

@@ -6,7 +6,10 @@
 // not stretched), the ground and the effects from the atlas (public/art), each unit its neutral render and its team
 // mask tinted as the client tints it (the Kingdom in seat 0's color, the Expedition in seat 1's). One image per size
 // class, the aspect of the band it fills on that class's reference screen (so `cover` crops nothing there), the night
-// veil and the top fade baked in (the page's own floor shows through the top), written as WebP by Chromium's encoder.
+// veil and the top fade baked in, written as WebP by Chromium's encoder. Opaque: the fade goes into the floor's own color
+// (style.css's --panel, FLOOR), not to transparent. Safari on iPhone and iPad (Apple's image decoder, iOS 26) drew these
+// WebPs' alpha as opaque, a hard-edged band with no fade; Playwright's WebKit decodes WebP with libwebp and never showed
+// it. An opaque image looks the same in every browser (test/menu-art.test.js keeps them without an alpha channel).
 // Run after changing the models, the ground or the scene:
 //   node tools/menu-art.mjs [out dir]     (default public/menu/; output is committed. MENU_ART_SPRITES=dir keeps the
 //                                          renders there between runs: the 2-minute render step is skipped when it holds them)
@@ -21,6 +24,7 @@ const root = new URL('../', import.meta.url);
 const out = process.argv[2] || new URL('public/menu/', root).pathname;
 const ZOOM = 2, QUALITY = 0.72, BUDGET = 100 * 1024;
 const BG = [11, 15, 22]; // --bg
+const FLOOR = '#121a25'; // --panel, the menu's floor (style.css): the color the top fades into
 
 /**
  * The size classes: image px, `k` the scale of the zoom-2 sprites (k = 0.5 is the atlas's own scale, og.png's), `fade`
@@ -75,7 +79,7 @@ const pageHtml = (cls) => {
   const names = new Set(scene.map(s => s[0]).flatMap(n => [n, `${n}_m`]).filter(n => DATA[n]));
   return `<!doctype html><html><body style="margin:0"><canvas id="c" width="${W}" height="${H}"></canvas><script>
 const META = ${JSON.stringify(META)}, ATLAS = ${JSON.stringify(ATLAS)}, SCENE = ${JSON.stringify(scene)}, DATA = ${JSON.stringify(Object.fromEntries([...names].map(n => [n, DATA[n]])))};
-const W = ${W}, H = ${H}, k = ${k}, FADE = ${fade}, TINTS = ${JSON.stringify(sprites.tints)}, VEIL = ${JSON.stringify(VEIL)}, BG = ${JSON.stringify(BG)}, Q = ${QUALITY};
+const W = ${W}, H = ${H}, k = ${k}, FADE = ${fade}, TINTS = ${JSON.stringify(sprites.tints)}, FLOOR = ${JSON.stringify(FLOOR)}, VEIL = ${JSON.stringify(VEIL)}, BG = ${JSON.stringify(BG)}, Q = ${QUALITY};
 const groundTile = ${SCENE.groundTile.toString()}, CLEAR = ${JSON.stringify(CLASSES[cls].clear || null)};
 const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src.slice(0, 40))); i.src = src; });
 window.ready = (async () => {
@@ -104,7 +108,7 @@ window.ready = (async () => {
     t.globalCompositeOperation = 'destination-in'; draw3d(t, n + '_m', x, y, s);
     g.drawImage(tmp, 0, 0);
   }
-  // The veil over the art, then the top faded to nothing (the page's floor shows through).
+  // The veil over the art, then the top faded to nothing, then the floor's color under it (the floor, as the page shows it).
   const rgba = (a) => 'rgba(' + BG.join(',') + ',' + a + ')';
   g.globalCompositeOperation = 'source-atop';
   let lg = g.createLinearGradient(0, 0, 0, H); for (const [p, a] of VEIL) lg.addColorStop(p, rgba(a)); g.fillStyle = lg; g.fillRect(0, 0, W, H);
@@ -115,6 +119,7 @@ window.ready = (async () => {
     const rg = g.createRadialGradient(W / 2, 0, 0, W / 2, 0, 1); rg.addColorStop(0, 'rgba(0,0,0,.75)'); rg.addColorStop(0.6, 'rgba(0,0,0,.45)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
     g.save(); g.translate(W / 2, 0); g.scale(CLEAR[0] * W, CLEAR[1] * H); g.translate(-W / 2, 0); g.fillStyle = rg; g.fillRect(W / 2 - 1, 0, 2, 1); g.restore();
   }
+  g.globalCompositeOperation = 'destination-over'; g.fillStyle = FLOOR; g.fillRect(0, 0, W, H); // (the floor under it all: opaque)
   return document.getElementById('c').toDataURL('image/webp', Q).split(',')[1];
 })();
 </script></body></html>`;

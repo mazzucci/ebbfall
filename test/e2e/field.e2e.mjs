@@ -1,7 +1,8 @@
 // The field under the menu's first page (index.html's <picture class="scene"> in the backdrop, public/menu/,
 // tools/menu-art.mjs): the right image per size class, under the premise line, the buttons where they are without it,
 // the plain dark floor when the image never comes, no tide line and no drift anywhere on the menu, the band under the
-// other menu pages too, and no band at all on a screen too short for one.
+// other menu pages too, no band at all on a screen too short for one, and in every engine the band fading into the floor
+// (an opaque image: Safari drew the old alpha fade as opaque).
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -60,6 +61,38 @@ for (const [label, device, file] of SIZES) {
     assert.deepEqual(await rect(b.page, '#btnSolo'), play, 'PLAY where it is with the image blocked');
     assert.deepEqual([a.errors, b.errors], [[], []]);
     await a.ctx.close(); await b.ctx.close();
+  });
+}
+
+/** The band as the screen shows it, the page's content hidden: its top row (one pixel in) and a row in its lower part,
+ *  sampled across the screen, each pixel's largest channel difference from the floor; and the image's lowest alpha as
+ *  this engine decodes it. */
+async function fade(page) {
+  await page.evaluate(() => { for (const e of document.querySelectorAll('#menuHome > :not(.backdrop), #corner')) e.style.visibility = 'hidden'; });
+  const box = await page.evaluate(() => { const r = document.querySelector('#menuHome .scene').getBoundingClientRect(); return { top: Math.ceil(Math.max(0, r.top)), bottom: Math.floor(Math.min(innerHeight, r.bottom)), w: innerWidth }; });
+  const png = await page.screenshot({ clip: { x: 0, y: 0, width: box.w, height: box.bottom }, scale: 'css' });
+  return page.evaluate(async ({ b64, box }) => {
+    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
+    const c = new OffscreenCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const floor = [18, 26, 37], row = (y) => { const d = g.getImageData(0, y, img.width, 1).data, out = []; for (let x = 4; x < img.width - 4; x += 8) out.push(Math.max(...[0, 1, 2].map((k) => Math.abs(d[x * 4 + k] - floor[k])))); return out; };
+    const top = row(box.top + 1), low = row(Math.round(box.top + (box.bottom - box.top) * 0.8));
+    const s = document.querySelector('#menuHome .scene img'), t = new OffscreenCanvas(s.naturalWidth, s.naturalHeight), tg = t.getContext('2d'); tg.drawImage(s, 0, 0);
+    const a = tg.getImageData(0, 0, t.width, t.height).data; let minAlpha = 255; for (let i = 3; i < a.length; i += 4) minAlpha = Math.min(minAlpha, a[i]);
+    return { topMax: Math.max(...top), lowMean: low.reduce((p, v) => p + v, 0) / low.length, minAlpha };
+  }, { b64: png.toString('base64'), box });
+}
+
+// Safari on iPad and iPhone drew the images' old alpha fade as opaque: a hard-edged band (test/menu-art.test.js keeps
+// the files opaque). Here, in every engine, the band as shown: its top row is the floor, its lower part is the field.
+for (const [label, device] of [['iPad, landscape', { viewport: { width: 1180, height: 820 }, hasTouch: true }], ['iPad, upright', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['upright phone', { ...PHONE, viewport: { width: 390, height: 844 } }]]) {
+  test(`the field on an ${label} fades into the floor: its top row is the floor's color, an opaque image, the field below`, { engines: true }, async () => {
+    const { ctx, page, errors } = await open(device);
+    const f = await fade(page);
+    assert.equal(f.minAlpha, 255, 'the image is opaque: the fade is baked into the floor\'s color');
+    assert.ok(f.topMax <= 6, `the band's top row is the floor (largest channel difference ${f.topMax})`);
+    assert.ok(f.lowMean >= 12, `the field shows in the band's lower part (mean difference from the floor ${f.lowMean.toFixed(1)})`);
+    assert.deepEqual(errors, []);
+    await ctx.close();
   });
 }
 

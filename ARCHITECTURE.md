@@ -589,6 +589,8 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       or oversized order refused, a message flood closes its socket and it comes back by its token);
                       invite links through a relay that counts the limits (a typo or two, rooms nobody sat in, a scan);
                       a quiet room closed by the relay: the lobby Net shows why and does not reconnect
+test/menu-art.test.js the menu's field images (public/menu/) have no alpha channel: their fade is baked into the floor's
+                      color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -737,7 +739,8 @@ tools/og.mjs          public/og.png, the link preview's image (1200x630): the ic
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
                       battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
                       through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
-                      from public/art, one image per size class with the night veil and the top fade baked in, composed
+                      from public/art, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
+                      decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
                       and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
 public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)

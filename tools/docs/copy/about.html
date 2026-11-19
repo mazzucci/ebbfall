@@ -20,7 +20,7 @@ description: A deterministic simulation in Rust and WebAssembly, art, sounds and
 <li>No account, no login, no ads, no cookies, no trackers. The page loads nothing from anyone but Cloudflare, which hosts the site and the relay.</li>
 <li>Your settings, your name for online play, your record against the AI and the game's files for offline play stay in your browser, on your device. Clear the site's data and they are gone.</li>
 <li>Cloudflare Web Analytics counts visits to the game's page: how many, from which countries and kinds of device, and which site sent you. It sets no cookie and follows nobody.</li>
-<li>In multiplayer, your orders pass through a small relay to the other players; it holds them only while the game runs. The relay sees your connection's address, to slow down spam and to keep out a player the host removed, and keeps it, with your name and the room's setup, only while the room lasts. Half an hour after the room goes quiet, all of that is gone; the spam counters forget your address within a couple of hours.</li>
+<li>In multiplayer, a small relay passes your orders to the other players. It sees your connection's address, to slow spam and keep out removed players, and forgets it within about half an hour after the room goes quiet (the spam counters within a couple of hours).</li>
 </ul>
 <h2>Credits</h2>
 <ul>

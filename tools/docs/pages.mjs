@@ -80,7 +80,8 @@ function roster(people) {
   return `<p class="side"><span><i class="blue"></i>Your side plays in blue</span>${legend}</p><ul class="roster">${people.buildings.map(bld).join('\n')}</ul>`;
 }
 
-/** A screenshot as a figure (see the tokens above). `first`: the page's first image, loaded at once; others lazily. */
+/** A screenshot as a figure (see the tokens above). `first`: the page's first screenshot, near the top: fetched at once
+ *  and first (fetchpriority); the others lazily, as are the small plates and diagrams before it. */
 function figure(args, first) {
   const [name, ...rest] = args.split('|').map(s => s.trim());
   const s = shots()[name];
@@ -99,9 +100,9 @@ function figure(args, first) {
 
 /**
  * The home's hero: the gameplay clip, muted and looped, with its middle frame (`hero-home`) as its poster: the poster
- * first, the clip played only while in view (a phone on a slow line downloads it only then), never under reduced
- * motion (the still alone), the browser's controls where scripts do not run (docs.js plays it). The trailer takes its place later by taking
- * its file's name (public/docs/media/trailer.mp4).
+ * first, the clip fetched only once the page has loaded (so a slow first visit's load ends without it) and only while
+ * in view (preload="none"; docs.js plays it), never under reduced motion (the still alone), the browser's controls
+ * where scripts do not run. The trailer takes its place later by taking its file's name (public/docs/media/trailer.mp4).
  */
 function clip() {
   const t = shots().trailer, poster = shots()[t?.poster];
@@ -174,12 +175,12 @@ export function placeNotes(s, keys) {
 
 const flow = (args) => `<ol class="flow" aria-label="${esc(args.replace(/\s*>\s*/g, ', then '))}">${args.split('>').map(s => `<li><span>${esc(s.trim())}</span></li>`).join('')}</ol>`;
 
-/** Fill a page's tokens. `ctx`: { people, pages } */
+/** Fill a page's tokens. `ctx`: { people, pages, version } */
 export function fill(body, ctx) {
-  let images = 0; // (the page's first image loads at once, every later one lazily)
+  let media = 0; // (the page's first screenshot or clip loads at once, every later one lazily)
   return body.replace(/\{\{\s*(\w+)\s*([^}]*?)\s*\}\}/g, (all, tok, args) => {
     const out = token(all, tok, args);
-    images += (out.match(/<img\b/g) || []).length;
+    if (tok === 'figure' || tok === 'clip') media++;
     return out;
   });
   function token(all, tok, args) {
@@ -195,7 +196,7 @@ export function fill(body, ctx) {
       case 'name': { const n = nameOf(args); if (!n) throw new Error(`docs: no kind "${args}"`); return esc(n); }
       case 'facts': return `<ul class="facts">${ctx.people.facts.map(([k, v]) => `<li>${k} <b>${esc(v)}</b></li>`).join('')}</ul>`;
       case 'roster': return roster(ctx.people);
-      case 'figure': return figure(args, images === 0);
+      case 'figure': return figure(args, media === 0);
       case 'flow': return flow(args);
       case 'pages': return `<ul class="cards">${ctx.pages.filter(p => p.path !== '/docs/').map(p => `<li><a href="${p.path}"><b>${esc(p.crumb)}</b><span>${esc(p.description)}</span></a></li>`).join('')}</ul>`;
       case 'play': return '<p class="cta"><a class="play" href="/">Play Ebbfall</a></p>';

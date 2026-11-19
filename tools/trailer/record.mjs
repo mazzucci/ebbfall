@@ -23,7 +23,7 @@ const VIEW = { '16x9': { width: 960, height: 540 }, '9x16': { width: 540, height
 const PHONE_LAND = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
 
 /** An ffmpeg reading PNG frames on stdin into a near-lossless intermediate. */
-function encoder(file, fps) {
+export function encoder(file, fps) {
   const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-i', '-',
     '-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv444p', '-c:v', 'libx264', '-preset', 'fast', '-crf', '8',
     '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', file], { stdio: ['pipe', 'inherit', 'inherit'] });
@@ -42,7 +42,7 @@ const frame = (page, cam, ms, ticks) => page.evaluate(([c, ms, ticks]) => {
 }, [cam, ms, ticks]);
 
 /** The page's pixels at its DPR (CDP's capture is in CSS pixels unless clipped at that scale). */
-async function capture(cdp, view, dpr) {
+export async function capture(cdp, view, dpr) {
   const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, clip: { x: 0, y: 0, width: view.width, height: view.height, scale: dpr } });
   return Buffer.from(data, 'base64');
 }

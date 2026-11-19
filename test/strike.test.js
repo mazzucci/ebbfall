@@ -70,12 +70,14 @@ test('the muzzle flashes and the melee dust name real shooters', () => {
   for (const k of Object.keys(MELEE_PUFF)) assert.ok(UNITS[k].weapon.melee, `${k} fights hand to hand`);
 });
 
-test('impacts: steel glints for arrows, bolts and darts, sparks for tracers, fire only for the cannonball and the rocket', () => {
+test('impacts: steel glints for every shot but the cannonball and the rocket, the only fire', () => {
   const shots = new Set([...Object.values(SHOT_LOOK), ...Object.values(PEOPLE_SHOT).flatMap(Object.values), ...Object.values(TOWER_SHOT)]);
   for (const s of shots) assert.ok(IMPACT[s], `${s} has an impact`);
   assert.deepEqual(Object.keys(IMPACT).filter(s => ['shell', 'rocket'].includes(IMPACT[s])).sort(), ['cannonball', 'rocket']);
+  assert.ok(Object.keys(IMPACT).every(s => IMPACT[s] !== 'spark'), 'no shot sparks fire on landing: the spark is the welder\'s');
   assert.equal(impactOf({ proj: 'missile', by: 'lancer', people: 'humans' }), 'glint', 'an Archer\'s arrow');
-  assert.equal(impactOf({ proj: 'bolt', by: 'umbra', people: 'vael' }), 'spark', 'an Android\'s tracer');
+  assert.equal(impactOf({ proj: 'bolt', by: 'umbra', people: 'vael' }), 'glint', 'an Android\'s tracer: steel too');
+  assert.equal(impactOf({ proj: 'bolt', by: 'shrike', people: 'vael' }), 'glint', 'a Drone\'s shot');
   assert.equal(impactOf({ proj: 'missile', by: 'monolith', people: 'vael' }), 'rocket', 'a Rover\'s rocket');
   assert.equal(impactOf({ proj: 'shell', by: 'siegeTank', people: 'humans' }), 'shell', 'a cannonball');
   assert.equal(impactOf({ proj: 'bolt', by: undefined, people: 'humans' }), 'glint', 'the Watchtower\'s arrow');

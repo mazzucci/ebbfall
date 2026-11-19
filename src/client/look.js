@@ -81,11 +81,23 @@ export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 76
  *  and projectile kind (`PEOPLE_SHOT`); a building's shot (no shooter kind: the Watchtower's, the Radio tower's) by its
  *  people (`TOWER_SHOT`). The kingdom shoots arrows, ballista bolts and cannonballs; the Expedition rifle tracers,
  *  rockets and the Drone's darts. Each sprite points +x with its tip at its anchor (a cannonball: its middle). */
-export const SHOT_LOOK = { lancer: 'arrow', bastion: 'ballista_bolt', siegeTank: 'cannonball', umbra: 'tracer', monolith: 'rocket', shrike: 'dart' };
+export const SHOT_LOOK = { lancer: 'arrow', bastion: 'ballista_bolt', siegeTank: 'cannonball', umbra: 'tracer', monolith: 'rocket', shrike: 'tower_shot' }; // (the Drone: the Sentry mast's short LED tracer; its charcoal `dart` was a 1 px dash, lost on a phone)
 export const PEOPLE_SHOT = { humans: { bolt: 'arrow', shell: 'cannonball', missile: 'ballista_bolt' }, vael: { bolt: 'tracer', shell: 'rocket', missile: 'rocket' } };
 export const TOWER_SHOT = { humans: 'arrow', vael: 'tower_shot' };
 /** The sprite of a shot fired by a unit of kind `by` (undefined: a building) of people `people`, its projectile kind `type`. */
 export const shotArt = (by, type, people) => SHOT_LOOK[by] ?? (by ? PEOPLE_SHOT[people]?.[type] : TOWER_SHOT[people]) ?? 'arrow';
+/** How each shot is drawn so that it reads at a phone's zoom (1 world px a CSS px), by its sprite. The Kingdom's shafts
+ *  are timber, drawn `scale` times their sprite over a dark bar `bar` world px thick (a silhouette: a pale shaft on a dark
+ *  line reads on grass and rock alike), and never glow. The Expedition's are light: every tracer is tinted `tint`, a
+ *  cool LED white, and carries a glow (SHOT_LIT, SHOT_GLOW). The cannonball and the rocket keep their own look. */
+export const SHOT_STYLE = { arrow: { scale: 1.25, bar: 2.4 }, ballista_bolt: { scale: 1.6, bar: 3.2 }, tracer: { tint: 0xdff6ff }, tower_shot: { tint: 0xdff6ff } };
+/** The dark of a Kingdom shot's bar, and its opacity. */
+export const SHOT_BAR = { tint: 0x10161e, alpha: 0.6 };
+/** The glow under an Expedition tracer (SHOT_LIT): the same cool LED white. The rocket keeps its warm flame. */
+export const SHOT_GLOW = 0xbfefff;
+/** A heavy shot (hitTier against what it flies at) drags a copy of itself stretched this many world px back along its
+ *  flight: the Android's tracer, a Ballista bolt at a flyer. */
+export const HEAVY_TRAIL = 30;
 /** Whether a building's chimney smokes right now: it stands and works (a unit in its queue or a research under way;
  *  `b` is the client's mirror of it, src/engine/core.js). */
 export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research));
@@ -95,7 +107,7 @@ export const MUZZLE_SMOKE = { siegeTank: 1.4 };
 /** A shot's impact by its sprite (`shotArt`): the arrows, the ballista bolt and the Drone's dart glint on steel; the
  *  tracers and the tower's shot spark; the cannonball and the rocket burst (`shell`, `rocket`: the only fire, with a
  *  dying machine's). A repairer's welding (no shot) sparks too. */
-export const IMPACT = { arrow: 'glint', ballista_bolt: 'glint', dart: 'glint', tracer: 'spark', tower_shot: 'spark', cannonball: 'shell', rocket: 'rocket' };
+export const IMPACT = { arrow: 'glint', ballista_bolt: 'glint', tracer: 'glint', tower_shot: 'glint', cannonball: 'shell', rocket: 'rocket' };
 /** The impact of a `hit` event (src/engine/core.js gives it the shot's `proj`, its shooter's kind `by` and `people`). */
 export const impactOf = (e) => (e.proj ? IMPACT[shotArt(e.by, e.proj, e.people)] ?? 'spark' : 'weld');
 /** The units that fall as machines (a small explosion and its light); every other unit falls as a fighter, into a
@@ -240,31 +252,39 @@ export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { 
  *  Knight's lance, the Bruiser's hammer) a small puff of dust there too (HIT_DUST): its size, opacity at the start, life (s) and drift (px/s at the start,
  *  away from the striker). The Knight's lance kicks up more and flings it farther. */
 export const MELEE_PUFF = { knight: { scale: 1.5, fade: 0.85, life: 0.6, drift: 28 }, bruiser: { scale: 1.0, fade: 0.7, life: 0.5, drift: 12 } };
-/** How hard a hit lands, one scale for every unit and tower (Stelian, 2026-11-18): by its weapon's damage per hit (its
- *  base `dmg`, against the ground; upgrades stay in its tier), read from the data, so a new unit or a rebalance follows
- *  by itself. 'light' up to `light` (today's hits, unchanged: most of a fight looks as it did), 'medium' up to `medium`,
- *  'heavy' up to `heavy`, and 'siege' above it with splash (above it without splash: still 'heavy'). No weapon (a
- *  repairer's welding): 'light'. */
+/** How hard a hit lands, one scale for every unit and tower (Stelian, 2026-11-18): by its weapon's damage per hit
+ *  against what it struck (its base `dmg` on the ground, `dmgAir` on a flyer (`air`); upgrades stay in its tier), read
+ *  from the data, so a new unit or a rebalance follows by itself. A Ballista bolt into a Guard is a medium hit (24),
+ *  into a Drone a heavy one (56). 'light' up to `light` (most of a fight), 'medium' up to `medium`, 'heavy' up to
+ *  `heavy`, and 'siege' above it with splash (above it without splash: still 'heavy'). No weapon (a repairer's
+ *  welding): 'light'. */
 export const HIT_TIERS = { light: 12, medium: 30, heavy: 80 };
-export function hitTier(weapon) {
-  const d = weapon?.dmg ?? 0;
+export function hitTier(weapon, air = false) {
+  const d = (air && weapon?.dmgAir > 0 ? weapon.dmgAir : weapon?.dmg) ?? 0;
   if (d <= HIT_TIERS.light) return 'light';
   if (d <= HIT_TIERS.medium) return 'medium';
   return d <= HIT_TIERS.heavy || !(weapon.splash > 0) ? 'heavy' : 'siege';
 }
+/** Steel's cool white-blue: every shot's hit, light to heavy, is this color (its star, its flash, its chips), and no
+ *  muzzle flash is: a gun's mouth stays warm orange. Fire lands only with a shell, a rocket or a siege blast. */
+export const HIT_STEEL = 0xcfe4ff;
+/** A shot that lands on a walker plays this much of its drawn height (render.js unitTop) above its ground point, on its
+ *  body (a melee blow's glint lands there too, render.js meleeHit): the `hit` event carries the target's ground point. */
+export const WALKER_HIT_LIFT = 0.5;
 /** Each tier's look over the shot's or the blow's own (IMPACT, meleeHit), none for 'light'. `flash`: a round flash where
  *  it lands, at that scale, tinted and lit `light` (`lightScale`); `hit`: in place of the shot's own impact, 'blow' (a
- *  bright flash and three flung chips: glints of steel for a melee blow, no fire on a lance or a hammer; sparks for a
- *  shot) or 'blast' (an explosion, a flash and sparks), at `size`, its flash `flashK` times and its chips `chip.scale`
- *  times their own size, living `chip.life` times as long; `scuff`, a melee blow's ring of dust kicked out round the
- *  target's feet (`n` puffs on a ring `r` px out, flying out at `speed` px/s, at `scale`, for `life` s); `muzzle`: a ranged one's big round flash where it
- *  fires (at the gun's mouth: MUZZLE_FLASH's spot when it has one, else `fwd`/`up`), at that scale; `weight`: the impact
- *  sound's (audio.js `hit`: 0 today's tick, 3 the shell's thud). */
+ *  bright flash and three flung chips of steel, `chip.anim`: glints, no fire on a lance, a hammer or a bolt) or 'blast'
+ *  (an explosion, a flash and fiery sparks), at `size`, its flash `flashK` times and its chips `chip.scale` times their
+ *  own size, living `chip.life` times as long; `scuff`, a melee blow's ring of dust kicked out round the target's feet
+ *  (`n` puffs on a ring `r` px out, flying out at `speed` px/s, at `scale`, for `life` s); `muzzle`: a ranged one's big
+ *  round flash where it fires (at the gun's mouth: MUZZLE_FLASH's spot when it has one, else `fwd`/`up`), at that
+ *  scale, in `muzzleLight` (warm: a hit is steel's cool, HIT_STEEL); `weight`: the impact sound's (audio.js `hit`: 0
+ *  today's tick, 3 the shell's thud). */
 export const HIT_LOOK = {
   light: { weight: 0 },
-  medium: { flash: 0.7, light: 0xfff4d8, lightScale: 0.3, weight: 1 },
-  heavy: { hit: 'blow', size: 0.9, flashK: 1.7, chip: { scale: 1.5, life: 1.3 }, scuff: { n: 6, r: 10, speed: 45, scale: 0.8, life: 0.4 }, light: 0xfff0d0, muzzle: 0.7, weight: 2 },
-  siege: { hit: 'blast', size: 1.0, flashK: 1, chip: { scale: 1, life: 1 }, light: 0xff9a3a, muzzle: 0.9, weight: 3 },
+  medium: { flash: 0.7, light: HIT_STEEL, lightScale: 0.3, weight: 1 },
+  heavy: { hit: 'blow', size: 0.9, flashK: 1.7, chip: { anim: 'glint', scale: 1.5, life: 1.3 }, scuff: { n: 6, r: 10, speed: 45, scale: 0.8, life: 0.4 }, light: HIT_STEEL, muzzle: 0.7, muzzleLight: 0xfff0d0, weight: 2 },
+  siege: { hit: 'blast', size: 1.0, flashK: 1, chip: { anim: 'spark', scale: 1, life: 1 }, light: 0xff9a3a, muzzle: 0.9, muzzleLight: 0xff9a3a, weight: 3 },
 };
 /** Where a gun's round flash goes without a MUZZLE_FLASH spot of its own (the Cannon's barrel, the Rover's launcher). */
 export const MUZZLE_AT = { fwd: 14, up: 10 };

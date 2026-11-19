@@ -559,7 +559,10 @@ test/e2e/             browser tests: harness.mjs (serves dist/ with the site's h
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
                       listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the
-                      Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page),
+                      Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page; How to play's
+                      touch table: a row's ? opens its loop under the words and plays it, nothing of it fetched before
+                      the tap, another row's ? closes the first, the ? again closes it; under reduced motion the
+                      poster with controls instead; the ? hidden with JavaScript off),
                       field.e2e.mjs (the field under the first page: the right image per size class, under the premise
                       line, the buttons unmoved, the plain floor when the image does not come, no tide line and no
                       drift, the band under the other menu pages too, no band on a screen too short),
@@ -635,7 +638,10 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       title and description of search-result length, canonical, Open Graph and X cards that agree);
                       every JSON-LD block checked against schema.org's properties by a small built-in table
                       (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
-                      the clip's words and size; images with alt (empty only when decorative, aria-hidden), sizes,
+                      the clip's words and size; the controls videos (the loop at the top of How to play's phone
+                      section, the one video that plays by itself, its poster fetched first; About's below the fold;
+                      the touch table's seven gestures on demand: a ? button each with its aria attributes and data,
+                      nothing of a loop in the page); images with alt (empty only when decorative, aria-hidden), sizes,
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
                       spelling, About's one quiet line naming Stelian; the glance's tiers (one per requirement in
                       Build-list order, each building in its tier, its units in order, a "needs" tag only where the
@@ -709,7 +715,10 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
                       designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
-                      and one deferred script, docs.js (the tabs scrolled to the current one, the clip fetched once the page has loaded and played in view); two fonts preloaded, the first screenshot fetched first, every other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
+                      and one deferred script, docs.js (the tabs scrolled to the current one, the clip fetched once the
+                      page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
+                      two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
+                      other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
                       recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
@@ -749,9 +758,13 @@ tools/controls/       the phone controls video (the docs' touch table, as a film
                       controls-loop.mp4 the essentials under 400 KB, touch-<gesture>.mp4 one each under 150 KB, a WebP
                       poster each, a punch-in on the held button's details; --review copies them with a contact sheet,
                       a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
-                      How to play shows the loop at the start of its phone section and a gesture's loop in each of six
-                      touch rows, About the loop (pages.mjs {{clip name}}, {{loop name}}: the poster a lazy image over
-                      the video until it plays, the video fetched only when played, as the home's clip).
+                      How to play shows the loop at the start of its phone section (before the desktop's), About the loop
+                      (pages.mjs {{clip name}}: the poster an image over the video until it plays, the video fetched only
+                      when played, as the home's clip); the only videos that play by themselves. Seven touch rows have a
+                      gesture's loop on demand (pages.mjs {{loop name}}: a ? button, 32 px in a 44 px target, and an
+                      empty box under the row's words; docs.js makes the video and its poster there on a tap and plays
+                      it, the ? again closes it, one open at a time, under reduced motion the poster with controls;
+                      nothing of a loop is fetched before the tap, and the ? is hidden where scripts do not run).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's

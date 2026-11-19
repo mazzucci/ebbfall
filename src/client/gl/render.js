@@ -1042,7 +1042,7 @@ export function render(selList, place) {
     if (s.bar.visible) { s.bar.position.set(p.x + Math.cos(rot) * 1.5, p.y + Math.sin(rot) * 1.5); s.bar.rotation = rot; s.bar.width = len + 3; s.bar.height = style.bar; }
     const heavy = !smoke && art !== 'cannonball' && HIT_LOOK[hitTier(shotWeapon(p), (aimed ??= flyersAt()).has(aimKey(p.ax, p.ay)))].hit === 'blow';
     s.trail.visible = heavy;
-    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(p.x, p.y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL) / len, sc); s.trail.alpha = 0.4; s.trail.tint = s.tint; }
+    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(p.x, p.y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL.px) / len, sc); s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint; } // (the shot's own colors: a Kingdom shaft's trail is timber, never cool, and no light goes with it)
     s.l.visible = SHOT_LIT.has(art); s.l.tint = style.tint ? SHOT_GLOW : 0xffd27a; s.l.position.set(p.x, p.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; never an arrow, a bolt or a stone)
   }
   for (let i = pi; i < projPool.length; i++) { const s = projPool[i]; s.visible = false; s.l.visible = false; s.bar.visible = false; s.trail.visible = false; }

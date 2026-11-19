@@ -3,6 +3,7 @@
 // the muzzle flashes stay warm. Guards the rule the PM set (2026-11-19): an arrow must never read as a tracer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_STYLE, SHOT_BAR, SHOT_LIT, SHOT_GLOW, SHOT_TRAIL, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, shotArt } from '../src/client/look.js';
 import { UNITS } from '../src/engine/constants.js';
 
@@ -44,7 +45,18 @@ test('a hit is steel\'s cool white-blue, light to heavy; the muzzle flashes stay
   assert.ok(warm(HIT_LOOK.siege.light) && HIT_LOOK.siege.chip.anim === 'spark', 'the siege blast is fire');
   for (const t of ['heavy', 'siege']) assert.ok(HIT_LOOK[t].muzzle > 0 && warm(HIT_LOOK[t].muzzleLight), `${t}: a warm muzzle flash`);
   assert.ok(WALKER_HIT_LIFT > 0 && WALKER_HIT_LIFT <= 0.6, 'a shot on a walker lands on its body');
-  assert.ok(HEAVY_TRAIL > 0, 'a heavy shot drags a trail');
+  assert.ok(HEAVY_TRAIL.px > 0 && HEAVY_TRAIL.alpha > 0 && HEAVY_TRAIL.alpha < 1, 'a heavy shot drags a translucent trail');
+});
+
+test('a Kingdom shot\'s heavy trail is a translucent streak in the shaft\'s own colors: never cool, never lit (render.js draws it so)', () => {
+  // The trail is the shot's own sprite stretched, tinted as the shot is: a Kingdom shot has no tint (its timber as
+  // drawn), so its trail has none; and the only light a shot carries is SHOT_LIT's, which no Kingdom shot is in.
+  for (const a of ['arrow', 'ballista_bolt']) assert.ok(!SHOT_STYLE[a].tint && !SHOT_LIT.has(a), `${a}: no tint and no light, so no cool and no glow on its trail`);
+  const src = readFileSync(new URL('../src/client/gl/render.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('setTex(s.trail, s.texture);'), 'the trail is the shot\'s own sprite, not a glow sprite');
+  assert.ok(src.includes('s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint;'), 'at HEAVY_TRAIL\'s opacity, in the shot\'s own tint');
+  assert.ok(src.includes('s.l.visible = SHOT_LIT.has(art);'), 'a light only for SHOT_LIT\'s shots');
+  assert.ok(!/s\.trail\.(blendMode|light)/.test(src), 'no additive blend and no light on a trail');
 });
 
 test('the Ballista and the Android are the heavy shooters whose shots trail: the Android always, the Ballista at a flyer', () => {

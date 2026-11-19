@@ -95,9 +95,10 @@ export const SHOT_STYLE = { arrow: { scale: 1.25, bar: 2.4 }, ballista_bolt: { s
 export const SHOT_BAR = { tint: 0x10161e, alpha: 0.6 };
 /** The glow under an Expedition tracer (SHOT_LIT): the same cool LED white. The rocket keeps its warm flame. */
 export const SHOT_GLOW = 0xbfefff;
-/** A heavy shot (hitTier against what it flies at) drags a copy of itself stretched this many world px back along its
- *  flight: the Android's tracer, a Ballista bolt at a flyer. */
-export const HEAVY_TRAIL = 30;
+/** A heavy shot (hitTier against what it flies at: the Android's tracer, a Ballista bolt at a flyer) drags a copy of
+ *  itself stretched `px` world px back along its flight at `alpha`: a motion streak in the shot's own colors (a Kingdom
+ *  shaft's timber, never cooled, never lit; a tracer's its cool LED white), nothing more. */
+export const HEAVY_TRAIL = { px: 30, alpha: 0.4 };
 /** Whether a building's chimney smokes right now: it stands and works (a unit in its queue or a research under way;
  *  `b` is the client's mirror of it, src/engine/core.js). */
 export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research));

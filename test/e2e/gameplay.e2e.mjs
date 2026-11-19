@@ -3517,6 +3517,10 @@ test('a building destroyed collapses: its ghost sinks and fades (its flag with i
     await d.grant(500, 0);
     const depot = await buildAndFinish(d, 'w', 'depot');
     await d.centerOn(depot.x, depot.y);
+    // A ghost is only for a building the player saw standing (render.js `collapse`: the pool's object, drawn live), so
+    // a frame must draw the Cottage finished, on screen, before it falls: the fast-forwards above run no frames, and on a
+    // slow machine none may have come since it was placed.
+    await d.page.waitForFunction((id) => endfall.sites().bldgs.some(b => b.id === id && b.look === 'full'), depot.id, { timeout: 15000, polling: 'raf' });
     // (what each frame draws, read in the page from the moment the Cottage falls: the ghosts and the effects)
     await d.eval(() => {
       window.__fall = [];
@@ -3534,7 +3538,7 @@ test('a building destroyed collapses: its ghost sinks and fades (its flag with i
     assert.ok(last.y >= last.y0 && last.y - last.y0 <= BLDG_DEATH.ghost.sink + 0.01, `sinking (${JSON.stringify(last)})`);
     assert.ok(last.scaleY <= 1 && last.scaleY >= BLDG_DEATH.ghost.squash - 0.01, 'squashed, at most to 0.8');
     if (ghosts.length > 1) assert.ok(last.y > ghosts[0].y || last.t === ghosts[0].t, 'down as the frames go');
-    assert.ok(ghosts.every(g => g.paint === null || Math.abs(g.paint - g.alpha) < 1e-9), `its flag fades with its walls, when it is drawn (a building that fell before a frame showed it finished has no flag yet) (${JSON.stringify(ghosts.map(g => [g.paint, g.alpha]))})`);
+    assert.ok(ghosts.every(g => g.paint !== null && Math.abs(g.paint - g.alpha) < 1e-9), `its flag fades with its walls (${JSON.stringify(ghosts.map(g => [g.paint, g.alpha]))})`);
     if (last.t > 0.1) assert.ok(last.tint < 0xffffff, 'dimmed as it goes down');
     const near = (e) => Math.abs(e.x - depot.x) < depot.w * 16 + 4 && Math.abs(e.y - depot.y) < depot.h * 16 + 80;
     const fx = fall.flatMap(f => f.fx).filter(near);

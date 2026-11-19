@@ -2,7 +2,7 @@
 // phone (Gold Crown's first start), then six beats in the docs' order (tools/docs/copy/how-to-play.html, the touch table, its words shortened):
 // select and move, a group by a hold then a box, all of one type by a double-tap, ARMY and HOME, a drag and a pinch,
 // Deselect and a button held for its details. Each beat: its length, its captions ({ at, html }: the label in <b>;
-// `until`: gone before the beat's end; `still`: where the review sheet samples it), and its strokes (touch.mjs: fingers on the real game), times in seconds from the beat's start.
+// `until`: gone before the beat's end in the landscape cut; `still`: where the review sheet samples it), and its strokes (touch.mjs: fingers on the real game), times in seconds from the beat's start.
 import { tap, doubleTap, holdDrag, drag, pinch, press } from './touch.mjs';
 
 /**

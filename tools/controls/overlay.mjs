@@ -51,8 +51,9 @@ export const drawIndicator = (page, t, { fingers, taps, holds, trails }) => page
 
 /** The frames' sizes (CSS px; everything is drawn at DPR 2): the phone's screen, and the tall canvas. */
 export const PHONE = { width: 844, height: 390 }, TALL = { width: 540, height: 960 };
-/** The phone's picture in the tall canvas (CSS px): 520 wide across the middle, in a drawn phone outline. */
-export const TALL_PHONE = { left: 10, top: 318, width: 520, height: Math.round(520 * 390 / 844), border: 8 };
+/** The phone's picture in the tall canvas (CSS px): 500 wide across the middle in a drawn phone outline (an 8 px
+ *  bezel and a 2 px rim), 10 px from either edge of the 540: 10 + 2 + 8 + 500 + 8 + 2 + 10. */
+export const TALL_PHONE = { left: 12, top: 318, width: 500, height: Math.round(500 * 390 / 844), border: 8 };
 /** Where the landscape caption's top goes (CSS px: under the top bar), and the tall caption's. */
 export const CAP_TOP = { land: 46, tall: TALL_PHONE.top + TALL_PHONE.height + 2 * TALL_PHONE.border + 40 };
 

@@ -57,8 +57,9 @@ function layout(v) {
     const b = meta.beats.find(b => b.id === id), len = to - from;
     clips.push({ id, from, to, at, len, punch });
     if (v.caps) b.caps.forEach((c, i) => {
-      const next = Math.min(b.caps[i + 1]?.at ?? b.seconds, c.until ?? Infinity), s = Math.max(c.at, from), e = Math.min(next, to);
-      if (e > s) caps.push({ file: `${SRC}/captions/${id}-${i}${v.kind === 'tall' ? '-tall' : ''}.png`, at: at + s - from, until: at + e - from, fade: c.at >= from, out: c.until != null && c.until <= to });
+      // (`until` is the landscape cut's: its caption goes as the punch-in takes the screen; the tall cut's caption sits under the phone and stays)
+      const next = Math.min(b.caps[i + 1]?.at ?? b.seconds, v.kind === 'tall' ? Infinity : c.until ?? Infinity), s = Math.max(c.at, from), e = Math.min(next, to);
+      if (e > s) caps.push({ file: `${SRC}/captions/${id}-${i}${v.kind === 'tall' ? '-tall' : ''}.png`, at: at + s - from, until: at + e - from, fade: c.at >= from, out: v.kind !== 'tall' && c.until != null && c.until <= to });
     });
     at += len;
   }

@@ -59,7 +59,7 @@ figcaption{font:13px/1.5 var(--mono);color:var(--muted);margin:8px 2px 0}
 
 /* the people pages: a list of buildings, each with the units it trains under it */
 .side{display:flex;flex-wrap:wrap;gap:4px 18px;font:13px var(--mono);color:var(--muted);margin:0 0 8px}
-.side i.blue{display:inline-block;width:10px;height:10px;border-radius:50%;background:#2a5ddf;margin-right:6px;vertical-align:-1px} .side .sig,.signal .sig{margin:0 6px 0 0}
+.side .sig,.signal .sig{margin:0 6px 0 0}
 .signal{grid-column:1/-1;margin:0 0 8px;font-size:15px;color:#c9d4e0}
 .roster{list-style:none;margin:0;padding:0;max-width:none}
 .bld{display:grid;grid-template-columns:104px 1fr;gap:4px 14px;align-items:start;padding:18px 0 8px;margin:0}

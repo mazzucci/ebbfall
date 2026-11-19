@@ -171,7 +171,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(main.includes(`title="${shots.trailer.title}"`), 'the title');
   assert.match(shots.trailer.alt, /^Ebbfall gameplay: .*archers.*drones/i);
   assert.ok(main.includes(`aria-label="${shots.trailer.alt.replace(/"/g, '&quot;')}"`), 'the label');
-  assert.ok(main.includes('<figcaption>Archers against Drones. Your side plays in blue.</figcaption>'), 'the caption');
+  assert.ok(main.includes('<figcaption>Archers against Drones.</figcaption>'), 'the caption');
   // Small, and short: about six seconds, within the docs' budget for the home.
   const clip = readFileSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url));
   assert.ok(clip.length < 300 * 1024, `the clip under 300 KB: ${Math.round(clip.length / 1024)} KB`);

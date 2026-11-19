@@ -55,5 +55,5 @@ export const BEATS = [
     strokes: () => [...drag(0.9, { x: 560, y: 240 }, { dx: -150, dy: -80 }, { move: 1.1, settle: 0.35 }), ...pinch(4.0, { x: 400, y: 229 }, 110, 165, { move: 1.2, settle: 0.4 })] },
   { id: 'letgo', seconds: 9.0,
     caps: [cap(0, 'Let go', 'Deselect on the card'), { ...cap(2.5, 'Hold a button', 'what it does and costs'), until: 4.7, still: 7.4 }], // (the caption goes as the cut punches in on the details; the sheet's still while they show)
-    strokes: (a) => [...tap(1.1, { card: 'Deselect' }), ...tap(3.1, { bldg: a.barracks }), ...press(4.2, { card: 'Guard' }, 2.6)] },
+    strokes: (a) => [...press(1.1, { card: 'Deselect' }, 0.4), ...tap(3.1, { bldg: a.barracks }), ...press(4.2, { card: 'Guard' }, 2.6)] }, // (Deselect: the finger rests on it 0.4 s, the 9 still selected, then the lift clears them; under the card's 450 ms long press, so it is a press, not its details)
 ];

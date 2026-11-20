@@ -239,7 +239,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       (its spot, or the point of its route where the march turned: `Back`), the longer reach of the two
                       on top (a gun shelling it from afar can be gone for); let go there, it walks back to that point
                       (`Task::AMove`'s `rejoin`, picking no fight on the way) and only then marches on, so a fleeing
-                      target cannot pull it along leash by leash; a shooter off the leash is not answered), movement, paths.rs (a group's one route shared by the units of one order, long
+                      target cannot pull it along leash by leash; a shooter off the leash is not answered; idle guards answer a
+                      shooter that hits a building in their idle look, `guards_answer`), movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
                       retreat, the sweep), radio.rs (coverage: the Expedition's combat machines work only within
                       a finished Data center's 18 tiles or an Uplink's 54 (on every map) of their side or an
@@ -315,7 +316,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, on the map), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, both on the map: nothing past its edges at the sides or the top), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;

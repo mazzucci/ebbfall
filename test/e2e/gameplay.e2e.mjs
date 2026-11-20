@@ -499,8 +499,8 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base: with a mouse 1200 px of the map across the window (any monitor), nothing past the map\'s edges at the sides or the top; at 1 on a phone', async () => {
-  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, PHONE]) for (const guided of [false, true]) {
+test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1200 px of the map across the window (any monitor); at 1 on a phone (844x390, 667x375)', async () => {
+  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
@@ -510,9 +510,11 @@ test('a game starts over the base: with a mouse 1200 px of the map across the wi
       if (guided) await press('#btnFirstHome'); else { await press('#btnSolo'); await press('#btnStart'); }
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
       const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom }; });
-      if (device.hasTouch) { assert.equal(s.zoom, 1, `${what}: a phone at 1`); continue; }
-      assert.ok(Math.abs(s.zoom - Math.min(2, Math.max(1, s.w / 1200))) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2): ${JSON.stringify(s)}`);
-      assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
+      if (device.hasTouch) assert.equal(s.zoom, 1, `${what}: a phone at 1`);
+      else {
+        assert.ok(Math.abs(s.zoom - Math.min(2, Math.max(1, s.w / 1200))) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2): ${JSON.stringify(s)}`);
+        assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
+      }
       assert.ok(s.x >= 0 && s.x + s.vw <= s.map + 0.5 && s.y >= 0, `${what}: nothing past the map's edges at the sides or the top: ${JSON.stringify(s)}`);
       assert.ok(s.hq[0] > s.x + s.vw * 0.15 && s.hq[0] < s.x + s.vw * 0.85 && s.hq[1] > s.y + s.vh * 0.15 && s.hq[1] < s.y + s.vh * 0.85, `${what}: the base well inside the window: ${JSON.stringify(s)}`);
       assert.deepEqual(errors, []);
@@ -2771,26 +2773,32 @@ test('the first game\'s army step with no population left: too few fighters, it 
   } finally { await d.close(); }
 });
 
-test('phone on its side: the first game\'s step card is a narrow column in the corner, clear of the Castle the game starts over', async () => {
+test('phone on its side: the first game\'s step card is a narrow column in the corner, clear of the Castle the game starts over; no ground past the map\'s edge on the first screen', async () => {
   for (const device of [PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) {
-    const d = await newGame(device, 0, 4242, { first: true, ai: false });
+    const ctx = await browserContext(device), page = await ctx.newPage(), errors = [];
+    page.on('pageerror', e => errors.push(e.message));
     try {
-      await d.hudText('#tut', /1\/[89]/);
-      // The view the game starts on (the harness plays closer in): the phone's start zoom, over the base.
-      await d.eval((z) => { const c = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq); endfall.cam.zoom = z; endfall.centerOn(c.x + 40, c.y); }, d.startZoom);
-      await d.skip(0.2);
-      const core = coreOf(await d.state());
-      const got = await d.eval((id) => {
-        const b = endfall.G.bldgs.find(x => x.id === id), c = endfall.cam, cv = document.getElementById('game').getBoundingClientRect(), t = document.getElementById('tut').getBoundingClientRect();
+      await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      await page.locator('#btnFirstHome').tap();
+      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+      await page.locator('#tut').filter({ hasText: /1\/[89]/ }).waitFor({ timeout: 30000 });
+      // The view the game starts on, once the Castle is drawn.
+      await page.waitForFunction(() => endfall.bldgArtTop(endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq).id) !== null, null, { timeout: 30000 });
+      const got = await page.evaluate(() => {
+        const b = endfall.G.bldgs.find(x => x.team === endfall.G.me && x.d.hq), c = endfall.cam, v = endfall.view, cv = document.getElementById('game').getBoundingClientRect(), t = document.getElementById('tut').getBoundingClientRect();
         const sx = (x) => cv.left + (x - c.x) * c.zoom, sy = (y) => cv.top + (y - c.y) * c.zoom;
-        return { card: [t.left, t.top, t.right, t.bottom].map(Math.round), castle: [sx(b.x - b.w * 16 - 8), sy(endfall.bldgArtTop(id)), sx(b.x + b.w * 16 + 8), sy(b.y + b.h * 16)].map(Math.round), vw: innerWidth };
-      }, core.id);
+        return { card: [t.left, t.top, t.right, t.bottom].map(Math.round), castle: [sx(b.x - b.w * 16 - 8), sy(endfall.bldgArtTop(b.id)), sx(b.x + b.w * 16 + 8), sy(b.y + b.h * 16)].map(Math.round), vw: innerWidth, cam: [c.x, c.y, c.zoom], seen: [v.w / c.zoom, v.h / c.zoom], map: endfall.engine.MW * 32 };
+      });
       const { card, castle } = got, what = `${device.viewport.width}x${device.viewport.height}: ${JSON.stringify(got)}`;
       assert.ok(card[2] <= castle[0] || card[3] <= castle[1], `the card is left of the Castle or above its top: ${what}`);
       assert.ok(card[2] - card[0] <= got.vw * 0.31 + 1 && card[2] - card[0] <= 270, `a narrow column: ${what}`);
-      assert.ok(await d.page.locator('#tut .t').evaluate(e => e.scrollWidth <= e.clientWidth + 1 && parseFloat(getComputedStyle(e).fontSize) >= 12), 'its line whole, 12 px');
-      assert.deepEqual(d.errors, []);
-    } finally { await d.close(); }
+      assert.ok(await page.locator('#tut .t').evaluate(e => e.scrollWidth <= e.clientWidth + 1 && parseFloat(getComputedStyle(e).fontSize) >= 12), 'its line whole, 12 px');
+      // The first screen is the map: the base sits by its right edge, and the view stops there (no dark strip past it).
+      assert.ok(got.cam[2] === 1 && got.cam[0] >= 0 && got.cam[0] + got.seen[0] <= got.map + 0.5 && got.cam[1] >= 0, `nothing past the map's edges at the sides or the top: ${what}`);
+      assert.ok(castle[0] > 0 && castle[2] < got.vw && castle[1] > 0, `the Castle whole on screen: ${what}`);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
   }
 });
 

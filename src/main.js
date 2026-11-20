@@ -75,7 +75,7 @@ function begin(reset) {
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide();
   renderTerrain();
   // Start over the base: a phone at 1 (the units read), a desktop with the base and the ground round it in its window,
-  // on the map (gl/render.js `startZoom`, `startOn`); the wheel or a pinch zooms.
+  // both on the map (gl/render.js `startZoom`, `startOn`); the wheel or a pinch zooms.
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); startOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   groupHintGame(menu.tutorial); // (one more game on this device's count: the group hint comes back after a few)

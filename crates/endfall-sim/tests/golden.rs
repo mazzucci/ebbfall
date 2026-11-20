@@ -283,10 +283,12 @@ const RESULT_GAMES: [(u32, usize, MapKind, bool); 3] = [
 ];
 
 // (all three re-pinned Nov 18: the Archer's slow gone and its reload 2.2 s, the Drone at 4 a shot, the Ballista 24/56
-// every 2.4 s, the Buggy shoots flyers)
+// every 2.4 s, the Buggy shoots flyers; the second, Hard against Hard on the Labyrinth, again Nov 20: idle guards answer
+// a shooter that hits their building (`guards_answer`): the same winner, 4:34 sooner, by 18308 instead of 26514; the
+// other two, and every hash table here, did not move)
 const EXPECTED_RESULTS: [&str; 3] = [
     "39/43/16/0 lost_to 43 | 45/16/43/4 lost_to 16 | over true winner 1 conceded -1 at 17438",
-    "77/80/49/0 lost_to 80 | 108/49/80/21 lost_to 49 | over true winner 1 conceded -1 at 26514",
+    "50/54/24/0 lost_to 54 | 58/24/54/14 lost_to 24 | over true winner 1 conceded -1 at 18308",
     "1/5/0/0 lost_to 5 | 25/0/5/1 lost_to 0 | over true winner 1 conceded -1 at 10263",
 ];
 

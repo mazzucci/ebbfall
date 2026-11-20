@@ -1,22 +1,28 @@
-// The site's cache headers (Notion: Multiplayer design, Hosting), one table for both ways a file is served: the Worker's
-// responses (worker.js) and the files Cloudflare serves alone, through dist/_headers (build.mjs). A module of its own:
-// a Worker's entry module may export only handlers.
+// The site's headers (Notion: Multiplayer design, Hosting): the files' cache headers and the security headers every
+// response carries, the files Cloudflare serves alone through dist/_headers (build.mjs) and the Worker's own (worker.js:
+// what is not a file). A module of its own: a Worker's entry module may export only handlers.
 
 /**
- * Cache-Control by path. Vite's output in assets/ is named by its content: kept for good. The pages, the service
- * worker and the manifest are checked on every load (no-cache: a 304 when unchanged), so a deploy is seen at once and
- * the service worker's update finds the new build (tools/offline/sw.js stores each file fetched past the HTTP cache, and
- * boot.js switches to a new version when it is installed). Anything else (art/, the icons): Cloudflare's own default,
- * revalidated every time as well (`public, max-age=0, must-revalidate`, with an ETag).
+ * Cache-Control by the address a file is served at (Cloudflare matches _headers against the request's path, and serves
+ * the pages at their canonical addresses: wrangler.toml html_handling, index.html at /, selftest.html at /selftest).
+ * Vite's output in assets/ is named by its content: kept for good. The pages, the service worker and the manifest are
+ * checked on every load (no-cache: a 304 when unchanged), so a deploy is seen at once and the service worker's update
+ * finds the new build (tools/offline/sw.js stores each file fetched past the HTTP cache, and boot.js switches to a new
+ * version when it is installed). Anything else (art/, the icons, the docs): Cloudflare's own default, revalidated every
+ * time as well (`public, max-age=0, must-revalidate`, with an ETag).
  */
 export const CACHE = [
   ['/assets/*', 'public, max-age=31536000, immutable'],
-  ['/index.html', 'no-cache'],
-  ['/selftest.html', 'no-cache'],
-  ['/voice-lab.html', 'no-cache'],
+  ['/', 'no-cache'],
+  ['/selftest', 'no-cache'],
+  ['/voice-lab', 'no-cache'],
   ['/sw.js', 'no-cache'],
   ['/manifest.webmanifest', 'no-cache'],
 ];
+
+/** The address Cloudflare serves a page of dist/ at (html_handling = "auto-trailing-slash"): index.html at its folder
+ *  (/, /docs/kingdom/), any other .html without its extension (/selftest); any other file at its own path. */
+export const servedAt = (file) => (file === 'index.html' || file.endsWith('/index.html') ? `/${file.slice(0, -'index.html'.length)}` : `/${file.replace(/\.html$/, '')}`);
 
 /** Where browsers send the policy's violation reports (worker.js answers them and logs each, short). */
 export const CSP_REPORT = '/csp-report';
@@ -27,8 +33,9 @@ export const RELAY_HOST = 'relay.ebbfall.com';
 /**
  * The Content-Security-Policy, directive by directive: what the site's pages may load and run, each source the one
  * thing that needs it. Scripts: the site's own files, WebAssembly (the sim), the one inline script of index.html (the
- * page's error log, by its hash: test/site-csp.test.js checks every inline script of the built pages has one here) and
- * Cloudflare Web Analytics' beacon (worker.js `beacon`, or the zone's own injection), never eval (PixiJS runs on its
+ * page's origin check and error log, by its hash: test/site-csp.test.js checks every inline script of the built pages
+ * has one here), the one of a room's card page (site/preview.js CARD_SCRIPT, on to the room) and Cloudflare Web
+ * Analytics' beacon (build.mjs `beacon`, written into index.html at deploy, or the zone's own injection), never eval (PixiJS runs on its
  * eval-free polyfills: gl/render.js imports pixi.js/unsafe-eval) nor any other inline script. Connections: the site,
  * the relay (its websocket, and https for the bench's report, bench.js), the beacon's reports and data: (PixiJS's
  * worker probes createImageBitmap on a data: PNG). Images: the site's
@@ -41,7 +48,7 @@ export const RELAY_HOST = 'relay.ebbfall.com';
  */
 export const CSP = {
   'default-src': ["'self'"],
-  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-mHvnG6Ljo3//FV8xAqu3Y2N0YvSK5kSgSoqLoB4g9YA='", 'https://static.cloudflareinsights.com'],
+  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-eTFFCJaHNJbfy3UVnqjXQWHE3gXUWU3wY8kNv9vSwVU='", "'sha256-yTMgFbgJKaeFPIpzHUycvJPsiZxaMUMMUJZeXW+KhO0='", 'https://static.cloudflareinsights.com'],
   'connect-src': ["'self'", 'data:', `wss://${RELAY_HOST}`, `https://${RELAY_HOST}`, 'https://cloudflareinsights.com'],
   'img-src': ["'self'", 'data:', 'blob:'],
   'media-src': ["'self'", 'blob:'],

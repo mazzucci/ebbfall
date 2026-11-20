@@ -11,8 +11,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser</title>
-<!-- What a search engine and a shared link show (site/preview.js gives a room's link its own og/twitter title, description
-     and url, through site/worker.js; the card's image is tools/og.mjs's). The structured data below is the game's one
+<!-- What a search engine and a shared link show (every link to this page: it is a file, no Worker; a room's card address,
+     /r/CODE, gets the room's own title, description and url from site/preview.js, its image and alt these; the card's
+     image is tools/og.mjs's). The structured data below is the game's one
      VideoGame: the docs home repeats it as it is (tools/docs/build.mjs videoGame). -->
 <meta name="description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
 <link rel="canonical" href="https://ebbfall.com/">
@@ -41,9 +42,11 @@
  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "isAccessibleForFree": true, "inLanguage": "en",
  "author": {"@type": "Person", "name": "Stelian Matei"}, "license": "https://opensource.org/licenses/MIT"}
 </script>
-<!-- Page errors from the first moment, for endfall.status() (the device checks read them back; tools/devices): script
+<!-- The game's one origin first: this page is a file on Cloudflare, served at www and over plain http too, where no Worker
+     sends it on (site/worker.js does for what is not a file): there, on to https://ebbfall.com/ before anything is stored.
+     Then page errors from the first moment, for endfall.status() (the device checks read them back; tools/devices): script
      errors and what the CSP refused (site/cache.js; not WebKit's own <select> stylesheet, which it reports as the page's). -->
-<script>window.endfallErrors = []; (function (keep) { addEventListener('error', function (e) { keep(e.message || String(e.error)); }); addEventListener('unhandledrejection', function (e) { keep('unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason)); }); addEventListener('securitypolicyviolation', function (e) { if (!(e.target && e.target.tagName === 'SELECT')) keep('CSP refused: ' + e.violatedDirective + ' ' + e.blockedURI); }); })(function (m) { if (endfallErrors.length < 20) endfallErrors.push(String(m)); });</script>
+<script>if (location.hostname === 'www.ebbfall.com' || (location.hostname === 'ebbfall.com' && location.protocol === 'http:')) location.replace('https://ebbfall.com' + location.pathname + location.search + location.hash); window.endfallErrors = []; (function (keep) { addEventListener('error', function (e) { keep(e.message || String(e.error)); }); addEventListener('unhandledrejection', function (e) { keep('unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason)); }); addEventListener('securitypolicyviolation', function (e) { if (!(e.target && e.target.tagName === 'SELECT')) keep('CSP refused: ' + e.violatedDirective + ' ' + e.blockedURI); }); })(function (m) { if (endfallErrors.length < 20) endfallErrors.push(String(m)); });</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='8' fill='%230b0f16'/%3E%3Cpath d='M3 9.5c1.3-2.7 2.7-2.7 4 0s2.7 2.7 4 0c.8 1 1.4 2 2 3.2' fill='none' stroke='%23f5a524' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M5 2.8l2 2.4-2 2.4-2-2.4z' fill='%234fd1c5'/%3E%3C/svg%3E">
 </head>
 <body>

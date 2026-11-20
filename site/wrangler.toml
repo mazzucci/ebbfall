@@ -7,8 +7,10 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 # Zone routes, not custom domains: the hostnames keep their own DNS records (GitHub Pages', which a custom domain would
 # need deleted first: a gap), and a route sees what Cloudflare proxies, so the switch is turning the proxy on for those
-# records (site/dns.mjs proxy, after this deploy), and the rollback turning it off. www answers too, sent on to
-# ebbfall.com by the Worker (worker.js CANONICAL), as GitHub Pages did.
+# records (site/dns.mjs proxy, after this deploy), and the rollback turning it off. www answers too: its files served as
+# on ebbfall.com, the game's page sending itself on to https://ebbfall.com/ (index.html's first script), anything else
+# by the Worker (worker.js CANONICAL). (A zone Redirect Rule, www to the apex, would send every www address on without a
+# Worker: a dashboard setting, not this file's.)
 routes = [
   { pattern = "ebbfall.com/*", zone_name = "ebbfall.com" },
   { pattern = "www.ebbfall.com/*", zone_name = "ebbfall.com" },
@@ -19,16 +21,20 @@ preview_urls = false
 [assets]
 directory = "../dist"
 binding = "ASSETS"
-# Files at their exact paths, as GitHub Pages serves them (no /selftest.html -> /selftest redirect, which the service
-# worker could not answer a page load with); the Worker answers what is not a file (worker.js `notFound`).
-html_handling = "none"
+# Every file is served by Cloudflare directly, with dist/_headers (cache and security headers, build.mjs), and costs no
+# Worker request: the game's page, the docs, single player. So a tripped Workers spending limit (error 1103 for every
+# Worker request) leaves them up; it takes only what the Worker answers (worker.js: a room's card address /r/CODE, the
+# CSP's reports, www and http sent on, not found) and the relay (online play).
+# Pages at their canonical addresses: / is index.html, /docs/kingdom/ that folder's index.html (/docs/kingdom is sent
+# to it), /selftest is selftest.html (/selftest.html and /index.html are sent on, 307, to /selftest and /). The
+# service worker stores a page fetched through such a redirect as a response of its own, at both addresses
+# (tools/offline/sw.js), as a redirected response could not answer a page load.
+html_handling = "auto-trailing-slash"
+# What is not a file goes to the Worker (no run_worker_first: it never runs before a file).
 not_found_handling = "none"
-# The Worker runs first only for the game's page (the place for link previews); every other file is served by
-# Cloudflare directly, with dist/_headers, and costs no Worker request.
-run_worker_first = ["/", "/index.html"]
 
 [build]
-command = "node build.mjs" # (writes dist/_headers from cache.js)
+command = "node build.mjs" # (writes dist/_headers from cache.js, and the analytics beacon into index.html with CF_ANALYTICS_TOKEN)
 
 [dev]
 upstream_protocol = "https" # (wrangler dev hands the Worker https://ebbfall.com/...: not sent on to https by worker.js)

@@ -345,8 +345,8 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         working-directory: site
         env:
-          CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # (unset: no beacon from the Worker; worker.js `page`)
-        run: npx --yes "$WRANGLER" deploy ${CF_ANALYTICS_TOKEN:+--var "CF_ANALYTICS_TOKEN:$CF_ANALYTICS_TOKEN"} # (its [build] step writes dist/_headers first)
+          CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # (for site/build.mjs: the beacon written into dist/index.html; unset: none)
+        run: npx --yes "$WRANGLER" deploy # (its [build] step, site/build.mjs, writes dist/_headers and the beacon first)
       - name: The hostnames through Cloudflare, so to the Worker (GitHub Pages' records proxied; once)
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: node site/dns.mjs proxy

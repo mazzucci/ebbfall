@@ -1,19 +1,20 @@
-// What a shared link shows (site/preview.js) and the head every visit and crawler gets (index.html): a room's link
-// gets its own card only for a code the relay could have made (hostile, overlong or vowel-bearing codes get the site's
-// card, and nothing of the query reaches the page but the code), a challenge's (SHARE after a victory) only for a code
-// the game makes, its words made from the code's values and its link made again from them, the card's fields land on tags index.html has, the
-// head's title, description, canonical, Open Graph and X tags and structured data, the preview image (public/og.png:
-// 1200x630, small), robots.txt, and that none of those (nor the docs, the sitemap, llms.txt) is stored for offline play.
+// What a shared link shows (site/preview.js) and the head every visit and crawler gets (index.html): every link to the
+// game's page is a file with the site's card; a room's card address (/r/CODE, what SHARE LINK gives on the site) gets
+// the room's own card only for a code the relay could have made (hostile, overlong or vowel-bearing codes get none, and
+// nothing of the address reaches the page but the code), on the site's image as index.html says it, and goes on to
+// the room by one script; the head's title, description, canonical, Open Graph and X tags and structured data, the
+// preview image (public/og.png: 1200x630, small), robots.txt, and that none of those (nor the docs, the sitemap,
+// llms.txt) is stored for offline play.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ORIGIN, ROOM_ALPHABET, ROOM_LETTERS, roomCode, preview, edits, TAGS } from '../site/preview.js';
+import { ORIGIN, ROOM_ALPHABET, ROOM_LETTERS, SITE_CARD, CARD_SCRIPT, roomCode, roomCard, roomPage } from '../site/preview.js';
+import { SITE, shareLink } from '../src/net/roomcode.js';
 import { WEB_ONLY, offline } from '../tools/offline/plugin.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const at = (q) => new URL(`${ORIGIN}/${q}`);
 const html = read('index.html');
 const head = html.slice(0, html.indexOf('</head>'));
 /** The content of index.html's <meta> with this property or name (exactly one such tag). */
@@ -23,59 +24,54 @@ function meta(key) {
   return tags[0].match(/content="([^"]*)"/)[1];
 }
 
-test("a room's code: the relay's six letters only, read as the client reads them (any case, a hyphen or spaces)", () => {
-  const code = (q) => roomCode(new URLSearchParams(q));
-  assert.equal(code('room=WGNJKL'), 'WGNJKL');
-  assert.equal(code('room=wgnjkl'), 'WGNJKL', 'lower case, as the client takes it');
-  assert.equal(code('room=WGN-JKL'), 'WGNJKL', 'as it is shown');
-  assert.equal(code('room=wgn%20jkl'), 'WGNJKL', 'with a space');
-  assert.equal(code('join=WGNJKL'), 'WGNJKL', 'the links before ?room=');
-  assert.equal(code('room=WGNJKL&join=BCDFGH'), 'WGNJKL', '?room= first, as the client');
-  for (const bad of ['', 'room=', 'room=WGN', 'room=WGNJ', 'room=BCDF', 'room=WGNJK', 'room=WGNJKLX', 'room=WGNJKLWGNJKL', 'room=ABCDFG', 'room=WGNJK1',
-    'room=WG.NJKL', 'room=WGN_JKL', 'room=%3Cscript%3E', 'room=<script>alert(1)</script>', 'room=WGNJKL%22', 'room=W%22NJKL', 'room=%C3%9FGNJKL',
-    'room=' + 'B'.repeat(5000), 'room=' + '-'.repeat(40) + 'WGNJKL', 'seed=7', 'bench']) {
-    assert.equal(code(bad), null, bad);
+test("a room's code in its card address (/r/CODE): the relay's six letters only, read as the client reads them", () => {
+  assert.equal(roomCode('/r/WGNJKL'), 'WGNJKL');
+  assert.equal(roomCode('/r/wgnjkl'), 'WGNJKL', 'lower case, as the client takes it');
+  assert.equal(roomCode('/r/WGN-JKL'), 'WGNJKL', 'as it is shown');
+  assert.equal(roomCode('/r/wgn%20jkl'), 'WGNJKL', 'with a space');
+  assert.equal(roomCode('/r/WGNJKL/'), 'WGNJKL', 'a trailing slash');
+  for (const bad of ['', '/', '/r/', '/r/WGN', '/r/WGNJ', '/r/BCDF', '/r/WGNJK', '/r/WGNJKLX', '/r/ABCDFG', '/r/WGNJK1', '/r/WG.NJKL', '/r/WGN_JKL',
+    '/r/%3Cscript%3E', '/r/<script>alert(1)</script>', '/r/WGNJKL%22', '/r/W%22NJKL', '/r/%C3%9FGNJKL', '/r/%E0%A4%A', '/r/WGNJKL/x', '/r/x/WGNJKL',
+    '/r/' + 'B'.repeat(5000), '/r/' + '-'.repeat(40) + 'WGNJKL', '/WGNJKL', '/room/WGNJKL', '/?room=WGNJKL', null, 7]) {
+    assert.equal(roomCode(bad), null, String(bad).slice(0, 60));
   }
 });
 
-test("a room's link has a card of its own: which room, the canonical page with the room as its url", () => {
-  assert.deepEqual(preview(at('?room=WGNJKL')), {
+test("a room's card: which room, the card's own address as its url, the game's page for the room to go on to", () => {
+  assert.deepEqual(roomCard('WGNJKL'), {
     title: 'Join my Ebbfall game: room WGN-JKL',
     description: 'Tap to join the room and play with me in your browser: free, nothing to install.',
-    url: 'https://ebbfall.com/?room=WGNJKL',
+    url: 'https://ebbfall.com/r/WGNJKL',
+    go: '/?room=WGNJKL',
   });
-  assert.equal(preview(at('?room=wgnjkl&relay=wss://x.example/')).url, 'https://ebbfall.com/?room=WGNJKL', 'only the room: no other parameter');
-  assert.equal(preview(at('?join=WGNJKL')).title, 'Join my Ebbfall game: room WGN-JKL');
-  assert.equal(preview(at('index.html?room=WGNJKL')).url, 'https://ebbfall.com/?room=WGNJKL');
-});
-
-const VS = '1.8.5.ky.h00v12v22v32'; // (Iron Compass, you against three Hard Expedition AIs, won in 12:34: test/challenge.test.js)
-test("a challenge's link has a card of its own: the setup in words, its link made again from the code's values", () => {
-  assert.deepEqual(preview(at(`?vs=${VS}`)), {
-    title: 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass',
-    description: 'Kingdom vs Expedition · won in 12:34 · free, in your browser',
-    url: `https://ebbfall.com/?vs=${VS}`,
-  });
-  assert.equal(preview(at(`?vs=${VS}&relay=wss://x.example/&seed=7`)).url, `https://ebbfall.com/?vs=${VS}`, 'only the challenge: no other parameter');
-  assert.equal(preview(at(`?seed=7&vs=${VS}`)).url, `https://ebbfall.com/?vs=${VS}`);
-  assert.equal(preview(at(`index.html?vs=${VS}`)).url, `https://ebbfall.com/?vs=${VS}`);
-  assert.equal(preview(at(`?vs=${VS}&vs=1.0.1.4z.v00h12`)).url, `https://ebbfall.com/?vs=${VS}`, 'the first, as the client reads it');
-  assert.equal(preview(at('?vs=1.3.0.2s0.h00h10.4.21i3v9')).url, 'https://ebbfall.com/?vs=1.3.0.2s0.h00h10.4.21i3v9', "a random map's seed and character");
-  assert.equal(preview(at(`?room=WGNJKL&vs=${VS}`)).title, 'Join my Ebbfall game: room WGN-JKL', "a room's link first (the client opens the room)");
-  assert.equal(preview(at(`?room=WGNJKLKA&vs=${VS}`)).title, 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass', 'not a room: the challenge');
-});
-
-test("anything else keeps the site's card: hostile, overlong and unknown links reflect nothing", () => {
-  for (const q of ['', '?seed=7', '?bench', '?room=<script>', '?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=WGNJKLX', '?room=ABCDFG', '?room=WGNJ', '?room=BCDF',
-    '?room="onload="x', '?join=WGN%00', '?room=' + 'Z'.repeat(1000),
-    '?vs=', '?vs=2.8.5.ky.h00v13v23v33', '?vs=1.8.5.ky.h00v13v23v33.', '?vs=1.8.5.KY.h00v13v23v33', '?vs=1.8.11.ky.h00v13v23v33', '?vs=1.0.0.ky.h00v13v23',
-    '?vs=%3Cscript%3E', '?vs=1.8.5.ky.h00v13v23v33%22', '?vs=1.8.5.ky.h00v13v23v33<b>', '?vs="onload="x', '?vs=1.8.5.ky.h00v13v23v33%00', '?vs=' + '1'.repeat(5000),
-    '?VS=1.8.5.ky.h00v13v23v33', '?v=1.8.5.ky.h00v13v23v33']) {
-    assert.equal(preview(at(q)), null, q);
-  }
+  assert.equal(roomCard('wgn-jkl').url, 'https://ebbfall.com/r/WGNJKL');
+  for (const bad of ['', 'ABCDFG', 'WGNJKLX', '<script>', null]) { assert.equal(roomCard(bad), null, String(bad)); assert.equal(roomPage(bad), null, String(bad)); }
   // Whatever the link, a card's text is plain: no markup, quotes or entities to escape.
-  for (const code of ['BCDFGH', 'ZZZZZZ', 'WGNJKL', 'wgn-jkl']) for (const v of Object.values(preview(at(`?room=${code}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
-  for (const vs of [VS, '1.3.0.2s0.h00h10.4.21i3v9', '1.4.2.1p.v00xh01v12h11']) for (const v of Object.values(preview(at(`?vs=${vs}`)))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
+  for (const code of ['BCDFGH', 'ZZZZZZ', 'WGNJKL', 'wgn-jkl']) for (const v of Object.values(roomCard(code))) assert.match(v, /^[^<>&"'\u0000-\u001f]*$/);
+});
+
+test("SHARE LINK in a room: the card address on the site, the game's page with ?room= anywhere else (no Worker there)", () => {
+  assert.equal(SITE, ORIGIN);
+  assert.equal(shareLink('WGNJKL', 'https://ebbfall.com', 'https://ebbfall.com/?room=WGNJKL'), 'https://ebbfall.com/r/WGNJKL');
+  for (const origin of ['http://127.0.0.1:5173', 'http://192.168.1.4:5173', 'https://www.ebbfall.com', 'http://ebbfall.com']) {
+    assert.equal(shareLink('WGNJKL', origin, `${origin}/?room=WGNJKL`), `${origin}/?room=WGNJKL`, origin);
+  }
+  assert.match(read('src/client/online.js'), /shareLink\(code, location\.origin, joinLink\(code\)\)/, 'online.js shares it');
+});
+
+test("the room's card page: the room's card on the site's image, one script on to the room, nothing of the address but the code", () => {
+  const page = roomPage('wgn-jkl');
+  const tag = (key) => { const m = page.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)">`, 'g')); assert.equal(m?.length, 1, key); return m[0].match(/content="([^"]*)"/)[1]; };
+  for (const k of ['og:title', 'twitter:title']) assert.equal(tag(k), 'Join my Ebbfall game: room WGN-JKL');
+  for (const k of ['og:description', 'twitter:description', 'description']) assert.equal(tag(k), 'Tap to join the room and play with me in your browser: free, nothing to install.');
+  assert.equal(tag('og:url'), 'https://ebbfall.com/r/WGNJKL');
+  // The site's card fields, as index.html says them.
+  for (const k of ['og:site_name', 'og:image', 'og:image:type', 'og:image:width', 'og:image:height', 'og:image:alt', 'twitter:card', 'twitter:image', 'twitter:image:alt']) assert.equal(tag(k), meta(k), k);
+  assert.deepEqual(Object.values(SITE_CARD), ['og:site_name', 'og:image', 'og:image:type', 'og:image:width', 'og:image:height', 'og:image:alt'].map(meta));
+  assert.equal(tag('robots'), 'noindex', 'not a page to index: the game is');
+  assert.ok(page.includes(`<script>${CARD_SCRIPT}</script>`));
+  assert.equal(page.match(/<script/g).length, 1);
+  assert.doesNotMatch(page, /wgn/, 'the code as the card writes it, not as the link did');
 });
 
 test("the room codes: one module makes, reads and shows them for the relay, the lobby and the cards", () => {
@@ -84,20 +80,6 @@ test("the room codes: one module makes, reads and shows them for the relay, the 
     assert.match(read(f), /from '\.\.\/(?:src\/)?net\/roomcode\.js'/, `${f} uses src/net/roomcode.js`);
     assert.doesNotMatch(read(f), /const ALPHABET = /, `${f} has no alphabet of its own`);
   }
-});
-
-test("a card's fields go to tags index.html has, one each", () => {
-  const card = preview(at('?room=WGNJKL'));
-  const e = edits(card);
-  assert.equal(e.length, Object.values(TAGS).flat().length);
-  for (const [sel, content] of e) {
-    const [, attr, key] = sel.match(/^meta\[(property|name)="([^"]+)"\]$/);
-    assert.ok(head.includes(`<meta ${attr}="${key}"`), sel);
-    meta(key);
-    assert.ok(Object.values(card).includes(content));
-  }
-  assert.deepEqual(edits(null), []);
-  assert.deepEqual(edits({ title: 'T' }).map(([s]) => s), TAGS.title);
 });
 
 test("index.html's head: title, description, canonical, Open Graph and X cards, the app's metas unchanged", () => {

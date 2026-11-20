@@ -704,7 +704,8 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       Build-list order, each building in its tier, its units in order, a "needs" tag only where the
                       building's chain does not imply it); the feedback page (the form as site/feedback.js checks it,
                       the honeypot, the details, SEND only with scripts, the fallback and the thank-you) and About's
-                      privacy line about it, checked against what the code sends
+                      privacy line about it, checked against what the code sends; docs.js run in node:vm: lock('any')
+                      only in display mode fullscreen (the installed app), again on a back-forward cache restore
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -800,7 +801,8 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
                       designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
-                      and one deferred script, docs.js (the tabs scrolled to the current one, the clip fetched once the
+                      and one deferred script, docs.js (in the installed app the docs turn with the phone, lock('any')
+                      over the manifest's landscape; the tabs scrolled to the current one, the clip fetched once the
                       page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
                       two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
                       other image lazy), sprites.mjs and crops.mjs (the sprite crops: the

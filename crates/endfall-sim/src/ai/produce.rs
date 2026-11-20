@@ -10,6 +10,8 @@ pub(crate) const SIEGE_SEEN: usize = 2;
 
 /// How recent an armed enemy at its buildings counts as a raid, in seconds (`World::raided`).
 pub(crate) const RAIDED_S: f64 = 5.0;
+/// The most armed units a raided seat may have for its holds to drop (`World::raided`).
+pub(crate) const RAIDED_ARMY: usize = 2;
 
 impl World {
     /// Production: the right unit from each building, rally points, nothing while saving.
@@ -45,7 +47,7 @@ impl World {
         // counts against a unit for the resources that unit spends.
         let capital_due = self.capital_due(e, &my_b, t);
         // (its tech building, a 300-gold bet since the arc: half its price held, so its line keeps training while it
-        // saves for it; UPDATE 7, `want_hold`; raided while behind, `raided`: nothing held back, its factories train
+        // saves for it; UPDATE 7, `want_hold`; raided with next to no army, `raided`: nothing held back, its factories train
         // what they can)
         let held = if raided {
             [0, 0]
@@ -411,15 +413,22 @@ impl World {
                 .map_or(0, |k| self.unit_cost(e, k)[0])
     }
 
-    /// Raided while behind: an armed enemy at its buildings within `RAIDED_S` seconds (`Ai::attacked_at`) and its army
-    /// worth less than the foe's army it last saw (`Ai::army_seen`). Then it holds nothing back for buildings, research
-    /// or dear units: its factories train what they can, its build order wants only supply (Nov 19: the Expedition's
-    /// tech plan, two Sellswords at home and its gold held for its Portal, lost its workers to four Sellswords at 4:00).
+    /// Raided with next to no army: an armed enemy at its buildings within `RAIDED_S` seconds (`Ai::attacked_at`) and
+    /// `RAIDED_ARMY` armed units of its own or fewer. Then it holds nothing back for buildings, research or dear units:
+    /// its factories train what they can, its build order wants only supply (Nov 19: the Expedition's tech plan, two
+    /// Sellswords at home and its gold held for its Portal, lost its workers to four Sellswords at 4:00). (Behind the
+    /// foe's army it saw, rather than next to none, it turtled in every even game: timeouts at Medium from 2 to 11 of
+    /// 120 on 96.)
     pub(crate) fn raided(&self, e: u8, t: f64) -> bool {
         let ai = self.ai();
         ai.attacked_at > 0.0
             && t - ai.attacked_at < RAIDED_S
-            && self.own_army_worth(e) < ai.army_seen.0
+            && self
+                .units
+                .iter()
+                .filter(|u| u.team == e && !u.kind.def().worker && u.kind.def().armed())
+                .count()
+                <= RAIDED_ARMY
     }
 
     /// The gold `e`'s factories hold back for its wave's leapfrog relay (`AiScript::relay`, the Uplink): its price, while

@@ -2692,8 +2692,9 @@ fn the_expedition_ai_counts_its_buggies_as_its_answer_to_flyers() {
 
 /// The Expedition AI on the sim's level 3 (its whole mix, from the start) at 6:40, its Lab, Factory, Recruiting post,
 /// Uplink and Portal set down for it, the Portal idle, `bank` gold, and `raiders` enemy Guards held (unkillable) by
-/// its Data center. Its orders over the next eight seconds: (a Sellsword queued, a Buggy queued, research started).
-fn holds_scene(bank: i32, raiders: usize) -> (bool, bool, bool) {
+/// its Data center, and `guards` Sellswords of its own beside them. Its orders over the next eight seconds: (a Sellsword
+/// queued, a Buggy queued, research started).
+fn holds_scene(bank: i32, raiders: usize, guards: usize) -> (bool, bool, bool) {
     let mut w = World::with_setup(5, 3, MapKind::Standard, false, [&HUMANS, &VAEL]);
     w.set_ai_seats([false, true]);
     past_first_turns(&mut w);
@@ -2717,6 +2718,15 @@ fn holds_scene(bank: i32, raiders: usize) -> (bool, bool, bool) {
         w.hold_unit(id);
         let u = w.units.iter_mut().find(|u| u.id == id).unwrap();
         (u.hp, u.maxhp) = (1e9, 1e9);
+    }
+    for k in 0..guards {
+        let id = w.make_unit(
+            UnitKind::Prism,
+            ENEMY,
+            (cx as f64 + 1.0 + k as f64) * TILE,
+            (cy as f64 - 3.0) * TILE,
+        );
+        w.hold_unit(id);
     }
     w.recalc_supply(ENEMY);
     w.time = 400.0; // (past its level's research time, Androids in its mix)
@@ -2742,11 +2752,11 @@ fn what_the_ai_holds_back_for_its_elite_holds_back_its_research_and_its_vehicle_
     // research and its vehicle bay do too: its Factory's Buggies and its Weapons spent the bank, and the Expedition's
     // tech plan never trained an Android. With 400 gold nothing is bought; with plenty, all of it.
     assert_eq!(
-        holds_scene(400, 0),
+        holds_scene(400, 0, 0),
         (false, false, false),
         "the bank is spoken for"
     );
-    let (sellsword, buggy, research) = holds_scene(5_000, 0);
+    let (sellsword, buggy, research) = holds_scene(5_000, 0, 0);
     assert!(
         sellsword && buggy && research,
         "a full bank buys everything"
@@ -2755,12 +2765,19 @@ fn what_the_ai_holds_back_for_its_elite_holds_back_its_research_and_its_vehicle_
 
 #[test]
 fn an_ai_raided_with_no_army_trains_with_nothing_held_back_and_researches_nothing() {
-    // Raided while behind (`World::raided`: an armed enemy at its buildings, its army worth less than the foe's it sees):
-    // since Nov 19 it holds nothing back. With 400 gold its Recruiting post trains a Sellsword at once, and its
-    // research waits (the Expedition's tech plan, two Sellswords at home, lost its workers to four at 4:00).
-    let (sellsword, _, research) = holds_scene(400, 3);
+    // Raided with next to no army (`World::raided`: an armed enemy at its buildings, two armed units of its own at
+    // most): since Nov 19 it holds nothing back. With 400 gold its Recruiting post trains a Sellsword at once, and its
+    // research waits (the Expedition's tech plan, two Sellswords at home, lost its workers to four at 4:00). With three
+    // of its own it holds its elite's price back as ever.
+    let (sellsword, _, research) = holds_scene(400, 3, 0);
     assert!(sellsword, "a Sellsword for the raid");
     assert!(!research, "no research while raided");
+    assert!(holds_scene(400, 3, 2).0, "two of its own: still raided");
+    assert_eq!(
+        holds_scene(400, 3, 3),
+        (false, false, false),
+        "three of its own: its holds"
+    );
 }
 
 #[test]

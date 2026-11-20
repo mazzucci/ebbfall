@@ -499,9 +499,12 @@ impl World {
         if self.ai().rally.is_none() {
             let pb = self.map.bases[self.foe() as usize];
             let ang = jsmath::atan2(pb.1 as f64 - cy, pb.0 as f64 - cx);
+            // (a towers-first plan's under its towers, `Diff::towers_first`: at nine tiles out its army stood past their
+            // reach, and the rush's Archers took it alone)
+            let out = if self.level().towers_first { 4.0 } else { 9.0 };
             let rally = Pt {
-                x: (cx + jsmath::cos(ang) * 9.0) * TILE,
-                y: (cy + jsmath::sin(ang) * 9.0) * TILE,
+                x: (cx + jsmath::cos(ang) * out) * TILE,
+                y: (cy + jsmath::sin(ang) * out) * TILE,
             };
             self.ai_mut().rally = Some(rally);
         }
@@ -570,7 +573,7 @@ pub(crate) struct Brain {
     /// Its answer to enemy flyers so far (`AiScript::answer_weight`: Archers, Ballistas worth two).
     anti_air: usize,
     saving: bool,
-    /// Raided while behind (`World::raided`): nothing held back, only supply built, no research.
+    /// Raided with next to no army (`World::raided`): nothing held back, only supply built, no research.
     raided: bool,
 }
 

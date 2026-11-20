@@ -39,7 +39,7 @@ impl World {
         let mut saving = false;
         // (what it holds back, for the building it wants next and for the units it saves for, holds research back too:
         // the Expedition's tech plan researched its weapons with an Android's price held from its army; none while
-        // raided behind, when it researches nothing, `raided`)
+        // raided with next to no army, when it researches nothing, `raided`)
         let held = {
             let w = self.want_hold(e, want);
             [w[0] + self.unit_holds(e, &my_b, t), w[1]]

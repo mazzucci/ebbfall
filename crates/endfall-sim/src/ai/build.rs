@@ -567,7 +567,7 @@ impl World {
         // Its army first (`Diff::army_first`): with less army than the foe's it last saw, nothing but supply until it
         // has caught up (Hard's Kingdom, its army beaten at home, spent its income on a fifth Barracks, a Workshop, the
         // Stables and a tower, and stood six minutes with no army while Medium's waves came).
-        // (and on every level while raided behind, `raided`: its factories train, nothing but supply is built)
+        // (and on every level while raided with next to no army, `raided`: its factories train, nothing but supply is built)
         let behind = raided
             || (d.army_first
                 && t >= d.stall_from

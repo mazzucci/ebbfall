@@ -584,6 +584,9 @@ test('a unit north of a tall building is drawn behind it, our own as a silhouett
     const s = await d.state(), at = (id) => s.units.find(u => u.id === id);
     assert.ok(at(behind).y < core.ty * T + core.h * T && at(front).y >= (core.ty + core.h) * T, `placed north and south: ${at(behind).y}, ${at(front).y}`);
     await d.centerOn(core.x, core.y); await d.skip(0.1);
+    // (a unit is in the draw order from the first frame drawn after it came: software WebGL may take longer over that
+    // frame than `skip` waits)
+    await d.page.waitForFunction((ids) => { const o = endfall.drawOrder(); return ids.every(id => o.some(x => x.id === id)); }, [behind, foe, front], { timeout: 15000 }).catch(() => {});
     const order = await d.eval(() => endfall.drawOrder()), of = (id) => order.find(o => o.id === id);
     const b = of(core.id), u = of(behind), e = of(foe), f = of(front);
     assert.ok(b && u && e && f && b.shown && u.shown && f.shown, `all drawn: ${JSON.stringify([b, u, e, f])}`);
@@ -4388,24 +4391,27 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centered line; no scrolling', async () => {
-  for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) {
-    const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage();
+test('phones: the first page\'s row and its footer line fit at 667x375, 844x390, 412x915 and 568x320, on a first visit (the big FIRST GAME over SINGLE PLAYER, MULTIPLAYER, OPTIONS, PLAY OFFLINE) and after a game started (FIRST GAME, OPTIONS, PLAY OFFLINE): centered lines, every word whole; no scrolling', async () => {
+  for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) for (const first of [true, false]) {
+    const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage(), what = `${w}x${h}, ${first ? 'a first visit' : 'a game started'}`;
     try {
+      if (!first) await ctx.addInitScript(() => localStorage.setItem('endfall.games', '1')); // (set-up: a game was started on this device)
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
       const got = await page.evaluate(() => {
-        const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(b => { const r = b.getBoundingClientRect(); return { t: b.textContent, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom }; });
+        const box = (b) => { const r = b.getBoundingClientRect(); return { t: b.innerText.replace(/\s*\n\s*/g, ' | '), l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom, whole: [b, ...b.querySelectorAll('span')].every(e => e.scrollWidth <= e.clientWidth + 1) }; };
+        const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(box), hero = [...document.querySelectorAll('#menuHero .ib')].filter(b => b.offsetParent).map(box);
         const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect();
-        return { bs, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom] };
+        return { bs, hero, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom] };
       });
-      assert.deepEqual(got.bs.map(b => b.t), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], `${w}x${h}`);
-      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h, `${w}x${h}: the footer line in view: ${got.links}`);
-      assert.ok(got.bs.every(b => b.l >= 0 && b.r <= w && b.b <= h), `${w}x${h}: every button in view: ${JSON.stringify(got.bs)}`);
-      assert.ok(got.sc[0] <= got.sc[1] + 1, `${w}x${h}: no scrolling: ${got.sc}`);
+      assert.deepEqual(got.bs.map(b => b.t), first ? ['SINGLE PLAYER', 'MULTIPLAYER', 'OPTIONS', 'PLAY OFFLINE'] : ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], what);
+      assert.deepEqual(got.hero.map(b => b.t), first ? ['NEW HERE? START WITH | YOUR FIRST GAME | Guided, on Easy, about fifteen minutes'] : [], what);
+      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h, `${what}: the footer line in view: ${got.links}`);
+      assert.ok([...got.bs, ...got.hero].every(b => b.l >= 0 && b.r <= w && b.b <= h && b.whole), `${what}: every button in view, its words whole: ${JSON.stringify([...got.bs, ...got.hero])}`);
+      assert.ok(got.sc[0] <= got.sc[1] + 1, `${what}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
-      assert.equal(lines.length, 1, `${w}x${h}: one line: ${lines}`);
-      for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${w}x${h}: the line at ${top} centered: ${l} | ${w - r}`); }
+      assert.equal(lines.length, first && h > w ? 2 : 1, `${what}: one line (upright, a first visit's four: two and two): ${lines}`);
+      for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${what}: the line at ${top} centered: ${l} | ${w - r}`); }
     } finally { await ctx.close(); }
   }
 });

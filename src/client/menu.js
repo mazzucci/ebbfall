@@ -1,6 +1,7 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
 // is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
-// once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device);
+// once installed; both: offline.js) and the record (and FIRST GAME, until a first game is over on this device: on a
+// first visit the one big button, the modes small beside OPTIONS: `layoutHome`);
 // the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
 // seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
@@ -89,9 +90,13 @@ function renderMaps() {
 // player removed, the AIs after it move up a spot each and the sides are numbered again without the gap (seats.js
 // `removeAt`). Everyone on one side: START GAME waits, and says why. More players than the map has starts: the
 // smallest map that seats them instead, in the list, with no note (a line that came and went moved START GAME).
-const defaultRows = () => { // (the menu before the board saved these; new players start on Easy)
-  const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k));
-  return legacyRows({ race: store.get('race'), enemy: store.get('enemy'), diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
+/** The board with none saved on this device: you against one AI on Easy, the AI the other people (the Kingdom against
+ *  the Expedition: a newcomer's first game shows both, not a mirror); or what the menu before the board saved (its own
+ *  keys: `race`, `enemy`, `diff`, `players`, `teams`). */
+const defaultRows = () => {
+  const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k)), race = store.get('race');
+  const other = RACES[race === RACES[1] ? 0 : 1];
+  return legacyRows({ race, enemy: store.get('enemy') ?? other, diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
 };
 let editing = -1, sheet = null, mapNote = '', noteTimer = 0; // (the seat whose sheet is open; the dialog it opens in; the map's note)
 function setBoard(board) {
@@ -99,7 +104,7 @@ function setBoard(board) {
   menu.board = board; menu.players = filled(board).length; store.set('seats', JSON.stringify(board));
   if (!fits(menu.map, menu.players)) { choose(fitMap(menu.map, menu.players)); mapNote = ''; clearTimeout(noteTimer); } // (the last map's line, if any, goes with it)
   renderMaps(); // (the list: which maps seat them)
-  renderSeats(); showFirstGame(); sfx('select');
+  renderSeats(); layoutHome(); sfx('select');
 }
 /** The footer's note: the map just picked's line (the Shore's), why START GAME waits, or the challenge it plays. */
 function renderNote() {
@@ -175,7 +180,7 @@ export function initMenu({ onStart }) {
   menu.board = validRows(saved, MAX_PLAYERS) || defaultRows(); menu.players = filled(menu.board).length;
   const last = store.get('map') === null ? -1 : +store.get('map');
   choose(fitMap(urlMap ?? (urlSeed !== null ? MAPS.findIndex(m => m.random) : offered(last) ? last : DEFAULT_MAP), menu.players));
-  takeChallenge(); renderMaps(); renderSeats(); showFirstGame();
+  takeChallenge(); renderMaps(); renderSeats(); layoutHome();
   $('btnFirstHome').addEventListener('click', () => { sfx('select'); enterFullscreen(); menu.tutorial = true; onStart(); });
   $('btnStart').addEventListener('click', () => { // each game draws our starting base (a random map, RANDOM races: one per seat)
     if (oneTeam(menu.board)) return;
@@ -244,7 +249,7 @@ export function setup() {
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
-export function showMenu(at = 'menuHome') { renderMaps(); renderSeats(); showFirstGame(); page(at); $('start').hidden = false; }
+export function showMenu(at = 'menuHome') { renderMaps(); renderSeats(); layoutHome(); page(at); $('start').hidden = false; }
 
 // The player's record on this device, per race and difficulty: [won, lost] (the race played: a Random one's draw).
 // Kept, not shown (owner, 2026-11-04: the first page shows the game, not a tally): FIRST GAME's rule reads it.
@@ -257,11 +262,29 @@ export function recordResult(win, race, diff) {
 }
 /** The guided first game was played to its end (FIRST GAME then leaves the first page). */
 export function guidedDone() { store.set('guided', '1'); }
-/** FIRST GAME on the first page for a newcomer: nobody has finished a game on this device yet (none on the record, no
- *  guided one). */
-function showFirstGame() {
-  const r = records();
-  $('btnFirstHome').hidden = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
+/** What this device has seen of the game: `finished`, a game played to its end (one on the record, or the guided one);
+ *  `first`, a first visit: none finished and none ever started here (endfall.games, counted at every start:
+ *  grouphint.js). The one place the first page's rule is decided. */
+export function visit() {
+  const r = records(), finished = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
+  return { finished, first: !finished && !(Number(store.get('games')) > 0) };
+}
+/** The first page's buttons for this device. A first visit: FIRST GAME, the guided game, is the one big button (its
+ *  three lines say what it is) and the two modes sit small in the row with OPTIONS and INSTALL. A game started, none
+ *  finished: the two modes big, FIRST GAME small in the row. A game finished: FIRST GAME gone. Each button is one
+ *  element, moved between the page's three rows (its id, its handler and whether it is hidden stay its own: MULTIPLAYER
+ *  shows where a relay is known, online.js). A link that opens another page (a room's lobby, a challenge's or a plan's
+ *  setup) lands there as ever: this is only the first page. */
+function layoutHome() {
+  const { finished, first } = visit();
+  const hero = $('menuHero'), modes = $('menuModes'), row = $('menuRow'), guided = $('btnFirstHome'), both = [$('btnSolo'), $('btnOnline')];
+  const put = (box, els, front) => { if (els.some(e => e.parentNode !== box)) box[front ? 'prepend' : 'append'](...els); };
+  $('menuHome').classList.toggle('first', first);
+  guided.hidden = finished;
+  for (const c of ['big', 'hero']) guided.classList.toggle(c, first);
+  for (const b of both) for (const c of ['big', 'mode']) b.classList.toggle(c, !first);
+  if (first) { put(hero, [guided]); put(row, both, true); } else { put(modes, both); put(row, [guided], true); }
+  hero.hidden = !first; modes.hidden = first;
 }
 
 /** The build stamp at the foot of the first page: the last game update (vite.config.js: the newest commit that changed

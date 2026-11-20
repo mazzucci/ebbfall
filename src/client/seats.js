@@ -116,25 +116,27 @@ export const seatColor = (seat) => '#' + SEAT_COLORS[seat % SEAT_COLORS.length].
 // ---- The board's pieces: a spot is a token (or an empty cell), a token opens one sheet. ----
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-/** A level as four pips, `d + 1` of them lit (a level at a glance; its name is in the sheet). */
-function levelPips(d) {
-  const p = el('span', 'lvl'); p.setAttribute('aria-hidden', 'true');
-  const at = LEVELS.indexOf(levelOf(d)); // (one pip a level offered)
+/** A level as pips, one a level offered, `d + 1` of them lit, and its name beside them (EASY, MEDIUM, HARD: the pips
+ *  alone said nothing to a newcomer). */
+function levelMark(d) {
+  const m = el('span', 'lv'), p = el('span', 'lvl'); m.setAttribute('aria-hidden', 'true'); // (the token's label says the level)
+  const at = LEVELS.indexOf(levelOf(d));
   for (let k = 0; k < LEVELS.length; k++) p.appendChild(el('i', k <= at ? 'on' : ''));
-  return p;
+  m.append(p, el('span', 'lw', DIFF_NAMES[levelOf(d)].toUpperCase()));
+  return m;
 }
 /** A seat's token from its view `{ name, race, diff (an AI's level, else null), side (its side's number from 0, null:
  *  none shown), sideColor, me, host, ready, away, open (an open seat), act (what tapping an open seat does), ro (shown,
  *  not changed), tip }`: a button the size of every spot, the seat's color as a band down its left edge; its name (a
  *  crown on the host's) and a faint pen (an open seat's `act`, SIT HERE, instead) on top; its race (`short`: HARB, VAEL,
- *  RND; AWAY, OPEN SEAT), the level as pips (or a READY check) and its side's tag (SIDE 2, or S2 where the token is
- *  narrow) below; `onOpen` when tapped; `k` its `data-k`. Its name for a screen reader starts with what it shows. */
+ *  RND; AWAY, OPEN SEAT), the level as pips and its name (or a READY check) and its side's tag (SIDE 2, or S2 where the
+ *  token is narrow) below; `onOpen` when tapped; `k` its `data-k`. Its name for a screen reader starts with what it shows. */
 export function tokenEl(view, color, { short = false, on = false, onOpen = null, k = '' } = {}) {
   const ro = view.ro || !onOpen, b = el('button', 'ib tok' + (view.me ? ' me' : '') + (on ? ' on' : '') + (ro ? ' ro' : '') + (view.open ? ' open' : ''));
   const band = el('i', 'band'); band.style.background = color;
   const name = el('b', '', view.name); if (view.host) name.append(el('span', 'crown', '♛'));
   const shown = view.open ? 'OPEN SEAT' : view.away ? 'AWAY' : (short ? RACE_SHORT : RACE_NAMES)[view.race];
-  const mark = view.diff != null ? levelPips(view.diff) : view.ready ? el('span', 'st ok', '✓') : el('span', 'st');
+  const mark = view.diff != null ? levelMark(view.diff) : view.ready ? el('span', 'st ok', '✓') : el('span', 'st');
   const tag = el('span', 'stag');
   if (view.side != null) { tag.append('S', el('span', 'w', 'IDE '), String(view.side + 1)); tag.style.setProperty('--c', view.sideColor || '#5b6b80'); }
   b.append(band, name, view.open && view.act ? el('span', 'act', view.act) : el('span', 'pen', '✎'), el('span', 'race' + (view.away ? ' away' : ''), shown), mark, tag);

@@ -171,7 +171,9 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.match(main, /<figure class="clip" id="trailer"><div class="vid">/, "the clip is the home's #trailer");
   assert.equal((page('docs/').match(/id="trailer"/g) || []).length, 1, 'one #trailer on the home');
   for (const path of ['docs/how-to-play/', 'docs/kingdom/', 'docs/expedition/', 'docs/about/']) assert.ok(!page(path).includes('id="trailer"'), `${path}: no #trailer`);
-  assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /<a id="linkTrailer" href="\.\/docs\/#trailer" target="_blank" rel="noopener">Watch the trailer<\/a>/, "the menu's link goes there, in a new tab");
+  // (hidden until the new trailer is live, Stelian, 2026-11-20: the clip is the one the menu's first page plays itself;
+  // the link stays in the page, one attribute from showing again)
+  assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /<a id="linkTrailer" href="\.\/docs\/#trailer" target="_blank" rel="noopener" hidden>Watch the trailer<\/a>/, "the menu's link goes there, in a new tab; hidden for now");
   // Its words: a title, a label that says what plays (the game named), the caption under it.
   assert.equal(shots.trailer.title, 'Ebbfall gameplay: Drones against a Watchtower');
   assert.ok(main.includes(`title="${shots.trailer.title}"`), 'the title');

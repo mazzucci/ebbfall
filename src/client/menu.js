@@ -172,7 +172,8 @@ export function drawPreview(cv, i, seed, kind) {
 
 export function initMenu({ onStart }) {
   // The first page's backdrop (the plain floor and the field) under the other menu pages too (owner, 2026-11-03).
-  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) $(id).appendChild($('menuHome').querySelector('.backdrop').cloneNode(true));
+  // (without the first page's own source, `low`: its band is lower than theirs, under the clip and the buttons)
+  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) { const copy = $('menuHome').querySelector('.backdrop').cloneNode(true); copy.querySelector('source.low')?.remove(); $(id).appendChild(copy); }
   // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
   // chosen, if it seats them; else the smallest offered that does; a hidden one, or none yet: the default; ?map=: that
   // one; ?seed=: a random one).
@@ -192,8 +193,9 @@ export function initMenu({ onStart }) {
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   // (Learn more: the docs home, from the first page's footer line, in a new tab: index.html #menuLinks; beside it,
-  // Watch the trailer, a plain link to the docs home's clip, `/docs/#trailer` (nothing of it loaded or played here),
-  // and Send feedback, and the help sheet's, to the docs' form with this copy's details: feedback.js)
+  // Send feedback, and the help sheet's, to the docs' form with this copy's details: feedback.js. Watch the trailer,
+  // a plain link to the docs home's `/docs/#trailer`, is in the line but hidden until the new trailer is live: the
+  // docs home's clip is the one the first page now plays itself, menuclip.js)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   showStamp(build);
   initFeedbackLinks(build);

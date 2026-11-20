@@ -3,11 +3,12 @@
 // button; the pause card's HOW TO PLAY), and every docs page with JavaScript off, listing every unit and building from
 // the data, at phone width without a sideways scroll, its tabs (Home first) and buttons a finger's size, its bar slim
 // in landscape; How to play's controls tables: a gesture's loop on demand through its row's ? (nothing of it fetched before
-// the tap, one open at a time, the ? again closes it).
+// the tap, one open at a time, the ? again closes it); the docs' videos playing on past their loop, with the byte ranges
+// the site's Worker serves (WebKit refuses a whole file for one).
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, newGame, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, newGame, browserContext, baseUrl, notIn, site, ENGINE, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -301,5 +302,42 @@ test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledge
         assert.ok((await page.locator('.top').boundingBox()).height <= (size.width > size.height ? 49 : 97), `${path} at ${size.width}x${size.height}: the bar no taller than before`);
       }
     }
+  } finally { await ctx.close(); }
+});
+
+// Safari plays a video only from a server that answers its byte ranges with 206: Cloudflare's assets answer every
+// range with the whole file, 200, so the site's Worker serves the docs' videos (site/media.js, wrangler.toml
+// run_worker_first), as this server does. WebKit checks it: its first request for a video has no range, but at the
+// loop's end it asks again for the rest from the first frame (bytes=1761-), and a whole 200 there stops the video
+// ("Received unexpected 200 HTTP status code for range request"): so each video is sent near its end, and must play
+// on past the loop. (A gesture's loop, three seconds, plays in WebKit but never past its end on Linux: GStreamer seeks
+// back to its start for good, from any server that serves ranges, Vite's too; Chromium checks it.) Firefox:
+// Playwright's build plays no H.264.
+test('the docs\' videos play on past their loop, served with byte ranges by the Worker: the home\'s trailer, How to play\'s loop and a row\'s ? loop', { engines: true, skip: notIn(['firefox'], 'its build has no H.264 decoder') }, async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  site.worker.length = 0;
+  /** `sel`'s video playing, then (`wrap`) sent half a second before its end: it must loop and play on, with no error. */
+  const loops = async (sel, wrap = true) => {
+    await page.waitForFunction((s) => { const v = document.querySelector(s); return v && !v.paused && v.currentTime > 0.3; }, sel, { timeout: 20000 });
+    if (!wrap) return assert.equal(await page.evaluate((s) => document.querySelector(s).error, sel), null, `${sel}: no error`);
+    await page.evaluate((s) => { const v = document.querySelector(s); v.dataset.wrapped = ''; v.addEventListener('timeupdate', function on() { if (v.currentTime < 1) { v.dataset.wrapped = '1'; v.removeEventListener('timeupdate', on); } }); v.currentTime = v.duration - 0.5; }, sel);
+    await page.waitForFunction((s) => { const v = document.querySelector(s); if (v.error) throw new Error(v.error.message); return v.dataset.wrapped && !v.paused && v.currentTime > 0.5; }, sel, { timeout: 20000 });
+    assert.equal(await page.evaluate((s) => document.querySelector(s).error, sel), null, `${sel}: no error`);
+  };
+  try {
+    await page.goto(`${baseUrl()}docs/`, { waitUntil: 'load' });
+    await page.locator('figure.clip video').scrollIntoViewIfNeeded();
+    await loops('figure.clip video');
+    await page.goto(`${baseUrl()}docs/how-to-play/`, { waitUntil: 'load' });
+    await page.locator('figure.clip video').first().scrollIntoViewIfNeeded();
+    await loops('figure.clip video');
+    const see = page.locator('button.see').first();
+    await see.scrollIntoViewIfNeeded();
+    await see.click();
+    const box = `#${await see.getAttribute('aria-controls')} video`;
+    await loops(box, ENGINE !== 'webkit');
+    const src = await page.locator(box).getAttribute('src');
+    for (const p of ['/docs/media/trailer.mp4', '/docs/media/controls/controls-loop.mp4', src]) assert.ok(site.worker.includes(`GET ${p}`), `${p}: the Worker's (${site.worker})`);
+    assert.ok(!site.worker.some(r => r.endsWith('.webp')), 'the posters the assets\'');
   } finally { await ctx.close(); }
 });

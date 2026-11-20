@@ -21,7 +21,7 @@ preview_urls = false
 [assets]
 directory = "../dist"
 binding = "ASSETS"
-# Every file is served by Cloudflare directly, with dist/_headers (cache and security headers, build.mjs), and costs no
+# Every file (but the docs' videos: run_worker_first below) is served by Cloudflare directly, with dist/_headers (cache and security headers, build.mjs), and costs no
 # Worker request: the game's page, the docs, single player. So a tripped Workers spending limit (error 1103 for every
 # Worker request) leaves them up; it takes only what the Worker answers (worker.js: a room's card address /r/CODE, a
 # challenge's /vs/CODE, the feedback form's POST /api/feedback, the CSP's reports, www and http sent on, not found) and
@@ -31,8 +31,12 @@ binding = "ASSETS"
 # service worker stores a page fetched through such a redirect as a response of its own, at both addresses
 # (tools/offline/sw.js), as a redirected response could not answer a page load.
 html_handling = "auto-trailing-slash"
-# What is not a file goes to the Worker (no run_worker_first: it never runs before a file).
+# What is not a file goes to the Worker.
 not_found_handling = "none"
+# The one kind of file the Worker answers: the docs' videos, with byte ranges (206), which the assets do not serve and
+# Safari needs to play a video (worker.js, media.js); their posters (.webp beside them) stay the assets'. A tripped limit
+# leaves the videos their posters. (`*` matches any run of characters, slashes too: Cloudflare's router.)
+run_worker_first = ["/docs/media/*.mp4"]
 
 [build]
 command = "node build.mjs" # (writes dist/_headers from cache.js, and the analytics beacon into index.html with CF_ANALYTICS_TOKEN)

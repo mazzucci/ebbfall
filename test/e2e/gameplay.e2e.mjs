@@ -895,7 +895,7 @@ test('one menu for everyone: SINGLE PLAYER and MULTIPLAYER big, TUTORIAL small b
     const box = (sel) => page.locator(sel).boundingBox();
     /** The first page as a player reads it: its big buttons, its small ones, its footer's links (innerText: what shows). */
     const rows = () => page.evaluate(() => ['#menuHome .modes > button', '#menuHome .row > button', '#menuLinks > a'].map(sel => [...document.querySelectorAll(sel)].filter(b => b.offsetParent).map(b => b.innerText)));
-    const MENU = [['SINGLE PLAYER', 'MULTIPLAYER'], ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], ['Learn more', 'Watch the trailer', 'Send feedback']];
+    const MENU = [['SINGLE PLAYER', 'MULTIPLAYER'], ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], ['Learn more', 'Send feedback']]; // (Watch the trailer: hidden until the new trailer, docs.e2e.mjs)
     /** The page laid out: the two modes big and amber on one line, the small row under them, everything on screen. */
     const laidOut = async (when) => {
       assert.deepEqual(await rows(), MENU, `${what}, ${when}`);
@@ -904,7 +904,7 @@ test('one menu for everyone: SINGLE PLAYER and MULTIPLAYER big, TUTORIAL small b
         `${what}, ${when}: the modes big, TUTORIAL a small button like OPTIONS under them: ${JSON.stringify([solo, online, tutorial, options])}`);
       assert.deepEqual(await page.evaluate(() => ['btnSolo', 'btnOnline', 'btnTutorial', 'btnOptions'].map(id => getComputedStyle(document.getElementById(id)).backgroundColor)),
         ['rgb(245, 165, 36)', 'rgb(245, 165, 36)', 'rgb(24, 35, 51)', 'rgb(24, 35, 51)'], `${what}, ${when}: the modes amber, TUTORIAL quiet`);
-      for (const sel of ['#btnTutorial', '#btnSolo', '#btnOnline', '#btnOptions', '#btnInstall', '#linkDocs', '#linkTrailer', '#linkFeedback']) {
+      for (const sel of ['#btnTutorial', '#btnSolo', '#btnOnline', '#btnOptions', '#btnInstall', '#linkDocs', '#linkFeedback']) {
         const b = await box(sel); assert.ok(b && b.x >= 0 && b.y >= 0 && b.x + b.width <= v.width + 0.5 && b.y + b.height <= v.height + 0.5, `${what}, ${when}: ${sel} on screen: ${JSON.stringify(b)}`);
       }
       assert.ok(await page.locator('#start .card.menu').evaluate(c => c.scrollHeight <= c.clientHeight + 1), `${what}, ${when}: the page does not scroll`);
@@ -4444,7 +4444,7 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row (TUTORIAL, OPTIONS, PLAY OFFLINE) and its footer line (Learn more, Watch the trailer, Send feedback, the stamp) fit at 667x375, 844x390, 412x915 and 568x320, on a first visit and after a game: centered lines, every word whole; no scrolling', async () => {
+test('phones: the first page\'s row (TUTORIAL, OPTIONS, PLAY OFFLINE) and its footer line (Learn more, Send feedback, the stamp) fit at 667x375, 844x390, 412x915 and 568x320, on a first visit and after a game: one line each, every word whole, the row centered upright and under the two modes on a phone on its side (beside the clip); no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) for (const first of [true, false]) {
     const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage(), what = `${w}x${h}, ${first ? 'a first visit' : 'games played'}`;
     try {
@@ -4454,18 +4454,22 @@ test('phones: the first page\'s row (TUTORIAL, OPTIONS, PLAY OFFLINE) and its fo
       const got = await page.evaluate(() => {
         const box = (b) => { const r = b.getBoundingClientRect(); return { t: b.innerText, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom, whole: b.scrollWidth <= b.clientWidth + 1 }; };
         const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(box), as = [...document.querySelectorAll('#menuLinks a')].map(box);
-        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect(), stamp = document.getElementById('buildStamp').getBoundingClientRect();
-        return { bs, as, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom], stamp: [stamp.left, stamp.right, stamp.bottom] };
+        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect(), stamp = document.getElementById('buildStamp').getBoundingClientRect(), solo = document.getElementById('btnSolo').getBoundingClientRect();
+        return { bs, as: as.filter(a => a.r > a.l), sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom], stamp: [stamp.left, stamp.right, stamp.bottom], solo: [solo.left, solo.right] }; // (as: the links that show)
       });
       assert.deepEqual(got.bs.map(b => b.t), ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], what);
-      assert.deepEqual(got.as.map(b => b.t), ['Learn more', 'Watch the trailer', 'Send feedback'], what);
+      assert.deepEqual(got.as.map(b => b.t), ['Learn more', 'Send feedback'], what);
       assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h && got.stamp[0] >= 0 && got.stamp[1] <= w && got.stamp[2] <= h, `${what}: the footer line and the stamp in view: ${got.links} | ${got.stamp}`);
       assert.ok([...got.bs, ...got.as].every(b => b.l >= 0 && b.r <= w && b.b <= h && b.whole), `${what}: every button and link in view, its words whole: ${JSON.stringify([...got.bs, ...got.as])}`);
-      assert.equal(new Set(got.as.map(a => a.top)).size, 1, `${what}: the three links on one line: ${JSON.stringify(got.as)}`);
+      assert.equal(new Set(got.as.map(a => a.top)).size, 1, `${what}: the links on one line: ${JSON.stringify(got.as)}`);
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${what}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
       assert.equal(lines.length, 1, `${what}: one line: ${lines}`);
-      for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${what}: the line at ${top} centered: ${l} | ${w - r}`); }
+      for (const top of lines) {
+        const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r));
+        if (w > h) assert.ok(Math.abs(l - got.solo[0]) <= 1 && Math.abs(r - got.solo[1]) <= 1, `${what}: the line at ${top} under the two modes, as wide as they are: ${l}-${r} | ${got.solo}`);
+        else assert.ok(Math.abs(l - (w - r)) <= 2, `${what}: the line at ${top} centered: ${l} | ${w - r}`);
+      }
     } finally { await ctx.close(); }
   }
 });

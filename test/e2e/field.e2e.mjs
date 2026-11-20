@@ -1,8 +1,9 @@
 // The field under the menu's first page (index.html's <picture class="scene"> in the backdrop, public/menu/,
-// tools/menu-art.mjs): the right image per size class, under the premise line, the buttons where they are without it,
-// the plain dark floor when the image never comes, no tide line and no drift anywhere on the menu, the band under the
-// other menu pages too, no band at all on a screen too short for one, and in every engine the band fading into the floor
-// (an opaque image: Safari drew the old alpha fade as opaque).
+// tools/menu-art.mjs): the right image per size class, under the buttons (what the clip and the buttons leave of the
+// screen: a low band on most desktops, none where there is no room, as on a phone on its side), the buttons where they
+// are without it, the plain dark floor when the image never comes, no tide line and no drift anywhere on the menu, the
+// band under the other menu pages too (theirs as tall as ever), and in every engine the band fading into the floor (an
+// opaque image: Safari drew the old alpha fade as opaque).
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,18 +12,25 @@ import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './ha
 before(start);
 after(stop);
 
-/** The size classes and the image each picks (index.html's sources, in their order: upright, a short landscape, 21:9). */
+/** The size classes and the image each picks on the first page (index.html's sources, in their order: upright, the
+ *  first page's low band on a desktop, a short landscape, 21:9), or none: no band (style.css: no room under the footer
+ *  line for one worth showing). */
 const SIZES = [
-  ['desktop', { viewport: { width: 1440, height: 900 } }, 'menu-desktop.webp'],
-  ['small desktop', DESKTOP, 'menu-desktop.webp'],
-  ['21:9 desktop', { viewport: { width: 2560, height: 1080 } }, 'menu-wide.webp'],
-  ['landscape phone', PHONE, 'menu-landscape.webp'],
+  ['desktop', { viewport: { width: 1440, height: 900 } }, 'menu-landscape.webp'],
+  ['full HD desktop', { viewport: { width: 1920, height: 1080 } }, 'menu-landscape.webp'],
+  ['big desktop', { viewport: { width: 2560, height: 1440 } }, 'menu-desktop.webp'],
+  ['21:9 desktop', { viewport: { width: 3440, height: 1440 } }, 'menu-wide.webp'],
   ['upright phone', { ...PHONE, viewport: { width: 390, height: 844 } }, 'menu-portrait.webp'],
+  ['upright tablet', { viewport: { width: 820, height: 1180 }, hasTouch: true }, 'menu-portrait.webp'],
+  ['small desktop', DESKTOP, null],
+  ['tablet on its side', { viewport: { width: 1180, height: 820 }, hasTouch: true }, null],
+  ['landscape phone', PHONE, null],
+  ['small upright phone', { ...PHONE, viewport: { width: 360, height: 640 } }, null],
 ];
 
 async function open(device, { block = false, reduced = false } = {}) {
   const ctx = await browserContext({ ...device, reducedMotion: reduced ? 'reduce' : 'no-preference' });
-  if (block) await ctx.route('**/menu/*.webp', (route) => route.abort()); // (the image never comes: a slow network, a blocker)
+  if (block) await ctx.route('**/menu/menu-*.webp', (route) => route.abort()); // (the image never comes: a slow network, a blocker; the clip's poster is menuclip.e2e.mjs's)
   const page = await ctx.newPage(), errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
@@ -37,19 +45,27 @@ const FLOOR = 'rgb(18, 26, 37)';
 const field = (page, at = '#menuHome') => page.evaluate((at) => {
   const p = document.querySelector(`${at} .scene`), i = p.querySelector('img'), cs = getComputedStyle(p), r = p.getBoundingClientRect(), bd = getComputedStyle(document.querySelector(`${at} .backdrop`));
   return { src: i.currentSrc.split('/').pop(), loaded: i.complete && i.naturalWidth > 0, shown: cs.display !== 'none', top: r.top, bottom: r.bottom, left: r.left, animation: cs.animationName,
-    svgs: document.querySelectorAll(`${at} .backdrop svg`).length, floor: [bd.backgroundColor, bd.backgroundImage], anims: document.getAnimations().length };
+    height: r.height, svgs: document.querySelectorAll(`${at} .backdrop svg`).length, floor: [bd.backgroundColor, bd.backgroundImage], anims: document.getAnimations().filter((a) => a.effect?.target?.closest?.('.backdrop')).length }; // (anims: of the backdrop; the clip over it fades in, menuclip.e2e.mjs)
 }, at);
 
 for (const [label, device, file] of SIZES) {
-  test(`the field on a ${label}: ${file}, under the premise line, the buttons unmoved, the floor without it`, async () => {
+  test(`the field on a ${label}: ${file ? `${file}, under the buttons, its faded top under the footer line` : 'none (no room under the footer line)'}, the buttons unmoved, the floor without it`, async () => {
     const a = await open(device);
-    const f = await field(a.page), play = await rect(a.page, '#btnSolo'), tag = await rect(a.page, '#menuTag');
+    const f = await field(a.page), play = await rect(a.page, '#btnSolo'), row = await rect(a.page, '#btnOptions'), foot = await rect(a.page, '#menuFoot');
+    if (!file) {
+      assert.ok(!f.shown, 'no band');
+      assert.deepEqual(f.floor, [FLOOR, 'none'], 'the plain dark floor');
+      assert.deepEqual(a.errors, []);
+      return a.ctx.close();
+    }
     assert.equal(f.src, file);
     assert.ok(f.loaded && f.shown, 'the image came and is shown');
-    assert.ok(f.top >= tag[1] + tag[3], `the band's top (${f.top}) under the premise line (${tag[1] + tag[3]})`);
+    assert.ok(f.top >= row[1] + row[3], `the band's top (${f.top}) under the buttons (${row[1] + row[3]})`);
+    assert.ok(f.top >= foot[1] + foot[3] - 40, `no more than its faded top under the footer line (${f.top} | ${foot[1] + foot[3]})`);
+    assert.ok(f.height >= 160, `a band worth showing: ${f.height} px`);
     assert.equal(f.svgs, 0, 'no tide line, no stones');
     assert.equal(f.animation, 'none', 'the band stands still');
-    assert.equal(f.anims, 0, 'nothing on the first page animates');
+    assert.equal(f.anims, 0, 'nothing of the backdrop animates');
     assert.deepEqual(f.floor, [FLOOR, 'none'], 'a plain dark floor');
     // Without the band (a thing of the backdrop, under the page): the buttons do not move, the floor shows.
     const bare = await a.page.evaluate(() => { document.querySelector('#menuHome .scene').remove(); const r = document.getElementById('btnSolo').getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); });
@@ -84,7 +100,7 @@ async function fade(page) {
 
 // Safari on iPad and iPhone drew the images' old alpha fade as opaque: a hard-edged band (test/menu-art.test.js keeps
 // the files opaque). Here, in every engine, the band as shown: its top row is the floor, its lower part is the field.
-for (const [label, device] of [['iPad, landscape', { viewport: { width: 1180, height: 820 }, hasTouch: true }], ['iPad, upright', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['upright phone', { ...PHONE, viewport: { width: 390, height: 844 } }]]) {
+for (const [label, device] of [['desktop (its low band)', { viewport: { width: 1440, height: 900 } }], ['iPad, upright', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['upright phone', { ...PHONE, viewport: { width: 390, height: 844 } }]]) {
   test(`the field on an ${label} fades into the floor: its top row is the floor's color, an opaque image, the field below`, { engines: true }, async () => {
     const { ctx, page, errors } = await open(device);
     const f = await fade(page);
@@ -105,6 +121,7 @@ test('the band under the other menu pages too: Single player and Multiplayer, at
     const f = await field(page, at);
     assert.ok(f.shown && f.loaded, `${at}: the band is shown`);
     assert.deepEqual([Math.round(f.left), Math.round(f.bottom)], [-20, 908], `${at}: the band at the foot of the screen`);
+    assert.deepEqual([f.src, Math.round(f.height)], ['menu-desktop.webp', 360], `${at}: its own band, 40% of the screen and the desktop's image (the first page's low one is the first page's alone)`);
     assert.equal(f.svgs, 0, `${at}: no tide line, no stones`);
     assert.deepEqual(f.floor, [FLOOR, 'none'], `${at}: the plain dark floor`);
   }

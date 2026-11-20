@@ -30,7 +30,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.match(await a.getAttribute('rel'), /noopener/);
       const b = await a.boundingBox();
       assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `Learn more on screen: ${JSON.stringify(b)}`);
-      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Watch the trailer', 'Send feedback'], 'Learn more, the trailer (below), and a quiet last link (test/e2e/feedback.e2e.mjs)');
+      assert.deepEqual(await page.locator('#menuLinks a:visible').allTextContents(), ['Learn more', 'Send feedback'], 'Learn more and a quiet last link (test/e2e/feedback.e2e.mjs); Watch the trailer is hidden for now (below)');
       // Under the row of buttons, above the build stamp.
       const [row, links, stamp] = await Promise.all(['#btnOptions', '#menuLinks', '#buildStamp'].map(s => page.locator(s).boundingBox()));
       assert.ok(links.y >= row.y + row.height - 1 && (stamp.y >= links.y + links.height - 1 || (stamp.x >= links.x + links.width - 1 && Math.abs(stamp.y + stamp.height / 2 - links.y - links.height / 2) < 4)), 'under the buttons, the stamp after it (beside it on a short phone on its side)');
@@ -46,36 +46,40 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
   });
 }
 
+// Watch the trailer is hidden until the new trailer is live (Stelian, 2026-11-20): the docs home's clip, where it
+// leads, is the one the first page now plays itself (menuclip.e2e.mjs). The link stays in the page, one attribute from
+// showing: to turn it back on, take `hidden` off #linkTrailer in index.html, put 'Watch the trailer' back in the lists of
+// links here and in gameplay.e2e.mjs, and make this test's first half the old one again (shown, between Learn more and
+// Send feedback, on their line, a finger's size, opening the docs home at #trailer in a new tab). The footer's
+// three-link rules (style.css) apply by themselves once it shows.
 for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', PORTRAIT]]) {
-  test(`the first page on ${name}: Watch the trailer in its footer line, a plain link (no video on the menu, nothing of it fetched there) that opens the docs home at its clip in a new tab`, { engines: true }, async () => {
+  test(`the first page on ${name}: Watch the trailer is in its footer line but hidden, taking no room (two links, on one line); where it leads is still there, the docs home's clip under the bar`, { engines: true }, async () => {
     const ctx = await browserContext(device), page = await ctx.newPage();
-    const media = []; ctx.on('request', r => { if (/^\/docs\/|\.(mp4|webm)$/.test(new URL(r.url()).pathname)) media.push(new URL(r.url()).pathname); });
+    const docs = []; ctx.on('request', r => { const p = new URL(r.url()).pathname; if (/^\/docs\//.test(p) && p !== '/docs/media/trailer.mp4') docs.push(p); });
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
       const a = page.locator('#linkTrailer');
-      assert.ok(await a.isVisible(), 'Watch the trailer shown');
+      assert.equal(await a.count(), 1, 'in the page');
+      assert.ok(!(await a.isVisible()) && await a.evaluate(e => e.hidden && e.getBoundingClientRect().width === 0), 'hidden: no box');
       assert.equal(await a.textContent(), 'Watch the trailer');
       assert.equal(await a.getAttribute('href'), './docs/#trailer', "the docs home's clip");
       assert.equal(await a.getAttribute('target'), '_blank', 'a new tab: the game stays');
       assert.match(await a.getAttribute('rel'), /noopener/);
-      const b = await a.boundingBox(), docs = await page.locator('#linkDocs').boundingBox(), fb = await page.locator('#linkFeedback').boundingBox();
-      assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `on screen: ${JSON.stringify(b)}`);
-      assert.ok(Math.abs(b.y - docs.y) < 1 && Math.abs(b.y - fb.y) < 1 && b.x >= docs.x + docs.width - 1 && fb.x >= b.x + b.width - 1 && b.height >= 32 && b.width >= 48, `between Learn more and Send feedback, on their line, a finger's size: ${JSON.stringify([docs, b, fb])}`);
-      // Small and quiet as its neighbors: the same type and color.
-      assert.deepEqual(await a.evaluate(e => [getComputedStyle(e).fontSize, getComputedStyle(e).color]), await page.locator('#linkDocs').evaluate(e => [getComputedStyle(e).fontSize, getComputedStyle(e).color]), 'styled as Learn more');
-      // The menu itself has no video and has asked for nothing of the docs or the clip.
-      assert.equal(await page.locator('#start video, #start iframe').count(), 0, 'no video on the menu');
-      assert.deepEqual(media, [], 'the menu fetched nothing of the docs or the clip');
-      // The link: the docs home in a new tab, at the clip (its figure at the top of the view, under the bar).
-      const [popup] = await Promise.all([ctx.waitForEvent('page'), device.hasTouch ? a.tap() : a.click()]);
-      await popup.waitForLoadState();
-      assert.match(popup.url(), /\/docs\/#trailer$/);
-      const clip = popup.locator('figure.clip#trailer');
+      // The two links that show: on one line, each a finger's size, on screen.
+      const [l, fb] = [await page.locator('#linkDocs').boundingBox(), await page.locator('#linkFeedback').boundingBox()];
+      assert.ok(Math.abs(l.y - fb.y) < 1 && fb.x >= l.x + l.width - 1 && fb.x - (l.x + l.width) < 24, `Learn more and Send feedback side by side, no gap where the third was: ${JSON.stringify([l, fb])}`);
+      for (const b of [l, fb]) assert.ok(b.height >= 32 && b.width >= 48 && b.x >= 0 && b.x + b.width <= device.viewport.width && b.y + b.height <= device.viewport.height, `a finger's size, on screen: ${JSON.stringify(b)}`);
+      // The menu has asked for nothing of the docs but the clip it plays itself (menuclip.js: /docs/media/trailer.mp4).
+      assert.equal(await page.locator('#start iframe').count(), 0);
+      assert.deepEqual(docs, [], 'the menu fetched no docs page, style or picture');
+      // Where the link leads: the docs home at its clip (its figure at the top of the view, under the bar).
+      const home = await ctx.newPage();
+      await home.goto(`${baseUrl()}docs/#trailer`, { waitUntil: 'load' });
+      const clip = home.locator('figure.clip#trailer');
       assert.equal(await clip.count(), 1, "the home's clip is the link's target");
       assert.equal(await clip.locator('video').getAttribute('src'), '/docs/media/trailer.mp4');
-      await popup.waitForFunction(() => { const r = document.getElementById('trailer').getBoundingClientRect(), bar = document.querySelector('.top').getBoundingClientRect(); return r.top >= bar.bottom - 1 && r.top < innerHeight * 0.6; }, null, { timeout: 10000 });
-      assert.ok(await page.locator('#menuHome').isVisible(), 'the game stays where it was');
+      await home.waitForFunction(() => { const r = document.getElementById('trailer').getBoundingClientRect(), bar = document.querySelector('.top').getBoundingClientRect(); return r.top >= bar.bottom - 1 && r.top < innerHeight * 0.6; }, null, { timeout: 10000 });
     } finally { await ctx.close(); }
   });
 }

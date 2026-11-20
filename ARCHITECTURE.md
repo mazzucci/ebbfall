@@ -132,7 +132,8 @@ index.html            page shell: top bar, canvas stage, HUD (minimap, selection
 src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
-                      (an update reloads the menu at once, into the room or the challenge it was on)
+                      (an update reloads the menu at once, into the room or the challenge it was on); the first page's
+                      clip is told when the game is in (menuclip.js)
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens (the end card's line says what ended the game from the sim's `G.outWhy`: a side's last
                       building fell, it had nothing left to fight with and no gold to train more, or it conceded), events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
@@ -385,9 +386,11 @@ src/client/           everything that touches the browser
                       build and the last game update's commit) and `touch`, in a new tab
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page, one for everyone (SINGLE PLAYER and MULTIPLAYER big; TUTORIAL, the
-                      guided game, OPTIONS and INSTALL small under them; the record of games is kept but not shown;
-                      a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Watch
-                      the trailer (the docs home's clip, `/docs/#trailer`, in a new tab), Send feedback; the build stamp at
+                      guided game, OPTIONS and INSTALL small under them;
+                      the gameplay clip above them, menuclip.js; the record of games is kept but not shown;
+                      a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Send
+                      feedback (Watch the trailer, to the docs home's `/docs/#trailer`, is in the line but hidden until
+                      the new trailer is live: index.html, one attribute); the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
                       vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
                       from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
@@ -517,6 +520,13 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
+  menuclip.js         the gameplay clip on the menu's first page (index.html #menuClip: the docs home's clip, framed above
+                      the buttons, beside them on a phone on its side; style.css): the page holds its poster only (the
+                      game's own copy, public/menu/clip-*.webp), the video is made once the game has loaded (boot.js's
+                      `loading`: the sim and the renderer's art) and the page has, in an idle moment; muted, looped,
+                      faded in over the poster; never under reduced motion, Save-Data or 2g; paused off the first
+                      page, let go of when a game starts; the poster alone if it cannot play or never comes (offline:
+                      the clip is the docs', web-only)
   memory.js           enemy buildings as this side last saw them: in fog the field, the minimap and picking show the
                       remembered copy (a building never seen is not shown), forgotten when its ground is seen without it
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
@@ -589,7 +599,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       "Couldn't send" and its mailto link, a long text cut; JavaScript off: no SEND, a line to write;
                       the menu's and the help sheet's links with their details),
                       docs.e2e.mjs (the first page's footer line: Learn more, the docs home in a new tab, the old buttons
-                      gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
+                      gone; Watch the trailer in the line but hidden, where it leads still there, and how to turn it
+                      back on; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
                       listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the
                       Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page; How to play's
@@ -597,9 +608,16 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       the tap, another row's ? closes the first, the ? again closes it; under reduced motion the
                       poster with controls instead; the ? hidden with JavaScript off; the docs' videos playing on past
                       their loop's end, where WebKit asks for a byte range, the Worker's 206),
-                      field.e2e.mjs (the field under the first page: the right image per size class, under the premise
-                      line, the buttons unmoved, the plain floor when the image does not come, no tide line and no
-                      drift, the band under the other menu pages too, no band on a screen too short),
+                      field.e2e.mjs (the field under the first page: the right image per size class, under the buttons
+                      (what the clip and they leave: a low band on most desktops, none where there is no room), the
+                      buttons unmoved, the plain floor when the image does not come, no tide line and no drift, the
+                      band under the other menu pages too, as tall as ever, no band on a screen too short),
+                      menuclip.e2e.mjs (the first page's clip: beside the buttons on a phone on its side, both big
+                      buttons whole on screen and nothing scrolling at 844x390, 667x375, 568x320 and 844x340; framed
+                      above them upright and on a desktop; the video made only once the game and its art are in and
+                      the page has loaded, muted, looped, from the Worker's byte ranges; paused off the first page, let
+                      go of when a game starts, made again after; none, and no request, under reduced motion and
+                      Save-Data; the poster alone when the clip never comes, no frame without the poster),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
@@ -632,6 +650,10 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a quiet room closed by the relay: the lobby Net shows why and does not reconnect
 test/menu-art.test.js the menu's field images (public/menu/) have no alpha channel: their fade is baked into the floor's
                       color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
+test/menu-clip.test.js the first page's clip: its posters (public/menu/clip-*.webp) the docs' poster byte for byte and a
+                      1280 px one, the clip's shape, opaque, in the offline cache; the page holds the poster alone (no
+                      video, no mp4), with the clip's words; the clip is the docs' file, web-only; Watch the trailer in
+                      the footer line but hidden, the three-link rules waiting for it
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -880,13 +902,17 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
+tools/menu-clip.mjs   public/menu/clip-<720|1280>.webp, the poster of the clip on the menu's first page: the game's own
+                      copies of the docs' poster (the docs are web-only: an installed copy offline would show an empty
+                      frame), the 720 px one byte for byte, the 1280 px one scaled from the docs' 2000 px one in headless
+                      Chromium; output committed (tools/docs/shots.mjs's clip step runs it; test/menu-clip.test.js)
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
                       battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
                       through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
                       from public/art, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
                       decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
                       and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
-public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field); og.png, robots.txt and sitemap.xml are for
+public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its clip's poster); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

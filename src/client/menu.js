@@ -172,8 +172,12 @@ export function drawPreview(cv, i, seed, kind) {
 
 export function initMenu({ onStart }) {
   // The first page's backdrop (the plain floor and the field) under the other menu pages too (owner, 2026-11-03).
-  // (without the first page's own source, `low`: its band is lower than theirs, under the clip and the buttons)
-  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) { const copy = $('menuHome').querySelector('.backdrop').cloneNode(true); copy.querySelector('source.low')?.remove(); $(id).appendChild(copy); }
+  // Without the first page's own source, `low` (its band is lower than theirs, under the clip and the buttons). Each
+  // copy is made whole in a template (an inert document: nothing loads there) and comes into the page as it will stay,
+  // so its image is chosen once: a copy changed in the page starts on one image and drops it for another.
+  const copy = document.createElement('template');
+  copy.innerHTML = $('menuHome').querySelector('.backdrop').outerHTML; copy.content.querySelector('source.low')?.remove();
+  for (const id of ['menuSolo', 'onlineJoin', 'onlineRoom']) $(id).appendChild(copy.content.cloneNode(true));
   // The board (remembered on this device; a setup that is not a good one: you and an AI), and the map (the last one
   // chosen, if it seats them; else the smallest offered that does; a hidden one, or none yet: the default; ?map=: that
   // one; ?seed=: a random one).

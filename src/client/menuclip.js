@@ -54,5 +54,6 @@ function watch(box) {
   if ('IntersectionObserver' in window) new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; sync(); }).observe(box);
   else seen = true;
   document.addEventListener('visibilitychange', sync);
+  new MutationObserver(sync).observe($('start'), { attributes: true, attributeFilter: ['hidden'] }); // (a game started from another menu page: the box was out of view already, the observer above says nothing)
   sync();
 }

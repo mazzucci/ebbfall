@@ -127,11 +127,11 @@
           <p class="links" id="menuLinks"><a id="linkDocs" href="./docs/" target="_blank" rel="noopener">Learn more</a><a id="linkTrailer" href="./docs/#trailer" target="_blank" rel="noopener" hidden>Watch the trailer</a><a id="linkFeedback" href="./docs/feedback/?from=menu" target="_blank" rel="noopener">Send feedback</a></p>
           <div class="rec" id="buildStamp"></div>
         </div>
-        <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. On the first page the band is what the clip and the buttons leave under the footer line (style.css): a low band on most desktops, so the short landscape's image there too (the `low` source: the first page's alone, menu.js leaves it out of the copies, whose band is as tall as ever). -->
+        <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. On the first page the band is what the clip and the buttons leave under the footer line (style.css): a low band on most desktops (860 to 1199 px high: lower, none; higher, the band is tall again), so the short landscape's image there too (the `low` source: the first page's alone, menu.js leaves it out of the copies, whose band is as tall as ever). -->
         <div class="backdrop" aria-hidden="true">
           <picture class="scene">
             <source media="(orientation: portrait)" srcset="menu/menu-portrait.webp">
-            <source class="low" media="(orientation: landscape) and (min-height: 421px) and (max-height: 1199px)" srcset="menu/menu-landscape.webp">
+            <source class="low" media="(min-height: 860px) and (max-height: 1199px)" srcset="menu/menu-landscape.webp">
             <source media="(max-height: 420px)" srcset="menu/menu-landscape.webp">
             <source media="(min-aspect-ratio: 2/1)" srcset="menu/menu-wide.webp">
             <img src="menu/menu-desktop.webp" alt="" decoding="async" fetchpriority="low" width="1920" height="480">

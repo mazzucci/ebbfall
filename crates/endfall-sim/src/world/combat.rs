@@ -2,6 +2,10 @@
 
 use super::*;
 
+/// How far an idle unit looks for a fight, as a share of its sight (it goes for an enemy that comes this near, and
+/// stands guard by a building this near: `guards_answer`).
+const IDLE_LOOK: f64 = 0.85;
+
 /// Shields take a hit first (armor protects only the hull; shield upgrades, `sh_armor`, soak that much of a hit that
 /// lands on shields, at least 1 still landing); returns what is left for the hull. Being hit restarts the wait
 /// before shields regenerate.
@@ -254,7 +258,44 @@ impl World {
             b.flash = 0.12;
             if b.hp <= 0.0 {
                 self.kill(target, credit);
+            } else if let Some(by) = by {
+                self.guards_answer(i, by);
             }
+        }
+    }
+
+    /// Building `i` was hit by `by`, an enemy: the idle armed units of its seat that stand guard by it (the building
+    /// within their idle look, `IDLE_LOOK` of their sight, to its edge: they would go for an enemy that came that near
+    /// them) go for the shooter, as the idle friends of a unit that is hit do (`answer_fire`): each only if it can hit
+    /// it and the shooter is on the leash of its spot (the shooter's own reach counts, so an Archer shelling the
+    /// building from its far side is answered), and back to its spot afterwards. Before, a hit on a building moved
+    /// nobody: an army idle by its Barracks, six tiles from the Castle, stood there while one Archer on the Castle's
+    /// far side, past its look, took the Castle down (a newcomer's guided game, lost with eight soldiers at home).
+    fn guards_answer(&mut self, i: usize, by: Id) {
+        let (team, g) = (self.bldgs[i].team, self.bldgs[i].geo());
+        if !self.team_of(by).is_some_and(|t| self.enemies(team, t)) {
+            return;
+        }
+        let by_air = self.unit(by).is_some_and(|b| b.kind.def().air);
+        for j in 0..self.units.len() {
+            let o = &self.units[j];
+            let d = o.kind.def();
+            if o.team != team
+                || o.task != Task::Idle
+                || d.worker
+                || d.damage_vs(by_air) <= 0.0
+                || g.edge_dist(o.x, o.y) > d.sight * TILE * IDLE_LOOK
+            {
+                continue;
+            }
+            let spot = Back::spot(o.x, o.y);
+            if self.inside_ring(j, by) || !self.on_leash(&spot, o.id, by) {
+                continue;
+            }
+            self.units[j].task = Task::Attack {
+                target: by,
+                back: Some(spot),
+            };
         }
     }
 
@@ -658,9 +699,9 @@ impl World {
             let rng = if hold {
                 c.range + c.r
             } else if sets_up_idle || self.u(uid).mode.is_some() {
-                c.siege.unwrap_or(c.sight * TILE * 0.85)
+                c.siege.unwrap_or(c.sight * TILE * IDLE_LOOK)
             } else {
-                c.sight * TILE * 0.85
+                c.sight * TILE * IDLE_LOOK
             };
             let flier = c.kind.def().air;
             let ring = if hold { c.ring } else { c.setup_ring() };

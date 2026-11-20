@@ -771,6 +771,117 @@ fn idle_defenders_shot_by_a_passing_raider_give_up_and_walk_home() {
 }
 
 #[test]
+fn idle_guards_answer_a_shooter_that_hits_their_building() {
+    // A Barracks, an enemy Archer six tiles off its west wall (holding: it stays), and on its east side, three tiles
+    // off, two idle Guards and an idle Archer: 12 tiles from the shooter, past their idle look (a Guard's 6.8 tiles).
+    let scene = |shooter: UnitKind| {
+        let mut w = flat_arena(16);
+        let rax = w.make_building(BldgKind::Barracks, PLAYER, 30, 30, true);
+        let (bw, bh) = (
+            BldgKind::Barracks.def().w as f64,
+            BldgKind::Barracks.def().h as f64,
+        );
+        let (east, mid) = ((30.0 + bw + 3.0) * TILE, (30.0 + bh / 2.0) * TILE);
+        let guards = [
+            w.make_unit(UnitKind::Trooper, PLAYER, east, mid - TILE),
+            w.make_unit(UnitKind::Trooper, PLAYER, east, mid + TILE),
+        ];
+        let archer = w.make_unit(UnitKind::Lancer, PLAYER, east, mid);
+        let foe = w.make_unit(shooter, ENEMY, 24.0 * TILE, mid);
+        w.hold_unit(foe);
+        let o = w.units.iter_mut().find(|u| u.id == foe).unwrap();
+        (o.hp, o.maxhp) = (1e6, 1e6);
+        (w, rax, guards, archer, foe)
+    };
+    let slay = |w: &mut World, id: Id| {
+        w.units.iter_mut().find(|u| u.id == id).unwrap().hp = 1.0;
+        w.damage(id, 1e3, None);
+        assert!(w.unit(id).is_none());
+    };
+    let (mut w, rax, guards, archer, foe) = scene(UnitKind::Lancer);
+    // Others who do not answer: a Guard past its look of the Barracks, one holding its ground, a Villager.
+    let far = w.make_unit(UnitKind::Trooper, PLAYER, 45.0 * TILE, 31.0 * TILE);
+    let holding = w.make_unit(UnitKind::Trooper, PLAYER, 34.5 * TILE, 34.5 * TILE);
+    w.hold_unit(holding);
+    let villager = w.make_unit(UnitKind::Harvester, PLAYER, 34.5 * TILE, 28.5 * TILE);
+    for u in [guards[0], guards[1], archer] {
+        let (u, f) = (w.unit(u).unwrap(), w.unit(foe).unwrap());
+        let (d, look) = (
+            (u.x - f.x).hypot(u.y - f.y),
+            u.kind.def().sight * TILE * 0.85,
+        );
+        assert!(
+            d > look + TILE,
+            "the shooter is past its idle look: {d} > {look}"
+        );
+    }
+    run(&mut w, 3);
+    let hp = w.bldg(rax).unwrap().hp;
+    assert!(
+        hp < BldgKind::Barracks.def().hp,
+        "the Archer is shooting the Barracks ({hp})"
+    );
+    for u in [guards[0], guards[1], archer] {
+        assert_eq!(target_of(&w, u), Some(foe), "its guards go for the shooter");
+    }
+    for (u, why) in [
+        (far, "far from it"),
+        (holding, "holding"),
+        (villager, "a worker"),
+    ] {
+        assert_eq!(target_of(&w, u), None, "{why}: stays");
+    }
+    // They reach it and strike; the shooter gone, each walks back to where it stood.
+    for _ in 0..12 * TPS {
+        if w.unit(foe).unwrap().hp < 1e6 {
+            break;
+        }
+        w.step();
+    }
+    assert!(
+        w.unit(foe).unwrap().hp < 1e6,
+        "the shooter is hit ({})",
+        w.unit(foe).unwrap().hp
+    );
+    slay(&mut w, foe);
+    run(&mut w, 14);
+    let east = (30.0 + BldgKind::Barracks.def().w as f64 + 3.0) * TILE;
+    for u in [guards[0], guards[1], archer] {
+        let u = w.unit(u).unwrap();
+        assert!(
+            matches!(u.task, Task::Idle) && (u.x - east).abs() < 1.5 * TILE,
+            "back on its spot, idle: {:?} at {:.1}",
+            u.task,
+            u.x / TILE
+        );
+    }
+    // A hit by nobody (the shooter gone before its shot landed), or by one's own side: nobody stirs.
+    let (mut w, rax, guards, archer, foe) = scene(UnitKind::Lancer);
+    slay(&mut w, foe);
+    w.damage(rax, 1.0, None);
+    w.damage(rax, 1.0, Some(archer));
+    for u in [guards[0], guards[1], archer] {
+        assert_eq!(target_of(&w, u), None, "no enemy shooter: nobody stirs");
+    }
+    // A flyer shooting it: the Archer, who can hit it, goes; the Guards, who cannot, stay.
+    let (mut w, rax, guards, archer, drone) = scene(UnitKind::Shrike);
+    run(&mut w, 1);
+    w.damage(rax, 1.0, Some(drone));
+    assert_eq!(
+        target_of(&w, archer),
+        Some(drone),
+        "the Archer answers a flyer"
+    );
+    for u in guards {
+        assert_eq!(
+            target_of(&w, u),
+            None,
+            "a Guard cannot reach a flyer: stays"
+        );
+    }
+}
+
+#[test]
 fn shields_research_soaks_damage_on_shields_only() {
     let mut w = flat_arena(17);
     w.factions = vec![&VAEL, &HUMANS];

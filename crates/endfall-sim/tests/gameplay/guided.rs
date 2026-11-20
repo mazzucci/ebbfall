@@ -453,3 +453,54 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
         );
     }
 }
+
+#[test]
+fn a_newcomer_who_never_sends_the_army_keeps_the_castle_and_wins_by_the_guide() {
+    // The guide's steps and nothing more: the army stands where it was trained (by the Barracks) through "hold your
+    // base". On the guide's map the wave's Archer shoots the Castle from its far side, 11 tiles from the nearest
+    // Guard and past every idle look (a Guard's is 6.8 tiles): before the guards answered a hit on their building
+    // (`guards_answer`) the eight stood by and the Castle fell at four paces of six (10, 15, 20 and 25 s a step: at
+    // 7:03, 8:41, 8:55 and 9:16). Now the army goes for whoever hits the Castle, the wave is destroyed, and the last
+    // steps win as they do for a newcomer who sends it.
+    for (seed, pace) in [
+        (4242, 5.0),
+        (4242, 10.0),
+        (4242, 15.0),
+        (4242, 20.0),
+        (4242, 25.0),
+        (4242, 30.0),
+        (1, 15.0),
+        (7, 15.0),
+        (99, 15.0),
+    ] {
+        let (g, mut w) = play_guided(seed, pace, f64::INFINITY);
+        let ctx = format!("seed {seed} pace {pace}: {g:?}");
+        let hp = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind == BldgKind::Core)
+            .map_or(0.0, |b| b.hp);
+        assert!(g.core, "{ctx}: the Castle stands");
+        assert!(
+            hp > BldgKind::Core.def().hp * 0.8,
+            "{ctx}: and is barely scratched ({hp:.0})"
+        );
+        assert!(
+            g.kills + 1 >= g.wave,
+            "{ctx}: the wave is destroyed by the army nobody sent"
+        );
+        assert!(
+            g.army_left > (SOLDIERS + ANTI_AIR) / 2,
+            "{ctx}: most of the guide's army lives"
+        );
+        let from = w.time;
+        let won = win_guided(&mut w, pace);
+        eprintln!(
+            "seed {seed} pace {pace}, the army never sent: the wave gone at {from:.0} s, the Castle at {hp:.0}; won at {won:?}"
+        );
+        assert!(
+            won.is_some_and(|t| t - from < 360.0),
+            "{ctx}: the guide's last step wins the game within 6 minutes (from {from:.0} s): {won:?}"
+        );
+    }
+}

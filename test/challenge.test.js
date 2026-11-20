@@ -131,7 +131,11 @@ test('the words: a card and a share line from the values, plain text', () => {
   assert.deepEqual(card(three), { title: 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass', description: 'Kingdom vs Expedition · won in 12:34 · free, in your browser' });
   assert.equal(shareText(three), 'I beat 3 Hard AIs on Iron Compass in 12:34 in Ebbfall. Can you?');
   assert.equal(line(three), 'CHALLENGE · won in 12:34 · beat it');
-  assert.equal(link(three, 'https://ebbfall.com'), `https://ebbfall.com/?${PARAM}=1.8.5.ky.h00v12v22v32`);
+  assert.equal(link(three, 'https://ebbfall.com'), 'https://ebbfall.com/vs/1.8.5.ky.h00v12v22v32', "on the site: the challenge's card address (site/preview.js)");
+  for (const origin of ['http://127.0.0.1:5173', 'http://192.168.1.4:5173', 'https://www.ebbfall.com', 'http://ebbfall.com']) {
+    assert.equal(link(three, origin), `${origin}/?${PARAM}=1.8.5.ky.h00v12v22v32`, `${origin}: no Worker there, the game's page`);
+  }
+  assert.equal(link(three, 'http://127.0.0.1:4173', '/index.html'), `http://127.0.0.1:4173/index.html?${PARAM}=1.8.5.ky.h00v12v22v32`);
   const duel = decode('1.0.1.4z.v00h12');
   assert.deepEqual(card(duel), { title: 'Can you beat this? 1 vs 1 Hard AI on Ashen Basin', description: 'Expedition vs Kingdom · won in 2:59 · free, in your browser' });
   assert.equal(shareText(duel), 'I beat a Hard AI on Ashen Basin in 2:59 in Ebbfall. Can you?');

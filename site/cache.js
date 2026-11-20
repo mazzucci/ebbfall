@@ -34,11 +34,11 @@ export const RELAY_HOST = 'relay.ebbfall.com';
  * The Content-Security-Policy, directive by directive: what the site's pages may load and run, each source the one
  * thing that needs it. Scripts: the site's own files, WebAssembly (the sim), the one inline script of index.html (the
  * page's origin check and error log, by its hash: test/site-csp.test.js checks every inline script of the built pages
- * has one here), the one of a room's card page (site/preview.js CARD_SCRIPT, on to the room) and Cloudflare Web
+ * has one here), the one of a room's or a challenge's card page (site/preview.js CARD_SCRIPT, on to the game's page) and Cloudflare Web
  * Analytics' beacon (build.mjs `beacon`, written into index.html at deploy, or the zone's own injection), never eval (PixiJS runs on its
  * eval-free polyfills: gl/render.js imports pixi.js/unsafe-eval) nor any other inline script. Connections: the site,
  * the relay (its websocket, and https for the bench's report, bench.js), the beacon's reports and data: (PixiJS's
- * worker probes createImageBitmap on a data: PNG). Images: the site's
+ * worker probes createImageBitmap on a data: PNG); the site includes the docs' feedback form's POST (site/feedback.js). Images: the site's
  * files, data: (the page's icon) and blob: (textures); media: the docs' clip. Styles and fonts: the site's own files
  * only, no <style> block or style="" attribute in any page (the docs' are classes in their stylesheet: tools/docs);
  * scripts still set an element's style through the CSSOM, which a policy does not govern. Workers: the service worker,
@@ -48,7 +48,7 @@ export const RELAY_HOST = 'relay.ebbfall.com';
  */
 export const CSP = {
   'default-src': ["'self'"],
-  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-eTFFCJaHNJbfy3UVnqjXQWHE3gXUWU3wY8kNv9vSwVU='", "'sha256-yTMgFbgJKaeFPIpzHUycvJPsiZxaMUMMUJZeXW+KhO0='", 'https://static.cloudflareinsights.com'],
+  'script-src': ["'self'", "'wasm-unsafe-eval'", "'sha256-eTFFCJaHNJbfy3UVnqjXQWHE3gXUWU3wY8kNv9vSwVU='", "'sha256-CSABZqiwwT9jm4APBFe+Q35/+VMiIcIzPgirR5zacko='", 'https://static.cloudflareinsights.com'],
   'connect-src': ["'self'", 'data:', `wss://${RELAY_HOST}`, `https://${RELAY_HOST}`, 'https://cloudflareinsights.com'],
   'img-src': ["'self'", 'data:', 'blob:'],
   'media-src': ["'self'", 'blob:'],

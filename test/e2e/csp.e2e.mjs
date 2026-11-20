@@ -15,7 +15,7 @@ let relay;
 before(async () => { await start(); if (!(await anyHere())) return; relay = startRelay({ port: 0 }); await relay.ready; }); // (none of its tests in this shard: no relay)
 after(async () => { await relay?.close(); await stop(); });
 
-const PAGES = ['docs/', 'docs/how-to-play/', 'docs/kingdom/', 'docs/expedition/', 'docs/about/'];
+const PAGES = ['docs/', 'docs/how-to-play/', 'docs/kingdom/', 'docs/expedition/', 'docs/about/', 'docs/feedback/'];
 
 /** A context that collects every CSP violation of its pages, their frames and their workers' console. */
 async function watched(device = DESKTOP) {

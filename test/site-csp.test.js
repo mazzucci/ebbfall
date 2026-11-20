@@ -1,7 +1,7 @@
 // The site's Content-Security-Policy (site/cache.js CSP): the policy itself (no unsafe-inline or unsafe-eval anywhere,
 // every directive the review asked for, the relay and the beacon it names the ones the code uses), and the pages it
 // governs: no <style> block, style="" attribute or inline event handler in any of them, and every inline script with
-// its hash in script-src (index.html's origin check and error log, a room's card page's; JSON-LD is data, not script). With dist/ built (CI runs this again
+// its hash in script-src (index.html's origin check and error log, a room's or a challenge's card page's; JSON-LD is data, not script). With dist/ built (CI runs this again
 // after the build), every page of the build, the docs' too. The browser's own word on it: test/e2e/csp.e2e.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CSP, CSP_HEADER, CSP_REPORT, RELAY_HOST, SECURITY, cspValue } from '../site/cache.js';
-import { roomPage } from '../site/preview.js';
+import { roomPage, challengePage } from '../site/preview.js';
 import { withBeacon } from '../site/beacon.js';
 
 const root = new URL('../', import.meta.url);
@@ -65,6 +65,8 @@ test('the pages as written: no inline style or handler, every inline script hash
   assert.equal(inlineScripts(read('index.html')).length, 1, "index.html: one inline script, the origin check and error log (a second: hash it, or a file)");
   check("a room's card page (site/worker.js)", roomPage('WGNJKL'));
   assert.equal(inlineScripts(roomPage('WGNJKL')).length, 1);
+  check("a challenge's card page (site/worker.js)", challengePage('1.8.5.ky.h00v12v22v32'));
+  assert.deepEqual(inlineScripts(challengePage('1.8.5.ky.h00v12v22v32')), inlineScripts(roomPage('WGNJKL')), 'the same script: one hash for both');
 });
 
 const dist = fileURLToPath(new URL('dist/', root));

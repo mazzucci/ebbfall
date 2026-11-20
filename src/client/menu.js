@@ -23,6 +23,7 @@ import { enterFullscreen } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
 import { initOptions } from './options.js';
+import { initFeedbackLinks } from './feedback.js';
 import { MAPS, DEFAULT_MAP, RANDOM_KINDS, MAX_PLAYERS, mapName, mapNoteOf, fits, fitMap, offered, mapLabel, seatsOf, teamList } from './maps.js';
 import { PARAM, decode, encode, fromSetup, mapOf, line } from './challenge.js';
 import { PARAM as PLAN, WATCH, SEED, fromSearch, line as planLine } from './plan.js';
@@ -185,9 +186,11 @@ export function initMenu({ onStart }) {
   // The pages: single player opens its own, BACK returns to the first (multiplayer: online.js).
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
-  // (Learn more: the docs home, from the first page's footer line, in a new tab: index.html #menuLinks)
+  // (Learn more: the docs home, from the first page's footer line, in a new tab: index.html #menuLinks; beside it, Send
+  // feedback, and the help sheet's, to the docs' form with this copy's details: feedback.js)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   showStamp(build);
+  initFeedbackLinks(build);
   initClaude({ plan: takePlan(), build }); // (a plan link, and an embedding page's channel: claude.js)
   renderNote();
   initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)

@@ -2,7 +2,8 @@
 // game's page is a file with the site's card; a room's card address (/r/CODE, what SHARE LINK gives on the site) gets
 // the room's own card only for a code the relay could have made (hostile, overlong or vowel-bearing codes get none, and
 // nothing of the address reaches the page but the code), on the site's image as index.html says it, and goes on to
-// the room by one script; the head's title, description, canonical, Open Graph and X tags and structured data, the
+// the room by one script; a challenge's (/vs/CODE, SHARE after a victory on the site) the same, for exactly a code the
+// game makes, its words made from the code's values; the head's title, description, canonical, Open Graph and X tags and structured data, the
 // preview image (public/og.png: 1200x630, small), robots.txt, and that none of those (nor the docs, the sitemap,
 // llms.txt) is stored for offline play.
 import { test } from 'node:test';
@@ -10,7 +11,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ORIGIN, ROOM_ALPHABET, ROOM_LETTERS, SITE_CARD, CARD_SCRIPT, roomCode, roomCard, roomPage } from '../site/preview.js';
+import { ORIGIN, ROOM_ALPHABET, ROOM_LETTERS, SITE_CARD, CARD_SCRIPT, VS_PATH, roomCode, roomCard, roomPage, challengeCode, challengeCard, challengePage } from '../site/preview.js';
 import { SITE, shareLink } from '../src/net/roomcode.js';
 import { WEB_ONLY, offline } from '../tools/offline/plugin.mjs';
 
@@ -72,6 +73,44 @@ test("the room's card page: the room's card on the site's image, one script on t
   assert.ok(page.includes(`<script>${CARD_SCRIPT}</script>`));
   assert.equal(page.match(/<script/g).length, 1);
   assert.doesNotMatch(page, /wgn/, 'the code as the card writes it, not as the link did');
+});
+
+test("a challenge's code in its card address (/vs/CODE): exactly a code the game makes, nothing decoded or tidied", () => {
+  const code = '1.8.5.ky.h00v12v22v32';
+  assert.equal(VS_PATH, '/vs/');
+  assert.equal(challengeCode(`/vs/${code}`), code);
+  assert.equal(challengeCode(`/vs/${code}/`), code, 'a trailing slash');
+  assert.equal(challengeCode('/vs/1.0.1.4z.v00h12'), '1.0.1.4z.v00h12');
+  for (const bad of ['', '/', '/vs/', `/vs/${code}.`, `/vs/${code.toUpperCase()}`, `/vs/${code.replace(/\./g, '%2E')}`, `/vs/ ${code}`, `/vs/${code}/x`, `/vs/x/${code}`,
+    '/vs/2.8.5.ky.h00v12v22v32', '/vs/1.8.5.ky.h00v12v22v3', '/vs/1.99.5.ky.h00v12', '/vs/<script>', '/vs/%3Cscript%3E', `/vs/${code}%22`, '/vs/' + '1.'.repeat(3000), `/VS/${code}`, `/?vs=${code}`, `/r/${code}`, null, 7]) {
+    assert.equal(challengeCode(bad), null, String(bad).slice(0, 60));
+  }
+});
+
+test("a challenge's card and page: its words from the code's values, its card address as its url, on to /?vs= by the room's script", () => {
+  const code = '1.8.5.ky.h00v12v22v32';
+  assert.deepEqual(challengeCard(code), {
+    title: 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass',
+    description: 'Kingdom vs Expedition · won in 12:34 · free, in your browser',
+    url: `https://ebbfall.com/vs/${code}`,
+    go: `/?vs=${code}`,
+  });
+  for (const bad of ['', '2.8.5.ky.h00v12v22v32', '<script>', null]) { assert.equal(challengeCard(bad), null, String(bad)); assert.equal(challengePage(bad), null, String(bad)); }
+  const page = challengePage(code);
+  const tag = (key) => page.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)">`))[1];
+  for (const k of ['og:title', 'twitter:title']) assert.equal(tag(k), 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass');
+  assert.equal(tag('og:url'), `https://ebbfall.com/vs/${code}`);
+  for (const k of ['og:site_name', 'og:image', 'og:image:type', 'og:image:width', 'og:image:height', 'og:image:alt', 'twitter:card', 'twitter:image', 'twitter:image:alt']) assert.equal(tag(k), meta(k), k);
+  assert.equal(tag('robots'), 'noindex');
+  assert.ok(page.includes(`<script>${CARD_SCRIPT}</script>`));
+  assert.equal(page.match(/<script/g).length, 1);
+  // The one script, at either address: the game's page with the code (the Worker serves it only for a valid one).
+  for (const [path, to] of [['/r/WGNJKL', '/?room=WGNJKL'], [`/vs/${code}`, `/?vs=${code}`]]) {
+    let went = null;
+    new Function('location', CARD_SCRIPT)({ pathname: path, hash: '', replace: (x) => { went = x; } });
+    assert.equal(went, to, path);
+  }
+  assert.match(read('src/client/share.js'), /link\(won, location\.origin, location\.pathname\)/, "share.js shares challenge.js's link (the card address on the site: test/challenge.test.js)");
 });
 
 test("the room codes: one module makes, reads and shows them for the relay, the lobby and the cards", () => {

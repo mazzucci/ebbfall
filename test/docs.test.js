@@ -19,6 +19,7 @@ const S = skip ? null : await import('../tools/docs/sprites.mjs');
 const P = skip ? null : await import('../tools/docs/pages.mjs');
 
 let out = null, pages = null;
+const FEEDBACK = '/docs/feedback/';
 const page = (path) => readFileSync(join(out, path, 'index.html'), 'utf8');
 if (!skip) { out = mkdtempSync(join(tmpdir(), 'ebbfall-docs-')); pages = docs.buildDocs(out, 'Version abc (last game update def)'); }
 test.after(() => out && rmSync(out, { recursive: true, force: true }));
@@ -299,8 +300,9 @@ test('each page\'s head: its own title and description, canonical, cards; struct
       assert.ok(b, `${p.path}: breadcrumbs`);
       assert.deepEqual(b.itemListElement.map(i => i.item), ['https://ebbfall.com/docs/', url]);
     }
-    // Every page links to every other, and to the game.
-    for (const q of pages) assert.ok(html.includes(`href="${q.path}"`), `${p.path} links to ${q.path}`);
+    // Every page links to every tab's page (the top bar), and to the game; the feedback form is linked from About (and
+    // from the game's menu and help sheet: index.html).
+    for (const q of pages) if (q.path !== FEEDBACK) assert.ok(html.includes(`href="${q.path}"`), `${p.path} links to ${q.path}`);
     assert.ok(html.includes('href="/"'), `${p.path}: PLAY`);
   }
 });
@@ -308,6 +310,7 @@ test('each page\'s head: its own title and description, canonical, cards; struct
 test('images: alt text, width and height, WebP, lazy but the first screenshot (fetched first); a phone gets its own files', { skip }, () => {
   for (const p of pages) {
     const html = page(p.path), imgs = [...html.matchAll(/<img\b[^>]*>/g)].map(m => m[0]);
+    if (p.path === FEEDBACK) { assert.equal(imgs.length, 0, 'the feedback page: a form, no picture'); continue; }
     assert.ok(imgs.length > 0, p.path);
     // (the first screenshot or controls poster, unless the home's clip (its own poster) or About's strip of sprites comes
     // before it: then nothing is, every image lazy)
@@ -526,4 +529,54 @@ test('At a glance: a tier per requirement in Build-list order, every building in
   const k = page('/docs/kingdom/');
   assert.match(k, /<li data-g="knight">(?:(?!<li).)*?<em class="need imp">needs Blacksmith<\/em><\/li>/);
   assert.match(k, /<li class="tcol s\d+" data-g="factory"(?:(?!class="tcol).)*?<em class="need">needs Blacksmith<\/em><\/li>/);
+});
+
+// ---- the feedback form (/docs/feedback/), and what About's privacy section says of it ----
+
+test('the feedback page: the form as site/feedback.js checks it (the kinds, the text and its limit, an optional email), a honeypot, the details shown, SEND only with scripts, the fallback and the thank-you', { skip }, async () => {
+  const F = await import('../site/feedback.js');
+  const html = page(FEEDBACK), form = html.slice(html.indexOf('<form'), html.indexOf('</form>'));
+  assert.match(form, new RegExp(`<form class="fb" id="feedback" action="${F.FEEDBACK_PATH}" method="post">`), 'a form to the endpoint');
+  assert.deepEqual([...form.matchAll(/<input type="radio" name="kind" value="(\w+)"/g)].map(m => m[1]), F.KINDS, 'the kinds, in order');
+  assert.equal((form.match(/name="kind" value="\w+" required/g) || []).length, 1, 'one of them required');
+  assert.match(form, /<label class="lab" for="fb-text">What happened, or your idea<\/label>/);
+  assert.match(form, new RegExp(`<textarea id="fb-text" name="text" rows="7" maxlength="${F.MAX_TEXT}" required aria-describedby="fb-count"`), 'required, at most MAX_TEXT, its counter');
+  assert.match(form, /<p class="count" id="fb-count" data-max="2000">Up to 2,000 characters<\/p>/);
+  assert.match(form, /<label class="lab" for="fb-email">Your email <span class="opt">\(optional, if you'd like a reply\)<\/span><\/label>/);
+  assert.match(form, /<input id="fb-email" name="email" type="email" maxlength="254" autocomplete="email"/);
+  assert.doesNotMatch(form, /<input id="fb-email"[^>]*required/, 'the email optional');
+  assert.match(form, /<div class="hp" aria-hidden="true"><label for="fb-website">Leave this empty<\/label><input id="fb-website" name="website" type="text" tabindex="-1" autocomplete="off"><\/div>/, 'the honeypot: out of the tab order, hidden from screen readers');
+  for (const [k] of P.FEEDBACK_DETAILS) { assert.ok(form.includes(`<input type="hidden" name="${k}" id="fb-${k}">`), `the detail ${k}`); assert.ok(form.includes(`id="fb-d-${k}"`), `${k} shown`); }
+  assert.match(form, /<p class="nojs">Sending needs JavaScript\. You can write to <a href="mailto:contact@ebbfall\.com">contact@ebbfall\.com<\/a> instead\.<\/p>/);
+  assert.match(form, /<p class="fb-fail" id="fb-fail" role="alert" hidden>Couldn't send\. Write to <a id="fb-mailto" href="mailto:contact@ebbfall\.com">contact@ebbfall\.com<\/a><\/p>/, "the fallback's words");
+  assert.match(html, /<div class="fb-done" id="fb-done" hidden tabindex="-1"><h2>Thank you<\/h2>/, 'a plain thank-you');
+  assert.match(html, /<p class="fine" id="fb-stamp">Version abc \(last game update def\)<\/p>/, "the page's version stamp, for a visit not from the game");
+  const css = readFileSync(join(out, 'docs', 'docs.css'), 'utf8');
+  assert.match(css, /\.fb \.send\{display:none;[^}]*\} ?\.js \.fb \.send\{display:inline-flex\}/, 'SEND only once docs.js runs');
+  assert.match(css, /\.js \.fb \.nojs\{display:none\}/, 'the line to write instead, only without it');
+  assert.match(css, /\.hp\{position:absolute;left:-9999px/, 'the honeypot off screen');
+  // docs.js: JSON to the endpoint, the success shape only, the fallback with the kind and the text.
+  const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');
+  assert.match(js, /fetch\(form\.getAttribute\('action'\), \{ method: 'POST', headers: \{ 'Content-Type': 'application\/json' \}/);
+  assert.match(js, /if \(!r \|\| r\.ok !== true\) return failed\(\);/, 'anything but { ok: true } is a failure');
+  assert.match(js, /'mailto:' \+ TO \+ '\?subject=' \+ subject \+ '&body=' \+ body/);
+  assert.match(js, /elapsed: Math\.round\(performance\.now\(\)\)/, 'the time on the page');
+});
+
+test("About's privacy section says what the feedback form sends, and the code sends that and nothing else", { skip }, async () => {
+  const F = await import('../site/feedback.js');
+  const about = page('/docs/about/');
+  const line = about.match(/<li>The <a href="\/docs\/feedback\/">feedback form<\/a> ([^<]*)<\/li>/);
+  assert.ok(line && about.indexOf(line[0]) > about.indexOf('<h2 id="privacy">'), 'a line in the privacy section, linking the form');
+  assert.equal(line[1], 'sends your message, your email if you give one, and your browser and device details. It reaches us by email and is not stored on our servers.');
+  // What is sent: the message, the kind, the email, the details the form shows (pages.mjs FEEDBACK_DETAILS) and when.
+  const d = { version: 'Version abc (last game update def)', browser: 'Firefox 133 on Linux', screen: '1920x1080, window 1100x800, 1x', input: 'mouse', from: '/docs/about/' };
+  const c = F.check({ kind: 'Idea', text: 'More maps', email: 'a@b.co', website: '', elapsed: 5000, details: { ...d, ip: '1.2.3.4', cookie: 'x' } });
+  assert.deepEqual(Object.keys(c.fields.details), P.FEEDBACK_DETAILS.map(([k]) => k), 'the details the page shows, no other');
+  const m = F.message(c.fields), labels = m.text.split('\n-- \n')[1].trim().split('\n').map(l => l.split(':')[0]);
+  assert.deepEqual(labels, ['Kind', 'Reply to', 'Version', 'Browser', 'Screen', 'Input', 'From', 'Sent']);
+  assert.doesNotMatch(m.text, /1\.2\.3\.4/);
+  // Not stored: the budget keeps counters only (test/site-feedback.test.js checks its record).
+  assert.match(readFileSync(new URL('../site/feedback.js', import.meta.url), 'utf8'), /The email is the only record: nothing of a message is stored, only counters\./);
+  assert.match(about, /Questions, bugs or ideas: <a href="\/docs\/feedback\/">send feedback<\/a>, or write to <a href="mailto:contact@ebbfall\.com">contact@ebbfall\.com<\/a>/);
 });

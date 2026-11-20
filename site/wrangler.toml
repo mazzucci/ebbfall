@@ -23,8 +23,9 @@ directory = "../dist"
 binding = "ASSETS"
 # Every file is served by Cloudflare directly, with dist/_headers (cache and security headers, build.mjs), and costs no
 # Worker request: the game's page, the docs, single player. So a tripped Workers spending limit (error 1103 for every
-# Worker request) leaves them up; it takes only what the Worker answers (worker.js: a room's card address /r/CODE, the
-# CSP's reports, www and http sent on, not found) and the relay (online play).
+# Worker request) leaves them up; it takes only what the Worker answers (worker.js: a room's card address /r/CODE, a
+# challenge's /vs/CODE, the feedback form's POST /api/feedback, the CSP's reports, www and http sent on, not found) and
+# the relay (online play).
 # Pages at their canonical addresses: / is index.html, /docs/kingdom/ that folder's index.html (/docs/kingdom is sent
 # to it), /selftest is selftest.html (/selftest.html and /index.html are sent on, 307, to /selftest and /). The
 # service worker stores a page fetched through such a redirect as a response of its own, at both addresses
@@ -38,3 +39,28 @@ command = "node build.mjs" # (writes dist/_headers from cache.js, and the analyt
 
 [dev]
 upstream_protocol = "https" # (wrangler dev hands the Worker https://ebbfall.com/...: not sent on to https by worker.js)
+
+# The docs' feedback form (POST /api/feedback: site/feedback.js), mailed through Cloudflare Email Sending (ebbfall.com is
+# onboarded as a sending domain; the sender, feedback@ebbfall.com, is of it). The binding may mail one address only, ours:
+# whatever the Worker is made to do, it can write to nobody else.
+[[send_email]]
+name = "FEEDBACK_EMAIL"
+destination_address = "contact@ebbfall.com"
+
+# Sends per address a minute (feedback.js PER_MINUTE), counted where the request lands, no storage, before the budget
+# object is woken. Namespace ids are the account's: the relay's are 1001-1004.
+[[ratelimits]]
+name = "FEEDBACK_LIMIT"
+namespace_id = "1101"
+simple = { limit = 2, period = 60 }
+
+# What a minute's binding cannot count (Rate Limiting periods are 10 or 60 s): an address's hour (PER_HOUR) and everyone's
+# UTC day (PER_DAY), one object, one record of counters (no message, no address but a short hash, nothing older than an
+# hour per address). Woken only by a request that passed every other check.
+[[durable_objects.bindings]]
+name = "FEEDBACK_BUDGET"
+class_name = "FeedbackBudget"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["FeedbackBudget"] # (SQLite-backed, as the relay's: the kind the free plan has too; one small record)

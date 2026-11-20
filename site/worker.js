@@ -5,12 +5,16 @@
 // a tripped Workers spending limit (error 1103 for every Worker request) leaves them up. This Worker runs only for what
 // is not a file (html_handling = "auto-trailing-slash": / is index.html, /docs/kingdom/ that folder's index.html,
 // /selftest.html is sent to /selftest), and answers: a room's card address (`/r/CODE`, SHARE LINK in a room: preview.js),
-// the CSP's reports, www and plain http sent on to https://ebbfall.com/ (wrangler.toml's routes, over the proxied
+// a challenge's (`/vs/CODE`, SHARE after a victory: preview.js), the docs' feedback form (POST /api/feedback, mailed
+// to contact@ebbfall.com: feedback.js, with its counter, the Durable Object FeedbackBudget), the CSP's reports, www and plain http sent on to https://ebbfall.com/ (wrangler.toml's routes, over the proxied
 // records; the game's one origin, its service worker, its saved settings: index.html's first script sends a page served
 // as a file there on too), and anything else, not found.
 
 import { SECURITY, CSP_REPORT } from './cache.js';
-import { ORIGIN, ROOM_PATH, roomCode, roomPage } from './preview.js';
+import { ORIGIN, ROOM_PATH, VS_PATH, roomCode, roomPage, challengeCode, challengePage } from './preview.js';
+import { FEEDBACK_PATH, feedback } from './feedback.js';
+
+export { FeedbackBudget } from './feedback.js'; // (a Durable Object class: the Workers runtime takes it from the entry module)
 
 /** The game's address: www.ebbfall.com, and http, are sent here (as GitHub Pages did). */
 const CANONICAL = new URL(ORIGIN).hostname;
@@ -36,9 +40,22 @@ function notFound(req, url) {
  * the room's plain link, `/?room=CODE`, is a file (with the site's card).
  */
 function room(req, url) {
-  const code = roomCode(url.pathname);
-  if (!code || (req.method !== 'GET' && req.method !== 'HEAD')) return notFound(req, url);
-  return new Response(req.method === 'HEAD' ? null : roomPage(code), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
+  return cardPage(req, url, roomPage(roomCode(url.pathname)));
+}
+
+/**
+ * A challenge's card address, `/vs/CODE` (SHARE after a victory, on the site): the same, with the challenge's own card
+ * ("Can you beat this?"), on to `/?vs=CODE` (preview.js challengePage). The plain link, `/?vs=CODE`, is a file (with the
+ * site's card), and every old link still opens the challenge.
+ */
+function vs(req, url) {
+  return cardPage(req, url, challengePage(challengeCode(url.pathname)));
+}
+
+/** A card page's answer (`page`: its HTML, or null for an address that names no room or challenge: not found). */
+function cardPage(req, url, page) {
+  if (!page || (req.method !== 'GET' && req.method !== 'HEAD')) return notFound(req, url);
+  return new Response(req.method === 'HEAD' ? null : page, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
 }
 
 /**
@@ -60,16 +77,18 @@ function secure(res) {
 }
 
 export default {
-  async fetch(req) { return secure(await answer(req)); },
+  async fetch(req, env) { return secure(await answer(req, env || {})); },
 };
 
 /** The response for `req` (never a file: Cloudflare served those), before the SECURITY headers. */
-async function answer(req) {
+async function answer(req, env) {
   const url = new URL(req.url);
   if (url.hostname === 'www.' + CANONICAL || (url.hostname === CANONICAL && url.protocol === 'http:')) {
     return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL}${url.pathname}${url.search}` } });
   }
   if (url.pathname === CSP_REPORT) return cspReport(req);
+  if (url.pathname === FEEDBACK_PATH) return feedback(req, env, url);
   if (url.pathname.startsWith(ROOM_PATH)) return room(req, url);
+  if (url.pathname.startsWith(VS_PATH)) return vs(req, url);
   return notFound(req, url);
 }

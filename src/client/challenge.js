@@ -15,6 +15,7 @@
 // Pure: no DOM, no WASM (test/challenge.test.js; the site's Worker imports it).
 import { MAPS, MAP_KINDS, RANDOM_KINDS, seatsOf, mapName } from './maps.js';
 import { DIFF_NAMES, levelOf } from '../engine/util.js';
+import { SITE } from '../net/roomcode.js';
 
 /** The link's parameter. */
 export const PARAM = 'vs';
@@ -126,5 +127,9 @@ export function shareText(c) {
 }
 /** The single-player page's line while a challenge is set. */
 export const line = (c) => `CHALLENGE · won in ${clock(c.secs)} · beat it`;
-/** The link to a challenge on the game at `origin` (and `path`: the game's page). */
-export const link = (c, origin, path = '/') => `${origin}${path}?${PARAM}=${encode(c)}`;
+/** A challenge's card address on the site: VS_PATH + the code (`/vs/1.8.5...`), the page of the challenge's own link card,
+ *  which sends a browser on to `/?vs=` (site/preview.js). Not a file: only the site's Worker answers it. */
+export const VS_PATH = '/vs/';
+/** The link to a challenge on the game at `origin` (and `path`: the game's page): on the site, its card address; anywhere
+ *  else (a dev server, a LAN, the tests: no Worker to answer it) the game's page with `?vs=`. */
+export const link = (c, origin, path = '/') => (origin === SITE ? `${SITE}${VS_PATH}${encode(c)}` : `${origin}${path}?${PARAM}=${encode(c)}`);

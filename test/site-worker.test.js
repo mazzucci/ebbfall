@@ -4,7 +4,8 @@
 // folders and the other pages are files, with the security headers and their cache headers: they stay up when a
 // Workers spending limit blocks the Worker. The pages' other spellings sent to their canonical addresses; what is not a
 // file (a page load goes to the game, a missing script is a 404); www and http sent to https://ebbfall.com/; a room's
-// card address (/r/CODE) with its own card; the CSP's reports; Cloudflare's analytics beacon written into every page at
+// card address (/r/CODE) and a challenge's (/vs/CODE) with their own cards; the feedback form's POST /api/feedback the
+// Worker's (test/site-feedback.test.js has the rest); the CSP's reports; Cloudflare's analytics beacon written into every page at
 // deploy, only with a token (site/build.mjs); the config the site runs with. With dist/ built: every file the service
 // worker stores and every page is served by the assets, never the Worker.
 import { test } from 'node:test';
@@ -18,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import worker from '../site/worker.js';
 import { CACHE, CSP, SECURITY, CSP_HEADER, CSP_REPORT, cacheControl, headersFile, servedAt } from '../site/cache.js';
 import { CARD_SCRIPT } from '../site/preview.js';
+import { FEEDBACK_PATH } from '../site/feedback.js';
 import { beacon, withBeacon, pages } from '../site/beacon.js';
 import { resolve, parseHeaders, headersFor } from './cloudflare-assets.mjs';
 
@@ -150,6 +152,46 @@ test("a room's card address (/r/CODE, SHARE LINK): the Worker's page with the ro
   }
 });
 
+test("a challenge's card address (/vs/CODE, SHARE after a victory): the Worker's page with the challenge's own card, on to /?vs= by the same script", async () => {
+  const code = '1.8.5.ky.h00v12v22v32';
+  for (const path of [`/vs/${code}`, `/vs/${code}/`]) {
+    const { via, res } = await site(path, { headers: NAVIGATE }), html = await res.text();
+    assert.equal(via, 'worker', path);
+    assert.equal(res.status, 200, path);
+    assert.match(res.headers.get('Content-Type'), /^text\/html/);
+    assert.equal(res.headers.get('Cache-Control'), 'no-cache');
+    for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass', `${path} ${k}`);
+    for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Kingdom vs Expedition · won in 12:34 · free, in your browser');
+    assert.equal(content(html, 'og:url'), `https://ebbfall.com/vs/${code}`, "the card's own address");
+    assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png');
+    assert.equal(content(html, 'robots'), 'noindex');
+    assert.ok(html.includes(`<script>${CARD_SCRIPT}</script>`), "on to the challenge, the room's script");
+    assert.ok(html.includes(`<a href="/?vs=${code}">`), 'and a link');
+    for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);
+  }
+  for (const [path, to] of [[`/vs/${code}`, `/?vs=${code}`], [`/vs/${code}/`, `/?vs=${code}`]]) {
+    let went = null;
+    new Function('location', CARD_SCRIPT)({ pathname: path, hash: '#x', replace: (x) => { went = x; } });
+    assert.equal(went, `${to}#x`, path);
+  }
+  assert.equal((await site(`/vs/${code}`, { method: 'HEAD' })).res.status, 200);
+  assert.equal((await site(`/vs/${code}`, { method: 'POST' })).res.status, 404, 'another method: not found');
+  for (const bad of ['/vs/', '/vs/2.8.5.ky.h00v12v22v32', '/vs/1.8.5.KY.h00v12v22v32', `/vs/${code}.`, `/vs/${code}/x`, '/vs/%3Cscript%3E', `/vs/${code.replace(/\./g, '%2E')}`, '/vs/' + '1'.repeat(500)]) {
+    const { res } = await site(bad, { headers: NAVIGATE });
+    assert.equal(res.status, 302, `${bad}: not a challenge, the game`);
+  }
+  // The plain link, old or off the site, is a file: the game's page with the site's card, no Worker.
+  assert.equal((await site(`/?vs=${code}`, { headers: NAVIGATE, blocked: true })).via, 'assets');
+});
+
+test("the feedback form's POST /api/feedback is not a file: the Worker's (which answers it: test/site-feedback.test.js)", async () => {
+  const r = await site(FEEDBACK_PATH, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json' } });
+  assert.equal(r.via, 'worker');
+  assert.equal(r.res.status, 400, 'an empty body: refused, by the endpoint');
+  assert.equal((await site(FEEDBACK_PATH, { method: 'POST', blocked: true })).res.status, 500, 'a tripped limit: 1103 (the form offers the address to write to)');
+  assert.equal((await site(FEEDBACK_PATH)).via, 'worker', 'a GET too: not a file');
+});
+
 test("a tripped Workers limit (1103) takes a room's card address and the CSP's reports, never a file", async () => {
   assert.equal((await site('/r/WGNJKL', { blocked: true })).res.status, 500);
   assert.equal((await site(CSP_REPORT, { method: 'POST', blocked: true })).via, 'worker');
@@ -184,8 +226,8 @@ test('security headers: nosniff, the referrer policy, the device powers and the 
   assert.ok(!/X-Frame-Options/.test(text), "framing: the CSP's frame-ancestors only");
 });
 
-test("the Worker's module exports its handler only (the Workers runtime refuses anything else)", async () => {
-  assert.deepEqual(Object.keys(await import('../site/worker.js')), ['default']);
+test("the Worker's module exports its handler and its Durable Object's class only (the Workers runtime refuses anything else)", async () => {
+  assert.deepEqual(Object.keys(await import('../site/worker.js')).sort(), ['FeedbackBudget', 'default'], 'and the Durable Object class its binding names (wrangler.toml)');
 });
 
 test('the _headers file: the cache table at the addresses the pages are served at', () => {
@@ -213,6 +255,15 @@ test('wrangler.toml: dist/ as the assets, the pages at their canonical addresses
   assert.doesNotMatch(toml, /custom_domain/, 'routes over the proxied records: a custom domain needs the records gone first');
   assert.doesNotMatch(toml, /relay\.ebbfall\.com/, "the relay's domain is the relay Worker's");
   assert.match(toml, /^workers_dev = false/m);
+  // The feedback form's bindings: the email to one address only, ours; a minute's limit per address, its namespace not
+  // the relay's; the budget object, its class exported by worker.js.
+  assert.match(toml, /\[\[send_email\]\]\nname = "FEEDBACK_EMAIL"\ndestination_address = "contact@ebbfall\.com"\n/);
+  assert.match(toml, /\[\[ratelimits\]\]\nname = "FEEDBACK_LIMIT"\nnamespace_id = "1101"\nsimple = \{ limit = 2, period = 60 \}/);
+  const relay = readFileSync(new URL('../relay/wrangler.toml', import.meta.url), 'utf8');
+  const ids = (t) => [...t.matchAll(/^namespace_id = "(\d+)"$/gm)].map(m => m[1]);
+  assert.ok(ids(toml).length && ids(toml).every(id => !ids(relay).includes(id)), 'namespace ids are the account\'s: none the relay\'s');
+  assert.match(toml, /\[\[durable_objects\.bindings\]\]\nname = "FEEDBACK_BUDGET"\nclass_name = "FeedbackBudget"/);
+  assert.match(toml, /new_sqlite_classes = \["FeedbackBudget"\]/);
 });
 
 test("Cloudflare's analytics beacon: written at the end of a page's body with a token, once; none without one or with a malformed one", () => {

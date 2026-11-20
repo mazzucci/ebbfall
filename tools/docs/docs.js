@@ -43,3 +43,88 @@
     box.textContent = ''; box.hidden = true; b.setAttribute('aria-expanded', 'false'); open = null;
   }
 })();
+
+// The feedback form (/docs/feedback/: pages.mjs feedbackForm): its counter, the details filled in, and SEND, as JSON to
+// the site's Worker (site/feedback.js, which checks it all again). Sent: the thank-you. Not sent (the Worker blocked,
+// error 1103; a limit; the email failed; any answer but `{ ok: true }`): a line to write to us instead, its mailto link
+// carrying the kind and the text.
+(function () {
+  var form = document.getElementById('feedback');
+  if (!form) return;
+  var TO = 'contact@ebbfall.com', MAILTO_MAX = 1800;
+  var text = form.elements.text, count = document.getElementById('fb-count'), max = +count.getAttribute('data-max');
+  var fail = document.getElementById('fb-fail'), mailto = document.getElementById('fb-mailto'), send = form.querySelector('.send');
+  var q = new URLSearchParams(location.search);
+  var fmt = function (n) { return n.toLocaleString('en-US'); };
+  function counter() { var n = text.value.length; count.textContent = fmt(n) + ' / ' + fmt(max); count.classList.toggle('near', n > max * 0.9); }
+  text.addEventListener('input', counter);
+  counter();
+
+  // The details: the game's version (a link from the game passes it, `v` and `c`, else this page's stamp), the browser
+  // and system in a few words, the screen, touch or mouse (the game's `touch`, else the pointer), where it came from (the
+  // game's `from`, else the address of the page before, on this site only).
+  var v = q.get('v') || '', c = q.get('c') || '', stamp = document.getElementById('fb-stamp');
+  var details = {
+    version: /^([0-9a-f]{12}|dev)$/.test(v) ? 'Version ' + v + ' (last game update ' + (/^([0-9a-f]{7}|dev)$/.test(c) ? c : 'unknown') + ')' : (stamp ? stamp.textContent.trim() : ''),
+    browser: browser(),
+    screen: screen.width + 'x' + screen.height + ', window ' + innerWidth + 'x' + innerHeight + ', ' + Math.round((devicePixelRatio || 1) * 100) / 100 + 'x',
+    input: q.get('touch') === '1' ? 'touch' : q.get('touch') === '0' ? 'mouse' : matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse',
+    from: from(),
+  };
+  for (var k in details) {
+    var d = document.getElementById('fb-d-' + k), h = document.getElementById('fb-' + k);
+    if (h) h.value = details[k];
+    if (d) d.textContent = details[k] || 'Not known';
+  }
+  function from() {
+    var f = q.get('from');
+    if (f === 'game' || f === 'menu') return f;
+    try { var r = new URL(document.referrer); if (r.origin === location.origin) return r.pathname.replace(/[^\w./-]/g, '').slice(0, 120); } catch (e) { /* none, or another site's */ }
+    return '';
+  }
+  function browser() {
+    var ua = navigator.userAgent, m, b, os = '';
+    if ((m = ua.match(/Edg(?:A|iOS)?\/(\d+)/))) b = 'Edge ' + m[1];
+    else if ((m = ua.match(/OPR\/(\d+)/))) b = 'Opera ' + m[1];
+    else if ((m = ua.match(/SamsungBrowser\/(\d+)/))) b = 'Samsung Internet ' + m[1];
+    else if ((m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/))) b = 'Firefox ' + m[1];
+    else if ((m = ua.match(/(?:Chrome|CriOS)\/(\d+)/))) b = 'Chrome ' + m[1];
+    else if ((m = ua.match(/Version\/(\d+(?:\.\d+)?).*Safari\//))) b = 'Safari ' + m[1];
+    else b = 'Unknown browser';
+    if ((m = ua.match(/(?:iPhone|CPU) OS (\d+)(?:_(\d+))?/))) os = (/iPad/.test(ua) ? 'iPadOS ' : 'iOS ') + m[1] + (m[2] ? '.' + m[2] : '');
+    else if ((m = ua.match(/Android (\d+(?:\.\d+)?)/))) os = 'Android ' + m[1];
+    else if (/Macintosh/.test(ua)) os = navigator.maxTouchPoints > 1 ? 'iPadOS' : 'macOS';
+    else if (/Windows/.test(ua)) os = 'Windows';
+    else if (/CrOS/.test(ua)) os = 'ChromeOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+    return (b + (os ? ' on ' + os : '')).replace(/[^\w .,:;()/+-]/g, '').slice(0, 80);
+  }
+
+  function kind() { var r = form.querySelector('input[name=kind]:checked'); return r ? r.value : 'Other'; }
+  // A mailto link with the kind and the text, the text cut so the whole address stays short enough for every mail app.
+  function mailLink() {
+    var subject = encodeURIComponent('[Ebbfall feedback] ' + kind()), t = text.value, cut = false, body;
+    for (;;) {
+      body = encodeURIComponent(t + (cut ? '...' : '') + '\n\n' + details.version);
+      if (body.length <= MAILTO_MAX - subject.length || !t) break;
+      t = t.slice(0, Math.floor(t.length * 0.8)); cut = true;
+    }
+    return 'mailto:' + TO + '?subject=' + subject + '&body=' + body;
+  }
+  function failed() { mailto.href = mailLink(); fail.hidden = false; send.disabled = false; send.textContent = 'Send'; }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    fail.hidden = true; send.disabled = true; send.textContent = 'Sending...';
+    var body = { kind: kind(), text: text.value, email: form.elements.email.value.trim(), website: form.elements.website.value, elapsed: Math.round(performance.now()), details: details };
+    fetch(form.getAttribute('action'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (r) {
+        if (!r || r.ok !== true) return failed();
+        var done = document.getElementById('fb-done');
+        form.hidden = true; done.hidden = false; done.focus();
+      })
+      .catch(failed);
+  });
+})();

@@ -280,3 +280,39 @@ table.touch td:has(> .see){position:relative;padding-right:48px} table.touch td:
 .net .trn{stroke:var(--teal);stroke-width:1.5;fill:none;stroke-dasharray:5 4}
 .net .dot{fill:var(--teal)} .net .dot2{fill:var(--amber2)}
 .net .mA{fill:var(--amber)} .net .mT{fill:var(--teal)}
+
+/* the feedback form (pages.mjs feedbackForm, docs.js): one column, the text column's width; the kinds a row of three
+   finger-sized choices; SEND shown once docs.js runs (`.js`), a line to write instead where it does not; the honeypot
+   off screen (a bot fills it, nobody else sees it) */
+.fb{max-width:640px;margin:8px 0 24px}
+.fb fieldset{border:0;margin:0 0 18px;padding:0;min-width:0}
+.fb legend,.fb .lab{display:block;padding:0;margin:0 0 8px;font:600 15px var(--display);letter-spacing:.02em;color:var(--fg)}
+.fb .opt{font:400 14px var(--text);color:var(--muted);letter-spacing:0}
+.seg{display:flex;gap:8px}
+.seg label{flex:1;position:relative;display:flex}
+.seg input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;min-height:48px;padding:0 10px;background:var(--panel);border:1px solid var(--line2);border-radius:6px;font:600 14px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.seg input:checked+span{background:var(--panel2);border-color:var(--amber);color:var(--amber2);box-shadow:inset 0 0 0 1px var(--amber)}
+.seg input:focus-visible+span{outline:2px solid var(--amber);outline-offset:2px}
+.seg label:hover span{color:var(--fg)}
+.fb textarea,.fb input[type=email]{display:block;width:100%;margin:0;padding:12px;background:var(--panel);color:var(--fg);border:1px solid var(--line2);border-radius:6px;font:16px/1.5 var(--text)}
+.fb textarea{min-height:180px;resize:vertical}
+.fb input[type=email]{min-height:48px;margin-bottom:18px}
+.fb textarea:focus,.fb input[type=email]:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber)}
+.fb ::placeholder{color:#6f8197}
+.count{margin:6px 2px 18px;text-align:right;font:13px var(--mono);color:var(--muted);max-width:none} .count.near{color:var(--amber2)}
+.hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
+.sent-with{margin:0 0 18px} .sent-with summary{font:600 14px var(--display);color:var(--muted)} .sent-with summary:hover{color:var(--fg)}
+.sent-with dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:4px 0 0;font:13px/1.5 var(--mono);color:var(--muted)}
+.sent-with dt{color:var(--fg)} .sent-with dd{margin:0;overflow-wrap:anywhere}
+.fb .actions{margin:0}
+.fb .send{display:none;min-width:160px;border:0;cursor:pointer} .js .fb .send{display:inline-flex}
+.fb .send:disabled{opacity:.6;cursor:default}
+.js .fb .nojs{display:none}
+.nojs,.fb-fail{font-size:15px;color:#c9d4e0}
+.fb-fail{margin:16px 0 0;padding:12px 14px;background:rgba(255,90,90,.08);border:1px solid rgba(255,90,90,.45);border-radius:6px;color:var(--fg)}
+.fb-fail[hidden],.fb-done[hidden],.fb[hidden]{display:none}
+.fb-done{max-width:640px;margin:8px 0 24px;padding:18px 18px 4px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px}
+.fb-done:focus{outline:none} .fb-done h2{margin:0 0 8px;padding:0;border:0}
+@media (max-width:640px){.sent-with dl{grid-template-columns:1fr;gap:0} .sent-with dd{margin-bottom:6px}}
+.sent-with summary::after{content:"\25B8";margin-left:8px;font-size:12px} .sent-with[open] summary::after{content:"\25BE"}

@@ -3094,7 +3094,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.factions, [1, 2].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW]);
-    assert.deepEqual(game, [[0, 0, 1], ['humans', 'humans', 'vael'], [0, 2], 2, 96], 'the seats and teams the board shows');
+    assert.deepEqual(game, [[0, 0, 1], ['humans', 'vael', 'vael'], [0, 2], 2, 96], 'the seats and teams the board shows (COMPUTER 1 the Expedition, as a board with none saved has it)');
     assert.deepEqual(await page.evaluate(() => [0, 1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [true, true, true], 'each seat in its spot\'s color');
   } finally { await ctx.close(); }
 });
@@ -3220,11 +3220,11 @@ test('single player, the sheet: a modal one; a double click changes nothing, a s
     assert.ok(await page.locator('#soloSheet').evaluate(d => d.open), 'open');
     assert.equal(await stored(), before, 'nothing changed');
     // The arrow keys: along RACE, each step a choice.
-    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans');
-    await page.keyboard.press('ArrowRight');
-    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:vael');
-    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (EXPEDITION|EXP, Expedition),/);
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:vael', 'the lit chip (with no good board saved: the Expedition)');
     await page.keyboard.press('ArrowLeft');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'race:humans');
+    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (KINGDOM|KING, Kingdom),/);
+    await page.keyboard.press('ArrowRight');
     assert.equal(await stored(), before, 'and back');
     assert.deepEqual(await page.$$eval('#soloSheet [role="radiogroup"][aria-label="Side"] [role="radio"]', bs => bs.map(b => b.textContent)), ['SIDE 1', 'SIDE 2', 'SIDE 3'], 'three players: up to three sides');
     // A press on the sheet let go on the scrim: still open. A click on the scrim: closed, the focus back on the token.

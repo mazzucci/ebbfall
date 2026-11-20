@@ -200,7 +200,7 @@ export function board(page, scope = 'solo') {
 
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
- *  function run in the page before the game loads. */
+ *  function run in the page before the game loads (or [function, argument]). */
 export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', first = false, init = null } = {}) {
   const ctx = await browserContext(device);
   // The board the scenarios play on: you against `enemy`, the Kingdom unless asked (they were written on a mirror),
@@ -208,7 +208,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   // menu's own tests see that default).
   await ctx.addInitScript((seats) => { try { if (localStorage.getItem('endfall.seats') === null) localStorage.setItem('endfall.seats', seats); } catch { /* no storage */ } },
     JSON.stringify([{ race: 'humans', team: 0 }, { race: enemy, team: 1, diff: 0 }]));
-  if (init) await ctx.addInitScript(init); // (a script run before the page's own, e.g. a stand-in for full screen)
+  if (init) await (Array.isArray(init) ? ctx.addInitScript(...init) : ctx.addInitScript(init)); // (a script run before the page's own, e.g. a stand-in for full screen; [fn, arg] passes it an argument)
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));

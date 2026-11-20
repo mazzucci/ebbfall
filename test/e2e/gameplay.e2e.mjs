@@ -3570,6 +3570,59 @@ test('a game\'s sound and full-screen buttons, for real: sound is on after START
   }
 });
 
+/** An installed app that runs full screen (manifest.webmanifest, display fullscreen), stood in for: the display mode
+ *  the page reads, and the orientation lock and the page's full screen recorded (window.orient). `refuse`: the lock
+ *  refused, as an older Chrome refuses it without the page's full screen. */
+const APP = ({ app, refuse }) => {
+  const calls = window.orient = [];
+  if (app) { const mm = window.matchMedia.bind(window); window.matchMedia = (q) => (/display-mode:\s*fullscreen/.test(q) ? { matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} } : mm(q)); }
+  const o = screen.orientation;
+  Object.defineProperty(o, 'lock', { configurable: true, value: (t) => { calls.push('lock ' + t); return refuse ? Promise.reject(new DOMException('fullscreen required', 'SecurityError')) : Promise.resolve(); } });
+  Object.defineProperty(o, 'unlock', { configurable: true, value: () => { calls.push('unlock'); } });
+  Element.prototype.requestFullscreen = function () { calls.push('requestFullscreen'); return Promise.reject(new Error('(headless)')); };
+};
+
+test('the installed app turns to landscape for a game by itself: START and a challenge\'s START lock it with no page full screen, the menu frees it; an older Chrome, the page\'s full screen; a browser tab as before', async () => {
+  const orient = (page) => page.evaluate(() => window.orient.slice());
+  const clear = (page) => page.evaluate(() => { window.orient.length = 0; });
+  // The app (manifest orientation any: the menu and the docs turn with the phone): START locks landscape, no full screen.
+  let d = await newGame(PHONE, 1, 4242, { ai: false, init: [APP, { app: true, refuse: false }] });
+  try {
+    await d.page.waitForFunction(() => window.orient.length > 0);
+    assert.deepEqual(await orient(d.page), ['lock landscape'], 'START: landscape, without the page\'s full screen');
+    await clear(d.page);
+    await d.page.locator('#btnPause').tap(); await d.page.locator('#btnResume').tap();
+    assert.deepEqual(await orient(d.page), [], 'a pause leaves the lock alone');
+    await d.page.locator('#btnPause').tap(); await d.page.locator('#btnQuit').tap();
+    await d.page.locator('#start').waitFor({ state: 'visible' });
+    assert.deepEqual(await orient(d.page), ['unlock'], 'the menu again: the phone\'s orientation');
+    // A challenge link (?vs=: the app opens on it), then START: the same lock.
+    const code = encode({ map: 0, side: 1, secs: 200, spots: [{ race: 'humans', team: 0 }, { race: 'vael', team: 1, diff: 1 }] });
+    await d.page.goto(`${baseUrl()}?vs=${code}`, { waitUntil: 'networkidle' }); await d.page.waitForFunction(() => !!window.endfall);
+    await clear(d.page);
+    await d.page.locator('#btnStart').tap();
+    await d.page.waitForFunction(() => window.endfall.G.units.length > 0);
+    assert.deepEqual(await orient(d.page), ['lock landscape'], 'a challenge\'s START: landscape');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+  // An older Chrome refuses the lock without the page's full screen: the page's full screen then, as in a tab.
+  d = await newGame(PHONE, 1, 4242, { ai: false, init: [APP, { app: true, refuse: true }] });
+  try {
+    await d.page.waitForFunction(() => window.orient.includes('requestFullscreen'));
+    assert.deepEqual(await orient(d.page), ['lock landscape', 'requestFullscreen'], 'refused: the page\'s full screen (and its lock)');
+  } finally { await d.close(); }
+  // A browser tab: START asks for the page's full screen (its lock follows it), and the menu unlocks nothing.
+  d = await newGame(PHONE, 1, 4242, { ai: false, init: [APP, { app: false, refuse: false }] });
+  try {
+    await d.page.waitForFunction(() => window.orient.length > 0);
+    assert.deepEqual(await orient(d.page), ['requestFullscreen'], 'a tab: the page\'s full screen first (refused here: no lock)');
+    await clear(d.page);
+    await d.page.locator('#btnPause').tap(); await d.page.locator('#btnQuit').tap();
+    await d.page.locator('#start').waitFor({ state: 'visible' });
+    assert.deepEqual(await orient(d.page), [], 'a tab: the menu leaves the orientation alone');
+  } finally { await d.close(); }
+});
+
 test('phone: while placing, the ghost appears under the finger and follows it; lifted over the HUD it builds nothing', { chromium: CDP_TOUCH }, async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });
   try {

@@ -137,6 +137,18 @@ test("a byte range (the docs' videos) is left to the browser, never answered wit
   assert.equal(answered({}), true, 'no range: the cache first, then the network');
 });
 
+test('the manifest: the whole site in scope, full screen, the orientation left to the phone (the game locks landscape itself: screen.js)', () => {
+  const m = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
+  assert.equal(m.scope, './', 'the game and the docs, room and challenge links');
+  assert.equal(m.display, 'fullscreen');
+  // "landscape" here held every page in scope, the docs too, sideways on a phone; "any" lets them turn (as the person's
+  // rotation setting says), and a game turns to landscape by its own lock (screen.js enterFullscreen: START, FIRST GAME,
+  // REMATCH, READY), which Chrome allows an app in display mode fullscreen without the page's full screen.
+  assert.equal(m.orientation, 'any');
+  const js = readFileSync(new URL('../src/client/screen.js', import.meta.url), 'utf8');
+  assert.match(js, /screen\.orientation\.lock\('landscape'\)/, 'the game\'s own landscape lock');
+});
+
 test('the manifest has PNG icons of 192 and 512 pixels and a maskable one, and the files exist', () => {
   const pub = new URL('../public/', import.meta.url);
   const m = JSON.parse(readFileSync(new URL('manifest.webmanifest', pub), 'utf8'));

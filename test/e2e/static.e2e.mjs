@@ -2,7 +2,8 @@
 // Worker request: harness.mjs `site.blocked`): the game's page (/, and a room's plain link), the docs home and a docs
 // page load from the files alone, with the site's security headers, and a single-player game starts through the menu
 // and plays; the service worker installs (every file it stores is a file); no page error, no failed request, and
-// nothing reaches the Worker. The deployed routing itself: test/site-worker.test.js.
+// nothing reaches the Worker but the docs' videos (the one kind of file it answers, with byte ranges: site/media.js),
+// which fail, their posters (files) left in their place. The deployed routing itself: test/site-worker.test.js.
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,13 +12,15 @@ import { test, start, stop, newGame, browserContext, baseUrl, site, DESKTOP, ENG
 before(async () => { await start(); site.blocked = true; });
 after(stop);
 
-/** A page that records its errors, failed requests and error responses. */
+/** A docs video (the Worker's: blocked, it fails, as it would on the site). */
+const VIDEO = /\/docs\/media\/.*\.mp4$/;
+/** A page that records its errors, failed requests and error responses (but a docs video's). */
 async function watched(ctx) {
   const p = await ctx.newPage(), problems = [];
   p.on('pageerror', e => problems.push(`error: ${e.message}`));
-  p.on('console', m => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
-  p.on('requestfailed', r => { if (!/cloudflareinsights/.test(r.url())) problems.push(`failed: ${r.url()} ${r.failure()?.errorText}`); });
-  p.on('response', r => { if (r.status() >= 400) problems.push(`${r.status()}: ${r.url()}`); });
+  p.on('console', m => { if (m.type() === 'error' && !VIDEO.test(m.location()?.url || '')) problems.push(`console: ${m.text()}`); });
+  p.on('requestfailed', r => { if (!/cloudflareinsights/.test(r.url()) && !VIDEO.test(r.url())) problems.push(`failed: ${r.url()} ${r.failure()?.errorText}`); });
+  p.on('response', r => { if (r.status() >= 400 && !VIDEO.test(r.url())) problems.push(`${r.status()}: ${r.url()}`); });
   return { p, problems };
 }
 
@@ -61,5 +64,5 @@ test('Workers blocked (1103): the game\'s page, the docs and a single-player gam
     assert.ok(s.units.length > 0 && !s.over, 'the game runs');
     assert.deepEqual(d.errors, [], d.errors.join('\n'));
   } finally { await d.close(); }
-  assert.deepEqual(site.worker, [], 'nothing reached the Worker');
+  assert.deepEqual(site.worker.filter(r => !VIDEO.test(r)), [], 'nothing reached the Worker but the docs\' videos');
 });

@@ -12,7 +12,7 @@ const want = crops();
 const frames = atlasFrames();
 const used = {}, pages = {};
 for (const { key, kind } of want) for (const n of framesOf(key, kind).filter(Boolean)) {
-  for (const m of [n, `${n}_m`]) if (frames[m]) { used[m] = [frames[m].page, frames[m].rec]; pages[frames[m].page] ||= 'data:image/png;base64,' + readFileSync(new URL(frames[m].page, ART)).toString('base64'); }
+  for (const m of [n, `${n}_m`]) if (frames[m]) { used[m] = [frames[m].page, frames[m].rec]; pages[frames[m].page] ||= `data:image/${frames[m].page.split('.').pop()};base64,` + readFileSync(new URL(frames[m].page, ART)).toString('base64'); }
   if (!frames[n]) throw new Error(`crops: no frame ${n} in public/art (run node tools/art/generate.mjs)`);
 }
 

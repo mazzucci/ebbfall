@@ -8,11 +8,13 @@
 // a challenge's (`/vs/CODE`, SHARE after a victory: preview.js), the docs' feedback form (POST /api/feedback, mailed
 // to contact@ebbfall.com: feedback.js, with its counter, the Durable Object FeedbackBudget), the CSP's reports, www and plain http sent on to https://ebbfall.com/ (wrangler.toml's routes, over the proxied
 // records; the game's one origin, its service worker, its saved settings: index.html's first script sends a page served
-// as a file there on too), and anything else, not found.
+// as a file there on too), and anything else, not found. One kind of file runs it first: the docs' videos (MEDIA_PATH,
+// wrangler.toml run_worker_first), answered with byte ranges, which the assets do not serve and Safari needs (media.js).
 
 import { SECURITY, CSP_REPORT } from './cache.js';
 import { ORIGIN, ROOM_PATH, VS_PATH, roomCode, roomPage, challengeCode, challengePage } from './preview.js';
 import { FEEDBACK_PATH, feedback } from './feedback.js';
+import { MEDIA_PATH, media } from './media.js';
 
 export { FeedbackBudget } from './feedback.js'; // (a Durable Object class: the Workers runtime takes it from the entry module)
 
@@ -80,12 +82,13 @@ export default {
   async fetch(req, env) { return secure(await answer(req, env || {})); },
 };
 
-/** The response for `req` (never a file: Cloudflare served those), before the SECURITY headers. */
+/** The response for `req` (never a file but a video: Cloudflare served the others), before the SECURITY headers. */
 async function answer(req, env) {
   const url = new URL(req.url);
   if (url.hostname === 'www.' + CANONICAL || (url.hostname === CANONICAL && url.protocol === 'http:')) {
     return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL}${url.pathname}${url.search}` } });
   }
+  if (url.pathname.startsWith(MEDIA_PATH)) return media(req, env);
   if (url.pathname === CSP_REPORT) return cspReport(req);
   if (url.pathname === FEEDBACK_PATH) return feedback(req, env, url);
   if (url.pathname.startsWith(ROOM_PATH)) return room(req, url);

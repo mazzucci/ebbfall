@@ -5,7 +5,8 @@
 // Workers spending limit blocks the Worker. The pages' other spellings sent to their canonical addresses; what is not a
 // file (a page load goes to the game, a missing script is a 404); www and http sent to https://ebbfall.com/; a room's
 // card address (/r/CODE) and a challenge's (/vs/CODE) with their own cards; the feedback form's POST /api/feedback the
-// Worker's (test/site-feedback.test.js has the rest); the CSP's reports; Cloudflare's analytics beacon written into every page at
+// Worker's (test/site-feedback.test.js has the rest); the docs' videos the Worker's first (run_worker_first), answered
+// with byte ranges (206, 416, Accept-Ranges), which the assets do not serve and Safari needs; the CSP's reports; Cloudflare's analytics beacon written into every page at
 // deploy, only with a token (site/build.mjs); the config the site runs with. With dist/ built: every file the service
 // worker stores and every page is served by the assets, never the Worker.
 import { test } from 'node:test';
@@ -21,26 +22,32 @@ import { CACHE, CSP, SECURITY, CSP_HEADER, CSP_REPORT, cacheControl, headersFile
 import { CARD_SCRIPT } from '../site/preview.js';
 import { FEEDBACK_PATH } from '../site/feedback.js';
 import { beacon, withBeacon, pages } from '../site/beacon.js';
-import { resolve, parseHeaders, headersFor } from './cloudflare-assets.mjs';
+import { MEDIA_PATH, MEDIA_RULE, parseRange } from '../site/media.js';
+import { resolve, parseHeaders, headersFor, workerFirstRules, workerFirst, assetsBinding } from './cloudflare-assets.mjs';
 
 const ORIGIN = 'https://ebbfall.com';
 const NAVIGATE = { 'Sec-Fetch-Mode': 'navigate', Accept: 'text/html,application/xhtml+xml' };
 const RULES = parseHeaders(headersFile());
 const FILES = new Set(['/index.html', '/selftest.html', '/voice-lab.html', '/sw.js', '/manifest.webmanifest', '/assets/index-Bx1y2z3w.js',
-  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/atlas-0.png', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
-  '/docs/index.html', '/docs/kingdom/index.html', '/docs/how-to-play/index.html', '/docs/img/sprites/core-336.webp']);
+  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/atlas-0.webp', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
+  '/docs/index.html', '/docs/kingdom/index.html', '/docs/how-to-play/index.html', '/docs/img/sprites/core-336.webp', '/docs/media/trailer.mp4',
+  '/docs/media/controls/touch-group.mp4', '/docs/media/controls/touch-group.webp']);
+const WORKER_FIRST = workerFirstRules(readFileSync(new URL('../site/wrangler.toml', import.meta.url), 'utf8'));
+/** The docs' videos' bytes, as the assets hold them (1000 bytes: byte i is i % 251), for the Worker's ASSETS binding. */
+const VIDEO = Uint8Array.from({ length: 1000 }, (_, i) => i % 251);
+const ENV = { ASSETS: assetsBinding((p) => (p.startsWith(MEDIA_PATH) && FILES.has(p) ? VIDEO : null), () => 'video/mp4') };
 
 /**
  * A request to the deployed site: the assets first (a file: 200 with its _headers; another spelling of a page: 307),
- * then the Worker. `{ via }`: 'assets' or 'worker'; `blocked`: the Worker answers as a tripped limit (1103).
+ * then the Worker; the Worker first for what wrangler.toml's run_worker_first names (the docs' videos). `{ via }`: 'assets' or 'worker'; `blocked`: the Worker answers as a tripped limit (1103).
  */
 async function site(path, { headers = {}, method = 'GET', host = ORIGIN, files = FILES, blocked = false } = {}) {
   const url = new URL(path, host);
-  const route = method === 'GET' || method === 'HEAD' ? resolve(url.pathname, (p) => files.has(p)) : null;
+  const route = (method === 'GET' || method === 'HEAD') && !workerFirst(WORKER_FIRST, url.pathname) ? resolve(url.pathname, (p) => files.has(p)) : null;
   if (route?.file) return { via: 'assets', file: route.file, res: new Response(method === 'HEAD' ? null : route.file, { headers: headersFor(RULES, url.pathname) }) };
   if (route?.redirect) return { via: 'assets', res: new Response(null, { status: 307, headers: { Location: route.redirect + url.search } }) };
   if (blocked) return { via: 'worker', res: new Response('error code: 1103', { status: 500 }) };
-  return { via: 'worker', res: await worker.fetch(new Request(url, { method, headers })) };
+  return { via: 'worker', res: await worker.fetch(new Request(url, { method, headers }), ENV) };
 }
 
 test("the game's page, every link into it, the docs and the other pages: files, served with no Worker, with every security header", async () => {
@@ -69,7 +76,7 @@ test("a page's other spellings are sent to its canonical address (307), the quer
     assert.equal(r.res.status, 307, from);
     assert.equal(r.res.headers.get('Location'), to, from);
   }
-  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/atlas-0.png']) {
+  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/atlas-0.webp']) {
     const r = await site(path, { blocked: true });
     assert.equal(r.file, path, path);
   }
@@ -79,7 +86,7 @@ test("hashed build output is kept for good; anything else keeps Cloudflare's def
   for (const path of ['/assets/index-Bx1y2z3w.js', '/assets/endfall_sim_bg-ClB66k65.wasm']) {
     assert.equal((await site(path)).res.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', path);
   }
-  assert.equal((await site('/art/atlas-0.png')).res.headers.get('Cache-Control'), null);
+  assert.equal((await site('/art/atlas-0.webp')).res.headers.get('Cache-Control'), null);
 });
 
 test('not a file, the Worker: a page load goes to the game (its query kept), a missing script or image is a plain 404', async () => {
@@ -193,6 +200,80 @@ test("the feedback form's POST /api/feedback is not a file: the Worker's (which 
   assert.equal((await site(FEEDBACK_PATH)).via, 'worker', 'a GET too: not a file');
 });
 
+test("the docs' videos: the Worker's, whole with Accept-Ranges, or the byte range asked for (206), as Safari needs to play them", async () => {
+  const get = (path, headers = {}, method = 'GET') => site(path, { headers, method });
+  const bytes = async (r) => [...new Uint8Array(await r.res.arrayBuffer())];
+  // No range: the whole file, saying ranges are served.
+  let r = await get('/docs/media/trailer.mp4');
+  assert.equal(r.via, 'worker', 'run_worker_first');
+  assert.equal(r.res.status, 200);
+  assert.equal(r.res.headers.get('Accept-Ranges'), 'bytes');
+  assert.equal(r.res.headers.get('Content-Type'), 'video/mp4');
+  assert.equal(r.res.headers.get('Content-Length'), '1000');
+  assert.equal(r.res.headers.get('Cache-Control'), 'public, max-age=0, must-revalidate', "Cloudflare's default, as for the docs' other files");
+  assert.match(r.res.headers.get('ETag'), /^"[0-9a-f]{32}"$/);
+  for (const [k, v] of Object.entries(SECURITY)) assert.equal(r.res.headers.get(k), v, k);
+  assert.deepEqual(await bytes(r), [...VIDEO]);
+  // Safari's first probe, then the usual spellings: 206 with exactly those bytes.
+  for (const [range, start, end] of [['bytes=0-1', 0, 1], ['bytes=100-199', 100, 199], ['bytes=900-', 900, 999], ['bytes=-100', 900, 999], ['bytes=990-5000', 990, 999], ['bytes=-5000', 0, 999], ['bytes=999-999', 999, 999]]) {
+    r = await get('/docs/media/controls/touch-group.mp4', { Range: range });
+    assert.equal(r.res.status, 206, range);
+    assert.equal(r.res.headers.get('Content-Range'), `bytes ${start}-${end}/1000`, range);
+    assert.equal(r.res.headers.get('Content-Length'), String(end - start + 1), range);
+    assert.equal(r.res.headers.get('Accept-Ranges'), 'bytes', range);
+    assert.equal(r.res.headers.get('Content-Type'), 'video/mp4', range);
+    for (const [k, v] of Object.entries(SECURITY)) assert.equal(r.res.headers.get(k), v, `${range}: ${k}`);
+    assert.deepEqual(await bytes(r), [...VIDEO.slice(start, end + 1)], range);
+  }
+  // Past the end, inverted, a zero suffix: 416, the size said.
+  for (const range of ['bytes=1000-', 'bytes=5000-6000', 'bytes=200-100', 'bytes=-0']) {
+    r = await get('/docs/media/trailer.mp4', { Range: range });
+    assert.equal(r.res.status, 416, range);
+    assert.equal(r.res.headers.get('Content-Range'), 'bytes */1000', range);
+  }
+  // What Cloudflare ignores (another unit, several ranges, not a range): the whole file.
+  for (const range of ['items=0-1', 'bytes=0-1,5-6', 'bytes=x-y', 'bytes=-', 'bytes=0-99999999999999999']) {
+    r = await get('/docs/media/trailer.mp4', { Range: range });
+    assert.equal(r.res.status, 200, range);
+    assert.equal((await bytes(r)).length, 1000, range);
+  }
+  // HEAD: the headers alone; a range's too.
+  r = await get('/docs/media/trailer.mp4', {}, 'HEAD');
+  assert.equal(r.res.status, 200);
+  assert.equal(r.res.headers.get('Content-Length'), '1000');
+  assert.equal(r.res.headers.get('Accept-Ranges'), 'bytes');
+  assert.equal((await bytes(r)).length, 0);
+  r = await get('/docs/media/trailer.mp4', { Range: 'bytes=0-1' }, 'HEAD');
+  assert.equal(r.res.status, 206);
+  assert.equal(r.res.headers.get('Content-Range'), 'bytes 0-1/1000');
+  // If-Range: the file's ETag keeps the range; another (the file changed) gets the whole file. If-None-Match: 304.
+  const etag = (await get('/docs/media/trailer.mp4')).res.headers.get('ETag');
+  assert.equal((await get('/docs/media/trailer.mp4', { Range: 'bytes=0-1', 'If-Range': etag })).res.status, 206);
+  assert.equal((await get('/docs/media/trailer.mp4', { Range: 'bytes=0-1', 'If-Range': '"stale"' })).res.status, 200);
+  r = await get('/docs/media/trailer.mp4', { 'If-None-Match': etag });
+  assert.equal(r.res.status, 304);
+  assert.equal(r.res.headers.get('X-Content-Type-Options'), 'nosniff');
+  // No such video: 404; a POST: refused.
+  assert.equal((await get('/docs/media/nope.mp4')).res.status, 404);
+  assert.equal((await get('/docs/media/trailer.mp4', {}, 'POST')).res.status, 405);
+  // The docs' other files stay the assets', with no Worker.
+  for (const path of ['/docs/', '/docs/img/sprites/core-336.webp', '/docs/media/controls/touch-group.webp']) assert.equal((await get(path)).via, 'assets', path);
+  // A tripped Workers limit takes the videos, never their posters.
+  assert.equal((await site('/docs/media/trailer.mp4', { blocked: true })).res.status, 500);
+  assert.equal((await site('/docs/media/controls/touch-group.webp', { blocked: true })).res.status, 200);
+});
+
+test('parseRange: one range, as Cloudflare reads it', () => {
+  assert.deepEqual(parseRange('bytes=0-1', 10), { start: 0, end: 1 });
+  assert.deepEqual(parseRange(' bytes=5- ', 10), { start: 5, end: 9 });
+  assert.deepEqual(parseRange('bytes=-3', 10), { start: 7, end: 9 });
+  assert.equal(parseRange('bytes=10-', 10), 'unsatisfiable');
+  assert.equal(parseRange('bytes=0-1', 0), 'unsatisfiable', 'an empty file');
+  assert.equal(parseRange('bytes=-1', 0), 'unsatisfiable');
+  assert.equal(parseRange(null, 10), null);
+  assert.equal(parseRange('bytes=1-2,3-4', 10), null);
+});
+
 test("a tripped Workers limit (1103) takes a room's card address and the CSP's reports, never a file", async () => {
   assert.equal((await site('/r/WGNJKL', { blocked: true })).res.status, 500);
   assert.equal((await site(CSP_REPORT, { method: 'POST', blocked: true })).via, 'worker');
@@ -217,7 +298,7 @@ test('security headers: nosniff, the referrer policy, the device powers and the 
   const policy = SECURITY['Permissions-Policy'];
   for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
   assert.ok(!policy.includes('web-share'), 'no web-share: the page may share by default, and Chromium logs the name as an unrecognized feature');
-  for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.png', '/r/BCDFGH', '/nope.js', '/nope']) {
+  for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.webp', '/r/BCDFGH', '/nope.js', '/nope']) {
     const { res } = await site(path, { headers: NAVIGATE });
     for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);
   }
@@ -244,14 +325,14 @@ test('the _headers file: the cache table at the addresses the pages are served a
   assert.deepEqual(['index.html', 'selftest.html', 'docs/index.html', 'docs/kingdom/index.html', 'sw.js'].map(servedAt), ['/', '/selftest', '/docs/', '/docs/kingdom/', '/sw.js']);
 });
 
-test('wrangler.toml: dist/ as the assets, the pages at their canonical addresses, the Worker never before a file, ebbfall.com and www as routes', () => {
+test('wrangler.toml: dist/ as the assets, the pages at their canonical addresses, the Worker before no file but the docs\' videos, ebbfall.com and www as routes', () => {
   const toml = readFileSync(new URL('../site/wrangler.toml', import.meta.url), 'utf8');
   assert.match(toml, /^main = "worker\.js"$/m);
   assert.match(toml, /^directory = "\.\.\/dist"$/m);
   assert.match(toml, /^binding = "ASSETS"$/m);
   assert.match(toml, /^html_handling = "auto-trailing-slash"$/m);
   assert.match(toml, /^not_found_handling = "none"$/m, "what is not a file: the Worker (a room's card, the reports, not found)");
-  assert.doesNotMatch(toml, /^run_worker_first/m, 'no Worker before a file: the pages stay up when the Worker is blocked');
+  assert.deepEqual(workerFirstRules(toml), [MEDIA_RULE], 'the Worker before one kind of file only, the docs\' videos: the pages and the posters stay up when the Worker is blocked');
   assert.match(toml, /\{ pattern = "ebbfall\.com\/\*", zone_name = "ebbfall\.com" \}/);
   assert.match(toml, /\{ pattern = "www\.ebbfall\.com\/\*", zone_name = "ebbfall\.com" \}/);
   assert.doesNotMatch(toml, /custom_domain/, 'routes over the proxied records: a custom domain needs the records gone first');

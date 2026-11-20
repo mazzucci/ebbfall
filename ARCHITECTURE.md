@@ -21,11 +21,12 @@ wrangler pinned) with wrangler.toml, reads the live build from `GET https://rela
 (`{proto, build}`, relay/version.js), and deploys with `--var RELAY_BUILD:<hash>` when they differ, when there is no
 /version, or on a run started by hand; then waits for /version to say the new build. The `deploy` job (the site)
 publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/net.js's, which a test keeps equal), so
-the site never outruns the relay. Every file of the site is served by Cloudflare's assets with no Worker (the game's
-page at /, the docs, the other pages; site/wrangler.toml): a tripped Workers spending limit (error 1103 for every Worker
-request) leaves the game, the docs and single player up, and takes online play (the relay), a room's and a challenge's
-card addresses (/r/CODE, /vs/CODE), the docs' feedback form's sending (it offers the address to write to instead) and
-the CSP's reports. The deploy's build step (site/build.mjs) writes dist/_headers and, from the repo
+the site never outruns the relay. Every file of the site but the docs' videos is served by Cloudflare's assets with no
+Worker (the game's page at /, the docs, the other pages; site/wrangler.toml): a tripped Workers spending limit (error
+1103 for every Worker request) leaves the game, the docs and single player up, and takes online play (the relay), a
+room's and a challenge's card addresses (/r/CODE, /vs/CODE), the docs' feedback form's sending (it offers the address
+to write to instead), the CSP's reports and the docs' videos (/docs/media/*.mp4, the Worker's for their byte ranges,
+which the assets do not serve and Safari needs: their posters stay). The deploy's build step (site/build.mjs) writes dist/_headers and, from the repo
 variable CF_ANALYTICS_TOKEN, the analytics beacon into every page. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
 iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
@@ -558,7 +559,8 @@ test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
 test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare does, test/cloudflare-assets.mjs: the pages
                       at their canonical addresses, the _headers the deploy writes and the site's CSP (site/cache.js; its
-                      relay allowed too: `TEST_CSP`), and what is not a file by the site's Worker, or its 1103 when
+                      relay allowed too: `TEST_CSP`), and what is not a file by the site's Worker, the docs' videos
+                      first (run_worker_first, with ASSETS faked as Cloudflare's: no byte ranges), or its 1103 when
                       `site.blocked`), drives mouse/keys/touch, stops workers through the UI for a
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
@@ -587,7 +589,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page; How to play's
                       touch table: a row's ? opens its loop under the words and plays it, nothing of it fetched before
                       the tap, another row's ? closes the first, the ? again closes it; under reduced motion the
-                      poster with controls instead; the ? hidden with JavaScript off),
+                      poster with controls instead; the ? hidden with JavaScript off; the docs' videos playing on past
+                      their loop's end, where WebKit asks for a byte range, the Worker's 206),
                       field.e2e.mjs (the field under the first page: the right image per size class, under the premise
                       line, the buttons unmoved, the plain floor when the image does not come, no tide line and no
                       drift, the band under the other menu pages too, no band on a screen too short),
@@ -607,12 +610,12 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
                       PLAY OFFLINE against the real service worker, the app icons), static.e2e.mjs (the Worker blocked, as a tripped spending limit
                       leaves it: the game's page, the docs and a single-player game from the files alone, the service
-                      worker installed, no error, nothing reaching the Worker), voice.e2e.mjs (the voice lab
+                      worker installed, no error, nothing reaching the Worker but the docs' videos, which fail), voice.e2e.mjs (the voice lab
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
                       rumble; ENDFALL_VOICE_OUT=dir writes WAVs to listen to)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
                       install, a page the host redirects stored as a response of its own at both addresses, Cloudflare's
-                      analytics beacon left to the network; the manifest's app icons
+                      analytics beacon and byte ranges (the docs' videos) left to the network; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
@@ -652,7 +655,9 @@ test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or s
 test/site-worker.test.js the site as deployed: the files by Cloudflare's assets (test/cloudflare-assets.mjs: html_handling
                       auto-trailing-slash, the _headers file) and the Worker (site/worker.js) only for what is not a
                       file: the game's page for every link, the docs and the other pages served with no Worker and with
-                      every security header, their other spellings sent on (307), the cache headers, what is not a
+                      every security header, their other spellings sent on (307), the cache headers, the docs' videos
+                      the Worker's (run_worker_first): whole with Accept-Ranges, a byte range 206, past the end 416,
+                      HEAD, If-Range, If-None-Match, their posters the assets'; what is not a
                       file, www and http, a room's card address, a tripped limit (1103), the CSP's reports, the beacon
                       only with a token, _headers, wrangler.toml; with dist/ built, every file the service worker
                       stores and every page served by the assets, and the deploy's build step writing the beacon into
@@ -742,8 +747,11 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
 site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design, Hosting): dist/ as a Worker's static assets
                       (wrangler.toml: ebbfall.com/* and www as zone routes; html_handling "auto-trailing-slash": / is
                       index.html, /docs/kingdom/ that folder's, /selftest selftest.html, the .html spellings sent on;
-                      no run_worker_first: every file is served with no Worker, so a tripped Workers spending limit
-                      leaves the game, the docs and single player up); worker.js (only what is not a file: a room's
+                      run_worker_first only for the docs' videos, /docs/media/*.mp4: every other file is served with no
+                      Worker, so a tripped Workers spending limit leaves the game, the docs and single player up);
+                      media.js (the docs' videos read from env.ASSETS and answered with byte ranges: 206 and
+                      Content-Range, 416, Accept-Ranges; the assets answer a Range with the whole file, 200, which
+                      Safari refuses to play); worker.js (the videos, then only what is not a file: a room's
                       card address /r/CODE, the room's own link card then on to /?room=CODE; a challenge's, /vs/CODE,
                       the challenge's card ("Can you beat this?") then on to /?vs=CODE; the docs' feedback form, POST
                       /api/feedback: feedback.js; www and http to
@@ -893,11 +901,11 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       reference sprites, which set the atlas's seat tints
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
-                      light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures
+                      light blob, the rally flag and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
                       (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
                       unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
                       angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
                       building); see Notion: Ebbfall art
-public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
+public/art/           generated atlas.json index + atlas-<n>.webp/json pages (PixiJS spritesheets, scale 2), committed
 ```
 

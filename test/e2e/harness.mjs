@@ -197,8 +197,13 @@ export function board(page, scope = 'solo') {
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
  *  function run in the page before the game loads. */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', first = false, init = null } = {}) {
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', first = false, init = null } = {}) {
   const ctx = await browserContext(device);
+  // The board the scenarios play on: you against `enemy`, the Kingdom unless asked (they were written on a mirror),
+  // saved as a player's own board is. With none saved the menu seats the other people (menu.js `defaultRows`: the
+  // menu's own tests see that default).
+  await ctx.addInitScript((seats) => { try { if (localStorage.getItem('endfall.seats') === null) localStorage.setItem('endfall.seats', seats); } catch { /* no storage */ } },
+    JSON.stringify([{ race: 'humans', team: 0 }, { race: enemy, team: 1, diff: 0 }]));
   if (init) await ctx.addInitScript(init); // (a script run before the page's own, e.g. a stand-in for full screen)
   const page = await ctx.newPage();
   const errors = [];
@@ -207,15 +212,15 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  // The menu's first page: FIRST GAME (the guided game, offered there to a newcomer) or SINGLE PLAYER.
+  // The menu's first page, a first visit's: FIRST GAME (the guided game, its one big button) or SINGLE PLAYER.
   await (touch ? page.locator(first ? '#btnFirstHome' : '#btnSolo').tap() : page.locator(first ? '#btnFirstHome' : '#btnSolo').click());
   if (!first && race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
   if (!first && diff !== 0) await board(page).diff(1, diff);
   if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());
-  // Games start fully zoomed out; the scenarios play closer in (as players do, and software WebGL draws the wide
-  // view slowly enough to stretch a double-click past its window).
+  // The scenarios play close in, at one zoom whatever the window (a desktop's start depends on its width; software
+  // WebGL draws a wide view slowly enough to stretch a double-click past its window).
   const startZoom = await page.evaluate(() => endfall.cam.zoom);
   await page.evaluate((z) => { const c = endfall.G.bldgs.find(b => b.team === 0); endfall.cam.zoom = z; endfall.centerOn(c.x + 40, c.y); }, touch ? 1.75 : 2);
   // Touch: CDP in Chromium (taps and gestures); elsewhere Playwright's touchscreen, which can only tap.

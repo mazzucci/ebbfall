@@ -17,7 +17,7 @@ const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && 
 /** Ours of `type`, those in training too (a button stops pulsing with the tap that orders the last one). */
 const ordered = (type) => mine(type) + G.bldgs.reduce((k, b) => k + (b.team === G.me ? b.queue.filter(t => t === type).length : 0), 0);
 /** The places (population, grid) still free: those of units in training are taken (the sim counts them). */
-const room = () => { const [used, cap] = G.sup[G.me] || [0, 0]; return cap - used; };
+const placesLeft = () => { const [used, cap] = G.sup[G.me] || [0, 0]; return cap - used; };
 /** Our workers standing idle (a new one waits for an order, a builder beside what it built: Stelian, Nov 12). */
 const idleWorkers = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle').length;
 /** How near (px) an enemy fighter must come to one of the player's buildings to be at the base. */
@@ -56,7 +56,7 @@ function steps() {
   // anti-air, those in training counted), and whether no place is left for it (`full`).
   const lacks = () => (mine(soldier) < n ? soldier : mine(aa) < 2 ? aa : null);
   const next = () => (ordered(soldier) < n ? soldier : ordered(aa) < 2 ? aa : null);
-  const full = (k) => !!k && room() < takes(k);
+  const full = (k) => !!k && placesLeft() < takes(k);
   const trainThem = `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`;
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} ${money} again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },

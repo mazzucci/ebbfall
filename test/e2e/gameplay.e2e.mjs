@@ -785,7 +785,7 @@ test('no 64x64 map in the list: a new single player game is two players on a 96x
   } finally { await ctx.close(); }
 });
 
-test('the menu opens on two modes; each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
+test('the menu, a first visit\'s (FIRST GAME big, the two modes small beside OPTIONS): each mode opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM; after a game, the two modes big', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -795,10 +795,11 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
       const shown = (sel) => page.locator(sel).isVisible();
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
+      assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), [], 'a first visit: no big mode button');
+      assert.deepEqual(await page.$$eval('#menuHero .ib.big.hero:not([hidden]) .l', bs => bs.map(b => b.textContent)), ['YOUR FIRST GAME'], 'the one big button: the guided game');
       assert.ok(await shown('#linkDocs') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'Learn more there (the docs home); the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: FIRST GAME there too; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: the two modes small in the row; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
       // Learn more: the docs home, in a new tab (test/e2e/docs.e2e.mjs); the version on the build stamp.
       assert.equal(await page.locator('#linkDocs').getAttribute('href'), './docs/');
       assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
@@ -808,8 +809,8 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.deepEqual(await board(page).sides(), [['YOU'], ['COMPUTER 1']]);
       assert.deepEqual(await board(page).spots(), ['YOU', 'COMPUTER 1', '+', '', '', '', '', ''], 'eight spots: you, an AI, + SEAT in the next');
       assert.deepEqual(await page.$$eval('#soloBoard .tok', ts => ts.map(t => [t.getAttribute('aria-label'), t.querySelector('.race').textContent])),
-        device.hasTouch ? [['YOU KING, Kingdom, Side 1: edit', 'KING'], ['COMPUTER 1 KING, Kingdom, Easy, Side 2: edit', 'KING']] : [['YOU KINGDOM, Side 1: edit', 'KINGDOM'], ['COMPUTER 1 KINGDOM, Easy, Side 2: edit', 'KINGDOM']],
-        'each token says what it shows first, then the rest; a phone\'s short race');
+        device.hasTouch ? [['YOU KING, Kingdom, Side 1: edit', 'KING'], ['COMPUTER 1 EXP, Expedition, Easy, Side 2: edit', 'EXP']] : [['YOU KINGDOM, Side 1: edit', 'KINGDOM'], ['COMPUTER 1 EXPEDITION, Easy, Side 2: edit', 'EXPEDITION']],
+        'each token says what it shows first, then the rest; a phone\'s short race; a first visit: the Kingdom against the Expedition, on Easy');
       assert.equal(await page.locator('#soloBoard .tok b').first().evaluate(b => getComputedStyle(b).fontSize), device.hasTouch ? '16px' : '12px', 'a phone reads 16 px');
       // YOUR sheet: the race (RANDOM too) and the side, a dialog; Escape closes it and gives the focus back to the token.
       await page.locator('#soloBoard [data-k="tok0"]').focus(); await page.keyboard.press('Enter');
@@ -856,6 +857,10 @@ test('the menu opens on two modes; each opens its page, BACK returns; the sound 
       assert.ok(await shown('#menuSolo'), 'leaving a game against the AI: the single player page, one tap from the next');
       await press('#btnSoloBack'); assert.ok(await shown('#menuHome'));
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
+      // A game played (left: lost): the first page as a returning player has it, the two modes big, FIRST GAME gone.
+      assert.deepEqual(await page.$$eval('#menuHome .modes .mode.big:not([hidden])', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['OPTIONS', 'PLAY OFFLINE']);
+      assert.ok(await page.locator('#menuHero').isHidden() && await page.locator('#btnFirstHome').isHidden(), 'no FIRST GAME after a game');
       await press('#btnSolo');
       assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (RND, Random|RANDOM),/, 'RANDOM still chosen');
       assert.equal(await startAs(0.1), 'humans', 'and the next game the Kingdom');
@@ -1501,11 +1506,11 @@ test('the menu offers the Expedition: their base, workers and Build list', async
     await page.waitForFunction(() => !!window.endfall);
     await page.locator('#btnSolo').click();
     await board(page).race(0, 'vael');
-    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 KINGDOM,/, 'the opponent is human unless chosen');
+    assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 EXPEDITION,/, 'the opponent stays the one the board had (a first visit\'s: the Expedition) unless chosen');
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const mine = await page.evaluate(() => ({ b: endfall.G.bldgs.filter(b => b.team === 0).map(b => b.type), u: [...new Set(endfall.G.units.filter(u => u.team === 0).map(u => u.type))], f: endfall.G.factions }));
-    assert.deepEqual(mine.b, ['conflux']); assert.deepEqual(mine.u, ['lumen']); assert.deepEqual(mine.f, ['vael', 'humans'], 'the AI plays the humans');
+    assert.deepEqual(mine.b, ['conflux']); assert.deepEqual(mine.u, ['lumen']); assert.deepEqual(mine.f, ['vael', 'vael'], 'the AI plays what its token said');
     await page.evaluate(() => { endfall.ui.sel = endfall.G.units.filter(u => u.team === 0).slice(0, 1); endfall.ui.mode = 'build'; });
     await page.waitForFunction(() => [...document.querySelectorAll('#cmd button .l')].some(l => l.textContent === 'Substation'), null, { timeout: 10000 }); // (the card redraws on the next frame)
     const labels = await page.$$eval('#cmd button .l', ls => ls.map(l => l.textContent));

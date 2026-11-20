@@ -167,15 +167,15 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.match(js, /if \(clips\.length && !reduce\) \{ if \(document\.readyState === 'complete'\) start\(\); else addEventListener\('load', start\); \}/, 'reduced motion: the poster only');
   assert.equal(shots.trailer.file, 'trailer.mp4', 'the file the trailer takes over');
   // Its words: a title, a label that says what plays (the game named), the caption under it.
-  assert.equal(shots.trailer.title, 'Ebbfall gameplay: Archers against Drones');
+  assert.equal(shots.trailer.title, 'Ebbfall gameplay: Drones against a Watchtower');
   assert.ok(main.includes(`title="${shots.trailer.title}"`), 'the title');
-  assert.match(shots.trailer.alt, /^Ebbfall gameplay: .*archers.*drones/i);
+  assert.match(shots.trailer.alt, /^Ebbfall gameplay: .*drones.*watchtower.*archers.*ballista/i);
   assert.ok(main.includes(`aria-label="${shots.trailer.alt.replace(/"/g, '&quot;')}"`), 'the label');
-  assert.ok(main.includes('<figcaption>Archers against Drones.</figcaption>'), 'the caption');
-  // Small, and short: about six seconds, within the docs' budget for the home.
+  assert.ok(main.includes('<figcaption>Drones strike a Watchtower by the Castle; Archers and a Ballista shoot them down.</figcaption>'), 'the caption');
+  // Small, and short: two beats in a dozen seconds, within the docs' budget for the home.
   const clip = readFileSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url));
   assert.ok(clip.length < 300 * 1024, `the clip under 300 KB: ${Math.round(clip.length / 1024)} KB`);
-  assert.ok(shots.trailer.seconds >= 4 && shots.trailer.seconds <= 8, `about six seconds: ${shots.trailer.seconds}`);
+  assert.ok(shots.trailer.seconds >= 11 && shots.trailer.seconds <= 15, `a dozen seconds: ${shots.trailer.seconds}`);
 });
 
 test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), About has the loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {

@@ -4,14 +4,19 @@
 // public/docs/img/shots/, and tools/docs/shots.json with each shot's size, words and the boxes the annotated ones mark
 // (the top bar, the minimap, the command card, ...: tools/docs/pages.mjs puts the numbered notes beside them) and what
 // the notes must not cover (`avoid`: the top bar, the sprites on the map). The clip
-// (public/docs/media/trailer.*, with its poster, its middle frame) is a few seconds of Archers against Drones, stepped
-// frame by frame in the game: the trailer replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
+// (public/docs/media/trailer.mp4, with its poster, its middle frame) is a dozen seconds of the Expedition's Drones
+// against a Kingdom Watchtower by its Castle, Archers and a Ballista coming to its help, stepped frame by frame in the
+// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's): the trailer
+// replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
 //   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; `clip` names the clip)
 import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../chromium.mjs';
+import { freeze } from '../trailer/stage.mjs';
+import { capture, FFMPEG } from '../trailer/record.mjs';
 
 const root = new URL('../../', import.meta.url);
 const dist = fileURLToPath(new URL('dist/', root));
@@ -68,28 +73,85 @@ function helpers() {
 }
 
 /**
- * The clip's fight (the home's): Kingdom Archers (ours, blue) against the Expedition's Drones, bows against flying
- * machines, in front of the Expedition's Data center (inside its coverage, where the Drones work): the Archers and a few
- * Guards hold their ground and the Drones, a Buggy beside them, fly in from across the field. Staged so the fight lasts
- * the clip (most of the Drones fall, a few Archers too). Returns the camera's point, the middle of the two sides.
+ * The clip's fight (the home's), in two beats. One: the Expedition's Drones come at a Kingdom Watchtower (ours, blue)
+ * standing before a Castle on open steppe, from three sides in turn (`strike`: a few already on it, the rest flying in
+ * from the left, then from the upper left, then from below), and bring its health down while it shoots back alone; it
+ * smokes below half and burns below a quarter (render.js). Two (`defend`, at once): Archers and a Ballista, ordered in
+ * from just past the bottom-right corner, cross the foreground to the tower's foot and shoot the Drones down. The sim takes
+ * orders for our seat alone, and the Expedition's machines work only inside its coverage, so the Drones must come by
+ * themselves: the scene stands inside the Data center's coverage on Sunken Court (`?map=9&seed=1`: the one map with
+ * open ground enough for the frame by the Expedition's start, which lies south of it, well out of the frame with its
+ * mine and Bots; the Kingdom's own start is far away), a second Castle of ours built there with the tower some twelve
+ * tiles from the Data center; a Drone that appears within its sight of the tower takes it on as any idle unit does
+ * (an armed tower comes before a Castle or a Villager), flies in and hovers at its range, four tiles out, and one
+ * that appears within its range fires from where it is, over the tower. The tower starts hurt (`debugSetHp`) so its
+ * fall in health reads and it still stands when the Drones are down. Health bars stay on. Returns the frame's center,
+ * the Drones' waves (spawn points, seat and their frame) for `strike`, the defenders' ids and post for `defend`
+ * (world px). `towerHp`: the tower's health as they come (`TOWER_HP`).
  */
-function archersDrones() {
-  const { G, me, eng, spawn } = window.S, foe = G.factions.findIndex((_, t) => t !== me);
-  const hq = G.bldgs.find(b => b.team === foe && eng.BUILDINGS[b.type].hq);
-  const mid = { x: eng.MW * 16, y: eng.MH * 16 }, len = Math.hypot(mid.x - hq.x, mid.y - hq.y);
-  const d = { x: (mid.x - hq.x) / len, y: (mid.y - hq.y) / len }, s = { x: -d.y, y: d.x };
-  /** `f` px from the Data center toward the map's middle, `w` px across. */
-  const at = (f, w) => ({ x: hq.x + d.x * f + s.x * w, y: hq.y + d.y * f + s.y * w });
-  eng.revealAll(true); window.endfall.bars(false); // (the other seat drawn wherever it is; no health bars over the fight)
-  for (let i = 0; i < 8; i++) spawn(me, 'lancer', at(470 + (i % 2) * 26, (Math.floor(i / 2) - 1.5) * 34 + (i % 2) * 12));
-  for (let i = 0; i < 3; i++) spawn(me, 'trooper', at(430, (i - 1) * 40));
-  for (let i = 0; i < 10; i++) spawn(foe, 'shrike', at(250 + (i % 2) * 30, (Math.floor(i / 2) - 2) * 46));
-  spawn(foe, 'scythe', at(230, 130));
-  for (const u of G.units) if (u.team === me && !eng.UNITS[u.type].worker) eng.holdUnit(u);
-  window.endfall.skip(0.2);
-  // (the camera on the middle of the two sides: the Archers and Guards, the Drones)
-  const us = G.units.filter(u => (u.team === me && !eng.UNITS[u.type].worker) || u.type === 'shrike');
-  return { x: us.reduce((a, u) => a + u.x, 0) / us.length, y: us.reduce((a, u) => a + u.y, 0) / us.length };
+function towerRaid(towerHp) {
+  const { e, G, me, eng, spawn, workers } = window.S, foe = G.factions.findIndex((_, t) => t !== me);
+  const T = 32, dc = G.bldgs.find(b => b.team === foe && eng.BUILDINGS[b.type].hq);
+  const byId = (id) => G.units.find(u => u.id === id);
+  const done = (b) => { for (let i = 0; i < 150 && !b.done; i++) e.skip(1); return b; };
+  /** Place `type` for us at the free spot nearest `near` (center, world px), built by `builder`: the building. */
+  const put = (type, near, builder) => {
+    const d = eng.BUILDINGS[type], tx0 = Math.round(near.x / T - d.w / 2), ty0 = Math.round(near.y / T - d.h / 2);
+    for (let r = 0; r < 12; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !eng.canPlace(type, tx0 + dx, ty0 + dy, me)) continue;
+      const err = eng.placeBuilding(me, type, tx0 + dx, ty0 + dy, builder); if (err) continue;
+      return G.bldgs.find(b => b.team === me && b.type === type && b.tx === tx0 + dx && b.ty === ty0 + dy);
+    }
+    throw new Error(`clip: no spot for a ${type} near ${Math.round(near.x / T)}, ${Math.round(near.y / T)}`);
+  };
+  e.setResources(me, 20000, 0);
+  eng.revealAll(true); // (the other seat drawn wherever it is: the Drones from their first frame at the edge)
+  // The tower needs a Barracks: one at home first.
+  done(put('barracks', window.S.at(-140, 170), workers()[0]));
+  // The tower's spot east of the Data center and a little north, the Castle's five tiles to its right: a Villager of
+  // ours between them sees the ground first, builds both, and walks home, far out of the frame, before anyone comes.
+  const want = { x: dc.x + 12 * T, y: dc.y - 5 * T };
+  const mason = spawn(me, 'harvester', { x: want.x + 2.5 * T, y: want.y + 1.5 * T }); e.skip(0.3);
+  const castle = done(put('core', { x: want.x + 5 * T, y: want.y + 0.3 * T }, byId(mason)));
+  const tower = done(put('turret', want, byId(mason)));
+  eng.moveTo(byId(mason), window.S.hq.x, window.S.hq.y); e.skip(5);
+  eng.debugSetHp(tower, towerHp);
+  const f = { x: tower.x + 2.5 * T, y: tower.y - 0.5 * T };
+  // The defenders wait just past the frame's bottom-right corner (a short walk: they fire by about four seconds);
+  // their post is at the tower's foot, toward the Castle.
+  const gate = { x: f.x + 9.6 * T, y: f.y + 4.9 * T }, post = { x: tower.x + 2.6 * T, y: tower.y + 2.2 * T };
+  const guard = [spawn(me, 'bastion', { x: gate.x - 0.4 * T, y: gate.y - 0.3 * T })];
+  for (let i = 0; i < 4; i++) guard.push(spawn(me, 'lancer', { x: gate.x + (0.9 + Math.floor(i / 2) * 0.9) * T, y: gate.y + ((i % 2) - 0.5) * 0.9 * T }));
+  // The Drones, in waves (tiles from the tower's center): on the first frame three over the tower, in its range, and
+  // three past the frame's left edge; then two from its top-left corner; then one past its bottom edge: every one that
+  // flies in within sight of the tower's edge (under six tiles), all inside the coverage.
+  const at = (ps) => ps.map(([dx, dy]) => ({ x: tower.x + dx * T, y: tower.y + dy * T }));
+  const waves = [
+    { frame: 0, points: at([[-1.6, -1.0], [1.7, -1.9], [0.5, 1.9], [-6.9, -0.6], [-6.6, 0.7], [-6.7, 1.8]]) },
+    { frame: 12, points: at([[-5.8, -4.2], [-4.6, -5.1]]) },
+    { frame: 24, points: at([[2.5, 6.4]]) },
+  ];
+  return { f, post, guard, waves, foe };
+}
+/** Beat one: a wave of Drones appears and, idle, takes on the tower in its sight (or fires from where it is, in range). */
+function strike([{ waves, foe }, wave]) {
+  for (const p of waves[wave].points) window.S.spawn(foe, 'shrike', p);
+}
+/** Beat two: the defenders walk in to their post (a move: they turn on the Drones only once there), the Ballista on
+ *  the Castle's side, the Archers two by two toward the tower. */
+function defend({ post, guard }) {
+  const { G, eng } = window.S, T = 32;
+  guard.forEach((id, i) => {
+    const u = G.units.find(u => u.id === id); if (!u) return;
+    if (!i) eng.moveTo(u, post.x + 0.9 * T, post.y - 0.3 * T);
+    else eng.moveTo(u, post.x - (0.4 + Math.floor((i - 1) / 2) * 0.9) * T, post.y + ((i % 2) - 0.5) * 0.9 * T);
+  });
+}
+/** How near (px) the Ballista's first bolt is to landing, with a Drone still under it: the slow-motion beat's cue. */
+function boltNear() {
+  const { G } = window.S, p = G.projs.find(p => p.by === 'bastion');
+  if (!p || !G.units.some(u => u.type === 'shrike' && Math.hypot(u.x - p.ax, u.y - p.ay) < 16)) return Infinity;
+  return Math.hypot(p.ax - p.x, p.ay - p.y);
 }
 
 /** The Kingdom (ours) storms the Expedition's Data center: knights and guards at its walls, cannons and archers behind. */
@@ -293,81 +355,92 @@ async function controls() {
 }
 
 /**
- * The clip: Archers against Drones (`archersDrones`), the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped
- * by the page. The game's frames are stepped by hand (its requestAnimationFrame and performance.now taken over, each
- * frame exactly one 30 Hz tick of game time later, as the trailer's recorder does: at another rate the ticks per frame
- * would be uneven, 1, 1, 1, 2 at 24 fps, and everything that moves would hitch) and screenshot one by one at DPR 2, as
- * software WebGL cannot draw in real time; then played back at their pace, scaled to the clip's size, into a
- * MediaRecorder in a blank page: MP4 (H.264) where the browser records it, else WebM. Its poster is its middle frame
- * (`hero-home`, the home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_FRAMES=<dir>` also writes a few
- * frames there as PNG (for a review).
+ * The clip: Drones against a Watchtower (`towerRaid`; the Drones' waves by `strike` at their frames, `defend` at
+ * `DEFEND_AT` seconds), the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's
+ * frames are stepped by hand (tools/trailer/stage.mjs `freeze`: its requestAnimationFrame and performance.now taken
+ * over, each frame exactly one 30 Hz tick of game time later; at another rate the ticks per frame would be uneven,
+ * 1, 1, 1, 2 at 24 fps, and everything that moves would hitch) and captured one by one at DPR 2 (software WebGL
+ * cannot draw in real time) into target/docs-clip/ as PNG (kept there for a review), then encoded by ffmpeg
+ * (tools/trailer/record.mjs `FFMPEG`) into H.264 at the clip's size, at the first quality under the home's budget
+ * (`CLIP_KB`, test/docs.test.js). One slow-motion beat (`SLOW`: about a third speed, eased in and out, `boltNear` its
+ * cue): the Ballista's first bolt landing on a Drone, the sim and the effects slowed together. It loops without a
+ * cut: `LOOP_S` more seconds are recorded, and the end dissolves into those first seconds, which the clip then starts
+ * after (the last Drone down fades back into the first ones coming). Its poster is its middle frame (`hero-home`, the
+ * home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_PREVIEW=1` captures one frame a second at DPR 1
+ * and encodes nothing (a look at the staging).
  */
-const FPS = 30, CLIP_S = 6, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.6, CLIP_BPS = 380_000;
+const FPS = 30, CLIP_S = 11, DEFEND_AT = 0, LOOP_S = 0.5, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.7, CLIP_KB = 290;
+/** The tower's health as the Drones come (of 380): its fall reads, and it still stands at the end. */
+const TOWER_HP = 340;
+/** The slow-motion beat's speed frame by frame: eased down to a third over six frames, held, eased back. */
+const SLOW = (() => { const lo = 0.37, ease = (k) => k * k * (3 - 2 * k), v = []; for (let i = 1; i <= 6; i++) v.push(1 - (1 - lo) * ease(i / 6)); for (let i = 0; i < 15; i++) v.push(lo); for (let i = 5; i >= 0; i--) v.push(1 - (1 - lo) * ease(i / 6)); return v; })();
 const CLIP_WORDS = {
-  alt: 'Ebbfall gameplay: the blue Kingdom\'s archers and guards hold their ground as the Expedition\'s attack drones fly in',
-  caption: 'Archers against Drones.',
+  alt: 'Ebbfall gameplay: the Expedition\'s drones swarm a blue Kingdom watchtower by its castle until archers and a ballista arrive and shoot them down',
+  caption: 'Drones strike a Watchtower by the Castle; Archers and a Ballista shoot them down.',
+  title: 'Ebbfall gameplay: Drones against a Watchtower',
 };
+const CLIP_DIR = fileURLToPath(new URL('target/docs-clip/', root));
 async function clip() {
-  const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: 2 }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`, `?map=0&seed=${SEED}`);
-  const frames = [], review = process.env.CLIP_FRAMES;
+  const preview = !!process.env.CLIP_PREVIEW, dpr = preview ? 1 : 2;
+  const { ctx, page } = await game({ viewport: { width: CLIP_W, height: CLIP_H }, deviceScaleFactor: dpr }, 'humans', `${BARE} #top,#hud{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`, '?map=9&seed=1');
+  rmSync(CLIP_DIR, { recursive: true, force: true }); mkdirSync(CLIP_DIR, { recursive: true });
+  const n = Math.round(FPS * (CLIP_S + LOOP_S)), loop = Math.round(FPS * LOOP_S), file = (i) => join(CLIP_DIR, `f${String(i).padStart(4, '0')}.png`);
   try {
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-    const p = await page.evaluate(archersDrones);
-    await look(page, p, CLIP_ZOOM); await settle(page);
-    await page.evaluate(async () => {
-      const q = [];
-      window.requestAnimationFrame = (f) => { q.push(f); return q.length; };
-      await new Promise(r => { const check = () => (q.length ? r() : setTimeout(check, 5)); check(); }); // (the last real frame's callback)
-      let t = performance.now(), tl = t;
-      performance.now = () => t;
-      window.stepFrame = (ms) => { t += ms; tl += 1000 / 30 + 0.0005; const fs = q.splice(0); for (const f of fs) f(tl); return fs.length; };
-    });
-    for (let i = 0; i < FPS * CLIP_S; i++) {
-      await page.evaluate((ms) => window.stepFrame(ms), 1000 / FPS);
-      frames.push(await page.screenshot({ timeout: 240000 }));
-    }
-  } finally { await ctx.close(); }
-  const middle = frames[Math.floor(frames.length / 2)];
-  const pw = await encode(middle, [{ name: 'desktop', x: 0, y: 0, w: CLIP_W * 2, h: CLIP_H * 2, W: CLIP_W * 2 }, { name: 'phone', x: 0, y: 0, w: CLIP_W * 2, h: CLIP_H * 2, W: 720 }]);
-  save('hero-home', pw, CLIP_WORDS, {});
-  if (review) {
-    mkdirSync(review, { recursive: true });
-    for (const i of [0, 45, 90, 135, frames.length - 1]) writeFileSync(join(review, `clip-frame-${String(i).padStart(3, '0')}.png`), frames[i]);
-  }
-  const rec = await browser.newPage();
-  try {
-    await rec.setContent('<canvas></canvas>');
-    await rec.evaluate(([w, h, bps]) => {
-      const c = document.querySelector('canvas'); c.width = w; c.height = h;
-      const types = ['video/mp4;codecs=avc1.42E01E', 'video/webm;codecs=vp9', 'video/webm'];
-      const type = types.find(t => MediaRecorder.isTypeSupported(t)), stream = c.captureStream(0), track = stream.getVideoTracks()[0], parts = [];
-      const r = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: bps });
-      r.ondataavailable = (e) => parts.push(e.data);
-      window.rec = { c, g: c.getContext('2d'), track, r, parts, type, bitmaps: [], done: new Promise(ok => { r.onstop = ok; }) };
-    }, [CLIP_W, CLIP_H, CLIP_BPS]);
-    // Each frame decoded ahead at the clip's size (from DPR 2: sharper than drawn at 1), then drawn on its beat.
-    for (const f of frames) await rec.evaluate(async ([b64, w, h]) => { const blob = await (await fetch('data:image/png;base64,' + b64)).blob(); window.rec.bitmaps.push(await createImageBitmap(blob, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' })); }, [f.toString('base64'), CLIP_W, CLIP_H]);
-    frames.length = 0;
-    const out = await rec.evaluate(async (fps) => {
-      const { g, track, r, parts, type, bitmaps } = window.rec;
-      g.drawImage(bitmaps[0], 0, 0); r.start();
-      const t0 = performance.now();
-      for (let i = 0; i < bitmaps.length; i++) {
-        g.drawImage(bitmaps[i], 0, 0); track.requestFrame();
-        const wait = t0 + (i + 1) * 1000 / fps - performance.now(); if (wait > 0) await new Promise(ok => setTimeout(ok, wait));
+    const scene = await page.evaluate(towerRaid, TOWER_HP);
+    await look(page, scene.f, CLIP_ZOOM); await settle(page);
+    await freeze(page);
+    const cdp = await ctx.newCDPSession(page);
+    let last = null, slow = null;
+    const t1 = Date.now();
+    for (let i = 0; i < n; i++) {
+      for (const [w, wave] of scene.waves.entries()) if (i === wave.frame) await page.evaluate(strike, [scene, w]);
+      if (i === Math.round(FPS * (LOOP_S + DEFEND_AT))) await page.evaluate(defend, scene);
+      if (!slow && i > FPS * (LOOP_S + DEFEND_AT + 3) && await page.evaluate(boltNear) < 80) { slow = SLOW.slice(); console.log(`\r  clip: slow motion from frame ${i}                 `); }
+      const speed = slow?.length ? slow.shift() : 1;
+      await page.evaluate(([ms, ticks]) => window.__frame(ms, ticks), [(1000 / FPS) * speed + 0.0005, speed]);
+      if (preview && i % FPS) continue;
+      // (the drawn frame presented first: two real frames; a capture identical to the last one is a stale surface
+      // (software WebGL under load): taken again)
+      let png;
+      for (let k = 0; k < 6; k++) {
+        await page.evaluate(() => new Promise(r => window.__raf(() => window.__raf(r))));
+        png = await capture(cdp, { width: CLIP_W, height: CLIP_H }, dpr);
+        if (!last || !png.equals(last)) break;
       }
-      r.stop(); await window.rec.done;
-      const buf = new Uint8Array(await new Blob(parts, { type }).arrayBuffer());
-      let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-      return { type, data: btoa(s) };
-    }, FPS);
-    const ext = out.type.startsWith('video/mp4') ? 'mp4' : 'webm', bytes = Buffer.from(out.data, 'base64');
-    for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer.')) rmSync(new URL(f, MEDIA));
-    writeFileSync(new URL(`trailer.${ext}`, MEDIA), bytes);
-    manifest.trailer = { file: `trailer.${ext}`, type: out.type.split(';')[0], poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: 'Ebbfall gameplay: Archers against Drones' };
-    writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
-    console.log(`shots: clip (trailer.${ext}, ${Math.round(bytes.length / 1024)} KB)`);
-  } finally { await rec.close(); }
+      last = png; writeFileSync(file(i), png);
+      if (i % FPS === FPS - 1) process.stdout.write(`\r  clip: ${i + 1}/${n} frames (${((Date.now() - t1) / (i + 1) / 1000).toFixed(2)} s each)   `);
+    }
+    console.log(`\r  clip: ${n} frames in ${((Date.now() - t1) / 1000).toFixed(0)} s                `);
+  } finally { await ctx.close(); }
+  if (preview) return;
+  const pw = await encode(readFileSync(file(loop + Math.floor((n - loop) / 2))), [{ name: 'desktop', x: 0, y: 0, w: CLIP_W * 2, h: CLIP_H * 2, W: CLIP_W * 2 }, { name: 'phone', x: 0, y: 0, w: CLIP_W * 2, h: CLIP_H * 2, W: 720 }]);
+  save('hero-home', pw, { alt: CLIP_WORDS.alt, caption: CLIP_WORDS.caption }, {});
+  // The video: the frames from `loop` on, the last `LOOP_S` seconds dissolving into the first `loop` frames (xfade),
+  // scaled to the clip's size; H.264 at the first CRF that fits the budget.
+  const out = fileURLToPath(new URL('trailer.mp4', MEDIA));
+  const pic = 'scale=' + CLIP_W + ':' + CLIP_H + ':flags=lanczos,format=yuv420p,setsar=1';
+  let crf = 26, bytes;
+  for (;;) {
+    await ffmpeg(['-framerate', String(FPS), '-start_number', String(loop), '-i', join(CLIP_DIR, 'f%04d.png'),
+      '-framerate', String(FPS), '-start_number', '0', '-t', String(LOOP_S), '-i', join(CLIP_DIR, 'f%04d.png'),
+      '-filter_complex', `[0:v]${pic}[a];[1:v]${pic}[b];[a][b]xfade=transition=fade:duration=${LOOP_S}:offset=${((n - loop) / FPS - LOOP_S).toFixed(4)}`,
+      '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-profile:v', 'high', '-level', '4.0', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', out]);
+    bytes = statSync(out).size;
+    if (bytes <= CLIP_KB * 1024 || crf >= 40) break;
+    crf += 2;
+  }
+  for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer.') && f !== 'trailer.mp4') rmSync(new URL(f, MEDIA));
+  manifest.trailer = { file: 'trailer.mp4', type: 'video/mp4', poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: CLIP_WORDS.title };
+  writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
+  console.log(`shots: clip (trailer.mp4, ${Math.round(bytes / 1024)} KB at CRF ${crf}, ${CLIP_S} s)`);
+}
+/** Run ffmpeg (tools/trailer/record.mjs `FFMPEG`) with `args`, quietly; throws if it fails. */
+function ffmpeg(args) {
+  return new Promise((ok, no) => {
+    const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error', ...args], { stdio: ['ignore', 'inherit', 'inherit'] });
+    ff.on('error', no); ff.on('close', (c) => (c === 0 ? ok() : no(new Error(`ffmpeg exited ${c}`))));
+  });
 }
 
 const JOBS = { sieges, heroes, controls, clip };

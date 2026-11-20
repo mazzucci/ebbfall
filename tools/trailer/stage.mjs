@@ -105,7 +105,9 @@ function helpers({ as, ai }) {
 /**
  * Take the page's clock (after the scene is set out): requestAnimationFrame queues, performance.now reads the
  * recorder's time, and `__frame(ms, ticks)` runs one frame `ms` later with `ticks` sim ticks in it (1: real time; 4: a
- * time-lapse). The effects the game asks for from then on are logged in `__sfx` at that clock (audio.js `record`).
+ * time-lapse; a fraction: slow motion, the loop's own accumulator carrying the rest over to the next frames, so 0.37 a
+ * frame runs a tick about every third frame; under 0.36 the loop would skip the draw, main.js). The effects the game
+ * asks for from then on are logged in `__sfx` at that clock (audio.js `record`).
  */
 export const freeze = (page) => page.evaluate(async () => {
   const q = [], real = performance.now.bind(performance);
@@ -126,7 +128,7 @@ export const freeze = (page) => page.evaluate(async () => {
   // and CSS animations on this clock).
   window.__frame = (ms, ticks = 1) => {
     if (ticks > 1) e.skip((ticks - 1.5) / 30); // (ticks - 1 steps)
-    t += ms; window.__tick?.(t); tl += 1000 / 30 + 0.0005; const fs = q.splice(0); for (const f of fs) f(tl);
+    t += ms; window.__tick?.(t); tl += ticks >= 1 ? 1000 / 30 + 0.0005 : ticks * 1000 / 30; const fs = q.splice(0); for (const f of fs) f(tl);
   };
   window.__t0 = t0;
 });

@@ -1,7 +1,7 @@
 {
  "hero-home": {
-  "alt": "Ebbfall gameplay: the blue Kingdom's archers and guards hold their ground as the Expedition's attack drones fly in",
-  "caption": "Archers against Drones.",
+  "alt": "Ebbfall gameplay: the Expedition's drones swarm a blue Kingdom watchtower by its castle until archers and a ballista arrive and shoot them down",
+  "caption": "Drones strike a Watchtower by the Castle; Archers and a Ballista shoot them down.",
   "w": 1000,
   "h": 500,
   "phoneW": 360,
@@ -444,9 +444,9 @@
   "poster": "hero-home",
   "w": 1000,
   "h": 500,
-  "seconds": 6,
-  "uploaded": "2026-11-18",
-  "alt": "Ebbfall gameplay: the blue Kingdom's archers and guards hold their ground as the Expedition's attack drones fly in",
-  "title": "Ebbfall gameplay: Archers against Drones"
+  "seconds": 11,
+  "uploaded": "2026-11-20",
+  "alt": "Ebbfall gameplay: the Expedition's drones swarm a blue Kingdom watchtower by its castle until archers and a ballista arrive and shoot them down",
+  "title": "Ebbfall gameplay: Drones against a Watchtower"
  }
 }

@@ -8,7 +8,7 @@ import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, c
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
-import { RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
+import { RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headAt, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs, nearestRim } from '../range.js';
@@ -473,7 +473,7 @@ class BldgObj {
     [this.body, this.paint] = teamSprite(L.ents); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
     // (the frame round a rising body: the Kingdom's timber scaffold, `scaffold_n`, its cloth and flags in the seat's
     // color; the Expedition's printer gantry, `gantry_n`, its pennants in the seat's color, and the gantry's head,
-    // `gantrybar_n`, set on the solid's top; the foundation is the Kingdom's)
+    // `gantrybar_n`, set on the solid's top between its masts; the foundation is the Kingdom's)
     this.ex = G.factions[b.team] === 'vael';
     [this.scaffold, this.scaffoldPaint] = teamSprite(L.ents); const sn = `${this.ex ? 'gantry' : 'scaffold'}_${n}`;
     setTex(this.scaffold, tex(sn)); setTex(this.scaffoldPaint, tex(sn + '_m')); paintAs(this.scaffold, this.scaffoldPaint, this.seat);
@@ -529,7 +529,10 @@ class BldgObj {
       if (this.ex) {
         if (this.body.filters) this.body.filters = null;
         vis(this.ghost, this.body.visible); setTex(this.ghost, this.full); this.ghost.alpha = ghostAlpha(live ? now : 0) * (fading ? d.strip : 1); // (a remembered ghost holds still)
-        vis(this.bar, this.body.visible); this.bar.y = this.body.y - this.body.height + GANTRY.barDrop; this.bar.alpha = fading ? d.strip : 1;
+        // (the head on the solid's top row, where its frame carries it: between the front masts, then on the rails;
+        // to the art's own px, half a world px, so it stays as sharp as the masts it runs on)
+        const at = headAt(b.w, this.body.y - this.body.height + GANTRY.barDrop - b.y);
+        vis(this.bar, this.body.visible); this.bar.position.set(b.x + Math.round(at.x * 2) / 2, b.y + Math.round(at.y * 2) / 2); this.bar.alpha = fading ? d.strip : 1;
       } else if (site) { if (this.body.filters?.[0] !== RAW_LOOK) this.body.filters = [RAW_LOOK]; }
       else {
         if (!this.fadeLook) { this.fadeLook = rawFilter(); this.body.filters = [this.fadeLook]; this.roof.filters = [this.fadeLook]; }
@@ -961,7 +964,8 @@ const barsDrawn = [];
 /** How the buildings on screen are drawn now (read-only, for the tests): each one's look ('raw': the Kingdom's unpainted
  *  site, 'gantry': the Expedition's rising body in its gantry, 'fade': its done moment, 'full'), the done moment's time,
  *  its body (tint, opacity, drawn height in world px, its color filter's saturation), its paint, roof slice, scaffold or
- *  gantry, the gantry's head (`bar`: its opacity, `barY`: its top in world px) and ghost, foundation, and its bars; and
+ *  gantry, the gantry's head (`bar`: its opacity, `barX`, `barY`: where it is set, world px; `top`: the solid's top row)
+ *  and ghost, foundation, and its bars; and
  *  our builders' strikes so far (`strikes`, by unit id). */
 export const sitesShown = () => ({
   bldgs: [...bldgObjs.values()].filter(o => o.body.visible).map(o => {
@@ -969,7 +973,7 @@ export const sitesShown = () => ({
     return { id: o.id, type: o.type, done: o.b.done, look: o.doneT !== null ? 'fade' : o.b.done ? 'full' : o.ex ? 'gantry' : 'raw', fadeT: o.doneT,
       tint: o.body.tint, alpha: o.body.alpha, height: o.body.texture.height, fullHeight: o.full.height, sat: m ? (m[0] - 0.2126) / (1 - 0.2126) : 1,
       paint: o.paint.visible ? o.paint.alpha : 0, roof: o.roof.visible ? o.roof.alpha : 0, scaffold: o.scaffold.visible ? o.scaffold.alpha : 0, found: o.found.visible ? o.found.alpha : 0,
-      bar: o.bar?.visible ? o.bar.alpha : 0, barY: o.bar?.visible ? o.bar.y : null, ghost: o.ghost?.visible ? o.ghost.alpha : 0,
+      bar: o.bar?.visible ? o.bar.alpha : 0, barX: o.bar?.visible ? o.bar.x : null, barY: o.bar?.visible ? o.bar.y : null, top: o.body.y - o.body.height, ghost: o.ghost?.visible ? o.ghost.alpha : 0,
       bars: barsDrawn.filter(r => r.id === o.id).map(r => ({ ...r })) };
   }),
   strikes: Object.fromEntries([...unitObjs.values()].filter(o => o.strikesSeen).map(o => [o.id, o.strikesSeen])),

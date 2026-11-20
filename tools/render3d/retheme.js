@@ -23,6 +23,7 @@ import { countryPolish } from './country.js'; // (the polish pass, the ground fa
 import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
 import { POLISH } from './polish.js';
 import { UNIT_ART_SCALE } from '../../src/client/look.js';
+import { GANTRY_FRAME } from '../../src/client/construct.js';
 import * as KB from './kingdom-buildings.js';
 import * as EB from './expedition-buildings.js';
 
@@ -272,6 +273,7 @@ const ATLAS_SITES = { foundation: ['kg', 'foundation'], scaffold: ['kg', 'scaffo
  *  frame's `anim` and `frame`). `want(name)` filters, as main.js's. */
 export function* atlasSprites(want = () => true) {
   const lift = liftAt(RT_ELEV * Math.PI / 180), o = { polish: true }, ou = { polish: { unit: true }, sun: UNIT_SUN };
+  if (GANTRY_FRAME.elev !== RT_ELEV) throw new Error(`the client sets the gantry's head for a camera at ${GANTRY_FRAME.elev} degrees (construct.js GANTRY_FRAME), the atlas is drawn at ${RT_ELEV}`);
   countryPolish(true);
   const M = {}, mats = (side) => (M[side] ??= MATS[side](NEUTRAL, true));
   for (const [kind, [side, model]] of Object.entries(ATLAS_UNITS)) {

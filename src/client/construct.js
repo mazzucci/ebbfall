@@ -13,10 +13,17 @@ export const RAW = { sat: 0.3, warm: [0.035, 0.015, -0.02], stages: 8, cap: 7 };
  *  full color, `rows` slices of its art, the solid reaching `cap` of its height at the last tick (the top tenth stays
  *  ghost until the done moment, so a site at 95% still reads unfinished), under a faint cyan ghost of the whole
  *  (`GHOST`: `tint` at `alpha`, shimmering by ± `shimmer` at `hz`), in a printer gantry (`gantry_n`) whose head
- *  (`gantrybar_n`) sits on the solid's top row, `barDrop` px down; no seat paint until done. Nothing on the ground: the
- *  masts' feet are the footprint, and a Bot's weld sparks say it is working. */
+ *  (`gantrybar_n`) sits on the solid's top row, `barDrop` px down, where its frame carries it (`headAt`); no seat paint
+ *  until done. Nothing on the ground: the masts' feet are the footprint, and a Bot's weld sparks say it is working. */
 export const GHOST = { tint: 0x86f0ff, alpha: 0.2, hz: 6, shimmer: 0.03 };
 export const GANTRY = { rows: 64, cap: 0.9, barDrop: 2 };
+/** The gantry's frame, which the art is drawn from (tools/render3d/country.js `gantryEx`, `gantryBarEx`) and the head
+ *  is placed by, so the two cannot drift apart. In the art's units (a world px before the fit): four masts `post` thick
+ *  and `mast[n]` tall (over the tallest building of an n-tile footprint) at the corners of a square `inset` inside the
+ *  footprint's edges, a rail along the east and west sides with its middle `rail` under the masts' tops; the whole
+ *  turned `yaw` degrees like the Expedition's buildings, scaled by `fit`, and drawn by a camera `elev` degrees up (the
+ *  ground stays square on screen; a height h rises h / tan(elev) px). */
+export const GANTRY_FRAME = { yaw: 20, fit: 0.86, elev: 40, inset: 4, post: 3.4, rail: 1.2, mast: { 2: 44, 3: 56, 4: 72 } };
 /** While a site is unfinished its construction bar takes the hp bar's place over it, taller; the hp bar shows only if
  *  the site has taken damage. */
 export const BUILD_BAR = { h: 7, color: 0xf5a524 };
@@ -48,6 +55,23 @@ export function rawMatrix(k) {
 /** How many of the Expedition's GANTRY.rows slices a site at `progress` (0..1) shows as solid: at least 1, at most
  *  `cap` of them (the top tenth waits for the done moment). */
 export const solidRows = (progress) => Math.max(1, Math.min(Math.round(GANTRY.rows * GANTRY.cap), Math.round(unit(progress) * GANTRY.cap * GANTRY.rows)));
+/** The way the gantry's head goes through the frame of an n-tile footprint, world px about the footprint's middle (x
+ *  east, y south): from `foot`, the middle of the front masts' feet, up those two masts to `top`, where the rails
+ *  begin, then along the rails to `back`, their far end. The frame is turned, so its front pair of masts stands west of
+ *  the footprint's middle and its back pair east of it: a head lifted straight up over the middle hung between them,
+ *  short of one front mast and out past the other (the way it was drawn until 2026-11-20). */
+export function headPath(n) {
+  const F = GANTRY_FRAME, a = F.yaw * Math.PI / 180, half = (n * 16 - F.inset) * F.fit;
+  const x = half * Math.sin(a), y = half * Math.cos(a), up = (F.mast[n] - F.rail) * F.fit / Math.tan(F.elev * Math.PI / 180);
+  return { foot: { x: -x, y }, top: { x: -x, y: y - up }, back: { x, y: -y - up } };
+}
+/** Where the head stands on an n-tile site whose solid's top row is `row` (world px south of the footprint's middle,
+ *  `barDrop` in): on that row, between the front masts while the walls rise, then on the rails, going back as the roof
+ *  is laid; never under the ground at the front masts' feet, nor past the rails' end. */
+export function headAt(n, row) {
+  const p = headPath(n), y = Math.max(p.back.y, Math.min(p.foot.y, row));
+  return { x: y >= p.top.y ? p.top.x : p.top.x + (p.back.x - p.top.x) * (p.top.y - y) / (p.top.y - p.back.y), y };
+}
 /** The ghost's opacity at `now` (s, the renderer's clock): faint, shimmering. */
 export const ghostAlpha = (now) => GHOST.alpha + GHOST.shimmer * Math.sin(now * GHOST.hz * 2 * Math.PI);
 

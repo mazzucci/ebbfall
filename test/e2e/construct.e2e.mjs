@@ -6,7 +6,7 @@
 // run test:e2e (or this file alone: node --test test/e2e/construct.e2e.mjs).
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { GHOST, GANTRY, RAW, BUILD_BAR } from '../../src/client/construct.js';
+import { GHOST, GANTRY, RAW, BUILD_BAR, headAt, headPath } from '../../src/client/construct.js';
 import { test, start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
 
 const SMALL = { ...PHONE, viewport: { width: 667, height: 375 } }; // (iPhone SE class: the console hides its status line)
@@ -147,7 +147,13 @@ test('an Expedition site rises in full color in its printer gantry under a faint
     const p = (await d.state()).bldgs.find(x => x.id === id).progress;
     assert.ok(o.height > o.fullHeight * 0.4 && o.height <= o.fullHeight * GANTRY.cap + 1, `the solid about ${Math.round(p * GANTRY.cap * 100)}% of the art's height (${o.height} of ${o.fullHeight})`);
     assert.equal(o.scaffold, 1, 'the gantry stands round it');
-    assert.equal(o.bar, 1, 'its head on the solid\'s top'); assert.ok(Math.abs(o.barY - (b.y + (o.fullHeight * (1 - 0.6)) - o.height + GANTRY.barDrop)) < o.fullHeight, 'the head about at the cut');
+    // (the head on the solid's top row, where its frame carries it: between the front masts, which stand west of the
+    // footprint's middle, then back along the rails; set to the art's px, half a world px)
+    const path = headPath(b.w), at = headAt(b.w, o.top + GANTRY.barDrop - b.y);
+    assert.equal(o.bar, 1, 'its head on the solid\'s top');
+    assert.ok(Math.abs(o.barX - (b.x + at.x)) <= 0.25 && Math.abs(o.barY - (b.y + at.y)) <= 0.25, `the head where its frame carries it: ${o.barX - b.x}, ${o.barY - b.y} for ${JSON.stringify(at)}`);
+    assert.ok(Math.abs(o.barY - (o.top + GANTRY.barDrop)) <= 0.25, `on the solid's top row: ${o.barY} for ${o.top}`);
+    assert.ok(o.barX - b.x >= path.foot.x - 0.25 && o.barX < b.x, `inside its frame, by the front masts still: ${o.barX - b.x} from the middle, the masts' middle at ${path.foot.x}`);
     assert.ok(o.ghost >= GHOST.alpha - GHOST.shimmer - 1e-9 && o.ghost <= GHOST.alpha + GHOST.shimmer + 1e-9, `a faint ghost over it: ${o.ghost}`);
     assert.deepEqual(o.bars.map(r => r.bar), ['build']);
     const ring = await orangeBelow(d, b);
@@ -158,6 +164,8 @@ test('an Expedition site rises in full color in its printer gantry under a faint
     assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.97, id, { step: 1 / 30, seconds: 60 }), 'almost done');
     const late = await drawn(d, id);
     assert.ok(late.height <= late.fullHeight * GANTRY.cap + 1 && late.scaffold === 1 && late.bar === 1, `at 97% still unfinished: its top tenth missing, in its gantry (${late.height} of ${late.fullHeight})`);
+    assert.ok(late.barY < o.barY && late.barX > o.barX + 3 && late.barX - b.x <= path.back.x + 0.25 && Math.abs(late.barY - (late.top + GANTRY.barDrop)) <= 0.25,
+      `the head higher, gone back along the rails, on the top row still: ${late.barX - b.x}, ${late.barY - b.y} after ${o.barX - b.x}, ${o.barY - b.y}`);
     const seen = await watchDone(d, id);
     const fade = seen.filter(s => s.look === 'fade'), last = seen.at(-1);
     // (frames come as they come in a software-rendered page: any frame of the half second shows the paint on its way, the

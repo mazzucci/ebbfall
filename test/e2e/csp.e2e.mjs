@@ -112,9 +112,11 @@ test('the CSP: no violation across the menu, the service worker, a game, the hel
     step('docs');
     // Every docs page; on the home, the clip scrolled into view and playing.
     for (const path of PAGES) {
+      step(`docs: ${path}`);
       await p.goto(baseUrl() + path, { waitUntil: 'networkidle' });
       assert.equal(await p.evaluate(() => getComputedStyle(document.body).overflowX), 'hidden', `${path}: its stylesheet`);
     }
+    step('docs: the clip');
     await p.goto(baseUrl() + 'docs/', { waitUntil: 'networkidle' });
     await p.locator('.clip video').scrollIntoViewIfNeeded();
     await p.waitForFunction(() => { const v = document.querySelector('.clip video'); return v.readyState >= 2 && !v.controls; }, null, { timeout: 30000 });

@@ -293,8 +293,8 @@ test('phone: fighters tapped one by one bring the group hint once, clear of SELE
   } finally { await d.close(); }
 });
 
-test('phone: in the guided first game, fighters tapped one by one bring no hint (its own step teaches SELECT and ARMY)', async () => {
-  const d = await newGame(PHONE, 0, 4242, { first: true });
+test('phone: in the tutorial, fighters tapped one by one bring no hint (its own step teaches SELECT and ARMY)', async () => {
+  const d = await newGame(PHONE, 0, 4242, { tutorial: true });
   try {
     assert.match(await d.page.locator('#tut').textContent(), /1\/9/, 'the guided game');
     const ids = await threeGuards(d);

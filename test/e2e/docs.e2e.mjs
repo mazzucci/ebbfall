@@ -30,7 +30,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.match(await a.getAttribute('rel'), /noopener/);
       const b = await a.boundingBox();
       assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `Learn more on screen: ${JSON.stringify(b)}`);
-      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Send feedback'], 'Learn more, and a quiet second link (test/e2e/feedback.e2e.mjs)');
+      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Watch the trailer', 'Send feedback'], 'Learn more, the trailer (below), and a quiet last link (test/e2e/feedback.e2e.mjs)');
       // Under the row of buttons, above the build stamp.
       const [row, links, stamp] = await Promise.all(['#btnOptions', '#menuLinks', '#buildStamp'].map(s => page.locator(s).boundingBox()));
       assert.ok(links.y >= row.y + row.height - 1 && (stamp.y >= links.y + links.height - 1 || (stamp.x >= links.x + links.width - 1 && Math.abs(stamp.y + stamp.height / 2 - links.y - links.height / 2) < 4)), 'under the buttons, the stamp after it (beside it on a short phone on its side)');
@@ -41,6 +41,40 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.equal(await popup.locator('h1').textContent(), 'Ebbfall');
       assert.equal(await popup.locator('.tabs a[aria-current="page"]').innerText(), 'HOME', 'the Home tab says where you are');
       assert.equal(await popup.locator('.brand').innerText().then(t => t.replace(/\s+/g, ' ')), 'Ebbfall FIELD MANUAL', 'the wordmark and its tag');
+      assert.ok(await page.locator('#menuHome').isVisible(), 'the game stays where it was');
+    } finally { await ctx.close(); }
+  });
+}
+
+for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', PORTRAIT]]) {
+  test(`the first page on ${name}: Watch the trailer in its footer line, a plain link (no video on the menu, nothing of it fetched there) that opens the docs home at its clip in a new tab`, { engines: true }, async () => {
+    const ctx = await browserContext(device), page = await ctx.newPage();
+    const media = []; ctx.on('request', r => { if (/\/docs\/|\.mp4|\.webm/.test(new URL(r.url()).pathname)) media.push(new URL(r.url()).pathname); });
+    try {
+      await page.goto(baseUrl(), { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+      const a = page.locator('#linkTrailer');
+      assert.ok(await a.isVisible(), 'Watch the trailer shown');
+      assert.equal(await a.textContent(), 'Watch the trailer');
+      assert.equal(await a.getAttribute('href'), './docs/#trailer', "the docs home's clip");
+      assert.equal(await a.getAttribute('target'), '_blank', 'a new tab: the game stays');
+      assert.match(await a.getAttribute('rel'), /noopener/);
+      const b = await a.boundingBox(), docs = await page.locator('#linkDocs').boundingBox(), fb = await page.locator('#linkFeedback').boundingBox();
+      assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `on screen: ${JSON.stringify(b)}`);
+      assert.ok(Math.abs(b.y - docs.y) < 1 && Math.abs(b.y - fb.y) < 1 && b.x >= docs.x + docs.width - 1 && fb.x >= b.x + b.width - 1 && b.height >= 32 && b.width >= 48, `between Learn more and Send feedback, on their line, a finger's size: ${JSON.stringify([docs, b, fb])}`);
+      // Small and quiet as its neighbors: the same type and color.
+      assert.deepEqual(await a.evaluate(e => [getComputedStyle(e).fontSize, getComputedStyle(e).color]), await page.locator('#linkDocs').evaluate(e => [getComputedStyle(e).fontSize, getComputedStyle(e).color]), 'styled as Learn more');
+      // The menu itself has no video and has asked for nothing of the docs or the clip.
+      assert.equal(await page.locator('#start video, #start iframe').count(), 0, 'no video on the menu');
+      assert.deepEqual(media, [], 'the menu fetched nothing of the docs or the clip');
+      // The link: the docs home in a new tab, at the clip (its figure at the top of the view, under the bar).
+      const [popup] = await Promise.all([ctx.waitForEvent('page'), device.hasTouch ? a.tap() : a.click()]);
+      await popup.waitForLoadState();
+      assert.match(popup.url(), /\/docs\/#trailer$/);
+      const clip = popup.locator('figure.clip#trailer');
+      assert.equal(await clip.count(), 1, "the home's clip is the link's target");
+      assert.equal(await clip.locator('video').getAttribute('src'), '/docs/media/trailer.mp4');
+      await popup.waitForFunction(() => { const r = document.getElementById('trailer').getBoundingClientRect(), bar = document.querySelector('.top').getBoundingClientRect(); return r.top >= bar.bottom - 1 && r.top < innerHeight * 0.6; }, null, { timeout: 10000 });
       assert.ok(await page.locator('#menuHome').isVisible(), 'the game stays where it was');
     } finally { await ctx.close(); }
   });

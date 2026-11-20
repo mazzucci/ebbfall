@@ -2,7 +2,8 @@
 // device test's reports, and every WebSocket to its room's Durable Object (?room=CODE, or ?new=1 to open a room), past
 // the Origin check and the limits, per address (CF-Connecting-IP, an IPv6 /64, and its /48), checked before any room's
 // object is woken: opening a room, the CREATE_LIMIT and CREATE_WIDE_LIMIT bindings (a minute's), then the limits
-// object (an hour's, and everyone's: a room counts there once its first hello seats someone, relay/worker.js); joining
+// object (the spend ceiling's rooms at once and month's room-hours, then an hour's, and everyone's: a room counts
+// there once its first hello seats someone, relay/worker.js; the ceiling's lease reserved for it goes with it); joining
 // by code, the JOIN_LIMIT and JOIN_WIDE_LIMIT bindings (a point a join, MISS_COST in all for one that finds no room),
 // then, only while the limits object says the relay is being scanned, its word on the network (relay/limits.js
 // MissWatch). Misses are tallied here, per isolate, and reported to the limits object in batches (`Misses`). The numbers
@@ -12,7 +13,7 @@
 // request goes on (the limits must never be what takes multiplayer down).
 import { benchRequest } from './bench.js';
 import { versionRequest } from './version.js';
-import { addressKey, wideKey, netKey, KEY_HEADER, MISSES_HEADER, SCAN_HEADER, MISS_COST, MISS_FLUSH_MS, MISS_BATCH, MINUTE, SAY } from './limits.js';
+import { addressKey, wideKey, netKey, KEY_HEADER, MISSES_HEADER, SCAN_HEADER, LEASE_HEADER, MISS_COST, MISS_FLUSH_MS, MISS_BATCH, MINUTE, SAY } from './limits.js';
 import { newCode as makeCode, parseCode, oldCode } from '../src/net/roomcode.js';
 
 export const ROOM_IDLE_MS = 10 * 60 * 1000; // a room nobody has been in this long is free for a new one with its code
@@ -99,14 +100,14 @@ export function relay(platform = CLOUDFLARE, now) {
       if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Ebbfall relay: WebSocket only', { status: 426 });
       if (!allowed(req, env)) return new Response('Not from here', { status: 403 });
       const q = new URL(req.url).searchParams, key = addressKey(ip), wide = wideKey(key);
-      const room = (code, isNew) => env.ROOMS.get(env.ROOMS.idFromName(code))
-        .fetch(new Request(`https://room/?code=${code}${isNew ? '&new=1' : ''}`, { headers: req.headers }));
+      const room = (code, isNew, lease = '') => env.ROOMS.get(env.ROOMS.idFromName(code))
+        .fetch(new Request(`https://room/?code=${code}${isNew ? '&new=1' : ''}${lease ? `&lease=${encodeURIComponent(lease)}` : ''}`, { headers: req.headers }));
       if (q.get('new')) {
         if (!(await bothWithin(env.CREATE_LIMIT, key, env.CREATE_WIDE_LIMIT, wide))) return refuse('limit', SAY.minute);
-        const no = await budget(env, key);
-        if (no) return refuse('limit', no);
+        const { no, lease } = await budget(env, key);
+        if (no) return refuse('limit', no); // (SAY.full past the spend ceiling: a client of PROTO 7 shows the words)
         for (let i = 0; i < TRIES; i++) {
-          const res = await room(newCode(), true);
+          const res = await room(newCode(), true, lease);
           if (res.status !== 409) return res; // (409: that code is in use, another one)
         }
         return new Response('No free room code', { status: 503 });
@@ -130,12 +131,14 @@ export function relay(platform = CLOUDFLARE, now) {
   };
 }
 
-/** The limits object's word on a room from `key`: '' (go on; also when it cannot be asked), or what to say. */
+/** The limits object's word on a room from `key`: `no` '' (go on; also when it cannot be asked) with the `lease` the
+ *  spend ceiling reserved for it (the room claims it: relay/limits.js Ceiling), or `no` what to say. */
 async function budget(env, key) {
   try {
     const res = await limitsObject(env, '/open', { [KEY_HEADER]: key });
-    return res?.status === 429 ? await res.text() : '';
-  } catch { return ''; }
+    if (res?.status === 429) return { no: await res.text(), lease: '' };
+    return { no: '', lease: res?.headers.get(LEASE_HEADER) || '' };
+  } catch { return { no: '', lease: '' }; }
 }
 
 export function send(ws, msg) { try { ws.send(JSON.stringify(msg)); } catch { /* closed meanwhile */ } }

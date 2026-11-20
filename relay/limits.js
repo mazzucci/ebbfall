@@ -10,8 +10,10 @@
 // `OpenBudget`: asked once per room opened, told once when its first hello seats someone, so a room nobody sat in costs
 // everyone nothing), and everyone's misses (a `MissWatch`: codes that found no room, from every address, reported by
 // each Worker isolate in batches, so a miss costs no round trip of its own; past SCAN_MISSES the relay is being scanned,
-// and for SCAN_HOLD_MS a network may miss only SCAN_NET_MISSES a minute, asked before each lookup while it lasts). The
-// Node relay counts all of it here (`RoomLimits`), for every address but this machine's own.
+// and for SCAN_HOLD_MS a network may miss only SCAN_NET_MISSES a minute, asked before each lookup while it lasts), and
+// the spend ceiling (a `Ceiling`, the one thing kept in its storage: rooms at once and the month's room-hours, from
+// leases the rooms renew). The Node relay counts all of it here (`RoomLimits`), for every address but this machine's
+// own, but the ceiling (a Durable Objects bill: the Worker's alone).
 
 export const MINUTE = 60000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 /** Rooms opened per address: a minute's (the CREATE_LIMIT binding) and an hour's (the limits object). */
@@ -41,9 +43,114 @@ export const SAY = {
   minute: 'Too many tries: wait a minute and try again',
   hour: 'Too many new rooms from here: try again in an hour',
   busy: 'Lots of rooms are opening right now: wait a minute and try again',
+  full: 'Multiplayer is busy, try again in a few minutes', // (the spend ceiling: too many rooms at once, or the month's room-hours spent)
 };
 /** The headers of a request to the limits object: its address's key; a report's misses; the answer's scan (1 or 0). */
 export const KEY_HEADER = 'X-Limit-Key', MISSES_HEADER = 'X-Misses', SCAN_HEADER = 'X-Scan';
+
+// The spend ceiling (`Ceiling`). Durable Objects are outside Cloudflare's Workers spending limit, so their bill is bounded
+// here by design. Prices (Workers Paid, 2026): duration $12.50 a million GB-s, at a room's 128 MB $0.005625 an hour it is
+// in memory (a game's turn clock keeps its object in memory the whole game); requests $0.15 a million, a WebSocket
+// message a twentieth of one. Two layers: at most MAX_ROOMS rooms at once (10 x 720 h = 7,200 room-hours, $41, if
+// the second layer were not there: it bounds the rate) and ROOM_HOURS_PER_MONTH a UTC month in all (6,000 x $0.005625
+// = $33.75, the hard part: it survives deploys, in the limits object's storage). The limits object itself is one more
+// object, awake only while it answers (at most 720 h, $4, if it never slept); its storage a few rows. Under $50 a month
+// whatever anyone does; before the plan's free allowance (400,000 GB-s, 889 room-hours; a million requests).
+/** Rooms at once: a new room past this many is refused (SAY.full); joins and reconnects to a room never are. */
+export const MAX_ROOMS = 10;
+/** Room-hours a UTC month (wall time from a room's opening to its closing, a hibernated lobby's too: overcounted, never
+ *  under): once spent, new rooms are refused (SAY.full) until the 1st of the next month; rooms open go on. */
+export const ROOM_HOURS_PER_MONTH = 6000;
+/** Messages into rooms that cost what a room-hour does ($0.005625 / ($0.15 / 20 per million)): charged to the month too,
+ *  so a flood (MSG_RATE from every seat of every room) spends the budget sooner rather than costing beyond it. A real
+ *  game's few messages a second are some 5% of its hours. */
+export const MSGS_PER_ROOM_HOUR = 750000;
+/** A room's slot is a lease, charged ahead (to the month, when it is taken or extended): a room says how long to hold it
+ *  (LEASE_MS while a game runs, renewed every BEAT_MS; in a lobby, to its next alarm and LEASE_SLACK beyond, since a
+ *  hibernated lobby says nothing until then), at most MAX_HOLD; a room that dies without a word holds it to the end,
+ *  paid, then it is free. A room that closes gives it back, and the time it had paid ahead. */
+export const LEASE_MS = 3 * MINUTE, BEAT_MS = MINUTE, LEASE_SLACK = 2 * MINUTE, MAX_HOLD = HOUR;
+/** A room tells the limits object of its messages at least every MSG_REPORT of them (or with its next word). */
+export const MSG_REPORT = 2000;
+/** The headers of a room's word to the limits object (POST /beat): its code, the ms to hold its slot from now, the
+ *  messages since its last word, the lease its opening reserved (once), and that it closed (1); /open's answer's lease. */
+export const ROOM_HEADER = 'X-Room', HOLD_HEADER = 'X-Hold', MSGS_HEADER = 'X-Msgs', CLAIM_HEADER = 'X-Claim', END_HEADER = 'X-End', LEASE_HEADER = 'X-Lease';
+const CEILING_KEY = 'ceiling'; // (the limits object's one record: the month, its usage, the leases)
+const monthOf = (t) => new Date(t).toISOString().slice(0, 7); // (a UTC month, 'YYYY-MM')
+
+/** The spend ceiling (the limits object's; see MAX_ROOMS above): the rooms open now, each by a lease, and the month's
+ *  room-hours, charged as leases are taken and extended. Kept in `storage` (a Durable Object's; none: in memory), one
+ *  small record written with each change (a room's word is at most one a BEAT_MS while its game runs, so a few rows a
+ *  minute): a restart or a deploy forgets nothing, neither the month's usage nor the rooms still running. A room that
+ *  never says it closed is charged to the end of its lease and then not counted: nothing leaks. */
+export class Ceiling {
+  constructor(storage, now = () => Date.now()) {
+    this.storage = storage; this.now = now; this.state = null; this.loading = null; this.seq = 0;
+    this.max = MAX_ROOMS; this.hoursMax = ROOM_HOURS_PER_MONTH; // (the tests of other limits lift them)
+  }
+  /** The record, read once (null storage or none kept: a fresh month). */
+  async load() {
+    if (this.state) return;
+    await (this.loading ||= (async () => {
+      let s = null;
+      try { s = await this.storage?.get(CEILING_KEY); } catch { /* unreadable: a fresh one */ }
+      const ok = s && typeof s === 'object' && typeof s.month === 'string' && Number.isFinite(s.used) && s.leases && typeof s.leases === 'object';
+      this.state ||= ok ? s : { month: monthOf(this.now()), used: 0, leases: {} };
+    })());
+  }
+  async save() { try { await this.storage?.put(CEILING_KEY, this.state); } catch { /* written with the next change */ } }
+  /** The state brought to now: a new month starts at nothing; leases past their end are gone. */
+  fresh() {
+    const now = this.now(), s = this.state, m = monthOf(now);
+    if (s.month !== m) { s.month = m; s.used = 0; }
+    for (const [k, l] of Object.entries(s.leases)) if (!(l.until > now)) delete s.leases[k];
+    return now;
+  }
+  /** Rooms open now (their leases). */
+  get rooms() { this.fresh(); return Object.keys(this.state.leases).length; }
+  /** This month's room-hours spent. */
+  get hours() { this.fresh(); return this.state.used / HOUR; }
+  charge(l, to) { if (to > l.paid) { this.state.used += to - l.paid; l.paid = to; } }
+  /** Is a new room refused (MAX_ROOMS open, or the month's room-hours spent)? After `load`. */
+  full() {
+    this.fresh();
+    return Object.keys(this.state.leases).length >= this.max || this.state.used >= this.hoursMax * HOUR;
+  }
+  /** May a new room open? '' (a lease reserved for it: `this.reserved`, its id, until the room claims it), or what to
+   *  say (nothing counted). */
+  async open() {
+    await this.load();
+    if (this.full()) return SAY.full;
+    const now = this.now(), id = `+${now.toString(36)}${(this.seq++).toString(36)}`; // (never a room code: six capitals)
+    const l = this.state.leases[id] = { until: now + LEASE_MS, paid: now };
+    this.charge(l, l.until);
+    this.reserved = id;
+    await this.save();
+    return '';
+  }
+  /** A room's word (never refused: a room open goes on): its lease held `hold` ms from now (taking over the one its opening
+   *  reserved, `claim`), its messages charged, or (`end`) the lease given back with what it paid ahead. */
+  async beat(code, { hold = 0, msgs = 0, claim = '', end = false } = {}) {
+    await this.load();
+    const now = this.fresh(), s = this.state;
+    s.used += Math.min(Math.max(0, Math.floor(msgs) || 0), 1e9) * HOUR / MSGS_PER_ROOM_HOUR;
+    if (!code) { await this.save(); return; }
+    const was = claim && claim[0] === '+' ? s.leases[claim] : null;
+    if (was) delete s.leases[claim];
+    let l = s.leases[code];
+    if (!l && was) l = was;
+    if (end) {
+      if (l) { s.used = Math.max(0, s.used - Math.max(0, l.paid - now)); delete s.leases[code]; }
+    } else {
+      l ||= { until: now, paid: now };
+      if (was) { l.until = Math.max(l.until, was.until); l.paid = Math.max(l.paid, was.paid); }
+      l.until = Math.max(l.until, now + Math.min(Math.max(0, Number(hold) || 0), MAX_HOLD));
+      this.charge(l, l.until);
+      if (l.until > now) s.leases[code] = l;
+    }
+    await this.save();
+  }
+}
 const MAX_KEYS = 5000; // (past this many, the keys with nothing in their windows are forgotten)
 
 /** The key an address counts under: an IPv6 address by its /64 (one line's: a provider hands out a /64 or more), an
@@ -169,20 +276,27 @@ export class MissWatch {
   look(net) { return !this.scanning || !this.nets.check(net); }
 }
 
-/** The limits object (relay/worker.js, the Durable Object named `limits`; in memory): POST /open (a room from the address
- *  in KEY_HEADER: 204, or 429 with what to say), /seated (204), /miss (MISSES_HEADER misses, from the network in
- *  KEY_HEADER if any: 204) and /look (the network in KEY_HEADER: 204, or 429); /miss and /look answer whether the relay
- *  is being scanned in SCAN_HEADER. */
+/** The limits object (relay/worker.js, the Durable Object named `limits`; in memory, but for the spend ceiling, kept in
+ *  `storage`): POST /open (a room from the address in KEY_HEADER: 204 with the lease reserved for it in LEASE_HEADER, or
+ *  429 with what to say; the ceiling asked first, so a room it refuses counts nowhere), /seated (204), /beat (a room's
+ *  word to the ceiling, ROOM_HEADER and the rest: 204), /miss (MISSES_HEADER misses, from the network in KEY_HEADER if
+ *  any: 204) and /look (the network in KEY_HEADER: 204, or 429); /miss and /look answer whether the relay is being
+ *  scanned in SCAN_HEADER. */
 export class Limits {
-  constructor(now) { this.budget = new OpenBudget(now); this.misses = new MissWatch(now); }
+  constructor(now, storage) { this.budget = new OpenBudget(now); this.misses = new MissWatch(now); this.ceiling = new Ceiling(storage, now); }
   async fetch(req) {
-    const path = new URL(req.url).pathname, key = req.headers.get(KEY_HEADER) || '';
+    const path = new URL(req.url).pathname, h = req.headers, key = h.get(KEY_HEADER) || '';
     const scan = (status) => new Response(status === 429 ? SAY.minute : null, { status, headers: { [SCAN_HEADER]: this.misses.scanning ? '1' : '0' } });
     if (path === '/seated') { this.budget.seated(); return new Response(null, { status: 204 }); }
-    if (path === '/miss') { this.misses.miss(Number(req.headers.get(MISSES_HEADER)), key); return scan(204); }
+    if (path === '/beat') {
+      await this.ceiling.beat(h.get(ROOM_HEADER) || '', { hold: Number(h.get(HOLD_HEADER)), msgs: Number(h.get(MSGS_HEADER)), claim: h.get(CLAIM_HEADER) || '', end: h.get(END_HEADER) === '1' });
+      return new Response(null, { status: 204 });
+    }
+    if (path === '/miss') { this.misses.miss(Number(h.get(MISSES_HEADER)), key); return scan(204); }
     if (path === '/look') return scan(this.misses.look(key) ? 204 : 429);
-    const no = this.budget.open(key);
-    return no ? new Response(no, { status: 429 }) : new Response(null, { status: 204 });
+    await this.ceiling.load();
+    const no = this.ceiling.full() ? SAY.full : this.budget.open(key) || await this.ceiling.open();
+    return no ? new Response(no, { status: 429 }) : new Response(null, { status: 204, headers: { [LEASE_HEADER]: this.ceiling.reserved } });
   }
 }
 

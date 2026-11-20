@@ -619,7 +619,10 @@ test/relay-bench.test.js the Node relay's HTTP side for the device test's report
                       (a lobby with no clock; ready, race and seats through a hibernation, a game started, played and
                       over, then a rematch; a token back; a close while hibernated; holds and an over game's grace by
                       the alarm; a quiet lobby or over room closed, a game never; an over game's lost turns; eight
-                      sockets; the message bucket and everyone's count after a wake)
+                      sockets; the message bucket and everyone's count after a wake); the spend ceiling (relay/limits.js
+                      Ceiling: the 11th room at once refused with its words, joins to a room open never, a closed room's
+                      slot freed, a crashed one's reclaimed when its lease runs out; the month's room-hours charged
+                      ahead, spent refusing new rooms while a game goes on, kept through a restart, afresh on the 1st UTC)
 test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
 test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
                       every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
@@ -680,7 +683,11 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
                       limits.js, the limits per address (and IPv6 /48) and in all (Notion: Multiplayer design, Security:
                       Workers Rate Limiting bindings for an address's minute, an object named `limits` for its hour,
                       everyone's rooms (counted once someone sits in one) and everyone's misses (a scan's brake), all
-                      in memory in the Node relay but for this machine), the messages per connection (a token bucket,
+                      in memory in the Node relay but for this machine; and the spend ceiling, the Worker's only, in
+                      that object's storage: at most MAX_ROOMS (10) rooms at once and ROOM_HOURS_PER_MONTH (6,000) a UTC
+                      month, Durable Objects being outside the Workers spending limit; each room holds a lease from its
+                      opening, renewed while it runs, charged ahead, given back when it closes, reclaimed when it runs
+                      out; past either, a new room is told "Multiplayer is busy"), the messages per connection (a token bucket,
                       both adapters) and the counter bench.js shares;
                       bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both

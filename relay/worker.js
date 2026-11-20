@@ -10,7 +10,7 @@
 // entry module, which may export only handlers and classes.
 import { Room, TURN_MS, MAX_SEATS, QUIET_SAY, QUIET_CLOSE } from './room.js';
 import { BenchStore } from './bench.js';
-import { Limits, addressKey, messageBucket, MSG_CLOSE } from './limits.js';
+import { Limits, addressKey, messageBucket, MSG_CLOSE, LEASE_MS, BEAT_MS, LEASE_SLACK, MSG_REPORT, ROOM_HEADER, HOLD_HEADER, MSGS_HEADER, CLAIM_HEADER, END_HEADER } from './limits.js';
 import { relay, CLOUDFLARE, send, ROOM_IDLE_MS } from './edge.js';
 
 export default relay();
@@ -53,7 +53,11 @@ class Conn {
  *  over) is closed: everyone told so, its sockets closed with QUIET_CLOSE, its record deleted. A join to a code with no
  *  room is answered 404, with no socket: the Worker tells the player and counts the miss (relay/edge.js). The objects
  *  named 'bench' and 'limits' are no rooms: one keeps the device test's reports (relay/bench.js BenchStore), the other
- *  counts rooms opened and codes missed (relay/limits.js Limits, in memory). A room tells it once, when its first hello
+ *  counts rooms opened and codes missed (relay/limits.js Limits, in memory) and keeps the spend ceiling (its Ceiling, in
+ *  its storage): a room holds a slot there from its opening (the lease the Worker reserved, claimed at once) until it is
+ *  forgotten, renewed by `tell` (each BEAT_MS while its game's clock runs; else to its next alarm and LEASE_SLACK beyond,
+ *  so a hibernated lobby needs no word), with its messages; a room that dies without a word holds it only to the end of
+ *  its lease. A room tells it once, when its first hello
  *  seats someone (`counted`, in the record; a lobby kept from before it was a field was counted when it was new): a
  *  room nobody sits in costs everyone's budget nothing. */
 export class RoomObject {
@@ -63,6 +67,7 @@ export class RoomObject {
     this.lastUsed = 0; this.counted = true; this.phase = null; // (the phase the record was last brought up to date for)
     this.saved = ''; this.savedAt = 0; this.saveTimer = null; // (the record last written, when; a write waiting)
     this.alarmAt = null; this.awake = false; this.waking = null;
+    this.code = null; this.heldUntil = 0; this.claim = ''; this.msgs = 0; // (the spend ceiling: `tell`)
   }
 
   /** No timer pending: the runtime may hibernate this object (the tests' fake runtime asserts it before it does). */
@@ -71,15 +76,17 @@ export class RoomObject {
   async fetch(req) {
     const host = new URL(req.url).hostname;
     if (host === 'bench') return (this.bench ||= new BenchStore(this.storage)).fetch(req); // (the reports' object)
-    if (host === 'limits') return (this.limits ||= new Limits()).fetch(req); // (the rooms' limits' object: in memory)
+    if (host === 'limits') return (this.limits ||= new Limits(undefined, this.storage)).fetch(req); // (the rooms' limits' object: in memory, the spend ceiling in storage)
     await this.wake();
     const q = new URL(req.url).searchParams, code = q.get('code'), now = Date.now();
+    this.msgs += 20; // (a request costs twenty messages: relay/limits.js MSGS_PER_ROOM_HOUR)
     const saved = this.room ? null : await this.storage?.get('room');
     const recent = saved && now - saved.used < ROOM_IDLE_MS;
     if (q.get('new')) {
       const inUse = this.room ? this.conns.size || now - this.lastUsed < ROOM_IDLE_MS : recent;
       if (inUse) return new Response('Taken', { status: 409 });
       this.open(code);
+      this.claim = q.get('lease') || ''; this.heldUntil = 0; this.tell(LEASE_MS); // (its slot: the lease its opening reserved, now its code's)
     } else if (!this.room && recent && !saved.started) this.open(code, saved.lobby); // (an evicted lobby: back, its seats held)
     if (!this.room) return new Response('No room', { status: 404 }); // (the Worker says so, and counts the miss)
     const [client, ws] = this.platform.pair();
@@ -96,7 +103,7 @@ export class RoomObject {
     if (seats.length >= 2 && seats.length <= MAX_SEATS) {
       try { const r = room(seats.length); if (r.restore({ ...kept, seats }, now)) this.room = r; } catch { /* a bad record: an empty lobby */ }
     }
-    this.phase = 'lobby'; this.saved = ''; this.counted = !!kept;
+    this.phase = 'lobby'; this.saved = ''; this.counted = !!kept; this.code = code;
   }
 
   /** Back in memory (a new object: after a hibernation, an eviction, or for the first time): the room from its record
@@ -110,6 +117,7 @@ export class RoomObject {
     const [rec, alarm] = await Promise.all([this.storage?.get('room'), this.storage?.getAlarm?.()]);
     const now = Date.now(), sockets = this.state?.getWebSockets?.() || [];
     this.alarmAt = alarm ?? null; this.lastUsed = Math.max(this.lastUsed, Number(rec?.used) || 0);
+    if (typeof rec?.code === 'string') this.code = rec.code; // (also a game's, gone: its slot given back when the record goes)
     if (rec && !rec.started && (sockets.length || now - rec.used < ROOM_IDLE_MS)) this.open(rec.code, rec.lobby);
     else if (rec?.over) {
       const r = new Room({ code: rec.code, send, kick: (c, k) => this.kick(c, k), seed: random(), now });
@@ -205,8 +213,8 @@ export class RoomObject {
   clock() {
     const on = this.room?.phase === 'game' && this.conns.size > 0;
     if (on && !this.timer) {
-      const room = this.room; room.tick(Date.now());
-      this.timer = setInterval(() => { room.tick(Date.now()); if (room.phase !== 'game') this.after(); }, TURN_MS / 4);
+      const room = this.room; room.tick(Date.now()); this.beat();
+      this.timer = setInterval(() => { room.tick(Date.now()); this.beat(); if (room.phase !== 'game') this.after(); }, TURN_MS / 4);
     } else if (!on && this.timer) { clearInterval(this.timer); this.timer = null; }
   }
   /** Each socket's attachment as the room has it now (written only when it changed). */
@@ -231,9 +239,15 @@ export class RoomObject {
     if (r && this.conns.size) return r.due();
     return this.lastUsed ? this.lastUsed + ROOM_IDLE_MS : Infinity;
   }
+  /** Set the alarm for the deadline (`setAlarm`), and hold the room's slot in the spend ceiling until it goes off, and
+   *  LEASE_SLACK beyond: a hibernated room says nothing until then. */
+  schedule(force = false) {
+    this.setAlarm(force);
+    if (this.alarmAt !== null) this.holdTo(this.alarmAt + LEASE_SLACK);
+  }
   /** Set the alarm for the deadline: when it is sooner than the one set (one set sooner sets the next itself when it
    *  goes off), or always (`force`: a write, the alarm's own run). */
-  schedule(force = false) {
+  setAlarm(force = false) {
     if (!force && !this.counted) return; // (a room nobody has sat in: nothing due but a hello, a timer's)
     const t = this.deadline();
     if (!Number.isFinite(t) || (!force && this.alarmAt !== null && this.alarmAt <= t)) return;
@@ -262,8 +276,28 @@ export class RoomObject {
     for (const c of [...this.conns]) this.drop(c, QUIET_SAY, QUIET_CLOSE);
     await this.forget();
   }
-  /** The room gone from memory and storage. */
+  /** A word to the limits object about this room's slot in the spend ceiling (relay/limits.js Ceiling, a lease charged
+   *  ahead): held `hold` ms from now, with the messages since the last word (and, the first time, the lease its opening
+   *  reserved), or given back (`end`). Not waited for; a word lost: the lease runs out by itself, paid to its end. */
+  tell(hold, end = false) {
+    const ns = this.env?.ROOMS, code = this.code;
+    if (!code) return;
+    this.heldUntil = end ? 0 : Math.max(this.heldUntil, Date.now() + hold);
+    const headers = { [ROOM_HEADER]: code, [HOLD_HEADER]: String(Math.max(0, Math.round(hold))), [MSGS_HEADER]: String(this.msgs) };
+    if (this.claim) headers[CLAIM_HEADER] = this.claim;
+    if (end) headers[END_HEADER] = '1';
+    this.msgs = 0; this.claim = '';
+    try { ns?.get(ns.idFromName('limits')).fetch(new Request('https://limits/beat', { method: 'POST', headers })).catch(() => {}); } catch { /* not told */ }
+  }
+  /** The slot held at least until `end` (a word only when the lease held ends sooner; after a wake, the first is sent:
+   *  what was held is not kept). */
+  holdTo(end) { if (end > this.heldUntil) this.tell(end - Date.now()); }
+  /** A game's clock: the slot renewed, LEASE_MS ahead, every BEAT_MS. */
+  beat() { if (Date.now() + LEASE_MS - BEAT_MS >= this.heldUntil) this.tell(LEASE_MS); }
+
+  /** The room gone from memory and storage (its slot in the spend ceiling given back). */
   async forget() {
+    this.tell(0, true); this.code = null;
     clearTimeout(this.saveTimer); this.saveTimer = null; clearInterval(this.timer); this.timer = null;
     this.room = null; this.saved = ''; this.phase = null; this.lastUsed = 0;
     await this.storage?.deleteAll?.();
@@ -292,6 +326,7 @@ export class RoomObject {
     try { ws.serializeAttachment?.(att); } catch { /* kept in memory only */ }
     const c = new Conn(ws, att);
     this.conns.add(c); this.byWs.set(ws, c); this.byId.set(att.id, c); this.lastUsed = now;
+    this.holdTo(now + HELLO_MS + LEASE_SLACK); // (a room nobody sat in has no alarm: its slot to the hello's time)
     if (this.room.phase !== 'game') this.room.tick(now); // (a hold that ran out while nobody was here is over before anyone is seated)
     c.silent = setTimeout(() => { c.silent = null; if (!c.att.seated) this.kick(c); }, HELLO_MS);
     this.clock(); // (a game's clock, at once, if it waited for someone)
@@ -306,6 +341,7 @@ export class RoomObject {
     if (!room) { this.drop(c, 'The room is gone: this game is over'); return; }
     if (typeof data !== 'string' || data.length > MAX_MSG) { this.kick(c); return; }
     if (!c.take()) { this.kick(c, MSG_CLOSE); return; } // (a flood: the client reconnects by itself, relay/limits.js)
+    if (++this.msgs >= MSG_REPORT) this.tell(0); // (a flood is charged as it comes: relay/limits.js MSGS_PER_ROOM_HOUR)
     let msg; try { msg = JSON.parse(data); } catch { return; }
     const now = Date.now(); this.lastUsed = now;
     if (room.phase !== 'game') room.tick(now); // (no clock outside a game: the room's time brought up to now)
@@ -331,6 +367,7 @@ export class RoomObject {
     this.after();
     if (!this.conns.size && this.saveTimer) this.write(); // (nobody here: the record now, and goes once idle long enough)
     if (!this.conns.size) this.schedule();
+    if (!this.conns.size && !this.counted) this.tell(0, true); // (a room nobody sat in, left: its slot free)
   }
   /** Close a connection (the clean-up after the room's own call has finished: Room.connect kicks a replaced socket
    *  mid-way; closing a socket from this side need not fire its close event). */

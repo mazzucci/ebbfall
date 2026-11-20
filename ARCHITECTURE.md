@@ -23,8 +23,9 @@ wrangler pinned) with wrangler.toml, reads the live build from `GET https://rela
 publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/net.js's, which a test keeps equal), so
 the site never outruns the relay. Every file of the site is served by Cloudflare's assets with no Worker (the game's
 page at /, the docs, the other pages; site/wrangler.toml): a tripped Workers spending limit (error 1103 for every Worker
-request) leaves the game, the docs and single player up, and takes online play (the relay), a room's card address
-(/r/CODE) and the CSP's reports. The deploy's build step (site/build.mjs) writes dist/_headers and, from the repo
+request) leaves the game, the docs and single player up, and takes online play (the relay), a room's and a challenge's
+card addresses (/r/CODE, /vs/CODE), the docs' feedback form's sending (it offers the address to write to instead) and
+the CSP's reports. The deploy's build step (site/build.mjs) writes dist/_headers and, from the repo
 variable CF_ANALYTICS_TOKEN, the analytics beacon into every page. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
 iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
@@ -371,8 +372,11 @@ src/client/           everything that touches the browser
   help.js             the in-game help sheet: the ? in the top bar (between the clock and FULL SCREEN) or the pause card's
                       HOW TO PLAY opens it in the stage's top-right corner (over the pause card, below the corner's
                       pair): the controls in four lines (a mouse's or touch's, by the pointer), the goal in the
-                      player's people's words, the docs' full guide in a new tab; the game runs on under it; Esc, its
-                      close button or the ? again close it
+                      player's people's words, the docs' full guide in a new tab, and Send feedback (feedback.js); the
+                      game runs on under it; Esc, its close button or the ? again close it
+  feedback.js         the game's ways to the docs' feedback form: the first page's quiet second link beside Learn more
+                      and the help sheet's, each to ./docs/feedback/ with `from` (menu or game), `v` and `c` (the sim's
+                      build and the last game update's commit) and `touch`, in a new tab
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, OPTIONS, INSTALL; FIRST GAME until a
                       first game is over, by the record of games, which is kept but not shown; the build stamp at
@@ -411,7 +415,8 @@ src/client/           everything that touches the browser
                       when one is named; the guided first game plays Ashen Basin); `DEFAULT_MAP` (Dust Quarter: single
                       player's first visit and a new room); a map's label ("Iron Compass · up to 8"), the map an online setup plays, the team splits a saved
                       setup of the menu before the board names; pure (test/maps.test.js; the relay imports it too)
-  challenge.js        SHARE's challenge link (`?vs=CODE`): a single-player setup (the map, its seed and starts, each
+  challenge.js        SHARE's challenge link (on the site its card address, `/vs/CODE`, answered by the site's Worker
+                      with the challenge's card, on to `/?vs=CODE`; elsewhere `?vs=CODE` itself): a single-player setup (the map, its seed and starts, each
                       spot's race, side and level) and the winner's time as a short versioned code of numbers and
                       enumerated values, `encode`/`decode` (strict: only exactly what encode makes), `fromSetup` (the
                       menu's game), and every word said of it (the link's card, SHARE's line, the menu's CHALLENGE line);
@@ -565,6 +570,11 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       csp.e2e.mjs (no CSP violation, in any frame or worker, across the menu, the service worker and a
                       reload under it, a game, the help sheet, a room on the relay, the bench's report, the
                       challenge's embedded plan link, the device check, the voice lab, the docs and the clip),
+                      feedback.e2e.mjs (the docs' feedback form on a portrait phone and a desktop through the site's
+                      Worker, the email binding faked by the harness (`site.mail`): the details from the game's link,
+                      the counter, the email as it would go, the thank-you; a failed send and a blocked Worker (1103):
+                      "Couldn't send" and its mailto link, a long text cut; JavaScript off: no SEND, a line to write;
+                      the menu's and the help sheet's links with their details),
                       docs.e2e.mjs (the first page's footer line: Learn more, the docs home in a new tab, the old buttons
                       gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
@@ -641,17 +651,30 @@ test/site-worker.test.js the site as deployed: the files by Cloudflare's assets 
                       file, www and http, a room's card address, a tripped limit (1103), the CSP's reports, the beacon
                       only with a token, _headers, wrangler.toml; with dist/ built, every file the service worker
                       stores and every page served by the assets, and the deploy's build step writing the beacon into
-                      every page with a token and none without
+                      every page with a token and none without; a challenge's card address (/vs/CODE: its card, the
+                      same script on to /?vs=, anything not exactly a code the game makes the game's page); POST
+                      /api/feedback the Worker's, the feedback bindings in wrangler.toml (the email to one address, a
+                      Rate Limiting namespace not the relay's, the budget object), the module exporting its handler and
+                      that object's class
+test/site-feedback.test.js the docs' feedback endpoint (site/feedback.js) through the Worker, its bindings faked: only a
+                      same-origin JSON POST, the body and the message capped, the honeypot (answered as sent, nothing
+                      sent), the time on the page, every field checked, header injection (CR, LF and every control
+                      kept out of the subject and Reply-To; a bad Reply-To refused), the email (to contact@, from
+                      feedback@, Reply-To, the subject's first eight words, plain text, the details at the bottom, never
+                      the address it came from), the minute's binding, the hour per address and the day for everyone
+                      (the budget's rule and object: a short hash of the address, counters only, fails closed), a
+                      failed send (502, its code logged, never the message)
 test/cloudflare-assets.mjs Cloudflare's static assets for the tests (no tests of its own): which file answers an address
                       (auto-trailing-slash), _headers parsed and matched
 test/site-csp.test.js the CSP (site/cache.js): no unsafe-inline or unsafe-eval, every directive, the relay and the beacon
                       the code uses; no <style>, style="" or inline handler in the pages, every inline script hashed
                       (with dist/ built, every page of the build, the docs too, with and without the beacon; a room's
-                      card page; CI runs it after the build)
+                      and a challenge's card page, one script for both; CI runs it after the build)
 test/site-preview.test.js the link cards (site/preview.js): a room's code in its card address read as the relay's
                       (src/net/roomcode.js: hostile, overlong, four letters, lower case, a hyphen), its card and page
                       (the site's image fields as index.html's, one script on to the room), SHARE LINK's address on the
-                      site and elsewhere; the head, the JSON-LD, og.png's size,
+                      site and elsewhere; a challenge's code in its card address (/vs/CODE: exactly what the game
+                      makes, nothing decoded), its card and page; the head, the JSON-LD, og.png's size,
                       robots.txt and the sitemap, and that the build's service worker leaves those out
 test/docs.test.js     the docs (tools/docs) built into a temporary folder: every unit and building of each people on its
                       page in the Build list's order, each figure the data's (cost, population or grid, what it needs,
@@ -668,7 +691,9 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
                       spelling, About's one quiet line naming Stelian; the glance's tiers (one per requirement in
                       Build-list order, each building in its tier, its units in order, a "needs" tag only where the
-                      building's chain does not imply it)
+                      building's chain does not imply it); the feedback page (the form as site/feedback.js checks it,
+                      the honeypot, the details, SEND only with scripts, the fallback and the thank-you) and About's
+                      privacy line about it, checked against what the code sends
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -681,7 +706,8 @@ test/plan.test.js     a plan link's code (src/client/plan.js): round-trips, stri
                       (src/client/embed.js): every message shape, the player's line, allowed origins only
 test/challenge.test.js a challenge's code (src/client/challenge.js): setups round-trip, the code canonical (sides as they
                       first appear, the side modulo starts x players), hostile, malformed and other versions refused (a
-                      fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text
+                      fuzz too), a won game's setup (a RANDOM race as drawn), the card's and SHARE's words, plain text;
+                      the link: the card address on the site, `?vs=` anywhere else
 test/maps.test.js     the menus' maps (src/client/maps.js): the players each map seats, the hidden 64x64 maps and the
                       default, maps that fit (the smallest offered that does when they outgrow one), labels, an online
                       setup's map at its own size, the team splits
@@ -713,12 +739,25 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       index.html, /docs/kingdom/ that folder's, /selftest selftest.html, the .html spellings sent on;
                       no run_worker_first: every file is served with no Worker, so a tripped Workers spending limit
                       leaves the game, the docs and single player up); worker.js (only what is not a file: a room's
-                      card address /r/CODE, the room's own link card then on to /?room=CODE; www and http to
+                      card address /r/CODE, the room's own link card then on to /?room=CODE; a challenge's, /vs/CODE,
+                      the challenge's card ("Can you beat this?") then on to /?vs=CODE; the docs' feedback form, POST
+                      /api/feedback: feedback.js; www and http to
                       https://ebbfall.com/; a page load that is not a file goes to /, a missing file is a 404; the
                       CSP's reports, POST /csp-report, logged short and answered 204), preview.js (pure: a room's card
                       and its page, `roomPage(code)`, CODE read as the relay's (src/net/roomcode.js, which also gives
-                      SHARE LINK's address: `shareLink`); every link to the game's page, ?room= and ?vs= among them,
-                      shows the site's card from index.html), cache.js (by served address: assets/ immutable; /, the
+                      SHARE LINK's address: `shareLink`); a challenge's, `challengePage(code)`, CODE exactly what
+                      src/client/challenge.js makes (whose `link` gives the address on the site); both pages one
+                      script, allowed by its hash; every link to the game's page, ?room= and ?vs= among them, shows
+                      the site's card from index.html), feedback.js (POST /api/feedback, the docs' form mailed to
+                      contact@ebbfall.com from feedback@ebbfall.com through Cloudflare Email Sending, the
+                      `send_email` binding FEEDBACK_EMAIL, which may mail that one address only; Reply-To the
+                      player's address when given and valid; plain text, no control character in a header; refused,
+                      cheapest first: not a same-origin JSON POST, over 12 KB, a filled honeypot (answered as sent),
+                      under 3 s on the page (the page's own count: a speed bump), a field of the wrong shape; then the
+                      Rate Limiting binding FEEDBACK_LIMIT (2 a minute per address) and the Durable Object
+                      FeedbackBudget (3 an hour per address, 200 a UTC day from everyone; one record of counters, an
+                      address only as a short hash, nothing older than an hour; unreachable: nothing sent). Nothing
+                      of a message is stored: the email is the record), cache.js (by served address: assets/ immutable; /, the
                       other pages, sw.js and the manifest no-cache; the security headers every response carries,
                       _headers' and the Worker's, the CSP among them (enforced), its sources directive by directive),
                       build.mjs (wrangler's build step, at deploy: dist/_headers from cache.js, and with
@@ -763,7 +802,15 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       into its first half second so it loops without a cut, its poster its middle frame); shots.json
                       their sizes, words and the boxes the annotated ones mark).
                       public/docs/fonts/: IBM Plex Sans (OFL); the game's two fonts are copied from src/fonts/. The
-                      Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play
+                      Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play.
+                      /docs/feedback/ (copy/feedback.html, pages.mjs {{feedback}}): the feedback form, linked from
+                      About and from the game's menu and help sheet (src/client/feedback.js), not a tab; the kinds,
+                      the text's limit and the endpoint site/feedback.js's; docs.js fills in the details (the game's
+                      version from the link or the page's stamp, the browser and system in a few words, the screen,
+                      touch or mouse, where it came from), counts the characters, sends it as JSON and shows the
+                      thank-you, or, on any answer but `{ ok: true }` (error 1103 among them), "Couldn't send" with a
+                      mailto link carrying the kind and the text; without scripts the form shows, SEND hidden, a line
+                      to write instead
 tools/trailer/        the trailer (the 30-second storyboard), recorded in the built game in Chromium; videos are not
                       committed (target/trailer/). shots.mjs: the shot list as data (each segment a staged page: the
                       people it plays, its scene through the debug handle, its parts with a camera per frame, ticks per

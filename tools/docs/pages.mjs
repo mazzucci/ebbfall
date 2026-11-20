@@ -32,11 +32,14 @@
 //   {{flow A > B > C}}   steps in a row with arrows
 //   {{pages}}            links to the other pages, with their descriptions
 //   {{play}}             the PLAY button
+//   {{feedback}}         the feedback form (its limits and kinds site/feedback.js's, which checks what it sends; docs.js
+//                        sends it, the page reads whole without scripts and says to write instead)
 import { readFileSync, readdirSync } from 'node:fs';
 import { esc, styled, TABS } from './html.mjs';
 import { PEOPLES, FIGURES, nameOf, aName, inWords } from './data.mjs';
 import { loop, economy, cap, expedition, network, tree, peoples, artStrip, research } from './diagrams.mjs';
 import { SPRITE_URL, cropOf } from './sprites.mjs';
+import { FEEDBACK_PATH, KINDS, MAX_TEXT, TO } from '../../site/feedback.js';
 
 const COPY = new URL('./copy/', import.meta.url);
 export const SHOTS_URL = '/docs/img/shots/';
@@ -49,7 +52,7 @@ const controls = () => JSON.parse(readFileSync(CONTROLS, 'utf8'));
 const opts = (rest) => Object.fromEntries(rest.map(p => { const i = p.indexOf('='); return [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }));
 
 /** The pages, in the sitemap's order: [copy file, path]. */
-export const PAGES = [['home', '/docs/'], ['how-to-play', '/docs/how-to-play/'], ['kingdom', '/docs/kingdom/'], ['expedition', '/docs/expedition/'], ['about', '/docs/about/']];
+export const PAGES = [['home', '/docs/'], ['how-to-play', '/docs/how-to-play/'], ['kingdom', '/docs/kingdom/'], ['expedition', '/docs/expedition/'], ['about', '/docs/about/'], ['feedback', '/docs/feedback/']];
 
 /** A copy file: its head comment's fields (title, description, crumb, people) and the body after it. */
 export function readCopy(name) {
@@ -244,6 +247,36 @@ export function placeNotes(s, keys) {
   });
 }
 
+/** The details the form sends with a message (docs.js fills them in, site/feedback.js checks them): [field, name]. */
+export const FEEDBACK_DETAILS = [['version', "The game's version"], ['browser', 'Browser and system'], ['screen', 'Screen size'], ['input', 'Touch or mouse'], ['from', 'Sent from']];
+
+/**
+ * The feedback form (docs.js sends it as JSON to FEEDBACK_PATH): the kind, the message with its counter, an optional
+ * email, a hidden field only a bot fills (the honeypot), the details the page fills in (shown under "What else is
+ * sent"), SEND (shown once the script runs; without it, a line to write instead), the thank-you, and the line shown when
+ * sending fails, with a mailto link docs.js fills with the kind and the text.
+ */
+function feedbackForm() {
+  const max = MAX_TEXT.toLocaleString('en-US'), mail = `mailto:${TO}`;
+  const kinds = KINDS.map((k, i) => `<label><input type="radio" name="kind" value="${k}"${i === 0 ? ' required' : ''}><span>${k}</span></label>`).join('');
+  const details = FEEDBACK_DETAILS.map(([k, n]) => `<dt>${esc(n)}</dt><dd id="fb-d-${k}">Filled in by the page</dd>`).join('');
+  return `<form class="fb" id="feedback" action="${FEEDBACK_PATH}" method="post">
+<fieldset class="kinds"><legend>What is it?</legend><div class="seg">${kinds}</div></fieldset>
+<label class="lab" for="fb-text">What happened, or your idea</label>
+<textarea id="fb-text" name="text" rows="7" maxlength="${MAX_TEXT}" required aria-describedby="fb-count" placeholder="What you did, what you saw, what you expected"></textarea>
+<p class="count" id="fb-count" data-max="${MAX_TEXT}">Up to ${max} characters</p>
+<label class="lab" for="fb-email">Your email <span class="opt">(optional, if you'd like a reply)</span></label>
+<input id="fb-email" name="email" type="email" maxlength="254" autocomplete="email" inputmode="email" spellcheck="false">
+<div class="hp" aria-hidden="true"><label for="fb-website">Leave this empty</label><input id="fb-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+${FEEDBACK_DETAILS.map(([k]) => `<input type="hidden" name="${k}" id="fb-${k}">`).join('')}
+<details class="sent-with"><summary>What else is sent</summary><dl>${details}</dl></details>
+<p class="nojs">Sending needs JavaScript. You can write to <a href="${mail}">${TO}</a> instead.</p>
+<p class="actions"><button class="play send" type="submit">Send</button></p>
+<p class="fb-fail" id="fb-fail" role="alert" hidden>Couldn't send. Write to <a id="fb-mailto" href="${mail}">${TO}</a></p>
+</form>
+<div class="fb-done" id="fb-done" hidden tabindex="-1"><h2>Thank you</h2><p>Your message is on its way to us. If you left your email, we'll write back.</p><p><a class="play" href="/">Back to the game</a></p></div>`;
+}
+
 const flow = (args) => `<ol class="flow" aria-label="${esc(args.replace(/\s*>\s*/g, ', then '))}">${args.split('>').map(s => `<li><span>${esc(s.trim())}</span></li>`).join('')}</ol>`;
 
 /** Fill a page's tokens. `ctx`: { people, pages, version } */
@@ -274,6 +307,7 @@ export function fill(body, ctx) {
       case 'flow': return flow(args);
       case 'pages': return `<ul class="cards">${ctx.pages.filter(p => p.path !== '/docs/').map(p => `<li><a href="${p.path}"><b>${esc(p.crumb)}</b><span>${esc(p.description)}</span></a></li>`).join('')}</ul>`;
       case 'play': return '<p class="cta"><a class="play" href="/">Play Ebbfall</a></p>';
+      case 'feedback': return feedbackForm();
       default: throw new Error(`docs: unknown token ${all}`);
     }
   }

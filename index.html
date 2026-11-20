@@ -73,7 +73,7 @@
     </div>
     <div id="tut" hidden role="status" aria-live="polite"></div>
     <!-- The in-game help (the ? in the top bar, or the pause card's HOW TO PLAY): the controls in four lines, the goal in one,
-         and the docs' full guide; the game keeps running under it (help.js). -->
+         the docs' full guide, and Send feedback (feedback.js: the docs' form, with this copy's details); the game keeps running under it (help.js). -->
     <section id="helpSheet" hidden aria-labelledby="helpTitle">
       <div class="hd"><h2 id="helpTitle">HOW TO PLAY</h2><button class="ib x" id="btnHelpClose" aria-label="Close" title="Close (Esc)">×</button></div>
       <ul class="lines desk">
@@ -89,7 +89,7 @@
         <li>Drag with one finger to look around, pinch to zoom; hold a button to see what it does and costs.</li>
       </ul>
       <p class="goal" id="helpGoal">Mine gold, raise Cottages for population, and bring down the enemy's base before their waves bring down yours.</p>
-      <div class="ft"><span id="helpRun">The game keeps running.</span><a id="helpGuide" href="./docs/how-to-play/" target="_blank" rel="noopener">Full guide and every unit →</a></div>
+      <div class="ft"><span id="helpRun">The game keeps running.</span><a id="helpGuide" href="./docs/how-to-play/" target="_blank" rel="noopener">Full guide and every unit →</a><a id="helpFeedback" href="./docs/feedback/?from=game" target="_blank" rel="noopener">Send feedback</a></div>
     </section>
 
     <button class="tb" id="btnBox" hidden title="Tap (or hold), then drag on the map to select a group; or hold a finger on the map, then drag" aria-label="Select a group" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M10 4h4M18 4h3v3M21 11v2M21 17v3h-3M14 20h-4M6 20H3v-3M3 13v-2" /><path class="fig" d="M8.5 9.6a1.6 1.6 0 1 0 .01 0M5.8 16v-.4a2.7 2.7 0 0 1 5.4 0v.4M15.5 9.6a1.6 1.6 0 1 0 .01 0M12.8 16v-.4a2.7 2.7 0 0 1 5.4 0v.4" /></svg><span>SELECT</span></button>
@@ -121,7 +121,7 @@
         <div class="row"><button class="ib" id="btnFirstHome" title="A guided game on Easy: a short checklist shows you the way" hidden>FIRST GAME</button><button class="ib" id="btnOptions">OPTIONS</button><button class="ib" id="btnInstall">INSTALL</button></div>
         <p class="offmsg" id="homeOfflineMsg" role="status"></p>
         <div class="foot" id="menuFoot">
-          <p class="links" id="menuLinks"><a id="linkDocs" href="./docs/" target="_blank" rel="noopener">Learn more</a></p>
+          <p class="links" id="menuLinks"><a id="linkDocs" href="./docs/" target="_blank" rel="noopener">Learn more</a><a id="linkFeedback" href="./docs/feedback/?from=menu" target="_blank" rel="noopener">Send feedback</a></p>
           <div class="rec" id="buildStamp"></div>
         </div>
         <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. -->

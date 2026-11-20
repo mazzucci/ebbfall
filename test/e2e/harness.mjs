@@ -85,8 +85,16 @@ export const TEST_CSP = cspValue({
   ...(ENGINE === 'webkit' ? { 'style-src': [...CSP['style-src'], "'unsafe-inline'"] } : {}),
 });
 const RULES = parseHeaders(headersFile().replace(cspValue(), () => TEST_CSP));
-/** The Worker's state: `blocked` (every request to it answered as a tripped limit would), and what reached it. */
-export const site = { blocked: false, worker: [] };
+/** The Worker's state: `blocked` (every request to it answered as a tripped limit would), and what reached it; and its
+ *  bindings, faked (the feedback form's: site/feedback.js): `mail`, what the Email Sending binding was asked to send
+ *  (nothing is sent), `mailFails`, the binding throwing as a failed send does; the minute's limit and the budget object
+ *  always say yes (test/site-feedback.test.js tests them). */
+export const site = { blocked: false, worker: [], mail: [], mailFails: false };
+const env = {
+  FEEDBACK_EMAIL: { async send(m) { if (site.mailFails) { const e = new Error('not sent'); e.code = 'E_DELIVERY_FAILED'; throw e; } site.mail.push(m); return { messageId: 'test' }; } },
+  FEEDBACK_LIMIT: { async limit() { return { success: true }; } },
+  FEEDBACK_BUDGET: { idFromName: (n) => n, get: () => ({ fetch: async () => Response.json({ ok: true }) }) },
+};
 
 /** A file of dist/ at `path` (`/docs/index.html`), if there is one. */
 const fileAt = (path) => {
@@ -101,7 +109,7 @@ async function toWorker(req, res, url) {
   const chunks = [];
   for await (const c of req) chunks.push(c);
   const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks);
-  const answer = await worker.fetch(new Request(url, { method: req.method, headers: Object.entries(req.headers).filter(([, v]) => typeof v === 'string'), body }));
+  const answer = await worker.fetch(new Request(url, { method: req.method, headers: Object.entries(req.headers).filter(([, v]) => typeof v === 'string'), body }), env);
   res.writeHead(answer.status, Object.fromEntries(answer.headers));
   res.end(Buffer.from(await answer.arrayBuffer()));
 }

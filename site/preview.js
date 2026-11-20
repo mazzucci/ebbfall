@@ -1,15 +1,19 @@
-// What a shared room link shows in a chat or a feed (WhatsApp, Discord, iMessage, X: their Open Graph and Twitter
-// cards). index.html's head carries the site's card (title, description, image, url), served as a file like the rest of
-// the game (no Worker: site/wrangler.toml), so every link to the game's page, `?room=` and `?vs=` among them, shows the
-// site's card. SHARE LINK in a room gives the room's card address instead, `/r/CODE`: not a file, so site/worker.js
-// answers it with `roomPage`, a small page of the room's own card that sends a browser on to the room, `/?room=CODE`.
-// Pure, no Workers runtime: the worker imports it, test/site-preview.test.js tests it. A module of its own: a Worker's
-// entry module may export only handlers.
+// What a shared room or challenge link shows in a chat or a feed (WhatsApp, Discord, iMessage, X: their Open Graph and
+// Twitter cards). index.html's head carries the site's card (title, description, image, url), served as a file like the
+// rest of the game (no Worker: site/wrangler.toml), so every link to the game's page, `?room=` and `?vs=` among them,
+// shows the site's card. On the site, SHARE LINK in a room gives the room's card address instead, `/r/CODE`, and SHARE
+// after a victory the challenge's, `/vs/CODE`: not files, so site/worker.js answers them with `roomPage` and
+// `challengePage`, a small page of the link's own card that sends a browser on to the game's page, `/?room=CODE` or
+// `/?vs=CODE`. Pure, no Workers runtime: the worker imports it, test/site-preview.test.js tests it. A module of its own:
+// a Worker's entry module may export only handlers.
 import { ALPHABET, LETTERS, SITE, ROOM_PATH, parseCode, showCode } from '../src/net/roomcode.js';
+import * as challenge from '../src/client/challenge.js';
 
 /** The game's one address (worker.js sends www and http here). */
 export const ORIGIN = SITE;
 export { ROOM_PATH };
+/** A challenge's card address: VS_PATH + its code (src/client/challenge.js `link` gives it on the site). */
+export const VS_PATH = challenge.VS_PATH;
 
 /** The relay's room codes: six letters of this alphabet (src/net/roomcode.js, which the relay and the lobby use too).
  *  No vowels, so a valid code never spells a word, and anything else is not a room. */
@@ -24,6 +28,15 @@ export function roomCode(pathname) {
   let rest = pathname.slice(ROOM_PATH.length).replace(/\/$/, '');
   try { rest = decodeURIComponent(rest); } catch { return null; }
   return rest.includes('/') ? null : parseCode(rest) || null;
+}
+
+/** The challenge a card address names (`/vs/CODE`: the path after VS_PATH, one segment, a trailing slash allowed), only if
+ *  it is exactly a code the game makes (challenge.js `decode`: strict, so nothing is decoded or tidied here: the
+ *  address's own characters, letters, digits and dots, are the code the page goes on with): else null. */
+export function challengeCode(pathname) {
+  if (typeof pathname !== 'string' || !pathname.startsWith(VS_PATH) || pathname.length > VS_PATH.length + 65) return null;
+  const rest = pathname.slice(VS_PATH.length).replace(/\/$/, '');
+  return challenge.decode(rest) ? rest : null;
 }
 
 /** The site's card fields a room's card keeps (index.html's head says the same: test/site-preview.test.js). */
@@ -48,13 +61,21 @@ export function roomCard(code) {
   } : null;
 }
 
+/** A challenge's card: the setup it names, in words made from its values alone (challenge.js `card`), its card address
+ *  as its url, and `go`, the game's page with the challenge. Null for anything that is not exactly a challenge's code. */
+export function challengeCard(code) {
+  const c = challenge.decode(code);
+  return c ? { ...challenge.card(c), url: `${ORIGIN}${VS_PATH}${code}`, go: `/?${challenge.PARAM}=${code}` } : null;
+}
+
 /**
- * The script of a room's card page: on to the room, the code read from the address (`/r/CODE` -> `/?room=CODE`; the
- * Worker serves the page only for a valid code, and the client reads it again). A script and not a meta refresh: link
- * crawlers run no script, so they keep this page's card, where some follow a refresh to the game's page and its
- * site card. One fixed text, so the CSP allows it by its hash (cache.js CARD_SCRIPT_HASH: test/site-csp.test.js).
+ * The script of a card page: on to the game's page, the code read from the address (`/r/CODE` -> `/?room=CODE`,
+ * `/vs/CODE` -> `/?vs=CODE`; the Worker serves the page only for a valid code, and the client reads it again). A script
+ * and not a meta refresh: link crawlers run no script, so they keep this page's card, where some follow a refresh to the
+ * game's page and its site card. One fixed text for both, so the CSP allows it by its hash (cache.js script-src:
+ * test/site-csp.test.js).
  */
-export const CARD_SCRIPT = "location.replace('/?room=' + location.pathname.split('/')[2] + location.hash);";
+export const CARD_SCRIPT = "var p = location.pathname.split('/'); location.replace('/?' + (p[1] === 'vs' ? 'vs' : 'room') + '=' + p[2] + location.hash);";
 
 /** Text that is safe in an attribute and as an element's text without escaping (a last guard: the cards are written by
  *  the code above, and a link's own text gets in only through a check like roomCode's). */
@@ -62,8 +83,13 @@ const SAFE = /^[^<>&"'\u0000-\u001f]*$/;
 
 /** The page answering a room's card address: the room's card in its head, a script on to the room, and a link for
  *  whoever has scripts off. Null for anything that is not a room's code. */
-export function roomPage(code) {
-  const card = roomCard(code), s = SITE_CARD;
+export const roomPage = (code) => cardPage(roomCard(code));
+/** The page answering a challenge's card address, the same way. Null for anything that is not a challenge's code. */
+export const challengePage = (code) => cardPage(challengeCard(code));
+
+/** A card page: `card` ({ title, description, url, go }) in its head, the script on, a link; null for no card. */
+function cardPage(card) {
+  const s = SITE_CARD;
   if (!card || !Object.values(card).every(v => SAFE.test(v))) return null;
   const meta = (k, v, attr = k.startsWith('og:') ? 'property' : 'name') => `<meta ${attr}="${k}" content="${v}">`;
   const alt = s.imageAlt; // (a constant, as index.html writes it: no double quote or markup)

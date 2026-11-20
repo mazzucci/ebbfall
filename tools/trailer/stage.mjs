@@ -41,15 +41,17 @@ export async function openStage() {
  * HUD too, the phone shot's). The sim takes orders and placements only for this side's seat (seat 0), so a shot plays
  * the people it orders (`as`); playing the Expedition, the seats' colors are swapped (`endfall.paint`), so the Kingdom
  * is always in blue and the Expedition in red-pink. `ai`: the other seat's AI left on (else off). `css`: what the page
- * hides (QUIET with the HUD, else BARE; the controls video keeps the card's details). The scene helpers are on
- * window.S (`helpers`).
+ * hides (QUIET with the HUD, else BARE; the controls video keeps the card's details). `init`: more settings in the
+ * device's storage (endfall.<key>: the desktop controls video's WASD scheme). The scene helpers are on window.S
+ * (`helpers`).
  */
-export async function game(stage, device, { map = 'quarter', as = 'humans', hud = false, ai = false, css = hud ? QUIET : BARE } = {}) {
+export async function game(stage, device, { map = 'quarter', as = 'humans', hud = false, ai = false, css = hud ? QUIET : BARE, init = {} } = {}) {
   const ctx = await stage.browser.newContext(device);
-  await ctx.addInitScript((as) => {
+  await ctx.addInitScript(([as, init]) => {
     localStorage.setItem('endfall.seats', JSON.stringify([{ race: as, team: 0 }, { race: as === 'humans' ? 'vael' : 'humans', team: 1, diff: 1 }]));
     localStorage.setItem('endfall.guided', '1');
-  }, as);
+    for (const [k, v] of Object.entries(init)) localStorage.setItem(`endfall.${k}`, v); // (`init`: more of the device's settings, e.g. controls: 'wasd')
+  }, [as, init]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));
   await page.goto(`${stage.origin}?map=${MAPS[map]}&seed=1`, { waitUntil: 'networkidle' });

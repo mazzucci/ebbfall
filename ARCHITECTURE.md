@@ -825,7 +825,7 @@ tools/trailer/        the trailer (the 30-second storyboard), recorded in the bu
                       `audio.record`); sound.mjs: those effects rendered offline through audio.js's recipes
                       (`renderSfx`); cut.mjs: the versions (openings A and B, 9:16, the YouTube hold) and contact
                       sheets, 720p web copies and 2 fps frames. ffmpeg: FFMPEG, .tools/ffmpeg/ffmpeg (a static build with libx264) or the PATH's
-tools/controls/       the phone controls video (the docs' touch table, as a film): the real built game on a landscape phone
+tools/controls/       the controls videos (the docs' touch and desktop tables, as films). The phone's: the real built game on a landscape phone
                       (844x390, DPR 2, touch) on the trailer's stage, one scene (beats.mjs `scene`: a small Kingdom base
                       on Gold Crown's first start, well inside the map so HOME and a pan never show past its edge; a
                       group of soldiers, a Knight apart) and six beats in the docs' order (select and move, a hold then a
@@ -846,7 +846,15 @@ tools/controls/       the phone controls video (the docs' touch table, as a film
                       gesture's loop on demand (pages.mjs {{loop name}}: a ? button, 32 px in a 44 px target, and an
                       empty box under the row's words; docs.js makes the video and its poster there on a tap and plays
                       it, the ? again closes it, one open at a time, under reduced motion the poster with controls;
-                      nothing of a loop is fetched before the tap, and the ? is hidden where scripts do not run).
+                      nothing of a loop is fetched before the tap, and the ? is hidden where scripts do not run). The
+                      desktop's (record.mjs `--set desktop`, desktop.mjs): the same scene on a 1280x720 window at the
+                      docs' desktop zoom, a mouse and a keyboard through CDP input events (mouse.mjs: the cursor's glides,
+                      clicks, drags, double-clicks and keys stamped on the recorded clock; a drawn arrow cursor, a white
+                      ring at a left click and a teal one at a right click, the keys as keycaps under the top bar), seven
+                      beats in the desktop tables' words (a box, a right-click, a double-click, A then a click, B then a
+                      building, Ctrl+1 and 1, the arrow keys) and the WASD scheme's one (`--set desktop-wasd`: the
+                      device's setting through stage.mjs `init`); cut.mjs `--set desktop`: desktop-loop.mp4 (1280x720,
+                      captioned) and desk-<gesture>.mp4 (960x540, 2-3 s), each poster a frame after the answer.
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's

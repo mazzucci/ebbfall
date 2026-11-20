@@ -241,7 +241,8 @@ test('the controls tables\' gestures, on demand: seven touch rows and seven desk
   // The tables: the touch table, the Mouse table and the Key table (`touch`: the ? at the right of the words, a grid per
   // row on a phone), and the schemes table (Classic and WASD columns, the ? alone in a cell); each row's first words and
   // its button, if any.
-  const tables = [...how.matchAll(/<table class="(touch|schemes)">/g)].map(m => how.slice(m.index, how.indexOf('</table>', m.index)));
+  const tables = [...how.matchAll(/<table class="(touch|touch desk|schemes)">/g)].map(m => how.slice(m.index, how.indexOf('</table>', m.index)));
+  assert.deepEqual([...how.matchAll(/<table class="([\w ]+)">/g)].map(m => m[1]), ['touch', 'touch desk', 'schemes', 'touch desk'], 'the touch table, then the desktop\'s Mouse, schemes and Key tables (`desk`: an open row stacks on a phone)');
   assert.equal(tables.length, 4, 'the touch, Mouse, schemes and Key tables');
   const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''), row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
   const [touch, mouse, schemes, keys] = tables.map(rowsOf);

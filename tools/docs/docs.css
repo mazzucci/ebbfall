@@ -152,6 +152,11 @@ table.touch td:has(> .see){position:relative;padding-right:48px} table.touch td:
  table.touch td,table.touch th{border:0} table.touch td:first-child,table.touch th:first-child{padding-left:0} table.touch td:nth-child(2),table.touch th:nth-child(2){padding-right:0}
  .gesture{max-width:none;width:calc(100% + 114px);margin-left:-114px}
  table.touch td:has(> .see){padding-right:44px} table.touch td:has(> .see) .see{right:0} table.touch td:has(> .see) .gesture{width:auto;margin-right:-44px}
+ /* (the desktop tables' first words run to three lines on a phone, where the open box pulled under them would cover
+    them: an open row there stacks instead, its words above the row's, the box under both at the row's full width) */
+ table.touch.desk tr:has(.gesture:not([hidden])){grid-template-columns:1fr}
+ table.touch.desk tr:has(.gesture:not([hidden])) td:first-child{padding-bottom:0} table.touch.desk tr:has(.gesture:not([hidden])) td:nth-child(2){padding-left:0;padding-top:2px}
+ table.touch.desk tr:has(.gesture:not([hidden])) .gesture{margin-left:0}
 }
 
 /* diagrams: plates with mono labels */

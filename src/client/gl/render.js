@@ -229,7 +229,7 @@ const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0
 export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** The camera for a game's start: over (x, y), and with a mouse on the map itself, nothing past its edges at the sides
- *  or the top (a base sits near a corner: the usual room past the edge was a third of the first screen); at the foot
+ *  or the top (a base sits near a corner: the usual room past the edge showed dark down the first screen's side); at the foot
  *  the usual room stays, where the HUD floats over the map. A phone starts as `centerOn` leaves it. */
 export function startOn(x, y) {
   centerOn(x, y);

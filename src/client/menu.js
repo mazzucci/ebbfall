@@ -265,7 +265,7 @@ export function guidedDone() { store.set('guided', '1'); }
 /** What this device has seen of the game: `finished`, a game played to its end (one on the record, or the guided one);
  *  `first`, a first visit: none finished and none ever started here (endfall.games, counted at every start:
  *  grouphint.js). The one place the first page's rule is decided. */
-export function visit() {
+function visit() {
   const r = records(), finished = store.get('guided') === '1' || Object.keys(r).some(k => tally(r, k).some(n => n > 0));
   return { finished, first: !finished && !(Number(store.get('games')) > 0) };
 }

@@ -26,12 +26,15 @@ test('Workers blocked (1103): the game\'s page, the docs and a single-player gam
   const ctx = await browserContext(DESKTOP);
   try {
     const { p, problems } = await watched(ctx);
+    // Each page loaded in full before the next (a navigation away aborts what is still loading, and some engines say so).
     for (const [path, title] of [['', /^Ebbfall: a classic RTS/], ['?room=WGNJKL', /^Ebbfall: a classic RTS/], ['docs/', /Ebbfall/], ['docs/kingdom/', /Kingdom/], ['docs/kingdom', /Kingdom/]]) {
-      const res = await p.goto(baseUrl() + path, { waitUntil: 'load' });
+      const res = await p.goto(baseUrl() + path, { waitUntil: 'networkidle' });
       assert.equal(res.status(), 200, path);
       assert.match(await p.title(), title, path);
       const h = await res.allHeaders();
       for (const k of ['content-security-policy', 'x-content-type-options', 'referrer-policy', 'permissions-policy']) assert.ok(h[k], `${path}: ${k}`);
+      if (!path.startsWith('docs')) await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // (the game loaded, behind the menu)
+      else await p.evaluate(() => Promise.all([...document.images].map(i => (i.loading = 'eager', i.decode().catch(() => {}))))); // (every image, the lazy ones too)
     }
     // The game's page: loaded, and its service worker installed from the files (Chromium; elsewhere if it has one).
     await p.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });

@@ -1,8 +1,8 @@
 // Room codes (Notion: Multiplayer design, Security): six letters of ALPHABET, 20^6 = 64 million codes, shown and said in two
 // threes, BCD-FGH. One module for every place that makes, reads or shows one: the relay (relay/worker.js and
 // relay/server.mjs make them), the lobby (src/client/online.js reads what is typed or linked) and a room link's card
-// (site/preview.js). Pure, no imports. The links carry the code without the hyphen (`?room=BCDFGH`); a code is read
-// whatever its case, with or without the hyphen or spaces.
+// (site/preview.js). Pure, no imports. The links carry the code without the hyphen (`?room=BCDFGH`, or on the site the
+// room's card address `/r/BCDFGH`: shareLink); a code is read whatever its case, with or without the hyphen or spaces.
 
 /** No vowels (a code never spells a word) and no look-alikes (no O or 0, no I or 1). */
 export const ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ';
@@ -26,3 +26,12 @@ export const showCode = (code) => `${code.slice(0, 3)}-${code.slice(3)}`;
 
 /** A code of the first format (four letters, until PROTO 7), as an old client sends it. */
 export const oldCode = (text) => typeof text === 'string' && OLD.test(text.toUpperCase());
+
+/** The published game's address, whose Worker answers a room's card address (site/worker.js). */
+export const SITE = 'https://ebbfall.com';
+/** A room's card address on the site: ROOM_PATH + the code (`/r/BCDFGH`), the page of the room's own link card, which
+ *  sends a browser on to `/?room=BCDFGH` (site/preview.js). Not a file: only the site's Worker answers it. */
+export const ROOM_PATH = '/r/';
+/** The link SHARE LINK gives for room `code` from a page at `origin`: on the site, the room's card address; anywhere
+ *  else (a dev server, a LAN, the tests: no Worker to answer it) `page`, the game's page with `?room=`. */
+export const shareLink = (code, origin, page) => (origin === SITE ? `${SITE}${ROOM_PATH}${code}` : page);

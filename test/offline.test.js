@@ -10,19 +10,23 @@ import { decodePNG } from '../tools/art/png.js';
 
 const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/atlas-0.png'];
 
-/** A fake Cache Storage: `stored` names the files already in the build's cache (null: no cache yet). */
-function fakeCaches(stored, { broken = false, fetched = [], failing = null, modes = [] } = {}) {
+/** A fake Cache Storage and network: `stored` names the files already in the build's cache (null: no cache yet);
+ *  `moved` maps a file to the address the host redirects it to (Cloudflare's /selftest.html -> /selftest). */
+function fakeCaches(stored, { broken = false, fetched = [], failing = null, modes = [], moved = {}, kept = [] } = {}) {
   const store = new Map();
   if (stored) store.set('endfall-v1', new Set(stored));
   const cache = (name) => ({
     match: async (f) => (store.get(name).has(f) ? { ok: true } : undefined),
-    add: async (req) => {
-      const f = req.url ?? req; modes.push(req.cache);
-      if (f === failing) throw new TypeError('Failed to fetch');
-      fetched.push(f); store.get(name).add(f);
-    },
+    put: async (f, res) => { kept.push([f, res.redirected]); store.get(name).add(f); },
   });
+  const fetch = async (req) => {
+    const f = req.url; modes.push(req.cache);
+    if (f === failing) throw new TypeError('Failed to fetch');
+    fetched.push(f);
+    return f in moved ? { ok: true, redirected: true, url: moved[f], status: 200, statusText: 'OK', headers: {}, blob: async () => 'body' } : { ok: true, redirected: false };
+  };
   return {
+    fetch,
     has: async (name) => { if (broken) throw new Error('SecurityError'); return store.has(name); },
     open: async (name) => { if (broken) throw new Error('SecurityError'); if (!store.has(name)) store.set(name, new Set()); return cache(name); },
     keys: async () => [...store.keys()],
@@ -32,10 +36,11 @@ function fakeCaches(stored, { broken = false, fetched = [], failing = null, mode
 
 /** Load the worker on `caches`; returns its event handlers. */
 class FakeRequest { constructor(url, o = {}) { this.url = url; this.cache = o.cache; } }
+class FakeResponse { constructor(body, init) { Object.assign(this, init, { body, redirected: false }); } }
 function worker(caches, flags = {}) {
   const on = {};
   const self = { addEventListener: (t, fn) => { on[t] = fn; }, skipWaiting: () => { flags.skipped = true; }, clients: { claim: () => {} } };
-  runInNewContext(swSource('v1', 'b1d0', FILES), { self, caches, location: { origin: 'http://x' }, URL, Request: FakeRequest });
+  runInNewContext(swSource('v1', 'b1d0', FILES), { self, caches, fetch: caches.fetch, location: { origin: 'http://x' }, URL, Request: FakeRequest, Response: FakeResponse });
   return on;
 }
 
@@ -93,6 +98,25 @@ test('an install cut short resumes: only the missing files are fetched', async (
   await done;
   assert.deepEqual(fetched.sort(), ['art/atlas-0.png', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
+});
+
+test('a page the host redirects (Cloudflare: index.html to /, selftest.html to /selftest) is stored as a response of its own, at both addresses', async () => {
+  const kept = [], on = worker(fakeCaches(null, { moved: { 'index.html': 'http://x/' }, kept }));
+  let done;
+  on.install({ waitUntil: (p) => { done = p; } });
+  await done;
+  assert.ok(kept.every(([, redirected]) => !redirected), 'never a redirected response: a page load could not be answered with it');
+  assert.deepEqual(kept.filter(([f]) => f === 'index.html' || f === 'http://x/').map(([f]) => f).sort(), ['http://x/', 'index.html']);
+  assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
+});
+
+test('a file the host answers with an error fails the install, as a failed fetch does', async () => {
+  const caches = fakeCaches(null);
+  caches.fetch = async (req) => (req.url === 'art/atlas-0.png' ? { ok: false, status: 404 } : { ok: true, redirected: false });
+  const flags = {}, on = worker(caches, flags);
+  let waited; on.install({ waitUntil: (p) => { waited = p; } });
+  await assert.rejects(waited, /art\/atlas-0\.png \(404\)/);
+  assert.ok(!flags.skipped);
 });
 
 test("Cloudflare's analytics beacon is left to the network: never stored, never answered from the cache", async () => {

@@ -15,7 +15,7 @@
 // (the big button while the host has a seat open). The menu's MULTIPLAYER is shown only where a relay is known:
 // `?relay=ws://...`, the build's VITE_RELAY_URL, or the dev machine's own (port 8788) when the page comes from it.
 import { Net, PAUSES } from '../net/net.js';
-import { parseCode, showCode, LETTERS } from '../net/roomcode.js';
+import { parseCode, showCode, shareLink, LETTERS } from '../net/roomcode.js';
 import { liveGame, seatRaces, FACTIONS, ready as simReady } from '../engine/index.js';
 import { $, toast, LOAD_FAILED } from './ui.js';
 import { sfx } from './audio.js';
@@ -473,7 +473,7 @@ const seatToken = {
 
 async function share() {
   const code = online.net?.room; if (!code) return;
-  const url = joinLink(code);
+  const url = shareLink(code, location.origin, joinLink(code)); // (on the site its card address, /r/CODE: roomcode.js)
   try {
     if (navigator.share) await navigator.share({ title: 'Ebbfall', text: `Play me in Ebbfall: room ${showCode(code)}`, url });
     else { await navigator.clipboard.writeText(url); toast('Link copied'); }

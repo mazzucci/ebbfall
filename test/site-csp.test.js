@@ -1,7 +1,7 @@
 // The site's Content-Security-Policy (site/cache.js CSP): the policy itself (no unsafe-inline or unsafe-eval anywhere,
 // every directive the review asked for, the relay and the beacon it names the ones the code uses), and the pages it
 // governs: no <style> block, style="" attribute or inline event handler in any of them, and every inline script with
-// its hash in script-src (index.html's error log; JSON-LD is data, not script). With dist/ built (CI runs this again
+// its hash in script-src (index.html's origin check and error log, a room's card page's; JSON-LD is data, not script). With dist/ built (CI runs this again
 // after the build), every page of the build, the docs' too. The browser's own word on it: test/e2e/csp.e2e.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,6 +10,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CSP, CSP_HEADER, CSP_REPORT, RELAY_HOST, SECURITY, cspValue } from '../site/cache.js';
+import { roomPage } from '../site/preview.js';
+import { withBeacon } from '../site/beacon.js';
 
 const root = new URL('../', import.meta.url);
 const read = (f) => readFileSync(new URL(f, root), 'utf8');
@@ -51,7 +53,7 @@ test("the relay and the beacon the policy names are the ones the code uses", () 
   assert.ok(read('.github/workflows/ci.yml').includes(`'wss://${RELAY_HOST}/'`), "CI's default RELAY_URL");
   assert.ok(CSP['connect-src'].includes(`wss://${RELAY_HOST}`), 'its websocket');
   assert.ok(CSP['connect-src'].includes(`https://${RELAY_HOST}`), "the bench's report (bench.js: the relay's address over https)");
-  const beacon = read('site/worker.js').match(/src="(https:\/\/[^/"]+)\/beacon\.min\.js"/)[1];
+  const beacon = read('site/beacon.js').match(/src="(https:\/\/[^/"]+)\/beacon\.min\.js"/)[1];
   assert.ok(CSP['script-src'].includes(beacon), 'the analytics beacon');
   assert.ok(CSP['connect-src'].includes('https://cloudflareinsights.com'), "the beacon's reports");
 });
@@ -60,7 +62,9 @@ test('the pages as written: no inline style or handler, every inline script hash
   check('index.html', read('index.html'));
   check('selftest.html', read('selftest.html'), { modules: true });
   check('voice-lab.html', read('voice-lab.html'));
-  assert.equal(inlineScripts(read('index.html')).length, 1, "index.html: one inline script, the error log (a second: hash it, or a file)");
+  assert.equal(inlineScripts(read('index.html')).length, 1, "index.html: one inline script, the origin check and error log (a second: hash it, or a file)");
+  check("a room's card page (site/worker.js)", roomPage('WGNJKL'));
+  assert.equal(inlineScripts(roomPage('WGNJKL')).length, 1);
 });
 
 const dist = fileURLToPath(new URL('dist/', root));
@@ -69,5 +73,7 @@ test('with dist/ built: every page of the build, the docs too', { skip: !existsS
   const pages = htmlIn(dist);
   assert.ok(pages.some(p => p.endsWith(join('docs', 'kingdom', 'index.html'))), 'the docs are there');
   for (const p of pages) check(p.slice(dist.length), readFileSync(p, 'utf8'));
+  // With the analytics beacon the deploy writes into every page (site/build.mjs): still nothing the policy refuses.
+  for (const p of pages) check(`${p.slice(dist.length)} with the beacon`, withBeacon(readFileSync(p, 'utf8'), 'abc123'));
   assert.ok(existsSync(join(dist, 'docs', 'docs.css')) && existsSync(join(dist, 'docs', 'docs.js')), "the docs' stylesheet and script");
 });

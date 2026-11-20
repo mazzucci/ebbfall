@@ -1,278 +1,159 @@
-// The site's Worker on Cloudflare (site/worker.js) in Node, with a fake ASSETS binding serving files at their exact
-// paths (wrangler.toml's html_handling = "none"): the game's page for / and every link into it (?room=, ?bench), the
-// other pages, the cache headers (hashed assets for good; the pages, the service worker and the manifest checked every
-// time), what is not a file (a page load goes to the game, a missing script is a 404), www and http sent to
-// https://ebbfall.com/, a room's link and a challenge's (SHARE after a victory) with their own cards (with or without the beacon) and an ETag that never keeps a stale
-// card, Cloudflare's analytics beacon only with a token, the _headers file the deploy writes, and the config it runs
-// with; the docs' folder addresses (/docs/kingdom/). With dist/ built: every file the service worker stores is served, as
-// is, and so are robots.txt, the sitemap, the preview image and the docs.
+// The site on Cloudflare as it is deployed: the files served by the assets with no Worker (test/cloudflare-assets.mjs:
+// wrangler.toml's html_handling = "auto-trailing-slash", and the _headers file the deploy writes), and the Worker
+// (site/worker.js) only for what is not a file. The game's page (every link into it: ?room=, ?vs=, ?seed=), the docs'
+// folders and the other pages are files, with the security headers and their cache headers: they stay up when a
+// Workers spending limit blocks the Worker. The pages' other spellings sent to their canonical addresses; what is not a
+// file (a page load goes to the game, a missing script is a 404); www and http sent to https://ebbfall.com/; a room's
+// card address (/r/CODE) with its own card; the CSP's reports; Cloudflare's analytics beacon written into every page at
+// deploy, only with a token (site/build.mjs); the config the site runs with. With dist/ built: every file the service
+// worker stores and every page is served by the assets, never the Worker.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { join, relative } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import worker from '../site/worker.js';
-import { CACHE, SECURITY, CSP_HEADER, CSP_REPORT, cacheControl, headersFile } from '../site/cache.js';
+import { CACHE, CSP, SECURITY, CSP_HEADER, CSP_REPORT, cacheControl, headersFile, servedAt } from '../site/cache.js';
+import { CARD_SCRIPT } from '../site/preview.js';
+import { beacon, withBeacon, pages } from '../site/beacon.js';
+import { resolve, parseHeaders, headersFor } from './cloudflare-assets.mjs';
 
-const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', wasm: 'application/wasm', png: 'image/png', webmanifest: 'application/manifest+json', json: 'application/json', css: 'text/css; charset=utf-8', svg: 'image/svg+xml' };
-/** A fake ASSETS binding over `files` (path -> body): Cloudflare's default headers, 404 for anything else. */
-const assets = (files) => ({
-  seen: [],
-  async fetch(req) {
-    const path = new URL(req.url).pathname;
-    this.seen.push(path);
-    if (!(path in files)) return new Response('', { status: 404 });
-    if (req.headers.get('If-None-Match') === '"e"') return new Response(null, { status: 304, headers: { ETag: '"e"' } });
-    if (req.headers.has('Range')) return new Response(files[path].slice(0, 10), { status: 206, headers: { ETag: '"e"' } });
-    const body = req.method === 'HEAD' ? null : files[path];
-    return new Response(body, { headers: { 'Content-Type': TYPES[path.split('.').pop()] || 'application/octet-stream', 'Cache-Control': 'public, max-age=0, must-revalidate', ETag: '"e"' } });
-  },
-});
-const FILES = {
-  '/index.html': '<!doctype html><title>Ebbfall</title><body><canvas></canvas></body>',
-  '/selftest.html': 'selftest', '/voice-lab.html': 'voice lab', '/sw.js': 'sw', '/manifest.webmanifest': '{}',
-  '/assets/index-Bx1y2z3w.js': 'js', '/assets/endfall_sim_bg-ClB66k65.wasm': 'wasm', '/art/atlas-0.png': 'png',
-  '/robots.txt': 'User-agent: *', '/sitemap.xml': '<urlset/>', '/og.png': 'png',
-};
 const ORIGIN = 'https://ebbfall.com';
-const get = (path, headers = {}, method = 'GET', env = {}, files = FILES) => worker.fetch(new Request(ORIGIN + path, { method, headers }), { ASSETS: assets(files), ...env });
 const NAVIGATE = { 'Sec-Fetch-Mode': 'navigate', Accept: 'text/html,application/xhtml+xml' };
+const RULES = parseHeaders(headersFile());
+const FILES = new Set(['/index.html', '/selftest.html', '/voice-lab.html', '/sw.js', '/manifest.webmanifest', '/assets/index-Bx1y2z3w.js',
+  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/atlas-0.png', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
+  '/docs/index.html', '/docs/kingdom/index.html', '/docs/how-to-play/index.html', '/docs/img/sprites/core-336.webp']);
 
 /**
- * HTMLRewriter (the Workers runtime's, not Node's), as far as the Worker uses it, on the text: <meta> tags by an
- * attribute's value (setAttribute) and the body (append). Anything else it is asked fails the test.
+ * A request to the deployed site: the assets first (a file: 200 with its _headers; another spelling of a page: 307),
+ * then the Worker. `{ via }`: 'assets' or 'worker'; `blocked`: the Worker answers as a tripped limit (1103).
  */
-class FakeRewriter {
-  handlers = [];
-  on(sel, handler) { this.handlers.push([sel, handler]); return this; }
-  transform(res) {
-    const done = res.text().then((html) => {
-      for (const [sel, { element }] of this.handlers) {
-        const m = sel.match(/^meta\[(property|name)="([^"]+)"\]$/);
-        if (m) {
-          html = html.replace(/<meta\b[^>]*>/g, (tag) => {
-            if (!tag.includes(` ${m[1]}="${m[2]}"`)) return tag;
-            element({ setAttribute: (a, v) => { assert.doesNotMatch(v, /[<>&"]/, 'plain text'); tag = tag.replace(new RegExp(` ${a}="[^"]*"`), ` ${a}="${v}"`); } });
-            return tag;
-          });
-        } else if (sel === 'body') {
-          let added = '';
-          element({ append: (h, o) => { assert.deepEqual(o, { html: true }); added += h; } });
-          html = html.replace('</body>', `${added}</body>`);
-        } else assert.fail(`FakeRewriter: ${sel}`);
-      }
-      return html;
-    });
-    return { text: () => done };
-  }
+async function site(path, { headers = {}, method = 'GET', host = ORIGIN, files = FILES, blocked = false } = {}) {
+  const url = new URL(path, host);
+  const route = method === 'GET' || method === 'HEAD' ? resolve(url.pathname, (p) => files.has(p)) : null;
+  if (route?.file) return { via: 'assets', file: route.file, res: new Response(method === 'HEAD' ? null : route.file, { headers: headersFor(RULES, url.pathname) }) };
+  if (route?.redirect) return { via: 'assets', res: new Response(null, { status: 307, headers: { Location: route.redirect + url.search } }) };
+  if (blocked) return { via: 'worker', res: new Response('error code: 1103', { status: 500 }) };
+  return { via: 'worker', res: await worker.fetch(new Request(url, { method, headers })) };
 }
-globalThis.HTMLRewriter = FakeRewriter;
 
-test("the game's page for / and every link into it, checked on every load", async () => {
-  for (const path of ['/', '/index.html', '/?bench', '/?room=ABCD', '/?seed=7&relay=wss://x']) {
-    const res = await get(path, NAVIGATE);
-    assert.equal(res.status, 200, path);
-    assert.equal(await res.text(), FILES['/index.html'], path);
-    assert.match(res.headers.get('Content-Type'), /^text\/html/, path);
-    assert.equal(res.headers.get('Cache-Control'), 'no-cache', path);
-    assert.equal(res.headers.get('ETag'), '"e"', `${path}: the asset's ETag kept (a 304 when unchanged)`);
+test("the game's page, every link into it, the docs and the other pages: files, served with no Worker, with every security header", async () => {
+  const pagesAt = [['/', '/index.html'], ['/?room=WGNJKL', '/index.html'], ['/?vs=1.8.5.ky.h00v12v22v32', '/index.html'], ['/?seed=7&relay=wss://x', '/index.html'],
+    ['/?bench', '/index.html'], ['/docs/', '/docs/index.html'], ['/docs/kingdom/', '/docs/kingdom/index.html'], ['/docs/how-to-play/', '/docs/how-to-play/index.html'],
+    ['/selftest', '/selftest.html'], ['/voice-lab', '/voice-lab.html']];
+  for (const [path, file] of pagesAt) {
+    const r = await site(path, { headers: NAVIGATE, blocked: true });
+    assert.equal(r.via, 'assets', `${path}: no Worker`);
+    assert.equal(r.res.status, 200, path);
+    assert.equal(r.file, file, path);
+    for (const [k, v] of Object.entries(SECURITY)) assert.equal(r.res.headers.get(k), v, `${path}: ${k}`);
   }
-  assert.equal((await get('/', {}, 'HEAD')).status, 200);
+  for (const path of ['/', '/?room=WGNJKL', '/selftest', '/voice-lab', '/sw.js', '/manifest.webmanifest']) {
+    assert.equal((await site(path)).res.headers.get('Cache-Control'), 'no-cache', `${path}: checked on every load`);
+  }
+  assert.equal((await site('/docs/kingdom/')).res.headers.get('Cache-Control'), null, "the docs: Cloudflare's default (revalidated)");
 });
 
-test('the other pages, the service worker and the manifest: served at their paths, checked on every load', async () => {
-  for (const path of ['/selftest.html', '/voice-lab.html', '/sw.js', '/manifest.webmanifest']) {
-    const res = await get(path);
-    assert.equal(res.status, 200, path);
-    assert.equal(await res.text(), FILES[path], path);
-    assert.equal(res.headers.get('Cache-Control'), 'no-cache', path);
+test("a page's other spellings are sent to its canonical address (307), the query kept; files at their own paths", async () => {
+  for (const [from, to] of [['/index.html', '/'], ['/index.html?room=WGNJKL', '/?room=WGNJKL'], ['/selftest.html', '/selftest'], ['/voice-lab.html', '/voice-lab'],
+    ['/docs', '/docs/'], ['/docs/kingdom', '/docs/kingdom/'], ['/docs/kingdom?x=1', '/docs/kingdom/?x=1'], ['/docs/kingdom/index.html', '/docs/kingdom/'], ['/docs/kingdom/index', '/docs/kingdom/'], ['/docs.html', '/docs/'], ['/index', '/'], ['/selftest/', '/selftest'], ['/selftest/index.html', '/selftest']]) {
+    const r = await site(from, { headers: NAVIGATE, blocked: true });
+    assert.equal(r.via, 'assets', from);
+    assert.equal(r.res.status, 307, from);
+    assert.equal(r.res.headers.get('Location'), to, from);
+  }
+  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/atlas-0.png']) {
+    const r = await site(path, { blocked: true });
+    assert.equal(r.file, path, path);
   }
 });
 
 test("hashed build output is kept for good; anything else keeps Cloudflare's default", async () => {
   for (const path of ['/assets/index-Bx1y2z3w.js', '/assets/endfall_sim_bg-ClB66k65.wasm']) {
-    const res = await get(path);
-    assert.equal(res.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', path);
+    assert.equal((await site(path)).res.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', path);
   }
-  assert.equal((await get('/assets/endfall_sim_bg-ClB66k65.wasm')).headers.get('Content-Type'), 'application/wasm');
-  assert.equal((await get('/art/atlas-0.png')).headers.get('Cache-Control'), 'public, max-age=0, must-revalidate');
+  assert.equal((await site('/art/atlas-0.png')).res.headers.get('Cache-Control'), null);
 });
 
-test('not a file: a page load goes to the game (its query kept), a missing script or image is a plain 404', async () => {
-  for (const [path, to] of [['/nope', '/'], ['/old/page.html?room=ABCD', '/?room=ABCD'], ['/selftest', '/']]) {
-    const res = await get(path, NAVIGATE);
-    assert.equal(res.status, 302, path);
-    assert.equal(res.headers.get('Location'), ORIGIN + to, path);
+test('not a file, the Worker: a page load goes to the game (its query kept), a missing script or image is a plain 404', async () => {
+  for (const [path, to] of [['/nope', '/'], ['/old/page.html?room=ABCD', '/?room=ABCD'], ['/docs/nope/', '/'], ['/r/', '/'], ['/r/ABCDFG', '/'], ['/r/WGNJKL/x', '/']]) {
+    const r = await site(path, { headers: NAVIGATE });
+    assert.equal(r.via, 'worker', path);
+    assert.equal(r.res.status, 302, path);
+    assert.equal(r.res.headers.get('Location'), ORIGIN + to, path);
   }
-  for (const path of ['/assets/index-0ld0ld00.js', '/art/missing.png', '/_headers']) {
-    const res = await get(path, { Accept: '*/*', 'Sec-Fetch-Mode': 'no-cors' });
+  for (const path of ['/assets/index-0ld0ld00.js', '/art/missing.png', '/_headers', '/docs/img/nope.webp']) {
+    const { res } = await site(path, { headers: { Accept: '*/*', 'Sec-Fetch-Mode': 'no-cors' } });
     assert.equal(res.status, 404, path);
     assert.doesNotMatch(res.headers.get('Content-Type'), /html/, `${path}: never the game's HTML in place of a file`);
     assert.equal(res.headers.get('Cache-Control'), 'no-store', path);
   }
 });
 
-test('www.ebbfall.com and plain http go to https://ebbfall.com/, path and query kept: the game has one origin', async () => {
-  for (const from of ['https://www.ebbfall.com/?room=ABCD', 'http://ebbfall.com/?room=ABCD', 'http://www.ebbfall.com/?room=ABCD']) {
-    const res = await worker.fetch(new Request(from, { headers: NAVIGATE }), { ASSETS: assets(FILES) });
+test('www.ebbfall.com and plain http: the Worker sends what is not a file to https://ebbfall.com/; the game\'s page sends itself', async () => {
+  for (const from of ['https://www.ebbfall.com/nope?room=ABCD', 'http://ebbfall.com/nope?room=ABCD', 'http://www.ebbfall.com/nope?room=ABCD']) {
+    const res = await worker.fetch(new Request(from, { headers: NAVIGATE }));
     assert.equal(res.status, 301, from);
-    assert.equal(res.headers.get('Location'), 'https://ebbfall.com/?room=ABCD', from);
+    assert.equal(res.headers.get('Location'), 'https://ebbfall.com/nope?room=ABCD', from);
   }
-  const local = await worker.fetch(new Request('http://127.0.0.1:8787/'), { ASSETS: assets(FILES) });
-  assert.equal(local.status, 200, 'wrangler dev and other hosts are served as they are');
-});
-
-test("Cloudflare's analytics beacon: in the game's page only with a token (a deferred script), never by default", async () => {
-  const plain = await (await get('/')).text();
-  assert.doesNotMatch(plain, /cloudflareinsights/);
-  const html = await (await get('/?seed=7', NAVIGATE, 'GET', { CF_ANALYTICS_TOKEN: 'abc123DEF' })).text();
-  assert.ok(html.endsWith(`<canvas></canvas><script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"abc123DEF"}'></script></body>`), html);
-  assert.doesNotMatch(await (await get('/selftest.html', {}, 'GET', { CF_ANALYTICS_TOKEN: 'abc' })).text(), /cloudflareinsights/, 'the game\'s page only');
-  assert.doesNotMatch(await (await get('/', {}, 'GET', { CF_ANALYTICS_TOKEN: 'x"><script>' })).text(), /cloudflareinsights/, 'a malformed token adds nothing');
-  // The page with the beacon has an ETag of its own (its bytes'): a copy from before the token is not kept (a 304), its own is.
-  const env = { CF_ANALYTICS_TOKEN: 'abc' };
-  const tag = (await get('/', {}, 'GET', env)).headers.get('ETag');
-  assert.match(tag, /^"p-[0-9a-f]{16}"$/);
-  assert.equal((await get('/', { 'If-None-Match': '"e"' }, 'GET', env)).status, 200, 'a copy without the beacon');
-  const again = await get('/', { 'If-None-Match': tag }, 'GET', env);
-  assert.equal(again.status, 304, 'a copy with it');
-  assert.equal(again.headers.get('ETag'), tag);
-  assert.equal(again.headers.get('Cache-Control'), 'no-cache');
-  assert.notEqual((await get('/', {}, 'GET', { CF_ANALYTICS_TOKEN: 'other' })).headers.get('ETag'), tag, 'another token, another page');
-  assert.equal((await get('/', { 'If-None-Match': '"e"' })).status, 304, 'no token: the file\'s own ETag');
-  assert.equal((await get('/sw.js', {}, 'GET', env)).headers.get('ETag'), '"e"', 'the page only');
-});
-
-/** The game's real page, as the assets serve it (its head is what the cards rewrite). */
-const PAGE = { ...FILES, '/index.html': readFileSync(new URL('../index.html', import.meta.url), 'utf8') };
-const content = (html, key) => html.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)">`))[1];
-
-test("a room's link: its own card in the og: and twitter: tags, with or without the beacon; the rest of the page as it is", async () => {
-  for (const env of [{}, { CF_ANALYTICS_TOKEN: 'abc' }]) {
-    for (const q of ['?room=WGNJKL', '?room=wgnjkl', '?join=WGNJKL', '?room=WGNJKL&relay=wss://x.example/']) {
-      const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
-      assert.equal(res.status, 200, q);
-      assert.match(res.headers.get('Content-Type'), /^text\/html/);
-      assert.equal(res.headers.get('Cache-Control'), 'no-cache');
-      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Join my Ebbfall game: room WGN-JKL', `${q} ${k}`);
-      for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Tap to join the room and play with me in your browser: free, nothing to install.');
-      assert.equal(content(html, 'og:url'), 'https://ebbfall.com/?room=WGNJKL');
-      assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');
-      assert.match(html, /<link rel="canonical" href="https:\/\/ebbfall\.com\/">/, 'the canonical page stays the game');
-      assert.match(html, /<title>Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser<\/title>/, 'the tab\'s title as it was');
-      assert.equal(/cloudflareinsights/.test(html), !!env.CF_ANALYTICS_TOKEN, 'the beacon with a token only');
-      // Only the card's tags changed.
-      const strip = (h) => h.replace(/<meta (?:property|name)="(?:og|twitter):(?:title|description|url)" content="[^"]*">/g, '').replace(/<script defer src="https:\/\/static\.cloudflareinsights[^<]*<\/script>/, '');
-      assert.equal(strip(html), strip(PAGE['/index.html']), q);
-    }
+  assert.equal((await worker.fetch(new Request('http://127.0.0.1:8787/nope', { headers: NAVIGATE }))).status, 302, 'wrangler dev and other hosts: as they are');
+  // The page itself is a file there too: its first script sends it on before anything is stored.
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8'), first = html.match(/<script>([^\n]*?)<\/script>/)[1];
+  assert.ok(first.startsWith("if (location.hostname === 'www.ebbfall.com' || (location.hostname === 'ebbfall.com' && location.protocol === 'http:')) location.replace('https://ebbfall.com' + location.pathname + location.search + location.hash);"), first.slice(0, 120));
+  for (const [href, to] of [['https://www.ebbfall.com/?room=WGNJKL#x', 'https://ebbfall.com/?room=WGNJKL#x'], ['http://ebbfall.com/', 'https://ebbfall.com/'], ['https://ebbfall.com/', null], ['http://127.0.0.1:4173/', null]]) {
+    const u = new URL(href);
+    let went = null;
+    new Function('location', 'addEventListener', 'window', first)({ hostname: u.hostname, protocol: u.protocol, pathname: u.pathname, search: u.search, hash: u.hash, replace: (x) => { went = x; } }, () => {}, {});
+    assert.equal(went, to, href);
   }
 });
 
-test("a challenge's link: its own card, the setup in words and its link made again from the code; the rest as it is", async () => {
-  const VS = '1.8.5.ky.h00v12v22v32'; // (test/challenge.test.js)
-  for (const env of [{}, { CF_ANALYTICS_TOKEN: 'abc' }]) {
-    for (const q of [`?vs=${VS}`, `?vs=${VS}&relay=wss://x.example/`, `?seed=7&vs=${VS}`]) {
-      const res = await get('/' + q, NAVIGATE, 'GET', env, PAGE), html = await res.text();
-      assert.equal(res.status, 200, q);
-      for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Can you beat this? 1 vs 3 Hard AIs on Iron Compass', `${q} ${k}`);
-      for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Kingdom vs Expedition · won in 12:34 · free, in your browser');
-      assert.equal(content(html, 'og:url'), `https://ebbfall.com/?vs=${VS}`, 'the code, nothing else of the query');
-      assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', 'the site\'s image');
-      const strip = (h) => h.replace(/<meta (?:property|name)="(?:og|twitter):(?:title|description|url)" content="[^"]*">/g, '').replace(/<script defer src="https:\/\/static\.cloudflareinsights[^<]*<\/script>/, '');
-      assert.equal(strip(html), strip(PAGE['/index.html']), q);
-    }
-  }
-  const a = await get(`/?vs=${VS}`, NAVIGATE, 'GET', {}, PAGE), b = await get('/?vs=1.0.1.4z.v00h12', NAVIGATE, 'GET', {}, PAGE);
-  assert.notEqual(a.headers.get('ETag'), b.headers.get('ETag'), 'another challenge, another card');
-  assert.equal((await get(`/?vs=${VS}`, { 'If-None-Match': a.headers.get('ETag') }, 'GET', {}, PAGE)).status, 304);
-});
+const content = (html, key) => html.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)">`))?.[1];
 
-test("hostile or unknown links get the site's card, and nothing of their query in the page", async () => {
-  for (const q of ['?room=%3Cscript%3Ealert(1)%3C/script%3E', '?room=<script>', '?room=WGNJKLX', '?room=WGNJ', '?room=ABCD', '?join="onload="x', '?seed=7',
-    '?vs=%3Cscript%3E', '?vs=1.8.5.ky.h00v13v23v33%22', '?vs=2.8.5.ky.h00v13v23v33', '?vs=1.8.5.ky.h00v13v23v33x', '?vs="onload="x', '?vs=' + 'a'.repeat(3000)]) {
-    const res = await get('/' + q, NAVIGATE, 'GET', {}, PAGE), html = await res.text();
-    assert.equal(html, PAGE['/index.html'], `${q}: the file as it is`);
-    assert.equal(res.headers.get('ETag'), '"e"', `${q}: the file's own ETag`);
-  }
-});
-
-test("a room's page has its own ETag: a 304 only for that card's bytes, never a stale card", async () => {
-  const res = await get('/?room=WGNJKL', NAVIGATE, 'GET', {}, PAGE), tag = res.headers.get('ETag');
-  assert.match(tag, /^"p-[0-9a-f]{16}"$/);
-  assert.notEqual(tag, '"e"', "not the file's: the file's tag does not say which card");
-  const again = await get('/?room=WGNJKL', { ...NAVIGATE, 'If-None-Match': tag }, 'GET', {}, PAGE);
-  assert.equal(again.status, 304);
-  assert.equal(again.headers.get('ETag'), tag);
-  assert.equal(await again.text(), '');
-  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': `W/${tag}` }, 'GET', {}, PAGE)).status, 304, 'weakened by the edge: still the same bytes');
-  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': `"x", ${tag}` }, 'GET', {}, PAGE)).status, 304, 'one of a list');
-  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': '"e"' }, 'GET', {}, PAGE)).status, 200, 'a copy of the plain page');
-  const other = await get('/?room=BCDFGH', { 'If-None-Match': tag }, 'GET', {}, PAGE);
-  assert.equal(other.status, 200, 'another room, another card');
-  assert.notEqual(other.headers.get('ETag'), tag);
-  assert.equal((await get('/?room=WGNJKL', { 'If-None-Match': tag }, 'GET', { CF_ANALYTICS_TOKEN: 'abc' }, PAGE)).status, 200, 'the beacon since: another page');
-  // The page changed (a deploy): another tag for the same link.
-  const changed = { ...PAGE, '/index.html': PAGE['/index.html'].replace('<canvas id="game">', '<canvas id="game" data-x>') };
-  assert.notEqual((await get('/?room=WGNJKL', {}, 'GET', {}, changed)).headers.get('ETag'), tag);
-  // HEAD: the headers alone.
-  const h = await get('/?room=WGNJKL', {}, 'HEAD', {}, PAGE);
-  assert.equal(h.status, 200);
-  assert.equal(h.headers.get('ETag'), tag);
-  assert.equal(await h.text(), '');
-});
-
-test("a room's page is always built from the whole file, and only for GET and HEAD", async () => {
-  const ranged = await get('/?room=WGNJKL', { Range: 'bytes=0-9', 'If-Range': '"e"' }, 'GET', {}, PAGE);
-  assert.equal(ranged.status, 200, 'never a rewritten fragment');
-  assert.match(await ranged.text(), /room WGN-JKL/);
-  const post = await get('/?room=WGNJKL', {}, 'POST', {}, PAGE);
-  assert.doesNotMatch(post.headers.get('ETag') || '', /^"p-/, "another method: the assets' answer, not a card");
-});
-
-test('robots.txt, the sitemap and the preview image are files: served as they are, never the game or a 404', async () => {
-  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png']) {
-    const res = await get(path, { Accept: '*/*' });
+test("a room's card address (/r/CODE, SHARE LINK): the Worker's page with the room's own card, on to the room by a script", async () => {
+  for (const path of ['/r/WGNJKL', '/r/wgnjkl', '/r/WGN-JKL', '/r/wgn%20jkl', '/r/WGNJKL/']) {
+    const { via, res } = await site(path, { headers: NAVIGATE }), html = await res.text();
+    assert.equal(via, 'worker', path);
     assert.equal(res.status, 200, path);
-    assert.equal(await res.text(), FILES[path], path);
-    assert.equal(res.headers.get('Cache-Control'), 'public, max-age=0, must-revalidate', `${path}: Cloudflare's own (revalidated)`);
+    assert.match(res.headers.get('Content-Type'), /^text\/html/);
+    assert.equal(res.headers.get('Cache-Control'), 'no-cache');
+    for (const k of ['og:title', 'twitter:title']) assert.equal(content(html, k), 'Join my Ebbfall game: room WGN-JKL', `${path} ${k}`);
+    for (const k of ['og:description', 'twitter:description']) assert.equal(content(html, k), 'Tap to join the room and play with me in your browser: free, nothing to install.');
+    assert.equal(content(html, 'og:url'), 'https://ebbfall.com/r/WGNJKL', "the card's own address, the code alone");
+    assert.equal(content(html, 'og:image'), 'https://ebbfall.com/og.png', "the site's image");
+    assert.equal(content(html, 'robots'), 'noindex');
+    assert.ok(html.includes(`<script>${CARD_SCRIPT}</script>`), 'on to the room');
+    assert.ok(html.includes('<a href="/?room=WGNJKL">'), 'and a link');
+    assert.doesNotMatch(html, /http-equiv/i, "no refresh: a crawler that follows one would show the game page's card");
+    for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);
+  }
+  // The script, run at the card's address: the game's page for the room.
+  for (const [path, to] of [['/r/WGNJKL', '/?room=WGNJKL'], ['/r/wgn-jkl/', '/?room=wgn-jkl']]) {
+    let went = null;
+    new Function('location', CARD_SCRIPT)({ pathname: path, hash: '', replace: (x) => { went = x; } });
+    assert.equal(went, to, path);
+  }
+  const hash = `'sha256-${createHash('sha256').update(CARD_SCRIPT).digest('base64')}'`;
+  assert.ok(CSP['script-src'].includes(hash), `the CSP allows the card's script by its hash: ${hash}`);
+  const head = await site('/r/WGNJKL', { method: 'HEAD' });
+  assert.equal(head.res.status, 200);
+  assert.equal(await head.res.text(), '');
+  assert.equal((await site('/r/WGNJKL', { method: 'POST' })).res.status, 404, 'another method: not found');
+  for (const bad of ['/r/%3Cscript%3E', '/r/WGNJKLX', '/r/ABCDFG', '/r/%E0%A4%A', '/r/' + 'B'.repeat(500)]) {
+    const { res } = await site(bad, { headers: NAVIGATE });
+    assert.equal(res.status, 302, `${bad}: not a room, the game`);
+    assert.doesNotMatch(await res.text(), /script/, bad);
   }
 });
 
-test('the docs: a folder address is its index.html, without the slash it is sent to it, anything else not found', async () => {
-  const files = { ...FILES, '/docs/index.html': 'docs home', '/docs/kingdom/index.html': 'kingdom', '/docs/img/sprites/core-336.webp': 'webp', '/llms.txt': '# Ebbfall' };
-  for (const [path, body] of [['/docs/', 'docs home'], ['/docs/kingdom/', 'kingdom'], ['/docs/kingdom/index.html', 'kingdom'], ['/docs/img/sprites/core-336.webp', 'webp'], ['/llms.txt', '# Ebbfall']]) {
-    const res = await get(path, NAVIGATE, 'GET', {}, files);
-    assert.equal(res.status, 200, path);
-    assert.equal(await res.text(), body, path);
-  }
-  for (const [path, to] of [['/docs', '/docs/'], ['/docs/kingdom', '/docs/kingdom/'], ['/docs/kingdom?x=1', '/docs/kingdom/?x=1']]) {
-    const res = await get(path, NAVIGATE, 'GET', {}, files);
-    assert.equal(res.status, 301, path);
-    assert.equal(res.headers.get('Location'), ORIGIN + to, path);
-  }
-  const head = await get('/docs/kingdom/', NAVIGATE, 'HEAD', {}, files);
-  assert.equal(head.status, 200, 'HEAD too');
-  assert.equal((await get('/docs/nope/', NAVIGATE, 'GET', {}, files)).status, 302, 'a mistyped docs page: the game, as any page load');
-  assert.equal((await get('/docs/img/nope.webp', { Accept: 'image/webp' }, 'GET', {}, files)).status, 404, 'a missing image: a 404');
-});
-
-test('security headers: nosniff, the referrer policy, the device powers and the CSP, on the pages, a room\'s card, the docs and a 404, and in _headers for every file', async () => {
-  const files = { ...FILES, '/docs/kingdom/index.html': 'kingdom' };
-  const policy = SECURITY['Permissions-Policy'];
-  for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'web-share=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
-  const cases = [['/', {}], ['/?room=BCDFGH', {}], ['/', { CF_ANALYTICS_TOKEN: 'abc' }], ['/docs/kingdom/', {}], ['/docs/kingdom', {}], ['/art/atlas-0.png', {}], ['/nope.js', {}]];
-  for (const [path, env] of cases) {
-    const res = await get(path, NAVIGATE, 'GET', env, files);
-    assert.equal(res.headers.get('X-Content-Type-Options'), 'nosniff', path);
-    assert.equal(res.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin', path);
-    assert.equal(res.headers.get('Permissions-Policy'), policy, path);
-    assert.equal(res.headers.get(CSP_HEADER), SECURITY[CSP_HEADER], path);
-  }
-  const page = await get('/', NAVIGATE, 'GET', {}, files);
-  assert.equal(page.headers.get('Cache-Control'), 'no-cache', 'the cache header kept');
-  const text = headersFile(), all = text.slice(0, text.indexOf('\n/', 1) + 1);
-  assert.ok(all.startsWith('/*\n'), 'a rule for every path, first');
-  for (const [k, v] of Object.entries(SECURITY)) assert.ok(all.includes(`\n  ${k}: ${v}\n`), k);
-  assert.equal(text.match(/Content-Security-Policy/g).length, 1, 'the CSP once, for every path');
-  assert.ok(!/X-Frame-Options/.test(text), 'framing: the CSP\'s frame-ancestors only');
+test("a tripped Workers limit (1103) takes a room's card address and the CSP's reports, never a file", async () => {
+  assert.equal((await site('/r/WGNJKL', { blocked: true })).res.status, 500);
+  assert.equal((await site(CSP_REPORT, { method: 'POST', blocked: true })).via, 'worker');
+  for (const path of ['/', '/?room=WGNJKL', '/docs/', '/docs/kingdom/', '/sw.js', '/assets/index-Bx1y2z3w.js']) assert.equal((await site(path, { blocked: true })).via, 'assets', path);
 });
 
 test('a CSP report: logged (2 KB at most) and answered 204, never stored or served; anything but a POST is not found', async () => {
@@ -280,37 +161,53 @@ test('a CSP report: logged (2 KB at most) and answered 204, never stored or serv
   console.log = (...a) => logged.push(a.join(' '));
   try {
     const body = JSON.stringify({ 'csp-report': { 'violated-directive': 'script-src', 'blocked-uri': 'eval', pad: 'x'.repeat(5000) } });
-    const res = await worker.fetch(new Request(ORIGIN + CSP_REPORT, { method: 'POST', headers: { 'Content-Type': 'application/csp-report' }, body }), { ASSETS: assets(FILES) });
+    const res = await worker.fetch(new Request(ORIGIN + CSP_REPORT, { method: 'POST', headers: { 'Content-Type': 'application/csp-report' }, body }));
     assert.equal(res.status, 204);
     assert.equal(res.headers.get(CSP_HEADER), SECURITY[CSP_HEADER], 'the security headers too');
     assert.equal(logged.length, 1);
     assert.ok(logged[0].startsWith('csp-report {"csp-report":{"violated-directive":"script-src"') && logged[0].length <= 'csp-report '.length + 2048, logged[0].slice(0, 80));
   } finally { console.log = log; }
-  assert.equal((await get(CSP_REPORT)).status, 404, 'a GET');
+  assert.equal((await worker.fetch(new Request(ORIGIN + CSP_REPORT))).status, 404, 'a GET');
+});
+
+test('security headers: nosniff, the referrer policy, the device powers and the CSP, on every file (_headers) and every Worker answer', async () => {
+  const policy = SECURITY['Permissions-Policy'];
+  for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'web-share=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
+  for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.png', '/r/BCDFGH', '/nope.js', '/nope']) {
+    const { res } = await site(path, { headers: NAVIGATE });
+    for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);
+  }
+  const text = headersFile(), all = text.slice(0, text.indexOf('\n/', 1) + 1);
+  assert.ok(all.startsWith('/*\n'), 'a rule for every path, first');
+  for (const [k, v] of Object.entries(SECURITY)) assert.ok(all.includes(`\n  ${k}: ${v}\n`), k);
+  assert.equal(text.match(/Content-Security-Policy/g).length, 1, 'the CSP once, for every path');
+  assert.ok(!/X-Frame-Options/.test(text), "framing: the CSP's frame-ancestors only");
 });
 
 test("the Worker's module exports its handler only (the Workers runtime refuses anything else)", async () => {
   assert.deepEqual(Object.keys(await import('../site/worker.js')), ['default']);
 });
 
-test('the _headers file the deploy writes says what the Worker does, for the files Cloudflare serves alone', () => {
+test('the _headers file: the cache table at the addresses the pages are served at', () => {
   const text = headersFile(), rules = [...text.matchAll(/^(\/\S*)\n {2}Cache-Control: (.+)$/gm)].map(m => [m[1], m[2]]);
   assert.deepEqual(rules, CACHE);
   assert.equal(cacheControl('/assets/x-12345678.js'), 'public, max-age=31536000, immutable');
   assert.equal(cacheControl('/art/atlas.json'), null);
-  // Every page the build makes (vite.config.js's inputs) is checked on every load.
+  // Every page the build makes (vite.config.js's inputs) is checked on every load, where it is served.
   const inputs = [...readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8').matchAll(/'([\w-]+\.html)'/g)].map(m => m[1]);
   assert.ok(inputs.length >= 3, inputs.join());
-  for (const p of inputs) assert.equal(cacheControl('/' + p), 'no-cache', p);
+  for (const p of inputs) assert.equal(cacheControl(servedAt(p)), 'no-cache', p);
+  assert.deepEqual(['index.html', 'selftest.html', 'docs/index.html', 'docs/kingdom/index.html', 'sw.js'].map(servedAt), ['/', '/selftest', '/docs/', '/docs/kingdom/', '/sw.js']);
 });
 
-test('wrangler.toml: dist/ as the assets, exact paths, the Worker first only for the page, ebbfall.com and www as routes', () => {
+test('wrangler.toml: dist/ as the assets, the pages at their canonical addresses, the Worker never before a file, ebbfall.com and www as routes', () => {
   const toml = readFileSync(new URL('../site/wrangler.toml', import.meta.url), 'utf8');
   assert.match(toml, /^main = "worker\.js"$/m);
   assert.match(toml, /^directory = "\.\.\/dist"$/m);
   assert.match(toml, /^binding = "ASSETS"$/m);
-  assert.match(toml, /^html_handling = "none"$/m);
-  assert.match(toml, /^run_worker_first = \["\/", "\/index\.html"\]$/m);
+  assert.match(toml, /^html_handling = "auto-trailing-slash"$/m);
+  assert.match(toml, /^not_found_handling = "none"$/m, "what is not a file: the Worker (a room's card, the reports, not found)");
+  assert.doesNotMatch(toml, /^run_worker_first/m, 'no Worker before a file: the pages stay up when the Worker is blocked');
   assert.match(toml, /\{ pattern = "ebbfall\.com\/\*", zone_name = "ebbfall\.com" \}/);
   assert.match(toml, /\{ pattern = "www\.ebbfall\.com\/\*", zone_name = "ebbfall\.com" \}/);
   assert.doesNotMatch(toml, /custom_domain/, 'routes over the proxied records: a custom domain needs the records gone first');
@@ -318,25 +215,63 @@ test('wrangler.toml: dist/ as the assets, exact paths, the Worker first only for
   assert.match(toml, /^workers_dev = false/m);
 });
 
+test("Cloudflare's analytics beacon: written at the end of a page's body with a token, once; none without one or with a malformed one", () => {
+  const page = '<!doctype html><title>x</title><body><p>hi</p></body></html>';
+  const tag = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"abc123DEF"}'></script>`;
+  assert.equal(beacon('abc123DEF'), tag);
+  assert.equal(withBeacon(page, 'abc123DEF'), `<!doctype html><title>x</title><body><p>hi</p>${tag}</body></html>`);
+  assert.equal(withBeacon(withBeacon(page, 'abc123DEF'), 'abc123DEF'), withBeacon(page, 'abc123DEF'), 'twice: once');
+  assert.equal(withBeacon(withBeacon(page, 'old'), 'new'), withBeacon(page, 'new'), 'another token: replaced');
+  for (const t of [undefined, '', 'x"><script>', 'a b']) assert.equal(withBeacon(withBeacon(page, 'old'), t), page, String(t));
+  assert.ok(CSP['script-src'].includes('https://static.cloudflareinsights.com'), "the CSP allows the beacon's script");
+  assert.ok(CSP['connect-src'].includes('https://cloudflareinsights.com'), 'and its reports');
+});
+
 const dist = new URL('../dist/', import.meta.url);
-test('with dist/ built: every file the service worker stores is served as it is, with no redirect', { skip: !existsSync(new URL('sw.js', dist)) && 'dist/ not built' }, async () => {
+const built = existsSync(new URL('sw.js', dist));
+test('with dist/ built: every file the service worker stores and every page is served by the assets, never the Worker', { skip: !built && 'dist/ not built' }, async () => {
+  const root = fileURLToPath(dist);
+  const has = (p) => { try { return !p.endsWith('/') && existsSync(new URL(`.${decodeURI(p)}`, dist)); } catch { return false; } };
   const files = JSON.parse(readFileSync(new URL('sw.js', dist), 'utf8').match(/^const FILES = (.*);$/m)[1]);
-  const disk = { async fetch(req) { const p = new URL(req.url).pathname.slice(1); return existsSync(new URL(p, dist)) && p ? new Response(readFileSync(new URL(p, dist))) : new Response('', { status: 404 }); } };
   for (const f of files) {
-    const res = await worker.fetch(new Request(new URL(f, 'https://ebbfall-site.example.workers.dev/')), { ASSETS: disk });
-    assert.equal(res.status, 200, f);
-    const want = readFileSync(new URL(f === './' ? 'index.html' : f, dist));
-    assert.ok(Buffer.from(await res.arrayBuffer()).equals(want), f);
+    let route = resolve(new URL(f, `${ORIGIN}/`).pathname, has);
+    if (route?.redirect) route = resolve(route.redirect, has); // (the service worker stores what the redirect serves: tools/offline/sw.js)
+    assert.ok(route?.file, `${f}: a file`);
+    assert.equal(route.file, f === './' ? '/index.html' : `/${f}`, f);
   }
+  const all = pages(root).map(p => relative(root, p).split('\\').join('/'));
+  assert.ok(all.includes('index.html') && all.includes('docs/kingdom/index.html') && all.includes('selftest.html'), all.join());
+  for (const f of all) assert.deepEqual(resolve(servedAt(f), has), { file: `/${f}` }, `${f}: served at ${servedAt(f)}`);
   // The files for crawlers and link previews are built too, and left out of the offline store.
   for (const f of ['robots.txt', 'sitemap.xml', 'og.png', 'llms.txt', 'docs/index.html', 'docs/kingdom/index.html']) {
     assert.ok(existsSync(new URL(f, dist)), f);
     assert.ok(!files.includes(f), `${f}: not stored for offline play`);
   }
   assert.ok(!files.some(f => f.startsWith('docs/')), 'nothing of the docs stored for offline play');
-  // The head as built: the cards' tags and their absolute URLs as written (Vite leaves them alone).
-  const built = readFileSync(new URL('index.html', dist), 'utf8');
+  const page = readFileSync(new URL('index.html', dist), 'utf8');
   for (const tag of ['<meta property="og:image" content="https://ebbfall.com/og.png">', '<meta property="og:url" content="https://ebbfall.com/">', '<link rel="canonical" href="https://ebbfall.com/">', '<script type="application/ld+json">']) {
-    assert.ok(built.includes(tag), tag);
+    assert.ok(page.includes(tag), tag);
   }
+});
+
+test("with dist/ built: the deploy's build step writes the beacon into every page (the game's, every docs page, the others) with a token, and none without", { skip: !built && 'dist/ not built' }, () => {
+  const copy = mkdtempSync(join(tmpdir(), 'endfall-site-'));
+  try {
+    cpSync(fileURLToPath(dist), copy, { recursive: true, filter: (src) => !/\.(png|webp|wasm|mp4|webm|woff2|js|map|css|json)$/.test(src) });
+    const run = (token) => execFileSync(process.execPath, [fileURLToPath(new URL('../site/build.mjs', import.meta.url)), copy], { env: { ...process.env, CF_ANALYTICS_TOKEN: token ?? '' }, encoding: 'utf8' });
+    const all = pages(copy);
+    assert.ok(all.length >= 8 && all.some(p => p.includes(join('docs', 'kingdom'))), `${all.length} pages`);
+    run('tok3n_A-1');
+    for (const p of all) {
+      const html = readFileSync(p, 'utf8');
+      assert.equal(html.split(beacon('tok3n_A-1')).length - 1, 1, `${relative(copy, p)}: the beacon once`);
+      assert.ok(html.indexOf(beacon('tok3n_A-1')) < html.lastIndexOf('</body>'), `${relative(copy, p)}: in the body`);
+    }
+    run('tok3n_A-1');
+    for (const p of all) assert.equal(readFileSync(p, 'utf8').split('cloudflareinsights').length - 1, 1, `${relative(copy, p)}: run twice, still once`);
+    run(undefined);
+    for (const p of all) assert.doesNotMatch(readFileSync(p, 'utf8'), /cloudflareinsights/, `${relative(copy, p)}: no token, no beacon`);
+    assert.equal(readFileSync(join(copy, '_headers'), 'utf8'), headersFile(), '_headers written');
+  } finally { rmSync(copy, { recursive: true, force: true }); }
+  assert.doesNotMatch(readFileSync(new URL('index.html', dist), 'utf8'), /cloudflareinsights/, "the build job's dist/ as it was tested: no beacon");
 });

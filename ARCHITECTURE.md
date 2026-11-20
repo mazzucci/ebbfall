@@ -21,7 +21,11 @@ wrangler pinned) with wrangler.toml, reads the live build from `GET https://rela
 (`{proto, build}`, relay/version.js), and deploys with `--var RELAY_BUILD:<hash>` when they differ, when there is no
 /version, or on a run started by hand; then waits for /version to say the new build. The `deploy` job (the site)
 publishes only when the live relay's `proto` is relay/room.js's PROTO (src/net/net.js's, which a test keeps equal), so
-the site never outruns the relay. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
+the site never outruns the relay. Every file of the site is served by Cloudflare's assets with no Worker (the game's
+page at /, the docs, the other pages; site/wrangler.toml): a tripped Workers spending limit (error 1103 for every Worker
+request) leaves the game, the docs and single player up, and takes online play (the relay), a room's card address
+(/r/CODE) and the CSP's reports. The deploy's build step (site/build.mjs) writes dist/_headers and, from the repo
+variable CF_ANALYTICS_TOKEN, the analytics beacon into every page. The **Devices** workflow (`devices.yml`, by hand and weekly) checks an
 iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices").
 
 
@@ -543,8 +547,10 @@ test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no 
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped
 test/audio.test.js    the sound engine on a stub Web Audio API: every recipe plays, every sound the sim names exists
-test/e2e/             browser tests: harness.mjs (serves dist/ with the site's headers and CSP (site/cache.js; its relay
-                      allowed too: `TEST_CSP`), drives mouse/keys/touch, stops workers through the UI for a
+test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare does, test/cloudflare-assets.mjs: the pages
+                      at their canonical addresses, the _headers the deploy writes and the site's CSP (site/cache.js; its
+                      relay allowed too: `TEST_CSP`), and what is not a file by the site's Worker, or its 1103 when
+                      `site.blocked`), drives mouse/keys/touch, stops workers through the UI for a
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
@@ -584,11 +590,14 @@ test/e2e/             browser tests: harness.mjs (serves dist/ with the site's h
                       small screens; the link opens the same setup and START plays the same start, nothing saved; a
                       change makes it the player's; a bad link opens the plain menu; none after the guided game),
                       selftest.e2e.mjs (the golden games in the engine under test), offline.e2e.mjs (INSTALL,
-                      PLAY OFFLINE against the real service worker, the app icons), voice.e2e.mjs (the voice lab
+                      PLAY OFFLINE against the real service worker, the app icons), static.e2e.mjs (the Worker blocked, as a tripped spending limit
+                      leaves it: the game's page, the docs and a single-player game from the files alone, the service
+                      worker installed, no error, nothing reaching the Worker), voice.e2e.mjs (the voice lab
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
                       rumble; ENDFALL_VOICE_OUT=dir writes WAVs to listen to)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
-                      install, Cloudflare's analytics beacon left to the network; the manifest's app icons
+                      install, a page the host redirects stored as a response of its own at both addresses, Cloudflare's
+                      analytics beacon left to the network; the manifest's app icons
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
@@ -625,18 +634,24 @@ test/relay-bench.test.js the Node relay's HTTP side for the device test's report
                       ahead, spent refusing new rooms while a game goes on, kept through a restart, afresh on the 1st UTC;
                       the limits object down or erring: new rooms refused, joins still let in)
 test/roomcode.test.js room codes (src/net/roomcode.js): made, read as typed or shown, shown BCD-FGH; the lobby uses them
-test/site-worker.test.js the site's Worker (site/worker.js) on a fake ASSETS binding and a fake HTMLRewriter: the page for
-                      every link, a room's and a challenge's card (with and without the beacon) and its ETag (a 304 only for the same bytes),
-                      headers (cache and security), what is not a file, www and http, the beacon only with a token,
-                      _headers, wrangler.toml;
-                      with dist/ built, every file the service worker stores, robots.txt, the sitemap and og.png
+test/site-worker.test.js the site as deployed: the files by Cloudflare's assets (test/cloudflare-assets.mjs: html_handling
+                      auto-trailing-slash, the _headers file) and the Worker (site/worker.js) only for what is not a
+                      file: the game's page for every link, the docs and the other pages served with no Worker and with
+                      every security header, their other spellings sent on (307), the cache headers, what is not a
+                      file, www and http, a room's card address, a tripped limit (1103), the CSP's reports, the beacon
+                      only with a token, _headers, wrangler.toml; with dist/ built, every file the service worker
+                      stores and every page served by the assets, and the deploy's build step writing the beacon into
+                      every page with a token and none without
+test/cloudflare-assets.mjs Cloudflare's static assets for the tests (no tests of its own): which file answers an address
+                      (auto-trailing-slash), _headers parsed and matched
 test/site-csp.test.js the CSP (site/cache.js): no unsafe-inline or unsafe-eval, every directive, the relay and the beacon
                       the code uses; no <style>, style="" or inline handler in the pages, every inline script hashed
-                      (with dist/ built, every page of the build, the docs too; CI runs it after the build)
-test/site-preview.test.js the link cards (site/preview.js): a room's code read as the relay's (src/net/roomcode.js: hostile,
-                      overlong, four letters, lower case, a hyphen),
-                      a challenge's card and its link made again from the code (hostile and other
-                      codes: the site's card), the fields onto index.html's tags; the head, the JSON-LD, og.png's size,
+                      (with dist/ built, every page of the build, the docs too, with and without the beacon; a room's
+                      card page; CI runs it after the build)
+test/site-preview.test.js the link cards (site/preview.js): a room's code in its card address read as the relay's
+                      (src/net/roomcode.js: hostile, overlong, four letters, lower case, a hyphen), its card and page
+                      (the site's image fields as index.html's, one script on to the room), SHARE LINK's address on the
+                      site and elsewhere; the head, the JSON-LD, og.png's size,
                       robots.txt and the sitemap, and that the build's service worker leaves those out
 test/docs.test.js     the docs (tools/docs) built into a temporary folder: every unit and building of each people on its
                       page in the Build list's order, each figure the data's (cost, population or grid, what it needs,
@@ -694,16 +709,20 @@ relay/                the multiplayer relay (Notion: Multiplayer design): room.j
                       bench.js, the device test's reports over HTTP (POST /bench, GET
                       /bench/<CODE>), in both; version.js, GET /version (`{proto, build}`, what CI reads), in both
 site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design, Hosting): dist/ as a Worker's static assets
-                      (wrangler.toml: ebbfall.com/* and www as zone routes, exact paths as on GitHub Pages, the Worker
-                      first only for / and /index.html); worker.js (the game's page, rewritten with HTMLRewriter only for
-                      a link with a card of its own and for the optional analytics beacon, its ETag then a hash of the
-                      bytes sent; www and http to https://ebbfall.com/; a page load that is not a file goes to /, a
-                      missing file is a 404; the CSP's reports, POST /csp-report, logged short and answered 204), preview.js (pure: a link's card, `preview(url)`: a room's, `?room=CODE`
-                      with CODE read as the relay's (src/net/roomcode.js); a challenge's, `?vs=CODE`, through
-                      src/client/challenge.js, its words from the code's values alone),
-                      cache.js (assets/ immutable; the pages, sw.js and the manifest
-                      no-cache; the security headers every response carries, the Worker's and _headers', the CSP among them
-                      (enforced), its sources directive by directive), build.mjs (wrangler's build step: dist/_headers from cache.js), dns.mjs (the two
+                      (wrangler.toml: ebbfall.com/* and www as zone routes; html_handling "auto-trailing-slash": / is
+                      index.html, /docs/kingdom/ that folder's, /selftest selftest.html, the .html spellings sent on;
+                      no run_worker_first: every file is served with no Worker, so a tripped Workers spending limit
+                      leaves the game, the docs and single player up); worker.js (only what is not a file: a room's
+                      card address /r/CODE, the room's own link card then on to /?room=CODE; www and http to
+                      https://ebbfall.com/; a page load that is not a file goes to /, a missing file is a 404; the
+                      CSP's reports, POST /csp-report, logged short and answered 204), preview.js (pure: a room's card
+                      and its page, `roomPage(code)`, CODE read as the relay's (src/net/roomcode.js, which also gives
+                      SHARE LINK's address: `shareLink`); every link to the game's page, ?room= and ?vs= among them,
+                      shows the site's card from index.html), cache.js (by served address: assets/ immutable; /, the
+                      other pages, sw.js and the manifest no-cache; the security headers every response carries,
+                      _headers' and the Worker's, the CSP among them (enforced), its sources directive by directive),
+                      build.mjs (wrangler's build step, at deploy: dist/_headers from cache.js, and with
+                      CF_ANALYTICS_TOKEN the analytics beacon into every page of dist/, beacon.js), dns.mjs (the two
                       hostnames' records: logged before a deploy, GitHub Pages' own proxied after it so the routes see
                       the traffic, DNS-only again for a rollback); CI's deploy job
 tools/chromium.mjs    headless Chromium launcher with software WebGL, shared by the art generator and the e2e tests

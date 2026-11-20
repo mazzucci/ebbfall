@@ -9,7 +9,9 @@ import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
 import { loadTimes, assigner } from './shards.mjs';
-import { SECURITY, CSP, CSP_HEADER, CSP_REPORT, cspValue } from '../../site/cache.js';
+import { CSP, cspValue, headersFile } from '../../site/cache.js';
+import { resolve, parseHeaders, headersFor } from '../cloudflare-assets.mjs';
+import worker from '../../site/worker.js';
 
 export const ENGINE = engineName();
 /** The engine's name as people write it: Chromium, WebKit, Firefox. */
@@ -67,31 +69,56 @@ const dist = process.env.ENDFALL_DIST ? join(process.env.ENDFALL_DIST, '/') : fi
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.txt': 'text/plain', '.xml': 'application/xml', '.mp4': 'video/mp4', '.webm': 'video/webm' };
 
 /**
- * The site's headers on every file, as Cloudflare serves them (site/cache.js SECURITY), so every scenario runs under the
- * site's CSP, its reports answered as the Worker answers them (204). One source more than the site's: the tests' own
- * relay (relay/server.mjs on a port of this machine, its websocket and the bench's report), where the site has its
- * published relay. In WebKit, inline styles too: WebKit reports its own <select>'s built-in stylesheet against
- * style-src (an engine fault: the select is drawn the same when the policy is enforced), so there Chromium and Firefox
- * are the ones that check styles.
+ * The site as Cloudflare serves it: every file by the assets (test/cloudflare-assets.mjs: the pages at their canonical
+ * addresses, / and /docs/kingdom/ and /selftest), with the headers of the _headers file the deploy writes (site/cache.js:
+ * the security headers, the CSP among them, and the cache headers), so every scenario runs under the site's CSP; what is
+ * not a file goes to the site's Worker (site/worker.js: a room's card address, the CSP's reports, not found), unless
+ * `site.blocked` (a tripped Workers spending limit: Cloudflare's error 1103 for every Worker request), and `site.worker`
+ * lists what reached it. The CSP has one source more than the site's: the tests' own relay (relay/server.mjs on a port
+ * of this machine, its websocket and the bench's report), where the site has its published relay. In WebKit, inline
+ * styles too: WebKit reports its own <select>'s built-in stylesheet against style-src (an engine fault: the select is
+ * drawn the same when the policy is enforced), so there Chromium and Firefox are the ones that check styles.
  */
 export const TEST_CSP = cspValue({
   ...CSP,
   'connect-src': [...CSP['connect-src'], 'ws://localhost:*', 'http://localhost:*', 'ws://127.0.0.1:*', 'http://127.0.0.1:*'],
   ...(ENGINE === 'webkit' ? { 'style-src': [...CSP['style-src'], "'unsafe-inline'"] } : {}),
 });
-const HEADERS = { ...SECURITY, [CSP_HEADER]: TEST_CSP };
+const RULES = parseHeaders(headersFile().replace(cspValue(), () => TEST_CSP));
+/** The Worker's state: `blocked` (every request to it answered as a tripped limit would), and what reached it. */
+export const site = { blocked: false, worker: [] };
+
+/** A file of dist/ at `path` (`/docs/index.html`), if there is one. */
+const fileAt = (path) => {
+  const p = normalize(join(dist, decodeURIComponent(path)));
+  return p.startsWith(dist) && existsSync(p) && statSync(p).isFile() ? p : null;
+};
+
+/** What is not a file: the site's Worker, as Cloudflare runs it (or its error 1103 when blocked). */
+async function toWorker(req, res, url) {
+  site.worker.push(`${req.method} ${url.pathname}${url.search}`);
+  if (site.blocked) { res.writeHead(500, { 'content-type': 'text/plain' }); return res.end('error code: 1103\n'); }
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks);
+  const answer = await worker.fetch(new Request(url, { method: req.method, headers: Object.entries(req.headers).filter(([, v]) => typeof v === 'string'), body }));
+  res.writeHead(answer.status, Object.fromEntries(answer.headers));
+  res.end(Buffer.from(await answer.arrayBuffer()));
+}
 
 let server, browser, base;
 export async function start() {
   if (LIST) return;
   if (!existsSync(join(dist, 'index.html'))) throw new Error('dist/ is missing: run npm run build first');
   server = createServer((req, res) => {
-    if (req.url === CSP_REPORT && req.method === 'POST') { res.writeHead(204, HEADERS); req.resume(); return res.end(); } // (the site's Worker: cspReport)
-    let p = normalize(join(dist, decodeURIComponent(new URL(req.url, 'http://x').pathname)));
-    if (!p.startsWith(dist)) { res.writeHead(403); return res.end(); }
-    if (existsSync(p) && statSync(p).isDirectory()) p = join(p, 'index.html');
-    if (!existsSync(p)) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { ...HEADERS, 'content-type': TYPES[extname(p)] || 'application/octet-stream' }); res.end(readFileSync(p));
+    const url = new URL(req.url, base);
+    let route = null;
+    try { route = req.method === 'GET' || req.method === 'HEAD' ? resolve(url.pathname, (p) => !!fileAt(p)) : null; } catch { /* a malformed address: not a file */ }
+    if (route?.redirect) { res.writeHead(307, { location: route.redirect + url.search }); return res.end(); }
+    if (!route) return toWorker(req, res, url).catch((e) => { res.writeHead(500); res.end(String(e)); });
+    const p = fileAt(route.file);
+    res.writeHead(200, { ...headersFor(RULES, url.pathname), 'content-type': TYPES[extname(p)] || 'application/octet-stream' });
+    res.end(req.method === 'HEAD' ? undefined : readFileSync(p));
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;

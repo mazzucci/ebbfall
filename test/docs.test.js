@@ -179,7 +179,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(shots.trailer.seconds >= 11 && shots.trailer.seconds <= 15, `a dozen seconds: ${shots.trailer.seconds}`);
 });
 
-test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), About has the loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
+test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), its desktop section with the desktop loop (lazy), About has the phone loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
   const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
   const how = page('/docs/how-to-play/'), about = page('/docs/about/');
   // The phone section before the desktop's (most players are on a phone), the page's contents line in the same order;
@@ -188,6 +188,8 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   assert.ok(phone > how.indexOf('<h2 id="goal">') && phone < desktop && desktop < how.indexOf('<h2 id="gold">'), 'How to play: the goal, the phone, the desktop, then gold');
   assert.ok(loopAt > phone && loopAt < how.indexOf('shot-phone-land', phone) && loopAt < how.indexOf('<table class="touch">'), 'How to play: the loop opens the phone section');
   assert.ok(how.indexOf('shot-desktop-hud') > desktop, 'the desktop controls, with their screenshot, after it');
+  const deskLoopAt = how.indexOf('<video src="/docs/media/controls/desktop-loop.mp4"', desktop);
+  assert.ok(deskLoopAt > desktop && deskLoopAt < how.indexOf('shot-desktop-hud', desktop) && deskLoopAt < how.indexOf('<h3>Mouse</h3>'), 'How to play: the desktop loop opens the desktop section, before its screenshot');
   const tocAt = how.indexOf('<nav class="toc"'), toc = how.slice(tocAt, how.indexOf('</nav>', tocAt));
   assert.deepEqual([...toc.matchAll(/href="#(\w+)"/g)].map(m => m[1]), [...how.matchAll(/<h2 id="(\w+)">/g)].map(m => m[1]), 'the contents line in the sections\' order');
   assert.ok(about.indexOf('controls-loop.mp4') > about.indexOf('<figure class="dia strip') && about.indexOf('controls-loop.mp4') < about.indexOf('<h2 id="privacy">'), 'About: the loop closes How it\'s built, after the art strip (below the fold: its poster loads lazily)');
@@ -198,29 +200,33 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
       assert.match(tag, /muted loop playsinline preload="none"/, `${name}: fetched only when played`);
       assert.doesNotMatch(tag, /\scontrols(?=[\s>])/, `${name}: no controls (an empty video with them paints a dark box over the poster where scripts do not run)`);
       assert.doesNotMatch(tag, /poster=/, `${name}: no poster of its own (it would load at once)`);
-      assert.match(tag, /aria-label="Ebbfall on a phone: [^"]{20,}"/, `${name}: labeled for the game: ${tag}`);
-      assert.match(tag, /title="Ebbfall on a phone: [^"]+"/, `${name}: a title`);
+      assert.match(tag, /aria-label="Ebbfall on a (phone|computer): [^"]{20,}"/, `${name}: labeled for the game: ${tag}`);
+      assert.match(tag, /title="Ebbfall on a (phone|computer): [^"]+"/, `${name}: a title`);
       assert.match(tag, new RegExp(`width="${c.w}" height="${c.h}"`), `${name}: its size`);
       // Its poster: the image right after it (over it until it plays, docs.js), the same size, decorative (the video
-      // carries the words), the two in one box; lazy, but on How to play, where the loop is the page's first media and
-      // its poster is fetched at once and first, as a first screenshot is.
+      // carries the words), the two in one box; lazy, but How to play's first video (the phone's loop), the page's first
+      // media, whose poster is fetched at once and first, as a first screenshot is (the desktop's loop, lower, lazy).
       const after = html.slice(v.index + tag.length), img = after.slice(after.indexOf('<img'), after.indexOf('>', after.indexOf('<img')) + 1);
-      const load = html === how ? 'fetchpriority="high"' : 'loading="lazy"';
+      const load = html === how && v.index === how.indexOf('<video') ? 'fetchpriority="high"' : 'loading="lazy"';
       assert.equal(img, `<img class="poster" src="/docs/media/controls/${name}.webp" width="${c.w}" height="${c.h}" alt="" aria-hidden="true" ${load} decoding="async">`, `${name}: its poster over it`);
       assert.ok(after.startsWith('</video>' + img + '</div>'), `${name}: the poster and the video in one box`);
       assert.ok(html.slice(0, v.index).endsWith('<div class="vid">'), `${name}: the box`);
       for (const f of [c.file, c.poster]) assert.ok(existsSync(new URL(`../public/docs/media/controls/${f}`, import.meta.url)), `${name}: ${f} committed`);
       assert.ok(c.bytes === statSync(new URL(`../public/docs/media/controls/${c.file}`, import.meta.url)).size, `${name}: the manifest is the file's (node tools/controls/cut.mjs --manifest)`);
-      assert.ok(c.bytes <= 400 * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
+      assert.ok(c.bytes <= (name === 'desktop-loop' ? 420 : 400) * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
     }
     assert.ok(html.match(/<video\b[^>]*>/g).every(t => t.includes('/docs/media/controls/')), 'every video a controls video');
   }
-  // The loop is the only video that plays by itself (Stelian: too many playing at once overwhelm the page).
-  assert.equal((how.match(/<video\b/g) || []).length, 1, 'How to play: the loop alone'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
-  assert.ok(manifest['controls-loop'].seconds >= 15 && manifest['controls-loop'].seconds <= 20, 'the loop 15 to 20 s');
-  // Its structured data on How to play; none wired for the gestures (rows, not a page's video).
-  const v = ldOf(how).find(d => d['@type'] === 'VideoObject');
-  assert.ok(v && v.contentUrl === 'https://ebbfall.com/docs/media/controls/controls-loop.mp4' && v.duration === 'PT18S', 'How to play: the loop\'s VideoObject');
+  // The two loops, each at the head of its section, are the only videos that play by themselves (Stelian: too many
+  // playing at once overwhelm the page), and each only while in view (docs.js: an observer per clip).
+  assert.deepEqual([...how.matchAll(/<video src="\/docs\/media\/controls\/([\w-]+)\.mp4"/g)].map(m => m[1]), ['controls-loop', 'desktop-loop'], 'How to play: the phone\'s loop, then the desktop\'s'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
+  assert.ok(manifest['controls-loop'].seconds >= 15 && manifest['controls-loop'].seconds <= 20, 'the phone loop 15 to 20 s');
+  assert.ok(manifest['desktop-loop'].seconds >= 14 && manifest['desktop-loop'].seconds <= 18, 'the desktop loop about 15 s');
+  assert.ok(manifest['desktop-loop'].w === 1280 && manifest['desktop-loop'].h === 720, 'the desktop loop 1280x720');
+  // Their structured data on How to play; none wired for the gestures (rows, not a page's video).
+  const vs = ldOf(how).filter(d => d['@type'] === 'VideoObject');
+  assert.deepEqual(vs.map(v => [v.contentUrl, v.duration]), [['https://ebbfall.com/docs/media/controls/controls-loop.mp4', 'PT18S'], ['https://ebbfall.com/docs/media/controls/desktop-loop.mp4', `PT${Math.round(manifest['desktop-loop'].seconds)}S`]], 'How to play: the two loops\' VideoObjects');
+  assert.ok(vs.every(v => /^Ebbfall on a (phone|computer): /.test(v.name) && /^Ebbfall on a (phone|computer): /.test(v.description)), 'named for the game and the device');
   assert.ok(!how.includes('youtube.com') && !about.includes('youtube.com'), 'no YouTube link yet');
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');
   assert.match(js, /\.clip video/, 'docs.js plays it as it does the home\'s clip: after load, in view, not under reduced motion');
@@ -229,29 +235,40 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   assert.match(js, /addEventListener\('playing', function \(\) \{ var p = v\.nextElementSibling; if \(p && p\.className === 'poster'\) p\.hidden = true; \}\)/, 'the poster goes once it plays');
 });
 
-test('the touch table\'s gestures, on demand: seven rows with a ? button (expanded false, controlling an empty box under the row\'s words, labeled Show how: the row\'s first words, the loop\'s name, size and label as data), nothing of a loop in the page before the tap, the button hidden where scripts do not run', { skip }, () => {
+test('the controls tables\' gestures, on demand: seven touch rows and seven desktop rows with a ? button (expanded false, controlling an empty box under the row\'s words, labeled Show how: the row\'s first words, the loop\'s name, size and label as data), nothing of a loop in the page before the tap, the button hidden where scripts do not run', { skip }, () => {
   const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
   const how = page('/docs/how-to-play/');
-  const table = how.slice(how.indexOf('<table class="touch">'), how.indexOf('</table>', how.indexOf('<table class="touch">')));
-  assert.match(table, /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns: no See column');
-  const rows = table.slice(table.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<td>([^<]+)<\/td>/)[1], row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
-  assert.equal(rows.length, 13, 'every row still there');
-  const withLoop = rows.filter(r => r.button);
-  assert.deepEqual(withLoop.map(r => [r.do, r.button.match(/data-loop="touch-(\w+)"/)[1]]), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven rows, their loops');
+  // The tables: the touch table, the Mouse table and the Key table (`touch`: the ? at the right of the words, a grid per
+  // row on a phone), and the schemes table (Classic and WASD columns, the ? alone in a cell); each row's first words and
+  // its button, if any.
+  const tables = [...how.matchAll(/<table class="(touch|schemes)">/g)].map(m => how.slice(m.index, how.indexOf('</table>', m.index)));
+  assert.equal(tables.length, 4, 'the touch, Mouse, schemes and Key tables');
+  const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''), row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
+  const [touch, mouse, schemes, keys] = tables.map(rowsOf);
+  assert.match(tables[0], /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns: no See column');
+  assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 6, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
+  const loopsOf = (rows, prefix) => rows.filter(r => r.button).map(r => [r.do, r.button.match(new RegExp(`data-loop="${prefix}-(\\w+)"`))[1]]);
+  assert.deepEqual(loopsOf(touch, 'touch'), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven touch rows, their loops');
+  assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine, set a rally point', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');
+  assert.deepEqual(loopsOf(schemes, 'desk'), [['Move the map', 'wasd'], ['A command\'s key', 'attack']], 'the two scheme rows: WASD\'s map keys, Classic\'s A');
+  assert.ok(schemes[0].row.indexOf('data-loop="desk-wasd"') > schemes[0].row.indexOf('data-label="WASD"') && schemes[1].row.indexOf('data-loop="desk-attack"') < schemes[1].row.indexOf('data-label="WASD"'), 'the WASD loop in the WASD cell, the A loop in the Classic cell');
+  assert.deepEqual(loopsOf(keys, 'desk'), [['Ctrl+1 to 9, then 1 to 9', 'group']], 'the control groups row, its loop');
+  const withLoop = [...touch, ...mouse, ...schemes, ...keys].filter(r => r.button);
   for (const r of withLoop) {
     const b = r.button, name = b.match(/data-loop="([\w-]+)"/)[1], c = manifest[name], id = `see-${name}`;
     assert.ok(c, `${name}: in tools/docs/controls.json`);
     assert.equal(b, `<button class="see" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Show how: ${r.do}" data-loop="${name}" data-w="${c.w}" data-h="${c.h}" data-label="${b.match(/data-label="([^"]*)"/)[1]}">`, `${r.do}: its button`);
-    assert.match(b, /data-label="Ebbfall on a phone: [^"]{20,}"/, `${name}: the video's label names the game`);
-    // In the How cell, after its words, then its box: empty and hidden (the row's cells end there).
-    assert.ok(r.row.includes(`${b}<span aria-hidden="true">?</span></button><div class="clip gesture" id="${id}" hidden></div></td></tr>`), `${r.do}: the ? and its box end the How cell: ${r.row}`);
+    assert.match(b, name.startsWith('touch-') ? /data-label="Ebbfall on a phone: [^"]{20,}"/ : /data-label="Ebbfall on a computer[:,] [^"]{20,}"/, `${name}: the video's label names the game and the device`);
+    // In its cell, after the words, then its box: empty and hidden (the cell ends there).
+    assert.ok(r.row.includes(`${b}<span aria-hidden="true">?</span></button><div class="clip gesture" id="${id}" hidden></div></td>`), `${r.do}: the ? and its box end the cell: ${r.row}`);
     assert.equal((how.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1, `${id}: one box`);
     // Nothing of the loop before the tap: no video, no src, no poster, not even its file's name.
     for (const f of [c.file, c.poster]) assert.ok(!how.includes(f), `${name}: ${f} not in the page before the tap`);
     assert.ok(c.bytes <= 150 * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
+    assert.ok(name.startsWith('touch-') || (c.w === 960 && c.h === 540), `${name}: a desktop gesture at 960x540`);
   }
-  assert.equal((how.match(/<button class="see"/g) || []).length, 7, 'seven buttons, all in the table');
-  assert.ok(!how.includes('touch-select') || how.indexOf('touch-select') > how.indexOf('<table class="touch">'), 'the gestures named in the table only');
+  assert.equal((how.match(/<button class="see"/g) || []).length, 14, 'fourteen buttons, all in the tables');
+  assert.ok(how.indexOf('touch-select') > how.indexOf('<table class="touch">') && how.indexOf('desk-select') > how.indexOf('<h3>Mouse</h3>'), 'the gestures named in the tables only');
   // docs.js makes the video on the tap from the button's data, at the controls' path (pages.mjs CONTROLS_URL), muted,
   // looping, inline, labeled; under reduced motion with the browser's controls and no autoplay; one open at a time.
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');

@@ -2,7 +2,7 @@
 // in a new tab; the old buttons gone), the in-game ? and its help sheet (the game keeps running; Esc and the close
 // button; the pause card's HOW TO PLAY), and every docs page with JavaScript off, listing every unit and building from
 // the data, at phone width without a sideways scroll, its tabs (Home first) and buttons a finger's size, its bar slim
-// in landscape; How to play's touch table: a gesture's loop on demand through its row's ? (nothing of it fetched before
+// in landscape; How to play's controls tables: a gesture's loop on demand through its row's ? (nothing of it fetched before
 // the tap, one open at a time, the ? again closes it).
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
@@ -108,8 +108,8 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       assert.ok((await page.locator('main').textContent()).length > 400, `${path}: its text, without scripts`);
       if (path === 'docs/how-to-play/') {
         // The touch table reads whole, its gestures' ? buttons hidden (they would do nothing), their boxes empty.
-        assert.equal(await page.locator('table.touch tbody tr').count(), 13, `${path}: every touch row`);
-        assert.equal(await page.locator('button.see').count(), 7, `${path}: the seven buttons in the page`);
+        assert.equal(await page.locator('table.touch').first().locator('tbody tr').count(), 13, `${path}: every touch row`);
+        assert.equal(await page.locator('button.see').count(), 14, `${path}: the fourteen buttons in the page (seven touch rows, seven desktop rows)`);
         assert.equal(await page.locator('button.see').evaluateAll(bs => bs.filter(b => b.offsetParent || getComputedStyle(b).display !== 'none').length), 0, `${path}: none shown without scripts`);
         assert.equal(await page.locator('.gesture video, .gesture img').count(), 0, `${path}: no loop in the page`);
       }
@@ -162,28 +162,30 @@ test('every docs page with JavaScript off: whole, every unit and building of the
 });
 
 for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', { ...PORTRAIT, viewport: { width: 390, height: 844 } }]]) {
-  test(`How to play's touch table on ${name}: a row's ? opens its loop under the row's words and plays it, nothing of it fetched before; another row's ? closes the first; the ? again closes it`, { chromium: 'H.264 playback; the other engines have no loop to play' }, async () => {
+  test(`How to play's controls tables on ${name}: a row's ? opens its loop under the row's words and plays it, nothing of it fetched before; another row's ? closes the first, a desktop row's too (one open in the whole page); the ? again closes it`, { chromium: 'H.264 playback; the other engines have no loop to play' }, async () => {
     const ctx = await browserContext(device), page = await ctx.newPage();
     const press = (loc) => (device.hasTouch ? loc.tap() : loc.click());
     const requested = [];
     page.on('request', (r) => requested.push(new URL(r.url()).pathname));
-    const loops = () => requested.filter(u => /\/docs\/media\/controls\/touch-[\w-]+\.(mp4|webp)$/.test(u));
+    const loops = () => requested.filter(u => /\/docs\/media\/controls\/(touch|desk)-[\w-]+\.(mp4|webp)$/.test(u));
     try {
       await page.goto(`${baseUrl()}docs/how-to-play/`, { waitUntil: 'networkidle' });
       // The phone's controls before the desktop's; the loop (the one video) opens them.
       const order = await page.locator('main h2').evaluateAll(hs => hs.map(h => h.id));
       assert.deepEqual(order.slice(0, 3), ['goal', 'phone', 'desktop'], 'the goal, then the phone, then the desktop');
-      assert.equal(await page.locator('video').count(), 1, 'one video in the page: the loop');
+      assert.equal(await page.locator('video').count(), 2, 'two videos in the page: the phone\'s loop and the desktop\'s');
       assert.deepEqual(loops(), [], 'nothing of a gesture fetched on load');
-      // Seven ? buttons, one per row with a loop, each a 44 px target drawing a 32 px circle, labeled for its row.
+      // Fourteen ? buttons, one per row with a loop (seven touch rows, seven desktop rows), each a 44 px target drawing a
+      // 32 px circle, labeled for its row.
       const buttons = page.locator('button.see');
-      assert.equal(await buttons.count(), 7);
+      assert.equal(await buttons.count(), 14);
       const sizes = await buttons.evaluateAll(bs => bs.map(b => { const r = b.getBoundingClientRect(), c = b.firstElementChild.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), Math.round(c.width), Math.round(c.height), b.getAttribute('aria-expanded'), b.getAttribute('aria-label'), b.closest('tr').firstElementChild.textContent]; }));
       for (const [w, h, cw, ch, expanded, label, row] of sizes) {
         assert.ok(w >= 44 && h >= 44 && cw === 32 && ch === 32, `a 44 px target, 32 px drawn: ${JSON.stringify([w, h, cw, ch])}`);
         assert.equal(expanded, 'false'); assert.equal(label, `Show how: ${row}`);
       }
-      const group = page.locator('tr', { has: page.locator('td:first-child', { hasText: /^Select a group$/ }) }).locator('button.see');
+      const touch = page.locator('table.touch').first(), mouse = page.locator('table.touch').nth(1);
+      const group = touch.locator('tr', { has: page.locator('td:first-child', { hasText: /^Select a group$/ }) }).locator('button.see');
       const groupBox = page.locator('#see-touch-group');
       assert.ok(await groupBox.isHidden() && await groupBox.evaluate(e => e.childElementCount === 0), 'its box empty and hidden');
       // The tap: the box opens under the row's words with the video, which plays; its label the gesture's; the file and
@@ -205,7 +207,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       else assert.ok(bb.width <= 480 && bb.x >= wb.x, `at most 480 px wide, in the How column: ${JSON.stringify(bb)}`);
       assert.deepEqual([...new Set(loops())].sort(), ['/docs/media/controls/touch-group.mp4', '/docs/media/controls/touch-group.webp'], 'this gesture\'s file and poster, nothing else');
       // Another row's ?: the first closes (its box empty again, its video gone), the second opens and plays.
-      const select = page.locator('tr', { has: page.locator('td:first-child', { hasText: /^Select$/ }) }).locator('button.see');
+      const select = touch.locator('tr', { has: page.locator('td:first-child', { hasText: /^Select$/ }) }).locator('button.see');
       await press(select);
       assert.equal(await group.getAttribute('aria-expanded'), 'false'); assert.equal(await select.getAttribute('aria-expanded'), 'true');
       assert.ok(await groupBox.isHidden() && await groupBox.evaluate(e => e.childElementCount === 0), 'the first closed and emptied');
@@ -217,15 +219,53 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.equal(await page.locator('.gesture video').count(), 0, 'closed');
       assert.equal(await page.locator('[aria-expanded="true"]').count(), 0, 'none open');
       assert.deepEqual([...new Set(loops())].sort(), ['/docs/media/controls/touch-group.mp4', '/docs/media/controls/touch-group.webp', '/docs/media/controls/touch-select.mp4', '/docs/media/controls/touch-select.webp'], 'the two gestures tapped, nothing else');
+      // A desktop row's ? (the Mouse table's Select): its loop opens and plays, labeled for a computer; the phone's group
+      // ? then closes it (one open in the whole page); its files fetched only now.
+      const deskSelect = mouse.locator('tr', { has: page.locator('td:first-child', { hasText: /^Select$/ }) }).locator('button.see');
+      await deskSelect.scrollIntoViewIfNeeded();
+      await press(deskSelect);
+      assert.equal(await deskSelect.getAttribute('aria-expanded'), 'true');
+      const desk = page.locator('#see-desk-select video');
+      assert.equal(await desk.count(), 1);
+      assert.equal(await desk.getAttribute('aria-label'), 'Ebbfall on a computer: drag a box to select a group of units');
+      assert.equal(await desk.getAttribute('src'), '/docs/media/controls/desk-select.mp4');
+      await page.waitForFunction(() => { const v = document.querySelector('#see-desk-select video'); return v && !v.paused && v.currentTime > 0.3; }, null, { timeout: 15000 });
+      await group.scrollIntoViewIfNeeded();
+      await press(group);
+      assert.equal(await deskSelect.getAttribute('aria-expanded'), 'false'); assert.equal(await group.getAttribute('aria-expanded'), 'true');
+      assert.equal(await page.locator('.gesture video').count(), 1, 'one open in the whole page');
+      await press(group);
+      assert.equal(await page.locator('[aria-expanded="true"]').count(), 0, 'none open');
+      assert.deepEqual([...new Set(loops())].sort(), ['/docs/media/controls/desk-select.mp4', '/docs/media/controls/desk-select.webp', '/docs/media/controls/touch-group.mp4', '/docs/media/controls/touch-group.webp', '/docs/media/controls/touch-select.mp4', '/docs/media/controls/touch-select.webp'], 'the three gestures tapped, nothing else');
     } finally { await ctx.close(); }
   });
 }
 
-test('How to play under reduced motion: the loop still, and a row\'s ? shows the gesture\'s poster with the video\'s controls, not playing', { chromium: 'H.264 playback; the other engines have no loop to play' }, async () => {
+test('How to play\'s two loops, the phone\'s and the desktop\'s: each plays only while in view; scrolled to one, the other is paused', { chromium: 'H.264 playback; the other engines have no loop to play' }, async () => {
+  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  try {
+    await page.goto(`${baseUrl()}docs/how-to-play/`, { waitUntil: 'networkidle' });
+    const loops = page.locator('figure.clip video');
+    assert.deepEqual(await loops.evaluateAll(vs => vs.map(v => v.getAttribute('src'))), ['/docs/media/controls/controls-loop.mp4', '/docs/media/controls/desktop-loop.mp4']);
+    const state = () => loops.evaluateAll(vs => vs.map(v => (v.paused ? 'paused' : 'playing')));
+    await loops.first().scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => { const v = document.querySelectorAll('figure.clip video')[0]; return !v.paused && v.currentTime > 0.3; }, null, { timeout: 15000 });
+    assert.deepEqual(await state(), ['playing', 'paused'], 'at the phone section: its loop plays, the desktop\'s waits');
+    await loops.nth(1).scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => { const vs = document.querySelectorAll('figure.clip video'); return vs[0].paused && !vs[1].paused && vs[1].currentTime > 0.3; }, null, { timeout: 15000 });
+    assert.deepEqual(await state(), ['paused', 'playing'], 'at the desktop section: its loop plays, the phone\'s paused');
+    assert.ok(await loops.nth(1).evaluate(v => v.nextElementSibling.hidden), 'the desktop loop\'s poster gone once it plays');
+    await loops.first().scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => { const vs = document.querySelectorAll('figure.clip video'); return !vs[0].paused && vs[1].paused; }, null, { timeout: 15000 });
+    assert.deepEqual(await state(), ['playing', 'paused'], 'back up: the phone\'s plays again, the desktop\'s paused');
+  } finally { await ctx.close(); }
+});
+
+test('How to play under reduced motion: the loops still, and a row\'s ? shows the gesture\'s poster with the video\'s controls, not playing', { chromium: 'H.264 playback; the other engines have no loop to play' }, async () => {
   const ctx = await browserContext({ ...PHONE, reducedMotion: 'reduce' }), page = await ctx.newPage();
   try {
     await page.goto(`${baseUrl()}docs/how-to-play/`, { waitUntil: 'networkidle' });
-    assert.ok(await page.locator('figure.clip video').evaluate(v => v.paused && !v.controls), 'the loop still, its poster over it');
+    assert.ok(await page.locator('figure.clip video').evaluateAll(vs => vs.length === 2 && vs.every(v => v.paused && !v.controls)), 'both loops still, their posters over them');
     const group = page.locator('tr', { has: page.locator('td:first-child', { hasText: /^Select a group$/ }) }).locator('button.see');
     await group.scrollIntoViewIfNeeded(); await group.tap();
     const video = page.locator('#see-touch-group video');

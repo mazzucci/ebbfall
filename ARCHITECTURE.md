@@ -854,7 +854,10 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       beats in the desktop tables' words (a box, a right-click, a double-click, A then a click, B then a
                       building, Ctrl+1 and 1, the arrow keys) and the WASD scheme's one (`--set desktop-wasd`: the
                       device's setting through stage.mjs `init`); cut.mjs `--set desktop`: desktop-loop.mp4 (1280x720,
-                      captioned) and desk-<gesture>.mp4 (960x540, 2-3 s), each poster a frame after the answer.
+                      ~16 s, captioned) and desk-<gesture>.mp4 (960x540, 2-3 s), each poster a frame after the answer.
+                      How to play shows the loop at the start of its desktop section (lazy: the phone's loop is the
+                      page's first media) and seven desktop rows have a gesture's loop on demand through the same ?
+                      (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's

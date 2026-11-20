@@ -7,8 +7,9 @@
   var t = document.querySelector('.tabs'), a = t && t.querySelector('[aria-current]');
   if (a && a.offsetLeft + a.offsetWidth > t.clientWidth) t.scrollLeft = a.offsetLeft - (t.clientWidth - a.offsetWidth) / 2;
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // The home's clip and the controls video (pages.mjs `clip`): no controls once this runs, played only while in view,
-  // never under reduced motion (their poster stays). Fetched only once the page has loaded: the posters, fonts and
+  // The home's clip and the controls videos (pages.mjs `clip`: the phone's and the desktop's loops): no controls once this
+  // runs, each played only while in view (its own observer: one scrolled out pauses while another plays), never under
+  // reduced motion (their poster stays). Fetched only once the page has loaded: the posters, fonts and
   // plates first, on a slow first visit.
   var clips = document.querySelectorAll('.clip video');
   for (var i = 0; i < clips.length; i++) clips[i].controls = false;
@@ -20,8 +21,8 @@
     if (!('IntersectionObserver' in window)) { v.play().catch(function () {}); return; }
     new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) v.play().catch(function () {}); else v.pause(); }); }).observe(v);
   }
-  // The touch table's gestures (pages.mjs gestureLoop): a row's ? opens its loop in the box under the row's words and
-  // plays it; the ? again closes it; opening another closes the one open. The video and its poster are made here, on
+  // The controls tables' gestures (pages.mjs gestureLoop, the touch and the desktop rows): a row's ? opens its loop in the
+  // box under the row's words and plays it; the ? again closes it; opening another, anywhere in the page, closes the one open. The video and its poster are made here, on
   // the tap, from the button's data (nothing of a loop is fetched before it). Under reduced motion the poster shows
   // with the video's controls instead, and the person chooses to play.
   var MEDIA = '/docs/media/controls/', sees = document.querySelectorAll('button.see'), open = null;

@@ -24,7 +24,7 @@
 //                        first media), the video fetched only when played (docs.js: once the page has loaded, while in
 //                        view, never under reduced motion)
 //   {{loop name | label=... | do=...}}
-//                        a per-gesture loop of the controls video, on demand, in a touch table's row: a ? button
+//                        a per-gesture loop of the controls videos, on demand, in a controls table's row: a ? button
 //                        ("Show how: <do>", the row's first words) and an empty box under the row's words; docs.js makes
 //                        the video and its poster there on a tap, so nothing of the loop is fetched before (the button
 //                        carries the loop's name, size and label; hidden where scripts do not run)
@@ -182,7 +182,9 @@ export function controlsLd(origin, name, { title, label }) {
     uploadDate: c.uploaded, duration: `PT${Math.round(c.seconds)}S`, width: c.w, height: c.h, isFamilyFriendly: true,
   };
 }
-/** How to play's controls video, for its structured data (build.mjs): the same words the copy gives the token. */
+/** How to play's desktop controls video, for its structured data (build.mjs): the same words the copy gives the token. */
+export const DESKTOP_LOOP = { title: 'Ebbfall on a computer: the mouse and keyboard controls', label: 'Ebbfall on a computer: drag a box to select, right-click to move, double-click for all of one type, A then a click to attack-move, B to build, Ctrl+1 saves a control group and 1 recalls it, the arrow keys move the map' };
+/** How to play's phone controls video, for its structured data (build.mjs): the same words the copy gives the token. */
 export const CONTROLS_LOOP = { title: 'Ebbfall on a phone: the touch controls', label: 'Ebbfall on a phone: tap a unit, then the ground to move it; press and hold, then drag a box for a group; double-tap for all of one type; ARMY selects the army and HOME looks at your base' };
 
 /**

@@ -8,7 +8,7 @@
 //   touch-<gesture>.mp4       one gesture each, 2-3 s, 844x390, no captions, under 150 KB (letgo: the Deselect tap;
 //                             details: the button held and its panel open)
 // The desktop's (`--set desktop`, the desktop-wasd recording for its one loop):
-//   desktop-loop.mp4          the Classic scheme's essentials, 1280x720, captioned, under 600 KB
+//   desktop-loop.mp4          the Classic scheme's essentials, 1280x720, ~16 s, captioned, under 400 KB
 //   desk-<gesture>.mp4        one gesture each, 2-3 s, 960x540, no captions, under 150 KB
 // Each poster is a frame after the gesture's answer (a phone shows it before playing, reduced motion shows it alone).
 // The size-bound ones are encoded in two passes at the bitrate their budget allows. A clip may punch in (`punch`:
@@ -59,7 +59,7 @@ export const VERSIONS = {
     'touch-details': { kind: 'land', w: 844, budget: 150 * KB, clips: [['letgo', 3.9, 6.6, DETAILS]], poster: 2.2 }, // (the button held, its panel open and punched in)
   },
   desktop: {
-    'desktop-loop': { kind: 'desk', caps: true, w: 1280, budget: 600 * KB, clips: meta.beats.map(b => [b.id, 0, b.seconds]), poster: 1.9 },
+    'desktop-loop': { kind: 'desk', caps: true, w: 1280, budget: 400 * KB, clips: meta.beats.map(b => [b.id, b.id === 'select' || b.id === 'pan' ? 0 : 0.1, b.id === 'pan' ? 1.2 : b.seconds]), poster: 1.9 }, // (~16 s: the pan cut after the key, a breath off each beat's start; the eight selected)
     'desk-select': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['select', 0.3, 2.4]], poster: 1.8 }, // (the eight boxed, selected)
     'desk-move': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['move', 0.2, 2.2]], poster: 1.4 }, // (on their way after the right-click)
     'desk-type': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['type', 0.2, 2.2]], poster: 1.5 }, // (the three Knights selected)

@@ -187,7 +187,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .card.menu{max-width:640px}
 /* The menu is a page of its own, not a card over the game: the whole screen, its content centered. */
 @media (max-height:420px){:is(#start,#online) .card.menu{padding-top:max(6px,env(safe-area-inset-top,0px))!important;padding-bottom:max(6px,env(safe-area-inset-bottom,0px))!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
-#start,#online{padding:0;background:var(--panel)} /* (opaque: no empty game behind them) */ :is(#start,#online) .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ :is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu:has(#onlineRoom:not([hidden]))){justify-content:flex-start} /* (the board's pages from the top: a change pushes only what is below it) */ #menuSolo h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px} /* (its first row as tall as the corner beside it: the board below it, clear) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+#start,#online{padding:0;background:var(--panel)} /* (opaque: no empty game behind them) */ :is(#start,#online) .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ :is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu:has(#onlineRoom:not([hidden]))){justify-content:flex-start} /* (the board's pages from the top: a change pushes only what is below it) */ @media (min-width:901px) and (min-height:501px){:is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu:has(#onlineRoom:not([hidden]))):not(.tall){padding-left:max(24px,calc((100% - 900px) / 2));padding-right:max(24px,calc((100% - 900px) / 2))}} /* (and up to 900 px wide where the tokens show a people's whole name (seats.js `narrow`): room for it, the level in words and SIDE 2) */ #menuSolo h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px} /* (its first row as tall as the corner beside it: the board below it, clear) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 /* The board (single player's, and the lobby's: online.js; seats.js builds it): eight fixed spots, two abreast on a narrow
    screen, four on a wide one, every token, add cell and empty spot the same size: nothing moves when a player comes,
@@ -209,7 +209,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .tok .race{grid-area:race;font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap}
 .tok .lv,.tok .st{grid-area:mark} .tok .lv{display:inline-flex;align-items:center;gap:4px;min-width:0} .tok .lw{font:11px/1 var(--mono);color:var(--fg);letter-spacing:.02em;white-space:nowrap} .tok .pen,.tok .act{grid-area:pen;justify-self:end} .tok .stag{grid-area:tag;justify-self:end}
 .tok .stag:not(:empty){font:11px/1 var(--mono);color:var(--c);border:1px solid var(--c);border-radius:3px;padding:2px 4px;letter-spacing:.04em;white-space:nowrap}
-@container (max-width:150px){.tok .stag .w{display:none}} /* (a narrow token: S2) */
+@container (max-width:195px){.tok .stag .w{display:none}} /* (a token too narrow for its race, its level in words and SIDE 2: S2) */
 .tok .pen{color:var(--dim);font:12px var(--mono);line-height:1} .tok:hover .pen{color:var(--ally)}
 .board .ib.tok.on{background:#2a2415}
 .tok.ro{cursor:default;border-style:dashed;background:transparent} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby: flat, information, not a button) */
@@ -241,7 +241,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* A phone: every word of the board and the sheet at 16 px (14 for a token's race and side), read at arm's length. */
 @media (pointer:coarse){
   .board .ib.tok{column-gap:5px;padding-right:6px}
-  .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0} .tok .stag:not(:empty){font-size:13px;padding:1px 3px;letter-spacing:0}
+  .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0} .tok .lw{font-size:13px;letter-spacing:0} .tok .stag:not(:empty){font-size:13px;padding:1px 3px;letter-spacing:0}
   .board .ib.add{font-size:16px;letter-spacing:.02em}
   .sheet .opt .ib,.sheet .ft .ib,.sheet .hd b,.sheet .info,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .opt .ib{letter-spacing:.04em}
   .sheet .opt .lbl{width:64px}

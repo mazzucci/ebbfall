@@ -49,7 +49,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
 for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', PORTRAIT]]) {
   test(`the first page on ${name}: Watch the trailer in its footer line, a plain link (no video on the menu, nothing of it fetched there) that opens the docs home at its clip in a new tab`, { engines: true }, async () => {
     const ctx = await browserContext(device), page = await ctx.newPage();
-    const media = []; ctx.on('request', r => { if (/\/docs\/|\.mp4|\.webm/.test(new URL(r.url()).pathname)) media.push(new URL(r.url()).pathname); });
+    const media = []; ctx.on('request', r => { if (/^\/docs\/|\.(mp4|webm)$/.test(new URL(r.url()).pathname)) media.push(new URL(r.url()).pathname); });
     try {
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });

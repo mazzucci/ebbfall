@@ -9,6 +9,7 @@ import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { torus } from './vael.js';
 import { ashlarTex, ashlarBump, earthTex } from './kingdom.js';
 import { polishTextures } from './polish.js';
+import { GANTRY_FRAME } from '../../src/client/construct.js';
 
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
 const std = (o) => new THREE.MeshStandardMaterial(o);
@@ -358,30 +359,34 @@ export function foundationEx(n, E) {
  *  the white-steel scaffold with a plank walk and a ladder went: medieval in shape): `rt_ex_gantry_n`, four square
  *  white-steel masts at the footprint's corners on dark feet under dark caps, a rail along the east and west tops, two
  *  team pennants on the north masts; the body rises inside it in full color (gl/render.js). Turned 20 degrees like the
- *  Expedition's buildings (square-on, the four posts overlap into two lines) and fitted to the footprint. No shadow. */
-const GANTRY_YAW = -20 * Math.PI / 180, GANTRY_FIT = 0.86;
+ *  Expedition's buildings (square-on, the four posts overlap into two lines) and fitted to the footprint. No shadow.
+ *  Its measures are the client's (construct.js GANTRY_FRAME), which sets the head by them. */
+const F = GANTRY_FRAME, GANTRY_YAW = -F.yaw * Math.PI / 180;
 /** The masts' height by footprint: over the tallest building of that size. */
-export const GANTRY_H = { 2: 44, 3: 56, 4: 72 };
+export const GANTRY_H = F.mast;
+/** Half the side of the square the masts stand on, for an n-tile footprint. */
+const gantryHalf = (n) => n * 16 - F.inset;
 export function gantryEx(n, E) {
-  const g = grp(), W = n * 32 - 8, h = W / 2, H = GANTRY_H[n], C = cm(E.polish);
+  const g = grp(), h = gantryHalf(n), W = h * 2, H = GANTRY_H[n], C = cm(E.polish);
   for (const [x, z] of [[-h, -h], [h, -h], [-h, h], [h, h]]) {
-    add(g, rbox(3.4, H, 3.4, 0.4), C.postWhite, x, H / 2, z);                                                            // the mast (about 3 px at 1x after the fit)
+    add(g, rbox(F.post, H, F.post, 0.4), C.postWhite, x, H / 2, z);                                                      // the mast (about 3 px at 1x after the fit)
     add(g, rbox(6, 1.4, 6, 0.3), E.panelDark, x, 0.7, z);                                                                // its foot
     add(g, rbox(4.4, 2, 4.4, 0.5), E.panelDark, x, H + 1, z);                                                            // its cap
   }
-  for (const x of [-h, h]) add(g, rbox(2.4, 2.4, W + 3.4, 0.4), C.postWhite, x, H - 1.2, 0);                             // the head's rails, east and west
+  for (const x of [-h, h]) add(g, rbox(2.4, 2.4, W + F.post, 0.4), C.postWhite, x, H - F.rail, 0);                       // the head's rails, east and west
   pennant(g, E, -h, H + 2, -h); pennant(g, E, h - 8.2, H + 2, -h);
-  g.rotation.y = GANTRY_YAW; g.scale.setScalar(GANTRY_FIT);
+  g.rotation.y = GANTRY_YAW; g.scale.setScalar(F.fit);
   return g;
 }
-/** The gantry's print head (`rt_ex_gantrybar_n`): a pale steel beam across the footprint on two dark carriages, a cyan
- *  strip under it. Drawn at ground level: the client sets it on the top of the rising body. No shadow. */
+/** The gantry's print head (`rt_ex_gantrybar_n`): a pale steel beam on two dark carriages, a cyan strip under it, as
+ *  long as the gap between two masts (it goes up the front pair, then back along the rails: construct.js `headAt`), so
+ *  it sits inside them. Drawn at ground level about the footprint's middle: the client sets it on its way. No shadow. */
 export function gantryBarEx(n, E) {
-  const g = grp(), W = n * 32 - 8, h = W / 2, C = cm(E.polish);
-  add(g, rbox(W + 4, 4, 4.6, 0.6), E.paleSteel, 0, 3.4, 0);                                                              // the beam, a solid bar at 1x
-  for (const x of [-h, h]) add(g, rbox(5.6, 5, 6.2, 0.6), E.panelDark, x, 3.2, 0);                                        // the carriages on the rails
-  add(g, rbox(W - 2, 1, 1.4, 0.3), C.strip, 0, 1.2, 0.4); add(g, rbox(W - 1, 2.6, 3.2, 0.6), C.stripHalo, 0, 1.2, 0.4);   // the strip under it, cyan, lit until the last tick
-  g.rotation.y = GANTRY_YAW; g.scale.setScalar(GANTRY_FIT);
+  const g = grp(), L = gantryHalf(n) - F.post / 2 - 0.4, C = cm(E.polish);                                               // (half its length: a hair clear of the masts' inner faces)
+  add(g, rbox(2 * L - 2, 4, 4.6, 0.6), E.paleSteel, 0, 3.4, 0);                                                          // the beam, a solid bar at 1x
+  for (const sx of [-1, 1]) add(g, rbox(5.6, 5, 6.2, 0.6), E.panelDark, sx * (L - 2.8), 3.2, 0);                          // the carriages at its ends, against the masts
+  add(g, rbox(2 * L - 9.2, 1, 1.4, 0.3), C.strip, 0, 1.2, 0.4); add(g, rbox(2 * L - 8.2, 2.6, 3.2, 0.6), C.stripHalo, 0, 1.2, 0.4);   // the strip under it, cyan, lit until the last tick
+  g.rotation.y = GANTRY_YAW; g.scale.setScalar(F.fit);
   return g;
 }
 /** The Expedition's rubble (`rt_ex_rubble_n`): broken planks, a bent panel or two, loops of cable, a drum on its side,

@@ -115,7 +115,7 @@ test('a file the host answers with an error fails the install, as a failed fetch
   caches.fetch = async (req) => (req.url === 'art/atlas-0.webp' ? { ok: false, status: 404 } : { ok: true, redirected: false });
   const flags = {}, on = worker(caches, flags);
   let waited; on.install({ waitUntil: (p) => { waited = p; } });
-  await assert.rejects(waited, /art\/atlas-0\.png \(404\)/);
+  await assert.rejects(waited, /art\/atlas-0\.webp \(404\)/);
   assert.ok(!flags.skipped);
 });
 

@@ -499,8 +499,8 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base: with a mouse 1200 px of the map across the window (any monitor), nothing past the map\'s edges at the sides or the top; at 1 on a phone', async () => {
-  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, PHONE]) for (const guided of [false, true]) {
+test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1200 px of the map across the window (any monitor); at 1 on a phone (844x390, 667x375)', async () => {
+  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
@@ -510,9 +510,11 @@ test('a game starts over the base: with a mouse 1200 px of the map across the wi
       if (guided) await press('#btnFirstHome'); else { await press('#btnSolo'); await press('#btnStart'); }
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
       const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom }; });
-      if (device.hasTouch) { assert.equal(s.zoom, 1, `${what}: a phone at 1`); continue; }
-      assert.ok(Math.abs(s.zoom - Math.min(2, Math.max(1, s.w / 1200))) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2): ${JSON.stringify(s)}`);
-      assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
+      if (device.hasTouch) assert.equal(s.zoom, 1, `${what}: a phone at 1`);
+      else {
+        assert.ok(Math.abs(s.zoom - Math.min(2, Math.max(1, s.w / 1200))) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2): ${JSON.stringify(s)}`);
+        assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
+      }
       assert.ok(s.x >= 0 && s.x + s.vw <= s.map + 0.5 && s.y >= 0, `${what}: nothing past the map's edges at the sides or the top: ${JSON.stringify(s)}`);
       assert.ok(s.hq[0] > s.x + s.vw * 0.15 && s.hq[0] < s.x + s.vw * 0.85 && s.hq[1] > s.y + s.vh * 0.15 && s.hq[1] < s.y + s.vh * 0.85, `${what}: the base well inside the window: ${JSON.stringify(s)}`);
       assert.deepEqual(errors, []);

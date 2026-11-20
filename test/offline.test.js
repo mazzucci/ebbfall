@@ -142,7 +142,7 @@ test('the manifest: the whole site in scope, full screen, the orientation left t
   assert.equal(m.scope, './', 'the game and the docs, room and challenge links');
   assert.equal(m.display, 'fullscreen');
   // "landscape" here held every page in scope, the docs too, sideways on a phone; "any" lets them turn (as the person's
-  // rotation setting says), and a game turns to landscape by its own lock (screen.js enterFullscreen: START, FIRST GAME,
+  // rotation setting says), and a game turns to landscape by its own lock (screen.js enterFullscreen: START, TUTORIAL,
   // REMATCH, READY), which Chrome allows an app in display mode fullscreen without the page's full screen.
   assert.equal(m.orientation, 'any');
   const js = readFileSync(new URL('../src/client/screen.js', import.meta.url), 'utf8');

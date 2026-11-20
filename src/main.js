@@ -13,7 +13,7 @@ import { initTools, updateTools, onAttacked, resetTools } from './client/tools.j
 import { resetMemory } from './client/memory.js';
 import { initPause, paused, closePause, roomPaused, roomResumed } from './client/pause.js';
 import { updateClock } from './client/clock.js';
-import { showMenu, recordResult, guidedDone, setup, menu, wonChallenge } from './client/menu.js';
+import { showMenu, recordResult, setup, menu, wonChallenge } from './client/menu.js';
 import { initHelp, closeHelp } from './client/help.js';
 import { initShare, showShare } from './client/share.js';
 import { MAP_KINDS, onlineMap } from './client/maps.js';
@@ -214,7 +214,6 @@ function endGame() {
   rematchButton(theyWant(), online.rematch);
   $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
   if (!online.playing && !menu.tutorial && !BENCH && !watched) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
-  if (!online.playing && menu.tutorial) guidedDone(); // (a newcomer no more: FIRST GAME leaves the menu's first page)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
  *  (`theyWant`: someone else does; `iWant`: this side asked), and none once someone has left. */

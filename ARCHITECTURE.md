@@ -355,7 +355,7 @@ src/client/           everything that touches the browser
                       kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
                       `rockTile`), and the shade layers (the land's shade, the water's tints and light) (test/ground.test.js)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
-                      iPad or iPhone); START, FIRST GAME, REMATCH and READY go full screen on a touch screen only (with a
+                      iPad or iPhone); START, TUTORIAL, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
                       player's choice to leave it, the page held still in a browser tab, the leave-game guard; in the
                       installed app (display fullscreen, the manifest's orientation `any`: the menu and the docs turn
@@ -384,11 +384,10 @@ src/client/           everything that touches the browser
                       and the help sheet's, each to ./docs/feedback/ with `from` (menu or game), `v` and `c` (the sim's
                       build and the last game update's commit) and `touch`, in a new tab
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
-  menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, OPTIONS, INSTALL; FIRST GAME until a
-                      first game is over, by the record of games, which is kept but not shown; on a first visit, no
-                      game ever started on this device, FIRST GAME is the one big button and the two modes sit small
-                      in the row: `layoutHome`, one button each, moved; a room's, a challenge's or a plan's link
-                      opens its own page as ever; the build stamp at
+  menu.js             start menu: a first page, one for everyone (SINGLE PLAYER and MULTIPLAYER big; TUTORIAL, the
+                      guided game, OPTIONS and INSTALL small under them; the record of games is kept but not shown;
+                      a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Watch
+                      the trailer (the docs home's clip, `/docs/#trailer`, in a new tab), Send feedback; the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
                       vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
                       from the live site; a docs- or CI-only commit ships the same bytes), the single-player page

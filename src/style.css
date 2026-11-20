@@ -496,17 +496,6 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #online .joincode{display:flex;gap:8px;align-items:center} /* (the code and its JOIN keep together: one line beside NEW ROOM, or the next on a narrow phone) */
 #menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
 @media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centered) */
-/* A first visit's first page (menu.js `layoutHome`): FIRST GAME, the guided game, is the one big amber button, three lines (a lead, its name, what it is); the two modes sit small in the row below with OPTIONS and INSTALL (four on a line; two and two upright). Small in the row (a game started, none finished) it shows its name alone. */
-#btnFirstHome :is(.k,.y,.s){display:none}
-#menuHero{display:flex;justify-content:center;margin:8px 0 6px}
-#btnFirstHome.hero{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;max-width:452px;min-height:96px;padding:12px 24px;border-radius:6px}
-#btnFirstHome.hero .k{display:block;font:600 11px var(--display);letter-spacing:.16em;opacity:.8}
-#btnFirstHome.hero .l{font:700 24px/1.1 var(--display);letter-spacing:.14em} #btnFirstHome.hero .y{display:inline}
-#btnFirstHome.hero .s{display:block;font:13px var(--mono);letter-spacing:.02em;opacity:.85}
-#menuHome.first .row{margin-top:12px}
-@media (max-height:420px){#menuHero{margin:4px 0 2px} #btnFirstHome.hero{min-height:74px;padding:6px 20px;gap:0} #btnFirstHome.hero .l{font-size:20px} #btnFirstHome.hero .s{font-size:12px} #menuHome.first .row{margin-top:6px}}
-@media (orientation:portrait){#menuHome.first .row>.ib:not(.big){flex:0 0 calc((100% - 10px) / 2)}}
-@media (max-width:359px){#btnFirstHome.hero{padding-left:10px;padding-right:10px} #btnFirstHome.hero .l{font-size:20px;letter-spacing:.1em} #btnFirstHome.hero .s{font-size:12px}}
 #online .card.menu{justify-content:flex-start}
 #onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
 /* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's backdrop behind

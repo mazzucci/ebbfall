@@ -729,7 +729,7 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
                       committed in public/docs/img/shots/ and public/docs/media/ (trailer.mp4: the trailer takes the
                       clip's name; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers and a
-                      Ballista coming to its help, 12 s at 30 fps, one tick a frame (tools/trailer/stage.mjs `freeze`)
+                      Ballista coming to its help, 11 s at 30 fps, one tick a frame (tools/trailer/stage.mjs `freeze`)
                       but for one slow-motion beat on the Ballista's first hit (a fraction of a tick a frame), from
                       DPR 2 frames in target/docs-clip/ encoded by ffmpeg under the home's budget, its end dissolving
                       into its first half second so it loops without a cut, its poster its middle frame); shots.json

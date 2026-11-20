@@ -75,9 +75,9 @@ function helpers() {
 /**
  * The clip's fight (the home's), in two beats. One: the Expedition's Drones come at a Kingdom Watchtower (ours, blue)
  * standing before a Castle on open steppe, from three sides in turn (`strike`: a few already on it, the rest flying in
- * from the left, then from above, then from below), and bring its health down while it shoots back alone; it smokes
- * below half and burns below a quarter (render.js). Two (`defend`, at once): Archers and a Ballista, ordered in from
- * past the bottom-right corner, cross the foreground to the tower's foot and shoot the Drones down. The sim takes
+ * from the left, then from the upper left, then from below), and bring its health down while it shoots back alone; it
+ * smokes below half and burns below a quarter (render.js). Two (`defend`, at once): Archers and a Ballista, ordered in
+ * from just past the bottom-right corner, cross the foreground to the tower's foot and shoot the Drones down. The sim takes
  * orders for our seat alone, and the Expedition's machines work only inside its coverage, so the Drones must come by
  * themselves: the scene stands inside the Data center's coverage on Sunken Court (`?map=9&seed=1`: the one map with
  * open ground enough for the frame by the Expedition's start, which lies south of it, well out of the frame with its
@@ -108,27 +108,28 @@ function towerRaid(towerHp) {
   eng.revealAll(true); // (the other seat drawn wherever it is: the Drones from their first frame at the edge)
   // The tower needs a Barracks: one at home first.
   done(put('barracks', window.S.at(-140, 170), workers()[0]));
-  // The tower's spot east of the Data center and a little north, the Castle's eight tiles to its right: a Villager of
+  // The tower's spot east of the Data center and a little north, the Castle's five tiles to its right: a Villager of
   // ours between them sees the ground first, builds both, and walks home, far out of the frame, before anyone comes.
   const want = { x: dc.x + 12 * T, y: dc.y - 5 * T };
-  const mason = spawn(me, 'harvester', { x: want.x + 4 * T, y: want.y }); e.skip(0.3);
-  const castle = done(put('core', { x: want.x + 8 * T, y: want.y + 0.3 * T }, byId(mason)));
+  const mason = spawn(me, 'harvester', { x: want.x + 2.5 * T, y: want.y + 1.5 * T }); e.skip(0.3);
+  const castle = done(put('core', { x: want.x + 5 * T, y: want.y + 0.3 * T }, byId(mason)));
   const tower = done(put('turret', want, byId(mason)));
   eng.moveTo(byId(mason), window.S.hq.x, window.S.hq.y); e.skip(5);
   eng.debugSetHp(tower, towerHp);
-  const f = { x: tower.x + 3.5 * T, y: tower.y - 0.3 * T };
-  // The defenders wait past the frame's bottom-right corner; their post is at the tower's foot, toward the Castle.
-  const gate = { x: f.x + 11.6 * T, y: f.y + 4.3 * T }, post = { x: tower.x + 2.6 * T, y: tower.y + 2.2 * T };
+  const f = { x: tower.x + 2.5 * T, y: tower.y - 0.5 * T };
+  // The defenders wait just past the frame's bottom-right corner (a short walk: they fire by about four seconds);
+  // their post is at the tower's foot, toward the Castle.
+  const gate = { x: f.x + 9.6 * T, y: f.y + 4.9 * T }, post = { x: tower.x + 2.6 * T, y: tower.y + 2.2 * T };
   const guard = [spawn(me, 'bastion', { x: gate.x - 0.4 * T, y: gate.y - 0.3 * T })];
   for (let i = 0; i < 4; i++) guard.push(spawn(me, 'lancer', { x: gate.x + (0.9 + Math.floor(i / 2) * 0.9) * T, y: gate.y + ((i % 2) - 0.5) * 0.9 * T }));
   // The Drones, in waves (tiles from the tower's center): on the first frame three over the tower, in its range, and
-  // two past the frame's left edge; then two past its top edge; then one past its bottom edge: every one that flies
-  // in within sight of the tower's edge (under six tiles), all inside the coverage.
+  // three past the frame's left edge; then two from its top-left corner; then one past its bottom edge: every one that
+  // flies in within sight of the tower's edge (under six tiles), all inside the coverage.
   const at = (ps) => ps.map(([dx, dy]) => ({ x: tower.x + dx * T, y: tower.y + dy * T }));
   const waves = [
-    { frame: 0, points: at([[-1.6, -1.0], [1.7, -1.9], [0.5, 1.9], [-6.9, -0.6], [-6.6, 0.7]]) },
-    { frame: 12, points: at([[-0.5, -6.9], [0.7, -6.6]]) },
-    { frame: 24, points: at([[0.3, 6.9]]) },
+    { frame: 0, points: at([[-1.6, -1.0], [1.7, -1.9], [0.5, 1.9], [-6.9, -0.6], [-6.6, 0.7], [-6.7, 1.8]]) },
+    { frame: 12, points: at([[-5.8, -4.2], [-4.6, -5.1]]) },
+    { frame: 24, points: at([[2.5, 6.4]]) },
   ];
   return { f, post, guard, waves, foe };
 }
@@ -368,7 +369,7 @@ async function controls() {
  * home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_PREVIEW=1` captures one frame a second at DPR 1
  * and encodes nothing (a look at the staging).
  */
-const FPS = 30, CLIP_S = 12, DEFEND_AT = 0.5, LOOP_S = 0.5, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.4, CLIP_KB = 290;
+const FPS = 30, CLIP_S = 11, DEFEND_AT = 0, LOOP_S = 0.5, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.7, CLIP_KB = 290;
 /** The tower's health as the Drones come (of 380): its fall reads, and it still stands at the end. */
 const TOWER_HP = 340;
 /** The slow-motion beat's speed frame by frame: eased down to a third over six frames, held, eased back. */

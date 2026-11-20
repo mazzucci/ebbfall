@@ -10,7 +10,7 @@
 // (counted once a hello seats someone), joins per address and per /48 (a miss costs more: a guesser is stopped, and
 // learns nothing once stopped), everyone's misses (reported in batches; a scan from rotating networks trips them, and
 // invite links still work), on a fake clock; the bindings as wrangler.toml declares them; a limit that cannot be asked
-// lets the request go on. And hibernation (the WebSocket Hibernation API, on a fake runtime that keeps the sockets and
+// lets the request go on, but a new room, refused (the spend ceiling fails closed). And hibernation (the WebSocket Hibernation API, on a fake runtime that keeps the sockets and
 // their attachments and hibernates an object only with no timer pending): lobbies, games across a hibernation, holds
 // and graces by the alarm, quiet rooms closed, many sockets, the limits after a wake.
 import { test, afterEach } from 'node:test';
@@ -184,8 +184,8 @@ test('a reconnect that replaces a live socket keeps its seat, in the lobby and i
 });
 
 test('no free code: told so', async () => {
-  const taken = { fetch: async () => new Response('Taken', { status: 409 }) };
-  const e = { ROOMS: { idFromName: (n) => n, get: () => taken } };
+  const taken = { fetch: async () => new Response('Taken', { status: 409 }) }, limits = { fetch: async () => new Response(null, { status: 204 }) };
+  const e = { ROOMS: { idFromName: (n) => n, get: (n) => n === 'limits' ? limits : taken } };
   assert.equal((await worker.fetch(upgrade('new=1'), e)).status, 503);
 });
 
@@ -1012,16 +1012,33 @@ test('the Node relay\'s limits (RoomLimits): the /48 tier, the scan, and everyon
   assert.ok(r.join(addressKey('2001:db8:7778:1::1')), 'another network may look');
 });
 
-test('a limit that cannot be asked (a binding or the limits object failing) lets the request go on', async () => {
+test('a limit that cannot be asked (a binding or the limits object failing) lets a join go on; a new room is refused (the spend ceiling fails closed)', async () => {
   const broken = { limit: async () => { throw new Error('down'); } };
   const e = env({ CREATE_LIMIT: broken, JOIN_LIMIT: broken });
-  const limits = e.ROOMS.get('limits'); limits.fetch = async () => { throw new Error('overloaded'); };
-  const code = await openFrom(e, '198.51.100.9');
+  const code = await openFrom(e, '198.51.100.9'); // (opened while the limits object answers)
   assert.match(code, /^[A-Z]{6}$/);
-  const ws = (await worker.fetch(upgrade(`room=${code}`, undefined, '198.51.100.9'), e)).webSocket;
-  say(ws, hello('Bo'));
-  assert.equal(got(ws, 'seat')[0]?.seat, 1);
-  ws.close();
+  const limits = e.ROOMS.get('limits'), fetch = limits.fetch.bind(limits);
+  const ways = [
+    ['throwing', async () => { throw new Error('overloaded'); }],
+    ['erring', async () => new Response('Internal error', { status: 500 })],
+    ['unreachable', null],
+  ];
+  let token; // (Bo's seat: his first join, then reconnects)
+  for (const [how, f] of ways) {
+    const get = e.ROOMS.get;
+    if (f) limits.fetch = f; else e.ROOMS.get = (n) => { if (n === 'limits') throw new Error('unreachable'); return get(n); };
+    try {
+      const objects = e.objects.size;
+      assert.deepEqual(await openFrom(e, '198.51.100.10'), { t: 'error', code: 'limit', msg: SAY.full }, `${how}: a new room refused with the words`);
+      assert.equal(e.objects.size, objects, `${how}: no room's object woken`);
+      const ws = (await worker.fetch(upgrade(`room=${code}`, undefined, '198.51.100.9'), e)).webSocket;
+      say(ws, { ...hello('Bo'), token });
+      assert.equal(got(ws, 'seat')[0]?.seat, 1, `${how}: a join (then a reconnect) to a room open goes on`);
+      token = got(ws, 'seat')[0].token;
+      ws.close(); await settle();
+    } finally { limits.fetch = fetch; e.ROOMS.get = get; }
+  }
+  assert.match(await openFrom(e, '198.51.100.11'), /^[A-Z]{6}$/, 'the limits object back: rooms open again');
 });
 
 test('the host\'s REMOVE through the Worker: the address the stranger came from (CF-Connecting-IP, its /64) is not let in again', async () => {

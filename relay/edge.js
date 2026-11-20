@@ -10,7 +10,8 @@
 // are relay/limits.js's (wrangler.toml's bindings: a test keeps them equal). A refusal is a socket that says `error
 // {code: 'limit'}` and closes: a page cannot read the HTTP status a WebSocket was refused with (it sees only a failed
 // connection, and would retry), and the player must be told to wait. A binding or the limits object failing: the
-// request goes on (the limits must never be what takes multiplayer down).
+// request goes on (the limits must never be what takes multiplayer down), but for a new room, refused while the limits
+// object cannot reserve its lease (the spend ceiling fails closed; a game running never asks it first).
 import { benchRequest } from './bench.js';
 import { versionRequest } from './version.js';
 import { addressKey, wideKey, netKey, KEY_HEADER, MISSES_HEADER, SCAN_HEADER, LEASE_HEADER, MISS_COST, MISS_FLUSH_MS, MISS_BATCH, MINUTE, SAY } from './limits.js';
@@ -131,14 +132,17 @@ export function relay(platform = CLOUDFLARE, now) {
   };
 }
 
-/** The limits object's word on a room from `key`: `no` '' (go on; also when it cannot be asked) with the `lease` the
- *  spend ceiling reserved for it (the room claims it: relay/limits.js Ceiling), or `no` what to say. */
+/** The limits object's word on a room from `key`: `no` '' (go on) with the `lease` the spend ceiling reserved for it
+ *  (the room claims it: relay/limits.js Ceiling), or `no` what to say. The one limit that fails closed: a limits object
+ *  that cannot be asked, or answers anything but 204 or 429, reserved no lease, so the room is refused (SAY.full; the
+ *  spend ceiling is a hard one). Joins, reconnects and a room's renewals never ask it first: they go on. */
 async function budget(env, key) {
   try {
     const res = await limitsObject(env, '/open', { [KEY_HEADER]: key });
     if (res?.status === 429) return { no: await res.text(), lease: '' };
-    return { no: '', lease: res?.headers.get(LEASE_HEADER) || '' };
-  } catch { return { no: '', lease: '' }; }
+    if (res?.status !== 204) return { no: SAY.full, lease: '' };
+    return { no: '', lease: res.headers.get(LEASE_HEADER) || '' };
+  } catch { return { no: SAY.full, lease: '' }; }
 }
 
 export function send(ws, msg) { try { ws.send(JSON.stringify(msg)); } catch { /* closed meanwhile */ } }

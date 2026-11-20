@@ -499,13 +499,24 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base: fully zoomed out with a mouse, at 1 on a phone', async () => {
-  for (const device of [DESKTOP, PHONE]) {
-    const d = await newGame(device, 1, 4242, { ai: false });
+test('a game starts over the base: with a mouse 1200 px of the map across the window (any monitor), nothing past the map\'s edges at the sides or the top; at 1 on a phone', async () => {
+  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, PHONE]) for (const guided of [false, true]) {
+    const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
     try {
-      assert.equal(d.startZoom, d.touch ? 1 : await d.eval(() => endfall.zoomMin), d.touch ? 'phone' : 'desktop');
-      assert.deepEqual(d.errors, []);
-    } finally { await d.close(); }
+      await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      if (guided) await press('#btnFirstHome'); else { await press('#btnSolo'); await press('#btnStart'); }
+      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+      const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom }; });
+      if (device.hasTouch) { assert.equal(s.zoom, 1, `${what}: a phone at 1`); continue; }
+      assert.ok(Math.abs(s.zoom - Math.min(2, Math.max(1, s.w / 1200))) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2): ${JSON.stringify(s)}`);
+      assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
+      assert.ok(s.x >= 0 && s.x + s.vw <= s.map + 0.5 && s.y >= 0, `${what}: nothing past the map's edges at the sides or the top: ${JSON.stringify(s)}`);
+      assert.ok(s.hq[0] > s.x + s.vw * 0.15 && s.hq[0] < s.x + s.vw * 0.85 && s.hq[1] > s.y + s.vh * 0.15 && s.hq[1] < s.y + s.vh * 0.85, `${what}: the base well inside the window: ${JSON.stringify(s)}`);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
   }
 });
 
@@ -891,6 +902,135 @@ test('a newcomer\'s FIRST GAME on the first page, and only there; once the guide
     await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
     assert.ok(await page.locator('#btnFirstHome').isHidden(), 'remembered on this device');
   } finally { await ctx.close(); }
+});
+
+test('a first visit: FIRST GAME is the one big button (what it is, in three lines), the two modes small beside OPTIONS; a game started and left, the modes are the big ones and FIRST GAME a small one', { engines: true }, async () => {
+  for (const device of [DESKTOP, PHONE, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }]) {
+    const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}`;
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+    const box = (sel) => page.locator(sel).boundingBox();
+    /** The first page's buttons as a player reads them, row by row (innerText: what shows). */
+    const rows = () => page.evaluate(() => ['#menuHero', '#menuModes', '#menuRow'].map(id => [...document.querySelectorAll(`${id} > button`)].filter(b => b.offsetParent).map(b => b.innerText.replace(/\s*\n\s*/g, ' | '))));
+    const whole = async () => { // (every button and the footer's links on screen, the page not scrolling)
+      const v = page.viewportSize();
+      for (const sel of ['#btnFirstHome', '#btnSolo', '#btnOnline', '#btnOptions', '#btnInstall', '#linkDocs', '#linkFeedback']) {
+        const b = await box(sel); assert.ok(b && b.x >= 0 && b.y >= 0 && b.x + b.width <= v.width + 0.5 && b.y + b.height <= v.height + 0.5, `${what}: ${sel} on screen: ${JSON.stringify(b)}`);
+      }
+      assert.ok(await page.locator('#start .card.menu').evaluate(c => c.scrollHeight <= c.clientHeight + 1), `${what}: the page does not scroll`);
+    };
+    try {
+      await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      // A first visit: nothing stored. One big button, the guided game; the modes in the small row.
+      assert.deepEqual(await rows(), [['NEW HERE? START WITH | YOUR FIRST GAME | Guided, on Easy, about fifteen minutes'], [], ['SINGLE PLAYER', 'MULTIPLAYER', 'OPTIONS', 'PLAY OFFLINE']], what);
+      const hero = await box('#btnFirstHome'), solo = await box('#btnSolo'), online = await box('#btnOnline');
+      assert.ok(hero.height >= 70 && hero.width >= 300 && hero.height >= solo.height * 1.5 && hero.width >= solo.width * 1.8, `${what}: the big button: ${JSON.stringify([hero, solo])}`);
+      assert.ok(hero.y + hero.height <= solo.y && Math.abs(solo.y - online.y) < 1 && solo.height >= 44, `${what}: the modes on one line under it, a finger high`);
+      assert.deepEqual(await page.locator('#btnFirstHome').evaluate(b => [getComputedStyle(b).backgroundColor, getComputedStyle(document.getElementById('btnSolo')).backgroundColor]), ['rgb(245, 165, 36)', 'rgb(24, 35, 51)'], `${what}: the one amber button`);
+      for (const sel of ['#btnFirstHome .k', '#btnFirstHome .l', '#btnFirstHome .s']) assert.ok(await page.locator(sel).evaluate(e => e.scrollWidth <= e.clientWidth + 1 && e.getBoundingClientRect().height < 40), `${what}: ${sel} on one line`);
+      await whole();
+      // The footer's words read over the field: a backing behind them.
+      assert.notEqual(await page.locator('#menuFoot').evaluate(e => getComputedStyle(e).backgroundColor), 'rgba(0, 0, 0, 0)', `${what}: the footer has a backing`);
+      // The small SINGLE PLAYER opens its page as the big one does.
+      await press('#btnSolo');
+      assert.ok(await page.locator('#menuSolo').isVisible(), `${what}: single player`);
+      await press('#btnSoloBack');
+      // The big button starts the guided game.
+      await press('#btnFirstHome');
+      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+      assert.match(await page.locator('#tut').textContent(), /1\/[89]/, `${what}: the guided game`);
+      assert.equal(await page.evaluate(() => endfall.G.diff), 0, 'on Easy');
+      // Left unfinished (the page closed and opened again): the menu as it was before this, the two modes big, FIRST
+      // GAME a small button in the row, still there to take.
+      await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+      assert.deepEqual(await rows(), [[], ['SINGLE PLAYER', 'MULTIPLAYER'], ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE']], `${what}: a game started, none finished`);
+      const [solo2, first2] = [await box('#btnSolo'), await box('#btnFirstHome')];
+      assert.ok(solo2.height >= 60 && first2.height < solo2.height && first2.y >= solo2.y + solo2.height, `${what}: the modes big again, FIRST GAME small under them: ${JSON.stringify([solo2, first2])}`);
+      assert.equal(await page.locator('#btnSolo').evaluate(b => getComputedStyle(b).backgroundColor), 'rgb(245, 165, 36)');
+      await whole();
+      await press('#btnFirstHome');
+      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+      assert.match(await page.locator('#tut').textContent(), /1\/[89]/, `${what}: the small button starts the guided game too`);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  }
+});
+
+test('a room link and a challenge link on a first visit land where they always did (the lobby\'s join form, the challenge\'s setup), by their plain and their card addresses; BACK from either: the first visit\'s page', { engines: true }, async () => {
+  const code = encode({ map: 4, side: 2, secs: 754, spots: [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 2 }] });
+  for (const device of [DESKTOP, PHONE]) for (const [path, lands] of [['?room=BCDFGH', 'room'], ['r/BCDFGH', 'room'], [`?vs=${code}`, 'vs'], [`vs/${code}`, 'vs']]) {
+    const ctx = await browserContext(device), page = await ctx.newPage(), what = `${path} (${device.viewport.width} px)`;
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+    try {
+      await page.goto(baseUrl() + path, { waitUntil: 'load' });
+      await page.waitForFunction(() => !!window.endfall && location.pathname === '/', null, { timeout: 60000 }); // (a card address goes on to the game's page)
+      assert.deepEqual(await page.evaluate(() => [localStorage.getItem('endfall.games'), localStorage.getItem('endfall.record'), localStorage.getItem('endfall.guided')]), [null, null, null], `${what}: a first visit`);
+      if (lands === 'room') {
+        await page.locator('#onlineJoin').waitFor({ state: 'visible' });
+        assert.ok(await page.locator('#start').isHidden(), `${what}: the lobby, not the menu`);
+        assert.equal(await page.locator('#roomCode').inputValue(), 'BCD-FGH', `${what}: the room's code filled in`);
+        assert.equal(await page.evaluate(() => location.search), '?room=BCDFGH', `${what}: the room in the address`);
+      } else {
+        assert.ok(await page.locator('#menuSolo').isVisible() && await page.locator('#menuHome').isHidden(), `${what}: the single-player page`);
+        assert.equal(await page.locator('#soloNote').textContent(), 'CHALLENGE · won in 12:34 · beat it', `${what}: the challenge's line`);
+        assert.equal(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label').then(t => /Kingdom|KINGDOM/.test(t) && /Hard/.test(t)), true, `${what}: the challenge's board, not a first visit's`);
+        assert.equal(await page.evaluate(() => location.search), '', `${what}: the address cleaned`);
+      }
+      assert.ok(!(await page.locator('#btnFirstHome').isVisible()), `${what}: no first-visit button in the way`);
+      // BACK: the first page, a first visit's still (no game started).
+      await press(lands === 'room' ? '#btnOnlineBack' : '#btnSoloBack');
+      assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuHero #btnFirstHome.hero').isVisible(), `${what}: BACK, the first visit's page`);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  }
+});
+
+test('the setup names each AI\'s level beside its pips (EASY, MEDIUM, HARD), whole on a desktop and a phone; with no board saved a game is Easy against the other people; a saved board is kept', async () => {
+  for (const device of [DESKTOP, PHONE, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }]) {
+    const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}`;
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+    const seats = board(page);
+    /** Each token: its level in words (null: no level), its lit pips, and whether the words are whole: not cut, inside
+     *  the token, clear of the race before them and the side's tag after. */
+    const levels = () => page.$$eval('#soloBoard .tok', ts => ts.map(t => {
+      const w = t.querySelector('.lw'); if (!w) return [null, 0, true];
+      const r = w.getBoundingClientRect(), tok = t.getBoundingClientRect(), tag = t.querySelector('.stag').getBoundingClientRect(), race = t.querySelector('.race').getBoundingClientRect(), pips = t.querySelector('.lvl').getBoundingClientRect();
+      return [w.innerText, t.querySelectorAll('.lvl i.on').length, w.scrollWidth <= w.clientWidth + 1 && r.width > 0 && r.right <= tag.left && r.right <= tok.right && pips.left >= race.right && r.left >= pips.right];
+    }));
+    try {
+      await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => !!window.endfall);
+      await press('#btnSolo');
+      // No board saved: you, the Kingdom, against the Expedition on Easy.
+      assert.deepEqual(await levels(), [[null, 0, true], ['EASY', 1, true]], `${what}: EASY beside one pip`);
+      assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (KING, Kingdom|KINGDOM),/, `${what}: you, the Kingdom`);
+      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (EXP, Expedition|EXPEDITION), Easy,/, `${what}: against the Expedition, on Easy`);
+      assert.equal(await page.evaluate(() => localStorage.getItem('endfall.seats')), null, 'a default, not a choice: nothing saved');
+      await press('#btnStart');
+      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+      assert.deepEqual(await page.evaluate(() => [endfall.G.factions, endfall.G.diff]), [['humans', 'vael'], 0], `${what}: the game the board showed`);
+      await press('#btnPause'); await press('#btnQuit');
+      await page.locator('#menuSolo').waitFor({ state: 'visible' });
+      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (EXP, Expedition|EXPEDITION), Easy,/, `${what}: the same default after a game`);
+      // Every level in words, and the widest board: a mirror on Medium, a third seat (as the last AI), Hard.
+      await seats.diff(1, 1);
+      assert.deepEqual(await levels(), [[null, 0, true], ['MEDIUM', 2, true]], `${what}: MEDIUM`);
+      await seats.add();
+      await seats.diff(2, 2);
+      assert.deepEqual(await levels(), [[null, 0, true], ['MEDIUM', 2, true], ['HARD', 3, true]], `${what}: HARD on the new seat`);
+      await seats.race(1, 'humans'); await seats.race(2, 'random');
+      assert.deepEqual(await levels(), [[null, 0, true], ['MEDIUM', 2, true], ['HARD', 3, true]], `${what}: whole beside KINGDOM and RANDOM too`);
+      // The board is the player's now: kept on the next visit, a mirror too.
+      await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+      await press('#btnSolo');
+      assert.deepEqual((await levels()).map(l => l[0]), [null, 'MEDIUM', 'HARD'], `${what}: the saved levels`);
+      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (KING, Kingdom|KINGDOM), Medium,/, `${what}: the saved mirror kept`);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  }
 });
 
 test('MULTIPLAYER only where a relay is known: none from a strange host, unless the build has the published relay', async () => {
@@ -2536,6 +2676,119 @@ test('phone: the first game guides step by step, pulsing the button it wants (th
     assert.equal(await d.eval(() => { const me = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq), foe = endfall.G.bldgs.find(b => b.team === 1 && b.d.hq); return endfall.G.units.filter(u => u.team === 1 && !u.d.worker && Math.hypot(u.x - me.x, u.y - me.y) < Math.hypot(u.x - foe.x, u.y - foe.y)).length; }), 0, 'no attack yet');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
+});
+
+/** The guided game on a desktop at its army step, the opponent off: two Villagers spawned and sent to the mine, the
+ *  Barracks through the UI, its builder back on the mine. `step(n)`: wait for step n of 8. */
+async function guidedToArmyStep() {
+  const d = await newGame(DESKTOP, 0, 4242, { first: true, ai: false });
+  // (the checklist moves on in the HUD's tick, in real time: a slow software-WebGL frame may hold it a while)
+  const step = (n) => d.page.locator('#tut').filter({ hasText: new RegExp(`${n}/8`) }).waitFor({ timeout: 30000 });
+  await step(1);
+  await d.grant(3000, 0);
+  const core = coreOf(await d.state());
+  await d.eval(([x, y]) => { endfall.engine.debugSpawn(0, 'harvester', x, y); endfall.engine.debugSpawn(0, 'harvester', x, y); }, [core.x, core.y + 80]);
+  await d.skip(1);
+  await step(2);
+  await sendIdleToMine(d);
+  await step(3);
+  const rax = await buildAndFinish(d, 'c', 'barracks', 2);
+  await sendIdleToMine(d); // (its builder, waiting by it)
+  await step(4);
+  return { d, step, rax };
+}
+/** The command card's pulsing buttons, by id, once the checklist has looked (its tick is the HUD's, in real time). */
+async function pulsing(d, want) {
+  const read = () => d.page.$$eval('#cmd button.pulse', bs => bs.map(b => b.dataset.id));
+  for (let i = 0; i < 40 && JSON.stringify(await read()) !== JSON.stringify(want); i++) await d.page.waitForTimeout(250);
+  return read();
+}
+
+test('the first game\'s army step: the Guard button pulses until the sixth Guard is ordered, then the Archer button, then neither; trained, the step is done', async () => {
+  const { d, step, rax } = await guidedToArmyStep();
+  try {
+    assert.match(await d.page.locator('#tut').textContent(), /Train 6 Guards and 2 Archers at the Barracks/);
+    await d.clickEntity(rax.id);
+    assert.deepEqual(await pulsing(d, ['t_trooper']), ['t_trooper'], 'Guards first: the Guard button alone');
+    // Five Guards fill the Barracks' queue: still the Guard button. One trained, the sixth ordered: the Archer button.
+    for (let i = 0; i < 5; i++) await d.pressCard('Guard');
+    assert.deepEqual((await d.state()).bldgs.find(b => b.id === rax.id).queue, Array(5).fill('trooper'), 'five ordered');
+    await d.page.waitForTimeout(600);
+    assert.deepEqual(await pulsing(d, ['t_trooper']), ['t_trooper'], 'five of six: still Guards');
+    assert.ok(await d.skipUntil(() => endfall.G.units.filter(u => u.team === 0 && u.type === 'trooper').length >= 1, null, { seconds: 40 }), 'the first Guard out');
+    await d.pressCard('Guard');
+    assert.deepEqual(await pulsing(d, ['t_lancer']), ['t_lancer'], 'the sixth Guard ordered (one out, five in training): the pulse moves to Archers');
+    assert.match(await d.page.locator('#tut').textContent(), /4\/8/, 'the step goes on until they stand');
+    // Both Archers ordered (the queue takes one more with each Guard out): nothing left to order, nothing pulses.
+    for (let n = 1; n <= 2; n++) {
+      assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id).queue.length < 5, rax.id, { seconds: 40 }), 'room in the queue');
+      await d.pressCard('Archer');
+      assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.filter(k => k === 'lancer').length + mine(await d.state(), 'lancer').length, n, `Archer ${n} ordered`);
+    }
+    assert.deepEqual(await pulsing(d, []), [], 'all ordered: no button pulses');
+    // Trained: six Guards and two Archers, and the step is done (the Market next, on a desktop).
+    assert.ok(await d.skipUntil(() => endfall.G.units.filter(u => u.team === 0 && u.type === 'trooper').length >= 6 && endfall.G.units.filter(u => u.team === 0 && u.type === 'lancer').length >= 2, null, { seconds: 200 }), 'the army trained');
+    await step(5);
+    assert.deepEqual([mine(await d.state(), 'trooper').length, mine(await d.state(), 'lancer').length], [6, 2], 'exactly what the step asked for');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('the first game\'s army step with no population left: too few fighters, it asks for a Cottage (Build pulses) and goes back to the army once there is room; fighters enough without the Archers, it moves on', async () => {
+  const { d, step, rax } = await guidedToArmyStep();
+  try {
+    // The population full of Villagers (trained on and on): 20 of 20, no fighter yet.
+    const core = coreOf(await d.state());
+    const free = await d.eval(() => endfall.G.sup[0][1] - endfall.G.sup[0][0]);
+    await d.eval(([x, y, n]) => { for (let i = 0; i < n; i++) endfall.engine.debugSpawn(0, 'harvester', x, y); }, [core.x, core.y + 110, free]);
+    await d.skip(0.5);
+    assert.deepEqual(await d.eval(() => endfall.G.sup[0].slice()), [20, 20], 'the Castle\'s population, full');
+    await d.page.locator('#tut').filter({ hasText: 'Your population is full: select a Villager and Build a Cottage, then train 6 Guards and 2 Archers' }).waitFor({ timeout: 30000 });
+    assert.match(await d.page.locator('#tut').textContent(), /4\/8/, 'the same step, its other line');
+    await d.clickEntity(rax.id);
+    await d.page.waitForTimeout(800);
+    assert.deepEqual(await pulsing(d, []), [], 'the Barracks: no button pulses (nothing can be trained)');
+    // A Villager: Build pulses; the Cottage built, the step asks for the army again and Guard pulses.
+    const worker = await d.eval(() => endfall.G.units.find(u => u.team === 0 && u.d.worker && u.task.t === 'idle').id);
+    await d.clickEntity(worker);
+    assert.deepEqual(await pulsing(d, ['build']), ['build'], 'a Villager selected: Build pulses');
+    await d.key('Escape');
+    await buildAndFinish(d, 'w', 'depot', 0);
+    await d.page.locator('#tut').filter({ hasText: 'Train 6 Guards and 2 Archers at the Barracks' }).waitFor({ timeout: 30000 });
+    await d.clickEntity(rax.id);
+    assert.deepEqual(await pulsing(d, ['t_trooper']), ['t_trooper'], 'room again: the Guard button');
+    // Guards trained on past the six until the population is full again, no Archer: an army already (eight fighters
+    // and more), the step does not wait for Archers that cannot be trained.
+    const room = await d.eval(() => endfall.G.sup[0][1] - endfall.G.sup[0][0]);
+    assert.ok(room >= 8, `room for eight (${room})`);
+    await d.eval(([n]) => { const c = 32 * 32; for (let i = 0; i < n; i++) endfall.engine.debugSpawn(0, 'trooper', c, c); }, [room]);
+    await step(5);
+    assert.equal(mine(await d.state(), 'lancer').length, 0, 'no Archer, and the guide moved on');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+test('phone on its side: the first game\'s step card is a narrow column in the corner, clear of the Castle the game starts over', async () => {
+  for (const device of [PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) {
+    const d = await newGame(device, 0, 4242, { first: true, ai: false });
+    try {
+      await d.hudText('#tut', /1\/[89]/);
+      // The view the game starts on (the harness plays closer in): the phone's start zoom, over the base.
+      await d.eval((z) => { const c = endfall.G.bldgs.find(b => b.team === 0 && b.d.hq); endfall.cam.zoom = z; endfall.centerOn(c.x + 40, c.y); }, d.startZoom);
+      await d.skip(0.2);
+      const core = coreOf(await d.state());
+      const got = await d.eval((id) => {
+        const b = endfall.G.bldgs.find(x => x.id === id), c = endfall.cam, cv = document.getElementById('game').getBoundingClientRect(), t = document.getElementById('tut').getBoundingClientRect();
+        const sx = (x) => cv.left + (x - c.x) * c.zoom, sy = (y) => cv.top + (y - c.y) * c.zoom;
+        return { card: [t.left, t.top, t.right, t.bottom].map(Math.round), castle: [sx(b.x - b.w * 16 - 8), sy(endfall.bldgArtTop(id)), sx(b.x + b.w * 16 + 8), sy(b.y + b.h * 16)].map(Math.round), vw: innerWidth };
+      }, core.id);
+      const { card, castle } = got, what = `${device.viewport.width}x${device.viewport.height}: ${JSON.stringify(got)}`;
+      assert.ok(card[2] <= castle[0] || card[3] <= castle[1], `the card is left of the Castle or above its top: ${what}`);
+      assert.ok(card[2] - card[0] <= got.vw * 0.31 + 1 && card[2] - card[0] <= 270, `a narrow column: ${what}`);
+      assert.ok(await d.page.locator('#tut .t').evaluate(e => e.scrollWidth <= e.clientWidth + 1 && parseFloat(getComputedStyle(e).fontSize) >= 12), 'its line whole, 12 px');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
 });
 
 test('the first game\'s "hold your base" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone; then train more and attack', async () => {

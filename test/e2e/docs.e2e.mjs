@@ -303,3 +303,26 @@ test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledge
     }
   } finally { await ctx.close(); }
 });
+
+test('the docs\' top bar between a phone and a desktop (641 to 820 px wide, where ABOUT sat under PLAY): all five tabs on the bar, the row not scrolling, on one 48 px row', { engines: true }, async () => {
+  const ctx = await browserContext({ viewport: { width: 734, height: 412 } }), page = await ctx.newPage();
+  try {
+    for (const width of [641, 667, 700, 719, 720, 734, 768, 820, 821, 900]) {
+      await page.setViewportSize({ width, height: 412 });
+      for (const path of ['docs/', 'docs/expedition/']) {
+        await page.goto(baseUrl() + path, { waitUntil: 'load' });
+        await page.evaluate(() => document.fonts.ready);
+        const got = await page.evaluate(() => {
+          const r = (e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right), Math.round(b.width), Math.round(b.height)]; }, t = document.querySelector('.tabs');
+          return { tabs: r(t), scrolls: t.scrollWidth > t.clientWidth + 1, play: r(document.querySelector('.top .play')), a: [...t.querySelectorAll('a')].map(a => [a.innerText, ...r(a)]), bar: Math.round(document.querySelector('.top').getBoundingClientRect().height), page: document.documentElement.scrollWidth <= innerWidth };
+        });
+        const what = `${path} at ${width} px: ${JSON.stringify(got)}`;
+        assert.deepEqual(got.a.map(a => a[0].replace(/^THE /, '')), ['HOME', 'HOW TO PLAY', 'KINGDOM', 'EXPEDITION', 'ABOUT'], what);
+        assert.ok(!got.scrolls && got.page, `the row does not scroll, nor the page sideways: ${what}`);
+        // (the row's last 14 px fade out, a cue for a row that scrolls: no tab may end in them)
+        for (const [name, l, rr, w, h] of got.a) assert.ok(l >= got.tabs[0] && rr <= got.tabs[1] - 14 && rr < got.play[0] && w >= 48 && h >= 48, `${name} whole on the bar, clear of PLAY, a finger's size: ${what}`);
+        assert.ok(got.bar <= 49 && got.play[1] <= width, `one slim row, PLAY on it: ${what}`);
+      }
+    }
+  } finally { await ctx.close(); }
+});

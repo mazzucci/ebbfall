@@ -8,7 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { swSource } from '../tools/offline/plugin.mjs';
 import { decodePNG } from '../tools/art/png.js';
 
-const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/atlas-0.png'];
+const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/atlas-0.webp'];
 
 /** A fake Cache Storage and network: `stored` names the files already in the build's cache (null: no cache yet);
  *  `moved` maps a file to the address the host redirects it to (Cloudflare's /selftest.html -> /selftest). */
@@ -60,7 +60,7 @@ test('every file stored: ready, with the build the About page shows', async () =
 test('some files stored: how many of how many, and the missing ones are fetched for the next check', async () => {
   const fetched = [], on = worker(fakeCaches(['./', 'index.html'], { fetched }));
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 2 });
-  assert.deepEqual(fetched.sort(), ['art/atlas-0.png', 'assets/index-abc.css', 'assets/index-abc.js']);
+  assert.deepEqual(fetched.sort(), ['art/atlas-0.webp', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
 });
 
@@ -96,7 +96,7 @@ test('an install cut short resumes: only the missing files are fetched', async (
   let done;
   on.install({ waitUntil: (p) => { done = p; } });
   await done;
-  assert.deepEqual(fetched.sort(), ['art/atlas-0.png', 'assets/index-abc.css', 'assets/index-abc.js']);
+  assert.deepEqual(fetched.sort(), ['art/atlas-0.webp', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
 });
 
@@ -112,7 +112,7 @@ test('a page the host redirects (Cloudflare: index.html to /, selftest.html to /
 
 test('a file the host answers with an error fails the install, as a failed fetch does', async () => {
   const caches = fakeCaches(null);
-  caches.fetch = async (req) => (req.url === 'art/atlas-0.png' ? { ok: false, status: 404 } : { ok: true, redirected: false });
+  caches.fetch = async (req) => (req.url === 'art/atlas-0.webp' ? { ok: false, status: 404 } : { ok: true, redirected: false });
   const flags = {}, on = worker(caches, flags);
   let waited; on.install({ waitUntil: (p) => { waited = p; } });
   await assert.rejects(waited, /art\/atlas-0\.png \(404\)/);

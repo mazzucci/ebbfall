@@ -1,9 +1,10 @@
-// Generates Endfall's sprite sheets: public/art/atlas-<n>.png + .json pages (PixiJS spritesheet format, scale 2:
-// art is drawn at twice the game's resolution) and public/art/atlas.json, an index with the pages, animations and
-// facings. Units, buildings and resources are 3D models rendered in headless Chromium (tools/render3d); terrain and
-// effects are painted in Node (terrain3.js, effects3.js; effects2.js for the few the re-theme left). Usage: node tools/art/generate.mjs
+// Generates Endfall's sprite sheets: public/art/atlas-<n>.webp (lossless WebP, tools/art/webp.mjs) + .json pages
+// (PixiJS spritesheet format, scale 2: art is drawn at twice the game's resolution) and public/art/atlas.json, an index
+// with the pages, animations and facings. Units, buildings and resources are 3D models rendered in headless Chromium
+// (tools/render3d); terrain and effects are painted in Node (terrain3.js, effects3.js; effects2.js for the few the
+// re-theme left). Usage: node tools/art/generate.mjs
 import { mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
-import { encodePNG } from './png.js';
+import { encodeWebP } from './webp.mjs';
 import { terrainSprites } from './terrain3.js';
 import { effectSprites } from './effects2.js';
 import { atlasEffects } from './effects3.js';
@@ -69,7 +70,7 @@ const root = new URL('../../public/art/', import.meta.url);
 mkdirSync(root, { recursive: true });
 for (const f of readdirSync(root)) if (/^atlas/.test(f)) rmSync(new URL(f, root));
 const pageFiles = [];
-pages.forEach((p, n) => {
+for (const [n, p] of pages.entries()) {
   const height = 2 ** Math.ceil(Math.log2(Math.max(...p.items.map(it => it.y + sprites[it.i].img.h))));
   const data = new Uint8ClampedArray(W * height * 4), frames = {};
   for (const { i, x, y } of p.items) {
@@ -79,10 +80,10 @@ pages.forEach((p, n) => {
     frames[s.name] = s.src ? { frame: { x, y, w, h }, anchor: s.anchor, trimmed: true, sourceSize: { w: s.src.w, h: s.src.h }, spriteSourceSize: { x: s.src.x, y: s.src.y, w, h } }
       : { frame: { x: x + e, y: y + e, w: fw, h: fh }, anchor: s.anchor, sourceSize: { w: fw, h: fh }, spriteSourceSize: { x: 0, y: 0, w: fw, h: fh } };
   }
-  writeFileSync(new URL(`atlas-${n}.png`, root), encodePNG({ w: W, h: height, data }));
-  writeFileSync(new URL(`atlas-${n}.json`, root), JSON.stringify({ frames, meta: { app: 'endfall tools/art', image: `atlas-${n}.png`, format: 'RGBA8888', size: { w: W, h: height }, scale: '2' } }));
+  writeFileSync(new URL(`atlas-${n}.webp`, root), await encodeWebP({ w: W, h: height, data })); // (tools/art/webp.mjs: lossless)
+  writeFileSync(new URL(`atlas-${n}.json`, root), JSON.stringify({ frames, meta: { app: 'endfall tools/art', image: `atlas-${n}.webp`, format: 'RGBA8888', size: { w: W, h: height }, scale: '2' } }));
   pageFiles.push(`atlas-${n}.json`);
-});
+}
 const seq = (prefix, n) => Array.from({ length: n }, (_, f) => `${prefix}${f}`);
 const animations = { boom_big: seq('boom_big_', 8), boom_small: seq('boom_small_', 6), puff: seq('puff_', 4), flash: seq('flash_', 3), spark: seq('spark_', 4), glint: seq('glint_', 3), muzzle: seq('muzzle_', 3), trail: seq('trail_', 4), flag: seq('flag_', 4), heal: seq('heal_', 3) };
 for (const s of sprites) if (s.anim) (animations[s.anim] ||= [])[s.frame] = s.name; // units: <unit>_<dir> (base frames)

@@ -27,7 +27,7 @@ const ORIGIN = 'https://ebbfall.com';
 const NAVIGATE = { 'Sec-Fetch-Mode': 'navigate', Accept: 'text/html,application/xhtml+xml' };
 const RULES = parseHeaders(headersFile());
 const FILES = new Set(['/index.html', '/selftest.html', '/voice-lab.html', '/sw.js', '/manifest.webmanifest', '/assets/index-Bx1y2z3w.js',
-  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/atlas-0.png', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
+  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/atlas-0.webp', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
   '/docs/index.html', '/docs/kingdom/index.html', '/docs/how-to-play/index.html', '/docs/img/sprites/core-336.webp']);
 
 /**
@@ -68,7 +68,7 @@ test("a page's other spellings are sent to its canonical address (307), the quer
     assert.equal(r.res.status, 307, from);
     assert.equal(r.res.headers.get('Location'), to, from);
   }
-  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/atlas-0.png']) {
+  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/atlas-0.webp']) {
     const r = await site(path, { blocked: true });
     assert.equal(r.file, path, path);
   }
@@ -78,7 +78,7 @@ test("hashed build output is kept for good; anything else keeps Cloudflare's def
   for (const path of ['/assets/index-Bx1y2z3w.js', '/assets/endfall_sim_bg-ClB66k65.wasm']) {
     assert.equal((await site(path)).res.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', path);
   }
-  assert.equal((await site('/art/atlas-0.png')).res.headers.get('Cache-Control'), null);
+  assert.equal((await site('/art/atlas-0.webp')).res.headers.get('Cache-Control'), null);
 });
 
 test('not a file, the Worker: a page load goes to the game (its query kept), a missing script or image is a plain 404', async () => {
@@ -215,7 +215,7 @@ test('a CSP report: logged (2 KB at most) and answered 204, never stored or serv
 test('security headers: nosniff, the referrer policy, the device powers and the CSP, on every file (_headers) and every Worker answer', async () => {
   const policy = SECURITY['Permissions-Policy'];
   for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'web-share=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
-  for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.png', '/r/BCDFGH', '/nope.js', '/nope']) {
+  for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.webp', '/r/BCDFGH', '/nope.js', '/nope']) {
     const { res } = await site(path, { headers: NAVIGATE });
     for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);
   }

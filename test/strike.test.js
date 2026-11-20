@@ -7,13 +7,13 @@ import { readFileSync } from 'node:fs';
 import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, DEATH_DUST, HIT_DUST, AIR_HIT_LIFT, HIT_LIFT, hitLift } from '../src/client/look.js';
 import { fx, burst, partSize, updateFx } from '../src/client/fx.js';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { decodePNG } from '../tools/art/png.js';
+import { decodeWebP } from '../tools/art/webp.mjs';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {}, pageOf = {};
 for (const p of index.pages) { const j = JSON.parse(readFileSync(new URL(p, art))); Object.assign(frames, j.frames); for (const n in j.frames) pageOf[n] = j.meta.image; }
 /** Whether frame `name`'s pixel (x, y) (in the frame, atlas px) is opaque. */
-function opaqueIn(name) {
-  const { x: fx0, y: fy0, w } = frames[name].frame, img = decodePNG(readFileSync(new URL(pageOf[name], art)));
+async function opaqueIn(name) {
+  const { x: fx0, y: fy0, w } = frames[name].frame, img = await decodeWebP(readFileSync(new URL(pageOf[name], art)));
   return (x, y) => x >= 0 && y >= 0 && x < w && img.data[((fy0 + y) * img.w + fx0 + x) * 4 + 3] > 0;
 }
 
@@ -112,8 +112,8 @@ test('dust is the pale round trail tinted earth, never the gray puff (its dark t
   for (const line of src.split('\n').filter(l => /addEffect\('puff'/.test(l))) assert.ok(!/tint/.test(line.slice(line.indexOf("addEffect('puff'"))), `an untinted puff: ${line.trim()}`);
 });
 
-test('the glint\'s first frame: a heart 2 game px across (4 atlas px), its arms tapering from 4 px at the root to 2', () => {
-  const f = frames.glint_0.frame, o = opaqueIn('glint_0'), c = f.w / 2; // (center between pixels c - 1 and c)
+test('the glint\'s first frame: a heart 2 game px across (4 atlas px), its arms tapering from 4 px at the root to 2', async () => {
+  const f = frames.glint_0.frame, o = await opaqueIn('glint_0'), c = f.w / 2; // (center between pixels c - 1 and c)
   for (let d = -2; d < 2; d++) assert.ok(o(c + d, c - 1) && o(c + d, c) && o(c - 1, c + d) && o(c, c + d), 'a heart 4 px across');
   const width = (r) => [-3, -2, -1, 0, 1, 2].filter(d => o(c + d, c - 1 - r)).length; // (across the north arm, r px above the heart's edge)
   assert.equal(width(2), 4, 'the arm\'s root 4 px wide');

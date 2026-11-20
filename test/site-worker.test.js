@@ -58,6 +58,7 @@ test("the game's page, every link into it, the docs and the other pages: files, 
     assert.equal((await site(path)).res.headers.get('Cache-Control'), 'no-cache', `${path}: checked on every load`);
   }
   assert.equal((await site('/docs/kingdom/')).res.headers.get('Cache-Control'), null, "the docs: Cloudflare's default (revalidated)");
+  assert.equal((await site('/og.png')).res.headers.get('Cache-Control'), 'public, max-age=86400', "the link preview's image: kept a day");
 });
 
 test("a page's other spellings are sent to its canonical address (307), the query kept; files at their own paths", async () => {
@@ -214,7 +215,8 @@ test('a CSP report: logged (2 KB at most) and answered 204, never stored or serv
 
 test('security headers: nosniff, the referrer policy, the device powers and the CSP, on every file (_headers) and every Worker answer', async () => {
   const policy = SECURITY['Permissions-Policy'];
-  for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'web-share=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
+  for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
+  assert.ok(!policy.includes('web-share'), 'no web-share: the page may share by default, and Chromium logs the name as an unrecognized feature');
   for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.png', '/r/BCDFGH', '/nope.js', '/nope']) {
     const { res } = await site(path, { headers: NAVIGATE });
     for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);

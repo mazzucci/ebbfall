@@ -49,17 +49,18 @@ description: Mouse, keyboard and touch controls, mining gold, building, populati
 </details>
 
 <h2 id="desktop">Controls on a desktop</h2>
+{{clip desktop-loop | title=Ebbfall on a computer: the mouse and keyboard controls | label=Ebbfall on a computer: drag a box to select, right-click to move, double-click for all of one type, A then a click to attack-move, B to build, Ctrl+1 saves a control group and 1 recalls it, the arrow keys move the map | caption=The desktop controls in 16 seconds, in the Classic scheme: a box, a right-click, a double-click, A, B, a control group, the arrow keys. Clicks are drawn as rings, white for the left button and teal for the right; keys as keycaps.}}
 {{figure shot-desktop-hud | res=Gold, and population (the Expedition: GRID) | bar=Game clock, the ? help, FULL SCREEN, SOUND, PAUSE | minimap=Minimap: click to jump, drag to scroll | info=Selection: portrait, name, health, the group's types | cmd=Command card: each button shows its key | groups=Control groups and the ATTACK alert}}
 <h3>Mouse</h3>
-<table>
+<table class="touch desk">
 <thead><tr><th scope="col">Do</th><th scope="col">How</th></tr></thead>
 <tbody>
-<tr><td>Select</td><td>left-click, or drag a box</td></tr>
-<tr><td>Move, attack, mine, set a rally point</td><td>right-click</td></tr>
-<tr><td>Move the map</td><td>hold the middle button and drag, or the arrow keys, or the screen's edge</td></tr>
+<tr><td>Select</td><td>left-click, or drag a box{{loop desk-select | label=Ebbfall on a computer: drag a box to select a group of units | do=Select}}</td></tr>
+<tr><td>Move, attack, mine, set a rally point</td><td>right-click{{loop desk-move | label=Ebbfall on a computer: right-click the ground to move the selected units | do=Move, attack, mine, set a rally point}}</td></tr>
+<tr><td>Move the map</td><td>hold the middle button and drag, or the arrow keys, or the screen's edge{{loop desk-pan | label=Ebbfall on a computer: hold an arrow key to move the map | do=Move the map}}</td></tr>
 <tr><td>Zoom</td><td><kbd>Ctrl</kbd>+wheel, or a trackpad pinch</td></tr>
 <tr><td>One unit of a group</td><td>click it in the panel; Shift+click drops it</td></tr>
-<tr><td>All of one type on screen</td><td>double-click one (on a factory: all of them, and they train as one)</td></tr>
+<tr><td>All of one type on screen</td><td>double-click one (on a factory: all of them, and they train as one){{loop desk-type | label=Ebbfall on a computer: double-click a unit to select all of its type on screen | do=All of one type on screen}}</td></tr>
 </tbody>
 </table>
 <h3>Keyboard</h3>
@@ -67,16 +68,16 @@ description: Mouse, keyboard and touch controls, mining gold, building, populati
 <table class="schemes">
 <thead><tr><th scope="col"></th><th scope="col">Classic</th><th scope="col">WASD</th></tr></thead>
 <tbody>
-<tr><th scope="row">Move the map</th><td data-label="Classic">arrows or the screen's edge (<kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> too while nothing is selected)</td><td data-label="WASD"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, always</td></tr>
-<tr><th scope="row">A command's key</th><td data-label="Classic">its own letter: <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold, <kbd>B</kbd> build (workers selected)</td><td data-label="WASD">its place on the card: <kbd>E</kbd> <kbd>R</kbd> <kbd>T</kbd> the top row, <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> the middle, <kbd>C</kbd> <kbd>V</kbd> <kbd>B</kbd> the bottom</td></tr>
+<tr><th scope="row">Move the map</th><td data-label="Classic">arrows or the screen's edge (<kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> too while nothing is selected)</td><td data-label="WASD"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, always{{loop desk-wasd | label=Ebbfall on a computer, the WASD scheme: W and D move the map with units still selected, E then a click attack-moves them, R holds | do=Move the map}}</td></tr>
+<tr><th scope="row">A command's key</th><td data-label="Classic">its own letter: <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold, <kbd>B</kbd> build (workers selected){{loop desk-attack | label=Ebbfall on a computer: A, then a click on the ground, attack-moves the selected units | do=A command's key}}</td><td data-label="WASD">its place on the card: <kbd>E</kbd> <kbd>R</kbd> <kbd>T</kbd> the top row, <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> the middle, <kbd>C</kbd> <kbd>V</kbd> <kbd>B</kbd> the bottom</td></tr>
 </tbody>
 </table>
 <p>Every button shows its key. In both schemes:</p>
-<table>
+<table class="touch desk">
 <thead><tr><th scope="col">Key</th><th scope="col">Does</th></tr></thead>
 <tbody>
 <tr><td>Shift + a unit's key</td><td>trains five</td></tr>
-<tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> to <kbd>9</kbd>, then <kbd>1</kbd> to <kbd>9</kbd></td><td>saves a control group, recalls it</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> to <kbd>9</kbd>, then <kbd>1</kbd> to <kbd>9</kbd></td><td>saves a control group, recalls it{{loop desk-group | label=Ebbfall on a computer: Ctrl+1 saves the selected units as a control group, 1 selects them again | do=Ctrl+1 to 9, then 1 to 9}}</td></tr>
 <tr><td><kbd>Q</kbd></td><td>your whole army (twice: look at it)</td></tr>
 <tr><td><kbd>Space</kbd></td><td>jump to the last attack (again: the ones before)</td></tr>
 <tr><td><kbd>,</kbd></td><td>an idle factory</td></tr>

@@ -19,11 +19,11 @@ const IND_CSS = `
 #ct .pinch{stroke:rgba(255,255,255,.55);stroke-width:2;stroke-dasharray:6 6}
 `;
 
-/** Put the indicator layer into the phone page (once). */
-export const installIndicator = (page) => page.evaluate((css) => {
+/** Put the indicator layer into the page (once); `extra`: more style (mouse.mjs CURSOR_CSS for the desktop sets). */
+export const installIndicator = (page, extra = '') => page.evaluate((css) => {
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   const d = document.createElement('div'); d.id = 'ct'; d.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"></svg>'; document.body.appendChild(d);
-}, IND_CSS);
+}, IND_CSS + extra);
 
 /**
  * Draw the indicator for time t: `fingers` [{ x, y, id, kind, since }], `taps` [{ x, y, t }], `holds` [{ x, y, t,
@@ -54,15 +54,16 @@ export const PHONE = { width: 844, height: 390 }, TALL = { width: 540, height: 9
 /** The phone's picture in the tall canvas (CSS px): 500 wide across the middle in a drawn phone outline (an 8 px
  *  bezel and a 2 px rim), 10 px from either edge of the 540: 10 + 2 + 8 + 500 + 8 + 2 + 10. */
 export const TALL_PHONE = { left: 12, top: 318, width: 500, height: Math.round(500 * 390 / 844), border: 8 };
-/** Where the landscape caption's top goes (CSS px: under the top bar), and the tall caption's. */
-export const CAP_TOP = { land: 46, tall: TALL_PHONE.top + TALL_PHONE.height + 2 * TALL_PHONE.border + 40 };
+/** Where each framing's caption top goes (CSS px): the landscape phone's and the desktop's under the top bar, the tall one's under the phone. */
+export const CAP_TOP = { land: 46, desk: 54, tall: TALL_PHONE.top + TALL_PHONE.height + 2 * TALL_PHONE.border + 40 };
 
 const CAP_CSS = `
 html,body{margin:0;background:transparent;overflow:hidden;font-family:'Chakra Petch',sans-serif;color:#fff}
 #app,#start,#top,#hud,#stage{display:none!important} canvas#game{display:none}
 .cap{position:absolute;left:0;top:0;font-weight:600;line-height:1.2;text-align:center}
 .cap b{color:#f5a524;font-weight:700}
-.land .cap{max-width:720px;font-size:25px;padding:7px 16px 8px;border-radius:9px;background:rgba(11,15,22,.8);border:1px solid rgba(255,255,255,.14);box-shadow:0 2px 10px rgba(0,0,0,.45);white-space:nowrap}
+.land .cap,.desk .cap{max-width:720px;font-size:25px;padding:7px 16px 8px;border-radius:9px;background:rgba(11,15,22,.8);border:1px solid rgba(255,255,255,.14);box-shadow:0 2px 10px rgba(0,0,0,.45);white-space:nowrap}
+.desk .cap{max-width:1000px;font-size:30px;padding:9px 20px 10px}
 .tall .cap{width:480px;font-size:31px;line-height:1.25;text-wrap:balance}
 .tall .cap b{display:block;font-size:24px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
 .bg{width:${TALL.width}px;height:${TALL.height}px;background:#0b0f16;position:relative}
@@ -77,10 +78,10 @@ html,body{margin:0;background:transparent;overflow:hidden;font-family:'Chakra Pe
  * landscape pill) and <beat>-<i>-tall.png (480 CSS px wide, the label on its own line); plus tall-bg.png, the tall
  * canvas. Returns the captions' sizes (px at DPR 2) by file.
  */
-export async function renderCaptions(stage, sheets, beats, dir) {
+export async function renderCaptions(stage, sheets, beats, dir, main = 'land') {
   const sizes = {};
-  for (const kind of ['land', 'tall']) {
-    const page = await stage.browser.newPage({ viewport: TALL, deviceScaleFactor: 2 });
+  for (const kind of main === 'land' ? ['land', 'tall'] : [main]) {
+    const page = await stage.browser.newPage({ viewport: kind === 'desk' ? { width: 1280, height: 720 } : TALL, deviceScaleFactor: 2 }); // (a caption wider than the page would be clipped)
     try {
       await page.goto(`${stage.origin}robots.txt`);
       await page.setContent(`<!doctype html><html class="${kind}"><head>${sheets.map(h => `<link rel="stylesheet" href="${h}">`).join('')}<style>${CAP_CSS}</style></head><body><canvas id="game"></canvas><div class="cap"></div></body></html>`);
@@ -88,7 +89,7 @@ export async function renderCaptions(stage, sheets, beats, dir) {
       for (const b of beats) {
         for (const [i, c] of b.caps.entries()) {
           const box = await page.evaluate((html) => { const el = document.querySelector('.cap'); el.innerHTML = html; const r = el.getBoundingClientRect(); return { x: 0, y: 0, width: Math.ceil(r.width) + 2, height: Math.ceil(r.height) + 2 }; }, c.html);
-          const file = `${dir}/${b.id}-${i}${kind === 'tall' ? '-tall' : ''}.png`;
+          const file = `${dir}/${b.id}-${i}${kind === 'tall' ? '-tall' : ''}.png`; // (the main framing's file carries no suffix)
           const png = await page.screenshot({ clip: box, omitBackground: true });
           (await import('node:fs')).writeFileSync(file, png);
           sizes[file] = { w: box.width * 2, h: box.height * 2 };

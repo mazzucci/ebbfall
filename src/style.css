@@ -275,6 +275,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}
 #menuLinks a{display:inline-flex;align-items:center;min-height:44px;min-width:48px;justify-content:center;padding:0 6px;color:var(--muted);text-decoration:none;letter-spacing:.04em} #menuLinks a:hover,#menuLinks a:focus-visible{color:var(--ally2);text-decoration:underline}
 #menuFoot{display:flex;flex-direction:column;align-items:center}
+/* The footer reads over the field: on a phone the links and the stamp sit on the band's top, muted mono on a busy picture. A backing in the floor's own color, feathered (nothing to see on the plain floor, the picture dimmed under the words), and the words a step lighter. */
+#menuFoot{width:fit-content;margin-left:auto;margin-right:auto;padding:0 12px;border-radius:10px;background:rgba(18,26,37,.82);box-shadow:0 0 10px 6px rgba(18,26,37,.82)}
+#menuLinks,#menuLinks a,#menuHome .rec{color:#aebbcb}
 @media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, clear of the field) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}

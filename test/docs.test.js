@@ -9,7 +9,6 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import vm from 'node:vm';
 
 const pkg = new URL('../src/engine/pkg/data.js', import.meta.url);
 const skip = !existsSync(pkg) && 'no WASM built (npm run build:wasm)';
@@ -367,36 +366,6 @@ test('the first view: two fonts preloaded and every face swaps, the one script d
     assert.ok(head.includes('<script src="/docs/docs.js" defer></script>'), `${p.path}: the script deferred in the head`);
     assert.equal((html.match(/<script src=/g) || []).length, 1, `${p.path}: one script`);
   }
-});
-
-/** docs.js run in a page of its own (node:vm): the display mode it reports, the orientation's lock as a fake that
- *  records its calls (and fails, as a browser may), nothing else of a docs page. Returns the calls and pageshow. */
-function runDocsJs(displayMode, { orientation = true, lockThrows = false } = {}) {
-  const calls = [], on = {};
-  const el = { classList: { add() {} }, querySelector: () => null };
-  const lock = (t) => { calls.push(t); if (lockThrows) throw new Error('not allowed'); return Promise.reject(new Error('fullscreen required')); };
-  const win = {
-    screen: orientation ? { orientation: { type: 'landscape-primary', lock, unlock() { calls.push('unlock'); } } } : {},
-    matchMedia: (q) => ({ matches: q === `(display-mode: ${displayMode})` }),
-    addEventListener: (t, f) => { (on[t] ||= []).push(f); },
-    document: { documentElement: el, readyState: 'complete', querySelector: () => null, querySelectorAll: () => [], getElementById: () => null },
-  };
-  win.window = win;
-  vm.runInNewContext(readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8'), win);
-  return { calls, pageshow: (persisted) => (on.pageshow || []).forEach(f => f({ persisted })) };
-}
-
-test('in the installed app (display mode fullscreen) the docs turn with the phone: lock(any), again back from the back-forward cache; nowhere else', async () => {
-  const app = runDocsJs('fullscreen');
-  assert.deepEqual(app.calls, ['any'], 'lock(any) as the page opens (unlock() would go back to the manifest\'s landscape)');
-  app.pageshow(false);
-  assert.deepEqual(app.calls, ['any'], 'a page loaded anew is not locked twice');
-  app.pageshow(true);
-  assert.deepEqual(app.calls, ['any', 'any'], 'back from the back-forward cache (Chrome lifted the lock when the game came): locked again');
-  await new Promise(r => setTimeout(r, 0)); // (a refused lock is caught: an unhandled rejection would fail the test)
-  for (const mode of ['browser', 'standalone', 'minimal-ui']) assert.deepEqual(runDocsJs(mode).calls, [], `${mode}: not touched`);
-  assert.deepEqual(runDocsJs('fullscreen', { lockThrows: true }).calls, ['any'], 'a lock that throws is caught');
-  assert.doesNotThrow(() => runDocsJs('fullscreen', { orientation: false }), 'no Screen Orientation API: nothing');
 });
 
 test('the sitemap lists the game and every page with a date; llms.txt links every page; robots.txt names the sitemap', { skip }, () => {

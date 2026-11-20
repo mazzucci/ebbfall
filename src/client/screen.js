@@ -39,11 +39,26 @@ const goOut = async () => { try { await (document.exitFullscreen ? document.exit
 // browser's bars take room the game needs. With a mouse (a desktop or laptop: room enough, and Esc belongs to the game,
 // not to leaving full screen) they do nothing; the full-screen button still goes in. (By the input, not the device.)
 const autoFull = touchDevice;
+// In an installed app that runs full screen the manifest leaves the orientation to the phone (the menu and the docs turn
+// with it), and the game turns to landscape itself: Chrome lets such an app lock the orientation without the page's
+// full screen (Android, from Chrome 124), and a lock held that way outlasts a pause, the system's back gesture and the
+// app going to the background, where one taken in the page's full screen would go with it. Where that lock is refused
+// (an older Chrome) the page's full screen and its lock, as in a browser tab.
+const appLock = appFull && touchDevice;
+async function lockLandscape() { try { await screen.orientation.lock('landscape'); return true; } catch { return false; } }
 /** Go full screen, unless the player chose to leave it or there is a mouse (must run inside a user gesture; failures
- *  are fine). `restore`: back to the full screen a pause left (BACK TO GAME), whatever the input. */
+ *  are fine); in an installed app on a touch screen, landscape without the page's full screen (above). `restore`: back
+ *  to the full screen a pause left (BACK TO GAME), whatever the input. */
 export async function enterFullscreen({ restore = false } = {}) {
+  if (appLock && screen.orientation?.lock && await lockLandscape()) return;
   if (!pageFullscreenWorks || declined || isFull() || (!autoFull && !restore)) return;
   await goFull();
+}
+/** Back at the title screen in such an app: the phone's orientation again (unlock: the manifest's, any). Nothing in a
+ *  browser tab, where the page's full screen holds the lock. */
+export function releaseLandscape() {
+  if (!appLock) return;
+  try { screen.orientation?.unlock?.(); } catch { /* not supported */ }
 }
 /** Leave full screen if in it, on the game's account (PAUSE: not the player's choice; failures are fine). */
 export async function exitFullscreen() { if (isFull()) await goOut(); }

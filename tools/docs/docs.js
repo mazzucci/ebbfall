@@ -1,20 +1,5 @@
 // The docs' one script, /docs/docs.js (tools/docs/build.mjs copies it; a file, not inline: the site's CSP), deferred in
 // every page's head: it runs once the page is parsed. The pages read whole without it.
-
-// In the installed app the docs turn with the phone. The manifest's orientation (landscape, for the game) holds for
-// every page in its scope, the docs too, opened from a link or from the game; an app in display mode fullscreen may
-// lock the orientation without the Fullscreen API (Chrome on Android, from 124), and `any` lets the phone turn as the
-// person's own rotation setting says. unlock() would not do it: it goes back to the manifest's landscape. Chrome lifts
-// a lock when another page comes (the game's PLAY: landscape again), so a page back from the back-forward cache
-// locks again. First in the file, so that a page opened from another docs page is free as soon as it can be.
-(function () {
-  var o = window.screen && screen.orientation;
-  if (!o || typeof o.lock !== 'function' || !matchMedia('(display-mode: fullscreen)').matches) return;
-  function free() { try { o.lock('any').catch(function () {}); } catch (e) { /* not allowed here */ } }
-  free();
-  addEventListener('pageshow', function (e) { if (e.persisted) free(); });
-})();
-
 (function () {
   // Scripts run: the touch table's ? buttons show (docs.css `.js .see`; hidden until then, as they would do nothing).
   document.documentElement.classList.add('js');

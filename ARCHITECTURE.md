@@ -356,7 +356,10 @@ src/client/           everything that touches the browser
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, FIRST GAME, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
-                      player's choice to leave it, the page held still in a browser tab, the leave-game guard
+                      player's choice to leave it, the page held still in a browser tab, the leave-game guard; in the
+                      installed app (display fullscreen, the manifest's orientation `any`: the menu and the docs turn
+                      with the phone) those same entries lock landscape with no page full screen (Chrome 124+; refused:
+                      the page's full screen as in a tab), and the menu unlocks it (`releaseLandscape`)
   corner.js           sound and full screen always in reach: the top bar's pair in a game, the screen's corner (#corner)
                       over every menu page, the lobby and every card (the pause card: full screen only, as it pauses the
                       sound); one sound setting; on iPad/iPhone the full-screen button opens the Add to Home Screen card
@@ -616,7 +619,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       rumble; ENDFALL_VOICE_OUT=dir writes WAVs to listen to)
 test/offline.test.js  the service worker (tools/offline/sw.js) on a fake Cache Storage: PLAY OFFLINE's answer, a resumed
                       install, a page the host redirects stored as a response of its own at both addresses, Cloudflare's
-                      analytics beacon and byte ranges (the docs' videos) left to the network; the manifest's app icons
+                      analytics beacon and byte ranges (the docs' videos) left to the network; the manifest's app icons;
+                      its scope, display and orientation (`any`) and the game's own landscape lock
 test/net.test.js      two Net clients with WASM Games through the Node relay: same world every tick through a dropped socket,
                       a suspended page, a wake during a pending reconnect, orders given while offline; rooms of three,
                       four (two AIs at different levels) and eight with AI seats; a guest at spot 1 who plays game
@@ -704,8 +708,7 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       Build-list order, each building in its tier, its units in order, a "needs" tag only where the
                       building's chain does not imply it); the feedback page (the form as site/feedback.js checks it,
                       the honeypot, the details, SEND only with scripts, the fallback and the thank-you) and About's
-                      privacy line about it, checked against what the code sends; docs.js run in node:vm: lock('any')
-                      only in display mode fullscreen (the installed app), again on a back-forward cache restore
+                      privacy line about it, checked against what the code sends
 test/site-dns.test.js site/dns.mjs on a fake Cloudflare API: GitHub Pages' records of the apex and www picked out (never
                       relay.ebbfall.com or others), the summary, proxy/unproxy (one batch of PATCHes of `proxied`, nothing
                       the second time), a leftover custom domain dropped, a restore past a failure
@@ -801,8 +804,7 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
                       designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
-                      and one deferred script, docs.js (in the installed app the docs turn with the phone, lock('any')
-                      over the manifest's landscape; the tabs scrolled to the current one, the clip fetched once the
+                      and one deferred script, docs.js (the tabs scrolled to the current one, the clip fetched once the
                       page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
                       two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
                       other image lazy), sprites.mjs and crops.mjs (the sprite crops: the

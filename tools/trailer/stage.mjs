@@ -49,7 +49,6 @@ export async function game(stage, device, { map = 'quarter', as = 'humans', hud 
   const ctx = await stage.browser.newContext(device);
   await ctx.addInitScript(([as, init]) => {
     localStorage.setItem('endfall.seats', JSON.stringify([{ race: as, team: 0 }, { race: as === 'humans' ? 'vael' : 'humans', team: 1, diff: 1 }]));
-    localStorage.setItem('endfall.guided', '1');
     for (const [k, v] of Object.entries(init)) localStorage.setItem(`endfall.${k}`, v); // (`init`: more of the device's settings, e.g. controls: 'wasd')
   }, [as, init]);
   const page = await ctx.newPage();

@@ -205,7 +205,6 @@ async function game(device, race, css, query = '') {
   const ctx = await browser.newContext(device);
   await ctx.addInitScript(([race]) => {
     localStorage.setItem('endfall.seats', JSON.stringify([{ race, team: 0 }, { race: race === 'humans' ? 'vael' : 'humans', team: 1, diff: 1 }]));
-    localStorage.setItem('endfall.guided', '1');
   }, [race]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));

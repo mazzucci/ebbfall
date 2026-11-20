@@ -201,7 +201,7 @@ export function board(page, scope = 'solo') {
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
  *  function run in the page before the game loads (or [function, argument]). */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', first = false, init = null } = {}) {
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', tutorial = false, init = null } = {}) {
   const ctx = await browserContext(device);
   // The board the scenarios play on: you against `enemy`, the Kingdom unless asked (they were written on a mirror),
   // saved as a player's own board is. With none saved the menu seats the other people (menu.js `defaultRows`: the
@@ -216,11 +216,11 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
-  // The menu's first page, a first visit's: FIRST GAME (the guided game, its one big button) or SINGLE PLAYER.
-  await (touch ? page.locator(first ? '#btnFirstHome' : '#btnSolo').tap() : page.locator(first ? '#btnFirstHome' : '#btnSolo').click());
-  if (!first && race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
-  if (!first && diff !== 0) await board(page).diff(1, diff);
-  if (!first) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
+  // The menu's first page: TUTORIAL (the guided game) or SINGLE PLAYER.
+  await (touch ? page.locator(tutorial ? '#btnTutorial' : '#btnSolo').tap() : page.locator(tutorial ? '#btnTutorial' : '#btnSolo').click());
+  if (!tutorial && race !== 'humans') await board(page).race(0, race); // (the sides board: your race, the AI's difficulty)
+  if (!tutorial && diff !== 0) await board(page).diff(1, diff);
+  if (!tutorial) await (touch ? page.locator('#btnStart').tap() : page.locator('#btnStart').click());
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
   if (!ai) await page.evaluate(() => endfall.engine.disableAi());
   // The scenarios play close in, at one zoom whatever the window (a desktop's start depends on its width; software

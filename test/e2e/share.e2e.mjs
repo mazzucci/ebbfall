@@ -1,5 +1,5 @@
 // SHARE after a victory and the challenge link it shares (src/client/share.js, challenge.js, menu.js): the end card
-// offers SHARE after a win against the AI only (not the guided first game) and fits on small screens with it; on a
+// offers SHARE after a win against the AI only (not the tutorial) and fits on small screens with it; on a
 // desktop with no share sheet it copies the link (LINK COPIED in the button, then SHARE again), with one it shares the
 // link with a line made from the setup, and a cancelled sheet says nothing; the link opens the single-player page on
 // that setup (board, map, its seed and starts), a line saying so, the address cleaned, nothing saved until the player
@@ -159,8 +159,8 @@ test('a challenge link opens its setup; a change makes it the player\'s; a bad l
   }
 });
 
-test('no SHARE after the guided first game', async () => {
-  const d = await newGame(DESKTOP, 0, 4242, { first: true });
+test('no SHARE after the tutorial', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { tutorial: true });
   try {
     await win(d.page);
     assert.equal(await d.page.locator('#result').textContent(), 'VICTORY');

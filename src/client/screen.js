@@ -35,7 +35,7 @@ async function goFull() {
   try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported or not allowed */ }
 }
 const goOut = async () => { try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch { /* ignore */ } };
-// The automatic entries (START, FIRST GAME, REMATCH, READY, the device test's START) are for a touch screen, where the
+// The automatic entries (START, TUTORIAL, REMATCH, READY, the device test's START) are for a touch screen, where the
 // browser's bars take room the game needs. With a mouse (a desktop or laptop: room enough, and Esc belongs to the game,
 // not to leaving full screen) they do nothing; the full-screen button still goes in. (By the input, not the device.)
 const autoFull = touchDevice;

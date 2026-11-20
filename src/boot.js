@@ -2,7 +2,7 @@
 // and the sound and full screen (corner.js: the screen's corner and the top bar's pair) are wired as soon as this small
 // graph is in, so they work before the game has loaded, and if it cannot; nothing here imports the
 // renderer. The game (main.js: the renderer and its art, the loop) loads behind the menu, and the sim's WASM with it
-// (src/engine starts it on import). What starts a game waits for it: START GAME and FIRST GAME read LOADING… (the
+// (src/engine starts it on import). What starts a game waits for it: START GAME and TUTORIAL read LOADING… (the
 // lobby's READY too: online.js), and RELOAD if it could not load.
 import './style.css';
 import { $, toast, LOAD_FAILED } from './client/ui.js';
@@ -19,7 +19,7 @@ if (BENCH) $('start').hidden = true;
 let game = null, failed = false;
 const loading = import('./main.js').then(m => (game = m.game));
 
-const STARTS = ['btnStart', 'btnFirstHome'], labels = new Map();
+const STARTS = ['btnStart', 'btnTutorial'], labels = new Map();
 /** The start buttons read `text`, disabled if `off`; no text: their own labels, and state, again (START GAME is the
  *  menu's to disable too: everyone on one side). */
 function startButtons(text, off) {

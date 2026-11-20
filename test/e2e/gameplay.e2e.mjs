@@ -507,7 +507,7 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
     try {
       await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      if (guided) await press('#btnFirstHome'); else { await press('#btnSolo'); await press('#btnStart'); }
+      if (guided) await press('#btnTutorial'); else { await press('#btnSolo'); await press('#btnStart'); }
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
       const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom }; });
       if (device.hasTouch) assert.equal(s.zoom, 1, `${what}: a phone at 1`);
@@ -801,7 +801,7 @@ test('no 64x64 map in the list: a new single player game is two players on a 96x
   } finally { await ctx.close(); }
 });
 
-test('the menu, a first visit\'s (FIRST GAME big, the two modes small beside OPTIONS): each mode opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM; after a game, the two modes big', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
+test('the menu opens on two modes (TUTORIAL, OPTIONS and PLAY OFFLINE small under them, for a newcomer and after a game alike); each opens its page, BACK returns; the sound icon on every page; YOU can be RANDOM', { engines: true, skip: notIn(['webkit'], 'it checks where the focus goes, and a headless WebKit page moves it only while it has the window\'s focus (now and then)') }, async () => {
   for (const device of [DESKTOP, PHONE]) {
     const ctx = await browserContext(device), page = await ctx.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -811,11 +811,10 @@ test('the menu, a first visit\'s (FIRST GAME big, the two modes small beside OPT
       const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
       const shown = (sel) => page.locator(sel).isVisible();
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), [], 'a first visit: no big mode button');
-      assert.deepEqual(await page.$$eval('#menuHero .ib.big.hero:not([hidden]) .l', bs => bs.map(b => b.textContent)), ['YOUR FIRST GAME'], 'the one big button: the guided game');
+      assert.deepEqual(await page.$$eval('#menuHome .mode', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
       assert.ok(await shown('#linkDocs') && !(await shown('#btnStart')) && !(await shown('#soloBoard')), 'Learn more there (the docs home); the game\'s choices are not');
       assert.ok(await shown('#cornerSound'), 'the sound icon on the first page');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER', 'OPTIONS', 'PLAY OFFLINE'], 'a newcomer: the two modes small in the row; OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], 'TUTORIAL (the guided game); OPTIONS (NAME, on every device); PLAY OFFLINE (nothing to install here)');
       // Learn more: the docs home, in a new tab (test/e2e/docs.e2e.mjs); the version on the build stamp.
       assert.equal(await page.locator('#linkDocs').getAttribute('href'), './docs/');
       assert.match(await page.locator('#buildStamp').getAttribute('data-build'), /^[0-9a-f]{12}$/, 'the version: the build online play compares');
@@ -843,7 +842,7 @@ test('the menu, a first visit\'s (FIRST GAME big, the two modes small beside OPT
       assert.ok(await page.locator('#soloSheet').isHidden());
       assert.equal(await page.evaluate(() => document.activeElement.dataset.k), 'tok0', 'Escape: the focus back on the token');
       assert.equal(await page.locator('#lblSound').count(), 0, 'no SOUND row');
-      assert.ok(await shown('#btnStart') && await shown('#cornerSound') && !(await page.locator('#btnFirst').count()), 'START GAME and the sound icon (no FIRST GAME here: it is on the first page)');
+      assert.ok(await shown('#btnStart') && await shown('#cornerSound') && !(await page.locator('#btnFirst').count()), 'START GAME and the sound icon (no TUTORIAL here: it is on the first page)');
       await press('#btnSoloBack');
       assert.ok(await shown('#menuHome') && await page.locator('#menuSolo').isHidden(), 'BACK: the first page');
       // MULTIPLAYER: the lobby's join form, the same sound icon in the corner; BACK.
@@ -873,96 +872,89 @@ test('the menu, a first visit\'s (FIRST GAME big, the two modes small beside OPT
       assert.ok(await shown('#menuSolo'), 'leaving a game against the AI: the single player page, one tap from the next');
       await press('#btnSoloBack'); assert.ok(await shown('#menuHome'));
       assert.equal(await page.locator('#cornerSound').getAttribute('aria-pressed'), 'true', 'the top bar\'s setting on the menu');
-      // A game played (left: lost): the first page as a returning player has it, the two modes big, FIRST GAME gone.
+      // A game played (left: lost): the same first page.
       assert.deepEqual(await page.$$eval('#menuHome .modes .mode.big:not([hidden])', bs => bs.map(b => b.textContent)), ['SINGLE PLAYER', 'MULTIPLAYER'], 'two modes');
-      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['OPTIONS', 'PLAY OFFLINE']);
-      assert.ok(await page.locator('#menuHero').isHidden() && await page.locator('#btnFirstHome').isHidden(), 'no FIRST GAME after a game');
+      assert.deepEqual(await page.$$eval('#menuHome .row .ib:not([hidden])', bs => bs.map(b => b.textContent)), ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], 'TUTORIAL still there after a game');
       await press('#btnSolo');
       assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (RND, Random|RANDOM),/, 'RANDOM still chosen');
       assert.equal(await startAs(0.1), 'humans', 'and the next game the Kingdom');
       await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
       assert.deepEqual(await storedRecord(page), { 'vael:0': [0, 1], 'humans:0': [0, 1] }, 'RANDOM\'s games on the record of the race each drew');
-      assert.ok(await page.locator('#btnFirstHome').isHidden(), 'games on the record: FIRST GAME off the first page');
+      assert.ok(await page.locator('#btnTutorial').isVisible(), 'games on the record: TUTORIAL stays on the first page');
       assert.equal(await page.locator('#record').count(), 0, 'no record on the first page');
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   }
 });
 
-test('a newcomer\'s FIRST GAME on the first page, and only there; once the guided game is over, not offered any more', async () => {
-  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
-  try {
-    await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => !!window.endfall);
-    await page.locator('#btnFirstHome').click();
-    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-    assert.match(await page.locator('#tut').textContent(), /1\/8/, 'the guided game');
-    await page.evaluate(() => endfall.engine.concede()); // (set-up: the game's end is what matters)
-    await page.locator('#end').waitFor({ state: 'visible' });
-    await page.locator('#btnAgain').click();
-    assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#btnFirstHome').isHidden(), 'no FIRST GAME on the first page any more');
-    assert.deepEqual(await storedRecord(page), {}, 'a guided game is not on the record');
-    await page.locator('#btnSolo').click();
-    assert.equal(await page.locator('#btnFirst').count(), 0, 'nor in single player');
-    await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
-    assert.ok(await page.locator('#btnFirstHome').isHidden(), 'remembered on this device');
-  } finally { await ctx.close(); }
-});
-
-test('a first visit: FIRST GAME is the one big button (what it is, in three lines), the two modes small beside OPTIONS; a game started and left, the modes are the big ones and FIRST GAME a small one', { engines: true }, async () => {
+test('one menu for everyone: SINGLE PLAYER and MULTIPLAYER big, TUTORIAL small beside OPTIONS, the same on a first visit, after a game started and after games played; TUTORIAL starts the guided game, and is on the first page only', { engines: true }, async () => {
   for (const device of [DESKTOP, PHONE, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
     const box = (sel) => page.locator(sel).boundingBox();
-    /** The first page's buttons as a player reads them, row by row (innerText: what shows). */
-    const rows = () => page.evaluate(() => ['#menuHero', '#menuModes', '#menuRow'].map(id => [...document.querySelectorAll(`${id} > button`)].filter(b => b.offsetParent).map(b => b.innerText.replace(/\s*\n\s*/g, ' | '))));
-    const whole = async () => { // (every button and the footer's links on screen, the page not scrolling)
-      const v = page.viewportSize();
-      for (const sel of ['#btnFirstHome', '#btnSolo', '#btnOnline', '#btnOptions', '#btnInstall', '#linkDocs', '#linkFeedback']) {
-        const b = await box(sel); assert.ok(b && b.x >= 0 && b.y >= 0 && b.x + b.width <= v.width + 0.5 && b.y + b.height <= v.height + 0.5, `${what}: ${sel} on screen: ${JSON.stringify(b)}`);
+    /** The first page as a player reads it: its big buttons, its small ones, its footer's links (innerText: what shows). */
+    const rows = () => page.evaluate(() => ['#menuHome .modes > button', '#menuHome .row > button', '#menuLinks > a'].map(sel => [...document.querySelectorAll(sel)].filter(b => b.offsetParent).map(b => b.innerText)));
+    const MENU = [['SINGLE PLAYER', 'MULTIPLAYER'], ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], ['Learn more', 'Watch the trailer', 'Send feedback']];
+    /** The page laid out: the two modes big and amber on one line, the small row under them, everything on screen. */
+    const laidOut = async (when) => {
+      assert.deepEqual(await rows(), MENU, `${what}, ${when}`);
+      const [solo, online, tutorial, options] = [await box('#btnSolo'), await box('#btnOnline'), await box('#btnTutorial'), await box('#btnOptions')], v = page.viewportSize();
+      assert.ok(solo.height >= 60 && tutorial.height >= 44 && tutorial.height < solo.height && tutorial.y >= solo.y + solo.height && Math.abs(tutorial.y - options.y) < 1 && Math.abs(tutorial.height - options.height) < 1,
+        `${what}, ${when}: the modes big, TUTORIAL a small button like OPTIONS under them: ${JSON.stringify([solo, online, tutorial, options])}`);
+      assert.deepEqual(await page.evaluate(() => ['btnSolo', 'btnOnline', 'btnTutorial', 'btnOptions'].map(id => getComputedStyle(document.getElementById(id)).backgroundColor)),
+        ['rgb(245, 165, 36)', 'rgb(245, 165, 36)', 'rgb(24, 35, 51)', 'rgb(24, 35, 51)'], `${what}, ${when}: the modes amber, TUTORIAL quiet`);
+      for (const sel of ['#btnTutorial', '#btnSolo', '#btnOnline', '#btnOptions', '#btnInstall', '#linkDocs', '#linkTrailer', '#linkFeedback']) {
+        const b = await box(sel); assert.ok(b && b.x >= 0 && b.y >= 0 && b.x + b.width <= v.width + 0.5 && b.y + b.height <= v.height + 0.5, `${what}, ${when}: ${sel} on screen: ${JSON.stringify(b)}`);
       }
-      assert.ok(await page.locator('#start .card.menu').evaluate(c => c.scrollHeight <= c.clientHeight + 1), `${what}: the page does not scroll`);
+      assert.ok(await page.locator('#start .card.menu').evaluate(c => c.scrollHeight <= c.clientHeight + 1), `${what}, ${when}: the page does not scroll`);
+      assert.equal(await page.locator('#menuHero, #btnFirstHome, .hero').count(), 0, 'no first-visit layout');
     };
     try {
       await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      // A first visit: nothing stored. One big button, the guided game; the modes in the small row.
-      assert.deepEqual(await rows(), [['NEW HERE? START WITH | YOUR FIRST GAME | Guided, on Easy, about fifteen minutes'], [], ['SINGLE PLAYER', 'MULTIPLAYER', 'OPTIONS', 'PLAY OFFLINE']], what);
-      const hero = await box('#btnFirstHome'), solo = await box('#btnSolo'), online = await box('#btnOnline');
-      assert.ok(hero.height >= 70 && hero.width >= 300 && hero.height >= solo.height * 1.5 && hero.width >= solo.width * 1.8, `${what}: the big button: ${JSON.stringify([hero, solo])}`);
-      assert.ok(hero.y + hero.height <= solo.y && Math.abs(solo.y - online.y) < 1 && solo.height >= 44, `${what}: the modes on one line under it, a finger high`);
-      assert.deepEqual(await page.locator('#btnFirstHome').evaluate(b => [getComputedStyle(b).backgroundColor, getComputedStyle(document.getElementById('btnSolo')).backgroundColor]), ['rgb(245, 165, 36)', 'rgb(24, 35, 51)'], `${what}: the one amber button`);
-      for (const sel of ['#btnFirstHome .k', '#btnFirstHome .l', '#btnFirstHome .s']) assert.ok(await page.locator(sel).evaluate(e => e.scrollWidth <= e.clientWidth + 1 && e.getBoundingClientRect().height < 40), `${what}: ${sel} on one line`);
-      await whole();
+      // A first visit: nothing stored.
+      assert.deepEqual(await page.evaluate(() => [localStorage.getItem('endfall.games'), localStorage.getItem('endfall.record')]), [null, null], 'a first visit');
+      await laidOut('a first visit');
+      assert.equal(await page.locator('#btnTutorial').getAttribute('title'), 'A guided game on Easy: a short checklist shows you the way');
       // The footer's words read over the field: a backing behind them.
       assert.notEqual(await page.locator('#menuFoot').evaluate(e => getComputedStyle(e).backgroundColor), 'rgba(0, 0, 0, 0)', `${what}: the footer has a backing`);
-      // The small SINGLE PLAYER opens its page as the big one does.
+      // TUTORIAL is on the first page only.
       await press('#btnSolo');
-      assert.ok(await page.locator('#menuSolo').isVisible(), `${what}: single player`);
+      assert.ok(await page.locator('#menuSolo').isVisible() && !(await page.locator('#btnTutorial').isVisible()), `${what}: single player, no TUTORIAL there`);
       await press('#btnSoloBack');
-      // The big button starts the guided game.
-      await press('#btnFirstHome');
+      // It starts the guided game, on Easy.
+      await press('#btnTutorial');
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
       assert.match(await page.locator('#tut').textContent(), /1\/[89]/, `${what}: the guided game`);
       assert.equal(await page.evaluate(() => endfall.G.diff), 0, 'on Easy');
-      // Left unfinished (the page closed and opened again): the menu as it was before this, the two modes big, FIRST
-      // GAME a small button in the row, still there to take.
+      // Left unfinished (the page closed and opened again): the same menu.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
-      assert.deepEqual(await rows(), [[], ['SINGLE PLAYER', 'MULTIPLAYER'], ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE']], `${what}: a game started, none finished`);
-      const [solo2, first2] = [await box('#btnSolo'), await box('#btnFirstHome')];
-      assert.ok(solo2.height >= 60 && first2.height < solo2.height && first2.y >= solo2.y + solo2.height, `${what}: the modes big again, FIRST GAME small under them: ${JSON.stringify([solo2, first2])}`);
-      assert.equal(await page.locator('#btnSolo').evaluate(b => getComputedStyle(b).backgroundColor), 'rgb(245, 165, 36)');
-      await whole();
-      await press('#btnFirstHome');
+      assert.equal(await page.evaluate(() => localStorage.getItem('endfall.games')), '1', 'a game was started here');
+      await laidOut('a game started');
+      // The tutorial played to its end (conceded: the end is what matters), then a game against the AI lost: the same
+      // menu, TUTORIAL still offered; a tutorial is not on the record.
+      await press('#btnTutorial');
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-      assert.match(await page.locator('#tut').textContent(), /1\/[89]/, `${what}: the small button starts the guided game too`);
+      await page.evaluate(() => endfall.engine.concede());
+      await page.locator('#end').waitFor({ state: 'visible' });
+      await press('#btnAgain');
+      assert.ok(await page.locator('#menuHome').isVisible(), `${what}: after the tutorial, the first page`);
+      assert.deepEqual(await storedRecord(page), {}, 'a tutorial is not on the record');
+      await laidOut('the tutorial over');
+      await press('#btnSolo'); await press('#btnStart');
+      await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+      await page.evaluate(() => endfall.engine.concede());
+      await page.locator('#end').waitFor({ state: 'visible' });
+      assert.notDeepEqual(await storedRecord(page), {}, 'a game on the record');
+      await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+      await laidOut('games played');
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   }
 });
 
-test('a room link and a challenge link on a first visit land where they always did (the lobby\'s join form, the challenge\'s setup), by their plain and their card addresses; BACK from either: the first visit\'s page', { engines: true }, async () => {
+test('a room link and a challenge link on a first visit land where they always did (the lobby\'s join form, the challenge\'s setup), by their plain and their card addresses; BACK from either: the first page', { engines: true }, async () => {
   const code = encode({ map: 4, side: 2, secs: 754, spots: [{ race: 'vael', team: 0 }, { race: 'humans', team: 1, diff: 2 }] });
   for (const device of [DESKTOP, PHONE]) for (const [path, lands] of [['?room=BCDFGH', 'room'], ['r/BCDFGH', 'room'], [`?vs=${code}`, 'vs'], [`vs/${code}`, 'vs']]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${path} (${device.viewport.width} px)`;
@@ -983,10 +975,10 @@ test('a room link and a challenge link on a first visit land where they always d
         assert.equal(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label').then(t => /Kingdom|KINGDOM/.test(t) && /Hard/.test(t)), true, `${what}: the challenge's board, not a first visit's`);
         assert.equal(await page.evaluate(() => location.search), '', `${what}: the address cleaned`);
       }
-      assert.ok(!(await page.locator('#btnFirstHome').isVisible()), `${what}: no first-visit button in the way`);
-      // BACK: the first page, a first visit's still (no game started).
+      assert.ok(!(await page.locator('#menuHome').isVisible()), `${what}: not the first page`);
+      // BACK: the first page.
       await press(lands === 'room' ? '#btnOnlineBack' : '#btnSoloBack');
-      assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuHero #btnFirstHome.hero').isVisible(), `${what}: BACK, the first visit's page`);
+      assert.ok(await page.locator('#menuHome').isVisible() && await page.locator('#menuHome .modes #btnSolo.big').isVisible() && await page.locator('#btnTutorial').isVisible(), `${what}: BACK, the first page`);
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   }
@@ -2623,8 +2615,8 @@ test('phone: six types fit whole in the console (the words line gives its room t
   } finally { await d.close(); }
 });
 
-test('phone: the first game guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave', { chromium: CDP_TOUCH }, async () => {
-  const d = await newGame(PHONE, 0, 4242, { first: true });
+test('phone: the tutorial guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave', { chromium: CDP_TOUCH }, async () => {
+  const d = await newGame(PHONE, 0, 4242, { tutorial: true });
   try {
     assert.equal(await d.eval(() => endfall.G.diff), 0, 'Easy');
     await d.hudText('#tut', /1\/9/);
@@ -2686,7 +2678,7 @@ test('phone: the first game guides step by step, pulsing the button it wants (th
 /** The guided game on a desktop at its army step, the opponent off: two Villagers spawned and sent to the mine, the
  *  Barracks through the UI, its builder back on the mine. `step(n)`: wait for step n of 8. */
 async function guidedToArmyStep() {
-  const d = await newGame(DESKTOP, 0, 4242, { first: true, ai: false });
+  const d = await newGame(DESKTOP, 0, 4242, { tutorial: true, ai: false });
   // (the checklist moves on in the HUD's tick, in real time: a slow software-WebGL frame may hold it a while)
   const step = (n) => d.page.locator('#tut').filter({ hasText: new RegExp(`${n}/8`) }).waitFor({ timeout: 30000 });
   await step(1);
@@ -2709,7 +2701,7 @@ async function pulsing(d, want) {
   return read();
 }
 
-test('the first game\'s army step: the Guard button pulses until the sixth Guard is ordered, then the Archer button, then neither; trained, the step is done', async () => {
+test('the tutorial\'s army step: the Guard button pulses until the sixth Guard is ordered, then the Archer button, then neither; trained, the step is done', async () => {
   const { d, step, rax } = await guidedToArmyStep();
   try {
     assert.match(await d.page.locator('#tut').textContent(), /Train 6 Guards and 2 Archers at the Barracks/);
@@ -2739,7 +2731,7 @@ test('the first game\'s army step: the Guard button pulses until the sixth Guard
   } finally { await d.close(); }
 });
 
-test('the first game\'s army step with no population left: too few fighters, it asks for a Cottage (Build pulses) and goes back to the army once there is room; fighters enough without the Archers, it moves on', async () => {
+test('the tutorial\'s army step with no population left: too few fighters, it asks for a Cottage (Build pulses) and goes back to the army once there is room; fighters enough without the Archers, it moves on', async () => {
   const { d, step, rax } = await guidedToArmyStep();
   try {
     // The population full of Villagers (trained on and on): 20 of 20, no fighter yet.
@@ -2773,14 +2765,14 @@ test('the first game\'s army step with no population left: too few fighters, it 
   } finally { await d.close(); }
 });
 
-test('phone on its side: the first game\'s step card is a narrow column in the corner, clear of the Castle the game starts over; no ground past the map\'s edge on the first screen', async () => {
+test('phone on its side: the tutorial\'s step card is a narrow column in the corner, clear of the Castle the game starts over; no ground past the map\'s edge on the first screen', async () => {
   for (const device of [PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), errors = [];
     page.on('pageerror', e => errors.push(e.message));
     try {
       await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
-      await page.locator('#btnFirstHome').tap();
+      await page.locator('#btnTutorial').tap();
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
       await page.locator('#tut').filter({ hasText: /1\/[89]/ }).waitFor({ timeout: 30000 });
       // The view the game starts on, once the Castle is drawn.
@@ -2802,8 +2794,8 @@ test('phone on its side: the first game\'s step card is a narrow column in the c
   }
 });
 
-test('the first game\'s "hold your base" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone; then train more and attack', async () => {
-  const d = await newGame(DESKTOP, 0, 4242, { first: true, ai: false });
+test('the tutorial\'s "hold your base" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone; then train more and attack', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { tutorial: true, ai: false });
   // (the checklist moves on in the HUD's tick, in real time: a slow software-WebGL frame may hold it a while)
   const step = (n) => d.page.locator('#tut').filter({ hasText: new RegExp(`${n}/8`) }).waitFor({ timeout: 30000 });
   try {
@@ -3659,7 +3651,7 @@ test('the menu fits a small phone on every page (the first with its stamp and PL
       assert.ok(top >= 0, `${what}: the heading in view: ${top}`);
       assert.ok(sc[0] <= sc[1] + 1, `${what}: fits without scrolling: ${sc}`);
     };
-    assert.ok(await page.locator('#btnFirstHome').isVisible(), 'with FIRST GAME (a newcomer)');
+    assert.ok(await page.locator('#btnTutorial').isVisible(), 'with TUTORIAL');
     await fits('#start .card.menu', '#menuHome h1', 'the first page');
     const b = await page.locator('#menuLinks').boundingBox();
     assert.ok(b.y + b.height <= 375, `the footer line (Learn more) in view: ${JSON.stringify(b)}`);
@@ -4452,26 +4444,27 @@ for (const [label, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('phones: the first page\'s row and its footer line fit at 667x375, 844x390, 412x915 and 568x320, on a first visit (the big FIRST GAME over SINGLE PLAYER, MULTIPLAYER, OPTIONS, PLAY OFFLINE) and after a game started (FIRST GAME, OPTIONS, PLAY OFFLINE): centered lines, every word whole; no scrolling', async () => {
+test('phones: the first page\'s row (TUTORIAL, OPTIONS, PLAY OFFLINE) and its footer line (Learn more, Watch the trailer, Send feedback, the stamp) fit at 667x375, 844x390, 412x915 and 568x320, on a first visit and after a game: centered lines, every word whole; no scrolling', async () => {
   for (const [w, h] of [[667, 375], [844, 390], [412, 915], [568, 320]]) for (const first of [true, false]) {
-    const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage(), what = `${w}x${h}, ${first ? 'a first visit' : 'a game started'}`;
+    const ctx = await browserContext({ ...PHONE, viewport: { width: w, height: h } }), page = await ctx.newPage(), what = `${w}x${h}, ${first ? 'a first visit' : 'games played'}`;
     try {
-      if (!first) await ctx.addInitScript(() => localStorage.setItem('endfall.games', '1')); // (set-up: a game was started on this device)
+      if (!first) await ctx.addInitScript(() => { localStorage.setItem('endfall.games', '3'); localStorage.setItem('endfall.record', '{"humans:0":[1,1]}'); }); // (set-up: games were played on this device)
       await page.goto(baseUrl(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
       const got = await page.evaluate(() => {
-        const box = (b) => { const r = b.getBoundingClientRect(); return { t: b.innerText.replace(/\s*\n\s*/g, ' | '), l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom, whole: [b, ...b.querySelectorAll('span')].every(e => e.scrollWidth <= e.clientWidth + 1) }; };
-        const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(box), hero = [...document.querySelectorAll('#menuHero .ib')].filter(b => b.offsetParent).map(box);
-        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect();
-        return { bs, hero, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom] };
+        const box = (b) => { const r = b.getBoundingClientRect(); return { t: b.innerText, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom, whole: b.scrollWidth <= b.clientWidth + 1 }; };
+        const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(box), as = [...document.querySelectorAll('#menuLinks a')].map(box);
+        const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect(), stamp = document.getElementById('buildStamp').getBoundingClientRect();
+        return { bs, as, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom], stamp: [stamp.left, stamp.right, stamp.bottom] };
       });
-      assert.deepEqual(got.bs.map(b => b.t), first ? ['SINGLE PLAYER', 'MULTIPLAYER', 'OPTIONS', 'PLAY OFFLINE'] : ['FIRST GAME', 'OPTIONS', 'PLAY OFFLINE'], what);
-      assert.deepEqual(got.hero.map(b => b.t), first ? ['NEW HERE? START WITH | YOUR FIRST GAME | Guided, on Easy, about fifteen minutes'] : [], what);
-      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h, `${what}: the footer line in view: ${got.links}`);
-      assert.ok([...got.bs, ...got.hero].every(b => b.l >= 0 && b.r <= w && b.b <= h && b.whole), `${what}: every button in view, its words whole: ${JSON.stringify([...got.bs, ...got.hero])}`);
+      assert.deepEqual(got.bs.map(b => b.t), ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], what);
+      assert.deepEqual(got.as.map(b => b.t), ['Learn more', 'Watch the trailer', 'Send feedback'], what);
+      assert.ok(got.links[0] >= 0 && got.links[1] <= w && got.links[2] <= h && got.stamp[0] >= 0 && got.stamp[1] <= w && got.stamp[2] <= h, `${what}: the footer line and the stamp in view: ${got.links} | ${got.stamp}`);
+      assert.ok([...got.bs, ...got.as].every(b => b.l >= 0 && b.r <= w && b.b <= h && b.whole), `${what}: every button and link in view, its words whole: ${JSON.stringify([...got.bs, ...got.as])}`);
+      assert.equal(new Set(got.as.map(a => a.top)).size, 1, `${what}: the three links on one line: ${JSON.stringify(got.as)}`);
       assert.ok(got.sc[0] <= got.sc[1] + 1, `${what}: no scrolling: ${got.sc}`);
       const lines = [...new Set(got.bs.map(b => b.top))];
-      assert.equal(lines.length, first && h > w ? 2 : 1, `${what}: one line (upright, a first visit's four: two and two): ${lines}`);
+      assert.equal(lines.length, 1, `${what}: one line: ${lines}`);
       for (const top of lines) { const row = got.bs.filter(b => b.top === top), l = Math.min(...row.map(b => b.l)), r = Math.max(...row.map(b => b.r)); assert.ok(Math.abs(l - (w - r)) <= 2, `${what}: the line at ${top} centered: ${l} | ${w - r}`); }
     } finally { await ctx.close(); }
   }
@@ -4502,7 +4495,7 @@ test('the menu pages: every button a finger high, BACK the same size in the same
       const backs = pages.map(p => p.back);
       assert.ok(backs.every(b => b.w === backs[0].w && b.h === backs[0].h && b.x === backs[0].x), `BACK the same size, at the same place: ${JSON.stringify(backs)}`);
       assert.ok(pages.every(p => p.title === pages[0].title), `the titles at one height: ${pages.map(p => p.title)}`);
-      assert.equal(await page.locator('#btnFirst').count(), 0, 'no FIRST GAME in single player');
+      assert.equal(await page.locator('#btnFirst').count(), 0, 'no TUTORIAL in single player');
     } finally { await ctx.close(); }
   }
 });

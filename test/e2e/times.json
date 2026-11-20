@@ -74,7 +74,6 @@
   "a game's sound and full-screen buttons, for real: sound is on after START, goes off and on; START goes full screen on a touch screen, not with a mouse; the button goes out and back in where the browser has it": 8.2,
   "a gold mine can be selected to see what is left (desktop click, phone tap)": 11.6,
   "a hit's look follows how hard it hits: a Cannon's cannonball (siege) lands as a big blast with a flash, and the camera stays still": 2.9,
-  "a newcomer's FIRST GAME on the first page, and only there; once the guided game is over, not offered any more": 5.9,
   "a queued unit is cancelled with a click or tap on it, for a full refund": 15.1,
   "a research finished moves no button on the card (humans, desktop)": 16.2,
   "a research finished moves no button on the card (vael, phone)": 28.4,
@@ -141,13 +140,12 @@
   "phone: six types fit whole in the console (the words line gives its room to the tiles)": 6.1,
   "phone: tap selects, the command card works, the HUD shows status, back asks before leaving": 11,
   "phone: the console fits a full queue, a turret's figures and long names": 10.4,
-  "phone: the first game guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave": 46.8,
+  "phone: the tutorial guides step by step, pulsing the button it wants (the army selected as one: SELECT and ARMY), and holds the first wave": 46.8,
   "phone: the name typed in OPTIONS (from the menu) is the lobby's, and the lobby's is OPTIONS': one name": 3.5,
   "phone: the pause card has five buttons (BACK TO GAME across, four equal below) and fits a small phone; PAUSE leaves full screen, BACK TO GAME goes back into it; Leave game goes back to the menu and counts as a defeat": 4.3,
   "phone: three buttons a row; the Build list has a basic and an advanced page; an armed order turns into Cancel": 18.8,
   "phone: while placing, the ghost appears under the finger and follows it; lifted over the HUD it builds nothing": 11.4,
   "phone: with a worker selected, a tap on a mine where another worker stands sends it to gather there": 5.4,
-  "phones: the first page's row (FIRST GAME, OPTIONS, PLAY OFFLINE) and its footer line fit at 667x375, 844x390, 412x915 and 568x320: one centered line; no scrolling": 5.3,
   "placing over a refused spot says why on the hint line (the sim's words), and a click there says the same": 6.7,
   "single player, five to eight (M4 2e): the 128x128 maps; free for all, four pairs and four against four fit a small phone; eight start on 128x128": 9,
   "single player, the sheet: a modal one; a double click changes nothing, a scrim tap closes it (one that began there), the arrow keys move along a row; a bad saved setup": 7.8,
@@ -171,7 +169,7 @@
   "the console says what the selection is for: a Cottage's line under its health; an idle Barracks's too, its queue's slots once it trains (the line where it fits); the full words on the portrait (landscape phone)": 24.7,
   "the end card keeps to the result on a phone: DEFEAT, its line, the map's, NEW GAME and REMATCH; no stats, no chart": 5,
   "the end screen says what ended the game, counts the result on the menu, and Rematch replays the same map": 4.4,
-  "the first game's \"hold your base\" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone; then train more and attack": 16.8,
+  "the tutorial's \"hold your base\" lasts while an enemy army is at the base, past its 150 s, and ends once it is gone; then train more and attack": 16.8,
   "the first page's build stamp: the last game update and its date, small at the foot, one line on a phone; the Version in its tooltip": 5.3,
   "the first page: the name in title case over the shore, whose tide lines keep below the content (the stamp and PLAY OFFLINE's answer too), go with the page and stand still under reduced motion": 10.2,
   "the forge researches weapons upgrades, and unit stats show the bonus": 29,
@@ -234,7 +232,7 @@
  "share.e2e.mjs": {
   "SHARE after a victory: the link copied, or shared with its line; it opens the same game, ready to START": 14.9,
   "a challenge link opens its setup; a change makes it the player's; a bad link opens the plain menu": 9.3,
-  "no SHARE after the guided first game": 2.4
+  "no SHARE after the tutorial": 2.4
  },
  "touch.e2e.mjs": {
   "a desktop: units clicked one by one bring no hint": 6.9,
@@ -242,7 +240,7 @@
   "phone: a finger held still on the map, then dragged, draws a box (ring, SELECT lit, the hint); one that moves at once pans; an empty box keeps the selection": 18.5,
   "phone: dragging the minimap nudges the view from where the finger lands; a tap jumps": 4.5,
   "phone: fighters tapped one by one bring the group hint once, clear of SELECT and ARMY (which pulse); not again until three more games": 24.2,
-  "phone: in the guided first game, fighters tapped one by one bring no hint (its own step teaches SELECT and ARMY)": 9.5,
+  "phone: in the tutorial, fighters tapped one by one bring no hint (its own step teaches SELECT and ARMY)": 9.5,
   "phone: one finger pans the map without selecting; a flick glides and a tap stops it": 11.5,
   "phone: the minimap, enlarged under the finger, is drawn in front of the selection console": 3.8
  },

@@ -7,7 +7,7 @@ import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphic
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, HIT_LOOK, MUZZLE_AT } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
 import { RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
@@ -709,26 +709,27 @@ export function muzzleFlash(x, y, face, { fwd, up, scale }) {
 export function meleeHit(u, t, puff) {
   let x = t.x, y = t.y;
   if (t.kind === 'bldg') { x = Math.min(Math.max(u.x, t.tx * TILE + 4), (t.tx + t.w) * TILE - 4); y = Math.min(Math.max(u.y, t.ty * TILE + 4), (t.ty + t.h) * TILE - 4); }
-  const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * 0.5, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
+  const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * WALKER_HIT_LIFT, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
   addEffect('glint', x + dx / d * k, y + dy / d * k - lift, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 }); // (steel's glint: small and pale; fire is the gunpowder's)
   if (puff) addEffect(HIT_DUST.anim, x + dx / d * k, y + 2, { vx: -dx / d * puff.drift, vy: -6, life: puff.life, scale: puff.scale, fade: puff.fade, tint: HIT_DUST.tint });
   return { x: x + dx / d * k, y: y + dy / d * k - lift, feet: { x: x + dx / d * k, y: y + 2 } };
 }
 /** Where a shot that lands at ground point (x, y) plays, its y: on a flyer (`air`, its kind: a `hit` event's) up on its
- *  body (look.js hitLift of its drawn height: by its kind), anything else where it is. */
-export const hitY = (y, air) => (air ? y - unitTop(air) * hitLift(air) : y);
-/** A shot lands at (x, y), its look by `how` (look.js impactOf): steel's glint (an arrow, a bolt, a dart), a spark
- *  (a tracer, the tower's shot), the cannonball's and the rocket's burst, or a repairer's welding spark. */
+ *  body (look.js hitLift of its drawn height: by its kind), on a walker (`walker`, its kind) half way up its body
+ *  (look.js WALKER_HIT_LIFT), anything else (a building, a spot) where it is. */
+export const hitY = (y, air, walker = null) => (air ? y - unitTop(air) * hitLift(air) : walker ? y - unitTop(walker) * WALKER_HIT_LIFT : y);
+/** A shot lands at (x, y), its look by `how` (look.js impactOf): steel's glint (an arrow, a bolt, a tracer: cool,
+ *  HIT_STEEL, never a muzzle flash's warmth), the cannonball's and the rocket's burst, or a repairer's welding spark. */
 export function impactFx(x, y, how) {
-  if (how === 'glint') addEffect('glint', x, y, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 });
+  if (how === 'glint') addEffect('glint', x, y, { life: 0.15, tint: HIT_STEEL, light: HIT_STEEL, lightScale: 0.12 });
   else if (how === 'shell' || how === 'rocket') addEffect('boom_small', x, y, { light: 0xffb545, lightScale: 0.5, life: 0.35, scale: how === 'shell' ? 0.7 : 0.6 });
-  else if (how === 'spark') addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.2 });
   else addEffect('spark', x, y, { life: 0.18, light: 0xfff4c2, lightScale: 0.3 }); // (welding)
 }
 /** A hit of tier `tier` lands at (x, y) (look.js hitTier, HIT_LOOK), over or in place of its own look `how` (look.js
  *  impactOf; null: a melee blow, whose glint and dust meleeHit drew): 'light' as ever, 'medium' with a round flash,
- *  'heavy' a bright blow, 'siege' a blast. `melee`: chips of steel, not fire, and the heavy blow's scuff of dust round
- *  the target's feet (`feet`: its ground point). */
+ *  'heavy' a bright blow with chips of steel, 'siege' a blast with sparks of fire; every flash and chip but the siege
+ *  blast's in steel's cool (HIT_LOOK `light`). `melee`: the heavy blow's scuff of dust round the target's feet (`feet`:
+ *  its ground point). */
 export function tierHit(x, y, tier, how, melee = false, feet = null) {
   const look = HIT_LOOK[tier];
   if (!look?.hit) { if (how) impactFx(x, y, how); if (look?.flash) addEffect('flash', x, y - 2, { life: 0.16, scale: look.flash, tint: look.light, light: look.light, lightScale: look.lightScale }); return; }
@@ -736,8 +737,8 @@ export function tierHit(x, y, tier, how, melee = false, feet = null) {
   const k = look.size;
   if (look.hit === 'blast') addEffect('boom_small', x, y, { light: look.light, lightScale: 1.3 * k, life: 0.45, scale: 1.1 * k });
   addEffect('flash', x, y - 4, { life: 0.16, light: look.light, lightScale: 0.6 * k * look.flashK, scale: 0.9 * k * look.flashK, tint: look.light });
-  const chip = melee ? 'glint' : 'spark', c = look.chip;
-  for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, v = 50 + Math.random() * 70; addEffect(chip, x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: (0.25 + Math.random() * 0.2) * c.life, scale: c.scale }); }
+  const c = look.chip, tint = c.anim === 'glint' ? look.light : 0xffffff;
+  for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, v = 50 + Math.random() * 70; addEffect(c.anim, x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: (0.25 + Math.random() * 0.2) * c.life, scale: c.scale, tint }); }
   const sc = look.scuff;
   if (melee && sc && feet) for (let i = 0; i < sc.n; i++) { // (a ring of dust kicked out round its feet, flat as the ground)
     const a = (i + Math.random() * 0.5) / sc.n * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a) * 0.5;
@@ -748,7 +749,7 @@ export function tierHit(x, y, tier, how, melee = false, feet = null) {
  *  one, a big round flash at its gun's mouth (`at`: look.js MUZZLE_FLASH's spot, else MUZZLE_AT), with a light. */
 export function tierMuzzle(x, y, face, tier, at = MUZZLE_AT) {
   const look = HIT_LOOK[tier]; if (!look?.muzzle) return;
-  addEffect('flash', x + Math.cos(face) * at.fwd, y + Math.sin(face) * at.fwd - at.up, { life: 0.14, light: look.light, lightScale: 0.8 * look.muzzle, scale: look.muzzle });
+  addEffect('flash', x + Math.cos(face) * at.fwd, y + Math.sin(face) * at.fwd - at.up, { life: 0.14, light: look.muzzleLight, lightScale: 0.8 * look.muzzle, scale: look.muzzle });
 }
 const decals = [];
 
@@ -778,6 +779,13 @@ function updateEffects(dt) {
 
 // ---- projectiles and client particles (pooled) ----
 const projPool = [], partPool = [];
+/** A ground point as a key (a tenth of a px), to tell what a shot flies at: the sim aims a shot at its target's exact
+ *  ground point each tick, so a shot's aim point names its target among this frame's units. */
+const aimKey = (x, y) => `${Math.round(x * 10)},${Math.round(y * 10)}`;
+/** The ground points of the flyers alive this frame: a shot aimed at one flies at a flyer (its air damage applies). */
+function flyersAt() { const at = new Set(); for (const u of G.units) if (!u.dead && UNITS[u.type]?.air) at.add(aimKey(u.x, u.y)); return at; }
+/** The weapon that fired shot `p`: its shooter's kind's, or (a building's shot: no shooter kind) its people's tower's. */
+const shotWeapon = (p) => (p.by ? UNITS[p.by]?.weapon : BUILDINGS[towerOf(G.factions[p.team], FACTIONS, BUILDINGS)]?.weapon);
 function pooled(pool, i, make) { if (!pool[i]) pool[i] = make(); pool[i].visible = true; return pool[i]; }
 
 let fogTick = -1;
@@ -1011,18 +1019,33 @@ export function render(selList, place) {
   showRange(selList, place, now);
   xray(onScreen);
 
-  let pi = 0;
+  // The shots (look.js SHOT_STYLE): each a pooled sprite with, under it, a dark bar (a Kingdom shaft's silhouette), a
+  // stretched copy of itself (a heavy shot's trail) and a light (an Expedition tracer's glow, the rocket's flame),
+  // shown as its style says. A shot's tier in flight is its shooter's weapon against what it flies at: the unit at its
+  // aim point (the sim aims a shot at its target's ground point each tick), a flyer or a walker.
+  let pi = 0, aimed = null;
   for (const p of G.projs) {
     if (p.team !== G.me && !allRevealed() && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
-    const s = pooled(projPool, pi++, () => { const s = new Sprite(); s.anchor.set(0.5); L.projs.addChild(s); s.l = light(0xffd27a, 0.25, 0.7); return s; });
-    const art = shotArt(p.by, p.type, G.factions[p.team]); // (by its shooter's kind, else its people's: look.js)
+    const s = pooled(projPool, pi++, () => {
+      const s = new Sprite(); s.anchor.set(0.5);
+      s.bar = new Sprite(Texture.WHITE); s.bar.anchor.set(1, 0.5); s.bar.tint = SHOT_BAR.tint; s.bar.alpha = SHOT_BAR.alpha;
+      s.trail = new Sprite(); s.trail.anchor.set(1, 0.5);
+      L.projs.addChild(s.bar, s.trail, s); s.l = light(0xffd27a, 0.25, 0.7); return s;
+    });
+    const art = shotArt(p.by, p.type, G.factions[p.team]), style = SHOT_STYLE[art] ?? {}; // (by its shooter's kind, else its people's: look.js)
     setTex(s, tex(art)); // (the shot's anchor is its tip, a stone's its middle)
-    const trail = SHOT_TRAIL[art];
-    if (trail && Math.random() < dt * 40) addEffect(trail, p.x, p.y, { life: 0.6, fade: 1 }); // (a rocket's smoke: puffs that overlap and fade)
-    s.position.set(p.x, p.y); s.rotation = Math.atan2(p.ay - p.y, p.ax - p.x);
-    s.l.visible = SHOT_LIT.has(art); s.l.position.set(p.x, p.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; not an arrow or a stone)
+    const smoke = SHOT_TRAIL[art];
+    if (smoke && Math.random() < dt * 40) addEffect(smoke, p.x, p.y, { life: 0.6, fade: 1 }); // (a rocket's smoke: puffs that overlap and fade)
+    const rot = Math.atan2(p.ay - p.y, p.ax - p.x), sc = style.scale ?? 1, len = s.texture.width * sc;
+    s.position.set(p.x, p.y); s.rotation = rot; s.scale.set(sc); s.tint = style.tint ?? 0xffffff;
+    s.bar.visible = style.bar > 0;
+    if (s.bar.visible) { s.bar.position.set(p.x + Math.cos(rot) * 1.5, p.y + Math.sin(rot) * 1.5); s.bar.rotation = rot; s.bar.width = len + 3; s.bar.height = style.bar; }
+    const heavy = !smoke && art !== 'cannonball' && HIT_LOOK[hitTier(shotWeapon(p), (aimed ??= flyersAt()).has(aimKey(p.ax, p.ay)))].hit === 'blow';
+    s.trail.visible = heavy;
+    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(p.x, p.y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL.px) / len, sc); s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint; } // (the shot's own colors: a Kingdom shaft's trail is timber, never cool, and no light goes with it)
+    s.l.visible = SHOT_LIT.has(art); s.l.tint = style.tint ? SHOT_GLOW : 0xffd27a; s.l.position.set(p.x, p.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; never an arrow, a bolt or a stone)
   }
-  for (let i = pi; i < projPool.length; i++) { projPool[i].visible = false; projPool[i].l.visible = false; }
+  for (let i = pi; i < projPool.length; i++) { const s = projPool[i]; s.visible = false; s.l.visible = false; s.bar.visible = false; s.trail.visible = false; }
 
   let ki = 0;
   for (const f of fx.list) {

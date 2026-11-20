@@ -567,9 +567,10 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       guest's view, an open seat's SHARE LINK), two people against two AIs, six with AI seats in their
                       spots' colors, eight seats on phones; a code typed as shown or not, the share line, an
                       out-of-date link, the host's REMOVE, the limits' line),
-                      csp.e2e.mjs (no CSP violation, in any frame or worker, across the menu, the service worker and a
+                      csp.e2e.mjs (no CSP violation, in any frame or worker, on the menu, the service worker and a
                       reload under it, a game, the help sheet, a room on the relay, the bench's report, the
-                      challenge's embedded plan link, the device check, the voice lab, the docs and the clip),
+                      challenge's embedded plan link, the device check, the voice lab, the docs and the clip: each
+                      surface a test of its own, in a context of its own),
                       feedback.e2e.mjs (the docs' feedback form on a portrait phone and a desktop through the site's
                       Worker, the email binding faked by the harness (`site.mail`): the details from the game's link,
                       the counter, the email as it would go, the thank-you; a failed send and a blocked Worker (1103):

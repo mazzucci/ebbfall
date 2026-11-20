@@ -52,7 +52,7 @@ export const resetStyles = () => STYLES.clear();
 export const docsCss = () => fontFaces + CSS + [...STYLES].map(([d, c]) => `.${c}{${d}}`).join('');
 
 /** The share card (og:image) every page uses unless it names its own. */
-const OG = { src: '/og.png', w: 1200, h: 630, alt: "Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones" };
+const OG = { src: '/og.png', type: 'image/png', w: 1200, h: 630, alt: "Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones" };
 
 /**
  * A whole page. `path`: its URL path (/docs/kingdom/); `title`, `description`: its own; `body`: the main column's HTML;
@@ -78,6 +78,7 @@ export function layout({ path, title, description, body, crumb = null, ld = [] }
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${url}">
 <meta property="og:image" content="${ORIGIN}${OG.src}">
+<meta property="og:image:type" content="${OG.type}">
 <meta property="og:image:width" content="${OG.w}">
 <meta property="og:image:height" content="${OG.h}">
 <meta property="og:image:alt" content="${esc(OG.alt)}">

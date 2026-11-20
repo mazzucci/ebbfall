@@ -497,6 +497,7 @@ test('every page\'s head, the game\'s and the docs\': its own title and descript
     assert.equal(meta('og:type'), 'website'); assert.equal(meta('og:site_name'), 'Ebbfall');
     assert.equal(meta('og:title'), title, `${path}: og:title`); assert.equal(meta('og:description'), desc, `${path}: og:description`);
     assert.equal(meta('og:url'), url, `${path}: og:url`); assert.equal(meta('og:image'), 'https://ebbfall.com/og.png', `${path}: og:image`);
+    assert.equal(meta('og:image:type'), 'image/png', `${path}: og:image:type`);
     assert.ok(meta('og:image:alt').startsWith('Ebbfall'), `${path}: og:image:alt`);
     assert.equal(meta('twitter:card'), 'summary_large_image'); assert.equal(meta('twitter:title'), title); assert.equal(meta('twitter:description'), desc);
     assert.equal(meta('twitter:image'), meta('og:image')); assert.equal(meta('twitter:image:alt'), meta('og:image:alt'));

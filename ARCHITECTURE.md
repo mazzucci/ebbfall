@@ -315,7 +315,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop zoomed out), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, on the map), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
@@ -380,12 +380,16 @@ src/client/           everything that touches the browser
                       build and the last game update's commit) and `touch`, in a new tab
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page (SINGLE PLAYER, MULTIPLAYER, OPTIONS, INSTALL; FIRST GAME until a
-                      first game is over, by the record of games, which is kept but not shown; the build stamp at
+                      first game is over, by the record of games, which is kept but not shown; on a first visit, no
+                      game ever started on this device, FIRST GAME is the one big button and the two modes sit small
+                      in the row: `layoutHome`, one button each, moved; a room's, a challenge's or a plan's link
+                      opens its own page as ever; the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
                       vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
                       from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
                       (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
+                      with no board saved: you against the other people on Easy;
                       + AI in the lowest empty spot; the map list, any offered map that seats them, with a preview, on
                       Dust Quarter (96x96, two players) by default, a saved hidden map opening the default; no FIRST
                       GAME there; `?seed=` plays the hidden 64x64 random slot, `?map=N` opens map N, hidden ones too:

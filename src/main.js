@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -74,8 +74,9 @@ function begin(reset) {
   audio.voice = G.factions[G.me]; // (the announcer speaks in this side's race's voice)
   setSelection([]); ui.groups = {}; fx.list = []; invalidateCard(); resetTools(); resetMemory(); stopGlide();
   renderTerrain();
-  // Start over the base: a phone at 1 (the units read), a desktop all the way out; the wheel or a pinch zooms.
-  cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); centerOn(core.x + 40, core.y);
+  // Start over the base: a phone at 1 (the units read), a desktop with the base and the ground round it in its window,
+  // on the map (gl/render.js `startZoom`, `startOn`); the wheel or a pinch zooms.
+  cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); startOn(core.x + 40, core.y);
   $('end').hidden = true; $('start').hidden = true; started = true; setHint();
   groupHintGame(menu.tutorial); // (one more game on this device's count: the group hint comes back after a few)
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
@@ -292,7 +293,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, startZoom: startZoom(), toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
+window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
   paint: (spots) => { setSpots(spots); renderTerrain(); }, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },

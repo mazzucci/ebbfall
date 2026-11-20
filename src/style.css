@@ -187,7 +187,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .card.menu{max-width:640px}
 /* The menu is a page of its own, not a card over the game: the whole screen, its content centered. */
 @media (max-height:420px){:is(#start,#online) .card.menu{padding-top:max(6px,env(safe-area-inset-top,0px))!important;padding-bottom:max(6px,env(safe-area-inset-bottom,0px))!important} #start .card.menu .tag{font-size:11px;margin-bottom:2px} #start .card.menu .tip{margin:2px 0;font-size:11px}}
-#start,#online{padding:0;background:var(--panel)} /* (opaque: no empty game behind them) */ :is(#start,#online) .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ :is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu:has(#onlineRoom:not([hidden]))){justify-content:flex-start} /* (the board's pages from the top: a change pushes only what is below it) */ #menuSolo h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px} /* (its first row as tall as the corner beside it: the board below it, clear) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+#start,#online{padding:0;background:var(--panel)} /* (opaque: no empty game behind them) */ :is(#start,#online) .card.menu{max-width:none;height:100%;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:safe center;padding:max(16px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(24px,calc((100% - 720px) / 2),env(safe-area-inset-left,0px))} /* (safe: a menu taller than the screen scrolls from its top) */ :is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu:has(#onlineRoom:not([hidden]))){justify-content:flex-start} /* (the board's pages from the top: a change pushes only what is below it) */ @media (min-width:901px) and (min-height:501px){:is(#start .card.menu:has(#menuSolo:not([hidden])),#online .card.menu):not(.tall){padding-left:max(24px,calc((100% - 900px) / 2));padding-right:max(24px,calc((100% - 900px) / 2))}} /* (and up to 900 px wide where the tokens show a people's whole name (seats.js `narrow`): room for it, the level in words and SIDE 2; the lobby's join form too, so BACK and the titles sit in one place on every page) */ #menuSolo h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px} /* (its first row as tall as the corner beside it: the board below it, clear) */ .opt{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
 .opt .lbl{font:12px var(--mono);color:var(--muted);width:76px;flex:none}
 /* The board (single player's, and the lobby's: online.js; seats.js builds it): eight fixed spots, two abreast on a narrow
    screen, four on a wide one, every token, add cell and empty spot the same size: nothing moves when a player comes,
@@ -207,9 +207,9 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .tok .band{grid-area:band;align-self:stretch;margin:-3px 0;border-radius:3px 0 0 3px}
 .tok b{grid-area:name;font:600 12px var(--display);letter-spacing:.06em;white-space:nowrap} .tok.me b{color:var(--ally2)}
 .tok .race{grid-area:race;font:12px var(--mono);color:var(--muted);letter-spacing:.02em;white-space:nowrap}
-.tok .lvl,.tok .st{grid-area:mark} .tok .pen,.tok .act{grid-area:pen;justify-self:end} .tok .stag{grid-area:tag;justify-self:end}
+.tok .lv,.tok .st{grid-area:mark} .tok .lv{display:inline-flex;align-items:center;gap:4px;min-width:0} .tok .lw{font:11px/1 var(--mono);color:var(--fg);letter-spacing:.02em;white-space:nowrap} .tok .pen,.tok .act{grid-area:pen;justify-self:end} .tok .stag{grid-area:tag;justify-self:end}
 .tok .stag:not(:empty){font:11px/1 var(--mono);color:var(--c);border:1px solid var(--c);border-radius:3px;padding:2px 4px;letter-spacing:.04em;white-space:nowrap}
-@container (max-width:150px){.tok .stag .w{display:none}} /* (a narrow token: S2) */
+@container (max-width:195px){.tok .stag .w{display:none}} /* (a token too narrow for its race, its level in words and SIDE 2: S2) */
 .tok .pen{color:var(--dim);font:12px var(--mono);line-height:1} .tok:hover .pen{color:var(--ally)}
 .board .ib.tok.on{background:#2a2415}
 .tok.ro{cursor:default;border-style:dashed;background:transparent} .tok.ro .pen{visibility:hidden} /* (read-only: another's seat, in the lobby: flat, information, not a button) */
@@ -241,7 +241,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 /* A phone: every word of the board and the sheet at 16 px (14 for a token's race and side), read at arm's length. */
 @media (pointer:coarse){
   .board .ib.tok{column-gap:5px;padding-right:6px}
-  .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0} .tok .stag:not(:empty){font-size:13px;padding:1px 3px;letter-spacing:0}
+  .tok b{font-size:16px;letter-spacing:.02em} .tok .race{font-size:14px;letter-spacing:0} .tok .lw{font-size:13px;letter-spacing:0} .tok .stag:not(:empty){font-size:13px;padding:1px 3px;letter-spacing:0}
   .board .ib.add{font-size:16px;letter-spacing:.02em}
   .sheet .opt .ib,.sheet .ft .ib,.sheet .hd b,.sheet .info,.sheet .opt .lbl,.sheet .hd .sub{font-size:16px} .sheet .opt .ib{letter-spacing:.04em}
   .sheet .opt .lbl{width:64px}
@@ -275,6 +275,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #menuLinks{margin:8px 0 0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 8px;font:12px var(--mono);color:var(--muted)}
 #menuLinks a{display:inline-flex;align-items:center;min-height:44px;min-width:48px;justify-content:center;padding:0 6px;color:var(--muted);text-decoration:none;letter-spacing:.04em} #menuLinks a:hover,#menuLinks a:focus-visible{color:var(--ally2);text-decoration:underline}
 #menuFoot{display:flex;flex-direction:column;align-items:center}
+/* The footer reads over the field: on a phone the links and the stamp sit on the band's top, muted mono on a busy picture. A backing in the floor's own color, feathered (nothing to see on the plain floor, the picture dimmed under the words), and the words a step lighter. */
+#menuFoot{width:fit-content;margin-left:auto;margin-right:auto;padding:0 12px;border-radius:10px;background:rgba(18,26,37,.82);box-shadow:0 0 10px 6px rgba(18,26,37,.82)}
+#menuLinks,#menuLinks a,#menuHome .rec{color:#aebbcb}
 @media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, clear of the field) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
@@ -398,6 +401,8 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #tut{position:absolute;left:8px;top:8px;z-index:4;display:flex;align-items:center;gap:8px;max-width:min(460px,70%);padding:5px 10px 5px 6px;
   background:rgba(18,26,37,.92);border:1px solid var(--ally);border-radius:6px;font:13px var(--display);color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none}
 #tut .pic{width:26px;height:26px;flex:none} #tut .pic img{width:100%;height:100%} #tut b{font:12px var(--mono);color:var(--ally2)}
+/* A phone on its side: a narrow column in the stage's corner, clear of the base the game starts over (two lines across most of the screen covered the top of the Castle). */
+@media (orientation:landscape) and (max-height:500px){#tut{max-width:min(270px,31%);gap:6px;padding:4px 8px 4px 5px;font-size:12px;line-height:1.25}}
 .pulse,.nudge{animation:pulse-warn .8s infinite alternate;border-color:var(--warn)!important} /* (.nudge: the group hint's, grouphint.js; the checklist clears only .pulse) */
 @media (prefers-reduced-motion:reduce){.pulse,.nudge{animation:none}}
 #info.empty{display:none} /* nothing selected: no console (like no command card), on any screen */
@@ -491,6 +496,17 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #online .joincode{display:flex;gap:8px;align-items:center} /* (the code and its JOIN keep together: one line beside NEW ROOM, or the next on a narrow phone) */
 #menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
 @media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centered) */
+/* A first visit's first page (menu.js `layoutHome`): FIRST GAME, the guided game, is the one big amber button, three lines (a lead, its name, what it is); the two modes sit small in the row below with OPTIONS and INSTALL (four on a line; two and two upright). Small in the row (a game started, none finished) it shows its name alone. */
+#btnFirstHome :is(.k,.y,.s){display:none}
+#menuHero{display:flex;justify-content:center;margin:8px 0 6px}
+#btnFirstHome.hero{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;max-width:452px;min-height:96px;padding:12px 24px;border-radius:6px}
+#btnFirstHome.hero .k{display:block;font:600 11px var(--display);letter-spacing:.16em;opacity:.8}
+#btnFirstHome.hero .l{font:700 24px/1.1 var(--display);letter-spacing:.14em} #btnFirstHome.hero .y{display:inline}
+#btnFirstHome.hero .s{display:block;font:13px var(--mono);letter-spacing:.02em;opacity:.85}
+#menuHome.first .row{margin-top:12px}
+@media (max-height:420px){#menuHero{margin:4px 0 2px} #btnFirstHome.hero{min-height:74px;padding:6px 20px;gap:0} #btnFirstHome.hero .l{font-size:20px} #btnFirstHome.hero .s{font-size:12px} #menuHome.first .row{margin-top:6px}}
+@media (orientation:portrait){#menuHome.first .row>.ib:not(.big){flex:0 0 calc((100% - 10px) / 2)}}
+@media (max-width:359px){#btnFirstHome.hero{padding-left:10px;padding-right:10px} #btnFirstHome.hero .l{font-size:20px;letter-spacing:.1em} #btnFirstHome.hero .s{font-size:12px}}
 #online .card.menu{justify-content:flex-start}
 #onlineJoin h2{min-height:46px;display:flex;align-items:center;margin:0 0 4px;padding-right:80px}
 /* The other menu pages (owner, 2026-11-03): the name above the page's title, and the first page's backdrop behind

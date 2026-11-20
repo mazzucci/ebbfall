@@ -125,7 +125,7 @@ window.ready = (async () => {
 </script></body></html>`;
 };
 
-const TYPES = { png: 'image/png' };
+const TYPES = { png: 'image/png', webp: 'image/webp' };
 mkdirSync(out, { recursive: true });
 const browser = await launchChromium();
 try {

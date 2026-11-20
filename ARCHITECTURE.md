@@ -897,11 +897,11 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       reference sprites, which set the atlas's seat tints
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
-                      light blob, the rally flag and the heal sparkle), packer, PNG encoder; the review pictures
+                      light blob, the rally flag and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
                       (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
                       unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
                       angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
                       building); see Notion: Ebbfall art
-public/art/           generated atlas.json index + atlas-<n>.png/json pages (PixiJS spritesheets, scale 2), committed
+public/art/           generated atlas.json index + atlas-<n>.webp/json pages (PixiJS spritesheets, scale 2), committed
 ```
 

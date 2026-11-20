@@ -87,7 +87,7 @@ window.ready = (async () => {
 })();
 </script></body></html>`;
 
-const TYPES = { svg: 'image/svg+xml', png: 'image/png', woff2: 'font/woff2' };
+const TYPES = { svg: 'image/svg+xml', png: 'image/png', webp: 'image/webp', woff2: 'font/woff2' };
 const browser = await launchChromium();
 try {
   const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });

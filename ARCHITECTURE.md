@@ -239,7 +239,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       (its spot, or the point of its route where the march turned: `Back`), the longer reach of the two
                       on top (a gun shelling it from afar can be gone for); let go there, it walks back to that point
                       (`Task::AMove`'s `rejoin`, picking no fight on the way) and only then marches on, so a fleeing
-                      target cannot pull it along leash by leash; a shooter off the leash is not answered), movement, paths.rs (a group's one route shared by the units of one order, long
+                      target cannot pull it along leash by leash; a shooter off the leash is not answered; idle guards answer a
+                      shooter that hits a building in their idle look, `guards_answer`), movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
                       retreat, the sweep), radio.rs (coverage: the Expedition's combat machines work only within
                       a finished Data center's 18 tiles or an Uplink's 54 (on every map) of their side or an

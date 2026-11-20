@@ -314,7 +314,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop zoomed out), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, on the map), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;

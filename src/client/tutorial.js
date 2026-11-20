@@ -1,6 +1,6 @@
 // The guided first game: a short checklist over the map, one step at a time, driven by what is on the field (no
 // timers, no numbers beyond a count). Each step pulses the button it wants. Race-neutral: kinds come from the faction.
-import { G, UNITS, BUILDINGS, TILE, holdWaves, enemies } from '../engine/index.js';
+import { G, UNITS, BUILDINGS, TILE, holdWaves, enemies, takes } from '../engine/index.js';
 import { plural } from '../engine/util.js';
 
 /** The longest the opponent waits for the guided player (s): the sim's HOLD_WAVES_MAX. */
@@ -11,9 +11,13 @@ import { portrait } from './gl/render.js';
 import { sfx } from './audio.js';
 import { alerts } from './tools.js';
 
-const tut = { on: false, step: 0, start: 0, since: 0, touch: false };
+const tut = { on: false, step: 0, start: 0, since: 0, touch: false, line: '' };
 const mine = (type) => G.units.filter(u => u.team === G.me && u.type === type).length;
 const built = (type) => G.bldgs.some(b => b.team === G.me && b.type === type && b.done);
+/** Ours of `type`, those in training too (a button stops pulsing with the tap that orders the last one). */
+const ordered = (type) => mine(type) + G.bldgs.reduce((k, b) => k + (b.team === G.me ? b.queue.filter(t => t === type).length : 0), 0);
+/** The places (population, grid) still free: those of units in training are taken (the sim counts them). */
+const room = () => { const [used, cap] = G.sup[G.me] || [0, 0]; return cap - used; };
 /** Our workers standing idle (a new one waits for an order, a builder beside what it built: Stelian, Nov 12). */
 const idleWorkers = () => G.units.filter(u => u.team === G.me && u.d.worker && u.task.t === 'idle').length;
 /** How near (px) an enemy fighter must come to one of the player's buildings to be at the base. */
@@ -31,10 +35,12 @@ const armyStep = () => steps().findIndex(s => s.hold);
 /** Fighters of ours in the selection. */
 const fightersPicked = () => playerSel().filter(e => e.kind === 'unit' && !e.d.worker).length;
 
-/** The steps for the player's race: [line, portrait, the buttons to pulse (or a function of the moment; '#id' an
- *  element's), done?].
+/** The steps for the player's race: [line (or a function of the moment), portrait, the buttons to pulse (or a function
+ *  of the moment; '#id' an element's), done?].
  *  Workers trained and sent to the mine (a new one waits for an order), the barracks (its builder sent back), a line and its anti-air (six of a 1-population kind, three of a 2-population
- *  one), on a touch screen the army selected as one (a finger held on the ground then a box, or ARMY: a mouse drags a box by habit, and a
+ *  one: the line's button pulses until the last of them is ordered, then the anti-air's; a player who trained on past
+ *  them until no place was left, Nov 20, is not held: an army of that size without them passes, and with a smaller one
+ *  the step asks for a house, the places being full), on a touch screen the army selected as one (a finger held on the ground then a box, or ARMY: a mouse drags a box by habit, and a
  *  player on a phone tapped 15 units one by one, Nov 18), the Market (it needs the barracks; a people without one is told its barracks pays nothing and trains on), hold, then population (where it runs out: the last
  *  army is sized past the headquarters' population, `goal`), then spend the bank on more of the line up to an army of
  *  `goal` and attack (the sim keeps the guided game's opponent small: World::guided_hold). */
@@ -46,11 +52,18 @@ function steps() {
   const room = (hq.supply || 0) - (tut.start + 2) - n * pop(soldier) - 2 * pop(aa);
   const goal = n + 2 + Math.max(1, Math.floor(room / pop(soldier)) + 1), army = () => G.units.filter(u => u.team === G.me && !u.d.worker).length;
   const calm = () => alerts.last && alerts.last.t > tut.since && performance.now() - alerts.last.t > 20000;
+  // The army step: what it still lacks on the field (`lacks`), what to order next (`next`: the line first, then its
+  // anti-air, those in training counted), and whether no place is left for it (`full`).
+  const lacks = () => (mine(soldier) < n ? soldier : mine(aa) < 2 ? aa : null);
+  const next = () => (ordered(soldier) < n ? soldier : ordered(aa) < 2 ? aa : null);
+  const full = (k) => !!k && room() < takes(k);
+  const trainThem = `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`;
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} ${money} again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
     { text: `New ${plural(worker.name)} wait by the ${hq.name}: select them, tap Mine, then the ${ore} mine`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
-    { text: `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`, por: ['unit', soldier], want: ['t_' + soldier, 't_' + aa], done: () => mine(soldier) >= n && mine(aa) >= 2 },
+    { text: () => (full(next()) ? `Your ${places} is full: select a ${worker.name} and Build ${aName(house.name)}, then train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)}` : trainThem), por: ['unit', soldier],
+      want: () => (full(next()) ? ['build', 'b_' + f.supply] : next() ? ['t_' + next()] : []), done: () => !lacks() || (army() >= n + 2 && full(lacks())) },
     ...(tut.touch ? [{ text: 'Select your army at once: hold a finger on the ground, then drag a box over it, or tap ARMY', por: ['unit', soldier], want: ['#btnBox', '#btnArmy'], done: () => fightersPicked() >= 4 }] : []),
     market
       ? { text: `Build ${aName(market.name)} in your base: it ${market.verb} ${money} by itself`, por: ['bldg', f.market], want: ['build', 'build2', 'b_' + f.market], done: () => built(f.market) }
@@ -74,9 +87,12 @@ export function startTutorial(on) {
   show();
 }
 
+/** A step's line now (a step may say another thing while something stands in its way). */
+const lineOf = (s) => (typeof s.text === 'function' ? s.text() : s.text);
 function show() {
   const s = steps()[tut.step];
-  $('tut').innerHTML = `<span class="pic">${portrait(s.por[0], s.por[1], 26)}</span><span class="t">${s.text}</span><b>${tut.step + 1}/${steps().length}</b>`;
+  tut.line = lineOf(s);
+  $('tut').innerHTML = `<span class="pic">${portrait(s.por[0], s.por[1], 26)}</span><span class="t">${tut.line}</span><b>${tut.step + 1}/${steps().length}</b>`;
 }
 
 function clearPulse() { for (const el of document.querySelectorAll('.pulse')) el.classList.remove('pulse'); }
@@ -94,6 +110,7 @@ export function updateTutorial() {
     if (tut.step === all.length) { tut.on = false; $('tut').hidden = true; clearPulse(); return; }
     show();
   }
+  if (lineOf(all[tut.step]) !== tut.line) show(); // (the step's other line)
   clearPulse();
   const want = all[tut.step].want;
   for (const w of typeof want === 'function' ? want() : want) {

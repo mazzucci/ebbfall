@@ -21,9 +21,14 @@ export const view = { w: 800, h: 500, dpr: 1 };
 /** Camera: top-left corner in world px, and zoom (screen px per world px). */
 export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.75 : innerWidth >= 1100 ? 2 : 1.5 };
 export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
+/** How much of the map (world px across) a desktop's window shows when a game starts: the base and the ground round
+ *  it, on any monitor. */
+const START_SPAN = 1200;
 /** The zoom a game starts at: a phone (a coarse pointer) at 1, its world px one CSS px, where the units read; with a
- *  mouse all the way out, over as much of the map as a desktop's window holds. */
-export const startZoom = () => matchMedia('(pointer: coarse)').matches ? 1 : ZOOM_MIN;
+ *  mouse the window shows START_SPAN px of the map across (1.07 at 1280 px, 1.2 at 1440, 1.6 at 1920; never under 1,
+ *  never over 2), so the base reads and no window is wider than the smallest map (all the way out, ZOOM_MIN, a wide
+ *  monitor showed the dark past the map's edges: a stranger's first sight of the game). The wheel zooms out from there. */
+export const startZoom = () => (matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, 2));
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 const MM_GOLD = '#e8c04a'; // (the minimap: a gold mine, gold as its veins)
@@ -223,6 +228,13 @@ let hudFloats = true;
 const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0;
 export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
+/** The camera for a game's start: over (x, y), and with a mouse on the map itself, nothing past its edges at the sides
+ *  or the top (a base sits near a corner: the usual room past the edge was a third of the first screen); at the foot
+ *  the usual room stays, where the HUD floats over the map. A phone starts as `centerOn` leaves it. */
+export function startOn(x, y) {
+  centerOn(x, y);
+  if (!coarse.matches) { cam.x = clamp(cam.x, 0, Math.max(0, WW - vw())); cam.y = Math.max(0, cam.y); }
+}
 /** Screen (canvas css px) → world px. */
 export const toWorld = (sx, sy) => ({ x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y });
 /** Whether world point (x, y) is on screen or within `m` world px of it. With eight armies most fights are elsewhere:

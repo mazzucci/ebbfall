@@ -10,7 +10,7 @@
 // (counted once a hello seats someone), joins per address and per /48 (a miss costs more: a guesser is stopped, and
 // learns nothing once stopped), everyone's misses (reported in batches; a scan from rotating networks trips them, and
 // invite links still work), on a fake clock; the bindings as wrangler.toml declares them; a limit that cannot be asked
-// lets the request go on. And hibernation (the WebSocket Hibernation API, on a fake runtime that keeps the sockets and
+// lets the request go on, but a new room, refused (the spend ceiling fails closed). And hibernation (the WebSocket Hibernation API, on a fake runtime that keeps the sockets and
 // their attachments and hibernates an object only with no timer pending): lobbies, games across a hibernation, holds
 // and graces by the alarm, quiet rooms closed, many sockets, the limits after a wake.
 import { test, afterEach } from 'node:test';
@@ -20,7 +20,7 @@ import { relay, ROOM_IDLE_MS } from '../relay/edge.js';
 import { PROTO, LOBBY_HOLD_MS, OVER_GRACE_MS, QUIET_MS, QUIET_SAY, QUIET_CLOSE } from '../relay/room.js';
 import { DEFAULT_MAP } from '../src/client/maps.js';
 import { readFileSync } from 'node:fs';
-import { rateLimit, OpenBudget, Limits, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR, MSG_BURST, MSG_CLOSE } from '../relay/limits.js';
+import { rateLimit, OpenBudget, Limits, Ceiling, MAX_ROOMS, ROOM_HOURS_PER_MONTH, MSGS_PER_ROOM_HOUR, LEASE_MS, BEAT_MS, MissWatch, Limiter, addressKey, wideKey, netKey, SAY, OPEN_PER_MIN, OPEN_PER_HOUR, WIDE_OPEN_PER_MIN, WIDE_OPEN_PER_HOUR, ROOMS_PER_MIN, ROOMS_PER_HOUR, JOIN_POINTS, WIDE_JOIN_POINTS, MISS_COST, SCAN_MISSES, SCAN_WINDOW_MS, SCAN_HOLD_MS, SCAN_NET_MISSES, MISS_FLUSH_MS, MISS_BATCH, MINUTE, HOUR, MSG_BURST, MSG_CLOSE } from '../relay/limits.js';
 import { ALPHABET, newCode, showCode } from '../src/net/roomcode.js';
 import { PROTO as CLIENT_PROTO } from '../src/net/net.js';
 import { BenchStore, memoryStorage, BENCH_MAX, BENCH_TTL, BENCH_PER_MIN, BENCH_PER_DAY, BENCH_IP_PER_MIN, BENCH_IP_PER_DAY, BENCH_IP_GETS_PER_MIN } from '../relay/bench.js';
@@ -49,7 +49,7 @@ const worker = relay(platform); // (relay/worker.js's default export is relay() 
 /** A fake object's storage (a Durable Object's API over a Map), counting its writes and keeping its alarm. */
 const storage = () => {
   const m = memoryStorage(), s = Object.assign(m, { puts: 0, alarm: 0 }), put = m.put;
-  return Object.assign(s, { async put(k, v) { s.puts++; return put(k, v); }, async setAlarm(t) { s.alarm = t; }, async getAlarm() { return s.alarm || null; }, async deleteAlarm() { s.alarm = 0; }, async deleteAll() { m.map.clear(); } });
+  return Object.assign(s, { async put(k, v) { s.puts++; return put(k, structuredClone(v)); /* (a copy, as storage keeps it) */ }, async setAlarm(t) { s.alarm = t; }, async getAlarm() { return s.alarm || null; }, async deleteAlarm() { s.alarm = 0; }, async deleteAll() { m.map.clear(); } });
 };
 /** A fake object's state (the WebSocket Hibernation API): its storage, and the sockets it accepted, kept beyond the
  *  object (with their attachments, at most 2 KB, as the runtime keeps them): each event goes to the object `live()`
@@ -184,8 +184,8 @@ test('a reconnect that replaces a live socket keeps its seat, in the lobby and i
 });
 
 test('no free code: told so', async () => {
-  const taken = { fetch: async () => new Response('Taken', { status: 409 }) };
-  const e = { ROOMS: { idFromName: (n) => n, get: () => taken } };
+  const taken = { fetch: async () => new Response('Taken', { status: 409 }) }, limits = { fetch: async () => new Response(null, { status: 204 }) };
+  const e = { ROOMS: { idFromName: (n) => n, get: (n) => n === 'limits' ? limits : taken } };
   assert.equal((await worker.fetch(upgrade('new=1'), e)).status, 503);
 });
 
@@ -774,13 +774,14 @@ test('reports are gone after a week, and a backlog is swept 40 at a time', async
 
 // ---- the rooms' limits ----
 /** An environment with the rate limiting bindings and the limits object on one fake clock (`at.now`). */
-function limited(now = Date.UTC(2026, 9, 31, 12)) {
+function limited(now = Date.UTC(2026, 9, 31, 12), { ceiling = false } = {}) {
   const at = { now }, clock = () => at.now;
   const e = env({
     CREATE_LIMIT: rateLimit(OPEN_PER_MIN, 60, clock), JOIN_LIMIT: rateLimit(JOIN_POINTS, 60, clock),
     CREATE_WIDE_LIMIT: rateLimit(WIDE_OPEN_PER_MIN, 60, clock), JOIN_WIDE_LIMIT: rateLimit(WIDE_JOIN_POINTS, 60, clock),
   });
-  const l = e.ROOMS.get('limits'); l.limits = new Limits(clock);
+  const l = e.ROOMS.get('limits'); l.limits = new Limits(clock, e.stores.get('limits'));
+  if (!ceiling) l.limits.ceiling.max = Infinity; // (the spend ceiling's rooms at once lifted but in its own tests)
   const asked = []; const fetch = l.fetch.bind(l); l.fetch = (r) => { asked.push(new URL(r.url).pathname); return fetch(r); }; // (what the limits object is asked)
   e.worker = relay(platform, clock); // (an isolate of its own: its misses' tally on this clock)
   return { at, e, l: l.limits, asked };
@@ -1011,16 +1012,33 @@ test('the Node relay\'s limits (RoomLimits): the /48 tier, the scan, and everyon
   assert.ok(r.join(addressKey('2001:db8:7778:1::1')), 'another network may look');
 });
 
-test('a limit that cannot be asked (a binding or the limits object failing) lets the request go on', async () => {
+test('a limit that cannot be asked (a binding or the limits object failing) lets a join go on; a new room is refused (the spend ceiling fails closed)', async () => {
   const broken = { limit: async () => { throw new Error('down'); } };
   const e = env({ CREATE_LIMIT: broken, JOIN_LIMIT: broken });
-  const limits = e.ROOMS.get('limits'); limits.fetch = async () => { throw new Error('overloaded'); };
-  const code = await openFrom(e, '198.51.100.9');
+  const code = await openFrom(e, '198.51.100.9'); // (opened while the limits object answers)
   assert.match(code, /^[A-Z]{6}$/);
-  const ws = (await worker.fetch(upgrade(`room=${code}`, undefined, '198.51.100.9'), e)).webSocket;
-  say(ws, hello('Bo'));
-  assert.equal(got(ws, 'seat')[0]?.seat, 1);
-  ws.close();
+  const limits = e.ROOMS.get('limits'), fetch = limits.fetch.bind(limits);
+  const ways = [
+    ['throwing', async () => { throw new Error('overloaded'); }],
+    ['erring', async () => new Response('Internal error', { status: 500 })],
+    ['unreachable', null],
+  ];
+  let token; // (Bo's seat: his first join, then reconnects)
+  for (const [how, f] of ways) {
+    const get = e.ROOMS.get;
+    if (f) limits.fetch = f; else e.ROOMS.get = (n) => { if (n === 'limits') throw new Error('unreachable'); return get(n); };
+    try {
+      const objects = e.objects.size;
+      assert.deepEqual(await openFrom(e, '198.51.100.10'), { t: 'error', code: 'limit', msg: SAY.full }, `${how}: a new room refused with the words`);
+      assert.equal(e.objects.size, objects, `${how}: no room's object woken`);
+      const ws = (await worker.fetch(upgrade(`room=${code}`, undefined, '198.51.100.9'), e)).webSocket;
+      say(ws, { ...hello('Bo'), token });
+      assert.equal(got(ws, 'seat')[0]?.seat, 1, `${how}: a join (then a reconnect) to a room open goes on`);
+      token = got(ws, 'seat')[0].token;
+      ws.close(); await settle();
+    } finally { limits.fetch = fetch; e.ROOMS.get = get; }
+  }
+  assert.match(await openFrom(e, '198.51.100.11'), /^[A-Z]{6}$/, 'the limits object back: rooms open again');
 });
 
 test('the host\'s REMOVE through the Worker: the address the stranger came from (CF-Connecting-IP, its /64) is not let in again', async () => {
@@ -1061,4 +1079,128 @@ test('addresses: an IPv6 address counts by its /64 however written, an IPv4 one 
   assert.ok(few.keys.has('203.0.113.5'), 'within its window: kept');
   at.now += MINUTE; few.take('x');
   assert.ok(!few.keys.has('203.0.113.5'), 'a few keys too: an address is not held past its window and one more');
+});
+
+// ---- the spend ceiling (relay/limits.js Ceiling): rooms at once, the month's room-hours ----
+const settle = () => wait(5); // (a room's word to the limits object is not waited for)
+
+test('the ceiling alone: MAX_ROOMS at once, a room closing frees its slot, a room that never says so is reclaimed when its lease runs out', async () => {
+  const at = { now: Date.UTC(2026, 10, 20, 12) }, st = storage(), c = new Ceiling(st, () => at.now);
+  assert.equal(MAX_ROOMS, 10);
+  const ids = [];
+  for (let i = 0; i < MAX_ROOMS; i++) { assert.equal(await c.open(), '', `room ${i + 1}`); ids.push(c.reserved); }
+  assert.equal(await c.open(), SAY.full, 'the eleventh: refused');
+  assert.equal(SAY.full, 'Multiplayer is busy, try again in a few minutes');
+  for (let i = 0; i < MAX_ROOMS; i++) await c.beat(`ROOM${'BCDFGHJKLM'[i]}`, { claim: ids[i], hold: LEASE_MS });
+  assert.equal(c.rooms, MAX_ROOMS, 'each reservation now its room\'s lease');
+  await c.beat('ROOMB', { hold: 20 * MINUTE });
+  await c.beat('ROOMQ', { hold: LEASE_MS }); // (a room not opened through it, a kept lobby back after its lease ran out: held, never refused)
+  assert.equal(c.rooms, MAX_ROOMS + 1, 'a room already open is never refused its slot');
+  await c.beat('ROOMQ', { end: true });
+  await c.beat('ROOMC', { end: true });
+  assert.equal(c.rooms, MAX_ROOMS - 1);
+  assert.equal(await c.open(), '', 'a room closed: its slot free');
+  assert.equal(await c.open(), SAY.full);
+  at.now += LEASE_MS; // (every room but ROOMB said nothing since: crashed, evicted, a word lost)
+  assert.equal(c.rooms, 1, 'their leases ran out: reclaimed');
+  assert.equal(await c.open(), '', 'and new rooms open');
+  assert.equal(c.rooms, 2); at.now += LEASE_MS;
+  assert.equal(c.rooms, 1, 'a reservation no room claimed runs out too (ROOMB still held)');
+  assert.ok(st.puts > 0, 'kept in storage');
+});
+
+test('the ceiling\'s month: room-hours charged ahead by lease, given back on a close; spent, new rooms refused, rooms open go on; a restart forgets nothing; the 1st UTC starts afresh', async () => {
+  const at = { now: Date.UTC(2026, 10, 20, 12) }, st = storage(), c = new Ceiling(st, () => at.now);
+  assert.equal(ROOM_HOURS_PER_MONTH, 6000);
+  assert.ok(Math.abs(ROOM_HOURS_PER_MONTH * 0.005625 - 33.75) < 1e-9 && MAX_ROOMS * 720 * 0.005625 < 50, 'the dollars the comments give');
+  await c.open(); await c.beat('ROOMB', { claim: c.reserved, hold: LEASE_MS });
+  assert.ok(Math.abs(c.hours - LEASE_MS / HOUR) < 1e-9, 'a room\'s lease is paid when taken');
+  at.now += MINUTE; await c.beat('ROOMB', { hold: LEASE_MS });
+  assert.ok(Math.abs(c.hours - (MINUTE + LEASE_MS) / HOUR) < 1e-9, 'extended: the extension paid');
+  await c.beat('ROOMB', { msgs: MSGS_PER_ROOM_HOUR / 2 });
+  assert.ok(Math.abs(c.hours - (MINUTE + LEASE_MS) / HOUR - 0.5) < 1e-9, 'messages charged at MSGS_PER_ROOM_HOUR');
+  at.now += MINUTE; await c.beat('ROOMB', { end: true });
+  assert.ok(Math.abs(c.hours - 2 * MINUTE / HOUR - 0.5) < 1e-9, 'closed: what it paid ahead given back, its open time kept');
+  // Spent: a room open goes on (its words held, charged); a new one is refused.
+  await c.open(); await c.beat('ROOMC', { claim: c.reserved, hold: LEASE_MS });
+  c.state.used = ROOM_HOURS_PER_MONTH * HOUR - MINUTE;
+  assert.equal(await c.open(), '', 'a minute left: one more');
+  await c.beat('ROOMD', { claim: c.reserved, hold: LEASE_MS });
+  assert.equal(await c.open(), SAY.full, 'spent: refused');
+  at.now += 2 * MINUTE; await c.beat('ROOMC', { hold: LEASE_MS });
+  assert.ok(c.state.leases.ROOMC.until > at.now + LEASE_MS - 1, 'a room open still held past the budget');
+  assert.equal(c.rooms, 2);
+  // A restart (a deploy): a new object on the same storage.
+  const again = new Ceiling(st, () => at.now);
+  assert.equal(await again.open(), SAY.full, 'after a restart: still spent');
+  assert.equal(again.rooms, 2, 'and the rooms open still counted');
+  // The 1st of the next month, UTC (a minute before: still spent).
+  at.now = Date.UTC(2026, 11, 1) - MINUTE;
+  assert.equal(await again.open(), SAY.full, 'November\'s last minute');
+  at.now = Date.UTC(2026, 11, 1);
+  assert.equal(await again.open(), '', 'December 1st, 00:00 UTC: afresh');
+  assert.ok(again.hours < 0.1, `December's usage only (${again.hours})`);
+  assert.equal(new Ceiling(st, () => at.now).state, null, 'read from storage when first asked');
+});
+
+test('the ceiling through the Worker: the 11th room at once refused with the words (no room woken), joins and a game in it go on, a closed room frees a slot, a crashed one is reclaimed', async () => {
+  const { at, e, l, asked } = limited(Date.UTC(2026, 10, 20, 12), { ceiling: true });
+  const codes = [];
+  for (let i = 0; i < MAX_ROOMS; i++) { const code = await openFrom(e, `192.0.2.${i}`); assert.match(code, /^[A-Z]{6}$/, `room ${i + 1}`); codes.push(code); }
+  await settle();
+  assert.equal(l.ceiling.rooms, MAX_ROOMS, 'every room holds a slot (their hosts gone a moment: lobbies with a seat held)');
+  assert.ok(codes.every(c => l.ceiling.state.leases[c]), 'each by its code (the opening\'s reservation claimed)');
+  const objects = e.objects.size, budgetBefore = l.budget.ips.keys.size;
+  assert.deepEqual(await openFrom(e, '192.0.2.200'), { t: 'error', code: 'limit', msg: SAY.full }, 'the eleventh: told over the socket');
+  assert.equal(e.objects.size, objects, 'no room\'s object woken');
+  assert.equal(l.budget.ips.keys.size, budgetBefore, 'nothing counted for the address refused');
+  // Joins and reconnects to a room open are never refused; a game in it runs.
+  const b = (await e.worker.fetch(upgrade(`room=${codes[0]}`, undefined, '192.0.2.50'), e)).webSocket;
+  say(b, hello('Bo'));
+  assert.equal(got(b, 'seat')[0]?.seat, 1, 'a friend joins a room while the relay is full');
+  try {
+    // Free a slot: a room every socket left, gone by its alarm once idle (its slot given back).
+    const gone = codes[1];
+    skip(ROOM_IDLE_MS); await e.objects.get(gone).alarm(); await settle();
+    assert.ok(!l.ceiling.state.leases[gone], 'a closed room gives its slot back');
+    const fresh = await openFrom(e, '192.0.2.201');
+    assert.match(fresh, /^[A-Z]{6}$/, 'and a new room opens');
+    assert.equal((await openFrom(e, '192.0.2.202')).msg, SAY.full, 'full again');
+    // A crashed room: its object gone without a word (its sockets with it), its alarm never firing.
+    const crashed = codes[2];
+    e.evict(crashed); e.stores.get(crashed).alarm = 0;
+    at.now += 59 * MINUTE; // (every lease held at most MAX_HOLD; the live rooms' too, unless they speak)
+    for (const c of codes.filter(c => c !== crashed && c !== gone)) e.objects.get(c)?.tell(LEASE_MS); // (the others still alive say so)
+    e.objects.get(fresh).tell(LEASE_MS); await settle();
+    at.now += 2 * MINUTE; await settle();
+    assert.ok(!l.ceiling.state.leases[crashed], 'the crashed room\'s slot reclaimed when its lease ran out');
+    assert.match(await openFrom(e, '192.0.2.203'), /^[A-Z]{6}$/, 'a new room in its place');
+  } finally { b.close(); }
+  assert.ok(asked.includes('/beat'));
+});
+
+test('the ceiling through the Worker: a game runs past the month\'s budget (its words held), new rooms are refused, a restart of the limits object keeps both', async () => {
+  const { at, e, l } = limited(Date.UTC(2026, 10, 20, 12), { ceiling: true });
+  const { a, b, code } = await pairUp(e);
+  try {
+    for (const c of [a, b]) say(c, { t: 'ready', ready: true });
+    for (const c of [a, b]) say(c, { t: 'loaded' });
+    await settle();
+    assert.ok(l.ceiling.state.leases[code], 'the game\'s room holds a slot');
+    l.ceiling.state.used = ROOM_HOURS_PER_MONTH * HOUR; await l.ceiling.save(); // (the month spent, and written)
+    assert.equal((await openFrom(e, '198.51.100.30')).msg, SAY.full, 'a new room refused');
+    // A restart of the limits object (a deploy restarts it too; the rooms' storage and its own kept).
+    const restarted = new Limits(() => at.now, e.stores.get('limits'));
+    e.ROOMS.get('limits').limits = restarted;
+    assert.equal((await openFrom(e, '198.51.100.31')).msg, SAY.full, 'still spent after a restart');
+    assert.ok(restarted.ceiling.state.leases[code], 'the running room still counted');
+    const turns = got(a, 'turn').length;
+    at.now += 35 * MINUTE; skip(35 * MINUTE); await wait(400); // (past what its lobby paid ahead: to its quiet alarm and LEASE_SLACK)
+    assert.ok(got(a, 'turn').length > turns + 2, 'the game goes on');
+    await settle();
+    assert.ok(restarted.ceiling.state.leases[code].until > at.now + LEASE_MS - BEAT_MS - 1000, 'renewed by its clock, never refused');
+    assert.ok(restarted.ceiling.hours > ROOM_HOURS_PER_MONTH, 'and charged');
+    at.now = Date.UTC(2026, 11, 1, 0, 0, 1);
+    assert.match(await openFrom(e, '198.51.100.32'), /^[A-Z]{6}$/, 'the 1st of the next month UTC: rooms open again');
+  } finally { a.close(); b.close(); }
 });

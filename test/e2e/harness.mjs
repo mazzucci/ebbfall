@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
 import { loadTimes, assigner } from './shards.mjs';
 import { CSP, cspValue, headersFile } from '../../site/cache.js';
-import { resolve, parseHeaders, headersFor } from '../cloudflare-assets.mjs';
+import { resolve, parseHeaders, headersFor, workerFirstRules, workerFirst, assetsBinding } from '../cloudflare-assets.mjs';
 import worker from '../../site/worker.js';
 
 export const ENGINE = engineName();
@@ -72,7 +72,8 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
  * The site as Cloudflare serves it: every file by the assets (test/cloudflare-assets.mjs: the pages at their canonical
  * addresses, / and /docs/kingdom/ and /selftest), with the headers of the _headers file the deploy writes (site/cache.js:
  * the security headers, the CSP among them, and the cache headers), so every scenario runs under the site's CSP; what is
- * not a file goes to the site's Worker (site/worker.js: a room's card address, the CSP's reports, not found), unless
+ * not a file goes to the site's Worker (site/worker.js: a room's card address, the CSP's reports, not found), and so do
+ * the docs' videos, first (wrangler.toml run_worker_first: the Worker answers their byte ranges, site/media.js), unless
  * `site.blocked` (a tripped Workers spending limit: Cloudflare's error 1103 for every Worker request), and `site.worker`
  * lists what reached it. The CSP has one source more than the site's: the tests' own relay (relay/server.mjs on a port
  * of this machine, its websocket and the bench's report), where the site has its published relay. In WebKit, inline
@@ -94,7 +95,10 @@ const env = {
   FEEDBACK_EMAIL: { async send(m) { if (site.mailFails) { const e = new Error('not sent'); e.code = 'E_DELIVERY_FAILED'; throw e; } site.mail.push(m); return { messageId: 'test' }; } },
   FEEDBACK_LIMIT: { async limit() { return { success: true }; } },
   FEEDBACK_BUDGET: { idFromName: (n) => n, get: () => ({ fetch: async () => Response.json({ ok: true }) }) },
+  ASSETS: assetsBinding((path) => { const p = fileAt(path); return p && readFileSync(p); }, (path) => TYPES[extname(path)] || 'application/octet-stream'),
 };
+/** The paths the Worker answers before any file (site/wrangler.toml's run_worker_first). */
+const WORKER_FIRST = workerFirstRules(readFileSync(new URL('../../site/wrangler.toml', import.meta.url), 'utf8'));
 
 /** A file of dist/ at `path` (`/docs/index.html`), if there is one. */
 const fileAt = (path) => {
@@ -121,7 +125,7 @@ export async function start() {
   server = createServer((req, res) => {
     const url = new URL(req.url, base);
     let route = null;
-    try { route = req.method === 'GET' || req.method === 'HEAD' ? resolve(url.pathname, (p) => !!fileAt(p)) : null; } catch { /* a malformed address: not a file */ }
+    try { route = (req.method === 'GET' || req.method === 'HEAD') && !workerFirst(WORKER_FIRST, url.pathname) ? resolve(url.pathname, (p) => !!fileAt(p)) : null; } catch { /* a malformed address: not a file */ }
     if (route?.redirect) { res.writeHead(307, { location: route.redirect + url.search }); return res.end(); }
     if (!route) return toWorker(req, res, url).catch((e) => { res.writeHead(500); res.end(String(e)); });
     const p = fileAt(route.file);

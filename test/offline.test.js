@@ -1,6 +1,6 @@
 // The service worker (tools/offline/sw.js, as the build writes it) in Node on a fake Cache Storage: what PLAY OFFLINE
-// hears back (all files stored, some, none, no storage), an install that resumes where it stopped, and Cloudflare's
-// analytics beacon left to the network. Also the manifest's app icons, which the install prompt needs.
+// hears back (all files stored, some, none, no storage), an install that resumes where it stopped, Cloudflare's
+// analytics beacon and byte ranges left to the network. Also the manifest's app icons, which the install prompt needs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
@@ -127,6 +127,14 @@ test("Cloudflare's analytics beacon is left to the network: never stored, never 
     on.fetch({ request: { url, method, mode: 'no-cors' }, respondWith: () => { answered = true; } });
     assert.equal(answered, false, url);
   }
+});
+
+test("a byte range (the docs' videos) is left to the browser, never answered with a stored whole file; a plain GET is answered", async () => {
+  const on = worker(fakeCaches(FILES));
+  const answered = (headers) => { let a = false; on.fetch({ request: { url: 'http://x/docs/media/trailer.mp4', method: 'GET', mode: 'no-cors', headers: new Headers(headers) }, respondWith: () => { a = true; } }); return a; };
+  assert.equal(answered({ Range: 'bytes=0-1' }), false, 'Safari\'s first probe');
+  assert.equal(answered({ Range: 'bytes=0-' }), false, 'Chromium\'s');
+  assert.equal(answered({}), true, 'no range: the cache first, then the network');
 });
 
 test('the manifest has PNG icons of 192 and 512 pixels and a maskable one, and the files exist', () => {

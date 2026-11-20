@@ -32,6 +32,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  // A byte range (a video's: the docs', answered 206 by the site's Worker, site/media.js) is left to the browser: the
+  // cache holds whole files only, and a whole 200 for a range is a video Safari will not play.
+  if (req.headers.has('range')) return;
   // The cached copy first (offline, and instant); anything not in the cache goes to the network. Pages are matched
   // without their query (?seed=...), so the game opens offline from any of its links.
   e.respondWith(caches.open(CACHE).then(c => c.match(req, { ignoreSearch: req.mode === 'navigate' }).then(hit => hit || fetch(req))));

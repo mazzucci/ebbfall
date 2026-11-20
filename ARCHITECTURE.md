@@ -158,7 +158,7 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       seat's gold, workers, buildings, army and AI wave state at intervals: a stall from a grind; a
                       seat may follow a lab plan, `--plans`), duel.rs (play against Claude: `duel`, a written plan code
                       on Hard against an AI, with check-ins answered from a file, each answer landing `--delay`
-                      game-seconds later; `plan-gate`, plain Hard against Hard with an empty plan, seed for seed), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3), tiers.rs
+                      game-seconds later; `plan-gate`, plain Hard against Hard with an empty plan, seed for seed), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3, from Medium's tuning or `--level Hard`), tiers.rs
                       (attack now or invest further: a committer at each layer, basic, mid or top, against a teching
                       opponent, the bets' tech plan or the greedy human),
                       model.rs (logistic regression by IRLS, deterministic)
@@ -169,7 +169,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       upgrades.rs (Energy efficiency, two levels at the Lab: machines cost `ENERGY_COST` of their price, `World::unit_cost`; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
                       to its mid tier only, Medium's and Hard's top tier from 8:00; Easy never retreats; Easy's clumsy waves
                       growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
-                      Hard's Kingdom at 8:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`),
+                      Hard's Kingdom at 7:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`),
                       plan.rs (a plan for an AI seat, play against Claude: the code's grammar, strict, each value
                       clamped and noted, `Plan::apply` over Hard as its drawn style plays it, deltas, intents;
                       claude/PLAN_VOCAB.md), style.rs (AI play styles, PRD: AI styles and the level ladder: Pressure, Timing, Boom, weighted
@@ -333,7 +333,7 @@ src/client/           everything that touches the browser
                       stays square); the turning heads (aimed, spun or panned, look.js `headFrame`) and the Portal's
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
-                      (`meleeHit`), each shot's impact (`impactFx`; on a flyer up on its body, `hitY`, look.js `HIT_LIFT`), a hit's weight by how hard it hits (`tierHit`, `tierMuzzle`: look.js `hitTier`; main.js picks the tier from the shooter's weapon in the data, a tower's by its people), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
+                      (`meleeHit`), each shot's impact (`impactFx`, in steel's cool: look.js `HIT_STEEL`; up on the body of a flyer, `hitY`, look.js `HIT_LIFT`, or of a walker, `WALKER_HIT_LIFT`: main.js `struckWalker` finds whose), a hit's weight by how hard it hits (`tierHit`, `tierMuzzle`: look.js `hitTier`; main.js picks the tier from the shooter's weapon in the data, a tower's by its people, against what it struck, a flyer's air damage or the ground's; a muzzle flash by the shooter's target as far as the client knows, `shotTarget`), the shots in flight (look.js `SHOT_STYLE`: a Kingdom shaft scaled over a dark bar, an Expedition tracer tinted and lit, a heavy shot's stretched trail, `HEAVY_TRAIL`, its tier against the unit at its aim point), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
                       construction you can read (construct.js): a Kingdom site raw (one shared color filter), its
                       slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site its body
                       rising in full color (64 rows, capped at 90%) under a faint cyan ghost in a printer gantry whose
@@ -475,8 +475,8 @@ src/client/           everything that touches the browser
                       heads (a turret's aimed, a rotor's spun, the Uplink's dish panned: `headFrame`; the Portal's
                       swirl brightening each time a unit comes through, then settling, `portalOpen`),
                       a selected building's oval (`selOval`), muzzle smoke (`MUZZLE_SMOKE`) and flash (`MUZZLE_FLASH`), a melee
-                      blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), each shot's impact (`IMPACT`, `impactOf`), how hard a hit lands, one scale for every unit and tower by its weapon's damage per hit (`hitTier`, `HIT_TIERS`: light, medium, heavy, siege; `HIT_LOOK`: light as before, medium a flash, heavy a bright blow, siege a blast, each with its muzzle flash and the impact sound's `weight`, audio.js `hit`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
-                      sprite by its shooter or people (`shotArt`), unit poses and voices, the seat colors
+                      blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), each shot's impact (`IMPACT`, `impactOf`), how hard a hit lands, one scale for every unit and tower by its weapon's damage per hit against what it struck (`hitTier`, `HIT_TIERS`: light, medium, heavy, siege; `HIT_LOOK`: light as before, medium a flash, heavy a bright blow with chips of steel, siege a blast, each with its muzzle flash and the impact sound's `weight`, audio.js `hit`; every hit in steel's cool, `HIT_STEEL`, the muzzle flashes warm; a shot on a walker up on its body, `WALKER_HIT_LIFT`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
+                      sprite by its shooter or people (`shotArt`) and how it is drawn to read on a phone (`SHOT_STYLE`, `SHOT_BAR`, `SHOT_GLOW`, `HEAVY_TRAIL`: the Kingdom's shafts larger on a dark bar and never lit, every Expedition shot but the rocket a cool lit tracer, a heavy shot's trail), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
@@ -533,7 +533,11 @@ test/construct.test.js construction you can read (construct.js): the designer's 
                       matrix (saturation, brightness kept, warm), the hologram's cap and shimmer, the done moment's
                       curves, a site's damage, a builder's strikes, the cards' and the toast's words, the knock
 test/tiers.test.js    how hard a hit lands (look.js `hitTier`): every armed unit and tower pinned to its tier from the live
-                      data, the lines, the looks and sound weights, a tower told by its people; no camera shake from hits
+                      data, on the ground and against a flyer (the Ballista bolt heavy there), the lines, the looks and
+                      sound weights, a tower told by its people; no camera shake from hits
+test/shots.test.js    how each shot is drawn to read on a phone (look.js `SHOT_STYLE`, `SHOT_LIT`, `HIT_STEEL`): the
+                      Kingdom's shafts on a dark bar and never lit, every Expedition shot but the rocket a cool lit tracer
+                      (the Drone's the Sentry mast's), hits in steel's cool and muzzle flashes warm, the heavy trail
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the

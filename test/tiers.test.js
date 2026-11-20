@@ -1,6 +1,6 @@
 // How hard a hit lands (src/client/look.js hitTier, HIT_LOOK): one scale for every unit and tower, by the weapon's
-// damage per hit (base, against the ground) read from the live data. The pinned list below is today's data; a
-// rebalance that moves a unit across a line updates it on purpose.
+// damage per hit (base, against what it struck: the ground, or a flyer) read from the live data. The pinned lists
+// below are today's data; a rebalance that moves a unit across a line updates them on purpose.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -27,7 +27,27 @@ test('the lines: light to 12, medium to 30, heavy to 80, siege above with splash
   const w = (dmg, splash = 0) => ({ dmg, splash });
   assert.deepEqual([w(12), w(13), w(30), w(31), w(80), w(81, 0.5), w(120, 0)].map(hitTier), ['light', 'medium', 'medium', 'heavy', 'heavy', 'siege', 'heavy']);
   assert.equal(hitTier(null), 'light');
-  assert.equal(hitTier({ ...w(10), dmgAir: 200 }), 'light', 'by the damage against the ground');
+  assert.equal(hitTier({ ...w(10), dmgAir: 200 }), 'light', 'on the ground: by the damage against the ground');
+  assert.equal(hitTier({ ...w(10), dmgAir: 200 }, true), 'heavy', 'on a flyer: by the damage against the air (no splash: heavy, not siege)');
+  assert.equal(hitTier({ ...w(31), dmgAir: 0 }, true), 'heavy', 'a weapon with no air damage keeps its ground tier (it never lands on a flyer anyway)');
+  assert.equal(hitTier(w(13), true), 'medium', 'no air damage in the data at all: the ground\'s');
+});
+
+// Against a flyer (`hitTier(weapon, true)`): the Ballista's bolt steps up to heavy (56 since Nov 18), the Android's
+// tracer stays heavy (50), everything else keeps its tier.
+const AIR_TIERS = {
+  light: ['harvester', 'lumen', 'shrike', 'trooper', 'rider', 'scythe', 'prism'],
+  medium: ['lancer', 'turret', 'ward', 'bruiser'], // (Archer: 24 at a flyer, still medium)
+  heavy: ['knight', 'umbra', 'bastion'], // (Knight, Android; the Ballista: a heavy blow on a Drone, a medium hit on a Guard)
+  siege: ['siegeTank', 'monolith'],
+};
+
+test('against a flyer every unit and tower falls in its air tier: the Ballista bolt is heavy there and medium on the ground', () => {
+  const armed = [...Object.entries(UNITS), ...Object.entries(BUILDINGS)].filter(([, d]) => d.weapon);
+  const got = {};
+  for (const [k, d] of armed) (got[hitTier(d.weapon, true)] ??= []).push(k);
+  for (const tier of Object.keys(AIR_TIERS)) assert.deepEqual((got[tier] ?? []).sort(), AIR_TIERS[tier].slice().sort(), `${tier}: ${(got[tier] ?? []).map(k => `${k} ${(UNITS[k] ?? BUILDINGS[k]).weapon.dmgAir}`).join(', ')}`);
+  assert.equal(hitTier(UNITS.bastion.weapon), 'medium'); assert.equal(hitTier(UNITS.bastion.weapon, true), 'heavy');
 });
 
 test('the light tier keeps today\'s hits; the rest step up, and their sound with them', () => {

@@ -114,15 +114,35 @@ function muzzle(e) {
   if (!u) { const b = G.bldgs.find(b => b.done && MUZZLE_FLASH[b.type] && at(b)); if (b) muzzleFlash(e.x, e.y, b.aim, MUZZLE_FLASH[b.type]); return; }
   if (MUZZLE_SMOKE[u.type]) muzzleFx(e.x, e.y, u.face, MUZZLE_SMOKE[u.type]);
   if (MUZZLE_FLASH[u.type]) muzzleFlash(e.x, e.y, u.face, MUZZLE_FLASH[u.type]);
-  const tier = hitTier(u.d.weapon); // (how hard it hits: a heavy or siege gun's big flash, a blow's heavier look)
-  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) { const p = meleeHit(u, t, MELEE_PUFF[u.type]); if (tier !== 'light') tierHit(p.x, p.y, tier, null, true, p.feet); } }
-  else tierMuzzle(e.x, e.y, u.face, tier, MUZZLE_FLASH[u.type]);
+  if (u.d.weapon?.melee) { const t = meleeTarget(u); if (t) { const tier = hitTier(u.d.weapon); const p = meleeHit(u, t, MELEE_PUFF[u.type]); if (tier !== 'light') tierHit(p.x, p.y, tier, null, true, p.feet); } }
+  else tierMuzzle(e.x, e.y, u.face, hitTier(u.d.weapon, !!UNITS[shotTarget(u)?.type]?.air), MUZZLE_FLASH[u.type]); // (how hard it hits what it fires at: a heavy or siege gun's big flash)
+}
+/** What a shooter fires at, as far as the client knows: its order's target, else (held, or guarding) the nearest enemy
+ *  in its reach; null when none is known (its flash then goes by its ground damage). The `fire` event names no target. */
+function shotTarget(u) {
+  if (inReach(u)) return u.task.target;
+  let best = null, bd = Infinity;
+  for (const o of G.units) { if (!enemies(u.team, o.team) || o.inside || o.dead || !inReach(u, o)) continue; const d = Math.hypot(o.x - u.x, o.y - u.y); if (d < bd) { bd = d; best = o; } }
+  return best;
+}
+/** The walker a shot landed on, if the client has it: the nearest live walker whose body holds the hit's ground point
+ *  (the sim lands a shot on its target's point as of that tick; a walker on the move has stepped on by the time the
+ *  mirror reads it, so its radius and a tick's stride, not the exact point). None for a flyer's hit (`air` says so), a
+ *  building's or a spot's, or a target that fell. */
+function struckWalker(e) {
+  let best = null, bd = Infinity;
+  for (const u of G.units) {
+    if (u.dead || UNITS[u.type]?.air) continue;
+    const d = Math.hypot(u.x - e.x, u.y - e.y); if (d < bd && d <= u.r + 6) { bd = d; best = u; }
+  }
+  return best ? best.type : null;
 }
 /** How hard a shot that landed hits (look.js hitTier): by its shooter's weapon, a unit's or its people's tower's
- *  (a building's shot carries no shooter kind); a repairer's welding (no shot) 'light'. Read from the data each time. */
+ *  (a building's shot carries no shooter kind), against what it struck (`air`: a flyer, its air damage); a repairer's
+ *  welding (no shot) 'light'. Read from the data each time. */
 function shotTier(e) {
   if (!e.proj) return 'light';
-  return hitTier(e.by ? UNITS[e.by]?.weapon : BUILDINGS[towerOf(e.people, FACTIONS, BUILDINGS)]?.weapon);
+  return hitTier(e.by ? UNITS[e.by]?.weapon : BUILDINGS[towerOf(e.people, FACTIONS, BUILDINGS)]?.weapon, !!e.air);
 }
 /** What a melee blow struck: the unit's target, else (held in place, the sim's Hold: no target in its task) the
  *  nearest enemy in its reach. */
@@ -143,7 +163,7 @@ function drainEvents() {
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'signal') leashAt(e.x, e.y); // (a machine of ours sent past coverage: the rim brightens there)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, deathY(e.y, e.unit), e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
-    else if (e.t === 'hit') { const tier = shotTier(e); tierHit(e.x, hitY(e.y, e.air), tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer: up on its body; its look and sound by how hard it hits)
+    else if (e.t === 'hit') { const tier = shotTier(e); tierHit(e.x, hitY(e.y, e.air, e.air ? null : struckWalker(e)), tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer or a walker: up on its body; its look and sound by how hard it hits what it hit)
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);

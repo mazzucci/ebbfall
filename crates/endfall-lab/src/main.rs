@@ -296,6 +296,7 @@ fn bets(args: &[String]) {
         seeds: 20,
         cap_min: 30,
         threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
+        level: endfall_lab::plans::BASE,
     };
     let mut out = None;
     let mut it = args.iter();
@@ -306,6 +307,7 @@ fn bets(args: &[String]) {
                 .unwrap_or_else(|| die(&format!("{a} needs a value")))
         };
         match a.as_str() {
+            "--level" => b.level = parse_level(&val()),
             "--seeds" => {
                 b.seeds = val()
                     .parse()

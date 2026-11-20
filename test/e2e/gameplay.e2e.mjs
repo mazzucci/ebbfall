@@ -3595,6 +3595,75 @@ test('an arrow that lands on a flyer glints up on its body, not on the ground un
   } finally { await d.close(); }
 });
 
+test('a shot hits as hard as its damage to what it struck, and lands on its body: a Ballista bolt is a heavy blow on a Drone (a heavy muzzle flash too) and a medium hit on a Guard; a Drone\'s shot glints in steel\'s cool half way up an Archer, not at its feet', async () => {
+  const { WALKER_HIT_LIFT, HIT_STEEL } = await import('../../src/client/look.js');
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state()), x = core.x - 220, y = core.y + 100;
+    // Two Ballistas of ours held far apart and an Archer of ours held; each one's foe is set out, held, inside the watch
+    // below (a bolt kills a Drone outright, so it is watched from its first shot: the game runs on between evals), in
+    // the shooter's reach (7 tiles for a Ballista) and, a Drone or a Guard, out of its own.
+    const ids = await d.eval(([x, y]) => {
+      const hold = (team, k, px, py) => { const id = endfall.engine.debugSpawn(team, k, px, py); endfall.engine.holdUnit(endfall.G.units.find(u => u.id === id)); return id; };
+      return { b1: hold(0, 'bastion', x, y), b2: hold(0, 'bastion', x, y - 220), archer: hold(0, 'lancer', x + 320, y - 110) };
+    }, [x, y]);
+    await d.centerOn(x + 190, y - 110);
+    // The foe (`target`: its kind, where from the unit `id`) set out and held, then tick by tick to the shooter's next
+    // shot (the `fire` event at its spot: the unit's, or the foe's when `foeShoots`) and the frame that draws it (its
+    // muzzle's effects), then on to the landing (`hit`, by the shooter's kind, on a flyer or not) and the frame that
+    // draws that.
+    const watch = (by, air, id, target, foeShoots = false) => d.eval(([by, air, id, [k, dx, dy], foeShoots]) => {
+      const ours = endfall.G.units.find(o => o.id === id), tid = endfall.engine.debugSpawn(1, k, ours.x + dx, ours.y + dy);
+      endfall.engine.holdUnit(endfall.G.units.find(o => o.id === tid));
+      const u = () => endfall.G.units.find(o => o.id === (foeShoots ? tid : id));
+      const fire = () => { const s = u(); return s && endfall.G.events.find(e => e.t === 'fire' && Math.abs(e.x - s.x) < 1 && Math.abs(e.y - s.y) < 1); };
+      const hit = () => endfall.G.events.find(e => e.t === 'hit' && e.by === by && !!e.air === air);
+      for (let t = 0; t < 30 * 15 && !fire(); t++) endfall.skip(1 / 30);
+      const f = fire(); if (!f) return null;
+      return new Promise(r => requestAnimationFrame(() => {
+        const muzzle = endfall.effects().filter(e => Math.hypot(e.x - f.x, e.y - f.y) < 40).map(e => ({ anim: e.anim, scale: e.scale }));
+        for (let t = 0; t < 30 * 5 && !hit(); t++) endfall.skip(1 / 30);
+        const h = hit(); if (!h) return r({ muzzle, hit: null });
+        requestAnimationFrame(() => r({ muzzle, hit: { x: h.x, y: h.y, air: h.air }, alive: !!endfall.G.units.find(o => o.id === tid), tops: { trooper: endfall.unitTop('trooper'), lancer: endfall.unitTop('lancer') }, near: endfall.effects().filter(e => Math.abs(e.x - h.x) < 8 && Math.abs(e.y - h.y) < 80).map(e => ({ anim: e.anim, y: e.y, scale: e.scale, tint: e.tint })) }));
+      }));
+    }, [by, air, id, target, foeShoots]);
+    const near = (seen, anim) => seen.near.filter(e => e.anim === anim), close = (a, b) => Math.abs(a - b) < 1e-6;
+    // The bolt into the Drone: a heavy blow (HIT_LOOK.heavy: its big flash, chips of steel, no fire), and the heavy
+    // gun's round muzzle flash as it fired.
+    const onDrone = await watch('bastion', true, ids.b1, ['shrike', 170, 0]);
+    assert.ok(onDrone?.hit, 'a bolt lands on the Drone');
+    assert.equal(onDrone.hit.air, 'shrike');
+    assert.ok(onDrone.muzzle.some(e => e.anim === 'flash' && close(e.scale, HIT_LOOK.heavy.muzzle)), `the heavy muzzle flash at the Ballista (${JSON.stringify(onDrone.muzzle)})`);
+    const blow = near(onDrone, 'flash').find(e => close(e.scale, 0.9 * HIT_LOOK.heavy.size * HIT_LOOK.heavy.flashK));
+    assert.ok(blow, `the heavy blow's flash (${JSON.stringify(onDrone.near)})`);
+    assert.equal(blow.tint, HIT_STEEL, 'in steel\'s cool');
+    assert.ok(near(onDrone, 'glint').length >= 3 && near(onDrone, 'glint').every(e => e.tint === HIT_STEEL), `chips of steel (${JSON.stringify(onDrone.near)})`);
+    // (a heavy bolt kills a Drone outright: the machine's own death, a small boom with sparks, is then the only fire there)
+    if (onDrone.alive) assert.ok(!near(onDrone, 'spark').length && !near(onDrone, 'boom_small').length, 'no fire');
+    else assert.ok(near(onDrone, 'boom_small').length, `the Drone fell: its own small boom, no other fire (${JSON.stringify(onDrone.near)})`);
+    // The bolt into the Guard: a medium hit (its modest flash, no blow) on the Guard's body, nothing at its feet; and no
+    // heavy muzzle flash for that shot.
+    const onGuard = await watch('bastion', false, ids.b2, ['trooper', 160, 0]);
+    assert.ok(onGuard?.hit, 'a bolt lands on the Guard');
+    assert.equal(onGuard.hit.air, null);
+    assert.ok(!onGuard.muzzle.some(e => e.anim === 'flash' && close(e.scale, HIT_LOOK.heavy.muzzle)), `no heavy muzzle flash for a medium hit (${JSON.stringify(onGuard.muzzle)})`);
+    const up = onGuard.hit.y - onGuard.tops.trooper * WALKER_HIT_LIFT;
+    assert.ok(near(onGuard, 'flash').some(e => close(e.scale, HIT_LOOK.medium.flash) && Math.abs(e.y - (up - 2)) < 1), `the medium flash half way up the Guard, at ${up} (${JSON.stringify(onGuard.near)})`);
+    assert.ok(!near(onGuard, 'flash').some(e => e.scale > HIT_LOOK.medium.flash + 1e-6), 'no blow');
+    assert.ok(near(onGuard, 'glint').some(e => Math.abs(e.y - up) < 1), 'its glint there too');
+    assert.ok(!onGuard.near.some(e => Math.abs(e.y - onGuard.hit.y) < 1), 'nothing at its feet');
+    // The Drone's shot on the Archer: a light hit, steel's glint half way up the Archer.
+    const onArcher = await watch('shrike', false, ids.archer, ['shrike', 60, 0], true);
+    assert.ok(onArcher?.hit, 'the Drone\'s shot lands on the Archer');
+    const upA = onArcher.hit.y - onArcher.tops.lancer * WALKER_HIT_LIFT;
+    const glint = near(onArcher, 'glint').find(e => Math.abs(e.y - upA) < 1);
+    assert.ok(glint, `a glint half way up the Archer, at ${upA} (${JSON.stringify(onArcher.near)})`);
+    assert.equal(glint.tint, HIT_STEEL, 'cool, not a muzzle flash\'s warmth');
+    assert.ok(!onArcher.near.some(e => Math.abs(e.y - onArcher.hit.y) < 1), 'nothing at its feet');
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
 // ---- Controls (src/client/controls.js, the OPTIONS card: options.js): CLASSIC or WASD, the middle button's pan ----
 
 /** Hold `key` for `ms`, and on until a frame has moved the camera (a software-rendered page draws few frames a second;

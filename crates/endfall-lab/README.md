@@ -302,7 +302,8 @@ seating (eighteen), map seeds 1 to `--seeds` (20) on `--size` (64) Standard maps
 is a timeout. The report gives, per people's mirror and across the peoples, the 3x3 of the row plan's wins against the
 column plan (both seatings pooled, timeouts apart, with 95% intervals), the same in games over 15 minutes, the median
 lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
-over 15 minutes, each at 55–70%.
+over 15 minutes, each at 55–70%. `--level Hard` builds the three plans from Hard's tuning in place of Medium's (its
+income, factories and waves; the plans' own settings over them): the top level's bets, as `--level Hard --size 96`.
 
 ### `tiers`
 

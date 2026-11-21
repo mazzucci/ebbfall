@@ -10,7 +10,7 @@ import { initCorner } from './client/corner.js';
 import { initMenu, pendingChallenge } from './client/menu.js';
 import { initOnline, reloadUrl } from './client/online.js';
 import { registered } from './client/offline.js';
-import { initMenuClip } from './client/menuclip.js';
+import { initTrailer } from './client/trailer.js';
 
 // ?bench: the device test plays a game of its own (main.js loads src/client/bench.js), with its own card: no menu.
 const BENCH = new URLSearchParams(location.search).has('bench');
@@ -53,7 +53,7 @@ loading.then((g) => { const go = pending; pending = null; startButtons(null, fal
 initCorner();
 initMenu({ onStart: BENCH ? () => {} : () => play(g => g.newGame()) });
 initOnline({ game: loading });
-initMenuClip({ ready: loading }); // (the first page's clip: its video only once the game is in)
+initTrailer(); // (the first page's trailer: its poster, the video only on a tap)
 
 /** Where a reload lands: online.js's answer (a room's link, the lobby's), else a challenge still to play (menu.js:
  *  its link left the address once read), else this page. */

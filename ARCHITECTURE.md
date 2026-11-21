@@ -133,7 +133,7 @@ src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sou
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
                       (an update reloads the menu at once, into the room or the challenge it was on); the first page's
-                      clip is told when the game is in (menuclip.js)
+                      trailer wired (trailer.js)
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens (the end card's line says what ended the game from the sim's `G.outWhy`: a side's last
                       building fell, it had nothing left to fight with and no gold to train more, or it conceded), events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
@@ -412,7 +412,8 @@ src/client/           everything that touches the browser
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page, one for everyone (SINGLE PLAYER and MULTIPLAYER big; TUTORIAL, the
                       guided game, OPTIONS and INSTALL small under them;
-                      the gameplay clip above them, menuclip.js; the record of games is kept but not shown;
+                      the trailer's poster above them, trailer.js; the line under the name says what the game is (the
+                      trailer tells the story); the record of games is kept but not shown;
                       a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Send
                       feedback; the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
@@ -547,14 +548,17 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
-  menuclip.js         the gameplay clip on the menu's first page (index.html #menuClip: the docs home's clip, framed above
-                      the buttons, beside them on a phone on its side; style.css): the page holds its poster only (the
-                      game's own copy, public/menu/clip-*.webp), the video is made once the game has loaded (boot.js's
-                      `loading`: the sim and the renderer's art) and the page has, in an idle moment; muted, looped,
-                      faded in over the poster; never under reduced motion, Save-Data or 2g, nor without an H.264
-                      decoder; paused on Single player's page, let go of when the menu is left (the lobby, a game); the
-                      poster alone if it cannot play or never comes (offline: the clip is the docs', web-only); no
-                      frame if the poster never comes
+  trailer.js          the trailer on the menu's first page (index.html #menuTrailer and #trailerDlg; style.css): its
+                      poster (public/menu/trailer.jpg, the King's card; in the offline cache), a still with a play
+                      button, framed above the buttons, beside them on a phone on its side (a still, not a moving clip:
+                      the field under the page shows the same armies); a tap opens a dialog and plays it there with its
+                      sound and the browser's controls, its <video> made only then (none in the markup: nothing fetched
+                      before, and Firefox no longer cancels a fetch of the backdrop on a reload under the service
+                      worker; public/docs/media/ebbfall-trailer.mp4, the Worker's byte ranges, web-only); its sound its
+                      own (a muted game does not mute it: the player chose it with a tap; no WebAudio); never autoplayed
+                      or looped; paused for good on CLOSE or Esc, a hidden or left tab, a link followed, another menu
+                      page; let go of when a game starts (any button, or over the socket); offline it says it needs a
+                      connection; no frame if the poster never comes
   memory.js           enemy buildings as this side last saw them: in fog the field, the minimap and picking show the
                       remembered copy (a building never seen is not shown), forgotten when its ground is seen without it
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
@@ -641,16 +645,17 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       poster with controls instead; the ? hidden with JavaScript off; the docs' videos playing on past
                       their loop's end, where WebKit asks for a byte range, the Worker's 206),
                       field.e2e.mjs (the field under the first page: the right image per size class, under the buttons
-                      (what the clip and they leave: a low band on most desktops, none where there is no room), the
+                      (what the poster and they leave: a low band on most desktops, none where there is no room), the
                       buttons unmoved, the plain floor when the image does not come, no tide line and no drift, the
                       band under the other menu pages too, as tall as ever, no band on a screen too short),
-                      menuclip.e2e.mjs (the first page's clip: beside the buttons on a phone on its side, both big
-                      buttons whole on screen and nothing scrolling at 844x390, 667x375, 568x320 and 844x340; framed
-                      above them upright and on a desktop; the video made only once the game and its art are in and
-                      the page has loaded, muted, looped, from the Worker's byte ranges; paused on Single player, let
-                      go of in the lobby and when a game starts, made again after; none, and no request, under reduced
-                      motion and Save-Data; the poster alone when the clip never comes, no frame without the poster;
-                      the same page whether `tall` or not, fitting with PLAY OFFLINE's answer),
+                      menutrailer.e2e.mjs (the first page's trailer: its poster beside the buttons on a phone on its
+                      side, both big buttons whole on screen and nothing scrolling at 844x390, 667x375, 568x320 and
+                      844x340; framed above them upright and on a desktop; nothing of the video asked for before the
+                      tap (reduced motion too); the tap plays it in the dialog with its sound, a muted game too, the
+                      controls, no loop, from the Worker's byte ranges, the dialog whole on a phone on its side; paused
+                      for good on CLOSE, a hidden tab, the credit's link; START GAME on screen, a game started lets go
+                      of it; offline it says it needs a connection; no frame without the poster; the same page whether
+                      `tall` or not, fitting with PLAY OFFLINE's answer),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; the wind
@@ -686,10 +691,13 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a quiet room closed by the relay: the lobby Net shows why and does not reconnect
 test/menu-art.test.js the menu's field images (public/menu/) have no alpha channel: their fade is baked into the floor's
                       color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
-test/menu-clip.test.js the first page's clip: its posters (public/menu/clip-*.webp) the docs' poster byte for byte and a
-                      1280 px one, the clip's shape, opaque, in the offline cache; the page holds the poster alone (no
-                      video, no mp4), with the clip's words; the clip is the docs' file, web-only; the footer line two
-                      links, none to a trailer
+test/menu-trailer.test.js the first page's trailer: the line under the name and the page's descriptions what the game is;
+                      the poster a button with its play mark and words, in the offline cache; no video in the page,
+                      the one trailer.js makes with controls, inline, preload none, no autoplay, mute or loop, its words
+                      from the dialog's frame, the music's
+                      credit word for word with its license linked; the script plays it on the tap only and pauses it
+                      for good (CLOSE, hidden, a link), a game lets go of it; the file under the Worker's rule,
+                      web-only, under 8 MB, faststart
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -814,7 +822,8 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       index.html, /docs/kingdom/ that folder's, /selftest selftest.html, the .html spellings sent on;
                       run_worker_first only for the docs' videos, /docs/media/*.mp4: every other file is served with no
                       Worker, so a tripped Workers spending limit leaves the game, the docs and single player up);
-                      media.js (the docs' videos read from env.ASSETS and answered with byte ranges: 206 and
+                      media.js (the docs' videos and the menu's trailer read from env.ASSETS and answered with byte
+                      ranges: 206 and
                       Content-Range, 416, Accept-Ranges; the assets answer a Range with the whole file, 200, which
                       Safari refuses to play); worker.js (the videos, then only what is not a file: a room's
                       card address /r/CODE, the room's own link card then on to /?room=CODE; a challenge's, /vs/CODE,
@@ -872,8 +881,8 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
-                      committed in public/docs/img/shots/ and public/docs/media/ (trailer.mp4: the trailer takes the
-                      clip's name; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers and a
+                      committed in public/docs/img/shots/ and public/docs/media/ (trailer.mp4, the docs home's clip; the
+                      game's trailer, the menu's, is ebbfall-trailer.mp4 beside it, not made here; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers and a
                       Ballista coming to its help, 11 s at 30 fps, one tick a frame (tools/trailer/stage.mjs `freeze`)
                       but for one slow-motion beat on the Ballista's first hit (a fraction of a tick a frame), from
                       DPR 2 frames in target/docs-clip/ encoded by ffmpeg under the home's budget, its end dissolving
@@ -954,17 +963,13 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       through), main beside pr (../ebbfall-article/ground-pr).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
-tools/menu-clip.mjs   public/menu/clip-<720|1280>.webp, the poster of the clip on the menu's first page: the game's own
-                      copies of the docs' poster (the docs are web-only: an installed copy offline would show an empty
-                      frame), the 720 px one byte for byte, the 1280 px one scaled from the docs' 2000 px one in headless
-                      Chromium; output committed (tools/docs/shots.mjs's clip step runs it; test/menu-clip.test.js)
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
                       battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
                       through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
                       from public/art, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
                       decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
                       and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
-public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its clip's poster); og.png, robots.txt and sitemap.xml are for
+public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its trailer's poster); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/

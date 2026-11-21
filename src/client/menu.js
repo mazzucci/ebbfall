@@ -172,7 +172,7 @@ export function drawPreview(cv, i, seed, kind) {
 
 export function initMenu({ onStart }) {
   // The first page's backdrop (the plain floor and the field) under the other menu pages too (owner, 2026-11-03).
-  // Without the first page's own source, `low` (its band is lower than theirs, under the clip and the buttons). Each
+  // Without the first page's own source, `low` (its band is lower than theirs, under the poster and the buttons). Each
   // copy is made whole in a template (an inert document: nothing loads there) and comes into the page as it will stay,
   // so its image is chosen once: a copy changed in the page starts on one image and drops it for another.
   const copy = document.createElement('template');

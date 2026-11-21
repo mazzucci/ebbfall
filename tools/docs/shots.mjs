@@ -6,8 +6,9 @@
 // the notes must not cover (`avoid`: the top bar, the sprites on the map). The clip
 // (public/docs/media/trailer.mp4, with its poster, its middle frame) is a dozen seconds of the Expedition's Drones
 // against a Kingdom Watchtower by its Castle, Archers and a Ballista coming to its help, stepped frame by frame in the
-// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's): the trailer
-// replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
+// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's); the docs home's
+// alone (the game's trailer is the menu's, public/docs/media/ebbfall-trailer.mp4: not made here, and nothing here
+// writes or removes it). Output is committed; run after the art or the HUD changes:
 //   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; names: sieges, heroes, controls (or
 //   one of its two shots: hud, phone), clip)
 import { createServer } from 'node:http';
@@ -18,7 +19,6 @@ import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../chromium.mjs';
 import { freeze } from '../trailer/stage.mjs';
 import { capture, FFMPEG } from '../trailer/record.mjs';
-import { menuClip } from '../menu-clip.mjs';
 import { DEFAULT_MAP } from '../../src/client/maps.js';
 
 const root = new URL('../../', import.meta.url);
@@ -544,7 +544,6 @@ async function clip() {
   manifest.trailer = { file: 'trailer.mp4', type: 'video/mp4', poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: CLIP_WORDS.title };
   writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
   console.log(`shots: clip (trailer.mp4, ${Math.round(bytes / 1024)} KB at CRF ${crf}, ${CLIP_S} s)`);
-  await menuClip(browser); // (the menu's first page shows the clip too: its own copies of the poster, public/menu/clip-*.webp)
 }
 /** Run ffmpeg (tools/trailer/record.mjs `FFMPEG`) with `args`, quietly; throws if it fails. */
 function ffmpeg(args) {

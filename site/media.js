@@ -1,9 +1,10 @@
-// The docs' videos (public/docs/media/: the home's trailer, How to play's two loops and its gestures' loops), answered
-// by the Worker so that a byte range is answered as one. Safari plays a video only from a server that answers its
-// `Range: bytes=0-1` with 206 Partial Content, and Cloudflare's static assets do not: they answer every Range with the
-// whole file, 200, and no Accept-Ranges (the asset server has no byte serving; checked live on ebbfall.com, every file
-// type alike). So wrangler.toml runs the Worker first for the videos (MEDIA_RULE, run_worker_first), and the Worker
-// reads the file from the assets (env.ASSETS, a few hundred KB at most) and slices it. A tripped Workers spending limit
+// The videos (public/docs/media/: the docs home's clip, How to play's two loops and its gestures' loops, and the game's
+// trailer on the menu's first page, ebbfall-trailer.mp4: src/client/trailer.js), answered by the Worker so that a byte
+// range is answered as one. Safari plays a video only from a server that answers its `Range: bytes=0-1` with 206
+// Partial Content, and Cloudflare's static assets do not: they answer every Range with the whole file, 200, and no
+// Accept-Ranges (the asset server has no byte serving; checked live on ebbfall.com, every file type alike). So
+// wrangler.toml runs the Worker first for the videos (MEDIA_RULE, run_worker_first), and the Worker reads the file from
+// the assets (env.ASSETS: a few hundred KB, the trailer under 8 MB) and slices it. A tripped Workers spending limit
 // takes the videos with it (each shows its poster, a file served without the Worker like every other file).
 
 /** The folder the videos are served under, and wrangler.toml's run_worker_first rule for them (their .webp posters

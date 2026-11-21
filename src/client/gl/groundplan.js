@@ -146,6 +146,8 @@ export function planGround(opt, { w, h, rock, depth, nodes, starts, seed, kindAt
   }
 
   if (opt.paths) plan.dirt = tracks(w, h, { land, rock, depth, nodes, starts, s, dRock });
+  // (worn ground under a lush meadow's cool tone goes gray: the tone gives way on the tracks and the yards)
+  if (plan.dirt && plan.lush) for (let i = 0; i < n; i++) if (plan.dirt[i]) plan.lush[i] *= 0.25;
 
   // The outcrops: flat slabs of bedrock, a few tiles across, far apart, off the bases, the mines and the rock.
   if (opt.outcrops) {

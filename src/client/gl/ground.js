@@ -125,8 +125,8 @@ export function shadeLayers(w, h, { rock, ground, shade, tone = null }) {
   const toned = (fx, fy) => {
   if (meadows) { // dry: lighter, warmer, dustier (the add lifts the darks); lush: a deeper, cooler green
     const d = lerp2(meadows.dry, fx, fy), l = lerp2(meadows.lush, fx, fy);
-    lr = (lr + (255 - lr) * 0.6 * d) * (1 - 0.18 * l); lg = (lg + (252 - lg) * 0.3 * d) * (1 - 0.05 * l); lb = lb * (1 - 0.1 * d) * (1 - 0.07 * l);
-    al[0] = 26 * d; al[1] = 17 * d + 2 * l; al[2] = 8 * d + 5 * l;
+    lr = (lr + (255 - lr) * 0.6 * d) * (1 - 0.18 * l); lg = (lg + (252 - lg) * 0.3 * d) * (1 - 0.05 * l); lb = lb * (1 - 0.06 * d) * (1 - 0.07 * l);
+    al[0] = 25 * d; al[1] = 17 * d + 2 * l; al[2] = 12 * d + 5 * l;
   }
   if (rt) { // (only well inside the rock: nothing at its edge, where the lip and the face read against the grass)
     const on = clamp01((lerp2(isRock, fx, fy) - 0.56) / 0.36);

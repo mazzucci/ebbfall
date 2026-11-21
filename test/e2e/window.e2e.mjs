@@ -41,7 +41,7 @@ async function outside(page, scope) {
 /** The game's screen fits the viewport: the map fills the room under the top bar, the HUD's pieces inside. */
 async function gameFits(d, what) {
   const got = await d.eval(() => {
-    const r = (id) => { const e = document.getElementById(id); if (!e || e.offsetParent === null || getComputedStyle(e).display === 'none') return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
+    const r = (id) => { const e = document.getElementById(id); if (!e || !e.getClientRects().length || getComputedStyle(e).display === 'none') return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }; // (laid out: not offsetParent, null for a fixed element, the top bar edge to edge)
     const cv = document.getElementById('game');
     const hud = document.getElementById('hud'), band = getComputedStyle(hud).position !== 'fixed' ? r('hud') : null; // (a narrow screen: the panels in a band below the map)
     return { vw: innerWidth, vh: innerHeight, stage: r('stage'), band, top: r('top'), canvas: [cv.clientWidth, cv.clientHeight], stageBox: [document.getElementById('stage').clientWidth, document.getElementById('stage').clientHeight],

@@ -676,18 +676,112 @@ test('desktop 1920x1080 HUD: an army selected through the UI, the top bar\'s two
   } finally { await d.close(); }
 });
 
-test('phone on its side: the map still in its box under the top bar, the camera as far past the edges as before (120 px; 60 at the top), no apron', async () => {
-  const d = await newGame(PHONE, 1, 4242, { ai: false });
+/** START's ask for full screen turned down (a Home Screen app has none; a page in full screen cannot be resized). */
+const NO_FULL = () => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('(no full screen)')); };
+/** A tablet (a coarse pointer, a touch screen) in a Home Screen app: its safe area (`insets`, CSS px: an iPad's home
+ *  indicator at the foot, its status bar at the top upright) through CDP, set before the window takes its size, so the
+ *  page lays out and render.js measures its rooms with it. */
+async function tabletGame(w, h, insets) {
+  const d = await newGame({ viewport: { width: w, height: h - 2 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true }, 1, 4242, { ai: false, init: NO_FULL });
+  const cdp = await d.page.context().newCDPSession(d.page);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 0, right: 0, bottom: 0, ...insets } });
+  await d.page.setViewportSize({ width: w, height: h });
+  await d.page.waitForFunction((h) => endfall.view.h === h, h, { timeout: 5000 });
+  return { d, cdp };
+}
+
+for (const [w, h, insets] of [[1180, 820, { bottom: 20 }], [820, 1180, { top: 24, bottom: 20 }]]) {
+  test(`tablet ${w}x${h} edge to edge (an iPad's safe area: its home indicator${insets.top ? ' and its status bar' : ''}): the canvas fills the window, the touch HUD as on a phone's box (the same panels, sizes and places, at the screen's edges inside the safe area); pinched all the way out and pushed into each corner (the minimap, then a finger) no dark past the map, and a Balloon at each corner comes out from under the bars and the panels and is selected with a tap`, { chromium: CDP_TOUCH }, async () => {
+    const { d, cdp } = await tabletGame(w, h, insets);
+    const safe = { top: 0, bottom: 0, left: 0, right: 0, ...insets };
+    try {
+      const lay = await d.eval(() => {
+        const r = (id) => { const e = document.getElementById(id); if (!e || e.hidden) return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
+        const cmd = getComputedStyle(document.getElementById('cmd'));
+        return { canvas: r('game'), topPos: getComputedStyle(document.getElementById('top')).position, view: [endfall.view.w, endfall.view.h],
+          parts: Object.fromEntries(['top', 'btnPause', 'btnSound', 'btnHelp', 'minimap', 'cmd', 'btnBox', 'btnHome', 'btnArmy'].map(id => [id, r(id)])), cols: cmd.gridTemplateColumns, rows: cmd.gridTemplateRows };
+      });
+      const what = JSON.stringify(lay);
+      assert.deepEqual(lay.canvas, [0, 0, w, h], `the canvas is the whole window: ${what}`);
+      assert.deepEqual(lay.view, [w, h], 'render.js sees the window');
+      assert.equal(lay.topPos, 'fixed', `the top bar floats over the map: ${what}`);
+      const p = lay.parts, m = (k) => Math.max(8, safe[k]), f = (k) => Math.max(16, safe[k]);
+      // the top bar where the box had it: 8 px (or the safe area) from the edges, 40 px tall
+      assert.deepEqual(p.top, [m('left'), m('top'), w - m('right'), m('top') + 40], `the top bar inside the safe area, where it stood: ${what}`);
+      // the panels at the foot as on every touch screen: the minimap 150 px bottom left, SELECT, HOME and ARMY over it
+      // as wide as it, the command card (three columns of 66 x 52) bottom right, 16 px (or the safe area) from the edges
+      assert.deepEqual(p.minimap, [f('left'), h - f('bottom') - 150, f('left') + 150, h - f('bottom')], `the minimap bottom left, inside the safe area: ${what}`);
+      assert.ok(Math.abs(p.cmd[2] - (w - f('right'))) < 0.5 && Math.abs(p.cmd[3] - (h - f('bottom'))) < 0.5, `the command card bottom right, inside the safe area: ${what}`);
+      assert.ok(lay.cols === '66px 66px 66px' && lay.rows === '52px 52px', `its slots as on a phone's box: ${what}`);
+      assert.ok(Math.abs(p.btnBox[0] - p.minimap[0]) <= 1 && Math.abs(p.btnArmy[2] - p.minimap[2]) <= 1 && Math.abs(p.btnBox[3] + 9 - p.minimap[1]) < 0.5 && p.btnBox[3] - p.btnBox[1] === 48, `SELECT, HOME and ARMY 48 px tall 9 px over the minimap, as wide as it: ${what}`);
+      for (const [id, b] of Object.entries(p)) if (b) assert.ok(b[0] >= safe.left && b[1] >= safe.top && b[2] <= w - safe.right && b[3] <= h - safe.bottom, `#${id} inside the safe area: ${what}`);
+      await d.eval(() => {
+        endfall.fog(false); // (the dark past the map told from the ground, never from unexplored fog)
+        const { WW, WH } = endfall.engine;
+        for (const [x, y] of [[20, 20], [WW - 20, 20], [20, WH - 20], [WW - 20, WH - 20]]) endfall.engine.debugSpawn(0, 'observer', x, y); // (flyers: over the border's rock, the farthest out anything stands)
+      });
+      // two fingers pinch in over the map's middle until the zoom stops
+      const touches = async (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+      for (let k = 0; k < 3; k++) {
+        await touches('touchStart', [[w / 2 - 200, h / 2], [w / 2 + 200, h / 2]]);
+        for (let i = 1; i <= 6; i++) await touches('touchMove', [[w / 2 - 200 + i * 30, h / 2], [w / 2 + 200 - i * 30, h / 2]]);
+        await touches('touchEnd', []); await d.page.waitForTimeout(80);
+      }
+      const s = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { zoom: c.zoom, limit: endfall.zoomMin, vw: v.w / c.zoom, vh: v.h / c.zoom }; });
+      assert.ok(Math.abs(s.zoom - s.limit) < 1e-9, `pinched all the way out: ${JSON.stringify(s)}`);
+      const map = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
+      const topRoom = p.top[3] + 8, footRoom = h - Math.min(p.minimap[1], p.btnBox[1]) + 4; // (render.js: up to the top bar's foot and 8 px; up to SELECT's top and 4 px)
+      for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const where = `${cy ? 'bottom' : 'top'}-${cx ? 'right' : 'left'}`;
+        await d.tapAt(p.minimap[0] + 4 + cx * 142, p.minimap[1] + 4 + cy * 142); // (the minimap's corner: the camera jumps, clamped)
+        await d.page.waitForTimeout(200); // (the minimap shrinks back)
+        // a finger drags the map toward the corner, twice (from the middle: clear of every panel)
+        for (let k = 0; k < 2; k++) await d.dragTo(w / 2, h / 2, w / 2 + (cx ? -1 : 1) * w / 4, h / 2 + (cy ? -1 : 1) * h / 5);
+        await d.page.waitForTimeout(300);
+        const c = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x, y: c.y, zoom: c.zoom, vw: v.w / c.zoom, vh: v.h / c.zoom }; });
+        assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
+        const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
+        assert.ok(Math.abs(past - (cy ? footRoom : topRoom)) < 1, `${where}: past the ${cy ? `foot only as far as the panels cover (${footRoom} px)` : `top only as far as the bar covers (${topRoom} px)`}: ${past}`);
+        const dark = await darkEdges(d);
+        for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);
+        const b = await d.eval(([cx, cy]) => {
+          const { G, cam, engine: { WW, WH } } = endfall, u = G.units.find(u => u.type === 'observer' && (u.x > WW / 2) === !!cx && (u.y > WH / 2) === !!cy);
+          const y = u.y - endfall.unitTop(u.type) * 0.2, sx = (u.x - cam.x) * cam.zoom, sy = (y - cam.y) * cam.zoom, at = document.elementFromPoint(sx, sy);
+          return { id: u.id, sx, sy, on: at?.id };
+        }, [cx, cy]);
+        assert.equal(b.on, 'game', `${where}: the Balloon is not under a bar or a panel: ${JSON.stringify(b)}`);
+        await d.tapAt(b.sx, b.sy);
+        assert.deepEqual((await d.selection()).map(e => e.id), [b.id], `${where}: the Balloon selected with a tap`);
+      }
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+test('phones keep their box: on its side (844x390) the map in its box under the top bar, the camera as far past the edges as before (120 px; 60 at the top), no apron; upright (390x844) the box over the panels\' band; the split from a tablet (style.css): a coarse pointer at most 500 px tall on its side, or at most 620 px wide', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false, init: NO_FULL });
   try {
-    const got = await d.eval(() => {
+    const look = () => d.eval(() => {
       const st = document.getElementById('stage'), cs = getComputedStyle(st), b = st.getBoundingClientRect(), t = document.getElementById('top').getBoundingClientRect();
       endfall.cam.zoom = 1; endfall.centerOn(-1e5, -1e5); const a = [endfall.cam.x, endfall.cam.y];
       endfall.centerOn(1e5, 1e5); const v = endfall.view, z = [endfall.cam.x + v.w - endfall.engine.WW, endfall.cam.y + v.h - endfall.engine.WH];
       return { pos: getComputedStyle(document.getElementById('top')).position, border: cs.borderTopWidth, radius: cs.borderTopLeftRadius, stage: [b.left, b.top, b.right, b.bottom], top: [t.left, t.top, t.right, t.bottom], a, z, win: [innerWidth, innerHeight] };
     });
+    const sizeTo = async (w, h) => { await d.page.setViewportSize({ width: w, height: h }); await d.page.waitForFunction(([w, h]) => innerWidth === w && innerHeight === h && endfall.view.w === Math.max(200, document.getElementById('stage').getBoundingClientRect().width | 0), [w, h], { timeout: 5000 }); };
+    let got = await look();
     assert.ok(got.pos === 'static' && got.border === '1px' && got.radius === '6px', `the top bar in the flow, the stage a box: ${JSON.stringify(got)}`);
     assert.deepEqual(got.stage, [8, 38, 836, 386], `the box where it was: ${JSON.stringify(got)}`);
     assert.deepEqual([got.a, got.z], [[-120, -60], [120, 120]], `the camera's room past the edges as before: ${JSON.stringify(got)}`);
+    await sizeTo(390, 844);
+    got = await look();
+    assert.ok(got.pos === 'static' && got.border === '1px' && got.radius === '6px', `upright: the top bar in the flow, the stage a box: ${JSON.stringify(got)}`);
+    assert.ok(got.stage[0] === 8 && got.stage[1] === 56 && got.stage[2] === 382 && got.stage[3] < 844 - 150, `upright: the box over the band, where it was: ${JSON.stringify(got)}`);
+    assert.ok([...got.a, ...got.z].every(v => v === 0), `upright: no room past the edges (the panels in a band below): ${JSON.stringify(got)}`);
+    for (const [w, h, edge] of [[900, 500, false], [900, 501, true], [620, 900, false], [621, 900, true]]) {
+      await sizeTo(w, h);
+      got = await look();
+      assert.equal(got.pos, edge ? 'fixed' : 'static', `${w}x${h}: ${edge ? 'a tablet, edge to edge' : 'a phone, its box'}: ${JSON.stringify(got)}`);
+    }
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

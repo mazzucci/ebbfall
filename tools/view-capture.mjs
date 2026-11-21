@@ -5,13 +5,18 @@
 //   node tools/view-capture.mjs --set edge --sheet [--out DIR]
 //   node tools/view-capture.mjs --set hud --tag main|pr [--out DIR]      (ENDFALL_DIST=... names the build to shoot)
 //   node tools/view-capture.mjs --set hud --sheet [--out DIR]             (main beside pr, a row per still: sheet.png)
+//   node tools/view-capture.mjs --set tablet --tag main|pr [--out DIR]   (ENDFALL_DIST=... names the build to shoot)
+//   node tools/view-capture.mjs --set tablet --sheet [--out DIR]
 // --out: where the shots, shots.json and sheet.png go (default ../ebbfall-article/desktop-start next to the repo, or
-//        ../ebbfall-article/desktop-edge for the edge set).
+//        ../ebbfall-article/desktop-edge for the edge set, ../ebbfall-article/tablet-edge for the tablet set).
 // --spans: START_SPAN candidates (world px across a desktop window at the start); each size is shot at
 //          max(clamp(view.w / span, 1, hi), zoomLimit) for hi 2.5, and for hi 2 too where that differs.
 // --set edge: the map edge to edge or not: each size (and 3440x1440) and the phone shot as the build at hand plays it,
 //          tagged (--tag): the start, the bottom-left and top-right corners all the way out (the camera pushed past
 //          them: what shows past the map's edge), and the fight; --sheet then lays the two tags side by side.
+// --set tablet: the edge set on tablets (a coarse pointer, touch, DPR 1, START's full screen turned down as on an
+//          iPad): 1024x768, 1180x820 and 1366x1024 on their side, 820x1180 upright, and the 844x390 phone, tagged
+//          main or pr (--tag); the fight's 12 selected with SELECT and a finger's drag; --sheet: main beside pr.
 // --set hud: the desktop HUD's stills (../ebbfall-article/hud-pr/<tag>/): another scene, a base at about four minutes
 //          with a raid met beyond its ridge and the whole army of twelve selected through the UI (Q; ARMY on the phone):
 //          1920x1080, 1440x900, 2560x1440-dpr2 (a 1280x720 window at DPR 2), phone-844x390 (DPR 2, touch), the melee
@@ -33,10 +38,11 @@ import { start, stop, browserContext, baseUrl, board } from '../test/e2e/harness
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = fileURLToPath(new URL('..', import.meta.url));
 const SET = arg('--set', 'start'), TAG = arg('--tag', 'today');
-const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', hud: '../ebbfall-article/hud-pr' }[SET] || '../ebbfall-article/desktop-start')));
+const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', tablet: '../ebbfall-article/tablet-edge', hud: '../ebbfall-article/hud-pr' }[SET] || '../ebbfall-article/desktop-start')));
 const SPANS = arg('--spans', '1200,1000,900').split(',').map(Number);
 const SIZES = SET === 'edge' ? [[1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]] : [[1440, 900], [1920, 1080], [2560, 1440]];
 const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true };
+const TABLETS = [[1024, 768], [1180, 820], [1366, 1024], [820, 1180]];
 const ZOOM_MAX = 2.5;
 const ARMIES = [{ knight: 6, lancer: 6 }, { umbra: 7, scythe: 3, shrike: 4 }];
 const AT = { x: 1300, y: 1610 }; // (world px: near the fight; our Castle sits at 1728, 1728 on this map)
@@ -48,6 +54,9 @@ const startZoom = (w, limit, span, hi) => Math.min(ZOOM_MAX, Math.max(Math.min(h
 /** A page with the game at its first instant (its clock held), on `device`. */
 async function staged(device) {
   const ctx = await browserContext(device), page = await ctx.newPage(), errors = [];
+  // (a touch screen: START's full screen turned down, as an iPad's page never goes there and a page in full screen
+  // cannot be resized)
+  if (device.hasTouch) await ctx.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('(no full screen)')); });
   page.setDefaultTimeout(300000); // (a busy machine: software GL is slow to draw a 2560 px window)
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install();
@@ -152,7 +161,7 @@ function variants(view, limit) {
   return v;
 }
 
-if (SET === 'edge') { await edgeSet(); process.exit(0); }
+if (SET === 'edge' || SET === 'tablet') { await edgeSet(); process.exit(0); }
 if (SET === 'hud') { await hudSet(); process.exit(0); }
 await start();
 const log = { at: AT, armies: ARMIES, shots: [], setups: {}, errors: [] };
@@ -221,7 +230,8 @@ for (const s of log.shots) delete s.clip;
 writeFileSync(join(out, 'shots.json'), JSON.stringify(log, null, 1));
 console.log(JSON.stringify({ setups: log.setups, sameWorld: log.sameWorld, errors: log.errors }));
 
-/** The edge set: the build at hand (ENDFALL_DIST) at each size and on the phone, tagged; or --sheet: both tags. */
+/** The edge set (or the tablet set): the build at hand (ENDFALL_DIST) at each size and on the phone, tagged; or --sheet:
+ *  both tags. */
 async function edgeSet() {
   const CORNERS = { 'corner-bl': { x: -1e5, y: 1e5 }, 'corner-tr': { x: 1e5, y: -1e5 } };
   if (process.argv.includes('--sheet')) return edgeSheet(CORNERS);
@@ -233,7 +243,7 @@ async function edgeSet() {
       log.setups[name] = { first };
       const plan = [];
       for (const [w, h] of sizes) {
-        if (!device.hasTouch) await sizeTo(page, w, h);
+        if (sizes.length > 1) await sizeTo(page, w, h);
         const z = await page.evaluate(() => endfall.startZoom);
         plan.push([w, h, z]);
         log.shots.push({ kind: 'start', size: [w, h], ...(await shoot(page, `${TAG}-${w}x${h}-start.png`, z, null)) });
@@ -241,13 +251,14 @@ async function edgeSet() {
       }
       log.setups[name].fight = await fight(page, !!device.hasTouch);
       for (const [w, h, z] of plan) {
-        if (!device.hasTouch) await sizeTo(page, w, h);
+        if (sizes.length > 1) await sizeTo(page, w, h);
         log.shots.push({ kind: 'fight', size: [w, h], ...(await shoot(page, `${TAG}-${w}x${h}-fight.png`, z, AT)) });
       }
       log.errors.push(...errors.map(e => `${name}: ${e}`));
       await ctx.close();
     };
-    await run({ viewport: { width: SIZES[0][0], height: SIZES[0][1] }, deviceScaleFactor: 1 }, SIZES, 'desktop');
+    if (SET === 'tablet') await run({ ...PHONE, viewport: { width: TABLETS[0][0], height: TABLETS[0][1] } }, TABLETS, 'tablet');
+    else await run({ viewport: { width: SIZES[0][0], height: SIZES[0][1] }, deviceScaleFactor: 1 }, SIZES, 'desktop');
     await run(PHONE, [[844, 390]], 'phone');
   } finally { await stop(); }
   writeFileSync(join(out, `shots-${TAG}.json`), JSON.stringify(log, null, 1));
@@ -256,7 +267,8 @@ async function edgeSet() {
 
 /** Today next to edge to edge, a row per size and shot. */
 async function edgeSheet(CORNERS) {
-  const logs = Object.fromEntries(['today', 'edge'].map(t => [t, JSON.parse(readFileSync(join(out, `shots-${t}.json`), 'utf8'))]));
+  const tablet = SET === 'tablet', [A, B] = tablet ? ['main', 'pr'] : ['today', 'edge'], name = { today: 'today', edge: 'edge to edge', main: 'main', pr: 'this PR' };
+  const logs = Object.fromEntries([A, B].map(t => [t, JSON.parse(readFileSync(join(out, `shots-${t}.json`), 'utf8'))]));
   await start();
   try {
     const ctx = await browserContext({ viewport: { width: 2000, height: 1000 }, deviceScaleFactor: 1 }), page = await ctx.newPage();
@@ -264,18 +276,23 @@ async function edgeSheet(CORNERS) {
     const past = (s) => { const l = -s.cam.x, t = -s.cam.y, r = s.cam.x + s.seen[0] - s.map[0], b = s.cam.y + s.seen[1] - s.map[1]; return [['left', l], ['top', t], ['right', r], ['bottom', b]].filter(([, v]) => v > 0.5).map(([k, v]) => `${k} ${Math.round(v * s.zoom)} px`).join(', ') || 'none'; };
     const fig = (s, head) => s ? `<figure><img src="${img(s.file)}"><figcaption><b>${head}</b> · zoom ${s.zoom.toFixed(2)} · canvas ${s.view.w} × ${s.view.h} · ${Math.round(s.seen[0])} × ${Math.round(s.seen[1])} world px · past the map: ${past(s)}</figcaption></figure>` : '<figure></figure>';
     const kinds = ['start', ...Object.keys(CORNERS), 'fight'], label = { start: 'the start', 'corner-bl': 'bottom-left corner, all the way out', 'corner-tr': 'top-right corner, all the way out', fight: 'the fight, 12 selected' };
-    const sizes = [...SIZES, [844, 390]];
-    const rows = sizes.map(([w, h]) => `<h2>${w === 844 ? 'Landscape phone ' : ''}${w} × ${h}</h2>` + kinds.map(k => {
+    const sizes = [...(tablet ? TABLETS : SIZES), [844, 390]];
+    const head = (w, h) => w === 844 ? `Landscape phone ${w} × ${h}` : tablet ? `Tablet ${w} × ${h}${h > w ? ' (upright)' : ''}` : `${w} × ${h}`;
+    const rows = sizes.map(([w, h]) => `<h2>${head(w, h)}</h2>` + kinds.map(k => {
       const at = (t) => logs[t].shots.find(s => s.kind === k && s.size[0] === w && s.size[1] === h);
-      return `<div class="row">${fig(at('today'), `today · ${label[k]}`)}${fig(at('edge'), `edge to edge · ${label[k]}`)}</div>`;
+      return `<div class="row">${fig(at(A), `${name[A]} · ${label[k]}`)}${fig(at(B), `${name[B]} · ${label[k]}`)}</div>`;
     }).join('')).join('');
+    const intro = tablet
+      ? `<h1>Edge to edge on a tablet: main (left) and this PR (right)</h1>
+      <p>One staged game (seed 4242, the fog off), the clock held; a coarse pointer and touch at DPR 1. Each screen: the start as the game frames it (zoom 1); the camera pushed past the bottom-left and the top-right corners all the way out (the most it shows past the map's edge); the fight with 12 selected through SELECT and a finger's drag. "Past the map" is how far the canvas shows beyond the map's edge, in screen px (main: the dark round the box; this PR: the rock apron, only at the top under the bar and at the foot behind the panels). The phone keeps its box: its two columns match.</p>`
+      : `<h1>Edge to edge on a desktop: today (left) and this PR (right)</h1>
+      <p>One staged game (seed 4242, the fog off), the clock held. Each window: the start as the game frames it; the camera pushed past the bottom-left and the top-right corners all the way out (the most it shows past the map's edge); the fight with 12 selected through the UI. "Past the map" is how far the canvas shows beyond the map's edge, in screen px (today: the dark; edge to edge: the rock apron, only at the top under the bar and at the foot behind the panels).</p>`;
     writeFileSync(join(out, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>
       body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 1952px; }
       h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; max-width: 1700px; } h2 { font-size: 18px; margin: 28px 0 6px; }
       .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-bottom: 10px; } figure { margin: 0; } img { max-width: 100%; display: block; outline: 1px solid #444; }
       figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }</style>
-      <h1>Edge to edge on a desktop: today (left) and this PR (right)</h1>
-      <p>One staged game (seed 4242, the fog off), the clock held. Each window: the start as the game frames it; the camera pushed past the bottom-left and the top-right corners all the way out (the most it shows past the map's edge); the fight with 12 selected through the UI. "Past the map" is how far the canvas shows beyond the map's edge, in screen px (today: the dark; edge to edge: the rock apron, only at the top under the bar and at the foot behind the panels).</p>${rows}`);
+      ${intro}${rows}`);
     await page.goto(pathToFileURL(join(out, 'sheet.html')).href);
     await page.waitForFunction(() => [...document.images].every(i => i.complete));
     await page.screenshot({ path: join(out, 'sheet.png'), fullPage: true, type: 'png' });

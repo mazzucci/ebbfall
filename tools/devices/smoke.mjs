@@ -35,6 +35,7 @@ const STATUS = `(function () {
   st.toasts = Array.prototype.map.call(document.querySelectorAll('#msg .toast'), function (t) { return t.textContent; });
   if (st.fullscreenEnabled === undefined) st.fullscreenEnabled = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled); // (older builds)
   st.viewport = [innerWidth, innerHeight, devicePixelRatio]; st.userAgent = navigator.userAgent;
+  st.coarsePointer = matchMedia('(any-pointer: coarse)').matches; // (the page shows SELECT, HOME and ARMY on one at once)
   return st;
 })()`;
 // A build without its own error capture (before endfall.status()): catch what goes wrong from the menu on.
@@ -155,10 +156,30 @@ async function smoke(key) {
       await step('the army selected (optional)', async () => {
         const n = await d.eval(ARMY);
         if (!n) throw new Error('no fighter could be set down');
-        const how = await press(d, '#btnArmy', `window.endfall.ui.sel.length >= ${n}`, 40000, 'ARMY to select the army');
+        // SELECT, HOME and ARMY show on a touch screen: at once where the page matches (any-pointer: coarse), else at
+        // the first touch on the map. Chrome on the Devices workflow's Android emulator gave neither: no coarse pointer
+        // (the buttons absent from its screenshots), and Playwright's taps there are a mouse's clicks (its context has
+        // no touch), so ARMY stayed hidden and the click waited for it in vain (2026-11-21). Then a finger's touch on the
+        // map, above the army, shows them, as on a phone.
+        const hidden = `document.getElementById('btnArmy').hidden`, seen = {};
+        if (await d.eval(hidden)) {
+          if (!d.touch) throw new Error('ARMY is hidden (the page saw no touch screen) and this driver cannot touch the map');
+          await d.touch('#game', 0.5, 0.15);
+          await waitFor(d, `!${hidden}`, 10000, 'ARMY to show after a touch on the map');
+          seen.shownByTouch = true;
+        }
+        const selected = `window.endfall.ui.sel.length >= ${n}`;
+        let how;
+        try { how = await press(d, '#btnArmy', selected, 40000, 'ARMY to select the army'); } catch (e) {
+          // (shown but the tap did not land, e.g. something over it: a script's click, said so)
+          if (!d.scriptClick || await d.eval(selected)) throw e;
+          warn(`${d.device || key}: the tap on ARMY failed (${e.message.split('\n')[0]}); a script's click went on`);
+          await d.scriptClick('#btnArmy'); await waitFor(d, selected, 10000, 'ARMY to select the army');
+          how = { nativeTapIgnored: true };
+        }
         await sleep(1500); // (a few frames drawn)
         await shot('4-army');
-        return { ...how, spawned: n, selected: await d.eval('window.endfall.ui.sel.length') };
+        return { ...how, ...seen, spawned: n, selected: await d.eval('window.endfall.ui.sel.length') };
       });
     } catch (e) { warn(`${d.device || key}: the army step: ${e.message.split('\n')[0]} (optional: not failed)`); }
     r.status = await d.eval(STATUS);

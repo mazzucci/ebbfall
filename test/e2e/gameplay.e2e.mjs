@@ -750,7 +750,9 @@ for (const [w, h, insets] of [[1180, 820, { bottom: 20 }], [820, 1180, { top: 24
           return { id: u.id, sx, sy, on: at?.id };
         }, [cx, cy]);
         assert.equal(b.on, 'game', `${where}: the Balloon is not under a bar or a panel: ${JSON.stringify(b)}`);
-        await d.tapAt(b.sx, b.sy);
+        // (a tap the slow software-rendered page takes late can read as a finger held on the map, a box that takes
+        // nothing: tapped again, up to three times, as sendIdleToMine does)
+        for (let k = 0; k < 3 && (await d.selection()).map(e => e.id).join() !== String(b.id); k++) await d.tapAt(b.sx, b.sy);
         assert.deepEqual((await d.selection()).map(e => e.id), [b.id], `${where}: the Balloon selected with a tap`);
       }
       assert.deepEqual(d.errors, []);

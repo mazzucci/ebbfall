@@ -43,6 +43,7 @@ const MIME = { '.json': 'application/json', '.png': 'image/png', '.webp': 'image
 /** A page with the game at the staged instant (its clock held), on `device`, the URL's query `q`. */
 async function staged(device, q = '') {
   const ctx = await browserContext(device), page = await ctx.newPage(), errors = [];
+  page.setDefaultTimeout(300000); // (a busy machine: software GL is slow to draw a 5120 px window)
   page.on('pageerror', e => errors.push(e.message));
   if (art) await page.route(/\/art\//, (route) => {
     const rel = decodeURIComponent(new URL(route.request().url()).pathname.replace(/^.*?\/art\//, '')), f = join(art, rel);
@@ -108,7 +109,7 @@ async function shoot(page, file, zoom) {
     const vw = view.w / cam.zoom, vh = view.h / cam.zoom, app = document.getElementById('app').getBoundingClientRect();
     return { view: { w: view.w, h: view.h }, box: [Math.round(app.width), Math.round(app.height)], zoom: cam.zoom, zoomMin: endfall.zoomMin, startZoom: endfall.startZoom, cam: { x: cam.x, y: cam.y }, seen: [vw, vh], center: [cam.x + vw / 2, cam.y + vh / 2], tick: endfall.G.tick ?? endfall.G.time, hash: endfall.engine.stateHash() >>> 0, selected: endfall.ui.sel.length };
   }, [zoom, AT]);
-  const b = await page.locator('#game').boundingBox(), clip = await page.screenshot({ clip: { x: b.x + 48, y: b.y + 48, width: b.width - 96, height: b.height - 96 } });
+  const b = await page.locator('#game').boundingBox(), clip = await page.screenshot({ clip: { x: b.x + 48, y: b.y + 48, width: b.width - 96, height: b.height - 96 }, timeout: 300000 });
   if (file) {
     await page.screenshot({ path: join(out, file), timeout: 300000 });
     console.log(`${file}: box ${s.box.join('x')}, view ${s.view.w}x${s.view.h}, zoom ${s.zoom.toFixed(3)} (page's limit ${s.zoomMin.toFixed(3)}, start ${s.startZoom.toFixed(3)}), ${Math.round(s.seen[0])} x ${Math.round(s.seen[1])} world px, center ${s.center.map(Math.round)}`);

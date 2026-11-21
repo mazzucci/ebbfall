@@ -3097,16 +3097,16 @@ test('the screen is lean: resources, supply, the game clock, the ?, full screen,
 });
 
 
-test('the top bar keeps still when SOUND ON turns to SOUND OFF (a wide screen shows the words)', async () => {
-  const d = await newGame({ viewport: { width: 1180, height: 820 } }, 1, 4242, { ai: false });
+test('the top bar keeps still when SOUND ON turns to SOUND OFF (a tablet on its side shows the words; the desktop HUD\'s buttons are icons)', async () => {
+  const d = await newGame({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, 1, 4242, { ai: false });
   try {
     const boxes = () => d.eval(() => ['btnFull', 'btnSound', 'btnPause'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; }));
     assert.ok(await d.page.locator('#btnSound .t').isVisible(), 'the words show at this width');
     const on = await boxes();
-    await d.page.locator('#btnSound').click();
+    await d.page.locator('#btnSound').tap();
     assert.match(await d.page.locator('#btnSound .t > span:first-child').textContent(), /SOUND OFF/);
     assert.deepEqual(await boxes(), on, 'nothing moved');
-    await d.page.locator('#btnSound').click();
+    await d.page.locator('#btnSound').tap();
     assert.deepEqual(await boxes(), on, 'nor back');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

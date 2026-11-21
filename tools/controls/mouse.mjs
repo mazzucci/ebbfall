@@ -3,8 +3,8 @@
 // through CDP (Input.dispatchMouseEvent, Input.dispatchKeyEvent, stamped on the recorded clock: the game's double-click
 // window and its held keys read the events' own times), so the box, the orders, the card's keys, the control group and
 // the pan are the game's own. The same strokes draw the indicator: an arrow cursor, a ring at each click (white for
-// the left button, teal for the right), and the keys pressed as keycaps above the minimap, bottom left (clear of the
-// caption under the top bar). A stroke's points are
+// the left button, teal for the right), and the keys pressed as keycaps just above the minimap, bottom left (clear of
+// the caption under the top bar). A stroke's points are
 // resolved in the page when it starts (touch.mjs `resolver`), as the camera and the units move; the cursor glides to
 // each point before the click (`glide` seconds), from wherever it was.
 
@@ -121,6 +121,11 @@ export const drawCursor = (page, t, { cursor, clicks, keys }) => page.evaluate((
   out.push(`<g class="cur" transform="translate(${c.x.toFixed(1)} ${c.y.toFixed(1)}) scale(1.6)"><path d="M0 0 L0 19 L5 14.5 L8.2 22 L11.2 20.7 L8 13.2 L14.5 13.2 Z"/></g>`); // (1.6x a system cursor: it reads at the docs' width)
   document.querySelector('#ct svg').innerHTML = out.join('');
   const caps = keys.map(k => { const held = k.down, age = held ? 0 : t - k.t1, alpha = held ? 1 : Math.max(0, 1 - age / 0.9); const lab = (x) => ({ ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓' }[x] || x.toUpperCase()); return `<span style="display:flex;gap:8px;opacity:${alpha.toFixed(3)}">${k.ctrl ? `<kbd class="${held ? 'down' : ''}">Ctrl</kbd><span class="plus">+</span>` : ''}<kbd class="${held ? 'down' : ''}">${lab(k.key)}</kbd></span>`; });
-  let keysEl = document.querySelector('#ct .keys'); if (!keysEl) { keysEl = document.createElement('div'); keysEl.className = 'keys'; document.getElementById('ct').appendChild(keysEl); }
+  let keysEl = document.querySelector('#ct .keys');
+  if (!keysEl) { // (just above the minimap and in line with it, wherever the HUD puts it)
+    keysEl = document.createElement('div'); keysEl.className = 'keys'; document.getElementById('ct').appendChild(keysEl);
+    const mm = document.getElementById('minimap')?.getBoundingClientRect();
+    if (mm?.width) Object.assign(keysEl.style, { left: `${Math.round(mm.left)}px`, bottom: `${Math.round(innerHeight - mm.top + 12)}px` });
+  }
   keysEl.innerHTML = caps.join('');
 }, [t, cursor, clicks, keys]);

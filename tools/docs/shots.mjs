@@ -18,6 +18,7 @@ import { launchChromium } from '../chromium.mjs';
 import { freeze } from '../trailer/stage.mjs';
 import { capture, FFMPEG } from '../trailer/record.mjs';
 import { menuClip } from '../menu-clip.mjs';
+import { DEFAULT_MAP } from '../../src/client/maps.js';
 
 const root = new URL('../../', import.meta.url);
 const dist = fileURLToPath(new URL('dist/', root));
@@ -41,11 +42,15 @@ const DESKTOP = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }
 const PHONE_LAND = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 /** What never shows in a docs shot: the toasts and tips; in a hero shot, the stage's buttons too. */
 const QUIET = '#msg,#hint,#tut,#cmdInfo,.toast,#netWait{display:none!important}';
-const BARE = `${QUIET} #tools,#btnBox,#btnHome,#btnArmy,#hud{display:none!important}`;
+/** (`#top` too: the top bar lies over the map since it went edge to edge) */
+const BARE = `${QUIET} #tools,#btnBox,#btnHome,#btnArmy,#hud,#top{display:none!important}`;
 /** The camera's zoom on a desktop: closer than the game's start (all the way out), so the units read in a 1000 px column;
  *  a phone's shots keep its start. */
 const ZOOM = 1.5;
 const SEED = 4242;
+/** The stills' game: the menu's default map with our base at its first start (`?seed=` keeps which base is ours: without
+ *  it each run drew a side, and a still framed for one base came out round the other, its army at the frame's edge). */
+const STARTS = `?map=${DEFAULT_MAP}&seed=${SEED}`;
 
 // ---- in the page: the scenes (plain functions, serialized; they read only `endfall`) ----
 /** The scene's helpers on window.S: the player's seat and headquarters, the way to the map's middle, spawning and placing. */
@@ -171,28 +176,50 @@ function siege() {
   return at(170, 0);
 }
 
-/** A base at about 3:00: workers mining, a few buildings up, a guard at the gate. */
-function base(race) {
-  const { S } = window, { at, place, mine, spawn, me, e, eng } = S;
+/** A base at about 3:00: workers mining, a few buildings up, a guard at the gate. Laid out toward the map's middle
+ *  (`at`) for the controls shots; for a hero (`hero`), in a band level with the headquarters and its mine (`band`), so
+ *  that a 2:1 frame holds it all close: Dust Quarter's starts sit in corners with the mine against the map's edge
+ *  beyond the headquarters, and the old layout toward the middle (a diagonal there) stood too tall for the frame.
+ *  Returns the scene's box (`sceneBox`, world px). */
+function base([race, hero]) {
+  const { S } = window, { at, place, mine, spawn, me, e, eng, hq } = S;
+  // (`band`: dx px toward the map's middle across, dy px toward it up or down: the mine is on the far side)
+  const hx = Math.sign(eng.MW * 16 - hq.x) || 1, hy = Math.sign(eng.MH * 16 - hq.y) || 1;
+  const band = (dx, dy) => ({ x: hq.x + hx * dx, y: hq.y + hy * dy });
   S.mine();
   e.setResources(me, 5000, 0);
-  for (let i = 0; i < 4; i++) spawn(me, race === 'humans' ? 'harvester' : 'lumen', at(-60, (i - 1.5) * 30));
+  for (let i = 0; i < 4; i++) spawn(me, race === 'humans' ? 'harvester' : 'lumen', hero ? band(60, -40 + i * 20) : at(-60, (i - 1.5) * 30));
   if (race === 'humans') {
-    place('depot', at(-150, -160)); place('depot', at(-150, 150)); place('barracks', at(170, -170));
-    e.skip(70); place('forge', at(-60, 240)); e.skip(70); mine();
+    if (hero) { place('depot', band(-190, 40)); place('depot', band(-170, -170)); place('barracks', band(230, 40)); }
+    else { place('depot', at(-150, -160)); place('depot', at(-150, 150)); place('barracks', at(170, -170)); }
+    e.skip(70); place('forge', hero ? band(200, -160) : at(-60, 240)); e.skip(70); mine();
+  } else if (hero) {
+    place('substation', band(170, -150)); place('siphon', band(240, 60)); place('ward', band(-60, 170));
+    e.skip(60); for (const dy of [-60, 30, 120]) place('spire', band(-195, dy)); place('loom', band(120, 170));
+    e.skip(70); place('uplink', band(330, -110)); e.skip(80); mine();
   } else {
     place('siphon', at(170, -170)); place('substation', at(-150, 160)); place('ward', at(220, 120));
     e.skip(60); for (const s of [[-200, -60], [-230, 40], [-180, 140]]) place('spire', at(...s)); place('loom', at(-120, -220));
     e.skip(70); place('uplink', at(240, 260)); e.skip(80); mine();
   }
   const units = race === 'humans' ? ['trooper', 'trooper', 'trooper', 'trooper', 'lancer', 'lancer', 'lancer', 'knight', 'knight'] : ['scythe', 'scythe', 'prism', 'prism', 'prism', 'bruiser'];
-  units.forEach((k, i) => spawn(me, k, at(260 + (i % 3) * 34, (Math.floor(i / 3) - 1) * 40)));
-  spawn(me, race === 'humans' ? 'observer' : 'shrike', at(40, -70)); if (race !== 'humans') spawn(me, 'shrike', at(70, 40));
+  // The soldiers at the gate: toward the middle (a hero's below the Barracks, on the near side of the forest beyond it).
+  units.forEach((k, i) => spawn(me, k, hero ? band(170 + (i % 3) * 34 + (race === 'humans' ? 0 : 40), (race === 'humans' ? 160 : 200) + (Math.floor(i / 3) - 1) * 40) : at(260 + (i % 3) * 34, (Math.floor(i / 3) - 1) * 40)));
+  spawn(me, race === 'humans' ? 'observer' : 'shrike', hero ? band(-130, 150) : at(40, -70)); if (race !== 'humans') spawn(me, 'shrike', hero ? band(250, -40) : at(70, 40));
   const t = 180 - e.G.time; if (t > 0) e.skip(t);
   e.setResources(me, 470, 0);
-  // The camera between the headquarters, its mine and the soldiers at the gate.
-  const m = S.mine(), g = at(280, 0);
-  return { x: (S.hq.x + m.x + g.x) / 3, y: (S.hq.y + m.y + g.y) / 3 };
+  S.mine();
+  return window.sceneBox(S);
+}
+/** In the page: the drawn extent (world px, roughly: footprints and heights, as `measure` reckons them) of our
+ *  buildings, the mine nearest our headquarters, our soldiers, and `extra` boxes: { x0, y0, x1, y1 }. */
+function sceneBox(S, extra = []) {
+  const { G, me, eng, e } = S, m = e.map.nodes.filter(n => n.amount > 0).sort((a, b) => Math.hypot(a.x - S.hq.x, a.y - S.hq.y) - Math.hypot(b.x - S.hq.x, b.y - S.hq.y))[0];
+  const bs = [...extra];
+  for (const b of G.bldgs) if (b.team === me) { const w = b.w * 32, h = b.h * 32; bs.push([b.x - w * 0.55, b.y - h * 1.15, b.x + w * 0.55, b.y + h * 0.55]); }
+  if (m) { const w = m.w * 32; bs.push([m.x - w * 0.6, m.y - w * 0.8, m.x + w * 0.6, m.y + w * 0.6]); }
+  for (const u of G.units) if (u.team === me && !eng.UNITS[u.type].worker) { const h = e.unitTop(u.type) + 6; bs.push([u.x - 16, u.y - h, u.x + 16, u.y + 8]); }
+  return { x0: Math.min(...bs.map(b => b[0])), y0: Math.min(...bs.map(b => b[1])), x1: Math.max(...bs.map(b => b[2])), y1: Math.max(...bs.map(b => b[3])) };
 }
 
 // ---- the shots ----
@@ -215,14 +242,17 @@ async function game(device, race, css, query = '') {
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { timeout: 60000 });
   await page.addStyleTag({ content: css });
   await page.evaluate(helpers);
+  await page.addScriptTag({ content: `window.sceneBox = ${sceneBox};` }); // (the scenes' shared helpers)
   return { ctx, page };
 }
-/** The camera on `p` at the shots' zoom, kept inside the map (no ground past its edge in the frame). */
+/** The camera on `p` at the shots' zoom, kept inside the map (no ground past its edge in the frame). Returns where `p`
+ *  stands in the canvas (CSS px): off its middle where the map's edge held the camera back. */
 const look = (page, p, zoom = ZOOM) => page.evaluate(([{ x, y }, z]) => {
   const e = window.endfall, c = e.cam, W = e.engine.MW * 32, H = e.engine.MH * 32;
   c.zoom = matchMedia('(pointer: coarse)').matches ? e.startZoom : z; e.centerOn(x, y);
   const vw = e.view.w / c.zoom, vh = e.view.h / c.zoom;
   c.x = Math.min(Math.max(0, c.x), Math.max(0, W - vw)); c.y = Math.min(Math.max(0, c.y), Math.max(0, H - vh));
+  return { x: (x - c.x) * c.zoom, y: (y - c.y) * c.zoom };
 }, [p, zoom]);
 const settle = (page) => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 400)))));
 
@@ -242,23 +272,42 @@ async function encode(png, crops) {
 }
 
 /**
- * A hero (the stage, no HUD): a 2:1 crop of the stage for the desktop (2000 wide) and a 16:9 one round its middle for a
- * phone (720 wide).
+ * A hero (the stage, no HUD): a 2:1 crop of the stage for the desktop (2000 wide) and a 16:9 one for a phone (720 wide),
+ * each round `at` (where `look` put the scene's point: the stage's middle, unless the map's edge held the camera back;
+ * the stage is the whole window since the map went edge to edge, so the 2:1 band leaves out more of it than the box did).
+ * `fit` (CSS px, optional): the size the scene takes on screen; the phone's crop grows to hold it (up to the stage).
  */
-async function hero(name, page, words) {
+async function hero(name, page, words, at, fit = null) {
   const box = await page.locator('#stage').boundingBox(), dpr = 2;
   const png = await page.screenshot({ clip: box, animations: 'disabled', timeout: 240000 });
   const W = Math.round(box.width * dpr), H = Math.round(box.height * dpr);
-  const dh = Math.min(H, Math.round(W / 2)), pw = Math.min(W, Math.round(H * 16 / 9 * 0.62)), ph = Math.round(pw * 9 / 16);
+  const dh = Math.min(H, Math.round(W / 2));
+  let pw = Math.min(W, Math.round(H * 16 / 9 * 0.62));
+  if (fit) pw = Math.min(W, Math.round(H * 16 / 9), Math.max(pw, Math.round((fit.w + 32) * dpr), Math.round((fit.h + 32) * dpr * 16 / 9)));
+  const ph = Math.round(pw * 9 / 16);
+  const round = (c, size, all) => Math.round(Math.min(Math.max(0, c * dpr - size / 2), all - size)); // (a crop's start, centered on c, inside the shot)
   const out = await encode(png, [
-    { name: 'desktop', x: 0, y: Math.round((H - dh) / 2), w: W, h: dh, W: 2000 },
-    { name: 'phone', x: Math.round((W - pw) / 2), y: Math.round((H - ph) / 2), w: pw, h: ph, W: 720 },
+    { name: 'desktop', x: 0, y: round(at.y, dh, H), w: W, h: dh, W: 2000 },
+    { name: 'phone', x: round(at.x, pw, W), y: round(at.y, ph, H), w: pw, h: ph, W: 720 },
   ]);
   save(name, out, words, {});
 }
 
 /** An annotated shot (the whole page, HUD and all): the boxes of `marks` ({ key: selectors }) in shares of the page. */
 async function annotated(name, page, words, marks, W) {
+  const { boxes, avoid: avoidF } = await measure(page, marks), vp = page.viewportSize();
+  const png = await page.screenshot({ animations: 'disabled', timeout: 240000 });
+  const out = await encode(png, [{ name: 'desktop', x: 0, y: 0, w: vp.width * 2, h: vp.height * 2, W }, { name: 'phone', x: 0, y: 0, w: vp.width * 2, h: vp.height * 2, W: 720 }]);
+  save(name, out, words, boxes, avoidF);
+}
+/** Whether every note of an annotated shot finds a free spot as the page stands (tools/docs/pages.mjs `placeNotes`, as
+ *  the docs place them): the boxes of `marks` and what the notes must not cover, measured now. */
+async function notesFit(page, marks) {
+  const { placeNotes } = await import('./pages.mjs'), vp = page.viewportSize(), m = await measure(page, marks);
+  try { placeNotes({ w: vp.width, h: vp.height, ...m }, Object.keys(m.boxes)); return true; } catch { return false; }
+}
+/** The boxes of `marks` ({ key: selectors }) and what the notes must not cover, in shares of the page. */
+async function measure(page, marks) {
   const vp = page.viewportSize();
   const boxes = {};
   for (const [k, sels] of Object.entries(marks)) {
@@ -280,10 +329,7 @@ async function annotated(name, page, words, marks, W) {
   });
   const shot = [0, 0, vp.width, vp.height];
   const clipTo = ([x, y, w, h]) => { const x0 = Math.max(x, shot[0]), y0 = Math.max(y, shot[1]), x1 = Math.min(x + w, shot[2]), y1 = Math.min(y + h, shot[3]); return x1 > x0 && y1 > y0 ? [x0, y0, x1 - x0, y1 - y0] : null; };
-  const avoidF = avoid.map(clipTo).filter(Boolean).map(([x, y, w, h]) => [x / vp.width, y / vp.height, w / vp.width, h / vp.height].map(v => +v.toFixed(4)));
-  const png = await page.screenshot({ animations: 'disabled', timeout: 240000 });
-  const out = await encode(png, [{ name: 'desktop', x: 0, y: 0, w: vp.width * 2, h: vp.height * 2, W }, { name: 'phone', x: 0, y: 0, w: vp.width * 2, h: vp.height * 2, W: 720 }]);
-  save(name, out, words, boxes, avoidF);
+  return { boxes, avoid: avoid.map(clipTo).filter(Boolean).map(([x, y, w, h]) => [x / vp.width, y / vp.height, w / vp.width, h / vp.height].map(v => +v.toFixed(4))) };
 }
 
 function save(name, out, words, boxes, avoid = []) {
@@ -298,23 +344,33 @@ function save(name, out, words, boxes, avoid = []) {
 
 /** How to win: the enemy's headquarters under attack. */
 async function sieges() {
-  const { ctx, page } = await game(DESKTOP, 'humans', BARE);
+  const { ctx, page } = await game(DESKTOP, 'humans', BARE, STARTS);
   try {
     const p = await page.evaluate(siege);
-    await look(page, p); await settle(page);
-    await hero('shot-battle', page, { alt: 'Ebbfall gameplay: the blue Kingdom\'s knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base.' });
+    const at = await look(page, p); await settle(page);
+    await hero('shot-battle', page, { alt: 'Ebbfall gameplay: the blue Kingdom\'s knights and guards storm the Expedition\'s Data center while cannons and archers fire from behind', caption: 'Knights and Guards at the Data center\'s walls, Cannons firing from behind: bring down the base.' }, at);
   } finally { await ctx.close(); }
+}
+
+/** The heroes' frame on a scene's box (world px, `sceneBox`): the zoom that holds it all in the 2:1 band with a margin
+ *  (the shots' zoom at most), the camera on its middle. Returns where the middle stands and the box's size on screen. */
+async function frameBox(page, b) {
+  const vp = page.viewportSize(), M = 28, bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+  const z = Math.min(ZOOM, (vp.width - 2 * M) / bw, (Math.min(vp.height, vp.width / 2) - 2 * M) / bh);
+  const at = await look(page, { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }, z);
+  console.log(`  frame: ${Math.round(bw)} x ${Math.round(bh)} world px at zoom ${z.toFixed(2)}`);
+  return { at, fit: { w: bw * z, h: bh * z } };
 }
 
 async function heroes() {
   for (const race of ['humans', 'vael']) {
-    const { ctx, page } = await game(DESKTOP, race, BARE);
+    const { ctx, page } = await game(DESKTOP, race, BARE, STARTS);
     try {
-      const p = await page.evaluate(base, race);
-      await look(page, p); await settle(page);
+      const b = await page.evaluate(base, [race, true]);
+      const { at, fit } = await frameBox(page, b); await settle(page);
       await hero(race === 'humans' ? 'hero-kingdom' : 'hero-expedition', page, race === 'humans'
         ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate', caption: 'A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate.' }
-        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge.' });
+        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge.' }, at, fit);
     } finally { await ctx.close(); }
   }
 }
@@ -322,9 +378,9 @@ async function heroes() {
 /** The two annotated controls shots: a Kingdom base with a group selected, on a desktop and on a phone held sideways. */
 async function controls() {
   {
-    const { ctx, page } = await game(DESKTOP, 'humans', QUIET);
+    const { ctx, page } = await game(DESKTOP, 'humans', QUIET, STARTS);
     try {
-      await page.evaluate(base, 'humans');
+      await page.evaluate(base, ['humans', false]);
       await look(page, await page.evaluate(() => window.S.at(180, 0))); await settle(page);
       // The group: a box dragged round the soldiers at the gate (the UI's own selection), saved as group 1.
       const r = await page.evaluate(() => {
@@ -335,16 +391,25 @@ async function controls() {
       });
       await page.mouse.move(r.x0, r.y0); await page.mouse.down(); await page.mouse.move(r.x1, r.y1, { steps: 8 }); await page.mouse.up();
       await page.keyboard.press('Control+1');
-      await page.mouse.move(640, 790); await settle(page);
-      await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected.' }, {
-        res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'],
-      }, 2000);
+      // (the pointer parked on the minimap: off the map's sprites, and off the window's edge, which pans the map now
+      // that the canvas reaches it; 790 px down did, the army pushed up under the top bar)
+      const mm = await page.locator('#minimap').boundingBox();
+      await page.mouse.move(mm.x + mm.width / 2, mm.y + mm.height / 2); await settle(page);
+      const marks = { res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'] };
+      // The frame: the first, from the gate toward the Castle, where every note finds a free spot (a building under a
+      // corner's buttons leaves its note none: the base by the map's edge, the camera held back there)
+      for (const f of [180, 150, 120, 90]) {
+        await look(page, await page.evaluate((f) => window.S.at(f, 0), f)); await settle(page);
+        if (await notesFit(page, marks)) break;
+        if (f === 90) throw new Error('shots: shot-desktop-hud: no frame leaves every note a free spot');
+      }
+      await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected.' }, marks, 2000);
     } finally { await ctx.close(); }
   }
   {
-    const { ctx, page } = await game(PHONE_LAND, 'humans', QUIET);
+    const { ctx, page } = await game(PHONE_LAND, 'humans', QUIET, STARTS);
     try {
-      await page.evaluate(base, 'humans');
+      await page.evaluate(base, ['humans', false]);
       await look(page, await page.evaluate(() => window.S.at(230, 0))); await settle(page);
       await page.locator('#btnArmy').tap(); await settle(page);
       await annotated('shot-phone-land', page, { alt: 'Ebbfall on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card', caption: 'The same base on a phone held sideways, the army selected.' }, {

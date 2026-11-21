@@ -5,8 +5,8 @@
   "w": 1688,
   "h": 780,
   "seconds": 40.6,
-  "bytes": 3599800,
-  "uploaded": "2026-11-19"
+  "bytes": 3562586,
+  "uploaded": "2026-11-21"
  },
  "controls-phone-9x16": {
   "file": "controls-phone-9x16.mp4",
@@ -14,8 +14,8 @@
   "w": 1080,
   "h": 1920,
   "seconds": 40.6,
-  "bytes": 1832156,
-  "uploaded": "2026-11-19"
+  "bytes": 1800066,
+  "uploaded": "2026-11-21"
  },
  "controls-loop": {
   "file": "controls-loop.mp4",
@@ -23,8 +23,8 @@
   "w": 844,
   "h": 390,
   "seconds": 17.8,
-  "bytes": 383171,
-  "uploaded": "2026-11-19"
+  "bytes": 376369,
+  "uploaded": "2026-11-21"
  },
  "touch-select": {
   "file": "touch-select.mp4",
@@ -32,8 +32,8 @@
   "w": 844,
   "h": 390,
   "seconds": 3,
-  "bytes": 123486,
-  "uploaded": "2026-11-19"
+  "bytes": 121213,
+  "uploaded": "2026-11-21"
  },
  "touch-group": {
   "file": "touch-group.mp4",
@@ -41,8 +41,8 @@
   "w": 844,
   "h": 390,
   "seconds": 3,
-  "bytes": 120440,
-  "uploaded": "2026-11-19"
+  "bytes": 120215,
+  "uploaded": "2026-11-21"
  },
  "touch-type": {
   "file": "touch-type.mp4",
@@ -50,8 +50,8 @@
   "w": 844,
   "h": 390,
   "seconds": 2.2,
-  "bytes": 107497,
-  "uploaded": "2026-11-19"
+  "bytes": 103783,
+  "uploaded": "2026-11-21"
  },
  "touch-army": {
   "file": "touch-army.mp4",
@@ -59,8 +59,8 @@
   "w": 844,
   "h": 390,
   "seconds": 3.2,
-  "bytes": 133736,
-  "uploaded": "2026-11-19"
+  "bytes": 132383,
+  "uploaded": "2026-11-21"
  },
  "touch-look": {
   "file": "touch-look.mp4",
@@ -68,8 +68,8 @@
   "w": 844,
   "h": 390,
   "seconds": 3.27,
-  "bytes": 141973,
-  "uploaded": "2026-11-19"
+  "bytes": 141243,
+  "uploaded": "2026-11-21"
  },
  "touch-letgo": {
   "file": "touch-letgo.mp4",
@@ -77,8 +77,8 @@
   "w": 844,
   "h": 390,
   "seconds": 1.9,
-  "bytes": 106813,
-  "uploaded": "2026-11-19"
+  "bytes": 107351,
+  "uploaded": "2026-11-21"
  },
  "touch-details": {
   "file": "touch-details.mp4",
@@ -86,8 +86,8 @@
   "w": 844,
   "h": 390,
   "seconds": 2.7,
-  "bytes": 138737,
-  "uploaded": "2026-11-19"
+  "bytes": 136116,
+  "uploaded": "2026-11-21"
  },
  "desktop-loop": {
   "file": "desktop-loop.mp4",
@@ -95,8 +95,8 @@
   "w": 1280,
   "h": 720,
   "seconds": 16.5,
-  "bytes": 378615,
-  "uploaded": "2026-11-20"
+  "bytes": 382461,
+  "uploaded": "2026-11-21"
  },
  "desk-select": {
   "file": "desk-select.mp4",
@@ -104,8 +104,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2.1,
-  "bytes": 127333,
-  "uploaded": "2026-11-20"
+  "bytes": 127518,
+  "uploaded": "2026-11-21"
  },
  "desk-move": {
   "file": "desk-move.mp4",
@@ -113,8 +113,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2,
-  "bytes": 133026,
-  "uploaded": "2026-11-20"
+  "bytes": 133894,
+  "uploaded": "2026-11-21"
  },
  "desk-type": {
   "file": "desk-type.mp4",
@@ -122,8 +122,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2,
-  "bytes": 129881,
-  "uploaded": "2026-11-20"
+  "bytes": 128058,
+  "uploaded": "2026-11-21"
  },
  "desk-attack": {
   "file": "desk-attack.mp4",
@@ -131,8 +131,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2.4,
-  "bytes": 127992,
-  "uploaded": "2026-11-20"
+  "bytes": 129313,
+  "uploaded": "2026-11-21"
  },
  "desk-group": {
   "file": "desk-group.mp4",
@@ -140,8 +140,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2.8,
-  "bytes": 123304,
-  "uploaded": "2026-11-20"
+  "bytes": 125704,
+  "uploaded": "2026-11-21"
  },
  "desk-pan": {
   "file": "desk-pan.mp4",
@@ -149,8 +149,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2,
-  "bytes": 127145,
-  "uploaded": "2026-11-20"
+  "bytes": 126028,
+  "uploaded": "2026-11-21"
  },
  "desk-wasd": {
   "file": "desk-wasd.mp4",
@@ -158,7 +158,7 @@
   "w": 960,
   "h": 540,
   "seconds": 3,
-  "bytes": 139109,
-  "uploaded": "2026-11-20"
+  "bytes": 133676,
+  "uploaded": "2026-11-21"
  }
 }

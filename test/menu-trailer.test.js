@@ -43,7 +43,7 @@ test('the dialog: the video with no source (nothing fetched before the tap), pre
   for (const a of ['controls', 'playsinline', 'preload="none"', 'poster="menu/trailer.jpg"', 'width="1280" height="720"']) assert.ok(v.includes(a), a);
   for (const not of ['autoplay', 'muted', 'loop']) assert.doesNotMatch(` ${v} `, new RegExp(`\\s${not}[\\s=]`), not);
   assert.match(v, /title="Ebbfall trailer: [^"]+"/);
-  assert.match(v, /aria-label="The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home\. They need its mines, the King won't abide it, and their armies fight\. By day 675 it is home\."/);
+  assert.match(v, /aria-label="The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home\. They need its mines, the King won't abide it, and their armies fight\. By day 675 they are still here\."/);
   assert.ok(d.includes(`<p class="credit" id="trailerCredit">Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / <a href="${CC}" target="_blank" rel="noopener license">${CC}</a> (edited)</p>`), 'the credit');
   assert.match(d, /<button type="button" class="ib x" id="trailerClose" aria-label="Close the trailer">CLOSE<\/button>/);
   assert.match(d, /<p class="note" id="trailerNote" role="status" hidden>The trailer needs a connection\.<\/p>/);

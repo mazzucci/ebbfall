@@ -56,9 +56,9 @@ const warp = (x, y, k = 1) => `
 /** A field-log screen: a dark side for the type (`side`: left|bottom), the head line and the typed lines, the cursor
  *  after the last. */
 const log = ({ head, lines, side = 'left', size = 24, x = 54, y = 150, w = 560 }) => `
-  <div class="fill" style="background:${side === 'left' ? 'linear-gradient(90deg,rgba(4,9,14,.93) 0,rgba(4,9,14,.86) 46%,rgba(4,9,14,.25) 78%,rgba(4,9,14,.1) 100%)' : 'linear-gradient(0deg,rgba(4,9,14,.93) 0,rgba(4,9,14,.8) 28%,rgba(4,9,14,0) 52%)'}"></div>
+  <div class="fill" style="background:${side === 'left' ? 'linear-gradient(90deg,rgba(4,9,14,.93) 0,rgba(4,9,14,.86) 46%,rgba(4,9,14,.25) 78%,rgba(4,9,14,.1) 100%)' : 'linear-gradient(0deg,rgba(4,9,14,.93) 0,rgba(4,9,14,.82) 32%,rgba(4,9,14,0) 58%)'}"></div>
   <div class="mono" style="left:${x}px;${side === 'left' ? `top:${y}px` : `bottom:${y}px`};width:${w}px;font-size:${size}px;line-height:1.5">
-    ${head ? `<div style="position:static" class="dim"><span style="font-size:${Math.round(size * 0.62)}px;letter-spacing:.16em">${head}</span></div><div style="position:static;height:${Math.round(size * 0.45)}px"></div>` : ''}
+    ${head ? `<div style="position:static" class="dim"><span style="font-size:${Math.round(size * 0.66)}px;letter-spacing:.16em">${head}</span></div><div style="position:static;height:${Math.round(size * 0.45)}px"></div>` : ''}
     ${lines.map((l, i) => `<div style="position:static">${l}${i === lines.length - 1 ? '<span class="cur"></span>' : ''}</div>`).join('')}
   </div>`;
 /** The King's line: the shade on its side, the line in the King's face, a short gold rule and his name under it. */
@@ -72,7 +72,7 @@ const king = ({ lines, font, size = 44, x = 60, y = 150, w = 520, ls = '.02em', 
 /** A one-line log caption over a gameplay scene (option B): bottom left, on a low shade. */
 const caption = (day, text) => `
   <div class="fill" style="background:linear-gradient(0deg,rgba(4,9,14,.88) 0,rgba(4,9,14,.6) 16%,rgba(4,9,14,0) 34%)"></div>
-  <div class="mono" style="left:44px;bottom:34px;font-size:25px;white-space:nowrap"><span class="dim" style="font-size:16px;letter-spacing:.16em;margin-right:16px">${day}</span>${text}<span class="cur"></span></div>`;
+  <div class="mono" style="left:44px;bottom:32px;font-size:33px;white-space:nowrap"><span class="dim" style="font-size:21px;letter-spacing:.16em;margin-right:16px">${day}</span>${text}<span class="cur"></span></div>`;
 /** The end card over the frozen, graded last frame: the logo, the line, the address. */
 const endCard = (name) => `${graded(name)}<div class="fill" style="background:#0b0f16;opacity:.63"></div><div class="vig"></div>
   <div class="shadow" style="left:0;right:0;top:112px;display:flex;justify-content:center;align-items:center;gap:18px"><img src="${ICON}" width="92" height="92" style="border-radius:50%;background:#0b0f16;box-shadow:0 0 18px rgba(0,0,0,.6)"><b style="font-size:110px;line-height:1;letter-spacing:.005em">Ebbfall</b></div>
@@ -82,13 +82,13 @@ const logoOnly = (name) => `${graded(name)}<div class="vig"></div>
   <div class="shadow" style="left:0;right:0;top:206px;display:flex;justify-content:center;align-items:center;gap:20px"><img src="${ICON}" width="104" height="104" style="border-radius:50%;background:#0b0f16;box-shadow:0 0 18px rgba(0,0,0,.6)"><b style="font-size:124px;line-height:1;letter-spacing:.005em">Ebbfall</b></div>`;
 
 // ---- the two options: [timecode, name, html] ----
-const A_KING = { font: 'IM Fell English SC', size: 46 }, B_KING = { font: 'IM Fell English SC', size: 46 };
+const A_KING = { font: 'Pirata One', size: 60, lh: 1.16, tag: 'The King', y: 140 }, B_KING = { font: 'IM Fell English SC', size: 45, y: 150 };
 const OPTIONS = {
   'option-A': [
     ['00.0', 'card', card('2047.')],
     ['01.4', 'field', plate('field-wide')],
     ['02.6', 'warp', plate('arrived-wide') + warp(785, 96)],
-    ['03.4', 'log', plate('arrived-wide') + log({ head: 'EXPEDITION FIELD LOG &nbsp;//&nbsp; ENTRY 001', y: 138, size: 25, lines: ['&gt; JUMP COMPLETE.', '&gt; SIX CENTURIES BACK.', '&gt; DATA CENTER ONLINE.', '&gt; THORIUM REACTOR: STABLE.', '&gt; ENERGY RESERVE: <span class="hot">4%</span>', '&gt; DIRECTIVE: OPEN THE MINES.'] })],
+    ['03.4', 'log', plate('arrived-wide') + log({ head: 'EXPEDITION FIELD LOG &nbsp;//&nbsp; ENTRY 001', y: 128, size: 31, w: 600, lines: ['&gt; JUMP COMPLETE.', '&gt; SIX CENTURIES BACK.', '&gt; DATA CENTER ONLINE.', '&gt; THORIUM REACTOR: STABLE.', '&gt; ENERGY RESERVE: <span class="hot">4%</span>', '&gt; DIRECTIVE: OPEN THE MINES.'] })],
     ['10.0', 'king', plate('castle') + king({ ...A_KING, lines: ['Strangers dig', 'in my earth.', 'This I will not suffer.'] })],
     ['14.5', 'mine', plate('xmine')],
     ['17.5', 'noticed', plate('watch')],
@@ -105,8 +105,8 @@ const OPTIONS = {
   'option-B': [
     ['00.0', 'kingdom', plate('kingdom')],
     ['02.6', 'warp', plate('kingdom') + warp(480, 250, 1.25)],
-    ['03.4', 'log-1', plate('xmine') + log({ side: 'bottom', y: 40, w: 860, size: 27, head: 'FIELD LOG &nbsp;·&nbsp; DAY 1', lines: ['We jumped six centuries back.', 'All of us made it.'] })],
-    ['07.6', 'log-2', plate('xmine-close') + log({ side: 'bottom', y: 40, w: 860, size: 27, head: 'FIELD LOG &nbsp;·&nbsp; DAY 3', lines: ['The base runs on thorium. It eats all we dig.', 'We need more energy. We need the mines.'] })],
+    ['03.4', 'log-1', plate('xmine') + log({ side: 'bottom', y: 38, w: 900, size: 33, head: 'FIELD LOG &nbsp;·&nbsp; DAY 1', lines: ['We jumped six centuries back.', 'All of us made it.'] })],
+    ['07.6', 'log-2', plate('xmine-close') + log({ side: 'bottom', y: 38, w: 900, size: 33, head: 'FIELD LOG &nbsp;·&nbsp; DAY 3', lines: ['The base runs on thorium. It eats all we dig.', 'We need more energy. We need the mines.'] })],
     ['12.4', 'king', plate('castle') + king({ ...B_KING, lines: ['No lord gave them leave', 'to break my ground.', 'I will not abide it.'] })],
     ['16.8', 'muster', plate('muster')],
     ['19.8', 'raid', plate('xraid-2') + caption('DAY 9', 'They found the mine.')],

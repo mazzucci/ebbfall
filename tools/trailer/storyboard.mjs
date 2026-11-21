@@ -49,8 +49,11 @@ function xraidScene() {
   e.skip(150 - G.time);
   const mid = { x: (hq.x + m.x) / 2, y: (hq.y + m.y) / 2 }, foe = hqOf(K);
   const len = Math.hypot(foe.x - mid.x, foe.y - mid.y), d = { x: (foe.x - mid.x) / len, y: (foe.y - mid.y) / len }, s = { x: -d.y, y: d.x };
-  for (let i = 0; i < 6; i++) spawn(K, 'rider', { x: mid.x + d.x * (120 + (i % 2) * 30) + s.x * (i - 2.5) * 30, y: mid.y + d.y * (120 + (i % 2) * 30) + s.y * (i - 2.5) * 30 });
-  for (let i = 0; i < 2; i++) spawn(X, 'scythe', { x: hq.x - 90 - i * 30, y: hq.y - 40 + i * 50 });
+  // (the Riders by the mine road's upper half, nearer the Bots than anything else; the Buggies start behind the Data
+  // center, so they come into the frame a second later)
+  const road = { x: m.x + (hq.x - m.x) * 0.3, y: m.y + (hq.y - m.y) * 0.3 };
+  for (let i = 0; i < 6; i++) spawn(K, 'rider', { x: road.x + d.x * (105 + (i % 2) * 30) + s.x * (i - 2.5) * 28, y: road.y + d.y * (105 + (i % 2) * 30) + s.y * (i - 2.5) * 28 });
+  for (let i = 0; i < 2; i++) spawn(X, 'scythe', { x: hq.x + 150 + i * 30, y: hq.y + 130 + i * 20 });
   e.skip(0.4);
   return { hq: { x: hq.x, y: hq.y }, mine: { x: m.x, y: m.y }, mid };
 }
@@ -86,14 +89,14 @@ const SETS = [
     { t: 4.9, name: 'dc', cam: (t, a) => ({ x: a.dc.x - 150, y: a.dc.y + 10, zoom: 2.0 }) }] },
   { id: 'mine', seg: seg('mine'), part: part('mine'), shots: [
     { t: 0.6, name: 'kmine' },
-    { t: 0.8, name: 'castle', cam: (t, a) => ({ x: a.hq.x - 150, y: a.hq.y - 20, zoom: 2.3 }) },
+    { t: 0.8, name: 'castle', cam: (t, a) => ({ x: a.hq.x - 118, y: a.hq.y - 22, zoom: 2.15 }) },
     { t: 0.9, name: 'castle-right', cam: (t, a) => ({ x: a.hq.x + 150, y: a.hq.y - 20, zoom: 2.3 }) },
     { t: 1.0, name: 'castle-low', cam: (t, a) => ({ x: a.hq.x, y: a.hq.y - 90, zoom: 2.3 }) },
     { t: 1.1, name: 'kingdom', cam: (t, a) => ({ x: (a.hq.x + a.mine.x) / 2, y: (a.hq.y + a.mine.y) / 2, zoom: 1.4 }) }],
     scene: function () { const a = (0, eval)('(' + window.__mine + ')')(); const hq = window.S.hqOf(window.S.K); return { ...a, hq: { x: hq.x, y: hq.y } }; }, inject: { __mine: seg('mine').scene.toString() } },
   { id: 'xmine', as: 'vael', scene: xmineScene, part: { seconds: 1.2, cam: still('mid', 1.7) }, shots: [{ t: 1.0, name: 'xmine' }, { t: 1.1, name: 'xmine-close', cam: still('mine', 2.1, -40, 40) }] },
   { id: 'watch', as: 'vael', scene: watchScene, part: { seconds: 1.2, cam: still('look', 1.9) }, shots: [{ t: 1.0, name: 'watch' }, { t: 1.1, name: 'watch-wide', cam: still('mid', 1.5) }] },
-  { id: 'xraid', as: 'vael', scene: xraidScene, part: { seconds: 2.2, cam: still('mid', 1.8) }, shots: [{ t: 0.5, name: 'xraid-1' }, { t: 1.3, name: 'xraid-2' }, { t: 2.1, name: 'xraid-3' }] },
+  { id: 'xraid', as: 'vael', scene: xraidScene, part: { seconds: 2.2, cam: still('mid', 1.8, -30, -30) }, shots: [{ t: 0.5, name: 'xraid-1' }, { t: 1.3, name: 'xraid-2' }, { t: 2.1, name: 'xraid-3' }] },
   { id: 'muster', as: 'humans', scene: musterScene, part: { seconds: 2.4, cam: still('look', 1.45), at: [{ t: 0.6, run: (page) => page.evaluate(musterMarch) }] }, shots: [{ t: 0.4, name: 'muster' }, { t: 1.6, name: 'muster-march' }, { t: 2.3, name: 'muster-march2' }] },
   { id: 'build', seg: seg('build'), part: part('build'), shots: [{ t: 0.7, name: 'build-1' }, { t: 1.4, name: 'build-2' }] },
   { id: 'hold', seg: seg('hold'), part: part('hold'), shots: [{ t: 0.9, name: 'hold-1' }, { t: 1.6, name: 'hold-2' }] },

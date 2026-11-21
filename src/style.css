@@ -564,12 +564,12 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .ib.icon .t{display:none} /* (the icon alone: the word is the button's title and label) */
   #top .ib{width:calc(var(--u)*40);height:calc(var(--u)*40);margin-left:calc(var(--u)*6);padding:0;display:grid;place-items:center;
     background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #top .ib:hover{border-color:var(--ally)} #top .ib .ico{width:calc(var(--u)*19);height:calc(var(--u)*19)} #top .ib.help{font-size:calc(var(--u)*18)}
+  #top .ib:hover,#top .ib.help[aria-expanded="true"]{border-color:var(--ally)} #top .ib.help[aria-expanded="true"]{background:#2a2415} #top .ib .ico{width:calc(var(--u)*19);height:calc(var(--u)*19)} #top .ib.help{font-size:calc(var(--u)*18)}
   .res{font-size:calc(var(--u)*24);color:#f3f6fa;gap:calc(var(--u)*9)}
   .res .dot{width:calc(var(--u)*25);height:calc(var(--u)*21)}
   .res .lbl{font:600 calc(var(--u)*12)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
   #top .res:not(#resClock){height:calc(var(--u)*48);padding:0 calc(var(--u)*16);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
-  #resShard{border-radius:calc(var(--u)*8) 0 0 calc(var(--u)*8)} #top #resSup{border-left:0;border-radius:0 calc(var(--u)*8) calc(var(--u)*8) 0}
+  #resShard{border-radius:calc(var(--u)*8) 0 0 calc(var(--u)*8)} #top .res#resSup{border-left:0;border-radius:0 calc(var(--u)*8) calc(var(--u)*8) 0}
   #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*2);font-size:calc(var(--u)*17);color:var(--fg2);
     background:var(--plate);border:1px solid var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
   #tools,#tut,#helpSheet{top:calc(var(--m) + var(--u)*58)} #tools,#helpSheet{right:var(--m)} #tut{left:var(--m)}
@@ -578,7 +578,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #hud{left:var(--m);right:var(--m);bottom:var(--m);gap:calc(var(--u)*14)}
   #minimap{width:calc(var(--u)*236);height:calc(var(--u)*236);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
     box-shadow:0 0 0 calc(var(--u)*4) #101822,0 0 0 calc(var(--u)*4 + 1px) #34475f,var(--drop)}
-  #info{width:min(calc(var(--u)*760),calc(100% - var(--u)*600));max-height:calc(var(--u)*190);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
+  #info{width:min(calc(var(--u)*760),calc(100% - var(--u)*600));max-height:calc(var(--u)*250);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
     background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
   #info h2{font-size:calc(var(--u)*21)}
   #info .sub,#info .what{font-size:calc(var(--u)*14);color:var(--fg2)}
@@ -606,7 +606,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%23080d14' fill-opacity='.72' stroke='%232a3a4e' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/calc(var(--u)*93) calc(var(--u)*73) repeat content-box content-box,
       linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92)) padding-box}
   #cmd.army{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%230c121a' fill-opacity='.4'/%3E%3C/svg%3E"),linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92))}
-  .cb{font-size:calc(var(--u)*12.5);border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
+  .cb{--cbg:#1f2c3f;font-size:calc(var(--u)*12.5);border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
   .cb.active{background:#2a2415;border-color:var(--ally)} .cb:hover{border-color:var(--ally)}
   .cb .ico{width:calc(var(--u)*24);height:calc(var(--u)*24)} .cb .ico.gl{width:calc(var(--u)*31);height:calc(var(--u)*31)}
   .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:calc(var(--u)*11);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
@@ -618,6 +618,11 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #hint{font-size:max(12px,calc(var(--u)*13))} #hint.placing,#hint.boxing{font-size:max(15px,calc(var(--u)*16))} /* (never smaller than under 1100 px) */
   #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--u)*250)}
   :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--u)*284)} /* (as specific as the mouse's own rule, which names #btnBox) */
+  /* a touch laptop (SELECT, HOME and ARMY shown): the three in a row above the minimap and as wide as it, the hint and
+     the toasts above them */
+  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--u)*236 - 8px) / 3);bottom:calc(var(--m) + var(--u)*246)}
+  #stage:has(#btnBox:not([hidden])) #hint{bottom:calc(var(--m) + var(--u)*246 + 56px)}
+  #stage:has(#btnBox:not([hidden])) #msg{bottom:calc(var(--m) + var(--u)*246 + 90px)}
   .tb{font-size:max(11px,calc(var(--u)*12));padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:max(12px,calc(var(--u)*13))}
   #cmdInfo{font-size:max(12px,calc(var(--u)*13))}
 }

@@ -918,7 +918,8 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       the way out and the fight; `--set edge --sheet` lays tags today and edge side by side (desktop-edge). It draws through
                       `endfall.draw` (main.js: the HUD and one frame, tools only). `--set hud --tag T`: the desktop HUD's
                       stills (a base, a raid met, the army of 12 selected with Q) at 1920x1080, 1440x900, 2560x1440 at
-                      DPR 2 and the phone, the melee close up, one unit and a queue (../ebbfall-article/hud-pr/T).
+                      DPR 2 and the phone, the melee close up, one unit and a queue (../ebbfall-article/hud-pr/T); `--set hud
+                      --sheet` lays tags main and pr side by side.
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-clip.mjs   public/menu/clip-<720|1280>.webp, the poster of the clip on the menu's first page: the game's own

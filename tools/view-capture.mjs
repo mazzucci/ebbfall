@@ -4,6 +4,7 @@
 //   node tools/view-capture.mjs --set edge --tag today|edge [--out DIR]   (ENDFALL_DIST=... names the build to shoot)
 //   node tools/view-capture.mjs --set edge --sheet [--out DIR]
 //   node tools/view-capture.mjs --set hud --tag main|pr [--out DIR]      (ENDFALL_DIST=... names the build to shoot)
+//   node tools/view-capture.mjs --set hud --sheet [--out DIR]             (main beside pr, a row per still: sheet.png)
 // --out: where the shots, shots.json and sheet.png go (default ../ebbfall-article/desktop-start next to the repo, or
 //        ../ebbfall-article/desktop-edge for the edge set).
 // --spans: START_SPAN candidates (world px across a desktop window at the start); each size is shot at
@@ -335,6 +336,7 @@ function hudStage() {
 
 /** The hud set: the build at hand (ENDFALL_DIST) at each size, the phone, the close-ups and two states, into <out>/<tag>. */
 async function hudSet() {
+  if (process.argv.includes('--sheet')) return hudSheet();
   const dir = join(out, TAG); mkdirSync(dir, { recursive: true });
   const desk = (w, h, dpr = 1) => ({ viewport: { width: w, height: h }, deviceScaleFactor: dpr });
   const PHONE2 = { ...PHONE, deviceScaleFactor: 2 };
@@ -423,4 +425,26 @@ async function hudSet() {
   log.sameWorld = hashes.every(h => h === hashes[0]);
   writeFileSync(join(dir, 'shots.json'), JSON.stringify(log, null, 1));
   console.log(JSON.stringify({ setups: log.setups, sameWorld: log.sameWorld, errors: log.errors }));
+}
+
+/** The hud set's sheet: main (left) beside the PR (right), a row per still, as sheet.html beside the folders and sheet.png. */
+async function hudSheet() {
+  const files = ['1920x1080.png', '1440x900.png', '2560x1440-dpr2.png', 'phone-844x390.png', 'closeup-1920.png', 'closeup-dpr2.png', '1440x900--one-unit.png', '1440x900--queue.png'];
+  const rows = files.map(f => `<h2>${f.replace('.png', '')}</h2><div class="row"><figure><img src="main/${f}"><figcaption>main</figcaption></figure><figure><img src="pr/${f}"><figcaption>this PR</figcaption></figure></div>`).join('');
+  writeFileSync(join(out, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>
+    body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 2352px; }
+    h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; } h2 { font-size: 18px; margin: 26px 0 6px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; } figure { margin: 0; } img { width: 100%; display: block; outline: 1px solid #444; }
+    figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }</style>
+    <h1>The desktop HUD: main (left) and this PR (right)</h1>
+    <p>One staged instant (seed 4242, 3:43, the AI off), the army of 12 selected with Q (ARMY on the phone); every still at its window's start zoom.</p>${rows}`);
+  await start();
+  try {
+    const ctx = await browserContext({ viewport: { width: 2400, height: 1000 }, deviceScaleFactor: 1 }), page = await ctx.newPage();
+    await page.goto(pathToFileURL(join(out, 'sheet.html')).href);
+    await page.waitForFunction(() => [...document.images].every(i => i.complete));
+    await page.screenshot({ path: join(out, 'sheet.png'), fullPage: true, type: 'png' });
+    console.log('sheet.png');
+    await ctx.close();
+  } finally { await stop(); }
 }

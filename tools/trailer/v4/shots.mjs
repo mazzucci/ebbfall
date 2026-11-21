@@ -1,4 +1,4 @@
-// Cut 4's shot list ("Day 675", 16:9 only), as data for tools/trailer/record.mjs `recordSegment` (see tools/trailer/shots.mjs
+// Cut 4's shot list ("Day 675", 16:9 only; cut 5 is the same with the landing at the Expedition's own start), as data for tools/trailer/record.mjs `recordSegment` (see tools/trailer/shots.mjs
 // for a segment's shape): each segment one staged game page, each part a file, a little longer than the cut needs
 // (script.mjs CUT trims it). Every camera is locked (one eased pull-back, on the last shot). The scenes use the debug
 // handle only (window.S, stage.mjs). Dust Quarter, but the Watchtower's two (Sunken Court, as the docs' clip).
@@ -27,51 +27,23 @@ function diary(T, t) {
 
 // ---- in the page: the scenes (plain functions, serialized: no closures; they read only window.S) ----
 
-/** The landing: the Kingdom's start as its own AI built it by about 4:10 (cut 3's arrival: its AI then stops, its
- *  Villagers mine on), playing the Expedition, whose base will land in the grass east of the Castle, far enough that
- *  the Castle stands in the distance. Four Villagers stand south-west of the spot, facing it. */
+/** The landing (cut 5: nothing of the Kingdom before the King's card): the Expedition's own start on Dust Quarter, the
+ *  far corner from the Castle, played as the Expedition with no AI: its base alone on the grass (the mine is north of
+ *  it, out of this frame; DAY 2 shows it), six Bots standing south-west of it, turned to it. It is there when the
+ *  white clears: nothing is built in the shot. Returns `kingdom`: how near the nearest Kingdom piece is (px), for the log. */
 function landingScene() {
-  const { e, G, eng, K, X, hqOf, mineOf, spawn, spot, until, byId } = window.S;
-  const hq = hqOf(K), m = mineOf(K);
-  e.setResources(X, 5000, 0);
-  e.skip(250);
-  eng.disableAi();
-  for (const b of G.bldgs.filter(b => b.team === K && !b.done)) until(b);
-  // (its soldiers would fall on the Bot that builds the base: hired Sellswords take them out of the picture, then leave)
-  const soldiers = () => G.units.filter(u => u.team === K && !eng.UNITS[u.type].worker && u.type !== 'observer');
-  const hired = [0, 1, 2, 3, 4, 5].map(i => spawn(X, 'prism', { x: hq.x + 200 + i * 14, y: hq.y - 200 }));
-  for (let i = 0; i < 90; i++) {
-    const g = soldiers()[0];
-    for (const id of hired) if (byId(id)) { if (g) eng.attackEnt(byId(id), g); else eng.moveTo(byId(id), hq.x + 650, hq.y - 650); }
-    e.skip(1);
-  }
-  for (const id of hired) if (byId(id)) eng.moveTo(byId(id), hq.x + 2000, hq.y - 2000);
-  e.skip(25);
-  e.bars(false);
-  const want = { x: hq.x + 352, y: hq.y + 48 };
-  const scout = spawn(X, 'lumen', want); e.skip(0.3); // (placing needs the ground seen: a Bot looks, then leaves)
-  const s = spot(X, 'conflux', want), d = eng.BUILDINGS.conflux;
-  eng.moveTo(byId(scout), want.x + 1500, want.y - 1500); e.skip(20);
-  const dc = { x: (s[0] + d.w / 2) * 32, y: (s[1] + d.h / 2) * 32, tx: s[0], ty: s[1] };
-  const u = { x: -Math.SQRT1_2, y: Math.SQRT1_2 };
-  const stare = [0, 1, 2, 3].map(i => { const f = 104 + (i % 2) * 24, w = (i - 1.5) * 26; return { x: dc.x + u.x * f - u.y * w, y: dc.y + u.y * f + u.x * w }; });
-  for (const p of stare) spawn(K, 'harvester', p);
-  e.skip(0.5);
-  window.S.arrival = { dc };
-  return { hq: { x: hq.x, y: hq.y }, mine: { x: m.x, y: m.y }, dc, look: { x: (hq.x + dc.x) / 2 + 10, y: (hq.y + dc.y) / 2 + 40 },
-    info: { hq: [hq.x, hq.y], dc: [dc.x, dc.y], bldgs: G.bldgs.filter(b => b.team === K).map(b => [b.type, b.x - hq.x, b.y - hq.y]) } };
-}
-/** The landing itself, between two frames (under the white): a Bot builds the base (its build time passes now) and leaves. */
-function land() {
-  const { e, G, eng, X, spawn, byId } = window.S, { dc } = window.S.arrival;
-  const bot = spawn(X, 'lumen', { x: dc.x + 80, y: dc.y - 30 }); e.skip(0.2);
-  const err = eng.placeBuilding(X, 'conflux', dc.tx, dc.ty, byId(bot));
-  if (err) throw new Error(`the base: ${err}`);
-  for (let i = 0; i < 120; i++) { e.skip(1); if (G.bldgs.some(b => b.type === 'conflux' && b.tx === dc.tx && b.ty === dc.ty && b.done)) break; }
-  eng.moveTo(byId(bot), dc.x + 1400, dc.y - 1400);
+  const { e, G, eng, K, X, hqOf, spawn, workers, byId } = window.S;
+  const hq = hqOf(X);
+  const spots = [[-150, 40], [-112, 84], [-186, 92], [-78, 128], [-150, 138], [-222, 46]];
+  const ws = workers(X);
+  // (a unit faces the way it last walked: each Bot starts a few steps farther out and walks in toward the base)
+  const ids = spots.map(([dx, dy], i) => { const p = { x: hq.x + dx * 1.25, y: hq.y + dy * 1.25 }; if (ws[i]) { eng.moveTo(ws[i], p.x, p.y); return ws[i].id; } return spawn(X, 'lumen', p); });
+  for (const w of ws.slice(spots.length)) eng.moveTo(w, hq.x + 420, hq.y + 40); // (any more: out of the frame)
   e.skip(8);
-  G.events.length = 0; // (the building's sounds: not heard; the warp has its own)
-  return true;
+  ids.forEach((id, i) => { const u = byId(id); if (u) eng.moveTo(u, hq.x + spots[i][0], hq.y + spots[i][1]); });
+  e.skip(6); e.bars(false); G.events.length = 0;
+  const near = Math.min(...[...G.units, ...G.bldgs].filter(o => o.team === K).map(o => Math.hypot(o.x - hq.x, o.y - hq.y)));
+  return { hq: { x: hq.x, y: hq.y }, dc: { x: hq.x, y: hq.y }, look: { x: hq.x - 150, y: hq.y + 62 }, info: { hq: [hq.x, hq.y], kingdom: Math.round(near), bots: ids.map(id => { const u = byId(id); return u && [Math.round(u.x - hq.x), Math.round(u.y - hq.y)]; }) } };
 }
 
 /** DAY 2 and the raid: the Expedition's start a day in (played as the Expedition): the base, a Recruiting post out of
@@ -296,8 +268,8 @@ const COLUMN = [['monolith', -230, 170], ['monolith', -300, 190], ['umbra', -300
 
 // ---- the segments ----
 export const SEGMENTS = [
-  { id: 'landing', as: 'vael', ai: true, scene: landingScene, parts: [
-    { name: 'open', seconds: secs('open'), cam: LANDING_CAM, ticks: (t) => (t < WARP_T ? 1 : 1), at: [{ t: WARP_T, run: (page) => page.evaluate(land) }], overlay: openOverlay },
+  { id: 'landing', as: 'vael', scene: landingScene, parts: [
+    { name: 'open', seconds: secs('open'), cam: LANDING_CAM, overlay: openOverlay },
   ] },
   { id: 'xbase', as: 'vael', scene: xbaseScene, args: { turbines: [[-330, -150], [-410, -60]] }, parts: [
     { name: 'day2', seconds: secs('day2'), cam: still('hq', 1.5, { x: -230, y: -110 }), overlay: (t) => ({ diary: diary(TEXT.day2, t) }) },

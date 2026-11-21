@@ -145,7 +145,7 @@ export function planGround(opt, { w, h, rock, depth, nodes, starts, seed, kindAt
     }
   }
 
-  if (opt.paths) plan.dirt = tracks(w, h, { land, rock, depth, nodes, starts, s, dRock });
+  if (opt.paths) plan.dirt = tracks(w, h, { land, rock, depth, nodes, starts, s, dRock, dWet });
   // (worn ground under a lush meadow's cool tone goes gray: the tone gives way on the tracks and the yards)
   if (plan.dirt && plan.lush) for (let i = 0; i < n; i++) if (plan.dirt[i]) plan.lush[i] *= 0.25;
 
@@ -179,14 +179,14 @@ function bigOnly(w, h, mask, min) {
 }
 
 /** The worn ground: a yard at every start, tracks from each start to its own mines and to the other starts, and from
- *  every other mine to the nearest track. A track winds a little (a noise in its cost), keeps off the rock's foot where
+ *  every other mine to the nearest track. A track winds a little (a noise in its cost), keeps off the rock's foot and the waterline where
  *  it can, fords the shallows (not drawn there) and joins a track already worn rather than run beside it. */
-function tracks(w, h, { land, rock, depth, nodes, starts, s, dRock }) {
+function tracks(w, h, { land, rock, depth, nodes, starts, s, dRock, dWet }) {
   const n = w * h, dirt = new Uint8Array(n), cost = new Float32Array(n), at = (x, y) => y * w + x;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const d = depth(x, y);
     const v = noise(x / 3.2 + s * 0.17, y / 3.2 - s * 0.41);
-    cost[at(x, y)] = rock(x, y) || d === 2 ? Infinity : (1 + 6 * v * v + (dRock[at(x, y)] < 2 ? 5 : 0)) * (d === 1 ? 5 : 1);
+    cost[at(x, y)] = rock(x, y) || d === 2 ? Infinity : (1 + 6 * v * v + (dRock[at(x, y)] < 2 || (d === 0 && dWet[at(x, y)] < 2) ? 5 : 0)) * (d === 1 ? 5 : 1);
   }
   for (const m of nodes) for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (m.tx + x < w && m.ty + y < h) cost[at(m.tx + x, m.ty + y)] = Infinity;
   const route = router(w, h, cost);

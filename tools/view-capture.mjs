@@ -22,8 +22,8 @@
 //          (?map=7&seed=1291: the random 96 map with the fixed map's seed, so the seat is fixed too), its fight in open
 //          ground toward the middle. 1920x1080: the start, the fight (the army selected), the zoom-out limit, the whole
 //          map (a tools-only zoom, the HUD hidden, a 1536x1536 window), the fog on, the minimap; the fight at 2560x1440
-//          (DPR 2) and on the phone (DPR 2); the whole map of a second seed and of a 128x128 map. --only a,b: some
-//          stills only (start fight out whole fog minimap retina phone seed2 big). --sheet: today beside each option.
+//          (DPR 2) and on the phone (DPR 2); the whole map of a second seed, of a 128x128 map and of the Lake. --only a,b: some
+//          stills only (start fight out whole fog minimap retina phone seed2 big shore). --sheet: today beside each option.
 // The scene (seed 4242, the Kingdom against the Expedition, the AI off, the fog off). The page's clock is held before
 // the game starts, so the main loop never steps: the world moves only by `endfall.skip`, each shot is drawn with
 // `endfall.draw` (the HUD, then the map). Two instants:
@@ -572,6 +572,7 @@ async function groundSet() {
     if (want('phone')) { const p = await page0({ ...PHONE, deviceScaleFactor: 2 }, 'phone'); const s = await p.stageIt(); await still(p.page, '4-fight-phone-844x390.png', 'start', { x: s.army.x, y: s.army.y + 10 }); await p.done(); }
     if (want('seed2')) { const p = await page0(desk(1536, 1536), 'seed2', { seed: 2026 }); await whole(p.page, '9-seed-2026-whole-map.png'); await p.done(); }
     if (want('big')) { const p = await page0(desk(1536, 1536), 'big', { map: 11, seed: 5 }); await whole(p.page, '10-map-128-whole-map.png'); await p.done(); }
+    if (want('shore')) { const p = await page0(desk(1536, 1536), 'shore', { map: 13, seed: 1 }); await whole(p.page, '11-shore-whole-map.png'); await p.done(); } // (Mirror Lake: the random lake with its seed)
   } finally { await stop(); }
   const prev = (() => { try { return JSON.parse(readFileSync(join(dir, 'shots.json'), 'utf8')); } catch { return null; } })();
   if (prev && only.length) { log.shots = [...prev.shots.filter(s => !log.shots.some(t => t.file === s.file)), ...log.shots]; log.setups = { ...prev.setups, ...log.setups }; log.paint = { ...prev.paint, ...log.paint }; }
@@ -593,6 +594,7 @@ async function groundSheet() {
     ['8-minimap.png', 'The minimap, the fog off (enlarged 3x)', false, 3], ['8-minimap-fog.png', 'The minimap, the fog on (enlarged 3x)', false, 3],
     ['6-whole-map.png', 'The whole map (Dust Quarter, 96x96, seed 1291): a tools-only zoom, the HUD hidden'],
     ['9-seed-2026-whole-map.png', 'Another seed (96x96, seed 2026): the whole map'], ['10-map-128-whole-map.png', 'A larger map (Iron Compass, 128x128, eight starts): the whole map'],
+    ['11-shore-whole-map.png', 'A map with water (Mirror Lake, 64x64): the whole map'],
   ];
   const css = `body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 2352px; }
     h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; } h2 { font-size: 18px; margin: 26px 0 6px; }

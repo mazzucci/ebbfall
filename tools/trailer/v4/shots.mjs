@@ -2,7 +2,7 @@
 // for a segment's shape): each segment one staged game page, each part a file, a little longer than the cut needs
 // (script.mjs CUT trims it). Every camera is locked (one eased pull-back, on the last shot). The scenes use the debug
 // handle only (window.S, stage.mjs). Dust Quarter, but the Watchtower's two (Sunken Court, as the docs' clip).
-import { FPS, TEXT, typed, GROW_T, WARP_T, lengthOf } from './script.mjs';
+import { FPS, TEXT, typed, GROW_T, WARP_T, ROLL_AT, lengthOf } from './script.mjs';
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
@@ -43,13 +43,30 @@ function landingScene() {
   ids.forEach((id, i) => { const u = byId(id); if (u) eng.moveTo(u, hq.x + spots[i][0], hq.y + spots[i][1]); });
   e.skip(6); e.bars(false); G.events.length = 0;
   const near = Math.min(...[...G.units, ...G.bldgs].filter(o => o.team === K).map(o => Math.hypot(o.x - hq.x, o.y - hq.y)));
-  return { hq: { x: hq.x, y: hq.y }, dc: { x: hq.x, y: hq.y }, look: { x: hq.x - 150, y: hq.y + 62 }, info: { hq: [hq.x, hq.y], kingdom: Math.round(near), bots: ids.map(id => { const u = byId(id); return u && [Math.round(u.x - hq.x), Math.round(u.y - hq.y)]; }) } };
+  return { hq: { x: hq.x, y: hq.y }, dc: { x: hq.x, y: hq.y }, look: { x: hq.x - 150, y: hq.y + 62 }, info: { hq: [hq.x, hq.y], kingdom: Math.round(near), near: window.S.census(hq, 900), bots: ids.map(id => { const u = byId(id); return u && [Math.round(u.x - hq.x), Math.round(u.y - hq.y)]; }) } };
+}
+
+/** DAY 1's second shot (cut 5): Bots head out from the base to explore, fanning out over the empty ground south of it; `lead` seconds pass unseen, so they are on their way at the cut. Only
+ *  Bots, nothing of the Kingdom. */
+function rolloutScene({ lead }) {
+  const { e, G, eng, X, hqOf, spawn, workers, byId } = window.S;
+  const hq = hqOf(X);
+  for (const w of workers(X)) eng.moveTo(w, hq.x + 250, hq.y - 250); // (the start's own Bots: out of the frame, north-east)
+  e.skip(10);
+  // (west is forest and the Bots' way round it runs south, under the caption: they cross the frame's upper half
+  // eastward instead, in a loose spread, each to its own heading)
+  const from = [[-340, 150], [-300, 212], [-250, 160], [-205, 222], [-160, 178], [-110, 232]];
+  const to = [[320, 90], [320, 300], [320, 130], [320, 420], [320, 200], [320, 360]];
+  const ids = from.map(([dx, dy]) => spawn(X, 'lumen', { x: hq.x + dx, y: hq.y + dy }));
+  ids.forEach((id, i) => eng.moveTo(byId(id), hq.x + to[i][0], hq.y + to[i][1]));
+  e.skip(lead); e.bars(false); G.events.length = 0;
+  return { hq: { x: hq.x, y: hq.y }, look: { x: hq.x - 150, y: hq.y + 262 }, info: { near: window.S.census(hq, 900) } };
 }
 
 /** DAY 2 and the raid: the Expedition's start a day in (played as the Expedition): the base, a Recruiting post out of
  *  frame (the turbines need it), two Wind turbines west of the mine road (`turbines`: px from the base), Bots on the
  *  thorium mine, their trips out of step, two Androids standing by the mine. */
-function xbaseScene({ turbines }) {
+function xbaseScene({ turbines, androids = true }) {
   const { e, G, eng, X, hqOf, mineOf, spawn, spot, byId, gather, workers } = window.S;
   const hq = hqOf(X), m = mineOf(X);
   e.setResources(X, 5000, 0);
@@ -64,9 +81,9 @@ function xbaseScene({ turbines }) {
   const placed = [put('siphon', 260, 30), ...turbines.map(([dx, dy]) => put('spire', dx, dy))];
   for (let i = 0; i < 4; i++) spawn(X, 'lumen', { x: hq.x - 90 + i * 16, y: hq.y - 100 });
   for (const w of workers(X)) { gather(X, [w]); e.skip(0.6); }
-  spawn(X, 'umbra', { x: m.x - 96, y: m.y + 34 }); spawn(X, 'umbra', { x: m.x - 132, y: m.y + 74 });
+  if (androids) { spawn(X, 'umbra', { x: m.x - 96, y: m.y + 34 }); spawn(X, 'umbra', { x: m.x - 132, y: m.y + 74 }); } // (cut 4; cut 5 has only Bots before the King's card)
   e.skip(40); e.bars(false); G.events.length = 0;
-  return { hq: { x: hq.x, y: hq.y }, mine: { x: m.x, y: m.y }, info: { hq: [hq.x, hq.y], mine: [m.x - hq.x, m.y - hq.y], placed } };
+  return { hq: { x: hq.x, y: hq.y }, mine: { x: m.x, y: m.y }, info: { hq: [hq.x, hq.y], mine: [m.x - hq.x, m.y - hq.y], placed, near: window.S.census(hq, 900) } };
 }
 /** The raid: six Riders of the Kingdom's appear `from` (px from the base) and, idle, fall on the Bots in their sight
  *  (the sim takes no orders for the other seat); `lead` seconds pass unseen, so they are riding when the shot starts. */
@@ -271,7 +288,10 @@ export const SEGMENTS = [
   { id: 'landing', as: 'vael', scene: landingScene, parts: [
     { name: 'open', seconds: secs('open'), cam: LANDING_CAM, overlay: openOverlay },
   ] },
-  { id: 'xbase', as: 'vael', scene: xbaseScene, args: { turbines: [[-330, -150], [-410, -60]] }, parts: [
+  { id: 'rollout', as: 'vael', scene: rolloutScene, args: { lead: 0.25 }, parts: [
+    { name: 'roll', seconds: secs('roll'), cam: still('look', 1.5), overlay: (t) => ({ diary: diary(TEXT.day1, t + ROLL_AT) }) },
+  ] },
+  { id: 'xbase', as: 'vael', scene: xbaseScene, args: { turbines: [[-330, -150], [-410, -60]], androids: false }, parts: [
     { name: 'day2', seconds: secs('day2'), cam: still('hq', 1.5, { x: -230, y: -110 }), overlay: (t) => ({ diary: diary(TEXT.day2, t) }) },
     { name: 'raid', seconds: secs('raid'), cam: still('hq', 1.5, { x: -230, y: -110 }), pre: (page) => page.evaluate(ride, { from: { x: -215, y: -150 }, lead: 0.3 }) },
   ] },

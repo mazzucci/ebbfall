@@ -5,7 +5,7 @@
 // written to the out folder: the master, the 720p web copy and its poster, a frame strip, the sound alone, credit.txt.
 //   node tools/trailer/v4/cut.mjs <music.mp3> [outDir]     (default ../ebbfall-article/trailer-v4; FFMPEG as in record.mjs)
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { FFMPEG } from '../record.mjs';
@@ -16,7 +16,9 @@ import { CUT, END, FPS, KING_AT, MUSIC, WARP_T, GROW_T, at, lengthOf, ticks } fr
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const [music, outArg] = process.argv.slice(2);
 if (!music) throw new Error('cut: the music file is the first argument');
-const out = resolve(outArg || `${root}../ebbfall-article/trailer-v4`), work = `${root}target/trailer4/cut`, dir = `${root}target/trailer4/16x9`;
+const out = resolve(outArg || `${root}../ebbfall-article/trailer-v4`), work = `${root}target/trailer5/cut`;
+// (cut 5: a part re-recorded for it is in target/trailer5/16x9/, the others are cut 4's)
+const dirOf = (part) => (existsSync(`${root}target/trailer5/16x9/${part}.mkv`) ? `${root}target/trailer5/16x9` : `${root}target/trailer4/16x9`);
 mkdirSync(out, { recursive: true }); mkdirSync(work, { recursive: true });
 const ff = (args, capture = false) => { const r = spawnSync(FFMPEG, ['-y', '-hide_banner', '-nostats', '-loglevel', capture ? 'info' : 'error', ...args], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: capture ? 'pipe' : ['ignore', 'inherit', 'inherit'] }); if (r.status !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}\n${r.stderr || ''}`); return r.stderr; };
 const TOTAL = END / FPS, CARD_AT = at('card') / FPS;
@@ -48,13 +50,13 @@ function loudness(file, tp = -1.5) {
 }
 
 // ---- the sound ----
-const clips = CUT.map(([part, f0]) => ({ part, dir, from: 0, to: lengthOf(part) / FPS, at: f0 / FPS })).filter(c => c.part !== 'card');
+const clips = CUT.map(([part, f0]) => ({ part, dir: dirOf(part), from: 0, to: lengthOf(part) / FPS, at: f0 / FPS })).filter(c => c.part !== 'card');
 const events = [...timeline(clips), ...ticks().map(t => ({ t, name: 'tick', gain: 0.55, pan: -0.25 }))].sort((a, b) => a.t - b.t);
 const gameWav = `${work}/game.wav`, stage = await openStage();
 try { await render(stage, events, TOTAL, { from: 0, to: CARD_AT }, gameWav, warpSynth, { grow: GROW_T, hit: WARP_T }); } finally { await stage.close(); }
 // The game's sound alone before the King's card (brought to about -22 LUFS there: quiet under what follows, the warp
 // its loudest moment), then under the music; it stops with the picture, on the end card.
-const pre = loudness(gameWav), gameGain = Math.min(14, -22 - +pre.input_i);
+const pre = loudness(gameWav), gameGain = 2.64; // (cut 4's measured gain, -22 LUFS less its game track's loudness: kept, so the levels are cut 4's)
 const bed = `${work}/music.wav`;
 ff(['-i', music, '-filter_complex', `[0:a]atrim=start=${MUSIC.in}:end=${MUSIC.in + (TOTAL - KING_AT)},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:st=0:d=0.008,adelay=delays=${Math.round(KING_AT * 1000)}:all=1[m];anullsrc=r=48000:cl=stereo,atrim=0:${TOTAL}[z];[z][m]amix=inputs=2:normalize=0:dropout_transition=0,apad,atrim=0:${TOTAL}[bed]`, '-map', '[bed]', '-c:a', 'pcm_s24le', '-ar', '48000', bed]);
 const bedGain = -15 - +loudness(bed).input_i;
@@ -75,7 +77,7 @@ const m2 = loudness(lim, -1.2);
 ff(['-i', lim, '-af', `loudnorm=I=-16:TP=-1.2:LRA=50:measured_I=${m2.input_i}:measured_TP=${m2.input_tp}:measured_LRA=${m2.input_lra}:measured_thresh=${m2.input_thresh}:offset=${m2.target_offset}:linear=true,aresample=48000`, '-c:a', 'pcm_s16le', wavOut]);
 
 // ---- the picture ----
-const inputs = CUT.flatMap(([part]) => ['-i', `${dir}/${part}.mkv`]);
+const inputs = CUT.flatMap(([part]) => ['-i', `${dirOf(part)}/${part}.mkv`]);
 const chains = CUT.map(([part], i) => `[${i}:v]trim=start_frame=0:end_frame=${lengthOf(part)},setpts=PTS-STARTPTS,fps=${FPS}[v${i}]`);
 const master = `${out}/trailer-16x9.mp4`;
 ff([...inputs, '-i', wavOut, '-filter_complex', `${chains.join(';')};${CUT.map((_, i) => `[v${i}]`).join('')}concat=n=${CUT.length}:v=1:a=0,scale=1920:1080:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p[v]`,
@@ -90,6 +92,7 @@ ff(['-i', master, '-vf', vf, ...x, '-pass', '2', '-c:a', 'aac', '-b:a', '128k', 
 // second one of the end card; the strip: a frame a second with its timecode.
 const still = (t, file, w = 1280) => ff(['-ss', String(t), '-i', master, '-frames:v', '1', '-vf', `scale=${w}:-2:flags=lanczos`, '-q:v', '3', file]);
 still(KING_AT + 3.6, `${out}/poster.jpg`); still(TOTAL - 0.5, `${out}/poster-endcard.jpg`);
+console.log('cut: parts from', JSON.stringify(Object.fromEntries(CUT.map(([p]) => [p, dirOf(p).includes('trailer5') ? 5 : 4]))));
 // (this ffmpeg has no drawtext: the strip is laid out in a page)
 {
   const n = Math.floor(TOTAL), stage = await openStage();

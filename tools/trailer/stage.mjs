@@ -97,7 +97,9 @@ function helpers({ as, ai }) {
   const gather = (seat, ws = workers(seat)) => { const m = mineOf(seat); for (const w of ws) eng.startGather(w, m); return m; };
   /** Skip until building `b` is up (two minutes at most). */
   const until = (b) => { for (let i = 0; i < 120 && b && b !== true && !b.done; i++) e.skip(1); return b; };
-  window.S = { e, G, eng, K, X, hqOf, spawn, byId, workers, mineOf, toward, spot, place, gather, until };
+  /** What stands within `r` px of `p`, counted by seat and kind (a staged shot's check of who is in it). */
+  const census = (p, r) => { const n = {}; for (const o of [...G.units, ...G.bldgs]) if (Math.hypot(o.x - p.x, o.y - p.y) <= r) { const k = `${o.team === K ? 'K' : 'X'}:${o.type}`; n[k] = (n[k] || 0) + 1; } return n; };
+  window.S = { e, G, eng, K, X, hqOf, spawn, byId, workers, mineOf, toward, spot, place, gather, until, census };
   if (!ai) eng.disableAi();
   e.fog(false); eng.revealAll(true);
   window.__sfx = [];

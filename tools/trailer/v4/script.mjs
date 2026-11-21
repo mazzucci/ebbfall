@@ -7,9 +7,12 @@ export const MUSIC = { in: 33.048, chord: 53.917, beat: 0.7036 };
 /** The King's card: the music's in point (seconds). */
 export const KING_AT = 14.4;
 const beatFrame = (b) => Math.round((KING_AT + b * MUSIC.beat) * FPS);
+/** DAY 1's cut from the landing to the Bots heading out (seconds). */
+export const ROLL_AT = 6.5;
 /** The cut: [part, first frame on the timeline]; a part runs to the next one's start (the card to END). */
 export const CUT = [
-  ['open', 0],            // the black card, the warp at WARP_T, the landing, DAY 1
+  ['open', 0],            // the black card, the warp at WARP_T, the landing, DAY 1's first line
+  ['roll', ROLL_AT * FPS], // 6.5 s: the Bots head out, DAY 1's second line (cut 5)
   ['day2', 258],          // 8.6 s
   ['king', KING_AT * FPS], // 14.4 s: the music, on its downbeat
   ['muster', beatFrame(6)],
@@ -41,9 +44,9 @@ export const GROW_T = 2.3, WARP_T = 3.2;
 const line = (text, t0, cps) => ({ text, times: typeTimes(text, t0, cps) });
 const after = (l, gap = 0.35) => l.times.at(-1) + gap;
 const y2047 = line('2047.', 0.5, 5.5, 0);
-const d1a = line('The jump went wrong.', 4.75), d1b = line('We fell six centuries back.', after(d1a));
-const d2a = line('No way home. The base runs on thorium.', 0.75), d2b = line('We need the mines.', after(d2a));
-const d675 = line('We are not leaving.', 0.3, 24);
+const d1a = line('The time jump worked.', 4.75), d1b = line('Sending out scouts.', ROLL_AT + 0.05); // (the second line on the cut to the Bots heading out)
+const d2a = line('This is 1447. No way home.', 0.75), d2b = line('We need the mines for power.', after(d2a));
+const d675 = line('This is home now.', 0.3, 24);
 export const TEXT = {
   year: { part: 'open', lines: [y2047] },
   day1: { part: 'open', day: 'DAY 1', dayAt: 4.3, lines: [d1a, d1b] },
@@ -51,7 +54,7 @@ export const TEXT = {
   day675: { part: 'late1', day: 'DAY 675', dayAt: 0.1, lines: [d675] },
 };
 export const KING = { lines: ['No lord gave them leave', 'to break my ground.', 'I will not abide it.'], tag: 'THE KING' };
-export const CARD = { lines: ['A classic real-time strategy game,', 'free in your browser, on a phone or a desktop.'], url: 'ebbfall.com' };
+export const CARD = { lines: ['Real-time strategy. Play either side.', 'Free in your browser, phone or desktop.'], url: 'ebbfall.com' };
 /** Every typed character's time on the timeline (seconds): the key ticks (spaces make none). */
 export function ticks() {
   const out = [];

@@ -547,8 +547,8 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
-  menuclip.js         the gameplay clip on the menu's first page (index.html #menuClip: public/docs/media/clip.mp4,
-                      framed above the buttons, beside them on a phone on its side; style.css): the page holds its poster only (the
+  menuclip.js         the gameplay clip on the menu's first page (index.html #menuClip: the docs home's clip, framed above
+                      the buttons, beside them on a phone on its side; style.css): the page holds its poster only (the
                       game's own copy, public/menu/clip-*.webp), the video is made once the game has loaded (boot.js's
                       `loading`: the sim and the renderer's art) and the page has, in an idle moment; muted, looped,
                       faded in over the poster; never under reduced motion, Save-Data or 2g, nor without an H.264
@@ -688,8 +688,8 @@ test/menu-art.test.js the menu's field images (public/menu/) have no alpha chann
                       color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
 test/menu-clip.test.js the first page's clip: its posters (public/menu/clip-*.webp) the docs' poster byte for byte and a
                       1280 px one, the clip's shape, opaque, in the offline cache; the page holds the poster alone (no
-                      video, no mp4), with the clip's words; the clip is the docs' file (clip.mp4, shots.json `clip`),
-                      web-only; the footer line two links, none to a trailer
+                      video, no mp4), with the clip's words; the clip is the docs' file, web-only; the footer line two
+                      links, none to a trailer
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -758,12 +758,9 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       from the data: "Ebbfall's Guard, a Kingdom unit: ..."); each page's head and index.html's (own
                       title and description of search-result length, canonical, Open Graph and X cards that agree);
                       every JSON-LD block checked against schema.org's properties by a small built-in table
-                      (VideoGame the same on / and /docs/, the trailer's VideoObject, breadcrumbs inside) and links;
-                      the home's trailer (id="trailer", its poster, preload none, the browser's controls, no autoplay,
-                      muted or loop, played by no script; its title and label, the music's credit word for word with
-                      its license linked as its caption; under 8 MB, faststart); the gameplay clip's size and length
-                      (the menu's, in no docs page; shots.mjs never touches the trailer); the controls videos (the
-                      loop at the top of How to play's phone section, the one video that plays by itself, its poster fetched first; About's below the fold;
+                      (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
+                      the clip's words and size; the controls videos (the loop at the top of How to play's phone
+                      section, the one video that plays by itself, its poster fetched first; About's below the fold;
                       the touch table's seven gestures on demand: a ? button each with its aria attributes and data,
                       nothing of a loop in the page); images with alt (empty only when decorative, aria-hidden), sizes,
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
@@ -817,8 +814,7 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       index.html, /docs/kingdom/ that folder's, /selftest selftest.html, the .html spellings sent on;
                       run_worker_first only for the docs' videos, /docs/media/*.mp4: every other file is served with no
                       Worker, so a tripped Workers spending limit leaves the game, the docs and single player up);
-                      media.js (the docs' videos, the home's trailer and the menu's clip among them, read from
-                      env.ASSETS and answered with byte ranges: 206 and
+                      media.js (the docs' videos read from env.ASSETS and answered with byte ranges: 206 and
                       Content-Range, 416, Accept-Ranges; the assets answer a Range with the whole file, 200, which
                       Safari refuses to play); worker.js (the videos, then only what is not a file: a room's
                       card address /r/CODE, the room's own link card then on to /?room=CODE; a challenge's, /vs/CODE,
@@ -865,30 +861,24 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       home's tiles, About's network (a phone and a laptop on the same game, orders through the relay)
                       and strip: HTML and two SVGs from the data and the crops), html.mjs (the
                       shell: head, cards, structured data (the home: index.html's VideoGame as it is, build.mjs
-                      `videoGame`, and the trailer's VideoObject), the slim top bar, the footer; nothing
+                      `videoGame`, and the clip's VideoObject), the slim top bar, the footer; nothing
                       inline but the structured data (the CSP): one stylesheet, dist/docs/docs.css (docs.css, the
                       designer's "Field manual", the fonts, and each page's positions and sizes as classes, `styled`),
-                      and one deferred script, docs.js (the tabs scrolled to the current one, the controls loops
-                      fetched once the page has loaded and played in view, the touch table's gesture loops made and
-                      played on a row's ?; never the home's trailer, which plays on a click); two fonts preloaded, the
-                      page's first media (a screenshot or a clip's poster) fetched first, every other image lazy). The
-                      home's top block is the trailer (pages.mjs {{trailer}}, shots.json `trailer`): 40 s, 1280x720,
-                      with music and sound, public/docs/media/trailer.mp4 and its poster trailer.jpg (the King's card;
-                      the video opens on black), committed as made by the trailer's tooling, not by shots.mjs; played
-                      on a click with the browser's controls (no autoplay, not muted, no loop: it stops on its end
-                      card), preload none, /docs/#trailer links to it, the music's credit (CC BY 4.0) its caption.
-                      sprites.mjs and crops.mjs (the sprite crops: the recipe, the list, cut in Chromium from
-                      public/art into public/docs/img/sprites/ as WebP at desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
+                      and one deferred script, docs.js (the tabs scrolled to the current one, the clip fetched once the
+                      page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
+                      two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
+                      other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
+                      recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
+                      desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
-                      committed in public/docs/img/shots/ and public/docs/media/ (clip.mp4, shots.json `clip`: the
-                      menu's clip, in no docs page since the trailer took the home; it never writes the trailer's
-                      files or entry; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers
-                      and a Ballista coming to its help, 11 s at 30 fps, one tick a frame (tools/trailer/stage.mjs `freeze`)
+                      committed in public/docs/img/shots/ and public/docs/media/ (trailer.mp4: the trailer takes the
+                      clip's name; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers and a
+                      Ballista coming to its help, 11 s at 30 fps, one tick a frame (tools/trailer/stage.mjs `freeze`)
                       but for one slow-motion beat on the Ballista's first hit (a fraction of a tick a frame), from
-                      DPR 2 frames in target/docs-clip/ encoded by ffmpeg under its budget, its end dissolving into
-                      its first half second so it loops without a cut, its poster its middle frame, `hero-home`, the
-                      name it kept from the docs home); shots.json their sizes, words and the boxes the annotated ones mark).
+                      DPR 2 frames in target/docs-clip/ encoded by ffmpeg under the home's budget, its end dissolving
+                      into its first half second so it loops without a cut, its poster its middle frame); shots.json
+                      their sizes, words and the boxes the annotated ones mark).
                       public/docs/fonts/: IBM Plex Sans (OFL); the game's two fonts are copied from src/fonts/. The
                       Worker serves the docs' folders (site/worker.js `folder`); not stored for offline play.
                       /docs/feedback/ (copy/feedback.html, pages.mjs {{feedback}}): the feedback form, linked from
@@ -930,7 +920,7 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
                       How to play shows the loop at the start of its phone section (before the desktop's), About the loop
                       (pages.mjs {{clip name}}: the poster an image over the video until it plays, the video fetched only
-                      when played); the only videos that play by themselves. Seven touch rows have a
+                      when played, as the home's clip); the only videos that play by themselves. Seven touch rows have a
                       gesture's loop on demand (pages.mjs {{loop name}}: a ? button, 32 px in a 44 px target, and an
                       empty box under the row's words; docs.js makes the video and its poster there on a tap and plays
                       it, the ? again closes it, one open at a time, under reduced motion the poster with controls;
@@ -965,10 +955,9 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-clip.mjs   public/menu/clip-<720|1280>.webp, the poster of the clip on the menu's first page: the game's own
-                      copies of the clip's poster, public/docs/img/shots/hero-home-*.webp (the docs are web-only: an
-                      installed copy offline would show an empty frame), the 720 px one byte for byte, the 1280 px one
-                      scaled from the docs' 2000 px one in headless Chromium; output committed (tools/docs/shots.mjs's
-                      clip step runs it; test/menu-clip.test.js)
+                      copies of the docs' poster (the docs are web-only: an installed copy offline would show an empty
+                      frame), the 720 px one byte for byte, the 1280 px one scaled from the docs' 2000 px one in headless
+                      Chromium; output committed (tools/docs/shots.mjs's clip step runs it; test/menu-clip.test.js)
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
                       battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
                       through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects

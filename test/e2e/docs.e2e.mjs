@@ -3,12 +3,12 @@
 // button; the pause card's HOW TO PLAY), and every docs page with JavaScript off, listing every unit and building from
 // the data, at phone width without a sideways scroll, its tabs (Home first) and buttons a finger's size, its bar slim
 // in landscape; How to play's controls tables: a gesture's loop on demand through its row's ? (nothing of it fetched before
-// the tap, one open at a time, the ? again closes it); the home's trailer played on a click to its end card and the loops
-// playing on past their end, with the byte ranges the site's Worker serves (WebKit refuses a whole file for one).
+// the tap, one open at a time, the ? again closes it); the docs' videos playing on past their loop, with the byte ranges
+// the site's Worker serves (WebKit refuses a whole file for one).
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, newGame, browserContext, baseUrl, notIn, site, ENGINE, DESKTOP, PHONE, playByHand } from './harness.mjs';
+import { test, start, stop, newGame, browserContext, baseUrl, notIn, site, ENGINE, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -25,7 +25,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       const a = page.locator('#linkDocs');
       assert.ok(await a.isVisible(), 'Learn more shown');
       assert.equal(await a.textContent(), 'Learn more');
-      assert.equal(await a.getAttribute('href'), './docs/', 'the docs home, not an inner page: its trailer and Start here cards');
+      assert.equal(await a.getAttribute('href'), './docs/', 'the docs home, not an inner page: its clip and Start here cards');
       assert.equal(await a.getAttribute('target'), '_blank', 'a new tab: an installed app keeps the game');
       assert.match(await a.getAttribute('rel'), /noopener/);
       const b = await a.boundingBox();
@@ -312,11 +312,10 @@ test('a portrait phone: the Kingdom at a glance fits a 390x844 screen (the Ledge
 // run_worker_first), as this server does. WebKit checks it: its first request for a video has no range, but at the
 // loop's end it asks again for the rest from the first frame (bytes=1761-), and a whole 200 there stops the video
 // ("Received unexpected 200 HTTP status code for range request"): so each video is sent near its end, and must play
-// on past the loop. The home's trailer plays on a click and stops on its end card: sent near its end, it plays to it
-// with no error and stays there. (A gesture's loop, three seconds, plays in WebKit but never past its end on Linux: GStreamer seeks
+// on past the loop. (A gesture's loop, three seconds, plays in WebKit but never past its end on Linux: GStreamer seeks
 // back to its start for good, from any server that serves ranges, Vite's too; Chromium checks it.) Firefox:
 // Playwright's build plays no H.264.
-test('the docs\' videos, served with byte ranges by the Worker: the home\'s trailer plays on a click to its end card, How to play\'s loop and a row\'s ? loop play on past their loop', { engines: true, skip: notIn(['firefox'], 'its build has no H.264 decoder') }, async () => {
+test('the docs\' videos play on past their loop, served with byte ranges by the Worker: the home\'s trailer, How to play\'s loop and a row\'s ? loop', { engines: true, skip: notIn(['firefox'], 'its build has no H.264 decoder') }, async () => {
   const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
   site.worker.length = 0;
   /** `sel`'s video playing, then (`wrap`) sent half a second before its end: it must loop and play on, with no error. */
@@ -329,15 +328,8 @@ test('the docs\' videos, served with byte ranges by the Worker: the home\'s trai
   };
   try {
     await page.goto(`${baseUrl()}docs/`, { waitUntil: 'load' });
-    const trailer = page.locator('#trailer video');
-    await trailer.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(1000);
-    assert.ok(await trailer.evaluate(v => v.paused && v.currentTime === 0 && v.controls && !v.muted && !v.loop && !v.autoplay), 'still after load, with its controls and sound: no autoplay');
-    await playByHand(page, '#trailer video'); // (the browser's own controls)
-    await page.waitForFunction(() => { const v = document.querySelector('#trailer video'); return !v.paused && v.currentTime > 0.3; }, null, { timeout: 20000 });
-    await trailer.evaluate(v => { v.currentTime = v.duration - 0.5; });
-    await page.waitForFunction(() => { const v = document.querySelector('#trailer video'); if (v.error) throw new Error(v.error.message); return v.ended; }, null, { timeout: 20000 });
-    assert.ok(await trailer.evaluate(v => v.ended && v.paused && v.error === null && v.currentTime > v.duration - 0.2), 'stopped on its end card, not looped');
+    await page.locator('figure.clip video').scrollIntoViewIfNeeded();
+    await loops('figure.clip video');
     await page.goto(`${baseUrl()}docs/how-to-play/`, { waitUntil: 'load' });
     await page.locator('figure.clip video').first().scrollIntoViewIfNeeded();
     await loops('figure.clip video');
@@ -348,7 +340,7 @@ test('the docs\' videos, served with byte ranges by the Worker: the home\'s trai
     await loops(box, ENGINE !== 'webkit');
     const src = await page.locator(box).getAttribute('src');
     for (const p of ['/docs/media/trailer.mp4', '/docs/media/controls/controls-loop.mp4', src]) assert.ok(site.worker.includes(`GET ${p}`), `${p}: the Worker's (${site.worker})`);
-    assert.ok(!site.worker.some(r => /\.(webp|jpg)$/.test(r)), 'the posters the assets\'');
+    assert.ok(!site.worker.some(r => r.endsWith('.webp')), 'the posters the assets\'');
   } finally { await ctx.close(); }
 });
 

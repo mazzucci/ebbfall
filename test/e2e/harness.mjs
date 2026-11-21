@@ -442,15 +442,3 @@ export async function until(d, fn, { seconds = 120, step = 2, what = 'condition'
   for (let t = 0; t <= seconds; t += step) { const v = await fn(); if (v) return v; await d.skip(step); }
   throw new Error(`timed out after ${seconds}s of game time waiting for ${what}`);
 }
-
-/**
- * Play a video with the browser's own controls, as a person does (the docs home's trailer: no script plays it). The
- * engines' controls differ: WebKit plays on a click on the video; Chromium's does nothing on a click there (headless)
- * but plays on Space with the video focused, which WebKit ignores.
- */
-export async function playByHand(page, sel) {
-  const v = page.locator(sel);
-  if (ENGINE === 'webkit') return v.click();
-  await v.focus();
-  await page.keyboard.press('Space');
-}

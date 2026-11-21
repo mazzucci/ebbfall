@@ -128,11 +128,9 @@ details{margin:0 0 18px;max-width:70ch} summary{cursor:pointer;min-height:44px;d
 .fine{font:13px var(--mono);color:var(--muted)}
 .research{padding-left:20px}
 
-/* the trailer under the home's hero (pages.mjs trailer: its own poster and controls, played on a click), and the
-   controls videos (pages.mjs controlsVideo): their poster an image over the video until it plays (docs.js hides it
-   then; no poster of its own: that would load at once) */
-.clip video,.trailer video{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);background:#07090d}
-.trailer figcaption a{overflow-wrap:anywhere}
+/* the clip under the home's hero (the trailer's place), and the controls videos (pages.mjs controlsVideo): their poster
+   an image over the video until it plays (docs.js hides it then; no poster of its own: that would load at once) */
+.clip video{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);background:#07090d}
 .clip .vid{position:relative} .clip .tag{position:absolute;z-index:1;left:10px;top:10px;padding:3px 9px;border-radius:4px;background:rgba(11,15,22,.82);border:1px solid var(--line2);font:12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber2)}
 .clip .poster{position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:1px solid var(--line)} .clip .poster[hidden]{display:none}
 /* the controls tables (How to play: the touch table, the Mouse and the Key tables; the schemes table has the ? alone):

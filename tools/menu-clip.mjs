@@ -1,5 +1,5 @@
 // The poster of the gameplay clip on the menu's first page, public/menu/clip-<width>.webp (index.html's #menuClip;
-// src/client/menuclip.js plays the clip over it). The clip and its poster are the docs' (public/docs/media/clip.mp4,
+// src/client/menuclip.js plays the clip over it). The clip and its poster are the docs' (public/docs/media/trailer.mp4,
 // public/docs/img/shots/hero-home-*.webp: tools/docs/shots.mjs), but the docs are web-only (tools/offline/plugin.mjs
 // WEB_ONLY: not in the offline cache), and the menu is the game's page: an installed copy with no connection would show
 // an empty frame. So the menu has its own copies, in the game's files:
@@ -19,7 +19,7 @@ const MID = 1280, QUALITY = 0.82;
 
 /** Write the menu's posters from the docs' (`browser`: a Chromium to encode with). */
 export async function menuClip(browser) {
-  const shots = JSON.parse(readFileSync(new URL('tools/docs/shots.json', root), 'utf8')), files = shots[shots.clip.poster].files;
+  const shots = JSON.parse(readFileSync(new URL('tools/docs/shots.json', root), 'utf8')), files = shots[shots.trailer.poster].files;
   const small = readFileSync(new URL(files.phone, SHOTS)), big = readFileSync(new URL(files.desktop, SHOTS));
   const page = await browser.newPage();
   try {

@@ -8,7 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { webOnly } from '../tools/offline/plugin.mjs';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url));
-const shots = JSON.parse(read('tools/docs/shots.json')), clip = shots.clip, poster = shots[clip.poster];
+const shots = JSON.parse(read('tools/docs/shots.json')), clip = shots.trailer, poster = shots[clip.poster];
 const html = read('index.html').toString(), css = read('src/style.css').toString(), js = read('src/client/menuclip.js').toString();
 
 /** A WebP's chunk ids and, from its VP8 frame header, its size. */

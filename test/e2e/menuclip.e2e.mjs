@@ -12,7 +12,7 @@ import { test, start, stop, browserContext, baseUrl, site, DESKTOP, PHONE, notIn
 before(start);
 after(stop);
 
-const CLIP = '/docs/media/clip.mp4';
+const CLIP = '/docs/media/trailer.mp4';
 /** Before any of the page's scripts: note each <video> the page makes, and what had happened by then (the document
  *  loaded, the game in: main.js sets window.endfall when it has run, and it runs once the renderer's art and the sim are
  *  in; the atlas pages fetched). */

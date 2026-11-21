@@ -127,7 +127,9 @@ test('every figure token names a figure, every diagram and screenshot exists (an
       for (const f of Object.values(shots[name].files)) assert.ok(existsSync(new URL(`../public/docs/img/shots/${f}`, import.meta.url)), f);
     }
   }
-  for (const k of ['trailer', 'clip']) assert.ok(shots[k] && existsSync(new URL(`../public/docs/media/${shots[k].file}`, import.meta.url)), `the ${k}`);
+  assert.ok(shots.trailer && existsSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url)), 'the clip');
+  const clip = readFileSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url));
+  assert.ok(clip.length < 2 * 1024 * 1024, `the clip is small: ${Math.round(clip.length / 1024)} KB`);
 });
 
 test('the annotated shots: each note touching its target, inside the shot, on nothing else, at both sizes', { skip }, () => {
@@ -153,53 +155,28 @@ test('the annotated shots: each note touching its target, inside the shot, on no
   }
 });
 
-test('the home: one media block at the top, the trailer: played on a click with its sound, its poster until then, the music\'s credit under it', { skip }, () => {
+test('the home: one media block at the top, the clip with its middle frame as its poster, still under reduced motion', { skip }, () => {
   const html = page('/docs/'), main = html.slice(html.indexOf('<main'));
-  const t = JSON.parse(readFileSync(P.SHOTS, 'utf8')).trailer;
-  assert.equal((main.match(/<video\b/g) || []).length, 1, 'one video');
+  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
+  assert.equal((main.match(/<video\b/g) || []).length, 1, 'one clip');
   assert.ok(main.indexOf('<video') < main.indexOf('<h2'), 'at the top, before the first section');
-  const fig = main.match(/<figure class="trailer" id="trailer">[\s\S]*?<\/figure>/)?.[0];
-  assert.ok(fig, 'the trailer\'s block, id="trailer" (/docs/#trailer links to it)');
-  const video = fig.match(/<video [^>]*>/)[0];
-  assert.match(video, new RegExp(`^<video src="/docs/media/${t.file}" poster="/docs/media/${t.poster}" width="1280" height="720" `), 'its file, its poster, its size');
-  assert.match(video, / controls /, 'the browser\'s controls');
-  assert.match(video, / preload="none"/, 'nothing fetched before a click');
-  for (const not of ['autoplay', 'muted', 'loop']) assert.doesNotMatch(video, new RegExp(`\\s${not}[\\s=>]`), `not ${not}: played on a click, with its sound, stopping on its end card`);
-  // docs.js plays the controls videos by themselves (`.clip video`), never the trailer, which is not one.
-  assert.ok(!fig.includes('class="clip'), 'not a .clip');
+  assert.match(main, new RegExp(`<video src="/docs/media/${shots.trailer.file}" poster="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'its middle frame as its poster');
+  assert.ok(!main.includes(`src="/docs/img/shots/${shots['hero-home'].files.desktop}"`), 'not the still again beside it');
+  assert.match(main, /muted loop playsinline preload="none"/, 'the clip fetched only when played (docs.js: once the page has loaded)');
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8'); // (the docs' script: html.mjs)
-  assert.match(js, /querySelectorAll\('\.clip video'\)/, 'the script plays the .clip videos alone');
-  assert.doesNotMatch(js, /trailer['"\]]|#trailer|\.trailer/, 'and nothing of the trailer');
-  // Its words: a title and a label that name the game and say what plays.
-  assert.equal(t.title, 'Ebbfall trailer: time travelers from 2047, stranded in a medieval kingdom');
-  assert.ok(video.includes(`title="${t.title}"`), 'the title');
-  assert.equal(t.alt, 'The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home. They need its mines, the King won\'t abide it, and their armies fight. By day 675 it is home.');
-  assert.ok(video.includes(`aria-label="${t.alt}"`), 'the label');
-  // The music's credit as its caption, word for word (CC BY 4.0), the license's address a link.
-  assert.equal(t.credit, 'Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / https://creativecommons.org/licenses/by/4.0/ (edited)');
-  const cc = 'https://creativecommons.org/licenses/by/4.0/';
-  assert.ok(fig.includes(`<figcaption>Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / <a href="${cc}" rel="license">${cc}</a> (edited)</figcaption>`), `the credit: ${fig}`);
-  // The files: the video 1280x720 and about 40 s as the manifest says, under the home's budget; its poster small.
-  assert.deepEqual([t.w, t.h, t.type], [1280, 720, 'video/mp4']);
-  assert.ok(t.seconds >= 38 && t.seconds <= 45, `about 40 s: ${t.seconds}`);
-  const file = readFileSync(new URL(`../public/docs/media/${t.file}`, import.meta.url));
-  assert.ok(file.length < 8 * 1024 * 1024, `the trailer under 8 MB: ${Math.round(file.length / 1024)} KB`);
-  assert.equal(file.toString('ascii', 4, 8), 'ftyp', 'an MP4');
-  assert.ok(file.indexOf('moov') < file.indexOf('mdat'), 'its index first (faststart): it starts playing before it has all come');
-  const poster = readFileSync(new URL(`../public/docs/media/${t.poster}`, import.meta.url));
-  assert.ok(poster.length < 150 * 1024, `the poster under 150 KB: ${Math.round(poster.length / 1024)} KB`);
-});
-
-test('the gameplay clip (the menu\'s, no longer in the docs): small and a dozen seconds, its own file beside the trailer\'s', { skip }, () => {
-  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8')), c = shots.clip;
-  assert.equal(c.file, 'clip.mp4', 'tools/docs/shots.mjs\'s clip step writes clip.mp4, never the trailer');
-  assert.notEqual(c.file, shots.trailer.file);
-  const clip = readFileSync(new URL(`../public/docs/media/${c.file}`, import.meta.url));
+  assert.match(js, /\.clip video/, 'the script finds the clip');
+  assert.match(js, /if \(clips\.length && !reduce\) \{ if \(document\.readyState === 'complete'\) start\(\); else addEventListener\('load', start\); \}/, 'reduced motion: the poster only');
+  assert.equal(shots.trailer.file, 'trailer.mp4', 'the file the trailer takes over');
+  // Its words: a title, a label that says what plays (the game named), the caption under it.
+  assert.equal(shots.trailer.title, 'Ebbfall gameplay: Drones against a Watchtower');
+  assert.ok(main.includes(`title="${shots.trailer.title}"`), 'the title');
+  assert.match(shots.trailer.alt, /^Ebbfall gameplay: .*drones.*watchtower.*archers.*ballista/i);
+  assert.ok(main.includes(`aria-label="${shots.trailer.alt.replace(/"/g, '&quot;')}"`), 'the label');
+  assert.ok(main.includes('<figcaption>Drones strike a Watchtower by the Castle; Archers and a Ballista shoot them down.</figcaption>'), 'the caption');
+  // Small, and short: two beats in a dozen seconds, within the docs' budget for the home.
+  const clip = readFileSync(new URL(`../public/docs/media/${shots.trailer.file}`, import.meta.url));
   assert.ok(clip.length < 300 * 1024, `the clip under 300 KB: ${Math.round(clip.length / 1024)} KB`);
-  assert.ok(c.seconds >= 11 && c.seconds <= 15, `a dozen seconds: ${c.seconds}`);
-  for (const p of pages) assert.ok(!page(p.path).includes(c.file), `${p.path}: not in the docs`);
-  const tool = readFileSync(new URL('../tools/docs/shots.mjs', import.meta.url), 'utf8');
-  assert.ok(!/['`]trailer\./.test(tool) && !tool.includes('manifest.trailer'), 'shots.mjs never writes or removes the trailer\'s files or entry');
+  assert.ok(shots.trailer.seconds >= 11 && shots.trailer.seconds <= 15, `a dozen seconds: ${shots.trailer.seconds}`);
 });
 
 test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), its desktop section with the desktop loop (lazy), About has the phone loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
@@ -252,7 +229,7 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   assert.ok(vs.every(v => /^Ebbfall on a (phone|computer): /.test(v.name) && /^Ebbfall on a (phone|computer): /.test(v.description)), 'named for the game and the device');
   assert.ok(!how.includes('youtube.com') && !about.includes('youtube.com'), 'no YouTube link yet');
   const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');
-  assert.match(js, /\.clip video/, 'docs.js plays it: after load, in view, not under reduced motion');
+  assert.match(js, /\.clip video/, 'docs.js plays it as it does the home\'s clip: after load, in view, not under reduced motion');
   assert.match(js, /var reduce = matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches;/, 'reduced motion read once');
   assert.match(js, /if \(clips\.length && !reduce\) \{ if \(document\.readyState === 'complete'\) start\(\); else addEventListener\('load', start\); \}/, 'played after load, not under reduced motion');
   assert.match(js, /addEventListener\('playing', function \(\) \{ var p = v\.nextElementSibling; if \(p && p\.className === 'poster'\) p\.hidden = true; \}\)/, 'the poster goes once it plays');
@@ -353,12 +330,12 @@ test('images: alt text, width and height, WebP, lazy but the first screenshot (f
     const html = page(p.path), imgs = [...html.matchAll(/<img\b[^>]*>/g)].map(m => m[0]);
     if (p.path === FEEDBACK) { assert.equal(imgs.length, 0, 'the feedback page: a form, no picture'); continue; }
     assert.ok(imgs.length > 0, p.path);
-    // (the first screenshot or controls poster, unless the home's trailer (its own poster) or About's strip of sprites comes
+    // (the first screenshot or controls poster, unless the home's clip (its own poster) or About's strip of sprites comes
     // before it: then nothing is, every image lazy)
     const at = (needle) => { const i = html.indexOf(needle); return i < 0 ? Infinity : i; };
     const lead = Math.min(at('<video src="/docs/media/trailer'), at('<figure class="dia strip'));
     const first = imgs.findIndex(img => (img.includes('/docs/img/shots/') || img.includes('class="poster"')) && html.indexOf(img) < lead);
-    assert.equal(first >= 0, p.path !== '/docs/' && p.path !== '/docs/about/', `${p.path}: one image fetched first, but on the home (its trailer's poster) and About (its strip)`);
+    assert.equal(first >= 0, p.path !== '/docs/' && p.path !== '/docs/about/', `${p.path}: one image fetched first, but on the home (its clip's poster) and About (its strip)`);
     if (p.path === '/docs/how-to-play/') assert.match(imgs[first], /controls-loop\.webp/, 'How to play: the loop\'s poster, at the top of the controls');
     imgs.forEach((img, i) => {
       assert.match(img, /\swidth="\d+"/, `${p.path}: width: ${img}`);
@@ -495,16 +472,14 @@ test('structured data: every block on the game\'s page and the docs is schema.or
   assert.deepEqual(game.playMode, ['https://schema.org/SinglePlayer', 'https://schema.org/MultiPlayer']);
   assert.equal(game.offers.price, '0'); assert.equal(game.url, 'https://ebbfall.com/'); assert.equal(game.image, 'https://ebbfall.com/og.png');
   assert.deepEqual(game.author, { '@type': 'Person', name: 'Stelian Matei' });
-  // The trailer, on the docs home: its words, its file and poster as served, its length and size.
-  const t = JSON.parse(readFileSync(P.SHOTS, 'utf8')).trailer;
+  // The clip, on the docs home: its file and poster as served, its length the clip's.
+  const shots = JSON.parse(readFileSync(P.SHOTS, 'utf8'));
   const v = ldOf(page('/docs/')).find(d => d['@type'] === 'VideoObject');
   assert.ok(v, 'the docs home: VideoObject');
-  assert.equal(v.name, t.title); assert.equal(v.description, t.alt);
-  assert.equal(v.contentUrl, 'https://ebbfall.com/docs/media/trailer.mp4');
-  assert.equal(v.thumbnailUrl, 'https://ebbfall.com/docs/media/trailer.jpg');
-  assert.equal(v.duration, 'PT40S');
-  assert.deepEqual([v.width, v.height, v.uploadDate], [1280, 720, t.uploaded]);
-  for (const f of [t.file, t.poster]) assert.ok(existsSync(new URL(`../public/docs/media/${f}`, import.meta.url)), f);
+  assert.equal(v.contentUrl, `https://ebbfall.com/docs/media/${shots.trailer.file}`);
+  assert.equal(v.thumbnailUrl, `https://ebbfall.com/docs/img/shots/${shots['hero-home'].files.desktop}`);
+  assert.equal(v.duration, `PT${shots.trailer.seconds}S`);
+  for (const f of [shots.trailer.file]) assert.ok(existsSync(new URL(`../public/docs/media/${f}`, import.meta.url)), f);
 });
 
 test('every page\'s head, the game\'s and the docs\': its own title and description of search-result length, canonical, Open Graph and X cards that agree with them', { skip }, () => {

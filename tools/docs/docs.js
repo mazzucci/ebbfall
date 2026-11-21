@@ -7,10 +7,10 @@
   var t = document.querySelector('.tabs'), a = t && t.querySelector('[aria-current]');
   if (a && a.offsetLeft + a.offsetWidth > t.clientWidth) t.scrollLeft = a.offsetLeft - (t.clientWidth - a.offsetWidth) / 2;
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // The controls videos (pages.mjs `clip`: the phone's and the desktop's loops): no controls once this runs, each played
-  // only while in view (its own observer: one scrolled out pauses while another plays), never under reduced motion
-  // (their poster stays). Fetched only once the page has loaded: the posters, fonts and plates first, on a slow first
-  // visit. The home's trailer (pages.mjs `trailer`, not a `.clip`) is left alone: it plays when the person clicks it.
+  // The home's clip and the controls videos (pages.mjs `clip`: the phone's and the desktop's loops): no controls once this
+  // runs, each played only while in view (its own observer: one scrolled out pauses while another plays), never under
+  // reduced motion (their poster stays). Fetched only once the page has loaded: the posters, fonts and
+  // plates first, on a slow first visit.
   var clips = document.querySelectorAll('.clip video');
   for (var i = 0; i < clips.length; i++) clips[i].controls = false;
   if (clips.length && !reduce) { if (document.readyState === 'complete') start(); else addEventListener('load', start); }

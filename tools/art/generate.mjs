@@ -6,6 +6,7 @@
 import { mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { encodeWebP } from './webp.mjs';
 import { terrainSprites } from './terrain3.js';
+import { overlaySprites } from './overlay3.js';
 import { effectSprites } from './effects2.js';
 import { atlasEffects } from './effects3.js';
 import { render3d } from './render3d.mjs';
@@ -14,7 +15,7 @@ const FACINGS = 16;
 // The re-theme's effects (effects3.js) replace the old explosions, smoke, flashes and shots; the old set keeps the light
 // blob, the rally flag, the heal sparkle and the selection rings.
 const KEEP_FX = /^(light|flag_\d|heal_\d|sel_)/;
-const models = await render3d(), sprites = [...terrainSprites(), ...effectSprites().filter(s => KEEP_FX.test(s.name)), ...atlasEffects(), ...models];
+const models = await render3d(), sprites = [...terrainSprites(), ...overlaySprites(), ...effectSprites().filter(s => KEEP_FX.test(s.name)), ...atlasEffects(), ...models];
 
 // Each unit kind's drawn height: how far its body rises above its ground point, in game px at the sprite's own scale
 // (before the renderer's UNIT_SCALE), the median over its facings and frames. The model's solid pixels only (alpha 255;
@@ -43,7 +44,8 @@ for (const s of sprites) if (s.trim) {
 }
 
 // Shelf packing into 2048x2048 pages, tallest first, 4 px gutters. Terrain tiles get 4 px gutters filled with their
-// own edge pixels, so filtering and mipmaps never pull in transparency (which would draw a grid on the ground).
+// own edge pixels, so filtering and mipmaps never pull in transparency (which would draw a grid on the ground); the
+// overlay grounds' tiles come with theirs painted (overlay3.js: the tile's own continuation, `ext`).
 const W = 2048, H = 2048, PAD = 4, EXT = 4; // 4 px gutters keep mip levels 0-2 clean
 const isTile = (s) => /^(ground|rock)_/.test(s.name);
 for (const s of sprites) if (isTile(s)) {

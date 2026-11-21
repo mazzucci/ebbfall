@@ -20,7 +20,7 @@
 // art's top above its feet) times the zoom, over the canvas's height, is its share of the view.
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { start, stop, browserContext, baseUrl, board } from '../test/e2e/harness.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -252,7 +252,7 @@ async function edgeSheet(CORNERS) {
   await start();
   try {
     const ctx = await browserContext({ viewport: { width: 2000, height: 1000 }, deviceScaleFactor: 1 }), page = await ctx.newPage();
-    const img = (f) => `data:image/png;base64,${readFileSync(join(out, f)).toString('base64')}`;
+    const img = (f) => f; // (beside sheet.html: 40 inline PNGs crashed the page)
     const past = (s) => { const l = -s.cam.x, t = -s.cam.y, r = s.cam.x + s.seen[0] - s.map[0], b = s.cam.y + s.seen[1] - s.map[1]; return [['left', l], ['top', t], ['right', r], ['bottom', b]].filter(([, v]) => v > 0.5).map(([k, v]) => `${k} ${Math.round(v * s.zoom)} px`).join(', ') || 'none'; };
     const fig = (s, head) => s ? `<figure><img src="${img(s.file)}"><figcaption><b>${head}</b> · zoom ${s.zoom.toFixed(2)} · canvas ${s.view.w} × ${s.view.h} · ${Math.round(s.seen[0])} × ${Math.round(s.seen[1])} world px · past the map: ${past(s)}</figcaption></figure>` : '<figure></figure>';
     const kinds = ['start', ...Object.keys(CORNERS), 'fight'], label = { start: 'the start', 'corner-bl': 'bottom-left corner, all the way out', 'corner-tr': 'top-right corner, all the way out', fight: 'the fight, 12 selected' };
@@ -261,13 +261,14 @@ async function edgeSheet(CORNERS) {
       const at = (t) => logs[t].shots.find(s => s.kind === k && s.size[0] === w && s.size[1] === h);
       return `<div class="row">${fig(at('today'), `today · ${label[k]}`)}${fig(at('edge'), `edge to edge · ${label[k]}`)}</div>`;
     }).join('')).join('');
-    await page.setContent(`<!doctype html><meta charset="utf-8"><style>
+    writeFileSync(join(out, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>
       body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 1952px; }
       h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; max-width: 1700px; } h2 { font-size: 18px; margin: 28px 0 6px; }
       .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-bottom: 10px; } figure { margin: 0; } img { max-width: 100%; display: block; outline: 1px solid #444; }
       figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }</style>
       <h1>Edge to edge on a desktop: today (left) and this PR (right)</h1>
       <p>One staged game (seed 4242, the fog off), the clock held. Each window: the start as the game frames it; the camera pushed past the bottom-left and the top-right corners all the way out (the most it shows past the map's edge); the fight with 12 selected through the UI. "Past the map" is how far the canvas shows beyond the map's edge, in screen px (today: the dark; edge to edge: the rock apron, only at the top under the bar and at the foot behind the panels).</p>${rows}`);
+    await page.goto(pathToFileURL(join(out, 'sheet.html')).href);
     await page.waitForFunction(() => [...document.images].every(i => i.complete));
     await page.screenshot({ path: join(out, 'sheet.png'), fullPage: true, type: 'png' });
     console.log('sheet.png');

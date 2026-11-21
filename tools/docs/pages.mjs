@@ -212,7 +212,7 @@ export function trailerLd(origin) {
   return {
     '@context': 'https://schema.org', '@type': 'VideoObject', name: t.title, description: t.alt,
     thumbnailUrl: `${origin}${MEDIA_URL}${t.poster}`, contentUrl: `${origin}${MEDIA_URL}${t.file}`,
-    uploadDate: t.uploaded, duration: `PT${t.seconds}S`, width: t.w, height: t.h, isFamilyFriendly: true,
+    uploadDate: t.uploaded, duration: `PT${Math.round(t.seconds)}S`, width: t.w, height: t.h, isFamilyFriendly: true,
   };
 }
 

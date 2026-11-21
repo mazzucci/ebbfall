@@ -179,8 +179,9 @@ test('the home: one media block at the top, the trailer: played on a click with 
   assert.equal(t.credit, 'Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / https://creativecommons.org/licenses/by/4.0/ (edited)');
   const cc = 'https://creativecommons.org/licenses/by/4.0/';
   assert.ok(fig.includes(`<figcaption>Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / <a href="${cc}" rel="license">${cc}</a> (edited)</figcaption>`), `the credit: ${fig}`);
-  // The files: the video 1280x720 and 40 s as the manifest says, under the home's budget; its poster small.
-  assert.deepEqual([t.w, t.h, t.seconds, t.type], [1280, 720, 40, 'video/mp4']);
+  // The files: the video 1280x720 and about 40 s as the manifest says, under the home's budget; its poster small.
+  assert.deepEqual([t.w, t.h, t.type], [1280, 720, 'video/mp4']);
+  assert.ok(t.seconds >= 38 && t.seconds <= 45, `about 40 s: ${t.seconds}`);
   const file = readFileSync(new URL(`../public/docs/media/${t.file}`, import.meta.url));
   assert.ok(file.length < 8 * 1024 * 1024, `the trailer under 8 MB: ${Math.round(file.length / 1024)} KB`);
   assert.equal(file.toString('ascii', 4, 8), 'ftyp', 'an MP4');

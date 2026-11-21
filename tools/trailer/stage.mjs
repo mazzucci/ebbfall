@@ -16,7 +16,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 /** The game's maps the trailer plays on (src/client/maps.js indices; `?seed=` keeps the sides fixed: seat 0 at start 0);
  *  `crown` (Gold Crown) is the controls video's: its first start is well inside the map, in an open pocket. */
-export const MAPS = { basin: 0, quarter: 4, crown: 5 };
+export const MAPS = { basin: 0, quarter: 4, crown: 5, court: 9 }; // (`court`, Sunken Court: the docs' clip's, open ground by the Expedition's start)
 /** What never shows in a trailer frame: toasts, tips, the stage's buttons; `bare` also the top bar and the HUD. */
 const QUIET = '#msg,#hint,#tut,#cmdInfo,.toast,#netWait,#homeTip,#end{display:none!important}';
 const BARE = `${QUIET} #tools,#btnBox,#btnHome,#btnArmy,#btnAlert,#hud,#top,.ib{display:none!important} #app{padding:0!important;gap:0!important} #stage{border:0!important;border-radius:0!important}`;
@@ -45,7 +45,7 @@ export async function openStage() {
  * device's storage (endfall.<key>: the desktop controls video's WASD scheme). The scene helpers are on window.S
  * (`helpers`).
  */
-export async function game(stage, device, { map = 'quarter', as = 'humans', hud = false, ai = false, css = hud ? QUIET : BARE, init = {} } = {}) {
+export async function game(stage, device, { map = 'quarter', as = 'humans', hud = false, ai = false, css = hud ? QUIET : BARE, init = {}, query = '' } = {}) {
   const ctx = await stage.browser.newContext(device);
   await ctx.addInitScript(([as, init]) => {
     localStorage.setItem('endfall.seats', JSON.stringify([{ race: as, team: 0 }, { race: as === 'humans' ? 'vael' : 'humans', team: 1, diff: 1 }]));
@@ -53,7 +53,7 @@ export async function game(stage, device, { map = 'quarter', as = 'humans', hud 
   }, [as, init]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));
-  await page.goto(`${stage.origin}?map=${MAPS[map]}&seed=1`, { waitUntil: 'networkidle' });
+  await page.goto(`${stage.origin}?map=${MAPS[map]}&seed=1${query}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 90000 });
   await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { timeout: 60000 });

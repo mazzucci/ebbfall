@@ -1,0 +1,47 @@
+// HD experiment (branch hd-exp, never merged): the sample's sprites rendered at `hd` times today's resolution, a few
+// frames per call to the page so no single transfer is large, written raw under target/hd/raw/<tag>/ (one .rgba per
+// sprite and an index.json). Usage: node tools/art/hd-render.mjs <hd> [fin=px]
+//   <hd>     1, 2 or 3: tools/render3d/scene.js `S = 2 * hd` (through the page's ?hd=)
+//   fin=px   the polish finish's kernels left in output pixels (tag `<hd>x-px`); by default they scale with hd
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { launchChromium } from '../chromium.mjs';
+
+const hd = +process.argv[2] || 1, px = process.argv[3] === 'fin=px', tag = `${hd}x${px ? '-px' : ''}`;
+const root = fileURLToPath(new URL('../../', import.meta.url)), out = join(root, 'target/hd/raw', tag);
+mkdirSync(out, { recursive: true });
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript' };
+// `all` (the trailer's 2x atlas): every model of the shipped atlas but the two healers (trained nowhere): the units by
+// kind and facing, the buildings and their heads, the construction, the rubble, the mines and the scenery; else the
+// experiment's sample.
+const ALL = process.argv.includes('all');
+const ix = JSON.parse(readFileSync(join(root, 'public/art/atlas.json'), 'utf8'));
+const UNITS = ALL ? Object.keys(ix.unitTops).filter(k => k !== 'medic' && k !== 'halo') : ['lancer', 'knight', 'shrike', 'umbra'], BLDGS = ['core', 'conflux'];
+const names = ALL ? ix.pages.flatMap(p => Object.keys(JSON.parse(readFileSync(join(root, 'public/art', p), 'utf8')).frames)) : [];
+const STATIC = /^(bldg_|[a-z]+_head_\d+|foundation_|scaffold_|rubble_|gantry_|gantrybar_|mine_|shard_|doodad_)/;
+const filters = [...(ALL ? names.filter(n => STATIC.test(n) && !/_m$/.test(n)).map(n => `^${n}$`) : BLDGS.map(b => `^bldg_${b}$`)), ...UNITS.flatMap(u => Array.from({ length: 16 }, (_, d) => `^${u}_${d}_`))];
+const browser = await launchChromium();
+const index = [], t0 = Date.now();
+try {
+  const page = await browser.newPage();
+  const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.route('http://art.local/**', (route) => {
+    const p = join(root, new URL(route.request().url()).pathname);
+    if (!existsSync(p)) return route.fulfill({ status: 404, body: 'not found' });
+    route.fulfill({ status: 200, contentType: TYPES[extname(p)] || 'application/octet-stream', body: readFileSync(p) });
+  });
+  await page.goto(`http://art.local/tools/render3d/index.html?hd=${hd}${px ? '&fin=px' : ''}`);
+  await page.waitForFunction(() => window.ready === true, null, { timeout: 60000 }).catch(() => { throw new Error('renderer page failed: ' + errors.join('; ')); });
+  for (const f of filters) {
+    const { sprites } = await page.evaluate((f) => window.render(f, { noTints: true }), f);
+    for (const { data, w, h, ...s } of sprites) {
+      writeFileSync(join(out, `${s.name}.rgba`), Buffer.from(data, 'base64'));
+      index.push({ ...s, w, h });
+    }
+    process.stdout.write(`\r${tag}: ${index.length} sprites, ${((Date.now() - t0) / 1000).toFixed(0)} s   `);
+  }
+  if (errors.length) console.warn('\nrenderer warnings:', errors.slice(0, 5).join('; '));
+} finally { await browser.close(); }
+writeFileSync(join(out, 'index.json'), JSON.stringify({ hd, fin: px ? 'px' : 'scaled', seconds: (Date.now() - t0) / 1000, sprites: index }));
+console.log(`\n${tag}: ${index.length} sprites in ${((Date.now() - t0) / 1000).toFixed(0)} s -> ${out}`);

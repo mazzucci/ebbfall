@@ -187,7 +187,23 @@ export function portrait(kind, type, size = 26, team = G.me, box = false) {
       : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, headFrame);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
-const tex = (name) => textures[name] || Texture.EMPTY;
+// The trailer's recording only (branch trailer-v4, never merged; from the hd-exp experiment): the models' frames at 2x
+// today's resolution (art/hd2/, packed by tools/art/hd-pack.mjs into target/ and copied into dist/ for the recording,
+// never under public/), their pages at scale 4, so a sprite keeps its world size. Drawn in place of today's from the
+// first frame when the folder is there (`?hd=0`: today's); `setHd(2)` / `setHd(0)` switches the buildings later.
+const HDT = {}; let hdLevel = 0;
+if (new URLSearchParams(location.search).get('hd') !== '0') {
+  try {
+    const r = await fetch(`${artBase}hd2/atlas.json`);
+    if (r.ok && /json/.test(r.headers.get('content-type') || '')) {
+      const ix = await r.json(), T = {};
+      for (const p of ix.pages) Object.assign(T, (await Assets.load(`${artBase}hd2/${p}`)).textures); // (one page at a time: each is 64 MB decoded)
+      HDT[2] = T; hdLevel = 2;
+    }
+  } catch { /* no such level built */ }
+}
+export const setHd = (k) => { hdLevel = HDT[k] ? k : 0; return { level: hdLevel, frames: hdLevel ? Object.keys(HDT[hdLevel]).length : 0 }; };
+const tex = (name) => (hdLevel && HDT[hdLevel][name]) || textures[name] || Texture.EMPTY;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 const FACINGS = index.facings || 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
@@ -629,6 +645,7 @@ class BldgObj {
    *  moment). `now`: the renderer's clock (s). */
   update(b, t, dt, live, now = performance.now() / 1000) {
     this.b = b; this.live = live; // (what a fall reads: look.js bldgDeath)
+    if (this.hdL !== hdLevel) { this.hdL = hdLevel; this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); } // (hd-exp)
     if (b.done && !this.wasDone) this.doneT = live && this.seenAt === frameNo - 1 ? 0 : null; // (it stood while we watched: its done moment)
     this.wasDone = b.done; this.seenAt = frameNo;
     if (this.doneT !== null) { this.doneT += dt; if (this.doneT >= DONE.life) this.endFade(); }

@@ -62,13 +62,15 @@ async function composer(stage, fmt, dpr, sheets) {
   return { page, cdp };
 }
 
-export async function recordSegment(stage, seg, fmt, { preview = false, out }) {
+export async function recordSegment(stage, seg, fmt, { preview = false, out, overlay = { install, apply }, query = '' }) {
+  const { install, apply } = overlay; // (cut 3's overlays, or another cut's: tools/trailer/v4)
   const fps = preview ? 10 : FPS, dpr = preview ? 1 : 2;
   const device = seg.phone ? { ...PHONE_LAND, deviceScaleFactor: preview ? 1 : 3 } : { viewport: VIEW[fmt], deviceScaleFactor: dpr };
-  const { ctx, page } = await game(stage, device, { as: seg.as, ai: !!seg.ai, hud: !!seg.phone });
+  const { ctx, page } = await game(stage, device, { as: seg.as, ai: !!seg.ai, hud: !!seg.phone, map: seg.map || 'quarter', query });
   const comp = seg.phone ? await composer(stage, fmt, dpr, await page.evaluate(() => [...document.styleSheets].map(s => s.href).filter(Boolean))) : null;
   try {
-    const a = await page.evaluate(seg.scene, { fmt });
+    const a = await page.evaluate(seg.scene, { fmt, ...seg.args });
+    if (a?.info) console.log('  scene:', JSON.stringify(a.info));
     if (!seg.phone) await install(page, fmt);
     const first = seg.parts[0].cam?.(0, a, fmt, {});
     await frame(page, first, 0, 1);
@@ -78,6 +80,7 @@ export async function recordSegment(stage, seg, fmt, { preview = false, out }) {
     const state = { a, fmt, taps: [] };
     for (const part of seg.parts) {
       const file = `${out}/${part.name}.mkv`, enc = encoder(file, fps), n = Math.round(part.seconds * fps), t0 = await page.evaluate(() => performance.now());
+      if (part.pre) console.log('  pre:', JSON.stringify(await part.pre(page, state))); // (staged between two parts, unseen)
       const actions = [...(part.at || [])].sort((x, y) => x.t - y.t);
       const t1 = Date.now(); let last = null, stale = 0;
       for (let i = 0; i < n; i++) {

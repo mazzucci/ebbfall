@@ -64,38 +64,40 @@ function occlusion(z, w, h, x, y, D, { range, bias, maxH }) {
 export function finishPolish(img, z, opts) {
   const P = opts && typeof opts === 'object' ? { ...POLISH, ...opts } : POLISH, sinE = P.sinElev ?? Math.sin(40 * Math.PI / 180);
   const { width: w, height: h, data: d } = img, src = new Uint8ClampedArray(d), N = w * h;
+  const K = Math.max(1, Math.round(P.K || 1)); // (hd-exp: the output's resolution over today's; every kernel below sized in px is K times as large, so the finish covers the same part of the model)
   const lum = (i) => 0.3 * src[i] + 0.59 * src[i + 1] + 0.11 * src[i + 2];
   const model = new Uint8Array(N), shadow = new Uint8Array(N);
   for (let p = 0; p < N; p++) { const i = p * 4; if (!src[i + 3]) continue; if (isShadow(src, i)) shadow[p] = 1; else if (src[i + 3] >= 40) model[p] = 1; }
   // the model's occlusion field
-  const DA = disc(P.ao.radius);
+  const DA = disc(P.ao.radius * K);
   let ao = new Float32Array(N);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const p = y * w + x; if (model[p]) ao[p] = occlusion(z, w, h, x, y, DA, P.ao); }
-  if (P.blur) ao = blur3(ao, w, h, model);
+  if (P.blur) ao = blur3(ao, w, h, model, K);
   // the contact shadow: the ground plane's depth is linear in y (fitted on the ground pixels), so every model pixel has a
   // height over the ground under it ((zg - z) sin elev); pixels of parts that stand on the ground stamp a crisp dark
   // ellipse round themselves on the sun's lee side
   let sy = 0, sz = 0, syy = 0, syz = 0, n = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const p = y * w + x; if (model[p] || z[p] === Infinity) continue; sy += y; sz += z[p]; syy += y * y; syz += y * z[p]; n++; }
   const b = n > 1 ? (n * syz - sy * sz) / Math.max(1e-9, n * syy - sy * sy) : 0, a = n ? (sz - b * sy) / n : 0;
-  const contact = new Uint8Array(N), C = P.contact, R = C.radius, RY = Math.max(1, Math.round(R * C.squash));
+  const contact = new Uint8Array(N), C = P.contact, R = C.radius * K, RY = Math.max(1, Math.round(R * C.squash));
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const p = y * w + x; if (!model[p] || z[p] === Infinity) continue;
     const hp = (a + b * y - z[p]) * sinE; if (hp <= C.hMin || hp >= C.hMax) continue;
     for (let dy = -RY; dy <= RY; dy++) for (let dx = -R; dx <= R; dx++) {
-      if ((dx * dx) / (R * R) + (dy * dy) / (RY * RY) > 1 || dx + dy < C.lee) continue;
+      if ((dx * dx) / (R * R) + (dy * dy) / (RY * RY) > 1 || dx + dy < C.lee * K) continue;
       const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
       const q = ny * w + nx; if (!model[q]) contact[q] = 1;
     }
   }
   const zAt = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? Infinity : z[y * w + x];
+  const raised = (x, y, zc) => { for (let s = 1; s <= K; s++) if (zAt(x, y - s) - zc > P.rim.bias || zAt(x - s, y) - zc > P.rim.bias) return true; return false; };
   const mAt = (x, y) => x >= 0 && y >= 0 && x < w && y < h && model[y * w + x];
   // the cast shadow's coverage: 1 where the catcher drew it, feathered over a box of `soft` px (the model's own pixels
   // count as covered, so the shadow stays whole where it leaves the feet)
   const SH = P.unit ? P.unitShadow : P.shadow, cov = new Float32Array(N);
   for (let p = 0; p < N; p++) if (shadow[p] && src[p * 4 + 3] >= 64) cov[p] = 1;
   const shAt = (x, y) => { if (x < 0 || y < 0 || x >= w || y >= h) return 0; const q = y * w + x; return model[q] ? 1 : cov[q]; };
-  const coverage = (x, y) => { if (!SH.soft) return cov[y * w + x]; let s = 0, n = 0; for (let dy = -SH.soft; dy <= SH.soft; dy++) for (let dx = -SH.soft; dx <= SH.soft; dx++) { s += shAt(x + dx, y + dy); n++; } return s / n; };
+  const SOFT = SH.soft * K, coverage = (x, y) => { if (!SOFT) return cov[y * w + x]; let s = 0, n = 0; for (let dy = -SOFT; dy <= SOFT; dy++) for (let dx = -SOFT; dx <= SOFT; dx++) { s += shAt(x + dx, y + dy); n++; } return s / n; };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const p = y * w + x, i = p * 4, a = src[i + 3];
     if (!model[p]) { // the ground: the cast shadow over the contact ellipse
@@ -107,14 +109,14 @@ export function finishPolish(img, z, opts) {
     }
     const zc = z[p];
     let k = 1 - P.ao.strength * ao[p], edgeSky = 0, edgeLit = 0;
-    for (const [nx, ny, lit] of [[x - 1, y, 1], [x + 1, y, 0], [x, y - 1, 1], [x, y + 1, 0]]) {
+    for (let s = 1; s <= K; s++) for (const [nx, ny, lit] of [[x - s, y, 1], [x + s, y, 0], [x, y - s, 1], [x, y + s, 0]]) { // (hd-exp: 1 to K px each way: lines K px wide)
       if (!mAt(nx, ny)) { if (lit) edgeLit++; else edgeSky++; continue; }
       const j = (ny * w + nx) * 4, zn = zAt(nx, ny);
       if (zc - zn > P.ink.stepBias) k = Math.min(k, P.ink.step);              // a nearer part ends here: ink in its lee
       else if (Math.abs(lum(j) - lum(i)) > 0.22 * Math.max(lum(i), 30) && lum(j) > lum(i)) k = Math.min(k, P.ink.lum);
     }
     if (edgeSky) k = Math.min(k, P.ink.edge);                                                 // the silhouette's lower and right edges: ink
-    else if (edgeLit || zAt(x, y - 1) - zc > P.rim.bias || zAt(x - 1, y) - zc > P.rim.bias) k *= 1 + P.rim.gain; // its upper and left edges, and any edge raised over what is behind it: lit
+    else if (edgeLit || raised(x, y, zc)) k *= 1 + P.rim.gain; // its upper and left edges, and any edge raised over what is behind it: lit
     const band = P.unit ? P.unitBand : P.band;
     for (let c = 0; c < 3; c++) { const v = 255 * smooth(0.03, 0.97, Math.min(255, src[i + c] * k) / 255); d[i + c] = Math.min(255, Math.round(v / band) * band + band / 2); }
     if (a < 128) { // an anti-aliased edge over the ground's shadow
@@ -124,11 +126,11 @@ export function finishPolish(img, z, opts) {
     } else d[i + 3] = 255;
   }
 }
-function blur3(f, w, h, mask) {
+function blur3(f, w, h, mask, K = 1) {
   const o = new Float32Array(f.length);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const p = y * w + x; if (!mask[p]) continue; let s = 0, n = 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue; const q = ny * w + nx; if (!mask[q]) continue; const wt = dx || dy ? 1 : 2; s += f[q] * wt; n += wt; }
+    for (let dy = -K; dy <= K; dy++) for (let dx = -K; dx <= K; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue; const q = ny * w + nx; if (!mask[q]) continue; const wt = dx || dy ? 1 : 2; s += f[q] * wt; n += wt; }
     o[p] = n ? s / n : f[p];
   }
   return o;

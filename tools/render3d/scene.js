@@ -7,7 +7,13 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { finishPolish, POLISH } from './polish.js';
 
 export const ELEV = 40 * Math.PI / 180; // (55 until the re-theme: the lower camera shows more of a unit's side)
-export const S = 2;          // output pixels per game unit (art is drawn at twice the game's resolution)
+/** HD experiment (branch hd-exp, never merged): the output resolution as a multiple of today's (`?hd=2`, `?hd=3` on the
+ *  renderer page; 1 without). Only S changes: the cells (main.js, retheme.js) and the frustum are in game units times S,
+ *  so the models, the lights, the camera and the shadow map's reach stay as they are. `?fin=px` leaves the polish
+ *  finish's kernels in output pixels (thinner ink, tighter occlusion); by default they scale with HD (polish.js). */
+const Q = new URLSearchParams(location.search);
+export const HD = Math.max(1, +Q.get('hd') || 1), FIN_K = Q.get('fin') === 'px' ? 1 : HD;
+export const S = 2 * HD;     // output pixels per game unit (art is drawn at twice the game's resolution)
 const SS = 2;                // supersampling factor before downscaling
 export const LIFT = Math.cos(ELEV) / Math.sin(ELEV); // screen px of rise per unit of height (per game unit)
 /** The lift at another elevation (radians): what a shot with `elev` set shows of a unit of height (the re-theme's trials). */
@@ -91,7 +97,7 @@ export function shoot(obj, { w, h, ax, ay, gx = 0, gz = 0, shadow = true, mask =
     fill.target.position.set(gx, 0, gz); fill.position.set(gx - 200, 150, gz + 300); scene.add(fill.target);
     img = grab(w, h);
     [sun.intensity, hemi.intensity, scene.environmentIntensity, rim.intensity, fill.intensity] = saved; rim.color.setHex(saved[5]);
-    finishPolish(img, depthPass(obj, w, h), { ...P, sinElev: Math.sin(elev) });
+    finishPolish(img, depthPass(obj, w, h), { ...P, sinElev: Math.sin(elev), K: FIN_K });
   }
   const m = mask ? teamMask(obj, img) : null;
   scene.remove(obj);

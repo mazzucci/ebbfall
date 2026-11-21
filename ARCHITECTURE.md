@@ -317,7 +317,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, both on the map: nothing past its edges at the sides or the top), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
@@ -501,7 +501,8 @@ src/client/           everything that touches the browser
                       sprite by its shooter or people (`shotArt`) and how it is drawn to read on a phone (`SHOT_STYLE`, `SHOT_BAR`, `SHOT_GLOW`, `HEAVY_TRAIL`: the Kingdom's shafts larger on a dark bar and never lit, every Expedition shot but the rocket a cool lit tracer, a heavy shot's trail), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
-  input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands; a unit is hit
+  input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands (the keys' and the
+                      mouse edge's pan at PAN_SPEED world px a second, the same time across the map at any zoom); a unit is hit
                       on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
                       footprint and the rock just over it; a worker inside a mine is not picked or boxed; workers sent
                       to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold);

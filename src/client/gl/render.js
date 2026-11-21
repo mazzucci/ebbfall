@@ -20,15 +20,26 @@ export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d')
 export const view = { w: 800, h: 500, dpr: 1 };
 /** Camera: top-left corner in world px, and zoom (screen px per world px). */
 export const cam = { x: 0, y: 0, zoom: matchMedia('(pointer: coarse)').matches ? 1.75 : innerWidth >= 1100 ? 2 : 1.5 };
+/** The zoom's bounds: ZOOM_MIN the farthest out on a small window (a phone's stays there: its 0.75 shows less than
+ *  MAX_SPAN's area), ZOOM_MAX the closest in. A larger window's farthest out is `zoomLimit`, closer than ZOOM_MIN. */
 export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
+/** The most map a window may show, as an area: MAX_SPAN x MAX_SPAN_H world px (16:9), in the window's own shape, so a
+ *  bigger monitor shows bigger units, not more map (all the way out a 3440 px window showed the whole map, three times a
+ *  phone's view: unfair in a game against people). 3440x1440 sees about 2090x870, 1440x900 about 1710x1070. */
+const MAX_SPAN = 1800, MAX_SPAN_H = MAX_SPAN * 9 / 16;
+/** The zoom-out limit: the zoom at which the window shows MAX_SPAN x MAX_SPAN_H world px², never under ZOOM_MIN. The
+ *  min with ZOOM_MAX is for now, until the game's box comes (a fixed-shape box inside a very wide or very large window):
+ *  a 32:9 window is never pinned closer than ZOOM_MAX meanwhile. Read on each resize, the wheel and the pinch. */
+export const zoomLimit = () => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.sqrt(view.w * view.h / (MAX_SPAN * MAX_SPAN_H))));
 /** How much of the map (world px across) a desktop's window shows when a game starts: the base and the ground round
- *  it, on any monitor. */
+ *  it, on any monitor (unless the window is so large that `zoomLimit` comes first). */
 const START_SPAN = 1200;
 /** The zoom a game starts at: a phone (a coarse pointer) at 1, its world px one CSS px, where the units read; with a
  *  mouse the window shows START_SPAN px of the map across (1.07 at 1280 px, 1.2 at 1440, 1.6 at 1920; never under 1,
  *  never over 2), so the base reads and no window is wider than the smallest map (all the way out, ZOOM_MIN, a wide
- *  monitor showed the dark past the map's edges: a stranger's first sight of the game). The wheel zooms out from there. */
-export const startZoom = () => (matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, 2));
+ *  monitor showed the dark past the map's edges: a stranger's first sight of the game). Never farther out than
+ *  `zoomLimit` (a very large or tall window: 1.03 at 1200x1600, 2.5 at 5120x2880). The wheel zooms out from there. */
+export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, 2), zoomLimit());
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 const MM_GOLD = '#e8c04a'; // (the minimap: a gold mine, gold as its veins)
@@ -218,7 +229,8 @@ export function resize() {
   const r = cv.parentElement.getBoundingClientRect(), mid = toWorld(view.w / 2, view.h / 2); // (the point in the middle stays there)
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
-  app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution); centerOn(mid.x, mid.y);
+  app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
+  cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
 /** Where the HUD floats over the map the camera may scroll that far past the edges (the panels are taller with a
@@ -243,7 +255,7 @@ export const nearView = (x, y, m = 160) => x > cam.x - m && x < cam.x + vw() + m
 /** Zoom by `factor`, keeping the world point under screen point (sx, sy) fixed. */
 export function zoomAt(factor, sx, sy) {
   const before = toWorld(sx, sy);
-  cam.zoom = clamp(cam.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+  cam.zoom = clamp(cam.zoom * factor, zoomLimit(), ZOOM_MAX);
   cam.x = before.x - sx / cam.zoom; cam.y = before.y - sy / cam.zoom; clampCam();
 }
 

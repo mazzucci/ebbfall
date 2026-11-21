@@ -469,6 +469,10 @@ function bindKeys() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); });
 }
 const PAN_CODES = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
+/** The keys' and the mouse edge's pan, in world px a second: the same time across the map on any window at any zoom
+ *  (it was 620 screen px a second, faster across the map the farther out; this is that at a 1440 px window's start
+ *  zoom, 1.2). The drag and the finger keep to the pointer. */
+const PAN_SPEED = 520;
 
 /** Arrow keys / WASD (always in the WASD scheme; in the classic one when nothing is selected), mouse edge scrolling
  *  and the touch glide. */
@@ -483,5 +487,5 @@ export function camKeys(dt) {
   if (on('ArrowLeft', 'KeyA')) dx -= 1; if (on('ArrowRight', 'KeyD')) dx += 1;
   if (on('ArrowUp', 'KeyW')) dy -= 1; if (on('ArrowDown', 'KeyS')) dy += 1;
   if (drag.ptype === 'mouse' && !drag.down && !mid) { dx += edge.x; dy += edge.y; }
-  if (dx || dy) { cam.x += dx * 620 * dt / cam.zoom; cam.y += dy * 620 * dt / cam.zoom; clampCam(); }
+  if (dx || dy) { cam.x += dx * PAN_SPEED * dt; cam.y += dy * PAN_SPEED * dt; clampCam(); }
 }

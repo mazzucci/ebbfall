@@ -499,8 +499,8 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1200 px of the map across the window (any monitor); at 1 on a phone (844x390, 667x375)', async () => {
-  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
+test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1200 px of the map across the window (any monitor), never farther out than the zoom-out limit (a tall window); at 1 on a phone (844x390, 667x375)', async () => {
+  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, { viewport: { width: 3440, height: 1440 } }, { viewport: { width: 1200, height: 1800 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
@@ -509,10 +509,11 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
       await page.waitForFunction(() => !!window.endfall);
       if (guided) await press('#btnTutorial'); else { await press('#btnSolo'); await press('#btnStart'); }
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-      const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom }; });
-      if (device.hasTouch) assert.equal(s.zoom, 1, `${what}: a phone at 1`);
+      const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom, limit: endfall.zoomMin }; });
+      if (device.hasTouch) assert.ok(s.zoom === 1 && s.limit === 0.75, `${what}: a phone at 1, its limit 0.75: ${JSON.stringify(s)}`);
       else {
-        assert.ok(Math.abs(s.zoom - Math.min(2, Math.max(1, s.w / 1200))) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2): ${JSON.stringify(s)}`);
+        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2, Math.max(1, s.w / 1200)), s.limit)) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2), or the limit where it is closer: ${JSON.stringify(s)}`);
+        if (device.viewport.height === 1800) assert.ok(s.limit > 1 && s.zoom === s.limit, `${what}: a tall window starts at its limit: ${JSON.stringify(s)}`);
         assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
       }
       assert.ok(s.x >= 0 && s.x + s.vw <= s.map + 0.5 && s.y >= 0, `${what}: nothing past the map's edges at the sides or the top: ${JSON.stringify(s)}`);
@@ -520,6 +521,68 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   }
+});
+
+/** The most map a window may show (gl/render.js MAX_SPAN x MAX_SPAN_H), world px². */
+const MAX_AREA = 1800 * 1800 * 9 / 16;
+/** Zoom out with Ctrl+wheel (a trackpad's pinch arrives so) over the map's middle until the zoom stops; the camera then. */
+async function wheelOut(d) {
+  const st = await d.page.locator('#game').boundingBox();
+  await d.page.mouse.move(st.x + st.width / 2, st.y + st.height / 2);
+  await d.page.keyboard.down('Control');
+  for (let i = 0; i < 16; i++) await d.page.mouse.wheel(0, 100);
+  await d.page.keyboard.up('Control');
+  await d.page.waitForFunction(() => Math.abs(endfall.cam.zoom - endfall.zoomMin) < 1e-9, null, { timeout: 5000 }).catch(() => {});
+  return d.eval(() => { const c = endfall.cam, v = endfall.view; return { zoom: c.zoom, limit: endfall.zoomMin, w: v.w, h: v.h, vw: v.w / c.zoom, vh: v.h / c.zoom, mid: [c.x + v.w / 2 / c.zoom, c.y + v.h / 2 / c.zoom] }; });
+}
+
+for (const [w, h] of [[1920, 1080], [1440, 900]]) {
+  test(`desktop ${w}x${h}: all the way out with the wheel the window shows no more than the zoom-out limit's area of the map (a bigger monitor, bigger units); a larger window then comes closer, its middle where it was`, async () => {
+    const d = await newGame({ viewport: { width: w, height: h } }, 1, 4242, { ai: false });
+    try {
+      const s = await wheelOut(d), area = s.vw * s.vh;
+      s.mid = await d.eval(() => { endfall.centerOn(endfall.engine.WW / 2, endfall.engine.WH / 2); const c = endfall.cam, v = endfall.view; return [c.x + v.w / 2 / c.zoom, c.y + v.h / 2 / c.zoom]; }); // (clear of the edges, where the room past them shrinks as the zoom grows)
+      assert.ok(s.limit > 0.75 && Math.abs(s.zoom - s.limit) < 1e-9, `the zoom stops at the limit, closer than 0.75: ${JSON.stringify(s)}`);
+      assert.ok(area <= MAX_AREA * (1 + 1e-9) && area > MAX_AREA * 0.995, `the cap's area, no more: ${Math.round(area)} of ${MAX_AREA}: ${JSON.stringify(s)}`);
+      await d.page.setViewportSize({ width: 2560, height: 1440 });
+      await d.page.waitForFunction((w) => endfall.view.w > w, w, { timeout: 5000 });
+      const g = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { zoom: c.zoom, limit: endfall.zoomMin, area: v.w * v.h / c.zoom / c.zoom, mid: [c.x + v.w / 2 / c.zoom, c.y + v.h / 2 / c.zoom] }; });
+      assert.ok(g.limit > s.limit && Math.abs(g.zoom - g.limit) < 1e-9 && g.area <= MAX_AREA * (1 + 1e-9), `resized to 2560x1440: closer, at its own limit: ${JSON.stringify(g)}`);
+      assert.ok(Math.hypot(g.mid[0] - s.mid[0], g.mid[1] - s.mid[1]) < 40, `the middle stays: ${JSON.stringify([s.mid, g.mid])}`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+test('desktop: a held arrow key moves the map as many world px a second on any window at any zoom (the same time across the map)', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    // How fast a held ArrowRight moves the camera at zoom z (from the map's left edge), in world px a second of the game
+    // loop's own time: each frame's step over its frame time, capped at 0.1 s as main.js's loop caps it (a busy,
+    // software-drawn page draws few frames), the median frame. Read in the page from the frames' own timestamps.
+    await d.eval(() => {
+      const raf = window.requestAnimationFrame.bind(window), seen = window.__panFrames = [];
+      window.requestAnimationFrame = (cb) => raf((t) => { cb(t); const last = seen[seen.length - 1]; if (last && last.t === t) last.x = endfall.cam.x; else seen.push({ t, x: endfall.cam.x }); });
+    });
+    const speed = async (size, z) => {
+      await d.page.setViewportSize(size);
+      await d.page.waitForFunction((w) => endfall.view.w <= w && endfall.view.w > w * 0.8, size.width, { timeout: 5000 });
+      const st = await d.page.locator('#game').boundingBox();
+      await d.page.mouse.move(st.x + st.width / 2, st.y + st.height / 3); // (away from the edges: no edge scroll)
+      await d.eval((z) => { endfall.cam.zoom = z; endfall.centerOn(0, endfall.engine.WH / 2); }, z);
+      await d.page.keyboard.down('ArrowRight');
+      await d.eval(() => { window.__panFrames.length = 0; });
+      await d.page.waitForTimeout(800);
+      await d.page.waitForFunction(() => window.__panFrames.length >= 6, null, { timeout: 10000 });
+      const frames = await d.eval(() => window.__panFrames.slice());
+      await d.page.keyboard.up('ArrowRight');
+      const steps = frames.slice(2).map((f, i) => (f.x - frames[i + 1].x) / Math.min(0.1, (f.t - frames[i + 1].t) / 1000)).sort((p, q) => p - q);
+      return steps[steps.length >> 1];
+    };
+    const near = await speed({ width: 1280, height: 720 }, 2), far = await speed({ width: 640, height: 360 }, 1);
+    assert.ok(Math.abs(near - 520) < 26 && Math.abs(far - 520) < 26, `520 world px a second at zoom 2 and at zoom 1 (before, 310 and 620): ${Math.round(near)} and ${Math.round(far)}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
 });
 
 test('a click or a tap on a unit\'s body, well above its feet, selects it (desktop and phone)', async () => {

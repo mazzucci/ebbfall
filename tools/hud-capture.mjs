@@ -4,7 +4,8 @@
 // minutes, a raid met at its gate, the whole army (twelve units) selected through the UI (Q; ARMY on the phone). The
 // page's clock is held before the game starts, so the main loop never steps: the world moves only by `endfall.skip`,
 // each still is drawn with `endfall.draw`. Every page is staged the same way and its state hash must match.
-// --hud: 0 is main as shipped (today/), 1..3 the options (?hud=N: src/client/hudopt.js). Per option:
+// --hud: 0 is main as shipped (today/), 1..3 the options (?hud=N: src/client/hudopt.js), 2:1 the recommended pair
+// (?hud=2&marks=1: recommended/). Per option:
 //   1920x1080.png, 1440x900.png (DPR 1), 2560x1440-dpr2.png (a 1280x720 window), phone-844x390.png (DPR 2, touch),
 //   closeup-1920.png and closeup-dpr2.png (the melee at the start zoom, cut from a still of its own)
 // --states N,..: for these options also one unit selected and a building with a production queue, at 1440x900.
@@ -20,11 +21,12 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? proces
 const has = (k) => process.argv.includes(k);
 const root = fileURLToPath(new URL('..', import.meta.url));
 const out = resolve(arg('--out', join(root, '../ebbfall-article/hud-options')));
-const HUDS = arg('--hud', '0,1,2,3').split(',').map(Number);
+const HUDS = arg('--hud', '0,1,2,3,2:1').split(','); // (N, or N:M: option N's layout with option M's marks: `recommended/`)
 const ONLY = arg('--only', '');
-const STATES = arg('--states', '').split(',').filter(Boolean).map(Number);
+const STATES = arg('--states', '').split(',').filter(Boolean);
 const CHECKS = has('--checks');
-const dirOf = (h) => join(out, h ? `option-${h}` : 'today');
+const dirOf = (h) => join(out, h.includes(':') ? 'recommended' : +h ? `option-${h}` : 'today');
+const query = (h) => { const [n, m] = h.split(':'); return +n ? `&hud=${n}${m ? `&marks=${m}` : ''}` : ''; };
 const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const desk = (w, h, dpr = 1) => ({ viewport: { width: w, height: h }, deviceScaleFactor: dpr });
 
@@ -87,7 +89,7 @@ async function staged(device, hud) {
   page.setDefaultTimeout(300000); // (a busy machine: software GL is slow to draw a large window)
   page.on('pageerror', e => errors.push(e.message));
   await page.clock.install();
-  await page.goto(`${baseUrl()}?seed=4242${hud ? `&hud=${hud}` : ''}`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl()}?seed=4242${query(hud)}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 120000 });
   const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
   await press('#btnSolo');
@@ -164,7 +166,7 @@ try {
       for (const [w, h] of [[1920, 1080], [1440, 900]]) { await sizeTo(page, w, h); log.shots.push({ hud, size: `${w}x${h}`, ...await shoot(page, join(dir, `${w}x${h}.png`), at) }); }
       await sizeTo(page, 1920, 1080); await closeup(page, join(dir, 'closeup-1920.png'), setup, 960, 600);
       if (STATES.includes(hud) || CHECKS) {
-        const sdir = CHECKS && !STATES.includes(hud) ? join(out, 'checks') : dir, tag = CHECKS && !STATES.includes(hud) ? `hud${hud}--` : '';
+        const sdir = CHECKS && !STATES.includes(hud) ? join(out, 'checks') : dir, tag = CHECKS && !STATES.includes(hud) ? `hud${hud.replace(':', 'm')}--` : '';
         mkdirSync(sdir, { recursive: true });
         await sizeTo(page, 1440, 900);
         // one unit: a click on the Knight nearest the base (the least crowded)
@@ -188,25 +190,25 @@ try {
           const q = await page.evaluate(([p]) => { const { cam } = endfall, b = document.getElementById('game').getBoundingClientRect(); return { x: b.left + (p.x - cam.x) * cam.zoom, y: b.top + (p.y - cam.y) * cam.zoom }; }, [{ x: setup.barracks.x - 30, y: setup.barracks.y + 170 }]);
           await page.mouse.click(q.x, q.y, { button: 'right' }); await page.mouse.move(2, 300);
           await page.evaluate(() => { endfall.ui.toast?.('x'); });
-          await shoot(page, join(cdir, `hud${hud}--1440x900--rally.png`), base);
+          await shoot(page, join(cdir, `hud${hud.replace(':', 'm')}--1440x900--rally.png`), base);
           // the Watchtower: its range ring
           await clickWorld(page, setup.tower); await page.mouse.move(2, 300);
-          await shoot(page, join(cdir, `hud${hud}--1440x900--range.png`), at);
+          await shoot(page, join(cdir, `hud${hud.replace(':', 'm')}--1440x900--range.png`), at);
           // the build menu and a ghost: a Villager, B, the first building, the pointer on the map
           const vil = await page.evaluate(() => { const { G } = endfall, v = G.units.filter(u => u.team === G.me && u.type === 'harvester' && !u.inside && !u.dead)[0]; return v && { x: v.x, y: v.y - 10 }; });
           if (vil) {
             await page.evaluate(([p]) => { endfall.centerOn(p.x, p.y); endfall.draw(); }, [vil]);
             await clickWorld(page, vil); await page.evaluate(() => endfall.draw()); await page.keyboard.press('b'); await page.evaluate(() => endfall.draw());
-            await page.mouse.move(2, 300); await shoot(page, join(cdir, `hud${hud}--1440x900--build-menu.png`), vil);
+            await page.mouse.move(2, 300); await shoot(page, join(cdir, `hud${hud.replace(':', 'm')}--1440x900--build-menu.png`), vil);
             await page.locator('#cmd .cb:not(.gap)').nth(0).hover(); await page.evaluate(() => endfall.draw());
-            await page.screenshot({ path: join(cdir, `hud${hud}--1440x900--tooltip.png`) });
+            await page.screenshot({ path: join(cdir, `hud${hud.replace(':', 'm')}--1440x900--tooltip.png`) });
             await page.locator('#cmd .cb:not(.gap)').nth(0).click(); await page.mouse.move(700, 380); await page.evaluate(() => endfall.draw());
-            await page.screenshot({ path: join(cdir, `hud${hud}--1440x900--ghost.png`) });
+            await page.screenshot({ path: join(cdir, `hud${hud.replace(':', 'm')}--1440x900--ghost.png`) });
             await page.keyboard.press('Escape');
           }
           // smaller windows: the breakpoints below the desktop layouts
           await selectArmy();
-          for (const [w, h] of [[1024, 768], [800, 600], [600, 800]]) { await sizeTo(page, w, h); await shoot(page, join(cdir, `hud${hud}--${w}x${h}.png`), at); }
+          for (const [w, h] of [[1024, 768], [800, 600], [600, 800]]) { await sizeTo(page, w, h); await shoot(page, join(cdir, `hud${hud.replace(':', 'm')}--${w}x${h}.png`), at); }
         }
       }
       log.errors.push(...errors.map(e => `hud ${hud} desk: ${e}`)); await ctx.close();
@@ -229,5 +231,5 @@ try {
   log.sameWorld = hashes.every(h => h === hashes[0]);
 } finally { await stop(); }
 mkdirSync(join(root, 'target/hud'), { recursive: true });
-writeFileSync(join(root, 'target/hud', `shots-${HUDS.join('')}${ONLY}.json`), JSON.stringify(log, null, 1));
+writeFileSync(join(root, 'target/hud', `shots-${HUDS.join('').replace(/:/g, 'm')}${ONLY}.json`), JSON.stringify(log, null, 1));
 console.log(JSON.stringify({ setup: Object.values(log.setups)[0], sameWorld: log.sameWorld, errors: log.errors }));

@@ -19,7 +19,7 @@
 // plays it, on Hard; `&watch=1`: the person watches it play the built-in Hard), with a line that says so; not saved.
 import { mapPreview, ready } from '../engine/index.js';
 import { $ } from './ui.js';
-import { sfx } from './audio.js';
+import { sfx, gameSound } from './audio.js';
 import { enterFullscreen, releaseLandscape } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
@@ -254,7 +254,7 @@ export function setup() {
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
-export function showMenu(at = 'menuHome') { renderMaps(); renderSeats(); page(at); $('start').hidden = false; releaseLandscape(); } // (an installed app: the menu turns with the phone again)
+export function showMenu(at = 'menuHome') { gameSound(false); renderMaps(); renderSeats(); page(at); $('start').hidden = false; releaseLandscape(); } // (the wind out: a game's only; an installed app: the menu turns with the phone again)
 
 // The player's record on this device, per race and difficulty: [won, lost] (the race played: a Random one's draw).
 // Kept, not shown (owner, 2026-11-04: the first page shows the game, not a tally).

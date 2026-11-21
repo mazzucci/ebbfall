@@ -1,6 +1,6 @@
 // The sound engine (src/client/audio.js) against a stub Web Audio API: the sound opens only in a gesture WebKit counts
 // and is retried until it runs, the pause card holds it; every recipe runs with and without a world position,
-// envelopes never ramp to or from zero (exponential ramps cannot), and every sound the sim names exists.
+// the wind plays in a game only, a hidden tab is suspended; envelopes never ramp to or from zero (exponential ramps cannot), and every sound the sim names exists.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -10,7 +10,8 @@ const ramps = [], errors = [];
 const when = (p, t, what) => { if (t === undefined) return; if (!(t >= 0)) errors.push(`${what} at ${t}`); if (t < (p.last ?? 0)) errors.push(`${what} back in time: ${t} < ${p.last}`); p.last = t; };
 class Param { constructor(v = 0) { this.value = v; } cancelScheduledValues() {} setValueAtTime(v, t) { when(this, t, 'set'); this.value = v; } exponentialRampToValueAtTime(v, t) { when(this, t, 'ramp'); if (!(v > 0)) errors.push('ramp to ' + v); ramps.push(v); } linearRampToValueAtTime(v, t) { when(this, t, 'linear ramp'); if (!Number.isFinite(v)) errors.push(`linear ramp to ${v}`); ramps.push(v); } setTargetAtTime() {} }
 let silentStarts = 0;
-class Node { constructor() { this.gain = new Param(1); this.frequency = new Param(440); this.Q = new Param(1); this.pan = new Param(0); } connect(n) { return n; } start(t) { if (t !== undefined && !(t >= 0)) errors.push(`start at ${t}`); } stop() {} }
+const sources = []; // (every buffer source made: the wind is the looped one started with no stop of its own)
+class Node { constructor() { this.gain = new Param(1); this.frequency = new Param(440); this.Q = new Param(1); this.pan = new Param(0); } connect(n) { return n; } disconnect() {} start(t) { if (t !== undefined && !(t >= 0)) errors.push(`start at ${t}`); } stop() {} }
 class Ctx {
   static now = 0;
   static made = 0; static last = null;
@@ -29,7 +30,13 @@ class Ctx {
   suspend() { this.state = 'suspended'; return Promise.resolve(); }
   createDynamicsCompressor() { const n = new Node(); n.threshold = new Param(); n.ratio = new Param(); n.attack = new Param(); n.release = new Param(); return n; }
   createGain() { return new Node(); } createOscillator() { return new Node(); } createBiquadFilter() { return new Node(); }
-  createStereoPanner() { return new Node(); } createBufferSource() { const n = new Node(), start = n.start.bind(n); n.start = (t) => { if (t === 0 && n.buffer?.length === 1) silentStarts++; start(t); }; return n; }
+  createStereoPanner() { return new Node(); }
+  createBufferSource() {
+    const n = new Node(), start = n.start.bind(n);
+    n.start = (t) => { if (t === 0 && n.buffer?.length === 1) silentStarts++; n.started = true; start(t); };
+    n.stop = (t) => { n.stopped = t ?? Ctx.now; };
+    sources.push(n); return n;
+  }
   createWaveShaper() { return new Node(); } createDelay() { const n = new Node(); n.delayTime = new Param(); return n; }
   createBuffer(_c, n) { return { length: n, getChannelData: () => new Float32Array(n) }; }
 }
@@ -42,7 +49,7 @@ const fire = (t) => (t === 'visibilitychange' ? docListeners : listeners)[t]?.fo
 const settle = () => new Promise(r => setTimeout(r, 0)); // (resume()'s promise)
 const lagged = () => new Promise(r => setTimeout(r, 40)); // (a lagging resume() done)
 
-const { sfx, say, audio, audioState, holdSound, soundToggled } = await import('../src/client/audio.js');
+const { sfx, say, audio, audioState, holdSound, soundToggled, gameSound } = await import('../src/client/audio.js');
 const { PHRASES, STYLES } = await import('../src/client/voice.js');
 const src = readFileSync(new URL('../src/client/audio.js', import.meta.url), 'utf8');
 const recipes = [...src.matchAll(/^ {2}([a-z]+): \(b, t/gm)].map(m => m[1]);
@@ -127,6 +134,51 @@ test('the pause card holds the sound: suspended, nothing plays, no gesture resum
   audio.muted = false; soundToggled(); await settle();
   assert.equal(audioState(), 'running', 'switched on: running');
   assert.equal(heard(), true);
+});
+
+/** Wind sources started and not stopped. */
+const winds = () => sources.filter(n => n.loop && n.started && n.stopped === undefined);
+
+test('the wind bed plays in a game only: menu clicks play but start no wind; it starts on a game\'s first sound and is stopped when the game is over, at once while the pause card holds the sound', async () => {
+  assert.equal(audioState(), 'running');
+  assert.equal(heard('select'), true, 'a menu click plays');
+  assert.equal(winds().length, 0, 'no wind on the menu');
+  gameSound(true);
+  assert.equal(heard('build'), true);
+  assert.equal(winds().length, 1, 'a game\'s first sound starts the wind');
+  heard('select'); assert.equal(winds().length, 1, 'one wind');
+  const w = winds()[0];
+  gameSound(false);
+  assert.equal(winds().length, 0, 'the game over: the wind stopped');
+  assert.ok(w.stopped > Ctx.now, 'faded out over a moment while the context runs');
+  assert.equal(heard('select'), true, 'the end card\'s and the menu\'s clicks still play');
+  assert.equal(winds().length, 0, 'and start no wind');
+  gameSound(true); heard('build'); const w2 = winds()[0];
+  holdSound(true); gameSound(false); await settle();
+  assert.equal(w2.stopped, Ctx.now, 'left from the pause card: stopped at once, no tail when the context runs again');
+  holdSound(false); await settle();
+  gameSound(true); // (the tests below are in a game)
+});
+
+test('a hidden tab is silent: suspended, nothing scheduled, the pause card and the setting untouched; back in view it runs again, unless held or muted', async () => {
+  const c = Ctx.last, view = (v) => { document.visibilityState = v; fire('visibilitychange'); };
+  assert.equal(audioState(), 'running');
+  view('hidden'); await settle();
+  assert.deepEqual([audioState(), audio.muted], ['suspended', false], 'hidden: suspended, the sound setting on');
+  assert.equal(heard('build'), false, 'nothing scheduled while hidden (an online game\'s turns run on a timer: no sounds pile up)');
+  fire('click'); await settle(); assert.equal(audioState(), 'suspended', '(no gesture wakes a hidden tab)');
+  view('visible'); await settle();
+  assert.equal(audioState(), 'running', 'back in view: running');
+  assert.equal(heard('select'), true);
+  holdSound(true); view('hidden'); await settle(); const n = c.resumes;
+  view('visible'); await settle();
+  assert.deepEqual([audioState(), c.resumes], ['suspended', n], 'paused: back in view, still suspended');
+  holdSound(false); await settle(); assert.equal(audioState(), 'running', 'the card closed: running');
+  audio.muted = true; soundToggled(); view('hidden'); await settle();
+  view('visible'); await settle();
+  assert.equal(audioState(), 'suspended', 'muted: back in view, still suspended');
+  audio.muted = false; soundToggled(); await settle();
+  assert.equal(audioState(), 'running', 'switched on: running');
 });
 
 /** A sound asked for `ms` later on the page's clock: whether it was scheduled. */

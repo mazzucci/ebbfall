@@ -15,7 +15,7 @@ import { hash2 } from './raster.js';
 const T = 64, N = 128;
 const mulberry = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const isGrass = (d, i) => d[i + 1] > d[i] + 10 && d[i + 1] > d[i + 2] + 20;
-const isDirt = (d, i) => d[i] >= d[i + 1] - 2 && d[i] > d[i + 2] + 14 && d[i] > 84;
+const isDirt = (d, i) => d[i] >= d[i + 1] - 9 && d[i] > d[i + 2] + 12 && d[i] > 80;
 const isTop = (d, i) => Math.abs(d[i] - d[i + 1]) < 7 && d[i + 1] - d[i + 2] < 14 && d[i + 1] - d[i + 2] > -2 && d[i] > 78 && d[i] < 180;
 
 export function detailTile(m, variant = 0) {
@@ -46,7 +46,7 @@ export function detailTile(m, variant = 0) {
     const dirt = spot(10, isDirt, 60);
     if (dirt) {
       const a = rnd() * Math.PI, ca = Math.cos(a), sa = Math.sin(a);
-      for (const off of [-5, 5]) for (let s = -46; s <= 46; s += 0.5) { const x = dirt[0] + ca * s - sa * off + Math.sin(s / 7) * 1.2, y = dirt[1] + sa * s + ca * off; if (x > 5 && y > 5 && x < N - 5 && y < N - 5 && kindAt(x | 0, y | 0, isDirt)) { shade(x, y, 0.8); shade(x + 1, y, 0.86); shade(x - 1, y + 1, 1.1); } }
+      for (const off of [-5, 5]) for (let s = -46; s <= 46; s += 0.5) { const x = dirt[0] + ca * s - sa * off + Math.sin(s / 7) * 1.2, y = dirt[1] + sa * s + ca * off; if (x > 5 && y > 5 && x < N - 5 && y < N - 5 && kindAt(x | 0, y | 0, isDirt)) { shade(x, y, 0.93); shade(x + 1, y, 0.95); } }
       for (let k = 0; k < 5; k++) { const p = spot(3, isDirt, 20); if (p) { for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 2; dx++) shade(p[0] + dx, p[1] + dy, 0.84); shade(p[0], p[1] + 4, 0.86); shade(p[0] + 1, p[1] + 4, 0.86); } }
       for (let k = 0; k < 6; k++) { const p = spot(3, isDirt, 20); if (p) pebble(p[0], p[1], 1 + (k % 3 === 0 ? 1 : 0)); }
     }

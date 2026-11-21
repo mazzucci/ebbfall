@@ -221,8 +221,8 @@ export function serverHallDetail(M, g, { W, D: DP, H, Y0, TOP, BW, BH, BD }) {
 function mineDetailMats(M) {
   if (M.dt) return M.dt;
   return M.dt = {
-    moss: std({ color: 0x55703a, roughness: 1, flatShading: true }), mossDark: std({ color: 0x3e5630, roughness: 1, flatShading: true }),
-    tuft: std({ color: 0x66883e, roughness: 1 }), cut: std({ color: 0x8a7a62, roughness: 1 }), rope: std({ color: 0x8c8068, roughness: 1 }),
+    moss: std({ color: 0x3c4c2a, roughness: 1, flatShading: true }), mossDark: std({ color: 0x2e3c24, roughness: 1, flatShading: true }),
+    tuft: std({ color: 0x486030, roughness: 1 }), cut: std({ color: 0x8a7a62, roughness: 1 }), rope: std({ color: 0x8c8068, roughness: 1 }),
     halo: new THREE.MeshBasicMaterial({ color: 0xffb050, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false }),
   };
 }
@@ -242,7 +242,7 @@ export function mineDetail(C, M, g, { st, PZ, PX, PH, MW }) {
   const blob = (r, mat, x, y, z, sx, sy, sz, ry = 0) => { const m = add(g, lump(r), mat, x, y, z, 0, ry, 0); m.scale.set(sx, sy, sz); return m; };
   // moss: flat lumps on the lit tops of the flank crags, the dark crag behind, the yard's boulder, the slab's east shoulder
   for (const [x, y, z, r, k] of [[-33, 16.6, -9, 6, 0], [-25, 21.2, -29, 5.5, 1], [40.5, 7.0, 13, 3.6, 0], [26, 25.0, -3, 4.2, 1], [-41, 7.2, 3.5, 3.6, 1], [13, 31.2, -20, 3.6, 0]]) {
-    blob(r, k ? D.mossDark : D.moss, x, y, z, 1.25, 0.22, 1.0, rnd() * 3); blob(r * 0.55, k ? D.moss : D.mossDark, x + r * 0.5, y + 0.3, z + r * 0.3, 1.1, 0.25, 1.0, rnd() * 3);
+    for (let q = 0; q < 5; q++) { const a = rnd() * 6.3, d = q ? r * (0.35 + rnd() * 0.55) : 0; blob(r * (q ? 0.3 + rnd() * 0.22 : 0.5), (q + k) % 2 ? D.mossDark : D.moss, x + Math.cos(a) * d, y + (q ? -0.3 : 0.1), z + Math.sin(a) * d * 0.8, 1.2, 0.3, 1.0, rnd() * 3); } // a patch: one lump and four smaller round it
   }
   // grass tufts and pebbles at the apron's edge and along the scree
   for (const [x, z] of [[-45, 18], [-38, 33], [-22, 43], [20, 44], [38, 34], [46, 20], [-47, -4], [47, 3], [-13, 14], [14, 15]]) for (let k = 0; k < 4; k++) add(g, cone(0.75, 3.2 + rnd() * 1.8, 5), D.tuft, x + (rnd() - 0.5) * 3, 1.5, z + (rnd() - 0.5) * 2.4, (rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5);

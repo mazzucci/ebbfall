@@ -640,15 +640,15 @@ async function groundSheet() {
     ['6-whole-map.png', 'The whole map (Dust Quarter, 96x96, seed 1291): a tools-only zoom, the HUD hidden'],
     ['9-seed-2026-whole-map.png', 'Another seed (96x96, seed 2026): the whole map'], ['10-map-128-whole-map.png', 'A larger map (Iron Compass, 128x128, eight starts): the whole map'],
     ['11-shore-whole-map.png', 'A map with water (Mirror Lake, 64x64): the whole map'],
-    ...[...new Set(['main', 'pr'].flatMap(t => { try { return readdirSync(join(out, t)); } catch { return []; } }))].filter(f => /^12-.*--crop\.png$/.test(f)).sort().map(f => [f, `A pass a track runs through (${f.includes('lake') ? 'Mirror Lake' : 'the 128 map'}), 1:1`, true]),
+    ...[...new Set(['main', 'pr'].flatMap(t => { try { return readdirSync(join(out, t)); } catch { return []; } }))].filter(f => /^12-.*--crop\.png$/.test(f)).sort().map(f => [f, `A pass a track runs through (${f.includes('lake') ? 'Mirror Lake' : 'the 128 map'}), 1:1${existsSync(join(out, 'proto', f)) ? ': the options\' prototype (left, before) and this PR' : ''}`, true, 0, existsSync(join(out, 'proto', f)) ? 'proto' : 'main']),
   ];
   const css = `body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 2352px; }
     h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; } h2 { font-size: 18px; margin: 26px 0 6px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; } figure { margin: 0; } img { width: 100%; display: block; outline: 1px solid #444; }
     img.own { width: auto; max-width: 100%; } img.px { image-rendering: pixelated; } figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }`;
-  const rows = ROWS.filter(([f]) => existsSync(join(out, 'main', f)) || existsSync(join(out, 'pr', f))).map(([f, head, own, k]) => {
+  const rows = ROWS.filter(([f]) => existsSync(join(out, 'main', f)) || existsSync(join(out, 'pr', f))).map(([f, head, own, k, left = 'main']) => {
     const img = (dir) => existsSync(join(out, dir, f)) ? `<img ${own ? 'class="own"' : k ? `class="own px" style="width:${168 * k}px"` : ''} src="${dir}/${f}">` : '<p>(not shot)</p>';
-    return `<h2>${head}</h2><div class="row"><figure>${img('main')}<figcaption>main</figcaption></figure><figure>${img('pr')}<figcaption>this PR</figcaption></figure></div>`;
+    return `<h2>${head}</h2><div class="row"><figure>${img(left)}<figcaption>${left === 'proto' ? 'the prototype (?ground=4 on ground-options)' : 'main'}</figcaption></figure><figure>${img('pr')}<figcaption>this PR</figcaption></figure></div>`;
   }).join('');
   writeFileSync(join(out, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>${css}</style><h1>The ground: main (left) and this PR (right)</h1>
     <p>One staged game, the clock held: the same world in both columns. Open the stills themselves for full size; the 1:1 pieces here are at a player's own pixels.</p>${rows}`);

@@ -21,6 +21,7 @@ mkdirSync(out, { recursive: true }); mkdirSync(work, { recursive: true });
 const ff = (args, capture = false) => { const r = spawnSync(FFMPEG, ['-y', '-hide_banner', '-nostats', '-loglevel', capture ? 'info' : 'error', ...args], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: capture ? 'pipe' : ['ignore', 'inherit', 'inherit'] }); if (r.status !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}\n${r.stderr || ''}`); return r.stderr; };
 const TOTAL = END / FPS, CARD_AT = at('card') / FPS;
 const GAME_UNDER_DB = -7; // the game's sound under the music, once it enters
+const QUIET_UP_DB = 14;   // the opening's quiet bed, lifted
 
 /** The warp, in the page (an OfflineAudioContext): a whine rising from `grow` to `hit` (two oscillators and a band of
  *  noise sweeping up), cut dead by a low thump with air after it. */
@@ -57,9 +58,14 @@ const pre = loudness(gameWav), gameGain = Math.min(14, -22 - +pre.input_i);
 const bed = `${work}/music.wav`;
 ff(['-i', music, '-filter_complex', `[0:a]atrim=start=${MUSIC.in}:end=${MUSIC.in + (TOTAL - KING_AT)},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:st=0:d=0.008,adelay=delays=${Math.round(KING_AT * 1000)}:all=1[m];anullsrc=r=48000:cl=stereo,atrim=0:${TOTAL}[z];[z][m]amix=inputs=2:normalize=0:dropout_transition=0,apad,atrim=0:${TOTAL}[bed]`, '-map', '[bed]', '-c:a', 'pcm_s24le', '-ar', '48000', bed]);
 const bedGain = -15 - +loudness(bed).input_i;
+// The game's level over time: the quiet opening (the wind, the key ticks, the picks) lifted by QUIET_UP_DB, but not the
+// warp (its whine and thump are loud as made: the lift eases off before it grows and back after the thump's tail), then
+// under the music from the King's card.
+const H = (10 ** (QUIET_UP_DB / 20)).toFixed(4), U = (10 ** (GAME_UNDER_DB / 20)).toFixed(4), A = GROW_T - 0.25, B = WARP_T + 1.5;
+const ride = `if(lt(t,${A}),${H},if(lt(t,${A + 0.2}),${H}+(1-${H})*(t-${A})/0.2,if(lt(t,${B}),1,if(lt(t,${B + 0.6}),1+(${H}-1)*(t-${B})/0.6,if(lt(t,${KING_AT}),${H},${U})))))`.replace(/,/g, '\\,');
 const sum = `${work}/sum.wav`;
 ff(['-i', bed, '-i', gameWav, '-filter_complex',
-  `[0:a]volume=${bedGain.toFixed(2)}dB[m];[1:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${gameGain.toFixed(2)}dB,volume='if(lt(t,${KING_AT}),1,${(10 ** (GAME_UNDER_DB / 20)).toFixed(4)})':eval=frame,afade=t=out:st=${(CARD_AT - 0.03).toFixed(3)}:d=0.03[g];[m][g]amix=inputs=2:normalize=0:duration=first[s]`,
+  `[0:a]volume=${bedGain.toFixed(2)}dB[m];[1:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${gameGain.toFixed(2)}dB,volume='${ride}':eval=frame,afade=t=out:st=${(CARD_AT - 0.03).toFixed(3)}:d=0.03[g];[m][g]amix=inputs=2:normalize=0:duration=first[s]`,
   '-map', '[s]', '-c:a', 'pcm_s24le', sum]);
 // To -16 LUFS by a plain gain (loudnorm's dynamic mode would flatten the quiet opening against the music), a limiter
 // (4x oversampled) only where that gain pushes a peak over, then loudnorm's linear pass for the last fraction.
@@ -98,7 +104,7 @@ still(KING_AT + 3.6, `${out}/poster.jpg`); still(TOTAL - 0.5, `${out}/poster-end
 }
 writeFileSync(`${out}/credit.txt`, 'Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / https://creativecommons.org/licenses/by/4.0/ (edited)\n');
 const fin = loudness(master, -1), size = (f) => `${(statSync(f).size / 1e6).toFixed(2)} MB`;
-const report = { seconds: TOTAL, music: { in: KING_AT, chord: CARD_AT, source: MUSIC }, gameGainDb: +gameGain.toFixed(2), gameUnderMusicDb: GAME_UNDER_DB, gameAloneLufs: +pre.input_i,
+const report = { seconds: TOTAL, music: { in: KING_AT, chord: CARD_AT, source: MUSIC }, gameGainDb: +gameGain.toFixed(2), gameUnderMusicDb: GAME_UNDER_DB, quietOpeningLiftDb: QUIET_UP_DB, gameAloneLufs: +pre.input_i,
   loudness: { integrated: +fin.input_i, truePeak: +fin.input_tp, range: +fin.input_lra }, wav: (({ input_i, input_tp }) => ({ integrated: +input_i, truePeak: +input_tp }))(loudness(wavOut, -1)),
   sizes: { master: size(master), web: size(web), wav: size(wavOut) }, webKbps: kbps };
 writeFileSync(`${work}/report.json`, JSON.stringify(report, null, 1));

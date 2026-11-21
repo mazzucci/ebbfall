@@ -547,3 +547,77 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   #tools{top:65px;right:17px} #tut{top:65px;left:17px} #helpSheet{top:65px;right:17px;max-height:calc(100% - 82px)}
   #msg,#hint,:is(#btnBox,#btnHome,#btnArmy){translate:9px -9px}
 }
+/* The desktop HUD (a mouse in a window at least 1100 x 560 px; under it, and on every touch screen, all of the above as
+   it is): the same floating layout at a monitor's size, each piece in one frame. The top bar becomes two corner
+   clusters (gold and POP, large and white, top left; the clock and the buttons, icons only, top right), the minimap
+   236 units, the selection console up to 760, the command card's slots 88 x 68 (the same three columns, slots and
+   keys); type larger and brighter in the same faces. Sizes are in `--u`: 1 px at 1440 x 810, 0.9 at 1280 x 720 (the
+   least), 1.33 at 1920 x 1080, 1.4 at most, so a larger window gets a larger HUD as the start zoom gives it larger
+   units. hud.js reads the same unit for the portraits (`porSize`), render.js the minimap's top for the camera's room
+   past the foot. */
+@media (min-width:1100px) and (min-height:560px) and (pointer:fine){
+  :root{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.4px);--m:calc(var(--u)*16);--fg2:#b6c3d2;--edge:#3d526b;--well:#0a1018;
+    --lift:inset 0 1px 0 rgba(255,255,255,.08);--plate:linear-gradient(180deg,rgba(27,38,53,.95),rgba(15,22,32,.95));--drop:0 6px 22px rgba(0,0,0,.55)}
+  /* the top bar: no bar, its two ends as plates in the corners (the map shows between them) */
+  #top{top:0;left:0;right:0;height:auto;padding:var(--m) var(--m) 0;gap:0;background:none;border:0;border-radius:0;box-shadow:none;pointer-events:none}
+  #top>*{pointer-events:auto} #top .spacer{pointer-events:none}
+  .ib.icon .t{display:none} /* (the icon alone: the word is the button's title and label) */
+  #top .ib{width:calc(var(--u)*40);height:calc(var(--u)*40);margin-left:calc(var(--u)*6);padding:0;display:grid;place-items:center;
+    background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
+  #top .ib:hover{border-color:var(--ally)} #top .ib .ico{width:calc(var(--u)*19);height:calc(var(--u)*19)} #top .ib.help{font-size:calc(var(--u)*18)}
+  .res{font-size:calc(var(--u)*24);color:#f3f6fa;gap:calc(var(--u)*9)}
+  .res .dot{width:calc(var(--u)*25);height:calc(var(--u)*21)}
+  .res .lbl{font:600 calc(var(--u)*12)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
+  #top .res:not(#resClock){height:calc(var(--u)*48);padding:0 calc(var(--u)*16);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
+  #resShard{border-radius:calc(var(--u)*8) 0 0 calc(var(--u)*8)} #top #resSup{border-left:0;border-radius:0 calc(var(--u)*8) calc(var(--u)*8) 0}
+  #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*2);font-size:calc(var(--u)*17);color:var(--fg2);
+    background:var(--plate);border:1px solid var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
+  #tools,#tut,#helpSheet{top:calc(var(--m) + var(--u)*58)} #tools,#helpSheet{right:var(--m)} #tut{left:var(--m)}
+  #helpSheet{max-height:calc(100% - 2 * var(--m) - var(--u)*58)}
+  /* the panels at the foot: the minimap in a double frame, the console and the card on plates */
+  #hud{left:var(--m);right:var(--m);bottom:var(--m);gap:calc(var(--u)*14)}
+  #minimap{width:calc(var(--u)*236);height:calc(var(--u)*236);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
+    box-shadow:0 0 0 calc(var(--u)*4) #101822,0 0 0 calc(var(--u)*4 + 1px) #34475f,var(--drop)}
+  #info{width:min(calc(var(--u)*760),calc(100% - var(--u)*600));max-height:calc(var(--u)*190);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
+    background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
+  #info h2{font-size:calc(var(--u)*21)}
+  #info .sub,#info .what{font-size:calc(var(--u)*14);color:var(--fg2)}
+  #info .id{gap:calc(var(--u)*7)}
+  #hpNum{font-size:calc(var(--u)*18)}
+  .life .bar{height:calc(var(--u)*9)} .life .bars{max-width:calc(var(--u)*260)}
+  .st{font-size:calc(var(--u)*21);gap:calc(var(--u)*6)} .st .ico{width:calc(var(--u)*21);height:calc(var(--u)*21);color:var(--fg2)}
+  #selPor{width:calc(var(--u)*86);height:calc(var(--u)*86);border-radius:calc(var(--u)*6);background:var(--well);border-color:var(--edge)}
+  #group{gap:calc(var(--u)*5)}
+  .gi{width:calc(var(--u)*50);height:calc(var(--u)*56);border-radius:calc(var(--u)*4);background:var(--well);border-color:#2f4157;padding-top:calc(var(--u)*2)}
+  .gi:hover{border-color:var(--ally)} .gi .por{margin-left:calc(var(--u)*2)}
+  .gi::before,.gi i{left:calc(var(--u)*3);right:calc(var(--u)*3);bottom:calc(var(--u)*3);height:calc(var(--u)*4)}
+  .gi b{font-size:calc(var(--u)*11);line-height:1.25;right:calc(var(--u)*2);bottom:calc(var(--u)*9);padding:0 calc(var(--u)*3)}
+  .qe,.qi{width:calc(var(--u)*44);height:calc(var(--u)*44);border-radius:calc(var(--u)*4)}
+  .qi .ico.gl{width:calc(var(--u)*32);height:calc(var(--u)*32)} .qi .left{font-size:calc(var(--u)*12);line-height:1.3}
+  .qi .x{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
+  #mod .q{max-width:calc(var(--u)*250);gap:calc(var(--u)*6)} #mod .q .bar.prod{height:calc(var(--u)*9)}
+  #mod .rq>.ico{width:calc(var(--u)*44);height:calc(var(--u)*44)} #mod>.bar.build{width:calc(var(--u)*260);height:calc(var(--u)*10)}
+  .rt{font-size:calc(var(--u)*17)} .rs{min-width:calc(var(--u)*250)} .rs>.ico{width:calc(var(--u)*38);height:calc(var(--u)*38)}
+  /* the command card: three columns of 88 x 68 slots; a blank slot drawn as a well, so the grid reads as a grid; with an
+     army selected (card.js `army`: a couple of orders) the wells near the panel's own tone, no edge: two buttons never
+     sit in a field of boxes. The slots never move or shrink: the keys keep their places. */
+  #cmd{grid-template-columns:repeat(3,calc(var(--u)*88));grid-template-rows:repeat(2,calc(var(--u)*68));grid-auto-rows:calc(var(--u)*68);gap:calc(var(--u)*5);padding:calc(var(--u)*7);
+    border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop);
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%23080d14' fill-opacity='.72' stroke='%232a3a4e' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/calc(var(--u)*93) calc(var(--u)*73) repeat content-box content-box,
+      linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92)) padding-box}
+  #cmd.army{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%230c121a' fill-opacity='.4'/%3E%3C/svg%3E"),linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92))}
+  .cb{font-size:calc(var(--u)*12.5);border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
+  .cb.active{background:#2a2415;border-color:var(--ally)} .cb:hover{border-color:var(--ally)}
+  .cb .ico{width:calc(var(--u)*24);height:calc(var(--u)*24)} .cb .ico.gl{width:calc(var(--u)*31);height:calc(var(--u)*31)}
+  .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:calc(var(--u)*11);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
+  .cb .c{font-size:calc(var(--u)*12);padding:0 calc(var(--u)*6)} .cb .c .dot{width:calc(var(--u)*10);height:calc(var(--u)*8)}
+  .cb .c .p .ico{width:calc(var(--u)*10);height:calc(var(--u)*10)}
+  .cb.badge::after,.cb.done::after{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
+  /* toasts and hints over the minimap, clear of it */
+  .toast{font-size:calc(var(--u)*14);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
+  #hint{font-size:calc(var(--u)*13)} #hint.placing,#hint.boxing{font-size:calc(var(--u)*16)}
+  #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--u)*250)}
+  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--u)*284)} /* (as specific as the mouse's own rule, which names #btnBox) */
+  .tb{font-size:calc(var(--u)*12);padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:calc(var(--u)*13)}
+  #cmdInfo{font-size:calc(var(--u)*13)}
+}

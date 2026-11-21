@@ -575,7 +575,7 @@ const darkEdges = (d, band = 3, step = 6) => d.eval(([band, step]) => {
 }, [band, step]);
 
 for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
-  test(`desktop ${w}x${h} edge to edge: the canvas fills the window under the floating top bar; all the way out the map is as wide as the window at least; pushed into each corner (the minimap, then the arrow keys) no dark past the map, and a Balloon at each corner comes out from under the bars and the panels and is selected with a click`, async () => {
+  test(`desktop ${w}x${h} edge to edge: the canvas fills the window under the top bar's corner clusters; all the way out the map is as wide as the window at least; pushed into each corner (the minimap, then the arrow keys) no dark past the map, and a Balloon at each corner comes out from under the bars and the panels and is selected with a click`, async () => {
     const d = await newGame({ viewport: { width: w, height: h } }, 1, 4242, { ai: false });
     try {
       const lay = await d.eval(() => {
@@ -583,7 +583,7 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
         return { canvas: r('game'), top: r('top'), topPos: getComputedStyle(document.getElementById('top')).position, view: [endfall.view.w, endfall.view.h], win: [innerWidth, innerHeight] };
       });
       assert.deepEqual(lay.canvas, [0, 0, w, h], `the canvas is the whole window: ${JSON.stringify(lay)}`);
-      assert.ok(lay.topPos === 'fixed' && lay.top[1] >= 8 && lay.top[3] <= 50, `the top bar floats over the map where it stood: ${JSON.stringify(lay)}`);
+      assert.ok(lay.topPos === 'fixed' && lay.top[1] >= 0 && lay.top[3] <= 100, `the top bar's clusters float over the map at the top: ${JSON.stringify(lay)}`);
       assert.deepEqual(lay.view, [w, h], 'render.js sees the window');
       await d.eval(() => {
         endfall.fog(false); // (the dark past the map told from the ground, never from unexplored fog)
@@ -596,7 +596,7 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
       const mm = await d.page.locator('#minimap').boundingBox(), topBar = lay.top[3];
       for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
         const where = `${cy ? 'bottom' : 'top'}-${cx ? 'right' : 'left'}`;
-        await d.page.mouse.click(mm.x + 2 + cx * (mm.width - 4), mm.y + 2 + cy * (mm.height - 4)); // (the minimap's corner: the camera jumps, clamped)
+        await d.page.mouse.click(mm.x + 4 + cx * (mm.width - 8), mm.y + 4 + cy * (mm.height - 8)); // (the minimap's corner, inside its rounded edge: the camera jumps, clamped)
         await d.page.mouse.move(w / 2, h / 2);
         const keys = [cx ? 'ArrowRight' : 'ArrowLeft', cy ? 'ArrowDown' : 'ArrowUp'];
         for (const k of keys) await d.page.keyboard.down(k);
@@ -605,7 +605,8 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
         const c = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x, y: c.y, zoom: c.zoom, vw: v.w / c.zoom, vh: v.h / c.zoom }; });
         assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
         const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
-        assert.ok(cy ? Math.abs(past - 170) < 1e-6 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? 'foot only as far as the panels cover (170 px)' : 'top only as far as the bar covers'}: ${past}`);
+        const foot = h - mm.y + 4; // (render.js footRoom: up to the minimap's top, the tallest panel at the foot, and 4 px)
+        assert.ok(cy ? Math.abs(past - foot) < 1 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? `foot only as far as the panels cover (${foot} px)` : 'top only as far as the bar covers'}: ${past}`);
         const dark = await darkEdges(d);
         for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);
         // the corner's Balloon: on the map, clear of every panel, and a click on its body (low on it: at the top its art
@@ -634,6 +635,46 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
     } finally { await d.close(); }
   });
 }
+
+test('desktop 1920x1080 HUD: an army selected through the UI, the top bar\'s two corner clusters, the minimap, the selection console and the command card are all on screen and none overlaps another; the card\'s blank slots are quiet wells (no edge), its buttons in their slots, three columns of 88 x 68 units', async () => {
+  const d = await newGame({ viewport: { width: 1920, height: 1080 } }, 1, 4242, { ai: false });
+  try {
+    const core = coreOf(await d.state());
+    await d.eval(([x, y]) => { for (let i = 0; i < 4; i++) endfall.engine.debugSpawn(0, 'trooper', x + i * 28, y); }, [core.x + 150, core.y + 90]);
+    await d.key('q'); // (the whole army: the four Guards)
+    await d.page.waitForFunction(() => endfall.ui.sel.length === 4 && document.querySelectorAll('#cmd button').length > 0);
+    await d.page.mouse.move(960, 400);
+    const got = await d.eval(() => {
+      const r = (q) => { const e = document.querySelector(q), b = e.getBoundingClientRect(), cs = getComputedStyle(e); return { q, l: b.left, t: b.top, r: b.right, b: b.bottom, shown: cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0 }; };
+      const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd);
+      return { boxes: ['#resShard', '#resSup', '#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause', '#minimap', '#info', '#cmd'].map(r),
+        left: r('#resShard').l, cols: cs.gridTemplateColumns, rows: cs.gridTemplateRows, u: Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810)), // (style.css --u)
+        army: cmd.classList.contains('army'), wells: cs.backgroundImage, buttons: [...cmd.children].map(e => e.dataset.id || 'gap'), words: getComputedStyle(document.querySelector('#btnFull .t') || document.body).display };
+    });
+    const what = JSON.stringify(got);
+    for (const b of got.boxes) assert.ok(b.shown && b.l >= 0 && b.t >= 0 && b.r <= 1920 && b.b <= 1080, `${b.q} on screen: ${what}`);
+    const at = Object.fromEntries(got.boxes.map(b => [b.q, b]));
+    // the clusters: gold and POP in the top-left corner, the clock and the four buttons in the top-right, a row each
+    assert.ok(at['#resShard'].l < 40 && at['#resSup'].l >= at['#resShard'].r - 1 && at['#resSup'].r < 960, `gold and POP, top left: ${what}`);
+    assert.ok(at['#btnPause'].r > 1880 && at['#resClock'].l > 960 && ['#btnHelp', '#btnFull', '#btnSound', '#btnPause'].every((q, i, a) => !i || at[q].l >= at[a[i - 1]].r), `the clock and the buttons, top right: ${what}`);
+    assert.ok(got.words === 'none', `the buttons are icons, the word their title: ${what}`);
+    // the panels at the foot: the minimap bottom left, the console in the middle, the card bottom right
+    assert.ok(at['#minimap'].l < 40 && at['#minimap'].b > 1020 && at['#cmd'].r > 1880 && at['#cmd'].b > 1020 && at['#info'].l >= at['#minimap'].r && at['#info'].r <= at['#cmd'].l, `the minimap, the console and the card along the foot: ${what}`);
+    assert.ok(Math.abs(at['#minimap'].r - at['#minimap'].l - 236 * got.u) < 1 && got.u > 1.3, `the minimap 236 units (about 315 px at 1920): ${what}`);
+    const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+    for (const [i, a] of got.boxes.entries()) for (const b of got.boxes.slice(i + 1)) assert.ok(!overlap(a, b), `${a.q} and ${b.q} do not overlap: ${what}`);
+    // the card: its slots as ever (three columns, Deselect in the corner), each 88 x 68 units; the blank ones quiet
+    const px = (v) => v.split(' ').map(parseFloat);
+    assert.ok(px(got.cols).length === 3 && px(got.cols).every(c => Math.abs(c - 88 * got.u) < 0.6) && px(got.rows).every(r => Math.abs(r - 68 * got.u) < 0.6), `three columns of 88 x 68 units: ${what}`);
+    assert.deepEqual(got.buttons, ['attack', 'hold', 'gap', 'gap', 'gap', 'deselect'], 'an army\'s card: Attack and Hold, Deselect in its corner');
+    assert.ok(got.army && /^url\(/.test(got.wells) && !/stroke/.test(got.wells), `an army's blank slots: wells near the panel's tone, no edge: ${what}`);
+    // the Castle's card (no army): the wells as wells again, with their edge
+    await d.clickEntity(core.id);
+    const wells = await d.eval(() => ({ army: document.getElementById('cmd').classList.contains('army'), bg: getComputedStyle(document.getElementById('cmd')).backgroundImage }));
+    assert.ok(!wells.army && /stroke/.test(wells.bg), `the Castle's card: the wells with their edge: ${JSON.stringify(wells)}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
 
 test('phone on its side: the map still in its box under the top bar, the camera as far past the edges as before (120 px; 60 at the top), no apron', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false });

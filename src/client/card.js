@@ -20,9 +20,13 @@ export function buildCard() {
   const items = cardItems().filter(i => !i.hidden);
   if (press.held && press.held[0] !== '@' && !items.some(i => i.id === press.held)) hideDetail(); // the held button is gone (selection changed; '@': held off the card)
   if (hover.id && !items.some(i => i.id === hover.id)) hideHover(); // the hovered one too
+  // An army's card (fighters selected, not their build pages): a couple of orders, its blank slots' wells quiet
+  // (style.css, the desktop HUD) so the buttons never sit in a field of boxes.
+  const sel = playerSel(), army = sel.length > 0 && !/^build/.test(ui.mode || '') && sel.every(x => x.kind === 'unit') && sel.some(u => !u.d.worker);
+  const c = $('cmd'); c.classList.toggle('army', army);
   const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key, i.cost, i.places]));
   if (key === cardKey) return; cardKey = key;
-  const c = $('cmd'); c.innerHTML = '';
+  c.innerHTML = '';
   const slots = items.length ? items[items.length - 1].slot + 1 : 0;
   for (let s = 0, k = 0; s < slots; s++) {
     const it = items[k]?.slot === s ? items[k++] : null;

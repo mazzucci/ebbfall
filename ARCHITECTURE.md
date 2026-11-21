@@ -137,7 +137,8 @@ src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sou
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens (the end card's line says what ended the game from the sim's `G.outWhy`: a side's last
                       building fell, it had nothing left to fight with and no gold to train more, or it conceded), events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
-src/style.css         all styling; design tokens at the top of :root
+src/style.css         all styling; design tokens at the top of :root; a desktop (a fine pointer, wider than 620 px) has the
+                      canvas edge to edge, the top bar floating over it as the HUD does; phones and tablets keep the box
 src/engine/           the client's view of the Rust sim: index.js starts instantiating the WASM (`ready`: nothing calls
                       the sim before it has resolved), core.js mirrors it into the
                       G / map / entity-object shape the client reads and turns orders into calls by id.
@@ -317,7 +318,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 900 px of the map across its window (never closer than ZOOM_MAX, 2.5), both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 900 px of the map across its window (never closer than ZOOM_MAX, 2.5), both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75; and never wider or taller than the map; a desktop's map edge to edge, `bleed`: the camera keeps to the map at the sides and past the top and the foot only as far as the floating top bar and panels cover, where the apron, rock drawn APRON tiles past the map with its edge's fog, shows instead of the dark; a phone's box keeps its room past every edge), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
@@ -905,7 +906,9 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       Chromium): one staged instant of seed 4242 under a held clock (the start's framing, then a fight
                       with 12 of ours box-selected through the UI), shot at 1440x900, 1920x1080 and 2560x1440 per START_SPAN
                       candidate (--spans) and on an 844x390 phone, a Knight's share of the canvas's height each, with a
-                      contact sheet; output to ../ebbfall-article/desktop-start (--out), not committed. It draws through
+                      contact sheet; output to ../ebbfall-article/desktop-start (--out), not committed. `--set edge --tag T`:
+                      the build at hand (ENDFALL_DIST) at those sizes, 3440x1440 and the phone, the start, two corners all
+                      the way out and the fight; `--set edge --sheet` lays tags today and edge side by side (desktop-edge). It draws through
                       `endfall.draw` (main.js: the HUD and one frame, tools only).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed

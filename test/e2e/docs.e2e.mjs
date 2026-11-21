@@ -61,9 +61,9 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       const sheet = d.page.locator('#helpSheet');
       assert.ok(await sheet.isVisible(), 'the sheet opens');
       assert.equal(await help.getAttribute('aria-expanded'), 'true');
-      const [s, stage] = await Promise.all([sheet.boundingBox(), d.page.locator('#stage').boundingBox()]);
+      const [s, stage, bar] = await Promise.all([sheet.boundingBox(), d.page.locator('#stage').boundingBox(), d.page.locator('#top').boundingBox()]);
       assert.ok(s.x + s.width <= stage.x + stage.width + 1 && s.y >= stage.y - 1 && s.y + s.height <= stage.y + stage.height + 1, 'inside the stage');
-      assert.ok(s.x + s.width > stage.x + stage.width - 20 && s.y < stage.y + 20, "in its top-right corner");
+      assert.ok(s.x + s.width > stage.x + stage.width - 20 && s.y >= bar.y + bar.height && s.y < bar.y + bar.height + 20, "in its top-right corner, under the top bar (a desktop's stage is the window: the bar floats over it)");
       const lines = await sheet.locator(d.touch ? '.lines.touch li' : '.lines.desk li').evaluateAll(ls => ls.filter(l => l.offsetParent).length);
       assert.equal(lines, 4, 'the controls in four lines, for this pointer');
       assert.match(await d.page.locator('#helpGoal').textContent(), /^Mine gold, raise Cottages for population/);

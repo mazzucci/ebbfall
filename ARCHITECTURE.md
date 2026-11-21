@@ -317,7 +317,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1200 px of the map across its window, both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 900 px of the map across its window (never closer than ZOOM_MAX, 2.5), both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
@@ -901,6 +901,12 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       How to play shows the loop at the start of its desktop section (lazy: the phone's loop is the
                       page's first media) and seven desktop rows have a gesture's loop on demand through the same ?
                       (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
+tools/view-capture.mjs  how the game looks on a desktop monitor against a landscape phone (npm run build first; a
+                      Chromium): one staged instant of seed 4242 under a held clock (the start's framing, then a fight
+                      with 12 of ours box-selected through the UI), shot at 1440x900, 1920x1080 and 2560x1440 per START_SPAN
+                      candidate (--spans) and on an 844x390 phone, a Knight's share of the canvas's height each, with a
+                      contact sheet; output to ../ebbfall-article/desktop-start (--out), not committed. It draws through
+                      `endfall.draw` (main.js: the HUD and one frame, tools only).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
 tools/menu-clip.mjs   public/menu/clip-<720|1280>.webp, the poster of the clip on the menu's first page: the game's own

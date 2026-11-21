@@ -67,7 +67,7 @@ function cells(S, seed, squash = 1.5) {
 // green, the hill's grays), so the overlays are of the family.
 const DIRT = [140, 122, 86], DIRT_DARK = [110, 94, 64], DIRT_WORN = [160, 142, 104], PEBBLE = [150, 144, 128];
 const STRAW = [124, 124, 66], STRAW_LIT = [158, 152, 90], STRAW_DARK = [98, 106, 56];
-const CLOVER = [48, 88, 50], CLOVER_LIT = [80, 124, 66];
+const CLOVER = [48, 88, 50], CLOVER_LIT = [64, 106, 58];
 const SLAB = [150, 141, 118], SLAB_LIT = [170, 161, 137], SLAB_DARK = [120, 112, 92], SEAM = [70, 84, 50];
 const CRAG = [140, 138, 130], CRAG_LIT = [168, 166, 156], CRAG_DARK = [112, 110, 103], CRAG_FACE = [36, 34, 32], CRAG_FACE2 = [78, 74, 68], CRACK = [62, 60, 56];
 
@@ -103,15 +103,15 @@ const PAINT = {
       return [c[0], c[1], c[2], Math.max(wash, blade * 0.84)];
     };
   },
-  // Clover: round leaves in a deeper, cooler green, thinning out the same way.
+  // Clover: soft round clumps in a deeper, cooler green, thinning out the same way (low in contrast: a dark mass, not dots).
   clover() {
     const inside = edge(411), cellOf = cells(16, 421, 1), washAt = per((x, y) => (pn(x, y, 8, 8, 431) - 0.5) * 0.3);
     return (m, v, x, y) => {
-      const e = inside(m, x, y), t = cellOf(x, y), r = 4.6 + t.id * 2.6;
-      const leaf = clamp01((r - t.d) / 2) * smooth(0.5, 0.64, e + (t.id - 0.5) * 0.7);
-      const wash = smooth(0.4, 0.78, e + washAt(x, y)) * 0.56;
-      const c = mix(CLOVER, mix(CLOVER_LIT, CLOVER, clamp01(t.d / r - 0.2)), leaf);
-      return [c[0], c[1], c[2], Math.max(wash, leaf * 0.8)];
+      const e = inside(m, x, y), t = cellOf(x, y), r = 5.5 + t.id * 3;
+      const leaf = clamp01((r - t.d) / 3) * smooth(0.5, 0.64, e + (t.id - 0.5) * 0.7);
+      const wash = smooth(0.4, 0.78, e + washAt(x, y)) * 0.62;
+      const c = mix(CLOVER, mix(CLOVER_LIT, CLOVER, clamp01(t.d / r - 0.1)), leaf);
+      return [c[0], c[1], c[2], Math.max(wash, leaf * 0.74)];
     };
   },
   // Flat slabs of bedrock, flush with the grass: no lip, no face, no shadow (a hill has all three), grass in the seams,

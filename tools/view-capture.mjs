@@ -548,7 +548,19 @@ async function groundSet() {
         if (want('minimap')) { await p.page.evaluate(() => endfall.draw()); await p.page.locator('#minimap').screenshot({ path: join(dir, '8-minimap.png') }); }
         if (want('fog')) {
           await p.page.evaluate(() => { endfall.engine.revealAll(false); endfall.fog(true); });
-          await still(p.page, '7-fog-1920x1080.png', 'start', { x: setup.hq.x * 0.5 + setup.field.x * 0.5, y: setup.hq.y * 0.5 + setup.field.y * 0.5 });
+          // (where the three meet: the explored tile out of sight with the most of its kind round it that has ground in sight and ground never seen within 7 tiles)
+          const edge = await p.page.evaluate(() => {
+            const { G, engine: e } = endfall, W = e.MW, H = e.MH, seen = (x, y) => G.vis[y * W + x], known = (x, y) => G.explored[y * W + x] && !G.vis[y * W + x];
+            let best = null;
+            for (let y = 8; y < H - 8; y += 2) for (let x = 8; x < W - 8; x += 2) {
+              if (!known(x, y)) continue;
+              let k = 0, s = 0, d = 0; for (let dy = -7; dy <= 7; dy++) for (let dx = -7; dx <= 7; dx++) { if (known(x + dx, y + dy)) k++; else if (seen(x + dx, y + dy)) s++; else d++; }
+              const score = Math.min(k, 2 * s, 2 * d); if (!best || score > best.score) best = { score, x: (x + 0.5) * e.TILE, y: (y + 0.5) * e.TILE, k, s, d };
+            }
+            return best;
+          });
+          log.setups.desk.fogAt = edge;
+          await still(p.page, '7-fog-1920x1080.png', 'start', edge || { x: setup.hq.x * 0.5 + setup.field.x * 0.5, y: setup.hq.y * 0.5 + setup.field.y * 0.5 });
           await p.page.locator('#minimap').screenshot({ path: join(dir, '8-minimap-fog.png') });
           await p.page.evaluate(() => { endfall.engine.revealAll(true); endfall.fog(false); });
         }
@@ -565,4 +577,51 @@ async function groundSet() {
   if (prev && only.length) { log.shots = [...prev.shots.filter(s => !log.shots.some(t => t.file === s.file)), ...log.shots]; log.setups = { ...prev.setups, ...log.setups }; log.paint = { ...prev.paint, ...log.paint }; }
   writeFileSync(join(dir, 'shots.json'), JSON.stringify(log, null, 1));
   console.log(JSON.stringify({ setups: log.setups, paint: log.paint, errors: log.errors }));
+}
+
+/** The ground set's sheets: for each option shot, <out>/option-N/sheet.html and sheet.png: today (left) beside the
+ *  option (right), a row per still, the 1:1 crops at their own pixels; and <out>/sheet-all.png: every build's whole map
+ *  and fight side by side. */
+async function groundSheet() {
+  const { existsSync } = await import('node:fs');
+  const NAMES = { 1: 'Option 1: meadows (tone only)', 2: 'Option 2: worn tracks and patches', 3: 'Option 3: hills and outcrops', 4: 'The mix: meadows, tracks, toned hills' };
+  const ROWS = [
+    ['1-start-1920x1080.png', 'The start, 1920x1080 at DPR 1, the start zoom (2.13)'], ['1-start-1920x1080--crop.png', 'The start: a piece at 1:1', true],
+    ['2-fight-1920x1080.png', 'A fight at 3:43, the army selected, 1920x1080 at DPR 1, the start zoom'], ['2-fight-1920x1080--crop.png', 'The fight: a piece at 1:1 (rings, bars, units on the ground)', true],
+    ['3-fight-2560x1440-dpr2.png', 'The fight, 2560x1440 device px (a 1280x720 window at DPR 2)'], ['4-fight-phone-844x390.png', 'The fight on a landscape phone, 844x390 at DPR 2'],
+    ['5-zoomed-out-1920x1080.png', 'All the way out (the zoom-out limit), 1920x1080'], ['7-fog-1920x1080.png', 'The fog on: in sight, explored and never seen'],
+    ['8-minimap.png', 'The minimap, the fog off (enlarged 3x)', false, 3], ['8-minimap-fog.png', 'The minimap, the fog on (enlarged 3x)', false, 3],
+    ['6-whole-map.png', 'The whole map (Dust Quarter, 96x96, seed 1291): a tools-only zoom, the HUD hidden'],
+    ['9-seed-2026-whole-map.png', 'Another seed (96x96, seed 2026): the whole map'], ['10-map-128-whole-map.png', 'A larger map (Iron Compass, 128x128, eight starts): the whole map'],
+  ];
+  const css = `body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 2352px; }
+    h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; } h2 { font-size: 18px; margin: 26px 0 6px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; } figure { margin: 0; } img { width: 100%; display: block; outline: 1px solid #444; }
+    img.own { width: auto; max-width: 100%; } img.px { image-rendering: pixelated; } figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }`;
+  const made = [1, 2, 3, 4].filter(n => existsSync(join(out, `option-${n}`, 'shots.json')));
+  for (const n of made) {
+    const rows = ROWS.filter(([f]) => existsSync(join(out, `option-${n}`, f))).map(([f, head, own, k]) => {
+      const img = (dir) => `<img ${own ? 'class="own"' : k ? `class="own px" style="width:${168 * k}px"` : ''} src="${dir}/${f}">`;
+      return `<h2>${head}</h2><div class="row"><figure>${img('../today')}<figcaption>today</figcaption></figure><figure>${img('.')}<figcaption>${NAMES[n]} (?ground=${n})</figcaption></figure></div>`;
+    }).join('');
+    writeFileSync(join(out, `option-${n}`, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>${css}</style><h1>The ground: today (left) and ${NAMES[n]} (right)</h1>
+      <p>One staged game, the clock held: the same world in both columns. Today's units and buildings. Open the stills themselves for full size; the 1:1 pieces here are at a player's own pixels.</p>${rows}`);
+  }
+  const cols = ['today', ...made.map(n => `option-${n}`)], label = (c) => c === 'today' ? 'today' : NAMES[+c.slice(7)];
+  const all = [['6-whole-map.png', 'The whole map'], ['5-zoomed-out-1920x1080.png', 'All the way out'], ['2-fight-1920x1080.png', 'The fight at the start zoom'], ['4-fight-phone-844x390.png', 'The phone'], ['7-fog-1920x1080.png', 'The fog']]
+    .map(([f, head]) => `<h2>${head}</h2><div class="row" style="grid-template-columns:repeat(${cols.length},1fr)">${cols.map(c => `<figure><img src="${c}/${f}"><figcaption>${label(c)}</figcaption></figure>`).join('')}</div>`).join('');
+  writeFileSync(join(out, 'sheet-all.html'), `<!doctype html><meta charset="utf-8"><style>${css} body { width: 3552px; }</style><h1>The ground options side by side</h1><p>The same stills of every build, small: for the pattern, not the pixels.</p>${all}`);
+  await start();
+  try {
+    const shot = async (dir, w) => {
+      const ctx = await browserContext({ viewport: { width: w, height: 1000 }, deviceScaleFactor: 1 }), page = await ctx.newPage();
+      await page.goto(pathToFileURL(join(dir, dir === out ? 'sheet-all.html' : 'sheet.html')).href);
+      await page.waitForFunction(() => [...document.images].every(i => i.complete));
+      await page.screenshot({ path: join(dir, dir === out ? 'sheet-all.png' : 'sheet.png'), fullPage: true, type: 'png' });
+      console.log(join(dir, 'sheet'));
+      await ctx.close();
+    };
+    for (const n of made) await shot(join(out, `option-${n}`), 2400);
+    await shot(out, 3600);
+  } finally { await stop(); }
 }

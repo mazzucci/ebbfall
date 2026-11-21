@@ -5,7 +5,7 @@
 export const FPS = 30;
 export const MUSIC = { in: 33.048, chord: 53.917, beat: 0.7036 };
 /** The King's card: the music's in point (seconds). */
-export const KING_AT = 14.4;
+export const KING_AT = 14.7; // (cut 4: 14.4; cut 5's DAY 2 is 0.3 s longer for its second line, and everything from here on moved with it as one block)
 const beatFrame = (b) => Math.round((KING_AT + b * MUSIC.beat) * FPS);
 /** DAY 1's cut from the landing to the Bots heading out (seconds). */
 export const ROLL_AT = 6.5;
@@ -24,7 +24,7 @@ export const CUT = [
   ['late3', beatFrame(26)],
   ['card', Math.round((KING_AT + MUSIC.chord - MUSIC.in) * FPS)], // the last chord
 ];
-export const END = 1200; // 40.0 s
+export const END = 1209; // 40.3 s (cut 4: 1200)
 export const at = (part) => CUT.find(c => c[0] === part)[1];
 export const lengthOf = (part) => { const i = CUT.findIndex(c => c[0] === part); return (i + 1 < CUT.length ? CUT[i + 1][1] : END) - CUT[i][1]; };
 
@@ -45,7 +45,9 @@ const line = (text, t0, cps) => ({ text, times: typeTimes(text, t0, cps) });
 const after = (l, gap = 0.35) => l.times.at(-1) + gap;
 const y2047 = line('2047.', 0.5, 5.5, 0);
 const d1a = line('The time jump worked.', 4.75), d1b = line('Sending out scouts.', ROLL_AT + 0.05); // (the second line on the cut to the Bots heading out)
-const d2a = line('This is 1447. No way home.', 0.75), d2b = line('We need the mines for power.', after(d2a));
+const d2a = line('This is 1447. No way home.', 0.75), d2b = line('We found thorium. The lights stay on.', after(d2a));
+/** DAY 2's base comes on as "The lights stay on." types (seconds of the part `day2`): from its first character to its last. */
+export const LIGHTS = { from: d2b.times[d2b.text.indexOf('The lights')], to: d2b.times.at(-1) };
 const d675 = line('This is home now.', 0.3, 24);
 export const TEXT = {
   year: { part: 'open', lines: [y2047] },
@@ -60,4 +62,12 @@ export function ticks() {
   const out = [];
   for (const t of Object.values(TEXT)) for (const l of t.lines) [...l.text].forEach((ch, i) => { if (ch !== ' ') out.push(+(at(t.part) / FPS + l.times[i]).toFixed(4)); });
   return out.sort((a, b) => a - b);
+}
+/** How bright the base's lights are at `t` of DAY 2 (0: dim, 1: on): dark with two faint flickers, a flicker as the
+ *  line starts, then up to steady by the line's end. */
+export function lights(t) {
+  const { from, to } = LIGHTS, u = t - from, f = (a, b, v) => (t >= a && t < b ? v : 0);
+  if (u < 0) return Math.max(f(1.3, 1.37, 0.22), f(1.43, 1.47, 0.12), f(from - 1.0, from - 0.93, 0.25));
+  if (u < 0.07) return 0.75; if (u < 0.17) return 0.1; if (u < 0.24) return 0.6; if (u < 0.34) return 0.2;
+  return Math.min(1, 0.45 + 0.55 * (u - 0.34) / Math.max(0.01, to - from - 0.34));
 }

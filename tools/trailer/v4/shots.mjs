@@ -2,7 +2,8 @@
 // for a segment's shape): each segment one staged game page, each part a file, a little longer than the cut needs
 // (script.mjs CUT trims it). Every camera is locked (one eased pull-back, on the last shot). The scenes use the debug
 // handle only (window.S, stage.mjs). Dust Quarter, but the Watchtower's two (Sunken Court, as the docs' clip).
-import { FPS, TEXT, typed, GROW_T, WARP_T, ROLL_AT, lengthOf } from './script.mjs';
+import { FPS, TEXT, typed, GROW_T, WARP_T, ROLL_AT, lengthOf, lights } from './script.mjs';
+import { makeDim } from './overlay.mjs';
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
@@ -292,7 +293,9 @@ export const SEGMENTS = [
     { name: 'roll', seconds: secs('roll'), cam: still('look', 1.5), overlay: (t) => ({ diary: diary(TEXT.day1, t + ROLL_AT) }) },
   ] },
   { id: 'xbase', as: 'vael', scene: xbaseScene, args: { turbines: [[-330, -150], [-410, -60]], androids: false }, parts: [
-    { name: 'day2', seconds: secs('day2'), cam: still('hq', 1.5, { x: -230, y: -110 }), overlay: (t) => ({ diary: diary(TEXT.day2, t) }) },
+    // (the base dim until "The lights stay on." types: overlay.mjs makeDim over where the base stands in this frame)
+    { name: 'day2', seconds: secs('day2'), cam: still('hq', 1.5, { x: -230, y: -110 }), pre: (page) => page.evaluate(makeDim, { x: 684, y: 236, w: 276, h: 304 }),
+      overlay: (t) => ({ diary: diary(TEXT.day2, t), dim: 1 - lights(t), lit: lights(t) }) },
     { name: 'raid', seconds: secs('raid'), cam: still('hq', 1.5, { x: -230, y: -110 }), pre: (page) => page.evaluate(ride, { from: { x: -215, y: -150 }, lead: 0.3 }) },
   ] },
   { id: 'king', as: 'humans', scene: castleScene, parts: [

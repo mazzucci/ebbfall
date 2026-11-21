@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 import { FFMPEG } from '../record.mjs';
 import { openStage } from '../stage.mjs';
 import { timeline, render } from '../sound.mjs';
-import { CUT, END, FPS, KING_AT, MUSIC, WARP_T, GROW_T, at, lengthOf, ticks } from './script.mjs';
+import { CUT, END, FPS, KING_AT, MUSIC, WARP_T, GROW_T, LIGHTS, at, lengthOf, ticks } from './script.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const [music, outArg] = process.argv.slice(2);
@@ -51,7 +51,8 @@ function loudness(file, tp = -1.5) {
 
 // ---- the sound ----
 const clips = CUT.map(([part, f0]) => ({ part, dir: dirOf(part), from: 0, to: lengthOf(part) / FPS, at: f0 / FPS })).filter(c => c.part !== 'card');
-const events = [...timeline(clips), ...ticks().map(t => ({ t, name: 'tick', gain: 0.55, pan: -0.25 }))].sort((a, b) => a.t - b.t);
+// (and the game's `ready` blip as DAY 2's base comes on, soft)
+const events = [...timeline(clips), ...ticks().map(t => ({ t, name: 'tick', gain: 0.55, pan: -0.25 })), { t: at('day2') / FPS + LIGHTS.from + 0.34, name: 'ready', gain: 0.5, pan: 0.4 }].sort((a, b) => a.t - b.t);
 const gameWav = `${work}/game.wav`, stage = await openStage();
 try { await render(stage, events, TOTAL, { from: 0, to: CARD_AT }, gameWav, warpSynth, { grow: GROW_T, hit: WARP_T }); } finally { await stage.close(); }
 // The game's sound alone before the King's card (brought to about -22 LUFS there: quiet under what follows, the warp

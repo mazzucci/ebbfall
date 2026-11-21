@@ -7,12 +7,11 @@ export const MUSIC = { in: 33.048, chord: 53.917, beat: 0.7036 };
 /** The King's card: the music's in point (seconds). */
 export const KING_AT = 14.7; // (cut 4: 14.4; cut 5's DAY 2 is 0.3 s longer for its second line, and everything from here on moved with it as one block)
 const beatFrame = (b) => Math.round((KING_AT + b * MUSIC.beat) * FPS);
-/** DAY 1's cut from the landing to the Bots heading out (seconds). */
+/** DAY 1: when the Bots head out, as the second line starts (seconds; cut 5 cut to a second shot here, cut 6 is one shot). */
 export const ROLL_AT = 6.5;
 /** The cut: [part, first frame on the timeline]; a part runs to the next one's start (the card to END). */
 export const CUT = [
   ['open', 0],            // the black card, the warp at WARP_T, the landing, DAY 1's first line
-  ['roll', ROLL_AT * FPS], // 6.5 s: the Bots head out, DAY 1's second line (cut 5)
   ['day2', 258],          // 8.6 s
   ['king', KING_AT * FPS], // 14.4 s: the music, on its downbeat
   ['muster', beatFrame(6)],
@@ -48,7 +47,7 @@ const d1a = line('The time jump worked.', 4.75), d1b = line('Sending out scouts.
 const d2a = line('This is 1447. No way home.', 0.75), d2b = line('We found thorium. The lights stay on.', after(d2a));
 /** DAY 2's base comes on as "The lights stay on." types (seconds of the part `day2`): from its first character to its last. */
 export const LIGHTS = { from: d2b.times[d2b.text.indexOf('The lights')], to: d2b.times.at(-1) };
-const d675 = line('This is home now.', 0.3, 24);
+const d675 = line('Still here.', 0.3, 24);
 export const TEXT = {
   year: { part: 'open', lines: [y2047] },
   day1: { part: 'open', day: 'DAY 1', dayAt: 4.3, lines: [d1a, d1b] },
@@ -63,11 +62,6 @@ export function ticks() {
   for (const t of Object.values(TEXT)) for (const l of t.lines) [...l.text].forEach((ch, i) => { if (ch !== ' ') out.push(+(at(t.part) / FPS + l.times[i]).toFixed(4)); });
   return out.sort((a, b) => a - b);
 }
-/** How bright the base's lights are at `t` of DAY 2 (0: dim, 1: on): dark with two faint flickers, a flicker as the
- *  line starts, then up to steady by the line's end. */
-export function lights(t) {
-  const { from, to } = LIGHTS, u = t - from, f = (a, b, v) => (t >= a && t < b ? v : 0);
-  if (u < 0) return Math.max(f(1.3, 1.37, 0.22), f(1.43, 1.47, 0.12), f(from - 1.0, from - 0.93, 0.25));
-  if (u < 0.07) return 0.75; if (u < 0.17) return 0.1; if (u < 0.24) return 0.6; if (u < 0.34) return 0.2;
-  return Math.min(1, 0.45 + 0.55 * (u - 0.34) / Math.max(0.01, to - from - 0.34));
-}
+/** DAY 2 (seconds of the part): the Bots that break off for the mine go as "We found thorium." starts; the base
+ *  stands a third into "The lights stay on." */
+export const THORIUM_AT = d2b.times[0] + 0.05, DONE_AT = LIGHTS.from + (LIGHTS.to - LIGHTS.from) * 0.35;

@@ -47,41 +47,6 @@ const CSS = `
 #trStreakV{top:0;bottom:0;width:2px;box-shadow:0 0 16px 4px rgba(140,235,245,.6)}
 `;
 
-/**
- * DAY 2's dim base (trailer only: nothing of the game's art or code changes): in the page, the stage's pixels inside
- * `rect` (CSS px; the camera is locked, so the base stays there) are read once from the game's canvas, and the lit
- * ones (the cyan of the chip, the windows and the trim: green and blue high, red well under them) are painted dark
- * into a canvas of the overlay's that lies over the base, under the diary. Its opacity is the dimming (`dim` in the
- * overlay's state): 1 the lights out, 0 the game's own picture. Returns how many pixels it holds.
- */
-export function makeDim(rect) {
-  const e = window.endfall, cv = document.getElementById('game'), k = cv.width / cv.clientWidth, box = cv.getBoundingClientRect();
-  const w = Math.round(rect.w * k), h = Math.round(rect.h * k), c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d', { willReadFrequently: true });
-  e.draw(); // (the drawing buffer is this frame's until the page composites)
-  g.drawImage(cv, Math.round((rect.x - box.left) * k), Math.round((rect.y - box.top) * k), w, h, 0, 0, w, h);
-  const img = g.getImageData(0, 0, w, h), d = img.data; let n = 0;
-  // (the same lit pixels as they are, for a second canvas over the diary's shade: the lights shine through it once on)
-  const lit = document.createElement('canvas'); lit.width = w; lit.height = h;
-  const lg = lit.getContext('2d'), li = lg.createImageData(w, h), ld = li.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], gr = d[i + 1], b = d[i + 2], lo = Math.min(gr, b);
-    // how lit: cyan-ness (green and blue over red) times brightness, soft at the edges
-    const m = Math.max(0, Math.min(1, (lo - r * 1.25 - 18) / 50)) * Math.max(0, Math.min(1, (lo - 70) / 60));
-    if (m > 0) n++;
-    ld[i] = r; ld[i + 1] = gr; ld[i + 2] = b; ld[i + 3] = Math.round(255 * m);
-    d[i] = Math.round(r * 0.32 + 6); d[i + 1] = Math.round(gr * 0.17 + 8); d[i + 2] = Math.round(b * 0.19 + 10); d[i + 3] = Math.round(255 * m);
-  }
-  g.putImageData(img, 0, 0); lg.putImageData(li, 0, 0);
-  lit.id = 'trLit'; lit.style.cssText = `position:absolute;left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;opacity:0;filter:drop-shadow(0 0 5px rgba(79,209,197,.55))`;
-  document.getElementById('trLit')?.remove();
-  document.getElementById('trShade').after(lit);
-  c.id = 'trDim'; c.style.cssText = `position:absolute;left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;opacity:0`;
-  document.getElementById('trDim')?.remove();
-  const tr = document.getElementById('tr'); tr.insertBefore(c, tr.firstChild);
-  return n;
-}
-
 /** Put the overlay into the page (once), its fonts loaded before the first frame. */
 export async function install(page) {
   const fell = readFileSync(FELL).toString('base64');
@@ -120,7 +85,6 @@ export async function install(page) {
  *   king { shade, lines: [a, a, a], tag } the King's card: its shade, each line, the rule and his name
  *   grade, veil                         the stage desaturated and darkened; a dark veil over it (the end card's)
  *   card { logo, line, url }            the end card's three
- *   dim                                 DAY 2's base dimmed this much (makeDim's canvas); `lit`: its lights over the shade this much
  */
 export function apply(page, s) {
   return page.evaluate((s) => {
@@ -150,7 +114,6 @@ export function apply(page, s) {
     const gr = s.grade || 0;
     document.getElementById('game').style.filter = gr > 0 ? `saturate(${1 - 0.5 * gr}) brightness(${1 - 0.4 * gr})` : '';
     op('trVeil', (s.veil || 0) * 0.63); op('trVig', Math.max(gr, s.veil || 0));
-    if ($('trDim')) { $('trDim').style.opacity = s.dim || 0; $('trLit').style.opacity = s.lit || 0; }
     op('trLogo', s.card?.logo); op('trLine', s.card?.line); op('trUrl', s.card?.url);
   }, s);
 }

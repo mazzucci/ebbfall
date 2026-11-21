@@ -2,8 +2,7 @@
 // for a segment's shape): each segment one staged game page, each part a file, a little longer than the cut needs
 // (script.mjs CUT trims it). Every camera is locked (one eased pull-back, on the last shot). The scenes use the debug
 // handle only (window.S, stage.mjs). Dust Quarter, but the Watchtower's two (Sunken Court, as the docs' clip).
-import { FPS, TEXT, typed, GROW_T, WARP_T, ROLL_AT, lengthOf, lights } from './script.mjs';
-import { makeDim } from './overlay.mjs';
+import { FPS, TEXT, typed, GROW_T, WARP_T, ROLL_AT, THORIUM_AT, DONE_AT, lengthOf } from './script.mjs';
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
@@ -28,41 +27,69 @@ function diary(T, t) {
 
 // ---- in the page: the scenes (plain functions, serialized: no closures; they read only window.S) ----
 
-/** The landing (cut 5: nothing of the Kingdom before the King's card): the Expedition's own start on Dust Quarter, the
- *  far corner from the Castle, played as the Expedition with no AI: its base alone on the grass (the mine is north of
- *  it, out of this frame; DAY 2 shows it), six Bots standing south-west of it, turned to it. It is there when the
- *  white clears: nothing is built in the shot. Returns `kingdom`: how near the nearest Kingdom piece is (px), for the log. */
-function landingScene() {
-  const { e, G, eng, K, X, hqOf, spawn, workers, byId } = window.S;
-  const hq = hqOf(X);
-  const spots = [[-150, 40], [-112, 84], [-186, 92], [-78, 128], [-150, 138], [-222, 46]];
-  const ws = workers(X);
-  // (a unit faces the way it last walked: each Bot starts a few steps farther out and walks in toward the base)
-  const ids = spots.map(([dx, dy], i) => { const p = { x: hq.x + dx * 1.25, y: hq.y + dy * 1.25 }; if (ws[i]) { eng.moveTo(ws[i], p.x, p.y); return ws[i].id; } return spawn(X, 'lumen', p); });
-  for (const w of ws.slice(spots.length)) eng.moveTo(w, hq.x + 420, hq.y + 40); // (any more: out of the frame)
-  e.skip(8);
-  ids.forEach((id, i) => { const u = byId(id); if (u) eng.moveTo(u, hq.x + spots[i][0], hq.y + spots[i][1]); });
-  e.skip(6); e.bars(false); G.events.length = 0;
-  const near = Math.min(...[...G.units, ...G.bldgs].filter(o => o.team === K).map(o => Math.hypot(o.x - hq.x, o.y - hq.y)));
-  return { hq: { x: hq.x, y: hq.y }, dc: { x: hq.x, y: hq.y }, look: { x: hq.x - 150, y: hq.y + 62 }, info: { hq: [hq.x, hq.y], kingdom: Math.round(near), near: window.S.census(hq, 900), bots: ids.map(id => { const u = byId(id); return u && [Math.round(u.x - hq.x), Math.round(u.y - hq.y)]; }) } };
+/** Cut 6's opening ground: a field by a thorium mine far from both starts (`mine`: the node's place on Dust Quarter;
+ *  the Expedition's own start, where the game puts its Data center, is 1,400 px east, the Kingdom's 2,600 px away):
+ *  where the base will stand (`site`: the free spot nearest `off` px from the mine), on window.S.field. */
+function fieldOf({ mine, off }) {
+  const { e, eng, X, spawn, spot, byId } = window.S;
+  const m = e.map.nodes.find(n => n.x === mine[0] && n.y === mine[1]); if (!m) throw new Error('field: no such mine');
+  const want = { x: m.x + off[0], y: m.y + off[1] };
+  const scout = spawn(X, 'lumen', want); e.skip(0.5); // (placing needs the ground seen)
+  const s = spot(X, 'conflux', want), d = eng.BUILDINGS.conflux; if (!s) throw new Error('field: no spot for the base');
+  eng.moveTo(byId(scout), want.x + 1800, want.y); e.skip(25); // (it goes home, far out of every frame)
+  return (window.S.field = { m, tx: s[0], ty: s[1], site: { x: (s[0] + d.w / 2) * 32, y: (s[1] + d.h / 2) * 32 } });
+}
+/** DAY 1 (cut 6): the warp lands only a crew of six Bots on the empty field: no building in sight, the mine out of
+ *  the frame. `scout` sends them out, each its own way. */
+function landingScene(arg) {
+  const { e, G, spawn } = window.S, { site } = (0, eval)(`(${arg.fieldOf})`)(arg);
+  const spots = [[-52, -22], [8, -40], [58, 2], [-30, 34], [28, 50], [-84, 26]];
+  const ids = spots.map(([dx, dy]) => spawn(window.S.X, 'lumen', { x: site.x + dx, y: site.y + dy }));
+  e.skip(2); e.bars(false); G.events.length = 0;
+  window.S.crew = { ids, site };
+  return { dc: site, look: { x: site.x - 110, y: site.y + 70 }, info: { site: [site.x, site.y], near: window.S.census(site, 900) } }; // (the frame's east edge stops short of the next mine)
+}
+function scout() {
+  const { eng, byId } = window.S, { ids, site } = window.S.crew;
+  const to = [[-760, -160], [120, -700], [760, -60], [-640, 420], [640, 420], [-800, 120]];
+  ids.forEach((id, i) => { const u = byId(id); if (u) eng.moveTo(u, site.x + to[i][0], site.y + to[i][1]); });
 }
 
-/** DAY 1's second shot (cut 5): Bots head out from the base to explore, fanning out over the empty ground south of it; `lead` seconds pass unseen, so they are on their way at the cut. Only
- *  Bots, nothing of the Kingdom. */
-function rolloutScene({ lead }) {
-  const { e, G, eng, X, hqOf, spawn, workers, byId } = window.S;
-  const hq = hqOf(X);
-  for (const w of workers(X)) eng.moveTo(w, hq.x + 250, hq.y - 250); // (the start's own Bots: out of the frame, north-east)
-  e.skip(10);
-  // (west is forest and the Bots' way round it runs south, under the caption: they cross the frame's upper half
-  // eastward instead, in a loose spread, each to its own heading)
-  const from = [[-340, 150], [-300, 212], [-250, 160], [-205, 222], [-160, 178], [-110, 232]];
-  const to = [[320, 90], [320, 300], [320, 130], [320, 420], [320, 200], [320, 360]];
-  const ids = from.map(([dx, dy]) => spawn(X, 'lumen', { x: hq.x + dx, y: hq.y + dy }));
-  ids.forEach((id, i) => eng.moveTo(byId(id), hq.x + to[i][0], hq.y + to[i][1]));
-  e.skip(lead); e.bars(false); G.events.length = 0;
-  return { hq: { x: hq.x, y: hq.y }, look: { x: hq.x - 150, y: hq.y + 262 }, info: { near: window.S.census(hq, 900) } };
+/** DAY 2 (cut 6): the Bots build the Data center on that field, the mine above it. `builders` Bots work on the site
+ *  (every Bot at work adds its share: that is the game's rule, and the staging's only speed-up), `idle` more stand by;
+ *  nothing overrides the build time: the shot starts with the site partly built (`siteReady`), so that at the game's
+ *  own speed it stands `doneAt` seconds in, `leave` of the builders and the idle ones having gone to the mine at
+ *  `leaveAt` (`toMine`). */
+function siteScene(arg) {
+  const { e, G, eng, X, spawn, byId } = window.S, { m, tx, ty, site } = (0, eval)(`(${arg.fieldOf})`)(arg);
+  const { builders, idle, leave, leaveAt, doneAt } = arg;
+  e.setResources(X, 2000, 0);
+  const bs = Array.from({ length: builders }, (_, i) => spawn(X, 'lumen', i % 2 ? { x: site.x - 50 + i * 24, y: site.y + 94 } : { x: site.x - 96, y: site.y - 56 + i * 26 }));
+  const waiting = Array.from({ length: idle }, (_, i) => spawn(X, 'lumen', { x: site.x - 160 - i * 30, y: site.y - 70 + i * 34 }));
+  e.skip(0.4);
+  const err = eng.placeBuilding(X, 'conflux', tx, ty, byId(bs[0])); if (err) throw new Error(`site: ${err}`);
+  const b = G.bldgs.find(b => b.type === 'conflux' && b.tx === tx && b.ty === ty);
+  for (const id of bs.slice(1)) eng.startBuild(byId(id), b);
+  // on to 45% with everyone at work, measuring a tick's progress; `siteReady` (once the recorder holds the clock, so
+  // not a tick passes unseen after it) runs it on to where the shot must start
+  let rate = 0, prev = b.progress;
+  for (let t = 0; t < 9000 && b.progress < 0.45; t++) { e.skip(1 / 30); rate = Math.max(rate, b.progress - prev); prev = b.progress; }
+  e.bars(false);
+  window.S.siteCrew = { m, b, rate, gone: [...bs.slice(builders - leave), ...waiting], arg };
+  return { site, mine: { x: m.x, y: m.y }, info: { site: [site.x, site.y], mine: [m.x - site.x, m.y - site.y], rate30: +(rate * 30).toFixed(4), near: window.S.census(site, 900) } };
 }
+/** Run the site on, unseen, until what is left of it is what the shot will build: every builder's share until `leaveAt`,
+ *  the remaining ones' until `doneAt`, at the game's own rate. Returns the progress the shot starts at. */
+function siteReady() {
+  const { e, G } = window.S, { b, rate, arg: { builders, leave, leaveAt, doneAt } } = window.S.siteCrew;
+  const left = rate * 30 * (leaveAt * builders + (doneAt - leaveAt) * (builders - leave)) / builders;
+  for (let t = 0; t < 3000 && b.progress < 1 - left; t++) e.skip(1 / 30);
+  G.events.length = 0;
+  return +b.progress.toFixed(4);
+}
+function toMine() { const { eng, byId } = window.S, { m, gone } = window.S.siteCrew; for (const id of gone) if (byId(id)) eng.startGather(byId(id), m); }
+/** Each Data center: whether it stands, and how far along it is (the record's log). */
+function siteState() { return window.S.G.bldgs.filter(b => b.type === 'conflux').map(b => [b.done, +b.progress.toFixed(3)]); }
 
 /** DAY 2 and the raid: the Expedition's start a day in (played as the Expedition): the base, a Recruiting post out of
  *  frame (the turbines need it), two Wind turbines west of the mine road (`turbines`: px from the base), Bots on the
@@ -284,18 +311,21 @@ const LAYOUT = [
 const COLUMN = [['monolith', -230, 170], ['monolith', -300, 190], ['umbra', -300, 30], ['umbra', -345, 55], ['umbra', -262, 48], ['umbra', -385, 85],
   ['scythe', 20, 120], ['scythe', 85, 150], ['shrike', -60, -60], ['shrike', -20, -20], ['shrike', 40, -90], ['shrike', -120, -110], ['shrike', 100, -40]];
 
+/** Cut 6's field: the mine north of the map's middle, the base's spot south of it. */
+const FIELD = { mine: [1376, 320], off: [70, 226], fieldOf: fieldOf.toString() };
+
 // ---- the segments ----
 export const SEGMENTS = [
-  { id: 'landing', as: 'vael', scene: landingScene, parts: [
-    { name: 'open', seconds: secs('open'), cam: LANDING_CAM, overlay: openOverlay },
+  { id: 'landing', as: 'vael', scene: landingScene, args: FIELD, parts: [
+    { name: 'open', seconds: secs('open'), cam: LANDING_CAM, at: [{ t: ROLL_AT, run: (page) => page.evaluate(scout) }], overlay: openOverlay },
   ] },
-  { id: 'rollout', as: 'vael', scene: rolloutScene, args: { lead: 0.25 }, parts: [
-    { name: 'roll', seconds: secs('roll'), cam: still('look', 1.5), overlay: (t) => ({ diary: diary(TEXT.day1, t + ROLL_AT) }) },
+  { id: 'site', as: 'vael', scene: siteScene, args: { ...FIELD, builders: 6, idle: 2, leave: 2, leaveAt: THORIUM_AT, doneAt: DONE_AT }, parts: [
+    { name: 'day2', seconds: secs('day2'), cam: still('site', 1.35, { x: -207, y: -96 }), pre: (page) => page.evaluate(siteReady),
+      at: [{ t: THORIUM_AT, run: (page) => page.evaluate(toMine) }, ...[3.5, 3.8, 4.1].map(t => ({ t, run: async (page) => console.log(`\n  site at ${t}: ${JSON.stringify(await page.evaluate(siteState))}`) }))],
+      overlay: (t) => ({ diary: diary(TEXT.day2, t) }) },
   ] },
   { id: 'xbase', as: 'vael', scene: xbaseScene, args: { turbines: [[-330, -150], [-410, -60]], androids: false }, parts: [
-    // (the base dim until "The lights stay on." types: overlay.mjs makeDim over where the base stands in this frame)
-    { name: 'day2', seconds: secs('day2'), cam: still('hq', 1.5, { x: -230, y: -110 }), pre: (page) => page.evaluate(makeDim, { x: 684, y: 236, w: 276, h: 304 }),
-      overlay: (t) => ({ diary: diary(TEXT.day2, t), dim: 1 - lights(t), lit: lights(t) }) },
+    { name: 'day2v5', seconds: secs('day2'), cam: still('hq', 1.5, { x: -230, y: -110 }), overlay: (t) => ({ diary: diary(TEXT.day2, t) }) }, // (cuts 4 and 5's DAY 2; cut 6's is `site`)
     { name: 'raid', seconds: secs('raid'), cam: still('hq', 1.5, { x: -230, y: -110 }), pre: (page) => page.evaluate(ride, { from: { x: -215, y: -150 }, lead: 0.3 }) },
   ] },
   { id: 'king', as: 'humans', scene: castleScene, parts: [

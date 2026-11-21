@@ -220,9 +220,17 @@ export const recordSummary = (on) => game.recordSummary(!!on);
  *  what it saw of its foes, the main fights and how the game ended, for a reader between games; null unless recorded
  *  (`recordSummary`). Still readable once `G.over`. Nothing player-facing shows it. */
 export function summary() { const j = game.summaryJson(); return j == null ? null : JSON.parse(j); }
+const previews = [];
 /** A map's layout for the menu's thumbnail, `size` x `size` tiles (64: a duel's; 96: four starts) with every start, one
- *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 4 a start (3, a mine shaft once, unused). */
-export const mapPreview = (seed, kind, size = DUEL_MW) => simMapPreview(seed, kind, size);
+ *  byte per tile: 0 ground, 1 rock, 2 a gold mine, 4 a start (3, a mine shaft once, unused). The last few are kept (a
+ *  map generated alone costs a game's start as much again on a phone: the menu's thumbnail and the ground's starts,
+ *  gl/groundplan.js, ask for the same one); each caller gets its own copy. */
+export function mapPreview(seed, kind, size = DUEL_MW) {
+  const key = `${seed >>> 0},${kind},${size}`;
+  let hit = previews.find(p => p.key === key);
+  if (!hit) { hit = { key, tiles: simMapPreview(seed, kind, size) }; previews.unshift(hit); previews.length = Math.min(previews.length, 4); }
+  return hit.tiles.slice();
+}
 
 // ---- orders (the future network command set) ----
 export const moveTo = (u, x, y) => touch(game.moveTo(u.id, x, y));

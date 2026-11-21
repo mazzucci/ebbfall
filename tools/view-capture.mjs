@@ -22,6 +22,15 @@
 //          1920x1080, 1440x900, 2560x1440-dpr2 (a 1280x720 window at DPR 2), phone-844x390 (DPR 2, touch), the melee
 //          close up (closeup-1920, closeup-dpr2), and at 1440x900 one unit selected (a click) and the Barracks with a
 //          queue (its buttons clicked). Every still at the start zoom of its window, the same world (one state hash).
+// --set ground: the ground's stills (../ebbfall-article/ground-pr/<tag>/), the build at hand (ENDFALL_DIST) tagged
+//          main or pr (--tag; --query adds to the game's link, as ground=4 for the options' prototype). The hud set's
+//          scene on the 96x96 Dust Quarter (?map=7&seed=1291: the random 96 map with the fixed map's seed, so the seat
+//          is fixed too), its fight in open ground toward the middle. 1920x1080: the start, the fight (the army
+//          selected), the zoom-out limit, the whole map (a tools-only zoom, the HUD hidden, a 1536x1536 window), the fog
+//          on, the minimap; the fight at 2560x1440 (DPR 2) and on the phone (DPR 2); the whole map of a second seed, of
+//          a 128x128 map and of the Lake; `gates`: 1:1 crops of the passes on the 128 map and the foot of the Lake
+//          (--gates x,y;x,y world px on the 128 map, --lake x,y;... on the Lake). --only a,b: some stills only (start
+//          fight out whole fog minimap retina phone seed2 big shore gates). --sheet: main beside pr.
 // The scene (seed 4242, the Kingdom against the Expedition, the AI off, the fog off). The page's clock is held before
 // the game starts, so the main loop never steps: the world moves only by `endfall.skip`, each shot is drawn with
 // `endfall.draw` (the HUD, then the map). Two instants:
@@ -40,7 +49,7 @@ import { FFMPEG } from './trailer/record.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = fileURLToPath(new URL('..', import.meta.url));
 const SET = arg('--set', 'start'), TAG = arg('--tag', 'today');
-const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', tablet: '../ebbfall-article/tablet-edge', hud: '../ebbfall-article/hud-pr' }[SET] || '../ebbfall-article/desktop-start')));
+const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', tablet: '../ebbfall-article/tablet-edge', hud: '../ebbfall-article/hud-pr', ground: '../ebbfall-article/ground-pr' }[SET] || '../ebbfall-article/desktop-start')));
 const SPANS = arg('--spans', '1200,1000,900').split(',').map(Number);
 const SIZES = SET === 'edge' ? [[1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]] : [[1440, 900], [1920, 1080], [2560, 1440]];
 const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true };
@@ -165,6 +174,7 @@ function variants(view, limit) {
 
 if (SET === 'edge' || SET === 'tablet') { await edgeSet(); process.exit(0); }
 if (SET === 'hud') { await hudSet(); process.exit(0); }
+if (SET === 'ground') { await groundSet(); process.exit(0); }
 await start();
 const log = { at: AT, armies: ARMIES, shots: [], setups: {}, errors: [] };
 try {
@@ -320,7 +330,7 @@ async function tallShot(page, file) {
 
 /** In the page (the hud set): a base at about four minutes, a raid met beyond its ridge, the fight a few seconds in.
  *  Returns the world points the stills are framed on. */
-function hudStage() {
+function hudStage(auto) {
   const e = window.endfall, { G, engine: eng } = e, me = G.me, T = eng.TILE;
   const foe = G.factions.findIndex((_, t) => t !== me);
   const hq = G.bldgs.find(b => b.team === me && eng.BUILDINGS[b.type].hq);
@@ -343,12 +353,18 @@ function hudStage() {
   mine(); e.setResources(me, 5000, 0);
   for (let i = 0; i < 5; i++) spawn(me, 'harvester', at(-60, (i - 2) * 30));
   // (scouts: Villagers set down round the base walk home to the mine, so the minimap has seen ground round it)
-  for (const [dx, dy] of [[-900, -200], [-800, -700], [-300, -950], [-1100, 150], [-600, -400], [-150, -600], [-1000, -500], [-500, 200]]) spawn(me, 'harvester', { x: hq.x + dx, y: hq.y + dy });
+  const open = (p, rx = 0, ry = 0) => { for (let y = -ry; y <= ry; y++) for (let x = -rx; x <= rx; x++) { const tx = Math.floor(p.x / T) + x, ty = Math.floor(p.y / T) + y; if (!eng.inMap(tx, ty) || e.map.rock[eng.idx(tx, ty)] || e.map.occ[eng.idx(tx, ty)]) return false; } return true; };
+  if (auto) { for (const [f, s] of [[900, 200], [800, 700], [300, 950], [1100, -150], [600, 400], [150, 600], [1000, 500], [500, -200]]) if (open(at(f, s))) spawn(me, 'harvester', at(f, s)); }
+  else for (const [dx, dy] of [[-900, -200], [-800, -700], [-300, -950], [-1100, 150], [-600, -400], [-150, -600], [-1000, -500], [-500, 200]]) spawn(me, 'harvester', { x: hq.x + dx, y: hq.y + dy });
   place('depot', at(-150, -170)); place('depot', at(-170, 150)); place('barracks', at(190, -190));
   e.skip(70); place('forge', at(-70, 250)); place('depot', at(-230, -40)); place('airfield', at(170, 230));
   e.skip(75); place('turret', at(330, 40)); place('depot', at(-240, 70)); place('depot', at(-60, -260));
   e.skip(75); mine();
-  const field = { x: hq.x - 400, y: hq.y - 350 }; // (open grass beyond the ridge, up and left of the Castle)
+  let field = { x: hq.x - 400, y: hq.y - 350 }; // (open grass beyond the ridge, up and left of the Castle)
+  if (auto) { // (the ground set: the open ground nearest the line to the map's middle, some 500 px out)
+    const spots = []; for (const f of [520, 440, 600, 680]) for (const s of [0, 120, -120, 240, -240, 360, -360, 480, -480]) spots.push([Math.abs(s) + Math.abs(f - 520) / 2, at(f, s)]);
+    field = (spots.sort((a, b) => a[0] - b[0]).find(([, p]) => open(p, 9, 5)) || spots[0])[1];
+  }
   const rows = (kinds, team, sign) => kinds.map((k, i) => {
     const col = Math.floor(i / 4), row = (i % 4) - 1.5, x = field.x + sign * (48 + col * 50), y = field.y + row * 62 + (col % 2) * 22;
     return { id: spawn(team, k, { x, y }), y };
@@ -480,5 +496,172 @@ async function hudSheet() {
     await page.screenshot({ path: join(out, 'sheet.png'), fullPage: true, type: 'png' });
     console.log('sheet.png');
     await ctx.close();
+  } finally { await stop(); }
+}
+
+/** The ground set: the build at hand (ENDFALL_DIST), into <out>/<tag>. */
+async function groundSet() {
+  if (process.argv.includes('--sheet')) return groundSheet();
+  const name = TAG, dir = join(out, name), query = arg('--query', ''); mkdirSync(dir, { recursive: true });
+  const only = arg('--only', '').split(',').filter(Boolean), want = (...k) => !only.length || k.some(x => only.includes(x));
+  const desk = (w, h, dpr = 1) => ({ viewport: { width: w, height: h }, deviceScaleFactor: dpr });
+  const log = { tag: TAG, query, dist: process.env.ENDFALL_DIST || 'dist', setups: {}, shots: [], errors: [], paint: {} };
+  const page0 = async (device, tag, { map = 7, seed = 1291, stage = true } = {}) => {
+    const ctx = await browserContext(device), page = await ctx.newPage(), errors = [];
+    page.setDefaultTimeout(300000);
+    page.on('pageerror', e => errors.push(e.message));
+    await page.clock.install();
+    await page.goto(`${baseUrl()}?map=${map}&seed=${seed}${query ? `&${query}` : ''}`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 120000 });
+    const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+    await press('#btnSolo');
+    await board(page).race(1, 'vael');
+    await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000); // (from here no frame runs unless drawn)
+    await press('#btnStart');
+    await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { polling: 100 });
+    await page.evaluate(() => document.fonts.ready);
+    const first = await page.evaluate(() => {
+      const { engine } = endfall; engine.disableAi(); engine.revealAll(true); endfall.fog(false);
+      for (const t of document.querySelectorAll('#msg .toast')) t.remove();
+      return { seed: endfall.G.seed, size: [engine.MW, engine.MH], hash: engine.stateHash() >>> 0, paint: endfall.ground?.() ?? null };
+    });
+    log.paint[tag] = first.paint; log.setups[tag] = { first };
+    await page.mouse.move(2, 300);
+    const stageIt = async () => {
+      const setup = await page.evaluate(hudStage, true);
+      await page.evaluate(() => endfall.draw());
+      if (device.hasTouch) await page.locator('#btnArmy').tap(); else await page.keyboard.press('q');
+      await page.mouse.move(2, 300);
+      setup.selected = await page.evaluate(() => endfall.ui.sel.length);
+      log.setups[tag].fight = setup;
+      return setup;
+    };
+    return { ctx, page, errors, tag, stageIt, done: async () => { log.errors.push(...errors.map(e => `${tag}: ${e}`)); await ctx.close(); } };
+  };
+  /** A still: zoom `z` ('start', 'min' or a number), centered on `at` (null: the start's framing). */
+  const still = async (page, file, z, at, crop = false) => {
+    const s = await page.evaluate(([z, at]) => {
+      const { cam, view, G, engine } = endfall;
+      cam.zoom = z === 'start' ? endfall.startZoom : z === 'min' ? endfall.zoomMin : z;
+      if (at) endfall.centerOn(at.x, at.y);
+      else { const core = G.bldgs.find(b => b.team === G.me); endfall.centerOn(core.x + 40, core.y); cam.x = Math.min(Math.max(cam.x, 0), Math.max(0, engine.WW - view.w / cam.zoom)); cam.y = Math.max(0, cam.y); }
+      endfall.draw(); endfall.draw();
+      for (const t of document.querySelectorAll('.toast')) t.style.animation = 'none';
+      return { view: { w: view.w, h: view.h }, zoom: cam.zoom, hash: engine.stateHash() >>> 0, selected: endfall.ui.sel.length };
+    }, [z, at]);
+    await page.screenshot({ path: join(dir, file), timeout: 300000 });
+    // (a piece of it at 1:1, as a player's eye meets it: the middle, or --crop x,y,w,h in CSS px)
+    const cr = arg('--crop', '') ? arg('--crop').split(',').map(Number) : [Math.round(s.view.w * 0.22), Math.round(s.view.h * 0.2), Math.round(s.view.w * 0.5), Math.round(s.view.h * 0.5)];
+    if (crop) await page.screenshot({ path: join(dir, file.replace('.png', '--crop.png')), clip: { x: cr[0], y: cr[1], width: cr[2], height: cr[3] }, timeout: 300000 });
+    console.log(`${name}/${file}: view ${s.view.w}x${s.view.h}, zoom ${s.zoom.toFixed(3)}, ${s.selected} selected`);
+    log.shots.push({ file, ...s });
+  };
+  /** The whole map: the HUD hidden, a square window, a zoom under the game's limit (tools only: the camera set by hand). */
+  const whole = async (page, file, px = 1536) => {
+    await page.evaluate(() => { for (const el of document.querySelectorAll('#hud, #top, #msg')) el.style.visibility = 'hidden'; }); // (the CSSOM: the page's CSP allows no inline style sheet)
+    await sizeTo(page, px, px);
+    const s = await page.evaluate(() => {
+      const { cam, view, engine } = endfall; cam.zoom = Math.min(view.w / engine.WW, view.h / engine.WH); cam.x = (engine.WW - view.w / cam.zoom) / 2; cam.y = (engine.WH - view.h / cam.zoom) / 2;
+      endfall.draw(); const got = { zoom: cam.zoom, x: cam.x, y: cam.y }; endfall.draw();
+      return { view: { w: view.w, h: view.h }, ...got, after: { zoom: cam.zoom, x: cam.x, y: cam.y } };
+    });
+    await page.locator('#game').screenshot({ path: join(dir, file), timeout: 300000 });
+    console.log(`${name}/${file}: zoom ${s.zoom.toFixed(3)} (after the draw ${s.after.zoom.toFixed(3)}, camera ${Math.round(s.after.x)}, ${Math.round(s.after.y)})`);
+    log.shots.push({ file, ...s });
+  };
+  const aim = (s) => ({ x: s.field.x * 0.66 + s.hq.x * 0.34, y: s.field.y * 0.76 + s.hq.y * 0.24 });
+  await start();
+  try {
+    if (want('start', 'fight', 'out', 'whole', 'fog', 'minimap', 'probe')) {
+      const p = await page0(desk(1920, 1080), 'desk');
+      if (want('start') && !only.includes('probe')) await still(p.page, '1-start-1920x1080.png', 'start', null, true);
+      if (only.includes('probe')) { const [x, y] = arg('--at', '1500,1500').split(',').map(Number); await still(p.page, `probe-${x}-${y}.png`, 'start', { x, y }); } // (a look at one spot, unstaged)
+      else if (only.length && !want('fight', 'out', 'fog', 'minimap')) { if (want('whole')) await whole(p.page, '6-whole-map.png'); } // (a quick look: unstaged)
+      else {
+        const setup = await p.stageIt(), at = aim(setup);
+        if (want('fight')) await still(p.page, '2-fight-1920x1080.png', 'start', at, true);
+        if (want('out')) await still(p.page, '5-zoomed-out-1920x1080.png', 'min', at);
+        if (want('minimap')) { await p.page.evaluate(() => endfall.draw()); await p.page.locator('#minimap').screenshot({ path: join(dir, '8-minimap.png') }); }
+        if (want('fog')) {
+          await p.page.evaluate(() => { endfall.engine.revealAll(false); endfall.fog(true); });
+          // (where the three meet: the explored tile out of sight with the most of its kind round it that has ground in sight and ground never seen within 7 tiles)
+          const edge = await p.page.evaluate(() => {
+            const { G, engine: e } = endfall, W = e.MW, H = e.MH, seen = (x, y) => G.vis[y * W + x], known = (x, y) => G.explored[y * W + x] && !G.vis[y * W + x];
+            let best = null;
+            for (let y = 8; y < H - 8; y += 2) for (let x = 8; x < W - 8; x += 2) {
+              if (!known(x, y)) continue;
+              let k = 0, s = 0, d = 0; for (let dy = -7; dy <= 7; dy++) for (let dx = -7; dx <= 7; dx++) { if (known(x + dx, y + dy)) k++; else if (seen(x + dx, y + dy)) s++; else d++; }
+              const score = Math.min(k, 2 * s, 2 * d); if (!best || score > best.score) best = { score, x: (x + 0.5) * e.TILE, y: (y + 0.5) * e.TILE, k, s, d };
+            }
+            return best;
+          });
+          log.setups.desk.fogAt = edge;
+          await still(p.page, '7-fog-1920x1080.png', 'start', edge || { x: setup.hq.x * 0.5 + setup.field.x * 0.5, y: setup.hq.y * 0.5 + setup.field.y * 0.5 });
+          await p.page.locator('#minimap').screenshot({ path: join(dir, '8-minimap-fog.png') });
+          await p.page.evaluate(() => { endfall.engine.revealAll(true); endfall.fog(false); });
+        }
+        if (want('whole')) await whole(p.page, '6-whole-map.png');
+      }
+      await p.done();
+    }
+    if (want('retina')) { const p = await page0(desk(1280, 720, 2), 'retina'); await still(p.page, '3-fight-2560x1440-dpr2.png', 'start', aim(await p.stageIt())); await p.done(); }
+    if (want('phone')) { const p = await page0({ ...PHONE, deviceScaleFactor: 2 }, 'phone'); const s = await p.stageIt(); await still(p.page, '4-fight-phone-844x390.png', 'start', { x: s.army.x, y: s.army.y + 10 }); await p.done(); }
+    if (want('seed2')) { const p = await page0(desk(1536, 1536), 'seed2', { seed: 2026 }); await whole(p.page, '9-seed-2026-whole-map.png'); await p.done(); }
+    if (want('big')) { const p = await page0(desk(1536, 1536), 'big', { map: 11, seed: 5 }); await whole(p.page, '10-map-128-whole-map.png'); await p.done(); }
+    if (want('shore')) { const p = await page0(desk(1536, 1536), 'shore', { map: 13, seed: 1 }); await whole(p.page, '11-shore-whole-map.png'); await p.done(); } // (Mirror Lake: the random lake with its seed)
+    if (want('gates')) { // (the passes a track runs through: a piece at 1:1 round each, at the start zoom of 1920x1080)
+      const points = (k, d) => arg(k, d).split(';').map(p => p.split(',').map(Number));
+      for (const [map, seed, list, tag] of [[11, 5, points('--gates', '2000,2000'), 'gate-128'], [13, 1, points('--lake', '1000,1000'), 'gate-lake']]) {
+        const p = await page0(desk(1920, 1080), tag, { map, seed });
+        for (const [n, [x, y]] of list.entries()) {
+          await still(p.page, `12-${tag}-${n + 1}.png`, 'start', { x, y });
+          await p.page.screenshot({ path: join(dir, `12-${tag}-${n + 1}--crop.png`), clip: { x: 960 - 320, y: 540 - 200, width: 640, height: 400 } });
+        }
+        await p.done();
+      }
+    }
+  } finally { await stop(); }
+  const prev = (() => { try { return JSON.parse(readFileSync(join(dir, 'shots.json'), 'utf8')); } catch { return null; } })();
+  if (prev && only.length) { log.shots = [...prev.shots.filter(s => !log.shots.some(t => t.file === s.file)), ...log.shots]; log.setups = { ...prev.setups, ...log.setups }; log.paint = { ...prev.paint, ...log.paint }; }
+  writeFileSync(join(dir, 'shots.json'), JSON.stringify(log, null, 1));
+  console.log(JSON.stringify({ setups: log.setups, paint: log.paint, errors: log.errors }));
+}
+
+/** The ground set's sheet: <out>/sheet.html and sheet.png, main (left) beside pr (right), a row per still, the 1:1
+ *  crops at their own pixels. */
+async function groundSheet() {
+  const { existsSync, readdirSync } = await import('node:fs');
+  const ROWS = [
+    ['1-start-1920x1080.png', 'The start, 1920x1080 at DPR 1, the start zoom'], ['1-start-1920x1080--crop.png', 'The start: a piece at 1:1', true],
+    ['2-fight-1920x1080.png', 'A fight at 3:43, the army selected, 1920x1080 at DPR 1, the start zoom'], ['2-fight-1920x1080--crop.png', 'The fight: a piece at 1:1 (rings, bars, units on the ground)', true],
+    ['3-fight-2560x1440-dpr2.png', 'The fight, 2560x1440 device px (a 1280x720 window at DPR 2)'], ['4-fight-phone-844x390.png', 'The fight on a landscape phone, 844x390 at DPR 2'],
+    ['5-zoomed-out-1920x1080.png', 'All the way out (the zoom-out limit), 1920x1080'], ['7-fog-1920x1080.png', 'The fog on: in sight, explored and never seen'],
+    ['8-minimap.png', 'The minimap, the fog off (enlarged 3x)', false, 3], ['8-minimap-fog.png', 'The minimap, the fog on (enlarged 3x)', false, 3],
+    ['6-whole-map.png', 'The whole map (Dust Quarter, 96x96, seed 1291): a tools-only zoom, the HUD hidden'],
+    ['9-seed-2026-whole-map.png', 'Another seed (96x96, seed 2026): the whole map'], ['10-map-128-whole-map.png', 'A larger map (Iron Compass, 128x128, eight starts): the whole map'],
+    ['11-shore-whole-map.png', 'A map with water (Mirror Lake, 64x64): the whole map'],
+    ...[...new Set(['main', 'pr'].flatMap(t => { try { return readdirSync(join(out, t)); } catch { return []; } }))].filter(f => /^12-.*--crop\.png$/.test(f)).sort().map(f => [f, `A pass a track runs through (${f.includes('lake') ? 'Mirror Lake' : 'the 128 map'}), 1:1${existsSync(join(out, 'proto', f)) ? ': the options\' prototype (left, before) and this PR' : ''}`, true, 0, existsSync(join(out, 'proto', f)) ? 'proto' : 'main']),
+  ];
+  const css = `body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 2352px; }
+    h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; } h2 { font-size: 18px; margin: 26px 0 6px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; } figure { margin: 0; } img { width: 100%; display: block; outline: 1px solid #444; }
+    img.own { width: auto; max-width: 100%; } img.px { image-rendering: pixelated; } figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }`;
+  const rows = ROWS.filter(([f]) => existsSync(join(out, 'main', f)) || existsSync(join(out, 'pr', f))).map(([f, head, own, k, left = 'main']) => {
+    const img = (dir) => existsSync(join(out, dir, f)) ? `<img ${own ? 'class="own"' : k ? `class="own px" style="width:${168 * k}px"` : ''} src="${dir}/${f}">` : '<p>(not shot)</p>';
+    return `<h2>${head}</h2><div class="row"><figure>${img(left)}<figcaption>${left === 'proto' ? 'the prototype (?ground=4 on ground-options)' : 'main'}</figcaption></figure><figure>${img('pr')}<figcaption>this PR</figcaption></figure></div>`;
+  }).join('');
+  writeFileSync(join(out, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>${css}</style><h1>The ground: main (left) and this PR (right)</h1>
+    <p>One staged game, the clock held: the same world in both columns. Open the stills themselves for full size; the 1:1 pieces here are at a player's own pixels.</p>${rows}`);
+  await start();
+  try {
+    const shot = async (dir, w) => {
+      const ctx = await browserContext({ viewport: { width: w, height: 1000 }, deviceScaleFactor: 1 }), page = await ctx.newPage();
+      await page.goto(pathToFileURL(join(dir, 'sheet.html')).href);
+      await page.waitForFunction(() => [...document.images].every(i => i.complete));
+      await page.screenshot({ path: join(dir, 'sheet.png'), fullPage: true, type: 'png' });
+      console.log(join(dir, 'sheet'));
+      await ctx.close();
+    };
+    await shot(out, 2400);
   } finally { await stop(); }
 }

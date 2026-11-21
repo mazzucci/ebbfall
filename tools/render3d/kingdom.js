@@ -13,6 +13,7 @@ import { makeMats } from './materials.js';
 import { lathe, torus } from './harbour.js';
 import { cone } from './vael.js';
 import { polishMats } from './polish.js';
+import { DETAIL, knightDetail } from './detail.js'; // (detail-exp: the desktop detail test, off unless the page has ?detail=1)
 
 // ---------------- textures (light bases: the material color darkens them) ----------------
 export function tex(size, draw, { repeat = 1, srgb = true } = {}) {
@@ -365,6 +366,7 @@ export function knight(M, f, dir) {
     add(r, rbox(1.0, 2.6, 0.5, 0.1), M.inkLine, 2.8, 9.9, 0); add(r, rbox(1.0, 0.45, 2.4, 0.1), M.inkLine, 2.8, 9.7, 0); // the helm's cross
     for (const x of [-0.8, 4.2]) add(lb, cyl(1.6, 1.6, 0.8, 8), M.ironDark, x, 0, 0, 0, 0, Math.PI / 2);
   }
+  if (DETAIL) knightDetail(M, { h, r, sh, ln, lb, pose, hand: [LX, LY, LZ] }); // (detail-exp)
   return g;
 }
 

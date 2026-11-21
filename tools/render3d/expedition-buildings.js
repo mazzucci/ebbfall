@@ -12,6 +12,7 @@ import { oct, gable, tex } from './kingdom.js';
 import { led, traveller, boardTex } from './expedition.js';
 import { earth, brace } from './kingdom-buildings.js';
 import { polishTextures } from './polish.js';
+import { DETAIL, serverHallDetail } from './detail.js'; // (detail-exp: the desktop detail test, off unless the page has ?detail=1)
 
 const std = (o) => new THREE.MeshStandardMaterial(o);
 /** A rack panel's face: four slot rows per 16 game units (boxUV's repeat), each a dark slot with a lit top edge and a
@@ -569,6 +570,7 @@ export function serverHall(M) {
   microchip(g, M, 0, TOP + 3.0, -3, 44);
   smallDish(g, M, W / 2 - 14, TOP + 3.0, -D / 2 + 12, 9);                                                              // its own receiver on the roof's north-east: a small cousin of the Uplink's dish (the art polish, 2026-11-13)
   flag(g, M, -W / 2 - 2.6, Y0, -D / 2 - 2.6, 56, 28, 18); flag(g, M, W / 2 + 2.6, Y0, -D / 2 - 2.6, 50, 24, 16);
+  if (DETAIL) serverHallDetail(M, g, { W, D, H, Y0, TOP, BW, BH, BD }); // (detail-exp)
   return g;
 }
 /** A small dish on a short mast at (x, y, z), its bowl `R` wide aimed up and to the right as the Uplink's, a cyan light

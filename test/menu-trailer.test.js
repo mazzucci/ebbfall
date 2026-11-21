@@ -34,16 +34,19 @@ test('the poster: a button with a play mark and words naming the game, the game\
   assert.ok(!webOnly('menu/trailer.jpg'), 'in the offline cache: no empty frame offline');
 });
 
-test('the dialog: the video with no source (nothing fetched before the tap), preload none, controls, inline, never autoplayed, muted or looped; the credit word for word under it, its license a link', () => {
+test('the dialog: no video in the page (made on the tap: nothing fetched before), its words on the frame; made with controls, inline, preload none, never autoplayed, muted or looped; the credit word for word under it, its license a link', () => {
   const d = html.match(/<dialog id="trailerDlg" class="trailer" aria-label="The Ebbfall trailer">([\s\S]*?)<\/dialog>/)?.[1];
   assert.ok(d, 'the dialog');
-  const v = d.match(/<video ([^>]*)><\/video>/)?.[1];
-  assert.ok(v, 'one video, empty');
-  assert.ok(!/\ssrc=/.test(` ${v}`) && !html.includes('.mp4') && !/<source\b/.test(d), 'no source in the page: trailer.js sets it on the tap');
-  for (const a of ['controls', 'playsinline', 'preload="none"', 'poster="menu/trailer.jpg"', 'width="1280" height="720"']) assert.ok(v.includes(a), a);
-  for (const not of ['autoplay', 'muted', 'loop']) assert.doesNotMatch(` ${v} `, new RegExp(`\\s${not}[\\s=]`), not);
-  assert.match(v, /title="Ebbfall trailer: [^"]+"/);
-  assert.match(v, /aria-label="The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home\. They need its mines, the King won't abide it, and their armies fight\. By day 675 they are still here\."/);
+  assert.ok(!/<video\b/.test(html) && !html.includes('.mp4') && !/<source\b/.test(d), 'no video and no mp4 in the page (a <video> in the markup made Firefox cancel a fetch of the backdrop: static.e2e.mjs)');
+  const f = d.match(/<div class="frame" id="trailerFrame" data-title="([^"]+)" data-label="([^"]+)">/);
+  assert.ok(f, 'the frame with the video\'s words');
+  assert.match(f[1], /^Ebbfall trailer: /);
+  assert.equal(f[2], "The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home. They need its mines, the King won't abide it, and their armies fight. By day 675 they are still here.");
+  const make = js.match(/const make = \(\) => \{([\s\S]*?)\n {2}\};/)?.[1];
+  assert.ok(make, 'trailer.js makes the video');
+  for (const a of ["document.createElement('video')", 'v.controls = true', 'v.playsInline = true', "v.preload = 'none'", "v.setAttribute('playsinline', '')", 'v.width = 1280; v.height = 720', 'v.title = frame.dataset.title', "v.setAttribute('aria-label', frame.dataset.label)", 'v.poster = POSTER']) assert.ok(make.includes(a), a);
+  assert.doesNotMatch(make, /\.src\s*=|setAttribute\('src'/, 'no source when made: set on the tap');
+  assert.match(js, /const POSTER = '\.\/menu\/trailer\.jpg';/);
   assert.ok(d.includes(`<p class="credit" id="trailerCredit">Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / <a href="${CC}" target="_blank" rel="noopener license">${CC}</a> (edited)</p>`), 'the credit');
   assert.match(d, /<button type="button" class="ib x" id="trailerClose" aria-label="Close the trailer">CLOSE<\/button>/);
   assert.match(d, /<p class="note" id="trailerNote" role="status" hidden>The trailer needs a connection\.<\/p>/);

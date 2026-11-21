@@ -33,10 +33,10 @@ const layout = (page) => page.evaluate(() => {
   return { box: r('menuTrailer'), solo: r('btnSolo'), online: r('btnOnline'), tutorial: r('btnTutorial'), foot: r('menuFoot'), tag: r('menuTag'), vw: innerWidth, vh: innerHeight,
     poster: { src: img.currentSrc.split('/').pop(), loaded: img.complete && img.naturalWidth > 0 }, scroll: card.scrollHeight - card.clientHeight, tall: card.classList.contains('tall') };
 });
-/** The trailer's video as the page has it. */
+/** The trailer's video as the page has it: null before the first tap (trailer.js makes it then). */
 const video = (page) => page.evaluate(() => {
   const v = document.getElementById('trailerVideo');
-  return { open: document.getElementById('trailerDlg').open, paused: v.paused, t: v.currentTime, muted: v.muted, volume: v.volume, loop: v.loop, autoplay: v.autoplay, inline: v.playsInline, controls: v.controls, src: v.getAttribute('src'), error: v.error?.code ?? null };
+  return !v ? null : { open: document.getElementById('trailerDlg').open, paused: v.paused, t: v.currentTime, muted: v.muted, volume: v.volume, loop: v.loop, autoplay: v.autoplay, inline: v.playsInline, controls: v.controls, src: v.getAttribute('src'), error: v.error?.code ?? null };
 });
 const playing = (page) => page.waitForFunction(() => { const v = document.getElementById('trailerVideo'); return document.getElementById('trailerDlg').open && !v.paused && v.currentTime > 0.3; }, null, { timeout: 30000 });
 const inView = (b, l) => b.x >= 0 && b.y >= 0 && b.r <= l.vw + 0.5 && b.b <= l.vh + 0.5;
@@ -91,7 +91,7 @@ test('nothing of the trailer before the tap (reduced motion too); the tap plays 
   try {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
-    assert.deepEqual([asked, (await video(page)).src, (await video(page)).open], [[], null, false], 'no request, no source, the dialog shut');
+    assert.deepEqual([asked, await video(page), await page.locator('#trailerDlg').evaluate(d => d.open)], [[], null, false], 'no request, no video at all, the dialog shut');
     assert.ok(await page.locator('#menuTrailerPoster').isVisible() && await page.locator('#menuTrailer .play').isVisible(), 'the poster and its play button');
     // The game muted (the corner's button): the trailer keeps its own sound, a choice made with a tap.
     await press('#cornerSound');

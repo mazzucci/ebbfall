@@ -552,8 +552,9 @@ src/client/           everything that touches the browser
                       poster (public/menu/trailer.jpg, the King's card; in the offline cache), a still with a play
                       button, framed above the buttons, beside them on a phone on its side (a still, not a moving clip:
                       the field under the page shows the same armies); a tap opens a dialog and plays it there with its
-                      sound and the browser's controls, the source set only then (preload none: nothing fetched
-                      before; public/docs/media/ebbfall-trailer.mp4, the Worker's byte ranges, web-only); its sound its
+                      sound and the browser's controls, its <video> made only then (none in the markup: nothing fetched
+                      before, and Firefox no longer cancels a fetch of the backdrop on a reload under the service
+                      worker; public/docs/media/ebbfall-trailer.mp4, the Worker's byte ranges, web-only); its sound its
                       own (a muted game does not mute it: the player chose it with a tap; no WebAudio); never autoplayed
                       or looped; paused for good on CLOSE or Esc, a hidden or left tab, a link followed, another menu
                       page; let go of when a game starts (any button, or over the socket); offline it says it needs a
@@ -691,8 +692,9 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
 test/menu-art.test.js the menu's field images (public/menu/) have no alpha channel: their fade is baked into the floor's
                       color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
 test/menu-trailer.test.js the first page's trailer: the line under the name and the page's descriptions what the game is;
-                      the poster a button with its play mark and words, in the offline cache; the dialog's video with
-                      no source, preload none, controls, inline, no autoplay, mute or loop, its words, the music's
+                      the poster a button with its play mark and words, in the offline cache; no video in the page,
+                      the one trailer.js makes with controls, inline, preload none, no autoplay, mute or loop, its words
+                      from the dialog's frame, the music's
                       credit word for word with its license linked; the script plays it on the tap only and pauses it
                       for good (CLOSE, hidden, a link), a game lets go of it; the file under the Worker's rule,
                       web-only, under 8 MB, faststart

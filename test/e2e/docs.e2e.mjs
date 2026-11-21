@@ -56,7 +56,8 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.ok(await help.isVisible(), 'the ?');
       const [clock, q, full] = await Promise.all(['#resClock', '#btnHelp', '#btnFull'].map(s => d.page.locator(s).boundingBox()));
       assert.ok(q.x >= clock.x + clock.width && (!full || q.x + q.width <= full.x), 'between the clock and FULL SCREEN');
-      assert.equal(Math.round(q.width), 32, 'a 32 px button');
+      const u = await d.eval(() => Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810))); // (style.css --u)
+      assert.equal(Math.round(q.width), d.touch ? 32 : Math.round(40 * u), 'a 32 px button; 40 units with the desktop HUD, as its other buttons');
       await press('#btnHelp');
       const sheet = d.page.locator('#helpSheet');
       assert.ok(await sheet.isVisible(), 'the sheet opens');

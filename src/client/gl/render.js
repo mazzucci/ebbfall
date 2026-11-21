@@ -260,8 +260,9 @@ const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0
  *  top and the foot only as far as the top bar (`topRoom`, screen px) and the panels (`footRoom`: up to the minimap's
  *  top, the tallest panel at the foot, and 4 px more: 170 px under 1100 px, 252 units and 4 px with the desktop HUD,
  *  style.css) cover, so the map's first and last rows can still be brought out from under them; what shows past the
- *  edge there is the apron (rock drawn past the map, `showApron`), never the dark. The sides need no room: no panel stands at a side but at the foot
- *  and the top, and their corners come out with the foot's and the top's room. Phones and tablets keep their box. */
+ *  edge there is the apron (rock drawn past the map, `showApron`), never the dark. The sides need no room: no panel
+ *  stands at a side but at the foot and the top, and their corners come out with the foot's and the top's room. Phones
+ *  and tablets keep their box. */
 const FOOT_ROOM = 170; // (before the minimap is laid out)
 let bleed = false, topRoom = 0, footRoom = FOOT_ROOM;
 export function clampCam() {

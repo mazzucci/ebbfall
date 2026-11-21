@@ -615,9 +615,9 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .cb.badge::after,.cb.done::after{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
   /* toasts and hints over the minimap, clear of it */
   .toast{font-size:calc(var(--u)*14);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
-  #hint{font-size:calc(var(--u)*13)} #hint.placing,#hint.boxing{font-size:calc(var(--u)*16)}
+  #hint{font-size:max(12px,calc(var(--u)*13))} #hint.placing,#hint.boxing{font-size:max(15px,calc(var(--u)*16))} /* (never smaller than under 1100 px) */
   #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--u)*250)}
   :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--u)*284)} /* (as specific as the mouse's own rule, which names #btnBox) */
-  .tb{font-size:calc(var(--u)*12);padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:calc(var(--u)*13)}
-  #cmdInfo{font-size:calc(var(--u)*13)}
+  .tb{font-size:max(11px,calc(var(--u)*12));padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:max(12px,calc(var(--u)*13))}
+  #cmdInfo{font-size:max(12px,calc(var(--u)*13))}
 }

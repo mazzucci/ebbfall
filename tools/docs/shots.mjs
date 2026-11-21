@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../chromium.mjs';
 import { freeze } from '../trailer/stage.mjs';
 import { capture, FFMPEG } from '../trailer/record.mjs';
+import { menuClip } from '../menu-clip.mjs';
 
 const root = new URL('../../', import.meta.url);
 const dist = fileURLToPath(new URL('dist/', root));
@@ -433,6 +434,7 @@ async function clip() {
   manifest.trailer = { file: 'trailer.mp4', type: 'video/mp4', poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: CLIP_WORDS.title };
   writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
   console.log(`shots: clip (trailer.mp4, ${Math.round(bytes / 1024)} KB at CRF ${crf}, ${CLIP_S} s)`);
+  await menuClip(browser); // (the menu's first page shows the clip too: its own copies of the poster, public/menu/clip-*.webp)
 }
 /** Run ffmpeg (tools/trailer/record.mjs `FFMPEG`) with `args`, quietly; throws if it fails. */
 function ffmpeg(args) {

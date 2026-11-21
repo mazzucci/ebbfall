@@ -212,7 +212,8 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  // (with the Worker blocked, static.e2e.mjs, the menu's clip fails as every docs video does: the Worker's one kind of file)
+  page.on('console', m => { if (m.type() === 'error' && !(site.blocked && /\/docs\/media\/.*\.mp4$/.test(m.location()?.url || ''))) errors.push(m.text()); });
   await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;

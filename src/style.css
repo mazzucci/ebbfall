@@ -536,16 +536,24 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
    them (menu.js copies it). */
 .page .brand,#online .brand{font:700 22px/1.1 var(--display);letter-spacing:.04em;color:var(--ally2);margin:0 0 2px}
 #online .card.menu{background:transparent}
-/* A desktop (a fine pointer, the HUD floating): the map edge to edge. The canvas fills the window and the top bar floats
-   over it where it stood, as the HUD does (render.js reads its position, `bleed`: the camera keeps to the map). What sat
-   in the stage keeps its place on the screen: the stage gained 9 px (8 of margin and its 1 px border) at the sides and
-   the foot, and 57 px at the top (the bar, its margin and the gap). Phones and tablets keep their box. */
-@media (pointer:fine) and (min-width:621px){
+/* A desktop (a fine pointer wider than 620 px) and a tablet (a coarse pointer, neither a phone on its side, at most 500
+   px tall, nor an upright phone, at most 620 px wide: the phones' own blocks above): the map edge to edge. The canvas
+   fills the window and the top bar floats over it where it stood, as the HUD does (render.js reads its position,
+   `bleed`: the camera keeps to the map). What sat in the stage keeps its place on the screen: the stage gained its
+   margin (8 px or the safe area, whichever is more: an iPad's home indicator, its status bar upright) and its 1 px
+   border at the sides and the foot, and at the top the bar, its margin and the 8 px gap too (57 px and the margin).
+   On a desktop that is 9 px, and 65 at the top. The toasts, the hint and SELECT, HOME and ARMY keep to the HUD's own
+   margin instead (16 px or the safe area: the row 9 px over the minimap under a home indicator too, where the box's
+   margin left it 17). Phones keep their box. */
+@media (pointer:fine) and (min-width:621px), (pointer:coarse) and (min-width:621px) and (min-height:501px){
+  :root{--sl:max(8px,env(safe-area-inset-left,0px));--sr:max(8px,env(safe-area-inset-right,0px));--st:max(8px,env(safe-area-inset-top,0px));--sb:max(8px,env(safe-area-inset-bottom,0px));
+    --hl:max(16px,env(safe-area-inset-left,0px));--hb:max(16px,env(safe-area-inset-bottom,0px))} /* (the box's margins; the HUD's) */
   #app{padding:0;gap:0}
-  #top{position:fixed;z-index:5;top:max(8px,env(safe-area-inset-top,0px));left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #top{position:fixed;z-index:5;top:var(--st);left:var(--sl);right:var(--sr);box-shadow:0 2px 10px rgba(0,0,0,.5)}
   #stage{border:0;border-radius:0}
-  #tools{top:65px;right:17px} #tut{top:65px;left:17px} #helpSheet{top:65px;right:17px;max-height:calc(100% - 82px)}
-  #msg,#hint,:is(#btnBox,#btnHome,#btnArmy){translate:9px -9px}
+  #tools{top:calc(var(--st) + 57px);right:calc(var(--sr) + 9px)} #tut{top:calc(var(--st) + 57px);left:calc(var(--sl) + 9px)}
+  #helpSheet{top:calc(var(--st) + 57px);right:calc(var(--sr) + 9px);max-height:calc(100% - var(--st) - 57px - var(--sb) - 9px)}
+  #msg,#hint,:is(#btnBox,#btnHome,#btnArmy){translate:calc(var(--hl) - 7px) calc(7px - var(--hb))}
 }
 /* The desktop HUD (a mouse in a window at least 1100 x 560 px; under it, and on every touch screen, all of the above as
    it is): the same floating layout at a monitor's size, each piece in one frame. The top bar becomes two corner

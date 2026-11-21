@@ -314,13 +314,16 @@ const COLUMN = [['monolith', -230, 170], ['monolith', -300, 190], ['umbra', -300
 /** Cut 6's field: the mine north of the map's middle, the base's spot south of it. */
 const FIELD = { mine: [1376, 320], off: [70, 226], fieldOf: fieldOf.toString() };
 
+const SITE_OFF = [240, 40];
+
 // ---- the segments ----
 export const SEGMENTS = [
   { id: 'landing', as: 'vael', scene: landingScene, args: FIELD, parts: [
     { name: 'open', seconds: secs('open'), cam: LANDING_CAM, at: [{ t: ROLL_AT, run: (page) => page.evaluate(scout) }], overlay: openOverlay },
   ] },
-  { id: 'site', as: 'vael', scene: siteScene, args: { ...FIELD, builders: 6, idle: 2, leave: 2, leaveAt: THORIUM_AT, doneAt: DONE_AT }, parts: [
-    { name: 'day2', seconds: secs('day2'), cam: still('site', 1.35, { x: -207, y: -96 }), pre: (page) => page.evaluate(siteReady),
+  // (the site east of the mine, level with it, so the whole Data center, gantry and flags, stands above the diary's band)
+  { id: 'site', as: 'vael', scene: siteScene, args: { ...FIELD, off: SITE_OFF, builders: 6, idle: 2, leave: 2, leaveAt: THORIUM_AT, doneAt: DONE_AT }, parts: [
+    { name: 'day2', seconds: secs('day2'), cam: still('site', 1.4, { x: -157, y: 36 }), pre: (page) => page.evaluate(siteReady),
       at: [{ t: THORIUM_AT, run: (page) => page.evaluate(toMine) }, ...[3.5, 3.8, 4.1].map(t => ({ t, run: async (page) => console.log(`\n  site at ${t}: ${JSON.stringify(await page.evaluate(siteState))}`) }))],
       overlay: (t) => ({ diary: diary(TEXT.day2, t) }) },
   ] },

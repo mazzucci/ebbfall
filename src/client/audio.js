@@ -1,7 +1,8 @@
 // Synthesized sound: no asset files. Each effect is a short recipe of tones (oscillators with pitch slides) and
 // noise bursts (filtered white noise) through a master compressor. Effects with a world position are panned and
 // faded by where they happen relative to the camera, so a fight off screen is a distant rumble. A quiet wind bed
-// plays under the game. Units answer orders with short radio chirps, pitched by unit type.
+// plays under a game only (`gameSound`: never on the menu, faded out when the game ends). A hidden tab is silent: the
+// context is suspended until the page is back in view. Units answer orders with short radio chirps, pitched by unit type.
 import { UNIT_VOICE } from './look.js';
 import { speak } from './voice.js';
 import { canSpeak, speakLine, stopSpeech, unlockSpeech } from './speech.js';
@@ -41,6 +42,10 @@ const last = {};
 let unlocked = false;
 /** The pause card: the output suspended (`holdSound`), the player's sound setting untouched. */
 let held = false;
+/** A game on (`gameSound`): the wind bed plays only then. The menu's clicks play either way. */
+let game = false;
+/** The tab out of view: the context suspended, nothing scheduled (an online game's turns run on a timer meanwhile). */
+let hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
 /** Until when (audio.now()) a context woken by this very gesture takes sounds before it says 'running' (the gesture's
  *  own click, say; a context made in a click starts 'suspended' and runs a moment later). */
 let grace = 0;
@@ -60,7 +65,7 @@ function make() {
 /** A gesture the browser counts (or the sound switched on, or the pause card closed by one): open the context, or bring
  *  it back, until it runs. */
 function wake() {
-  if (audio.muted || held) return;
+  if (audio.muted || held || hidden) return;
   if (audio.announcer === 'device') unlockSpeech(); // (iPhone and iPad: speech too starts only in a gesture)
   try {
     if (!actx) make();
@@ -73,18 +78,22 @@ function wake() {
   } catch { /* no audio available */ }
 }
 for (const t of ['touchend', 'click', 'keydown']) addEventListener(t, wake, { capture: true, passive: true });
-// Back into view (iOS: back from another app or a call): try at once; if the browser wants a gesture, the next one does it.
+// Out of view (another tab, another app, the docs opened from "Learn more"): suspended, as the pause card does, the card
+// and the sound setting untouched. Back into view (iOS: back from another app or a call): resumed at once unless held or
+// muted; if the browser wants a gesture, the next one does it.
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !actx || held || audio.muted || actx.state === 'running') return;
+  hidden = document.visibilityState === 'hidden';
+  if (hidden) { grace = 0; stopSpeech(); try { actx?.suspend().catch(() => {}); } catch { /* no audio available */ } return; }
+  if (!actx || held || audio.muted || actx.state === 'running') return;
   try { actx.resume().catch(() => {}); } catch { /* no audio available */ }
 });
 
-/** Whether a sound may be scheduled now: sound on, not held, a context running (or just woken by this gesture). A page
+/** Whether a sound may be scheduled now: sound on, not held, in view, a context running (or just woken by this gesture). A page
  *  the user has already acted on (a reload by script, an online rejoin: Chrome remembers the activation) makes its
  *  context on the first sound instead of waiting for the next gesture. */
 function live() {
-  if (!actx && !held && !audio.muted && globalThis.navigator?.userActivation?.hasBeenActive) wake();
-  return !!actx && !held && !audio.muted && (actx.state === 'running' || audio.now() < grace);
+  if (!actx && !held && !hidden && !audio.muted && globalThis.navigator?.userActivation?.hasBeenActive) wake();
+  return !!actx && !held && !hidden && !audio.muted && (actx.state === 'running' || audio.now() < grace);
 }
 
 /** The pause card up (`on`) or closed: the game's sound (effects, the wind, the voice) stops where it is and goes on
@@ -93,6 +102,13 @@ export function holdSound(on) {
   if (held === on) return;
   held = on;
   if (on) { grace = 0; stopSpeech(); try { actx?.suspend().catch(() => {}); } catch { /* no audio available */ } } else wake();
+}
+
+/** A game started (`on`) or over, or left for the menu: the wind bed starts on the game's first sound and only in a
+ *  game; once it is over it fades out and stops (the end card's and the menu's clicks still play). */
+export function gameSound(on) {
+  game = on;
+  if (!on) stopWind();
 }
 
 /** Where a sound sits: [gain 0..1, pan -1..1] from its world position (none = in the player's ear). */
@@ -202,7 +218,7 @@ export function say(key, after = 0) {
 function deviceSay(key, after) {
   const style = `${audio.voice}Device`;
   if (!canSpeak(style)) return false;
-  const go = () => { if (!audio.muted && !held) speakLine(key, style, { urgent: key === 'attack' }); };
+  const go = () => { if (!audio.muted && !held && !hidden) speakLine(key, style, { urgent: key === 'attack' }); };
   if (after > 0) setTimeout(go, after * 1000); else go();
   return true;
 }
@@ -231,7 +247,7 @@ export function sfx(name, o = {}) {
 
 /** The wind: filtered noise, its color drifting slowly; very quiet, under everything. */
 function startWind() {
-  if (wind || audio.muted || !actx) return;
+  if (wind || !game || audio.muted || !actx) return;
   const n = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(), lfo = actx.createOscillator(), depth = actx.createGain();
   n.buffer = noiseBuf; n.loop = true; f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 0.7;
   lfo.frequency.value = 0.07; depth.gain.value = 180; lfo.connect(depth).connect(f.frequency);
@@ -243,7 +259,17 @@ function startWind() {
 export function soundToggled() {
   if (!audio.muted) wake(); else stopSpeech();
   if (audio.muted && voiceBus) { try { voiceBus.gain.setTargetAtTime(0, actx.currentTime, 0.03); busyUntil = 0; } catch { /* no audio */ } } // (a phrase stops mid-word)
-  if (audio.muted && wind) { try { wind.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); wind.n.stop(actx.currentTime + 1); wind.lfo.stop(actx.currentTime + 1); } catch { /* already stopped */ } wind = null; }
+  if (audio.muted) stopWind();
+}
+/** The wind out: faded over a second while the context runs; at once where it does not (held by the pause card, the tab
+ *  hidden), so that no tail of it is left to play when the context runs again. */
+function stopWind() {
+  if (!wind) return;
+  const w = wind; wind = null;
+  try {
+    if (actx.state === 'running') { w.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2); w.n.stop(actx.currentTime + 1); w.lfo.stop(actx.currentTime + 1); }
+    else { w.n.stop(); w.lfo.stop(); w.g.disconnect(); }
+  } catch { /* already stopped */ }
 }
 
 /**

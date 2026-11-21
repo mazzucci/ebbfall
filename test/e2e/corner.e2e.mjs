@@ -385,6 +385,80 @@ test('the pause card pauses the sound: no sound button in its corner (full scree
   } finally { await o.close(); }
 });
 
+/** The wind bed, watched: every looped buffer source started with no time of its own (the wind; an effect's noise is
+ *  started at a time and stopped at once), and whether it has ended; and the tab's visibility, settable by the test. */
+const WIND = () => {
+  const winds = window.winds = [], start = AudioBufferSourceNode.prototype.start;
+  AudioBufferSourceNode.prototype.start = function (...a) {
+    if (this.loop && a.length === 0) { const w = { ended: false }; winds.push(w); this.addEventListener('ended', () => { w.ended = true; }); }
+    return start.apply(this, a);
+  };
+  window.windPlaying = () => winds.filter(w => !w.ended).length;
+  window.tabVisibility = 'visible';
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.tabVisibility });
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.tabVisibility === 'hidden' });
+};
+
+test('the wind bed plays in a game only: none after clicks round the menu (which still play), in a game after its first sound, gone after the game (the pause card\'s LEAVE GAME, the end card); a hidden tab suspends the sound, back in view it runs, unless paused or muted', { chromium: 'headless Chromium has a stand-in audio device: the context runs there' }, async () => {
+  const o = await open(DESKTOP, COUNT_FULL, WIND);
+  const { page, press } = o;
+  const audio = async (want, what) => page.waitForFunction((w) => endfall.status().audio === w, want, { timeout: 5000 })
+    .catch(async () => assert.fail(`${what}: the audio ${await page.evaluate(() => endfall.status().audio)}, not ${want}`));
+  const wind = async (want, what) => page.waitForFunction((w) => window.windPlaying() === w, want, { timeout: 5000 })
+    .catch(async () => assert.fail(`${what}: ${await page.evaluate(() => window.windPlaying())} wind playing, not ${want}`));
+  const view = (v) => page.evaluate((v) => { window.tabVisibility = v; document.dispatchEvent(new Event('visibilitychange')); }, v);
+  const seats = board(page);
+  const roundTheMenu = async () => { // (from either page: a game is left for the single-player one; ends there)
+    if (await page.locator('#btnSoloBack').isVisible()) await press('#btnSoloBack');
+    await press('#btnOptions'); await press('#btnOptionsClose');
+    await press('#btnSolo'); await seats.open(1); await press('#soloSheet [data-k="done"]');
+    await press('#btnSoloBack'); await press('#btnSolo');
+  };
+  const play = async () => {
+    await press('#btnStart');
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
+    await press('#btnSound'); await press('#btnSound'); // (off and on: switched on, it clicks, the game's first sound)
+    await wind(1, 'a game\'s first sound');
+    await audio('running', 'in a game');
+  };
+  try {
+    await roundTheMenu();
+    await audio('running', 'the menu\'s clicks (they still play; the first one opened the sound, as on an iPhone)');
+    assert.equal(await page.evaluate(() => window.winds.length), 0, 'no wind started on the menu');
+    await play();
+    // A hidden tab: suspended; back in view, running again with the wind.
+    await view('hidden'); await audio('suspended', 'the tab hidden');
+    assert.equal((await page.evaluate(() => endfall.status())).muted, false, 'the sound setting untouched');
+    assert.ok(await page.locator('#pause').isHidden(), 'no pause card');
+    await view('visible'); await audio('running', 'back in view');
+    // Paused, or muted: back in view does not wake it.
+    await press('#btnPause'); await audio('suspended', 'the pause card');
+    await view('hidden'); await view('visible'); await page.waitForTimeout(300);
+    await audio('suspended', 'paused, back in view');
+    await press('#btnResume'); await audio('running', 'BACK TO GAME');
+    await press('#btnSound'); await view('hidden'); await audio('suspended', 'muted, hidden');
+    await view('visible'); await page.waitForTimeout(300);
+    await audio('suspended', 'muted, back in view');
+    await press('#btnSound'); await audio('running', 'switched on');
+    await wind(1, 'the wind again after the sound was switched on');
+    // Back to the menu through the pause card: the wind is gone, and clicks round the menu start none.
+    await press('#btnPause'); await press('#btnQuit'); await page.locator('#start').waitFor();
+    await wind(0, 'LEAVE GAME');
+    const n = await page.evaluate(() => window.winds.length);
+    await roundTheMenu(); await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.winds.length), n, 'no wind started on the menu after a game');
+    // The end card: the wind fades out under the result and stays out on the menu.
+    await play();
+    await page.evaluate(() => { endfall.skip(5); endfall.engine.concede(); });
+    await page.locator('#end').waitFor({ state: 'visible', timeout: 10000 });
+    await wind(0, 'the end card');
+    await press('#btnAgain'); await page.locator('#start').waitFor();
+    await roundTheMenu(); await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.windPlaying()), 0, 'none on the menu after the end card');
+    assert.deepEqual(o.errors, []);
+  } finally { await o.close(); }
+});
+
 test('under a strict autoplay policy, nothing opens the sound before the first click, and the clicks get it running (no script touches the page first: an evaluate would count as the user\'s activation)', { chromium: 'the --autoplay-policy switch is Chromium\'s' }, async () => {
   const browser = await launchChromium([...GL_ARGS, '--autoplay-policy=user-gesture-required']);
   try {

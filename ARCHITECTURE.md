@@ -537,7 +537,9 @@ src/client/           everything that touches the browser
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
                       selection on touch (a mouse's empty box still clears it); SELECT: tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
-                      a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
+                      a key) and nothing plays until it runs; `holdSound`: the pause card suspends it; a hidden tab
+                      suspends it too; `gameSound`: the wind bed plays in a game only (main.js `begin`, the end card,
+                      menu.js `showMenu`), the menu's clicks either way
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
                       gold, in each race's voice): STYLES, three a race, and each race's device style
   speech.js           the announcer in the device's own voice (Web Speech API): a voice per race picked from the device's
@@ -651,8 +653,9 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       the same page whether `tall` or not, fitting with PLAY OFFLINE's answer),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
-                      corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
-                      iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
+                      corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; the wind
+                      in a game only, a hidden tab silent; iPad and iPhone: no page full screen, the Home Screen card;
+                      the player's choice to leave full screen wins),
                       clock.e2e.mjs (the top bar's clock on a desktop and a landscape phone: at the start, after a
                       fast-forward, still while paused, clear of POP and the buttons),
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards

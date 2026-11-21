@@ -7,7 +7,7 @@ import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, heal
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio, audioState, renderSfx } from './client/audio.js';
+import { sfx, audio, audioState, renderSfx, gameSound } from './client/audio.js';
 import { fx, burst, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { resetMemory } from './client/memory.js';
@@ -77,7 +77,7 @@ function begin(reset) {
   // Start over the base: a phone at 1 (the units read), a desktop with the base and the ground round it in its window,
   // both on the map (gl/render.js `startZoom`, `startOn`); the wheel or a pinch zooms.
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); startOn(core.x + 40, core.y);
-  $('end').hidden = true; $('start').hidden = true; started = true; setHint();
+  $('end').hidden = true; $('start').hidden = true; started = true; setHint(); gameSound(true); // (the wind bed: on the game's first sound)
   groupHintGame(menu.tutorial); // (one more game on this device's count: the group hint comes back after a few)
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
   // (the Expedition has no population: a grid for everything it runs, from its Substations)
@@ -212,7 +212,7 @@ function endGame() {
   showShare(win && !online.playing && !BENCH && !watched ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
-  $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
+  $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); gameSound(false); disarmLeaveGuard(); // (the wind fades out under the result)
   if (!online.playing && !menu.tutorial && !BENCH && !watched) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
@@ -303,5 +303,5 @@ window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoo
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).
   status: () => ({ audio: audioState(), muted: audio.muted, fullscreen: isFull(), fullscreenEnabled: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), pageFullscreen: pageFullscreenWorks, errors: (window.endfallErrors || []).slice() }) };
 bindInput(); resize(); requestAnimationFrame(loop);
-if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
+if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; gameSound(false); disarmLeaveGuard(); } }))
   .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)

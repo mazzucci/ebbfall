@@ -179,7 +179,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(shots.trailer.seconds >= 11 && shots.trailer.seconds <= 15, `a dozen seconds: ${shots.trailer.seconds}`);
 });
 
-test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), its desktop section with the desktop loop (lazy), About has the phone loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
+test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), its desktop section with the desktop loop (lazy), About none (Stelian: it read as copied from How to play); each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
   const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
   const how = page('/docs/how-to-play/'), about = page('/docs/about/');
   // The phone section before the desktop's (most players are on a phone), the page's contents line in the same order;
@@ -192,8 +192,7 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   assert.ok(deskLoopAt > desktop && deskLoopAt < how.indexOf('shot-desktop-hud', desktop) && deskLoopAt < how.indexOf('<h3>Mouse</h3>'), 'How to play: the desktop loop opens the desktop section, before its screenshot');
   const tocAt = how.indexOf('<nav class="toc"'), toc = how.slice(tocAt, how.indexOf('</nav>', tocAt));
   assert.deepEqual([...toc.matchAll(/href="#(\w+)"/g)].map(m => m[1]), [...how.matchAll(/<h2 id="(\w+)">/g)].map(m => m[1]), 'the contents line in the sections\' order');
-  assert.ok(about.indexOf('controls-loop.mp4') > about.indexOf('<figure class="dia strip') && about.indexOf('controls-loop.mp4') < about.indexOf('<h2 id="privacy">'), 'About: the loop closes How it\'s built, after the art strip (below the fold: its poster loads lazily)');
-  for (const html of [how, about]) {
+  for (const html of [how]) {
     for (const v of html.matchAll(/<video\b[^>]*>/g)) {
       const tag = v[0], name = tag.match(/\/docs\/media\/controls\/([\w-]+)\.mp4/)[1], c = manifest[name];
       assert.ok(c, `${name}: in tools/docs/controls.json`);
@@ -219,7 +218,7 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   }
   // The two loops, each at the head of its section, are the only videos that play by themselves (Stelian: too many
   // playing at once overwhelm the page), and each only while in view (docs.js: an observer per clip).
-  assert.deepEqual([...how.matchAll(/<video src="\/docs\/media\/controls\/([\w-]+)\.mp4"/g)].map(m => m[1]), ['controls-loop', 'desktop-loop'], 'How to play: the phone\'s loop, then the desktop\'s'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
+  assert.deepEqual([...how.matchAll(/<video src="\/docs\/media\/controls\/([\w-]+)\.mp4"/g)].map(m => m[1]), ['controls-loop', 'desktop-loop'], 'How to play: the phone\'s loop, then the desktop\'s'); assert.equal((about.match(/<video\b/g) || []).length, 0, 'About: no video (the controls are How to play\'s)');
   assert.ok(manifest['controls-loop'].seconds >= 15 && manifest['controls-loop'].seconds <= 20, 'the phone loop 15 to 20 s');
   assert.ok(manifest['desktop-loop'].seconds >= 14 && manifest['desktop-loop'].seconds <= 18, 'the desktop loop about 15 s');
   assert.ok(manifest['desktop-loop'].w === 1280 && manifest['desktop-loop'].h === 720, 'the desktop loop 1280x720');

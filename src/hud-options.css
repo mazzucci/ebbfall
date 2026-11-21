@@ -1,0 +1,151 @@
+/* PROTOTYPE ONLY (branch hud-options, an options round, no PR): three desktop HUDs, chosen by ?hud=1|2|3
+   (src/client/hudopt.js puts `e2e` and `hud-N` on the root). Nothing here applies without the switch, on a touch
+   screen, or in a window under 1100 px wide: the phone, tablets and the narrow breakpoints keep style.css as shipped.
+     hud-1  the Console: one docked band across the bottom (minimap | selection | card); the map ends above it; the
+            top bar's pieces sit on the band's shoulders, so there is no top bar
+     hud-2  the Corners: today's floating panels, scaled with the window and given one frame; the top bar becomes
+            two corner clusters
+     hud-3  the Sidebar: one column down the right edge (buttons, gold and POP, a large minimap, selection, card);
+            the map keeps its full height
+   Sizes are in `--u`: 1 px at 1440 x 810, 0.9 px at 1280 x 720, 1.33 px at 1920 x 1080, so a larger window gets a
+   larger HUD (the start zoom already grows the units the same way). */
+@media (min-width:1100px) and (min-height:560px) and (pointer:fine){
+
+/* ---- THE STAND-IN for the pending edge-to-edge map (not part of any option): the canvas fills the window, no
+   bordered box, the top bar and the HUD over it. ---- */
+html.e2e{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.4px);--fg2:#b6c3d2;--edge:#3d526b;--well:#0a1018;
+  --pn:linear-gradient(180deg,#1a2533 0%,#101721 100%);--lift:inset 0 1px 0 rgba(255,255,255,.08)}
+html.e2e #app{padding:0;gap:0}
+html.e2e #stage{position:fixed;inset:0;border:0;border-radius:0}
+html.e2e #top{position:fixed;z-index:6;top:0;left:0;right:0;height:auto;border:0;border-radius:0;background:none;pointer-events:none;box-sizing:border-box}
+html.e2e #top>*{pointer-events:auto} html.e2e #top .spacer{pointer-events:none}
+
+/* ---- shared by the three options: type and pieces at a monitor's size ---- */
+/* the top bar's buttons: the icon alone (the word is the tooltip's), one square size */
+html.e2e .ib.icon .t{display:none}
+html.e2e #top .ib{width:calc(var(--u)*38);height:calc(var(--u)*38);padding:0;display:grid;place-items:center;border-radius:calc(var(--u)*6)}
+html.e2e #top .ib .ico{width:calc(var(--u)*19);height:calc(var(--u)*19)}
+html.e2e #top .ib.help{font-size:calc(var(--u)*18)}
+/* gold and POP: the two figures read most, white and large */
+html.e2e .res{font-size:calc(var(--u)*24);color:#f3f6fa;gap:calc(var(--u)*9)}
+html.e2e .res .dot{width:calc(var(--u)*25);height:calc(var(--u)*21)}
+html.e2e .res .lbl{font:600 calc(var(--u)*12)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
+html.e2e #resClock{font-size:calc(var(--u)*17);color:var(--fg2)}
+/* the selection console */
+html.e2e #info h2{font-size:calc(var(--u)*21)}
+html.e2e #info .sub,html.e2e #info .what{font-size:calc(var(--u)*14);color:var(--fg2)}
+html.e2e #info .id{gap:calc(var(--u)*7)}
+html.e2e #hpNum{font-size:calc(var(--u)*18)}
+html.e2e .life .bar{height:calc(var(--u)*9)} html.e2e .life .bars{max-width:calc(var(--u)*260)}
+html.e2e .st{font-size:calc(var(--u)*21);gap:calc(var(--u)*6)} html.e2e .st .ico{width:calc(var(--u)*21);height:calc(var(--u)*21);color:var(--fg2)}
+html.e2e #selPor{width:calc(var(--u)*86);height:calc(var(--u)*86);border-radius:calc(var(--u)*6);background:var(--well);border-color:var(--edge)}
+html.e2e #group{gap:calc(var(--u)*5)}
+html.e2e .gi{width:calc(var(--u)*50);height:calc(var(--u)*56);border-radius:calc(var(--u)*4);background:var(--well);border-color:#2f4157;padding-top:calc(var(--u)*2)}
+html.e2e .gi:hover{border-color:var(--ally)}
+html.e2e .gi .por{margin-left:calc(var(--u)*2)}
+html.e2e .gi::before,html.e2e .gi i{left:calc(var(--u)*3);right:calc(var(--u)*3);bottom:calc(var(--u)*3);height:calc(var(--u)*4)}
+html.e2e .gi b{font-size:calc(var(--u)*11);line-height:1.25;right:calc(var(--u)*2);bottom:calc(var(--u)*9);padding:0 calc(var(--u)*3)}
+html.e2e .qe,html.e2e .qi{width:calc(var(--u)*44);height:calc(var(--u)*44);border-radius:calc(var(--u)*4)}
+html.e2e .qi .ico.gl{width:calc(var(--u)*32);height:calc(var(--u)*32)} html.e2e .qi .left{font-size:calc(var(--u)*12);line-height:1.3}
+html.e2e .qi .x{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
+html.e2e #mod .q{max-width:calc(var(--u)*250);gap:calc(var(--u)*6)} html.e2e #mod .q .bar.prod{height:calc(var(--u)*9)}
+html.e2e #mod .rq>.ico{width:calc(var(--u)*44);height:calc(var(--u)*44)} html.e2e #mod>.bar.build{width:calc(var(--u)*260);height:calc(var(--u)*10)}
+html.e2e .rt{font-size:calc(var(--u)*17)} html.e2e .rs{min-width:calc(var(--u)*250)} html.e2e .rs>.ico{width:calc(var(--u)*38);height:calc(var(--u)*38)}
+/* the command card's buttons: a lit face, the key in a small plate */
+html.e2e .cb{font-size:calc(var(--u)*12.5);border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
+html.e2e .cb.active{background:#2a2415;border-color:var(--ally)} html.e2e .cb:hover{border-color:var(--ally)}
+html.e2e .cb .ico{width:calc(var(--u)*24);height:calc(var(--u)*24)} html.e2e .cb .ico.gl{width:calc(var(--u)*31);height:calc(var(--u)*31)}
+html.e2e .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:calc(var(--u)*11);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
+html.e2e .cb .c{font-size:calc(var(--u)*12);padding:0 calc(var(--u)*6)} html.e2e .cb .c .dot{width:calc(var(--u)*10);height:calc(var(--u)*8)}
+html.e2e .cb .c .p .ico{width:calc(var(--u)*10);height:calc(var(--u)*10)}
+html.e2e .cb.badge::after,html.e2e .cb.done::after{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
+/* a blank slot is a well, not a hole: the grid reads as a grid whatever the card holds */
+html.e2e #cmd{background-repeat:repeat;background-origin:content-box;background-clip:content-box;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%23080d14' fill-opacity='.72' stroke='%232a3a4e' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E")}
+html.e2e .toast{font-size:calc(var(--u)*14);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
+html.e2e #hint{font-size:calc(var(--u)*13)} html.e2e #hint.placing,html.e2e #hint.boxing{font-size:calc(var(--u)*16)}
+html.e2e .tb{font-size:calc(var(--u)*12);padding:calc(var(--u)*6) calc(var(--u)*9)} html.e2e .tb b{font-size:calc(var(--u)*13)}
+html.e2e #cmdInfo{font-size:calc(var(--u)*13)}
+
+/* ================= hud-1: the Console ================= */
+html.hud-1{--ch:calc(var(--u)*192);--pad:calc(var(--u)*8);--sh:calc(var(--u)*46);--mw:calc(var(--ch) - 2 * var(--pad) - 2px);--row:calc((var(--mw) - var(--u)*4) / 2);--rail:#465d78}
+html.hud-1 #stage{bottom:var(--ch)}
+html.hud-1 #hud{left:0;right:0;bottom:0;height:var(--ch);box-sizing:border-box;padding:var(--pad);gap:var(--pad);align-items:stretch;justify-content:flex-start;pointer-events:auto;
+  background:var(--pn);border-top:2px solid var(--rail);box-shadow:var(--lift),0 -8px 28px rgba(0,0,0,.55)}
+html.hud-1 #minimap{flex:none;width:var(--mw);height:var(--mw);border:1px solid var(--rail);border-radius:calc(var(--u)*4);box-shadow:none}
+html.hud-1 #info{flex:1 1 0;width:auto;max-height:none;margin:0;align-self:stretch;padding:calc(var(--u)*14) calc(var(--u)*20);gap:calc(var(--u)*12) calc(var(--u)*24);
+  background:linear-gradient(180deg,#0a1018,#0d141d);border:1px solid #223041;border-radius:calc(var(--u)*6);box-shadow:inset 0 2px 10px rgba(0,0,0,.55)}
+html.hud-1 #info .who{flex:0 1 calc(var(--u)*500)} html.hud-1 #info:has(#mod:empty) .who,html.hud-1 #info:has(#group:not([hidden])) .who{flex:1 1 0}
+html.hud-1 #info.empty{display:flex;align-content:center} html.hud-1 #info.empty .who{opacity:.5} /* (the well stays: nothing in the band moves) */
+html.hud-1 #group:not(:has(.gi:nth-child(13))) .gi{width:calc(var(--u)*64);height:calc(var(--u)*70)} html.hud-1 #group:not(:has(.gi:nth-child(13))) .gi b{font-size:calc(var(--u)*13);bottom:calc(var(--u)*10)} /* (twelve or fewer: larger tiles, the well has the room) */
+html.hud-1 #cmd,html.hud-1 #cmd:empty{flex:none;visibility:visible;margin-left:auto;padding:0;border:0;border-radius:0;background-color:transparent;box-shadow:none;
+  grid-template-columns:repeat(3,calc(var(--u)*94));grid-template-rows:repeat(2,var(--row));grid-auto-rows:var(--row);gap:calc(var(--u)*4);
+  width:calc(var(--u)*290);background-size:calc(var(--u)*98) calc(var(--row) + var(--u)*4)}
+html.hud-1 .cb{font-size:calc(var(--u)*13.5);gap:calc(var(--u)*3)} html.hud-1 .cb .ico{width:calc(var(--u)*28);height:calc(var(--u)*28)} html.hud-1 .cb .ico.gl{width:calc(var(--u)*36);height:calc(var(--u)*36)} html.hud-1 .cb .c{font-size:calc(var(--u)*13)}
+/* the band's height is fixed: the rare card with a third row (nine slots) fits it with three shorter rows */
+html.hud-1 #cmd:has(.cb:nth-child(7)){--row:calc((var(--mw) - var(--u)*8) / 3)}
+html.hud-1 #cmd:has(.cb:nth-child(7)) .cb{font-size:calc(var(--u)*11.5);gap:1px} html.hud-1 #cmd:has(.cb:nth-child(7)) .cb .ico{width:calc(var(--u)*22);height:calc(var(--u)*22)} html.hud-1 #cmd:has(.cb:nth-child(7)) .cb .ico.gl{width:calc(var(--u)*24);height:calc(var(--u)*24)} html.hud-1 #cmd:has(.cb:nth-child(7)) .cb .c{font-size:calc(var(--u)*11)}
+/* the shoulders: gold and POP over the minimap's end of the band, the clock and the four buttons over the card's */
+html.hud-1 #top{top:auto;bottom:var(--ch);height:var(--sh);padding:0;gap:0;align-items:stretch}
+html.hud-1 #top::before,html.hud-1 #top::after{content:'';position:absolute;z-index:-1;bottom:-2px;top:0;background:linear-gradient(180deg,#1d2939,#1a2533);border:2px solid var(--rail);border-bottom:0;box-shadow:var(--lift)}
+html.hud-1 #top::before{left:0;width:calc(var(--u)*286);border-left:0;border-radius:0 calc(var(--u)*12) 0 0}
+html.hud-1 #top::after{right:0;width:calc(var(--u)*262);border-right:0;border-radius:calc(var(--u)*12) 0 0 0}
+html.hud-1 #top .res{padding-top:2px} html.hud-1 #resShard{padding-left:calc(var(--u)*16);margin-right:calc(var(--u)*14)}
+html.hud-1 #resSup{padding-left:calc(var(--u)*14);border-left:1px solid #33465c;margin:calc(var(--u)*9) 0}
+html.hud-1 #resClock{margin-right:calc(var(--u)*12)}
+html.hud-1 #top .ib{align-self:center;margin-right:calc(var(--u)*6);width:calc(var(--u)*36);height:calc(var(--u)*34);background:none;border-color:transparent}
+html.hud-1 #top .ib:hover{border-color:var(--ally);background:var(--panel2)} html.hud-1 #btnPause{margin-right:calc(var(--u)*10)}
+html.hud-1 #msg{left:calc(var(--u)*12);bottom:calc(var(--sh) + var(--u)*12)!important}
+html.hud-1 #hint{left:calc(var(--u)*300);bottom:calc(var(--u)*10)}
+html.hud-1 #cmdInfo{transform:translateY(calc(-1 * var(--sh)))}
+
+/* ================= hud-2: the Corners ================= */
+html.hud-2{--m:calc(var(--u)*16);--plate:linear-gradient(180deg,rgba(27,38,53,.95),rgba(15,22,32,.95));--drop:0 6px 22px rgba(0,0,0,.55)}
+html.hud-2 #top{padding:var(--m) var(--m) 0;gap:0;align-items:center}
+html.hud-2 #top .res:not(#resClock){height:calc(var(--u)*48);padding:0 calc(var(--u)*16);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
+html.hud-2 #resShard{border-radius:calc(var(--u)*8) 0 0 calc(var(--u)*8)} html.hud-2 #resSup{border-left:0!important;border-radius:0 calc(var(--u)*8) calc(var(--u)*8) 0}
+html.hud-2 #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*8);background:var(--plate);border:1px solid var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
+html.hud-2 #top .ib{width:calc(var(--u)*40);height:calc(var(--u)*40);margin-left:calc(var(--u)*6);background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
+html.hud-2 #top .ib:hover{border-color:var(--ally)}
+html.hud-2 #tools,html.hud-2 #helpSheet{top:calc(var(--m) + var(--u)*58)} html.hud-2 #tools{right:var(--m)} html.hud-2 #tut{top:calc(var(--m) + var(--u)*58);left:var(--m)}
+html.hud-2 #hud{left:var(--m);right:var(--m);bottom:var(--m);gap:calc(var(--u)*14)}
+html.hud-2 #minimap{width:calc(var(--u)*236);height:calc(var(--u)*236);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
+  box-shadow:0 0 0 calc(var(--u)*4) #101822,0 0 0 calc(var(--u)*4 + 1px) #34475f,var(--drop)}
+html.hud-2 #info{width:min(calc(var(--u)*760),calc(100% - var(--u)*600));max-height:calc(var(--u)*190);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
+  background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
+html.hud-2 #cmd{grid-template-columns:repeat(3,calc(var(--u)*88));grid-template-rows:repeat(2,calc(var(--u)*68));grid-auto-rows:calc(var(--u)*68);gap:calc(var(--u)*5);padding:calc(var(--u)*7);
+  background-color:rgba(18,26,37,.92);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop);background-size:calc(var(--u)*93) calc(var(--u)*73)}
+html.hud-2 #hint{left:var(--m);bottom:calc(var(--m) + var(--u)*250)}
+html.hud-2 #msg{left:var(--m);bottom:calc(var(--m) + var(--u)*284)!important}
+
+/* ================= hud-3: the Sidebar ================= */
+html.hud-3{--sw:calc(var(--u)*300);--pad:calc(var(--u)*10);--th:calc(var(--u)*118);--in:calc(var(--sw) - 2 * var(--pad) - 2px);--rail:#465d78}
+html.hud-3 #stage{right:var(--sw)}
+html.hud-3 #top{left:auto;right:0;top:0;width:var(--sw);height:var(--th);padding:var(--pad) var(--pad) 0 calc(var(--pad) + 2px);gap:calc(var(--u)*6);flex-wrap:wrap;align-content:flex-start;pointer-events:auto;
+  background:#1a2533;border-left:2px solid var(--rail)}
+html.hud-3 #top .spacer{display:none}
+html.hud-3 #resClock{order:1;flex:1 1 0;height:calc(var(--u)*38);padding-left:calc(var(--u)*4)} html.hud-3 #rClock{text-align:left}
+html.hud-3 #top .ib{order:2;background:#223044;border-color:var(--edge)}
+html.hud-3 #top .res:not(#resClock){order:3;flex:1 1 40%;height:calc(var(--u)*52);justify-content:center;background:var(--well);border:1px solid #223041;border-radius:calc(var(--u)*6);box-shadow:inset 0 2px 8px rgba(0,0,0,.5)}
+html.hud-3 #rShard,html.hud-3 #rSupply{min-width:0}
+html.hud-3 #hud{left:auto;right:0;top:var(--th);bottom:0;width:var(--sw);height:auto;box-sizing:border-box;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:var(--pad) var(--pad) var(--pad) calc(var(--pad) + 2px);gap:var(--pad);pointer-events:auto;
+  background:linear-gradient(180deg,#1a2533 0%,#101721 100%);border-left:2px solid var(--rail);box-shadow:-8px 0 28px rgba(0,0,0,.5)}
+html.hud-3 #top{box-shadow:-8px 0 28px rgba(0,0,0,.5)}
+html.hud-3 #minimap{flex:none;width:var(--in);height:var(--in);border:1px solid var(--rail);border-radius:calc(var(--u)*4);box-shadow:none}
+html.hud-3 #info{flex:1 1 0;min-height:0;width:auto;max-height:none;margin:0;align-self:stretch;padding:calc(var(--u)*10) calc(var(--u)*11);gap:calc(var(--u)*9) calc(var(--u)*12);
+  background:linear-gradient(180deg,#0a1018,#0d141d);border:1px solid #223041;border-radius:calc(var(--u)*6);box-shadow:inset 0 2px 10px rgba(0,0,0,.55)}
+html.hud-3 #info.empty{display:flex} html.hud-3 #info.empty .who{opacity:.5}
+html.hud-3 #info .who{flex:1 1 100%;min-width:0;gap:calc(var(--u)*10)} html.hud-3 #selPor{width:calc(var(--u)*64);height:calc(var(--u)*64)}
+html.hud-3 #info .nm{flex-wrap:wrap;gap:0 calc(var(--u)*8)} html.hud-3 #info h2{font-size:calc(var(--u)*19)} html.hud-3 #info .sub{font-size:calc(var(--u)*13)}
+html.hud-3 #info .what{white-space:normal;font-size:calc(var(--u)*13);line-height:1.3}
+html.hud-3 #mod{flex:1 1 100%;padding-left:0;border-left:0;padding-top:calc(var(--u)*9);border-top:1px solid #223041;gap:calc(var(--u)*14)}
+html.hud-3 .qe,html.hud-3 .qi{width:calc(var(--u)*40);height:calc(var(--u)*40)} html.hud-3 #mod .rq>.ico{width:calc(var(--u)*40);height:calc(var(--u)*40)}
+html.hud-3 #mod .q{max-width:none;flex:1} html.hud-3 #mod>.bar.build{width:100%} html.hud-3 .rs{min-width:0;flex:1}
+html.hud-3 #group{gap:calc(var(--u)*4)} html.hud-3 .gi{width:calc(var(--u)*38);height:calc(var(--u)*45)} html.hud-3 .gi .por{margin-left:calc(var(--u)*1)}
+html.hud-3 .gi b{font-size:calc(var(--u)*10);bottom:calc(var(--u)*8)}
+html.hud-3 #cmd,html.hud-3 #cmd:empty{flex:none;visibility:visible;padding:0;border:0;border-radius:0;background-color:transparent;box-shadow:none;--cw:calc((var(--in) - var(--u)*8) / 3);
+  grid-template-columns:repeat(3,var(--cw));grid-template-rows:repeat(2,calc(var(--u)*68));grid-auto-rows:calc(var(--u)*68);gap:calc(var(--u)*4);
+  background-size:calc(var(--cw) + var(--u)*4) calc(var(--u)*72)} /* (two rows; a third, when a card has one, takes its room from the selection well above) */
+html.hud-3 #msg{left:calc(var(--u)*16);bottom:calc(var(--u)*50)!important} html.hud-3 #hint{left:calc(var(--u)*16);bottom:calc(var(--u)*16)}
+html.hud-3 #cmdInfo{right:calc(var(--sw) + 8px)!important;left:auto!important;bottom:calc(var(--u)*12)!important}
+}

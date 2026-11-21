@@ -9,3 +9,7 @@ if (HUD) document.documentElement.classList.add('e2e', 'hud-' + HUD);
 /** The options' desktop layouts: a mouse and a window at least 1100 px wide (hud-options.css has the same query). */
 export const deskMq = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
 export const hudDesk = () => HUD > 0 && deskMq.matches;
+/** The options' unit of size (hud-options.css `--u`): 1 px at 1440 x 810, 0.9 at 1280 x 720, 1.33 at 1920 x 1080. */
+export const hudU = () => Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810));
+/** A portrait's size (CSS px): `base` as shipped, `big` (in the options' units) on an option's desktop layout. */
+export const porSize = (base, big) => (hudDesk() ? Math.round(big * hudU()) : base);

@@ -96,6 +96,9 @@ async function staged(device, hud) {
   await press('#btnStart');
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { polling: 100 });
   await page.evaluate(() => document.fonts.ready);
+  // The zoom of every still: main's start zoom for this window (render.js startZoom on main's canvas, the window less
+  // its 8 px gutters), the same number today and in every option, whatever width an option leaves the canvas.
+  await page.evaluate(() => { endfall.todayZoom = () => (matchMedia('(pointer: coarse)').matches ? 1 : Math.min(2, Math.max(1, (innerWidth - 16) / 1200))); });
   const setup = await page.evaluate(stage);
   const selectArmy = async () => {
     await page.evaluate(() => endfall.draw());
@@ -118,12 +121,13 @@ async function sizeTo(page, w, h) {
 
 /** The point the camera centers on: the fight, pulled a little toward the base so both show; the same world point in
  *  every option and today (each layout then covers what it covers). */
-const aim = (s) => ({ x: s.field.x * 0.6 + s.hq.x * 0.4, y: s.field.y * 0.6 + s.hq.y * 0.4 });
+const aim = (s) => ({ x: s.field.x * 0.66 + s.hq.x * 0.34, y: s.field.y * 0.76 + s.hq.y * 0.24 });
 
 /** Draw the held instant at the page's start zoom, centered on `at`, and shoot the whole window. */
 async function shoot(page, file, at) {
   const s = await page.evaluate(([at]) => {
-    const { cam, view } = endfall; cam.zoom = endfall.startZoom; endfall.centerOn(at.x, at.y); endfall.draw(); endfall.draw();
+    const { cam, view } = endfall; cam.zoom = endfall.todayZoom(); endfall.centerOn(at.x, at.y); endfall.draw(); endfall.draw();
+    for (const t of document.querySelectorAll('.toast')) t.style.animation = 'none'; // (a toast fades by the wall clock, which is not held: every still shows it whole)
     return { view: { w: view.w, h: view.h }, zoom: cam.zoom, cam: { x: cam.x, y: cam.y }, hash: endfall.engine.stateHash() >>> 0, selected: endfall.ui.sel.length };
   }, [at]);
   await page.screenshot({ path: file, timeout: 300000 });
@@ -134,7 +138,7 @@ async function shoot(page, file, at) {
 /** The melee alone: the camera on the army, and a cut of the window round it (w x h CSS px). */
 async function closeup(page, file, s, w, h) {
   const r = await page.evaluate(([p]) => {
-    const { cam } = endfall; cam.zoom = endfall.startZoom; endfall.centerOn(p.x, p.y - 20); endfall.draw(); endfall.draw();
+    const { cam } = endfall; cam.zoom = endfall.todayZoom(); endfall.centerOn(p.x, p.y - 20); endfall.draw(); endfall.draw();
     const b = document.getElementById('game').getBoundingClientRect();
     return { x: b.left + (p.x - cam.x) * cam.zoom, y: b.top + (p.y - 20 - cam.y) * cam.zoom };
   }, [s.army]);
@@ -165,7 +169,7 @@ try {
         await sizeTo(page, 1440, 900);
         // one unit: a click on the Knight nearest the base (the least crowded)
         const knight = await page.evaluate(([hq]) => { const { G } = endfall, k = G.units.filter(u => u.team === G.me && u.type === 'knight' && !u.dead).sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))[0]; return { x: k.x, y: k.y - endfall.unitTop('knight') / 3 }; }, [setup.hq]);
-        await page.evaluate(([at]) => { endfall.cam.zoom = endfall.startZoom; endfall.centerOn(at.x, at.y); endfall.draw(); }, [at]);
+        await page.evaluate(([at]) => { endfall.cam.zoom = endfall.todayZoom(); endfall.centerOn(at.x, at.y); endfall.draw(); }, [at]);
         await clickWorld(page, knight); await page.mouse.move(2, 300);
         await shoot(page, join(sdir, `${tag}1440x900--one-unit.png`), at);
         // a building with a production queue: the Barracks, K three times and the second button twice

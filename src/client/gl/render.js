@@ -16,6 +16,7 @@ import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
 
 export const cv = document.getElementById('game');
+import { HUD, hudDesk } from '../hudopt.js'; // (PROTOTYPE, branch hud-options: the options' selection marks and health bars, below)
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
 export const view = { w: 800, h: 500, dpr: 1 };
 /** Camera: top-left corner in world px, and zoom (screen px per world px). */
@@ -218,6 +219,7 @@ export function resize() {
   const r = cv.parentElement.getBoundingClientRect(), mid = toWorld(view.w / 2, view.h / 2); // (the point in the middle stays there)
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
+  if (hudDesk() && HUD !== 2) hudFloats = false; // (PROTOTYPE: the Console and the Sidebar are docked: the map ends at them, nothing to scroll out from under)
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution); centerOn(mid.x, mid.y);
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
@@ -360,7 +362,57 @@ const selG = new Graphics(); L.sel.addChild(selG); // (a selected building's ova
 /** A selected building: a flat oval on the ground under it, sized to its footprint (look.js `selOval`). */
 function selOval(b, color) {
   const o = selOvalOf(b);
+  if (HUD) { optMark(o.x, o.y, o.rx, o.ry, color, 1, HUD !== 3); return; } // (PROTOTYPE: its health stays a bar)
   for (const [w, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) selG.ellipse(o.x, o.y, o.rx, o.ry).stroke({ width: w, color: c, alpha: a });
+}
+// ---- PROTOTYPE (branch hud-options): each HUD option's selection mark and health bar; HUD 0 is main's, above ----
+// All of them are drawn each frame into `selG` (under the units) and `bars`, in screen pixels whatever the zoom (`px`
+// is one CSS px in world units; today's ring and bar grow with the zoom: 6 px strokes and bars at the 1920 start).
+//   1  a thin whole ring; a slim bar no wider than 24 or 34 px, lit along its top
+//   2  a soft disc of light under the feet, its front edge bright; a bar cut into two to six segments (one per 70 health)
+//   3  the ring's front is the health bar (a dark track, lit left to right in the health's color); no bar over a
+//      selected unit of ours at all, a short one over the others when hurt
+const snap = (v) => Math.round(v * cam.zoom) / cam.zoom; // (bars on whole screen pixels: the world's origin is on one)
+const HP_COLOR = (f) => (f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a), HP_LIT = (f) => (f > 0.6 ? 0xa6f0b8 : f > 0.3 ? 0xffd690 : 0xff9a9a);
+function arcOf(g, cx, cy, rx, ry, a0, a1) { const n = Math.max(6, Math.ceil(Math.abs(a1 - a0) * 8)); for (let i = 0; i <= n; i++) { const t = a0 + (a1 - a0) * i / n, x = cx + Math.cos(t) * rx, y = cy + Math.sin(t) * ry; if (i) g.lineTo(x, y); else g.moveTo(x, y); } }
+/** A selected unit's or building's mark on the ground: `f` its health (0..1), `own` ours or an ally's (not red). */
+function optMark(cx, cy, rx, ry, color, f, own) {
+  const px = 1 / cam.zoom, g = selG;
+  if (HUD === 1) {
+    g.ellipse(cx, cy, rx, ry).fill({ color, alpha: 0.06 }).stroke({ width: 3.5 * px, color: 0x000000, alpha: 0.38 });
+    g.ellipse(cx, cy, rx, ry).stroke({ width: 1.5 * px, color, alpha: 0.95 });
+  } else if (HUD === 2) {
+    g.ellipse(cx, cy, rx, ry).fill({ color, alpha: 0.16 }).stroke({ width: 1 * px, color, alpha: 0.45 });
+    arcOf(g, cx, cy, rx, ry, Math.PI * 0.12, Math.PI * 0.88); g.stroke({ width: 4 * px, color: 0x000000, alpha: 0.3, cap: 'round' });
+    arcOf(g, cx, cy, rx, ry, Math.PI * 0.12, Math.PI * 0.88); g.stroke({ width: 2 * px, color, alpha: 1, cap: 'round' });
+  } else {
+    g.ellipse(cx, cy, rx, ry).stroke({ width: 3.5 * px, color: 0x000000, alpha: 0.38 });
+    g.ellipse(cx, cy, rx, ry).stroke({ width: 1.5 * px, color, alpha: own ? 0.9 : 0.95 });
+    if (!own) return; // (an enemy's ring is red: its health stays a bar; a building's too)
+    // the front of the ring, left to right, is the bar: a dark track, what is left of the health lit in its color
+    const a0 = Math.PI * 0.9, span = Math.PI * 0.8;
+    arcOf(g, cx, cy, rx, ry, a0, a0 - span); g.stroke({ width: 5 * px, color: 0x05080c, alpha: 0.85, cap: 'butt' });
+    arcOf(g, cx, cy, rx, ry, a0 - 0.02, a0 - 0.02 - (span - 0.04) * Math.max(0.03, Math.min(1, f))); g.stroke({ width: 3 * px, color: HP_COLOR(f), alpha: 1, cap: 'butt' });
+  }
+}
+/** A health bar in an option's style, centered on `cx`, its top at `y`; `wide`: the room it may take (world px). */
+function optBar(cx, y, wide, hp, max, big, small = false) {
+  const px = 1 / cam.zoom, f = Math.max(0, Math.min(1, hp / max));
+  if (HUD === 2) {
+    const n = Math.max(2, Math.min(6, Math.round(max / 70))), seg = (big ? 7 : 6) * px, w = n * seg + px, h = 5 * px, x = snap(cx - w / 2); y = snap(y - px);
+    bars.rect(x, y, w, h).fill({ color: 0x05080c, alpha: 0.85 });
+    const lit = f * n;
+    for (let i = 0; i < n; i++) {
+      const k = Math.max(0, Math.min(1, lit - i)); if (k <= 0) break;
+      bars.rect(x + px + i * seg, y + px, (seg - px) * k, 3 * px).fill(HP_COLOR(f)); bars.rect(x + px + i * seg, y + px, (seg - px) * k, px).fill(HP_LIT(f));
+    }
+    return;
+  }
+  const cap = (small ? (big ? 22 : 16) : big ? 34 : 24) * px, w = small ? cap : Math.min(wide, cap), h = 4 * px, x = snap(cx - w / 2); y = snap(y);
+  bars.rect(x, y, w, h).fill({ color: 0x05080c, alpha: small ? 0.7 : 0.82 });
+  const fw = Math.max(px, Math.round((w - 2 * px) * f * cam.zoom) / cam.zoom);
+  bars.rect(x + px, y + px, fw, h - 2 * px).fill(HP_COLOR(f));
+  bars.rect(x + px, y + px, fw, px).fill(HP_LIT(f));
 }
 class UnitObj {
   constructor(u) {
@@ -400,7 +452,8 @@ class UnitObj {
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
     paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
     const s = sel.has(u);
-    this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
+    this.ring.visible = s && !HUD; if (s) this.ring.position.set(u.x, u.y + 3);
+    if (s && HUD) optMark(u.x, u.y + 3, this.size * 0.84, this.size * 0.52, enemies(G.me, u.team) ? SEL_FOE : SEL, u.hp / u.maxhp, !enemies(G.me, u.team)); // (PROTOTYPE: a little tighter round the feet)
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
@@ -826,6 +879,11 @@ function updateFogImage() {
 function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
   if (maxsh > 0) { bars.rect(x, y - 4, w, 4).fill({ color: 0x000000, alpha: 0.65 }); bars.rect(x + 1, y - 3, (w - 2) * Math.max(0, sh / maxsh), 2).fill(0xcfe6ff); } // (2 px: readable on a phone)
   const f = Math.max(0, hp / max);
+  if (HUD) { // (PROTOTYPE: a building's bar, as wide as today's, 4 screen px tall at any zoom, lit along its top)
+    const px = 1 / cam.zoom, h = 4 * px, fw = (w - 2 * px) * Math.min(1, f); x = snap(x); y = snap(y + 4 - h);
+    bars.rect(x, y, w, h).fill({ color: 0x05080c, alpha: 0.82 }); bars.rect(x + px, y + px, fw, h - 2 * px).fill(HP_COLOR(f)); bars.rect(x + px, y + px, fw, px).fill(HP_LIT(f));
+    return;
+  }
   bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
   bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
 }
@@ -1027,6 +1085,10 @@ export function render(selList, place) {
     const v = inView(u.x, u.y, 64) && !u.inside && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return; // (one inside a mine is not drawn)
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
+    if (bar && HUD) { // (PROTOTYPE: the option's bar; the third option's ring carries a selected unit's health)
+      const r = u.r * UNIT_SCALE, mine = sel.has(u) && !enemies(G.me, u.team);
+      if (!(HUD === 3 && mine)) optBar(u.x, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.r > 12, HUD === 3);
+    } else
     if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
     if (u.team === G.me && RADIO.machines.has(u.type) && G.radio.length && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
       noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);

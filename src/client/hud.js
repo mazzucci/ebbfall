@@ -6,6 +6,7 @@ const repairersOf = (b) => G.units.filter(u => u.task.t === 'repair' && u.task.b
 import { sfx } from './audio.js';
 import { icon, glyph } from './icons.js';
 import { portrait } from './gl/render.js';
+import { porSize, HUD } from './hudopt.js'; // (PROTOTYPE, branch hud-options: larger portraits on an option's desktop layout)
 import { $, ui, toast, playerSel, touchUi, setBox, setHint, clearMode, setSelection } from './ui.js';
 import { buildCard, invalidateCard, cardItems, doCommand, holdForDetail } from './card.js';
 import { myFaction, moneyDot, buildersOf, ROMAN, upName } from './cards.js';
@@ -103,7 +104,7 @@ function renderSelection() {
     const n = sel[0];
     const ore = myFaction().ore || 'gold';
     named(ore[0].toUpperCase() + ore.slice(1) + ' mine');
-    if (selKey !== 'node' + n.id) { selKey = 'node' + n.id; $('selPor').innerHTML = portrait('node', n.type, 44); }
+    const ps = porSize(44, HUD === 3 ? 56 : 76); if (selKey !== 'node' + n.id + ps) { selKey = 'node' + n.id + ps; $('selPor').innerHTML = portrait('node', n.type, ps); }
     sub.textContent = n.amount > 0 ? `${n.amount} ${ore} left` : `Empty: no ${ore} left`;
     life(n.max ? n.amount / n.max : 0, n.amount, 0, 'var(--gold)');
     // (our own miners inside it now, of the most our workers fit: "Miners 5 / 8"; the arc's UPDATE 6)
@@ -112,7 +113,7 @@ function renderSelection() {
   } else if (sel.length === 1) {
     const x = sel[0], own = x.team === G.me;
     named(x.d.name);
-    if (selKey !== 'one' + x.id) { selKey = 'one' + x.id; $('selPor').innerHTML = portrait(x.kind, x.type, 44, x.team); }
+    const ps = porSize(44, HUD === 3 ? 56 : 76); if (selKey !== 'one' + x.id + ps) { selKey = 'one' + x.id + ps; $('selPor').innerHTML = portrait(x.kind, x.type, ps, x.team); }
     // (research and training: the module below names what and shows how far)
     sub.textContent = !own ? (enemies(G.me, x.team) ? 'Enemy' : 'Ally') : x.kind === 'unit' ? taskName(x) : x.done && x.research ? (x.d.trains?.length ? bldgStatus(x) : 'Researching') : x.done && x.queue.length ? x.d.training || 'Training' : bldgStatus(x);
     // (construction's words carry a percentage: they keep their room, the name gives way first)
@@ -158,10 +159,11 @@ function renderSelection() {
       types.forEach((t, i) => { const g = sorted.filter(x => x.type === t); bar(grp.children[i], g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0)); });
       return;
     }
-    const shown = sorted.slice(0, 24), gk = shown.map(x => x.id).join();
+    const ts = porSize(28, HUD === 3 ? 34 : HUD === 1 && sel.length <= 12 ? 54 : 42), // (the Console's well has the room: twelve or fewer are larger)
+      shown = sorted.slice(0, 24), gk = shown.map(x => x.id).join() + ts;
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
-      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, 28, x.team, true)}<b>${x.d.hot}</b><i></i></div>`).join('');
+      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, ts, x.team, true)}<b>${x.d.hot}</b><i></i></div>`).join('');
     }
     shown.forEach((x, i) => bar(grp.children[i], x.hp / x.maxhp));
   }

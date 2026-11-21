@@ -95,8 +95,8 @@
   "w": 1280,
   "h": 720,
   "seconds": 16.5,
-  "bytes": 378615,
-  "uploaded": "2026-11-20"
+  "bytes": 382461,
+  "uploaded": "2026-11-21"
  },
  "desk-select": {
   "file": "desk-select.mp4",
@@ -104,8 +104,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2.1,
-  "bytes": 127333,
-  "uploaded": "2026-11-20"
+  "bytes": 127518,
+  "uploaded": "2026-11-21"
  },
  "desk-move": {
   "file": "desk-move.mp4",
@@ -113,8 +113,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2,
-  "bytes": 133026,
-  "uploaded": "2026-11-20"
+  "bytes": 133894,
+  "uploaded": "2026-11-21"
  },
  "desk-type": {
   "file": "desk-type.mp4",
@@ -122,8 +122,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2,
-  "bytes": 129881,
-  "uploaded": "2026-11-20"
+  "bytes": 128058,
+  "uploaded": "2026-11-21"
  },
  "desk-attack": {
   "file": "desk-attack.mp4",
@@ -131,8 +131,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2.4,
-  "bytes": 127992,
-  "uploaded": "2026-11-20"
+  "bytes": 129313,
+  "uploaded": "2026-11-21"
  },
  "desk-group": {
   "file": "desk-group.mp4",
@@ -140,8 +140,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2.8,
-  "bytes": 123304,
-  "uploaded": "2026-11-20"
+  "bytes": 125704,
+  "uploaded": "2026-11-21"
  },
  "desk-pan": {
   "file": "desk-pan.mp4",
@@ -149,8 +149,8 @@
   "w": 960,
   "h": 540,
   "seconds": 2,
-  "bytes": 127145,
-  "uploaded": "2026-11-20"
+  "bytes": 126028,
+  "uploaded": "2026-11-21"
  },
  "desk-wasd": {
   "file": "desk-wasd.mp4",

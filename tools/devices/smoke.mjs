@@ -1,5 +1,6 @@
 // The device smoke: on each device, the first page, SINGLE PLAYER, START GAME, the game, the sound and full-screen
-// buttons, and what the page says of itself (window.endfall: the audio context, full screen, its errors). Screenshots and
+// buttons, an army selected with ARMY (optional: a screenshot of the selection rings and health bars), and what the
+// page says of itself (window.endfall: the audio context, full screen, its errors). Screenshots and
 // summary.json go to --out. Exits 1 when a device failed (it could not start a game, or the page had errors).
 //   node tools/devices/smoke.mjs --devices ipad,iphone,pixel --url https://ebbfall.com/ --backend local --out devices-out
 // Backends (drivers.mjs): browserstack (the default when BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY are set),
@@ -57,6 +58,19 @@ async function waitFor(d, expr, ms, what) {
     await sleep(500);
   }
 }
+
+// The army (optional step): six fighters of this side's first two kinds set down beside its headquarters (the debug
+// handle, as the e2e tests set a scene), the camera on them; then ARMY selects them through the UI.
+const ARMY = `(function () {
+  var e = window.endfall, G = e.G, eng = e.engine, f = eng.FACTIONS[G.factions[G.me]];
+  var hq = G.bldgs.find(function (b) { return b.team === G.me && b.type === f.hq; });
+  var kinds = f.buildBasic.concat(f.buildAdvanced).reduce(function (a, k) { return a.concat(eng.BUILDINGS[k].trains || []); }, [])
+    .filter(function (k) { return !eng.UNITS[k].worker && !eng.UNITS[k].air; });
+  var cx = eng.WW / 2 - hq.x, cy = eng.WH / 2 - hq.y, n = Math.hypot(cx, cy) || 1, x = hq.x + cx / n * 150, y = hq.y + cy / n * 150, ids = [];
+  for (var i = 0; i < 6; i++) { var id = eng.debugSpawn(G.me, kinds[i < 3 ? 0 : Math.min(1, kinds.length - 1)], x + (i % 3 - 1) * 36, y + (i < 3 ? -26 : 26)); if (id) ids.push(id); }
+  e.centerOn(x, y);
+  return ids.length;
+})()`;
 
 /** A warning: an annotation on the run's page on GitHub Actions, a line otherwise. */
 const warn = (msg) => console.log(process.env.GITHUB_ACTIONS ? `::warning title=Devices::${msg.replace(/[\r\n]+/g, ' ')}` : `  warning: ${msg}`);
@@ -136,6 +150,17 @@ async function smoke(key) {
       await d.tap('#btnFull'); const b = await after(a.fullscreen);
       return { enabled: true, shown: before.fullscreenButton, before: before.fullscreen, afterTap: a.fullscreen, afterSecondTap: b.fullscreen };
     });
+    // Optional: the army selected, so the selection rings and the health bars show on the device; never fails it.
+    try {
+      await step('the army selected (optional)', async () => {
+        const n = await d.eval(ARMY);
+        if (!n) throw new Error('no fighter could be set down');
+        const how = await press(d, '#btnArmy', `window.endfall.ui.sel.length >= ${n}`, 40000, 'ARMY to select the army');
+        await sleep(1500); // (a few frames drawn)
+        await shot('4-army');
+        return { ...how, spawned: n, selected: await d.eval('window.endfall.ui.sel.length') };
+      });
+    } catch (e) { warn(`${d.device || key}: the army step: ${e.message.split('\n')[0]} (optional: not failed)`); }
     r.status = await d.eval(STATUS);
     r.ok = r.status.started && r.status.errors.length === 0;
     const ignored = r.steps.filter(x => x.result && x.result.nativeTapIgnored).map(x => x.name);

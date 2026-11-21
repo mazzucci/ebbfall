@@ -243,6 +243,7 @@ export function resize() {
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'), top = document.getElementById('top'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
+  const m = mm.getBoundingClientRect(); footRoom = m.height ? Math.max(0, r.bottom - m.top) + 4 : FOOT_ROOM;
   showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
   cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
@@ -256,16 +257,18 @@ let hudFloats = true;
 const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0;
 /** A desktop's map edge to edge (style.css: the canvas fills the window, the top bar floats over it like the HUD;
  *  `bleed`, read on each resize from the top bar's position): the camera keeps to the map at the sides, and past the
- *  top and the foot only as far as the top bar (`topRoom`, screen px) and the panels (HUD_ROOM) cover, so the map's
- *  first and last rows can still be brought out from under them; what shows past the edge there is the apron (rock
- *  drawn past the map, `showApron`), never the dark. The sides need no room: no panel stands at a side but at the foot
- *  and the top, and their corners come out with the foot's and the top's room. Phones and tablets keep their box. */
-let bleed = false, topRoom = 0;
-const HUD_ROOM = 170;
+ *  top and the foot only as far as the top bar (`topRoom`, screen px) and the panels (`footRoom`: up to the minimap's
+ *  top, the tallest panel at the foot, and 4 px more: 170 px under 1100 px, 252 units and 4 px with the desktop HUD,
+ *  style.css) cover, so the map's first and last rows can still be brought out from under them; what shows past the
+ *  edge there is the apron (rock drawn past the map, `showApron`), never the dark. The sides need no room: no panel
+ *  stands at a side but at the foot and the top, and their corners come out with the foot's and the top's room. Phones
+ *  and tablets keep their box. */
+const FOOT_ROOM = 170; // (before the minimap is laid out)
+let bleed = false, topRoom = 0, footRoom = FOOT_ROOM;
 export function clampCam() {
   if (bleed) {
     cam.x = clamp(cam.x, 0, Math.max(0, WW - vw()));
-    cam.y = clamp(cam.y, -topRoom / cam.zoom, Math.max(0, WH - vh()) + HUD_ROOM / cam.zoom);
+    cam.y = clamp(cam.y, -topRoom / cam.zoom, Math.max(0, WH - vh()) + footRoom / cam.zoom);
     return;
   }
   const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o);
@@ -298,8 +301,9 @@ const FOG_DARK = [5, 7, 11, 255], FOG_SEEN = [18, 22, 34, 115], FOG_CLEAR = [18,
 /** The apron: tiles of rock drawn past the map's edges (each edge's rock kind carried out, the fog of its edge tiles
  *  too), so a desktop camera's room past the top and the foot (`clampCam`) shows ground, never the dark. Shown only
  *  edge to edge (`bleed`): a phone's box shows what it showed. As deep as the most room past an edge at the farthest
- *  zoom (170 px at 0.75: 7 tiles). */
-const APRON = 8;
+ *  zoom: the desktop HUD's foot room over its zoom limit, at most 321 px (231 screen px at 0.75 in the smallest window it
+ *  shows in; a larger window's grows with --u as its limit does), 10 tiles. */
+const APRON = 11;
 // (the fog canvas is APRON tiles larger each way, its edge pixels stretched out each update; the map's own part,
 // `fogMapTex`, for a box)
 let fogCv, fogCtx, fogImg, fogTex, fogMapTex, gridW = 0, gridH = 0;
@@ -410,29 +414,22 @@ export function renderTerrain() {
 const unitObjs = new Map(), bldgObjs = new Map(), nodeObjs = new Map();
 const light = (tint, scale, alpha) => { const s = new Sprite(tex('light')); s.anchor.set(0.5); s.tint = tint; s.scale.set(scale); s.alpha = alpha; L.lights.addChild(s); return s; };
 
-// Selection marks: cool white brackets (red for the enemy), unlike anything else on the field: health bars are green to
-// red, orders amber, resources teal and violet.
+// Selection marks: cool white (red for the enemy), unlike anything else on the field: health bars are green to red,
+// orders amber, resources teal and violet.
 const SEL = 0xeaf6ff, SEL_FOE = 0xff5a5a;
-/** Four arcs of an ellipse round a unit's feet: a broken ring, so it never reads as a health bar or a range. */
-function selArcs(rx, ry, color) {
-  const g = new Graphics();
-  for (const [w, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) {
-    for (let q = 0; q < 4; q++) {
-      const a0 = q * Math.PI / 2 + Math.PI / 4 - 0.5, n = 8;
-      for (let i = 0; i <= n; i++) { const t = a0 + i / n; const x = Math.cos(t) * rx, y = Math.sin(t) * ry; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
-    }
-    g.stroke({ width: w, color: c, alpha: a, cap: 'round' });
-  }
-  return g;
-}
 /** The Portal's swirl at rest: this faint (look.js portalOpen brightens it to full as a unit comes through). */
 const PORTAL_SETTLED = 0.35;
-const selG = new Graphics(); L.sel.addChild(selG); // (a selected building's oval, under the buildings: cleared every frame)
-/** A selected building: a flat oval on the ground under it, sized to its footprint (look.js `selOval`). */
-function selOval(b, color) {
-  const o = selOvalOf(b);
-  for (const [w, c, a] of [[4, 0x000000, 0.45], [2, color, 0.95]]) selG.ellipse(o.x, o.y, o.rx, o.ry).stroke({ width: w, color: c, alpha: a });
+const selG = new Graphics(); L.sel.addChild(selG); // (the selection marks, under the units and buildings: cleared every frame)
+/** A selection mark: one thin whole ellipse on the ground, 1.5 px of its color over a 3.5 px dark underlay and a faint
+ *  wash of it inside, in screen pixels at any zoom (in world pixels it grew with the zoom: 6 px strokes at a desktop's
+ *  start, a toy's). A unit's round its feet, a building's round its footprint, an enemy's red. */
+function selRing(cx, cy, rx, ry, color) {
+  const px = 1 / cam.zoom;
+  selG.ellipse(cx, cy, rx, ry).fill({ color, alpha: 0.06 }).stroke({ width: 3.5 * px, color: 0x000000, alpha: 0.38 });
+  selG.ellipse(cx, cy, rx, ry).stroke({ width: 1.5 * px, color, alpha: 0.95 });
 }
+/** A selected building: its ring sized to its footprint (look.js `selOval`). */
+function selOval(b, color) { const o = selOvalOf(b); selRing(o.x, o.y, o.rx, o.ry, color); }
 class UnitObj {
   constructor(u) {
     const layer = u.d.air ? L.air : L.ents;
@@ -445,7 +442,6 @@ class UnitObj {
     // (an own walker: its silhouette, shown while a building hides it)
     if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE); this.xr.visible = false; L.xray.addChild(this.xr); }
     this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the selection ring round the feet: as large as the art)
-    this.ring = selArcs(this.size * 0.95, this.size * 0.6, enemies(G.me, u.team) ? SEL_FOE : SEL); this.ring.visible = false; L.sel.addChild(this.ring);
     this.cargo = light(0xeee6d2, 0.14, 0.5); // (the gold a worker carries: pale, faint)
     this.id = u.id; this.px = u.x; this.py = u.y; this.walk = 0;
   }
@@ -470,8 +466,7 @@ class UnitObj {
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
     paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
-    const s = sel.has(u);
-    this.ring.visible = s; if (s) this.ring.position.set(u.x, u.y + 3);
+    if (sel.has(u)) selRing(u.x, u.y + 3, this.size * 0.84, this.size * 0.52, enemies(G.me, u.team) ? SEL_FOE : SEL); // (a little tighter than the art round the feet)
     this.cargo.visible = !!u.carry;
     if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
@@ -496,8 +491,8 @@ class UnitObj {
     this.strikes = c;
     if (this.nudge > 0) { this.nudge--; this.node.x += this.nudgeTo.dx * WORK.nudge; this.node.y += this.nudgeTo.dy * WORK.nudge; }
   }
-  show(v) { this.node.visible = v; if (!v) { this.ring.visible = this.cargo.visible = false; if (this.xr) this.xr.visible = false; } }
-  destroy() { this.node.destroy({ children: true }); this.ring.destroy(); this.cargo.destroy(); this.xr?.destroy(); } // (a Graphics frees its context only when destroyed without options)
+  show(v) { this.node.visible = v; if (!v) { this.cargo.visible = false; if (this.xr) this.xr.visible = false; } }
+  destroy() { this.node.destroy({ children: true }); this.cargo.destroy(); this.xr?.destroy(); }
 }
 
 const stageTex = {};
@@ -898,12 +893,28 @@ function updateFogImage() {
   fogTex.source.update();
 }
 
-/** A health bar (green to red); `sh/maxsh`: a pale shield bar just above it (none since the re-theme). */
+/** A world coordinate on a whole screen pixel (the world's origin is on one: `render`). */
+const snap = (v) => Math.round(v * cam.zoom) / cam.zoom;
+const HP_COLOR = (f) => (f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a), HP_LIT = (f) => (f > 0.6 ? 0xa6f0b8 : f > 0.3 ? 0xffd690 : 0xff9a9a);
+/** A slim bar `w` world px wide, its top-left at (x, y): 4 screen px tall at any zoom, a dark track, what is full in its
+ *  color with a lighter line along its top, on whole screen pixels. */
+function slimBar(x, y, w, f, color, lit) {
+  const px = 1 / cam.zoom; x = snap(x); y = snap(y); w = Math.max(3 * px, snap(w)); f = clamp(f, 0, 1);
+  bars.rect(x, y, w, 4 * px).fill({ color: 0x05080c, alpha: 0.82 });
+  const fw = Math.round((w - 2 * px) * f * cam.zoom) / cam.zoom;
+  if (fw > 0) { bars.rect(x + px, y + px, fw, 2 * px).fill(color); bars.rect(x + px, y + px, fw, px).fill(lit); }
+}
+/** A health bar (green to red), its foot where a 4 px bar's foot was at zoom 1; `sh/maxsh`: a pale shield bar just above
+ *  it (none since the re-theme). */
 function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
-  if (maxsh > 0) { bars.rect(x, y - 4, w, 4).fill({ color: 0x000000, alpha: 0.65 }); bars.rect(x + 1, y - 3, (w - 2) * Math.max(0, sh / maxsh), 2).fill(0xcfe6ff); } // (2 px: readable on a phone)
-  const f = Math.max(0, hp / max);
-  bars.rect(x, y, w, 4).fill({ color: 0x000000, alpha: 0.65 });
-  bars.rect(x + 1, y + 1, (w - 2) * f, 2).fill(f > 0.6 ? 0x5ad67d : f > 0.3 ? 0xffb545 : 0xff5a5a);
+  const px = 1 / cam.zoom, top = y + 4 - 4 * px, f = Math.max(0, hp / max);
+  if (maxsh > 0) slimBar(x, top - 5 * px, w, sh / maxsh, 0xcfe6ff, 0xffffff);
+  slimBar(x, top, w, f, HP_COLOR(f), HP_LIT(f));
+}
+/** A unit's health bar over its art: as wide as the unit but never wider than 24 screen px (34 for a large one). */
+function unitBar(u) {
+  const w = Math.min(u.r * UNIT_SCALE * 2 + 4, (u.r > 12 ? 34 : 24) / cam.zoom);
+  hpBar(u.x - w / 2, u.y - unitTop(u.type) - 7, w, u.hp, u.maxhp, u.sh, u.maxsh); // (just over the art's top)
 }
 // ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
 const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
@@ -1088,9 +1099,9 @@ export function render(selList, place) {
     const ownSite = b.team === G.me && !b.done, hx = b.tx * TILE + 4, hy = b.ty * TILE - 8, hw = b.w * TILE - 8;
     if (ownSite) {
       progressBar(hx, hy - (BUILD_BAR.h - 4), hw, b.progress, BUILD_BAR.color, 0, BUILD_BAR.h); barsDrawn.push({ id: b.id, bar: 'build', y: hy - (BUILD_BAR.h - 4), h: BUILD_BAR.h });
-      if (seen && siteHurt(b)) { hpBar(hx, hy - BUILD_BAR.h, hw, b.hp, b.maxhp, b.sh, b.maxsh); barsDrawn.push({ id: b.id, bar: 'hp', y: hy - BUILD_BAR.h, h: 4 }); }
+      if (seen && siteHurt(b)) { hpBar(hx, hy - BUILD_BAR.h, hw, b.hp, b.maxhp, b.sh, b.maxsh); barsDrawn.push({ id: b.id, bar: 'hp', y: hy - BUILD_BAR.h + 4 - 4 / cam.zoom, h: 4 / cam.zoom }); }
       if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now);
-    } else if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) { hpBar(hx, hy, hw, b.hp, b.maxhp, b.sh, b.maxsh); barsDrawn.push({ id: b.id, bar: 'hp', y: hy, h: 4 }); }
+    } else if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) { hpBar(hx, hy, hw, b.hp, b.maxhp, b.sh, b.maxsh); barsDrawn.push({ id: b.id, bar: 'hp', y: hy + 4 - 4 / cam.zoom, h: 4 / cam.zoom }); }
     // Progress shown on the building itself: training, research.
     if (b.team === G.me) {
       const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
@@ -1103,7 +1114,7 @@ export function render(selList, place) {
     const v = inView(u.x, u.y, 64) && !u.inside && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return; // (one inside a mine is not drawn)
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
-    if (bar) { const r = u.r * UNIT_SCALE; hpBar(u.x - r - 2, u.y - unitTop(u.type) - 7, r * 2 + 4, u.hp, u.maxhp, u.sh, u.maxsh); } // (just over the art's top)
+    if (bar) unitBar(u);
     if (u.team === G.me && RADIO.machines.has(u.type) && G.radio.length && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
       noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
     }

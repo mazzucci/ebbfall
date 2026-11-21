@@ -4,7 +4,8 @@ What the **Devices** workflow (`.github/workflows/devices.yml`) runs on an iPad 
 (Chrome): open the site, screenshot the first page, tap SINGLE PLAYER then START GAME, wait for the game and screenshot
 it, tap the sound button (off, on) and the full-screen button (out, in, where the browser has one: not iPhone Safari),
 and read back `endfall.status()`: the audio context's state, full screen, the page's errors since it opened. Last, an
-optional step: six fighters set down beside the base (the debug handle), ARMY tapped to select them,
+optional step: six fighters set down beside the base (the debug handle), ARMY tapped to select them (where the page
+shows no ARMY, as on the Android emulator, which reports no touch screen, a touch on the map first shows it, as on a phone),
 and one more screenshot (`4-army`), so the selection rings and health bars can be looked at on the device; it warns
 when it cannot, and never fails a device. A device
 fails when no game is running at the end or the page had errors. A tap that changes nothing in 30 s is tried again as a

@@ -33,7 +33,9 @@
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { start, stop, browserContext, baseUrl, board } from '../test/e2e/harness.mjs';
+import { FFMPEG } from './trailer/record.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -295,10 +297,25 @@ async function edgeSheet(CORNERS) {
       ${intro}${rows}`);
     await page.goto(pathToFileURL(join(out, 'sheet.html')).href);
     await page.waitForFunction(() => [...document.images].every(i => i.complete));
-    await page.screenshot({ path: join(out, 'sheet.png'), fullPage: true, type: 'png' });
+    await tallShot(page, join(out, 'sheet.png'));
     console.log('sheet.png');
     await ctx.close();
   } finally { await stop(); }
+}
+
+/** A full-page screenshot of a page taller than headless Chromium shoots whole (one past some 8000 px came out with its
+ *  top repeated further down): in bands of 4000 px, stacked by ffmpeg. */
+async function tallShot(page, file) {
+  const { w, h } = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight }));
+  const BAND = 4000, parts = [];
+  for (let y = 0; y < h; y += BAND) {
+    const part = `${file}.${parts.length}.png`;
+    await page.screenshot({ path: part, fullPage: true, clip: { x: 0, y, width: w, height: Math.min(BAND, h - y) } });
+    parts.push(part);
+  }
+  if (parts.length === 1) { execFileSync('mv', [parts[0], file]); return; }
+  execFileSync(FFMPEG, ['-y', '-loglevel', 'error', ...parts.flatMap(p => ['-i', p]), '-filter_complex', `vstack=inputs=${parts.length}`, file]);
+  execFileSync('rm', parts);
 }
 
 /** In the page (the hud set): a base at about four minutes, a raid met beyond its ridge, the fight a few seconds in.

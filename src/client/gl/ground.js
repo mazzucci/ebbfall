@@ -132,7 +132,7 @@ export function shadeLayers(w, h, { rock, ground, shade, tone = null }) {
     const on = clamp01((lerp2(isRock, fx, fy) - 0.56) / 0.36);
     if (on > 0) {
       const t = lerp2(rt, fx, fy), warm = Math.max(0, t) * on, cool = Math.max(0, -t) * on, f = lerp2(forest, fx, fy) > 0.5;
-      if (f) { lr *= 1 - 0.24 * cool; lg *= 1 - 0.07 * cool - 0.03 * warm; lb *= 1 - 0.34 * warm; al[0] += 12 * warm; al[1] += 5 * warm; al[2] += 6 * cool; }
+      if (f) { lr *= 1 - 0.24 * cool - 0.05 * warm; lg *= 1 - 0.07 * cool - 0.05 * warm; lb *= 1 - 0.26 * warm; al[2] += 6 * cool; } // (a forest only ever darker: never toward the grass)
       else { lr *= 1 - 0.12 * cool - 0.02 * warm; lg *= 1 - 0.07 * cool - 0.08 * warm; lb *= 1 - 0.02 * cool - 0.22 * warm; al[2] += 2 * cool; al[0] += 4 * warm; }
     }
   }

@@ -29,8 +29,15 @@ export const ZOOM_MIN = 0.75, ZOOM_MAX = 2.5;
 const MAX_SPAN = 1800, MAX_SPAN_H = MAX_SPAN * 9 / 16;
 /** The zoom-out limit: the zoom at which the window shows MAX_SPAN x MAX_SPAN_H world px², never under ZOOM_MIN. The
  *  min with ZOOM_MAX is for now, until the game's box comes (a fixed-shape box inside a very wide or very large window):
- *  a 32:9 window is never pinned closer than ZOOM_MAX meanwhile. Read on each resize, the wheel and the pinch. */
-export const zoomLimit = () => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.sqrt(view.w * view.h / (MAX_SPAN * MAX_SPAN_H))));
+ *  a 32:9 window is never pinned closer than ZOOM_MAX by the area meanwhile. And never so far out that the window is
+ *  wider or taller than the map (`fills`): the camera never shows past its edges (a 3440x1440 window's area alone saw
+ *  2090 px across a 2048 px duel map; 1.68 now). That one may pass ZOOM_MAX, on a window over 2.5 maps wide (5120 px
+ *  on a duel map is 2.5 exactly): `zoomTop` lets it. Read on each resize, the wheel and the pinch. */
+export const zoomLimit = () => Math.max(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.sqrt(view.w * view.h / (MAX_SPAN * MAX_SPAN_H)))), fills());
+/** The zoom at which the window is as wide as the map, or as tall, whichever is closer. */
+const fills = () => Math.max(view.w / WW, view.h / WH);
+/** The closest zoom: ZOOM_MAX, unless the map's own width asks for more (`zoomLimit`). */
+const zoomTop = () => Math.max(ZOOM_MAX, zoomLimit());
 /** How much of the map (world px across) a desktop's window shows when a game starts: the base and the ground round
  *  it, on any monitor (unless the window is so large that `zoomLimit` comes first). 900, not 1200: at 1200 a Knight
  *  stood 8 to 9% of a desktop canvas's height against 16% on a phone on its side, and read as a demo's; at 900 it is 11
@@ -42,8 +49,8 @@ const START_SPAN = 900;
  *  never over ZOOM_MAX, the wheel's closest: a 2560 px window starts there, 1018 px across, where a clamp at 2 left its
  *  units smaller than a 1440 px window's), so the base reads and no window is wider than the smallest map (all the way
  *  out, ZOOM_MIN, a wide monitor showed the dark past the map's edges: a stranger's first sight of the game). Never
- *  farther out than `zoomLimit` (a window over twice as tall as it is wide: 1.12 at 1000x2400), which is never past
- *  ZOOM_MAX either. The wheel zooms out from there. */
+ *  farther out than `zoomLimit` (a window over twice as tall as it is wide: 1.12 at 1000x2400), which passes ZOOM_MAX
+ *  only on a window over 2.5 maps wide. The wheel zooms out from there. */
 export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, ZOOM_MAX), zoomLimit());
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
@@ -202,10 +209,11 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // building as faint silhouettes over it.
 const world = new Container({ isRenderGroup: true });
 const L = {};
-const GROUPS = new Set(['terrain', 'scenery', 'worn', 'decals', 'found', 'ents', 'air']);
-for (const k of ['terrain', 'scenery', 'shade', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+const GROUPS = new Set(['apron', 'terrain', 'scenery', 'worn', 'decals', 'found', 'ents', 'air']);
+for (const k of ['apron', 'terrain', 'scenery', 'shade', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
+L.apron.tint = 0xb4b4b4; // (the apron a shade darker than the map's own rock: where the map ends still reads)
 const screen = new Container();
 app.stage.addChild(world, screen);
 // The silhouettes: each own unit behind a building drawn again in one flat color (a color matrix: any pixel to our
@@ -233,17 +241,35 @@ let quake = null; // (`quake`: a fall's shake, look.js fallShake: ± px dying aw
 export function resize() {
   const r = cv.parentElement.getBoundingClientRect(), mid = toWorld(view.w / 2, view.h / 2); // (the point in the middle stays there)
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
-  const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
+  const hud = document.getElementById('hud'), top = document.getElementById('top'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
+  bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
+  showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
   cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
 /** Where the HUD floats over the map the camera may scroll that far past the edges (the panels are taller with a
- *  mouse); a narrow window keeps them in a band below. Looked at on each resize. */
+ *  mouse), so what stands at the map's edge can be brought out from under them; a narrow window keeps them in a band
+ *  below. Looked at on each resize. */
 const coarse = matchMedia('(pointer: coarse)');
 let hudFloats = true;
 const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0;
-export function clampCam() { const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o); }
+/** A desktop's map edge to edge (style.css: the canvas fills the window, the top bar floats over it like the HUD;
+ *  `bleed`, read on each resize from the top bar's position): the camera keeps to the map at the sides, and past the
+ *  top and the foot only as far as the top bar (`topRoom`, screen px) and the panels (HUD_ROOM) cover, so the map's
+ *  first and last rows can still be brought out from under them; what shows past the edge there is the apron (rock
+ *  drawn past the map, `showApron`), never the dark. The sides need no room: no panel stands at a side but at the foot
+ *  and the top, and their corners come out with the foot's and the top's room. Phones and tablets keep their box. */
+let bleed = false, topRoom = 0;
+const HUD_ROOM = 170;
+export function clampCam() {
+  if (bleed) {
+    cam.x = clamp(cam.x, 0, Math.max(0, WW - vw()));
+    cam.y = clamp(cam.y, -topRoom / cam.zoom, Math.max(0, WH - vh()) + HUD_ROOM / cam.zoom);
+    return;
+  }
+  const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o);
+}
 export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
 /** The camera for a game's start: over (x, y), and on the map itself, nothing past its edges at the sides or the top
  *  (a base sits near a corner: the usual room past the edge showed dark down the first screen's side, on a desktop and
@@ -260,7 +286,7 @@ export const nearView = (x, y, m = 160) => x > cam.x - m && x < cam.x + vw() + m
 /** Zoom by `factor`, keeping the world point under screen point (sx, sy) fixed. */
 export function zoomAt(factor, sx, sy) {
   const before = toWorld(sx, sy);
-  cam.zoom = clamp(cam.zoom * factor, zoomLimit(), ZOOM_MAX);
+  cam.zoom = clamp(cam.zoom * factor, zoomLimit(), zoomTop());
   cam.x = before.x - sx / cam.zoom; cam.y = before.y - sy / cam.zoom; clampCam();
 }
 
@@ -269,18 +295,34 @@ export function zoomAt(factor, sx, sy) {
 const thumb = document.createElement('canvas');
 const fog = new Sprite(); fog.scale.set(TILE); L.fog.addChild(fog);
 const FOG_DARK = [5, 7, 11, 255], FOG_SEEN = [18, 22, 34, 115], FOG_CLEAR = [18, 22, 34, 0]; // (RGBA per tile: never explored, explored, in sight)
-let fogCv, fogCtx, fogImg, fogTex, gridW = 0, gridH = 0;
+/** The apron: tiles of rock drawn past the map's edges (each edge's rock kind carried out, the fog of its edge tiles
+ *  too), so a desktop camera's room past the top and the foot (`clampCam`) shows ground, never the dark. Shown only
+ *  edge to edge (`bleed`): a phone's box shows what it showed. As deep as the most room past an edge at the farthest
+ *  zoom (170 px at 0.75: 7 tiles). */
+const APRON = 8;
+// (the fog canvas is APRON tiles larger each way, its edge pixels stretched out each update; the map's own part,
+// `fogMapTex`, for a box)
+let fogCv, fogCtx, fogImg, fogTex, fogMapTex, gridW = 0, gridH = 0;
 /** Make the per-tile canvases and textures for a map of MW x MH (again only when a game's map has another size). */
 function sizeGrids() {
   if (gridW === MW && gridH === MH) return;
   gridW = MW; gridH = MH;
-  const canvas = () => { const c = document.createElement('canvas'); c.width = MW; c.height = MH; return c; };
   const texture = (c) => { const t = Texture.from(c); t.source.scaleMode = 'linear'; return t; };
   thumb.width = MW; thumb.height = MH;
-  const old = [fogTex];
-  fogCv = canvas(); fogCtx = fogCv.getContext('2d'); fogImg = fogCtx.createImageData(MW, MH); fogTex = texture(fogCv); fog.texture = fogTex;
+  const [oldMap, oldTex] = [fogMapTex, fogTex];
+  fogCv = document.createElement('canvas'); fogCv.width = MW + 2 * APRON; fogCv.height = MH + 2 * APRON;
+  fogCtx = fogCv.getContext('2d'); fogCtx.imageSmoothingEnabled = false; fogImg = fogCtx.createImageData(MW, MH);
+  fogCtx.fillStyle = `rgba(${FOG_DARK.slice(0, 3)},1)`; fogCtx.fillRect(0, 0, fogCv.width, fogCv.height);
+  fogTex = texture(fogCv); fogMapTex = new Texture({ source: fogTex.source, frame: new Rectangle(APRON, APRON, MW, MH) });
   for (let i = 0; i < MW * MH; i++) fogImg.data.set(FOG_DARK, i * 4); // (updateFogImage sets each tile's)
-  for (const t of old) t?.destroy(true);
+  oldMap?.destroy(); oldTex?.destroy(true);
+  showApron();
+}
+/** The apron and the fog's part past the map shown edge to edge only (`bleed`). */
+function showApron() {
+  if (!fogTex) return;
+  L.apron.visible = bleed;
+  fog.texture = bleed ? fogTex : fogMapTex; fog.position.set(bleed ? -APRON * TILE : 0);
 }
 sizeGrids();
 
@@ -299,10 +341,12 @@ function hideCoveredDoodads() {
     if (d.s.visible === covered) d.s.visible = !covered;
   }
 }
-function cullTerrain(x0, y0, x1, y1) { for (const c of chunks) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1; }
+const apronChunks = [];
+function cullTerrain(x0, y0, x1, y1) { for (const list of [chunks, apronChunks]) for (const c of list) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1; }
 
 export function renderTerrain() {
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
+  L.apron.removeChildren().forEach(c => c.destroy({ children: true }));
   L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
   sizeGrids(); fogTick = -1; mmAt = -Infinity; mmGroundOk = false; // (a new map, or a replay from its first tick: fog and minimap at once)
   xrayColor(SEAT_COLORS[colorOf(G.me) % SEAT_COLORS.length]); // (this side's own color, for its silhouettes)
@@ -322,6 +366,16 @@ export function renderTerrain() {
     const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}` : rockTile(m, r, cellKind(i, j));
     const ci = (j + 1) >> 3, cj = (i + 1) >> 3, key = ci * 64 + cj;
     let c = chunks[key]; if (!c) { c = chunks[key] = new Container(); c.cx = cj * 8 * TILE; c.cy = ci * 8 * TILE; L.terrain.addChild(c); }
+    const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
+  }
+  // The apron (APRON): rock cells past the map's own, each its edge's kind (ground.js kindAt off the map), from a
+  // random stream of its own (the map's cells keep theirs), in 8x8-cell chunks of its own.
+  apronChunks.length = 0;
+  const rndA = mulberry(G.seed * 7 + 5), apronAt = new Map();
+  for (let j = -1 - APRON; j < MH + APRON; j++) for (let i = -1 - APRON; i < MW + APRON; i++) {
+    if (i >= -1 && i < MW && j >= -1 && j < MH) continue; // (the map's own, above)
+    const name = rockTile(15, rndA(), cellKind(i, j)), cx = Math.floor((i + 1) / 8), cy = Math.floor((j + 1) / 8), key = `${cx},${cy}`;
+    let c = apronAt.get(key); if (!c) { apronAt.set(key, c = new Container()); c.cx = cx * 8 * TILE; c.cy = cy * 8 * TILE; L.apron.addChild(c); apronChunks.push(c); }
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
   }
   // Large-scale variation so the tiles never read as a grid, and the water (gl/ground.js): a multiply (the land's shade,
@@ -836,7 +890,12 @@ function updateFogImage() {
   fogTick = G.tick;
   const d = fogImg.data, vis = G.vis, ex = G.explored;
   for (let i = 0; i < MW * MH; i++) d.set(vis[i] ? FOG_CLEAR : ex[i] ? FOG_SEEN : FOG_DARK, i * 4);
-  fogCtx.putImageData(fogImg, 0, 0); fogTex.source.update();
+  fogCtx.putImageData(fogImg, APRON, APRON);
+  // (the apron's fog: each edge's pixels stretched out, the sides first, then the top and the foot across them)
+  const A = APRON, W = MW + 2 * A;
+  fogCtx.drawImage(fogCv, A, A, 1, MH, 0, A, A, MH); fogCtx.drawImage(fogCv, A + MW - 1, A, 1, MH, A + MW, A, A, MH);
+  fogCtx.drawImage(fogCv, 0, A, W, 1, 0, 0, W, A); fogCtx.drawImage(fogCv, 0, A + MH - 1, W, 1, 0, A + MH, W, A);
+  fogTex.source.update();
 }
 
 /** A health bar (green to red); `sh/maxsh`: a pale shield bar just above it (none since the re-theme). */
@@ -1223,7 +1282,7 @@ function minimapBase(c, S, T) {
   }
   c.strokeStyle = ALLY_FRAME; c.lineWidth = 1; c.stroke();
   for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
-  if (!revealed) c.drawImage(fogCv, 0, 0, MM_UNITS, MM_UNITS);
+  if (!revealed) c.drawImage(fogCv, APRON, APRON, MW, MH, 0, 0, MM_UNITS, MM_UNITS); // (the map's part, not the apron's)
 }
 // The minimap's coverage: an Expedition seat's always (its people's headquarters gives coverage), the union's edge
 // alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored

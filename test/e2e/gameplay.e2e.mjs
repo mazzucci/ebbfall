@@ -519,7 +519,7 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
       else {
         assert.ok(Math.abs(s.zoom - Math.max(Math.min(2.5, Math.max(1, s.w / 900)), s.limit)) < 1e-9 && s.zoom === s.start && s.zoom <= 2.5, `${what}: 900 px of the map across (between 1 and 2.5), or the limit where it is closer: ${JSON.stringify(s)}`);
         assert.ok(inView(s.castle) && s.mine && inView(s.mine) && s.units.length > 0 && s.units.every(inView), `${what}: the Castle, its gold mine and its workers whole in the first screen: ${JSON.stringify(s)}`);
-        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.1, `${what}: a Knight a tenth of the canvas's height at least (it was 8 to 9% at 1200 px across; 16% on a phone): ${JSON.stringify(s)}`);
+        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.095, `${what}: a Knight near a tenth of the canvas's height at least (it was 8 to 9% at 1200 px across; 16% on a phone; edge to edge the canvas is the window, 9.9% at 2560x1440): ${JSON.stringify(s)}`);
         if (device.viewport.height === 2400) assert.ok(s.limit > 1 && s.zoom === s.limit, `${what}: a tall window starts at its limit: ${JSON.stringify(s)}`);
         assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
       }
@@ -560,6 +560,96 @@ for (const [w, h] of [[1920, 1080], [1440, 900]]) {
     } finally { await d.close(); }
   });
 }
+
+/** The canvas's own pixels along its four edges (a band `band` px deep, every `step` px), drawn now (`endfall.draw`)
+ *  and read back from WebGL at once, before the page composites them; each edge's share of pixels in the renderer's
+ *  clear color (the dark past the map, 0x0b0f16), within 2 a channel. */
+const darkEdges = (d, band = 3, step = 6) => d.eval(([band, step]) => {
+  endfall.draw();
+  const cv = document.getElementById('game'), gl = cv.getContext('webgl2') || cv.getContext('webgl'), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
+  const px = new Uint8Array(W * H * 4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  const dark = (x, y) => { const i = ((H - 1 - y) * W + x) * 4; return Math.abs(px[i] - 0x0b) <= 2 && Math.abs(px[i + 1] - 0x0f) <= 2 && Math.abs(px[i + 2] - 0x16) <= 2; };
+  const share = (pts) => pts.filter(([x, y]) => dark(x, y)).length / pts.length, along = (n) => Array.from({ length: Math.floor(n / step) }, (_, i) => i * step);
+  const edge = (f) => share([...Array(band).keys()].flatMap(k => f(k)));
+  return { left: edge(k => along(H).map(y => [k, y])), right: edge(k => along(H).map(y => [W - 1 - k, y])), top: edge(k => along(W).map(x => [x, k])), bottom: edge(k => along(W).map(x => [x, H - 1 - k])), size: [W, H] };
+}, [band, step]);
+
+for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
+  test(`desktop ${w}x${h} edge to edge: the canvas fills the window under the floating top bar; all the way out the map is as wide as the window at least; pushed into each corner (the minimap, then the arrow keys) no dark past the map, and a Balloon at each corner comes out from under the bars and the panels and is selected with a click`, async () => {
+    const d = await newGame({ viewport: { width: w, height: h } }, 1, 4242, { ai: false });
+    try {
+      const lay = await d.eval(() => {
+        const r = (id) => { const b = document.getElementById(id).getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
+        return { canvas: r('game'), top: r('top'), topPos: getComputedStyle(document.getElementById('top')).position, view: [endfall.view.w, endfall.view.h], win: [innerWidth, innerHeight] };
+      });
+      assert.deepEqual(lay.canvas, [0, 0, w, h], `the canvas is the whole window: ${JSON.stringify(lay)}`);
+      assert.ok(lay.topPos === 'fixed' && lay.top[1] >= 8 && lay.top[3] <= 50, `the top bar floats over the map where it stood: ${JSON.stringify(lay)}`);
+      assert.deepEqual(lay.view, [w, h], 'render.js sees the window');
+      await d.eval(() => {
+        endfall.fog(false); // (the dark past the map told from the ground, never from unexplored fog)
+        const { WW, WH } = endfall.engine;
+        for (const [x, y] of [[20, 20], [WW - 20, 20], [20, WH - 20], [WW - 20, WH - 20]]) endfall.engine.debugSpawn(0, 'observer', x, y); // (flyers: over the border's rock, the farthest out anything stands)
+      });
+      const s = await wheelOut(d), map = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
+      assert.ok(s.vw <= map[0] + 1e-6 && s.vh <= map[1] + 1e-6 && Math.abs(s.zoom - s.limit) < 1e-9, `all the way out: no wider or taller than the map (${map}): ${JSON.stringify(s)}`);
+      if (w === 3440) assert.ok(Math.abs(s.zoom - w / map[0]) < 1e-9, `3440 px wide: the map's width sets the limit (the area alone saw 2090 px across): ${JSON.stringify(s)}`);
+      const mm = await d.page.locator('#minimap').boundingBox(), topBar = lay.top[3];
+      for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const where = `${cy ? 'bottom' : 'top'}-${cx ? 'right' : 'left'}`;
+        await d.page.mouse.click(mm.x + 2 + cx * (mm.width - 4), mm.y + 2 + cy * (mm.height - 4)); // (the minimap's corner: the camera jumps, clamped)
+        await d.page.mouse.move(w / 2, h / 2);
+        const keys = [cx ? 'ArrowRight' : 'ArrowLeft', cy ? 'ArrowDown' : 'ArrowUp'];
+        for (const k of keys) await d.page.keyboard.down(k);
+        await d.page.waitForTimeout(500);
+        for (const k of keys) await d.page.keyboard.up(k);
+        const c = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x, y: c.y, zoom: c.zoom, vw: v.w / c.zoom, vh: v.h / c.zoom }; });
+        assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
+        const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
+        assert.ok(cy ? Math.abs(past - 170) < 1e-6 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? 'foot only as far as the panels cover (170 px)' : 'top only as far as the bar covers'}: ${past}`);
+        const dark = await darkEdges(d);
+        for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);
+        // the corner's Balloon: on the map, clear of every panel, and a click on its body (low on it: at the top its art
+        // rises past the map's edge, under the bar) selects it
+        const p = await d.eval(([cx, cy]) => {
+          const { G, cam, engine: { WW, WH } } = endfall, u = G.units.find(u => u.type === 'observer' && (u.x > WW / 2) === !!cx && (u.y > WH / 2) === !!cy);
+          const y = u.y - endfall.unitTop(u.type) * 0.2, sx = (u.x - cam.x) * cam.zoom, sy = (y - cam.y) * cam.zoom, at = document.elementFromPoint(sx, sy);
+          return { id: u.id, sx, sy, on: at?.id };
+        }, [cx, cy]);
+        assert.equal(p.on, 'game', `${where}: the Balloon is not under a bar or a panel: ${JSON.stringify(p)}`);
+        await d.page.mouse.click(p.sx, p.sy); await d.page.waitForTimeout(60);
+        assert.deepEqual((await d.selection()).map(e => e.id), [p.id], `${where}: the Balloon selected with a click`);
+      }
+      // The mouse at the window's edges scrolls the map (the canvas reaches them): from the bottom-right corner, left
+      // along the left edge, then up along the top, above the bar.
+      const at = () => d.eval(() => [endfall.cam.x, endfall.cam.y]);
+      const c0 = await at();
+      await d.page.mouse.move(1, h / 2); await d.page.waitForTimeout(400);
+      const c1 = await at();
+      await d.page.mouse.move(w / 2, 1); await d.page.waitForTimeout(400);
+      const c2 = await at();
+      await d.page.mouse.move(w / 2, h / 2);
+      const wide = s.vw < map[0] - 1; // (3440 px: the window as wide as the map, nothing to scroll sideways)
+      assert.ok((wide ? c1[0] < c0[0] - 20 : c1[0] === 0) && c2[1] < c1[1] - 20, `the window's left and top edges scroll the map: ${JSON.stringify([c0, c1, c2])}`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+test('phone on its side: the map still in its box under the top bar, the camera as far past the edges as before (120 px; 60 at the top), no apron', async () => {
+  const d = await newGame(PHONE, 1, 4242, { ai: false });
+  try {
+    const got = await d.eval(() => {
+      const st = document.getElementById('stage'), cs = getComputedStyle(st), b = st.getBoundingClientRect(), t = document.getElementById('top').getBoundingClientRect();
+      endfall.cam.zoom = 1; endfall.centerOn(-1e5, -1e5); const a = [endfall.cam.x, endfall.cam.y];
+      endfall.centerOn(1e5, 1e5); const v = endfall.view, z = [endfall.cam.x + v.w - endfall.engine.WW, endfall.cam.y + v.h - endfall.engine.WH];
+      return { pos: getComputedStyle(document.getElementById('top')).position, border: cs.borderTopWidth, radius: cs.borderTopLeftRadius, stage: [b.left, b.top, b.right, b.bottom], top: [t.left, t.top, t.right, t.bottom], a, z, win: [innerWidth, innerHeight] };
+    });
+    assert.ok(got.pos === 'static' && got.border === '1px' && got.radius === '6px', `the top bar in the flow, the stage a box: ${JSON.stringify(got)}`);
+    assert.deepEqual(got.stage, [8, 38, 836, 386], `the box where it was: ${JSON.stringify(got)}`);
+    assert.deepEqual([got.a, got.z], [[-120, -60], [120, 120]], `the camera's room past the edges as before: ${JSON.stringify(got)}`);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
 
 test('desktop: a held arrow key moves the map as many world px a second on any window at any zoom (the same time across the map)', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });

@@ -1,9 +1,15 @@
 // How the game looks on a desktop monitor against a landscape phone: one staged instant of one game, shot at several
 // window sizes and start zooms, with a contact sheet. Copied from the span cap's capture (branch span-cap).
-//   npm run build && node tools/view-capture.mjs [--out DIR] [--spans 1200,1000,900] [--name start]
-// --out: where the shots, shots.json and sheet.png go (default ../ebbfall-article/desktop-start next to the repo).
+//   npm run build && node tools/view-capture.mjs [--out DIR] [--spans 1200,1000,900]
+//   node tools/view-capture.mjs --set edge --tag today|edge [--out DIR]   (ENDFALL_DIST=... names the build to shoot)
+//   node tools/view-capture.mjs --set edge --sheet [--out DIR]
+// --out: where the shots, shots.json and sheet.png go (default ../ebbfall-article/desktop-start next to the repo, or
+//        ../ebbfall-article/desktop-edge for the edge set).
 // --spans: START_SPAN candidates (world px across a desktop window at the start); each size is shot at
 //          max(clamp(view.w / span, 1, hi), zoomLimit) for hi 2.5, and for hi 2 too where that differs.
+// --set edge: the map edge to edge or not: each size (and 3440x1440) and the phone shot as the build at hand plays it,
+//          tagged (--tag): the start, the bottom-left and top-right corners all the way out (the camera pushed past
+//          them: what shows past the map's edge), and the fight; --sheet then lays the two tags side by side.
 // The scene (seed 4242, the Kingdom against the Expedition, the AI off, the fog off). The page's clock is held before
 // the game starts, so the main loop never steps: the world moves only by `endfall.skip`, each shot is drawn with
 // `endfall.draw` (the HUD, then the map). Two instants:
@@ -19,9 +25,10 @@ import { start, stop, browserContext, baseUrl, board } from '../test/e2e/harness
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = fileURLToPath(new URL('..', import.meta.url));
-const out = resolve(arg('--out', join(root, '../ebbfall-article/desktop-start')));
+const SET = arg('--set', 'start'), TAG = arg('--tag', 'today');
+const out = resolve(arg('--out', join(root, SET === 'edge' ? '../ebbfall-article/desktop-edge' : '../ebbfall-article/desktop-start')));
 const SPANS = arg('--spans', '1200,1000,900').split(',').map(Number);
-const SIZES = [[1440, 900], [1920, 1080], [2560, 1440]];
+const SIZES = SET === 'edge' ? [[1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]] : [[1440, 900], [1920, 1080], [2560, 1440]];
 const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true };
 const ZOOM_MAX = 2.5;
 const ARMIES = [{ knight: 6, lancer: 6 }, { umbra: 7, scythe: 3, shrike: 4 }];
@@ -111,8 +118,8 @@ async function sizeTo(page, w, h) {
 async function shoot(page, file, zoom, at) {
   const s = await page.evaluate(([z, at]) => {
     const { cam, view, G, engine } = endfall;
-    cam.zoom = z;
-    if (at) endfall.centerOn(at.x, at.y);
+    cam.zoom = z ?? endfall.zoomMin;
+    if (at) endfall.centerOn(at.x, at.y); // (a corner: a point far past it, the camera clamped there)
     else { // (render.js startOn, as main.js calls it)
       const core = G.bldgs.find(b => b.team === G.me); endfall.centerOn(core.x + 40, core.y);
       cam.x = Math.min(Math.max(cam.x, 0), Math.max(0, engine.WW - view.w / cam.zoom)); cam.y = Math.max(0, cam.y);
@@ -120,7 +127,7 @@ async function shoot(page, file, zoom, at) {
     endfall.draw();
     const vw = view.w / cam.zoom, vh = view.h / cam.zoom, core = G.bldgs.find(b => b.team === G.me && b.d.hq);
     const knight = endfall.unitTop('knight') * cam.zoom, castle = { x: (core.x - cam.x) / vw, y: (core.y - cam.y) / vh };
-    return { view: { w: view.w, h: view.h }, zoom: cam.zoom, zoomMin: endfall.zoomMin, startZoom: endfall.startZoom, seen: [vw, vh], knightPx: knight, knightShare: knight / view.h, knightWindow: knight / innerHeight, castle, castleSize: [core.w * 32 / vw, core.h * 32 / vh], tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0, selected: endfall.ui.sel.length };
+    return { view: { w: view.w, h: view.h }, cam: { x: cam.x, y: cam.y }, map: [engine.WW, engine.WH], zoom: cam.zoom, zoomMin: endfall.zoomMin, startZoom: endfall.startZoom, seen: [vw, vh], knightPx: knight, knightShare: knight / view.h, knightWindow: knight / innerHeight, castle, castleSize: [core.w * 32 / vw, core.h * 32 / vh], tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0, selected: endfall.ui.sel.length };
   }, [zoom, at]);
   await page.screenshot({ path: join(out, file), timeout: 300000 });
   console.log(`${file}: view ${s.view.w}x${s.view.h}, zoom ${s.zoom.toFixed(3)} (limit ${s.zoomMin.toFixed(3)}), ${Math.round(s.seen[0])} x ${Math.round(s.seen[1])} world px, Knight ${s.knightPx.toFixed(1)} px = ${(s.knightShare * 100).toFixed(1)}% of the canvas, ${s.selected} selected`);
@@ -138,6 +145,7 @@ function variants(view, limit) {
   return v;
 }
 
+if (SET === 'edge') { await edgeSet(); process.exit(0); }
 await start();
 const log = { at: AT, armies: ARMIES, shots: [], setups: {}, errors: [] };
 try {
@@ -204,3 +212,65 @@ try {
 for (const s of log.shots) delete s.clip;
 writeFileSync(join(out, 'shots.json'), JSON.stringify(log, null, 1));
 console.log(JSON.stringify({ setups: log.setups, sameWorld: log.sameWorld, errors: log.errors }));
+
+/** The edge set: the build at hand (ENDFALL_DIST) at each size and on the phone, tagged; or --sheet: both tags. */
+async function edgeSet() {
+  const CORNERS = { 'corner-bl': { x: -1e5, y: 1e5 }, 'corner-tr': { x: 1e5, y: -1e5 } };
+  if (process.argv.includes('--sheet')) return edgeSheet(CORNERS);
+  await start();
+  const log = { tag: TAG, dist: process.env.ENDFALL_DIST || 'dist', shots: [], setups: {}, errors: [] };
+  try {
+    const run = async (device, sizes, name) => {
+      const { ctx, page, errors, first } = await staged(device);
+      log.setups[name] = { first };
+      const plan = [];
+      for (const [w, h] of sizes) {
+        if (!device.hasTouch) await sizeTo(page, w, h);
+        const z = await page.evaluate(() => endfall.startZoom);
+        plan.push([w, h, z]);
+        log.shots.push({ kind: 'start', size: [w, h], ...(await shoot(page, `${TAG}-${w}x${h}-start.png`, z, null)) });
+        for (const [k, at] of Object.entries(CORNERS)) log.shots.push({ kind: k, size: [w, h], ...(await shoot(page, `${TAG}-${w}x${h}-${k}.png`, null, at)) });
+      }
+      log.setups[name].fight = await fight(page, !!device.hasTouch);
+      for (const [w, h, z] of plan) {
+        if (!device.hasTouch) await sizeTo(page, w, h);
+        log.shots.push({ kind: 'fight', size: [w, h], ...(await shoot(page, `${TAG}-${w}x${h}-fight.png`, z, AT)) });
+      }
+      log.errors.push(...errors.map(e => `${name}: ${e}`));
+      await ctx.close();
+    };
+    await run({ viewport: { width: SIZES[0][0], height: SIZES[0][1] }, deviceScaleFactor: 1 }, SIZES, 'desktop');
+    await run(PHONE, [[844, 390]], 'phone');
+  } finally { await stop(); }
+  writeFileSync(join(out, `shots-${TAG}.json`), JSON.stringify(log, null, 1));
+  console.log(JSON.stringify({ setups: log.setups, errors: log.errors }));
+}
+
+/** Today next to edge to edge, a row per size and shot. */
+async function edgeSheet(CORNERS) {
+  const logs = Object.fromEntries(['today', 'edge'].map(t => [t, JSON.parse(readFileSync(join(out, `shots-${t}.json`), 'utf8'))]));
+  await start();
+  try {
+    const ctx = await browserContext({ viewport: { width: 2000, height: 1000 }, deviceScaleFactor: 1 }), page = await ctx.newPage();
+    const img = (f) => `data:image/png;base64,${readFileSync(join(out, f)).toString('base64')}`;
+    const past = (s) => { const l = -s.cam.x, t = -s.cam.y, r = s.cam.x + s.seen[0] - s.map[0], b = s.cam.y + s.seen[1] - s.map[1]; return [['left', l], ['top', t], ['right', r], ['bottom', b]].filter(([, v]) => v > 0.5).map(([k, v]) => `${k} ${Math.round(v * s.zoom)} px`).join(', ') || 'none'; };
+    const fig = (s, head) => s ? `<figure><img src="${img(s.file)}"><figcaption><b>${head}</b> · zoom ${s.zoom.toFixed(2)} · canvas ${s.view.w} × ${s.view.h} · ${Math.round(s.seen[0])} × ${Math.round(s.seen[1])} world px · past the map: ${past(s)}</figcaption></figure>` : '<figure></figure>';
+    const kinds = ['start', ...Object.keys(CORNERS), 'fight'], label = { start: 'the start', 'corner-bl': 'bottom-left corner, all the way out', 'corner-tr': 'top-right corner, all the way out', fight: 'the fight, 12 selected' };
+    const sizes = [...SIZES, [844, 390]];
+    const rows = sizes.map(([w, h]) => `<h2>${w === 844 ? 'Landscape phone ' : ''}${w} × ${h}</h2>` + kinds.map(k => {
+      const at = (t) => logs[t].shots.find(s => s.kind === k && s.size[0] === w && s.size[1] === h);
+      return `<div class="row">${fig(at('today'), `today · ${label[k]}`)}${fig(at('edge'), `edge to edge · ${label[k]}`)}</div>`;
+    }).join('')).join('');
+    await page.setContent(`<!doctype html><meta charset="utf-8"><style>
+      body { margin: 0; padding: 24px; background: #0b0f16; color: #e8e2d4; font: 15px/1.4 system-ui, sans-serif; width: 1952px; }
+      h1 { font-size: 24px; margin: 0 0 4px; } p { margin: 0 0 16px; color: #b9b2a3; max-width: 1700px; } h2 { font-size: 18px; margin: 28px 0 6px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; margin-bottom: 10px; } figure { margin: 0; } img { max-width: 100%; display: block; outline: 1px solid #444; }
+      figcaption { margin-top: 4px; color: #cfc7b6; font-size: 13px; }</style>
+      <h1>Edge to edge on a desktop: today (left) and this PR (right)</h1>
+      <p>One staged game (seed 4242, the fog off), the clock held. Each window: the start as the game frames it; the camera pushed past the bottom-left and the top-right corners all the way out (the most it shows past the map's edge); the fight with 12 selected through the UI. "Past the map" is how far the canvas shows beyond the map's edge, in screen px (today: the dark; edge to edge: the rock apron, only at the top under the bar and at the foot behind the panels).</p>${rows}`);
+    await page.waitForFunction(() => [...document.images].every(i => i.complete));
+    await page.screenshot({ path: join(out, 'sheet.png'), fullPage: true, type: 'png' });
+    console.log('sheet.png');
+    await ctx.close();
+  } finally { await stop(); }
+}

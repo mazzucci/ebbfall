@@ -536,3 +536,14 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
    them (menu.js copies it). */
 .page .brand,#online .brand{font:700 22px/1.1 var(--display);letter-spacing:.04em;color:var(--ally2);margin:0 0 2px}
 #online .card.menu{background:transparent}
+/* A desktop (a fine pointer, the HUD floating): the map edge to edge. The canvas fills the window and the top bar floats
+   over it where it stood, as the HUD does (render.js reads its position, `bleed`: the camera keeps to the map). What sat
+   in the stage keeps its place on the screen: the stage gained 9 px (8 of margin and its 1 px border) at the sides and
+   the foot, and 57 px at the top (the bar, its margin and the gap). Phones and tablets keep their box. */
+@media (pointer:fine) and (min-width:621px){
+  #app{padding:0;gap:0}
+  #top{position:fixed;z-index:5;top:max(8px,env(safe-area-inset-top,0px));left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #stage{border:0;border-radius:0}
+  #tools{top:65px;right:17px} #tut{top:65px;left:17px} #helpSheet{top:65px;right:17px;max-height:calc(100% - 82px)}
+  #msg,#hint,:is(#btnBox,#btnHome,#btnArmy){translate:9px -9px}
+}

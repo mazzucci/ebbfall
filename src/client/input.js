@@ -14,6 +14,7 @@ import { goHome, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, sav
 import { togglePause, paused } from './pause.js';
 import { wasd } from './controls.js';
 import { notePick } from './grouphint.js';
+import { layerRect } from './box.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
@@ -63,7 +64,7 @@ function holdRing() {
 function startHold(ev) {
   cancelHold();
   if (ui.place || ui.mode || ui.box || pointers.size !== 1) return;
-  const r = holdRing(); r.style.left = ev.clientX + 'px'; r.style.top = ev.clientY + 'px';
+  const r = holdRing(), L = layerRect(); r.style.left = (ev.clientX - L.left) + 'px'; r.style.top = (ev.clientY - L.top) + 'px';
   r.className = ''; void r.offsetWidth; r.className = 'run'; // (restart the fill)
   hold.timer = setTimeout(armHold, HOLD_MS);
 }

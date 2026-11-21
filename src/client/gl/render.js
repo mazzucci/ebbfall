@@ -28,7 +28,12 @@ const START_SPAN = 1200;
  *  mouse the window shows START_SPAN px of the map across (1.07 at 1280 px, 1.2 at 1440, 1.6 at 1920; never under 1,
  *  never over 2), so the base reads and no window is wider than the smallest map (all the way out, ZOOM_MIN, a wide
  *  monitor showed the dark past the map's edges: a stranger's first sight of the game). The wheel zooms out from there. */
-export const startZoom = () => (matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, 2));
+export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, 2), zoomLimit());
+/** span-cap prototype (?span=1600): the most map a window may show, MAX_SPAN world px across and MAX_SPAN * 9 / 16 down,
+ *  so a bigger monitor shows bigger units, not more map (0: today's, ZOOM_MIN only). */
+const MAX_SPAN = +new URLSearchParams(location.search).get('span') || 0;
+/** The zoom-out limit: ZOOM_MIN, or closer where the window would show more than MAX_SPAN. */
+export const zoomLimit = () => (MAX_SPAN ? Math.max(ZOOM_MIN, view.w / MAX_SPAN, view.h / (MAX_SPAN * 9 / 16)) : ZOOM_MIN);
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 const MM_GOLD = '#e8c04a'; // (the minimap: a gold mine, gold as its veins)
@@ -218,7 +223,8 @@ export function resize() {
   const r = cv.parentElement.getBoundingClientRect(), mid = toWorld(view.w / 2, view.h / 2); // (the point in the middle stays there)
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
-  app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution); centerOn(mid.x, mid.y);
+  app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
+  cam.zoom = clamp(cam.zoom, zoomLimit(), ZOOM_MAX); centerOn(mid.x, mid.y); // (a larger window: no more map than the cap)
 }
 const vw = () => view.w / cam.zoom, vh = () => view.h / cam.zoom; // visible world size
 /** Where the HUD floats over the map the camera may scroll that far past the edges (the panels are taller with a
@@ -243,7 +249,7 @@ export const nearView = (x, y, m = 160) => x > cam.x - m && x < cam.x + vw() + m
 /** Zoom by `factor`, keeping the world point under screen point (sx, sy) fixed. */
 export function zoomAt(factor, sx, sy) {
   const before = toWorld(sx, sy);
-  cam.zoom = clamp(cam.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+  cam.zoom = clamp(cam.zoom * factor, zoomLimit(), ZOOM_MAX);
   cam.x = before.x - sx / cam.zoom; cam.y = before.y - sy / cam.zoom; clampCam();
 }
 

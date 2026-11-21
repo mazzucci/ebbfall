@@ -9,6 +9,7 @@ import { sfx, say } from './audio.js';
 import { icon, glyph } from './icons.js';
 import { statsHtml } from './stats.js';
 import { portrait } from './gl/render.js';
+import { layerRect } from './box.js';
 
 let cardKey = '';
 export function invalidateCard() { cardKey = ''; }
@@ -72,17 +73,18 @@ function showDetail(it, anchor = $('cmd')) {
     + (it.places ? `<span class="pl">${icon(it.places[1] === 'grid' ? 'grid' : 'pop')}${placesText(it.places)}</span>` : ''); // (beside the price: "1 population", "2 grid")
   clearTimeout(press.hide);
   box.hidden = false; // shown first, then filled, so screen readers announce it
-  if (left) { box.style.left = r.left + 'px'; box.style.right = ''; } else { box.style.right = (innerWidth - r.right) + 'px'; box.style.left = ''; }
-  box.style.bottom = (innerHeight - r.top + 6) + 'px';
+  const L = layerRect(); // (the fixed layers' box: the window, or the game's box on a very large one)
+  if (left) { box.style.left = (r.left - L.left) + 'px'; box.style.right = ''; } else { box.style.right = (L.right - r.right) + 'px'; box.style.left = ''; }
+  box.style.bottom = (L.bottom - r.top + 6) + 'px';
   const kind = /^[tb]_/.test(it.id) ? it.id.slice(2) : ''; // (a unit to train or a building to place: its stats)
   const head = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}`, pic = it.por ? portrait(it.por[0], it.por[1], SPRITE) : '';
   box.innerHTML = (pic ? `<span class="pic">${pic}</span><span class="hd">${head}</span>` : head) + `<span class="d">${it.tip || ''}</span>`;
   // Wide enough for the stat rows on one line each; wider still, up to the screen's width, while it is too tall for
   // the room above the card (a short landscape phone and a long description).
-  const room = Math.max(220, left ? innerWidth - r.left - 8 : r.right - 8);
-  for (const w of [300, 380, 480, room].map(w => w + (pic ? SPRITE + 10 : 0))) { box.style.maxWidth = Math.min(Math.max(w, r.width), room) + 'px'; if (box.getBoundingClientRect().top >= 4) break; }
+  const room = Math.max(220, left ? L.right - r.left - 8 : r.right - L.left - 8);
+  for (const w of [300, 380, 480, room].map(w => w + (pic ? SPRITE + 10 : 0))) { box.style.maxWidth = Math.min(Math.max(w, r.width), room) + 'px'; if (box.getBoundingClientRect().top >= L.top + 4) break; }
   const top = box.getBoundingClientRect().top; // still too tall (the smallest phones): lowered over the card's top edge
-  if (top < 4) box.style.bottom = (innerHeight - r.top + 6 - (4 - top)) + 'px';
+  if (top < L.top + 4) box.style.bottom = (L.bottom - r.top + 6 - (L.top + 4 - top)) + 'px';
 }
 /** A long press (touch) on `el` shows `item()`'s details over `anchor`, as on a command button; a mouse has its title.
  *  (`item().id` starts with '@': it is not a button, so the card's rebuilds leave its panel be.) */

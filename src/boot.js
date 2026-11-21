@@ -5,6 +5,7 @@
 // (src/engine starts it on import). What starts a game waits for it: START GAME and TUTORIAL read LOADING… (the
 // lobby's READY too: online.js), and RELOAD if it could not load.
 import './style.css';
+import './client/box.js'; // (span-cap prototype: ?box=WxH, the game's box on a very large window)
 import { $, toast, LOAD_FAILED } from './client/ui.js';
 import { initCorner } from './client/corner.js';
 import { initMenu, pendingChallenge } from './client/menu.js';

@@ -14,7 +14,7 @@
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, anyHere, board, DESKTOP, ENGINE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, anyHere, board, DESKTOP, ENGINE, playByHand } from './harness.mjs';
 import { startRelay } from '../../relay/server.mjs';
 
 let relay;
@@ -157,13 +157,12 @@ test('the CSP: no violation on every docs page, the home\'s trailer playing', { 
     await p.goto(baseUrl() + path, { waitUntil: 'networkidle' });
     assert.equal(await p.evaluate(() => getComputedStyle(document.body).overflowX), 'hidden', `${path}: its stylesheet`);
   }
-  // On the home, the trailer scrolled into view and played (Space on it: the browser's controls); How to play's loop
-  // playing by itself.
+  // On the home, the trailer scrolled into view and played by hand (the browser's controls); How to play's loop playing
+  // by itself.
   step('docs: the trailer');
   await p.goto(baseUrl() + 'docs/', { waitUntil: 'networkidle' });
   await p.locator('#trailer video').scrollIntoViewIfNeeded();
-  await p.locator('#trailer video').focus();
-  await p.keyboard.press('Space');
+  await playByHand(p, '#trailer video');
   await p.waitForFunction(() => document.querySelector('#trailer video').readyState >= 2, null, { timeout: 30000 });
   step('docs: a controls loop');
   await p.goto(baseUrl() + 'docs/how-to-play/', { waitUntil: 'networkidle' });

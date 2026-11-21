@@ -8,7 +8,7 @@
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, newGame, browserContext, baseUrl, notIn, site, ENGINE, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, newGame, browserContext, baseUrl, notIn, site, ENGINE, DESKTOP, PHONE, playByHand } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -333,7 +333,7 @@ test('the docs\' videos, served with byte ranges by the Worker: the home\'s trai
     await trailer.scrollIntoViewIfNeeded();
     await page.waitForTimeout(1000);
     assert.ok(await trailer.evaluate(v => v.paused && v.currentTime === 0 && v.controls && !v.muted && !v.loop && !v.autoplay), 'still after load, with its controls and sound: no autoplay');
-    await trailer.focus(); await page.keyboard.press('Space'); // (the browser's own controls: Space on the video plays it)
+    await playByHand(page, '#trailer video'); // (the browser's own controls)
     await page.waitForFunction(() => { const v = document.querySelector('#trailer video'); return !v.paused && v.currentTime > 0.3; }, null, { timeout: 20000 });
     await trailer.evaluate(v => { v.currentTime = v.duration - 0.5; });
     await page.waitForFunction(() => { const v = document.querySelector('#trailer video'); if (v.error) throw new Error(v.error.message); return v.ended; }, null, { timeout: 20000 });

@@ -895,7 +895,7 @@ test('one menu for everyone: SINGLE PLAYER and MULTIPLAYER big, TUTORIAL small b
     const box = (sel) => page.locator(sel).boundingBox();
     /** The first page as a player reads it: its big buttons, its small ones, its footer's links (innerText: what shows). */
     const rows = () => page.evaluate(() => ['#menuHome .modes > button', '#menuHome .row > button', '#menuLinks > a'].map(sel => [...document.querySelectorAll(sel)].filter(b => b.offsetParent).map(b => b.innerText)));
-    const MENU = [['SINGLE PLAYER', 'MULTIPLAYER'], ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], ['Learn more', 'Send feedback']]; // (Watch the trailer: hidden until the new trailer, docs.e2e.mjs)
+    const MENU = [['SINGLE PLAYER', 'MULTIPLAYER'], ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], ['Learn more', 'Send feedback']];
     /** The page laid out: the two modes big and amber on one line, the small row under them, everything on screen. */
     const laidOut = async (when) => {
       assert.deepEqual(await rows(), MENU, `${what}, ${when}`);
@@ -4455,7 +4455,7 @@ test('phones: the first page\'s row (TUTORIAL, OPTIONS, PLAY OFFLINE) and its fo
         const box = (b) => { const r = b.getBoundingClientRect(); return { t: b.innerText, l: r.left, r: r.right, top: Math.round(r.top), b: r.bottom, whole: b.scrollWidth <= b.clientWidth + 1 }; };
         const bs = [...document.querySelectorAll('#menuHome .row .ib')].filter(b => !b.hidden).map(box), as = [...document.querySelectorAll('#menuLinks a')].map(box);
         const c = document.querySelector('#start .card.menu'), links = document.getElementById('menuLinks').getBoundingClientRect(), stamp = document.getElementById('buildStamp').getBoundingClientRect(), solo = document.getElementById('btnSolo').getBoundingClientRect();
-        return { bs, as: as.filter(a => a.r > a.l), sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom], stamp: [stamp.left, stamp.right, stamp.bottom], solo: [solo.left, solo.right] }; // (as: the links that show)
+        return { bs, as, sc: [c.scrollHeight, c.clientHeight], links: [links.left, links.right, links.bottom], stamp: [stamp.left, stamp.right, stamp.bottom], solo: [solo.left, solo.right] };
       });
       assert.deepEqual(got.bs.map(b => b.t), ['TUTORIAL', 'OPTIONS', 'PLAY OFFLINE'], what);
       assert.deepEqual(got.as.map(b => b.t), ['Learn more', 'Send feedback'], what);

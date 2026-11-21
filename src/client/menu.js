@@ -197,9 +197,7 @@ export function initMenu({ onStart }) {
   $('btnSolo').addEventListener('click', () => { sfx('select'); page('menuSolo'); });
   $('btnSoloBack').addEventListener('click', () => { sfx('select'); page('menuHome'); });
   // (Learn more: the docs home, from the first page's footer line, in a new tab: index.html #menuLinks; beside it,
-  // Send feedback, and the help sheet's, to the docs' form with this copy's details: feedback.js. Watch the trailer,
-  // a plain link to the docs home's `/docs/#trailer`, is in the line but hidden until the new trailer is live: the
-  // docs home's clip is the one the first page now plays itself, menuclip.js)
+  // Send feedback, and the help sheet's, to the docs' form with this copy's details: feedback.js)
   const build = typeof __SIM_BUILD__ === 'string' ? __SIM_BUILD__ : 'dev';
   showStamp(build);
   initFeedbackLinks(build);

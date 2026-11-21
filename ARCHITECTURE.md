@@ -389,8 +389,7 @@ src/client/           everything that touches the browser
                       guided game, OPTIONS and INSTALL small under them;
                       the gameplay clip above them, menuclip.js; the record of games is kept but not shown;
                       a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Send
-                      feedback (Watch the trailer, to the docs home's `/docs/#trailer`, is in the line but hidden until
-                      the new trailer is live: index.html, one attribute); the build stamp at
+                      feedback; the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
                       vite.config.js `SHIPPED`, which also goes in <meta name="build"> for CI's deploy to read back
                       from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
@@ -599,8 +598,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       "Couldn't send" and its mailto link, a long text cut; JavaScript off: no SEND, a line to write;
                       the menu's and the help sheet's links with their details),
                       docs.e2e.mjs (the first page's footer line: Learn more, the docs home in a new tab, the old buttons
-                      gone; Watch the trailer in the line but hidden, where it leads still there, and how to turn it
-                      back on; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
+                      gone; the ? and its help sheet, the game running on, closed by Esc, its button or the ?, from the
                       pause card too; every docs page with JavaScript off at 360 px: whole, every unit and building
                       listed, no sideways scroll, finger-sized tabs and buttons, a slim bar in landscape; the
                       Kingdom's glance at most 700 px tall at 390x844, the top bar opaque on every page; How to play's
@@ -652,8 +650,8 @@ test/menu-art.test.js the menu's field images (public/menu/) have no alpha chann
                       color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
 test/menu-clip.test.js the first page's clip: its posters (public/menu/clip-*.webp) the docs' poster byte for byte and a
                       1280 px one, the clip's shape, opaque, in the offline cache; the page holds the poster alone (no
-                      video, no mp4), with the clip's words; the clip is the docs' file, web-only; Watch the trailer in
-                      the footer line but hidden, the three-link rules waiting for it
+                      video, no mp4), with the clip's words; the clip is the docs' file, web-only; the footer line two
+                      links, none to a trailer
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)

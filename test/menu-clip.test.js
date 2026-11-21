@@ -60,7 +60,8 @@ test('less asked for, less done: the module checks reduced motion and Save-Data 
   assert.match(css, /#menuClip video\{opacity:0;transition:opacity \.5s\} #menuClip\.on video\{opacity:1\}/);
 });
 
-test('Watch the trailer is in the footer line but hidden (until the new trailer is live); the three-link rules wait for it', () => {
-  assert.match(html, /<a id="linkTrailer" href="\.\/docs\/#trailer" target="_blank" rel="noopener" hidden>Watch the trailer<\/a>/);
-  assert.equal((css.match(/#menuFoot:has\(#linkTrailer:not\(\[hidden\]\)\)/g) || []).length, 4, 'the narrow screens\' three-link rules apply only while it shows');
+test('the footer line is two links, Learn more and Send feedback: no link to a trailer on the menu (the clip plays there; the trailer is the docs home\'s)', () => {
+  const links = html.match(/<p class="links" id="menuLinks">(.*?)<\/p>/)[1];
+  assert.deepEqual([...links.matchAll(/<a id="(\w+)"/g)].map((m) => m[1]), ['linkDocs', 'linkFeedback']);
+  assert.ok(!/linkTrailer|Watch the trailer/.test(html + css), 'nothing of a trailer link in the page or its styles');
 });

@@ -279,9 +279,6 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #menuFoot{width:fit-content;margin-left:auto;margin-right:auto;padding:0 12px;border-radius:10px;background:rgba(18,26,37,.82);box-shadow:0 0 10px 6px rgba(18,26,37,.82)}
 #menuLinks,#menuLinks a,#menuHome .rec{color:#aebbcb}
 @media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, clear of the field) */
-/* With Watch the trailer in the line (hidden for now, index.html: these apply by themselves once it shows again), three links: */
-@media (max-height:420px) and (max-width:620px){#menuFoot:has(#linkTrailer:not([hidden])){flex-direction:column;gap:0}} /* (a narrow phone on its side, 568 px: three links fill the line, the stamp under them) */
-@media (max-width:400px){#menuFoot:has(#linkTrailer:not([hidden])){padding:0 6px} #menuFoot:has(#linkTrailer:not([hidden])) #menuLinks{gap:0 4px} #menuFoot:has(#linkTrailer:not([hidden])) #menuLinks a{padding:0 3px;letter-spacing:.02em}} /* (an upright phone, 360 px: the three links on one line) */
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
 @media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}

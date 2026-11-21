@@ -123,8 +123,7 @@
         <div class="row"><button class="ib" id="btnTutorial" title="A guided game on Easy: a short checklist shows you the way">TUTORIAL</button><button class="ib" id="btnOptions">OPTIONS</button><button class="ib" id="btnInstall">INSTALL</button></div>
         <p class="offmsg" id="homeOfflineMsg" role="status"></p>
         <div class="foot" id="menuFoot">
-          <!-- Watch the trailer is hidden until the new trailer is live (Stelian, 2026-11-20): take its `hidden` away to show it again (the footer's three-link rules, style.css, apply by themselves; test/e2e/docs.e2e.mjs says what to turn back on). -->
-          <p class="links" id="menuLinks"><a id="linkDocs" href="./docs/" target="_blank" rel="noopener">Learn more</a><a id="linkTrailer" href="./docs/#trailer" target="_blank" rel="noopener" hidden>Watch the trailer</a><a id="linkFeedback" href="./docs/feedback/?from=menu" target="_blank" rel="noopener">Send feedback</a></p>
+          <p class="links" id="menuLinks"><a id="linkDocs" href="./docs/" target="_blank" rel="noopener">Learn more</a><a id="linkFeedback" href="./docs/feedback/?from=menu" target="_blank" rel="noopener">Send feedback</a></p>
           <div class="rec" id="buildStamp"></div>
         </div>
         <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. On the first page the band is what the clip and the buttons leave under the footer line (style.css): a low band on most desktops (860 to 1199 px high: lower, none; higher, the band is tall again), so the short landscape's image there too (the `low` source: the first page's alone, menu.js leaves it out of the copies, whose band is as tall as ever). -->

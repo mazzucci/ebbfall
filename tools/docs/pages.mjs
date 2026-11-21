@@ -131,8 +131,7 @@ function clip(args, first) {
   }
   const t = shots().trailer, poster = shots()[t?.poster];
   if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
-  // (`id="trailer"`: where the game's menu sends "Watch the trailer", index.html #linkTrailer)
-  return `<figure class="clip" id="trailer"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
+  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
 <figcaption>${esc(poster.caption)}</figcaption></figure>`;
 }
 

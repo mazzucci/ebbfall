@@ -32,14 +32,19 @@ const MAX_SPAN = 1800, MAX_SPAN_H = MAX_SPAN * 9 / 16;
  *  a 32:9 window is never pinned closer than ZOOM_MAX meanwhile. Read on each resize, the wheel and the pinch. */
 export const zoomLimit = () => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.sqrt(view.w * view.h / (MAX_SPAN * MAX_SPAN_H))));
 /** How much of the map (world px across) a desktop's window shows when a game starts: the base and the ground round
- *  it, on any monitor (unless the window is so large that `zoomLimit` comes first). */
-const START_SPAN = 1200;
+ *  it, on any monitor (unless the window is so large that `zoomLimit` comes first). 900, not 1200: at 1200 a Knight
+ *  stood 8 to 9% of a desktop canvas's height against 16% on a phone on its side, and read as a demo's; at 900 it is 11
+ *  to 12% (10% at 2560 px, held at ZOOM_MAX), and the Castle, its gold mine and the ground round them still fill the
+ *  first screen (900 x 530 world px at 1440x900; the phone shows 830 x 350). */
+const START_SPAN = 900;
 /** The zoom a game starts at: a phone (a coarse pointer) at 1, its world px one CSS px, where the units read; with a
- *  mouse the window shows START_SPAN px of the map across (1.07 at 1280 px, 1.2 at 1440, 1.6 at 1920; never under 1,
- *  never over 2), so the base reads and no window is wider than the smallest map (all the way out, ZOOM_MIN, a wide
- *  monitor showed the dark past the map's edges: a stranger's first sight of the game). Never farther out than
- *  `zoomLimit` (a very large or tall window: 1.03 at 1200x1600, 2.5 at 5120x2880). The wheel zooms out from there. */
-export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, 2), zoomLimit());
+ *  mouse the window shows START_SPAN px of the map across (1.4 at 1280 px, 1.58 at 1440, 2.12 at 1920; never under 1,
+ *  never over ZOOM_MAX, the wheel's closest: a 2560 px window starts there, 1018 px across, where a clamp at 2 left its
+ *  units smaller than a 1440 px window's), so the base reads and no window is wider than the smallest map (all the way
+ *  out, ZOOM_MIN, a wide monitor showed the dark past the map's edges: a stranger's first sight of the game). Never
+ *  farther out than `zoomLimit` (a window over twice as tall as it is wide: 1.12 at 1000x2400), which is never past
+ *  ZOOM_MAX either. The wheel zooms out from there. */
+export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, ZOOM_MAX), zoomLimit());
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 const MM_GOLD = '#e8c04a'; // (the minimap: a gold mine, gold as its veins)

@@ -499,8 +499,8 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1200 px of the map across the window (any monitor), never farther out than the zoom-out limit (a tall window); at 1 on a phone (844x390, 667x375)', async () => {
-  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 2560, height: 1440 } }, { viewport: { width: 3440, height: 1440 } }, { viewport: { width: 1200, height: 1800 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
+test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 900 px of the map across the window (any monitor, never closer than 2.5), never farther out than the zoom-out limit (a tall window), the Castle, its gold mine and its workers in the first screen and a Knight a tenth of the canvas\'s height; at 1 on a phone (844x390, 667x375)', async () => {
+  for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 1920, height: 1080 } }, { viewport: { width: 2560, height: 1440 } }, { viewport: { width: 3440, height: 1440 } }, { viewport: { width: 1000, height: 2400 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
@@ -509,11 +509,18 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
       await page.waitForFunction(() => !!window.endfall);
       if (guided) await press('#btnTutorial'); else { await press('#btnSolo'); await press('#btnStart'); }
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-      const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom, limit: endfall.zoomMin }; });
+      const s = await page.evaluate(() => { const c = endfall.cam, v = endfall.view, hq = endfall.G.bldgs.find(b => b.team === endfall.G.me && b.d.hq); return { zoom: c.zoom, x: c.x, y: c.y, vw: v.w / c.zoom, vh: v.h / c.zoom, w: v.w, map: endfall.engine.MW * 32, hq: [hq.x, hq.y], start: endfall.startZoom, limit: endfall.zoomMin,
+        // (the frame's world rectangles: the Castle's footprint, its nearest gold mine's, our units' feet; a Knight's drawn height on screen)
+        castle: [hq.x - hq.w * 16, hq.y - hq.h * 16, hq.x + hq.w * 16, hq.y + hq.h * 16], knight: endfall.unitTop('knight') * c.zoom / v.h,
+        mine: (([n]) => n && [n.x - n.w * 16, n.y - n.h * 16, n.x + n.w * 16, n.y + n.h * 16])(endfall.map.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y))),
+        units: endfall.G.units.filter(u => u.team === endfall.G.me).map(u => [u.x, u.y]) }; });
+      const inView = ([x0, y0, x1 = x0, y1 = y0]) => x0 >= s.x && x1 <= s.x + s.vw && y0 >= s.y && y1 <= s.y + s.vh;
       if (device.hasTouch) assert.ok(s.zoom === 1 && s.limit === 0.75, `${what}: a phone at 1, its limit 0.75: ${JSON.stringify(s)}`);
       else {
-        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2, Math.max(1, s.w / 1200)), s.limit)) < 1e-9 && s.zoom === s.start, `${what}: 1200 px of the map across (between 1 and 2), or the limit where it is closer: ${JSON.stringify(s)}`);
-        if (device.viewport.height === 1800) assert.ok(s.limit > 1 && s.zoom === s.limit, `${what}: a tall window starts at its limit: ${JSON.stringify(s)}`);
+        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2.5, Math.max(1, s.w / 900)), s.limit)) < 1e-9 && s.zoom === s.start && s.zoom <= 2.5, `${what}: 900 px of the map across (between 1 and 2.5), or the limit where it is closer: ${JSON.stringify(s)}`);
+        assert.ok(inView(s.castle) && s.mine && inView(s.mine) && s.units.length > 0 && s.units.every(inView), `${what}: the Castle, its gold mine and its workers whole in the first screen: ${JSON.stringify(s)}`);
+        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.1, `${what}: a Knight a tenth of the canvas's height at least (it was 8 to 9% at 1200 px across; 16% on a phone): ${JSON.stringify(s)}`);
+        if (device.viewport.height === 2400) assert.ok(s.limit > 1 && s.zoom === s.limit, `${what}: a tall window starts at its limit: ${JSON.stringify(s)}`);
         assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
       }
       assert.ok(s.x >= 0 && s.x + s.vw <= s.map + 0.5 && s.y >= 0, `${what}: nothing past the map's edges at the sides or the top: ${JSON.stringify(s)}`);

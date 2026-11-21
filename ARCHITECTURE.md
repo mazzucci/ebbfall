@@ -925,7 +925,7 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       desktop's (record.mjs `--set desktop`, desktop.mjs): the same scene on a 1280x720 window at the
                       docs' desktop zoom, a mouse and a keyboard through CDP input events (mouse.mjs: the cursor's glides,
                       clicks, drags, double-clicks and keys stamped on the recorded clock; a drawn arrow cursor, a white
-                      ring at a left click and a teal one at a right click, the keys as keycaps under the top bar), seven
+                      ring at a left click and a teal one at a right click, the keys as keycaps just above the minimap), seven
                       beats in the desktop tables' words (a box, a right-click, a double-click, A then a click, B then a
                       building, Ctrl+1 and 1, the arrow keys) and the WASD scheme's one (`--set desktop-wasd`: the
                       device's setting through stage.mjs `init`); cut.mjs `--set desktop`: desktop-loop.mp4 (1280x720,

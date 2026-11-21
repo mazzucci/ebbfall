@@ -65,9 +65,11 @@ export const BEATS = [
 ];
 
 /** The WASD scheme's one beat (its own recording): a box, W and D move the map with the eight still selected, then
- *  E (the card's first key: Attack) and a click attack-move them, and R (its second: Hold) holds them. */
+ *  E (the card's first key: Attack) and a click attack-move them, and R (its second: Hold) holds them. (W held 0.2 s,
+ *  D 0.3: edge to edge, 0.4 s of W took the eight down under the selection panel; the attack-move's click a point on
+ *  the screen, not in the world, so that it lands on the map wherever the pan left it.) */
 export const WASD_BEATS = [
   { id: 'wasd', seconds: 3.6,
     caps: [cap(0, 'WASD', 'W A S D move the map; E R T the card’s top row')],
-    strokes: (a) => [...drag(0.3, { units: a.group, pad: 30, corner: 'tl' }, null, { move: 0.6, glide: 0.3 }), ...key(1.2, 'w', { hold: 0.4 }), ...key(1.7, 'd', { hold: 0.4 }), ...key(2.4, 'e'), ...click(2.9, { world: a.attackAt }), ...key(3.3, 'r')] },
+    strokes: (a) => [...drag(0.3, { units: a.group, pad: 30, corner: 'tl' }, null, { move: 0.6, glide: 0.3 }), ...key(1.2, 'w', { hold: 0.2 }), ...key(1.7, 'd', { hold: 0.3 }), ...key(2.4, 'e'), ...click(2.9, { x: 840, y: 330 }), ...key(3.3, 'r')] }, // (the click on the screen, above right of the eight, wherever the pan left them)
 ];

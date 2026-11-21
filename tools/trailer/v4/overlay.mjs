@@ -19,7 +19,7 @@ const CSS = `
 #tr .shadow{text-shadow:0 2px 3px rgba(0,0,0,.85),0 0 14px rgba(11,15,22,.9),0 0 3px rgba(11,15,22,.9)}
 #trBlack{background:#000;display:flex;align-items:center;justify-content:center;font-size:58px;letter-spacing:.08em}
 #trBlack span{position:static}
-#trShade{background:linear-gradient(0deg,rgba(4,9,14,.93) 0,rgba(4,9,14,.82) 30%,rgba(4,9,14,0) 56%)}
+#trShade{background:linear-gradient(0deg,rgba(4,9,14,.93) 0,rgba(4,9,14,.82) 30%,rgba(4,9,14,0) 56%);-webkit-mask-image:linear-gradient(90deg,#000 0,#000 66%,rgba(0,0,0,.3) 100%);mask-image:linear-gradient(90deg,#000 0,#000 66%,rgba(0,0,0,.3) 100%)}
 #trDiary{left:54px;bottom:36px;width:860px;font-size:33px;line-height:1.5}
 #trDiary div{position:static;min-height:1.5em}
 #trDiary .day{font-size:27px;letter-spacing:.16em;min-height:0;margin-bottom:10px}

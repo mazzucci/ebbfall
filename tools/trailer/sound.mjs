@@ -25,21 +25,23 @@ export function timeline(clips, extra = {}) {
 }
 
 /** Render `events` over `seconds` (the wind from `wind.from` to `wind.to`, or none) into a WAV at `file`. */
-export async function render(stage, events, seconds, wind, file) {
+/** `synth` (a page function, serialized) adds its own nodes to the context with `synthArgs` (cut 4's warp: no sound of the game's). */
+export async function render(stage, events, seconds, wind, file, synth = null, synthArgs = null) {
   const page = await stage.browser.newPage();
   try {
-    await page.goto(stage.origin, { waitUntil: 'networkidle' });
+    await page.goto(`${stage.origin}?hd=0`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall?.renderSfx, null, { timeout: 90000 });
-    const b64 = await page.evaluate(async ({ events, seconds, wind, rate }) => {
+    const b64 = await page.evaluate(async ({ events, seconds, wind, rate, synth, synthArgs }) => {
       const ctx = new OfflineAudioContext(2, Math.ceil(rate * seconds), rate);
       window.endfall.renderSfx(ctx, events, wind);
+      if (synth) (0, eval)(`(${synth})`)(ctx, synthArgs);
       const buf = await ctx.startRendering(), L = buf.getChannelData(0), R = buf.getChannelData(1);
       const pcm = new Int16Array(L.length * 2);
       for (let i = 0; i < L.length; i++) { pcm[2 * i] = Math.max(-1, Math.min(1, L[i])) * 32767; pcm[2 * i + 1] = Math.max(-1, Math.min(1, R[i])) * 32767; }
       const bytes = new Uint8Array(pcm.buffer); let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return btoa(s);
-    }, { events, seconds, wind, rate: RATE });
+    }, { events, seconds, wind, rate: RATE, synth: synth && synth.toString(), synthArgs });
     writeFileSync(file, wav(Buffer.from(b64, 'base64')));
   } finally { await page.close(); }
 }

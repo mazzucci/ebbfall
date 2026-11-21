@@ -26,6 +26,13 @@ function trim(s) { // (generate.mjs's)
   s.src = { x: x0, y: y0, w, h }; s.img = { w: tw, h: th, data: o };
 }
 
+// (detail-exp) terrain tiles get gutters filled with their own edge pixels, as generate.mjs's (4 px times hd)
+for (const s of sprites) if (/^(ground|rock)_/.test(s.name)) {
+  const EXT = 4 * hd, { w, h, data } = s.img, W2 = w + EXT * 2, H2 = h + EXT * 2, o = new Uint8ClampedArray(W2 * H2 * 4);
+  for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) { const sx = Math.min(w - 1, Math.max(0, x - EXT)), sy = Math.min(h - 1, Math.max(0, y - EXT)); o.set(data.subarray((sy * w + sx) * 4, (sy * w + sx) * 4 + 4), (y * W2 + x) * 4); }
+  s.img = { w: W2, h: H2, data: o }; s.ext = EXT;
+}
+
 /** generate.mjs's shelves over `list`, in pages W wide and at most W tall. */
 function pack(list) {
   const order = list.map((s, i) => i).sort((a, b) => list[b].img.h - list[a].img.h || list[b].img.w - list[a].img.w || a - b), pages = [];
@@ -49,6 +56,7 @@ async function encode(pages, dir) {
       const { w, h, data: src } = s.img;
       for (let r = 0; r < h; r++) data.set(src.subarray(r * w * 4, (r + 1) * w * 4), ((y + r) * W + x) * 4);
       frames[s.name] = s.src ? { frame: { x, y, w, h }, anchor: s.anchor, trimmed: true, sourceSize: { w: s.src.w, h: s.src.h }, spriteSourceSize: { x: s.src.x, y: s.src.y, w, h } }
+        : s.ext ? { frame: { x: x + s.ext, y: y + s.ext, w: w - s.ext * 2, h: h - s.ext * 2 }, anchor: s.anchor, sourceSize: { w: w - s.ext * 2, h: h - s.ext * 2 }, spriteSourceSize: { x: 0, y: 0, w: w - s.ext * 2, h: h - s.ext * 2 } }
         : { frame: { x, y, w, h }, anchor: s.anchor, sourceSize: { w, h }, spriteSourceSize: { x: 0, y: 0, w, h } };
     }
     const webp = await encodeWebP({ w: W, h: height, data });
@@ -62,18 +70,18 @@ async function encode(pages, dir) {
   return { bytes, px, pages: sizes, files };
 }
 
-const group = (s) => (/^bldg_/.test(s.name) ? 'buildings' : /_(wind|strike)(_m)?$/.test(s.name) ? 'strikes' : 'walk');
+const group = (s) => (/^(ground|rock)_/.test(s.name) ? 'tiles' : /^mine_/.test(s.name) ? 'mine' : /^bldg_/.test(s.name) ? 'buildings' : /_(wind|strike)(_m)?$/.test(s.name) ? 'strikes' : 'walk');
 const stats = { tag, hd, W, pad: PAD, renderSeconds: idx.seconds, groups: {} };
 const all = await encode(pack(sprites), out);
 writeFileSync(join(out, 'atlas.json'), JSON.stringify({ pages: all.files, scale: 2 * hd }));
 stats.all = { sprites: sprites.length, frames: sprites.filter(s => !/_m$/.test(s.name)).length, bytes: all.bytes, pages: all.pages, packedPx: sprites.reduce((a, s) => a + s.img.w * s.img.h, 0) };
-for (const g of ['walk', 'strikes', 'buildings']) {
-  const list = sprites.filter(s => group(s) === g), e = await encode(pack(list), null);
+for (const g of ['walk', 'strikes', 'buildings', 'mine', 'tiles']) {
+  const list = sprites.filter(s => group(s) === g); if (!list.length) continue; const e = await encode(pack(list), null);
   stats.groups[g] = { sprites: list.length, frames: list.filter(s => !/_m$/.test(s.name)).length, bytes: e.bytes, pages: e.pages, packedPx: list.reduce((a, s) => a + s.img.w * s.img.h, 0) };
 }
 
 // 1x: is every frame the shipped atlas's, pixel for pixel? (the patched renderer at hd 1 must be today's)
-if (hd === 1 && !/px/.test(tag)) {
+if (hd === 1 && !/px|detail/.test(tag)) {
   const art = join(root, 'public/art'), ix = JSON.parse(readFileSync(join(art, 'atlas.json'), 'utf8'));
   let same = 0, differ = [], missing = [];
   const pagesPx = {};

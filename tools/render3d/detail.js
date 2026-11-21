@@ -214,3 +214,67 @@ export function serverHallDetail(M, g, { W, D: DP, H, Y0, TOP, BW, BH, BD }) {
   for (const y of [8, 17, 26]) add(g, rbox(0.9, 0.7, 2.4, 0.15), D.steel, E + 0.7, Y0 + y, 17.75);                       // its clamps
   limb(g, [E + 0.6, TOP + 3.3, 17.75], [48.5, RY + 0.6, 19.5], 0.34, D.cable);
 }
+
+// ------------------------------------------------ the Gold mine ------------------------------------------------
+/** The mine's detail materials: moss and grass greens (the ground's mid green and a step darker), a warm halo round a
+ *  lantern, pale fresh-cut timber ends. */
+function mineDetailMats(M) {
+  if (M.dt) return M.dt;
+  return M.dt = {
+    moss: std({ color: 0x55703a, roughness: 1, flatShading: true }), mossDark: std({ color: 0x3e5630, roughness: 1, flatShading: true }),
+    tuft: std({ color: 0x66883e, roughness: 1 }), cut: std({ color: 0x8a7a62, roughness: 1 }), rope: std({ color: 0x8c8068, roughness: 1 }),
+    halo: new THREE.MeshBasicMaterial({ color: 0xffb050, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false }),
+  };
+}
+const icos = new Map();
+const lump = (r) => { if (!icos.has(r)) icos.set(r, new THREE.IcosahedronGeometry(r, 1)); return icos.get(r); };
+/** The Gold mine's detail, over the mine as built and before its scale (`C` the country's materials, `M` the mine's;
+ *  `st` 0 full, 1 low, 2 empty; the portal's frame at z `PZ`, its posts at x +-`PX` and `PH` tall, the mouth `MW` wide):
+ *  moss on the crags and the boulder, grass tufts and pebbles round the apron's edge;
+ *  at the portal: knee braces under the lintel, a cage and a cap on its lantern, a ladder up the west rock;
+ *  in the yard: a stack of cut timbers, a barrel and a crate by the east wing wall, a lantern on a post by the rails
+ *    (lit while the mine is worked; on the empty mine the post leans and the lamp is out, the barrel lies on its side,
+ *    the stack is two logs left behind), tie plates on the sleepers;
+ *  on the cart (on its rails): rivets along its bands, a coupling bar and hook. */
+export function mineDetail(C, M, g, { st, PZ, PX, PH, MW }) {
+  const D = mineDetailMats(M), EMPTY = st === 2;
+  let t = 9001 + st; const rnd = () => ((t = (t * 16807) % 2147483647) / 2147483647);
+  const blob = (r, mat, x, y, z, sx, sy, sz, ry = 0) => { const m = add(g, lump(r), mat, x, y, z, 0, ry, 0); m.scale.set(sx, sy, sz); return m; };
+  // moss: flat lumps on the lit tops of the flank crags, the dark crag behind, the yard's boulder, the slab's east shoulder
+  for (const [x, y, z, r, k] of [[-33, 16.6, -9, 6, 0], [-25, 21.2, -29, 5.5, 1], [40.5, 7.0, 13, 3.6, 0], [26, 25.0, -3, 4.2, 1], [-41, 7.2, 3.5, 3.6, 1], [13, 31.2, -20, 3.6, 0]]) {
+    blob(r, k ? D.mossDark : D.moss, x, y, z, 1.25, 0.22, 1.0, rnd() * 3); blob(r * 0.55, k ? D.moss : D.mossDark, x + r * 0.5, y + 0.3, z + r * 0.3, 1.1, 0.25, 1.0, rnd() * 3);
+  }
+  // grass tufts and pebbles at the apron's edge and along the scree
+  for (const [x, z] of [[-45, 18], [-38, 33], [-22, 43], [20, 44], [38, 34], [46, 20], [-47, -4], [47, 3], [-13, 14], [14, 15]]) for (let k = 0; k < 4; k++) add(g, cone(0.75, 3.2 + rnd() * 1.8, 5), D.tuft, x + (rnd() - 0.5) * 3, 1.5, z + (rnd() - 0.5) * 2.4, (rnd() - 0.5) * 0.5, 0, (rnd() - 0.5) * 0.5);
+  for (let k = 0; k < 12; k++) { const a = 0.3 + rnd() * 2.5, d = 24 + rnd() * 20; blob(0.9 + rnd() * 0.7, k % 2 ? M.rock : M.rockPale, Math.cos(a) * d, 0.5, 6 + Math.sin(a) * d * 0.8, 1, 0.6, 1, rnd() * 3); }
+  // the portal
+  if (!EMPTY) {
+    for (const s of [-1, 1]) limb(g, [s * (PX - 0.4), PH - 7.5, PZ + 0.6], [s * (PX - 8.5), PH - 0.6, PZ + 0.6], 1.15, M.timber);     // knee braces under the lintel
+    add(g, cone(1.5, 1.2, 8), C.iron, -10, PH + 2.5, PZ + 5.2); add(g, torus(1.45, 0.16, 10), C.iron, -10, PH + 0.9, PZ + 5.2, Math.PI / 2, 0, 0); // the lantern's cap and cage ring
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4; limb(g, [-10 + Math.cos(a) * 1.4, PH - 0.4, PZ + 5.2 + Math.sin(a) * 1.4], [-10 + Math.cos(a) * 1.4, PH + 2.0, PZ + 5.2 + Math.sin(a) * 1.4], 0.13, C.iron); }
+    add(g, sph(3.0, 10, 8), D.halo, -10, PH + 0.9, PZ + 5.2);
+  }
+  for (const s of [-1, 1]) limb(g, [-27.5 + s * 1.5, 0.4, PZ + 6.5], [-26 + s * 1.5, 19.5, PZ - 3.2], 0.42, M.timberDark);              // a ladder up the rock west of the portal
+  for (let k = 1; k < 8; k++) { const q = k / 8; limb(g, [-29 + 1.5 * q, 0.4 + 19.1 * q, PZ + 6.5 - 9.7 * q], [-26 + 1.5 * q, 0.4 + 19.1 * q, PZ + 6.5 - 9.7 * q], 0.3, M.timber); }
+  // the yard west of the rails: cut timbers stacked (two logs left on the empty mine)
+  const logs = EMPTY ? [[-27, 1.6, 21, 0.25], [-22, 1.6, 26.5, -0.5]] : [[-27, 1.7, 19.6, 0], [-27, 1.7, 22.9, 0], [-27, 1.7, 26.2, 0], [-27, 4.5, 21.2, 0], [-27, 4.5, 24.6, 0]];
+  for (const [x, y, z, ry] of logs) { const l = grp(); l.position.set(x, y, z); l.rotation.y = ry; g.add(l); add(l, cyl(1.65, 1.65, 17, 9), M.timber, 0, 0, 0, 0, 0, Math.PI / 2); for (const s of [-1, 1]) add(l, cyl(1.3, 1.3, 0.3, 9), D.cut, s * 8.45, 0, 0, 0, 0, Math.PI / 2); }
+  if (!EMPTY) for (const x of [-32.5, -21.5]) for (const z of [18.2, 27.6]) add(g, rbox(1.0, 4.4, 1.0, 0.2), M.timberDark, x, 2.2, z);    // stakes holding the stack
+  // east of the rails: a barrel and a crate by the wing wall
+  const brl = grp(); brl.position.set(EMPTY ? 19 : 17, EMPTY ? 2.7 : 0, EMPTY ? 37 : 20.5); brl.rotation.set(0, 0.4, EMPTY ? Math.PI / 2 : 0); g.add(brl);
+  add(brl, cyl(2.5, 2.5, 6.4, 12), M.board, 0, 3.2, 0); add(brl, cyl(2.85, 2.85, 2.6, 12), M.board, 0, 3.2, 0); for (const y of [1.3, 5.1]) add(brl, cyl(2.72, 2.72, 0.6, 12), C.iron, 0, y, 0); add(brl, cyl(2.1, 2.1, 0.2, 12), M.timberDark, 0, 6.42, 0);
+  if (!EMPTY) { add(g, rbox(6.4, 5.2, 6.0, 0.3), M.board, 23.5, 2.6, 16.5, 0, 0.2, 0); for (const y of [0.9, 4.4]) add(g, rbox(6.8, 0.8, 6.4, 0.15), M.timberDark, 23.5, y, 16.5, 0, 0.2, 0); add(g, torus(1.8, 0.45, 12), D.rope, 23.5, 5.6, 16.5, Math.PI / 2, 0, 0); } // the crate, banded, a rope coil on it
+  // a lantern on a post by the rails
+  const post = grp(); post.position.set(13, 0, 36); post.rotation.z = EMPTY ? -0.3 : 0; g.add(post);
+  add(post, rbox(1.7, 15, 1.7, 0.3), M.timber, 0, 7.5, 0); add(post, rbox(5.0, 1.1, 1.1, 0.2), M.timber, -1.8, 14.2, 0); limb(post, [0, 10.4, 0], [-3.4, 13.8, 0], 0.4, M.timberDark);
+  add(post, cyl(0.9, 0.9, 2.0, 8), C.iron, -3.8, 12.2, 0); add(post, cone(1.3, 1.0, 8), C.iron, -3.8, 13.5, 0);
+  if (!EMPTY) { add(post, sph(1.25, 8, 6), M.lamp, -3.8, 11.9, 0); add(post, sph(2.8, 10, 8), D.halo, -3.8, 11.9, 0); }
+  // tie plates where the rails cross the sleepers
+  for (let z = PZ + 3; z < 46; z += 5) for (const s of [-1, 1]) add(g, rbox(2.0, 0.35, 1.5, 0.1), C.iron, s * 5.0, 1.12, z);
+  // the cart on its rails (full and low: at (0, 27), its tub 12 by 9 from y 2 to 9): rivets along the bands, a coupling
+  if (!EMPTY) {
+    for (const y of [3.0, 8.2]) for (const x of [-4.5, -1.5, 1.5, 4.5]) add(g, sph(0.42, 6, 5), M.rockPale, x, y, 27 + 4.95);
+    for (const y of [3.0, 8.2]) for (const z of [-2.6, 0, 2.6]) for (const s of [-1, 1]) add(g, sph(0.42, 6, 5), M.rockPale, s * 6.4, y, 27 + z);
+    limb(g, [0, 3.2, 31.6], [0, 3.2, 35.4], 0.5, C.iron); add(g, torus(0.9, 0.3, 10), C.iron, 0, 3.2, 36.2, Math.PI / 2, 0, 0);
+  }
+}

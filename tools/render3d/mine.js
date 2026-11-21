@@ -14,6 +14,7 @@ import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { cone } from './vael.js';
 import { countryMats } from './country.js';
 import { polishTextures } from './polish.js';
+import { DETAIL, mineDetail } from './detail.js'; // (detail-exp: the desktop detail test, off unless the page has ?detail=1)
 
 export const MINE_STAGES = ['full', 'low', 'empty'];
 /** The cell's height (game units): the outcrop's top over the ground. */
@@ -187,6 +188,7 @@ export function goldMine(stage) {
     if (!EMPTY) { limb(g, [PX + 4.5, 0.4, PZ + 7], [PX + 3.2, 12, PZ + 2.6], 0.5, M.timberDark); add(g, rbox(4.0, 1.2, 1.2, 0.3), C.iron, PX + 3.1, 12.2, PZ + 2.5, 0, 0, 0.3); limb(g, [PX + 7.5, 0.4, PZ + 6], [PX + 5.8, 11, PZ + 2.8], 0.5, M.timberDark); add(g, rbox(2.4, 3.0, 0.5, 0.2), C.iron, PX + 7.7, 1.7, PZ + 6.4, 0.5, 0, 0); }
     add(g, rbox(MW + 6, 1.0, 3.8, 0.2), M.rockPale, 0, 0.5, PZ + 2.8);
   }
+  if (DETAIL) mineDetail(C, M, g, { st, PZ, PX, PH, MW }); // (detail-exp)
   g.scale.setScalar(MINE_SCALE);
   return g;
 }

@@ -173,7 +173,7 @@ for (const k of [2, 3]) {
     HDT[k] = T;
   } catch { /* no such level built */ }
 }
-export const setHd = (k) => { hdLevel = HDT[k] ? k : 0; return { level: hdLevel, frames: hdLevel ? Object.keys(HDT[hdLevel]).length : 0 }; };
+export const setHd = (k) => { hdLevel = HDT[k] ? k : 0; for (const c of chunks) if (c) for (const t of c.children) if (t.tname) t.texture = tex(t.tname); /* (detail-exp: the ground's tiles too) */ return { level: hdLevel, frames: hdLevel ? Object.keys(HDT[hdLevel]).length : 0 }; };
 const tex = (name) => (hdLevel && HDT[hdLevel][name]) || textures[name] || Texture.EMPTY;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 const FACINGS = index.facings || 16;
@@ -316,7 +316,7 @@ export function renderTerrain() {
     const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}` : rockTile(m, r, cellKind(i, j));
     const ci = (j + 1) >> 3, cj = (i + 1) >> 3, key = ci * 64 + cj;
     let c = chunks[key]; if (!c) { c = chunks[key] = new Container(); c.cx = cj * 8 * TILE; c.cy = ci * 8 * TILE; L.terrain.addChild(c); }
-    const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
+    const s = new Sprite(tex(name)); s.tname = name; s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
   }
   // Large-scale variation so the tiles never read as a grid, and the water (gl/ground.js): a multiply (the land's shade,
   // a wet line along the shore, the water's tints) and on a map with water an add (the water's light), over the scenery too.

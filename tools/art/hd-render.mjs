@@ -19,7 +19,7 @@ mkdirSync(out, { recursive: true });
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript' };
 const UNITS = ['lancer', 'knight', 'shrike', 'umbra'], BLDGS = ['core', 'conflux'];
 const keep = (k) => !only || only.includes(k);
-const filters = re ? [re] : [...BLDGS.filter(keep).map(b => `^bldg_${b}$`), ...UNITS.filter(keep).flatMap(u => Array.from({ length: 16 }, (_, d) => `^${u}_${d}_`))];
+const filters = re ? [re] : [...(only?.includes('mine') ? ['^mine_'] : []), ...BLDGS.filter(keep).map(b => `^bldg_${b}$`), ...UNITS.filter(keep).flatMap(u => Array.from({ length: 16 }, (_, d) => `^${u}_${d}_`))];
 
 const browser = await launchChromium();
 const index = [], t0 = Date.now();

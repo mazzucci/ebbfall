@@ -163,7 +163,18 @@ export function portrait(kind, type, size = 26, team = G.me, box = false) {
       : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, headFrame);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
-const tex = (name) => textures[name] || Texture.EMPTY;
+// hd-exp (never merged): the sample's frames at 2x and 3x today's resolution (public/art/hd2, hd3: tools/art/hd-pack.mjs),
+// their pages at scale 4 and 6, so a sprite keeps its world size; `setHd(2 | 3)` draws them in place of today's, 0 today's.
+const HDT = {}; let hdLevel = 0;
+for (const k of [2, 3]) {
+  try {
+    const ix = await (await fetch(`${artBase}hd${k}/atlas.json`)).json(); const T = {};
+    for (const sh of await Promise.all(ix.pages.map(p => Assets.load(`${artBase}hd${k}/${p}`)))) Object.assign(T, sh.textures);
+    HDT[k] = T;
+  } catch { /* no such level built */ }
+}
+export const setHd = (k) => { hdLevel = HDT[k] ? k : 0; return { level: hdLevel, frames: hdLevel ? Object.keys(HDT[hdLevel]).length : 0 }; };
+const tex = (name) => (hdLevel && HDT[hdLevel][name]) || textures[name] || Texture.EMPTY;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 const FACINGS = index.facings || 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
@@ -504,6 +515,7 @@ class BldgObj {
    *  moment). `now`: the renderer's clock (s). */
   update(b, t, dt, live, now = performance.now() / 1000) {
     this.b = b; this.live = live; // (what a fall reads: look.js bldgDeath)
+    if (this.hdL !== hdLevel) { this.hdL = hdLevel; this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); } // (hd-exp)
     if (b.done && !this.wasDone) this.doneT = live && this.seenAt === frameNo - 1 ? 0 : null; // (it stood while we watched: its done moment)
     this.wasDone = b.done; this.seenAt = frameNo;
     if (this.doneT !== null) { this.doneT += dt; if (this.doneT >= DONE.life) this.endFade(); }

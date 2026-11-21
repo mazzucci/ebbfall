@@ -3,6 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
+import { setHd } from './client/gl/render.js'; // (hd-exp)
 import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, ZOOM_MIN, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
@@ -295,6 +296,7 @@ new ResizeObserver(resize).observe(document.getElementById('stage'));
 window.endfall = { G, map: engine.map, ui, cam, view, zoomMin: ZOOM_MIN, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
+  hd: (k) => { const r = setHd(k); render(ui.sel, ui.place); return r; }, // (hd-exp: a level's frames, drawn at once: under a held clock the same instant again)
   paint: (spots) => { setSpots(spots); renderTerrain(); }, skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);

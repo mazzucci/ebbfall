@@ -93,6 +93,6 @@ window.render = async function (filter = '', opts = {}) {
   // The re-theme's models under their own names (retheme.js rethemeSprites), only when a filter asks for them by name,
   // at their own camera (`opts.elev`), sun (`opts.sun`) and finish (`opts.polish`): the review pictures' path.
   if (filter) for (const [name, obj, cell, o, isTeam, extra] of rethemeSprites(want, opts)) isTeam ? pushTeam(name, obj, cell, o, extra) : push(name, obj, cell, o);
-  return { sprites: out, tints: fitTints() };
+  return { sprites: out, tints: opts.noTints ? [] : fitTints() }; // (hd-exp `noTints`: the sample's batches skip the fit)
 };
 window.ready = true;

@@ -31,7 +31,7 @@ try {
   await board(page).race(1, 'vael');
   await page.locator('#btnStart').click();
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0);
-  log.setup = await page.evaluate((secs) => {
+  log.setup = await page.evaluate(([secs, want]) => {
     const { G, map, engine } = endfall, T = engine.TILE;
     engine.disableAi(); engine.revealAll(true); endfall.fog(false);
     const free = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor(y / T); return engine.inMap(tx, ty) && !map.rock[engine.idx(tx, ty)] && !map.occ[engine.idx(tx, ty)]; };
@@ -60,10 +60,10 @@ try {
     const knights = G.units.filter(u => u.type === 'knight' && u.team === 0 && !u.dead).map(u => ({ id: u.id, x: u.x, y: u.y, near: near(u), state: u.state ?? null, dir: u.dir ?? u.face ?? null }));
     // (in a fight, an enemy within 60 px, and the most room round it: the Knight no other unit stands over)
     const room = (k) => Math.min(...G.units.filter(u => u.id !== k.id && !u.dead).map(u => Math.hypot(u.x - k.x, (u.y - k.y) * 1.4)));
-    const pick = knights.filter(k => k.near < 60).sort((a, b) => room(b) - room(a))[0] || knights.sort((a, b) => a.near - b.near)[0];
+    const pick = knights.find(k => k.id === want) || knights.filter(k => k.near < 60).sort((a, b) => room(b) - room(a))[0] || knights.sort((a, b) => a.near - b.near)[0]; // (PICK=<id>: the Knight chosen by eye, clear of the Drones over the line)
     const mine = map.nodes.filter(n => n.type === 'mine').map(n => ({ x: n.x, y: n.y, d: Math.hypot(n.x - hall.x, n.y - hall.y) })).sort((a, b) => a.d - b.d)[0];
     return { hall: { x: hall.x, y: hall.y, hp: hall.hp }, mine, world: [engine.WW, engine.WH], knights, pick, alive: [of(0).length, of(1).length], counts: G.units.reduce((m, u) => (m[u.type] = (m[u.type] || 0) + 1, m), {}), hd: [endfall.hd(2), endfall.hd(0)], startZoom: endfall.startZoom };
-  }, +SECS);
+  }, [+SECS, +process.env.PICK || 0]);
   await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 15000);
   await page.clock.runFor(100);
   if (!PHONE) await page.mouse.move(+W - 5, 5); // (the pointer off the map)

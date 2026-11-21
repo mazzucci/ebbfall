@@ -15,12 +15,12 @@
      /r/CODE, gets the room's own title, description and url from site/preview.js, its image and alt these; the card's
      image is tools/og.mjs's). The structured data below is the game's one
      VideoGame: the docs home repeats it as it is (tools/docs/build.mjs videoGame). -->
-<meta name="description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
+<meta name="description" content="A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.">
 <link rel="canonical" href="https://ebbfall.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Ebbfall">
 <meta property="og:title" content="Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser">
-<meta property="og:description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
+<meta property="og:description" content="A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.">
 <meta property="og:url" content="https://ebbfall.com/">
 <meta property="og:image" content="https://ebbfall.com/og.png">
 <meta property="og:image:type" content="image/png">
@@ -29,12 +29,12 @@
 <meta property="og:image:alt" content="Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ebbfall: a classic RTS, a kingdom against time travelers, free in your browser">
-<meta name="twitter:description" content="In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.">
+<meta name="twitter:description" content="A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.">
 <meta name="twitter:image" content="https://ebbfall.com/og.png">
 <meta name="twitter:image:alt" content="Ebbfall: a medieval kingdom's archers and knights against an expedition's bots and drones">
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": ["VideoGame", "WebApplication"], "@id": "https://ebbfall.com/#game", "name": "Ebbfall", "url": "https://ebbfall.com/",
- "description": "In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.",
+ "description": "A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.",
  "image": "https://ebbfall.com/og.png", "genre": "Real-time strategy", "gamePlatform": "Web browser",
  "applicationCategory": "GameApplication", "operatingSystem": "Any", "browserRequirements": "Requires WebGL and WebAssembly",
  "playMode": ["https://schema.org/SinglePlayer", "https://schema.org/MultiPlayer"],
@@ -116,9 +116,12 @@
     <div class="card menu">
       <div class="page" id="menuHome">
         <h1>Ebbfall</h1>
-        <div class="tag" id="menuTag">In 2047, time travel was first attempted. An expedition jumped six centuries back, into a medieval kingdom that wasn't expecting company.</div>
-        <!-- The gameplay clip (the docs home's: Drones against a Watchtower), framed above the buttons; beside them on a phone on its side. Here its poster only (public/menu/clip-*.webp, the game's own copies: tools/menu-clip.mjs): menuclip.js makes the video once the game has loaded, and plays it muted over the poster; never under reduced motion or Save-Data. -->
-        <div class="clip" id="menuClip"><img id="menuClipPoster" src="menu/clip-720.webp" srcset="menu/clip-720.webp 720w, menu/clip-1280.webp 1280w" sizes="(orientation: landscape) and (max-height: 640px) 53vw, (max-width: 768px) calc(100vw - 48px), (max-height: 920px) 720px, 1000px" width="1000" height="500" alt="Ebbfall gameplay: the Expedition's drones swarm a blue Kingdom watchtower by its castle until archers and a ballista arrive and shoot them down" decoding="async"></div>
+        <div class="tag" id="menuTag">A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.</div>
+        <!-- The trailer (src/client/trailer.js): its poster, the King's card, a still with a play button, framed above the buttons; beside them on a phone on its side. A tap opens the dialog below and plays it there, with its sound and the browser's controls; nothing of the video is fetched before (no source until then, preload="none"). -->
+        <button type="button" id="menuTrailer" aria-haspopup="dialog" aria-label="Watch the Ebbfall trailer, 40 seconds, with sound"><img id="menuTrailerPoster" src="menu/trailer.jpg" width="1280" height="720" alt="" decoding="async"><span class="play" aria-hidden="true"><i></i>WATCH THE TRAILER</span></button>
+        <dialog id="trailerDlg" class="trailer" aria-label="The Ebbfall trailer">
+          <div class="frame"><button type="button" class="ib x" id="trailerClose" aria-label="Close the trailer">CLOSE</button><video id="trailerVideo" width="1280" height="720" controls playsinline preload="none" poster="menu/trailer.jpg" title="Ebbfall trailer: time travelers from 2047, stranded in a medieval kingdom" aria-label="The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home. They need its mines, the King won't abide it, and their armies fight. By day 675 it is home."></video><p class="note" id="trailerNote" role="status" hidden>The trailer needs a connection.</p><p class="credit" id="trailerCredit">Strength of the Titans Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 / <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener license">https://creativecommons.org/licenses/by/4.0/</a> (edited)</p></div>
+        </dialog>
         <div class="modes"><button class="ib big mode" id="btnSolo" title="A game against the computer">SINGLE PLAYER</button><button class="ib big mode" id="btnOnline" title="Play a friend over the Internet" hidden>MULTIPLAYER</button></div>
         <div class="row"><button class="ib" id="btnTutorial" title="A guided game on Easy: a short checklist shows you the way">TUTORIAL</button><button class="ib" id="btnOptions">OPTIONS</button><button class="ib" id="btnInstall">INSTALL</button></div>
         <p class="offmsg" id="homeOfflineMsg" role="status"></p>
@@ -126,7 +129,7 @@
           <p class="links" id="menuLinks"><a id="linkDocs" href="./docs/" target="_blank" rel="noopener">Learn more</a><a id="linkFeedback" href="./docs/feedback/?from=menu" target="_blank" rel="noopener">Send feedback</a></p>
           <div class="rec" id="buildStamp"></div>
         </div>
-        <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. On the first page the band is what the clip and the buttons leave under the footer line (style.css): a low band on most desktops (860 to 1199 px high: lower, none; higher, the band is tall again), so the short landscape's image there too (the `low` source: the first page's alone, menu.js leaves it out of the copies, whose band is as tall as ever). -->
+        <!-- The backdrop under the first page (and a copy under the other menu pages, menu.js): a plain dark floor, and on it the field (public/menu/, tools/menu-art.mjs): og.png's battle as a band at the foot of the screen, one image per size class (upright, a short landscape, 21:9 and wider, else the desktop's); the floor shows while it loads. On the first page the band is what the poster and the buttons leave under the footer line (style.css): a low band on most desktops (860 to 1199 px high: lower, none; higher, the band is tall again), so the short landscape's image there too (the `low` source: the first page's alone, menu.js leaves it out of the copies, whose band is as tall as ever). -->
         <div class="backdrop" aria-hidden="true">
           <picture class="scene">
             <source media="(orientation: portrait)" srcset="menu/menu-portrait.webp">

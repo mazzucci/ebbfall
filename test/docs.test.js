@@ -467,7 +467,7 @@ test('structured data: every block on the game\'s page and the docs is schema.or
   const game = ldOf(gameHtml).find(d => [d['@type']].flat().includes('VideoGame'));
   const docsGame = ldOf(page('/docs/')).find(d => [d['@type']].flat().includes('VideoGame'));
   assert.deepEqual(docsGame, game, 'the docs home repeats the game\'s VideoGame as it is (one source: index.html)');
-  assert.match(game.description, /^In 2047, time travel was first attempted\./, 'the premise');
+  assert.equal(game.description, 'A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.', 'what the game is (the menu\'s line: the trailer tells the story)');
   assert.equal(game.genre, 'Real-time strategy'); assert.equal(game.gamePlatform, 'Web browser');
   assert.deepEqual(game.playMode, ['https://schema.org/SinglePlayer', 'https://schema.org/MultiPlayer']);
   assert.equal(game.offers.price, '0'); assert.equal(game.url, 'https://ebbfall.com/'); assert.equal(game.image, 'https://ebbfall.com/og.png');

@@ -30,7 +30,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.match(await a.getAttribute('rel'), /noopener/);
       const b = await a.boundingBox();
       assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `Learn more on screen: ${JSON.stringify(b)}`);
-      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Send feedback'], 'Learn more, and a quiet second link (test/e2e/feedback.e2e.mjs); no link to a trailer (the clip plays on the page: menuclip.e2e.mjs)');
+      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Send feedback'], 'Learn more, and a quiet second link (test/e2e/feedback.e2e.mjs); no link to a trailer (it plays on the page: menutrailer.e2e.mjs)');
       // Under the row of buttons, above the build stamp.
       const [row, links, stamp] = await Promise.all(['#btnOptions', '#menuLinks', '#buildStamp'].map(s => page.locator(s).boundingBox()));
       assert.ok(links.y >= row.y + row.height - 1 && (stamp.y >= links.y + links.height - 1 || (stamp.x >= links.x + links.width - 1 && Math.abs(stamp.y + stamp.height / 2 - links.y - links.height / 2) < 4)), 'under the buttons, the stamp after it (beside it on a short phone on its side)');

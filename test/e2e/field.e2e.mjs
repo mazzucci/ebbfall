@@ -1,5 +1,5 @@
 // The field under the menu's first page (index.html's <picture class="scene"> in the backdrop, public/menu/,
-// tools/menu-art.mjs): the right image per size class, under the buttons (what the clip and the buttons leave of the
+// tools/menu-art.mjs): the right image per size class, under the buttons (what the poster and the buttons leave of the
 // screen: a low band on most desktops, none where there is no room, as on a phone on its side), the buttons where they
 // are without it, the plain dark floor when the image never comes, no tide line and no drift anywhere on the menu, the
 // band under the other menu pages too (theirs as tall as ever), and in every engine the band fading into the floor (an
@@ -30,7 +30,7 @@ const SIZES = [
 
 async function open(device, { block = false, reduced = false } = {}) {
   const ctx = await browserContext({ ...device, reducedMotion: reduced ? 'reduce' : 'no-preference' });
-  if (block) await ctx.route('**/menu/menu-*.webp', (route) => route.abort()); // (the image never comes: a slow network, a blocker; the clip's poster is menuclip.e2e.mjs's)
+  if (block) await ctx.route('**/menu/menu-*.webp', (route) => route.abort()); // (the image never comes: a slow network, a blocker; the trailer's poster is menutrailer.e2e.mjs's)
   const page = await ctx.newPage(), errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${baseUrl()}?seed=4242`, { waitUntil: 'networkidle' });
@@ -45,7 +45,7 @@ const FLOOR = 'rgb(18, 26, 37)';
 const field = (page, at = '#menuHome') => page.evaluate((at) => {
   const p = document.querySelector(`${at} .scene`), i = p.querySelector('img'), cs = getComputedStyle(p), r = p.getBoundingClientRect(), bd = getComputedStyle(document.querySelector(`${at} .backdrop`));
   return { src: i.currentSrc.split('/').pop(), loaded: i.complete && i.naturalWidth > 0, shown: cs.display !== 'none', top: r.top, bottom: r.bottom, left: r.left, animation: cs.animationName,
-    height: r.height, svgs: document.querySelectorAll(`${at} .backdrop svg`).length, floor: [bd.backgroundColor, bd.backgroundImage], anims: document.getAnimations().filter((a) => a.effect?.target?.closest?.('.backdrop')).length }; // (anims: of the backdrop; the clip over it fades in, menuclip.e2e.mjs)
+    height: r.height, svgs: document.querySelectorAll(`${at} .backdrop svg`).length, floor: [bd.backgroundColor, bd.backgroundImage], anims: document.getAnimations().filter((a) => a.effect?.target?.closest?.('.backdrop')).length }; // (anims: of the backdrop)
 }, at);
 
 for (const [label, device, file] of SIZES) {

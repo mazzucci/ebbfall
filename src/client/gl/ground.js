@@ -1,8 +1,10 @@
 // The ground's layers, pure (no DOM, no PixiJS): gl/render.js draws them and tools/art/review-ground.mjs renders the
 // same for the art's review. Which countryside tile a cell of the dual grid draws (tools/art/terrain3.js), which kind
 // each rock region is (a forest or a rocky hill), and the shade layers over the terrain and the scenery: a multiply
-// (the land's large-scale shade, the wet line along a shore, the water's tints) and, on a map with water, an add (the
-// water's own light, which lifts the shallows over the land so the shore and the deep channel's edge read in gray too).
+// (the land's large-scale shade, the meadows, the rock's tone, the wet line along a shore, the water's tints) and an
+// add (the meadows' and the rock's lift; on a map with water, the water's own light, which lifts the shallows over the
+// land so the shore and the deep channel's edge read in gray too). What goes where (the meadows, the tracks, the rock's
+// tone): gl/groundplan.js.
 
 /** The grass tiles (tools/art/terrain3.js): `ground_0..7` the plain bases, `ground_8..19` a soft patch each (eight of
  *  trodden dirt, four of dry grass), from a third of a tile to near a tile across, every one its own turn and mirror. */
@@ -12,12 +14,27 @@ export const GROUND_BASES = 8, GROUND_MARKS = 12;
 export const MARK_MAX = 0.14;
 /** The tile the ground cell (i, j) of a map seeded `seed` draws for its draw `r` in [0, 1). Patches lie in clusters
  *  with plain grass between (a low noise over the map sets the chance of a mark, 0 over about half of it, up to
- *  MARK_MAX), and never in the water (`wet`: any of the cell's four tiles shallow or deep). */
-export function groundTile(r, i, j, seed, wet) {
+ *  MARK_MAX), and never in the water (`wet`: any of the cell's four tiles shallow or deep). In a meadow (`dry`, `lush`:
+ *  the cell's tone, 0-1, gl/groundplan.js) no dirt mark: a dry one shows the dry-grass marks (2, 5, 8 and 11) on up to
+ *  DRY_MARKS of its cells, a lush one no mark at all. */
+export function groundTile(r, i, j, seed, wet, dry = 0, lush = 0) {
+  if (!wet && (dry >= 0.5 || lush >= 0.5)) {
+    const p = dry >= 0.5 ? DRY_MARKS * (dry - 0.5) * 2 : 0;
+    if (r < p) return GROUND_BASES + 2 + 3 * Math.min(3, Math.floor(r / p * 4));
+    return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
+  }
   const p = wet ? 0 : Math.min(MARK_MAX, Math.max(0, (noise(i / 4.5 + seed * 0.37, j / 4.5 - seed * 0.11) - 0.5) * 1.3 * (MARK_MAX / 0.4)));
   if (r < p) return GROUND_BASES + Math.min(GROUND_MARKS - 1, Math.floor(r / p * GROUND_MARKS));
   return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
 }
+/** The most of a dry meadow's cells that show a dry-grass mark, at its heart. */
+export const DRY_MARKS = 0.2;
+
+/** The overlay grounds' tiles (tools/art/overlay3.js): `worn_<mask>_<v>` and `crag_<mask>_<v>`, this many variants of
+ *  each corner mask (1-15). */
+export const OVERLAY_VARIANTS = 3;
+/** The variant overlay cell (i, j) of `kind` draws on a map seeded `seed`. */
+export const overlayTile = (kind, m, i, j, seed) => `${kind}_${m}_${Math.floor(hash(i * 7 + kind.length, j * 3 + seed) * OVERLAY_VARIANTS)}`;
 
 /** The rock's tiles: `rock_<mask>_<v>`, per corner mask n variants of a rocky hill (v 0..n-1) then n of a forest
  *  (v n..2n-1); n is 3 for an edge and 6 for the inside (mask 15), whose marks would otherwise come back often enough
@@ -50,6 +67,8 @@ export function rockKinds(w, h, rock, seed) {
   }
   const border = pick(-1);
   return {
+    /** The region of map tile (x, y), a number of its own (-1: not rock, or off the map). */
+    regionAt: (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? -1 : region[y * w + x]),
     kindAt(x, y) {
       const cx = Math.max(0, Math.min(w - 1, x)), cy = Math.max(0, Math.min(h - 1, y)), id = region[cy * w + cx];
       if (cx === x && cy === y) return id >= 0 ? kinds[id] : null;
@@ -59,9 +78,11 @@ export function rockKinds(w, h, rock, seed) {
 }
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
-/** Smooth value noise over tile coordinates (cells of one tile), for the shore line's wobble and the patches' clusters. */
-function hash(x, y) { let h = (x * 374761393 + y * 668265263 + 977) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
-function noise(x, y) {
+/** A hash of two integers, 0-1, and smooth value noise over tile coordinates (cells of one tile): the shore line's
+ *  wobble, the patches' clusters, the meadows and the tracks' winding (gl/groundplan.js). Integer and exact arithmetic
+ *  only, so every browser lands on the same side of a threshold. */
+export function hash(x, y) { let h = (x * 374761393 + y * 668265263 + 977) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+export function noise(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi, s = (t) => t * t * (3 - 2 * t);
   const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
   return a + (b - a) * s(u) + (c - a) * s(v) + (a - b - c + d) * s(u) * s(v);
@@ -77,58 +98,103 @@ const WET_BAND = 0.28, WET_DARK = 0.5, LAP = 0.07, LAP_ADD = [26, 30, 28];
  *  channel's edge), then the deep, deepening a little further out. */
 const DROP = 0.07, DROP_DARK = [34, 60, 104];
 
+/** The meadows on the land's shade, at full strength (gl/groundplan.js `dry`, `lush`): a dry one lighter and an olive
+ *  straw (the multiply lifted toward MEADOW_DRY, the add's MEADOW_DRY_ADD lifting the darks), a lush one a deeper,
+ *  cooler green (the multiply down by MEADOW_LUSH, a little blue added). */
+const MEADOW_DRY = [0.45, 0.34, -0.06], MEADOW_DRY_ADD = [17, 18, 8], MEADOW_LUSH = [0.18, 0.05, 0.07], MEADOW_LUSH_ADD = [0, 2, 5];
+/** The rock's tone at full strength (gl/groundplan.js `rockTone`, -1 cool to 1 warm): the multiply down by these and a
+ *  little added. A hill cool: a blue slate; warm: a tan sandstone. A forest cool: a spruce; warm: an olive; never
+ *  lighter, so never toward the grass. */
+const HILL_COOL = [0.12, 0.07, 0.02], HILL_COOL_ADD = [0, 0, 2], HILL_WARM = [0.02, 0.08, 0.22], HILL_WARM_ADD = [4, 0, 0];
+const FOREST_COOL = [0.24, 0.07, 0], FOREST_COOL_ADD = [0, 0, 6], FOREST_WARM = [0.05, 0.05, 0.26], FOREST_WARM_ADD = [0, 0, 0];
+
 /**
  * The shade layers for a map of w x h tiles: `rock(x, y)`, `ground(x, y)` ('land', 'shallow' or 'deep', as core.js
- * `ground`) and `shade(x, y)` (the map's large-scale shade, 0-1). Returns `{ k, w, h, mul, add }`: k texels a tile
- * (1 on a map without water, as before; with water up to 16, for a crisp waterline: a texture of at most 2048), RGBA images of w x h texels to draw
- * linear-filtered at TILE / k world px a texel; `add` is null without water.
+ * `ground`) and `shade(x, y)` (the map's large-scale shade, 0-1); `tone` (gl/groundplan.js, or null): `{ dry, lush,
+ * rockTone, kindAt }`, the meadows (0-1 per tile, 0 on the rock and beside it) and the rock's tone (-1 cool to 1 warm,
+ * 0 on the rock's outer tiles; `kindAt` as rockKinds'): blended between tile centers, both are gone half a tile before
+ * a rock edge, whose lip and face keep their pixels. Returns `{ k, w, h, mul, add }`: k texels a tile (1 on a dry map;
+ * with water up to 16, for a crisp waterline: a texture of at most 2048), RGBA images of w x h texels to draw
+ * linear-filtered at TILE / k world px a texel; `add` is null on a dry map without a tone.
  */
-export function shadeLayers(w, h, { rock, ground, shade }) {
-  const depth = new Float32Array(w * h), sh = new Float32Array(w * h);
+export function shadeLayers(w, h, { rock, ground, shade, tone = null }) {
+  const n = w * h, depth = new Uint8Array(n), wetA = new Float32Array(n), deepA = new Float32Array(n), sh = new Float32Array(n);
   let wet = false;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const g = rock(x, y) ? 'land' : ground(x, y), i = y * w + x;
     depth[i] = g === 'deep' ? 2 : g === 'shallow' ? 1 : 0; if (depth[i]) wet = true;
+    wetA[i] = depth[i] > 0 ? 1 : 0; deepA[i] = depth[i] > 1 ? 1 : 0;
     sh[i] = clamp01((shade(x, y) - 0.2) * 1.8);
   }
-  const k = wet ? Math.max(1, Math.min(16, Math.floor(2048 / Math.max(w, h)))) : 1, W = w * k, H = h * k, mul = new Uint8ClampedArray(W * H * 4), add = wet ? new Uint8ClampedArray(W * H * 4) : null;
-  const at = (a, x, y) => a[Math.max(0, Math.min(h - 1, y)) * w + Math.max(0, Math.min(w - 1, x))];
-  const lerp2 = (a, fx, fy, f = (v) => v) => {   // bilinear between tile centers, as the old one-texel-a-tile layer drew
-    const x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
-    return (f(at(a, x0, y0)) * (1 - u) + f(at(a, x0 + 1, y0)) * u) * (1 - v) + (f(at(a, x0, y0 + 1)) * (1 - u) + f(at(a, x0 + 1, y0 + 1)) * u) * v;
-  };
-  // (written channel by channel, nothing allocated per texel: the Shore's 1024x1024 texels would take seconds otherwise)
-  const isWet = (d) => (d > 0 ? 1 : 0), isDeep = (d) => (d > 1 ? 1 : 0);
+  // The land's multiply and add at each tile's center, toned by the meadows and the rock's tone: blended between tile
+  // centers per texel as the GPU blends a one-texel-a-tile layer.
+  const dry = tone?.dry ?? null, lush = tone?.lush ?? null, rt = tone?.rockTone ?? null;
+  const Lr = new Float32Array(n), Lg = new Float32Array(n), Lb = new Float32Array(n), Ar = new Float32Array(n), Ag = new Float32Array(n), Ab = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = sh[i], d = dry ? dry[i] : 0, l = lush ? lush[i] : 0, r0 = Math.min(255, 200 + 55 * s), g0 = 200 + 50 * s;
+    Lr[i] = (r0 + (255 - r0) * MEADOW_DRY[0] * d) * (1 - MEADOW_LUSH[0] * l);
+    Lg[i] = (g0 + (252 - g0) * MEADOW_DRY[1] * d) * (1 - MEADOW_LUSH[1] * l);
+    Lb[i] = (205 + 45 * s) * (1 + MEADOW_DRY[2] * d) * (1 - MEADOW_LUSH[2] * l);
+    Ar[i] = MEADOW_DRY_ADD[0] * d + MEADOW_LUSH_ADD[0] * l; Ag[i] = MEADOW_DRY_ADD[1] * d + MEADOW_LUSH_ADD[1] * l; Ab[i] = MEADOW_DRY_ADD[2] * d + MEADOW_LUSH_ADD[2] * l;
+    const t = rt ? rt[i] : 0;
+    if (t) {
+      const x = i % w, forest = tone.kindAt(x, (i - x) / w) === 'forest', a = Math.abs(t);
+      const [f, fa] = t < 0 ? (forest ? [FOREST_COOL, FOREST_COOL_ADD] : [HILL_COOL, HILL_COOL_ADD]) : (forest ? [FOREST_WARM, FOREST_WARM_ADD] : [HILL_WARM, HILL_WARM_ADD]);
+      Lr[i] *= 1 - f[0] * a; Lg[i] *= 1 - f[1] * a; Lb[i] *= 1 - f[2] * a; Ar[i] += fa[0] * a; Ag[i] += fa[1] * a; Ab[i] += fa[2] * a;
+    }
+  }
+  const k = wet ? Math.max(1, Math.min(16, Math.floor(2048 / Math.max(w, h)))) : 1, W = w * k, H = h * k;
+  const mul = new Uint8ClampedArray(W * H * 4), add = wet || tone ? new Uint8ClampedArray(W * H * 4) : null;
+  // Each texel's four tiles and weights, worked out once a column and once a row (written channel by channel, nothing
+  // allocated per texel: the Lake's 1024x1024 texels would take seconds otherwise).
+  const cols = new Int32Array(2 * W), cu = new Float64Array(W), rows = new Int32Array(2 * H), rv = new Float64Array(H);
+  const clampTo = (v, m) => Math.max(0, Math.min(m - 1, v));
+  for (let t = 0; t < W; t++) { const f = (t + 0.5) / k - 0.5, x0 = Math.floor(f); cu[t] = f - x0; cols[2 * t] = clampTo(x0, w); cols[2 * t + 1] = clampTo(x0 + 1, w); }
+  for (let t = 0; t < H; t++) { const f = (t + 0.5) / k - 0.5, y0 = Math.floor(f); rv[t] = f - y0; rows[2 * t] = clampTo(y0, h) * w; rows[2 * t + 1] = clampTo(y0 + 1, h) * w; }
   const put = (a, o, r, g, b) => { a[o] = r; a[o + 1] = g; a[o + 2] = b; a[o + 3] = 255; };
-  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
-    const fx = (tx + 0.5) / k - 0.5, fy = (ty + 0.5) / k - 0.5, o = (ty * W + tx) * 4, s = lerp2(sh, fx, fy);
-    const lr = Math.min(255, 200 + 55 * s), lg = 200 + 50 * s, lb = 205 + 45 * s;   // the land's shade
-    if (!wet) { put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); continue; }
-    // Away from any edge (the four tiles round the texel all one depth) the wobble cannot reach a contour (it moves a
-    // level by 0.15 at most): plain land, shallows or deep, with no noise to compute.
-    const x0 = Math.floor(fx), y0 = Math.floor(fy), d0 = at(depth, x0, y0);
-    if (d0 === at(depth, x0 + 1, y0) && d0 === at(depth, x0, y0 + 1) && d0 === at(depth, x0 + 1, y0 + 1)) {
-      if (d0 === 0) { put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); put(add, o, 0, 0, 0); continue; }
-      const deep = d0 === 2 ? 1 : 0;
-      for (let c = 0; c < 3; c++) { mul[o + c] = Math.round(SHALLOW[c] + (DEEP[c] - SHALLOW[c]) * deep); add[o + c] = Math.round(SHALLOW_ADD[c] + (DEEP_ADD[c] - SHALLOW_ADD[c]) * deep); }
-      mul[o + 3] = add[o + 3] = 255; continue;
+  /** The land at texel offset `o`, between tiles a b (above) and c d (below) at u, v: its multiply and add, darkened
+   *  by `dark` (the wet line). */
+  const land = (o, a, b, c, d, u, v, dark) => {
+    const wa = (1 - u) * (1 - v), wb = u * (1 - v), wc = (1 - u) * v, wd = u * v;
+    const lr = Lr[a] * wa + Lr[b] * wb + Lr[c] * wc + Lr[d] * wd, lg = Lg[a] * wa + Lg[b] * wb + Lg[c] * wc + Lg[d] * wd, lb = Lb[a] * wa + Lb[b] * wb + Lb[c] * wc + Lb[d] * wd;
+    let ar = 0, ag = 0, ab = 0;
+    if (add) { ar = Ar[a] * wa + Ar[b] * wb + Ar[c] * wc + Ar[d] * wd; ag = Ag[a] * wa + Ag[b] * wb + Ag[c] * wc + Ag[d] * wd; ab = Ab[a] * wa + Ab[b] * wb + Ab[c] * wc + Ab[d] * wd; }
+    put(mul, o, Math.round(lr * dark), Math.round(lg * dark), Math.round(lb * dark));
+    if (add) put(add, o, Math.round(ar * dark), Math.round(ag * dark), Math.round(ab * dark));
+  };
+  const lerp2 = (A, a, b, c, d, u, v) => (A[a] * (1 - u) + A[b] * u) * (1 - v) + (A[c] * (1 - u) + A[d] * u) * v;
+  for (let ty = 0; ty < H; ty++) {
+    const r0 = rows[2 * ty], r1 = rows[2 * ty + 1], fy = (ty + 0.5) / k - 0.5, v = rv[ty];
+    for (let tx = 0; tx < W; tx++) {
+      const c0 = cols[2 * tx], c1 = cols[2 * tx + 1], o = (ty * W + tx) * 4, u = cu[tx];
+      const a = r0 + c0, b = r0 + c1, c = r1 + c0, d = r1 + c1;
+      // Away from any edge (the four tiles round the texel all one depth) the wobble cannot reach a contour (it moves
+      // a level by 0.15 at most): plain land, shallows or deep, with no noise to compute.
+      const d0 = depth[a];
+      if (d0 === 0 && (!wet || (depth[b] === 0 && depth[c] === 0 && depth[d] === 0))) { land(o, a, b, c, d, u, v, 1); continue; }
+      if (d0 === depth[b] && d0 === depth[c] && d0 === depth[d]) {
+        const deep = d0 === 2 ? 1 : 0;
+        for (let ch = 0; ch < 3; ch++) { mul[o + ch] = Math.round(SHALLOW[ch] + (DEEP[ch] - SHALLOW[ch]) * deep); add[o + ch] = Math.round(SHALLOW_ADD[ch] + (DEEP_ADD[ch] - SHALLOW_ADD[ch]) * deep); }
+        mul[o + 3] = add[o + 3] = 255; continue;
+      }
+      // How wet: 0 on land, 1 in water, its 0.5 contour the waterline, rounded between tiles and wobbled a little.
+      const fx = (tx + 0.5) / k - 0.5;
+      const wob = (noise(fx * 1.7, fy * 1.7) - 0.5) * 0.22 + (noise(fx * 5.3 + 31, fy * 5.3) - 0.5) * 0.08;
+      const wv = lerp2(wetA, a, b, c, d, u, v) + wob;
+      if (wv < 0.5) {
+        const t = clamp01((wv - (0.5 - WET_BAND)) / WET_BAND);
+        land(o, a, b, c, d, u, v, 1 - (1 - WET_DARK) * t * t); // (darkest at the water's edge)
+        continue;
+      }
+      const dv = lerp2(deepA, a, b, c, d, u, v) + (noise(fx * 1.9 + 57, fy * 1.9) - 0.5) * 0.22 + (noise(fx * 6.1, fy * 6.1 + 17) - 0.5) * 0.06;
+      if (dv >= 0.5 && dv < 0.5 + DROP) { put(mul, o, DROP_DARK[0], DROP_DARK[1], DROP_DARK[2]); put(add, o, 0, 0, 0); continue; }
+      const deep = dv < 0.5 ? 0 : 0.8 + 0.2 * clamp01((dv - 0.5) * 3), lap = wv < 0.5 + LAP ? 1 : 0;   // deep: 0 the shallows, 1 the deep
+      for (let ch = 0; ch < 3; ch++) {
+        mul[o + ch] = Math.round(SHALLOW[ch] + (DEEP[ch] - SHALLOW[ch]) * deep);
+        add[o + ch] = Math.round(SHALLOW_ADD[ch] + (DEEP_ADD[ch] - SHALLOW_ADD[ch]) * deep + LAP_ADD[ch] * lap);
+      }
+      mul[o + 3] = add[o + 3] = 255;
     }
-    // How wet: 0 on land, 1 in water, its 0.5 contour the waterline, rounded between tiles and wobbled a little.
-    const wob = (noise(fx * 1.7, fy * 1.7) - 0.5) * 0.22 + (noise(fx * 5.3 + 31, fy * 5.3) - 0.5) * 0.08;
-    const wv = lerp2(depth, fx, fy, isWet) + wob;
-    if (wv < 0.5) {
-      const t = clamp01((wv - (0.5 - WET_BAND)) / WET_BAND), dark = 1 - (1 - WET_DARK) * t * t;  // darkest at the water's edge
-      put(mul, o, Math.round(lr * dark), Math.round(lg * dark), Math.round(lb * dark)); put(add, o, 0, 0, 0);
-      continue;
-    }
-    const dv = lerp2(depth, fx, fy, isDeep) + (noise(fx * 1.9 + 57, fy * 1.9) - 0.5) * 0.22 + (noise(fx * 6.1, fy * 6.1 + 17) - 0.5) * 0.06;
-    if (dv >= 0.5 && dv < 0.5 + DROP) { put(mul, o, DROP_DARK[0], DROP_DARK[1], DROP_DARK[2]); put(add, o, 0, 0, 0); continue; }
-    const deep = dv < 0.5 ? 0 : 0.8 + 0.2 * clamp01((dv - 0.5) * 3), lap = wv < 0.5 + LAP ? 1 : 0;   // deep: 0 the shallows, 1 the deep
-    for (let c = 0; c < 3; c++) {
-      mul[o + c] = Math.round(SHALLOW[c] + (DEEP[c] - SHALLOW[c]) * deep);
-      add[o + c] = Math.round(SHALLOW_ADD[c] + (DEEP_ADD[c] - SHALLOW_ADD[c]) * deep + LAP_ADD[c] * lap);
-    }
-    mul[o + 3] = add[o + 3] = 255;
   }
   return { k, w: W, h: H, mul, add };
 }

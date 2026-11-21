@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
 import { BLDG_LOOK, chimneyActive, selOval, headFrame, portalOpen, PORTAL, SEAT_COLORS, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL } from '../src/client/look.js';
-import { GROUND_BASES, GROUND_MARKS, rockTile } from '../src/client/gl/ground.js';
+import { GROUND_BASES, GROUND_MARKS, OVERLAY_VARIANTS, rockTile } from '../src/client/gl/ground.js';
 
 const art = new URL('../public/art/', import.meta.url), index = JSON.parse(readFileSync(new URL('atlas.json', art))), frames = {};
 for (const p of index.pages) Object.assign(frames, JSON.parse(readFileSync(new URL(p, art))).frames);
@@ -109,9 +109,13 @@ test('the frames the client draws for each people\'s construction, rubble, worn 
   for (const k of ['boom_big', 'boom_small', 'puff', 'flash', 'spark', 'glint', 'muzzle']) assert.ok(index.animations[k]?.length && index.animations[k].every(n => frames[n]), `the animation ${k}`);
 });
 
-test('the ground: every grass tile, and every rock mask in its hill and forest variants (gl/ground.js rockTile)', () => {
+test('the ground: every grass tile, every rock mask in its hill and forest variants (gl/ground.js rockTile), and every overlay mask\'s variants, a tile each (tools/art/overlay3.js)', () => {
   for (let v = 0; v < GROUND_BASES + GROUND_MARKS; v++) assert.ok(frames[`ground_${v}`], `ground_${v}`);
   for (let m = 1; m < 16; m++) for (const kind of ['hill', 'forest']) for (const r of [0, 0.5, 0.999]) { const n = rockTile(m, r, kind); assert.ok(frames[n], n); }
+  for (const kind of ['worn', 'crag']) for (let m = 1; m < 16; m++) for (let v = 0; v < OVERLAY_VARIANTS; v++) {
+    const f = frames[`${kind}_${m}_${v}`]; assert.ok(f, `${kind}_${m}_${v}`);
+    assert.deepEqual([f.frame.w, f.frame.h], [frames.ground_0.frame.w, frames.ground_0.frame.h], `${kind}_${m}_${v}: a grass tile's size`);
+  }
 });
 
 test('the gold outcrop (the link preview\'s, tools/og.mjs): four stages in four variants', () => {

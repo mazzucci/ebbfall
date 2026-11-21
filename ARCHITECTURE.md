@@ -523,9 +523,10 @@ src/client/           everything that touches the browser
                       the buttons, beside them on a phone on its side; style.css): the page holds its poster only (the
                       game's own copy, public/menu/clip-*.webp), the video is made once the game has loaded (boot.js's
                       `loading`: the sim and the renderer's art) and the page has, in an idle moment; muted, looped,
-                      faded in over the poster; never under reduced motion, Save-Data or 2g; paused off the first
-                      page, let go of when a game starts; the poster alone if it cannot play or never comes (offline:
-                      the clip is the docs', web-only)
+                      faded in over the poster; never under reduced motion, Save-Data or 2g, nor without an H.264
+                      decoder; paused on Single player's page, let go of when the menu is left (the lobby, a game); the
+                      poster alone if it cannot play or never comes (offline: the clip is the docs', web-only); no
+                      frame if the poster never comes
   memory.js           enemy buildings as this side last saw them: in fog the field, the minimap and picking show the
                       remembered copy (a building never seen is not shown), forgotten when its ground is seen without it
   offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
@@ -613,9 +614,10 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       menuclip.e2e.mjs (the first page's clip: beside the buttons on a phone on its side, both big
                       buttons whole on screen and nothing scrolling at 844x390, 667x375, 568x320 and 844x340; framed
                       above them upright and on a desktop; the video made only once the game and its art are in and
-                      the page has loaded, muted, looped, from the Worker's byte ranges; paused off the first page, let
-                      go of when a game starts, made again after; none, and no request, under reduced motion and
-                      Save-Data; the poster alone when the clip never comes, no frame without the poster),
+                      the page has loaded, muted, looped, from the Worker's byte ranges; paused on Single player, let
+                      go of in the lobby and when a game starts, made again after; none, and no request, under reduced
+                      motion and Save-Data; the poster alone when the clip never comes, no frame without the poster;
+                      the same page whether `tall` or not, fitting with PLAY OFFLINE's answer),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and

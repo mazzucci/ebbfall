@@ -77,7 +77,7 @@ node tools/docs/shots.mjs    # regenerate the docs' screenshots and gameplay cli
                              # Chromium, slow: minutes; output is committed); names run some: battles heroes controls clip
 node tools/menu-clip.mjs     # regenerate public/menu/clip-*.webp (the poster of the clip on the menu's first page: the game's own
                              # copies of the docs') after the docs' clip changes (a Chromium; output is committed; shots.mjs's
-                             # clip step runs it itself; test/menu-clip.test.js fails while they are stale)
+                             # clip step runs it itself; test/menu-clip.test.js fails while the 720 px one is stale)
 node tools/og.mjs            # regenerate public/og.png (the link preview's image) after changing the icon, the art or its
                              # wording (a Chromium too; output is committed, kept under 300 KB)
 ```

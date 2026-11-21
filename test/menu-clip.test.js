@@ -56,6 +56,7 @@ test("the clip is the docs' file, web-only; its posters are the game's, in the o
 
 test('less asked for, less done: the module checks reduced motion and Save-Data before it makes a video, and the stylesheet has no inline style to need', () => {
   assert.match(js, /prefers-reduced-motion: reduce/); assert.match(js, /saveData/);
+  assert.match(js, /canPlayType\(CLIP_TYPE\)/, 'nor where the clip cannot play (no H.264 decoder)');
   assert.ok(!/\.style\b|setAttribute\('style'/.test(js), 'no style set from the script: the fade is a class (#menuClip.on)');
   assert.match(css, /#menuClip video\{opacity:0;transition:opacity \.5s\} #menuClip\.on video\{opacity:1\}/);
 });

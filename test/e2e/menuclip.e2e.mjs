@@ -1,12 +1,13 @@
 // The gameplay clip on the menu's first page (index.html #menuClip, src/client/menuclip.js, style.css): framed above the
 // buttons, beside them on a phone on its side, with both big buttons on screen and no scrolling; the poster first, the
 // video made only once the game has loaded (its art too), never under reduced motion or Save-Data; paused off the first
-// page, let go of when a game starts; the poster alone when the clip never comes, no frame when the poster does not.
+// page, let go of when the menu is left (the lobby, a game); the poster alone when the clip never comes, no frame when
+// the poster does not; the page the same whether it is `tall` or not (corner.js), PLAY OFFLINE's answer fitting too.
 // (Its files and the page's markup: test/menu-clip.test.js. The field under it: field.e2e.mjs.)
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, site, DESKTOP, PHONE, notIn } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, site, DESKTOP, PHONE, notIn, ENGINE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -19,8 +20,9 @@ const NOTE_VIDEO = () => {
   window.clipMade = [];
   new MutationObserver((ms) => {
     for (const m of ms) for (const n of m.addedNodes) if (n.tagName === 'VIDEO') {
-      const art = performance.getEntriesByType('resource').filter(e => /\/art\/atlas-\d+\.webp/.test(e.name));
-      window.clipMade.push({ in: n.parentNode.id, ready: document.readyState, game: !!window.endfall, pages: art.length, pagesIn: art.every(e => e.responseEnd > 0) });
+      // (a resource's entry is there once its response has ended: the atlas pages fetched by now, by name)
+      const pages = new Set(performance.getEntriesByType('resource').map(e => e.name.match(/\/art\/(atlas-\d+\.webp)$/)?.[1]).filter(Boolean));
+      window.clipMade.push({ in: n.parentNode.id, ready: document.readyState, game: !!window.endfall, pages: [...pages].sort() });
     }
   }).observe(document, { childList: true, subtree: true });
 };
@@ -100,9 +102,12 @@ test('the clip never delays the menu: the page has the poster and no video until
     const made = await page.evaluate(() => window.clipMade), v = await video(page);
     assert.equal(made.length, 1, `one video, made by the script: ${JSON.stringify(made)}`);
     assert.deepEqual([made[0].in, made[0].ready, made[0].game], ['menuClip', 'complete', true], 'made in the clip\'s box, after the page\'s load event, with the game in');
-    assert.ok(made[0].pages >= 1 && made[0].pagesIn, `every atlas page was in by then: ${JSON.stringify(made[0])}`);
+    const atlas = await page.evaluate(async () => (await (await fetch('art/atlas.json')).json()).pages.map(p => p.replace(/\.json$/, '.webp')).sort());
+    assert.ok(atlas.length >= 2, `the atlas has its pages: ${atlas}`);
+    assert.deepEqual(made[0].pages, atlas, 'every atlas page had been fetched by then');
     assert.deepEqual([v.muted, v.loop, v.inline, v.controls, v.src, v.error], [true, true, true, false, `.${CLIP}`, null]);
-    assert.ok(asked.length >= 1 && asked.every(r => r !== 'whole'), `asked for by byte range: ${asked}`);
+    assert.ok(asked.length >= 1, 'asked for');
+    if (ENGINE === 'chromium') assert.ok(asked.every(r => r !== 'whole'), `by byte range: ${asked}`); // (WebKit's media loader does not show its headers here; its ranges: docs.e2e.mjs, by the video playing on)
     assert.ok(site.worker.includes(`GET ${CLIP}`), 'the Worker answers it (site/media.js)');
     await page.waitForFunction(() => getComputedStyle(document.querySelector('#menuClip video')).opacity === '1');
     assert.ok(await page.locator('#menuClipPoster').isVisible(), 'the poster stays under it');
@@ -112,7 +117,7 @@ test('the clip never delays the menu: the page has the poster and no video until
   } finally { await ctx.close(); }
 });
 
-test('the clip plays only on the first page: paused on Single player, on again after BACK; a game started lets go of it; back on the menu it is made again', { skip: notIn(['firefox'], 'its build has no H.264 decoder') }, async () => {
+test('the clip plays only on the first page: paused on Single player, on again after BACK; the lobby and a game started let go of it; back on the first page it is made again', { skip: notIn(['firefox'], 'its build has no H.264 decoder') }, async () => {
   const { ctx, page, errors, press } = await open(DESKTOP);
   try {
     await playing(page);
@@ -122,13 +127,20 @@ test('the clip plays only on the first page: paused on Single player, on again a
     await press('#btnSoloBack');
     await playing(page);
     assert.equal((await page.evaluate(() => window.clipMade)).length, 1, 'the same video: paused, not made again');
+    // The lobby (the menu left, on the way to a game): let go of; BACK: made again.
+    await press('#btnOnline');
+    await page.locator('#onlineJoin').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => !document.querySelector('video'));
+    await press('#btnOnlineBack');
+    await playing(page);
+    assert.equal((await page.evaluate(() => window.clipMade)).length, 2, 'back from the lobby: made again');
     await press('#btnSolo'); await press('#btnStart');
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
     await page.waitForFunction(() => !document.querySelector('#menuClip video'));
     assert.deepEqual(await page.evaluate(() => [document.querySelectorAll('video').length, document.getElementById('menuClip').classList.contains('on')]), [0, false], 'in a game: no video anywhere, the box as it began');
     await press('#btnPause'); await press('#btnQuit'); await press('#btnSoloBack');
     await playing(page);
-    assert.equal((await page.evaluate(() => window.clipMade)).length, 2, 'back on the first page: made again');
+    assert.equal((await page.evaluate(() => window.clipMade)).length, 3, 'back on the first page: made again');
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });
@@ -154,14 +166,20 @@ for (const [name, device, inits] of [['reduced motion', { ...PHONE, reducedMotio
 test('the clip never comes (offline: it is the docs\', web-only): the poster stays, the video is let go of and not asked for again; no poster either: no empty frame, the buttons in its place', { engines: true }, async () => {
   const a = await open(DESKTOP, { route: `**${CLIP}` });
   try {
-    await a.page.waitForFunction(() => window.clipMade.length === 1 && !document.querySelector('#menuClip video'), null, { timeout: 30000 });
-    assert.ok(await a.page.locator('#menuClipPoster').isVisible() && !(await a.page.locator('#menuClip').evaluate(e => e.classList.contains('on'))), 'the poster, as at first');
-    const asked = a.asked.length;
-    assert.ok(asked >= 1, 'it was asked for');
-    await a.press('#btnSolo'); await a.press('#btnSoloBack');
-    await a.page.waitForTimeout(800);
-    assert.deepEqual([(await a.page.evaluate(() => window.clipMade)).length, a.asked.length], [1, asked], 'not tried again');
-    assert.deepEqual(a.errors, []);
+    // (a browser with no H.264 decoder, Firefox's build here, is not asked to play it at all: no video, no request;
+    // WebKit's media loader is not the test's to cut off, so there the clip comes and this half says nothing)
+    const can = await a.page.evaluate(() => !!document.createElement('video').canPlayType('video/mp4; codecs="avc1.640028"'));
+    if (ENGINE !== 'webkit') {
+      if (can) await a.page.waitForFunction(() => window.clipMade.length === 1 && !document.querySelector('#menuClip video'), null, { timeout: 30000 });
+      else await a.page.waitForTimeout(4000);
+      assert.ok(await a.page.locator('#menuClipPoster').isVisible() && !(await a.page.locator('#menuClip').evaluate(e => e.classList.contains('on'))), 'the poster, as at first');
+      const asked = a.asked.length;
+      assert.ok(can ? asked >= 1 : asked === 0, `it was asked for where it can play: ${asked}`);
+      await a.press('#btnSolo'); await a.press('#btnSoloBack');
+      await a.page.waitForTimeout(800);
+      assert.deepEqual([(await a.page.evaluate(() => window.clipMade)).length, a.asked.length], [can ? 1 : 0, asked], 'not tried again');
+      assert.deepEqual(a.errors, []);
+    }
   } finally { await a.ctx.close(); }
   const b = await open(DESKTOP, { route: '**/menu/clip-*.webp' });
   try {
@@ -171,4 +189,38 @@ test('the clip never comes (offline: it is the docs\', web-only): the poster sta
     assert.ok(l.solo - l.tag < 40, `the buttons right under the line: ${JSON.stringify(l)}`);
     assert.deepEqual(b.errors, []);
   } finally { await b.ctx.close(); }
+  // On a phone on its side: the plain column it was (the two modes side by side across the page), not a column left empty.
+  const c = await open(PHONE, { route: '**/menu/clip-*.webp' });
+  try {
+    await c.page.waitForFunction(() => document.getElementById('menuClip').hidden);
+    const l = await layout(c.page), what = JSON.stringify(l);
+    assert.ok(Math.abs(l.solo.y - l.online.y) <= 1 && l.online.x >= l.solo.r && l.solo.x < 80 && l.online.r > l.vw - 80, `the modes side by side, across the page: ${what}`);
+    assert.ok(l.tutorial.y >= l.solo.b && inView(l.foot, l) && l.scroll <= 1, `the small row under them, the page fits: ${what}`);
+    assert.deepEqual(c.errors, []);
+  } finally { await c.ctx.close(); }
+});
+
+test('the first page is the same page whether it scrolls or not (`tall`, corner.js, moves nothing: no flip between two layouts), and fits with PLAY OFFLINE\'s answer under the buttons: the clip gives it the room', async () => {
+  for (const [w, h] of [[844, 390], [844, 340], [667, 375], [1280, 720], [1024, 660], [390, 844]]) {
+    const { ctx, page, errors } = await open({ ...(Math.min(w, h) < 500 ? PHONE : {}), viewport: { width: w, height: h } });
+    try {
+      const rects = () => page.evaluate(() => ['menuClip', 'btnSolo', 'btnOnline', 'btnTutorial', 'menuFoot'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); }));
+      const before = await rects();
+      await page.evaluate(() => document.querySelector('#start .card.menu').classList.add('tall'));
+      assert.deepEqual(await rects(), before, `${w}x${h}: nothing moves when the page is tall`);
+      await page.evaluate(() => document.querySelector('#start .card.menu').classList.remove('tall'));
+      // PLAY OFFLINE's answer (set-up: its longest line), then a few frames: the page fits, and stays as it is.
+      await page.evaluate(() => { document.getElementById('homeOfflineMsg').textContent = 'Ready to play offline: everything is saved on this device ✓'; });
+      const seen = await page.evaluate(() => new Promise((done) => {
+        const c = document.querySelector('#start .card.menu'), out = []; let n = 0;
+        const step = () => { out.push([c.classList.contains('tall'), c.scrollHeight - c.clientHeight, Math.round(document.getElementById('menuClip').getBoundingClientRect().width)]); if (++n < 12) requestAnimationFrame(step); else done(out); };
+        requestAnimationFrame(() => requestAnimationFrame(step));
+      }));
+      assert.ok(seen.every(([tall, over]) => !tall && over <= 1), `${w}x${h}: with the answer the page fits, never tall: ${JSON.stringify(seen)}`);
+      assert.equal(new Set(seen.map(s => s[2])).size, 1, `${w}x${h}: the clip one size, frame after frame: ${JSON.stringify(seen)}`);
+      const l = await layout(page);
+      assert.ok(inView(l.solo, l) && inView(l.online, l) && inView(l.foot, l) && l.clip.w >= 240, `${w}x${h}: the buttons and the footer on screen, the clip still a clip: ${JSON.stringify(l)}`);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  }
 });

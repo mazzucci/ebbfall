@@ -4,7 +4,7 @@
 // WEB_ONLY: not in the offline cache), and the menu is the game's page: an installed copy with no connection would show
 // an empty frame. So the menu has its own copies, in the game's files:
 //   clip-720.webp    the docs' 720 px poster, byte for byte (test/menu-clip.test.js: a clip recorded again fails it
-//                    until this has run);
+//                    until this has run; the two files are written together, so that covers the other);
 //   clip-1280.webp   the docs' 2000 px one, scaled down by Chromium (the same encoder and quality as the docs' shots).
 // No 2000 px copy: the clip itself is 1000 px wide, so past 1280 a sharper poster would only be swapped for a softer
 // video a moment later (and a phone at 3x, whose clip is some 450 px wide, would fetch 133 KB in place of 70).

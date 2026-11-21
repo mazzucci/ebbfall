@@ -4,7 +4,7 @@
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import 'pixi.js/unsafe-eval'; // (PixiJS's eval-free shader and uniform code: the site's CSP allows no eval, site/cache.js)
 import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
@@ -13,7 +13,22 @@ import { sfx } from '../audio.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
-import { groundTile, rockTile, rockKinds, shadeLayers } from './ground.js';
+import { groundTile, groundTileToned, rockTile, rockKinds, shadeLayers, hash as cellHash } from './ground.js';
+import { GROUND_OPTIONS, planGround, startsOf } from './groundplan.js';
+import { overlayTiles, OT, VARIANTS as OVERLAY_VARIANTS } from './groundpaint.js';
+
+/** The ground options (a prototype: ?ground=1..4, gl/groundplan.js); null: today's ground. */
+const GROUND = GROUND_OPTIONS[new URLSearchParams(location.search).get('ground')] || null;
+/** An overlay ground's tiles as textures, [mask][variant] (gl/groundpaint.js), painted once a page. */
+const overlays = new Map();
+function overlayTex(kind) {
+  let t = overlays.get(kind); if (t) return t;
+  const o = overlayTiles(kind), c = document.createElement('canvas'); c.width = o.w; c.height = o.h;
+  c.getContext('2d').putImageData(new ImageData(o.data, o.w, o.h), 0, 0);
+  const src = Texture.from(c).source; src.scaleMode = 'linear';
+  t = []; for (let m = 1; m <= 15; m++) { t[m] = []; for (let v = 0; v < OVERLAY_VARIANTS; v++) { const [x, y] = o.frame(m, v); t[m][v] = new Texture({ source: src, frame: new Rectangle(x, y, OT, OT) }); } }
+  overlays.set(kind, t); return t;
+}
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -361,16 +376,38 @@ export function renderTerrain() {
   // of its first rock corner, all of one region.
   const kinds = rockKinds(MW, MH, (x, y) => map.rock[idx(x, y)] !== 0, G.seed);
   const cellKind = (i, j) => { for (const [x, y] of [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]]) if (rock(x, y)) return kinds.kindAt(x, y); return 'hill'; };
+  // The ground options: the plan from the map alone (every start, seated or not, from the menu's preview of this map).
+  const t0 = performance.now(); let plan = null;
+  if (GROUND) {
+    const pre = mapPreview(G.seed, G.mapKind, MW), starts = startsOf(pre, MW, MH), depth = { land: 0, shallow: 1, deep: 2 };
+    let differ = 0; for (let i = 0; i < MW * MH; i++) if ((pre[i] === 1) !== (map.rock[i] !== 0)) differ++; // (the preview is this map: 0)
+    plan = planGround(GROUND, { w: MW, h: MH, rock: (x, y) => map.rock[idx(x, y)] !== 0, depth: (x, y) => depth[ground(x, y)], nodes: map.nodes, starts, seed: G.seed, kindAt: kinds.kindAt, regionAt: kinds.regionAt });
+    window.endfallGround = { starts: starts.length, differ, planMs: performance.now() - t0 };
+  }
+  const toneAt = (g, i, j) => (g ? (g[idx(Math.max(0, i), Math.max(0, j))] + g[idx(Math.min(MW - 1, i + 1), Math.max(0, j))] + g[idx(Math.max(0, i), Math.min(MH - 1, j + 1))] + g[idx(Math.min(MW - 1, i + 1), Math.min(MH - 1, j + 1))]) / 4 : 0);
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its center, offset half a tile.
   // Tiles go into 8x8-cell chunks so only the chunks on screen are drawn (no baking: it would cost a 4096² texture).
   chunks.length = 0;
   for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
     const m = rock(i, j) | rock(i + 1, j) << 1 | rock(i, j + 1) << 2 | rock(i + 1, j + 1) << 3;
     const r = rnd();
-    const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}` : rockTile(m, r, cellKind(i, j));
+    const name = m !== 0 ? rockTile(m, r, cellKind(i, j)) : plan?.dry ? `ground_${groundTileToned(r, i, j, G.seed, wetCell(i, j), toneAt(plan.dry, i, j), toneAt(plan.lush, i, j))}` : `ground_${groundTile(r, i, j, G.seed, wetCell(i, j))}`;
     const ci = (j + 1) >> 3, cj = (i + 1) >> 3, key = ci * 64 + cj;
     let c = chunks[key]; if (!c) { c = chunks[key] = new Container(); c.cx = cj * 8 * TILE; c.cy = ci * 8 * TILE; L.terrain.addChild(c); }
     const s = new Sprite(tex(name)); s.anchor.set(0); s.position.set(i * TILE + 16, j * TILE + 16); c.addChild(s);
+  }
+  // The ground options' overlay grounds, each on the dual grid over the grass (never in a cell with rock or water in
+  // it: a hill's lip, a forest's rim and a shore keep today's pixels), the tracks last, over the meadows.
+  // The crags lie on a hill's inside cells only (all four tiles rock).
+  if (plan) for (const kind of ['straw', 'clover', 'slab', 'dirt', 'crag']) {
+    const mask = plan[kind]; if (!mask) continue;
+    const tiles = overlayTex(kind), on = (x, y) => (x >= 0 && y >= 0 && x < MW && y < MH && mask[idx(x, y)] ? 1 : 0);
+    for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
+      const m = on(i, j) | on(i + 1, j) << 1 | on(i, j + 1) << 2 | on(i + 1, j + 1) << 3, rocks = rock(i, j) + rock(i + 1, j) + rock(i, j + 1) + rock(i + 1, j + 1);
+      if (!m || (kind === 'crag' ? rocks !== 4 : rocks !== 0 || wetCell(i, j))) continue;
+      const s = new Sprite(tiles[m][Math.floor(cellHash(i * 7 + kind.length, j * 3 + G.seed) * OVERLAY_VARIANTS)]); s.scale.set(TILE / OT); s.position.set(i * TILE + 16, j * TILE + 16);
+      chunks[((j + 1) >> 3) * 64 + ((i + 1) >> 3)].addChild(s);
+    }
   }
   // The apron (APRON): rock cells past the map's own, each its edge's kind (ground.js kindAt off the map), from a
   // random stream of its own (the map's cells keep theirs), in 8x8-cell chunks of its own.
@@ -384,7 +421,7 @@ export function renderTerrain() {
   }
   // Large-scale variation so the tiles never read as a grid, and the water (gl/ground.js): a multiply (the land's shade,
   // a wet line along the shore, the water's tints) and on a map with water an add (the water's light), over the scenery too.
-  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)] });
+  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)], tone: plan && (plan.dry || plan.rockTone) ? { ...plan, kindAt: kinds.kindAt } : null });
   for (const [data, blendMode] of [[sh.mul, 'multiply'], [sh.add, 'add']]) {
     if (!data) continue;
     const cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
@@ -403,6 +440,19 @@ export function renderTerrain() {
   const th = thumb.getContext('2d');
   const wetCss = { shallow: '#467c80', deep: '#1d3658' }, rockCss = { forest: '#2a3f22', hill: '#77756c' }; // (the grass green, a forest darker, a hill gray, the sea teal and blue: as the ground looks)
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const g = map.rock[idx(x, y)] ? 'land' : ground(x, y); th.fillStyle = map.rock[idx(x, y)] ? rockCss[kinds.kindAt(x, y)] : wetCss[g] || `hsl(92,24%,${17 + map.shade[idx(x, y)] * 8}%)`; th.fillRect(x, y, 1, 1); }
+  if (plan) { // (the ground options on the minimap, faintly: the meadows' tone, the tracks, the rock's lean)
+    const dot = (x, y, css, a) => { th.globalAlpha = a; th.fillStyle = css; th.fillRect(x, y, 1, 1); };
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      const i = idx(x, y);
+      if (plan.dry?.[i] > 0.05) dot(x, y, '#a39a4c', plan.dry[i] * 0.2); if (plan.lush?.[i] > 0.05) dot(x, y, '#14402c', plan.lush[i] * 0.28);
+      if (plan.straw?.[i]) dot(x, y, '#a39a4c', 0.22); if (plan.clover?.[i]) dot(x, y, '#14402c', 0.3); if (plan.slab?.[i]) dot(x, y, '#958c74', 0.35);
+      if (plan.dirt?.[i] && ground(x, y) === 'land') dot(x, y, '#a8946a', 0.45);
+      if (plan.rockTone && map.rock[i]) dot(x, y, plan.rockTone[i] > 0 ? '#a0703a' : '#3a5a90', Math.abs(plan.rockTone[i]) * 0.22);
+    }
+    th.globalAlpha = 1;
+    window.endfallGround.ms = performance.now() - t0;
+  }
+  window.endfallTerrainMs = performance.now() - t0; // (tools: what laying a map's ground costs, with or without an option)
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   for (const o of dying) o.destroy(); dying.length = 0; quake = null; pending.length = 0; for (const k of blinks) k.l.destroy(); blinks.length = 0;
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;

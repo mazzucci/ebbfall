@@ -487,7 +487,7 @@ async function groundSet() {
     const first = await page.evaluate(() => {
       const { engine } = endfall; engine.disableAi(); engine.revealAll(true); endfall.fog(false);
       for (const t of document.querySelectorAll('#msg .toast')) t.remove();
-      return { seed: endfall.G.seed, size: [engine.MW, engine.MH], hash: engine.stateHash() >>> 0, paint: window.endfallGroundMs ?? null };
+      return { seed: endfall.G.seed, size: [engine.MW, engine.MH], hash: engine.stateHash() >>> 0, paint: window.endfallGround ?? null, terrainMs: window.endfallTerrainMs ?? null };
     });
     log.paint[tag] = first.paint; log.setups[tag] = { first };
     await page.mouse.move(2, 300);
@@ -503,7 +503,7 @@ async function groundSet() {
     return { ctx, page, errors, tag, stageIt, done: async () => { log.errors.push(...errors.map(e => `${tag}: ${e}`)); await ctx.close(); } };
   };
   /** A still: zoom `z` ('start', 'min' or a number), centered on `at` (null: the start's framing). */
-  const still = async (page, file, z, at) => {
+  const still = async (page, file, z, at, crop = false) => {
     const s = await page.evaluate(([z, at]) => {
       const { cam, view, G, engine } = endfall;
       cam.zoom = z === 'start' ? endfall.startZoom : z === 'min' ? endfall.zoomMin : z;
@@ -514,6 +514,9 @@ async function groundSet() {
       return { view: { w: view.w, h: view.h }, zoom: cam.zoom, hash: engine.stateHash() >>> 0, selected: endfall.ui.sel.length };
     }, [z, at]);
     await page.screenshot({ path: join(dir, file), timeout: 300000 });
+    // (a piece of it at 1:1, as a player's eye meets it: the middle, or --crop x,y,w,h in CSS px)
+    const cr = arg('--crop', '') ? arg('--crop').split(',').map(Number) : [Math.round(s.view.w * 0.22), Math.round(s.view.h * 0.2), Math.round(s.view.w * 0.5), Math.round(s.view.h * 0.5)];
+    if (crop) await page.screenshot({ path: join(dir, file.replace('.png', '--crop.png')), clip: { x: cr[0], y: cr[1], width: cr[2], height: cr[3] }, timeout: 300000 });
     console.log(`${name}/${file}: view ${s.view.w}x${s.view.h}, zoom ${s.zoom.toFixed(3)}, ${s.selected} selected`);
     log.shots.push({ file, ...s });
   };
@@ -533,12 +536,14 @@ async function groundSet() {
   const aim = (s) => ({ x: s.field.x * 0.66 + s.hq.x * 0.34, y: s.field.y * 0.76 + s.hq.y * 0.24 });
   await start();
   try {
-    if (want('start', 'fight', 'out', 'whole', 'fog', 'minimap')) {
+    if (want('start', 'fight', 'out', 'whole', 'fog', 'minimap', 'probe')) {
       const p = await page0(desk(1920, 1080), 'desk');
-      if (want('start')) await still(p.page, '1-start-1920x1080.png', 'start', null);
-      if (want('fight', 'out', 'whole', 'fog', 'minimap')) {
+      if (want('start') && !only.includes('probe')) await still(p.page, '1-start-1920x1080.png', 'start', null, true);
+      if (only.includes('probe')) { const [x, y] = arg('--at', '1500,1500').split(',').map(Number); await still(p.page, `probe-${x}-${y}.png`, 'start', { x, y }); } // (a look at one spot, unstaged)
+      else if (only.length && !want('fight', 'out', 'fog', 'minimap')) { if (want('whole')) await whole(p.page, '6-whole-map.png'); } // (a quick look: unstaged)
+      else {
         const setup = await p.stageIt(), at = aim(setup);
-        if (want('fight')) await still(p.page, '2-fight-1920x1080.png', 'start', at);
+        if (want('fight')) await still(p.page, '2-fight-1920x1080.png', 'start', at, true);
         if (want('out')) await still(p.page, '5-zoomed-out-1920x1080.png', 'min', at);
         if (want('minimap')) { await p.page.evaluate(() => endfall.draw()); await p.page.locator('#minimap').screenshot({ path: join(dir, '8-minimap.png') }); }
         if (want('fog')) {

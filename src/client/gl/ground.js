@@ -19,6 +19,15 @@ export function groundTile(r, i, j, seed, wet) {
   return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
 }
 
+/** The same with the ground options' meadows (gl/groundplan.js): `dry` and `lush` the cell's tone, 0-1. A dry meadow
+ *  shows the dry-grass patches (marks 2, 5, 8 and 11) on up to a fifth of its cells and no dirt; a lush one no patch. */
+export function groundTileToned(r, i, j, seed, wet, dry, lush) {
+  if (wet || (dry < 0.5 && lush < 0.5)) return groundTile(r, i, j, seed, wet);
+  const p = dry >= 0.5 ? 0.2 * (dry - 0.5) * 2 : 0;
+  if (r < p) return GROUND_BASES + 2 + 3 * Math.min(3, Math.floor(r / p * 4));
+  return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
+}
+
 /** The rock's tiles: `rock_<mask>_<v>`, per corner mask n variants of a rocky hill (v 0..n-1) then n of a forest
  *  (v n..2n-1); n is 3 for an edge and 6 for the inside (mask 15), whose marks would otherwise come back often enough
  *  to count (tools/art/terrain3.js VARIANTS). `kind` is the cell's region's ('hill' or 'forest', rockKinds). */
@@ -50,6 +59,8 @@ export function rockKinds(w, h, rock, seed) {
   }
   const border = pick(-1);
   return {
+    /** The region of map tile (x, y), a number of its own; -1 off the rock. (The ground options: gl/groundplan.js.) */
+    regionAt: (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? -1 : region[y * w + x]),
     kindAt(x, y) {
       const cx = Math.max(0, Math.min(w - 1, x)), cy = Math.max(0, Math.min(h - 1, y)), id = region[cy * w + cx];
       if (cx === x && cy === y) return id >= 0 ? kinds[id] : null;
@@ -60,8 +71,8 @@ export function rockKinds(w, h, rock, seed) {
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 /** Smooth value noise over tile coordinates (cells of one tile), for the shore line's wobble and the patches' clusters. */
-function hash(x, y) { let h = (x * 374761393 + y * 668265263 + 977) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
-function noise(x, y) {
+export function hash(x, y) { let h = (x * 374761393 + y * 668265263 + 977) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+export function noise(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi, s = (t) => t * t * (3 - 2 * t);
   const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
   return a + (b - a) * s(u) + (c - a) * s(v) + (a - b - c + d) * s(u) * s(v);
@@ -82,8 +93,13 @@ const DROP = 0.07, DROP_DARK = [34, 60, 104];
  * `ground`) and `shade(x, y)` (the map's large-scale shade, 0-1). Returns `{ k, w, h, mul, add }`: k texels a tile
  * (1 on a map without water, as before; with water up to 16, for a crisp waterline: a texture of at most 2048), RGBA images of w x h texels to draw
  * linear-filtered at TILE / k world px a texel; `add` is null without water.
+ * `tone` (the ground options, gl/groundplan.js; null: today's ground): `{ dry, lush, rockTone, kindAt }`, per-tile
+ * grids. The meadows (dry, lush: 0-1) shift the land's shade toward straw or a deeper green; they are 0 on the rock and
+ * the tiles beside it, so blended between tile centers they are gone half a tile before a hill. The rock's tone (-1 cool
+ * to 1 warm) is cut to the rock itself (k is 4 then, for a mask that sharp), nothing of it on the grass. With a tone
+ * there is an `add` on a dry map too.
  */
-export function shadeLayers(w, h, { rock, ground, shade }) {
+export function shadeLayers(w, h, { rock, ground, shade, tone = null }) {
   const depth = new Float32Array(w * h), sh = new Float32Array(w * h);
   let wet = false;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -91,7 +107,11 @@ export function shadeLayers(w, h, { rock, ground, shade }) {
     depth[i] = g === 'deep' ? 2 : g === 'shallow' ? 1 : 0; if (depth[i]) wet = true;
     sh[i] = clamp01((shade(x, y) - 0.2) * 1.8);
   }
-  const k = wet ? Math.max(1, Math.min(16, Math.floor(2048 / Math.max(w, h)))) : 1, W = w * k, H = h * k, mul = new Uint8ClampedArray(W * H * 4), add = wet ? new Uint8ClampedArray(W * H * 4) : null;
+  const meadows = tone && tone.dry ? tone : null, rt = tone && tone.rockTone ? tone.rockTone : null;
+  const k = wet ? Math.max(1, Math.min(16, Math.floor(2048 / Math.max(w, h)))) : rt ? 4 : 1, W = w * k, H = h * k, mul = new Uint8ClampedArray(W * H * 4), add = wet || meadows || rt ? new Uint8ClampedArray(W * H * 4) : null;
+  let isRock = null, forest = null;
+  if (rt) { isRock = new Float32Array(w * h); forest = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (rock(x, y)) { isRock[y * w + x] = 1; forest[y * w + x] = tone.kindAt(x, y) === 'forest' ? 1 : 0; } }
+  const al = [0, 0, 0]; // (the land's add at the texel at hand)
   const at = (a, x, y) => a[Math.max(0, Math.min(h - 1, y)) * w + Math.max(0, Math.min(w - 1, x))];
   const lerp2 = (a, fx, fy, f = (v) => v) => {   // bilinear between tile centers, as the old one-texel-a-tile layer drew
     const x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
@@ -100,15 +120,33 @@ export function shadeLayers(w, h, { rock, ground, shade }) {
   // (written channel by channel, nothing allocated per texel: the Shore's 1024x1024 texels would take seconds otherwise)
   const isWet = (d) => (d > 0 ? 1 : 0), isDeep = (d) => (d > 1 ? 1 : 0);
   const put = (a, o, r, g, b) => { a[o] = r; a[o + 1] = g; a[o + 2] = b; a[o + 3] = 255; };
+  let lr = 0, lg = 0, lb = 0;
+  /** The ground options' tone on the land's shade at a texel (lr, lg, lb, al): asked only where the texel is land. */
+  const toned = (fx, fy) => {
+  if (meadows) { // dry: lighter, warmer, dustier (the add lifts the darks); lush: a deeper, cooler green
+    const d = lerp2(meadows.dry, fx, fy), l = lerp2(meadows.lush, fx, fy);
+    lr = (lr + (255 - lr) * 0.6 * d) * (1 - 0.18 * l); lg = (lg + (252 - lg) * 0.3 * d) * (1 - 0.05 * l); lb = lb * (1 - 0.1 * d) * (1 - 0.07 * l);
+    al[0] = 26 * d; al[1] = 17 * d + 2 * l; al[2] = 8 * d + 5 * l;
+  }
+  if (rt) { // (only well inside the rock: nothing at its edge, where the lip and the face read against the grass)
+    const on = clamp01((lerp2(isRock, fx, fy) - 0.56) / 0.36);
+    if (on > 0) {
+      const t = lerp2(rt, fx, fy), warm = Math.max(0, t) * on, cool = Math.max(0, -t) * on, f = lerp2(forest, fx, fy) > 0.5;
+      if (f) { lr *= 1 - 0.24 * cool; lg *= 1 - 0.07 * cool - 0.03 * warm; lb *= 1 - 0.34 * warm; al[0] += 12 * warm; al[1] += 5 * warm; al[2] += 6 * cool; }
+      else { lr *= 1 - 0.12 * cool - 0.02 * warm; lg *= 1 - 0.07 * cool - 0.08 * warm; lb *= 1 - 0.02 * cool - 0.22 * warm; al[2] += 2 * cool; al[0] += 4 * warm; }
+    }
+  }
+  };
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const fx = (tx + 0.5) / k - 0.5, fy = (ty + 0.5) / k - 0.5, o = (ty * W + tx) * 4, s = lerp2(sh, fx, fy);
-    const lr = Math.min(255, 200 + 55 * s), lg = 200 + 50 * s, lb = 205 + 45 * s;   // the land's shade
-    if (!wet) { put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); continue; }
+    lr = Math.min(255, 200 + 55 * s); lg = 200 + 50 * s; lb = 205 + 45 * s;   // the land's shade
+    al[0] = al[1] = al[2] = 0;
+    if (!wet) { if (tone) toned(fx, fy); put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); if (add) put(add, o, Math.round(al[0]), Math.round(al[1]), Math.round(al[2])); continue; }
     // Away from any edge (the four tiles round the texel all one depth) the wobble cannot reach a contour (it moves a
     // level by 0.15 at most): plain land, shallows or deep, with no noise to compute.
     const x0 = Math.floor(fx), y0 = Math.floor(fy), d0 = at(depth, x0, y0);
     if (d0 === at(depth, x0 + 1, y0) && d0 === at(depth, x0, y0 + 1) && d0 === at(depth, x0 + 1, y0 + 1)) {
-      if (d0 === 0) { put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); put(add, o, 0, 0, 0); continue; }
+      if (d0 === 0) { if (tone) toned(fx, fy); put(mul, o, Math.round(lr), Math.round(lg), Math.round(lb)); put(add, o, Math.round(al[0]), Math.round(al[1]), Math.round(al[2])); continue; }
       const deep = d0 === 2 ? 1 : 0;
       for (let c = 0; c < 3; c++) { mul[o + c] = Math.round(SHALLOW[c] + (DEEP[c] - SHALLOW[c]) * deep); add[o + c] = Math.round(SHALLOW_ADD[c] + (DEEP_ADD[c] - SHALLOW_ADD[c]) * deep); }
       mul[o + 3] = add[o + 3] = 255; continue;
@@ -117,8 +155,9 @@ export function shadeLayers(w, h, { rock, ground, shade }) {
     const wob = (noise(fx * 1.7, fy * 1.7) - 0.5) * 0.22 + (noise(fx * 5.3 + 31, fy * 5.3) - 0.5) * 0.08;
     const wv = lerp2(depth, fx, fy, isWet) + wob;
     if (wv < 0.5) {
+      if (tone) toned(fx, fy);
       const t = clamp01((wv - (0.5 - WET_BAND)) / WET_BAND), dark = 1 - (1 - WET_DARK) * t * t;  // darkest at the water's edge
-      put(mul, o, Math.round(lr * dark), Math.round(lg * dark), Math.round(lb * dark)); put(add, o, 0, 0, 0);
+      put(mul, o, Math.round(lr * dark), Math.round(lg * dark), Math.round(lb * dark)); put(add, o, Math.round(al[0] * dark), Math.round(al[1] * dark), Math.round(al[2] * dark));
       continue;
     }
     const dv = lerp2(depth, fx, fy, isDeep) + (noise(fx * 1.9 + 57, fy * 1.9) - 0.5) * 0.22 + (noise(fx * 6.1, fy * 6.1 + 17) - 0.5) * 0.06;

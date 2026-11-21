@@ -3,11 +3,13 @@
 // debug handle, the fog layer hidden, at the start zoom, 2x. Written as WebP at desktop and phone size into
 // public/docs/img/shots/, and tools/docs/shots.json with each shot's size, words and the boxes the annotated ones mark
 // (the top bar, the minimap, the command card, ...: tools/docs/pages.mjs puts the numbered notes beside them) and what
-// the notes must not cover (`avoid`: the top bar, the sprites on the map). The clip
-// (public/docs/media/trailer.mp4, with its poster, its middle frame) is a dozen seconds of the Expedition's Drones
+// the notes must not cover (`avoid`: the top bar, the sprites on the map). The gameplay clip
+// (public/docs/media/clip.mp4, with its poster, its middle frame) is a dozen seconds of the Expedition's Drones
 // against a Kingdom Watchtower by its Castle, Archers and a Ballista coming to its help, stepped frame by frame in the
-// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's): the trailer
-// replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
+// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's); it plays on the
+// game's menu (tools/menu-clip.mjs, src/client/menuclip.js), no longer in the docs. The trailer on the docs home
+// (public/docs/media/trailer.mp4 and trailer.jpg, the manifest's `trailer`) is not made here: nothing here writes or
+// removes it. Output is committed; run after the art or the HUD changes:
 //   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; names: sieges, heroes, controls (or
 //   one of its two shots: hud, phone), clip)
 import { createServer } from 'node:http';
@@ -466,17 +468,17 @@ async function phone() {
 
 /**
  * The clip: Drones against a Watchtower (`towerRaid`; the Drones' waves by `strike` at their frames, `defend` at
- * `DEFEND_AT` seconds), the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the page. The game's
+ * `DEFEND_AT` seconds), the stage alone (no HUD), `CLIP_S` seconds at `FPS`, muted, looped by the menu. The game's
  * frames are stepped by hand (tools/trailer/stage.mjs `freeze`: its requestAnimationFrame and performance.now taken
  * over, each frame exactly one 30 Hz tick of game time later; at another rate the ticks per frame would be uneven,
  * 1, 1, 1, 2 at 24 fps, and everything that moves would hitch) and captured one by one at DPR 2 (software WebGL
  * cannot draw in real time) into target/docs-clip/ as PNG (kept there for a review), then encoded by ffmpeg
- * (tools/trailer/record.mjs `FFMPEG`) into H.264 at the clip's size, at the first quality under the home's budget
+ * (tools/trailer/record.mjs `FFMPEG`) into H.264 at the clip's size, at the first quality under its budget
  * (`CLIP_KB`, test/docs.test.js). One slow-motion beat (`SLOW`: about a third speed, eased in and out, `boltNear` its
  * cue): the Ballista's first bolt landing on a Drone, the sim and the effects slowed together. It loops without a
  * cut: `LOOP_S` more seconds are recorded, and the end dissolves into those first seconds, which the clip then starts
  * after (the last Drone down fades back into the first ones coming). Its poster is its middle frame (`hero-home`, the
- * home's hero still: desktop at full DPR 2, phone at 720 wide). `CLIP_PREVIEW=1` captures one frame a second at DPR 1
+ * name it had as the docs home's still; desktop at full DPR 2, phone at 720 wide; the menu's copies: tools/menu-clip.mjs). `CLIP_PREVIEW=1` captures one frame a second at DPR 1
  * and encodes nothing (a look at the staging).
  */
 const FPS = 30, CLIP_S = 11, DEFEND_AT = 0, LOOP_S = 0.5, CLIP_W = 1000, CLIP_H = 500, CLIP_ZOOM = 1.7, CLIP_KB = 290;
@@ -528,7 +530,7 @@ async function clip() {
   save('hero-home', pw, { alt: CLIP_WORDS.alt, caption: CLIP_WORDS.caption }, {});
   // The video: the frames from `loop` on, the last `LOOP_S` seconds dissolving into the first `loop` frames (xfade),
   // scaled to the clip's size; H.264 at the first CRF that fits the budget.
-  const out = fileURLToPath(new URL('trailer.mp4', MEDIA));
+  const out = fileURLToPath(new URL('clip.mp4', MEDIA));
   const pic = 'scale=' + CLIP_W + ':' + CLIP_H + ':flags=lanczos,format=yuv420p,setsar=1';
   let crf = 26, bytes;
   for (;;) {
@@ -540,10 +542,10 @@ async function clip() {
     if (bytes <= CLIP_KB * 1024 || crf >= 40) break;
     crf += 2;
   }
-  for (const f of readdirSync(MEDIA)) if (f.startsWith('trailer.') && f !== 'trailer.mp4') rmSync(new URL(f, MEDIA));
-  manifest.trailer = { file: 'trailer.mp4', type: 'video/mp4', poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: CLIP_WORDS.title };
+  for (const f of readdirSync(MEDIA)) if (f.startsWith('clip.') && f !== 'clip.mp4') rmSync(new URL(f, MEDIA)); // (the clip's files only: never the trailer's)
+  manifest.clip = { file: 'clip.mp4', type: 'video/mp4', poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: CLIP_WORDS.title };
   writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
-  console.log(`shots: clip (trailer.mp4, ${Math.round(bytes / 1024)} KB at CRF ${crf}, ${CLIP_S} s)`);
+  console.log(`shots: clip (clip.mp4, ${Math.round(bytes / 1024)} KB at CRF ${crf}, ${CLIP_S} s)`);
   await menuClip(browser); // (the menu's first page shows the clip too: its own copies of the poster, public/menu/clip-*.webp)
 }
 /** Run ffmpeg (tools/trailer/record.mjs `FFMPEG`) with `args`, quietly; throws if it fails. */

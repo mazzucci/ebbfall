@@ -2,9 +2,10 @@
 // site's headers (harness.mjs TEST_CSP), and these walk the menu, the service worker and a reload under it, a
 // single-player game for a few minutes of game time with the help sheet, a room opened on the relay, the bench's report
 // to it, the challenge's embedded plan link, the device check and the voice lab, and every docs page with the home's
-// clip playing. Every violation the browser reports (a securitypolicyviolation event in any frame, or the console's
-// CSP message) is collected, and there must be none: the policy is enforced, so a violation is something of the site
-// the browser refused (the rest of the suite runs under it too: a refused file or script also breaks its scenario).
+// trailer played and How to play's loop playing. Every violation the browser reports (a securitypolicyviolation event
+// in any frame, or the console's CSP message) is collected, and there must be none: the policy is enforced, so a
+// violation is something of the site the browser refused (the rest of the suite runs under it too: a refused file or
+// script also breaks its scenario).
 // Each surface is a test of its own, in a context of its own, the service worker installed first where the engine has
 // one (as a visitor's pages are served), so a failure names its surface and a stuck page in one cannot spend the
 // others' time. (All of them as one sweep timed out at 600 s in WebKit on CI about one run in five, always on the
@@ -149,16 +150,23 @@ test('the CSP: no violation on the device check and the voice lab', { engines: t
   await p.goto(`${baseUrl()}voice-lab.html`, { waitUntil: 'networkidle' });
 }));
 
-test('the CSP: no violation on every docs page, the home\'s clip playing', { engines: true, timeout: 240000 }, () => journey(async (ctx) => {
+test('the CSP: no violation on every docs page, the home\'s trailer playing', { engines: true, timeout: 240000 }, () => journey(async (ctx) => {
   const { p } = await underWorker(ctx);
   for (const path of PAGES) {
     step(`docs: ${path}`);
     await p.goto(baseUrl() + path, { waitUntil: 'networkidle' });
     assert.equal(await p.evaluate(() => getComputedStyle(document.body).overflowX), 'hidden', `${path}: its stylesheet`);
   }
-  // On the home, the clip scrolled into view and playing.
-  step('docs: the clip');
+  // On the home, the trailer scrolled into view and played (Space on it: the browser's controls); How to play's loop
+  // playing by itself.
+  step('docs: the trailer');
   await p.goto(baseUrl() + 'docs/', { waitUntil: 'networkidle' });
-  await p.locator('.clip video').scrollIntoViewIfNeeded();
+  await p.locator('#trailer video').scrollIntoViewIfNeeded();
+  await p.locator('#trailer video').focus();
+  await p.keyboard.press('Space');
+  await p.waitForFunction(() => document.querySelector('#trailer video').readyState >= 2, null, { timeout: 30000 });
+  step('docs: a controls loop');
+  await p.goto(baseUrl() + 'docs/how-to-play/', { waitUntil: 'networkidle' });
+  await p.locator('.clip video').first().scrollIntoViewIfNeeded();
   await p.waitForFunction(() => { const v = document.querySelector('.clip video'); return v.readyState >= 2 && !v.controls; }, null, { timeout: 30000 });
 }));

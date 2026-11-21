@@ -1,4 +1,4 @@
-// The gameplay clip on the menu's first page (index.html #menuClip): the docs home's clip, a dozen seconds of Drones
+// The gameplay clip on the menu's first page (index.html #menuClip): the docs' gameplay clip, a dozen seconds of Drones
 // against a Watchtower, muted and looped over its poster. A glimpse of the game for someone who has just landed; it
 // never delays the menu:
 //   - the page holds the poster only (an <img>, the game's own copy: public/menu/clip-*.webp, tools/menu-clip.mjs), no
@@ -17,8 +17,8 @@
 // CSP): the fade is style.css's (#menuClip.on).
 import { $ } from './ui.js';
 
-/** The clip (tools/docs/shots.json `trailer.file`: test/menu-clip.test.js keeps the two the same). */
-export const CLIP_SRC = './docs/media/trailer.mp4';
+/** The clip (tools/docs/shots.json `clip.file`: test/menu-clip.test.js keeps the two the same). */
+export const CLIP_SRC = './docs/media/clip.mp4';
 
 /** The clip's kind (tools/docs/shots.mjs encodes H.264 High, level 4.0): a browser that cannot play it is not asked to. */
 const CLIP_TYPE = 'video/mp4; codecs="avc1.640028"';

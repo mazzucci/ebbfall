@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { layout, ORIGIN, REPO, FONTS, resetStyles, docsCss } from './html.mjs';
-import { pages, clipLd, controlsLd, CONTROLS_LOOP, DESKTOP_LOOP } from './pages.mjs';
+import { pages, trailerLd, controlsLd, CONTROLS_LOOP, DESKTOP_LOOP } from './pages.mjs';
 import { PEOPLES } from './data.mjs';
 
 const root = new URL('../../', import.meta.url);
@@ -76,7 +76,7 @@ export function buildDocs(outDir, version = '') {
   for (const p of list) {
     const dir = join(outDir, p.path);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'index.html'), layout({ path: p.path, title: p.title, description: p.description, body: p.body, crumb: p.path === '/docs/' ? null : p.crumb, ld: p.path === '/docs/' ? [videoGame(), clipLd(ORIGIN)] : p.path === '/docs/how-to-play/' ? [controlsLd(ORIGIN, 'controls-loop', CONTROLS_LOOP), controlsLd(ORIGIN, 'desktop-loop', DESKTOP_LOOP)] : [] }));
+    writeFileSync(join(dir, 'index.html'), layout({ path: p.path, title: p.title, description: p.description, body: p.body, crumb: p.path === '/docs/' ? null : p.crumb, ld: p.path === '/docs/' ? [videoGame(), trailerLd(ORIGIN)] : p.path === '/docs/how-to-play/' ? [controlsLd(ORIGIN, 'controls-loop', CONTROLS_LOOP), controlsLd(ORIGIN, 'desktop-loop', DESKTOP_LOOP)] : [] }));
   }
   writeFileSync(join(outDir, 'docs', 'docs.css'), docsCss()); // (after the pages: their `styled` classes)
   copyFileSync(new URL('docs.js', import.meta.url), join(outDir, 'docs', 'docs.js'));

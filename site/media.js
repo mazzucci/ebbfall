@@ -1,13 +1,14 @@
-// The docs' videos (public/docs/media/: the home's trailer, How to play's two loops and its gestures' loops), answered
-// by the Worker so that a byte range is answered as one. Safari plays a video only from a server that answers its
-// `Range: bytes=0-1` with 206 Partial Content, and Cloudflare's static assets do not: they answer every Range with the
-// whole file, 200, and no Accept-Ranges (the asset server has no byte serving; checked live on ebbfall.com, every file
-// type alike). So wrangler.toml runs the Worker first for the videos (MEDIA_RULE, run_worker_first), and the Worker
-// reads the file from the assets (env.ASSETS, a few hundred KB at most) and slices it. A tripped Workers spending limit
-// takes the videos with it (each shows its poster, a file served without the Worker like every other file).
+// The docs' videos (public/docs/media/: the home's trailer, the menu's gameplay clip (clip.mp4: src/client/menuclip.js),
+// How to play's two loops and its gestures' loops), answered by the Worker so that a byte range is answered as one.
+// Safari plays a video only from a server that answers its `Range: bytes=0-1` with 206 Partial Content, and
+// Cloudflare's static assets do not: they answer every Range with the whole file, 200, and no Accept-Ranges (the asset
+// server has no byte serving; checked live on ebbfall.com, every file type alike). So wrangler.toml runs the Worker
+// first for the videos (MEDIA_RULE, run_worker_first), and the Worker reads the file from the assets (env.ASSETS: a few
+// hundred KB, the trailer under 8 MB) and slices it. A tripped Workers spending limit takes the videos with it (each
+// shows its poster, a file served without the Worker like every other file).
 
-/** The folder the videos are served under, and wrangler.toml's run_worker_first rule for them (their .webp posters
- *  beside them stay the assets'). */
+/** The folder the videos are served under, and wrangler.toml's run_worker_first rule for them (their posters
+ *  beside them, .webp and the trailer's .jpg, stay the assets'). */
 export const MEDIA_PATH = '/docs/media/';
 export const MEDIA_RULE = `${MEDIA_PATH}*.mp4`;
 

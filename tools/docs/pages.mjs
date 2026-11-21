@@ -17,7 +17,8 @@
 //   {{research}}         a people page's research, one line each
 //   {{peoples tag | tag}} the home's two tiles, a link to each people (the Kingdom's line, the Expedition's)
 //   {{artstrip}}         About's four large sprites
-//   {{clip}}             the gameplay clip (public/docs/media/trailer.*: the trailer replaces it by taking its name)
+//   {{trailer}}          the home's trailer (public/docs/media/trailer.mp4, tools/docs/shots.json `trailer`): played on a
+//                        click, with its sound and the browser's controls, its music's credit as its caption
 //   {{clip name | title=... | label=... | caption=...}}
 //                        a controls video (tools/docs/controls.json, cut by tools/controls/cut.mjs into
 //                        public/docs/media/controls/): its poster as an image over it (lazy, unless it is the page's
@@ -116,23 +117,38 @@ function figure(args, first) {
   return `<figure><div class="shot">${img}${marks}</div>${notes.length ? `<ol class="notes">${notes.map(([, l]) => `<li>${esc(l)}</li>`).join('')}</ol>` : ''}<figcaption>${esc(caption)}</figcaption></figure>`;
 }
 
+/** Where the trailer and its poster are served from (public/docs/media/: site/media.js answers its byte ranges). */
+export const MEDIA_URL = '/docs/media/';
+/** The trailer's entry in tools/docs/shots.json (not made by shots.mjs: its file and poster are committed as they are). */
+function trailerOf() {
+  const t = shots().trailer;
+  if (!t?.file || !t.poster || !t.credit) throw new Error('docs: no trailer, poster or credit in tools/docs/shots.json');
+  if (!/Ebbfall/.test(t.title) || !/Ebbfall/.test(t.alt)) throw new Error('docs: the trailer\'s title and label must name Ebbfall');
+  return t;
+}
+
 /**
- * The home's hero: the gameplay clip, muted and looped, with its middle frame (`hero-home`) as its poster: the poster
- * first, the clip fetched only once the page has loaded (so a slow first visit's load ends without it) and only while
- * in view (preload="none"; docs.js plays it), never under reduced motion (the still alone), the browser's controls
- * where scripts do not run. The trailer takes its place later by taking its file's name (public/docs/media/trailer.mp4).
- * With a name (`{{clip controls-loop | title= | label= | caption=}}`): a controls video (`controlsVideo`) as a figure;
- * `first`: it is the page's first media, so its poster is fetched at once and first, as a first screenshot is.
+ * The home's top block: the trailer, 40 seconds with music and the game's sound. It plays only when the person clicks
+ * it: not muted, no loop (it stops on its end card), no autoplay (so reduced motion needs nothing more), the browser's
+ * controls; nothing of it fetched before (preload="none"), its poster (the King's card: the video opens on black)
+ * shown until then. Not a `.clip` (docs.js plays those by themselves). `id="trailer"`: /docs/#trailer links to it.
+ * Its caption is the music's credit (CC BY 4.0), its address a link.
+ */
+function trailer() {
+  const t = trailerOf();
+  const credit = esc(t.credit).replace(/https:\/\/[^\s<]+[^\s<.,)]/, (url) => `<a href="${url}" rel="license">${url}</a>`);
+  return `<figure class="trailer" id="trailer"><div class="vid"><video src="${MEDIA_URL}${t.file}" poster="${MEDIA_URL}${t.poster}" width="${t.w}" height="${t.h}" controls playsinline preload="none" title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
+<figcaption>${credit}</figcaption></figure>`;
+}
+
+/**
+ * A controls video as a figure (`{{clip controls-loop | title= | label= | caption=}}`: `controlsVideo`); `first`: it is
+ * the page's first media, so its poster is fetched at once and first, as a first screenshot is.
  */
 function clip(args, first) {
-  if (args) {
-    const [name, ...rest] = args.split('|').map(s => s.trim()), o = opts(rest);
-    return `<figure class="clip">${controlsVideo(name, o, first)}${o.caption ? `<figcaption>${esc(o.caption)}</figcaption>` : ''}</figure>`;
-  }
-  const t = shots().trailer, poster = shots()[t?.poster];
-  if (!t || !poster) throw new Error('docs: no clip or no poster in tools/docs/shots.json (node tools/docs/shots.mjs)');
-  return `<figure class="clip"><div class="vid"><span class="tag" aria-hidden="true">▶ Gameplay clip</span><video src="/docs/media/${t.file}" poster="${SHOTS_URL}${poster.files.desktop}" width="${t.w}" height="${t.h}" muted loop playsinline preload="none" controls title="${esc(t.title)}" aria-label="${esc(t.alt)}"></video></div>
-<figcaption>${esc(poster.caption)}</figcaption></figure>`;
+  if (!args) throw new Error('docs: {{clip}} needs a controls video\'s name (the home\'s top block is {{trailer}})');
+  const [name, ...rest] = args.split('|').map(s => s.trim()), o = opts(rest);
+  return `<figure class="clip">${controlsVideo(name, o, first)}${o.caption ? `<figcaption>${esc(o.caption)}</figcaption>` : ''}</figure>`;
 }
 
 /**
@@ -188,14 +204,14 @@ export const DESKTOP_LOOP = { title: 'Ebbfall on a computer: the mouse and keybo
 export const CONTROLS_LOOP = { title: 'Ebbfall on a phone: the touch controls', label: 'Ebbfall on a phone: tap a unit, then the ground to move it; press and hold, then drag a box for a group; double-tap for all of one type; ARMY selects the army and HOME looks at your base' };
 
 /**
- * The clip's structured data (schema.org VideoObject) for the docs home: its title and words, its poster, its file, the
- * day it was recorded and its length, from tools/docs/shots.json (tools/docs/shots.mjs writes them with the clip).
+ * The trailer's structured data (schema.org VideoObject) for the docs home: its title and words, its poster, its file,
+ * the day it was uploaded, its length and size, from tools/docs/shots.json `trailer`.
  */
-export function clipLd(origin) {
-  const t = shots().trailer, poster = shots()[t.poster];
+export function trailerLd(origin) {
+  const t = trailerOf();
   return {
     '@context': 'https://schema.org', '@type': 'VideoObject', name: t.title, description: t.alt,
-    thumbnailUrl: `${origin}${SHOTS_URL}${poster.files.desktop}`, contentUrl: `${origin}/docs/media/${t.file}`,
+    thumbnailUrl: `${origin}${MEDIA_URL}${t.poster}`, contentUrl: `${origin}${MEDIA_URL}${t.file}`,
     uploadDate: t.uploaded, duration: `PT${t.seconds}S`, width: t.w, height: t.h, isFamilyFriendly: true,
   };
 }
@@ -284,11 +300,12 @@ const flow = (args) => `<ol class="flow" aria-label="${esc(args.replace(/\s*>\s*
 /** Fill a page's tokens. `ctx`: { people, pages, version } */
 export function fill(body, ctx) {
   // (the page's first media, a screenshot or a clip, loads at once, every later one lazily; About's strip of sprites is
-  // its first picture, so its clip under it stays lazy; a gesture's loop is nothing until tapped)
+  // its first picture, so its clip under it stays lazy; the home's trailer comes first there, its poster the video's;
+  // a gesture's loop is nothing until tapped)
   let media = 0;
   return body.replace(/\{\{\s*(\w+)\s*([^}]*?)\s*\}\}/g, (all, tok, args) => {
     const out = token(all, tok, args);
-    if (tok === 'figure' || tok === 'clip' || tok === 'artstrip') media++;
+    if (tok === 'figure' || tok === 'clip' || tok === 'artstrip' || tok === 'trailer') media++;
     return out;
   });
   function token(all, tok, args) {
@@ -299,6 +316,7 @@ export function fill(body, ctx) {
       case 'research': return research(ctx.people);
       case 'peoples': return peoples(args.split('|').map(t => t.trim()));
       case 'artstrip': return artStrip();
+      case 'trailer': return trailer();
       case 'clip': return clip(args, media === 0);
       case 'loop': return gestureLoop(args);
       case 'version': return esc(ctx.version || 'Version dev');

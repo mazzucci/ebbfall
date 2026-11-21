@@ -47,7 +47,7 @@ function landingScene(arg) {
   const ids = spots.map(([dx, dy]) => spawn(window.S.X, 'lumen', { x: site.x + dx, y: site.y + dy }));
   e.skip(2); e.bars(false); G.events.length = 0;
   window.S.crew = { ids, site };
-  return { dc: site, look: { x: site.x - 110, y: site.y + 70 }, info: { site: [site.x, site.y], near: window.S.census(site, 900) } }; // (the frame's east edge stops short of the next mine)
+  return { dc: site, look: { x: site.x - 45, y: site.y + 60 }, info: { site: [site.x, site.y], near: window.S.census(site, 900) } }; // (at zoom 1.7 the frame stops short of the mines south-west and south-east of the field)
 }
 function scout() {
   const { eng, byId } = window.S, { ids, site } = window.S.crew;
@@ -278,7 +278,7 @@ function lateBaseScene({ layout, column, lead }) {
 }
 
 // ---- the overlays' pieces ----
-const LANDING_CAM = still('look', 1.5);
+const LANDING_CAM = still('look', 1.7);
 /** Where the warp opens: over the base (a little above its ground point: the building's middle). */
 const warpAt = (a) => { const p = onScreen(a.dc, LANDING_CAM(0, a)); return { x: p.x, y: p.y - 34 }; };
 function openOverlay(t, f, st) {

@@ -92,7 +92,7 @@ ff(['-i', master, '-vf', vf, ...x, '-pass', '2', '-c:a', 'aac', '-b:a', '128k', 
 // second one of the end card; the strip: a frame a second with its timecode.
 const still = (t, file, w = 1280) => ff(['-ss', String(t), '-i', master, '-frames:v', '1', '-vf', `scale=${w}:-2:flags=lanczos`, '-q:v', '3', file]);
 still(KING_AT + 3.6, `${out}/poster.jpg`); still(TOTAL - 0.5, `${out}/poster-endcard.jpg`);
-console.log('cut: parts from', JSON.stringify(Object.fromEntries(CUT.map(([p]) => [p, +dirOf(p).match(/trailer(\d)/)[1]]))));
+console.log('cut: parts from', JSON.stringify(Object.fromEntries(CUT.map(([p]) => [p, +dirOf(p).match(/target\/trailer(\d)/)[1]]))));
 // (this ffmpeg has no drawtext: the strip is laid out in a page)
 {
   const n = Math.floor(TOTAL), stage = await openStage();

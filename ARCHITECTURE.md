@@ -760,7 +760,7 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       every JSON-LD block checked against schema.org's properties by a small built-in table
                       (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
                       the clip's words and size; the controls videos (the loop at the top of How to play's phone
-                      section, the one video that plays by itself, its poster fetched first; About's below the fold;
+                      section, the one video that plays by itself, its poster fetched first; none on About;
                       the touch table's seven gestures on demand: a ? button each with its aria attributes and data,
                       nothing of a loop in the page); images with alt (empty only when decorative, aria-hidden), sizes,
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
@@ -918,7 +918,7 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       controls-loop.mp4 the essentials under 400 KB, touch-<gesture>.mp4 one each under 150 KB, a WebP
                       poster each, a punch-in on the held button's details; --review copies them with a contact sheet,
                       a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
-                      How to play shows the loop at the start of its phone section (before the desktop's), About the loop
+                      How to play shows the loop at the start of its phone section (before the desktop's), About none
                       (pages.mjs {{clip name}}: the poster an image over the video until it plays, the video fetched only
                       when played, as the home's clip); the only videos that play by themselves. Seven touch rows have a
                       gesture's loop on demand (pages.mjs {{loop name}}: a ? button, 32 px in a 44 px target, and an

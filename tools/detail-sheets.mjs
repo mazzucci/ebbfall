@@ -18,11 +18,11 @@ const logs = Object.fromEntries(['retina', 'desktop', 'phone'].filter(r => exist
 // the screens: [id, run, the fight's view or the views zoomed in by subject]
 const SCREENS = [
   ['1-retina-default', 'retina', { all: 'fight' }],
-  ['2-retina-max', 'retina', { knight: 'max-knight', datacenter: 'max-datacenter', mine: 'max-mine', ground: 'max-knight' }],
+  ['2-retina-max', 'retina', { knight: 'max-knight', datacenter: 'max-datacenter', mine: 'max-mine', ground: 'max-mine' }],
   ['3-desktop-default', 'desktop', { all: 'fight' }],
 ];
 /** The crops' boxes in world px: [x, y, w, h]. */
-const boxes = (s) => ({ knight: [s.pick.x - 58, s.pick.y - 78, 116, 116], datacenter: [s.hall.x - 104, s.hall.y - 138, 222, 240], mine: [s.mine.x - 52, s.mine.y - 72, 104, 112], ground: [s.pick.x + 20, s.pick.y + 40, 150, 90] });
+const boxes = (s) => ({ knight: [s.pick.x - 58, s.pick.y - 78, 116, 116], datacenter: [s.hall.x - 104, s.hall.y - 138, 222, 240], mine: [s.mine.x - 52, s.mine.y - 72, 104, 112], ground: [s.mine.x + 96, s.mine.y - 66, 150, 96] }); // (the ground: open grass and the hill's edge east of the mine, no unit on it)
 
 const browser = await launchChromium(), key = {};
 try {

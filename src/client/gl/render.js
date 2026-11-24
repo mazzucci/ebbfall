@@ -7,7 +7,7 @@ import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphic
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
 import { RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headAt, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
@@ -522,6 +522,10 @@ class UnitObj {
     const layer = u.d.air ? L.air : L.ents;
     this.air = !!u.d.air; this.type = u.type; this.r = unitRadius(u); this.top = unitTop(u.type); // (its drawn size: the silhouettes' test)
     this.frames = (sheet.animations[`${u.type}_0`] || [0]).length;
+    // (the new look's units, tools/newart/unit/build.mjs: frame 0 the standing pose and the march in frames 1..n, at its
+    // own pace; a load carried `_c<f>`, a builder's two strokes `_k0` `_k1`, a shot `_aim` `_shot` `_after`, set up `_set`)
+    const A = newArt.unit || {}, has = (k) => !!A[k]?.includes(u.type);
+    this.stand = has('stand'); this.fps = A.fps?.[u.type]; this.loads = has('carry'); this.works = has('work'); this.fires = A.fire?.[u.type]; this.sets = has('set');
     this.node = new Container(); this.node.scale.set(UNIT_SCALE); layer.addChild(this.node); // (body, paint and flash sort as one)
     this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
@@ -535,14 +539,14 @@ class UnitObj {
   update(u, t, sel, dt) {
     const moved = Math.hypot(u.x - this.px, u.y - this.py); this.px = u.x; this.py = u.y;
     this.moveT = moved > 0.05 ? 0.25 : Math.max(0, (this.moveT || 0) - dt); this.moving = this.moveT > 0; // (on the move: held a moment, as frames between ticks see no step)
-    if (moved > 0.05 || this.air) this.walk += dt * (UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
+    if (moved > 0.05 || this.air) this.walk += dt * (this.fps ?? UNIT_FPS[u.type] ?? (this.air ? 14 : 8)); // rotors always spin
     // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
     const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
-    const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
+    const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : this.stand ? (this.moving ? 1 + Math.floor(this.walk) % frames : 0) : Math.floor(this.walk) % frames;
     const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
     // (a melee unit in a fight: its strike poses, look.js strikePose, over the walk)
-    const sp = strikePose(u); this.pose = sp;
-    const name = sp ? `${u.type}_${dir}_${sp}` : `${u.type}_${dir}_${f}`, tx = tex(name);
+    const sp = strikePose(u) || this.newPose(u, t); this.pose = sp;
+    const name = sp ? `${u.type}_${dir}_${sp}` : `${u.type}_${dir}_${this.loads && u.carry ? 'c' : ''}${f}`, tx = tex(name);
     const mx = tex(name + '_m'); setTex(this.body, tx); setTex(this.flash, tx); setTex(this.paint, mx); setTex(this.paintFlash, mx);
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
     // (sorted by its feet among the buildings, which sit half a px north of their bottom row: one standing on that line is
@@ -554,8 +558,19 @@ class UnitObj {
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
     paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
     if (sel.has(u)) selRing(u.x, u.y + 3, this.size * 0.84, this.size * 0.52, enemies(G.me, u.team) ? SEL_FOE : SEL); // (a little tighter than the art round the feet)
-    this.cargo.visible = !!u.carry;
+    this.cargo.visible = !!u.carry && !this.loads; // (a load drawn on its back needs no glint)
     if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
+  }
+  /** A pose only the new look's frames have (the constructor's lists), or null: set up or setting up; a builder at its
+   *  site, the stroke 0.18 s from each strike; a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
+   *  its target in reach otherwise. `now`: the renderer's clock (s). */
+  newPose(u, now) {
+    const F = this.fires, cd = F && !u.inside && u.d?.weapon?.cd;
+    if (cd && u.cd > cd - 0.12 && F.includes('shot')) return 'shot';
+    if (cd && u.cd > cd - 0.3 && F.includes('after')) return 'after';
+    if (this.sets && (u.swap > 0 || u.mode)) return 'set';
+    if (this.works && this.strikes !== undefined) return now - (this.struckAt ?? -1) < 0.18 ? 'k1' : 'k0';
+    return cd && F.includes('aim') && inReach(u) ? 'aim' : null;
   }
   /** A builder at work (construct.js WORK): standing in reach of its unfinished site, a strike every 0.55 s or so (its
    *  phase from its id): a pale glint and a little dust on a Kingdom wall, a welding spark on the Expedition's, a soft
@@ -565,7 +580,7 @@ class UnitObj {
     if (!b || b.done || b.dead || this.moving || !atSite(u, b, TILE)) { this.strikes = undefined; this.nudge = 0; return; }
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
-      const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames;
+      const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames; this.struckAt = now;
       if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect(f.anim, p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
       else {
         const g = STRIKE_FX.glint, s = STRIKE_FX.dust;

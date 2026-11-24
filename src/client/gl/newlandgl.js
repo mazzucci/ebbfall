@@ -11,7 +11,7 @@
 //               and buildings, sorted with them by their base, only those on screen; each tinted by the land's shade
 //               at its foot (the shade layers lie under the units, so they would miss it).
 import { Assets, Container, Mesh, MeshGeometry, Shader, Sprite, Texture } from 'pixi.js';
-import { TILE, MIX_K, groundMix, planLand, LAND } from './newland.js';
+import { TILE, MIX_K, FOOT, FOOT_REACH, groundMix, footField, planLand, LAND } from './newland.js';
 import { PIECES } from './newland-pieces.js';
 
 /** How the ground is mixed (the still's own recipe, nano-test/scene-flat.mjs: one tile there is 35.84 px). World px a
@@ -30,6 +30,12 @@ export const GROUND = {
    *  water today's shade layers lay over it keeps today's colors (over the sunny grass the shallows were a mint lawn). */
   wet: [77 / 255, 101 / 255, 52 / 255], wetGrain: 0.5,
 };
+/** The minimap's ground with the new land (gl/render.js): the land's own colors, a step darker than on the field so
+ *  the seats' dots and the gold mines stand out as today: the grass (at the map's full shade; `shade` of it at its
+ *  darkest), a wood (its crowns, darker than the grass by more than today's are), rock (pale, as the crags), the
+ *  worn dirt and how strongly a full track shows. Blocked ground reads at a glance: a wood is the darkest thing on
+ *  the land, rock the palest. */
+export const MINIMAP = { grass: [98, 118, 56], shade: 0.8, forest: [34, 54, 28], hill: [168, 160, 140], dirt: [176, 148, 98], dirtAmount: 0.55 };
 const NAMES = ['grass', 'calm', 'dirt', 'floor', 'scree'];
 
 const VERT = `
@@ -53,6 +59,7 @@ uniform sampler2D uDirt;
 uniform sampler2D uFloor;
 uniform sampler2D uScree;
 uniform sampler2D uMix;
+uniform sampler2D uFoot;
 uniform vec4 uMixRect;
 uniform float uShade;
 void main() {
@@ -67,6 +74,14 @@ void main() {
   c = mix(c, texture(uFloor, p / ${f(GROUND.period.floor)}).rgb, m.g * ${f(GROUND.floor)});
   c = mix(c, texture(uScree, p / ${f(GROUND.period.scree)}).rgb, m.b * ${f(GROUND.scree)});
   c = mix(vec3(${GROUND.wet.map(f).join(', ')}) * (${f(1 - GROUND.wetGrain / 2)} + ${f(GROUND.wetGrain)} * dot(g1, vec3(0.3333))), c, m.a);
+  // (the foot line: s px from the border of blocked ground, positive inside; darker where the border faces south or east)
+  vec2 q = (p - uMixRect.xy) * uMixRect.zw;
+  float s = (texture(uFoot, q).r - ${f(128 / 255)}) * ${f(FOOT_REACH * 255 / 127)};
+  float s2 = (texture(uFoot, q - ${f(FOOT.probe)} * uMixRect.zw).r - ${f(128 / 255)}) * ${f(FOOT_REACH * 255 / 127)};
+  float lee = mix(${f(FOOT.lee)}, 1.0, clamp(0.5 + (s2 - s) / ${f(2 * FOOT.probe)}, 0.0, 1.0));
+  float line = smoothstep(${f(FOOT.line[0] - 0.75)}, ${f(FOOT.line[0] + 0.25)}, s) * (1.0 - smoothstep(${f(FOOT.line[1] - 0.5)}, ${f(FOOT.line[1] + 0.5)}, s));
+  float shade = smoothstep(${f(FOOT.line[0] - 0.75)}, ${f(FOOT.line[0] + 0.25)}, s) * (1.0 - smoothstep(${f(FOOT.line[1])}, ${f(FOOT.shade)}, s));
+  c *= 1.0 - max(${f(FOOT.lineDark)} * line, ${f(FOOT.shadeDark)} * shade) * lee * mix(1.0, ${f(FOOT.forest)}, clamp(m.g * 2.0, 0.0, 1.0));
   finalColor = vec4(c * uShade, 1.0);
 }`;
 
@@ -90,7 +105,7 @@ export class Land {
   /** `grounds` (loadGrounds), `tex(name)` a frame of the packs, `L` the renderer's layers (terrain, apron, scenery, ents). */
   constructor(grounds, tex, L) {
     this.grounds = grounds; this.tex = tex; this.L = L;
-    this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null;
+    this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null; this.foot = null;
     this.rect = null; this.stats = null;
   }
   /** The ground plan's tones as the shade layers take them, at the new ground's strengths (GROUND.meadow, rockTone). */
@@ -104,25 +119,29 @@ export class Land {
     for (const m of this.meshes) { const sh = m.shader; m.destroy(); sh?.destroy(); } // (the program itself is PixiJS's, cached by its source)
     for (const r of this.rows) r.c.destroy({ children: true });
     for (const s of this.shown.values()) s.destroy();
-    this.mix?.destroy(true);
-    this.meshes = []; this.rows = []; this.live = []; this.low = []; this.shown.clear(); this.mix = null; this.rect = null;
+    this.mix?.destroy(true); this.foot?.destroy(true);
+    this.meshes = []; this.rows = []; this.live = []; this.low = []; this.shown.clear(); this.mix = null; this.foot = null; this.rect = null;
   }
   /**
    * Lay the land of a map: `w`, `h` tiles, `rock`, `kindAt` (ground.js rockKinds), `dirt` (the ground plan's), `seed`,
-   * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `wet(x, y)` (a tile under water), `shadeAt(x, y)` the land's shade at a world point as a
-   * tint, `apronTint` the apron layer's. Returns what it laid and its cost (ms).
+   * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `wet(x, y)` (a tile under water), `mines` (the gold
+   * mines' tiles, `{ tx, ty, w, h }`: blocked for good, so their square gets trodden earth and the foot line; no piece
+   * minds them), `shadeAt(x, y)` the land's shade at a world point as a tint, `apronTint` the apron layer's. Returns what it laid and its cost (ms).
    */
-  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, apronTint, wet = null }) {
+  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, apronTint, wet = null, mines = [] }) {
     this.clear();
     const t0 = performance.now(), A = apron * TILE, W = w * TILE, H = h * TILE;
     const plan = planLand({ w, h, rock, kindAt, seed, apron, cap, wet }), t1 = performance.now();
-    const mix = groundMix({ w, h, rock, kindAt, dirt, seed, apron, wet }), t2 = performance.now();
-    const cv = document.createElement('canvas'); cv.width = mix.w; cv.height = mix.h;
-    cv.getContext('2d').putImageData(new ImageData(mix.data, mix.w, mix.h), 0, 0);
-    this.mix = Texture.from(cv); this.mix.source.scaleMode = 'linear'; this.mix.source.autoGenerateMipmaps = false;
+    const mix = groundMix({ w, h, rock, kindAt, dirt, seed, apron, wet, mines }), foot = footField({ w, h, rock, apron, also: mines }), t2 = performance.now();
+    const image = (m) => { // (a plain texture of an RGBA image, linear, no mipmaps)
+      const cv = document.createElement('canvas'); cv.width = m.w; cv.height = m.h;
+      cv.getContext('2d').putImageData(new ImageData(m.data, m.w, m.h), 0, 0);
+      const t = Texture.from(cv); t.source.scaleMode = 'linear'; t.source.autoGenerateMipmaps = false; return t;
+    };
+    this.mix = image(mix); this.foot = image(foot);
     const g = this.grounds;
     const shader = (shade) => Shader.from({ gl: { vertex: VERT, fragment: FRAG }, resources: {
-      uGrass: g.grass.source, uCalm: g.calm.source, uDirt: g.dirt.source, uFloor: g.floor.source, uScree: g.scree.source, uMix: this.mix.source,
+      uGrass: g.grass.source, uCalm: g.calm.source, uDirt: g.dirt.source, uFloor: g.floor.source, uScree: g.scree.source, uMix: this.mix.source, uFoot: this.foot.source,
       land: { uMixRect: { value: new Float32Array([-A, -A, 1 / (mix.w / MIX_K * TILE), 1 / (mix.h / MIX_K * TILE)]), type: 'vec4<f32>' }, uShade: { value: shade, type: 'f32' } },
     } });
     const put = (layer, geo, shade) => { const m = new Mesh({ geometry: geo, shader: shader(shade) }); layer.addChild(m); this.meshes.push(m); };

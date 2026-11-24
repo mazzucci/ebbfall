@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { planLand, groundMix, cover, allowance, stands, LAND, TILE, MIX_K } from '../src/client/gl/newland.js';
+import { planLand, groundMix, footField, cover, allowance, stands, LAND, FOOT, FOOT_REACH, TILE, MIX_K } from '../src/client/gl/newland.js';
 import { PIECES, SLICE } from '../src/client/gl/newland-pieces.js';
 import { rockKinds } from '../src/client/gl/ground.js';
 
@@ -123,6 +123,36 @@ test('the ground\'s mix: forest floor and scree exactly on the blocked cells, no
   const wet = (x, y) => y === 8 && x >= 9 && x <= 13, wm = groundMix({ w, h, rock, kindAt: kinds.kindAt, dirt: null, seed: 7, apron: A, wet });
   assert.equal(at(11, 8, 3) === 255 && (() => { let s = 0; for (const [dx, dy] of [[1, 1], [2, 2]]) s += wm.data[(((8 + A) * MIX_K + dy) * wm.w + (11 + A) * MIX_K + dx) * 4 + 3]; return s; })() === 0, true, 'under water the mix says so');
   for (const o of planLand({ w, h, rock, kindAt: kinds.kindAt, seed: 7, apron: A, wet }).pieces) if (o.low) assert.ok(!wet(Math.floor(o.x / TILE), Math.floor((o.y - 1) / TILE)) || rock[Math.floor((o.y - 1) / TILE) * w + Math.floor(o.x / TILE)], 'no fern or stone laid on a tile under water');
+});
+
+test('the foot line: its field is zero exactly on the blocked border, and the line stays off the walkable cells', () => {
+  const { w, h, rock } = handMap(HAND), A = 2, mines = [{ tx: 5, ty: 3, w: 2, h: 2 }];
+  for (const also of [[], mines]) {
+    const f = footField({ w, h, rock, apron: A, also }), k = f.k, step = TILE / k;
+    assert.deepEqual([f.w, f.h, k], [(w + 2 * A) * MIX_K, (h + 2 * A) * MIX_K, MIX_K]);
+    const solid = (x, y) => x < 0 || y < 0 || x >= w || y >= h || rock[y * w + x] !== 0 || also.some(m => x >= m.tx && x < m.tx + m.w && y >= m.ty && y < m.ty + m.h);
+    const at = (tx, ty) => f.data[(ty * f.w + tx) * 4], cell = (t) => Math.floor(t / k) - A;
+    // (how far into a walkable cell the line may show at all: its outer edge, in the field's units)
+    const reach = 128 + 127 * (FOOT.line[0] - 0.75) / FOOT_REACH;
+    assert.ok(FOOT.line[0] >= -2 && FOOT.line[0] - 0.75 > -step / 2, 'the line ends before a walkable cell\'s first texel middle');
+    for (let ty = 0; ty < f.h; ty++) for (let tx = 0; tx < f.w; tx++) {
+      const me = solid(cell(tx), cell(ty)), v = at(tx, ty);
+      assert.equal(v > 128, me, `texel ${tx}, ${ty}: over 128 exactly on blocked ground`);
+      if (!me) assert.ok(v < reach, `texel ${tx}, ${ty} of a walkable cell: clear of the line (${v})`);
+      for (const [dx, dy] of [[1, 0], [0, 1]]) { // (two texels across a border: equally far from it, so the field is zero on it)
+        if (tx + dx >= f.w || ty + dy >= f.h || solid(cell(tx + dx), cell(ty + dy)) === me) continue;
+        assert.equal(v + at(tx + dx, ty + dy), 256, `texels ${tx}, ${ty} and its neighbor across a border mirror each other`);
+      }
+    }
+    // (a walkable cell's middle: as far from the line as the field reaches or nearly; a one-cell hill: inside all round)
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!solid(x, y)) assert.ok(at((x + A) * k + 1, (y + A) * k + 1) <= 128 - Math.round(127 * 12 / FOOT_REACH) + 1, `walkable cell ${x}, ${y}: its middle far from the line`);
+    for (let i = 3; i < f.data.length; i += 4) assert.equal(f.data[i], 255);
+  }
+  // (a gold mine's square is blocked ground to the line, and earth to the mix)
+  const f = footField({ w, h, rock, apron: A, also: mines });
+  assert.ok(f.data[(((3 + A) * MIX_K + 1) * f.w + (5 + A) * MIX_K + 1) * 4] > 128, 'the mine\'s tile is inside the line');
+  const kinds = rockKinds(w, h, (x, y) => rock[y * w + x] !== 0, 7), mix = groundMix({ w, h, rock, kindAt: kinds.kindAt, dirt: null, seed: 7, apron: A, mines });
+  assert.ok(mix.data[(((3 + A) * MIX_K + 1) * mix.w + (5 + A) * MIX_K + 1) * 4] > 200, 'trodden earth on the mine\'s tile');
 });
 
 // Many seeds and every map kind (0-5 at 96 and 128 tiles, the Shore at 64), at the cap the game uses; the other two

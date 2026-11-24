@@ -200,14 +200,16 @@ const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a
  * scree (the blocked cells by kind: half strength exactly on a blocked cell's edge, a soft line a quarter tile wide,
  * wobbled by an eighth of a tile at most); alpha how dry: 255 on land, 0 on tiles under water (`wet(x, y)`; the
  * line a little to the land's side, so the shore's first px take the water's ground too). Drawn linear-filtered:
- * `{ w, h, k, data }`.
+ * `{ w, h, k, data }`. `mines`: the gold mines' tiles (`{ tx, ty, w, h }`): full worn dirt on them.
  */
-export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = null }) {
+export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = null, mines = [] }) {
   const A = apron, W2 = w + 2 * A, H2 = h + 2 * A, n = W2 * H2, fo = new Float32Array(n), hi = new Float32Array(n), di = new Float32Array(n), we = new Float32Array(n);
   for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
     const cx = x - A, cy = y - A, inside = cx >= 0 && cy >= 0 && cx < w && cy < h, i = y * W2 + x;
     if (!inside || rock[cy * w + cx]) { if (kindAt(cx, cy) === 'forest') fo[i] = 1; else hi[i] = 1; } else if (wet && wet(cx, cy)) we[i] = 1; else di[i] = dirt ? dirt[cy * w + cx] : 0;
   }
+  // (a gold mine's tiles: trodden earth all over its square, whatever the plan laid there)
+  for (const m of mines) for (let y = m.ty; y < m.ty + m.h; y++) for (let x = m.tx; x < m.tx + m.w; x++) if (x >= 0 && y >= 0 && x < w && y < h && !rock[y * w + x]) di[(y + A) * W2 + x + A] = 1;
   const k = MIX_K, W = W2 * k, H = H2 * k, data = new Uint8ClampedArray(W * H * 4), so = (seed | 0) % 977;
   // (what a cell and its neighbors hold: 0 nothing, so plain grass; 1 forest all round, 2 hill all round, 4 water all
   // round; 3 an edge or dirt)
@@ -239,6 +241,53 @@ export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = nul
       data[o] = Math.round(255 * smooth(0.22, 0.78, d + (d > 0.02 ? wob * 0.3 : 0)));
       data[o + 1] = Math.round(255 * smooth(0.3, 0.7, f + (f > 0 && f < 1 ? wob * 0.22 : 0)));
       data[o + 2] = Math.round(255 * smooth(0.3, 0.7, s + (s > 0 && s < 1 ? wob * 0.22 : 0)));
+    }
+  }
+  return { w: W, h: H, k, data };
+}
+
+/** The foot line (`footField`, drawn by gl/newlandgl.js's ground): where a unit cannot walk, said on the ground. Along
+ *  the border of blocked ground (rock, forest, the map's edge, a gold mine's square) a crisp dark line, `line` px from
+ *  the border (a px on the open side, the rest on the blocked: a walkable cell keeps all but its outermost px or two),
+ *  and a contact shadow fading over `shade` px into the blocked side; how dark each is at full; `lee`: how much of
+ *  both on a border that faces north or west (the sun's side: the lip that faces south or east, away from it, is the
+ *  dark one, as a cliff's is today); `probe` px toward the sun where the field is read again to tell which way a
+ *  border faces; `forest`: how much of both round a wood, whose trunks and dark floor already say it (at full the
+ *  border's steps showed under the crowns). */
+export const FOOT = { line: [-1, 3], shade: 11, lineDark: 0.6, shadeDark: 0.4, lee: 0.55, probe: 6, forest: 0.6 };
+/** How far the foot field reaches either side of a blocked border (px): farther reads as this. */
+export const FOOT_REACH = 16;
+/**
+ * The foot field of a map of w x h tiles with `apron` tiles past each edge: how far each point is from the border of
+ * the blocked ground, for the dark foot line gl/newlandgl.js draws along it (a cliff's lip: where a unit cannot walk,
+ * said on the ground itself, under the rocks and the trees). An RGBA image of MIX_K texels a tile, as `groundMix`'s:
+ * each texel `128 + 127 d / FOOT_REACH`, d the px from its middle to the nearest border of blocked ground, positive
+ * on the blocked side, at most FOOT_REACH either way (straight-line distance to the nearest cell of the other kind).
+ * Two texels across a border are equally far from it, so drawn linear-filtered the field is zero exactly on the
+ * border, straight borders and square corners alike. `rock` as the sim's; past the map's edge is blocked; `also`:
+ * tiles blocked for good by something that is no rock (a gold mine's): `[{ tx, ty, w, h }]`.
+ */
+export function footField({ w, h, rock, apron = 0, also = [] }) {
+  const A = apron, W2 = w + 2 * A, H2 = h + 2 * A, k = MIX_K, W = W2 * k, H = H2 * k, step = TILE / k, data = new Uint8ClampedArray(W * H * 4);
+  const solid = new Uint8Array(W2 * H2);
+  for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) { const cx = x - A, cy = y - A; solid[y * W2 + x] = cx < 0 || cy < 0 || cx >= w || cy >= h || rock[cy * w + cx] ? 1 : 0; }
+  for (const n of also) for (let y = n.ty; y < n.ty + n.h; y++) for (let x = n.tx; x < n.tx + n.w; x++) if (x >= 0 && y >= 0 && x < w && y < h) solid[(y + A) * W2 + x + A] = 1;
+  const at = (x, y) => solid[Math.max(0, Math.min(H2 - 1, y)) * W2 + Math.max(0, Math.min(W2 - 1, x))]; // (past the apron: as its rim)
+  for (let cy = 0; cy < H2; cy++) for (let cx = 0; cx < W2; cx++) {
+    const me = solid[cy * W2 + cx];
+    let edge = false; for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) if (at(cx + dx, cy + dy) !== me) { edge = true; break; }
+    for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) {
+      let d = FOOT_REACH;
+      if (edge) { // (the nearest cell of the other kind, among the eight round it: its square's nearest point)
+        const px = (i + 0.5) * step, py = (j + 0.5) * step;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if ((!dx && !dy) || at(cx + dx, cy + dy) === me) continue;
+          const ex = dx < 0 ? px : dx > 0 ? TILE - px : 0, ey = dy < 0 ? py : dy > 0 ? TILE - py : 0;
+          d = Math.min(d, Math.sqrt(ex * ex + ey * ey));
+        }
+      }
+      const o = ((cy * k + j) * W + cx * k + i) * 4, v = Math.round(128 + 127 * (me ? d : -d) / FOOT_REACH);
+      data[o] = data[o + 1] = data[o + 2] = v; data[o + 3] = 255;
     }
   }
   return { w: W, h: H, k, data };

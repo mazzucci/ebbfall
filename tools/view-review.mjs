@@ -384,14 +384,14 @@ async function sheets({ arg, out, tallShot }) {
   }
   md += '\n## Every text role and icon (px), per screen and HUD variant\n';
   for (const n of names) {
-    const d = data[n], pick = (h) => ['fight', 'tooltip', 'army', 'unit'].map(sc => d.shots.find(s => s.scene === sc && s.hud === h && (s.span === d.rec[0] || s.spans.includes(d.rec[0]))) || d.shots.find(s => s.scene === sc && s.hud === h)).filter(Boolean);
+    const d = data[n], pick = (h) => ['fight', 'tooltip', 'army', 'unit', 'over'].map(sc => d.shots.find(s => s.scene === sc && s.hud === h && (s.span === d.rec[0] || s.spans.includes(d.rec[0]))) || d.shots.find(s => s.scene === sc && s.hud === h)).filter(Boolean);
     const hs = HUDS.filter(h => pick(h).length); if (!hs.length) continue;
     const merged = Object.fromEntries(hs.map(h => [h, pick(h).reduce((m, s) => ({ text: { ...s.text, ...m.text }, boxes: { ...s.boxes, ...m.boxes }, sizes: Object.keys(s.sizes).reduce((z, k) => ({ ...z, [k]: [...new Set([...(z[k] || []), ...s.sizes[k]])] }), m.sizes) }), { text: {}, boxes: {}, sizes: {} })]));
     md += `\n### ${n}\n\n| role | ${hs.map(h => `hud ${h}`).join(' | ')} |\n|---|${hs.map(() => '---').join('|')}|\n`;
     const keys = [...new Set(hs.flatMap(h => Object.keys(merged[h].text)))];
     for (const k of keys) md += `| ${k} | ${hs.map(h => merged[h].text[k]?.px ?? '-').join(' | ')} |\n`;
     for (const k of [...new Set(hs.flatMap(h => Object.keys(merged[h].boxes)))]) md += `| ${k} | ${hs.map(h => merged[h].boxes[k] ? merged[h].boxes[k].map(v => Math.round(v * 10) / 10).join(' x ') : '-').join(' | ')} |\n`;
-    md += `| distinct text sizes on the HUD (fight, tooltip, army, unit) | ${hs.map(h => { const z = Object.keys(merged[h].sizes).map(Number).sort((a, b) => a - b); return `${z.length}: ${z.join(', ')}`; }).join(' | ')} |\n`;
+    md += `| distinct text sizes on the HUD (fight, tooltip, army, unit, toast and hint) | ${hs.map(h => { const z = Object.keys(merged[h].sizes).map(Number).sort((a, b) => a - b); return `${z.length}: ${z.join(', ')}`; }).join(' | ')} |\n`;
     md += `| smallest text | ${hs.map(h => Math.min(...Object.keys(merged[h].sizes).map(Number))).join(' | ')} |\n`;
     const r = (h) => pick(h)[0].reach;
     md += `| card labels that would be cut, of ${pick(hs[0])[0].labels?.count ?? '?'} (room, px) | ${hs.map(h => { const l = pick(h)[0].labels; return l ? `${l.cut.length ? l.cut.join(', ') : 'none'} (${l.room} px; the widest: ${l.widest[0][0]} ${l.widest[0][1]} px)` : '-'; }).join(' | ')} |\n`;

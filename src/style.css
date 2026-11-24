@@ -662,7 +662,8 @@ dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-a
      --t-tip        the tooltip's words: the body's
      --i-s 14, --i-m 18, --i-l 24, --i-xl 30   icons: beside words; the top bar's and beside figures; an order; a unit's or a building's symbol
      --mm      190  the minimap's side; what stands over it (the hint, the toasts, a touch laptop's three) follows it
-     --t-menu       the menu's line (#menuTag): its own pull request's, only named here
+     --t-menu   17  the menu's line (#menuTag, px): main's own rule since #382, only named here; the two below sit under it
+                    as the HUD's 14 and 12 sit under its 17
      --t-menu-s 14  the menu's second-rank text (px): the small buttons, the footer's links (the big buttons' 14 already)
      --t-menu-min 12  the menu's least text (px): the build stamp, a token's small words, a sheet's, the trailer's credit */
 @media (min-width:1100px) and (min-height:560px) and (pointer:fine){

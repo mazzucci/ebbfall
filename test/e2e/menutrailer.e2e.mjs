@@ -77,6 +77,8 @@ for (const [name, device] of [['an upright phone, 390x844', { ...PHONE, viewport
       assert.ok(l.box.y >= l.tag.b - 1 && l.box.b <= l.solo.y, `under the line, above the buttons: ${what}`);
       assert.ok(l.box.x >= l.solo.x - 1 && l.box.r <= l.online.r + 1 && Math.abs((l.box.x + l.box.r) / 2 - l.vw / 2) <= 1, `in the buttons' column, centered: ${what}`);
       assert.ok(l.box.w <= 1000 + 1, `never past 1000 px: ${l.box.w}`);
+      const line = await page.locator('#menuTag').evaluate(e => parseFloat(getComputedStyle(e).fontSize));
+      assert.equal(line, l.vw >= 1100 ? 17 : 13, 'the line: a size to read on a monitor, a phone\'s as it was');
       assert.ok(l.tag.y < 200, `the page from its top (not centered): the line at ${l.tag.y}`);
       for (const b of [l.solo, l.online, l.tutorial, l.foot]) assert.ok(inView(b, l), `on screen: ${what}`);
       assert.ok(l.scroll <= 1, `the page does not scroll: ${what}`);

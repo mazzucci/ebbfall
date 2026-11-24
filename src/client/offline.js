@@ -1,8 +1,8 @@
-// Install and offline. The first page has one button for both: INSTALL until the game is installed, then PLAY OFFLINE.
-// INSTALL opens the browser's own prompt where it offers one (Chrome and Edge, on Android and desktop:
-// `beforeinstallprompt`), or the Add to Home Screen card where that is the way (iPad and iPhone: corner.js); it shows
-// in the pause card (alone or online) too, every `.install` button, one handler. PLAY OFFLINE (the first page once
-// installed, or where nothing can install) asks the service worker
+// Play offline, and installing. The first page has one button, PLAY OFFLINE, always under that name (nobody must install
+// to play). Where the game can be added to the device it opens the browser's own prompt (Chrome and Edge, on Android and
+// desktop: `beforeinstallprompt`), or the Add to Home Screen card where that is the way (iPad and iPhone: corner.js); that
+// offer is in the pause card (alone or online) too, under the same name, every `.install` button, one handler. Once
+// installed, or where nothing can install, the first page's asks the service worker
 // (tools/offline/sw.js) how much of the game it has stored, which also fetches what is missing, and says so until it
 // is all there. Never a prompt or a card the player did not tap for.
 import { $ } from './ui.js';
@@ -10,14 +10,13 @@ import { standalone, homeScreenOnly } from './screen.js';
 import { showHomeTip } from './corner.js';
 
 let offer = null, installed = standalone; // the browser's install offer, kept for the tap; installed: the app, or once it is
-/** How INSTALL installs here: the browser's prompt, the Home Screen card, or none (installed, or no way to). */
+/** How PLAY OFFLINE adds the game to this device: the browser's prompt, the Home Screen card, or none (installed, or no way to). */
 const installWay = () => (installed ? null : offer ? 'prompt' : homeScreenOnly ? 'card' : null);
 function showInstall() {
   const way = installWay();
   for (const b of document.querySelectorAll('.install')) b.hidden = !way;
   const home = $('btnInstall'); if (!home) return;
-  home.textContent = way ? 'INSTALL' : 'PLAY OFFLINE';
-  home.title = way ? 'Install Ebbfall as an app: its own icon, full screen, plays offline' : 'Is the whole game saved on this device, to play with no connection?';
+  home.title = way ? 'Play Ebbfall offline: add it to this device as an app (its own icon, full screen); there is nothing you must install to play' : 'Is the whole game saved on this device, to play with no connection?';
 }
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); offer = e; showInstall(); }); // (our button, not the browser's banner)
 addEventListener('appinstalled', () => { offer = null; installed = true; showInstall(); });
@@ -82,7 +81,7 @@ async function playOffline(btn, msg, build) {
   } finally { btn.disabled = false; }
 }
 
-/** Wire INSTALL and PLAY OFFLINE (`build`: the game's version, the build stamp's). */
+/** Wire PLAY OFFLINE, on the first page and in the pause card (`build`: the game's version, the build stamp's). */
 export function initOffline(build) {
   showInstall();
   const install = async () => {

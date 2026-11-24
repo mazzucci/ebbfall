@@ -9,9 +9,9 @@ size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
-game keeps working with no connection (a service worker stores every file; PLAY OFFLINE, on the first page once
-installed and on About, says whether it is all there); INSTALL on the menu (the browser's prompt in Chrome and Edge, how
-to Add to Home Screen on iPad and iPhone) launches it like an app. A new version
+game keeps working with no connection (a service worker stores every file; PLAY OFFLINE on the menu says whether
+it is all there, or, where the browser can, adds the game to the device as an app: its own prompt in Chrome and Edge, how
+to Add to Home Screen on iPad and iPhone). A new version
 installs itself the next time you open the game online.
 
 To run it from source:

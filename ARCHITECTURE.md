@@ -411,7 +411,7 @@ src/client/           everything that touches the browser
                       build and the last game update's commit) and `touch`, in a new tab
   scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page, one for everyone (SINGLE PLAYER and MULTIPLAYER big; TUTORIAL, the
-                      guided game, OPTIONS and INSTALL small under them;
+                      guided game, OPTIONS and PLAY OFFLINE small under them;
                       the trailer's poster above them, trailer.js; the line under the name says what the game is (the
                       trailer tells the story); the record of games is kept but not shown;
                       a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Send
@@ -561,9 +561,9 @@ src/client/           everything that touches the browser
                       connection; no frame if the poster never comes
   memory.js           enemy buildings as this side last saw them: in fog the field, the minimap and picking show the
                       remembered copy (a building never seen is not shown), forgotten when its ground is seen without it
-  offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
-                      first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
-                      installs, and About) asks the service worker and says so until everything is saved
+  offline.js          PLAY OFFLINE on the first page and in the pause card: the install offer where there is one (the
+                      browser's prompt, else the Home Screen card on iPad/iPhone); on the first page, once installed or where
+                      nothing installs, it asks the service worker and says so until everything is saved
   online.js           Multiplayer: the lobby (open/join a room by code or link, a line on how; the room is single
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
@@ -672,8 +672,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       change makes it the player's; a bad link opens the plain menu; none after the guided game),
                       selftest.e2e.mjs (the golden games in the engine under test), ground.e2e.mjs (the ground laid at
                       a game's start on a desktop and a phone, its plan bit for bit Node's in every engine, no page
-                      error), offline.e2e.mjs (INSTALL,
-                      PLAY OFFLINE against the real service worker, the app icons), static.e2e.mjs (the Worker blocked, as a tripped spending limit
+                      error), offline.e2e.mjs (PLAY OFFLINE:
+                      the install offer, and against the real service worker, the app icons), static.e2e.mjs (the Worker blocked, as a tripped spending limit
                       leaves it: the game's page, the docs and a single-player game from the files alone, the service
                       worker installed, no error, nothing reaching the Worker but the docs' videos, which fail), voice.e2e.mjs (the voice lab
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no

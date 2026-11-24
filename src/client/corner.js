@@ -35,7 +35,7 @@ function syncFull() {
   }
 }
 
-/** The Add to Home Screen card (the full-screen button here, and INSTALL: offline.js); closed, the focus goes back to
+/** The Add to Home Screen card (the full-screen button here, and PLAY OFFLINE: offline.js); closed, the focus goes back to
  *  the button that opened it. */
 let opener = null;
 export function showHomeTip() { opener = document.activeElement; $('homeTip').hidden = false; $('btnHomeTipOk').focus(); }

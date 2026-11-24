@@ -1,6 +1,6 @@
-// Install and offline on the built game (src/client/offline.js, tools/offline/sw.js): INSTALL where the browser offers
-// it (a `beforeinstallprompt`, simulated here; the prompt on a tap) or where the Home Screen is the way (the card), on
-// the first page and the pause card; PLAY OFFLINE otherwise and once installed, which hears from the service
+// PLAY OFFLINE on the built game (src/client/offline.js, tools/offline/sw.js): the install offer where the browser makes
+// one (a `beforeinstallprompt`, simulated here; the prompt on a tap) or where the Home Screen is the way (the card), on
+// the first page and the pause card, always under that name; otherwise and once installed it hears from the service
 // worker that the whole game is saved (saving it first if need be; or that offline play is not available, where
 // service workers are blocked); the manifest's app icons are served at the sizes they claim.
 import { before, after } from 'node:test';
@@ -30,8 +30,12 @@ const offer = (page) => page.evaluate(() => {
   return e.defaultPrevented; // (the game shows its own button instead of the browser's banner)
 });
 
-/** The first page's button reads `label` (it changes on its own when an offer comes or goes). */
-const reads = (page, label) => page.waitForFunction((l) => document.getElementById('btnInstall').textContent === l, label, { timeout: 10000 });
+/** The first page's button, PLAY OFFLINE whatever it does, is at the install offer or the offline check: its title says
+ *  which, leading with playing offline (it changes on its own when an offer comes or goes). */
+const offers = async (page, offer) => {
+  await page.waitForFunction((o) => document.getElementById('btnInstall').title.startsWith('Play Ebbfall offline: add it') === o, offer, { timeout: 10000 });
+  assert.equal(await page.locator('#btnInstall').textContent(), 'PLAY OFFLINE', 'the same name either way');
+};
 /** PLAY OFFLINE pressed (`sel`): every line it shows on the way, once it is done (it asks again while still saving). */
 async function playOffline(page, press, sel, msg) {
   await page.evaluate((msg) => { window.seen = []; new MutationObserver(() => window.seen.push(document.getElementById(msg).textContent)).observe(document.getElementById(msg), { childList: true, characterData: true, subtree: true }); }, msg);
@@ -41,23 +45,23 @@ async function playOffline(page, press, sel, msg) {
 }
 
 for (const [name, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
-  test(`the first page: INSTALL while the browser offers it (its prompt on a tap), PLAY OFFLINE otherwise and once installed (${name})`, { timeout: 120000 }, async () => {
+  test(`the first page: PLAY OFFLINE makes the browser's install offer while there is one (its prompt on a tap), the offline check otherwise and once installed (${name})`, { timeout: 120000 }, async () => {
     const { ctx, page, errors, press } = await open(device);
     try {
       const btn = page.locator('#btnInstall');
       assert.ok(await btn.isVisible());
-      await reads(page, 'PLAY OFFLINE'); // (no offer, no Home Screen to add to: the offline check)
+      await offers(page, false); // (no offer, no Home Screen to add to: the offline check)
       assert.equal(await offer(page), true);
-      await reads(page, 'INSTALL');
+      await offers(page, true);
       await press('#btnInstall');
       await page.waitForFunction(() => window.prompted === 1);
-      assert.equal(await btn.textContent(), 'INSTALL', 'still INSTALL while the prompt is open');
+      await offers(page, true); // (still the offer while the prompt is open)
       await page.evaluate(() => window.choose({ outcome: 'dismissed' }));
-      await reads(page, 'PLAY OFFLINE'); // an offer prompts once
+      await offers(page, false); // an offer prompts once
       assert.equal(await offer(page), true);
-      await reads(page, 'INSTALL'); // the browser offers again
+      await offers(page, true); // the browser offers again
       await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
-      await reads(page, 'PLAY OFFLINE');
+      await offers(page, false);
       const sc = await page.locator('#start .card.menu').evaluate(e => [e.scrollHeight, e.clientHeight]);
       assert.ok(sc[0] <= sc[1] + 1, `the first page fits: ${sc}`);
       assert.deepEqual(errors, []);
@@ -65,12 +69,12 @@ for (const [name, device] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   });
 }
 
-test('iPhone and iPad (no install prompt): INSTALL opens the Add to Home Screen card, never by itself', { timeout: 120000 }, async () => {
+test('iPhone and iPad (no install prompt): PLAY OFFLINE opens the Add to Home Screen card, never by itself', { timeout: 120000 }, async () => {
   for (const ua of ['Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1',
     'Mozilla/5.0 (iPad; CPU OS 26_6_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1']) {
     const { ctx, page, errors, press } = await open(PHONE, { userAgent: ua });
     try {
-      await reads(page, 'INSTALL');
+      await offers(page, true);
       await page.waitForTimeout(500);
       assert.ok(await page.locator('#homeTip').isHidden(), 'no card by itself');
       await press('#btnInstall');
@@ -83,16 +87,18 @@ test('iPhone and iPad (no install prompt): INSTALL opens the Add to Home Screen 
   }
 });
 
-test('INSTALL in the pause card too, one offer for all; none in the installed app', { timeout: 180000 }, async () => {
+test('PLAY OFFLINE in the pause card too while there is an offer, one for all; none in the installed app', { timeout: 180000 }, async () => {
   const { ctx, page, errors, press } = await open(PHONE);
   try {
-    assert.equal(await page.locator('.install:visible').count(), 0, 'no offer: no INSTALL anywhere');
+    assert.equal(await page.locator('.install:visible').count(), 0, 'no offer: none in the pause card');
     assert.equal(await offer(page), true);
-    await reads(page, 'INSTALL');
+    await offers(page, true);
     await press('#btnSolo'); await press('#btnStart');
     await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
     await press('#btnPause');
     assert.ok(await page.locator('#btnPauseInstall').isVisible(), 'in the pause card');
+    assert.equal(await page.locator('#btnPauseInstall').textContent(), 'PLAY OFFLINE');
+    assert.match(await page.locator('#btnPauseInstall').getAttribute('title'), /^Play Ebbfall offline: add it/);
     await press('#btnPauseInstall');
     await page.waitForFunction(() => window.prompted === 1);
     await page.evaluate(() => window.choose({ outcome: 'accepted' }));
@@ -108,10 +114,10 @@ test('INSTALL in the pause card too, one offer for all; none in the installed ap
     const p = await app.newPage();
     await p.goto(baseUrl(), { waitUntil: 'networkidle' }); await p.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     assert.equal(await offer(p), true);
-    await reads(p, 'PLAY OFFLINE');
+    await offers(p, false);
     const seen = await playOffline(p, (sel) => p.locator(sel).tap(), '#btnInstall', 'homeOfflineMsg');
     assert.equal(seen.at(-1), 'Ready to play offline: everything is saved on this device ✓', `the installed app: ready (${seen.join(' | ')})`);
-    assert.equal(await p.locator('.install:visible').count(), 0, 'installed: no INSTALL');
+    assert.equal(await p.locator('.install:visible').count(), 0, 'installed: none in the pause card');
   } finally { await app.close(); }
 });
 
@@ -136,7 +142,7 @@ test('PLAY OFFLINE on the first page (nothing to install): saving, then everythi
 test('PLAY OFFLINE where service workers are blocked: not available in this browser', { timeout: 120000 }, async () => {
   const { ctx, page, press } = await open(DESKTOP, { serviceWorkers: 'block' });
   try {
-    await reads(page, 'PLAY OFFLINE');
+    await offers(page, false);
     await press('#btnInstall');
     await page.waitForFunction(() => !document.getElementById('btnInstall').disabled, null, { timeout: 20000 });
     assert.equal(await page.locator('#homeOfflineMsg').textContent(), "Offline play isn't available in this browser.");

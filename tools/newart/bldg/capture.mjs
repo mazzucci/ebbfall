@@ -83,6 +83,13 @@ try {
         }
       }
     }
+    if (want('perf')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // a frame with the base of 20 in view (software GL: only the two arts against each other)
+      const { ctx, page } = await game(art, dev, { race: 'vael' });
+      await page.evaluate((l) => { for (const [t, x, y] of l) put(t, x, y); endfall.cam.zoom = 1; endfall.centerOn(hq.x, hq.y); clean(); }, EX);
+      const run = (n) => page.evaluate((n) => { const gl = document.getElementById('game').getContext('webgl2'), px = new Uint8Array(4); for (let i = 0; i < n; i++) { endfall.draw(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } }, n);
+      await run(5); const ms = []; for (let i = 0; i < 5; i++) { const t = process.hrtime.bigint(); await run(10); ms.push(Number(process.hrtime.bigint() - t) / 1e7); }
+      ms.sort((a, b) => a - b); log.push({ perf: sz, art, ms }); console.log('perf', sz, art, 'median ms a frame', ms[2].toFixed(1)); await ctx.close();
+    }
     if (want('build')) for (const [type, race] of Object.entries(TYPES)) {
       const { ctx, page } = await game(art, D2, { race });
       for (const pc of [10, 50, 90]) { const [id, x, y] = await page.evaluate(([t, u]) => { const { G } = endfall; let b = G.bldgs.find(b => b.type === t && !b.done); if (!b) { const id = put(t, -200, 120, u); b = G.bldgs.find(b => b.id === id); } for (let i = 0; i < 4000 && b.progress < u; i++) endfall.skip(0.1); return [b.id, b.x, b.y]; }, [type, pc / 100]); if (!id) continue; await crop(page, `build-${type}-${pc}`, art, x, y - 10, 2, 400, 400); }

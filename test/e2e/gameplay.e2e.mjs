@@ -627,13 +627,16 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
       // The mouse at the window's edges scrolls the map (the canvas reaches them): from the bottom-right corner, left
       // along the left edge, then up along the top, above the bar.
       const at = () => d.eval(() => [endfall.cam.x, endfall.cam.y]);
-      const c0 = await at();
-      await d.page.mouse.move(1, h / 2); await d.page.waitForTimeout(400);
+      const c0 = await at(), wide = s.vw < map[0] - 1; // (3440 px: the window as wide as the map, nothing to scroll sideways)
+      // (waited for, not slept for: a 3440 px window on a software GL draws one or two frames in 400 ms, and a frame scrolls
+      // only so far)
+      const moved = (cond, arg) => d.page.waitForFunction(cond, arg, { timeout: 20000, polling: 50 }).catch(() => {});
+      await d.page.mouse.move(1, h / 2);
+      await (wide ? moved((x) => endfall.cam.x < x - 20, c0[0]) : d.page.waitForTimeout(400));
       const c1 = await at();
-      await d.page.mouse.move(w / 2, 1); await d.page.waitForTimeout(400);
+      await d.page.mouse.move(w / 2, 1); await moved((y) => endfall.cam.y < y - 20, c1[1]);
       const c2 = await at();
       await d.page.mouse.move(w / 2, h / 2);
-      const wide = s.vw < map[0] - 1; // (3440 px: the window as wide as the map, nothing to scroll sideways)
       assert.ok((wide ? c1[0] < c0[0] - 20 : c1[0] === 0) && c2[1] < c1[1] - 20, `the window's left and top edges scroll the map: ${JSON.stringify([c0, c1, c2])}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
@@ -4176,8 +4179,14 @@ test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball
     const ob = await d.eval(([x, y]) => { const ob = endfall.engine.debugSpawn(1, 'observer', x, y); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'lancer', x - 30 + i * 30, y + 70); endfall.engine.debugSetHp(ob, 1); return ob; }, [x, y]);
     await d.centerOn(x, y);
     const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.x, u.y, endfall.unitTop('observer')]; }, ob);
-    assert.ok(await d.skipUntil((id) => !endfall.G.units.some(u => u.id === id), ob, { seconds: 10, step: 1 / 30 }), 'the Balloon falls');
-    const fx = await d.eval(([x, y]) => endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120), at);
+    // (tick by tick to its fall, then the frame that draws it, in one call: the puff lives a second, and a slow runner's
+    // frames between two calls could miss it)
+    const fx = await d.eval(([id, x, y]) => {
+      for (let t = 0; t < 30 * 10 && endfall.G.units.some(u => u.id === id); t++) endfall.skip(1 / 30);
+      if (endfall.G.units.some(u => u.id === id)) return null;
+      return new Promise(r => requestAnimationFrame(() => r(endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120))));
+    }, [ob, at[0], at[1]]);
+    assert.ok(fx, 'the Balloon falls');
     const up = at[1] - at[2] * AIR_PUFF.lift, puffs = fx.filter(e => ['puff', AIR_PUFF.anim].includes(e.anim));
     const puff = puffs.find(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2);
     assert.ok(puff, `a puff at its altitude (${JSON.stringify(fx)})`);

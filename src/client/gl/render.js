@@ -15,7 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
-import { newArtIndex, loadGroups, staleMasks } from './newart.js';
+import { newArtIndex, loadGroups, staleMasks, unitSize } from './newart.js';
 import { Land, loadGrounds, MINIMAP, GROUND } from './newlandgl.js';
 
 export const cv = document.getElementById('game');
@@ -104,12 +104,15 @@ await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's color
  *  (atlas.json `tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
 export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
+/** The new look's size for a unit of `type` (gl/newart.js UNIT_SIZE), 1 for one drawn with today's frames: the sprite,
+ *  `unitTop`, `unitRadius` and the selection ring take it. */
+const unitK = (type) => unitSize(type, newArt.unit?.unitTops?.[type] != null);
 /** How far (world px) a unit of `type` is drawn above its ground point: its art's height (atlas.json `unitTops`, measured
  *  by tools/art/generate.mjs) at the renderer's UNIT_SCALE; a flyer's includes the height it flies at. The hit test, the
  *  health bars and the silhouettes behind buildings go by it. */
-export const unitTop = (type) => (index.unitTops?.[type] ?? (UNITS[type]?.r ?? 10) * 2.4) * UNIT_SCALE;
+export const unitTop = (type) => (index.unitTops?.[type] ?? (UNITS[type]?.r ?? 10) * 2.4) * UNIT_SCALE * unitK(type);
 /** A unit's drawn radius (world px): its sim radius at the renderer's scale and the art's (look.js UNIT_ART_SCALE). */
-export const unitRadius = (u) => u.r * UNIT_SCALE * UNIT_ART_SCALE;
+export const unitRadius = (u) => u.r * UNIT_SCALE * UNIT_ART_SCALE * unitK(u.type);
 /** A seat's paint in this game: its spot's (look.js `colorOf`: a player keeps its board spot's color). */
 export const seatTint = (team) => spotTint(colorOf(team));
 /** Two tints at once (a seat's paint under an effect's tint): channel by channel product. */
@@ -564,13 +567,13 @@ class UnitObj {
     // own pace; a load carried `_c<f>`, a builder's two strokes `_k0` `_k1`, a shot `_aim` `_shot` `_after`, set up `_set`)
     const A = newArt.unit || {}, has = (k) => !!A[k]?.includes(u.type);
     this.stand = has('stand'); this.fps = A.fps?.[u.type]; this.loads = has('carry'); this.works = has('work'); this.fires = A.fire?.[u.type]; this.sets = has('set');
-    this.node = new Container(); this.node.scale.set(UNIT_SCALE); layer.addChild(this.node); // (body, paint and flash sort as one)
+    this.node = new Container(); this.node.scale.set(UNIT_SCALE * unitK(u.type)); layer.addChild(this.node); // (body, paint and flash sort as one)
     this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own color)
     // (an own walker: its silhouette, shown while a building hides it)
-    if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE); this.xr.visible = false; L.xray.addChild(this.xr); }
-    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE; // (the selection ring round the feet: as large as the art)
+    if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE * unitK(u.type)); this.xr.visible = false; L.xray.addChild(this.xr); }
+    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type); // (the selection ring round the feet: as large as the art)
     this.cargo = light(0xeee6d2, 0.14, 0.5); // (the gold a worker carries: pale, faint)
     this.id = u.id; this.px = u.x; this.py = u.y; this.walk = 0;
   }

@@ -59,6 +59,29 @@
      "z": 4
     }
    }
+  },
+  "land": {
+   "pages": [
+    "land-0.json"
+   ],
+   "ground": {
+    "grass": "land-grass.webp",
+    "calm": "land-calm.webp",
+    "dirt": "land-dirt.webp",
+    "floor": "land-floor.webp",
+    "scree": "land-scree.webp"
+   },
+   "texels": 4,
+   "mine": {
+    "lamp": [
+     -10,
+     -4.5
+    ],
+    "size": [
+     92,
+     50.75
+    ]
+   }
   }
  }
 }

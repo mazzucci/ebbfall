@@ -75,15 +75,6 @@ export function takePaint(im, { level = 240, shade = [] } = {}) {
   return m;
 }
 
-/** Brightness and contrast: `gamma` (below 1 lifts the darks), `gain`, `sat` (1: as painted). In place. */
-export function tone(im, { gamma = 1, gain = 1, sat = 1 } = {}) {
-  const d = im.d;
-  for (let i = 0; i < d.length; i += 4) {
-    const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    for (let c = 0; c < 3; c++) d[i + c] = clamp(255 * gain * (clamp((L + (d[i + c] - L) * sat) / 255)) ** gamma, 0, 255);
-  }
-}
-
 /** `im` drawn into a w x h frame at scale `s`, the picture's (px, py) on the frame's (fx, fy): each frame px is the mean of
  *  the picture's under it (premultiplied), then sharpened by `sharp`. */
 export function fit(im, s, px, py, fx, fy, w, h, sharp = 0) {
@@ -146,10 +137,21 @@ export function cover(polys, w, h) {
   }
   return a;
 }
-/** `im` over black of opacity `a` (0..1 a px). */
-export function overShadow(im, a) {
-  const out = image(im.w, im.h);
-  for (let q = 0, i = 0; q < a.length; q++, i += 4) { const k = im.d[i + 3] / 255, t = k + a[q] * (1 - k); out.d[i + 3] = t * 255; if (t > 0) for (let c = 0; c < 3; c++) out.d[i + c] = im.d[i + c] * k / t; }
+/** The shadow (0..1 a px) of `im`'s silhouette standing on the row `line`: a px `h` rows above it falls `dx h` east and
+ *  `dy h` south of its foot; 3 x 3 samples a px. */
+export function silhouette(im, line, dx, dy) {
+  const { w, h, d } = im, a = new Float32Array(w * h);
+  const at = (x, y) => { const i = Math.floor(x), j = Math.floor(y); return i < 0 || j < 0 || i >= w || j >= h ? 0 : d[(j * w + i) * 4 + 3] > 127 ? 1 : 0; };
+  for (let y = Math.max(0, Math.floor(line)); y < h; y++) for (let x = 0; x < w; x++) {
+    let n = 0; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) { const g = y + (j + 0.5) / 3 - line; if (g > 0) n += at(x + (i + 0.5) / 3 - g / dy * dx, line - g / dy); }
+    a[y * w + x] = n / 9;
+  }
+  return a;
+}
+/** `im` over `color` ('#rrggbb') of opacity `a` (0..1 a px). */
+export function overShadow(im, a, color) {
+  const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16)), out = image(im.w, im.h);
+  for (let q = 0, i = 0; q < a.length; q++, i += 4) { const k = im.d[i + 3] / 255, t = k + a[q] * (1 - k); out.d[i + 3] = t * 255; if (t > 0) for (let c = 0; c < 3; c++) out.d[i + c] = (im.d[i + c] * k + rgb[c] * a[q] * (1 - k)) / t; }
   return out;
 }
 /** The 8-bit pixels of `im`, the color carried `n` px out under the clear ones (no dark fringe when a mipmap or a filter

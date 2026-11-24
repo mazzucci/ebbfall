@@ -45,12 +45,12 @@ async function game(art, device, { race = 'vael', foe = 'humans', fog = false, s
       console.error('[put]', type, window.why);
       return null;
     };
-    window.clean = () => { for (const t of document.querySelectorAll('#msg .toast, #msg, #hint, #tut')) t.style.display = 'none'; endfall.G.events.length = 0; };
+    window.clean = () => { for (const t of document.querySelectorAll('#msg .toast, #msg, #hint, #tut')) t.style.display = 'none'; };
   });
   return { ctx, page };
 }
 async function shoot(page, name, art, at, zoom, clip) {
-  const s = await page.evaluate(([at, zoom]) => { if (zoom) endfall.cam.zoom = zoom === 'start' ? endfall.startZoom : zoom; if (at) endfall.centerOn(at.x, at.y); clean(); endfall.draw(); endfall.draw(); const { G, engine: E, cam } = endfall; return { hash: E.stateHash() >>> 0, time: G.time, zoom: cam.zoom, cam: [cam.x, cam.y] }; }, [at, zoom]);
+  const s = await page.evaluate(([at, zoom]) => { if (zoom) endfall.cam.zoom = zoom === 'start' ? endfall.startZoom : zoom; if (at) endfall.centerOn(at.x, at.y); clean(); endfall.draw(); const { G, engine: E, cam } = endfall; return { hash: E.stateHash() >>> 0, time: G.time, zoom: cam.zoom, cam: [cam.x, cam.y] }; }, [at, zoom]);
   const file = `${name}-${art}.png`;
   await page.screenshot({ path: join(out, file), timeout: 300000, ...(clip ? { clip } : {}) });
   log.push({ file, ...s }); console.log(file, s.hash, s.zoom.toFixed(2));
@@ -88,7 +88,7 @@ try {
       await ctx.close();
     }
     if (want('state')) for (const [type, race] of Object.entries(TYPES)) {
-      const { ctx, page } = await game(art, D2, { race });
+      const { ctx, page } = await game(art, { viewport: { width: 900, height: 620 }, deviceScaleFactor: 1 }, { race });
       const b = await page.evaluate((t) => { const { G } = endfall; let b = G.bldgs.find(b => b.team === G.me && b.type === t); if (!b) { const id = put(t, -200, 120); b = G.bldgs.find(b => b.id === id); } return { id: b.id, x: b.x, y: b.y, tx: b.tx, ty: b.ty, w: b.w, h: b.h }; }, type);
       const C = (n) => crop(page, `state-${type}-${n}`, art, b.x, b.y - 10, 2, 400, 400);
       await page.evaluate((id) => { const b = endfall.G.bldgs.find(b => b.id === id); endfall.ui.sel = [b]; }, b.id); await C('selected');
@@ -100,10 +100,10 @@ try {
       for (const [n, dx] of [['ghost-ok', 8], ['ghost-no', 1]]) { await page.evaluate(([t, b, dx]) => { const { engine: E, G, ui } = endfall; for (let d = dx; d < dx + 12; d++) if (dx === 1 || E.canPlace(t, b.tx - d, b.ty + 2, G.me)) { ui.place = { type: t, tx: b.tx - d, ty: b.ty + 2 }; break; } }, [type, b, dx]); const g = await page.evaluate(() => endfall.ui.place); if (g) await crop(page, `state-${type}-${n}`, art, (g.tx + b.w / 2) * 32, (g.ty + b.h / 2) * 32 - 10, 2, 400, 400); await page.evaluate(() => { endfall.ui.place = null; }); }
       // damaged (with the hit's flash), then falling: foes beside it
       await page.evaluate(([id]) => { const { engine: E, G } = endfall, b = G.bldgs.find(b => b.id === id); E.debugSetHp(id, b.maxhp * 0.2); endfall.skip(1 / 30); G.bldgs.find(b => b.id === id).flash = 0.1; }, [b.id]); await C('hit');
-      for (let i = 0; i < 30; i++) { await page.clock.runFor(33); } await C('burning');
+      await page.clock.runFor(600); await C('burning');
       const fell = await page.evaluate(([b]) => { const { engine: E, G } = endfall; E.debugSetHp(b.id, 1); const foe = [0, 1, 2, 3].find(t => t !== G.me); for (let i = 0; i < 4; i++) E.debugSpawn(foe, G.factions[foe] === 'vael' ? 'umbra' : 'lancer', b.x - 40 + i * 26, b.y + b.h * 16 + 40); return true; }, [b]);
-      for (let i = 0; fell && i < 600; i++) { await page.clock.runFor(33); if (await page.evaluate((id) => !endfall.G.bldgs.some(b => b.id === id), b.id)) break; }
-      await page.clock.runFor(133); await C('falling'); for (let i = 0; i < 70; i++) await page.clock.runFor(33); await C('rubble');
+      await page.evaluate((id) => { for (let i = 0; i < 400 && endfall.G.bldgs.some(b => b.id === id); i++) endfall.skip(1 / 30); }, b.id);
+      await page.clock.runFor(150); await C('falling'); await page.clock.runFor(1600); await C('rubble');
       await ctx.close();
     }
     if (want('fog')) { // the enemy's Castle and Data center, seen and left: remembered in the fog

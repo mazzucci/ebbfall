@@ -9,7 +9,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../../chromium.mjs';
 import { encodeWebP } from '../../art/webp.mjs';
-import { keyGreen, takePaint, tone, fit, blur, bloom, cover, overShadow, bytes, box, crop, image } from './pixels.js';
+import { tone, SHADOW } from '../tone.mjs';
+import { keyGreen, takePaint, fit, silhouette, blur, bloom, cover, overShadow, bytes, box, crop, image } from './pixels.js';
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -28,21 +29,21 @@ const ring = (x, y, r, h) => Array.from({ length: 24 }, (_, i) => { const a = i 
 const block = (pts, h) => pts.flatMap(([x, y]) => [[x, y, 0], [x, y, h]]);
 const CFG = {
   page: 1024, gap: 8,                                        // the page's width, the clear px between frames (mipmaps)
-  shadow: { alpha: 110 / 255, dx: 0.24, dy: 0.18, soft: 0.5 }, // today's: 0.36 of the height (drawn 1.19 x), 4 east to 3 south; `soft` world px of feather (today's: none)
-  contact: { alpha: 0.28, out: 2.5 },                          // a soft dark edge on the ground round the foot (world px)
+  shadow: { alpha: SHADOW.alpha, dx: 0.28, dy: 0.16 },       // a third of the drawn height (tone.mjs SHADOW), to the lower right, crisp
+  contact: { alpha: 0.22, out: 2 },                          // a soft dark edge on the ground round the foot (world px)
   sharp: 0.35,
   webp: { lossless: 0, quality: 90, use_sharp_yuv: 1, alpha_quality: 100, method: 6, exact: 1 },
   bldg: {
     // `ground`: the outline on the ground; its middle stands on the footprint's, `dy` px south. `w`: the ground's width.
-    conflux: { pic: 'set/ref-c1.jpg', n: 4, w: 150, dy: 8, ...HALL, solids: [block(HALL.ground, HALL.h)], tone: { gamma: 1.06, gain: 1, sat: 1.06 }, lit: cyan, bloom: [5, 0.5],
+    conflux: { pic: 'set/ref-c1.jpg', n: 4, w: 150, dy: 8, ...HALL, solids: [block(HALL.ground, HALL.h)], lit: cyan, bloom: [5, 0.5],
       look: { glow: { at: [1066, 615], tint: 0x20d8ff, size: 0.9 }, site: [1.17, 0.8, -12] } },
     core: { pic: 'kingdom/core-e1.jpg', n: 4, w: 146, dy: 8, ground: [[213, 1395], [1170, 1740], [1845, 1290], [888, 945]],
       solids: [block([[240, 1370], [1170, 1710], [1820, 1270], [890, 930]], 560), tower(292, 1395, 80, 700, 890), tower(1175, 1705, 102, 680, 900), tower(1765, 1272, 70, 640, 870), tower(995, 960, 120, 700, 870)],
-      tone: { gamma: 0.9, gain: 1.0, sat: 1.0 }, lit: fire, bloom: [4, 0.7], look: { glow: { at: [712, 1186], tint: 0xff8a2a, size: 0.4 }, smoke: null, site: [1.22, 0.9, -8] } },
-    kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, solids: [block(HALL.ground, HALL.h)], tone: { gamma: 1.06, gain: 1, sat: 1.06 }, lit: cyan, bloom: [4, 0.2],
+      lit: fire, bloom: [4, 0.7], look: { glow: { at: [712, 1186], tint: 0xff8a2a, size: 0.4 }, smoke: null, site: [1.22, 0.9, -8] } },
+    kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, solids: [block(HALL.ground, HALL.h)], lit: cyan, bloom: [4, 0.2],
       look: { glow: { at: [1014, 576], tint: 0x20d8ff, size: 0.55 }, site: [1.2, 0.8, -9] } },
     spire: { pic: 'turbine/tower-bare.jpg', n: 2, scaleBy: [434, 1978, 78], anchor: [1030, 1890], dy: 4, ground: [[860, 1890], [1030, 1975], [1200, 1890], [1030, 1805]],
-      solids: [ring(1030, 1890, 168, 0), [...ring(1030, 1890, 85, 0), ...ring(1030, 1890, 60, 1250)], [...ring(1030, 1890, 110, 1190), ...ring(1100, 1840, 110, 1260)]], low: 0.02, tone: { gamma: 1.0, gain: 1.0, sat: 1.0 },
+      solids: [ring(1030, 1890, 168, 0), [...ring(1030, 1890, 85, 0), ...ring(1030, 1890, 60, 1250)], [...ring(1030, 1890, 110, 1190), ...ring(1100, 1840, 110, 1260)]], low: 0.02, 
       rotor: { plate: [915, 635], blade: 590, axis: [-0.503, -0.327, 0.8], n: 16, key: 0.72, hemi: 0.5 } },
   },
 };
@@ -75,7 +76,7 @@ async function rotor(o) {
 // ---- a building ----
 async function building(type, c) {
   const S = SCALE, pic = await picture(c.pic);
-  keyGreen(pic, { low: c.low }); const mask = takePaint(pic, { shade: c.shade }); tone(pic, c.tone);
+  keyGreen(pic, { low: c.low }); const mask = takePaint(pic, { shade: c.shade });
   const g = c.ground, xs = g.map(p => p[0]), ys = g.map(p => p[1]);
   const k = c.scaleBy ? c.scaleBy[2] / (c.scaleBy[1] - c.scaleBy[0]) : c.w / (Math.max(...xs) - Math.min(...xs)); // world px a picture px
   const mid = c.anchor || [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
@@ -85,10 +86,16 @@ async function building(type, c) {
   const put = (im, sharp) => fit(im, k * S, mid[0], mid[1], ax, ay + c.dy * S, W, H, sharp);
   let body = put(pic, CFG.sharp); const m = put(mask, 0);
   if (c.lit) bloom(body, c.lit, Math.max(1, Math.round(c.bloom[0] * S / 2)), c.bloom[1]);
+  tone(body.d); // (the light of the new look: the picture only, never the mask nor the shadow)
   const sh = CFG.shadow, pt = (h) => ([x, y, z = 0]) => { const [X, Y] = at(x, y), q = z * k * S * h; return [ax + X + q * sh.dx, ay + Y + q * sh.dy]; };
-  const cast = blur(cover(c.solids.map(s => s.map(pt(1))), W, H), W, H, Math.max(1, Math.round(sh.soft * S)), 1);
+  // Where it sorts among the units: the line through its left and right ground corners, px south of its middle.
+  const by = (f) => g.reduce((a, b) => (f(b[0], a[0]) ? b : a)), look = { z: +((at(...by((p, q) => p < q))[1] + at(...by((p, q) => p > q))[1]) / 2 / S).toFixed(1) };
+  // The shadow: its silhouette laid over on the ground from the line through its side corners (towers, battlements, the
+  // flag), joined by its walls' own (what the silhouette hides: the near wall's and the near corner's).
+  const line = ay + look.z * S, cast = silhouette(body, line, sh.dx, sh.dy), walls = cover(c.solids.map(s => s.map(pt(1))), W, H);
+  for (let q = 0; q < cast.length; q++) cast[q] = Math.max(cast[q], walls[q]);
   const foot = blur(cover([c.ground.map(pt(0))], W, H), W, H, Math.round(CFG.contact.out * S / 2), 2);
-  body = overShadow(body, cast.map((v, i) => Math.min(sh.alpha, Math.max(v * sh.alpha, foot[i] * CFG.contact.alpha))));
+  body = overShadow(body, cast.map((v, i) => Math.min(sh.alpha, Math.max(v * sh.alpha, foot[i] * CFG.contact.alpha))), SHADOW.color);
   const frames = [], cut = (name, im, b) => frames.push({ name, im: bytes(crop(im, b)), anchor: { x: (ax - b[0]) / (b[2] - b[0] + 1), y: (ay - b[1]) / (b[3] - b[1] + 1) } });
   const pad = ([x0, y0, x1, y1]) => [x0 - 2, y0 - 2, x1 + 2, y1 + 2];
   const bb = pad(box(body));
@@ -96,11 +103,10 @@ async function building(type, c) {
   if (c.rotor) {
     const o = c.rotor, [hx, hy] = at(...o.plate), L = o.blade * k * S, q = Math.ceil(L * 1.3);
     const heads = (await rotor({ w: 2 * q, h: 2 * q, ox: q, oy: q, L, axis: o.axis, n: o.n, key: o.key, hemi: o.hemi })).map(f => fit(f, 2 * q / f.w, 0, 0, ax + hx - q, ay + hy - q, W, H));
+    heads.forEach(h => tone(h.d));
     const hb = heads.map(h => box(h)), un = pad([Math.min(...hb.map(b => b[0])), Math.min(...hb.map(b => b[1])), Math.max(...hb.map(b => b[2])), Math.max(...hb.map(b => b[3]))]);
     heads.forEach((h, i) => cut(`${type}_head_${i}`, h, un));
   }
-  // Where it sorts among the units: the line through its left and right ground corners, px south of its middle.
-  const by = (f) => g.reduce((a, b) => (f(b[0], a[0]) ? b : a)), look = { z: +((at(...by((p, q) => p < q))[1] + at(...by((p, q) => p > q))[1]) / 2 / S).toFixed(1) };
   if (c.look?.glow) { const G = c.look.glow, [x, y] = at(...G.at); look.glow = [G.tint, G.size, 0.3, +(-y / S).toFixed(1), !!G.flicker, +(x / S).toFixed(1)]; }
   for (const key of ['smoke', 'site']) if (key in (c.look ?? {})) look[key] = c.look[key]; // (`site`: today's scaffold or gantry stretched round it: east, south, its shift south)
   return { frames, look };

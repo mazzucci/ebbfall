@@ -37,6 +37,7 @@ test('?bench plays its game, measures it, and sends the report for a code', { ti
 
     assert.equal(report.result, 'done');
     assert.deepEqual([report.setup.seats, report.setup.size, report.setup.ai, report.setup.from, report.setup.secs], [8, 128, 'Medium', 30, 5]);
+    assert.equal(report.setup.art, 'today', 'which art it ran');
     assert.equal(report.prep.ticks, 30 * 30 - 1, 'fast-forwarded to 0:30 (the last tick through the mirror)');
     assert.equal(report.prep.hidden, false);
     assert.ok(report.prep.ms > 0);

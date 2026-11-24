@@ -1,6 +1,6 @@
 // The new look's switch (?art=new, src/client/gl/newart.js): nothing of it is asked for without it; with it and nothing
 // built, a missing page or a broken index, the game is today's, with no error; and the same link plays the same game with
-// and without it (?seed=, ?map=), so two tabs side by side show the same place. (The packs themselves are not in the repo.)
+// and without it (?seed=, ?map=), so two tabs side by side show the same place. The packs are public/art/new/.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { test, start, stop, browserContext, baseUrl, DESKTOP } from './harness.mjs';
@@ -29,8 +29,8 @@ test('without ?art=new nothing of the new look is asked for', { timeout: 120000 
   assert.deepEqual([p.asked, p.errors], [[], []]);
 });
 
-test('with it and nothing built, a missing page or a broken index: today\'s art, no error', { timeout: 240000 }, async () => {
-  for (const [what, routes] of [['nothing built', {}], ['a missing page', { 'art/new/index\\.json': json({ groups: { bldg: { pages: ['nope.json'] }, land: {}, x: null } }) }], ['an index that is not JSON', { 'art/new/index\\.json': { contentType: 'application/json', body: '<html>' } }]]) {
+test('with it and no index, a missing page or a broken index: today\'s art, no error', { timeout: 240000 }, async () => {
+  for (const [what, routes] of [['no index', { 'art/new/index\\.json': { status: 404, body: '' } }], ['a missing page', { 'art/new/index\\.json': json({ groups: { bldg: { pages: ['nope.json'] }, land: {}, x: null } }) }], ['an index that is not JSON', { 'art/new/index\\.json': { contentType: 'application/json', body: '<html>' } }]]) {
     const p = await play('?seed=4242&map=4&art=new', routes);
     assert.deepEqual(p.errors, [], what);
     assert.ok(p.asked.length >= 1, `${what}: the index was asked for`);
@@ -41,4 +41,10 @@ test('the same link plays the same game with and without ?art=new', { timeout: 1
   const a = await play('?seed=4242&map=4'), b = await play('?seed=4242&map=4&art=new');
   assert.deepEqual(a.hash.a, b.hash.a, 'state hashes');
   assert.equal(a.hash.start, b.hash.start);
+});
+
+test('with it, the packs that are there load, with no error and no failed request', { timeout: 180000 }, async () => {
+  const p = await play('?seed=4242&map=4&art=new');
+  assert.deepEqual(p.errors, []);
+  assert.ok(p.asked.some(f => f.endsWith('/bldg-0.webp')), `the buildings' page: ${p.asked}`);
 });

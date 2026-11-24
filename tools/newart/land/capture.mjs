@@ -5,7 +5,7 @@
 // `endfall.skip`, each shot drawn by `endfall.draw`; the state hash is logged with every shot, so a still of today's
 // art and one of the new are the same instant.
 //   node tools/newart/land/capture.mjs look --art new --map 7 --seed 1291 --at 1500,900 [--zoom 1.5] [--size 1920x1080]
-//        [--dpr 1] [--cap 1] [--fog] [--name x] [--shots "name:x,y:zoom;..."]   stills of a spot (or of several)
+//        [--dpr 1] [--cap 1] [--fog] [--name x] [--shots "name:x,y:zoom;..."] [--minimap]   stills of a spot (or of several)
 //   node tools/newart/land/capture.mjs set                           the delivery's stills (shots.json beside them)
 //   node tools/newart/land/capture.mjs perf                          frame, load and memory numbers (perf.json)
 // Run it under the machine's Chrome lock: flock /tmp/claude-1000/ebbfall-lab.lock node tools/newart/land/capture.mjs ...
@@ -84,6 +84,7 @@ if (MODE === 'look') {
     const shots = has('--shots') ? arg('--shots').split(';').map(t => t.split(':')).map(([n, at, zz]) => [n, at.split(',').map(Number), zz ?? z]) : [[arg('--name', 'look'), [x, y], z]];
     const done = [];
     for (const [n, [sx, sy], zz] of shots) done.push(await still(p, `${n}.png`, isNaN(+zz) ? zz : +zz, { x: sx, y: sy }, { hud: !has('--nohud'), clip: has('--clip') ? (([x, y, width, height]) => ({ x, y, width, height }))(arg('--clip').split(',').map(Number)) : null }));
+    if (has('--minimap')) await p.page.locator('#minimap').screenshot({ path: join(OUT, `minimap-${arg('--name', 'look')}.png`) }); // (the minimap alone, as it stands after the last still)
     console.log(JSON.stringify({ first: { ...p.first, ground: undefined }, loaded: p.loaded, land: done[0].land, errors: p.errors }));
   } finally { await stop(); }
 }

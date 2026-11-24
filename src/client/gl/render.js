@@ -1439,7 +1439,11 @@ function minimapBase(c, S, T) {
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, mmBase.width, mmBase.height); c.drawImage(mmGround, 0, 0); c.restore();
   // Gold mines gold, their footprint: not any seat's color.
   const revealed = !L.fog.visible; // (showFog: the docs' staged shots)
-  for (const n of map.nodes) if (revealed || G.explored[idx(n.tx, n.ty)]) { c.fillStyle = MM_GOLD; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
+  for (const n of map.nodes) if (revealed || G.explored[idx(n.tx, n.ty)]) {
+    const x = n.tx * TILE * S, y = n.ty * TILE * T, w = Math.max(3, n.w * TILE * S), h = Math.max(3, n.h * TILE * T);
+    if (land) { c.fillStyle = MINIMAP.mineEdge; c.fillRect(x - MINIMAP.mineRim, y - MINIMAP.mineRim, w + 2 * MINIMAP.mineRim, h + 2 * MINIMAP.mineRim); } // (the new land's brighter grass: a dark rim, a brighter gold)
+    c.fillStyle = land ? MINIMAP.mine : MM_GOLD; c.fillRect(x, y, w, h);
+  }
   // Every seat in its color, ours too, as on the field (with two seats as well: ours is no longer the amber of seat 0's
   // old gold); an ally's buildings framed in white (a team game: whose color is on our side, its base and army in our sight).
   const col = seatCss();

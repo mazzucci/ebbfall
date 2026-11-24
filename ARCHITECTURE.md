@@ -398,7 +398,7 @@ src/client/           everything that touches the browser
                       from pictures that are not in the repo: the placement's and its test's source of truth
   gl/newlandgl.js     the new land drawn: the ground as one quad with a shader of its own (the tiling grounds mixed by
                       the mix image, the foot line along blocked ground; the apron too; `MINIMAP`: the minimap's ground
-                      colors with the new land), the pieces nothing can stand behind laid in rows under the units,
+                      colors and gold mines with the new land), the pieces nothing can stand behind laid in rows under the units,
                       the live ones among the units and buildings, sorted with them, only those on screen; gl/render.js
                       shows a unit behind them as a silhouette (ours in our color, another seat's in red)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on

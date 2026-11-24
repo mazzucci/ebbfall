@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import 'pixi.js/unsafe-eval'; // (PixiJS's eval-free shader and uniform code: the site's CSP allows no eval, site/cache.js)
-import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
+import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Matrix, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
@@ -15,6 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
+import { proj } from './proj.js'; // (the turned and tilted view's trial, ?iso=: off, it returns world px untouched)
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -34,9 +35,9 @@ const MAX_SPAN = 1800, MAX_SPAN_H = MAX_SPAN * 9 / 16;
  *  wider or taller than the map (`fills`): the camera never shows past its edges (a 3440x1440 window's area alone saw
  *  2090 px across a 2048 px duel map; 1.68 now). That one may pass ZOOM_MAX, on a window over 2.5 maps wide (5120 px
  *  on a duel map is 2.5 exactly): `zoomTop` lets it. Read on each resize, the wheel and the pinch. */
-export const zoomLimit = () => Math.max(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.sqrt(view.w * view.h / (MAX_SPAN * MAX_SPAN_H)))), fills());
+export const zoomLimit = () => Math.max(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.sqrt(view.w * view.h / (proj.area * MAX_SPAN * MAX_SPAN_H)))), fills()); // (proj.area: a turned and squashed map shows 1/area times the ground at one zoom)
 /** The zoom at which the window is as wide as the map, or as tall, whichever is closer. */
-const fills = () => Math.max(view.w / WW, view.h / WH);
+const fills = () => proj.on ? Math.max(view.w / (proj.span * WW), view.h / (proj.span * proj.k * WH)) : Math.max(view.w / WW, view.h / WH);
 /** The closest zoom: ZOOM_MAX, unless the map's own width asks for more (`zoomLimit`). */
 const zoomTop = () => Math.max(ZOOM_MAX, zoomLimit());
 /** How much of the map (world px across) a desktop's window shows when a game starts: the base and the ground round
@@ -218,6 +219,11 @@ const world = new Container({ isRenderGroup: true });
 const L = {};
 const GROUPS = new Set(['apron', 'terrain', 'scenery', 'worn', 'decals', 'found', 'ents', 'air']);
 for (const k of ['apron', 'terrain', 'scenery', 'shade', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+// The trial's view: what lies flat on the ground is drawn in world px under the ground's own matrix; everything else
+// stands upright, its sprites set at projected points (plane px).
+const GROUND = proj.on ? new Matrix(proj.cos, proj.k * proj.sin, -proj.sin, proj.k * proj.cos, 0, 0) : null;
+if (GROUND) for (const k of ['apron', 'terrain', 'shade', 'worn', 'found', 'fog']) L[k].setFromMatrix(GROUND);
+const PX = proj.X, PY = proj.Y;
 L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 L.apron.tint = 0xb4b4b4; // (the apron a shade darker than the map's own rock: where the map ends still reads)
@@ -284,6 +290,11 @@ function cardTop() {
 }
 let bleed = false, topRoom = 0, footRoom = FOOT_ROOM;
 export function clampCam() {
+  if (proj.on) { // (the trial: the middle of the view stays on the map; past its edges is the apron, then the dark)
+    const c = proj.from(cam.x + vw() / 2, cam.y + vh() / 2), x = clamp(c.x, 0, WW), y = clamp(c.y, 0, WH);
+    if (x !== c.x || y !== c.y) { cam.x = PX(x, y) - vw() / 2; cam.y = PY(x, y) - vh() / 2; }
+    return;
+  }
   if (bleed) {
     cam.x = clamp(cam.x, 0, Math.max(0, WW - vw()));
     cam.y = clamp(cam.y, -topRoom / cam.zoom, Math.max(0, WH - vh()) + footRoom / cam.zoom);
@@ -291,24 +302,32 @@ export function clampCam() {
   }
   const o = overscroll(); cam.x = clamp(cam.x, -o, Math.max(0, WW - vw()) + o); cam.y = clamp(cam.y, -o / 2, Math.max(0, WH - vh()) + o);
 }
-export function centerOn(x, y) { cam.x = x - vw() / 2; cam.y = y - vh() / 2; clampCam(); }
+export function centerOn(x, y) { cam.x = PX(x, y) - vw() / 2; cam.y = PY(x, y) - vh() / 2; clampCam(); }
 /** The camera for a game's start: over (x, y), and on the map itself, nothing past its edges at the sides or the top
  *  (a base sits near a corner: the usual room past the edge showed dark down the first screen's side, on a desktop and
  *  on a phone on its side alike); at the foot the usual room stays, where the HUD floats over the map. */
 export function startOn(x, y) {
-  centerOn(x, y);
+  centerOn(x, y); if (proj.on) return;
   cam.x = clamp(cam.x, 0, Math.max(0, WW - vw())); cam.y = Math.max(0, cam.y);
 }
 /** Screen (canvas css px) → world px. */
-export const toWorld = (sx, sy) => ({ x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y });
+export const toWorld = (sx, sy) => proj.from(sx / cam.zoom + cam.x, sy / cam.zoom + cam.y);
+/** World px → screen (canvas css px). */
+export const toScreen = (x, y) => ({ x: (PX(x, y) - cam.x) * cam.zoom, y: (PY(x, y) - cam.y) * cam.zoom });
+/** The world rectangle on screen (the trial's: the one round the middle of the view with the ground's area in it). */
+export const viewRect = () => {
+  if (!proj.on) return { x: cam.x, y: cam.y, w: vw(), h: vh() };
+  const c = proj.from(cam.x + vw() / 2, cam.y + vh() / 2), w = vw(), h = vh() / proj.k; return { x: c.x - w / 2, y: c.y - h / 2, w, h };
+};
 /** Whether world point (x, y) is on screen or within `m` world px of it. With eight armies most fights are elsewhere:
  *  their effects are not made at all (decals are, and show once the camera comes). */
-export const nearView = (x, y, m = 160) => x > cam.x - m && x < cam.x + vw() + m && y > cam.y - m && y < cam.y + vh() + m;
+const inPlane = (x, y, m) => x > cam.x - m && x < cam.x + vw() + m && y > cam.y - m && y < cam.y + vh() + m;
+export const nearView = (x, y, m = 160) => inPlane(PX(x, y), PY(x, y), m);
 /** Zoom by `factor`, keeping the world point under screen point (sx, sy) fixed. */
 export function zoomAt(factor, sx, sy) {
   const before = toWorld(sx, sy);
   cam.zoom = clamp(cam.zoom * factor, zoomLimit(), zoomTop());
-  cam.x = before.x - sx / cam.zoom; cam.y = before.y - sy / cam.zoom; clampCam();
+  cam.x = PX(before.x, before.y) - sx / cam.zoom; cam.y = PY(before.x, before.y) - sy / cam.zoom; clampCam();
 }
 
 // ---- terrain (once per map) ----
@@ -323,7 +342,7 @@ const FOG_DARK = [5, 7, 11, 255], FOG_SEEN = [18, 22, 34, 115], FOG_CLEAR = [18,
  *  ARMY over the minimap: 255 screen px at 0.75 in the largest window whose limit is 0.75, 1350 x 759; a larger
  *  window's grows with --u as its limit does, and --u stops at 1.1; 313 px with a mouse alone, a three-row card's top),
  *  11 tiles; a tablet's 227 screen px (231 over a home indicator) at 0.75, 308 px. */
-const APRON = 13;
+const APRON = proj.on ? 28 : 13; // (the trial: the turned map's corners leave the window far past an edge)
 // (the fog canvas is APRON tiles larger each way, its edge pixels stretched out each update; the map's own part,
 // `fogMapTex`, for a box)
 let fogCv, fogCtx, fogImg, fogTex, fogMapTex, gridW = 0, gridH = 0;
@@ -345,8 +364,9 @@ function sizeGrids() {
 /** The apron and the fog's part past the map shown edge to edge only (`bleed`). */
 function showApron() {
   if (!fogTex) return;
-  L.apron.visible = bleed;
-  fog.texture = bleed ? fogTex : fogMapTex; fog.position.set(bleed ? -APRON * TILE : 0);
+  const past = bleed || proj.on;
+  L.apron.visible = past;
+  fog.texture = past ? fogTex : fogMapTex; fog.position.set(past ? -APRON * TILE : 0);
 }
 sizeGrids();
 
@@ -366,7 +386,17 @@ function hideCoveredDoodads() {
   }
 }
 const apronChunks = [];
-function cullTerrain(x0, y0, x1, y1) { for (const list of [chunks, apronChunks]) for (const c of list) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1; }
+/** The ground's chunks the view shows (a rectangle in world px; in the trial in plane px, against each chunk's corners). */
+function cullTerrain(x0, y0, x1, y1) {
+  if (proj.on) {
+    for (const list of [chunks, apronChunks]) for (const c of list) if (c) {
+      const a = c.cx - TILE, b = c.cx + 9 * TILE, d = c.cy - TILE, e = c.cy + 9 * TILE; // (turned under 90 degrees: the corners' order is known)
+      c.visible = PX(b, d) > x0 && PX(a, e) < x1 && PY(b, e) > y0 && PY(a, d) < y1;
+    }
+    return;
+  }
+  for (const list of [chunks, apronChunks]) for (const c of list) if (c) c.visible = c.cx + 9 * TILE > x0 && c.cx - TILE < x1 && c.cy + 9 * TILE > y0 && c.cy - TILE < y1;
+}
 
 /** The minimap's ground colors (renderTerrain): rock, water, the meadows, the worn dirt and the rock's lean. */
 const MM_ROCK = { forest: [42, 63, 34], hill: [119, 117, 108] }, MM_WET = { shallow: [70, 124, 128], deep: [29, 54, 88] };
@@ -457,8 +487,10 @@ export function renderTerrain() {
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
   const cores = G.bldgs.filter(b => b.d.hq).map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
-  for (const d of scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry })) {
-    const s = new Sprite(); setTex(s, tex(`doodad_${d.name}`)); s.position.set(d.x, d.y); L.scenery.addChild(s);
+  const props = scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry });
+  if (proj.on) props.sort((a, b) => proj.depth(a.x, a.y) - proj.depth(b.x, b.y));
+  for (const d of props) {
+    const s = new Sprite(); setTex(s, tex(`doodad_${d.name}`)); s.position.set(PX(d.x, d.y), PY(d.x, d.y)); L.scenery.addChild(s);
     doodads.push({ s, tx: d.tx, ty: d.ty, ground: d.ground });
   }
   // Minimap background: the grass green by the map's shade, a forest darker, a hill gray, the sea teal and blue, as the
@@ -504,7 +536,16 @@ function selRing(cx, cy, rx, ry, color) {
   selG.ellipse(cx, cy, rx, ry).stroke({ width: 1.5 * px, color, alpha: 0.95 });
 }
 /** A selected building: its ring sized to its footprint (look.js `selOval`). */
-function selOval(b, color) { const o = selOvalOf(b); selRing(o.x, o.y, o.rx, o.ry, color); }
+function selOval(b, color) {
+  const o = selOvalOf(b);
+  if (proj.on) { const R = b.w * TILE * 0.66; selRing(PX(b.x, b.y), PY(b.x, b.y), R, R * proj.k, color); return; } // (a ring on the ground round the footprint)
+  selRing(o.x, o.y, o.rx, o.ry, color);
+}
+/** A box on the ground (world px: its corner and size) onto `g`: a rectangle, turned in the trial. */
+function groundRect(g, x, y, w, h) {
+  if (!proj.on) return g.rect(x, y, w, h);
+  return g.poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]].flatMap(([a, b]) => [PX(a, b), PY(a, b)]));
+}
 class UnitObj {
   constructor(u) {
     const layer = u.d.air ? L.air : L.ents;
@@ -527,7 +568,7 @@ class UnitObj {
     // (a unit with poses: its march cycle, else the pose of its toggle: settling in or packing up, then on)
     const pose = UNIT_POSE[u.type], frames = pose ? pose.walk : this.frames;
     const f = pose && u.swap > 0 ? pose.swap : pose && u.mode ? pose.on : Math.floor(this.walk) % frames;
-    const dir = ((Math.round(u.face / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS;
+    const dir = ((Math.round(proj.face(u.face) / (Math.PI * 2) * FACINGS) % FACINGS) + FACINGS) % FACINGS, X = PX(u.x, u.y), Y = PY(u.x, u.y);
     // (a melee unit in a fight: its strike poses, look.js strikePose, over the walk)
     const sp = strikePose(u); this.pose = sp;
     const name = sp ? `${u.type}_${dir}_${sp}` : `${u.type}_${dir}_${f}`, tx = tex(name);
@@ -535,15 +576,15 @@ class UnitObj {
     const glide = UNIT_FPS[u.type] === 0, bob = this.air ? Math.sin(t * (glide ? 1.6 : 3) + u.id) * (glide ? 2 : 1.2) : 0; // (a glider rides a slower, deeper swell)
     // (sorted by its feet among the buildings, which sit half a px north of their bottom row: one standing on that line is
     // in front; units on one line apart by id)
-    this.node.position.set(u.x, u.y + bob); this.node.zIndex = u.y + (u.id % 997) * 1e-5;
+    this.node.position.set(X, Y + bob); this.node.zIndex = proj.depth(u.x, u.y) + (u.id % 997) * 1e-5;
     this.work(u, t);
-    if (this.xr) { setTex(this.xr, tx); this.xr.position.set(u.x, u.y); }
+    if (this.xr) { setTex(this.xr, tx); this.xr.position.set(X, Y); }
     this.flash.visible = this.paintFlash.visible = u.flash > 0; this.flash.alpha = this.paintFlash.alpha = 0.6;
     // (a toggle shows in its pose, UNIT_POSE: a deployed Cannon, a braced Guard)
     paintAs(this.body, this.paint, this.seat, 0xffffff, 1);
-    if (sel.has(u)) selRing(u.x, u.y + 3, this.size * 0.84, this.size * 0.52, enemies(G.me, u.team) ? SEL_FOE : SEL); // (a little tighter than the art round the feet)
+    if (sel.has(u)) selRing(X, Y + 3, this.size * 0.84, this.size * (proj.on ? 0.84 * proj.k : 0.52), enemies(G.me, u.team) ? SEL_FOE : SEL); // (a little tighter than the art round the feet)
     this.cargo.visible = !!u.carry;
-    if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
+    if (u.carry) { this.cargo.tint = 0xeee6d2; const cx = u.x - Math.cos(u.face) * 7, cy = u.y - Math.sin(u.face) * 7; this.cargo.position.set(PX(cx, cy), PY(cx, cy) - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   /** A builder at work (construct.js WORK): standing in reach of its unfinished site, a strike every 0.55 s or so (its
    *  phase from its id): a pale glint and a little dust on a Kingdom wall, a welding spark on the Expedition's, a soft
@@ -554,17 +595,17 @@ class UnitObj {
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
       const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames;
-      if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect(f.anim, p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
+      if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; const l = proj.up(p.x, p.y, f.lift); addEffect(f.anim, l.x, l.y, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
       else {
         const g = STRIKE_FX.glint, s = STRIKE_FX.dust;
-        addEffect('glint', p.x, p.y - g.lift, { life: g.life, scale: g.scale, tint: g.tint, light: g.tint, lightScale: 0.1 });
+        const l = proj.up(p.x, p.y, g.lift); addEffect('glint', l.x, l.y, { life: g.life, scale: g.scale, tint: g.tint, light: g.tint, lightScale: 0.1 });
         addEffect(HIT_DUST.anim, p.x, p.y + 1, { vx: -p.dx * s.drift, vy: s.vy, life: s.life, scale: s.scale, fade: s.fade, tint: HIT_DUST.tint });
       }
       if (nearView(p.x, p.y, 0)) sfx('knock', { x: p.x, y: p.y });
       this.strikesSeen = (this.strikesSeen || 0) + 1;
     }
     this.strikes = c;
-    if (this.nudge > 0) { this.nudge--; this.node.x += this.nudgeTo.dx * WORK.nudge; this.node.y += this.nudgeTo.dy * WORK.nudge; }
+    if (this.nudge > 0) { this.nudge--; const { dx, dy } = this.nudgeTo; this.node.x += PX(dx, dy) * WORK.nudge; this.node.y += PY(dx, dy) * WORK.nudge; }
   }
   show(v) { this.node.visible = v; if (!v) { this.cargo.visible = false; if (this.xr) this.xr.visible = false; } }
   destroy() { this.node.destroy({ children: true }); this.cargo.destroy(); this.xr?.destroy(); }
@@ -604,6 +645,8 @@ const RAW_LOOK = rawFilter(); RAW_LOOK.matrix = rawMatrix(0);
 /** Set a sprite's visibility only when it changes (each change rebuilds its layer's draw list). */
 const vis = (s, v) => { if (s && s.visible !== v) s.visible = v; };
 
+/** A spot on a building's upright art, given as today's flat view has it, (x, y) round its middle: the ground point drawn there. */
+const onArt = (b, x, y) => proj.shift(b.x, b.y, x - b.x, y - b.y);
 class BldgObj {
   constructor(b) {
     const n = b.w;
@@ -633,10 +676,12 @@ class BldgObj {
     // The done moment (construct.js DONE): only for a site this side watched finish, live and on screen (`seenAt`: the
     // last frame it was drawn in, `frameNo`); a building already standing when first drawn never plays it.
     this.wasDone = b.done; this.seenAt = -Infinity; this.doneT = null;
-    for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof, this.ghost, this.bar]) s?.position.set(b.x, b.y);
+    for (const s of [this.worn, this.found]) s.position.set(b.x, b.y);
+    const X = this.X = PX(b.x, b.y), Y = this.Y = PY(b.x, b.y); // (its middle as drawn; its art's own px are laid round it)
+    for (const s of [this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof, this.ghost, this.bar]) s?.position.set(X, Y);
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
-    const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z;
+    const z = (proj.on ? proj.depth(b.x, b.y) : (b.ty + b.h) * TILE - 0.5) + (b.id % 97) * 0.002; this.z = z;
     this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004; this.scaffoldPaint.zIndex = z + 0.0005; this.roof.zIndex = z + 0.0001;
     if (this.ex) { this.ghost.zIndex = z - 0.0001; this.bar.zIndex = z + 0.0006; } // (the ghost under the body: the solid covers its share of it)
     if (this.head) { this.head.zIndex = z + 0.0006; this.headPaint.zIndex = z + 0.0008; }
@@ -659,7 +704,7 @@ class BldgObj {
       const stages = this.ex ? GANTRY.rows : RAW.stages, cap = this.ex ? Math.round(GANTRY.rows * GANTRY.cap) : RAW.cap;
       const k = !site ? cap : this.ex ? solidRows(b.progress) : rawStage(b.progress);
       setTex(this.body, stage(name, k, name, false, stages)); setTex(this.paint, this.fullPaint);
-      this.body.y = b.y + (1 - this.full.defaultAnchor.y) * this.full.height; this.paint.y = b.y;
+      this.body.y = this.Y + (1 - this.full.defaultAnchor.y) * this.full.height; this.paint.y = this.Y;
       this.body.tint = 0xffffff; this.body.alpha = flashA;
       if (site) { vis(this.paint, false); vis(this.roof, false); }
       else {
@@ -672,16 +717,16 @@ class BldgObj {
         vis(this.ghost, this.body.visible); setTex(this.ghost, this.full); this.ghost.alpha = ghostAlpha(live ? now : 0) * (fading ? d.strip : 1); // (a remembered ghost holds still)
         // (the head on the solid's top row, where its frame carries it: between the front masts, then on the rails;
         // to the art's own px, half a world px, so it stays as sharp as the masts it runs on)
-        const at = headAt(b.w, this.body.y - this.body.height + GANTRY.barDrop - b.y);
-        vis(this.bar, this.body.visible); this.bar.position.set(b.x + Math.round(at.x * 2) / 2, b.y + Math.round(at.y * 2) / 2); this.bar.alpha = fading ? d.strip : 1;
+        const at = headAt(b.w, this.body.y - this.body.height + GANTRY.barDrop - this.Y);
+        vis(this.bar, this.body.visible); this.bar.position.set(this.X + Math.round(at.x * 2) / 2, this.Y + Math.round(at.y * 2) / 2); this.bar.alpha = fading ? d.strip : 1;
       } else if (site) { if (this.body.filters?.[0] !== RAW_LOOK) this.body.filters = [RAW_LOOK]; }
       else {
         if (!this.fadeLook) { this.fadeLook = rawFilter(); this.body.filters = [this.fadeLook]; this.roof.filters = [this.fadeLook]; }
         this.fadeLook.matrix = rawMatrix(d.color);
-        if (!this.puffed && this.doneT >= DONE.puffAt) { this.puffed = true; for (const p of donePuffs(b, TILE)) addEffect(HIT_DUST.anim, p.x, p.y, { vy: DONE_PUFF.vy, life: DONE_PUFF.life, scale: DONE_PUFF.scale, fade: DONE_PUFF.fade, tint: HIT_DUST.tint }); }
+        if (!this.puffed && this.doneT >= DONE.puffAt) { this.puffed = true; for (const p0 of donePuffs(b, TILE)) { const p = onArt(b, p0.x, p0.y); addEffect(HIT_DUST.anim, p.x, p.y, { vy: DONE_PUFF.vy, life: DONE_PUFF.life, scale: DONE_PUFF.scale, fade: DONE_PUFF.fade, tint: HIT_DUST.tint }); } }
       }
       this.scaffold.alpha = this.scaffoldPaint.alpha = fading ? d.strip : 1;
-    } else { if (this.body.filters) this.body.filters = null; setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = b.y; vis(this.paint, this.body.visible); paintAs(this.body, this.paint, this.seat, 0xffffff, flashA); }
+    } else { if (this.body.filters) this.body.filters = null; setTex(this.body, this.full); setTex(this.paint, this.fullPaint); this.body.y = this.paint.y = this.Y; vis(this.paint, this.body.visible); paintAs(this.body, this.paint, this.seat, 0xffffff, flashA); }
     this.found.alpha = fading ? d.strip : 1;
     if (this.head) {
       // A turret's head only while seen live (it aims); a rotor or a dish stays on its remembered base, still. The
@@ -695,21 +740,21 @@ class BldgObj {
         shown = PORTAL_SETTLED + (1 - PORTAL_SETTLED) * open;
       }
       vis(this.head, b.done && (live || !!turns)); vis(this.headPaint, this.head.visible);
-      const dir = turns && !live ? 0 : this.look.portal ? Math.floor(this.spinT * this.look.spin) % 16 : headFrame(this.look, b.aim, now, (b.id % 13) * 0.37), hn = `${this.look.head}_${dir}`;
-      setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(b.x, b.y); this.headPaint.position.set(b.x, b.y);
+      const dir = turns && !live ? 0 : this.look.portal ? Math.floor(this.spinT * this.look.spin) % 16 : headFrame(this.look, proj.on && b.aim != null ? proj.face(b.aim) : b.aim, now, (b.id % 13) * 0.37), hn = `${this.look.head}_${dir}`;
+      setTex(this.head, tex(hn)); setTex(this.headPaint, tex(hn + '_m')); this.head.position.set(this.X, this.Y); this.headPaint.position.set(this.X, this.Y);
       paintAs(this.head, this.headPaint, this.seat, 0xffffff, flashA * shown * (fading ? d.heads : 1));
       this.openNow = open;
     }
     if (this.glow) {
-      const g = this.look.glow; vis(this.glow, b.done); this.glow.position.set(b.x + (g[5] || 0), b.y - g[3]);
+      const g = this.look.glow; vis(this.glow, b.done); this.glow.position.set(this.X + (g[5] || 0), this.Y - g[3]);
       this.glow.alpha = g[4] ? 0.3 + 0.15 * Math.sin(t * 9) : 0.35 + 0.12 * Math.sin(t * 2.5); if (this.look.portal) this.glow.alpha = (this.openNow || 0) * g[2];
       if (fading) this.glow.alpha *= d.glow; // (it lights up with the done moment)
     }
     // Damage: smoke below half health, fire below a quarter.
     const f = b.hp / b.maxhp;
-    if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const x = b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), y = b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < BURN_FLASH.chance) addEffect('flash', x, y + 4, { life: 0.25, light: BURN_FLASH.light, lightScale: BURN_FLASH.lightScale }); } } // (look.js BURN_FLASH: now and then, not a strobe)
+    if (live && b.done && f < 0.5) { this.smokeT -= dt; if (this.smokeT <= 0) { this.smokeT = f < 0.25 ? 0.12 : 0.3; const { x, y } = onArt(b, b.tx * TILE + 8 + Math.random() * (b.w * TILE - 16), b.ty * TILE + 8 + Math.random() * (b.h * TILE - 16)); addEffect('puff', x, y, { vy: -18, life: 1.2 }); if (f < 0.25 && Math.random() < BURN_FLASH.chance) addEffect('flash', x, y + 4, { life: 0.25, light: BURN_FLASH.light, lightScale: BURN_FLASH.lightScale }); } } // (look.js BURN_FLASH: now and then, not a strobe)
     const sm = this.look.smoke; // chimneys: only while the building works (look.js chimneyActive)
-    if (live && sm && chimneyActive(b) && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; addEffect('puff', b.tx * TILE + sx, b.ty * TILE + sy, { vy: -22, life: 1.5 }); }
+    if (live && sm && chimneyActive(b) && Math.random() < dt * 2.5) { const [sx, sy] = sm[Math.floor(Math.random() * sm.length)]; const p = onArt(b, b.tx * TILE + sx, b.ty * TILE + sy); addEffect('puff', p.x, p.y, { vy: -22, life: 1.5 }); }
   }
   /** The done moment is over: full color, no filter, nothing of the site left (the next update draws it standing). */
   endFade() {
@@ -756,11 +801,11 @@ export const mineStage = (n) => n.amount <= 0 ? 'empty' : n.amount < MINE_LOW_SH
 class NodeObj {
   constructor(n) {
     // (with the buildings and units, sorted by its bottom row as a building is: a worker north of it stands behind it)
-    this.s = new Sprite(); this.s.position.set(n.x, n.y); this.s.zIndex = (n.ty + n.h) * TILE - 0.5 + (n.id % 97) * 0.002; L.ents.addChild(this.s);
+    this.s = new Sprite(); const X = PX(n.x, n.y), Y = PY(n.x, n.y); this.s.position.set(X, Y); this.s.zIndex = (proj.on ? proj.depth(n.x, n.y) : (n.ty + n.h) * TILE - 0.5) + (n.id % 97) * 0.002; L.ents.addChild(this.s);
     // Its door lamp, lit while anyone is inside (the arc's UPDATE 6: a mine being worked, at a glance), only where we
     // see it now: the fog shows a mine as it was, so a lamp there would tell what we cannot see.
     this.lamp = new Graphics().circle(0, 0, 5).fill({ color: 0xffc35a, alpha: 0.35 }).circle(0, 0, 2.4).fill({ color: 0xffe7a8, alpha: 0.95 });
-    this.lamp.position.set(n.x + 9, n.y + n.h * TILE / 2 - 18); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
+    this.lamp.position.set(X + 9, Y + n.h * TILE / 2 - 18); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
   }
   update(n) { setTex(this.s, tex(`mine_${mineStage(n)}`)); this.lamp.visible = this.s.visible && n.miners > 0 && !!G.vis[idx(n.tx, n.ty)]; }
   show(v) { if (this.s.visible !== v) this.s.visible = v; if (!v) this.lamp.visible = false; }
@@ -783,11 +828,11 @@ const effects = [];
 export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;
   const s = new Sprite(frames[0]); s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base)
-  s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
+  s.position.set(PX(x, y), PY(x, y)); if (o.rot) s.rotation = proj.face(o.rot); if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
   if (o.fade) s.alpha = o.fade;
   L.fx.addChild(s);
   const e = { s, frames, anim, x, y, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
-  if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
+  if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.copyFrom(s.position); }
   effects.push(e);
 }
 /** The effects alive now, each with its animation, where it was spawned (world px) and its sprite as drawn (where it
@@ -796,18 +841,19 @@ export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e
 /** Where a death at ground point (x, y) plays, its y: a flyer that is no machine (the Balloon) up where it flew
  *  (look.js AIR_PUFF `lift` of its drawn height), anything else on the ground. */
 export const deathY = (y, unit) => (unit && deathOf(unit, UNITS[unit]?.air) === 'air' ? y - unitTop(unit) * AIR_PUFF.lift : y);
+export const deathAt = (x, y, unit) => proj.up(x, y, y - deathY(y, unit)); // (and the point itself, in any view)
 /** A unit or building died (`unit`: the unit's kind, null for a building; look.js deathOf). A fighter falls into a puff
  *  of earth-colored dust, a flyer that is no machine (the Balloon) into a puff of canvas up where it flew, sinking (no
  *  fire, no light, no scorch for either); a machine explodes, sized to it, with sparks and a scorch mark; a building
  *  collapses (`collapse`: no fire), into rubble of its people's (`race`). */
 export function boom(x, y, r, race, unit = null) {
   const how = deathOf(unit, unit && UNITS[unit]?.air);
-  if (how === 'air') { const { anim, tint, scale, life, vy, fade } = AIR_PUFF; addEffect(anim, x, deathY(y, unit), { vy, life, scale, tint, fade }); return; }
-  if (how === 'dust') { const { anim, tint, scale, life, vy, fade, dy } = DEATH_DUST; addEffect(anim, x, y + dy, { vy, life, scale, tint, fade }); return; }
+  if (how === 'air') { const { anim, tint, scale, life, vy, fade } = AIR_PUFF; const p = deathAt(x, y, unit); addEffect(anim, p.x, p.y, { vy, life, scale, tint, fade }); return; }
+  if (how === 'dust') { const { anim, tint, scale, life, vy, fade, dy } = DEATH_DUST; const p = proj.up(x, y, -dy); addEffect(anim, p.x, p.y, { vy, life, scale, tint, fade }); return; }
   if (how === 'collapse') { collapse(x, y, r, race); return; }
   addEffect('boom_small', x, y, { light: 0xff9a3a, lightScale: 0.7, life: 0.4, scale: 1 }); // (a machine: the only death with fire, with the shells')
   for (let i = 0; i < 4; i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 90; addEffect('spark', x, y, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.3 }); }
-  const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24); scorch.position.set(x, y + 2); L.decals.addChild(scorch);
+  const scorch = new Sprite(tex('light')); scorch.anchor.set(0.5); scorch.tint = 0x000000; scorch.alpha = 0.45; scorch.scale.set(r / 24, r / 24 * proj.k); scorch.position.set(PX(x, y), PY(x, y) + 2); L.decals.addChild(scorch);
   decals.push({ s: scorch, t: 0, life: 25 });
 }
 /** A building fell at (x, y) (radius r, its people `race`): it collapses (look.js bldgDeath), its sprite a ghost a moment
@@ -816,7 +862,8 @@ function collapse(x, y, r, race) {
   let o = null;
   for (const c of bldgObjs.values()) if (c.live && Math.abs(c.x - x) < 1 && Math.abs(c.y - y) < 1) { o = c; break; }
   const n = Math.round(2 * r / TILE), b = o?.b ?? { x, y, r, tx: Math.round(x / TILE - n / 2), ty: Math.round(y / TILE - n / 2), w: n, h: n, type: '' };
-  const plan = bldgDeath(b, race, { hq: !!BUILDINGS[b.type]?.hq, roof: o?.body.visible ? rectOf(o.body)[1] + 8 : y - r, core: o?.glow ? { x: o.glow.x, y: o.glow.y } : { x, y } });
+  const plan = bldgDeath(b, race, { hq: !!BUILDINGS[b.type]?.hq, roof: o?.body.visible ? rectOf(o.body)[1] - o.Y + y + 8 : y - r, core: o?.glow ? { x: o.glow.x - o.X + x, y: o.glow.y - o.Y + y } : { x, y } });
+  if (proj.on) { for (const s of plan.steps) Object.assign(s, onArt({ x, y }, s.x, s.y)); for (const g of plan.rubble?.glow ?? []) { const p = onArt({ x, y }, g[0], g[1]); g[0] = p.x; g[1] = p.y; } }
   if (plan.shake && nearView(x, y, 0)) quake = { ...plan.shake, t: 0 };
   const rubble = { rubble: `${race === 'vael' ? 'rubble_vael' : 'rubble'}_${Math.min(4, Math.max(2, Math.round(r / 16)))}`, x, y, look: plan.rubble };
   for (const s of [...plan.steps, { at: plan.rubbleAt, ...rubble }]) if (s.at > 0) pending.push({ t: -s.at, s }); else fallStep(s);
@@ -825,12 +872,12 @@ function collapse(x, y, r, race) {
 /** One step of a fall (look.js bldgDeath): an effect, a light alone or its rubble. */
 function fallStep(s) {
   if (s.rubble) {
-    const rub = new Sprite(); setTex(rub, tex(s.rubble)); rub.position.set(s.x, s.y); if (s.look?.tint) rub.tint = s.look.tint; L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 });
+    const rub = new Sprite(); setTex(rub, tex(s.rubble)); rub.position.set(PX(s.x, s.y), PY(s.x, s.y)); if (s.look?.tint) rub.tint = s.look.tint; L.decals.addChild(rub); decals.push({ s: rub, t: 0, life: 40 });
     for (const [gx, gy] of s.look?.glow ?? []) { // (a cyan glow left on a chunk or two: the Portal's)
-      const g = new Sprite(tex('light')); g.anchor.set(0.5); g.tint = 0x3fe0ff; g.alpha = 0.35; g.blendMode = 'add'; g.scale.set(0.18); g.position.set(gx, gy); L.decals.addChild(g); decals.push({ s: g, t: 0, life: 40 });
+      const g = new Sprite(tex('light')); g.anchor.set(0.5); g.tint = 0x3fe0ff; g.alpha = 0.35; g.blendMode = 'add'; g.scale.set(0.18); g.position.set(PX(gx, gy), PY(gx, gy)); L.decals.addChild(g); decals.push({ s: g, t: 0, life: 40 });
     }
   }
-  else if (s.blink) { if (nearView(s.x, s.y)) { const l = light(s.blink.tint, s.blink.scale, 0.9); l.position.set(s.x, s.y); blinks.push({ l, t: 0, ...s.blink }); } }
+  else if (s.blink) { if (nearView(s.x, s.y)) { const l = light(s.blink.tint, s.blink.scale, 0.9); l.position.set(PX(s.x, s.y), PY(s.x, s.y)); blinks.push({ l, t: 0, ...s.blink }); } }
   else addEffect(s.anim, s.x, s.y, s.o);
 }
 /** The ghosts of fallen buildings now (read-only, for the tests): each one's id, type, time since it fell, whether it
@@ -850,14 +897,15 @@ export function castFx(x, y, ability) {
 export function healFx(x, y, tx, ty, mend = false) { addEffect('heal', tx, ty - 6, { life: 0.4, light: mend ? 0x7ce8d4 : 0x6dff9a, lightScale: 0.35, tint: mend ? 0xc0fff2 : 0xffffff }); void x; void y; }
 /** A Cannon fires: a puff of smoke at its muzzle, out ahead of it (`face`, radians) and a little up, blown forward. */
 export function muzzleFx(x, y, face, size = 1) {
-  const mx = x + Math.cos(face) * 14, my = y + Math.sin(face) * 9 - 10;
-  addEffect('puff', mx, my, { vx: Math.cos(face) * 30, vy: Math.sin(face) * 20 - 12, life: 0.9, scale: size, fade: 0.9 });
+  const f = proj.face(face), { x: mx, y: my } = proj.shift(x, y, Math.cos(f) * 14, Math.sin(f) * 9 - 10);
+  addEffect('puff', mx, my, { vx: Math.cos(f) * 30, vy: Math.sin(f) * 20 - 12, life: 0.9, scale: size, fade: 0.9 });
   addEffect('flash', mx, my, { life: 0.12, light: 0xffc070, lightScale: 0.5, scale: 0.6 });
 }
 /** A rifle's flash at its mouth, a pale cone turned along the aim (look.js MUZZLE_FLASH: `fwd` px ahead of the ground point (x, y) along `face`,
  *  radians, the ground's depth as the camera sees it, and `up` px above it), brief, with a warm light. */
 export function muzzleFlash(x, y, face, { fwd, up, scale }) {
-  addEffect('muzzle', x + Math.cos(face) * fwd, y + Math.sin(face) * fwd - up, { rot: face, anchor: [0.07, 0.5], life: 0.08, tint: 0xfff2cc, light: 0xffe8b0, lightScale: 0.25, scale });
+  const f = proj.face(face), p = proj.shift(x, y, Math.cos(f) * fwd, Math.sin(f) * fwd - up); // (the art's own px: its barrel is drawn by the screen's angle)
+  addEffect('muzzle', p.x, p.y, { rot: face, anchor: [0.07, 0.5], life: 0.08, tint: 0xfff2cc, light: 0xffe8b0, lightScale: 0.25, scale });
 }
 /** A melee blow lands on `t`: a glint of steel on it, at the point of it nearest the striker `u` (a unit's body half way up
  *  its drawn height, a building's nearest wall), and with `puff` (look.js MELEE_PUFF) dust kicked up at its feet.
@@ -866,14 +914,16 @@ export function meleeHit(u, t, puff) {
   let x = t.x, y = t.y;
   if (t.kind === 'bldg') { x = Math.min(Math.max(u.x, t.tx * TILE + 4), (t.tx + t.w) * TILE - 4); y = Math.min(Math.max(u.y, t.ty * TILE + 4), (t.ty + t.h) * TILE - 4); }
   const lift = t.kind === 'bldg' ? 10 : unitTop(t.type) * WALKER_HIT_LIFT, dx = u.x - x, dy = u.y - y, d = Math.hypot(dx, dy) || 1, k = t.kind === 'bldg' ? 0 : Math.min(t.r * 0.6, d);
-  addEffect('glint', x + dx / d * k, y + dy / d * k - lift, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 }); // (steel's glint: small and pale; fire is the gunpowder's)
+  const hit = proj.up(x + dx / d * k, y + dy / d * k, lift);
+  addEffect('glint', hit.x, hit.y, { life: 0.15, light: 0xfff6e0, lightScale: 0.12 }); // (steel's glint: small and pale; fire is the gunpowder's)
   if (puff) addEffect(HIT_DUST.anim, x + dx / d * k, y + 2, { vx: -dx / d * puff.drift, vy: -6, life: puff.life, scale: puff.scale, fade: puff.fade, tint: HIT_DUST.tint });
-  return { x: x + dx / d * k, y: y + dy / d * k - lift, feet: { x: x + dx / d * k, y: y + 2 } };
+  return { x: hit.x, y: hit.y, feet: { x: x + dx / d * k, y: y + 2 } };
 }
 /** Where a shot that lands at ground point (x, y) plays, its y: on a flyer (`air`, its kind: a `hit` event's) up on its
  *  body (look.js hitLift of its drawn height: by its kind), on a walker (`walker`, its kind) half way up its body
  *  (look.js WALKER_HIT_LIFT), anything else (a building, a spot) where it is. */
 export const hitY = (y, air, walker = null) => (air ? y - unitTop(air) * hitLift(air) : walker ? y - unitTop(walker) * WALKER_HIT_LIFT : y);
+export const hitAt = (x, y, air, walker = null) => proj.up(x, y, y - hitY(y, air, walker)); // (and the point itself, in any view)
 /** A shot lands at (x, y), its look by `how` (look.js impactOf): steel's glint (an arrow, a bolt, a tracer: cool,
  *  HIT_STEEL, never a muzzle flash's warmth), the cannonball's and the rocket's burst, or a repairer's welding spark. */
 export function impactFx(x, y, how) {
@@ -905,7 +955,8 @@ export function tierHit(x, y, tier, how, melee = false, feet = null) {
  *  one, a big round flash at its gun's mouth (`at`: look.js MUZZLE_FLASH's spot, else MUZZLE_AT), with a light. */
 export function tierMuzzle(x, y, face, tier, at = MUZZLE_AT) {
   const look = HIT_LOOK[tier]; if (!look?.muzzle) return;
-  addEffect('flash', x + Math.cos(face) * at.fwd, y + Math.sin(face) * at.fwd - at.up, { life: 0.14, light: look.muzzleLight, lightScale: 0.8 * look.muzzle, scale: look.muzzle });
+  const f = proj.face(face), p = proj.shift(x, y, Math.cos(f) * at.fwd, Math.sin(f) * at.fwd - at.up);
+  addEffect('flash', p.x, p.y, { life: 0.14, light: look.muzzleLight, lightScale: 0.8 * look.muzzle, scale: look.muzzle });
 }
 const decals = [];
 
@@ -929,7 +980,7 @@ function updateEffects(dt) {
     const d = decals[i]; d.t += dt;
     if (d.t > d.life) { d.s.destroy(); decals.splice(i, 1); continue; }
     if (d.t > d.life - 5) d.s.alpha = Math.min(d.s.alpha, (d.life - d.t) / 5);
-    const v = nearView(d.s.x, d.s.y, 96); if (d.s.visible !== v) d.s.visible = v; // (off screen: not drawn)
+    const v = inPlane(d.s.x, d.s.y, 96); if (d.s.visible !== v) d.s.visible = v; // (off screen: not drawn)
   }
 }
 
@@ -989,7 +1040,7 @@ function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
 /** A unit's health bar over its art: as wide as the unit but never wider than 24 screen px (34 for a large one). */
 function unitBar(u) {
   const w = Math.min(u.r * UNIT_SCALE * 2 + 4, (u.r > 12 ? 34 : 24) / cam.zoom);
-  hpBar(u.x - w / 2, u.y - unitTop(u.type) - 7, w, u.hp, u.maxhp, u.sh, u.maxsh); // (just over the art's top)
+  hpBar(PX(u.x, u.y) - w / 2, PY(u.x, u.y) - unitTop(u.type) - 7, w, u.hp, u.maxhp, u.sh, u.maxsh); // (just over the art's top)
 }
 // ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
 const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
@@ -1001,7 +1052,7 @@ const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line,
 // side (the 7% fill alone is lost on grass): `BAND_PX` screen px wide, the rim's light from `BAND_ALPHA` at the line to
 // nothing, as `BAND_STEPS` rings of the union's arcs drawn inward.
 const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeHi = new Graphics(), rangeG = new Container();
-rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
+rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; if (GROUND) rangeG.setFromMatrix(GROUND); rangeG.addChild(rangeTint, rangeBand, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
 let rangeKey = '', rangeCircles = [], rangeArcs = [];
 export const BAND_PX = 16, BAND_ALPHA = 0.18;
 const BAND_STEPS = 8, RIM_HALO_ALPHA = 0.5; // (the halo 35% at first: on the pale boulders of a hill the line got lost)
@@ -1150,7 +1201,7 @@ export function render(selList, place) {
   if (quake) { quake.t += dt; const a = quake.px * (1 - quake.t / quake.life); if (a <= 0) quake = null; else { sx = (Math.random() * 2 - 1) * a; sy = (Math.random() * 2 - 1) * a; } }
   world.scale.set(cam.zoom);
   world.position.set(Math.round((-cam.x + sx) * cam.zoom), Math.round((-cam.y + sy) * cam.zoom));
-  const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
+  const inView = (x, y, m) => { const X = PX(x, y), Y = PY(x, y); return X > cam.x - m && X < cam.x + VW + m && Y > cam.y - m && Y < cam.y + VH + m; };
   const explored = G.explored;
   cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH);
   noteBuildings(); // (what this side has seen of enemy buildings: in the fog, their last-seen state, never the live one)
@@ -1171,15 +1222,16 @@ export function render(selList, place) {
     if (sel.has(b)) selOval(b, enemies(G.me, b.team) ? SEL_FOE : SEL);
     // An own site: its construction bar in the hp bar's place over it, taller (construct.js BUILD_BAR), the hp bar just
     // above only if it has taken damage; a pause mark while nobody builds it.
-    const ownSite = b.team === G.me && !b.done, hx = b.tx * TILE + 4, hy = b.ty * TILE - 8, hw = b.w * TILE - 8;
+    const ownSite = b.team === G.me && !b.done, ox = proj.on ? o.X - b.x : 0, oy = proj.on ? o.Y - b.y : 0; // (the trial: the bars laid round the art's middle as today)
+    const hx = b.tx * TILE + 4 + ox, hy = b.ty * TILE - 8 + oy, hw = b.w * TILE - 8;
     if (ownSite) {
       progressBar(hx, hy - (BUILD_BAR.h - 4), hw, b.progress, BUILD_BAR.color, 0, BUILD_BAR.h); barsDrawn.push({ id: b.id, bar: 'build', y: hy - (BUILD_BAR.h - 4), h: BUILD_BAR.h });
       if (seen && siteHurt(b)) { hpBar(hx, hy - BUILD_BAR.h, hw, b.hp, b.maxhp, b.sh, b.maxsh); barsDrawn.push({ id: b.id, bar: 'hp', y: hy - BUILD_BAR.h + 4 - 4 / cam.zoom, h: 4 / cam.zoom }); }
-      if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(b.x, b.y, now);
+      if (!G.units.some(u => u.task.t === 'build' && u.task.b === b)) pauseMark(o.X, o.Y, now);
     } else if (seen && (sel.has(b) || b.hp < b.maxhp || b.sh < b.maxsh)) { hpBar(hx, hy, hw, b.hp, b.maxhp, b.sh, b.maxsh); barsDrawn.push({ id: b.id, bar: 'hp', y: hy + 4 - 4 / cam.zoom, h: 4 / cam.zoom }); }
     // Progress shown on the building itself: training, research.
     if (b.team === G.me) {
-      const bx = b.tx * TILE + 6, by = (b.ty + b.h) * TILE - 9, bw = b.w * TILE - 12;
+      const bx = b.tx * TILE + 6 + ox, by = (b.ty + b.h) * TILE - 9 + oy, bw = b.w * TILE - 12;
       if (b.done && b.queue.length) progressBar(bx, by, bw - Math.min(4, b.queue.length - 1) * 5, b.prog, 0x5ab8ff, Math.min(4, b.queue.length - 1));
       if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xffa070, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xffa070, alpha: 0.7 }); } // research: taller, outlined
     }
@@ -1191,7 +1243,7 @@ export function render(selList, place) {
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) unitBar(u);
     if (u.team === G.me && RADIO.machines.has(u.type) && G.radio.length && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
-      noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
+      noSignal(PX(u.x, u.y), PY(u.x, u.y) - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
     }
   });
   showRange(selList, place, now);
@@ -1214,23 +1266,23 @@ export function render(selList, place) {
     setTex(s, tex(art)); // (the shot's anchor is its tip, a stone's its middle)
     const smoke = SHOT_TRAIL[art];
     if (smoke && Math.random() < dt * 40) addEffect(smoke, p.x, p.y, { life: 0.6, fade: 1 }); // (a rocket's smoke: puffs that overlap and fade)
-    const rot = Math.atan2(p.ay - p.y, p.ax - p.x), sc = style.scale ?? 1, len = s.texture.width * sc;
-    s.position.set(p.x, p.y); s.rotation = rot; s.scale.set(sc); s.tint = style.tint ?? 0xffffff;
+    const rot = proj.face(Math.atan2(p.ay - p.y, p.ax - p.x)), X = PX(p.x, p.y), Y = PY(p.x, p.y), sc = style.scale ?? 1, len = s.texture.width * sc;
+    s.position.set(X, Y); s.rotation = rot; s.scale.set(sc); s.tint = style.tint ?? 0xffffff;
     s.bar.visible = style.bar > 0;
-    if (s.bar.visible) { s.bar.position.set(p.x + Math.cos(rot) * 1.5, p.y + Math.sin(rot) * 1.5); s.bar.rotation = rot; s.bar.width = len + 3; s.bar.height = style.bar; }
+    if (s.bar.visible) { s.bar.position.set(X + Math.cos(rot) * 1.5, Y + Math.sin(rot) * 1.5); s.bar.rotation = rot; s.bar.width = len + 3; s.bar.height = style.bar; }
     const heavy = !smoke && art !== 'cannonball' && HIT_LOOK[hitTier(shotWeapon(p), (aimed ??= flyersAt()).has(aimKey(p.ax, p.ay)))].hit === 'blow';
     s.trail.visible = heavy;
-    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(p.x, p.y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL.px) / len, sc); s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint; } // (the shot's own colors: a Kingdom shaft's trail is timber, never cool, and no light goes with it)
-    s.l.visible = SHOT_LIT.has(art); s.l.tint = style.tint ? SHOT_GLOW : 0xffd27a; s.l.position.set(p.x, p.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; never an arrow, a bolt or a stone)
+    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(X, Y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL.px) / len, sc); s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint; } // (the shot's own colors: a Kingdom shaft's trail is timber, never cool, and no light goes with it)
+    s.l.visible = SHOT_LIT.has(art); s.l.tint = style.tint ? SHOT_GLOW : 0xffd27a; s.l.position.set(X, Y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; never an arrow, a bolt or a stone)
   }
   for (let i = pi; i < projPool.length; i++) { const s = projPool[i]; s.visible = false; s.l.visible = false; s.bar.visible = false; s.trail.visible = false; }
 
   let ki = 0;
   for (const f of fx.list) {
-    const k = 1 - f.t / f.life;
-    if (f.ring) { lines.ellipse(f.x, f.y, 8 + 18 * (1 - k), (8 + 18 * (1 - k)) * 0.6).stroke({ width: 2, color: hexn(f.color), alpha: k }); continue; }
+    const k = 1 - f.t / f.life, fX = PX(f.x, f.y), fY = PY(f.x, f.y);
+    if (f.ring) { lines.ellipse(fX, fY, 8 + 18 * (1 - k), (8 + 18 * (1 - k)) * (proj.on ? proj.k : 0.6)).stroke({ width: 2, color: hexn(f.color), alpha: k }); continue; }
     const s = pooled(partPool, ki++, () => { const s = new Sprite(Texture.WHITE); s.anchor.set(0.5); L.fx.addChild(s); return s; });
-    s.tint = hexn(f.color); s.alpha = k; s.position.set(Math.round(f.x), Math.round(f.y)); s.width = s.height = partSize(f, k);
+    s.tint = hexn(f.color); s.alpha = k; s.position.set(Math.round(fX), Math.round(fY)); s.width = s.height = partSize(f, k);
   }
   for (let i = ki; i < partPool.length; i++) partPool[i].visible = false;
 
@@ -1240,9 +1292,9 @@ export function render(selList, place) {
   ghost.visible = ghostPaint.visible = ghostRect.visible = !!place; ghostRect.clear();
   if (place) {
     const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, G.me);
-    setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghostPaint.position.copyFrom(ghost.position);
+    setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); const gx = (place.tx + d.w / 2) * TILE, gy = (place.ty + d.h / 2) * TILE; ghost.position.set(PX(gx, gy), PY(gx, gy)); ghostPaint.position.copyFrom(ghost.position);
     paintAs(ghost, ghostPaint, seatTint(G.me), ok ? 0xb8ffc8 : 0xff7070, 0.6);
-    ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
+    groundRect(ghostRect, place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
   }
   box.clear();
   if (drag.box) {
@@ -1254,7 +1306,7 @@ export function render(selList, place) {
 }
 
 const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag); flag.visible = false;
-function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
+function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(PX(x, y), PY(x, y)); }
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
 const MINE_MARK = 0xe6e0d3;
@@ -1263,7 +1315,7 @@ const targetColor = (e) => e.kind === 'node' ? MINE_MARK : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
 function outline(e, width, color, alpha) {
-  lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
+  groundRect(lines, e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {
   for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected gold mine
@@ -1283,7 +1335,8 @@ function drawTargets(selList, now) {
   }
 }
 
-function dashed(x0, y0, x1, y1) {
+function dashed(wx0, wy0, wx1, wy1) {
+  const x0 = PX(wx0, wy0), y0 = PY(wx0, wy0), x1 = PX(wx1, wy1), y1 = PY(wx1, wy1);
   const d = Math.hypot(x1 - x0, y1 - y0), n = Math.floor(d / 12);
   for (let i = 0; i < n; i++) { const a = i / n, b = (i + 0.5) / n; lines.moveTo(x0 + (x1 - x0) * a, y0 + (y1 - y0) * a).lineTo(x0 + (x1 - x0) * b, y0 + (y1 - y0) * b); }
   lines.stroke({ width: 1.5, color: 0xf5a524, alpha: 0.6 });
@@ -1342,6 +1395,12 @@ function renderMinimap() {
     for (const r of [k, (k + 0.5) % 1]) { c.beginPath(); c.arc(pings[i].x * S, pings[i].y * T, 3 + r * 18, 0, 7); c.stroke(); }
   }
   // The view box: a dark halo under a bright line, readable over terrain and fog alike.
+  if (proj.on) { // (the trial's: the window is a turned box on the map)
+    c.beginPath();
+    for (const [x, y] of [[0, 0], [view.w, 0], [view.w, view.h], [0, view.h]]) { const w = toWorld(x, y); c.lineTo(w.x * S, w.y * T); }
+    c.closePath(); c.strokeStyle = 'rgba(0,0,0,0.75)'; c.lineWidth = 4; c.stroke(); c.strokeStyle = '#ffe9b0'; c.lineWidth = 2; c.stroke();
+    return;
+  }
   const vx = cam.x * S, vy = cam.y * T, vW = vw() * S, vH = vh() * T;
   c.strokeStyle = 'rgba(0,0,0,0.75)'; c.lineWidth = 4; c.strokeRect(vx, vy, vW, vH);
   c.strokeStyle = '#ffe9b0'; c.lineWidth = 2; c.strokeRect(vx, vy, vW, vH);

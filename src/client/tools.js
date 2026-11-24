@@ -5,7 +5,8 @@ import { G, UNITS, TILE, visibleEnt, enemies } from '../engine/index.js';
 import { updateHud } from './hud.js';
 import { $, ui, toast, setSelection } from './ui.js';
 import { sfx, say } from './audio.js';
-import { centerOn, ping, clearPings, cam, view } from './gl/render.js';
+import { centerOn, ping, clearPings, cam, view, nearView } from './gl/render.js';
+import { proj } from './gl/proj.js';
 import { setIconButton } from './icons.js';
 import { paused, closePause } from './pause.js';
 import { online } from './online.js';
@@ -21,7 +22,7 @@ export function onAttacked(e) {
   alerts.list = [alerts.last, ...alerts.list.filter(a => Math.hypot(a.x - e.x, a.y - e.y) > 8 * TILE)].slice(0, 3); alerts.at = 0;
   ping(e.x, e.y);
   // A fight you are looking at needs no siren; the ping and the ⚠ chip still mark it.
-  const onScreen = e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
+  const onScreen = proj.on ? nearView(e.x, e.y, 0) : e.x >= cam.x && e.x <= cam.x + view.w / cam.zoom && e.y >= cam.y && e.y <= cam.y + view.h / cam.zoom;
   if (!onScreen) { toast(e.building ? 'Your base is under attack!' : 'Your units are under attack!', true, true); sfx('alert'); say('attack', 0.6); } // (after the siren)
   updateTools();
 }
@@ -64,8 +65,8 @@ export function selectArmy() {
  *  all our finished buildings of its type on screen (several factories train as one: the card fills the shortest queue). */
 export function selectSameType(e, add = false) {
   const x1 = cam.x + view.w / cam.zoom, y1 = cam.y + view.h / cam.zoom;
-  const onScreen = (o) => o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1;
-  const shows = (b) => b.tx * TILE < x1 && (b.tx + b.w) * TILE > cam.x && b.ty * TILE < y1 && (b.ty + b.h) * TILE > cam.y; // (any part of it)
+  const onScreen = (o) => proj.on ? nearView(o.x, o.y, 0) : o.x >= cam.x && o.x <= x1 && o.y >= cam.y && o.y <= y1;
+  const shows = (b) => proj.on ? nearView(b.x, b.y, b.r) : b.tx * TILE < x1 && (b.tx + b.w) * TILE > cam.x && b.ty * TILE < y1 && (b.ty + b.h) * TILE > cam.y; // (any part of it)
   if (e.kind === 'bldg') { choose(e.done ? G.bldgs.filter(o => o.team === G.me && o.type === e.type && o.done && shows(o)) : [e]); return; }
   const same = G.units.filter(o => o.team === G.me && o.type === e.type && !o.inside && onScreen(o)); // (not one inside a mine)
   choose(add ? [...new Set([...ui.sel.filter(x => !x.dead && x.kind === 'unit'), ...same])] : same);

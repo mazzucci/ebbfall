@@ -30,12 +30,15 @@ function selectOrDouble(hit, add, at = performance.now()) {
   lastPick = { id: hit.id, t: at, dbl: false };
   select([hit], add);
 }
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, viewRect, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
+import { proj } from './gl/proj.js';
+/** A world point as it is drawn (plane px: proj.js), where bodies and art are tested; the same point with the trial off. */
+const drawn = (p) => (proj.on ? proj.to(p.x, p.y) : p);
 /** Where a unit is drawn, as a circle round its body: centered half its drawn height above its feet (a flyer's art,
  *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
-const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
+const body = (u) => { const h = unitTop(u.type) / 2; const p = drawn(u); return { x: p.x, y: p.y - h, r: Math.max(unitRadius(u), h) }; };
 /** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */
-const fromBody = (u, p) => { const c = body(u); return dist(c, p) - c.r; };
+const fromBody = (u, p) => { const c = body(u); return dist(c, drawn(p)) - c.r; };
 
 export const drag = { down: false, box: false, pan: false, quiet: false, sx: 0, sy: 0, cx: 0, cy: 0, shift: false, ptype: 'mouse', held: false, at: 0 }; // held: the box was armed by a finger held on the map; at: the touch-down's time
 /** Camera glide after a one-finger flick, in world px per second; a touch stops it. */
@@ -108,7 +111,7 @@ const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 
  *  size: overlapping units are each picked by a tap on their own middle), else the unit whose body is nearest within
  *  reach (generous for fingers), else a building, else a gold mine. A worker inside a mine is not there to pick. */
 function pick(wx, wy) {
-  const reach = touchReach(), p = { x: wx, y: wy };
+  const reach = touchReach(), p = drawn({ x: wx, y: wy });
   let best = null, bd = Infinity;
   for (const u of G.units) {
     if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue;
@@ -123,6 +126,11 @@ function pick(wx, wy) {
   let top = null;
   for (const b of bs) {
     const y0 = bldgArtTop(b.id);
+    if (proj.on) { // (the trial: the art is as wide as the footprint, upright round its middle)
+      const m = drawn(b);
+      if (y0 != null && Math.abs(p.x - m.x) < b.w * TILE / 2 && p.y >= y0 && p.y < m.y + b.h * TILE * 0.4 && (!top || proj.depth(b.x, b.y) > proj.depth(top.x, top.y))) top = b;
+      continue;
+    }
     if (y0 != null && inX(b) && wy >= y0 && wy < b.ty * TILE && (!top || b.ty + b.h > top.ty + top.h)) top = b;
   }
   return top || nodeAt(wx, wy);
@@ -132,6 +140,7 @@ function pick(wx, wy) {
 function nodeAt(wx, wy) {
   const m = drag.ptype === 'touch' ? 8 : 2;
   for (const n of map.nodes) {
+    if (proj.on) { const p = drawn({ x: wx, y: wy }), c = drawn(n), w = n.w * TILE / 2 + m; if (G.explored[idx(n.tx, n.ty)] && Math.abs(p.x - c.x) < w && p.y > c.y - w - TILE / 2 && p.y < c.y + w * 0.8) return n; continue; }
     if (G.explored[idx(n.tx, n.ty)] && wx >= n.tx * TILE - m && wx < (n.tx + n.w) * TILE + m && wy >= n.ty * TILE - TILE / 2 - m && wy < (n.ty + n.h) * TILE + m) return n;
   }
   return null;
@@ -148,12 +157,12 @@ function select(list, add) {
 
 /** `keep`: a box that takes nothing keeps the selection (touch: a hesitant pan that became a box costs nothing). */
 function boxSelect(x0, y0, x1, y1, add, keep = false) {
-  const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
+  const at = (x, y) => drawn(toWorld(x, y)), a = at(Math.min(x0, x1), Math.min(y0, y1)), b = at(Math.max(x0, x1), Math.max(y0, y1)); // (a box on the screen: in plane px)
   const us = G.units.filter(u => { const s = body(u); return u.team === G.me && !u.inside && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
   // An army box near the base takes the army, not the workers mining beside it (a box of workers only takes them).
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
-  const bs = G.bldgs.filter(bb => bb.team === G.me && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
+  const bs = G.bldgs.filter(bb => { const c = drawn(bb); return bb.team === G.me && c.x >= a.x && c.x <= b.x && c.y >= a.y && c.y <= b.y; });
   if (bs.length) select([bs[0]], false); else if (!add && !keep) { setSelection([]); updateHud(); }
 }
 
@@ -398,7 +407,7 @@ function bindMinimap() {
     if (ev.pointerType === 'touch') {
       // Layout size, not the on-screen box: the minimap may still be shrinking back from the last touch.
       const r = mm.getBoundingClientRect(), w = mm.clientWidth, h = mm.clientHeight;
-      mmTouch = { sx: ev.clientX, sy: ev.clientY, x0: cam.x, y0: cam.y, moved: false, wx: (ev.clientX - r.left) / w * WW, wy: (ev.clientY - (r.bottom - h)) / h * WH };
+      mmTouch = { sx: ev.clientX, sy: ev.clientY, x0: cam.x, y0: cam.y, at: viewRect(), moved: false, wx: (ev.clientX - r.left) / w * WW, wy: (ev.clientY - (r.bottom - h)) / h * WH };
       mm.classList.add('big'); return;
     }
     mmDown = true; mmAt(ev, false);
@@ -407,7 +416,7 @@ function bindMinimap() {
     if (mmTouch) {
       const dx = ev.clientX - mmTouch.sx, dy = ev.clientY - mmTouch.sy;
       if (!mmTouch.moved && Math.hypot(dx, dy) > 6) mmTouch.moved = true;
-      if (mmTouch.moved) { const r = mm.getBoundingClientRect(); cam.x = mmTouch.x0 + dx / r.width * WW; cam.y = mmTouch.y0 + dy / r.height * WH; clampCam(); }
+      if (mmTouch.moved) { const r = mm.getBoundingClientRect(), v = mmTouch.at; if (proj.on) { centerOn(v.x + v.w / 2 + dx / r.width * WW, v.y + v.h / 2 + dy / r.height * WH); return; } cam.x = mmTouch.x0 + dx / r.width * WW; cam.y = mmTouch.y0 + dy / r.height * WH; clampCam(); }
       return;
     }
     if (mmDown) mmAt(ev, false);

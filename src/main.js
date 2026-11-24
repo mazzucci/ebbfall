@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathAt, hitAt, toScreen, viewRect, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -27,7 +27,7 @@ import { currentPlan, startPlan, pumpClaude, endClaude, watching, watchCapped } 
 
 await engine.ready; // (the WASM: loading since src/boot.js imported the engine, alongside the art)
 
-audio.view = () => ({ x: cam.x, y: cam.y, w: view.w / cam.zoom, h: view.h / cam.zoom }); // sounds are placed by the camera
+audio.view = viewRect; // sounds are placed by the camera
 /** Sounds of things in the fog are not heard (the player cannot see them either). */
 const seen = (e) => engine.allRevealed() || G.vis[idx(Math.floor(e.x / TILE), Math.floor(e.y / TILE))] > 0; // (allRevealed: a staged shot)
 
@@ -163,8 +163,8 @@ function drainEvents() {
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
     else if (e.t === 'signal') leashAt(e.x, e.y); // (a machine of ours sent past coverage: the rim brightens there)
-    else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, deathY(e.y, e.unit), e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
-    else if (e.t === 'hit') { const tier = shotTier(e); tierHit(e.x, hitY(e.y, e.air, e.air ? null : struckWalker(e)), tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer or a walker: up on its body; its look and sound by how hard it hits what it hit)
+    else if (e.t === 'burst') { const p = deathAt(e.x, e.y, e.unit); if (nearView(e.x, e.y)) burst(p.x, p.y, e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
+    else if (e.t === 'hit') { const tier = shotTier(e), p = hitAt(e.x, e.y, e.air, e.air ? null : struckWalker(e)); tierHit(p.x, p.y, tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer or a walker: up on its body; its look and sound by how hard it hits what it hit)
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }
     else if (e.t === 'cast') { sfx(e.ability, e); castFx(e.x, e.y, e.ability); }
     else if (e.t === 'heal') healFx(e.x, e.y, e.tx, e.ty, e.mend);
@@ -292,7 +292,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoomLimit(); }, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, ground: groundShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
+window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoomLimit(); }, get startZoom() { return startZoom(); }, toWorld, toScreen, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, ground: groundShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
   paint: (spots) => { setSpots(spots); renderTerrain(); },

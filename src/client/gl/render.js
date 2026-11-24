@@ -40,15 +40,21 @@ const fills = () => Math.max(view.w / WW, view.h / WH);
 /** The closest zoom: ZOOM_MAX, unless the map's own width asks for more (`zoomLimit`). */
 const zoomTop = () => Math.max(ZOOM_MAX, zoomLimit());
 /** How much of the map (world px across) a desktop's window shows when a game starts: the base and the ground round
- *  it, on any monitor (unless the window is so large that `zoomLimit` comes first). 900, not 1200: at 1200 a Knight
- *  stood 8 to 9% of a desktop canvas's height against 16% on a phone on its side, and read as a demo's; at 900 it is 11
- *  to 12% (10% at 2560 px, held at ZOOM_MAX), and the Castle, its gold mine and the ground round them still fill the
- *  first screen (900 x 530 world px at 1440x900; the phone shows 830 x 350). */
-const START_SPAN = 900;
+ *  it, on any monitor (unless the window is so large that ZOOM_MAX or `zoomLimit` comes first). 1050: the product
+ *  manager's choice (2026-11-24) from stills of 900, 1050, 1200 and 1500 on a full HD monitor, a retina laptop and a
+ *  1440 px window, between two faults. At 900, the span until then, a desktop looked zoomed in: a Knight 11.3% of a 16:9
+ *  window's height, the art stretched 1.28 times at 1920 px (1.10 at 1050; its own pixels at 1200), 900 x 506 px of
+ *  ground. At 1200 a Knight stood 8.4% (7.6% at 1440x900) against 16% on a phone on its side and read as a demo's, as
+ *  it had when the span was 1200 before, and the first screen was mostly the dark of ground not seen yet: a 1920x1080
+ *  window is 61% seen ground at 900, 48% at 1050, 40% at 1200, 28% at 1500 (a base stands by the map's edge and the
+ *  camera keeps to the map, so the dark is all on one side). At 1050 a Knight is 9.7% of a 16:9 window's height (8.7%
+ *  at 1440x900, 9.9% where ZOOM_MAX holds a 3440 px window), and the Castle, its gold mine and the ground round them
+ *  fill the first screen (1050 x 656 world px at 1440x900; the phone shows 830 x 350). */
+const START_SPAN = 1050;
 /** The zoom a game starts at: a phone (a coarse pointer) at 1, its world px one CSS px, where the units read; with a
- *  mouse the window shows START_SPAN px of the map across (1.4 at 1280 px, 1.58 at 1440, 2.12 at 1920; never under 1,
- *  never over ZOOM_MAX, the wheel's closest: a 2560 px window starts there, 1018 px across, where a clamp at 2 left its
- *  units smaller than a 1440 px window's), so the base reads and no window is wider than the smallest map (all the way
+ *  mouse the window shows START_SPAN px of the map across (1.22 at 1280 px, 1.37 at 1440, 1.83 at 1920, 2.44 at 2560;
+ *  never under 1, never over ZOOM_MAX, the wheel's closest: a window from 2625 px wide starts there, a 3440 px one
+ *  1376 px across), so the base reads and no window is wider than the smallest map (all the way
  *  out, ZOOM_MIN, a wide monitor showed the dark past the map's edges: a stranger's first sight of the game). Never
  *  farther out than `zoomLimit` (a window over twice as tall as it is wide: 1.12 at 1000x2400), which passes ZOOM_MAX
  *  only on a window over 2.5 maps wide. The wheel zooms out from there. */

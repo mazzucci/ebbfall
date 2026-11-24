@@ -499,7 +499,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 900 px of the map across the window (any monitor, never closer than 2.5), never farther out than the zoom-out limit (a tall window), the Castle, its gold mine and its workers in the first screen and a Knight a tenth of the canvas\'s height; at 1 on a phone (844x390, 667x375)', async () => {
+test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1050 px of the map across the window (any monitor, never closer than 2.5), never farther out than the zoom-out limit (a tall window), the Castle, its gold mine and its workers in the first screen and a Knight near a tenth of the canvas\'s height; at 1 on a phone (844x390, 667x375)', async () => {
   for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 1920, height: 1080 } }, { viewport: { width: 2560, height: 1440 } }, { viewport: { width: 3440, height: 1440 } }, { viewport: { width: 1000, height: 2400 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -517,9 +517,12 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
       const inView = ([x0, y0, x1 = x0, y1 = y0]) => x0 >= s.x && x1 <= s.x + s.vw && y0 >= s.y && y1 <= s.y + s.vh;
       if (device.hasTouch) assert.ok(s.zoom === 1 && s.limit === 0.75, `${what}: a phone at 1, its limit 0.75: ${JSON.stringify(s)}`);
       else {
-        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2.5, Math.max(1, s.w / 900)), s.limit)) < 1e-9 && s.zoom === s.start && s.zoom <= 2.5, `${what}: 900 px of the map across (between 1 and 2.5), or the limit where it is closer: ${JSON.stringify(s)}`);
+        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2.5, Math.max(1, s.w / 1050)), s.limit)) < 1e-9 && s.zoom === s.start && s.zoom <= 2.5, `${what}: 1050 px of the map across (between 1 and 2.5), or the limit where it is closer: ${JSON.stringify(s)}`);
         assert.ok(inView(s.castle) && s.mine && inView(s.mine) && s.units.length > 0 && s.units.every(inView), `${what}: the Castle, its gold mine and its workers whole in the first screen: ${JSON.stringify(s)}`);
-        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.095, `${what}: a Knight near a tenth of the canvas's height at least (it was 8 to 9% at 1200 px across; 16% on a phone; edge to edge the canvas is the window, 9.9% at 2560x1440): ${JSON.stringify(s)}`);
+        // (the span is a width, so the share goes with the window's shape: 9.7% of a 16:9 window's height at 1050 px
+        // across, 8.7% at 1440x900, the least of these, 9.9% at 3440x1440, held at 2.5. At 1200 px across it was 8.4% and
+        // 7.6%, where the units read as a demo's: under 8.5% is that again; a phone's is 16%)
+        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.085, `${what}: a Knight 8.5% of the canvas's height at least (8.7% at 1440x900, 9.7% on a 16:9 window; edge to edge the canvas is the window): ${JSON.stringify(s)}`);
         if (device.viewport.height === 2400) assert.ok(s.limit > 1 && s.zoom === s.limit, `${what}: a tall window starts at its limit: ${JSON.stringify(s)}`);
         assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
       }

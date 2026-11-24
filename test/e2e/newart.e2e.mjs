@@ -17,7 +17,9 @@ async function play(query, routes = {}) {
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
   await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
   await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 60000 });
-  const hash = await page.evaluate(() => { endfall.engine.disableAi(); const a = []; for (let t = 0; t < 5; t++) { endfall.skip(2); a.push(endfall.engine.stateHash() >>> 0); } return { seed: endfall.map.seed ?? null, start: endfall.G.bldgs.length, a }; });
+  // (the AI left on, whole games alike: each hash at a tick both games reach by fixed steps, the page's own loop not
+  // between, so however many ticks passed before this call does not show)
+  const hash = await page.evaluate(() => { const a = []; for (const t of [900, 1200]) { if (endfall.G.tick > t) throw new Error(`already at tick ${endfall.G.tick}`); while (endfall.G.tick < t) endfall.skip(1 / 30); a.push(endfall.engine.stateHash() >>> 0); } return { a }; });
   await page.waitForTimeout(300);
   await ctx.close();
   return { asked, errors, hash };
@@ -40,7 +42,6 @@ test('with it and no index, a missing page or a broken index: today\'s art, no e
 test('the same link plays the same game with and without ?art=new', { timeout: 180000 }, async () => {
   const a = await play('?seed=4242&map=4'), b = await play('?seed=4242&map=4&art=new');
   assert.deepEqual(a.hash.a, b.hash.a, 'state hashes');
-  assert.equal(a.hash.start, b.hash.start);
 });
 
 test('with it, the packs that are there load, with no error and no failed request', { timeout: 180000 }, async () => {

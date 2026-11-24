@@ -365,6 +365,10 @@ src/client/           everything that touches the browser
                       for the tests;
                       each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
                       atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
+  gl/newart.js        the new look's switch (?art=new, off by default, remembered nowhere): loads the packs of
+                      public/art/new/ (index.json: groups of sprite pages, each whole or not at all), whose frames
+                      replace today's by name; without the switch nothing of it is fetched, and the packs are left out of
+                      the offline install (tools/offline/plugin.mjs WEB_ONLY)
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`: in a dry meadow
                       only dry-grass marks, in a lush one none), which overlay tile (`overlayTile`), each rock region's
                       kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
@@ -604,6 +608,9 @@ test/shots.test.js    how each shot is drawn to read on a phone (look.js `SHOT_S
                       (the Drone's the Sentry mast's), hits in steel's cool and muzzle flashes warm, the heavy trail
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
+test/newart.test.js   the new look's loader (src/client/gl/newart.js): nothing fetched without the switch, a group whole or
+                      not at all, no stale team mask; test/newart-tone.test.js its tone curve; test/e2e/newart.e2e.mjs
+                      the switch in the game: the fallback, the same game with and without it
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped, a meadow's marks; an overlay cell's variant
 test/groundplan.test.js  the ground's plan (src/client/gl/groundplan.js): the same plan, grid for grid, whoever is seated
@@ -951,6 +958,9 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       How to play shows the loop at the start of its desktop section (lazy: the phone's loop is the
                       page's first media) and seven desktop rows have a gesture's loop on demand through the same ?
                       (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
+tools/newart/         the new look's packs (public/art/new/, NOTICE.txt beside them): a builder per group
+                      (bldg/build.mjs) that reads the pictures from EBBFALL_PICTURES (a local folder, not in the repo),
+                      and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
 tools/view-capture.mjs  how the game looks on a desktop monitor against a landscape phone (npm run build first; a
                       Chromium): one staged instant of seed 4242 under a held clock (the start's framing, then a fight
                       with 12 of ours box-selected through the UI), shot at 1440x900, 1920x1080 and 2560x1440 per START_SPAN

@@ -4,7 +4,9 @@
 // `endfall.skip`, every still drawn with `endfall.draw`, service workers blocked); the state hash of every still is
 // logged, and the two looks' must be the same.
 //   npm run build && node tools/newart/unit/capture.mjs --tag today|new [--out DIR] [--only d1,d2,ph]
-//   node tools/newart/unit/capture.mjs --sheet [--out DIR]      today beside new, a picture per still, and 1:1 crops
+//     --shots fight,lineup,behind   only these stills (the scene is staged whole all the same)
+//   node tools/newart/unit/capture.mjs --sheet [--out DIR] [--pair today,new]   two tags' stills side by side (1:1
+//                                                                crops round each scene's middle), in pairs-<a>-<b>/
 //   node tools/newart/unit/capture.mjs --bench                   the frame time with 100 Guards on screen, both looks
 // The stills hold the new look's pictures: --out is outside the repo (default: the article folder's new-art/unit).
 // The scene (seed 4242, the Kingdom against the Expedition, the AI and the fog off): a Barracks built by a Villager;
@@ -26,7 +28,7 @@ const DEVICES = {
   d2: { viewport: { width: 1728, height: 1000 }, deviceScaleFactor: 2 },
   ph: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 };
-const ONLY = arg('--only', Object.keys(DEVICES).join(',')).split(',');
+const ONLY = arg('--only', Object.keys(DEVICES).join(',')).split(','), SHOTS = arg('--shots', '').split(',').filter(Boolean), PAIR = arg('--pair', 'today,new').split(',');
 const ARMIES = [{ trooper: 12 }, { prism: 7, scythe: 3 }];
 const AT = { x: 1300, y: 1610 }; // (world px: the fight, a few tiles west of our Castle at 1728, 1728)
 
@@ -133,6 +135,7 @@ const onPage = (page, x, y) => page.evaluate(([x, y]) => { const { cam } = endfa
 const look = (page, at, zoom) => page.evaluate(([at, z]) => { endfall.cam.zoom = z ?? endfall.startZoom; endfall.centerOn(at.x, at.y); endfall.draw(); return endfall.cam.zoom; }, [at, zoom]);
 const log = { tag: TAG, shots: [], errors: [], warns: [] };
 async function shoot(page, dev, name, extra = {}) {
+  if (SHOTS.length && !SHOTS.includes(name)) return;
   const s = await page.evaluate(() => { endfall.draw(); const { cam, view, G, engine } = endfall; return { zoom: cam.zoom, cam: { x: cam.x, y: cam.y }, view: { w: view.w, h: view.h, dpr: view.dpr }, tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0, selected: endfall.ui.sel.length, top: endfall.unitTop('trooper') }; });
   const file = `${dev}-${name}.png`; await page.screenshot({ path: join(OUT, TAG, file), timeout: 300000 });
   console.log(`${TAG} ${file}: zoom ${s.zoom.toFixed(3)}, tick ${s.tick}, hash ${s.hash}, ${s.selected} selected`);
@@ -184,23 +187,24 @@ async function stills() {
   if (log.warns.length) console.warn(log.warns.join('\n'));
 }
 
-/** Today beside new: each still's pair, and 1:1 crops round each scene's middle. */
+/** Two tags' stills side by side (today beside new by default): 1:1 crops round each scene's middle. */
 function sheet() {
-  const T = JSON.parse(readFileSync(join(OUT, 'today/shots.json'), 'utf8')), N = JSON.parse(readFileSync(join(OUT, 'new/shots.json'), 'utf8'));
-  mkdirSync(join(OUT, 'pairs'), { recursive: true });
+  const [ta, tb] = PAIR, dir = join(OUT, `pairs-${ta}-${tb}`);
+  const T = JSON.parse(readFileSync(join(OUT, ta, 'shots.json'), 'utf8')), N = JSON.parse(readFileSync(join(OUT, tb, 'shots.json'), 'utf8'));
+  mkdirSync(dir, { recursive: true });
   const beside = (a, b, gap = 8) => { const w = a.w + gap + b.w, h = Math.max(a.h, b.h), data = new Uint8ClampedArray(w * h * 4).fill(255); for (const [im, ox] of [[a, 0], [b, a.w + gap]]) for (let y = 0; y < im.h; y++) data.set(im.data.subarray(y * im.w * 4, (y + 1) * im.w * 4), (y * w + ox) * 4); return { w, h, data }; };
   const cut = (im, cx, cy, w, h) => { const x0 = Math.max(0, Math.min(im.w - w, Math.round(cx - w / 2))), y0 = Math.max(0, Math.min(im.h - h, Math.round(cy - h / 2))), cw = Math.min(w, im.w), ch = Math.min(h, im.h), data = new Uint8ClampedArray(cw * ch * 4); for (let y = 0; y < ch; y++) data.set(im.data.subarray(((y0 + y) * im.w + x0) * 4, ((y0 + y) * im.w + x0 + cw) * 4), y * cw * 4); return { w: cw, h: ch, data }; };
   let same = 0, differ = 0;
   for (const t of T.shots) {
     const n = N.shots.find(s => s.file === t.file); if (!n) continue;
     if (t.hash === n.hash && t.tick === n.tick) same++; else { differ++; console.warn(`${t.file}: the two looks are not the same instant (hash ${t.hash} tick ${t.tick} against ${n.hash} tick ${n.tick})`); }
-    const a = readPNG(readFileSync(join(OUT, 'today', t.file))), b = readPNG(readFileSync(join(OUT, 'new', t.file)));
+    const a = readPNG(readFileSync(join(OUT, ta, t.file))), b = readPNG(readFileSync(join(OUT, tb, t.file)));
     // the scene's middle on the page (the canvas starts at the page's top left on every layout here), in device px
     const d = t.view.dpr, cx = (t.at.x - t.cam.x) * t.zoom * d, cy = (t.at.y - t.cam.y) * t.zoom * d, w = Math.min(a.w, 960), h = Math.min(a.h, 760);
-    writeFileSync(join(OUT, 'pairs', t.file.replace('.png', '-crop.png')), encodePNG(beside(cut(a, cx, cy, w, h), cut(b, cx, cy, w, h))));
-    if (/card|behind/.test(t.name)) writeFileSync(join(OUT, 'pairs', t.file.replace('.png', '-hud.png')), encodePNG(beside(cut(a, a.w / 2, a.h, Math.min(a.w, 1400), Math.min(a.h, 460)), cut(b, b.w / 2, b.h, Math.min(b.w, 1400), Math.min(b.h, 460)))));
+    writeFileSync(join(dir, t.file.replace('.png', '-crop.png')), encodePNG(beside(cut(a, cx, cy, w, h), cut(b, cx, cy, w, h))));
+    if (/card|behind/.test(t.name)) writeFileSync(join(dir, t.file.replace('.png', '-hud.png')), encodePNG(beside(cut(a, a.w / 2, a.h, Math.min(a.w, 1400), Math.min(a.h, 460)), cut(b, b.w / 2, b.h, Math.min(b.w, 1400), Math.min(b.h, 460)))));
   }
-  console.log(`pairs: ${same} stills at the same instant in both looks, ${differ} not`);
+  console.log(`${dir}: ${same} stills at the same instant in both, ${differ} not`);
 }
 
 /** The frame time with 100 Guards on screen: `endfall.draw()` 300 times in a row, the GPU made to finish, both looks. */

@@ -3,14 +3,16 @@
 // and without it (?seed=, ?map=), so two tabs side by side show the same place. The packs are public/art/new/.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test, start, stop, browserContext, baseUrl, DESKTOP } from './harness.mjs';
 
 before(start);
 after(stop);
 
 async function play(query, routes = {}) {
-  const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(), errors = [], asked = [];
+  const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(), errors = [], asked = [], warnings = [];
   page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'warning' && /new art/.test(m.text())) warnings.push(m.text()); });
   page.on('request', r => { const p = new URL(r.url()).pathname; if (p.includes('/art/new/')) asked.push(p); });
   for (const [u, o] of Object.entries(routes)) await page.route(new RegExp(u), r => r.fulfill(o));
   await page.goto(baseUrl() + query, { waitUntil: 'load' });
@@ -22,7 +24,7 @@ async function play(query, routes = {}) {
   const hash = await page.evaluate(() => { const a = []; for (const t of [900, 1200]) { if (endfall.G.tick > t) throw new Error(`already at tick ${endfall.G.tick}`); while (endfall.G.tick < t) endfall.skip(1 / 30); a.push(endfall.engine.stateHash() >>> 0); } return { a }; });
   await page.waitForTimeout(300);
   await ctx.close();
-  return { asked, errors, hash };
+  return { asked, errors, warnings, hash };
 }
 const json = (o) => ({ contentType: 'application/json', body: JSON.stringify(o) });
 
@@ -47,5 +49,7 @@ test('the same link plays the same game with and without ?art=new', { timeout: 1
 test('with it, the packs that are there load, with no error and no failed request', { timeout: 180000 }, async () => {
   const p = await play('?seed=4242&map=4&art=new');
   assert.deepEqual(p.errors, []);
-  assert.ok(p.asked.some(f => f.endsWith('/bldg-0.webp')), `the buildings' page: ${p.asked}`);
+  const groups = JSON.parse(readFileSync(new URL('../../public/art/new/index.json', import.meta.url), 'utf8')).groups;
+  for (const [g, { pages }] of Object.entries(groups)) for (const page of pages) assert.ok(p.asked.some(a => a.endsWith('/' + page)), `${g}: ${page} (${p.asked})`);
+  assert.deepEqual(p.warnings, [], 'no group left out');
 });

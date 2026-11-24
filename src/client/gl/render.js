@@ -15,6 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
+import { review } from '../review.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -44,7 +45,7 @@ const zoomTop = () => Math.max(ZOOM_MAX, zoomLimit());
  *  stood 8 to 9% of a desktop canvas's height against 16% on a phone on its side, and read as a demo's; at 900 it is 11
  *  to 12% (10% at 2560 px, held at ZOOM_MAX), and the Castle, its gold mine and the ground round them still fill the
  *  first screen (900 x 530 world px at 1440x900; the phone shows 830 x 350). */
-const START_SPAN = 900;
+const START_SPAN = 900; // (the desktop review: `review.span`, ?span=, in its place below; 900 without the switch)
 /** The zoom a game starts at: a phone (a coarse pointer) at 1, its world px one CSS px, where the units read; with a
  *  mouse the window shows START_SPAN px of the map across (1.4 at 1280 px, 1.58 at 1440, 2.12 at 1920; never under 1,
  *  never over ZOOM_MAX, the wheel's closest: a 2560 px window starts there, 1018 px across, where a clamp at 2 left its
@@ -52,7 +53,7 @@ const START_SPAN = 900;
  *  out, ZOOM_MIN, a wide monitor showed the dark past the map's edges: a stranger's first sight of the game). Never
  *  farther out than `zoomLimit` (a window over twice as tall as it is wide: 1.12 at 1000x2400), which passes ZOOM_MAX
  *  only on a window over 2.5 maps wide. The wheel zooms out from there. */
-export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / START_SPAN, 1, ZOOM_MAX), zoomLimit());
+export const startZoom = () => Math.max(matchMedia('(pointer: coarse)').matches ? 1 : clamp(view.w / (review.span || START_SPAN), 1, ZOOM_MAX), zoomLimit());
 export const ALLY = '#f5a524', FOE = '#e2457a'; // (orders and bursts: ours amber, theirs rose)
 const ALLY_FRAME = 'rgba(255,255,255,0.9)'; // (the minimap: an ally's buildings in a team game)
 const MM_GOLD = '#e8c04a'; // (the minimap: a gold mine, gold as its veins)
@@ -246,6 +247,7 @@ export function resize() {
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
   const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: a touch screen's row over the minimap)
   footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity)) + 4 : FOOT_ROOM;
+  if (review.hud && m.height) footRoom = Math.max(footRoom, r.bottom - cardTop() + 4); // (the review's smaller minimap: a three-row card stands taller than it)
   showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
   cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
@@ -266,6 +268,12 @@ const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0
  *  apron (rock drawn past the map, `showApron`), never the dark. The sides need no room: no panel stands at a side but
  *  at the foot and the top, and their corners come out with the foot's and the top's room. Phones keep their box. */
 const FOOT_ROOM = 170; // (before the minimap is laid out)
+/** The top of the command card when it has three rows (screen px), whatever it shows now: the desktop review's HUD
+ *  (?hud=1|2) has a minimap lower than that card, so the camera's room past the foot is the card's there. */
+function cardTop() {
+  const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0;
+  return cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth));
+}
 let bleed = false, topRoom = 0, footRoom = FOOT_ROOM;
 export function clampCam() {
   if (bleed) {

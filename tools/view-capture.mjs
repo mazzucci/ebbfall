@@ -31,6 +31,8 @@
 //          a 128x128 map and of the Lake; `gates`: 1:1 crops of the passes on the 128 map and the foot of the Lake
 //          (--gates x,y;x,y world px on the 128 map, --lake x,y;... on the Lake). --only a,b: some stills only (start
 //          fight out whole fog minimap retina phone seed2 big shore gates). --sheet: main beside pr.
+// --set review: the desktop review's stills (tools/view-review.mjs: every start span and HUD variant of a screen, the
+//          numbers read from the page, the sheets): --screen NAME, --sheet, --exact before|after.
 // The scene (seed 4242, the Kingdom against the Expedition, the AI off, the fog off). The page's clock is held before
 // the game starts, so the main loop never steps: the world moves only by `endfall.skip`, each shot is drawn with
 // `endfall.draw` (the HUD, then the map). Two instants:
@@ -49,7 +51,7 @@ import { FFMPEG } from './trailer/record.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = fileURLToPath(new URL('..', import.meta.url));
 const SET = arg('--set', 'start'), TAG = arg('--tag', 'today');
-const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', tablet: '../ebbfall-article/tablet-edge', hud: '../ebbfall-article/hud-pr', ground: '../ebbfall-article/ground-pr' }[SET] || '../ebbfall-article/desktop-start')));
+const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', tablet: '../ebbfall-article/tablet-edge', hud: '../ebbfall-article/hud-pr', ground: '../ebbfall-article/ground-pr', review: '../ebbfall-article/desktop-review/zoom-hud' }[SET] || '../ebbfall-article/desktop-start')));
 const SPANS = arg('--spans', '1200,1000,900').split(',').map(Number);
 const SIZES = SET === 'edge' ? [[1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]] : [[1440, 900], [1920, 1080], [2560, 1440]];
 const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true };
@@ -175,6 +177,7 @@ function variants(view, limit) {
 if (SET === 'edge' || SET === 'tablet') { await edgeSet(); process.exit(0); }
 if (SET === 'hud') { await hudSet(); process.exit(0); }
 if (SET === 'ground') { await groundSet(); process.exit(0); }
+if (SET === 'review') { await (await import('./view-review.mjs')).reviewSet({ arg, out, hudStage, tallShot }); process.exit(0); } // (the desktop review: view-review.mjs)
 await start();
 const log = { at: AT, armies: ARMIES, shots: [], setups: {}, errors: [] };
 try {

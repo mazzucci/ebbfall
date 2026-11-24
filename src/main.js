@@ -6,6 +6,7 @@ import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeat
 import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
+import { review, setHud } from './client/review.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
 import { sfx, audio, audioState, renderSfx, gameSound } from './client/audio.js';
 import { fx, burst, updateFx } from './client/fx.js';
@@ -296,6 +297,7 @@ window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoo
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
   paint: (spots) => { setSpots(spots); renderTerrain(); },
+  review, setHud: (n) => { setHud(n); resize(); }, // (the desktop review's switches, set again on a running page: tools/view-review.mjs)
   draw: () => { updateHud(); updateClock(); updateTools(); render(ui.sel, ui.place); }, // (tools/view-capture.mjs: one frame now; under a held clock the same instant again)
   skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.

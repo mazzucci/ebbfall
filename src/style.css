@@ -648,3 +648,74 @@ dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-a
   .tb{font-size:max(11px,calc(var(--u)*12));padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:max(12px,calc(var(--u)*13))}
   #cmdInfo{font-size:max(12px,calc(var(--u)*13))}
 }
+/* The desktop review's prototype (branch desktop-review; src/client/review.js sets the root's data-hud from ?hud=1|2,
+   and without it nothing here applies: the HUD is today's). Two things, only where the desktop HUD's query holds:
+   `--u` stops growing at 1.0 (hud 1) or 1.1 (hud 2) where today's reaches 1.4, and every size comes from one table.
+   THE SIZE TABLE (units of --u; a text role is never under 12 px, the least a monitor's eye reads at a glance):
+     --t-key    12  the small role: a button's label, its key, its price, a queue's seconds, a tile's letter, POP, a tag
+     --t-body   14  words: the console's lines, a toast, a hint, a tooltip's words and chips, the help sheet
+     --t-num    17  figures (mono): gold, population, the clock, health, the stat figures, a tooltip's price
+     --t-title  17  a name (display, bold): the selection's, a research's, a tooltip's, the help sheet's
+     --t-tip        the tooltip's words: the body's
+     --i-s 14, --i-m 18, --i-l 24, --i-xl 30   icons: beside words; the top bar's and beside figures; an order; a unit's or a building's symbol
+     --mm      190  the minimap's side; what stands over it (the hint, the toasts, a touch laptop's three) follows it
+     --t-menu       the menu's line (#menuTag): its own pull request's, only named here
+     --t-menu-s 14  the menu's second-rank text (px): the small buttons, the footer's links (the big buttons' 14 already)
+     --t-menu-min 12  the menu's least text (px): the build stamp, a token's small words, a sheet's, the trailer's credit */
+@media (min-width:1100px) and (min-height:560px) and (pointer:fine){
+  :root[data-hud]{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1px);
+    --t-key:max(12px,calc(var(--u)*12));--t-body:calc(var(--u)*14);--t-num:calc(var(--u)*17);--t-title:calc(var(--u)*17);--t-tip:var(--t-body);
+    --i-s:calc(var(--u)*14);--i-m:calc(var(--u)*18);--i-l:calc(var(--u)*24);--i-xl:calc(var(--u)*30);
+    --mm:calc(var(--u)*190);--t-menu-s:14px;--t-menu-min:12px}
+  :root[data-hud="2"]{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.1px)}
+  /* the top bar: the gold and POP plates as tall as the buttons (40), their figures no heavier than the icons */
+  :root[data-hud] #top .ib .ico{width:var(--i-m);height:var(--i-m)} :root[data-hud] #top .ib.help{font-size:var(--t-num)}
+  :root[data-hud] .res{font-size:var(--t-num);gap:calc(var(--u)*8)}
+  :root[data-hud] .res .dot{width:calc(var(--u)*19);height:calc(var(--u)*16)}
+  :root[data-hud] .res .lbl{font-size:var(--t-key)}
+  :root[data-hud] #top .res:not(#resClock){height:calc(var(--u)*40);padding:0 calc(var(--u)*14)}
+  :root[data-hud] #resClock{font-size:var(--t-num)}
+  :root[data-hud] :is(#tools,#tut,#helpSheet){top:calc(var(--m) + var(--u)*50)}
+  :root[data-hud] #helpSheet{max-height:calc(100% - 2 * var(--m) - var(--u)*50)}
+  /* the foot: the minimap 190; the console as wide as before beside it, never taller than a three-row card (the
+     camera's room past the foot is that card's: render.js cardTop) */
+  :root[data-hud] #minimap{width:var(--mm);height:var(--mm)}
+  :root[data-hud] #info{width:min(calc(var(--u)*760),calc(100% - var(--mm) - var(--u)*364));max-height:calc(var(--u)*228)}
+  :root[data-hud] #info h2{font-size:var(--t-title)}
+  :root[data-hud] #info .sub,:root[data-hud] #info .what{font-size:var(--t-body)}
+  :root[data-hud] #hpNum{font-size:var(--t-num)}
+  :root[data-hud] .st{font-size:var(--t-num)} :root[data-hud] .st .ico{width:var(--i-m);height:var(--i-m)}
+  :root[data-hud] .gi b{font-size:var(--t-key)}
+  :root[data-hud] .qi .ico.gl{width:var(--i-xl);height:var(--i-xl)} :root[data-hud] .qi .left{font-size:var(--t-key)}
+  :root[data-hud] .rt{font-size:var(--t-title)} :root[data-hud] .rs>.ico{width:var(--i-xl);height:var(--i-xl)}
+  :root[data-hud] .cb{font-size:var(--t-key);letter-spacing:0;padding:0 1px} /* (at --u 0.9 the 12 px floor is a larger label in a smaller slot: no tracking, 1 px less at each side) */
+  :root[data-hud] .cb .ico{width:var(--i-l);height:var(--i-l)} :root[data-hud] .cb .ico.gl{width:var(--i-xl);height:var(--i-xl)}
+  :root[data-hud] .cb .k{font-size:var(--t-key)} :root[data-hud] .cb .c{font-size:var(--t-key)}
+  :root[data-hud] .cb .c .p .ico{width:calc(var(--u)*10);height:calc(var(--u)*10)}
+  /* toasts, hints and a touch laptop's three over the minimap, following its size */
+  :root[data-hud] .toast{font-size:var(--t-body)}
+  :root[data-hud] #hint{font-size:var(--t-body);bottom:calc(var(--m) + var(--mm) + var(--u)*14)} :root[data-hud] #hint.placing,:root[data-hud] #hint.boxing{font-size:var(--t-num)}
+  :root[data-hud] :is(#stage:has(#btnBox[hidden]),#stage) #msg{bottom:calc(var(--m) + var(--mm) + var(--u)*48)}
+  :root[data-hud] :is(#btnBox,#btnHome,#btnArmy){--bw:calc((var(--mm) - 8px) / 3);bottom:calc(var(--m) + var(--mm) + var(--u)*10)}
+  :root[data-hud] #stage:has(#btnBox:not([hidden])) #hint{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + 56px)}
+  :root[data-hud] #stage:has(#btnBox:not([hidden])) #msg{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + 90px)}
+  :root[data-hud] .tb,:root[data-hud] .tb b{font-size:var(--t-key)}
+  /* the tooltip: its name a title, its price a figure, its words and chips the body's, its small chips and tags the key's */
+  :root[data-hud] #cmdInfo{font-size:var(--t-tip)}
+  :root[data-hud] #cmdInfo b{font-size:var(--t-title)}
+  :root[data-hud] #cmdInfo .c{font-size:var(--t-num)} :root[data-hud] #cmdInfo .c .dot{width:calc(var(--u)*19);height:calc(var(--u)*16)}
+  :root[data-hud] #cmdInfo .pl,:root[data-hud] #cmdInfo .sc{font-size:var(--t-tip)}
+  :root[data-hud] #cmdInfo .pl .ico,:root[data-hud] #cmdInfo .sc .ico{width:var(--i-s);height:var(--i-s)}
+  :root[data-hud] #cmdInfo .sr{min-height:calc(var(--u)*18)}
+  :root[data-hud] #cmdInfo .stats.small .sc{font-size:var(--t-key)} :root[data-hud] #cmdInfo .stats.small .sc .ico{width:var(--t-key);height:var(--t-key)}
+  :root[data-hud] #cmdInfo .tg{font-size:var(--t-key)}
+  /* the guided game's line, the help sheet, the online line: the same roles */
+  :root[data-hud] #tut{font-size:var(--t-body)} :root[data-hud] #tut b{font-size:var(--t-key)}
+  :root[data-hud] #helpSheet{font-size:var(--t-body)} :root[data-hud] #helpSheet h2{font-size:var(--t-title)} :root[data-hud] #helpSheet kbd,:root[data-hud] #helpSheet .ft{font-size:var(--t-key)}
+  :root[data-hud] #netWait{font-size:var(--t-key)}
+  /* the menu's small text (a proposal; #menuTag is its own pull request's): the small buttons and the links 14 px,
+     nothing under 12 px */
+  :root[data-hud] :is(#start,#online,#options) :is(.row,.joincode)>.ib:not(.big),:root[data-hud] #menuLinks{font-size:var(--t-menu-s)}
+  :root[data-hud] #menuHome .rec,:root[data-hud] .tok .lw,:root[data-hud] .tok .stag:not(:empty),:root[data-hud] .tok .act,:root[data-hud] .sheet .hd .sub,:root[data-hud] .sheet .opt .lbl,
+  :root[data-hud] .setting .line,:root[data-hud] .pausegrid small,:root[data-hud] dialog.trailer .credit,:root[data-hud] dialog.trailer .x{font-size:var(--t-menu-min)}
+}

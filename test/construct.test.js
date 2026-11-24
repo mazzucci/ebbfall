@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { BUILDINGS, FACTIONS } from '../src/engine/constants.js';
 import { decodeWebP } from '../tools/art/webp.mjs';
-import { RAW, GHOST, GANTRY, GANTRY_FRAME, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headPath, headAt, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP } from '../src/client/construct.js';
+import { RAW, GHOST, GANTRY, GANTRY_FRAME, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headPath, headAt, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP, REVEAL, revealRows, revealMatrix, frameOf as siteFrame } from '../src/client/construct.js';
 
 const near = (a, b, msg, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 
@@ -217,4 +217,16 @@ test('the knock is a sound of its own, next to the hit, with a gap', () => {
   const src = readFileSync(new URL('../src/client/audio.js', import.meta.url), 'utf8');
   assert.match(src, /\n {2}knock: \(b, t\) =>/, 'a knock recipe');
   assert.match(src, /GAP = \{ knock: \d+/, 'never more than one at a time');
+});
+
+test('the new look\'s site: in color to 90% of its height until done, the rest gray; its frame goes from side corner to side corner', () => {
+  assert.equal(revealRows(0), 1); assert.equal(revealRows(1), Math.round(REVEAL.rows * REVEAL.cap)); assert.ok(revealRows(0.99) < REVEAL.rows);
+  let last = 0; for (let p = 0; p <= 1; p += 0.01) { const k = revealRows(p); assert.ok(k >= last); last = k; }
+  const gray = revealMatrix(0); assert.deepEqual(gray.slice(0, 5), gray.slice(5, 10)); assert.deepEqual(revealMatrix(1).slice(0, 5).map(v => Math.round(v * 1e9) / 1e9), [1, 0, 0, 0, 0]);
+  for (const base of [[[-60, 8], [20, 40], [60, 8], [-20, -24]], [[60, 8], [-20, -24], [-60, 8], [20, 40]], Array.from({ length: 24 }, (_, i) => [30 * Math.cos(i * Math.PI / 12), 15 * Math.sin(i * Math.PI / 12)])]) {
+    const f = siteFrame(base), mean = (h) => h.reduce((t, p) => t + p[1], 0) / h.length;
+    for (const h of [f.front, f.back]) assert.deepEqual([h[0], h.at(-1)], f.sides, 'each half joins the side corners');
+    assert.ok(f.sides[0][0] < f.sides[1][0] && mean(f.front) > mean(f.back), 'left and right; the front half the nearer one');
+    assert.equal(new Set([...f.front, ...f.back]).size, base.length, 'every point in one half');
+  }
 });

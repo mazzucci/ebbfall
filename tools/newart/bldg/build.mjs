@@ -37,37 +37,38 @@ const CFG = {
   contact: { alpha: 0.22, out: 2 },                          // a soft dark edge on the ground round the foot (world px)
   sharp: 0.35,
   webp: { lossless: 0, quality: 90, use_sharp_yuv: 1, alpha_quality: 100, method: 6, exact: 1 },
-  site: { kg: [1.22, 0.9, -8], ex: [1.18, 0.8, -10] },       // today's scaffold or gantry stretched round the corner-on body: east, south, its shift south
+  tone: { kg: {}, ex: { lift: 1.35, top: 0.95 } },           // tone.mjs, by people: the Expedition's white panels keep their seams
+  ex: new Set(['conflux', 'kiln', 'spire', 'siphon', 'loom', 'substation', 'ward', 'uplink', 'eclipse']), // (the Expedition's; the rest are the Kingdom's: a page each)
   bldg: {
     // `ground`: the outline on the ground; its middle stands on the footprint's, `dy` px south. `w`: the ground's width
     // (world px); `n`: the footprint (tiles); `h`: the walls' height for the shadow (picture px).
-    conflux: { pic: 'set/ref-c1.jpg', n: 4, w: 150, dy: 8, ...HALL, lit: cyan, bloom: [5, 0.5], look: { glow: { at: [1066, 615], tint: 0x20d8ff, size: 0.9 }, site: 'ex' } },
+    conflux: { pic: 'set/ref-c1.jpg', n: 4, w: 150, dy: 8, ...HALL, lit: cyan, bloom: [5, 0.5], look: { glow: { at: [1066, 615], tint: 0x20d8ff, size: 0.9 } } },
     core: { pic: 'kingdom/core-e1.jpg', n: 4, w: 146, dy: 8, ground: [[213, 1395], [1170, 1740], [1845, 1290], [888, 945]],
       solids: [block([[240, 1370], [1170, 1710], [1820, 1270], [890, 930]], 560), tower(292, 1395, 80, 700, 890), tower(1175, 1705, 102, 680, 900), tower(1765, 1272, 70, 640, 870), tower(995, 960, 120, 700, 870)],
-      lit: fire, bloom: [4, 0.7], look: { glow: { at: [712, 1186], tint: 0xff8a2a, size: 0.4 }, smoke: null, site: 'kg' } },
-    kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, lit: cyan, bloom: [4, 0.2], look: { glow: { at: [1014, 576], tint: 0x20d8ff, size: 0.55 }, site: 'ex' } },
-    spire: { pic: 'turbine/tower-bare.jpg', n: 2, scaleBy: [434, 1978, 78], anchor: [1030, 1890], dy: 4, ground: disc(1030, 1890, 170, 85),
+      lit: fire, bloom: [4, 0.7], look: { glow: { at: [712, 1186], tint: 0xff8a2a, size: 0.4 }, smoke: null } },
+    kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, lit: cyan, bloom: [4, 0.2], look: { glow: { at: [1014, 576], tint: 0x20d8ff, size: 0.55 } } },
+    spire: { pic: 'turbine/tower-bare.jpg', n: 2, scaleBy: [434, 1978, 78], anchor: [1030, 1890], dy: 4, round: [1030, 1890, 170], ground: disc(1030, 1890, 170, 85),
       solids: [ring(1030, 1890, 168, 0), [...ring(1030, 1890, 85, 0), ...ring(1030, 1890, 60, 1250)], [...ring(1030, 1890, 110, 1190), ...ring(1100, 1840, 110, 1260)]], low: 0.02,
       rotor: { plate: [915, 635], blade: 590, axis: [-0.503, -0.327, 0.8], n: 16, key: 0.72, hemi: 0.5 } },
     // the Kingdom
-    depot: { pic: 'kingdom/depot-e1.jpg', n: 2, w: 69, dy: 4, ground: quad([290, 1470], [1110, 1876], [1800, 1395]), h: 560, lit: fire, bloom: [3, 0.5], look: { site: 'kg' } },
-    barracks: { pic: 'kingdom/barracks-e1.jpg', n: 3, w: 106, dy: 6, ground: quad([150, 1265], [1500, 1862], [1880, 1590]), h: 480, lit: fire, bloom: [3, 0.5], look: { smoke: null, site: 'kg' } },
-    forge: { pic: 'kingdom/forge-e1.jpg', n: 2, w: 70, dy: 4, ground: quad([190, 1430], [1298, 1892], [1840, 1500]), h: 520, lit: fire, bloom: [3, 0.6], look: { glow: { at: [526, 1260], tint: 0xff5a1e, size: 0.5, flicker: true }, smoke: { at: [[653, 170]] }, site: 'kg' } },
-    extractor: { pic: 'kingdom/extractor-e1.jpg', n: 2, w: 72, dy: 4, ground: quad([170, 1350], [1010, 1760], [1880, 1320]), h: 500, lit: fire, bloom: [3, 0.5], look: { site: 'kg' } },
-    factory: { pic: 'kingdom/factory-e1.jpg', n: 3, w: 94, dy: 6, ground: quad([390, 1420], [1120, 1775], [1740, 1415]), h: 560, lit: fire, bloom: [3, 0.5], look: { site: 'kg' } },
-    airfield: { pic: 'kingdom/airfield-e1.jpg', n: 3, w: 106, dy: 6, ground: quad([180, 1165], [1490, 1795], [1890, 1470]), h: 480, lit: fire, bloom: [3, 0.5], look: { site: 'kg' } },
-    turret: { pic: 'kingdom/turret-e1.jpg', n: 2, w: 46, dy: 6, ground: disc(1020, 1660, 400, 225), solids: [[...ring(1020, 1660, 395, 0), ...ring(1020, 1660, 340, 1100)], [...ring(1020, 1660, 480, 1120), ...ring(1020, 1660, 480, 1290)]], lit: fire, bloom: [3, 0.5],
-      heads: { today: 'turret_head', pivot: [0, -68], at: [1013, 405], n: 16 }, look: { site: 'kg' } },
+    depot: { pic: 'kingdom/depot-e1.jpg', n: 2, w: 69, dy: 4, ground: quad([290, 1470], [1110, 1876], [1800, 1395]), h: 560, lit: fire, bloom: [3, 0.5] },
+    barracks: { pic: 'kingdom/barracks-e1.jpg', n: 3, w: 106, dy: 6, ground: quad([150, 1265], [1500, 1862], [1880, 1590]), h: 480, lit: fire, bloom: [3, 0.5], look: { smoke: null } },
+    forge: { pic: 'kingdom/forge-e1.jpg', n: 2, w: 70, dy: 4, ground: quad([190, 1430], [1298, 1892], [1840, 1500]), h: 520, lit: fire, bloom: [3, 0.6], look: { glow: { at: [526, 1260], tint: 0xff5a1e, size: 0.5, flicker: true }, smoke: { at: [[653, 170]] } } },
+    extractor: { pic: 'kingdom/extractor-e1.jpg', n: 2, w: 72, dy: 4, ground: quad([170, 1350], [1010, 1760], [1880, 1320]), h: 500, lit: fire, bloom: [3, 0.5] },
+    factory: { pic: 'kingdom/factory-e1.jpg', n: 3, w: 94, dy: 6, ground: quad([390, 1420], [1120, 1775], [1740, 1415]), h: 560, lit: fire, bloom: [3, 0.5] },
+    airfield: { pic: 'kingdom/airfield-e1.jpg', n: 3, w: 106, dy: 6, ground: quad([180, 1165], [1490, 1795], [1890, 1470]), h: 480, lit: fire, bloom: [3, 0.5] },
+    turret: { pic: 'kingdom/turret-e1.jpg', n: 2, w: 46, dy: 6, round: [1020, 1660, 400], ground: disc(1020, 1660, 400, 225), solids: [[...ring(1020, 1660, 395, 0), ...ring(1020, 1660, 340, 1100)], [...ring(1020, 1660, 480, 1120), ...ring(1020, 1660, 480, 1290)]], lit: fire, bloom: [3, 0.5],
+      heads: { today: 'turret_head', pivot: [0, -68], at: [1013, 405], n: 16 } },
     // the Expedition
-    siphon: { pic: 'kingdom/siphon-e1.jpg', n: 2, w: 76, dy: 4, ground: quad([105, 1480], [1000, 1905], [1905, 1360]), h: 500, lit: cyan, bloom: [3, 0.4], look: { glow: { at: [797, 878], tint: 0x3fe0ff, size: 0.35 }, site: 'ex' } },
-    loom: { pic: 'set/loom-1.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1430], [1325, 1860], [1993, 1440]), h: 640, shade: [[1440, 0.8]], lit: cyan, bloom: [3, 0.35], look: { glow: { at: [1040, 720], tint: 0x3fe0ff, size: 0.6 }, site: 'ex' } },
-    substation: { pic: 'set/substation-1.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1310], [1325, 1850], [1993, 1400]), h: 230, shade: [[1440, 0.8]], lit: cyan, bloom: [3, 0.35], look: { glow: { at: [1136, 490], tint: 0x3fe0ff, size: 0.5 }, site: 'ex' } },
-    ward: { pic: 'set/ward-2.jpg', n: 2, w: 56, dy: 6, ground: disc(1022, 1450, 860, 412), solids: [[...ring(1022, 1450, 850, 0), ...ring(1022, 1450, 850, 800)]], lit: cyan, bloom: [3, 0.3],
-      heads: { today: 'ward_head', pivot: [0, -20], at: [1026, 650], n: 16 }, look: { site: 'ex' } },
-    uplink: { pic: 'turbine/uplink-base.jpg', n: 3, w: 92, dy: 6, ground: disc(1008, 1400, 960, 455), solids: [block([[80, 1480], [920, 1855], [1400, 1815], [1940, 1440], [1000, 960]], 620)], lit: cyan, bloom: [3, 0.3],
-      heads: { png: 'turbine/uplink_head_', pivot: [104.4, 219.7], at: [1012, 600], list: [13, 14, 15, 0, 1, 2, 3], of: 1928 / 150 }, look: { site: 'ex' } },
+    siphon: { pic: 'kingdom/siphon-e1.jpg', n: 2, w: 76, dy: 4, ground: quad([105, 1480], [1000, 1905], [1905, 1360]), h: 500, lit: cyan, bloom: [3, 0.4], look: { glow: { at: [797, 878], tint: 0x3fe0ff, size: 0.35 } } },
+    loom: { pic: 'set/loom-1.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1430], [1325, 1860], [1993, 1440]), h: 640, shade: [[1440, 0.8]], lit: cyan, bloom: [3, 0.35], look: { glow: { at: [1040, 720], tint: 0x3fe0ff, size: 0.6 } } },
+    substation: { pic: 'set/substation-1.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1310], [1325, 1850], [1993, 1400]), h: 230, shade: [[1440, 0.8]], lit: cyan, bloom: [3, 0.35], look: { glow: { at: [1136, 490], tint: 0x3fe0ff, size: 0.5 } } },
+    ward: { pic: 'set/ward-2.jpg', n: 2, w: 56, dy: 6, round: [1022, 1450, 860], ground: disc(1022, 1450, 860, 412), solids: [[...ring(1022, 1450, 850, 0), ...ring(1022, 1450, 850, 800)]], lit: cyan, bloom: [3, 0.3],
+      heads: { today: 'ward_head', pivot: [0, -20], at: [1026, 650], n: 16 } },
+    uplink: { pic: 'turbine/uplink-base.jpg', n: 3, w: 92, dy: 6, round: [1008, 1400, 950], ground: disc(1008, 1400, 960, 455), solids: [block([[80, 1480], [920, 1855], [1400, 1815], [1940, 1440], [1000, 960]], 620)], lit: cyan, bloom: [3, 0.3],
+      heads: { png: 'turbine/uplink_head_', pivot: [104.4, 219.7], at: [1012, 600], list: [13, 14, 15, 0, 1, 2, 3], of: 1928 / 150 } },
     eclipse: { pic: 'set/eclipse-2.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1600], [1325, 2000], [1993, 1590]), h: 400, lit: cyan, bloom: [3, 0.4],
-      swirl: { at: [936, 812], u: [446, 117], v: [0, 456], n: 16 }, look: { glow: { at: [936, 812], tint: 0x3fe0ff, size: 0.9, k: 0.55 }, site: 'ex' } },
+      swirl: { at: [936, 812], u: [446, 117], v: [0, 456], n: 16 }, look: { glow: { at: [936, 812], tint: 0x3fe0ff, size: 0.9, k: 0.55 } } },
   },
 };
 
@@ -100,12 +101,12 @@ async function rotor(o) {
 /** Today's heads (`today`: a name in public/art, its masks with it, the new light on it) or ready-made ones (`png`, drawn
  *  for a base `of` picture px a frame px), their `pivot` (world px about today's anchor; px in the PNG) on the picture's
  *  point `at`. */
-async function placed(o, k, at, ax, ay, W, H) {
+async function placed(o, k, at, ax, ay, W, H, light) {
   const out = [], [X, Y] = at(...o.at), up = (im, s, px, py) => fit(enlarge(im, 3), s / 3, px * 3, py * 3, ax + X, ay + Y, W, H);
   for (const i of o.list || Array.from({ length: o.n }, (_, i) => i)) {
-    if (o.png) { const p = decodePNG(readFileSync(join(PICTURES, `${o.png}${i}.png`))), im = up({ w: p.w, h: p.h, d: Float32Array.from(p.data) }, k * o.of, ...o.pivot); tone(im.d); out.push({ i, im }); continue; }
+    if (o.png) { const p = decodePNG(readFileSync(join(PICTURES, `${o.png}${i}.png`))), im = up({ w: p.w, h: p.h, d: Float32Array.from(p.data) }, k * o.of, ...o.pivot); tone(im.d, light); out.push({ i, im }); continue; }
     const one = async (name) => { const f = await today(name); return f && up(f.im, SCALE / 2, f.ax + o.pivot[0] * 2, f.ay + o.pivot[1] * 2); };
-    const im = await one(`${o.today}_${i}`), mask = await one(`${o.today}_${i}_m`); tone(im.d); out.push({ i, im, mask });
+    const im = await one(`${o.today}_${i}`), mask = await one(`${o.today}_${i}_m`); tone(im.d, light); out.push({ i, im, mask });
   }
   return out;
 }
@@ -150,7 +151,8 @@ async function building(type, c) {
   const put = (im, sharp) => fit(im, k * S, mid[0], mid[1], ax, ay + c.dy * S, W, H, sharp);
   let body = put(pic, CFG.sharp); const m = put(mask, 0);
   if (c.lit) bloom(body, c.lit, Math.max(1, Math.round(c.bloom[0] * S / 2)), c.bloom[1]);
-  tone(body.d); // (the light of the new look: the picture only, never the mask nor the shadow)
+  const light = CFG.tone[CFG.ex.has(type) ? 'ex' : 'kg'];
+  tone(body.d, light); // (the light of the new look: the picture only, never the mask nor the shadow)
   const sh = CFG.shadow, pt = (h) => ([x, y, z = 0]) => { const [X, Y] = at(x, y), q = z * k * S * h; return [ax + X + q * sh.dx, ay + Y + q * sh.dy]; };
   // Where it sorts among the units: the line through its left and right ground corners, px south of its middle.
   const by = (f) => g.reduce((a, b) => (f(b[0], a[0]) ? b : a)), look = { z: +((at(...by((p, q) => p < q))[1] + at(...by((p, q) => p > q))[1]) / 2 / S).toFixed(1) };
@@ -161,25 +163,25 @@ async function building(type, c) {
   for (let q = 0; q < cast.length; q++) cast[q] = Math.max(cast[q], walls[q]);
   const foot = blur(cover([c.ground.map(pt(0))], W, H), W, H, Math.round(CFG.contact.out * S / 2), 2);
   body = overShadow(body, cast.map((v, i) => Math.min(sh.alpha, Math.max(v * sh.alpha, foot[i] * CFG.contact.alpha))), SHADOW.color);
-  const frames = [], cut = (name, im, b) => frames.push({ name, im: bytes(crop(im, b)), anchor: { x: (ax - b[0]) / (b[2] - b[0] + 1), y: (ay - b[1]) / (b[3] - b[1] + 1) } });
+  const frames = [], cut = (name, im, b) => frames.push({ name, type, im: bytes(crop(im, b)), anchor: { x: (ax - b[0]) / (b[2] - b[0] + 1), y: (ay - b[1]) / (b[3] - b[1] + 1) } });
   const pad = ([x0, y0, x1, y1]) => [x0 - 2, y0 - 2, x1 + 2, y1 + 2];
   const bb = pad(box(body));
   cut(`bldg_${type}`, body, bb); cut(`bldg_${type}_m`, m, bb); // (untrimmed, body and mask in one box: artIcon)
   if (c.rotor) {
     const o = c.rotor, [hx, hy] = at(...o.plate), L = o.blade * k * S, q = Math.ceil(L * 1.3);
     const heads = (await rotor({ w: 2 * q, h: 2 * q, ox: q, oy: q, L, axis: o.axis, n: o.n, key: o.key, hemi: o.hemi })).map(f => fit(f, 2 * q / f.w, 0, 0, ax + hx - q, ay + hy - q, W, H));
-    heads.forEach(h => tone(h.d));
+    heads.forEach(h => tone(h.d, light));
     const hb = heads.map(h => box(h)), un = pad([Math.min(...hb.map(b => b[0])), Math.min(...hb.map(b => b[1])), Math.max(...hb.map(b => b[2])), Math.max(...hb.map(b => b[3]))]);
     heads.forEach((h, i) => cut(`${type}_head_${i}`, h, un));
   }
   if (c.heads || c.swirl) {
-    const heads = c.swirl ? swirl(c.swirl, (x, y) => { const [X, Y] = at(x, y); return [ax + X, ay + Y]; }, W, H) : await placed(c.heads, k * S, at, ax, ay, W, H);
+    const heads = c.swirl ? swirl(c.swirl, (x, y) => { const [X, Y] = at(x, y); return [ax + X, ay + Y]; }, W, H) : await placed(c.heads, k * S, at, ax, ay, W, H, light);
     const hb = heads.flatMap(h => [h.im, h.mask]).map(h => h && box(h)).filter(Boolean), un = pad([0, 1].map(i => Math.min(...hb.map(b => b[i]))).concat([2, 3].map(i => Math.max(...hb.map(b => b[i])))));
     for (const h of heads) { cut(`${type}_head_${h.i}`, h.im, un); if (h.mask) cut(`${type}_head_${h.i}_m`, h.mask, un); }
   }
   if (c.look?.glow) { const G = c.look.glow, [x, y] = at(...G.at); look.glow = [G.tint, G.size, G.k ?? 0.3, +(-y / S).toFixed(1), !!G.flicker, +(x / S).toFixed(1)]; }
   if ('smoke' in (c.look ?? {})) look.smoke = c.look.smoke && c.look.smoke.at.map(p => at(...p).map(v => Math.round(v / S + c.n * 16)));
-  if (c.look?.site) look.site = CFG.site[c.look.site];
+  look.base = (c.round ? ring(...c.round, 0) : g).map(p => at(p[0], p[1]).map(v => +(v / S).toFixed(1))); // (its outline on the ground: the site's frame)
   return { frames, look };
 }
 
@@ -208,8 +210,8 @@ for (const f of readdirSync(OUT)) if (/^bldg-\d+\.(webp|json)$/.test(f)) rmSync(
 const all = [], looks = {};
 for (const [type, c] of Object.entries(CFG.bldg)) { if (ONLY.length && !ONLY.includes(type)) continue; const r = await building(type, c); all.push(...r.frames); looks[type] = r.look; console.log(type, r.frames.map(f => `${f.name} ${f.im.w}x${f.im.h}`).slice(0, 3).join(', '), JSON.stringify(r.look)); }
 await page.done();
-const masks = all.filter(f => f.name.endsWith('_m')), bodies = all.filter(f => !f.name.endsWith('_m'));
-const opt = LOSSLESS ? {} : CFG.webp, pages = [await writePage(0, bodies, opt), await writePage(1, masks, {})]; // (the masks lossless always: their edges are the paint's)
+const masks = all.filter(f => f.name.endsWith('_m')), ex = (f) => CFG.ex.has(f.type), bodies = all.filter(f => !f.name.endsWith('_m'));
+const opt = LOSSLESS ? {} : CFG.webp, pages = [await writePage(0, bodies.filter(f => !ex(f)), opt), await writePage(1, masks, {}), await writePage(2, bodies.filter(ex), opt)]; // (a page a people, so one can change without the other; the masks lossless always: their edges are the paint's)
 const file = join(OUT, 'index.json'); let ix = { groups: {} }; try { ix = JSON.parse(readFileSync(file, 'utf8')); } catch { /* (the first group) */ }
 ix.groups ||= {}; ix.groups.bldg = { pages, looks };
 writeFileSync(file, JSON.stringify(ix, null, 1));

@@ -15,7 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
-import { newArtIndex, newArtPages } from './newart.js';
+import { newArtIndex, loadGroups, staleMasks } from './newart.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -77,16 +77,24 @@ await app.init({ canvas: cv, background: 0x0b0f16, antialias: false, roundPixels
 // atlas.json indexes the pages (each a PixiJS spritesheet at scale 2) and the animations, which may span pages.
 const artBase = new URL('art/', document.baseURI).href;
 const index = await (await fetch(artBase + 'atlas.json')).json();
-/** The new look's packs (gl/newart.js), or null. Their pages come after today's, so a frame of theirs takes its place. */
-export const newArt = await newArtIndex(artBase);
-for (const g of Object.values(newArt?.groups || {})) Object.assign(index.unitTops, g.unitTops);
+/** The new look's index (gl/newart.js: `?art=new`), or null; `newArt`: the groups that loaded whole, by name (`newArt.bldg`). */
+const newIndex = await newArtIndex(artBase);
 const textures = {}, frames = {};
-for (const [p, sh] of await Promise.all([...index.pages, ...newArtPages(newArt)].map(async p => [p, await Assets.load(artBase + p)]))) {
+function addSheet(path, sh) {
   Object.assign(textures, sh.textures);
   // HUD portraits are cut from a plain decoded copy of the page (the browser has it cached): reading back Pixi's
   // GPU-side texture costs about a second per page.
-  const img = new Image(); img.src = new URL(sh.data.meta.image, artBase + p).href;
+  const img = new Image(); img.src = new URL(sh.data.meta.image, artBase + path).href;
   for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
+}
+for (const [p, sh] of await Promise.all(index.pages.map(async p => [p, await Assets.load(artBase + p)]))) addSheet(p, sh);
+export const newArt = {};
+for (const { name, group, pages } of await loadGroups(newIndex, (p) => Assets.load(artBase + p))) {
+  const names = new Set(pages.flatMap(([, sh]) => Object.keys(sh.data.frames)));
+  for (const n of staleMasks(names, new Set(Object.keys(frames)))) { delete textures[n]; delete frames[n]; } // (a body never wears another's mask)
+  for (const [p, sh] of pages) addSheet(p, sh);
+  Object.assign(index.unitTops, group.unitTops); Object.assign(index.animations, group.animations);
+  newArt[name] = group;
 }
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's color

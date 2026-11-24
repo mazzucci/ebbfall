@@ -24,6 +24,26 @@ export const GANTRY = { rows: 64, cap: 0.9, barDrop: 2 };
  *  turned `yaw` degrees like the Expedition's buildings, scaled by `fit`, and drawn by a camera `elev` degrees up (the
  *  ground stays square on screen; a height h rises h / tan(elev) px). */
 export const GANTRY_FRAME = { yaw: 20, fit: 0.86, elev: 40, inset: 4, post: 3.4, rail: 1.2, mast: { 2: 44, 3: 56, 4: 72 } };
+/** The new look's site (a building whose pack gives its outline on the ground, `base`: newArt.bldg `looks`; both
+ *  peoples): no scaffold, no gantry, but the building's own picture, revealed from the bottom up in `rows` slices to `cap`
+ *  of its height, its seat paint with it; above that line the rest gray (saturation `sat`) at `alpha`, so the whole can be
+ *  told from the first second and nothing reads finished before the done moment. Round its foot a plain low frame
+ *  (`frameOf`): posts `post` px tall, `rail` up the rail between them, a small flag in the seat's color on its side posts;
+ *  the Kingdom's of timber, the Expedition's white (`color`, its `edge` darker). */
+export const REVEAL = { rows: 64, cap: 0.9, sat: 0, alpha: 0.45, post: 11, rail: 7, kg: { color: 0xa8743c, edge: 0x4a2f17 }, ex: { color: 0xf0eee8, edge: 0x5c6068 } };
+/** How many of REVEAL.rows a site at `progress` (0..1) shows in color. */
+export const revealRows = (progress) => Math.max(1, Math.min(Math.round(REVEAL.rows * REVEAL.cap), Math.round(unit(progress) * REVEAL.cap * REVEAL.rows)));
+/** A color matrix like `rawMatrix` (no warmth): saturation from REVEAL.sat at `k` 0 to 1 at `k` 1. */
+export const revealMatrix = (k) => satMatrix(REVEAL.sat + (1 - REVEAL.sat) * unit(k));
+/** The frame round an outline `base` ([x, y] points about the footprint's middle, in order round it): its points as the
+ *  back half (north of the line through its side corners, drawn under the body) and the front half (over it), each from
+ *  one side corner to the other, and the two side corners. */
+export function frameOf(base) {
+  const n = base.length, l = base.reduce((a, p, i) => (p[0] < base[a][0] ? i : a), 0), r = base.reduce((a, p, i) => (p[0] > base[a][0] ? i : a), 0);
+  const walk = (from, to) => { const out = [base[from]]; for (let i = from; i !== to;) { i = (i + 1) % n; out.push(base[i]); } return out; };
+  const a = walk(l, r), b = walk(r, l).reverse(), mid = (h) => h.reduce((t, p) => t + p[1], 0) / h.length;
+  return mid(a) > mid(b) ? { front: a, back: b, sides: [base[l], base[r]] } : { front: b, back: a, sides: [base[l], base[r]] };
+}
 /** While a site is unfinished its construction bar takes the hp bar's place over it, taller; the hp bar shows only if
  *  the site has taken damage. */
 export const BUILD_BAR = { h: 7, color: 0xf5a524 };
@@ -47,9 +67,14 @@ export const rawStage = (progress) => Math.max(1, Math.min(RAW.cap, Math.ceil(pr
 /** A color matrix (PixiJS ColorMatrixFilter's 4x5, offsets 0..1) for the Kingdom's body at `k` (0: raw, 1: full color):
  *  saturation from RAW.sat to 1 about the luminance, brightness kept, the warm offset fading to 0. */
 export function rawMatrix(k) {
-  const s = RAW.sat + (1 - RAW.sat) * unit(k), o = 1 - unit(k), lr = 0.2126, lg = 0.7152, lb = 0.0722;
-  const row = (own, off) => [lr * (1 - s) + (own === 0 ? s : 0), lg * (1 - s) + (own === 1 ? s : 0), lb * (1 - s) + (own === 2 ? s : 0), 0, off * o];
-  return [...row(0, RAW.warm[0]), ...row(1, RAW.warm[1]), ...row(2, RAW.warm[2]), 0, 0, 0, 1, 0];
+  const o = 1 - unit(k), m = satMatrix(RAW.sat + (1 - RAW.sat) * unit(k));
+  [4, 9, 14].forEach((i, c) => { m[i] = RAW.warm[c] * o; });
+  return m;
+}
+/** The color matrix of saturation `s` about the luminance, brightness kept. */
+function satMatrix(s) {
+  const lr = 0.2126, lg = 0.7152, lb = 0.0722, row = (own) => [lr * (1 - s) + (own === 0 ? s : 0), lg * (1 - s) + (own === 1 ? s : 0), lb * (1 - s) + (own === 2 ? s : 0), 0, 0];
+  return [...row(0), ...row(1), ...row(2), 0, 0, 0, 1, 0];
 }
 
 /** How many of the Expedition's GANTRY.rows slices a site at `progress` (0..1) shows as solid: at least 1, at most

@@ -14,7 +14,7 @@ const SIZES = { 'd1': D1, 'd2': D2, 'phone': PH };
 const log = [];
 
 /** A game at its first instant, its clock held: `art` ('today' or 'new'), our people `race` against `foe`. */
-async function game(art, device, { race = 'vael', foe = 'humans', fog = false, seed = 4242 } = {}) {
+async function game(art, device, { race = 'vael', foe = 'humans', fog = false, seed = 4242, ai = false } = {}) {
   const ctx = await browserContext({ ...device, serviceWorkers: 'block' }), page = await ctx.newPage();
   page.setDefaultTimeout(300000); page.on('pageerror', e => { log.push({ error: e.message }); console.log('ERROR', e.message); }); page.on('console', m => { if (m.type() === 'error' || /new art/.test(m.text())) console.log('[page]', m.text()); });
   if (device.hasTouch) await ctx.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('no')); });
@@ -25,7 +25,7 @@ async function game(art, device, { race = 'vael', foe = 'humans', fog = false, s
   await press('#btnSolo'); await board(page).race(0, race); await board(page).race(1, foe);
   await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000);
   await press('#btnStart'); await page.waitForFunction(() => endfall.G.units.length > 0, null, { polling: 100 });
-  await page.evaluate((fog) => { const { engine: E, G } = endfall; E.disableAi(); endfall.setResources(G.me, 20000, 0); if (!fog) { E.revealAll(true); endfall.fog(false); } }, fog);
+  await page.evaluate(([fog, ai]) => { const { engine: E, G } = endfall; if (!ai) E.disableAi(); endfall.setResources(G.me, 20000, 0); if (!fog) { E.revealAll(true); endfall.fog(false); } }, [fog, ai]);
   await page.mouse.move(1, 1);
   // Helpers in the page: put(type, dx, dy[, until]) near our headquarters, its site built as far as `until` (0..1).
   await page.evaluate(() => {
@@ -35,7 +35,7 @@ async function game(art, device, { race = 'vael', foe = 'humans', fog = false, s
       const req = { kiln: 'siphon', spire: 'siphon', loom: 'siphon', uplink: 'loom', eclipse: 'uplink', forge: 'barracks', airfield: 'forge', factory: 'forge', extractor: 'barracks', turret: 'barracks' }[type];
       if (req && !G.bldgs.some(b => b.type === req && b.team === G.me)) put(req, -330, -40);
       if (E.BUILDINGS[type].hq) { scout(); reach = 40; }
-      const d = E.BUILDINGS[type], x0 = Math.round((hq.x + dx) / T - d.w / 2), y0 = Math.round((hq.y + dy) / T - d.h / 2), w = G.units.filter(u => u.team === G.me && E.UNITS[u.type].worker);
+      const d = E.BUILDINGS[type], x0 = Math.round((hq.x + dx) / T - d.w / 2), y0 = Math.round((hq.y + dy) / T - d.h / 2), w = G.units.filter(u => u.team === G.me && E.UNITS[u.type].worker).sort((a, b) => (a.task.t === 'build') - (b.task.t === 'build'));
       for (let r = 0; r < reach; r++) for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
         if (Math.max(Math.abs(x), Math.abs(y)) !== r || !E.canPlace(type, x0 + x, y0 + y, G.me)) continue;
         for (const u of w) { const before = new Set(G.bldgs.map(b => b.id)); if ((window.why = E.placeBuilding(G.me, type, x0 + x, y0 + y, u))) continue;
@@ -89,6 +89,31 @@ try {
       const run = (n) => page.evaluate((n) => { const gl = document.getElementById('game').getContext('webgl2'), px = new Uint8Array(4); for (let i = 0; i < n; i++) { endfall.draw(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } }, n);
       await run(5); const ms = []; for (let i = 0; i < 5; i++) { const t = process.hrtime.bigint(); await run(10); ms.push(Number(process.hrtime.bigint() - t) / 1e7); }
       ms.sort((a, b) => a - b); log.push({ perf: sz, art, ms }); console.log('perf', sz, art, 'median ms a frame', ms[2].toFixed(1)); await ctx.close();
+    }
+    if (want('site')) for (const race of ['humans', 'vael']) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // three sites under way, then the done moment, then an enemy site remembered in the fog
+      const nm = race === 'vael' ? 'ex' : 'kg', { ctx, page } = await game(art, dev, { race, foe: race, fog: true });
+      const p = await page.evaluate((race) => { const l = race === 'vael' ? [['siphon', -170, 10], ['substation', -100, -110], ['substation', 60, 130]] : [['barracks', -170, 40], ['depot', -90, -110], ['depot', 120, 90]], ids = []; for (const [t, x, y] of l) ids.push(put(t, x, y, 0.02)); const at = (i) => endfall.G.bldgs.find(b => b.id === ids[i]); for (let i = 0; i < 4000 && Math.max(...[0, 1, 2].map(j => at(j)?.done ? 1 : at(j).progress)) < 0.75; i++) endfall.skip(0.1); window.ids = ids; return { x: hq.x - 60, y: hq.y, prog: ids.map((_, i) => at(i).progress) }; }, race);
+      console.log('sites', JSON.stringify(p.prog)); await shoot(page, `site-${nm}-${sz}`, art, p, sz === 'phone' ? 1 : 1.83);
+      await page.evaluate(() => { const { G } = endfall, open = () => ids.map(i => G.bldgs.find(b => b.id === i)).filter(b => !b.done).sort((a, b) => b.progress - a.progress)[0]; window.next = open(); endfall.draw(); for (let i = 0; i < 4000; i++) { const b = G.bldgs.find(b => b.id === next.id); if (b.progress >= 0.99 || b.done) break; endfall.skip(1 / 30); } });
+      for (let i = 0; i < 60; i++) { await page.clock.runFor(34); if (await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return o?.look === 'fade' && o.fadeT > 0.1 || o?.look === 'full'; })) break; }
+      console.log('done moment', JSON.stringify(await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return [o.look, o.fadeT, o.roof, o.paint]; }))); await shoot(page, `sitedone-${nm}-${sz}`, art, p, sz === 'phone' ? 1 : 1.83);
+      for (let i = 0; i < 12; i++) await page.clock.runFor(60);
+      console.log('after', JSON.stringify(await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return [o.look, o.roof, o.paint]; })));
+      await ctx.close();
+    }
+    if (want('sitefog')) for (const foe of ['humans', 'vael']) { // an enemy site (its AI's), seen and left: remembered in the fog
+      const { ctx, page } = await game(art, D1, { race: 'humans', foe, fog: true, ai: true });
+      const f = await page.evaluate(() => {
+        const { engine: E, G } = endfall, site = () => G.bldgs.find(b => b.team !== G.me && !b.done && b.progress > 0.3);
+        for (let i = 0; i < 1500 && !site(); i++) endfall.skip(0.2);
+        const s = site(); if (!s) return { why: 'no site' };
+        const id = E.debugSpawn(G.me, 'observer', s.x, s.y + 40); endfall.skip(0.2); endfall.draw(); const seen = G.vis[E.idx(s.tx + 1, s.ty + 1)];
+        E.moveTo(G.units.find(u => u.id === id), hq.x, hq.y); for (let i = 0; i < 300 && G.vis[E.idx(s.tx + 1, s.ty + 1)]; i++) { endfall.skip(0.2); endfall.draw(); }
+        endfall.skip(1); endfall.cam.zoom = 1.83; endfall.centerOn(s.x, s.y); endfall.draw(); const o = endfall.sites().bldgs.find(o => o.id === s.id);
+        return { x: s.x, y: s.y, type: s.type, seen, vis: G.vis[E.idx(s.tx + 1, s.ty + 1)], drawn: o && [o.look, o.done, o.ghost], now: G.bldgs.find(b => b.id === s.id)?.progress };
+      });
+      console.log('fog', JSON.stringify(f)); if (f.x) await shoot(page, `sitefog-${foe === 'vael' ? 'ex' : 'kg'}-d1`, art, f, 1.83);
+      await ctx.close();
     }
     if (want('build')) for (const [type, race] of Object.entries(TYPES)) {
       const { ctx, page } = await game(art, D2, { race });

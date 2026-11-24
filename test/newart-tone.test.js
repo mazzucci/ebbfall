@@ -13,3 +13,9 @@ test('black stays near black, white stays white, gray lifts, alpha is untouched'
 test('a darker gray is never lighter than a lighter one (the roll-off keeps order)', () => {
   let last = -1; for (let x = 0; x < 256; x++) { const v = one(x, x, x)[1]; assert.ok(v >= last, `${x}: ${v} after ${last}`); last = v; }
 });
+test('a lower lift and top: the lights come down and stay in order, black stays, the default is the plain curve', () => {
+  const ex = { lift: 1.35, top: 0.95 }, at = (x, o) => tone(Uint8ClampedArray.from([x, x, x, 255]), o)[1];
+  assert.deepEqual([at(200), at(40)], [at(200, {}), at(40, { lift: 1.75, top: 1 })]);
+  let last = -1; for (let x = 0; x < 256; x++) { const v = at(x, ex); assert.ok(v >= last && v <= at(x), `${x}`); last = v; }
+  assert.equal(at(0, ex), 0); assert.ok(at(245, ex) - at(200, ex) > at(245) - at(200), 'the panels\' shades farther apart');
+});

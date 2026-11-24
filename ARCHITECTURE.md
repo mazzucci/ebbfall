@@ -386,6 +386,18 @@ src/client/           everything that touches the browser
                       tools/art/overlay3.js), never in a cell with rock or water, each cell as strong as its worn
                       corners; the tones in the shade layers; all of it faintly on the minimap; `endfall.ground()` what
                       it laid and its cost (test/groundplan.test.js, test/e2e/ground.e2e.mjs)
+  gl/newland.js       the new look's land (`?art=new`, gl/newart.js), pure: where every tree, rock and low plant stands on a
+                      map (`planLand`: a standing piece's base whole on blocked cells, its top over walkable ground no
+                      deeper than `LAND.cap` tiles, `allowance`; a piece a unit may stand behind marked `live`), the
+                      ground's mix of grass, worn dirt, forest floor and scree as a small image (`groundMix`), and the
+                      art over the walkable cells for the test (`cover`); from the map's blocked cells, the ground plan
+                      and the seed alone, exact arithmetic only (test/newland.test.js)
+  gl/newland-pieces.js  the land pieces' measured numbers (size, base, profile), written by tools/newart/land/build.mjs
+                      from pictures that are not in the repo: the placement's and its test's source of truth
+  gl/newlandgl.js     the new land drawn: the ground as one quad with a shader of its own (the tiling grounds mixed by
+                      the mix image; the apron too), the pieces nothing can stand behind laid in rows under the units,
+                      the live ones among the units and buildings, sorted with them, only those on screen; gl/render.js
+                      shows a unit behind them as a silhouette (ours in our color, another seat's in red)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, TUTORIAL, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
@@ -989,6 +1001,12 @@ public/               copied as is into dist/: the icons, the manifest, art/, me
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
+tools/newart/land/    the new look's land, built from a local folder of pictures (EBBFALL_PICTURES) into public/art/new/:
+                      build.mjs (every tuned number in its CFG: the sheets' parts keyed and cut, lit by tone.mjs, their
+                      shadows, the gold mine's three states, the page and the tiling grounds as WebP, the land's entry
+                      in index.json, and gl/newland-pieces.js), decode.mjs (a JPEG's pixels through headless Chromium,
+                      cached under target/), img.js (the pixel arithmetic), capture.mjs (stills of today's art beside
+                      the new at one held instant, the canopy caps, a frame time and memory note)
 tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js). The
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
                       its models, `atlasSprites` renders them under today's names, the melee units' two strike poses besides their walk,

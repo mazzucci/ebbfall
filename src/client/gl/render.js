@@ -16,6 +16,7 @@ import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
 import { newArtIndex, loadGroups, staleMasks } from './newart.js';
+import { Land, loadGrounds } from './newlandgl.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -209,6 +210,14 @@ export function portrait(kind, type, size = 26, team = G.me, box = false) {
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;
+/** The new look's land (gl/newland.js, gl/newlandgl.js), or null: the group `land` loaded whole, its grounds too, and
+ *  every piece of the table has its frame; else today's land, all of it. `?landcap=` tries another cap (tiles). */
+let land = null;
+if (newArt.land) {
+  try { land = new Land(await loadGrounds(newArt.land, artBase), tex, null); if (!land.ready()) throw new Error('its page does not hold the table\'s pieces: run the builder'); }
+  catch (e) { console.warn(`new art: the land is left out (${e?.message ?? e})`); land = null; delete newArt.land; }
+}
+const landCap = +new URLSearchParams(location.search).get('landcap') || undefined;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 const FACINGS = index.facings || 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
@@ -232,10 +241,11 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 const world = new Container({ isRenderGroup: true });
 const L = {};
 const GROUPS = new Set(['apron', 'terrain', 'scenery', 'worn', 'decals', 'found', 'ents', 'air']);
-for (const k of ['apron', 'terrain', 'scenery', 'shade', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+for (const k of ['apron', 'terrain', 'scenery', 'shade', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'xrayFoe', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 L.apron.tint = 0xb4b4b4; // (the apron a shade darker than the map's own rock: where the map ends still reads)
+if (land) land.L = L;
 const screen = new Container();
 app.stage.addChild(world, screen);
 // The silhouettes: each own unit behind a building drawn again in one flat color (a color matrix: any pixel to our
@@ -251,6 +261,17 @@ function xrayColor(c) {
 L.xray.filters = [flat]; L.xray.alpha = XRAY_ALPHA; L.xray.visible = false;
 const occl = new Container(), occTex = RenderTexture.create({ width: 800, height: 500, resolution: app.renderer.resolution });
 const occMask = new Sprite(occTex); screen.addChild(occMask); L.xray.mask = occMask;
+// The new look's land: a unit of another seat behind live trees or rocks (it is in our sight: it was drawn) shows the
+// same way in the enemy's red, or it could not be found to be shot at; a layer and a mask sprite of its own.
+// (Made only with the new land: without the switch the layer stays an empty container.)
+let occMaskFoe = null;
+L.xrayFoe.visible = false;
+if (land) {
+  const flatFoe = new ColorMatrixFilter(); flatFoe.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 1, 0];
+  occMaskFoe = new Sprite(occTex); screen.addChild(occMaskFoe);
+  L.xrayFoe.filters = [flatFoe]; L.xrayFoe.alpha = XRAY_ALPHA; L.xrayFoe.mask = occMaskFoe;
+}
+const foePool = [];
 const occPool = []; // (sprites in `occl`, reused frame to frame)
 const bars = new Graphics(); L.overlay.addChild(bars);
 const lines = new Graphics(); L.overlay.addChild(lines);
@@ -400,6 +421,7 @@ export const groundShown = () => groundLaid && { ...groundLaid, ms: { ...groundL
 
 export function renderTerrain() {
   const t0 = performance.now(), ms = {};
+  land?.clear(); // (the new look's land: its ground, its pieces among the units)
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.apron.removeChildren().forEach(c => c.destroy({ children: true }));
   L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
@@ -423,7 +445,7 @@ export function renderTerrain() {
   // Dual grid: the cell between tiles (i,j)..(i+1,j+1) is drawn at its center, offset half a tile.
   // Tiles go into 8x8-cell chunks so only the chunks on screen are drawn (no baking: it would cost a 4096² texture).
   chunks.length = 0;
-  for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
+  if (!land) for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) { // (the new look's land draws its own ground: below)
     const m = rock(i, j) | rock(i + 1, j) << 1 | rock(i, j + 1) << 2 | rock(i + 1, j + 1) << 3;
     const r = rnd();
     const name = m === 0 ? `ground_${groundTile(r, i, j, G.seed, wetCell(i, j), toneAt(plan.dry, i, j), toneAt(plan.lush, i, j))}` : rockTile(m, r, cellKind(i, j));
@@ -436,7 +458,7 @@ export function renderTerrain() {
   // piece of it is cut), each cell as strong as its worn corners on average (a track fading out before a pass); the
   // crags on a hill's inside cells only (all four tiles rock). Neither reaches the map's edge: the apron stays plain.
   let sprites = 0;
-  for (const [kind, name] of [['dirt', 'worn'], ['crag', 'crag']]) {
+  for (const [kind, name] of land ? [] : [['dirt', 'worn'], ['crag', 'crag']]) {
     const g = plan[kind], on = (x, y) => (x >= 0 && y >= 0 && x < MW && y < MH && g[idx(x, y)] > 0 ? 1 : 0);
     for (let j = -1; j < MH; j++) for (let i = -1; i < MW; i++) {
       const m = on(i, j) | on(i + 1, j) << 1 | on(i, j + 1) << 2 | on(i + 1, j + 1) << 3, rocks = rock(i, j) + rock(i + 1, j) + rock(i, j + 1) + rock(i + 1, j + 1);
@@ -450,7 +472,7 @@ export function renderTerrain() {
   // random stream of its own (the map's cells keep theirs), in 8x8-cell chunks of its own.
   apronChunks.length = 0;
   const rndA = mulberry(G.seed * 7 + 5), apronAt = new Map();
-  for (let j = -1 - APRON; j < MH + APRON; j++) for (let i = -1 - APRON; i < MW + APRON; i++) {
+  if (!land) for (let j = -1 - APRON; j < MH + APRON; j++) for (let i = -1 - APRON; i < MW + APRON; i++) {
     if (i >= -1 && i < MW && j >= -1 && j < MH) continue; // (the map's own, above)
     const name = rockTile(15, rndA(), cellKind(i, j)), cx = Math.floor((i + 1) / 8), cy = Math.floor((j + 1) / 8), key = `${cx},${cy}`;
     let c = apronAt.get(key); if (!c) { apronAt.set(key, c = new Container()); c.cx = cx * 8 * TILE; c.cy = cy * 8 * TILE; L.apron.addChild(c); apronChunks.push(c); }
@@ -460,7 +482,7 @@ export function renderTerrain() {
   // the meadows, the rock's tone, a wet line along the shore, the water's tints) and an add (the meadows' and the
   // rock's lift, the water's light), over the scenery too.
   lap = performance.now();
-  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)], tone: { ...plan, kindAt: kinds.kindAt } });
+  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)], tone: land ? land.tone(plan, kinds.kindAt) : { ...plan, kindAt: kinds.kindAt } });
   for (const [data, blendMode] of [[sh.mul, 'multiply'], [sh.add, 'add']]) {
     if (!data) continue;
     const cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
@@ -472,9 +494,17 @@ export function renderTerrain() {
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
   L.scenery.removeChildren().forEach(c => c.destroy()); doodads.length = 0;
   const cores = G.bldgs.filter(b => b.d.hq).map(b => ({ tx: b.tx + b.w / 2, ty: b.ty + b.h / 2 }));
-  for (const d of scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry })) {
+  for (const d of land ? [] : scatterDoodads(G.seed, map, cores, { MW, MH, TILE, mulberry })) {
     const s = new Sprite(); setTex(s, tex(`doodad_${d.name}`)); s.position.set(d.x, d.y); L.scenery.addChild(s);
     doodads.push({ s, tx: d.tx, ty: d.ty, ground: d.ground });
+  }
+  // The new look's land (gl/newlandgl.js): its ground in the terrain's place, trees and rocks on the blocked cells, on
+  // the apron too; a live piece tinted by the land's shade at its foot (the multiply layer lies under the units).
+  let landLaid = null;
+  if (land) {
+    const shadeAt = (x, y) => { const o = (clamp(Math.floor(y / TILE * sh.k), 0, sh.h - 1) * sh.w + clamp(Math.floor(x / TILE * sh.k), 0, sh.w - 1)) * 4; return sh.mul[o] << 16 | sh.mul[o + 1] << 8 | sh.mul[o + 2]; };
+    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shadeAt, apronTint: L.apron.tint, wet: (x, y) => ground(x, y) !== 'land' });
+    doodads.push(...land.low); // (a low plant under a building hides, as today's ground props)
   }
   // Minimap background: the grass green by the map's shade, a forest darker, a hill gray, the sea teal and blue, as the
   // ground looks; the plan on it, faintly (the meadows, the tracks, the rock's lean). Written pixel by pixel (a fill
@@ -492,7 +522,7 @@ export function renderTerrain() {
   thumb.getContext('2d').putImageData(img, 0, 0);
   ms.total = performance.now() - t0;
   let worn = 0, crag = 0; for (let i = 0; i < MW * MH; i++) { if (plan.dirt[i]) worn++; if (plan.crag[i]) crag++; }
-  groundLaid = { size: [MW, MH], starts: starts.length, worn, crag, sprites, hash: planHash(plan), ms };
+  groundLaid = { size: [MW, MH], starts: starts.length, worn, crag, sprites, hash: planHash(plan), ms, land: landLaid };
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   for (const o of dying) o.destroy(); dying.length = 0; quake = null; pending.length = 0; for (const k of blinks) k.l.destroy(); blinks.length = 0;
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
@@ -780,7 +810,8 @@ class NodeObj {
     // Its door lamp, lit while anyone is inside (the arc's UPDATE 6: a mine being worked, at a glance), only where we
     // see it now: the fog shows a mine as it was, so a lamp there would tell what we cannot see.
     this.lamp = new Graphics().circle(0, 0, 5).fill({ color: 0xffc35a, alpha: 0.35 }).circle(0, 0, 2.4).fill({ color: 0xffe7a8, alpha: 0.95 });
-    this.lamp.position.set(n.x + 9, n.y + n.h * TILE / 2 - 18); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
+    const at = newArt.land?.mine?.lamp; // (the new look's mine: its door's lintel, measured by its builder)
+    this.lamp.position.set(n.x + (at ? at[0] : 9), n.y + (at ? at[1] : n.h * TILE / 2 - 18)); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
   }
   update(n) { setTex(this.s, tex(`mine_${mineStage(n)}`)); this.lamp.visible = this.s.visible && n.miners > 0 && !!G.vis[idx(n.tx, n.ty)]; }
   show(v) { if (this.s.visible !== v) this.s.visible = v; if (!v) this.lamp.visible = false; }
@@ -1117,26 +1148,39 @@ solid.matrix = [0, 0, 0, 4, -3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0];
 occl.filters = [solid];
 /** Our own walkers that a building on screen stands in front of (it sorts after them and its art covers theirs) get their
  *  silhouette; those buildings are drawn into the mask's texture. Off (nothing drawn, no texture pass) when there are none. */
-function xray(bldgs) {
+function xray(bldgs, selList = []) {
   const rects = bldgs.filter(o => o.body.visible).map(o => ({ o, r: rectOf(o.body), h: o.head?.visible ? rectOf(o.head) : null }));
-  const hiding = new Set();
+  const hiding = new Set(), pieces = new Set(); // (the buildings and the land's live pieces that hide someone)
+  let foes = 0;
+  const teamOf = land ? new Map(G.units.map(u => [u.id, u.team])) : null; // (whose a unit is: an ally's gets no red shape)
   for (const u of unitObjs.values()) {
-    if (!u.xr) continue;
-    let hid = false;
-    if (u.node.visible && rects.length) {
+    if (!u.xr && (!land || u.air)) continue;
+    let hid = false, behind = false;
+    if (u.node.visible && (rects.length || land)) {
       const x = u.node.x, y = u.node.y, R = u.r, top = u.top, ur = [x - R, y - top, x + R, y];
-      for (const b of rects) if (b.o.z > u.node.zIndex && (overlap(ur, b.r) || (b.h && overlap(ur, b.h)))) { hid = true; hiding.add(b); }
+      if (u.xr) for (const b of rects) if (b.o.z > u.node.zIndex && (overlap(ur, b.r) || (b.h && overlap(ur, b.h)))) { hid = true; hiding.add(b); }
+      behind = !!land && land.hiding(ur, u.node.zIndex, pieces);
     }
-    if (u.xr.visible !== hid) u.xr.visible = hid;
+    if (u.xr) { if (u.xr.visible !== (hid || behind)) u.xr.visible = hid || behind; }
+    else if (behind && enemies(G.me, teamOf.get(u.id))) { // (an enemy's, behind the land's pieces: its shape in red)
+      const s = foePool[foes] ||= L.xrayFoe.addChild(new Sprite()); foes++;
+      s.visible = true; s.texture = u.body.texture; s.anchor.copyFrom(u.body.anchor); s.position.copyFrom(u.node.position); s.scale.copyFrom(u.node.scale);
+    }
+    if (behind) { // (its selection ring again, faint, over the crown that hides the one on the ground)
+      const e = selList.find(e => e.kind === 'unit' && e.id === u.id);
+      if (e) lines.ellipse(u.node.x, u.node.y + 3, u.size * 0.84, u.size * 0.52).stroke({ width: 1.5 / cam.zoom, color: enemies(G.me, e.team) ? SEL_FOE : SEL, alpha: 0.6 });
+    }
   }
-  L.xray.visible = hiding.size > 0;
-  if (!hiding.size) return;
+  for (let i = foes; i < foePool.length; i++) foePool[i].visible = false;
+  L.xray.visible = hiding.size + pieces.size > 0; L.xrayFoe.visible = foes > 0;
+  if (!L.xray.visible) return;
   let k = 0;
-  const put = (src) => { const s = occPool[k] ||= occl.addChild(new Sprite()); k++; s.visible = true; s.texture = src.texture; s.anchor.copyFrom(src.anchor); s.position.copyFrom(src.position); };
+  const put = (src) => { const s = occPool[k] ||= occl.addChild(new Sprite()); k++; s.visible = true; s.texture = src.texture; s.anchor.copyFrom(src.anchor); s.position.copyFrom(src.position); s.scale.copyFrom(src.scale); };
   for (const b of hiding) { put(b.o.body); if (b.h) put(b.o.head); }
+  for (const s of pieces) put(s);
   for (let i = k; i < occPool.length; i++) occPool[i].visible = false;
   occl.scale.set(cam.zoom); occl.position.copyFrom(world.position);
-  occMask.width = view.w; occMask.height = view.h;
+  occMask.width = view.w; occMask.height = view.h; if (occMaskFoe) { occMaskFoe.width = view.w; occMaskFoe.height = view.h; }
   app.renderer.render({ container: occl, target: occTex, clear: true });
 }
 
@@ -1172,7 +1216,7 @@ export function render(selList, place) {
   world.position.set(Math.round((-cam.x + sx) * cam.zoom), Math.round((-cam.y + sy) * cam.zoom));
   const inView = (x, y, m) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
   const explored = G.explored;
-  cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH);
+  cullTerrain(cam.x, cam.y, cam.x + VW, cam.y + VH); land?.cull(cam.x, cam.y, cam.x + VW, cam.y + VH);
   noteBuildings(); // (what this side has seen of enemy buildings: in the fog, their last-seen state, never the live one)
   const shownB = shownBldgs();
   if (now - doodadCheck > 0.25 || now < doodadCheck || shownB.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = shownB.length; hideCoveredDoodads(); }
@@ -1215,7 +1259,7 @@ export function render(selList, place) {
     }
   });
   showRange(selList, place, now);
-  xray(onScreen);
+  xray(onScreen, selList);
 
   // The shots (look.js SHOT_STYLE): each a pooled sprite with, under it, a dark bar (a Kingdom shaft's silhouette), a
   // stretched copy of itself (a heavy shot's trail) and a light (an Expedition tracer's glow, the rocket's flame),

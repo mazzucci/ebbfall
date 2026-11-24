@@ -96,6 +96,9 @@ for (const { name, group, pages } of await loadGroups(newIndex, (p) => Assets.lo
   Object.assign(index.unitTops, group.unitTops); Object.assign(index.animations, group.animations);
   newArt[name] = group;
 }
+/** A building type's look (look.js BLDG_LOOK), the new look's own points over it (newArt.bldg `looks`: its lights, its
+ *  smoke; null: none). */
+const bldgLook = (type) => ({ ...BLDG_LOOK[type], ...newArt.bldg?.looks?.[type] });
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's color
  *  (atlas.json `tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
@@ -199,7 +202,7 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, hea
  * `box`, the sprite's own box fills 86% of the square (the group grid's small tiles, where a frame-cut figure was a
  * smudge); without, the frame-based cut every other portrait uses. */
 export function portrait(kind, type, size = 26, team = G.me, box = false) {
-  const head = BLDG_LOOK[type]?.head, headFrame = head ? head + '_0' : null;
+  const head = bldgLook(type).head, headFrame = head ? head + '_0' : null;
   const url = box ? artIcon(kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
     : kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
       : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, headFrame);
@@ -637,7 +640,7 @@ class BldgObj {
       this.ghost = new Sprite(); this.ghost.visible = false; this.ghost.tint = GHOST.tint; L.ents.addChild(this.ghost);
       this.bar = new Sprite(); setTex(this.bar, tex(`gantrybar_${n}`)); this.bar.visible = false; L.ents.addChild(this.bar);
     }
-    this.look = BLDG_LOOK[b.type] || {};
+    this.look = bldgLook(b.type);
     if (this.look.head) [this.head, this.headPaint] = teamSprite(L.ents);
     const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;

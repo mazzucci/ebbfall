@@ -233,6 +233,1100 @@
      50.75
     ]
    }
+  },
+  "unit": {
+   "pages": [
+    "unit-0.json",
+    "unit-1.json",
+    "unit-2.json",
+    "unit-3.json",
+    "unit-4.json",
+    "unit-5.json",
+    "unit-6.json",
+    "unit-7.json"
+   ],
+   "scale": 2,
+   "unitTops": {
+    "trooper": 41,
+    "harvester": 43,
+    "lancer": 39.5,
+    "rider": 49.5,
+    "knight": 75,
+    "bastion": 58,
+    "siegeTank": 36,
+    "observer": 96,
+    "lumen": 33.5,
+    "scythe": 31,
+    "prism": 43,
+    "bruiser": 58,
+    "umbra": 62.5,
+    "monolith": 69.5,
+    "shrike": 32.5
+   },
+   "animations": {
+    "trooper_0": [
+     "trooper_0_1",
+     "trooper_0_2",
+     "trooper_0_3",
+     "trooper_0_4"
+    ],
+    "trooper_1": [
+     "trooper_1_1",
+     "trooper_1_2",
+     "trooper_1_3",
+     "trooper_1_4"
+    ],
+    "trooper_2": [
+     "trooper_2_1",
+     "trooper_2_2",
+     "trooper_2_3",
+     "trooper_2_4"
+    ],
+    "trooper_3": [
+     "trooper_3_1",
+     "trooper_3_2",
+     "trooper_3_3",
+     "trooper_3_4"
+    ],
+    "trooper_4": [
+     "trooper_4_1",
+     "trooper_4_2",
+     "trooper_4_3",
+     "trooper_4_4"
+    ],
+    "trooper_5": [
+     "trooper_5_1",
+     "trooper_5_2",
+     "trooper_5_3",
+     "trooper_5_4"
+    ],
+    "trooper_6": [
+     "trooper_6_1",
+     "trooper_6_2",
+     "trooper_6_3",
+     "trooper_6_4"
+    ],
+    "trooper_7": [
+     "trooper_7_1",
+     "trooper_7_2",
+     "trooper_7_3",
+     "trooper_7_4"
+    ],
+    "trooper_8": [
+     "trooper_8_1",
+     "trooper_8_2",
+     "trooper_8_3",
+     "trooper_8_4"
+    ],
+    "trooper_9": [
+     "trooper_9_1",
+     "trooper_9_2",
+     "trooper_9_3",
+     "trooper_9_4"
+    ],
+    "trooper_10": [
+     "trooper_10_1",
+     "trooper_10_2",
+     "trooper_10_3",
+     "trooper_10_4"
+    ],
+    "trooper_11": [
+     "trooper_11_1",
+     "trooper_11_2",
+     "trooper_11_3",
+     "trooper_11_4"
+    ],
+    "trooper_12": [
+     "trooper_12_1",
+     "trooper_12_2",
+     "trooper_12_3",
+     "trooper_12_4"
+    ],
+    "trooper_13": [
+     "trooper_13_1",
+     "trooper_13_2",
+     "trooper_13_3",
+     "trooper_13_4"
+    ],
+    "trooper_14": [
+     "trooper_14_1",
+     "trooper_14_2",
+     "trooper_14_3",
+     "trooper_14_4"
+    ],
+    "trooper_15": [
+     "trooper_15_1",
+     "trooper_15_2",
+     "trooper_15_3",
+     "trooper_15_4"
+    ],
+    "harvester_0": [
+     "harvester_0_1",
+     "harvester_0_2"
+    ],
+    "harvester_1": [
+     "harvester_1_1",
+     "harvester_1_2"
+    ],
+    "harvester_2": [
+     "harvester_2_1",
+     "harvester_2_2"
+    ],
+    "harvester_3": [
+     "harvester_3_1",
+     "harvester_3_2"
+    ],
+    "harvester_4": [
+     "harvester_4_1",
+     "harvester_4_2"
+    ],
+    "harvester_5": [
+     "harvester_5_1",
+     "harvester_5_2"
+    ],
+    "harvester_6": [
+     "harvester_6_1",
+     "harvester_6_2"
+    ],
+    "harvester_7": [
+     "harvester_7_1",
+     "harvester_7_2"
+    ],
+    "harvester_8": [
+     "harvester_8_1",
+     "harvester_8_2"
+    ],
+    "harvester_9": [
+     "harvester_9_1",
+     "harvester_9_2"
+    ],
+    "harvester_10": [
+     "harvester_10_1",
+     "harvester_10_2"
+    ],
+    "harvester_11": [
+     "harvester_11_1",
+     "harvester_11_2"
+    ],
+    "harvester_12": [
+     "harvester_12_1",
+     "harvester_12_2"
+    ],
+    "harvester_13": [
+     "harvester_13_1",
+     "harvester_13_2"
+    ],
+    "harvester_14": [
+     "harvester_14_1",
+     "harvester_14_2"
+    ],
+    "harvester_15": [
+     "harvester_15_1",
+     "harvester_15_2"
+    ],
+    "lancer_0": [
+     "lancer_0_1",
+     "lancer_0_2"
+    ],
+    "lancer_1": [
+     "lancer_1_1",
+     "lancer_1_2"
+    ],
+    "lancer_2": [
+     "lancer_2_1",
+     "lancer_2_2"
+    ],
+    "lancer_3": [
+     "lancer_3_1",
+     "lancer_3_2"
+    ],
+    "lancer_4": [
+     "lancer_4_1",
+     "lancer_4_2"
+    ],
+    "lancer_5": [
+     "lancer_5_1",
+     "lancer_5_2"
+    ],
+    "lancer_6": [
+     "lancer_6_1",
+     "lancer_6_2"
+    ],
+    "lancer_7": [
+     "lancer_7_1",
+     "lancer_7_2"
+    ],
+    "lancer_8": [
+     "lancer_8_1",
+     "lancer_8_2"
+    ],
+    "lancer_9": [
+     "lancer_9_1",
+     "lancer_9_2"
+    ],
+    "lancer_10": [
+     "lancer_10_1",
+     "lancer_10_2"
+    ],
+    "lancer_11": [
+     "lancer_11_1",
+     "lancer_11_2"
+    ],
+    "lancer_12": [
+     "lancer_12_1",
+     "lancer_12_2"
+    ],
+    "lancer_13": [
+     "lancer_13_1",
+     "lancer_13_2"
+    ],
+    "lancer_14": [
+     "lancer_14_1",
+     "lancer_14_2"
+    ],
+    "lancer_15": [
+     "lancer_15_1",
+     "lancer_15_2"
+    ],
+    "rider_0": [
+     "rider_0_1",
+     "rider_0_2"
+    ],
+    "rider_1": [
+     "rider_1_1",
+     "rider_1_2"
+    ],
+    "rider_2": [
+     "rider_2_1",
+     "rider_2_2"
+    ],
+    "rider_3": [
+     "rider_3_1",
+     "rider_3_2"
+    ],
+    "rider_4": [
+     "rider_4_1",
+     "rider_4_2"
+    ],
+    "rider_5": [
+     "rider_5_1",
+     "rider_5_2"
+    ],
+    "rider_6": [
+     "rider_6_1",
+     "rider_6_2"
+    ],
+    "rider_7": [
+     "rider_7_1",
+     "rider_7_2"
+    ],
+    "rider_8": [
+     "rider_8_1",
+     "rider_8_2"
+    ],
+    "rider_9": [
+     "rider_9_1",
+     "rider_9_2"
+    ],
+    "rider_10": [
+     "rider_10_1",
+     "rider_10_2"
+    ],
+    "rider_11": [
+     "rider_11_1",
+     "rider_11_2"
+    ],
+    "rider_12": [
+     "rider_12_1",
+     "rider_12_2"
+    ],
+    "rider_13": [
+     "rider_13_1",
+     "rider_13_2"
+    ],
+    "rider_14": [
+     "rider_14_1",
+     "rider_14_2"
+    ],
+    "rider_15": [
+     "rider_15_1",
+     "rider_15_2"
+    ],
+    "knight_0": [
+     "knight_0_1",
+     "knight_0_2"
+    ],
+    "knight_1": [
+     "knight_1_1",
+     "knight_1_2"
+    ],
+    "knight_2": [
+     "knight_2_1",
+     "knight_2_2"
+    ],
+    "knight_3": [
+     "knight_3_1",
+     "knight_3_2"
+    ],
+    "knight_4": [
+     "knight_4_1",
+     "knight_4_2"
+    ],
+    "knight_5": [
+     "knight_5_1",
+     "knight_5_2"
+    ],
+    "knight_6": [
+     "knight_6_1",
+     "knight_6_2"
+    ],
+    "knight_7": [
+     "knight_7_1",
+     "knight_7_2"
+    ],
+    "knight_8": [
+     "knight_8_1",
+     "knight_8_2"
+    ],
+    "knight_9": [
+     "knight_9_1",
+     "knight_9_2"
+    ],
+    "knight_10": [
+     "knight_10_1",
+     "knight_10_2"
+    ],
+    "knight_11": [
+     "knight_11_1",
+     "knight_11_2"
+    ],
+    "knight_12": [
+     "knight_12_1",
+     "knight_12_2"
+    ],
+    "knight_13": [
+     "knight_13_1",
+     "knight_13_2"
+    ],
+    "knight_14": [
+     "knight_14_1",
+     "knight_14_2"
+    ],
+    "knight_15": [
+     "knight_15_1",
+     "knight_15_2"
+    ],
+    "bastion_0": [
+     "bastion_0_1",
+     "bastion_0_2"
+    ],
+    "bastion_1": [
+     "bastion_1_1",
+     "bastion_1_2"
+    ],
+    "bastion_2": [
+     "bastion_2_1",
+     "bastion_2_2"
+    ],
+    "bastion_3": [
+     "bastion_3_1",
+     "bastion_3_2"
+    ],
+    "bastion_4": [
+     "bastion_4_1",
+     "bastion_4_2"
+    ],
+    "bastion_5": [
+     "bastion_5_1",
+     "bastion_5_2"
+    ],
+    "bastion_6": [
+     "bastion_6_1",
+     "bastion_6_2"
+    ],
+    "bastion_7": [
+     "bastion_7_1",
+     "bastion_7_2"
+    ],
+    "bastion_8": [
+     "bastion_8_1",
+     "bastion_8_2"
+    ],
+    "bastion_9": [
+     "bastion_9_1",
+     "bastion_9_2"
+    ],
+    "bastion_10": [
+     "bastion_10_1",
+     "bastion_10_2"
+    ],
+    "bastion_11": [
+     "bastion_11_1",
+     "bastion_11_2"
+    ],
+    "bastion_12": [
+     "bastion_12_1",
+     "bastion_12_2"
+    ],
+    "bastion_13": [
+     "bastion_13_1",
+     "bastion_13_2"
+    ],
+    "bastion_14": [
+     "bastion_14_1",
+     "bastion_14_2"
+    ],
+    "bastion_15": [
+     "bastion_15_1",
+     "bastion_15_2"
+    ],
+    "siegeTank_0": [
+     "siegeTank_0_1",
+     "siegeTank_0_2"
+    ],
+    "siegeTank_1": [
+     "siegeTank_1_1",
+     "siegeTank_1_2"
+    ],
+    "siegeTank_2": [
+     "siegeTank_2_1",
+     "siegeTank_2_2"
+    ],
+    "siegeTank_3": [
+     "siegeTank_3_1",
+     "siegeTank_3_2"
+    ],
+    "siegeTank_4": [
+     "siegeTank_4_1",
+     "siegeTank_4_2"
+    ],
+    "siegeTank_5": [
+     "siegeTank_5_1",
+     "siegeTank_5_2"
+    ],
+    "siegeTank_6": [
+     "siegeTank_6_1",
+     "siegeTank_6_2"
+    ],
+    "siegeTank_7": [
+     "siegeTank_7_1",
+     "siegeTank_7_2"
+    ],
+    "siegeTank_8": [
+     "siegeTank_8_1",
+     "siegeTank_8_2"
+    ],
+    "siegeTank_9": [
+     "siegeTank_9_1",
+     "siegeTank_9_2"
+    ],
+    "siegeTank_10": [
+     "siegeTank_10_1",
+     "siegeTank_10_2"
+    ],
+    "siegeTank_11": [
+     "siegeTank_11_1",
+     "siegeTank_11_2"
+    ],
+    "siegeTank_12": [
+     "siegeTank_12_1",
+     "siegeTank_12_2"
+    ],
+    "siegeTank_13": [
+     "siegeTank_13_1",
+     "siegeTank_13_2"
+    ],
+    "siegeTank_14": [
+     "siegeTank_14_1",
+     "siegeTank_14_2"
+    ],
+    "siegeTank_15": [
+     "siegeTank_15_1",
+     "siegeTank_15_2"
+    ],
+    "observer_0": [
+     "observer_0_0"
+    ],
+    "observer_1": [
+     "observer_1_0"
+    ],
+    "observer_2": [
+     "observer_2_0"
+    ],
+    "observer_3": [
+     "observer_3_0"
+    ],
+    "observer_4": [
+     "observer_4_0"
+    ],
+    "observer_5": [
+     "observer_5_0"
+    ],
+    "observer_6": [
+     "observer_6_0"
+    ],
+    "observer_7": [
+     "observer_7_0"
+    ],
+    "observer_8": [
+     "observer_8_0"
+    ],
+    "observer_9": [
+     "observer_9_0"
+    ],
+    "observer_10": [
+     "observer_10_0"
+    ],
+    "observer_11": [
+     "observer_11_0"
+    ],
+    "observer_12": [
+     "observer_12_0"
+    ],
+    "observer_13": [
+     "observer_13_0"
+    ],
+    "observer_14": [
+     "observer_14_0"
+    ],
+    "observer_15": [
+     "observer_15_0"
+    ],
+    "lumen_0": [
+     "lumen_0_1",
+     "lumen_0_2"
+    ],
+    "lumen_1": [
+     "lumen_1_1",
+     "lumen_1_2"
+    ],
+    "lumen_2": [
+     "lumen_2_1",
+     "lumen_2_2"
+    ],
+    "lumen_3": [
+     "lumen_3_1",
+     "lumen_3_2"
+    ],
+    "lumen_4": [
+     "lumen_4_1",
+     "lumen_4_2"
+    ],
+    "lumen_5": [
+     "lumen_5_1",
+     "lumen_5_2"
+    ],
+    "lumen_6": [
+     "lumen_6_1",
+     "lumen_6_2"
+    ],
+    "lumen_7": [
+     "lumen_7_1",
+     "lumen_7_2"
+    ],
+    "lumen_8": [
+     "lumen_8_1",
+     "lumen_8_2"
+    ],
+    "lumen_9": [
+     "lumen_9_1",
+     "lumen_9_2"
+    ],
+    "lumen_10": [
+     "lumen_10_1",
+     "lumen_10_2"
+    ],
+    "lumen_11": [
+     "lumen_11_1",
+     "lumen_11_2"
+    ],
+    "lumen_12": [
+     "lumen_12_1",
+     "lumen_12_2"
+    ],
+    "lumen_13": [
+     "lumen_13_1",
+     "lumen_13_2"
+    ],
+    "lumen_14": [
+     "lumen_14_1",
+     "lumen_14_2"
+    ],
+    "lumen_15": [
+     "lumen_15_1",
+     "lumen_15_2"
+    ],
+    "scythe_0": [
+     "scythe_0_1",
+     "scythe_0_2"
+    ],
+    "scythe_1": [
+     "scythe_1_1",
+     "scythe_1_2"
+    ],
+    "scythe_2": [
+     "scythe_2_1",
+     "scythe_2_2"
+    ],
+    "scythe_3": [
+     "scythe_3_1",
+     "scythe_3_2"
+    ],
+    "scythe_4": [
+     "scythe_4_1",
+     "scythe_4_2"
+    ],
+    "scythe_5": [
+     "scythe_5_1",
+     "scythe_5_2"
+    ],
+    "scythe_6": [
+     "scythe_6_1",
+     "scythe_6_2"
+    ],
+    "scythe_7": [
+     "scythe_7_1",
+     "scythe_7_2"
+    ],
+    "scythe_8": [
+     "scythe_8_1",
+     "scythe_8_2"
+    ],
+    "scythe_9": [
+     "scythe_9_1",
+     "scythe_9_2"
+    ],
+    "scythe_10": [
+     "scythe_10_1",
+     "scythe_10_2"
+    ],
+    "scythe_11": [
+     "scythe_11_1",
+     "scythe_11_2"
+    ],
+    "scythe_12": [
+     "scythe_12_1",
+     "scythe_12_2"
+    ],
+    "scythe_13": [
+     "scythe_13_1",
+     "scythe_13_2"
+    ],
+    "scythe_14": [
+     "scythe_14_1",
+     "scythe_14_2"
+    ],
+    "scythe_15": [
+     "scythe_15_1",
+     "scythe_15_2"
+    ],
+    "prism_0": [
+     "prism_0_1",
+     "prism_0_2"
+    ],
+    "prism_1": [
+     "prism_1_1",
+     "prism_1_2"
+    ],
+    "prism_2": [
+     "prism_2_1",
+     "prism_2_2"
+    ],
+    "prism_3": [
+     "prism_3_1",
+     "prism_3_2"
+    ],
+    "prism_4": [
+     "prism_4_1",
+     "prism_4_2"
+    ],
+    "prism_5": [
+     "prism_5_1",
+     "prism_5_2"
+    ],
+    "prism_6": [
+     "prism_6_1",
+     "prism_6_2"
+    ],
+    "prism_7": [
+     "prism_7_1",
+     "prism_7_2"
+    ],
+    "prism_8": [
+     "prism_8_1",
+     "prism_8_2"
+    ],
+    "prism_9": [
+     "prism_9_1",
+     "prism_9_2"
+    ],
+    "prism_10": [
+     "prism_10_1",
+     "prism_10_2"
+    ],
+    "prism_11": [
+     "prism_11_1",
+     "prism_11_2"
+    ],
+    "prism_12": [
+     "prism_12_1",
+     "prism_12_2"
+    ],
+    "prism_13": [
+     "prism_13_1",
+     "prism_13_2"
+    ],
+    "prism_14": [
+     "prism_14_1",
+     "prism_14_2"
+    ],
+    "prism_15": [
+     "prism_15_1",
+     "prism_15_2"
+    ],
+    "bruiser_0": [
+     "bruiser_0_1",
+     "bruiser_0_2"
+    ],
+    "bruiser_1": [
+     "bruiser_1_1",
+     "bruiser_1_2"
+    ],
+    "bruiser_2": [
+     "bruiser_2_1",
+     "bruiser_2_2"
+    ],
+    "bruiser_3": [
+     "bruiser_3_1",
+     "bruiser_3_2"
+    ],
+    "bruiser_4": [
+     "bruiser_4_1",
+     "bruiser_4_2"
+    ],
+    "bruiser_5": [
+     "bruiser_5_1",
+     "bruiser_5_2"
+    ],
+    "bruiser_6": [
+     "bruiser_6_1",
+     "bruiser_6_2"
+    ],
+    "bruiser_7": [
+     "bruiser_7_1",
+     "bruiser_7_2"
+    ],
+    "bruiser_8": [
+     "bruiser_8_1",
+     "bruiser_8_2"
+    ],
+    "bruiser_9": [
+     "bruiser_9_1",
+     "bruiser_9_2"
+    ],
+    "bruiser_10": [
+     "bruiser_10_1",
+     "bruiser_10_2"
+    ],
+    "bruiser_11": [
+     "bruiser_11_1",
+     "bruiser_11_2"
+    ],
+    "bruiser_12": [
+     "bruiser_12_1",
+     "bruiser_12_2"
+    ],
+    "bruiser_13": [
+     "bruiser_13_1",
+     "bruiser_13_2"
+    ],
+    "bruiser_14": [
+     "bruiser_14_1",
+     "bruiser_14_2"
+    ],
+    "bruiser_15": [
+     "bruiser_15_1",
+     "bruiser_15_2"
+    ],
+    "umbra_0": [
+     "umbra_0_1",
+     "umbra_0_2"
+    ],
+    "umbra_1": [
+     "umbra_1_1",
+     "umbra_1_2"
+    ],
+    "umbra_2": [
+     "umbra_2_1",
+     "umbra_2_2"
+    ],
+    "umbra_3": [
+     "umbra_3_1",
+     "umbra_3_2"
+    ],
+    "umbra_4": [
+     "umbra_4_1",
+     "umbra_4_2"
+    ],
+    "umbra_5": [
+     "umbra_5_1",
+     "umbra_5_2"
+    ],
+    "umbra_6": [
+     "umbra_6_1",
+     "umbra_6_2"
+    ],
+    "umbra_7": [
+     "umbra_7_1",
+     "umbra_7_2"
+    ],
+    "umbra_8": [
+     "umbra_8_1",
+     "umbra_8_2"
+    ],
+    "umbra_9": [
+     "umbra_9_1",
+     "umbra_9_2"
+    ],
+    "umbra_10": [
+     "umbra_10_1",
+     "umbra_10_2"
+    ],
+    "umbra_11": [
+     "umbra_11_1",
+     "umbra_11_2"
+    ],
+    "umbra_12": [
+     "umbra_12_1",
+     "umbra_12_2"
+    ],
+    "umbra_13": [
+     "umbra_13_1",
+     "umbra_13_2"
+    ],
+    "umbra_14": [
+     "umbra_14_1",
+     "umbra_14_2"
+    ],
+    "umbra_15": [
+     "umbra_15_1",
+     "umbra_15_2"
+    ],
+    "monolith_0": [
+     "monolith_0_1",
+     "monolith_0_2"
+    ],
+    "monolith_1": [
+     "monolith_1_1",
+     "monolith_1_2"
+    ],
+    "monolith_2": [
+     "monolith_2_1",
+     "monolith_2_2"
+    ],
+    "monolith_3": [
+     "monolith_3_1",
+     "monolith_3_2"
+    ],
+    "monolith_4": [
+     "monolith_4_1",
+     "monolith_4_2"
+    ],
+    "monolith_5": [
+     "monolith_5_1",
+     "monolith_5_2"
+    ],
+    "monolith_6": [
+     "monolith_6_1",
+     "monolith_6_2"
+    ],
+    "monolith_7": [
+     "monolith_7_1",
+     "monolith_7_2"
+    ],
+    "monolith_8": [
+     "monolith_8_1",
+     "monolith_8_2"
+    ],
+    "monolith_9": [
+     "monolith_9_1",
+     "monolith_9_2"
+    ],
+    "monolith_10": [
+     "monolith_10_1",
+     "monolith_10_2"
+    ],
+    "monolith_11": [
+     "monolith_11_1",
+     "monolith_11_2"
+    ],
+    "monolith_12": [
+     "monolith_12_1",
+     "monolith_12_2"
+    ],
+    "monolith_13": [
+     "monolith_13_1",
+     "monolith_13_2"
+    ],
+    "monolith_14": [
+     "monolith_14_1",
+     "monolith_14_2"
+    ],
+    "monolith_15": [
+     "monolith_15_1",
+     "monolith_15_2"
+    ],
+    "shrike_0": [
+     "shrike_0_0",
+     "shrike_0_1",
+     "shrike_0_2",
+     "shrike_0_3"
+    ],
+    "shrike_1": [
+     "shrike_1_0",
+     "shrike_1_1",
+     "shrike_1_2",
+     "shrike_1_3"
+    ],
+    "shrike_2": [
+     "shrike_2_0",
+     "shrike_2_1",
+     "shrike_2_2",
+     "shrike_2_3"
+    ],
+    "shrike_3": [
+     "shrike_3_0",
+     "shrike_3_1",
+     "shrike_3_2",
+     "shrike_3_3"
+    ],
+    "shrike_4": [
+     "shrike_4_0",
+     "shrike_4_1",
+     "shrike_4_2",
+     "shrike_4_3"
+    ],
+    "shrike_5": [
+     "shrike_5_0",
+     "shrike_5_1",
+     "shrike_5_2",
+     "shrike_5_3"
+    ],
+    "shrike_6": [
+     "shrike_6_0",
+     "shrike_6_1",
+     "shrike_6_2",
+     "shrike_6_3"
+    ],
+    "shrike_7": [
+     "shrike_7_0",
+     "shrike_7_1",
+     "shrike_7_2",
+     "shrike_7_3"
+    ],
+    "shrike_8": [
+     "shrike_8_0",
+     "shrike_8_1",
+     "shrike_8_2",
+     "shrike_8_3"
+    ],
+    "shrike_9": [
+     "shrike_9_0",
+     "shrike_9_1",
+     "shrike_9_2",
+     "shrike_9_3"
+    ],
+    "shrike_10": [
+     "shrike_10_0",
+     "shrike_10_1",
+     "shrike_10_2",
+     "shrike_10_3"
+    ],
+    "shrike_11": [
+     "shrike_11_0",
+     "shrike_11_1",
+     "shrike_11_2",
+     "shrike_11_3"
+    ],
+    "shrike_12": [
+     "shrike_12_0",
+     "shrike_12_1",
+     "shrike_12_2",
+     "shrike_12_3"
+    ],
+    "shrike_13": [
+     "shrike_13_0",
+     "shrike_13_1",
+     "shrike_13_2",
+     "shrike_13_3"
+    ],
+    "shrike_14": [
+     "shrike_14_0",
+     "shrike_14_1",
+     "shrike_14_2",
+     "shrike_14_3"
+    ],
+    "shrike_15": [
+     "shrike_15_0",
+     "shrike_15_1",
+     "shrike_15_2",
+     "shrike_15_3"
+    ]
+   },
+   "stand": [
+    "trooper",
+    "harvester",
+    "lancer",
+    "rider",
+    "knight",
+    "bastion",
+    "siegeTank",
+    "lumen",
+    "scythe",
+    "prism",
+    "bruiser",
+    "umbra",
+    "monolith"
+   ],
+   "fps": {
+    "trooper": 14
+   },
+   "carry": [
+    "harvester",
+    "lumen"
+   ],
+   "work": [
+    "harvester",
+    "lumen"
+   ],
+   "fire": {
+    "lancer": [
+     "aim",
+     "shot"
+    ],
+    "bastion": [
+     "aim",
+     "shot"
+    ],
+    "siegeTank": [
+     "shot"
+    ],
+    "scythe": [
+     "shot",
+     "after"
+    ],
+    "umbra": [
+     "aim",
+     "shot"
+    ],
+    "monolith": [
+     "aim",
+     "shot"
+    ]
+   },
+   "set": [
+    "siegeTank"
+   ]
   }
  }
 }

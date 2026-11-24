@@ -32,3 +32,13 @@ export async function loadGroups(ix, load) {
 
 /** The names of today's team masks a group's frames leave stale: a frame it replaces without a mask of its own. */
 export const staleMasks = (names, today) => [...names].filter(n => !n.endsWith('_m') && today.has(n) && today.has(n + '_m') && !names.has(n + '_m')).map(n => n + '_m');
+
+/** How large the new look's units are drawn, of the size their frames are packed at (tools/newart/unit: Notion's
+ *  "Units: one story each", rule 9, which drew an army as large figures standing on each other): the Knight and the
+ *  Rover stood over the buildings beside them, the Android over its own side. A kind not named here is drawn
+ *  UNIT_SIZE_REST. One table, so a size is tuned here and no pack is built again. */
+export const UNIT_SIZE = { knight: 0.78, monolith: 0.78, umbra: 0.85 }, UNIT_SIZE_REST = 0.9;
+/** The factor on a unit of `type`: its row with the new look's frames of it loaded (`packed`), 1 with today's. The
+ *  sprite, its drawn height (the health bar, the hit test, the silhouette), its drawn radius and its selection ring go
+ *  by it (render.js); the sim's radius and collision do not. */
+export const unitSize = (type, packed) => (packed ? UNIT_SIZE[type] ?? UNIT_SIZE_REST : 1);

@@ -10,7 +10,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { decodeAll } from './decode.mjs';
-import { blank, bleed, blur, box, cut, keyMagenta, over, pack, parts, scale, span } from './img.js';
+import { blank, bleed, blur, box, cut, keyGreen, keyMagenta, over, pack, parts, scale, span } from './img.js';
+import { tone, SHADOW } from '../tone.mjs';
 import { encodeWebP } from '../../art/webp.mjs';
 import { encodePNG } from '../../art/png.js';
 
@@ -36,11 +37,19 @@ const CFG = {
     { file: 'land2/rocks2-1.jpg', unit: 0.1, min: 3000, parts: ['crag', 'crag', 'crag', 'boulder', 'boulder', 'boulder', 'scree', 'scree', 'scree'] },
     { file: 'land2/bush-1.jpg', unit: 0.055, min: 3000, parts: ['bush', 'bush', 'bush', 'low', 'low', 'low', 'low', 'low', null /* a log */] },
   ],
-  /** The cast shadow, as today's buildings' (tools/render3d: the sun from the north-west, a shadow 0.36 of a height
-   *  long, black at alpha 110): a piece's solid shape thrown to the south-east, a pixel `a` px up landing 0.24 a to
-   *  the right and 0.18 a below its foot (the 40-degree camera draws a height 1.19 times itself). `soft`: its edge
-   *  feathered over this many world px (today's is crisp; a crown's is softened a little, as leaves are). */
-  shadow: { dx: 0.24, dy: 0.18, alpha: 110, soft: 1 },
+  /** The cast shadow (the new look's light, tools/newart/tone.mjs SHADOW: a cool dark blue, crisp-edged, to the lower
+   *  right, a third of a height long): a piece's own solid shape thrown on the ground, a pixel `a` px up landing
+   *  `dx` a to the right and `dy` a below its foot (0.28 and 0.18: a third in all). `soft`: its edge feathered over
+   *  this many world px (a quarter: crisp at any zoom, no stair steps). Drawn under the piece, in its frame. */
+  shadow: { dx: 0.28, dy: 0.18, color: SHADOW.color, alpha: Math.round(SHADOW.alpha * 255), soft: 0.25 },
+  /** The gold mine (a live thing of the game, 2x2 tiles: its frames take today's names, `mine_full`, `mine_low`,
+   *  `mine_empty`): a picture a state, one outcrop in one framing, so the full one's cut-out (its largest part, keyed
+   *  from green) and anchor serve all three. `width` world px across (its 64 px of blocked ground and a little over
+   *  each side); the rock's foot at `foot` of its height from the top (the rails and the cart lie below it), the
+   *  rock's middle `drop` px above the middle of its tiles; `room` px left free round the cut-out in the frame (a
+   *  state's own stones may lie a little outside the full one's); `lamp`: the door's lintel in the cut-out (shares of
+   *  its width and height), where the lamp of a worked mine goes. */
+  mine: { states: [['full', 'land/mine6-2.jpg'], ['low', 'land/mine-low-1.jpg'], ['empty', 'land/mine-empty-1.jpg']], width: 92, foot: 0.86, lamp: [0.39, 0.4], drop: 3, room: 2 },
   /** What counts as solid when a piece is measured (alpha), and the slice of a piece's profile (world px). */
   solid: 128, slice: 4,
   /** The grounds (they tile): the side each is kept at, and their WebP. */
@@ -53,12 +62,14 @@ const CFG = {
   ],
   ground: { lossless: 0, quality: 84, method: 6, use_sharp_yuv: 1 },
 };
+const hex = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
 
 const q = (v) => Math.round(v * 4) / 4; // (the table's numbers: world px to a quarter)
 
 /** A part at the page's scale, with its shadow under it, and its numbers. */
 function piece(src, kind, unit, name) {
   const k = unit * CFG.texels, body = scale(src, k), b = box(body, CFG.solid), S = CFG.texels;
+  tone(body.data); // (the new look's light, on the picture's own pixels: never on the shadow)
   if (!b) throw new Error(`${name}: nothing solid`);
   const h = b.y1 - b.y0 + 1, w = b.x1 - b.x0 + 1;
   // The ground point: a tree's trunk where it meets the ground (the middle of its lowest solid rows), anything else
@@ -84,7 +95,7 @@ function piece(src, kind, unit, name) {
     fw = w / S; fd = Math.max(0.3 * fw, Math.min(0.6 * fw, 2 * (b.y1 - ends) / S));
   }
   // The frame: the body's box, room to the right and below for the shadow.
-  const sh = CFG.shadow, soft = Math.round(sh.soft * S), padR = Math.ceil(h * sh.dx) + 2 * soft + 2, padB = Math.ceil(h * sh.dy) + 2 * soft + 2, pad = 2 + 2 * soft;
+  const sh = CFG.shadow, soft = Math.round(sh.soft * S), ink = hex(sh.color), padR = Math.ceil(h * sh.dx) + 2 * soft + 2, padB = Math.ceil(h * sh.dy) + 2 * soft + 2, pad = 2 + 2 * soft;
   const fwPx = w + pad + padR, fhPx = h + pad + padB, ox = pad - b.x0, oy = pad - b.y0; // (body px -> frame px)
   const plane = new Float32Array(fwPx * fhPx), foot = ay + oy;
   for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
@@ -94,14 +105,14 @@ function piece(src, kind, unit, name) {
     if (X + 1 < fwPx && Y >= 0 && Y < fhPx) plane[Y * fwPx + X + 1] = Math.max(plane[Y * fwPx + X + 1], a / 255); // (no holes where the shear skips a column)
   }
   const soften = blur(plane, fwPx, fhPx, soft), frame = blank(fwPx, fhPx);
-  for (let i = 0; i < fwPx * fhPx; i++) frame.data[i * 4 + 3] = Math.round(Math.min(1, soften[i]) * sh.alpha);
+  for (let i = 0; i < fwPx * fhPx; i++) { frame.data.set(ink, i * 4); frame.data[i * 4 + 3] = Math.round(Math.min(1, soften[i]) * sh.alpha); }
   over(frame, body, ox, oy);
   bleed(frame, CFG.bleed);
   return { name, kind, img: frame, anchor: { x: (ax + ox) / fwPx, y: (ay + oy) / fhPx },
     row: { name, kind, w: q(w / S), h: q(h / S), l: q((ax - b.x0) / S), r: q((b.x1 + 1 - ax) / S), fw: q(fw), fd: q(fd), rows } };
 }
 
-const files = [...CFG.sheets.map(s => s.file), ...CFG.grounds.map(g => g.file)];
+const files = [...CFG.sheets.map(s => s.file), ...CFG.grounds.map(g => g.file), ...CFG.mine.states.map(s => s[1])];
 const decoded = await decodeAll(PICTURES, files, join(WORK, 'cache'));
 const pic = (f) => { const d = decoded[files.indexOf(f)]; return { w: d.w, h: d.h, data: d.data.slice() }; };
 
@@ -115,6 +126,46 @@ for (const sheet of CFG.sheets) {
     const [kind, unit] = Array.isArray(as) ? as : [as, sheet.unit], n = count[kind] = (count[kind] ?? -1) + 1;
     pieces.push(piece(cut(img, p), kind, unit, `land_${kind}_${n}`));
   });
+}
+// ---- the gold mine ----
+const M = CFG.mine, mineInfo = {};
+{
+  // The three pictures are one outcrop in one framing: the full one's cut-out (its box in the picture) and anchor serve all.
+  const S = CFG.texels, sh = CFG.shadow, ink = hex(sh.color), soft = Math.round(sh.soft * S);
+  let at = null, k = 0;
+  const bodies = M.states.map(([state, file]) => {
+    const img = keyGreen(pic(file)), found = parts(img, { min: 50000 });
+    if (found.length !== 1) throw new Error(`${file}: ${found.length} large parts, one mine expected: look at the picture again`);
+    if (!at) { at = found[0]; k = M.width * S / at.w; }
+    const own = found[0], src = blank(at.w, at.h); // (its own largest part, in the full one's box)
+    for (let y = 0; y < at.h; y++) for (let x = 0; x < at.w; x++) {
+      const X = at.x + x, Y = at.y + y, u = X - own.x, v = Y - own.y; if (u < 0 || v < 0 || u >= own.w || v >= own.h || !own.mask[v * own.w + u]) continue;
+      const f = (Y * img.w + X) * 4, t = (y * at.w + x) * 4; for (let c = 0; c < 4; c++) src.data[t + c] = img.data[f + c];
+    }
+    const body = scale(src, k); tone(body.data);
+    return [state, body];
+  });
+  const first = bodies[0][1], b = box(first, CFG.solid), w = b.x1 - b.x0 + 1, h = b.y1 - b.y0 + 1;
+  // The frame: untrimmed, the same for the three states (the HUD's portrait cuts it by its frame), its anchor the
+  // middle of the mine's 2x2 tiles: the rock's middle `drop` px above it (the rock is wider than tall: 92 x 44 px on
+  // 64 x 64 of blocked ground, so it sits in the square's middle, a strip of ground left before and behind it).
+  const footY = b.y0 + Math.round(h * M.foot), pad = 2 + 2 * soft + M.room * S, padR = Math.ceil(h * sh.dx) + pad;
+  const fw = w + pad + padR, fh = h + 2 * pad + Math.ceil(h * sh.dy), ox = pad - b.x0, oy = pad - b.y0, ax = (b.x0 + b.x1 + 1) / 2 + ox, ay = (b.y0 + footY) / 2 + oy + M.drop * S;
+  const anchor = { x: ax / fw, y: ay / fh };
+  for (const [state, body] of bodies) {
+    const plane = new Float32Array(fw * fh);
+    for (let y = 0; y <= Math.min(body.h - 1, footY); y++) for (let x = 0; x < body.w; x++) { // (the rock's shadow; the rails lie flat)
+      const a = body.data[(y * body.w + x) * 4 + 3]; if (a <= 24) continue;
+      const up = footY - y, X = Math.round(x + ox + up * sh.dx), Y = Math.round(footY + oy + up * sh.dy - h * 0.2);
+      for (const X1 of [X, X + 1]) if (X1 >= 0 && Y >= 0 && X1 < fw && Y < fh) plane[Y * fw + X1] = Math.max(plane[Y * fw + X1], a / 255);
+    }
+    const soften = blur(plane, fw, fh, soft), frame = blank(fw, fh);
+    for (let i = 0; i < fw * fh; i++) { frame.data.set(ink, i * 4); frame.data[i * 4 + 3] = Math.round(Math.min(1, soften[i]) * sh.alpha); }
+    over(frame, body, ox, oy);
+    pieces.push({ name: `mine_${state}`, img: bleed(frame, CFG.bleed), anchor });
+  }
+  mineInfo.lamp = [q((b.x0 + w * M.lamp[0] + ox - ax) / S), q((b.y0 + h * M.lamp[1] + oy - ay) / S)]; // (world px from the mine's middle)
+  mineInfo.size = [q(w / S), q(h / S)];
 }
 const pageH = pack(pieces, CFG.pageWidth, CFG.gap), page = blank(CFG.pageWidth, pageH), frames = {};
 for (const p of pieces) {
@@ -132,6 +183,7 @@ const ground = {};
 for (const g of CFG.grounds) {
   const src = pic(g.file); if (src.w !== src.h || src.w % g.size) throw new Error(`${g.file}: ${src.w}x${src.h} does not shrink to ${g.size} whole`);
   const img = scale(src, g.size / src.w, g.size, g.size); for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
+  tone(img.data);
   const name = `land-${g.name}.webp`; put(name, await encodeWebP(img, CFG.ground)); ground[g.name] = name;
 }
 
@@ -139,7 +191,7 @@ for (const g of CFG.grounds) {
 const ixPath = join(OUT, 'index.json');
 let ix = { groups: {} };
 if (existsSync(ixPath)) { try { const old = JSON.parse(readFileSync(ixPath, 'utf8')); if (old && typeof old.groups === 'object') ix = old; } catch { /* (not JSON: written new) */ } }
-ix.groups.land = { pages: ['land-0.json'], ground, texels: CFG.texels };
+ix.groups.land = { pages: ['land-0.json'], ground, texels: CFG.texels, mine: mineInfo };
 writeFileSync(ixPath, JSON.stringify(ix, null, 1));
 
 const table = `// The new look's land pieces as tools/newart/land/build.mjs measured them from the pictures (generated: do not edit;
@@ -150,13 +202,13 @@ const table = `// The new look's land pieces as tools/newart/land/build.mjs meas
 // the ground up. gl/newland.js places the pieces by this table and test/newland.test.js checks the placement.
 export const SLICE = ${CFG.slice};
 export const PIECES = [
-${pieces.map(p => '  ' + JSON.stringify(p.row)).join(',\n')},
+${pieces.filter(p => p.row).map(p => '  ' + JSON.stringify(p.row)).join(',\n')},
 ];
 `;
 writeFileSync(TABLE, table);
 
 const total = Object.values(bytes).reduce((a, b) => a + b, 0);
-console.log(`land: ${pieces.length} pieces (${Object.entries(count).map(([k, n]) => `${n + 1} ${k}`).join(', ')}) on a ${page.w}x${page.h} page`);
+console.log(`land: ${pieces.filter(p => p.row).length} pieces and the mine (${Object.entries(count).map(([k, n]) => `${n + 1} ${k}`).join(', ')}) on a ${page.w}x${page.h} page`);
 for (const [n, b] of Object.entries(bytes)) console.log(`  ${n.padEnd(18)} ${String(b).padStart(8)} B`);
 console.log(`  total ${total} B; the table: ${TABLE.slice(root.length)}`);
 

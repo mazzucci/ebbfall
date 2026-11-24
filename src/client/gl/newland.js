@@ -112,6 +112,7 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap }
     const far = !inMap(cx, cy) && !nearWalk(cx, cy) && (cx < -1 || cy < -1 || cx > w || cy > h); // (the apron beyond the map's own rim: thinner)
     {
       const keep = nearWalk(cx, cy) ? F.edge : far ? F.apron : F.inside;
+      let stood = 0;
       for (let k = 0; k < 4; k++) {
         const st = site(cx, cy, k);
         if (draw(st, 0, seed) >= keep) continue;
@@ -130,7 +131,10 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap }
           const i = bushes[(first + n) % bushes.length], p = PIECES[i], s = Math.min(1, 30 / p.fw) * sh;
           if ((done = stand(i, inCell(x0, cx, p.fw * s / 2), Math.max(cy * TILE + p.fd * s + 0.5, y0), s))) break;
         }
+        if (done) stood++;
       }
+      // (never a blocked cell with nothing standing on it: a bush small enough to stand whole inside the cell)
+      if (!stood && !far) { const i = bushes[Math.floor(draw(site(cx, cy, 4), 0, seed) * bushes.length)], p = PIECES[i]; stand(i, (cx + 0.5) * TILE, (cy + 1) * TILE - 1, Math.min(28 / p.w, 28 / p.h)); }
     }
   }
   // A hill: rock over all of it, the largest first. Three rounds over a lattice of spots (four a cell): crags where
@@ -157,6 +161,14 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap }
         (near[tk(cell(x), cell(y))] ||= []).push({ x, y, fw });
       }
     }
+  }
+  // (never a hill cell with no rock on it or beside it: a small one in its middle)
+  for (let cy = -1; cy <= h; cy++) for (let cx = -1; cx <= w; cx++) {
+    if (!hill(cx, cy)) continue;
+    let any = false; for (let dy = -1; dy <= 1 && !any; dy++) for (let dx = -1; dx <= 1; dx++) if (near[tk(cx + dx, cy + dy)]) { any = true; break; }
+    if (any) continue;
+    const i = boulders[Math.floor(draw(site(cx, cy, 4), 0, seed) * boulders.length)], p = PIECES[i], s = Math.min(26 / p.w, 26 / p.h);
+    if (stand(i, (cx + 0.5) * TILE, (cy + 1) * TILE - 2, s)) (near[tk(cx, cy)] ||= []).push({ x: (cx + 0.5) * TILE, y: (cy + 1) * TILE - 2, fw: p.fw * s });
   }
   // Low pieces past the edge: ferns and tufts beside a forest, small stones beside a hill, half over the line.
   const L = LAND.low;

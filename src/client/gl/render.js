@@ -474,7 +474,7 @@ export function renderTerrain() {
   // the meadows, the rock's tone, a wet line along the shore, the water's tints) and an add (the meadows' and the
   // rock's lift, the water's light), over the scenery too.
   lap = performance.now();
-  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)], tone: { ...plan, kindAt: kinds.kindAt } });
+  const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)], tone: land ? land.tone(plan, kinds.kindAt) : { ...plan, kindAt: kinds.kindAt } });
   for (const [data, blendMode] of [[sh.mul, 'multiply'], [sh.add, 'add']]) {
     if (!data) continue;
     const cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
@@ -797,7 +797,8 @@ class NodeObj {
     // Its door lamp, lit while anyone is inside (the arc's UPDATE 6: a mine being worked, at a glance), only where we
     // see it now: the fog shows a mine as it was, so a lamp there would tell what we cannot see.
     this.lamp = new Graphics().circle(0, 0, 5).fill({ color: 0xffc35a, alpha: 0.35 }).circle(0, 0, 2.4).fill({ color: 0xffe7a8, alpha: 0.95 });
-    this.lamp.position.set(n.x + 9, n.y + n.h * TILE / 2 - 18); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
+    const at = newArt.land?.mine?.lamp; // (the new look's mine: its door's lintel, measured by its builder)
+    this.lamp.position.set(n.x + (at ? at[0] : 9), n.y + (at ? at[1] : n.h * TILE / 2 - 18)); this.lamp.zIndex = this.s.zIndex + 0.001; this.lamp.visible = false; L.ents.addChild(this.lamp);
   }
   update(n) { setTex(this.s, tex(`mine_${mineStage(n)}`)); this.lamp.visible = this.s.visible && n.miners > 0 && !!G.vis[idx(n.tx, n.ty)]; }
   show(v) { if (this.s.visible !== v) this.s.visible = v; if (!v) this.lamp.visible = false; }

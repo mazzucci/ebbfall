@@ -19,9 +19,13 @@ import { PIECES } from './newland-pieces.js';
  *  green, `dark` the tone laid over both and how much; how strongly each ground covers the grass where the mix is full. */
 export const GROUND = {
   period: { calm: 803, grass: 310, grass2: 437, dirt: 268, floor: 321, scree: 268 },
-  grass: 0.5, dark: [24 / 255, 44 / 255, 16 / 255], darkAmount: 0.22, dirt: 0.8, floor: 0.9, scree: 0.88,
+  grass: 0.5, dark: [24 / 255, 44 / 255, 16 / 255], darkAmount: 0.2, dirt: 0.8, floor: 0.9, scree: 0.88,
   /** The apron's ground, darker than the map's own (as its pieces are, by the layer's tint). */
   apron: 0.7,
+  /** Today's shade layers over the new ground (gl/ground.js shadeLayers, the ground plan's tones): the meadows at
+   *  this much of their strength (at full they read as cloud shadows on a photographed grass), the rock's warm or cool
+   *  tone not at all (it turned the pale rock mauve; the pieces carry their own color). */
+  meadow: { dry: 0.5, lush: 0.4 }, rockTone: 0,
 };
 const NAMES = ['grass', 'calm', 'dirt', 'floor', 'scree'];
 
@@ -84,6 +88,11 @@ export class Land {
     this.grounds = grounds; this.tex = tex; this.L = L;
     this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null;
     this.rect = null; this.stats = null;
+  }
+  /** The ground plan's tones as the shade layers take them, at the new ground's strengths (GROUND.meadow, rockTone). */
+  tone(plan, kindAt) {
+    const k = (g, by) => (by === 1 ? g : by === 0 ? null : g.map(v => v * by));
+    return { dry: k(plan.dry, GROUND.meadow.dry), lush: k(plan.lush, GROUND.meadow.lush), rockTone: k(plan.rockTone, GROUND.rockTone), kindAt };
   }
   /** Whether every piece's frame is in the packs (a page built from other pictures: today's land instead). */
   ready() { return PIECES.every(p => this.tex(p.name) !== Texture.EMPTY); }

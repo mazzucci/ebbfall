@@ -15,6 +15,18 @@ export function keyMagenta(img, { lo = 14, span = 60, red = 14, blue = 2 } = {})
   return img;
 }
 
+/** Key a flat green background out, in place (the still's own key for the buildings): how far green stands over red
+ *  and blue; the spill in the edges pulled back. */
+export function keyGreen(img) {
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2], q = g - Math.max(r, b);
+    if (q > 22) d[i + 3] = Math.max(0, Math.min(255, Math.round(255 * (1 - (q / Math.max(60, g) - 0.14) / 0.28))));
+    if (q > 0 && b < g * 0.85) d[i + 1] = Math.min(g, Math.max(r, b) + 4);
+  }
+  return img;
+}
+
 /** The separate things on a keyed sheet: connected parts of its solid pixels (alpha from `solid`), joined across gaps
  *  of `gap` px (a tree's loose twigs are its own), each of at least `min` px, in reading order by rows of the sheet:
  *  `[{ x, y, w, h, area, mask }]`, `mask` a byte per pixel of the box (1: this part's). Labeled at half size. */

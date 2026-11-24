@@ -245,7 +245,7 @@ export function resize() {
   const hud = document.getElementById('hud'), top = document.getElementById('top'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
   const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: a touch screen's row over the minimap)
-  footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity)) + 4 : FOOT_ROOM;
+  footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity, deskHud.matches ? cardTop() : Infinity)) + 4 : FOOT_ROOM;
   showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
   cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
@@ -260,12 +260,22 @@ const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0
 /** A desktop's and a tablet's map edge to edge (style.css: the canvas fills the window, the top bar floats over it like
  *  the HUD; `bleed`, read on each resize from the top bar's position): the camera keeps to the map at the sides, and
  *  past the top and the foot only as far as the top bar (`topRoom`, screen px) and the panels (`footRoom`: up to the
- *  top of the tallest panel at the foot, the minimap or on a touch screen SELECT, HOME and ARMY over it, and 4 px more:
- *  170 px with a mouse under 1100 px, 252 units and 4 px with the desktop HUD, 227 px on a tablet, style.css) cover,
+ *  top of the tallest panel at the foot and 4 px more: the minimap or, on a touch screen, SELECT, HOME and ARMY over it;
+ *  with the desktop HUD a three-row command card, taller than its minimap (`cardTop`). 170 px with a mouse under 1100
+ *  px, 244 units and 6 px with the desktop HUD, 227 px on a tablet, style.css) cover,
  *  so the map's first and last rows can still be brought out from under them; what shows past the edge there is the
  *  apron (rock drawn past the map, `showApron`), never the dark. The sides need no room: no panel stands at a side but
  *  at the foot and the top, and their corners come out with the foot's and the top's room. Phones keep their box. */
 const FOOT_ROOM = 170; // (before the minimap is laid out)
+/** The desktop HUD's window (style.css's last block; hud.js asks the same): its command card can stand over its minimap. */
+const deskHud = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
+/** The top of the command card when it has three rows (screen px), whatever it shows now: 228 units and its border,
+ *  where the desktop HUD's minimap is 190. The camera's room past the foot reaches it, so the map's last rows come out
+ *  from under a full card too. */
+function cardTop() {
+  const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0;
+  return cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth));
+}
 let bleed = false, topRoom = 0, footRoom = FOOT_ROOM;
 export function clampCam() {
   if (bleed) {
@@ -303,10 +313,10 @@ const FOG_DARK = [5, 7, 11, 255], FOG_SEEN = [18, 22, 34, 115], FOG_CLEAR = [18,
 /** The apron: tiles of rock drawn past the map's edges (each edge's rock kind carried out, the fog of its edge tiles
  *  too), so a desktop's or a tablet's camera room past the top and the foot (`clampCam`) shows ground, never the dark.
  *  Shown only edge to edge (`bleed`): a phone's box shows what it showed. As deep as the most room past an edge at the
- *  farthest zoom: the desktop HUD's foot room over its zoom limit, at most 384 px on a touch laptop (SELECT, HOME and
- *  ARMY over the minimap: 288 screen px at 0.75 in the smallest window it shows in; a larger window's grows with --u as
- *  its limit does; 308 px with a mouse alone), 12 tiles; a tablet's 227 screen px (231 over a home indicator) at 0.75,
- *  308 px. */
+ *  farthest zoom: the desktop HUD's foot room over its zoom limit, at most 340 px on a touch laptop (SELECT, HOME and
+ *  ARMY over the minimap: 255 screen px at 0.75 in the largest window whose limit is 0.75, 1350 x 759; a larger
+ *  window's grows with --u as its limit does, and --u stops at 1.1; 313 px with a mouse alone, a three-row card's top),
+ *  11 tiles; a tablet's 227 screen px (231 over a home indicator) at 0.75, 308 px. */
 const APRON = 13;
 // (the fog canvas is APRON tiles larger each way, its edge pixels stretched out each update; the map's own part,
 // `fogMapTex`, for a box)

@@ -35,12 +35,12 @@ const CFG = {
   bldg: {
     // `ground`: the outline on the ground; its middle stands on the footprint's, `dy` px south. `w`: the ground's width.
     conflux: { pic: 'set/ref-c1.jpg', n: 4, w: 150, dy: 8, ...HALL, solids: [block(HALL.ground, HALL.h)], tone: { gamma: 1.06, gain: 1, sat: 1.06 }, lit: cyan, bloom: [5, 0.5],
-      look: { glow: { at: [1066, 615], tint: 0x20d8ff, size: 0.9 } } },
+      look: { glow: { at: [1066, 615], tint: 0x20d8ff, size: 0.9 }, site: [1.17, 0.8, -12] } },
     core: { pic: 'kingdom/core-e1.jpg', n: 4, w: 146, dy: 8, ground: [[213, 1395], [1170, 1740], [1845, 1290], [888, 945]],
       solids: [block([[240, 1370], [1170, 1710], [1820, 1270], [890, 930]], 560), tower(292, 1395, 80, 700, 890), tower(1175, 1705, 102, 680, 900), tower(1765, 1272, 70, 640, 870), tower(995, 960, 120, 700, 870)],
-      tone: { gamma: 0.9, gain: 1.0, sat: 1.0 }, lit: fire, bloom: [4, 0.7], look: { glow: { at: [712, 1186], tint: 0xff8a2a, size: 0.4 }, smoke: null } },
-    kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, solids: [block(HALL.ground, HALL.h)], tone: { gamma: 1.06, gain: 1, sat: 1.06 }, lit: cyan, bloom: [4, 0.45],
-      look: { glow: { at: [1014, 576], tint: 0x20d8ff, size: 0.55 } } },
+      tone: { gamma: 0.9, gain: 1.0, sat: 1.0 }, lit: fire, bloom: [4, 0.7], look: { glow: { at: [712, 1186], tint: 0xff8a2a, size: 0.4 }, smoke: null, site: [1.22, 0.9, -8] } },
+    kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, solids: [block(HALL.ground, HALL.h)], tone: { gamma: 1.06, gain: 1, sat: 1.06 }, lit: cyan, bloom: [4, 0.2],
+      look: { glow: { at: [1014, 576], tint: 0x20d8ff, size: 0.55 }, site: [1.2, 0.8, -9] } },
     spire: { pic: 'turbine/tower-bare.jpg', n: 2, scaleBy: [434, 1978, 78], anchor: [1030, 1890], dy: 4, ground: [[860, 1890], [1030, 1975], [1200, 1890], [1030, 1805]],
       solids: [ring(1030, 1890, 168, 0), [...ring(1030, 1890, 85, 0), ...ring(1030, 1890, 60, 1250)], [...ring(1030, 1890, 110, 1190), ...ring(1100, 1840, 110, 1260)]], low: 0.02, tone: { gamma: 1.0, gain: 1.0, sat: 1.0 },
       rotor: { plate: [915, 635], blade: 590, axis: [-0.503, -0.327, 0.8], n: 16, key: 0.72, hemi: 0.5 } },
@@ -99,9 +99,10 @@ async function building(type, c) {
     const hb = heads.map(h => box(h)), un = pad([Math.min(...hb.map(b => b[0])), Math.min(...hb.map(b => b[1])), Math.max(...hb.map(b => b[2])), Math.max(...hb.map(b => b[3]))]);
     heads.forEach((h, i) => cut(`${type}_head_${i}`, h, un));
   }
-  const look = c.look && {};
+  // Where it sorts among the units: the line through its left and right ground corners, px south of its middle.
+  const by = (f) => g.reduce((a, b) => (f(b[0], a[0]) ? b : a)), look = { z: +((at(...by((p, q) => p < q))[1] + at(...by((p, q) => p > q))[1]) / 2 / S).toFixed(1) };
   if (c.look?.glow) { const G = c.look.glow, [x, y] = at(...G.at); look.glow = [G.tint, G.size, 0.3, +(-y / S).toFixed(1), !!G.flicker, +(x / S).toFixed(1)]; }
-  if (c.look && 'smoke' in c.look) look.smoke = c.look.smoke;
+  for (const key of ['smoke', 'site']) if (key in (c.look ?? {})) look[key] = c.look[key]; // (`site`: today's scaffold or gantry stretched round it: east, south, its shift south)
   return { frames, look };
 }
 
@@ -128,7 +129,7 @@ async function writePage(n, frames, options) {
 mkdirSync(OUT, { recursive: true });
 for (const f of readdirSync(OUT)) if (/^bldg-\d+\.(webp|json)$/.test(f)) rmSync(join(OUT, f));
 const all = [], looks = {};
-for (const [type, c] of Object.entries(CFG.bldg)) { if (ONLY.length && !ONLY.includes(type)) continue; const r = await building(type, c); all.push(...r.frames); if (r.look) looks[type] = r.look; console.log(type, r.frames.map(f => `${f.name} ${f.im.w}x${f.im.h}`).slice(0, 3).join(', '), JSON.stringify(r.look ?? null)); }
+for (const [type, c] of Object.entries(CFG.bldg)) { if (ONLY.length && !ONLY.includes(type)) continue; const r = await building(type, c); all.push(...r.frames); looks[type] = r.look; console.log(type, r.frames.map(f => `${f.name} ${f.im.w}x${f.im.h}`).slice(0, 3).join(', '), JSON.stringify(r.look)); }
 await page.done();
 const masks = all.filter(f => f.name.endsWith('_m')), bodies = all.filter(f => !f.name.endsWith('_m'));
 const opt = LOSSLESS ? {} : CFG.webp, pages = [await writePage(0, bodies, opt), await writePage(1, masks, {})]; // (the masks lossless always: their edges are the paint's)

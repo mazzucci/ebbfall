@@ -60,7 +60,10 @@ export function takePaint(im, { level = 240, shade = [] } = {}) {
   const near = new Uint8Array(n); for (let q = 0; q < n; q++) near[q] = s[q] > 0.6 ? 1 : 0;
   grow(near, w, h, 4); // (the paint and the edge the JPEG's color smeared it into)
   for (let q = 0, i = 0; q < n; q++, i += 4) {
-    if (!near[q]) continue;
+    if (!near[q]) { // (the paint's pink light on what is round it: warm or gray as the rest)
+      const g = d[i + 1]; if (d[i + 2] > g && d[i] > d[i + 2]) { d[i + 2] = g; d[i] = Math.min(d[i], g * 1.16 + 4); }
+      continue;
+    }
     // Its share: whole where it is as saturated as the paint (dark folds too), else what of the paint explains its color.
     const r = d[i], g = d[i + 1], b = d[i + 2], lin = Math.min((r - g) / (p[0] - p[1]), b > g ? (b - g) / (p[2] - p[1]) : 0);
     const a = Math.max(smooth(0.6, 0.85, s[q]), clamp(lin)), k = a < 0.08 ? 0 : a;

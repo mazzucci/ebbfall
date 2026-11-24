@@ -635,12 +635,14 @@ class BldgObj {
     setTex(this.scaffold, tex(sn)); setTex(this.scaffoldPaint, tex(sn + '_m')); paintAs(this.scaffold, this.scaffoldPaint, this.seat);
     this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
     // (the missing top, the Kingdom's roof slice or the Expedition's top tenth: fading in on the done moment)
+    this.look = bldgLook(b.type);
+    const fit = this.fitSite = this.look.site || [1, 1, 0]; // (the new look's corner-on body in today's frame: its stretch east and south, its shift south)
+    for (const s of [this.scaffold, this.scaffoldPaint, this.found]) s.scale.set(fit[0], fit[1]);
     this.roof = new Sprite(); this.roof.visible = false; L.ents.addChild(this.roof);
     if (this.ex) { // the Expedition's ghost of the whole, under the solid (seen only above it), and the gantry's head
       this.ghost = new Sprite(); this.ghost.visible = false; this.ghost.tint = GHOST.tint; L.ents.addChild(this.ghost);
-      this.bar = new Sprite(); setTex(this.bar, tex(`gantrybar_${n}`)); this.bar.visible = false; L.ents.addChild(this.bar);
+      this.bar = new Sprite(); setTex(this.bar, tex(`gantrybar_${n}`)); this.bar.visible = false; this.bar.scale.set(fit[0], fit[1]); L.ents.addChild(this.bar);
     }
-    this.look = bldgLook(b.type);
     if (this.look.head) [this.head, this.headPaint] = teamSprite(L.ents);
     const glow = this.look.glow;
     this.glow = glow ? light(glow[0], glow[1], glow[2]) : null;
@@ -649,9 +651,12 @@ class BldgObj {
     // last frame it was drawn in, `frameNo`); a building already standing when first drawn never plays it.
     this.wasDone = b.done; this.seenAt = -Infinity; this.doneT = null;
     for (const s of [this.worn, this.found, this.body, this.paint, this.scaffold, this.scaffoldPaint, this.roof, this.ghost, this.bar]) s?.position.set(b.x, b.y);
+    for (const s of [this.scaffold, this.scaffoldPaint, this.found]) s.y += fit[2];
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint, scaffold and head just over its own body)
-    const z = (b.ty + b.h) * TILE - 0.5 + (b.id % 97) * 0.002; this.z = z;
+    // (the new look's, drawn corner-on, by the line through its side corners, `look.z` px south of its middle: a unit
+    // beside its nearer half stands before the wall that recedes from it)
+    const z = (this.look.z === undefined ? (b.ty + b.h) * TILE : b.y + this.look.z) - 0.5 + (b.id % 97) * 0.002; this.z = z;
     this.body.zIndex = z; this.paint.zIndex = z + 0.0002; this.scaffold.zIndex = z + 0.0004; this.scaffoldPaint.zIndex = z + 0.0005; this.roof.zIndex = z + 0.0001;
     if (this.ex) { this.ghost.zIndex = z - 0.0001; this.bar.zIndex = z + 0.0006; } // (the ghost under the body: the solid covers its share of it)
     if (this.head) { this.head.zIndex = z + 0.0006; this.headPaint.zIndex = z + 0.0008; }
@@ -687,8 +692,8 @@ class BldgObj {
         vis(this.ghost, this.body.visible); setTex(this.ghost, this.full); this.ghost.alpha = ghostAlpha(live ? now : 0) * (fading ? d.strip : 1); // (a remembered ghost holds still)
         // (the head on the solid's top row, where its frame carries it: between the front masts, then on the rails;
         // to the art's own px, half a world px, so it stays as sharp as the masts it runs on)
-        const at = headAt(b.w, this.body.y - this.body.height + GANTRY.barDrop - b.y);
-        vis(this.bar, this.body.visible); this.bar.position.set(b.x + Math.round(at.x * 2) / 2, b.y + Math.round(at.y * 2) / 2); this.bar.alpha = fading ? d.strip : 1;
+        const [fx, fy, fd] = this.fitSite, at = headAt(b.w, (this.body.y - this.body.height + GANTRY.barDrop - b.y - fd) / fy);
+        vis(this.bar, this.body.visible); this.bar.position.set(b.x + Math.round(at.x * fx * 2) / 2, b.y + Math.round((at.y * fy + fd) * 2) / 2); this.bar.alpha = fading ? d.strip : 1;
       } else if (site) { if (this.body.filters?.[0] !== RAW_LOOK) this.body.filters = [RAW_LOOK]; }
       else {
         if (!this.fadeLook) { this.fadeLook = rawFilter(); this.body.filters = [this.fadeLook]; this.roof.filters = [this.fadeLook]; }

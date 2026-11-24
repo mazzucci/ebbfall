@@ -9,7 +9,8 @@
 //   node tools/newart/unit/build.mjs            every unit of the table whose source is there (a folder without all
 //                                               its frames is left out with a line saying so: today's art stays)
 //   node tools/newart/unit/build.mjs guard bot2 only these (a trial: the pack holds no other unit; use --out)
-//     --webp q90       the pages as lossy WebP at that quality (alpha kept exact) instead of lossless
+//     --webp q90       the pages as lossy WebP at that quality (alpha kept exact) instead of lossless (the packs that
+//                      ship are q90: about a third fewer bytes over the fifteen units, half on the Guard's soft shading)
 //     --out DIR        another folder than public/art/new (its own index.json)
 //     --check FILE     also a contact sheet per unit (PNG; `%` in FILE is the unit's name): every facing and frame in
 //                      seat 0's paint on grass, at the page's scale and at half
@@ -17,7 +18,7 @@
 //     --scale 3|4 --walk 2 --elev 30.8 --true   the model's trials: the pages' px per game px (frame folders are 2
 //                      only, so then the model alone), two walk frames, another camera, the true projection
 // Same pictures, same pack. A later batch: add its row to UNITS if its name or frames are new, run the first line.
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +43,7 @@ const Z = +arg('--scale', 2), WALK = +arg('--walk', 4);
  *  `fire`   { aim, shot, after }: a shooter with its target in reach, as its shot leaves, just after (`_aim`, `_shot`, `_after`);
  *  `carry`  { stand, walk }: a worker with a load (`_c0`, `_c1`..);  `work` [raised, struck]: a builder at its site (`_k0`, `_k1`);
  *  `set`    a unit set up or setting up (look.js UNIT_POSE: `_set`);
+ *  `top`    its drawn height above its ground point (game px) where the measure is wrong (see unitTop);
  *  `fps`    the walk's frames a second where today's 8 is wrong; `model` the unit rendered here (stage.js), `px` its
  *           2x-sprite px per model unit, `cell` the room a frame is shot in (game px, the ground point at ax, ay).
  * Whatever a source lacks of today's frames of its kind takes its standing frame (no new body ever wears an old pose).
@@ -55,7 +57,7 @@ const UNITS = {
   archer: { kind: 'lancer', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
   rider: { kind: 'rider', stand: 'idle', walk: W2, strike: MELEE },
   knight2: { kind: 'knight', stand: 'idle', walk: W2, strike: MELEE },
-  ballista: { kind: 'bastion', stand: 'idle', walk: ['r0', 'r1'], fire: { aim: 'drawn', shot: 'fired' } },
+  ballista: { kind: 'bastion', stand: 'idle', walk: ['r0', 'r1'], fire: { aim: 'drawn', shot: 'fired' }, top: 58 }, // (its far bow arm, 116 px up at facing 0: thin, so the measure passes it by, and the health bar would sit across it)
   cannon: { kind: 'siegeTank', stand: 'idle', walk: ['r0', 'r1'], set: 'setup', fire: { shot: 'fire' } },
   balloon: { kind: 'observer', walk: ['idle'] },
   bot2: { kind: 'lumen', stand: 'e_idle', walk: ['e_d0', 'e_d1'], carry: { stand: 'f_idle', walk: ['f_d0', 'f_d1'] }, work: ['e_k0', 'e_k1'] },
@@ -86,7 +88,9 @@ const LOSSY = /^q(\d+)$/.exec(arg('--webp', ''))?.[1];
 /** A folder's frames: { cell, list: [{ k, pose, img, mask }] } (img, mask: { x, y, w, h, data } in the cell's 2x px,
  *  the mask cut to its paint), or a string saying what is missing. */
 function folder(name) {
-  const dir = join(PICTURES, 'units3d/frames', name), file = join(dir, 'frames.json');
+  // (its index: frames.json, or <name>.json beside it where that one is the newer)
+  const dir = join(PICTURES, 'units3d/frames', name), own = join(dir, 'frames.json'), other = join(dir, `${name}.json`);
+  const file = existsSync(other) && (!existsSync(own) || statSync(other).mtimeMs > statSync(own).mtimeMs) ? other : own;
   if (!existsSync(file)) return 'no frames.json';
   const J = JSON.parse(readFileSync(file, 'utf8')), list = [];
   if (J.facings !== FACINGS) return `${J.facings} facings`;
@@ -230,7 +234,7 @@ for (const name of want) {
     }
     group.animations[`${kind}_${k}`] = u.walk.map((f, i) => `${kind}_${k}_${walkFrom + i}`);
   }
-  group.unitTops[kind] = unitTop(src.list.filter(s => s.pose === u.stand || u.walk.includes(s.pose)), src.cell.ay, z);
+  group.unitTops[kind] = u.top ?? unitTop(src.list.filter(s => s.pose === u.stand || u.walk.includes(s.pose)), src.cell.ay, z);
   if (u.stand) group.stand.push(kind);
   if (u.fps) group.fps[kind] = u.fps;
   if (u.carry) group.carry.push(kind);

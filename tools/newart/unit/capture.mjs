@@ -108,7 +108,11 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   // the lineup: one of every kind standing in a row (ours), and a second row of them marching down the screen
   const kinds = ['harvester', 'trooper', 'lancer', 'rider', 'knight', 'bastion', 'siegeTank', 'observer', 'lumen', 'scythe', 'prism', 'bruiser', 'umbra', 'monolith', 'shrike'];
   const lc = open(wc.x, wc.y, 200, [...taken, wc], 520), row = (dy) => kinds.map((k, i) => engine.debugSpawn(me, k, lc.x + (i - 7) * 52, lc.y + dy)).filter(Boolean);
-  row(-60); const marching = row(30);
+  const standing = row(-60), marching = row(30);
+  // (the standing row holds its ground with two Bruisers of the other side in its shooters' reach, the Cannon set up)
+  of(standing).forEach(u => engine.holdUnit(u));
+  engine.castAbility(of(standing).filter(u => u.type === 'siegeTank'), 'deploy');
+  for (const dx of [-120, 120]) { const e = engine.debugSpawn(1, 'bruiser', lc.x + dx, lc.y - 225); if (e) engine.holdUnit(of([e])[0]); }
   endfall.draw();
   of(marching).forEach((u) => engine.moveTo(u, u.x, u.y + 300));
   of(walkers).forEach((u, k) => { const a = k / 16 * Math.PI * 2; engine.moveTo(u, wc.x + Math.cos(a) * 420, wc.y + Math.sin(a) * 420); });
@@ -202,7 +206,7 @@ function sheet() {
 /** The frame time with 100 Guards on screen: `endfall.draw()` 300 times in a row, the GPU made to finish, both looks. */
 async function bench() {
   const res = {};
-  for (const tag of ['today', 'new', 'today', 'new']) {
+  for (const tag of ['today', 'new']) {
     const { ctx, page } = await staged(DEVICES.d1, tag);
     const r = await page.evaluate(([at]) => {
       const { G, engine } = endfall, ids = [];

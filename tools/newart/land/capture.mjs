@@ -197,26 +197,22 @@ if (MODE === 'perf') {
   writeFileSync(join(OUT, 'perf.json'), JSON.stringify(out, null, 1));
 }
 
-// ---- fix batch 1: the foot line, the minimap's ground, the mine's square ----
-//   node tools/newart/land/capture.mjs fix1 [--out DIR]     today beside new: the hill with its one-cell rocks and a
-//   mine, the start by the map's edge, the minimap; on the phone the hill at zoom 1 and 0.75, and the fog on.
+// ---- fix batch 1: blocked ground said by what stands on it ----
+//   node tools/newart/land/capture.mjs fix1 [--out DIR]     today beside new: the hill with its one-cell spur, a lone
+//   cell and a mine (desktop; the phone at zoom 1 and 0.75), and a wood's border by the start.
 if (MODE === 'fix1') {
   const log = { shots: [], errors: [] }, HILL = { x: 1560, y: 860 };
   await start();
   try {
     for (const art of ['today', 'new']) {
       let p = await staged(VIEWS['desk-1920x1080'], { art });
-      log.shots.push(await still(p, `hill-desk-1920x1080-${art}.png`, 'start', HILL));
-      log.shots.push(await still(p, `edge-desk-1920x1080-${art}.png`, 'start', await castle(p)));
-      await p.page.locator('#minimap').screenshot({ path: join(OUT, `minimap-desk-${art}.png`) });
-      log.errors.push(...p.errors.filter(e => !/Service Worker|already has key/.test(e)).map(e => `desk ${art}: ${e}`)); await p.ctx.close();
+      log.shots.push(await still(p, `hill-desk-${art}.png`, 'start', HILL));
+      log.shots.push(await still(p, `wood-desk-${art}.png`, 'start', await castle(p)));
+      log.errors.push(...p.errors.filter(e => !/Service Worker|already has key|too many warnings/.test(e)).map(e => `desk ${art}: ${e}`)); await p.ctx.close();
       p = await staged(PHONE, { art });
-      log.shots.push(await still(p, `hill-phone-844x390-dpr2-${art}.png`, 1, HILL));
-      log.shots.push(await still(p, `hill-zoom075-phone-844x390-dpr2-${art}.png`, 0.75, HILL));
-      await p.page.locator('#minimap').screenshot({ path: join(OUT, `minimap-phone-${art}.png`) });
-      await p.page.evaluate(() => { endfall.engine.revealAll(false); endfall.fog(true); });
-      log.shots.push(await still(p, `fog-zoom075-phone-844x390-dpr2-${art}.png`, 0.75, await castle(p)));
-      log.errors.push(...p.errors.filter(e => !/Service Worker|already has key/.test(e)).map(e => `phone ${art}: ${e}`)); await p.ctx.close();
+      log.shots.push(await still(p, `hill-phone-${art}.png`, 1, HILL));
+      log.shots.push(await still(p, `hill-phone-zoom075-${art}.png`, 0.75, HILL));
+      log.errors.push(...p.errors.filter(e => !/Service Worker|already has key|too many warnings/.test(e)).map(e => `phone ${art}: ${e}`)); await p.ctx.close();
     }
   } finally { await stop(); }
   writeFileSync(join(OUT, 'shots.json'), JSON.stringify(log, null, 1));

@@ -21,14 +21,20 @@ export const LAND = {
    *  bushes in front, the tall ones from the second row). At 1 a unit beside a forest can be hidden to the neck. */
   cap: 0.5,
   /** A forest: a candidate spot per quarter cell (a 2x2 lattice a cell, each moved up to `jitter` px), kept this often:
-   *  on cells beside walkable ground, inside a forest, and past the map's edge (the apron). */
-  forest: { edge: 0.6, inside: 0.36, apron: 0.13, jitter: 10, scale: [0.82, 1.12], shrink: [1, 0.85, 0.7] },
-  /** A hill: the widths (px) a crag, a boulder group and a small rock are scaled to; `apart`: how near two rocks'
-   *  ground points may be, of the sum of their widths (`deep`: a step north or south counts this much more, as a base
-   *  is wider than deep); `jitter` px a spot is moved; `apron`: the spots tried past the map's rim. */
-  hill: { crag: [54, 64], boulder: [38, 48], small: [24, 30], apart: 0.4, deep: 1.5, jitter: 10, apron: 0.3 },
+   *  on cells beside walkable ground, inside a forest, and past the map's edge (the apron). `brush`: how often a
+   *  cell at the wood's border gets a bush on its open side as well (undergrowth: the border is filled, not drawn),
+   *  `brushWidth` px wide. */
+  forest: { edge: 0.6, inside: 0.36, apron: 0.13, jitter: 10, scale: [0.82, 1.12], shrink: [1, 0.85, 0.7], brush: 0.8, brushWidth: [22, 30] },
+  /** A hill: the widths (px) a crag, a boulder group and a small rock are scaled to; `clump`: the rock every cell at a
+   *  hill's border gets first, wider than its cell (a blocked cell never reads as open gravel: a one-cell hill is a
+   *  clump of rock); `core`: a rock's base, the middle share of its width that carries it (its flanks are loose
+   *  stones and lean out over the edge, as far as the cap lets art go: half a tile; the base stays on blocked ground);
+   *  `apart`: how near two rocks' ground points may be, of the sum of their widths (`deep`: a step north or south
+   *  counts this much more, as a base is wider than deep); `jitter` px a spot is moved; `apron`: the spots tried past
+   *  the map's rim. */
+  hill: { crag: [54, 64], clump: [44, 52], boulder: [38, 48], small: [24, 30], core: 0.58, apart: 0.4, deep: 1.5, jitter: 10, apron: 0.3 },
   /** Low pieces past the edge: on a walkable cell beside a forest or a hill this often, at these scales. */
-  low: { forest: 0.3, hill: 0.34, scale: [0.55, 0.8] },
+  low: { forest: 0.55, hill: 0.4, scale: [0.55, 0.8] },
   /** A unit's half width (px): a piece whose art, widened by it, reaches over walkable ground is drawn live, sorted
    *  with the units (one could stand behind it); the rest is laid once, under everything that moves. */
   reach: 12,
@@ -38,6 +44,8 @@ const KINDS = {};
 PIECES.forEach((p, i) => (KINDS[p.kind] ||= []).push(i));
 /** Whether a kind stands (it hides what is behind it and must keep to blocked ground) or lies low. */
 export const stands = (kind) => kind === 'tree' || kind === 'bush' || kind === 'crag' || kind === 'boulder';
+/** How wide a piece's base is at scale 1 (px): a rock's the core of its width (LAND.hill.core), anything else's as measured. */
+export const baseWidth = (p) => (p.kind === 'crag' || p.kind === 'boulder' ? LAND.hill.core : 1) * p.fw;
 
 /** A draw in [0, 1) for spot `site`, its `n`-th, on a map seeded `seed`. */
 const draw = (site, n, seed) => hash(site * 16 + n, (seed | 0) * 31 + 101);
@@ -96,8 +104,8 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap, 
   /** Put PIECES[i] with its ground point at (x, y) at scale s, if its base is on blocked ground and its top under the
    *  cap; true if it stands. */
   const stand = (i, x, y, s) => {
-    const p = PIECES[i];
-    if (!onBlocked(x - p.fw * s / 2, y - p.fd * s, x + p.fw * s / 2, y) || !underCap(x - p.l * s, y - p.h * s, x + p.r * s, y)) return false;
+    const p = PIECES[i], half = baseWidth(p) * s / 2;
+    if (!onBlocked(x - half, y - p.fd * s, x + half, y) || !underCap(x - p.l * s, y - p.h * s, x + p.r * s, y)) return false;
     out.push({ i, x, y, s, z: p.kind === 'tree' ? y : y - p.fd * s / 2, low: false, apron: !inMap(cell(x), cell(y - 1e-6)),
       live: touchesWalk(x - p.l * s - LAND.reach, y - p.h * s, x + p.r * s + LAND.reach, y) });
     return true;
@@ -137,11 +145,20 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap, 
       }
       // (never a blocked cell with nothing standing on it: a bush small enough to stand whole inside the cell)
       if (!stood && !far) { const i = bushes[Math.floor(draw(site(cx, cy, 4), 0, seed) * bushes.length)], p = PIECES[i]; stand(i, (cx + 0.5) * TILE, (cy + 1) * TILE - 1, Math.min(28 / p.w, 28 / p.h)); }
+      // (undergrowth at the wood's border: a bush on each open side of the cell, its base in the cell)
+      for (const [n, [dx, dy]] of [[0, 1], [1, 0], [-1, 0], [0, -1]].entries()) {
+        const st = site(cx, cy, 7) * 4 + n;
+        if (!walk(cx + dx, cy + dy) || draw(st, 0, seed) >= F.brush) continue;
+        const i = bushes[Math.floor(draw(st, 1, seed) * bushes.length)], p = PIECES[i], s = (F.brushWidth[0] + (F.brushWidth[1] - F.brushWidth[0]) * draw(st, 2, seed)) / p.w, t = (draw(st, 3, seed) - 0.5) * 0.6;
+        const x = (cx + 0.5 + dx * 0.3 + (dx ? 0 : t)) * TILE, y = (cy + 0.5 + dy * 0.3 + (dy ? 0 : t)) * TILE + p.fd * s / 2;
+        stand(i, inCell(x, cx, p.fw * s / 2), Math.max(cy * TILE + p.fd * s + 0.5, Math.min((cy + 1) * TILE - 0.5, y)), s);
+      }
     }
   }
-  // A hill: rock over all of it, the largest first. Three rounds over a lattice of spots (four a cell): crags where
-  // two cells' width of blocked ground takes their base, then boulder groups, then small rocks to the rim; a rock
-  // only where it keeps its distance from those standing (`apart` of their widths: they overlap into one mass).
+  // A hill: rock over all of it. First a clump on every cell at its border, wider than the cell, its foot on the
+  // cell's south edge: the border is said by rock, not by a line. Then three rounds over a lattice of spots (four a
+  // cell), the largest first: crags, boulder groups, small rocks; a rock only where it keeps its distance from those
+  // standing (`apart` of their widths: they overlap into one mass).
   const near = new Array(W2 * (h + 2 * A)); // (cell -> the rocks whose ground point is in it)
   const clear = (x, y, fw) => {
     for (let cy = Math.max(-A, cell(y) - 2); cy <= Math.min(h + A - 1, cell(y) + 2); cy++) for (let cx = Math.max(-A, cell(x) - 2); cx <= Math.min(w + A - 1, cell(x) + 2); cx++) for (const o of near[tk(cx, cy)] || []) {
@@ -150,7 +167,19 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap, 
     }
     return true;
   };
-  for (const [round, list, fit] of [[0, crags, HL.crag], [1, boulders, HL.boulder], [2, [...boulders, ...crags], HL.small]]) {
+  const rocks = [...boulders, ...crags];
+  for (let cy = -1; cy <= h; cy++) for (let cx = -1; cx <= w; cx++) {
+    if (!hill(cx, cy) || !nearWalk(cx, cy)) continue;
+    const st = site(cx, cy, 4), i = rocks[Math.floor(draw(st, 0, seed) * rocks.length)], p = PIECES[i], fw0 = HL.clump[0] + (HL.clump[1] - HL.clump[0]) * draw(st, 1, seed);
+    for (const sh of [1, 0.88, 0.76, 0.6]) { // (as wide as the cap lets it lean; smaller where a walkable cell is close on two sides)
+      const fw = fw0 * sh, s = fw / p.fw, half = baseWidth(p) * s / 2;
+      const x = inCell((cx + 0.5) * TILE + (draw(st, 2, seed) - 0.5) * 6, cx, half), y = (cy + 1) * TILE - 1 - draw(st, 3, seed) * 3;
+      if (!stand(i, x, y, s)) continue;
+      (near[tk(cx, cy)] ||= []).push({ x, y, fw: fw * 0.8 }); // (the rounds after may stand a little nearer it than to each other)
+      break;
+    }
+  }
+  for (const [round, list, fit] of [[0, crags, HL.crag], [1, boulders, HL.boulder], [2, rocks, HL.small]]) {
     for (let cy = -A; cy < h + A; cy++) for (let cx = -A; cx < w + A; cx++) {
       if (!hill(cx, cy)) continue;
       const far = !inMap(cx, cy) && !nearWalk(cx, cy) && (cx < -1 || cy < -1 || cx > w || cy > h);
@@ -163,14 +192,6 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap, 
         (near[tk(cell(x), cell(y))] ||= []).push({ x, y, fw });
       }
     }
-  }
-  // (never a hill cell with no rock on it or beside it: a small one in its middle)
-  for (let cy = -1; cy <= h; cy++) for (let cx = -1; cx <= w; cx++) {
-    if (!hill(cx, cy)) continue;
-    let any = false; for (let dy = -1; dy <= 1 && !any; dy++) for (let dx = -1; dx <= 1; dx++) if (near[tk(cx + dx, cy + dy)]) { any = true; break; }
-    if (any) continue;
-    const i = boulders[Math.floor(draw(site(cx, cy, 4), 0, seed) * boulders.length)], p = PIECES[i], s = Math.min(26 / p.w, 26 / p.h);
-    if (stand(i, (cx + 0.5) * TILE, (cy + 1) * TILE - 2, s)) (near[tk(cx, cy)] ||= []).push({ x: (cx + 0.5) * TILE, y: (cy + 1) * TILE - 2, fw: p.fw * s });
   }
   // Low pieces past the edge: ferns and tufts beside a forest, small stones beside a hill, half over the line.
   const L = LAND.low;
@@ -193,11 +214,16 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap, 
 
 /** The texels a tile of the ground's mix. */
 export const MIX_K = 4;
+/** Where the forest floor and the scree begin and are full, between a walkable cell's middle (0) and a blocked one's
+ *  (1; the cells' border is 0.5): they fade out over about half a tile past the border, along an outline of the
+ *  blocked cells that linear blending rounds by about half a cell at every corner, wobbled a little by the seed. The
+ *  ground's contact shadow follows the same outline (gl/newlandgl.js GROUND.rim). */
+export const MIX_RIM = [0.08, 0.62];
 const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 /**
  * The ground's mix for a map of w x h tiles with `apron` tiles past each edge: an RGBA image of MIX_K texels a tile,
  * `(w + 2 apron) MIX_K` across: red how much worn dirt (the plan's `dirt`, 0-1 a tile), green forest floor, blue
- * scree (the blocked cells by kind: half strength exactly on a blocked cell's edge, a soft line a quarter tile wide,
+ * scree (the blocked cells by kind, full on them, fading out over about half a tile past their border: MIX_RIM;
  * wobbled by an eighth of a tile at most); alpha how dry: 255 on land, 0 on tiles under water (`wet(x, y)`; the
  * line a little to the land's side, so the shore's first px take the water's ground too). Drawn linear-filtered:
  * `{ w, h, k, data }`. `mines`: the gold mines' tiles (`{ tx, ty, w, h }`): full worn dirt on them.
@@ -239,55 +265,8 @@ export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = nul
       if (f <= 0 && s <= 0 && d <= 0) continue;
       const wob = noise(fx * 2.3 + so, fy * 2.3 - so) - 0.5;
       data[o] = Math.round(255 * smooth(0.22, 0.78, d + (d > 0.02 ? wob * 0.3 : 0)));
-      data[o + 1] = Math.round(255 * smooth(0.3, 0.7, f + (f > 0 && f < 1 ? wob * 0.22 : 0)));
-      data[o + 2] = Math.round(255 * smooth(0.3, 0.7, s + (s > 0 && s < 1 ? wob * 0.22 : 0)));
-    }
-  }
-  return { w: W, h: H, k, data };
-}
-
-/** The foot line (`footField`, drawn by gl/newlandgl.js's ground): where a unit cannot walk, said on the ground. Along
- *  the border of blocked ground (rock, forest, the map's edge, a gold mine's square) a crisp dark line, `line` px from
- *  the border (a px on the open side, the rest on the blocked: a walkable cell keeps all but its outermost px or two),
- *  and a contact shadow fading over `shade` px into the blocked side; how dark each is at full; `lee`: how much of
- *  both on a border that faces north or west (the sun's side: the lip that faces south or east, away from it, is the
- *  dark one, as a cliff's is today); `probe` px toward the sun where the field is read again to tell which way a
- *  border faces; `forest`: how much of both round a wood, whose trunks and dark floor already say it (at full the
- *  border's steps showed under the crowns). */
-export const FOOT = { line: [-1, 3], shade: 11, lineDark: 0.6, shadeDark: 0.4, lee: 0.55, probe: 6, forest: 0.6 };
-/** How far the foot field reaches either side of a blocked border (px): farther reads as this. */
-export const FOOT_REACH = 16;
-/**
- * The foot field of a map of w x h tiles with `apron` tiles past each edge: how far each point is from the border of
- * the blocked ground, for the dark foot line gl/newlandgl.js draws along it (a cliff's lip: where a unit cannot walk,
- * said on the ground itself, under the rocks and the trees). An RGBA image of MIX_K texels a tile, as `groundMix`'s:
- * each texel `128 + 127 d / FOOT_REACH`, d the px from its middle to the nearest border of blocked ground, positive
- * on the blocked side, at most FOOT_REACH either way (straight-line distance to the nearest cell of the other kind).
- * Two texels across a border are equally far from it, so drawn linear-filtered the field is zero exactly on the
- * border, straight borders and square corners alike. `rock` as the sim's; past the map's edge is blocked; `also`:
- * tiles blocked for good by something that is no rock (a gold mine's): `[{ tx, ty, w, h }]`.
- */
-export function footField({ w, h, rock, apron = 0, also = [] }) {
-  const A = apron, W2 = w + 2 * A, H2 = h + 2 * A, k = MIX_K, W = W2 * k, H = H2 * k, step = TILE / k, data = new Uint8ClampedArray(W * H * 4);
-  const solid = new Uint8Array(W2 * H2);
-  for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) { const cx = x - A, cy = y - A; solid[y * W2 + x] = cx < 0 || cy < 0 || cx >= w || cy >= h || rock[cy * w + cx] ? 1 : 0; }
-  for (const n of also) for (let y = n.ty; y < n.ty + n.h; y++) for (let x = n.tx; x < n.tx + n.w; x++) if (x >= 0 && y >= 0 && x < w && y < h) solid[(y + A) * W2 + x + A] = 1;
-  const at = (x, y) => solid[Math.max(0, Math.min(H2 - 1, y)) * W2 + Math.max(0, Math.min(W2 - 1, x))]; // (past the apron: as its rim)
-  for (let cy = 0; cy < H2; cy++) for (let cx = 0; cx < W2; cx++) {
-    const me = solid[cy * W2 + cx];
-    let edge = false; for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) if (at(cx + dx, cy + dy) !== me) { edge = true; break; }
-    for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) {
-      let d = FOOT_REACH;
-      if (edge) { // (the nearest cell of the other kind, among the eight round it: its square's nearest point)
-        const px = (i + 0.5) * step, py = (j + 0.5) * step;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          if ((!dx && !dy) || at(cx + dx, cy + dy) === me) continue;
-          const ex = dx < 0 ? px : dx > 0 ? TILE - px : 0, ey = dy < 0 ? py : dy > 0 ? TILE - py : 0;
-          d = Math.min(d, Math.sqrt(ex * ex + ey * ey));
-        }
-      }
-      const o = ((cy * k + j) * W + cx * k + i) * 4, v = Math.round(128 + 127 * (me ? d : -d) / FOOT_REACH);
-      data[o] = data[o + 1] = data[o + 2] = v; data[o + 3] = 255;
+      data[o + 1] = Math.round(255 * smooth(MIX_RIM[0], MIX_RIM[1], f + (f > 0 && f < 1 ? wob * 0.22 : 0)));
+      data[o + 2] = Math.round(255 * smooth(MIX_RIM[0], MIX_RIM[1], s + (s > 0 && s < 1 ? wob * 0.22 : 0)));
     }
   }
   return { w: W, h: H, k, data };

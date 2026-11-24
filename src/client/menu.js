@@ -1,7 +1,7 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
-// is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
-// once installed; both: offline.js), TUTORIAL (the guided game: always there, a small button beside OPTIONS; one menu
-// for everyone, Stelian, Nov 20: a player who knows the genre is not pushed at a tutorial) and the record;
+// is known), How to play, About (a page: who made it, the source, the version), PLAY OFFLINE (offline.js), TUTORIAL (the
+// guided game: always there, a small button beside OPTIONS; one menu for everyone, Stelian, Nov 20: a player who knows
+// the genre is not pushed at a tutorial) and the record;
 // the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
 // seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
@@ -203,7 +203,7 @@ export function initMenu({ onStart }) {
   initFeedbackLinks(build);
   initClaude({ plan: takePlan(), build }); // (a plan link, and an embedding page's channel: claude.js)
   renderNote();
-  initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
+  initOffline(build); // PLAY OFFLINE (offline.js)
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
 

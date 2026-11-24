@@ -103,6 +103,19 @@ function sharpen(im, k) {
   return out;
 }
 
+/** `im` k times as large, smoothly (bilinear, premultiplied). */
+export function enlarge(im, k) {
+  const w = im.w * k, h = im.h * k, out = image(w, h), { d } = im;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const fx = (x + 0.5) / k - 0.5, fy = (y + 0.5) / k - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), q = (y * w + x) * 4; let A = 0; const C = [0, 0, 0];
+    for (const [X, Y, f] of [[x0, y0, (1 - fx + x0) * (1 - fy + y0)], [x0 + 1, y0, (fx - x0) * (1 - fy + y0)], [x0, y0 + 1, (1 - fx + x0) * (fy - y0)], [x0 + 1, y0 + 1, (fx - x0) * (fy - y0)]]) {
+      if (X < 0 || Y < 0 || X >= im.w || Y >= im.h) continue;
+      const p = (Y * im.w + X) * 4, a = d[p + 3] * f; A += a; for (let c = 0; c < 3; c++) C[c] += d[p + c] * a;
+    }
+    out.d[q + 3] = A; if (A > 0) for (let c = 0; c < 3; c++) out.d[q + c] = C[c] / A;
+  }
+  return out;
+}
 /** A single channel blurred by a box of `r` px each way, `n` times (near a Gaussian). */
 export function blur(a, w, h, r, n = 2) {
   for (let k = 0; k < n; k++) for (const [len, count, step, jump] of [[w, h, 1, w], [h, w, w, 1]]) {
@@ -137,13 +150,18 @@ export function cover(polys, w, h) {
   }
   return a;
 }
-/** The shadow (0..1 a px) of `im`'s silhouette standing on the row `line`: a px `h` rows above it falls `dx h` east and
- *  `dy h` south of its foot; 3 x 3 samples a px. */
-export function silhouette(im, line, dx, dy) {
-  const { w, h, d } = im, a = new Float32Array(w * h);
-  const at = (x, y) => { const i = Math.floor(x), j = Math.floor(y); return i < 0 || j < 0 || i >= w || j >= h ? 0 : d[(j * w + i) * 4 + 3] > 127 ? 1 : 0; };
-  for (let y = Math.max(0, Math.floor(line)); y < h; y++) for (let x = 0; x < w; x++) {
-    let n = 0; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) { const g = y + (j + 0.5) / 3 - line; if (g > 0) n += at(x + (i + 0.5) / 3 - g / dy * dx, line - g / dy); }
+/** The shadow (0..1 a px) of `im`'s silhouette standing on the line y = y0 + m x: a px `h` rows above it falls `dx h` east
+ *  and `dy h` south of its foot; 3 x 3 samples a px. */
+export function silhouette(im, y0, m, dx, dy) {
+  const { w, h, d } = im, a = new Float32Array(w * h), den = Math.max(0.05, dy - m * dx);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (y + 1 < y0 + m * x - 1) continue;
+    let n = 0;
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+      const X = x + (i + 0.5) / 3, Y = y + (j + 0.5) / 3, up = (Y - y0 - m * X) / den; if (up <= 0) continue;
+      const sx = X - up * dx, u = Math.floor(sx), v = Math.floor(y0 + m * sx - up);
+      if (u >= 0 && v >= 0 && u < w && v < h && d[(v * w + u) * 4 + 3] > 127) n++;
+    }
     a[y * w + x] = n / 9;
   }
   return a;

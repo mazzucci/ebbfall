@@ -32,7 +32,8 @@ async function game(art, device, { race = 'vael', foe = 'humans', fog = false, s
     const { engine: E, G } = endfall, T = 32, hq = G.bldgs.find(b => b.team === G.me && b.d.hq); window.hq = { x: hq.x, y: hq.y, id: hq.id };
     window.scout = () => { for (const [x, y] of [[-700, 0], [-700, -600], [0, -700], [-350, -900], [-1000, -300]]) E.debugSpawn(G.me, 'observer', hq.x + x, hq.y + y); endfall.skip(0.3); };
     window.put = (type, dx, dy, until = 1, reach = 14) => {
-      if (['kiln', 'spire'].includes(type) && !G.bldgs.some(b => b.type === 'siphon' && b.team === G.me)) put('siphon', -330, -40);
+      const req = { kiln: 'siphon', spire: 'siphon', loom: 'siphon', uplink: 'loom', eclipse: 'uplink', forge: 'barracks', airfield: 'forge', factory: 'forge', extractor: 'barracks', turret: 'barracks' }[type];
+      if (req && !G.bldgs.some(b => b.type === req && b.team === G.me)) put(req, -330, -40);
       if (E.BUILDINGS[type].hq) { scout(); reach = 40; }
       const d = E.BUILDINGS[type], x0 = Math.round((hq.x + dx) / T - d.w / 2), y0 = Math.round((hq.y + dy) / T - d.h / 2), w = G.units.filter(u => u.team === G.me && E.UNITS[u.type].worker);
       for (let r = 0; r < reach; r++) for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
@@ -62,11 +63,11 @@ async function crop(page, name, art, x, y, zoom, w, h) {
 }
 const EX = [['substation', -220, -70], ['siphon', -330, 10], ['spire', -160, 40], ['spire', -240, 110], ['kiln', -130, 170], ['loom', 40, 200], ['ward', 110, 120], ['ward', -60, -150], ['uplink', 200, -60], ['eclipse', 190, 120], ['spire', -100, -180], ['kiln', 60, -190], ['substation', 150, -190], ['substation', 240, 220], ['spire', -320, -110], ['kiln', -320, 190], ['spire', -10, 310], ['substation', 130, 310]];
 const KG = [['depot', -180, -100], ['depot', -250, -20], ['depot', -130, -170], ['barracks', -170, 90], ['forge', 130, -150], ['extractor', -230, 190], ['factory', -30, 200], ['airfield', 130, 180], ['turret', 160, 20], ['turret', 0, -180], ['depot', 240, -60], ['depot', 260, 60], ['barracks', 260, 240]];
-const TYPES = { conflux: 'vael', kiln: 'vael', spire: 'vael', core: 'humans' };
+const TYPES = Object.fromEntries([['core', 'humans'], ['conflux', 'vael'], ['turret', 'humans'], ['barracks', 'humans'], ['eclipse', 'vael'], ['uplink', 'vael'], ['kiln', 'vael'], ['spire', 'vael']].filter(([t]) => !arg('--types') || arg('--types').split(',').includes(t)));
 
 await start();
 try {
-  for (const art of ['today', 'new']) {
+  for (const art of arg('--art', 'today,new').split(',')) {
     for (const race of ['vael', 'humans']) {
       const nm = race === 'vael' ? 'ex' : 'kg';
       for (const [sz, dev] of Object.entries(SIZES)) {
@@ -82,6 +83,13 @@ try {
         }
       }
     }
+    if (want('perf')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // a frame with the base of 20 in view (software GL: only the two arts against each other)
+      const { ctx, page } = await game(art, dev, { race: 'vael' });
+      await page.evaluate((l) => { for (const [t, x, y] of l) put(t, x, y); endfall.cam.zoom = 1; endfall.centerOn(hq.x, hq.y); clean(); }, EX);
+      const run = (n) => page.evaluate((n) => { const gl = document.getElementById('game').getContext('webgl2'), px = new Uint8Array(4); for (let i = 0; i < n; i++) { endfall.draw(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } }, n);
+      await run(5); const ms = []; for (let i = 0; i < 5; i++) { const t = process.hrtime.bigint(); await run(10); ms.push(Number(process.hrtime.bigint() - t) / 1e7); }
+      ms.sort((a, b) => a - b); log.push({ perf: sz, art, ms }); console.log('perf', sz, art, 'median ms a frame', ms[2].toFixed(1)); await ctx.close();
+    }
     if (want('build')) for (const [type, race] of Object.entries(TYPES)) {
       const { ctx, page } = await game(art, D2, { race });
       for (const pc of [10, 50, 90]) { const [id, x, y] = await page.evaluate(([t, u]) => { const { G } = endfall; let b = G.bldgs.find(b => b.type === t && !b.done); if (!b) { const id = put(t, -200, 120, u); b = G.bldgs.find(b => b.id === id); } for (let i = 0; i < 4000 && b.progress < u; i++) endfall.skip(0.1); return [b.id, b.x, b.y]; }, [type, pc / 100]); if (!id) continue; await crop(page, `build-${type}-${pc}`, art, x, y - 10, 2, 400, 400); }
@@ -95,13 +103,13 @@ try {
       await shoot(page, `state-${type}-hud`, art, b, 1.5);
       await page.evaluate(() => { endfall.ui.sel = []; });
       // our fighters north of it, behind its walls: their silhouettes
-      await page.evaluate(([b, r]) => { const { engine: E, G } = endfall; for (let i = 0; i < 5; i++) E.debugSpawn(G.me, r === 'vael' ? 'umbra' : 'trooper', b.tx * 32 + 10 + i * (b.w * 32 - 20) / 4, b.ty * 32 - 14 - (i % 2) * 16); endfall.skip(0.1); }, [b, race]); await C('behind');
+      await page.evaluate(([b, r]) => { const { engine: E, G } = endfall; for (let i = 0; i < 2; i++) E.debugSpawn(G.me, r === 'vael' ? 'umbra' : 'trooper', b.tx * 32 + 20 + i * (b.w * 32 - 40), b.ty * 32 - 14 - (i % 2) * 16); endfall.skip(0.1); }, [b, race]); await C('behind');
       // the placement ghost: allowed (beside it) and refused (over it)
       for (const [n, dx] of [['ghost-ok', 8], ['ghost-no', 1]]) { await page.evaluate(([t, b, dx]) => { const { engine: E, G, ui } = endfall; for (let d = dx; d < dx + 12; d++) if (dx === 1 || E.canPlace(t, b.tx - d, b.ty + 2, G.me)) { ui.place = { type: t, tx: b.tx - d, ty: b.ty + 2 }; break; } }, [type, b, dx]); const g = await page.evaluate(() => endfall.ui.place); if (g) await crop(page, `state-${type}-${n}`, art, (g.tx + b.w / 2) * 32, (g.ty + b.h / 2) * 32 - 10, 2, 400, 400); await page.evaluate(() => { endfall.ui.place = null; }); }
       // damaged (with the hit's flash), then falling: foes beside it
       await page.evaluate(([id]) => { const { engine: E, G } = endfall, b = G.bldgs.find(b => b.id === id); E.debugSetHp(id, b.maxhp * 0.2); endfall.skip(1 / 30); G.bldgs.find(b => b.id === id).flash = 0.1; }, [b.id]); await C('hit');
       await page.clock.runFor(600); await C('burning');
-      const fell = await page.evaluate(([b]) => { const { engine: E, G } = endfall; E.debugSetHp(b.id, 1); const foe = [0, 1, 2, 3].find(t => t !== G.me); for (let i = 0; i < 4; i++) E.debugSpawn(foe, G.factions[foe] === 'vael' ? 'umbra' : 'lancer', b.x - 40 + i * 26, b.y + b.h * 16 + 40); return true; }, [b]);
+      const fell = await page.evaluate(([b]) => { const { engine: E, G } = endfall; E.debugSetHp(b.id, 1); const foe = [0, 1, 2, 3].find(t => t !== G.me); for (let i = 0; i < 16; i++) E.debugSpawn(foe, G.factions[foe] === 'vael' ? 'umbra' : 'lancer', b.x - 100 + (i % 8) * 26, b.y + b.h * 16 + 40 + (i >> 3) * 26); return true; }, [b]);
       await page.evaluate((id) => { for (let i = 0; i < 400 && endfall.G.bldgs.some(b => b.id === id); i++) endfall.skip(1 / 30); }, b.id);
       await page.clock.runFor(150); await C('falling'); await page.clock.runFor(1600); await C('rubble');
       await ctx.close();

@@ -574,14 +574,30 @@ dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-a
 }
 /* The desktop HUD (a mouse in a window at least 1100 x 560 px; under it, and on every touch screen, all of the above as
    it is): the same floating layout at a monitor's size, each piece in one frame. The top bar becomes two corner
-   clusters (gold and POP, large and white, top left; the clock and the buttons, icons only, top right), the minimap
-   236 units, the selection console up to 760, the command card's slots 88 x 68 (the same three columns, slots and
-   keys); type larger and brighter in the same faces. Sizes are in `--u`: 1 px at 1440 x 810, 0.9 at 1280 x 720 (the
-   least), 1.33 at 1920 x 1080, 1.4 at most, so a larger window gets a larger HUD as the start zoom gives it larger
-   units. hud.js reads the same unit for the portraits (`porSize`), render.js the minimap's top for the camera's room
-   past the foot. */
+   clusters (gold and POP, top left; the clock and the buttons, icons only, top right), the minimap 190 units, the
+   selection console up to 760, the command card's slots 88 x 68 (the same three columns, slots and keys); type
+   brighter in the same faces. Sizes are in `--u`: 1 px at 1440 x 810, 0.9 at 1280 x 720 (the least), 1.1 at most (1584
+   x 891 and up): past that a monitor gives more map, not a larger HUD (it grew to 1.4 once: a 315 px minimap and 32 px
+   figures at 1920 x 1080, a fifth of the screen under panels). hud.js reads the same unit for the portraits
+   (`porSize`), render.js the foot's panels for the camera's room past the foot (the minimap's top and a three-row
+   card's, which is the taller).
+   THE SIZE TABLE: every size here comes from it (units of --u; a text is never under 12 px, the least a monitor's eye
+   reads at a glance: the key role holds there where --u is under 1):
+     --t-key    12  the small role: a button's label, its key, its price, a queue's seconds, a tile's letter, POP, a tag
+     --t-body   14  words: the console's lines, a toast, a hint, a tooltip's words and chips, the help sheet
+     --t-num    17  figures (mono): gold, population, the clock, health, the stat figures, a tooltip's price
+     --t-title  17  a name (display, bold): the selection's, a research's, a tooltip's, the help sheet's
+     --i-s 14, --i-m 18, --i-l 24, --i-xl 30   icons: beside words; the top bar's and beside figures; an order; a
+                    unit's or a building's symbol (a price's own coin and figure stay 10)
+     --mm      190  the minimap's side; what stands over it (the hint, the toasts, a touch laptop's three) follows it
+     the menu (px, its own pages: no --u): 17 the line under the name (#menuTag, above), --t-menu-s 14 the small
+                    buttons and the footer's links (the big buttons' and the trailer's pill's 14), --t-menu-min 12 the
+                    least (the build stamp, a token's small words, a sheet's, the pause card's, the trailer's credit) */
 @media (min-width:1100px) and (min-height:560px) and (pointer:fine){
-  :root{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.4px);--m:calc(var(--u)*16);--fg2:#b6c3d2;--edge:#3d526b;--well:#0a1018;
+  :root{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.1px);--m:calc(var(--u)*16);
+    --t-key:max(12px,calc(var(--u)*12));--t-body:calc(var(--u)*14);--t-num:calc(var(--u)*17);--t-title:calc(var(--u)*17);
+    --i-s:calc(var(--u)*14);--i-m:calc(var(--u)*18);--i-l:calc(var(--u)*24);--i-xl:calc(var(--u)*30);--mm:calc(var(--u)*190);--t-menu-s:14px;--t-menu-min:12px;
+    --fg2:#b6c3d2;--edge:#3d526b;--well:#0a1018;
     --lift:inset 0 1px 0 rgba(255,255,255,.08);--plate:linear-gradient(180deg,rgba(27,38,53,.95),rgba(15,22,32,.95));--drop:0 6px 22px rgba(0,0,0,.55)}
   /* the top bar: no bar, its two ends as plates in the corners (the map shows between them) */
   #top{top:0;left:0;right:0;height:auto;padding:var(--m) var(--m) 0;gap:0;background:none;border:0;border-radius:0;box-shadow:none;pointer-events:none}
@@ -589,65 +605,84 @@ dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-a
   .ib.icon .t{display:none} /* (the icon alone: the word is the button's title and label) */
   #top .ib{width:calc(var(--u)*40);height:calc(var(--u)*40);margin-left:calc(var(--u)*6);padding:0;display:grid;place-items:center;
     background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #top .ib:hover,#top .ib.help[aria-expanded="true"]{border-color:var(--ally)} #top .ib.help[aria-expanded="true"]{background:#2a2415} #top .ib .ico{width:calc(var(--u)*19);height:calc(var(--u)*19)} #top .ib.help{font-size:calc(var(--u)*18)}
-  .res{font-size:calc(var(--u)*24);color:#f3f6fa;gap:calc(var(--u)*9)}
-  .res .dot{width:calc(var(--u)*25);height:calc(var(--u)*21)}
-  .res .lbl{font:600 calc(var(--u)*12)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
-  #top .res:not(#resClock){height:calc(var(--u)*48);padding:0 calc(var(--u)*16);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
+  #top .ib:hover,#top .ib.help[aria-expanded="true"]{border-color:var(--ally)} #top .ib.help[aria-expanded="true"]{background:#2a2415} #top .ib .ico{width:var(--i-m);height:var(--i-m)} #top .ib.help{font-size:var(--t-num)}
+  /* (the gold and POP plates as tall as the buttons, their figures no heavier than the icons beside them; the figures in the mono face's own weight: it has no bold, and a made-up one clogs the digits at this size) */
+  .res{font-size:var(--t-num);color:#f3f6fa;gap:calc(var(--u)*8)} .res b{font-weight:400}
+  .res .dot{width:calc(var(--u)*19);height:calc(var(--u)*16)}
+  .res .lbl{font:600 var(--t-key)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
+  #top .res:not(#resClock){height:calc(var(--u)*40);padding:0 calc(var(--u)*14);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
   #resShard{border-radius:calc(var(--u)*8) 0 0 calc(var(--u)*8)} #top .res#resSup{border-left:0;border-radius:0 calc(var(--u)*8) calc(var(--u)*8) 0}
-  #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*2);font-size:calc(var(--u)*17);color:var(--fg2);
+  #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*2);font-size:var(--t-num);color:var(--fg2);
     background:var(--plate);border:1px solid var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #tools,#tut,#helpSheet{top:calc(var(--m) + var(--u)*58)} #tools,#helpSheet{right:var(--m)} #tut{left:var(--m)}
-  #helpSheet{max-height:calc(100% - 2 * var(--m) - var(--u)*58)}
-  /* the panels at the foot: the minimap in a double frame, the console and the card on plates */
+  #tools,#tut,#helpSheet{top:calc(var(--m) + var(--u)*50)} #tools,#helpSheet{right:var(--m)} #tut{left:var(--m)}
+  #helpSheet{max-height:calc(100% - 2 * var(--m) - var(--u)*50)}
+  /* the panels at the foot: the minimap in a double frame, the console and the card on plates; the console as wide as
+     the minimap and a full card leave it, never taller than a three-row card (the camera's room past the foot is that
+     card's: render.js `cardTop`) */
   #hud{left:var(--m);right:var(--m);bottom:var(--m);gap:calc(var(--u)*14)}
-  #minimap{width:calc(var(--u)*236);height:calc(var(--u)*236);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
+  #minimap{width:var(--mm);height:var(--mm);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
     box-shadow:0 0 0 calc(var(--u)*4) #101822,0 0 0 calc(var(--u)*4 + 1px) #34475f,var(--drop)}
-  #info{width:min(calc(var(--u)*760),calc(100% - var(--u)*600));max-height:calc(var(--u)*250);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
+  #info{width:min(calc(var(--u)*760),calc(100% - var(--mm) - var(--u)*364));max-height:calc(var(--u)*228);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
     background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #info h2{font-size:calc(var(--u)*21)}
-  #info .sub,#info .what{font-size:calc(var(--u)*14);color:var(--fg2)}
+  #info h2{font-size:var(--t-title)}
+  #info .sub,#info .what{font-size:var(--t-body);color:var(--fg2)}
   #info .id{gap:calc(var(--u)*7)}
-  #hpNum{font-size:calc(var(--u)*18)}
+  #hpNum{font-size:var(--t-num)}
   .life .bar{height:calc(var(--u)*9)} .life .bars{max-width:calc(var(--u)*260)}
-  .st{font-size:calc(var(--u)*21);gap:calc(var(--u)*6)} .st .ico{width:calc(var(--u)*21);height:calc(var(--u)*21);color:var(--fg2)}
+  .st{font-size:var(--t-num);gap:calc(var(--u)*6)} .st .ico{width:var(--i-m);height:var(--i-m);color:var(--fg2)}
   #selPor{width:calc(var(--u)*86);height:calc(var(--u)*86);border-radius:calc(var(--u)*6);background:var(--well);border-color:var(--edge)}
   #group{gap:calc(var(--u)*5)}
   .gi{width:calc(var(--u)*50);height:calc(var(--u)*56);border-radius:calc(var(--u)*4);background:var(--well);border-color:#2f4157;padding-top:calc(var(--u)*2)}
   .gi:hover{border-color:var(--ally)} .gi .por{margin-left:calc(var(--u)*2)}
   .gi::before,.gi i{left:calc(var(--u)*3);right:calc(var(--u)*3);bottom:calc(var(--u)*3);height:calc(var(--u)*4)}
-  .gi b{font-size:calc(var(--u)*11);line-height:1.25;right:calc(var(--u)*2);bottom:calc(var(--u)*9);padding:0 calc(var(--u)*3)}
+  .gi b{font-size:var(--t-key);line-height:1.25;right:calc(var(--u)*2);bottom:calc(var(--u)*9);padding:0 calc(var(--u)*3)}
   .qe,.qi{width:calc(var(--u)*44);height:calc(var(--u)*44);border-radius:calc(var(--u)*4)}
-  .qi .ico.gl{width:calc(var(--u)*32);height:calc(var(--u)*32)} .qi .left{font-size:calc(var(--u)*12);line-height:1.3}
+  .qi .ico.gl{width:var(--i-xl);height:var(--i-xl)} .qi .left{font-size:var(--t-key);line-height:1.3}
   .qi .x{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
   #mod .q{max-width:calc(var(--u)*250);gap:calc(var(--u)*6)} #mod .q .bar.prod{height:calc(var(--u)*9)}
   #mod .rq>.ico{width:calc(var(--u)*44);height:calc(var(--u)*44)} #mod>.bar.build{width:calc(var(--u)*260);height:calc(var(--u)*10)}
-  .rt{font-size:calc(var(--u)*17)} .rs{min-width:calc(var(--u)*250)} .rs>.ico{width:calc(var(--u)*38);height:calc(var(--u)*38)}
+  .rt{font-size:var(--t-title)} .rs{min-width:calc(var(--u)*250)} .rs>.ico{width:var(--i-xl);height:var(--i-xl)}
   /* the command card: three columns of 88 x 68 slots; a blank slot drawn as a well, so the grid reads as a grid; with an
      army selected (card.js `army`: a couple of orders) the wells near the panel's own tone, no edge: two buttons never
-     sit in a field of boxes. The slots never move or shrink: the keys keep their places. */
+     sit in a field of boxes. The slots never move or shrink: the keys keep their places. A label has no tracking and a
+     pixel at each side: at --u 0.9 its 12 px stand in a slot of 79, and every one but Master Builders is whole. */
   #cmd{grid-template-columns:repeat(3,calc(var(--u)*88));grid-template-rows:repeat(2,calc(var(--u)*68));grid-auto-rows:calc(var(--u)*68);gap:calc(var(--u)*5);padding:calc(var(--u)*7);
     border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop);
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%23080d14' fill-opacity='.72' stroke='%232a3a4e' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/calc(var(--u)*93) calc(var(--u)*73) repeat content-box content-box,
       linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92)) padding-box}
   #cmd.army{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%230c121a' fill-opacity='.4'/%3E%3C/svg%3E"),linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92))}
-  .cb{--cbg:#1f2c3f;font-size:calc(var(--u)*12.5);border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
+  .cb{--cbg:#1f2c3f;font-size:var(--t-key);letter-spacing:0;padding:0 1px;border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
   .cb.active{background:#2a2415;border-color:var(--ally)} .cb:hover{border-color:var(--ally)}
-  .cb .ico{width:calc(var(--u)*24);height:calc(var(--u)*24)} .cb .ico.gl{width:calc(var(--u)*31);height:calc(var(--u)*31)}
-  .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:calc(var(--u)*11);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
-  .cb .c{font-size:calc(var(--u)*12);padding:0 calc(var(--u)*6)} .cb .c .dot{width:calc(var(--u)*10);height:calc(var(--u)*8)}
+  .cb .ico{width:var(--i-l);height:var(--i-l)} .cb .ico.gl{width:var(--i-xl);height:var(--i-xl)}
+  .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:var(--t-key);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
+  .cb .c{font-size:var(--t-key);padding:0 calc(var(--u)*6)} .cb .c .dot{width:calc(var(--u)*10);height:calc(var(--u)*8)}
   .cb .c .p .ico{width:calc(var(--u)*10);height:calc(var(--u)*10)}
   .cb.badge::after,.cb.done::after{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
-  /* toasts and hints over the minimap, clear of it */
-  .toast{font-size:calc(var(--u)*14);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
-  #hint{font-size:max(12px,calc(var(--u)*13))} #hint.placing,#hint.boxing{font-size:max(15px,calc(var(--u)*16))} /* (never smaller than under 1100 px) */
-  #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--u)*250)}
-  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--u)*284)} /* (as specific as the mouse's own rule, which names #btnBox) */
+  /* toasts and hints over the minimap, clear of it, as far over it whatever its size */
+  .toast{font-size:var(--t-body);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
+  #hint{font-size:var(--t-body)} #hint.placing,#hint.boxing{font-size:var(--t-num)} /* (12.6 and 15.3 px at the least: never smaller than under 1100 px) */
+  #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--mm) + var(--u)*14)}
+  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--mm) + var(--u)*48)} /* (as specific as the mouse's own rule, which names #btnBox) */
   /* a touch laptop (SELECT, HOME and ARMY shown): the three in a row above the minimap and as wide as it, the hint and
      the toasts above them */
-  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--u)*236 - 8px) / 3);bottom:calc(var(--m) + var(--u)*246)}
-  #stage:has(#btnBox:not([hidden])) #hint{bottom:calc(var(--m) + var(--u)*246 + 56px)}
-  #stage:has(#btnBox:not([hidden])) #msg{bottom:calc(var(--m) + var(--u)*246 + 90px)}
-  .tb{font-size:max(11px,calc(var(--u)*12));padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:max(12px,calc(var(--u)*13))}
-  #cmdInfo{font-size:max(12px,calc(var(--u)*13))}
+  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--mm) - 8px) / 3);bottom:calc(var(--m) + var(--mm) + var(--u)*10)}
+  #stage:has(#btnBox:not([hidden])) #hint{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + 56px)}
+  #stage:has(#btnBox:not([hidden])) #msg{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + 90px)}
+  .tb{font-size:var(--t-key);padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:var(--t-key)}
+  /* the tooltip (its fixed px above are every other screen's): its name a title, its price a figure, its words, places
+     and chips the body's, its small chips and tags the key's; the icons with their words */
+  #cmdInfo{font-size:var(--t-body)} #cmdInfo b{font-size:var(--t-title)}
+  #cmdInfo .c{font-size:var(--t-num)} #cmdInfo .c .dot{width:calc(var(--u)*19);height:calc(var(--u)*16)}
+  #cmdInfo .pl,#cmdInfo .sc{font-size:var(--t-body)} #cmdInfo .pl .ico,#cmdInfo .sc .ico{width:var(--i-s);height:var(--i-s)}
+  #cmdInfo .sr{min-height:calc(var(--u)*18)}
+  #cmdInfo .stats.small .sc{font-size:var(--t-key)} #cmdInfo .stats.small .sc .ico{width:var(--t-key);height:var(--t-key)}
+  #cmdInfo .tg{font-size:var(--t-key)}
+  /* the guided game's line, the help sheet, the online line: the same roles */
+  #tut{font-size:var(--t-body)} #tut b{font-size:var(--t-key)}
+  #helpSheet{font-size:var(--t-body)} #helpSheet h2{font-size:var(--t-title)} #helpSheet kbd,#helpSheet .ft{font-size:var(--t-key)}
+  #netWait{font-size:var(--t-key)}
+  /* the menu's small text on a monitor: the small buttons and the footer's links 14 px, as the big buttons; nothing
+     under 12 px (the phone's menu, and a touch screen's, as they were) */
+  :is(#start,#online,#options) :is(.row,.joincode)>.ib:not(.big),#menuLinks{font-size:var(--t-menu-s)}
+  #menuHome .rec,.tok .lw,.tok .stag:not(:empty),.tok .act,.sheet .hd .sub,.sheet .opt .lbl,.setting .line,.pausegrid small,dialog.trailer .credit,dialog.trailer .x{font-size:var(--t-menu-min)}
 }

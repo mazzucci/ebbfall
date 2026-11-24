@@ -605,7 +605,8 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
         const c = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x, y: c.y, zoom: c.zoom, vw: v.w / c.zoom, vh: v.h / c.zoom }; });
         assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
         const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
-        const foot = h - mm.y + 4; // (render.js footRoom: up to the minimap's top, the tallest panel at the foot, and 4 px)
+        const card3 = await d.eval(() => { const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0; return cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth)); });
+        const foot = h - Math.min(mm.y, card3) + 4; // (render.js footRoom: up to the top of the tallest panel at the foot, a three-row card, over the minimap's with the desktop HUD, and 4 px)
         assert.ok(cy ? Math.abs(past - foot) < 1 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? `foot only as far as the panels cover (${foot} px)` : 'top only as far as the bar covers'}: ${past}`);
         const dark = await darkEdges(d);
         for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);
@@ -648,7 +649,7 @@ test('desktop 1920x1080 HUD: an army selected through the UI, the top bar\'s two
       const r = (q) => { const e = document.querySelector(q), b = e.getBoundingClientRect(), cs = getComputedStyle(e); return { q, l: b.left, t: b.top, r: b.right, b: b.bottom, shown: cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0 }; };
       const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd);
       return { boxes: ['#resShard', '#resSup', '#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause', '#minimap', '#info', '#cmd'].map(r),
-        left: r('#resShard').l, cols: cs.gridTemplateColumns, rows: cs.gridTemplateRows, u: Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810)), // (style.css --u)
+        left: r('#resShard').l, cols: cs.gridTemplateColumns, rows: cs.gridTemplateRows, u: Math.max(0.9, Math.min(1.1, innerWidth / 1440, innerHeight / 810)), // (style.css --u)
         army: cmd.classList.contains('army'), wells: cs.backgroundImage, buttons: [...cmd.children].map(e => e.dataset.id || 'gap'), words: getComputedStyle(document.querySelector('#btnFull .t') || document.body).display };
     });
     const what = JSON.stringify(got);
@@ -660,7 +661,7 @@ test('desktop 1920x1080 HUD: an army selected through the UI, the top bar\'s two
     assert.ok(got.words === 'none', `the buttons are icons, the word their title: ${what}`);
     // the panels at the foot: the minimap bottom left, the console in the middle, the card bottom right
     assert.ok(at['#minimap'].l < 40 && at['#minimap'].b > 1020 && at['#cmd'].r > 1880 && at['#cmd'].b > 1020 && at['#info'].l >= at['#minimap'].r && at['#info'].r <= at['#cmd'].l, `the minimap, the console and the card along the foot: ${what}`);
-    assert.ok(Math.abs(at['#minimap'].r - at['#minimap'].l - 236 * got.u) < 1 && got.u > 1.3, `the minimap 236 units (about 315 px at 1920): ${what}`);
+    assert.ok(Math.abs(at['#minimap'].r - at['#minimap'].l - 190 * got.u) < 1 && got.u === 1.1, `the minimap 190 units (209 px at 1920, where --u has stopped at 1.1): ${what}`);
     const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
     for (const [i, a] of got.boxes.entries()) for (const b of got.boxes.slice(i + 1)) assert.ok(!overlap(a, b), `${a.q} and ${b.q} do not overlap: ${what}`);
     // the card: its slots as ever (three columns, Deselect in the corner), each 88 x 68 units; the blank ones quiet
@@ -2468,14 +2469,17 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
       for (let a = 0; a < 6.283; a += 0.05) {
         const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, tx = Math.floor(x / T), ty = Math.floor(y / T);
         if (tx < 0 || ty < 0 || tx >= endfall.engine.MW || ty >= endfall.engine.MH || endfall.G.explored[ty * endfall.engine.MW + tx]) continue;
-        const p = m.getContext('2d').getImageData(Math.floor(x * S), Math.floor(y * S), 1, 1).data;
-        return { a, p: [...p] };
+        // (the rim is 1.25 CSS px wide: on the desktop HUD's 171 px minimap at 1280x720 the one pixel under a point of the
+        // circle can lie half off the line, so the brightest of the nine round it)
+        const q = m.getContext('2d').getImageData(Math.floor(x * S) - 1, Math.floor(y * S) - 1, 3, 3).data;
+        let p = [0, 0, 0, 0]; for (let i = 0; i < q.length; i += 4) if (q[i + 2] > p[2]) p = [...q.slice(i, i + 4)];
+        return { a, p };
       }
       return null;
     }, [hq.x, hq.y, reach * T]);
     assert.ok(lit && lit.p[2] > 120 && lit.p[1] > 100, `the rim lit over unexplored ground on the minimap: ${JSON.stringify(lit)}`);
-    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (15 px)');
-    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15px');
+    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (a figure\'s size: 15.3 px at 1280x720, never under the 15 px of a smaller window)');
+    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15.3px');
     await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build within coverage$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
     await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
     assert.match((await d.toasts()).join(' | '), /Build within coverage/);

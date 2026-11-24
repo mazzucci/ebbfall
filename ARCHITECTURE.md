@@ -142,9 +142,11 @@ src/style.css         all styling; design tokens at the top of :root; a desktop 
                       phones' blocks) have the canvas edge to edge, the top bar floating over it as the HUD does, what
                       sat in the stage kept in place (the safe area counted); phones keep the box;
                       the desktop HUD (a fine pointer, at least 1100 x 560 px; its last block): the same floating layout
-                      at a monitor's size in units of --u (1 px at 1440 x 810, 0.9 to 1.4), the top bar as two corner
-                      clusters (gold and POP; the clock and the buttons, icons only), a 236-unit minimap, 88 x 68 card
-                      slots whose blank ones are wells (quiet ones under an army's card: card.js `army`)
+                      at a monitor's size in units of --u (1 px at 1440 x 810, 0.9 to 1.1), every size from one table
+                      of custom properties (three text sizes, 12, 14 and 17 units, none under 12 px; the icons; the
+                      minimap's 190), the top bar as two corner clusters (gold and POP; the clock and the buttons, icons
+                      only), 88 x 68 card slots whose blank ones are wells (quiet ones under an army's card: card.js
+                      `army`); the menu's small text on a monitor (14 and 12 px)
 src/engine/           the client's view of the Rust sim: index.js starts instantiating the WASM (`ready`: nothing calls
                       the sim before it has resolved), core.js mirrors it into the
                       G / map / entity-object shape the client reads and turns orders into calls by id (and keeps
@@ -656,6 +658,10 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       for good on CLOSE, a hidden tab, the credit's link; START GAME on screen, a game started lets go
                       of it; offline it says it needs a connection; no frame without the poster; the same page whether
                       `tall` or not, fitting with PLAY OFFLINE's answer),
+                      hudsizes.e2e.mjs (the desktop HUD's size table at 1280x720, 1920x1080 and 2560x1440: --u never
+                      over 1.1, no HUD text under 12 px and three sizes in all, the minimap, the portraits, the hint
+                      over the minimap and the camera's room past the foot over a three-row card; a landscape phone's
+                      HUD piece by piece as it was),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
                       corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; the wind

@@ -27,9 +27,9 @@ export function bldgStatus(b) {
 
 let selKey = '';
 /** The desktop HUD (style.css, its last block: a mouse, a window at least 1100 x 560 px) and its unit of size (`--u`
- *  there: 1 px at 1440 x 810, 0.9 to 1.4). */
+ *  there: 1 px at 1440 x 810, 0.9 to 1.1: the style sheet's clamp, repeated). */
 const deskMq = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
-const hudU = () => Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810));
+const hudU = () => Math.max(0.9, Math.min(1.1, innerWidth / 1440, innerHeight / 810));
 /** A portrait's size (CSS px): `base`, or `big` units on the desktop HUD. */
 const porSize = (base, big) => (deskMq.matches ? Math.round(big * hudU()) : base);
 

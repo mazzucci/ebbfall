@@ -16,7 +16,8 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { start, stop, browserContext, baseUrl, board } from '../../../test/e2e/harness.mjs';
-import { decodePNG, encodePNG } from '../../art/png.js';
+import { encodePNG } from '../../art/png.js';
+import { readPNG } from './pngs.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; }, flag = (k) => process.argv.includes(k);
 const OUT = resolve(arg('--out', '/home/mazzucci/projects/ebbfall-article/new-art/unit/stills')), TAG = arg('--tag', 'today');
@@ -103,7 +104,7 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   endfall.skip(1.9); // (the fronts have met)
   // the march: 16 Guards from a point, each out along its facing
   const wc = open(sc.x, sc.y, 230, taken, 480), walkers = [];
-  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, id = engine.debugSpawn(me, 'trooper', wc.x + Math.cos(a) * 46, wc.y + Math.sin(a) * 46); walkers.push(id); }
+  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, id = engine.debugSpawn(me, 'trooper', wc.x + Math.cos(a) * 40, wc.y + Math.sin(a) * 40); walkers.push(id); }
   // the lineup: one of every kind standing in a row (ours), and a second row of them marching down the screen
   const kinds = ['harvester', 'trooper', 'lancer', 'rider', 'knight', 'bastion', 'siegeTank', 'observer', 'lumen', 'scythe', 'prism', 'bruiser', 'umbra', 'monolith', 'shrike'];
   const lc = open(wc.x, wc.y, 200, [...taken, wc], 520), row = (dy) => kinds.map((k, i) => engine.debugSpawn(me, k, lc.x + (i - 7) * 52, lc.y + dy)).filter(Boolean);
@@ -111,10 +112,10 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   endfall.draw();
   of(marching).forEach((u) => engine.moveTo(u, u.x, u.y + 300));
   of(walkers).forEach((u, k) => { const a = k / 16 * Math.PI * 2; engine.moveTo(u, wc.x + Math.cos(a) * 420, wc.y + Math.sin(a) * 420); });
-  endfall.skip(0.5);
+  endfall.skip(0.3);
   // on to the tick most of the strikers' blows land (look.js strikePose: the strike shows 0.15 s)
   const striking = () => of(strikers).filter(u => u.d.weapon && u.cd > u.d.weapon.cd - 0.15).length;
-  let n = 0; for (let i = 0; i < 60 && (n = striking()) < 9; i++) endfall.skip(1 / 30);
+  let n = 0; for (let i = 0; i < 40 && (n = striking()) < 9; i++) endfall.skip(1 / 30);
   G.events.length = 0;
   for (const t of document.querySelectorAll('#msg .toast')) t.remove();
   for (let i = 0; i < 4; i++) window.tick(100); // (who stopped stands: the renderer holds a stride a quarter second)
@@ -129,7 +130,7 @@ const look = (page, at, zoom) => page.evaluate(([at, z]) => { endfall.cam.zoom =
 const log = { tag: TAG, shots: [], errors: [], warns: [] };
 async function shoot(page, dev, name, extra = {}) {
   const s = await page.evaluate(() => { endfall.draw(); const { cam, view, G, engine } = endfall; return { zoom: cam.zoom, cam: { x: cam.x, y: cam.y }, view: { w: view.w, h: view.h, dpr: view.dpr }, tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0, selected: endfall.ui.sel.length, top: endfall.unitTop('trooper') }; });
-  const file = `${dev}-${name}.png`; await page.screenshot({ path: join(OUT, TAG, file), timeout: 300000, omitBackground: true }); // (with an alpha channel: tools/art/png.js reads RGBA only)
+  const file = `${dev}-${name}.png`; await page.screenshot({ path: join(OUT, TAG, file), timeout: 300000 });
   console.log(`${TAG} ${file}: zoom ${s.zoom.toFixed(3)}, tick ${s.tick}, hash ${s.hash}, ${s.selected} selected`);
   log.shots.push({ dev, name, file, ...s, ...extra });
 }
@@ -154,11 +155,9 @@ async function stills() {
     await look(page, mid); await shoot(page, dev, 'fight', { at: mid });
     if (touch) { await look(page, mid, 1); await shoot(page, dev, 'fight-zoom1', { at: mid }); }
     else { await look(page, mid, 2.5); await shoot(page, dev, 'fight-close', { at: mid }); }
-    // the strikes and the march, each way
+    // the strikes, each way
     await look(page, S.sc); await shoot(page, dev, 'strike', { at: S.sc });
-    await look(page, S.wc); await shoot(page, dev, 'walk', { at: S.wc });
-    await look(page, S.lc); await shoot(page, dev, 'lineup', { at: S.lc });
-    if (touch) { await look(page, S.sc, 1); await shoot(page, dev, 'strike-zoom1', { at: S.sc }); await look(page, S.wc, 1); await shoot(page, dev, 'walk-zoom1', { at: S.wc }); }
+    if (touch) { await look(page, S.sc, 1); await shoot(page, dev, 'strike-zoom1', { at: S.sc }); }
     // behind the Barracks, and the one beside it clicked (its portrait, its bar)
     const at = { x: S.barracks.x, y: S.barracks.y - 20 }; await look(page, at);
     const g = await page.evaluate((id) => { const u = endfall.G.units.find(u => u.id === id); return { x: u.x, y: u.y - endfall.unitTop('trooper') / 2 }; }, S.beside);
@@ -168,6 +167,11 @@ async function stills() {
     await page.evaluate(() => endfall.draw());
     if (!touch) { const btn = page.locator('#cmd [data-id="t_trooper"]'); if (await btn.count()) await btn.hover(); }
     await shoot(page, dev, 'card', { at });
+    // the march and the lineup, a fifth of a second on (six ticks, a frame drawn after each: who walks is in its stride)
+    await page.evaluate(() => { for (let i = 0; i < 6; i++) { endfall.skip(1 / 30); window.tick(34); } endfall.G.events.length = 0; });
+    await look(page, S.wc); await shoot(page, dev, 'walk', { at: S.wc });
+    await look(page, S.lc); await shoot(page, dev, 'lineup', { at: S.lc });
+    if (touch) { await look(page, S.wc, 1); await shoot(page, dev, 'walk-zoom1', { at: S.wc }); await look(page, S.lc, 1); await shoot(page, dev, 'lineup-zoom1', { at: S.lc }); }
     log.errors.push(...errors.map(e => `${dev}: ${e}`)); log.warns.push(...warns.map(e => `${dev}: ${e}`));
     await ctx.close();
   }
@@ -186,7 +190,7 @@ function sheet() {
   for (const t of T.shots) {
     const n = N.shots.find(s => s.file === t.file); if (!n) continue;
     if (t.hash === n.hash && t.tick === n.tick) same++; else { differ++; console.warn(`${t.file}: the two looks are not the same instant (hash ${t.hash} tick ${t.tick} against ${n.hash} tick ${n.tick})`); }
-    const a = decodePNG(readFileSync(join(OUT, 'today', t.file))), b = decodePNG(readFileSync(join(OUT, 'new', t.file)));
+    const a = readPNG(readFileSync(join(OUT, 'today', t.file))), b = readPNG(readFileSync(join(OUT, 'new', t.file)));
     // the scene's middle on the page (the canvas starts at the page's top left on every layout here), in device px
     const d = t.view.dpr, cx = (t.at.x - t.cam.x) * t.zoom * d, cy = (t.at.y - t.cam.y) * t.zoom * d, w = Math.min(a.w, 960), h = Math.min(a.h, 760);
     writeFileSync(join(OUT, 'pairs', t.file.replace('.png', '-crop.png')), encodePNG(beside(cut(a, cx, cy, w, h), cut(b, cx, cy, w, h))));

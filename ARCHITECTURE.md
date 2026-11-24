@@ -387,15 +387,18 @@ src/client/           everything that touches the browser
                       corners; the tones in the shade layers; all of it faintly on the minimap; `endfall.ground()` what
                       it laid and its cost (test/groundplan.test.js, test/e2e/ground.e2e.mjs)
   gl/newland.js       the new look's land (`?art=new`, gl/newart.js), pure: where every tree, rock and low plant stands on a
-                      map (`planLand`: a standing piece's base whole on blocked cells, its top over walkable ground no
+                      map (`planLand`: a standing piece's base whole on blocked cells (a rock's base: the core of its
+                      width, `baseWidth`; a clump of rock on every cell at a hill's border, bushes at a wood's), its top over walkable ground no
                       deeper than `LAND.cap` tiles, `allowance`; a piece a unit may stand behind marked `live`), the
-                      ground's mix of grass, worn dirt, forest floor and scree as a small image (`groundMix`), and the
+                      ground's mix of grass, worn dirt, forest floor and scree as a small image (`groundMix`), fading out
+                      past the blocked cells' rounded, wobbled outline (`MIX_RIM`), and the
                       art over the walkable cells for the test (`cover`); from the map's blocked cells, the ground plan
                       and the seed alone, exact arithmetic only (test/newland.test.js)
   gl/newland-pieces.js  the land pieces' measured numbers (size, base, profile), written by tools/newart/land/build.mjs
                       from pictures that are not in the repo: the placement's and its test's source of truth
   gl/newlandgl.js     the new land drawn: the ground as one quad with a shader of its own (the tiling grounds mixed by
-                      the mix image; the apron too), the pieces nothing can stand behind laid in rows under the units,
+                      the mix image, a soft contact shadow round blocked ground, darker to the south and east; the apron too; `MINIMAP`: the minimap's ground
+                      colors and gold mines with the new land), the pieces nothing can stand behind laid in rows under the units,
                       the live ones among the units and buildings, sorted with them, only those on screen; gl/render.js
                       shows a unit behind them as a silhouette (ours in our color, another seat's in red)
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on

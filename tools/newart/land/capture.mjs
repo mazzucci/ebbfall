@@ -5,7 +5,7 @@
 // `endfall.skip`, each shot drawn by `endfall.draw`; the state hash is logged with every shot, so a still of today's
 // art and one of the new are the same instant.
 //   node tools/newart/land/capture.mjs look --art new --map 7 --seed 1291 --at 1500,900 [--zoom 1.5] [--size 1920x1080]
-//        [--dpr 1] [--cap 1] [--fog] [--name x] [--shots "name:x,y:zoom;..."]   stills of a spot (or of several)
+//        [--dpr 1] [--cap 1] [--fog] [--name x] [--shots "name:x,y:zoom;..."] [--minimap]   stills of a spot (or of several)
 //   node tools/newart/land/capture.mjs set                           the delivery's stills (shots.json beside them)
 //   node tools/newart/land/capture.mjs perf                          frame, load and memory numbers (perf.json)
 // Run it under the machine's Chrome lock: flock /tmp/claude-1000/ebbfall-lab.lock node tools/newart/land/capture.mjs ...
@@ -84,6 +84,7 @@ if (MODE === 'look') {
     const shots = has('--shots') ? arg('--shots').split(';').map(t => t.split(':')).map(([n, at, zz]) => [n, at.split(',').map(Number), zz ?? z]) : [[arg('--name', 'look'), [x, y], z]];
     const done = [];
     for (const [n, [sx, sy], zz] of shots) done.push(await still(p, `${n}.png`, isNaN(+zz) ? zz : +zz, { x: sx, y: sy }, { hud: !has('--nohud'), clip: has('--clip') ? (([x, y, width, height]) => ({ x, y, width, height }))(arg('--clip').split(',').map(Number)) : null }));
+    if (has('--minimap')) await p.page.locator('#minimap').screenshot({ path: join(OUT, `minimap-${arg('--name', 'look')}.png`) }); // (the minimap alone, as it stands after the last still)
     console.log(JSON.stringify({ first: { ...p.first, ground: undefined }, loaded: p.loaded, land: done[0].land, errors: p.errors }));
   } finally { await stop(); }
 }
@@ -194,4 +195,26 @@ if (MODE === 'perf') {
     }
   } finally { await stop(); }
   writeFileSync(join(OUT, 'perf.json'), JSON.stringify(out, null, 1));
+}
+
+// ---- fix batch 1: blocked ground said by what stands on it ----
+//   node tools/newart/land/capture.mjs fix1 [--out DIR]     today beside new: the hill with its one-cell spur, a lone
+//   cell and a mine (desktop; the phone at zoom 1 and 0.75), and a wood's border by the start.
+if (MODE === 'fix1') {
+  const log = { shots: [], errors: [] }, HILL = { x: 1560, y: 860 };
+  await start();
+  try {
+    for (const art of ['today', 'new']) {
+      let p = await staged(VIEWS['desk-1920x1080'], { art });
+      log.shots.push(await still(p, `hill-desk-${art}.png`, 'start', HILL));
+      log.shots.push(await still(p, `wood-desk-${art}.png`, 'start', await castle(p)));
+      log.errors.push(...p.errors.filter(e => !/Service Worker|already has key|too many warnings/.test(e)).map(e => `desk ${art}: ${e}`)); await p.ctx.close();
+      p = await staged(PHONE, { art });
+      log.shots.push(await still(p, `hill-phone-${art}.png`, 1, HILL));
+      log.shots.push(await still(p, `hill-phone-zoom075-${art}.png`, 0.75, HILL));
+      log.errors.push(...p.errors.filter(e => !/Service Worker|already has key|too many warnings/.test(e)).map(e => `phone ${art}: ${e}`)); await p.ctx.close();
+    }
+  } finally { await stop(); }
+  writeFileSync(join(OUT, 'shots.json'), JSON.stringify(log, null, 1));
+  console.log(JSON.stringify(log.errors));
 }

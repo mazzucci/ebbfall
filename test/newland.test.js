@@ -36,8 +36,9 @@ function check(w, h, rock, plan, cap, name) {
     assert.equal(o.low, !stands(p.kind), `${name}: ${p.name} lies low only if its kind does`);
     if (o.low) { n.low++; assert.equal(o.live, false, `${name}: a low piece is never among the units`); continue; }
     n.standing++; if (o.live) n.live++;
-    // (its base: `fw` across, `fd` deep, from its ground point up)
-    const x0 = o.x - p.fw * o.s / 2, x1 = o.x + p.fw * o.s / 2, y0 = o.y - p.fd * o.s, y1 = o.y;
+    // (its base: `fw` across, a rock's the core of it, the middle LAND.hill.core that carries it; `fd` deep, from its ground point up)
+    const rock0 = p.kind === 'crag' || p.kind === 'boulder', bw = p.fw * (rock0 ? LAND.hill.core : 1);
+    const x0 = o.x - bw * o.s / 2, x1 = o.x + bw * o.s / 2, y0 = o.y - p.fd * o.s, y1 = o.y;
     for (let cy = Math.floor(y0 / TILE); cy <= Math.floor((y1 - 1e-6) / TILE); cy++) for (let cx = Math.floor(x0 / TILE); cx <= Math.floor((x1 - 1e-6) / TILE); cx++) {
       assert.ok(blocked(cx, cy), `${name}: ${p.name} at ${o.x.toFixed(1)}, ${o.y.toFixed(1)} has its base on the walkable cell ${cx}, ${cy}`);
     }
@@ -54,6 +55,17 @@ function check(w, h, rock, plan, cap, name) {
     assert.equal(o.live, reach, `${name}: ${p.name} is drawn among the units exactly when a unit could stand behind it`);
   }
   for (let i = 1; i < plan.pieces.length; i++) assert.ok(plan.pieces[i].z >= plan.pieces[i - 1].z, `${name}: the pieces come north to south`);
+  // A hill's border cells (beside walkable ground): the widest rock whose ground point is in each: never open gravel.
+  const widest = new Float32Array(w * h), kindOf = plan.kinds?.kindAt;
+  for (const o of plan.pieces) { const p = PIECES[o.i]; if (p.kind !== 'crag' && p.kind !== 'boulder') continue; const cx = Math.floor(o.x / TILE), cy = Math.floor((o.y - 1e-6) / TILE); if (inMap(cx, cy)) widest[cy * w + cx] = Math.max(widest[cy * w + cx], p.w * o.s); }
+  n.rim = 0; n.rimWide = 0; n.rimLeast = Infinity;
+  if (kindOf) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!rock[y * w + x] || kindOf(x, y) !== 'hill') continue;
+    let open = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!blocked(x + dx, y + dy)) open = true;
+    if (!open) continue;
+    n.rim++; n.rimLeast = Math.min(n.rimLeast, widest[y * w + x]); if (widest[y * w + x] >= TILE) n.rimWide++;
+    assert.ok(widest[y * w + x] >= 24, `${name}: the hill's border cell ${x}, ${y} has a rock standing on it (the widest: ${widest[y * w + x].toFixed(1)} px)`);
+  }
   // The art over the walkable cells, from the pieces' profiles.
   const cv = cover(w, h, plan.pieces), allow = allowance(w, h, blocked, cap);
   let walk = 0, under = 0, sum = 0, max = 0, centers = 0, deepest = 0;
@@ -114,10 +126,14 @@ test('the ground\'s mix: forest floor and scree exactly on the blocked cells, no
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const ground = at(x, y, 1) + at(x, y, 2);
     if (rock[y * w + x]) assert.ok(ground > 200, `blocked cell ${x}, ${y}: floor or scree at its middle (${ground})`);
-    else assert.ok(ground < 60, `walkable cell ${x}, ${y}: grass at its middle (${ground})`);
-    if (rock[y * w + x]) assert.equal(at(x, y, kinds.kindAt(x, y) === 'forest' ? 2 : 1) < 60, true, 'a forest has no scree, a hill no forest floor');
+    else assert.ok(ground < 110, `walkable cell ${x}, ${y}: mostly grass at its middle (${ground}: the stony fade ends about there)`);
+    if (rock[y * w + x]) assert.equal(at(x, y, kinds.kindAt(x, y) === 'forest' ? 2 : 1) < 110, true, 'a forest has no scree, a hill no forest floor');
   }
   assert.ok(at(5, 8, 0) > 100 && at(12, 5, 0) === 0, 'worn dirt where the plan has it only');
+  { // (a gold mine's tiles: trodden earth under it, whatever the plan laid there)
+    const mm = groundMix({ w, h, rock, kindAt: kinds.kindAt, dirt: null, seed: 7, apron: A, mines: [{ tx: 5, ty: 3, w: 2, h: 2 }] });
+    assert.ok(mm.data[(((3 + A) * MIX_K + 2) * mm.w + (5 + A) * MIX_K + 2) * 4] > 200, 'earth on the mine\'s tile');
+  }
   for (let i = 3; i < mix.data.length; i += 4) assert.equal(mix.data[i], 255, 'a dry map: alpha full');
   // (water: alpha 0 at a wet tile's middle, full at a dry one's two tiles off; no low piece on a wet tile)
   const wet = (x, y) => y === 8 && x >= 9 && x <= 13, wm = groundMix({ w, h, rock, kindAt: kinds.kindAt, dirt: null, seed: 7, apron: A, wet });
@@ -133,17 +149,19 @@ for (const [seed, kind] of [[5, 0], [9, 3], [2, 4], [31, 1], [8, 5]]) MAPS.push(
 for (const seed of [1, 12, 400]) MAPS.push([seed, 6, 64]);
 
 test('every map kind, many seeds: bases on blocked cells, no walkable center in a base, the cap kept', { skip }, () => {
-  const tot = { maps: 0, standing: 0, live: 0, walk: 0, under: 0, sum: 0, max: 0, centers: 0, deepest: 0 };
+  const tot = { maps: 0, standing: 0, live: 0, walk: 0, under: 0, sum: 0, max: 0, centers: 0, deepest: 0, rim: 0, rimWide: 0, rimLeast: Infinity };
   for (const [seed, kind, size] of MAPS) {
     E.resetGameSeats(seed, 1, kind, 0, ['humans', 'vael'], [], [false, true], 0, size);
     const { MW, MH, map, G } = E, plan = landOf(MW, MH, map.rock, G.seed, LAND.cap);
     const n = check(MW, MH, map.rock, plan, LAND.cap, `map ${size} kind ${kind} seed ${seed}`);
     assert.ok(n.standing > 100, 'trees and rocks stand');
     tot.maps++; tot.standing += n.standing; tot.live += n.live; tot.walk += n.walk; tot.under += n.under; tot.sum += n.mean * n.under; tot.max = Math.max(tot.max, n.max); tot.centers += n.centers; tot.deepest = Math.max(tot.deepest, n.deepest);
+    tot.rim += n.rim; tot.rimWide += n.rimWide; tot.rimLeast = Math.min(tot.rimLeast, n.rimLeast);
   }
   assert.ok(tot.deepest <= LAND.cap * TILE, 'no piece deeper over walkable ground than the cap');
+  assert.ok(tot.rimWide >= 0.9 * tot.rim, 'nine in ten of the hills\' border cells carry a rock wider than the cell');
   if (LAND.cap <= 0.5) assert.equal(tot.centers, 0, 'at the game\'s cap no walkable cell\'s center is under a standing piece');
-  console.log(`newland, cap ${LAND.cap}: ${tot.maps} maps, ${tot.standing} standing pieces (${tot.live} live), all bases on blocked cells; of ${tot.walk} walkable cells ${tot.under} (${(100 * tot.under / tot.walk).toFixed(1)}%) have art over them, ${(100 * tot.sum / tot.under).toFixed(0)}% of such a cell on average (the most ${(100 * tot.max).toFixed(0)}%), ${tot.centers} (${(100 * tot.centers / tot.walk).toFixed(2)}%) have their center under art; the deepest reach ${tot.deepest.toFixed(1)} px`);
+  console.log(`newland, cap ${LAND.cap}: ${tot.maps} maps, ${tot.standing} standing pieces (${tot.live} live), all bases on blocked cells; of ${tot.walk} walkable cells ${tot.under} (${(100 * tot.under / tot.walk).toFixed(1)}%) have art over them, ${(100 * tot.sum / tot.under).toFixed(0)}% of such a cell on average (the most ${(100 * tot.max).toFixed(0)}%), ${tot.centers} (${(100 * tot.centers / tot.walk).toFixed(2)}%) have their center under art; the deepest reach ${tot.deepest.toFixed(1)} px; of ${tot.rim} hill cells at a border ${tot.rimWide} (${(100 * tot.rimWide / tot.rim).toFixed(1)}%) carry a rock wider than the cell, the narrowest widest rock ${tot.rimLeast.toFixed(1)} px`);
 });
 
 test('the caps of the stills (half a tile, one, two): each kept; at half a tile no walkable center under a crown', { skip }, () => {

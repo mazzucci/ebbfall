@@ -29,7 +29,23 @@ export const GROUND = {
   /** Under water (the mix's alpha): today's grass tiles' mean color, a little of the new grass's grain in it, so the
    *  water today's shade layers lay over it keeps today's colors (over the sunny grass the shallows were a mint lawn). */
   wet: [77 / 255, 101 / 255, 52 / 255], wetGrain: 0.5,
+  /** The contact shadow round blocked ground (no line: the border is said by the rocks and the undergrowth on it):
+   *  the ground darkens with the forest floor or the scree of the mix, from nothing half a tile out to `dark` at the
+   *  smoothed border and on inside; at full on a border that faces south or east, where the sun's shadow falls, `lee`
+   *  of it on one that faces north or west (`probe` px toward the sun the mix is read again; `gain` turns the
+   *  difference into which way the border faces). */
+  rim: { dark: 0.42, lee: 0.4, probe: 6, gain: 1.5 },
+  /** The gold mine's sprite, drawn this much larger than its frame (a client scale: no repack), so its rock covers
+   *  more of its 2x2 tiles; the lamp moves with it. Its ground: a soft patch of trodden earth (the mix). */
+  mine: 1.18,
 };
+/** The minimap's ground with the new land (gl/render.js): the land's own colors, a step darker than on the field so
+ *  the seats' dots stand out as today: the grass (at the map's full shade; `shade` of it at its darkest), a wood (its
+ *  crowns, darker than the grass by more than today's are), rock (pale, as the crags), the worn dirt and how strongly
+ *  a full track shows. Blocked ground reads at a glance: a wood is the darkest thing on the land, rock the palest.
+ *  The gold mines: a brighter gold than today's inside a dark rim `mineRim` units wide (of the minimap's 168), since
+ *  today's gold on this brighter grass lost its contrast. */
+export const MINIMAP = { grass: [98, 118, 56], shade: 0.8, forest: [34, 54, 28], hill: [168, 160, 140], dirt: [176, 148, 98], dirtAmount: 0.55, mine: '#ffd84a', mineEdge: 'rgba(20,16,6,0.85)', mineRim: 0.9 };
 const NAMES = ['grass', 'calm', 'dirt', 'floor', 'scree'];
 
 const VERT = `
@@ -67,6 +83,12 @@ void main() {
   c = mix(c, texture(uFloor, p / ${f(GROUND.period.floor)}).rgb, m.g * ${f(GROUND.floor)});
   c = mix(c, texture(uScree, p / ${f(GROUND.period.scree)}).rgb, m.b * ${f(GROUND.scree)});
   c = mix(vec3(${GROUND.wet.map(f).join(', ')}) * (${f(1 - GROUND.wetGrain / 2)} + ${f(GROUND.wetGrain)} * dot(g1, vec3(0.3333))), c, m.a);
+  // (the contact shadow round blocked ground: by how much floor or scree the mix has here; darker where the same,
+  // read a few px toward the sun, has more: a border that faces south or east)
+  float rim = min(1.0, m.g + m.b);
+  vec4 m2 = texture(uMix, (p - ${f(GROUND.rim.probe)} - uMixRect.xy) * uMixRect.zw);
+  float lee = mix(${f(GROUND.rim.lee)}, 1.0, clamp(0.5 + (min(1.0, m2.g + m2.b) - rim) * ${f(GROUND.rim.gain)}, 0.0, 1.0));
+  c *= 1.0 - ${f(GROUND.rim.dark)} * rim * lee;
   finalColor = vec4(c * uShade, 1.0);
 }`;
 
@@ -109,17 +131,20 @@ export class Land {
   }
   /**
    * Lay the land of a map: `w`, `h` tiles, `rock`, `kindAt` (ground.js rockKinds), `dirt` (the ground plan's), `seed`,
-   * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `wet(x, y)` (a tile under water), `shadeAt(x, y)` the land's shade at a world point as a
-   * tint, `apronTint` the apron layer's. Returns what it laid and its cost (ms).
+   * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `wet(x, y)` (a tile under water), `mines` (the gold
+   * mines' tiles, `{ tx, ty, w, h }`: a soft patch of trodden earth under each; no piece minds them), `shadeAt(x, y)` the land's shade at a world point as a tint, `apronTint` the apron layer's. Returns what it laid and its cost (ms).
    */
-  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, apronTint, wet = null }) {
+  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, apronTint, wet = null, mines = [] }) {
     this.clear();
     const t0 = performance.now(), A = apron * TILE, W = w * TILE, H = h * TILE;
     const plan = planLand({ w, h, rock, kindAt, seed, apron, cap, wet }), t1 = performance.now();
-    const mix = groundMix({ w, h, rock, kindAt, dirt, seed, apron, wet }), t2 = performance.now();
-    const cv = document.createElement('canvas'); cv.width = mix.w; cv.height = mix.h;
-    cv.getContext('2d').putImageData(new ImageData(mix.data, mix.w, mix.h), 0, 0);
-    this.mix = Texture.from(cv); this.mix.source.scaleMode = 'linear'; this.mix.source.autoGenerateMipmaps = false;
+    const mix = groundMix({ w, h, rock, kindAt, dirt, seed, apron, wet, mines }), t2 = performance.now();
+    const image = (m) => { // (a plain texture of an RGBA image, linear, no mipmaps)
+      const cv = document.createElement('canvas'); cv.width = m.w; cv.height = m.h;
+      cv.getContext('2d').putImageData(new ImageData(m.data, m.w, m.h), 0, 0);
+      const t = Texture.from(cv); t.source.scaleMode = 'linear'; t.source.autoGenerateMipmaps = false; return t;
+    };
+    this.mix = image(mix);
     const g = this.grounds;
     const shader = (shade) => Shader.from({ gl: { vertex: VERT, fragment: FRAG }, resources: {
       uGrass: g.grass.source, uCalm: g.calm.source, uDirt: g.dirt.source, uFloor: g.floor.source, uScree: g.scree.source, uMix: this.mix.source,

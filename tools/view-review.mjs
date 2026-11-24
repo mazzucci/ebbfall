@@ -265,7 +265,7 @@ export async function reviewSet({ arg, out, hudStage, tallShot }) {
 
 /** The exactness check: the build at hand (ENDFALL_DIST) with no switch, on the phone (DPR 2, touch) and on a desktop
  *  (1920x1080 and 1280x720), tagged before (main) or after (the branch): the files of the two tags are compared byte for
- *  byte by the caller (cmp). */
+ *  byte by the caller (cmp): the start, and the base with the army selected (the whole HUD up). */
 async function exact({ arg, out, hudStage }) {
   const tag = arg('--exact'), dir = join(out, 'exact'); mkdirSync(dir, { recursive: true });
   const log = { tag, dist: process.env.ENDFALL_DIST || 'dist', shots: [], errors: [] };
@@ -294,6 +294,9 @@ async function exact({ arg, out, hudStage }) {
       if (touch) await page.locator('#btnArmy').tap(); else await page.keyboard.press('q');
       await page.mouse.move(2, 300);
       await still('fight', touch ? { x: setup.army.x, y: setup.army.y + 10 } : { x: setup.field.x * 0.66 + setup.hq.x * 0.34, y: setup.field.y * 0.76 + setup.hq.y * 0.24 });
+      // (the fight's stills differ from run to run of one build: a drone's rotors turn by the wall clock. The base, the
+      // same HUD over it, has nothing that does: this one is compared byte for byte)
+      await still('base', { x: setup.hq.x - 60, y: setup.hq.y - 20 });
       log.errors.push(...p.errors.map(e => `${name}: ${e}`)); log.first = first;
       await p.ctx.close();
     }

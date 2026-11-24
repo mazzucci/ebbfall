@@ -97,7 +97,7 @@ export class Land {
   /** Whether every piece's frame is in the packs (a page built from other pictures: today's land instead). */
   ready() { return PIECES.every(p => this.tex(p.name) !== Texture.EMPTY); }
   clear() {
-    for (const m of this.meshes) m.destroy();
+    for (const m of this.meshes) { const sh = m.shader; m.destroy(); sh?.destroy(); } // (the program itself is PixiJS's, cached by its source)
     for (const r of this.rows) r.c.destroy({ children: true });
     for (const s of this.shown.values()) s.destroy();
     this.mix?.destroy(true);

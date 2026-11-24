@@ -260,9 +260,14 @@ const occl = new Container(), occTex = RenderTexture.create({ width: 800, height
 const occMask = new Sprite(occTex); screen.addChild(occMask); L.xray.mask = occMask;
 // The new look's land: a unit of another seat behind live trees or rocks (it is in our sight: it was drawn) shows the
 // same way in the enemy's red, or it could not be found to be shot at; a layer and a mask sprite of its own.
-const flatFoe = new ColorMatrixFilter(); flatFoe.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 1, 0];
-const occMaskFoe = new Sprite(occTex); screen.addChild(occMaskFoe);
-L.xrayFoe.filters = [flatFoe]; L.xrayFoe.alpha = XRAY_ALPHA; L.xrayFoe.visible = false; L.xrayFoe.mask = occMaskFoe;
+// (Made only with the new land: without the switch the layer stays an empty container.)
+let occMaskFoe = null;
+L.xrayFoe.visible = false;
+if (land) {
+  const flatFoe = new ColorMatrixFilter(); flatFoe.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 1, 0];
+  occMaskFoe = new Sprite(occTex); screen.addChild(occMaskFoe);
+  L.xrayFoe.filters = [flatFoe]; L.xrayFoe.alpha = XRAY_ALPHA; L.xrayFoe.mask = occMaskFoe;
+}
 const foePool = [];
 const occPool = []; // (sprites in `occl`, reused frame to frame)
 const bars = new Graphics(); L.overlay.addChild(bars);
@@ -1139,6 +1144,7 @@ function xray(bldgs, selList = []) {
   const rects = bldgs.filter(o => o.body.visible).map(o => ({ o, r: rectOf(o.body), h: o.head?.visible ? rectOf(o.head) : null }));
   const hiding = new Set(), pieces = new Set(); // (the buildings and the land's live pieces that hide someone)
   let foes = 0;
+  const teamOf = land ? new Map(G.units.map(u => [u.id, u.team])) : null; // (whose a unit is: an ally's gets no red shape)
   for (const u of unitObjs.values()) {
     if (!u.xr && (!land || u.air)) continue;
     let hid = false, behind = false;
@@ -1148,7 +1154,7 @@ function xray(bldgs, selList = []) {
       behind = !!land && land.hiding(ur, u.node.zIndex, pieces);
     }
     if (u.xr) { if (u.xr.visible !== (hid || behind)) u.xr.visible = hid || behind; }
-    else if (behind) { // (another seat's, behind the land's pieces: its shape in red)
+    else if (behind && enemies(G.me, teamOf.get(u.id))) { // (an enemy's, behind the land's pieces: its shape in red)
       const s = foePool[foes] ||= L.xrayFoe.addChild(new Sprite()); foes++;
       s.visible = true; s.texture = u.body.texture; s.anchor.copyFrom(u.body.anchor); s.position.copyFrom(u.node.position); s.scale.copyFrom(u.node.scale);
     }
@@ -1166,7 +1172,7 @@ function xray(bldgs, selList = []) {
   for (const s of pieces) put(s);
   for (let i = k; i < occPool.length; i++) occPool[i].visible = false;
   occl.scale.set(cam.zoom); occl.position.copyFrom(world.position);
-  occMask.width = occMaskFoe.width = view.w; occMask.height = occMaskFoe.height = view.h;
+  occMask.width = view.w; occMask.height = view.h; if (occMaskFoe) { occMaskFoe.width = view.w; occMaskFoe.height = view.h; }
   app.renderer.render({ container: occl, target: occTex, clear: true });
 }
 

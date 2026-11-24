@@ -7,3 +7,5 @@ target/
 .tools/
 src/engine/pkg/
 .wrangler/
+# the new look's built pictures (generated art: not in the repo until the owner says so)
+public/art/new/

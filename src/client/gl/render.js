@@ -15,6 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
+import { newArtIndex, newArtPages } from './newart.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -76,12 +77,15 @@ await app.init({ canvas: cv, background: 0x0b0f16, antialias: false, roundPixels
 // atlas.json indexes the pages (each a PixiJS spritesheet at scale 2) and the animations, which may span pages.
 const artBase = new URL('art/', document.baseURI).href;
 const index = await (await fetch(artBase + 'atlas.json')).json();
+/** The new look's packs (gl/newart.js), or null. Their pages come after today's, so a frame of theirs takes its place. */
+export const newArt = await newArtIndex(artBase);
+for (const g of Object.values(newArt?.groups || {})) Object.assign(index.unitTops, g.unitTops);
 const textures = {}, frames = {};
-for (const sh of await Promise.all(index.pages.map(p => Assets.load(artBase + p)))) {
+for (const [p, sh] of await Promise.all([...index.pages, ...newArtPages(newArt)].map(async p => [p, await Assets.load(artBase + p)]))) {
   Object.assign(textures, sh.textures);
   // HUD portraits are cut from a plain decoded copy of the page (the browser has it cached): reading back Pixi's
   // GPU-side texture costs about a second per page.
-  const img = new Image(); img.src = new URL(sh.data.meta.image, artBase).href;
+  const img = new Image(); img.src = new URL(sh.data.meta.image, artBase + p).href;
   for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
 }
 await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));

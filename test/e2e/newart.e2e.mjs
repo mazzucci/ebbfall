@@ -3,6 +3,7 @@
 // and without it (?seed=, ?map=), so two tabs side by side show the same place. The packs are public/art/new/.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test, start, stop, browserContext, baseUrl, DESKTOP } from './harness.mjs';
 
 before(start);
@@ -48,6 +49,7 @@ test('the same link plays the same game with and without ?art=new', { timeout: 1
 test('with it, the packs that are there load, with no error and no failed request', { timeout: 180000 }, async () => {
   const p = await play('?seed=4242&map=4&art=new');
   assert.deepEqual(p.errors, []);
-  for (const f of ['bldg-0.webp', 'land-0.webp', 'land-grass.webp', 'unit-0.webp']) assert.ok(p.asked.some(a => a.endsWith('/' + f)), `${f}: ${p.asked}`);
+  const groups = JSON.parse(readFileSync(new URL('../../public/art/new/index.json', import.meta.url), 'utf8')).groups;
+  for (const [g, { pages }] of Object.entries(groups)) for (const page of pages) assert.ok(p.asked.some(a => a.endsWith('/' + page)), `${g}: ${page} (${p.asked})`);
   assert.deepEqual(p.warnings, [], 'no group left out');
 });

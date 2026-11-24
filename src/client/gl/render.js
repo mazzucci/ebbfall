@@ -16,7 +16,7 @@ import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
 import { newArtIndex, loadGroups, staleMasks } from './newart.js';
-import { Land, loadGrounds } from './newlandgl.js';
+import { Land, loadGrounds, MINIMAP } from './newlandgl.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -513,6 +513,11 @@ export function renderTerrain() {
   const dot = (o, [r, g, b], a) => { px[o] += (r - px[o]) * a; px[o + 1] += (g - px[o + 1]) * a; px[o + 2] += (b - px[o + 2]) * a; };
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const i = idx(x, y), o = (y * MW + x) * 4, g = map.rock[i] ? 'land' : ground(x, y);
+    if (land) { // (the new land's own colors, gl/newlandgl.js MINIMAP: the grass by the map's shade, a wood dark, rock pale, the tracks sand)
+      px.set(map.rock[i] ? MINIMAP[kinds.kindAt(x, y)] : MM_WET[g] || MINIMAP.grass.map(v => v * (MINIMAP.shade + (1 - MINIMAP.shade) * map.shade[i])), o); px[o + 3] = 255;
+      if (plan.dirt[i] && !MM_WET[g]) dot(o, MINIMAP.dirt, plan.dirt[i] * MINIMAP.dirtAmount);
+      continue;
+    }
     px.set(map.rock[i] ? MM_ROCK[kinds.kindAt(x, y)] : MM_WET[g] || hslRgb(92, 0.24, 0.17 + map.shade[i] * 0.08), o); px[o + 3] = 255;
     if (plan.dry[i] > 0.05) dot(o, MM_DRY, plan.dry[i] * 0.1);
     if (plan.lush[i] > 0.05) dot(o, MM_LUSH, plan.lush[i] * 0.14);
@@ -1434,7 +1439,11 @@ function minimapBase(c, S, T) {
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, mmBase.width, mmBase.height); c.drawImage(mmGround, 0, 0); c.restore();
   // Gold mines gold, their footprint: not any seat's color.
   const revealed = !L.fog.visible; // (showFog: the docs' staged shots)
-  for (const n of map.nodes) if (revealed || G.explored[idx(n.tx, n.ty)]) { c.fillStyle = MM_GOLD; c.fillRect(n.tx * TILE * S, n.ty * TILE * T, Math.max(3, n.w * TILE * S), Math.max(3, n.h * TILE * T)); }
+  for (const n of map.nodes) if (revealed || G.explored[idx(n.tx, n.ty)]) {
+    const x = n.tx * TILE * S, y = n.ty * TILE * T, w = Math.max(3, n.w * TILE * S), h = Math.max(3, n.h * TILE * T);
+    if (land) { c.fillStyle = MINIMAP.mineEdge; c.fillRect(x - MINIMAP.mineRim, y - MINIMAP.mineRim, w + 2 * MINIMAP.mineRim, h + 2 * MINIMAP.mineRim); } // (the new land's brighter grass: a dark rim, a brighter gold)
+    c.fillStyle = land ? MINIMAP.mine : MM_GOLD; c.fillRect(x, y, w, h);
+  }
   // Every seat in its color, ours too, as on the field (with two seats as well: ours is no longer the amber of seat 0's
   // old gold); an ally's buildings framed in white (a team game: whose color is on our side, its base and army in our sight).
   const col = seatCss();

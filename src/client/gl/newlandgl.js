@@ -30,6 +30,13 @@ export const GROUND = {
    *  water today's shade layers lay over it keeps today's colors (over the sunny grass the shallows were a mint lawn). */
   wet: [77 / 255, 101 / 255, 52 / 255], wetGrain: 0.5,
 };
+/** The minimap's ground with the new land (gl/render.js): the land's own colors, a step darker than on the field so
+ *  the seats' dots stand out as today: the grass (at the map's full shade; `shade` of it at its darkest), a wood (its
+ *  crowns, darker than the grass by more than today's are), rock (pale, as the crags), the worn dirt and how strongly
+ *  a full track shows. Blocked ground reads at a glance: a wood is the darkest thing on the land, rock the palest.
+ *  The gold mines: a brighter gold than today's inside a dark rim `mineRim` units wide (of the minimap's 168), since
+ *  today's gold on this brighter grass lost its contrast. */
+export const MINIMAP = { grass: [98, 118, 56], shade: 0.8, forest: [34, 54, 28], hill: [168, 160, 140], dirt: [176, 148, 98], dirtAmount: 0.55, mine: '#ffd84a', mineEdge: 'rgba(20,16,6,0.85)', mineRim: 0.9 };
 const NAMES = ['grass', 'calm', 'dirt', 'floor', 'scree'];
 
 const VERT = `

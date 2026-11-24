@@ -207,7 +207,7 @@ function sheet() {
 async function bench() {
   const res = {};
   for (const tag of ['today', 'new']) {
-    const { ctx, page } = await staged(DEVICES.d1, tag);
+    const { ctx, page } = await staged(DEVICES.d1, tag, false); // (the clock running: the time is measured)
     const r = await page.evaluate(([at]) => {
       const { G, engine } = endfall, ids = [];
       for (let i = 0; i < 100; i++) { const id = engine.debugSpawn(G.me, 'trooper', at.x - 300 + (i % 10) * 40, at.y - 200 + Math.floor(i / 10) * 36); if (id) ids.push(id); }

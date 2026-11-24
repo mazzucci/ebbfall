@@ -15,9 +15,11 @@ import { PIECES, SLICE } from './newland-pieces.js';
 export const TILE = 32;
 /** Every tuned number of the placement. */
 export const LAND = {
-  /** How far a standing piece's top may reach over walkable ground, in tiles (the PM's choice from stills at 0.5, 1
-   *  and 2; `?landcap=` tries another). At 0.5 no walkable cell's center is ever under a crown. */
-  cap: 1,
+  /** How far a standing piece's top may reach over walkable ground, in tiles (`?landcap=` tries another; stills at
+   *  0.5, 1 and 2 for the PM's choice). Half a tile: no walkable cell's center is ever under a crown, a unit at a
+   *  forest's edge keeps its head and shoulders in the open, and the edge still reads as a wood (young trees and
+   *  bushes in front, the tall ones from the second row). At 1 a unit beside a forest can be hidden to the neck. */
+  cap: 0.5,
   /** A forest: a candidate spot per quarter cell (a 2x2 lattice a cell, each moved up to `jitter` px), kept this often:
    *  on cells beside walkable ground, inside a forest, and past the map's edge (the apron). */
   forest: { edge: 0.6, inside: 0.36, apron: 0.13, jitter: 10, scale: [0.82, 1.12], shrink: [1, 0.85, 0.7] },
@@ -61,12 +63,12 @@ export function allowance(w, h, blocked, cap) {
 /**
  * The land of a map of w x h tiles: `rock` (a byte a tile, as the sim's), `kindAt(x, y)` and its regions' kinds as
  * ground.js rockKinds gives them ('forest' or 'hill', also past the edge), `seed`, `apron` (tiles of blocked ground
- * laid past each edge), `cap` (tiles; LAND.cap). Returns `{ pieces, allow }`: `pieces` in drawing order (north to
+ * laid past each edge), `cap` (tiles; LAND.cap), `wet(x, y)` (a tile under water: no low piece lies there). Returns `{ pieces, allow }`: `pieces` in drawing order (north to
  * south), each `{ i, x, y, s, z, live, low, apron }`: PIECES[i] with its ground point at (x, y) world px at scale s,
  * sorted by z (its base's middle line); `live`: it may hide a unit (drawn with the units); `low`: it lies flat
  * (a unit walks over it); `apron`: it stands past the map's edge.
  */
-export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap }) {
+export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap, wet = null }) {
   const A = apron, W2 = w + 2 * A, inMap = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
   const blocked = (x, y) => !inMap(x, y) || rock[y * w + x] !== 0, walk = (x, y) => inMap(x, y) && rock[y * w + x] === 0;
   const allow = allowance(w, h, blocked, cap), out = [];
@@ -173,7 +175,7 @@ export function planLand({ w, h, rock, kindAt, seed, apron = 0, cap = LAND.cap }
   // Low pieces past the edge: ferns and tufts beside a forest, small stones beside a hill, half over the line.
   const L = LAND.low;
   for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
-    if (!walk(cx, cy)) continue;
+    if (!walk(cx, cy) || (wet && wet(cx, cy))) continue;
     const st = site(cx, cy, 6), dirs = [[0, 1], [1, 0], [-1, 0], [0, -1]], from = Math.floor(draw(st, 0, seed) * 4);
     for (let n = 0; n < 4; n++) {
       const [dx, dy] = dirs[(from + n) % 4]; if (!blocked(cx + dx, cy + dy)) continue;
@@ -196,24 +198,27 @@ const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a
  * The ground's mix for a map of w x h tiles with `apron` tiles past each edge: an RGBA image of MIX_K texels a tile,
  * `(w + 2 apron) MIX_K` across: red how much worn dirt (the plan's `dirt`, 0-1 a tile), green forest floor, blue
  * scree (the blocked cells by kind: half strength exactly on a blocked cell's edge, a soft line a quarter tile wide,
- * wobbled by an eighth of a tile at most), alpha 255. Drawn linear-filtered: `{ w, h, k, data }`.
+ * wobbled by an eighth of a tile at most); alpha how dry: 255 on land, 0 on tiles under water (`wet(x, y)`; the
+ * line a little to the land's side, so the shore's first px take the water's ground too). Drawn linear-filtered:
+ * `{ w, h, k, data }`.
  */
-export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0 }) {
-  const A = apron, W2 = w + 2 * A, H2 = h + 2 * A, n = W2 * H2, fo = new Float32Array(n), hi = new Float32Array(n), di = new Float32Array(n);
+export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = null }) {
+  const A = apron, W2 = w + 2 * A, H2 = h + 2 * A, n = W2 * H2, fo = new Float32Array(n), hi = new Float32Array(n), di = new Float32Array(n), we = new Float32Array(n);
   for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
     const cx = x - A, cy = y - A, inside = cx >= 0 && cy >= 0 && cx < w && cy < h, i = y * W2 + x;
-    if (!inside || rock[cy * w + cx]) { if (kindAt(cx, cy) === 'forest') fo[i] = 1; else hi[i] = 1; } else di[i] = dirt ? dirt[cy * w + cx] : 0;
+    if (!inside || rock[cy * w + cx]) { if (kindAt(cx, cy) === 'forest') fo[i] = 1; else hi[i] = 1; } else if (wet && wet(cx, cy)) we[i] = 1; else di[i] = dirt ? dirt[cy * w + cx] : 0;
   }
   const k = MIX_K, W = W2 * k, H = H2 * k, data = new Uint8ClampedArray(W * H * 4), so = (seed | 0) % 977;
-  // (what a cell and its neighbors hold: 0 nothing, so plain grass; 1 forest all round, 2 hill all round; 3 an edge or dirt)
+  // (what a cell and its neighbors hold: 0 nothing, so plain grass; 1 forest all round, 2 hill all round, 4 water all
+  // round; 3 an edge or dirt)
   const state = new Uint8Array(n);
   for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
-    let f = 0, s = 0, d = 0, c = 0;
+    let f = 0, s = 0, d = 0, c = 0, q = 0;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const X = Math.max(0, Math.min(W2 - 1, x + dx)), Y = Math.max(0, Math.min(H2 - 1, y + dy)), i = Y * W2 + X;
-      f += fo[i]; s += hi[i]; if (di[i] > 0) d++; c++;
+      f += fo[i]; s += hi[i]; q += we[i]; if (di[i] > 0) d++; c++;
     }
-    state[y * W2 + x] = f === c ? 1 : s === c ? 2 : f + s + d === 0 ? 0 : 3;
+    state[y * W2 + x] = f === c ? 1 : s === c ? 2 : q === c ? 4 : f + s + d + q === 0 ? 0 : 3;
   }
   const cl = (v, m) => (v < 0 ? 0 : v > m ? m : v);
   for (let ty = 0; ty < H; ty++) {
@@ -222,10 +227,13 @@ export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0 }) {
       const o = (ty * W + tx) * 4, st = state[cy + Math.floor(tx / k)];
       data[o + 3] = 255;
       if (st === 0) continue;
+      if (st === 4) { data[o + 3] = 0; continue; }
       if (st < 3) { data[o + st] = 255; continue; }
       const fx = (tx + 0.5) / k - 0.5, x0 = Math.floor(fx), u = fx - x0, c0 = cl(x0, W2 - 1), c1 = cl(x0 + 1, W2 - 1);
       const wa = (1 - u) * (1 - v), wb = u * (1 - v), wc = (1 - u) * v, wd = u * v, a = r0 + c0, b = r0 + c1, c = r1 + c0, e = r1 + c1;
       const f = fo[a] * wa + fo[b] * wb + fo[c] * wc + fo[e] * wd, s = hi[a] * wa + hi[b] * wb + hi[c] * wc + hi[e] * wd, d = di[a] * wa + di[b] * wb + di[c] * wc + di[e] * wd;
+      const m = we[a] * wa + we[b] * wb + we[c] * wc + we[e] * wd;
+      if (m > 0) data[o + 3] = Math.round(255 * (1 - smooth(0.2, 0.5, m)));
       if (f <= 0 && s <= 0 && d <= 0) continue;
       const wob = noise(fx * 2.3 + so, fy * 2.3 - so) - 0.5;
       data[o] = Math.round(255 * smooth(0.22, 0.78, d + (d > 0.02 ? wob * 0.3 : 0)));

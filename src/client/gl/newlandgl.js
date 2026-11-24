@@ -26,6 +26,9 @@ export const GROUND = {
    *  this much of their strength (at full they read as cloud shadows on a photographed grass), the rock's warm or cool
    *  tone not at all (it turned the pale rock mauve; the pieces carry their own color). */
   meadow: { dry: 0.5, lush: 0.4 }, rockTone: 0,
+  /** Under water (the mix's alpha): today's grass tiles' mean color, a little of the new grass's grain in it, so the
+   *  water today's shade layers lay over it keeps today's colors (over the sunny grass the shallows were a mint lawn). */
+  wet: [77 / 255, 101 / 255, 52 / 255], wetGrain: 0.5,
 };
 const NAMES = ['grass', 'calm', 'dirt', 'floor', 'scree'];
 
@@ -54,7 +57,7 @@ uniform vec4 uMixRect;
 uniform float uShade;
 void main() {
   vec2 p = vWorld;
-  vec3 m = texture(uMix, (p - uMixRect.xy) * uMixRect.zw).rgb;
+  vec4 m = texture(uMix, (p - uMixRect.xy) * uMixRect.zw);
   vec3 calm = texture(uCalm, p / ${f(GROUND.period.calm)}).rgb;
   vec3 g1 = texture(uGrass, p / ${f(GROUND.period.grass)}).rgb;
   vec3 g2 = texture(uGrass, vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) / ${f(GROUND.period.grass2)} + vec2(0.37, 0.61)).rgb;
@@ -63,6 +66,7 @@ void main() {
   c = mix(c, texture(uDirt, p / ${f(GROUND.period.dirt)}).rgb, m.r * ${f(GROUND.dirt)});
   c = mix(c, texture(uFloor, p / ${f(GROUND.period.floor)}).rgb, m.g * ${f(GROUND.floor)});
   c = mix(c, texture(uScree, p / ${f(GROUND.period.scree)}).rgb, m.b * ${f(GROUND.scree)});
+  c = mix(vec3(${GROUND.wet.map(f).join(', ')}) * (${f(1 - GROUND.wetGrain / 2)} + ${f(GROUND.wetGrain)} * dot(g1, vec3(0.3333))), c, m.a);
   finalColor = vec4(c * uShade, 1.0);
 }`;
 
@@ -105,14 +109,14 @@ export class Land {
   }
   /**
    * Lay the land of a map: `w`, `h` tiles, `rock`, `kindAt` (ground.js rockKinds), `dirt` (the ground plan's), `seed`,
-   * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `shadeAt(x, y)` the land's shade at a world point as a
+   * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `wet(x, y)` (a tile under water), `shadeAt(x, y)` the land's shade at a world point as a
    * tint, `apronTint` the apron layer's. Returns what it laid and its cost (ms).
    */
-  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, apronTint }) {
+  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, apronTint, wet = null }) {
     this.clear();
     const t0 = performance.now(), A = apron * TILE, W = w * TILE, H = h * TILE;
-    const plan = planLand({ w, h, rock, kindAt, seed, apron, cap }), t1 = performance.now();
-    const mix = groundMix({ w, h, rock, kindAt, dirt, seed, apron }), t2 = performance.now();
+    const plan = planLand({ w, h, rock, kindAt, seed, apron, cap, wet }), t1 = performance.now();
+    const mix = groundMix({ w, h, rock, kindAt, dirt, seed, apron, wet }), t2 = performance.now();
     const cv = document.createElement('canvas'); cv.width = mix.w; cv.height = mix.h;
     cv.getContext('2d').putImageData(new ImageData(mix.data, mix.w, mix.h), 0, 0);
     this.mix = Texture.from(cv); this.mix.source.scaleMode = 'linear'; this.mix.source.autoGenerateMipmaps = false;

@@ -118,7 +118,11 @@ test('the ground\'s mix: forest floor and scree exactly on the blocked cells, no
     if (rock[y * w + x]) assert.equal(at(x, y, kinds.kindAt(x, y) === 'forest' ? 2 : 1) < 60, true, 'a forest has no scree, a hill no forest floor');
   }
   assert.ok(at(5, 8, 0) > 100 && at(12, 5, 0) === 0, 'worn dirt where the plan has it only');
-  for (let i = 3; i < mix.data.length; i += 4) assert.equal(mix.data[i], 255);
+  for (let i = 3; i < mix.data.length; i += 4) assert.equal(mix.data[i], 255, 'a dry map: alpha full');
+  // (water: alpha 0 at a wet tile's middle, full at a dry one's two tiles off; no low piece on a wet tile)
+  const wet = (x, y) => y === 8 && x >= 9 && x <= 13, wm = groundMix({ w, h, rock, kindAt: kinds.kindAt, dirt: null, seed: 7, apron: A, wet });
+  assert.equal(at(11, 8, 3) === 255 && (() => { let s = 0; for (const [dx, dy] of [[1, 1], [2, 2]]) s += wm.data[(((8 + A) * MIX_K + dy) * wm.w + (11 + A) * MIX_K + dx) * 4 + 3]; return s; })() === 0, true, 'under water the mix says so');
+  for (const o of planLand({ w, h, rock, kindAt: kinds.kindAt, seed: 7, apron: A, wet }).pieces) if (o.low) assert.ok(!wet(Math.floor(o.x / TILE), Math.floor((o.y - 1) / TILE)) || rock[Math.floor((o.y - 1) / TILE) * w + Math.floor(o.x / TILE)], 'no fern or stone laid on a tile under water');
 });
 
 // Many seeds and every map kind (0-5 at 96 and 128 tiles, the Shore at 64), at the cap the game uses; the other two
@@ -138,6 +142,7 @@ test('every map kind, many seeds: bases on blocked cells, no walkable center in 
     tot.maps++; tot.standing += n.standing; tot.live += n.live; tot.walk += n.walk; tot.under += n.under; tot.sum += n.mean * n.under; tot.max = Math.max(tot.max, n.max); tot.centers += n.centers; tot.deepest = Math.max(tot.deepest, n.deepest);
   }
   assert.ok(tot.deepest <= LAND.cap * TILE, 'no piece deeper over walkable ground than the cap');
+  if (LAND.cap <= 0.5) assert.equal(tot.centers, 0, 'at the game\'s cap no walkable cell\'s center is under a standing piece');
   console.log(`newland, cap ${LAND.cap}: ${tot.maps} maps, ${tot.standing} standing pieces (${tot.live} live), all bases on blocked cells; of ${tot.walk} walkable cells ${tot.under} (${(100 * tot.under / tot.walk).toFixed(1)}%) have art over them, ${(100 * tot.sum / tot.under).toFixed(0)}% of such a cell on average (the most ${(100 * tot.max).toFixed(0)}%), ${tot.centers} (${(100 * tot.centers / tot.walk).toFixed(2)}%) have their center under art; the deepest reach ${tot.deepest.toFixed(1)} px`);
 });
 

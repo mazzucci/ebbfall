@@ -500,7 +500,7 @@ export function renderTerrain() {
   let landLaid = null;
   if (land) {
     const shadeAt = (x, y) => { const o = (clamp(Math.floor(y / TILE * sh.k), 0, sh.h - 1) * sh.w + clamp(Math.floor(x / TILE * sh.k), 0, sh.w - 1)) * 4; return sh.mul[o] << 16 | sh.mul[o + 1] << 8 | sh.mul[o + 2]; };
-    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shadeAt, apronTint: L.apron.tint });
+    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shadeAt, apronTint: L.apron.tint, wet: (x, y) => ground(x, y) !== 'land' });
     doodads.push(...land.low); // (a low plant under a building hides, as today's ground props)
   }
   // Minimap background: the grass green by the map's shade, a forest darker, a hill gray, the sea teal and blue, as the

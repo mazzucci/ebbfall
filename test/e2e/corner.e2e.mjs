@@ -256,7 +256,7 @@ test('iPhone (no full-screen API): the button opens the same card; no line of it
   const o = await open(IPHONE, NO_FULL);
   const { page, press, shown } = o;
   try {
-    assert.equal(await page.locator('#iosTip').count(), 0, 'one design: INSTALL and the card say it');
+    assert.equal(await page.locator('#iosTip').count(), 0, 'one design: PLAY OFFLINE and the card say it');
     await cornerOn(o, 'home', '#menuHome');
     await press('#cornerFull');
     assert.match(await page.locator('#homeTip').textContent(), /Add Ebbfall to your Home Screen: tap Share/);

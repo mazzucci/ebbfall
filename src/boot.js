@@ -1,4 +1,4 @@
-// Entry point: the menu first. The menu's pages, the lobby, INSTALL and PLAY OFFLINE (menu.js, online.js, offline.js)
+// Entry point: the menu first. The menu's pages, the lobby and PLAY OFFLINE (menu.js, online.js, offline.js)
 // and the sound and full screen (corner.js: the screen's corner and the top bar's pair) are wired as soon as this small
 // graph is in, so they work before the game has loaded, and if it cannot; nothing here imports the
 // renderer. The game (main.js: the renderer and its art, the loop) loads behind the menu, and the sim's WASM with it

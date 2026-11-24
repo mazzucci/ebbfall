@@ -5,11 +5,11 @@ const ISO = process.argv[2] || '34,0.512';
 const ok = (n, c, d = '') => console.log(`${c ? 'ok  ' : 'FAIL'} ${n} ${d}`);
 await start();
 try {
-  for (const dev of ['desk', 'phone']) {
+  for (const dev of (process.argv[3] || 'desk,phone').split(',')) {
     const device = dev === 'desk' ? { viewport: { width: 1440, height: 900 } } : { viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true };
     const ctx = await browserContext(device), page = await ctx.newPage(), errors = []; page.on('pageerror', e => errors.push(e.message)); page.setDefaultTimeout(120000);
     if (device.hasTouch) await ctx.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('no')); });
-    await page.goto(`${baseUrl()}?seed=4242&iso=${ISO}`, { waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
+    await page.goto(`${baseUrl()}?seed=4242${ISO === '0' ? '' : '&iso=' + ISO}`, { waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
     const touch = !!device.hasTouch, press = (s) => touch ? page.locator(s).tap() : page.locator(s).click();
     await press('#btnSolo'); await board(page).race(1, 'vael'); await press('#btnStart');
     await page.waitForFunction(() => endfall.G.units.length > 0);
@@ -53,7 +53,7 @@ try {
       await page.mouse.move(2, 450); await page.waitForTimeout(700); const m4 = await mid(); ok(`${dev}: the window's edge scrolls`, m4.x < m3.x, JSON.stringify(m4));
     } else {
       const cdp = await ctx.newCDPSession(page), t = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
-      await t('touchStart', [[400, 150]]); for (let i = 1; i < 8; i++) await t('touchMove', [[400 + i * 12, 150]]); await page.waitForTimeout(300); await t('touchEnd', []); const m1 = await mid(); ok(`${dev}: a finger pans`, Math.abs(m1.x - m0.x) > 10 && Math.abs(m1.y - m0.y) > 10, JSON.stringify([m0, m1]));
+      const st = () => page.evaluate(() => [!!endfall.ui.place, endfall.ui.mode, endfall.ui.box, endfall.ui.sel.length, endfall.cam.x | 0].join('/')); const s0 = await st(); await t('touchStart', [[400, 150]]); for (let i = 1; i < 8; i++) await t('touchMove', [[400 + i * 12, 150]]); const s1 = await st(); await page.waitForTimeout(300); await t('touchEnd', []); const m1 = await mid(); ok(`${dev}: a finger pans`, Math.abs(m1.x - m0.x) > 10 && Math.abs(m1.y - m0.y) > 10, JSON.stringify([m0, m1, s0, s1]));
       await t('touchStart', [[360, 180], [460, 180]]); for (let i = 1; i < 8; i++) await t('touchMove', [[360 - i * 8, 180], [460 + i * 8, 180]]); await t('touchEnd', []); const m2 = await mid(); ok(`${dev}: a pinch zooms`, m2.z > m1.z, `${m1.z.toFixed(2)} to ${m2.z.toFixed(2)}`);
       const bx = await page.locator('#minimap').boundingBox(); await page.touchscreen.tap(bx.x + bx.width * 0.25, bx.y + bx.height * 0.7); await page.waitForTimeout(300); const m3 = await mid(); ok(`${dev}: a minimap tap goes there`, Math.hypot(m3.x - 512, m3.y - 1434) < 40, JSON.stringify(m3));
     }

@@ -16,6 +16,7 @@ import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
 import { newArtIndex, loadGroups, staleMasks, unitSize } from './newart.js';
+import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
 import { Land, loadGrounds, MINIMAP, GROUND } from './newlandgl.js';
 
 export const cv = document.getElementById('game');
@@ -1277,9 +1278,9 @@ export function render(selList, place) {
   noteBuildings(); // (what this side has seen of enemy buildings: in the fog, their last-seen state, never the live one)
   const shownB = shownBldgs();
   if (now - doodadCheck > 0.25 || now < doodadCheck || shownB.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = shownB.length; hideCoveredDoodads(); }
-  bars.clear(); lines.clear(); selG.clear(); flag.visible = false; barsDrawn.length = 0;
+  bars.clear(); lines.clear(); selG.clear(); barsDrawn.length = 0;
   drawTargets(selList, now);
-  for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
+  rallyMarks(selList, t);
 
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 90) && (explored[idx(n.tx, n.ty)] || allRevealed()); o.show(!!v); if (v) o.update(n, t); });
   const onScreen = [];
@@ -1374,8 +1375,25 @@ export function render(selList, place) {
   renderMinimap();
 }
 
-const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag); flag.visible = false;
-function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
+// ---- the rally point of each selected building of ours: the dashed line to it and the red flag (rallyflag.js) ----
+const flagL = new Container(), flagTex = []; L.overlay.addChild(flagL); // (the textures: painted with the first flag)
+let rallyDrawn = []; // [{ id, x, y, color }] of the flags in this frame (the tests read it)
+function rallyMarks(selList, t) {
+  rallyDrawn = [];
+  for (const b of selList) if (b.kind === 'bldg' && b.team === G.me && b.rally && !b.dead) { // (ours alone: a foe's rally point is its own business)
+    dashed(b.x, b.y, b.rally.x, b.rally.y);
+    flagAt(rallyDrawn.length, b.rally.x, b.rally.y, t); rallyDrawn.push({ id: b.id, x: b.rally.x, y: b.rally.y, color: RALLY_RED });
+  }
+  for (let i = rallyDrawn.length; i < flagL.children.length; i++) flagL.children[i].visible = false;
+}
+function flagAt(i, x, y, t) {
+  if (!flagTex.length) for (let f = 0; f < FLAG_FRAMES; f++) flagTex.push(Texture.from(paintFlag(f)));
+  const s = flagL.children[i] || flagL.addChild(new Sprite());
+  s.visible = true; s.texture = flagTex[Math.floor(t * FLAG_FPS) % FLAG_FRAMES]; s.position.set(x, y);
+  s.anchor.set(FLAG_BOX.x / FLAG_BOX.w, FLAG_BOX.y / FLAG_BOX.h); s.scale.set(1 / FLAG_BOX.k);
+}
+/** Tests: the rally flags in the last frame, each with its building, its place and its color. */
+export const rallyShown = () => rallyDrawn.map(r => ({ ...r }));
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
 const MINE_MARK = 0xe6e0d3;

@@ -369,6 +369,9 @@ src/client/           everything that touches the browser
                       public/art/new/ (index.json: groups of sprite pages, each whole or not at all), whose frames
                       replace today's by name; without the switch nothing of it is fetched, and the packs are left out of
                       the offline install (tools/offline/plugin.mjs WEB_ONLY)
+  gl/rallyflag.js     the rally flag, painted in code: a red pennant with a dark outline in a red ring on the ground, red
+                      whatever the seat, drawn (`rallyMarks`) for this side's selected buildings alone; `rallyShown` for the
+                      tests
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`: in a dry meadow
                       only dry-grass marks, in a lush one none), which overlay tile (`overlayTile`), each rock region's
                       kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
@@ -603,6 +606,7 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/rallyflag.test.js  the rally flag's red (src/client/gl/rallyflag.js) against every seat's color
 test/range.test.js    the range's circles (src/client/range.js): in range by exact distance, the union's outline
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
                       a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
@@ -642,7 +646,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
-                      construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
+                      rally.e2e.mjs (the rally flag: for the selected building of ours alone, red whatever our seat's
+                      color), construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
@@ -1029,7 +1034,7 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles;
                       overlay3.js: the overlay grounds on the dual grid, the tracks' worn dirt and a hill's upper tier) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
-                      light blob, the rally flag and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
+                      light blob and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
                       (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
                       unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
                       angles beside today's, the Expedition base, and the depth pass's before/after sheet of every

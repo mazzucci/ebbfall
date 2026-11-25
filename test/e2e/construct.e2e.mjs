@@ -243,3 +243,19 @@ for (const [name, device, shown] of [['small phone', SMALL, true], ['phone', PHO
     } finally { await d.close(); }
   });
 }
+
+test('with ?art=new a site is the building\'s own picture rising: the Expedition\'s on a slab, with no gantry; done, nothing of it is left', { timeout: 180000 }, async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael', query: '&art=new' });
+  try {
+    const { id } = await placeSite(d, 'i', 'siphon');
+    const at = async (p) => { assert.ok(await d.skipUntil(([id, p]) => endfall.G.bldgs.find(b => b.id === id)?.progress >= p, [id, p], { step: 1 / 30, seconds: 60 }), `at ${p}`); await d.eval(() => endfall.draw()); return drawn(d, id); };
+    const b = (await d.state()).bldgs.find(x => x.id === id); await d.centerOn(b.x, b.y);
+    const early = await at(0.05), late = await at(0.6);
+    for (const o of [early, late]) assert.deepEqual([o.look, o.under, o.scaffold, o.bar, o.ghost, o.found], ['reveal', 'slab', 0, 0, 0, 0], 'a slab, no gantry, no ghost');
+    assert.ok(late.height > early.height, `it rises: ${early.height} to ${late.height}`);
+    assert.deepEqual(late.bars.map(r => r.bar), ['build'], 'its build bar');
+    assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.done, id, { step: 1 / 30, seconds: 60 }), 'done');
+    await d.page.waitForFunction((id) => { const o = endfall.sites().bldgs.find(o => o.id === id); return o?.look === 'full' && o.under === null && o.roof === 0; }, id, { timeout: 60000 }); // (frames come as they come: no count of them)
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

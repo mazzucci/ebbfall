@@ -27,10 +27,29 @@ export const GANTRY_FRAME = { yaw: 20, fit: 0.86, elev: 40, inset: 4, post: 3.4,
 /** The new look's site (a building whose pack gives its outline on the ground, `base`: newArt.bldg `looks`; both
  *  peoples): no scaffold, no gantry, but the building's own picture, revealed from the bottom up in `rows` slices to `cap`
  *  of its height, its seat paint with it; above that line the rest gray (saturation `sat`) at `alpha`, so the whole can be
- *  told from the first second and nothing reads finished before the done moment. Round its foot a plain low frame
- *  (`frameOf`): posts `post` px tall, `rail` up the rail between them, a small flag in the seat's color on its side posts;
- *  the Kingdom's of timber, the Expedition's white (`color`, its `edge` darker). */
-export const REVEAL = { rows: 64, cap: 0.9, sat: 0, alpha: 0.45, post: 11, rail: 7, kg: { color: 0xa8743c, edge: 0x4a2f17 }, ex: { color: 0xf0eee8, edge: 0x5c6068 } };
+ *  told from the first second and nothing reads finished before the done moment. Under it, by people:
+ *  - the Kingdom's (`kg`): a plain low timber frame round its foot (`frameOf`): posts `post` px tall, `rail` up the rail
+ *    between them, a small flag in the seat's color on its side posts (`color`, its `edge` darker);
+ *  - the Expedition's (`ex`, Stelian, Nov 25: a bare white frame looked off, worst on the Portal): a low white slab of its
+ *    outline's shape (`slabOf`), flat on the ground under everything, `h` px thick, and the seat's color round its corners
+ *    (`mark` px along each edge, `bar` px wide). */
+export const REVEAL = { rows: 64, cap: 0.9, sat: 0, alpha: 0.45, post: 11, rail: 7, kg: { color: 0xa8743c, edge: 0x4a2f17 },
+  ex: { grow: 6, least: 0.36, h: 4, top: 0xe6e3dc, side: 0xa3a4a8, seam: 0xc3c2be, edge: 0x565a62, mark: 11, bar: 3 } };
+/** The Expedition's slab under an outline `base` on a footprint `n` tiles wide: the outline `grow` px larger each way east
+ *  and west (its shape kept), its half width at least `least` of the footprint's (a turbine's foot is a few px). */
+export function slabOf(base, n, tile = 32) {
+  const { grow, least } = REVEAL.ex, xs = base.map(p => p[0]), ys = base.map(p => p[1]), mid = (a) => (Math.min(...a) + Math.max(...a)) / 2, cx = mid(xs), cy = mid(ys);
+  const half = (Math.max(...xs) - Math.min(...xs)) / 2, k = Math.max(half + grow, least * n * tile) / half;
+  return base.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
+}
+/** The slab's marks: at each corner of its outline `pts` (a round one: at four points of it) the line along its edge, `mark`
+ *  px to either side of the corner, `inset` of the way in from the edge. */
+export function slabMarks(pts, inset = 0.9) {
+  const n = pts.length, c = [0, 1].map(i => pts.reduce((t, p) => t + p[i], 0) / n), at = (i) => pts[((i % n) + n) % n].map((v, k) => c[k] + (v - c[k]) * inset);
+  const toward = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]), t = Math.min(0.45, REVEAL.ex.mark / d); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; };
+  if (n <= 6) return pts.map((_, i) => [toward(at(i), at(i - 1)), at(i), toward(at(i), at(i + 1))]);
+  const step = n / 4; return [0, 1, 2, 3].map(q => [-1, 0, 1].map(o => at(Math.round(q * step) + o)));
+}
 /** How many of REVEAL.rows a site at `progress` (0..1) shows in color. */
 export const revealRows = (progress) => Math.max(1, Math.min(Math.round(REVEAL.rows * REVEAL.cap), Math.round(unit(progress) * REVEAL.cap * REVEAL.rows)));
 /** A color matrix like `rawMatrix` (no warmth): saturation from REVEAL.sat at `k` 0 to 1 at `k` 1. */

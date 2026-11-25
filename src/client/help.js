@@ -4,6 +4,7 @@
 // new tab (an installed app does not leave the game). The game keeps running under it: it is not one of the screens
 // that stop the clock (main.js `overlay`), and the map takes clicks around it.
 import { $ } from './ui.js';
+import { leftOrders } from './controls.js';
 
 /** The goal line for a people (`grid`: the Expedition's, which builds Substations for the grid). */
 export const goalLine = (grid) => (grid
@@ -17,6 +18,7 @@ export const helpOpen = () => !$('helpSheet').hidden;
 export function openHelp(grid = false, focus = true, paused = false) {
   $('helpGoal').textContent = goalLine(grid);
   $('helpRun').textContent = paused ? 'The game is paused.' : 'The game keeps running.';
+  $('helpSheet').classList.toggle('rightonly', !leftOrders()); // (the MOUSE setting's words: style.css)
   $('helpSheet').hidden = false;
   $('btnHelp').setAttribute('aria-expanded', 'true');
   if (focus) $('btnHelpClose').focus({ preventScroll: true });

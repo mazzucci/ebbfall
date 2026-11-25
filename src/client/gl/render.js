@@ -8,14 +8,15 @@ import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, m
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
-import { REVEAL, revealRows, revealMatrix, frameOf, RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headAt, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
+import { REVEAL, revealRows, revealMatrix, frameOf, slabOf, slabMarks, RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headAt, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
 import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
-import { newArtIndex, loadGroups, staleMasks, unitSize } from './newart.js';
+import { newArtIndex, loadGroups, staleMasks, unitSize, workLook } from './newart.js';
+import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
 import { Land, loadGrounds, MINIMAP, GROUND } from './newlandgl.js';
 
 export const cv = document.getElementById('game');
@@ -90,8 +91,11 @@ function addSheet(path, sh) {
 }
 for (const [p, sh] of await Promise.all(index.pages.map(async p => [p, await Assets.load(artBase + p)]))) addSheet(p, sh);
 export const newArt = {};
+/** The frames that came from the new look's packs, by name (none without the switch): `portrait` cuts these by their paint. */
+const newFrames = new Set();
 for (const { name, group, pages } of await loadGroups(newIndex, (p) => Assets.load(artBase + p))) {
   const names = new Set(pages.flatMap(([, sh]) => Object.keys(sh.data.frames)));
+  for (const n of names) newFrames.add(n);
   for (const n of staleMasks(names, new Set(Object.keys(frames)))) { delete textures[n]; delete frames[n]; } // (a body never wears another's mask)
   for (const [p, sh] of pages) addSheet(p, sh);
   Object.assign(index.unitTops, group.unitTops); Object.assign(index.animations, group.animations);
@@ -204,12 +208,15 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, hea
 /** An <img> portrait of a unit type, building type or gold mine ('node'), or ''. In `team`'s
  * colors: this client's own seat unless told otherwise. A building with a head (BLDG_LOOK) has it on, at rest. With
  * `box`, the sprite's own box fills 86% of the square (the group grid's small tiles, where a frame-cut figure was a
- * smudge); without, the frame-based cut every other portrait uses. */
+ * smudge); without, the frame-based cut every other portrait uses, for today's frames. */
 export function portrait(kind, type, size = 26, team = G.me, box = false) {
   const head = bldgLook(type).head, headFrame = head ? head + '_0' : null;
-  const url = box ? artIcon(kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
-    : kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
-      : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, headFrame);
+  const name = kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`;
+  // (a frame of the new look, gl/newart.js: by its box too, at every size. The frame-based cuts below are tuned to
+  // today's frames, their zoom to today's margins; a new frame has other margins and a larger figure, and was cut off.)
+  const url = box || newFrames.has(name) ? artIcon(name, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
+    : kind === 'unit' ? artIcon(name, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
+      : kind === 'node' ? artIcon(name, size, 1.1) : artIcon(name, size, 1.1, seatTint(team), false, headFrame);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;
@@ -289,7 +296,7 @@ export function resize() {
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'), top = document.getElementById('top'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
-  const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: a touch screen's row over the minimap)
+  const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: the row over the minimap)
   footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity, deskHud.matches ? cardTop() : Infinity)) + 4 : FOOT_ROOM;
   showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
@@ -313,7 +320,7 @@ const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0
  *  at the foot and the top, and their corners come out with the foot's and the top's room. Phones keep their box. */
 const FOOT_ROOM = 170; // (before the minimap is laid out)
 /** The desktop HUD's window (style.css's last block; hud.js asks the same): its command card can stand over its minimap. */
-const deskHud = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
+export const deskHud = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
 /** The top of the command card when it has three rows (screen px), whatever it shows now: 228 units and its border,
  *  where the desktop HUD's minimap is 190. The camera's room past the foot reaches it, so the map's last rows come out
  *  from under a full card too. */
@@ -567,6 +574,7 @@ class UnitObj {
     // own pace; a load carried `_c<f>`, a builder's two strokes `_k0` `_k1`, a shot `_aim` `_shot` `_after`, set up `_set`)
     const A = newArt.unit || {}, has = (k) => !!A[k]?.includes(u.type);
     this.stand = has('stand'); this.fps = A.fps?.[u.type]; this.loads = has('carry'); this.works = has('work'); this.fires = A.fire?.[u.type]; this.sets = has('set');
+    this.workLook = workLook(u.type, this.works); // (how it works at a site, with its own work frames: gl/newart.js WORK_LOOK)
     this.node = new Container(); this.node.scale.set(UNIT_SCALE * unitK(u.type)); layer.addChild(this.node); // (body, paint and flash sort as one)
     this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
@@ -603,14 +611,14 @@ class UnitObj {
     if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   /** A pose only the new look's frames have (the constructor's lists), or null: set up or setting up; a builder at its
-   *  site, the stroke 0.18 s from each strike; a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
+   *  site, the stroke 0.18 s from each strike (or, `workLook.turns`, its arm out for one strike and down for the next); a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
    *  its target in reach otherwise. `now`: the renderer's clock (s). */
   newPose(u, now) {
     const F = this.fires, cd = F && !u.inside && u.d?.weapon?.cd;
     if (cd && u.cd > cd - 0.12 && F.includes('shot')) return 'shot';
     if (cd && u.cd > cd - 0.3 && F.includes('after')) return 'after';
     if (this.sets && (u.swap > 0 || u.mode)) return 'set';
-    if (this.works && this.strikes !== undefined) return now - (this.struckAt ?? -1) < 0.18 ? 'k1' : 'k0';
+    if (this.works && this.strikes !== undefined) return (this.workLook.turns ? this.strikes % 2 : now - (this.struckAt ?? -1) < 0.18) ? 'k1' : 'k0';
     return cd && F.includes('aim') && inReach(u) ? 'aim' : null;
   }
   /** A builder at work (construct.js WORK): standing in reach of its unfinished site, a strike every 0.55 s or so (its
@@ -621,7 +629,7 @@ class UnitObj {
     if (!b || b.done || b.dead || this.moving || !atSite(u, b, TILE)) { this.strikes = undefined; this.nudge = 0; return; }
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
-      const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames; this.struckAt = now;
+      const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = this.workLook.nudge ? WORK.nudgeFrames : 0; this.struckAt = now;
       if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect(f.anim, p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
       else {
         const g = STRIKE_FX.glint, s = STRIKE_FX.dust;
@@ -799,12 +807,24 @@ class BldgObj {
       setTex(this.scaffoldPaint, stage(name + '_m', k, name, true, REVEAL.rows)); vis(this.scaffoldPaint, this.body.visible); this.scaffoldPaint.tint = this.seat; this.scaffoldPaint.alpha = d.color * flashA;
       if (!this.puffed && !this.ex && this.doneT >= DONE.puffAt) { this.puffed = true; for (const p of donePuffs(b, TILE)) addEffect(HIT_DUST.anim, p.x, p.y, { vy: DONE_PUFF.vy, life: DONE_PUFF.life, scale: DONE_PUFF.scale, fade: DONE_PUFF.fade, tint: HIT_DUST.tint }); }
     }
-    if (!this.frames) this.frames = this.makeFrames(b);
+    if (!this.frames) this.frames = this.ex ? [this.makeSlab(b)] : this.makeFrames(b);
     for (const g of this.frames) { vis(g, this.body.visible); g.alpha = site ? 1 : d.strip; }
   }
-  /** The frame round a new-look site's foot: its back half under the body, its front half over it. */
+  /** The Expedition's slab under a new-look site (construct.js REVEAL): with the foundations, flat under everything. */
+  makeSlab(b) {
+    const { h, top, side, seam, edge, bar } = REVEAL.ex, pts = slabOf(this.base, b.w), { front } = frameOf(pts), g = new Graphics(), flat = (l) => l.flat();
+    const path = (l, style) => { l.forEach((p, i) => (i ? g.lineTo(...p) : g.moveTo(...p))); g.stroke({ cap: 'round', join: 'round', ...style }); };
+    g.poly(flat(pts.map(([x, y]) => [x + 4, y + h + 2]))).fill({ color: 0x0c1a2a, alpha: 0.35 }); // (its shadow, to the lower right)
+    g.poly(flat([...front, ...front.map(([x, y]) => [x, y + h]).reverse()])).fill(side).stroke({ width: 1, color: edge });
+    g.poly(flat(pts)).fill(top).stroke({ width: 1.2, color: edge });
+    if (pts.length <= 6) { const c = (i, t) => { const p = pts[i % pts.length], q = pts[(i + 1) % pts.length]; return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; }; for (const t of [1 / 3, 2 / 3]) { path([c(0, t), c(2, 1 - t)], { width: 1, color: seam }); path([c(1, t), c(3, 1 - t)], { width: 1, color: seam }); } }
+    for (const [width, color] of [[bar + 1.4, 0x10161e], [bar, this.seat]]) for (const m of slabMarks(pts)) path(m, { width, color });
+    g.position.set(b.x, b.y); L.found.addChild(g);
+    return g;
+  }
+  /** The timber frame round a Kingdom new-look site's foot: its back half under the body, its front half over it. */
   makeFrames(b) {
-    const { front, back, sides } = frameOf(this.base), { color, edge } = REVEAL[this.ex ? 'ex' : 'kg'], H = REVEAL.post, up = (p, h) => [p[0], p[1] - h];
+    const { front, back, sides } = frameOf(this.base), { color, edge } = REVEAL.kg, H = REVEAL.post, up = (p, h) => [p[0], p[1] - h];
     const line = (g, pts, width, c) => { pts.forEach((p, i) => (i ? g.lineTo(...p) : g.moveTo(...p))); g.stroke({ width, color: c, cap: 'round', join: 'round' }); };
     const half = (pts, posts, z, flags) => {
       const g = new Graphics(); g.position.set(b.x, b.y); g.zIndex = z; L.ents.addChild(g);
@@ -1248,7 +1268,7 @@ const barsDrawn = [];
  *  site, 'gantry': the Expedition's rising body in its gantry, 'reveal': the new look's, 'fade': its done moment, 'full'), the done moment's time,
  *  its body (tint, opacity, drawn height in world px, its color filter's saturation), its paint, roof slice, scaffold or
  *  gantry, the gantry's head (`bar`: its opacity, `barX`, `barY`: where it is set, world px; `top`: the solid's top row)
- *  and ghost, foundation, and its bars; and
+ *  and ghost, foundation, what a new-look site stands on (`under`: 'slab', 'frame'), and its bars; and
  *  our builders' strikes so far (`strikes`, by unit id). */
 export const sitesShown = () => ({
   bldgs: [...bldgObjs.values()].filter(o => o.body.visible).map(o => {
@@ -1256,7 +1276,7 @@ export const sitesShown = () => ({
     return { id: o.id, type: o.type, done: o.b.done, look: o.doneT !== null ? 'fade' : o.b.done ? 'full' : o.base ? 'reveal' : o.ex ? 'gantry' : 'raw', fadeT: o.doneT,
       tint: o.body.tint, alpha: o.body.alpha, height: o.body.texture.height, fullHeight: o.full.height, sat: m ? (m[0] - 0.2126) / (1 - 0.2126) : 1,
       paint: o.paint.visible ? o.paint.alpha : 0, roof: o.roof.visible ? o.roof.alpha : 0, scaffold: o.scaffold.visible ? o.scaffold.alpha : 0, found: o.found.visible ? o.found.alpha : 0,
-      bar: o.bar?.visible ? o.bar.alpha : 0, barX: o.bar?.visible ? o.bar.x : null, barY: o.bar?.visible ? o.bar.y : null, top: o.body.y - o.body.height, ghost: o.ghost?.visible ? o.ghost.alpha : 0,
+      bar: o.bar?.visible ? o.bar.alpha : 0, barX: o.bar?.visible ? o.bar.x : null, barY: o.bar?.visible ? o.bar.y : null, top: o.body.y - o.body.height, ghost: o.ghost?.visible ? o.ghost.alpha : 0, under: o.frames?.length ? (o.ex ? 'slab' : 'frame') : null,
       bars: barsDrawn.filter(r => r.id === o.id).map(r => ({ ...r })) };
   }),
   strikes: Object.fromEntries([...unitObjs.values()].filter(o => o.strikesSeen).map(o => [o.id, o.strikesSeen])),
@@ -1277,9 +1297,9 @@ export function render(selList, place) {
   noteBuildings(); // (what this side has seen of enemy buildings: in the fog, their last-seen state, never the live one)
   const shownB = shownBldgs();
   if (now - doodadCheck > 0.25 || now < doodadCheck || shownB.length !== doodadBldgs) { doodadCheck = now; doodadBldgs = shownB.length; hideCoveredDoodads(); }
-  bars.clear(); lines.clear(); selG.clear(); flag.visible = false; barsDrawn.length = 0;
+  bars.clear(); lines.clear(); selG.clear(); barsDrawn.length = 0;
   drawTargets(selList, now);
-  for (const b of selList) if (b.kind === 'bldg' && b.rally && !b.dead) { dashed(b.x, b.y, b.rally.x, b.rally.y); flagAt(b.rally.x, b.rally.y, t); }
+  rallyMarks(selList, t);
 
   syncPool(nodeObjs, map.nodes, n => new NodeObj(n), (o, n) => { const v = inView(n.x, n.y, 90) && (explored[idx(n.tx, n.ty)] || allRevealed()); o.show(!!v); if (v) o.update(n, t); });
   const onScreen = [];
@@ -1374,8 +1394,25 @@ export function render(selList, place) {
   renderMinimap();
 }
 
-const flag = new Sprite(); flag.anchor.set(0.2, 0.95); L.overlay.addChild(flag); flag.visible = false;
-function flagAt(x, y, t) { flag.visible = true; flag.texture = sheet.animations.flag[Math.floor(t * 6) % 4]; flag.position.set(x, y); }
+// ---- the rally point of each selected building of ours: the dashed line to it and the red flag (rallyflag.js) ----
+const flagL = new Container(), flagTex = []; L.overlay.addChild(flagL); // (the textures: painted with the first flag)
+let rallyDrawn = []; // [{ id, x, y, color }] of the flags in this frame (the tests read it)
+function rallyMarks(selList, t) {
+  rallyDrawn = [];
+  for (const b of selList) if (b.kind === 'bldg' && b.team === G.me && b.rally && !b.dead) { // (ours alone: a foe's rally point is its own business)
+    dashed(b.x, b.y, b.rally.x, b.rally.y);
+    flagAt(rallyDrawn.length, b.rally.x, b.rally.y, t); rallyDrawn.push({ id: b.id, x: b.rally.x, y: b.rally.y, color: RALLY_RED });
+  }
+  for (let i = rallyDrawn.length; i < flagL.children.length; i++) flagL.children[i].visible = false;
+}
+function flagAt(i, x, y, t) {
+  if (!flagTex.length) for (let f = 0; f < FLAG_FRAMES; f++) flagTex.push(Texture.from(paintFlag(f)));
+  const s = flagL.children[i] || flagL.addChild(new Sprite());
+  s.visible = true; s.texture = flagTex[Math.floor(t * FLAG_FPS) % FLAG_FRAMES]; s.position.set(x, y);
+  s.anchor.set(FLAG_BOX.x / FLAG_BOX.w, FLAG_BOX.y / FLAG_BOX.h); s.scale.set(1 / FLAG_BOX.k);
+}
+/** Tests: the rally flags in the last frame, each with its building, its place and its color. */
+export const rallyShown = () => rallyDrawn.map(r => ({ ...r }));
 // ---- order targets: what the selected harvesters work on, and a blink when an order lands ----
 const flashes = [];
 const MINE_MARK = 0xe6e0d3;

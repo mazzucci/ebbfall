@@ -77,9 +77,9 @@
     <section id="helpSheet" hidden aria-labelledby="helpTitle">
       <div class="hd"><h2 id="helpTitle">HOW TO PLAY</h2><button class="ib x" id="btnHelpClose" aria-label="Close" title="Close (Esc)">×</button></div>
       <ul class="lines desk">
-        <li><b>Select</b> with a click or a drag; <b>right-click</b> to move, attack, mine or set a rally point.</li>
+        <li><b>Select</b> with a click or a drag; then <span class="lr"><b>click</b> or <b>right-click</b></span><span class="ro"><b>right-click</b></span> to move, attack or mine; <kbd>Esc</kbd> lets go. With a building, right-click sets a rally point.</li>
         <li>Each button shows its key: <kbd>A</kbd> attack-move, <kbd>S</kbd> stop, <kbd>H</kbd> hold in Classic; in WASD, a key by its place on the card.</li>
-        <li><kbd>Q</kbd> your whole army, <kbd>Space</kbd> jump to the attack, <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> save a group, <kbd>P</kbd> pause.</li>
+        <li><b>ARMY</b> (<kbd>Q</kbd>) your whole army, <b>HOME</b> your base, <b>SELECT</b> arms a box; <kbd>Space</kbd> jump to the attack, <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> save a group, <kbd>P</kbd> pause.</li>
         <li>The arrow keys, the screen's edge or the middle button move the map; <kbd>Ctrl</kbd>+wheel zooms.</li>
       </ul>
       <ul class="lines touch">
@@ -94,7 +94,7 @@
 
     <button class="tb" id="btnBox" hidden title="Tap (or hold), then drag on the map to select a group; or hold a finger on the map, then drag" aria-label="Select a group" aria-pressed="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M10 4h4M18 4h3v3M21 11v2M21 17v3h-3M14 20h-4M6 20H3v-3M3 13v-2" /><path class="fig" d="M8.5 9.6a1.6 1.6 0 1 0 .01 0M5.8 16v-.4a2.7 2.7 0 0 1 5.4 0v.4M15.5 9.6a1.6 1.6 0 1 0 .01 0M12.8 16v-.4a2.7 2.7 0 0 1 5.4 0v.4" /></svg><span>SELECT</span></button>
     <button class="tb" id="btnHome" hidden title="Back to base (Home)" aria-label="Home: back to base"></button>
-    <button class="tb" id="btnArmy" hidden title="Select your whole army (Q); tap again to look at it" aria-label="Select your whole army"></button>
+    <button class="tb" id="btnArmy" hidden title="Select your whole army (Q); again: look at it" aria-label="Select your whole army"></button>
   </div>
   <footer id="hud">
     <canvas id="minimap" width="168" height="168"></canvas>

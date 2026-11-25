@@ -31,8 +31,9 @@ async function pick(d, id) {
   for (let i = 0; i < 10; i++) { await d.clickEntity(id); if ((await d.selection()).some(e => e.id === id)) return; await d.page.waitForTimeout(200); }
   assert.fail(`unit ${id} could not be selected`);
 }
-/** Watch building `id` frame by frame (in the page, real time) until its done moment has played: each frame's look. */
-const watchDone = (d, id, ms = 8000) => d.eval(([id, ms]) => new Promise(resolve => {
+/** Watch building `id` frame by frame (in the page, real time) until its done moment has played (seen fading, then full; a slow
+ *  runner may take long over it: `ms` is only the give-up): each frame's look. */
+const watchDone = (d, id, ms = 60000) => d.eval(([id, ms]) => new Promise(resolve => {
   const seen = [], t0 = performance.now();
   const tick = () => {
     const o = endfall.sites().bldgs.find(x => x.id === id);
@@ -63,6 +64,7 @@ test('a Kingdom site reads unfinished: raw, roofless, its build bar on top; both
     // The builder's card, then the site's.
     await pick(d, w);
     assert.match(await d.hudText('#selSub', /Constructing Barracks/), /^Constructing Barracks, \d+%$/, 'the builder\'s card');
+    await d.key('Escape'); // (with the builder selected a click on the site is an order)
     await d.clickEntity(id);
     assert.match(await d.hudText('#selSub', /Constructing/), /^Constructing, \d+%$/, 'the site\'s card');
     assert.deepEqual(d.errors, []);
@@ -83,6 +85,7 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
     const pct = +(await paused())[0].match(/(\d+)%/)[1];
     const at = (await d.state()).bldgs.find(x => x.id === id).progress;
     assert.equal(pct, Math.floor(at * 100), 'the percentage it stopped at');
+    await d.key('Escape'); // (with the builder selected a click on the site is an order)
     await d.clickEntity(id);
     assert.match(await d.hudText('#selSub', /Paused/), new RegExp(`^Paused at ${pct}%$`), 'the site\'s card');
     assert.equal(await d.hudText('#selWhat', /No builder/), 'No builder', 'and why, in the kind\'s line');
@@ -95,7 +98,7 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
     assert.equal((await d.state()).units.find(u => u.id === w).task !== 'build', true, 'pulled off again');
     assert.deepEqual(await paused(), [], 'at most once a site a minute');
     // Resumed again, it finishes while we watch: the done moment, then full color.
-    await d.clickEntity(id); await d.pressCard('Resume');
+    await d.key('Escape'); await d.clickEntity(id); await d.pressCard('Resume');
     await d.centerOn(b.x, b.y);
     assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.97, id, { step: 1 / 30, seconds: 60 }), 'almost done');
     const seen = await watchDone(d, id);
@@ -243,3 +246,19 @@ for (const [name, device, shown] of [['small phone', SMALL, true], ['phone', PHO
     } finally { await d.close(); }
   });
 }
+
+test('with ?art=new a site is the building\'s own picture rising: the Expedition\'s on a slab, with no gantry; done, nothing of it is left', { timeout: 180000 }, async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael', query: '&art=new' });
+  try {
+    const { id } = await placeSite(d, 'i', 'siphon');
+    const at = async (p) => { assert.ok(await d.skipUntil(([id, p]) => endfall.G.bldgs.find(b => b.id === id)?.progress >= p, [id, p], { step: 1 / 30, seconds: 60 }), `at ${p}`); await d.eval(() => endfall.draw()); return drawn(d, id); };
+    const b = (await d.state()).bldgs.find(x => x.id === id); await d.centerOn(b.x, b.y);
+    const early = await at(0.05), late = await at(0.6);
+    for (const o of [early, late]) assert.deepEqual([o.look, o.under, o.scaffold, o.bar, o.ghost, o.found], ['reveal', 'slab', 0, 0, 0, 0], 'a slab, no gantry, no ghost');
+    assert.ok(late.height > early.height, `it rises: ${early.height} to ${late.height}`);
+    assert.deepEqual(late.bars.map(r => r.bar), ['build'], 'its build bar');
+    assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.done, id, { step: 1 / 30, seconds: 60 }), 'done');
+    await d.page.waitForFunction((id) => { const o = endfall.sites().bldgs.find(o => o.id === id); return o?.look === 'full' && o.under === null && o.roof === 0; }, id, { timeout: 60000 }); // (frames come as they come: no count of them)
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});

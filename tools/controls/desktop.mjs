@@ -31,7 +31,7 @@ export function scene() {
   const barracks = G.bldgs.find(b => b.team === K && b.type === 'barracks');
   return {
     group, knight, builder, guards: group.slice(0, 3), barracks: barracks?.id, hq: hq.id,
-    center: c, moveTo: at(90, 240), attackAt: at(290, 200), site: at(-150, 235), ground: at(200, 20),
+    center: c, moveTo: at(90, 240), attackAt: at(290, 200), site: at(-150, 235),
     look: at(92, 135), zoom: 1.5, cursor: { x: 640, y: 300 }, ids: [...group, knight].map(id => [id, byId(id)?.type]),
   };
 }
@@ -58,7 +58,7 @@ export const BEATS = [
     strokes: (a) => [...click(0.4, { unit: a.builder }), ...key(1.0, 'b'), ...key(1.5, 'w'), ...click(2.3, { world: a.site })] },
   { id: 'group', seconds: 3.2,
     caps: [cap(0, 'Control group', 'Ctrl+1 saves, 1 recalls')],
-    strokes: (a) => [...drag(0.3, { units: a.group, pad: 30, corner: 'tl' }, null, { move: 0.6, glide: 0.3 }), ...key(1.4, '1', { ctrl: true }), ...click(2.0, { world: a.ground }), ...key(2.6, '1')] },
+    strokes: (a) => [...drag(0.3, { units: a.group, pad: 30, corner: 'tl' }, null, { move: 0.6, glide: 0.3 }), ...key(1.4, '1', { ctrl: true }), ...key(2.0, 'Escape'), ...key(2.6, '1')] },
   { id: 'pan', seconds: 2.2,
     caps: [cap(0, 'Move the map', 'arrow keys, or the screen’s edge')],
     strokes: () => key(0.5, 'ArrowRight', { hold: 0.6 }) },

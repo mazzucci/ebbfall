@@ -53,3 +53,49 @@ test('with it, the packs that are there load, with no error and no failed reques
   for (const [g, { pages }] of Object.entries(groups)) for (const page of pages) assert.ok(p.asked.some(a => a.endsWith('/' + page)), `${g}: ${page} (${p.asked})`);
   assert.deepEqual(p.warnings, [], 'no group left out');
 });
+
+// The HUD's portraits (render.js `portrait`) of the new look's frames are cut by their paint: the frame-based cut is
+// tuned to today's frames, and cut the new, larger figures off at a square's edge. Every unit and building of the packs,
+// at every size the HUD draws one (the Miners line 22, the tutorial 26, the group's tiles 28 and 42 to 46, the selected
+// one 44 and 76 to 84, a button's details 72), both ways it is asked for: no solid pixel (the art box's own measure,
+// alpha over 110) on the square's outer ring. A kind the packs do not hold keeps today's portrait, to the byte.
+test('with ?art=new no portrait of a new frame is cut off at its square\'s edge, at any size the HUD uses; a kind still on today\'s frames keeps today\'s portrait', { timeout: 240000 }, async () => {
+  const dir = new URL('../../public/art/new/', import.meta.url), groups = JSON.parse(readFileSync(new URL('index.json', dir), 'utf8')).groups;
+  const units = Object.keys(groups.unit.unitTops), bldgNames = groups.bldg.pages.flatMap(p => Object.keys(JSON.parse(readFileSync(new URL(p, dir), 'utf8')).frames));
+  const SIZES = [22, 26, 28, 42, 44, 46, 72, 76, 84];
+  const open = async (query) => {
+    const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(), errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(baseUrl() + query, { waitUntil: 'load' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
+    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 60000 });
+    return { ctx, page, errors };
+  };
+  const still = ['medic', 'halo'].filter(k => !units.includes(k)); // (trained nowhere, in no pack: today's frames under the switch too)
+  const cut = (page, list) => page.evaluate((list) => list.map(([kind, type, size]) => endfall.portrait(kind, type, size, 0)), list);
+  const a = await open('?seed=4242&map=4&art=new');
+  const res = await a.page.evaluate(async ([units, bldgNames, SIZES]) => {
+    const bldgs = Object.keys(endfall.engine.BUILDINGS).filter(t => bldgNames.includes(`bldg_${t}`)), bad = [], none = [];
+    for (const [kind, types] of [['unit', units], ['bldg', bldgs]]) for (const type of types) for (const size of SIZES) for (const box of [false, true]) {
+      const src = /src="([^"]+)"/.exec(endfall.portrait(kind, type, size, 0, box))?.[1];
+      if (!src) { none.push(`${type} ${size}`); continue; }
+      const im = new Image(); im.src = src; await im.decode();
+      const n = im.naturalWidth, c = document.createElement('canvas'); c.width = c.height = n;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
+      const d = g.getImageData(0, 0, n, n).data; let solid = 0, edge = 0;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (d[(y * n + x) * 4 + 3] > 110) { solid++; if (!x || !y || x === n - 1 || y === n - 1) edge++; }
+      if (edge || solid < n * n * 0.05) bad.push(`${kind} ${type} at ${size}${box ? ' (box)' : ''}: ${edge} solid px on the edge, ${solid} in all`);
+    }
+    return { bldgs: bldgs.length, bad, none };
+  }, [units, bldgNames, SIZES]);
+  const newWay = await cut(a.page, still.map(k => ['unit', k, 72]));
+  await a.ctx.close();
+  assert.deepEqual([units.length, res.bldgs], [15, 17], 'the packs\' units and buildings');
+  assert.deepEqual([res.none, res.bad, a.errors], [[], [], []]);
+  const b = await open('?seed=4242&map=4');
+  const today = await cut(b.page, still.map(k => ['unit', k, 72]));
+  await b.ctx.close();
+  assert.ok(still.length && today.every(h => /src="data:/.test(h)), 'kinds on today\'s frames to compare');
+  assert.deepEqual(newWay, today, 'a kind on today\'s frames: the same portrait with the switch');
+});

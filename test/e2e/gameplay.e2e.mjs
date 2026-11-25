@@ -139,6 +139,7 @@ test('a building under construction shows its progress, and a stalled one can be
     await d.skip(8);
     const stalled = (await d.state()).bldgs.find(b => b.id === depot.id);
     assert.ok(!stalled.done && Math.abs(stalled.progress - depot.progress) < 1e-9, 'no builder, no progress');
+    await d.key('Escape'); // (its builder let go: with a worker selected a click on a site is an order)
     await d.clickEntity(depot.id);
     assert.match(await d.hudText('#selSub', /Paused/), /Paused/, 'the panel says construction is paused');
     assert.ok((await d.card()).some(c => c.label === 'Resume'), 'a Resume button is offered');
@@ -157,6 +158,7 @@ test('an unfinished building can be cancelled for a 75% refund', async () => {
     const rax = myBldg(await d.state(), 'barracks')[0];
     assert.ok(rax && !rax.done, 'barracks under construction');
     const before = (await d.state()).res[0];
+    await d.key('Escape'); // (its builder let go: with a worker selected a click on a site is an order)
     await d.clickEntity(rax.id);
     await d.pressCard('Cancel');
     const after = await d.state();
@@ -299,7 +301,7 @@ test('Q selects the army, no idle-worker key, and double-click selects all of a 
   try {
     const s = await d.state(), core = coreOf(s);
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 140, core.y - 40]);
-    assert.ok(!(await d.page.locator('#btnArmy').isVisible()), 'no ARMY button with a keyboard (the touch screens\' one goes with SELECT): Q');
+    assert.ok(await d.page.locator('#btnArmy').isVisible(), 'ARMY, with Q (mouse.e2e.mjs: the row)');
     await d.key('q');
     assert.deepEqual((await d.selection()).map(u => u.id).sort(), ids.slice().sort(), 'Q selects every combat unit');
     // An idle harvester: no key finds it (Stelian, Nov 12: no idle-worker key or counter); . selects nothing.
@@ -609,7 +611,8 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
         assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
         const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
         const card3 = await d.eval(() => { const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0; return cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth)); });
-        const foot = h - Math.min(mm.y, card3) + 4; // (render.js footRoom: up to the top of the tallest panel at the foot, a three-row card, over the minimap's with the desktop HUD, and 4 px)
+        const row = (await d.page.locator('#btnBox').boundingBox()).y;
+        const foot = h - Math.min(mm.y, row, card3) + 4; // (render.js footRoom: up to the top of the tallest panel at the foot, a three-row card or the row over the minimap, and 4 px)
         assert.ok(cy ? Math.abs(past - foot) < 1 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? `foot only as far as the panels cover (${foot} px)` : 'top only as far as the bar covers'}: ${past}`);
         const dark = await darkEdges(d);
         for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);
@@ -940,6 +943,7 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
       const gold = (await d.state()).res[0];
       await d.skip(4);
+      await d.key('Escape'); // (with a worker selected a click on a damaged building is an order)
       await d.clickEntity(depot.id);
       assert.match(await d.hudText('#selSub', /Repairing/), /Repairing/, 'the building shows it is being repaired');
       await until(d, async () => (await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).hp, depot.id)) >= max, { seconds: 60, what: 'the repair' });
@@ -4359,10 +4363,10 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     assert.ok(await opts.isVisible(), 'OPTIONS opens');
     assert.ok(await page.locator('#pause').isVisible(), 'over the pause card');
     assert.ok(await page.locator('#cornerFull').isVisible() && await page.locator('#cornerSound').isHidden(), 'the corner keeps the pause card\'s rule: full screen, no sound button');
-    assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'CLASSIC', 'CLASSIC by default');
+    assert.equal(await opts.locator('[data-k^="controls:"][aria-checked="true"]').textContent(), 'CLASSIC', 'CLASSIC by default');
     assert.match(await opts.locator('.setting:has([data-k^="controls:"]) .line').textContent(), /^Arrows/);
     await opts.locator('[data-k="controls:wasd"]').click();
-    assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'WASD');
+    assert.equal(await opts.locator('[data-k^="controls:"][aria-checked="true"]').textContent(), 'WASD');
     assert.match(await opts.locator('.setting:has([data-k^="controls:"]) .line').textContent(), /^WASD moves the map/);
     assert.ok(await page.$eval('#options .card', c => c.scrollHeight <= c.clientHeight + 1), 'the OPTIONS card fits');
     const t0 = await d.eval(() => endfall.G.time);
@@ -4638,7 +4642,7 @@ test('desktop: OPTIONS on the menu\'s first page; the choice is remembered acros
     assert.ok(await page.locator('#options').isHidden() && await page.locator('#menuHome').isVisible(), 'BACK: the menu again');
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#btnOptions').click();
-    assert.equal(await page.locator('#options [aria-checked="true"]').textContent(), 'WASD', 'remembered');
+    assert.equal(await page.locator('#options [data-k^="controls:"][aria-checked="true"]').textContent(), 'WASD', 'remembered');
     await page.keyboard.press('Escape');
     assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
     // (How to play tells of both schemes: the help sheet's line, and the docs' table: test/docs.test.js, docs.e2e.mjs)

@@ -33,12 +33,23 @@ export async function loadGroups(ix, load) {
 /** The names of today's team masks a group's frames leave stale: a frame it replaces without a mask of its own. */
 export const staleMasks = (names, today) => [...names].filter(n => !n.endsWith('_m') && today.has(n) && today.has(n + '_m') && !names.has(n + '_m')).map(n => n + '_m');
 
-/** How large the new look's units are drawn, of the size their frames are packed at (tools/newart/unit: Notion's
- *  "Units: one story each", rule 9, which drew an army as large figures standing on each other): the Knight and the
- *  Rover stood over the buildings beside them, the Android over its own side. A kind not named here is drawn
- *  UNIT_SIZE_REST. One table, so a size is tuned here and no pack is built again. */
-export const UNIT_SIZE = { knight: 0.78, monolith: 0.78, umbra: 0.85 }, UNIT_SIZE_REST = 0.9;
+/** How large the new look's units are drawn, of the size their frames are packed at (tools/newart/unit). The frames
+ *  come at their final sizes (each drawn to its own, painted at a true camera), so every kind is 1. The table stays: a
+ *  kind that stands out among the rest is tuned here, by a row, and no pack is built again (the first pack's Knight
+ *  and Rover were 0.78, its Android 0.85, the rest 0.9). A kind not named is drawn UNIT_SIZE_REST. */
+export const UNIT_SIZE = {}, UNIT_SIZE_REST = 1;
 /** The factor on a unit of `type`: its row with the new look's frames of it loaded (`packed`), 1 with today's. The
  *  sprite, its drawn height (the health bar, the hit test, the silhouette), its drawn radius and its selection ring go
  *  by it (render.js); the sim's radius and collision do not. */
 export const unitSize = (type, packed) => (packed ? UNIT_SIZE[type] ?? UNIT_SIZE_REST : 1);
+
+/** How a builder with work frames of its own (`_k0` the tool or the arm out, `_k1` the stroke) works at its site, by
+ *  kind. `nudge`: its body leans into each strike for two frames, as today's builders do; `turns`: its arm changes frame
+ *  at each strike (out for one, down for the next: a calm 1.1 s) instead of flashing the stroke for 0.18 s after each.
+ *  The Bot (`lumen`): its whole white box jumped 1.5 px for two frames every 0.55 s as its arm flicked down for five,
+ *  and read as trembling; a machine stands still and lets its arm work. A kind not named leans and flashes (a person
+ *  swinging a pick does lean into the blow). */
+export const WORK_LOOK = { lumen: { nudge: false, turns: true } };
+const WORK_REST = { nudge: true, turns: false };
+/** `type`'s row with the new look's work frames of it loaded (`packed`), today's way without. */
+export const workLook = (type, packed) => (packed && WORK_LOOK[type]) || WORK_REST;

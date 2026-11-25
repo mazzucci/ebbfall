@@ -372,6 +372,9 @@ src/client/           everything that touches the browser
                       public/art/new/ (index.json: groups of sprite pages, each whole or not at all), whose frames
                       replace today's by name; without the switch nothing of it is fetched, and the packs are left out of
                       the offline install (tools/offline/plugin.mjs WEB_ONLY)
+  gl/rallyflag.js     the rally flag, painted in code: a red pennant with a dark outline in a red ring on the ground, red
+                      whatever the seat, drawn (`rallyMarks`) for this side's selected buildings alone; `rallyShown` for the
+                      tests
   gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`: in a dry meadow
                       only dry-grass marks, in a lush one none), which overlay tile (`overlayTile`), each rock region's
                       kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
@@ -420,10 +423,11 @@ src/client/           everything that touches the browser
                       relay takes it) behind `playerName` get/set, shared by the lobby's NAME and OPTIONS' (test/store.test.js)
   controls.js         the desktop keyboard scheme: CLASSIC (letters; arrows, edge, minimap, middle drag) or WASD (W A S D
                       always pan; a command's key is its card slot's, GRID: E R T / F G H / C V B by key position),
-                      `keyed`; shown where `(pointer: fine)`
+                      `keyed`; and MOUSE (endfall.mouse): LEFT OR RIGHT CLICK orders, or RIGHT CLICK ONLY; both shown
+                      where `(pointer: fine)`
   options.js          the OPTIONS card: a list of settings drawn by one helper, chips or a text field: NAME (every device,
-                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed) and CONTROLS (where
-                      `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
+                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed), CONTROLS and MOUSE
+                      (where `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   help.js             the in-game help sheet: the ? in the top bar (between the clock and FULL SCREEN) or the pause card's
                       HOW TO PLAY opens it in the stage's top-right corner (over the pause card, below the corner's
@@ -497,6 +501,8 @@ src/client/           everything that touches the browser
   grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: a finger held on the
                       ground then a box, SELECT, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint);
                       never in the guided first game (its checklist's step teaches it)
+  groundhint.js       with a mouse set to RIGHT CLICK ONLY, the ground left-clicked while units are selected brings "Right-click to move or
+                      attack", three times a device at most (endfall.groundHint), not again while it shows
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
   hud.js              top bar (the Kingdom's gold as coins and population, the Expedition's energy as a bolt and grid)
@@ -513,7 +519,8 @@ src/client/           everything that touches the browser
                       lists with every defense (the Watchtower, the Sentry mast) on the basic page, before Advanced
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does; a unit
                       or a building button (its item's `por`: [what, kind]) shows its symbol (icons.js `glyph`), the
-                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold
+                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold; with a
+                      mouse the hover panel keeps the room of what may be short (the grid, the money), so it never changes size
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
@@ -560,7 +567,11 @@ src/client/           everything that touches the browser
                       under it) arms a box there (a tick, SELECT lit amber, the map's edge aglow, the hint), dragged it
                       draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
-                      selection on touch (a mouse's empty box still clears it); SELECT: tap to toggle, or hold
+                      selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
+                      (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
+                      a job so, by an armed Mine or Repair or by placing without Shift are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
+                      keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
+                      with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it; a hidden tab
                       suspends it too; `gameSound`: the wind bed plays in a game only (main.js `begin`, the end card,
@@ -606,6 +617,7 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
 test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/rallyflag.test.js  the rally flag's red (src/client/gl/rallyflag.js) against every seat's color
 test/range.test.js    the range's circles (src/client/range.js): in range by exact distance, the union's outline
 test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
                       a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
@@ -645,8 +657,12 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
-                      construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
+                      panel.e2e.mjs (with a mouse, a button's details panel has one size, its price in reach or not:
+                      every unit, building and research of both peoples),
+                      rally.e2e.mjs (the rally flag: for the selected building of ours alone, red whatever our seat's
+                      color), construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
+                      mouse.e2e.mjs (the MOUSE setting: what a left click orders, selects and keeps, the right-click hint),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
@@ -1032,7 +1048,7 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
 tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles;
                       overlay3.js: the overlay grounds on the dual grid, the tracks' worn dirt and a hill's upper tier) and
                       effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
-                      light blob, the rally flag and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
+                      light blob and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
                       (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
                       unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
                       angles beside today's, the Expedition base, and the depth pass's before/after sheet of every

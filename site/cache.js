@@ -7,7 +7,7 @@
  * the pages at their canonical addresses: wrangler.toml html_handling, index.html at /, selftest.html at /selftest).
  * Vite's output in assets/ is named by its content: kept for good. The pages, the service worker and the manifest are
  * checked on every load (no-cache: a 304 when unchanged), so a deploy is seen at once and the service worker's update
- * finds the new build (tools/offline/sw.js stores each file fetched past the HTTP cache, and boot.js switches to a new
+ * finds the new build (tools/offline/sw.js asks the host for each file it stores, a 304 where the browser has it, and boot.js switches to a new
  * version when it is installed). The link preview's image is kept a day (a chat app or a crawler asks for it with every
  * card it draws; it changes with the art, rarely). Anything else (art/, the icons, the docs): Cloudflare's own default,
  * revalidated every time as well (`public, max-age=0, must-revalidate`, with an ETag).

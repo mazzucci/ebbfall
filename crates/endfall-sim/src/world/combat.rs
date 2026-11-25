@@ -723,6 +723,21 @@ impl World {
         }
     }
 
+    /// The enemy a unit on an attack-move would turn on now: the best in its look, or in a siege gun's reach.
+    pub(crate) fn march_target(&self, uid: Id, c: &Live) -> Option<Id> {
+        let u = self.u(uid);
+        self.find_target(
+            u.x,
+            u.y,
+            c.team,
+            c.siege.unwrap_or(c.sight * TILE * 0.85),
+            c.setup_ring(),
+            false,
+            c.hits,
+            c.kind.def().air,
+        )
+    }
+
     /// Attack-move: walk to (x, y), turning on any enemy met on the way (its leash tied where it turns). Walking back
     /// to its route first (`rejoin`, a chase let go), it picks no fight until it is there.
     pub(crate) fn update_amove(
@@ -752,16 +767,7 @@ impl World {
         if !deep && u.aggro_cd <= 0.0 {
             u.aggro_cd = 0.3;
             let (ux, uy) = (u.x, u.y);
-            let t = self.find_target(
-                ux,
-                uy,
-                c.team,
-                c.siege.unwrap_or(c.sight * TILE * 0.85),
-                c.setup_ring(),
-                false,
-                c.hits,
-                c.kind.def().air,
-            );
+            let t = self.march_target(uid, &c);
             // (what it sees from its route is within the leash of where it turns: it looks less far than that)
             if let (Some(t), true) = (t, c.combat) {
                 self.um(uid).task = Task::Attack {

@@ -65,7 +65,7 @@ const here = () => { const url = reloadUrl(); return url === location.href ? pen
 
 // Offline: the built game registers its service worker (dist/sw.js, see tools/offline), which keeps every file so
 // Ebbfall opens and plays without a connection once it has been loaded. Registered once the game's load is over (its
-// install fetches every file again: not while the game's own load still needs the connection), loaded or not.
+// install asks for every file again: not while the game's own load still needs the connection), loaded or not.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const register = () => registered(navigator.serviceWorker.register('./sw.js').catch(() => null)); // (null: not available, file:// or private mode; PLAY OFFLINE says so)
   loading.catch(() => {}).then(() => { if (document.readyState === 'complete') register(); else addEventListener('load', register); });

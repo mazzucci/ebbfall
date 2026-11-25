@@ -8,6 +8,7 @@ mod balance;
 mod combat;
 mod common;
 mod construction;
+mod crowd;
 mod economy;
 mod expedition;
 mod firm;

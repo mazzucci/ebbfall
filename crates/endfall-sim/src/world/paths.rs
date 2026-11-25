@@ -136,6 +136,17 @@ pub(crate) enum Plan {
 }
 
 impl World {
+    /// Whether unit `uid` can walk straight to `to` from where it stands: ground open to it all the way, and for a
+    /// machine in coverage covered all the way (`keep_covered`'s rule for a route's leg).
+    pub(crate) fn leg_open(&self, uid: Id, to: Pt) -> bool {
+        let u = self.u(uid);
+        let pos = Pt { x: u.x, y: u.y };
+        los(&self.map, self.foot(u.kind), pos, to)
+            && (!radio::needs_range(u.kind)
+                || !self.in_radio(u.team, u.x, u.y)
+                || leg_covered(&self.radio_reach_list(u.team), pos, to))
+    }
+
     /// The path work since the game began.
     pub fn path_work(&self) -> PathWork {
         PathWork {

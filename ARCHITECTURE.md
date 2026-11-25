@@ -74,6 +74,8 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   standing firm (`firm`: units rallied or sent to a point a firm friend covers arriving, Cannons in formation and on one
   target all setting up, a unit ringed by firm friends getting out, walking through two touching Cannons of its own but
   not an enemy's, one settling in pushed clear and never moved once settled),
+  crowds (`crowd`: groups in formation passing a waypoint they crowd and arriving, groups sent to one point stopping
+  round it, one held up far from its goal still on its way, a packing Cannon driving off),
   construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a new worker
   waiting at its headquarters for an order and a rally on a mine walking it there to wait beside it without mining, the
   AI sending its new workers and builders to a mine within its next turns (`economy`), workers hopping only to a mine
@@ -556,7 +558,8 @@ src/client/           everything that touches the browser
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands (the keys' and the
                       mouse edge's pan at PAN_SPEED world px a second, the same time across the map at any zoom); a unit is hit
-                      on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
+                      on a circle round its drawn body (half its drawn height above its feet; over a building of ours our
+                      walkers on their lowest 28 px alone, above that the building), a gold mine on its
                       footprint and the rock just over it; a worker inside a mine is not picked or boxed; workers sent
                       to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold);
                       touch: a finger held still on the map for HOLD_MS (350 ms, within the pan's 10 px; a ring fills
@@ -657,6 +660,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       rally.e2e.mjs (the rally flag: for the selected building of ours alone, red whatever our seat's
                       color), construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
+                      pick.e2e.mjs (a click or a tap where a unit stands over a building),
                       mouse.e2e.mjs (the MOUSE setting: what a left click orders, selects and keeps, the right-click hint),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
@@ -899,7 +903,8 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
                       (BrowserStack, iOS Simulator through Appium, Android emulator, local Playwright, any WebDriver),
                       webdriver.mjs (a fetch-only W3C client), smoke.mjs (the steps, screenshots, summary.json); README.md
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
-                      file of dist/ but source maps and WEB_ONLY
+                      file of dist/ but source maps and WEB_ONLY, each asked of the host (`no-cache`: a 304 where the
+                      browser has it, so a first visit downloads the art once)
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
 tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vite plugin in build.mjs writes it into dist/
                       with the game: dist/docs/<page>/index.html, dist/sitemap.xml with every page and its lastmod,

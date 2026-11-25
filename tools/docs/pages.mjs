@@ -183,7 +183,7 @@ export function controlsLd(origin, name, { title, label }) {
   };
 }
 /** How to play's desktop controls video, for its structured data (build.mjs): the same words the copy gives the token. */
-export const DESKTOP_LOOP = { title: 'Ebbfall on a computer: the mouse and keyboard controls', label: 'Ebbfall on a computer: drag a box to select, right-click to move, double-click for all of one type, A then a click to attack-move, B to build, Ctrl+1 saves a control group and 1 recalls it, the arrow keys move the map' };
+export const DESKTOP_LOOP = { title: 'Ebbfall on a computer: the mouse and keyboard controls', label: 'Ebbfall on a computer: drag a box to select, right-click to move (a left click does too), double-click for all of one type, A then a click to attack-move, B to build, Ctrl+1 saves a control group and 1 recalls it, the arrow keys move the map' };
 /** How to play's phone controls video, for its structured data (build.mjs): the same words the copy gives the token. */
 export const CONTROLS_LOOP = { title: 'Ebbfall on a phone: the touch controls', label: 'Ebbfall on a phone: tap a unit, then the ground to move it; press and hold, then drag a box for a group; double-tap for all of one type; ARMY selects the army and HOME looks at your base' };
 

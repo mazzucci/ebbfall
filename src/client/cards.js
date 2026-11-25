@@ -23,7 +23,7 @@ export const upName = (u, lv, short = false) => {
  * The command card: three buttons a row (big enough for a thumb), fixed slots (slot = row * 3 + column) so a command
  * keeps its place. No Stop or Move buttons: a tap on the ground moves, Hold stops (their keys still work: `hidden`
  * items have a key but no button). Units have Deselect in the last slot; a building or field is let go with a tap on
- * the ground. An armed order's own button
+ * the ground (a mouse: Esc). An armed order's own button
  * turns into its Cancel, so the card never grows a row. The Build list has a basic and an advanced page.
  */
 const COLS = 3;

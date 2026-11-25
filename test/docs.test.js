@@ -249,7 +249,7 @@ test('the controls tables\' gestures, on demand: seven touch rows and seven desk
   assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 6, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
   const loopsOf = (rows, prefix) => rows.filter(r => r.button).map(r => [r.do, r.button.match(new RegExp(`data-loop="${prefix}-(\\w+)"`))[1]]);
   assert.deepEqual(loopsOf(touch, 'touch'), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven touch rows, their loops');
-  assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine, set a rally point', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');
+  assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');
   assert.deepEqual(loopsOf(schemes, 'desk'), [['Move the map', 'wasd'], ['A command\'s key', 'attack']], 'the two scheme rows: WASD\'s map keys, Classic\'s A');
   assert.ok(schemes[0].row.indexOf('data-loop="desk-wasd"') > schemes[0].row.indexOf('data-label="WASD"') && schemes[1].row.indexOf('data-loop="desk-attack"') < schemes[1].row.indexOf('data-label="WASD"'), 'the WASD loop in the WASD cell, the A loop in the Classic cell');
   assert.deepEqual(loopsOf(keys, 'desk'), [['Ctrl+1 to 9, then 1 to 9', 'group']], 'the control groups row, its loop');

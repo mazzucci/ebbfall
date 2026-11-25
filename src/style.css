@@ -456,6 +456,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #helpSheet .lines{margin:0 0 6px;padding:0;list-style:none} #helpSheet li{margin:0 0 4px} #helpSheet b{color:var(--fg)} #helpSheet .goal{margin:6px 0 8px;color:var(--fg)}
 #helpSheet kbd{font:12px var(--mono);background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:0 4px;color:var(--ally2)}
 #helpSheet .ft{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;font:12px var(--mono);color:var(--muted)} #helpSheet .ft a{color:var(--ally2);display:inline-flex;align-items:center;min-height:44px} #helpSheet .ft #helpFeedback{color:var(--muted)} #helpSheet .ft #helpFeedback:hover{color:var(--ally2)}
+#helpSheet .ro,#helpSheet.rightonly .lr{display:none} #helpSheet.rightonly .ro{display:inline} /* (the MOUSE setting's words) */
 #helpSheet .touch{display:none} @media (pointer:coarse){#helpSheet .touch{display:block} #helpSheet .desk{display:none}}
 @media (max-height:500px) and (orientation:landscape){#helpSheet{font-size:12px;line-height:1.4;padding:6px 12px 8px} #helpSheet .x{width:40px;height:40px} #helpSheet .ft a{min-height:36px}}
 .ib.help{width:32px;height:28px;padding:0;display:grid;place-items:center;font:700 15px var(--display);color:var(--ally2)} .ib.help[aria-expanded="true"]{border-color:var(--ally);background:#2a2415}

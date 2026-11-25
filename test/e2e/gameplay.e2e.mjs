@@ -4638,7 +4638,7 @@ test('desktop: OPTIONS on the menu\'s first page; the choice is remembered acros
     assert.ok(await page.locator('#options').isHidden() && await page.locator('#menuHome').isVisible(), 'BACK: the menu again');
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#btnOptions').click();
-    assert.equal(await page.locator('#options [aria-checked="true"]').textContent(), 'WASD', 'remembered');
+    assert.equal(await page.locator('#options [data-k^="controls:"][aria-checked="true"]').textContent(), 'WASD', 'remembered');
     await page.keyboard.press('Escape');
     assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
     // (How to play tells of both schemes: the help sheet's line, and the docs' table: test/docs.test.js, docs.e2e.mjs)

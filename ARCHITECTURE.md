@@ -417,10 +417,11 @@ src/client/           everything that touches the browser
                       relay takes it) behind `playerName` get/set, shared by the lobby's NAME and OPTIONS' (test/store.test.js)
   controls.js         the desktop keyboard scheme: CLASSIC (letters; arrows, edge, minimap, middle drag) or WASD (W A S D
                       always pan; a command's key is its card slot's, GRID: E R T / F G H / C V B by key position),
-                      `keyed`; shown where `(pointer: fine)`
+                      `keyed`; and MOUSE (endfall.mouse): LEFT OR RIGHT CLICK orders, or RIGHT CLICK ONLY; both shown
+                      where `(pointer: fine)`
   options.js          the OPTIONS card: a list of settings drawn by one helper, chips or a text field: NAME (every device,
-                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed) and CONTROLS (where
-                      `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
+                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed), CONTROLS and MOUSE
+                      (where `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   help.js             the in-game help sheet: the ? in the top bar (between the clock and FULL SCREEN) or the pause card's
                       HOW TO PLAY opens it in the stage's top-right corner (over the pause card, below the corner's
@@ -494,6 +495,8 @@ src/client/           everything that touches the browser
   grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: a finger held on the
                       ground then a box, SELECT, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint);
                       never in the guided first game (its checklist's step teaches it)
+  groundhint.js       with a mouse set to RIGHT CLICK ONLY, the ground left-clicked while units are selected brings "Right-click to move or
+                      attack", three times a device at most (endfall.groundHint), not again while it shows
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
   hud.js              top bar (the Kingdom's gold as coins and population, the Expedition's energy as a bolt and grid)
@@ -557,7 +560,10 @@ src/client/           everything that touches the browser
                       under it) arms a box there (a tick, SELECT lit amber, the map's edge aglow, the hint), dragged it
                       draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
-                      selection on touch (a mouse's empty box still clears it); SELECT: tap to toggle, or hold
+                      selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
+                      (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
+                      a job so are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
+                      keeps the selection; Esc and Deselect let go; SELECT: tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it; a hidden tab
                       suspends it too; `gameSound`: the wind bed plays in a game only (main.js `begin`, the end card,
@@ -644,6 +650,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
                       construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
+                      mouse.e2e.mjs (the MOUSE setting: what a left click orders, selects and keeps, the right-click hint),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a

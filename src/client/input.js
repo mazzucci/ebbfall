@@ -12,8 +12,9 @@ import { marker } from './fx.js';
 import { askLeave } from './screen.js';
 import { goHome, selectIdleFactory, selectArmy, selectSameType, jumpToAlert, saveGroup, recallGroup } from './tools.js';
 import { togglePause, paused } from './pause.js';
-import { wasd } from './controls.js';
+import { wasd, leftOrders } from './controls.js';
 import { notePick } from './grouphint.js';
+import { groundHint } from './groundhint.js';
 
 /** The radio voice for an order or selection: the first unit's type. */
 const voice = (list) => ({ unit: list.find(e => e.kind === 'unit')?.type });
@@ -146,7 +147,8 @@ function select(list, add) {
   updateHud(); // the command card must match the selection right away, not on the next HUD tick
 }
 
-/** `keep`: a box that takes nothing keeps the selection (touch: a hesitant pan that became a box costs nothing). */
+/** A box that takes nothing keeps what is ours in the selection (a finger's hesitant pan that became a box costs
+ *  nothing; Esc and Deselect let go), and `keep` (touch) an enemy or a mine looked at too. */
 function boxSelect(x0, y0, x1, y1, add, keep = false) {
   const a = toWorld(Math.min(x0, x1), Math.min(y0, y1)), b = toWorld(Math.max(x0, x1), Math.max(y0, y1));
   const us = G.units.filter(u => { const s = body(u); return u.team === G.me && !u.inside && s.x >= a.x - s.r && s.x <= b.x + s.r && s.y >= a.y - s.r && s.y <= b.y + s.r; }); // (the box touches its body)
@@ -154,7 +156,7 @@ function boxSelect(x0, y0, x1, y1, add, keep = false) {
   const fighters = us.filter(u => !u.d.worker);
   if (us.length) { select(fighters.length ? fighters : us, add); return; }
   const bs = G.bldgs.filter(bb => bb.team === G.me && bb.x >= a.x && bb.x <= b.x && bb.y >= a.y && bb.y <= b.y);
-  if (bs.length) select([bs[0]], false); else if (!add && !keep) { setSelection([]); updateHud(); }
+  if (bs.length) select([bs[0]], false); else if (!add && !keep && !playerSel().length) { setSelection([]); updateHud(); }
 }
 
 /** One of our finished buildings that has lost hp: harvesters sent to it repair it. */
@@ -180,16 +182,16 @@ function placeTile(type, wx, wy) {
 
 /**
  * On touch, once harvesters have a job (gather, build, repair) let go of them: the next tap on the map is then just a
- * tap, not "walk here", and the job carries on. The target's blink confirms the order. With a mouse, right-click is
- * the order and left-click selects, so the selection stays.
+ * tap, not "walk here", and the job carries on. The target's blink confirms the order. A mouse's `left` click that gave
+ * the job lets go of them too, for the same reason; after a right click the selection stays.
  */
-function releaseWorkers(units) {
-  if (drag.ptype !== 'touch' || !units.length || !units.every(u => u.d.worker)) return;
+function releaseWorkers(units, left = false) {
+  if ((drag.ptype !== 'touch' && !left) || !units.length || !units.every(u => u.d.worker)) return;
   setSelection([]); updateHud();
 }
 
-/** Right-click / tap-on-ground semantics: context-sensitive order for the selection. */
-function commandAt(wx, wy, hit = pick(wx, wy)) {
+/** Right-click / tap-on-ground semantics: context-sensitive order for the selection. `left`: a mouse's left click. */
+function commandAt(wx, wy, hit = pick(wx, wy), left = false) {
   const sel = playerSel(); if (!sel.length) return;
   const units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg');
   let job = false; // harvesters were given work
@@ -206,7 +208,20 @@ function commandAt(wx, wy, hit = pick(wx, wy)) {
   else if (damaged(hit) && units.some(u => u.d.worker)) { for (const u of units) if (u.d.worker) repair(u, hit); else moveTo(u, wx, wy); marker(wx, wy, ALLY); flashTarget(hit); sfx('move', voice(units)); job = true; }
   else { formation(units, wx, wy); marker(wx, wy, '#5ad67d'); sfx('move', voice(units)); }
   clearMode();
-  if (job) releaseWorkers(units);
+  if (job) releaseWorkers(units, left);
+}
+
+/** Whether a left click on `hit` (null: the ground) with `units` selected is an order, in the MOUSE setting's LEFT OR
+ *  RIGHT CLICK: the ground, a mine, an enemy; with a worker among them, a site of ours or a damaged building. What else
+ *  is ours, and an ally's, is selected. */
+const orderTarget = (hit, units) => !hit || hit.kind === 'node' || enemies(G.me, hit.team)
+  || (hit.kind === 'bldg' && hit.team === G.me && units.some(u => u.d.worker) && (!hit.done || damaged(hit)));
+
+/** What a click or tap at (wx, wy) hit, `hit` or the unit of the last one: the second of a double counts on the unit of
+ *  the first, even if it has moved a little since (only when it hit nothing else). */
+function secondOf(hit, wx, wy, at) {
+  const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
+  return prev && (!hit || hit.kind === 'node') && fromBody(prev, { x: wx, y: wy }) <= touchReach() * 2 ? prev : hit;
 }
 
 /** What a tap on the map does while an order from the card is armed (the orders themselves: ARMED in ui.js). */
@@ -250,20 +265,24 @@ function leftAction(wx, wy, add, at) {
   }
   const tap = ARMED[ui.mode] && armedTap[ui.mode];
   if (tap) { tap(units, wx, wy); return; }
-  const hit = pick(wx, wy);
-  if (hit && hit.kind !== 'node') selectOrDouble(hit, add, at);
-  else if (hit && !add) select([hit]); // a gold mine: shows what is left (right-click gathers)
-  else if (!add) { setSelection([]); updateHud(); }
+  const touch = drag.ptype === 'touch'; // (a finger: only with a Build page open, touchTap)
+  const hit = touch ? pick(wx, wy) : secondOf(pick(wx, wy), wx, wy, at);
+  if (!touch && !add && units.length && leftOrders() && orderTarget(hit, units)) {
+    if (ui.mode) { clearMode(); updateHud(); } else commandAt(wx, wy, hit, true); // (a Build page: closed, as by a right click)
+    return;
+  }
+  if (hit && hit.kind !== 'node') { selectOrDouble(hit, add, at); return; }
+  if (add) return;
+  if (hit) select([hit]); // a gold mine: shows what is left
+  else if (touch || !sel.length) { setSelection([]); updateHud(); } // (an enemy or a mine looked at: let go)
+  else if (units.length) groundHint(); // ours stay selected (RIGHT CLICK ONLY, or a building): Esc and Deselect let go
 }
 
 /** Single-finger tap: select own things, otherwise command the current selection. */
 function touchTap(wx, wy, at) {
   if (G.over) return;
   if (ui.place || ui.mode) { leftAction(wx, wy, false); return; }
-  const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'); let hit = pick(wx, wy);
-  // The second tap of a double-tap counts on the unit of the first, even if it has moved a little since.
-  const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
-  if (prev && (!hit || hit.kind === 'node') && fromBody(prev, { x: wx, y: wy }) <= touchReach() * 2) hit = prev; // (only a tap that hit nothing else)
+  const sel = playerSel(), units = sel.filter(x => x.kind === 'unit'), bl = sel.filter(x => x.kind === 'bldg'), hit = secondOf(pick(wx, wy), wx, wy, at);
   // Only workers selected and a tap on a mine where another of ours stands: the mine (gather), not the worker by it.
   const node = field(hit && hit.kind === 'unit' && hit.team === G.me && hit.d.worker && !ui.sel.includes(hit) && units.length && units.every(u => u.d.worker) && nodeAt(wx, wy));
   if (node) { commandAt(wx, wy, node); return; }

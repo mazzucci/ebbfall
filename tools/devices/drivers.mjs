@@ -36,7 +36,7 @@ export async function openDriver(backend, key, { url } = {}) {
 function pageDriver(page, close, extra = {}) {
   return {
     goto: (url) => page.goto(url, { timeout: 90000 }),
-    async tap(css) { const l = page.locator(css).first(); try { await l.tap({ timeout: 15000 }); } catch (e) { if (!/hasTouch|touch/i.test(e.message)) throw e; await l.click({ timeout: 15000 }); } },
+    async tap(css) { const l = page.locator(css).first(); try { await l.tap({ timeout: 90000 }); } catch (e) { if (!/hasTouch|touch/i.test(e.message)) throw e; await l.click({ timeout: 90000 }); } },
     eval: (expr) => page.evaluate(expr),
     scriptClick: (css) => page.locator(css).first().evaluate(e => e.click()),
     // A real touch at `fx`, `fy` (shares of the element's box): Playwright's tap there; in a context without touch

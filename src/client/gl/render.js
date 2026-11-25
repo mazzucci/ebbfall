@@ -7,7 +7,7 @@ import { AlphaFilter, Application, CanvasSource, ColorMatrixFilter, Container, G
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf, muzzlePoint, SHOT_FROM, firedBy, shotDrawn } from '../look.js';
 import { REVEAL, revealRows, revealMatrix, frameOf, slabOf, slabMarks, RAW, GHOST, GANTRY, DONE, DONE_PUFF, BUILD_BAR, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headAt, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
@@ -285,6 +285,7 @@ export function resize() {
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
   const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: the row over the minimap)
   footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity, deskHud.matches ? cardTop() : Infinity)) + 4 : FOOT_ROOM;
+  land.inBox(!bleed);
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
   cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
 }
@@ -963,9 +964,9 @@ export function muzzleFx(x, y, face, size = 1) {
 }
 /** A rifle's flash at its mouth, a pale cone turned along the aim (look.js MUZZLE_FLASH: `fwd` px ahead of the ground point (x, y) along `face`,
  *  radians, the ground's depth as the camera sees it, and `up` px above it), brief, with a warm light. */
-export function muzzleFlash(x, y, face, { fwd, up, scale, depth = 1 }) {
-  if (depth !== 1) fwd /= Math.hypot(Math.cos(face), Math.sin(face) / depth);
-  addEffect('muzzle', x + Math.cos(face) * fwd, y + Math.sin(face) * fwd - up, { rot: face, anchor: [0.07, 0.5], life: 0.08, tint: 0xfff2cc, light: 0xffe8b0, lightScale: 0.25, scale });
+export function muzzleFlash(x, y, face, flash) {
+  const m = muzzlePoint(x, y, face, flash), { scale } = flash;
+  addEffect('muzzle', m.x, m.y, { rot: face, anchor: [0.07, 0.5], life: 0.08, tint: 0xfff2cc, light: 0xffe8b0, lightScale: 0.25, scale });
 }
 /** A melee blow lands on `t`: a glint of steel on it, at the point of it nearest the striker `u` (a unit's body half way up
  *  its drawn height, a building's nearest wall), and with `puff` (look.js MELEE_PUFF) dust kicked up at its feet.
@@ -1322,7 +1323,7 @@ export function render(selList, place) {
   // stretched copy of itself (a heavy shot's trail) and a light (an Expedition tracer's glow, the rocket's flame),
   // shown as its style says. A shot's tier in flight is its shooter's weapon against what it flies at: the unit at its
   // aim point (the sim aims a shot at its target's ground point each tick), a flyer or a walker.
-  let pi = 0, aimed = null;
+  let pi = 0, aimed = null, towers = null;
   for (const p of G.projs) {
     if (p.team !== G.me && !allRevealed() && !G.vis[idx(clamp((p.x / TILE) | 0, 0, MW - 1), clamp((p.y / TILE) | 0, 0, MH - 1))]) continue;
     const s = pooled(projPool, pi++, () => {
@@ -1335,14 +1336,16 @@ export function render(selList, place) {
     setTex(s, tex(art)); // (the shot's anchor is its tip, a stone's its middle)
     const smoke = SHOT_TRAIL[art];
     if (smoke && Math.random() < dt * 40) addEffect(smoke, p.x, p.y, { life: 0.6, fade: 1 }); // (a rocket's smoke: puffs that overlap and fade)
-    const rot = Math.atan2(p.ay - p.y, p.ax - p.x), sc = style.scale ?? 1, len = s.texture.width * sc;
-    s.position.set(p.x, p.y); s.rotation = rot; s.scale.set(sc); s.tint = style.tint ?? 0xffffff;
+    // (a tower's shot from its gun's mouth: look.js SHOT_FROM)
+    const from = p.by ? null : firedBy(p, (towers ??= G.bldgs.filter(b => b.done && SHOT_FROM.has(b.type))).filter(b => b.team === p.team)), at = from ? shotDrawn(p, from) : p;
+    const rot = from ? at.rot : Math.atan2(p.ay - p.y, p.ax - p.x), sc = style.scale ?? 1, len = s.texture.width * sc;
+    s.position.set(at.x, at.y); s.rotation = rot; s.scale.set(sc); s.tint = style.tint ?? 0xffffff;
     s.bar.visible = style.bar > 0;
-    if (s.bar.visible) { s.bar.position.set(p.x + Math.cos(rot) * 1.5, p.y + Math.sin(rot) * 1.5); s.bar.rotation = rot; s.bar.width = len + 3; s.bar.height = style.bar; }
+    if (s.bar.visible) { s.bar.position.set(at.x + Math.cos(rot) * 1.5, at.y + Math.sin(rot) * 1.5); s.bar.rotation = rot; s.bar.width = len + 3; s.bar.height = style.bar; }
     const heavy = !smoke && art !== 'cannonball' && HIT_LOOK[hitTier(shotWeapon(p), (aimed ??= flyersAt()).has(aimKey(p.ax, p.ay)))].hit === 'blow';
     s.trail.visible = heavy;
-    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(p.x, p.y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL.px) / len, sc); s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint; } // (the shot's own colors: a Kingdom shaft's trail is timber, never cool, and no light goes with it)
-    s.l.visible = SHOT_LIT.has(art); s.l.tint = style.tint ? SHOT_GLOW : 0xffd27a; s.l.position.set(p.x, p.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; never an arrow, a bolt or a stone)
+    if (heavy) { setTex(s.trail, s.texture); s.trail.position.set(at.x, at.y); s.trail.rotation = rot; s.trail.scale.set(sc * (len + HEAVY_TRAIL.px) / len, sc); s.trail.alpha = HEAVY_TRAIL.alpha; s.trail.tint = s.tint; } // (the shot's own colors: a Kingdom shaft's trail is timber, never cool, and no light goes with it)
+    s.l.visible = SHOT_LIT.has(art); s.l.tint = style.tint ? SHOT_GLOW : 0xffd27a; s.l.position.set(at.x, at.y); s.l.scale.set(0.25); // (only a shot with a light of its own glows: a tracer, a rocket's flame; never an arrow, a bolt or a stone)
   }
   for (let i = pi; i < projPool.length; i++) { const s = projPool[i]; s.visible = false; s.l.visible = false; s.bar.visible = false; s.trail.visible = false; }
 

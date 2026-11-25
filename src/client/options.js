@@ -1,12 +1,12 @@
 // The OPTIONS card: this device's settings, a row each (OPTIONS below: a setting is one more entry there). It opens from
 // the menu's first page and from the pause card (over it: the game stays paused, and the corner keeps the pause card's
 // rule, full screen only); BACK or Esc returns to whichever opened it. Its buttons show only where some setting applies
-// to this device: NAME applies everywhere, so always (CONTROLS, for a mouse and a keyboard, only where `(pointer: fine)`).
+// to this device: NAME applies everywhere, so always (CONTROLS and MOUSE, for a mouse and a keyboard, only where `(pointer: fine)`).
 // While it is up the page under it is inert (ui.js `modalCards`). Opening it never focuses a text
 // field (a phone's keyboard would pop up): the first lit chip takes the focus, or BACK; a field only on a tap.
 import { $, modalCards } from './ui.js';
 import { chipRow } from './seats.js';
-import { SCHEMES, scheme, setScheme, offered } from './controls.js';
+import { SCHEMES, scheme, setScheme, offered, MOUSE, mouseMode, setMouse } from './controls.js';
 import { MAX_NAME, playerName } from './store.js';
 import { touchDevice } from './screen.js';
 
@@ -18,6 +18,8 @@ const OPTIONS = [
     field: { get: playerName.get, set: playerName.set, max: MAX_NAME, placeholder: 'Your name', autocomplete: 'nickname' } },
   { name: 'controls', label: 'CONTROLS', applies: offered, choices: () => Object.entries(SCHEMES).map(([k, v]) => [k, v.chip]),
     value: scheme, pick: setScheme, line: () => SCHEMES[scheme()].line },
+  { name: 'mouse', label: 'MOUSE', applies: offered, choices: () => Object.entries(MOUSE).map(([k, v]) => [k, v.chip]),
+    value: mouseMode, pick: setMouse, line: () => MOUSE[mouseMode()].line },
 ];
 
 /** Whether this device has anything to set (the OPTIONS buttons show only then). */

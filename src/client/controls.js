@@ -39,6 +39,22 @@ export function setScheme(s) {
   for (const fn of listeners) fn(s);
 }
 
+/** What the mouse's left click does (MOUSE on the OPTIONS card; a trackpad's too; touch is the same in both): LEFT OR
+ *  RIGHT CLICK (the default), with units of ours selected a left click on the ground, a mine or an enemy is an order as
+ *  a right click is (input.js `orderTarget`); RIGHT CLICK ONLY, it only selects. Remembered on the device (store.js:
+ *  endfall.mouse), applied at once. */
+export const MOUSE = {
+  both: { chip: 'LEFT OR RIGHT CLICK', line: 'With units selected, either button gives the order.' },
+  right: { chip: 'RIGHT CLICK ONLY', line: 'The left button only selects; the right gives the order.' },
+};
+let button = store.get('mouse') === 'right' ? 'right' : 'both';
+export const mouseMode = () => button;
+export const leftOrders = () => button === 'both';
+export function setMouse(m) {
+  if (!MOUSE[m] || m === button) return;
+  button = m; store.set('mouse', m);
+}
+
 /** A card's items with the keys of scheme `s`: in WASD each button its slot's GRID key (a slot past the grid: none),
  *  and an item with no button (`hidden`) none; CLASSIC leaves each its own letter. */
 export function keyed(items, s = scheme()) {

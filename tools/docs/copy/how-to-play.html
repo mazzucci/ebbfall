@@ -50,14 +50,17 @@ description: Mouse, keyboard and touch controls, mining gold, building, populati
 </details>
 
 <h2 id="desktop">Controls on a desktop</h2>
-{{clip desktop-loop | title=Ebbfall on a computer: the mouse and keyboard controls | label=Ebbfall on a computer: drag a box to select, right-click to move, double-click for all of one type, A then a click to attack-move, B to build, Ctrl+1 saves a control group and 1 recalls it, the arrow keys move the map | caption=The desktop controls in 16 seconds, in the Classic scheme: a box, a right-click, a double-click, A, B, a control group, the arrow keys. Clicks are drawn as rings, white for the left button and teal for the right; keys as keycaps.}}
+{{clip desktop-loop | title=Ebbfall on a computer: the mouse and keyboard controls | label=Ebbfall on a computer: drag a box to select, right-click to move (a left click does too), double-click for all of one type, A then a click to attack-move, B to build, Ctrl+1 saves a control group and 1 recalls it, the arrow keys move the map | caption=The desktop controls in 16 seconds, in the Classic scheme: a box, a right-click (a left click orders too), a double-click, A, B, a control group, the arrow keys. Clicks are drawn as rings, white for the left button and teal for the right; keys as keycaps.}}
 {{figure shot-desktop-hud | res=Gold, and population (the Expedition: GRID) | bar=Game clock, the ? help, FULL SCREEN, SOUND, PAUSE | minimap=Minimap: click to jump, drag to scroll | info=Selection: portrait, name, health, the group's types | cmd=Command card: each button shows its key | groups=Control groups and the ATTACK alert}}
 <h3>Mouse</h3>
 <table class="touch desk">
 <thead><tr><th scope="col">Do</th><th scope="col">How</th></tr></thead>
 <tbody>
 <tr><td>Select</td><td>left-click, or drag a box{{loop desk-select | label=Ebbfall on a computer: drag a box to select a group of units | do=Select}}</td></tr>
-<tr><td>Move, attack, mine, set a rally point</td><td>right-click{{loop desk-move | label=Ebbfall on a computer: right-click the ground to move the selected units | do=Move, attack, mine, set a rally point}}</td></tr>
+<tr><td>Move, attack, mine</td><td>with units selected: click the ground, an enemy or a mine, with the left or the right button; workers also click a half-built or damaged building{{loop desk-move | label=Ebbfall on a computer: click the ground, here with the right button, to move the selected units | do=Move, attack, mine}}</td></tr>
+<tr><td>Set a rally point</td><td>with a building selected: right-click, or the Rally button, then click</td></tr>
+<tr><td>Let go</td><td><kbd>Esc</kbd>, or <b>Deselect</b> on a unit's card</td></tr>
+<tr><td>Left button only to select</td><td>OPTIONS, MOUSE: RIGHT CLICK ONLY (the right button then gives every order)</td></tr>
 <tr><td>Move the map</td><td>hold the middle button and drag, or the arrow keys, or the screen's edge{{loop desk-pan | label=Ebbfall on a computer: hold an arrow key to move the map | do=Move the map}}</td></tr>
 <tr><td>Zoom</td><td><kbd>Ctrl</kbd>+wheel, or a trackpad pinch</td></tr>
 <tr><td>One unit of a group</td><td>click it in the panel; Shift+click drops it</td></tr>
@@ -91,7 +94,7 @@ description: Mouse, keyboard and touch controls, mining gold, building, populati
 
 <h2 id="gold">Gold and workers</h2>
 {{diagram economy}}
-<p>Every base has a gold mine a few steps from its headquarters. Workers mine only when you send them: select them, then tap the mine (or right-click it).</p>
+<p>Every base has a gold mine a few steps from its headquarters. Workers mine only when you send them: select them, then tap or click the mine.</p>
 <ul>
 <li>A new worker waits by your Castle or Data center, or walks to the mine its rally point is set on.</li>
 <li>Up to {{w villagersPerMine}} Villagers, or {{w botsPerMine}} Bots, work a mine at once; more wait their turn, and a worker at a crowded mine moves to a quieter one nearby.</li>
@@ -103,7 +106,7 @@ description: Mouse, keyboard and touch controls, mining gold, building, populati
 <h2 id="building">Building</h2>
 <p>Select a worker and tap <b>Build</b>. What needs another building first is under <b>Advanced</b>, which opens once your Barracks (the Expedition: Recruiting post) stands; each building shows up as it opens.</p>
 <ul>
-<li>Villagers <b>repair</b> damaged buildings (the Repair button, or right-click the building): a quarter of the price for a full fix.</li>
+<li>Villagers <b>repair</b> damaged buildings (the Repair button, or with a mouse click the building): a quarter of the price for a full fix.</li>
 <li>A Bot stays at each building until it stands, and repairs buildings too (not machines).</li>
 <li>A building that lost its builder waits, half built, until a worker returns to it.</li>
 </ul>

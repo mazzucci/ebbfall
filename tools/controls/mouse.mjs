@@ -24,14 +24,14 @@ export const moveTo = (t0, at, { glide = 0.6, stay = 0.5 } = {}) => [{ kind: 'mo
 /** A key down for `hold` seconds: `key` as the event's key ('a', '1', 'ArrowRight'), with Ctrl when `ctrl`. */
 export const key = (t0, k, { hold = 0.12, ctrl = false } = {}) => [{ kind: 'key', t0, t1: t0 + hold, key: k, ctrl }];
 
-const CODES = { ArrowRight: 39, ArrowLeft: 37, ArrowUp: 38, ArrowDown: 40, Control: 17 };
+const CODES = { ArrowRight: 39, ArrowLeft: 37, ArrowUp: 38, ArrowDown: 40, Control: 17, Escape: 27 };
 /** The DOM code and virtual key code of a key. */
 function keyInfo(k) {
   if (k.length === 1) { const up = k.toUpperCase(); return { code: /[0-9]/.test(k) ? `Digit${k}` : `Key${up}`, vk: up.charCodeAt(0), text: k }; }
   return { code: k, vk: CODES[k] || 0, text: undefined };
 }
 /** What a keycap shows for a key. */
-export const capLabel = (k) => ({ ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', Control: 'Ctrl' }[k] || k.toUpperCase());
+export const capLabel = (k) => ({ ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', Control: 'Ctrl', Escape: 'Esc' }[k] || k.toUpperCase());
 
 /**
  * Play the strokes into the page frame by frame: `step(t)` dispatches what happened since the last frame (the cursor's

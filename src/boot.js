@@ -11,6 +11,8 @@ import { initMenu, pendingChallenge } from './client/menu.js';
 import { initOnline, reloadUrl } from './client/online.js';
 import { registered } from './client/offline.js';
 import { initTrailer } from './client/trailer.js';
+import { loadArt } from './client/gl/artload.js';
+import { initLoadLine, loadLine, loadOver } from './client/loadline.js';
 
 // ?bench: the device test plays a game of its own (main.js loads src/client/bench.js), with its own card: no menu.
 const BENCH = new URLSearchParams(location.search).has('bench');
@@ -18,6 +20,7 @@ if (BENCH) $('start').hidden = true;
 
 /** main.js's `game` once it has loaded (null before); `failed` once it could not. */
 let game = null, failed = false;
+loadArt(new URL('art/', document.baseURI).href); // (the art, at once: the renderer waits for it; its bytes are the loading line's)
 const loading = import('./main.js').then(m => (game = m.game));
 
 const STARTS = ['btnStart', 'btnTutorial'], labels = new Map();
@@ -36,20 +39,21 @@ let pending = null;
 function play(go) {
   if (failed) { location.reload(); return; }
   if (game) { go(game); return; }
-  pending = go; startButtons('LOADING…', true);
+  pending = go; startButtons('LOADING…', true); loadLine(true);
 }
 // Any other tap in the menu meanwhile (BACK, another choice; the corner's sound and full screen are not the menu's)
 // calls the waiting start off: a game starts as it was asked for, or not at all.
 $('start').addEventListener('click', (e) => {
   const b = e.target.closest('button');
-  if (pending && b && !STARTS.includes(b.id)) { pending = null; startButtons(null, false); }
+  if (pending && b && !STARTS.includes(b.id) && !b.closest('#loadLine')) { pending = null; startButtons(null, false); loadLine(false); } // (RETRY is for the start that waits)
 }, true);
-loading.then((g) => { const go = pending; pending = null; startButtons(null, false); go?.(g); }, (e) => {
-  failed = true; pending = null; startButtons('RELOAD', false); console.error(e);
+loading.then((g) => { const go = pending; pending = null; startButtons(null, false); loadOver(); go?.(g); }, (e) => {
+  failed = true; pending = null; startButtons('RELOAD', false); loadOver(); console.error(e);
   const p = document.createElement('p'); p.className = 'tip'; p.id = 'loadFailed'; p.textContent = LOAD_FAILED; // (on the menu's card: a toast would be under it)
   $('start').querySelector('.card').appendChild(p);
 });
 
+initLoadLine(BENCH); if (BENCH) loadLine(true);
 initCorner();
 initMenu({ onStart: BENCH ? () => {} : () => play(g => g.newGame()) });
 initOnline({ game: loading });

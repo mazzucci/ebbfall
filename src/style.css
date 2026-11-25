@@ -279,6 +279,12 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #menuFoot{width:fit-content;margin-left:auto;margin-right:auto;padding:0 12px;border-radius:10px;background:rgba(18,26,37,.82);box-shadow:0 0 10px 6px rgba(18,26,37,.82)}
 #menuLinks,#menuLinks a,#menuHome .rec{color:#aebbcb}
 @media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, clear of the field) */
+/* The loading line (loadline.js): a bar over the row of the button that waits for the game. */
+#loadLine{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:8px 0 4px;padding:8px 12px;border:1px solid var(--line2);border-radius:6px;background:rgba(18,26,37,.92);font:13px var(--mono);color:var(--fg);text-align:left;grid-column:1/-1}
+#loadLine[hidden]{display:none} #loadLine span{flex:1 1 240px} #loadLine progress{flex:1 1 220px;height:10px;appearance:none;-webkit-appearance:none;border:0;border-radius:5px;overflow:hidden;background:var(--line);accent-color:var(--ally)}
+#loadLine progress::-webkit-progress-bar{background:var(--line)} #loadLine progress::-webkit-progress-value{background:var(--ally)} #loadLine progress::-moz-progress-bar{background:var(--ally)}
+#loadLine.failed{border-color:var(--foe2)} #loadLine.failed progress{display:none} #loadLine .ib{min-height:44px;padding:0 18px} #loadLine .ib[hidden]{display:none}
+#loadLine.alone{position:fixed;left:16px;right:16px;bottom:16px;z-index:40}
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
 @media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}

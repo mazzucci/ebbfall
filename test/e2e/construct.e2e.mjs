@@ -1,12 +1,12 @@
 // Construction you can read (src/client/construct.js; Notion: "PRD: construction you can read"), through the real UI:
-// a site looks unfinished until done (the Kingdom's raw and roofless, the Expedition's rising in its printer gantry under
-// a faint ghost, its top tenth missing) under a build
+// a site looks unfinished until done (the building's own picture rising in color, its top gray and faint: the Kingdom's
+// in a low timber frame, the Expedition's on a slab) under a build
 // bar in the hp bar's place, both cards say how far along it is, a builder strikes while it works, a site left with no
 // builder toasts once, and a finished building comes into full color over half a second. Run: npm run build && npm
 // run test:e2e (or this file alone: node --test test/e2e/construct.e2e.mjs).
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { GHOST, GANTRY, RAW, BUILD_BAR, headAt, headPath } from '../../src/client/construct.js';
+import { REVEAL, BUILD_BAR } from '../../src/client/construct.js';
 import { test, start, stop, newGame, until, DESKTOP, PHONE } from './harness.mjs';
 
 const SMALL = { ...PHONE, viewport: { width: 667, height: 375 } }; // (iPhone SE class: the console hides its status line)
@@ -44,7 +44,7 @@ const watchDone = (d, id, ms = 60000) => d.eval(([id, ms]) => new Promise(resolv
   tick();
 }), [id, ms]);
 
-test('a Kingdom site reads unfinished: raw, roofless, its build bar on top; both cards say how far; a builder strikes', async () => {
+test('a Kingdom site reads unfinished: rising in color in its timber frame, its top gray, its build bar on top; both cards say how far; a builder strikes', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const { id, w } = await placeSite(d, 'c', 'barracks');
@@ -54,10 +54,9 @@ test('a Kingdom site reads unfinished: raw, roofless, its build bar on top; both
     await d.page.waitForTimeout(300);
     await d.page.waitForFunction((id) => endfall.sites().bldgs.some(o => o.id === id), id, { timeout: 10000 }); // (a frame drawn with it in view: the first page of a run can be slow to its first frame)
     const o = await drawn(d, id);
-    assert.equal(o.look, 'raw', 'the Kingdom\'s raw site');
-    assert.ok(Math.abs(o.sat - RAW.sat) < 1e-6, `desaturated: ${o.sat}`);
-    assert.equal(o.paint, 0, 'no seat paint on the body (the scaffold\'s cloth says whose it is)');
-    assert.ok(o.scaffold === 1 && o.height < o.fullHeight * 0.9, `inside its scaffold, the top of it missing (${o.height} of ${o.fullHeight})`);
+    assert.deepEqual([o.look, o.under, o.scaffold, o.found], ['reveal', 'frame', 0, 0], 'the picture rising in its timber frame, no scaffold');
+    assert.ok(Math.abs(o.roof - REVEAL.alpha) < 1e-6, `its top gray and faint: ${o.roof}`);
+    assert.ok(o.height < o.fullHeight * 0.9, `in color only so far up (${o.height} of ${o.fullHeight})`);
     assert.deepEqual(o.bars.map(r => [r.bar, r.h]), [['build', BUILD_BAR.h]], 'the build bar in the hp bar\'s place, taller; no hp bar while undamaged');
     // A builder at work strikes now and then (the renderer's clock: real time).
     await d.page.waitForFunction((w) => (endfall.sites().strikes[w] || 0) >= 2, w, { timeout: 10000 });
@@ -104,7 +103,7 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
     const seen = await watchDone(d, id);
     const fade = seen.filter(s => s.look === 'fade'), last = seen.at(-1);
     assert.ok(fade.length > 0, `the done moment played: ${JSON.stringify(seen.slice(-3))}`);
-    assert.ok(fade.some(s => s.paint > 0 && s.paint < 1 && s.sat > RAW.sat && s.sat < 1), 'part way into color and paint');
+    assert.ok(fade.some(s => s.roof > REVEAL.alpha && s.roof < 1), `its top part way in: ${JSON.stringify(fade.slice(0, 3))}`);
     assert.ok(fade.every(s => !s.bars.includes('build')), 'the build bar gone at t = 0');
     assert.ok(fade.every(s => s.fadeT < 0.5 + 1e-9), 'half a second at most');
     assert.equal(last.look, 'full');
@@ -132,51 +131,32 @@ async function orangeBelow(d, b) {
   }), png.toString('base64'));
 }
 
-test('an Expedition site rises in full color in its printer gantry under a faint ghost, no ring on the ground; its Bot\'s card says how far; its top tenth and its paint come on the done moment', async () => {
+test('an Expedition site is the building\'s own picture rising on a slab, no ring on the ground; its Bot\'s card says how far; its top and its paint come on the done moment, and nothing of the site is left', { timeout: 180000 }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   try {
     const { id, w } = await placeSite(d, 'i', 'siphon');
-    assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.6, id, { step: 1 / 30 }), 'over half built');
-    const b = (await d.state()).bldgs.find(x => x.id === id);
-    await d.centerOn(b.x, b.y);
-    await d.page.waitForTimeout(300);
-    // (frames drawn since it came into view: what an earlier frame drew of it, at less progress, is no reading)
-    await d.page.waitForFunction((id) => endfall.sites().bldgs.some(o => o.id === id), id, { timeout: 10000 });
-    await d.eval(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-    const o = await drawn(d, id);
-    assert.equal(o.look, 'gantry');
-    assert.deepEqual([o.tint, o.alpha, o.sat], [0xffffff, 1, 1], 'the solid in full color, no filter');
-    assert.equal(o.paint, 0, 'no seat paint until done (the gantry\'s pennants say whose it is)');
-    const p = (await d.state()).bldgs.find(x => x.id === id).progress;
-    assert.ok(o.height > o.fullHeight * 0.4 && o.height <= o.fullHeight * GANTRY.cap + 1, `the solid about ${Math.round(p * GANTRY.cap * 100)}% of the art's height (${o.height} of ${o.fullHeight})`);
-    assert.equal(o.scaffold, 1, 'the gantry stands round it');
-    // (the head on the solid's top row, where its frame carries it: between the front masts, which stand west of the
-    // footprint's middle, then back along the rails; set to the art's px, half a world px)
-    const path = headPath(b.w), at = headAt(b.w, o.top + GANTRY.barDrop - b.y);
-    assert.equal(o.bar, 1, 'its head on the solid\'s top');
-    assert.ok(Math.abs(o.barX - (b.x + at.x)) <= 0.25 && Math.abs(o.barY - (b.y + at.y)) <= 0.25, `the head where its frame carries it: ${o.barX - b.x}, ${o.barY - b.y} for ${JSON.stringify(at)}`);
-    assert.ok(Math.abs(o.barY - (o.top + GANTRY.barDrop)) <= 0.25, `on the solid's top row: ${o.barY} for ${o.top}`);
-    assert.ok(o.barX - b.x >= path.foot.x - 0.25 && o.barX < b.x, `inside its frame, by the front masts still: ${o.barX - b.x} from the middle, the masts' middle at ${path.foot.x}`);
-    assert.ok(o.ghost >= GHOST.alpha - GHOST.shimmer - 1e-9 && o.ghost <= GHOST.alpha + GHOST.shimmer + 1e-9, `a faint ghost over it: ${o.ghost}`);
-    assert.deepEqual(o.bars.map(r => r.bar), ['build']);
+    const at = async (p) => { assert.ok(await d.skipUntil(([id, p]) => endfall.G.bldgs.find(b => b.id === id)?.progress >= p, [id, p], { step: 1 / 30, seconds: 60 }), `at ${p}`); await d.eval(() => endfall.draw()); return drawn(d, id); };
+    const b = (await d.state()).bldgs.find(x => x.id === id); await d.centerOn(b.x, b.y);
+    const early = await at(0.05), late = await at(0.6);
+    for (const o of [early, late]) {
+      assert.deepEqual([o.look, o.under, o.scaffold, o.bar, o.ghost, o.found], ['reveal', 'slab', 0, 0, 0, 0], 'a slab, no gantry, no ghost');
+      assert.deepEqual([o.tint, o.alpha, o.sat], [0xffffff, 1, 1], 'what stands in full color, no filter');
+    }
+    assert.ok(late.height > early.height && late.height <= late.fullHeight * REVEAL.cap + 1, `it rises: ${early.height} to ${late.height} of ${late.fullHeight}`);
+    assert.deepEqual(late.bars.map(r => r.bar), ['build'], 'its build bar');
     const ring = await orangeBelow(d, b);
     assert.ok(ring.orange < 12, `no orange ring on the ground under it: ${ring.orange} orange px of ${ring.px}`);
     await pick(d, w);
     assert.match(await d.hudText('#selSub', /Constructing/), /^Constructing Recruiting post, \d+%$/, 'the Bot\'s card');
     await d.eval(() => { endfall.ui.sel = []; });
-    assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.97, id, { step: 1 / 30, seconds: 60 }), 'almost done');
-    const late = await drawn(d, id);
-    assert.ok(late.height <= late.fullHeight * GANTRY.cap + 1 && late.scaffold === 1 && late.bar === 1, `at 97% still unfinished: its top tenth missing, in its gantry (${late.height} of ${late.fullHeight})`);
-    assert.ok(late.barY < o.barY && late.barX > o.barX + 3 && late.barX - b.x <= path.back.x + 0.25 && Math.abs(late.barY - (late.top + GANTRY.barDrop)) <= 0.25,
-      `the head higher, gone back along the rails, on the top row still: ${late.barX - b.x}, ${late.barY - b.y} after ${o.barX - b.x}, ${o.barY - b.y}`);
+    const nearly = await at(0.97);
+    assert.ok(nearly.look === 'reveal' && nearly.height <= nearly.fullHeight * REVEAL.cap + 1, `at 97% still unfinished: its top not in color (${nearly.height} of ${nearly.fullHeight})`);
     const seen = await watchDone(d, id);
     const fade = seen.filter(s => s.look === 'fade'), last = seen.at(-1);
-    // (frames come as they come in a software-rendered page: any frame of the half second shows the paint on its way, the
-    // top coming in and the frame going; on every one the head and the ghost go with the gantry)
-    assert.ok(fade.some(s => s.paint > 0 && s.paint < 1 && s.roof > 0 && s.scaffold < 1), `the top coming in, the paint arriving, the gantry fading: ${JSON.stringify(fade.slice(0, 3))}`);
-    assert.ok(fade.every(s => s.bar === s.scaffold && s.ghost <= (GHOST.alpha + GHOST.shimmer) * s.scaffold + 1e-9), `the head and the ghost fade with the gantry: ${JSON.stringify(fade.slice(0, 3))}`);
+    assert.ok(fade.some(s => s.roof > REVEAL.alpha && s.roof < 1), `the top coming in: ${JSON.stringify(fade.slice(0, 3))}`); // (frames come as they come in a software-rendered page)
     assert.equal(last.look, 'full');
-    assert.deepEqual([last.tint, last.alpha, last.paint, last.scaffold, last.bar, last.ghost, last.height], [0xffffff, 1, 1, 0, 0, 0, last.fullHeight], 'solid, painted, the whole building, no gantry, no ghost');
+    assert.deepEqual([last.tint, last.alpha, last.paint, last.roof, last.scaffold, last.bar, last.ghost, last.height], [0xffffff, 1, 1, 0, 0, 0, 0, last.fullHeight], 'solid, painted, the whole building');
+    assert.equal((await drawn(d, id)).under, null, 'no slab left');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -246,19 +226,3 @@ for (const [name, device, shown] of [['small phone', SMALL, true], ['phone', PHO
     } finally { await d.close(); }
   });
 }
-
-test('with ?art=new a site is the building\'s own picture rising: the Expedition\'s on a slab, with no gantry; done, nothing of it is left', { timeout: 180000 }, async () => {
-  const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael', query: '&art=new' });
-  try {
-    const { id } = await placeSite(d, 'i', 'siphon');
-    const at = async (p) => { assert.ok(await d.skipUntil(([id, p]) => endfall.G.bldgs.find(b => b.id === id)?.progress >= p, [id, p], { step: 1 / 30, seconds: 60 }), `at ${p}`); await d.eval(() => endfall.draw()); return drawn(d, id); };
-    const b = (await d.state()).bldgs.find(x => x.id === id); await d.centerOn(b.x, b.y);
-    const early = await at(0.05), late = await at(0.6);
-    for (const o of [early, late]) assert.deepEqual([o.look, o.under, o.scaffold, o.bar, o.ghost, o.found], ['reveal', 'slab', 0, 0, 0, 0], 'a slab, no gantry, no ghost');
-    assert.ok(late.height > early.height, `it rises: ${early.height} to ${late.height}`);
-    assert.deepEqual(late.bars.map(r => r.bar), ['build'], 'its build bar');
-    assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.done, id, { step: 1 / 30, seconds: 60 }), 'done');
-    await d.page.waitForFunction((id) => { const o = endfall.sites().bldgs.find(o => o.id === id); return o?.look === 'full' && o.under === null && o.roof === 0; }, id, { timeout: 60000 }); // (frames come as they come: no count of them)
-    assert.deepEqual(d.errors, []);
-  } finally { await d.close(); }
-});

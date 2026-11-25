@@ -1,5 +1,58 @@
 {
  "groups": {
+  "remains": {
+   "pages": [
+    "remains-0.json"
+   ],
+   "tints": [
+    2776543,
+    15611754,
+    2205305,
+    14659565,
+    10939758,
+    9892071,
+    10889605,
+    15882802
+   ],
+   "facings": 16,
+   "animations": {
+    "boom_small": [
+     "boom_small_0",
+     "boom_small_1",
+     "boom_small_2",
+     "boom_small_3",
+     "boom_small_4",
+     "boom_small_5"
+    ],
+    "flash": [
+     "flash_0",
+     "flash_1",
+     "flash_2"
+    ],
+    "spark": [
+     "spark_0",
+     "spark_1",
+     "spark_2",
+     "spark_3"
+    ],
+    "glint": [
+     "glint_0",
+     "glint_1",
+     "glint_2"
+    ],
+    "muzzle": [
+     "muzzle_0",
+     "muzzle_1",
+     "muzzle_2"
+    ],
+    "trail": [
+     "trail_0",
+     "trail_1",
+     "trail_2",
+     "trail_3"
+    ]
+   }
+  },
   "bldg": {
    "pages": [
     "bldg-0.json",
@@ -2097,5 +2150,32 @@
     "siegeTank"
    ]
   }
+ },
+ "bytes": {
+  "remains-0.json": 5283,
+  "remains-0.webp": 141686,
+  "bldg-0.json": 6105,
+  "bldg-0.webp": 238506,
+  "bldg-1.json": 7619,
+  "bldg-1.webp": 79978,
+  "bldg-2.json": 15004,
+  "bldg-2.webp": 320540,
+  "land-0.json": 8508,
+  "land-0.webp": 721490,
+  "unit-0.json": 41059,
+  "unit-0.webp": 1232944,
+  "unit-1.json": 76935,
+  "unit-1.webp": 1462536,
+  "unit-2.json": 126693,
+  "unit-2.webp": 1549500,
+  "unit-3.json": 165891,
+  "unit-3.webp": 1721458,
+  "unit-4.json": 194514,
+  "unit-4.webp": 562582,
+  "land-grass.webp": 587078,
+  "land-calm.webp": 1064,
+  "land-dirt.webp": 53954,
+  "land-floor.webp": 116188,
+  "land-scree.webp": 134902
  }
 }

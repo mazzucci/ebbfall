@@ -22,11 +22,12 @@ export function swSource(version, build, list) {
 
 /** Files of public/ for search engines and link previews, not the game's: not stored for offline play (og.png, the
  *  link preview's image, is a fifth of the download the game needs). The docs microsite (docs/, tools/docs) and the
- *  agents' guide (llms.txt) are web pages, not the game's either: `webOnly`. The new look's packs (art/new/, ?art=new:
- *  src/client/gl/newart.js) are fetched only with the switch on, so nobody's install or PLAY OFFLINE fetches them. */
-export const WEB_ONLY = ['og.png', 'robots.txt', 'sitemap.xml', 'llms.txt', 'docs/', 'art/new/'];
-/** Whether a file of dist/ is WEB_ONLY (an entry ending in / is a folder: everything under it). */
-export const webOnly = (f) => WEB_ONLY.some(w => (w.endsWith('/') ? f.startsWith(w) : f === w));
+ *  agents' guide (llms.txt) are web pages, not the game's either: `webOnly`. The older atlas (art/atlas*: the
+ *  docs' and the link preview's tools read it from public/) is fetched by nothing in the game. */
+export const WEB_ONLY = ['og.png', 'robots.txt', 'sitemap.xml', 'llms.txt', 'docs/', 'art/atlas*'];
+/** Whether a file of dist/ is WEB_ONLY (an entry ending in / is a folder: everything under it; in *, every file whose
+ *  path starts so). */
+export const webOnly = (f) => WEB_ONLY.some(w => (w.endsWith('/') ? f.startsWith(w) : w.endsWith('*') ? f.startsWith(w.slice(0, -1)) : f === w));
 
 export function offline() {
   let outDir = 'dist', build = 'dev';

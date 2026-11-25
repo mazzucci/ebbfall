@@ -159,7 +159,7 @@ test('the Portal: power lost, not a blast (its timeline)', () => {
   for (const s of smoke) { assert.equal(s.at, 0.5); assert.equal(s.y, B.y, 'off its base, not the ring'); assert.ok(Math.abs(s.x - B.x) <= 12); assert.ok(s.o.vy < 0, 'rising'); assert.ok(s.o.scale * px('trail_0') <= 40); }
   assert.deepEqual(smoke.map(s => s.x - B.x), [-12, 0, 12]);
   assert.ok(!p.steps.some(s => ['boom_big', 'boom_small', 'spark', 'flash', 'puff'].includes(s.anim) || s.anim === 'trail' && !gray(s)), 'no boom, no fire, no dust');
-  assert.equal(p.rubble.tint, 0x8a96a4, 'cold steel rubble');
+  assert.equal(p.rubble.tint, 0xc4cedb, 'cold steel rubble');
   assert.equal(p.rubble.glow.length, 2, 'a cyan glow on two chunks');
 });
 

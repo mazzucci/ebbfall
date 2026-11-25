@@ -70,5 +70,5 @@ it, through a relay. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is 
 
 ## License
 
-MIT, see [LICENSE](LICENSE). It covers the code, not the pictures in `public/art/new/`: those were generated with
+MIT, see [LICENSE](LICENSE). It covers the code, not the game's pictures in `public/art/new/`: those were generated with
 Google's Gemini and are provided as is, and anyone reusing them should check Google's terms (NOTICE.txt beside them).

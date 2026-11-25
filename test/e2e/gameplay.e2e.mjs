@@ -2122,6 +2122,50 @@ test('phone: with a worker selected, a tap on a mine where another worker stands
   } finally { await d.close(); }
 });
 
+test('a gold mine ordered, worked or selected is marked along its painted outline: clear of the paint and near it all round, never a square through it', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const s = await d.state(), core = coreOf(s);
+      const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      const marks = () => d.eval(() => { endfall.draw(); return endfall.targetsMarked(); });
+      assert.deepEqual(await marks(), [], 'nothing selected: no mark');
+      // The outline against the frame's own paint: from each of its points, the nearest solid pixel (world px).
+      const check = async (m, what) => {
+        const got = await d.eval(async ([m, n]) => {
+          const j = await (await fetch('art/new/land-0.json')).json(), img = await createImageBitmap(await (await fetch('art/new/land-0.webp')).blob());
+          const { frame: f, anchor: a } = j.frames.mine_full, k = m.scale / (+j.meta.scale || 1), c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+          const g = c.getContext('2d'); g.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+          const px = g.getImageData(0, 0, f.w, f.h).data, solid = [];
+          for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (px[(y * f.w + x) * 4 + 3] > 200) solid.push([n.x + (x - a.x * f.w) * k, n.y + (y - a.y * f.h) * k]);
+          const gap = []; for (let i = 0; i < m.pts.length; i += 2) gap.push(Math.min(...solid.map(([x, y]) => Math.hypot(x - m.pts[i], y - m.pts[i + 1]))));
+          return { min: Math.min(...gap), max: Math.max(...gap), left: Math.min(...m.pts.filter((_, i) => !(i % 2))), right: Math.max(...m.pts.filter((_, i) => !(i % 2))), l: Math.min(...solid.map(p => p[0])), r: Math.max(...solid.map(p => p[0])) };
+        }, [m, node]);
+        assert.ok(got.min > 0.8 && got.max < 16, `${what}: 1 to 16 px from the paint all round: ${JSON.stringify(got)}`);
+        assert.ok(got.left < got.l && got.right > got.r, `${what}: all of the mine inside it: ${JSON.stringify(got)}`);
+      };
+      // A mine looked at, then a worker working it, then ordered there (the blink).
+      await d.clickWorld(node.x, node.y - 4);
+      let m = await marks();
+      assert.deepEqual(m.map(q => q.id), [node.id], 'the mine selected: marked');
+      await check(m[0], 'selected');
+      await d.key('Escape');
+      const w = s.units.find(u => u.team === 0 && u.type === 'harvester').id;
+      await d.eval(([id, n]) => { const u = endfall.G.units.find(u => u.id === id); endfall.engine.startGather(u, endfall.map.nodes.find(q => q.id === n)); endfall.skip(0.1); endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, [w, node.id]);
+      m = await marks();
+      assert.ok(m.length && m.every(q => q.id === node.id), `its worker selected: marked: ${JSON.stringify(m.map(q => q.id))}`);
+      await check(m[0], 'worked');
+      // A building to work on: along its picture too (wider than its square up the screen).
+      await d.eval(([id, b]) => { const E = endfall.engine; E.debugSetHp(b, 300); endfall.skip(0.1); E.repair(endfall.G.units.find(u => u.id === id), endfall.G.bldgs.find(x => x.id === b)); endfall.skip(0.1); endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, [w, core.id]);
+      m = await marks();
+      assert.deepEqual(m.map(q => q.id), [core.id], 'the Castle under repair: marked');
+      const top = Math.min(...m[0].pts.filter((_, i) => i % 2)), art = await d.eval((id) => endfall.bldgArtTop(id), core.id);
+      assert.ok(top < core.ty * 32 - 24 && top > art - 16, `along its picture, up to its roof: ${top}, the art's top ${art}`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
 test('a worker sent to a gold mine (desktop right-click, phone tap) goes inside and comes out with gold', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });
@@ -2228,6 +2272,13 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     const { circles, arcs } = await range();
     assert.deepEqual(circles, [{ x: hq.x, y: hq.y, r: reach * T }], 'one circle round the Data center\'s center, its reach');
     assert.equal(arcs, 1, 'its outline: one whole circle');
+    // On the ground, under the units; over the fog only a thin line, and only where nothing was seen yet.
+    const fog = await d.eval(() => { const s = endfall.rangeShown(), M = endfall.engine.MW; return { under: s.under, runs: s.fogRuns.map(([x, y, r, a, b]) => [0.02, 0.5, 0.98].map(k => { const t = a + (b - a) * k; return !!endfall.G.explored[Math.floor((y + Math.sin(t) * r) / 32) * M + Math.floor((x + Math.cos(t) * r) / 32)]; })) }; });
+    assert.ok(fog.under && fog.runs.length > 0, `the rim under the units, a line over the fog where nothing was seen: ${JSON.stringify(fog)}`);
+    assert.ok(fog.runs.every(r => !r[1]) , `only there: ${JSON.stringify(fog.runs)}`);
+    await d.eval(() => { endfall.fog(false); endfall.draw(); });
+    assert.deepEqual((await range()).fogRuns, [], 'no fog: no line over it');
+    await d.eval(() => endfall.fog(true));
     // Something else selected (a Sellsword, not a machine): no range drawn.
     const sw = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'prism', x, y), [hq.x + 130, hq.y + 110]);
     await d.clickEntity(sw);
@@ -2433,6 +2484,9 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
     assert.equal(reach, 54 * 32, 'the Uplink reaches 54 tiles');
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
+    assert.equal(shown.mmExtra?.r, reach, 'its circle on the minimap too');
+    const head = await d.eval(() => { endfall.draw(); const p = endfall.ui.place, b = endfall.engine.BUILDINGS.uplink; return [endfall.ghostHeadShown(), (p.tx + b.w / 2) * 32, (p.ty + b.h / 2) * 32]; });
+    assert.deepEqual(head[0] && [head[0].frame, head[0].x, head[0].y], ['uplink_head_2', head[1], head[2]], 'the ghost has its dish');
     await d.key('Escape');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -2471,9 +2525,9 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing a Substation: the Data center's coverage (${JSON.stringify(shown.circles)})`);
     assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
-    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
+    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.75, 3.5], 'the minimap\'s rim in CSS px');
     assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
-    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [16, 0.18, true], 'the feathered band inside the rim');
+    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [28, 0.36, true], 'the feathered band inside the rim');
     // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.
     const lit = await d.eval(([cx, cy, r]) => {
       const m = document.getElementById('minimap'), S = m.width / endfall.engine.WW, T = endfall.engine.TILE;

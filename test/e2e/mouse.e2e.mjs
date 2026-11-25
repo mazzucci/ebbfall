@@ -273,8 +273,10 @@ test('desktop, RIGHT CLICK ONLY: a left click only selects, the ground and an em
     await pickMouse(d, 'right');
     assert.equal(await stored(d, 'mouse'), 'right');
     const keeps = async () => {
-      await d.key('q');
-      await d.clickWorld(x, y); await dragBy(d, x, y, 3); await d.boxSelect(x - 40, y - 30, x + 40, y + 30);
+      await d.key('q'); assert.deepEqual(await ids(d), guards, 'Q: the army');
+      await d.clickWorld(x, y); assert.deepEqual(await ids(d), guards, 'a click on the ground keeps it');
+      await dragBy(d, x, y, 3); assert.deepEqual(await ids(d), guards, 'a tiny drag keeps it');
+      await d.boxSelect(x - 40, y - 30, x + 40, y + 30); assert.deepEqual(await ids(d), guards, 'an empty box keeps it');
       await shift(d, () => d.clickWorld(x, y));
       assert.deepEqual([await ids(d), await tasks(d, guards)], [guards, ['idle', 'idle', 'idle']], 'kept, nothing ordered');
     };

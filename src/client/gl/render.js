@@ -1209,7 +1209,7 @@ export function render(selList, place) {
     const smoke = SHOT_TRAIL[art];
     if (smoke && Math.random() < dt * 40) addEffect(smoke, p.x, p.y, { life: 0.6, fade: 1 }); // (a rocket's smoke: puffs that overlap and fade)
     // (a tower's shot from its gun's mouth: look.js SHOT_FROM)
-    const from = p.by ? null : firedBy(p, (towers ??= G.bldgs.filter(b => b.done && SHOT_FROM.has(b.type))).filter(b => b.team === p.team)), at = from ? shotDrawn(p, from) : p;
+    const from = p.by ? null : firedBy(p, (towers ??= G.bldgs.filter(b => b.done && SHOT_FROM[b.type])).filter(b => b.team === p.team)), at = from ? shotDrawn(p, from) : p;
     const rot = from ? at.rot : Math.atan2(p.ay - p.y, p.ax - p.x), sc = style.scale ?? 1, len = s.texture.width * sc;
     s.position.set(at.x, at.y); s.rotation = rot; s.scale.set(sc); s.tint = style.tint ?? 0xffffff;
     s.bar.visible = style.bar > 0;

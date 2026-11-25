@@ -243,14 +243,16 @@ export const BURN_FLASH = { chance: 0.25, light: 0xff8a2a, lightScale: 0.4 };
  *  ends over its mast, `depth`: how far they reach up and down the screen, of sideways, as the picture's camera sees them, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
  *  rifle's cone (`muzzle`, pale, turned to the aim) on every shot. No flash for the Drone. */
 export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 40, up: 33, depth: 0.56, scale: 0.85 } };
-/** Where a shooter at ground point (x, y) aiming along `face` (radians) has its gun's mouth (a MUZZLE_FLASH row). */
-export function muzzlePoint(x, y, face, { fwd, up, depth = 1 }) {
+/** Where a shooter at ground point (x, y) aiming along `face` (radians) has its gun's mouth (a MUZZLE_FLASH or
+ *  SHOT_FROM row; `side`: px to the shooter's left). */
+export function muzzlePoint(x, y, face, { fwd, up, depth = 1, side = 0 }) {
   const c = Math.cos(face), s = Math.sin(face), d = fwd / Math.hypot(c, s / depth);
-  return { x: x + c * d, y: y + s * d - up };
+  return { x: x + c * d + s * side, y: y + s * d - c * side * depth - up };
 }
 /** The shots of a tower drawn from its gun's mouth, not from the ground under it (the sim flies every shot from its
- *  shooter's center): the tower types, whose mouth MUZZLE_FLASH says (the Sentry mast's, between its two barrels). */
-export const SHOT_FROM = new Set(['ward']);
+ *  shooter's center): the tower types, each with its mouth (the Sentry mast's, between its two barrels: MUZZLE_FLASH; the
+ *  Watchtower's, its archer's bow, held upright at the left: measured on its 16 facings, the bow's middle). */
+export const SHOT_FROM = { ward: MUZZLE_FLASH.ward, turret: { fwd: 3, up: 82, depth: 0.56, side: 8 } };
 /** Which of `towers` (its own side's, drawn from the mouth) fired the shot `p` at (p.x, p.y) flying at (p.ax, p.ay): the
  *  one it flies straight away from, or null (it fell meanwhile). The sim's shot names no building. */
 export function firedBy(p, towers) {
@@ -266,7 +268,7 @@ export function firedBy(p, towers) {
 }
 /** Where a tower's shot `p` is drawn, and the way it points: on the line from the gun's mouth of the tower `b` to its aim, as far
  *  along it as the sim's is from the tower's center. */
-export function shotDrawn(p, b, muzzle = MUZZLE_FLASH[b.type]) {
+export function shotDrawn(p, b, muzzle = SHOT_FROM[b.type]) {
   const gone = Math.hypot(p.x - b.x, p.y - b.y), left = Math.hypot(p.ax - p.x, p.ay - p.y), k = gone / (gone + left || 1);
   const m = muzzlePoint(b.x, b.y, Math.atan2(p.ay - b.y, p.ax - b.x), muzzle);
   return { x: m.x + (p.ax - m.x) * k, y: m.y + (p.ay - m.y) * k, rot: Math.atan2(p.ay - m.y, p.ax - m.x) };

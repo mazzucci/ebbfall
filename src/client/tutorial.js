@@ -62,7 +62,7 @@ function steps() {
   return [
     { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} ${money} again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
     // (a mouse: its own words, with how a selection is let go: a click on the ground no longer does)
-    { text: () => `New ${plural(worker.name)} wait by the ${hq.name}: select them, ${tut.touch ? `tap Mine, then the ${ore} mine` : `${leftOrders() ? 'click' : 'right-click'} the ${ore} mine (Esc or Deselect lets go)`}`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
+    { text: () => `New ${plural(worker.name)} wait by the ${hq.name}: select them, ${tut.touch ? `tap Mine, then the ${ore} mine` : `then ${leftOrders() ? 'click' : 'right-click'} the ${ore} mine (Esc or Deselect lets go)`}`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
     { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: () => (full(next()) ? `Your ${places} is full: select a ${worker.name} and Build ${aName(house.name)}, then train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)}` : trainThem), por: ['unit', soldier],
       want: () => (full(next()) ? ['build', 'b_' + f.supply] : next() ? ['t_' + next()] : []), done: () => !lacks() || (army() >= n + 2 && full(lacks())) },

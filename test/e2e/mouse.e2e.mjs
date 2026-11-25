@@ -319,9 +319,9 @@ test('desktop: the tutorial\'s second step says how a mouse orders, and how to l
     await d.clickEntity(core.id);
     await d.pressCard('Villager'); await d.pressCard('Villager');
     await d.skip(40);
-    await d.hudText('#tut', /New Villagers wait by the Castle: select them, click the gold mine \(Esc or Deselect lets go\).*2\/8/);
+    await d.hudText('#tut', /New Villagers wait by the Castle: select them, then click the gold mine \(Esc or Deselect lets go\).*2\/8/);
     await pickMouse(d, 'right');
-    await d.hudText('#tut', /select them, right-click the gold mine \(Esc or Deselect lets go\)/);
+    await d.hudText('#tut', /select them, then right-click the gold mine \(Esc or Deselect lets go\)/);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

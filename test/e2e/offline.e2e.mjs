@@ -179,7 +179,7 @@ test('a first visit downloads each file once (the service worker\'s copy a 304),
     const art = list.filter(f => /^art\/.*\.webp$/.test(f)).sort((a, b) => dist(a).length - dist(b).length)[0];
     const page1 = Buffer.concat([dist('index.html'), Buffer.from('<!-- the next build -->\n')]), art1 = Buffer.concat([dist(art), Buffer.from('\n')]);
     site.deployed = new Map([['/index.html', page1], [`/${art}`, art1], ['/sw.js', Buffer.from(dist('sw.js').toString().replace(/endfall-[0-9a-f]{12}/, 'endfall-00000000beef'))]]);
-    await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration()).update(); });
+    await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration()).update(); }).catch(() => {}); // (the page may move on to the new version before the answer comes back, in Firefox with a larger file; `stored` waits for the new one)
     const next = await stored(page, '00000000beef'), three = sent();
     const sha = (b) => createHash('sha256').update(b).digest('hex');
     assert.equal(next.files['/'], sha(page1), 'the new build\'s page');

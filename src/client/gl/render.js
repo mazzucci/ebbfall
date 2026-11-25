@@ -524,7 +524,7 @@ class UnitObj {
       else {
         const g = STRIKE_FX.glint, s = STRIKE_FX.dust;
         addEffect('glint', p.x, p.y - g.lift, { life: g.life, scale: g.scale, tint: g.tint, light: g.tint, lightScale: 0.1 });
-        addEffect(HIT_DUST.anim, p.x, p.y + 1, { vx: -p.dx * s.drift, vy: s.vy, life: s.life, scale: s.scale, fade: s.fade, tint: HIT_DUST.tint });
+        addEffect(HIT_DUST.anim, p.x, p.y - s.lift, { vx: -p.dx * s.drift, vy: s.vy, life: s.life, scale: s.scale, fade: s.fade, tint: HIT_DUST.tint });
       }
       if (nearView(p.x, p.y, 0)) sfx('knock', { x: p.x, y: p.y });
       this.strikesSeen = (this.strikesSeen || 0) + 1;

@@ -224,10 +224,10 @@ function commandAt(wx, wy, hit = pick(wx, wy), left = false) {
 }
 
 /** Whether a left click on `hit` (null: the ground) with `units` selected is an order, in the MOUSE setting's LEFT OR
- *  RIGHT CLICK: the ground, a mine, an enemy; with a worker among them, a site of ours or a damaged building. What else
+ *  RIGHT CLICK: the ground, a mine, an enemy; with a worker among them, a site of ours. What else
  *  is ours, and an ally's, is selected. */
 const orderTarget = (hit, units) => !hit || hit.kind === 'node' || enemies(G.me, hit.team)
-  || (hit.kind === 'bldg' && hit.team === G.me && units.some(u => u.d.worker) && (!hit.done || damaged(hit)));
+  || (hit.kind === 'bldg' && hit.team === G.me && units.some(u => u.d.worker) && !hit.done);
 
 /** What a click or tap at (wx, wy) hit, `hit` or the unit of the last one: the second of a double counts on the unit of
  *  the first, even if it has moved a little since (only when it hit nothing else, or one of our buildings behind it: its

@@ -944,7 +944,6 @@ test('harvesters repair a damaged building (right-click on desktop, the Repair b
       } else assert.equal((await d.selection())[0]?.id, h.id, 'desktop: the selection stays');
       const gold = (await d.state()).res[0];
       await d.skip(4);
-      await d.key('Escape'); // (with a worker selected a click on a damaged building is an order)
       await d.clickEntity(depot.id);
       assert.match(await d.hudText('#selSub', /Repairing/), /Repairing/, 'the building shows it is being repaired');
       await until(d, async () => (await d.eval((id) => endfall.G.bldgs.find(b => b.id === id).hp, depot.id)) >= max, { seconds: 60, what: 'the repair' });

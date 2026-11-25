@@ -130,7 +130,7 @@ test('desktop, LEFT OR RIGHT CLICK (the default): a left click orders the units 
   } finally { await d.close(); }
 });
 
-test('desktop, the default: workers given a job by a left click (a mine, a site, a damaged building) are let go, by a right click they stay selected; an open Build page only closes', { engines: true }, async () => {
+test('desktop, the default: workers given a job by a left click (a mine, a site) are let go, by a right click they stay selected; a damaged building is selected by a left click, repaired by a right one; an open Build page only closes', { engines: true }, async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const { core, workers, mine, spot: [x, y] } = await scene(d);
@@ -148,10 +148,16 @@ test('desktop, the default: workers given a job by a left click (a mine, a site,
     };
     const at = (p) => (left) => (left ? d.clickWorld(p.x, p.y) : d.rightClickWorld(p.x, p.y));
     await job('the mine', at(mine), 'gather');
-    // A damaged building of ours.
+    // A damaged building of ours, finished: a left click selects it (as a tap does), a right click repairs it.
     await d.eval((id) => endfall.engine.debugSetHp(id, 300), core.id);
     await d.skip(0.1);
-    await job('the damaged Castle', at(core), 'repair');
+    await pickOne(d, w); await d.key('s'); await d.skip(0.1);
+    await d.clickWorld(core.x, core.y);
+    assert.deepEqual([await ids(d), await tasks(d, [w])], [[core.id], ['idle']], 'left: the damaged Castle selected, nothing ordered');
+    await pickOne(d, w);
+    await d.rightClickWorld(core.x, core.y);
+    assert.deepEqual([await ids(d), await tasks(d, [w])], [[w], ['repair']], 'right: the repair, the worker still selected');
+    await d.key('s'); await d.skip(0.1);
     // Fighters alone: a damaged building is selected, as ever.
     await d.key('q'); await d.clickWorld(core.x, core.y);
     assert.deepEqual(await ids(d), [core.id], 'no worker selected: the damaged Castle selected');

@@ -2,22 +2,26 @@
 // and a few more for the diagrams, cut from the game's art (public/art/new) in headless Chromium (tools/chromium.mjs),
 // the team mask tinted as the client tints it, written as WebP (2x) into public/docs/img/sprites/, and
 // tools/docs/sprites.json with what each was cut from. The units are drawn from sharp pictures in a local folder
-// (EBBFALL_PICTURES; sprites.mjs SHARP), which are never committed: without them this stops before it changes anything. Output is committed; run after the art changes (test/docs.test.js says when):
+// (EBBFALL_PICTURES; sprites.mjs SHARP), the buildings from the pack's own builder run at twice its scale on the same folder
+// (sprites.mjs BUILD, into target/): neither is ever committed, and without the folder this stops before it changes anything. Output is committed; run after the art changes (test/docs.test.js says when):
 //   node tools/docs/crops.mjs
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { launchChromium } from '../chromium.mjs';
-import { ART, RECIPE, SPRITE_DIR, MANIFEST, atlasFrames, framesOf, crops, sourceHash, sharpOf, missingSharp } from './sprites.mjs';
+import { ART, RECIPE, SPRITE_DIR, MANIFEST, atlasFrames, framesOf, crops, sourceHash, sharpOf, missingSharp, sharpPack, BUILD } from './sprites.mjs';
 
 const gone = missingSharp();
 if (gone.length) {
   console.error(`crops: ${gone.length} of the units' sharp pictures are not there (the first: ${gone[0]}).\nThey are local, never in the repo: set EBBFALL_PICTURES to the pictures' folder. Nothing was changed.`);
   process.exit(1);
 }
+execFileSync(process.execPath, BUILD, { cwd: fileURLToPath(new URL('../../', import.meta.url)), stdio: ['ignore', 'ignore', 'inherit'] });
 const want = crops();
-const frames = atlasFrames();
+const frames = { ...atlasFrames(), ...sharpPack() };
 const used = {}, pages = {};
 for (const { key, kind } of want) for (const n of framesOf(key, kind).filter(Boolean)) {
-  for (const m of [n, `${n}_m`]) if (frames[m]) { used[m] = [frames[m].page, frames[m].rec]; pages[frames[m].page] ||= `data:image/${frames[m].page.split('.').pop()};base64,` + readFileSync(new URL(frames[m].page, ART)).toString('base64'); }
+  for (const m of [n, `${n}_m`]) if (frames[m]) { used[m] = [frames[m].page, frames[m].rec]; pages[frames[m].page] ||= `data:image/${frames[m].page.split('.').pop()};base64,` + readFileSync(new URL(frames[m].page, frames[m].dir || ART)).toString('base64'); }
   if (!frames[n]) throw new Error(`crops: no frame ${n} in public/art/new`);
 }
 

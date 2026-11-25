@@ -572,7 +572,7 @@ src/client/           everything that touches the browser
                       draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
                       selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
-                      (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
+                      (`orderTarget`: the ground, a mine, an enemy, with workers a site; a damaged building is selected, its repair a right click's or the Repair button's, as on touch; workers given
                       a job so, by an armed Mine or Repair or by placing without Shift are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
                       keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
                       with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold
@@ -929,7 +929,8 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
                       two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
                       other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
-                      recipe, the list, cut in Chromium from public/art/new, the units from sharp pictures in a local folder
+                      recipe, the list, cut in Chromium from public/art/new, the units from sharp pictures in a local folder and
+                      the buildings from their pack built again at 4x into target/bldg4
                       (EBBFALL_PICTURES; without it the tool stops and changes nothing), into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game

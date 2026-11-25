@@ -927,7 +927,8 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
                       two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
                       other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
-                      recipe, the list, cut in Chromium from public/art/new, the units from sharp pictures in a local folder
+                      recipe, the list, cut in Chromium from public/art/new, the units from sharp pictures in a local folder and
+                      the buildings from their pack built again at 4x into target/bldg4
                       (EBBFALL_PICTURES; without it the tool stops and changes nothing), into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game

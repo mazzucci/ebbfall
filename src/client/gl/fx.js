@@ -24,19 +24,21 @@ function star(g, x, y, r, ray, c, a) { blob(g, x, y, r, c, a, 0.4); oval(g, x, y
 /** A straight, round-ended stroke. */
 function line(g, x0, y0, x1, y1, w, style) { g.strokeStyle = style; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
 /** A filled shape through `pts`. */
-function shape(g, pts, style) { g.fillStyle = style; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); }
+function trace(g, pts) { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); }
+function shape(g, pts, style) { g.fillStyle = style; trace(g, pts); g.fill(); }
 
 /** A small seeded stream (the same picture on every machine: nothing here is drawn from the clock or Math.random). */
 const stream = (seed) => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-/** A ragged, closed outline round (x, y): its radius `r` broken by three waves of noise (`rough` of it), with `tongues`
- *  short spikes of uneven length (up to `reach` of r) at uneven angles. `rnd`: its stream. Returns its points. */
+/** A ragged, closed outline round (x, y): its radius `r` broken by five waves of noise, coarse to fine (`rough` of it),
+ *  with `tongues` short flames of uneven length (up to `reach` of r), each a narrow, leaning lick, at uneven angles.
+ *  `rnd`: its stream. Returns its points. */
 function ragged(rnd, x, y, r, rough, tongues = 0, reach = 0) {
-  const ph = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28], T = Array.from({ length: tongues }, (_, i) => [(i + 0.2 + rnd() * 0.6) / tongues * 6.283, reach * (0.35 + rnd() * 0.65), 0.1 + rnd() * 0.08]);
-  const pts = [], N = 56;
+  const W = [[2, 0.3], [3, 0.4], [5, 0.3], [11, 0.2], [17, 0.15]].map(([n, k]) => [n, k * rough, rnd() * 6.28]), pts = [], N = 96;
+  const T = Array.from({ length: tongues }, (_, i) => [(i + rnd()) / tongues * 6.283, reach * (0.2 + rnd() * 0.8), 0.16 + rnd() * 0.16, (rnd() - 0.5) * 0.5]);
   for (let i = 0; i < N; i++) {
-    const a = i / N * 6.283; let k = 1 + rough * (0.5 * Math.sin(3 * a + ph[0]) + 0.3 * Math.sin(5 * a + ph[1]) + 0.2 * Math.sin(9 * a + ph[2]));
-    for (const [ta, len, wide] of T) { const d = Math.abs(((a - ta + 9.4248) % 6.283) - 3.1416); if (d < wide) k += len * (1 - d / wide); }
-    pts.push([x + Math.cos(a) * r * k, y + Math.sin(a) * r * k]);
+    const a = i / N * 6.283; let k = 1, lean = 0; for (const [n, v, ph] of W) k += v * Math.sin(n * a + ph);
+    for (const [ta, len, wide, to] of T) { const d = Math.abs(((a - ta + 9.4248) % 6.283) - 3.1416); if (d < wide) { const v = (1 - d / wide) ** 1.6; k += len * v; lean += to * v * len; } }
+    pts.push([x + Math.cos(a + lean) * r * k, y + Math.sin(a + lean) * r * k]);
   }
   return pts;
 }
@@ -45,23 +47,21 @@ function fire(g, pts, cx, cy, r, inner, outer, a = 1) {
   const q = g.createRadialGradient(cx, cy, 0, cx, cy, r); q.addColorStop(0, rgba(inner, a)); q.addColorStop(0.28, rgba(inner, a)); q.addColorStop(0.8, rgba(outer, a)); q.addColorStop(1, rgba(outer, a * 0.92));
   g.save(); g.shadowColor = rgba(outer, 0.7 * a); g.shadowBlur = 1.2 * FX_K; shape(g, pts, q); g.restore();
 }
-/** A puff of smoke: a lump with two smaller ones on its rim, so its outline is a cloud's and not a ball's. */
+/** A puff of smoke, lumpy: lobes of uneven size round (x, y), its dark underside first, then each lobe's gray, then the
+ *  sunlit shoulders, small and to the upper left. Soft, with no bright point on it: smoke, not a ball of metal. */
 function puff(g, rnd, x, y, r, a) {
-  const t = rnd() * 6.283; lump(g, x + Math.cos(t) * r * 0.62, y + Math.sin(t) * r * 0.62, r * 0.58, a); lump(g, x + Math.cos(t + 2.4) * r * 0.6, y + Math.sin(t + 2.4) * r * 0.6, r * 0.5, a); lump(g, x, y, r, a);
-  lump(g, x + Math.cos(t + 4.3) * r * 0.5 - r * 0.1, y + Math.sin(t + 4.3) * r * 0.5 - r * 0.1, r * 0.46, a * 0.9);
-}
-/** A lump of smoke: a ball lit from the upper left, darker below and to the right, its rim soft but there. */
-function lump(g, x, y, r, a) {
-  const q = g.createRadialGradient(x - r * 0.38, y - r * 0.42, r * 0.05, x, y, r);
-  q.addColorStop(0, rgba('232,228,220', a)); q.addColorStop(0.42, rgba('168,163,158', a)); q.addColorStop(0.8, rgba('92,86,84', a * 0.95)); q.addColorStop(1, rgba('70,64,62', 0));
-  g.fillStyle = q; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  const t = rnd() * 6.283, L = Array.from({ length: 6 }, (_, i) => { const q = t + (i + (rnd() - 0.5) * 0.7) * 1.047, d = r * (0.42 + rnd() * 0.26); return [x + Math.cos(q) * d, y + Math.sin(q) * d * 0.9, r * (0.34 + rnd() * 0.22)]; });
+  blob(g, x, y, r * 0.8, '84,78,76', a, 0.6);
+  for (const [lx, ly, lr] of L) blob(g, lx + lr * 0.14, ly + lr * 0.22, lr * 1.12, '78,73,71', a * 0.9, 0.62);
+  for (const [lx, ly, lr] of L) blob(g, lx - lr * 0.12, ly - lr * 0.16, lr * 0.92, '146,141,136', a * 0.8, 0.5);
+  for (const [lx, ly, lr] of L) { const up = Math.max(0, (x - lx + (y - ly) * 1.2) / r + 0.45); if (up > 0) blob(g, lx - lr * 0.22, ly - lr * 0.26, lr * 0.8, '218,212,203', a * Math.min(0.85, 0.3 + up * 0.55), 0.4); }
 }
 /** Bits thrown out of a blast: `n` small dark ones (and a bright one in three) between `r0` and `r1` from (x, y). */
 function bits(g, rnd, x, y, r0, r1, n) {
   for (let i = 0; i < n; i++) { const a = rnd() * 6.283, d = r0 + rnd() * (r1 - r0), s = 0.45 + rnd() * 0.5; blob(g, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.9, s * (i % 3 === 2 ? 1.5 : 1.25), i % 3 === 2 ? HOT : '38,32,30', 0.95, 0.6); }
 }
 
-const WHITE = '255,252,238', HOT = '255,232,150', FLAME = '255,168,62', EMBER = '226,92,34', SOOT = '74,66,62', SMOKE = '124,120,118', PALE = '206,202,196';
+const WHITE = '255,252,238', HOT = '255,232,150', FLAME = '255,168,62', EMBER = '226,92,34';
 /** Where a cloud's three lobes sit, of its spread (the smoke puff's own, gl/puff.js). */
 const LOBES = [[-0.7, 0.25], [0.75, 0.35], [0.05, -0.75]];
 /** A cloud: its lobes `spread` apart, each `r` wide, the shade below and the sunlit side up and to the left. */
@@ -101,10 +101,14 @@ BOOMS.forEach((name, v) => anim(name, 6, 28, 28, 0.5, 0.5, (g, f) => {
     blob(g, x, y, 12.5, EMBER, 0.45); fire(g, ragged(rnd, x, y, 7.4, 0.24, 7, 0.62), x + ox, y + oy, 12, FLAME, '206,70,28');
     fire(g, ragged(rnd, x + ox * 0.5, y + oy * 0.5, 4.9, 0.26, 6, 0.5), x + ox, y + oy, 7, HOT, FLAME); fire(g, ragged(rnd, x + ox, y + oy, 2.4, 0.25, 5, 0.5), x + ox, y + oy, 3.4, WHITE, HOT);
     bits(g, rnd, x, y, 8, 11.5, 4);
-  } else if (f === 2) {
-    blob(g, x, y, 13.5, EMBER, 0.4); fire(g, ragged(rnd, x, y, 8.8, 0.26, 7, 0.5), x + ox, y + oy, 13.5, FLAME, '170,48,24');
-    fire(g, ragged(rnd, x + ox * 0.7, y + oy * 0.7, 5.6, 0.3, 6, 0.45), x + ox, y + oy, 8, HOT, FLAME); fire(g, ragged(rnd, x + ox * 1.3, y + oy * 1.3, 2.5, 0.3, 4, 0.5), x + ox * 1.3, y + oy * 1.3, 3.4, WHITE, HOT);
-    bits(g, rnd, x, y, 9.5, 13, 6);
+  } else if (f === 2) { // (torn open: three patches of fire thrown apart the hottest off to one side, soot rolling in where they part)
+    const t = rnd() * 6.283; blob(g, x, y, 13.5, EMBER, 0.4);
+    fire(g, ragged(rnd, x, y, 7.6, 0.4, 7, 0.6), x + ox, y + oy, 13, '226,92,34', '150,42,24');
+    const P = [0, 2, 4.1].map((q, i) => [x + Math.cos(t + q) * (4 + rnd() * 1.4), y + Math.sin(t + q) * (3.6 + rnd() * 1.4), [5.8, 4.4, 3][i]]);
+    for (const [px, py, r] of P) fire(g, ragged(rnd, px, py, r, 0.34, 4, 0.5), px, py, r * 1.5, HOT, FLAME);
+    puff(g, rnd, x + Math.cos(t + 3.1) * 5.6, y + Math.sin(t + 3.1) * 5.4, 3.8, 0.85);
+    fire(g, ragged(rnd, P[0][0], P[0][1], 2.3, 0.34, 4, 0.5), P[0][0], P[0][1], 3.4, WHITE, HOT);
+    bits(g, rnd, x, y, 9.5, 13, 7);
   } else if (f === 3) { // (breaking up: soot rolling over the fire from one side, the fire torn into two patches)
     const a = rnd() * 6.283, sx = Math.cos(a), sy = Math.sin(a);
     fire(g, ragged(rnd, x - sx * 2.2, y - sy * 2.2, 7.2, 0.34, 5, 0.42), x - sx * 3, y - sy * 3, 10, FLAME, '176,52,24');
@@ -126,7 +130,7 @@ anim('flash', 3, 16, 16, 0.5, 0.5, (g, f) => {
 });
 // Dust and thin smoke (tinted by what raises it): a pale cloud, spreading and thinning.
 anim('trail', 4, 12, 12, 0.5, 0.5, (g, f) => {
-  const [spread, r, a] = [[0.8, 2.7, 0.9], [1.4, 3.3, 0.74], [1.9, 3.9, 0.52], [2.3, 4.4, 0.28]][f];
+  const [spread, r, a] = [[1.3, 2.3, 0.9], [1.8, 2.9, 0.74], [2.2, 3.5, 0.52], [2.5, 3.9, 0.28]][f];
   cloud(g, 6, 6, spread, r, '208,208,212', '252,252,250', a);
 });
 // A gun's flame, from its base at the mouth: a bright tongue, dying back.
@@ -150,32 +154,28 @@ anim('spark', 4, 8, 8, 0.5, 0.5, (g, f) => {
   blob(g, 4, 4, r * 2.2, f < 2 ? HOT : FLAME, a * 0.4); blob(g, 4, 4, r, c, a, 0.6);
 });
 // What flies, its tip at the box's right end (a rocket's a little in from it), drawn level. Each but the rocket and the
-// ball has a thin dark edge under it (`UNDER`): on the pale worn dirt a tan shaft or a streak of light alone was lost.
+// ball has a thin dark edge round it (`edged`): on the pale worn dirt a tan shaft or a streak of light alone was lost.
 const UNDER = 'rgba(22,24,30,0.4)';
-one('ballista_bolt', 24, 5, 1, 0.5, (g) => {
-  line(g, 3, 2.9, 20.5, 2.9, 2.2, UNDER); shape(g, [[24, 2.9], [18.2, 0.5], [18.2, 4.9]], UNDER);
-  line(g, 3, 2.5, 20, 2.5, 1.8, 'rgb(150,112,72)'); line(g, 3, 2.1, 20, 2.1, 0.8, 'rgb(206,170,122)');
-  shape(g, [[24, 2.5], [18.4, 0.5], [19.6, 2.5], [18.4, 4.5]], 'rgb(196,202,212)'); shape(g, [[24, 2.5], [18.4, 0.5], [19.6, 2.5]], 'rgb(234,238,244)');
-  shape(g, [[0.6, 0.4], [5.4, 1.7], [5.4, 3.3], [0.6, 4.6], [2, 2.5]], 'rgba(232,226,210,0.95)');
-});
+/** A shot of wood and steel, its thin dark edge under it: a shaft from x0 to
+ *  x1 `w` thick, its lit top line, then its `head` (lit half first) and its `vanes`. `y`: its middle. */
+function edged(g, y, x0, x1, w, head, vanes) {
+  line(g, x0, y + 0.1, x1, y + 0.1, w + 1, UNDER); g.lineWidth = 0.9; g.lineJoin = 'round';
+  for (const pts of [head, vanes]) { trace(g, pts); g.stroke(); }
+  line(g, x0, y, x1, y, w, 'rgb(148,104,58)'); line(g, x0, y - w * 0.2, x1, y - w * 0.2, w * 0.42, 'rgb(212,168,108)');
+  shape(g, head, 'rgb(186,194,206)'); shape(g, head.slice(0, 3), 'rgb(234,239,246)'); shape(g, vanes, 'rgba(236,231,217,0.96)');
+}
+one('ballista_bolt', 24, 5, 1, 0.5, (g) => edged(g, 2.5, 3, 20, 1.9, [[18.6, 2.5], [17.6, 0.55], [24, 2.5], [17.6, 4.45]], [[0.8, 0.55], [5.4, 1.6], [5.4, 3.4], [0.8, 4.45], [2.1, 2.5]]));
 one('rocket', 15, 5, 0.9, 0.5, (g) => {
   oval(g, 2.2, 2.5, 3, 1.5, FLAME, 0.9, 0.3); oval(g, 2.8, 2.5, 1.7, 0.9, WHITE, 0.95, 0.5);
   line(g, 4.6, 2.5, 11.6, 2.5, 2.5, 'rgb(74,78,88)'); line(g, 4.8, 1.9, 11.4, 1.9, 0.9, 'rgb(150,156,168)');
   shape(g, [[14.8, 2.5], [11.4, 1.1], [11.4, 3.9]], 'rgb(236,238,242)'); shape(g, [[3.4, 0.4], [6, 1.6], [6, 3.4], [3.4, 4.6]], 'rgb(52,55,62)');
 });
-one('arrow', 17, 4, 1, 0.5, (g) => {
-  line(g, 2.5, 2.35, 14.8, 2.35, 1.5, UNDER); shape(g, [[17, 2.3], [13.2, 0.6], [13.2, 4]], UNDER);
-  line(g, 2.5, 2, 14.5, 2, 1.2, 'rgb(150,116,78)'); line(g, 2.5, 1.75, 14.5, 1.75, 0.55, 'rgb(214,180,132)');
-  shape(g, [[17, 2], [13.4, 0.6], [14.2, 2], [13.4, 3.4]], 'rgb(214,220,228)');
-  shape(g, [[0.5, 0.4], [4.2, 1.4], [4.2, 2.6], [0.5, 3.6], [1.5, 2]], 'rgba(240,238,228,0.95)');
-});
-/** A streak of light: bright at its tip, fading down its tail, a thin dark edge under it. */
+one('arrow', 17, 4, 1, 0.5, (g) => edged(g, 2, 2.6, 14.2, 1.4, [[13.6, 2], [12.8, 0.5], [17, 2], [12.8, 3.5]], [[0.6, 0.5], [4.2, 1.2], [4.2, 2.8], [0.6, 3.5], [1.6, 2]]));
+/** A streak of light: bright at its tip, fading down its tail, a thin dark edge round it. */
 function streak(g, w, c) {
-  const d = g.createLinearGradient(0, 0, w, 0); d.addColorStop(0, 'rgba(22,24,30,0)'); d.addColorStop(0.5, 'rgba(22,24,30,0.3)'); d.addColorStop(1, 'rgba(22,24,30,0.4)');
-  g.strokeStyle = d; g.lineWidth = 1.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(0.8, 1.35); g.lineTo(w - 0.8, 1.35); g.stroke();
-  const q = g.createLinearGradient(0, 0, w, 0); q.addColorStop(0, rgba(c, 0)); q.addColorStop(0.5, rgba(c, 0.75)); q.addColorStop(1, rgba(c, 1));
-  g.strokeStyle = q; g.lineWidth = 1.1; g.beginPath(); g.moveTo(0.6, 1); g.lineTo(w - 0.9, 1); g.stroke();
-  blob(g, w - 1.2, 1, 1.25, '255,255,255', 1, 0.6);
+  const fade = (c, at, top) => { const q = g.createLinearGradient(0, 0, w, 0); q.addColorStop(0, rgba(c, 0)); q.addColorStop(0.45, rgba(c, at)); q.addColorStop(1, rgba(c, top)); return q; };
+  line(g, 1.2, 1.15, w - 1.1, 1.15, 2, fade('22,24,30', 0.36, 0.42)); line(g, 0.7, 1, w - 0.8, 1, 1.1, fade(c, 0.92, 1));
+  blob(g, w - 1.1, 1, 0.95, '255,255,255', 1, 0.6);
 }
 one('tracer', 13, 3, 1, 1 / 3, (g) => streak(g, 13, '255,244,196'));    // (a row taller than the older frame, for the edge under it: its line still on the anchor)
 one('tower_shot', 11, 3, 1, 1 / 3, (g) => streak(g, 11, '224,244,255'));

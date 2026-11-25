@@ -10,6 +10,7 @@ mod common;
 mod construction;
 mod economy;
 mod expedition;
+mod firm;
 mod guided;
 mod jitter;
 mod leash;

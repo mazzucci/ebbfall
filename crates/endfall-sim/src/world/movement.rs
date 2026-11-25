@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// Multiples of this angle (radians) spread evenly round the circle, whatever the ids (`separate`).
+const GOLDEN_ANGLE: f64 = 2.4;
+
 impl World {
     // ---- spatial hash (rebuilt every tick) ----
     pub(crate) fn cell(x: f64, y: f64) -> (i32, i32) {
@@ -310,11 +313,28 @@ impl World {
         }
     }
 
-    /// Push overlapping units apart and out of blocked tiles. A unit holding position or deployed (a
-    /// siege gun in a fight is so without holding) stands firm: others flow around it. Two workers of a side on their
+    /// Push overlapping units apart and out of blocked tiles. A unit holding position or deployed and settled in (a
+    /// siege gun in a fight is so without holding) stands firm: others flow around it. One still settling in is pushed
+    /// clear, so it never sets up on top of another. A unit walking (a move, a march, a chase, a flight) is not pushed
+    /// by the firm units of its own seat: it walks through them to its goal, and is pushed clear where it stops (pushed
+    /// as it walked, it could never reach a point one of them covers, nor pass two side by side). A worker at its work
+    /// is: passing a guard that holds at its mine, it would slip away from raiders. Two workers of a side on their
     /// gathering round pass through each other, as in 1998: a crowded field never jams or jostles.
     pub(crate) fn separate(&mut self) {
-        let firm = |u: &Unit| u.task == Task::Hold || u.mode.is_some();
+        let firm = |u: &Unit| match u.mode {
+            Some(_) => u.swap <= 0.0,
+            None => u.task == Task::Hold,
+        };
+        let walking = |u: &Unit| {
+            u.path.as_ref().is_some_and(|p| !p.is_empty())
+                && matches!(
+                    u.task,
+                    Task::Move { .. }
+                        | Task::AMove { .. }
+                        | Task::Attack { .. }
+                        | Task::Flee { .. }
+                )
+        };
         let gathering = |u: &Unit| matches!(u.task, Task::Gather { .. });
         for i in 0..self.units.len() {
             if firm(&self.units[i]) || self.units[i].inside() {
@@ -326,24 +346,31 @@ impl World {
                 if o == id {
                     continue;
                 }
-                let (ox, oy, or, ohold, oair, miners) = {
+                let (ox, oy, or, ohold, oair, pass) = {
                     let o = self.hashed(o).unwrap();
                     let me = &self.units[i];
                     // (one gone into a mine this tick, still in the hash, passes as a fellow miner would)
                     let miners = o.inside() || (o.team == me.team && gathering(o) && gathering(me));
-                    (o.x, o.y, o.r, firm(o), o.kind.def().air, miners)
+                    let through = o.team == me.team && firm(o) && walking(me);
+                    (o.x, o.y, o.r, firm(o), o.kind.def().air, miners || through)
                 };
-                if air != oair || miners {
-                    // flyers and walkers do not bump into each other, nor two workers of a side on their round
+                if air != oair || pass {
+                    // flyers and walkers do not bump into each other, nor two workers of a side on their round, nor a
+                    // walker into its own seat's firm units
                     continue;
                 }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);
-                // Exactly on top of each other: part along x, by id, so the push is never a zero vector.
-                let (dx, dy) = if dx == 0.0 && dy == 0.0 {
-                    (if id < o { -1.0 } else { 1.0 }, 0.0)
-                } else {
-                    (dx, dy)
+                // Exactly on top of each other: part along x, by id, so the push is never a zero vector; off a firm one (a
+                // point it covers, walked to exactly) each id its own way round it, so the next one sent there is not
+                // pushed straight against the last, squeezed between the two.
+                let (dx, dy) = match (dx == 0.0 && dy == 0.0, ohold) {
+                    (true, true) => {
+                        let a = id as f64 * GOLDEN_ANGLE;
+                        (jsmath::cos(a), jsmath::sin(a))
+                    }
+                    (true, false) => (if id < o { -1.0 } else { 1.0 }, 0.0),
+                    _ => (dx, dy),
                 };
                 let d = jsmath::hypot(dx, dy);
                 let min = u.r + or;

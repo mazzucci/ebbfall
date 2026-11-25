@@ -1,5 +1,5 @@
 // Effects at 2x resolution, painted with smooth gradients (explosions, smoke, muzzle flash, sparks, projectiles,
-// selection rings, the light blob and the rally flag). Names match what the renderer asks for; `harpoon` and `beam`
+// selection rings and the light blob). Names match what the renderer asks for; `harpoon` and `beam`
 // (the ground family) wait for the renderer to pick a projectile's art by its shooter.
 import { image, hash2, vnoise } from './raster.js';
 import { VP } from '../render3d/vael-palette.js';
@@ -68,14 +68,6 @@ function heal(f) { // 24x24 green sparkle for healing
 }
 function shell() { return image(16, 16, (x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8); const a = clamp01(1 - (d - 3) / 4); const c = ramp(FIRE, d / 7); return [c[0], c[1], c[2], Math.round(a * 255)]; }); }
 function ring(r, rgb) { const W = r * 4 + 8, H = Math.round(r * 2.4) + 8; return image(W, H, (x, y) => { const v = Math.hypot((x + 0.5 - W / 2) / (r * 2), (y + 0.5 - H / 2) / (r * 1.2)); const a = clamp01(1 - Math.abs(v - 0.92) * r * 2 / 2.2); return [...rgb, Math.round(a * 240)]; }); }
-function flag(f) {
-  return image(32, 40, (x, y) => {
-    if (x >= 6 && x < 9 && y >= 4 && y < 38) return x === 6 ? [190, 196, 206, 255] : [110, 116, 126, 255];
-    const w = Math.sin((x - 9) / 5 + f * 1.57) * 1.6, top = 4 + w, bot = 18 + w * 0.6, len = 18 - (y - top) * 0.15;
-    if (x >= 9 && x < 9 + len && y >= top && y < bot) { const sh = 0.75 + 0.25 * Math.sin((x - 9) / 5 + f * 1.57 + 1); return [240 * sh, 180 * sh, 40 * sh, 255].map(Math.round); }
-    return [0, 0, 0, 0];
-  });
-}
 
 export function effectSprites() {
   const out = [], c = { x: 0.5, y: 0.5 };
@@ -84,7 +76,6 @@ export function effectSprites() {
   for (let f = 0; f < 4; f++) out.push({ name: `puff_${f}`, img: puff(f), anchor: c });
   for (let f = 0; f < 3; f++) out.push({ name: `flash_${f}`, img: flash(f), anchor: c });
   for (let f = 0; f < 4; f++) out.push({ name: `spark_${f}`, img: spark(f), anchor: c });
-  for (let f = 0; f < 4; f++) out.push({ name: `flag_${f}`, img: flag(f), anchor: { x: 0.2, y: 0.95 } });
   out.push({ name: 'light', img: light(), anchor: c });
   out.push({ name: 'bolt', img: bolt(), anchor: { x: 1, y: 0.5 } });
   out.push({ name: 'shell', img: shell(), anchor: c });

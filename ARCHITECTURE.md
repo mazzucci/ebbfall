@@ -370,7 +370,10 @@ src/client/           everything that touches the browser
                       for the tests;
                       each unit kind's drawn height (`unitTop`, the index's `unitTops`); the HUD's portraits cut from the
                       art's pages (`portrait`: the selection console, its queue, the guided first game; not the command card)
-  gl/artload.js       the game's art on its way in: every file of public/art/new/index.json (its groups `remains`, `bldg`,
+  gl/fx.js            the effects, the shots and the light, painted in code on one small canvas (`paintFx`: fire in
+                      three castings, smoke, flash, spark, glint, a gun's flame, dust, what flies, the light blob): one
+                      texture, one batch; render.js `addEffect` plays them from a pool of sprites
+  gl/artload.js       the game's art on its way in: every file of public/art/new/index.json (its groups `bldg`,
                       `land`, `unit`, and each file's bytes) asked for at once by boot.js, in parallel, counted as it comes
                       (`art`, `onArt`), tried four times (also a stall of 20 s), then waiting for RETRY (`retryArt`); kept
                       decoded for render.js (`loadArt`). There is no other art to fall back to
@@ -640,8 +643,9 @@ test/shots.test.js    how each shot is drawn to read on a phone (look.js `SHOT_S
                       (the Drone's the Sentry mast's), hits in steel's cool and muzzle flashes warm, the heavy trail
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
-test/newart.test.js   the game's art: the loader's tries and RETRY, the index's sizes (tools/newart/bytes.mjs), the page cut
-                      from the older atlas pixel for pixel (tools/art/remains.mjs), every frame the client names there;
+test/newart.test.js   the game's art: the loader's tries and RETRY, the index's sizes (tools/newart/bytes.mjs), the effects
+                      painted in code (gl/fx.js: laid on one canvas, each the size and anchor its older frame had) and the
+                      seats' paint, every frame the client names in the packs or painted;
                       test/newart-tone.test.js the tone curve; test/e2e/newart.e2e.mjs what a page asks for (never the
                       older atlas), the loading line and RETRY, the portraits
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
@@ -1055,8 +1059,7 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
 tools/art/            older/: the older atlas's pages (atlas.json, atlas-<n>), the look the game had by default up to commit
                       3d5d198 (2026-11-25; its generators are in that commit: tools/art/generate.mjs and the painters), kept
                       for what still reads it: og.mjs, menu-art.mjs, the unit pack's
-                      names (tools/newart/unit) and remains.mjs, which cut the frames the game still draws into
-                      public/art/new/remains-0; render3d.mjs (tools/render3d in Chromium, for menu-art.mjs), webp.mjs (lossless, libwebp
+                      names (tools/newart/unit) and test/newart.test.js (the effects' sizes and the seats' paint); render3d.mjs (tools/render3d in Chromium, for menu-art.mjs), webp.mjs (lossless, libwebp
                       in WASM through @jsquash/webp) and png.js, battle-shots.mjs (the built game's brawls), glyph-strip.mjs
                       (the command card's glyphs); see Notion: Ebbfall art
 public/art/           new/: the game's art (index.json, the groups' pages; NOTICE.txt)

@@ -36,7 +36,8 @@ export function buildCard() {
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
     if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis;
-    b.title = it.label + (it.key ? ` (${it.key})` : '') + (it.tip ? ': ' + it.tip : '');
+    const words = [it.tip, it.poor && it.short].filter(Boolean).join(' ');
+    b.title = it.label + (it.key ? ` (${it.key})` : '') + (words ? ': ' + words : '');
     const pic = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon) : ''; // (a unit or a building: its symbol, `por` [what, kind])
     // (the price in the left column; a unit's population or grid, small, in the right: `places`)
     const places = it.places ? `<span class="p" title="${placesText(it.places)}">${icon(it.places[1] === 'grid' ? 'grid' : 'pop')}${it.places[0]}</span>` : '';
@@ -80,7 +81,10 @@ function showDetail(it, anchor = $('cmd')) {
   box.style.bottom = (innerHeight - r.top + 6) + 'px';
   const kind = /^[tb]_/.test(it.id) ? it.id.slice(2) : ''; // (a unit to train or a building to place: its stats)
   const head = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}`, pic = it.por ? portrait(it.por[0], it.por[1], SPRITE) : '';
-  box.innerHTML = (pic ? `<span class="pic">${pic}</span><span class="hd">${head}</span>` : head) + `<span class="d">${it.tip || ''}</span>`;
+  // What is short, always there on a desktop, unseen while it can be paid (style.css `.short`), so the panel keeps its size
+  // when a click spends the money; on a touch screen only while it is short, as its words need the room.
+  const short = it.short ? `<span class="short${it.poor ? '' : ' off'}">${it.short}</span>` : '';
+  box.innerHTML = (pic ? `<span class="pic">${pic}</span><span class="hd">${head}</span>` : head) + `<span class="d">${[it.tip, short].filter(Boolean).join(' ')}</span>`;
   // Wide enough for the stat rows on one line each; wider still, up to the screen's width, while it is too tall for
   // the room above the card (a short landscape phone and a long description).
   const room = Math.max(220, left ? innerWidth - r.left - 8 : r.right - 8);

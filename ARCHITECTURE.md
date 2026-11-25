@@ -516,7 +516,8 @@ src/client/           everything that touches the browser
                       lists with every defense (the Watchtower, the Sentry mast) on the basic page, before Advanced
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does; a unit
                       or a building button (its item's `por`: [what, kind]) shows its symbol (icons.js `glyph`), the
-                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold
+                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold; with a
+                      mouse the hover panel keeps the room of "Not enough gold", so it never changes size
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
@@ -652,6 +653,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
+                      panel.e2e.mjs (with a mouse, a button's details panel has one size, its price in reach or not:
+                      every unit, building and research of both peoples),
                       rally.e2e.mjs (the rally flag: for the selected building of ours alone, red whatever our seat's
                       color), construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),

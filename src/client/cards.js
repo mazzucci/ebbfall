@@ -196,9 +196,9 @@ export function cardItems() {
     // One live Cancel at a time (Deselect stays); the queue's keeps its slot, grayed out, so the card keeps its shape.
     for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }
-  for (const it of items) if (it.cost && !canAfford(G.me, it.cost)) { // grayed out, but a tap says what is short
-    it.poor = true;
-    it.tip = (it.tip ? it.tip + ' ' : '') + `Not enough ${money()} (needs ${it.cost[0]}).`;
+  for (const it of items) if (it.cost) {
+    it.short = `Not enough ${money()} (needs ${it.cost[0]}).`; // (its words while it is poor; the details panel keeps their room either way)
+    if (!canAfford(G.me, it.cost)) it.poor = true; // grayed out, but a tap says what is short
   }
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }

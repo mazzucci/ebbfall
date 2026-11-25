@@ -34,7 +34,10 @@ function selectOrDouble(hit, add, at = performance.now()) {
 import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop, deskHud, resize } from './gl/render.js';
 /** Where a unit is drawn, as a circle round its body: centered half its drawn height above its feet (a flyer's art,
  *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
-const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
+const body = (u, top = unitTop(u.type)) => { const h = top / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
+/** How far (world px) above its feet one of our walkers is picked over one of our buildings: above it, the building (a
+ *  drawn unit stands taller than its ground, and a hat must not hide the house behind it). */
+const LOW = 28;
 /** How far (world px) point p is from the edge of unit u's body circle (negative: inside). */
 const fromBody = (u, p) => { const c = body(u); return dist(c, p) - c.r; };
 
@@ -107,17 +110,22 @@ function canvasPos(ev) { const r = cv.getBoundingClientRect(); return { x: ev.cl
 const touchReach = () => drag.ptype === 'touch' ? Math.max(16, 28 / cam.zoom) : 6;
 /** What is under (wx, wy): a unit whose body is there (of several, the one whose body's middle is nearest, for its
  *  size: overlapping units are each picked by a tap on their own middle), else the unit whose body is nearest within
- *  reach (generous for fingers), else a building, else a gold mine. A worker inside a mine is not there to pick. */
+ *  reach (generous for fingers), else a building, else a gold mine. A worker inside a mine is not there to pick. Over one
+ *  of our buildings our own walkers are picked on their lower part alone (LOW; a flyer, over the roofs, whole). */
 function pick(wx, wy) {
-  const reach = touchReach(), p = { x: wx, y: wy };
+  const reach = touchReach(), p = { x: wx, y: wy }, bldg = bldgAt(wx, wy), ours = bldg?.team === G.me;
   let best = null, bd = Infinity;
   for (const u of G.units) {
     if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue;
-    const c = body(u), d = dist(c, p) - c.r; if (d > reach) continue;
+    const low = ours && u.team === G.me && !u.d.air; if (low && wy < u.y - LOW) continue;
+    const c = low ? body(u, Math.min(LOW, unitTop(u.type))) : body(u), d = dist(c, p) - c.r; if (d > reach) continue;
     const k = d <= 0 ? dist(c, p) / c.r - 2 : d; // (on its body: -2 at its middle to -1 at its edge; off it: px beyond)
     if (k < bd) { bd = k; best = u; }
   }
-  if (best) return best;
+  return best || bldg || nodeAt(wx, wy);
+}
+/** The building under (wx, wy), if any: on its footprint, else on its drawn walls and roof. */
+function bldgAt(wx, wy) {
   const bs = shownBldgs(), inX = (b) => wx >= b.tx * TILE && wx < (b.tx + b.w) * TILE;
   for (const b of bs) { if (inX(b) && wy >= b.ty * TILE && wy < (b.ty + b.h) * TILE) return b; } // (an enemy's in the fog: as last seen, memory.js)
   // Above a footprint, on its drawn walls and roof (the art rises well above it): of several, the frontmost (lowest).
@@ -126,7 +134,7 @@ function pick(wx, wy) {
     const y0 = bldgArtTop(b.id);
     if (y0 != null && inX(b) && wy >= y0 && wy < b.ty * TILE && (!top || b.ty + b.h > top.ty + top.h)) top = b;
   }
-  return top || nodeAt(wx, wy);
+  return top;
 }
 /** The explored gold mine under (wx, wy), if any: on its footprint, or on its rock just above it (the art rises half a
  *  tile over its top row), a little past its edges for a finger. */
@@ -222,10 +230,12 @@ const orderTarget = (hit, units) => !hit || hit.kind === 'node' || enemies(G.me,
   || (hit.kind === 'bldg' && hit.team === G.me && units.some(u => u.d.worker) && (!hit.done || damaged(hit)));
 
 /** What a click or tap at (wx, wy) hit, `hit` or the unit of the last one: the second of a double counts on the unit of
- *  the first, even if it has moved a little since (only when it hit nothing else). */
+ *  the first, even if it has moved a little since (only when it hit nothing else, or one of our buildings behind it: its
+ *  whole body). */
 function secondOf(hit, wx, wy, at) {
   const prev = at - lastPick.t < 400 && G.units.find(u => u.id === lastPick.id && !u.dead && (u.team === G.me || visibleEnt(u)));
-  return prev && (!hit || hit.kind === 'node') && fromBody(prev, { x: wx, y: wy }) <= touchReach() * 2 ? prev : hit;
+  const behind = prev && prev.team === G.me && hit?.kind === 'bldg' && hit.team === G.me;
+  return prev && (!hit || hit.kind === 'node' || behind) && fromBody(prev, { x: wx, y: wy }) <= touchReach() * (behind ? 1 : 2) ? prev : hit;
 }
 
 /** What a tap on the map does while an order from the card is armed (the orders themselves: ARMED in ui.js). */

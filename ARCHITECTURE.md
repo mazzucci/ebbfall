@@ -567,7 +567,8 @@ src/client/           everything that touches the browser
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands (the keys' and the
                       mouse edge's pan at PAN_SPEED world px a second, the same time across the map at any zoom); a unit is hit
-                      on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
+                      on a circle round its drawn body (half its drawn height above its feet; over a building of ours our
+                      walkers on their lowest 28 px alone, above that the building), a gold mine on its
                       footprint and the rock just over it; a worker inside a mine is not picked or boxed; workers sent
                       to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold);
                       touch: a finger held still on the map for HOLD_MS (350 ms, within the pan's 10 px; a ring fills
@@ -670,6 +671,7 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       rally.e2e.mjs (the rally flag: for the selected building of ours alone, red whatever our seat's
                       color), construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
+                      pick.e2e.mjs (a click or a tap where a unit stands over a building),
                       mouse.e2e.mjs (the MOUSE setting: what a left click orders, selects and keeps, the right-click hint),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,

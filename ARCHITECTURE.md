@@ -338,18 +338,20 @@ src/client/           everything that touches the browser
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
                       the selection marks (one thin whole ring, red for an enemy, round a unit's feet or a building's
                       footprint, `selRing`) and the health bars (4 px, lit along the top, a unit's at most 24 px wide,
-                      34 for a large one, `slimBar`) in screen pixels at any zoom;
+                      34 for a large one, `slimBar`) in screen pixels at any zoom; a gold mine selected, worked or just ordered marked
+                      along its painted outline (`hullOf`, read once from the frame), a building to work on likewise;
                       the range (the sim's circles round each Data center and Uplink, a soft tint at 7% faded as one
-                      layer and the signal rim round their union, range.js: a 3.5 px dark halo at 50% under a 1.5 px
-                      light line at 70%, and inside it a feathered band, 16 px of the rim's light from 18% to nothing,
+                      layer and the signal rim round their union, range.js: a 4.5 px dark halo at 55% under a 2.5 px
+                      light line at 85%, `RIM`, and inside it a feathered band, 28 px of the rim's light from 36% to nothing,
                       in screen px at every zoom (`rimZoom`, a step of the zoom in the redraw's key);
-                      above the fog, under the ghost, the bars and the selection box; shown while a machine, a Data
+                      on the ground, under the rings, the units, the trees and the buildings, and over ground not yet seen a 1.5 px line
+                      over the fog (`drawFogRim`); shown while a machine, a Data
                       center or an Uplink of this side is selected or any Expedition building placed, drawn again only
                       when the sources or the zoom's step change; a machine sent past the edge (the sim's `signal`
                       event) brightens the rim's stretch nearest the spot, range.js `nearestRim`, fading over 0.6 s;
                       the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
                       an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
-                      over the cached base, a 1.25 px line at 80% over a 2.5 px dark halo at 50% in CSS px (scaled by
+                      over the cached base, a 1.75 px line at 80% over a 3.5 px dark halo at 50% in CSS px (scaled by
                       the minimap's box); `rangeShown` for the tests); the minimap drawn in 168 units across its box
                       (its old fixed canvas: the same widths and dots as then) onto a backing of its CSS size times
                       the screen's pixels per CSS px (read each frame: another screen or the browser's zoom), times
@@ -570,7 +572,7 @@ src/client/           everything that touches the browser
                       draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
                       selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
-                      (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
+                      (`orderTarget`: the ground, a mine, an enemy, with workers a site; a damaged building is selected, its repair a right click's or the Repair button's, as on touch; workers given
                       a job so, by an armed Mine or Repair or by placing without Shift are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
                       keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
                       with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold

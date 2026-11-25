@@ -14,7 +14,7 @@ const unit = async (d, id) => (await d.state()).units.find(u => u.id === id);
 async function at(d, id, up, opts) { const u = await unit(d, id); await d.page.waitForTimeout(450); await d.clickWorld(u.x, u.y - up, opts); }
 async function shift(d, f) { await d.page.keyboard.down('Shift'); await f(); await d.page.keyboard.up('Shift'); }
 /** Nothing selected. */
-async function none(d) { await d.key('Escape'); await d.key('Escape'); assert.deepEqual(await ids(d), []); }
+async function none(d) { await d.key('Escape'); await d.key('Escape'); await d.page.waitForFunction(() => !endfall.ui.sel.length, null, { timeout: 5000 }).catch(() => {}); assert.deepEqual(await ids(d), []); } // (Firefox hands the page a key a moment after the driver's word for it)
 
 /** A finished Cottage of ours in open ground (set up), and a Villager idle just south of it: its feet past the
  *  footprint's foot by a few px or on it, its hat over the footprint. Another Villager far from any building. */
@@ -95,7 +95,7 @@ for (const [label, device] of [['desktop click', DESKTOP], ['phone tap', PHONE]]
   });
 }
 
-test('desktop, over a Cottage of ours: a box takes a Villager by its whole body, a double-click its type, Shift adds it, and a left click on a damaged Cottage over a hat is the workers\' order', async () => {
+test('desktop, over a Cottage of ours: a box takes a Villager by its whole body, a double-click its type, Shift adds it, and with a worker selected a damaged Cottage is selected by a left click over a hat, repaired by a right click there', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const { b, w, core, spawn } = await scene(d);
@@ -116,13 +116,16 @@ test('desktop, over a Cottage of ours: a box takes a Villager by its whole body,
     assert.deepEqual(await ids(d), [guard]);
     await shift(d, () => at(d, w, 14));
     assert.deepEqual(await ids(d), [guard, w].sort((p, q) => p - q), 'Shift adds the Villager');
-    // A worker selected, the Cottage damaged: a left click on it where another's hat is repairs it.
+    // A worker selected, the Cottage damaged: a left click on it where another's hat is selects it, a right click repairs it.
     const other = await spawn('harvester', b.x + 90, b.y + 60);
     await d.eval((id) => endfall.engine.debugSetHp(id, 60), b.id); await d.skip(0.2);
     await none(d); await at(d, other, 14);
     assert.deepEqual(await ids(d), [other]);
     await at(d, w, 31);
-    assert.equal((await unit(d, other)).task, 'repair', 'the order: repair the Cottage behind the hat');
+    assert.deepEqual([await ids(d), (await unit(d, other)).task], [[b.id], 'idle'], 'a left click: the Cottage behind the hat, nothing ordered');
+    await none(d); await at(d, other, 14);
+    const hat = await unit(d, w); await d.rightClickWorld(hat.x, hat.y - 31);
+    assert.deepEqual([await ids(d), (await unit(d, other)).task], [[other], 'repair'], 'a right click: the order, to repair the Cottage behind the hat');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

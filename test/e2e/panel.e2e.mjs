@@ -27,52 +27,60 @@ const raiseAll = () => {
   }
   return kinds.filter(k => !up(k));
 };
-/** In the page: the panel as it is drawn now: its box, and whether the words of what is short are seen. */
-const panel = () => {
-  endfall.draw();
-  const el = document.getElementById('cmdInfo'), r = el.getBoundingClientRect(), s = el.querySelector('.short');
-  return { box: [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100), hidden: el.hidden, label: el.querySelector('b')?.textContent, short: !!s && getComputedStyle(s).visibility === 'visible' && getComputedStyle(s).display !== 'none', words: s?.textContent };
-};
+/** In the page: the panel as it is now: its box, and whether the words of what is short are seen. */
+const PANEL = `() => {
+  const el = document.getElementById('cmdInfo'), r = el.getBoundingClientRect(), s = el.querySelector('.short'), cs = s && getComputedStyle(s);
+  return { box: [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100), hidden: el.hidden, label: el.querySelector('b')?.textContent,
+    short: !!s && cs.visibility === 'visible' && cs.display !== 'none', words: s?.textContent };
+}`;
+/** In the page: every priced button of every card (each building's, a worker's two Build pages) with its panel rich, poor
+ *  and rich again: the mouse's enter and leave sent to each button of a card drawn once for each, all in one call (the
+ *  page draws nothing between). { id: [rich, poor, again] }, each with the button's own label as `want`. */
+const everyPanel = `(() => {
+  const panel = ${PANEL}, { G, ui } = endfall, out = {};
+  const enter = (b, type) => b.dispatchEvent(new PointerEvent(type, { pointerType: 'mouse' }));
+  const cards = [...G.bldgs.filter(b => b.team === 0 && b.done).map(b => [b, null]), ...['build', 'build2'].map(m => [G.units.find(u => u.team === 0 && u.d.worker && !u.inside), m])];
+  for (const [e, mode] of cards) for (const gold of [5000, 0, 5000]) {
+    ui.place = null; ui.mode = mode; ui.sel = [e]; endfall.setResources(0, gold, 0); endfall.draw();
+    for (const it of endfall.cardItems()) {
+      if (!it.cost || it.hidden || out[it.id]?.length === 3) continue;
+      const b = document.querySelector('#cmd [data-id="' + it.id + '"]');
+      enter(b, 'pointerenter'); (out[it.id] ||= []).push({ ...panel(), want: it.label }); enter(b, 'pointerleave');
+    }
+  }
+  ui.sel = []; ui.mode = null;
+  return out;
+})()`;
 
 for (const race of ['humans', 'vael']) {
   test(`${race}, with a mouse: the details panel of every unit, building and research has one size, whether it can be paid or not, in three windows`, { timeout: 240000 }, async () => {
-    const d = await newGame(DESKTOP, 1, 4242, { ai: false, race });
+    // (half the pixels each way: what is measured is the layout, and software WebGL draws a 1920 px window slowly)
+    const d = await newGame({ ...DESKTOP, deviceScaleFactor: 0.5 }, 1, 4242, { ai: false, race });
     try {
       assert.deepEqual(await d.eval(raiseAll), [], 'every building stands');
-      const want = await d.eval(() => { const { G, engine: E } = endfall, f = E.FACTIONS[G.factions[0]], b = [...new Set([...f.buildBasic, ...f.buildAdvanced])]; return [...b.map(k => 'b_' + k), ...new Set(b.flatMap(k => E.BUILDINGS[k].trains || [])).values()].map(k => k.startsWith('b_') ? k : 't_' + k).sort(); });
-      const moved = [], money = race === 'vael' ? 'energy' : 'gold';
+      const want = await d.eval(() => { const { G, engine: E } = endfall, f = E.FACTIONS[G.factions[0]], b = [...new Set([...f.buildBasic, ...f.buildAdvanced])]; return [...b.map(k => 'b_' + k), ...new Set(b.flatMap(k => (E.BUILDINGS[k].trains || []).map(t => 't_' + t)))].sort(); });
+      const moved = [], money = race === 'vael' ? 'energy' : 'gold', same = (p, q) => p.box.join() === q.box.join();
+      const check = (id, [rich, poor, again]) => {
+        assert.ok([rich, poor, again].every(p => !p.hidden && p.label === rich.want), `${id}: its panel shows in each state: ${JSON.stringify([rich, poor, again])}`);
+        assert.deepEqual([rich.short, poor.short, again.short], [false, true, false], `${id}: what is short is seen only while it is`);
+        assert.match(poor.words, new RegExp(`^Not enough ${money} \\(needs \\d+\\)\\.$`));
+        assert.ok(rich.box[0] >= 0 && rich.box[1] >= 0, `${id}: on the screen: ${rich.box}`);
+        return same(rich, poor) && same(rich, again);
+      };
       for (const viewport of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }, { width: 1000, height: 640 }]) {
         await d.page.setViewportSize(viewport);
-        const seen = new Set();
-        /** Every priced button on the card now: hovered rich, poor, rich again. */
-        const each = async () => {
-          const ids = await d.eval(() => { endfall.setResources(0, 5000, 0); endfall.draw(); return endfall.cardItems().filter(i => i.cost && !i.hidden).map(i => i.id); });
-          for (const id of ids) {
-            if (seen.has(id)) continue;
-            seen.add(id);
-            await d.page.locator(`#cmd [data-id="${id}"]`).hover();
-            const rich = await d.eval(panel);
-            await d.grant(0, 0); const poor = await d.eval(panel);
-            await d.grant(5000, 0); const again = await d.eval(panel);
-            assert.ok(!rich.hidden && !poor.hidden && rich.label === poor.label, `${id}: its panel shows in both states: ${JSON.stringify([rich, poor])}`);
-            assert.deepEqual([rich.short, poor.short, again.short], [false, true, false], `${id}: what is short is seen only while it is`);
-            assert.match(poor.words, new RegExp(`^Not enough ${money} \\(needs \\d+\\)\\.$`));
-            if (rich.box.join() !== poor.box.join() || rich.box.join() !== again.box.join()) moved.push([viewport.width, id, rich.box, poor.box, again.box]);
-            assert.ok(rich.box[1] >= 0 && rich.box[0] >= 0, `${id}: on the screen: ${rich.box}`);
-          }
-        };
-        for (const b of await d.eval(() => endfall.G.bldgs.filter(b => b.team === 0 && b.done).map(b => b.id))) {
-          await d.eval((id) => { endfall.ui.mode = null; endfall.ui.sel = [endfall.G.bldgs.find(b => b.id === id)]; endfall.draw(); }, b);
-          await each();
-        }
-        await d.eval(() => { endfall.ui.sel = [endfall.G.units.find(u => u.team === 0 && u.d.worker)]; endfall.ui.mode = null; endfall.draw(); });
-        await d.pressCard('Build'); await each();
-        await d.pressCard('Advanced'); await each();
-        await d.key('Escape'); await d.key('Escape');
-        assert.deepEqual([...seen].filter(id => /^[bt]_/.test(id)).sort(), want, `${viewport.width}: every unit and building was read`);
-        assert.ok([...seen].some(id => id.startsWith('r_')), 'and the researches');
+        const all = await d.eval(everyPanel);
+        for (const [id, p] of Object.entries(all)) if (!check(id, p)) moved.push([viewport.width, id, p.map(x => x.box)]);
+        assert.deepEqual(Object.keys(all).filter(id => /^[bt]_/.test(id)).sort(), want, `${viewport.width}: every unit and building was read`);
+        assert.ok(Object.keys(all).some(id => id.startsWith('r_')), 'and the researches');
       }
       assert.deepEqual(moved, [], 'no panel changed its size or its place');
+      // Under a real mouse: the money goes and comes back while it rests on the button (the card is rebuilt under it).
+      await d.page.setViewportSize({ width: 1000, height: 640 });
+      const hq = await d.eval(() => { endfall.setResources(0, 5000, 0); const b = endfall.G.bldgs.find(b => b.team === 0); endfall.ui.sel = [b]; endfall.draw(); return endfall.cardItems().find(i => i.cost).id; });
+      await d.page.locator(`#cmd [data-id="${hq}"]`).hover();
+      const held = await d.eval(`[5000, 0, 5000].map(gold => { endfall.setResources(0, gold, 0); endfall.draw(); return { ...(${PANEL})(), want: endfall.cardItems().find(i => i.cost).label }; })`);
+      assert.ok(check(hq, held), `the panel held still under the mouse: ${JSON.stringify(held)}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   });

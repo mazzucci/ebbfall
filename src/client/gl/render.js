@@ -223,8 +223,8 @@ function paintAs(body, paint, seat, tint = 0xffffff, alpha = 1) { body.tint = ti
 // building as faint silhouettes over it.
 const world = new Container({ isRenderGroup: true });
 const L = {};
-const GROUPS = new Set(['terrain', 'scenery', 'worn', 'decals', 'found', 'ents', 'air']);
-for (const k of ['terrain', 'scenery', 'worn', 'decals', 'found', 'sel', 'ents', 'xray', 'xrayFoe', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
+const GROUPS = new Set(['terrain', 'scenery', 'decals', 'found', 'ents', 'air']);
+for (const k of ['terrain', 'scenery', 'decals', 'found', 'sel', 'ents', 'xray', 'xrayFoe', 'air', 'projs', 'fx', 'lights', 'fog', 'overlay']) world.addChild(L[k] = new Container({ isRenderGroup: GROUPS.has(k) }));
 L.ents.sortableChildren = true; L.air.sortableChildren = true;
 L.lights.blendMode = 'add';
 land.L = L;
@@ -380,7 +380,7 @@ const MM_WET = { shallow: [70, 124, 128], deep: [29, 54, 88] };
  *  stands on it, the plan's hash (groundplan.js planHash), and what laying it cost (ms: the plan, the shade
  *  layers, all of renderTerrain). */
 let groundLaid = null;
-export const groundShown = () => groundLaid && { ...groundLaid, ms: { ...groundLaid.ms } };
+export const groundShown = () => groundLaid && { ...groundLaid, ms: { ...groundLaid.ms }, earth: land.worn?.n ?? 0 }; // (`earth`: the buildings with trodden earth under them now)
 
 export function renderTerrain() {
   const t0 = performance.now(), ms = {};
@@ -434,7 +434,6 @@ export function renderTerrain() {
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   for (const o of dying) o.destroy(); dying.length = 0; quake = null; pending.length = 0; for (const k of blinks) k.l.destroy(); blinks.length = 0;
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
-  L.worn.removeChildren().forEach(c => c.destroy()); // (the buildings' own, gone with them above)
   for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
 }
 
@@ -570,12 +569,13 @@ const GRAY_LOOK = colorFilter(); GRAY_LOOK.matrix = revealMatrix(0);
 /** Set a sprite's visibility only when it changes (each change rebuilds its layer's draw list). */
 const vis = (s, v) => { if (s && s.visible !== v) s.visible = v; };
 
+/** Whether the buildings drawn have changed since their earth was laid in the ground (BldgObj made or destroyed). */
+let earthStale = true;
 class BldgObj {
   constructor(b) {
-    const n = b.w;
-    // (worn dirt under it, from its site to its ruin: trodden earth over the footprint and a little beyond, the grass
-    // showing through, no paths)
-    this.worn = new Sprite(); setTex(this.worn, tex(`worn_${n}`)); L.worn.addChild(this.worn);
+    // (trodden earth under it, from its site to its ruin: the ground's own worn dirt over its footprint, laid in the
+    // ground's mix when the buildings drawn change: gl/newlandgl.js `wear`)
+    this.foot = { tx: b.tx, ty: b.ty, w: b.w, h: b.h, type: b.type }; earthStale = true;
     [this.body, this.paint] = teamSprite(L.ents); this.seat = seatTint(b.team); this.name = `bldg_${b.type}`;
     this.ex = G.factions[b.team] === 'vael';
     this.full = tex(this.name); this.fullPaint = tex(this.name + '_m'); setTex(this.body, this.full); setTex(this.paint, this.fullPaint);
@@ -590,7 +590,7 @@ class BldgObj {
     // The done moment (construct.js DONE): only for a site this side watched finish, live and on screen (`seenAt`: the
     // last frame it was drawn in, `frameNo`); a building already standing when first drawn never plays it.
     this.wasDone = b.done; this.seenAt = -Infinity; this.doneT = null;
-    for (const s of [this.worn, this.body, this.paint, this.roof, this.roofPaint]) s.position.set(b.x, b.y);
+    for (const s of [this.body, this.paint, this.roof, this.roofPaint]) s.position.set(b.x, b.y);
     // (sorted with the units by its bottom row, half a px north of it, so a unit whose feet are on that line or south of
     // it stands in front; buildings in one row apart by id, each one's paint and head just over its own body)
     // (drawn corner-on: by the line through its side corners, `look.z` px south of its middle: a unit
@@ -691,8 +691,8 @@ class BldgObj {
   dropFrames() { for (const g of this.frames || []) g.destroy(); this.frames = null; }
   /** Shown or not (update, after this, decides the parts of a shown one). Visibility is only ever set to what it should
    *  be, never on and off again in one frame: each change rebuilds the layer's draw list. */
-  show(v) { vis(this.body, v); vis(this.worn, v); if (!v) { for (const s of [this.paint, this.roofPaint, this.roof, this.head, this.headPaint, this.glow, ...(this.frames || [])]) vis(s, false); } }
-  destroy() { this.dropFrames(); this.fadeLook?.destroy(); for (const s of [this.worn, this.body, this.paint, this.roofPaint, this.roof, this.head, this.headPaint, this.glow, this.fallFlash]) if (s) s.destroy(); }
+  show(v) { vis(this.body, v); if (!v) { for (const s of [this.paint, this.roofPaint, this.roof, this.head, this.headPaint, this.glow, ...(this.frames || [])]) vis(s, false); } }
+  destroy() { earthStale = true; this.dropFrames(); this.fadeLook?.destroy(); for (const s of [this.body, this.paint, this.roofPaint, this.roof, this.head, this.headPaint, this.glow, this.fallFlash]) if (s) s.destroy(); }
   /** It fell (look.js bldgDeath, `plan`): from now on a ghost, out of the pool, until `plan.life` s have passed. */
   fall(plan) {
     this.dropFrames();
@@ -1170,6 +1170,7 @@ export function render(selList, place) {
       if (b.done && b.research) { progressBar(bx, by - 9, bw, b.research.prog, 0xffa070, 0, 7); bars.rect(bx, by - 9, bw, 7).stroke({ width: 1, color: 0xffa070, alpha: 0.7 }); } // research: taller, outlined
     }
   });
+  if (earthStale) { earthStale = false; land.wear([...bldgObjs.values(), ...dying].map(o => o.foot)); } // (the earth under the buildings drawn, the falling ones too)
   markedIds.clear();
   syncPool(unitObjs, G.units, u => new UnitObj(u), (o, u) => {
     const v = inView(u.x, u.y, 64) && !u.inside && (u.team === G.me || visibleEnt(u)); o.show(v); if (!v) return; // (one inside a mine is not drawn)

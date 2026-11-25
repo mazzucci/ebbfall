@@ -11,7 +11,7 @@
 //               at its foot, as the laid ones are (the shade is the ground shader's own: as two blended layers over the whole
 //               screen it was two fifths of a frame in software, for the same picture).
 import { Container, Mesh, MeshGeometry, Shader, Sprite, Texture } from 'pixi.js';
-import { TILE, MIX_K, groundMix, planLand, LAND } from './newland.js';
+import { TILE, MIX_K, groundMix, wearMix, planLand, LAND } from './newland.js';
 import { PIECES } from './newland-pieces.js';
 
 /** How the ground is mixed (the still's own recipe, nano-test/scene-flat.mjs: one tile there is 35.84 px). World px a
@@ -110,7 +110,7 @@ export class Land {
   constructor(grounds, tex, L) {
     for (const n of NAMES) { const s = grounds[n].source; s.addressMode = 'repeat'; s.scaleMode = 'linear'; }
     this.grounds = grounds; this.tex = tex; this.L = L;
-    this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null; this.shade = [];
+    this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null; this.shade = []; this.worn = null;
     this.rect = null; this.stats = null; this.box = false; this.dark = GROUND.apron.dark;
   }
   /** The map in a phone's box (`box`) or edge to edge: what stands past its edge, and how dark it gets there. */
@@ -123,6 +123,18 @@ export class Land {
     const k = (g, by) => (by === 1 ? g : by === 0 ? null : g.map(v => v * by));
     return { dry: k(plan.dry, GROUND.meadow.dry), lush: k(plan.lush, GROUND.meadow.lush), rockTone: k(plan.rockTone, GROUND.rockTone), kindAt };
   }
+  /** The trodden earth under the buildings drawn now (newland.js wearMix): `list` their footprints, `{ tx, ty, w, h,
+   *  type }`. The ground's mix is written and sent to the GPU again only when the list has changed (a building placed,
+   *  seen for the first time, or gone): nothing a frame, no sprite, no layer. Returns whether it changed. */
+  wear(list) {
+    const W = this.worn; if (!W || !this.mix) return false;
+    const key = list.map(b => `${b.type}:${b.tx},${b.ty},${b.w},${b.h}`).sort().join(' ');
+    if (key === W.key) return false;
+    W.key = key; W.n = list.length;
+    wearMix(W.mix, W.base, list, W.at);
+    const src = this.mix.source; src.resource.getContext('2d').putImageData(new ImageData(W.mix.data, W.mix.w, W.mix.h), 0, 0); src.update();
+    return true;
+  }
   /** Whether every piece's frame is in the packs (a page built from other pictures would not). */
   ready() { return PIECES.every(p => this.tex(p.name) !== Texture.EMPTY); }
   clear() {
@@ -130,7 +142,7 @@ export class Land {
     for (const r of this.rows) r.c.destroy({ children: true });
     for (const s of this.shown.values()) s.destroy();
     this.mix?.destroy(true); for (const t of this.shade) t.destroy(true);
-    this.meshes = []; this.rows = []; this.live = []; this.low = []; this.shown.clear(); this.mix = null; this.shade = []; this.rect = null;
+    this.meshes = []; this.rows = []; this.live = []; this.low = []; this.shown.clear(); this.mix = null; this.shade = []; this.rect = null; this.worn = null;
   }
   /**
    * Lay the land of a map: `w`, `h` tiles, `rock`, `kindAt` (ground.js rockKinds), `dirt` (the ground plan's), `seed`,
@@ -148,6 +160,9 @@ export class Land {
       const t = Texture.from(cv); t.source.scaleMode = 'linear'; t.source.autoGenerateMipmaps = false; return t;
     };
     this.mix = image(mix);
+    // (kept for the buildings' earth, `wear`: the image, its red as the map laid it, and how it lies on the map)
+    const base = new Uint8Array(mix.w * mix.h); for (let i = 0; i < base.length; i++) base[i] = mix.data[i * 4];
+    this.worn = { mix, base, at: { apron, seed }, key: '', n: 0 };
     this.shade = [shade[0], shade[1] || image({ w: 1, h: 1, data: new Uint8ClampedArray([0, 0, 0, 255]) })];
     for (const t of this.shade) t.source.addressMode = 'clamp-to-edge';
     const g = this.grounds;

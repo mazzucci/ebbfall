@@ -57,20 +57,20 @@ for (const [w, h, u] of [[1280, 720, 0.9], [1920, 1080, 1.1], [2560, 1440, 1.1]]
       await d.page.mouse.move(w / 2, h / 3);
       await d.page.waitForFunction(() => document.getElementById('hint').classList.contains('placing') && document.getElementById('hint').textContent.trim());
       await look('placing');
-      const hint = await d.eval(() => { const r = (id) => document.getElementById(id).getBoundingClientRect(), m = r('minimap'), t = r('hint'); return { over: m.top - t.bottom, left: t.left - m.left }; });
-      assert.ok(hint.over > 8 * u && hint.over < 24 * u && Math.abs(hint.left) < 1, `the hint just over the minimap, at its left edge: ${JSON.stringify(hint)}`);
+      const hint = await d.eval(() => { const r = (id) => document.getElementById(id).getBoundingClientRect(), m = r('btnBox'), t = r('hint'); return { over: m.top - t.bottom, left: t.left - m.left }; });
+      assert.ok(hint.over > 4 && hint.over < 24 * u && Math.abs(hint.left) < 1, `the hint just over SELECT's row, at its left edge: ${JSON.stringify(hint)}`);
       const all = [...seen], small = all.filter(([, px]) => px < 12 - 1e-6), kinds = [...new Set(all.map(([, px]) => px))].sort((a, b) => a - b);
       assert.ok(all.length > 20, `the HUD's texts were read: ${all.length}`);
       assert.deepEqual(small, [], `no HUD text under 12 px: ${JSON.stringify(small)}`);
       assert.deepEqual(kinds, [...new Set([Math.max(12, 12 * u), 14 * u, 17 * u].map(v => Math.round(v * 100) / 100))], `three sizes, the table's key, body and figure or title: ${JSON.stringify(all)}`);
-      // the camera all the way down: the map's last row comes out from under a three-row card, taller than the minimap
+      // the camera all the way down: the map's last row comes out from under a three-row card, or the row over the minimap
       const foot = await d.eval(() => {
         const { cam, view, engine } = endfall, cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0;
         endfall.centerOn(engine.WW / 2, 1e7);
         const card = cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth));
-        return { map: (engine.WH - cam.y) * cam.zoom, card, minimap: document.getElementById('minimap').getBoundingClientRect().top, h: view.h };
+        return { map: (engine.WH - cam.y) * cam.zoom, card, row: document.getElementById('btnBox').getBoundingClientRect().top, h: view.h };
       });
-      assert.ok(foot.card < foot.minimap && Math.abs(foot.map - (foot.card - 4)) < 1, `the map's foot 4 px over a three-row card's top, which is over the minimap's: ${JSON.stringify(foot)}`);
+      assert.ok(Math.abs(foot.map - (Math.min(foot.card, foot.row) - 4)) < 1, `the map's foot 4 px over the top of a three-row card or of the row over the minimap, the higher: ${JSON.stringify(foot)}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   });

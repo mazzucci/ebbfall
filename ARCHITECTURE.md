@@ -566,7 +566,8 @@ src/client/           everything that touches the browser
                       selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
                       (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
                       a job so are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
-                      keeps the selection; Esc and Deselect let go; SELECT: tap to toggle, or hold
+                      keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
+                      with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
                       a key) and nothing plays until it runs; `holdSound`: the pause card suspends it; a hidden tab
                       suspends it too; `gameSound`: the wind bed plays in a game only (main.js `begin`, the end card,

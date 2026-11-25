@@ -590,7 +590,7 @@ dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-a
      --t-title  17  a name (display, bold): the selection's, a research's, a tooltip's, the help sheet's
      --i-s 14, --i-m 18, --i-l 24, --i-xl 30   icons: beside words; the top bar's and beside figures; an order; a
                     unit's or a building's symbol (a price's own coin and figure stay 10)
-     --mm      190  the minimap's side; what stands over it (the hint, the toasts, a touch laptop's three) follows it
+     --mm      190  the minimap's side; what stands over it (SELECT, HOME and ARMY, the hint, the toasts) follows it
      the menu (px, its own pages: no --u): 17 the line under the name (#menuTag, above), --t-menu-s 14 the small
                     buttons and the footer's links (the big buttons' and the trailer's pill's 14), --t-menu-min 12 the
                     least (the build stamp, a token's small words, a sheet's, the pause card's, the trailer's credit) */
@@ -662,13 +662,17 @@ dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-a
   /* toasts and hints over the minimap, clear of it, as far over it whatever its size */
   .toast{font-size:var(--t-body);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
   #hint{font-size:var(--t-body)} #hint.placing,#hint.boxing{font-size:var(--t-num)} /* (12.6 and 15.3 px at the least: never smaller than under 1100 px) */
-  #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--mm) + var(--u)*14)}
-  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--mm) + var(--u)*48)} /* (as specific as the mouse's own rule, which names #btnBox) */
-  /* a touch laptop (SELECT, HOME and ARMY shown): the three in a row above the minimap and as wide as it, the hint and
-     the toasts above them */
-  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--mm) - 8px) / 3);bottom:calc(var(--m) + var(--mm) + var(--u)*10)}
-  #stage:has(#btnBox:not([hidden])) #hint{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + 56px)}
-  #stage:has(#btnBox:not([hidden])) #msg{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + 90px)}
+  #msg,#hint{translate:none} #hint{left:var(--m)}
+  /* SELECT, HOME and ARMY in a row above the minimap and as wide as it, the hint and the toasts above them (48 px tall
+     at the least: a touch laptop's fingers) */
+  #stage{--rh:max(48px,calc(var(--u)*48))}
+  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--mm) - 8px) / 3);height:var(--rh);bottom:calc(var(--m) + var(--mm) + var(--u)*10);padding:3px 0 2px;
+    background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*6);box-shadow:var(--lift),var(--drop)}
+  :is(#btnBox,#btnHome,#btnArmy):hover{border-color:var(--ally)}
+  :is(#btnBox,#btnHome,#btnArmy) .ico{width:var(--i-m);height:var(--i-m)} :is(#btnBox,#btnHome,#btnArmy) span{font-size:var(--t-key);letter-spacing:0}
+  #stage #hint{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + var(--rh) + 8px)}
+  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--mm) + var(--u)*10 + var(--rh) + 42px)} /* (as specific as the mouse's own rule, which names #btnBox) */
+  #options .card.small{max-width:480px} #options .chips .ib{white-space:nowrap} /* (a chip's words on one line) */
   .tb{font-size:var(--t-key);padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:var(--t-key)}
   /* the tooltip (its fixed px above are every other screen's): its name a title, its price a figure, its words, places
      and chips the body's, its small chips and tags the key's; the icons with their words */

@@ -301,7 +301,7 @@ test('Q selects the army, no idle-worker key, and double-click selects all of a 
   try {
     const s = await d.state(), core = coreOf(s);
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 140, core.y - 40]);
-    assert.ok(!(await d.page.locator('#btnArmy').isVisible()), 'no ARMY button with a keyboard (the touch screens\' one goes with SELECT): Q');
+    assert.ok(await d.page.locator('#btnArmy').isVisible(), 'ARMY, with Q (mouse.e2e.mjs: the row)');
     await d.key('q');
     assert.deepEqual((await d.selection()).map(u => u.id).sort(), ids.slice().sort(), 'Q selects every combat unit');
     // An idle harvester: no key finds it (Stelian, Nov 12: no idle-worker key or counter); . selects nothing.
@@ -611,7 +611,8 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
         assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
         const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
         const card3 = await d.eval(() => { const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0; return cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth)); });
-        const foot = h - Math.min(mm.y, card3) + 4; // (render.js footRoom: up to the top of the tallest panel at the foot, a three-row card, over the minimap's with the desktop HUD, and 4 px)
+        const row = (await d.page.locator('#btnBox').boundingBox()).y;
+        const foot = h - Math.min(mm.y, row, card3) + 4; // (render.js footRoom: up to the top of the tallest panel at the foot, a three-row card or the row over the minimap, and 4 px)
         assert.ok(cy ? Math.abs(past - foot) < 1 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? `foot only as far as the panels cover (${foot} px)` : 'top only as far as the bar covers'}: ${past}`);
         const dark = await darkEdges(d);
         for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);

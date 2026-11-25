@@ -296,7 +296,7 @@ export function resize() {
   view.w = Math.max(200, r.width | 0); view.h = Math.max(160, r.height | 0); view.dpr = app.renderer.resolution;
   const hud = document.getElementById('hud'), top = document.getElementById('top'); hudFloats = !hud || getComputedStyle(hud).position === 'fixed';
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
-  const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: a touch screen's row over the minimap)
+  const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: the row over the minimap)
   footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity, deskHud.matches ? cardTop() : Infinity)) + 4 : FOOT_ROOM;
   showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
@@ -320,7 +320,7 @@ const overscroll = () => hudFloats ? (coarse.matches ? 120 : 170) / cam.zoom : 0
  *  at the foot and the top, and their corners come out with the foot's and the top's room. Phones keep their box. */
 const FOOT_ROOM = 170; // (before the minimap is laid out)
 /** The desktop HUD's window (style.css's last block; hud.js asks the same): its command card can stand over its minimap. */
-const deskHud = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
+export const deskHud = matchMedia('(min-width: 1100px) and (min-height: 560px) and (pointer: fine)');
 /** The top of the command card when it has three rows (screen px), whatever it shows now: 228 units and its border,
  *  where the desktop HUD's minimap is 190. The camera's room past the foot reaches it, so the map's last rows come out
  *  from under a full card too. */

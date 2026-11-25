@@ -64,7 +64,7 @@ test('every frame the client names is in the art it loads: bodies, masks, heads,
     const L = BLDG_LOOK[type]; if (!L?.head) continue;
     for (const d of L.pan ? [13, 14, 15, 0, 1, 2, 3] : Array.from({ length: 16 }, (_, i) => i)) assert.ok(frames.has(`${L.head}_${d}`), `${L.head}_${d}`);
   }
-  for (const n of [2, 3, 4]) for (const k of ['worn', 'rubble', 'rubble_vael']) assert.ok(frames.has(`${k}_${n}`), `${k}_${n}`);
+  for (const n of [2, 3, 4]) for (const k of ['rubble', 'rubble_vael']) assert.ok(frames.has(`${k}_${n}`), `${k}_${n}`); // (no `worn_n`: the earth under a building is the ground's own, gl/newland.js wearMix)
   for (const s of new Set([...Object.values(SHOT_LOOK), ...Object.values(PEOPLE_SHOT).flatMap(Object.values), ...Object.values(TOWER_SHOT)])) assert.ok(frames.has(s), `the shot ${s}`);
   for (const a of [...Object.values(SHOT_TRAIL), 'boom_small', 'flash', 'spark', 'glint', 'muzzle']) assert.ok(ix.groups.remains.animations[a]?.every(f => frames.has(f)), a);
   for (const m of ['full', 'low', 'empty']) assert.ok(frames.has(`mine_${m}`)); assert.ok(frames.has('light'));

@@ -22,6 +22,9 @@ for (const [label, device] of [['a desktop', DESKTOP], ['a landscape phone', PHO
       assert.equal(g.hash, PLAN_HASH, 'the same ground as every other browser');
       assert.ok(g.ms.total > 0 && g.ms.plan >= 0 && g.ms.shade >= 0, 'timed');
       await d.skip(2); // (a few frames drawn over it)
+      // (trodden earth under every building drawn: ours at the start, the headquarters; the other side's is in the fog)
+      const e = await d.eval(() => ({ earth: endfall.ground().earth, mine: endfall.G.bldgs.filter(b => b.team === endfall.G.me).length }));
+      assert.ok(e.mine >= 1 && e.earth === e.mine, `earth under our ${e.mine} building(s), and under none unseen (${e.earth})`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   });

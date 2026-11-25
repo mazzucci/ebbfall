@@ -272,6 +272,40 @@ export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = nul
   return { w: W, h: H, k, data };
 }
 
+/** The trodden earth under a building: the ground's own worn dirt (the mix's red) laid over its footprint, so the
+ *  square a unit cannot enter reads as one yard whatever of it the painted base covers (a base leaves 8 to 24 px of
+ *  blocked ground bare in front and 16 to 38 behind; the Wind turbine, a mast with no base, nearly all of it). The
+ *  patch: the footprint grown `grow` px, its corners rounded by `round`, fading out over `fade` px past that, its edge
+ *  wavered by `wob` px of the ground's own noise; as strong as its kind's row in `kinds`, `rest` for one not named. */
+export const WORN = { grow: 2, round: 16, fade: 14, wob: 5, kinds: { spire: 1 }, rest: 0.85 };
+/** How much of a footprint's patch a world point has, 0 to 1: `b` `{ tx, ty, w, h }` in tiles, `wob` this point's
+ *  share of the waver (-0.5 to 0.5). */
+export function wornAt(x, y, b, wob = 0) {
+  const hx = b.w * TILE / 2 + WORN.grow - WORN.round, hy = b.h * TILE / 2 + WORN.grow - WORN.round;
+  const dx = Math.max(0, Math.abs(x - (b.tx + b.w / 2) * TILE) - hx), dy = Math.max(0, Math.abs(y - (b.ty + b.h / 2) * TILE) - hy);
+  return 1 - smooth(0, WORN.fade, Math.hypot(dx, dy) - WORN.round + wob * WORN.wob);
+}
+/**
+ * The ground's mix with the buildings' earth in it: `mix` (groundMix's image, written in place), `base` its red channel
+ * as the map laid it (one byte a texel), `list` the footprints drawn now (`{ tx, ty, w, h, type }`), `apron` the mix's
+ * tiles past each edge, `seed` the map's. Red is the larger of the map's own dirt and each patch: a building on a worn
+ * yard adds nothing, and one that goes takes only its own earth with it. The same image from the same list in any order.
+ */
+export function wearMix(mix, base, list, { apron = 0, seed = 0 } = {}) {
+  const { w: W, h: H, k, data } = mix, so = (seed | 0) % 977, reach = WORN.grow + WORN.fade + WORN.wob;
+  for (let i = 0; i < base.length; i++) data[i * 4] = base[i];
+  for (const b of list) {
+    const s = WORN.kinds[b.type] ?? WORN.rest, at = (px) => Math.floor((px / TILE + apron) * k);
+    const x0 = Math.max(0, at(b.tx * TILE - reach)), x1 = Math.min(W - 1, at((b.tx + b.w) * TILE + reach)), y0 = Math.max(0, at(b.ty * TILE - reach)), y1 = Math.min(H - 1, at((b.ty + b.h) * TILE + reach));
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      const fx = (tx + 0.5) / k - apron, fy = (ty + 0.5) / k - apron; // (in tiles)
+      const v = Math.round(255 * s * wornAt(fx * TILE, fy * TILE, b, noise(fx * 2.3 + so, fy * 2.3 - so) - 0.5)), o = (ty * W + tx) * 4;
+      if (v > data[o]) data[o] = v;
+    }
+  }
+  return mix;
+}
+
 /**
  * How the standing pieces of a plan cover the walkable cells, from the pieces' measured profiles (the table's `rows`):
  * for test/newland.test.js and the numbers reported. `{ share, center, deep }`: per cell (w x h) the share of its

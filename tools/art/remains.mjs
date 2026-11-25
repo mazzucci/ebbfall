@@ -1,6 +1,6 @@
 // The frames of the older atlas (tools/art/older: its pages, no longer generated) the game still draws, cut from its committed pages pixel for
-// pixel (nothing is rendered) into one small page, public/art/new/remains-0.webp + .json: the worn dirt under a building,
-// the effects, the shots and the light. Its entry in public/art/new/index.json (the group `remains`) also
+// pixel (nothing is rendered) into one small page, public/art/new/remains-0.webp + .json: the effects, the shots and the light (the worn dirt
+// under a building is the ground's own now: gl/newland.js wearMix). Its entry in public/art/new/index.json (the group `remains`) also
 // carries what the game needs of atlas.json: the seats' paint (`tints`), the facings and the effects' animations.
 //   node tools/art/remains.mjs     (output is committed; test/newart.test.js checks the pixels against the pages)
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -12,8 +12,7 @@ const ART = fileURLToPath(new URL('./older/', import.meta.url)), OUT = fileURLTo
 /** The animations the client plays from this page (gl/render.js addEffect), and the single frames. The gray smoke
  *  (`puff`) is not here: the client paints it (gl/puff.js). */
 export const ANIMS = ['boom_small', 'flash', 'spark', 'glint', 'muzzle', 'trail'];
-export const SINGLES = ['light', 'arrow', 'ballista_bolt', 'cannonball', 'tracer', 'tower_shot', 'rocket',
-  ...[2, 3, 4].map(n => `worn_${n}`)];
+export const SINGLES = ['light', 'arrow', 'ballista_bolt', 'cannonball', 'tracer', 'tower_shot', 'rocket'];
 const PAD = 4, WIDTH = 576; // (the gutters of the pages it is cut from: mip levels 0 to 2 clean)
 
 async function cut() {

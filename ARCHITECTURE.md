@@ -397,7 +397,10 @@ src/client/           everything that touches the browser
                       width, `baseWidth`; a clump of rock on every cell at a hill's border, bushes at a wood's), its top over walkable ground no
                       deeper than `LAND.cap` tiles, `allowance`; a piece a unit may stand behind marked `live`), the
                       ground's mix of grass, worn dirt, forest floor and scree as a small image (`groundMix`), fading out
-                      past the blocked cells' rounded, wobbled outline (`MIX_RIM`), and the
+                      past the blocked cells' rounded, wobbled outline (`MIX_RIM`), the trodden earth under the
+                      buildings laid into that mix (`wearMix`, `WORN`: a rounded, faded patch over each footprint, the
+                      Wind turbine's the strongest; gl/newlandgl.js `Land.wear` writes it when the buildings drawn
+                      change, so it costs nothing a frame), and the
                       art over the walkable cells for the test (`cover`); from the map's blocked cells, the ground plan
                       and the seed alone, exact arithmetic only (test/newland.test.js)
   gl/newland-pieces.js  the land pieces' measured numbers (size, base, profile), written by tools/newart/land/build.mjs

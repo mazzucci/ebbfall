@@ -71,13 +71,15 @@ function abilityItems(units) {
   }).filter(Boolean).map((it, pos) => ({ ...it, pos }));
 }
 
-/** Why the sim would refuse unit `t` for want of grid now (its words, crates/endfall-sim/src/world/orders.rs
- *  `sup_full`), or '' when there is room: the button's tooltip says it before the tap does. */
+/** What a unit's button may say for want of grid: some missing (true for one that takes 2 with 1 left, too), or all of it
+ *  built. The sim's own refusal (crates/endfall-sim/src/world/orders.rs `sup_full`, the toast a press brings) says the
+ *  first longer, "Not enough grid: build a Substation."; here it shares one line with what the money says. */
+const gridWords = () => (myFaction().grid ? [`Needs grid: build a ${BUILDINGS[myFaction().supply].name}.`, 'Grid at maximum.'] : []);
+/** Which of them unit `t`'s button says now, before the press does; '' when there is room. */
 export function placesTip(t) {
-  const f = myFaction();
   const [used, cap] = G.sup[G.me] || [0, 0];
-  if (!f.grid || used + takes(t) <= cap) return '';
-  return cap >= supMax() ? 'Grid at maximum.' : `Not enough grid: build a ${BUILDINGS[f.supply].name}.`;
+  if (!myFaction().grid || used + takes(t) <= cap) return '';
+  return gridWords()[cap >= supMax() ? 1 : 0];
 }
 /** The places unit `t` takes, as `[n, word]`: population for the Kingdom, grid for the Expedition (the tooltip and
  *  the button show it beside the price). */
@@ -170,7 +172,7 @@ export function cardItems() {
     const unitDepth = (t) => (UNITS[t].req ? 1 + depth(UNITS[t].req) : 0);
     const shown = trains.map((t, i) => [t, i, unitDepth(t)]).sort((a, b) => a[2] - b[2] || a[1] - b[1]).map(([t]) => t)
       .filter(t => { const d = UNITS[t]; return !d.req || G.bldgs.some(o => o.team === G.me && o.type === d.req && o.done); });
-    shown.forEach(t => { const d = UNITS[t], why = placesTip(t); at(0, { id: 't_' + t, label: d.name, key: d.hot, cost: unitCost(G.upgrades[G.me], t), places: placesOf(t), por: ['unit', t], tip: d.desc + (why ? ' ' + why : '') }); }); // (the hover title and the long-press; a refusal for want of places said there too)
+    shown.forEach(t => { const d = UNITS[t]; at(0, { id: 't_' + t, label: d.name, key: d.hot, cost: unitCost(G.upgrades[G.me], t), places: placesOf(t), por: ['unit', t], grid: placesTip(t), mayShort: gridWords(), tip: d.desc }); });
     if (b.done && b.d.researches.length) {
       // Each research in its own slot, in the table's order: from the first slot, or the second row's left on a
       // building that trains (so a unit unlocked moves none of them). A finished one keeps its slot, grayed out as done
@@ -197,8 +199,10 @@ export function cardItems() {
     for (let i = items.length - 1; i >= 0; i--) if (items[i].id === 'cancelq') items[i].dis = true; else if (items[i].id.startsWith('cancel')) items.splice(i, 1);
   }
   for (const it of items) if (it.cost) {
-    it.short = `Not enough ${money()} (needs ${it.cost[0]}).`; // (its words while it is poor; the details panel keeps their room either way)
+    const gold = `Not enough ${money()} (needs ${it.cost[0]}).`;
     if (!canAfford(G.me, it.cost)) it.poor = true; // grayed out, but a tap says what is short
+    it.short = it.grid || (it.poor ? gold : ''); // what is short now, one thing at a time: the grid, then the money
+    it.mayShort = [...(it.mayShort || []), gold]; // (and all it may say: the details panel keeps the longest's room)
   }
   return keyed(items.sort((p, q) => p.slot - q.slot));
 }

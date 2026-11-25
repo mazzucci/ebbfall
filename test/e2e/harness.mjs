@@ -201,7 +201,7 @@ export function board(page, scope = 'solo') {
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
  *  function run in the page before the game loads (or [function, argument]). */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', tutorial = false, init = null } = {}) {
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', tutorial = false, init = null, query = '' } = {}) {
   const ctx = await browserContext(device);
   // The board the scenarios play on: you against `enemy`, the Kingdom unless asked (they were written on a mirror),
   // saved as a player's own board is. With none saved the menu seats the other people (menu.js `defaultRows`: the
@@ -214,7 +214,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   page.on('pageerror', e => errors.push(e.message));
   // (with the Worker blocked, static.e2e.mjs, the menu's clip fails as every docs video does: the Worker's one kind of file)
   page.on('console', m => { if (m.type() === 'error' && !(site.blocked && /\/docs\/media\/.*\.mp4$/.test(m.location()?.url || ''))) errors.push(m.text()); });
-  await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}?seed=${seed}${query}`, { waitUntil: 'networkidle' }); // (`query`: more of the link, `&art=new`)
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
   // The menu's first page: TUTORIAL (the guided game) or SINGLE PLAYER.

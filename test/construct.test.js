@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { BUILDINGS, FACTIONS } from '../src/engine/constants.js';
 import { decodeWebP } from '../tools/art/webp.mjs';
-import { RAW, GHOST, GANTRY, GANTRY_FRAME, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headPath, headAt, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP, REVEAL, revealRows, revealMatrix, frameOf as siteFrame } from '../src/client/construct.js';
+import { RAW, GHOST, GANTRY, GANTRY_FRAME, BUILD_BAR, DONE, DONE_PUFF, WORK, rawStage, rawMatrix, solidRows, ghostAlpha, headPath, headAt, doneAt, donePuffs, easeOutCubic, easeInQuad, siteHp, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX, NO_BUILDER, pct, builderLine, siteLine, pausedToast, PAUSED_GAP, REVEAL, revealRows, revealMatrix, frameOf as siteFrame, slabOf, slabMarks } from '../src/client/construct.js';
 
 const near = (a, b, msg, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 
@@ -229,4 +229,13 @@ test('the new look\'s site: in color to 90% of its height until done, the rest g
     assert.ok(f.sides[0][0] < f.sides[1][0] && mean(f.front) > mean(f.back), 'left and right; the front half the nearer one');
     assert.equal(new Set([...f.front, ...f.back]).size, base.length, 'every point in one half');
   }
+});
+
+test('the Expedition\'s slab: its outline a little larger, never smaller than a third of the footprint each way; its marks at the corners', () => {
+  const hall = [[-38, 4.2], [11.7, 20], [38, 3.8], [-11.7, -12]], ring = (r) => Array.from({ length: 24 }, (_, i) => [r * Math.cos(i * Math.PI / 12), 4 + r * 0.5 * Math.sin(i * Math.PI / 12)]);
+  const half = (p) => Math.max(...p.map(q => q[0])); const s = slabOf(hall, 2);
+  assert.ok(Math.abs(half(s) - 38 - REVEAL.ex.grow) < 1e-9 && s.length === 4, 'grown');
+  assert.ok(Math.abs(half(slabOf(ring(8.6), 2)) - REVEAL.ex.least * 64) < 1e-6, 'a turbine\'s foot still gets a slab');
+  const m = slabMarks(s); assert.equal(m.length, 4); for (const l of m) assert.equal(l.length, 3);
+  assert.ok(slabMarks(slabOf(ring(28), 2)).length === 4 && slabMarks(s).flat().every(([x, y]) => Math.abs(x) <= half(s) && Number.isFinite(y)), 'on the slab');
 });

@@ -52,7 +52,7 @@ async function game(art, device, { race = 'vael', foe = 'humans', fog = false, s
 }
 async function shoot(page, name, art, at, zoom, clip) {
   const s = await page.evaluate(([at, zoom]) => { if (zoom) endfall.cam.zoom = zoom === 'start' ? endfall.startZoom : zoom; if (at) endfall.centerOn(at.x, at.y); clean(); endfall.draw(); const { G, engine: E, cam } = endfall; return { hash: E.stateHash() >>> 0, time: G.time, zoom: cam.zoom, cam: [cam.x, cam.y] }; }, [at, zoom]);
-  const file = `${name}-${art}.png`;
+  const file = `${name}-${arg('--tag', art)}.png`;
   await page.screenshot({ path: join(out, file), timeout: 300000, ...(clip ? { clip } : {}) });
   log.push({ file, ...s }); console.log(file, s.hash, s.zoom.toFixed(2));
 }
@@ -90,7 +90,7 @@ try {
       await run(5); const ms = []; for (let i = 0; i < 5; i++) { const t = process.hrtime.bigint(); await run(10); ms.push(Number(process.hrtime.bigint() - t) / 1e7); }
       ms.sort((a, b) => a - b); log.push({ perf: sz, art, ms }); console.log('perf', sz, art, 'median ms a frame', ms[2].toFixed(1)); await ctx.close();
     }
-    if (want('site')) for (const race of ['humans', 'vael']) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // three sites under way, then the done moment, then an enemy site remembered in the fog
+    if (want('site')) for (const race of arg('--races', 'humans,vael').split(',')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // three sites under way, then the done moment, then an enemy site remembered in the fog
       const nm = race === 'vael' ? 'ex' : 'kg', { ctx, page } = await game(art, dev, { race, foe: race, fog: true });
       const p = await page.evaluate((race) => { const l = race === 'vael' ? [['siphon', -170, 10], ['substation', -100, -110], ['substation', 60, 130]] : [['barracks', -170, 40], ['depot', -90, -110], ['depot', 120, 90]], ids = []; for (const [t, x, y] of l) ids.push(put(t, x, y, 0.02)); const at = (i) => endfall.G.bldgs.find(b => b.id === ids[i]); for (let i = 0; i < 4000 && Math.max(...[0, 1, 2].map(j => at(j)?.done ? 1 : at(j).progress)) < 0.75; i++) endfall.skip(0.1); window.ids = ids; return { x: hq.x - 60, y: hq.y, prog: ids.map((_, i) => at(i).progress) }; }, race);
       console.log('sites', JSON.stringify(p.prog)); await shoot(page, `site-${nm}-${sz}`, art, p, sz === 'phone' ? 1 : 1.83);
@@ -99,6 +99,23 @@ try {
       console.log('done moment', JSON.stringify(await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return [o.look, o.fadeT, o.roof, o.paint]; }))); await shoot(page, `sitedone-${nm}-${sz}`, art, p, sz === 'phone' ? 1 : 1.83);
       for (let i = 0; i < 12; i++) await page.clock.runFor(60);
       console.log('after', JSON.stringify(await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return [o.look, o.roof, o.paint]; })));
+      await ctx.close();
+    }
+    if (want('slab')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // every Expedition building as a site, at each stage of its build
+      const { ctx, page } = await game(art, dev, { race: 'vael' });
+      const p = await page.evaluate(() => { for (const [t, x, y] of [['siphon', -190, -20], ['substation', -110, -120], ['ward', 10, -140], ['loom', 130, -110], ['kiln', -140, 110], ['spire', -30, 130], ['uplink', 90, 150], ['eclipse', 210, 60]]) put(t, x, y); return { x: hq.x, y: hq.y }; });
+      // (built, for what each needs; then shown as sites by the client's own mirror: a drawing scene, the sim untouched)
+      const stage = (u, o = {}) => page.evaluate(([u, o]) => { const { G } = endfall; for (const b of G.bldgs) if (b.team === G.me && !b.d.hq) Object.assign(b, { done: false, progress: u, hp: b.maxhp * (o.hp ?? 1), flash: o.flash ?? 0 }); }, [u, o]);
+      const z = sz === 'phone' ? 1 : 1.83;
+      for (const u of [0.05, 0.25, 0.5, 0.9]) { await stage(u); await shoot(page, `slab-${Math.round(u * 100)}-${sz}`, art, p, z); }
+      await stage(0.4, { hp: 0.3, flash: 0.1 }); await shoot(page, `slab-hit-${sz}`, art, p, z);
+      // (the placing ghost, allowed and refused: a builder selected, or the HUD takes it away)
+      for (const [n, ok] of [['ok', true], ['no', false]]) {
+        await stage(0.5);
+        const g = await page.evaluate((ok) => { const { ui, engine: E, G } = endfall; ui.sel = [G.units.find(u => u.team === G.me && E.UNITS[u.type].worker)]; const x0 = Math.round(hq.x / 32), y0 = Math.round(hq.y / 32); for (let y = 2; y < 9; y++) for (let x = -6; x < 7; x++) if (E.canPlace('loom', x0 + x, y0 + y, G.me) === ok) { ui.place = { type: 'loom', tx: x0 + x, ty: y0 + y }; return [x, y]; } return null; }, ok);
+        await shoot(page, `slab-ghost-${n}-${sz}`, art, p, z); console.log('ghost', n, g, await page.evaluate(() => !!endfall.ui.place));
+        await page.evaluate(() => { endfall.ui.place = null; endfall.ui.sel = []; });
+      }
       await ctx.close();
     }
     if (want('sitefog')) for (const foe of ['humans', 'vael']) { // an enemy site (its AI's), seen and left: remembered in the fog
@@ -130,7 +147,7 @@ try {
       // our fighters north of it, behind its walls: their silhouettes
       await page.evaluate(([b, r]) => { const { engine: E, G } = endfall; for (let i = 0; i < 2; i++) E.debugSpawn(G.me, r === 'vael' ? 'umbra' : 'trooper', b.tx * 32 + 20 + i * (b.w * 32 - 40), b.ty * 32 - 14 - (i % 2) * 16); endfall.skip(0.1); }, [b, race]); await C('behind');
       // the placement ghost: allowed (beside it) and refused (over it)
-      for (const [n, dx] of [['ghost-ok', 8], ['ghost-no', 1]]) { await page.evaluate(([t, b, dx]) => { const { engine: E, G, ui } = endfall; for (let d = dx; d < dx + 12; d++) if (dx === 1 || E.canPlace(t, b.tx - d, b.ty + 2, G.me)) { ui.place = { type: t, tx: b.tx - d, ty: b.ty + 2 }; break; } }, [type, b, dx]); const g = await page.evaluate(() => endfall.ui.place); if (g) await crop(page, `state-${type}-${n}`, art, (g.tx + b.w / 2) * 32, (g.ty + b.h / 2) * 32 - 10, 2, 400, 400); await page.evaluate(() => { endfall.ui.place = null; }); }
+      for (const [n, dx] of [['ghost-ok', 8], ['ghost-no', 1]]) { await page.evaluate(([t, b, dx]) => { const { engine: E, G, ui } = endfall; ui.sel = [G.units.find(u => u.team === G.me && E.UNITS[u.type].worker)]; for (let d = dx; d < dx + 12; d++) if (dx === 1 || E.canPlace(t, b.tx - d, b.ty + 2, G.me)) { ui.place = { type: t, tx: b.tx - d, ty: b.ty + 2 }; break; } }, [type, b, dx]); const g = await page.evaluate(() => endfall.ui.place); if (g) await crop(page, `state-${type}-${n}`, art, (g.tx + b.w / 2) * 32, (g.ty + b.h / 2) * 32 - 10, 2, 400, 400); await page.evaluate(() => { endfall.ui.place = null; }); }
       // damaged (with the hit's flash), then falling: foes beside it
       await page.evaluate(([id]) => { const { engine: E, G } = endfall, b = G.bldgs.find(b => b.id === id); E.debugSetHp(id, b.maxhp * 0.2); endfall.skip(1 / 30); G.bldgs.find(b => b.id === id).flash = 0.1; }, [b.id]); await C('hit');
       await page.clock.runFor(600); await C('burning');

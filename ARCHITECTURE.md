@@ -360,11 +360,9 @@ src/client/           everything that touches the browser
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
                       (`meleeHit`), each shot's impact (`impactFx`, in steel's cool: look.js `HIT_STEEL`; up on the body of a flyer, `hitY`, look.js `HIT_LIFT`, or of a walker, `WALKER_HIT_LIFT`: main.js `struckWalker` finds whose), a hit's weight by how hard it hits (`tierHit`, `tierMuzzle`: look.js `hitTier`; main.js picks the tier from the shooter's weapon in the data, a tower's by its people, against what it struck, a flyer's air damage or the ground's; a muzzle flash by the shooter's target as far as the client knows, `shotTarget`), the shots in flight (look.js `SHOT_STYLE`: a Kingdom shaft scaled over a dark bar, an Expedition tracer tinted and lit, a heavy shot's stretched trail, `HEAVY_TRAIL`, its tier against the unit at its aim point), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
-                      construction you can read (construct.js): a Kingdom site raw (one shared color filter), its
-                      slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site its body
-                      rising in full color (64 rows, capped at 90%) under a faint cyan ghost in a printer gantry whose
-                      head rides on the solid's top (`gantry_n`, `gantrybar_n`; nothing on the ground) up the front
-                      masts, then back along the rails (construct.js `headAt`), its build bar in
+                      construction you can read (construct.js `REVEAL`): a site is its building's own picture rising in
+                      color to 90% of its height, the rest gray and faint, in a low timber frame (the Kingdom's) or on a
+                      slab (the Expedition's), its build bar in
                       the hp bar's place, the half-second done moment (`BldgObj.update`,
                       only for a site watched finish on screen), a builder's strikes (`UnitObj.work`); `sitesShown`
                       for the tests;
@@ -373,18 +371,16 @@ src/client/           everything that touches the browser
   gl/artload.js       the game's art on its way in: every file of public/art/new/index.json (its groups `remains`, `bldg`,
                       `land`, `unit`, and each file's bytes) asked for at once by boot.js, in parallel, counted as it comes
                       (`art`, `onArt`), tried four times (also a stall of 20 s), then waiting for RETRY (`retryArt`); kept
-                      decoded for render.js (`loadArt`). Nothing asks for the older atlas (public/art/atlas*), and there
-                      is no other art to fall back to
+                      decoded for render.js (`loadArt`). There is no other art to fall back to
   gl/newart.js        how the units are drawn, by kind: their size, their selection ring, how their builders work
   gl/puff.js          the smoke puff, painted in code (soft lobes, lit from the upper left, no outline)
   gl/rallyflag.js     the rally flag, painted in code: a red pennant with a dark outline in a red ring on the ground, red
                       whatever the seat, drawn (`rallyMarks`) for this side's selected buildings alone; `rallyShown` for the
                       tests
-  gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`: in a dry meadow
-                      only dry-grass marks, in a lush one none), which overlay tile (`overlayTile`), each rock region's
-                      kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
-                      `rockTile`, `regionAt`), and the shade layers at one texel a tile on a dry map (the land's shade,
-                      the meadows' tone, the rock's tone; the water's tints and light) (test/ground.test.js)
+  gl/ground.js        the ground's picks, pure: each rock region's kind, a forest or a rocky hill, picked once per region
+                      by a seeded flood fill (`rockKinds`, `regionAt`), and the shade at one texel a tile on a dry map
+                      (the land's shade, the meadows' tone, the rock's tone; the water's tints and light), which the
+                      ground's shader lays (gl/newlandgl.js) (test/ground.test.js)
   gl/groundplan.js    the ground broken up at large scale, pure: what goes where from the map alone (its rock, water,
                       gold mines and every start from `mapPreview`, seated or not) and its seed, the same for every
                       player whoever sits where, exact arithmetic only (`planGround`): dry and lush meadows 5 to 12
@@ -392,10 +388,9 @@ src/client/           everything that touches the browser
                       every other mine to the nearest track: the cheapest walk over a winding cost, joining trunks),
                       kept to open land and fading out over TRACK_FADE tiles where a pass, a gate or a ford cuts them,
                       no piece under TRACK_MIN tiles; each hill and forest toned warm or cool with a drift along it, off
-                      its outer tiles and the map's edge; an upper tier (crags) inside the wide hills. render.js lays
-                      the worn dirt and the crags as overlay tiles on the dual grid (`worn_*`, `crag_*` in the atlas:
-                      tools/art/overlay3.js), never in a cell with rock or water, each cell as strong as its worn
-                      corners; the tones in the shade layers; all of it faintly on the minimap; `endfall.ground()` what
+                      its outer tiles and the map's edge; an upper tier (crags; nothing draws it now, the
+                      plan's hash pins it). gl/newlandgl.js draws the worn dirt in the ground's mix and the meadows in
+                      its shade; the tracks on the minimap; `endfall.ground()` what
                       it laid and its cost (test/groundplan.test.js, test/e2e/ground.e2e.mjs)
   gl/newland.js       the land, pure: where every tree, rock and low plant stands on a
                       map (`planLand`: a standing piece's base whole on blocked cells (a rock's base: the core of its
@@ -444,7 +439,6 @@ src/client/           everything that touches the browser
   feedback.js         the game's ways to the docs' feedback form: the first page's quiet second link beside Learn more
                       and the help sheet's, each to ./docs/feedback/ with `from` (menu or game), `v` and `c` (the sim's
                       build and the last game update's commit) and `touch`, in a new tab
-  scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page, one for everyone (SINGLE PLAYER and MULTIPLAYER big; TUTORIAL, the
                       guided game, OPTIONS and PLAY OFFLINE small under them;
                       the trailer's poster above them, trailer.js; the line under the name says what the game is (the
@@ -548,11 +542,8 @@ src/client/           everything that touches the browser
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance), `unionArcs` (the outline
                       of their union) and `nearestRim` (the outline's stretch nearest a point: the leash cue)
                       (test/range.test.js)
-  construct.js        construction you can read, pure: the Kingdom's raw look (`RAW`, `rawStage`, `rawMatrix`), the
-                      Expedition's rising body under its ghost in the gantry (`GHOST`, `GANTRY`, `solidRows`,
-                      `ghostAlpha`), the gantry's frame, which the art is drawn from too (tools/render3d/country.js),
-                      and its head's way through it (`GANTRY_FRAME`, `headPath`, `headAt`), the build bar, the done
-                      moment's curves
+  construct.js        construction you can read, pure: a site's reveal (`REVEAL`, `revealRows`, `revealMatrix`), what
+                      it stands on (`frameOf`, `slabOf`), the build bar, the done moment's curves
                       (`DONE`, `doneAt`, `donePuffs`), a site's damage against its growing hp (`siteHurt`), a builder's
                       strikes (`WORK`, `strikeCount`, `strikeAt`, `atSite`), the cards' and the paused toast's words
                       (`builderLine`, `siteLine`, `pausedToast`, once a site a minute) (test/construct.test.js)
@@ -624,13 +615,11 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       alphabet (64 million), made from crypto random numbers, shown BCD-FGH, read in any case with or
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
-test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
 test/rallyflag.test.js  the rally flag's red (src/client/gl/rallyflag.js) against every seat's color
 test/range.test.js    the range's circles (src/client/range.js): in range by exact distance, the union's outline
-test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
-                      a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
-                      tiles in both rock kinds, every stage and variant of the gold outcrop (the link preview's), the
-                      gold mine's three stages, neutral; and look.js's presentation: a selected building's oval, the
+test/art.test.js      the art against the game: every trained unit, every building and the archer's head has its team mask, a
+                      tint per seat, a drawn height per unit kind, the gold mine's three stages, neutral; and look.js's
+                      presentation: a selected building's oval, the
                       heads' frames (aimed, spun, panned), the Portal brightening as a unit comes through
 test/strike.test.js   the melee units' strike poses (look.js `strikePose`): the strike just after a blow, the wind-up
                       in reach between blows (shoved or not), the walk out of reach; reach as the sim's; both frames in every facing with
@@ -651,7 +640,7 @@ test/newart.test.js   the game's art: the loader's tries and RETRY, the index's 
                       test/newart-tone.test.js the tone curve; test/e2e/newart.e2e.mjs what a page asks for (never the
                       older atlas), the loading line and RETRY, the portraits
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
-                      map, fixed by the seed; the grass's patches capped, a meadow's marks; an overlay cell's variant
+                      map, fixed by the seed
 test/groundplan.test.js  the ground's plan (src/client/gl/groundplan.js): the same plan, grid for grid, whoever is seated
                       where (two to eight seated, any starts filled, on the 96 and 128 maps and the Lake), another for
                       another seed; worn ground only on open land, a track through a one-tile pass faded each side and
@@ -1003,7 +992,7 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       How to play shows the loop at the start of its desktop section (lazy: the phone's loop is the
                       page's first media) and seven desktop rows have a gesture's loop on demand through the same ?
                       (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
-tools/newart/         the new look's packs (public/art/new/, NOTICE.txt beside them): a builder per group
+tools/newart/         the art's packs (public/art/new/, NOTICE.txt beside them): a builder per group
                       (bldg/build.mjs) that reads the pictures from EBBFALL_PICTURES (a local folder, not in the repo),
                       bytes.mjs (each file's size stamped into index.json, by every builder) and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
 tools/view-capture.mjs  how the game looks on a desktop monitor against a landscape phone (npm run build first; a
@@ -1027,14 +1016,14 @@ tools/og.mjs          public/og.png, the link preview's image (1200x630): the ic
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
                       battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
                       through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
-                      from public/art, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
+                      from tools/art/older, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
                       decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
                       and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
 public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its trailer's poster); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
-tools/newart/land/    the new look's land, built from a local folder of pictures (EBBFALL_PICTURES) into public/art/new/:
+tools/newart/land/    the land, built from a local folder of pictures (EBBFALL_PICTURES) into public/art/new/:
                       build.mjs (every tuned number in its CFG: the sheets' parts keyed and cut, lit by tone.mjs, their
                       shadows, the gold mine's three states, the page and the tiling grounds as WebP, the land's entry
                       in index.json, and gl/newland-pieces.js), decode.mjs (a JPEG's pixels through headless Chromium,
@@ -1056,15 +1045,13 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       (models.js, buildings.js, harbour*.js, vael*.js, trimmed to what main.js still draws) stay only
                       for the two healers the sim keeps but trains nowhere (main.js `HEALERS`: medic, halo) and fitTints'
                       reference sprites, which set the atlas's seat tints
-tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles;
-                      overlay3.js: the overlay grounds on the dual grid, the tracks' worn dirt and a hill's upper tier) and
-                      effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
-                      light blob and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
-                      (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
-                      unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
-                      angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
-                      building); see Notion: Ebbfall art
-public/art/           new/: the game's art (index.json, the groups' pages; NOTICE.txt); atlas.json + atlas-<n>.webp/json: the
-                      older atlas, generated, read by the docs', the menu's and the link preview's tools and tests, not the game
+tools/art/            older/: the older atlas's pages (atlas.json, atlas-<n>), the look the game had by default up to commit
+                      3d5d198 (2026-11-25; its generators are in that commit: tools/art/generate.mjs and the painters), kept
+                      for what still reads it: the docs' crops (tools/docs), og.mjs, menu-art.mjs, the unit pack's
+                      names (tools/newart/unit) and remains.mjs, which cut the frames the game still draws into
+                      public/art/new/remains-0; render3d.mjs (tools/render3d in Chromium, for menu-art.mjs), webp.mjs (lossless, libwebp
+                      in WASM through @jsquash/webp) and png.js, battle-shots.mjs (the built game's brawls), glyph-strip.mjs
+                      (the command card's glyphs); see Notion: Ebbfall art
+public/art/           new/: the game's art (index.json, the groups' pages; NOTICE.txt)
 ```
 

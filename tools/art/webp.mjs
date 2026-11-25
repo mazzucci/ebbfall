@@ -3,8 +3,6 @@
 // masks included; lossy settings saved a little more but changed edges and masks (the numbers: the PR that brought
 // WebP in, art-webp-atlases). Every browser Ebbfall runs in decodes WebP (the build's es2022 and top-level await need
 // Safari 15; WebP is in Safari 14), so the pages are WebP only.
-//   node tools/art/webp.mjs     converts any atlas-<n>.png left in public/art/ to atlas-<n>.webp (and its page's
-//                               meta.image); tools/art/generate.mjs writes WebP itself.
 import { readFileSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { decodePNG } from './png.js';
@@ -39,21 +37,3 @@ export async function decodeWebP(buf) {
   if (!img) throw new Error('decodeWebP: not a WebP');
   return { w: img.width, h: img.height, data: new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.length) };
 }
-
-/** Convert public/art's PNG pages to WebP, checking each round trip pixel for pixel. */
-async function convert() {
-  const root = new URL('../../public/art/', import.meta.url);
-  for (const f of readdirSync(root).filter(f => /^atlas-\d+\.png$/.test(f)).sort()) {
-    const png = readFileSync(new URL(f, root)), img = decodePNG(png), webp = await encodeWebP(img), name = f.replace(/\.png$/, '.webp');
-    const back = await decodeWebP(webp);
-    if (back.w !== img.w || back.h !== img.h || Buffer.compare(Buffer.from(back.data), Buffer.from(img.data))) throw new Error(`${f}: the WebP is not the same pixels`);
-    writeFileSync(new URL(name, root), webp);
-    const json = new URL(f.replace(/\.png$/, '.json'), root), sheet = JSON.parse(readFileSync(json, 'utf8'));
-    sheet.meta.image = name;
-    writeFileSync(json, JSON.stringify(sheet));
-    rmSync(new URL(f, root));
-    console.log(`${f} ${png.length} B -> ${name} ${webp.length} B (${Math.round(webp.length / png.length * 100)}%)`);
-  }
-}
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await convert();

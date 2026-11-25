@@ -1,6 +1,6 @@
 // The re-theme's models (the kingdom, kingdom.js and kingdom-units.js; the Expedition, expedition.js and
 // expedition-units.js; the countryside, country.js). Two ways out: `atlasSprites` (below) renders them into the atlas
-// under today's sprite names (main.js, for tools/art/generate.mjs), and `rethemeSprites` renders them by filter under
+// under today's sprite names (main.js, for tools/menu-art.mjs), and `rethemeSprites` renders them by filter under
 // their own names for the review pictures (tools/art/retheme-*.mjs). Those names: `kg_<kind>_<dir>_<frame>` and
 // `ex_<kind>_<dir>_<frame>` for the units (16 facings, two frames unless `frames` says otherwise: the Cannon's and the Trebuchet's four
 // poses, the Balloon's one), `bldg_kg_<kind>` and `bldg_ex_<kind>` for the buildings, `kg_towerhead_<dir>` /
@@ -18,12 +18,11 @@ import { makeKingdomMats, villager, guard, knight, castle } from './kingdom.js';
 import { archer, rider, ballista, trebuchet, balloon, cannon } from './kingdom-units.js';
 import { makeExpeditionMats, utilityBot, buggy, marine, coins } from './expedition.js';
 import { mercenary, veteran, rover, drone, android, launcher } from './expedition-units.js';
-import { goldField, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES, GANTRY_H } from './country.js';
+import { goldField, GANTRY_FRAME, GOLD_VARIANT_COUNT, RT_SCENERY, RT_SITES, GANTRY_H } from './country.js';
 import { countryPolish } from './country.js'; // (the polish pass, the ground family: the country's own materials follow the render's `polish`)
 import { goldMine, MINE_STAGES, MINE_H, MINE_N } from './mine.js';
 import { POLISH } from './polish.js';
 import { UNIT_ART_SCALE } from '../../src/client/look.js';
-import { GANTRY_FRAME } from '../../src/client/construct.js';
 import * as KB from './kingdom-buildings.js';
 import * as EB from './expedition-buildings.js';
 
@@ -99,7 +98,7 @@ function head(b, mats, dir) {
 /** The melee units' strike poses (look.js STRIKE): the builder's frame number for each, after the walk's 0 and 1, and
  *  the name it goes under (`<kind>_<dir>_wind`, `<kind>_<dir>_strike`): the weapon drawn back or raised, then thrust
  *  or chopped; only the weapon arm moves, the feet planted, the body and the anchor where they stand. Not in the walk
- *  animation (nor the drawn height, generate.mjs `unitTops`, which is the walk's). The strike poses alone get the
+ *  animation (nor the drawn height, `unitTops`, which is the walk's). The strike poses alone get the
  *  facing as the builder's third argument: seen from behind (11-13) the weapon swings out to the side instead of into
  *  depth (models.js `awayYaw`: to the left at 11, to the right at 12 and 13). The walk's frames get the facing too
  *  (since 2026-11-17: the Bruiser tips its shouldered hammer out at 11-15, where it dropped onto the helmet); every

@@ -150,7 +150,7 @@ export function planHash(plan) {
 
 /** The meadows: two warped noises over the map, each cut to fields with a soft edge of a tile or so. Drier out in the
  *  open, lusher by the woods; none on a tile beside rock or water (the shade layers blend between tile centers, so
- *  the tone has faded out half a tile before a hill's or a forest's edge: they keep today's ground at their foot). */
+ *  the tone has faded out half a tile before a hill's or a forest's edge: their foot keeps its own ground). */
 function meadows({ w, h, s, land, dRock, dWet }, dForest) {
   const dry = new Float32Array(w * h), lush = new Float32Array(w * h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {

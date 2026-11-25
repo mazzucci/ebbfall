@@ -8,7 +8,7 @@
 // field, a Veteran (the Bruiser) at the blast. No gold crystals (the mines replaced them; a mine is not a thing of a
 // battle), a crater and some debris. Medieval against machines reads first; few, large figures rather than a crowd.
 //
-// Each scene is [frame, x, y, seat, scale]: `frame` an atlas frame's name (public/art; the painters draw the 3D ones with
+// Each scene is [frame, x, y, seat, scale]: `frame` an older atlas frame's name (tools/art/older; the painters draw the 3D ones with
 // their team mask tinted for `seat`, 0 the Kingdom, 1 the Expedition, null for the effects and the ground's marks),
 // x and y its anchor (a unit's ground point) as fractions of the band's width and height, `scale` (1 when absent) a
 // figure drawn that much larger than the rest (the Drones, the Archers) or smaller (the blast). Units face +x at dir 0,

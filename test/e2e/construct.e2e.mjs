@@ -37,7 +37,7 @@ const watchDone = (d, id, ms = 60000) => d.eval(([id, ms]) => new Promise(resolv
   const seen = [], t0 = performance.now();
   const tick = () => {
     const o = endfall.sites().bldgs.find(x => x.id === id);
-    if (o) seen.push({ look: o.look, fadeT: o.fadeT, paint: o.paint, sat: o.sat, tint: o.tint, alpha: o.alpha, roof: o.roof, height: o.height, fullHeight: o.fullHeight, scaffold: o.scaffold, bar: o.bar, ghost: o.ghost, bars: o.bars.map(b => b.bar) });
+    if (o) seen.push({ look: o.look, fadeT: o.fadeT, paint: o.paint, tint: o.tint, alpha: o.alpha, roof: o.roof, height: o.height, fullHeight: o.fullHeight, bars: o.bars.map(b => b.bar) });
     const fadedAndDone = seen.some(s => s.look === 'fade') && seen.at(-1)?.look === 'full';
     if (fadedAndDone || performance.now() - t0 > ms) resolve(seen); else requestAnimationFrame(tick);
   };
@@ -54,7 +54,7 @@ test('a Kingdom site reads unfinished: rising in color in its timber frame, its 
     await d.page.waitForTimeout(300);
     await d.page.waitForFunction((id) => endfall.sites().bldgs.some(o => o.id === id), id, { timeout: 10000 }); // (a frame drawn with it in view: the first page of a run can be slow to its first frame)
     const o = await drawn(d, id);
-    assert.deepEqual([o.look, o.under, o.scaffold, o.found], ['reveal', 'frame', 0, 0], 'the picture rising in its timber frame, no scaffold');
+    assert.deepEqual([o.look, o.under], ['reveal', 'frame'], 'the picture rising in its timber frame');
     assert.ok(Math.abs(o.roof - REVEAL.alpha) < 1e-6, `its top gray and faint: ${o.roof}`);
     assert.ok(o.height < o.fullHeight * 0.9, `in color only so far up (${o.height} of ${o.fullHeight})`);
     assert.deepEqual(o.bars.map(r => [r.bar, r.h]), [['build', BUILD_BAR.h]], 'the build bar in the hp bar\'s place, taller; no hp bar while undamaged');
@@ -107,7 +107,7 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
     assert.ok(fade.every(s => !s.bars.includes('build')), 'the build bar gone at t = 0');
     assert.ok(fade.every(s => s.fadeT < 0.5 + 1e-9), 'half a second at most');
     assert.equal(last.look, 'full');
-    assert.deepEqual([last.paint, last.sat, last.roof, last.scaffold, last.height], [1, 1, 0, 0, last.fullHeight], 'full color and paint, the whole building, no scaffold');
+    assert.deepEqual([last.paint, last.roof, last.height], [1, 0, last.fullHeight], 'full color and paint, the whole building');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
@@ -139,8 +139,8 @@ test('an Expedition site is the building\'s own picture rising on a slab, no rin
     const b = (await d.state()).bldgs.find(x => x.id === id); await d.centerOn(b.x, b.y);
     const early = await at(0.05), late = await at(0.6);
     for (const o of [early, late]) {
-      assert.deepEqual([o.look, o.under, o.scaffold, o.bar, o.ghost, o.found], ['reveal', 'slab', 0, 0, 0, 0], 'a slab, no gantry, no ghost');
-      assert.deepEqual([o.tint, o.alpha, o.sat], [0xffffff, 1, 1], 'what stands in full color, no filter');
+      assert.deepEqual([o.look, o.under], ['reveal', 'slab'], 'on its slab');
+      assert.deepEqual([o.tint, o.alpha], [0xffffff, 1], 'what stands in full color');
     }
     assert.ok(late.height > early.height && late.height <= late.fullHeight * REVEAL.cap + 1, `it rises: ${early.height} to ${late.height} of ${late.fullHeight}`);
     assert.deepEqual(late.bars.map(r => r.bar), ['build'], 'its build bar');
@@ -155,7 +155,7 @@ test('an Expedition site is the building\'s own picture rising on a slab, no rin
     const fade = seen.filter(s => s.look === 'fade'), last = seen.at(-1);
     assert.ok(fade.some(s => s.roof > REVEAL.alpha && s.roof < 1), `the top coming in: ${JSON.stringify(fade.slice(0, 3))}`); // (frames come as they come in a software-rendered page)
     assert.equal(last.look, 'full');
-    assert.deepEqual([last.tint, last.alpha, last.paint, last.roof, last.scaffold, last.bar, last.ghost, last.height], [0xffffff, 1, 1, 0, 0, 0, 0, last.fullHeight], 'solid, painted, the whole building');
+    assert.deepEqual([last.tint, last.alpha, last.paint, last.roof, last.height], [0xffffff, 1, 1, 0, last.fullHeight], 'solid, painted, the whole building');
     assert.equal((await drawn(d, id)).under, null, 'no slab left');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }

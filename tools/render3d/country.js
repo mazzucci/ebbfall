@@ -9,7 +9,8 @@ import { grp, add, rbox, cyl, sph, limb } from './models.js';
 import { torus } from './vael.js';
 import { ashlarTex, ashlarBump, earthTex } from './kingdom.js';
 import { polishTextures } from './polish.js';
-import { GANTRY_FRAME } from '../../src/client/construct.js';
+/** The printer gantry's frame (`gantryEx`, `gantryBarEx`): four masts at the corners of a square, a rail along two sides. */
+export const GANTRY_FRAME = { yaw: 20, fit: 0.86, elev: 40, inset: 4, post: 3.4, rail: 1.2, mast: { 2: 44, 3: 56, 4: 72 } };
 
 let s = 1; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
 const std = (o) => new THREE.MeshStandardMaterial(o);

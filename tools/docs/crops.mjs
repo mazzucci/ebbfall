@@ -1,5 +1,5 @@
 // The docs' sprite crops (tools/docs/sprites.mjs has the recipe and the list): every unit and building the docs list,
-// and a few more for the diagrams, cut from the game's atlas (public/art/) in headless Chromium (tools/chromium.mjs),
+// and a few more for the diagrams, cut from the older atlas (tools/art/older) in headless Chromium (tools/chromium.mjs),
 // the team mask tinted as the client tints it, written as WebP (2x) into public/docs/img/sprites/, and
 // tools/docs/sprites.json with what each was cut from. Output is committed; run after the art changes (test/docs.test.js says when):
 //   node tools/docs/crops.mjs
@@ -7,13 +7,13 @@ import { mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } from 'nod
 import { launchChromium } from '../chromium.mjs';
 import { RECIPE, SPRITE_DIR, MANIFEST, atlasFrames, framesOf, crops, sourceHash } from './sprites.mjs';
 
-const ART = new URL('../../public/art/', import.meta.url);
+const ART = new URL('../art/older/', import.meta.url);
 const want = crops();
 const frames = atlasFrames();
 const used = {}, pages = {};
 for (const { key, kind } of want) for (const n of framesOf(key, kind).filter(Boolean)) {
   for (const m of [n, `${n}_m`]) if (frames[m]) { used[m] = [frames[m].page, frames[m].rec]; pages[frames[m].page] ||= `data:image/${frames[m].page.split('.').pop()};base64,` + readFileSync(new URL(frames[m].page, ART)).toString('base64'); }
-  if (!frames[n]) throw new Error(`crops: no frame ${n} in public/art (run node tools/art/generate.mjs)`);
+  if (!frames[n]) throw new Error(`crops: no frame ${n} in tools/art/older`);
 }
 
 const browser = await launchChromium([]);

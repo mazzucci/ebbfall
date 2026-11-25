@@ -20,6 +20,10 @@ export const unitSize = (type) => UNIT_SIZE[type] ?? UNIT_SIZE_REST;
  *  and machines fill theirs. Only the drawn ring: the hit test, the health bar and the silhouette go by `unitSize`, the
  *  sim's radius and collision by nothing here. */
 export const RING_SIZE = { harvester: 0.8, trooper: 0.8, lancer: 0.8, prism: 0.8, bruiser: 0.8, umbra: 0.8 };
+/** The radius a unit's marks (its selection ring, its health bar) go by: the sim's, a flyer's at most 10. The Balloon's
+ *  body in the sim is as wide as its envelope (16, so a group of them hangs apart); its marks stay small ones. */
+export const markRadius = (u) => (u.d.air ? Math.min(u.r, 10) : u.r);
+
 /** The ring's factor for a unit of `type`. */
 export const ringSize = (type) => RING_SIZE[type] ?? 1;
 

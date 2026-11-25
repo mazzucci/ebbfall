@@ -1,4 +1,5 @@
-//! Crowds: units of a group held up round a waypoint they share pass it by; the group arrives.
+//! Crowds: units of a group held up round a waypoint they share pass it by; the group arrives. Balloons hang a body
+//! apart.
 
 use super::common::*;
 
@@ -143,4 +144,51 @@ fn a_unit_held_up_far_from_its_goal_is_still_on_its_way() {
     run(&mut w, 6);
     let x = w.unit(c).unwrap().x;
     assert!((x - MID.0 - 40.0).abs() < 1.0, "drove the 40 px: {x}");
+}
+
+#[test]
+fn balloons_hang_a_body_apart_and_push_nobody_on_the_ground() {
+    // (their drawn bodies are 41 px wide: a group of them hung over one another, 20 px apart)
+    for n in [2usize, 6, 12] {
+        for amove in [false, true] {
+            let mut w = flat_arena(5);
+            let ids: Vec<Id> = (0..n)
+                .map(|i| {
+                    let (c, r) = ((i % 4) as f64, (i / 4) as f64);
+                    w.make_unit(
+                        UnitKind::Observer,
+                        PLAYER,
+                        MID.0 - 300.0 + 40.0 * c,
+                        MID.1 - 60.0 + 40.0 * r,
+                    )
+                })
+                .collect();
+            let under = w.make_unit(UnitKind::Trooper, PLAYER, MID.0 + 100.0, MID.1);
+            if amove {
+                w.attack_move_group(&ids, MID.0 + 100.0, MID.1);
+            } else {
+                for &i in &ids {
+                    w.move_to(i, MID.0 + 100.0, MID.1);
+                }
+            }
+            run(&mut w, 25);
+            assert_eq!(walking(&w, &ids), 0, "{n} Balloons, attack-move {amove}");
+            for (k, &a) in ids.iter().enumerate() {
+                for &b in &ids[k + 1..] {
+                    let (p, q) = (w.unit(a).unwrap(), w.unit(b).unwrap());
+                    let d = (p.x - q.x).hypot(p.y - q.y);
+                    assert!(
+                        d > 31.0,
+                        "{n} Balloons, attack-move {amove}: two {d:.1} px apart"
+                    );
+                }
+            }
+            let u = w.unit(under).unwrap();
+            assert_eq!(
+                (u.x, u.y),
+                (MID.0 + 100.0, MID.1),
+                "the Guard under them stood still"
+            );
+        }
+    }
 }

@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { decodeWebP } from '../tools/art/webp.mjs';
 import { artFiles } from '../tools/newart/bytes.mjs';
 import { ANIMS, SINGLES } from '../tools/art/remains.mjs';
-const { UNIT_SIZE, UNIT_SIZE_REST, unitSize, WORK_LOOK, workLook, RING_SIZE, ringSize } = await import('../src/client/gl/newart.js');
+const { UNIT_SIZE, UNIT_SIZE_REST, unitSize, WORK_LOOK, workLook, RING_SIZE, ringSize, markRadius } = await import('../src/client/gl/newart.js');
 const { art, file, onArt, retryArt, TRIES } = await import('../src/client/gl/artload.js');
 const { BUILDINGS, UNITS } = await import('../src/engine/constants.js');
 const { SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL, BLDG_LOOK } = await import('../src/client/look.js');
@@ -84,6 +84,13 @@ test('how a builder with its own work frames works: the Bot stands still and tur
   for (const kind of Object.keys(UNITS)) {
     assert.deepEqual(workLook(kind), WORK_LOOK[kind] ?? { nudge: true, turns: false }, kind);
   }
+});
+test('a flyer\'s selection ring and health bar go by 10 px at most: the Balloon\'s larger body in the sim gives it no larger marks', () => {
+  assert.equal(UNITS.observer.r, 16, 'the Balloon\'s body in the sim');
+  for (const [kind, d] of Object.entries(UNITS)) assert.equal(markRadius({ r: d.r, d }), d.air ? Math.min(d.r, 10) : d.r, kind);
+  assert.ok(markRadius({ r: UNITS.observer.r, d: UNITS.observer }) <= 12 && markRadius({ r: UNITS.knight.r, d: UNITS.knight }) > 12, 'the Balloon\'s marks are the small ones, the Knight\'s the large');
+  const src = readFileSync(new URL('../src/client/gl/render.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /\bu\.r > 12/, 'the ring and the bar ask markRadius, not the sim\'s radius');
 });
 test('people on foot have a selection ring a fifth smaller, and only the ring: their size and their hit area are untouched', () => {
   assert.deepEqual(RING_SIZE, { harvester: 0.8, trooper: 0.8, lancer: 0.8, prism: 0.8, bruiser: 0.8, umbra: 0.8 });

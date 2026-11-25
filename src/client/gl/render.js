@@ -414,7 +414,6 @@ export function renderTerrain() {
   land?.clear(); // (the new look's land: its ground, its pieces among the units)
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.apron.removeChildren().forEach(c => c.destroy({ children: true }));
-  L.shade.removeChildren().forEach(c => { const { texture, geometry } = c; c.destroy(); geometry.destroy(); texture.destroy(true); });
   sizeGrids(); fogTick = -1; mmAt = -Infinity; mmGroundOk = false; // (a new map, or a replay from its first tick: fog and minimap at once)
   xrayColor(SEAT_COLORS[colorOf(G.me) % SEAT_COLORS.length]); // (this side's own color, for its silhouettes)
   const rnd = mulberry(G.seed * 7 + 3);
@@ -470,15 +469,16 @@ export function renderTerrain() {
   }
   // Large-scale variation so the tiles never read as a grid, and the water (gl/ground.js): a multiply (the land's shade,
   // the meadows, the rock's tone, a wet line along the shore, the water's tints) and an add (the meadows' and the
-  // rock's lift, the water's light), over the scenery too.
+  // rock's lift, the water's light), both in the ground's own shader.
   lap = performance.now();
   const sh = shadeLayers(MW, MH, { rock: (x, y) => map.rock[idx(x, y)] !== 0, ground, shade: (x, y) => map.shade[idx(x, y)], tone: land ? land.tone(plan, kinds.kindAt) : { ...plan, kindAt: kinds.kindAt } });
-  for (const [data, blendMode] of [[sh.mul, 'multiply'], [sh.add, 'add']]) {
+  const shade = []; // (the two as textures, drawn with the ground: gl/newlandgl.js; a piece on it is tinted by its foot's)
+  for (const data of [sh.mul, sh.add]) {
     if (!data) continue;
     const cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
     cv.getContext('2d').putImageData(new ImageData(data, sh.w, sh.h), 0, 0);
     const t = Texture.from(cv); t.source.scaleMode = 'linear';
-    const vs = land.shade(t, MW * TILE, MH * TILE, APRON * TILE); vs.blendMode = blendMode; L.shade.addChild(vs); // (over the apron too, its edge carried out: no step where the map ends)
+    shade.push(t);
   }
   ms.shade = performance.now() - lap;
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
@@ -493,7 +493,7 @@ export function renderTerrain() {
   let landLaid = null;
   if (land) {
     const shadeAt = (x, y) => { const o = (clamp(Math.floor(y / TILE * sh.k), 0, sh.h - 1) * sh.w + clamp(Math.floor(x / TILE * sh.k), 0, sh.w - 1)) * 4; return sh.mul[o] << 16 | sh.mul[o + 1] << 8 | sh.mul[o + 2]; };
-    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shadeAt, wet: (x, y) => ground(x, y) !== 'land', mines: map.nodes });
+    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shade, shadeAt, wet: (x, y) => ground(x, y) !== 'land', mines: map.nodes });
     doodads.push(...land.low); // (a low plant under a building hides, as today's ground props)
   }
   // Minimap background: the grass green by the map's shade, a forest darker, a hill gray, the sea teal and blue, as the

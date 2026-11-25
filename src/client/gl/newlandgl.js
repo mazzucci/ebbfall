@@ -9,7 +9,8 @@
 //               of four tiles under everything that moves, in drawing order, shown by rows: no sorting, no CPU a frame.
 //   live        the pieces a unit may stand behind (their art reaches over walkable ground): sprites among the units
 //               and buildings, sorted with them by their base, only those on screen; each tinted by the land's shade
-//               at its foot (the shade layers lie under the units, so they would miss it).
+//               at its foot, as the laid ones are (the shade is the ground shader's own: as two blended layers over the whole
+//               screen it was two fifths of a frame in software, for the same picture).
 import { Container, Mesh, MeshGeometry, Shader, Sprite, Texture } from 'pixi.js';
 import { TILE, MIX_K, groundMix, planLand, LAND } from './newland.js';
 import { PIECES } from './newland-pieces.js';
@@ -72,6 +73,8 @@ uniform sampler2D uDirt;
 uniform sampler2D uFloor;
 uniform sampler2D uScree;
 uniform sampler2D uMix;
+uniform sampler2D uMul;
+uniform sampler2D uAdd;
 uniform vec4 uMixRect;
 uniform vec2 uMap;
 uniform float uDark;
@@ -93,6 +96,8 @@ void main() {
   vec4 m2 = texture(uMix, (p - ${f(GROUND.rim.probe)} - uMixRect.xy) * uMixRect.zw);
   float lee = mix(${f(GROUND.rim.lee)}, 1.0, clamp(0.5 + (min(1.0, m2.g + m2.b) - rim) * ${f(GROUND.rim.gain)}, 0.0, 1.0));
   c *= 1.0 - ${f(GROUND.rim.dark)} * rim * lee;
+  // (the land's shade, the meadows and the water: gl/ground.js shadeLayers, its edge carried out over the apron)
+  c = min(c * texture(uMul, p / uMap).rgb + texture(uAdd, p / uMap).rgb, vec3(1.0));
   vec2 past = max(max(-p, p - uMap), 0.0);
   finalColor = vec4(c * mix(1.0, uDark, smoothstep(0.0, ${f(GROUND.apron.fade)}, length(past))), 1.0);
 }`;
@@ -106,7 +111,7 @@ export class Land {
   constructor(grounds, tex, L) {
     for (const n of NAMES) { const s = grounds[n].source; s.addressMode = 'repeat'; s.scaleMode = 'linear'; }
     this.grounds = grounds; this.tex = tex; this.L = L;
-    this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null;
+    this.meshes = []; this.rows = []; this.live = []; this.shown = new Map(); this.low = []; this.mix = null; this.shade = [];
     this.rect = null; this.stats = null; this.box = false; this.dark = GROUND.apron.dark;
   }
   /** The map in a phone's box (`box`) or edge to edge: what stands past its edge, and how dark it gets there. */
@@ -125,15 +130,15 @@ export class Land {
     for (const m of this.meshes) { const sh = m.shader; m.destroy(); sh?.destroy(); } // (the program itself is PixiJS's, cached by its source)
     for (const r of this.rows) r.c.destroy({ children: true });
     for (const s of this.shown.values()) s.destroy();
-    this.mix?.destroy(true);
-    this.meshes = []; this.rows = []; this.live = []; this.low = []; this.shown.clear(); this.mix = null; this.rect = null;
+    this.mix?.destroy(true); for (const t of this.shade) t.destroy(true);
+    this.meshes = []; this.rows = []; this.live = []; this.low = []; this.shown.clear(); this.mix = null; this.shade = []; this.rect = null;
   }
   /**
    * Lay the land of a map: `w`, `h` tiles, `rock`, `kindAt` (ground.js rockKinds), `dirt` (the ground plan's), `seed`,
    * `apron` tiles past each edge, `cap` (newland.js LAND.cap), `wet(x, y)` (a tile under water), `mines` (the gold
-   * mines' tiles, `{ tx, ty, w, h }`: a soft patch of trodden earth under each; no piece minds them), `shadeAt(x, y)` the land's shade at a world point as a tint. Returns what it laid and its cost (ms).
+   * mines' tiles, `{ tx, ty, w, h }`: a soft patch of trodden earth under each; no piece minds them), `shade` the shade layers as textures ([multiply, add or none]: gl/ground.js shadeLayers), `shadeAt(x, y)` the multiply at a world point as a tint (each piece takes its foot's). Returns what it laid and its cost (ms).
    */
-  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shadeAt, wet = null, mines = [] }) {
+  lay({ w, h, rock, kindAt, dirt, seed, apron, cap = LAND.cap, shade, shadeAt, wet = null, mines = [] }) {
     this.clear();
     const t0 = performance.now(), A = apron * TILE, W = w * TILE, H = h * TILE;
     const plan = planLand({ w, h, rock, kindAt, seed, apron, cap, wet }), t1 = performance.now();
@@ -144,9 +149,11 @@ export class Land {
       const t = Texture.from(cv); t.source.scaleMode = 'linear'; t.source.autoGenerateMipmaps = false; return t;
     };
     this.mix = image(mix);
+    this.shade = [shade[0], shade[1] || image({ w: 1, h: 1, data: new Uint8ClampedArray([0, 0, 0, 255]) })];
+    for (const t of this.shade) t.source.addressMode = 'clamp-to-edge';
     const g = this.grounds;
     const shader = () => Shader.from({ gl: { vertex: VERT, fragment: FRAG }, resources: {
-      uGrass: g.grass.source, uCalm: g.calm.source, uDirt: g.dirt.source, uFloor: g.floor.source, uScree: g.scree.source, uMix: this.mix.source,
+      uGrass: g.grass.source, uCalm: g.calm.source, uDirt: g.dirt.source, uFloor: g.floor.source, uScree: g.scree.source, uMix: this.mix.source, uMul: this.shade[0].source, uAdd: this.shade[1].source,
       land: { uMixRect: { value: new Float32Array([-A, -A, 1 / (mix.w / MIX_K * TILE), 1 / (mix.h / MIX_K * TILE)]), type: 'vec4<f32>' }, uMap: { value: new Float32Array([W, H]), type: 'vec2<f32>' }, uDark: { value: this.dark, type: 'f32' } },
     } });
     const ground = new Mesh({ geometry: quad(-A, -A, W + A, H + A), shader: shader() }); this.L.terrain.addChild(ground); this.meshes.push(ground);
@@ -161,7 +168,7 @@ export class Land {
       const key = Math.floor(o.z / (ROWS * TILE)) * 3 + (far ? (o.z < 0 ? 0 : 2) : 1); // (the apron's with the map's own: a crown over the edge stands whole)
       let row = rowOf.get(key);
       if (!row) { rowOf.set(key, row = { c: new Container(), y0: Infinity, y1: -Infinity, z: key, far }); this.rows.push(row); }
-      const s = this.sprite(o); if (o.apron) s.tint = dim(o.x, o.z); row.c.addChild(s); laid++;
+      const s = this.sprite(o); s.tint = mul(shadeAt(o.x, o.y), o.apron ? dim(o.x, o.z) : 0xffffff); row.c.addChild(s); laid++;
       row.y0 = Math.min(row.y0, o.y - PIECES[o.i].h * o.s); row.y1 = Math.max(row.y1, o.y + PIECES[o.i].h * o.s * 0.3);
       if (o.low && !o.apron) { low++; this.low.push({ s, tx: Math.floor(o.x / TILE), ty: Math.floor((o.z) / TILE), ground: true }); }
     }
@@ -169,12 +176,6 @@ export class Land {
     for (const r of this.rows) this.L.scenery.addChild(r.c);
     this.stats = { pieces: plan.pieces.length, live: this.live.length, laid, low, rows: this.rows.length, mix: [mix.w, mix.h], cap, ms: { plan: t1 - t0, mix: t2 - t1, total: performance.now() - t0 } };
     return this.stats;
-  }
-  /** A shade layer's texture `t` (the map's, `W` x `H` world px) over the map and `A` px past its edges, its edge
-   *  carried out: the land's shade goes on over the apron, so nothing steps where the map ends. */
-  shade(t, W, H, A) {
-    const u = A / W, v = A / H; t.source.addressMode = 'clamp-to-edge';
-    return new Mesh({ texture: t, geometry: new MeshGeometry({ positions: new Float32Array([-A, -A, W + A, -A, W + A, H + A, -A, H + A]), uvs: new Float32Array([-u, -v, 1 + u, -v, 1 + u, 1 + v, -u, 1 + v]), indices: new Uint32Array([0, 1, 2, 0, 2, 3]) }) });
   }
   sprite(o) {
     const t = this.tex(PIECES[o.i].name), s = new Sprite(t);

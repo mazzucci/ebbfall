@@ -2,10 +2,12 @@
 // round plates (the rosters, the trees, the diagrams, the home's tiles, About's strip). The crops need a browser to encode
 // WebP, so they are cut by that tool and committed (like public/og.png); tools/docs/sprites.json records, for each, a
 // hash of the frames and pages it was cut from, and test/docs.test.js fails when the art has changed since
-// (run `node tools/docs/crops.mjs` again).
+// (run `node tools/docs/crops.mjs` again). The units are drawn from sharp pictures that are not in the repo (`SHARP`):
+// their hash takes the frames and the committed crops themselves, so the test needs no picture.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { BLDG_LOOK } from '../../src/client/look.js';
+import { SHADOW } from '../newart/tone.mjs';
 import { PEOPLES } from './data.mjs';
 
 /** The game's art: index.json's groups, their pages' frames. */
@@ -18,15 +20,33 @@ export const SPRITE_URL = '/docs/img/sprites/';
  * The recipe (the designer's, PRD "Docs microsite", with the docs visual plan's notes): a unit in facing 2, its first
  * pose; a building with its head (facing 2) on the same ground point; the solid art (alpha over 200) fit to 72% of a
  * square for a building, 84% for a unit and the wide gold mine (90% for the tall Balloon), so the units read on a phone,
- * but never enlarged past `enlarge` times the frame's own pixels (a Bot is 65 px: larger is blur); the shadow faded from
+ * never enlarged past `enlarge` times the frame's own pixels; a unit drawn from its sharp picture, over its frame's shadow
+ * (`shadow`: its color, its most alpha, `soft` the blur in px of the frame); the shadow faded from
  * 86% of the plate's radius to its edge; seat 0's blue. Sizes are CSS pixels, desktop and phone; files are 2x. Bump
  * `version` when the recipe changes so every crop is cut again.
  */
 export const RECIPE = {
-  version: 4, tint: '#2a5ddf', foe: '#ee376a', fill: 0.72, unitFill: 0.84, fade: 0.43, solid: 200, enlarge: 2.2,
-  fills: { observer: 0.9, mine: 0.84 },
+  version: 5, tint: '#2a5ddf', foe: '#ee376a', fill: 0.72, unitFill: 0.84, fade: 0.43, solid: 200, enlarge: 2.2,
+  fills: { observer: 0.9, mine: 0.84, lumen: 0.72, siegeTank: 0.74, monolith: 0.76, bastion: 0.78, scythe: 0.78 }, // (the square ones less, or the round plate cuts their corners)
+  shadow: { color: SHADOW.color, alpha: 112, soft: 0.5 },
   sizes: { unit: { desktop: 96, phone: 72 }, building: { desktop: 168, phone: 104 } },
 };
+
+/**
+ * The units' sharp pictures: standing, facing 2, 3 to 8 times the pack's pixels, the body's paint neutral and a team mask
+ * beside it (`<name>_2.png`, `<name>_2_m.png`), no shadow, in a local folder that is never committed (EBBFALL_PICTURES,
+ * as the packs' builders'). Only tools/docs/crops.mjs reads them.
+ */
+const SHARP = {
+  harvester: 'villager', trooper: 'guard', lancer: 'archer', rider: 'rider', knight: 'knight', bastion: 'ballista',
+  siegeTank: 'cannon', observer: 'balloon', lumen: 'bot', scythe: 'buggy', prism: 'sellsword', bruiser: 'bruiser',
+  umbra: 'android', monolith: 'rover', shrike: 'drone',
+};
+const PICTURES = process.env.EBBFALL_PICTURES || '/home/mazzucci/projects/ebbfall-article/nano-test';
+/** A unit's sharp picture and mask: [body, mask] paths; null for what has none. */
+export const sharpOf = (key, kind) => (kind === 'unit' && SHARP[key] ? ['', '_m'].map(m => `${PICTURES}/leftovers/hires/${SHARP[key]}_2${m}.png`) : null);
+/** The sharp pictures the crops need that are not there. */
+export const missingSharp = () => [...new Set(crops().flatMap(c => sharpOf(c.key, c.kind) || []))].filter(f => !existsSync(f));
 
 /** The frames a kind's crop is drawn from: [base, head or null]. */
 export function framesOf(key, kind) {
@@ -74,16 +94,17 @@ export function atlasFrames() {
 
 const pageHash = new Map();
 /** A hash of what a crop is cut from: its frames' records (and their team masks') and the pages they are on, its tint,
- *  fill and sizes, and the recipe's version. */
+ *  fill and sizes, and the recipe's version; for one drawn from a sharp picture, its committed files too. */
 export function sourceHash(c) {
   const frames = atlasFrames(), h = createHash('sha256');
-  h.update(JSON.stringify([RECIPE.version, RECIPE.solid, RECIPE.fade, RECIPE.enlarge, c.tint, c.fill, c.files]));
+  h.update(JSON.stringify([RECIPE.version, RECIPE.solid, RECIPE.fade, RECIPE.enlarge, RECIPE.shadow, c.tint, c.fill, c.files]));
   for (const n of framesOf(c.key, c.kind).filter(Boolean).flatMap(n => [n, `${n}_m`])) {
     const f = frames[n];
     if (!f) { h.update(`${n}:none`); continue; }
     if (!pageHash.has(f.page)) pageHash.set(f.page, createHash('sha256').update(readFileSync(new URL(f.page, ART))).digest('hex'));
     h.update(`${n}:${JSON.stringify(f.rec)}:${pageHash.get(f.page)}`);
   }
+  if (sharpOf(c.key, c.kind)) for (const [file] of Object.values(c.files)) h.update(existsSync(new URL(file, SPRITE_DIR)) ? readFileSync(new URL(file, SPRITE_DIR)) : `${file}:none`);
   return h.digest('hex').slice(0, 16);
 }
 

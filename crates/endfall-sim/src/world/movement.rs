@@ -108,6 +108,14 @@ impl World {
         if path.is_empty() {
             return true;
         }
+        if path.len() > 1 {
+            let (w, next) = (path[0], path[1]);
+            if self.walks_by(uid, w, next) {
+                self.um(uid).path.as_mut().unwrap().remove(0);
+            }
+        }
+        let u = self.um(uid);
+        let path = u.path.as_mut().unwrap();
         let w = path[0];
         let d = dist(u.x, u.y, w.x, w.y);
         let mv = speed * dt;
@@ -133,6 +141,31 @@ impl World {
         u.x += (w.x - u.x) / d * mv;
         u.y += (w.y - u.y) / d * mv;
         false
+    }
+
+    /// Whether a unit on a move or a march lets its next waypoint `w` be and walks on to `next`: the units of a group
+    /// share their waypoints (paths.rs), and held up near one by the others (`WAYPOINT_PATIENCE`) it might never touch
+    /// it. Only with the way on open from where it stands.
+    fn walks_by(&self, uid: Id, w: Pt, next: Pt) -> bool {
+        let u = self.u(uid);
+        matches!(u.task, Task::Move { .. } | Task::AMove { .. })
+            && !u.kind.def().air
+            && u.stuck > WAYPOINT_PATIENCE
+            && dist(u.x, u.y, w.x, w.y) <= 4.0 * u.r
+            && self.leg_open(uid, next)
+    }
+
+    /// How long a unit on a move or a march has made no way (`Unit::stuck`): within half its radius of `Unit::anchor`.
+    /// Not while it cannot walk (packing up).
+    fn count_stuck(&mut self, uid: Id, dt: f64) {
+        let still = self.live_speed(uid) <= 0.0;
+        let u = self.um(uid);
+        if still || dist(u.x, u.y, u.anchor.0, u.anchor.1) > u.r * 0.5 {
+            u.anchor = (u.x, u.y);
+            u.stuck = 0.0;
+        } else {
+            u.stuck += dt;
+        }
     }
 
     /// Move toward a target until within reach. Returns true once in reach.
@@ -306,6 +339,7 @@ impl World {
         if u.path.is_none() && u.repath <= 0.0 && !self.path_to(uid, x, y) {
             return; // (waiting for its route: it stands this tick)
         }
+        self.count_stuck(uid, dt);
         if self.u(uid).path.is_none() || self.step_path(uid, dt) {
             // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends
             // at the nearest free tile, and that is as close as we get).

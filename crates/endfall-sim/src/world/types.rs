@@ -160,7 +160,8 @@ pub struct Unit {
     pub repath: f64,
     pub flash: f64,
     pub aggro_cd: f64,
-    /// Seconds a builder has stayed within STUCK_RADIUS of `anchor` without reaching its site.
+    /// Seconds a builder has stayed within STUCK_RADIUS of `anchor` without reaching its site, or a unit on a move or a
+    /// march within half its radius of it (`World::count_stuck`).
     pub stuck: f64,
     pub anchor: (f64, f64),
     /// Game time before which this harvester is not picked as a builder again (it just failed to reach a site).
@@ -208,6 +209,9 @@ pub struct Tide {
 /// second; jittering against a corner or being walled in does not.
 pub const BUILDER_PATIENCE: f64 = 6.0;
 pub const STUCK_RADIUS: f64 = 12.0;
+/// A unit on a move or a march held up this long (s) within two bodies of a waypoint of its route passes it by
+/// (`World::walks_by`).
+pub const WAYPOINT_PATIENCE: f64 = 2.0;
 /// How far (px) a worker that has stopped at its work (a field, a drop-off, a site) may be nudged out of reach and
 /// still count as there: it stays put instead of stepping back in and turning to and fro (movement.rs
 /// `approach_settled`).

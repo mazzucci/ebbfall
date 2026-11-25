@@ -246,7 +246,7 @@ test('the controls tables\' gestures, on demand: seven touch rows and seven desk
   const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''), row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
   const [touch, mouse, schemes, keys] = tables.map(rowsOf);
   assert.match(tables[0], /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns: no See column');
-  assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 6, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
+  assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 9, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
   const loopsOf = (rows, prefix) => rows.filter(r => r.button).map(r => [r.do, r.button.match(new RegExp(`data-loop="${prefix}-(\\w+)"`))[1]]);
   assert.deepEqual(loopsOf(touch, 'touch'), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven touch rows, their loops');
   assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');

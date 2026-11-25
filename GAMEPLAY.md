@@ -68,9 +68,10 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
 - Standing firm (`World::separate`, tests/gameplay/firm.rs): units of a layer that overlap push each other apart; one
   that holds, or is deployed and settled in (a Cannon sets up by itself wherever it stops), is firm: never pushed, the
   others part from it. A Cannon still settling in is pushed clear as any unit is, so none sets up on top of another. A
-  unit walking a route passes its own seat's firm units (never an ally's or an enemy's) and is pushed clear where it
-  stops: it reaches a point one of them covers, gets out of a ring of them and through two side by side. Two that hold
-  on the same spot stay there.
+  unit walking (a move, an attack-move, a chase, a flight) passes its own seat's firm units (never an ally's or an
+  enemy's) and is pushed clear where it stops: it reaches a point one of them covers, gets out of a ring of them and
+  through two side by side. A worker mining, building or repairing does not pass them. Two that hold on the same spot
+  stay there.
 
 ## Water, the tide and the Shore map
 

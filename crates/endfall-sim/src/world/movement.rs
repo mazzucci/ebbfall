@@ -315,16 +315,26 @@ impl World {
 
     /// Push overlapping units apart and out of blocked tiles. A unit holding position or deployed and settled in (a
     /// siege gun in a fight is so without holding) stands firm: others flow around it. One still settling in is pushed
-    /// clear, so it never sets up on top of another. A unit walking a route is not pushed by the firm units of its own
-    /// seat: it walks through them to its goal, and is pushed clear where it stops (pushed as it walked, it could
-    /// never reach a point one of them covers, nor pass two side by side). Two workers of a side on their gathering
-    /// round pass through each other, as in 1998: a crowded field never jams or jostles.
+    /// clear, so it never sets up on top of another. A unit walking (a move, a march, a chase, a flight) is not pushed
+    /// by the firm units of its own seat: it walks through them to its goal, and is pushed clear where it stops (pushed
+    /// as it walked, it could never reach a point one of them covers, nor pass two side by side). A worker at its work
+    /// is: passing a guard that holds at its mine, it would slip away from raiders. Two workers of a side on their
+    /// gathering round pass through each other, as in 1998: a crowded field never jams or jostles.
     pub(crate) fn separate(&mut self) {
         let firm = |u: &Unit| match u.mode {
             Some(_) => u.swap <= 0.0,
             None => u.task == Task::Hold,
         };
-        let walking = |u: &Unit| u.path.as_ref().is_some_and(|p| !p.is_empty());
+        let walking = |u: &Unit| {
+            u.path.as_ref().is_some_and(|p| !p.is_empty())
+                && matches!(
+                    u.task,
+                    Task::Move { .. }
+                        | Task::AMove { .. }
+                        | Task::Attack { .. }
+                        | Task::Flee { .. }
+                )
+        };
         let gathering = |u: &Unit| matches!(u.task, Task::Gather { .. });
         for i in 0..self.units.len() {
             if firm(&self.units[i]) || self.units[i].inside() {

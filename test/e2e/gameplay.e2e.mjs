@@ -2128,7 +2128,7 @@ test('a gold mine ordered, worked or selected is marked along its painted outlin
     try {
       const s = await d.state(), core = coreOf(s);
       const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
-      const marks = () => d.eval(() => { endfall.draw(); return endfall.minesMarked(); });
+      const marks = () => d.eval(() => { endfall.draw(); return endfall.targetsMarked(); });
       assert.deepEqual(await marks(), [], 'nothing selected: no mark');
       // The outline against the frame's own paint: from each of its points, the nearest solid pixel (world px).
       const check = async (m, what) => {
@@ -2155,6 +2155,12 @@ test('a gold mine ordered, worked or selected is marked along its painted outlin
       m = await marks();
       assert.ok(m.length && m.every(q => q.id === node.id), `its worker selected: marked: ${JSON.stringify(m.map(q => q.id))}`);
       await check(m[0], 'worked');
+      // A building to work on: along its picture too (wider than its square up the screen).
+      await d.eval(([id, b]) => { const E = endfall.engine; E.debugSetHp(b, 300); endfall.skip(0.1); E.repair(endfall.G.units.find(u => u.id === id), endfall.G.bldgs.find(x => x.id === b)); endfall.skip(0.1); endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, [w, core.id]);
+      m = await marks();
+      assert.deepEqual(m.map(q => q.id), [core.id], 'the Castle under repair: marked');
+      const top = Math.min(...m[0].pts.filter((_, i) => i % 2)), art = await d.eval((id) => endfall.bldgArtTop(id), core.id);
+      assert.ok(top < core.ty * 32 - 24 && top > art - 16, `along its picture, up to its roof: ${top}, the art's top ${art}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
   }
@@ -2266,6 +2272,13 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     const { circles, arcs } = await range();
     assert.deepEqual(circles, [{ x: hq.x, y: hq.y, r: reach * T }], 'one circle round the Data center\'s center, its reach');
     assert.equal(arcs, 1, 'its outline: one whole circle');
+    // On the ground, under the units; over the fog only a thin line, and only where nothing was seen yet.
+    const fog = await d.eval(() => { const s = endfall.rangeShown(), M = endfall.engine.MW; return { under: s.under, runs: s.fogRuns.map(([x, y, r, a, b]) => [0.02, 0.5, 0.98].map(k => { const t = a + (b - a) * k; return !!endfall.G.explored[Math.floor((y + Math.sin(t) * r) / 32) * M + Math.floor((x + Math.cos(t) * r) / 32)]; })) }; });
+    assert.ok(fog.under && fog.runs.length > 0, `the rim under the units, a line over the fog where nothing was seen: ${JSON.stringify(fog)}`);
+    assert.ok(fog.runs.every(r => !r[1]) , `only there: ${JSON.stringify(fog.runs)}`);
+    await d.eval(() => { endfall.fog(false); endfall.draw(); });
+    assert.deepEqual((await range()).fogRuns, [], 'no fog: no line over it');
+    await d.eval(() => endfall.fog(true));
     // Something else selected (a Sellsword, not a machine): no range drawn.
     const sw = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'prism', x, y), [hq.x + 130, hq.y + 110]);
     await d.clickEntity(sw);
@@ -2471,6 +2484,9 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
     assert.equal(reach, 54 * 32, 'the Uplink reaches 54 tiles');
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
+    assert.equal(shown.mmExtra?.r, reach, 'its circle on the minimap too');
+    const head = await d.eval(() => { endfall.draw(); const p = endfall.ui.place, b = endfall.engine.BUILDINGS.uplink; return [endfall.ghostHeadShown(), (p.tx + b.w / 2) * 32, (p.ty + b.h / 2) * 32]; });
+    assert.deepEqual(head[0] && [head[0].frame, head[0].x, head[0].y], ['uplink_head_2', head[1], head[2]], 'the ghost has its dish');
     await d.key('Escape');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -2509,7 +2525,7 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing a Substation: the Data center's coverage (${JSON.stringify(shown.circles)})`);
     assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
-    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
+    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.75, 3.5], 'the minimap\'s rim in CSS px');
     assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
     assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [28, 0.36, true], 'the feathered band inside the rim');
     // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.

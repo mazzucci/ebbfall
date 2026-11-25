@@ -339,18 +339,19 @@ src/client/           everything that touches the browser
                       the selection marks (one thin whole ring, red for an enemy, round a unit's feet or a building's
                       footprint, `selRing`) and the health bars (4 px, lit along the top, a unit's at most 24 px wide,
                       34 for a large one, `slimBar`) in screen pixels at any zoom; a gold mine selected, worked or just ordered marked
-                      along its painted outline (`hullOf`, read once from the frame), a building to work on by its square;
+                      along its painted outline (`hullOf`, read once from the frame), a building to work on likewise;
                       the range (the sim's circles round each Data center and Uplink, a soft tint at 7% faded as one
                       layer and the signal rim round their union, range.js: a 4.5 px dark halo at 55% under a 2.5 px
                       light line at 85%, `RIM`, and inside it a feathered band, 28 px of the rim's light from 36% to nothing,
                       in screen px at every zoom (`rimZoom`, a step of the zoom in the redraw's key);
-                      above the fog, under the ghost, the bars and the selection box; shown while a machine, a Data
+                      on the ground, under the rings, the units, the trees and the buildings, and over ground not yet seen a 1.5 px line
+                      over the fog (`drawFogRim`); shown while a machine, a Data
                       center or an Uplink of this side is selected or any Expedition building placed, drawn again only
                       when the sources or the zoom's step change; a machine sent past the edge (the sim's `signal`
                       event) brightens the rim's stretch nearest the spot, range.js `nearestRim`, fading over 0.6 s;
                       the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
                       an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
-                      over the cached base, a 1.25 px line at 80% over a 2.5 px dark halo at 50% in CSS px (scaled by
+                      over the cached base, a 1.75 px line at 80% over a 3.5 px dark halo at 50% in CSS px (scaled by
                       the minimap's box); `rangeShown` for the tests); the minimap drawn in 168 units across its box
                       (its old fixed canvas: the same widths and dots as then) onto a backing of its CSS size times
                       the screen's pixels per CSS px (read each frame: another screen or the browser's zoom), times

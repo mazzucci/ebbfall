@@ -28,6 +28,7 @@ import { launchChromium } from '../../chromium.mjs';
 import { encodeWebP } from '../../art/webp.mjs';
 import { encodePNG, decodePNG } from '../../art/png.js';
 import { SHADOW } from '../tone.mjs';
+import { stamp } from '../bytes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), REPO = resolve(HERE, '../../..');
 const PICTURES = process.env.EBBFALL_PICTURES || '/home/mazzucci/projects/ebbfall-article/nano-test';
@@ -300,7 +301,7 @@ for (const [n, p] of pages.entries()) {
 const ixFile = join(OUT, 'index.json'); let ix = {};
 try { ix = JSON.parse(readFileSync(ixFile, 'utf8')); } catch { /* none yet */ }
 ix.groups = { ...ix.groups, unit: { pages: files, scale: Z, ...group } };
-writeFileSync(ixFile, JSON.stringify(ix, null, 1));
+writeFileSync(ixFile, JSON.stringify(ix, null, 1)); stamp(OUT);
 for (const s of stats) console.log(s);
 console.log(`unit: ${stats.length} units on ${pages.length} page(s) ${pages.map(p => `${p.w}x${p.h}`).join(' ')} at scale ${Z} (${Math.round(real.reduce((s, x) => s + x.img.w * x.img.h, 0) / size(pages) * 100)}% used), ${LOSSY ? `lossy WebP q${LOSSY}` : 'lossless WebP'}: ${bytes} B to download, ${(gpu / 2 ** 20).toFixed(1)} MB on the GPU with mipmaps; the model's render ${tRender ? (tRender / 1000).toFixed(1) + ' s' : cached ? 'from the cache' : 'not asked'}, pack ${((Date.now() - t1) / 1000).toFixed(1)} s`);
 

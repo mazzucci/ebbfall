@@ -310,12 +310,19 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       const canvas = await page.locator('#game').boundingBox();
       if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
       // (a unit on its body's middle, half its drawn height above its feet, where a player taps it; a building on its
-      // footprint's center)
-      const p = await ev((id) => {
+      // footprint's center, or where a unit stands over that (its builder before it), on the part of the footprint
+      // clearest of any)
+      const p = await ev(([id, room]) => {
         const u = endfall.G.units.find(u => u.id === id), e = u || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
-        const y = u ? u.y - endfall.unitTop(u.type) / 2 : e.y;
-        endfall.centerOn(e.x, y); const c = endfall.cam; return { x: (e.x - c.x) * c.zoom, y: (y - c.y) * c.zoom };
-      }, id);
+        let x = e.x, y = u ? u.y - endfall.unitTop(u.type) / 2 : e.y;
+        if (!u) {
+          const bodies = endfall.G.units.filter(o => !o.inside).map(o => { const h = endfall.unitTop(o.type) / 2; return [o.x, o.y - h, Math.max(o.r * 1.7, h)]; });
+          const clear = (px, py) => Math.min(Infinity, ...bodies.map(([bx, by, r]) => Math.hypot(px - bx, py - by) - r));
+          let best = clear(x, y);
+          if (best < room) for (const fy of [0, -0.36, 0.36]) for (const fx of [-0.36, 0, 0.36]) { const px = e.x + fx * e.w * 32, py = e.y + fy * e.h * 32, c = clear(px, py); if (c > best) { best = c; x = px; y = py; } }
+        }
+        endfall.centerOn(x, y); const c = endfall.cam; return { x: (x - c.x) * c.zoom, y: (y - c.y) * c.zoom };
+      }, [id, touch ? 16 : 8]);
       if (!p) throw new Error('no entity ' + id);
       const [x, y] = [canvas.x + p.x, canvas.y + p.y];
       if (touch) return d.tapAt(x, y);

@@ -1,4 +1,4 @@
-// The new look's land (`?art=new`), pure (no DOM, no PixiJS): where every tree, rock and low plant stands on a map, and
+// The land, pure (no DOM, no PixiJS): where every tree, rock and low plant stands on a map, and
 // the ground's mix (grass, worn dirt, forest floor, scree) as a small image, from the map's blocked cells, the ground
 // plan (gl/groundplan.js) and the seed alone, so every player sees the same land whoever sits where. Decoration only:
 // the sim never sees it. Exact arithmetic only (+ - * / floor on doubles, integer hashes: ground.js `hash`, `noise`),

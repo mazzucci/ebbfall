@@ -170,7 +170,7 @@ export const BLDG_DEATH = {
       boom: { at: 0.25, coreLife: 0.067, core: { anim: 'flash', tint: 0xffffff, scale: 2.25 }, fire: { anim: 'boom_small', scale: 1.3, light: 0xff9a3a, lightScale: 0.7, life: 0.4 } },
       smokeAt: 0.35,
     },
-    eclipse: { portal: true, rubbleTint: 0x8a96a4, rubbleGlow: 2 }, // (the Portal: its power lost)
+    eclipse: { portal: true, rubbleTint: 0xc4cedb, rubbleGlow: 2 }, // (the Portal: its power lost)
   },
   /** The Portal (the coder lead's spec, 2026-11-15): no sink, no shake, no scorch, no boom. Till `hold` s the ghost
    *  holds while its additive flash layer fades in cyan to `flash.alpha` and its glow light swells from `glow.from` to
@@ -245,10 +245,10 @@ export function bldgDeath(b, people, { hq = false, roof = b.y - 40, core = { x: 
 export const BURN_FLASH = { chance: 0.25, light: 0xff8a2a, lightScale: 0.4 };
 /** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
  *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
- *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel
- *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
+ *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrels'
+ *  ends over its mast, `depth`: how far they reach up and down the screen, of sideways, as the picture's camera sees them, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
  *  rifle's cone (`muzzle`, pale, turned to the aim) on every shot. No flash for the Drone. */
-export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 42, up: 23, scale: 0.85 } };
+export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 40, up: 33, depth: 0.56, scale: 0.85 } };
 /** A melee blow landing (a `fire` event at a melee shooter): a glint of steel at its target (glint_f: small and pale, the fiery spark being the gunpowder's), and for the heavy hitters (the
  *  Knight's lance, the Bruiser's hammer) a small puff of dust there too (HIT_DUST): its size, opacity at the start, life (s) and drift (px/s at the start,
  *  away from the striker). The Knight's lance kicks up more and flings it farther. */

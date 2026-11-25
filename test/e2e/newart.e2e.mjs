@@ -1,101 +1,95 @@
-// The new look's switch (?art=new, src/client/gl/newart.js): nothing of it is asked for without it; with it and nothing
-// built, a missing page or a broken index, the game is today's, with no error; and the same link plays the same game with
-// and without it (?seed=, ?map=), so two tabs side by side show the same place. The packs are public/art/new/.
+// The game's art in the browser (src/client/gl/artload.js): what is asked for (the index's files, never the older
+// atlas's pages, whatever the link says), the loading line while a start waits for it, a file that fails (RETRY, then the
+// game), and the HUD's portraits. The files: public/art/new/.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { test, start, stop, browserContext, baseUrl, DESKTOP } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
 
-async function play(query, routes = {}) {
-  const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(), errors = [], asked = [], warnings = [];
+const ix = JSON.parse(readFileSync(new URL('../../public/art/new/index.json', import.meta.url), 'utf8'));
+/** A page (the service worker blocked: a request is the page's own) with the art's requests listed. */
+async function open(device, query = '') {
+  const ctx = await browserContext({ ...device, serviceWorkers: 'block' }), page = await ctx.newPage(), errors = [], asked = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'warning' && /new art/.test(m.text())) warnings.push(m.text()); });
-  page.on('request', r => { const p = new URL(r.url()).pathname; if (p.includes('/art/new/')) asked.push(p); });
-  for (const [u, o] of Object.entries(routes)) await page.route(new RegExp(u), r => r.fulfill(o));
-  await page.goto(baseUrl() + query, { waitUntil: 'load' });
-  await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-  await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
-  await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 60000 });
-  // (the AI left on, whole games alike: each hash at a tick both games reach by fixed steps, the page's own loop not
-  // between, so however many ticks passed before this call does not show)
-  const hash = await page.evaluate(() => { const a = []; for (const t of [900, 1200]) { if (endfall.G.tick > t) throw new Error(`already at tick ${endfall.G.tick}`); while (endfall.G.tick < t) endfall.skip(1 / 30); a.push(endfall.engine.stateHash() >>> 0); } return { a }; });
-  await page.waitForTimeout(300);
-  await ctx.close();
-  return { asked, errors, warnings, hash };
+  page.on('request', r => { const p = new URL(r.url()).pathname; if (p.includes('/art/')) asked.push(p.slice(p.indexOf('/art/') + 5)); });
+  const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
+  return { ctx, page, errors, asked, press, go: () => page.goto(baseUrl() + query, { waitUntil: 'domcontentloaded' }) };
 }
-const json = (o) => ({ contentType: 'application/json', body: JSON.stringify(o) });
+const playing = (page) => page.waitForFunction(() => window.endfall && endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 90000 });
 
-test('without ?art=new nothing of the new look is asked for', { timeout: 120000 }, async () => {
-  const p = await play('?seed=4242&map=4');
-  assert.deepEqual([p.asked, p.errors], [[], []]);
-});
+for (const [name, device, query] of [['a desktop', DESKTOP, '?seed=4242&map=4'], ['a landscape phone', PHONE, '?seed=4242&map=4'], ['an old link (?art=new)', DESKTOP, '?seed=4242&map=4&art=new']]) {
+  test(`${name}: the menu and a game ask for the art's files, each once, and for nothing of the older atlas`, { timeout: 180000 }, async () => {
+    const { ctx, page, errors, asked, press, go } = await open(device, query);
+    try {
+      await go();
+      await page.waitForFunction(() => !!window.endfall, null, { timeout: 90000 });
+      await press('#btnSolo'); await press('#btnStart'); await playing(page);
+      await page.evaluate(() => { endfall.skip(20); endfall.draw(); });
+      await page.waitForTimeout(300);
+      assert.deepEqual(asked.filter(p => /atlas/.test(p)), [], 'no atlas page');
+      assert.deepEqual(asked.slice().sort(), ['index.json', ...Object.keys(ix.bytes)].map(f => 'new/' + f).sort());
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+}
 
-test('with it and no index, a missing page or a broken index: today\'s art, no error', { timeout: 240000 }, async () => {
-  for (const [what, routes] of [['no index', { 'art/new/index\\.json': { status: 404, body: '' } }], ['a missing page', { 'art/new/index\\.json': json({ groups: { bldg: { pages: ['nope.json'] }, land: {}, x: null } }) }], ['an index that is not JSON', { 'art/new/index\\.json': { contentType: 'application/json', body: '<html>' } }]]) {
-    const p = await play('?seed=4242&map=4&art=new', routes);
-    assert.deepEqual(p.errors, [], what);
-    assert.ok(p.asked.length >= 1, `${what}: the index was asked for`);
-  }
-});
+for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', { ...PHONE, viewport: { width: 390, height: 844 } }]]) {
+  test(`${name}: START before the art is in shows how much has come, in MB, over its button; a file that cannot be fetched asks for RETRY, and the game then starts`, { timeout: 180000 }, async () => {
+    const { ctx, page, errors, press, go } = await open(device, '?seed=4242&map=4');
+    try {
+      let broken = true, refused = 0;
+      await page.route(/unit-3\.webp$/, (r) => { if (!broken) return r.continue(); refused++; return r.abort(); });
+      await go();
+      await page.locator('#btnSolo').waitFor();
+      await press('#btnSolo'); await page.locator('#menuSolo').waitFor();
+      assert.ok(await page.locator('#loadLine').isHidden(), 'nothing while nothing waits');
+      await press('#btnStart');
+      const line = page.locator('#loadLine');
+      await line.waitFor({ timeout: 5000 });
+      await page.waitForFunction(() => /^Loading the game: [\d.]+ of 9\.\d MB$|could not be fetched/.test(document.querySelector('#loadLine span').textContent), null, { timeout: 20000 });
+      const all = () => page.evaluate(() => { const b = document.querySelector('#loadLine').getBoundingClientRect(), s = document.querySelector('#btnStart').getBoundingClientRect(); return { seen: b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth && document.elementFromPoint(b.left + 20, b.top + 10)?.closest('#loadLine') !== null, over: b.bottom <= s.top + 1 }; });
+      assert.deepEqual(await all(), { seen: true, over: true }, 'whole on the screen, over the button');
+      await page.waitForFunction(() => /could not be fetched/.test(document.querySelector('#loadLine span').textContent), null, { timeout: 60000 });
+      assert.equal(refused, 4, 'tried four times');
+      assert.ok(await page.evaluate(() => { const p = document.querySelector('#loadLine progress'); return p.value > p.max * 0.5 && p.value < p.max; }), 'the rest is in, and kept');
+      assert.deepEqual(await all(), { seen: true, over: true }, 'RETRY is on the screen');
+      assert.ok(await page.locator('#btnStart').isDisabled(), 'START still waits');
+      broken = false;
+      await press('#loadLine button');
+      await playing(page);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+}
 
-test('the same link plays the same game with and without ?art=new', { timeout: 180000 }, async () => {
-  const a = await play('?seed=4242&map=4'), b = await play('?seed=4242&map=4&art=new');
-  assert.deepEqual(a.hash.a, b.hash.a, 'state hashes');
-});
-
-test('with it, the packs that are there load, with no error and no failed request', { timeout: 180000 }, async () => {
-  const p = await play('?seed=4242&map=4&art=new');
-  assert.deepEqual(p.errors, []);
-  const groups = JSON.parse(readFileSync(new URL('../../public/art/new/index.json', import.meta.url), 'utf8')).groups;
-  for (const [g, { pages }] of Object.entries(groups)) for (const page of pages) assert.ok(p.asked.some(a => a.endsWith('/' + page)), `${g}: ${page} (${p.asked})`);
-  assert.deepEqual(p.warnings, [], 'no group left out');
-});
-
-// The HUD's portraits (render.js `portrait`) of the new look's frames are cut by their paint: the frame-based cut is
-// tuned to today's frames, and cut the new, larger figures off at a square's edge. Every unit and building of the packs,
-// at every size the HUD draws one (the Miners line 22, the tutorial 26, the group's tiles 28 and 42 to 46, the selected
-// one 44 and 76 to 84, a button's details 72), both ways it is asked for: no solid pixel (the art box's own measure,
-// alpha over 110) on the square's outer ring. A kind the packs do not hold keeps today's portrait, to the byte.
-test('with ?art=new no portrait of a new frame is cut off at its square\'s edge, at any size the HUD uses; a kind still on today\'s frames keeps today\'s portrait', { timeout: 240000 }, async () => {
-  const dir = new URL('../../public/art/new/', import.meta.url), groups = JSON.parse(readFileSync(new URL('index.json', dir), 'utf8')).groups;
-  const units = Object.keys(groups.unit.unitTops), bldgNames = groups.bldg.pages.flatMap(p => Object.keys(JSON.parse(readFileSync(new URL(p, dir), 'utf8')).frames));
+// The HUD's portraits (render.js `portrait`) are cut by the frame's own paint. Every unit and building, at every size the
+// HUD draws one (the Miners line 22, the tutorial 26, the group's tiles 28 and 42 to 46, the selected one 44 and 76 to 84,
+// a button's details 72): no solid pixel (the art box's own measure, alpha over 110) on the square's outer ring.
+test('no portrait is cut off at its square\'s edge, at any size the HUD uses', { timeout: 240000 }, async () => {
+  const units = Object.keys(ix.groups.unit.unitTops), bldgNames = Object.keys(ix.groups.bldg.looks).map(t => `bldg_${t}`);
   const SIZES = [22, 26, 28, 42, 44, 46, 72, 76, 84];
-  const open = async (query) => {
-    const ctx = await browserContext({ ...DESKTOP, serviceWorkers: 'block' }), page = await ctx.newPage(), errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await page.goto(baseUrl() + query, { waitUntil: 'load' });
-    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
-    await page.locator('#btnSolo').click(); await page.locator('#btnStart').click();
-    await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden, null, { timeout: 60000 });
-    return { ctx, page, errors };
-  };
-  const still = ['medic', 'halo'].filter(k => !units.includes(k)); // (trained nowhere, in no pack: today's frames under the switch too)
-  const cut = (page, list) => page.evaluate((list) => list.map(([kind, type, size]) => endfall.portrait(kind, type, size, 0)), list);
-  const a = await open('?seed=4242&map=4&art=new');
-  const res = await a.page.evaluate(async ([units, bldgNames, SIZES]) => {
-    const bldgs = Object.keys(endfall.engine.BUILDINGS).filter(t => bldgNames.includes(`bldg_${t}`)), bad = [], none = [];
-    for (const [kind, types] of [['unit', units], ['bldg', bldgs]]) for (const type of types) for (const size of SIZES) for (const box of [false, true]) {
-      const src = /src="([^"]+)"/.exec(endfall.portrait(kind, type, size, 0, box))?.[1];
-      if (!src) { none.push(`${type} ${size}`); continue; }
-      const im = new Image(); im.src = src; await im.decode();
-      const n = im.naturalWidth, c = document.createElement('canvas'); c.width = c.height = n;
-      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
-      const d = g.getImageData(0, 0, n, n).data; let solid = 0, edge = 0;
-      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (d[(y * n + x) * 4 + 3] > 110) { solid++; if (!x || !y || x === n - 1 || y === n - 1) edge++; }
-      if (edge || solid < n * n * 0.05) bad.push(`${kind} ${type} at ${size}${box ? ' (box)' : ''}: ${edge} solid px on the edge, ${solid} in all`);
-    }
-    return { bldgs: bldgs.length, bad, none };
-  }, [units, bldgNames, SIZES]);
-  const newWay = await cut(a.page, still.map(k => ['unit', k, 72]));
-  await a.ctx.close();
-  assert.deepEqual([units.length, res.bldgs], [15, 17], 'the packs\' units and buildings');
-  assert.deepEqual([res.none, res.bad, a.errors], [[], [], []]);
-  const b = await open('?seed=4242&map=4');
-  const today = await cut(b.page, still.map(k => ['unit', k, 72]));
-  await b.ctx.close();
-  assert.ok(still.length && today.every(h => /src="data:/.test(h)), 'kinds on today\'s frames to compare');
-  assert.deepEqual(newWay, today, 'a kind on today\'s frames: the same portrait with the switch');
+  const { ctx, page, errors, press, go } = await open(DESKTOP, '?seed=4242&map=4');
+  try {
+    await go(); await page.waitForFunction(() => !!window.endfall, null, { timeout: 90000 });
+    await press('#btnSolo'); await press('#btnStart'); await playing(page);
+    const res = await page.evaluate(async ([units, bldgNames, SIZES]) => {
+      const bldgs = Object.keys(endfall.engine.BUILDINGS).filter(t => bldgNames.includes(`bldg_${t}`)), bad = [], none = [];
+      for (const [kind, types] of [['unit', units], ['bldg', bldgs], ['node', ['gold']]]) for (const type of types) for (const size of SIZES) {
+        const src = /src="([^"]+)"/.exec(endfall.portrait(kind, type, size, 0))?.[1];
+        if (!src) { none.push(`${type} ${size}`); continue; }
+        const im = new Image(); im.src = src; await im.decode();
+        const n = im.naturalWidth, c = document.createElement('canvas'); c.width = c.height = n;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
+        const d = g.getImageData(0, 0, n, n).data; let solid = 0, edge = 0;
+        for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (d[(y * n + x) * 4 + 3] > 110) { solid++; if (!x || !y || x === n - 1 || y === n - 1) edge++; }
+        if (edge || solid < n * n * 0.05) bad.push(`${kind} ${type} at ${size}: ${edge} solid px on the edge, ${solid} in all`);
+      }
+      return { bldgs: bldgs.length, bad, none };
+    }, [units, bldgNames, SIZES]);
+    assert.deepEqual([units.length, res.bldgs], [15, 17], 'every unit and building');
+    assert.deepEqual([res.none, res.bad, errors], [[], [], []]);
+  } finally { await ctx.close(); }
 });

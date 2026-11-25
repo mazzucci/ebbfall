@@ -159,7 +159,7 @@ function renderSelection() {
       const types = [...new Set(sorted.map(x => x.type))], gk = 't' + types.join() + sel.length;
       if (grp.dataset.k !== gk) {
         grp.dataset.k = gk;
-        grp.innerHTML = types.map(t => { const g = sorted.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 28, G.me, true)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
+        grp.innerHTML = types.map(t => { const g = sorted.filter(x => x.type === t); return `<div class="gi gt" data-t="${t}" title="${g.length} ${g[0].d.name}: tap to keep only these, hold to drop them">${portrait(g[0].kind, t, 28, G.me)}<b>${g.length}</b><i></i></div>`; }).join(''); // (units or buildings)
       }
       types.forEach((t, i) => { const g = sorted.filter(x => x.type === t); bar(grp.children[i], g.reduce((a, x) => a + x.hp, 0) / g.reduce((a, x) => a + x.maxhp, 0)); });
       return;
@@ -167,7 +167,7 @@ function renderSelection() {
     const ts = porSize(28, 42), shown = sorted.slice(0, 24), gk = shown.map(x => x.id).join() + ':' + ts;
     if (grp.dataset.k !== gk) { // rebuild the tiles only when the selection changes; hp bars update in place
       grp.dataset.k = gk;
-      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, ts, x.team, true)}<b>${x.d.hot}</b><i></i></div>`).join('');
+      grp.innerHTML = shown.map(x => `<div class="gi" data-id="${x.id}" title="${x.d.name}: click for it alone, Shift+click to drop it">${portrait(x.kind, x.type, ts, x.team)}<b>${x.d.hot}</b><i></i></div>`).join('');
     }
     shown.forEach((x, i) => bar(grp.children[i], x.hp / x.maxhp));
   }

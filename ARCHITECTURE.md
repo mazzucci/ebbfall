@@ -132,7 +132,7 @@ index.html            page shell: top bar, canvas stage, HUD (minimap, selection
                       what search engines and shared links show (title, description, canonical, og: and twitter: cards
                       with public/og.png, JSON-LD; test/site-preview.test.js); the help sheet (the ? in the top bar,
                       help.js); the text crawlers read is the docs' (tools/docs)
-src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
+src/boot.js           entry: asks for the art (client/gl/artload.js); the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
                       (an update reloads the menu at once, into the room or the challenge it was on); the first page's
@@ -366,12 +366,15 @@ src/client/           everything that touches the browser
                       the hp bar's place, the half-second done moment (`BldgObj.update`,
                       only for a site watched finish on screen), a builder's strikes (`UnitObj.work`); `sitesShown`
                       for the tests;
-                      each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
-                      atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
-  gl/newart.js        the new look's switch (?art=new, off by default, remembered nowhere): loads the packs of
-                      public/art/new/ (index.json: groups of sprite pages, each whole or not at all), whose frames
-                      replace today's by name; without the switch nothing of it is fetched, and the packs are left out of
-                      the offline install (tools/offline/plugin.mjs WEB_ONLY)
+                      each unit kind's drawn height (`unitTop`, the index's `unitTops`); the HUD's portraits cut from the
+                      art's pages (`portrait`: the selection console, its queue, the guided first game; not the command card)
+  gl/artload.js       the game's art on its way in: every file of public/art/new/index.json (its groups `remains`, `bldg`,
+                      `land`, `unit`, and each file's bytes) asked for at once by boot.js, in parallel, counted as it comes
+                      (`art`, `onArt`), tried four times (also a stall of 20 s), then waiting for RETRY (`retryArt`); kept
+                      decoded for render.js (`loadArt`). Nothing asks for the older atlas (public/art/atlas*), and there
+                      is no other art to fall back to
+  gl/newart.js        how the units are drawn, by kind: their size, their selection ring, how their builders work
+  gl/puff.js          the smoke puff, painted in code (soft lobes, lit from the upper left, no outline)
   gl/rallyflag.js     the rally flag, painted in code: a red pennant with a dark outline in a red ring on the ground, red
                       whatever the seat, drawn (`rallyMarks`) for this side's selected buildings alone; `rallyShown` for the
                       tests
@@ -392,7 +395,7 @@ src/client/           everything that touches the browser
                       tools/art/overlay3.js), never in a cell with rock or water, each cell as strong as its worn
                       corners; the tones in the shade layers; all of it faintly on the minimap; `endfall.ground()` what
                       it laid and its cost (test/groundplan.test.js, test/e2e/ground.e2e.mjs)
-  gl/newland.js       the new look's land (`?art=new`, gl/newart.js), pure: where every tree, rock and low plant stands on a
+  gl/newland.js       the land, pure: where every tree, rock and low plant stands on a
                       map (`planLand`: a standing piece's base whole on blocked cells (a rock's base: the core of its
                       width, `baseWidth`; a clump of rock on every cell at a hill's border, bushes at a wood's), its top over walkable ground no
                       deeper than `LAND.cap` tiles, `allowance`; a piece a unit may stand behind marked `live`), the
@@ -407,6 +410,8 @@ src/client/           everything that touches the browser
                       colors and gold mines with the new land), the pieces nothing can stand behind laid in rows under the units,
                       the live ones among the units and buildings, sorted with them, only those on screen; gl/render.js
                       shows a unit behind them as a silhouette (ours in our color, another seat's in red)
+  loadline.js         the menu's loading line: while a start (or the lobby's READY) waits, a bar over its row with the MB in
+                      of the total (gl/artload.js), and RETRY when the art could not be fetched
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, TUTORIAL, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
@@ -638,9 +643,10 @@ test/shots.test.js    how each shot is drawn to read on a phone (look.js `SHOT_S
                       (the Drone's the Sentry mast's), hits in steel's cool and muzzle flashes warm, the heavy trail
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
-test/newart.test.js   the new look's loader (src/client/gl/newart.js): nothing fetched without the switch, a group whole or
-                      not at all, no stale team mask; test/newart-tone.test.js its tone curve; test/e2e/newart.e2e.mjs
-                      the switch in the game: the fallback, the same game with and without it
+test/newart.test.js   the game's art: the loader's tries and RETRY, the index's sizes (tools/newart/bytes.mjs), the page cut
+                      from the older atlas pixel for pixel (tools/art/remains.mjs), every frame the client names there;
+                      test/newart-tone.test.js the tone curve; test/e2e/newart.e2e.mjs what a page asks for (never the
+                      older atlas), the loading line and RETRY, the portraits
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
                       map, fixed by the seed; the grass's patches capped, a meadow's marks; an overlay cell's variant
 test/groundplan.test.js  the ground's plan (src/client/gl/groundplan.js): the same plan, grid for grid, whoever is seated
@@ -994,7 +1000,7 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
 tools/newart/         the new look's packs (public/art/new/, NOTICE.txt beside them): a builder per group
                       (bldg/build.mjs) that reads the pictures from EBBFALL_PICTURES (a local folder, not in the repo),
-                      and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
+                      bytes.mjs (each file's size stamped into index.json, by every builder) and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
 tools/view-capture.mjs  how the game looks on a desktop monitor against a landscape phone (npm run build first; a
                       Chromium): one staged instant of seed 4242 under a held clock (the start's framing, then a fight
                       with 12 of ours box-selected through the UI), shot at 1440x900, 1920x1080 and 2560x1440 per START_SPAN
@@ -1053,6 +1059,7 @@ tools/art/            generator driver (generate.mjs), the painted ground (terra
                       unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
                       angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
                       building); see Notion: Ebbfall art
-public/art/           generated atlas.json index + atlas-<n>.webp/json pages (PixiJS spritesheets, scale 2), committed
+public/art/           new/: the game's art (index.json, the groups' pages; NOTICE.txt); atlas.json + atlas-<n>.webp/json: the
+                      older atlas, generated, read by the docs', the menu's and the link preview's tools and tests, not the game
 ```
 

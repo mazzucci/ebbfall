@@ -9,8 +9,9 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../../chromium.mjs';
 import { decodePNG } from '../../art/png.js';
-import { encodeWebP, decodeWebP } from '../../art/webp.mjs';
+import { encodeWebP } from '../../art/webp.mjs';
 import { tone, SHADOW } from '../tone.mjs';
+import { stamp } from '../bytes.mjs';
 import { keyGreen, takePaint, fit, silhouette, blur, bloom, cover, overShadow, bytes, box, crop, image, enlarge } from './pixels.js';
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -58,13 +59,13 @@ const CFG = {
     factory: { pic: 'kingdom/factory-e1.jpg', n: 3, w: 94, dy: 6, ground: quad([390, 1420], [1120, 1775], [1740, 1415]), h: 560, lit: fire, bloom: [3, 0.5] },
     airfield: { pic: 'kingdom/airfield-e1.jpg', n: 3, w: 106, dy: 6, ground: quad([180, 1165], [1490, 1795], [1890, 1470]), h: 480, lit: fire, bloom: [3, 0.5] },
     turret: { pic: 'kingdom/turret-e1.jpg', n: 2, w: 46, dy: 6, round: [1020, 1660, 400], ground: disc(1020, 1660, 400, 225), solids: [[...ring(1020, 1660, 395, 0), ...ring(1020, 1660, 340, 1100)], [...ring(1020, 1660, 480, 1120), ...ring(1020, 1660, 480, 1290)]], lit: fire, bloom: [3, 0.5],
-      heads: { today: 'turret_head', pivot: [0, -68], at: [1013, 405], n: 16 } },
+      heads: { own: 'units3d/frames/p_archer', mask: true, pivot: [47, 93], cut: 93, by: 1.2, to: [0, -131], n: 16 } }, // (the Archer standing, from 34 px over its feet up (no legs, no shadow), at the size it walks at: 1.2, render.js UNIT_SCALE)
     // the Expedition
     siphon: { pic: 'kingdom/siphon-e1.jpg', n: 2, w: 76, dy: 4, ground: quad([105, 1480], [1000, 1905], [1905, 1360]), h: 500, lit: cyan, bloom: [3, 0.4], look: { glow: { at: [797, 878], tint: 0x3fe0ff, size: 0.35 } } },
     loom: { pic: 'set/loom-1.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1430], [1325, 1860], [1993, 1440]), h: 640, shade: [[1440, 0.8]], lit: cyan, bloom: [3, 0.35], look: { glow: { at: [1040, 720], tint: 0x3fe0ff, size: 0.6 } } },
     substation: { pic: 'set/substation-1.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1310], [1325, 1850], [1993, 1400]), h: 230, shade: [[1440, 0.8]], lit: cyan, bloom: [3, 0.35], look: { glow: { at: [1136, 490], tint: 0x3fe0ff, size: 0.5 } } },
     ward: { pic: 'set/ward-2.jpg', n: 2, w: 56, dy: 6, round: [1022, 1450, 860], ground: disc(1022, 1450, 860, 412), solids: [[...ring(1022, 1450, 850, 0), ...ring(1022, 1450, 850, 800)]], lit: cyan, bloom: [3, 0.3],
-      heads: { today: 'ward_head', pivot: [0, -20], at: [1026, 650], n: 16 } },
+      heads: { own: 'leftovers/sentry', pivot: [88, 75], to: [0, -45], n: 16 } }, // (its swivel ring on the middle of the mast's top disc)
     uplink: { pic: 'turbine/uplink-base.jpg', n: 3, w: 92, dy: 6, round: [1008, 1400, 950], ground: disc(1008, 1400, 960, 455), solids: [block([[80, 1480], [920, 1855], [1400, 1815], [1940, 1440], [1000, 960]], 620)], lit: cyan, bloom: [3, 0.3],
       heads: { png: 'turbine/uplink_head_', pivot: [104.4, 219.7], at: [1012, 600], list: [13, 14, 15, 0, 1, 2, 3], of: 1928 / 150 } },
     eclipse: { pic: 'set/eclipse-2.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1600], [1325, 2000], [1993, 1590]), h: 400, lit: cyan, bloom: [3, 0.4],
@@ -98,30 +99,21 @@ async function rotor(o) {
 }
 
 // ---- the heads that turn ----
-/** Today's heads (`today`: a name in public/art, its masks with it, the new light on it) or ready-made ones (`png`, drawn
- *  for a base `of` picture px a frame px), their `pivot` (world px about today's anchor; px in the PNG) on the picture's
- *  point `at`. */
+/** Ready-made heads: finished frames of their own (`own`: a folder of <i>_idle.png at 2x, in the new light already, with
+ *  <i>_idle_m.png team masks if `mask`; `by` larger, rows from `cut` down left out), their `pivot` px on the point `to`
+ *  (2x px about the building's anchor); or `png`, drawn for a base `of` picture px a frame px, the new light put on them,
+ *  their `pivot` on the picture's point `at`. */
 async function placed(o, k, at, ax, ay, W, H, light) {
-  const out = [], [X, Y] = at(...o.at), up = (im, s, px, py) => fit(enlarge(im, 3), s / 3, px * 3, py * 3, ax + X, ay + Y, W, H);
+  const out = [], [X, Y] = o.to ? o.to.map(v => v * SCALE / 2) : at(...o.at), up = (im, s, px, py) => fit(enlarge(im, 3), s / 3, px * 3, py * 3, ax + X, ay + Y, W, H);
   for (const i of o.list || Array.from({ length: o.n }, (_, i) => i)) {
     if (o.png) { const p = decodePNG(readFileSync(join(PICTURES, `${o.png}${i}.png`))), im = up({ w: p.w, h: p.h, d: Float32Array.from(p.data) }, k * o.of, ...o.pivot); tone(im.d, light); out.push({ i, im }); continue; }
-    const one = async (name) => { const f = await today(name); return f && up(f.im, SCALE / 2, f.ax + o.pivot[0] * 2, f.ay + o.pivot[1] * 2); };
-    const im = await one(`${o.today}_${i}`), mask = await one(`${o.today}_${i}_m`); tone(im.d, light); out.push({ i, im, mask });
+    const z = (o.by ?? 1) * SCALE / 2, one = (name) => { // (at its own px, or enlarged)
+      const p = decodePNG(readFileSync(join(PICTURES, o.own, `${name}.png`))), d = Float32Array.from(p.data); if (o.cut) d.fill(0, o.cut * p.w * 4);
+      const im = { w: p.w, h: p.h, d }; return z === 1 ? fit(im, 1, ...o.pivot, ax + X, ay + Y, W, H) : up(im, z, ...o.pivot);
+    };
+    out.push({ i, im: one(`${i}_idle`), mask: o.mask ? one(`${i}_idle_m`) : null });
   }
   return out;
-}
-const ART = join(root, 'public/art'), sheets = new Map();
-/** A frame of today's atlas, untrimmed, with its anchor in px. */
-async function today(name) {
-  for (const p of JSON.parse(readFileSync(join(ART, 'atlas.json'))).pages) {
-    if (!sheets.has(p)) sheets.set(p, { d: JSON.parse(readFileSync(join(ART, p))) });
-    const s = sheets.get(p), f = s.d.frames[name]; if (!f) continue;
-    s.im ||= await decodeWebP(readFileSync(join(ART, s.d.meta.image)));
-    const { w, h } = f.sourceSize, im = image(w, h), t = f.spriteSourceSize, r = f.frame;
-    for (let y = 0; y < r.h; y++) im.d.set(s.im.data.subarray(((r.y + y) * s.im.w + r.x) * 4, ((r.y + y) * s.im.w + r.x + r.w) * 4), ((t.y + y) * w + t.x) * 4);
-    return { im, ax: f.anchor.x * w, ay: f.anchor.y * h };
-  }
-  return null;
 }
 /** The Portal's swirl: `n` frames of a third of a turn of three arms of light, in the ring's opening (its middle `at`, its
  *  half axes `u`, `v`: picture px). */
@@ -209,9 +201,16 @@ mkdirSync(OUT, { recursive: true });
 for (const f of readdirSync(OUT)) if (/^bldg-\d+\.(webp|json)$/.test(f)) rmSync(join(OUT, f));
 const all = [], looks = {};
 for (const [type, c] of Object.entries(CFG.bldg)) { if (ONLY.length && !ONLY.includes(type)) continue; const r = await building(type, c); all.push(...r.frames); looks[type] = r.look; console.log(type, r.frames.map(f => `${f.name} ${f.im.w}x${f.im.h}`).slice(0, 3).join(', '), JSON.stringify(r.look)); }
+// The rubble of a fallen building (render.js fallStep), by people and size: finished pictures at 2x, drawn as they are.
+const RUBBLE = JSON.parse(readFileSync(join(PICTURES, 'leftovers/rubble.json'), 'utf8'));
+for (const [file, r] of Object.entries(RUBBLE)) {
+  const [, people, n] = /^rubble_(ex|kg)_(\d)\.png$/.exec(file), p = decodePNG(readFileSync(join(PICTURES, 'leftovers', file)));
+  if (SCALE !== 2) throw new Error('the rubble is drawn at 2x');
+  all.push({ name: people === 'ex' ? `rubble_vael_${n}` : `rubble_${n}`, type: `rubble_${people}`, im: { w: p.w, h: p.h, data: p.data }, anchor: { x: r.anchor[0], y: r.anchor[1] } });
+}
 await page.done();
-const masks = all.filter(f => f.name.endsWith('_m')), ex = (f) => CFG.ex.has(f.type), bodies = all.filter(f => !f.name.endsWith('_m'));
+const masks = all.filter(f => f.name.endsWith('_m')), ex = (f) => CFG.ex.has(f.type) || f.type === 'rubble_ex', bodies = all.filter(f => !f.name.endsWith('_m'));
 const opt = LOSSLESS ? {} : CFG.webp, pages = [await writePage(0, bodies.filter(f => !ex(f)), opt), await writePage(1, masks, {}), await writePage(2, bodies.filter(ex), opt)]; // (a page a people, so one can change without the other; the masks lossless always: their edges are the paint's)
 const file = join(OUT, 'index.json'); let ix = { groups: {} }; try { ix = JSON.parse(readFileSync(file, 'utf8')); } catch { /* (the first group) */ }
 ix.groups ||= {}; ix.groups.bldg = { pages, looks };
-writeFileSync(file, JSON.stringify(ix, null, 1));
+writeFileSync(file, JSON.stringify(ix, null, 1)); stamp(OUT);

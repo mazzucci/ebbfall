@@ -963,7 +963,8 @@ export function muzzleFx(x, y, face, size = 1) {
 }
 /** A rifle's flash at its mouth, a pale cone turned along the aim (look.js MUZZLE_FLASH: `fwd` px ahead of the ground point (x, y) along `face`,
  *  radians, the ground's depth as the camera sees it, and `up` px above it), brief, with a warm light. */
-export function muzzleFlash(x, y, face, { fwd, up, scale }) {
+export function muzzleFlash(x, y, face, { fwd, up, scale, depth = 1 }) {
+  if (depth !== 1) fwd /= Math.hypot(Math.cos(face), Math.sin(face) / depth);
   addEffect('muzzle', x + Math.cos(face) * fwd, y + Math.sin(face) * fwd - up, { rot: face, anchor: [0.07, 0.5], life: 0.08, tint: 0xfff2cc, light: 0xffe8b0, lightScale: 0.25, scale });
 }
 /** A melee blow lands on `t`: a glint of steel on it, at the point of it nearest the striker `u` (a unit's body half way up

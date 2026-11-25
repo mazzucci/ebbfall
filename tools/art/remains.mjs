@@ -1,6 +1,6 @@
 // The frames of the older atlas (public/art/atlas-<n>) the game still draws, cut from its committed pages pixel for
 // pixel (nothing is rendered) into one small page, public/art/new/remains-0.webp + .json: the worn dirt under a building,
-// the rubble, the effects, the shots and the light. Its entry in public/art/new/index.json (the group `remains`) also
+// the effects, the shots and the light. Its entry in public/art/new/index.json (the group `remains`) also
 // carries what the game needs of atlas.json: the seats' paint (`tints`), the facings and the effects' animations.
 //   node tools/art/remains.mjs     (output is committed; test/newart.test.js checks the pixels against the pages)
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -13,8 +13,8 @@ const ART = fileURLToPath(new URL('../../public/art/', import.meta.url)), OUT = 
  *  (`puff`) is not here: the client paints it (gl/puff.js). */
 export const ANIMS = ['boom_small', 'flash', 'spark', 'glint', 'muzzle', 'trail'];
 export const SINGLES = ['light', 'arrow', 'ballista_bolt', 'cannonball', 'tracer', 'tower_shot', 'rocket',
-  ...[2, 3, 4].flatMap(n => [`worn_${n}`, `rubble_${n}`, `rubble_vael_${n}`])];
-const PAD = 4, WIDTH = 720; // (the gutters of the pages it is cut from: mip levels 0 to 2 clean)
+  ...[2, 3, 4].map(n => `worn_${n}`)];
+const PAD = 4, WIDTH = 576; // (the gutters of the pages it is cut from: mip levels 0 to 2 clean)
 
 async function cut() {
   const atlas = JSON.parse(readFileSync(`${ART}atlas.json`, 'utf8')), found = new Map();

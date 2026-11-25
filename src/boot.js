@@ -45,7 +45,7 @@ function play(go) {
 // calls the waiting start off: a game starts as it was asked for, or not at all.
 $('start').addEventListener('click', (e) => {
   const b = e.target.closest('button');
-  if (pending && b && !STARTS.includes(b.id)) { pending = null; startButtons(null, false); loadLine(false); }
+  if (pending && b && !STARTS.includes(b.id) && !b.closest('#loadLine')) { pending = null; startButtons(null, false); loadLine(false); } // (RETRY is for the start that waits)
 }, true);
 loading.then((g) => { const go = pending; pending = null; startButtons(null, false); loadOver(); go?.(g); }, (e) => {
   failed = true; pending = null; startButtons('RELOAD', false); loadOver(); console.error(e);

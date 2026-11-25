@@ -1,38 +1,39 @@
-// The docs' sprite crops: what tools/docs/crops.mjs cuts from the older atlas (tools/art/older) and the pages show on their
+// The docs' sprite crops: what tools/docs/crops.mjs cuts from the game's art (public/art/new) and the pages show on their
 // round plates (the rosters, the trees, the diagrams, the home's tiles, About's strip). The crops need a browser to encode
 // WebP, so they are cut by that tool and committed (like public/og.png); tools/docs/sprites.json records, for each, a
-// hash of the atlas frames and pages it was cut from, and test/docs.test.js fails when the art has changed since
+// hash of the frames and pages it was cut from, and test/docs.test.js fails when the art has changed since
 // (run `node tools/docs/crops.mjs` again).
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { BLDG_LOOK } from '../../src/client/look.js';
 import { PEOPLES } from './data.mjs';
 
-const ART = new URL('../art/older/', import.meta.url);
+/** The game's art: index.json's groups, their pages' frames. */
+export const ART = new URL('../../public/art/new/', import.meta.url);
 /** The crops' folder in public/ (served at /docs/img/sprites/). */
 export const SPRITE_DIR = new URL('../../public/docs/img/sprites/', import.meta.url);
 export const SPRITE_URL = '/docs/img/sprites/';
 
 /**
  * The recipe (the designer's, PRD "Docs microsite", with the docs visual plan's notes): a unit in facing 2, its first
- * pose; a building with its head (facing 2; the Uplink's dish facing 6, where its face shows) on the same ground point;
- * the solid art (alpha over 200) fit to 72% of a square for a building, 84% for a unit (90% for the tall Balloon), so
- * the units read on a phone; the shadow faded from 86% of the plate's radius to its edge; seat 0's blue. Sizes are CSS pixels, desktop and phone; files are 2x. Bump `version` when the recipe
- * changes so every crop is cut again.
+ * pose; a building with its head (facing 2) on the same ground point; the solid art (alpha over 200) fit to 72% of a
+ * square for a building, 84% for a unit and the wide gold mine (90% for the tall Balloon), so the units read on a phone,
+ * but never enlarged past `enlarge` times the frame's own pixels (a Bot is 65 px: larger is blur); the shadow faded from
+ * 86% of the plate's radius to its edge; seat 0's blue. Sizes are CSS pixels, desktop and phone; files are 2x. Bump
+ * `version` when the recipe changes so every crop is cut again.
  */
 export const RECIPE = {
-  version: 3, tint: '#2a5ddf', foe: '#ee376a', fill: 0.72, unitFill: 0.84, fade: 0.43, solid: 200,
-  fills: { observer: 0.9 },
-  heads: { uplink: 6 },
+  version: 4, tint: '#2a5ddf', foe: '#ee376a', fill: 0.72, unitFill: 0.84, fade: 0.43, solid: 200, enlarge: 2.2,
+  fills: { observer: 0.9, mine: 0.84 },
   sizes: { unit: { desktop: 96, phone: 72 }, building: { desktop: 168, phone: 104 } },
 };
 
-/** The atlas frames a kind's crop is drawn from: [base, head or null]. */
+/** The frames a kind's crop is drawn from: [base, head or null]. */
 export function framesOf(key, kind) {
   if (kind === 'unit') return [`${key}_2_0`, null];
   if (kind === 'mine') return ['mine_full', null];
   const head = BLDG_LOOK[key]?.head;
-  return [`bldg_${key}`, head ? `${head}_${RECIPE.heads[key] ?? 2}` : null];
+  return [`bldg_${key}`, head ? `${head}_2` : null];
 }
 
 /**
@@ -59,12 +60,12 @@ export function crops() {
 export const cropOf = (name) => crops().find(c => c.name === name);
 
 let atlasCache = null;
-/** Every frame of the atlas with the page it is on: name -> { page, rec }. */
+/** Every frame of the game's art with the page it is on: name -> { page, rec }. */
 export function atlasFrames() {
   if (atlasCache) return atlasCache;
-  const index = JSON.parse(readFileSync(new URL('atlas.json', ART), 'utf8'));
+  const { groups } = JSON.parse(readFileSync(new URL('index.json', ART), 'utf8'));
   const frames = {};
-  for (const p of index.pages) {
+  for (const p of Object.values(groups).flatMap(g => g.pages)) {
     const sheet = JSON.parse(readFileSync(new URL(p, ART), 'utf8'));
     for (const [name, rec] of Object.entries(sheet.frames)) frames[name] = { page: sheet.meta.image, rec };
   }
@@ -76,7 +77,7 @@ const pageHash = new Map();
  *  fill and sizes, and the recipe's version. */
 export function sourceHash(c) {
   const frames = atlasFrames(), h = createHash('sha256');
-  h.update(JSON.stringify([RECIPE.version, RECIPE.solid, RECIPE.fade, c.tint, c.fill, c.files]));
+  h.update(JSON.stringify([RECIPE.version, RECIPE.solid, RECIPE.fade, RECIPE.enlarge, c.tint, c.fill, c.files]));
   for (const n of framesOf(c.key, c.kind).filter(Boolean).flatMap(n => [n, `${n}_m`])) {
     const f = frames[n];
     if (!f) { h.update(`${n}:none`); continue; }

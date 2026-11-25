@@ -924,7 +924,7 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
                       two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
                       other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
-                      recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
+                      recipe, the list, cut in Chromium from public/art/new into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
@@ -1047,7 +1047,7 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       reference sprites, which set the atlas's seat tints
 tools/art/            older/: the older atlas's pages (atlas.json, atlas-<n>), the look the game had by default up to commit
                       3d5d198 (2026-11-25; its generators are in that commit: tools/art/generate.mjs and the painters), kept
-                      for what still reads it: the docs' crops (tools/docs), og.mjs, menu-art.mjs, the unit pack's
+                      for what still reads it: og.mjs, menu-art.mjs, the unit pack's
                       names (tools/newart/unit) and remains.mjs, which cut the frames the game still draws into
                       public/art/new/remains-0; render3d.mjs (tools/render3d in Chromium, for menu-art.mjs), webp.mjs (lossless, libwebp
                       in WASM through @jsquash/webp) and png.js, battle-shots.mjs (the built game's brawls), glyph-strip.mjs

@@ -130,7 +130,7 @@ ${arrows(226, 186, 204)}
 
 /** About's strip: four sprites, large. */
 export function artStrip() {
-  return `<figure class="dia strip"><div class="row">${['trooper', 'knight', 'lumen', 'shrike'].map(k => mini(`${k}-large`, 128, `Ebbfall's ${nameOf(k)}, as rendered in the game`)).join('')}</div><figcaption>Four of the game's sprites, as rendered: a Guard, a Knight, a Bot, a Drone.</figcaption></figure>`;
+  return `<figure class="dia strip"><div class="row">${['trooper', 'knight', 'lumen', 'shrike'].map(k => mini(`${k}-large`, 128, `Ebbfall's ${nameOf(k)}, from the game`)).join('')}</div><figcaption>From the game: a Guard, a Knight, a Bot, a Drone.</figcaption></figure>`;
 }
 
 /** A people's research, one line each: its name and levels, where, what it does. */

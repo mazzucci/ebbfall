@@ -48,13 +48,15 @@ function fire(g, pts, cx, cy, r, inner, outer, a = 1) {
   g.save(); g.shadowColor = rgba(outer, 0.7 * a); g.shadowBlur = 1.2 * FX_K; shape(g, pts, q); g.restore();
 }
 /** A puff of smoke, lumpy: lobes of uneven size round (x, y), its dark underside first, then each lobe's gray, then the
- *  sunlit shoulders, small and to the upper left. Soft, with no bright point on it: smoke, not a ball of metal. */
-function puff(g, rnd, x, y, r, a) {
+ *  sunlit shoulders, small and to the upper left. Soft, with no bright point on it: smoke, not a ball of metal. `gray`
+ *  (PALE_SMOKE or MID_SMOKE): its lobes' gray and its sunlit shoulders'. */
+const PALE_SMOKE = ['146,141,136', '218,212,203'], MID_SMOKE = ['118,113,108', '170,165,158'];
+function puff(g, rnd, x, y, r, a, [mid, lit] = PALE_SMOKE) {
   const t = rnd() * 6.283, L = Array.from({ length: 6 }, (_, i) => { const q = t + (i + (rnd() - 0.5) * 0.7) * 1.047, d = r * (0.42 + rnd() * 0.26); return [x + Math.cos(q) * d, y + Math.sin(q) * d * 0.9, r * (0.34 + rnd() * 0.22)]; });
   blob(g, x, y, r * 0.8, '84,78,76', a, 0.6);
   for (const [lx, ly, lr] of L) blob(g, lx + lr * 0.14, ly + lr * 0.22, lr * 1.12, '78,73,71', a * 0.9, 0.62);
-  for (const [lx, ly, lr] of L) blob(g, lx - lr * 0.12, ly - lr * 0.16, lr * 0.92, '146,141,136', a * 0.8, 0.5);
-  for (const [lx, ly, lr] of L) { const up = Math.max(0, (x - lx + (y - ly) * 1.2) / r + 0.45); if (up > 0) blob(g, lx - lr * 0.22, ly - lr * 0.26, lr * 0.8, '218,212,203', a * Math.min(0.85, 0.3 + up * 0.55), 0.4); }
+  for (const [lx, ly, lr] of L) blob(g, lx - lr * 0.12, ly - lr * 0.16, lr * 0.92, mid, a * 0.8, 0.5);
+  for (const [lx, ly, lr] of L) { const up = Math.max(0, (x - lx + (y - ly) * 1.2) / r + 0.45); if (up > 0) blob(g, lx - lr * 0.22, ly - lr * 0.26, lr * 0.8, lit, a * Math.min(0.85, 0.3 + up * 0.55), 0.4); }
 }
 /** Bits thrown out of a blast: `n` small dark ones (and a bright one in three) between `r0` and `r1` from (x, y). */
 function bits(g, rnd, x, y, r0, r1, n) {
@@ -112,14 +114,14 @@ BOOMS.forEach((name, v) => anim(name, 6, 28, 28, 0.5, 0.5, (g, f) => {
   } else if (f === 3) { // (breaking up: soot rolling over the fire from one side, the fire torn into two patches)
     const a = rnd() * 6.283, sx = Math.cos(a), sy = Math.sin(a);
     fire(g, ragged(rnd, x - sx * 2.2, y - sy * 2.2, 7.2, 0.34, 5, 0.42), x - sx * 3, y - sy * 3, 10, FLAME, '176,52,24');
-    puff(g, rnd, x + sx * 4.4, y + sy * 4.4 - 1, 5.6, 0.92); puff(g, rnd, x + sx * 1.2 - sy * 4.6, y + sy * 1.2 + sx * 4.6, 4.2, 0.9);
+    puff(g, rnd, x + sx * 4.4, y + sy * 4.4 - 1, 5.6, 0.92, MID_SMOKE); puff(g, rnd, x + sx * 1.2 - sy * 4.6, y + sy * 1.2 + sx * 4.6, 4.2, 0.9, MID_SMOKE);
     fire(g, ragged(rnd, x - sx * 3.4 + sy * 1.6, y - sy * 3.4 - sx * 1.6, 3.6, 0.36, 4, 0.5), x - sx * 3.6, y - sy * 3.6, 5, HOT, FLAME);
     fire(g, ragged(rnd, x + sx * 0.8 - sy * 1.2, y + sy * 0.8 + sx * 1.2 + 2.2, 2.1, 0.4, 3, 0.5), x + sx, y + sy + 2, 3, FLAME, EMBER, 0.95);
     bits(g, rnd, x, y, 10, 13.5, 5);
   } else {
-    const n = f === 4 ? 3 : 2 + (v % 2), a = f === 4 ? 0.9 : 0.6, up = f === 4 ? 0.8 : 2.4;
-    const P = Array.from({ length: n }, (_, i) => [x + (rnd() - 0.5) * 9, y - up + (i - (n - 1) / 2) * 3.4 + (rnd() - 0.5) * 3, (f === 4 ? 5.6 : 6.2) + rnd() * 1.8]).sort((p, q) => q[1] - p[1]); // (the lowest first: the upper ones over it)
-    for (const [px, py, r] of P) puff(g, rnd, px, py, r * 0.86, a);
+    const n = f === 4 ? 3 : 2 + (v % 2), a = f === 4 ? 0.92 : 0.76, up = f === 4 ? 0.8 : 1.4;
+    const P = Array.from({ length: n }, (_, i) => [x + (rnd() - 0.5) * 8, y - up + (i - (n - 1) / 2) * 2.8 + (rnd() - 0.5) * 3, (f === 4 ? 5.6 : 6.2) + rnd() * 1.8]).sort((p, q) => q[1] - p[1]); // (the lowest first: the upper ones over it)
+    for (const [px, py, r] of P) puff(g, rnd, px, py, r * 0.95, a, MID_SMOKE); // (mid-gray and a little larger, so the blast still reads as it ends)
     if (f === 4) blob(g, x + ox, y + 2.6 + oy * 0.5, 2.6, EMBER, 0.7);
   }
 }));

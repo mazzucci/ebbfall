@@ -7,7 +7,7 @@ import { AlphaFilter, Application, CanvasSource, ColorMatrixFilter, Container, G
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, SEAT_TINTS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf, muzzlePoint, SHOT_FROM, firedBy, shotDrawn } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, SEAT_TINTS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, FIRE_SCALE, hitTier, towerOf, muzzlePoint, SHOT_FROM, firedBy, shotDrawn } from '../look.js';
 import { REVEAL, revealRows, revealMatrix, frameOf, slabOf, slabMarks, DONE, DONE_PUFF, BUILD_BAR, WORK, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
@@ -764,7 +764,7 @@ export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim === 'boom_small' ? BOOMS[(Math.random() * BOOMS.length) | 0] : anim]; if (!frames || !nearView(x, y)) return; // (a fire: one of its castings, so two blasts side by side do not match)
   const s = fxPool.pop() || new Sprite(); L.fx.addChild(s); // (from the pool: a fight spawns and ends hundreds; added again, so the newest is on top)
   s.texture = frames[0]; s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base)
-  s.position.set(x, y); s.rotation = o.rot || 0; s.scale.set(o.scale || 1); s.tint = o.tint ?? 0xffffff; s.alpha = o.fade || 1; s.visible = true;
+  s.position.set(x, y); s.rotation = o.rot || 0; s.scale.set((o.scale || 1) * (anim === 'boom_small' ? FIRE_SCALE : 1)); s.tint = o.tint ?? 0xffffff; s.alpha = o.fade || 1; s.visible = true;
   const e = { s, frames, anim, x, y, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
   if (o.light) { const l = e.l = lightPool.pop() || light(0xffffff, 1, 0.8); l.tint = o.light; l.scale.set(o.lightScale || 1); l.alpha = 0.8; l.position.set(x, y); l.visible = true; }
   effects.push(e);

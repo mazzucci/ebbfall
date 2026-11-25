@@ -99,6 +99,10 @@ export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research))
 
 /** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
 export const MUZZLE_SMOKE = { siegeTank: 1.4 };
+/** Every fire (`boom_small`: a machine's death, a shell's, a rocket's and a siege blast's, the Data center's fall) is
+ *  drawn this much larger than its look's own scale: the painted burst (gl/fx.js), soft-edged, read smaller than the
+ *  older frame with its solid dark rim at the same size. */
+export const FIRE_SCALE = 1.25;
 /** A shot's impact by its sprite (`shotArt`): the arrows, the ballista bolt and the Drone's dart glint on steel; the
  *  tracers and the tower's shot spark; the cannonball and the rocket burst (`shell`, `rocket`: the only fire, with a
  *  dying machine's). A repairer's welding (no shot) sparks too. */

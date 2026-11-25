@@ -165,12 +165,83 @@ test('desktop, the default: workers given a job by a left click (a mine, a site,
     { const [sx, sy] = await d.screen(at2.x, at2.y); await d.page.mouse.move(sx, sy); await d.page.mouse.click(sx, sy); await d.page.waitForTimeout(80); }
     const b = (await d.state()).bldgs.find(b => b.type === 'depot' && b.team === 0);
     assert.ok(b && !b.done, `the site (toasts: ${(await d.toasts()).join(' | ')})`);
-    assert.deepEqual(await ids(d), [w2], 'placing is as it was: its builder still selected');
-    await d.key('s'); await d.skip(0.1);
+    assert.deepEqual(await ids(d), [], 'placed: its builder let go');
+    await pickOne(d, w2); await d.key('s'); await d.skip(0.1);
     await job('the site', at(b), 'build');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });
+
+for (const mode of ['both', 'right']) {
+  const free = mode === 'both';
+  test(`desktop, ${free ? 'the default: a placed building or an armed Mine or Repair lets go of its workers' : 'RIGHT CLICK ONLY: a placed building or an armed Mine or Repair keeps its workers selected'}; a cancel, a refusal, Shift and a fighter among them keep them`, async () => {
+    const d = await newGame(DESKTOP, 1, 4242, { ai: false, init: [(m) => { try { localStorage.setItem('endfall.mouse', m); } catch { /* none */ } }, mode] });
+    try {
+      const { core, guards, workers, mine, spot: [x, y] } = await scene(d);
+      const [w] = workers, left = free ? [] : [w], mode_ = () => d.eval(() => [endfall.ui.mode, !!endfall.ui.place]);
+      const sites = async () => (await d.state()).bldgs.filter(b => b.team === 0 && b.type === 'depot');
+      const stop = async () => { await pickOne(d, w); await d.key('s'); await d.skip(0.1); assert.deepEqual(await tasks(d, [w]), ['idle']); };
+      // Click at a world point, the pointer moved there first (a building's ghost follows it).
+      const at = async (px, py, opts) => { const [sx, sy] = await d.screen(px, py); await d.page.mouse.move(sx, sy); await d.page.mouse.click(sx, sy, opts); await d.page.waitForTimeout(80); };
+      const place = (t, opts) => at((t.tx + 1) * 32, (t.ty + 1) * 32, opts);
+      // Mine armed: Esc, then a right click, each cancels it and keeps the worker; a click on the mine gives the job.
+      await stop();
+      for (const cancel of [() => d.key('Escape'), () => d.rightClickWorld(x, y)]) {
+        await d.pressCard('Mine'); await cancel();
+        assert.deepEqual([await ids(d), await mode_(), await tasks(d, [w])], [[w], [null, false], ['idle']], 'Mine cancelled: the worker kept, nothing ordered');
+      }
+      await d.pressCard('Mine'); await d.clickWorld(mine.x, mine.y);
+      assert.deepEqual([await ids(d), await tasks(d, [w])], [left, ['gather']], 'Mine, then the mine');
+      // Repair armed: a building not damaged is refused and keeps the worker; a damaged one gives the job.
+      await stop();
+      await d.pressCard('Repair'); await d.clickWorld(core.x, core.y);
+      assert.deepEqual([await ids(d), await tasks(d, [w])], [[w], ['idle']], 'Repair refused: the worker kept');
+      await d.eval((id) => endfall.engine.debugSetHp(id, 300), core.id); await d.skip(0.1);
+      await d.pressCard('Repair'); await d.clickWorld(core.x, core.y);
+      assert.deepEqual([await ids(d), await tasks(d, [w])], [left, ['repair']], 'Repair, then the damaged Castle');
+      // With a fighter among them nobody is let go.
+      await stop();
+      await shift(d, () => d.clickEntity(guards[0]));
+      const both = [guards[0], w].sort((a, b) => a - b);
+      assert.deepEqual(await ids(d), both, 'a worker and a Guard');
+      await d.key('g'); await d.clickWorld(mine.x, mine.y);
+      assert.deepEqual([await ids(d), await tasks(d, [w])], [both, ['gather']], 'a Guard among them: kept');
+      // Placing: a right click and Esc cancel it, a bad spot and no gold refuse it, each with the worker kept.
+      await d.eval((id) => endfall.engine.debugSetHp(id, endfall.G.bldgs.find(b => b.id === id).maxhp), core.id);
+      await d.grant(1000, 0);
+      await stop();
+      for (const cancel of [() => d.key('Escape'), () => d.rightClickWorld(x, y)]) {
+        await d.key('b'); await d.key('w'); assert.deepEqual(await mode_(), ['place', true]);
+        await cancel();
+        assert.deepEqual([await ids(d), (await mode_())[1], (await sites()).length], [[w], false, 0], 'placing cancelled: the worker kept');
+        await d.key('Escape'); if (!(await ids(d)).length) await pickOne(d, w); // (a Build page left open closes; else the worker is picked again)
+      }
+      await d.key('b'); await d.key('w');
+      await at(core.x, core.y);
+      assert.deepEqual([await ids(d), await mode_(), (await sites()).length], [[w], ['place', true], 0], 'a bad spot: still placing, the worker kept');
+      const spotFor = () => d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
+      await d.grant(0, 0);
+      await place(await spotFor());
+      assert.deepEqual([await ids(d), (await sites()).length], [[w], 0], 'no gold: the worker kept');
+      await d.grant(1000, 0);
+      if (!(await mode_())[1]) { await d.key('b'); await d.key('w'); }
+      // Shift: placing goes on, the worker kept, two in a row; then Esc, and it is still kept.
+      await shift(d, async () => { await place(await spotFor()); await place(await spotFor()); });
+      assert.deepEqual([await ids(d), await mode_(), (await sites()).length], [[w], ['place', true], 2], 'Shift: two placed, still placing, the worker kept');
+      await d.key('Escape');
+      assert.deepEqual([await ids(d), (await mode_())[1]], [[w], false], 'Esc stops it: the worker kept');
+      // Without Shift: one is placed, and the worker let go (or kept, RIGHT CLICK ONLY); a click on the ground then leaves
+      // it at its job.
+      await stop();
+      await d.key('b'); await d.key('w');
+      await place(await spotFor());
+      assert.deepEqual([await ids(d), await mode_(), (await sites()).length, await tasks(d, [w])], [left, [null, false], 3, ['build']], 'placed');
+      await d.clickWorld(x, y);
+      assert.deepEqual(await tasks(d, [w]), ['build'], 'a click on the ground leaves it at its job');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
 
 test('desktop, the default: a building selected stays with a left click on the ground or an empty box (no rally: the right click\'s); Esc lets go', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });

@@ -517,7 +517,7 @@ src/client/           everything that touches the browser
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does; a unit
                       or a building button (its item's `por`: [what, kind]) shows its symbol (icons.js `glyph`), the
                       others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold; with a
-                      mouse the hover panel keeps the room of "Not enough gold", so it never changes size
+                      mouse the hover panel keeps the room of what may be short (the grid, the money), so it never changes size
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
@@ -566,7 +566,7 @@ src/client/           everything that touches the browser
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
                       selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
                       (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
-                      a job so are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
+                      a job so, by an armed Mine or Repair or by placing without Shift are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
                       keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
                       with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,

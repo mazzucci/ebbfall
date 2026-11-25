@@ -183,8 +183,9 @@ function placeTile(type, wx, wy) {
 /**
  * On touch, once harvesters have a job (gather, build, repair) let go of them: the next tap on the map is then just a
  * tap, not "walk here", and the job carries on. The target's blink confirms the order. A mouse's `left` click that gave
- * the job lets go of them too, for the same reason; after a right click the selection stays.
+ * the job (`leftJob`) lets go of them too, for the same reason; after a right click the selection stays.
  */
+const leftJob = () => drag.ptype !== 'touch' && leftOrders(); // (RIGHT CLICK ONLY: a left click there orders nothing by itself, so they stay)
 function releaseWorkers(units, left = false) {
   if ((drag.ptype !== 'touch' && !left) || !units.length || !units.every(u => u.d.worker)) return;
   setSelection([]); updateHud();
@@ -233,12 +234,12 @@ const armedTap = {
   },
   repair(units, wx, wy) {
     const hit = pick(wx, wy);
-    if (damaged(hit)) { for (const u of units) if (u.d.worker) repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); clearMode(); releaseWorkers(units); return; }
+    if (damaged(hit)) { for (const u of units) if (u.d.worker) repair(u, hit); marker(hit.x, hit.y, ALLY); flashTarget(hit); sfx('move', voice(units)); clearMode(); releaseWorkers(units, leftJob()); return; }
     toast(hit && hit.kind === 'bldg' && hit.team === G.me ? 'That building is not damaged' : 'Choose one of your damaged buildings', true);
     clearMode();
   },
-  move: (units, wx, wy) => commandAt(wx, wy),
-  gather: (units, wx, wy) => commandAt(wx, wy),
+  move: (units, wx, wy) => commandAt(wx, wy, undefined, leftJob()),
+  gather: (units, wx, wy) => commandAt(wx, wy, undefined, leftJob()),
   rally: (units, wx, wy) => commandAt(wx, wy),
 };
 
@@ -256,10 +257,10 @@ function leftAction(wx, wy, add, at) {
     } else {
       sfx('build');
       flashTarget(G.bldgs.find(b => b.team === G.me && b.tx === p.tx && b.ty === p.ty)); // the new site blinks: order taken
-      // On touch the worker is let go, so it is clear the order took (and the next tap is just a tap); with a mouse
-      // it stays selected (Shift keeps placing).
+      // On touch the worker is let go, so it is clear the order took (and the next tap is just a tap); with a mouse too
+      // where its left click orders (Shift keeps placing, the worker with it).
       if (drag.ptype === 'touch') { setSelection([]); updateHud(); }
-      else if (!add) { clearMode(); updateHud(); }
+      else if (!add) { clearMode(); releaseWorkers(units, leftJob()); updateHud(); }
     }
     return;
   }

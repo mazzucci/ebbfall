@@ -31,8 +31,9 @@ async function pick(d, id) {
   for (let i = 0; i < 10; i++) { await d.clickEntity(id); if ((await d.selection()).some(e => e.id === id)) return; await d.page.waitForTimeout(200); }
   assert.fail(`unit ${id} could not be selected`);
 }
-/** Watch building `id` frame by frame (in the page, real time) until its done moment has played: each frame's look. */
-const watchDone = (d, id, ms = 8000) => d.eval(([id, ms]) => new Promise(resolve => {
+/** Watch building `id` frame by frame (in the page, real time) until its done moment has played (seen fading, then full; a slow
+ *  runner may take long over it: `ms` is only the give-up): each frame's look. */
+const watchDone = (d, id, ms = 60000) => d.eval(([id, ms]) => new Promise(resolve => {
   const seen = [], t0 = performance.now();
   const tick = () => {
     const o = endfall.sites().bldgs.find(x => x.id === id);

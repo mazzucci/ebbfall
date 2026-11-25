@@ -93,7 +93,7 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     hp: 40.0,
     speed: 87.0, // (100 before the economy's second round: calmer trips)
     sight: 7.0,
-    r: 9.0,
+    r: 11.0,
     build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
     supply: 1, // (grid: 2 before the grid was halved, Nov 14; a Villager's place, as every machine's draw per place)
     // (since Nov 14 a Bot mine pays as a Villager mine from the start: six with 9 a trip, a little quicker inside, 7.2 s
@@ -120,7 +120,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     hp: 118.0, // (110 and armor 1 before Nov 14: no armor, its hp carries it: the module's note on armor)
     speed: 135.0,
     sight: 9.0,
-    r: 12.0,
+    r: 14.0,
     build: 24.0,
     weapon: Some(Weapon {
         range: 4.0,
@@ -209,7 +209,7 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     hp: 388.0, // (220 before Nov 13; 360 and armor 1 before Nov 14: the module's note on armor)
     speed: 58.0,
     sight: 9.0,
-    r: 15.0,
+    r: 19.0,
     build: 52.0, // (40.0 s before the economy pass: a bet in time as well as gold)
     weapon: Some(Weapon {
         range: 12.0, // (11 for a day, Nov 13; 12 again since: it out-ranges the Cannon, its answer to entrenched siege)
@@ -235,7 +235,7 @@ pub(super) const SHRIKE: UnitDef = UnitDef {
     hp: 40.0,
     speed: 192.0, // (6 tiles a second, 7.8 in coverage)
     sight: 7.0,
-    r: 9.0,
+    r: 12.0,
     build: 12.0,
     air: true,
     mv: Move::Fly,

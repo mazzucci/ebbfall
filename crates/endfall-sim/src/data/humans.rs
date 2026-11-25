@@ -136,7 +136,7 @@ pub(super) const SIEGE_TANK: UnitDef = UnitDef {
     armor: 1.0,
     speed: 62.0,
     sight: 10.0,
-    r: 14.0,
+    r: 15.0,
     build: 42.0, // (32.0 s before the economy pass: a bet in time as well as gold)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
@@ -166,7 +166,7 @@ pub(super) const BASTION: UnitDef = UnitDef {
     armor: 1.0,
     speed: 80.0,
     sight: 9.0,
-    r: 13.0,
+    r: 16.0,
     build: 26.0,
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {
@@ -201,7 +201,7 @@ pub(super) const OBSERVER: UnitDef = UnitDef {
     hp: 60.0,
     speed: 70.0,
     sight: 12.0,
-    r: 10.0,
+    r: 16.0,
     build: 18.0,
     air: true,
     mv: Move::Fly,
@@ -216,7 +216,7 @@ pub(super) const RIDER: UnitDef = UnitDef {
     hp: 90.0,
     speed: 140.0,
     sight: 9.0,
-    r: 12.0,
+    r: 13.5,
     build: 24.0,
     weapon: Some(Weapon {
         range: 0.8,
@@ -238,7 +238,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
     armor: 3.0,
     speed: 105.0,
     sight: 9.0,
-    r: 14.0,
+    r: 17.0,
     build: 75.0, // (60.0 s before the economy pass: a bet in time as well as gold)
     req: Some(BldgKind::Forge),
     weapon: Some(Weapon {

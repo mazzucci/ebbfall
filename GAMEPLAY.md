@@ -72,6 +72,10 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
   enemy's) and is pushed clear where it stops: it reaches a point one of them covers, gets out of a ring of them and
   through two side by side. A worker mining, building or repairing does not pass them. Two that hold on the same spot
   stay there.
+- Crowds (movement.rs, tests/gameplay/crowd.rs): the units of a group share a route's waypoints. One held up (no way
+  made within half its radius) for 2 s on a move or an attack-move, within two bodies of a waypoint, passes it by if the
+  way on is open; for 3 s within two bodies of where it was sent, it has arrived (an attack-move only with nothing in
+  its look to fight). Not on an attack, gathering, building, repairing or fleeing; not while packing up.
 
 ## Water, the tide and the Shore map
 

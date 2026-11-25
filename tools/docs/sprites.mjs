@@ -2,8 +2,8 @@
 // round plates (the rosters, the trees, the diagrams, the home's tiles, About's strip). The crops need a browser to encode
 // WebP, so they are cut by that tool and committed (like public/og.png); tools/docs/sprites.json records, for each, a
 // hash of the frames and pages it was cut from, and test/docs.test.js fails when the art has changed since
-// (run `node tools/docs/crops.mjs` again). The units are drawn from sharp pictures that are not in the repo (`SHARP`):
-// their hash takes the frames and the committed crops themselves, so the test needs no picture.
+// (run `node tools/docs/crops.mjs` again). The units and buildings are drawn from sharp pictures that are not in the repo
+// (`SHARP`, `sharpPack`): their hash takes the frames and the committed crops themselves, so the test needs no picture.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { BLDG_LOOK } from '../../src/client/look.js';
@@ -45,6 +45,17 @@ const SHARP = {
 const PICTURES = process.env.EBBFALL_PICTURES || '/home/mazzucci/projects/ebbfall-article/nano-test';
 /** A unit's sharp picture and mask: [body, mask] paths; null for what has none. */
 export const sharpOf = (key, kind) => (kind === 'unit' && SHARP[key] ? ['', '_m'].map(m => `${PICTURES}/leftovers/hires/${SHARP[key]}_2${m}.png`) : null);
+/** The buildings' sharp frames: the pack's builder run again at twice its scale (BUILD), into a local folder. */
+export const BUILD = ['tools/newart/bldg/build.mjs', '--scale', '4', '--lossless', '--out', 'target/bldg4'];
+/** Every frame of that pack: name -> { page, rec, dir }; built by crops.mjs, never committed. */
+export function sharpPack() {
+  const dir = new URL('../../target/bldg4/', import.meta.url), out = {};
+  for (const p of JSON.parse(readFileSync(new URL('index.json', dir), 'utf8')).groups.bldg.pages) {
+    const sheet = JSON.parse(readFileSync(new URL(p, dir), 'utf8'));
+    for (const [name, rec] of Object.entries(sheet.frames)) out[name] = { page: sheet.meta.image, rec, dir };
+  }
+  return out;
+}
 /** The sharp pictures the crops need that are not there. */
 export const missingSharp = () => [...new Set(crops().flatMap(c => sharpOf(c.key, c.kind) || []))].filter(f => !existsSync(f));
 
@@ -104,7 +115,7 @@ export function sourceHash(c) {
     if (!pageHash.has(f.page)) pageHash.set(f.page, createHash('sha256').update(readFileSync(new URL(f.page, ART))).digest('hex'));
     h.update(`${n}:${JSON.stringify(f.rec)}:${pageHash.get(f.page)}`);
   }
-  if (sharpOf(c.key, c.kind)) for (const [file] of Object.values(c.files)) h.update(existsSync(new URL(file, SPRITE_DIR)) ? readFileSync(new URL(file, SPRITE_DIR)) : `${file}:none`);
+  if (c.kind !== 'mine') for (const [file] of Object.values(c.files)) h.update(existsSync(new URL(file, SPRITE_DIR)) ? readFileSync(new URL(file, SPRITE_DIR)) : `${file}:none`);
   return h.digest('hex').slice(0, 16);
 }
 

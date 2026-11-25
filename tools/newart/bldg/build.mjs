@@ -50,7 +50,7 @@ const CFG = {
     kiln: { pic: 'set/kiln-1.jpg', n: 3, w: 114, dy: 6, ...HALL, lit: cyan, bloom: [4, 0.2], look: { glow: { at: [1014, 576], tint: 0x20d8ff, size: 0.55 } } },
     spire: { pic: 'turbine/tower-bare.jpg', n: 2, scaleBy: [434, 1978, 78], anchor: [1030, 1890], dy: 4, round: [1030, 1890, 170], ground: disc(1030, 1890, 170, 85),
       solids: [ring(1030, 1890, 168, 0), [...ring(1030, 1890, 85, 0), ...ring(1030, 1890, 60, 1250)], [...ring(1030, 1890, 110, 1190), ...ring(1100, 1840, 110, 1260)]], low: 0.02,
-      rotor: { plate: [915, 635], blade: 590, axis: [-0.503, -0.327, 0.8], n: 16, key: 0.72, hemi: 0.5 } },
+      rotor: { plate: [915, 635], blade: 690, axis: [-0.503, -0.327, 0.8], n: 16, key: 0.72, hemi: 0.5 } },
     // the Kingdom
     depot: { pic: 'kingdom/depot-e1.jpg', n: 2, w: 69, dy: 4, ground: quad([290, 1470], [1110, 1876], [1800, 1395]), h: 560, lit: fire, bloom: [3, 0.5] },
     barracks: { pic: 'kingdom/barracks-e1.jpg', n: 3, w: 106, dy: 6, ground: quad([150, 1265], [1500, 1862], [1880, 1590]), h: 480, lit: fire, bloom: [3, 0.5], look: { smoke: null } },
@@ -67,7 +67,7 @@ const CFG = {
     ward: { pic: 'set/ward-2.jpg', n: 2, w: 56, dy: 6, round: [1022, 1450, 860], ground: disc(1022, 1450, 860, 412), solids: [[...ring(1022, 1450, 850, 0), ...ring(1022, 1450, 850, 800)]], lit: cyan, bloom: [3, 0.3],
       heads: { own: 'leftovers/sentry', pivot: [88, 75], to: [0, -45], n: 16 } }, // (its swivel ring on the middle of the mast's top disc)
     uplink: { pic: 'turbine/uplink-base.jpg', n: 3, w: 92, dy: 6, round: [1008, 1400, 950], ground: disc(1008, 1400, 960, 455), solids: [block([[80, 1480], [920, 1855], [1400, 1815], [1940, 1440], [1000, 960]], 620)], lit: cyan, bloom: [3, 0.3],
-      heads: { png: 'turbine/uplink_head_', pivot: [104.4, 219.7], at: [1012, 600], list: [13, 14, 15, 0, 1, 2, 3], of: 1928 / 150 } },
+      heads: { png: 'turbine2/uplink_head_', pivot: [104.4, 219.7], at: [1012, 600], list: [13, 14, 15, 0, 1, 2, 3], of: 1928 / 150 } },
     eclipse: { pic: 'set/eclipse-2.jpg', n: 2, w: 76, dy: 4, ground: quad([64, 1600], [1325, 2000], [1993, 1590]), h: 400, lit: cyan, bloom: [3, 0.4],
       swirl: { at: [936, 812], u: [446, 117], v: [0, 456], n: 16 }, look: { glow: { at: [936, 812], tint: 0x3fe0ff, size: 0.9, k: 0.55 } } },
   },
@@ -205,7 +205,7 @@ for (const [type, c] of Object.entries(CFG.bldg)) { if (ONLY.length && !ONLY.inc
 const RUBBLE = JSON.parse(readFileSync(join(PICTURES, 'leftovers/rubble.json'), 'utf8'));
 for (const [file, r] of Object.entries(RUBBLE)) {
   const [, people, n] = /^rubble_(ex|kg)_(\d)\.png$/.exec(file), p = decodePNG(readFileSync(join(PICTURES, 'leftovers', file)));
-  if (SCALE !== 2) throw new Error('the rubble is drawn at 2x');
+  if (SCALE !== 2) continue; // (drawn at 2x: a larger pack, for the docs' plates and pictures, has none)
   all.push({ name: people === 'ex' ? `rubble_vael_${n}` : `rubble_${n}`, type: `rubble_${people}`, im: { w: p.w, h: p.h, data: p.data }, anchor: { x: r.anchor[0], y: r.anchor[1] } });
 }
 await page.done();

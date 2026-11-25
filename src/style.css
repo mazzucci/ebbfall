@@ -113,7 +113,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .qi .ico.gl{width:24px;height:24px;color:var(--ally2)} /* (the queue shows the button's symbol: what was pressed) */
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:700 17px/1 var(--mono);font-variant-numeric:tabular-nums;color:#f3c94a;display:flex;gap:5px;align-items:center} #cmdInfo .c .dot{width:16px;height:13px} /* (gold first: the eye's first stop, Stelian, Nov 13) */
-#cmdInfo .d{flex:1 1 100%;color:var(--muted)}
+#cmdInfo .d{flex:1 1 100%;color:var(--muted)} #cmdInfo .short.off{display:none} @media (pointer:fine){#cmdInfo .short.off{display:inline;visibility:hidden}} /* (with a mouse its room is kept while the price can be paid, so the panel never changes size: card.js showDetail) */
 #cmdInfo .pl{display:flex;gap:4px;align-items:center;font:13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap} #cmdInfo .pl .ico{width:14px;height:14px;color:var(--ally2)} /* (beside the price: "1 population", "2 grid") */
 #cmdInfo .pic{flex:none;display:flex;align-self:flex-start} #cmdInfo .pic img{width:72px;height:72px;display:block} /* (the sprite, beside its name, gold and stats: card.js SPRITE) */
 #cmdInfo .hd{flex:1 1 0;min-width:0;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;align-content:center;align-self:stretch}

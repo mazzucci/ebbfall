@@ -24,7 +24,7 @@ export function buildCard() {
   // (style.css, the desktop HUD) so the buttons never sit in a field of boxes.
   const sel = playerSel(), army = sel.length > 0 && !/^build/.test(ui.mode || '') && sel.every(x => x.kind === 'unit') && sel.some(u => !u.d.worker);
   const c = $('cmd'); c.classList.toggle('army', army);
-  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.por, i.key, i.cost, i.places]));
+  const key = JSON.stringify(items.map(i => [i.id, i.dis, i.active, i.label, i.slot, i.poor, i.tip, i.short, i.por, i.key, i.cost, i.places]));
   if (key === cardKey) return; cardKey = key;
   c.innerHTML = '';
   const slots = items.length ? items[items.length - 1].slot + 1 : 0;
@@ -36,7 +36,7 @@ export function buildCard() {
     b.dataset.id = it.id; // (the guided first game points at buttons by it)
     if (it.id === shaking.id && performance.now() < shaking.until) { b.classList.add('refused'); b.addEventListener('animationend', () => b.classList.remove('refused')); }
     b.disabled = !!it.dis;
-    const words = [it.tip, it.poor && it.short].filter(Boolean).join(' ');
+    const words = [it.tip, it.short].filter(Boolean).join(' ');
     b.title = it.label + (it.key ? ` (${it.key})` : '') + (words ? ': ' + words : '');
     const pic = it.por ? glyph(it.por[1]) : it.icon ? icon(it.icon) : ''; // (a unit or a building: its symbol, `por` [what, kind])
     // (the price in the left column; a unit's population or grid, small, in the right: `places`)
@@ -81,9 +81,11 @@ function showDetail(it, anchor = $('cmd')) {
   box.style.bottom = (innerHeight - r.top + 6) + 'px';
   const kind = /^[tb]_/.test(it.id) ? it.id.slice(2) : ''; // (a unit to train or a building to place: its stats)
   const head = `<b>${it.label}</b>${cost}${kind ? statsHtml(kind) : ''}`, pic = it.por ? portrait(it.por[0], it.por[1], SPRITE) : '';
-  // What is short, always there on a desktop, unseen while it can be paid (style.css `.short`), so the panel keeps its size
-  // when a click spends the money; on a touch screen only while it is short, as its words need the room.
-  const short = it.short ? `<span class="short${it.poor ? '' : ' off'}">${it.short}</span>` : '';
+  // What is short (the grid, else the money), on a desktop with all it may be in one place, unseen but the one that is
+  // (style.css `.short`), so the panel keeps its size when a click spends the money or the last of the grid; on a touch
+  // screen only the one, while it is short, as its words need the room.
+  const may = it.mayShort || [];
+  const short = may.length ? `<span class="short${may.length > 1 ? ' many' : ''}${it.short ? '' : ' off'}">${may.map(w => `<span${w === it.short ? '' : ' class="off"'}>${w}</span>`).join('')}</span>` : '';
   box.innerHTML = (pic ? `<span class="pic">${pic}</span><span class="hd">${head}</span>` : head) + `<span class="d">${[it.tip, short].filter(Boolean).join(' ')}</span>`;
   // Wide enough for the stat rows on one line each; wider still, up to the screen's width, while it is too tall for
   // the room above the card (a short landscape phone and a long description).

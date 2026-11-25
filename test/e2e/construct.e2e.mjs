@@ -97,7 +97,7 @@ test('pulled off, a site toasts once ("Barracks paused at N%") and no more withi
     assert.equal((await d.state()).units.find(u => u.id === w).task !== 'build', true, 'pulled off again');
     assert.deepEqual(await paused(), [], 'at most once a site a minute');
     // Resumed again, it finishes while we watch: the done moment, then full color.
-    await d.clickEntity(id); await d.pressCard('Resume');
+    await d.key('Escape'); await d.clickEntity(id); await d.pressCard('Resume');
     await d.centerOn(b.x, b.y);
     assert.ok(await d.skipUntil((id) => endfall.G.bldgs.find(b => b.id === id)?.progress >= 0.97, id, { step: 1 / 30, seconds: 60 }), 'almost done');
     const seen = await watchDone(d, id);

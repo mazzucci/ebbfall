@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 globalThis.location ??= { search: '' };
-const { artNew, newArtIndex, loadGroups, staleMasks, UNIT_SIZE, UNIT_SIZE_REST, unitSize } = await import('../src/client/gl/newart.js');
+const { artNew, newArtIndex, loadGroups, staleMasks, UNIT_SIZE, UNIT_SIZE_REST, unitSize, WORK_LOOK, workLook } = await import('../src/client/gl/newart.js');
 const { UNITS } = await import('../src/engine/constants.js');
 
 test('without the switch nothing is fetched', async () => {
@@ -29,5 +29,13 @@ test('the new look\'s unit sizes: a row for the Knight, the Rover and the Androi
     assert.equal(unitSize(kind, true), UNIT_SIZE[kind] ?? 0.9, kind);
     assert.equal(unitSize(kind, false), 1, `${kind} with today's frames`);
     assert.ok(unitSize(kind, true) > 0.5 && unitSize(kind, true) <= 1, `${kind}: a size a unit can be read at`);
+  }
+});
+test('how a builder with its own work frames works: the Bot stands still and turns its arm, the rest lean and flash, and today\'s frames are untouched', () => {
+  assert.deepEqual(WORK_LOOK, { lumen: { nudge: false, turns: true } });
+  for (const kind of Object.keys(WORK_LOOK)) assert.ok(UNITS[kind]?.worker, `${kind} is a worker`);
+  for (const kind of Object.keys(UNITS)) {
+    assert.deepEqual(workLook(kind, true), WORK_LOOK[kind] ?? { nudge: true, turns: false }, kind);
+    assert.deepEqual(workLook(kind, false), { nudge: true, turns: false }, `${kind} with today's frames`);
   }
 });

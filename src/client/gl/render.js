@@ -15,7 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
-import { newArtIndex, loadGroups, staleMasks, unitSize } from './newart.js';
+import { newArtIndex, loadGroups, staleMasks, unitSize, workLook } from './newart.js';
 import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
 import { Land, loadGrounds, MINIMAP, GROUND } from './newlandgl.js';
 
@@ -91,8 +91,11 @@ function addSheet(path, sh) {
 }
 for (const [p, sh] of await Promise.all(index.pages.map(async p => [p, await Assets.load(artBase + p)]))) addSheet(p, sh);
 export const newArt = {};
+/** The frames that came from the new look's packs, by name (none without the switch): `portrait` cuts these by their paint. */
+const newFrames = new Set();
 for (const { name, group, pages } of await loadGroups(newIndex, (p) => Assets.load(artBase + p))) {
   const names = new Set(pages.flatMap(([, sh]) => Object.keys(sh.data.frames)));
+  for (const n of names) newFrames.add(n);
   for (const n of staleMasks(names, new Set(Object.keys(frames)))) { delete textures[n]; delete frames[n]; } // (a body never wears another's mask)
   for (const [p, sh] of pages) addSheet(p, sh);
   Object.assign(index.unitTops, group.unitTops); Object.assign(index.animations, group.animations);
@@ -205,12 +208,15 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, hea
 /** An <img> portrait of a unit type, building type or gold mine ('node'), or ''. In `team`'s
  * colors: this client's own seat unless told otherwise. A building with a head (BLDG_LOOK) has it on, at rest. With
  * `box`, the sprite's own box fills 86% of the square (the group grid's small tiles, where a frame-cut figure was a
- * smudge); without, the frame-based cut every other portrait uses. */
+ * smudge); without, the frame-based cut every other portrait uses, for today's frames. */
 export function portrait(kind, type, size = 26, team = G.me, box = false) {
   const head = bldgLook(type).head, headFrame = head ? head + '_0' : null;
-  const url = box ? artIcon(kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
-    : kind === 'unit' ? artIcon(`${type}_2_0`, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
-      : kind === 'node' ? artIcon('mine_full', size, 1.1) : artIcon(`bldg_${type}`, size, 1.1, seatTint(team), false, headFrame);
+  const name = kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`;
+  // (a frame of the new look, gl/newart.js: by its box too, at every size. The frame-based cuts below are tuned to
+  // today's frames, their zoom to today's margins; a new frame has other margins and a larger figure, and was cut off.)
+  const url = box || newFrames.has(name) ? artIcon(name, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
+    : kind === 'unit' ? artIcon(name, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
+      : kind === 'node' ? artIcon(name, size, 1.1) : artIcon(name, size, 1.1, seatTint(team), false, headFrame);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;
@@ -568,6 +574,7 @@ class UnitObj {
     // own pace; a load carried `_c<f>`, a builder's two strokes `_k0` `_k1`, a shot `_aim` `_shot` `_after`, set up `_set`)
     const A = newArt.unit || {}, has = (k) => !!A[k]?.includes(u.type);
     this.stand = has('stand'); this.fps = A.fps?.[u.type]; this.loads = has('carry'); this.works = has('work'); this.fires = A.fire?.[u.type]; this.sets = has('set');
+    this.workLook = workLook(u.type, this.works); // (how it works at a site, with its own work frames: gl/newart.js WORK_LOOK)
     this.node = new Container(); this.node.scale.set(UNIT_SCALE * unitK(u.type)); layer.addChild(this.node); // (body, paint and flash sort as one)
     this.body = new Sprite(); this.flash = new Sprite(); this.paint = new Sprite(); this.paintFlash = new Sprite(); this.seat = seatTint(u.team);
     this.flash.blendMode = this.paintFlash.blendMode = 'add'; this.paintFlash.tint = this.seat;
@@ -604,14 +611,14 @@ class UnitObj {
     if (u.carry) { this.cargo.tint = 0xeee6d2; this.cargo.position.set(u.x - Math.cos(u.face) * 7, u.y - Math.sin(u.face) * 7 - 11); this.cargo.alpha = 0.7 + 0.3 * Math.sin(t * 6); }
   }
   /** A pose only the new look's frames have (the constructor's lists), or null: set up or setting up; a builder at its
-   *  site, the stroke 0.18 s from each strike; a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
+   *  site, the stroke 0.18 s from each strike (or, `workLook.turns`, its arm out for one strike and down for the next); a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
    *  its target in reach otherwise. `now`: the renderer's clock (s). */
   newPose(u, now) {
     const F = this.fires, cd = F && !u.inside && u.d?.weapon?.cd;
     if (cd && u.cd > cd - 0.12 && F.includes('shot')) return 'shot';
     if (cd && u.cd > cd - 0.3 && F.includes('after')) return 'after';
     if (this.sets && (u.swap > 0 || u.mode)) return 'set';
-    if (this.works && this.strikes !== undefined) return now - (this.struckAt ?? -1) < 0.18 ? 'k1' : 'k0';
+    if (this.works && this.strikes !== undefined) return (this.workLook.turns ? this.strikes % 2 : now - (this.struckAt ?? -1) < 0.18) ? 'k1' : 'k0';
     return cd && F.includes('aim') && inReach(u) ? 'aim' : null;
   }
   /** A builder at work (construct.js WORK): standing in reach of its unfinished site, a strike every 0.55 s or so (its
@@ -622,7 +629,7 @@ class UnitObj {
     if (!b || b.done || b.dead || this.moving || !atSite(u, b, TILE)) { this.strikes = undefined; this.nudge = 0; return; }
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
-      const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = WORK.nudgeFrames; this.struckAt = now;
+      const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = this.workLook.nudge ? WORK.nudgeFrames : 0; this.struckAt = now;
       if (G.factions[u.team] === 'vael') { const f = STRIKE_FX.weld; addEffect(f.anim, p.x, p.y - f.lift, { life: f.life, scale: f.scale, tint: f.tint, fade: 1, light: f.light, lightScale: f.lightScale }); } // (the weld's core, at the contact point)
       else {
         const g = STRIKE_FX.glint, s = STRIKE_FX.dust;

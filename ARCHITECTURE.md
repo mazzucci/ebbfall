@@ -71,6 +71,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Cannon's deploy (by itself whenever it stops),
+  standing firm (`firm`: units rallied or sent to a point a firm friend covers arriving, Cannons in formation and on one
+  target all setting up, a unit ringed by firm friends getting out, walking through two touching Cannons of its own but
+  not an enemy's, one settling in pushed clear and never moved once settled),
   construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a new worker
   waiting at its headquarters for an order and a rally on a mine walking it there to wait beside it without mining, the
   AI sending its new workers and builders to a mine within its next turns (`economy`), workers hopping only to a mine

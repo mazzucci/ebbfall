@@ -155,6 +155,16 @@ impl World {
             && self.leg_open(uid, next)
     }
 
+    /// Whether a unit on a move or a march to (`x`, `y`) has come as near as the crowd there lets it: held up
+    /// (`ARRIVE_PATIENCE`) within two bodies of it, and nothing for a march to fight.
+    fn crowded_out(&self, uid: Id, x: f64, y: f64) -> bool {
+        let u = self.u(uid);
+        u.stuck > ARRIVE_PATIENCE
+            && dist(u.x, u.y, x, y) <= 4.0 * u.r
+            && (!matches!(u.task, Task::AMove { .. })
+                || self.march_target(uid, &self.live(uid)).is_none())
+    }
+
     /// How long a unit on a move or a march has made no way (`Unit::stuck`): within half its radius of `Unit::anchor`.
     /// Not while it cannot walk (packing up).
     fn count_stuck(&mut self, uid: Id, dt: f64) {
@@ -340,7 +350,7 @@ impl World {
             return; // (waiting for its route: it stands this tick)
         }
         self.count_stuck(uid, dt);
-        if self.u(uid).path.is_none() || self.step_path(uid, dt) {
+        if self.u(uid).path.is_none() || self.step_path(uid, dt) || self.crowded_out(uid, x, y) {
             // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends
             // at the nearest free tile, and that is as close as we get).
             self.set_idle(uid);

@@ -72,3 +72,75 @@ fn a_group_in_formation_passes_the_waypoints_it_crowds_and_arrives() {
         }
     }
 }
+
+#[test]
+fn a_group_sent_to_one_point_stops_round_it_held_up_by_its_own() {
+    // (those the crowd kept off the point walked on at it for good: a march cannot set a Cannon up, a move ignores a
+    // shooter)
+    for (what, kinds) in [
+        ("Cannons", &[UnitKind::SiegeTank][..]),
+        ("Rovers", &[UnitKind::Monolith]),
+        (
+            "Guards, Archers and Cannons",
+            &[UnitKind::Trooper, UnitKind::Lancer, UnitKind::SiegeTank],
+        ),
+        (
+            "Rovers and Androids",
+            &[UnitKind::Monolith, UnitKind::Umbra],
+        ),
+    ] {
+        for n in [6usize, 9, 16, 24] {
+            for amove in [true, false] {
+                let (mut w, ids) = group(kinds, n);
+                if amove {
+                    w.attack_move_group(&ids, MID.0 + 120.0, MID.1);
+                } else {
+                    for &i in &ids {
+                        w.move_to(i, MID.0 + 120.0, MID.1);
+                    }
+                }
+                run(&mut w, 45);
+                assert_eq!(
+                    walking(&w, &ids),
+                    0,
+                    "{n} {what}, attack-move {amove}: all stopped"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_unit_held_up_far_from_its_goal_is_still_on_its_way() {
+    // A wall of holding enemies across the only way, a tile wide: the Guard keeps at its move, far from its point.
+    let mut w = flat_arena(5);
+    for y in 13..51 {
+        for x in 31..34 {
+            if y != 32 {
+                let i = w.map.idx(x, y);
+                w.map.rock[i] = 1;
+            }
+        }
+    }
+    for x in [32.0, 33.0] {
+        let e = w.make_unit(UnitKind::Knight, ENEMY, x * TILE + 16.0, 32.0 * TILE + 16.0);
+        set_hp(&mut w, e, 1e6);
+        w.hold_unit(e);
+    }
+    let a = w.make_unit(UnitKind::Trooper, PLAYER, 27.0 * TILE, 32.0 * TILE + 16.0);
+    set_hp(&mut w, a, 1e6);
+    w.move_to(a, 40.0 * TILE, 32.0 * TILE + 16.0);
+    run(&mut w, 20);
+    assert!(
+        matches!(w.unit(a).unwrap().task, Task::Move { .. }),
+        "held up six tiles from its point, still on its way"
+    );
+    // A packing Cannon is not held up: it drives off once packed.
+    let mut w = flat_arena(5);
+    let c = w.make_unit(UnitKind::SiegeTank, PLAYER, MID.0, MID.1);
+    run(&mut w, 4);
+    w.move_to(c, MID.0 + 40.0, MID.1);
+    run(&mut w, 6);
+    let x = w.unit(c).unwrap().x;
+    assert!((x - MID.0 - 40.0).abs() < 1.0, "drove the 40 px: {x}");
+}

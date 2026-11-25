@@ -212,6 +212,8 @@ pub const STUCK_RADIUS: f64 = 12.0;
 /// A unit on a move or a march held up this long (s) within two bodies of a waypoint of its route passes it by
 /// (`World::walks_by`).
 pub const WAYPOINT_PATIENCE: f64 = 2.0;
+/// ... and held up this long (s) within two bodies of where it is sent, it has arrived (`World::crowded_out`).
+pub const ARRIVE_PATIENCE: f64 = 3.0;
 /// How far (px) a worker that has stopped at its work (a field, a drop-off, a site) may be nudged out of reach and
 /// still count as there: it stays put instead of stepping back in and turning to and fro (movement.rs
 /// `approach_settled`).

@@ -178,10 +178,12 @@ function siege() {
 }
 
 /** A base at about 3:00: workers mining, a few buildings up, a guard at the gate. Laid out toward the map's middle
- *  (`at`) for the controls shots; for a hero (`hero`), in a band level with the headquarters and its mine (`band`), so
- *  that a 2:1 frame holds it all close: Dust Quarter's starts sit in corners with the mine against the map's edge
- *  beyond the headquarters, and the old layout toward the middle (a diagonal there) stood too tall for the frame.
- *  Returns the scene's box (`sceneBox`, world px). */
+ *  (`at`) for the controls shots; for a hero (`hero`, the PM's brief for the docs refresh), in a band level with the
+ *  headquarters and its mine (`band`), so that a 2:1 frame holds it all close (Dust Quarter's starts sit in corners
+ *  with the mine against the map's edge beyond the headquarters): the Kingdom's Castle with a Barracks, Stables and a
+ *  Watchtower, Villagers to and from the mine, and its army (Guards, Archers, two Knights, a Cannon) marching out
+ *  toward the middle; the Expedition's Data center with an Uplink, the Portal, Wind turbines and a Sentry mast, Bots
+ *  hauling, and Rovers, Androids, a Buggy and Drones in front. Returns the scene's box (`sceneBox`, world px). */
 function base([race, hero]) {
   const { S } = window, { at, place, mine, spawn, me, e, eng, hq } = S;
   // (`band`: dx px toward the map's middle across, dy px toward it up or down: the mine is on the far side)
@@ -189,27 +191,48 @@ function base([race, hero]) {
   const band = (dx, dy) => ({ x: hq.x + hx * dx, y: hq.y + hy * dy });
   S.mine();
   e.setResources(me, 5000, 0);
-  for (let i = 0; i < 4; i++) spawn(me, race === 'humans' ? 'harvester' : 'lumen', hero ? band(60, -40 + i * 20) : at(-60, (i - 1.5) * 30));
+  if (hero) return heroBase(race, band);
+  for (let i = 0; i < 4; i++) spawn(me, race === 'humans' ? 'harvester' : 'lumen', at(-60, (i - 1.5) * 30));
   if (race === 'humans') {
-    if (hero) { place('depot', band(-190, 40)); place('depot', band(-170, -170)); place('barracks', band(230, 40)); }
-    else { place('depot', at(-150, -160)); place('depot', at(-150, 150)); place('barracks', at(170, -170)); }
-    e.skip(70); place('forge', hero ? band(200, -160) : at(-60, 240)); e.skip(70); mine();
-  } else if (hero) {
-    place('substation', band(170, -150)); place('siphon', band(240, 60)); place('ward', band(-60, 170));
-    e.skip(60); for (const dy of [-60, 30, 120]) place('spire', band(-195, dy)); place('loom', band(120, 170));
-    e.skip(70); place('uplink', band(330, -110)); e.skip(80); mine();
+    place('depot', at(-150, -160)); place('depot', at(-150, 150)); place('barracks', at(170, -170));
+    e.skip(70); place('forge', at(-60, 240)); e.skip(70); mine();
   } else {
     place('siphon', at(170, -170)); place('substation', at(-150, 160)); place('ward', at(220, 120));
     e.skip(60); for (const s of [[-200, -60], [-230, 40], [-180, 140]]) place('spire', at(...s)); place('loom', at(-120, -220));
     e.skip(70); place('uplink', at(240, 260)); e.skip(80); mine();
   }
   const units = race === 'humans' ? ['trooper', 'trooper', 'trooper', 'trooper', 'lancer', 'lancer', 'lancer', 'knight', 'knight'] : ['scythe', 'scythe', 'prism', 'prism', 'prism', 'bruiser'];
-  // The soldiers at the gate: toward the middle (a hero's below the Barracks, on the near side of the forest beyond it).
-  units.forEach((k, i) => spawn(me, k, hero ? band(170 + (i % 3) * 34 + (race === 'humans' ? 0 : 40), (race === 'humans' ? 160 : 200) + (Math.floor(i / 3) - 1) * 40) : at(260 + (i % 3) * 34, (Math.floor(i / 3) - 1) * 40)));
-  spawn(me, race === 'humans' ? 'observer' : 'shrike', hero ? band(-130, 150) : at(40, -70)); if (race !== 'humans') spawn(me, 'shrike', hero ? band(250, -40) : at(70, 40));
+  units.forEach((k, i) => spawn(me, k, at(260 + (i % 3) * 34, (Math.floor(i / 3) - 1) * 40)));
+  spawn(me, race === 'humans' ? 'observer' : 'shrike', at(40, -70)); if (race !== 'humans') spawn(me, 'shrike', at(70, 40));
   const t = 180 - e.G.time; if (t > 0) e.skip(t);
   e.setResources(me, 470, 0);
   S.mine();
+  return window.sceneBox(S);
+}
+/** A hero's base (`base`): its buildings round the headquarters in the band, its workers at the mine, its army. */
+function heroBase(race, band) {
+  const { S } = window, { place, mine, spawn, me, e, eng, G } = S;
+  const kg = race === 'humans';
+  for (let i = 0; i < 4; i++) spawn(me, kg ? 'harvester' : 'lumen', band(60, -40 + i * 20));
+  if (kg) {
+    place('depot', band(-170, -170)); place('barracks', band(230, 30)); e.skip(70);
+    place('forge', band(210, -170)); e.skip(70); place('airfield', band(-200, 60)); place('turret', band(130, 140)); e.skip(80);
+  } else {
+    place('siphon', band(240, 40)); place('substation', band(170, -170)); e.skip(60);
+    for (const dy of [-80, 10]) place('spire', band(-195, dy)); place('loom', band(-180, 130)); place('ward', band(130, 150)); e.skip(70);
+    place('uplink', band(330, -110)); e.skip(80); place('eclipse', band(360, 90)); e.skip(80);
+  }
+  mine(); e.setResources(me, 5000, 0);
+  for (let i = 0; i < 3; i++) spawn(me, kg ? 'harvester' : 'lumen', band(20 + i * 30, 60)); // (more at the mine: some come, some go)
+  const t = 180 - G.time; if (t > 0) e.skip(t);
+  mine(); e.skip(6); // (the new ones on their first trips)
+  // The army: in a block at the gate, then ordered out toward the map's middle and caught on the way.
+  const army = kg ? ['trooper', 'trooper', 'trooper', 'lancer', 'lancer', 'lancer', 'knight', 'knight', 'siegeTank'] : ['monolith', 'monolith', 'umbra', 'umbra', 'scythe', 'shrike', 'shrike', 'shrike'];
+  const ids = army.map((k, i) => spawn(me, k, band(250 + (i % 3) * 36, 190 + Math.floor(i / 3) * 38)));
+  const us = () => ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
+  const to = band(560, 260);
+  eng.formation(us(), to.x, to.y); e.skip(2.5);
+  e.setResources(me, 470, 0);
   return window.sceneBox(S);
 }
 /** In the page: the drawn extent (world px, roughly: footprints and heights, as `measure` reckons them) of our
@@ -370,8 +393,8 @@ async function heroes() {
       const b = await page.evaluate(base, [race, true]);
       const { at, fit } = await frameBox(page, b); await settle(page);
       await hero(race === 'humans' ? 'hero-kingdom' : 'hero-expedition', page, race === 'humans'
-        ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine, Cottages, a Barracks and a Blacksmith, soldiers at the gate', caption: 'A Kingdom base at 3:00: the Castle by its gold mine, with Guards, Archers and Knights at the gate.' }
-        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine, wind turbines, a lab and an uplink dish, buggies and sellswords out front', caption: 'An Expedition base at 3:00: the Data center by its mine, Wind turbines behind, an Uplink at the edge.' }, at, fit);
+        ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine with a Barracks, Stables and a Watchtower, Villagers mining, an army of guards, archers, knights and a cannon marching out', caption: 'A Kingdom base at 3:00: Villagers at the mine, the army marching out.' }
+        : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine with an Uplink dish, the Portal, wind turbines and a sentry mast, bots hauling ore, rovers, androids, a buggy and drones heading out', caption: 'An Expedition base at 3:00: Bots hauling ore, Rovers, Androids and Drones heading out.' }, at, fit);
     } finally { await ctx.close(); }
   }
 }

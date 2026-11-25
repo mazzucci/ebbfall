@@ -61,7 +61,7 @@ export const VERSIONS = {
   desktop: {
     'desktop-loop': { kind: 'desk', caps: true, w: 1280, budget: 400 * KB, clips: meta.beats.map(b => [b.id, b.id === 'select' || b.id === 'pan' ? 0 : 0.1, b.id === 'pan' ? 1.2 : b.seconds]), poster: 1.9 }, // (~16 s: the pan cut after the key, a breath off each beat's start; the eight selected)
     'desk-select': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['select', 0.3, 2.4]], poster: 1.8 }, // (the eight boxed, selected)
-    'desk-move': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['move', 0.2, 2.2]], poster: 1.4 }, // (on their way after the right-click)
+    'desk-move': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['move', 0.2, 2.2]], poster: 1.4 }, // (on their way after the click)
     'desk-type': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['type', 0.2, 2.2]], poster: 1.5 }, // (the three Knights selected)
     'desk-attack': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['attack', 0.2, 2.6]], poster: 1.8 }, // (the charge after A and the click)
     'desk-group': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['group', 0.2, 3.0]], poster: 2.6 }, // (the nine recalled by 1)
@@ -73,7 +73,7 @@ const ALL = Object.assign({}, ...Object.values(VERSIONS)); // (every version, fo
 
 /** The review sheet's extra stills besides one near the end of each caption: the moments themselves (seconds of the beat), per set. */
 const MOMENTS = set === 'phone' ? [['group', 1.3, 'the ring fills'], ['letgo', 1.2, 'Deselect tapped']]
-  : [['select', 1.0, 'the box being drawn'], ['move', 0.65, 'the right-click'], ['build', 1.7, 'the Cottage ghost'], ['group', 1.45, 'Ctrl+1 pressed'], ['pan', 0.9, 'the arrow key held']];
+  : [['select', 1.0, 'the box being drawn'], ['move', 0.65, 'the click'], ['build', 1.7, 'the Cottage ghost'], ['group', 1.45, 'Ctrl+1 pressed'], ['pan', 0.9, 'the arrow key held']];
 
 const run = (args) => { const r = spawnSync(FFMPEG, ['-y', '-loglevel', 'error', ...args], { stdio: 'inherit' }); if (r.status !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}`); };
 const probe = (file) => +spawnSync(FFMPEG.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).stdout.toString().trim();

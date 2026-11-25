@@ -971,15 +971,17 @@ const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
 const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line, so it reads on pale ground too)
 // (over the fog: the range reaches ground not yet seen; under the ghost, the bars and the selection box, over the
 // selection rings) The tint is drawn opaque and faded as one layer (AlphaFilter), so where circles overlap it is no
-// darker; the rim is the union's edge alone, a 3.5 px halo at 50% under a 1.5 px line at 70%, in screen px at every
+// darker; the rim is the union's edge alone, a dark halo under a light line (RIM), in screen px at every
 // zoom (the widths are divided by the zoom, in steps: `rimZoom`). Inside the rim a feathered band gives the area its
 // side (the 7% fill alone is lost on grass): `BAND_PX` screen px wide, the rim's light from `BAND_ALPHA` at the line to
 // nothing, as `BAND_STEPS` rings of the union's arcs drawn inward.
 const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeHi = new Graphics(), rangeG = new Container();
 rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
 let rangeKey = '', rangeCircles = [], rangeArcs = [];
-export const BAND_PX = 16, BAND_ALPHA = 0.18;
-const BAND_STEPS = 8, RIM_HALO_ALPHA = 0.5; // (the halo 35% at first: on the pale boulders of a hill the line got lost)
+export const BAND_PX = 28, BAND_ALPHA = 0.36;
+/** The rim's line and its dark halo: screen px, opacity. */
+export const RIM = { line: 2.5, alpha: 0.85, halo: 4.5, haloAlpha: 0.55 };
+const BAND_STEPS = 8;
 /** The zoom the rim is drawn for: the camera's in steps of a tenth, so a pinch redraws it only now and then. */
 const rimZoom = () => Math.round(cam.zoom * 10) / 10;
 /** Stroke the arcs [x, y, r, from, to] onto `g` (no stroke call). */
@@ -1001,8 +1003,8 @@ function drawRange(extra) {
     arcsOnto(rangeBand, rangeArcs.map(([x, y, r, a0, a1]) => [x, y, Math.max(0, r - inset), a0, a1]));
     rangeBand.stroke({ width: step, color: RANGE_COLOR, alpha: BAND_ALPHA * (1 - (i + 0.5) / BAND_STEPS) });
   }
-  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 3.5 / z, color: RIM_HALO, alpha: RIM_HALO_ALPHA });
-  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 1.5 / z, color: RANGE_COLOR, alpha: 0.7 });
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: RIM.halo / z, color: RIM_HALO, alpha: RIM.haloAlpha });
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: RIM.line / z, color: RANGE_COLOR, alpha: RIM.alpha });
 }
 // The leash's cue: a machine sent past the edge (the sim's `signal` event, with the no-signal toast) brightens the stretch
 // of the rim nearest where it was sent to full, fading back over 0.6 s. No pulse, dashes or icons (the designer's spec).
@@ -1016,7 +1018,7 @@ function drawLeash(now) {
   if (k <= 0 || k > 1) { leash = null; return; }
   const seg = nearestRim(rangeArcs, leash.x, leash.y, LEASH_SPAN);
   if (!seg) return;
-  arcsOnto(rangeHi, [seg]); rangeHi.stroke({ width: 1.5 / rimZoom(), color: RANGE_COLOR, alpha: k });
+  arcsOnto(rangeHi, [seg]); rangeHi.stroke({ width: RIM.line / rimZoom(), color: RANGE_COLOR, alpha: k });
 }
 /** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while any building that gives
  *  coverage or goes up only inside it is being placed (a source's own circle with the others). */
@@ -1265,7 +1267,38 @@ const MINE_MARK = 0xe6e0d3;
 const targetColor = (e) => e.kind === 'node' ? MINE_MARK : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
+/** The outline of frame `name`'s solid paint, as points round it (px from its anchor at the sprite's size, its soft
+ *  shadow left out): for each of HULL_N directions from its middle the farthest solid pixel, smoothed over its neighbors
+ *  and pushed out by HULL_OUT, so a line along it stands clear of the paint. Read once from the decoded page, cached. */
+const HULL_N = 72, HULL_OUT = 4, hulls = new Map();
+function hullOf(name) {
+  if (hulls.has(name)) return hulls.get(name);
+  const box = artBox(name); if (!box) return null;
+  const { img, f } = frames[name], t = tex(name), c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  const a = ctx.getImageData(0, 0, f.w, f.h).data, mx = (box.l + box.r) / 2, my = (box.t + box.b) / 2, far = new Float64Array(HULL_N);
+  for (let y = box.t; y <= box.b; y++) for (let x = box.l; x <= box.r; x++) if (a[(y * f.w + x) * 4 + 3] > 200) {
+    const d = Math.hypot(x - mx, y - my), k = Math.round(Math.atan2(y - my, x - mx) / (2 * Math.PI) * HULL_N + HULL_N) % HULL_N;
+    if (d > far[k]) far[k] = d;
+  }
+  const at = (k) => far[(k + HULL_N) % HULL_N], pts = [];
+  for (let k = 0; k < HULL_N; k++) {
+    const d = Math.max(at(k), (at(k - 2) + 2 * at(k - 1) + 3 * at(k) + 2 * at(k + 1) + at(k + 2)) / 9) + HULL_OUT * f.w / t.width, an = k / HULL_N * 2 * Math.PI;
+    pts.push(((mx + Math.cos(an) * d) / f.w - t.defaultAnchor.x) * t.width, ((my + Math.sin(an) * d) / f.h - t.defaultAnchor.y) * t.height);
+  }
+  hulls.set(name, pts);
+  return pts;
+}
+/** A line round a target: a gold mine's painted outline (a square cut through the rock), on a dark edge; a building's
+ *  square. */
 function outline(e, width, color, alpha) {
+  const hull = e.kind === 'node' && hullOf(`mine_${mineStage(e)}`);
+  if (hull) {
+    const p = hull.map((v, i) => (i % 2 ? e.y : e.x) + v * GROUND.mine);
+    lines.poly(p, true).stroke({ width: width + 2, color: RIM_HALO, alpha: alpha * 0.45, join: 'round' });
+    lines.poly(p, true).stroke({ width, color, alpha, join: 'round' });
+    return;
+  }
   lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {

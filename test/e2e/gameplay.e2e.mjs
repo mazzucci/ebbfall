@@ -2473,7 +2473,7 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
     assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
     assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
-    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [16, 0.18, true], 'the feathered band inside the rim');
+    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [28, 0.36, true], 'the feathered band inside the rim');
     // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.
     const lit = await d.eval(([cx, cy, r]) => {
       const m = document.getElementById('minimap'), S = m.width / endfall.engine.WW, T = endfall.engine.TILE;

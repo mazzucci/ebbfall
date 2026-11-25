@@ -2,8 +2,9 @@
 // another picture's team mask.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 globalThis.location ??= { search: '' };
-const { artNew, newArtIndex, loadGroups, staleMasks, UNIT_SIZE, UNIT_SIZE_REST, unitSize, WORK_LOOK, workLook } = await import('../src/client/gl/newart.js');
+const { artNew, newArtIndex, loadGroups, staleMasks, UNIT_SIZE, UNIT_SIZE_REST, unitSize, WORK_LOOK, workLook, RING_SIZE, ringSize } = await import('../src/client/gl/newart.js');
 const { UNITS } = await import('../src/engine/constants.js');
 
 test('without the switch nothing is fetched', async () => {
@@ -38,4 +39,18 @@ test('how a builder with its own work frames works: the Bot stands still and tur
     assert.deepEqual(workLook(kind, true), WORK_LOOK[kind] ?? { nudge: true, turns: false }, kind);
     assert.deepEqual(workLook(kind, false), { nudge: true, turns: false }, `${kind} with today's frames`);
   }
+});
+test('the new look\'s people on foot have a selection ring a fifth smaller, and only the ring: their size, their hit area and today\'s rings are untouched', () => {
+  assert.deepEqual(RING_SIZE, { harvester: 0.8, trooper: 0.8, lancer: 0.8, prism: 0.8, bruiser: 0.8, umbra: 0.8 });
+  for (const kind of Object.keys(RING_SIZE)) { assert.ok(UNITS[kind], `${kind} is a unit kind`); assert.ok(!UNITS[kind].air, `${kind} is on the ground`); }
+  for (const kind of Object.keys(UNITS)) {
+    assert.equal(ringSize(kind, true), RING_SIZE[kind] ?? 1, kind);
+    assert.equal(ringSize(kind, false), 1, `${kind} with today's frames`);
+    assert.equal(unitSize(kind, true), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, `${kind}: its drawn size (the bar, the hit test) is not the ring's`);
+  }
+  // the renderer takes the ring's factor in one place, the ring's own size: not in the drawn height or radius the hit test reads
+  const src = readFileSync(new URL('../src/client/gl/render.js', import.meta.url), 'utf8'), lines = src.split('\n').filter(l => /ringSize\(/.test(l));
+  assert.equal(lines.length, 1, 'one use of ringSize');
+  assert.match(lines[0], /^\s*this\.size = /, 'on the selection ring\'s size');
+  for (const name of ['unitTop', 'unitRadius']) assert.doesNotMatch(src.split('\n').find(l => l.startsWith(`export const ${name} = `)), /ringSize|RING_SIZE/, `${name} does not read the ring's table`);
 });

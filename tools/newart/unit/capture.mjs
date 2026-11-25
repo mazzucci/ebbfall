@@ -14,7 +14,8 @@
 // `walk` 16 Guards marching out from a point, one along each facing; `strike` 16 Guards each on a Sellsword of its
 // own, one along each facing; `behind` three Guards behind the Barracks (their silhouettes) and one beside it, clicked;
 // `card` the Barracks clicked and its Guard button under the mouse (its tooltip; a mouse only); `lineup` one of every
-// kind of unit standing in a row and a second row of them marching down the screen.
+// kind of unit standing in a row and a second row of them marching down the screen; `fight-machines` Rovers and Drones
+// on Guards and Archers; `carry`, `carry-bot`, `mine` the workers at the mine, loaded and not.
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { start, stop, browserContext, baseUrl, board } from '../../../test/e2e/harness.mjs';
@@ -110,6 +111,13 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   const beside = engine.debugSpawn(me, 'trooper', bx - 34, by + barracks.h * T - 20);
   // (and a Villager, a Knight and a Cannon in front of it: the new units beside the buildings)
   ['harvester', 'knight', 'siegeTank'].forEach((k, i) => { const id = engine.debugSpawn(me, k, bx + 10 + i * 46, by + barracks.h * T + 26); if (id) engine.holdUnit(of([id])[0]); });
+  // a second fight, of machines: three Rovers and four Drones of ours on six Guards and three Archers
+  const mf = open(field.x, field.y + 500, 200, taken, 480); taken.push(mf);
+  const side = (seat, kinds, dx) => kinds.map((k, i) => engine.debugSpawn(seat, k, mf.x + dx + (i % 3) * 34 * Math.sign(dx), mf.y - 50 + Math.floor(i / 3) * 44)).filter(Boolean);
+  const machines = side(me, ['monolith', 'monolith', 'monolith', 'shrike', 'shrike', 'shrike', 'shrike'], -150), foes = side(1, ['trooper', 'trooper', 'trooper', 'trooper', 'trooper', 'trooper', 'lancer', 'lancer', 'lancer'], 150);
+  engine.attackMoveGroup(of(machines), mf.x + 150, mf.y); engine.attackMoveGroup(of(foes), mf.x - 150, mf.y);
+  // three Bots of ours sent to the mine with the Villagers (a worker is a worker: they carry to the Castle)
+  for (let i = 0; i < 3; i++) { const id = engine.debugSpawn(me, 'lumen', mine.x + 70 + i * 30, mine.y + 70); if (id) engine.startGather(of([id])[0], mine); }
   endfall.skip(1.9); // (the fronts have met)
   // the march: 16 Guards from a point, each out along its facing
   const wc = open(sc.x, sc.y, 230, taken, 480), walkers = [];
@@ -137,7 +145,7 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   for (const t of document.querySelectorAll('#msg .toast')) t.remove();
   for (let i = 0; i < 4; i++) window.tick(100); // (who stopped stands: the renderer holds a stride a quarter second)
   const ours = of(groups[0]).filter(u => !u.dead), xs = ours.map(u => u.x), ys = ours.map(u => u.y);
-  return { field, sc, wc, lc, kc, mine: { x: mine.x, y: mine.y }, lineBox: [lc.x - 7.6 * 52, lc.y - 150, lc.x + 7.6 * 52, lc.y - 20], striking: n, barracks: { x: barracks.x, y: barracks.y, id: barracks.id }, beside, hidden, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0 };
+  return { field, sc, wc, lc, kc, mf, mine: { x: mine.x, y: mine.y }, lineBox: [lc.x - 7.6 * 52, lc.y - 150, lc.x + 7.6 * 52, lc.y - 20], striking: n, barracks: { x: barracks.x, y: barracks.y, id: barracks.id }, beside, hidden, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0 };
 }, [ARMIES, AT]);
 
 /** Where world point (x, y) is on the page now. */
@@ -190,6 +198,7 @@ async function stills() {
     await look(page, S.wc); await shoot(page, dev, 'walk', { at: S.wc });
     await look(page, S.lc); await shoot(page, dev, 'lineup', { at: S.lc });
     await look(page, S.kc); await shoot(page, dev, 'walk-knights', { at: S.kc });
+    await look(page, S.mf); await shoot(page, dev, 'fight-machines', { at: S.mf });
     // the lineup's standing row in a box (a mouse): every kind's ring, bar and tile
     if (!touch) {
       await look(page, S.lc, 1); const a = await onPage(page, S.lineBox[0], S.lineBox[1]), b = await onPage(page, S.lineBox[2], S.lineBox[3]);
@@ -197,14 +206,20 @@ async function stills() {
       await look(page, S.lc); await shoot(page, dev, 'lineup-selected', { at: S.lc });
     }
     if (touch) { await look(page, S.wc, 1); await shoot(page, dev, 'walk-zoom1', { at: S.wc }); await look(page, S.lc, 1); await shoot(page, dev, 'lineup-zoom1', { at: S.lc }); }
-    // last, a Villager with its load on its way back from the mine: on to the first tick one carries in the open
-    const carrier = await page.evaluate(() => {
-      const who = () => endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker && u.carry && !u.inside);
-      for (let i = 0; i < 900 && !who(); i++) endfall.skip(1 / 30);
-      for (let i = 0; i < 8; i++) { endfall.skip(1 / 30); window.tick(34); } // (in its stride)
-      const u = who(); endfall.G.events.length = 0; return u && { x: u.x, y: u.y };
-    });
-    if (carrier) { await look(page, carrier, touch ? 1.75 : 2.5); await shoot(page, dev, 'carry', { at: carrier }); }
+    // last, the mine and its workers: on to the first tick a Villager carries in the open, then a Bot (clicked: its bar)
+    for (const [kind, name] of [['harvester', 'carry'], ['lumen', 'carry-bot']]) {
+      const carrier = await page.evaluate((kind) => {
+        const who = () => endfall.G.units.find(u => u.team === endfall.G.me && u.type === kind && u.carry && !u.inside);
+        for (let i = 0; i < 900 && !who(); i++) endfall.skip(1 / 30);
+        for (let i = 0; i < 8; i++) { endfall.skip(1 / 30); window.tick(34); } // (in its stride)
+        const u = who(); endfall.G.events.length = 0; return u && { x: u.x, y: u.y, top: endfall.unitTop(kind) };
+      }, kind);
+      if (!carrier) continue;
+      await look(page, carrier, touch ? 1.75 : 2.5);
+      if (kind === 'lumen') await tap(...await onPage(page, carrier.x, carrier.y - carrier.top / 2));
+      await shoot(page, dev, name, { at: carrier });
+      if (kind === 'lumen') { await look(page, S.mine, touch ? 1.75 : 2); await shoot(page, dev, 'mine', { at: S.mine }); }
+    }
     log.errors.push(...errors.map(e => `${dev}: ${e}`)); log.warns.push(...warns.map(e => `${dev}: ${e}`));
     await ctx.close();
   }

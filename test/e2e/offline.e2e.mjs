@@ -149,12 +149,16 @@ async function stored(page, name = '') {
     return ks.length === 1 && ks[0].includes(name) && !!r?.active && !r.installing && !r.waiting; // (its state not asked: WebKit goes on saying 'activating' after the page moves to the new version)
   }, name).catch(() => false); // (the page may be moving on to the new version)
   for (const end = Date.now() + 120000; !(await ready());) { assert.ok(Date.now() < end, 'the service worker installed'); await new Promise(r => setTimeout(r, 250)); }
-  await page.waitForLoadState('networkidle');
-  return page.evaluate(async () => {
+  // (the page moves itself to the new version a moment after that: read again if it does so meanwhile)
+  const read = () => page.evaluate(async () => {
     const name = (await caches.keys()).find(k => k.startsWith('endfall-')), c = await caches.open(name), files = {};
     for (const req of await c.keys()) files[new URL(req.url).pathname] = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await (await c.match(req)).arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join('');
     return { name, files };
   });
+  for (let i = 0; ; i++) {
+    await page.waitForLoadState('networkidle');
+    try { return await read(); } catch (e) { if (i > 2 || !/context was destroyed|navigation/i.test(e.message)) throw e; }
+  }
 }
 
 test('a first visit downloads each file once (the service worker\'s copy a 304), a second nothing, and an update only what it changed, its cache holding its own files alone', { timeout: 180000, engines: true }, async () => {
@@ -179,7 +183,7 @@ test('a first visit downloads each file once (the service worker\'s copy a 304),
     const art = list.filter(f => /^art\/.*\.webp$/.test(f)).sort((a, b) => dist(a).length - dist(b).length)[0];
     const page1 = Buffer.concat([dist('index.html'), Buffer.from('<!-- the next build -->\n')]), art1 = Buffer.concat([dist(art), Buffer.from('\n')]);
     site.deployed = new Map([['/index.html', page1], [`/${art}`, art1], ['/sw.js', Buffer.from(dist('sw.js').toString().replace(/endfall-[0-9a-f]{12}/, 'endfall-00000000beef'))]]);
-    await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration()).update(); });
+    await page.evaluate(() => { navigator.serviceWorker.getRegistration().then(r => r.update()); }); // (not waited for here: the page moves to the new version as soon as it is in)
     const next = await stored(page, '00000000beef'), three = sent();
     const sha = (b) => createHash('sha256').update(b).digest('hex');
     assert.equal(next.files['/'], sha(page1), 'the new build\'s page');

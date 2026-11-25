@@ -226,7 +226,7 @@ async function finish(how) {
   card.hidden = false;
   const lines = how === 'done'
     ? `<p><b>${s.fps} fps</b> on average (screen ${refreshHz} Hz${s.drawFps < s.fps - 1 ? `, drawn ${s.drawFps} a second` : ''}) · worst frame <b>${s.frameMs.max} ms</b> · ${s.over33}% of frames over 33 ms</p>
-       <p class="tag">Per frame: sim ${s.sim.avg} ms, mirror ${s.sync.avg} ms, drawing ${s.render.avg} ms, HUD and the rest ${r2(s.other.avg + s.hud.avg)} ms. Game speed ${Math.round(s.gameSpeed * 100)}%. Art: ${esc(report.setup.art)}.</p>`
+       <p class="tag">Per frame: sim ${s.sim.avg} ms, mirror ${s.sync.avg} ms, drawing ${s.render.avg} ms, HUD and the rest ${r2(s.other.avg + s.hud.avg)} ms. Game speed ${Math.round(s.gameSpeed * 100)}%.</p>`
     : `<p>The test was ${how}: ${s.secs} s measured.</p>`;
   say(`${lines}<p id="benchCode" class="tag">Sending…</p>`);
   await send(report);

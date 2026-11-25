@@ -31,7 +31,7 @@ function selectOrDouble(hit, add, at = performance.now()) {
   lastPick = { id: hit.id, t: at, dbl: false };
   select([hit], add);
 }
-import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop } from './gl/render.js';
+import { cv, mm, cam, view, clampCam, centerOn, toWorld, zoomAt, flashTarget, ALLY, FOE, unitTop, unitRadius, bldgArtTop, deskHud, resize } from './gl/render.js';
 /** Where a unit is drawn, as a circle round its body: centered half its drawn height above its feet (a flyer's art,
  *  shadow and all, rises from the ground point it occupies), as wide as its art or half that height, whichever is more. */
 const body = (u) => { const h = unitTop(u.type) / 2; return { x: u.x, y: u.y - h, r: Math.max(unitRadius(u), h) }; };
@@ -317,7 +317,7 @@ function bindCanvas() {
     cv.setPointerCapture(ev.pointerId); const p = canvasPos(ev); pointers.set(ev.pointerId, p); drag.ptype = ev.pointerType;
     if (ev.pointerType === 'touch') { if (pointers.size === 2) { cancelHold(); if (drag.held) endHoldBox(); if (ui.place) ui.place.tx = ui.place.ty = -99; drag.down = false; drag.box = false; drag.pan = false; const [a, b] = [...pointers.values()]; pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; return; } if (pointers.size > 2) return; }
     if (ev.button === 1 && ev.pointerType === 'mouse') { mid = p; edge.x = edge.y = 0; return; } // (a drag of the map: no selection, no order)
-    if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
+    if (ev.button === 2) { const w = toWorld(p.x, p.y); if (ui.box) { ui.box = false; boxButton(); return; } if (ui.place || ui.mode) { clearMode(); return; } commandAt(w.x, w.y); return; }
     if (ev.button !== 0) return;
     // A touch that stops a gliding camera does nothing else.
     drag.quiet = ev.pointerType === 'touch' && fling.caught;
@@ -385,6 +385,7 @@ function bindCanvas() {
     const w = toWorld(p.x, p.y);
     if (ui.place && ev.pointerType === 'touch' && !ghostAt(ev)) return; // (lifted over the HUD: still placing, nothing built)
     if (ui.place && ev.pointerType !== 'touch') Object.assign(ui.place, placeTile(ui.place.type, w.x, w.y));
+    if (ev.pointerType !== 'touch' && ui.box) { ui.box = false; boxButton(); return; } // (SELECT armed: a plain click lets it go and orders nothing)
     if (ev.pointerType === 'touch') touchTap(w.x, w.y, ev.timeStamp); else leftAction(w.x, w.y, ev.shiftKey, ev.timeStamp);
   };
   cv.addEventListener('pointerup', endPointer);
@@ -435,20 +436,26 @@ function bindMinimap() {
 }
 
 /**
- * SELECT (touch screens): hold it and drag a box with the other hand, or tap it to arm one box drag. Shown on any
- * device with a touch screen (also touch laptops), and as soon as a finger touches the map.
+ * SELECT, with HOME and ARMY beside it. Touch: hold it and drag a box with the other hand, or tap it to arm one box
+ * drag. A mouse: a click arms one box drag, a click on the map (or Esc, or SELECT again) lets it go. The row shows on any
+ * device with a touch screen (also touch laptops), as soon as a finger touches the map, and with the desktop HUD.
  */
 function bindSelectButton() {
   const bx = $('btnBox');
   if (bx) {
-    const show = () => { bx.hidden = false; $('btnHome').hidden = false; $('btnArmy').hidden = false; }; // (Home and Army go with SELECT: touch screens; a keyboard has Home and Q)
-    if (matchMedia('(any-pointer: coarse)').matches) show();
-    cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') show(); });
+    const row = [bx, $('btnHome'), $('btnArmy')];
+    let touched = matchMedia('(any-pointer: coarse)').matches;
+    const show = () => { for (const b of row) b.hidden = !(touched || deskHud.matches); };
+    show();
+    cv.addEventListener('pointerdown', ev => { if (ev.pointerType === 'touch') { touched = true; show(); } });
+    deskHud.addEventListener('change', () => { show(); resize(); }); // (a window grown or shrunk past the desktop HUD's size: the map's room past the foot goes by the row)
+    if (deskHud.matches) bx.title = 'Click, then drag a box on the map';
+    for (const b of row) b.addEventListener('mousedown', ev => ev.preventDefault()); // (a click leaves the focus where it was: Space and Enter stay the game's)
     let downAt = 0, viaPointer = false;
-    bx.addEventListener('pointerdown', ev => { ev.stopPropagation(); ev.preventDefault(); viaPointer = true; downAt = ev.timeStamp; boxDone = false; ui.box = ui.box ? false : 'held'; boxButton(); });
-    bx.addEventListener('pointerup', ev => { if (ui.box === 'held') ui.box = !boxDone && ev.timeStamp - downAt <= 350 ? 'once' : false; boxButton(); });
+    bx.addEventListener('pointerdown', ev => { ev.stopPropagation(); if (ev.pointerType === 'mouse') return; ev.preventDefault(); viaPointer = true; downAt = ev.timeStamp; boxDone = false; ui.box = ui.box ? false : 'held'; boxButton(); });
+    bx.addEventListener('pointerup', ev => { if (ev.pointerType === 'mouse') return; if (ui.box === 'held') ui.box = !boxDone && ev.timeStamp - downAt <= 350 ? 'once' : false; boxButton(); });
     bx.addEventListener('pointercancel', () => { ui.box = false; boxButton(); });
-    bx.addEventListener('click', () => { if (viaPointer) { viaPointer = false; return; } ui.box = ui.box ? false : 'once'; boxButton(); }); // keyboard
+    bx.addEventListener('click', () => { if (viaPointer) { viaPointer = false; return; } ui.box = ui.box ? false : 'once'; boxButton(); }); // a mouse, a keyboard
     bx.addEventListener('contextmenu', ev => ev.preventDefault());
   }
 }

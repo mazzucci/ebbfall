@@ -1,6 +1,7 @@
 // The mouse's buttons (MOUSE on the OPTIONS card, src/client/controls.js): LEFT OR RIGHT CLICK, the default, where a left
 // click orders the units selected as a right click does, and RIGHT CLICK ONLY, where it only selects and empty ground
-// keeps the selection (with the right-click hint, src/client/groundhint.js). A finger's tap is the same in both.
+// keeps the selection (with the right-click hint, src/client/groundhint.js). A finger's tap is the same in both. And SELECT, HOME and ARMY
+// with the desktop HUD.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { test, start, stop, newGame, DESKTOP, PHONE } from './harness.mjs';
@@ -322,6 +323,65 @@ test('desktop: the tutorial\'s second step says how a mouse orders, and how to l
     await d.hudText('#tut', /New Villagers wait by the Castle: select them, then click the gold mine \(Esc or Deselect lets go\).*2\/8/);
     await pickMouse(d, 'right');
     await d.hudText('#tut', /select them, then right-click the gold mine \(Esc or Deselect lets go\)/);
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
+
+for (const [w, h] of [[1280, 720], [1440, 900], [1920, 1080]]) {
+  test(`desktop ${w}x${h}: SELECT, HOME and ARMY over the minimap, clear of every panel; ARMY selects the army, HOME looks at the base, SELECT arms one box (from a unit too), a plain click, a right click, Esc or SELECT again lets it go and orders nothing`, async () => {
+    const d = await newGame({ viewport: { width: w, height: h } }, 1, 4242, { ai: false });
+    try {
+      const { core, guards, spot: [x, y] } = await scene(d);
+      const { page } = d, box = (q) => page.locator(q).boundingBox();
+      const armed = () => d.eval(() => [endfall.ui.box, document.getElementById('btnBox').classList.contains('on')]);
+      await page.locator('#btnArmy').click();
+      assert.deepEqual(await ids(d), guards, 'ARMY selects the army');
+      const row = await Promise.all(['#btnBox', '#btnHome', '#btnArmy'].map(box)), mm = await box('#minimap');
+      assert.deepEqual(await page.$$eval('#btnBox,#btnHome,#btnArmy', bs => bs.map(b => b.innerText.trim())), ['SELECT', 'HOME', 'ARMY']);
+      assert.deepEqual(await page.$$eval('#btnHome,#btnArmy', bs => bs.map(b => /\((Home|Q)\)/.exec(b.title)?.[1])), ['Home', 'Q'], 'their keys in their titles');
+      assert.ok(await page.$$eval('#btnBox span,#btnHome span,#btnArmy span', ss => ss.every(e => parseFloat(getComputedStyle(e).fontSize) >= 12 && e.getBoundingClientRect().width <= e.parentElement.clientWidth)), 'their words 12 px or more, inside the button');
+      const over = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+      for (const q of ['#minimap', '#cmd', '#info', '#top']) for (const b of row) assert.ok(!over(b, await box(q)), `clear of ${q}: ${JSON.stringify(b)}`);
+      assert.ok(Math.abs(row[0].x - mm.x) <= 1.5 && Math.abs(row[2].x + row[2].width - mm.x - mm.width) <= 1.5, 'as wide as the minimap');
+      // HOME looks at the base; the focus stays off the buttons (Space and Enter stay the game's).
+      await d.eval(() => endfall.centerOn(endfall.engine.WW / 2, endfall.engine.WH / 2));
+      const far = await d.eval((c) => Math.hypot(endfall.cam.x + endfall.view.w / 2 / endfall.cam.zoom - c.x, endfall.cam.y + endfall.view.h / 2 / endfall.cam.zoom - c.y), core);
+      await page.locator('#btnHome').click();
+      const near = await d.eval((c) => Math.hypot(endfall.cam.x + endfall.view.w / 2 / endfall.cam.zoom - c.x, endfall.cam.y + endfall.view.h / 2 / endfall.cam.zoom - c.y), core);
+      assert.ok(near < far / 2, `HOME: ${far} -> ${near} px from the Castle`);
+      assert.equal(await page.evaluate(() => document.activeElement?.id || ''), '', 'no button keeps the focus');
+      // Armed, a plain click on the ground, a right click, Esc and SELECT again each let it go; nothing is ordered.
+      const arm = async () => { await page.locator('#btnBox').click(); assert.deepEqual(await armed(), ['once', true], 'SELECT arms a box'); assert.equal(await page.locator('#hint').textContent(), 'Drag a box around your units'); };
+      for (const [how, go] of [['a click', () => d.clickWorld(x, y)], ['a right click', () => d.rightClickWorld(x, y)], ['Esc', () => d.key('Escape')], ['SELECT again', () => page.locator('#btnBox').click()]]) {
+        await arm(); await go();
+        assert.deepEqual([await armed(), await ids(d), await tasks(d, guards)], [[false, false], guards, ['idle', 'idle', 'idle']], `${how}: let go, nothing ordered, the army still selected`);
+      }
+      // A box drawn from one Guard over it alone, then it is over: the next plain click orders again.
+      await arm();
+      const g = (await d.state()).units.find(u => u.id === guards[0]), up = await d.eval(() => endfall.unitTop('trooper') / 2);
+      const [gx, gy] = await d.screen(g.x, g.y - up);
+      await page.mouse.move(gx, gy); await page.mouse.down(); await page.mouse.move(gx - 20, gy + 20, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(60);
+      assert.deepEqual([await armed(), await ids(d)], [[false, false], [guards[0]]], 'the box selects the Guard it began on, and SELECT is over');
+      await d.clickWorld(x, y);
+      assert.deepEqual(await tasks(d, [guards[0]]), ['move'], 'a plain click orders again');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
+test('desktop: SELECT, HOME and ARMY go with the desktop HUD: none in a smaller window, back in a larger one; the help sheet names them', async () => {
+  const d = await newGame(DESKTOP, 1, 4242, { ai: false });
+  try {
+    const shown = () => d.page.$$eval('#btnBox,#btnHome,#btnArmy', bs => bs.map(b => b.checkVisibility()));
+    assert.deepEqual(await shown(), [true, true, true]);
+    await d.page.setViewportSize({ width: 1000, height: 700 });
+    await d.page.waitForFunction(() => document.getElementById('btnBox').hidden, null, { timeout: 5000 });
+    assert.deepEqual(await shown(), [false, false, false], '1000x700: not the desktop HUD');
+    await d.page.setViewportSize({ width: 1280, height: 720 });
+    await d.page.waitForFunction(() => !document.getElementById('btnBox').hidden, null, { timeout: 5000 });
+    assert.deepEqual(await shown(), [true, true, true]);
+    await d.page.locator('#btnHelp').click();
+    assert.match(await d.page.locator('#helpSheet .lines.desk').innerText(), /ARMY \(Q\) your whole army, HOME your base, SELECT arms a box/);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

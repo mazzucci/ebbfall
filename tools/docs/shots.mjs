@@ -397,7 +397,7 @@ async function hud() {
     // that the canvas reaches it; 790 px down did, the army pushed up under the top bar)
     const mm = await page.locator('#minimap').boundingBox();
     await page.mouse.move(mm.x + mm.width / 2, mm.y + mm.height / 2); await settle(page);
-    const marks = { res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'] };
+    const marks = { res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], army: ['#btnBox', '#btnHome', '#btnArmy'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'] };
     // The frame: the first, from the gate toward the Castle, where every note finds a free spot (a building under a
     // corner's buttons leaves its note none: the base by the map's edge, the camera held back there)
     for (const f of [180, 150, 120, 90]) {

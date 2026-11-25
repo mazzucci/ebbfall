@@ -1270,7 +1270,9 @@ export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() /
 /** The outline of frame `name`'s solid paint, as points round it (px from its anchor at the sprite's size, its soft
  *  shadow left out): for each of HULL_N directions from its middle the farthest solid pixel, smoothed over its neighbors
  *  and pushed out by HULL_OUT, so a line along it stands clear of the paint. Read once from the decoded page, cached. */
-const HULL_N = 72, HULL_OUT = 4, hulls = new Map();
+const HULL_N = 72, HULL_OUT = 4, hulls = new Map(), mineMarks = [];
+/** Tests: the gold mines marked in the last frame, each with its outline (world px, x and y in turn). */
+export const minesMarked = () => mineMarks.map(m => ({ ...m, scale: GROUND.mine }));
 function hullOf(name) {
   if (hulls.has(name)) return hulls.get(name);
   const box = artBox(name); if (!box) return null;
@@ -1295,6 +1297,7 @@ function outline(e, width, color, alpha) {
   const hull = e.kind === 'node' && hullOf(`mine_${mineStage(e)}`);
   if (hull) {
     const p = hull.map((v, i) => (i % 2 ? e.y : e.x) + v * GROUND.mine);
+    mineMarks.push({ id: e.id, pts: p, width, alpha });
     lines.poly(p, true).stroke({ width: width + 2, color: RIM_HALO, alpha: alpha * 0.45, join: 'round' });
     lines.poly(p, true).stroke({ width, color, alpha, join: 'round' });
     return;
@@ -1302,6 +1305,7 @@ function outline(e, width, color, alpha) {
   lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
 }
 function drawTargets(selList, now) {
+  mineMarks.length = 0;
   for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected gold mine
   // Faint, steady: the mine or building each selected worker is working on.
   const done = new Set();

@@ -2122,6 +2122,44 @@ test('phone: with a worker selected, a tap on a mine where another worker stands
   } finally { await d.close(); }
 });
 
+test('a gold mine ordered, worked or selected is marked along its painted outline: clear of the paint and near it all round, never a square through it', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const s = await d.state(), core = coreOf(s);
+      const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      const marks = () => d.eval(() => { endfall.draw(); return endfall.minesMarked(); });
+      assert.deepEqual(await marks(), [], 'nothing selected: no mark');
+      // The outline against the frame's own paint: from each of its points, the nearest solid pixel (world px).
+      const check = async (m, what) => {
+        const got = await d.eval(async ([m, n]) => {
+          const j = await (await fetch('art/new/land-0.json')).json(), img = await createImageBitmap(await (await fetch('art/new/land-0.webp')).blob());
+          const { frame: f, anchor: a } = j.frames.mine_full, k = m.scale / (+j.meta.scale || 1), c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+          const g = c.getContext('2d'); g.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+          const px = g.getImageData(0, 0, f.w, f.h).data, solid = [];
+          for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (px[(y * f.w + x) * 4 + 3] > 200) solid.push([n.x + (x - a.x * f.w) * k, n.y + (y - a.y * f.h) * k]);
+          const gap = []; for (let i = 0; i < m.pts.length; i += 2) gap.push(Math.min(...solid.map(([x, y]) => Math.hypot(x - m.pts[i], y - m.pts[i + 1]))));
+          return { min: Math.min(...gap), max: Math.max(...gap), left: Math.min(...m.pts.filter((_, i) => !(i % 2))), right: Math.max(...m.pts.filter((_, i) => !(i % 2))), l: Math.min(...solid.map(p => p[0])), r: Math.max(...solid.map(p => p[0])) };
+        }, [m, node]);
+        assert.ok(got.min > 0.8 && got.max < 16, `${what}: 1 to 16 px from the paint all round: ${JSON.stringify(got)}`);
+        assert.ok(got.left < got.l && got.right > got.r, `${what}: all of the mine inside it: ${JSON.stringify(got)}`);
+      };
+      // A mine looked at, then a worker working it, then ordered there (the blink).
+      await d.clickWorld(node.x, node.y - 4);
+      let m = await marks();
+      assert.deepEqual(m.map(q => q.id), [node.id], 'the mine selected: marked');
+      await check(m[0], 'selected');
+      await d.key('Escape');
+      const w = s.units.find(u => u.team === 0 && u.type === 'harvester').id;
+      await d.eval(([id, n]) => { const u = endfall.G.units.find(u => u.id === id); endfall.engine.startGather(u, endfall.map.nodes.find(q => q.id === n)); endfall.skip(0.1); endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, [w, node.id]);
+      m = await marks();
+      assert.ok(m.length && m.every(q => q.id === node.id), `its worker selected: marked: ${JSON.stringify(m.map(q => q.id))}`);
+      await check(m[0], 'worked');
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
 test('a worker sent to a gold mine (desktop right-click, phone tap) goes inside and comes out with gold', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });

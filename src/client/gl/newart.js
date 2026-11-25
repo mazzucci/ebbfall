@@ -43,6 +43,15 @@ export const UNIT_SIZE = {}, UNIT_SIZE_REST = 1;
  *  by it (render.js); the sim's radius and collision do not. */
 export const unitSize = (type, packed) => (packed ? UNIT_SIZE[type] ?? UNIT_SIZE_REST : 1);
 
+/** The selection ring's size for the new look's units, of the ring today's rule gives their kind (render.js UnitObj:
+ *  a small or a large ring by the sim's radius, at the art's scale). The people on foot are slim at the painter's true
+ *  camera, and today's ring, sized for a squat render, stood well clear of their feet: theirs is a fifth smaller. Horses
+ *  and machines fill theirs. Only the drawn ring: the hit test, the health bar and the silhouette go by `unitSize`, the
+ *  sim's radius and collision by nothing here. */
+export const RING_SIZE = { harvester: 0.8, trooper: 0.8, lancer: 0.8, prism: 0.8, bruiser: 0.8, umbra: 0.8 };
+/** The ring's factor for a unit of `type`: its row with the new look's frames of it loaded (`packed`), 1 with today's. */
+export const ringSize = (type, packed) => (packed ? RING_SIZE[type] ?? 1 : 1);
+
 /** How a builder with work frames of its own (`_k0` the tool or the arm out, `_k1` the stroke) works at its site, by
  *  kind. `nudge`: its body leans into each strike for two frames, as today's builders do; `turns`: its arm changes frame
  *  at each strike (out for one, down for the next: a calm 1.1 s) instead of flashing the stroke for 0.18 s after each.

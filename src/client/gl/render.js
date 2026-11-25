@@ -15,7 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
-import { newArtIndex, loadGroups, staleMasks, unitSize, workLook } from './newart.js';
+import { newArtIndex, loadGroups, staleMasks, unitSize, workLook, ringSize } from './newart.js';
 import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
 import { Land, loadGrounds, MINIMAP, GROUND } from './newlandgl.js';
 
@@ -581,7 +581,7 @@ class UnitObj {
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own color)
     // (an own walker: its silhouette, shown while a building hides it)
     if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE * unitK(u.type)); this.xr.visible = false; L.xray.addChild(this.xr); }
-    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type); // (the selection ring round the feet: as large as the art)
+    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type) * ringSize(u.type, newArt.unit?.unitTops?.[u.type] != null); // (the selection ring round the feet: as large as the art; gl/newart.js RING_SIZE: the new look's people on foot, a smaller one)
     this.cargo = light(0xeee6d2, 0.14, 0.5); // (the gold a worker carries: pale, faint)
     this.id = u.id; this.px = u.x; this.py = u.y; this.walk = 0;
   }

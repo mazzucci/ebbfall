@@ -11,7 +11,7 @@
 //   node tools/newart/unit/build.mjs --webp q90   every unit of the table whose folder is whole (a folder without all
 //                                               its frames is left out with a line saying so: today's art stays): the
 //                                               pack that ships
-//     --from bot=p_bot,rover=p_rover   another folder for a row (the three interim 3D ones, when their painted ones are done)
+//     --from bot=p_bot3,rover=p_rover  another folder for a row (a unit painted again, or an older one to compare)
 //   node tools/newart/unit/build.mjs guard bot  only these (a trial: the pack holds no other unit; use --out)
 //     --webp q90       the pages as lossy WebP at that quality (alpha kept exact) instead of lossless
 //     --out DIR        another folder than public/art/new (its own index.json)
@@ -68,13 +68,13 @@ const UNITS = {
   ballista: { from: 'p_ballista', kind: 'bastion', stand: 'idle', walk: ['r0', 'r1'], fire: { aim: 'drawn', shot: 'fired' } },
   cannon: { from: 'p_cannon', kind: 'siegeTank', stand: 'idle', walk: ['r0', 'r1'], set: 'setup', fire: { shot: 'fire' } },
   balloon: { from: 'p_balloon', kind: 'observer', walk: ['idle'] },
-  bot: { from: 't_bot', kind: 'lumen', stand: 'e_idle', walk: ['e_d0', 'e_d1'], carry: { stand: 'f_idle', walk: ['f_d0', 'f_d1'] }, work: ['e_k0', 'e_k1'] }, // (interim 3D: p_bot once it is painted)
+  bot: { from: 'p_bot3', kind: 'lumen', stand: 'e_idle', walk: ['e_d0', 'e_d1'], carry: { stand: 'f_idle', walk: ['f_d0', 'f_d1'] }, work: ['e_k0', 'e_k1'] },
   buggy: { from: 'p_buggy', kind: 'scythe', stand: 'idle', walk: ['d0', 'd1'], fire: { shot: 's0', after: 's1' } },
   sellsword: { from: 'p_sellsword', kind: 'prism', stand: 'idle', walk: W2, strike: MELEE },
   bruiser: { from: 'p_bruiser', kind: 'bruiser', stand: 'idle', walk: W2, strike: MELEE },
   android: { from: 'p_android', kind: 'umbra', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
-  rover: { from: 't_rover', kind: 'monolith', stand: 'idle', walk: ['d0', 'd1'], fire: { aim: 'aim', shot: 'shoot' } }, // (interim 3D: p_rover)
-  drone: { from: 't_drone', kind: 'shrike', walk: ['r0', 'r1', 'r2', 'r3'] },                                         // (interim 3D: p_drone)
+  rover: { from: 'p_rover', kind: 'monolith', stand: 'idle', walk: ['d0', 'd1'], fire: { aim: 'aim', shot: 'shoot' } },
+  drone: { from: 'p_drone', kind: 'shrike', walk: ['r0', 'r1', 'r2', 'r3'] },
   guard3d: { off: true, model: 'guard', kind: 'trooper', px: +arg('--px', 0.655), stand: 'idle', walk: WALK === 2 ? ['w0', 'w2'] : W4, strike: MELEE, fps: WALK === 2 ? 7 : 14, cell: { w: 200, h: 170, ax: 100, ay: 110 } },
 };
 for (const pair of arg('--from', '').split(',').filter(Boolean)) { const [name, dir] = pair.split('='); if (!UNITS[name] || !dir) throw new Error(`--from ${pair}: no such row`); UNITS[name].from = dir; }

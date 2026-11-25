@@ -1,23 +1,25 @@
 // The new look's units (`?art=new`, src/client/gl/newart.js), packed into public/art/new/unit-<n>.webp + .json with the
-// `unit` entry of public/art/new/index.json (the other groups' entries are kept). Two kinds of source, one table (UNITS):
-//  - a folder of finished frames, <EBBFALL_PICTURES>/units3d/frames/<name>/ with its frames.json (the article folder's
-//    units3d renders them on the flat map's stage: 2 px a game px, the shadow and the edge baked, a team mask each);
-//  - the Guard's own 3D model (guard.js on the rig, stage.js), rendered here in headless Chromium, its textures
-//    rectangles of a design sheet read from <EBBFALL_PICTURES>/units/ as it runs.
-// EBBFALL_PICTURES defaults to the article folder's nano-test. Nothing this writes is the builder's to commit
-// (public/art/new/ is ignored); nothing is written in the pictures' folder.
-//   node tools/newart/unit/build.mjs            every unit of the table whose source is there (a folder without all
-//                                               its frames is left out with a line saying so: today's art stays)
-//   node tools/newart/unit/build.mjs guard bot2 only these (a trial: the pack holds no other unit; use --out)
-//     --webp q90       the pages as lossy WebP at that quality (alpha kept exact) instead of lossless (the packs that
-//                      ship are q90: about a third fewer bytes over the fifteen units, half on the Guard's soft shading)
+// `unit` entry of public/art/new/index.json (the other groups' entries are kept). One table (UNITS) says where each of
+// the fifteen kinds comes from and which of its frames is what:
+//  - a folder of finished frames, <EBBFALL_PICTURES>/units3d/frames/<from>/ with its frames.json (rendered and painted
+//    in the article folder: 2 px a game px, a true 31-degree camera with the facings at equal angles on screen, the
+//    shadow baked, a team mask each, already in the new look's light: no tone curve here);
+//  - `guard3d`, off unless named: the Guard's own 3D model (guard.js on the rig, stage.js), rendered here in headless
+//    Chromium, its textures rectangles of a design sheet read from <EBBFALL_PICTURES>/units/ as it runs.
+// EBBFALL_PICTURES defaults to the article folder's nano-test. Nothing is written in the pictures' folder; the pages
+// this writes are the only pictures of it that go in the repo.
+//   node tools/newart/unit/build.mjs --webp q90   every unit of the table whose folder is whole (a folder without all
+//                                               its frames is left out with a line saying so: today's art stays): the
+//                                               pack that ships
+//     --from bot=p_bot,rover=p_rover   another folder for a row (the three interim 3D ones, when their painted ones are done)
+//   node tools/newart/unit/build.mjs guard bot  only these (a trial: the pack holds no other unit; use --out)
+//     --webp q90       the pages as lossy WebP at that quality (alpha kept exact) instead of lossless
 //     --out DIR        another folder than public/art/new (its own index.json)
 //     --check FILE     also a contact sheet per unit (PNG; `%` in FILE is the unit's name): every facing and frame in
-//                      seat 0's paint on grass, at the page's scale and at half
+//                      seat 0's paint on grass, a cross on the ground point, at the page's scale and at half
 //     --fresh          render the model again even when target/newart/cache holds these very frames
-//     --scale 3|4 --walk 2 --elev 30.8 --true   the model's trials: the pages' px per game px (frame folders are 2
-//                      only, so then the model alone), two walk frames, another camera, the true projection
-// Same pictures, same pack. A later batch: add its row to UNITS if its name or frames are new, run the first line.
+//     --scale 3|4 --walk 2 --elev 30.8 --true   the model's trials (frame folders are 2 px a game px only)
+// Same pictures, same pack.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, extname, resolve } from 'node:path';
@@ -29,45 +31,53 @@ import { SHADOW } from '../tone.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), REPO = resolve(HERE, '../../..');
 const PICTURES = process.env.EBBFALL_PICTURES || '/home/mazzucci/projects/ebbfall-article/nano-test';
-const VALUED = ['--scale', '--walk', '--elev', '--webp', '--out', '--check', '--px'];
+const VALUED = ['--scale', '--walk', '--elev', '--webp', '--out', '--check', '--px', '--from'];
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; }, flag = (k) => process.argv.includes(k);
 const NAMED = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !VALUED.includes(all[i - 1]));
 
 // ---------------------------------------------------------------- the tuned numbers
 const Z = +arg('--scale', 2), WALK = +arg('--walk', 4);
 /**
- * The units: a source's name -> the game's kind (src/engine/constants.js) and which of its frames is what.
- *  `stand`  the pose a standing unit holds (the game's frame 0: the portraits' too);
- *  `walk`   the march, the roll or the rotor (frames 1..n; with no `stand`, frames 0..n-1, cycled as today's);
+ * The units: a row's name -> where it comes from, the game's kind (src/engine/constants.js) and which frame is what.
+ *  `from`   its folder under units3d/frames (`--from name=folder` names another);
+ *  `stand`  the pose a standing unit holds (the game's frame 0);
+ *  `walk`   the march, the roll or the rotor (frames 1..n; with no `stand`, frames 0..n-1, cycled as today's); a
+ *           frame named twice, or the standing one named in it, is one picture under several names;
  *  `strike` [wind, strike]: a melee unit's two poses (look.js STRIKE: `_wind`, `_strike`);
  *  `fire`   { aim, shot, after }: a shooter with its target in reach, as its shot leaves, just after (`_aim`, `_shot`, `_after`);
  *  `carry`  { stand, walk }: a worker with a load (`_c0`, `_c1`..);  `work` [raised, struck]: a builder at its site (`_k0`, `_k1`);
  *  `set`    a unit set up or setting up (look.js UNIT_POSE: `_set`);
  *  `top`    its drawn height above its ground point (game px) where the measure is wrong (see unitTop);
- *  `fps`    the walk's frames a second where today's 8 is wrong; `model` the unit rendered here (stage.js), `px` its
- *           2x-sprite px per model unit, `cell` the room a frame is shot in (game px, the ground point at ax, ay).
+ *  `fps`    the walk's frames a second where today's 8 is wrong (the horses' four frames: a first guess, not measured
+ *           against their stride);
+ *  `model`  the unit rendered here from that file (stage.js), `px` its 2x-sprite px per model unit, `cell` the room a
+ *           frame is shot in (game px, the ground point at ax, ay); `off`: packed only when named.
  * Whatever a source lacks of today's frames of its kind takes its standing frame (no new body ever wears an old pose).
- * Sizes are Notion's "Units: one story each", rule 9, in 2x px: a folder's frames come at their size; the Guard's `px`
- * makes it 92 with its spear upright (118 model units at the camera's 1.19).
+ * Not used: the Bot's `f_k0`, `f_k1` (working with a full bin): the client has no such pose.
+ * Sizes are the frames' own (each frames.json's `drawn`); the client draws them at 1 (gl/newart.js UNIT_SIZE).
  */
-const W2 = ['w0', 'w1'], MELEE = ['wind', 'strike'];
+// (a man's walk: his two strides with the standing pose between them, as the painter's own walk shows: four frames of
+// three pictures, at today's 8 a second: two steps in half a second, about a stride a step at these units' 78 to 92 px a second)
+const W2 = ['w0', 'idle', 'w1', 'idle'], W4 = ['w0', 'w1', 'w2', 'w3'], MELEE = ['wind', 'strike'];
 const UNITS = {
-  guard: { kind: 'trooper', model: true, px: +arg('--px', 0.655), stand: 'idle', walk: WALK === 2 ? ['w0', 'w2'] : ['w0', 'w1', 'w2', 'w3'], strike: MELEE, fps: WALK === 2 ? 7 : 14, cell: { w: 200, h: 170, ax: 100, ay: 110 } },
-  villager: { kind: 'harvester', stand: 'idle', walk: W2, carry: { stand: 'c_idle', walk: ['c_w0', 'c_w1'] }, work: ['k0', 'k1'] },
-  archer: { kind: 'lancer', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
-  rider: { kind: 'rider', stand: 'idle', walk: W2, strike: MELEE },
-  knight2: { kind: 'knight', stand: 'idle', walk: W2, strike: MELEE },
-  ballista: { kind: 'bastion', stand: 'idle', walk: ['r0', 'r1'], fire: { aim: 'drawn', shot: 'fired' }, top: 58 }, // (its far bow arm, 116 px up at facing 0: thin, so the measure passes it by, and the health bar would sit across it)
-  cannon: { kind: 'siegeTank', stand: 'idle', walk: ['r0', 'r1'], set: 'setup', fire: { shot: 'fire' } },
-  balloon: { kind: 'observer', walk: ['idle'] },
-  bot2: { kind: 'lumen', stand: 'e_idle', walk: ['e_d0', 'e_d1'], carry: { stand: 'f_idle', walk: ['f_d0', 'f_d1'] }, work: ['e_k0', 'e_k1'] },
-  buggy: { kind: 'scythe', stand: 'idle', walk: ['d0', 'd1'], fire: { shot: 's0', after: 's1' } },
-  sellsword2: { kind: 'prism', stand: 'idle', walk: W2, strike: MELEE },
-  bruiser: { kind: 'bruiser', stand: 'idle', walk: W2, strike: MELEE },
-  android: { kind: 'umbra', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
-  rover: { kind: 'monolith', stand: 'idle', walk: ['d0', 'd1'], fire: { aim: 'aim', shot: 'shoot' } },
-  drone: { kind: 'shrike', walk: ['r0', 'r1', 'r2', 'r3'] },
+  villager: { from: 'p_villager', kind: 'harvester', stand: 'idle', walk: W2, carry: { stand: 'c_idle', walk: ['c_w0', 'c_idle', 'c_w1', 'c_idle'] }, work: ['k0', 'k1'] },
+  guard: { from: 'p_guard', kind: 'trooper', stand: 'idle', walk: W2, strike: MELEE },
+  archer: { from: 'p_archer', kind: 'lancer', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
+  rider: { from: 'p_rider', kind: 'rider', stand: 'idle', walk: W4, strike: MELEE, fps: 10 },
+  knight: { from: 'p_knight', kind: 'knight', stand: 'idle', walk: W4, strike: MELEE, fps: 8 },
+  ballista: { from: 'p_ballista', kind: 'bastion', stand: 'idle', walk: ['r0', 'r1'], fire: { aim: 'drawn', shot: 'fired' } },
+  cannon: { from: 'p_cannon', kind: 'siegeTank', stand: 'idle', walk: ['r0', 'r1'], set: 'setup', fire: { shot: 'fire' } },
+  balloon: { from: 'p_balloon', kind: 'observer', walk: ['idle'] },
+  bot: { from: 't_bot', kind: 'lumen', stand: 'e_idle', walk: ['e_d0', 'e_d1'], carry: { stand: 'f_idle', walk: ['f_d0', 'f_d1'] }, work: ['e_k0', 'e_k1'] }, // (interim 3D: p_bot once it is painted)
+  buggy: { from: 'p_buggy', kind: 'scythe', stand: 'idle', walk: ['d0', 'd1'], fire: { shot: 's0', after: 's1' } },
+  sellsword: { from: 'p_sellsword', kind: 'prism', stand: 'idle', walk: W2, strike: MELEE },
+  bruiser: { from: 'p_bruiser', kind: 'bruiser', stand: 'idle', walk: W2, strike: MELEE },
+  android: { from: 'p_android', kind: 'umbra', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
+  rover: { from: 't_rover', kind: 'monolith', stand: 'idle', walk: ['d0', 'd1'], fire: { aim: 'aim', shot: 'shoot' } }, // (interim 3D: p_rover)
+  drone: { from: 't_drone', kind: 'shrike', walk: ['r0', 'r1', 'r2', 'r3'] },                                         // (interim 3D: p_drone)
+  guard3d: { off: true, model: 'guard', kind: 'trooper', px: +arg('--px', 0.655), stand: 'idle', walk: WALK === 2 ? ['w0', 'w2'] : W4, strike: MELEE, fps: WALK === 2 ? 7 : 14, cell: { w: 200, h: 170, ax: 100, ay: 110 } },
 };
+for (const pair of arg('--from', '').split(',').filter(Boolean)) { const [name, dir] = pair.split('='); if (!UNITS[name] || !dir) throw new Error(`--from ${pair}: no such row`); UNITS[name].from = dir; }
 /** The model's stage (stage.js setup): the flat map's camera, as the frame folders' (40 degrees, the ground square).
  *  `shadow`: the model's silhouette laid 0.38 across and 0.12 down for each px of height on the ground (the frame
  *  folders' sun: a third of the drawn height), tone.mjs's cool dark blue, its edge a quarter of a game px soft.
@@ -78,7 +88,6 @@ const VIEW = {
   shadow: { len: SHADOW.reach, dir: [0.38, 0.12], color: SHADOW.color, alpha: SHADOW.alpha, soft: 0.25 },
   edge: { px: 0.5, soft: 0.35, alpha: 0.7, color: '#141a22' },
 };
-const PORTRAIT = [2, '0'];                                // the frame the HUD's portraits are cut from: facing 2, frame 0 (render.js `portrait`)
 const FACINGS = 16, PAGE = 2048, GAP = 2 * Z, BLEED = Z;  // the pages' size limit; the gap between frames (mip levels 0 to 2 clean at any scale); the color bled under clear pixels
 const BODY = 0.35;                                        // unitTops: the rows at least this much of the widest (tools/art/generate.mjs: a spear is not the body)
 const OUT = resolve(arg('--out', join(REPO, 'public/art/new')));
@@ -104,9 +113,15 @@ function folder(name) {
     for (let y = 0; y < mk.h; y++) for (let x = 0; x < mk.w; x++) if (mk.data[(y * mk.w + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
     let mask = null;
     if (x1 >= 0) { const w = x1 - x0 + 1, h = y1 - y0 + 1, data = new Uint8ClampedArray(w * h * 4); for (let y = 0; y < h; y++) data.set(mk.data.subarray(((y0 + y) * mk.w + x0) * 4, ((y0 + y) * mk.w + x1 + 1) * 4), y * w * 4); mask = { x: r[0] + x0, y: r[1] + y0, w, h, data }; }
-    list.push({ k, pose, img: { x: r[0], y: r[1], w: im.w, h: im.h, data: new Uint8ClampedArray(im.data) }, mask });
+    // the body cut to its paint too (a painted folder's rect is its whole cell)
+    let bx0 = im.w, by0 = im.h, bx1 = -1, by1 = -1;
+    for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) if (im.data[(y * im.w + x) * 4 + 3] > 2) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+    if (bx1 < 0) return `frame ${key} is empty`;
+    const bw = bx1 - bx0 + 1, bh = by1 - by0 + 1, body = new Uint8ClampedArray(bw * bh * 4);
+    for (let y = 0; y < bh; y++) body.set(im.data.subarray(((by0 + y) * im.w + bx0) * 4, ((by0 + y) * im.w + bx1 + 1) * 4), y * bw * 4);
+    list.push({ k, pose, img: { x: r[0] + bx0, y: r[1] + by0, w: bw, h: bh, data: body }, mask });
   }
-  return { cell: { ax: J.anchor.x / 2, ay: J.anchor.y / 2 }, list };
+  return { cell: { ax: J.anchor.x / 2, ay: J.anchor.y / 2 }, list, drawn: J.drawn || J.size || '' };
 }
 const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.jpg': 'image/jpeg', '.png': 'image/png' };
 const ROOTS = [['/tone.mjs', join(HERE, '../tone.mjs')], ['/three/addons/', join(REPO, 'node_modules/three/examples/jsm/')], ['/three/', join(REPO, 'node_modules/three/build/')], ['/sheet/', join(PICTURES, 'units/')]];
@@ -117,7 +132,7 @@ let tRender = 0, cached = 0;
  *  folder's browser code, the sheet, the stage and the unit's numbers): the same shape as `folder`'s. */
 async function model(name, u) {
   const poses = [u.stand, ...u.walk, ...(u.strike || [])], view = { ...VIEW, px: u.px };
-  const sheets = [...readFileSync(join(HERE, `${name}.js`), 'utf8').matchAll(/sheet: '([^']+)'/g)].map(m => m[1]);
+  const sheets = [...readFileSync(join(HERE, `${u.model}.js`), 'utf8').matchAll(/sheet: '([^']+)'/g)].map(m => m[1]);
   const key = createHash('sha256').update(JSON.stringify([view, u, FACINGS])).update(CODE.map(f => readFileSync(join(HERE, f), 'utf8')).join('\0'));
   for (const f of sheets) { if (!existsSync(join(PICTURES, 'units', f))) return `its sheet ${f} is not there`; key.update(readFileSync(join(PICTURES, 'units', f))); }
   const cacheFile = join(REPO, 'target/newart/cache', `${name}-${key.digest('hex').slice(0, 16)}.json`);
@@ -188,12 +203,12 @@ function unitTop(frames, ay, z) {
   rises.sort((a, b) => a - b); return Math.round(rises[rises.length >> 1] * 2) / 2;
 }
 const sprites = [], group = { unitTops: {}, animations: {}, stand: [], fps: {}, carry: [], work: [], fire: {}, set: [] }, stats = [], shown = {};
-const want = NAMED.length ? NAMED : Object.keys(UNITS);
+const want = NAMED.length ? NAMED : Object.keys(UNITS).filter(n => !UNITS[n].off);
 for (const name of want) {
   const u = UNITS[name]; if (!u) throw new Error(`no unit ${name} in the table (UNITS)`);
   const z = u.model ? Z : 2; // (a folder's frames are 2 px a game px)
   if (!u.model && Z !== 2) continue;
-  const src = u.model ? await model(name, u) : folder(name);
+  const src = u.model ? await model(name, u) : folder(u.from);
   if (typeof src === 'string') { if (NAMED.length || !/no frames.json/.test(src)) console.warn(`${name} is left out: ${src}`); continue; }
   const kind = u.kind, ax = src.cell.ax * z, ay = src.cell.ay * z, by = (pose, k) => src.list.find(s => s.pose === pose && s.k === k);
   // the game's name for each of the source's frames
@@ -206,25 +221,20 @@ for (const name of want) {
   (u.work || []).forEach((f, i) => names.set(`k${i}`, f));
   if (u.set) names.set('set', u.set);
   for (const [as, f] of names) if (!by(f, 0)) throw new Error(`${name}: no frame ${f} (for ${kind}_<k>_${as})`);
-  // the portraits' cell, 2x px: today's (a portrait's size comes from its frame's: render.js artIcon reads a body's
-  // frame whole), grown about its ground point until the new figure is inside
-  const t0 = todayFrames[`${kind}_${PORTRAIT[0]}_${PORTRAIT[1]}`], cell0 = { l: t0.sourceSize.w * t0.anchor.x, u: t0.sourceSize.h * t0.anchor.y, r: t0.sourceSize.w * (1 - t0.anchor.x), d: t0.sourceSize.h * (1 - t0.anchor.y) };
-  let grow = 1; { const s = by(names.get(PORTRAIT[1]), PORTRAIT[0]).img, q = 2 / z; grow = Math.max(grow, (ax - s.x) * q / cell0.l, (ay - s.y) * q / cell0.u, (s.x + s.w - ax) * q / cell0.r, (s.y + s.h - ay) * q / cell0.d); }
   for (let k = 0; k < FACINGS; k++) {
-    const made = new Map();
+    const made = new Map(), drawn = new Map(); // (by the game's name; by the source's frame: one drawn twice is one picture under two names)
     for (const [as, f] of names) {
       const s = by(f, k), full = `${kind}_${k}_${as}`;
-      // The body: the portraits' frame (frame 0 of facing 2: render.js `portrait`) in its cell, whole; the others cut to
-      // their paint and a clear border, the anchor counted from the cut (no trim: artIcon reads a body's frame as it is).
-      let x0, y0, w, h;
-      if (as === PORTRAIT[1] && k === PORTRAIT[0]) { const q = z / 2 * grow; x0 = Math.round(ax - cell0.l * q); y0 = Math.round(ay - cell0.u * q); w = Math.ceil(ax + cell0.r * q) - x0; h = Math.ceil(ay + cell0.d * q) - y0; }
-      else { x0 = s.img.x - 1; y0 = s.img.y - 1; w = s.img.w + 2; h = s.img.h + 2; }
+      if (drawn.has(f)) { const [body, mask] = drawn.get(f); sprites.push({ name: full, alias: body }); if (mask) sprites.push({ name: full + '_m', alias: mask }); made.set(as, [body, mask]); continue; }
+      // The body, cut to its paint and a clear border, the anchor counted from the cut (no trim: the client reads a
+      // body's frame as it is; its portraits are cut by the paint's box, render.js `portrait`).
+      const x0 = s.img.x - 1, y0 = s.img.y - 1, w = s.img.w + 2, h = s.img.h + 2;
       const anchor = { x: (ax - x0) / w, y: (ay - y0) / h }, img = into(s.img, x0, y0, w, h);
       bleed(img, BLEED);
       const body = { name: full, img, json: { anchor, sourceSize: { w, h }, spriteSourceSize: { x: 0, y: 0, w, h } } }; sprites.push(body);
       let mask = null;
       if (s.mask) { mask = { name: full + '_m', img: { w: s.mask.w, h: s.mask.h, data: s.mask.data }, json: { anchor, trimmed: true, sourceSize: { w, h }, spriteSourceSize: { x: s.mask.x - x0, y: s.mask.y - y0, w: s.mask.w, h: s.mask.h } } }; sprites.push(mask); }
-      made.set(as, [body, mask]);
+      made.set(as, [body, mask]); drawn.set(f, [body, mask]);
     }
     // today's frames of this kind the source has no pose for: its standing frame under their names (no pixels more)
     for (const n of Object.keys(todayFrames)) {
@@ -243,7 +253,10 @@ for (const name of want) {
   if (u.set) group.set.push(kind);
   // (the team paint's value: the mean of the masks' solid pixels; today's masks run 196 to 234, and the seats' tints are fitted to them)
   let sum = 0, n = 0; for (const s of src.list) if (s.mask) for (let i = 0; i < s.mask.data.length; i += 4) if (s.mask.data[i + 3] === 255) { sum += 0.3 * s.mask.data[i] + 0.59 * s.mask.data[i + 1] + 0.11 * s.mask.data[i + 2]; n++; }
-  stats.push(`${name} -> ${kind}: ${names.size * FACINGS} frames, top ${group.unitTops[kind]} (today ${today.unitTops[kind]}), the portrait's cell x${grow.toFixed(2)}, team mask's mean ${n ? Math.round(sum / n) : 'none'}${shown[name] ? `, today's ${[...shown[name]].join(' ')} take its standing frame` : ''}`);
+  stats.push(`${name} -> ${kind}: ${names.size * FACINGS} frames, top ${group.unitTops[kind]} (today ${today.unitTops[kind]}), team mask's mean ${n ? Math.round(sum / n) : 'none'}${shown[name] ? `, today's ${[...shown[name]].join(' ')} take its standing frame` : ''}`);
+  // (what is drawn, for the folder's own word on it: the standing frame at facing 0, its pixels more solid than a shadow)
+  { const f = by(names.get('0'), 0).img; let x0 = f.w, y0 = f.h, x1 = -1, y1 = -1; for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (f.data[(y * f.w + x) * 4 + 3] > 200) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    stats[stats.length - 1] += `; facing 0 standing ${Math.round((x1 - x0 + 1) * 2 / z)} x ${Math.round((y1 - y0 + 1) * 2 / z)} px solid${src.drawn ? ` (its folder: ${src.drawn})` : ''}`; }
   if (arg('--check')) check(name, src, z);
 }
 if (!stats.length) throw new Error('nothing to pack');
@@ -299,6 +312,8 @@ function check(name, src, z) {
   for (let i = 0; i < W * H; i++) big.set([...GRASS, 255], i * 4);
   const over = (s, ox, oy, tint) => { for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) { const X = ox + x, Y = oy + y; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = (y * s.w + x) * 4, a = s.data[j + 3] / 255, i = (Y * W + X) * 4; if (!a) continue; for (let q = 0; q < 3; q++) big[i + q] = big[i + q] * (1 - a) + (tint ? s.data[j + q] * tint[q] / 255 : s.data[j + q]) * a; } };
   for (const s of src.list) { const ox = Math.round(s.k * cw + 2 + l - src.cell.ax * z), oy = Math.round(poses.indexOf(s.pose) * ch + 2 + up - src.cell.ay * z); over(s.img, ox + s.img.x, oy + s.img.y); if (s.mask) over(s.mask, ox + s.mask.x, oy + s.mask.y, TINT); }
+  // (the ground point: a small red cross on each frame)
+  for (let k = 0; k < FACINGS; k++) for (let q = 0; q < poses.length; q++) { const gx = Math.round(k * cw + 2 + l), gy = Math.round(q * ch + 2 + up); for (let d = -3; d <= 3; d++) for (const [X, Y] of [[gx + d, gy], [gx, gy + d]]) if (X >= 0 && Y >= 0 && X < W && Y < H) big.set([255, 40, 40, 255], (Y * W + X) * 4); }
   const w1 = W >> 1, h1 = H >> 1, all = { w: W, h: H + h1, data: new Uint8ClampedArray(W * (H + h1) * 4) };
   all.data.set(big); for (let i = W * H; i < W * (H + h1); i++) all.data.set([...GRASS, 255], i * 4);
   for (let y = 0; y < h1; y++) for (let x = 0; x < w1; x++) for (let q = 0; q < 3; q++) all.data[((H + y) * W + x) * 4 + q] = (big[((y * 2) * W + x * 2) * 4 + q] + big[((y * 2) * W + x * 2 + 1) * 4 + q] + big[((y * 2 + 1) * W + x * 2) * 4 + q] + big[((y * 2 + 1) * W + x * 2 + 1) * 4 + q]) / 4;

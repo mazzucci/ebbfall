@@ -22,11 +22,11 @@ test('a replaced frame without a mask of its own drops today\'s mask; one with a
   const today = new Set(['bldg_core', 'bldg_core_m', 'bldg_x', 'trooper_0_0', 'trooper_0_0_m']);
   assert.deepEqual(staleMasks(new Set(['bldg_core', 'trooper_0_0', 'trooper_0_0_m', 'bldg_new', 'bldg_x']), today), ['bldg_core_m']);
 });
-test('the new look\'s unit sizes: a row for the Knight, the Rover and the Android, the rest alike, and today\'s frames untouched', () => {
-  assert.deepEqual(UNIT_SIZE, { knight: 0.78, monolith: 0.78, umbra: 0.85 }); assert.equal(UNIT_SIZE_REST, 0.9);
+test('the new look\'s unit sizes: every kind drawn as its frames are packed, a row only for a real kind, and today\'s frames untouched', () => {
+  assert.deepEqual(UNIT_SIZE, {}); assert.equal(UNIT_SIZE_REST, 1); // (the second pack's frames come at their final sizes)
   for (const kind of Object.keys(UNIT_SIZE)) assert.ok(UNITS[kind], `${kind} is a unit kind`);
   for (const kind of Object.keys(UNITS)) {
-    assert.equal(unitSize(kind, true), UNIT_SIZE[kind] ?? 0.9, kind);
+    assert.equal(unitSize(kind, true), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, kind);
     assert.equal(unitSize(kind, false), 1, `${kind} with today's frames`);
     assert.ok(unitSize(kind, true) > 0.5 && unitSize(kind, true) <= 1, `${kind}: a size a unit can be read at`);
   }

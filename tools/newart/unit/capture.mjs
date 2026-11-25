@@ -190,9 +190,6 @@ async function stills() {
     await look(page, S.wc); await shoot(page, dev, 'walk', { at: S.wc });
     await look(page, S.lc); await shoot(page, dev, 'lineup', { at: S.lc });
     await look(page, S.kc); await shoot(page, dev, 'walk-knights', { at: S.kc });
-    // a Villager with its load, on its way back from the mine
-    const carrier = await page.evaluate(() => { const u = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker && u.carry && !u.inside); return u && { x: u.x, y: u.y }; });
-    if (carrier) { await look(page, carrier, touch ? 1.75 : 2.5); await shoot(page, dev, 'carry', { at: carrier }); }
     // the lineup's standing row in a box (a mouse): every kind's ring, bar and tile
     if (!touch) {
       await look(page, S.lc, 1); const a = await onPage(page, S.lineBox[0], S.lineBox[1]), b = await onPage(page, S.lineBox[2], S.lineBox[3]);
@@ -200,6 +197,14 @@ async function stills() {
       await look(page, S.lc); await shoot(page, dev, 'lineup-selected', { at: S.lc });
     }
     if (touch) { await look(page, S.wc, 1); await shoot(page, dev, 'walk-zoom1', { at: S.wc }); await look(page, S.lc, 1); await shoot(page, dev, 'lineup-zoom1', { at: S.lc }); }
+    // last, a Villager with its load on its way back from the mine: on to the first tick one carries in the open
+    const carrier = await page.evaluate(() => {
+      const who = () => endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker && u.carry && !u.inside);
+      for (let i = 0; i < 900 && !who(); i++) endfall.skip(1 / 30);
+      for (let i = 0; i < 8; i++) { endfall.skip(1 / 30); window.tick(34); } // (in its stride)
+      const u = who(); endfall.G.events.length = 0; return u && { x: u.x, y: u.y };
+    });
+    if (carrier) { await look(page, carrier, touch ? 1.75 : 2.5); await shoot(page, dev, 'carry', { at: carrier }); }
     log.errors.push(...errors.map(e => `${dev}: ${e}`)); log.warns.push(...warns.map(e => `${dev}: ${e}`));
     await ctx.close();
   }

@@ -41,7 +41,8 @@ const Z = +arg('--scale', 2), WALK = +arg('--walk', 4);
  * The units: a row's name -> where it comes from, the game's kind (src/engine/constants.js) and which frame is what.
  *  `from`   its folder under units3d/frames (`--from name=folder` names another);
  *  `stand`  the pose a standing unit holds (the game's frame 0);
- *  `walk`   the march, the roll or the rotor (frames 1..n; with no `stand`, frames 0..n-1, cycled as today's);
+ *  `walk`   the march, the roll or the rotor (frames 1..n; with no `stand`, frames 0..n-1, cycled as today's); a
+ *           frame named twice, or the standing one named in it, is one picture under several names;
  *  `strike` [wind, strike]: a melee unit's two poses (look.js STRIKE: `_wind`, `_strike`);
  *  `fire`   { aim, shot, after }: a shooter with its target in reach, as its shot leaves, just after (`_aim`, `_shot`, `_after`);
  *  `carry`  { stand, walk }: a worker with a load (`_c0`, `_c1`..);  `work` [raised, struck]: a builder at its site (`_k0`, `_k1`);
@@ -55,9 +56,11 @@ const Z = +arg('--scale', 2), WALK = +arg('--walk', 4);
  * Not used: the Bot's `f_k0`, `f_k1` (working with a full bin): the client has no such pose.
  * Sizes are the frames' own (each frames.json's `drawn`); the client draws them at 1 (gl/newart.js UNIT_SIZE).
  */
-const W2 = ['w0', 'w1'], W4 = ['w0', 'w1', 'w2', 'w3'], MELEE = ['wind', 'strike'];
+// (a man's walk: his two strides with the standing pose between them, as the painter's own walk shows: four frames of
+// three pictures, at today's 8 a second: two steps in half a second, about a stride a step at these units' 78 to 92 px a second)
+const W2 = ['w0', 'idle', 'w1', 'idle'], W4 = ['w0', 'w1', 'w2', 'w3'], MELEE = ['wind', 'strike'];
 const UNITS = {
-  villager: { from: 'p_villager', kind: 'harvester', stand: 'idle', walk: W2, carry: { stand: 'c_idle', walk: ['c_w0', 'c_w1'] }, work: ['k0', 'k1'] },
+  villager: { from: 'p_villager', kind: 'harvester', stand: 'idle', walk: W2, carry: { stand: 'c_idle', walk: ['c_w0', 'c_idle', 'c_w1', 'c_idle'] }, work: ['k0', 'k1'] },
   guard: { from: 'p_guard', kind: 'trooper', stand: 'idle', walk: W2, strike: MELEE },
   archer: { from: 'p_archer', kind: 'lancer', stand: 'idle', walk: W2, fire: { aim: 's0', shot: 's1' } },
   rider: { from: 'p_rider', kind: 'rider', stand: 'idle', walk: W4, strike: MELEE, fps: 10 },
@@ -219,9 +222,10 @@ for (const name of want) {
   if (u.set) names.set('set', u.set);
   for (const [as, f] of names) if (!by(f, 0)) throw new Error(`${name}: no frame ${f} (for ${kind}_<k>_${as})`);
   for (let k = 0; k < FACINGS; k++) {
-    const made = new Map();
+    const made = new Map(), drawn = new Map(); // (by the game's name; by the source's frame: one drawn twice is one picture under two names)
     for (const [as, f] of names) {
       const s = by(f, k), full = `${kind}_${k}_${as}`;
+      if (drawn.has(f)) { const [body, mask] = drawn.get(f); sprites.push({ name: full, alias: body }); if (mask) sprites.push({ name: full + '_m', alias: mask }); made.set(as, [body, mask]); continue; }
       // The body, cut to its paint and a clear border, the anchor counted from the cut (no trim: the client reads a
       // body's frame as it is; its portraits are cut by the paint's box, render.js `portrait`).
       const x0 = s.img.x - 1, y0 = s.img.y - 1, w = s.img.w + 2, h = s.img.h + 2;
@@ -230,7 +234,7 @@ for (const name of want) {
       const body = { name: full, img, json: { anchor, sourceSize: { w, h }, spriteSourceSize: { x: 0, y: 0, w, h } } }; sprites.push(body);
       let mask = null;
       if (s.mask) { mask = { name: full + '_m', img: { w: s.mask.w, h: s.mask.h, data: s.mask.data }, json: { anchor, trimmed: true, sourceSize: { w, h }, spriteSourceSize: { x: s.mask.x - x0, y: s.mask.y - y0, w: s.mask.w, h: s.mask.h } } }; sprites.push(mask); }
-      made.set(as, [body, mask]);
+      made.set(as, [body, mask]); drawn.set(f, [body, mask]);
     }
     // today's frames of this kind the source has no pose for: its standing frame under their names (no pixels more)
     for (const n of Object.keys(todayFrames)) {

@@ -64,12 +64,12 @@ test('some files stored: how many of how many, and the missing ones are fetched 
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
 });
 
-test('an install with one file failing does not go live (the build before stays), and every file is fetched past the HTTP cache', async () => {
+test('an install with one file failing does not go live (the build before stays), and every file is asked of the host, never taken from the HTTP cache unasked', async () => {
   const flags = {}, modes = [], on = worker(fakeCaches(null, { failing: 'assets/index-abc.js', modes }), flags);
   let waited; on.install({ waitUntil: (p) => { waited = p; } });
   await assert.rejects(waited, /Failed to fetch/);
   assert.ok(!flags.skipped, 'not activated');
-  assert.ok(modes.length > 0 && modes.every(m => m === 'reload'), `fetched with cache: 'reload' (${modes})`);
+  assert.ok(modes.length > 0 && modes.every(m => m === 'no-cache'), `fetched with cache: 'no-cache' (${modes})`);
 });
 
 test('nothing stored yet: none of them', async () => {

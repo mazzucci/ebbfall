@@ -3,8 +3,7 @@
 //               grass (two samples of one picture at two turns and sizes over a broad calm green, so no repeat shows
 //               across a screen) and lays the worn dirt, the forest floor and the scree over it by the map's mix
 //               image (newland.js groundMix, 4 texels a tile, linear). Nothing baked: about 10 MB of textures on any
-//               map size, where baking a 128x128 map at one texel a world px is 64 MB (256 MB at a retina's two) and
-//               today's 16k tile sprites are none (the atlas has them) but a draw list of 16k.
+//               map size, where baking a 128x128 map at one texel a world px is 64 MB (256 MB at a retina's two).
 //   laid        the pieces nothing can stand behind (a forest's inside, the low plants and stones), sprites in rows
 //               of four tiles under everything that moves, in drawing order, shown by rows: no sorting, no CPU a frame.
 //   live        the pieces a unit may stand behind (their art reaches over walkable ground): sprites among the units
@@ -30,8 +29,8 @@ export const GROUND = {
    *  this much of their strength (at full they read as cloud shadows on a photographed grass), the rock's warm or cool
    *  tone not at all (it turned the pale rock mauve; the pieces carry their own color). */
   meadow: { dry: 0.5, lush: 0.4 }, rockTone: 0,
-  /** Under water (the mix's alpha): today's grass tiles' mean color, a little of the new grass's grain in it, so the
-   *  water today's shade layers lay over it keeps today's colors (over the sunny grass the shallows were a mint lawn). */
+  /** Under water (the mix's alpha): a dull green, a little of the grass's grain in it, so the
+   *  water the shade lays over it keeps its colors (over the sunny grass the shallows were a mint lawn). */
   wet: [77 / 255, 101 / 255, 52 / 255], wetGrain: 0.5,
   /** The contact shadow round blocked ground (no line: the border is said by the rocks and the undergrowth on it):
    *  the ground darkens with the forest floor or the scree of the mix, from nothing half a tile out to `dark` at the
@@ -45,10 +44,10 @@ export const GROUND = {
 };
 /** The minimap's ground with the new land (gl/render.js): the land's own colors, a step darker than on the field so
  *  the seats' dots stand out as today: the grass (at the map's full shade; `shade` of it at its darkest), a wood (its
- *  crowns, darker than the grass by more than today's are), rock (pale, as the crags), the worn dirt and how strongly
+ *  crowns, well darker than the grass), rock (pale, as the crags), the worn dirt and how strongly
  *  a full track shows. Blocked ground reads at a glance: a wood is the darkest thing on the land, rock the palest.
- *  The gold mines: a brighter gold than today's inside a dark rim `mineRim` units wide (of the minimap's 168), since
- *  today's gold on this brighter grass lost its contrast. */
+ *  The gold mines: a bright gold inside a dark rim `mineRim` units wide (of the minimap's 168), since
+ * a duller gold on this bright grass lost its contrast. */
 export const MINIMAP = { grass: [98, 118, 56], shade: 0.8, forest: [34, 54, 28], hill: [168, 160, 140], dirt: [176, 148, 98], dirtAmount: 0.55, mine: '#ffd84a', mineEdge: 'rgba(20,16,6,0.85)', mineRim: 0.9 };
 const NAMES = ['grass', 'calm', 'dirt', 'floor', 'scree'];
 
@@ -124,7 +123,7 @@ export class Land {
     const k = (g, by) => (by === 1 ? g : by === 0 ? null : g.map(v => v * by));
     return { dry: k(plan.dry, GROUND.meadow.dry), lush: k(plan.lush, GROUND.meadow.lush), rockTone: k(plan.rockTone, GROUND.rockTone), kindAt };
   }
-  /** Whether every piece's frame is in the packs (a page built from other pictures: today's land instead). */
+  /** Whether every piece's frame is in the packs (a page built from other pictures would not). */
   ready() { return PIECES.every(p => this.tex(p.name) !== Texture.EMPTY); }
   clear() {
     for (const m of this.meshes) { const sh = m.shader; m.destroy(); sh?.destroy(); } // (the program itself is PixiJS's, cached by its source)

@@ -1,7 +1,7 @@
 // Runs tools/render3d/ in headless Chromium (playwright-core) and returns its sprites as { name, img, anchor } (masks:
 // `trim`; unit frames: `anim`, `frame`), and `.tints`, the mask tint per seat (tools/render3d/main.js fitTints).
 // `opts` goes to window.render as it is (`elev`: the re-theme trial models' camera, in degrees; `zoom`: every sprite that many
-// times the atlas's scale, for tools/menu-art.mjs; generate.mjs passes none).
+// times the atlas's scale, for tools/menu-art.mjs).
 // Needs a Chromium: CHROMIUM_PATH, or the one matching playwright-core (`npx playwright-core install chromium`).
 import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';

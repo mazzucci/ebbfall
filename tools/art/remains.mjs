@@ -1,4 +1,4 @@
-// The frames of the older atlas (public/art/atlas-<n>) the game still draws, cut from its committed pages pixel for
+// The frames of the older atlas (tools/art/older: its pages, no longer generated) the game still draws, cut from its committed pages pixel for
 // pixel (nothing is rendered) into one small page, public/art/new/remains-0.webp + .json: the worn dirt under a building,
 // the effects, the shots and the light. Its entry in public/art/new/index.json (the group `remains`) also
 // carries what the game needs of atlas.json: the seats' paint (`tints`), the facings and the effects' animations.
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { decodeWebP, encodeWebP } from './webp.mjs';
 import { stamp } from '../newart/bytes.mjs';
 
-const ART = fileURLToPath(new URL('../../public/art/', import.meta.url)), OUT = `${ART}new/`;
+const ART = fileURLToPath(new URL('./older/', import.meta.url)), OUT = fileURLToPath(new URL('../../public/art/new/', import.meta.url));
 /** The animations the client plays from this page (gl/render.js addEffect), and the single frames. The gray smoke
  *  (`puff`) is not here: the client paints it (gl/puff.js). */
 export const ANIMS = ['boom_small', 'flash', 'spark', 'glint', 'muzzle', 'trail'];
@@ -23,7 +23,7 @@ async function cut() {
     const s = JSON.parse(readFileSync(ART + p, 'utf8')); let im = null;
     for (const [name, f] of Object.entries(s.frames)) if (want.has(name)) { im ??= await decodeWebP(readFileSync(ART + s.meta.image)); found.set(name, { name, f, im }); }
   }
-  for (const n of want) if (!found.has(n)) throw new Error(`no frame ${n} in public/art`);
+  for (const n of want) if (!found.has(n)) throw new Error(`no frame ${n} in tools/art/older`);
   const list = [...found.values()].sort((a, b) => b.f.frame.h - a.f.frame.h || b.f.frame.w - a.f.frame.w || (a.name < b.name ? -1 : 1));
   let x = 0, y = 0, row = 0;
   for (const q of list) { const { w, h } = q.f.frame; if (x + w > WIDTH) { x = 0; y += row + PAD; row = 0; } q.x = x; q.y = y; x += w + PAD; row = Math.max(row, h); }

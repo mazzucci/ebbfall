@@ -169,8 +169,8 @@ async function model(name, u) {
 }
 
 // ---------------------------------------------------------------- today's frames of each kind: the names to cover, and frame 0's cell
-const today = JSON.parse(readFileSync(join(REPO, 'public/art/atlas.json'), 'utf8')), todayFrames = {};
-for (const p of today.pages) Object.assign(todayFrames, JSON.parse(readFileSync(join(REPO, 'public/art', p), 'utf8')).frames);
+const today = JSON.parse(readFileSync(join(REPO, 'tools/art/older/atlas.json'), 'utf8')), todayFrames = {};
+for (const p of today.pages) Object.assign(todayFrames, JSON.parse(readFileSync(join(REPO, 'tools/art/older', p), 'utf8')).frames);
 
 // ---------------------------------------------------------------- the frames
 /** Color bled `n` px into the clear pixels round the paint (alpha stays 0): a filter never pulls black in. */
@@ -191,7 +191,7 @@ function into(src, x0, y0, w, h) {
   for (let r = 0; r < src.h; r++) { const y = src.y + r - y0; if (y < 0 || y >= h) continue; for (let c = 0; c < src.w; c++) { const x = src.x + c - x0; if (x >= 0 && x < w) data.set(src.data.subarray((r * src.w + c) * 4, (r * src.w + c) * 4 + 4), (y * w + x) * 4); } }
   return { w, h, data };
 }
-/** A unit's drawn height (game px above its ground point), as tools/art/generate.mjs measures today's: the solid
+/** A unit's drawn height (game px above its ground point), as the older atlas's was measured: the solid
  *  pixels' first row at least BODY of the widest, the median over the frames it stands and walks in. */
 function unitTop(frames, ay, z) {
   const rises = [];

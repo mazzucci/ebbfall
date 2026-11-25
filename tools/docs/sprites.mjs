@@ -1,4 +1,4 @@
-// The docs' sprite crops: what tools/docs/crops.mjs cuts from the game's atlas (public/art/) and the pages show on their
+// The docs' sprite crops: what tools/docs/crops.mjs cuts from the older atlas (tools/art/older) and the pages show on their
 // round plates (the rosters, the trees, the diagrams, the home's tiles, About's strip). The crops need a browser to encode
 // WebP, so they are cut by that tool and committed (like public/og.png); tools/docs/sprites.json records, for each, a
 // hash of the atlas frames and pages it was cut from, and test/docs.test.js fails when the art has changed since
@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { BLDG_LOOK } from '../../src/client/look.js';
 import { PEOPLES } from './data.mjs';
 
-const ART = new URL('../../public/art/', import.meta.url);
+const ART = new URL('../art/older/', import.meta.url);
 /** The crops' folder in public/ (served at /docs/img/sprites/). */
 export const SPRITE_DIR = new URL('../../public/docs/img/sprites/', import.meta.url);
 export const SPRITE_URL = '/docs/img/sprites/';

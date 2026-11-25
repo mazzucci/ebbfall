@@ -23,29 +23,19 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
 
-/** Buildings: `glow` [color, size, strength, px above the center (negative: below), flicker, px east of the center], `head` (a head sprite
- * drawn over the base in 16 frames: by default it turns to aim, a turret's; `spin` [frames a second]: it cycles through
- * them on the renderer's clock, a rotor; `pan` [frames either side, seconds a sweep]: it sweeps slowly to and fro about
- * its first frame, a dish), `smoke` (points in px from the footprint's top-left corner: a puff rises from one of them now and then,
- * only while the building works, `chimneyActive`: training or researching; the sprites carry no baked smoke). Each
- * measured on its model (tools/render3d/kingdom-buildings.js, expedition-buildings.js), turned and scaled as the atlas
- * draws it (retheme.js BLDG_YAW): a point (x, y, z) of a model centered on its footprint, turned `yaw` about the vertical
- * and scaled k, lands at x' = k (x cos yaw + z sin yaw), z' = k (z cos yaw - x sin yaw), and is drawn x' east and
- * k y * 1.19 - z' above the center at the 40-degree camera. The smoke points are the chimney caps' tops. The Cottage has
- * no smoke: nobody works there. */
+/** Buildings: `head` (a head sprite drawn over the base in 16 frames: by default it turns to aim, a turret's; `spin`
+ * [frames a second]: it cycles through them on the renderer's clock, a rotor; `pan` [frames either side, seconds a
+ * sweep]: it sweeps slowly to and fro about its first frame, a dish), `portal` (its swirl). The renderer (render.js
+ * `bldgLook`) lays the art's own points over these (index.json `looks`, measured on the pictures by tools/newart/bldg):
+ * `glow` [color, size, strength, px above the center, flicker, px east of it], `smoke` (points in px from the
+ * footprint's top-left corner: a puff rises from one of them now and then, only while the building works,
+ * `chimneyActive`; null: none), `z` and `base` (its outline on the ground). */
 export const BLDG_LOOK = {
-  core: { smoke: [[97, 4]] },                                                        // (the Castle, +11 at 0.88: the great hall's chimney; no light)
-  barracks: { smoke: [[37, -26]] },                                                  // (the Barracks, -30: the chimney at the hall's west end)
-  forge: { glow: [0xff5a1e, 0.6, 0.45, -3, true, 1], smoke: [[22, -24], [35, 21]] }, // (the Blacksmith, -20: the ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
-  turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
-  // the Expedition: its cyan lights (tools/render3d/expedition-buildings.js `cyanLed`, the neon: never warm, never a seat's)
-  conflux: { glow: [0x20d8ff, 1.0, 0.3, 48, false, 1] },                            // (the Data center, the server hall at -20: the chip's die glowing on its roof, cyan as its neon; the die's center at (0, 39.3, -3))
-  siphon: { glow: [0x3fe0ff, 0.45, 0.45, 0, false, -2] },                            // (the Recruiting post, the tavern hall at -20: the cyan work lamp by its door, at (2, 10.8, 13))
-  loom: { glow: [0x3fe0ff, 1.0, 0.3, 20, false, 0] },                                // (the Lab, the dome at -20: the glow inside it, at (0, 18, 0); the Factory's roof lights are in its sprite)
-  ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
-  spire: { head: 'spire_head', spin: 7 },                                            // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn; 7 a second is a turn in 7 s, a slow calm turbine, not a fan: 10 until 2026-11-14)
-  uplink: { head: 'uplink_head', pan: [3, 9] },                                      // (the Uplink's dish pans 3 facings either way)
-  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 31, false, 0] }, // (its cyan light, only as a unit comes through, at the standing ring's center: 26 up, so 31 px at the 40-degree camera; 8 while the Portal lay flat)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
+  turret: { head: 'turret_head' },                           // (the Watchtower's archer turns)
+  ward: { head: 'ward_head' },                               // (the Sentry gun turns to its target)
+  spire: { head: 'spire_head', spin: 7 },                    // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn; 7 a second is a turn in 7 s, a slow calm turbine, not a fan: 10 until 2026-11-14)
+  uplink: { head: 'uplink_head', pan: [3, 9] },              // (the Uplink's dish pans 3 facings either way)
+  eclipse: { head: 'eclipse_head', spin: 4, portal: true },  // (the Portal's swirl: brighter and faster as a unit comes through)
 };
 /** The Portal's swirl brightens each time a unit comes through, then settles (Stelian, R2); it stays multi-use and
  *  keeps training. Returns how bright it is above its settled state, 0 to 1, and keeps its own clock in `st` (one object

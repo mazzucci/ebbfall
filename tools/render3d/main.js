@@ -1,4 +1,4 @@
-// Renders every 3D sprite and hands the RGBA images to the Node driver (tools/art/generate.mjs) via window.render().
+// Renders every 3D sprite and hands the RGBA images to the Node driver (tools/menu-art.mjs) via window.render().
 import { shoot, S, LIFT } from './scene.js';
 import { makeMats } from './materials.js';
 import { SEAT_COLORS, UNIT_ART_SCALE } from '../../src/client/look.js';

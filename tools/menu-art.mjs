@@ -3,7 +3,7 @@
 // Knights, Guards, Archers and a Rider marching east into Buggies, Mercenaries, Androids and a Launcher marching west,
 // the gold and a blast between them, a Balloon and Drones in the air. The sprites come from the game's own 3D models
 // (tools/render3d, through tools/art/render3d.mjs) rendered at twice the atlas's scale (`zoom`: a sprite drawn larger,
-// not stretched), the ground and the effects from the atlas (public/art), each unit its neutral render and its team
+// not stretched), the ground and the effects from the older atlas (tools/art/older), each unit its neutral render and its team
 // mask tinted as the client tints it (the Kingdom in seat 0's color, the Expedition in seat 1's). One image per size
 // class, the aspect of the band it fills on that class's reference screen (so `cover` crops nothing there), the night
 // veil and the top fade baked in, written as WebP by Chromium's encoder. Opaque: the fade goes into the floor's own color
@@ -72,8 +72,8 @@ const META = Object.fromEntries(sprites.map(s => [s.name, { w: s.img.w, h: s.img
 const DATA = Object.fromEntries(sprites.map(s => [s.name, encodePNG(s.img).toString('base64')]));
 
 // ---- step 2: each class composed in a page, as og.mjs composes the card ----
-const atlasIndex = JSON.parse(readFileSync(new URL('public/art/atlas.json', root)));
-const ATLAS = { pages: atlasIndex.pages.map(p => JSON.parse(readFileSync(new URL(`public/art/${p}`, root)))) };
+const atlasIndex = JSON.parse(readFileSync(new URL('tools/art/older/atlas.json', root)));
+const ATLAS = { pages: atlasIndex.pages.map(p => JSON.parse(readFileSync(new URL(`tools/art/older/${p}`, root)))) };
 const pageHtml = (cls) => {
   const { W, H, k, fade } = CLASSES[cls], scene = SCENES[cls];
   const names = new Set(scene.map(s => s[0]).flatMap(n => [n, `${n}_m`]).filter(n => DATA[n]));
@@ -83,7 +83,7 @@ const W = ${W}, H = ${H}, k = ${k}, FADE = ${fade}, TINTS = ${JSON.stringify(spr
 const groundTile = ${SCENE.groundTile.toString()}, CLEAR = ${JSON.stringify(CLASSES[cls].clear || null)};
 const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src.slice(0, 40))); i.src = src; });
 window.ready = (async () => {
-  const pages = await Promise.all(ATLAS.pages.map(p => load('/public/art/' + p.meta.image)));
+  const pages = await Promise.all(ATLAS.pages.map(p => load('/tools/art/older/' + p.meta.image)));
   const imgs = {}; for (const n of Object.keys(DATA)) imgs[n] = await load('data:image/png;base64,' + DATA[n]);
   const findAtlas = (n) => { const i = ATLAS.pages.findIndex(p => p.frames[n]); if (i < 0) throw new Error('no atlas frame ' + n); return { img: pages[i], f: ATLAS.pages[i].frames[n] }; };
   const g = document.getElementById('c').getContext('2d'); g.imageSmoothingQuality = 'high';

@@ -29,7 +29,7 @@ const ORIGIN = 'https://ebbfall.com';
 const NAVIGATE = { 'Sec-Fetch-Mode': 'navigate', Accept: 'text/html,application/xhtml+xml' };
 const RULES = parseHeaders(headersFile());
 const FILES = new Set(['/index.html', '/selftest.html', '/voice-lab.html', '/sw.js', '/manifest.webmanifest', '/assets/index-Bx1y2z3w.js',
-  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/atlas-0.webp', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
+  '/assets/endfall_sim_bg-ClB66k65.wasm', '/art/new/bldg-0.webp', '/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt',
   '/docs/index.html', '/docs/kingdom/index.html', '/docs/how-to-play/index.html', '/docs/img/sprites/core-336.webp', '/docs/media/trailer.mp4',
   '/docs/media/ebbfall-trailer.mp4', '/docs/media/controls/touch-group.mp4', '/docs/media/controls/touch-group.webp']);
 const WORKER_FIRST = workerFirstRules(readFileSync(new URL('../site/wrangler.toml', import.meta.url), 'utf8'));
@@ -76,7 +76,7 @@ test("a page's other spellings are sent to its canonical address (307), the quer
     assert.equal(r.res.status, 307, from);
     assert.equal(r.res.headers.get('Location'), to, from);
   }
-  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/atlas-0.webp']) {
+  for (const path of ['/robots.txt', '/sitemap.xml', '/og.png', '/llms.txt', '/docs/img/sprites/core-336.webp', '/art/new/bldg-0.webp']) {
     const r = await site(path, { blocked: true });
     assert.equal(r.file, path, path);
   }
@@ -86,7 +86,7 @@ test("hashed build output is kept for good; anything else keeps Cloudflare's def
   for (const path of ['/assets/index-Bx1y2z3w.js', '/assets/endfall_sim_bg-ClB66k65.wasm']) {
     assert.equal((await site(path)).res.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', path);
   }
-  assert.equal((await site('/art/atlas-0.webp')).res.headers.get('Cache-Control'), null);
+  assert.equal((await site('/art/new/bldg-0.webp')).res.headers.get('Cache-Control'), null);
 });
 
 test('not a file, the Worker: a page load goes to the game (its query kept), a missing script or image is a plain 404', async () => {
@@ -301,7 +301,7 @@ test('security headers: nosniff, the referrer policy, the device powers and the 
   const policy = SECURITY['Permissions-Policy'];
   for (const powers of ['fullscreen=(self)', 'autoplay=(self)', 'clipboard-write=(self)', 'camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) assert.ok(policy.split(', ').includes(powers), powers);
   assert.ok(!policy.includes('web-share'), 'no web-share: the page may share by default, and Chromium logs the name as an unrecognized feature');
-  for (const path of ['/', '/docs/kingdom/', '/art/atlas-0.webp', '/r/BCDFGH', '/nope.js', '/nope']) {
+  for (const path of ['/', '/docs/kingdom/', '/art/new/bldg-0.webp', '/r/BCDFGH', '/nope.js', '/nope']) {
     const { res } = await site(path, { headers: NAVIGATE });
     for (const [k, v] of Object.entries(SECURITY)) assert.equal(res.headers.get(k), v, `${path}: ${k}`);
   }
@@ -320,7 +320,7 @@ test('the _headers file: the cache table at the addresses the pages are served a
   const text = headersFile(), rules = [...text.matchAll(/^(\/\S*)\n {2}Cache-Control: (.+)$/gm)].map(m => [m[1], m[2]]);
   assert.deepEqual(rules, CACHE);
   assert.equal(cacheControl('/assets/x-12345678.js'), 'public, max-age=31536000, immutable');
-  assert.equal(cacheControl('/art/atlas.json'), null);
+  assert.equal(cacheControl('/art/new/index.json'), null);
   // Every page the build makes (vite.config.js's inputs) is checked on every load, where it is served.
   const inputs = [...readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8').matchAll(/'([\w-]+\.html)'/g)].map(m => m[1]);
   assert.ok(inputs.length >= 3, inputs.join());

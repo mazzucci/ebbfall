@@ -11,7 +11,7 @@ const { art, file, onArt, retryArt, TRIES } = await import('../src/client/gl/art
 const { BUILDINGS, UNITS } = await import('../src/engine/constants.js');
 const { SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL, BLDG_LOOK } = await import('../src/client/look.js');
 
-const ART = new URL('../public/art/', import.meta.url), NEW = new URL('new/', ART), read = (u) => JSON.parse(readFileSync(u, 'utf8'));
+const ART = new URL('../tools/art/older/', import.meta.url), NEW = new URL('../public/art/new/', import.meta.url), read = (u) => JSON.parse(readFileSync(u, 'utf8'));
 const ix = read(new URL('index.json', NEW));
 
 test('a file that fails is tried again, counted once; after the last try it waits for RETRY, and then comes', async () => {
@@ -70,30 +70,27 @@ test('every frame the client names is in the art it loads: bodies, masks, heads,
   for (const m of ['full', 'low', 'empty']) assert.ok(frames.has(`mine_${m}`)); assert.ok(frames.has('light'));
   for (const k of Object.keys(ix.groups.unit.unitTops)) for (let d = 0; d < 16; d++) assert.ok(ix.groups.unit.animations[`${k}_${d}`].every(f => frames.has(f)) && frames.has(`${k}_${d}_0_m`), `${k}_${d}`);
 });
-test('the new look\'s unit sizes: every kind drawn as its frames are packed, a row only for a real kind, and today\'s frames untouched', () => {
+test('the unit sizes: every kind drawn as its frames are packed, a row only for a real kind', () => {
   assert.deepEqual(UNIT_SIZE, {}); assert.equal(UNIT_SIZE_REST, 1); // (the second pack's frames come at their final sizes)
   for (const kind of Object.keys(UNIT_SIZE)) assert.ok(UNITS[kind], `${kind} is a unit kind`);
   for (const kind of Object.keys(UNITS)) {
-    assert.equal(unitSize(kind, true), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, kind);
-    assert.equal(unitSize(kind, false), 1, `${kind} with today's frames`);
-    assert.ok(unitSize(kind, true) > 0.5 && unitSize(kind, true) <= 1, `${kind}: a size a unit can be read at`);
+    assert.equal(unitSize(kind), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, kind);
+    assert.ok(unitSize(kind) > 0.5 && unitSize(kind) <= 1, `${kind}: a size a unit can be read at`);
   }
 });
-test('how a builder with its own work frames works: the Bot stands still and turns its arm, the rest lean and flash, and today\'s frames are untouched', () => {
+test('how a builder with its own work frames works: the Bot stands still and turns its arm, the rest lean and flash', () => {
   assert.deepEqual(WORK_LOOK, { lumen: { nudge: false, turns: true } });
   for (const kind of Object.keys(WORK_LOOK)) assert.ok(UNITS[kind]?.worker, `${kind} is a worker`);
   for (const kind of Object.keys(UNITS)) {
-    assert.deepEqual(workLook(kind, true), WORK_LOOK[kind] ?? { nudge: true, turns: false }, kind);
-    assert.deepEqual(workLook(kind, false), { nudge: true, turns: false }, `${kind} with today's frames`);
+    assert.deepEqual(workLook(kind), WORK_LOOK[kind] ?? { nudge: true, turns: false }, kind);
   }
 });
-test('the new look\'s people on foot have a selection ring a fifth smaller, and only the ring: their size, their hit area and today\'s rings are untouched', () => {
+test('people on foot have a selection ring a fifth smaller, and only the ring: their size and their hit area are untouched', () => {
   assert.deepEqual(RING_SIZE, { harvester: 0.8, trooper: 0.8, lancer: 0.8, prism: 0.8, bruiser: 0.8, umbra: 0.8 });
   for (const kind of Object.keys(RING_SIZE)) { assert.ok(UNITS[kind], `${kind} is a unit kind`); assert.ok(!UNITS[kind].air, `${kind} is on the ground`); }
   for (const kind of Object.keys(UNITS)) {
-    assert.equal(ringSize(kind, true), RING_SIZE[kind] ?? 1, kind);
-    assert.equal(ringSize(kind, false), 1, `${kind} with today's frames`);
-    assert.equal(unitSize(kind, true), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, `${kind}: its drawn size (the bar, the hit test) is not the ring's`);
+    assert.equal(ringSize(kind), RING_SIZE[kind] ?? 1, kind);
+    assert.equal(unitSize(kind), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, `${kind}: its drawn size (the bar, the hit test) is not the ring's`);
   }
   // the renderer takes the ring's factor in one place, the ring's own size: not in the drawn height or radius the hit test reads
   const src = readFileSync(new URL('../src/client/gl/render.js', import.meta.url), 'utf8'), lines = src.split('\n').filter(l => /ringSize\(/.test(l));

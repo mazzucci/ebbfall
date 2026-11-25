@@ -4,7 +4,7 @@
 // burning building's orange flash comes now and then, dimmer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { BLDG_DEATH, GRAY_SMOKE, bldgDeath, ghostAt, portalGhost, fallShake, BURN_FLASH, DUST, deathOf } from '../src/client/look.js';
 import { BUILDINGS } from '../src/engine/constants.js';
 
@@ -14,9 +14,8 @@ const FIRE = ['boom_big', 'spark'];
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 const gray = (s) => s.anim === 'trail' && s.o.tint === GRAY_SMOKE.tint;
 const dust = (s) => s.anim === 'trail' && s.o.tint === DUST;
-// (an effect frame's size in world px: the atlas is drawn at 2x)
-const art = new URL('../public/art/', import.meta.url), frames = {};
-for (const f of readdirSync(art).filter(f => /^atlas-\d+\.json$/.test(f))) Object.assign(frames, JSON.parse(readFileSync(new URL(f, art))).frames);
+// (an effect frame's size in world px: its page is drawn at 2x)
+const { frames } = JSON.parse(readFileSync(new URL('../public/art/new/remains-0.json', import.meta.url)));
 const px = (name) => frames[name].sourceSize.w / 2;
 
 test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints and a flash, the Data center\'s reactor, the Portal', () => {
@@ -35,7 +34,6 @@ test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints a
   assert.equal(BLDG_DEATH.types.eclipse.portal, true, 'the Portal: its own fall');
   for (const k of Object.keys(BLDG_DEATH.types)) assert.ok(BUILDINGS[k], `${k} is a building`);
   assert.equal(deathOf(null, false), 'collapse');
-  assert.ok(frames.boom_big_0, 'boom_big stays in the atlas');
 });
 
 test('no fire for any building: no boom_big, no sparks, no scorch; the Data center\'s boom_small the only blast', () => {

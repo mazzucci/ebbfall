@@ -37,6 +37,18 @@ async function pickAll(d, list) {
   assert.deepEqual(await ids(d), list.slice().sort((a, b) => a - b), 'selected by clicks');
 }
 
+/** Select one unit by a click, nothing else selected (apart from any click before it: no double-click). */
+async function pickOne(d, id) {
+  await d.key('Escape'); await d.page.waitForTimeout(450); await d.clickEntity(id);
+  assert.deepEqual(await ids(d), [id], 'selected by a click');
+}
+/** An enemy worker in the Castle's sight, on the far side of it from the Guards (they would attack one near). */
+async function spawnFoe(d, core) {
+  const foe = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'harvester', x, y), [core.x, core.y - 190]);
+  await d.skip(0.2);
+  return foe;
+}
+
 /** Three Guards and two idle workers by the Castle (set up), their ids; the home mine; and a point of open ground away
  *  from everything, well inside the map and in clear view once the camera looks there. */
 async function scene(d) {
@@ -103,8 +115,7 @@ test('desktop, LEFT OR RIGHT CLICK (the default): a left click orders the units 
     await d.pressCard('Deselect');
     assert.deepEqual(await ids(d), [], 'Deselect lets go');
     // An enemy: attacked; with nothing of ours selected, looked at, and the ground lets go of it.
-    const foe = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'harvester', x, y), [core.x + 150, core.y + 190]);
-    await d.skip(0.2);
+    const foe = await spawnFoe(d, core);
     await d.clickEntity(foe);
     assert.deepEqual(await ids(d), [foe], 'looked at');
     await d.clickWorld(x, y);
@@ -126,12 +137,11 @@ test('desktop, the default: workers given a job by a left click (a mine, a site,
     const site = await d.findSpot('depot', { tx: core.tx + 1, ty: core.ty + 1 });
     const job = async (what, go, task) => {
       for (const left of [true, false]) {
-        await d.key('Escape'); await d.clickEntity(w);
-        assert.deepEqual(await ids(d), [w], `${what}: the worker selected`);
+        await pickOne(d, w);
         await d.key('s'); await d.skip(0.1);
         await go(left);
         assert.deepEqual([await ids(d), await tasks(d, [w])], [left ? [] : [w], [task]], `${what}, ${left ? 'left: the job, the worker let go' : 'right: the job, the worker still selected'}`);
-        await d.key('Escape'); await d.clickEntity(w); await d.key('s'); await d.skip(0.1);
+        await pickOne(d, w); await d.key('s'); await d.skip(0.1);
         assert.deepEqual(await tasks(d, [w]), ['idle'], `${what}: stopped again`);
       }
     };
@@ -146,7 +156,7 @@ test('desktop, the default: workers given a job by a left click (a mine, a site,
     assert.deepEqual(await ids(d), [core.id], 'no worker selected: the damaged Castle selected');
     // A site: placed by the other worker, which then stops.
     await d.grant(1000, 0);
-    await d.key('Escape'); await d.clickEntity(w2);
+    await pickOne(d, w2);
     await d.key('b'); await d.clickWorld(x, y);
     assert.deepEqual([await ids(d), await d.eval(() => endfall.ui.mode), await tasks(d, [w2])], [[w2], null, ['idle']], 'the Build page closes, nothing ordered');
     await d.key('b'); await d.key('w');
@@ -206,15 +216,11 @@ test('desktop, RIGHT CLICK ONLY: a left click only selects, the ground and an em
     assert.deepEqual(await ids(d), guards, 'a group recalled is kept; the minimap keeps it');
     await d.pressCard('Deselect');
     assert.deepEqual(await ids(d), [], 'Deselect lets go');
-    // A mine and an enemy are looked at; a worker's Build page stays open.
-    await d.clickEntity(w); await d.clickWorld(mine.x, mine.y);
+    // A mine is looked at; a worker's Build page stays open.
+    await pickOne(d, w); await d.clickWorld(mine.x, mine.y);
     assert.equal((await d.selection())[0]?.kind, 'node', 'a mine: looked at');
     assert.deepEqual(await tasks(d, [w]), ['idle'], 'no order');
-    const foe = await d.eval(([x, y]) => endfall.engine.debugSpawn(1, 'harvester', x, y), [core.x + 150, core.y + 190]);
-    await d.skip(0.2);
-    await d.clickEntity(w); await d.clickEntity(foe);
-    assert.deepEqual(await ids(d), [foe], 'an enemy: looked at');
-    await d.clickEntity(w); await d.pressCard('Build'); await d.clickWorld(x, y);
+    await pickOne(d, w); await d.pressCard('Build'); await d.clickWorld(x, y);
     assert.deepEqual([await ids(d), await d.eval(() => endfall.ui.mode)], [[w], 'build'], 'the Build page stays');
     await d.key('Escape');
     assert.deepEqual([await ids(d), await d.eval(() => endfall.ui.mode)], [[w], null], 'Esc: the page first');
@@ -226,6 +232,9 @@ test('desktop, RIGHT CLICK ONLY: a left click only selects, the ground and an em
     // An armed order is a left click's, as ever.
     await d.key('a'); await d.clickWorld(x, y);
     assert.deepEqual([await ids(d), await tasks(d, guards)], [guards, ['amove', 'amove', 'amove']]);
+    const foe = await spawnFoe(d, core);
+    await d.clickEntity(foe);
+    assert.deepEqual(await ids(d), [foe], 'an enemy: looked at');
     // The help sheet says it; a reload remembers it.
     const said = async () => { await d.page.locator('#btnHelp').click(); const t = await d.page.locator('#helpSheet .lines.desk li').first().innerText(); await d.page.locator('#btnHelpClose').click(); return t; };
     assert.match(await said(), /then right-click to move, attack or mine; Esc lets go/);

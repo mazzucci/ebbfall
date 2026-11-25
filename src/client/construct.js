@@ -108,11 +108,13 @@ export function strikeAt(u, b, tile = 32) {
   if (d < 1) { dx = b.x - u.x; dy = b.y - u.y; d = Math.max(1, Math.hypot(dx, dy)); } // (standing on its edge: towards the middle)
   return { x, y, dx: dx / d, dy: dy / d };
 }
-/** A builder's strike effects: the Kingdom's pale glint and a puff of dust that reads at 1x, the Expedition's weld
+/** A builder's strike effects: the Kingdom's pale glint where the Villager's hammer meets the wall (`lift` px over the
+ *  contact point on the ground: his strike's height, chest high) and a puff of dust that reads at 1x, a little below it
+ *  (`dust.lift`), the Expedition's weld
  *  spark a small bright white-blue core (about 4-5 css px at the phone's zoom) gone in a frame or two. */
 export const STRIKE_FX = {
-  glint: { scale: 0.7, tint: 0xfff6e0, life: 0.2, lift: 8 },
-  dust: { scale: 1.5, fade: 0.9, life: 0.45, drift: 10, vy: -8 },
+  glint: { scale: 0.7, tint: 0xfff6e0, life: 0.2, lift: 20 },
+  dust: { scale: 1.5, fade: 0.9, life: 0.45, drift: 10, vy: -8, lift: 12 },
   weld: { anim: 'glint', scale: 0.45, tint: 0xcfeaff, life: 0.05, light: 0xbfe6ff, lightScale: 0.14, lift: 6 }, // (the glint's star is 6 world px across)
 };
 /** Whether a builder stands in reach of its site: the gap from it to the footprint's nearest point within its radius

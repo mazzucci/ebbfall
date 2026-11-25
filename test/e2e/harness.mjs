@@ -5,6 +5,7 @@
 import { test as nodeTest } from 'node:test';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
@@ -89,8 +90,9 @@ const RULES = parseHeaders(headersFile().replace(cspValue(), () => TEST_CSP));
 /** The Worker's state: `blocked` (every request to it answered as a tripped limit would), and what reached it; and its
  *  bindings, faked (the feedback form's: site/feedback.js): `mail`, what the Email Sending binding was asked to send
  *  (nothing is sent), `mailFails`, the binding throwing as a failed send does; the minute's limit and the budget object
- *  always say yes (test/site-feedback.test.js tests them). */
-export const site = { blocked: false, worker: [], mail: [], mailFails: false };
+ *  always say yes (test/site-feedback.test.js tests them). `sent`: every file asked for, [path, status, bytes of body];
+ *  `deployed`: files a later deploy changed (a Map, path to bytes: '/sw.js'), served in their dist/ copies' place. */
+export const site = { blocked: false, worker: [], mail: [], mailFails: false, sent: [], deployed: null };
 const env = {
   FEEDBACK_EMAIL: { async send(m) { if (site.mailFails) { const e = new Error('not sent'); e.code = 'E_DELIVERY_FAILED'; throw e; } site.mail.push(m); return { messageId: 'test' }; } },
   FEEDBACK_LIMIT: { async limit() { return { success: true }; } },
@@ -128,9 +130,14 @@ export async function start() {
     try { route = (req.method === 'GET' || req.method === 'HEAD') && !workerFirst(WORKER_FIRST, url.pathname) ? resolve(url.pathname, (p) => !!fileAt(p)) : null; } catch { /* a malformed address: not a file */ }
     if (route?.redirect) { res.writeHead(307, { location: route.redirect + url.search }); return res.end(); }
     if (!route) return toWorker(req, res, url).catch((e) => { res.writeHead(500); res.end(String(e)); });
-    const p = fileAt(route.file);
-    res.writeHead(200, { ...headersFor(RULES, url.pathname), 'content-type': TYPES[extname(p)] || 'application/octet-stream' });
-    res.end(req.method === 'HEAD' ? undefined : readFileSync(p));
+    // As Cloudflare's assets answer: an ETag of the content, revalidated every time unless _headers says otherwise, a 304
+    // where the browser has it (checked on ebbfall.com).
+    const p = fileAt(route.file), bytes = site.deployed?.get(route.file) ?? readFileSync(p), etag = `"${createHash('md5').update(bytes).digest('hex')}"`;
+    const headers = { 'Cache-Control': 'public, max-age=0, must-revalidate', ...headersFor(RULES, url.pathname), ETag: etag, 'content-type': TYPES[extname(p)] || 'application/octet-stream' };
+    const same = (req.headers['if-none-match'] || '').split(',').some(t => t.trim().replace(/^W\//, '') === etag);
+    site.sent.push([url.pathname, same ? 304 : 200, same || req.method === 'HEAD' ? 0 : bytes.length]);
+    res.writeHead(same ? 304 : 200, headers);
+    res.end(same || req.method === 'HEAD' ? undefined : bytes);
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;

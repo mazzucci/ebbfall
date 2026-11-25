@@ -5,7 +5,9 @@
 // service workers are blocked); the manifest's app icons are served at the sizes they claim.
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { test, start, stop, browserContext, baseUrl, DESKTOP, PHONE } from './harness.mjs';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { test, start, stop, browserContext, baseUrl, site, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -137,6 +139,53 @@ test('PLAY OFFLINE on the first page (nothing to install): saving, then everythi
     assert.equal(seen.at(-1), 'Ready to play offline: everything is saved on this device ✓', seen.join(' | '));
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
+});
+
+/** Wait until the service worker's cache `name` (any of the game's, '') holds every file of its list and the worker is
+ *  active, no other; its name and each file's sha256, by its address's path. */
+async function stored(page, name = '') {
+  const ready = () => page.evaluate(async (name) => {
+    const ks = (await caches.keys()).filter(k => k.startsWith('endfall-')), r = await navigator.serviceWorker.getRegistration();
+    return ks.length === 1 && ks[0].includes(name) && r?.active?.state === 'activated' && !r.installing && !r.waiting;
+  }, name).catch(() => false); // (the page may be moving on to the new version)
+  for (const end = Date.now() + 120000; !(await ready());) { assert.ok(Date.now() < end, 'the service worker installed'); await new Promise(r => setTimeout(r, 250)); }
+  await page.waitForLoadState('networkidle');
+  return page.evaluate(async () => {
+    const name = (await caches.keys()).find(k => k.startsWith('endfall-')), c = await caches.open(name), files = {};
+    for (const req of await c.keys()) files[new URL(req.url).pathname] = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await (await c.match(req)).arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join('');
+    return { name, files };
+  });
+}
+
+test('a first visit downloads each file once (the service worker\'s copy a 304), a second nothing, and an update only what it changed, its cache holding its own files alone', { timeout: 180000, engines: true }, async () => {
+  const dist = (f) => readFileSync(process.env.ENDFALL_DIST ? `${process.env.ENDFALL_DIST}/${f}` : new URL(`../../dist/${f}`, import.meta.url));
+  const sent = () => site.sent.splice(0), sum = (l) => l.reduce((n, [, , b]) => n + b, 0);
+  sent();
+  const { ctx, page } = await open(DESKTOP);
+  try {
+    const first = await stored(page), one = sent(), list = JSON.parse(dist('sw.js').toString().match(/const FILES = (\[.*\]);/)[1]);
+    assert.ok(list.length > 20 && Object.keys(first.files).length >= list.length - 1, `every file stored: ${Object.keys(first.files).length} of ${list.length}`); // (./ and / are one address)
+    const twice = Object.entries(Object.groupBy(one.filter(([, s]) => s === 200), ([p]) => p)).filter(([, l]) => l.length > 1 && l[0][2] > 2000).map(([p, l]) => `${p} ${l.length}x`);
+    assert.deepEqual(twice.filter(p => p.startsWith('/art/')), [], 'no art sent twice');
+    // A second visit: from the store.
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
+    const two = sent();
+    assert.ok(sum(two) < 20000, `a second visit sends next to nothing: ${JSON.stringify(two.filter(([, , b]) => b))}`);
+    // A deploy changes one art file and one script (as hashed names do, its page with it): the new worker installs.
+    const art = list.filter(f => /^art\/.*\.webp$/.test(f)).sort((a, b) => dist(a).length - dist(b).length)[0];
+    const page1 = Buffer.concat([dist('index.html'), Buffer.from('<!-- the next build -->\n')]), art1 = Buffer.concat([dist(art), Buffer.from('\n')]);
+    site.deployed = new Map([['/index.html', page1], [`/${art}`, art1], ['/sw.js', Buffer.from(dist('sw.js').toString().replace(/endfall-[0-9a-f]{12}/, 'endfall-00000000beef'))]]);
+    await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration()).update(); });
+    const next = await stored(page, '00000000beef'), three = sent();
+    const sha = (b) => createHash('sha256').update(b).digest('hex');
+    assert.equal(next.files['/'], sha(page1), 'the new build\'s page');
+    assert.equal(next.files[`/${art}`], sha(art1), 'its art');
+    for (const f of list.filter(f => !['./', 'index.html', art].includes(f))) assert.equal(next.files[`/${f}`] ?? next.files[`/${f.replace(/\.html$/, '')}`], sha(dist(f)), `${f}: the deployed bytes`);
+    assert.ok(sum(three) < sum(one) / 10, `an update sends little: ${sum(three)} bytes, the first visit ${sum(one)}`);
+    const body = three.filter(([p, s]) => s === 200 && p.startsWith('/art/')).map(([p]) => p);
+    assert.deepEqual([...new Set(body)], [`/${art}`], 'of the art, only the changed file was sent');
+  } finally { site.deployed = null; await ctx.close(); }
 });
 
 test('PLAY OFFLINE where service workers are blocked: not available in this browser', { timeout: 120000 }, async () => {

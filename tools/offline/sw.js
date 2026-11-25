@@ -6,8 +6,10 @@ const FILES = __FILES__;
 
 // Each file is stored on its own and kept: an install cut short (a phone losing its signal) resumes where it stopped
 // the next time, and PLAY OFFLINE can say how far it got (and, asking, fetches what is missing).
-// Fetched past the browser's HTTP cache (`reload`): a copy from before a deploy (GitHub Pages let them live 10
-// minutes; site/cache.js revalidates all but assets/) would otherwise be stored for good, an index.html pointing at another build's files. One file failing
+// Each is asked of the host, whatever the browser's HTTP cache says of its age (`no-cache`): a copy from before a deploy
+// would otherwise be stored for good, an index.html pointing at another build's files. One the page has just fetched, or
+// the build before had, and that has not changed is answered 304 (the host names every file by its content's ETag) and
+// read from that cache, not sent again: a first visit downloads the art once. One file failing
 // fails the install (nothing half stored is ever served: the build before stays). Refilling after a check fetches
 // from the network as it is then: should a newer build be deployed meanwhile, its next install sets things right.
 // A page the host serves at another address (Cloudflare's assets send /selftest.html to /selftest, and index.html to /:
@@ -15,7 +17,7 @@ const FILES = __FILES__;
 // cannot answer a page load (the browser refuses it), and either address then opens offline.
 let filling = null;
 async function store(c, f) {
-  const res = await fetch(new Request(f, { cache: 'reload' }));
+  const res = await fetch(new Request(f, { cache: 'no-cache' }));
   if (!res.ok) throw new TypeError(`Failed to fetch ${f} (${res.status})`);
   if (!res.redirected) return c.put(f, res);
   const body = await res.blob(), init = { status: res.status, statusText: res.statusText, headers: res.headers };

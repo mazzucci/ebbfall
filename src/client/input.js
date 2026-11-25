@@ -180,12 +180,15 @@ function placeTile(type, wx, wy) {
 }
 
 
+/** Whether a mouse's left click that gives workers a job lets go of them: where its left click orders (RIGHT CLICK ONLY:
+ *  they stay). */
+const leftJob = () => drag.ptype !== 'touch' && leftOrders();
+
 /**
  * On touch, once harvesters have a job (gather, build, repair) let go of them: the next tap on the map is then just a
  * tap, not "walk here", and the job carries on. The target's blink confirms the order. A mouse's `left` click that gave
  * the job (`leftJob`) lets go of them too, for the same reason; after a right click the selection stays.
  */
-const leftJob = () => drag.ptype !== 'touch' && leftOrders(); // (RIGHT CLICK ONLY: a left click there orders nothing by itself, so they stay)
 function releaseWorkers(units, left = false) {
   if ((drag.ptype !== 'touch' && !left) || !units.length || !units.every(u => u.d.worker)) return;
   setSelection([]); updateHud();

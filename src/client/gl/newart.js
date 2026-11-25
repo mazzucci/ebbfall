@@ -4,10 +4,11 @@
 // a PixiJS spritesheet at any scale.
 
 /** How large the units are drawn, of the size their frames are packed at (tools/newart/unit). The frames
- *  come at their final sizes (each drawn to its own, painted at a true camera), so every kind is 1. The table stays: a
+ *  come at their final sizes (each drawn to its own, painted at a true camera), so every kind is 1 but the Rover (its
+ *  hull, wider than its ground, stood over its neighbors). A
  *  kind that stands out among the rest is tuned here, by a row, and no pack is built again (the first pack's Knight
  *  and Rover were 0.78, its Android 0.85, the rest 0.9). A kind not named is drawn UNIT_SIZE_REST. */
-export const UNIT_SIZE = {}, UNIT_SIZE_REST = 1;
+export const UNIT_SIZE = { monolith: 0.9 }, UNIT_SIZE_REST = 1;
 /** The factor on a unit of `type`. The
  *  sprite, its drawn height (the health bar, the hit test, the silhouette), its drawn radius and its selection ring go
  *  by it (render.js); the sim's radius and collision do not. */

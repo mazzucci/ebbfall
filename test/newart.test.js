@@ -71,7 +71,7 @@ test('every frame the client names is in the art it loads: bodies, masks, heads,
   for (const k of Object.keys(ix.groups.unit.unitTops)) for (let d = 0; d < 16; d++) assert.ok(ix.groups.unit.animations[`${k}_${d}`].every(f => frames.has(f)) && frames.has(`${k}_${d}_0_m`), `${k}_${d}`);
 });
 test('the unit sizes: every kind drawn as its frames are packed, a row only for a real kind', () => {
-  assert.deepEqual(UNIT_SIZE, {}); assert.equal(UNIT_SIZE_REST, 1); // (the second pack's frames come at their final sizes)
+  assert.deepEqual(UNIT_SIZE, { monolith: 0.9 }); assert.equal(UNIT_SIZE_REST, 1); // (the second pack's frames come at their final sizes; the Rover a little less)
   for (const kind of Object.keys(UNIT_SIZE)) assert.ok(UNITS[kind], `${kind} is a unit kind`);
   for (const kind of Object.keys(UNITS)) {
     assert.equal(unitSize(kind), UNIT_SIZE[kind] ?? UNIT_SIZE_REST, kind);

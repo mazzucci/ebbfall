@@ -141,12 +141,12 @@ test('PLAY OFFLINE on the first page (nothing to install): saving, then everythi
   } finally { await ctx.close(); }
 });
 
-/** Wait until the service worker's cache `name` (any of the game's, '') holds every file of its list and the worker is
- *  active, no other; its name and each file's sha256, by its address's path. */
+/** Wait until the service worker's cache `name` (any of the game's, '') is the only one (the old one goes as the new
+ *  worker takes over, its own whole) and no worker is on its way; its name and each file's sha256, by its address's path. */
 async function stored(page, name = '') {
   const ready = () => page.evaluate(async (name) => {
     const ks = (await caches.keys()).filter(k => k.startsWith('endfall-')), r = await navigator.serviceWorker.getRegistration();
-    return ks.length === 1 && ks[0].includes(name) && r?.active?.state === 'activated' && !r.installing && !r.waiting;
+    return ks.length === 1 && ks[0].includes(name) && !!r?.active && !r.installing && !r.waiting; // (its state not asked: WebKit goes on saying 'activating' after the page moves to the new version)
   }, name).catch(() => false); // (the page may be moving on to the new version)
   for (const end = Date.now() + 120000; !(await ready());) { assert.ok(Date.now() < end, 'the service worker installed'); await new Promise(r => setTimeout(r, 250)); }
   await page.waitForLoadState('networkidle');

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { planLand, groundMix, cover, allowance, stands, LAND, TILE, MIX_K } from '../src/client/gl/newland.js';
+import { planLand, groundMix, cover, allowance, stands, LAND, TILE, MIX_K, WORN, wornOf, wornAt, wearMix } from '../src/client/gl/newland.js';
 import { PIECES, SLICE } from '../src/client/gl/newland-pieces.js';
 import { rockKinds } from '../src/client/gl/ground.js';
 
@@ -186,4 +186,43 @@ test('the same land whoever is seated where', { skip }, () => {
     const p = landOf(E.MW, E.MH, E.map.rock, E.G.seed, LAND.cap).pieces.map(o => [o.i, o.x, o.y, o.s, o.live]);
     if (!first) first = p; else assert.deepEqual(p, first, `${n} seated from side ${side} see the first setup's land`);
   }
+});
+
+// The trodden earth under a building (newland.js wearMix): the ground's own dirt over its footprint.
+test('a building\'s earth fills its square, rounds its corners, fades out past it, and leaves with it', () => {
+  const w = 24, h = 20, apron = 3, rock = new Uint8Array(w * h), dirt = new Float32Array(w * h);
+  for (let x = 2; x < 6; x++) dirt[4 * w + x] = 1; // (a worn track of the map's own)
+  const mix = groundMix({ w, h, rock, kindAt: () => 'hill', dirt, seed: 7, apron }), k = mix.k, W = mix.w;
+  const base = new Uint8Array(mix.w * mix.h); for (let i = 0; i < base.length; i++) base[i] = mix.data[i * 4];
+  const other = new Uint8Array(mix.data); // (green, blue and alpha must stay as the map laid them)
+  const red = (px, py) => mix.data[(Math.floor((py / TILE + apron) * k) * W + Math.floor((px / TILE + apron) * k)) * 4];
+  const hall = { tx: 10, ty: 8, w: 3, h: 3, type: 'barracks' }, mast = { tx: 16, ty: 4, w: 2, h: 2, type: 'spire' }, onTrack = { tx: 3, ty: 3, w: 2, h: 2, type: 'depot' };
+  wearMix(mix, base, [hall, mast, onTrack], { apron, seed: 7 });
+  const full = Math.round(255 * WORN.strength), mastFull = Math.round(255 * 0.9);
+  assert.deepEqual(WORN.kinds, { spire: { strength: 0.9, round: 26 } }); assert.deepEqual(wornOf('spire'), { strength: 0.9, round: 26 }); assert.deepEqual(wornOf('barracks'), { strength: 0.85, round: 16 });
+  // the whole square, edge to edge and corner to corner inside its rounding
+  for (const [fx, fy] of [[0.5, 0.5], [0.1, 0.5], [0.9, 0.5], [0.5, 0.08], [0.5, 0.92], [0.2, 0.2], [0.8, 0.8]]) assert.equal(red((hall.tx + hall.w * fx) * TILE, (hall.ty + hall.h * fy) * TILE), full, `the hall at ${fx}, ${fy}`);
+  assert.equal(red((mast.tx + 1) * TILE, (mast.ty + 1) * TILE), mastFull, 'the Wind turbine\'s is the strongest');
+  assert.ok(mastFull > full);
+  // and the roundest: at its square's very corner (the shape itself, no waver) it holds half of what another 2x2 does
+  const corner = (b) => wornAt(b.tx * TILE, b.ty * TILE, b, 0, wornOf(b.type).round);
+  assert.ok(corner(mast) < 0.5 && corner(onTrack) > 0.75, `the turbine's corner ${corner(mast).toFixed(2)}, a Cottage's ${corner(onTrack).toFixed(2)}`);
+  assert.equal(wornAt((mast.tx + 1) * TILE, mast.ty * TILE, mast, 0, 26), 1, 'full at the middle of an edge');
+  for (const [fx, fy] of [[0.5, 0.06], [0.06, 0.5], [0.94, 0.5], [0.5, 0.94]]) assert.equal(red((mast.tx + mast.w * fx) * TILE, (mast.ty + mast.h * fy) * TILE), mastFull, `the turbine's square still full at the middle of each edge (${fx}, ${fy})`);
+  // its very corner is rounded off, and the earth is gone a tile out
+  assert.ok(red(hall.tx * TILE - 6, hall.ty * TILE - 6) < 0.4 * red(hall.tx * TILE - 6, (hall.ty + 1.5) * TILE), 'a rounded corner: 6 px out past it holds far less than 6 px out past an edge');
+  for (const [dx, dy] of [[-1, 1.5], [4, 1.5], [1.5, -1], [1.5, 4], [-0.8, -0.8]]) assert.equal(red((hall.tx + dx) * TILE, (hall.ty + dy) * TILE), 0, `nothing ${dx}, ${dy} tiles from its corner`);
+  assert.ok(red(hall.tx * TILE - 8, (hall.ty + 1.5) * TILE) > 0 && red(hall.tx * TILE - 8, (hall.ty + 1.5) * TILE) < full, 'fading past its edge');
+  // never less than the map's own dirt; nothing but red touched
+  for (let i = 0; i < base.length; i++) assert.ok(mix.data[i * 4] >= base[i]);
+  for (let i = 0; i < other.length; i++) if (i % 4) assert.equal(mix.data[i], other[i]);
+  // the same from the same list in another order; and a building gone takes only its own earth
+  const a = new Uint8Array(mix.data); wearMix(mix, base, [onTrack, mast, hall], { apron, seed: 7 }); assert.deepEqual(new Uint8Array(mix.data), a);
+  wearMix(mix, base, [mast], { apron, seed: 7 });
+  assert.equal(red((hall.tx + 1.5) * TILE, (hall.ty + 1.5) * TILE), 0, 'the hall\'s is gone');
+  assert.equal(red((mast.tx + 1) * TILE, (mast.ty + 1) * TILE), mastFull);
+  wearMix(mix, base, [], { apron, seed: 7 });
+  for (let i = 0; i < base.length; i++) assert.equal(mix.data[i * 4], base[i]);
+  // (the patch's own shape: 1 inside, 0 past its fade, whatever the waver)
+  assert.equal(wornAt(11.5 * TILE, 9.5 * TILE, hall, 0.5), 1); assert.equal(wornAt((hall.tx - 1) * TILE, 9.5 * TILE, hall, -0.5), 0);
 });

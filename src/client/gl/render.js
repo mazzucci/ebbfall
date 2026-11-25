@@ -7,7 +7,7 @@ import { AlphaFilter, Application, CanvasSource, ColorMatrixFilter, Container, G
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
-import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf, muzzlePoint, SHOT_FROM, firedBy, shotDrawn } from '../look.js';
+import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, SEAT_TINTS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, hitTier, towerOf, muzzlePoint, SHOT_FROM, firedBy, shotDrawn } from '../look.js';
 import { REVEAL, revealRows, revealMatrix, frameOf, slabOf, slabMarks, DONE, DONE_PUFF, BUILD_BAR, WORK, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
@@ -17,6 +17,7 @@ import { planGround, planHash, startsOf } from './groundplan.js';
 import { loadArt } from './artload.js';
 import { unitSize, workLook, ringSize } from './newart.js';
 import { PUFF, paintPuff } from './puff.js';
+import { FX_K, FX_ANIMS, BOOMS, paintFx } from './fx.js';
 import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
 import { Land, MINIMAP, GROUND } from './newlandgl.js';
 
@@ -91,13 +92,17 @@ for (const g of Object.values(groups)) {
     for (const [n, f] of Object.entries(data.frames)) frames[n] = { img: bitmap, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
   }
   Object.assign(index.unitTops, g.unitTops); Object.assign(index.animations, g.animations);
-  if (g.tints) index.tints = g.tints; if (g.facings) index.facings = g.facings;
+}
+// The effects, the shots and the light are painted here (gl/fx.js): one canvas, so one texture and one batch.
+{
+  const { canvas, frames: at } = paintFx(), source = new CanvasSource({ resource: canvas, resolution: FX_K, label: 'fx' });
+  for (const [n, f] of Object.entries(at)) textures[n] = new Texture({ source, frame: new Rectangle(f.x, f.y, f.w, f.h), defaultAnchor: { x: f.ax, y: f.ay }, label: n });
+  for (const [a, n] of Object.entries(FX_ANIMS)) index.animations[a] = Array.from({ length: n }, (_, f) => `${a}_${f}`);
 }
 /** A building type's look (look.js BLDG_LOOK), the art's own points over it (newArt.bldg `looks`). */
 const bldgLook = (type) => ({ ...BLDG_LOOK[type], ...newArt.bldg.looks[type] });
-/** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's color
- *  (`tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
-export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
+/** A spot's paint: the tint that turns the neutral team mask into paint of the seat's color (look.js SEAT_TINTS). */
+export const spotTint = (spot) => SEAT_TINTS[spot % SEAT_TINTS.length];
 /** The size a unit of `type` is drawn at (gl/newart.js UNIT_SIZE): the sprite,
  *  `unitTop`, `unitRadius` and the selection ring take it. */
 const unitK = unitSize;
@@ -202,7 +207,7 @@ if (!land.ready()) throw new Error('the land\'s page does not hold the table\'s 
 const landCap = +new URLSearchParams(location.search).get('landcap') || undefined;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
 sheet.animations.puff = Array.from({ length: PUFF.frames }, (_, f) => new Texture({ source: new CanvasSource({ resource: paintPuff(f), resolution: PUFF.k }) }));
-const FACINGS = index.facings || 16;
+const FACINGS = 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
 const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFrom(t.defaultAnchor || { x: 0.5, y: 0.5 }); } };
 /** A team-colored sprite is two: the neutral art and its team mask (`name_m`) over it in the seat's color. Effects
@@ -434,7 +439,7 @@ export function renderTerrain() {
   for (const pool of [unitObjs, bldgObjs, nodeObjs]) { for (const o of pool.values()) o.destroy(); pool.clear(); }
   for (const o of dying) o.destroy(); dying.length = 0; quake = null; pending.length = 0; for (const k of blinks) k.l.destroy(); blinks.length = 0;
   L.decals.removeChildren().forEach(c => c.destroy()); decals.length = 0;
-  for (const e of effects) { e.s.destroy(); if (e.l) e.l.destroy(); } effects.length = 0;
+  for (const e of effects) dropEffect(e); effects.length = 0;
 }
 
 // ---- entity display objects, keyed by sim id ----
@@ -751,22 +756,26 @@ function syncPool(pool, list, make, upd) {
 const dying = [], pending = [], blinks = [];
 
 // ---- effects ----
-const effects = [];
+const effects = [], fxPool = [], lightPool = [], FX_POOL = 256;
 /** Spawn a one-shot animated effect; the animations are the art index's (boom_small, trail, flash, spark, glint, muzzle) and the painted `puff`.
  *  `fade`: its opacity at the start, falling to nothing over its life (a trail's puffs overlap into one soft streak). */
 export function addEffect(anim, x, y, o = {}) {
-  const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;
-  const s = new Sprite(frames[0]); s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base)
-  s.position.set(x, y); if (o.rot) s.rotation = o.rot; if (o.scale) s.scale.set(o.scale); if (o.tint) s.tint = o.tint;
-  if (o.fade) s.alpha = o.fade;
-  L.fx.addChild(s);
+  const frames = sheet.animations[anim === 'boom_small' ? BOOMS[(Math.random() * BOOMS.length) | 0] : anim]; if (!frames || !nearView(x, y)) return; // (a fire: one of its castings, so two blasts side by side do not match)
+  const s = fxPool.pop() || new Sprite(); L.fx.addChild(s); // (from the pool: a fight spawns and ends hundreds; added again, so the newest is on top)
+  s.texture = frames[0]; s.anchor.set(...(o.anchor ?? [0.5, 0.5])); // (`anchor`: a muzzle's cone from its base)
+  s.position.set(x, y); s.rotation = o.rot || 0; s.scale.set(o.scale || 1); s.tint = o.tint ?? 0xffffff; s.alpha = o.fade || 1; s.visible = true;
   const e = { s, frames, anim, x, y, t: 0, life: o.life || frames.length * 0.07, vx: o.vx || 0, vy: o.vy || 0, fade: o.fade || 0 };
-  if (o.light) { e.l = light(o.light, o.lightScale || 1, 0.8); e.l.position.set(x, y); }
+  if (o.light) { const l = e.l = lightPool.pop() || light(0xffffff, 1, 0.8); l.tint = o.light; l.scale.set(o.lightScale || 1); l.alpha = 0.8; l.position.set(x, y); l.visible = true; }
   effects.push(e);
+}
+/** An effect over: its sprite and its light hidden and kept for the next (`FX_POOL` of each at most). */
+function dropEffect(e) {
+  if (fxPool.length < FX_POOL) { e.s.visible = false; fxPool.push(e.s); } else e.s.destroy();
+  if (e.l) { if (lightPool.length < FX_POOL) { e.l.visible = false; lightPool.push(e.l); } else e.l.destroy(); }
 }
 /** The effects alive now, each with its animation, where it was spawned (world px) and its sprite as drawn (where it
  *  is now, its scale and tint): read-only, for the tests. */
-export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y, sx: e.s.x, sy: e.s.y, scale: e.s.scale.x, tint: e.s.tint }));
+export const effectsShown = () => effects.map(e => ({ anim: e.anim, x: e.x, y: e.y, sx: e.s.x, sy: e.s.y, scale: e.s.scale.x, tint: e.s.tint, at: e.t / e.life })); // (`at`: how far through its life, 0 to 1)
 /** Where a death at ground point (x, y) plays, its y: a flyer that is no machine (the Balloon) up where it flew
  *  (look.js AIR_PUFF `lift` of its drawn height), anything else on the ground. */
 export const deathY = (y, unit) => (unit && deathOf(unit, UNITS[unit]?.air) === 'air' ? y - unitTop(unit) * AIR_PUFF.lift : y);
@@ -891,7 +900,7 @@ function updateEffects(dt) {
   for (let i = effects.length - 1; i >= 0; i--) {
     const e = effects[i]; e.t += dt;
     if (e.t >= e.life) {
-      if (e.drawn) { e.s.destroy(); if (e.l) e.l.destroy(); effects.splice(i, 1); continue; }
+      if (e.drawn) { dropEffect(e); effects.splice(i, 1); continue; }
       e.t = 0; // (shorter than this frame, a weld's spark: drawn once, whole, then gone)
     }
     e.drawn = true;

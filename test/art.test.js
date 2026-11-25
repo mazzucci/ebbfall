@@ -4,9 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { BLDG_LOOK, chimneyActive, selOval, headFrame, portalOpen, PORTAL, SEAT_COLORS } from '../src/client/look.js';
+import { BLDG_LOOK, chimneyActive, selOval, headFrame, portalOpen, PORTAL, SEAT_COLORS, SEAT_TINTS } from '../src/client/look.js';
 
-const art = new URL('../public/art/new/', import.meta.url), index = JSON.parse(readFileSync(new URL('index.json', art))), { bldg, unit, remains } = index.groups, frames = {};
+const art = new URL('../public/art/new/', import.meta.url), index = JSON.parse(readFileSync(new URL('index.json', art))), { bldg, unit } = index.groups, frames = {};
 for (const g of Object.values(index.groups)) for (const p of g.pages) Object.assign(frames, JSON.parse(readFileSync(new URL(p, art))).frames);
 /** The kinds a player can have: what a building trains (the two healers are trained nowhere and have no art). */
 const TRAINED = [...new Set(Object.values(BUILDINGS).flatMap(b => b.trains || []))];
@@ -83,8 +83,8 @@ test('the Portal brightens each time a unit comes through: settled while idle, b
 
 test('one frame per kind, not one per seat, and a mask tint for every seat', () => {
   assert.deepEqual(Object.keys(frames).filter(n => /^bldg_[a-z]+_\d+$/.test(n)), [], 'no frames named by seat');
-  assert.equal(remains.tints?.length, SEAT_COLORS.length, 'one tint per seat color');
-  for (const t of remains.tints) assert.ok(Number.isInteger(t) && t >= 0 && t <= 0xffffff);
+  assert.equal(SEAT_TINTS.length, SEAT_COLORS.length, 'one tint per seat color');
+  for (const t of SEAT_TINTS) assert.ok(Number.isInteger(t) && t >= 0 && t <= 0xffffff);
 });
 
 test('the gold mine: a frame for each stage the renderer draws (gl/render.js mineStage), neutral, a 2x2 footprint', () => {

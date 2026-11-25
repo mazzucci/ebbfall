@@ -1,58 +1,5 @@
 {
  "groups": {
-  "remains": {
-   "pages": [
-    "remains-0.json"
-   ],
-   "tints": [
-    2776543,
-    15611754,
-    2205305,
-    14659565,
-    10939758,
-    9892071,
-    10889605,
-    15882802
-   ],
-   "facings": 16,
-   "animations": {
-    "boom_small": [
-     "boom_small_0",
-     "boom_small_1",
-     "boom_small_2",
-     "boom_small_3",
-     "boom_small_4",
-     "boom_small_5"
-    ],
-    "flash": [
-     "flash_0",
-     "flash_1",
-     "flash_2"
-    ],
-    "spark": [
-     "spark_0",
-     "spark_1",
-     "spark_2",
-     "spark_3"
-    ],
-    "glint": [
-     "glint_0",
-     "glint_1",
-     "glint_2"
-    ],
-    "muzzle": [
-     "muzzle_0",
-     "muzzle_1",
-     "muzzle_2"
-    ],
-    "trail": [
-     "trail_0",
-     "trail_1",
-     "trail_2",
-     "trail_3"
-    ]
-   }
-  },
   "bldg": {
    "pages": [
     "bldg-0.json",
@@ -2152,8 +2099,6 @@
   }
  },
  "bytes": {
-  "remains-0.json": 4791,
-  "remains-0.webp": 5870,
   "bldg-0.json": 6105,
   "bldg-0.webp": 238506,
   "bldg-1.json": 7619,

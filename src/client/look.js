@@ -11,6 +11,10 @@
  *  bone; seat 2's teal dark, as a light one turned pale beige under protanopia). Seat 6 was a violet that read as seat
  *  0's blue to the red-green color-blind; seat 5 a second blue. Shared with the art tools (tools/render3d). */
 export const SEAT_COLORS = [0x2f63d6, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x61ded1, 0x943886, 0xe5553a];
+/** Each seat color's paint: the tint that, multiplied into the art's neutral team masks, comes out as that seat's color
+ *  on the field (fitted on the older renders, whose masks the painted ones match in value; the art's index carried
+ *  them until the last of the older pages went: test/newart.test.js pins them to the older atlas's). */
+export const SEAT_TINTS = [0x2a5ddf, 0xee376a, 0x21a679, 0xdfafed, 0xa6ed6e, 0x96f0e7, 0xa62985, 0xf25a32];
 /** Units are rendered this much larger than their size in the sim (tools/render3d/main.js), so they read at the
  *  re-theme's lower camera (buildings keep their footprints). The renderer's hit test and selection rings scale by it. */
 export const UNIT_ART_SCALE = 1.4;

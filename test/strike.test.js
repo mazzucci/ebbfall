@@ -7,16 +7,9 @@ import { readFileSync } from 'node:fs';
 import { STRIKE, strikePose, inReach, MUZZLE_FLASH, MELEE_PUFF, IMPACT, impactOf, MACHINES, SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, deathOf, AIR_PUFF, DUST, DEATH_DUST, HIT_DUST, AIR_HIT_LIFT, HIT_LIFT, hitLift } from '../src/client/look.js';
 import { fx, burst, partSize, updateFx } from '../src/client/fx.js';
 import { UNITS, BUILDINGS } from '../src/engine/constants.js';
-import { decodeWebP } from '../tools/art/webp.mjs';
 
 const art = new URL('../public/art/new/', import.meta.url), index = JSON.parse(readFileSync(new URL('index.json', art))), unit = index.groups.unit, frames = {}, pageOf = {};
 for (const g of Object.values(index.groups)) for (const p of g.pages) { const j = JSON.parse(readFileSync(new URL(p, art))); Object.assign(frames, j.frames); for (const n in j.frames) pageOf[n] = j.meta.image; }
-/** Whether frame `name`'s pixel (x, y) (in the frame, the page's px) is opaque. */
-async function opaqueIn(name) {
-  const { x: fx0, y: fy0, w } = frames[name].frame, img = await decodeWebP(readFileSync(new URL(pageOf[name], art)));
-  return (x, y) => x >= 0 && y >= 0 && x < w && img.data[((fy0 + y) * img.w + fx0 + x) * 4 + 3] > 0;
-}
-
 /** A melee unit of `type` at (100, 100) with cooldown `cd` and a target (a unit `gap` px from its edge, or none). */
 function fighter(type, cd, gap = 0) {
   const d = UNITS[type], target = gap === null ? null : { kind: 'unit', x: 100 + d.r + 10 + gap, y: 100, r: 10, dead: false };
@@ -112,13 +105,12 @@ test('dust is the pale round trail tinted earth, never the gray puff (its dark t
   for (const line of src.split('\n').filter(l => /addEffect\('puff'/.test(l))) assert.ok(!/tint/.test(line.slice(line.indexOf("addEffect('puff'"))), `an untinted puff: ${line.trim()}`);
 });
 
-test('the glint\'s first frame: a heart 2 game px across (4 page px), its arms tapering from 4 px at the root to 2', async () => {
-  const f = frames.glint_0.frame, o = await opaqueIn('glint_0'), c = f.w / 2; // (center between pixels c - 1 and c)
-  for (let d = -2; d < 2; d++) assert.ok(o(c + d, c - 1) && o(c + d, c) && o(c - 1, c + d) && o(c, c + d), 'a heart 4 px across');
-  const width = (r) => [-3, -2, -1, 0, 1, 2].filter(d => o(c + d, c - 1 - r)).length; // (across the north arm, r px above the heart's edge)
-  assert.equal(width(2), 4, 'the arm\'s root 4 px wide');
-  assert.equal(width(4), 2, 'its tip 2 px wide');
-  assert.ok(width(5) <= 2);
+test('the glint: a small white star, a heart about 3 game px across with rays inside its 8 px box, then smaller, then a point', async () => {
+  // (painted in code, gl/fx.js: its numbers, not its pixels; the older frame's heart was 2 game px across)
+  const { GLINT, FX } = await import('../src/client/gl/fx.js'), box = FX.find(f => f.name === 'glint_0');
+  assert.deepEqual([box.w, box.h, box.ax, box.ay], [8, 8, 0.5, 0.5]);
+  assert.ok(GLINT[0][0] * 2 >= 2 && GLINT[0][0] * 2 <= 4, 'its heart'); assert.ok(GLINT[0][1] > GLINT[0][0] * 2 && GLINT[0][1] <= box.w / 2, 'its rays, inside the box');
+  assert.ok(GLINT[1][0] < GLINT[0][0] && GLINT[1][1] < GLINT[0][1], 'the second smaller'); assert.equal(GLINT[2][1], 0, 'the last a point');
 });
 
 test('a shot on a flyer plays up on its body: on a Balloon\'s basket, on anything else as high as its hp bar\'s lift', () => {

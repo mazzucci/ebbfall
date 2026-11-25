@@ -1,5 +1,5 @@
 // How the units of the painted art are drawn, by kind: their size, their selection ring, how their builders work. The art
-// itself is src/client/gl/artload.js's to load: public/art/new/index.json lists its groups (`remains`, `bldg`, `land`,
+// itself is src/client/gl/artload.js's to load: public/art/new/index.json lists its groups (`bldg`, `land`,
 // `unit`): `{ pages: ['<group>-0.json', ...], unitTops?, animations?, ...whatever the group's own code reads }`; a page is
 // a PixiJS spritesheet at any scale.
 

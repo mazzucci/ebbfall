@@ -75,7 +75,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   target all setting up, a unit ringed by firm friends getting out, walking through two touching Cannons of its own but
   not an enemy's, one settling in pushed clear and never moved once settled),
   crowds (`crowd`: groups in formation passing a waypoint they crowd and arriving, groups sent to one point stopping
-  round it, one held up far from its goal still on its way, a packing Cannon driving off),
+  round it, one held up far from its goal still on its way, a packing Cannon driving off, Balloons hanging a body apart),
   construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a new worker
   waiting at its headquarters for an order and a rally on a mine walking it there to wait beside it without mining, the
   AI sending its new workers and builders to a mine within its next turns (`economy`), workers hopping only to a mine

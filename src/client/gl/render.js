@@ -15,7 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
 import { loadArt } from './artload.js';
-import { unitSize, workLook, ringSize } from './newart.js';
+import { unitSize, workLook, ringSize, markRadius } from './newart.js';
 import { PUFF, paintPuff } from './puff.js';
 import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
 import { Land, MINIMAP, GROUND } from './newlandgl.js';
@@ -474,7 +474,7 @@ class UnitObj {
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own color)
     // (an own walker: its silhouette, shown while a building hides it)
     if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE * unitK(u.type)); this.xr.visible = false; L.xray.addChild(this.xr); }
-    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type) * ringSize(u.type); // (the selection ring round the feet: as large as the art; gl/newart.js RING_SIZE: the new look's people on foot, a smaller one)
+    this.size = (markRadius(u) > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type) * ringSize(u.type); // (the selection ring round the feet: as large as the art; gl/newart.js RING_SIZE: the new look's people on foot, a smaller one)
     this.id = u.id; this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
@@ -963,7 +963,7 @@ function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
 }
 /** A unit's health bar over its art: as wide as the unit but never wider than 24 screen px (34 for a large one). */
 function unitBar(u) {
-  const w = Math.min(u.r * UNIT_SCALE * 2 + 4, (u.r > 12 ? 34 : 24) / cam.zoom);
+  const r = markRadius(u), w = Math.min(r * UNIT_SCALE * 2 + 4, (r > 12 ? 34 : 24) / cam.zoom);
   hpBar(u.x - w / 2, u.y - unitTop(u.type) - 7, w, u.hp, u.maxhp, u.sh, u.maxsh); // (just over the art's top)
 }
 // ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----

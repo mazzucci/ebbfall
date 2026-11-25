@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { decodeAll } from './decode.mjs';
 import { blank, bleed, blur, box, cut, keyGreen, keyMagenta, over, pack, parts, scale, span } from './img.js';
 import { tone, SHADOW } from '../tone.mjs';
+import { stamp } from '../bytes.mjs';
 import { encodeWebP } from '../../art/webp.mjs';
 import { encodePNG } from '../../art/png.js';
 
@@ -192,7 +193,7 @@ const ixPath = join(OUT, 'index.json');
 let ix = { groups: {} };
 if (existsSync(ixPath)) { try { const old = JSON.parse(readFileSync(ixPath, 'utf8')); if (old && typeof old.groups === 'object') ix = old; } catch { /* (not JSON: written new) */ } }
 ix.groups.land = { pages: ['land-0.json'], ground, texels: CFG.texels, mine: mineInfo };
-writeFileSync(ixPath, JSON.stringify(ix, null, 1));
+writeFileSync(ixPath, JSON.stringify(ix, null, 1)); stamp(OUT);
 
 const table = `// The new look's land pieces as tools/newart/land/build.mjs measured them from the pictures (generated: do not edit;
 // run the builder). Numbers only: the pictures themselves are not in the repo. World px at scale 1, to a quarter:

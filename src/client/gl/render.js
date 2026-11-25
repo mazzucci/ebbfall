@@ -3,7 +3,7 @@
 // resize/centerOn, renderTerrain() once per map and render(sel, place) every frame. Draws terrain on a dual grid,
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import 'pixi.js/unsafe-eval'; // (PixiJS's eval-free shader and uniform code: the site's CSP allows no eval, site/cache.js)
-import { AlphaFilter, Application, Assets, ColorMatrixFilter, Container, Graphics, Rectangle, RenderTexture, Sprite, Texture, TextureSource } from 'pixi.js';
+import { AlphaFilter, Application, CanvasSource, ColorMatrixFilter, Container, Graphics, ImageSource, Rectangle, RenderTexture, Sprite, Spritesheet, Texture, TextureSource } from 'pixi.js';
 import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mulberry, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
@@ -15,9 +15,11 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { scatterDoodads } from '../scenery.js';
 import { groundTile, rockTile, overlayTile, rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
-import { newArtIndex, loadGroups, staleMasks, unitSize, workLook, ringSize } from './newart.js';
+import { loadArt } from './artload.js';
+import { unitSize, workLook, ringSize } from './newart.js';
+import { PUFF, paintPuff } from './puff.js';
 import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
-import { Land, loadGrounds, MINIMAP, GROUND } from './newlandgl.js';
+import { Land, MINIMAP, GROUND } from './newlandgl.js';
 
 export const cv = document.getElementById('game');
 export const mm = document.getElementById('minimap'), mctx = mm.getContext('2d');
@@ -76,37 +78,28 @@ const app = new Application();
 // pixels make big games smoother (the GPU fills about 44% fewer at 1.5 than at 2).
 const RES = Math.min(Math.max(0.5, +new URLSearchParams(location.search).get('res') || 2), window.devicePixelRatio || 1);
 await app.init({ canvas: cv, background: 0x0b0f16, antialias: false, roundPixels: true, autoDensity: true, resolution: RES, autoStart: false, preference: 'webgl' });
-// atlas.json indexes the pages (each a PixiJS spritesheet at scale 2) and the animations, which may span pages.
-const artBase = new URL('art/', document.baseURI).href;
-const index = await (await fetch(artBase + 'atlas.json')).json();
-/** The new look's index (gl/newart.js: `?art=new`), or null; `newArt`: the groups that loaded whole, by name (`newArt.bldg`). */
-const newIndex = await newArtIndex(artBase);
-const textures = {}, frames = {};
-function addSheet(path, sh) {
-  Object.assign(textures, sh.textures);
-  // HUD portraits are cut from a plain decoded copy of the page (the browser has it cached): reading back Pixi's
-  // GPU-side texture costs about a second per page.
-  const img = new Image(); img.src = new URL(sh.data.meta.image, artBase + path).href;
-  for (const [n, f] of Object.entries(sh.data.frames)) frames[n] = { img, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
-}
-for (const [p, sh] of await Promise.all(index.pages.map(async p => [p, await Assets.load(artBase + p)]))) addSheet(p, sh);
-export const newArt = {};
-/** The frames that came from the new look's packs, by name (none without the switch): `portrait` cuts these by their paint. */
-const newFrames = new Set();
-for (const { name, group, pages } of await loadGroups(newIndex, (p) => Assets.load(artBase + p))) {
-  const names = new Set(pages.flatMap(([, sh]) => Object.keys(sh.data.frames)));
-  for (const n of names) newFrames.add(n);
-  for (const n of staleMasks(names, new Set(Object.keys(frames)))) { delete textures[n]; delete frames[n]; } // (a body never wears another's mask)
-  for (const [p, sh] of pages) addSheet(p, sh);
-  Object.assign(index.unitTops, group.unitTops); Object.assign(index.animations, group.animations);
-  newArt[name] = group;
+// The art (gl/artload.js; boot.js asked for it already): its groups' sheets, and what the index says of them.
+// `index`: the frames' animations, each unit kind's drawn height, the seats' paint, the facings. `newArt`: the groups'
+// entries by name (`newArt.bldg`).
+const { groups } = await loadArt(new URL('art/', document.baseURI).href);
+const index = { unitTops: {}, animations: {} }, textures = {}, frames = {};
+export const newArt = groups;
+const pictureSource = (bitmap, label) => new ImageSource({ resource: bitmap, alphaMode: 'premultiply-alpha-on-upload', label });
+for (const g of Object.values(groups)) {
+  for (const { page, data, bitmap } of g.sheets) {
+    const sheet = new Spritesheet(new Texture({ source: pictureSource(bitmap, page) }), data); await sheet.parse();
+    Object.assign(textures, sheet.textures);
+    // (HUD portraits are cut from the decoded page itself: reading back Pixi's GPU-side texture costs about a second a page)
+    for (const [n, f] of Object.entries(data.frames)) frames[n] = { img: bitmap, f: f.frame, a: f.anchor || { x: 0.5, y: 0.5 }, at: f.spriteSourceSize || { x: 0, y: 0 } }; // (at: a trimmed frame's place in the full one)
+  }
+  Object.assign(index.unitTops, g.unitTops); Object.assign(index.animations, g.animations);
+  if (g.tints) index.tints = g.tints; if (g.facings) index.facings = g.facings;
 }
 /** A building type's look (look.js BLDG_LOOK), the new look's own points over it (newArt.bldg `looks`: its lights, its
  *  smoke; null: none). */
 const bldgLook = (type) => ({ ...BLDG_LOOK[type], ...newArt.bldg?.looks?.[type] });
-await Promise.all([...new Set(Object.values(frames).map(f => f.img))].map(i => i.decode().catch(() => {})));
 /** A spot's paint: the tint the art pipeline fitted to turn the neutral team mask into paint of the seat's color
- *  (atlas.json `tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
+ *  (`tints`, from look.js SEAT_COLORS; Notion: Ebbfall art). */
 export const spotTint = (spot) => index.tints?.[spot % index.tints.length] ?? SEAT_COLORS[spot % SEAT_COLORS.length];
 /** The new look's size for a unit of `type` (gl/newart.js UNIT_SIZE), 1 for one drawn with today's frames: the sprite,
  *  `unitTop`, `unitRadius` and the selection ring take it. */
@@ -209,26 +202,20 @@ export function artIcon(name, size = 28, zoom = 1, tint = null, fit = false, hea
  * colors: this client's own seat unless told otherwise. A building with a head (BLDG_LOOK) has it on, at rest. With
  * `box`, the sprite's own box fills 86% of the square (the group grid's small tiles, where a frame-cut figure was a
  * smudge); without, the frame-based cut every other portrait uses, for today's frames. */
-export function portrait(kind, type, size = 26, team = G.me, box = false) {
+export function portrait(kind, type, size = 26, team = G.me) {
   const head = bldgLook(type).head, headFrame = head ? head + '_0' : null;
   const name = kind === 'unit' ? `${type}_2_0` : kind === 'node' ? 'mine_full' : `bldg_${type}`;
-  // (a frame of the new look, gl/newart.js: by its box too, at every size. The frame-based cuts below are tuned to
-  // today's frames, their zoom to today's margins; a new frame has other margins and a larger figure, and was cut off.)
-  const url = box || newFrames.has(name) ? artIcon(name, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true)
-    : kind === 'unit' ? artIcon(name, size, 2.1, seatTint(team), true) // unit frames carry room for the shadow
-      : kind === 'node' ? artIcon(name, size, 1.1) : artIcon(name, size, 1.1, seatTint(team), false, headFrame);
+  // (by the frame's own box, at every size: the frames' margins differ)
+  const url = artIcon(name, size, 0.86, kind === 'node' ? null : seatTint(team), false, kind === 'bldg' ? headFrame : null, true);
   return url ? `<img class="por" src="${url}" alt="" width="${size}" height="${size}">` : '';
 }
 const tex = (name) => textures[name] || Texture.EMPTY;
-/** The new look's land (gl/newland.js, gl/newlandgl.js), or null: the group `land` loaded whole, its grounds too, and
- *  every piece of the table has its frame; else today's land, all of it. `?landcap=` tries another cap (tiles). */
-let land = null;
-if (newArt.land) {
-  try { land = new Land(await loadGrounds(newArt.land, artBase), tex, null); if (!land.ready()) throw new Error('its page does not hold the table\'s pieces: run the builder'); }
-  catch (e) { console.warn(`new art: the land is left out (${e?.message ?? e})`); land = null; delete newArt.land; }
-}
+/** The land (gl/newland.js, gl/newlandgl.js). `?landcap=` tries another cap (tiles). */
+const land = new Land(Object.fromEntries(Object.entries(newArt.land.ground).map(([n, bitmap]) => [n, new Texture({ source: pictureSource(bitmap, `land-${n}`) })])), tex, null);
+if (!land.ready()) throw new Error('the land\'s page does not hold the table\'s pieces: run its builder');
 const landCap = +new URLSearchParams(location.search).get('landcap') || undefined;
 const sheet = { animations: Object.fromEntries(Object.entries(index.animations).map(([k, names]) => [k, names.map(tex)])) };
+sheet.animations.puff = Array.from({ length: PUFF.frames }, (_, f) => new Texture({ source: new CanvasSource({ resource: paintPuff(f), resolution: PUFF.k }) }));
 const FACINGS = index.facings || 16;
 /** Point a sprite at a texture and adopt the texture's anchor (where the ground point sits in the art). */
 const setTex = (s, t) => { if (s.texture !== t) { s.texture = t; s.anchor.copyFrom(t.defaultAnchor || { x: 0.5, y: 0.5 }); } };
@@ -298,7 +285,6 @@ export function resize() {
   bleed = !!top && getComputedStyle(top).position === 'fixed'; topRoom = bleed ? Math.max(0, top.getBoundingClientRect().bottom - r.top) + 8 : 0;
   const m = mm.getBoundingClientRect(), sel = document.getElementById('btnBox'), b = sel && !sel.hidden ? sel.getBoundingClientRect() : null; // (SELECT, HOME and ARMY: the row over the minimap)
   footRoom = m.height ? Math.max(0, r.bottom - Math.min(m.top, b?.height ? b.top : Infinity, deskHud.matches ? cardTop() : Infinity)) + 4 : FOOT_ROOM;
-  showApron();
   app.renderer.resize(view.w, view.h); occTex.resize(view.w, view.h, app.renderer.resolution);
   cam.zoom = Math.max(cam.zoom, zoomLimit()); centerOn(mid.x, mid.y); // (a larger window: closer in, no more map than the cap)
 }
@@ -364,35 +350,28 @@ const fog = new Sprite(); fog.scale.set(TILE); L.fog.addChild(fog);
 const FOG_DARK = [5, 7, 11, 255], FOG_SEEN = [18, 22, 34, 115], FOG_CLEAR = [18, 22, 34, 0]; // (RGBA per tile: never explored, explored, in sight)
 /** The apron: tiles of rock drawn past the map's edges (each edge's rock kind carried out, the fog of its edge tiles
  *  too), so a desktop's or a tablet's camera room past the top and the foot (`clampCam`) shows ground, never the dark.
- *  Shown only edge to edge (`bleed`): a phone's box shows what it showed. As deep as the most room past an edge at the
+ *  A phone's box shows it too, in its own room past the edges (the border's trees and rocks lean over the edge). As deep as the most room past an edge at the
  *  farthest zoom: the desktop HUD's foot room over its zoom limit, at most 340 px on a touch laptop (SELECT, HOME and
  *  ARMY over the minimap: 255 screen px at 0.75 in the largest window whose limit is 0.75, 1350 x 759; a larger
  *  window's grows with --u as its limit does, and --u stops at 1.1; 313 px with a mouse alone, a three-row card's top),
  *  11 tiles; a tablet's 227 screen px (231 over a home indicator) at 0.75, 308 px. */
 const APRON = 13;
-// (the fog canvas is APRON tiles larger each way, its edge pixels stretched out each update; the map's own part,
-// `fogMapTex`, for a box)
-let fogCv, fogCtx, fogImg, fogTex, fogMapTex, gridW = 0, gridH = 0;
+// (the fog canvas is APRON tiles larger each way, its edge pixels stretched out each update)
+let fogCv, fogCtx, fogImg, fogTex, gridW = 0, gridH = 0;
 /** Make the per-tile canvases and textures for a map of MW x MH (again only when a game's map has another size). */
 function sizeGrids() {
   if (gridW === MW && gridH === MH) return;
   gridW = MW; gridH = MH;
   const texture = (c) => { const t = Texture.from(c); t.source.scaleMode = 'linear'; return t; };
   thumb.width = MW; thumb.height = MH;
-  const [oldMap, oldTex] = [fogMapTex, fogTex];
+  const oldTex = fogTex;
   fogCv = document.createElement('canvas'); fogCv.width = MW + 2 * APRON; fogCv.height = MH + 2 * APRON;
   fogCtx = fogCv.getContext('2d'); fogCtx.imageSmoothingEnabled = false; fogImg = fogCtx.createImageData(MW, MH);
   fogCtx.fillStyle = `rgba(${FOG_DARK.slice(0, 3)},1)`; fogCtx.fillRect(0, 0, fogCv.width, fogCv.height);
-  fogTex = texture(fogCv); fogMapTex = new Texture({ source: fogTex.source, frame: new Rectangle(APRON, APRON, MW, MH) });
+  fogTex = texture(fogCv);
   for (let i = 0; i < MW * MH; i++) fogImg.data.set(FOG_DARK, i * 4); // (updateFogImage sets each tile's)
-  oldMap?.destroy(); oldTex?.destroy(true);
-  showApron();
-}
-/** The apron and the fog's part past the map shown edge to edge only (`bleed`). */
-function showApron() {
-  if (!fogTex) return;
-  L.apron.visible = bleed;
-  fog.texture = bleed ? fogTex : fogMapTex; fog.position.set(bleed ? -APRON * TILE : 0);
+  fog.texture = fogTex; fog.position.set(-APRON * TILE);
+  oldTex?.destroy(true);
 }
 sizeGrids();
 
@@ -434,7 +413,7 @@ export function renderTerrain() {
   land?.clear(); // (the new look's land: its ground, its pieces among the units)
   L.terrain.removeChildren().forEach(c => c.destroy({ children: true }));
   L.apron.removeChildren().forEach(c => c.destroy({ children: true }));
-  L.shade.removeChildren().forEach(c => c.destroy({ texture: true, textureSource: true }));
+  L.shade.removeChildren().forEach(c => { const { texture, geometry } = c; c.destroy(); geometry.destroy(); texture.destroy(true); });
   sizeGrids(); fogTick = -1; mmAt = -Infinity; mmGroundOk = false; // (a new map, or a replay from its first tick: fog and minimap at once)
   xrayColor(SEAT_COLORS[colorOf(G.me) % SEAT_COLORS.length]); // (this side's own color, for its silhouettes)
   const rnd = mulberry(G.seed * 7 + 3);
@@ -498,7 +477,7 @@ export function renderTerrain() {
     const cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
     cv.getContext('2d').putImageData(new ImageData(data, sh.w, sh.h), 0, 0);
     const t = Texture.from(cv); t.source.scaleMode = 'linear';
-    const vs = new Sprite(t); vs.scale.set(TILE / sh.k); vs.blendMode = blendMode; L.shade.addChild(vs);
+    const vs = land.shade(t, MW * TILE, MH * TILE, APRON * TILE); vs.blendMode = blendMode; L.shade.addChild(vs); // (over the apron too, its edge carried out: no step where the map ends)
   }
   ms.shade = performance.now() - lap;
   // Scenery: props on the plateaus and the open ground (see scenery.js); ground props hide under buildings.
@@ -513,7 +492,7 @@ export function renderTerrain() {
   let landLaid = null;
   if (land) {
     const shadeAt = (x, y) => { const o = (clamp(Math.floor(y / TILE * sh.k), 0, sh.h - 1) * sh.w + clamp(Math.floor(x / TILE * sh.k), 0, sh.w - 1)) * 4; return sh.mul[o] << 16 | sh.mul[o + 1] << 8 | sh.mul[o + 2]; };
-    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shadeAt, apronTint: L.apron.tint, wet: (x, y) => ground(x, y) !== 'land', mines: map.nodes });
+    landLaid = land.lay({ w: MW, h: MH, rock: map.rock, kindAt: kinds.kindAt, dirt: plan.dirt, seed: G.seed, apron: APRON, cap: landCap, shadeAt, wet: (x, y) => ground(x, y) !== 'land', mines: map.nodes });
     doodads.push(...land.low); // (a low plant under a building hides, as today's ground props)
   }
   // Minimap background: the grass green by the map's shade, a forest darker, a hill gray, the sea teal and blue, as the
@@ -906,7 +885,7 @@ const dying = [], pending = [], blinks = [];
 
 // ---- effects ----
 const effects = [];
-/** Spawn a one-shot animated effect; anim names come from atlas.json (boom_big, boom_small, puff, flash, spark).
+/** Spawn a one-shot animated effect; the animations are the art index's (boom_small, trail, flash, spark, glint, muzzle) and the painted `puff`.
  *  `fade`: its opacity at the start, falling to nothing over its life (a trail's puffs overlap into one soft streak). */
 export function addEffect(anim, x, y, o = {}) {
   const frames = sheet.animations[anim]; if (!frames || !nearView(x, y)) return;

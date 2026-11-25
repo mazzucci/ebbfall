@@ -11,6 +11,7 @@ import { launchChromium } from '../../chromium.mjs';
 import { decodePNG } from '../../art/png.js';
 import { encodeWebP, decodeWebP } from '../../art/webp.mjs';
 import { tone, SHADOW } from '../tone.mjs';
+import { stamp } from '../bytes.mjs';
 import { keyGreen, takePaint, fit, silhouette, blur, bloom, cover, overShadow, bytes, box, crop, image, enlarge } from './pixels.js';
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -214,4 +215,4 @@ const masks = all.filter(f => f.name.endsWith('_m')), ex = (f) => CFG.ex.has(f.t
 const opt = LOSSLESS ? {} : CFG.webp, pages = [await writePage(0, bodies.filter(f => !ex(f)), opt), await writePage(1, masks, {}), await writePage(2, bodies.filter(ex), opt)]; // (a page a people, so one can change without the other; the masks lossless always: their edges are the paint's)
 const file = join(OUT, 'index.json'); let ix = { groups: {} }; try { ix = JSON.parse(readFileSync(file, 'utf8')); } catch { /* (the first group) */ }
 ix.groups ||= {}; ix.groups.bldg = { pages, looks };
-writeFileSync(file, JSON.stringify(ix, null, 1));
+writeFileSync(file, JSON.stringify(ix, null, 1)); stamp(OUT);

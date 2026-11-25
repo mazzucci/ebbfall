@@ -6,8 +6,7 @@
 // relay's POST /bench (relay/bench.js), which answers with a code to pass on (PERF-XXXXXX). Test knobs: &secs= (the
 // measured seconds), &at= (the game time to start from).
 import { G, DIFF, WW, resetGameSeats, startReplay, step, liveGame, clamp } from '../engine/index.js';
-import { cam, view, cv, centerOn, newArt } from './gl/render.js';
-import { artNew } from './gl/newart.js';
+import { cam, view, cv, centerOn } from './gl/render.js';
 import { enterFullscreen, isFull } from './screen.js';
 import { relayUrl } from './online.js';
 import { MAPS } from './maps.js';
@@ -265,7 +264,7 @@ function build(how) {
   const longMs = M.long.map(l => l[1]);
   const report = {
     v: 1, kind: 'ebbfall-bench', build: BUILD, date: new Date().toISOString(), result: how,
-    setup: { map: MAP.name, seed: MAP.seed, mapKind: MAP.kind, size: MAP.size, seats: SEATS, races: RACES, ai: DIFF[DIFF_MEDIUM].name, from: AT, secs: SECS, vision: 'every seat (replay)', zoom: r2(M.zoom), art: artNew ? `new (${Object.keys(newArt).join(', ') || 'none loaded'})` : 'today' },
+    setup: { map: MAP.name, seed: MAP.seed, mapKind: MAP.kind, size: MAP.size, seats: SEATS, races: RACES, ai: DIFF[DIFF_MEDIUM].name, from: AT, secs: SECS, vision: 'every seat (replay)', zoom: r2(M.zoom) },
     device: device(),
     prep: { ticks: M.prep.prepTicks, ms: Math.round(M.prep.prepMs), msPerTick: r2(M.prep.prepMs / Math.max(1, M.prep.prepTicks)), hidden: M.prep.hidden },
     summary: {

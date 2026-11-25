@@ -95,7 +95,7 @@ for (const [label, device] of [['desktop click', DESKTOP], ['phone tap', PHONE]]
   });
 }
 
-test('desktop, over a Cottage of ours: a box takes a Villager by its whole body, a double-click its type, Shift adds it, and a left click on a damaged Cottage over a hat is the workers\' order', async () => {
+test('desktop, over a Cottage of ours: a box takes a Villager by its whole body, a double-click its type, Shift adds it, and with a worker selected a damaged Cottage is selected by a left click over a hat, repaired by a right click there', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const { b, w, core, spawn } = await scene(d);
@@ -116,13 +116,16 @@ test('desktop, over a Cottage of ours: a box takes a Villager by its whole body,
     assert.deepEqual(await ids(d), [guard]);
     await shift(d, () => at(d, w, 14));
     assert.deepEqual(await ids(d), [guard, w].sort((p, q) => p - q), 'Shift adds the Villager');
-    // A worker selected, the Cottage damaged: a left click on it where another's hat is repairs it.
+    // A worker selected, the Cottage damaged: a left click on it where another's hat is selects it, a right click repairs it.
     const other = await spawn('harvester', b.x + 90, b.y + 60);
     await d.eval((id) => endfall.engine.debugSetHp(id, 60), b.id); await d.skip(0.2);
     await none(d); await at(d, other, 14);
     assert.deepEqual(await ids(d), [other]);
     await at(d, w, 31);
-    assert.equal((await unit(d, other)).task, 'repair', 'the order: repair the Cottage behind the hat');
+    assert.deepEqual([await ids(d), (await unit(d, other)).task], [[b.id], 'idle'], 'a left click: the Cottage behind the hat, nothing ordered');
+    await none(d); await at(d, other, 14);
+    const hat = await unit(d, w); await d.rightClickWorld(hat.x, hat.y - 31);
+    assert.deepEqual([await ids(d), (await unit(d, other)).task], [[other], 'repair'], 'a right click: the order, to repair the Cottage behind the hat');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

@@ -570,7 +570,7 @@ src/client/           everything that touches the browser
                       draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
                       selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
-                      (`orderTarget`: the ground, a mine, an enemy, with workers a site or a damaged building; workers given
+                      (`orderTarget`: the ground, a mine, an enemy, with workers a site; a damaged building is selected, its repair a right click's or the Repair button's, as on touch; workers given
                       a job so, by an armed Mine or Repair or by placing without Shift are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
                       keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
                       with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold

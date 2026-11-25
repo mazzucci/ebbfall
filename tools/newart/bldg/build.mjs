@@ -205,7 +205,7 @@ for (const [type, c] of Object.entries(CFG.bldg)) { if (ONLY.length && !ONLY.inc
 const RUBBLE = JSON.parse(readFileSync(join(PICTURES, 'leftovers/rubble.json'), 'utf8'));
 for (const [file, r] of Object.entries(RUBBLE)) {
   const [, people, n] = /^rubble_(ex|kg)_(\d)\.png$/.exec(file), p = decodePNG(readFileSync(join(PICTURES, 'leftovers', file)));
-  if (SCALE !== 2) throw new Error('the rubble is drawn at 2x');
+  if (SCALE !== 2) continue; // (drawn at 2x: a larger pack, for the docs' plates and pictures, has none)
   all.push({ name: people === 'ex' ? `rubble_vael_${n}` : `rubble_${n}`, type: `rubble_${people}`, im: { w: p.w, h: p.h, data: p.data }, anchor: { x: r.anchor[0], y: r.anchor[1] } });
 }
 await page.done();

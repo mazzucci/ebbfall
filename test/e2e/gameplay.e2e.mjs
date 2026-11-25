@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK, FIRE_SCALE } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -4182,7 +4182,7 @@ test('a hit\'s look follows how hard it hits: a Cannon\'s cannonball (siege) lan
     assert.ok(seen, 'a cannonball lands');
     const boom = seen.find(e => e.anim === 'boom_small');
     assert.ok(boom, `a blast where it lands (${JSON.stringify(seen.map(e => e.anim))})`);
-    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
+    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size * FIRE_SCALE) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
     assert.ok(seen.some(e => e.anim === 'flash'), 'with a flash');
     await d.skip(1);
     assert.equal(await d.eval(() => window.__peak), 0, 'no shake on any frame');

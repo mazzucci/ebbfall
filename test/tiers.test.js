@@ -57,9 +57,9 @@ test('the light tier keeps today\'s hits; the rest step up, and their sound with
   assert.deepEqual(['light', 'medium', 'heavy', 'siege'].map(t => HIT_LOOK[t].weight), [0, 1, 2, 3]);
 });
 
-// (an effect frame's size in world px: its page is drawn at 2x)
-const { frames } = JSON.parse(readFileSync(new URL('../public/art/new/remains-0.json', import.meta.url)));
-const px = (name) => frames[name].sourceSize.w / 2;
+// (an effect frame's size in world px: gl/fx.js paints it)
+const { FX } = await import('../src/client/gl/fx.js');
+const px = (name) => FX.find(f => f.name === name).w;
 /** The largest thing a tier's hit draws (world px across), as render.js tierHit draws it. */
 function footprint(tier) {
   const L = HIT_LOOK[tier];

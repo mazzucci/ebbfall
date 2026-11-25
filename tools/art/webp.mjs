@@ -3,23 +3,22 @@
 // masks included; lossy settings saved a little more but changed edges and masks (the numbers: the PR that brought
 // WebP in, art-webp-atlases). Every browser Ebbfall runs in decodes WebP (the build's es2022 and top-level await need
 // Safari 15; WebP is in Safari 14), so the pages are WebP only.
-import { readFileSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { decodePNG } from './png.js';
 
 const pkg = (f) => fileURLToPath(import.meta.resolve(`@jsquash/webp/${f}`));
 /** libwebp's settings for the pages: lossless at its slowest, smallest method. `exact` keeps the colour under
  *  transparent pixels as drawn (bytes-neutral here, and a pixel-for-pixel round trip). */
 export const WEBP = { lossless: 1, quality: 100, method: 6, exact: 1 };
 
-/** An Emscripten module of the package's (`codec/enc/webp_enc` or `codec/dec/webp_dec`; the plain build, not the SIMD
+/** An Emscripten module of the package's (`codec/enc/webp_enc`; the plain build, not the SIMD
  *  one, so every machine runs the same code), its .wasm read from disk (Node's fetch takes no file: URLs). */
 async function codec(base) {
   const { default: factory } = await import(`@jsquash/webp/${base}.js`);
   const wasm = await WebAssembly.compile(readFileSync(pkg(`${base}.wasm`)));
   return factory({ noInitialRun: true, instantiateWasm: (imports, done) => { const i = new WebAssembly.Instance(wasm, imports); done(i); return i.exports; } });
 }
-let encoder = null, decoder = null;
+let encoder = null;
 const DEFAULTS = (await import('@jsquash/webp/meta.js')).defaultOptions;
 
 /** A WebP of RGBA pixels { w, h, data } (8-bit, not premultiplied), as a Buffer. */
@@ -28,12 +27,4 @@ export async function encodeWebP({ w, h, data }, options = WEBP) {
   const out = encoder.encode(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), w, h, { ...DEFAULTS, ...WEBP, ...options });
   if (!out) throw new Error('encodeWebP: libwebp failed');
   return Buffer.from(out);
-}
-
-/** The pixels of a WebP: { w, h, data } (RGBA 8-bit, not premultiplied). */
-export async function decodeWebP(buf) {
-  decoder ||= await codec('codec/dec/webp_dec');
-  const img = decoder.decode(new Uint8Array(buf));
-  if (!img) throw new Error('decodeWebP: not a WebP');
-  return { w: img.width, h: img.height, data: new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.length) };
 }

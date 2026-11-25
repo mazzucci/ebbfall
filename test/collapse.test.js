@@ -14,9 +14,9 @@ const FIRE = ['boom_big', 'spark'];
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 const gray = (s) => s.anim === 'trail' && s.o.tint === GRAY_SMOKE.tint;
 const dust = (s) => s.anim === 'trail' && s.o.tint === DUST;
-// (an effect frame's size in world px: its page is drawn at 2x)
-const { frames } = JSON.parse(readFileSync(new URL('../public/art/new/remains-0.json', import.meta.url)));
-const px = (name) => frames[name].sourceSize.w / 2;
+// (an effect frame's size in world px: gl/fx.js paints it)
+const { FX } = await import('../src/client/gl/fx.js');
+const px = (name) => FX.find(f => f.name === name).w;
 
 test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints and a flash, the Data center\'s reactor, the Portal', () => {
   assert.deepEqual(BLDG_DEATH.ghost, { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, dim: 0.5 });

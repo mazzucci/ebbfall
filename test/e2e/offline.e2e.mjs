@@ -7,7 +7,7 @@ import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { test, start, stop, browserContext, baseUrl, site, DESKTOP, PHONE } from './harness.mjs';
+import { test, start, stop, browserContext, baseUrl, site, ENGINE, DESKTOP, PHONE } from './harness.mjs';
 
 before(start);
 after(stop);
@@ -166,7 +166,10 @@ test('a first visit downloads each file once (the service worker\'s copy a 304),
     const first = await stored(page), one = sent(), list = JSON.parse(dist('sw.js').toString().match(/const FILES = (\[.*\]);/)[1]);
     assert.ok(list.length > 20 && Object.keys(first.files).length >= list.length - 1, `every file stored: ${Object.keys(first.files).length} of ${list.length}`); // (./ and / are one address)
     const twice = Object.entries(Object.groupBy(one.filter(([, s]) => s === 200), ([p]) => p)).filter(([, l]) => l.length > 1 && l[0][2] > 2000).map(([p, l]) => `${p} ${l.length}x`);
-    assert.deepEqual(twice.filter(p => p.startsWith('/art/')), [], 'no art sent twice');
+    // (Playwright's WebKit keeps no HTTP cache the worker can read: there every file is sent again, and only what is
+    // stored is checked)
+    const cached = ENGINE !== 'webkit';
+    if (cached) assert.deepEqual(twice.filter(p => p.startsWith('/art/')), [], 'no art sent twice');
     // A second visit: from the store.
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
@@ -182,9 +185,9 @@ test('a first visit downloads each file once (the service worker\'s copy a 304),
     assert.equal(next.files['/'], sha(page1), 'the new build\'s page');
     assert.equal(next.files[`/${art}`], sha(art1), 'its art');
     for (const f of list.filter(f => !['./', 'index.html', art].includes(f))) assert.equal(next.files[`/${f}`] ?? next.files[`/${f.replace(/\.html$/, '')}`], sha(dist(f)), `${f}: the deployed bytes`);
-    assert.ok(sum(three) < sum(one) / 10, `an update sends little: ${sum(three)} bytes, the first visit ${sum(one)}`);
+    if (cached) assert.ok(sum(three) < sum(one) / 10, `an update sends little: ${sum(three)} bytes, the first visit ${sum(one)}`);
     const body = three.filter(([p, s]) => s === 200 && p.startsWith('/art/')).map(([p]) => p);
-    assert.deepEqual([...new Set(body)], [`/${art}`], 'of the art, only the changed file was sent');
+    if (cached) assert.deepEqual([...new Set(body)], [`/${art}`], 'of the art, only the changed file was sent');
   } finally { site.deployed = null; await ctx.close(); }
 });
 

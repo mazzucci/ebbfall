@@ -910,7 +910,8 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
                       (BrowserStack, iOS Simulator through Appium, Android emulator, local Playwright, any WebDriver),
                       webdriver.mjs (a fetch-only W3C client), smoke.mjs (the steps, screenshots, summary.json); README.md
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
-                      file of dist/ but source maps and WEB_ONLY
+                      file of dist/ but source maps and WEB_ONLY, each asked of the host (`no-cache`: a 304 where the
+                      browser has it, so a first visit downloads the art once)
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
 tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vite plugin in build.mjs writes it into dist/
                       with the game: dist/docs/<page>/index.html, dist/sitemap.xml with every page and its lastmod,

@@ -40,8 +40,10 @@ async function staged(device, tag, held = true) {
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'warning' && /new art/.test(m.text())) warns.push(m.text()); });
   if (held) await page.clock.install();
-  await page.goto(`${baseUrl()}?seed=4242${tag === 'new' ? '&art=new' : ''}`, { waitUntil: 'networkidle' });
+  const t0 = Date.now();
+  await page.goto(`${baseUrl()}?seed=4242${tag === 'today' ? '' : '&art=new'}`, { waitUntil: 'networkidle' }); // (every tag but `today` is the new look: `new`, or `before` and `after` of two builds)
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 120000 });
+  const loadMs = Date.now() - t0; // (the page and its art, to the menu: rough, the machine is shared)
   const press = (sel) => device.hasTouch ? page.locator(sel).tap() : page.locator(sel).click();
   await press('#btnSolo');
   await board(page).race(1, 'vael');
@@ -56,7 +58,7 @@ async function staged(device, tag, held = true) {
     window.tick = (ms) => { off += ms; endfall.draw(); };
   });
   await page.mouse.move(1, 1);
-  return { ctx, page, errors, warns };
+  return { ctx, page, errors, warns, loadMs };
 }
 
 /** The whole scene, staged in the page: the same orders at the same ticks for both looks. */
@@ -74,8 +76,11 @@ const scene = (page) => page.evaluate(([armies, at]) => {
     }
     return best || open(x, y, r - 32, from, far);
   };
-  // the Barracks: a Villager builds it south of the Castle
+  // the Barracks: a Villager builds it south of the Castle; the other Villagers mine meanwhile (one will carry a load)
   const core = G.bldgs.find(b => b.team === me && b.d.hq), worker = G.units.find(u => u.team === me && u.d.worker);
+  const mine = map.nodes.slice().sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+  for (const u of G.units) if (u.team === me && u.d.worker && u !== worker) engine.startGather(u, mine);
+  endfall.paint([0, 7]); // (the other side in the red seat's paint: the masks in blue and in red)
   engine.setResources(me, 5000, 0);
   let spot = null;
   for (let r = 4; r < 12 && !spot; r++) for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r && !spot; dx++) { const tx = core.tx + dx, ty = core.ty + dy; if (Math.max(Math.abs(dx), Math.abs(dy)) === r && dy > 2 && engine.canPlace('barracks', tx, ty, me)) spot = [tx, ty]; }
@@ -103,6 +108,8 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   // behind the Barracks: three hidden by it, one beside it in the open
   const bx = barracks.tx * T, by = barracks.ty * T, hidden = [0, 1, 2].map(i => engine.debugSpawn(me, 'trooper', bx + 20 + i * 28, by - 4));
   const beside = engine.debugSpawn(me, 'trooper', bx - 34, by + barracks.h * T - 20);
+  // (and a Villager, a Knight and a Cannon in front of it: the new units beside the buildings)
+  ['harvester', 'knight', 'siegeTank'].forEach((k, i) => { const id = engine.debugSpawn(me, k, bx + 10 + i * 46, by + barracks.h * T + 26); if (id) engine.holdUnit(of([id])[0]); });
   endfall.skip(1.9); // (the fronts have met)
   // the march: 16 Guards from a point, each out along its facing
   const wc = open(sc.x, sc.y, 230, taken, 480), walkers = [];
@@ -115,7 +122,11 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   of(standing).forEach(u => engine.holdUnit(u));
   engine.castAbility(of(standing).filter(u => u.type === 'siegeTank'), 'deploy');
   for (const dx of [-120, 120]) { const e = engine.debugSpawn(1, 'bruiser', lc.x + dx, lc.y - 225); if (e) engine.holdUnit(of([e])[0]); }
+  // a second march, of Knights: each out along its facing (a horse from every side)
+  const kc = open(lc.x, lc.y, 230, [...taken, wc, lc], 480), riders = [];
+  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, id = engine.debugSpawn(me, 'knight', kc.x + Math.cos(a) * 70, kc.y + Math.sin(a) * 70); if (id) riders.push([id, a]); }
   endfall.draw();
+  for (const [id, a] of riders) engine.moveTo(of([id])[0], kc.x + Math.cos(a) * 460, kc.y + Math.sin(a) * 460);
   of(marching).forEach((u) => engine.moveTo(u, u.x, u.y + 300));
   of(walkers).forEach((u, k) => { const a = k / 16 * Math.PI * 2; engine.moveTo(u, wc.x + Math.cos(a) * 420, wc.y + Math.sin(a) * 420); });
   endfall.skip(0.3);
@@ -126,7 +137,7 @@ const scene = (page) => page.evaluate(([armies, at]) => {
   for (const t of document.querySelectorAll('#msg .toast')) t.remove();
   for (let i = 0; i < 4; i++) window.tick(100); // (who stopped stands: the renderer holds a stride a quarter second)
   const ours = of(groups[0]).filter(u => !u.dead), xs = ours.map(u => u.x), ys = ours.map(u => u.y);
-  return { field, sc, wc, lc, striking: n, barracks: { x: barracks.x, y: barracks.y, id: barracks.id }, beside, hidden, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0 };
+  return { field, sc, wc, lc, kc, mine: { x: mine.x, y: mine.y }, lineBox: [lc.x - 7.6 * 52, lc.y - 150, lc.x + 7.6 * 52, lc.y - 20], striking: n, barracks: { x: barracks.x, y: barracks.y, id: barracks.id }, beside, hidden, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], tick: G.tick ?? G.time, hash: engine.stateHash() >>> 0 };
 }, [ARMIES, AT]);
 
 /** Where world point (x, y) is on the page now. */
@@ -145,8 +156,8 @@ async function shoot(page, dev, name, extra = {}) {
 async function stills() {
   mkdirSync(join(OUT, TAG), { recursive: true });
   for (const dev of ONLY) {
-    const device = DEVICES[dev], touch = !!device.hasTouch, { ctx, page, errors, warns } = await staged(device, TAG);
-    const S = await scene(page); log[dev] = S;
+    const device = DEVICES[dev], touch = !!device.hasTouch, { ctx, page, errors, warns, loadMs } = await staged(device, TAG);
+    const S = await scene(page); log[dev] = { ...S, loadMs };
     const tap = (x, y) => touch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y);
     // the fight: ours box-selected through the UI at zoom 1, shot at the start zoom (and at zoom 1 on the phone)
     const [x0, y0, x1, y1] = S.box, m = 26, mid = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 - 10 };
@@ -178,6 +189,16 @@ async function stills() {
     await page.evaluate(() => { for (let i = 0; i < 6; i++) { endfall.skip(1 / 30); window.tick(34); } endfall.G.events.length = 0; });
     await look(page, S.wc); await shoot(page, dev, 'walk', { at: S.wc });
     await look(page, S.lc); await shoot(page, dev, 'lineup', { at: S.lc });
+    await look(page, S.kc); await shoot(page, dev, 'walk-knights', { at: S.kc });
+    // a Villager with its load, on its way back from the mine
+    const carrier = await page.evaluate(() => { const u = endfall.G.units.find(u => u.team === endfall.G.me && u.d.worker && u.carry && !u.inside); return u && { x: u.x, y: u.y }; });
+    if (carrier) { await look(page, carrier, touch ? 1.75 : 2.5); await shoot(page, dev, 'carry', { at: carrier }); }
+    // the lineup's standing row in a box (a mouse): every kind's ring, bar and tile
+    if (!touch) {
+      await look(page, S.lc, 1); const a = await onPage(page, S.lineBox[0], S.lineBox[1]), b = await onPage(page, S.lineBox[2], S.lineBox[3]);
+      await page.mouse.move(a[0], a[1]); await page.mouse.down(); await page.mouse.move(b[0], b[1], { steps: 8 }); await page.mouse.up(); await page.mouse.move(1, 1);
+      await look(page, S.lc); await shoot(page, dev, 'lineup-selected', { at: S.lc });
+    }
     if (touch) { await look(page, S.wc, 1); await shoot(page, dev, 'walk-zoom1', { at: S.wc }); await look(page, S.lc, 1); await shoot(page, dev, 'lineup-zoom1', { at: S.lc }); }
     log.errors.push(...errors.map(e => `${dev}: ${e}`)); log.warns.push(...warns.map(e => `${dev}: ${e}`));
     await ctx.close();

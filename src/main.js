@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, rallyShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars, portrait } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, targetsMarked, ghostHeadShown, rallyShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -292,7 +292,7 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoomLimit(); }, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, ground: groundShown, shake: shakeNow, rangeShown, rallyShown, unitTop, bldgArtTop, seatTint, spotTint, portrait, fog: showFog, bars: showBars, sound: audio, renderSfx,
+window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoomLimit(); }, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, ground: groundShown, shake: shakeNow, rangeShown, targetsMarked, ghostHeadShown, rallyShown, unitTop, bldgArtTop, seatTint, spotTint, portrait, fog: showFog, bars: showBars, sound: audio, renderSfx,
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
   paint: (spots) => { setSpots(spots); renderTerrain(); },

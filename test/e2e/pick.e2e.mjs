@@ -14,7 +14,7 @@ const unit = async (d, id) => (await d.state()).units.find(u => u.id === id);
 async function at(d, id, up, opts) { const u = await unit(d, id); await d.page.waitForTimeout(450); await d.clickWorld(u.x, u.y - up, opts); }
 async function shift(d, f) { await d.page.keyboard.down('Shift'); await f(); await d.page.keyboard.up('Shift'); }
 /** Nothing selected. */
-async function none(d) { await d.key('Escape'); await d.key('Escape'); assert.deepEqual(await ids(d), []); }
+async function none(d) { await d.key('Escape'); await d.key('Escape'); await d.page.waitForFunction(() => !endfall.ui.sel.length, null, { timeout: 5000 }).catch(() => {}); assert.deepEqual(await ids(d), []); } // (Firefox hands the page a key a moment after the driver's word for it)
 
 /** A finished Cottage of ours in open ground (set up), and a Villager idle just south of it: its feet past the
  *  footprint's foot by a few px or on it, its hat over the footprint. Another Villager far from any building. */

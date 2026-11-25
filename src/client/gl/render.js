@@ -15,7 +15,7 @@ import { inRange, unionArcs, nearestRim } from '../range.js';
 import { rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
 import { loadArt } from './artload.js';
-import { unitSize, workLook, ringSize } from './newart.js';
+import { unitSize, workLook, ringSize, markRadius } from './newart.js';
 import { PUFF, paintPuff } from './puff.js';
 import { FX_K, FX_ANIMS, BOOMS, paintFx } from './fx.js';
 import { RALLY_RED, FLAG_FRAMES, FLAG_FPS, FLAG_BOX, paintFlag } from './rallyflag.js';
@@ -261,7 +261,8 @@ const occPool = []; // (sprites in `occl`, reused frame to frame)
 const bars = new Graphics(); L.overlay.addChild(bars);
 const lines = new Graphics(); L.overlay.addChild(lines);
 const box = new Graphics(); screen.addChild(box);
-const [ghost, ghostPaint] = teamSprite(L.overlay);
+const [ghost, ghostPaint] = teamSprite(L.overlay), [ghostHead, ghostHeadPaint] = teamSprite(L.overlay);
+const GHOST_FACING = 2; // (a head's facing in the placement ghost: right and toward the viewer)
 const ghostRect = new Graphics(); L.overlay.addChild(ghostRect);
 
 // ---- camera ----
@@ -478,7 +479,7 @@ class UnitObj {
     this.node.addChild(this.body, this.flash, this.paint, this.paintFlash); // (hit: each layer added onto itself, so paint brightens in its own color)
     // (an own walker: its silhouette, shown while a building hides it)
     if (u.team === G.me && !this.air) { this.xr = new Sprite(); this.xr.scale.set(UNIT_SCALE * unitK(u.type)); this.xr.visible = false; L.xray.addChild(this.xr); }
-    this.size = (u.r > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type) * ringSize(u.type); // (the selection ring round the feet: as large as the art; gl/newart.js RING_SIZE: the new look's people on foot, a smaller one)
+    this.size = (markRadius(u) > 12 ? 26 : 18) * UNIT_ART_SCALE * unitK(u.type) * ringSize(u.type); // (the selection ring round the feet: as large as the art; gl/newart.js RING_SIZE: the new look's people on foot, a smaller one)
     this.id = u.id; this.px = u.x; this.py = u.y; this.walk = 0;
   }
   update(u, t, sel, dt) {
@@ -972,23 +973,26 @@ function hpBar(x, y, w, hp, max, sh = 0, maxsh = 0) {
 }
 /** A unit's health bar over its art: as wide as the unit but never wider than 24 screen px (34 for a large one). */
 function unitBar(u) {
-  const w = Math.min(u.r * UNIT_SCALE * 2 + 4, (u.r > 12 ? 34 : 24) / cam.zoom);
+  const r = markRadius(u), w = Math.min(r * UNIT_SCALE * 2 + 4, (r > 12 ? 34 : 24) / cam.zoom);
   hpBar(u.x - w / 2, u.y - unitTop(u.type) - 7, w, u.hp, u.maxhp, u.sh, u.maxsh); // (just over the art's top)
 }
 // ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
 const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
 const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line, so it reads on pale ground too)
-// (over the fog: the range reaches ground not yet seen; under the ghost, the bars and the selection box, over the
-// selection rings) The tint is drawn opaque and faded as one layer (AlphaFilter), so where circles overlap it is no
-// darker; the rim is the union's edge alone, a 3.5 px halo at 50% under a 1.5 px line at 70%, in screen px at every
+// (on the ground: under the selection rings, the units, the trees and the buildings, so a machine on the line stands on
+// it; the fog hides it where nothing was seen yet: there a thin line over the fog, `drawFogRim`) The tint is drawn opaque and faded as one layer (AlphaFilter), so where circles overlap it is no
+// darker; the rim is the union's edge alone, a dark halo under a light line (RIM), in screen px at every
 // zoom (the widths are divided by the zoom, in steps: `rimZoom`). Inside the rim a feathered band gives the area its
 // side (the 7% fill alone is lost on grass): `BAND_PX` screen px wide, the rim's light from `BAND_ALPHA` at the line to
 // nothing, as `BAND_STEPS` rings of the union's arcs drawn inward.
-const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeHi = new Graphics(), rangeG = new Container();
-rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine, rangeHi); L.overlay.addChildAt(rangeG, 0); rangeG.visible = false;
-let rangeKey = '', rangeCircles = [], rangeArcs = [];
-export const BAND_PX = 16, BAND_ALPHA = 0.18;
-const BAND_STEPS = 8, RIM_HALO_ALPHA = 0.5; // (the halo 35% at first: on the pale boulders of a hill the line got lost)
+const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeG = new Container(), rangeFog = new Graphics(), rangeHi = new Graphics(), rangeOver = new Container();
+rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine); L.sel.addChildAt(rangeG, 0); rangeG.visible = false;
+rangeOver.addChild(rangeFog, rangeHi); L.overlay.addChildAt(rangeOver, 0); rangeOver.visible = false; // (over the fog: the line on ground not yet seen, and the leash's cue)
+let rangeKey = '', rangeCircles = [], rangeArcs = [], fogKey = '', fogRuns = [];
+export const BAND_PX = 28, BAND_ALPHA = 0.36;
+/** The rim's line and its dark halo: screen px, opacity. */
+export const RIM = { line: 2.5, alpha: 0.85, halo: 4.5, haloAlpha: 0.55, fogLine: 1.5, fogAlpha: 0.7, fogHalo: 3.5, fogHaloAlpha: 0.5 }; // (fog: over ground not yet seen)
+const BAND_STEPS = 8;
 /** The zoom the rim is drawn for: the camera's in steps of a tenth, so a pinch redraws it only now and then. */
 const rimZoom = () => Math.round(cam.zoom * 10) / 10;
 /** Stroke the arcs [x, y, r, from, to] onto `g` (no stroke call). */
@@ -1010,8 +1014,28 @@ function drawRange(extra) {
     arcsOnto(rangeBand, rangeArcs.map(([x, y, r, a0, a1]) => [x, y, Math.max(0, r - inset), a0, a1]));
     rangeBand.stroke({ width: step, color: RANGE_COLOR, alpha: BAND_ALPHA * (1 - (i + 0.5) / BAND_STEPS) });
   }
-  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 3.5 / z, color: RIM_HALO, alpha: RIM_HALO_ALPHA });
-  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: 1.5 / z, color: RANGE_COLOR, alpha: 0.7 });
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: RIM.halo / z, color: RIM_HALO, alpha: RIM.haloAlpha });
+  arcsOnto(rangeLine, rangeArcs); rangeLine.stroke({ width: RIM.line / z, color: RANGE_COLOR, alpha: RIM.alpha });
+}
+/** The rim's stretches over ground not yet seen, as a thin line over the fog: the arcs looked at every RIM_STEP px, drawn
+ *  again only when they change (the fog opens, the rim moves). */
+const RIM_STEP = 12;
+function drawFogRim() {
+  const runs = [], explored = G.explored;
+  if (L.fog.visible) for (const [x, y, r, a0, a1] of rangeArcs) {
+    const n = Math.max(1, Math.ceil((a1 - a0) * r / RIM_STEP)); let from = -1;
+    for (let i = 0; i <= n + 1; i++) {
+      const a = a0 + (a1 - a0) * i / n, tx = Math.floor((x + Math.cos(a) * r) / TILE), ty = Math.floor((y + Math.sin(a) * r) / TILE);
+      const dark = i <= n && tx >= 0 && ty >= 0 && tx < MW && ty < MH && !explored[idx(tx, ty)];
+      if (dark) { if (from < 0) from = i; } else if (from >= 0) { if (i - 1 > from) runs.push([x, y, r, a0 + (a1 - a0) * from / n, a0 + (a1 - a0) * (i - 1) / n]); from = -1; }
+    }
+  }
+  const z = rimZoom(), key = `${z}:${runs.join(';')}`;
+  if (key === fogKey) return;
+  fogKey = key; fogRuns = runs; rangeFog.clear();
+  if (!runs.length) return;
+  arcsOnto(rangeFog, runs); rangeFog.stroke({ width: RIM.fogHalo / z, color: RIM_HALO, alpha: RIM.fogHaloAlpha });
+  arcsOnto(rangeFog, runs); rangeFog.stroke({ width: RIM.fogLine / z, color: RANGE_COLOR, alpha: RIM.fogAlpha });
 }
 // The leash's cue: a machine sent past the edge (the sim's `signal` event, with the no-signal toast) brightens the stretch
 // of the rim nearest where it was sent to full, fading back over 0.6 s. No pulse, dashes or icons (the designer's spec).
@@ -1025,7 +1049,7 @@ function drawLeash(now) {
   if (k <= 0 || k > 1) { leash = null; return; }
   const seg = nearestRim(rangeArcs, leash.x, leash.y, LEASH_SPAN);
   if (!seg) return;
-  arcsOnto(rangeHi, [seg]); rangeHi.stroke({ width: 1.5 / rimZoom(), color: RANGE_COLOR, alpha: k });
+  arcsOnto(rangeHi, [seg]); rangeHi.stroke({ width: RIM.line / rimZoom(), color: RANGE_COLOR, alpha: k });
 }
 /** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while any building that gives
  *  coverage or goes up only inside it is being placed (a source's own circle with the others). */
@@ -1034,8 +1058,9 @@ function showRange(selList, place, now) {
   const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
   const on = !!extra || (place && needsCoverage(place.type)) || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
   if (on) drawRange(extra);
-  rangeG.visible = on && rangeCircles.length > 0;
-  if (rangeG.visible) drawLeash(now); else leash = null;
+  mmExtra = extra; // (and on the minimap while it is placed)
+  rangeG.visible = rangeOver.visible = on && rangeCircles.length > 0;
+  if (rangeG.visible) { drawFogRim(); drawLeash(now); } else leash = null;
 }
 /** A machine of ours out of coverage while its side has some (stranded: slowed, and only back towards it): a small
  *  "no signal" sign over it, an antenna's two arcs struck through, dark-edged and team-neutral so it reads on any
@@ -1054,7 +1079,7 @@ function noSignal(x, y) {
 }
 /** Tests: whether the range is drawn, its circles, and which units show the no-signal mark. */
 const markedIds = new Set();
-export const rangeShown = () => ({ shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], leash: !!leash, mmRim: mmRimArcs, mmRimWidth: mmRimCss, band: { px: BAND_PX, alpha: BAND_ALPHA, rings: rangeBand.visible && rangeArcs.length ? BAND_STEPS : 0 } });
+export const rangeShown = () => ({ under: rangeG.parent === L.sel, fogRuns: rangeG.visible ? fogRuns.map(q => q.slice()) : [], mmExtra: mmExtra && { ...mmExtra }, shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], leash: !!leash, mmRim: mmRimArcs, mmRimWidth: mmRimCss, band: { px: BAND_PX, alpha: BAND_ALPHA, rings: rangeBand.visible && rangeArcs.length ? BAND_STEPS : 0 } });
 
 /** A progress bar with an optional count of queued items (small pips) after it. */
 function progressBar(x, y, w, f, color, pips = 0, h = 5) {
@@ -1233,11 +1258,13 @@ export function render(selList, place) {
   updateEffects(dt);
   updateFogImage();
 
-  ghost.visible = ghostPaint.visible = ghostRect.visible = !!place; ghostRect.clear();
+  ghost.visible = ghostPaint.visible = ghostRect.visible = !!place; ghostHead.visible = ghostHeadPaint.visible = false; ghostRect.clear();
   if (place) {
     const d = BUILDINGS[place.type], ok = canPlace(place.type, place.tx, place.ty, G.me);
     setTex(ghost, tex(`bldg_${place.type}`)); setTex(ghostPaint, tex(`bldg_${place.type}_m`)); ghost.position.set((place.tx + d.w / 2) * TILE, (place.ty + d.h / 2) * TILE); ghostPaint.position.copyFrom(ghost.position);
     paintAs(ghost, ghostPaint, seatTint(G.me), ok ? 0xb8ffc8 : 0xff7070, 0.6);
+    const L2 = BLDG_LOOK[place.type]; // (its head too, a dish, a rotor, a gun or its archer, at one facing; never the Portal's swirl)
+    if (L2?.head && !L2.portal) { ghostHead.visible = ghostHeadPaint.visible = true; setTex(ghostHead, tex(`${L2.head}_${GHOST_FACING}`)); setTex(ghostHeadPaint, tex(`${L2.head}_${GHOST_FACING}_m`)); ghostHead.position.copyFrom(ghost.position); ghostHeadPaint.position.copyFrom(ghost.position); paintAs(ghostHead, ghostHeadPaint, seatTint(G.me), ghost.tint, 0.6); }
     ghostRect.rect(place.tx * TILE, place.ty * TILE, d.w * TILE, d.h * TILE).fill({ color: ok ? 0x5ad67d : 0xff5a5a, alpha: 0.18 }).stroke({ width: 2, color: ok ? 0x5ad67d : 0xff5a5a });
   }
   box.clear();
@@ -1275,10 +1302,46 @@ const MINE_MARK = 0xe6e0d3;
 const targetColor = (e) => e.kind === 'node' ? MINE_MARK : 0xf5a524;
 /** Blink the target of an order three times, so the player sees it was understood. */
 export function flashTarget(e) { if (e) flashes.push({ e, t: performance.now() / 1000 }); }
+/** The outline of frame `name`'s solid paint, as points round it (px from its anchor at the sprite's size, its soft
+ *  shadow left out): for each of HULL_N directions from its middle the farthest solid pixel, smoothed over its neighbors
+ *  and pushed out by HULL_OUT, so a line along it stands clear of the paint. Read once from the decoded page, cached. */
+const HULL_N = 72, HULL_OUT = 4, hulls = new Map(), marked = [];
+/** Tests: the placement ghost's head as drawn now (its frame, where), or null. */
+export const ghostHeadShown = () => (ghostHead.visible ? { frame: ghostHead.texture.label, x: ghostHead.x, y: ghostHead.y } : null);
+/** Tests: the targets marked in the last frame (mines, buildings), each with its outline (world px, x and y in turn). */
+export const targetsMarked = () => marked.map(m => ({ ...m }));
+function hullOf(name) {
+  if (hulls.has(name)) return hulls.get(name);
+  const box = artBox(name); if (!box) return null;
+  const { img, f } = frames[name], t = tex(name), c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  const a = ctx.getImageData(0, 0, f.w, f.h).data, mx = (box.l + box.r) / 2, my = (box.t + box.b) / 2, far = new Float64Array(HULL_N);
+  for (let y = box.t; y <= box.b; y++) for (let x = box.l; x <= box.r; x++) if (a[(y * f.w + x) * 4 + 3] > 200) {
+    const d = Math.hypot(x - mx, y - my), k = Math.round(Math.atan2(y - my, x - mx) / (2 * Math.PI) * HULL_N + HULL_N) % HULL_N;
+    if (d > far[k]) far[k] = d;
+  }
+  for (let k = 0; k < HULL_N; k++) if (!far[k]) { // (a direction with no paint in it, round a thin mast: as far as its nearest neighbors reach)
+    let j = 1; while (j < HULL_N && !far[(k + j) % HULL_N] && !far[(k - j + HULL_N) % HULL_N]) j++;
+    far[k] = -Math.max(far[(k + j) % HULL_N], far[(k - j + HULL_N) % HULL_N]);
+  }
+  const at = (k) => Math.abs(far[(k + HULL_N) % HULL_N]), pts = [];
+  for (let k = 0; k < HULL_N; k++) {
+    const d = Math.max(at(k), (at(k - 2) + 2 * at(k - 1) + 3 * at(k) + 2 * at(k + 1) + at(k + 2)) / 9) + HULL_OUT * f.w / t.width, an = k / HULL_N * 2 * Math.PI;
+    pts.push(((mx + Math.cos(an) * d) / f.w - t.defaultAnchor.x) * t.width, ((my + Math.sin(an) * d) / f.h - t.defaultAnchor.y) * t.height);
+  }
+  hulls.set(name, pts);
+  return pts;
+}
+/** A line round a target, a gold mine or a building, along its painted outline (a square cut through it), on a dark edge. */
 function outline(e, width, color, alpha) {
-  lines.rect(e.tx * TILE - 3, e.ty * TILE - 3, e.w * TILE + 6, e.h * TILE + 6).stroke({ width, color, alpha });
+  const node = e.kind === 'node', hull = hullOf(node ? `mine_${mineStage(e)}` : `bldg_${e.type}`); if (!hull) return;
+  const k = node ? GROUND.mine : 1, p = hull.map((v, i) => (i % 2 ? e.y : e.x) + v * k);
+  marked.push({ id: e.id, pts: p, width, alpha, scale: k });
+  lines.poly(p, true).stroke({ width: width + 2, color: RIM_HALO, alpha: alpha * 0.45, join: 'round' });
+  lines.poly(p, true).stroke({ width, color, alpha, join: 'round' });
 }
 function drawTargets(selList, now) {
+  marked.length = 0;
   for (const e of selList) if (e.kind === 'node' && !e.dead) outline(e, 2, SEL, 0.9); // a selected gold mine
   // Faint, steady: the mine or building each selected worker is working on.
   const done = new Set();
@@ -1391,11 +1454,11 @@ function minimapBase(c, S, T) {
 // alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored
 // ground hid most of it: with an Uplink's wide circle, all of it). In CSS px whatever the screen: drawn in the minimap's
 // units (MM_UNITS across its box), so the widths are scaled back by the box's size.
-const MM_RIM = { line: 1.25, halo: 2.5, color: 'rgba(191,233,255,0.8)', haloColor: 'rgba(11,18,32,0.5)' };
-let mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
+const MM_RIM = { line: 1.75, halo: 3.5, color: 'rgba(191,233,255,0.8)', haloColor: 'rgba(11,18,32,0.5)' };
+let mmExtra = null, mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
 function minimapRim(c, S, T) {
-  const key = `${G.radioVer}:${G.me}`;
-  if (key !== mmRimKey) { mmRimKey = key; mmArcs = coverageOf(FACTIONS[G.factions[G.me]]?.hq) > 0 ? unionArcs(G.radio) : []; }
+  const key = `${G.radioVer}:${G.me}` + (mmExtra ? `:${mmExtra.x},${mmExtra.y},${mmExtra.r}` : ''); // (with an Uplink or a Data center being placed, its circle)
+  if (key !== mmRimKey) { mmRimKey = key; mmArcs = coverageOf(FACTIONS[G.factions[G.me]]?.hq) > 0 ? unionArcs(mmExtra ? [...G.radio, mmExtra] : G.radio) : []; }
   const arcs = mmArcs;
   mmRimArcs = arcs.length;
   if (!arcs.length) return;

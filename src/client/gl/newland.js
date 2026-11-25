@@ -276,14 +276,18 @@ export function groundMix({ w, h, rock, kindAt, dirt, seed, apron = 0, wet = nul
  *  square a unit cannot enter reads as one yard whatever of it the painted base covers (a base leaves 8 to 24 px of
  *  blocked ground bare in front and 16 to 38 behind; the Wind turbine, a mast with no base, nearly all of it). The
  *  patch: the footprint grown `grow` px, its corners rounded by `round`, fading out over `fade` px past that, its edge
- *  wavered by `wob` px of the ground's own noise; as strong as its kind's row in `kinds`, `rest` for one not named. */
-export const WORN = { grow: 2, round: 16, fade: 14, wob: 5, kinds: { spire: 1 }, rest: 0.85 };
+ *  wavered by `wob` px of the ground's own noise, as strong as `strength`. A kind's row in `kinds` gives its own
+ *  `strength` or `round`: the Wind turbine's a little stronger, and rounder (26 of its 34 px a side: under a bare mast
+ *  the plain patch read as a square). */
+export const WORN = { grow: 2, round: 16, fade: 14, wob: 5, strength: 0.85, kinds: { spire: { strength: 0.9, round: 26 } } };
+/** A kind's patch: its strength and its corners' rounding (its row over the rest's). */
+export const wornOf = (type) => ({ strength: WORN.strength, round: WORN.round, ...WORN.kinds[type] });
 /** How much of a footprint's patch a world point has, 0 to 1: `b` `{ tx, ty, w, h }` in tiles, `wob` this point's
- *  share of the waver (-0.5 to 0.5). */
-export function wornAt(x, y, b, wob = 0) {
-  const hx = b.w * TILE / 2 + WORN.grow - WORN.round, hy = b.h * TILE / 2 + WORN.grow - WORN.round;
+ *  share of the waver (-0.5 to 0.5), `round` its corners' rounding (px). */
+export function wornAt(x, y, b, wob = 0, round = WORN.round) {
+  const hx = Math.max(0, b.w * TILE / 2 + WORN.grow - round), hy = Math.max(0, b.h * TILE / 2 + WORN.grow - round);
   const dx = Math.max(0, Math.abs(x - (b.tx + b.w / 2) * TILE) - hx), dy = Math.max(0, Math.abs(y - (b.ty + b.h / 2) * TILE) - hy);
-  return 1 - smooth(0, WORN.fade, Math.hypot(dx, dy) - WORN.round + wob * WORN.wob);
+  return 1 - smooth(0, WORN.fade, Math.hypot(dx, dy) - round + wob * WORN.wob);
 }
 /**
  * The ground's mix with the buildings' earth in it: `mix` (groundMix's image, written in place), `base` its red channel
@@ -295,11 +299,11 @@ export function wearMix(mix, base, list, { apron = 0, seed = 0 } = {}) {
   const { w: W, h: H, k, data } = mix, so = (seed | 0) % 977, reach = WORN.grow + WORN.fade + WORN.wob;
   for (let i = 0; i < base.length; i++) data[i * 4] = base[i];
   for (const b of list) {
-    const s = WORN.kinds[b.type] ?? WORN.rest, at = (px) => Math.floor((px / TILE + apron) * k);
+    const { strength: s, round } = wornOf(b.type), at = (px) => Math.floor((px / TILE + apron) * k);
     const x0 = Math.max(0, at(b.tx * TILE - reach)), x1 = Math.min(W - 1, at((b.tx + b.w) * TILE + reach)), y0 = Math.max(0, at(b.ty * TILE - reach)), y1 = Math.min(H - 1, at((b.ty + b.h) * TILE + reach));
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
       const fx = (tx + 0.5) / k - apron, fy = (ty + 0.5) / k - apron; // (in tiles)
-      const v = Math.round(255 * s * wornAt(fx * TILE, fy * TILE, b, noise(fx * 2.3 + so, fy * 2.3 - so) - 0.5)), o = (ty * W + tx) * 4;
+      const v = Math.round(255 * s * wornAt(fx * TILE, fy * TILE, b, noise(fx * 2.3 + so, fy * 2.3 - so) - 0.5, round)), o = (ty * W + tx) * 4;
       if (v > data[o]) data[o] = v;
     }
   }

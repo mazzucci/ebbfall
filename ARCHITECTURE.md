@@ -399,7 +399,7 @@ src/client/           everything that touches the browser
                       ground's mix of grass, worn dirt, forest floor and scree as a small image (`groundMix`), fading out
                       past the blocked cells' rounded, wobbled outline (`MIX_RIM`), the trodden earth under the
                       buildings laid into that mix (`wearMix`, `WORN`: a rounded, faded patch over each footprint, the
-                      Wind turbine's the strongest; gl/newlandgl.js `Land.wear` writes it when the buildings drawn
+                      Wind turbine's stronger and rounder by its own row; gl/newlandgl.js `Land.wear` writes it when the buildings drawn
                       change, so it costs nothing a frame), and the
                       art over the walkable cells for the test (`cover`); from the map's blocked cells, the ground plan
                       and the seed alone, exact arithmetic only (test/newland.test.js)

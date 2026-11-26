@@ -59,7 +59,7 @@ export const CARD = { lines: ['Real-time strategy. Play either side.', 'Free in 
 /** Every typed character's time on the timeline (seconds): the key ticks (spaces make none). */
 export function ticks() {
   const out = [];
-  for (const t of Object.values(TEXT)) for (const l of t.lines) [...l.text].forEach((ch, i) => { if (ch !== ' ') out.push(+(at(t.part) / FPS + l.times[i]).toFixed(4)); });
+  for (const t of Object.values(TEXT).filter(x => !(process.env.TRAILER_NOCAP && x === TEXT.day675))) for (const l of t.lines) [...l.text].forEach((ch, i) => { if (ch !== ' ') out.push(+(at(t.part) / FPS + l.times[i]).toFixed(4)); });
   return out.sort((a, b) => a - b);
 }
 /** DAY 2 (seconds of the part): the Bots that break off for the mine go as "We found thorium." starts; the base

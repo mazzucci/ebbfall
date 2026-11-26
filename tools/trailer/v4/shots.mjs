@@ -297,7 +297,8 @@ function openOverlay(t, f, st) {
   return o;
 }
 /** The late-game caption: typed over the first cut, there to the last frame (`t0`: this part's start, seconds after the first cut's). */
-const lateCap = (t0) => (t) => { const T = TEXT.day675, l = T.lines[0], u = t + t0; return { cap: { day: u >= T.dayAt ? T.day : '', text: typed(l.text, l.times, u), cursor: u <= l.times.at(-1) + 0.08 || blink(u), alpha: 1 } }; };
+// (TRAILER_NOCAP=1, cut 10: the late shots without their caption)
+const lateCap = (t0) => (t) => { if (process.env.TRAILER_NOCAP) return {}; const T = TEXT.day675, l = T.lines[0], u = t + t0; return { cap: { day: u >= T.dayAt ? T.day : '', text: typed(l.text, l.times, u), cursor: u <= l.times.at(-1) + 0.08 || blink(u), alpha: 1 } }; };
 const LATE2_AT = lengthOf('late1') / FPS, LATE3_AT = LATE2_AT + lengthOf('late2') / FPS;
 
 /** The late base's plan: [type, dx, dy] px from the Data center (the Expedition's start on Dust Quarter: the mine

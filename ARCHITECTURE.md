@@ -1022,14 +1022,17 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       start, a fight, all the way out, the fog, the minimap, 2560x1440 at DPR 2, the phone, whole maps
                       of two 96 seeds, the 128 map and the Lake, `gates`: 1:1 pieces of the passes a track runs
                       through), main beside pr (../ebbfall-article/ground-pr).
-tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
-                      own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
-tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
-                      battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
-                      through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
-                      from tools/art/older, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
-                      decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
-                      and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
+tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and the battle as a painted
+                      picture of tools/scene.mjs's composition (a local picture, EBBFALL_PICTURES opt/band/a-1.jpg: never
+                      committed; the tool stops without it), cropped round the meeting, reduced to 256 colors; output committed
+tools/scene.mjs       the battle og.png and the menu's field show: buildings, units, land pieces and blasts with their places
+tools/field.mjs       that battle composed as a picture of any size: the game's land (public/art/new), the buildings' pack
+                      built at 4x (target/bldg4, tools/docs/sprites.mjs BUILD), the units' sharp pictures (local:
+                      EBBFALL_PICTURES leftovers/hires), the blasts by gl/fx.js; contact and cast shadows under each unit
+tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: the
+                      battle of tools/field.mjs at each class's size (the upright phone's a crop of the desktop's), the night
+                      veil and the top fade into the floor's color baked in (opaque: Safari's decoder drew these WebPs' alpha
+                      as opaque; test/menu-art.test.js), written as WebP in headless Chromium; output committed
 public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its trailer's poster); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks

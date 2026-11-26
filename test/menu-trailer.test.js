@@ -41,7 +41,7 @@ test('the dialog: no video in the page (made on the tap: nothing fetched before)
   const f = d.match(/<div class="frame" id="trailerFrame" data-title="([^"]+)" data-label="([^"]+)">/);
   assert.ok(f, 'the frame with the video\'s words');
   assert.match(f[1], /^Ebbfall trailer: /);
-  assert.equal(f[2], "The Ebbfall trailer: time travelers from 2047 are stranded in a medieval kingdom in 1447 with no way home. They need its mines, the King won't abide it, and their armies fight. By day 675 they are still here.");
+  assert.equal(f[2], "The Ebbfall trailer: time travelers from 2047 arrive in a medieval kingdom in 1447 and build a base by its mines. The King wasn't expecting company, and their armies fight.");
   const make = js.match(/const make = \(\) => \{([\s\S]*?)\n {2}\};/)?.[1];
   assert.ok(make, 'trailer.js makes the video');
   for (const a of ["document.createElement('video')", 'v.controls = true', 'v.playsInline = true', "v.preload = 'none'", "v.setAttribute('playsinline', '')", 'v.width = 1280; v.height = 720', 'v.title = frame.dataset.title', "v.setAttribute('aria-label', frame.dataset.label)", 'v.poster = POSTER']) assert.ok(make.includes(a), a);

@@ -40,8 +40,9 @@ const STATES = { humans: [[5000], [0], [5000]], vael: [[5000, 'free'], [0, 'free
 /** What a button says is short in a state (of `takes` places, a unit): the grid first, then the money ('$'), one alone. */
 const says = ([gold, grid], takes) => (takes && grid === 'max' ? 'Grid at maximum.' : takes && (grid === 'full' || (grid === 'one' && takes > 1)) ? 'Needs grid: build a Substation.' : gold ? '' : '$');
 /** In the page: every priced button of every card (each building's, a worker's two Build pages) with its panel in each of
- *  `states`: the mouse's enter and leave sent to each button of a card drawn once for each, all in one call (the page
- *  draws nothing between). { id: [a panel a state] }, each with the button's own label as `want`, its title and the
+ *  `states`: the mouse's enter and leave sent to each button of a card built once for each, all in one call (the page
+ *  draws nothing between). The HUD alone is redrawn (`endfall.hud`), never the map: a hundred frames queued here on
+ *  software WebGL kept the page busy for half a minute after the call (the hover after it timed out on CI). { id: [a panel a state] }, each with the button's own label as `want`, its title and the
  *  places it takes (a unit). */
 const everyPanel = (states) => `(() => {
   const panel = ${PANEL}, { G, ui, engine: E } = endfall, out = {}, states = ${JSON.stringify(states)};
@@ -51,7 +52,7 @@ const everyPanel = (states) => `(() => {
     ui.place = null; ui.mode = mode; ui.sel = [e]; endfall.setResources(0, gold, 0);
     const max = E.supMax(); // (the page's copy of the grid set, after the copy of the gold: read again at the next step)
     if (grid) G.sup[0] = { free: [0, 24], full: [24, 24], one: [23, 24], max: [max, max] }[grid];
-    endfall.draw();
+    endfall.hud();
     for (const it of endfall.cardItems()) {
       if (!it.cost || it.hidden || out[it.id]?.length === states.length) continue;
       const b = document.querySelector('#cmd [data-id="' + it.id + '"]');
@@ -93,9 +94,9 @@ for (const race of ['humans', 'vael']) {
       assert.deepEqual(moved, [], 'no panel changed its size or its place');
       // Under a real mouse: the money goes and comes back while it rests on the button (the card is rebuilt under it).
       await d.page.setViewportSize({ width: 1000, height: 640 });
-      const hq = await d.eval(() => { endfall.setResources(0, 5000, 0); const b = endfall.G.bldgs.find(b => b.team === 0); endfall.ui.sel = [b]; endfall.draw(); return endfall.cardItems().find(i => i.cost).id; });
+      const hq = await d.eval(() => { endfall.setResources(0, 5000, 0); const b = endfall.G.bldgs.find(b => b.team === 0); endfall.ui.sel = [b]; endfall.hud(); return endfall.cardItems().find(i => i.cost).id; });
       await d.page.locator(`#cmd [data-id="${hq}"]`).hover();
-      const held = await d.eval(`[5000, 0, 5000].map(gold => { endfall.setResources(0, gold, 0); endfall.draw(); return { ...(${PANEL})(), want: endfall.cardItems().find(i => i.cost).label, takes: 0 }; })`);
+      const held = await d.eval(`[5000, 0, 5000].map(gold => { endfall.setResources(0, gold, 0); endfall.hud(); return { ...(${PANEL})(), want: endfall.cardItems().find(i => i.cost).label, takes: 0 }; })`);
       assert.ok(check(hq, held, [[5000], [0], [5000]].map(g => [...g, 'free'])), `the panel held still under the mouse: ${JSON.stringify(held)}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }

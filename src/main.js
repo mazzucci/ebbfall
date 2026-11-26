@@ -296,7 +296,8 @@ window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoo
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
   paint: (spots) => { setSpots(spots); renderTerrain(); },
-  draw: () => { updateHud(); updateClock(); updateTools(); render(ui.sel, ui.place); }, // (tools/view-capture.mjs: one frame now; under a held clock the same instant again)
+  draw: () => { updateHud(); updateClock(); updateTools(); render(ui.sel, ui.place); },
+  hud: () => updateHud(), // (the console and the card for the selection now, nothing drawn on the map: the tests' reads of the HUD, which queue no GPU work) // (tools/view-capture.mjs: one frame now; under a held clock the same instant again)
   skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);

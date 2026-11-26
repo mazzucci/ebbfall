@@ -1,7 +1,7 @@
 // The desktop controls video's beats as data (tools/controls/record.mjs `--set desktop`): the phone's scene (beats.mjs)
 // on a 1280x720 window at the docs' desktop zoom, with an idle Villager by the Castle,
 // then seven beats in the docs' desktop tables' order and words (tools/docs/copy/how-to-play.html, Mouse and Keyboard,
-// the Classic scheme): a box, a right-click, a double-click, A then a click, B then a building then a click, a control
+// the Classic scheme): a box, a click (left or right), a double-click, A then a click, B then a building then a click, a control
 // group saved and recalled, the arrow keys. `WASD_BEATS` (`--set desktop-wasd`, the WASD scheme): W A S D move the map
 // while units stay selected, and the card's E R T keys. Each beat: its length, its captions ({ at, html }: the label in
 // <b>), and its strokes (mouse.mjs: the cursor and the keys on the real game), times in seconds from the beat's start.
@@ -45,7 +45,7 @@ export const BEATS = [
     caps: [cap(0, 'Select', 'left-click, or drag a box')],
     strokes: (a) => drag(0.5, { units: a.group, pad: 30, corner: 'tl' }, null, { move: 0.9 }) },
   { id: 'move', seconds: 2.2,
-    caps: [cap(0, 'Move, attack, mine', 'right-click')],
+    caps: [cap(0, 'Move, attack, mine', 'left or right click')],
     strokes: (a) => rightClick(0.6, { world: a.moveTo }) },
   { id: 'type', seconds: 2.2,
     caps: [cap(0, 'All of one type', 'double-click one')],

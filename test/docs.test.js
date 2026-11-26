@@ -234,55 +234,20 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   assert.match(js, /addEventListener\('playing', function \(\) \{ var p = v\.nextElementSibling; if \(p && p\.className === 'poster'\) p\.hidden = true; \}\)/, 'the poster goes once it plays');
 });
 
-test('the controls tables\' gestures, on demand: seven touch rows and seven desktop rows with a ? button (expanded false, controlling an empty box under the row\'s words, labeled Show how: the row\'s first words, the loop\'s name, size and label as data), nothing of a loop in the page before the tap, the button hidden where scripts do not run', { skip }, () => {
-  const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
+test('the controls tables: the phone\'s, the Mouse, schemes and Key tables, slim (every control is in the game\'s ? sheet, which the page says), no per-row loops', { skip }, () => {
   const how = page('/docs/how-to-play/');
-  // The tables: the touch table, the Mouse table and the Key table (`touch`: the ? at the right of the words, a grid per
-  // row on a phone), and the schemes table (Classic and WASD columns, the ? alone in a cell); each row's first words and
-  // its button, if any.
   const tables = [...how.matchAll(/<table class="(touch|touch desk|schemes)">/g)].map(m => how.slice(m.index, how.indexOf('</table>', m.index)));
-  assert.deepEqual([...how.matchAll(/<table class="([\w ]+)">/g)].map(m => m[1]), ['touch', 'touch desk', 'schemes', 'touch desk'], 'the touch table, then the desktop\'s Mouse, schemes and Key tables (`desk`: an open row stacks on a phone)');
-  assert.equal(tables.length, 4, 'the touch, Mouse, schemes and Key tables');
-  const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''), row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
+  assert.deepEqual([...how.matchAll(/<table class="([\w ]+)">/g)].map(m => m[1]), ['touch', 'touch desk', 'schemes', 'touch desk'], 'the touch table, then the desktop\'s Mouse, schemes and Key tables');
+  const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''));
   const [touch, mouse, schemes, keys] = tables.map(rowsOf);
-  assert.match(tables[0], /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns: no See column');
-  assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 9, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
-  const loopsOf = (rows, prefix) => rows.filter(r => r.button).map(r => [r.do, r.button.match(new RegExp(`data-loop="${prefix}-(\\w+)"`))[1]]);
-  assert.deepEqual(loopsOf(touch, 'touch'), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven touch rows, their loops');
-  assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');
-  assert.deepEqual(loopsOf(schemes, 'desk'), [['Move the map', 'wasd'], ['A command\'s key', 'attack']], 'the two scheme rows: WASD\'s map keys, Classic\'s A');
-  assert.ok(schemes[0].row.indexOf('data-loop="desk-wasd"') > schemes[0].row.indexOf('data-label="WASD"') && schemes[1].row.indexOf('data-loop="desk-attack"') < schemes[1].row.indexOf('data-label="WASD"'), 'the WASD loop in the WASD cell, the A loop in the Classic cell');
-  assert.deepEqual(loopsOf(keys, 'desk'), [['Ctrl+1 to 9, then 1 to 9', 'group']], 'the control groups row, its loop');
-  const withLoop = [...touch, ...mouse, ...schemes, ...keys].filter(r => r.button);
-  for (const r of withLoop) {
-    const b = r.button, name = b.match(/data-loop="([\w-]+)"/)[1], c = manifest[name], id = `see-${name}`;
-    assert.ok(c, `${name}: in tools/docs/controls.json`);
-    assert.equal(b, `<button class="see" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Show how: ${r.do}" data-loop="${name}" data-w="${c.w}" data-h="${c.h}" data-label="${b.match(/data-label="([^"]*)"/)[1]}">`, `${r.do}: its button`);
-    assert.match(b, name.startsWith('touch-') ? /data-label="Ebbfall on a phone: [^"]{20,}"/ : /data-label="Ebbfall on a computer[:,] [^"]{20,}"/, `${name}: the video's label names the game and the device`);
-    // In its cell, after the words, then its box: empty and hidden (the cell ends there).
-    assert.ok(r.row.includes(`${b}<span aria-hidden="true">?</span></button><div class="clip gesture" id="${id}" hidden></div></td>`), `${r.do}: the ? and its box end the cell: ${r.row}`);
-    assert.equal((how.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1, `${id}: one box`);
-    // Nothing of the loop before the tap: no video, no src, no poster, not even its file's name.
-    for (const f of [c.file, c.poster]) assert.ok(!how.includes(f), `${name}: ${f} not in the page before the tap`);
-    assert.ok(c.bytes <= 150 * 1024, `${name}: under its budget: ${Math.round(c.bytes / 1024)} KB`);
-    assert.ok(name.startsWith('touch-') || (c.w === 960 && c.h === 540), `${name}: a desktop gesture at 960x540`);
-  }
-  assert.equal((how.match(/<button class="see"/g) || []).length, 14, 'fourteen buttons, all in the tables');
-  assert.ok(how.indexOf('touch-select') > how.indexOf('<table class="touch">') && how.indexOf('desk-select') > how.indexOf('<h3>Mouse</h3>'), 'the gestures named in the tables only');
-  // docs.js makes the video on the tap from the button's data, at the controls' path (pages.mjs CONTROLS_URL), muted,
-  // looping, inline, labeled; under reduced motion with the browser's controls and no autoplay; one open at a time.
-  const js = readFileSync(new URL('../tools/docs/docs.js', import.meta.url), 'utf8');
-  assert.match(js, new RegExp(`var MEDIA = '${P.CONTROLS_URL}'`), 'the controls\' path');
-  assert.match(js, /v\.poster = MEDIA \+ d\.loop \+ '\.webp'; v\.src = MEDIA \+ d\.loop \+ '\.mp4';/, 'the poster and the video from the loop\'s name');
-  assert.match(js, /v\.muted = true; v\.loop = true; v\.playsInline = true; v\.controls = reduce; v\.preload = reduce \? 'none' : 'auto';/, 'muted, looping, inline; controls under reduced motion');
-  assert.match(js, /v\.title = d\.label; v\.setAttribute\('aria-label', d\.label\);/, 'the video labeled as the button says');
-  assert.match(js, /if \(!reduce\) v\.play\(\)/, 'played, but under reduced motion');
-  assert.match(js, /if \(open === b\) close\(b\); else \{ if \(open\) close\(open\); show\(b\); \}/, 'a tap again closes it; opening another closes the one open');
-  // Where scripts do not run the button stays hidden: shown by the class docs.js adds, under the stylesheet's rule.
-  assert.match(js, /document\.documentElement\.classList\.add\('js'\);/);
-  const css = readFileSync(join(out, 'docs', 'docs.css'), 'utf8');
-  assert.match(css, /\.see\{display:none\}\.js \.see\{display:flex;/, 'the ? shown only once docs.js runs');
-  assert.match(css, /\.js \.see\{[^}]*width:44px;height:44px;/, 'a 44 px tap target'); assert.match(css, /\.see span\{[^}]*width:32px;height:32px;border-radius:50%/, '32 px drawn');
+  assert.match(tables[0], /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns');
+  // (the PM's eight phone rows, five Mouse rows and five keys, plus those the game's help sheet does not name)
+  assert.deepEqual(touch, ['Select', 'Move, attack, mine', 'Select a group', 'Look around', 'All of one type', 'Your whole army', 'See what a button does', 'Attack-move', 'Build', 'Repair', 'A building\'s rally point']);
+  assert.deepEqual(mouse, ['Select', 'Move, attack, mine', 'Left button only to select', 'Move the map', 'Zoom', 'One unit of a group', 'All of one type on screen']);
+  assert.equal(schemes.length, 2);
+  assert.deepEqual(keys, ['Shift + a unit\'s key', 'Ctrl+1 to 9, then 1 to 9', 'Q', ',', 'Home', 'Esc', 'P', 'Backspace']);
+  assert.ok(how.includes('<p>Every control: <b>?</b> in the game.</p>'), 'the page sends to the game\'s ? for the rest');
+  assert.equal((how.match(/<button class="see"/g) || []).length, 0, 'no per-row loops');
 });
 
 test('the crops are cut from today\'s art: each one there, and from the frames it was cut from (else run tools/docs/crops.mjs)', { skip }, () => {

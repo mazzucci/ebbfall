@@ -2,14 +2,9 @@
 // version's timeline, the captions (target/controls/<set>/captions/*.png, overlay.mjs) laid over them where they fall,
 // the tall version framed in its canvas (tall-bg.png), each encoded as H.264 (yuv420p, faststart, no sound) with a
 // WebP poster, into public/docs/media/controls/ (committed web copies). The phone's (`--set phone`):
-//   controls-phone.mp4        the whole, landscape 1688x780 (~41 s), captioned
-//   controls-phone-9x16.mp4   the same framed 1080x1920, the captions under the phone
 //   controls-loop.mp4         the essentials (select, hold then box, double-tap, ARMY and HOME), 844x390, under 400 KB
-//   touch-<gesture>.mp4       one gesture each, 2-3 s, 844x390, no captions, under 150 KB (letgo: the Deselect tap;
-//                             details: the button held and its panel open)
-// The desktop's (`--set desktop`, the desktop-wasd recording for its one loop):
+// The desktop's (`--set desktop`):
 //   desktop-loop.mp4          the Classic scheme's essentials, 1280x720, ~16 s, captioned, under 400 KB
-//   desk-<gesture>.mp4        one gesture each, 2-3 s, 960x540, no captions, under 150 KB
 // Each poster is a frame after the gesture's answer (a phone shows it before playing, reduced motion shows it alone).
 // The size-bound ones are encoded in two passes at the bitrate their budget allows. A clip may punch in (`punch`:
 // an eased zoom toward a point, held to the clip's end): the held button's details panel, readable at phone size.
@@ -47,33 +42,17 @@ const whole = meta.beats.map(b => [b.id, 0, b.id === 'letgo' ? 8.4 : b.seconds, 
  *  (`from`: another set's, for the WASD loop). */
 export const VERSIONS = {
   phone: {
-    'controls-phone': { kind: 'land', caps: true, w: 1688, crf: 22, clips: whole, poster: 7.7 },
-    'controls-phone-9x16': { kind: 'tall', caps: true, crf: 22, clips: whole, poster: 7.7 },
     'controls-loop': { kind: 'land', caps: true, w: 844, budget: 400 * KB, clips: [['select', 0.4, 5.6], ['group', 0.4, 4.3], ['type', 0.5, 3.2], ['army', 0.4, 6.4]], poster: 8.4 }, // (the boxed group selected)
-    'touch-select': { kind: 'land', w: 844, budget: 150 * KB, clips: [['select', 0.7, 1.9], ['select', 3.2, 5.0]], poster: 0.7 }, // (the unit selected)
-    'touch-group': { kind: 'land', w: 844, budget: 150 * KB, clips: [['group', 0.7, 3.7]], poster: 2.75 }, // (the eight boxed, selected)
-    'touch-type': { kind: 'land', w: 844, budget: 150 * KB, clips: [['type', 0.7, 2.9]], poster: 1.6 }, // (the three of one type selected)
-    'touch-army': { kind: 'land', w: 844, budget: 150 * KB, clips: [['army', 0.7, 2.5], ['army', 4.5, 5.9]], poster: 0.8 }, // (the nine selected)
-    'touch-look': { kind: 'land', w: 844, budget: 150 * KB, clips: [['look', 0.75, 2.4], ['look', 3.85, 5.5]], poster: 0.75 }, // (mid-pan, the trail behind the finger)
-    'touch-letgo': { kind: 'land', w: 844, budget: 150 * KB, clips: [['letgo', 0.7, 2.6]], poster: 0.6 }, // (the finger on Deselect, the nine still selected; then they clear)
-    'touch-details': { kind: 'land', w: 844, budget: 150 * KB, clips: [['letgo', 3.9, 6.6, DETAILS]], poster: 2.2 }, // (the button held, its panel open and punched in)
   },
   desktop: {
     'desktop-loop': { kind: 'desk', caps: true, w: 1280, budget: 400 * KB, clips: meta.beats.map(b => [b.id, b.id === 'select' || b.id === 'pan' ? 0 : 0.1, b.id === 'pan' ? 1.2 : b.seconds]), poster: 1.9 }, // (~16 s: the pan cut after the key, a breath off each beat's start; the eight selected)
-    'desk-select': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['select', 0.3, 2.4]], poster: 1.8 }, // (the eight boxed, selected)
-    'desk-move': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['move', 0.2, 2.2]], poster: 1.4 }, // (on their way after the right-click)
-    'desk-type': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['type', 0.2, 2.2]], poster: 1.5 }, // (the three Knights selected)
-    'desk-attack': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['attack', 0.2, 2.6]], poster: 1.8 }, // (the charge after A and the click)
-    'desk-group': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['group', 0.2, 3.0]], poster: 2.6 }, // (the nine recalled by 1)
-    'desk-pan': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['pan', 0.2, 2.2]], poster: 1.3 }, // (the map moved under the held arrow)
-    'desk-wasd': { kind: 'desk', w: 960, budget: 150 * KB, clips: [['wasd', 0.2, 3.2]], poster: 1.2, from: 'desktop-wasd' }, // (W held, the map moving, the eight still selected)
   },
 };
 const ALL = Object.assign({}, ...Object.values(VERSIONS)); // (every version, for the manifest)
 
 /** The review sheet's extra stills besides one near the end of each caption: the moments themselves (seconds of the beat), per set. */
 const MOMENTS = set === 'phone' ? [['group', 1.3, 'the ring fills'], ['letgo', 1.2, 'Deselect tapped']]
-  : [['select', 1.0, 'the box being drawn'], ['move', 0.65, 'the right-click'], ['build', 1.7, 'the Cottage ghost'], ['group', 1.45, 'Ctrl+1 pressed'], ['pan', 0.9, 'the arrow key held']];
+  : [['select', 1.0, 'the box being drawn'], ['move', 0.65, 'the click'], ['build', 1.7, 'the Cottage ghost'], ['group', 1.45, 'Ctrl+1 pressed'], ['pan', 0.9, 'the arrow key held']];
 
 const run = (args) => { const r = spawnSync(FFMPEG, ['-y', '-loglevel', 'error', ...args], { stdio: 'inherit' }); if (r.status !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}`); };
 const probe = (file) => +spawnSync(FFMPEG.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).stdout.toString().trim();
@@ -171,7 +150,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (review) {
     mkdirSync(review, { recursive: true });
     for (const d of Object.values(done)) for (const f of [d.file, d.poster]) copyFileSync(f, `${review}/${f.split('/').pop()}`);
-    const main = done['controls-phone'] || done['desktop-loop'];
+    const main = done['controls-loop'] || done['desktop-loop'];
     if (main) { // (a still near the end of each caption, the game's answer under it; and the moments)
       const stage = await openStage();
       try {

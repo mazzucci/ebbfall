@@ -824,8 +824,7 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
                       the clip's words and size; the controls videos (the loop at the top of How to play's phone
                       section, the one video that plays by itself, its poster fetched first; none on About;
-                      the touch table's seven gestures on demand: a ? button each with its aria attributes and data,
-                      nothing of a loop in the page); images with alt (empty only when decorative, aria-hidden), sizes,
+                      the controls tables slim, every control in the game's ? sheet, no per-row loops); images with alt (empty only when decorative, aria-hidden), sizes,
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
                       spelling, About's one quiet line naming Stelian; the glance's tiers (one per requirement in
                       Build-list order, each building in its tier, its units in order, a "needs" tag only where the
@@ -981,17 +980,12 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       draw the indicator (overlay.mjs: a finger dot, a ring that fills as the game's does, a trail, a
                       ripple a tap, two dots for a pinch). record.mjs: the frames per beat into ffmpeg (target/controls/,
                       not committed), the captions rendered once as PNGs; cut.mjs: the deliverables, committed in
-                      public/docs/media/controls/ (controls-phone.mp4 1688x780 captioned, controls-phone-9x16.mp4,
-                      controls-loop.mp4 the essentials under 400 KB, touch-<gesture>.mp4 one each under 150 KB, a WebP
-                      poster each, a punch-in on the held button's details; --review copies them with a contact sheet,
+                      public/docs/media/controls/ (controls-loop.mp4 the essentials under 400 KB, a WebP poster; --review copies them with a contact sheet,
                       a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
                       How to play shows the loop at the start of its phone section (before the desktop's), About none
                       (pages.mjs {{clip name}}: the poster an image over the video until it plays, the video fetched only
-                      when played, as the home's clip); the only videos that play by themselves. Seven touch rows have a
-                      gesture's loop on demand (pages.mjs {{loop name}}: a ? button, 32 px in a 44 px target, and an
-                      empty box under the row's words; docs.js makes the video and its poster there on a tap and plays
-                      it, the ? again closes it, one open at a time, under reduced motion the poster with controls;
-                      nothing of a loop is fetched before the tap, and the ? is hidden where scripts do not run). The
+                      when played, as the home's clip); the only videos on the page (the per-row loops, pages.mjs {{loop name}}
+                      and docs.js's ?, are no longer used: the tables are slim and send to the game's ? sheet). The
                       desktop's (record.mjs `--set desktop`, desktop.mjs): the same scene on a 1280x720 window at the
                       docs' desktop zoom, a mouse and a keyboard through CDP input events (mouse.mjs: the cursor's glides,
                       clicks, drags, double-clicks and keys stamped on the recorded clock; a drawn arrow cursor, a white
@@ -999,10 +993,8 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       beats in the desktop tables' words (a box, a right-click, a double-click, A then a click, B then a
                       building, Ctrl+1 and 1, the arrow keys) and the WASD scheme's one (`--set desktop-wasd`: the
                       device's setting through stage.mjs `init`); cut.mjs `--set desktop`: desktop-loop.mp4 (1280x720,
-                      ~16 s, captioned) and desk-<gesture>.mp4 (960x540, 2-3 s), each poster a frame after the answer.
-                      How to play shows the loop at the start of its desktop section (lazy: the phone's loop is the
-                      page's first media) and seven desktop rows have a gesture's loop on demand through the same ?
-                      (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
+                      ~16 s, captioned), its poster a frame after the answer. How to play shows it at the start of its
+                      desktop section (lazy: the phone's loop is the page's first media).
 tools/newart/         the art's packs (public/art/new/, NOTICE.txt beside them): a builder per group
                       (bldg/build.mjs) that reads the pictures from EBBFALL_PICTURES (a local folder, not in the repo),
                       bytes.mjs (each file's size stamped into index.json, by every builder) and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
@@ -1022,14 +1014,17 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       start, a fight, all the way out, the fog, the minimap, 2560x1440 at DPR 2, the phone, whole maps
                       of two 96 seeds, the 128 map and the Lake, `gates`: 1:1 pieces of the passes a track runs
                       through), main beside pr (../ebbfall-article/ground-pr).
-tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
-                      own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
-tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
-                      battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
-                      through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
-                      from tools/art/older, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
-                      decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
-                      and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
+tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and the battle as a painted
+                      picture of tools/scene.mjs's composition (a local picture, EBBFALL_PICTURES opt/band/a-1.jpg: never
+                      committed; the tool stops without it), cropped round the meeting, reduced to 256 colors; output committed
+tools/scene.mjs       the battle og.png and the menu's field show: buildings, units, land pieces and blasts with their places
+tools/field.mjs       that battle composed as a picture of any size: the game's land (public/art/new), the buildings' pack
+                      built at 4x (target/bldg4, tools/docs/sprites.mjs BUILD), the units' sharp pictures (local:
+                      EBBFALL_PICTURES leftovers/hires), the blasts by gl/fx.js; contact and cast shadows under each unit
+tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: the
+                      battle of tools/field.mjs at each class's size (the upright phone's a crop of the desktop's), the night
+                      veil and the top fade into the floor's color baked in (opaque: Safari's decoder drew these WebPs' alpha
+                      as opaque; test/menu-art.test.js), written as WebP in headless Chromium; output committed
 public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its trailer's poster); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks

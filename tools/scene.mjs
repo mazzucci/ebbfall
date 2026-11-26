@@ -1,69 +1,38 @@
 // The battle both pictures draw: og.png's band (tools/og.mjs) and the field under the menu's first page
-// (tools/menu-art.mjs). One definition, so the card and the page never drift apart.
+// (tools/menu-art.mjs), composed by tools/field.mjs. One definition, so the card and the page never drift apart.
 //
-// The Kingdom from the left (seat 0's color): the Castle and a Watchtower, four Archers at the front with their bows
-// drawn and raised at the Drones, Knights and a Guard behind them facing east, a Rider, the Balloon. The Expedition from
-// the right (seat 1's color): the Data center and a Wind turbine standing clean at the edge, the Drones front and
-// center, large, hovering over the clash, Androids in the first rank, the Buggies and the Launcher a step into the
-// field, a Veteran (the Bruiser) at the blast. No gold crystals (the mines replaced them; a mine is not a thing of a
-// battle), a crater and some debris. Medieval against machines reads first; few, large figures rather than a crowd.
+// The Kingdom from the left in seat 0's color: its Watchtower, Castle and Stables, a Villager hammering at the Stables,
+// the Cannon firing east, Archers behind Guards behind two Knights in front, all facing east (facing 0; the Archers 1, so
+// their faces show), the Balloon over the base. The Expedition from the right in seat 1's color: its Uplink, a Wind
+// turbine and the Data center, the gold mine with Bots at it, Androids and Rovers in front, a Sellsword and a Bruiser
+// behind them, the Buggy on the flank, all facing west (8); three Drones over the clear grass between the two fronts
+// (about 15% of the width) and two small blasts in it. The ground: the game's grass, worn earth round each base and the
+// mine, one track between them.
 //
-// Each scene is [frame, x, y, seat, scale]: `frame` an older atlas frame's name (tools/art/older; the painters draw the 3D ones with
-// their team mask tinted for `seat`, 0 the Kingdom, 1 the Expedition, null for the effects and the ground's marks),
-// x and y its anchor (a unit's ground point) as fractions of the band's width and height, `scale` (1 when absent) a
-// figure drawn that much larger than the rest (the Drones, the Archers) or smaller (the blast). Units face +x at dir 0,
-// clockwise in 16: east 0, south 4, west 8, north 12. The Archer holds its bow drawn and raised, best seen from dirs
-// 0-2 (east to east-south-east: the bow in profile, the arm up); the Kingdom faces east (0, 15, 1), the Expedition west
-// (7, 8, 9). A flyer's anchor is the ground under it; its body hangs about a third of its cell above. Order is the
-// painter's: the ground's marks first, then by y, the flyers last. Every ground point is above 0.86: the foot of the
-// band is dark. The band's top 0.45 fades (the menu) or sits under the card's
-// veil (og), and the menu's footer line sits in the middle of that top on short screens: nothing bright stands in the
-// top 0.4, and the Drones' bodies hang just under it.
-export const KINGDOM = 0, EXPEDITION = 1;
-const K = KINGDOM, E = EXPEDITION, N = null;
-
-/** The band proper, 4:1: og.png's bottom 300 px and the menu's desktop image. */
-export const BAND = [
-  ['doodad_ruin_0', .12, .42, N], ['doodad_debris_0', .36, .52, N], ['doodad_boulders_0', .91, .50, N], ['doodad_crater_0', .50, .93, N], ['doodad_debris_1', .72, .95, N],
-  ['bldg_turret', .04, .58, K], ['bldg_core', .15, .84, K],
-  ['rider_0_1', .235, .66, K], ['knight_1_0', .31, .60, K], ['trooper_0_1', .255, .84, K], ['knight_15_0', .33, .84, K],
-  ['lancer_1_0', .40, .58, K, 1.1], ['lancer_2_0', .44, .70, K, 1.1], ['lancer_1_1', .405, .84, K, 1.1], ['lancer_0_0', .455, .86, K, 1.1],
-  ['bldg_spire', .955, .54, E], ['bldg_conflux', .85, .84, E],
-  ['monolith_8_0', .72, .60, E], ['umbra_8_0', .60, .70, E], ['scythe_8_0', .705, .76, E], ['umbra_9_1', .635, .80, E],
-  ['bruiser_8_1', .555, .86, E], ['umbra_7_0', .68, .86, E], ['scythe_9_0', .745, .86, E],
-  ['flash_1', .49, .72, N], ['boom_big_3', .515, .80, N, .75], ['spark_1', .545, .90, N],
-  ['observer_1_0', .27, .40, K],
-  ['shrike_9_0', .655, .70, E, 1.2], ['shrike_8_0', .53, .66, E, 1.3], ['shrike_7_1', .595, .58, E, 1.3],
+// Each item is [what, ...]: ['earth', x, y, radius (world px)] a soft patch of worn earth; ['track', x0, y0, x1, y1];
+// ['land', frame, x, y] a piece of the land (public/art/new land-0); ['bldg', type, x, y, tint, head?];
+// ['mine', x, y]; ['unit', picture, facing or pose, x, y, tint, scale?] (a sharp picture, <picture>_<pose>.png in the
+// local pictures folder, scaled by the game's drawn height of its kind, `scale` times); ['boom', fx frame, x, y, scale?]
+// (src/client/gl/fx.js). x and y are the ground point as shares of the picture's width and height; order is the
+// painter's (the marks first, then by y, flyers last).
+const K = 0x2a5ddf, E = 0xee376a; // (the seats' tints, public/art/new index.json)
+/** World px a px of the picture's height: 2.1 px a world px on the 480 px tall desktop band. */
+export const P_PER_H = 2.1 / 480;
+export const SCENE = [
+  // the ground's marks and the land
+  ['earth', .13, .80, 210], ['earth', .85, .80, 220], ['earth', .73, .60, 110], ['earth', .29, .52, 130], ['track', 0, .86, 1, .80],
+  ['land', 'land_tree_3', .02, .30], ['land', 'land_tree_7', .22, .26], ['land', 'land_tree_1', .47, .28], ['land', 'land_crag_2', .40, .36], ['land', 'land_tree_9', .66, .27], ['land', 'land_boulder_1', .99, .40], ['land', 'land_bush_1', .56, .40], ['land', 'land_low_2', .50, .97],
+  // the Kingdom, from the left, facing east (0)
+  ['bldg', 'turret', .05, .52, K, 'turret_head_0'], ['bldg', 'airfield', .29, .48, K], ['bldg', 'core', .14, .82, K],
+  ['unit', 'villager', 'k1_2', .245, .62, K, 1.2], ['unit', 'balloon', 2, .215, .46, K, 1.2],
+  ['unit', 'archer', 1, .295, .64, K, 1.2], ['unit', 'archer', 1, .305, .80, K, 1.2], ['unit', 'archer', 1, .30, .95, K, 1.2],
+  ['unit', 'guard', 0, .35, .60, K, 1.2], ['unit', 'guard', 0, .355, .76, K, 1.2], ['unit', 'guard', 0, .35, .92, K, 1.2],
+  ['unit', 'knight', 0, .405, .69, K, 1.35], ['unit', 'knight', 0, .41, .90, K, 1.35], ['unit', 'cannon', 'fire_0', .235, .96, K, 1.3],
+  // the Expedition, from the right, facing west (8)
+  ['bldg', 'uplink', .955, .55, E, 'uplink_head_15'], ['bldg', 'spire', .82, .44, E, 'spire_head_5'], ['bldg', 'conflux', .86, .85, E],
+  ['mine', .73, .56], ['unit', 'bot', 12, .70, .68, E, 1.3], ['unit', 'bot', 3, .765, .66, E, 1.3], ['unit', 'bot', 5, .735, .71, E, 1.3],
+  ['unit', 'android', 8, .585, .60, E, 1.2], ['unit', 'rover', 8, .60, .76, E, 1.15], ['unit', 'android', 8, .58, .93, E, 1.2],
+  ['unit', 'sellsword', 8, .645, .68, E, 1.2], ['unit', 'bruiser', 8, .66, .84, E, 1.2], ['unit', 'rover', 8, .665, .97, E, 1.15], ['unit', 'buggy', 8, .64, .53, E, 1.2],
+  ['boom', 'boom_small_1', .50, .80, 1.5], ['boom', 'boom_small_b_3', .465, .70, 1.2],
+  ['unit', 'drone', 8, .47, .60, E, 1.6], ['unit', 'drone', 8, .52, .50, E, 1.6], ['unit', 'drone', 8, .535, .68, E, 1.6],
 ];
-/** The 21:9 band (5.33:1): the same, the bases three quarters of the way out to the edges, the armies spread a little. */
-const wideX = (x, building) => +(building ? (x < .5 ? x * .75 : 1 - (1 - x) * .75) : .5 + (x - .5) * .9).toFixed(3);
-export const WIDE = BAND.map(([n, x, y, s, k]) => { const o = [n, wideX(x, n.startsWith('bldg_')), y, s]; return k === undefined ? o : [...o, k]; });
-/** A short phone on its side (6.3:1): fewer figures, the Drones low over the clash (the band is a strip there). */
-export const LANDSCAPE = [
-  ['doodad_debris_0', .36, .56, N], ['doodad_boulders_0', .92, .56, N], ['doodad_crater_0', .50, .95, N],
-  ['bldg_turret', .035, .60, K], ['bldg_core', .13, .84, K],
-  ['knight_1_0', .31, .64, K], ['trooper_0_1', .25, .85, K], ['knight_15_0', .33, .86, K],
-  ['lancer_1_0', .40, .62, K, 1.1], ['lancer_2_0', .44, .76, K, 1.1], ['lancer_1_1', .405, .87, K, 1.1],
-  ['bldg_spire', .965, .58, E], ['bldg_conflux', .87, .84, E],
-  ['monolith_8_0', .72, .62, E], ['umbra_8_0', .60, .74, E], ['scythe_8_0', .705, .78, E], ['umbra_9_1', .635, .84, E], ['bruiser_8_1', .555, .87, E], ['umbra_7_0', .68, .87, E], ['scythe_9_0', .745, .87, E],
-  ['flash_1', .49, .74, N], ['boom_big_3', .515, .82, N, .75],
-  ['observer_1_0', .26, .50, K],
-  ['shrike_9_0', .655, .76, E, 1.2], ['shrike_8_0', .53, .72, E, 1.3], ['shrike_7_1', .595, .64, E, 1.3],
-];
-/** An upright phone (1.96:1): the two bases, the Archers, the Drones and the first rank. */
-export const PORTRAIT = [
-  ['doodad_debris_0', .34, .54, N], ['doodad_crater_0', .50, .94, N],
-  ['bldg_core', .14, .84, K],
-  ['lancer_1_0', .36, .62, K, 1.1], ['lancer_2_0', .40, .78, K, 1.1], ['lancer_1_1', .33, .87, K, 1.1],
-  ['bldg_conflux', .86, .84, E],
-  ['umbra_8_0', .62, .74, E], ['bruiser_8_1', .55, .87, E], ['umbra_9_1', .66, .86, E],
-  ['flash_1', .46, .74, N], ['boom_big_3', .50, .82, N, .7],
-  ['observer_1_0', .24, .42, K],
-  ['shrike_9_0', .60, .72, E, 1.1], ['shrike_8_0', .50, .62, E, 1.3], ['shrike_7_1', .58, .52, E, 1.2],
-];
-export const SCENES = { band: BAND, wide: WIDE, landscape: LANDSCAPE, portrait: PORTRAIT };
-
-/** The ground: the terrain's plain cells as the game lays them, a hash per cell picking the variant. */
-export const groundTile = (tx, ty) => `ground_${(tx * 7 + ty * 13 + tx * ty + 23) % 8}`;
-/** Every 3D frame a scene draws (the effects and the ground are the atlas's painted ones). */
-export const frames3d = (scene) => [...new Set(scene.map(s => s[0]).filter(n => !/^(ground|boom|flash|spark|puff|muzzle)_/.test(n)))];

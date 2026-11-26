@@ -1,5 +1,5 @@
 // The in-game help sheet (index.html #helpSheet): the ? in the top bar opens it in the stage's top-right corner, and so
-// does the pause card's HOW TO PLAY (over the card). The controls in four lines (a mouse's, or touch's: style.css shows
+// does the pause card's HOW TO PLAY (over the card). The controls in five lines (a mouse's, or touch's: style.css shows
 // one set by the pointer), the goal in one (in the player's people's words), and a link to the docs' full guide, in a
 // new tab (an installed app does not leave the game). The game keeps running under it: it is not one of the screens
 // that stop the clock (main.js `overlay`), and the map takes clicks around it.

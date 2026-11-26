@@ -66,7 +66,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.ok(s.x + s.width <= stage.x + stage.width + 1 && s.y >= stage.y - 1 && s.y + s.height <= stage.y + stage.height + 1, 'inside the stage');
       assert.ok(s.x + s.width > stage.x + stage.width - 20 && s.y >= bar.y + bar.height && s.y < bar.y + bar.height + 20, "in its top-right corner, under the top bar (a desktop's stage is the window: the bar floats over it)");
       const lines = await sheet.locator(d.touch ? '.lines.touch li' : '.lines.desk li').evaluateAll(ls => ls.filter(l => l.offsetParent).length);
-      assert.equal(lines, 4, 'the controls in four lines, for this pointer');
+      assert.equal(lines, 5, 'the controls in five lines, for this pointer');
       assert.match(await d.page.locator('#helpGoal').textContent(), /^Mine gold, raise Cottages for population/);
       assert.equal(await d.page.locator('#helpRun').textContent(), 'The game keeps running.');
       assert.equal(await sheet.evaluate(e => getComputedStyle(e).backgroundColor), 'rgb(18, 26, 37)', 'opaque');
@@ -111,7 +111,7 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       assert.ok((await page.locator('main').textContent()).length > 400, `${path}: its text, without scripts`);
       if (path === 'docs/how-to-play/') {
         // The touch table reads whole.
-        assert.equal(await page.locator('table.touch').first().locator('tbody tr').count(), 11, `${path}: every touch row`);
+        assert.equal(await page.locator('table.touch').first().locator('tbody tr').count(), 8, `${path}: every touch row`);
       }
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path}: no sideways scroll at 360`);
       assert.ok(await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('main .lede')).fontSize) >= 16 && [...document.querySelectorAll('main > p:not([class]), main > ul:not([class]) > li')].every(e => parseFloat(getComputedStyle(e).fontSize) >= 16)), `${path}: body text 16 px or more`);

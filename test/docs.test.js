@@ -241,11 +241,11 @@ test('the controls tables: the phone\'s, the Mouse, schemes and Key tables, slim
   const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''));
   const [touch, mouse, schemes, keys] = tables.map(rowsOf);
   assert.match(tables[0], /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns');
-  // (the PM's eight phone rows, five Mouse rows and five keys, plus those the game's help sheet does not name)
-  assert.deepEqual(touch, ['Select', 'Move, attack, mine', 'Select a group', 'Look around', 'All of one type', 'Your whole army', 'See what a button does', 'Attack-move', 'Build', 'Repair', 'A building\'s rally point']);
-  assert.deepEqual(mouse, ['Select', 'Move, attack, mine', 'Left button only to select', 'Move the map', 'Zoom', 'One unit of a group', 'All of one type on screen']);
+  // (the PM's eight phone rows, five Mouse rows and four keys; the rest is in the game's help sheet)
+  assert.deepEqual(touch, ['Select', 'Move, attack, mine', 'Select a group', 'Look around', 'All of one type', 'Your whole army', 'See what a button does', 'Build']);
+  assert.deepEqual(mouse, ['Select', 'Move, attack, mine', 'Move the map', 'Zoom', 'All of one type on screen']);
   assert.equal(schemes.length, 2);
-  assert.deepEqual(keys, ['Shift + a unit\'s key', 'Ctrl+1 to 9, then 1 to 9', 'Q', ',', 'Home', 'Esc', 'P', 'Backspace']);
+  assert.deepEqual(keys, ['Ctrl+1 to 9, then 1 to 9', 'Q', 'Esc', 'P']);
   assert.ok(how.includes('<p>Every control: <b>?</b> in the game.</p>'), 'the page sends to the game\'s ? for the rest');
   assert.equal((how.match(/<button class="see"/g) || []).length, 0, 'no per-row loops');
 });

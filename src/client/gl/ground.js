@@ -1,45 +1,9 @@
-// The ground's layers, pure (no DOM, no PixiJS): gl/render.js draws them and tools/art/review-ground.mjs renders the
-// same for the art's review. Which countryside tile a cell of the dual grid draws (tools/art/terrain3.js), which kind
-// each rock region is (a forest or a rocky hill), and the shade layers over the terrain and the scenery: a multiply
+// The ground's layers, pure (no DOM, no PixiJS): gl/render.js and gl/newlandgl.js draw by them. Which kind each rock
+// region is (a forest or a rocky hill), and the shade of the land: a multiply
 // (the land's large-scale shade, the meadows, the rock's tone, the wet line along a shore, the water's tints) and an
 // add (the meadows' and the rock's lift; on a map with water, the water's own light, which lifts the shallows over the
 // land so the shore and the deep channel's edge read in gray too). What goes where (the meadows, the tracks, the rock's
 // tone): gl/groundplan.js.
-
-/** The grass tiles (tools/art/terrain3.js): `ground_0..7` the plain bases, `ground_8..19` a soft patch each (eight of
- *  trodden dirt, four of dry grass), from a third of a tile to near a tile across, every one its own turn and mirror. */
-export const GROUND_BASES = 8, GROUND_MARKS = 12;
-/** The most of a map's cells that show a patch, where its cluster noise is highest (the re-theme's ground: a swarm of
- *  dirt patches read as a mud field; the seabed's kelp went up to 0.4). */
-export const MARK_MAX = 0.14;
-/** The tile the ground cell (i, j) of a map seeded `seed` draws for its draw `r` in [0, 1). Patches lie in clusters
- *  with plain grass between (a low noise over the map sets the chance of a mark, 0 over about half of it, up to
- *  MARK_MAX), and never in the water (`wet`: any of the cell's four tiles shallow or deep). In a meadow (`dry`, `lush`:
- *  the cell's tone, 0-1, gl/groundplan.js) no dirt mark: a dry one shows the dry-grass marks (2, 5, 8 and 11) on up to
- *  DRY_MARKS of its cells, a lush one no mark at all. */
-export function groundTile(r, i, j, seed, wet, dry = 0, lush = 0) {
-  if (!wet && (dry >= 0.5 || lush >= 0.5)) {
-    const p = dry >= 0.5 ? DRY_MARKS * (dry - 0.5) * 2 : 0;
-    if (r < p) return GROUND_BASES + 2 + 3 * Math.min(3, Math.floor(r / p * 4));
-    return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
-  }
-  const p = wet ? 0 : Math.min(MARK_MAX, Math.max(0, (noise(i / 4.5 + seed * 0.37, j / 4.5 - seed * 0.11) - 0.5) * 1.3 * (MARK_MAX / 0.4)));
-  if (r < p) return GROUND_BASES + Math.min(GROUND_MARKS - 1, Math.floor(r / p * GROUND_MARKS));
-  return Math.min(GROUND_BASES - 1, Math.floor((r - p) / (1 - p) * GROUND_BASES));
-}
-/** The most of a dry meadow's cells that show a dry-grass mark, at its heart. */
-export const DRY_MARKS = 0.2;
-
-/** The overlay grounds' tiles (tools/art/overlay3.js): `worn_<mask>_<v>` and `crag_<mask>_<v>`, this many variants of
- *  each corner mask (1-15). */
-export const OVERLAY_VARIANTS = 3;
-/** The variant overlay cell (i, j) of `kind` draws on a map seeded `seed`. */
-export const overlayTile = (kind, m, i, j, seed) => `${kind}_${m}_${Math.floor(hash(i * 7 + kind.length, j * 3 + seed) * OVERLAY_VARIANTS)}`;
-
-/** The rock's tiles: `rock_<mask>_<v>`, per corner mask n variants of a rocky hill (v 0..n-1) then n of a forest
- *  (v n..2n-1); n is 3 for an edge and 6 for the inside (mask 15), whose marks would otherwise come back often enough
- *  to count (tools/art/terrain3.js VARIANTS). `kind` is the cell's region's ('hill' or 'forest', rockKinds). */
-export const rockTile = (m, r, kind = 'hill') => { const n = m === 15 ? 6 : 3; return `rock_${m}_${(kind === 'forest' ? n : 0) + Math.floor(r * n)}`; };
 
 /**
  * Each rock region's kind, chosen once per region: `{ kindAt(x, y) }` for the rock tiles of a map w x h tiles

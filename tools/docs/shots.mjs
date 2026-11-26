@@ -6,9 +6,11 @@
 // the notes must not cover (`avoid`: the top bar, the sprites on the map). The clip
 // (public/docs/media/trailer.mp4, with its poster, its middle frame) is a dozen seconds of the Expedition's Drones
 // against a Kingdom Watchtower by its Castle, Archers and a Ballista coming to its help, stepped frame by frame in the
-// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's): the trailer
-// replaces it by taking its file name. Output is committed; run after the art or the HUD changes:
-//   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; `clip` names the clip)
+// game and encoded by ffmpeg (tools/trailer/record.mjs: FFMPEG, .tools/ffmpeg/ffmpeg or the PATH's); the docs home's
+// alone (the game's trailer is the menu's, public/docs/media/ebbfall-trailer.mp4: not made here, and nothing here
+// writes or removes it). Output is committed; run after the art or the HUD changes:
+//   node tools/docs/shots.mjs [name ...]      (default: every shot and the clip; names: sieges, heroes, controls (or
+//   one of its two shots: hud, phone), clip)
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
@@ -17,7 +19,6 @@ import { fileURLToPath } from 'node:url';
 import { launchChromium } from '../chromium.mjs';
 import { freeze } from '../trailer/stage.mjs';
 import { capture, FFMPEG } from '../trailer/record.mjs';
-import { menuClip } from '../menu-clip.mjs';
 import { DEFAULT_MAP } from '../../src/client/maps.js';
 
 const root = new URL('../../', import.meta.url);
@@ -375,48 +376,92 @@ async function heroes() {
   }
 }
 
-/** The two annotated controls shots: a Kingdom base with a group selected, on a desktop and on a phone held sideways. */
-async function controls() {
-  {
-    const { ctx, page } = await game(DESKTOP, 'humans', QUIET, STARTS);
-    try {
-      await page.evaluate(base, ['humans', false]);
-      await look(page, await page.evaluate(() => window.S.at(180, 0))); await settle(page);
-      // The group: a box dragged round the soldiers at the gate (the UI's own selection), saved as group 1.
-      const r = await page.evaluate(() => {
-        const { G, me, eng, e } = window.S, cv = document.getElementById('game').getBoundingClientRect();
-        const us = G.units.filter(u => u.team === me && !eng.UNITS[u.type].worker && !eng.UNITS[u.type].air);
-        const sx = (x) => cv.left + (x - e.cam.x) * e.cam.zoom, sy = (y) => cv.top + (y - e.cam.y) * e.cam.zoom;
-        return { x0: Math.min(...us.map(u => sx(u.x))) - 14, y0: Math.min(...us.map(u => sy(u.y))) - 24, x1: Math.max(...us.map(u => sx(u.x))) + 14, y1: Math.max(...us.map(u => sy(u.y))) + 10 };
-      });
-      await page.mouse.move(r.x0, r.y0); await page.mouse.down(); await page.mouse.move(r.x1, r.y1, { steps: 8 }); await page.mouse.up();
-      await page.keyboard.press('Control+1');
-      // (the pointer parked on the minimap: off the map's sprites, and off the window's edge, which pans the map now
-      // that the canvas reaches it; 790 px down did, the army pushed up under the top bar)
-      const mm = await page.locator('#minimap').boundingBox();
-      await page.mouse.move(mm.x + mm.width / 2, mm.y + mm.height / 2); await settle(page);
-      const marks = { res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'] };
-      // The frame: the first, from the gate toward the Castle, where every note finds a free spot (a building under a
-      // corner's buttons leaves its note none: the base by the map's edge, the camera held back there)
-      for (const f of [180, 150, 120, 90]) {
-        await look(page, await page.evaluate((f) => window.S.at(f, 0), f)); await settle(page);
-        if (await notesFit(page, marks)) break;
-        if (f === 90) throw new Error('shots: shot-desktop-hud: no frame leaves every note a free spot');
-      }
-      await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected.' }, marks, 2000);
-    } finally { await ctx.close(); }
-  }
-  {
-    const { ctx, page } = await game(PHONE_LAND, 'humans', QUIET, STARTS);
-    try {
-      await page.evaluate(base, ['humans', false]);
-      await look(page, await page.evaluate(() => window.S.at(230, 0))); await settle(page);
-      await page.locator('#btnArmy').tap(); await settle(page);
-      await annotated('shot-phone-land', page, { alt: 'Ebbfall on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card', caption: 'The same base on a phone held sideways, the army selected.' }, {
-        select: ['#btnBox'], homearmy: ['#btnHome', '#btnArmy'], minimap: ['#minimap'], cmd: ['#cmd'],
-      }, 1688);
-    } finally { await ctx.close(); }
-  }
+/** The two annotated controls shots: a Kingdom base with a group selected on a desktop (`hud`), and its army out on a
+ *  worn track on a phone held sideways (`phone`). */
+async function controls() { await hud(); await phone(); }
+async function hud() {
+  const { ctx, page } = await game(DESKTOP, 'humans', QUIET, STARTS);
+  try {
+    await page.evaluate(base, ['humans', false]);
+    await look(page, await page.evaluate(() => window.S.at(180, 0))); await settle(page);
+    // The group: a box dragged round the soldiers at the gate (the UI's own selection), saved as group 1.
+    const r = await page.evaluate(() => {
+      const { G, me, eng, e } = window.S, cv = document.getElementById('game').getBoundingClientRect();
+      const us = G.units.filter(u => u.team === me && !eng.UNITS[u.type].worker && !eng.UNITS[u.type].air);
+      const sx = (x) => cv.left + (x - e.cam.x) * e.cam.zoom, sy = (y) => cv.top + (y - e.cam.y) * e.cam.zoom;
+      return { x0: Math.min(...us.map(u => sx(u.x))) - 14, y0: Math.min(...us.map(u => sy(u.y))) - 24, x1: Math.max(...us.map(u => sx(u.x))) + 14, y1: Math.max(...us.map(u => sy(u.y))) + 10 };
+    });
+    await page.mouse.move(r.x0, r.y0); await page.mouse.down(); await page.mouse.move(r.x1, r.y1, { steps: 8 }); await page.mouse.up();
+    await page.keyboard.press('Control+1');
+    // (the pointer parked on the minimap: off the map's sprites, and off the window's edge, which pans the map now
+    // that the canvas reaches it; 790 px down did, the army pushed up under the top bar)
+    const mm = await page.locator('#minimap').boundingBox();
+    await page.mouse.move(mm.x + mm.width / 2, mm.y + mm.height / 2); await settle(page);
+    const marks = { res: ['#resShard', '#resSup'], bar: ['#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause'], minimap: ['#minimap'], army: ['#btnBox', '#btnHome', '#btnArmy'], info: ['#info'], cmd: ['#cmd'], groups: ['#groups'] };
+    // The frame: the first, from the gate toward the Castle, where every note finds a free spot (a building under a
+    // corner's buttons leaves its note none: the base by the map's edge, the camera held back there)
+    for (const f of [180, 150, 120, 90]) {
+      await look(page, await page.evaluate((f) => window.S.at(f, 0), f)); await settle(page);
+      if (await notesFit(page, marks)) break;
+      if (f === 90) throw new Error('shots: shot-desktop-hud: no frame leaves every note a free spot');
+    }
+    await annotated('shot-desktop-hud', page, { alt: 'Ebbfall on a desktop: the top bar, the map with a group of soldiers selected, the minimap, the selection panel and the command card', caption: 'A Kingdom base at 3:00, a group of Guards, Archers and Knights selected.' }, marks, 2000);
+  } finally { await ctx.close(); }
+}
+
+/** Where the phone's army stands (`at`: px toward the map's middle, px across): on the worn track that leaves the
+ *  base for the middle (Dust Quarter, seed 4242), past the Barracks, in open ground; `PHONE_VIEW`: the frame's middle
+ *  from the army (world px right, down): the army a little right of the middle and above the panels at the bottom, the
+ *  Barracks above the frame and the gold mine down the track below it (`cutSprites` checks). */
+const PHONE_TRACK = [567, -98], PHONE_VIEW = [-40, 25];
+/** In the page: the army (every fighter of ours, the Balloon too) marches out to `at(f, s)` in the game's formation
+ *  (an order, as a tap on the ground gives) and stands; returns the spot. */
+function march([f, s]) {
+  const { G, me, eng, e, at } = window.S, spot = at(f, s);
+  const army = () => G.units.filter(u => u.team === me && !eng.UNITS[u.type].worker);
+  eng.formation(army(), spot.x, spot.y);
+  for (let t = 0; t < 40 && army().some(u => u.task.t !== 'idle'); t++) e.skip(1);
+  e.skip(1);
+  return spot;
+}
+/** In the page: the buildings and gold mines in view that are cut by the screen's edge or lie under a panel of the HUD
+ *  (their drawn extent, roughly, as `measure` reckons it): a building shows whole and clear, or not at all. */
+function cutSprites() {
+  const e = window.endfall, { G, cam } = e, z = cam.zoom, cv = document.getElementById('game').getBoundingClientRect();
+  const sx = (x) => cv.left + (x - cam.x) * z, sy = (y) => cv.top + (y - cam.y) * z;
+  const panels = ['#top', '#minimap', '#info', '#cmd', '#btnBox', '#btnHome', '#btnArmy', '#tools']
+    .map(s => document.querySelector(s)).filter(el => el && el.checkVisibility()).map(el => el.getBoundingClientRect()).filter(r => r.width && r.height);
+  const out = [];
+  const check = (what, x, y, w, h) => {
+    if (x + w <= cv.left || y + h <= cv.top || x >= cv.right || y >= cv.bottom) return; // (out of the frame: the map's canvas)
+    const cut = x < cv.left || y < cv.top || x + w > cv.right || y + h > cv.bottom;
+    const under = panels.some(r => x < r.right && x + w > r.left && y < r.bottom && y + h > r.top);
+    if (cut || under) out.push(`${what} ${cut ? 'cut by the screen' : 'under a panel'}`);
+  };
+  for (const b of G.bldgs) { const w = b.w * 32 * z, h = b.h * 32 * z; check(b.type, sx(b.x) - w * 0.6, sy(b.y) - h * 1.3, w * 1.2, h * 1.9); }
+  for (const n of e.map.nodes) { const w = n.w * 32 * z; check('a gold mine', sx(n.x) - w * 0.6, sy(n.y) - w * 0.9, w * 1.2, w * 1.5); }
+  return out;
+}
+
+/** The landscape phone's shot: the army out of the base on a worn track, selected with ARMY; no building in the frame
+ *  unless whole and clear of the panels. */
+async function phone() {
+  const { ctx, page } = await game(PHONE_LAND, 'humans', QUIET, STARTS);
+  try {
+    await page.evaluate(base, ['humans', false]);
+    const spot = await page.evaluate(march, PHONE_TRACK);
+    await look(page, { x: spot.x + PHONE_VIEW[0], y: spot.y + PHONE_VIEW[1] }); await settle(page);
+    await page.locator('#btnArmy').tap();
+    // (the pointer parked on the minimap: no button left lit as under the mouse, ARMY's after the tap or the command
+    // card's under where START GAME was)
+    const mm = await page.locator('#minimap').boundingBox();
+    await page.mouse.move(mm.x + mm.width / 2, mm.y + mm.height / 2); await settle(page);
+    const cut = await page.evaluate(cutSprites);
+    if (cut.length) throw new Error(`shots: shot-phone-land: ${cut.join(', ')}`);
+    await annotated('shot-phone-land', page, { alt: 'Ebbfall on a phone held sideways: SELECT, HOME and ARMY at the left, the minimap and the command card', caption: 'The same game on a phone held sideways: the army out on a track, selected.' }, {
+      select: ['#btnBox'], homearmy: ['#btnHome', '#btnArmy'], minimap: ['#minimap'], cmd: ['#cmd'],
+    }, 1688);
+  } finally { await ctx.close(); }
 }
 
 /**
@@ -499,7 +544,6 @@ async function clip() {
   manifest.trailer = { file: 'trailer.mp4', type: 'video/mp4', poster: 'hero-home', w: CLIP_W, h: CLIP_H, seconds: CLIP_S, uploaded: new Date().toISOString().slice(0, 10), alt: CLIP_WORDS.alt, title: CLIP_WORDS.title };
   writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1) + '\n');
   console.log(`shots: clip (trailer.mp4, ${Math.round(bytes / 1024)} KB at CRF ${crf}, ${CLIP_S} s)`);
-  await menuClip(browser); // (the menu's first page shows the clip too: its own copies of the poster, public/menu/clip-*.webp)
 }
 /** Run ffmpeg (tools/trailer/record.mjs `FFMPEG`) with `args`, quietly; throws if it fails. */
 function ffmpeg(args) {
@@ -510,6 +554,9 @@ function ffmpeg(args) {
 }
 
 const JOBS = { sieges, heroes, controls, clip };
+/** One of the controls shots alone, by name: `hud` (the desktop's) or `phone` (the landscape phone's). */
+const PARTS = { hud, phone };
 try {
   for (const [k, f] of Object.entries(JOBS)) if (!only.length || only.includes(k)) await f();
+  for (const [k, f] of Object.entries(PARTS)) if (only.includes(k) && !only.includes('controls')) await f();
 } finally { await browser.close(); server.close(); }

@@ -1,7 +1,7 @@
 // The start menu, a page of its own: first the two modes (single player, multiplayer: online.js's lobby, where a relay
-// is known), How to play, About (a page: who made it, the source, the version, PLAY OFFLINE), INSTALL (PLAY OFFLINE
-// once installed; both: offline.js), TUTORIAL (the guided game: always there, a small button beside OPTIONS; one menu
-// for everyone, Stelian, Nov 20: a player who knows the genre is not pushed at a tutorial) and the record;
+// is known), How to play, About (a page: who made it, the source, the version), PLAY OFFLINE (offline.js), TUTORIAL (the
+// guided game: always there, a small button beside OPTIONS; one menu for everyone, Stelian, Nov 20: a player who knows
+// the genre is not pushed at a tutorial) and the record;
 // the single-player page holds the game against the AI (the board: eight fixed spots, you and one to seven AIs, each
 // seat's race and side and each AI's level, seats.js; the map, any that seats them, from a list; the guided first game;
 // START GAME goes full screen on a touch screen). The sound and full screen are the screen's corner (corner.js).
@@ -19,7 +19,7 @@
 // plays it, on Hard; `&watch=1`: the person watches it play the built-in Hard), with a line that says so; not saved.
 import { mapPreview, ready } from '../engine/index.js';
 import { $ } from './ui.js';
-import { sfx } from './audio.js';
+import { sfx, gameSound } from './audio.js';
 import { enterFullscreen, releaseLandscape } from './screen.js';
 import { store } from './store.js';
 import { initOffline } from './offline.js';
@@ -172,7 +172,7 @@ export function drawPreview(cv, i, seed, kind) {
 
 export function initMenu({ onStart }) {
   // The first page's backdrop (the plain floor and the field) under the other menu pages too (owner, 2026-11-03).
-  // Without the first page's own source, `low` (its band is lower than theirs, under the clip and the buttons). Each
+  // Without the first page's own source, `low` (its band is lower than theirs, under the poster and the buttons). Each
   // copy is made whole in a template (an inert document: nothing loads there) and comes into the page as it will stay,
   // so its image is chosen once: a copy changed in the page starts on one image and drops it for another.
   const copy = document.createElement('template');
@@ -203,7 +203,7 @@ export function initMenu({ onStart }) {
   initFeedbackLinks(build);
   initClaude({ plan: takePlan(), build }); // (a plan link, and an embedding page's channel: claude.js)
   renderNote();
-  initOffline(build); // INSTALL, then PLAY OFFLINE (offline.js)
+  initOffline(build); // PLAY OFFLINE (offline.js)
   initOptions(); // OPTIONS, here and on the pause card (options.js)
 }
 
@@ -254,7 +254,7 @@ export function setup() {
 function page(id) { for (const p of document.querySelectorAll('#start .page')) p.hidden = p.id !== id; }
 /** Back to the menu (after a game, quitting, or the lobby's BACK): its first page, with the last choices. */
 /** Back to the menu: its first page, or `at` (after a game against the AI: the single player page, one tap from the next). */
-export function showMenu(at = 'menuHome') { renderMaps(); renderSeats(); page(at); $('start').hidden = false; releaseLandscape(); } // (an installed app: the menu turns with the phone again)
+export function showMenu(at = 'menuHome') { gameSound(false); renderMaps(); renderSeats(); page(at); $('start').hidden = false; releaseLandscape(); } // (the wind out: a game's only; an installed app: the menu turns with the phone again)
 
 // The player's record on this device, per race and difficulty: [won, lost] (the race played: a Random one's draw).
 // Kept, not shown (owner, 2026-11-04: the first page shows the game, not a tally).

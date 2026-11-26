@@ -71,6 +71,11 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   Castle, it pays by itself), the Recruiting post (anywhere, any number, pays nothing), no map with a shaft; every building can be built and every unit
   trained (but the healers, kept in the tables and trained nowhere), each people's production lists, requirements (the
   Bruiser's Lab), no cloak, detection or shields, every ground unit walking (`peoples`), Brace and the Cannon's deploy (by itself whenever it stops),
+  standing firm (`firm`: units rallied or sent to a point a firm friend covers arriving, Cannons in formation and on one
+  target all setting up, a unit ringed by firm friends getting out, walking through two touching Cannons of its own but
+  not an enemy's, one settling in pushed clear and never moved once settled),
+  crowds (`crowd`: groups in formation passing a waypoint they crowd and arriving, groups sent to one point stopping
+  round it, one held up far from its goal still on its way, a packing Cannon driving off, Balloons hanging a body apart),
   construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a new worker
   waiting at its headquarters for an order and a rally on a mine walking it there to wait beside it without mining, the
   AI sending its new workers and builders to a mine within its next turns (`economy`), workers hopping only to a mine
@@ -129,11 +134,11 @@ index.html            page shell: top bar, canvas stage, HUD (minimap, selection
                       what search engines and shared links show (title, description, canonical, og: and twitter: cards
                       with public/og.png, JSON-LD; test/site-preview.test.js); the help sheet (the ? in the top bar,
                       help.js); the text crawlers read is the docs' (tools/docs)
-src/boot.js           entry: the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
+src/boot.js           entry: asks for the art (client/gl/artload.js); the menu first (menu.js, online.js's lobby, the sound and full screen (corner.js) wired at once,
                       no renderer in its graph), then loads the game (main.js) behind it; a start waits, its button LOADING…
                       (RELOAD if the game could not load; READY likewise, online.js); the service worker's registration
                       (an update reloads the menu at once, into the room or the challenge it was on); the first page's
-                      clip is told when the game is in (menuclip.js)
+                      trailer wired (trailer.js)
 src/main.js           the game (boot.js loads it): wires the sim (via src/engine) to the client, fixed-step loop, start/end
                       screens (the end card's line says what ended the game from the sim's `G.outWhy`: a side's last
                       building fell, it had nothing left to fight with and no gold to train more, or it conceded), events; awaits the WASM (`engine.ready`) and, through gl/render.js, the art
@@ -142,9 +147,11 @@ src/style.css         all styling; design tokens at the top of :root; a desktop 
                       phones' blocks) have the canvas edge to edge, the top bar floating over it as the HUD does, what
                       sat in the stage kept in place (the safe area counted); phones keep the box;
                       the desktop HUD (a fine pointer, at least 1100 x 560 px; its last block): the same floating layout
-                      at a monitor's size in units of --u (1 px at 1440 x 810, 0.9 to 1.4), the top bar as two corner
-                      clusters (gold and POP; the clock and the buttons, icons only), a 236-unit minimap, 88 x 68 card
-                      slots whose blank ones are wells (quiet ones under an army's card: card.js `army`)
+                      at a monitor's size in units of --u (1 px at 1440 x 810, 0.9 to 1.1), every size from one table
+                      of custom properties (three text sizes, 12, 14 and 17 units, none under 12 px; the icons; the
+                      minimap's 190), the top bar as two corner clusters (gold and POP; the clock and the buttons, icons
+                      only), 88 x 68 card slots whose blank ones are wells (quiet ones under an army's card: card.js
+                      `army`); the menu's small text on a monitor (14 and 12 px)
 src/engine/           the client's view of the Rust sim: index.js starts instantiating the WASM (`ready`: nothing calls
                       the sim before it has resolved), core.js mirrors it into the
                       G / map / entity-object shape the client reads and turns orders into calls by id (and keeps
@@ -325,24 +332,26 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       its own state and what its sight showed); read-only, observed after each tick, no hash moves; no UI
                       shows it
 src/client/           everything that touches the browser
-  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 900 px of the map across its window (never closer than ZOOM_MAX, 2.5), both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75; and never wider or taller than the map; a desktop's and a tablet's map edge to edge, `bleed`: the camera keeps to the map at the sides and past the top and the foot only as far as the floating top bar and panels cover (the foot's room up to the minimap's top, or SELECT's over it on a touch screen, read on each resize), where the apron, rock drawn APRON tiles past the map with its edge's fog, shows instead of the dark; a phone's box keeps its room past every edge), dual-grid terrain,
+  gl/render.js        PixiJS renderer: camera + zoom (a phone starts at 1, a desktop with 1050 px of the map across its window (never closer than ZOOM_MAX, 2.5), both on the map: nothing past its edges at the sides or the top; all the way out a window shows at most 1800 x 1012.5 world px² of the map in its own shape, `zoomLimit`, so a bigger monitor shows bigger units, not more map: a phone's limit stays ZOOM_MIN, 0.75; and never wider or taller than the map; a desktop's and a tablet's map edge to edge, `bleed`: the camera keeps to the map at the sides and past the top and the foot only as far as the floating top bar and panels cover (the foot's room up to the minimap's top, or SELECT's over it on a touch screen, read on each resize), where the apron, rock drawn APRON tiles past the map with its edge's fog, shows instead of the dark; a phone's box keeps its room past every edge), dual-grid terrain,
                       sprites (buildings, gold mines and walking units in one layer sorted by ground y: a mine by what
                       it has left, `mineStage`, mine_full/low/empty, a worker inside it not drawn; this side's units behind a
                       building as faint silhouettes, masked to the building's pixels), effects, lights, fog, minimap;
                       the selection marks (one thin whole ring, red for an enemy, round a unit's feet or a building's
                       footprint, `selRing`) and the health bars (4 px, lit along the top, a unit's at most 24 px wide,
-                      34 for a large one, `slimBar`) in screen pixels at any zoom;
+                      34 for a large one, `slimBar`) in screen pixels at any zoom; a gold mine selected, worked or just ordered marked
+                      along its painted outline (`hullOf`, read once from the frame), a building to work on likewise;
                       the range (the sim's circles round each Data center and Uplink, a soft tint at 7% faded as one
-                      layer and the signal rim round their union, range.js: a 3.5 px dark halo at 50% under a 1.5 px
-                      light line at 70%, and inside it a feathered band, 16 px of the rim's light from 18% to nothing,
+                      layer and the signal rim round their union, range.js: a 4.5 px dark halo at 55% under a 2.5 px
+                      light line at 85%, `RIM`, and inside it a feathered band, 28 px of the rim's light from 36% to nothing,
                       in screen px at every zoom (`rimZoom`, a step of the zoom in the redraw's key);
-                      above the fog, under the ghost, the bars and the selection box; shown while a machine, a Data
+                      on the ground, under the rings, the units, the trees and the buildings, and over ground not yet seen a 1.5 px line
+                      over the fog (`drawFogRim`); shown while a machine, a Data
                       center or an Uplink of this side is selected or any Expedition building placed, drawn again only
                       when the sources or the zoom's step change; a machine sent past the edge (the sim's `signal`
                       event) brightens the rim's stretch nearest the spot, range.js `nearestRim`, fading over 0.6 s;
                       the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
                       an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
-                      over the cached base, a 1.25 px line at 80% over a 2.5 px dark halo at 50% in CSS px (scaled by
+                      over the cached base, a 1.75 px line at 80% over a 3.5 px dark halo at 50% in CSS px (scaled by
                       the minimap's box); `rangeShown` for the tests); the minimap drawn in 168 units across its box
                       (its old fixed canvas: the same widths and dots as then) onto a backing of its CSS size times
                       the screen's pixels per CSS px (read each frame: another screen or the browser's zoom), times
@@ -353,21 +362,30 @@ src/client/           everything that touches the browser
                       swirl, brighter each time a unit comes through (look.js `portalOpen`); a Cannon's muzzle smoke (`muzzleFx`), the
                       rifles' muzzle cone (`muzzleFlash`), a melee blow's glint of steel on its target and a heavy one's dust
                       (`meleeHit`), each shot's impact (`impactFx`, in steel's cool: look.js `HIT_STEEL`; up on the body of a flyer, `hitY`, look.js `HIT_LIFT`, or of a walker, `WALKER_HIT_LIFT`: main.js `struckWalker` finds whose), a hit's weight by how hard it hits (`tierHit`, `tierMuzzle`: look.js `hitTier`; main.js picks the tier from the shooter's weapon in the data, a tower's by its people, against what it struck, a flyer's air damage or the ground's; a muzzle flash by the shooter's target as far as the client knows, `shotTarget`), the shots in flight (look.js `SHOT_STYLE`: a Kingdom shaft scaled over a dark bar, an Expedition tracer tinted and lit, a heavy shot's stretched trail, `HEAVY_TRAIL`, its tier against the unit at its aim point), a fighter falling into dust and a machine exploding (`boom`), a building collapsing (`collapse`: a sinking ghost, dust or smoke, look.js `BLDG_DEATH`); a melee unit's strike poses in a fight (look.js `strikePose`);
-                      construction you can read (construct.js): a Kingdom site raw (one shared color filter), its
-                      slices measured on the art and capped at 7 of 8 so the roof waits, an Expedition site its body
-                      rising in full color (64 rows, capped at 90%) under a faint cyan ghost in a printer gantry whose
-                      head rides on the solid's top (`gantry_n`, `gantrybar_n`; nothing on the ground) up the front
-                      masts, then back along the rails (construct.js `headAt`), its build bar in
+                      construction you can read (construct.js `REVEAL`): a site is its building's own picture rising in
+                      color to 90% of its height, the rest gray and faint, in a low timber frame (the Kingdom's) or on a
+                      slab (the Expedition's), its build bar in
                       the hp bar's place, the half-second done moment (`BldgObj.update`,
                       only for a site watched finish on screen), a builder's strikes (`UnitObj.work`); `sitesShown`
                       for the tests;
-                      each unit kind's drawn height (`unitTop`, atlas.json `unitTops`); the HUD's portraits cut from the
-                      atlas (`portrait`: the selection console, its queue, the guided first game; not the command card)
-  gl/ground.js        the ground's picks, pure: which grass tile a dual-grid cell draws (`groundTile`: in a dry meadow
-                      only dry-grass marks, in a lush one none), which overlay tile (`overlayTile`), each rock region's
-                      kind, a forest or a rocky hill, picked once per region by a seeded flood fill (`rockKinds`,
-                      `rockTile`, `regionAt`), and the shade layers at one texel a tile on a dry map (the land's shade,
-                      the meadows' tone, the rock's tone; the water's tints and light) (test/ground.test.js)
+                      each unit kind's drawn height (`unitTop`, the index's `unitTops`); the HUD's portraits cut from the
+                      art's pages (`portrait`: the selection console, its queue, the guided first game; not the command card)
+  gl/fx.js            the effects, the shots and the light, painted in code on one small canvas (`paintFx`: fire in
+                      three castings, smoke, flash, spark, glint, a gun's flame, dust, what flies, the light blob): one
+                      texture, one batch; render.js `addEffect` plays them from a pool of sprites
+  gl/artload.js       the game's art on its way in: every file of public/art/new/index.json (its groups `bldg`,
+                      `land`, `unit`, and each file's bytes) asked for at once by boot.js, in parallel, counted as it comes
+                      (`art`, `onArt`), tried four times (also a stall of 20 s), then waiting for RETRY (`retryArt`); kept
+                      decoded for render.js (`loadArt`). There is no other art to fall back to
+  gl/newart.js        how the units are drawn, by kind: their size, their selection ring, how their builders work
+  gl/puff.js          the smoke puff, painted in code (soft lobes, lit from the upper left, no outline)
+  gl/rallyflag.js     the rally flag, painted in code: a red pennant with a dark outline in a red ring on the ground, red
+                      whatever the seat, drawn (`rallyMarks`) for this side's selected buildings alone; `rallyShown` for the
+                      tests
+  gl/ground.js        the ground's picks, pure: each rock region's kind, a forest or a rocky hill, picked once per region
+                      by a seeded flood fill (`rockKinds`, `regionAt`), and the shade at one texel a tile on a dry map
+                      (the land's shade, the meadows' tone, the rock's tone; the water's tints and light), which the
+                      ground's shader lays (gl/newlandgl.js) (test/ground.test.js)
   gl/groundplan.js    the ground broken up at large scale, pure: what goes where from the map alone (its rock, water,
                       gold mines and every start from `mapPreview`, seated or not) and its seed, the same for every
                       player whoever sits where, exact arithmetic only (`planGround`): dry and lush meadows 5 to 12
@@ -375,11 +393,30 @@ src/client/           everything that touches the browser
                       every other mine to the nearest track: the cheapest walk over a winding cost, joining trunks),
                       kept to open land and fading out over TRACK_FADE tiles where a pass, a gate or a ford cuts them,
                       no piece under TRACK_MIN tiles; each hill and forest toned warm or cool with a drift along it, off
-                      its outer tiles and the map's edge; an upper tier (crags) inside the wide hills. render.js lays
-                      the worn dirt and the crags as overlay tiles on the dual grid (`worn_*`, `crag_*` in the atlas:
-                      tools/art/overlay3.js), never in a cell with rock or water, each cell as strong as its worn
-                      corners; the tones in the shade layers; all of it faintly on the minimap; `endfall.ground()` what
+                      its outer tiles and the map's edge; an upper tier (crags; nothing draws it now, the
+                      plan's hash pins it). gl/newlandgl.js draws the worn dirt in the ground's mix and the meadows in
+                      its shade; the tracks on the minimap; `endfall.ground()` what
                       it laid and its cost (test/groundplan.test.js, test/e2e/ground.e2e.mjs)
+  gl/newland.js       the land, pure: where every tree, rock and low plant stands on a
+                      map (`planLand`: a standing piece's base whole on blocked cells (a rock's base: the core of its
+                      width, `baseWidth`; a clump of rock on every cell at a hill's border, bushes at a wood's), its top over walkable ground no
+                      deeper than `LAND.cap` tiles, `allowance`; a piece a unit may stand behind marked `live`), the
+                      ground's mix of grass, worn dirt, forest floor and scree as a small image (`groundMix`), fading out
+                      past the blocked cells' rounded, wobbled outline (`MIX_RIM`), the trodden earth under the
+                      buildings laid into that mix (`wearMix`, `WORN`: a rounded, faded patch over each footprint, the
+                      Wind turbine's stronger and rounder by its own row; gl/newlandgl.js `Land.wear` writes it when the buildings drawn
+                      change, so it costs nothing a frame), and the
+                      art over the walkable cells for the test (`cover`); from the map's blocked cells, the ground plan
+                      and the seed alone, exact arithmetic only (test/newland.test.js)
+  gl/newland-pieces.js  the land pieces' measured numbers (size, base, profile), written by tools/newart/land/build.mjs
+                      from pictures that are not in the repo: the placement's and its test's source of truth
+  gl/newlandgl.js     the new land drawn: the ground as one quad with a shader of its own (the tiling grounds mixed by
+                      the mix image, a soft contact shadow round blocked ground, darker to the south and east; the apron too; `MINIMAP`: the minimap's ground
+                      colors and gold mines with the new land), the pieces nothing can stand behind laid in rows under the units,
+                      the live ones among the units and buildings, sorted with them, only those on screen; gl/render.js
+                      shows a unit behind them as a silhouette (ours in our color, another seat's in red)
+  loadline.js         the menu's loading line: while a start (or the lobby's READY) waits, a bar over its row with the MB in
+                      of the total (gl/artload.js), and RETRY when the art could not be fetched
   screen.js           full screen / landscape lock where the page's full screen works (`pageFullscreenWorks`: not on
                       iPad or iPhone); START, TUTORIAL, REMATCH and READY go full screen on a touch screen only (with a
                       mouse, a desktop has room enough: only the button goes in; BACK TO GAME restores it either way); the
@@ -396,10 +433,11 @@ src/client/           everything that touches the browser
                       relay takes it) behind `playerName` get/set, shared by the lobby's NAME and OPTIONS' (test/store.test.js)
   controls.js         the desktop keyboard scheme: CLASSIC (letters; arrows, edge, minimap, middle drag) or WASD (W A S D
                       always pan; a command's key is its card slot's, GRID: E R T / F G H / C V B by key position),
-                      `keyed`; shown where `(pointer: fine)`
+                      `keyed`; and MOUSE (endfall.mouse): LEFT OR RIGHT CLICK orders, or RIGHT CLICK ONLY; both shown
+                      where `(pointer: fine)`
   options.js          the OPTIONS card: a list of settings drawn by one helper, chips or a text field: NAME (every device,
-                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed) and CONTROLS (where
-                      `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
+                      the lobby's name, store.js `playerName`, kept on change or blur, empty allowed), CONTROLS and MOUSE
+                      (where `(pointer: fine)`); its button shown where any applies, so everywhere; opened from the menu's first
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   help.js             the in-game help sheet: the ? in the top bar (between the clock and FULL SCREEN) or the pause card's
                       HOW TO PLAY opens it in the stage's top-right corner (over the pause card, below the corner's
@@ -409,10 +447,10 @@ src/client/           everything that touches the browser
   feedback.js         the game's ways to the docs' feedback form: the first page's quiet second link beside Learn more
                       and the help sheet's, each to ./docs/feedback/ with `from` (menu or game), `v` and `c` (the sim's
                       build and the last game update's commit) and `touch`, in a new tab
-  scenery.js          deterministic scatter of scenery props (doodads) from the map seed; visual only
   menu.js             start menu: a first page, one for everyone (SINGLE PLAYER and MULTIPLAYER big; TUTORIAL, the
-                      guided game, OPTIONS and INSTALL small under them;
-                      the gameplay clip above them, menuclip.js; the record of games is kept but not shown;
+                      guided game, OPTIONS and PLAY OFFLINE small under them;
+                      the trailer's poster above them, trailer.js; the line under the name says what the game is (the
+                      trailer tells the story); the record of games is kept but not shown;
                       a room's, a challenge's or a plan's link opens its own page; the footer line: Learn more, Send
                       feedback; the build stamp at
                       its foot, "Updated <date> · <hash>": the last game update, the newest commit under
@@ -472,6 +510,8 @@ src/client/           everything that touches the browser
   grouphint.js        on touch, fighters tapped one by one (3 within 8 s) bring a hint, once: a finger held on the
                       ground then a box, SELECT, ARMY (the two buttons pulse); back after 3 more games (endfall.games, endfall.groupHint);
                       never in the guided first game (its checklist's step teaches it)
+  groundhint.js       with a mouse set to RIGHT CLICK ONLY, the ground left-clicked while units are selected brings "Right-click to move or
+                      attack", three times a device at most (endfall.groundHint), not again while it shows
   ui.js               client UI state (ui.sel, ui.mode, ui.place), the armed-order table, hint (while placing over a red
                       spot, why, in red: `placeRefusal`, the sim's check), toasts, setSelection
   hud.js              top bar (the Kingdom's gold as coins and population, the Expedition's energy as a bolt and grid)
@@ -488,7 +528,8 @@ src/client/           everything that touches the browser
                       lists with every defense (the Watchtower, the Sentry mast) on the basic page, before Advanced
   card.js             the command card's buttons (cards.js holds them), long-press details, what a button does; a unit
                       or a building button (its item's `por`: [what, kind]) shows its symbol (icons.js `glyph`), the
-                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold
+                      others their icon; yellow (--ally2) when it can be used, gray when locked or short of gold; with a
+                      mouse the hover panel keeps the room of what may be short (the grid, the money), so it never changes size
   stats.js            the long-press details' stat chips, and only there: two fixed rows from the sim's tables (Health,
                       Shields for a shielded race (none since the re-theme), Armor; damage, ground/air, tags), base
                       stats only (test/stats.test.js)
@@ -509,11 +550,8 @@ src/client/           everything that touches the browser
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance), `unionArcs` (the outline
                       of their union) and `nearestRim` (the outline's stretch nearest a point: the leash cue)
                       (test/range.test.js)
-  construct.js        construction you can read, pure: the Kingdom's raw look (`RAW`, `rawStage`, `rawMatrix`), the
-                      Expedition's rising body under its ghost in the gantry (`GHOST`, `GANTRY`, `solidRows`,
-                      `ghostAlpha`), the gantry's frame, which the art is drawn from too (tools/render3d/country.js),
-                      and its head's way through it (`GANTRY_FRAME`, `headPath`, `headAt`), the build bar, the done
-                      moment's curves
+  construct.js        construction you can read, pure: a site's reveal (`REVEAL`, `revealRows`, `revealMatrix`), what
+                      it stands on (`frameOf`, `slabOf`), the build bar, the done moment's curves
                       (`DONE`, `doneAt`, `donePuffs`), a site's damage against its growing hp (`siteHurt`), a builder's
                       strikes (`WORK`, `strikeCount`, `strikeAt`, `atSite`), the cards' and the paused toast's words
                       (`builderLine`, `siteLine`, `pausedToast`, once a site a minute) (test/construct.test.js)
@@ -528,16 +566,23 @@ src/client/           everything that touches the browser
                       `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands (the keys' and the
                       mouse edge's pan at PAN_SPEED world px a second, the same time across the map at any zoom); a unit is hit
-                      on a circle round its drawn body (half its drawn height above its feet), a gold mine on its
+                      on a circle round its drawn body (half its drawn height above its feet; over a building of ours our
+                      walkers on their lowest 28 px alone, above that the building), a gold mine on its
                       footprint and the rock just over it; a worker inside a mine is not picked or boxed; workers sent
                       to an empty mine are told so ("This mine is empty"; the sim sends them on to the nearest with gold);
                       touch: a finger held still on the map for HOLD_MS (350 ms, within the pan's 10 px; a ring fills
                       under it) arms a box there (a tick, SELECT lit amber, the map's edge aglow, the hint), dragged it
                       draws, lifted unmoved it does nothing; a move, a second finger, placing or an armed order means no
                       hold, and a late timer yields to the finger's own timestamps; a box that takes nothing keeps the
-                      selection on touch (a mouse's empty box still clears it); SELECT: tap to toggle, or hold
+                      selection (a mouse's, what is ours); a mouse's left click with units of ours selected orders as a right click does
+                      (`orderTarget`: the ground, a mine, an enemy, with workers a site; a damaged building is selected, its repair a right click's or the Repair button's, as on touch; workers given
+                      a job so, by an armed Mine or Repair or by placing without Shift are let go, as on touch) unless MOUSE is RIGHT CLICK ONLY, where it selects and the ground
+                      keeps the selection; Esc and Deselect let go; SELECT (with HOME and ARMY on touch and
+                      with the desktop HUD; a mouse's click arms one box, a plain click lets it go): tap to toggle, or hold
   audio.js            Web Audio synthesized sfx; the context opens only in a gesture WebKit counts (a touch's end, a click,
-                      a key) and nothing plays until it runs; `holdSound`: the pause card suspends it
+                      a key) and nothing plays until it runs; `holdSound`: the pause card suspends it; a hidden tab
+                      suspends it too; `gameSound`: the wind bed plays in a game only (main.js `begin`, the end card,
+                      menu.js `showMenu`), the menu's clicks either way
   voice.js            the formant-synthesized announcer (audio.js `say`: under attack, research complete, not enough
                       gold, in each race's voice): STYLES, three a race, and each race's device style
   speech.js           the announcer in the device's own voice (Web Speech API): a voice per race picked from the device's
@@ -545,19 +590,22 @@ src/client/           everything that touches the browser
                       The announcer is OFF in the game (audio.js `audio.announcer = null`, 2026-10-28) until the owner
                       finds a voice they like in voice-lab.html; 'device' or 'synth' turns it back on
   fx.js               particles and markers (client-only, fed by sim events)
-  menuclip.js         the gameplay clip on the menu's first page (index.html #menuClip: the docs home's clip, framed above
-                      the buttons, beside them on a phone on its side; style.css): the page holds its poster only (the
-                      game's own copy, public/menu/clip-*.webp), the video is made once the game has loaded (boot.js's
-                      `loading`: the sim and the renderer's art) and the page has, in an idle moment; muted, looped,
-                      faded in over the poster; never under reduced motion, Save-Data or 2g, nor without an H.264
-                      decoder; paused on Single player's page, let go of when the menu is left (the lobby, a game); the
-                      poster alone if it cannot play or never comes (offline: the clip is the docs', web-only); no
-                      frame if the poster never comes
+  trailer.js          the trailer on the menu's first page (index.html #menuTrailer and #trailerDlg; style.css): its
+                      poster (public/menu/trailer.jpg, the King's card; in the offline cache), a still with a play
+                      button, framed above the buttons, beside them on a phone on its side (a still, not a moving clip:
+                      the field under the page shows the same armies); a tap opens a dialog and plays it there with its
+                      sound and the browser's controls, its <video> made only then (none in the markup: nothing fetched
+                      before, and Firefox no longer cancels a fetch of the backdrop on a reload under the service
+                      worker; public/docs/media/ebbfall-trailer.mp4, the Worker's byte ranges, web-only); its sound its
+                      own (a muted game does not mute it: the player chose it with a tap; no WebAudio); never autoplayed
+                      or looped; paused for good on CLOSE or Esc, a hidden or left tab, a link followed, another menu
+                      page; let go of when a game starts (any button, or over the socket); offline it says it needs a
+                      connection; no frame if the poster never comes
   memory.js           enemy buildings as this side last saw them: in fog the field, the minimap and picking show the
                       remembered copy (a building never seen is not shown), forgotten when its ground is seen without it
-  offline.js          INSTALL (the browser's prompt where it offers one, else the Home Screen card on iPad/iPhone) on the
-                      first page, About and the pause card; PLAY OFFLINE (the first page once installed or where nothing
-                      installs, and About) asks the service worker and says so until everything is saved
+  offline.js          PLAY OFFLINE on the first page and in the pause card: the install offer where there is one (the
+                      browser's prompt, else the Home Screen card on iPad/iPhone); on the first page, once installed or where
+                      nothing installs, it asks the service worker and says so until everything is saved
   online.js           Multiplayer: the lobby (open/join a room by code or link, a line on how; the room is single
                       player's board of eight spots: people, AIs and open seats as tokens, your race in your token's
                       sheet, READY a lit toggle; the host's sheets put anyone on any side, set an AI's race and level,
@@ -575,12 +623,11 @@ src/net/roomcode.js   room codes, one module for the relay, the lobby and the li
                       alphabet (64 million), made from crypto random numbers, shown BCD-FGH, read in any case with or
                       without the hyphen or spaces (`parseCode`), the first format's four letters told apart (`oldCode`)
 test/engine.test.js   the WASM sim through src/engine in Node: presentation of every kind, RNG/hypot, golden hashes, gameplay
-test/scenery.test.js  the scenery scatter on real maps: deterministic, props where they belong, sprites in the atlas
+test/rallyflag.test.js  the rally flag's red (src/client/gl/rallyflag.js) against every seat's color
 test/range.test.js    the range's circles (src/client/range.js): in range by exact distance, the union's outline
-test/art.test.js      the atlas against the game: every unit, building and turret frame has its team mask, a tint per seat,
-                      a drawn height per unit kind; each people's construction, rubble, worn dirt and shots, the ground's
-                      tiles in both rock kinds, every stage and variant of the gold outcrop (the link preview's), the
-                      gold mine's three stages, neutral; and look.js's presentation: a selected building's oval, the
+test/art.test.js      the art against the game: every trained unit, every building and the archer's head has its team mask, a
+                      tint per seat, a drawn height per unit kind, the gold mine's three stages, neutral; and look.js's
+                      presentation: a selected building's oval, the
                       heads' frames (aimed, spun, panned), the Portal brightening as a unit comes through
 test/strike.test.js   the melee units' strike poses (look.js `strikePose`): the strike just after a blow, the wind-up
                       in reach between blows (shoved or not), the walk out of reach; reach as the sim's; both frames in every facing with
@@ -596,8 +643,13 @@ test/shots.test.js    how each shot is drawn to read on a phone (look.js `SHOT_S
                       (the Drone's the Sentry mast's), hits in steel's cool and muzzle flashes warm, the heavy trail
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
+test/newart.test.js   the game's art: the loader's tries and RETRY, the index's sizes (tools/newart/bytes.mjs), the effects
+                      painted in code (gl/fx.js: laid on one canvas, each the size and anchor its older frame had) and the
+                      seats' paint, every frame the client names in the packs or painted;
+                      test/newart-tone.test.js the tone curve; test/e2e/newart.e2e.mjs what a page asks for (never the
+                      older atlas), the loading line and RETRY, the portraits
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
-                      map, fixed by the seed; the grass's patches capped, a meadow's marks; an overlay cell's variant
+                      map, fixed by the seed
 test/groundplan.test.js  the ground's plan (src/client/gl/groundplan.js): the same plan, grid for grid, whoever is seated
                       where (two to eight seated, any starts filled, on the 96 and 128 maps and the Lake), another for
                       another seed; worn ground only on open land, a track through a one-tile pass faded each side and
@@ -612,8 +664,13 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       tap, `stopByUI`: a box and S; its `test` takes `engines: true`
                       for the cross-engine subset and `chromium: 'why'` for Chromium-only), shards.mjs and times.json
                       (ENDFALL_SHARD's split by measured time; tools/e2e-times.mjs), gameplay.e2e.mjs (scenarios),
-                      construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
+                      panel.e2e.mjs (with a mouse, a button's details panel has one size, its price in reach or not:
+                      every unit, building and research of both peoples),
+                      rally.e2e.mjs (the rally flag: for the selected building of ours alone, red whatever our seat's
+                      color), construct.e2e.mjs (construction you can read: the unfinished looks, the cards' percentages, the
                       paused toast once a minute, the done moment),
+                      pick.e2e.mjs (a click or a tap where a unit stands over a building),
+                      mouse.e2e.mjs (the MOUSE setting: what a left click orders, selects and keeps, the right-click hint),
                       touch.e2e.mjs (phone gestures: one-finger pan and glide, hold-then-drag box, SELECT box, minimap nudge),
                       online.e2e.mjs (two browsers through a local relay: room, join link, lockstep, leaving concedes,
                       the pause card's menu and a pause for everyone, the board (AIs, levels, sides, nothing moving, a
@@ -639,20 +696,26 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       poster with controls instead; the ? hidden with JavaScript off; the docs' videos playing on past
                       their loop's end, where WebKit asks for a byte range, the Worker's 206),
                       field.e2e.mjs (the field under the first page: the right image per size class, under the buttons
-                      (what the clip and they leave: a low band on most desktops, none where there is no room), the
+                      (what the poster and they leave: a low band on most desktops, none where there is no room), the
                       buttons unmoved, the plain floor when the image does not come, no tide line and no drift, the
                       band under the other menu pages too, as tall as ever, no band on a screen too short),
-                      menuclip.e2e.mjs (the first page's clip: beside the buttons on a phone on its side, both big
-                      buttons whole on screen and nothing scrolling at 844x390, 667x375, 568x320 and 844x340; framed
-                      above them upright and on a desktop; the video made only once the game and its art are in and
-                      the page has loaded, muted, looped, from the Worker's byte ranges; paused on Single player, let
-                      go of in the lobby and when a game starts, made again after; none, and no request, under reduced
-                      motion and Save-Data; the poster alone when the clip never comes, no frame without the poster;
-                      the same page whether `tall` or not, fitting with PLAY OFFLINE's answer),
+                      menutrailer.e2e.mjs (the first page's trailer: its poster beside the buttons on a phone on its
+                      side, both big buttons whole on screen and nothing scrolling at 844x390, 667x375, 568x320 and
+                      844x340; framed above them upright and on a desktop; nothing of the video asked for before the
+                      tap (reduced motion too); the tap plays it in the dialog with its sound, a muted game too, the
+                      controls, no loop, from the Worker's byte ranges, the dialog whole on a phone on its side; paused
+                      for good on CLOSE, a hidden tab, the credit's link; START GAME on screen, a game started lets go
+                      of it; offline it says it needs a connection; no frame without the poster; the same page whether
+                      `tall` or not, fitting with PLAY OFFLINE's answer),
+                      hudsizes.e2e.mjs (the desktop HUD's size table at 1280x720, 1920x1080 and 2560x1440: --u never
+                      over 1.1, no HUD text under 12 px and three sizes in all, the minimap, the portraits, the hint
+                      over the minimap and the camera's room past the foot over a three-row card; a landscape phone's
+                      HUD piece by piece as it was),
                       bench.e2e.mjs (?bench: a short run measured, its report sent through a local relay, read back by code;
                       no keys while it measures, a swapped game stops it, a relay that does not answer),
-                      corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; iPad and
-                      iPhone: no page full screen, the Home Screen card; the player's choice to leave full screen wins),
+                      corner.e2e.mjs (sound and full screen on every screen and card, clear of their content; the wind
+                      in a game only, a hidden tab silent; iPad and iPhone: no page full screen, the Home Screen card;
+                      the player's choice to leave full screen wins),
                       clock.e2e.mjs (the top bar's clock on a desktop and a landscape phone: at the start, after a
                       fast-forward, still while paused, clear of POP and the buttons),
                       window.e2e.mjs (an iPad's and a phone's browser tab with its bars: the menus, the HUD and the cards
@@ -664,8 +727,8 @@ test/e2e/             browser tests: harness.mjs (serves dist/ as Cloudflare doe
                       change makes it the player's; a bad link opens the plain menu; none after the guided game),
                       selftest.e2e.mjs (the golden games in the engine under test), ground.e2e.mjs (the ground laid at
                       a game's start on a desktop and a phone, its plan bit for bit Node's in every engine, no page
-                      error), offline.e2e.mjs (INSTALL,
-                      PLAY OFFLINE against the real service worker, the app icons), static.e2e.mjs (the Worker blocked, as a tripped spending limit
+                      error), offline.e2e.mjs (PLAY OFFLINE:
+                      the install offer, and against the real service worker, the app icons), static.e2e.mjs (the Worker blocked, as a tripped spending limit
                       leaves it: the game's page, the docs and a single-player game from the files alone, the service
                       worker installed, no error, nothing reaching the Worker but the docs' videos, which fail), voice.e2e.mjs (the voice lab
                       loads and plays; every synth style rendered offline and measured: peak, loudness, length, no
@@ -683,10 +746,13 @@ test/net.test.js      two Net clients with WASM Games through the Node relay: sa
                       a quiet room closed by the relay: the lobby Net shows why and does not reconnect
 test/menu-art.test.js the menu's field images (public/menu/) have no alpha channel: their fade is baked into the floor's
                       color (Safari on iPad and iPhone drew their old alpha as opaque; Playwright's WebKit cannot show that)
-test/menu-clip.test.js the first page's clip: its posters (public/menu/clip-*.webp) the docs' poster byte for byte and a
-                      1280 px one, the clip's shape, opaque, in the offline cache; the page holds the poster alone (no
-                      video, no mp4), with the clip's words; the clip is the docs' file, web-only; the footer line two
-                      links, none to a trailer
+test/menu-trailer.test.js the first page's trailer: the line under the name and the page's descriptions what the game is;
+                      the poster a button with its play mark and words, in the offline cache; no video in the page,
+                      the one trailer.js makes with controls, inline, preload none, no autoplay, mute or loop, its words
+                      from the dialog's frame, the music's
+                      credit word for word with its license linked; the script plays it on the tap only and pauses it
+                      for good (CLOSE, hidden, a link), a game lets go of it; the file under the Worker's rule,
+                      web-only, under 8 MB, faststart
 test/memory.test.js   the last-seen memory of enemy buildings on the WASM sim: an enemy Market unseen until a unit
                       looks, remembered after it walks away and after it dies out of sight, own and allied ones live
 test/stats.test.js    the preview card's stat rows for every unit and building kind (src/client/stats.js)
@@ -757,7 +823,7 @@ test/docs.test.js     the docs (tools/docs) built into a temporary folder: every
                       every JSON-LD block checked against schema.org's properties by a small built-in table
                       (VideoGame the same on / and /docs/, the clip's VideoObject, breadcrumbs inside) and links;
                       the clip's words and size; the controls videos (the loop at the top of How to play's phone
-                      section, the one video that plays by itself, its poster fetched first; About's below the fold;
+                      section, the one video that plays by itself, its poster fetched first; none on About;
                       the touch table's seven gestures on demand: a ? button each with its aria attributes and data,
                       nothing of a loop in the page); images with alt (empty only when decorative, aria-hidden), sizes,
                       WebP, lazy, a phone's own files; the sitemap with lastmod, llms.txt; no em dash, American
@@ -811,7 +877,8 @@ site/                 the site, https://ebbfall.com/ (Notion: Multiplayer design
                       index.html, /docs/kingdom/ that folder's, /selftest selftest.html, the .html spellings sent on;
                       run_worker_first only for the docs' videos, /docs/media/*.mp4: every other file is served with no
                       Worker, so a tripped Workers spending limit leaves the game, the docs and single player up);
-                      media.js (the docs' videos read from env.ASSETS and answered with byte ranges: 206 and
+                      media.js (the docs' videos and the menu's trailer read from env.ASSETS and answered with byte
+                      ranges: 206 and
                       Content-Range, 416, Accept-Ranges; the assets answer a Range with the whole file, 200, which
                       Safari refuses to play); worker.js (the videos, then only what is not a file: a room's
                       card address /r/CODE, the room's own link card then on to /?room=CODE; a challenge's, /vs/CODE,
@@ -845,7 +912,8 @@ tools/devices/        the device smoke (Devices workflow): devices.mjs (the iPad
                       (BrowserStack, iOS Simulator through Appium, Android emulator, local Playwright, any WebDriver),
                       webdriver.mjs (a fetch-only W3C client), smoke.mjs (the steps, screenshots, summary.json); README.md
 tools/offline/        the Vite plugin that writes dist/sw.js (plugin.mjs) from the service worker's template (sw.js): every
-                      file of dist/ but source maps and WEB_ONLY
+                      file of dist/ but source maps and WEB_ONLY, each asked of the host (`no-cache`: a 304 where the
+                      browser has it, so a first visit downloads the art once)
 tools/icons.mjs       public/icon-*.png (the install prompt's PNG icons) from public/icon.svg; output committed
 tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vite plugin in build.mjs writes it into dist/
                       with the game: dist/docs/<page>/index.html, dist/sitemap.xml with every page and its lastmod,
@@ -865,12 +933,14 @@ tools/docs/           the docs microsite at /docs/ (PRD "Docs microsite"; the Vi
                       page has loaded and played in view, the touch table's gesture loops made and played on a row's ?);
                       two fonts preloaded, the page's first media (a screenshot or a clip's poster) fetched first, every
                       other image lazy), sprites.mjs and crops.mjs (the sprite crops: the
-                      recipe, the list, cut in Chromium from public/art into public/docs/img/sprites/ as WebP at
+                      recipe, the list, cut in Chromium from public/art/new, the units from sharp pictures in a local folder and
+                      the buildings from their pack built again at 4x into target/bldg4
+                      (EBBFALL_PICTURES; without it the tool stops and changes nothing), into public/docs/img/sprites/ as WebP at
                       desktop and phone size, committed; sprites.json what each was cut from, test/docs.test.js
                       fails when stale), shots.mjs (the screenshots and the gameplay clip, staged in the built game
                       in Chromium: the AI off, units spawned, the fog layer hidden (render.js `showFog`, endfall.fog),
-                      committed in public/docs/img/shots/ and public/docs/media/ (trailer.mp4: the trailer takes the
-                      clip's name; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers and a
+                      committed in public/docs/img/shots/ and public/docs/media/ (trailer.mp4, the docs home's clip; the
+                      game's trailer, the menu's, is ebbfall-trailer.mp4 beside it, not made here; the clip is Drones swarming a Watchtower by a Castle on Sunken Court, Archers and a
                       Ballista coming to its help, 11 s at 30 fps, one tick a frame (tools/trailer/stage.mjs `freeze`)
                       but for one slow-motion beat on the Ballista's first hit (a fraction of a tick a frame), from
                       DPR 2 frames in target/docs-clip/ encoded by ffmpeg under the home's budget, its end dissolving
@@ -915,7 +985,7 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       controls-loop.mp4 the essentials under 400 KB, touch-<gesture>.mp4 one each under 150 KB, a WebP
                       poster each, a punch-in on the held button's details; --review copies them with a contact sheet,
                       a still near the end of each caption; tools/docs/controls.json lists them for the docs' tokens).
-                      How to play shows the loop at the start of its phone section (before the desktop's), About the loop
+                      How to play shows the loop at the start of its phone section (before the desktop's), About none
                       (pages.mjs {{clip name}}: the poster an image over the video until it plays, the video fetched only
                       when played, as the home's clip); the only videos that play by themselves. Seven touch rows have a
                       gesture's loop on demand (pages.mjs {{loop name}}: a ? button, 32 px in a 44 px target, and an
@@ -933,6 +1003,9 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       How to play shows the loop at the start of its desktop section (lazy: the phone's loop is the
                       page's first media) and seven desktop rows have a gesture's loop on demand through the same ?
                       (the Mouse and Key tables take the touch table's class; the schemes table its ? alone).
+tools/newart/         the art's packs (public/art/new/, NOTICE.txt beside them): a builder per group
+                      (bldg/build.mjs) that reads the pictures from EBBFALL_PICTURES (a local folder, not in the repo),
+                      bytes.mjs (each file's size stamped into index.json, by every builder) and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
 tools/view-capture.mjs  how the game looks on a desktop monitor against a landscape phone (npm run build first; a
                       Chromium): one staged instant of seed 4242 under a held clock (the start's framing, then a fight
                       with 12 of ours box-selected through the UI), shot at 1440x900, 1920x1080 and 2560x1440 per START_SPAN
@@ -951,20 +1024,22 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       through), main beside pr (../ebbfall-article/ground-pr).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and a battle of the game's
                       own sprites, composed in headless Chromium, reduced to 256 colors to stay small; output committed
-tools/menu-clip.mjs   public/menu/clip-<720|1280>.webp, the poster of the clip on the menu's first page: the game's own
-                      copies of the docs' poster (the docs are web-only: an installed copy offline would show an empty
-                      frame), the 720 px one byte for byte, the 1280 px one scaled from the docs' 2000 px one in headless
-                      Chromium; output committed (tools/docs/shots.mjs's clip step runs it; test/menu-clip.test.js)
 tools/menu-art.mjs    public/menu/menu-<wide|desktop|landscape|portrait>.webp, the field under the menu's first page: og.png's
                       battle as a band (the Castle and the Data center with their armies), the game's 3D models rendered
                       through tools/render3d at twice the atlas's scale (render3d.mjs's `zoom`), the ground and the effects
-                      from public/art, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
+                      from tools/art/older, one image per size class with the night veil and the top fade into the floor's color baked in (opaque: Safari's
                       decoder drew these WebPs' alpha as opaque; test/menu-art.test.js), composed
                       and written as WebP in headless Chromium; output committed (run after changing the models or the scene)
-public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its clip's poster); og.png, robots.txt and sitemap.xml are for
+public/               copied as is into dist/: the icons, the manifest, art/, menu/ (the first page's field and its trailer's poster); og.png, robots.txt and sitemap.xml are for
                       crawlers and link previews (tools/offline/plugin.mjs WEB_ONLY: not stored for offline play)
 scripts/headless.js   scripted bot-vs-AI run for balance checks
 scripts/build-wasm.mjs cargo build for wasm32 + wasm-bindgen into src/engine/pkg/
+tools/newart/land/    the land, built from a local folder of pictures (EBBFALL_PICTURES) into public/art/new/:
+                      build.mjs (every tuned number in its CFG: the sheets' parts keyed and cut, lit by tone.mjs, their
+                      shadows, the gold mine's three states, the page and the tiling grounds as WebP, the land's entry
+                      in index.json, and gl/newland-pieces.js), decode.mjs (a JPEG's pixels through headless Chromium,
+                      cached under target/), img.js (the pixel arithmetic), capture.mjs (stills of today's art beside
+                      the new at one held instant, the canopy caps, a frame time and memory note)
 tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js). The
                       re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
                       its models, `atlasSprites` renders them under today's names, the melee units' two strike poses besides their walk,
@@ -981,14 +1056,12 @@ tools/render3d/       3D models, materials, camera/lights and the sprite finish,
                       (models.js, buildings.js, harbour*.js, vael*.js, trimmed to what main.js still draws) stay only
                       for the two healers the sim keeps but trains nowhere (main.js `HEALERS`: medic, halo) and fitTints'
                       reference sprites, which set the atlas's seat tints
-tools/art/            generator driver (generate.mjs), the painted ground (terrain3.js: grass, forest and hill tiles;
-                      overlay3.js: the overlay grounds on the dual grid, the tracks' worn dirt and a hill's upper tier) and
-                      effects (effects3.js: shots, explosions, smoke, the worn dirt under buildings; effects2.js for the
-                      light blob, the rally flag and the heal sparkle), packer, PNG encoder, the pages' WebP (webp.mjs: lossless, libwebp in WASM through @jsquash/webp); the review pictures
-                      (retheme-*.mjs, battle-shots.mjs (the brawl scenes: the melee kinds hand to hand); strike-sheet.mjs: each melee
-                      unit's walk, wind-up and strike in every facing (or the facings asked for) at desktop and phone size; retheme-datacenter.mjs: the Data center's two options at their
-                      angles beside today's, the Expedition base, and the depth pass's before/after sheet of every
-                      building); see Notion: Ebbfall art
-public/art/           generated atlas.json index + atlas-<n>.webp/json pages (PixiJS spritesheets, scale 2), committed
+tools/art/            older/: the older atlas's pages (atlas.json, atlas-<n>), the look the game had by default up to commit
+                      3d5d198 (2026-11-25; its generators are in that commit: tools/art/generate.mjs and the painters), kept
+                      for what still reads it: og.mjs, menu-art.mjs, the unit pack's
+                      names (tools/newart/unit) and test/newart.test.js (the effects' sizes and the seats' paint); render3d.mjs (tools/render3d in Chromium, for menu-art.mjs), webp.mjs (lossless, libwebp
+                      in WASM through @jsquash/webp) and png.js, battle-shots.mjs (the built game's brawls), glyph-strip.mjs
+                      (the command card's glyphs); see Notion: Ebbfall art
+public/art/           new/: the game's art (index.json, the groups' pages; NOTICE.txt)
 ```
 

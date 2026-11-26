@@ -1,6 +1,6 @@
 // How the game looks on a desktop monitor against a landscape phone: one staged instant of one game, shot at several
 // window sizes and start zooms, with a contact sheet. Copied from the span cap's capture (branch span-cap).
-//   npm run build && node tools/view-capture.mjs [--out DIR] [--spans 1200,1000,900]
+//   npm run build && node tools/view-capture.mjs [--out DIR] [--spans 1200,1050,900]
 //   node tools/view-capture.mjs --set edge --tag today|edge [--out DIR]   (ENDFALL_DIST=... names the build to shoot)
 //   node tools/view-capture.mjs --set edge --sheet [--out DIR]
 //   node tools/view-capture.mjs --set hud --tag main|pr [--out DIR]      (ENDFALL_DIST=... names the build to shoot)
@@ -50,7 +50,7 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? proces
 const root = fileURLToPath(new URL('..', import.meta.url));
 const SET = arg('--set', 'start'), TAG = arg('--tag', 'today');
 const out = resolve(arg('--out', join(root, { edge: '../ebbfall-article/desktop-edge', tablet: '../ebbfall-article/tablet-edge', hud: '../ebbfall-article/hud-pr', ground: '../ebbfall-article/ground-pr' }[SET] || '../ebbfall-article/desktop-start')));
-const SPANS = arg('--spans', '1200,1000,900').split(',').map(Number);
+const SPANS = arg('--spans', '1200,1050,900').split(',').map(Number); // (1050 is the game's START_SPAN, gl/render.js)
 const SIZES = SET === 'edge' ? [[1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]] : [[1440, 900], [1920, 1080], [2560, 1440]];
 const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true };
 const TABLETS = [[1024, 768], [1180, 820], [1366, 1024], [820, 1180]];

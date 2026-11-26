@@ -113,7 +113,7 @@ button,a,input{touch-action:manipulation} input,textarea{-webkit-user-select:tex
 .qi .ico.gl{width:24px;height:24px;color:var(--ally2)} /* (the queue shows the button's symbol: what was pressed) */
 #cmdInfo{position:fixed;z-index:6;background:rgba(18,26,37,.96);border:1px solid var(--ally);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.35;color:var(--fg);box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 #cmdInfo b{font:600 13px var(--display);color:var(--ally2)} #cmdInfo .c{font:700 17px/1 var(--mono);font-variant-numeric:tabular-nums;color:#f3c94a;display:flex;gap:5px;align-items:center} #cmdInfo .c .dot{width:16px;height:13px} /* (gold first: the eye's first stop, Stelian, Nov 13) */
-#cmdInfo .d{flex:1 1 100%;color:var(--muted)}
+#cmdInfo .d{flex:1 1 100%;color:var(--muted)} #cmdInfo :is(.short.off,.short .off){display:none} @media (pointer:fine){#cmdInfo :is(.short.off,.short .off){display:inline;visibility:hidden} #cmdInfo .short.many{display:inline-grid} #cmdInfo .short.many>*{grid-area:1/1}} /* (with a mouse its room is kept while nothing is short, the longest's of `many` words in one place, so the panel never changes size: card.js showDetail) */
 #cmdInfo .pl{display:flex;gap:4px;align-items:center;font:13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap} #cmdInfo .pl .ico{width:14px;height:14px;color:var(--ally2)} /* (beside the price: "1 population", "2 grid") */
 #cmdInfo .pic{flex:none;display:flex;align-self:flex-start} #cmdInfo .pic img{width:72px;height:72px;display:block} /* (the sprite, beside its name, gold and stats: card.js SPRITE) */
 #cmdInfo .hd{flex:1 1 0;min-width:0;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;align-content:center;align-self:stretch}
@@ -279,6 +279,12 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #menuFoot{width:fit-content;margin-left:auto;margin-right:auto;padding:0 12px;border-radius:10px;background:rgba(18,26,37,.82);box-shadow:0 0 10px 6px rgba(18,26,37,.82)}
 #menuLinks,#menuLinks a,#menuHome .rec{color:#aebbcb}
 @media (max-height:420px){#menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a short phone on its side: the links and the stamp on one line, clear of the field) */
+/* The loading line (loadline.js): a bar over the row of the button that waits for the game. */
+#loadLine{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:8px 0 4px;padding:8px 12px;border:1px solid var(--line2);border-radius:6px;background:rgba(18,26,37,.92);font:13px var(--mono);color:var(--fg);text-align:left;grid-column:1/-1}
+#loadLine[hidden]{display:none} #loadLine span{flex:1 1 240px} #loadLine progress{flex:1 1 220px;height:10px;appearance:none;-webkit-appearance:none;border:0;border-radius:5px;overflow:hidden;background:var(--line);accent-color:var(--ally)}
+#loadLine progress::-webkit-progress-bar{background:var(--line)} #loadLine progress::-webkit-progress-value{background:var(--ally)} #loadLine progress::-moz-progress-bar{background:var(--ally)}
+#loadLine.failed{border-color:var(--foe2)} #loadLine.failed progress{display:none} #loadLine .ib{min-height:44px;padding:0 18px} #loadLine .ib[hidden]{display:none}
+#loadLine.alone{position:fixed;left:16px;right:16px;bottom:16px;z-index:40}
 #homeOfflineMsg{margin:6px 0 0;font-size:12.5px;color:var(--ally2)} #homeOfflineMsg:empty{display:none} /* (PLAY OFFLINE's answer, under its row) */
 .modes{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 4px} .ib.mode{flex:1 1 220px;min-height:72px;font-size:20px;letter-spacing:.14em}
 @media (max-height:420px){.ib.mode{min-height:60px;font-size:17px}}
@@ -456,6 +462,7 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #helpSheet .lines{margin:0 0 6px;padding:0;list-style:none} #helpSheet li{margin:0 0 4px} #helpSheet b{color:var(--fg)} #helpSheet .goal{margin:6px 0 8px;color:var(--fg)}
 #helpSheet kbd{font:12px var(--mono);background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:0 4px;color:var(--ally2)}
 #helpSheet .ft{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;font:12px var(--mono);color:var(--muted)} #helpSheet .ft a{color:var(--ally2);display:inline-flex;align-items:center;min-height:44px} #helpSheet .ft #helpFeedback{color:var(--muted)} #helpSheet .ft #helpFeedback:hover{color:var(--ally2)}
+#helpSheet .ro,#helpSheet.rightonly .lr{display:none} #helpSheet.rightonly .ro{display:inline} /* (the MOUSE setting's words) */
 #helpSheet .touch{display:none} @media (pointer:coarse){#helpSheet .touch{display:block} #helpSheet .desk{display:none}}
 @media (max-height:500px) and (orientation:landscape){#helpSheet{font-size:12px;line-height:1.4;padding:6px 12px 8px} #helpSheet .x{width:40px;height:40px} #helpSheet .ft a{min-height:36px}}
 .ib.help{width:32px;height:28px;padding:0;display:grid;place-items:center;font:700 15px var(--display);color:var(--ally2)} .ib.help[aria-expanded="true"]{border-color:var(--ally);background:#2a2415}
@@ -496,34 +503,51 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 #online .joincode{display:flex;gap:8px;align-items:center} /* (the code and its JOIN keep together: one line beside NEW ROOM, or the next on a narrow phone) */
 #menuHome .row{gap:10px} #menuHome .row>.ib:not(.big){flex:1 1 0;max-width:150px;min-width:0;padding:0 8px}
 @media (orientation:portrait){#menuHome .row>.ib:not(.big){flex:0 0 calc((100% - 20px) / 3);max-width:none;font-size:11px;padding:0 4px}} /* (upright: three and two, each line centered) */
-/* The gameplay clip on the first page (index.html #menuClip: the docs home's clip, its poster the game's own copy; menuclip.js makes the video and adds `on` once it plays). The page from its top, as the other menu pages: the name, the line, the clip in a frame, the buttons. The box is the clip's shape, 2:1, whatever has arrived: nothing moves when the poster or the video comes; the video fades in over the poster. It gives way to the buttons: never wider than the height left for it (less of it with PLAY OFFLINE's answer under them). The page's padding is the same whether it scrolls or not (corner.js `tall` moves nothing here: a page that got shorter for being tall would fit, lose `tall`, and not fit again); a first page taller than the screen, a rare one, scrolls under the corner. */
+/* The trailer on the first page (index.html #menuTrailer: its poster, a still with a play button; trailer.js opens the dialog and plays it there). The page from its top, as the other menu pages: the name, the line, the poster in a frame, the buttons. The frame is 2:1 (the poster, 16:9, cut a little at its top and foot: the card's lines are in its middle), whatever has arrived: nothing moves when the poster comes. It gives way to the buttons: never wider than the height left for it (less of it with PLAY OFFLINE's answer under them). The page's padding is the same whether it scrolls or not (corner.js `tall` moves nothing here: a page that got shorter for being tall would fit, lose `tall`, and not fit again); a first page taller than the screen, a rare one, scrolls under the corner. */
 #start .card.menu:has(#menuHome:not([hidden])){justify-content:flex-start}
-#menuClip{position:relative;overflow:hidden;aspect-ratio:2/1;width:min(100%,calc((100dvh - 400px) * 2));margin:2px auto 10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg)}
-#menuClip :is(img,video){position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;display:block}
-#menuClip video{opacity:0;transition:opacity .5s} #menuClip.on video{opacity:1}
-#menuHome:has(#homeOfflineMsg:not(:empty)) #menuClip{width:min(100%,calc((100dvh - 450px) * 2))}
-/* A desktop: the column, and the clip in it, as wide as the screen's height leaves room for, 720 px as it was up to the clip's own 1000 px (`--col`: the field below reads it too); a little air above the name. */
+#menuTrailer{position:relative;display:block;overflow:hidden;aspect-ratio:2/1;width:min(100%,calc((100dvh - 400px) * 2));margin:2px auto 10px;padding:0;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer}
+#menuTrailer img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;display:block}
+/* the play button: a pill at the poster's foot, in the middle (the card's lines are above it, the Castle to its right): a round play mark and the words, brighter under the pointer or a key's focus */
+#menuTrailer .play{position:absolute;left:50%;bottom:clamp(8px,6%,28px);transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:5px 16px 5px 5px;border-radius:999px;background:rgba(11,15,22,.82);border:1px solid rgba(240,244,248,.45);box-shadow:0 2px 12px rgba(0,0,0,.5);white-space:nowrap;font:700 12px var(--display);letter-spacing:.12em;transition:background-color .15s,border-color .15s}
+#menuTrailer .play i{display:block;width:30px;height:30px;border-radius:50%;background:var(--fg) no-repeat 58% 50%/40% url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 12'%3E%3Cpath d='M0 0L10 6L0 12Z' fill='%230b0f16'/%3E%3C/svg%3E")}
+@media (max-width:420px){#menuTrailer .play{gap:8px;padding:4px 12px 4px 4px;font-size:11px} #menuTrailer .play i{width:26px;height:26px}} /* (an upright phone: clear of the card's lines) */
+@media (min-height:641px) and (min-width:900px){#menuTrailer .play{gap:12px;padding:6px 20px 6px 6px;font-size:14px} #menuTrailer .play i{width:38px;height:38px}}
+#menuTrailer:hover .play,#menuTrailer:focus-visible .play{background:rgba(30,40,56,.92);border-color:var(--fg)} #menuTrailer:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+/* the trailer's dialog: the video as large as the screen allows at 16:9, CLOSE over its top right corner, the music's credit small under it; the dialog itself is the scrim */
+dialog.trailer{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:rgba(7,9,13,.88);color:var(--fg)}
+dialog.trailer[open]{display:flex;align-items:center;justify-content:center} dialog.trailer::backdrop{background:transparent}
+dialog.trailer .frame{position:relative;width:min(calc(100vw - 24px),calc((100dvh - 64px) * 16 / 9),1280px)}
+dialog.trailer video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:6px;background:#000}
+dialog.trailer .x{position:absolute;right:0;bottom:calc(100% + 6px);min-height:32px;padding:0 12px;font-size:11px}
+dialog.trailer .credit{margin:6px 0 0;font:10px/1.4 var(--mono);color:#aebbcb;text-align:center} dialog.trailer .credit a{color:inherit;overflow-wrap:anywhere}
+dialog.trailer .note{margin:6px 0 0;font:12px var(--mono);color:var(--fg);text-align:center}
+@media (max-height:420px){dialog.trailer .frame{width:min(calc(100vw - 150px),calc((100dvh - 40px) * 16 / 9))} dialog.trailer .x{bottom:auto;top:0;right:auto;left:calc(100% + 8px)}} /* (a phone on its side: CLOSE beside the video, the credit under it) */
+#menuHome:has(#homeOfflineMsg:not(:empty)) #menuTrailer{width:min(100%,calc((100dvh - 450px) * 2))}
+/* A desktop: the column, and the poster in it, as wide as the screen's height leaves room for, 720 px up to 1000 px (`--col`: the field below reads it too); a little air above the name. */
 @media (orientation:landscape) and (min-height:641px){#start .card.menu:has(#menuHome:not([hidden])){--col:clamp(720px,calc((75dvh - 328px) * 2),1000px)} #start .card.menu:has(#menuHome:not([hidden])){padding-top:max(16px,5dvh,env(safe-area-inset-top,0px));padding-left:max(24px,calc((100% - var(--col)) / 2),env(safe-area-inset-left,0px));padding-right:max(24px,calc((100% - var(--col)) / 2),env(safe-area-inset-right,0px))}}
-/* A phone on its side (above the buttons there would be room for a clip of 240 x 120 at best): the name and the line across the top (the name's row as tall as the corner's pair: the line starts under it), then the clip on the left, and on the right the two modes, as tall as the clip leaves them, over the small row; the footer under both. Without the clip (its poster never came: menuclip.js, `noclip`) the page is the plain column it was. */
+/* The line under the name, a size to read on a monitor (a mouse in a window the desktop HUD takes too, upright ones out): two balanced lines at most, the poster giving up what they take. */
+@media (orientation:landscape) and (min-width:1100px) and (min-height:641px) and (pointer:fine){#start .card.menu #menuTag{font-size:17px;line-height:1.35;color:#aebbcb;max-width:800px;text-wrap:balance} #menuTrailer{width:min(100%,calc((100dvh - 416px) * 2))} #menuHome:has(#homeOfflineMsg:not(:empty)) #menuTrailer{width:min(100%,calc((100dvh - 466px) * 2))}}
+@media (orientation:landscape) and (min-width:1100px) and (min-height:860px) and (pointer:fine){#start #menuHome .scene{height:min(40%,calc(95dvh - 314px - var(--col,720px) / 2))}}
+/* A phone on its side (above the buttons there would be room for a poster of 240 x 120 at best): the name and the line across the top (the name's row as tall as the corner's pair: the line starts under it), then the poster on the left, and on the right the two modes, as tall as the poster leaves them, over the small row; the footer under both. Without the poster (it never came: trailer.js, `notrailer`) the page is the plain column it was. */
 @media (orientation:landscape) and (max-height:640px){
   #start .card.menu:has(#menuHome:not([hidden])){padding-left:max(24px,calc((100% - 900px) / 2),env(safe-area-inset-left,0px));padding-right:max(24px,calc((100% - 900px) / 2),env(safe-area-inset-right,0px))}
-  #menuHome:not(.noclip){display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);grid-template-rows:auto auto 1fr auto auto auto;column-gap:12px;grid-template-areas:"h h" "t t" "c m" "c r" "o o" "f f"}
+  #menuHome:not(.notrailer){display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);grid-template-rows:auto auto 1fr auto auto auto;column-gap:12px;grid-template-areas:"h h" "t t" "c m" "c r" "o o" "f f"}
   #start #menuHome h1{grid-area:h;min-height:46px;margin-bottom:2px} #menuHome .tag{grid-area:t}
-  #menuClip{grid-area:c;align-self:start;justify-self:end;width:min(100%,calc((100dvh - 136px) * 2));margin:4px 0 0} #menuHome:has(#homeOfflineMsg:not(:empty)) #menuClip{width:min(100%,calc((100dvh - 186px) * 2))} /* (a browser's bars up, 340 px or so: the clip gives way, the page still does not scroll) */
-  #menuHome:not(.noclip) .modes{grid-area:m;flex-direction:column;flex-wrap:nowrap;gap:8px;margin:4px 0 0} #menuHome:not(.noclip) .ib.mode{flex:1 1 0;min-height:60px}
-  #menuHome:not(.noclip) .row{grid-area:r;margin-top:8px;gap:6px;flex-wrap:nowrap} #menuHome:not(.noclip) .row>.ib:not(.big){flex:1 1 auto;max-width:none;padding:0 6px;font-size:11px;letter-spacing:.04em;white-space:nowrap} /* (each as wide as its word: PLAY OFFLINE the longest) */
+  #menuTrailer{grid-area:c;align-self:start;justify-self:end;width:min(100%,calc((100dvh - 136px) * 2));margin:4px 0 0} #menuHome:has(#homeOfflineMsg:not(:empty)) #menuTrailer{width:min(100%,calc((100dvh - 186px) * 2))} /* (a browser's bars up, 340 px or so: the poster gives way, the page still does not scroll) */
+  #menuHome:not(.notrailer) .modes{grid-area:m;flex-direction:column;flex-wrap:nowrap;gap:8px;margin:4px 0 0} #menuHome:not(.notrailer) .ib.mode{flex:1 1 0;min-height:60px}
+  #menuHome:not(.notrailer) .row{grid-area:r;margin-top:8px;gap:6px;flex-wrap:nowrap} #menuHome:not(.notrailer) .row>.ib:not(.big){flex:1 1 auto;max-width:none;padding:0 6px;font-size:11px;letter-spacing:.04em;white-space:nowrap} /* (each as wide as its word: PLAY OFFLINE the longest) */
   #homeOfflineMsg{grid-area:o} #menuFoot{grid-area:f}
 }
 @media (orientation:landscape) and (min-height:421px) and (max-height:640px){#start .card.menu .tag{margin-bottom:4px} #menuFoot{flex-direction:row;justify-content:center;gap:0 18px;margin-top:6px} #menuLinks{margin:0} #menuLinks a{min-height:32px} #menuFoot .rec{margin:0}} /* (a taller phone, a small tablet: the footer on one line, as on a short phone) */
-@media (orientation:landscape) and (max-height:640px) and (max-width:620px){#menuHome:not(.noclip) .modes{gap:6px} #menuHome:not(.noclip) .row{margin-top:6px;gap:4px} #menuHome:not(.noclip) .row>.ib:not(.big){padding:0 3px;font-size:10px;letter-spacing:0} #menuFoot{margin-top:4px}} /* (a narrow one, 568 px) */
+@media (orientation:landscape) and (max-height:640px) and (max-width:620px){#menuHome:not(.notrailer) .modes{gap:6px} #menuHome:not(.notrailer) .row{margin-top:6px;gap:4px} #menuHome:not(.notrailer) .row>.ib:not(.big){padding:0 3px;font-size:10px;letter-spacing:0} #menuFoot{margin-top:4px}} /* (a narrow one, 568 px) */
 /* Upright: the name under the corner's pair (beside it there is no room), then the same column. A page taller than the screen scrolls under the corner there (not squeezed beside it, as `tall` would). */
 @media (orientation:portrait){
   #start .card.menu:has(#menuHome:not([hidden])){padding-top:calc(max(8px,env(safe-area-inset-top,0px)) + 50px);padding-right:max(24px,calc((100% - 720px) / 2),env(safe-area-inset-right,0px))}
   #start #menuHome h1{font-size:clamp(30px,7.5dvh,58px)}
-  #menuClip{width:min(100%,max(220px,calc((100dvh - 500px) * 2)))}
+  #menuTrailer{width:min(100%,max(220px,calc((100dvh - 500px) * 2)))}
 }
-@media (orientation:portrait) and (max-height:700px){#menuHome .ib.mode{min-height:64px} #menuClip{margin-bottom:6px}}
-/* The field on the first page only (the other menu pages' copies keep theirs: menu.js): the room the page leaves under its footer line, its faded top under the line; none where the clip and the buttons need the room (a band under 160 px or so would show the armies' feet), as on a phone on its side. */
+@media (orientation:portrait) and (max-height:700px){#menuHome .ib.mode{min-height:64px} #menuTrailer{margin-bottom:6px}}
+/* The field on the first page only (the other menu pages' copies keep theirs: menu.js): the room the page leaves under its footer line, its faded top under the line; none where the poster and the buttons need the room (a band under 160 px or so would show the armies' feet), as on a phone on its side. */
 @media (orientation:landscape) and (max-height:859px){#menuHome .scene{display:none}}
 @media (orientation:landscape) and (min-height:860px){#menuHome .scene{height:min(40%,calc(95dvh - 298px - var(--col,720px) / 2))}}
 @media (orientation:portrait) and (max-width:499px) and (max-height:779px){#menuHome .scene{display:none}}
@@ -557,14 +581,30 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
 }
 /* The desktop HUD (a mouse in a window at least 1100 x 560 px; under it, and on every touch screen, all of the above as
    it is): the same floating layout at a monitor's size, each piece in one frame. The top bar becomes two corner
-   clusters (gold and POP, large and white, top left; the clock and the buttons, icons only, top right), the minimap
-   236 units, the selection console up to 760, the command card's slots 88 x 68 (the same three columns, slots and
-   keys); type larger and brighter in the same faces. Sizes are in `--u`: 1 px at 1440 x 810, 0.9 at 1280 x 720 (the
-   least), 1.33 at 1920 x 1080, 1.4 at most, so a larger window gets a larger HUD as the start zoom gives it larger
-   units. hud.js reads the same unit for the portraits (`porSize`), render.js the minimap's top for the camera's room
-   past the foot. */
+   clusters (gold and POP, top left; the clock and the buttons, icons only, top right), the minimap 190 units, the
+   selection console up to 760, the command card's slots 88 x 68 (the same three columns, slots and keys); type
+   brighter in the same faces. Sizes are in `--u`: 1 px at 1440 x 810, 0.9 at 1280 x 720 (the least), 1.1 at most (1584
+   x 891 and up): past that a monitor gives more map, not a larger HUD (it grew to 1.4 once: a 315 px minimap and 32 px
+   figures at 1920 x 1080, a fifth of the screen under panels). hud.js reads the same unit for the portraits
+   (`porSize`), render.js the foot's panels for the camera's room past the foot (the minimap's top and a three-row
+   card's, which is the taller).
+   THE SIZE TABLE: every size here comes from it (units of --u; a text is never under 12 px, the least a monitor's eye
+   reads at a glance: the key role holds there where --u is under 1):
+     --t-key    12  the small role: a button's label, its key, its price, a queue's seconds, a tile's letter, POP, a tag
+     --t-body   14  words: the console's lines, a toast, a hint, a tooltip's words and chips, the help sheet
+     --t-num    17  figures (mono): gold, population, the clock, health, the stat figures, a tooltip's price
+     --t-title  17  a name (display, bold): the selection's, a research's, a tooltip's, the help sheet's
+     --i-s 14, --i-m 18, --i-l 24, --i-xl 30   icons: beside words; the top bar's and beside figures; an order; a
+                    unit's or a building's symbol (a price's own coin and figure stay 10)
+     --mm      190  the minimap's side; what stands over it (SELECT, HOME and ARMY, the hint, the toasts) follows it
+     the menu (px, its own pages: no --u): 17 the line under the name (#menuTag, above), --t-menu-s 14 the small
+                    buttons and the footer's links (the big buttons' and the trailer's pill's 14), --t-menu-min 12 the
+                    least (the build stamp, a token's small words, a sheet's, the pause card's, the trailer's credit) */
 @media (min-width:1100px) and (min-height:560px) and (pointer:fine){
-  :root{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.4px);--m:calc(var(--u)*16);--fg2:#b6c3d2;--edge:#3d526b;--well:#0a1018;
+  :root{--u:clamp(.9px,min(100vw / 1440,100vh / 810),1.1px);--m:calc(var(--u)*16);
+    --t-key:max(12px,calc(var(--u)*12));--t-body:calc(var(--u)*14);--t-num:calc(var(--u)*17);--t-title:calc(var(--u)*17);
+    --i-s:calc(var(--u)*14);--i-m:calc(var(--u)*18);--i-l:calc(var(--u)*24);--i-xl:calc(var(--u)*30);--mm:calc(var(--u)*190);--t-menu-s:14px;--t-menu-min:12px;
+    --fg2:#b6c3d2;--edge:#3d526b;--well:#0a1018;
     --lift:inset 0 1px 0 rgba(255,255,255,.08);--plate:linear-gradient(180deg,rgba(27,38,53,.95),rgba(15,22,32,.95));--drop:0 6px 22px rgba(0,0,0,.55)}
   /* the top bar: no bar, its two ends as plates in the corners (the map shows between them) */
   #top{top:0;left:0;right:0;height:auto;padding:var(--m) var(--m) 0;gap:0;background:none;border:0;border-radius:0;box-shadow:none;pointer-events:none}
@@ -572,65 +612,88 @@ dialog.scrim[open]{display:flex} dialog.scrim::backdrop{background:transparent}
   .ib.icon .t{display:none} /* (the icon alone: the word is the button's title and label) */
   #top .ib{width:calc(var(--u)*40);height:calc(var(--u)*40);margin-left:calc(var(--u)*6);padding:0;display:grid;place-items:center;
     background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #top .ib:hover,#top .ib.help[aria-expanded="true"]{border-color:var(--ally)} #top .ib.help[aria-expanded="true"]{background:#2a2415} #top .ib .ico{width:calc(var(--u)*19);height:calc(var(--u)*19)} #top .ib.help{font-size:calc(var(--u)*18)}
-  .res{font-size:calc(var(--u)*24);color:#f3f6fa;gap:calc(var(--u)*9)}
-  .res .dot{width:calc(var(--u)*25);height:calc(var(--u)*21)}
-  .res .lbl{font:600 calc(var(--u)*12)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
-  #top .res:not(#resClock){height:calc(var(--u)*48);padding:0 calc(var(--u)*16);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
+  #top .ib:hover,#top .ib.help[aria-expanded="true"]{border-color:var(--ally)} #top .ib.help[aria-expanded="true"]{background:#2a2415} #top .ib .ico{width:var(--i-m);height:var(--i-m)} #top .ib.help{font-size:var(--t-num)}
+  /* (the gold and POP plates as tall as the buttons, their figures no heavier than the icons beside them; the figures in the mono face's own weight: it has no bold, and a made-up one clogs the digits at this size) */
+  .res{font-size:var(--t-num);color:#f3f6fa;gap:calc(var(--u)*8)} .res b{font-weight:400}
+  .res .dot{width:calc(var(--u)*19);height:calc(var(--u)*16)}
+  .res .lbl{font:600 var(--t-key)/1 var(--display);letter-spacing:.14em;color:var(--fg2)}
+  #top .res:not(#resClock){height:calc(var(--u)*40);padding:0 calc(var(--u)*14);background:var(--plate);border:1px solid var(--edge);box-shadow:var(--lift),var(--drop)}
   #resShard{border-radius:calc(var(--u)*8) 0 0 calc(var(--u)*8)} #top .res#resSup{border-left:0;border-radius:0 calc(var(--u)*8) calc(var(--u)*8) 0}
-  #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*2);font-size:calc(var(--u)*17);color:var(--fg2);
+  #resClock{height:calc(var(--u)*40);padding:0 calc(var(--u)*12);margin-right:calc(var(--u)*2);font-size:var(--t-num);color:var(--fg2);
     background:var(--plate);border:1px solid var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #tools,#tut,#helpSheet{top:calc(var(--m) + var(--u)*58)} #tools,#helpSheet{right:var(--m)} #tut{left:var(--m)}
-  #helpSheet{max-height:calc(100% - 2 * var(--m) - var(--u)*58)}
-  /* the panels at the foot: the minimap in a double frame, the console and the card on plates */
+  #tools,#tut,#helpSheet{top:calc(var(--m) + var(--u)*50)} #tools,#helpSheet{right:var(--m)} #tut{left:var(--m)}
+  #helpSheet{max-height:calc(100% - 2 * var(--m) - var(--u)*50)}
+  /* the panels at the foot: the minimap in a double frame, the console and the card on plates; the console as wide as
+     the minimap and a full card leave it, never taller than a three-row card (the camera's room past the foot is that
+     card's: render.js `cardTop`) */
   #hud{left:var(--m);right:var(--m);bottom:var(--m);gap:calc(var(--u)*14)}
-  #minimap{width:calc(var(--u)*236);height:calc(var(--u)*236);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
+  #minimap{width:var(--mm);height:var(--mm);border:1px solid var(--edge);border-radius:calc(var(--u)*6);
     box-shadow:0 0 0 calc(var(--u)*4) #101822,0 0 0 calc(var(--u)*4 + 1px) #34475f,var(--drop)}
-  #info{width:min(calc(var(--u)*760),calc(100% - var(--u)*600));max-height:calc(var(--u)*250);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
+  #info{width:min(calc(var(--u)*760),calc(100% - var(--mm) - var(--u)*364));max-height:calc(var(--u)*228);padding:calc(var(--u)*14) calc(var(--u)*18);gap:calc(var(--u)*12) calc(var(--u)*22);
     background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop)}
-  #info h2{font-size:calc(var(--u)*21)}
-  #info .sub,#info .what{font-size:calc(var(--u)*14);color:var(--fg2)}
+  #info h2{font-size:var(--t-title)}
+  #info .sub,#info .what{font-size:var(--t-body);color:var(--fg2)}
   #info .id{gap:calc(var(--u)*7)}
-  #hpNum{font-size:calc(var(--u)*18)}
+  #hpNum{font-size:var(--t-num)}
   .life .bar{height:calc(var(--u)*9)} .life .bars{max-width:calc(var(--u)*260)}
-  .st{font-size:calc(var(--u)*21);gap:calc(var(--u)*6)} .st .ico{width:calc(var(--u)*21);height:calc(var(--u)*21);color:var(--fg2)}
+  .st{font-size:var(--t-num);gap:calc(var(--u)*6)} .st .ico{width:var(--i-m);height:var(--i-m);color:var(--fg2)}
   #selPor{width:calc(var(--u)*86);height:calc(var(--u)*86);border-radius:calc(var(--u)*6);background:var(--well);border-color:var(--edge)}
   #group{gap:calc(var(--u)*5)}
   .gi{width:calc(var(--u)*50);height:calc(var(--u)*56);border-radius:calc(var(--u)*4);background:var(--well);border-color:#2f4157;padding-top:calc(var(--u)*2)}
   .gi:hover{border-color:var(--ally)} .gi .por{margin-left:calc(var(--u)*2)}
   .gi::before,.gi i{left:calc(var(--u)*3);right:calc(var(--u)*3);bottom:calc(var(--u)*3);height:calc(var(--u)*4)}
-  .gi b{font-size:calc(var(--u)*11);line-height:1.25;right:calc(var(--u)*2);bottom:calc(var(--u)*9);padding:0 calc(var(--u)*3)}
+  .gi b{font-size:var(--t-key);line-height:1.25;right:calc(var(--u)*2);bottom:calc(var(--u)*9);padding:0 calc(var(--u)*3)}
   .qe,.qi{width:calc(var(--u)*44);height:calc(var(--u)*44);border-radius:calc(var(--u)*4)}
-  .qi .ico.gl{width:calc(var(--u)*32);height:calc(var(--u)*32)} .qi .left{font-size:calc(var(--u)*12);line-height:1.3}
+  .qi .ico.gl{width:var(--i-xl);height:var(--i-xl)} .qi .left{font-size:var(--t-key);line-height:1.3}
   .qi .x{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
   #mod .q{max-width:calc(var(--u)*250);gap:calc(var(--u)*6)} #mod .q .bar.prod{height:calc(var(--u)*9)}
   #mod .rq>.ico{width:calc(var(--u)*44);height:calc(var(--u)*44)} #mod>.bar.build{width:calc(var(--u)*260);height:calc(var(--u)*10)}
-  .rt{font-size:calc(var(--u)*17)} .rs{min-width:calc(var(--u)*250)} .rs>.ico{width:calc(var(--u)*38);height:calc(var(--u)*38)}
+  .rt{font-size:var(--t-title)} .rs{min-width:calc(var(--u)*250)} .rs>.ico{width:var(--i-xl);height:var(--i-xl)}
   /* the command card: three columns of 88 x 68 slots; a blank slot drawn as a well, so the grid reads as a grid; with an
      army selected (card.js `army`: a couple of orders) the wells near the panel's own tone, no edge: two buttons never
-     sit in a field of boxes. The slots never move or shrink: the keys keep their places. */
+     sit in a field of boxes. The slots never move or shrink: the keys keep their places. A label has no tracking and a
+     pixel at each side: at --u 0.9 its 12 px stand in a slot of 79, and every one but Master Builders is whole. */
   #cmd{grid-template-columns:repeat(3,calc(var(--u)*88));grid-template-rows:repeat(2,calc(var(--u)*68));grid-auto-rows:calc(var(--u)*68);gap:calc(var(--u)*5);padding:calc(var(--u)*7);
     border-color:var(--edge);border-radius:calc(var(--u)*8);box-shadow:var(--lift),var(--drop);
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%23080d14' fill-opacity='.72' stroke='%232a3a4e' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/calc(var(--u)*93) calc(var(--u)*73) repeat content-box content-box,
       linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92)) padding-box}
   #cmd.army{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Crect x='1' y='1' width='93' height='91' rx='5' fill='%230c121a' fill-opacity='.4'/%3E%3C/svg%3E"),linear-gradient(rgba(18,26,37,.92),rgba(18,26,37,.92))}
-  .cb{--cbg:#1f2c3f;font-size:calc(var(--u)*12.5);border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
+  .cb{--cbg:#1f2c3f;font-size:var(--t-key);letter-spacing:0;padding:0 1px;border-radius:calc(var(--u)*5);gap:calc(var(--u)*2);background:linear-gradient(180deg,#24334a,#18222f);border-color:#40566f;box-shadow:var(--lift)}
   .cb.active{background:#2a2415;border-color:var(--ally)} .cb:hover{border-color:var(--ally)}
-  .cb .ico{width:calc(var(--u)*24);height:calc(var(--u)*24)} .cb .ico.gl{width:calc(var(--u)*31);height:calc(var(--u)*31)}
-  .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:calc(var(--u)*11);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
-  .cb .c{font-size:calc(var(--u)*12);padding:0 calc(var(--u)*6)} .cb .c .dot{width:calc(var(--u)*10);height:calc(var(--u)*8)}
+  .cb .ico{width:var(--i-l);height:var(--i-l)} .cb .ico.gl{width:var(--i-xl);height:var(--i-xl)}
+  .cb .k{top:calc(var(--u)*3);right:calc(var(--u)*3);font-size:var(--t-key);line-height:1.2;padding:0 calc(var(--u)*4);border-radius:3px;background:rgba(8,11,16,.55)}
+  .cb .c{font-size:var(--t-key);padding:0 calc(var(--u)*6)} .cb .c .dot{width:calc(var(--u)*10);height:calc(var(--u)*8)}
   .cb .c .p .ico{width:calc(var(--u)*10);height:calc(var(--u)*10)}
   .cb.badge::after,.cb.done::after{width:calc(var(--u)*11);height:calc(var(--u)*11);background-size:calc(var(--u)*8)}
-  /* toasts and hints over the minimap, clear of it */
-  .toast{font-size:calc(var(--u)*14);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
-  #hint{font-size:max(12px,calc(var(--u)*13))} #hint.placing,#hint.boxing{font-size:max(15px,calc(var(--u)*16))} /* (never smaller than under 1100 px) */
-  #msg,#hint{translate:none} #hint{left:var(--m);bottom:calc(var(--m) + var(--u)*250)}
-  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--u)*284)} /* (as specific as the mouse's own rule, which names #btnBox) */
-  /* a touch laptop (SELECT, HOME and ARMY shown): the three in a row above the minimap and as wide as it, the hint and
-     the toasts above them */
-  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--u)*236 - 8px) / 3);bottom:calc(var(--m) + var(--u)*246)}
-  #stage:has(#btnBox:not([hidden])) #hint{bottom:calc(var(--m) + var(--u)*246 + 56px)}
-  #stage:has(#btnBox:not([hidden])) #msg{bottom:calc(var(--m) + var(--u)*246 + 90px)}
-  .tb{font-size:max(11px,calc(var(--u)*12));padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:max(12px,calc(var(--u)*13))}
-  #cmdInfo{font-size:max(12px,calc(var(--u)*13))}
+  /* toasts and hints over the minimap, clear of it, as far over it whatever its size */
+  .toast{font-size:var(--t-body);padding:calc(var(--u)*6) calc(var(--u)*12);border-radius:calc(var(--u)*5)}
+  #hint{font-size:var(--t-body)} #hint.placing,#hint.boxing{font-size:var(--t-num)} /* (12.6 and 15.3 px at the least: never smaller than under 1100 px) */
+  #msg,#hint{translate:none} #hint{left:var(--m)}
+  /* SELECT, HOME and ARMY in a row above the minimap and as wide as it, the hint and the toasts above them (48 px tall
+     at the least: a touch laptop's fingers) */
+  #stage{--rh:max(48px,calc(var(--u)*48))}
+  :is(#btnBox,#btnHome,#btnArmy){translate:none;--bx:var(--m);--bw:calc((var(--mm) - 8px) / 3);height:var(--rh);bottom:calc(var(--m) + var(--mm) + var(--u)*10);padding:3px 0 2px;
+    background:var(--plate);border-color:var(--edge);border-radius:calc(var(--u)*6);box-shadow:var(--lift),var(--drop)}
+  :is(#btnBox,#btnHome,#btnArmy):hover{border-color:var(--ally)}
+  :is(#btnBox,#btnHome,#btnArmy) .ico{width:var(--i-m);height:var(--i-m)} :is(#btnBox,#btnHome,#btnArmy) span{font-size:var(--t-key);letter-spacing:0}
+  #stage #hint{bottom:calc(var(--m) + var(--mm) + var(--u)*10 + var(--rh) + 8px)}
+  :is(#stage:has(#btnBox[hidden]),#stage) #msg{left:var(--m);bottom:calc(var(--m) + var(--mm) + var(--u)*10 + var(--rh) + 42px)} /* (as specific as the mouse's own rule, which names #btnBox) */
+  #options .card.small{max-width:480px} #options .chips .ib{white-space:nowrap} /* (a chip's words on one line) */
+  .tb{font-size:var(--t-key);padding:calc(var(--u)*6) calc(var(--u)*9)} .tb b{font-size:var(--t-key)}
+  /* the tooltip (its fixed px above are every other screen's): its name a title, its price a figure, its words, places
+     and chips the body's, its small chips and tags the key's; the icons with their words */
+  #cmdInfo{font-size:var(--t-body)} #cmdInfo b{font-size:var(--t-title)}
+  #cmdInfo .c{font-size:var(--t-num)} #cmdInfo .c .dot{width:calc(var(--u)*19);height:calc(var(--u)*16)}
+  #cmdInfo .pl,#cmdInfo .sc{font-size:var(--t-body)} #cmdInfo .pl .ico,#cmdInfo .sc .ico{width:var(--i-s);height:var(--i-s)}
+  #cmdInfo .sr{min-height:calc(var(--u)*18)}
+  #cmdInfo .stats.small .sc{font-size:var(--t-key)} #cmdInfo .stats.small .sc .ico{width:var(--t-key);height:var(--t-key)}
+  #cmdInfo .tg{font-size:var(--t-key)}
+  /* the guided game's line, the help sheet, the online line: the same roles */
+  #tut{font-size:var(--t-body)} #tut b{font-size:var(--t-key)}
+  #helpSheet{font-size:var(--t-body)} #helpSheet h2{font-size:var(--t-title)} #helpSheet kbd,#helpSheet .ft{font-size:var(--t-key)}
+  #netWait{font-size:var(--t-key)}
+  /* the menu's small text on a monitor: the small buttons and the footer's links 14 px, as the big buttons; nothing
+     under 12 px (the phone's menu, and a touch screen's, as they were) */
+  :is(#start,#online,#options) :is(.row,.joincode)>.ib:not(.big),#menuLinks{font-size:var(--t-menu-s)}
+  #menuHome .rec,.tok .lw,.tok .stag:not(:empty),.tok .act,.sheet .hd .sub,.sheet .opt .lbl,.setting .line,.pausegrid small,dialog.trailer .credit,dialog.trailer .x{font-size:var(--t-menu-min)}
 }

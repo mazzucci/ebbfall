@@ -185,12 +185,13 @@ test('the files for crawlers and previews are not stored for offline play (the b
   try {
     for (const f of ['index.html', 'og.png', 'robots.txt', 'sitemap.xml', 'llms.txt', 'icon.svg', 'docsy.txt']) writeFileSync(join(dir, f), f);
     mkdirSync(join(dir, 'docs', 'kingdom'), { recursive: true });
-    for (const f of ['docs/index.html', 'docs/kingdom/index.html']) writeFileSync(join(dir, f), f);
+    mkdirSync(join(dir, 'art', 'new'), { recursive: true });
+    for (const f of ['docs/index.html', 'docs/kingdom/index.html', 'art/new/index.json', 'art/new/bldg-0.webp']) writeFileSync(join(dir, f), f);
     const plugin = offline();
     plugin.configResolved({ build: { outDir: dir }, define: {} });
     plugin.closeBundle();
     const files = JSON.parse(readFileSync(join(dir, 'sw.js'), 'utf8').match(/^const FILES = (.*);$/m)[1]);
-    assert.deepEqual(files, ['./', 'docsy.txt', 'icon.svg', 'index.html'], 'the docs folder left out, not a file named like it');
+    assert.deepEqual(files, ['./', 'art/new/bldg-0.webp', 'art/new/index.json', 'docsy.txt', 'icon.svg', 'index.html'], 'the docs left out, not a file named like them; the game\'s art in');
     assert.deepEqual([...WEB_ONLY].sort(), ['docs/', 'llms.txt', 'og.png', 'robots.txt', 'sitemap.xml']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

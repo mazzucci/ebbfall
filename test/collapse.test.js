@@ -4,7 +4,7 @@
 // burning building's orange flash comes now and then, dimmer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { BLDG_DEATH, GRAY_SMOKE, bldgDeath, ghostAt, portalGhost, fallShake, BURN_FLASH, DUST, deathOf } from '../src/client/look.js';
 import { BUILDINGS } from '../src/engine/constants.js';
 
@@ -14,10 +14,9 @@ const FIRE = ['boom_big', 'spark'];
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 const gray = (s) => s.anim === 'trail' && s.o.tint === GRAY_SMOKE.tint;
 const dust = (s) => s.anim === 'trail' && s.o.tint === DUST;
-// (an effect frame's size in world px: the atlas is drawn at 2x)
-const art = new URL('../public/art/', import.meta.url), frames = {};
-for (const f of readdirSync(art).filter(f => /^atlas-\d+\.json$/.test(f))) Object.assign(frames, JSON.parse(readFileSync(new URL(f, art))).frames);
-const px = (name) => frames[name].sourceSize.w / 2;
+// (an effect frame's size in world px: gl/fx.js paints it)
+const { FX } = await import('../src/client/gl/fx.js');
+const px = (name) => FX.find(f => f.name === name).w;
 
 test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints and a flash, the Data center\'s reactor, the Portal', () => {
   assert.deepEqual(BLDG_DEATH.ghost, { life: 0.45, sink: 14, squash: 0.8, fadeLast: 0.25, dim: 0.5 });
@@ -35,7 +34,6 @@ test('the table: Kingdom dust, gray smoke on the soft trail, Expedition glints a
   assert.equal(BLDG_DEATH.types.eclipse.portal, true, 'the Portal: its own fall');
   for (const k of Object.keys(BLDG_DEATH.types)) assert.ok(BUILDINGS[k], `${k} is a building`);
   assert.equal(deathOf(null, false), 'collapse');
-  assert.ok(frames.boom_big_0, 'boom_big stays in the atlas');
 });
 
 test('no fire for any building: no boom_big, no sparks, no scorch; the Data center\'s boom_small the only blast', () => {
@@ -159,7 +157,7 @@ test('the Portal: power lost, not a blast (its timeline)', () => {
   for (const s of smoke) { assert.equal(s.at, 0.5); assert.equal(s.y, B.y, 'off its base, not the ring'); assert.ok(Math.abs(s.x - B.x) <= 12); assert.ok(s.o.vy < 0, 'rising'); assert.ok(s.o.scale * px('trail_0') <= 40); }
   assert.deepEqual(smoke.map(s => s.x - B.x), [-12, 0, 12]);
   assert.ok(!p.steps.some(s => ['boom_big', 'boom_small', 'spark', 'flash', 'puff'].includes(s.anim) || s.anim === 'trail' && !gray(s)), 'no boom, no fire, no dust');
-  assert.equal(p.rubble.tint, 0x8a96a4, 'cold steel rubble');
+  assert.equal(p.rubble.tint, 0xc4cedb, 'cold steel rubble');
   assert.equal(p.rubble.glow.length, 2, 'a cyan glow on two chunks');
 });
 

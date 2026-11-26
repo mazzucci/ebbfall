@@ -11,6 +11,10 @@
  *  bone; seat 2's teal dark, as a light one turned pale beige under protanopia). Seat 6 was a violet that read as seat
  *  0's blue to the red-green color-blind; seat 5 a second blue. Shared with the art tools (tools/render3d). */
 export const SEAT_COLORS = [0x2f63d6, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x61ded1, 0x943886, 0xe5553a];
+/** Each seat color's paint: the tint that, multiplied into the art's neutral team masks, comes out as that seat's color
+ *  on the field (fitted on the older renders, whose masks the painted ones match in value; the art's index carried
+ *  them until the last of the older pages went: test/newart.test.js pins them to the older atlas's). */
+export const SEAT_TINTS = [0x2a5ddf, 0xee376a, 0x21a679, 0xdfafed, 0xa6ed6e, 0x96f0e7, 0xa62985, 0xf25a32];
 /** Units are rendered this much larger than their size in the sim (tools/render3d/main.js), so they read at the
  *  re-theme's lower camera (buildings keep their footprints). The renderer's hit test and selection rings scale by it. */
 export const UNIT_ART_SCALE = 1.4;
@@ -23,29 +27,19 @@ export const setSpots = (spots) => { spotOf = Array.isArray(spots) ? spots.slice
 export const colorOf = (seat) => spotOf[seat] ?? seat;
 
 
-/** Buildings: `glow` [color, size, strength, px above the center (negative: below), flicker, px east of the center], `head` (a head sprite
- * drawn over the base in 16 frames: by default it turns to aim, a turret's; `spin` [frames a second]: it cycles through
- * them on the renderer's clock, a rotor; `pan` [frames either side, seconds a sweep]: it sweeps slowly to and fro about
- * its first frame, a dish), `smoke` (points in px from the footprint's top-left corner: a puff rises from one of them now and then,
- * only while the building works, `chimneyActive`: training or researching; the sprites carry no baked smoke). Each
- * measured on its model (tools/render3d/kingdom-buildings.js, expedition-buildings.js), turned and scaled as the atlas
- * draws it (retheme.js BLDG_YAW): a point (x, y, z) of a model centered on its footprint, turned `yaw` about the vertical
- * and scaled k, lands at x' = k (x cos yaw + z sin yaw), z' = k (z cos yaw - x sin yaw), and is drawn x' east and
- * k y * 1.19 - z' above the center at the 40-degree camera. The smoke points are the chimney caps' tops. The Cottage has
- * no smoke: nobody works there. */
+/** Buildings: `head` (a head sprite drawn over the base in 16 frames: by default it turns to aim, a turret's; `spin`
+ * [frames a second]: it cycles through them on the renderer's clock, a rotor; `pan` [frames either side, seconds a
+ * sweep]: it sweeps slowly to and fro about its first frame, a dish), `portal` (its swirl). The renderer (render.js
+ * `bldgLook`) lays the art's own points over these (index.json `looks`, measured on the pictures by tools/newart/bldg):
+ * `glow` [color, size, strength, px above the center, flicker, px east of it], `smoke` (points in px from the
+ * footprint's top-left corner: a puff rises from one of them now and then, only while the building works,
+ * `chimneyActive`; null: none), `z` and `base` (its outline on the ground). */
 export const BLDG_LOOK = {
-  core: { smoke: [[97, 4]] },                                                        // (the Castle, +11 at 0.88: the great hall's chimney; no light)
-  barracks: { smoke: [[37, -26]] },                                                  // (the Barracks, -30: the chimney at the hall's west end)
-  forge: { glow: [0xff5a1e, 0.6, 0.45, -3, true, 1], smoke: [[22, -24], [35, 21]] }, // (the Blacksmith, -20: the ember on the hearth out in the yard; its stack's smoke and the flue's behind the hearth)
-  turret: { head: 'turret_head' },                                                   // (the Watchtower's archer turns)
-  // the Expedition: its cyan lights (tools/render3d/expedition-buildings.js `cyanLed`, the neon: never warm, never a seat's)
-  conflux: { glow: [0x20d8ff, 1.0, 0.3, 48, false, 1] },                            // (the Data center, the server hall at -20: the chip's die glowing on its roof, cyan as its neon; the die's center at (0, 39.3, -3))
-  siphon: { glow: [0x3fe0ff, 0.45, 0.45, 0, false, -2] },                            // (the Recruiting post, the tavern hall at -20: the cyan work lamp by its door, at (2, 10.8, 13))
-  loom: { glow: [0x3fe0ff, 1.0, 0.3, 20, false, 0] },                                // (the Lab, the dome at -20: the glow inside it, at (0, 18, 0); the Factory's roof lights are in its sprite)
-  ward: { head: 'ward_head' },                                                      // (the Sentry gun turns to its target)
-  spire: { head: 'spire_head', spin: 7 },                                            // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn; 7 a second is a turn in 7 s, a slow calm turbine, not a fan: 10 until 2026-11-14)
-  uplink: { head: 'uplink_head', pan: [3, 9] },                                      // (the Uplink's dish pans 3 facings either way)
-  eclipse: { head: 'eclipse_head', spin: 4, portal: true, glow: [0x3fe0ff, 1.1, 0.55, 31, false, 0] }, // (its cyan light, only as a unit comes through, at the standing ring's center: 26 up, so 31 px at the 40-degree camera; 8 while the Portal lay flat)                          // (the Portal's dust spiral: brighter and faster as a unit comes through, `portalOpen`)
+  turret: { head: 'turret_head' },                           // (the Watchtower's archer turns)
+  ward: { head: 'ward_head' },                               // (the Sentry gun turns to its target)
+  spire: { head: 'spire_head', spin: 7 },                    // (the Wind turbine's rotor: three blades, so 16 frames a third of a turn; 7 a second is a turn in 7 s, a slow calm turbine, not a fan: 10 until 2026-11-14)
+  uplink: { head: 'uplink_head', pan: [3, 9] },              // (the Uplink's dish pans 3 facings either way)
+  eclipse: { head: 'eclipse_head', spin: 4, portal: true },  // (the Portal's swirl: brighter and faster as a unit comes through)
 };
 /** The Portal's swirl brightens each time a unit comes through, then settles (Stelian, R2); it stays multi-use and
  *  keeps training. Returns how bright it is above its settled state, 0 to 1, and keeps its own clock in `st` (one object
@@ -105,6 +99,10 @@ export const chimneyActive = (b) => !!(b.done && (b.queue.length || b.research))
 
 /** Muzzle smoke: the unit kinds that leave a puff where they fire (a `fire` event at the shooter), and how big. */
 export const MUZZLE_SMOKE = { siegeTank: 1.4 };
+/** Every fire (`boom_small`: a machine's death, a shell's, a rocket's and a siege blast's, the Data center's fall) is
+ *  drawn this much larger than its look's own scale: the painted burst (gl/fx.js), soft-edged, read smaller than the
+ *  older frame with its solid dark rim at the same size. */
+export const FIRE_SCALE = 1.25;
 /** A shot's impact by its sprite (`shotArt`): the arrows, the ballista bolt and the Drone's dart glint on steel; the
  *  tracers and the tower's shot spark; the cannonball and the rocket burst (`shell`, `rocket`: the only fire, with a
  *  dying machine's). A repairer's welding (no shot) sparks too. */
@@ -170,7 +168,7 @@ export const BLDG_DEATH = {
       boom: { at: 0.25, coreLife: 0.067, core: { anim: 'flash', tint: 0xffffff, scale: 2.25 }, fire: { anim: 'boom_small', scale: 1.3, light: 0xff9a3a, lightScale: 0.7, life: 0.4 } },
       smokeAt: 0.35,
     },
-    eclipse: { portal: true, rubbleTint: 0x8a96a4, rubbleGlow: 2 }, // (the Portal: its power lost)
+    eclipse: { portal: true, rubbleTint: 0xc4cedb, rubbleGlow: 2 }, // (the Portal: its power lost)
   },
   /** The Portal (the coder lead's spec, 2026-11-15): no sink, no shake, no scorch, no boom. Till `hold` s the ghost
    *  holds while its additive flash layer fades in cyan to `flash.alpha` and its glow light swells from `glow.from` to
@@ -245,10 +243,40 @@ export function bldgDeath(b, people, { hq = false, roof = b.y - 40, core = { x: 
 export const BURN_FLASH = { chance: 0.25, light: 0xff8a2a, lightScale: 0.4 };
 /** Muzzle flash: the shooters (unit kinds, and building types by their `fire` event at the building's center) that show
  *  a short flash at the gun's mouth when they fire: where it is, `fwd` px ahead along the aim and `up` px above the
- *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrel
- *  end on its turret, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
+ *  ground point at zoom 1 (measured on the models: the Android's rifle low across its hips, the Sentry gun's barrels'
+ *  ends over its mast, `depth`: how far they reach up and down the screen, of sideways, as the picture's camera sees them, the Buggy's crew firing over the roll cage's front edge: the model shows no gun), and how big: a
  *  rifle's cone (`muzzle`, pale, turned to the aim) on every shot. No flash for the Drone. */
-export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 42, up: 23, scale: 0.85 } };
+export const MUZZLE_FLASH = { umbra: { fwd: 18, up: 14, scale: 0.6 }, scythe: { fwd: 6, up: 22, scale: 0.6 }, ward: { fwd: 40, up: 33, depth: 0.56, scale: 0.85 } };
+/** Where a shooter at ground point (x, y) aiming along `face` (radians) has its gun's mouth (a MUZZLE_FLASH or
+ *  SHOT_FROM row; `side`: px to the shooter's left). */
+export function muzzlePoint(x, y, face, { fwd, up, depth = 1, side = 0 }) {
+  const c = Math.cos(face), s = Math.sin(face), d = fwd / Math.hypot(c, s / depth);
+  return { x: x + c * d + s * side, y: y + s * d - c * side * depth - up };
+}
+/** The shots of a tower drawn from its gun's mouth, not from the ground under it (the sim flies every shot from its
+ *  shooter's center): the tower types, each with its mouth (the Sentry mast's, between its two barrels: MUZZLE_FLASH; the
+ *  Watchtower's, its archer's bow, held upright at the left: measured on its 16 facings, the bow's middle). */
+export const SHOT_FROM = { ward: MUZZLE_FLASH.ward, turret: { fwd: 3, up: 82, depth: 0.56, side: 8 } };
+/** Which of `towers` (its own side's, drawn from the mouth) fired the shot `p` at (p.x, p.y) flying at (p.ax, p.ay): the
+ *  one it flies straight away from, or null (it fell meanwhile). The sim's shot names no building. */
+export function firedBy(p, towers) {
+  let best = null, off = 32;
+  const dx = p.ax - p.x, dy = p.ay - p.y, d = Math.hypot(dx, dy) || 1;
+  for (const b of towers) {
+    const bx = p.x - b.x, by = p.y - b.y, far = Math.hypot(bx, by);
+    if (far > 32 && bx * dx + by * dy <= 0) continue; // (behind it: it flies toward this one)
+    const o = far <= 8 ? far / 8 : Math.abs(bx * dy - by * dx) / d;
+    if (o < off) { off = o; best = b; }
+  }
+  return best;
+}
+/** Where a tower's shot `p` is drawn, and the way it points: on the line from the gun's mouth of the tower `b` to its aim, as far
+ *  along it as the sim's is from the tower's center. */
+export function shotDrawn(p, b, muzzle = SHOT_FROM[b.type]) {
+  const gone = Math.hypot(p.x - b.x, p.y - b.y), left = Math.hypot(p.ax - p.x, p.ay - p.y), k = gone / (gone + left || 1);
+  const m = muzzlePoint(b.x, b.y, Math.atan2(p.ay - b.y, p.ax - b.x), muzzle);
+  return { x: m.x + (p.ax - m.x) * k, y: m.y + (p.ay - m.y) * k, rot: Math.atan2(p.ay - m.y, p.ax - m.x) };
+}
 /** A melee blow landing (a `fire` event at a melee shooter): a glint of steel at its target (glint_f: small and pale, the fiery spark being the gunpowder's), and for the heavy hitters (the
  *  Knight's lance, the Bruiser's hammer) a small puff of dust there too (HIT_DUST): its size, opacity at the start, life (s) and drift (px/s at the start,
  *  away from the striker). The Knight's lance kicks up more and flings it farther. */

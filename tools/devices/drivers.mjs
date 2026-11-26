@@ -1,6 +1,6 @@
 // One small driver per backend, all with the same face for the smoke script (smoke.mjs):
 //   goto(url), tap(css), eval(expression) -> JSON value, screenshot() -> PNG Buffer, link() -> session URL or null,
-//   finish(passed, reason), close().
+//   finish(passed, reason), close(); a Playwright page's also touch(css, fx, fy): a real touch (see pageDriver).
 // browserstack: Playwright to a real device (webkit.connect for iOS Safari, _android.connect for Chrome on Android),
 // as BrowserStack documents it (https://www.browserstack.com/docs/automate/playwright). simulator: Appium's XCUITest
 // driver to Safari on a booted iOS Simulator (WebDriver, webdriver.mjs; taps are native taps, so they count as the
@@ -36,9 +36,23 @@ export async function openDriver(backend, key, { url } = {}) {
 function pageDriver(page, close, extra = {}) {
   return {
     goto: (url) => page.goto(url, { timeout: 90000 }),
-    async tap(css) { const l = page.locator(css).first(); try { await l.tap({ timeout: 15000 }); } catch (e) { if (!/hasTouch|touch/i.test(e.message)) throw e; await l.click({ timeout: 15000 }); } },
+    async tap(css) { const l = page.locator(css).first(); try { await l.tap({ timeout: 90000 }); } catch (e) { if (!/hasTouch|touch/i.test(e.message)) throw e; await l.click({ timeout: 90000 }); } },
     eval: (expr) => page.evaluate(expr),
     scriptClick: (css) => page.locator(css).first().evaluate(e => e.click()),
+    // A real touch at `fx`, `fy` (shares of the element's box): Playwright's tap there; in a context without touch
+    // (Playwright on Android, over adb or BrowserStack: tap() above becomes a mouse's click) a finger's touch, start and
+    // end, sent to Chromium's input itself (CDP).
+    async touch(css, fx = 0.5, fy = 0.5) {
+      const b = await page.locator(css).first().boundingBox();
+      if (!b) throw new Error(`${css} is not shown`);
+      const x = b.x + b.width * fx, y = b.y + b.height * fy;
+      try { return await page.touchscreen.tap(x, y); } catch (e) { if (!/hasTouch|touch/i.test(e.message)) throw e; }
+      const cdp = await page.context().newCDPSession(page);
+      try {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      } finally { await cdp.detach().catch(() => {}); }
+    },
     screenshot: () => page.screenshot({ timeout: 120000 }),
     link: async () => null,
     finish: async () => {},

@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// Multiples of this angle (radians) spread evenly round the circle, whatever the ids (`separate`).
+const GOLDEN_ANGLE: f64 = 2.4;
+
 impl World {
     // ---- spatial hash (rebuilt every tick) ----
     pub(crate) fn cell(x: f64, y: f64) -> (i32, i32) {
@@ -105,6 +108,14 @@ impl World {
         if path.is_empty() {
             return true;
         }
+        if path.len() > 1 {
+            let (w, next) = (path[0], path[1]);
+            if self.walks_by(uid, w, next) {
+                self.um(uid).path.as_mut().unwrap().remove(0);
+            }
+        }
+        let u = self.um(uid);
+        let path = u.path.as_mut().unwrap();
         let w = path[0];
         let d = dist(u.x, u.y, w.x, w.y);
         let mv = speed * dt;
@@ -130,6 +141,41 @@ impl World {
         u.x += (w.x - u.x) / d * mv;
         u.y += (w.y - u.y) / d * mv;
         false
+    }
+
+    /// Whether a unit on a move or a march lets its next waypoint `w` be and walks on to `next`: the units of a group
+    /// share their waypoints (paths.rs), and held up near one by the others (`WAYPOINT_PATIENCE`) it might never touch
+    /// it. Only with the way on open from where it stands.
+    fn walks_by(&self, uid: Id, w: Pt, next: Pt) -> bool {
+        let u = self.u(uid);
+        matches!(u.task, Task::Move { .. } | Task::AMove { .. })
+            && !u.kind.def().air
+            && u.stuck > WAYPOINT_PATIENCE
+            && dist(u.x, u.y, w.x, w.y) <= 4.0 * u.r
+            && self.leg_open(uid, next)
+    }
+
+    /// Whether a unit on a move or a march to (`x`, `y`) has come as near as the crowd there lets it: held up
+    /// (`ARRIVE_PATIENCE`) within two bodies of it, and nothing for a march to fight.
+    fn crowded_out(&self, uid: Id, x: f64, y: f64) -> bool {
+        let u = self.u(uid);
+        u.stuck > ARRIVE_PATIENCE
+            && dist(u.x, u.y, x, y) <= 4.0 * u.r
+            && (!matches!(u.task, Task::AMove { .. })
+                || self.march_target(uid, &self.live(uid)).is_none())
+    }
+
+    /// How long a unit on a move or a march has made no way (`Unit::stuck`): within half its radius of `Unit::anchor`.
+    /// Not while it cannot walk (packing up).
+    fn count_stuck(&mut self, uid: Id, dt: f64) {
+        let still = self.live_speed(uid) <= 0.0;
+        let u = self.um(uid);
+        if still || dist(u.x, u.y, u.anchor.0, u.anchor.1) > u.r * 0.5 {
+            u.anchor = (u.x, u.y);
+            u.stuck = 0.0;
+        } else {
+            u.stuck += dt;
+        }
     }
 
     /// Move toward a target until within reach. Returns true once in reach.
@@ -303,18 +349,36 @@ impl World {
         if u.path.is_none() && u.repath <= 0.0 && !self.path_to(uid, x, y) {
             return; // (waiting for its route: it stands this tick)
         }
-        if self.u(uid).path.is_none() || self.step_path(uid, dt) {
+        self.count_stuck(uid, dt);
+        if self.u(uid).path.is_none() || self.step_path(uid, dt) || self.crowded_out(uid, x, y) {
             // Arrived, or at the end of the route (the goal itself may be a building or rock: the route ends
             // at the nearest free tile, and that is as close as we get).
             self.set_idle(uid);
         }
     }
 
-    /// Push overlapping units apart and out of blocked tiles. A unit holding position or deployed (a
-    /// siege gun in a fight is so without holding) stands firm: others flow around it. Two workers of a side on their
+    /// Push overlapping units apart and out of blocked tiles. A unit holding position or deployed and settled in (a
+    /// siege gun in a fight is so without holding) stands firm: others flow around it. One still settling in is pushed
+    /// clear, so it never sets up on top of another. A unit walking (a move, a march, a chase, a flight) is not pushed
+    /// by the firm units of its own seat: it walks through them to its goal, and is pushed clear where it stops (pushed
+    /// as it walked, it could never reach a point one of them covers, nor pass two side by side). A worker at its work
+    /// is: passing a guard that holds at its mine, it would slip away from raiders. Two workers of a side on their
     /// gathering round pass through each other, as in 1998: a crowded field never jams or jostles.
     pub(crate) fn separate(&mut self) {
-        let firm = |u: &Unit| u.task == Task::Hold || u.mode.is_some();
+        let firm = |u: &Unit| match u.mode {
+            Some(_) => u.swap <= 0.0,
+            None => u.task == Task::Hold,
+        };
+        let walking = |u: &Unit| {
+            u.path.as_ref().is_some_and(|p| !p.is_empty())
+                && matches!(
+                    u.task,
+                    Task::Move { .. }
+                        | Task::AMove { .. }
+                        | Task::Attack { .. }
+                        | Task::Flee { .. }
+                )
+        };
         let gathering = |u: &Unit| matches!(u.task, Task::Gather { .. });
         for i in 0..self.units.len() {
             if firm(&self.units[i]) || self.units[i].inside() {
@@ -326,24 +390,31 @@ impl World {
                 if o == id {
                     continue;
                 }
-                let (ox, oy, or, ohold, oair, miners) = {
+                let (ox, oy, or, ohold, oair, pass) = {
                     let o = self.hashed(o).unwrap();
                     let me = &self.units[i];
                     // (one gone into a mine this tick, still in the hash, passes as a fellow miner would)
                     let miners = o.inside() || (o.team == me.team && gathering(o) && gathering(me));
-                    (o.x, o.y, o.r, firm(o), o.kind.def().air, miners)
+                    let through = o.team == me.team && firm(o) && walking(me);
+                    (o.x, o.y, o.r, firm(o), o.kind.def().air, miners || through)
                 };
-                if air != oair || miners {
-                    // flyers and walkers do not bump into each other, nor two workers of a side on their round
+                if air != oair || pass {
+                    // flyers and walkers do not bump into each other, nor two workers of a side on their round, nor a
+                    // walker into its own seat's firm units
                     continue;
                 }
                 let u = &mut self.units[i];
                 let (dx, dy) = (u.x - ox, u.y - oy);
-                // Exactly on top of each other: part along x, by id, so the push is never a zero vector.
-                let (dx, dy) = if dx == 0.0 && dy == 0.0 {
-                    (if id < o { -1.0 } else { 1.0 }, 0.0)
-                } else {
-                    (dx, dy)
+                // Exactly on top of each other: part along x, by id, so the push is never a zero vector; off a firm one (a
+                // point it covers, walked to exactly) each id its own way round it, so the next one sent there is not
+                // pushed straight against the last, squeezed between the two.
+                let (dx, dy) = match (dx == 0.0 && dy == 0.0, ohold) {
+                    (true, true) => {
+                        let a = id as f64 * GOLDEN_ANGLE;
+                        (jsmath::cos(a), jsmath::sin(a))
+                    }
+                    (true, false) => (if id < o { -1.0 } else { 1.0 }, 0.0),
+                    _ => (dx, dy),
                 };
                 let d = jsmath::hypot(dx, dy);
                 let min = u.r + or;

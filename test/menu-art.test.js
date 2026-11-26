@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const dir = new URL('../public/menu/', import.meta.url);
-const files = readdirSync(dir).filter((f) => f.startsWith('menu-') && f.endsWith('.webp')); // (clip-*.webp, the clip's poster: test/menu-clip.test.js)
+const files = readdirSync(dir).filter((f) => f.startsWith('menu-') && f.endsWith('.webp')); // (trailer.jpg, the trailer's poster: test/menu-trailer.test.js)
 
 /** A WebP's chunks (RIFF): [{ id, data }]. */
 function chunks(buf) {

@@ -65,6 +65,17 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
   exception unnoticed.
 - No special effects: a hit takes health and nothing else (no slow, no stun from a weapon; the Archer's slow went on
   Nov 18). A unit's edge comes from its numbers: health, armor, damage, reload, range, speed, cost.
+- Standing firm (`World::separate`, tests/gameplay/firm.rs): units of a layer that overlap push each other apart; one
+  that holds, or is deployed and settled in (a Cannon sets up by itself wherever it stops), is firm: never pushed, the
+  others part from it. A Cannon still settling in is pushed clear as any unit is, so none sets up on top of another. A
+  unit walking (a move, an attack-move, a chase, a flight) passes its own seat's firm units (never an ally's or an
+  enemy's) and is pushed clear where it stops: it reaches a point one of them covers, gets out of a ring of them and
+  through two side by side. A worker mining, building or repairing does not pass them. Two that hold on the same spot
+  stay there.
+- Crowds (movement.rs, tests/gameplay/crowd.rs): the units of a group share a route's waypoints. One held up (no way
+  made within half its radius) for 2 s on a move or an attack-move, within two bodies of a waypoint, passes it by if the
+  way on is open; for 3 s within two bodies of where it was sent, it has arrived (an attack-move only with nothing in
+  its look to fight). Not on an attack, gathering, building, repairing or fleeing; not while packing up.
 
 ## Water, the tide and the Shore map
 

@@ -63,3 +63,29 @@ test('the Ballista and the Android are the heavy shooters whose shots trail: the
   assert.equal(UNITS.umbra.weapon.dmg > 30 && UNITS.umbra.weapon.dmgAir > 30, true);
   assert.equal(UNITS.bastion.weapon.dmg <= 30 && UNITS.bastion.weapon.dmgAir > 30, true);
 });
+
+test('the Sentry mast\'s shot is drawn from between its barrels to its aim, whichever mast fired it', async () => {
+  const { MUZZLE_FLASH, SHOT_FROM, firedBy, muzzlePoint, shotDrawn } = await import('../src/client/look.js');
+  assert.deepEqual(Object.keys(SHOT_FROM), ['ward', 'turret']); assert.equal(SHOT_FROM.ward, MUZZLE_FLASH.ward);
+  assert.ok(!MUZZLE_FLASH.turret, 'a bow has no flash');
+  const M = MUZZLE_FLASH.ward, near = (a, b, why) => assert.ok(Math.abs(a - b) < 1e-9, `${why}: ${a}, ${b}`);
+  for (let k = 0; k < 16; k++) { // (the mouth: on the picture's ellipse round the pivot, `up` over the mast's foot)
+    const a = k * Math.PI / 8, m = muzzlePoint(100, 200, a, M);
+    near(((m.x - 100) / M.fwd) ** 2 + ((m.y + M.up - 200) / (M.fwd * M.depth)) ** 2, 1, `facing ${k}`);
+    near(Math.atan2(m.y + M.up - 200, m.x - 100), a > Math.PI + 1e-9 ? a - 2 * Math.PI : a, `facing ${k}, its way`);
+  }
+  const mast = { type: 'ward', x: 0, y: 0 }, other = { type: 'ward', x: 120, y: 90 };
+  const shot = (k) => ({ x: 200 * k, y: 40 * k, ax: 200, ay: 40 });
+  for (const k of [0.02, 0.3, 0.9]) assert.equal(firedBy(shot(k), [other, mast]), mast, `fired by the mast it flies away from, at ${k}`);
+  assert.equal(firedBy(shot(0.5), [other]), null, 'no mast of it stands: drawn where the sim has it');
+  const first = shotDrawn(shot(0), mast), m = muzzlePoint(0, 0, Math.atan2(40, 200), M), mid = shotDrawn(shot(0.5), mast), last = shotDrawn(shot(1), mast);
+  near(first.x, m.x, 'leaves the mouth'); near(first.y, m.y, 'leaves the mouth');
+  near(mid.x, (m.x + 200) / 2, 'halfway'); near(mid.y, (m.y + 40) / 2, 'halfway');
+  // The Watchtower's, its archer's bow: at his left, `up` over the tower's foot; its arrow lands on the same aim.
+  const B = SHOT_FROM.turret, bow = (a) => muzzlePoint(0, 0, a, B), tower = { type: 'turret', x: 0, y: 0 };
+  near(bow(0).x, B.fwd, 'facing right: the bow before him'); near(bow(0).y, -B.up - B.side * B.depth, 'and behind, up the screen');
+  near(bow(Math.PI / 2).x, B.side, 'facing the viewer: at the right'); near(bow(-Math.PI / 2).x, -B.side, 'facing away: at the left');
+  const a0 = shotDrawn(shot(0), tower), a1 = shotDrawn(shot(1), tower), at = bow(Math.atan2(40, 200));
+  near(a0.x, at.x, 'the arrow leaves the bow'); near(a0.y, at.y, 'the arrow leaves the bow'); near(a1.x, 200, 'and lands on its aim'); near(a1.y, 40, 'and lands on its aim');
+  near(last.x, 200, 'lands on its aim'); near(last.y, 40, 'lands on its aim'); near(mid.rot, Math.atan2(40 - m.y, 200 - m.x), 'points along its line');
+});

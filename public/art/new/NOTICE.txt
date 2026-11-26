@@ -1,0 +1,6 @@
+The game's pictures (the files in this folder)
+
+The MIT license of this repository covers the code, not these pictures. They were generated with Google's Gemini and are
+provided as is. If you reuse them, check Google's terms first.
+They are the game's art. remains-0.webp is not one of them: it is cut from the older pictures in art/, which the MIT
+license covers.

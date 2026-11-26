@@ -1,6 +1,6 @@
 // The link preview image, public/og.png (1200x630: Open Graph's og:image and X's summary_large_image, index.html): the
 // game's look (its dark ground #0b0f16, the icon, the wordmark in the menu's font) over the battle of tools/scene.mjs (the
-// same scene the menu's first page shows under it, tools/menu-art.mjs) drawn with the game's own sprites (public/art:
+// same scene the menu's first page shows under it, tools/menu-art.mjs) drawn with the game's older sprites (tools/art/older:
 // the Kingdom in seat 0's color from the left, the Expedition in seat 1's from the right, their team masks tinted as
 // the client tints them), composed as a page in headless Chromium
 // (tools/chromium.mjs) and written as a PNG. Kept small for the apps that fetch it (WhatsApp skips large images):
@@ -31,8 +31,8 @@ const SUB = 'KINGDOM VS EXPEDITION · AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
 const ZOOM = 1, BAND_H = W / 4, BAND_TOP = H - BAND_H;
 const SCENE = BAND.map(([n, x, y, seat, scale = 1]) => [n, x * W, BAND_TOP + y * BAND_H, seat, scale]);
 
-const pages = JSON.parse(readFileSync(new URL('public/art/atlas.json', root))).pages;
-const atlas = { tints: JSON.parse(readFileSync(new URL('public/art/atlas.json', root))).tints, pages: pages.map(p => JSON.parse(readFileSync(new URL(`public/art/${p}`, root)))) };
+const pages = JSON.parse(readFileSync(new URL('tools/art/older/atlas.json', root))).pages;
+const atlas = { tints: JSON.parse(readFileSync(new URL('tools/art/older/atlas.json', root))).tints, pages: pages.map(p => JSON.parse(readFileSync(new URL(`tools/art/older/${p}`, root)))) };
 const css = readFileSync(new URL('src/style.css', root), 'utf8').match(/:root\s*\{[^}]*\}/)[0];
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -59,7 +59,7 @@ canvas{position:absolute;inset:0}
 const ATLAS = ${JSON.stringify(atlas)}, SCENE = ${JSON.stringify(SCENE)}, ZOOM = ${ZOOM}, W = ${W}, H = ${H};
 const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
 window.ready = (async () => {
-  const imgs = await Promise.all(ATLAS.pages.map(p => load('/public/art/' + p.meta.image)));
+  const imgs = await Promise.all(ATLAS.pages.map(p => load('/tools/art/older/' + p.meta.image)));
   const find = (n) => { const i = ATLAS.pages.findIndex(p => p.frames[n]); if (i < 0) throw new Error('no frame ' + n); return { img: imgs[i], f: ATLAS.pages[i].frames[n] }; };
   const g = document.getElementById('c').getContext('2d');
   g.imageSmoothingQuality = 'high';

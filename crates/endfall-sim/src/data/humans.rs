@@ -201,7 +201,7 @@ pub(super) const OBSERVER: UnitDef = UnitDef {
     hp: 60.0,
     speed: 70.0,
     sight: 12.0,
-    r: 10.0,
+    r: 16.0, // (10 until Nov 25: its drawn body is 41 px wide, and a group hung on one spot)
     build: 18.0,
     air: true,
     mv: Move::Fly,

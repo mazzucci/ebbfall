@@ -179,7 +179,7 @@ test('the home: one media block at the top, the clip with its middle frame as it
   assert.ok(shots.trailer.seconds >= 11 && shots.trailer.seconds <= 15, `a dozen seconds: ${shots.trailer.seconds}`);
 });
 
-test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), its desktop section with the desktop loop (lazy), About has the phone loop below the fold; each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
+test('the controls videos: How to play\'s phone section, first of the controls, opens with the loop (its poster fetched first), its desktop section with the desktop loop (lazy), About none (Stelian: it read as copied from How to play); each fetched only when played, its poster an image over it, labeled for the game; the files small', { skip }, () => {
   const manifest = JSON.parse(readFileSync(P.CONTROLS, 'utf8'));
   const how = page('/docs/how-to-play/'), about = page('/docs/about/');
   // The phone section before the desktop's (most players are on a phone), the page's contents line in the same order;
@@ -192,8 +192,7 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   assert.ok(deskLoopAt > desktop && deskLoopAt < how.indexOf('shot-desktop-hud', desktop) && deskLoopAt < how.indexOf('<h3>Mouse</h3>'), 'How to play: the desktop loop opens the desktop section, before its screenshot');
   const tocAt = how.indexOf('<nav class="toc"'), toc = how.slice(tocAt, how.indexOf('</nav>', tocAt));
   assert.deepEqual([...toc.matchAll(/href="#(\w+)"/g)].map(m => m[1]), [...how.matchAll(/<h2 id="(\w+)">/g)].map(m => m[1]), 'the contents line in the sections\' order');
-  assert.ok(about.indexOf('controls-loop.mp4') > about.indexOf('<figure class="dia strip') && about.indexOf('controls-loop.mp4') < about.indexOf('<h2 id="privacy">'), 'About: the loop closes How it\'s built, after the art strip (below the fold: its poster loads lazily)');
-  for (const html of [how, about]) {
+  for (const html of [how]) {
     for (const v of html.matchAll(/<video\b[^>]*>/g)) {
       const tag = v[0], name = tag.match(/\/docs\/media\/controls\/([\w-]+)\.mp4/)[1], c = manifest[name];
       assert.ok(c, `${name}: in tools/docs/controls.json`);
@@ -219,7 +218,7 @@ test('the controls videos: How to play\'s phone section, first of the controls, 
   }
   // The two loops, each at the head of its section, are the only videos that play by themselves (Stelian: too many
   // playing at once overwhelm the page), and each only while in view (docs.js: an observer per clip).
-  assert.deepEqual([...how.matchAll(/<video src="\/docs\/media\/controls\/([\w-]+)\.mp4"/g)].map(m => m[1]), ['controls-loop', 'desktop-loop'], 'How to play: the phone\'s loop, then the desktop\'s'); assert.equal((about.match(/<video\b/g) || []).length, 1, 'About: the loop');
+  assert.deepEqual([...how.matchAll(/<video src="\/docs\/media\/controls\/([\w-]+)\.mp4"/g)].map(m => m[1]), ['controls-loop', 'desktop-loop'], 'How to play: the phone\'s loop, then the desktop\'s'); assert.equal((about.match(/<video\b/g) || []).length, 0, 'About: no video (the controls are How to play\'s)');
   assert.ok(manifest['controls-loop'].seconds >= 15 && manifest['controls-loop'].seconds <= 20, 'the phone loop 15 to 20 s');
   assert.ok(manifest['desktop-loop'].seconds >= 14 && manifest['desktop-loop'].seconds <= 18, 'the desktop loop about 15 s');
   assert.ok(manifest['desktop-loop'].w === 1280 && manifest['desktop-loop'].h === 720, 'the desktop loop 1280x720');
@@ -247,10 +246,10 @@ test('the controls tables\' gestures, on demand: seven touch rows and seven desk
   const rowsOf = (t) => t.slice(t.indexOf('<tbody>')).split('<tr>').slice(1).map(r => ({ do: r.match(/^<t[dh][^>]*>(.*?)<\/t[dh]>/)[1].replace(/<[^>]+>/g, ''), row: r, button: r.match(/<button\b[^>]*>/)?.[0] || null }));
   const [touch, mouse, schemes, keys] = tables.map(rowsOf);
   assert.match(tables[0], /<thead><tr><th scope="col">Do<\/th><th scope="col">How<\/th><\/tr><\/thead>/, 'two columns: no See column');
-  assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 6, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
+  assert.equal(touch.length, 13, 'every touch row still there'); assert.equal(mouse.length, 9, 'every Mouse row'); assert.equal(schemes.length, 2); assert.equal(keys.length, 9, 'every Key row');
   const loopsOf = (rows, prefix) => rows.filter(r => r.button).map(r => [r.do, r.button.match(new RegExp(`data-loop="${prefix}-(\\w+)"`))[1]]);
   assert.deepEqual(loopsOf(touch, 'touch'), [['Select', 'select'], ['Select a group', 'group'], ['Let go', 'letgo'], ['Look around', 'look'], ['All of one type', 'type'], ['Your whole army', 'army'], ['See what a button does', 'details']], 'the seven touch rows, their loops');
-  assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine, set a rally point', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');
+  assert.deepEqual(loopsOf(mouse, 'desk'), [['Select', 'select'], ['Move, attack, mine', 'move'], ['Move the map', 'pan'], ['All of one type on screen', 'type']], 'the four Mouse rows, their loops');
   assert.deepEqual(loopsOf(schemes, 'desk'), [['Move the map', 'wasd'], ['A command\'s key', 'attack']], 'the two scheme rows: WASD\'s map keys, Classic\'s A');
   assert.ok(schemes[0].row.indexOf('data-loop="desk-wasd"') > schemes[0].row.indexOf('data-label="WASD"') && schemes[1].row.indexOf('data-loop="desk-attack"') < schemes[1].row.indexOf('data-label="WASD"'), 'the WASD loop in the WASD cell, the A loop in the Classic cell');
   assert.deepEqual(loopsOf(keys, 'desk'), [['Ctrl+1 to 9, then 1 to 9', 'group']], 'the control groups row, its loop');
@@ -467,7 +466,7 @@ test('structured data: every block on the game\'s page and the docs is schema.or
   const game = ldOf(gameHtml).find(d => [d['@type']].flat().includes('VideoGame'));
   const docsGame = ldOf(page('/docs/')).find(d => [d['@type']].flat().includes('VideoGame'));
   assert.deepEqual(docsGame, game, 'the docs home repeats the game\'s VideoGame as it is (one source: index.html)');
-  assert.match(game.description, /^In 2047, time travel was first attempted\./, 'the premise');
+  assert.equal(game.description, 'A classic real-time strategy game, free in your browser, on a phone or a desktop. Nothing to install, no account.', 'what the game is (the menu\'s line: the trailer tells the story)');
   assert.equal(game.genre, 'Real-time strategy'); assert.equal(game.gamePlatform, 'Web browser');
   assert.deepEqual(game.playMode, ['https://schema.org/SinglePlayer', 'https://schema.org/MultiPlayer']);
   assert.equal(game.offers.price, '0'); assert.equal(game.url, 'https://ebbfall.com/'); assert.equal(game.image, 'https://ebbfall.com/og.png');

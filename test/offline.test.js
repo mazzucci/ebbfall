@@ -8,7 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { swSource } from '../tools/offline/plugin.mjs';
 import { decodePNG } from '../tools/art/png.js';
 
-const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/atlas-0.webp'];
+const FILES = ['./', 'index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'art/new/bldg-0.webp'];
 
 /** A fake Cache Storage and network: `stored` names the files already in the build's cache (null: no cache yet);
  *  `moved` maps a file to the address the host redirects it to (Cloudflare's /selftest.html -> /selftest). */
@@ -60,16 +60,16 @@ test('every file stored: ready, with the build the About page shows', async () =
 test('some files stored: how many of how many, and the missing ones are fetched for the next check', async () => {
   const fetched = [], on = worker(fakeCaches(['./', 'index.html'], { fetched }));
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 2 });
-  assert.deepEqual(fetched.sort(), ['art/atlas-0.webp', 'assets/index-abc.css', 'assets/index-abc.js']);
+  assert.deepEqual(fetched.sort(), ['art/new/bldg-0.webp', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
 });
 
-test('an install with one file failing does not go live (the build before stays), and every file is fetched past the HTTP cache', async () => {
+test('an install with one file failing does not go live (the build before stays), and every file is asked of the host, never taken from the HTTP cache unasked', async () => {
   const flags = {}, modes = [], on = worker(fakeCaches(null, { failing: 'assets/index-abc.js', modes }), flags);
   let waited; on.install({ waitUntil: (p) => { waited = p; } });
   await assert.rejects(waited, /Failed to fetch/);
   assert.ok(!flags.skipped, 'not activated');
-  assert.ok(modes.length > 0 && modes.every(m => m === 'reload'), `fetched with cache: 'reload' (${modes})`);
+  assert.ok(modes.length > 0 && modes.every(m => m === 'no-cache'), `fetched with cache: 'no-cache' (${modes})`);
 });
 
 test('nothing stored yet: none of them', async () => {
@@ -96,7 +96,7 @@ test('an install cut short resumes: only the missing files are fetched', async (
   let done;
   on.install({ waitUntil: (p) => { done = p; } });
   await done;
-  assert.deepEqual(fetched.sort(), ['art/atlas-0.webp', 'assets/index-abc.css', 'assets/index-abc.js']);
+  assert.deepEqual(fetched.sort(), ['art/new/bldg-0.webp', 'assets/index-abc.css', 'assets/index-abc.js']);
   assert.deepEqual(await ask(on), { version: 'b1d0', total: 5, stored: 5 });
 });
 
@@ -112,10 +112,10 @@ test('a page the host redirects (Cloudflare: index.html to /, selftest.html to /
 
 test('a file the host answers with an error fails the install, as a failed fetch does', async () => {
   const caches = fakeCaches(null);
-  caches.fetch = async (req) => (req.url === 'art/atlas-0.webp' ? { ok: false, status: 404 } : { ok: true, redirected: false });
+  caches.fetch = async (req) => (req.url === 'art/new/bldg-0.webp' ? { ok: false, status: 404 } : { ok: true, redirected: false });
   const flags = {}, on = worker(caches, flags);
   let waited; on.install({ waitUntil: (p) => { waited = p; } });
-  await assert.rejects(waited, /art\/atlas-0\.webp \(404\)/);
+  await assert.rejects(waited, /art\/new\/bldg-0\.webp \(404\)/);
   assert.ok(!flags.skipped);
 });
 

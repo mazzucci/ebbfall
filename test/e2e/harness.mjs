@@ -5,6 +5,7 @@
 import { test as nodeTest } from 'node:test';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINES, engineName, launchEngine, deviceFor } from '../../tools/engines.mjs';
@@ -89,8 +90,9 @@ const RULES = parseHeaders(headersFile().replace(cspValue(), () => TEST_CSP));
 /** The Worker's state: `blocked` (every request to it answered as a tripped limit would), and what reached it; and its
  *  bindings, faked (the feedback form's: site/feedback.js): `mail`, what the Email Sending binding was asked to send
  *  (nothing is sent), `mailFails`, the binding throwing as a failed send does; the minute's limit and the budget object
- *  always say yes (test/site-feedback.test.js tests them). */
-export const site = { blocked: false, worker: [], mail: [], mailFails: false };
+ *  always say yes (test/site-feedback.test.js tests them). `sent`: every file asked for, [path, status, bytes of body];
+ *  `deployed`: files a later deploy changed (a Map, path to bytes: '/sw.js'), served in their dist/ copies' place. */
+export const site = { blocked: false, worker: [], mail: [], mailFails: false, sent: [], deployed: null };
 const env = {
   FEEDBACK_EMAIL: { async send(m) { if (site.mailFails) { const e = new Error('not sent'); e.code = 'E_DELIVERY_FAILED'; throw e; } site.mail.push(m); return { messageId: 'test' }; } },
   FEEDBACK_LIMIT: { async limit() { return { success: true }; } },
@@ -128,9 +130,14 @@ export async function start() {
     try { route = (req.method === 'GET' || req.method === 'HEAD') && !workerFirst(WORKER_FIRST, url.pathname) ? resolve(url.pathname, (p) => !!fileAt(p)) : null; } catch { /* a malformed address: not a file */ }
     if (route?.redirect) { res.writeHead(307, { location: route.redirect + url.search }); return res.end(); }
     if (!route) return toWorker(req, res, url).catch((e) => { res.writeHead(500); res.end(String(e)); });
-    const p = fileAt(route.file);
-    res.writeHead(200, { ...headersFor(RULES, url.pathname), 'content-type': TYPES[extname(p)] || 'application/octet-stream' });
-    res.end(req.method === 'HEAD' ? undefined : readFileSync(p));
+    // As Cloudflare's assets answer: an ETag of the content, revalidated every time unless _headers says otherwise, a 304
+    // where the browser has it (checked on ebbfall.com).
+    const p = fileAt(route.file), bytes = site.deployed?.get(route.file) ?? readFileSync(p), etag = `"${createHash('md5').update(bytes).digest('hex')}"`;
+    const headers = { 'Cache-Control': 'public, max-age=0, must-revalidate', ...headersFor(RULES, url.pathname), ETag: etag, 'content-type': TYPES[extname(p)] || 'application/octet-stream' };
+    const same = (req.headers['if-none-match'] || '').split(',').some(t => t.trim().replace(/^W\//, '') === etag);
+    site.sent.push([url.pathname, same ? 304 : 200, same || req.method === 'HEAD' ? 0 : bytes.length]);
+    res.writeHead(same ? 304 : 200, headers);
+    res.end(same || req.method === 'HEAD' ? undefined : bytes);
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}/`;
@@ -201,7 +208,7 @@ export function board(page, scope = 'solo') {
 /** A fresh game in a new page. Returns a driver with helpers bound to it. */
 /** `ai: false` switches the opponent off, for tests of what the player can do that must not race its attacks; `init`, a
  *  function run in the page before the game loads (or [function, argument]). */
-export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', tutorial = false, init = null } = {}) {
+export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', tutorial = false, init = null, query = '' } = {}) {
   const ctx = await browserContext(device);
   // The board the scenarios play on: you against `enemy`, the Kingdom unless asked (they were written on a mirror),
   // saved as a player's own board is. With none saved the menu seats the other people (menu.js `defaultRows`: the
@@ -214,7 +221,7 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
   page.on('pageerror', e => errors.push(e.message));
   // (with the Worker blocked, static.e2e.mjs, the menu's clip fails as every docs video does: the Worker's one kind of file)
   page.on('console', m => { if (m.type() === 'error' && !(site.blocked && /\/docs\/media\/.*\.mp4$/.test(m.location()?.url || ''))) errors.push(m.text()); });
-  await page.goto(`${base}?seed=${seed}`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}?seed=${seed}${query}`, { waitUntil: 'networkidle' }); // (`query`: more of the link, `&art=new`)
   await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 }); // set once the game has fully loaded
   const touch = !!device.hasTouch;
   // The menu's first page: TUTORIAL (the guided game) or SINGLE PLAYER.
@@ -310,12 +317,19 @@ export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = tr
       const canvas = await page.locator('#game').boundingBox();
       if (!touch) await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
       // (a unit on its body's middle, half its drawn height above its feet, where a player taps it; a building on its
-      // footprint's center)
-      const p = await ev((id) => {
+      // footprint's center, or where a unit stands over that (its builder before it), on the part of the footprint
+      // clearest of any)
+      const p = await ev(([id, room]) => {
         const u = endfall.G.units.find(u => u.id === id), e = u || endfall.G.bldgs.find(b => b.id === id); if (!e) return null;
-        const y = u ? u.y - endfall.unitTop(u.type) / 2 : e.y;
-        endfall.centerOn(e.x, y); const c = endfall.cam; return { x: (e.x - c.x) * c.zoom, y: (y - c.y) * c.zoom };
-      }, id);
+        let x = e.x, y = u ? u.y - endfall.unitTop(u.type) / 2 : e.y;
+        if (!u) {
+          const bodies = endfall.G.units.filter(o => !o.inside).map(o => { const h = endfall.unitTop(o.type) / 2; return [o.x, o.y - h, Math.max(o.r * 1.7, h)]; });
+          const clear = (px, py) => Math.min(Infinity, ...bodies.map(([bx, by, r]) => Math.hypot(px - bx, py - by) - r));
+          let best = clear(x, y);
+          if (best < room) for (const fy of [0, -0.36, 0.36]) for (const fx of [-0.36, 0, 0.36]) { const px = e.x + fx * e.w * 32, py = e.y + fy * e.h * 32, c = clear(px, py); if (c > best) { best = c; x = px; y = py; } }
+        }
+        endfall.centerOn(x, y); const c = endfall.cam; return { x: (x - c.x) * c.zoom, y: (y - c.y) * c.zoom };
+      }, [id, touch ? 16 : 8]);
       if (!p) throw new Error('no entity ' + id);
       const [x, y] = [canvas.x + p.x, canvas.y + p.y];
       if (touch) return d.tapAt(x, y);

@@ -19,7 +19,7 @@ const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoint
 const ios = ipad || /iPhone|iPod/.test(ua);
 export const pageFullscreenWorks = canFullscreen && !ios;
 /** Page full screen does not work here, and the browser can add the game to the Home Screen (iPad, iPhone; not once
- *  added): the full-screen button and INSTALL open the card that says how. */
+ *  added): the full-screen button and PLAY OFFLINE open the card that says how. */
 export const homeScreenOnly = ios && !standalone;
 /** The full-screen button goes in and out (not in an app that opened full screen). */
 export const canGoFullscreen = pageFullscreenWorks && !appFull;

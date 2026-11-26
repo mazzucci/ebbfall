@@ -9,9 +9,9 @@ size). Pre-alpha.
 
 **Play in your browser:** https://ebbfall.com/ (desktop or phone in landscape, nothing to install).
 Every merge to `main` is built and published there by GitHub Actions. **Offline:** once the page has been opened, the
-game keeps working with no connection (a service worker stores every file; PLAY OFFLINE, on the first page once
-installed and on About, says whether it is all there); INSTALL on the menu (the browser's prompt in Chrome and Edge, how
-to Add to Home Screen on iPad and iPhone) launches it like an app. A new version
+game keeps working with no connection (a service worker stores every file; PLAY OFFLINE on the menu says whether
+it is all there, or, where the browser can, adds the game to the device as an app: its own prompt in Chrome and Edge, how
+to Add to Home Screen on iPad and iPhone). A new version
 installs itself the next time you open the game online.
 
 To run it from source:
@@ -22,8 +22,9 @@ npm run dev      # http://localhost:5173
 npm test         # headless simulation tests
 ```
 
-**Mouse and keyboard:** left-click or drag to select, right-click to move / attack / mine / set a rally point; hold
-the middle button and drag to move the map. Two keyboard schemes, chosen in OPTIONS (the menu's first page or the pause
+**Mouse and keyboard:** left-click or drag to select; with units selected, left- or right-click to move / attack /
+mine (OPTIONS, MOUSE: RIGHT CLICK ONLY keeps the left button to selecting); `Esc` lets go; right-click sets a building's
+rally point; hold the middle button and drag to move the map. Two keyboard schemes, chosen in OPTIONS (the menu's first page or the pause
 card, with a mouse): **Classic** moves the map with the arrow keys or the screen's edge, and each command has its own
 letter (`A` attack-move, `S` stop, `H` hold, `B` build with workers selected); **WASD** moves the map with `W` `A`
 `S` `D` whatever is selected, and a command's key is its button's place on the card (`E` `R` `T` the top row, `F` `G`
@@ -69,4 +70,5 @@ it, through a relay. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is 
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). It covers the code, not the game's pictures in `public/art/new/`: those were generated with
+Google's Gemini and are provided as is, and anyone reusing them should check Google's terms (NOTICE.txt beside them).

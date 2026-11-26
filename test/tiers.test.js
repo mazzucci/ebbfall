@@ -3,7 +3,7 @@
 // below are today's data; a rebalance that moves a unit across a line updates them on purpose.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { hitTier, HIT_TIERS, HIT_LOOK, towerOf } from '../src/client/look.js';
 import { UNITS, BUILDINGS, FACTIONS } from '../src/engine/constants.js';
 
@@ -57,10 +57,9 @@ test('the light tier keeps today\'s hits; the rest step up, and their sound with
   assert.deepEqual(['light', 'medium', 'heavy', 'siege'].map(t => HIT_LOOK[t].weight), [0, 1, 2, 3]);
 });
 
-// (an effect frame's size in world px: the atlas is drawn at 2x)
-const art = new URL('../public/art/', import.meta.url), frames = {};
-for (const f of readdirSync(art).filter(f => /^atlas-\d+\.json$/.test(f))) Object.assign(frames, JSON.parse(readFileSync(new URL(f, art))).frames);
-const px = (name) => frames[name].sourceSize.w / 2;
+// (an effect frame's size in world px: gl/fx.js paints it)
+const { FX } = await import('../src/client/gl/fx.js');
+const px = (name) => FX.find(f => f.name === name).w;
 /** The largest thing a tier's hit draws (world px across), as render.js tierHit draws it. */
 function footprint(tier) {
   const L = HIT_LOOK[tier];

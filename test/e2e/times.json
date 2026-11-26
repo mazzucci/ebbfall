@@ -193,12 +193,12 @@
   "two against two: out while the ally fights on (orders refused, told once), then the end card speaks for the team": 13
  },
  "offline.e2e.mjs": {
-  "INSTALL in the pause card too, one offer for all; none in the installed app": 4.8,
+  "PLAY OFFLINE in the pause card too while there is an offer, one for all; none in the installed app": 4.8,
   "PLAY OFFLINE on the first page (nothing to install): saving, then everything saved; a file gone missing is saved again": 2.5,
   "PLAY OFFLINE where service workers are blocked: not available in this browser": 5.4,
-  "iPhone and iPad (no install prompt): INSTALL opens the Add to Home Screen card, never by itself": 3.3,
-  "the first page: INSTALL while the browser offers it (its prompt on a tap), PLAY OFFLINE otherwise and once installed (desktop)": 1.6,
-  "the first page: INSTALL while the browser offers it (its prompt on a tap), PLAY OFFLINE otherwise and once installed (phone)": 1.6,
+  "iPhone and iPad (no install prompt): PLAY OFFLINE opens the Add to Home Screen card, never by itself": 3.3,
+  "the first page: PLAY OFFLINE makes the browser's install offer while there is one (its prompt on a tap), the offline check otherwise and once installed (desktop)": 1.6,
+  "the first page: PLAY OFFLINE makes the browser's install offer while there is one (its prompt on a tap), the offline check otherwise and once installed (phone)": 1.6,
   "the manifest names PNG app icons of 192 and 512 pixels and a maskable one, served at those sizes": 2.4
  },
  "online.e2e.mjs": {

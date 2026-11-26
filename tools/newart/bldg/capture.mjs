@@ -1,0 +1,171 @@
+// Stills of the new look's buildings beside today's, at the same held instants (the clock held, the state hash logged),
+// as tools/view-capture.mjs does it: npm run build && node tools/newart/bldg/capture.mjs [--out DIR] [--only a,b]
+// DIR (default ../ebbfall-article/new-art/bldg beside the main checkout) gets <still>-today.png and <still>-new.png.
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { start, stop, browserContext, baseUrl, board } from '../../../test/e2e/harness.mjs';
+
+const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
+const out = resolve(arg('--out', '/home/mazzucci/projects/ebbfall-article/new-art/bldg')), only = arg('--only', '').split(',').filter(Boolean);
+const want = (n) => !only.length || only.includes(n);
+mkdirSync(out, { recursive: true });
+const D1 = { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 }, D2 = { viewport: { width: 1728, height: 1000 }, deviceScaleFactor: 2 }, PH = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
+const SIZES = { 'd1': D1, 'd2': D2, 'phone': PH };
+const log = [];
+
+/** A game at its first instant, its clock held: `art` ('today' or 'new'), our people `race` against `foe`. */
+async function game(art, device, { race = 'vael', foe = 'humans', fog = false, seed = 4242, ai = false } = {}) {
+  const ctx = await browserContext({ ...device, serviceWorkers: 'block' }), page = await ctx.newPage();
+  page.setDefaultTimeout(300000); page.on('pageerror', e => { log.push({ error: e.message }); console.log('ERROR', e.message); }); page.on('console', m => { if (m.type() === 'error' || /new art/.test(m.text())) console.log('[page]', m.text()); });
+  if (device.hasTouch) await ctx.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('no')); });
+  await page.clock.install();
+  await page.goto(`${baseUrl()}?seed=${seed}${art === 'new' ? '&art=new' : ''}`, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() => !!window.endfall);
+  const press = (s) => (device.hasTouch ? page.locator(s).tap() : page.locator(s).click());
+  await press('#btnSolo'); await board(page).race(0, race); await board(page).race(1, foe);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000);
+  await press('#btnStart'); await page.waitForFunction(() => endfall.G.units.length > 0, null, { polling: 100 });
+  await page.evaluate(([fog, ai]) => { const { engine: E, G } = endfall; if (!ai) E.disableAi(); endfall.setResources(G.me, 20000, 0); if (!fog) { E.revealAll(true); endfall.fog(false); } }, [fog, ai]);
+  await page.mouse.move(1, 1);
+  // Helpers in the page: put(type, dx, dy[, until]) near our headquarters, its site built as far as `until` (0..1).
+  await page.evaluate(() => {
+    const { engine: E, G } = endfall, T = 32, hq = G.bldgs.find(b => b.team === G.me && b.d.hq); window.hq = { x: hq.x, y: hq.y, id: hq.id };
+    window.scout = () => { for (const [x, y] of [[-700, 0], [-700, -600], [0, -700], [-350, -900], [-1000, -300]]) E.debugSpawn(G.me, 'observer', hq.x + x, hq.y + y); endfall.skip(0.3); };
+    window.put = (type, dx, dy, until = 1, reach = 14) => {
+      const req = { kiln: 'siphon', spire: 'siphon', loom: 'siphon', uplink: 'loom', eclipse: 'uplink', forge: 'barracks', airfield: 'forge', factory: 'forge', extractor: 'barracks', turret: 'barracks' }[type];
+      if (req && !G.bldgs.some(b => b.type === req && b.team === G.me)) put(req, -330, -40);
+      if (E.BUILDINGS[type].hq) { scout(); reach = 40; }
+      const d = E.BUILDINGS[type], x0 = Math.round((hq.x + dx) / T - d.w / 2), y0 = Math.round((hq.y + dy) / T - d.h / 2), w = G.units.filter(u => u.team === G.me && E.UNITS[u.type].worker).sort((a, b) => (a.task.t === 'build') - (b.task.t === 'build'));
+      for (let r = 0; r < reach; r++) for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
+        if (Math.max(Math.abs(x), Math.abs(y)) !== r || !E.canPlace(type, x0 + x, y0 + y, G.me)) continue;
+        for (const u of w) { const before = new Set(G.bldgs.map(b => b.id)); if ((window.why = E.placeBuilding(G.me, type, x0 + x, y0 + y, u))) continue;
+          endfall.setResources(G.me, 20000, 0);
+          for (let i = 0; i < 4000; i++) { endfall.skip(0.1); const b = G.bldgs.find(b => !before.has(b.id) && b.type === type); if (b && (until >= 1 ? b.done : b.progress >= until)) return b.id; }
+          return null; }
+      }
+      console.error('[put]', type, window.why);
+      return null;
+    };
+    window.clean = () => { for (const t of document.querySelectorAll('#msg .toast, #msg, #hint, #tut')) t.style.display = 'none'; };
+  });
+  return { ctx, page };
+}
+async function shoot(page, name, art, at, zoom, clip) {
+  const s = await page.evaluate(([at, zoom]) => { if (zoom) endfall.cam.zoom = zoom === 'start' ? endfall.startZoom : zoom; if (at) endfall.centerOn(at.x, at.y); clean(); endfall.draw(); const { G, engine: E, cam } = endfall; return { hash: E.stateHash() >>> 0, time: G.time, zoom: cam.zoom, cam: [cam.x, cam.y] }; }, [at, zoom]);
+  const file = `${name}-${arg('--tag', art)}.png`;
+  await page.screenshot({ path: join(out, file), timeout: 300000, ...(clip ? { clip } : {}) });
+  log.push({ file, ...s }); console.log(file, s.hash, s.zoom.toFixed(2));
+}
+/** A crop of `w` x `h` css px round world point (x, y), at `zoom`. */
+async function crop(page, name, art, x, y, zoom, w, h) {
+  const c = await page.evaluate(([x, y, zoom]) => { endfall.cam.zoom = zoom; endfall.centerOn(x, y); endfall.draw(); const r = document.getElementById('game').getBoundingClientRect(); return [r.left + (x - endfall.cam.x) * zoom, r.top + (y - endfall.cam.y) * zoom]; }, [x, y, zoom]);
+  await shoot(page, name, art, null, null, { x: Math.max(0, Math.round(c[0] - w / 2)), y: Math.max(0, Math.round(c[1] - h / 2)), width: w, height: h });
+}
+const EX = [['substation', -220, -70], ['siphon', -330, 10], ['spire', -160, 40], ['spire', -240, 110], ['kiln', -130, 170], ['loom', 40, 200], ['ward', 110, 120], ['ward', -60, -150], ['uplink', 200, -60], ['eclipse', 190, 120], ['spire', -100, -180], ['kiln', 60, -190], ['substation', 150, -190], ['substation', 240, 220], ['spire', -320, -110], ['kiln', -320, 190], ['spire', -10, 310], ['substation', 130, 310]];
+const KG = [['depot', -180, -100], ['depot', -250, -20], ['depot', -130, -170], ['barracks', -170, 90], ['forge', 130, -150], ['extractor', -230, 190], ['factory', -30, 200], ['airfield', 130, 180], ['turret', 160, 20], ['turret', 0, -180], ['depot', 240, -60], ['depot', 260, 60], ['barracks', 260, 240]];
+const TYPES = Object.fromEntries([['core', 'humans'], ['conflux', 'vael'], ['turret', 'humans'], ['barracks', 'humans'], ['eclipse', 'vael'], ['uplink', 'vael'], ['kiln', 'vael'], ['spire', 'vael']].filter(([t]) => !arg('--types') || arg('--types').split(',').includes(t)));
+
+await start();
+try {
+  for (const art of arg('--art', 'today,new').split(',')) {
+    for (const race of ['vael', 'humans']) {
+      const nm = race === 'vael' ? 'ex' : 'kg';
+      for (const [sz, dev] of Object.entries(SIZES)) {
+        if (want('start')) { const { ctx, page } = await game(art, dev, { race }); await shoot(page, `start-${nm}-${sz}`, art, { x: (await page.evaluate(() => hq.x)) + 40, y: await page.evaluate(() => hq.y) }, 'start'); await ctx.close(); }
+        if (want('base')) {
+          const { ctx, page } = await game(art, dev, { race });
+          const ids = await page.evaluate((l) => l.map(([t, x, y]) => [t, put(t, x, y)]), race === 'vael' ? EX : KG);
+          if (ids.some(i => !i[1])) console.log('not placed:', ids.filter(i => !i[1]).map(i => i[0]).join(' '));
+          const p = await page.evaluate(() => ({ x: hq.x - 40, y: hq.y + 60 }));
+          await shoot(page, `base-${nm}-${sz}`, art, p, 'start');
+          if (sz === 'd2') await shoot(page, `base-${nm}-close-d2`, art, p, 2);
+          await ctx.close();
+        }
+      }
+    }
+    if (want('perf')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // a frame with the base of 20 in view (software GL: only the two arts against each other)
+      const { ctx, page } = await game(art, dev, { race: 'vael' });
+      await page.evaluate((l) => { for (const [t, x, y] of l) put(t, x, y); endfall.cam.zoom = 1; endfall.centerOn(hq.x, hq.y); clean(); }, EX);
+      const run = (n) => page.evaluate((n) => { const gl = document.getElementById('game').getContext('webgl2'), px = new Uint8Array(4); for (let i = 0; i < n; i++) { endfall.draw(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } }, n);
+      await run(5); const ms = []; for (let i = 0; i < 5; i++) { const t = process.hrtime.bigint(); await run(10); ms.push(Number(process.hrtime.bigint() - t) / 1e7); }
+      ms.sort((a, b) => a - b); log.push({ perf: sz, art, ms }); console.log('perf', sz, art, 'median ms a frame', ms[2].toFixed(1)); await ctx.close();
+    }
+    if (want('site')) for (const race of arg('--races', 'humans,vael').split(',')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // three sites under way, then the done moment, then an enemy site remembered in the fog
+      const nm = race === 'vael' ? 'ex' : 'kg', { ctx, page } = await game(art, dev, { race, foe: race, fog: true });
+      const p = await page.evaluate((race) => { const l = race === 'vael' ? [['siphon', -170, 10], ['substation', -100, -110], ['substation', 60, 130]] : [['barracks', -170, 40], ['depot', -90, -110], ['depot', 120, 90]], ids = []; for (const [t, x, y] of l) ids.push(put(t, x, y, 0.02)); const at = (i) => endfall.G.bldgs.find(b => b.id === ids[i]); for (let i = 0; i < 4000 && Math.max(...[0, 1, 2].map(j => at(j)?.done ? 1 : at(j).progress)) < 0.75; i++) endfall.skip(0.1); window.ids = ids; return { x: hq.x - 60, y: hq.y, prog: ids.map((_, i) => at(i).progress) }; }, race);
+      console.log('sites', JSON.stringify(p.prog)); await shoot(page, `site-${nm}-${sz}`, art, p, sz === 'phone' ? 1 : 1.83);
+      await page.evaluate(() => { const { G } = endfall, open = () => ids.map(i => G.bldgs.find(b => b.id === i)).filter(b => !b.done).sort((a, b) => b.progress - a.progress)[0]; window.next = open(); endfall.draw(); for (let i = 0; i < 4000; i++) { const b = G.bldgs.find(b => b.id === next.id); if (b.progress >= 0.99 || b.done) break; endfall.skip(1 / 30); } });
+      for (let i = 0; i < 60; i++) { await page.clock.runFor(34); if (await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return o?.look === 'fade' && o.fadeT > 0.1 || o?.look === 'full'; })) break; }
+      console.log('done moment', JSON.stringify(await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return [o.look, o.fadeT, o.roof, o.paint]; }))); await shoot(page, `sitedone-${nm}-${sz}`, art, p, sz === 'phone' ? 1 : 1.83);
+      for (let i = 0; i < 12; i++) await page.clock.runFor(60);
+      console.log('after', JSON.stringify(await page.evaluate(() => { const o = endfall.sites().bldgs.find(o => o.id === next.id); return [o.look, o.roof, o.paint]; })));
+      await ctx.close();
+    }
+    if (want('slab')) for (const [sz, dev] of [['d1', D1], ['phone', PH]]) { // every Expedition building as a site, at each stage of its build
+      const { ctx, page } = await game(art, dev, { race: 'vael' });
+      const p = await page.evaluate(() => { for (const [t, x, y] of [['siphon', -190, -20], ['substation', -110, -120], ['ward', 10, -140], ['loom', 130, -110], ['kiln', -140, 110], ['spire', -30, 130], ['uplink', 90, 150], ['eclipse', 210, 60]]) put(t, x, y); return { x: hq.x, y: hq.y }; });
+      // (built, for what each needs; then shown as sites by the client's own mirror: a drawing scene, the sim untouched)
+      const stage = (u, o = {}) => page.evaluate(([u, o]) => { const { G } = endfall; for (const b of G.bldgs) if (b.team === G.me && !b.d.hq) Object.assign(b, { done: false, progress: u, hp: b.maxhp * (o.hp ?? 1), flash: o.flash ?? 0 }); }, [u, o]);
+      const z = sz === 'phone' ? 1 : 1.83;
+      for (const u of [0.05, 0.25, 0.5, 0.9]) { await stage(u); await shoot(page, `slab-${Math.round(u * 100)}-${sz}`, art, p, z); }
+      await stage(0.4, { hp: 0.3, flash: 0.1 }); await shoot(page, `slab-hit-${sz}`, art, p, z);
+      // (the placing ghost, allowed and refused: a builder selected, or the HUD takes it away)
+      for (const [n, ok] of [['ok', true], ['no', false]]) {
+        await stage(0.5);
+        const g = await page.evaluate((ok) => { const { ui, engine: E, G } = endfall; ui.sel = [G.units.find(u => u.team === G.me && E.UNITS[u.type].worker)]; const x0 = Math.round(hq.x / 32), y0 = Math.round(hq.y / 32); for (let y = 2; y < 9; y++) for (let x = -6; x < 7; x++) if (E.canPlace('loom', x0 + x, y0 + y, G.me) === ok) { ui.place = { type: 'loom', tx: x0 + x, ty: y0 + y }; return [x, y]; } return null; }, ok);
+        await shoot(page, `slab-ghost-${n}-${sz}`, art, p, z); console.log('ghost', n, g, await page.evaluate(() => !!endfall.ui.place));
+        await page.evaluate(() => { endfall.ui.place = null; endfall.ui.sel = []; });
+      }
+      await ctx.close();
+    }
+    if (want('sitefog')) for (const foe of ['humans', 'vael']) { // an enemy site (its AI's), seen and left: remembered in the fog
+      const { ctx, page } = await game(art, D1, { race: 'humans', foe, fog: true, ai: true });
+      const f = await page.evaluate(() => {
+        const { engine: E, G } = endfall, site = () => G.bldgs.find(b => b.team !== G.me && !b.done && b.progress > 0.3);
+        for (let i = 0; i < 1500 && !site(); i++) endfall.skip(0.2);
+        const s = site(); if (!s) return { why: 'no site' };
+        const id = E.debugSpawn(G.me, 'observer', s.x, s.y + 40); endfall.skip(0.2); endfall.draw(); const seen = G.vis[E.idx(s.tx + 1, s.ty + 1)];
+        E.moveTo(G.units.find(u => u.id === id), hq.x, hq.y); for (let i = 0; i < 300 && G.vis[E.idx(s.tx + 1, s.ty + 1)]; i++) { endfall.skip(0.2); endfall.draw(); }
+        endfall.skip(1); endfall.cam.zoom = 1.83; endfall.centerOn(s.x, s.y); endfall.draw(); const o = endfall.sites().bldgs.find(o => o.id === s.id);
+        return { x: s.x, y: s.y, type: s.type, seen, vis: G.vis[E.idx(s.tx + 1, s.ty + 1)], drawn: o && [o.look, o.done, o.ghost], now: G.bldgs.find(b => b.id === s.id)?.progress };
+      });
+      console.log('fog', JSON.stringify(f)); if (f.x) await shoot(page, `sitefog-${foe === 'vael' ? 'ex' : 'kg'}-d1`, art, f, 1.83);
+      await ctx.close();
+    }
+    if (want('build')) for (const [type, race] of Object.entries(TYPES)) {
+      const { ctx, page } = await game(art, D2, { race });
+      for (const pc of [10, 50, 90]) { const [id, x, y] = await page.evaluate(([t, u]) => { const { G } = endfall; let b = G.bldgs.find(b => b.type === t && !b.done); if (!b) { const id = put(t, -200, 120, u); b = G.bldgs.find(b => b.id === id); } for (let i = 0; i < 4000 && b.progress < u; i++) endfall.skip(0.1); return [b.id, b.x, b.y]; }, [type, pc / 100]); if (!id) continue; await crop(page, `build-${type}-${pc}`, art, x, y - 10, 2, 400, 400); }
+      await ctx.close();
+    }
+    if (want('state')) for (const [type, race] of Object.entries(TYPES)) {
+      const { ctx, page } = await game(art, { viewport: { width: 900, height: 620 }, deviceScaleFactor: 1 }, { race });
+      const b = await page.evaluate((t) => { const { G } = endfall; let b = G.bldgs.find(b => b.team === G.me && b.type === t); if (!b) { const id = put(t, -200, 120); b = G.bldgs.find(b => b.id === id); } return { id: b.id, x: b.x, y: b.y, tx: b.tx, ty: b.ty, w: b.w, h: b.h }; }, type);
+      const C = (n) => crop(page, `state-${type}-${n}`, art, b.x, b.y - 10, 2, 400, 400);
+      await page.evaluate((id) => { const b = endfall.G.bldgs.find(b => b.id === id); endfall.ui.sel = [b]; }, b.id); await C('selected');
+      await shoot(page, `state-${type}-hud`, art, b, 1.5);
+      await page.evaluate(() => { endfall.ui.sel = []; });
+      // our fighters north of it, behind its walls: their silhouettes
+      await page.evaluate(([b, r]) => { const { engine: E, G } = endfall; for (let i = 0; i < 2; i++) E.debugSpawn(G.me, r === 'vael' ? 'umbra' : 'trooper', b.tx * 32 + 20 + i * (b.w * 32 - 40), b.ty * 32 - 14 - (i % 2) * 16); endfall.skip(0.1); }, [b, race]); await C('behind');
+      // the placement ghost: allowed (beside it) and refused (over it)
+      for (const [n, dx] of [['ghost-ok', 8], ['ghost-no', 1]]) { await page.evaluate(([t, b, dx]) => { const { engine: E, G, ui } = endfall; ui.sel = [G.units.find(u => u.team === G.me && E.UNITS[u.type].worker)]; for (let d = dx; d < dx + 12; d++) if (dx === 1 || E.canPlace(t, b.tx - d, b.ty + 2, G.me)) { ui.place = { type: t, tx: b.tx - d, ty: b.ty + 2 }; break; } }, [type, b, dx]); const g = await page.evaluate(() => endfall.ui.place); if (g) await crop(page, `state-${type}-${n}`, art, (g.tx + b.w / 2) * 32, (g.ty + b.h / 2) * 32 - 10, 2, 400, 400); await page.evaluate(() => { endfall.ui.place = null; }); }
+      // damaged (with the hit's flash), then falling: foes beside it
+      await page.evaluate(([id]) => { const { engine: E, G } = endfall, b = G.bldgs.find(b => b.id === id); E.debugSetHp(id, b.maxhp * 0.2); endfall.skip(1 / 30); G.bldgs.find(b => b.id === id).flash = 0.1; }, [b.id]); await C('hit');
+      await page.clock.runFor(600); await C('burning');
+      const fell = await page.evaluate(([b]) => { const { engine: E, G } = endfall; E.debugSetHp(b.id, 1); const foe = [0, 1, 2, 3].find(t => t !== G.me); for (let i = 0; i < 16; i++) E.debugSpawn(foe, G.factions[foe] === 'vael' ? 'umbra' : 'lancer', b.x - 100 + (i % 8) * 26, b.y + b.h * 16 + 40 + (i >> 3) * 26); return true; }, [b]);
+      await page.evaluate((id) => { for (let i = 0; i < 400 && endfall.G.bldgs.some(b => b.id === id); i++) endfall.skip(1 / 30); }, b.id);
+      await page.clock.runFor(150); await C('falling'); await page.clock.runFor(1600); await C('rubble');
+      await ctx.close();
+    }
+    if (want('fog')) { // the enemy's Castle and Data center, seen and left: remembered in the fog
+      for (const foe of ['humans', 'vael']) {
+        const { ctx, page } = await game(art, D2, { race: 'humans', foe, fog: true });
+        const p = await page.evaluate(() => { const { engine: E, G } = endfall, c = G.bldgs.find(b => b.team !== G.me && b.d.hq); endfall.fog(true); const id = E.debugSpawn(G.me, 'observer', c.x, c.y + 150); endfall.skip(0.5); endfall.draw(); const u = G.units.find(u => u.id === id); E.moveGroup?.([u], c.x - 100, c.y + 1400); endfall.skip(25); return { x: c.x, y: c.y }; });
+        await crop(page, `fog-${foe === 'vael' ? 'conflux' : 'core'}`, art, p.x, p.y - 10, 2, 500, 400);
+        await ctx.close();
+      }
+    }
+  }
+} finally { await stop(); }
+writeFileSync(join(out, `shots-${only.join('-') || 'all'}.json`), JSON.stringify(log, null, 1));
+const bad = [...new Set(log.filter(l => l.file?.endsWith('-today.png')).map(l => [l, log.find(m => m.file === l.file.replace('-today', '-new'))]).filter(([a, b]) => !b || a.hash !== b.hash).map(([a]) => a.file))];
+console.log(bad.length ? `state hash differs: ${bad.join(' ')}` : 'same state in every pair');

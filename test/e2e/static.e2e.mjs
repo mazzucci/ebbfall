@@ -3,8 +3,8 @@
 // page load from the files alone, with the site's security headers, and a single-player game starts through the menu
 // and plays; the service worker installs (every file it stores is a file); no page error, no failed request, and
 // nothing reaches the Worker but the docs' videos (the one kind of file it answers, with byte ranges: site/media.js),
-// which fail, their posters (files) left in their place; the menu's clip among them (the docs home's: menuclip.js), its
-// poster a file of the game's. The deployed routing itself: test/site-worker.test.js.
+// which fail, their posters (files) left in their place (the menu's trailer, played only on a tap, is not asked for
+// here: its poster a file of the game's). The deployed routing itself: test/site-worker.test.js.
 // Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';

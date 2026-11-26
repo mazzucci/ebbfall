@@ -30,7 +30,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.match(await a.getAttribute('rel'), /noopener/);
       const b = await a.boundingBox();
       assert.ok(b.y + b.height <= device.viewport.height && b.x >= 0 && b.x + b.width <= device.viewport.width, `Learn more on screen: ${JSON.stringify(b)}`);
-      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Send feedback'], 'Learn more, and a quiet second link (test/e2e/feedback.e2e.mjs); no link to a trailer (the clip plays on the page: menuclip.e2e.mjs)');
+      assert.deepEqual(await page.locator('#menuLinks a').allTextContents(), ['Learn more', 'Send feedback'], 'Learn more, and a quiet second link (test/e2e/feedback.e2e.mjs); no link to a trailer (it plays on the page: menutrailer.e2e.mjs)');
       // Under the row of buttons, above the build stamp.
       const [row, links, stamp] = await Promise.all(['#btnOptions', '#menuLinks', '#buildStamp'].map(s => page.locator(s).boundingBox()));
       assert.ok(links.y >= row.y + row.height - 1 && (stamp.y >= links.y + links.height - 1 || (stamp.x >= links.x + links.width - 1 && Math.abs(stamp.y + stamp.height / 2 - links.y - links.height / 2) < 4)), 'under the buttons, the stamp after it (beside it on a short phone on its side)');
@@ -56,7 +56,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.ok(await help.isVisible(), 'the ?');
       const [clock, q, full] = await Promise.all(['#resClock', '#btnHelp', '#btnFull'].map(s => d.page.locator(s).boundingBox()));
       assert.ok(q.x >= clock.x + clock.width && (!full || q.x + q.width <= full.x), 'between the clock and FULL SCREEN');
-      const u = await d.eval(() => Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810))); // (style.css --u)
+      const u = await d.eval(() => Math.max(0.9, Math.min(1.1, innerWidth / 1440, innerHeight / 810))); // (style.css --u)
       assert.equal(Math.round(q.width), d.touch ? 32 : Math.round(40 * u), 'a 32 px button; 40 units with the desktop HUD, as its other buttons');
       await press('#btnHelp');
       const sheet = d.page.locator('#helpSheet');

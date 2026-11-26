@@ -3,12 +3,11 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
-import { setHd } from './client/gl/render.js'; // (hd-exp)
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, targetsMarked, ghostHeadShown, rallyShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
-import { sfx, audio, audioState, renderSfx } from './client/audio.js';
+import { sfx, audio, audioState, renderSfx, gameSound } from './client/audio.js';
 import { fx, burst, updateFx } from './client/fx.js';
 import { initTools, updateTools, onAttacked, resetTools } from './client/tools.js';
 import { resetMemory } from './client/memory.js';
@@ -78,7 +77,7 @@ function begin(reset) {
   // Start over the base: a phone at 1 (the units read), a desktop with the base and the ground round it in its window,
   // both on the map (gl/render.js `startZoom`, `startOn`); the wheel or a pinch zooms.
   cam.zoom = startZoom(); const core = G.bldgs.find(b => b.team === G.me); startOn(core.x + 40, core.y);
-  $('end').hidden = true; $('start').hidden = true; started = true; setHint();
+  $('end').hidden = true; $('start').hidden = true; started = true; setHint(); gameSound(true); // (the wind bed: on the game's first sound)
   groupHintGame(menu.tutorial); // (one more game on this device's count: the group hint comes back after a few)
   startTutorial(menu.tutorial); // (the guided first game's checklist replaces the opening tip)
   // (the Expedition has no population: a grid for everything it runs, from its Substations)
@@ -213,7 +212,7 @@ function endGame() {
   showShare(win && !online.playing && !BENCH && !watched ? wonChallenge(G.time) : null); // (a victory against the AI: its challenge link)
   if (online.playing) online.net?.over(); // (the relay stops the clock once both games are over)
   rematchButton(theyWant(), online.rematch);
-  $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); disarmLeaveGuard();
+  $('end').hidden = false; $('btnRematch').focus(); sfx(win ? 'done' : 'boom'); gameSound(false); disarmLeaveGuard(); // (the wind fades out under the result)
   if (!online.playing && !menu.tutorial && !BENCH && !watched) recordResult(win, G.factions[G.me], G.diff); // (after the card is up; a guided game is not counted; online games are not on the vs-AI record)
 }
 /** The end card's REMATCH: alone, the same game again; online, another in the same room once the others want it too
@@ -293,17 +292,17 @@ function loop(now) {
 
 new ResizeObserver(resize).observe(document.getElementById('stage'));
 // A handle for debugging in the console and for scripted playtests (single player: nothing here is secret).
-window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoomLimit(); }, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, ground: groundShown, shake: shakeNow, rangeShown, unitTop, bldgArtTop, seatTint, spotTint, fog: showFog, bars: showBars, sound: audio, renderSfx,
+window.endfall = { G, map: engine.map, ui, cam, view, get zoomMin() { return zoomLimit(); }, get startZoom() { return startZoom(); }, toWorld, centerOn, setResources, engine, cardItems, online, teamLayers, drawOrder, effects: effectsShown, dying: dyingShown, sites: sitesShown, ground: groundShown, shake: shakeNow, rangeShown, targetsMarked, ghostHeadShown, rallyShown, unitTop, bldgArtTop, seatTint, spotTint, portrait, fog: showFog, bars: showBars, sound: audio, renderSfx,
   // Tools only (the trailer, tools/trailer): each seat's color by board spot (look.js setSpots: [1, 0] paints our seat
   // in seat 1's color and seat 1 in ours), the pieces drawn again in them.
-  hd: (k) => { const r = setHd(k); render(ui.sel, ui.place); return r; }, // (hd-exp: a level's frames, drawn at once: under a held clock the same instant again)
   paint: (spots) => { setSpots(spots); renderTerrain(); },
-  draw: () => { updateHud(); updateClock(); updateTools(); render(ui.sel, ui.place); }, // (tools/view-capture.mjs: one frame now; under a held clock the same instant again)
+  draw: () => { updateHud(); updateClock(); updateTools(); render(ui.sel, ui.place); },
+  hud: () => updateHud(), // (the console and the card for the selection now, nothing drawn on the map: the tests' reads of the HUD, which queue no GPU work) // (tools/view-capture.mjs: one frame now; under a held clock the same instant again)
   skip: (seconds) => { for (let i = 0; i < seconds * 30 && !G.over; i++) step(DT); },
   // What a device check reads back (tools/devices, the cross-engine e2e): sound, full screen, the page's errors.
   // `fullscreenEnabled`: whether the page may go full screen at all (the browser's word: not on iPhone Safari);
   // `pageFullscreen`: whether the game takes it there (screen.js `pageFullscreenWorks`: not on iPad or iPhone).
   status: () => ({ audio: audioState(), muted: audio.muted, fullscreen: isFull(), fullscreenEnabled: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), pageFullscreen: pageFullscreenWorks, errors: (window.endfallErrors || []).slice() }) };
 bindInput(); resize(); requestAnimationFrame(loop);
-if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; disarmLeaveGuard(); } }))
+if (BENCH) import('./client/bench.js').then(b => b.initBench(probe, { begin, running, started: () => started, stop: () => { started = false; gameSound(false); disarmLeaveGuard(); } }))
   .catch(e => toast(`The device test could not load: ${e.message}`, true)); // (the menu stays: the game itself works)

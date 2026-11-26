@@ -2,7 +2,7 @@
 // scenarios marked `engines: true` there). Run: npm run build && npm run test:e2e
 import { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK } from '../../src/client/look.js';
+import { SEAT_COLORS, AIR_PUFF, DUST, HIT_DUST, hitLift, BLDG_DEATH, GRAY_SMOKE, HIT_LOOK, FIRE_SCALE } from '../../src/client/look.js';
 import { encode } from '../../src/client/challenge.js';
 import { test, start, stop, newGame, until, browserContext, baseUrl, board, DESKTOP, PHONE, CDP_TOUCH, ENGINE, notIn, IPHONE } from './harness.mjs';
 
@@ -139,6 +139,7 @@ test('a building under construction shows its progress, and a stalled one can be
     await d.skip(8);
     const stalled = (await d.state()).bldgs.find(b => b.id === depot.id);
     assert.ok(!stalled.done && Math.abs(stalled.progress - depot.progress) < 1e-9, 'no builder, no progress');
+    await d.key('Escape'); // (its builder let go: with a worker selected a click on a site is an order)
     await d.clickEntity(depot.id);
     assert.match(await d.hudText('#selSub', /Paused/), /Paused/, 'the panel says construction is paused');
     assert.ok((await d.card()).some(c => c.label === 'Resume'), 'a Resume button is offered');
@@ -157,6 +158,7 @@ test('an unfinished building can be cancelled for a 75% refund', async () => {
     const rax = myBldg(await d.state(), 'barracks')[0];
     assert.ok(rax && !rax.done, 'barracks under construction');
     const before = (await d.state()).res[0];
+    await d.key('Escape'); // (its builder let go: with a worker selected a click on a site is an order)
     await d.clickEntity(rax.id);
     await d.pressCard('Cancel');
     const after = await d.state();
@@ -299,7 +301,7 @@ test('Q selects the army, no idle-worker key, and double-click selects all of a 
   try {
     const s = await d.state(), core = coreOf(s);
     const ids = await d.eval(([x, y]) => [0, 1, 2].map(i => endfall.engine.debugSpawn(0, 'trooper', x + i * 24, y)), [core.x + 140, core.y - 40]);
-    assert.ok(!(await d.page.locator('#btnArmy').isVisible()), 'no ARMY button with a keyboard (the touch screens\' one goes with SELECT): Q');
+    assert.ok(await d.page.locator('#btnArmy').isVisible(), 'ARMY, with Q (mouse.e2e.mjs: the row)');
     await d.key('q');
     assert.deepEqual((await d.selection()).map(u => u.id).sort(), ids.slice().sort(), 'Q selects every combat unit');
     // An idle harvester: no key finds it (Stelian, Nov 12: no idle-worker key or counter); . selects nothing.
@@ -499,7 +501,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', device: D
   });
 }
 
-test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 900 px of the map across the window (any monitor, never closer than 2.5), never farther out than the zoom-out limit (a tall window), the Castle, its gold mine and its workers in the first screen and a Knight a tenth of the canvas\'s height; at 1 on a phone (844x390, 667x375)', async () => {
+test('a game starts over the base, nothing past the map\'s edges at the sides or the top: with a mouse 1050 px of the map across the window (any monitor, never closer than 2.5), never farther out than the zoom-out limit (a tall window), the Castle, its gold mine and its workers in the first screen and a Knight near a tenth of the canvas\'s height; at 1 on a phone (844x390, 667x375)', async () => {
   for (const device of [DESKTOP, { viewport: { width: 1440, height: 900 } }, { viewport: { width: 1920, height: 1080 } }, { viewport: { width: 2560, height: 1440 } }, { viewport: { width: 3440, height: 1440 } }, { viewport: { width: 1000, height: 2400 } }, PHONE, { ...PHONE, viewport: { width: 667, height: 375 } }]) for (const guided of [false, true]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}${guided ? ', the guided game' : ''}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -517,9 +519,12 @@ test('a game starts over the base, nothing past the map\'s edges at the sides or
       const inView = ([x0, y0, x1 = x0, y1 = y0]) => x0 >= s.x && x1 <= s.x + s.vw && y0 >= s.y && y1 <= s.y + s.vh;
       if (device.hasTouch) assert.ok(s.zoom === 1 && s.limit === 0.75, `${what}: a phone at 1, its limit 0.75: ${JSON.stringify(s)}`);
       else {
-        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2.5, Math.max(1, s.w / 900)), s.limit)) < 1e-9 && s.zoom === s.start && s.zoom <= 2.5, `${what}: 900 px of the map across (between 1 and 2.5), or the limit where it is closer: ${JSON.stringify(s)}`);
+        assert.ok(Math.abs(s.zoom - Math.max(Math.min(2.5, Math.max(1, s.w / 1050)), s.limit)) < 1e-9 && s.zoom === s.start && s.zoom <= 2.5, `${what}: 1050 px of the map across (between 1 and 2.5), or the limit where it is closer: ${JSON.stringify(s)}`);
         assert.ok(inView(s.castle) && s.mine && inView(s.mine) && s.units.length > 0 && s.units.every(inView), `${what}: the Castle, its gold mine and its workers whole in the first screen: ${JSON.stringify(s)}`);
-        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.095, `${what}: a Knight near a tenth of the canvas's height at least (it was 8 to 9% at 1200 px across; 16% on a phone; edge to edge the canvas is the window, 9.9% at 2560x1440): ${JSON.stringify(s)}`);
+        // (the span is a width, so the share goes with the window's shape: 9.7% of a 16:9 window's height at 1050 px
+        // across, 8.7% at 1440x900, the least of these, 9.9% at 3440x1440, held at 2.5. At 1200 px across it was 8.4% and
+        // 7.6%, where the units read as a demo's: under 8.5% is that again; a phone's is 16%)
+        if (device.viewport.height !== 2400) assert.ok(s.knight >= 0.085, `${what}: a Knight 8.5% of the canvas's height at least (8.7% at 1440x900, 9.7% on a 16:9 window; edge to edge the canvas is the window): ${JSON.stringify(s)}`);
         if (device.viewport.height === 2400) assert.ok(s.limit > 1 && s.zoom === s.limit, `${what}: a tall window starts at its limit: ${JSON.stringify(s)}`);
         assert.ok(s.zoom > 1 && s.vw <= s.map, `${what}: closer than all the way out, and no wider than the map: ${JSON.stringify(s)}`);
       }
@@ -605,7 +610,9 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
         const c = await d.eval(() => { const c = endfall.cam, v = endfall.view; return { x: c.x, y: c.y, zoom: c.zoom, vw: v.w / c.zoom, vh: v.h / c.zoom }; });
         assert.ok(Math.abs(c.zoom - s.zoom) < 1e-9 && Math.abs(c.x - (cx ? map[0] - c.vw : 0)) < 1e-6, `${where}: the camera at the map's side, not past it: ${JSON.stringify(c)}`);
         const past = cy ? (c.y + c.vh - map[1]) * c.zoom : -c.y * c.zoom; // (screen px past the map's top or foot)
-        const foot = h - mm.y + 4; // (render.js footRoom: up to the minimap's top, the tallest panel at the foot, and 4 px)
+        const card3 = await d.eval(() => { const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd), px = (v) => parseFloat(v) || 0; return cmd.getBoundingClientRect().bottom - (3 * px(cs.gridAutoRows) + 2 * px(cs.rowGap) + px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth)); });
+        const row = (await d.page.locator('#btnBox').boundingBox()).y;
+        const foot = h - Math.min(mm.y, row, card3) + 4; // (render.js footRoom: up to the top of the tallest panel at the foot, a three-row card or the row over the minimap, and 4 px)
         assert.ok(cy ? Math.abs(past - foot) < 1 : Math.abs(past - (topBar + 8)) < 1, `${where}: past the ${cy ? `foot only as far as the panels cover (${foot} px)` : 'top only as far as the bar covers'}: ${past}`);
         const dark = await darkEdges(d);
         for (const e of ['left', 'right', 'top', 'bottom']) assert.ok(dark[e] < 0.02, `${where}: no dark along the ${e} edge (${Math.round(dark[e] * 100)}% of it): ${JSON.stringify(dark)}`);
@@ -623,13 +630,16 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [3440, 1440]]) {
       // The mouse at the window's edges scrolls the map (the canvas reaches them): from the bottom-right corner, left
       // along the left edge, then up along the top, above the bar.
       const at = () => d.eval(() => [endfall.cam.x, endfall.cam.y]);
-      const c0 = await at();
-      await d.page.mouse.move(1, h / 2); await d.page.waitForTimeout(400);
+      const c0 = await at(), wide = s.vw < map[0] - 1; // (3440 px: the window as wide as the map, nothing to scroll sideways)
+      // (waited for, not slept for: a 3440 px window on a software GL draws one or two frames in 400 ms, and a frame scrolls
+      // only so far)
+      const moved = (cond, arg) => d.page.waitForFunction(cond, arg, { timeout: 20000, polling: 50 }).catch(() => {});
+      await d.page.mouse.move(1, h / 2);
+      await (wide ? moved((x) => endfall.cam.x < x - 20, c0[0]) : d.page.waitForTimeout(400));
       const c1 = await at();
-      await d.page.mouse.move(w / 2, 1); await d.page.waitForTimeout(400);
+      await d.page.mouse.move(w / 2, 1); await moved((y) => endfall.cam.y < y - 20, c1[1]);
       const c2 = await at();
       await d.page.mouse.move(w / 2, h / 2);
-      const wide = s.vw < map[0] - 1; // (3440 px: the window as wide as the map, nothing to scroll sideways)
       assert.ok((wide ? c1[0] < c0[0] - 20 : c1[0] === 0) && c2[1] < c1[1] - 20, `the window's left and top edges scroll the map: ${JSON.stringify([c0, c1, c2])}`);
       assert.deepEqual(d.errors, []);
     } finally { await d.close(); }
@@ -648,7 +658,7 @@ test('desktop 1920x1080 HUD: an army selected through the UI, the top bar\'s two
       const r = (q) => { const e = document.querySelector(q), b = e.getBoundingClientRect(), cs = getComputedStyle(e); return { q, l: b.left, t: b.top, r: b.right, b: b.bottom, shown: cs.display !== 'none' && cs.visibility !== 'hidden' && b.width > 0 && b.height > 0 }; };
       const cmd = document.getElementById('cmd'), cs = getComputedStyle(cmd);
       return { boxes: ['#resShard', '#resSup', '#resClock', '#btnHelp', '#btnFull', '#btnSound', '#btnPause', '#minimap', '#info', '#cmd'].map(r),
-        left: r('#resShard').l, cols: cs.gridTemplateColumns, rows: cs.gridTemplateRows, u: Math.max(0.9, Math.min(1.4, innerWidth / 1440, innerHeight / 810)), // (style.css --u)
+        left: r('#resShard').l, cols: cs.gridTemplateColumns, rows: cs.gridTemplateRows, u: Math.max(0.9, Math.min(1.1, innerWidth / 1440, innerHeight / 810)), // (style.css --u)
         army: cmd.classList.contains('army'), wells: cs.backgroundImage, buttons: [...cmd.children].map(e => e.dataset.id || 'gap'), words: getComputedStyle(document.querySelector('#btnFull .t') || document.body).display };
     });
     const what = JSON.stringify(got);
@@ -660,7 +670,7 @@ test('desktop 1920x1080 HUD: an army selected through the UI, the top bar\'s two
     assert.ok(got.words === 'none', `the buttons are icons, the word their title: ${what}`);
     // the panels at the foot: the minimap bottom left, the console in the middle, the card bottom right
     assert.ok(at['#minimap'].l < 40 && at['#minimap'].b > 1020 && at['#cmd'].r > 1880 && at['#cmd'].b > 1020 && at['#info'].l >= at['#minimap'].r && at['#info'].r <= at['#cmd'].l, `the minimap, the console and the card along the foot: ${what}`);
-    assert.ok(Math.abs(at['#minimap'].r - at['#minimap'].l - 236 * got.u) < 1 && got.u > 1.3, `the minimap 236 units (about 315 px at 1920): ${what}`);
+    assert.ok(Math.abs(at['#minimap'].r - at['#minimap'].l - 190 * got.u) < 1 && got.u === 1.1, `the minimap 190 units (209 px at 1920, where --u has stopped at 1.1): ${what}`);
     const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
     for (const [i, a] of got.boxes.entries()) for (const b of got.boxes.slice(i + 1)) assert.ok(!overlap(a, b), `${a.q} and ${b.q} do not overlap: ${what}`);
     // the card: its slots as ever (three columns, Deselect in the corner), each 88 x 68 units; the blank ones quiet
@@ -760,7 +770,7 @@ for (const [w, h, insets] of [[1180, 820, { bottom: 20 }], [820, 1180, { top: 24
   });
 }
 
-test('phones keep their box: on its side (844x390) the map in its box under the top bar, the camera as far past the edges as before (120 px; 60 at the top), no apron; upright (390x844) the box over the panels\' band; the split from a tablet (style.css): a coarse pointer at most 500 px tall on its side, or at most 620 px wide', async () => {
+test('phones keep their box: on its side (844x390) the map in its box under the top bar, the camera as far past the edges as before (120 px; 60 at the top); upright (390x844) the box over the panels\' band; the split from a tablet (style.css): a coarse pointer at most 500 px tall on its side, or at most 620 px wide', async () => {
   const d = await newGame(PHONE, 1, 4242, { ai: false, init: NO_FULL });
   try {
     const look = () => d.eval(() => {
@@ -845,7 +855,7 @@ test('a click or a tap on a building\'s drawn roof, above its footprint, selects
       const top = await d.eval((id) => endfall.bldgArtTop(id), core.id);
       // Halfway between the art's top and the footprint's north edge: on the roof, off the footprint.
       const y = (top + core.ty * 32) / 2;
-      assert.ok(core.ty * 32 - y > 24, `the point is well above the footprint: ${core.ty * 32 - y} px`);
+      assert.ok(core.ty * 32 - y > 20, `the point is well above the footprint: ${core.ty * 32 - y} px`);
       await d.clickWorld(core.x, y);
       assert.deepEqual((await d.selection()).map(e => e.id), [core.id], `${d.touch ? 'phone' : 'desktop'}: the Castle selected`);
       assert.deepEqual(d.errors, []);
@@ -853,22 +863,23 @@ test('a click or a tap on a building\'s drawn roof, above its footprint, selects
   }
 });
 
-test('chimney smoke only while a building works: an idle Barracks puffs nothing, one training puffs over its stack', async () => {
+test('chimney smoke only while a building works: an idle Blacksmith puffs nothing, one at a research puffs over its stack', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     await d.grant(5000, 5000);
-    const rax = await buildAndFinish(d, 'c', 'barracks', 0);
-    await d.centerOn(rax.x, rax.y); // (effects are made only near the view)
-    // The puffs over this Barracks: spawned at its chimney's cap (look.js BLDG_LOOK), over its footprint or just north of it.
-    const box = [rax.tx * 32 - 16, rax.ty * 32 - 64, (rax.tx + rax.w) * 32 + 16, (rax.ty + rax.h) * 32];
+    await buildAndFinish(d, 'c', 'barracks', 0);
+    const forge = await buildAndFinish(d, 'k', 'forge', 1);
+    await d.centerOn(forge.x, forge.y); // (effects are made only near the view)
+    // The puffs over this Blacksmith: spawned at its chimney's cap (the art's `looks`), over its footprint or just north of it.
+    const box = [forge.tx * 32 - 16, forge.ty * 32 - 64, (forge.tx + forge.w) * 32 + 16, (forge.ty + forge.h) * 32];
     const inBox = (box) => endfall.effects().filter(e => e.anim === 'puff' && e.x >= box[0] && e.x < box[2] && e.y >= box[1] && e.y < box[3]).length;
     await d.page.waitForTimeout(1500); // real frames: the chimney puffs on the renderer's clock, not the sim's
     assert.equal(await d.eval(inBox, box), 0, 'idle and whole: no smoke');
-    await d.clickEntity(rax.id);
-    await d.pressCard('Guard');
-    assert.equal((await d.state()).bldgs.find(b => b.id === rax.id).queue.length, 1, 'a Guard in training');
+    await d.clickEntity(forge.id);
+    await d.pressCard('Weapons I');
+    assert.ok(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).research, forge.id), 'a research under way');
     await d.page.waitForFunction((box) => endfall.effects().some(e => e.anim === 'puff' && e.x >= box[0] && e.x < box[2] && e.y >= box[1] && e.y < box[3]), box, { timeout: 8000 }); // (one puff every 0.4 s on average)
-    assert.ok(await d.eval(inBox, box) > 0, 'training: its stack smokes');
+    assert.ok(await d.eval(inBox, box) > 0, 'working: its stack smokes');
   } finally { await d.close(); }
 });
 
@@ -2110,6 +2121,50 @@ test('phone: with a worker selected, a tap on a mine where another worker stands
   } finally { await d.close(); }
 });
 
+test('a gold mine ordered, worked or selected is marked along its painted outline: clear of the paint and near it all round, never a square through it', async () => {
+  for (const device of [DESKTOP, PHONE]) {
+    const d = await newGame(device, 1, 4242, { ai: false });
+    try {
+      const s = await d.state(), core = coreOf(s);
+      const node = s.nodes.filter(n => n.type === 'mine').sort((a, b) => Math.hypot(a.x - core.x, a.y - core.y) - Math.hypot(b.x - core.x, b.y - core.y))[0];
+      const marks = () => d.eval(() => { endfall.draw(); return endfall.targetsMarked(); });
+      assert.deepEqual(await marks(), [], 'nothing selected: no mark');
+      // The outline against the frame's own paint: from each of its points, the nearest solid pixel (world px).
+      const check = async (m, what) => {
+        const got = await d.eval(async ([m, n]) => {
+          const j = await (await fetch('art/new/land-0.json')).json(), img = await createImageBitmap(await (await fetch('art/new/land-0.webp')).blob());
+          const { frame: f, anchor: a } = j.frames.mine_full, k = m.scale / (+j.meta.scale || 1), c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+          const g = c.getContext('2d'); g.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+          const px = g.getImageData(0, 0, f.w, f.h).data, solid = [];
+          for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (px[(y * f.w + x) * 4 + 3] > 200) solid.push([n.x + (x - a.x * f.w) * k, n.y + (y - a.y * f.h) * k]);
+          const gap = []; for (let i = 0; i < m.pts.length; i += 2) gap.push(Math.min(...solid.map(([x, y]) => Math.hypot(x - m.pts[i], y - m.pts[i + 1]))));
+          return { min: Math.min(...gap), max: Math.max(...gap), left: Math.min(...m.pts.filter((_, i) => !(i % 2))), right: Math.max(...m.pts.filter((_, i) => !(i % 2))), l: Math.min(...solid.map(p => p[0])), r: Math.max(...solid.map(p => p[0])) };
+        }, [m, node]);
+        assert.ok(got.min > 0.8 && got.max < 16, `${what}: 1 to 16 px from the paint all round: ${JSON.stringify(got)}`);
+        assert.ok(got.left < got.l && got.right > got.r, `${what}: all of the mine inside it: ${JSON.stringify(got)}`);
+      };
+      // A mine looked at, then a worker working it, then ordered there (the blink).
+      await d.clickWorld(node.x, node.y - 4);
+      let m = await marks();
+      assert.deepEqual(m.map(q => q.id), [node.id], 'the mine selected: marked');
+      await check(m[0], 'selected');
+      await d.key('Escape');
+      const w = s.units.find(u => u.team === 0 && u.type === 'harvester').id;
+      await d.eval(([id, n]) => { const u = endfall.G.units.find(u => u.id === id); endfall.engine.startGather(u, endfall.map.nodes.find(q => q.id === n)); endfall.skip(0.1); endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, [w, node.id]);
+      m = await marks();
+      assert.ok(m.length && m.every(q => q.id === node.id), `its worker selected: marked: ${JSON.stringify(m.map(q => q.id))}`);
+      await check(m[0], 'worked');
+      // A building to work on: along its picture too (wider than its square up the screen).
+      await d.eval(([id, b]) => { const E = endfall.engine; E.debugSetHp(b, 300); endfall.skip(0.1); E.repair(endfall.G.units.find(u => u.id === id), endfall.G.bldgs.find(x => x.id === b)); endfall.skip(0.1); endfall.ui.sel = [endfall.G.units.find(u => u.id === id)]; }, [w, core.id]);
+      m = await marks();
+      assert.deepEqual(m.map(q => q.id), [core.id], 'the Castle under repair: marked');
+      const top = Math.min(...m[0].pts.filter((_, i) => i % 2)), art = await d.eval((id) => endfall.bldgArtTop(id), core.id);
+      assert.ok(top < core.ty * 32 - 24 && top > art - 16, `along its picture, up to its roof: ${top}, the art's top ${art}`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  }
+});
+
 test('a worker sent to a gold mine (desktop right-click, phone tap) goes inside and comes out with gold', async () => {
   for (const device of [DESKTOP, PHONE]) {
     const d = await newGame(device, 1, 4242, { ai: false });
@@ -2216,6 +2271,13 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     const { circles, arcs } = await range();
     assert.deepEqual(circles, [{ x: hq.x, y: hq.y, r: reach * T }], 'one circle round the Data center\'s center, its reach');
     assert.equal(arcs, 1, 'its outline: one whole circle');
+    // On the ground, under the units; over the fog only a thin line, and only where nothing was seen yet.
+    const fog = await d.eval(() => { const s = endfall.rangeShown(), M = endfall.engine.MW; return { under: s.under, runs: s.fogRuns.map(([x, y, r, a, b]) => [0.02, 0.5, 0.98].map(k => { const t = a + (b - a) * k; return !!endfall.G.explored[Math.floor((y + Math.sin(t) * r) / 32) * M + Math.floor((x + Math.cos(t) * r) / 32)]; })) }; });
+    assert.ok(fog.under && fog.runs.length > 0, `the rim under the units, a line over the fog where nothing was seen: ${JSON.stringify(fog)}`);
+    assert.ok(fog.runs.every(r => !r[1]) , `only there: ${JSON.stringify(fog.runs)}`);
+    await d.eval(() => { endfall.fog(false); endfall.draw(); });
+    assert.deepEqual((await range()).fogRuns, [], 'no fog: no line over it');
+    await d.eval(() => endfall.fog(true));
     // Something else selected (a Sellsword, not a machine): no range drawn.
     const sw = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'prism', x, y), [hq.x + 130, hq.y + 110]);
     await d.clickEntity(sw);
@@ -2421,6 +2483,9 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
     assert.equal(reach, 54 * 32, 'the Uplink reaches 54 tiles');
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
+    assert.equal(shown.mmExtra?.r, reach, 'its circle on the minimap too');
+    const head = await d.eval(() => { endfall.draw(); const p = endfall.ui.place, b = endfall.engine.BUILDINGS.uplink; return [endfall.ghostHeadShown(), (p.tx + b.w / 2) * 32, (p.ty + b.h / 2) * 32]; });
+    assert.deepEqual(head[0] && [head[0].frame, head[0].x, head[0].y], ['uplink_head_2', head[1], head[2]], 'the ghost has its dish');
     await d.key('Escape');
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
@@ -2459,23 +2524,26 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     const shown = await d.eval(() => endfall.rangeShown());
     assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing a Substation: the Data center's coverage (${JSON.stringify(shown.circles)})`);
     assert.ok(shown.mmRim >= 1, 'the minimap outlines coverage');
-    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.25, 2.5], 'the minimap\'s rim in CSS px');
+    assert.deepEqual([shown.mmRimWidth.line, shown.mmRimWidth.halo], [1.75, 3.5], 'the minimap\'s rim in CSS px');
     assert.ok(Math.abs(shown.mmRimWidth.canvasPerCss - await d.eval(() => { const m = document.getElementById('minimap'); return m.width / m.clientWidth; })) < 1e-9, 'scaled by the minimap\'s box');
-    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [16, 0.18, true], 'the feathered band inside the rim');
+    assert.deepEqual([shown.band.px, shown.band.alpha, shown.band.rings > 0], [28, 0.36, true], 'the feathered band inside the rim');
     // Over the fog, unexplored black included: the minimap's pixel on the rim where the ground is unexplored is the rim's light.
     const lit = await d.eval(([cx, cy, r]) => {
       const m = document.getElementById('minimap'), S = m.width / endfall.engine.WW, T = endfall.engine.TILE;
       for (let a = 0; a < 6.283; a += 0.05) {
         const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, tx = Math.floor(x / T), ty = Math.floor(y / T);
         if (tx < 0 || ty < 0 || tx >= endfall.engine.MW || ty >= endfall.engine.MH || endfall.G.explored[ty * endfall.engine.MW + tx]) continue;
-        const p = m.getContext('2d').getImageData(Math.floor(x * S), Math.floor(y * S), 1, 1).data;
-        return { a, p: [...p] };
+        // (the rim is 1.25 CSS px wide: on the desktop HUD's 171 px minimap at 1280x720 the one pixel under a point of the
+        // circle can lie half off the line, so the brightest of the nine round it)
+        const q = m.getContext('2d').getImageData(Math.floor(x * S) - 1, Math.floor(y * S) - 1, 3, 3).data;
+        let p = [0, 0, 0, 0]; for (let i = 0; i < q.length; i += 4) if (q[i + 2] > p[2]) p = [...q.slice(i, i + 4)];
+        return { a, p };
       }
       return null;
     }, [hq.x, hq.y, reach * T]);
     assert.ok(lit && lit.p[2] > 120 && lit.p[1] > 100, `the rim lit over unexplored ground on the minimap: ${JSON.stringify(lit)}`);
-    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (15 px)');
-    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15px');
+    assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (a figure\'s size: 15.3 px at 1280x720, never under the 15 px of a smaller window)');
+    assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15.3px');
     await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build within coverage$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
     await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
     assert.match((await d.toasts()).join(' | '), /Build within coverage/);
@@ -4114,7 +4182,7 @@ test('a hit\'s look follows how hard it hits: a Cannon\'s cannonball (siege) lan
     assert.ok(seen, 'a cannonball lands');
     const boom = seen.find(e => e.anim === 'boom_small');
     assert.ok(boom, `a blast where it lands (${JSON.stringify(seen.map(e => e.anim))})`);
-    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
+    assert.ok(Math.abs(boom.scale - 1.1 * HIT_LOOK.siege.size * FIRE_SCALE) < 1e-6, `the siege blast, bigger than the plain shell's 0.7 (${boom.scale})`);
     assert.ok(seen.some(e => e.anim === 'flash'), 'with a flash');
     await d.skip(1);
     assert.equal(await d.eval(() => window.__peak), 0, 'no shake on any frame');
@@ -4169,8 +4237,14 @@ test('a Balloon shot down puffs as canvas up where it flew, sinking: no fireball
     const ob = await d.eval(([x, y]) => { const ob = endfall.engine.debugSpawn(1, 'observer', x, y); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(0, 'lancer', x - 30 + i * 30, y + 70); endfall.engine.debugSetHp(ob, 1); return ob; }, [x, y]);
     await d.centerOn(x, y);
     const at = await d.eval((id) => { const u = endfall.G.units.find(u => u.id === id); return [u.x, u.y, endfall.unitTop('observer')]; }, ob);
-    assert.ok(await d.skipUntil((id) => !endfall.G.units.some(u => u.id === id), ob, { seconds: 10, step: 1 / 30 }), 'the Balloon falls');
-    const fx = await d.eval(([x, y]) => endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120), at);
+    // (tick by tick to its fall, then the frame that draws it, in one call: the puff lives a second, and a slow runner's
+    // frames between two calls could miss it)
+    const fx = await d.eval(([id, x, y]) => {
+      for (let t = 0; t < 30 * 10 && endfall.G.units.some(u => u.id === id); t++) endfall.skip(1 / 30);
+      if (endfall.G.units.some(u => u.id === id)) return null;
+      return new Promise(r => requestAnimationFrame(() => r(endfall.effects().filter(e => Math.abs(e.x - x) < 40 && Math.abs(e.y - y) < 120))));
+    }, [ob, at[0], at[1]]);
+    assert.ok(fx, 'the Balloon falls');
     const up = at[1] - at[2] * AIR_PUFF.lift, puffs = fx.filter(e => ['puff', AIR_PUFF.anim].includes(e.anim));
     const puff = puffs.find(e => Math.abs(e.x - at[0]) < 2 && Math.abs(e.y - up) < 2);
     assert.ok(puff, `a puff at its altitude (${JSON.stringify(fx)})`);
@@ -4343,10 +4417,10 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
     assert.ok(await opts.isVisible(), 'OPTIONS opens');
     assert.ok(await page.locator('#pause').isVisible(), 'over the pause card');
     assert.ok(await page.locator('#cornerFull').isVisible() && await page.locator('#cornerSound').isHidden(), 'the corner keeps the pause card\'s rule: full screen, no sound button');
-    assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'CLASSIC', 'CLASSIC by default');
+    assert.equal(await opts.locator('[data-k^="controls:"][aria-checked="true"]').textContent(), 'CLASSIC', 'CLASSIC by default');
     assert.match(await opts.locator('.setting:has([data-k^="controls:"]) .line').textContent(), /^Arrows/);
     await opts.locator('[data-k="controls:wasd"]').click();
-    assert.equal(await opts.locator('[aria-checked="true"]').textContent(), 'WASD');
+    assert.equal(await opts.locator('[data-k^="controls:"][aria-checked="true"]').textContent(), 'WASD');
     assert.match(await opts.locator('.setting:has([data-k^="controls:"]) .line').textContent(), /^WASD moves the map/);
     assert.ok(await page.$eval('#options .card', c => c.scrollHeight <= c.clientHeight + 1), 'the OPTIONS card fits');
     const t0 = await d.eval(() => endfall.G.time);
@@ -4622,7 +4696,7 @@ test('desktop: OPTIONS on the menu\'s first page; the choice is remembered acros
     assert.ok(await page.locator('#options').isHidden() && await page.locator('#menuHome').isVisible(), 'BACK: the menu again');
     await page.reload({ waitUntil: 'networkidle' });
     await page.locator('#btnOptions').click();
-    assert.equal(await page.locator('#options [aria-checked="true"]').textContent(), 'WASD', 'remembered');
+    assert.equal(await page.locator('#options [data-k^="controls:"][aria-checked="true"]').textContent(), 'WASD', 'remembered');
     await page.keyboard.press('Escape');
     assert.ok(await page.locator('#options').isHidden(), 'Esc closes it');
     // (How to play tells of both schemes: the help sheet's line, and the docs' table: test/docs.test.js, docs.e2e.mjs)

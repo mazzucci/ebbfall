@@ -1,4 +1,4 @@
-// Cut 7: the painted opening (24.33 s, from Gemini: ../ebbfall-article/nano-test/trailer/opening.mp4, not in the repo)
+// Cut 7: the painted opening (27.33 s, from Gemini: ../ebbfall-article/nano-test/trailer/opening.mp4, not in the repo)
 // with the diary's cards typed over it, then cut 6's game half re-recorded on the new look (tools/trailer/v4/cut.mjs's
 // master, from the King's card on, where the music enters). 1280x720 throughout (the opening is 720p: nothing is scaled up).
 //   node tools/trailer/v4/cut.mjs <music.mp3> target/trailer7/game     (the game half, cut 6's edit)
@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 import { FFMPEG } from '../record.mjs';
 import { openStage } from '../stage.mjs';
 import { render } from '../sound.mjs';
-import { typeTimes, typed, KING_AT } from '../v4/script.mjs';
+import { typeTimes, typed } from '../v4/script.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const [openingArg, gameArg, outArg] = process.argv.slice(2);
@@ -21,21 +21,21 @@ rmSync(`${work}/cards`, { recursive: true, force: true }); mkdirSync(`${work}/ca
 const ff = (args, capture = false) => { const r = spawnSync(FFMPEG, ['-y', '-hide_banner', '-nostats', '-loglevel', capture ? 'info' : 'error', ...args], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: capture ? 'pipe' : ['ignore', 'inherit', 'inherit'] }); if (r.status) throw new Error(`ffmpeg failed: ${args.join(' ')}`); return r.stderr; };
 const loud = (file) => { const e = ff(['-i', file, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=50:print_format=json', '-f', 'null', '-'], true); return JSON.parse(e.slice(e.lastIndexOf('{'), e.lastIndexOf('}') + 1)); };
 
-const FPS = 24, OPEN = 24.333; // the opening's shots: lab 0-4.0, arrival -8.8, DAY 1 -11.8, DAY 12 -16.3, the castle -19.8, the King -24.33
+const FPS = 24, OPEN = 27.333; // the opening's shots: lab 0-4.0, arrival -8.8, DAY 1 -11.8, DAY 12 -17.8, the castle -22.8, the King -27.33
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const fade = (t, a, b, d = 0.25) => clamp01((t - a) / d) * clamp01((b - t) / d);
 const line = (text, t0, cps = 22) => ({ text, times: typeTimes(text, t0, cps) });
 const after = (l, gap = 0.3) => l.times.at(-1) + gap;
 const y2047 = line('2047.', 0.6, 5.5);
 const d1a = line('The time jump worked.', 5.6), d1b = line('Sending out scouts.', 8.9);
-const d12a = line('This is 1447. No way home.', 12.15, 26), d12b = line('We found thorium. The lights stay on.', after(d12a), 26);
+const d12a = line('This is 1447. No way home.', 12.2, 20), d12b = line('We found thorium. The lights stay on.', after(d12a, 0.4), 22);
 const DIARY = [
   { day: '', dayAt: 0, lines: [y2047], from: 0.4, to: 3.75 },
   { day: 'DAY 1', dayAt: 4.9, lines: [d1a, d1b], from: 4.85, to: 11.6 },
-  { day: 'DAY 12', dayAt: 11.95, lines: [d12a, d12b], from: 11.9, to: 16.1 },
+  { day: 'DAY 12', dayAt: 11.95, lines: [d12a, d12b], from: 11.9, to: 17.55 },
 ];
-if (d12b.times.at(-1) > 15.9) throw new Error('final: DAY 12 does not finish typing before its shot ends');
-const CARD = { text: "The King wasn't expecting company.", from: 16.6, to: 19.6 };
+if (d12b.times.at(-1) > 17.0) throw new Error('final: DAY 12 does not finish typing before its shot ends');
+const CARD = { text: "The King wasn't expecting company.", from: 18.1, to: 22.5 };
 /** The overlay's state at `t` (seconds of the opening). */
 function state(t) {
   const d = DIARY.find(x => t >= x.from - 0.3 && t <= x.to + 0.3);
@@ -92,8 +92,17 @@ try {
 const openWav = `${work}/open.wav`;
 ff(['-i', opening, '-i', `${work}/ticks.wav`, '-filter_complex', `[0:a]aformat=sample_rates=48000:channel_layouts=stereo[a];[1:a]aformat=sample_rates=48000:channel_layouts=stereo[b];[a][b]amix=inputs=2:normalize=0:duration=first[s]`, '-map', '[s]', '-t', String(OPEN), '-c:a', 'pcm_s24le', openWav]);
 const openGain = -23 - +loud(openWav).input_i; // under the music (-16) by 7 dB: the opening is the quiet before it
+// The game half, shortened: the King's card (beats 0-6), the raid (10-14, on the track's biggest hit), then the
+// Watchtower to the end card (18 on); the muster and the close fight (their walking) are out. Cuts on whole bars, so the
+// music skips a bar twice; each join has a 15 ms fade. Frames of the game master (30 fps; v4/script.mjs CUT).
+const SEGS = [[441, 568], [652, 736], [821, null]], gameShort = `${work}/game-short.mkv`;
+{
+  const v = SEGS.map(([a, b], i) => `[0:v]trim=start_frame=${a}${b ? `:end_frame=${b}` : ''},setpts=PTS-STARTPTS[v${i}]`);
+  const au = SEGS.map(([a, b], i) => `[0:a]atrim=start=${(a / 30).toFixed(4)}${b ? `:end=${(b / 30).toFixed(4)}` : ''},asetpts=PTS-STARTPTS,afade=t=in:d=0.015${b ? `,afade=t=out:st=${((b - a) / 30 - 0.015).toFixed(4)}:d=0.015` : ''}[a${i}]`);
+  ff(['-i', game, '-filter_complex', `${[...v, ...au].join(';')};${SEGS.map((_, i) => `[v${i}][a${i}]`).join('')}concat=n=${SEGS.length}:v=1:a=1[v][a]`, '-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-crf', '10', '-preset', 'fast', '-c:a', 'pcm_s24le', gameShort]);
+}
 const gameWav = `${work}/game.wav`;
-ff(['-ss', String(KING_AT), '-i', game, '-vn', '-c:a', 'pcm_s24le', '-ar', '48000', gameWav]);
+ff(['-i', gameShort, '-vn', '-c:a', 'pcm_s24le', '-ar', '48000', gameWav]);
 const sum = `${work}/sum.wav`;
 ff(['-i', openWav, '-i', gameWav, '-filter_complex', `[0:a]volume=${openGain.toFixed(2)}dB,afade=t=out:st=${OPEN - 0.12}:d=0.12[a];[a][1:a]concat=n=2:v=0:a=1[s]`, '-map', '[s]', '-c:a', 'pcm_s24le', sum]);
 const m = loud(sum), wav = `${work}/trailer.wav`;
@@ -102,7 +111,7 @@ ff(['-i', sum, '-af', `loudnorm=I=-16:TP=-1.2:LRA=50:measured_I=${m.input_i}:mea
 // ---- the picture: the opening under its cards, then the game half (1080p master) brought to 720p ----
 const master = `${out}/ebbfall-trailer-720p.mp4`;
 const vx = ['-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
-ff(['-i', opening, '-framerate', String(FPS), '-i', `${work}/cards/%04d.png`, '-ss', String(KING_AT), '-i', game, '-i', wav, '-filter_complex',
+ff(['-i', opening, '-framerate', String(FPS), '-i', `${work}/cards/%04d.png`, '-i', gameShort, '-i', wav, '-filter_complex',
   `[0:v]fps=30,setpts=PTS-STARTPTS[o];[1:v]fps=30,format=rgba[c];[o][c]overlay=0:0:shortest=1,trim=duration=${OPEN},setpts=PTS-STARTPTS,format=yuv420p[a];` +
   `[2:v]scale=1280:720:flags=lanczos:out_color_matrix=bt709:out_range=tv,fps=30,setpts=PTS-STARTPTS,format=yuv420p[b];[a][b]concat=n=2:v=1:a=0[v]`,
   '-map', '[v]', '-map', '3:a', '-r', '30', ...vx, '-crf', '14', '-maxrate', '14M', '-bufsize', '28M', '-c:a', 'aac', '-b:a', '256k', '-movflags', '+faststart', master]);

@@ -25,12 +25,17 @@ const loud = (file) => { const e = ff(['-i', file, '-af', 'loudnorm=I=-16:TP=-1.
 // The King's shot is held on its last frame to reach the conflict's cut, eight beats after his first line; the conflict
 // (DAY 13: the King's small band rides at the Data center at dawn) runs eight beats more, then the card on the chord.
 const BAR8 = 8 * MUSIC.beat;
-const SHOTS = [['lab-bots', 0, 6.0], ['arrival-b1', 0, 5.8], ['day1-bots', 0, 6.0], ['day2-m', 0.3, 7.0], ['castle-zoom', 0, 6.0], ['king-far', 0, 6.0], ['conflict-e2', 0.2, 0.2 + BAR8]];
+// `--no-fight` (cut 9): no conflict: the King's lines, then the end card on the chord.
+const NOFIGHT = process.argv.includes('--no-fight');
+const SHOTS = [['lab-bots', 0, 6.0], ['arrival-b1', 0, 5.8], ['day1-bots', 0, 6.0], ['day2-m', 0.3, 7.0], ['castle-zoom', 0, 6.0], ['king-far', 0, 6.0], ...(NOFIGHT ? [] : [['conflict-e2', 0.2, 0.2 + BAR8]])];
 const FPS = 24, starts = []; let acc = 0; for (const [, a, b] of SHOTS) { starts.push(acc); acc += b - a; }
 const KING_SHOT = starts[5], QUIET = 1.2, K = KING_SHOT + QUIET;           // the music's downbeat: the King's first line
-const HOLD = K + BAR8 - starts[6];                                           // the King's last frame held to the conflict
+const HOLD = K + BAR8 - (KING_SHOT + SHOTS[5][2] - SHOTS[5][1]);                                           // the King's last frame held to the conflict
 for (let i = 6; i < starts.length; i++) starts[i] += HOLD;
-const FIGHT = K + BAR8, CARD0 = K + 2 * BAR8;
+const FIGHT = K + BAR8, CARD0 = NOFIGHT ? FIGHT : K + 2 * BAR8;
+// `--music-at <s>` (cut 9: 6, the arrival's first frame): the music from there, one piece to the chord on the card (faded
+// in under the rift's thunder), the shots' own sound under it; without, from the King's first line.
+const MSTART = process.argv.includes('--music-at') ? +process.argv[process.argv.indexOf('--music-at') + 1] : K;
 const CARD_AT = at('card') / GFPS, CARD_LEN = END / GFPS - CARD_AT, TOTAL = CARD0 + CARD_LEN;
 if (HOLD < 0 || HOLD > 1.5) throw new Error(`teaser: the King's hold is ${HOLD.toFixed(2)} s`);
 
@@ -49,7 +54,7 @@ const DIARY = [
   { day: '', dayAt: 0, lines: [y2047], from: 0.5, to: ARR - 0.45 },
   { day: 'DAY 1', dayAt: ARR + 1.6, lines: [d1a, d1b], from: ARR + 1.55, to: D12 - 0.3 },
   { day: 'DAY 12', dayAt: D12 + 0.2, lines: [d12a, d12b], from: D12 + 0.15, to: CASTLE - 0.3 },
-  { day: 'DAY 13', dayAt: FIGHT + 0.25, lines: [d13], from: FIGHT + 0.2, to: CARD0 - 0.25 },
+  ...(NOFIGHT ? [] : [{ day: 'DAY 13', dayAt: FIGHT + 0.25, lines: [d13], from: FIGHT + 0.2, to: CARD0 - 0.25 }]),
 ];
 if (d12b.times.at(-1) > CASTLE - 1.0) throw new Error('teaser: DAY 12 does not finish typing a second before its shot ends');
 const CARD = { text: "The King wasn't expecting company.", from: CASTLE + 0.5, to: KING_SHOT - 0.35 };
@@ -130,11 +135,12 @@ const music = `${work}/music.wav`, card = `${work}/card.wav`, ref = `${work}/ref
 ff(['-ss', String(KING_AT), '-t', BAR8.toFixed(4), '-i', game, '-vn', '-c:a', 'pcm_s24le', ref]);
 ff(['-ss', String(MUSIC.in), '-t', BAR8.toFixed(4), '-i', TRACK, '-vn', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s24le', raw8]);
 const mGain = +loud(ref).input_i - +loud(raw8).input_i;
-ff(['-ss', String(MUSIC.in), '-t', (2 * BAR8).toFixed(4), '-i', TRACK, '-vn', '-af', `aformat=sample_rates=48000:channel_layouts=stereo,volume=${mGain.toFixed(2)}dB,afade=t=out:st=${(2 * BAR8 - 0.03).toFixed(4)}:d=0.03`, '-c:a', 'pcm_s24le', music]);
+const MLEN = CARD0 - MSTART, MFROM = MSTART === K ? MUSIC.in : MUSIC.chord - MLEN, MFADE = MSTART === K ? 0.008 : 1.5;
+ff(['-ss', MFROM.toFixed(4), '-t', MLEN.toFixed(4), '-i', TRACK, '-vn', '-af', `aformat=sample_rates=48000:channel_layouts=stereo,volume=${mGain.toFixed(2)}dB,afade=t=in:d=${MFADE},afade=t=out:st=${(MLEN - 0.03).toFixed(4)}:d=0.03`, '-c:a', 'pcm_s24le', music]);
 ff(['-ss', CARD_AT.toFixed(4), '-i', game, '-vn', '-af', 'aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:d=0.01', '-c:a', 'pcm_s24le', card]);
 const sum = `${work}/sum.wav`;
 ff(['-i', quiet, '-i', music, '-i', card, '-filter_complex',
-  `[0:a]volume=${qGain.toFixed(2)}dB,volume='if(lt(t,${(K - 0.1).toFixed(3)}),1,if(lt(t,${FIGHT.toFixed(3)}),max(0,1-(t-${(K - 0.1).toFixed(3)})/0.6),0.6))':eval=frame[q];[1:a]adelay=delays=${Math.round(K * 1000)}:all=1[m];[q][m]amix=inputs=2:normalize=0:duration=longest,atrim=0:${CARD0.toFixed(4)}[h];[h][2:a]concat=n=2:v=0:a=1[s]`,
+  `[0:a]volume=${qGain.toFixed(2)}dB,volume='${MSTART === K ? `if(lt(t,${(K - 0.1).toFixed(3)}),1,if(lt(t,${FIGHT.toFixed(3)}),max(0,1-(t-${(K - 0.1).toFixed(3)})/0.6),0.6))` : `if(lt(t,${MSTART.toFixed(3)}),1,max(0.4,1-(t-${MSTART.toFixed(3)})/1.5*0.6))`}':eval=frame[q];[1:a]adelay=delays=${Math.round(MSTART * 1000)}:all=1[m];[q][m]amix=inputs=2:normalize=0:duration=longest,atrim=0:${CARD0.toFixed(4)}[h];[h][2:a]concat=n=2:v=0:a=1[s]`,
   '-map', '[s]', '-c:a', 'pcm_s24le', sum]);
 const m = loud(sum), wav = `${work}/trailer.wav`;
 ff(['-i', sum, '-af', `loudnorm=I=-16:TP=-1.2:LRA=50:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true,aresample=48000`, '-c:a', 'pcm_s16le', wav]);

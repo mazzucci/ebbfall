@@ -18,7 +18,7 @@ const [music, outArg] = process.argv.slice(2);
 if (!music) throw new Error('cut: the music file is the first argument');
 const out = resolve(outArg || `${root}../ebbfall-article/trailer-v4`), work = `${root}target/trailer6/cut`;
 // (cut 5: a part re-recorded for it is in target/trailer5/16x9/, the others are cut 4's)
-const dirOf = (part) => [6, 5, 4].map(n => `${root}target/trailer${n}/16x9`).find(d => existsSync(`${d}/${part}.mkv`)); // (the newest recording of a part: cut 6's opening, cut 5's DAY 675 and end card, cut 4's middle)
+const dirOf = (part) => [7, 6, 5, 4].map(n => `${root}target/trailer${n}/16x9`).find(d => existsSync(`${d}/${part}.mkv`)); // (the newest recording of a part: cut 6's opening, cut 5's DAY 675 and end card, cut 4's middle)
 mkdirSync(out, { recursive: true }); mkdirSync(work, { recursive: true });
 const ff = (args, capture = false) => { const r = spawnSync(FFMPEG, ['-y', '-hide_banner', '-nostats', '-loglevel', capture ? 'info' : 'error', ...args], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: capture ? 'pipe' : ['ignore', 'inherit', 'inherit'] }); if (r.status !== 0) throw new Error(`ffmpeg failed: ${args.join(' ')}\n${r.stderr || ''}`); return r.stderr; };
 const TOTAL = END / FPS, CARD_AT = at('card') / FPS;

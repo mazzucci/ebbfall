@@ -506,7 +506,7 @@ class UnitObj {
     if (sel.has(u)) selRing(u.x, u.y + 3, this.size * 0.84, this.size * 0.52, enemies(G.me, u.team) ? SEL_FOE : SEL); // (a little tighter than the art round the feet)
   }
   /** A pose beyond the walk and the strike (the constructor's lists), or null: set up or setting up; a builder at its
-   *  site, the stroke 0.18 s from each strike (or, `workLook.turns`, its arm out for one strike and down for the next); a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
+   *  site or at a repair, the stroke 0.18 s from each strike (or, `workLook.turns`, its arm out for one strike and down for the next); a shooter as its shot leaves (0.12 s), just after (to 0.3 s), and with
    *  its target in reach otherwise. `now`: the renderer's clock (s). */
   newPose(u, now) {
     const F = this.fires, cd = F && !u.inside && u.d?.weapon?.cd;
@@ -516,12 +516,13 @@ class UnitObj {
     if (this.works && this.strikes !== undefined) return (this.workLook.turns ? this.strikes % 2 : now - (this.struckAt ?? -1) < 0.18) ? 'k1' : 'k0';
     return cd && F.includes('aim') && inReach(u) ? 'aim' : null;
   }
-  /** A builder at work (construct.js WORK): standing in reach of its unfinished site, a strike every 0.55 s or so (its
+  /** A builder at work (construct.js WORK): standing in reach of its unfinished site, or of the damaged building it
+   *  repairs, a strike every 0.55 s or so (its
    *  phase from its id): a pale glint and a little dust on a Kingdom wall, a welding spark on the Expedition's, a soft
    *  knock heard only on screen, and its body nudged towards the site for two frames. `now`: the renderer's clock (s). */
   work(u, now) {
-    const b = u.task.t === 'build' ? u.task.b : null;
-    if (!b || b.done || b.dead || this.moving || !atSite(u, b, TILE)) { this.strikes = undefined; this.nudge = 0; return; }
+    const T = u.task, b = T.t === 'build' || T.t === 'repair' ? T.b : null, working = b && (T.t === 'build' ? !b.done : b.done && b.hp < b.maxhp);
+    if (!working || b.dead || this.moving || !atSite(u, b, TILE)) { this.strikes = undefined; this.nudge = 0; return; }
     const c = strikeCount(u.id, now);
     if (this.strikes !== undefined && c !== this.strikes) {
       const p = strikeAt(u, b); this.nudgeTo = p; this.nudge = this.workLook.nudge ? WORK.nudgeFrames : 0; this.struckAt = now;

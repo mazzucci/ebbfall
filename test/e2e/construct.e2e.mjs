@@ -70,6 +70,34 @@ test('a Kingdom site reads unfinished: rising in color in its timber frame, its 
   } finally { await d.close(); }
 });
 
+for (const [race, device] of [['humans', DESKTOP], ['vael', PHONE]]) {
+  test(`${race === 'vael' ? 'a Bot' : 'a Villager'} repairing a building works at it as at a site: its work frames and strikes once in reach, not while it walks there`, async () => {
+    const d = await newGame(device, 1, 4242, { ai: false, race });
+    try {
+      await d.grant(3000, 0);
+      const s = await d.state(), hq = s.bldgs.find(b => b.team === 0);
+      // A worker some way off, stopped; the headquarters damaged (set up); the worker sent to repair it through the UI.
+      const w = await d.eval(([x, y, k]) => endfall.engine.debugSpawn(0, k, x, y), [hq.x + 260, hq.y + 220, race === 'vael' ? 'lumen' : 'harvester']);
+      await d.eval((id) => { endfall.engine.debugSetHp(id, 200); endfall.skip(0.2); }, hq.id);
+      await pick(d, w);
+      if (d.touch) { await d.pressCard('Repair'); await d.clickEntity(hq.id); } else await d.rightClickWorld(hq.x, hq.y);
+      const look = () => d.eval((id) => { const u = endfall.G.units.find(u => u.id === id), l = endfall.teamLayers().find(l => l.id === id); return { task: u.task.t, base: l?.base, strikes: endfall.sites().strikes[id] || 0 }; }, w);
+      let on = await look();
+      assert.equal(on.task, 'repair', 'sent to repair');
+      assert.ok(!/_k[01]$/.test(on.base), `walking there: no work frame (${on.base})`);
+      // In reach: its strikes (real time) and its work frames.
+      await d.skipUntil(([id, b]) => { const u = endfall.G.units.find(u => u.id === id), h = endfall.G.bldgs.find(x => x.id === b); return u.task.t === 'repair' && Math.hypot(u.x - h.x, u.y - h.y) < h.w * 16 + 40 && h.hp < h.maxhp - 50; }, [w, hq.id], { seconds: 20, step: 0.2 });
+      await d.centerOn(hq.x, hq.y);
+      await d.page.waitForFunction((id) => (endfall.sites().strikes[id] || 0) >= 2, w, { timeout: 15000 });
+      const seen = new Set();
+      for (let i = 0; i < 40 && seen.size < 2; i++) { const l = await look(); if (/_k[01]$/.test(l.base)) seen.add(l.base.slice(-2)); await d.page.waitForTimeout(60); }
+      assert.ok(seen.size >= 1, `at work: its work frames (${[...seen]})`);
+      if (race !== 'vael') assert.ok(seen.has('k0'), `the hammer raised between strikes (${[...seen]})`);
+      assert.deepEqual(d.errors, []);
+    } finally { await d.close(); }
+  });
+}
+
 test('pulled off, a site toasts once ("Barracks paused at N%") and no more within the minute; then it comes into color', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {

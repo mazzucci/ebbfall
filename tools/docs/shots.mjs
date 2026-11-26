@@ -48,6 +48,8 @@ const BARE = `${QUIET} #tools,#btnBox,#btnHome,#btnArmy,#hud,#top{display:none!i
 /** The camera's zoom on a desktop: closer than the game's start (all the way out), so the units read in a 1000 px column;
  *  a phone's shots keep its start. */
 const ZOOM = 1.5;
+/** The heroes' zoom: the base fills the width, a Knight or a Rover reads on a phone. */
+const HERO_ZOOM = 1.6;
 const SEED = 4242;
 /** The stills' game: the menu's default map with our base at its first start (`?seed=` keeps which base is ours: without
  *  it each run drew a side, and a still framed for one base came out round the other, its army at the frame's edge). */
@@ -191,7 +193,7 @@ function base([race, hero]) {
   const band = (dx, dy) => ({ x: hq.x + hx * dx, y: hq.y + hy * dy });
   S.mine();
   e.setResources(me, 5000, 0);
-  if (hero) return heroBase(race, band);
+  if (hero) return window.heroBase(race, band);
   for (let i = 0; i < 4; i++) spawn(me, race === 'humans' ? 'harvester' : 'lumen', at(-60, (i - 1.5) * 30));
   if (race === 'humans') {
     place('depot', at(-150, -160)); place('depot', at(-150, 150)); place('barracks', at(170, -170));
@@ -222,16 +224,24 @@ function heroBase(race, band) {
     for (const dy of [-80, 10]) place('spire', band(-195, dy)); place('loom', band(-180, 130)); place('ward', band(130, 150)); e.skip(70);
     place('uplink', band(330, -110)); e.skip(80); place('eclipse', band(360, 90)); e.skip(80);
   }
+  for (let i = 0; i < 60 && G.bldgs.some(b => b.team === me && !b.done); i++) e.skip(5); // (every building up)
   mine(); e.setResources(me, 5000, 0);
   for (let i = 0; i < 3; i++) spawn(me, kg ? 'harvester' : 'lumen', band(20 + i * 30, 60)); // (more at the mine: some come, some go)
   const t = 180 - G.time; if (t > 0) e.skip(t);
   mine(); e.skip(6); // (the new ones on their first trips)
   // The army: in a block at the gate, then ordered out toward the map's middle and caught on the way.
   const army = kg ? ['trooper', 'trooper', 'trooper', 'lancer', 'lancer', 'lancer', 'knight', 'knight', 'siegeTank'] : ['monolith', 'monolith', 'umbra', 'umbra', 'scythe', 'shrike', 'shrike', 'shrike'];
-  const ids = army.map((k, i) => spawn(me, k, band(250 + (i % 3) * 36, 190 + Math.floor(i / 3) * 38)));
-  const us = () => ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
-  const to = band(560, 260);
-  eng.formation(us(), to.x, to.y); e.skip(2.5);
+  // A column on the worn track that leaves the base for the middle (Dust Quarter, seed 4242: `PHONE_TRACK`'s), the
+  // first a little way out, each marching for its own point further along it, so the column keeps its spacing; the
+  // flyers (`air`) beside it, apart.
+  const ground = army.filter(k => !eng.UNITS[k].air), air = army.filter(k => eng.UNITS[k].air);
+  // (the track runs south from the headquarters' gate: world px from its middle, the head of the column furthest out)
+  const H0 = S.hq, line = (d) => ({ x: H0.x - 28 - d * 0.08, y: H0.y + 70 + d });
+  const gap = kg ? 30 : 50; // (the machines are wider)
+  ground.forEach((k, i) => { const p = line((kg ? 200 : 150) - i * gap), id = spawn(me, k, p), q = line(520 - i * gap); eng.moveTo(G.units.find(u => u.id === id), q.x, q.y); });
+  air.forEach((k, i) => { const p = { x: H0.x + 90 + (i % 2) * 50, y: H0.y + 60 + i * 50 }, id = spawn(me, k, p); eng.moveTo(G.units.find(u => u.id === id), p.x - 40, p.y + 300); });
+  e.skip(kg ? 0.8 : 0.2); // (the machines run fast inside coverage: caught at once)
+  window.S.heroAt = { x: H0.x - 40, y: H0.y + 95 }; // (the frame's middle: the base above, the column below)
   e.setResources(me, 470, 0);
   return window.sceneBox(S);
 }
@@ -266,7 +276,7 @@ async function game(device, race, css, query = '') {
   await page.waitForFunction(() => window.endfall && endfall.G.units.length > 0, null, { timeout: 60000 });
   await page.addStyleTag({ content: css });
   await page.evaluate(helpers);
-  await page.addScriptTag({ content: `window.sceneBox = ${sceneBox};` }); // (the scenes' shared helpers)
+  await page.addScriptTag({ content: `window.sceneBox = ${sceneBox}; window.heroBase = ${heroBase};` }); // (the scenes' shared helpers)
   return { ctx, page };
 }
 /** The camera on `p` at the shots' zoom, kept inside the map (no ground past its edge in the frame). Returns where `p`
@@ -391,7 +401,8 @@ async function heroes() {
     const { ctx, page } = await game(DESKTOP, race, BARE, STARTS);
     try {
       const b = await page.evaluate(base, [race, true]);
-      const { at, fit } = await frameBox(page, b); await settle(page);
+      // (zoom 1.6, framed on the base: it fills the width, a Knight or a Rover reads on a phone)
+      const at = await look(page, await page.evaluate(() => window.S.heroAt), HERO_ZOOM), fit = null; await settle(page);
       await hero(race === 'humans' ? 'hero-kingdom' : 'hero-expedition', page, race === 'humans'
         ? { alt: 'Ebbfall gameplay: a blue Kingdom base, the Castle by its gold mine with a Barracks, Stables and a Watchtower, Villagers mining, an army of guards, archers, knights and a cannon marching out', caption: 'A Kingdom base at 3:00: Villagers at the mine, the army marching out.' }
         : { alt: 'Ebbfall gameplay: a blue Expedition base, the Data center by its mine with an Uplink dish, the Portal, wind turbines and a sentry mast, bots hauling ore, rovers, androids, a buggy and drones heading out', caption: 'An Expedition base at 3:00: Bots hauling ore, Rovers, Androids and Drones heading out.' }, at, fit);

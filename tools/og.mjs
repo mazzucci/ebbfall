@@ -1,8 +1,8 @@
 // The link preview image, public/og.png (1200x630: Open Graph's og:image and X's summary_large_image, index.html): the
 // game's look (its dark ground #0b0f16, the icon, the wordmark in the menu's font) over the battle of tools/scene.mjs (the
-// same scene the menu's first page shows under it, tools/menu-art.mjs) drawn with the game's older sprites (tools/art/older:
-// the Kingdom in seat 0's color from the left, the Expedition in seat 1's from the right, their team masks tinted as
-// the client tints them), composed as a page in headless Chromium
+// same scene the menu's first page shows under it, tools/menu-art.mjs) as a picture painted over that composition
+// (PICTURE in the local pictures folder, EBBFALL_PICTURES: never committed; without it this stops), cropped round the
+// meeting (`CROP`), then the card as a page in headless Chromium
 // (tools/chromium.mjs) and written as a PNG. Kept small for the apps that fetch it (WhatsApp skips large images):
 // the screenshot's colors are reduced to a palette (an indexed PNG) when that is what fits. Run after changing the
 // icon, the art or the wording:
@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { launchChromium } from './chromium.mjs';
 import { chunk } from './art/png.js';
-import { BAND, groundTile } from './scene.mjs';
+import { existsSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const out = process.argv[2] || new URL('public/og.png', root).pathname;
@@ -22,17 +22,12 @@ const W = 1200, H = 630, BUDGET = 300 * 1024, DITHER = 0.8;
 const TAG = 'A free browser RTS: a kingdom against time travelers';
 const SUB = 'KINGDOM VS EXPEDITION · AI OR FRIENDS ONLINE · PHONE OR DESKTOP';
 
-/**
- * The battle (tools/scene.mjs BAND, 4:1: the menu's desktop band too), drawn at the art's scale (`ZOOM` 1: 64 px a tile) in
- * the card's bottom BAND_H px: [frame, x, y, seat, scale] with x, y the frame's anchor (a unit's ground point) in card
- * pixels, `scale` a figure drawn larger than the rest (the Drones). The card's veil (#veil) fades the band's top under
- * the title, as the menu's image fades its own.
- */
-const ZOOM = 1, BAND_H = W / 4, BAND_TOP = H - BAND_H;
-const SCENE = BAND.map(([n, x, y, seat, scale = 1]) => [n, x * W, BAND_TOP + y * BAND_H, seat, scale]);
+/** The picture (6336x2688) and the part of it the card shows: the meeting, both bases' edges in, the gap in the
+ *  middle (x, y, w, h in its px; the card's aspect). The card's veil (#veil) fades its top under the title. */
+const PICTURE = (process.env.EBBFALL_PICTURES || '/home/mazzucci/projects/ebbfall-article/nano-test') + '/opt/band/a-1.jpg';
+const CROP = [528, 0, 5120, 2688];
+if (!existsSync(PICTURE)) { console.error(`og: the picture is not there: ${PICTURE}\nIt is local, never in the repo: set EBBFALL_PICTURES to the pictures' folder. Nothing was changed.`); process.exit(1); }
 
-const pages = JSON.parse(readFileSync(new URL('tools/art/older/atlas.json', root))).pages;
-const atlas = { tints: JSON.parse(readFileSync(new URL('tools/art/older/atlas.json', root))).tints, pages: pages.map(p => JSON.parse(readFileSync(new URL(`tools/art/older/${p}`, root)))) };
 const css = readFileSync(new URL('src/style.css', root), 'utf8').match(/:root\s*\{[^}]*\}/)[0];
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -56,32 +51,12 @@ canvas{position:absolute;inset:0}
 <canvas id="c" width="${W}" height="${H}"></canvas><div id="veil"></div><div id="side"></div>
 <div id="title"><div id="name"><img src="/public/icon.svg" alt=""><h1>Ebbfall</h1></div><div id="tag">${TAG}</div><div id="sub">${SUB}</div></div>
 </div><script>
-const ATLAS = ${JSON.stringify(atlas)}, SCENE = ${JSON.stringify(SCENE)}, ZOOM = ${ZOOM}, W = ${W}, H = ${H};
-const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
+const W = ${W}, H = ${H}, CROP = ${JSON.stringify(CROP)};
+const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src.slice(0, 40))); i.src = src; });
 window.ready = (async () => {
-  const imgs = await Promise.all(ATLAS.pages.map(p => load('/tools/art/older/' + p.meta.image)));
-  const find = (n) => { const i = ATLAS.pages.findIndex(p => p.frames[n]); if (i < 0) throw new Error('no frame ' + n); return { img: imgs[i], f: ATLAS.pages[i].frames[n] }; };
   const g = document.getElementById('c').getContext('2d');
   g.imageSmoothingQuality = 'high';
-  // A frame drawn with its anchor at (x, y), scaled by s (trimmed frames: their offset in the source box).
-  const draw = (ctx, n, x, y, s) => {
-    const { img, f } = find(n), r = f.frame, o = f.spriteSourceSize, a = f.anchor || { x: 0, y: 0 };
-    ctx.drawImage(img, r.x, r.y, r.w, r.h, x - a.x * f.sourceSize.w * s + o.x * s, y - a.y * f.sourceSize.h * s + o.y * s, r.w * s, r.h * s);
-  };
-  // The ground: the terrain's plain cells, a patchwork as the game lays them (scene.mjs groundTile picks the variant).
-  const T = 64 * ZOOM, groundTile = ${groundTile.toString()};
-  for (let ty = 0; ty * T < H; ty++) for (let tx = 0; tx * T < W; tx++) draw(g, groundTile(tx, ty), tx * T, ty * T, ZOOM);
-  // A unit or building: the base, then its team mask tinted with the seat's tint (a multiply), as the client draws it.
-  const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H; const t = tmp.getContext('2d');
-  for (const [n, x, y, seat, scale] of SCENE) {
-    draw(g, n, x, y, ZOOM * scale);
-    if (seat === null) continue;
-    const col = '#' + ATLAS.tints[seat].toString(16).padStart(6, '0');
-    t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, W, H); draw(t, n + '_m', x, y, ZOOM * scale);
-    t.globalCompositeOperation = 'multiply'; t.fillStyle = col; t.fillRect(0, 0, W, H);
-    t.globalCompositeOperation = 'destination-in'; draw(t, n + '_m', x, y, ZOOM * scale);
-    g.drawImage(tmp, 0, 0);
-  }
+  g.drawImage(await load('/picture.jpg'), ...CROP, 0, 0, W, H);
   await document.fonts.ready;
   await Promise.all([...document.images].map(i => i.decode()));
 })();
@@ -95,6 +70,7 @@ try {
   await page.route('https://og.invalid/**', (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/') return route.fulfill({ contentType: 'text/html', body: html });
+    if (path === '/picture.jpg') return route.fulfill({ contentType: 'image/jpeg', body: readFileSync(PICTURE) });
     return route.fulfill({ contentType: TYPES[path.split('.').pop()] || 'application/octet-stream', body: readFileSync(new URL('.' + path, root)) });
   });
   page.on('pageerror', (e) => { throw e; });

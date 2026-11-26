@@ -441,7 +441,7 @@ src/client/           everything that touches the browser
                       page and the pause card; opening it focuses a lit chip or BACK, never the field (no phone keyboard)
   help.js             the in-game help sheet: the ? in the top bar (between the clock and FULL SCREEN) or the pause card's
                       HOW TO PLAY opens it in the stage's top-right corner (over the pause card, below the corner's
-                      pair): the controls in five lines (a mouse's or touch's, by the pointer), the goal in the
+                      pair): the controls in a few lines (a mouse's five or touch's four, by the pointer), the goal in the
                       player's people's words, the docs' full guide in a new tab, and Send feedback (feedback.js); the
                       game runs on under it; Esc, its close button or the ? again close it
   feedback.js         the game's ways to the docs' feedback form: the first page's quiet second link beside Learn more

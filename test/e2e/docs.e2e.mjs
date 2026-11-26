@@ -66,7 +66,7 @@ for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHON
       assert.ok(s.x + s.width <= stage.x + stage.width + 1 && s.y >= stage.y - 1 && s.y + s.height <= stage.y + stage.height + 1, 'inside the stage');
       assert.ok(s.x + s.width > stage.x + stage.width - 20 && s.y >= bar.y + bar.height && s.y < bar.y + bar.height + 20, "in its top-right corner, under the top bar (a desktop's stage is the window: the bar floats over it)");
       const lines = await sheet.locator(d.touch ? '.lines.touch li' : '.lines.desk li').evaluateAll(ls => ls.filter(l => l.offsetParent).length);
-      assert.equal(lines, 5, 'the controls in five lines, for this pointer');
+      assert.equal(lines, d.touch ? 4 : 5, "the controls in a pointer's lines: a mouse's five, touch's four");
       assert.match(await d.page.locator('#helpGoal').textContent(), /^Mine gold, raise Cottages for population/);
       assert.equal(await d.page.locator('#helpRun').textContent(), 'The game keeps running.');
       assert.equal(await sheet.evaluate(e => getComputedStyle(e).backgroundColor), 'rgb(18, 26, 37)', 'opaque');

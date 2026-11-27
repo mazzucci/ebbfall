@@ -211,8 +211,8 @@ export function board(page, scope = 'solo') {
 export async function newGame(device = DESKTOP, diff = 1, seed = 4242, { ai = true, race = 'humans', enemy = 'humans', tutorial = false, init = null, query = '' } = {}) {
   const ctx = await browserContext(device);
   // The board the scenarios play on: you against `enemy`, the Kingdom unless asked (they were written on a mirror),
-  // saved as a player's own board is. With none saved the menu seats you the Expedition against the Kingdom (menu.js `defaultRows`: the
-  // menu's own tests see that default).
+  // saved as a player's own board is. With none saved the menu seats you the Expedition against the Kingdom (menu.js
+  // `defaultRows`: the menu's own tests see that default).
   await ctx.addInitScript((seats) => { try { if (localStorage.getItem('endfall.seats') === null) localStorage.setItem('endfall.seats', seats); } catch { /* no storage */ } },
     JSON.stringify([{ race: 'humans', team: 0 }, { race: enemy, team: 1, diff: 0 }]));
   if (init) await (Array.isArray(init) ? ctx.addInitScript(...init) : ctx.addInitScript(init)); // (a script run before the page's own, e.g. a stand-in for full screen; [fn, arg] passes it an argument)

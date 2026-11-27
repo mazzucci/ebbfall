@@ -15,7 +15,7 @@
 //   {{diagram loop|economy|cap|expedition}}   a small picture from the data (diagrams.mjs)
 //   {{tree}}             a people page's buildings and units at a glance
 //   {{research}}         a people page's research, one line each
-//   {{peoples tag | tag}} the home's two tiles, a link to each people (the Kingdom's line, the Expedition's)
+//   {{peoples tag | tag}} the home's two tiles, a link to each people (the Expedition's line, the Kingdom's)
 //   {{artstrip}}         About's four large sprites
 //   {{clip}}             the gameplay clip (public/docs/media/trailer.*: the trailer replaces it by taking its name)
 //   {{clip name | title=... | label=... | caption=...}}
@@ -51,8 +51,8 @@ const controls = () => JSON.parse(readFileSync(CONTROLS, 'utf8'));
 /** A token's `key=value | key=value` options. */
 const opts = (rest) => Object.fromEntries(rest.map(p => { const i = p.indexOf('='); return [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }));
 
-/** The pages, in the sitemap's order: [copy file, path]. */
-export const PAGES = [['home', '/docs/'], ['how-to-play', '/docs/how-to-play/'], ['kingdom', '/docs/kingdom/'], ['expedition', '/docs/expedition/'], ['about', '/docs/about/'], ['feedback', '/docs/feedback/']];
+/** The pages, in the sitemap's order: [copy file, path]. The Expedition before the Kingdom: single player starts as it. */
+export const PAGES = [['home', '/docs/'], ['how-to-play', '/docs/how-to-play/'], ['expedition', '/docs/expedition/'], ['kingdom', '/docs/kingdom/'], ['about', '/docs/about/'], ['feedback', '/docs/feedback/']];
 
 /** A copy file: its head comment's fields (title, description, crumb, people) and the body after it. */
 export function readCopy(name) {

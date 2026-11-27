@@ -46,7 +46,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   showing only what the seat saw), the AI styles (`styles`: each AI seat's draw at its first turn, the same for the
   same seed, every level's styles over many games and never Easy's Pressure, nothing emitted, a forced style keeping
   the other draws, a lab plan played as it is, mirrored seats' stalled-game pushes apart, Pressure's sooner wave and
-  later natural and Boom's later wave, Easy's Boom at most two top-tier units from 15:00 and its Timing none), the leash (`leash`: an idle Guard chasing a passer-by only `CHASE_LEASH` from its
+  later natural and Boom's later wave, Easy's Boom at most two top-tier units from 15:00 and its Timing none, each
+  people's own opening at a level before its style: Easy's Kingdom's eight workers and first wave of five, Medium's and
+  Hard's Expedition's Lab at 3:30 and 4:15), the leash (`leash`: an idle Guard chasing a passer-by only `CHASE_LEASH` from its
   spot and walking back, an attack-move group never more than the leash off its line after a fleeing unit and all
   reaching its goal, an attack-move killing an Archer where its route bends far off the straight line (Standard seed 2,
   the Shore seed 1), Riders shelled from past their leash going for the gun, an attack order with none), the top units
@@ -101,8 +103,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   of the area going there, slower, striking a building out there and quick again back inside; with an Uplink the bonus
   out there, and when it falls slow again where it stood, fighting there; a seat with no source left slowed
   everywhere; the straight way taken across two overlapping areas' waist, and no word to the player for a group sent
-  far out; the Expedition AI's machines out of the area with its waves on 96x96 with no Uplink to raise, and its one
-  Uplink at home, in its area, never two; Expedition buildings placed only inside a Data center's area even with an
+  far out; the Expedition AI's Uplink its next building once its Lab stands and again once it falls, its machines kept
+  inside its area and out of its waves until its Uplink stands (its hired people going out meanwhile), then out with a
+  wave, and its one Uplink at home, in its area, never two; Expedition buildings placed only inside a Data center's area even with an
   Uplink standing, the Data center and the Uplink anywhere explored, a new Data center bringing its own area, a post and
   a turbine standing and working after their Data center falls), the
   Expedition's economy (`expedition`: energy and one grid, Nov 14: the
@@ -194,7 +197,10 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       upgrades.rs (Energy efficiency, two levels at the Lab: machines cost `ENERGY_COST` of their price, `World::unit_cost`; Trade at the Market), diff.rs (AI tuning per difficulty: its tier by the clock, `tier_at`, Easy
                       to its mid tier only, Medium's and Hard's top tier from 8:00; Easy never retreats; Easy's clumsy waves
                       growing by one from `clumsy_until`; a people's own expansion time, `expand_at_of`: Medium's and
-                      Hard's Kingdom at 7:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`),
+                      Hard's Kingdom at 7:00 on 96, 10:00 on bigger maps, Hard's Expedition at 7:00, read through `World::expand_time`;
+                      a people's own opening, `people`, `PeopleTune`: its workers, first wave and Lab's time over its
+                      level's, applied before its style, `Diff::for_people`: Easy's Kingdom, Medium's and Hard's
+                      Expedition),
                       plan.rs (a plan for an AI seat, play against Claude: the code's grammar, strict, each value
                       clamped and noted, `Plan::apply` over Hard as its drawn style plays it, deltas, intents;
                       claude/PLAN_VOCAB.md), style.rs (AI play styles, PRD: AI styles and the level ladder: Pressure, Timing, Boom, weighted
@@ -271,8 +277,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       speed changes, not damage; the sources listed again when they change (checked each tick: derived,
                       not hashed; a seat told when its map-wide signal comes or goes), and handed to the client as the
                       areas' circles (`radio_circles`, Game.radioCircles: x, y, reach per Data center of a side and its
-                      allies) and Game.radioWide. The AI keeps one Uplink at home once it has four machines and a Lab,
-                      `tend_uplink` in ai/build.rs; its forward Uplinks went on Nov 27); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
+                      allies) and Game.radioWide. The AI raises one Uplink at home as its next building once its Lab
+                      stands, and again when it falls, `uplink_due` in ai/build.rs; its forward Uplinks went on Nov 27); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
                       mercenary line is held to its own share of the grid (`line_grid`, `line_max`); at that share
@@ -293,13 +299,13 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       race's towers (`tower_max`: one Sentry mast for Easy and Medium, one Watchtower for Easy). A wave
                       left with only machines held quiet at their coverage's edge is over, and so is any wave quiet for
                       90 s (`WAVE_QUIET`); the army it expects of the foe falls with the units of that sighting it sees
-                      fall (`army_seen_ids`), and a wave short of its count goes when it crushes that (`crushing`). Its
-                      push's and a wave's Uplink goes forward, at the first point of the walkers' way to the goal
-                      whose 54 tiles take in the goal with 8 to spare (`relay_point`, `relay_spot`), so one covers the
-                      push and stands as far back as that allows (its army answers an enemy at it as at any building),
-                      and its price is held while a wave with machines is out (`relay_hold`); its Portal's Uplink stands
-                      at home, on that way inside its coverage (`relay_home_point`), and is raised again when lost
-                      (`tech2_due`: with none, the Portal stood idle for good). Against enemy siege
+                      fall (`army_seen_ids`), and a wave short of its count goes when it crushes that (`crushing`). The
+                      Expedition's Uplink (the signal across the whole map, Nov 27) is its build order's first building
+                      once its Lab stands, ahead of supply and its natural, its price held from its factories as the
+                      build order's `want`, and again when it falls (`uplink_due`); until one stands its machines stay
+                      home (`held_machines`): out of its waves, defending only within their reach of its Data centers'
+                      areas, back at the rally when idle; machines out when it falls stay with their wave. A wave's
+                      machines march at the pace of its slowest hired walker (`pace_machines`). Against enemy siege
                       seen (`siege_seen`, the Cannon, the Rover) a level that adapts trains its dive unit (`AiScript::
                       dive`: the Knight, the Drone) one per line unit and holds its price (`dive_hold`); on contact
                       its wave's melee units and dive unit go for the nearest enemy siege gun it sees within 14 tiles

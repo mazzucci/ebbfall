@@ -415,8 +415,7 @@ impl World {
         let candidates: Vec<Id> = army
             .iter()
             .copied()
-            // (machines raid only with the signal everywhere, its Uplink standing: without it a raid would crawl at
-            // half speed outside its area; none since the arc until Nov 27)
+            // (no machine raids, as since the arc)
             .filter(|&a| {
                 self.unit(a)
                     .is_some_and(|u| u.kind == raider && !radio::needs_range(u.kind))
@@ -900,12 +899,11 @@ impl World {
     fn pace_machines(&mut self, group: &[Id]) {
         let slowest = group
             .iter()
-            .filter_map(|&a| self.unit(a))
-            .filter(|u| !radio::needs_range(u.kind) && !u.kind.def().air)
-            .map(|u| u.id)
-            .collect::<Vec<Id>>()
-            .into_iter()
-            .map(|a| self.base_speed(a))
+            .filter(|&&a| {
+                self.unit(a)
+                    .is_some_and(|u| !radio::needs_range(u.kind) && !u.kind.def().air)
+            })
+            .map(|&a| self.base_speed(a))
             .fold(f64::INFINITY, f64::min);
         if !slowest.is_finite() {
             return;

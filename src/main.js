@@ -3,7 +3,7 @@
 // the lobby call in through `game`.
 import * as engine from './engine/index.js';
 import { G, DT, TILE, BUILDINGS, idx, resetGame, resetGameForSeat, resetGameSeats, step, advance, mirror, fmt, setResources, foes, enemies, FACTIONS, UNITS } from './engine/index.js';
-import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, targetsMarked, ghostHeadShown, rallyShown, leashAt, unitTop, bldgArtTop, seatTint, spotTint, showBars, portrait } from './client/gl/render.js';
+import { resize, render, renderTerrain, centerOn, ping, boom, deathY, hitY, healFx, castFx, muzzleFx, muzzleFlash, meleeHit, tierHit, tierMuzzle, cam, view, toWorld, nearView, ALLY, FOE, zoomLimit, startZoom, startOn, showFog, teamLayers, drawOrder, effectsShown, dyingShown, sitesShown, groundShown, shakeNow, rangeShown, targetsMarked, ghostHeadShown, rallyShown, unitTop, bldgArtTop, seatTint, spotTint, showBars, portrait } from './client/gl/render.js';
 import { updateHud, invalidateCard, cardItems, myFaction, aName } from './client/hud.js';
 import { $, ui, toast, setHint, setSelection } from './client/ui.js';
 import { bindInput, camKeys, input, stopGlide } from './client/input.js';
@@ -162,7 +162,6 @@ function drainEvents() {
     if (e.t === 'sfx') sfx(e.name);
     else if (e.t === 'toast') toast(e.msg, e.bad);
     else if (e.t === 'ping') ping(e.x, e.y); // (something of ours finished, or needs a look)
-    else if (e.t === 'signal') leashAt(e.x, e.y); // (a machine of ours sent past coverage: the rim brightens there)
     else if (e.t === 'burst') { if (nearView(e.x, e.y)) burst(e.x, deathY(e.y, e.unit), e.team === G.me ? ALLY : FOE, e.n); boom(e.x, e.y, e.r, G.factions[e.team], e.unit); if (seen(e)) sfx('boom', e); } // (debris on screen only, where the death plays: a Balloon's up where it flew)
     else if (e.t === 'hit') { const tier = shotTier(e); tierHit(e.x, hitY(e.y, e.air, e.air ? null : struckWalker(e)), tier, impactOf(e)); if (seen(e)) sfx('hit', { ...e, weight: HIT_LOOK[tier].weight }); } // (on a flyer or a walker: up on its body; its look and sound by how hard it hits what it hit)
     else if (e.t === 'fire') { sfx(e.w, e); muzzle(e); }

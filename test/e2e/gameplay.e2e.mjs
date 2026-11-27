@@ -2239,7 +2239,7 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
     const range = () => d.eval(() => endfall.rangeShown());
     assert.equal((await range()).shown, false, 'nothing selected: no range drawn');
-    // Two Rovers towards the map's middle: one a little past the Data center's range (stranded), one a little inside
+    // Two Rovers towards the map's middle: one a little past the Data center's range (slowed), one a little inside
     // it, the view between them.
     const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
     const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy), at = (k) => [hq.x + dx / len * k * T, hq.y + dy / len * k * T];
@@ -2261,12 +2261,11 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
     // The mark goes by the sim's rule: whatever is marked is out of range (exact distance).
     const marked = await d.eval(() => endfall.rangeShown().marked.map(id => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return [id, Math.hypot(u.x - c.x, u.y - c.y) > c.r]; }));
     assert.ok(marked.length && marked.every(([, o]) => o), `only machines out of range are marked: ${JSON.stringify(marked)}`);
-    // Sent far past the edge (a right click): told there is no signal, and the rim nearest brightens for a moment.
+    // Sent far past the edge (a right click): they go out there (slower, nothing stops them), and nobody is told.
     await d.rightClickWorld(...at(reach + 12));
-    await d.page.waitForFunction(() => endfall.rangeShown().leash, null, { timeout: 5000 });
-    assert.match((await d.toasts()).join(' | '), /No signal there: an Uplink reaches further\./);
-    await d.page.waitForFunction(() => !endfall.rangeShown().leash, null, { timeout: 5000 }); // (faded in 0.6 s)
-    // Sent back towards the Data center through the UI (a right click): once inside, the stranded one's mark goes.
+    assert.ok(await d.skipUntil((ids) => ids.every(id => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) > c.r + 6 * 32; }), [out, inside], { seconds: 60 }), 'both well out of coverage');
+    assert.doesNotMatch((await d.toasts()).join(' | '), /signal/i, 'no toast about the signal');
+    // Sent back towards the Data center through the UI (a right click): once inside, the mark goes.
     await d.rightClickWorld(...at(reach - 6));
     // (back inside coverage, fast-forwarded: out of coverage it is slow, and the way back may wind round rock)
     assert.ok(await d.skipUntil((id) => { const u = endfall.G.units.find(u => u.id === id), c = endfall.G.radio[0]; return Math.hypot(u.x - c.x, u.y - c.y) <= c.r; }, out, { seconds: 60 }), 'back inside coverage');

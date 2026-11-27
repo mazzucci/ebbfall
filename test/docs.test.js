@@ -82,8 +82,8 @@ test('the machines\' signal said once, on the building that makes them, with a l
   const html = page('/docs/expedition/');
   const makers = Object.entries(C.BUILDINGS).filter(([, b]) => (b.trains || []).some(u => C.RADIO.machines.has(u))).map(([k]) => k);
   assert.ok(makers.length >= 2, makers.join());
-  for (const k of makers) assert.match(html, new RegExp(`<p class="signal" data-of="${k}"><i class="sig" aria-hidden="true"></i>Its machines need signal: they work only inside`), k);
-  assert.equal((html.match(/need signal: they work only inside/g) || []).length, makers.length, 'once for each maker');
+  for (const k of makers) assert.match(html, new RegExp(`<p class="signal" data-of="${k}"><i class="sig" aria-hidden="true"></i>Its machines need signal: they are slower outside`), k);
+  assert.equal((html.match(/need signal: they are slower outside/g) || []).length, makers.length, 'once for each maker');
   assert.match(html, /<i class="sig" aria-hidden="true"><\/i>needs signal</, 'the legend');
   assert.doesNotMatch(page('/docs/kingdom/'), /class="signal"/, 'none for the Kingdom');
 });

@@ -37,21 +37,3 @@ export function unionArcs(circles) {
   });
   return out;
 }
-
-/** The rim's stretch nearest (x, y): on the arc whose edge is nearest, `span` (world px) either side of the nearest point,
- *  within that arc; as [x, y, r, from, to], or null with no arcs. */
-export function nearestRim(arcs, x, y, span) {
-  let best = null, bd = Infinity;
-  for (const [cx, cy, r, a0, a1] of arcs) {
-    let a = Math.atan2(y - cy, x - cx);
-    while (a < a0) a += TAU;
-    while (a > a0 + TAU) a -= TAU;
-    if (a > a1) a = (a - a1 < a0 + TAU - a) ? a1 : a0; // (past the arc's end: its nearer end)
-    const d = Math.hypot(cx + Math.cos(a) * r - x, cy + Math.sin(a) * r - y);
-    if (d < bd) {
-      bd = d; const h = span / r, whole = a1 - a0 >= TAU - 1e-9; // (a whole turn has no ends to stop at)
-      best = whole ? [cx, cy, r, a - h, a + h] : [cx, cy, r, Math.max(a0, a - h), Math.min(a1, a + h)];
-    }
-  }
-  return best;
-}

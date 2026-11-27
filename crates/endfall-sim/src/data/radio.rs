@@ -1,6 +1,6 @@
-//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"): the Expedition's combat machines work only
-//! inside the coverage of a finished Data center or Uplink of their side, and move faster there. The numbers here;
-//! the rules in world/radio.rs.
+//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"; a penalty, not a wall, since Nov 27): the
+//! Expedition's combat machines go anywhere, faster inside the coverage of a finished Data center or Uplink of their
+//! side and slower outside it. The numbers here; the rules in world/radio.rs.
 
 use super::{BldgKind, UnitKind};
 
@@ -11,10 +11,9 @@ pub const CONFLUX_RANGE: f64 = 18.0;
 pub const UPLINK_RANGE: f64 = 54.0;
 /// A machine's speed inside coverage, as a multiple of its own.
 pub const IN_RANGE_SPEED: f64 = 1.3;
-/// A machine outside coverage (stranded: its Uplink fell) moves at this share of its own speed, and only towards it.
-pub const STRANDED_SPEED: f64 = 0.6;
-/// How far (tiles) past the edge of coverage a machine may go: none since the arc (the Drone had 5).
-pub const LEASH_MARGIN: f64 = 0.0;
+/// A machine's speed outside coverage, as a multiple of its own (Stelian, Nov 27: the signal a penalty, not a wall;
+/// before, it could not leave coverage at all). With no source left at all, its side's machines are outside everywhere.
+pub const OUT_OF_RANGE_SPEED: f64 = 0.7;
 
 /// The coverage a finished building of this kind gives (tiles), or 0.
 pub fn range_of(kind: BldgKind) -> f64 {
@@ -34,8 +33,9 @@ pub fn needs_coverage(hq: BldgKind, kind: BldgKind) -> bool {
 }
 
 /// Whether a unit of this kind is a machine that needs signal: the Expedition's combat machines (the Buggy, the Drone,
-/// the Rover, the Android). Its Bots are free (they walk out to build forward Uplinks and reach far mines, at their calm
-/// pace: no bonus), and its hired people and the Kingdom's units fight anywhere.
+/// the Rover, the Android), faster inside coverage and slower outside it. Its Bots move at their own pace anywhere
+/// (they walk out to build forward Uplinks and reach far mines: no bonus, no penalty), and so do its hired people and
+/// the Kingdom's units.
 pub fn needs_range(kind: UnitKind) -> bool {
     matches!(
         kind,

@@ -681,9 +681,6 @@ impl World {
     /// (the Cannon, no gun on its tracks) deploys where it stops (no order does it): it packs up again only when it
     /// has to move.
     pub(crate) fn update_idle(&mut self, uid: Id, hold: bool, c: Live, dt: f64) {
-        if !hold && self.radio_idle_check(uid, dt) {
-            return; // (the Drone idle beyond its leash backs off inside its range)
-        }
         let sets_up_idle = c.siege.is_some() && (c.range <= 0.0 || hold);
         if sets_up_idle && self.u(uid).mode.is_none() && self.u(uid).swap <= 0.0 && self.deploy(uid)
         {

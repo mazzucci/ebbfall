@@ -2382,13 +2382,10 @@ fn a_plan_moves_the_tech_building_the_towers_and_the_side_s_tech_time() {
 }
 
 #[test]
-fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
+fn easy_climbs_its_tier_late() {
     // Easy's slow tech climb (Stelian, Nov 13 and 14; `Diff::tier_at`): the Expedition trains no Buggy or Drone before
-    // the mid tier its style drew (10:00 to 13:00) and some within three minutes of it; they wait at home inside its Data
-    // center's coverage (they defend there) and none goes out with a wave before an Uplink of its own stands (the push:
-    // coverage first). None of its machines ever leaves coverage (a tile and a half: a crowd at the edge jostles; one
-    // stranded, its coverage gone under it, aside). The Kingdom trains no Rider or Cannon before its own mid tier, and no
-    // Knight but in Boom, from 15:00.
+    // the mid tier its style drew (10:00 to 13:00) and some within three minutes of it. The Kingdom trains no Rider or
+    // Cannon before its own mid tier, and no Knight but in Boom, from 15:00.
     use endfall_sim::data::radio::needs_range;
     // (seed 3 since Nov 14: on seed 4 the grid at population scale left Easy's army at its 14 Sellswords to 14:00, its cap
     // by units, with no room for a machine)
@@ -2397,7 +2394,7 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
         (b.hp, b.maxhp) = (1e9, 1e9);
     }
     let tier = |k: UnitKind| k.ai_tier();
-    let (mut first, mut uplink, mut out) = (None::<f64>, None::<f64>, None::<f64>);
+    let mut first = None::<f64>;
     let mut kingdom = [None::<f64>; 3];
     past_first_turns(&mut w); // (each seat draws its style at its first turn)
     let mid = w.tuning(ENEMY).tier_at[0];
@@ -2431,48 +2428,12 @@ fn easy_climbs_its_tier_late_and_its_machines_go_out_behind_an_uplink() {
         {
             first = Some(w.time);
         }
-        if uplink.is_none()
-            && w.bldgs
-                .iter()
-                .any(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && b.done)
-        {
-            uplink = Some(w.time);
-        }
-        if w.tick.is_multiple_of(30) {
-            for u in w
-                .units
-                .iter()
-                .filter(|u| u.team == ENEMY && needs_range(u.kind))
-            {
-                // (but one stranded, its coverage gone under it: it fights on where it stands, the rule)
-                assert!(
-                    w.in_radio_by(ENEMY, u.x, u.y, 1.5) || w.radio_stranded(u.id),
-                    "a {:?} out of coverage at {:.0} s",
-                    u.kind,
-                    w.time
-                );
-            }
-            let wave = w.ai_wave_of(ENEMY).unwrap_or(&[]);
-            if out.is_none()
-                && wave
-                    .iter()
-                    .any(|&id| w.unit(id).is_some_and(|u| needs_range(u.kind)))
-            {
-                out = Some(w.time);
-            }
-        }
     }
     let first = first.expect("a machine within three minutes of its mid tier");
     assert!(
         first >= mid,
         "no machine before its mid tier ({mid}): {first:.0} s"
     );
-    if let Some(o) = out {
-        assert!(
-            uplink.is_some_and(|u| u <= o),
-            "its Uplink ({uplink:?}) before a machine went out ({o:.0} s)"
-        );
-    }
     assert!(
         kingdom[1].is_none_or(|t| t >= kingdom_tiers[0])
             && kingdom[2].is_none_or(|t| t >= kingdom_tiers[1].min(900.0)),

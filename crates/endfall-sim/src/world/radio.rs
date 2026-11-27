@@ -1,11 +1,9 @@
-//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"): the Expedition's combat machines
-//! (`data::radio::needs_range`) work only inside the coverage of a finished Data center (`conflux`) or Uplink (`uplink`)
-//! of their own seat or an ally, moving at `IN_RANGE_SPEED` there. Their routes keep inside it (a way that leaves it
-//! gives way to one through covered tiles: `World::keep_covered`, paths.rs). An order past its edge takes them to the
-//! edge, where they stop (the step that would leave it is refused, `radio_allows`) and fight what they reach from
-//! there; a player is told so (`NO_SIGNAL`). One left
-//! outside (its Uplink fell: stranded) fights where it stands, moves only towards coverage at `STRANDED_SPEED`, and
-//! walks back by itself when idle. With no source at all a seat's machines are free.
+//! Coverage (the arc, Nov 13: "machines need signal; mercenaries don't"; a penalty, not a wall, since Nov 27): the
+//! Expedition's combat machines (`data::radio::needs_range`) go anywhere, at `IN_RANGE_SPEED` inside the coverage of a
+//! finished Data center (`conflux`) or Uplink (`uplink`) of their own seat or an ally, and at `OUT_OF_RANGE_SPEED`
+//! outside it (`radio_speed`, read by `live_speed` every tick from where the machine stands). Their orders and routes
+//! are a player's as any unit's: nothing keeps them inside. A seat with no source at all has its machines outside
+//! everywhere. Only speed changes: a machine strikes as hard outside as inside.
 //!
 //! In range means by exact distance: a point is in range when its distance to a source's center is at most the
 //! source's reach (`in_radio`), so the client's circles (`radio_circles`, the same list) and the rule agree. The
@@ -14,13 +12,7 @@
 //! derived from the buildings, so deterministic and not hashed.
 
 use super::*;
-use crate::data::radio::{IN_RANGE_SPEED, LEASH_MARGIN, STRANDED_SPEED, needs_range, range_of};
-
-/// What a player is told when a machine is sent where coverage does not take it.
-pub const NO_SIGNAL: &str = "No signal there: an Uplink reaches further.";
-
-/// How far (tiles) inside the edge the Drone backs off to.
-const BACK_OFF: f64 = 2.0;
+use crate::data::radio::{IN_RANGE_SPEED, OUT_OF_RANGE_SPEED, needs_range, range_of};
 
 /// A source of range: a finished Data center or Uplink.
 #[derive(Clone, Copy, Debug)]
@@ -97,219 +89,27 @@ impl World {
             .filter(move |s| self.allies(s.team, team))
     }
 
-    /// A player's machine sent where its side's coverage does not take it (no covered way there, or for an attack
-    /// none within its reach of the target): it goes as far as coverage allows (the edge stop), and its player is
-    /// told why, once a tick for a group order. `to`: where it is sent; `reach`: how near it must get (px).
-    pub(crate) fn tell_no_signal(&mut self, seat: u8, uid: Id, to: (f64, f64), reach: f64) {
-        let u = self.u(uid);
-        let (kind, x, y) = (u.kind, u.x, u.y);
-        if self.is_ai(seat)
-            || !needs_range(kind)
-            || !self.in_radio(seat, x, y)
-            || self.plans.signal_told(seat)
-        {
-            return;
-        }
-        let ok = if kind.def().air {
-            self.in_radio_by(seat, to.0, to.1, reach / TILE)
-        } else {
-            let goal = self.map.tile_of(to.0, to.1);
-            self.covered_way(seat, kind, (x, y), goal, reach)
-        };
-        if !ok {
-            self.plans.tell_signal(seat);
-            self.toast(seat, NO_SIGNAL, true);
-            self.emit(Event::Signal {
-                team: seat,
-                x: to.0,
-                y: to.1,
-            });
-        }
-    }
-
-    /// A group sent to `to` (a formation move, a group attack-move): its player told as for one machine, judged by its
-    /// first machine inside coverage (one search for the group, as the order makes one route).
-    pub(crate) fn tell_group_no_signal(&mut self, seat: u8, units: &[Id], to: (f64, f64)) {
-        let first = units.iter().copied().find(|&u| {
-            let u = self.u(u);
-            needs_range(u.kind) && self.in_radio(seat, u.x, u.y)
-        });
-        if let Some(u) = first {
-            self.tell_no_signal(seat, u, to, TILE);
-        }
-    }
-
-    /// The sources `team` has range from, as (x, y, reach) in px (a route's coverage: paths.rs).
-    pub(crate) fn radio_reach_list(&self, team: u8) -> Vec<(f64, f64, f64)> {
-        self.radio_sources(team)
-            .map(|s| (s.x, s.y, s.reach))
-            .collect()
-    }
-
-    /// How far (px) (x, y) lies from the nearest edge of `team`'s range grown by `extra` tiles: 0 inside, infinite
-    /// with no source.
-    fn radio_gap(&self, team: u8, x: f64, y: f64, extra: f64) -> f64 {
-        self.radio_sources(team)
-            .map(|s| (dist(s.x, s.y, x, y) - s.reach - extra * TILE).max(0.0))
-            .fold(f64::INFINITY, f64::min)
-    }
-
     /// A machine inside its side's range: it moves at `IN_RANGE_SPEED`.
     pub fn radio_boosted(&self, uid: Id) -> bool {
         let u = self.u(uid);
         needs_range(u.kind) && self.in_radio(u.team, u.x, u.y)
     }
 
-    /// A machine outside its side's coverage while the side has some (its Uplink fell): stranded.
-    pub fn radio_stranded(&self, uid: Id) -> bool {
+    /// A machine outside its side's range (anywhere, for a side with no source): it moves at `OUT_OF_RANGE_SPEED`.
+    pub fn radio_slowed(&self, uid: Id) -> bool {
         let u = self.u(uid);
-        needs_range(u.kind)
-            && !self.in_radio(u.team, u.x, u.y)
-            && self.radio_sources(u.team).next().is_some()
+        needs_range(u.kind) && !self.in_radio(u.team, u.x, u.y)
     }
 
-    /// `live_speed`'s factor for coverage: `IN_RANGE_SPEED` inside it, `STRANDED_SPEED` stranded outside, else 1.
+    /// `live_speed`'s factor for coverage: for a machine, `IN_RANGE_SPEED` inside it and `OUT_OF_RANGE_SPEED` outside;
+    /// for anything else, 1.
     pub(crate) fn radio_speed(&self, uid: Id) -> f64 {
         if self.radio_boosted(uid) {
             IN_RANGE_SPEED
-        } else if self.radio_stranded(uid) {
-            STRANDED_SPEED
+        } else if self.radio_slowed(uid) {
+            OUT_OF_RANGE_SPEED
         } else {
             1.0
         }
-    }
-
-    /// A machine that needs signal (its leash: coverage).
-    fn radio_flyer(&self, uid: Id) -> bool {
-        needs_range(self.u(uid).kind)
-    }
-
-    /// Whether `uid` may move to (nx, ny): always, unless it is the Drone going more than `LEASH_MARGIN` past its range.
-    /// One already farther out (its source fell) may move only towards the range; with no source, anywhere.
-    pub(crate) fn radio_allows(&self, uid: Id, nx: f64, ny: f64) -> bool {
-        let u = self.u(uid);
-        if !self.radio_flyer(uid) || self.in_radio_by(u.team, nx, ny, LEASH_MARGIN) {
-            return true;
-        }
-        let now = self.radio_gap(u.team, u.x, u.y, LEASH_MARGIN);
-        now.is_infinite() || (now > 0.0 && self.radio_gap(u.team, nx, ny, LEASH_MARGIN) < now)
-    }
-
-    /// The Drone idle beyond its leash (its source fell): it backs off to `BACK_OFF` tiles inside the nearest source's
-    /// range (a move order). False when it has no source (it stays free).
-    fn radio_back_off(&mut self, uid: Id) -> bool {
-        let (team, ux, uy) = (self.u(uid).team, self.u(uid).x, self.u(uid).y);
-        let near = self
-            .radio_sources(team)
-            .map(|s| {
-                let d = dist(s.x, s.y, ux, uy);
-                (d - s.reach, d, s.x, s.y, s.reach, s.id)
-            })
-            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.5.cmp(&b.5)));
-        let Some((_, d, sx, sy, reach, _)) = near else {
-            return false;
-        };
-        let keep = reach - BACK_OFF * TILE;
-        let (tx, ty) = if d > 0.0 {
-            (sx + (ux - sx) / d * keep, sy + (uy - sy) / d * keep)
-        } else {
-            (sx, sy)
-        };
-        self.move_to(uid, tx, ty);
-        true
-    }
-
-    /// The Drone idle beyond its leash (a source fell under it) with nothing in its weapon's reach backs off inside its
-    /// range; anywhere within the leash it stays where it stopped. Looked at when an idle unit looks for a fight (its
-    /// `aggro_cd`), and never for a seat without a source. Whether it backed off.
-    pub(crate) fn radio_idle_check(&mut self, uid: Id, dt: f64) -> bool {
-        if !self.radio_flyer(uid) {
-            return false;
-        }
-        let u = self.u(uid);
-        if u.aggro_cd - dt > 0.0
-            || self.radio_sources(u.team).next().is_none()
-            || self.in_radio_by(u.team, u.x, u.y, LEASH_MARGIN)
-        {
-            return false;
-        }
-        self.radio_reach_target(uid).is_none() && self.radio_back_off(uid)
-    }
-
-    /// An enemy within the weapon's reach of where the Drone is now, if any (it fights from the end of its leash): the
-    /// reach `update_attack` closes to.
-    fn radio_reach_target(&self, uid: Id) -> Option<Id> {
-        let c = self.live(uid);
-        if !c.combat {
-            return None;
-        }
-        let u = self.u(uid);
-        self.find_target(
-            u.x,
-            u.y,
-            c.team,
-            c.range + c.r * 0.5,
-            c.ring,
-            false,
-            c.hits,
-            true,
-        )
-    }
-
-    /// The Drone at the end of its leash: it takes on an enemy in its reach from there (an attack keeps what it would go
-    /// back to; true), else it stops there (false: the caller ends its order, and idle within the leash it stays).
-    pub(crate) fn radio_at_leash(&mut self, uid: Id) -> bool {
-        self.um(uid).path = None;
-        // (not the target it is closing on: that one is out of its reach, or it would not be moving)
-        let now = match self.u(uid).task {
-            Task::Attack { target, .. } => Some(target),
-            _ => None,
-        };
-        let Some(t2) = self.radio_reach_target(uid).filter(|&t| Some(t) != now) else {
-            return false;
-        };
-        let back = match self.u(uid).task {
-            Task::Attack { back, .. } => back,
-            Task::AMove { x, y, .. } => {
-                let u = self.u(uid);
-                Some(Back::march(x, y, u.x, u.y))
-            }
-            _ => {
-                let u = self.u(uid);
-                Some(Back::spot(u.x, u.y))
-            }
-        };
-        self.um(uid).task = Task::Attack { target: t2, back };
-        true
-    }
-
-    /// Where a Drone of `team` at (x, y) sent towards (tx, ty) can go: that point, or the last point of the straight way
-    /// there within its leash (the AI's wave moves, so its Drones gather where they can stand).
-    pub(crate) fn radio_leash_point(
-        &self,
-        team: u8,
-        x: f64,
-        y: f64,
-        tx: f64,
-        ty: f64,
-    ) -> (f64, f64) {
-        if self.radio_sources(team).next().is_none()
-            || self.in_radio_by(team, tx, ty, LEASH_MARGIN)
-            || !self.in_radio_by(team, x, y, LEASH_MARGIN)
-        {
-            return (tx, ty);
-        }
-        let d = dist(x, y, tx, ty);
-        let steps = jsmath::to_i32((d / 16.0).ceil()).max(1);
-        let mut last = (x, y);
-        for k in 1..=steps {
-            let f = k as f64 / steps as f64;
-            let p = (x + (tx - x) * f, y + (ty - y) * f);
-            if !self.in_radio_by(team, p.0, p.1, LEASH_MARGIN) {
-                break;
-            }
-            last = p;
-        }
-        last
     }
 }

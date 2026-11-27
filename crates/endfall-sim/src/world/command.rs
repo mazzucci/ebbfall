@@ -147,22 +147,12 @@ impl World {
         let finite = |x: f64, y: f64| x.is_finite() && y.is_finite();
         match *cmd {
             Command::Move { unit: u, x, y } if unit(self, u) && finite(x, y) => {
-                self.tell_no_signal(seat, u, (x, y), TILE);
                 self.move_to(u, x, y)
             }
             Command::AttackMove { unit: u, x, y } if unit(self, u) && finite(x, y) => {
-                self.tell_no_signal(seat, u, (x, y), TILE);
                 self.attack_move(u, x, y)
             }
-            Command::Attack { unit: u, target } if unit(self, u) => {
-                if let Some(g) = self.geo(target)
-                    && self.team_of(target).is_some_and(|t| self.enemies(t, seat))
-                {
-                    let reach = self.live(u).range + g.r();
-                    self.tell_no_signal(seat, u, g.center(), reach);
-                }
-                self.attack_ent(u, target)
-            }
+            Command::Attack { unit: u, target } if unit(self, u) => self.attack_ent(u, target),
             Command::Stop { unit: u } if unit(self, u) => self.stop_unit(u),
             Command::Hold { unit: u } if unit(self, u) => self.hold_unit(u),
             Command::Gather { unit: u, node } if unit(self, u) => {
@@ -210,12 +200,10 @@ impl World {
             } if bldg(self, b) && finite(x, y) => self.set_rally(b, x, y, node),
             Command::Formation { ref units, x, y } if finite(x, y) => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
-                self.tell_group_no_signal(seat, &mine, (x, y));
                 self.formation(&mine, x, y);
             }
             Command::GroupAttackMove { ref units, x, y } if finite(x, y) => {
                 let mine: Vec<Id> = units.iter().copied().filter(|&u| unit(self, u)).collect();
-                self.tell_group_no_signal(seat, &mine, (x, y));
                 self.attack_move_group(&mine, x, y);
             }
             Command::Concede => self.concede(seat),

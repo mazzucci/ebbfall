@@ -92,17 +92,17 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
-  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), coverage (`radio`, the arc: the combat machines need signal, Bots,
-  people and the Kingdom never; x1.3 inside coverage, slower stranded outside and only back towards it; by exact
-  distance from the source's center, just inside and just outside the edge, off tile centers; from the Data center and
-  an Uplink (54 tiles on every map), none from a site or a Sentry mast, gone when the Uplink falls; an ally's
-  counts; a machine ordered past the edge stopping at it and fighting what it reaches from there, its player told; a
-  stranded one walking back; two overlapping sources' waist crossed, and a way that clips its notch rerouted inside
-  (a move arrives, an attack fires; the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most
-  of a 64x64 map); the Expedition AI's push on 96x96: one forward Uplink whose coverage takes in the foe, then its
-  machines, none of them leaving coverage; Expedition buildings placed only inside coverage, the Data center and the
-  Uplink anywhere, a post and a turbine standing and working after their Uplink falls; a group sent past the edge told
-  once, with the rim cue's spot), the Expedition's economy (`expedition`: energy and one grid, Nov 14: the
+  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), coverage (`radio`, the arc, a penalty since Nov 27: the combat machines need signal,
+  Bots, people and the Kingdom never; x1.3 inside coverage and x0.7 outside, either way; by exact distance from the
+  source's center, just inside and just outside the edge, off tile centers; from the Data center and an Uplink (54
+  tiles on every map), none from a site or a Sentry mast, gone when the Uplink falls; an ally's counts; a machine
+  ordered out of coverage going there, slower, striking a building out there and quick again back inside; one whose
+  Uplink fell staying where it stood and fighting there; a seat with no source left slowed everywhere; the straight
+  way taken across two overlapping sources' waist, out of coverage, and no word to the player for a group sent far
+  out (the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most of a 64x64 map); the
+  Expedition AI's machines out of coverage with its waves on 96x96; Expedition buildings placed only inside coverage,
+  the Data center and the Uplink anywhere, a post and a turbine standing and working after their Uplink falls), the
+  Expedition's economy (`expedition`: energy and one grid, Nov 14: the
   grid from the Data center (22) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
   units drawing it (buildings none, a building placed whatever the grid); machines and
   mercenaries alike refused on a full grid and trained once a Substation stands; a mercenary's grid freed by its death,
@@ -203,7 +203,7 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       `World::tuning`; a lab plan's seat plays its plan; `World::set_ai_styles` forces one, the lab's
                       only; never shown to the player),
                       tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
-                      machines need signal, what gives it and how far, the bonus inside and the stranded speed), export.rs (the tables as
+                      machines need signal, what gives it and how far, the speed inside and outside), export.rs (the tables as
                       JSON, one small writer). Places: the Kingdom's population, the Expedition's grid (`Faction::grid`):
                       a unit takes its `supply` (`World::takes`), a building gives its `supply` once finished and
                       takes none (only units take places, on both sides); capped by
@@ -258,20 +258,15 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       target cannot pull it along leash by leash; a shooter off the leash is not answered; idle guards answer a
                       shooter that hits a building in their idle look, `guards_answer`), movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
-                      retreat, the sweep), radio.rs (coverage: the Expedition's combat machines work only within
-                      a finished Data center's 18 tiles or an Uplink's 54 (on every map) of their side or an
-                      ally, by exact distance from the building's center, moving x1.3 there; the sources listed again
-                      when they change (checked each tick: derived, not hashed), and handed to the client as circles
-                      (`radio_circles`, Game.radioCircles: x, y, reach per source of a side and its allies). A machine's
-                      route keeps inside coverage (paths.rs `keep_covered`: a route that leaves it gives way to a
-                      search over the covered tiles, path.rs `astar_within`, budgeted like any search). A move or
-                      attack past the edge stops at it (fighting what it can reach from there; a player is told
-                      "No signal there: an Uplink reaches further.", once a tick for a group, a group order judged by its first machine
-                      inside coverage, with a `Signal` event at the spot for the client's rim cue); one left outside
-                      (stranded: its Uplink fell) moves only towards coverage, slower, and walks back when idle; the
-                      AI's push (one forward Uplink that covers its goal, its machines kept out of a wave until
-                      coverage nears the goal), its wave's own Uplink and staging, and a wave left with only machines held quiet at the edge
-                      ended, are in ai/army.rs); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
+                      retreat, the sweep), radio.rs (coverage: the Expedition's combat machines go anywhere,
+                      moving x1.3 (`IN_RANGE_SPEED`) within a finished Data center's 18 tiles or an Uplink's 54 (on
+                      every map) of their side or an ally, by exact distance from the building's center, and x0.7
+                      (`OUT_OF_RANGE_SPEED`) outside, everywhere for a side with no source left (`radio_speed`, read
+                      by `live_speed`); only speed changes, not damage; the sources listed again when they change
+                      (checked each tick: derived, not hashed), and handed to the client as circles (`radio_circles`,
+                      Game.radioCircles: x, y, reach per source of a side and its allies). The AI's wave's own
+                      forward Uplink while machines are out, and its staging at its forward-most one, are in
+                      ai/army.rs); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
                       mercenary line is held to its own share of the grid (`line_grid`, `line_max`); at that share
@@ -347,9 +342,8 @@ src/client/           everything that touches the browser
                       on the ground, under the rings, the units, the trees and the buildings, and over ground not yet seen a 1.5 px line
                       over the fog (`drawFogRim`); shown while a machine, a Data
                       center or an Uplink of this side is selected or any Expedition building placed, drawn again only
-                      when the sources or the zoom's step change; a machine sent past the edge (the sim's `signal`
-                      event) brightens the rim's stretch nearest the spot, range.js `nearestRim`, fading over 0.6 s;
-                      the no-signal sign over a stranded machine of ours, by exact distance as the sim; on the minimap
+                      when the sources or the zoom's step change; the no-signal sign over a machine of ours out of
+                      coverage (slowed; every one, for a side with no source left), by exact distance as the sim; on the minimap
                       an Expedition seat's union outline always, over the fog (unexplored black too), drawn each frame
                       over the cached base, a 1.75 px line at 80% over a 3.5 px dark halo at 50% in CSS px (scaled by
                       the minimap's box); `rangeShown` for the tests); the minimap drawn in 168 units across its box
@@ -548,7 +542,7 @@ src/client/           everything that touches the browser
                       one, nor any two units or buildings, no unit is drawn like an action, every person has the bust
                       and nothing else does
   range.js            the range's circles, pure: `inRange` (the sim's rule, exact distance), `unionArcs` (the outline
-                      of their union) and `nearestRim` (the outline's stretch nearest a point: the leash cue)
+                      of their union)
                       (test/range.test.js)
   construct.js        construction you can read, pure: a site's reveal (`REVEAL`, `revealRows`, `revealMatrix`), what
                       it stands on (`frameOf`, `slabOf`), the build bar, the done moment's curves

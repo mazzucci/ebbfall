@@ -169,9 +169,54 @@ pub struct Diff {
     /// `later_min`, claude/PLAN_VOCAB.md): its later waves gather instead of trickling out, and neither its crushing
     /// shortcut nor a stalled game's push sends fewer, unless it is at its cap.
     pub later_min: usize,
+    /// A people's own opening at this level, by its headquarters' kind, over the level's (`PeopleTune`: its workers,
+    /// its first wave's time and size, its tech building's time; none: every people the level's). Applied before its
+    /// style (`Diff::for_people`, `World::draw_style`).
+    pub people: &'static [PeopleTune],
+}
+
+/// A people's own opening at a level (`Diff::people`), matched by its headquarters' kind: each field set replaces the
+/// level's.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PeopleTune {
+    pub hq: super::BldgKind,
+    /// Its workers (`Diff::harv`).
+    pub harv: Option<usize>,
+    /// Its first wave's time (s, `Diff::first`) and size (`Diff::wave`, before its people's `wave_scale`).
+    pub first: Option<f64>,
+    pub wave: Option<usize>,
+    /// When it raises its tech building (s, `Diff::tech_at`).
+    pub tech_at: Option<f64>,
+}
+
+impl PeopleTune {
+    /// None of the level's numbers replaced, for the people whose headquarters is `hq`.
+    pub const fn of(hq: super::BldgKind) -> PeopleTune {
+        PeopleTune {
+            hq,
+            harv: None,
+            first: None,
+            wave: None,
+            tech_at: None,
+        }
+    }
 }
 
 impl Diff {
+    /// This level as the people whose headquarters is `hq` plays it (`people`): its own opening, if it has one.
+    pub fn for_people(self, hq: super::BldgKind) -> Diff {
+        match self.people.iter().find(|p| p.hq == hq) {
+            Some(p) => Diff {
+                harv: p.harv.unwrap_or(self.harv),
+                first: p.first.unwrap_or(self.first),
+                wave: p.wave.unwrap_or(self.wave),
+                tech_at: p.tech_at.unwrap_or(self.tech_at),
+                ..self
+            },
+            None => self,
+        }
+    }
+
     /// A race's mix entry as this level plays it (`mix_over`), its leaning unit (`focus`) at two thirds of its ratio.
     pub fn mix_entry(&self, entry: (super::UnitKind, usize, f64)) -> (super::UnitKind, usize, f64) {
         let (k, per, from) = self
@@ -275,6 +320,14 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 540.0,
         later_min: 0,
+        // (its Kingdom a little stronger (Stelian, Nov 27: the Easy Expedition won 85% of its games against it on 96 and
+        // 94% on 128): more workers and a bigger first wave, still at 8:00, so a newcomer is never hit before then; the
+        // Expedition's Easy is the level's own)
+        people: &[PeopleTune {
+            harv: Some(8),
+            wave: Some(5),
+            ..PeopleTune::of(super::BldgKind::Core)
+        }],
     },
     // Medium: the whole script at an even pace, but one attack at a time, the first at 4:00 (the step after Easy's 8:00;
     // it went at 2:50, and Medium beat Easy in every game of the lab's ladder). Workers by level (7, 10, 11, 12, and 3 more
@@ -342,6 +395,12 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,
+        // (its Expedition's Lab at 3:30, not 2:30: since Nov 27 its Uplink follows its Lab at once, top priority, and the
+        // two at once left its army thin when the Kingdom's first wave came; the lab, 12 seeds)
+        people: &[PeopleTune {
+            tech_at: Some(210.0),
+            ..PeopleTune::of(super::BldgKind::Conflux)
+        }],
     },
     // Hard (the menus' Hard since Nov 13): a bigger first wave (8), more factories behind it, and it splits its waves.
     Diff {
@@ -415,6 +474,11 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,
+        // (its Expedition's Lab at 4:15, not 2:30: its Uplink follows at once since Nov 27, as Medium's)
+        people: &[PeopleTune {
+            tech_at: Some(255.0),
+            ..PeopleTune::of(super::BldgKind::Conflux)
+        }],
     },
     // Brutal: Hard, faster still, gathering 30% more than the player (Hard is given 10%), and
     // building supply far enough ahead (two at a time) that the extra income becomes army, not a bank. Three
@@ -484,5 +548,6 @@ pub const DIFF: [Diff; 4] = [
         tech_from: NEVER,
         tech_not_before: 0.0,
         later_min: 0,
+        people: &[],
     },
 ];

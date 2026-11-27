@@ -590,22 +590,100 @@ fn a_machine_takes_the_straight_way_out_of_the_area_and_nobody_is_told() {
     }
 }
 
+/// The Expedition's Medium AI against the Kingdom's on a 96x96 two-player map, both seats played by the AI, its foe's
+/// buildings made to last.
+fn uplink_game(seed: u32) -> World {
+    let mut w = World::with_size(
+        seed,
+        1,
+        MapKind::Standard,
+        MapSize::square(96),
+        0,
+        &[&HUMANS, &VAEL],
+    );
+    assert!(w.set_ai_seats([true, true]));
+    for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+        (b.hp, b.maxhp) = (1e9, 1e9);
+    }
+    w
+}
+
+/// The ids of seat `team`'s buildings, sites included.
+fn bldg_ids(w: &World, team: u8) -> Vec<Id> {
+    w.bldgs
+        .iter()
+        .filter(|b| b.team == team)
+        .map(|b| b.id)
+        .collect()
+}
+
+/// Step `w` until seat ENEMY places a building it did not have (by 15:00 at the latest): its kind.
+fn next_placed(w: &mut World) -> Option<BldgKind> {
+    let had = bldg_ids(w, ENEMY);
+    while w.time < 900.0 && !w.over {
+        w.step();
+        if let Some(b) = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == ENEMY && !had.contains(&b.id))
+        {
+            return Some(b.kind);
+        }
+    }
+    None
+}
+
 #[test]
-fn the_expedition_ai_sends_its_machines_out_of_the_area_with_its_waves() {
-    // Its machines are not held back for the signal since Nov 27: the Expedition's AI against the Kingdom's on 96x96
-    // two-player maps (its foe's buildings made to last), four Rovers from the start and no Lab, so no Uplink to raise
-    // (before, its machines then waited at home for good). Within ten minutes they go out with a wave, outside its
-    // area.
-    for seed in [1, 2, 3] {
-        let mut w = World::with_size(
-            seed,
-            1,
-            MapKind::Standard,
-            MapSize::square(96),
-            0,
-            &[&HUMANS, &VAEL],
+fn once_its_lab_stands_the_expedition_ai_s_next_building_is_its_uplink_and_again_when_it_falls() {
+    // Stelian, Nov 27: "once its Lab stands, its next build is its Uplink, top priority", with no machine needed (four,
+    // or its Portal placed, before), ahead of its supply, its factories, its towers and its natural; and when its Uplink
+    // falls, raising it again comes first once more.
+    for seed in [1, 2, 3, 4] {
+        let mut w = uplink_game(seed);
+        while w.time < 600.0 && !w.has_bldg(ENEMY, BldgKind::Loom) {
+            w.step();
+        }
+        assert!(
+            w.has_bldg(ENEMY, BldgKind::Loom),
+            "seed {seed}: a Lab by 10:00"
         );
-        assert!(w.set_ai_seats([true, true]));
+        let lab = w.time;
+        assert_eq!(
+            next_placed(&mut w),
+            Some(BldgKind::Uplink),
+            "seed {seed}: the next building after its Lab ({lab:.0} s)"
+        );
+        // (its Uplink up, then knocked down: the next building is an Uplink again)
+        while w.time < 900.0 && !w.has_bldg(ENEMY, BldgKind::Uplink) {
+            w.step();
+        }
+        let up = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == ENEMY && b.kind == BldgKind::Uplink && b.done)
+            .map(|b| b.id)
+            .unwrap_or_else(|| panic!("seed {seed}: its Uplink stands by 15:00"));
+        run(&mut w, 30);
+        w.damage(up, 1e9, None);
+        assert!(w.bldg(up).is_none(), "seed {seed}: its Uplink fell");
+        let fell = w.time;
+        assert_eq!(
+            next_placed(&mut w),
+            Some(BldgKind::Uplink),
+            "seed {seed}: the next building after its Uplink fell ({fell:.0} s)"
+        );
+    }
+}
+
+#[test]
+fn the_expedition_ai_keeps_its_machines_home_until_its_uplink_stands_then_sends_them_with_a_wave() {
+    // Stelian, Nov 27: until its Uplink stands, the AI keeps its machines inside its Data centers' areas (defense and
+    // staging only: no wave takes them, they chase nothing out of it); its hired people go out as ever; once its Uplink
+    // stands, its machines go with its waves. Four Rovers from the start, and no Lab let stand until 7:00 (so no Uplink):
+    // until then no machine is in a wave or more than its weapon's reach and two tiles past its area, while its hired
+    // people go out; after, by 15:00 a machine of a wave is out of the area, with the signal (its Uplink stands).
+    for seed in [1, 2, 3] {
+        let mut w = uplink_game(seed);
         let hq = w
             .bldgs
             .iter()
@@ -622,11 +700,8 @@ fn the_expedition_ai_sends_its_machines_out_of_the_area_with_its_waves() {
         }
         w.recalc_supply(ENEMY);
         w.res[ENEMY as usize][0] += 1000;
-        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
-            (b.hp, b.maxhp) = (1e9, 1e9);
-        }
-        let mut out = None;
-        while w.time < 600.0 && !w.over && out.is_none() {
+        let mut hired_out = false;
+        while w.time < 420.0 && !w.over {
             w.step();
             // (no Lab: none it starts is let stand)
             let labs: Vec<Id> = w
@@ -638,18 +713,60 @@ fn the_expedition_ai_sends_its_machines_out_of_the_area_with_its_waves() {
             for b in labs {
                 w.damage(b, 1e9, None);
             }
-            if w.tick.is_multiple_of(30) {
-                let wave = w.ai_wave_of(ENEMY).unwrap_or(&[]);
-                out = wave
-                    .iter()
-                    .filter_map(|&id| w.unit(id))
-                    .find(|u| needs_range(u.kind) && !w.has_signal(ENEMY, u.x, u.y))
-                    .map(|u| (u.kind, w.time));
+            if w.tick.is_multiple_of(15) {
+                let wave = w.ai_wave_of(ENEMY).unwrap_or(&[]).to_vec();
+                for u in w.units.iter().filter(|u| u.team == ENEMY) {
+                    if needs_range(u.kind) {
+                        assert!(
+                            !wave.contains(&u.id),
+                            "seed {seed}: a {:?} in a wave at {:.0} s with no Uplink",
+                            u.kind,
+                            w.time
+                        );
+                        let reach = u.kind.def().weapon.map_or(0.0, |w| w.range) + 2.0;
+                        assert!(
+                            w.in_area_by(ENEMY, u.x, u.y, reach),
+                            "seed {seed}: a {:?} out of its area at {:.0} s with no Uplink",
+                            u.kind,
+                            w.time
+                        );
+                    } else if wave.contains(&u.id) && !w.in_area(ENEMY, u.x, u.y) {
+                        hired_out = true;
+                    }
+                }
             }
         }
         assert!(
-            out.is_some(),
-            "seed {seed}: no machine of a wave out of the area in ten minutes"
+            hired_out,
+            "seed {seed}: its hired people went out with a wave meanwhile"
+        );
+        let mut out = None;
+        while w.time < 900.0 && !w.over && out.is_none() {
+            w.step();
+            if w.tick.is_multiple_of(30) {
+                let wave = w.ai_wave_of(ENEMY).unwrap_or(&[]).to_vec();
+                // (a wave of hired people alone falls at the foe's lasting buildings, where it would fight for ever)
+                if !wave
+                    .iter()
+                    .any(|&id| w.unit(id).is_some_and(|u| needs_range(u.kind)))
+                {
+                    for &id in &wave {
+                        w.damage(id, 1e9, None);
+                    }
+                    continue;
+                }
+                out = wave
+                    .iter()
+                    .filter_map(|&id| w.unit(id))
+                    .find(|u| needs_range(u.kind) && !w.in_area(ENEMY, u.x, u.y))
+                    .map(|u| (u.kind, w.time, w.has_signal(ENEMY, u.x, u.y)));
+            }
+        }
+        let (kind, at, signal) =
+            out.unwrap_or_else(|| panic!("seed {seed}: no machine of a wave out by 15:00"));
+        assert!(
+            signal,
+            "seed {seed}: its {kind:?} out at {at:.0} s with the signal (its Uplink)"
         );
     }
 }

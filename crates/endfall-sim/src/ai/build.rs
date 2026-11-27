@@ -19,9 +19,6 @@ const ROOM: f64 = 15.0;
 const ROOM_FAR: f64 = 26.0;
 /// How far (tiles) from the middle of another start the AI keeps its far buildings: past that start's pocket.
 const POCKET_ROOM: f64 = 16.0;
-/// Machines in its army (`data::radio::needs_range`) from which the AI wants its Uplink (`AiScript::relay`): the
-/// signal across the whole map for them (the push's count before Nov 27, when it raised forward Uplinks).
-pub(crate) const UPLINK_MACHINES: usize = 4;
 
 impl World {
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
@@ -458,74 +455,22 @@ impl World {
         self.tech2_wanted(e, my_b, t, k).then_some(k)
     }
 
-    /// Whether seat `e` wants its Uplink (`AiScript::relay`, the signal across the whole map for its machines): it
-    /// can build one (its Lab standing), none of its own stands or is going up, and `UPLINK_MACHINES` machines are in
-    /// its army, counted with those queued, or its Portal is placed (Nov 27: one, kept at home, in place of the forward
-    /// ones its waves raised).
+    /// Whether seat `e`, the seat taking its turn, wants its Uplink (`AiScript::relay`, the signal across the whole map
+    /// for its machines) now: it can build one (its Lab standing), none of its own stands or is going up, and its level
+    /// fields a machine by now (`data::radio::needs_range`, `World::level_allows`: Easy's come with its mid tier, 10:00
+    /// to 13:00, and its Uplink with them). Then it is the build order's next building, ahead of everything, its natural
+    /// too (Stelian, Nov 27: "once its Lab stands, its next build is its Uplink, top priority"; four machines or its
+    /// Portal placed called for it before), and again whenever it falls.
     pub(crate) fn uplink_due(&self, e: u8) -> bool {
         let Some(r) = self.factions[e as usize].ai.relay else {
             return false;
         };
-        let machines = self
-            .units
-            .iter()
-            .filter(|u| u.team == e && crate::data::radio::needs_range(u.kind))
-            .count()
-            + self
-                .bldgs
-                .iter()
-                .filter(|b| b.team == e)
-                .flat_map(|b| b.queue.iter())
-                .filter(|&&q| crate::data::radio::needs_range(q))
-                .count();
-        // (or its Portal placed, `AiScript::tech2`: its top-tier machines' signal, as when the Portal needed an Uplink)
-        let gate = self.factions[e as usize]
-            .ai
-            .tech2
-            .is_some_and(|g| self.bldgs.iter().any(|b| b.team == e && b.kind == g));
         self.factions[e as usize].builds(r)
             && self.has_req(e, r)
             && !self.bldgs.iter().any(|b| b.team == e && b.kind == r)
-            && (machines >= UPLINK_MACHINES || gate)
-    }
-
-    /// Whether seat `e`'s natural is due (its time come) and not yet placed (fewer than two headquarters, standing or
-    /// going up).
-    pub(crate) fn natural_pending(&self, e: u8) -> bool {
-        let hq = self.factions[e as usize].hq;
-        self.time > self.expand_time(e)
-            && self
-                .bldgs
+            && UNIT_KINDS
                 .iter()
-                .filter(|b| b.team == e && b.kind == hq)
-                .count()
-                < 2
-    }
-
-    /// Seat `e`'s Uplink when due (`uplink_due`) and paid for: in its main, by its Data center (`cx, cy`, tiles), where
-    /// its army and towers hold it (a lone forward Uplink fell to the first wave). Outside the build order, as the
-    /// push's was: the factories hold its price meanwhile (`World::uplink_hold`). While its natural is pending, only
-    /// with the bank for both (the Uplink must not spend the base's money).
-    pub(crate) fn tend_uplink(&mut self, e: u8, harv: &[Id], cx: f64, cy: f64) {
-        let Some(r) = self.factions[e as usize].ai.relay else {
-            return;
-        };
-        let base = if self.natural_pending(e) {
-            self.factions[e as usize].hq.def().cost
-        } else {
-            [0, 0]
-        };
-        let cost = r.def().cost;
-        if !self.uplink_due(e) || !self.can_afford(e, [cost[0] + base[0], cost[1] + base[1]]) {
-            return;
-        }
-        let Some(spot) = self.find_spot(r, cx, cy) else {
-            return;
-        };
-        let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
-        if let Some(b) = self.free_builder(harv, sx, sy) {
-            let _ = self.place_building(e, r, spot.0, spot.1, Some(b));
-        }
+                .any(|&k| crate::data::radio::needs_range(k) && self.level_allows(k))
     }
 
     /// Whether the side's second tech building `k` is wanted by time `t` (`tech2_due`'s terms).
@@ -652,7 +597,12 @@ impl World {
         // (its tech building waits for a finished barracks, and the Kingdom's for its Market)
         let tech_ready = self.ai_count(&my_b, true, s.rax) >= 1
             && (payers > 0 || f.market.is_none_or(|m| m.def().per_hq > 1));
-        let want = if cap - used <= supply_margin
+        // Its Uplink first (`uplink_due`: once its Lab stands, and whenever it falls), before supply, its army and its
+        // natural: its machines stay at home until it stands (`World::held_machines`).
+        let uplink = s.relay.filter(|_| self.uplink_due(e));
+        let want = if let Some(r) = uplink {
+            Some(r)
+        } else if cap - used <= supply_margin
             && cap < self.sup_max(e)
             && supply_rising < d.supply_at_once
         {
@@ -721,8 +671,9 @@ impl World {
         } else {
             [0, 0]
         };
-        // (its natural first, `Diff::natural_first`: the Core's price held from every building but supply)
-        let hold = if d.natural_first && expansion_due && want != Some(f.supply) {
+        // (its natural first, `Diff::natural_first`: the Core's price held from every building but supply and its Uplink)
+        let hold = if d.natural_first && expansion_due && want != Some(f.supply) && uplink.is_none()
+        {
             [0, 1].map(|i| hold[i] + hq_cost[i])
         } else {
             hold
@@ -747,8 +698,10 @@ impl World {
                         second
                             .and_then(|(ex, ey)| self.find_spot(w, ex, ey))
                             .or_else(|| {
-                                // (not while the natural is due and the bank cannot pay for both)
+                                // (not while the natural is due and the bank cannot pay for both; its Uplink
+                                // comes before the natural)
                                 (!expansion_due
+                                    || uplink.is_some()
                                     || self.can_afford(
                                         e,
                                         [0, 1].map(|i| w.def().cost[i] + hq_cost[i]),
@@ -768,7 +721,6 @@ impl World {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
-        self.tend_uplink(e, &harv, cx, cy);
         // (the summary's notes: what holds its tech building and its next tower, once due)
         let slip = |w: &World, k: BldgKind, missing: Option<BldgKind>| {
             use crate::world::Slip;
@@ -862,6 +814,12 @@ impl World {
             None
         };
         let expand = exp_spot.is_some(); // nowhere to go: no saving, research carries on
+        // (its Uplink before its natural, `uplink_due`: the Core only with the bank for both while it is due)
+        let hq_cost = self.factions[e as usize].hq.def().cost;
+        let natural_cost = match self.factions[e as usize].ai.relay {
+            Some(r) if self.uplink_due(e) => [0, 1].map(|i| hq_cost[i] + r.def().cost[i]),
+            _ => hq_cost,
+        };
         // (the summary's note: what holds its natural, once due)
         let natural_due = (t > self.expand_time(e) || dry) && hqs < 2;
         self.ai_mut().notes.expand = natural_due
@@ -871,7 +829,7 @@ impl World {
                     Some(Slip::Workers)
                 } else if exp_spot.is_none() {
                     Some(Slip::NoSpot)
-                } else if !self.can_afford(e, self.factions[e as usize].hq.def().cost) {
+                } else if !self.can_afford(e, natural_cost) {
                     Some(Slip::NoGold)
                 } else {
                     None
@@ -879,7 +837,7 @@ impl World {
             })
             .flatten();
         if let Some(spot) = exp_spot
-            && self.can_afford(e, self.factions[e as usize].hq.def().cost)
+            && self.can_afford(e, natural_cost)
         {
             let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
             if let Some(b) = self.free_builder(&harv, sx, sy)

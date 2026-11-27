@@ -55,10 +55,9 @@ impl World {
         // The gate's elite (the arc: the Expedition's Portal, its Android or Rover): while its Portal stands idle with an
         // Uplink open, the other factories hold an elite's price back, or the posts spend every coin first each turn and
         // the Portal never trains (`gate_hold`).
-        let gate_hold = self.gate_hold(e, &my_b)
-            + self.siege_hold(e, &my_b, t)
-            + self.dive_hold(e, &my_b, t)
-            + self.uplink_hold(e);
+        let gate_hold =
+            self.gate_hold(e, &my_b) + self.siege_hold(e, &my_b, t) + self.dive_hold(e, &my_b, t);
+        // (its Uplink's price is held as the build order's `want`, `held` above: its next building whenever it is due)
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
         // cheaper machines fill the grid every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
@@ -368,16 +367,6 @@ impl World {
             k.def().cost[0]
         } else {
             0
-        }
-    }
-
-    /// The gold `e`'s factories hold back for its Uplink (`AiScript::relay`): its price while it is due
-    /// (`World::uplink_due`) and its natural is not pending (that base's saving comes first); else 0. (Its factories
-    /// spend every coin first each turn: unheld, the wave's Uplink was never paid for, and its machines fought slowed.)
-    pub(crate) fn uplink_hold(&self, e: u8) -> i32 {
-        match self.factions[e as usize].ai.relay {
-            Some(r) if self.uplink_due(e) && !self.natural_pending(e) => r.def().cost[0],
-            _ => 0,
         }
     }
 
@@ -746,51 +735,28 @@ mod tests {
     }
 
     #[test]
-    fn four_machines_and_a_lab_want_one_uplink_at_home_and_hold_its_price() {
-        // The Uplink (Nov 27: the signal across the whole map): due once its Lab stands and four machines are in its
-        // army, queued ones counted; its price held meanwhile; placed in its main, by its Data center, inside its area;
-        // never a second.
-        let mut w = World::with_setup(
-            17,
-            1,
-            crate::map::MapKind::Standard,
-            false,
-            [&HUMANS, &VAEL],
-        );
-        w.ai_turn = ENEMY;
-        let (bx, by) = w.map.bases[ENEMY as usize];
-        let (x, y) = ((bx as f64 - 3.0) * 32.0, by as f64 * 32.0);
-        for k in 0..4 {
-            w.make_unit(UnitKind::Shrike, ENEMY, x + k as f64 * 20.0, y);
+    fn a_standing_lab_makes_the_uplink_due_with_no_machine_yet_and_easy_s_with_its_machines() {
+        // The Uplink first (Stelian, Nov 27): due once its Lab stands, no machine needed (four, or its Portal placed,
+        // before); never a second while one stands or goes up; Easy's only once its level fields machines (its mid
+        // tier, drawn 10:00 to 13:00: none before then, so no Uplink for nothing).
+        for level in [0, 1] {
+            let mut w = World::with_setup(
+                17,
+                level,
+                crate::map::MapKind::Standard,
+                false,
+                [&HUMANS, &VAEL],
+            );
+            w.ai_turn = ENEMY;
+            let (bx, by) = w.map.bases[ENEMY as usize];
+            assert!(!w.uplink_due(ENEMY), "no Lab");
+            w.make_building(BldgKind::Loom, ENEMY, bx + 6, by - 2, true);
+            w.time = 200.0;
+            assert_eq!(w.uplink_due(ENEMY), level > 0, "a Lab, at 3:20");
+            w.time = 800.0; // (past Easy's mid tier, whatever its draw)
+            assert!(w.uplink_due(ENEMY), "a Lab, machines in its mix");
+            w.make_building(BldgKind::Uplink, ENEMY, bx - 6, by + 4, false);
+            assert!(!w.uplink_due(ENEMY), "one going up: no second");
         }
-        let uplink = BldgKind::Uplink.def().cost[0];
-        assert!(!w.uplink_due(ENEMY), "no Lab");
-        assert_eq!(w.uplink_hold(ENEMY), 0);
-        w.make_building(BldgKind::Loom, ENEMY, bx + 6, by - 2, true);
-        assert!(w.uplink_due(ENEMY), "a Lab and four machines");
-        assert_eq!(w.uplink_hold(ENEMY), uplink);
-        let drone = w.units.iter().rev().find(|u| u.team == ENEMY).unwrap().id;
-        w.units.retain(|u| u.id != drone);
-        assert!(!w.uplink_due(ENEMY), "three machines");
-        let kiln = w.make_building(BldgKind::Kiln, ENEMY, bx - 6, by + 4, true);
-        w.bm(kiln).unwrap().queue.push(UnitKind::Shrike);
-        assert!(w.uplink_due(ENEMY), "the fourth in training counts");
-        w.res[ENEMY as usize][0] = 2000;
-        let harv: Vec<crate::map::Id> = w
-            .units
-            .iter()
-            .filter(|u| u.team == ENEMY && u.kind.def().worker)
-            .map(|u| u.id)
-            .collect();
-        let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
-        w.tend_uplink(ENEMY, &harv, cx, cy);
-        let up = w
-            .bldgs
-            .iter()
-            .find(|b| b.team == ENEMY && b.kind == BldgKind::Uplink)
-            .expect("an Uplink placed");
-        assert!(w.in_area(ENEMY, up.x, up.y), "at home, in its area");
-        assert!(!w.uplink_due(ENEMY), "one is going up: no second");
-        assert_eq!(w.uplink_hold(ENEMY), 0);
     }
 }

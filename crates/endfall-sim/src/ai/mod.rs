@@ -330,7 +330,9 @@ impl World {
             .flatten()
             .unwrap_or_else(|| style_of(level, r[0]));
         let mix = self.factions[e as usize].ai.mix;
-        let base = styled(DIFF[level], level, st, mix, &StyleDraws(r));
+        // (its people's own opening at its level first, `Diff::people`; its style over that)
+        let own = DIFF[level].for_people(self.factions[e as usize].hq);
+        let base = styled(own, level, st, mix, &StyleDraws(r));
         // (a plan's fields over its style: what the plan leaves out is Hard as its style plays it)
         let tuned = self.plan_of(e).map_or(base, |p| p.apply(base));
         let planned = self.ai_plans.get(e as usize).copied().flatten().is_some();

@@ -391,8 +391,9 @@ pub struct AiScript {
     /// Its defensive tower (the Kingdom's Watchtower, the Expedition's Sentry mast).
     pub tower: BldgKind,
     /// The building that gives its machines the signal across the whole map, if it has one (the Expedition's Uplink):
-    /// the AI keeps one at home once its army has machines (`World::tend_uplink`; it raised forward ones for its waves
-    /// until Nov 27).
+    /// the AI raises one at home as its first building once its Lab stands, and again whenever it falls
+    /// (`World::uplink_due`), and keeps its machines at home until it stands (`World::held_machines`; it raised forward
+    /// ones for its waves until Nov 27).
     pub relay: Option<BldgKind>,
     pub air: BldgKind,
     /// Its vehicle bay, if it has one: it trains only its answer to flyers (`heavy_anti_air`) and the mixed-in units

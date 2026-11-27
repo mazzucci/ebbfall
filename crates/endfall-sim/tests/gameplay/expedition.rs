@@ -427,7 +427,7 @@ fn one_portal_a_side_standing_or_going_up_and_it_takes_no_grid() {
     let d = BldgKind::Eclipse.def();
     assert_eq!(d.supply, 0, "the Portal gives no places");
     let mut w = expedition();
-    set_down(&mut w, BldgKind::Uplink);
+    set_down(&mut w, BldgKind::Loom);
     let grid = w.sup(PLAYER);
     // Placed: no grid drawn (only units take grid since Nov 14).
     let (px, py) = spot(&w, BldgKind::Eclipse);
@@ -468,7 +468,7 @@ fn one_portal_a_side_standing_or_going_up_and_it_takes_no_grid() {
     );
     // A full grid does not stop it: only units ask for grid.
     let mut w = expedition();
-    set_down(&mut w, BldgKind::Uplink);
+    set_down(&mut w, BldgKind::Loom);
     let [used, cap] = w.sup(PLAYER);
     spawn(&mut w, UnitKind::Lumen, (cap - used) as usize);
     assert_eq!(w.room(PLAYER), 0, "the grid full");
@@ -556,9 +556,10 @@ fn the_android_is_a_slow_expensive_elite_machine_drawing_grid() {
 }
 
 #[test]
-fn the_lab_unlocks_the_uplink_whose_standing_unlocks_the_portal() {
+fn the_lab_unlocks_the_uplink_and_the_portal_which_trains_with_no_uplink() {
     // One dish, no satellite (Stelian, Nov 13): the Uplink is refused until a Lab stands, and costs what the Uplink and
-    // its satellite did together; the Portal needs an Uplink to be placed, and trains only while one stands.
+    // its satellite did together. The Portal (Stelian, Nov 27: it needed an Uplink, and trained only while one stood,
+    // before) goes up once a Lab stands, with no Uplink, and trains with none standing.
     let mut w = expedition();
     let (ux, uy) = spot(&w, BldgKind::Uplink);
     assert_eq!(BldgKind::Uplink.def().cost, [275, 0]);
@@ -569,45 +570,41 @@ fn the_lab_unlocks_the_uplink_whose_standing_unlocks_the_portal() {
     );
     set_down(&mut w, BldgKind::Siphon);
     let lab = set_down(&mut w, BldgKind::Loom);
-    let (px, py) = spot(&w, BldgKind::Eclipse);
-    assert_eq!(
-        w.place_building(PLAYER, BldgKind::Eclipse, px, py, None),
-        Err("Requires Uplink".to_string()),
-        "the Portal needs the Uplink, the Lab is not enough"
-    );
     assert!(
-        w.has_req(PLAYER, BldgKind::Uplink),
-        "the Lab standing opens it"
+        w.has_req(PLAYER, BldgKind::Uplink) && w.has_req(PLAYER, BldgKind::Eclipse),
+        "the Lab standing opens both"
     );
+    // The Portal with a Lab and no Uplink: it goes up, and trains with no Uplink standing.
     let bot = harvesters(&w, PLAYER)[0];
+    let portal = build(&mut w, BldgKind::Eclipse, bot, 90);
+    assert!(
+        !w.bldgs
+            .iter()
+            .any(|b| b.team == PLAYER && b.kind == BldgKind::Uplink),
+        "no Uplink anywhere"
+    );
+    set_down(&mut w, BldgKind::Substation); // (grid for its machines)
+    let androids = count(&w, PLAYER, UnitKind::Umbra);
+    assert_eq!(w.queue_unit(portal, UnitKind::Umbra), Ok(()));
+    assert_eq!(w.queue_unit(portal, UnitKind::Monolith), Ok(()));
+    run(&mut w, (UnitKind::Umbra.def().build + 2.0) as u32);
+    assert_eq!(
+        count(&w, PLAYER, UnitKind::Umbra),
+        androids + 1,
+        "an Android with no Uplink"
+    );
     let up = build(&mut w, BldgKind::Uplink, bot, 90);
     let d = w.bldg(up).unwrap().kind.def();
     assert!(d.weapon.is_none() && (d.w, d.h) == (3, 3), "unarmed, 3x3");
-    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
-    let portal = build(&mut w, BldgKind::Eclipse, bot, 90);
-    // The Uplink lost: no new Portal until another stands, and the Portal trains nothing meanwhile (refused with the
-    // reason; what it was training waits).
-    assert_eq!(w.queue_unit(portal, UnitKind::Umbra), Ok(()));
-    w.damage(up, 1e9, None);
-    assert!(!w.has_req(PLAYER, BldgKind::Eclipse));
-    assert_eq!(
-        w.queue_unit(portal, UnitKind::Monolith),
-        Err("Needs a standing Uplink.".to_string())
-    );
-    let prog = w.bldg(portal).unwrap().prog;
-    run(&mut w, 10);
-    assert_eq!(w.bldg(portal).unwrap().prog, prog, "its training waits");
-    let up2 = build(&mut w, BldgKind::Uplink, bot, 90);
-    assert!(w.bldg(up2).is_some_and(|b| b.done));
-    run(&mut w, 2);
-    assert!(
-        w.bldg(portal).unwrap().prog > prog,
-        "and goes on with one again"
-    );
-    // The Lab lost: the Uplink standing still works, but no new one goes up.
+    // The Lab lost: the Portal and the Uplink standing still work, but no new one of either goes up.
     w.damage(lab, 1e9, None);
     assert!(!w.has_req(PLAYER, BldgKind::Uplink));
-    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
+    assert!(!w.has_req(PLAYER, BldgKind::Eclipse));
+    assert_eq!(
+        w.queue_unit(portal, UnitKind::Umbra),
+        Ok(()),
+        "it still trains"
+    );
 }
 
 #[test]

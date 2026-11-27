@@ -40,10 +40,11 @@ where they stop and fire cannonballs far, with splash, but cannot hit anything c
 floats over cliffs. The Blacksmith researches weapon and armor upgrades and unlocks Knights, Cannons and Ballistas.
 Watchtowers hit ground and air. The Expedition: Bots mine and build, staying at each building until it stands; the
 Recruiting post hires Sellswords (locals with light swords) and Bruisers (big shields and axes), paid in gold coins it
-prints from energy; the Factory builds Buggies (fast raiders) and Drones (fast low flyers), machines that move faster
-within reach of the Data center's small receiver or an Uplink (a large dish, unlocked by the Lab, that extends the
-signal's range) and slower outside it; the Portal the Uplink unlocks (one per player) brings Rovers (rocket artillery that
-fires on the move) and Androids, elite machines, slow to make and costly. The Expedition runs on energy: its Bots dig
+prints from energy; the Factory builds Drones (fast low flyers) and, once a Lab stands, Buggies (fast raiders),
+machines that move faster with the signal and slower without it. Its buildings go up near a Data center; an Uplink (a
+large dish, unlocked by the Lab) gives its machines the signal across the whole map, and without one they have it only
+near a Data center. The Portal the Lab unlocks (one per player) brings Rovers (rocket artillery that fires on the move)
+and Androids, elite machines, slow to make and costly. The Expedition runs on energy: its Bots dig
 thorium, which the Data center's small reactor turns into energy, and its Wind turbines generate more; its units draw
 on the grid, from the Data center and its Substations (up to 150; the Kingdom's population, up to 120).
 Energy builds things; the grid keeps them running. Sentry masts hit ground and air.

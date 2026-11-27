@@ -124,16 +124,8 @@ impl World {
                 self.fire(bid, t);
             }
         }
-        // (a building that trains only with another standing, the Portal with an Uplink: its training waits meanwhile)
-        let (team, with) = (
-            self.bldg(bid).unwrap().team,
-            self.bldg(bid).unwrap().kind.def().trains_with,
-        );
-        let gate_open = with.is_none_or(|r| self.has_bldg(team, r));
         let b = self.bm(bid).unwrap();
-        if let Some(&q) = b.queue.first()
-            && gate_open
-        {
+        if let Some(&q) = b.queue.first() {
             b.prog += dt / q.def().build;
             if b.prog >= 1.0 {
                 b.prog = 0.0;

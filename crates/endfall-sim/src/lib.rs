@@ -841,14 +841,22 @@ impl Game {
         self.valid_team(team)
             .map_or_else(Vec::new, |t| self.w.lost_to[t as usize].clone())
     }
-    /// The range `team` has, with its allies': `x, y, reach` (world px) per source, its machines faster within a
-    /// circle (empty for a bad seat).
+    /// The Data centers' areas `team` has, with its allies': `x, y, reach` (world px) per Data center, where its
+    /// buildings go up and, with no Uplink, its machines have the signal (empty for a bad seat).
     #[wasm_bindgen(js_name = radioCircles)]
     pub fn radio_circles(&self, team: u8) -> Vec<f64> {
         self.valid_team(team)
             .map_or_else(Vec::new, |t| self.w.radio_circles(t))
     }
-    /// Bumped whenever the range's sources change (one finished or fell): the client copies them only then.
+    /// Whether `team`'s machines have the signal across the whole map: a finished Uplink of its own or an ally's
+    /// stands (false for a bad seat).
+    #[wasm_bindgen(js_name = radioWide)]
+    pub fn radio_wide(&self, team: u8) -> bool {
+        self.valid_team(team)
+            .is_some_and(|t| self.w.signal_everywhere(t))
+    }
+    /// Bumped whenever the sources change (a Data center or an Uplink finished or fell): the client copies them only
+    /// then.
     #[wasm_bindgen(js_name = radioVer)]
     pub fn radio_ver(&self) -> u32 {
         self.w.radio_version()

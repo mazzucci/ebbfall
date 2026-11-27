@@ -22,8 +22,8 @@ fit, and every adjustment is reported back (`adjusted`).
 | Headquarters (a second base is another one) | Castle (400) | Data center (350) |
 | Workers | Villager (50) | Bot (50) |
 | Line building and units | Barracks (150): **Guard** (line, melee, 50), Archer (ranged, hits air, 75) | Recruiting post (150): **Sellsword** (line, melee, 100), Bruiser (heavy melee, top tier, 225; needs the Lab) |
-| Tech building | Blacksmith (300): upgrades; the Workshop, the Stables and the Knight need it | Lab (200): upgrades; the Drone, the Bruiser and the Uplink need it |
-| Other unit buildings | Workshop (300): Cannon (siege, 275), Ballista (anti-air, 125), Balloon (scout, 50). Stables (350; needs a Market): Rider (raider, 100), Knight (elite, top tier, 325) | Factory (120): Buggy (raider, 80), Drone (flyer, hits air, 65). Portal (350; needs an Uplink, 275): Android (top tier, 525), Rover (top tier siege, 550) |
+| Tech building | Blacksmith (300): upgrades; the Workshop, the Stables and the Knight need it | Lab (200): upgrades; the Buggy, the Bruiser, the Uplink and the Portal need it |
+| Other unit buildings | Workshop (300): Cannon (siege, 275), Ballista (anti-air, 125), Balloon (scout, 50). Stables (350; needs a Market): Rider (raider, 100), Knight (elite, top tier, 325) | Factory (120): Drone (flyer, hits air, 65), Buggy (raider, 80; needs the Lab). Portal (350; needs the Lab): Android (top tier, 525), Rover (top tier siege, 550). Uplink (275; needs the Lab): the machines' signal across the whole map |
 | Income building | Market (75): pays by itself, one a Castle | Wind turbine (18): pays by itself, five a Data center |
 | Tower | Watchtower (150) | Sentry mast (125) |
 

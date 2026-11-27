@@ -16,7 +16,7 @@ fn each_building_trains_its_peoples_list() {
         (Factory, &[Bastion, SiegeTank, Observer]),
         (Conflux, &[Lumen]),
         (Siphon, &[Prism, Bruiser]),
-        (Kiln, &[Scythe, Shrike]),
+        (Kiln, &[Shrike, Scythe]),
         (Eclipse, &[Umbra, Monolith]),
         (Forge, &[]),
     ];
@@ -36,8 +36,8 @@ fn each_building_trains_its_peoples_list() {
         (Bruiser, Some(Loom)),
         (Monolith, None),
         (Prism, None),
-        (Scythe, None),
-        (Shrike, Some(Loom)),
+        (Scythe, Some(Loom)), // (Nov 27: the Drone first, the Buggy with the Lab)
+        (Shrike, None),
         (Umbra, None),
     ] {
         assert_eq!(u.def().req, req, "{u:?}");
@@ -55,9 +55,8 @@ fn each_building_trains_its_peoples_list() {
         None,
         "the Sentry mast: basic, the early defense"
     );
-    // (the Portal: once an Uplink stands, which needs a Lab; it trains only while one stands)
-    assert_eq!(Eclipse.def().req, Some(Uplink));
-    assert_eq!(Eclipse.def().trains_with, Some(Uplink));
+    // (the Portal and the Uplink: once a Lab stands, each its own; the Portal needed an Uplink until Nov 27)
+    assert_eq!(Eclipse.def().req, Some(Loom));
     assert_eq!(Uplink.def().req, Some(Loom));
     // The Kingdom's Stables need its Blacksmith (the top tier's way, serial since the arc); its Market, one a Castle,
     // built in the base, the Barracks.

@@ -98,7 +98,7 @@ test('a kind trained nowhere (the healers) is on no page; nothing on a page is f
   }
 });
 
-test('How to play: its figures are the data\'s (the Market\'s rate, the caps, the mines, the coverage)', { skip }, () => {
+test('How to play: its figures are the data\'s (the Market\'s rate, the caps, the mines, the Data center\'s area)', { skip }, () => {
   const html = page('/docs/how-to-play/');
   const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
   assert.match(html, new RegExp(`Market earns about a gold every ${words[Math.round(1 / C.PUMP_RATE)]} seconds`));
@@ -106,11 +106,12 @@ test('How to play: its figures are the data\'s (the Market\'s rate, the caps, th
   assert.ok(html.includes(`the Castle gives ${C.BUILDINGS[K.hq].supply}, each Cottage ${C.BUILDINGS[K.supply].supply}, up to ${C.POP_MAX}`));
   assert.ok(html.includes(`the Data center gives ${C.BUILDINGS[X.hq].supply}, each Substation ${C.BUILDINGS[X.supply].supply}, up to ${C.GRID_MAX}`));
   assert.ok(html.includes(`Up to ${words[C.UNITS[K.worker].mineCap]} Villagers, or ${words[C.UNITS[X.worker].mineCap]} Bots, work a mine at once`));
-  assert.ok(html.includes(`Data center (${C.RADIO.sources.conflux} tiles) or an Uplink (${C.RADIO.sources.uplink} tiles)`));
+  assert.ok(html.includes(`within ${C.RADIO.areas.conflux} tiles of a Data center`));
+  assert.ok(html.includes('An Uplink gives your machines the signal across the whole map.'));
   assert.ok(html.includes(`up to ${words[C.BUILDINGS[X.market].perHq]} per Data center`));
   // The diagrams' figures too.
   assert.ok(html.includes(`${C.UNITS[K.worker].mineCap} Villagers at once`) && html.includes(`${C.UNITS[X.worker].mineCap} Bots at once`), 'the economy diagram');
-  assert.ok(html.includes(`Uplink: ${C.RADIO.sources.uplink} tiles`), 'the signal diagram');
+  assert.ok(html.includes(`Data center: ${C.RADIO.areas.conflux} tiles`) && html.includes('Uplink: the whole map'), 'the signal diagram');
 });
 
 test('every figure token names a figure, every diagram and screenshot exists (an unknown one fails the build)', { skip }, () => {
@@ -471,7 +472,7 @@ test('every page\'s head, the game\'s and the docs\': its own title and descript
 test('At a glance: a tier per requirement in Build-list order, every building in the tier of what it needs, its units in order, a tag only for a need its chain does not imply', { skip }, () => {
   const tiersOf = {
     '/docs/kingdom/': ['Start', 'After a Barracks', 'After a Blacksmith'],
-    '/docs/expedition/': ['Start', 'After a Recruiting post', 'After a Lab', 'After an Uplink'],
+    '/docs/expedition/': ['Start', 'After a Recruiting post', 'After a Lab'],
   };
   for (const [race, path] of [['humans', '/docs/kingdom/'], ['vael', '/docs/expedition/']]) {
     const f = C.FACTIONS[race], html = page(path), at = html.indexOf('<figure class="dia tree');

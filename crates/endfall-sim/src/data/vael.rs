@@ -1,5 +1,5 @@
 //! The Expedition (sim race `vael`; the Vael before the re-theme): the Data center, Bots that build, Sellswords and
-//! Bruisers from the Recruiting post, Buggies, Rovers and Drones from the Factory, Androids from the Portal. No shields
+//! Bruisers from the Recruiting post, Drones and Buggies from the Factory, Androids and Rovers from the Portal. No shields
 //! (the mechanism stays, as data) and every ground unit walks. Keys never change; the names are display strings only.
 //!
 //! Energy and the grid (PRD: the Expedition runs on energy, Nov 14), the Kingdom's economy in the Expedition's colors:
@@ -7,9 +7,10 @@
 //! the Data center's small reactor turns into energy; its Wind turbines pay energy by themselves, five a Data center, as
 //! the Market pays gold), and its machines and its mercenaries draw on the grid while they exist, as the Kingdom's units
 //! take population (its buildings drew grid too until Nov 14): the Data center and its Substations give grid, up to
-//! `GRID_MAX`. "Energy builds things; the grid keeps them running." The Lab unlocks the Uplink, which unlocks the
-//! Portal: one a side, where the Android, a slow and expensive elite machine, is made. Machines work and move faster
-//! inside the coverage of the Data center or an Uplink (data/radio.rs).
+//! `GRID_MAX`. "Energy builds things; the grid keeps them running." The Lab unlocks the Uplink and the Portal (one a
+//! side, where the Android, a slow and expensive elite machine, is made; it needed an Uplink until Nov 27). Its
+//! buildings go up inside a Data center's area; its machines move faster with the signal, which a Data center gives in
+//! its area and an Uplink across the whole map (data/radio.rs).
 //!
 //! No armor on its units (Nov 14: deadly but fragile) and no armor research: Energy efficiency instead. A unit that had
 //! base armor `a` has its hp raised to about hp x d / (d - a), averaged over the Kingdom's main damage values d (the
@@ -63,18 +64,20 @@ pub const VAEL: Faction = Faction {
         heavy_anti_air: None,
         // (its Buggies hit the air too since Nov 18: counted in its answer to flyers, not trained for it)
         also_anti_air: &[UnitKind::Scythe],
-        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Drone per four from the
-        // Factory, between its Buggies, the anti-air the melee line lacks; from the Portal an Android per three from 5:00
+        // (a Bruiser per four Sellswords once the Lab stands, the melee line's heavy front; a Buggy per four from the
+        // Factory once the Lab stands, between its Drones (a Drone per four between its Buggies until Nov 27, when the
+        // Drone became the Factory's first machine); from the Portal an Android per three from 5:00
         // and a Rover per four, the Android first (Nov 13: with the Rover first, Rovers lost one by one were made again
         // and again, and the Android never came))
         mix: &[
             (UnitKind::Bruiser, 4, 0.0),
             (UnitKind::Monolith, 4, 0.0),
-            (UnitKind::Shrike, 4, 0.0),
+            (UnitKind::Scythe, 4, 0.0),
             (UnitKind::Umbra, 3, 300.0),
         ],
         dive: Some(UnitKind::Shrike),
-        raider: UnitKind::Scythe,
+        // (the Factory's first machine since Nov 27, the Buggy's before)
+        raider: UnitKind::Shrike,
         scout: None,
         wave_scale: 0.6,
         tech_from: 300.0,
@@ -110,8 +113,8 @@ pub(super) const LUMEN: UnitDef = UnitDef {
     }),
     ..UNIT
 };
-/// The Buggy: a fast vehicle with a light gun, the early machine from the Factory (the coverage's cavalry: the
-/// Expedition's unit that catches raiders at its Bots; the arc, Nov 13).
+/// The Buggy: a fast vehicle with a light gun, from the Factory once a Lab stands (Nov 27: the Drone's old step; the
+/// early machine before), the Expedition's unit that catches raiders at its Bots (the arc, Nov 13).
 pub(super) const SCYTHE: UnitDef = UnitDef {
     key: "scythe",
     name: "Buggy",
@@ -122,6 +125,7 @@ pub(super) const SCYTHE: UnitDef = UnitDef {
     sight: 9.0,
     r: 12.0,
     build: 24.0,
+    req: Some(BldgKind::Loom), // (Nov 27: the Drone first, the Buggy with the Lab)
     weapon: Some(Weapon {
         range: 4.0,
         dmg: 10.0,
@@ -226,20 +230,20 @@ pub(super) const MONOLITH: UnitDef = UnitDef {
     ..UNIT
 };
 /// The Drone: a small, fast attack drone for swarms (the arc, Nov 13): fragile and weak alone, the fastest unit in the
-/// game, a short camera's sight (it spots for the Rovers by flying ahead of them), the ground and the air. Lab-gated.
+/// game, a short camera's sight (it spots for the Rovers by flying ahead of them), the ground and the air. The
+/// Factory's first machine, no Lab needed (Nov 27: the Buggy's old step; Lab-gated before).
 pub(super) const SHRIKE: UnitDef = UnitDef {
     key: "shrike",
     name: "Drone",
     cost: [65, 0],
     supply: 1, // (grid: the smallest a machine takes; 2 before the grid was halved, Nov 14)
     hp: 40.0,
-    speed: 192.0, // (6 tiles a second, 7.8 in coverage)
+    speed: 192.0, // (6 tiles a second, 7.8 with the signal)
     sight: 7.0,
     r: 9.0,
     build: 12.0,
     air: true,
     mv: Move::Fly,
-    req: Some(BldgKind::Loom),
     weapon: Some(Weapon {
         range: 3.0,
         dmg: 4.0, // (6 until Nov 18, Stelian: 12 a second for 65 was the most damage per gold in the game; now 8)
@@ -340,7 +344,7 @@ pub(super) const SIPHON: BldgDef = BldgDef {
     trains: &[UnitKind::Prism, UnitKind::Bruiser],
     ..BLDG
 };
-/// The Factory: Buggies, and Drones once a Lab stands.
+/// The Factory: Drones, and Buggies once a Lab stands (the other way round until Nov 27).
 pub(super) const KILN: BldgDef = BldgDef {
     key: "kiln",
     name: "Factory",
@@ -350,7 +354,7 @@ pub(super) const KILN: BldgDef = BldgDef {
     hp: 800.0,
     build: 45.0,
     sight: 7.0,
-    trains: &[UnitKind::Scythe, UnitKind::Shrike],
+    trains: &[UnitKind::Shrike, UnitKind::Scythe],
     req: Some(BldgKind::Siphon),
     ..BLDG
 };
@@ -389,8 +393,8 @@ pub(super) const WARD: BldgDef = BldgDef {
     }),
     ..BLDG
 };
-/// The Portal (once an Uplink stands): Androids and Rovers. One a side (`single`). (It drew grid while it stood until Nov 14:
-/// only units draw grid since.)
+/// The Portal (once a Lab stands): Androids and Rovers. One a side (`single`). (It drew grid while it stood until Nov 14:
+/// only units draw grid since. It needed an Uplink, and trained only while one stood, until Nov 27: Stelian.)
 pub(super) const ECLIPSE: BldgDef = BldgDef {
     key: "eclipse",
     name: "Portal",
@@ -400,16 +404,16 @@ pub(super) const ECLIPSE: BldgDef = BldgDef {
     single: true,
     build: 60.0, // (45.0 s before the economy pass: a bet in time as well as gold)
     sight: 7.0,
-    req: Some(BldgKind::Uplink),
-    trains_with: Some(BldgKind::Uplink),
-    // (the gate's machines: the Android and the Rover, one queue; it trains only while an Uplink stands: `World::gate_open`)
+    req: Some(BldgKind::Loom),
+    // (the gate's machines: the Android and the Rover, one queue)
     trains: &[UnitKind::Umbra, UnitKind::Monolith],
     ..BLDG
 };
-/// The Uplink: a large dish that extends the signal's range (the Data center's small receiver sits on an existing
-/// link), unarmed, once a Lab stands; it gives machines coverage (data/radio.rs) and unlocks the Portal. 3x3 (a wide,
-/// squat dish). 275 gold: what the Uplink and the satellite it once needed cost together (Stelian, Nov 13: one dish,
-/// no satellite), so a forward Uplink is a real investment.
+/// The Uplink: a large dish that gives its side's machines the signal across the whole map (the Data center's small
+/// receiver reaches only its area; data/radio.rs), unarmed, once a Lab stands. It places nothing: buildings go up only
+/// near a Data center (since Nov 27; it extended placement as far as its 54-tile coverage before, and unlocked the
+/// Portal). 3x3 (a wide, squat dish). 275 gold: what the Uplink and the satellite it once needed cost together
+/// (Stelian, Nov 13: one dish, no satellite).
 pub(super) const UPLINK: BldgDef = BldgDef {
     key: "uplink",
     name: "Uplink",

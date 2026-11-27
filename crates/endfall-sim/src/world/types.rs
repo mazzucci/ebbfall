@@ -413,8 +413,8 @@ pub enum Refusal {
     NearMineHq,
     /// A headquarters within `HQ_SPACING` of another of the seat's own, standing or going up.
     NearBase,
-    /// An Expedition building (not a source) whose center lies outside its side's coverage.
-    Coverage,
+    /// An Expedition building (not a Data center or an Uplink) whose center lies outside its side's area.
+    Area,
 }
 
 impl Refusal {
@@ -431,7 +431,7 @@ impl Refusal {
             Refusal::NearMine => "Too close to a mine",
             Refusal::NearMineHq => "Too close to a mine for a headquarters",
             Refusal::NearBase => "Too close to your other base.",
-            Refusal::Coverage => "Build within coverage",
+            Refusal::Area => "Build near a Data center",
         }
     }
 }

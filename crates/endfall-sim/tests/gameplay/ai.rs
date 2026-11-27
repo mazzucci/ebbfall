@@ -1379,10 +1379,15 @@ fn brutal_brings_the_kingdoms_cannons_sooner_and_more_of_them() {
     // 14, seed 4's Brutal Kingdom is past its guns' time before it trains one: seed 1; since the mines moved out to four
     // tiles from their headquarters, Nov 15, seed 1's Brutal Kingdom trains none by 15:00: seed 2, which passes before and
     // after; since Nov 18, the Archer's slow gone, the Drone lighter, the Ballista heavier and the Buggy shooting
-    // flyers, seed 2's Kingdom trains none at either level by 15:00: seed 3.)
+    // flyers, seed 2's Kingdom trains none at either level by 15:00: seed 3. Since Nov 27, machines at half speed without
+    // the signal, the Expedition's AI often fell before either level's guns came: its buildings are made to last, and
+    // Brutal is sooner in 10 of seeds 1 to 10.)
     let guns = |level: usize| {
         let mut w = World::with_setup(3, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         w.set_ai_seats([true, true]);
+        for b in w.bldgs.iter_mut().filter(|b| b.team == 1) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
         let (mut first, mut seen) = (f64::INFINITY, Vec::new());
         while w.time < 900.0 && !w.over {
             w.step();

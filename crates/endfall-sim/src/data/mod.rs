@@ -343,9 +343,6 @@ def_struct! {
         /// turbines a Data center (a new headquarters at an expansion allows more).
         per_hq: i32 = "perHq",
         req: Option<BldgKind> = "req",
-        /// A building its side must have standing, finished, for this one to train (the Portal: an Uplink; the arc,
-        /// Nov 13): its training waits while there is none, and a unit is refused with the reason.
-        trains_with: Option<BldgKind> = "trainsWith",
         /// A turret's weapon; None = no defense.
         weapon: Option<Weapon> = "weapon",
     }
@@ -393,8 +390,9 @@ pub struct AiScript {
     pub tech2: Option<BldgKind>,
     /// Its defensive tower (the Kingdom's Watchtower, the Expedition's Sentry mast).
     pub tower: BldgKind,
-    /// The building that carries its range forward, if it has one (the Expedition's Uplink: a wave with machines
-    /// gathers at its forward-most one and raises another past the edge of its range on the march; ai/army.rs).
+    /// The building that gives its machines the signal across the whole map, if it has one (the Expedition's Uplink):
+    /// the AI keeps one at home once its army has machines (`World::tend_uplink`; it raised forward ones for its waves
+    /// until Nov 27).
     pub relay: Option<BldgKind>,
     pub air: BldgKind,
     /// Its vehicle bay, if it has one: it trains only its answer to flyers (`heavy_anti_air`) and the mixed-in units
@@ -557,7 +555,6 @@ const BLDG: BldgDef = BldgDef {
     pays: 0.0,
     per_hq: 0,
     req: None,
-    trains_with: None,
     hq: false,
     researches: &[],
     shields: 0.0,

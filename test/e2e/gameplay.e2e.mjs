@@ -1639,7 +1639,7 @@ for (const [race, R] of [['humans', { hq: 'core', worker: 'harvester', steps: [[
 }
 
 // The console fits every phone, fluidly: the Stables with a full queue and a research (the Expedition's Factory, its
-// Drones after a Lab: its queue alone, as it researches nothing), at every landscape
+// Drones: its queue alone, as it researches nothing), at every landscape
 // width from 640 to 900 (360 and 390 high) and upright from 360 to 430 wide: the name and the health figure whole,
 // everything inside the console (and its module), clear of the command card and the minimap. Every unit's and
 // building's name of both races is tried in that console too (the widest module there is), and every unit's name in a
@@ -1826,7 +1826,7 @@ test('the Build list packs its buttons in the order they open: a newly opened bu
 // Build, Advanced with every building open (the Expedition's five fill all but the corner), then Back: the basic page.
 // On the phone Back is a quick tap the page handles late (a busy frame outlasting the long press's timer): still a tap.
 for (const [race, V, steps, full, basic] of [
-  ['vael', { hq: 'conflux', worker: 'lumen' }, [['i', 'siphon'], ['g', 'loom'], ['u', 'uplink']], ['Factory', 'Lab', 'Turbine', 'Uplink', 'Portal'], 'Substation'],
+  ['vael', { hq: 'conflux', worker: 'lumen' }, [['i', 'siphon'], ['g', 'loom']], ['Factory', 'Lab', 'Turbine', 'Uplink', 'Portal'], 'Substation'],
   ['humans', { hq: 'core', worker: 'harvester' }, [['c', 'barracks'], ['k', 'forge']], ['Blacksmith', 'Workshop', 'Market', 'Stables'], 'Cottage']]) {
   for (const [where, layout] of [['desktop', DESKTOP], ['phone', PHONE]]) {
     test(`${where}, as ${race === 'vael' ? 'the Expedition' : 'the Kingdom'}: Build, Advanced with every building open, then Back lands on the basic page${where === 'phone' ? ' (a quick tap handled late)' : ''}`, where === 'phone' ? { chromium: CDP_TOUCH } : {}, async () => {
@@ -2232,11 +2232,11 @@ test('an Expedition unit\'s health figure is its hull (no shields since the re-t
   } finally { await d.close(); }
 });
 
-test('as the Expedition: a selected machine or Data center shows the range as circles, a machine out of coverage shows no signal, and loses the mark once back inside', async () => {
+test('as the Expedition with no Uplink: a selected machine or Data center shows the Data center\'s area as circles, a machine outside it shows no signal, and loses the mark once back inside', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
   try {
     const s = await d.state(), hq = s.bldgs.find(b => b.team === 0 && b.type === 'conflux');
-    const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
+    const reach = await d.eval(() => endfall.engine.RADIO.areas.conflux);
     const range = () => d.eval(() => endfall.rangeShown());
     assert.equal((await range()).shown, false, 'nothing selected: no range drawn');
     // Two Rovers towards the map's middle: one a little past the Data center's range (slowed), one a little inside
@@ -2292,6 +2292,57 @@ test('as the Expedition: a selected machine or Data center shows the range as ci
   } finally { await d.close(); }
 });
 
+
+test('as the Expedition with an Uplink: its player is told, its machines show no mark and selecting them draws no rim; placing a building still shows the Data center\'s area; the Uplink falls and the mark is back', async () => {
+  const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
+  const V = { hq: 'conflux', worker: 'lumen' };
+  try {
+    await d.grant(4000, 0);
+    await buildAndFinish(d, 'i', 'siphon', 0, V);
+    await buildAndFinish(d, 'g', 'loom', 1, V);
+    const s = await d.state(), hq = myBldg(s, 'conflux')[0];
+    const [W, H, T, reach] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE, endfall.engine.RADIO.areas.conflux]);
+    // A Rover 8 tiles past the Data center's area towards the map's middle: marked while no Uplink stands.
+    const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy), at = (k) => [hq.x + dx / len * k * T, hq.y + dy / len * k * T];
+    const rover = await d.eval(([x, y]) => endfall.engine.debugSpawn(0, 'monolith', x, y), at(reach + 8));
+    await d.centerOn(...at(reach + 8));
+    await d.page.waitForFunction((id) => endfall.rangeShown().marked.includes(id), rover, { timeout: 15000 });
+    // The Uplink through the UI: once it stands, its player is told, and the mark goes.
+    const up = await buildAndFinish(d, 'u', 'uplink', 2, V);
+    assert.ok(await d.skipUntil(() => endfall.G.signalWide, null, { seconds: 5 }), 'the signal everywhere');
+    assert.match((await d.toasts()).join(' | '), /Uplink online: your machines have the signal across the whole map/);
+    await d.centerOn(...at(reach + 8));
+    await d.page.waitForFunction((id) => !endfall.rangeShown().marked.includes(id), rover, { timeout: 15000 });
+    // The Rover selected: no rim (it means nothing while an Uplink stands); nor with the Data center selected.
+    await d.clickEntity(rover);
+    assert.deepEqual((await d.selection()).map(e => e.id), [rover]);
+    await d.page.waitForTimeout(200);
+    assert.equal((await d.eval(() => endfall.rangeShown())).shown, false, 'a machine selected: no rim');
+    assert.equal((await d.eval(() => endfall.rangeShown())).mmRim, 0, 'nor on the minimap');
+    await d.centerOn(hq.x, hq.y);
+    await d.clickEntity(hq.id);
+    await d.page.waitForTimeout(200);
+    assert.equal((await d.eval(() => endfall.rangeShown())).shown, false, 'the Data center selected: no rim');
+    // Placing a Substation: the Data center's area, where it may go.
+    const w = mine(await d.state(), 'lumen')[0];
+    for (let i = 0; i < 10 && !(await d.selection()).some(e => e.id === w.id); i++) { await d.clickEntity(w.id); await d.skip(0.5); }
+    await d.pressCard('Build'); await d.pressCard('Substation');
+    const [x, y] = await d.screen(hq.x + 6 * T, hq.y);
+    await d.page.mouse.move(x, y); await d.page.waitForTimeout(200);
+    const shown = await d.eval(() => endfall.rangeShown());
+    assert.ok(shown.shown && shown.circles.length === 1 && shown.circles[0].x === hq.x && shown.circles[0].r === reach * T, `placing: the Data center's area (${JSON.stringify(shown.circles)})`);
+    assert.ok(shown.mmRim >= 1, 'and on the minimap');
+    await d.key('Escape');
+    // The Uplink falls (set-up: an enemy's Knights at a one-hp Uplink): the mark is back (the sim's toast for it is
+    // pinned in the gameplay tests: here the attack's own alerts crowd it out).
+    await d.eval(([id, x, y]) => { endfall.engine.debugSetHp(id, 1); for (let i = 0; i < 3; i++) endfall.engine.debugSpawn(1, 'knight', x + 40, y + i * 20); }, [up.id, up.x, up.y]);
+    assert.ok(await d.skipUntil((id) => !endfall.G.bldgs.some(b => b.id === id), up.id, { seconds: 30 }), 'the Uplink fell');
+    assert.ok(await d.skipUntil(() => !endfall.G.signalWide, null, { seconds: 5 }), 'no signal everywhere now');
+    await d.centerOn(...at(reach + 8));
+    await d.page.waitForFunction((id) => endfall.rangeShown().marked.includes(id), rover, { timeout: 15000 });
+    assert.deepEqual(d.errors, []);
+  } finally { await d.close(); }
+});
 
 test('as the Expedition: the top bar shows energy as a bolt and the grid, whole, on a desktop, a small phone and upright phones', async () => {
   const NARROW = { ...PHONE, viewport: { width: 360, height: 780 } };
@@ -2457,7 +2508,7 @@ test('phone (667x375): a unit\'s grid figure fits on its button beside the price
   } finally { await d.close(); }
 });
 
-test('as the Expedition: the Uplink opens with the Lab on the Build card (appended, no button moves), its circle shown while placing it', async () => {
+test('as the Expedition: the Uplink and the Portal open with the Lab on the Build card (appended, no button moves); placing the Uplink draws no circle (it gives no area)', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
   const V = { hq: 'conflux', worker: 'lumen' };
   try {
@@ -2473,10 +2524,10 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
       await d.pressCard('Back'); await d.pressCard('Back');
       return got;
     };
-    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Back 5'], 'the advanced page before the Lab: no Uplink');
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Back 5'], 'the advanced page before the Lab: no Uplink, no Portal');
     await buildAndFinish(d, 'g', 'loom', 1, V);
-    // The Uplink: open now, appended; nothing else moved. Armed, its ghost follows the mouse with its circle.
-    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Uplink 3', 'Back 5'], 'the Uplink appended once the Lab stands; nothing moved');
+    // The Uplink and the Portal: open now, appended; nothing else moved. Armed, the Uplink's ghost follows the mouse.
+    assert.deepEqual(await advanced(), ['Factory 0', 'Lab 1', 'Turbine 2', 'Uplink 3', 'Portal 4', 'Back 5'], 'the Uplink and the Portal appended once the Lab stands; nothing moved');
     const hq = myBldg(await d.state(), 'conflux')[0];
     const w = mine(await d.state(), 'lumen')[2];
     for (let i = 0; i < 16 && !(await d.selection()).some(e => e.id === w.id); i++) { if (i) await d.page.waitForTimeout(150 + 50 * i); await d.clickEntity(w.id); }
@@ -2485,11 +2536,10 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
     await d.pressCard('Uplink');
     const [x, y] = await d.screen(hq.x + 12 * 32, hq.y);
     await d.page.mouse.move(x, y); await d.page.waitForTimeout(200);
-    const reach = await d.eval(() => endfall.engine.coverageOf('uplink') * 32);
-    assert.equal(reach, 54 * 32, 'the Uplink reaches 54 tiles');
+    assert.equal(await d.eval(() => endfall.engine.areaOf('uplink')), 0, 'the Uplink gives no area');
+    assert.ok(await d.eval(() => endfall.engine.RADIO.wide.has('uplink') && !endfall.engine.needsArea('uplink')), 'it gives the signal everywhere, and goes up anywhere explored');
     const shown = await d.eval(() => endfall.rangeShown());
-    assert.ok(shown.shown && shown.circles.some(c => c.r === reach) && shown.circles.some(c => c.x === hq.x && c.y === hq.y), `placing: the Uplink's circle with the Data center's (${JSON.stringify(shown.circles)})`);
-    assert.equal(shown.mmExtra?.r, reach, 'its circle on the minimap too');
+    assert.ok(!shown.shown && !shown.mmExtra, `placing the Uplink: no circle (${JSON.stringify(shown.circles)})`);
     const head = await d.eval(() => { endfall.draw(); const p = endfall.ui.place, b = endfall.engine.BUILDINGS.uplink; return [endfall.ghostHeadShown(), (p.tx + b.w / 2) * 32, (p.ty + b.h / 2) * 32]; });
     assert.deepEqual(head[0] && [head[0].frame, head[0].x, head[0].y], ['uplink_head_2', head[1], head[2]], 'the ghost has its dish');
     await d.key('Escape');
@@ -2497,14 +2547,14 @@ test('as the Expedition: the Uplink opens with the Lab on the Build card (append
   } finally { await d.close(); }
 });
 
-test('as the Expedition: placing a Substation shows coverage, outside it the ghost is red and a click says "Build within coverage"; inside it goes up', async () => {
+test('as the Expedition: placing a Substation shows the Data center\'s area, outside it the ghost is red and a click says "Build near a Data center"; inside it goes up', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { ai: false, race: 'vael' });
   try {
     await d.grant(4000, 0);
     const s = await d.state(), hq = myBldg(s, 'conflux')[0], w = mine(s, 'lumen')[0];
     const [W, H, T] = await d.eval(() => [endfall.engine.WW, endfall.engine.WH, endfall.engine.TILE]);
-    const reach = await d.eval(() => endfall.engine.RADIO.sources.conflux);
-    // Ground 4 tiles past the Data center's coverage towards the map's middle, explored (set-up: a Sellsword there),
+    const reach = await d.eval(() => endfall.engine.RADIO.areas.conflux);
+    // Ground 4 tiles past the Data center's area towards the map's middle, explored (set-up: a Sellsword there),
     // and a spot on it refused for coverage alone (the sim's other rules all pass there).
     const dx = W / 2 - hq.x, dy = H / 2 - hq.y, len = Math.hypot(dx, dy);
     const px = hq.x + dx / len * (reach + 4) * T, py = hq.y + dy / len * (reach + 4) * T;
@@ -2513,7 +2563,7 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     const out = await d.eval(([x, y, T]) => {
       for (let r = 0; r < 6; r++) for (let a = 0; a < 24; a++) {
         const tx = Math.round(x / T + Math.cos(a / 24 * 6.283) * r) - 1, ty = Math.round(y / T + Math.sin(a / 24 * 6.283) * r) - 1;
-        if (endfall.engine.placeRefusal('substation', tx, ty, 0) === 'Build within coverage') return { tx, ty };
+        if (endfall.engine.placeRefusal('substation', tx, ty, 0) === 'Build near a Data center') return { tx, ty };
       }
       return null;
     }, [px, py, T]);
@@ -2550,9 +2600,9 @@ test('as the Expedition: placing a Substation shows coverage, outside it the gho
     assert.ok(lit && lit.p[2] > 120 && lit.p[1] > 100, `the rim lit over unexplored ground on the minimap: ${JSON.stringify(lit)}`);
     assert.match(await d.eval(() => document.getElementById('hint').className), /placing/, 'the placing hint (a figure\'s size: 15.3 px at 1280x720, never under the 15 px of a smaller window)');
     assert.equal(await d.eval(() => getComputedStyle(document.getElementById('hint')).fontSize), '15.3px');
-    await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build within coverage$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
+    await d.page.waitForFunction(() => { const h = document.querySelector('#hint'); return /^Build near a Data center$/.test(h.textContent) && h.classList.contains('bad'); }, null, { timeout: 5000 });
     await d.page.mouse.down(); await d.page.mouse.up(); await d.page.waitForTimeout(60);
-    assert.match((await d.toasts()).join(' | '), /Build within coverage/);
+    assert.match((await d.toasts()).join(' | '), /Build near a Data center/);
     assert.ok(await d.eval(() => !!endfall.ui.place), 'still placing');
     assert.ok(!(await d.state()).bldgs.some(b => b.team === 0 && b.type === 'substation'), 'nothing placed');
     await d.key('Escape');
@@ -4491,7 +4541,7 @@ test('desktop, WASD controls: chosen in OPTIONS from the pause card (still pause
   } finally { await d.close(); }
 });
 
-test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their units and no button moves when one unlocks (Rally fixed), the Lab opens the Uplink, the Uplink the Portal, which trains Androids and Rovers', async () => {
+test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a Lab stands (B, or its slot\'s key in WASD), the cards pack their units and no button moves when one unlocks (Rally fixed), the Lab opens the Factory\'s Buggy and the Portal, which trains Androids and Rovers with no Uplink', async () => {
   const d = await newGame(DESKTOP, 1, 4242, { ai: false, race: 'vael' });
   const { GRID } = await import('../../src/client/controls.js');
   const V = { hq: 'conflux', worker: 'lumen' };
@@ -4505,9 +4555,9 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     assert.deepEqual(postBefore, ['Sellsword 0', 'Rally 4', 'Cancel 5'], 'the Recruiting post before a Lab: no gap for the Bruiser; Rally in the middle of the second row, Cancel in the corner');
     const kiln = await buildAndFinish(d, 'c', 'kiln', 2, V);
     await d.clickEntity(kiln.id);
-    await d.readyCard('Buggy');
+    await d.readyCard('Drone');
     const kilnBefore = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
-    assert.deepEqual(kilnBefore, ['Buggy 0', 'Rally 4', 'Cancel 5'], 'the Factory before a Lab: packed, no gap for the Drone; Rally in its place');
+    assert.deepEqual(kilnBefore, ['Drone 0', 'Rally 4', 'Cancel 5'], 'the Factory before a Lab: the Drone, packed, no gap for the Buggy; Rally in its place');
     await buildAndFinish(d, 'g', 'loom', 3, V);
     await d.clickEntity(post.id);
     await d.readyCard('Bruiser');
@@ -4515,10 +4565,10 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     assert.deepEqual(postAfter, ['Sellsword 0', 'Bruiser 1', 'Rally 4', 'Cancel 5'], 'with a Lab: the Bruiser appended after the Sellsword');
     for (const it of postBefore) assert.ok(postAfter.includes(it), `the Bruiser unlocked moved no button: ${it} (${postAfter})`);
     await d.clickEntity(kiln.id);
-    await d.readyCard('Drone');
+    await d.readyCard('Buggy');
     const kilnAfter = (await cardKeys(d)).map(([at, , l]) => `${l} ${at}`);
-    assert.deepEqual(kilnAfter, ['Buggy 0', 'Drone 1', 'Rally 4', 'Cancel 5'], 'the Factory with a Lab: the Drone appended');
-    for (const it of kilnBefore) assert.ok(kilnAfter.includes(it), `the Drone unlocked moved no button: ${it} (${kilnAfter})`);
+    assert.deepEqual(kilnAfter, ['Drone 0', 'Buggy 1', 'Rally 4', 'Cancel 5'], 'the Factory with a Lab: the Buggy appended');
+    for (const it of kilnBefore) assert.ok(kilnAfter.includes(it), `the Buggy unlocked moved no button: ${it} (${kilnAfter})`);
     await d.clickEntity(post.id);
     await d.readyCard('Bruiser');
     const queue = async (b) => (await d.state()).bldgs.find(x => x.id === b.id).queue;
@@ -4532,9 +4582,9 @@ test('desktop, as the Expedition: the Recruiting post trains a Bruiser once a La
     await d.key(key.toLowerCase());
     assert.deepEqual(await queue(post), ['bruiser', 'bruiser'], `${key} trains another`);
     await pickControls(d, 'classic');
-    // The Lab standing: the Uplink (B, V, U), then the Portal.
-    await buildAndFinish(d, 'u', 'uplink', 0, V);
+    // The Lab standing: the Portal, with no Uplink.
     const portal = await buildAndFinish(d, 'd', 'eclipse', 0, V); // (B then D: the Advanced page's key)
+    assert.ok(!myBldg(await d.state(), 'uplink').length, 'no Uplink');
     await d.clickEntity(portal.id);
     await d.readyCard('Android');
     assert.deepEqual((await cardKeys(d)).map(([at, , l]) => `${l} ${at}`), ['Android 0', 'Rover 1', 'Rally 4', 'Cancel 5'], 'the Portal: Androids and Rovers');

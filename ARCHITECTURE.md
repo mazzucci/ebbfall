@@ -458,7 +458,7 @@ src/client/           everything that touches the browser
                       from the live site; a docs- or CI-only commit ships the same bytes), the single-player page
                       (the board: eight fixed spots, you and one to
                       seven AIs, a token per seat whose sheet sets its race, RANDOM too, an AI's level, and its side;
-                      with no board saved: you against the other people on Easy;
+                      with no board saved: you the Expedition against the Kingdom on Easy;
                       + AI in the lowest empty spot; the map list, any offered map that seats them, with a preview, on
                       Dust Quarter (96x96, two players) by default, a saved hidden map opening the default; no FIRST
                       GAME there; `?seed=` plays the hidden 64x64 random slot, `?map=N` opens map N, hidden ones too:

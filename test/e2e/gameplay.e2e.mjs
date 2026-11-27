@@ -1292,7 +1292,7 @@ test('a room link and a challenge link on a first visit land where they always d
   }
 });
 
-test('the setup names each AI\'s level beside its pips (EASY, MEDIUM, HARD), whole on a desktop and a phone; with no board saved a game is Easy against the other people; a saved board is kept', async () => {
+test('the setup names each AI\'s level beside its pips (EASY, MEDIUM, HARD), whole on a desktop and a phone; with no board saved a game is Easy, you the Expedition against the Kingdom; a saved board is kept', async () => {
   for (const device of [DESKTOP, PHONE, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }]) {
     const ctx = await browserContext(device), page = await ctx.newPage(), what = `${device.viewport.width}x${device.viewport.height}`;
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -1309,24 +1309,24 @@ test('the setup names each AI\'s level beside its pips (EASY, MEDIUM, HARD), who
       await page.goto(baseUrl() + '?seed=4242', { waitUntil: 'networkidle' });
       await page.waitForFunction(() => !!window.endfall);
       await press('#btnSolo');
-      // No board saved: you, the Kingdom, against the Expedition on Easy.
+      // No board saved: you, the Expedition, against the Kingdom on Easy.
       assert.deepEqual(await levels(), [[null, 0, true], ['EASY', 1, true]], `${what}: EASY beside one pip`);
-      assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (KING, Kingdom|KINGDOM),/, `${what}: you, the Kingdom`);
-      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (EXP, Expedition|EXPEDITION), Easy,/, `${what}: against the Expedition, on Easy`);
+      assert.match(await page.locator('#soloBoard [data-k="tok0"]').getAttribute('aria-label'), /^YOU (EXP, Expedition|EXPEDITION),/, `${what}: you, the Expedition`);
+      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (KING, Kingdom|KINGDOM), Easy,/, `${what}: against the Kingdom, on Easy`);
       assert.equal(await page.evaluate(() => localStorage.getItem('endfall.seats')), null, 'a default, not a choice: nothing saved');
       await press('#btnStart');
       await page.waitForFunction(() => endfall.G.units.length > 0 && document.getElementById('start').hidden);
-      assert.deepEqual(await page.evaluate(() => [endfall.G.factions, endfall.G.diff]), [['humans', 'vael'], 0], `${what}: the game the board showed`);
+      assert.deepEqual(await page.evaluate(() => [endfall.G.factions, endfall.G.diff]), [['vael', 'humans'], 0], `${what}: the game the board showed`);
       await press('#btnPause'); await press('#btnQuit');
       await page.locator('#menuSolo').waitFor({ state: 'visible' });
-      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (EXP, Expedition|EXPEDITION), Easy,/, `${what}: the same default after a game`);
+      assert.match(await page.locator('#soloBoard [data-k="tok1"]').getAttribute('aria-label'), /^COMPUTER 1 (KING, Kingdom|KINGDOM), Easy,/, `${what}: the same default after a game`);
       // Every level in words, and the widest board: a mirror on Medium, a third seat (as the last AI), Hard.
       await seats.diff(1, 1);
       assert.deepEqual(await levels(), [[null, 0, true], ['MEDIUM', 2, true]], `${what}: MEDIUM`);
       await seats.add();
       await seats.diff(2, 2);
       assert.deepEqual(await levels(), [[null, 0, true], ['MEDIUM', 2, true], ['HARD', 3, true]], `${what}: HARD on the new seat`);
-      await seats.race(1, 'humans'); await seats.race(2, 'random');
+      await seats.race(0, 'humans'); await seats.race(1, 'humans'); await seats.race(2, 'random'); // (you the Kingdom too: a mirror)
       assert.deepEqual(await levels(), [[null, 0, true], ['MEDIUM', 2, true], ['HARD', 3, true]], `${what}: whole beside KINGDOM and RANDOM too`);
       // The board is the player's now: kept on the next visit, a mirror too.
       await page.reload({ waitUntil: 'networkidle' }); await page.waitForFunction(() => !!window.endfall);
@@ -3437,7 +3437,10 @@ test('single player: a seat that outgrows the map moves to a bigger one with no 
 });
 
 test('single player: REMOVE moves the AIs after it up a spot (no gap) and numbers the sides again; the game seats what the board shows', async () => {
-  const ctx = await browserContext(DESKTOP), page = await ctx.newPage();
+  const ctx = await browserContext(DESKTOP);
+  // The board it starts from, set here (not the default's): you, the Kingdom, against the Expedition.
+  await ctx.addInitScript(() => { try { if (localStorage.getItem('endfall.seats') === null) localStorage.setItem('endfall.seats', JSON.stringify([{ race: 'humans', team: 0 }, { race: 'vael', team: 1, diff: 0 }])); } catch { /* no storage */ } });
+  const page = await ctx.newPage();
   try {
     await page.goto(baseUrl(), { waitUntil: 'networkidle' });
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
@@ -3462,7 +3465,7 @@ test('single player: REMOVE moves the AIs after it up a spot (no gap) and number
     await page.locator('#btnStart').click();
     await page.waitForFunction(() => endfall.G.units.length > 0);
     const game = await page.evaluate(() => [endfall.G.teams, endfall.G.factions, [1, 2].map(s => endfall.engine.diffOf(s)), endfall.G.diff, endfall.engine.MW]);
-    assert.deepEqual(game, [[0, 0, 1], ['humans', 'vael', 'vael'], [0, 2], 2, 96], 'the seats and teams the board shows (COMPUTER 1 the Expedition, as a board with none saved has it)');
+    assert.deepEqual(game, [[0, 0, 1], ['humans', 'vael', 'vael'], [0, 2], 2, 96], 'the seats and teams the board shows (COMPUTER 1 the Expedition, as the board set up here has it)');
     assert.deepEqual(await page.evaluate(() => [0, 1, 2].map(s => endfall.seatTint(s) === endfall.spotTint(s))), [true, true, true], 'each seat in its spot\'s color');
   } finally { await ctx.close(); }
 });

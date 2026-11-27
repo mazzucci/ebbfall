@@ -58,7 +58,7 @@ impl World {
         let gate_hold = self.gate_hold(e, &my_b)
             + self.siege_hold(e, &my_b, t)
             + self.dive_hold(e, &my_b, t)
-            + self.relay_hold(e);
+            + self.uplink_hold(e);
         // Its elite due (the Expedition's Portal and its Android): the other factories keep its places free, or the
         // cheaper machines fill the grid every round and the Portal is never raised or never trains.
         let reserve = self.elite_reserve(e, &my_b, t);
@@ -371,35 +371,19 @@ impl World {
         }
     }
 
-    /// The gold `e`'s factories hold back for its wave's leapfrog relay (`AiScript::relay`, the Uplink): its price, while
-    /// a wave with machines is out, the relay unlocked, none going up and none abandoned; else 0. (Its factories spent
-    /// every coin first each turn, and the relay that would bring its machines' coverage over the foe's base was never
-    /// paid for when the wave's front got there: the machines fought there slowed.)
-    pub(crate) fn relay_hold(&self, e: u8) -> i32 {
-        let Some(tower) = self.factions[e as usize].ai.relay else {
-            return 0;
-        };
-        let ai = self.ai();
-        let machines = ai.attackers.as_ref().is_some_and(|a| {
-            a.iter()
-                .any(|&id| self.unit(id).is_some_and(|u| radio::needs_range(u.kind)))
-        });
-        if ai.attacking
-            && machines
-            && ai.relay_site.is_none()
-            && !ai.relay_off
-            && self.has_req(e, tower)
-        {
-            tower.def().cost[0]
-        } else {
-            0
+    /// The gold `e`'s factories hold back for its Uplink (`AiScript::relay`): its price while it is due
+    /// (`World::uplink_due`); else 0. (Its factories spend every coin first each turn: unheld, the wave's Uplink was
+    /// never paid for, and its machines fought slowed.)
+    pub(crate) fn uplink_hold(&self, e: u8) -> i32 {
+        match self.factions[e as usize].ai.relay {
+            Some(r) if self.uplink_due(e) => r.def().cost[0],
+            _ => 0,
         }
     }
 
     /// The gold `e`'s other factories hold back for its gate's elite (`gate_hold` in `ai_produce`): the price of the unit
     /// its finished Portal (`AiScript::tech2`) trains next by the mix (the one furthest behind its ratio, as the Portal
-    /// picks it; the cheapest it trains with none due), while that Portal is idle and may train (`BldgDef::trains_with`
-    /// standing), on a level that fields it; else 0. (The cheapest alone left the Android, dearer than the Rover since
+    /// picks it; the cheapest it trains with none due), while that Portal is idle, on a level that fields it; else 0. (The cheapest alone left the Android, dearer than the Rover since
     /// Nov 13, never paid for.)
     pub(crate) fn gate_hold(&self, e: u8, my_b: &[Id]) -> i32 {
         let s = &self.factions[e as usize].ai;
@@ -410,7 +394,6 @@ impl World {
             .iter()
             .filter_map(|&id| self.bldg(id))
             .find(|b| b.kind == k2 && b.done && b.queue.is_empty())
-            .filter(|b| b.kind.def().trains_with.is_none_or(|r| self.has_bldg(e, r)))
         else {
             return 0;
         };
@@ -703,48 +686,6 @@ mod tests {
     }
 
     #[test]
-    fn the_portal_s_lost_uplink_is_raised_again_at_home_inside_coverage() {
-        // The gate's lifeline (the Uplink its Portal trains with): with the Portal standing and no Uplink, the build
-        // order wants one again; and the Portal's Uplink is sited at home, on the way to the foe inside its coverage
-        // (a lone forward one fell to the first wave, the Portal idle for good).
-        let mut w = World::with_size(
-            1,
-            1,
-            crate::map::MapKind::Standard,
-            crate::map::MapSize::square(96),
-            0,
-            &[&HUMANS, &VAEL],
-        );
-        w.ai_turn = ENEMY;
-        w.time = 900.0;
-        let (bx, by) = w.map.bases[ENEMY as usize];
-        let sx = if bx > 48 { -8 } else { 8 };
-        w.make_building(BldgKind::Loom, ENEMY, bx + sx, by, true);
-        w.make_building(BldgKind::Eclipse, ENEMY, bx + sx, by + 6, true);
-        w.refresh_radio(true);
-        let my_b: Vec<_> = w
-            .bldgs
-            .iter()
-            .filter(|b| b.team == ENEMY)
-            .map(|b| b.id)
-            .collect();
-        assert_eq!(
-            w.tech2_due(ENEMY, &my_b, 900.0),
-            Some(BldgKind::Uplink),
-            "the Portal's Uplink again"
-        );
-        let goal = w.attack_target();
-        let (hx, hy) = w.relay_home_point(goal).expect("a home point");
-        assert!(w.in_radio(ENEMY, hx, hy), "inside its coverage");
-        let home = ((bx as f64 + 2.0) * 32.0, (by as f64 + 2.0) * 32.0);
-        let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
-        assert!(
-            d((hx, hy), goal) < d(home, goal),
-            "on the way towards the foe"
-        );
-    }
-
-    #[test]
     fn medium_s_and_hard_s_kingdom_take_their_natural_later_on_bigger_maps_hard_s_expedition_at_7_00()
      {
         // `Diff::expand_at_of` (Nov 13): on Medium and Hard the Kingdom takes its natural later than the Expedition, on
@@ -805,10 +746,10 @@ mod tests {
     }
 
     #[test]
-    fn a_wave_with_machines_out_holds_its_relay_s_price() {
-        // A wave with a machine out and the Uplink unlocked: its factories hold an Uplink's price for the wave's leapfrog
-        // relay (spent on units first, it was never paid for when the wave's front got there); none without a machine
-        // in the wave, nor once a relay is going up or was abandoned.
+    fn four_machines_and_a_lab_want_one_uplink_at_home_and_hold_its_price() {
+        // The Uplink (Nov 27: the signal across the whole map): due once its Lab stands and four machines are in its
+        // army, queued ones counted; its price held meanwhile; placed in its main, by its Data center, inside its area;
+        // never a second.
         let mut w = World::with_setup(
             17,
             1,
@@ -818,17 +759,38 @@ mod tests {
         );
         w.ai_turn = ENEMY;
         let (bx, by) = w.map.bases[ENEMY as usize];
-        w.make_building(BldgKind::Loom, ENEMY, bx + 6, by - 2, true); // (the Uplink's requirement)
         let (x, y) = ((bx as f64 - 3.0) * 32.0, by as f64 * 32.0);
-        let sellsword = w.make_unit(UnitKind::Prism, ENEMY, x, y);
-        let rover = w.make_unit(UnitKind::Monolith, ENEMY, x + 30.0, y);
+        for k in 0..4 {
+            w.make_unit(UnitKind::Shrike, ENEMY, x + k as f64 * 20.0, y);
+        }
         let uplink = BldgKind::Uplink.def().cost[0];
-        w.ai_mut().attacking = true;
-        w.ai_mut().attackers = Some(vec![sellsword]);
-        assert_eq!(w.relay_hold(ENEMY), 0, "no machine out");
-        w.ai_mut().attackers = Some(vec![sellsword, rover]);
-        assert_eq!(w.relay_hold(ENEMY), uplink, "a machine out");
-        w.ai_mut().relay_off = true;
-        assert_eq!(w.relay_hold(ENEMY), 0, "a relay abandoned");
+        assert!(!w.uplink_due(ENEMY), "no Lab");
+        assert_eq!(w.uplink_hold(ENEMY), 0);
+        w.make_building(BldgKind::Loom, ENEMY, bx + 6, by - 2, true);
+        assert!(w.uplink_due(ENEMY), "a Lab and four machines");
+        assert_eq!(w.uplink_hold(ENEMY), uplink);
+        let drone = w.units.iter().rev().find(|u| u.team == ENEMY).unwrap().id;
+        w.units.retain(|u| u.id != drone);
+        assert!(!w.uplink_due(ENEMY), "three machines");
+        let kiln = w.make_building(BldgKind::Kiln, ENEMY, bx - 6, by + 4, true);
+        w.bm(kiln).unwrap().queue.push(UnitKind::Shrike);
+        assert!(w.uplink_due(ENEMY), "the fourth in training counts");
+        w.res[ENEMY as usize][0] = 2000;
+        let harv: Vec<crate::map::Id> = w
+            .units
+            .iter()
+            .filter(|u| u.team == ENEMY && u.kind.def().worker)
+            .map(|u| u.id)
+            .collect();
+        let (cx, cy) = (bx as f64 + 2.0, by as f64 + 2.0);
+        w.tend_uplink(ENEMY, &harv, cx, cy);
+        let up = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == ENEMY && b.kind == BldgKind::Uplink)
+            .expect("an Uplink placed");
+        assert!(w.in_area(ENEMY, up.x, up.y), "at home, in its area");
+        assert!(!w.uplink_due(ENEMY), "one is going up: no second");
+        assert_eq!(w.uplink_hold(ENEMY), 0);
     }
 }

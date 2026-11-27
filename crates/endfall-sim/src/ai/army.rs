@@ -28,19 +28,6 @@ pub const GUIDED_ARMY: usize = 4;
 /// The most it has once they are released, for the rest of the game: fewer than its first wave, so it sends no other
 /// (Easy's next wave is six) and the guide's last step, an attack with ten, wins (with six it rarely did).
 pub const GUIDED_ARMY_AFTER: usize = 3;
-/// The range: the forward Uplink goes at the first point of the walkers' way from its rally point to the goal whose
-/// coverage takes in the goal with `RELAY_COVER_ROOM` tiles to spare (one Uplink covers the push: Stelian, Nov 13), never
-/// nearer its goal than `RELAY_GOAL_ROOM` tiles; a wave's own, once the wave's front is within `RELAY_FRONT` tiles of
-/// that spot (or past it).
-const RELAY_COVER_ROOM: f64 = 8.0;
-/// The Portal's Uplink goes no farther than this many tiles inside the edge of its side's coverage (`relay_home_point`).
-const RELAY_HOME_INSIDE: f64 = 4.0;
-const RELAY_GOAL_ROOM: f64 = 10.0;
-const RELAY_FRONT: f64 = 4.0;
-/// The push: machines in its army before an Uplink goes up towards a goal out of its coverage.
-const PUSH_MACHINES: usize = 4;
-/// The push: how far (tiles) past its coverage's edge a goal may lie with no Uplink raised for it.
-const PUSH_REACH: f64 = 8.0;
 /// A wave out this long (s) whose every unit has been quiet (neither firing nor hit) as long is over, wherever it stands
 /// (a wave of two left standing short of the foe's base for eight minutes kept a winning army of 6,000 at home).
 const WAVE_QUIET: f64 = 90.0;
@@ -425,7 +412,7 @@ impl World {
         let candidates: Vec<Id> = army
             .iter()
             .copied()
-            // (no machine raids, as since the arc: far from coverage a raid would crawl at the penalty's speed)
+            // (no machine raids, as since the arc)
             .filter(|&a| {
                 self.unit(a)
                     .is_some_and(|u| u.kind == raider && !radio::needs_range(u.kind))
@@ -447,19 +434,8 @@ impl World {
         let army = self.tend_reserve(army, rally, t);
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
-        // The push (the arc: "an Uplink, then the machines"; since Nov 27 its machines go with the waves all the same,
-        // slower outside coverage): with its goal well out of its coverage and machines in its army, it raises one
-        // Uplink whose coverage takes in the goal, so they fight there at full speed.
-        let seat = self.seat();
-        // (near enough: the goal within `PUSH_REACH` tiles past its coverage's edge needs none)
-        if !self.in_radio_by(seat, goal.0, goal.1, PUSH_REACH) {
-            let machines: Vec<Id> = army
-                .iter()
-                .copied()
-                .filter(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)))
-                .collect();
-            self.tend_push(&machines, &army, goal);
-        }
+        // (its machines' signal: one Uplink at home, `tend_uplink` in the build order; since Nov 27 it gives the signal
+        // across the whole map, and the forward Uplinks its waves raised are gone)
         // (a stalled game's push does not leave while the foe is at its buildings: its army meets that at home, its
         // towers and siege beside it, and goes after)
         if !(stalled && intruder.is_some()) {
@@ -474,9 +450,6 @@ impl World {
         let ai = self.ai();
         if let Some(attackers) = ai.attackers.clone().filter(|_| ai.attacking) {
             self.ai_steer_wave(&army, &attackers, t, rally, goal);
-            if self.ai().attacking {
-                self.tend_relay(&attackers, goal);
-            }
         } else {
             // At home: stragglers back to the rally point.
             for &a in &army {
@@ -809,18 +782,7 @@ impl World {
         } else {
             None
         };
-        // (the tower range: a wave with machines that need range, on a level that stages, gathers at its forward-most
-        // tower on the way)
-        let machines = army
-            .iter()
-            .any(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
-        let stage = if d.stage > 0.0 && machines {
-            self.turret_stage((gx, gy)).or(stage)
-        } else {
-            stage
-        };
         let ai = self.ai_mut();
-        ai.relay_off = false;
         ai.ready_since = None;
         ai.staging = stage.map(|(x, y)| (x, y, t));
         ai.last_wave = t;
@@ -910,261 +872,6 @@ impl World {
             let ai = self.ai_mut();
             ai.wave = ai.wave.saturating_sub(d.wave_grow).max(d.wave);
         }
-    }
-
-    /// The rally point (else its start's middle), px.
-    fn rally_or_home(&self) -> (f64, f64) {
-        let home = self.map.bases[self.seat() as usize];
-        self.ai().rally.map_or(
-            ((home.0 as f64 + 2.0) * TILE, (home.1 as f64 + 2.0) * TILE),
-            |p| (p.x, p.y),
-        )
-    }
-
-    /// The range: where a wave gathers for its goal: its finished relay (`AiScript::relay`, the Uplink) nearest the
-    /// goal, if that is at least four tiles nearer it than the rally point (for a people with one).
-    fn turret_stage(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64)> {
-        let seat = self.seat();
-        let tower = self.factions[seat as usize].ai.relay?;
-        let (rx, ry) = self.rally_or_home();
-        let from_rally = dist(rx, ry, gx, gy);
-        let b = self
-            .bldgs
-            .iter()
-            .filter(|b| b.team == seat && b.kind == tower && b.done)
-            .min_by(|a, b| {
-                dist(a.x, a.y, gx, gy)
-                    .total_cmp(&dist(b.x, b.y, gx, gy))
-                    .then(a.id.cmp(&b.id))
-            })?;
-        (dist(b.x, b.y, gx, gy) < from_rally - 4.0 * TILE).then_some((b.x, b.y))
-    }
-
-    /// The range: the forward Uplink (`AiScript::relay`, once its Lab stands) for a wave with machines out: while one
-    /// is out, the AI keeps one site at a time going at its point for the goal (`relay_point`) once the wave's front has
-    /// come that far, never holding the wave for it (its machines go on outside coverage, slower, and the Uplink brings
-    /// back their speed there). A site under fire is abandoned (its cost partly back) and the wave places no other.
-    fn tend_relay(&mut self, attackers: &[Id], (gx, gy): (f64, f64)) {
-        let seat = self.seat();
-        let Some(tower) = self.factions[seat as usize].ai.relay else {
-            return;
-        };
-        let machines = attackers
-            .iter()
-            .any(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
-        if !machines || self.ai().relay_off || !self.has_req(seat, tower) {
-            return;
-        }
-        self.raise_relay(attackers, (gx, gy), true);
-    }
-
-    /// The push: with `PUSH_MACHINES` machines in its army (`army`: the units at home and out) and its goal out of its
-    /// coverage, it raises an Uplink at its point for the goal (`relay_point`: one that covers it), its idle army
-    /// guarding the site while no wave is out. The machines are not held back for it.
-    fn tend_push(&mut self, machines: &[Id], army: &[Id], goal: (f64, f64)) {
-        let seat = self.seat();
-        let Some(tower) = self.factions[seat as usize].ai.relay else {
-            return;
-        };
-        if machines.len() < PUSH_MACHINES || !self.has_req(seat, tower) {
-            return;
-        }
-        // (a site abandoned under fire lets the next go after the gap between waves)
-        if self.ai().relay_off && self.ai().attacking {
-            return;
-        }
-        self.ai_mut().relay_off = false;
-        self.raise_relay(machines, goal, false);
-        // (its site guarded: the army at home, idle, goes to stand by it while it rises)
-        if let Some((sx, sy)) = self
-            .ai()
-            .relay_site
-            .and_then(|id| self.bldg(id))
-            .filter(|b| !b.done)
-            .map(|b| (b.x, b.y))
-            && !self.ai().attacking
-        {
-            for &a in army {
-                let u = self.u(a);
-                if matches!(u.task, Task::Idle) && dist(u.x, u.y, sx, sy) > 5.0 * TILE {
-                    self.attack_move(a, sx, sy);
-                }
-            }
-        }
-    }
-
-    /// The forward Uplink (`AiScript::relay`) at its point for the goal (`relay_point`); with `front_needed`, only once
-    /// the escort's unit nearest the goal has come about that far.
-    fn raise_relay(&mut self, escort: &[Id], (gx, gy): (f64, f64), front_needed: bool) {
-        let seat = self.seat();
-        let Some(tower) = self.factions[seat as usize].ai.relay else {
-            return;
-        };
-        let attackers = escort;
-        // (a tower finished this tick: its range counts before the edge is looked for again)
-        self.refresh_radio(false);
-        // The site under way: abandoned under fire, let go once it stands (or is gone).
-        if let Some(id) = self.ai().relay_site {
-            match self.bldg(id).map(|b| (b.done, b.hp)) {
-                Some((false, hp)) if hp < self.ai().relay_hp - 1e-9 => {
-                    self.cancel_construction(id);
-                    let ai = self.ai_mut();
-                    ai.relay_site = None;
-                    ai.relay_off = true;
-                    return;
-                }
-                Some((false, hp)) => {
-                    self.ai_mut().relay_hp = hp;
-                    return;
-                }
-                Some((true, _)) => self.ai_mut().relay_site = None,
-                None => {
-                    // (destroyed before it stood: as abandoned under fire)
-                    let ai = self.ai_mut();
-                    ai.relay_site = None;
-                    ai.relay_off = true;
-                    return;
-                }
-            }
-        }
-        let Some((at, len, (px, py))) = self.relay_point((gx, gy)) else {
-            return;
-        };
-        // The wave's front (its unit nearest the goal) must be about there already (for a wave's leapfrog).
-        let front = attackers
-            .iter()
-            .filter_map(|&a| self.unit(a))
-            .map(|u| dist(u.x, u.y, gx, gy))
-            .fold(f64::INFINITY, f64::min);
-        if (front_needed && front > len - at + RELAY_FRONT * TILE)
-            || !self.can_afford(seat, tower.def().cost)
-        {
-            return;
-        }
-        let Some(spot) = self.relay_spot((px, py), (gx, gy)) else {
-            return;
-        };
-        let workers: Vec<Id> = self
-            .units
-            .iter()
-            .filter(|u| u.team == seat && u.kind.def().worker)
-            .map(|u| u.id)
-            .collect();
-        let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
-        if let Some(b) = self.free_builder(&workers, sx, sy)
-            && let Ok(id) = self.place_building(seat, tower, spot.0, spot.1, Some(b))
-        {
-            let hp = self.bldg(id).map_or(0.0, |b| b.hp);
-            let ai = self.ai_mut();
-            ai.relay_site = Some(id);
-            ai.relay_hp = hp;
-        }
-    }
-
-    /// Where the seat taking its turn raises its forward Uplink (`AiScript::relay`) for `goal` (px): how far along the
-    /// walkers' way from its rally point (px), the way's length (px) and the point there. The first point of the way whose coverage takes in
-    /// the goal with `RELAY_COVER_ROOM` tiles to spare (so one Uplink covers the push, and stands as far back as that
-    /// allows, where its army can hold it; before Nov 13 a chain of them leapfrogged a few tiles past the edge), never
-    /// nearer the goal than `RELAY_GOAL_ROOM` tiles. None when its coverage already takes in the goal so, when the way
-    /// is too short, or when the site would add nothing (its coverage no farther along the way than today's edge).
-    pub(crate) fn relay_point(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64, (f64, f64))> {
-        let seat = self.seat();
-        let tower = self.factions[seat as usize].ai.relay?;
-        let reach = radio::range_of(tower) * TILE;
-        let spare = RELAY_COVER_ROOM * TILE;
-        if self.in_radio_by(seat, gx, gy, -RELAY_COVER_ROOM) {
-            return None;
-        }
-        let way = self.relay_way(self.rally_or_home(), (gx, gy));
-        if way.len() < 2 {
-            return None;
-        }
-        let len = way.len() as f64 * TILE;
-        let edge = way
-            .iter()
-            .position(|&(x, y)| !self.in_radio(seat, x, y))
-            .map_or(len, |i| i as f64 * TILE);
-        let cover = way
-            .iter()
-            .position(|&(x, y)| dist(x, y, gx, gy) <= reach - spare)
-            .map_or(len, |i| i as f64 * TILE);
-        let at = cover.min(len - RELAY_GOAL_ROOM * TILE);
-        if at < TILE || at + reach < edge {
-            return None;
-        }
-        Some((at, len, way[((at / TILE) as usize).min(way.len() - 1)]))
-    }
-
-    /// Where the seat taking its turn raises the Uplink its Portal trains with: on the walkers' way to `goal` (px), at
-    /// its forward point (`relay_point`) if that lies inside its coverage, else `RELAY_HOME_INSIDE` tiles inside the
-    /// edge of its coverage on the way (in its base, where its army and towers hold it: a lone forward Uplink at
-    /// midfield fell to the first wave, and the Portal with it). None where the way is too short.
-    pub(crate) fn relay_home_point(&self, (gx, gy): (f64, f64)) -> Option<(f64, f64)> {
-        let seat = self.seat();
-        let tower = self.factions[seat as usize].ai.relay?;
-        let reach = radio::range_of(tower) * TILE;
-        let way = self.relay_way(self.rally_or_home(), (gx, gy));
-        if way.len() < 2 {
-            return None;
-        }
-        let len = way.len() as f64 * TILE;
-        let edge = way
-            .iter()
-            .position(|&(x, y)| !self.in_radio(seat, x, y))
-            .map_or(len, |i| i as f64 * TILE);
-        let cover = way
-            .iter()
-            .position(|&(x, y)| dist(x, y, gx, gy) <= reach - RELAY_COVER_ROOM * TILE)
-            .map_or(len, |i| i as f64 * TILE);
-        let at = cover.min(edge - RELAY_HOME_INSIDE * TILE).max(0.0);
-        Some(way[((at / TILE) as usize).min(way.len() - 1)])
-    }
-
-    /// A spot for the forward Uplink near `point` (px, its `relay_point`) whose coverage takes in `goal` (px) with
-    /// `RELAY_COVER_ROOM` tiles to spare, as the point's does (a site in rings round the point at any angle fell short
-    /// of the goal, and another went up beside it, and another).
-    pub(crate) fn relay_spot(&mut self, point: (f64, f64), goal: (f64, f64)) -> Option<(i32, i32)> {
-        let tower = self.factions[self.seat() as usize].ai.relay?;
-        let d = tower.def();
-        let most = radio::range_of(tower) - RELAY_COVER_ROOM;
-        let ok = move |_: &World, tx: i32, ty: i32| {
-            let (cx, cy) = (tx as f64 + d.w as f64 / 2.0, ty as f64 + d.h as f64 / 2.0);
-            jsmath::hypot(cx - goal.0 / TILE, cy - goal.1 / TILE) <= most
-        };
-        self.find_spot_within(tower, point.0 / TILE, point.1 / TILE, 0.0, 15.0, &ok)
-    }
-
-    /// The walkers' way from `from` to `to` (px), a point every tile along it from `from` (the relay's sites are looked
-    /// for along it): a search over the walkable tiles, or the straight line where there is none.
-    fn relay_way(&self, from: (f64, f64), to: (f64, f64)) -> Vec<(f64, f64)> {
-        let foot = crate::map::Foot {
-            class: Move::Walk,
-            water: self.water,
-        };
-        let (a, b) = (
-            self.map.tile_of(from.0, from.1),
-            self.map.tile_of(to.0, to.1),
-        );
-        let mut scratch = crate::path::PathScratch::new((self.map.w * self.map.h) as usize);
-        let corners: Vec<(f64, f64)> =
-            crate::path::astar(&self.map, foot, &mut scratch, a.0, a.1, b.0, b.1)
-                .map(|p| p.iter().map(|q| (q.x, q.y)).collect())
-                .unwrap_or_else(|| vec![to]);
-        let mut way = vec![from];
-        let mut at = from;
-        for c in corners {
-            let d = dist(at.0, at.1, c.0, c.1);
-            let n = (d / TILE).floor() as usize;
-            for k in 1..=n {
-                let f = k as f64 * TILE / d;
-                way.push((at.0 + (c.0 - at.0) * f, at.1 + (c.1 - at.1) * f));
-            }
-            at = way.last().copied().unwrap_or(at);
-            if n == 0 {
-                at = c;
-            }
-        }
-        way
     }
 
     /// The worth of seat `e`'s army (armed units, workers left out).

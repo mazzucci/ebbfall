@@ -271,8 +271,9 @@ fn the_stables_and_the_workshop_follow_the_barracks_and_their_heavies_the_forge(
 #[test]
 fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab() {
     // The Expedition (the arc, Nov 13): the Recruiting post (Sellswords; Bruisers once a Lab stands) and the Sentry mast
-    // need nothing, the Factory (Buggies; Drones once a Lab stands), the Lab and the Wind turbine need the post, the
-    // Portal (Androids and Rovers) an Uplink, which needs the Lab.
+    // need nothing, the Factory (Drones; Buggies once a Lab stands, the other way round until Nov 27), the Lab and the
+    // Wind turbine need the post, the Portal (Androids and Rovers) and the Uplink the Lab (the Portal an Uplink until
+    // Nov 27).
     let mut w = rich_vael(11);
     let l = harvesters(&w, PLAYER);
     for k in [BldgKind::Kiln, BldgKind::Loom, BldgKind::Spire] {
@@ -293,7 +294,7 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
     }
     assert!(
         !w.has_req(PLAYER, BldgKind::Eclipse),
-        "the Portal waits for the Uplink"
+        "the Portal waits for the Lab"
     );
     assert_eq!(
         w.queue_unit(post, UnitKind::Bruiser),
@@ -305,10 +306,14 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         "a Sellsword at once"
     );
     let kiln = build(&mut w, BldgKind::Kiln, l[1], 150);
-    assert!(w.queue_unit(kiln, UnitKind::Scythe).is_ok(), "a Buggy");
+    assert!(
+        w.queue_unit(kiln, UnitKind::Shrike).is_ok(),
+        "a Drone, no Lab needed"
+    );
     assert_eq!(
-        w.queue_unit(kiln, UnitKind::Shrike),
-        Err("Requires Lab".into())
+        w.queue_unit(kiln, UnitKind::Scythe),
+        Err("Requires Lab".into()),
+        "the Buggy waits for a Lab"
     );
     assert_eq!(
         w.queue_unit(kiln, UnitKind::Monolith),
@@ -325,10 +330,12 @@ fn the_expeditions_recruiting_post_comes_first_and_the_bruiser_waits_for_a_lab()
         w.queue_unit(post, UnitKind::Bruiser).is_ok(),
         "once the Lab stands"
     );
-    assert!(w.queue_unit(kiln, UnitKind::Shrike).is_ok(), "a Drone too");
-    assert!(!w.has_req(PLAYER, BldgKind::Eclipse), "not the Lab alone");
-    build(&mut w, BldgKind::Uplink, l[3], 150);
-    assert!(w.has_req(PLAYER, BldgKind::Eclipse));
+    assert!(w.queue_unit(kiln, UnitKind::Scythe).is_ok(), "a Buggy too");
+    assert!(
+        w.has_req(PLAYER, BldgKind::Eclipse),
+        "the Lab alone opens the Portal"
+    );
+    assert!(w.has_req(PLAYER, BldgKind::Uplink), "and the Uplink");
     let portal = build(&mut w, BldgKind::Eclipse, l[3], 150);
     build(&mut w, BldgKind::Substation, l[3], 90); // (grid for the Portal's machines: the mercenaries draw on it too)
     assert!(w.queue_unit(portal, UnitKind::Umbra).is_ok());

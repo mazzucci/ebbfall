@@ -1,7 +1,7 @@
 //! Orders (what the Game API and the AI ask for) and the rules that accept or refuse them: placing, paying, training, research, rally points.
 
 use super::*;
-use crate::data::radio::needs_coverage;
+use crate::data::radio::needs_area;
 use std::cmp::Ordering;
 
 impl World {
@@ -61,17 +61,17 @@ impl World {
         if d.hq && self.near_own_hq(team, kind, tx, ty) {
             return Some(Refusal::NearBase);
         }
-        // An Expedition building goes up only inside its side's coverage, its center by exact distance (`in_radio`,
-        // an ally's too); the Data center and the Uplink anywhere (Stelian, Nov 15). Placing only: nothing goes
-        // offline when the coverage is lost.
-        if needs_coverage(self.factions[team as usize].hq, kind)
-            && !self.in_radio(
+        // An Expedition building goes up only inside its side's area (a Data center's, an ally's too), its center by
+        // exact distance (`in_area`); the Data center and the Uplink anywhere (Stelian, Nov 15; an Uplink's signal
+        // places nothing since Nov 27). Placing only: nothing goes offline when the area is lost.
+        if needs_area(self.factions[team as usize].hq, kind)
+            && !self.in_area(
                 team,
                 (tx as f64 + d.w as f64 / 2.0) * TILE,
                 (ty as f64 + d.h as f64 / 2.0) * TILE,
             )
         {
-            return Some(Refusal::Coverage);
+            return Some(Refusal::Area);
         }
         None
     }
@@ -170,11 +170,6 @@ impl World {
                 .any(|o| o.team == team && o.kind == r && o.done)
         {
             return Err(format!("Requires {}", r.def().name));
-        }
-        if let Some(r) = b.kind.def().trains_with
-            && !self.has_bldg(team, r)
-        {
-            return Err(format!("Needs a standing {}.", r.def().name));
         }
         if qlen >= crate::data::QUEUE_MAX {
             return Err("Queue is full".into());

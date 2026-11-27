@@ -499,6 +499,7 @@ fn supply_blocked_names_the_right_building_for_each_race() {
 fn kiln_and_forward_spire() -> (World, Id, (f64, f64)) {
     let mut w = rich_vael(5);
     flatten(&mut w, 12..52, 12..52);
+    w.make_building(BldgKind::Loom, PLAYER, 14, 14, true); // (the Buggy's requirement since Nov 27)
     w.make_building(BldgKind::Spire, PLAYER, 20, 26, true);
     let kiln = w.make_building(BldgKind::Kiln, PLAYER, 20, 30, true);
     let fwd = w.make_building(BldgKind::Spire, PLAYER, 40, 30, true);
@@ -835,7 +836,7 @@ fn a_headquarters_keeps_four_tiles_of_ground_from_every_mine_and_nothing_else_do
         };
         let near = w.place_refusal(other, ox, oy, seat);
         assert!(
-            near.is_none() || near == Some(Refusal::Coverage),
+            near.is_none() || near == Some(Refusal::Area),
             "{ctx}: a {} a tile off the mine: {near:?}",
             od.name
         );

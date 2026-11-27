@@ -103,11 +103,6 @@ pub(crate) struct Ai {
     pub ready_since: Option<f64>,
     /// The wave out is gathering here before it goes in (`Diff::stage`): the point, and since when.
     pub staging: Option<(f64, f64, f64)>,
-    /// The range: its wave's forward Uplink under construction (one at a time), that site's hp at its last
-    /// turn (a drop: under fire), and whether the wave out has abandoned one (it places no other).
-    pub relay_site: Option<Id>,
-    pub relay_hp: f64,
-    pub relay_off: bool,
     /// Whether a wave of its has reached the foe (a unit within `REACHED` of a building of the foe it knows): a clumsy
     /// level's waves do not grow until then, whatever the clock (`Diff::clumsy_until`), so a newcomer's first hit is
     /// three or four units.
@@ -193,12 +188,6 @@ impl World {
         } else {
             None
         }
-    }
-
-    /// The tower range: seat `seat`'s AI's forward tower under construction, if any (tests).
-    #[doc(hidden)]
-    pub fn ai_relay_site(&self, seat: u8) -> Option<Id> {
-        self.ai.get(seat as usize)?.as_ref()?.relay_site
     }
 
     /// What seat `seat`'s AI notes about its plan as it plays (`AiNotes`: the summary's; read by no rule).
@@ -305,9 +294,6 @@ impl World {
             last_base_at: 0.0,
             ready_since: None,
             staging: None,
-            relay_site: None,
-            relay_hp: 0.0,
-            relay_off: false,
             check: None,
             razed: (0, 0.0),
             stall: false,

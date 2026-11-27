@@ -92,17 +92,19 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   every level, random play on it, and both again with the tide), the tide (its cycle alike for a seed and in the hash
   only when on, no walker ever on or routed through deep water as it moves, the warning and the retreat and its
   switch, the sweep and its stun, the flood destroying behind its switch, building by the tide, nothing firing from
-  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), coverage (`radio`, the arc, a penalty since Nov 27: the combat machines need signal,
-  Bots, people and the Kingdom never; x1.3 inside coverage and x0.7 outside, either way; by exact distance from the
-  source's center, just inside and just outside the edge, off tile centers; from the Data center and an Uplink (54
-  tiles on every map), none from a site or a Sentry mast, gone when the Uplink falls; an ally's counts; a machine
-  ordered out of coverage going there, slower, striking a building out there and quick again back inside; one whose
-  Uplink fell staying where it stood and fighting there; a seat with no source left slowed everywhere; the straight
-  way taken across two overlapping sources' waist, out of coverage, and no word to the player for a group sent far
-  out (the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most of a 64x64 map); the
-  Expedition AI's machines out of coverage with its waves on 96x96 with no Uplink to raise, and its push's
-  forward Uplink still covering the foe; Expedition buildings placed only inside coverage,
-  the Data center and the Uplink anywhere, a post and a turbine standing and working after their Uplink falls), the
+  under high water, a worker inside a mine not swept and coming out on ground it may stand on: a hand-built map), the Data center's area and the signal (`radio`, the arc, a penalty since Nov 27, placement and
+  signal apart since Nov 27: the combat machines need signal, Bots, people and the Kingdom never; x1.3 with it and x0.5
+  without, either way; an Uplink in the map's far corner giving it everywhere; the area by exact distance from the Data
+  center's center, just inside and just outside the edge, off tile centers; nothing from a site or a Sentry mast, the
+  signal and no area from an Uplink, its player told when it stands and when it falls; the Data center's area staying
+  and the Uplink's signal gone when it falls; an ally's area and Uplink count, the enemy's not; a machine ordered out
+  of the area going there, slower, striking a building out there and quick again back inside; with an Uplink the bonus
+  out there, and when it falls slow again where it stood, fighting there; a seat with no source left slowed
+  everywhere; the straight way taken across two overlapping areas' waist, and no word to the player for a group sent
+  far out; the Expedition AI's machines out of the area with its waves on 96x96 with no Uplink to raise, and its one
+  Uplink at home, in its area, never two; Expedition buildings placed only inside a Data center's area even with an
+  Uplink standing, the Data center and the Uplink anywhere explored, a new Data center bringing its own area, a post and
+  a turbine standing and working after their Data center falls), the
   Expedition's economy (`expedition`: energy and one grid, Nov 14: the
   grid from the Data center (22) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
   units drawing it (buildings none, a building placed whatever the grid); machines and
@@ -112,7 +114,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   Better drills, cutting what machines cost (paid and refunded at the price of the moment); no armor on its units,
   their hp carrying it; the Rover's heavy slow salvo; one Portal a seat, a second refused while one stands or goes up,
   drawing no grid; the Android's numbers, its grid and its training time; the Lab unlocking the Uplink (275 gold; no satellite since Nov
-  13) whose standing unlocks the Portal, the Portal training (Androids and Rovers) only while an Uplink stands; Bots
+  13) and the Portal (an Uplink's until Nov 27), the Portal going up and training (Androids and Rovers) with no Uplink; Bots
   repairing buildings and no machine; melee Sellswords and Bruisers hitting only the ground up close,
   the Expedition AI at every level raising Substations, turbines (five a Data center at most) and posts, an Uplink, one Portal at most and training
   Androids there), and `random_play_never_breaks_the_world`: random orders (including stale and nonsense ids) through the same
@@ -203,8 +205,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       from the world's RNG, `World::draw_style` in ai/mod.rs, kept in its brain and read through
                       `World::tuning`; a lab plan's seat plays its plan; `World::set_ai_styles` forces one, the lab's
                       only; never shown to the player),
-                      tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (coverage's numbers: which
-                      machines need signal, what gives it and how far, the speed inside and outside), export.rs (the tables as
+                      tide.rs (the tide's cycle, levels, warning and sweep), radio.rs (the area's and the signal's
+                      numbers: which machines need signal, the Data center's area, the Uplink's map-wide signal, the speed
+                      with and without it), export.rs (the tables as
                       JSON, one small writer). Places: the Kingdom's population, the Expedition's grid (`Faction::grid`):
                       a unit takes its `supply` (`World::takes`), a building gives its `supply` once finished and
                       takes none (only units take places, on both sides); capped by
@@ -239,8 +242,8 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       person's once no worker is left either, or anyone's with no finished headquarters, worker, fighter
                       or factory with a unit in training or the gold to train a fighter; the last team standing), orders (placing:
                       `place_refusal`, the one placement check, a `Refusal` and its words (an Expedition building but the Data center and
-                      the Uplink only with its center inside its side's coverage, `Refusal::Coverage`, data/radio.rs
-                      `needs_coverage`: placing only, nothing goes offline), that `can_place`, the order,
+                      the Uplink only with its center inside its side's area, a Data center's, `Refusal::Area`, data/radio.rs
+                      `needs_area`: placing only, nothing goes offline), that `can_place`, the order,
                       the AI and the client's ghost read), spawn (a new worker waits where it stepped out, or walks
                       to its rally point, beside the mine for a rally on one: mining starts only on an order; the AI
                       orders its own, `ai/economy.rs`, from any mine on its side once those by home run dry), economy (gold mines: a worker walks
@@ -259,15 +262,17 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       target cannot pull it along leash by leash; a shooter off the leash is not answered; idle guards answer a
                       shooter that hits a building in their idle look, `guards_answer`), movement, paths.rs (a group's one route shared by the units of one order, long
                       searches budgeted per seat per tick), fog, tide.rs (the water level's cycle, the warning and the
-                      retreat, the sweep), radio.rs (coverage: the Expedition's combat machines go anywhere,
-                      moving x1.3 (`IN_RANGE_SPEED`) within a finished Data center's 18 tiles or an Uplink's 54 (on
-                      every map) of their side or an ally, by exact distance from the building's center, and x0.7
-                      (`OUT_OF_RANGE_SPEED`) outside, everywhere for a side with no source left (`radio_speed`, read
-                      by `live_speed`); only speed changes, not damage; the sources listed again when they change
-                      (checked each tick: derived, not hashed), and handed to the client as circles (`radio_circles`,
-                      Game.radioCircles: x, y, reach per source of a side and its allies). The AI's push (one
-                      forward Uplink that covers its goal once it has machines, which go with its waves meanwhile), its
-                      wave's own Uplink and its staging at its forward-most one are in ai/army.rs); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
+                      retreat, the sweep), radio.rs (the area and the signal: a finished Data
+                      center's 18 tiles of its side or an ally, by exact distance from its center, are where the
+                      Expedition's buildings go up (`in_area`); the combat machines go anywhere, moving x1.3
+                      (`IN_RANGE_SPEED`) with the signal, inside the area or anywhere while a finished Uplink of their
+                      side or an ally stands (`signal_everywhere`, `has_signal`), and x0.5 (`OUT_OF_RANGE_SPEED`)
+                      without, everywhere for a side with no source left (`radio_speed`, read by `live_speed`); only
+                      speed changes, not damage; the sources listed again when they change (checked each tick: derived,
+                      not hashed; a seat told when its map-wide signal comes or goes), and handed to the client as the
+                      areas' circles (`radio_circles`, Game.radioCircles: x, y, reach per Data center of a side and its
+                      allies) and Game.radioWide. The AI keeps one Uplink at home once it has four machines and a Lab,
+                      `tend_uplink` in ai/build.rs; its forward Uplinks went on Nov 27); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
                       mercenary line is held to its own share of the grid (`line_grid`, `line_max`); at that share

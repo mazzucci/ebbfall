@@ -4,7 +4,7 @@
 // resources, buildings, units in 16 facings, projectiles, explosions, additive lights and a soft fog layer. Visual-only randomness (smoke, debris) uses Math.random: it never feeds the sim.
 import 'pixi.js/unsafe-eval'; // (PixiJS's eval-free shader and uniform code: the site's CSP allows no eval, site/cache.js)
 import { AlphaFilter, Application, CanvasSource, ColorMatrixFilter, Container, Graphics, ImageSource, Rectangle, RenderTexture, Sprite, Spritesheet, Texture, TextureSource } from 'pixi.js';
-import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, coverageOf, needsCoverage, FACTIONS } from '../../engine/index.js';
+import { G, map, idx, TILE, MW, MH, WW, WH, BUILDINGS, UNITS, clamp, mapPreview, canPlace, visibleEnt, allRevealed, inLockstep, enemies, ground, RADIO, areaOf, needsArea, FACTIONS } from '../../engine/index.js';
 import { noteBuildings, shownBldgs } from '../memory.js';
 import { fx, partSize } from '../fx.js';
 import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chimneyActive, UNIT_FPS, UNIT_POSE, strikePose, inReach, deathOf, bldgDeath, ghostAt, portalGhost, BURN_FLASH, AIR_PUFF, DEATH_DUST, HIT_DUST, hitLift, SEAT_COLORS, SEAT_TINTS, UNIT_ART_SCALE, colorOf, shotArt, SHOT_TRAIL, SHOT_LIT, SHOT_STYLE, SHOT_BAR, SHOT_GLOW, HEAVY_TRAIL, HIT_LOOK, HIT_STEEL, WALKER_HIT_LIFT, MUZZLE_AT, FIRE_SCALE, hitTier, towerOf, muzzlePoint, SHOT_FROM, firedBy, shotDrawn } from '../look.js';
@@ -977,7 +977,7 @@ function unitBar(u) {
   const r = markRadius(u), w = Math.min(r * UNIT_SCALE * 2 + 4, (r > 12 ? 34 : 24) / cam.zoom);
   hpBar(u.x - w / 2, u.y - unitTop(u.type) - 7, w, u.hp, u.maxhp, u.sh, u.maxsh); // (just over the art's top)
 }
-// ---- the range (the Expedition's machines: crates/endfall-sim/src/world/radio.rs) ----
+// ---- the Data centers' areas (the Expedition's buildings and, with no Uplink, its machines' signal: crates/endfall-sim/src/world/radio.rs) ----
 const RANGE_COLOR = 0xbfe9ff; // (a neutral light, pale on sand and stone alike)
 const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line, so it reads on pale ground too)
 // (on the ground: under the selection rings, the units, the trees and the buildings, so a machine on the line stands on
@@ -998,8 +998,8 @@ const BAND_STEPS = 8;
 const rimZoom = () => Math.round(cam.zoom * 10) / 10;
 /** Stroke the arcs [x, y, r, from, to] onto `g` (no stroke call). */
 const arcsOnto = (g, arcs) => { for (const [x, y, r, a0, a1] of arcs) g.moveTo(x + Math.cos(a0) * r, y + Math.sin(a0) * r).arc(x, y, r, a0, a1); };
-/** Draw the circles again: the sim's sources (G.radio, this side's and its allies'), plus a range building being
- *  placed (`extra`); only when they or the zoom's step changed, never per frame. */
+/** Draw the circles again: the sim's areas (G.radio, this side's Data centers' and its allies'), plus a Data center
+ *  being placed (`extra`); only when they or the zoom's step changed, never per frame. */
 function drawRange(extra) {
   const z = rimZoom(), key = `${G.radioVer}@${z}` + (extra ? `:${extra.x},${extra.y},${extra.r}` : '');
   if (key === rangeKey) return;
@@ -1038,18 +1038,22 @@ function drawFogRim() {
   arcsOnto(rangeFog, runs); rangeFog.stroke({ width: RIM.fogHalo / z, color: RIM_HALO, alpha: RIM.fogHaloAlpha });
   arcsOnto(rangeFog, runs); rangeFog.stroke({ width: RIM.fogLine / z, color: RANGE_COLOR, alpha: RIM.fogAlpha });
 }
-/** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while any building that gives
- *  coverage or goes up only inside it is being placed (a source's own circle with the others). */
+/** The areas are shown while a building that goes up only inside them, or a Data center, is being placed (its own
+ *  circle with the others): where it may go. With no Uplink standing they are also the machines' signal, shown while a
+ *  Data center or a machine of this side is selected; while an Uplink stands (G.signalWide) the signal is everywhere
+ *  and that rim means nothing. */
 function showRange(selList, place) {
-  const reach = place ? coverageOf(place.type) : 0, d = place && BUILDINGS[place.type];
+  const reach = place ? areaOf(place.type) : 0, d = place && BUILDINGS[place.type];
   const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
-  const on = !!extra || (place && needsCoverage(place.type)) || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
+  const placing = !!extra || !!(place && needsArea(place.type));
+  const signal = !G.signalWide && selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : areaOf(e.type) > 0));
+  const on = placing || signal;
   if (on) drawRange(extra);
-  mmExtra = extra; // (and on the minimap while it is placed)
+  mmExtra = extra; mmPlacing = placing; // (and on the minimap while it is placed)
   rangeG.visible = rangeOver.visible = on && rangeCircles.length > 0;
   if (rangeG.visible) drawFogRim();
 }
-/** A machine of ours out of coverage (slowed there; everywhere, for a side with no source left): a small "no signal"
+/** A machine of ours with no signal (outside the areas with no Uplink standing; everywhere, for a side with no source left: slowed there): a small "no signal"
  *  sign over it, an antenna's two arcs struck through, dark-edged and team-neutral so it reads on any ground at 1x on a
  *  phone (the arc, Nov 13: the one cue; the in-coverage chevron is gone). */
 function noSignal(x, y) {
@@ -1196,7 +1200,7 @@ export function render(selList, place) {
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) unitBar(u);
-    if (u.team === G.me && RADIO.machines.has(u.type) && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance; no circle, no signal)
+    if (u.team === G.me && RADIO.machines.has(u.type) && !G.signalWide && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: an Uplink, or exact distance from a Data center; no circle, no signal)
       noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
     }
   });
@@ -1437,15 +1441,16 @@ function minimapBase(c, S, T) {
   for (const u of G.units) { if (u.inside || (u.team !== G.me && !visibleEnt(u))) continue; c.fillStyle = col[colorOf(u.team)]; c.fillRect(u.x * S - 1, u.y * T - 1, 2.2, 2.2); }
   if (!revealed) c.drawImage(fogCv, APRON, APRON, MW, MH, 0, 0, MM_UNITS, MM_UNITS); // (the map's part, not the apron's)
 }
-// The minimap's coverage: an Expedition seat's always (its people's headquarters gives coverage), the union's edge
-// alone as one outline, over everything the fog draws (it went under the fog image first, and the black of unexplored
-// ground hid most of it: with an Uplink's wide circle, all of it). In CSS px whatever the screen: drawn in the minimap's
-// units (MM_UNITS across its box), so the widths are scaled back by the box's size.
+// The minimap's areas: an Expedition seat's (its people's headquarters gives an area) while they are its machines'
+// signal (no Uplink standing) or while a building is being placed, the union's edge alone as one outline, over
+// everything the fog draws (under the fog image the black of unexplored ground hid much of it). In CSS px whatever the
+// screen: drawn in the minimap's units (MM_UNITS across its box), so the widths are scaled back by the box's size.
 const MM_RIM = { line: 1.75, halo: 3.5, color: 'rgba(191,233,255,0.8)', haloColor: 'rgba(11,18,32,0.5)' };
-let mmExtra = null, mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
+let mmExtra = null, mmPlacing = false, mmRimArcs = 0, mmRimKey = '', mmArcs = [], mmRimCss = null;
 function minimapRim(c, S, T) {
-  const key = `${G.radioVer}:${G.me}` + (mmExtra ? `:${mmExtra.x},${mmExtra.y},${mmExtra.r}` : ''); // (with an Uplink or a Data center being placed, its circle)
-  if (key !== mmRimKey) { mmRimKey = key; mmArcs = coverageOf(FACTIONS[G.factions[G.me]]?.hq) > 0 ? unionArcs(mmExtra ? [...G.radio, mmExtra] : G.radio) : []; }
+  const shown = !G.signalWide || mmPlacing;
+  const key = `${G.radioVer}:${G.me}:${shown}` + (mmExtra ? `:${mmExtra.x},${mmExtra.y},${mmExtra.r}` : ''); // (with a Data center being placed, its circle)
+  if (key !== mmRimKey) { mmRimKey = key; mmArcs = shown && areaOf(FACTIONS[G.factions[G.me]]?.hq) > 0 ? unionArcs(mmExtra ? [...G.radio, mmExtra] : G.radio) : []; }
   const arcs = mmArcs;
   mmRimArcs = arcs.length;
   if (!arcs.length) return;

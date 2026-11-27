@@ -19,6 +19,9 @@ const ROOM: f64 = 15.0;
 const ROOM_FAR: f64 = 26.0;
 /// How far (tiles) from the middle of another start the AI keeps its far buildings: past that start's pocket.
 const POCKET_ROOM: f64 = 16.0;
+/// Machines in its army (`data::radio::needs_range`) from which the AI wants its Uplink (`AiScript::relay`): the
+/// signal across the whole map for them (the push's count before Nov 27, when it raised forward Uplinks).
+pub(crate) const UPLINK_MACHINES: usize = 4;
 
 impl World {
     pub(crate) fn find_spot(&mut self, kind: BldgKind, cx: f64, cy: f64) -> Option<(i32, i32)> {
@@ -432,22 +435,15 @@ impl World {
     /// raised yet, its own requirement standing, and either a mixed-in unit it trains (the Android) or unlocks (one
     /// another factory of its own, already placed, trains) due by the time it stands, on a level that fields it, or
     /// one of its techs of use and not yet researched, from the side's tech time on a level that uses them.
-    /// While its own requirement does not stand yet, that requirement instead when it can be built (the Portal's
-    /// Uplink, once a Lab stands) and is not already going up.
+    /// While its own requirement does not stand yet, that requirement instead when it can be built and is not already
+    /// going up (the Portal's Lab).
     /// Never a second of a kind its side may have only one of (`BldgDef::single`, the Portal: counted with those going
     /// up, as `World::single_room` counts them).
     pub(crate) fn tech2_due(&self, e: u8, my_b: &[Id], t: f64) -> Option<BldgKind> {
         let s = &self.factions[e as usize].ai;
         let k = s.tech2?;
         if self.ai_count(my_b, false, k) > 0 || !self.single_room(e, k) {
-            // (its gate's lifeline lost, the Uplink it trains with: another; with none, the Portal it paid for stood idle
-            // for the rest of the game)
-            return k.def().trains_with.filter(|&r| {
-                self.ai_count(my_b, false, k) > 0
-                    && self.ai_count(my_b, false, r) == 0
-                    && self.has_req(e, r)
-                    && self.factions[e as usize].builds(r)
-            });
+            return None;
         }
         let k = if self.has_req(e, k) {
             k
@@ -460,6 +456,53 @@ impl World {
             return self.tech2_wanted(e, my_b, t, k).then_some(r);
         };
         self.tech2_wanted(e, my_b, t, k).then_some(k)
+    }
+
+    /// Whether seat `e` wants its Uplink (`AiScript::relay`, the signal across the whole map for its machines): it
+    /// can build one (its Lab standing), none of its own stands or is going up, and `UPLINK_MACHINES` machines are in
+    /// its army, counted with those queued, and it is not saving up (Nov 27: one, kept at home, in place of the forward
+    /// ones its waves raised).
+    pub(crate) fn uplink_due(&self, e: u8) -> bool {
+        let Some(r) = self.factions[e as usize].ai.relay else {
+            return false;
+        };
+        let machines = self
+            .units
+            .iter()
+            .filter(|u| u.team == e && crate::data::radio::needs_range(u.kind))
+            .count()
+            + self
+                .bldgs
+                .iter()
+                .filter(|b| b.team == e)
+                .flat_map(|b| b.queue.iter())
+                .filter(|&&q| crate::data::radio::needs_range(q))
+                .count();
+        self.factions[e as usize].builds(r)
+            && self.has_req(e, r)
+            && !self.bldgs.iter().any(|b| b.team == e && b.kind == r)
+            && machines >= UPLINK_MACHINES
+            // (not while it saves for a base or a level: the Uplink waits for that, as the build order's extras do)
+            && self.ai().saving_since.is_none()
+    }
+
+    /// Seat `e`'s Uplink when due (`uplink_due`) and paid for: in its main, by its Data center (`cx, cy`, tiles), where
+    /// its army and towers hold it (a lone forward Uplink fell to the first wave). Outside the build order, as the
+    /// push's was: the factories hold its price meanwhile (`World::uplink_hold`).
+    pub(crate) fn tend_uplink(&mut self, e: u8, harv: &[Id], cx: f64, cy: f64) {
+        let Some(r) = self.factions[e as usize].ai.relay else {
+            return;
+        };
+        if !self.uplink_due(e) || !self.can_afford(e, r.def().cost) {
+            return;
+        }
+        let Some(spot) = self.find_spot(r, cx, cy) else {
+            return;
+        };
+        let (sx, sy) = (spot.0 as f64 * TILE, spot.1 as f64 * TILE);
+        if let Some(b) = self.free_builder(harv, sx, sy) {
+            let _ = self.place_building(e, r, spot.0, spot.1, Some(b));
+        }
     }
 
     /// Whether the side's second tech building `k` is wanted by time `t` (`tech2_due`'s terms).
@@ -666,17 +709,7 @@ impl World {
                 && self.has_req(e, w)
                 && self.can_afford(e, [0, 1].map(|i| w.def().cost[i] + hold[i]))
         });
-        // Its Portal's Uplink (`AiScript::relay`) at home, on the way towards the foe inside its coverage
-        // (`relay_home_point`): the gate's lifeline is held there, and a wave with machines raises its own forward one.
-        let home = placeable
-            .filter(|&w| Some(w) == f.ai.relay)
-            .and_then(|_| self.relay_home_point(self.attack_target()));
         let spot = match placeable {
-            Some(w) if home.is_some() => {
-                let (hx, hy) = home.unwrap_or_default();
-                self.find_spot(w, hx / TILE, hy / TILE)
-                    .or_else(|| self.find_spot(w, cx, cy))
-            }
             Some(w) => {
                 let (fx, fy) = (cx, cy);
                 // A full main (a walled pocket fills up): by the second base instead, if there is one, else farther out.
@@ -712,6 +745,7 @@ impl World {
                 let _ = self.place_building(e, w, spot.0, spot.1, Some(b));
             }
         }
+        self.tend_uplink(e, &harv, cx, cy);
         // (the summary's notes: what holds its tech building and its next tower, once due)
         let slip = |w: &World, k: BldgKind, missing: Option<BldgKind>| {
             use crate::world::Slip;

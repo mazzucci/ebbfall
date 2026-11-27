@@ -250,28 +250,34 @@ pub fn data_json() -> String {
         .done()
 }
 
-/// The range (data/radio.rs): the machines it speeds up, what each source gives (tiles), their speed inside it and
-/// outside it (multiples), and the buildings placed only inside coverage (`within`).
+/// The Data center's area and the signal (data/radio.rs): the machines the signal speeds up, the area each building
+/// gives (tiles, `areas`), the buildings that give the signal across the whole map (`wide`), the machines' speed with it
+/// and without it (multiples), and the buildings placed only inside the area (`within`).
 fn radio_json() -> String {
     let machines = UNIT_KINDS
         .iter()
         .filter(|&&k| radio::needs_range(k))
         .map(|k| quote(k.def().key));
-    let sources = BLDG_KINDS
+    let areas = BLDG_KINDS
         .iter()
-        .filter(|&&k| radio::range_of(k) > 0.0)
-        .map(|k| (k.def().key, radio::range_of(*k).to_string()));
+        .filter(|&&k| radio::area_of(k) > 0.0)
+        .map(|k| (k.def().key, radio::area_of(*k).to_string()));
+    let wide = BLDG_KINDS
+        .iter()
+        .filter(|&&k| radio::map_wide(k))
+        .map(|k| quote(k.def().key));
     let within = BLDG_KINDS
         .iter()
         .filter(|&&k| {
             FACTIONS
                 .iter()
-                .any(|f| f.builds(k) && radio::needs_coverage(f.hq, k))
+                .any(|f| f.builds(k) && radio::needs_area(f.hq, k))
         })
         .map(|k| quote(k.def().key));
     Obj::new()
         .raw("machines", array(machines))
-        .raw("sources", map(sources))
+        .raw("areas", map(areas))
+        .raw("wide", array(wide))
         .raw("within", array(within))
         .num("boost", radio::IN_RANGE_SPEED)
         .num("slow", radio::OUT_OF_RANGE_SPEED)

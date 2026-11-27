@@ -21,7 +21,7 @@ const SMALL = new Set(['a', 'an', 'and', 'the', 'with', 'by', 'its', 'it', 'itse
 export const words = (s) => new Set(s.toLowerCase().match(/[a-z0-9]+/g)?.filter(w => !SMALL.has(w)) || []);
 const within = (a, b) => [...a].every(w => b.has(w));
 
-/** The sentence a machine's description ends with (constants.js): it is slower outside coverage. The docs say it once,
+/** The sentence a machine's description ends with (constants.js): it is slower without the signal. The docs say it once,
  *  on the building that makes machines, and mark each machine with the signal dot. */
 export const SIGNAL = / Needs signal: [^.]*\./;
 
@@ -40,7 +40,7 @@ export function lines(what, desc) {
 }
 
 /** One entry of a people's list: what its chips and lines show (`supply`: a unit's places, a building's +places;
- *  `signal`: a machine, which is slower outside coverage). */
+ *  `signal`: a machine, which is slower without the signal). */
 function entry(k, d, kind) {
   return {
     key: k, kind, name: d.name, what: d.what || '', cost: d.cost[0], supply: d.supply || 0,
@@ -103,8 +103,7 @@ export const FIGURES = {
   villagersPerMine: UNITS[K.worker].mineCap,
   botsPerMine: UNITS[X.worker].mineCap,
   turbinesPerHq: BUILDINGS[X.market].perHq,
-  dataCenterCoverage: RADIO.sources[X.hq],
-  uplinkCoverage: RADIO.sources.uplink,
+  dataCenterArea: RADIO.areas[X.hq],
 };
 /** A figure in words when it is ten or less ("four"), else its digits. */
 export const inWords = (n) => WORDS[n] ?? String(n);

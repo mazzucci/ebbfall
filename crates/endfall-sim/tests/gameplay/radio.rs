@@ -519,9 +519,10 @@ fn a_machine_takes_the_straight_way_out_of_coverage_and_nobody_is_told() {
 
 #[test]
 fn the_expedition_ai_sends_its_machines_out_of_coverage_with_its_waves() {
-    // The AI plans nothing round coverage for its waves since Nov 27: the Expedition's AI against the Kingdom's on
-    // 96x96 two-player maps (its foe's buildings made to last), four Rovers and a Lab from the start. Within ten minutes
-    // its machines go out with a wave, outside its coverage.
+    // Its machines are not held back for coverage since Nov 27: the Expedition's AI against the Kingdom's on 96x96
+    // two-player maps (its foe's buildings made to last), four Rovers from the start and no Lab, so no Uplink to raise
+    // (before, its machines then waited at home for good). Within ten minutes they go out with a wave, outside its
+    // coverage.
     for seed in [1, 2, 3] {
         let mut w = World::with_size(
             seed,
@@ -548,14 +549,22 @@ fn the_expedition_ai_sends_its_machines_out_of_coverage_with_its_waves() {
         }
         w.recalc_supply(ENEMY);
         w.res[ENEMY as usize][0] += 1000;
-        let (lx, ly) = spot_for(&w, ENEMY, BldgKind::Loom);
-        w.make_building(BldgKind::Loom, ENEMY, lx, ly, true);
         for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
             (b.hp, b.maxhp) = (1e9, 1e9);
         }
         let mut out = None;
         while w.time < 600.0 && !w.over && out.is_none() {
             w.step();
+            // (no Lab: none it starts is let stand)
+            let labs: Vec<Id> = w
+                .bldgs
+                .iter()
+                .filter(|b| b.team == ENEMY && b.kind == BldgKind::Loom)
+                .map(|b| b.id)
+                .collect();
+            for b in labs {
+                w.damage(b, 1e9, None);
+            }
             if w.tick.is_multiple_of(30) {
                 let wave = w.ai_wave_of(ENEMY).unwrap_or(&[]);
                 out = wave
@@ -569,6 +578,62 @@ fn the_expedition_ai_sends_its_machines_out_of_coverage_with_its_waves() {
             out.is_some(),
             "seed {seed}: no machine of a wave out of coverage in ten minutes"
         );
+    }
+}
+
+#[test]
+fn the_expedition_ai_still_raises_a_forward_uplink_that_covers_the_foe() {
+    // The push keeps its Uplink (it brings the machines' speed back over the foe's base): the Expedition's AI against
+    // the Kingdom's on 96x96, four Rovers and a Lab from the start, its foe's buildings made to last. Within ten minutes
+    // an Uplink of its own stands whose coverage takes in the foe's headquarters.
+    for seed in [1, 2, 3, 5, 6] {
+        let mut w = World::with_size(
+            seed,
+            1,
+            MapKind::Standard,
+            MapSize::square(96),
+            0,
+            &[&HUMANS, &VAEL],
+        );
+        assert!(w.set_ai_seats([true, true]));
+        let hq = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == ENEMY && b.kind == BldgKind::Conflux)
+            .map(|b| (b.x, b.y))
+            .unwrap();
+        for k in 0..4 {
+            w.make_unit(
+                UnitKind::Monolith,
+                ENEMY,
+                hq.0 + 96.0,
+                hq.1 + 32.0 * k as f64,
+            );
+        }
+        w.recalc_supply(ENEMY);
+        w.res[ENEMY as usize][0] += 1000;
+        let (lx, ly) = spot_for(&w, ENEMY, BldgKind::Loom);
+        w.make_building(BldgKind::Loom, ENEMY, lx, ly, true); // (the Uplink's requirement)
+        for b in w.bldgs.iter_mut().filter(|b| b.team == PLAYER) {
+            (b.hp, b.maxhp) = (1e9, 1e9);
+        }
+        let foe = w
+            .bldgs
+            .iter()
+            .find(|b| b.team == PLAYER && b.kind.def().hq)
+            .map(|b| (b.x, b.y))
+            .unwrap();
+        let mut covering = false;
+        while w.time < 600.0 && !w.over && !covering {
+            w.step();
+            covering = w.bldgs.iter().any(|b| {
+                b.team == ENEMY
+                    && b.kind == BldgKind::Uplink
+                    && b.done
+                    && jsmath::dist(b.x, b.y, foe.0, foe.1) <= (UPLINK_RANGE - 6.0) * 32.0
+            });
+        }
+        assert!(covering, "seed {seed}: no Uplink covering the foe");
     }
 }
 

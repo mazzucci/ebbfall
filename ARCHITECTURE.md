@@ -100,7 +100,8 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   Uplink fell staying where it stood and fighting there; a seat with no source left slowed everywhere; the straight
   way taken across two overlapping sources' waist, out of coverage, and no word to the player for a group sent far
   out (the edge scenes use a second Data center's 18 tiles, the Uplink's 54 covering most of a 64x64 map); the
-  Expedition AI's machines out of coverage with its waves on 96x96; Expedition buildings placed only inside coverage,
+  Expedition AI's machines out of coverage with its waves on 96x96 with no Uplink to raise, and its push's
+  forward Uplink still covering the foe; Expedition buildings placed only inside coverage,
   the Data center and the Uplink anywhere, a post and a turbine standing and working after their Uplink falls), the
   Expedition's economy (`expedition`: energy and one grid, Nov 14: the
   grid from the Data center (22) and Substations (10) up to `GRID_MAX` 150, the Kingdom's population `POP_MAX` 120, only
@@ -264,9 +265,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       (`OUT_OF_RANGE_SPEED`) outside, everywhere for a side with no source left (`radio_speed`, read
                       by `live_speed`); only speed changes, not damage; the sources listed again when they change
                       (checked each tick: derived, not hashed), and handed to the client as circles (`radio_circles`,
-                      Game.radioCircles: x, y, reach per source of a side and its allies). The AI's wave's own
-                      forward Uplink while machines are out, and its staging at its forward-most one, are in
-                      ai/army.rs); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
+                      Game.radioCircles: x, y, reach per source of a side and its allies). The AI's push (one
+                      forward Uplink that covers its goal once it has machines, which go with its waves meanwhile), its
+                      wave's own Uplink and its staging at its forward-most one are in ai/army.rs); economy.rs keeps each seat's places (`World::supply`, `recalc_supply`)
   src/ai/             scripted opponent: mod.rs (its turn every 16 ticks, each brain on a tick of its own, phase by phase),
                       economy, build, research, produce, army, scouting. The Expedition's at the balance pass: its
                       mercenary line is held to its own share of the grid (`line_grid`, `line_max`); at that share

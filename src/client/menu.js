@@ -90,11 +90,12 @@ function renderMaps() {
 // player removed, the AIs after it move up a spot each and the sides are numbered again without the gap (seats.js
 // `removeAt`). Everyone on one side: START GAME waits, and says why. More players than the map has starts: the
 // smallest map that seats them instead, in the list, with no note (a line that came and went moved START GAME).
-/** The board with none saved on this device: you against one AI on Easy, the AI the other people (the Kingdom against
- *  the Expedition: a newcomer's first game shows both, not a mirror); or what the menu before the board saved (its own
- *  keys: `race`, `enemy`, `diff`, `players`, `teams`). */
+/** The board with none saved on this device: you against one AI on Easy, the AI the other people (you the Expedition
+ *  against the Kingdom: a newcomer's first game shows both, not a mirror, and starts on the people the guided game does
+ *  not, so the faction switch is not the only way to meet it); or what the menu before the board saved (its own keys:
+ *  `race`, `enemy`, `diff`, `players`, `teams`). */
 const defaultRows = () => {
-  const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k)), race = store.get('race');
+  const players = +store.get('players'), num = (k) => (store.get(k) === null ? null : +store.get(k)), race = store.get('race') ?? RACES[1];
   const other = RACES[race === RACES[1] ? 0 : 1];
   return legacyRows({ race, enemy: store.get('enemy') ?? other, diff: num('diff'), players, teams: teamList(players, store.get('teams')) }, MAX_PLAYERS);
 };

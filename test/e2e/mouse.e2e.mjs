@@ -51,11 +51,13 @@ async function spawnFoe(d, core) {
 }
 
 /** Three Guards and two idle workers by the Castle (set up), their ids; the home mine; and a point of open ground away
- *  from everything, well inside the map and in clear view once the camera looks there. */
+ *  from everything, well inside the map and in clear view once the camera looks there. Played as the Expedition (the
+ *  default board, where nothing can be stored): three Sellswords and two Bots by the Data center. */
 async function scene(d) {
-  const core = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'core');
+  const core = (await d.state()).bldgs.find(b => b.team === 0 && (b.type === 'core' || b.type === 'conflux'));
+  const [fighter, worker] = core.type === 'conflux' ? ['prism', 'lumen'] : ['trooper', 'harvester'];
   const spawn = (type, n, dx, dy) => d.eval(([type, n, x, y]) => Array.from({ length: n }, (_, i) => endfall.engine.debugSpawn(0, type, x + i * 45, y)), [type, n, core.x + dx, core.y + dy]);
-  const guards = await spawn('trooper', 3, -60, 150), workers = await spawn('harvester', 2, -40, 220);
+  const guards = await spawn(fighter, 3, -60, 150), workers = await spawn(worker, 2, -40, 220);
   await d.skip(0.2);
   const s = await d.state(), W = await d.eval(() => [endfall.engine.WW, endfall.engine.WH]);
   const things = [...s.nodes, ...s.bldgs, ...s.units];
@@ -376,6 +378,7 @@ test('desktop: where nothing can be stored the default holds, the option still w
     Storage.prototype.setItem = refuse; Storage.prototype.getItem = refuse;
   } });
   try {
+    assert.deepEqual(await d.eval(() => endfall.G.factions), ['vael', 'humans'], 'the default board too: you the Expedition against the Kingdom');
     const { guards, spot: [x, y] } = await scene(d);
     await d.key('q'); await d.clickWorld(x, y);
     assert.deepEqual(await tasks(d, guards), ['move', 'move', 'move'], 'the default: an order');

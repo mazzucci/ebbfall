@@ -667,7 +667,7 @@ impl World {
                 && self.can_afford(e, [0, 1].map(|i| w.def().cost[i] + hold[i]))
         });
         // Its Portal's Uplink (`AiScript::relay`) at home, on the way towards the foe inside its coverage
-        // (`relay_home_point`): the gate's lifeline is held there, and the push raises its own forward one.
+        // (`relay_home_point`): the gate's lifeline is held there, and a wave with machines raises its own forward one.
         let home = placeable
             .filter(|&w| Some(w) == f.ai.relay)
             .and_then(|_| self.relay_home_point(self.attack_target()));

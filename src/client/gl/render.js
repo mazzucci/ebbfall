@@ -11,7 +11,7 @@ import { BLDG_DEATH, BLDG_LOOK, selOval as selOvalOf, headFrame, portalOpen, chi
 import { REVEAL, revealRows, revealMatrix, frameOf, slabOf, slabMarks, DONE, DONE_PUFF, BUILD_BAR, WORK, doneAt, donePuffs, siteHurt, strikeCount, strikeAt, atSite, STRIKE_FX } from '../construct.js';
 import { sfx } from '../audio.js';
 import { drag } from '../input.js';
-import { inRange, unionArcs, nearestRim } from '../range.js';
+import { inRange, unionArcs } from '../range.js';
 import { rockKinds, shadeLayers } from './ground.js';
 import { planGround, planHash, startsOf } from './groundplan.js';
 import { loadArt } from './artload.js';
@@ -986,9 +986,9 @@ const RIM_HALO = 0x0b1220; // (the signal rim: a dark halo under the light line,
 // zoom (the widths are divided by the zoom, in steps: `rimZoom`). Inside the rim a feathered band gives the area its
 // side (the 7% fill alone is lost on grass): `BAND_PX` screen px wide, the rim's light from `BAND_ALPHA` at the line to
 // nothing, as `BAND_STEPS` rings of the union's arcs drawn inward.
-const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeG = new Container(), rangeFog = new Graphics(), rangeHi = new Graphics(), rangeOver = new Container();
+const rangeTint = new Graphics(), rangeBand = new Graphics(), rangeLine = new Graphics(), rangeG = new Container(), rangeFog = new Graphics(), rangeOver = new Container();
 rangeTint.filters = [new AlphaFilter({ alpha: 0.07 })]; rangeG.addChild(rangeTint, rangeBand, rangeLine); L.sel.addChildAt(rangeG, 0); rangeG.visible = false;
-rangeOver.addChild(rangeFog, rangeHi); L.overlay.addChildAt(rangeOver, 0); rangeOver.visible = false; // (over the fog: the line on ground not yet seen, and the leash's cue)
+rangeOver.addChild(rangeFog); L.overlay.addChildAt(rangeOver, 0); rangeOver.visible = false; // (over the fog: the line on ground not yet seen)
 let rangeKey = '', rangeCircles = [], rangeArcs = [], fogKey = '', fogRuns = [];
 export const BAND_PX = 28, BAND_ALPHA = 0.36;
 /** The rim's line and its dark halo: screen px, opacity. */
@@ -1038,34 +1038,20 @@ function drawFogRim() {
   arcsOnto(rangeFog, runs); rangeFog.stroke({ width: RIM.fogHalo / z, color: RIM_HALO, alpha: RIM.fogHaloAlpha });
   arcsOnto(rangeFog, runs); rangeFog.stroke({ width: RIM.fogLine / z, color: RANGE_COLOR, alpha: RIM.fogAlpha });
 }
-// The leash's cue: a machine sent past the edge (the sim's `signal` event, with the no-signal toast) brightens the stretch
-// of the rim nearest where it was sent to full, fading back over 0.6 s. No pulse, dashes or icons (the designer's spec).
-const LEASH_FADE = 0.6, LEASH_SPAN = 6 * TILE; // (s; world px of rim either side of the nearest point)
-let leash = null;
-/** The sim said a machine of ours was sent past coverage, towards (x, y): brighten the rim there. */
-export function leashAt(x, y) { leash = { x, y, t: performance.now() / 1000 }; }
-function drawLeash(now) {
-  rangeHi.clear();
-  const k = leash ? 1 - (now - leash.t) / LEASH_FADE : 0;
-  if (k <= 0 || k > 1) { leash = null; return; }
-  const seg = nearestRim(rangeArcs, leash.x, leash.y, LEASH_SPAN);
-  if (!seg) return;
-  arcsOnto(rangeHi, [seg]); rangeHi.stroke({ width: RIM.line / rimZoom(), color: RANGE_COLOR, alpha: k });
-}
 /** Range is shown while a Data center, an Uplink or a machine of this side is selected, or while any building that gives
  *  coverage or goes up only inside it is being placed (a source's own circle with the others). */
-function showRange(selList, place, now) {
+function showRange(selList, place) {
   const reach = place ? coverageOf(place.type) : 0, d = place && BUILDINGS[place.type];
   const extra = reach > 0 ? { x: (place.tx + d.w / 2) * TILE, y: (place.ty + d.h / 2) * TILE, r: reach * TILE } : null;
   const on = !!extra || (place && needsCoverage(place.type)) || selList.some(e => e.team === G.me && !e.dead && (e.kind === 'unit' ? RADIO.machines.has(e.type) : RADIO.sources[e.type] > 0));
   if (on) drawRange(extra);
   mmExtra = extra; // (and on the minimap while it is placed)
   rangeG.visible = rangeOver.visible = on && rangeCircles.length > 0;
-  if (rangeG.visible) { drawFogRim(); drawLeash(now); } else leash = null;
+  if (rangeG.visible) drawFogRim();
 }
-/** A machine of ours out of coverage while its side has some (stranded: slowed, and only back towards it): a small
- *  "no signal" sign over it, an antenna's two arcs struck through, dark-edged and team-neutral so it reads on any
- *  ground at 1x on a phone (the arc, Nov 13: the one cue; the in-coverage chevron is gone). */
+/** A machine of ours out of coverage (slowed there; everywhere, for a side with no source left): a small "no signal"
+ *  sign over it, an antenna's two arcs struck through, dark-edged and team-neutral so it reads on any ground at 1x on a
+ *  phone (the arc, Nov 13: the one cue; the in-coverage chevron is gone). */
 function noSignal(x, y) {
   for (const [w, c, a] of [[3.6, 0x0b1220, 0.75], [1.7, 0xf2f2f2, 1]]) {
     bars.moveTo(x, y + 4).lineTo(x, y - 1); // (the mast)
@@ -1080,7 +1066,7 @@ function noSignal(x, y) {
 }
 /** Tests: whether the range is drawn, its circles, and which units show the no-signal mark. */
 const markedIds = new Set();
-export const rangeShown = () => ({ under: rangeG.parent === L.sel, fogRuns: rangeG.visible ? fogRuns.map(q => q.slice()) : [], mmExtra: mmExtra && { ...mmExtra }, shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], leash: !!leash, mmRim: mmRimArcs, mmRimWidth: mmRimCss, band: { px: BAND_PX, alpha: BAND_ALPHA, rings: rangeBand.visible && rangeArcs.length ? BAND_STEPS : 0 } });
+export const rangeShown = () => ({ under: rangeG.parent === L.sel, fogRuns: rangeG.visible ? fogRuns.map(q => q.slice()) : [], mmExtra: mmExtra && { ...mmExtra }, shown: rangeG.visible, circles: rangeCircles.map(c => ({ ...c })), arcs: rangeArcs.length, marked: [...markedIds], mmRim: mmRimArcs, mmRimWidth: mmRimCss, band: { px: BAND_PX, alpha: BAND_ALPHA, rings: rangeBand.visible && rangeArcs.length ? BAND_STEPS : 0 } });
 
 /** A progress bar with an optional count of queued items (small pips) after it. */
 function progressBar(x, y, w, f, color, pips = 0, h = 5) {
@@ -1210,11 +1196,11 @@ export function render(selList, place) {
     o.update(u, now, sel, dt);
     const bar = sel.has(u) || u.hp < u.maxhp || u.sh < u.maxsh;
     if (bar) unitBar(u);
-    if (u.team === G.me && RADIO.machines.has(u.type) && G.radio.length && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance)
+    if (u.team === G.me && RADIO.machines.has(u.type) && !inRange(G.radio, u.x, u.y)) { // (the sim's rule: exact distance; no circle, no signal)
       noSignal(u.x, u.y - unitTop(u.type) - (bar ? 18 : 11)); markedIds.add(u.id);
     }
   });
-  showRange(selList, place, now);
+  showRange(selList, place);
   xray(onScreen, selList);
 
   // The shots (look.js SHOT_STYLE): each a pooled sprite with, under it, a dark bar (a Kingdom shaft's silhouette), a

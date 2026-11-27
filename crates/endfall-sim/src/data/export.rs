@@ -250,8 +250,8 @@ pub fn data_json() -> String {
         .done()
 }
 
-/// The range (data/radio.rs): the machines it speeds up, what each source gives (tiles), their speed inside it
-/// (a multiple), the Drone's leash, and the buildings placed only inside coverage (`within`).
+/// The range (data/radio.rs): the machines it speeds up, what each source gives (tiles), their speed inside it and
+/// outside it (multiples), and the buildings placed only inside coverage (`within`).
 fn radio_json() -> String {
     let machines = UNIT_KINDS
         .iter()
@@ -273,8 +273,7 @@ fn radio_json() -> String {
         .raw("machines", array(machines))
         .raw("sources", map(sources))
         .raw("within", array(within))
-        .num("stranded", radio::STRANDED_SPEED)
         .num("boost", radio::IN_RANGE_SPEED)
-        .num("leash", radio::LEASH_MARGIN)
+        .num("slow", radio::OUT_OF_RANGE_SPEED)
         .done()
 }

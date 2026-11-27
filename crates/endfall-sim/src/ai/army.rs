@@ -37,14 +37,10 @@ const RELAY_COVER_ROOM: f64 = 8.0;
 const RELAY_HOME_INSIDE: f64 = 4.0;
 const RELAY_GOAL_ROOM: f64 = 10.0;
 const RELAY_FRONT: f64 = 4.0;
-/// The push: machines kept home (their goal out of coverage) before the next Uplink goes up towards it.
+/// The push: machines in its army before an Uplink goes up towards a goal out of its coverage.
 const PUSH_MACHINES: usize = 4;
-/// The push: how far (tiles) past its coverage's edge a goal may lie for its machines to go with the wave.
+/// The push: how far (tiles) past its coverage's edge a goal may lie with no Uplink raised for it.
 const PUSH_REACH: f64 = 8.0;
-/// A machine of a wave held at its coverage's edge: within `EDGE_NEAR` tiles of it (or past it), quiet (neither firing
-/// nor hit) for `HELD_QUIET` s.
-const EDGE_NEAR: f64 = 1.5;
-const HELD_QUIET: f64 = 20.0;
 /// A wave out this long (s) whose every unit has been quiet (neither firing nor hit) as long is over, wherever it stands
 /// (a wave of two left standing short of the foe's base for eight minutes kept a winning army of 6,000 at home).
 const WAVE_QUIET: f64 = 90.0;
@@ -429,7 +425,7 @@ impl World {
         let candidates: Vec<Id> = army
             .iter()
             .copied()
-            // (no machine raids since the arc: it would stop at its coverage's edge)
+            // (no machine raids, as since the arc: far from coverage a raid would crawl at the penalty's speed)
             .filter(|&a| {
                 self.unit(a)
                     .is_some_and(|u| u.kind == raider && !radio::needs_range(u.kind))
@@ -451,24 +447,19 @@ impl World {
         let army = self.tend_reserve(army, rally, t);
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
-        // Machines need signal (the arc): with the goal out of its side's coverage they stay home, defending, and the
-        // wave goes without them (else they stopped at the edge and the wave went in split); they go once coverage
-        // reaches the goal (a forward Uplink).
+        // The push (the arc: "an Uplink, then the machines"; since Nov 27 its machines go with the waves all the same,
+        // slower outside coverage): with its goal well out of its coverage and machines in its army, it raises one
+        // Uplink whose coverage takes in the goal, so they fight there at full speed.
         let seat = self.seat();
-        // (near enough: the goal within `PUSH_REACH` tiles past its coverage's edge, where its machines strike it from
-        // inside: the Rover's rockets reach 12)
-        let covered = self.in_radio_by(seat, goal.0, goal.1, PUSH_REACH);
-        let army: Vec<Id> = if covered {
-            army
-        } else {
-            // (the push: an Uplink, then the machines. Its machines wait at its forward-most Uplink on the way, and
-            // with enough of them it raises the next one past its coverage's edge towards the goal)
-            let (machines, rest): (Vec<Id>, Vec<Id>) = army
-                .into_iter()
-                .partition(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)));
-            self.tend_push(&machines, &rest, goal);
-            rest
-        };
+        // (near enough: the goal within `PUSH_REACH` tiles past its coverage's edge needs none)
+        if !self.in_radio_by(seat, goal.0, goal.1, PUSH_REACH) {
+            let machines: Vec<Id> = army
+                .iter()
+                .copied()
+                .filter(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)))
+                .collect();
+            self.tend_push(&machines, &army, goal);
+        }
         // (a stalled game's push does not leave while the foe is at its buildings: its army meets that at home, its
         // towers and siege beside it, and goes after)
         if !(stalled && intruder.is_some()) {
@@ -872,8 +863,7 @@ impl World {
             };
             let ox = (self.rnd() - 0.5) * 80.0;
             let oy = (self.rnd() - 0.5) * 80.0;
-            let (px, py) = self.wave_point(a, tx + ox, ty + oy);
-            self.attack_move(a, px, py);
+            self.attack_move(a, tx + ox, ty + oy);
         }
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
@@ -902,8 +892,7 @@ impl World {
         for &a in &home {
             let ox = (self.rnd() - 0.5) * 80.0;
             let oy = (self.rnd() - 0.5) * 80.0;
-            let (px, py) = self.wave_point(a, gx + ox, gy + oy);
-            self.attack_move(a, px, py);
+            self.attack_move(a, gx + ox, gy + oy);
         }
         attackers.extend(&home);
         let ai = self.ai_mut();
@@ -920,17 +909,6 @@ impl World {
         if d.wave_only && (self.time < d.clumsy_until || !self.ai().reached) {
             let ai = self.ai_mut();
             ai.wave = ai.wave.saturating_sub(d.wave_grow).max(d.wave);
-        }
-    }
-
-    /// Coverage: where wave unit `a` is sent for (x, y): that point, or for a machine the last point of the way there
-    /// inside its side's coverage (it gathers where it can stand: the machines push behind the Uplinks).
-    fn wave_point(&self, a: Id, x: f64, y: f64) -> (f64, f64) {
-        let u = self.u(a);
-        if radio::needs_range(u.kind) {
-            self.radio_leash_point(u.team, u.x, u.y, x, y)
-        } else {
-            (x, y)
         }
     }
 
@@ -964,8 +942,8 @@ impl World {
 
     /// The range: the forward Uplink (`AiScript::relay`, once its Lab stands) for a wave with machines out: while one
     /// is out, the AI keeps one site at a time going at its point for the goal (`relay_point`) once the wave's front has
-    /// come that far, never holding the wave for it. A site under fire is abandoned (its cost partly back) and the wave
-    /// places no other.
+    /// come that far, never holding the wave for it (its machines go on outside coverage, slower, and the Uplink brings
+    /// back their speed there). A site under fire is abandoned (its cost partly back) and the wave places no other.
     fn tend_relay(&mut self, attackers: &[Id], (gx, gy): (f64, f64)) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
@@ -980,24 +958,14 @@ impl World {
         self.raise_relay(attackers, (gx, gy), true);
     }
 
-    /// The push (the arc: "an Uplink, then the machines"): while its goal lies out of its coverage, its machines (kept
-    /// out of the waves) wait at its forward-most Uplink on the way, and once it has `PUSH_MACHINES` of them it raises
-    /// an Uplink at its point for the goal (`relay_point`: one that covers it), its idle army guarding the site.
-    fn tend_push(&mut self, machines: &[Id], rest: &[Id], goal: (f64, f64)) {
+    /// The push: with `PUSH_MACHINES` machines in its army (`army`: the units at home and out) and its goal out of its
+    /// coverage, it raises an Uplink at its point for the goal (`relay_point`: one that covers it), its idle army
+    /// guarding the site while no wave is out. The machines are not held back for it.
+    fn tend_push(&mut self, machines: &[Id], army: &[Id], goal: (f64, f64)) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
             return;
         };
-        let at = self
-            .turret_stage(goal)
-            .unwrap_or_else(|| self.rally_or_home());
-        for &m in machines {
-            let u = self.u(m);
-            if matches!(u.task, Task::Idle) && dist(u.x, u.y, at.0, at.1) > 4.0 * TILE {
-                let (x, y) = self.radio_leash_point(seat, u.x, u.y, at.0, at.1);
-                self.move_to(m, x, y);
-            }
-        }
         if machines.len() < PUSH_MACHINES || !self.has_req(seat, tower) {
             return;
         }
@@ -1016,7 +984,7 @@ impl World {
             .map(|b| (b.x, b.y))
             && !self.ai().attacking
         {
-            for &a in rest {
+            for &a in army {
                 let u = self.u(a);
                 if matches!(u.task, Task::Idle) && dist(u.x, u.y, sx, sy) > 5.0 * TILE {
                     self.attack_move(a, sx, sy);
@@ -1025,8 +993,8 @@ impl World {
         }
     }
 
-    /// The forward Uplink (`AiScript::relay`) at its point for the goal (`relay_point`); with `front`, only once the
-    /// escort's unit nearest the goal has come about that far.
+    /// The forward Uplink (`AiScript::relay`) at its point for the goal (`relay_point`); with `front_needed`, only once
+    /// the escort's unit nearest the goal has come about that far.
     fn raise_relay(&mut self, escort: &[Id], (gx, gy): (f64, f64), front_needed: bool) {
         let seat = self.seat();
         let Some(tower) = self.factions[seat as usize].ai.relay else {
@@ -1581,21 +1549,11 @@ impl World {
             k.def().armed() && !Self::hits_of(k).0
         };
         let left = alive.iter().filter(|&&a| !air_only(self, a)).count();
-        // (a machine with no way to its target through coverage stops at the edge and holds its order there. A wave
-        // left with only such machines is over; else it never ended, and no other went)
-        let held = |w: &World, a: Id| {
-            let u = w.u(a);
-            radio::needs_range(u.kind)
-                && u.cd < -HELD_QUIET
-                && t - u.struck > HELD_QUIET
-                && !w.in_radio_by(u.team, u.x, u.y, -EDGE_NEAR)
-        };
         let quiet = |w: &World, a: Id| {
             let u = w.u(a);
             u.cd < -WAVE_QUIET && t - u.struck > WAVE_QUIET
         };
-        let stalled = alive.iter().all(|&a| held(self, a))
-            || (t - ai.last_wave > WAVE_QUIET && alive.iter().all(|&a| quiet(self, a)));
+        let stalled = t - ai.last_wave > WAVE_QUIET && alive.iter().all(|&a| quiet(self, a));
         if !ai.reached {
             let reached = alive.iter().any(|&a| {
                 let u = self.u(a);
@@ -1661,13 +1619,9 @@ impl World {
                 .copied()
                 .filter(|a| !prong.contains(a))
                 .collect();
-            // (a Drone gathers at the end of its leash on the way, if the point is past it)
             let near = main
                 .iter()
-                .filter(|&&a| {
-                    let (px, py) = self.wave_point(a, sx, sy);
-                    dist(self.u(a).x, self.u(a).y, px, py) < STAGE_NEAR
-                })
+                .filter(|&&a| dist(self.u(a).x, self.u(a).y, sx, sy) < STAGE_NEAR)
                 .count();
             if near as f64 >= main.len() as f64 * STAGE_SHARE || t - since > self.level().stage_wait
             {
@@ -1675,15 +1629,13 @@ impl World {
                 for a in main {
                     let ox = (self.rnd() - 0.5) * 80.0;
                     let oy = (self.rnd() - 0.5) * 80.0;
-                    let (px, py) = self.wave_point(a, gx + ox, gy + oy);
-                    self.attack_move(a, px, py);
+                    self.attack_move(a, gx + ox, gy + oy);
                 }
             } else {
                 for a in main {
-                    let (px, py) = self.wave_point(a, sx, sy);
                     let u = self.u(a);
-                    if u.task == Task::Idle && dist(u.x, u.y, px, py) >= STAGE_NEAR {
-                        self.attack_move(a, px, py);
+                    if u.task == Task::Idle && dist(u.x, u.y, sx, sy) >= STAGE_NEAR {
+                        self.attack_move(a, sx, sy);
                     }
                 }
             }
@@ -1703,13 +1655,11 @@ impl World {
                 match best {
                     Some(&(b, bx, by)) if dist(ux, uy, bx, by) < 700.0 => self.engage(a, b),
                     Some(&(_, bx, by)) => {
-                        let (px, py) = self.wave_point(a, bx, by);
-                        self.attack_move(a, px, py);
+                        self.attack_move(a, bx, by);
                     }
                     // Nothing known left: sweep the enemy's start, then the shard fields around it.
                     None => {
-                        let (px, py) = self.wave_point(a, gx, gy);
-                        self.attack_move(a, px, py);
+                        self.attack_move(a, gx, gy);
                     }
                 }
             }
@@ -2373,72 +2323,6 @@ mod tests {
             "two at most"
         );
         assert!(w.level_allows(Rider), "its mid tier still");
-    }
-
-    #[test]
-    fn a_wave_left_with_only_machines_held_quiet_at_the_coverage_edge_is_over() {
-        // The Expedition's wave out: six machines at its Data center's coverage edge, told to attack the foe's
-        // headquarters, which no way through coverage reaches: they hold there.
-        // Quiet for 20 s (not firing, not hit), the wave is over and they go back to the rally, so the next can go;
-        // one of them firing lately, it goes on. (Before, such a wave never ended: a three-seat game ran 45 minutes.)
-        let scene = |fired_ago: f64| {
-            let mut w =
-                World::with_size(5, 1, MapKind::Standard, MapSize::DUEL, 0, &[&HUMANS, &VAEL]);
-            w.refresh_radio(true);
-            w.ai_turn = 1;
-            let (bx, by) = w.map.bases[1];
-            let (hx, hy) = ((bx as f64 + 2.0) * TILE, (by as f64 + 2.0) * TILE);
-            let reach = crate::data::radio::range_of(BldgKind::Conflux) * TILE;
-            let (fx, fy) = w.map.bases[0];
-            let core = w.bldgs.iter().find(|b| b.team == 0).unwrap().id;
-            let (dx, dy) = ((fx - bx) as f64, (fy - by) as f64);
-            let len = crate::jsmath::hypot(dx, dy);
-            let army: Vec<Id> = (0..6)
-                .map(|i| {
-                    let k = if i < 3 {
-                        UnitKind::Monolith
-                    } else {
-                        UnitKind::Scythe
-                    };
-                    let (x, y) = (
-                        hx + dx / len * reach + i as f64 * 6.0,
-                        hy + dy / len * reach,
-                    );
-                    let a = w.make_unit(k, 1, x, y);
-                    let u = w.um(a);
-                    u.task = Task::Attack {
-                        target: core,
-                        back: None,
-                    };
-                    u.cd = -fired_ago;
-                    a
-                })
-                .collect();
-            let rally = Pt { x: hx, y: hy };
-            let ai = w.ai_mut();
-            ai.rally = Some(rally);
-            ai.attacking = true;
-            ai.attackers = Some(army.clone());
-            ai.wave_size = 6;
-            ai.last_wave = 300.0;
-            let goal = (fx as f64 * TILE, fy as f64 * TILE);
-            w.ai_steer_wave(&army, &army, 400.0, rally, goal);
-            (w, army, rally)
-        };
-        let (w, army, rally) = scene(30.0);
-        assert!(
-            !w.ai().attacking,
-            "held quiet at the edge: the wave is over"
-        );
-        assert_eq!(w.ai().last_wave, 400.0);
-        for &a in &army {
-            assert!(
-                matches!(w.u(a).task, Task::Move { x, y } if crate::jsmath::dist(x, y, rally.x, rally.y) < 100.0),
-                "back to its rally"
-            );
-        }
-        let (w, _, _) = scene(5.0);
-        assert!(w.ai().attacking, "firing lately: it goes on");
     }
 
     #[test]

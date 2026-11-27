@@ -21,7 +21,7 @@ const SMALL = new Set(['a', 'an', 'and', 'the', 'with', 'by', 'its', 'it', 'itse
 export const words = (s) => new Set(s.toLowerCase().match(/[a-z0-9]+/g)?.filter(w => !SMALL.has(w)) || []);
 const within = (a, b) => [...a].every(w => b.has(w));
 
-/** The sentence a machine's description ends with (constants.js): it works only inside coverage. The docs say it once,
+/** The sentence a machine's description ends with (constants.js): it is slower outside coverage. The docs say it once,
  *  on the building that makes machines, and mark each machine with the signal dot. */
 export const SIGNAL = / Needs signal: [^.]*\./;
 
@@ -40,7 +40,7 @@ export function lines(what, desc) {
 }
 
 /** One entry of a people's list: what its chips and lines show (`supply`: a unit's places, a building's +places;
- *  `signal`: a machine, which works only inside coverage). */
+ *  `signal`: a machine, which is slower outside coverage). */
 function entry(k, d, kind) {
   return {
     key: k, kind, name: d.name, what: d.what || '', cost: d.cost[0], supply: d.supply || 0,
@@ -53,8 +53,8 @@ function entry(k, d, kind) {
 export function signalNote(units) {
   const u = units.find(x => x.signal);
   if (!u) return '';
-  const m = UNITS[u.key].desc.match(SIGNAL)[0].trim(); // "Needs signal: works only inside ..."
-  return m.replace(/^Needs signal: works/, 'Its machines need signal: they work');
+  const m = UNITS[u.key].desc.match(SIGNAL)[0].trim(); // "Needs signal: slower outside ..."
+  return m.replace(/^Needs signal: slower/, 'Its machines need signal: they are slower');
 }
 
 /** A people: its facts strip and its buildings (headquarters first, then the Build list's basic and advanced pages),

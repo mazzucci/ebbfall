@@ -64,12 +64,8 @@ impl World {
         let foot = self.foot(self.u(uid).kind);
         let (a, b) = (self.map.tile_of(ux, uy), self.map.tile_of(x, y));
         let refresh = self.u(uid).path.is_some();
-        // (a machine keeps to its coverage: paths.rs)
-        let plan = match self.plan_walk(team, foot, (ux, uy), a, b, refresh) {
-            paths::Plan::Route(path) => self.keep_covered(uid, path, b),
-            wait => wait,
-        };
-        let paths::Plan::Route(mut path) = plan else {
+        let paths::Plan::Route(mut path) = self.plan_walk(team, foot, (ux, uy), a, b, refresh)
+        else {
             // A unit with a route keeps it until its next replan; one without asks again next tick.
             self.um(uid).repath = if refresh { 0.6 } else { 0.0 };
             return false;
@@ -120,18 +116,6 @@ impl World {
         let d = dist(u.x, u.y, w.x, w.y);
         let mv = speed * dt;
         u.face = jsmath::atan2(w.y - u.y, w.x - u.x);
-        let (ux, uy) = (u.x, u.y);
-        let next = if d <= mv + 1.0 {
-            (w.x, w.y)
-        } else {
-            (ux + (w.x - ux) / d * mv, uy + (w.y - uy) / d * mv)
-        };
-        if !self.radio_allows(uid, next.0, next.1) {
-            // (the Drone at the end of its leash: it fights what it can reach from there, else stops there, as arrived)
-            return !self.radio_at_leash(uid);
-        }
-        let u = self.um(uid);
-        let path = u.path.as_mut().unwrap();
         if d <= mv + 1.0 {
             u.x = w.x;
             u.y = w.y;
@@ -209,18 +193,11 @@ impl World {
             let (ww, wh) = (self.map.ww(), self.map.wh());
             let nx = clamp(ux + (p.0 - ux) / d * mv, 16.0, ww - 16.0);
             let ny = clamp(uy + (p.1 - uy) / d * mv, 16.0, wh - 16.0);
-            let allowed = self.radio_allows(uid, nx, ny);
             let u = self.um(uid);
             u.path = None;
             u.face = jsmath::atan2(p.1 - uy, p.0 - ux);
-            if allowed {
-                u.x = nx;
-                u.y = ny;
-            } else if !self.radio_at_leash(uid) {
-                // (the Drone does not chase past its leash: it takes on what it can reach from there, else lets the
-                // target go and stays there)
-                self.set_idle(uid);
-            }
+            u.x = nx;
+            u.y = ny;
             return false;
         }
         let u = self.um(uid);
@@ -231,14 +208,7 @@ impl World {
                 // until the next replan meanwhile)
                 let (team, refresh) = (self.u(uid).team, self.u(uid).path.is_some());
                 let foot = self.foot(self.u(uid).kind);
-                let plan = match self.plan_to_rect(team, foot, (ux, uy), (tx, ty, w, h), p, refresh)
-                {
-                    paths::Plan::Route(path) => {
-                        self.keep_covered(uid, path, self.map.tile_of(p.0, p.1))
-                    }
-                    wait => wait,
-                };
-                match plan {
+                match self.plan_to_rect(team, foot, (ux, uy), (tx, ty, w, h), p, refresh) {
                     paths::Plan::Route(path) => {
                         let u = self.um(uid);
                         u.path = path;
@@ -257,13 +227,11 @@ impl World {
             let mv = self.live_speed(uid) * dt;
             let u = self.u(uid);
             let (nx, ny) = (u.x + (p.0 - u.x) / d * mv, u.y + (p.1 - u.y) / d * mv);
-            // (a machine keeps to its coverage here too: no route there is no license to leave it)
             if self.map.passable(
                 self.foot(u.kind),
                 jsmath::to_i32(nx / TILE),
                 jsmath::to_i32(ny / TILE),
-            ) && self.radio_allows(uid, nx, ny)
-            {
+            ) {
                 let u = self.um(uid);
                 u.x = nx;
                 u.y = ny;

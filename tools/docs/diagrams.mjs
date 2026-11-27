@@ -54,13 +54,14 @@ export function cap() {
   return `<figure class="dia caps">${PEOPLES.map(bar).join('')}<p class="low"><span class="read">POP 36/36</span> the number turns red and pulses when not even a worker fits</p></figure>`;
 }
 
-/** The Expedition's signal: the Data center's coverage inside an Uplink's, its machines inside, its hired locals out. */
+/** The Expedition's signal: the Data center's coverage inside an Uplink's, its machines inside (slower outside), its
+ *  hired locals out. */
 export function expedition() {
   const dc = RADIO.sources.conflux, up = RADIO.sources.uplink, R = 150, r = R * dc / up;
   const img = (name, x, y, s, alt) => { const c = cropOf(name), [file] = c.files.phone || Object.values(c.files)[0]; return `<image href="${SPRITE_URL}${file}" x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}"><title>${esc(alt)}</title></image>`; };
   const machines = [...RADIO.machines];
   const locals = PEOPLES.find(p => p.grid).buildings.flatMap(b => b.units).filter(u => !machines.includes(u.key) && !UNITS[u.key].worker);
-  const svg = `<svg viewBox="0 0 640 380" role="img" aria-labelledby="dexT"><title id="dexT">${esc(`The Data center's coverage, ${dc} tiles, inside an Uplink's, ${up} tiles: machines work inside it; hired locals fight anywhere.`)}</title>
+  const svg = `<svg viewBox="0 0 640 380" role="img" aria-labelledby="dexT"><title id="dexT">${esc(`The Data center's coverage, ${dc} tiles, inside an Uplink's, ${up} tiles: machines are faster inside it and slower outside; hired locals need no signal.`)}</title>
 <defs><pattern id="dexG" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#263548" stroke-width=".6" opacity=".6"/></pattern></defs>
 <rect width="640" height="380" fill="url(#dexG)"/>
 <circle cx="250" cy="190" r="${R}" fill="rgba(79,209,197,.06)" stroke="#4fd1c5" stroke-width="1.5" stroke-dasharray="6 5"/>
@@ -70,7 +71,7 @@ ${img('uplink', 290, 120, 64, 'An Uplink')}${img('conflux', 200, 230, 56, 'A Dat
 <text x="200" y="${230 + r + 16}" text-anchor="middle" class="t">Data center: ${dc} tiles</text>
 ${machines.map((k, i) => img(k, 170 + (i % 2) * 120 + (i > 1 ? 40 : 0), 110 + Math.floor(i / 2) * 150 - (i === 2 ? 30 : 0), 44, `${aName(UNITS[k].name)}: needs signal`)).join('')}
 ${locals.map((u, i) => img(u.key, 470 + i * 70, 190, 52, `${aName(u.name)}: fights anywhere`)).join('')}
-<text x="505" y="240" text-anchor="middle" class="t">hired locals fight anywhere</text>
+<text x="505" y="240" text-anchor="middle" class="t">hired locals need no signal</text>
 </svg>`;
   const strip = `<ol class="chain small" aria-label="Energy">${step(mini('lumen', 40, 'A Bot'), 'thorium')}${step(mini('conflux', 40, 'A Data center'), 'energy')}${step('<i class="bolt" aria-hidden="true"></i>', 'builds and trains')}</ol>`;
   return `<figure class="dia dex">${svg}${strip}<figcaption>Energy builds things; the grid keeps them running.</figcaption></figure>`;
@@ -93,7 +94,7 @@ export function tree(people) {
   const unit = (b) => (u) => `<li data-g="${u.key}">${mini(u.key, 40)}<span>${esc(u.name)}${sig(u)}</span>${need(u.needs, before(b).has(u.needs))}</li>`;
   const col = (b) => `<li class="tcol ${styled(`--i:${people.buildings.indexOf(b)}`)}" data-g="${b.key}">${mini(b.key, 56)}<b>${esc(b.name)}</b>${need(b.needs)}${b.units.length ? `<ul>${b.units.map(unit(b)).join('')}</ul>` : `<span class="what">${esc(b.what)}</span>`}</li>`;
   const tier = ([k, bs]) => `<li class="tier" data-after="${esc(k)}"><p class="tl"><span>${k ? `After ${esc(aName(k))}` : 'Start'}</span></p><ol class="blds">${bs.map(col).join('')}</ol></li>`;
-  const legend = people.buildings.some(b => b.units.some(u => RADIO.machines.has(u.key))) ? '<p class="legend"><i class="sig" aria-hidden="true"></i>needs signal: works only inside coverage</p>' : '';
+  const legend = people.buildings.some(b => b.units.some(u => RADIO.machines.has(u.key))) ? '<p class="legend"><i class="sig" aria-hidden="true"></i>needs signal: slower outside coverage</p>' : '';
   return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol class="tiers">${[...by].map(tier).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p>${legend}</figure>`;
 }
 

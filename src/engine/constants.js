@@ -27,9 +27,9 @@ export const TECH_SPEED = D.consts.tech_speed;
 /** A construction tech's multiple for its side's building rate. */
 export const TECH_BUILD = D.consts.tech_build;
 /** The range (crates/endfall-sim/src/data/radio.rs): the unit kinds it speeds up (`machines`, a Set), what each
- *  source building gives (`sources`, tiles by kind, a circle round its center), a machine's speed inside it (`boost`,
- *  a multiple), the Drone's leash past its edge (`leash`, tiles) and the buildings placed only inside it (`within`, a
- *  Set: the Expedition's but the sources). */
+ *  source building gives (`sources`, tiles by kind, a circle round its center), a machine's speed inside it (`boost`)
+ *  and outside it (`slow`), multiples, and the buildings placed only inside it (`within`, a Set: the Expedition's but
+ *  the sources). */
 export const RADIO = { ...D.radio, machines: new Set(D.radio.machines), within: new Set(D.radio.within) };
 /** The coverage a source of `type` gives, tiles (the same on every map). */
 export const coverageOf = (type) => RADIO.sources[type] || 0;
@@ -54,12 +54,12 @@ const UNIT_TEXT = {
   knight: { hot: 'N', what: 'Charges in heavy armor', desc: 'Fast and tough in heavy armor, hits hard up close. Faster after Horseshoes. Can\'t hit flyers.' },
   // the Expedition (`vael`)
   lumen: { hot: 'G', what: 'Mines thorium, builds, repairs', desc: 'Mines thorium, which the Data center turns into energy. Builds, staying at each building until it stands, and repairs buildings. Goes anywhere.' },
-  scythe: { hot: 'N', what: 'Fast, escorts and defends', desc: 'Fast, with a light gun: catches raiders and escorts. Hits ground and air. Weak against infantry in numbers. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
+  scythe: { hot: 'N', what: 'Fast, escorts and defends', desc: 'Fast, with a light gun: catches raiders and escorts. Hits ground and air. Weak against infantry in numbers. Needs signal: slower outside the Data center\'s or an Uplink\'s coverage.' },
   prism: { hot: 'L', what: 'Fights up close, hired', desc: 'Cheap and quick to field. Fights up close, ground only. Weak against armor. Fights anywhere.' },
-  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Long-range rockets that hit an area. Fires while moving; can\'t hit what is close or flying, and sees no farther than others: it needs spotters. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
-  shrike: { hot: 'E', what: 'Swarms, fast and small', desc: `A small, fast attack drone: weak alone, dangerous in a swarm. Fragile. Hits ground and air. Needs signal: works only inside the Data center's or an Uplink's coverage.` },
+  monolith: { hot: 'C', what: 'Fires rockets on the move', desc: 'Long-range rockets that hit an area. Fires while moving; can\'t hit what is close or flying, and sees no farther than others: it needs spotters. Needs signal: slower outside the Data center\'s or an Uplink\'s coverage.' },
+  shrike: { hot: 'E', what: 'Swarms, fast and small', desc: `A small, fast attack drone: weak alone, dangerous in a swarm. Fragile. Hits ground and air. Needs signal: slower outside the Data center's or an Uplink's coverage.` },
   halo: { hot: 'T', desc: 'Mends nearby allies, even under fire.' },
-  umbra: { hot: 'U', what: 'Elite, strikes from range', desc: 'Tough, with a long reach; hits ground and air. Costly. Needs signal: works only inside the Data center\'s or an Uplink\'s coverage.' },
+  umbra: { hot: 'U', what: 'Elite, strikes from range', desc: 'Tough, with a long reach; hits ground and air. Costly. Needs signal: slower outside the Data center\'s or an Uplink\'s coverage.' },
   bruiser: { hot: 'B', what: 'Holds the front line', desc: 'The toughest on foot. Fights up close, ground only. Slow, and weak against heavy armor. Fights anywhere.' },
 };
 // ("Needs a X." is added from the tables, so a description never names its requirement itself.)
@@ -74,7 +74,7 @@ const BLDG_TEXT = {
   turret: { hot: 'O', what: 'Shoots ground and air', desc: 'Shoots ground and air.' },
   airfield: { hot: 'F', what: 'Trains Riders and Knights', desc: 'Trains Riders and Knights. Researches Horseshoes.' },
   // the Expedition
-  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines work within ${D.radio.sources.conflux} tiles and move faster there, and buildings go up only inside it. A new base: build it by a gold mine.` },
+  conflux: { hot: 'T', what: 'Trains Bots, makes energy', desc: `Trains Bots. Its small reactor turns thorium into energy, stored without limit. +${D.buildings.conflux.supply} grid. Its small receiver gives coverage: machines move faster within ${D.radio.sources.conflux} tiles (and slower outside all coverage), and buildings go up only inside it. A new base: build it by a gold mine.` },
   // (the Wind turbine, the Expedition's Market: its verb and `doing`, as the Market's)
   spire: { hot: 'S', what: 'Generates energy, no workers', verb: 'generates', doing: 'Generating', desc: `Generates energy over time, with no workers. Each Data center's computers run up to ${D.buildings.spire.perHq}.` },
   substation: { hot: 'W', what: `Expands the grid: +${D.buildings.substation.supply}`, desc: `Expands the grid: more can run at once. +${D.buildings.substation.supply} grid.` },
@@ -82,7 +82,7 @@ const BLDG_TEXT = {
   kiln: { hot: 'C', what: 'Builds Buggies and Drones', desc: 'Builds Buggies, and Drones once a Lab stands.' },
   loom: { hot: 'G', what: 'Researches upgrades', desc: 'Researches Weapons and Energy efficiency. Unlocks Drones, Bruisers and the Uplink.' },
   ward: { hot: 'A', what: 'Early defense, ground and air', desc: 'Early defense against ground and air.' },
-  uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines work within ${D.radio.sources.uplink} tiles and move faster there, and buildings go up only inside it. It is the machines' control signal, not the buildings' power: a building keeps working if its coverage is lost. Can go up anywhere explored. Unlocks the Portal.` },
+  uplink: { hot: 'U', what: 'Coverage for machines, opens Portal', desc: `A large dish that extends the signal's range. Coverage: machines move faster within ${D.radio.sources.uplink} tiles (and slower outside all coverage), and buildings go up only inside it. It is the machines' control signal, not the buildings' power: a building keeps working if its coverage is lost. Can go up anywhere explored. Unlocks the Portal.` },
   // (the Portal teleports what it makes: `training`, its word for Training in the panel)
   eclipse: { hot: 'D', what: 'Teleports Rovers, Androids', training: 'Teleporting', desc: 'Teleports Rovers and Androids from the future, while an Uplink stands. Only one.' },
 };

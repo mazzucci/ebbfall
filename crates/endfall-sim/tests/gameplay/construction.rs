@@ -541,10 +541,9 @@ fn an_expedition_unit_steps_out_at_its_factory_even_with_a_rally_by_a_wind_turbi
     let d0 = ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt();
     run(&mut w, 15);
     let u = w.unit(s).unwrap();
-    // (a machine needs signal since the arc: it walks to its rally, or to its coverage's edge on the way)
     let d = ((u.x - at.0).powi(2) + (u.y - at.1).powi(2)).sqrt();
     assert!(
-        (d < 3.0 * 32.0 || d < d0 - 3.0 * 32.0) && w.in_radio(u.team, u.x, u.y),
+        d < 3.0 * 32.0 || d < d0 - 3.0 * 32.0,
         "it walked towards its rally: ({}, {})",
         u.x,
         u.y

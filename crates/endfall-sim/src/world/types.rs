@@ -331,13 +331,6 @@ pub enum Event {
         msg: String,
         bad: bool,
     },
-    /// A machine of this seat's sent past its coverage (the no-signal toast): (x, y) is where it was sent, so the
-    /// client brightens the stretch of coverage's edge nearest it. Presentation only.
-    Signal {
-        team: u8,
-        x: f64,
-        y: f64,
-    },
     /// Something destroyed at (x, y), `r` its size: a unit (`unit`: its kind, for the client to draw a fighter's fall
     /// apart from a machine's) or a building (None). Presentation only: no event enters the state hash.
     Burst {

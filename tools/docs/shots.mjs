@@ -87,7 +87,7 @@ function helpers() {
  * from the left, then from the upper left, then from below), and bring its health down while it shoots back alone; it
  * smokes below half and burns below a quarter (render.js). Two (`defend`, at once): Archers and a Ballista, ordered in
  * from just past the bottom-right corner, cross the foreground to the tower's foot and shoot the Drones down. The sim takes
- * orders for our seat alone, and the Expedition's machines work only inside its coverage, so the Drones must come by
+ * orders for our seat alone, and the Expedition's machines are slow outside its coverage, so the Drones must come by
  * themselves: the scene stands inside the Data center's coverage on Sunken Court (`?map=9&seed=1`: the one map with
  * open ground enough for the frame by the Expedition's start, which lies south of it, well out of the frame with its
  * mine and Bots; the Kingdom's own start is far away), a second Castle of ours built there with the tower some twelve

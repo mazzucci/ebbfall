@@ -374,7 +374,7 @@ impl World {
     /// The gold `e`'s factories hold back for its wave's leapfrog relay (`AiScript::relay`, the Uplink): its price, while
     /// a wave with machines is out, the relay unlocked, none going up and none abandoned; else 0. (Its factories spent
     /// every coin first each turn, and the relay that would bring its machines' coverage over the foe's base was never
-    /// paid for when the wave's front got there: the machines stood at the edge.)
+    /// paid for when the wave's front got there: the machines fought there slowed.)
     pub(crate) fn relay_hold(&self, e: u8) -> i32 {
         let Some(tower) = self.factions[e as usize].ai.relay else {
             return 0;

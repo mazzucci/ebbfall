@@ -460,7 +460,7 @@ impl World {
 
     /// Whether seat `e` wants its Uplink (`AiScript::relay`, the signal across the whole map for its machines): it
     /// can build one (its Lab standing), none of its own stands or is going up, and `UPLINK_MACHINES` machines are in
-    /// its army, counted with those queued, and it is not saving up (Nov 27: one, kept at home, in place of the forward
+    /// its army, counted with those queued, or its Portal is placed (Nov 27: one, kept at home, in place of the forward
     /// ones its waves raised).
     pub(crate) fn uplink_due(&self, e: u8) -> bool {
         let Some(r) = self.factions[e as usize].ai.relay else {
@@ -478,22 +478,45 @@ impl World {
                 .flat_map(|b| b.queue.iter())
                 .filter(|&&q| crate::data::radio::needs_range(q))
                 .count();
+        // (or its Portal placed, `AiScript::tech2`: its top-tier machines' signal, as when the Portal needed an Uplink)
+        let gate = self.factions[e as usize]
+            .ai
+            .tech2
+            .is_some_and(|g| self.bldgs.iter().any(|b| b.team == e && b.kind == g));
         self.factions[e as usize].builds(r)
             && self.has_req(e, r)
             && !self.bldgs.iter().any(|b| b.team == e && b.kind == r)
-            && machines >= UPLINK_MACHINES
-            // (not while it saves for a base or a level: the Uplink waits for that, as the build order's extras do)
-            && self.ai().saving_since.is_none()
+            && (machines >= UPLINK_MACHINES || gate)
+    }
+
+    /// Whether seat `e`'s natural is due (its time come) and not yet placed (fewer than two headquarters, standing or
+    /// going up).
+    pub(crate) fn natural_pending(&self, e: u8) -> bool {
+        let hq = self.factions[e as usize].hq;
+        self.time > self.expand_time(e)
+            && self
+                .bldgs
+                .iter()
+                .filter(|b| b.team == e && b.kind == hq)
+                .count()
+                < 2
     }
 
     /// Seat `e`'s Uplink when due (`uplink_due`) and paid for: in its main, by its Data center (`cx, cy`, tiles), where
     /// its army and towers hold it (a lone forward Uplink fell to the first wave). Outside the build order, as the
-    /// push's was: the factories hold its price meanwhile (`World::uplink_hold`).
+    /// push's was: the factories hold its price meanwhile (`World::uplink_hold`). While its natural is pending, only
+    /// with the bank for both (the Uplink must not spend the base's money).
     pub(crate) fn tend_uplink(&mut self, e: u8, harv: &[Id], cx: f64, cy: f64) {
         let Some(r) = self.factions[e as usize].ai.relay else {
             return;
         };
-        if !self.uplink_due(e) || !self.can_afford(e, r.def().cost) {
+        let base = if self.natural_pending(e) {
+            self.factions[e as usize].hq.def().cost
+        } else {
+            [0, 0]
+        };
+        let cost = r.def().cost;
+        if !self.uplink_due(e) || !self.can_afford(e, [cost[0] + base[0], cost[1] + base[1]]) {
             return;
         }
         let Some(spot) = self.find_spot(r, cx, cy) else {

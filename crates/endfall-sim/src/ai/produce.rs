@@ -372,11 +372,11 @@ impl World {
     }
 
     /// The gold `e`'s factories hold back for its Uplink (`AiScript::relay`): its price while it is due
-    /// (`World::uplink_due`); else 0. (Its factories spend every coin first each turn: unheld, the wave's Uplink was
-    /// never paid for, and its machines fought slowed.)
+    /// (`World::uplink_due`) and its natural is not pending (that base's saving comes first); else 0. (Its factories
+    /// spend every coin first each turn: unheld, the wave's Uplink was never paid for, and its machines fought slowed.)
     pub(crate) fn uplink_hold(&self, e: u8) -> i32 {
         match self.factions[e as usize].ai.relay {
-            Some(r) if self.uplink_due(e) => r.def().cost[0],
+            Some(r) if self.uplink_due(e) && !self.natural_pending(e) => r.def().cost[0],
             _ => 0,
         }
     }

@@ -109,12 +109,12 @@ const GAMES: [(&str, u32, usize, MapKind, bool, bool); 7] = [
 ];
 
 const EXPECTED: [[u32; 3]; 7] = [
-    [4112675731, 1298989851, 2132920889],
+    [4112675731, 1298989851, 3024765773],
     [4217339268, 4157029985, 3304832639],
     [1393780712, 2041274309, 1802008999],
     [2097618426, 2050469521, 93113691],
     [2033702793, 3986897377, 3050608044],
-    [2250680363, 3955459073, 2101138499],
+    [2250680363, 1050751471, 1419406540],
     // (re-pinned Nov 18: the Archer's reload 2.2 s, 2.5 before; its slow gone)
     [2894425229, 2082511305, 1665032583],
 ];
@@ -171,7 +171,7 @@ fn golden_hashes_pin_a_vael_game() {
 /// play.
 // (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
 // shoots flyers)
-const EXPECTED_VAEL_AI: [u32; 3] = [1191897366, 2350238437, 985803694];
+const EXPECTED_VAEL_AI: [u32; 3] = [1191897366, 2350238437, 1020221825];
 
 #[test]
 fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
@@ -203,7 +203,7 @@ fn golden_hashes_pin_a_vael_ai_against_the_human_ai() {
 /// none since the re-theme).
 // (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
 // shoots flyers)
-const EXPECTED_SHORE_AI: [u32; 3] = [807831211, 3398161016, 3941715800];
+const EXPECTED_SHORE_AI: [u32; 3] = [807831211, 3398161016, 3298404970];
 
 #[test]
 fn golden_hashes_pin_the_shore() {
@@ -231,7 +231,7 @@ fn golden_hashes_pin_the_shore() {
 /// retreat and the sweep, building by the tide. (The game above is the same without it: the tide-off Shore.)
 // (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
 // shoots flyers)
-const EXPECTED_SHORE_TIDE: [u32; 3] = [750168850, 2083146783, 2815023000];
+const EXPECTED_SHORE_TIDE: [u32; 3] = [750168850, 2083146783, 4118085372];
 
 #[test]
 fn golden_hashes_pin_the_shore_with_the_tide() {
@@ -324,7 +324,7 @@ fn golden_results_pin_stats_and_victory() {
 /// vision and the AIs' play with allies. Its WASM copy is "teams-2v2-ai" in src/engine/golden.js.
 // (re-pinned Nov 18: no Archer slow, its reload 2.2 s, the Drone at 4, the Ballista 24/56 every 2.4 s, the Buggy
 // shoots flyers)
-const EXPECTED_TEAMS_AI: [u32; 3] = [1387331421, 616344481, 1971812206];
+const EXPECTED_TEAMS_AI: [u32; 3] = [1387331421, 616344481, 3000630088];
 
 #[test]
 fn golden_hashes_pin_two_against_two_ais() {

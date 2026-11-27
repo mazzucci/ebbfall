@@ -304,14 +304,13 @@ fn each_people_plays_its_own_opening_at_a_level_easy_s_kingdom_more_workers_and_
     // before then); the Easy Expedition keeps the level's. Medium's and Hard's Expedition raise their Lab later, 3:30
     // and 4:15 (their Uplink follows it at once since Nov 27); their Kingdom keeps every number of its level's.
     for seed in 1..=6 {
-        for level in 0..3 {
+        for (level, l) in DIFF.iter().enumerate().take(3) {
             for races in [[&HUMANS, &VAEL], [&VAEL, &HUMANS]] {
                 let mut w = duel(seed, level, races);
                 let before: Vec<Diff> = (0..2).map(|s| w.tuning(s)).collect();
                 past_first_turns(&mut w);
                 for s in 0..2u8 {
                     let kingdom = races[s as usize].hq == HUMANS.hq;
-                    let l = DIFF[level];
                     let (harv, first, wave) = if level == 0 && kingdom {
                         (8, 480.0, 5)
                     } else {
@@ -358,15 +357,15 @@ fn each_people_plays_its_own_opening_at_a_level_easy_s_kingdom_more_workers_and_
         }
     }
     // (the Kingdom's numbers at Medium and Hard, and every number but the Lab's time for their Expedition: the levels' own)
-    for level in 1..3 {
-        assert_eq!(DIFF[level].for_people(HUMANS.hq), DIFF[level]);
-        let exp = DIFF[level].for_people(VAEL.hq);
+    for &d in &DIFF[1..3] {
+        assert_eq!(d.for_people(HUMANS.hq), d);
+        let exp = d.for_people(VAEL.hq);
         assert_eq!(
             Diff {
-                tech_at: DIFF[level].tech_at,
+                tech_at: d.tech_at,
                 ..exp
             },
-            DIFF[level]
+            d
         );
     }
 }

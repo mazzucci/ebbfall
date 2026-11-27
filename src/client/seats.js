@@ -18,6 +18,9 @@ import { LEVELS, levelOf, DIFF_TIPS } from '../engine/util.js';
  *  where room is short. */
 export const RACES = ['humans', 'vael'];
 export const RACE_KEYS = [...RACES, 'random'];
+/** The order a seat's sheet shows the races in: the Expedition first, as single player starts as it. Display only:
+ *  RACES keeps its order (a stored board, RANDOM's draw, a challenge link's letters read it). */
+export const RACE_SHOWN = ['vael', 'humans', 'random'];
 export const RACE_NAMES = { humans: 'KINGDOM', vael: 'EXPEDITION', random: 'RANDOM' }; // (the people's name; its key stays `humans`)
 export const RACE_SHORT = { humans: 'KING', vael: 'EXP', random: 'RND' };
 /** A race's name in a sentence ('Kingdom'). */
@@ -191,7 +194,7 @@ export function seatSheet(view, color, { sub = '', info = '', team = null, sides
   s.appendChild(hd);
   if (info) s.appendChild(el('div', 'info', info));
   const opt = (name, ...parts) => { const o = el('div', 'opt'); o.append(el('span', 'lbl', name), ...parts); s.appendChild(o); };
-  if (onRace) opt('RACE', chipRow(RACE_KEYS.map(k => [k, RACE_NAMES[k], k === 'random' ? 'Either race, drawn when the game starts' : '']), view.race, 'Race', onRace, { name: 'race' }));
+  if (onRace) opt('RACE', chipRow(RACE_SHOWN.map(k => [k, RACE_NAMES[k], k === 'random' ? 'Either race, drawn when the game starts' : '']), view.race, 'Race', onRace, { name: 'race' }));
   if (onDiff) opt('LEVEL', chipRow(LEVELS.map(d => [d, DIFF_NAMES[d].toUpperCase(), DIFF_TIPS[d]]), levelOf(view.diff), 'Level', onDiff, { name: 'diff' }));
   if (onSide) {
     const items = sides.map(({ team: t, chip, color: c }) => { const sw = el('i', 'sw'); sw.style.background = c; return [t, [sw, document.createTextNode(chip)]]; });

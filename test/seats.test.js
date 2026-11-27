@@ -4,7 +4,7 @@
 // checked (and one saved before the spots).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arrange, startSetup, legacyRows, oneTeam, freeTeam, firstEmpty, filled, validRows, enemyLevel, newAi, canRemove, removeAt, sideChoices, sideColor, seatName, seatColor, SPOTS } from '../src/client/seats.js';
+import { arrange, startSetup, legacyRows, oneTeam, freeTeam, firstEmpty, filled, validRows, enemyLevel, newAi, canRemove, removeAt, sideChoices, sideColor, seatName, seatColor, SPOTS, RACES, RACE_KEYS, RACE_SHOWN } from '../src/client/seats.js';
 import { teamList } from '../src/client/maps.js';
 
 /** A board: a side number per spot (null: empty), you in spot 0. */
@@ -100,4 +100,10 @@ test('the record\'s level: the enemies\' hardest; with nobody to fight, the hard
   assert.equal(enemyLevel(b([0, 3], [1, 0])), 0, 'a Hard ally, an Easy enemy');
   assert.equal(enemyLevel(b([1, 1], [null], [2, 2], [0, 3])), 2);
   assert.equal(enemyLevel(b([0, 1], [0, 2])), 2, 'one side');
+});
+
+test('a sheet shows the Expedition first; the races keep their order for what is stored, drawn or linked', () => {
+  assert.deepEqual(RACE_SHOWN, ['vael', 'humans', 'random'], 'EXPEDITION, KINGDOM, RANDOM');
+  assert.deepEqual([...RACE_SHOWN].sort(), [...RACE_KEYS].sort(), 'every race, each once');
+  assert.deepEqual(RACES, ['humans', 'vael'], 'RACES as it was (RANDOM\'s draw, a stored board, a challenge link)');
 });

@@ -40,7 +40,16 @@ fn flyers_cross_cliffs_in_a_straight_line() {
     let raider = w.make_unit(UnitKind::Shrike, PLAYER, sx, sy);
     w.move_to(raider, tx, sy);
     let mut over_rock = false;
-    let secs = (tx - sx) / UnitKind::Shrike.def().speed + 1.0;
+    // (its pace as the signal sets it: a machine, slower outside its side's area with no Uplink)
+    use endfall_sim::data::radio::{IN_RANGE_SPEED, OUT_OF_RANGE_SPEED};
+    let pace = if w.radio_slowed(raider) {
+        OUT_OF_RANGE_SPEED
+    } else if w.radio_boosted(raider) {
+        IN_RANGE_SPEED
+    } else {
+        1.0
+    };
+    let secs = (tx - sx) / (UnitKind::Shrike.def().speed * pace) + 1.0;
     for _ in 0..(secs * TPS as f64) as u32 {
         w.step();
         let u = w.unit(raider).unwrap();

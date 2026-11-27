@@ -80,6 +80,9 @@ function people(race) {
 }
 
 export const PEOPLES = Object.keys(PAGES).map(people);
+/** The order the docs list the two peoples in (the home's tiles, llms.txt): the Expedition first, as single player
+ *  starts as it. PEOPLES keeps the sim's race order (How to play's diagrams follow it). */
+export const SHOWN = ['expedition', 'kingdom'].map(slug => PEOPLES.find(p => p.slug === slug));
 /** Every unit and building on the docs, by people (what a page must list: test/docs.test.js and the e2e check it). */
 export const ROSTER = PEOPLES.map(p => ({ slug: p.slug, buildings: p.buildings.map(b => b.key), units: p.buildings.flatMap(b => b.units.map(u => u.key)) }));
 

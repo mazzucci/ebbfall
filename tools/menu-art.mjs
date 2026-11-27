@@ -31,7 +31,7 @@ const CLASSES = {
   wide: { W: 2560, H: 480, fade: 0.62, clear: [.16, .48] },
   desktop: { W: 1920, H: 480, fade: 0.66, clear: [.2, .56] },
   landscape: { W: 1688, H: 268, fade: 0.66, clear: [.3, .56] },
-  portrait: { W: 780, H: 398, fade: 0.50, crop: [0.47, 0.49] },
+  portrait: { W: 780, H: 398, fade: 0.50, crop: [0.53, 0.49] },
 };
 // `clear`: a clearing at the top middle of the band (an ellipse from the band's top edge, its radii as fractions of
 // the width and height), faded further: the menu's footer line sits there on short screens, and the card's stamp.

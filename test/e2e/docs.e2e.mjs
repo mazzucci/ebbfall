@@ -14,7 +14,7 @@ before(start);
 after(stop);
 
 const PORTRAIT = { viewport: { width: 360, height: 780 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
-const PAGES = ['docs/', 'docs/how-to-play/', 'docs/kingdom/', 'docs/expedition/', 'docs/about/'];
+const PAGES = ['docs/', 'docs/how-to-play/', 'docs/expedition/', 'docs/kingdom/', 'docs/about/'];
 
 for (const [name, device] of [['a desktop', DESKTOP], ['a landscape phone', PHONE], ['a portrait phone', PORTRAIT]]) {
   test(`the first page on ${name}: Learn more in its footer line, opening the docs home in a new tab, its Home tab current; no ABOUT or HOW TO PLAY button or link`, { engines: true }, async () => {
@@ -119,7 +119,7 @@ test('every docs page with JavaScript off: whole, every unit and building of the
       const bar = await page.locator('.top').boundingBox();
       assert.ok(bar.width <= 360 && bar.height <= 97, `${path}: the bar fits (an upright phone: the tabs on a row of their own): ${JSON.stringify(bar)}`);
       // Five tabs, Home first (so a phone sees the docs have a home), the page's own marked; the wordmark says what this is.
-      assert.deepEqual(await page.locator('.tabs a').evaluateAll(as => as.map(a => a.innerText)), ['HOME', 'HOW TO PLAY', 'KINGDOM', 'EXPEDITION', 'ABOUT'], `${path}: the tabs`);
+      assert.deepEqual(await page.locator('.tabs a').evaluateAll(as => as.map(a => a.innerText)), ['HOME', 'HOW TO PLAY', 'EXPEDITION', 'KINGDOM', 'ABOUT'], `${path}: the tabs`);
       assert.equal(await page.locator('.tabs a[aria-current="page"]').getAttribute('href'), '/' + path, `${path}: its tab current`);
       assert.equal(await page.locator('.brand').innerText().then(t => t.replace(/\s+/g, ' ')), 'Ebbfall FIELD MANUAL', `${path}: the wordmark and its tag`);
       // Every tab whole inside the bar: none cut off mid-word.
@@ -260,7 +260,7 @@ test('the docs\' top bar between a phone and a desktop (641 to 820 px wide, wher
           return { tabs: r(t), scrolls: t.scrollWidth > t.clientWidth + 1, play: r(document.querySelector('.top .play')), a: [...t.querySelectorAll('a')].map(a => [a.innerText, ...r(a)]), bar: Math.round(document.querySelector('.top').getBoundingClientRect().height) };
         });
         const what = `${path} at ${width} px: ${JSON.stringify(got)}`;
-        assert.deepEqual(got.a.map(a => a[0].replace(/^THE /, '')), ['HOME', 'HOW TO PLAY', 'KINGDOM', 'EXPEDITION', 'ABOUT'], what);
+        assert.deepEqual(got.a.map(a => a[0].replace(/^THE /, '')), ['HOME', 'HOW TO PLAY', 'EXPEDITION', 'KINGDOM', 'ABOUT'], what);
         assert.ok(!got.scrolls, `the row does not scroll: ${what}`);
         // (the row's last 14 px fade out, a cue for a row that scrolls: no tab may end in them)
         for (const [name, l, rr, w, h] of got.a) assert.ok(l >= got.tabs[0] && rr <= got.tabs[1] - 14 && rr < got.play[0] && w >= 48 && h >= 48, `${name} whole on the bar, clear of PLAY, a finger's size: ${what}`);

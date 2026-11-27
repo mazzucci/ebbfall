@@ -2,7 +2,7 @@
 // and the sprite crops, in plain HTML (and one inline SVG) that reads whole without JavaScript. Every number in them is
 // the data's (data.mjs FIGURES); every plate is a crop (sprites.mjs).
 import { esc, styled } from './html.mjs';
-import { PEOPLES, FIGURES, nameOf, aName } from './data.mjs';
+import { PEOPLES, SHOWN, FIGURES, nameOf, aName } from './data.mjs';
 import { SPRITE_URL, cropOf } from './sprites.mjs';
 import { UNITS, BUILDINGS, UPGRADES, RADIO, upgradeDesc, FACTIONS } from '../../src/engine/constants.js';
 
@@ -98,13 +98,14 @@ export function tree(people) {
   return `<figure class="dia tree"><div class="scroll" tabindex="0" aria-label="${esc(people.name)}: buildings and what they train"><ol class="tiers">${[...by].map(tier).join('')}</ol></div><p class="swipe" aria-hidden="true">swipe →</p>${legend}</figure>`;
 }
 
-/** The home's two tiles, each a link to a people's page: its headquarters, a unit in front, a line under its name. */
+/** The home's two tiles, each a link to a people's page (the Expedition first: SHOWN): its headquarters, a unit in front, a
+ *  line under its name; `tags` in the same order. */
 export function peoples(tags) {
   const tile = (p, i) => {
     const hq = p.buildings[0], unit = p.grid ? 'umbra' : 'knight';
     return `<li><a class="ptile" href="${p.path}"><span class="art">${mini(hq.key, 168, '').replace('class="pl"', 'class="pl hq"')}${mini(unit, 96, '').replace('class="pl"', 'class="pl fr"')}</span><span class="txt"><b>${esc(p.name)}</b><span>${esc(tags[i] || '')}</span><small>Every building and unit →</small></span></a></li>`;
   };
-  return `<ul class="peoples">${PEOPLES.map(tile).join('')}</ul>`;
+  return `<ul class="peoples">${SHOWN.map(tile).join('')}</ul>`;
 }
 
 /**

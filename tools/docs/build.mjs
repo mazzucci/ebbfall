@@ -10,7 +10,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { layout, ORIGIN, REPO, FONTS, resetStyles, docsCss } from './html.mjs';
 import { pages, clipLd, controlsLd, CONTROLS_LOOP, DESKTOP_LOOP } from './pages.mjs';
-import { PEOPLES } from './data.mjs';
+import { SHOWN } from './data.mjs';
 
 const root = new URL('../../', import.meta.url);
 
@@ -61,7 +61,7 @@ ${list.map(link).join('\n')}
 
 ## The two peoples
 
-${PEOPLES.map(people).join('\n')}
+${SHOWN.map(people).join('\n')}
 
 ## Optional
 

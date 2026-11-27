@@ -1010,9 +1010,11 @@ tools/view-capture.mjs  how the game looks on a desktop monitor against a landsc
                       of two 96 seeds, the 128 map and the Lake, `gates`: 1:1 pieces of the passes a track runs
                       through), main beside pr (../ebbfall-article/ground-pr).
 tools/og.mjs          public/og.png, the link preview's image (1200x630): the icon, the wordmark and the battle as a painted
-                      picture of tools/scene.mjs's composition (a local picture, EBBFALL_PICTURES opt/band/a-1.jpg: never
+                      picture of tools/scene.mjs's composition as it was with the Kingdom on the left (a local picture,
+                      EBBFALL_PICTURES opt/band/a-1.jpg: never
                       committed; the tool stops without it), cropped round the meeting, reduced to 256 colors; output committed
-tools/scene.mjs       the battle og.png and the menu's field show: buildings, units, land pieces and blasts with their places
+tools/scene.mjs       the battle the menu's field shows, the Expedition on the left: buildings, units, land pieces and blasts
+                      with their places
 tools/field.mjs       that battle composed as a picture of any size: the game's land (public/art/new), the buildings' pack
                       built at 4x (target/bldg4, tools/docs/sprites.mjs BUILD), the units' sharp pictures (local:
                       EBBFALL_PICTURES leftovers/hires), the blasts by gl/fx.js; contact and cast shadows under each unit

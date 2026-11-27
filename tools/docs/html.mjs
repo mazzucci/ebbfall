@@ -13,7 +13,7 @@ export const REPO = 'https://github.com/mazzucci/ebbfall';
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** The top bar's tabs, in order: [path, label]: the docs home first, so a phone sees there is one (the wordmark links to it too). */
-export const TABS = [['/docs/', 'Home'], ['/docs/how-to-play/', 'How to play'], ['/docs/kingdom/', 'The Kingdom'], ['/docs/expedition/', 'The Expedition'], ['/docs/about/', 'About']];
+export const TABS = [['/docs/', 'Home'], ['/docs/how-to-play/', 'How to play'], ['/docs/expedition/', 'The Expedition'], ['/docs/kingdom/', 'The Kingdom'], ['/docs/about/', 'About']];
 /** A tab's word on a phone, where the five must fit the bar's width. */
 const SHORT = { 'The Kingdom': 'Kingdom', 'The Expedition': 'Expedition' };
 

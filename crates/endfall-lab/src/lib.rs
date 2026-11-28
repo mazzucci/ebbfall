@@ -12,6 +12,7 @@ pub mod human;
 pub mod json;
 pub mod minutes;
 pub mod model;
+pub mod owner;
 pub mod paired;
 pub mod plans;
 pub mod report;

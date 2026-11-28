@@ -401,10 +401,13 @@ impl World {
             raid,
             ..
         } = brain.clone();
+        // Its machines at home until its Uplink stands (`held_machines`): they defend inside its area and stay out of
+        // its waves; the rest of the army as ever.
+        let held = self.held_machines(&army, rally);
         if let Some(intr) = intruder {
-            self.ai_defend(&army, intr, rally);
+            self.ai_defend(&army, &held, intr, rally);
         }
-        self.leash_home_army(&army, &brain.my_b, rally);
+        self.leash_home_army(&army, &held, &brain.my_b, rally);
         self.recall_wave(&army, raid, intruder, t);
         self.pull_back(&army, rally, t);
         // Raids on the enemy's workers (raiders stay out of the waves).
@@ -422,7 +425,11 @@ impl World {
             self.tend_raiders(&candidates, rally);
         }
         let raiders = self.ai().raiders.clone();
-        let army: Vec<Id> = army.into_iter().filter(|a| !raiders.contains(a)).collect();
+        let army: Vec<Id> = army
+            .into_iter()
+            .filter(|a| !raiders.contains(a) && !held.contains(a))
+            .collect();
+        self.tend_held_machines(&held, rally);
         // Its scout (the Balloon) stays out of them too: it looks at the foe before a wave (`strong_enough`).
         let army = self.tend_scout_unit(army, rally);
         // Guards at its own expansion stay out of the waves too (picked from what is left: not the raiders).
@@ -434,12 +441,15 @@ impl World {
         let army = self.tend_reserve(army, rally, t);
         // Waves go where the AI believes the enemy is (it scouts and remembers; it does not see through fog).
         let goal = self.attack_target();
-        // (its machines' signal: one Uplink at home, `tend_uplink` in the build order; since Nov 27 it gives the signal
-        // across the whole map, and the forward Uplinks its waves raised are gone)
+        // (its machines' signal: one Uplink at home, the build order's first building once its Lab stands, `uplink_due`;
+        // since Nov 27 it gives the signal across the whole map, and the forward Uplinks its waves raised are gone)
         // (a stalled game's push does not leave while the foe is at its buildings: its army meets that at home, its
         // towers and siege beside it, and goes after)
         if !(stalled && intruder.is_some()) {
-            self.ai_launch_wave(&army, t, goal);
+            // (none with nothing left to send while its machines are held: an empty wave would only reset its gap)
+            if !(army.is_empty() && !held.is_empty()) {
+                self.ai_launch_wave(&army, t, goal);
+            }
         }
         if intruder.is_none() {
             self.reinforce_finishing(&army, goal);
@@ -586,9 +596,60 @@ impl World {
         rest
     }
 
+    /// The seat taking its turn's machines (`data::radio::needs_range`) held at home (Stelian, Nov 27): while no
+    /// Uplink of its side stands (`World::signal_everywhere`), for a people with one (`AiScript::relay`), its machines in
+    /// `army` that are not out with a wave stay inside its Data centers' areas, where they have the signal: they
+    /// defend there and rally there, and no wave takes them; its other units (its hired people) go out as ever. Once
+    /// an Uplink stands they go with the waves. Machines already out when its Uplink falls stay with their wave until
+    /// it ends (they fight as hard slowed, and a walk home at half speed with the foe behind them loses them), then
+    /// come home with it and are held. The AI's choice alone: a player's machines go where they are sent.
+    /// None is held while its rally point (`rally`) lies outside its area (its main's Data center fallen, or every
+    /// one): they would refuse every intruder there and be walked back for every fight.
+    fn held_machines(&self, army: &[Id], rally: Pt) -> Vec<Id> {
+        let seat = self.seat();
+        if self.factions[seat as usize].ai.relay.is_none()
+            || self.signal_everywhere(seat)
+            || !self.in_area(seat, rally.x, rally.y)
+        {
+            return Vec::new();
+        }
+        let ai = self.ai();
+        let out = ai
+            .attackers
+            .as_deref()
+            .filter(|_| ai.attacking)
+            .unwrap_or(&[]);
+        army.iter()
+            .copied()
+            .filter(|a| !out.contains(a))
+            .filter(|&a| self.unit(a).is_some_and(|u| radio::needs_range(u.kind)))
+            .collect()
+    }
+
+    /// Whether a held machine (`held_machines`) may go for an enemy at (x, y): within its weapon's reach of its side's
+    /// area, so it fights from inside it.
+    fn within_home_reach(&self, a: Id, x: f64, y: f64) -> bool {
+        let reach = self.u(a).kind.def().weapon.map_or(0.0, |w| w.range);
+        self.in_area_by(self.seat(), x, y, reach)
+    }
+
+    /// The held machines (`held_machines`), idle away from the rally point (inside its area): back to it.
+    fn tend_held_machines(&mut self, held: &[Id], rally: Pt) {
+        for &a in held {
+            let u = self.u(a);
+            if u.task == Task::Idle && dist(u.x, u.y, rally.x, rally.y) > 160.0 {
+                let ox = (self.rnd() - 0.5) * 120.0;
+                let oy = (self.rnd() - 0.5) * 120.0;
+                self.move_to(a, rally.x + ox, rally.y + oy);
+            }
+        }
+    }
+
     /// Defense: anything near our buildings gets jumped by the army at home (idle, walking, or attack-moving near
-    /// the rally point). Units that cannot hit it (a flyer, say) are not dragged around.
-    fn ai_defend(&mut self, army: &[Id], intr: Id, rally: Pt) {
+    /// the rally point). Units that cannot hit it (a flyer, say) are not dragged around, nor its held machines
+    /// (`held`, `held_machines`) after one beyond their reach of its area.
+    fn ai_defend(&mut self, army: &[Id], held: &[Id], intr: Id, rally: Pt) {
+        let at = self.unit(intr).map(|u| (u.x, u.y));
         for &a in army {
             let u = self.unit(a).unwrap();
             let go = match u.task {
@@ -596,7 +657,9 @@ impl World {
                 Task::AMove { .. } => dist(u.x, u.y, rally.x, rally.y) < 300.0,
                 _ => false,
             };
-            if go && self.can_hit(a, intr) {
+            let inside =
+                !held.contains(&a) || at.is_some_and(|(x, y)| self.within_home_reach(a, x, y));
+            if go && inside && self.can_hit(a, intr) {
                 self.attack_ent(a, intr);
             }
         }
@@ -605,8 +668,9 @@ impl World {
     /// The home army's chases on a leash: a unit at home (not out with the wave, nor raiding) after an enemy unit more
     /// than `CHASE_LEASH` tiles past where it counts as at our buildings (`ai_watch`'s reach) gives up and walks back to
     /// the rally. (Found on main: a player's worker that came near and ran home was chased across the map, and the
-    /// chasers, idle at its base, took on its headquarters minutes before the first wave.)
-    fn leash_home_army(&mut self, army: &[Id], my_b: &[Id], rally: Pt) {
+    /// chasers, idle at its base, took on its headquarters minutes before the first wave.) A held machine (`held`,
+    /// `held_machines`) gives up once its target is beyond its reach of its side's area.
+    fn leash_home_army(&mut self, army: &[Id], held: &[Id], my_b: &[Id], rally: Pt) {
         let ai = self.ai();
         let out: Vec<Id> = ai
             .attackers
@@ -626,10 +690,13 @@ impl World {
                 continue;
             };
             let (tx, ty) = (t.x, t.y);
-            let home = my_b
-                .iter()
-                .filter_map(|&b| self.bldg(b))
-                .any(|b| dist(tx, ty, b.x, b.y) < 420.0 + b.r + CHASE_LEASH * TILE);
+            let home = if held.contains(&a) {
+                self.within_home_reach(a, tx, ty)
+            } else {
+                my_b.iter()
+                    .filter_map(|&b| self.bldg(b))
+                    .any(|b| dist(tx, ty, b.x, b.y) < 420.0 + b.r + CHASE_LEASH * TILE)
+            };
             if !home {
                 let ox = (self.rnd() - 0.5) * 120.0;
                 let oy = (self.rnd() - 0.5) * 120.0;
@@ -706,7 +773,11 @@ impl World {
         // (at the cap a wave is as big as it gets: it goes whatever its count, at its places' cap or at its level's most
         // fighters, `army_full`: an Easy army of eight, three of them guards, waited for ever for a wave of six; and so
         // does a wave that crushes what the foe has shown of its army, `crushing`)
-        let full = self.at_cap(self.seat()) || self.army_full(self.seat());
+        // (and the guided first game's opponent at its most fighters, `guided_army_full`: its four, short of the Easy
+        // Kingdom's first wave of five since Nov 27)
+        let full = self.at_cap(self.seat())
+            || self.army_full(self.seat())
+            || self.guided_army_full(self.seat(), t);
         let crushes = army.len() >= floor && self.crushing(army, need, t);
         let short = army.len() < need && !full && !crushes;
         // (a push that takes everything, `Diff::push_all`: once its hold is up it goes with what it has, half its count
@@ -827,9 +898,36 @@ impl World {
             let oy = (self.rnd() - 0.5) * 80.0;
             self.attack_move(a, tx + ox, ty + oy);
         }
+        self.pace_machines(&order[..split]);
+        self.pace_machines(&order[split..]);
         let ai = self.ai_mut();
         ai.attackers = Some(army.to_vec());
         ai.prong = order[..split].to_vec();
+    }
+
+    /// A wave's machines (`data::radio::needs_range`) among `group` (units just sent off together) march at the pace of
+    /// its slowest walker that is not one, its hired people's, until a fight lifts it (`World::live_speed`): with the
+    /// signal a Drone or a Buggy outran the wave by far and met the foe alone. Nothing for a group with no such walker.
+    /// (The Drone flies straight while walkers path round, `World::set_pace`'s reason to pace each layer apart: held to
+    /// their pace it arrives first, by the length of the detour only.)
+    fn pace_machines(&mut self, group: &[Id]) {
+        let slowest = group
+            .iter()
+            .filter(|&&a| {
+                self.unit(a)
+                    .is_some_and(|u| !radio::needs_range(u.kind) && !u.kind.def().air)
+            })
+            .map(|&a| self.base_speed(a))
+            .fold(f64::INFINITY, f64::min);
+        if !slowest.is_finite() {
+            return;
+        }
+        for &a in group {
+            if self.unit(a).is_some_and(|u| radio::needs_range(u.kind)) {
+                let u = self.um(a);
+                u.pace = Some(u.pace.map_or(slowest, |p| p.min(slowest)));
+            }
+        }
     }
 
     /// Finishing (`Diff::finish_from`), with a wave out and no foe at its buildings: its idle fighters at home, once
@@ -1333,11 +1431,12 @@ impl World {
             if near as f64 >= main.len() as f64 * STAGE_SHARE || t - since > self.level().stage_wait
             {
                 self.ai_mut().staging = None;
-                for a in main {
+                for &a in &main {
                     let ox = (self.rnd() - 0.5) * 80.0;
                     let oy = (self.rnd() - 0.5) * 80.0;
                     self.attack_move(a, gx + ox, gy + oy);
                 }
+                self.pace_machines(&main);
             } else {
                 for a in main {
                     let u = self.u(a);

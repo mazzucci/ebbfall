@@ -84,7 +84,8 @@ fn a_turret_or_a_few_lancers_answer_an_early_raider_raid() {
     for (what, v) in [("a turret", raids(1, 0)), ("four Archers", raids(0, 4))] {
         let down = v.iter().filter(|r| r.1 == 2).count();
         assert!(
-            down >= 10 && median_lost(&v) <= 4,
+            // (9 of 12 since Nov 27: the Rider 10% quicker gets out of a turret's reach now and then; 10 before)
+            down >= 9 && median_lost(&v) <= 4,
             "{what} brings down a two-Rider raid: {down} of 12 raids, {} of 8 harvesters lost in a typical one ({v:?})",
             median_lost(&v)
         );

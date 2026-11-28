@@ -394,15 +394,25 @@ impl World {
         self.diffs.get(team as usize).copied().unwrap_or(self.diff)
     }
     /// The tuning a seat's AI plays by: the plan set for it (`set_ai_plans`), else its level's (`diff_of`) as its style
-    /// plays it (`data::style`, drawn at its first turn; before that, its level's own). Every AI decision reads its
-    /// numbers here.
+    /// plays it (`data::style`, drawn at its first turn; before that, its level's own), as its people plays that level
+    /// (`Diff::people`). Every AI decision reads its numbers here.
     pub fn tuning(&self, team: u8) -> Diff {
         self.ai_plans
             .get(team as usize)
             .copied()
             .flatten()
             .or_else(|| self.ai.get(team as usize)?.as_ref()?.tuned)
-            .unwrap_or(DIFF[self.diff_of(team)])
+            .unwrap_or_else(|| self.level_of_people(team))
+    }
+    /// Seat `team`'s level as its people plays it (`Diff::people`); in the guided first game its level's own (its
+    /// opponent's opening stays as the guide was tuned with).
+    pub(crate) fn level_of_people(&self, team: u8) -> Diff {
+        let level = DIFF[self.diff_of(team)];
+        if self.guided {
+            level
+        } else {
+            level.for_people(self.factions[team as usize].hq)
+        }
     }
     /// The style seat `team`'s AI drew (None: not an AI seat, or before its first turn). The balance lab's and the
     /// tests'; never shown to the player.

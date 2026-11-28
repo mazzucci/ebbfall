@@ -217,8 +217,9 @@ fn in_two_against_two_each_ais_first_wave_goes_for_its_foe() {
     // wave going at 8:20, for its foe; seed 8 since the second round, one Kingdom seat building and expanding past
     // 12:00 before any wave; seed 14 since Nov 15, when the reserve no longer kept a wave short of its count: its seat
     // 0 was overrun by two enemies' early waves before its own first wave; seed 9 since Nov 18, the Archer's quicker
-    // draw: its seat 0 builds past 12:00 before any wave.)
-    for seed in [15, 33, 21, 10] {
+    // draw: its seat 0 builds past 12:00 before any wave; seed 10 since Nov 27, the Uplink first and the Kingdom's quicker
+    // foot: a seat of it short of a wave within the 12 minutes.)
+    for seed in [15, 33, 21, 4] {
         let races = [&HUMANS, &VAEL, &HUMANS, &VAEL];
         let mut w = World::with_size(
             seed,

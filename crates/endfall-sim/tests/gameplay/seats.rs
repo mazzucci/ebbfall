@@ -356,7 +356,8 @@ fn two_against_two_allies_never_fight_and_one_team_stands() {
     // 18:09 since the defenses' cut for length. Seeds 11 and 13 left the two Kingdoms to fight it out, 58 minutes and
     // more than 90 behind massed Cannons: long games, not stalls, both armies fighting at the end.)
     let full = !cfg!(debug_assertions);
-    let seeds: &[u32] = if full { &[12, 14, 15] } else { &[14] };
+    // (the debug run's seed 15 since Nov 27, at 21:41: seed 14's game went to 47:59)
+    let seeds: &[u32] = if full { &[12, 14, 15] } else { &[15] };
     for &seed in seeds {
         let mut w = ais(seed, 96, 4, Some(&[0, 0, 1, 1]));
         let mut fights = [[0; MAX_SEATS]; MAX_SEATS];

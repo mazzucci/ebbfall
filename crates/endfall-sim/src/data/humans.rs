@@ -67,7 +67,9 @@ pub(super) const HARVESTER: UnitDef = UnitDef {
     hp: 40.0,
     speed: 84.0, // (96 before the economy's second round: calmer trips)
     sight: 7.0,
-    build: 18.0, // (12 before: the ramp comes from time, every worker an investment)
+    // (18 until Nov 27, 12 before that: the ramp comes from time, every worker an investment; about 25% quicker since,
+    // Stelian)
+    build: 13.5,
     mine_cap: 8,
     mine_load: 7, // (10 before Nov 13: gold scarce for a person too, the PM)
     weapon: Some(Weapon {
@@ -87,7 +89,7 @@ pub(super) const TROOPER: UnitDef = UnitDef {
     cost: [50, 0],
     hp: 60.0,
     armor: 1.0,
-    speed: 90.0,
+    speed: 99.0, // (90 until Nov 27: the Kingdom's foot and horse about 10% quicker, Stelian; its siege and Balloon not)
     build: 15.0,
     bio: true,
     weapon: Some(Weapon {
@@ -109,7 +111,7 @@ pub(super) const LANCER: UnitDef = UnitDef {
     name: "Archer",
     cost: [75, 0],
     hp: 60.0,
-    speed: 88.0,
+    speed: 97.0, // (88 until Nov 27)
     sight: 9.0,
     build: 18.0,
     bio: true,
@@ -214,7 +216,7 @@ pub(super) const RIDER: UnitDef = UnitDef {
     cost: [100, 0],
     supply: 2,
     hp: 90.0,
-    speed: 140.0,
+    speed: 154.0, // (140 until Nov 27)
     sight: 9.0,
     r: 12.0,
     build: 24.0,
@@ -236,7 +238,7 @@ pub(super) const KNIGHT: UnitDef = UnitDef {
     supply: 3,      // (2 before Nov 13; 4 before the economy's second round)
     hp: 420.0,      // (280 before Nov 13)
     armor: 3.0,
-    speed: 105.0,
+    speed: 116.0, // (105 until Nov 27)
     sight: 9.0,
     r: 14.0,
     build: 75.0, // (60.0 s before the economy pass: a bet in time as well as gold)
@@ -255,7 +257,7 @@ pub(super) const CORE: BldgDef = BldgDef {
     key: "core",
     hq: true,
     name: "Castle",
-    cost: [400, 0],
+    cost: [300, 0], // (400 until Nov 27, Stelian: a new Castle cheaper; the starting one is given)
     w: 4,
     h: 4,
     hp: 1300.0,

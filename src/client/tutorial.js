@@ -38,7 +38,8 @@ const fightersPicked = () => playerSel().filter(e => e.kind === 'unit' && !e.d.w
 
 /** The steps for the player's race: [line (or a function of the moment), portrait, the buttons to pulse (or a function
  *  of the moment; '#id' an element's), done?].
- *  Workers trained and sent to the mine (a new one waits for an order), the barracks (its builder sent back), a line and its anti-air (six of a 1-population kind, three of a 2-population
+ *  Workers trained (a new one goes mining by itself: its headquarters' rally point is on the mine, Nov 27), the barracks
+ *  (its builder, waiting by it, sent back to the mine: how a selection orders, and how it is let go), a line and its anti-air (six of a 1-population kind, three of a 2-population
  *  one: the line's button pulses until the last of them is ordered, then the anti-air's; a player who trained on past
  *  them until no place was left, Nov 20, is not held: an army of that size without them passes, and with a smaller one
  *  the step asks for a house, the places being full), on a touch screen the army selected as one (a finger held on the ground then a box, or ARMY: a mouse drags a box by habit, and a
@@ -60,10 +61,12 @@ function steps() {
   const full = (k) => !!k && placesLeft() < takes(k);
   const trainThem = `Train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)} at the ${BUILDINGS[rax].name}`;
   return [
-    { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} ${money} again`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
-    // (a mouse: its own words, with how a selection is let go: a click on the ground no longer does)
-    { text: () => `New ${plural(worker.name)} wait by the ${hq.name}: select them, ${tut.touch ? `tap Mine, then the ${ore} mine` : `then ${leftOrders() ? 'click' : 'right-click'} the ${ore} mine (Esc or Deselect lets go)`}`, por: ['unit', f.worker], want: ['gather'], done: () => idleWorkers() === 0 },
-    { text: `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`, por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
+    { text: `Select your ${hq.name}, then train a ${worker.name}, and another once you have ${UNITS[f.worker].cost[0]} ${money} again: they go to the ${ore} mine by themselves`, por: ['unit', f.worker], want: ['t_' + f.worker], done: () => mine(f.worker) >= tut.start + 2 },
+    // (its builder then waits by it: a mouse its own words, with how a selection is let go: a click on the ground no
+    // longer does)
+    { text: () => (built(rax) && idleWorkers() > 0
+      ? `Your ${worker.name} waits by the ${BUILDINGS[rax].name}: select it, ${tut.touch ? `tap Mine, then the ${ore} mine` : `then ${leftOrders() ? 'click' : 'right-click'} the ${ore} mine (Esc or Deselect lets go)`}`
+      : `Select a ${worker.name}: Build a ${BUILDINGS[rax].name}, then send that ${worker.name} back to the mine`), por: ['bldg', rax], want: () => (built(rax) ? ['gather'] : ['build', 'b_' + rax]), done: () => built(rax) && idleWorkers() === 0 },
     { text: () => (full(next()) ? `Your ${places} is full: select a ${worker.name} and Build ${aName(house.name)}, then train ${n} ${plural(UNITS[soldier].name)} and 2 ${plural(UNITS[aa].name)}` : trainThem), por: ['unit', soldier],
       want: () => (full(next()) ? ['build', 'b_' + f.supply] : next() ? ['t_' + next()] : []), done: () => !lacks() || (army() >= n + 2 && full(lacks())) },
     ...(tut.touch ? [{ text: 'Select your army at once: hold a finger on the ground, then drag a box over it, or tap ARMY', por: ['unit', soldier], want: ['#btnBox', '#btnArmy'], done: () => fightersPicked() >= 4 }] : []),

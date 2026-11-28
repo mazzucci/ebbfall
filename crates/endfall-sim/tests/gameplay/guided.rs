@@ -440,8 +440,10 @@ fn the_guided_first_game_holds_the_first_wave_and_is_won_by_following_the_guide(
             g.wave, g.arrived
         );
         assert!(
-            won.is_some_and(|t| t - from < 360.0),
-            "{ctx}: the guide's last step wins the game within 6 minutes (from {from:.0} s): {won:?}"
+            // (7 minutes since Nov 27: the opponent's new workers mine as they come out, its Castle's rally on its
+            // mine, and there is a little more of its base to raze; 6 before)
+            won.is_some_and(|t| t - from < 420.0),
+            "{ctx}: the guide's last step wins the game within 7 minutes (from {from:.0} s): {won:?}"
         );
         assert!(
             done(&w, BldgKind::Extractor).is_some(),
@@ -499,8 +501,10 @@ fn a_newcomer_who_never_sends_the_army_keeps_the_castle_and_wins_by_the_guide() 
             "seed {seed} pace {pace}, the army never sent: the wave gone at {from:.0} s, the Castle at {hp:.0}; won at {won:?}"
         );
         assert!(
-            won.is_some_and(|t| t - from < 360.0),
-            "{ctx}: the guide's last step wins the game within 6 minutes (from {from:.0} s): {won:?}"
+            // (7 minutes since Nov 27: the opponent's new workers mine as they come out, its Castle's rally on its
+            // mine, and there is a little more of its base to raze; 6 before)
+            won.is_some_and(|t| t - from < 420.0),
+            "{ctx}: the guide's last step wins the game within 7 minutes (from {from:.0} s): {won:?}"
         );
     }
 }

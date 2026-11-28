@@ -29,7 +29,11 @@ test('the rally flag: red, whatever our color, for the selected building of ours
     const [gx, gy] = [[200, 160], [-160, -200], [300, 60], [0, -260], [260, -120]].map(([dx, dy]) => [core.x + dx, core.y + dy])
       .find(([x, y]) => s.nodes.every(n => Math.hypot(n.x - x, n.y - y) > 100) && s.units.every(u => Math.hypot(u.x - x, u.y - y) > 60));
     await d.clickEntity(core.id);
-    assert.deepEqual(await drawn(d), [], 'no rally point yet: no flag');
+    // (its rally point from the start: on its nearest mine, Nov 27; its flag there)
+    const start = await d.eval((id) => { const r = endfall.G.bldgs.find(b => b.id === id).rally; return r && { x: r.x, y: r.y, mine: !!r.node }; }, core.id);
+    assert.ok(start && start.mine, `a rally point on a mine from the start: ${JSON.stringify(start)}`);
+    const first = await drawn(d);
+    assert.ok(first.length === 1 && first[0].id === core.id && Math.hypot(first[0].x - start.x, first[0].y - start.y) < 40, `its flag on the mine: ${JSON.stringify(first)}`);
     await d.rightClickWorld(gx, gy);
     await d.skip(0.5);
     const [flag, ...more] = await drawn(d);

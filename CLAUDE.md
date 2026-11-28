@@ -68,8 +68,11 @@ npm run test:e2e   # end-to-end gameplay through the real UI in headless Chromiu
 node tools/e2e-times.mjs <run id>... # refresh test/e2e/times.json from green ci.yml runs' e2e logs (each test's median); plan [n]: the shards
 node tools/devices/smoke.mjs # the device smoke (tools/devices/README.md): local Playwright, the iOS Simulator, an
                              # Android emulator or BrowserStack's real devices
-node tools/art/generate.mjs  # regenerate public/art/ after changing tools/art or tools/render3d (output is committed;
-                             # the 3D part needs a Chromium, see Notion: Ebbfall art)
+node tools/newart/unit/build.mjs --webp q90  # repack the unit art in public/art/new/ from source pictures
+                                             # in the local folder set by EBBFALL_PICTURES (output is committed)
+node tools/newart/bldg/build.mjs             # build buildings, heads, and rubble (requires Chromium)
+node tools/newart/land/build.mjs             # build the land art (requires Chromium)
+                                             # also writes src/client/gl/newland-pieces.js
 node tools/icons.mjs         # regenerate public/icon-*.png (the app icons) after changing public/icon.svg (a Chromium too)
 node tools/docs/crops.mjs    # regenerate the docs' sprite crops (public/docs/img/sprites/) after the art changes (a Chromium;
                              # output is committed; test/docs.test.js fails while they are stale)

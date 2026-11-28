@@ -61,7 +61,7 @@ export function joint(a, b, l1, l2, pole) {
   return a.clone().add(dir.multiplyScalar(x)).add(perp.multiplyScalar(h));
 }
 /** The strike seen from behind (facings 11 to 13, walking away): a thrust straight ahead runs into depth behind the
- *  body, so the weapon swings out to a side by this yaw (today's models.js awayYaw, larger: this camera is lower).
+ *  body, so the weapon swings out to the side to stay visible at this camera angle.
  *  Positive is to the unit's left. `turn(v, yaw)` turns a direction by it. */
 export const awayYaw = (k) => (k === 11 ? 0.55 : k === 12 ? -0.8 : k === 13 ? -0.55 : 0);
 export const turn = (v, a) => V(v.x * Math.cos(a) + v.z * Math.sin(a), v.y, -v.x * Math.sin(a) + v.z * Math.cos(a));

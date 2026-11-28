@@ -1,4 +1,4 @@
-// The melee units' strike poses (src/client/look.js STRIKE, strikePose; tools/render3d/retheme.js STRIKE_POSES): which
+// The melee units' strike poses (src/client/look.js STRIKE, strikePose): which
 // pose a unit shows from its cooldown and target, and the frames for every facing, each with its
 // team mask lined up, kept out of the walk animation.
 import { test } from 'node:test';

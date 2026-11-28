@@ -9,14 +9,12 @@
  *  14.1 under protanopia, 10.6 under deuteranopia, where gold, magenta, blue and violet had come down to 5.4), from the
  *  dark ground, the selection marks and both peoples' bodies (the step-2 judge, 2026-11-06: no white, lost on canvas and
  *  bone; seat 2's teal dark, as a light one turned pale beige under protanopia). Seat 6 was a violet that read as seat
- *  0's blue to the red-green color-blind; seat 5 a second blue. Shared with the art tools (tools/render3d). */
+ *  0's blue to the red-green color-blind; seat 5 a second blue. */
 export const SEAT_COLORS = [0x2f63d6, 0xe0386e, 0x0e9478, 0xc293e0, 0x79d85a, 0x61ded1, 0x943886, 0xe5553a];
 /** Each seat color's paint: the tint that, multiplied into the art's neutral team masks, comes out as that seat's color
- *  on the field (fitted on the older renders, whose masks the painted ones match in value; the art's index carried
- *  them until the last of the older pages went: test/newart.test.js pins them to the older atlas's). */
+ *  on the field. The tints were fitted to the original renders. The painted masks match their brightness. */
 export const SEAT_TINTS = [0x2a5ddf, 0xee376a, 0x21a679, 0xdfafed, 0xa6ed6e, 0x96f0e7, 0xa62985, 0xf25a32];
-/** Units are rendered this much larger than their size in the sim (tools/render3d/main.js), so they read at the
- *  re-theme's lower camera (buildings keep their footprints). The renderer's hit test and selection rings scale by it. */
+/** Scales unit hit radii and selection rings to match the drawn bodies. */
 export const UNIT_ART_SCALE = 1.4;
 /** Each game seat's spot on the menus' board (seats.js): a player keeps its spot's color in the game, whatever seat
  *  its side gives it. Set when a game starts (single player's `startSetup`, a room's `setup.spots`); none: a seat's
@@ -71,7 +69,7 @@ export function headFrame(look, aim, now, phase = 0) {
 /** Units: the pitch of their radio chirp (Hz): heavy machines low, flyers and medics high. */
 export const UNIT_VOICE = { harvester: 330, trooper: 520, lancer: 600, medic: 760, siegeTank: 230, observer: 1040, lumen: 700, scythe: 460, prism: 820, monolith: 220, shrike: 960, halo: 940, umbra: 400, bastion: 300, rider: 640, knight: 260, bruiser: 280 };
 
-/** The shots (tools/art/effects3.js): each projectile's sprite by its shooter's kind (`SHOT_LOOK`), else by its people
+/** The shots (gl/fx.js): each projectile's sprite by its shooter's kind (`SHOT_LOOK`), else by its people
  *  and projectile kind (`PEOPLE_SHOT`); a building's shot (no shooter kind: the Watchtower's, the Radio tower's) by its
  *  people (`TOWER_SHOT`). The kingdom shoots arrows, ballista bolts and cannonballs; the Expedition rifle tracers,
  *  rockets and the Drone's darts. Each sprite points +x with its tip at its anchor (a cannonball: its middle). */
@@ -333,10 +331,9 @@ export const UNIT_FPS = { observer: 0 };
 
 /** Units whose frames are poses, not one cycle: `walk` frames for the march (0 to walk - 1), then the frame shown
  *  while its toggle settles in or packs up (`swap`) and the one while it is on (`on`). The Cannon (siegeTank): two
- *  frames rolling, half set, set up: the barrel raised, rolled back on its wheels (tools/render3d/kingdom-units.js `cannon`). The Guard (trooper) has no such pose: braced, it
- *  stands. */
+ *  frames rolling, half set, set up. A braced Guard (trooper) holds its standing pose. */
 export const UNIT_POSE = { siegeTank: { walk: 2, swap: 2, on: 3 } };
-/** The melee units' strike poses (tools/render3d: `<kind>_<dir>_wind` and `<kind>_<dir>_strike`, 16 facings, not in
+/** The melee units' strike poses (`<kind>_<dir>_wind` and `<kind>_<dir>_strike`, 16 facings, not in
  *  the walk animation): only the weapon arm moves, the feet planted, the body and the anchor where they stand. The
  *  strike (the weapon thrust or chopped) shows for `HOLD` s after the blow, when the cooldown starts again; the
  *  wind-up (the weapon drawn back or raised) whenever the unit stands with its target in reach otherwise: as the next

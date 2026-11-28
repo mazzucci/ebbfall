@@ -10,8 +10,9 @@ const { BUILDINGS, UNITS } = await import('../src/engine/constants.js');
 const { SHOT_LOOK, PEOPLE_SHOT, TOWER_SHOT, SHOT_TRAIL, BLDG_LOOK, SEAT_COLORS, SEAT_TINTS, HIT_DUST, DEATH_DUST, AIR_PUFF } = await import('../src/client/look.js');
 const { FX, FX_ANIMS, BOOMS, FX_K, layFx } = await import('../src/client/gl/fx.js');
 
-const ART = new URL('../tools/art/older/', import.meta.url), NEW = new URL('../public/art/new/', import.meta.url), read = (u) => JSON.parse(readFileSync(u, 'utf8'));
+const NEW = new URL('../public/art/new/', import.meta.url), read = (u) => JSON.parse(readFileSync(u, 'utf8'));
 const ix = read(new URL('index.json', NEW));
+const reference = read(new URL('./fixtures/art.json', import.meta.url));
 
 test('a file that fails is tried again, counted once; after the last try it waits for RETRY, and then comes', async () => {
   const before = globalThis.fetch, warn = console.warn; console.warn = () => {};
@@ -53,17 +54,19 @@ test('the effects, the shots and the light are painted in code: every frame laid
   assert.ok(lay.w * FX_K <= 512 && lay.h * FX_K <= 1024, `a small texture (${lay.w * FX_K} x ${lay.h * FX_K})`);
   // each frame the size and anchor its older one had (the look's scales, tints and offsets were tuned on those), but the
   // two streaks of light, a row taller for the dark edge under them, their line still on the anchor
-  const atlas = read(new URL('atlas.json', ART)), older = {};
-  for (const p of atlas.pages) Object.assign(older, read(new URL(p, ART)).frames);
   for (const f of FX) {
-    const o = older[f.name.replace(/^boom_small_[bc]_/, 'boom_small_')]; assert.ok(o, `${f.name} had an older frame`);
-    assert.equal(f.w, o.sourceSize.w / 2, `${f.name}: its width`); assert.ok(Math.abs(f.ax - o.anchor.x) < 1e-9, `${f.name}: its anchor across`);
-    if (f.name === 'tracer' || f.name === 'tower_shot') { assert.equal(f.h, 3); assert.ok(Math.abs(f.ay * f.h - 1) < 1e-9, 'its line a px down'); }
-    else { assert.equal(f.h, o.sourceSize.h / 2, `${f.name}: its height`); assert.ok(Math.abs(f.ay - o.anchor.y) < 1e-9, `${f.name}: its anchor down`); }
+    const original = reference.fx[f.name.replace(/^boom_small_[bc]_/, 'boom_small_')];
+    assert.ok(original, `${f.name} had an older frame`);
+    assert.equal(f.w, original.w / 2, `${f.name}: its width`);
+    assert.ok(Math.abs(f.ax - original.ax) < 1e-9, `${f.name}: its anchor across`);
+    const height = original.h / 2;
+    const extraRow = f.name === 'tracer' || f.name === 'tower_shot' ? 1 : 0;
+    assert.equal(f.h, height + extraRow, `${f.name}: its height`);
+    assert.ok(Math.abs(f.ay * f.h - original.ay * height) < 1e-9, `${f.name}: its anchor down in game pixels`);
   }
 });
 test('the seats\' paint is the older atlas\'s, one tint a seat color', () => {
-  assert.deepEqual(SEAT_TINTS, read(new URL('atlas.json', ART)).tints); assert.equal(SEAT_TINTS.length, SEAT_COLORS.length);
+  assert.deepEqual(SEAT_TINTS, reference.tints); assert.equal(SEAT_TINTS.length, SEAT_COLORS.length);
 });
 test('every frame the client names is in the art it loads or paints: bodies, masks, heads, sites\' ground, rubble, shots, effects', () => {
   const frames = new Set(Object.values(ix.groups).flatMap(g => g.pages.flatMap(p => Object.keys(read(new URL(p, NEW)).frames))));

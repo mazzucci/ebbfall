@@ -12,7 +12,7 @@ import { tone } from '/tone.mjs';
 
 export const FACINGS = 16;
 /** The model's turn for facing k: the ground angle k * 22.5 degrees, clockwise on screen from east, as the client
- *  picks a facing from a heading (render.js UnitObj: round(face / 2 pi * 16)) and as tools/render3d turns today's. */
+ *  picks a facing from a heading (render.js UnitObj: round(face / 2 pi * 16)). */
 export const yaw = (k) => -k / FACINGS * Math.PI * 2;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -70,7 +70,7 @@ export function shoot(obj, cell) {
   const Z = V.Z, w = Math.round(cell.w * Z), h = Math.round(cell.h * Z), ax = cell.ax * Z, ay = cell.ay * Z;
   scene.add(obj); obj.updateMatrixWorld(true);
   obj.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
-  const up = V.square ? SIN : 1; // (square: the frustum squashed so the ground stays square, as today's scene.js)
+  const up = V.square ? SIN : 1; // Compress the frustum vertically to keep the ground square on screen.
   Object.assign(camera, { left: -ax / P, right: (w - ax) / P, top: ay / P * up, bottom: -(h - ay) / P * up }); camera.updateProjectionMatrix();
   renderer.setSize(w * V.SS, h * V.SS, false);
   const body = grab(w, h);

@@ -571,7 +571,7 @@ src/client/           everything that touches the browser
                       blow's dust and a fighter's fall (`MELEE_PUFF`, `HIT_DUST`, `DEATH_DUST`: the round `trail` earth-tinted, `DUST`), each shot's impact (`IMPACT`, `impactOf`), how hard a hit lands, one scale for every unit and tower by its weapon's damage per hit against what it struck (`hitTier`, `HIT_TIERS`: light, medium, heavy, siege; `HIT_LOOK`: light as before, medium a flash, heavy a bright blow with chips of steel, siege a blast, each with its muzzle flash and the impact sound's `weight`, audio.js `hit`; every hit in steel's cool, `HIT_STEEL`, the muzzle flashes warm; a shot on a walker up on its body, `WALKER_HIT_LIFT`), who falls as a machine (`MACHINES`), the melee units' strike poses (`STRIKE`, `strikePose`, `inReach`), each shot's
                       sprite by its shooter or people (`shotArt`) and how it is drawn to read on a phone (`SHOT_STYLE`, `SHOT_BAR`, `SHOT_GLOW`, `HEAVY_TRAIL`: the Kingdom's shafts larger on a dark bar and never lit, every Expedition shot but the rocket a cool lit tracer, a heavy shot's trail), unit poses and voices, the seat colors
                       and the spot each game seat plays in (`setSpots`, `colorOf`: a player keeps its board spot's color),
-                      `UNIT_ART_SCALE` (units rendered larger than their sim size, shared with tools/render3d)
+                      `UNIT_ART_SCALE` (scales unit hit radii and selection rings to match the drawn bodies)
   input.js            mouse / touch / keyboard / minimap handling -> selection changes and sim commands (the keys' and the
                       mouse edge's pan at PAN_SPEED world px a second, the same time across the map at any zoom); a unit is hit
                       on a circle round its drawn body (half its drawn height above its feet; over a building of ours our
@@ -652,8 +652,8 @@ test/shots.test.js    how each shot is drawn to read on a phone (look.js `SHOT_S
 test/collapse.test.js a building's fall (look.js `BLDG_DEATH`, `bldgDeath`): no fire but the Data center's small boom, the
                       ghost's timing, the shake for a headquarters only, the Portal's power lost, the burning flash's chance
 test/newart.test.js   the game's art: the loader's tries and RETRY, the index's sizes (tools/newart/bytes.mjs), the effects
-                      painted in code (gl/fx.js: laid on one canvas, each the size and anchor its older frame had) and the
-                      seats' paint, every frame the client names in the packs or painted;
+                      painted on one canvas (gl/fx.js), their dimensions and anchors and the seat tints checked against
+                      test/fixtures/art.json, and every frame the client names in the packs or paints;
                       test/newart-tone.test.js the tone curve; test/e2e/newart.e2e.mjs what a page asks for (never the
                       older atlas), the loading line and RETRY, the portraits
 test/ground.test.js   the ground's picks (src/client/gl/ground.js): one kind per rock region, through corners and off the
@@ -1003,9 +1003,12 @@ tools/controls/       the controls videos (the docs' touch and desktop tables, a
                       device's setting through stage.mjs `init`); cut.mjs `--set desktop`: desktop-loop.mp4 (1280x720,
                       ~16 s, captioned), its poster a frame after the answer. How to play shows it at the start of its
                       desktop section (lazy: the phone's loop is the page's first media).
-tools/newart/         the art's packs (public/art/new/, NOTICE.txt beside them): a builder per group
-                      (bldg/build.mjs) that reads the pictures from EBBFALL_PICTURES (a local folder, not in the repo),
-                      bytes.mjs (each file's size stamped into index.json, by every builder) and tone.mjs, the one tone curve every picture gets when it is packed, never a team mask
+tools/newart/         the builders for public/art/new/ read source pictures from EBBFALL_PICTURES (a local folder).
+                      bldg/build.mjs packs buildings, heads and rubble. Each builder calls bytes.mjs to stamp file sizes
+                      into index.json. tone.mjs supplies the shared tone curve and shadow settings.
+tools/newart/unit/    build.mjs packs unit poses and their team masks. frames.json lists the original pose suffixes for
+                      each kind across all 16 facings and its reference height for the build report. A missing pose
+                      reuses the standing body and mask for that facing.
 tools/view-capture.mjs  how the game looks on a desktop monitor against a landscape phone (npm run build first; a
                       Chromium): one staged instant of seed 4242 under a held clock (the start's framing, then a fight
                       with 12 of ours box-selected through the UI), shot at 1440x900, 1920x1080 and 2560x1440 per START_SPAN
@@ -1045,28 +1048,8 @@ tools/newart/land/    the land, built from a local folder of pictures (EBBFALL_P
                       in index.json, and gl/newland-pieces.js), decode.mjs (a JPEG's pixels through headless Chromium,
                       cached under target/), img.js (the pixel arithmetic), capture.mjs (stills of today's art beside
                       the new at one held instant, the canopy caps, a frame time and memory note)
-tools/render3d/       3D models, materials, camera/lights and the sprite finish, run in headless Chromium (three.js). The
-                      re-theme's set (retheme.js: `ATLAS_UNITS`, `ATLAS_BUILDINGS`, `ATLAS_HEADS` map today's kinds to
-                      its models, `atlasSprites` renders them under today's names, the melee units' two strike poses besides their walk,
-                      `STRIKE_POSES`, in a larger cell trimmed in the atlas; `BLDG_YAW` gives each building its
-                      fixed angle about the vertical, fitted so its ground outline spills past the footprint no more
-                      than the square model's, the round towers square): the kingdom (kingdom.js,
-                      kingdom-units.js, kingdom-buildings.js; the hip-roof Cottage, the Cannon in the siege slot), the Expedition
-                      (expedition*.js; since R2 of its rework the Wind turbine, tavern, warehouse, domed Lab, Sentry gun,
-                      Uplink dish and black-hole Portal, their rotor, dish and swirl as heads; its Data center the server hall of
-                      expedition-buildings.js, Stelian's pick of 2026-11-11, the block drawn beside it kept for the record only), the countryside's gold,
-                      props, construction and rubble (country.js), the gold mine (mine.js), and the polished finish they
-                      render in (polish.js, scene.js `shoot`'s `polish`: cast shadows at alpha 110 for buildings and
-                      units alike, no baked chimney smoke) at the game's 40-degree camera and 420 sun. The older models
-                      (models.js, buildings.js, harbour*.js, vael*.js, trimmed to what main.js still draws) stay only
-                      for the two healers the sim keeps but trains nowhere (main.js `HEALERS`: medic, halo) and fitTints'
-                      reference sprites, which set the atlas's seat tints
-tools/art/            older/: the older atlas's pages (atlas.json, atlas-<n>), the look the game had by default up to commit
-                      3d5d198 (2026-11-25; its generators are in that commit: tools/art/generate.mjs and the painters), kept
-                      for what still reads it: og.mjs, menu-art.mjs, the unit pack's
-                      names (tools/newart/unit) and test/newart.test.js (the effects' sizes and the seats' paint); render3d.mjs (tools/render3d in Chromium, for menu-art.mjs), webp.mjs (lossless, libwebp
-                      in WASM through @jsquash/webp) and png.js, battle-shots.mjs (the built game's brawls), glyph-strip.mjs
-                      (the command card's glyphs); see Notion: Ebbfall art
+tools/art/            shared image helpers (png.js and webp.mjs, which encodes with libwebp in WASM through @jsquash/webp),
+                      battle-shots.mjs (the built game's brawls) and glyph-strip.mjs (the command card's glyphs)
 public/art/           new/: the game's art (index.json, the groups' pages; NOTICE.txt)
 ```
 

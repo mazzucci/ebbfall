@@ -1,0 +1,17 @@
+{
+  "harvester": {"poses": ["0", "1"], "top": 28.5},
+  "trooper": {"poses": ["0", "1", "wind", "strike"], "top": 35.5},
+  "lancer": {"poses": ["0", "1"], "top": 31.5},
+  "rider": {"poses": ["0", "1", "wind", "strike"], "top": 44.5},
+  "knight": {"poses": ["0", "1", "wind", "strike"], "top": 47.5},
+  "bastion": {"poses": ["0", "1"], "top": 26.5},
+  "siegeTank": {"poses": ["0", "1", "2", "3"], "top": 28.5},
+  "observer": {"poses": ["0"], "top": 67},
+  "lumen": {"poses": ["0", "1"], "top": 18},
+  "scythe": {"poses": ["0", "1"], "top": 29},
+  "prism": {"poses": ["0", "1", "wind", "strike"], "top": 30},
+  "bruiser": {"poses": ["0", "1", "wind", "strike"], "top": 42},
+  "umbra": {"poses": ["0", "1"], "top": 34},
+  "monolith": {"poses": ["0", "1"], "top": 48.5},
+  "shrike": {"poses": ["0", "1"], "top": 39.5}
+}

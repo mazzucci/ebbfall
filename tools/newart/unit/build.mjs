@@ -90,7 +90,7 @@ const VIEW = {
   edge: { px: 0.5, soft: 0.35, alpha: 0.7, color: '#141a22' },
 };
 const FACINGS = 16, PAGE = 2048, GAP = 2 * Z, BLEED = Z;  // the pages' size limit; the gap between frames (mip levels 0 to 2 clean at any scale); the color bled under clear pixels
-const BODY = 0.35;                                        // unitTops: the rows at least this much of the widest (tools/art/generate.mjs: a spear is not the body)
+const BODY = 0.35;                                        // unitTops: count rows at least this wide relative to the widest, so a raised spear doesn't set the height
 const OUT = resolve(arg('--out', join(REPO, 'public/art/new')));
 const LOSSY = /^q(\d+)$/.exec(arg('--webp', ''))?.[1];
 
@@ -168,9 +168,8 @@ async function model(name, u) {
   return { cell: { ax: u.cell.ax, ay: u.cell.ay }, list: list.map(s => ({ ...s, img: px(s.img), mask: px(s.mask) })) };
 }
 
-// ---------------------------------------------------------------- today's frames of each kind: the names to cover, and frame 0's cell
-const today = JSON.parse(readFileSync(join(REPO, 'tools/art/older/atlas.json'), 'utf8')), todayFrames = {};
-for (const p of today.pages) Object.assign(todayFrames, JSON.parse(readFileSync(join(REPO, 'tools/art/older', p), 'utf8')).frames);
+// Pose suffixes from the original unit frames, shared by all 16 facings, and the reference heights for the build report.
+const legacyFrames = JSON.parse(readFileSync(join(HERE, 'frames.json'), 'utf8'));
 
 // ---------------------------------------------------------------- the frames
 /** Color bled `n` px into the clear pixels round the paint (alpha stays 0): a filter never pulls black in. */
@@ -237,11 +236,14 @@ for (const name of want) {
       if (s.mask) { mask = { name: full + '_m', img: { w: s.mask.w, h: s.mask.h, data: s.mask.data }, json: { anchor, trimmed: true, sourceSize: { w, h }, spriteSourceSize: { x: s.mask.x - x0, y: s.mask.y - y0, w: s.mask.w, h: s.mask.h } } }; sprites.push(mask); }
       made.set(as, [body, mask]); drawn.set(f, [body, mask]);
     }
-    // today's frames of this kind the source has no pose for: its standing frame under their names (no pixels more)
-    for (const n of Object.keys(todayFrames)) {
-      const m = new RegExp(`^${kind}_${k}_(\\w+?)(_m)?$`).exec(n); if (!m || m[2] || made.has(m[1])) continue;
-      const [body, mask] = made.get('0') || made.get(String(walkFrom)); sprites.push({ name: n, alias: body }); if (mask) sprites.push({ name: n + '_m', alias: mask });
-      (shown[name] ||= new Set()).add(m[1]);
+    // Keep missing poses addressable using this facing's standing body and its matching mask.
+    for (const pose of legacyFrames[kind]?.poses ?? []) {
+      if (made.has(pose)) continue;
+      const frame = `${kind}_${k}_${pose}`;
+      const [body, mask] = made.get('0') || made.get(String(walkFrom));
+      sprites.push({ name: frame, alias: body });
+      if (mask) sprites.push({ name: frame + '_m', alias: mask });
+      (shown[name] ||= new Set()).add(pose);
     }
     group.animations[`${kind}_${k}`] = u.walk.map((f, i) => `${kind}_${k}_${walkFrom + i}`);
   }
@@ -254,7 +256,7 @@ for (const name of want) {
   if (u.set) group.set.push(kind);
   // (the team paint's value: the mean of the masks' solid pixels; today's masks run 196 to 234, and the seats' tints are fitted to them)
   let sum = 0, n = 0; for (const s of src.list) if (s.mask) for (let i = 0; i < s.mask.data.length; i += 4) if (s.mask.data[i + 3] === 255) { sum += 0.3 * s.mask.data[i] + 0.59 * s.mask.data[i + 1] + 0.11 * s.mask.data[i + 2]; n++; }
-  stats.push(`${name} -> ${kind}: ${names.size * FACINGS} frames, top ${group.unitTops[kind]} (today ${today.unitTops[kind]}), team mask's mean ${n ? Math.round(sum / n) : 'none'}${shown[name] ? `, today's ${[...shown[name]].join(' ')} take its standing frame` : ''}`);
+  stats.push(`${name} -> ${kind}: ${names.size * FACINGS} frames, top ${group.unitTops[kind]} (today ${legacyFrames[kind]?.top}), team mask's mean ${n ? Math.round(sum / n) : 'none'}${shown[name] ? `, today's ${[...shown[name]].join(' ')} take its standing frame` : ''}`);
   // (what is drawn, for the folder's own word on it: the standing frame at facing 0, its pixels more solid than a shadow)
   { const f = by(names.get('0'), 0).img; let x0 = f.w, y0 = f.h, x1 = -1, y1 = -1; for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (f.data[(y * f.w + x) * 4 + 3] > 200) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
     stats[stats.length - 1] += `; facing 0 standing ${Math.round((x1 - x0 + 1) * 2 / z)} x ${Math.round((y1 - y0 + 1) * 2 / z)} px solid${src.drawn ? ` (its folder: ${src.drawn})` : ''}`; }

@@ -12,6 +12,7 @@ pub mod human;
 pub mod json;
 pub mod minutes;
 pub mod model;
+pub mod paired;
 pub mod plans;
 pub mod report;
 pub mod sheet;
@@ -36,6 +37,7 @@ pub fn run_report(
     let cells = batch.cells();
     let games = batch::play_all(
         &cells,
+        batch.seed_start,
         batch.seeds,
         batch.cap_min,
         batch.shore_field,
@@ -66,6 +68,7 @@ mod tests {
             levels: vec![0],
             ladder: false,
             seeds: 2,
+            seed_start: 1,
             cap_min: 3,
             shore_field: endfall_sim::map::ShoreField::BACK,
             tide: false,
@@ -126,6 +129,7 @@ mod tests {
             levels: vec![2],
             ladder: false,
             seeds: 2,
+            seed_start: 1,
             cap_min: 12,
             shore_field: endfall_sim::map::ShoreField::BACK,
             tide: false,

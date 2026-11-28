@@ -66,7 +66,10 @@ pub struct Batch {
     pub levels: Vec<usize>,
     /// Ladder pairs (each level against the one below it) as well as each level against itself.
     pub ladder: bool,
+    /// Seeds a cell: `seed_start` to `seed_start + seeds - 1`.
     pub seeds: u32,
+    /// The first seed (`--seed-start`; 1 by default): a confirming batch on fresh seeds starts past a screen's.
+    pub seed_start: u32,
     /// Game minutes before a game still running is a timeout.
     pub cap_min: u32,
     /// Where the Shore's reef basins hold their main field (`--shore-field`; the exposed-income variants): `BACK`,
@@ -93,6 +96,7 @@ impl Batch {
             levels: vec![0, 1],
             ladder: false,
             seeds: 10,
+            seed_start: 1,
             cap_min: 30,
             shore_field: ShoreField::BACK,
             tide: false,
@@ -108,6 +112,7 @@ impl Batch {
             levels: vec![1, 2],
             ladder: true,
             seeds: 3,
+            seed_start: 1,
             cap_min: 30,
             shore_field: ShoreField::BACK,
             tide: false,
@@ -628,10 +633,12 @@ pub fn play(cell: &Cell, seed: u32, cap_min: u32, field: ShoreField, tide: bool)
     }
 }
 
-/// Every game of `cells` x seeds 1..=`seeds`, on `threads` threads, in (cell, seed) order whatever the threads.
-/// `progress` hears each game as it ends (done, total).
+/// Every game of `cells` x `seeds` seeds from `first`, on `threads` threads, in (cell, seed) order whatever the
+/// threads. `progress` hears each game as it ends (done, total).
+#[allow(clippy::too_many_arguments)]
 pub fn play_all(
     cells: &[Cell],
+    first: u32,
     seeds: u32,
     cap_min: u32,
     field: ShoreField,
@@ -640,7 +647,7 @@ pub fn play_all(
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> Vec<Vec<GameRec>> {
     let jobs: Vec<(usize, u32)> = (0..cells.len())
-        .flat_map(|c| (1..=seeds).map(move |s| (c, s)))
+        .flat_map(|c| (first..first + seeds).map(move |s| (c, s)))
         .collect();
     let slots: Vec<Mutex<Option<GameRec>>> = jobs.iter().map(|_| Mutex::new(None)).collect();
     let (next, done) = (AtomicUsize::new(0), AtomicUsize::new(0));
@@ -775,6 +782,7 @@ mod shore_tests {
             levels: vec![1],
             ladder: false,
             seeds: 1,
+            seed_start: 1,
             cap_min: 9,
             shore_field: ShoreField::BACK,
             tide: false,

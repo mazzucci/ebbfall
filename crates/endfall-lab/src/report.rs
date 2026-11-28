@@ -550,6 +550,12 @@ impl Report {
             .with("ladder", b.ladder)
             .with("seeds", b.seeds)
             .with("cap_min", b.cap_min);
+        // (only from another first seed: a report from seed 1 keeps its batch as it was)
+        let batch = if b.seed_start == 1 {
+            batch
+        } else {
+            batch.with("seed_start", b.seed_start)
+        };
         // (only when moved: a report of every game's map keeps its batch as it was)
         let batch = match b.moved_shore_field() {
             None => batch,

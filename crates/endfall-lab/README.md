@@ -9,12 +9,16 @@ game's own tables. Nothing here changes the game: the sim is only stepped and re
 ```sh
 npm run lab -- report            # the default batch: a Markdown summary, and target/lab/report-<commit>.json
 npm run lab -- report --quick    # a small batch (64x64, Medium and Hard, 3 seeds): 50 s on 4 cores
-npm run lab -- compare A.json B.json
+npm run lab -- report --seeds 30 --seed-start 101   # 30 fresh seeds (101 to 130): a confirming batch
+npm run lab -- compare A.json B.json   # seed for seed when both played the same seeds (paired), else unpaired
 npm run lab -- sheet             # the formula sheet, and target/lab/sheet-<commit>.csv
 npm run lab -- plans             # 2,000 games with random AI plans: which settings win (about 100 min on 4 cores)
 npm run lab -- plans --plant     # the planted control: 1,000 games with a +10% income coin, and a direct check
 npm run lab -- plans --maps Shore --first-max 12:00   # first waves drawn up to 12:00: where later stops winning
-npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side
+npm run lab -- bets              # three plans a side (rush, defense, tech) against each other: the 3x3 by side,
+                                 # and the owner's opening (expand wide and mass) against each (--no-expand: not)
+npm run lab -- owner             # the owner's opening (a frozen scripted Expedition) against the Kingdom's AI at
+                                 # Easy, Medium and Hard, defended and undefended (96x96, 12 seeds, both starts)
 npm run lab -- tiers             # attack now or invest further: a committer per layer against a teching opponent
 npm run lab -- tiers --steady    # the same against Medium itself teching (--greedy: the greedy human)
 npm run lab -- turtle            # a Medium seat that never attacks against Medium on the Shore (200 games, ~15 min)
@@ -39,13 +43,17 @@ menus):
 That is 40 cells, 10 seeds each (seeds 1 to 10), with a 30 game-minute cap: 400 games, about 25 minutes on 3 threads.
 A game still running at the cap is a timeout: it is reported, not counted as a win.
 
-**Baselines and before/after pairs use `--seeds 30`**; 10-seed screens are compared seed for seed with the baseline
-(each game is seeded by its cell and seed, so the same cell and seed is the same game).
+**Screen, then confirm on fresh seeds.** Each game is seeded by its cell and seed, so the same cell and seed is the same
+game in two builds, and `compare` matches them seed for seed. Screen a change on 10–12 seeds against the same seeds of
+the baseline (`--seeds 12` on both), then confirm what moved on 30 fresh ones (`--seeds 30 --seed-start 101` on both):
+a screen's flag picked from many matchups is a lead, and seeds it was not picked on say whether it holds. A 10-seed
+screen also compares with a 30-seed baseline from seed 1, on the seeds both played.
 
 | Flag | What it does |
 | --- | --- |
 | `--quick` | a small batch (64x64, Medium and Hard and the ladder between them, 3 seeds) |
-| `--seeds N` | seeds 1 to N in every cell |
+| `--seeds N` | N seeds in every cell (1 to N) |
+| `--seed-start S` | the first seed (1): `--seeds 30 --seed-start 101` plays seeds 101 to 130, fresh for a confirming batch; the JSON's batch says it (`seed_start`) only when not 1 |
 | `--cap MIN` | the timeout, in game minutes |
 | `--sizes 96,128` | map sizes (64, 72, 80, 96 or 128) |
 | `--maps OpenPlains,Labyrinth` | other map kinds, added to Standard |
@@ -169,27 +177,48 @@ differ; the Standard cells are the same games in both.
 ### `compare`
 
 ```sh
-git checkout main && npm run lab -- report            # target/lab/report-65e24be.json
-git checkout my-change && npm run lab -- report       # target/lab/report-1a2b3c4.json
+git checkout main && npm run lab -- report --seeds 12        # target/lab/report-65e24be.json
+git checkout my-change && npm run lab -- report --seeds 12   # target/lab/report-1a2b3c4.json
 npm run lab -- compare target/lab/report-65e24be.json target/lab/report-1a2b3c4.json
 ```
 
-For every cell in both reports: the win rate in A and B, the change, and **bigger than noise** when the two 95%
-intervals do not overlap. Then median length and timeouts in each, and B's target checks. Cells in only one report
-are listed, not compared, and different batches (seeds, cap, maps) are called out at the top.
+**Paired (the default when both reports played some of the same seeds).** Every report keeps each game's seed and
+winner (`records`), so `compare` matches the two builds' games seed for seed. A **unit** is a matchup's seed with both
+seatings pooled (Kingdom vs Expedition and Expedition vs Kingdom on seed 3 are one unit of two games; a mirror at one
+level is its own matchup, a game a unit). Per matchup it prints:
 
-A worked example (an illustration of the shape, not a real run). A change makes the Expedition's Buggy cheaper:
+- **Changes, A→B**: the outcome transitions of its paired games for the side the rate counts (win→loss 6, loss→win 1,
+  win→timeout 1, ..., and how many stayed the same);
+- **A** and **B**: that side's wins of the paired decided games;
+- **the paired change** with its 95% interval: each unit's change is its games' mean change in score (a win 1, a timeout
+  1/2, a loss 0), and the interval is a **paired bootstrap** over the units (10,000 resamples of the units, from the
+  lab's own seeded RNG, so the same reports give the same interval);
+- **p**: the exact **sign-flip test** over the units (with no effect, each unit's change is as likely flipped; the
+  p-value counts all 2^n sign patterns exactly; with one game a unit and no timeouts it is McNemar's exact test);
+- **beyond noise** when the interval excludes 0 *and* the exact test agrees (p < 0.05). The bootstrap alone is too
+  sure with a few changed seeds (two seeds of two that both flipped give an interval of a single point); the test is
+  exact at any size, and the interval says how big the change is.
+
+Then each seating's cell as before (rates of all its games, median length, timeouts), for reading, not testing. Seeds
+only one report played are left out and counted at the top (a 10-seed screen against a 30-seed baseline: paired on
+seeds 1 to 10). A matchup with no seed in common says so. Different batches (seeds, cap, maps) are called out at the top, and only the
+cells both reports have are compared; cells in only one are listed.
+
+**Unpaired (the fallback, labeled).** When the reports share no seeds, or one has no per-game records, each cell's two
+rates are compared by their own 95% intervals: **bigger than noise** when they do not overlap. That ignores what the
+same seeds would show: before the paired test, Hard on 128 went from 7 Kingdom losses of 23 to none on the same seeds
+and the unpaired check called each seating within noise (paired: +29 points, +17 to +42, p 0.008).
+
+A worked example, the AI's Uplink-first rework (`before-4250d6a.json` against `after-0ca866e.json`, 12 seeds):
 
 ```
-| 64 Standard: Kingdom Hard vs Expedition Hard (Kingdom wins) | 60% of 5 | 20% of 5 | -40 pts | within noise | ...
-...
-0 cell(s) moved more than the noise.
+| 128 Standard: Kingdom Hard vs Expedition Hard, both seatings (Kingdom wins) | 12 | 70% of 23 | 100% of 23 | timeout→win 1, loss→win 6, loss→timeout 1 (16 same) | +29 pts (+17 to +42) | 0.008 | **beyond noise** |
+| 96 Standard: Kingdom Hard vs Expedition Hard, both seatings (Kingdom wins) | 12 | 77% of 22 | 96% of 23 | win→loss 1, timeout→win 1, loss→win 5 (17 same) | +19 pts (+6 to +33) | 0.062 | within noise |
 ```
 
-The Hard cell fell 40 points, but on 5 games each that is within the noise. Run both sides with `--seeds 30`
-(and `--levels Hard --sizes 64` to keep it short), then compare again: a move that survives as **bigger than
-noise** there is real. Then look at what changed: the unit mix in each report's tables (did the Expedition build more
-Buggies, and lose fewer per built?) says why.
+The 128 matchup moved: seven seeds one way, none the other. The 96 one is a lead (its interval excludes 0, the exact
+test does not quite agree): confirm both on 30 fresh seeds (`--seeds 30 --seed-start 101` on both builds). Then look at
+what changed: the unit mix in each report's tables says why.
 
 ### `sheet`
 
@@ -304,6 +333,57 @@ column plan (both seatings pooled, timeouts apart, with 95% intervals), the same
 lengths, and the target checks: in each mirror, rush beats tech, defense beats rush and tech beats defense in games
 over 15 minutes, each at 55–70%. `--level Hard` builds the three plans from Hard's tuning in place of Medium's (its
 income, factories and waves; the plans' own settings over them): the top level's bets, as `--level Hard --size 96`.
+
+**Expand wide and mass** (the AI rework, step 1): the owner's opening (`owner`, below: the frozen scripted
+Expedition) against each of the three plans of either people, **defended** (its army gathers at the expansion, two
+Sentry masts there) and **undefended** (its army at the main, an attack on the expansion left to it), both starts of
+each seed: 24 more games a seed (`--no-expand` leaves them out). The report gives, per opponent people, the owner's
+wins of the decided games against each plan in each variant, the defended variant's gain seed for seed (paired, as
+`compare`: both starts of a seed one unit), and in how many games the foe hit the expansion within two minutes of its
+finishing and in how many it fell. Three target checks: **the undefended expansion is punished** (it wins under 50%
+against rush, either people's), **the defended one pays off** (over 50% against every plan), and **defending it pays,
+seed for seed** (the paired gain beyond noise and above 0). Reported, not tuned for: until the AI learns to punish an
+open expansion (the rework's next step) the first may well WARN. The JSON's `expand` lists each game's record.
+
+### `owner`
+
+The owner's opening as a frozen lab opponent (`owner.rs`, `owner-v1`; the AI rework, step 1). Stelian beats Hard as the
+Expedition by expanding early and wide, adding Wind turbines, massing and attacking. The script plays that seat only
+through the orders a person gives (place, queue, gather, move, attack-move), reads nothing of any AI, and keeps its plan
+fixed: later AI work is measured against the same opponent, even once the AI beats it. A change to the plan is a new
+version beside this one (`owner-v2`), never an edit; every record names its version (`script`).
+
+**The plan**, a look every half second, its wants in order, saving for the first it cannot pay for:
+
+1. a Bot from each idle finished Data center, 11 a base with a mine (at most 33);
+2. a Substation when fewer than 3 grid are free and 2 more a finished Recruiting post (one rising, two with three
+   Recruiting posts);
+3. its first Recruiting post from 0:40, recruiting whenever it stands idle, while it saves for its expansion too;
+4. its second Data center from 2:15 at the nearest free mine (the AI's rule: over 12 tiles from its main, over 22 from
+   the foe's start; its builder leaves at 1:40, as a person's would, since a person builds only on explored ground); a
+   third once the second stands, from 8:00 or once a base's mine runs low; a Data center lost is placed again;
+5. five Wind turbines round each finished Data center;
+6. a second Recruiting post once the expansion is placed, a third once it stands;
+7. defended only: two Sentry masts at the expansion, on its side toward the foe, once it stands;
+8. a Lab once the expansion stands and three Recruiting posts are placed;
+9. from the other idle Recruiting posts a Sellsword, a Bruiser once the Lab stands while it has under one per four
+   Sellswords.
+
+Its idle Bots mine at the finished base's mine with the fewest; five move over when the expansion stands. Its army
+gathers 6 tiles from a base toward the foe (defended: the expansion once it stands; undefended: the main), answers an
+armed foe within 10 tiles of a building it guards (defended: all; undefended: those nearer its main than an
+expansion), and **pushes** at 20 fighters at home (or at 12:00 with 10) on the foe's nearest building, then sends each
+12 more. Its one shortcut: it knows where the foe's buildings are (a person knows the foe's start on a two-start map).
+
+`npm run lab -- owner` plays it against the Kingdom's AI at each level (`--levels`, Easy, Medium and Hard), defended
+and undefended, map seeds 1 to `--seeds` (12) from both starts (the other start: the report's other seating), on
+`--size` (96) Standard maps, a `--cap` (30 min) after which a game is a timeout. The report gives per level and
+variant the script's wins of the decided games with their interval, timeouts and median length; the defended variant's
+gain seed for seed (paired, both starts of a seed one unit); and the expansion and the push: when the expansion
+finished, whether and how soon after the Kingdom first hit something of the script's within 12 tiles of it (and how
+often within two minutes), whether it fell, the Bots lost there, the Kingdom's first hit anywhere, and when the script
+pushed with how many fighters and their worth. Each game's record is in the JSON (`games`): the expansion's placing,
+finishing, fall, first sighting of an armed foe and first hit, the push, Bots and turbines at 8:00.
 
 ### `tiers`
 

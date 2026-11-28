@@ -10,8 +10,16 @@
 //! Every pairing of two different plans, each in either seat, in each people's mirror and across the peoples, map
 //! seeds 1 to N. The target: rush beats tech, defense beats rush, tech beats defense in long games, each about 55–70%;
 //! none always wins and none is pointless.
+//!
+//! **Expand wide and mass** (the AI rework, step 1): the owner's opening (`owner.rs`, the frozen scripted Expedition:
+//! an early second Data center, turbines, a mass, a push), defended (its army and two masts at the expansion) and
+//! undefended (its army at the main), against each of the three plans of either people, both starts of each seed.
+//! The target: the undefended expansion punished (it loses to rush), the defended one paying off (it wins, and more
+//! than the undefended one, seed for seed). Reported, not tuned for: the AI's answer is the rework's next step.
 
 use crate::json::Json;
+use crate::owner::{self, Guard};
+use crate::paired::Paired;
 use crate::plans::{BASE, PAIRINGS, Played, play_jobs, play_watched};
 use crate::stats::{median, mmss, wilson};
 use endfall_sim::data::{DIFF, Diff, FACTIONS, NEVER, UnitKind};
@@ -89,6 +97,44 @@ pub struct BetBatch {
     pub threads: usize,
     /// The level whose tuning the plans start from (`DIFF`'s index: Medium's by default).
     pub level: usize,
+    /// The owner's opening against each plan (`--no-expand` leaves it out).
+    pub expand: bool,
+}
+
+/// An expand game: the foe's people (`FACTIONS`' index) and plan, the variant, the seed and start.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ExpandCell {
+    pub foe_race: usize,
+    pub plan: usize,
+    pub guard: Guard,
+}
+
+/// The expand cells: each people's three plans, each variant.
+pub fn expand_cells() -> Vec<ExpandCell> {
+    let mut out = vec![];
+    for foe_race in 0..2 {
+        for plan in 0..PLANS.len() {
+            for guard in Guard::ALL {
+                out.push(ExpandCell {
+                    foe_race,
+                    plan,
+                    guard,
+                });
+            }
+        }
+    }
+    out
+}
+
+/// Games a batch plays.
+pub fn games(b: &BetBatch) -> usize {
+    (cells().len()
+        + if b.expand {
+            2 * expand_cells().len()
+        } else {
+            0
+        })
+        * b.seeds as usize
 }
 
 /// A cell: the peoples' pairing (`PAIRINGS`' index) and each seat's plan.
@@ -123,39 +169,78 @@ pub struct BetRun {
     pub commit: String,
     /// (cell, seed, game), in cell then seed order.
     pub games: Vec<(BetCell, u32, Played)>,
+    /// (cell, seed, the other start, record), in cell, seed and start order.
+    pub expand: Vec<(ExpandCell, u32, bool, owner::Rec)>,
+}
+
+enum Job {
+    Bet(BetCell, u32),
+    Expand(ExpandCell, u32, bool),
+}
+enum Done {
+    Bet(Played),
+    Expand(owner::Rec),
 }
 
 pub fn run(b: BetBatch, commit: &str, progress: &(dyn Fn(usize, usize) + Sync)) -> BetRun {
-    let jobs: Vec<(BetCell, u32)> = cells()
+    let mut jobs: Vec<Job> = cells()
         .into_iter()
-        .flat_map(|c| (1..=b.seeds).map(move |s| (c, s)))
+        .flat_map(|c| (1..=b.seeds).map(move |s| Job::Bet(c, s)))
         .collect();
+    if b.expand {
+        for c in expand_cells() {
+            for seed in 1..=b.seeds {
+                for swap in [false, true] {
+                    jobs.push(Job::Expand(c, seed, swap));
+                }
+            }
+        }
+    }
     let played = play_jobs(
         &jobs,
-        |&(c, seed)| {
-            let plans = c.plans.map(|p| Some(plan_on(p, b.level)));
-            play_watched(
-                MapKind::Standard,
-                b.size,
-                c.pairing,
+        |j| match *j {
+            Job::Bet(c, seed) => {
+                let plans = c.plans.map(|p| Some(plan_on(p, b.level)));
+                Done::Bet(
+                    play_watched(
+                        MapKind::Standard,
+                        b.size,
+                        c.pairing,
+                        seed,
+                        plans,
+                        b.cap_min,
+                        false,
+                    )
+                    .0,
+                )
+            }
+            Job::Expand(c, seed, swap) => Done::Expand(owner::play(&owner::Setup {
+                size: b.size,
                 seed,
-                plans,
-                b.cap_min,
-                false,
-            )
-            .0
+                swap,
+                foe_race: c.foe_race,
+                foe_level: b.level,
+                foe_plan: Some(plan_on(c.plan, b.level)),
+                guard: c.guard,
+                cap_min: b.cap_min,
+            })),
         },
         b.threads,
         progress,
     );
+    let (mut games, mut expand) = (vec![], vec![]);
+    for (j, d) in jobs.into_iter().zip(played) {
+        match (j, d) {
+            (Job::Bet(c, s), Done::Bet(p)) => games.push((c, s, p)),
+            (Job::Expand(c, s, w), Done::Expand(r)) => expand.push((c, s, w, r)),
+            _ => unreachable!("a job's own result"),
+        }
+    }
     BetRun {
         batch: b,
         commit: commit.to_string(),
-        games: jobs
-            .into_iter()
-            .zip(played)
-            .map(|((c, s), p)| (c, s, p))
-            .collect(),
+        games,
+        expand,
     }
 }
 
@@ -219,6 +304,146 @@ impl BetRun {
         t
     }
 
+    /// The owner's games against plan `plan` of people `foe` (None: any), in variant `guard`.
+    fn expand_recs(
+        &self,
+        foe: Option<usize>,
+        plan: Option<usize>,
+        guard: Guard,
+    ) -> Vec<&owner::Rec> {
+        self.expand
+            .iter()
+            .filter(|(c, ..)| {
+                c.guard == guard
+                    && foe.is_none_or(|f| c.foe_race == f)
+                    && plan.is_none_or(|p| c.plan == p)
+            })
+            .map(|(.., r)| r)
+            .collect()
+    }
+
+    /// The owner's wins of the decided games (`expand_recs`).
+    pub fn expand_tally(&self, foe: Option<usize>, plan: Option<usize>, guard: Guard) -> Tally {
+        let mut t = Tally::default();
+        for r in self.expand_recs(foe, plan, guard) {
+            match r.won {
+                None => t.timeouts += 1,
+                Some(won) => {
+                    t.n += 1;
+                    t.k += won as usize;
+                    t.lengths.push(r.end_s);
+                }
+            }
+        }
+        t
+    }
+
+    /// Defended less undefended, seed for seed: each matchup's seed (both starts) one unit.
+    pub fn expand_gain(&self, foe: Option<usize>, plan: Option<usize>) -> Option<Paired> {
+        let mut units: Vec<(usize, usize, u32)> = vec![];
+        let mut pairs: Vec<(u32, bool, &owner::Rec, &owner::Rec)> = vec![];
+        for (c, seed, swap, r) in &self.expand {
+            if c.guard != Guard::Defended
+                || foe.is_some_and(|f| c.foe_race != f)
+                || plan.is_some_and(|p| c.plan != p)
+            {
+                continue;
+            }
+            let Some((.., u)) = self.expand.iter().find(|(x, s, w, _)| {
+                x.guard == Guard::Undefended
+                    && x.foe_race == c.foe_race
+                    && x.plan == c.plan
+                    && s == seed
+                    && w == swap
+            }) else {
+                continue;
+            };
+            // (a unit per matchup and seed: its index stands in for the seed)
+            let key = (c.foe_race, c.plan, *seed);
+            let i = units.iter().position(|&k| k == key).unwrap_or_else(|| {
+                units.push(key);
+                units.len() - 1
+            });
+            pairs.push((i as u32, *swap, r, u));
+        }
+        owner::defended_gain(&pairs)
+    }
+
+    /// The expand checks (none without expand games).
+    fn expand_checks(&self) -> Vec<(String, bool, String)> {
+        if self.expand.is_empty() {
+            return vec![];
+        }
+        let punished = self.expand_tally(None, Some(0), Guard::Undefended);
+        let pays = self.expand_tally(None, None, Guard::Defended);
+        let gain = self.expand_gain(None, None);
+        vec![
+            (
+                "expand: the undefended expansion is punished by rush (either people's)".into(),
+                punished.n > 0 && punished.p() < 0.5,
+                format!("the owner wins {} (under 50% wanted)", punished.show()),
+            ),
+            (
+                "expand: the defended expansion pays off (against every plan)".into(),
+                pays.n > 0 && pays.p() > 0.5,
+                format!("the owner wins {} (over 50% wanted)", pays.show()),
+            ),
+            (
+                "expand: defending it pays, seed for seed".into(),
+                gain.is_some_and(|g| g.beyond_noise() && g.mean > 0.0),
+                gain.map_or("—".into(), |g| {
+                    format!("defended less undefended {}, p {:.3}", g.show(), g.p)
+                }),
+            ),
+        ]
+    }
+
+    fn expand_markdown(&self) -> String {
+        if self.expand.is_empty() {
+            return String::new();
+        }
+        let mut s = format!(
+            "\n## Expand wide and mass (the owner's opening, {})\n\nThe frozen scripted Expedition (owner.rs): its second Data center from 2:15, turbines, three Recruiting posts and a Lab, a push at 20 fighters. **Defended**: its army gathers at the expansion and two Sentry masts stand there; **undefended**: its army at the main, the expansion left to itself. The owner's wins of the decided games against each plan, both starts of each seed; the defended variant's gain seed for seed (`paired`); and the expansion: games where the foe hit it within two minutes of its finishing, and where it fell.\n",
+            owner::VERSION
+        );
+        for (foe, fac) in FACTIONS.iter().enumerate().take(2) {
+            let _ = write!(
+                s,
+                "\n### Against the {}'s plans\n\n| the owner | {} |\n| --- |{}\n",
+                fac.name,
+                PLANS.join(" | "),
+                " --- |".repeat(PLANS.len())
+            );
+            for guard in Guard::ALL {
+                let _ = write!(s, "| {} |", guard.name());
+                for p in 0..PLANS.len() {
+                    let t = self.expand_tally(Some(foe), Some(p), guard);
+                    let _ = write!(s, " {} ({} timeouts) |", t.show(), t.timeouts);
+                }
+                s += "\n";
+            }
+            s += "| defended less undefended |";
+            for p in 0..PLANS.len() {
+                let g = self.expand_gain(Some(foe), Some(p));
+                let _ = write!(
+                    s,
+                    " {} |",
+                    g.map_or("—".into(), |g| format!("{}, p {:.2}", g.show(), g.p))
+                );
+            }
+            s += "\n";
+            for guard in Guard::ALL {
+                let _ = write!(s, "| {}: hit within 2:00, fell |", guard.name());
+                for p in 0..PLANS.len() {
+                    let f = owner::figures(&self.expand_recs(Some(foe), Some(p), guard));
+                    let _ = write!(s, " {} and {} of {} |", f.hit_in_2, f.exp_lost, f.games);
+                }
+                s += "\n";
+            }
+        }
+        s
+    }
+
     /// The matrices: (title, row people, column people), each 3x3 of the row plan's wins.
     fn matrices() -> [(String, usize, usize); 4] {
         let n = |r: usize| FACTIONS[r].name;
@@ -250,6 +475,7 @@ impl BetRun {
                 ));
             }
         }
+        out.extend(self.expand_checks());
         out
     }
 
@@ -311,7 +537,7 @@ impl BetRun {
                 s += "\n";
             }
         }
-        s
+        s + &self.expand_markdown()
     }
 
     pub fn json(&self) -> Json {
@@ -351,7 +577,8 @@ impl BetRun {
                     .with("size", self.batch.size)
                     .with("seeds", self.batch.seeds)
                     .with("cap_min", self.batch.cap_min)
-                    .with("level", self.batch.level),
+                    .with("level", self.batch.level)
+                    .with("expand", self.batch.expand),
             )
             .with(
                 "checks",
@@ -380,6 +607,21 @@ impl BetRun {
                     })
                     .collect::<Vec<_>>(),
             )
+            .with(
+                "expand",
+                self.expand
+                    .iter()
+                    .map(|(c, seed, swap, r)| {
+                        owner::rec_json(r)
+                            .with("script", owner::VERSION)
+                            .with("foe", FACTIONS[c.foe_race].name)
+                            .with("plan", PLANS[c.plan])
+                            .with("guard", c.guard.name())
+                            .with("seed", *seed)
+                            .with("swap", *swap)
+                    })
+                    .collect::<Vec<_>>(),
+            )
     }
 }
 
@@ -402,9 +644,17 @@ mod tests {
             cap_min: 4,
             threads: 2,
             level: BASE,
+            expand: true,
         };
         let r = run(b, "test", &|_, _| {});
         assert_eq!(r.games.len(), c.len());
+        // the owner against each people's three plans, both variants, both starts
+        assert_eq!(r.expand.len(), 2 * 3 * 2 * 2);
+        assert_eq!(
+            r.expand_tally(None, None, Guard::Defended).n
+                + r.expand_tally(None, None, Guard::Defended).timeouts,
+            12
+        );
         // At a 4-minute cap most games time out; a decided game counts once for each side of its pair.
         for ra in 0..2 {
             for a in 0..3 {
@@ -421,6 +671,7 @@ mod tests {
         }
         let md = r.markdown("");
         assert!(md.contains("## Kingdom mirror") && md.contains("Target checks"));
+        assert!(md.contains("## Expand wide and mass") && md.contains("defended less undefended"));
         assert!(r.json().write().contains("\"matrix\""));
     }
 }

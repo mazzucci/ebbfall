@@ -1,6 +1,7 @@
 //! Ebbfall's balance lab (crates/endfall-lab/README.md): AI-vs-AI batches played natively on the sim, a report of
-//! what they show, a comparison of two reports, a formula sheet from the sim's tables, and games with random plans
-//! (`plans`: which settings of a plan win), and a never-attacking turtle against Medium (`turtle`). All I/O, clocks and
+//! what they show, a comparison of two reports (seed for seed when they share seeds), a formula sheet from the sim's
+//! tables, and games with random plans (`plans`: which settings of a plan win), a never-attacking turtle against
+//! Medium (`turtle`), and the owner's opening, a frozen scripted Expedition (`owner`). All I/O, clocks and
 //! threads live here; the sim is only stepped and read.
 
 pub mod batch;
@@ -12,6 +13,8 @@ pub mod human;
 pub mod json;
 pub mod minutes;
 pub mod model;
+pub mod owner;
+pub mod paired;
 pub mod plans;
 pub mod report;
 pub mod sheet;
@@ -36,6 +39,7 @@ pub fn run_report(
     let cells = batch.cells();
     let games = batch::play_all(
         &cells,
+        batch.seed_start,
         batch.seeds,
         batch.cap_min,
         batch.shore_field,
@@ -66,6 +70,7 @@ mod tests {
             levels: vec![0],
             ladder: false,
             seeds: 2,
+            seed_start: 1,
             cap_min: 3,
             shore_field: endfall_sim::map::ShoreField::BACK,
             tide: false,
@@ -126,6 +131,7 @@ mod tests {
             levels: vec![2],
             ladder: false,
             seeds: 2,
+            seed_start: 1,
             cap_min: 12,
             shore_field: endfall_sim::map::ShoreField::BACK,
             tide: false,

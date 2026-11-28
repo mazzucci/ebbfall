@@ -177,7 +177,9 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       report.rs (figures, Wilson intervals, target checks, key figures, Markdown and JSON), styles.rs
                       (each level's win rate by the style its seats drew, against itself and across the levels, and
                       the style parity checks; in report),
-                      compare.rs, sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
+                      compare.rs (two reports seed for seed, both seatings of a seed one unit; unpaired intervals
+                      when they share no seeds), paired.rs (the paired bootstrap interval and the exact sign-flip
+                      test), sheet.rs (the formula sheet, the sim's own absorb/hull_loss), json.rs, stats.rs,
                       plans.rs (random AI plans through World::set_ai_plans, the batch, the controls, the report),
                       turtle.rs (a never-attacking Medium against Medium; with --weak against Easy, the newcomer's
                       first hit: when, and that wave's units), waves.rs (every AI wave: its units and value, against
@@ -187,7 +189,9 @@ crates/endfall-lab/   the balance lab (README.md): a binary on the sim as a libr
                       seat's gold, workers, buildings, army and AI wave state at intervals: a stall from a grind; a
                       seat may follow a lab plan, `--plans`), duel.rs (play against Claude: `duel`, a written plan code
                       on Hard against an AI, with check-ins answered from a file, each answer landing `--delay`
-                      game-seconds later; `plan-gate`, plain Hard against Hard with an empty plan, seed for seed), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3, from Medium's tuning or `--level Hard`), tiers.rs
+                      game-seconds later; `plan-gate`, plain Hard against Hard with an empty plan, seed for seed), the `summary` command (main.rs: one game's summary JSON, src/summary/), bets.rs (rush, defense, tech: the 3x3, from Medium's tuning or `--level Hard`; and expand wide and mass, the owner's opening against each plan), owner.rs (the owner's
+                      opening, a frozen scripted Expedition, `owner-v1`: an early second Data center, turbines, a mass
+                      and a push, defended or undefended; `owner` against the Kingdom's AI at each level), tiers.rs
                       (attack now or invest further: a committer at each layer, basic, mid or top, against a teching
                       opponent, the bets' tech plan or the greedy human),
                       model.rs (logistic regression by IRLS, deterministic)

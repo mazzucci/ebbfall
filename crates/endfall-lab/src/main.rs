@@ -51,8 +51,9 @@ fn today() -> String {
 
 fn die(msg: &str) -> ! {
     eprintln!(
-        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
-       npm run lab -- bets [--seeds N] [--size 64] [--cap MIN] [--threads N] [--out FILE]
+        "lab: {msg}\n\nUsage: npm run lab -- report [--quick] [--seeds N] [--seed-start S] [--cap MIN] [--sizes 64,96] [--maps OpenPlains,...]\n       [--levels Easy,Medium,...] [--ladder] [--no-mirrors] [--no-cross] [--tide] [--shore-field back|channel|channel-far] [--threads N] [--length-band 10-20] [--out FILE]\n       npm run lab -- compare A.json B.json\n       npm run lab -- sheet\n       npm run lab -- plans [--games N] [--maps Standard,Shore] [--seed S] [--plant] [--check N] [--first-max M:SS] [--tide] [--cap MIN] [--threads N] [--out FILE]
+       npm run lab -- bets [--seeds N] [--size 64] [--level Hard] [--no-expand] [--cap MIN] [--threads N] [--out FILE]
+       npm run lab -- owner [--seeds N] [--size 96] [--levels Easy,Medium,Hard] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- tiers [--seeds N] [--size 96] [--greedy | --steady] [--cap MIN] [--threads N] [--out FILE]
        npm run lab -- turtle [--seeds N] [--maps Shore] [--size 64] [--raids] [--weak] [--attacker-income X] [--attacker-retreat X] [--attacker-level Hard] [--attacker-style Boom] [--cap MIN] [--threads N] [--out FILE]"
     );
@@ -94,13 +95,21 @@ fn report(args: &[String]) {
         match a.as_str() {
             "--quick" => {
                 let seeds_set = batch.seeds != Batch::default_batch().seeds;
-                let keep = batch.seeds;
+                let (keep, start) = (batch.seeds, batch.seed_start);
                 batch = Batch::quick();
+                batch.seed_start = start;
                 if seeds_set {
                     batch.seeds = keep;
                 }
             }
             "--seeds" => batch.seeds = val().parse().unwrap_or_else(|_| die("--seeds N")),
+            "--seed-start" => {
+                batch.seed_start = val()
+                    .parse()
+                    .ok()
+                    .filter(|&s| s > 0)
+                    .unwrap_or_else(|| die("--seed-start S, at least 1"))
+            }
             "--cap" => batch.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
             "--sizes" => {
                 batch.sizes = val()
@@ -171,7 +180,7 @@ fn report(args: &[String]) {
     std::fs::write(&path, r.json().write())
         .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
     let header = format!(
-        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}{}{}, {} seeds a cell, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
+        "Commit {commit}, {}. Batch: sizes {:?}, maps {:?}, levels {}, ladder {}{}{}, {} seeds a cell{}, {} min cap{}: {total} games in {:.0} s on {threads} threads. JSON: {}",
         today(),
         batch.sizes,
         batch.maps,
@@ -189,6 +198,15 @@ fn report(args: &[String]) {
             ""
         },
         batch.seeds,
+        if batch.seed_start == 1 {
+            String::new()
+        } else {
+            format!(
+                " (seeds {} to {})",
+                batch.seed_start,
+                batch.seed_start + batch.seeds - 1
+            )
+        },
         batch.cap_min,
         batch.moved_shore_field().map_or(String::new(), |f| {
             format!(
@@ -297,6 +315,7 @@ fn bets(args: &[String]) {
         cap_min: 30,
         threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
         level: endfall_lab::plans::BASE,
+        expand: true,
     };
     let mut out = None;
     let mut it = args.iter();
@@ -308,6 +327,7 @@ fn bets(args: &[String]) {
         };
         match a.as_str() {
             "--level" => b.level = parse_level(&val()),
+            "--no-expand" => b.expand = false,
             "--seeds" => {
                 b.seeds = val()
                     .parse()
@@ -329,7 +349,7 @@ fn bets(args: &[String]) {
         }
     }
     let commit = commit();
-    let total = bets::cells().len() * b.seeds as usize;
+    let total = bets::games(&b);
     eprintln!("lab: {total} games on {} threads…", b.threads);
     let t0 = Instant::now();
     let step = (total / 20).max(1);
@@ -353,6 +373,84 @@ fn bets(args: &[String]) {
         today(),
         b.size,
         b.size,
+        b.seeds,
+        b.cap_min,
+        t0.elapsed().as_secs_f64(),
+        b.threads,
+        path.display()
+    );
+    print!("{}", r.markdown(&header));
+}
+
+fn owner(args: &[String]) {
+    use endfall_lab::owner::{self, OwnerBatch};
+    let mut b = OwnerBatch {
+        size: 96,
+        seeds: 12,
+        levels: vec![0, 1, 2],
+        cap_min: 30,
+        threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
+    };
+    let mut out = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let mut val = || {
+            it.next()
+                .cloned()
+                .unwrap_or_else(|| die(&format!("{a} needs a value")))
+        };
+        match a.as_str() {
+            "--seeds" => {
+                b.seeds = val()
+                    .parse()
+                    .ok()
+                    .filter(|&n| n > 0)
+                    .unwrap_or_else(|| die("--seeds N, at least 1"))
+            }
+            "--size" => {
+                b.size = val()
+                    .parse()
+                    .ok()
+                    .filter(|n| [64, 72, 80, 96, 128].contains(n))
+                    .unwrap_or_else(|| die("--size 64, 72, 80, 96 or 128"))
+            }
+            "--levels" => b.levels = val().split(',').map(parse_level).collect(),
+            "--cap" => b.cap_min = val().parse().unwrap_or_else(|_| die("--cap MINUTES")),
+            "--threads" => b.threads = val().parse().unwrap_or_else(|_| die("--threads N")),
+            "--out" => out = Some(PathBuf::from(val())),
+            _ => die(&format!("unknown flag {a}")),
+        }
+    }
+    let commit = commit();
+    let total = b.levels.len() * 2 * 2 * b.seeds as usize;
+    eprintln!("lab: {total} games on {} threads…", b.threads);
+    let t0 = Instant::now();
+    let step = (total / 20).max(1);
+    let progress = |done: usize, total: usize| {
+        if done.is_multiple_of(step) || done == total {
+            eprintln!(
+                "lab: {done}/{total} games, {:.0} s",
+                t0.elapsed().as_secs_f64()
+            );
+        }
+    };
+    let r = owner::run(b.clone(), &commit, &progress);
+    let path = out.unwrap_or_else(|| out_dir().join(format!("owner-{commit}.json")));
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(&path, r.json().write())
+        .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
+    let header = format!(
+        "Commit {commit}, {}. Batch: {}x{} Standard, the Kingdom's AI at {}, map seeds 1 to {} from both starts, {} min cap: {total} games in {:.0} s on {} threads. JSON: {}",
+        today(),
+        b.size,
+        b.size,
+        b.levels
+            .iter()
+            .map(|&l| LEVELS[l])
+            .collect::<Vec<_>>()
+            .join(", "),
         b.seeds,
         b.cap_min,
         t0.elapsed().as_secs_f64(),
@@ -834,6 +932,7 @@ fn main() {
         Some("plans") => plans(&args[1..]),
         Some("turtle") => turtle(&args[1..]),
         Some("bets") => bets(&args[1..]),
+        Some("owner") => owner(&args[1..]),
         Some("tiers") => tiers(&args[1..]),
         Some("trace") => trace(&args[1..]),
         Some("summary") => summary(&args[1..]),
@@ -856,6 +955,8 @@ fn main() {
                 .unwrap_or_else(|e| die(&format!("cannot write {}: {e}", path.display())));
             print!("{md}\nCSV: {}\n", path.display());
         }
-        _ => die("a command: report, compare, sheet, plans, turtle, bets, tiers, trace or summary"),
+        _ => die(
+            "a command: report, compare, sheet, plans, turtle, bets, owner, tiers, trace or summary",
+        ),
     }
 }

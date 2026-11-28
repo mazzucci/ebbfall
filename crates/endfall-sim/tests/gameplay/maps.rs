@@ -781,8 +781,11 @@ fn a_new_unit_steps_out_on_its_buildings_south_side_on_a_map_of_four_starts() {
             north += 1;
         }
         w.res[s as usize] = [500, 0];
+        // (its rally point cleared, a point on the building itself: from the start it is on its nearest mine, Nov 27)
+        let (bid, bx, by) = (b.id, b.x, b.y);
+        w.set_rally(bid, bx, by, None);
         let worker = w.factions[s as usize].worker;
-        w.queue_unit(b.id, worker).unwrap();
+        w.queue_unit(bid, worker).unwrap();
     }
     assert!(
         south > 0 && north > 0,

@@ -47,7 +47,7 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   same seed, every level's styles over many games and never Easy's Pressure, nothing emitted, a forced style keeping
   the other draws, a lab plan played as it is, mirrored seats' stalled-game pushes apart, Pressure's sooner wave and
   later natural and Boom's later wave, Easy's Boom at most two top-tier units from 15:00 and its Timing none, each
-  people's own opening at a level before its style: Easy's Kingdom's eight workers and first wave of five, Medium's and
+  people's own opening at a level before its style: Easy's Kingdom's first wave of five, Medium's and
   Hard's Expedition's Lab at 3:30 and 4:15), the leash (`leash`: an idle Guard chasing a passer-by only `CHASE_LEASH` from its
   spot and walking back, an attack-move group never more than the leash off its line after a fleeing unit and all
   reaching its goal, an attack-move killing an Archer where its route bends far off the straight line (Standard seed 2,
@@ -78,8 +78,9 @@ iPad, an iPhone and a Pixel (Notion: Multiplayer design, "Browsers and devices")
   not an enemy's, one settling in pushed clear and never moved once settled),
   crowds (`crowd`: groups in formation passing a waypoint they crowd and arriving, groups sent to one point stopping
   round it, one held up far from its goal still on its way, a packing Cannon driving off, Balloons hanging a body apart),
-  construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a new worker
-  waiting at its headquarters for an order and a rally on a mine walking it there to wait beside it without mining, the
+  construction that stalls without a builder and resumes, a builder waiting idle beside what it finished, a
+  headquarters' rally on its nearest mine (a Castle or Data center built later too) and its new workers mining there by
+  themselves while a builder, a mover and a repairer do as before, a rally cleared on the building itself, the
   AI sending its new workers and builders to a mine within its next turns (`economy`), workers hopping only to a mine
   no farther from their drop-off, supply and refunds, turrets, the AI finishing
   games (also four AIs free for all and two against two on 96x96, six and eight on 128x128, and three-, four-, six- and
@@ -250,8 +251,9 @@ crates/endfall-sim/   THE GAME. Rust, no I/O, no clock, no HashMap iteration. Bu
                       `place_refusal`, the one placement check, a `Refusal` and its words (an Expedition building but the Data center and
                       the Uplink only with its center inside its side's area, a Data center's, `Refusal::Area`, data/radio.rs
                       `needs_area`: placing only, nothing goes offline), that `can_place`, the order,
-                      the AI and the client's ghost read), spawn (a new worker waits where it stepped out, or walks
-                      to its rally point, beside the mine for a rally on one: mining starts only on an order; the AI
+                      the AI and the client's ghost read), spawn (a headquarters' rally starts on its nearest mine,
+                      `default_rally`; a new worker walks to its rally point, or mines there for a rally on a mine, and
+                      waits where it stepped out with none; the AI
                       orders its own, `ai/economy.rs`, from any mine on its side once those by home run dry), economy (gold mines: a worker walks
                       to a mine's side and goes in, `Phase::Mine`, `Unit::inside`: not drawn, not targeted or hit, out
                       of its enemies' sight, pushing nobody, safe from fleeing; up to its kind's `mine_cap` inside (eight

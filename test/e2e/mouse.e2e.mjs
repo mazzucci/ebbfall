@@ -393,18 +393,24 @@ test('desktop: where nothing can be stored the default holds, the option still w
   } finally { await d.close(); }
 });
 
-test('desktop: the tutorial\'s second step says how a mouse orders, and how to let go', async () => {
+test('desktop: the tutorial\'s second step says how a mouse orders, and how to let go, once its builder waits', async () => {
   const d = await newGame(DESKTOP, 0, 4242, { tutorial: true });
   try {
-    await d.hudText('#tut', /1\/8/);
+    await d.hudText('#tut', /1\/7/);
     await d.grant(1000, 0);
     const core = (await d.state()).bldgs.find(b => b.team === 0 && b.type === 'core');
     await d.clickEntity(core.id);
     await d.pressCard('Villager'); await d.pressCard('Villager');
-    await d.skip(40);
-    await d.hudText('#tut', /New Villagers wait by the Castle: select them, then click the gold mine \(Esc or Deselect lets go\).*2\/8/);
+    await d.skip(30);
+    await d.hudText('#tut', /Select a Villager: Build a Barracks, then send that Villager back to the mine.*2\/7/);
+    // (a Barracks through the UI; its builder then waits by it)
+    const h = (await d.state()).units.find(u => u.team === 0 && u.type === 'harvester');
+    const spot = await d.findSpot('barracks', { tx: core.tx + 5, ty: core.ty });
+    await d.buildWithUI('c', 'barracks', spot.tx, spot.ty, h.id);
+    assert.ok(await d.skipUntil(() => endfall.G.bldgs.some(b => b.team === 0 && b.type === 'barracks' && b.done), null, { seconds: 120 }), 'the Barracks');
+    await d.hudText('#tut', /Your Villager waits by the Barracks: select it, then click the gold mine \(Esc or Deselect lets go\).*2\/7/);
     await pickMouse(d, 'right');
-    await d.hudText('#tut', /select them, then right-click the gold mine \(Esc or Deselect lets go\)/);
+    await d.hudText('#tut', /select it, then right-click the gold mine \(Esc or Deselect lets go\)/);
     assert.deepEqual(d.errors, []);
   } finally { await d.close(); }
 });

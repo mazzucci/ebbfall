@@ -300,8 +300,8 @@ fn easy_s_boom_fields_two_top_tier_units_at_most_and_none_before_15_00_its_timin
 fn each_people_plays_its_own_opening_at_a_level_easy_s_kingdom_more_workers_and_the_expedition_s_lab_later()
  {
     // A level's people's own opening (`Diff::people`), applied before its style. Easy's Kingdom (Stelian, Nov 27: a bit
-    // stronger): eight workers, not seven, and a first wave of five, not four, still at 8:00 (a newcomer is never hit
-    // before then); the Easy Expedition keeps the level's. Medium's and Hard's Expedition raise their Lab later, 3:30
+    // stronger): a first wave of five, not four, still at 8:00 (a newcomer is never hit before then), its level's seven
+    // workers; the Easy Expedition keeps the level's. Medium's and Hard's Expedition raise their Lab later, 3:30
     // and 4:15 (their Uplink follows it at once since Nov 27); their Kingdom keeps every number of its level's.
     for seed in 1..=6 {
         for (level, l) in DIFF.iter().enumerate().take(3) {
@@ -312,7 +312,7 @@ fn each_people_plays_its_own_opening_at_a_level_easy_s_kingdom_more_workers_and_
                 for s in 0..2u8 {
                     let kingdom = races[s as usize].hq == HUMANS.hq;
                     let (harv, first, wave) = if level == 0 && kingdom {
-                        (8, 480.0, 5)
+                        (l.harv, 480.0, 5)
                     } else {
                         (l.harv, l.first, l.wave)
                     };

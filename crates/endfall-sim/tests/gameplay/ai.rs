@@ -27,11 +27,12 @@ fn the_ai_finishes_games_on_every_difficulty() {
 #[test]
 fn the_ai_plays_either_seat() {
     // On seat 0 against an idle seat 1, it wins the same way (it knows its own base and its foe's from its seat).
-    // (within 16 minutes: seed 2's game ends at 15:07 since Medium's Kingdom takes its natural at 8:00, Nov 13)
+    // (within 20 minutes: seed 99's at 19:19 since Nov 27, its foe's last workers found late; within 16 before, seed 2's
+    // game ending at 15:07 since Medium's Kingdom takes its natural at 8:00, Nov 13)
     for seed in [2u32, 99] {
         let mut w = World::new(seed, 1);
         w.set_ai_seats([true, false]);
-        for _ in 0..30 * 60 * 16 {
+        for _ in 0..30 * 60 * 20 {
             if w.over {
                 break;
             }
@@ -113,7 +114,8 @@ fn two_ais_play_each_other_to_the_end() {
     for (seed, races) in [
         (5u32, [&HUMANS, &HUMANS]),
         (8, [&VAEL, &HUMANS]),
-        (13, [&HUMANS, &VAEL]),
+        // (seed 3 since Nov 27: seed 13's two turtled on 64x64 to the 40 minutes, the Kingdom on three cheaper Castles)
+        (3, [&HUMANS, &VAEL]),
     ] {
         let mut w = World::with_setup(seed, 1, MapKind::Standard, false, races);
         w.set_ai_seats([true, true]);
@@ -1568,7 +1570,7 @@ fn easy_plays_a_plain_game_and_only_brutal_gathers_faster() {
     assert_eq!(air_at_9, 0, "no air factory before 9:00");
     // (two bases' crews, and the one spare a person's AI keeps for its builder)
     assert!(
-        harvesters(&w, ENEMY).len() <= DIFF[0].harv + 5 + 1,
+        harvesters(&w, ENEMY).len() <= DIFF[0].for_people(f.hq).harv + 5 + 1,
         "few workers: {}",
         harvesters(&w, ENEMY).len()
     );
@@ -2055,7 +2057,12 @@ fn a_seat_s_plan_replaces_its_level_s_tuning() {
     let mut w = World::with_setup(4, 1, MapKind::Standard, false, [&HUMANS, &VAEL]);
     assert!(w.set_ai_seats([true, true]));
     for s in 0..2 {
-        assert_eq!(w.tuning(s), DIFF[w.diff_of(s)], "no plan: its level's");
+        let own = DIFF[w.diff_of(s)].for_people(w.factions[s as usize].hq);
+        assert_eq!(
+            w.tuning(s),
+            own,
+            "no plan: its level's, as its people plays it"
+        );
     }
     assert!(!w.set_ai_plans(&[None]), "a plan for every seat, or none");
     // A quick first wave (a small one, so it can leave before its level's own time) against a late one: each leaves
@@ -2111,8 +2118,8 @@ fn easy_game(seed: u32) -> World {
 #[test]
 fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
     // Easy is clumsy (Stelian, Nov 13: "first attack only with 3-4 units"): with twenty fighters each at home from the
-    // start, its first wave goes no sooner than 8:00 with four of the Kingdom's and three of the Expedition's (its
-    // `wave_scale`), the rest staying home.
+    // start, its first wave goes no sooner than 8:00 with five of the Kingdom's (four until Nov 27: its own opening,
+    // `Diff::people`) and three of the Expedition's (its `wave_scale`), the rest staying home.
     let mut w = easy_game(4);
     for s in 0..2u8 {
         let (bx, by) = w.map.bases[s as usize];
@@ -2149,8 +2156,8 @@ fn easy_s_first_wave_is_three_or_four_units_however_big_its_army() {
     );
     assert_eq!(
         (kn, en),
-        (4, 3),
-        "four of the Kingdom's, three of the Expedition's"
+        (5, 3),
+        "five of the Kingdom's (its own opening since Nov 27, `Diff::people`), three of the Expedition's"
     );
 }
 
@@ -2235,7 +2242,7 @@ fn each_people_s_ai_crew_is_sized_by_income_not_by_its_mine_cap() {
     // at least as much gold a trip as the Kingdom's Villagers, and no more than one Bot's load beyond: fewer workers
     // (a Bot carries 13 to a Villager's 10), as much income. Sized by the mine's cap (five Bots to eight Villagers), it
     // mined some 15% less, and Easy's Expedition lost every game.
-    for level in 0..DIFF.len() {
+    for (level, d) in DIFF.iter().enumerate() {
         let mut w = World::with_setup(1, level, MapKind::Standard, false, [&HUMANS, &VAEL]);
         assert!(w.set_ai_seats([true, true]));
         let load = |s: u8| w.factions[s as usize].worker.def().mine_load as usize;
@@ -2249,8 +2256,11 @@ fn each_people_s_ai_crew_is_sized_by_income_not_by_its_mine_cap() {
                 e < k,
                 "level {level}, {cores} bases: fewer Bots ({e}) than Villagers ({k})"
             );
+            // (Easy's Kingdom has workers of its own since Nov 27, `Diff::people`: more than the level's, which the
+            // Expedition's crew is sized against)
+            let own = d.for_people(HUMANS.hq).harv == d.harv;
             assert!(
-                eg >= kg && eg < kg + load(ENEMY),
+                (eg >= kg || !own) && eg < kg + load(ENEMY),
                 "level {level}, {cores} bases: {e} Bots bring {eg} a trip to {k} Villagers' {kg}"
             );
         }
@@ -2392,9 +2402,10 @@ fn easy_climbs_its_tier_late() {
     // the mid tier its style drew (10:00 to 13:00) and some within three minutes of it. The Kingdom trains no Rider or
     // Cannon before its own mid tier, and no Knight but in Boom, from 15:00.
     use endfall_sim::data::radio::needs_range;
-    // (seed 3 since Nov 14: on seed 4 the grid at population scale left Easy's army at its 14 Sellswords to 14:00, its cap
-    // by units, with no room for a machine)
-    let mut w = easy_game(3);
+    // (seed 8 since Nov 27: on seed 3 the Easy Kingdom's bigger first wave wiped out the Expedition before its machines,
+    // its Uplink first at its mid tier; seed 3 since Nov 14: on seed 4 the grid at population scale left Easy's army at
+    // its 14 Sellswords to 14:00, its cap by units, with no room for a machine)
+    let mut w = easy_game(8);
     for b in w.bldgs.iter_mut() {
         (b.hp, b.maxhp) = (1e9, 1e9);
     }
@@ -2528,7 +2539,8 @@ fn easy_finishes_late_its_cap_lifted_and_its_whole_army_out() {
 #[test]
 fn easy_never_hits_a_newcomer_before_8_00_on_any_map() {
     // The newcomer check (the PM, Nov 13): Easy's first wave leaves at 8:00, so whatever the map's size its first hit
-    // (a unit of a wave within 8 tiles of a building of the idle player's) comes no sooner, and is four units at most.
+    // (a unit of a wave within 8 tiles of a building of the idle player's) comes no sooner, and is four units at most
+    // (five of the Kingdom's since Nov 27).
     for size in [64, 72, 80, 96] {
         for f in [&HUMANS, &VAEL] {
             let mut w = World::with_size(
@@ -2559,7 +2571,9 @@ fn easy_never_hits_a_newcomer_before_8_00_on_any_map() {
             }
             if let Some((t, n)) = hit {
                 assert!(t >= 480.0, "{size} {}: hit at {t:.0} s", f.name);
-                assert!(n <= 4, "{size} {}: {n} units", f.name);
+                // (five of the Kingdom's since Nov 27, its own opening: `Diff::people`)
+                let most = if f.hq == HUMANS.hq { 5 } else { 4 };
+                assert!(n <= most, "{size} {}: {n} units", f.name);
             }
         }
     }

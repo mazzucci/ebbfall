@@ -403,7 +403,7 @@ impl World {
         } = brain.clone();
         // Its machines at home until its Uplink stands (`held_machines`): they defend inside its area and stay out of
         // its waves; the rest of the army as ever.
-        let held = self.held_machines(&army);
+        let held = self.held_machines(&army, rally);
         if let Some(intr) = intruder {
             self.ai_defend(&army, &held, intr, rally);
         }
@@ -446,7 +446,10 @@ impl World {
         // (a stalled game's push does not leave while the foe is at its buildings: its army meets that at home, its
         // towers and siege beside it, and goes after)
         if !(stalled && intruder.is_some()) {
-            self.ai_launch_wave(&army, t, goal);
+            // (none with nothing left to send while its machines are held: an empty wave would only reset its gap)
+            if !(army.is_empty() && !held.is_empty()) {
+                self.ai_launch_wave(&army, t, goal);
+            }
         }
         if intruder.is_none() {
             self.reinforce_finishing(&army, goal);
@@ -600,9 +603,14 @@ impl World {
     /// an Uplink stands they go with the waves. Machines already out when its Uplink falls stay with their wave until
     /// it ends (they fight as hard slowed, and a walk home at half speed with the foe behind them loses them), then
     /// come home with it and are held. The AI's choice alone: a player's machines go where they are sent.
-    fn held_machines(&self, army: &[Id]) -> Vec<Id> {
+    /// None is held while its rally point (`rally`) lies outside its area (its main's Data center fallen, or every
+    /// one): they would refuse every intruder there and be walked back for every fight.
+    fn held_machines(&self, army: &[Id], rally: Pt) -> Vec<Id> {
         let seat = self.seat();
-        if self.factions[seat as usize].ai.relay.is_none() || self.signal_everywhere(seat) {
+        if self.factions[seat as usize].ai.relay.is_none()
+            || self.signal_everywhere(seat)
+            || !self.in_area(seat, rally.x, rally.y)
+        {
             return Vec::new();
         }
         let ai = self.ai();
@@ -765,7 +773,11 @@ impl World {
         // (at the cap a wave is as big as it gets: it goes whatever its count, at its places' cap or at its level's most
         // fighters, `army_full`: an Easy army of eight, three of them guards, waited for ever for a wave of six; and so
         // does a wave that crushes what the foe has shown of its army, `crushing`)
-        let full = self.at_cap(self.seat()) || self.army_full(self.seat());
+        // (and the guided first game's opponent at its most fighters, `guided_army_full`: its four, short of the Easy
+        // Kingdom's first wave of five since Nov 27)
+        let full = self.at_cap(self.seat())
+            || self.army_full(self.seat())
+            || self.guided_army_full(self.seat(), t);
         let crushes = army.len() >= floor && self.crushing(army, need, t);
         let short = army.len() < need && !full && !crushes;
         // (a push that takes everything, `Diff::push_all`: once its hold is up it goes with what it has, half its count
@@ -896,6 +908,8 @@ impl World {
     /// A wave's machines (`data::radio::needs_range`) among `group` (units just sent off together) march at the pace of
     /// its slowest walker that is not one, its hired people's, until a fight lifts it (`World::live_speed`): with the
     /// signal a Drone or a Buggy outran the wave by far and met the foe alone. Nothing for a group with no such walker.
+    /// (The Drone flies straight while walkers path round, `World::set_pace`'s reason to pace each layer apart: held to
+    /// their pace it arrives first, by the length of the detour only.)
     fn pace_machines(&mut self, group: &[Id]) {
         let slowest = group
             .iter()

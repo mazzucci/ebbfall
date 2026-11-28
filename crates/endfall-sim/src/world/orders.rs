@@ -278,14 +278,20 @@ impl World {
     }
 
     /// A building's rally point, kept on the map (an order may carry any finite number: a point far off it would make
-    /// NaN of the new units' way out, `exit_tile`); on a gold mine, its new workers mine there.
+    /// NaN of the new units' way out, `exit_tile`); on a gold mine, its new workers mine there. A point on the building
+    /// itself clears it (its new units then wait beside it).
     pub fn set_rally(&mut self, bid: Id, x: f64, y: f64, node: Option<Id>) {
         let node = node.filter(|&n| self.map.node(n).is_some());
         let (x, y) = (self.map.clamp_x(x), self.map.clamp_y(y));
         if let Some(b) = self.bm(bid)
             && !b.kind.def().trains.is_empty()
         {
-            b.rally = Some(Rally { x, y, node });
+            let on_itself = node.is_none()
+                && x >= b.tx as f64 * TILE
+                && x < (b.tx + b.w) as f64 * TILE
+                && y >= b.ty as f64 * TILE
+                && y < (b.ty + b.h) as f64 * TILE;
+            b.rally = (!on_itself).then_some(Rally { x, y, node });
         }
     }
 
@@ -619,6 +625,6 @@ mod tests {
             target: v,
             back: None,
         };
-        assert_eq!(w.live_speed(t), 90.0, "in a fight: its own speed");
+        assert_eq!(w.live_speed(t), 99.0, "in a fight: its own speed");
     }
 }

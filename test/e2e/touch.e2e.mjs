@@ -296,7 +296,7 @@ test('phone: fighters tapped one by one bring the group hint once, clear of SELE
 test('phone: in the tutorial, fighters tapped one by one bring no hint (its own step teaches SELECT and ARMY)', async () => {
   const d = await newGame(PHONE, 0, 4242, { tutorial: true });
   try {
-    assert.match(await d.page.locator('#tut').textContent(), /1\/9/, 'the guided game');
+    assert.match(await d.page.locator('#tut').textContent(), /1\/8/, 'the guided game');
     const ids = await threeGuards(d);
     await tapEach(d, ids); await tapEach(d, ids);
     await d.page.waitForTimeout(300);

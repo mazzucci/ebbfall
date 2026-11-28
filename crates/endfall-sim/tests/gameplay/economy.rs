@@ -291,80 +291,171 @@ fn builders_wait_beside_what_they_built() {
 }
 
 #[test]
-fn a_new_worker_waits_for_an_order_and_a_rally_on_a_mine_walks_it_there_to_wait() {
-    // Stelian, Nov 12: a new Villager or Bot appears at its Castle or Data center and waits: no gathering by itself.
-    // A rally point on a gold mine walks it to the mine, where it waits beside it without mining; mining starts only on
-    // an order. The starting workers begin on the mine as ever.
+fn a_headquarters_rally_is_on_its_nearest_mine_and_its_new_workers_go_mining_while_other_idle_workers_wait()
+ {
+    // Stelian, Nov 27: a headquarters' rally point is on its nearest gold mine from the start (a Castle or a Data
+    // center, the starting one and every one built after; nearest by distance between centers, ties on the mine's id),
+    // so a new worker goes mining as it comes out. Only then: a builder whose building stands and a worker after a move
+    // wait idle for an order (Nov 12's rule), and a worker after a repair goes back to the mine it last worked, as
+    // before (the rally plays no part). The rally may be set elsewhere, or cleared (a point on the building itself):
+    // the next new worker then waits by its headquarters.
     for f in [&HUMANS, &VAEL] {
         let mut w = World::with_setup(5, 1, MapKind::Standard, false, [f, f]);
         w.disable_ai();
-        w.res[PLAYER as usize] = [1000, 0];
-        assert!(
-            harvesters(&w, PLAYER)
-                .iter()
-                .all(|&h| matches!(w.unit(h).unwrap().task, Task::Gather { .. })),
-            "{}: the starting workers mine",
-            f.name
-        );
+        w.res[PLAYER as usize] = [3000, 0];
         let hq = w
             .bldgs
             .iter()
             .find(|b| b.team == PLAYER && b.kind.def().hq)
             .unwrap()
+            .clone();
+        let nearest = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.vent && n.amount > 0)
+            .min_by(|p, q| {
+                (p.x - hq.x)
+                    .hypot(p.y - hq.y)
+                    .total_cmp(&(q.x - hq.x).hypot(q.y - hq.y))
+                    .then(p.id.cmp(&q.id))
+            })
+            .unwrap()
             .id;
-        let before = harvesters(&w, PLAYER);
-        assert_eq!(w.queue_unit(hq, f.worker), Ok(()));
-        run(&mut w, f.worker.def().build as u32 + 1);
-        let new: Vec<Id> = harvesters(&w, PLAYER)
-            .into_iter()
-            .filter(|h| !before.contains(h))
-            .collect();
-        assert_eq!(new.len(), 1);
-        run(&mut w, 20);
-        let u = w.unit(new[0]).unwrap();
-        let b = w.bldg(hq).unwrap();
-        assert_eq!(u.task, Task::Idle, "{}: the new worker waits", f.name);
-        assert!(
-            (u.x - b.x).hypot(u.y - b.y) < 4.0 * 32.0,
-            "{}: at its headquarters",
+        assert_eq!(
+            hq.rally.and_then(|r| r.node),
+            Some(nearest),
+            "{}: the rally on its nearest mine",
             f.name
         );
-        assert_eq!(u.carry, 0);
-        // A rally on the home mine: the next walks there and waits beside it, outside, carrying nothing.
-        let mine = home_fields(&w)[0];
-        let (mx, my) = (w.map.node(mine).unwrap().x, w.map.node(mine).unwrap().y);
-        w.set_rally(hq, mx, my, Some(mine));
+        // A new worker: out, and mining by itself.
         let before = harvesters(&w, PLAYER);
-        assert_eq!(w.queue_unit(hq, f.worker), Ok(()));
+        assert_eq!(w.queue_unit(hq.id, f.worker), Ok(()));
+        run(&mut w, f.worker.def().build as u32 + 1);
+        let new = harvesters(&w, PLAYER)
+            .into_iter()
+            .find(|h| !before.contains(h))
+            .expect("a new worker");
+        assert!(
+            matches!(w.unit(new).unwrap().task, Task::Gather { node, .. } if node == nearest),
+            "{}: the new worker mines the rally's mine: {:?}",
+            f.name,
+            w.unit(new).unwrap().task
+        );
+        let mined = w.ledger[PLAYER as usize].mined[0];
+        run(&mut w, 25);
+        assert!(
+            w.unit(new).unwrap().carry > 0
+                || w.unit(new).unwrap().inside()
+                || w.ledger[PLAYER as usize].mined[0] > mined,
+            "{}: it mines",
+            f.name
+        );
+        // A builder: once its building stands, it waits beside it.
+        let builder = harvesters(&w, PLAYER)[0];
+        let supply = f.supply;
+        let (sx, sy) = spot_for(&w, PLAYER, supply);
+        let site = w
+            .place_building(PLAYER, supply, sx, sy, Some(builder))
+            .expect("a site");
+        for _ in 0..120 * TPS {
+            if w.bldg(site).is_some_and(|b| b.done) {
+                break;
+            }
+            w.step();
+        }
+        assert!(w.bldg(site).unwrap().done, "{}: it stands", f.name);
+        run(&mut w, 10);
+        assert_eq!(
+            w.unit(builder).unwrap().task,
+            Task::Idle,
+            "{}: its builder waits",
+            f.name
+        );
+        // A worker after a move waits where it went.
+        let mover = harvesters(&w, PLAYER)[1];
+        let (bx, by) = (w.bldg(site).unwrap().x, w.bldg(site).unwrap().y);
+        w.move_to(mover, bx + 64.0, by + 64.0);
+        run(&mut w, 15);
+        assert_eq!(
+            w.unit(mover).unwrap().task,
+            Task::Idle,
+            "{}: after a move, it waits",
+            f.name
+        );
+        // A worker after a repair: back to the mine it last worked, as before this rule (`resume_after`).
+        let last = w.unit(builder).unwrap().last_node;
+        assert!(last.is_some(), "{}: it mined before it built", f.name);
+        w.damage(site, w.bldg(site).unwrap().maxhp * 0.5, None);
+        assert!(w.start_repair(builder, site), "{}: a repair", f.name);
+        for _ in 0..120 * TPS {
+            if !matches!(w.unit(builder).unwrap().task, Task::Repair { .. }) {
+                break;
+            }
+            w.step();
+        }
+        let b = w.bldg(site).unwrap();
+        assert!(b.hp >= b.maxhp - 1e-6, "{}: mended", f.name);
+        assert!(
+            matches!(w.unit(builder).unwrap().task, Task::Gather { node, .. } if Some(node) == last),
+            "{}: after a repair, back to its mine: {:?}",
+            f.name,
+            w.unit(builder).unwrap().task
+        );
+        // The rally cleared (a point on the headquarters): the next new worker waits by it.
+        w.set_rally(hq.id, hq.x, hq.y, None);
+        assert!(
+            w.bldg(hq.id).unwrap().rally.is_none(),
+            "{}: cleared",
+            f.name
+        );
+        let before = harvesters(&w, PLAYER);
+        assert_eq!(w.queue_unit(hq.id, f.worker), Ok(()));
         run(&mut w, f.worker.def().build as u32 + 1);
         let next = harvesters(&w, PLAYER)
             .into_iter()
             .find(|h| !before.contains(h))
-            .unwrap();
-        let mined = w.ledger[PLAYER as usize].mined[0];
-        for _ in 0..30 * TPS {
-            w.step();
-            let u = w.unit(next).unwrap();
-            assert!(!u.inside() && u.carry == 0, "{}: it never mines", f.name);
-        }
+            .expect("another new worker");
+        run(&mut w, 10);
         let u = w.unit(next).unwrap();
-        assert_eq!(u.task, Task::Idle, "{}: waiting at the mine", f.name);
+        assert_eq!(u.task, Task::Idle, "{}: with no rally, it waits", f.name);
         assert!(
-            (u.x - mx).hypot(u.y - my) < 3.0 * 32.0,
-            "{}: beside the mine ({:.0} px)",
-            f.name,
-            (u.x - mx).hypot(u.y - my)
+            (u.x - hq.x).hypot(u.y - hq.y) < 4.0 * 32.0,
+            "{}: by its headquarters",
+            f.name
         );
-        // (the starting crew mined on meanwhile)
-        assert!(w.ledger[PLAYER as usize].mined[0] > mined);
-        // An order sends it in.
-        assert!(w.start_gather(next, mine));
-        run(&mut w, 15);
-        assert!(
-            w.unit(next).unwrap().carry > 0
-                || w.unit(next).unwrap().inside()
-                || w.ledger[PLAYER as usize].mined[0] > mined
-        );
+    }
+}
+
+#[test]
+fn a_castle_or_data_center_built_later_rallies_on_its_own_nearest_mine() {
+    // Nov 27: a headquarters built after the start (a site, from the moment it is placed) has its rally on the gold
+    // mine nearest it.
+    for f in [&HUMANS, &VAEL] {
+        let mut w = World::with_setup(5, 1, MapKind::Standard, false, [f, f]);
+        w.disable_ai();
+        w.res[PLAYER as usize] = [3000, 0];
+        for e in &mut w.explored {
+            e.fill(1);
+        }
+        let (tx, ty) = spot_for(&w, PLAYER, f.hq);
+        let b = w.make_building(f.hq, PLAYER, tx, ty, false);
+        let b = w.bldg(b).unwrap();
+        let nearest = w
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.vent && n.amount > 0)
+            .min_by(|p, q| {
+                (p.x - b.x)
+                    .hypot(p.y - b.y)
+                    .total_cmp(&(q.x - b.x).hypot(q.y - b.y))
+                    .then(p.id.cmp(&q.id))
+            })
+            .unwrap();
+        let r = b.rally.expect("a rally");
+        assert_eq!(r.node, Some(nearest.id), "{}", f.name);
+        assert_eq!((r.x, r.y), (nearest.x, nearest.y), "{}", f.name);
     }
 }
 

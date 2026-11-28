@@ -402,7 +402,17 @@ impl World {
             .copied()
             .flatten()
             .or_else(|| self.ai.get(team as usize)?.as_ref()?.tuned)
-            .unwrap_or_else(|| DIFF[self.diff_of(team)].for_people(self.factions[team as usize].hq))
+            .unwrap_or_else(|| self.level_of_people(team))
+    }
+    /// Seat `team`'s level as its people plays it (`Diff::people`); in the guided first game its level's own (its
+    /// opponent's opening stays as the guide was tuned with).
+    pub(crate) fn level_of_people(&self, team: u8) -> Diff {
+        let level = DIFF[self.diff_of(team)];
+        if self.guided {
+            level
+        } else {
+            level.for_people(self.factions[team as usize].hq)
+        }
     }
     /// The style seat `team`'s AI drew (None: not an AI seat, or before its first turn). The balance lab's and the
     /// tests'; never shown to the player.

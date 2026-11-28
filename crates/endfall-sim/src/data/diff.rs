@@ -256,7 +256,7 @@ pub const DIFF: [Diff; 4] = [
     // factory to spend on.
     Diff {
         income: 1.0,
-        wave: 4, // (its first wave: four of the Kingdom's, three of the Expedition's (its `wave_scale`), the rest at home)
+        wave: 4, // (its first wave: three of the Expedition's (its `wave_scale`), the rest at home; five of the Kingdom's, `people`)
         wave_grow: 1, // (its waves grow slowly: 4, 5, 6 ... to 12; the Expedition's at its 0.6)
         harv: 7,
         rax: 2, // (two Barracks from the start: with the higher caps' hired places, before the grid, its Easy line outgrew
@@ -321,10 +321,10 @@ pub const DIFF: [Diff; 4] = [
         tech_not_before: 540.0,
         later_min: 0,
         // (its Kingdom a little stronger (Stelian, Nov 27: the Easy Expedition won 85% of its games against it on 96 and
-        // 94% on 128): more workers and a bigger first wave, still at 8:00, so a newcomer is never hit before then; the
-        // Expedition's Easy is the level's own)
+        // 94% on 128; 77% and 86% with the Kingdom's cheaper Castle, quicker Villagers and quicker foot and horse): a
+        // first wave of five, still at 8:00, so a newcomer is never hit before then (71% and 75%, the lab, 12 seeds; eight
+        // workers as well went too far); the Expedition's Easy is the level's own)
         people: &[PeopleTune {
-            harv: Some(8),
             wave: Some(5),
             ..PeopleTune::of(super::BldgKind::Core)
         }],

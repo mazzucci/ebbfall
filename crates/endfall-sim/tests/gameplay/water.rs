@@ -143,7 +143,7 @@ fn a_walker_never_enters_deep_water_and_takes_the_ford() {
 
 #[test]
 fn walkers_wade_slower_in_the_shallows() {
-    // Over two seconds each: a Guard on land, a Guard in the shallows (the strip at x 20..22, walking along it), and a
+    // Over a second and a half each (two until the Guard was quicker, Nov 27: its way drifts to the strip's edge): a Guard on land, a Guard in the shallows (the strip at x 20..22, walking along it), and a
     // Bot in the shallows, which wades as well (it walks since the re-theme; a Radio tower by the strip keeps it in
     // range, so the wading alone slows it).
     let mut w = waters();
@@ -160,7 +160,7 @@ fn walkers_wade_slower_in_the_shallows() {
         .iter()
         .map(|&id| w.unit(id).unwrap().y)
         .collect();
-    for _ in 0..2 * TPS {
+    for _ in 0..3 * TPS / 2 {
         w.step();
         w.events.clear();
         assert_eq!(
@@ -175,7 +175,7 @@ fn walkers_wade_slower_in_the_shallows() {
         .zip(&y0)
         .map(|(&id, y)| w.unit(id).unwrap().y - y)
         .collect();
-    let speed = |k: UnitKind| k.def().speed * 2.0;
+    let speed = |k: UnitKind| k.def().speed * 1.5;
     assert!(
         (gone[0] / speed(UnitKind::Trooper) - 1.0).abs() < 0.05,
         "on land, full speed: {gone:?}"

@@ -52,8 +52,10 @@ code must keep and the commands; ARCHITECTURE.md maps the code. Keep this file t
   is set, so a new unit is seen leaving; with no southern spot open, the nearest free spot. The AI's rules for several
   enemies (a wave called home to a raid by another) apply only with more than one enemy still in.
 - Builders and workers: a builder of either people stays at its site until the building stands, then waits idle
-  beside it; a new worker waits at its headquarters (or at its rally point, beside a mine) until it is ordered to
-  gather, and the AI orders its own workers.
+  beside it; a headquarters' rally point starts on its nearest gold mine (by distance, ties on the mine's id; a Castle
+  or Data center built later too), and a new worker from it goes mining there by itself (Nov 27). A worker idle after
+  any other order waits for the next (a repairer goes back to its last mine, as before), a rally set on the building
+  itself clears it, and the AI orders its own workers.
 
 ## Units and weapons
 

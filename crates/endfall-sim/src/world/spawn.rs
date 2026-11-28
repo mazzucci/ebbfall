@@ -133,9 +133,35 @@ impl World {
             }
         }
         self.bldgs.push(b);
+        if d.hq {
+            self.default_rally(id);
+        }
         self.recalc_supply(team);
         self.refresh_radio(false); // (a finished source: range at once)
         id
+    }
+
+    /// A headquarters' rally point from the start (Stelian, Nov 27): on its nearest gold mine (by distance between
+    /// centers, ties on the mine's id), so its new workers go mining by themselves (`spawn_from`); none on a map with
+    /// no mine left. Its player may set it elsewhere, or clear it (`set_rally` on the building itself).
+    fn default_rally(&mut self, bid: Id) {
+        let Some((bx, by)) = self.bldg(bid).map(|b| (b.x, b.y)) else {
+            return;
+        };
+        let mine = self
+            .map
+            .nodes
+            .iter()
+            .filter(|n| !n.vent && n.amount > 0)
+            .min_by(|p, q| {
+                dist(p.x, p.y, bx, by)
+                    .total_cmp(&dist(q.x, q.y, bx, by))
+                    .then(p.id.cmp(&q.id))
+            })
+            .map(|n| (n.id, n.x, n.y));
+        if let Some((n, x, y)) = mine {
+            self.set_rally(bid, x, y, Some(n));
+        }
     }
 
     /// A new unit from a building, stepping out beside it.
@@ -146,13 +172,14 @@ impl World {
         let u = self.make_unit(kind, b.team, x, y);
         self.stats[b.team as usize].built += 1;
         self.sfx(b.team, "ready");
-        // A new worker waits where it stepped out, or at its rally point; a rally on a gold mine walks it to the mine,
-        // where it waits beside it: mining starts only on an order (Stelian, Nov 12). The AI orders its own.
+        // A new worker waits where it stepped out, or walks to its rally point; a rally on a gold mine (a
+        // headquarters' from the start, `default_rally`) sets it mining there (Stelian, Nov 27: before, it waited beside
+        // the mine for an order). Only as it comes out: a worker idle after any other order waits for the next.
         if let Some(rl) = b.rally {
-            match rl.node.and_then(|n| self.map.node(n)) {
+            match rl.node {
+                // (a mine run dry since: the gather update retargets from there, as for any worker)
                 Some(n) if kind.def().worker => {
-                    let (nx, ny) = (n.x, n.y);
-                    self.move_to(u, nx, ny); // (the mine blocks its tiles: the route ends beside it)
+                    self.start_gather(u, n);
                 }
                 _ => self.move_to(u, rl.x, rl.y),
             }

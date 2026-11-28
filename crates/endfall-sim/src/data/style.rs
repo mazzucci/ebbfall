@@ -135,7 +135,7 @@ pub fn styled(
         if st == Style::Boom {
             d.tier_at = [mid, EASY_TOP_AT];
             d.top_max = pick(u_top, EASY_TOP.0, EASY_TOP.1);
-            // (its first wave a minute later, a worker more: it builds before it attacks; still four units at most)
+            // (its first wave a minute later, a worker more: it builds before it attacks; its first wave's size unchanged)
             d.first += 60.0;
             d.harv += 1;
         }

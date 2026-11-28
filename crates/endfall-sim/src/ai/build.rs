@@ -462,6 +462,7 @@ impl World {
     /// too (Stelian, Nov 27: "once its Lab stands, its next build is its Uplink, top priority"; four machines or its
     /// Portal placed called for it before), and again whenever it falls.
     pub(crate) fn uplink_due(&self, e: u8) -> bool {
+        debug_assert_eq!(e, self.seat(), "its level is the seat taking its turn's");
         let Some(r) = self.factions[e as usize].ai.relay else {
             return false;
         };
@@ -574,7 +575,8 @@ impl World {
                 .map_or(0, |k| self.takes(e, k))
             + self.elite_reserve(e, &my_b, t);
         let supply_rising = building.iter().filter(|&&k| k == f.supply).count();
-        // Its army first (`Diff::army_first`): with less army than the foe's it last saw, nothing but supply until it
+        // Its army first (`Diff::army_first`): with less army than the foe's it last saw, nothing but supply (and its
+        // Uplink, first of all) until it
         // has caught up (Hard's Kingdom, its army beaten at home, spent its income on a fifth Barracks, a Workshop, the
         // Stables and a tower, and stood six minutes with no army while Medium's waves came).
         let behind =

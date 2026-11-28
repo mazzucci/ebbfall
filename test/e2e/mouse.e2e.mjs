@@ -255,11 +255,12 @@ test('desktop, the default: a building selected stays with a left click on the g
   const d = await newGame(DESKTOP, 1, 4242, { ai: false });
   try {
     const { core, guards, mine, spot: [x, y] } = await scene(d);
-    const rally = () => d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).rally, core.id);
+    // (its rally point: on its nearest mine from the start, Nov 27; set here, near the clicked spot)
+    const rally = () => d.eval(([id, x, y]) => { const r = endfall.G.bldgs.find(b => b.id === id).rally; return !!r && Math.hypot(r.x - x, r.y - y) < 20; }, [core.id, x, y]);
     await d.clickEntity(core.id);
     await d.clickWorld(x, y);
     await d.boxSelect(x - 40, y - 30, x + 40, y + 30);
-    assert.deepEqual([await ids(d), await rally()], [[core.id], false], 'the Castle stays selected, no rally point');
+    assert.deepEqual([await ids(d), await rally()], [[core.id], false], 'the Castle stays selected, its rally point not moved');
     assert.ok(await d.page.locator('#cmd button[data-id="t_harvester"]').isVisible(), 'its card too');
     await d.rightClickWorld(x, y);
     assert.deepEqual([await ids(d), await rally()], [[core.id], true], 'the right click sets it');

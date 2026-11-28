@@ -353,11 +353,13 @@ test('phone: no group tabs; a tap on the ground lets go of a building, the Rally
     // Open ground: clear of resource fields (now selectable) and units.
     const [gx, gy] = [[260, -120], [200, 160], [-160, -200], [300, 60], [0, -260]].map(([dx, dy]) => [core.x + dx, core.y + dy])
       .find(([x, y]) => s.nodes.every(n => Math.hypot(n.x - x, n.y - y) > 80) && s.units.every(u => Math.hypot(u.x - x, u.y - y) > 60));
+    // (its rally point: on its nearest mine from the start, Nov 27)
+    const before = await d.eval((id) => JSON.stringify(endfall.G.bldgs.find(b => b.id === id).rally && { x: endfall.G.bldgs.find(b => b.id === id).rally.x, y: endfall.G.bldgs.find(b => b.id === id).rally.y }), core.id);
     await d.clickEntity(core.id);
     assert.equal((await d.selection())[0]?.type, 'core');
     await d.clickWorld(gx, gy);
     assert.equal((await d.selection()).length, 0, 'tapping the ground deselects the building');
-    assert.equal(await d.eval((id) => !!endfall.G.bldgs.find(b => b.id === id).rally, core.id), false, 'no rally point set by accident');
+    assert.equal(await d.eval((id) => JSON.stringify(endfall.G.bldgs.find(b => b.id === id).rally && { x: endfall.G.bldgs.find(b => b.id === id).rally.x, y: endfall.G.bldgs.find(b => b.id === id).rally.y }), core.id), before, 'its rally point not moved by accident');
     await d.clickEntity(core.id);
     await d.pressCard('Rally');
     await d.clickWorld(gx, gy);
@@ -3732,11 +3734,11 @@ test('single player: every split of five to eight, over any spots, fits 667x375,
 test('two against two: out while the ally fights on (orders refused, told once), then the end card speaks for the team', async () => {
   const ctx = await browserContext(DESKTOP);
   // The board it starts from, set here (not the default's): you, the Kingdom, against the Expedition (seed 3's timing
-  // below is this board's).
+  // below is this board's; seed 4's since Nov 27).
   await ctx.addInitScript(() => { try { if (localStorage.getItem('endfall.seats') === null) localStorage.setItem('endfall.seats', JSON.stringify([{ race: 'humans', team: 0 }, { race: 'vael', team: 1, diff: 0 }])); } catch { /* no storage */ } });
   const page = await ctx.newPage();
   try {
-    await page.goto(`${baseUrl()}?seed=3`, { waitUntil: 'networkidle' }); // (seed 3: this seat out at about 5:30, the game on to about 11:40; in seed 7 its ally fell first since Nov 13's economy)
+    await page.goto(`${baseUrl()}?seed=4`, { waitUntil: 'networkidle' }); // (seed 4 since Nov 27: this seat out at about 5:05, the game on to about 9:50; seed 3's ended with this seat in since then; in seed 7 its ally fell first since Nov 13's economy)
     await page.waitForFunction(() => !!window.endfall, null, { timeout: 60000 });
     await page.locator('#btnSolo').click();
     const seats = board(page); await seats.diff(1, 2); await seats.add(); await seats.side(2, 0); await seats.add(); await seats.side(3, 1); // (you and an AI against two, all Hard)
@@ -3775,7 +3777,7 @@ test('two against two: out while the ally fights on (orders refused, told once),
     const won = await page.evaluate(() => endfall.G.winner === endfall.G.teams[0]);
     assert.equal(await page.locator('#result').textContent(), won ? 'VICTORY' : 'DEFEAT');
     assert.match(await page.locator('#endSub').textContent(), won ? /^Your team wins after \d\d:\d\d\.$/ : /^Your team lost after \d\d:\d\d\.$/);
-    assert.ok(out, "this seat was out before the end (seed 3: deterministic)");
+    assert.ok(out, "this seat was out before the end (seed 4: deterministic)");
     assert.ok([...toasts].some(t => /You are out: your team fights on/.test(t)), `told once out: ${[...toasts]}`);
   } finally { await ctx.close(); }
 });
